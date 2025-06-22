@@ -11,7 +11,7 @@ do animations/styling/design at the end, but build it so that can easily themed,
 
 Use Bun for package management.
 Configure Tailwind CSS v4 with a CSS variable-based design system.
-Run dev server on port 5175
+Run dev server on port **5175**
 **Required Proficiency:**
 
 - **Framework:** Vue 3 (Composition API)

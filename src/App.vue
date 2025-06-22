@@ -1,7 +1,7 @@
 <template>
   <div
     id="app"
-    class="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900"
+    class="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 font-weight-oscillate-full"
   >
     <!-- Dynamic Background -->
     <DynamicBackground />

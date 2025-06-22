@@ -217,6 +217,23 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Font weight oscillation classes */
+.font-weight-oscillate-sm {
+  font-weight: 400; /* Default weight for small oscillation */
+}
+
+.font-weight-oscillate-md {
+  font-weight: 500; /* Default weight for medium oscillation */
+}
+
+.font-weight-oscillate-lg {
+  font-weight: 600; /* Default weight for large oscillation */
+}
+
+.font-weight-oscillate-full {
+  font-weight: 500; /* Default weight for full oscillation (100-900) */
+}
+
 /* Responsive typography */
 @media (max-width: 640px) {
   html {

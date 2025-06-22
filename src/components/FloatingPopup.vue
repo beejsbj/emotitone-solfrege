@@ -17,21 +17,16 @@
     >
       <div class="text-center">
         <h3
-          class="text-2xl text-white mb-2 drop-shadow-lg"
-          :style="{ fontWeight: oscillatingFontWeight }"
+          class="text-2xl text-white mb-2 drop-shadow-lg font-weight-oscillate-lg"
         >
           {{ musicStore.currentNote }}
         </h3>
         <p
-          class="text-white/90 text-sm mb-1 drop-shadow"
-          :style="{ fontWeight: oscillatingEmotionWeight }"
+          class="text-white/90 text-sm mb-1 drop-shadow font-weight-oscillate-md"
         >
           {{ getCurrentSolfegeData()?.emotion }}
         </p>
-        <p
-          class="text-white/70 text-xs drop-shadow"
-          :style="{ fontWeight: oscillatingDescriptionWeight }"
-        >
+        <p class="text-white/70 text-xs drop-shadow font-weight-oscillate-sm">
           {{ getCurrentSolfegeData()?.description }}
         </p>
       </div>
@@ -49,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed, onUnmounted } from "vue";
+import { ref, watch, nextTick } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { gsap } from "gsap";
 
@@ -62,86 +57,6 @@ const getCurrentSolfegeData = () => {
   return musicStore.getSolfegeByName(musicStore.currentNote);
 };
 
-// Oscillating font weight based on frequency
-const oscillatingFontWeight = ref(600);
-const oscillatingEmotionWeight = ref(400);
-const oscillatingDescriptionWeight = ref(300);
-
-let animationId: number | null = null;
-
-const startFontWeightOscillation = () => {
-  if (!musicStore.currentNote) return;
-
-  const currentSolfege = getCurrentSolfegeData();
-  if (!currentSolfege) return;
-
-  // Find the solfege index to get frequency
-  const solfegeIndex = musicStore.solfegeData.findIndex(
-    (s) => s.name === musicStore.currentNote
-  );
-  if (solfegeIndex === -1) return;
-
-  // Get frequency for the current note
-  const frequency = musicStore.getNoteFrequency(solfegeIndex, 4);
-
-  // Base font weights mapped to frequency
-  const minFreq = 200;
-  const maxFreq = 600;
-  const minWeight = 300;
-  const maxWeight = 700;
-
-  const clampedFreq = Math.max(minFreq, Math.min(maxFreq, frequency));
-  const normalizedFreq = (clampedFreq - minFreq) / (maxFreq - minFreq);
-  const baseFontWeight = Math.round(
-    minWeight + normalizedFreq * (maxWeight - minWeight)
-  );
-
-  // Oscillation parameters
-  const oscillationAmplitude = 150; // How much the weight varies
-  const visualFrequency = frequency / 100; // Scale down for visual oscillation
-
-  let startTime = 0;
-
-  const animate = (timestamp: number) => {
-    if (!startTime) startTime = timestamp;
-    const elapsed = (timestamp - startTime) / 1000;
-
-    // Create oscillating font weights using sine waves
-    const oscillation =
-      Math.sin(elapsed * visualFrequency * 2 * Math.PI) * oscillationAmplitude;
-
-    oscillatingFontWeight.value = Math.max(
-      200,
-      Math.min(800, baseFontWeight + oscillation)
-    );
-    oscillatingEmotionWeight.value = Math.max(
-      200,
-      Math.min(800, baseFontWeight - 100 + oscillation * 0.7)
-    );
-    oscillatingDescriptionWeight.value = Math.max(
-      200,
-      Math.min(800, baseFontWeight - 200 + oscillation * 0.5)
-    );
-
-    if (musicStore.currentNote) {
-      animationId = requestAnimationFrame(animate);
-    }
-  };
-
-  animationId = requestAnimationFrame(animate);
-};
-
-const stopFontWeightOscillation = () => {
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
-  // Return to default weights
-  oscillatingFontWeight.value = 600;
-  oscillatingEmotionWeight.value = 400;
-  oscillatingDescriptionWeight.value = 300;
-};
-
 // Watch for changes in currentNote to animate the floating popup
 watch(
   () => musicStore.currentNote,
@@ -149,7 +64,7 @@ watch(
     if (!floatingPopup.value) return;
 
     if (newNote && !oldNote) {
-      // Note started - animate in from top and start font weight oscillation
+      // Note started - animate in from top
       await nextTick();
       gsap.fromTo(
         floatingPopup.value,
@@ -166,10 +81,8 @@ watch(
           ease: "back.out(1.7)",
         }
       );
-      startFontWeightOscillation();
     } else if (!newNote && oldNote) {
-      // Note ended - animate out to top and stop font weight oscillation
-      stopFontWeightOscillation();
+      // Note ended - animate out to top
       gsap.to(floatingPopup.value, {
         y: -100,
         opacity: 0,
@@ -180,11 +93,6 @@ watch(
     }
   }
 );
-
-// Cleanup on unmount
-onUnmounted(() => {
-  stopFontWeightOscillation();
-});
 </script>
 
 <style scoped>

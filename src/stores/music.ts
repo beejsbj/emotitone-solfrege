@@ -57,6 +57,16 @@ export const useMusicStore = defineStore("music", () => {
       // Play the audio
       await audioService.playNote(frequency, "1n");
 
+      // Dispatch custom event for background effects
+      const notePlayedEvent = new CustomEvent("note-played", {
+        detail: {
+          note: solfege,
+          frequency,
+          solfegeIndex,
+        },
+      });
+      window.dispatchEvent(notePlayedEvent);
+
       // Auto-reset after 2 seconds
       setTimeout(() => {
         currentNote.value = null;
@@ -76,6 +86,16 @@ export const useMusicStore = defineStore("music", () => {
 
       // Attack the audio
       await audioService.attackNote(frequency);
+
+      // Dispatch custom event for background effects
+      const notePlayedEvent = new CustomEvent("note-played", {
+        detail: {
+          note: solfege,
+          frequency,
+          solfegeIndex,
+        },
+      });
+      window.dispatchEvent(notePlayedEvent);
     }
   }
 

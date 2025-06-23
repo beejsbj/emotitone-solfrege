@@ -210,14 +210,28 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   });
 
   /**
-   * Handle note played event
+   * Handle note played event - enhanced for polyphonic support
    */
-  const handleNotePlayed = (note: SolfegeData, frequency: number) => {
-    console.log(`🎵 Note played: ${note.name} (${frequency}Hz)`);
+  const handleNotePlayed = (
+    note: SolfegeData,
+    frequency: number,
+    noteId?: string,
+    octave?: number,
+    _noteName?: string
+  ) => {
+    console.log(
+      `🎵 Note played: ${note.name} (${frequency}Hz)${
+        noteId ? ` [${noteId}]` : ""
+      }`
+    );
 
-    // Create persistent gradient blob at random position
-    const x = 30 + Math.random() * 40;
-    const y = 30 + Math.random() * 40;
+    // Create persistent gradient blob at position based on octave and note
+    // Higher octaves appear higher on screen, different notes spread horizontally
+    const baseX = 20 + (note.number - 1) * 10; // Spread by solfege degree
+    const baseY = octave ? 60 - (octave - 3) * 15 : 40; // Higher octaves = higher position
+    const x = baseX + Math.random() * 20; // Add some randomness
+    const y = Math.max(10, Math.min(80, baseY + Math.random() * 20));
+
     blobRenderer.createBlob(
       note,
       frequency,
@@ -225,26 +239,43 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       y,
       canvasWidth.value,
       canvasHeight.value,
-      blobConfig.value
+      blobConfig.value,
+      noteId // Pass noteId for tracking
     );
 
-    // Create particles
+    // Create particles with reduced count for polyphonic scenarios
+    const activeNoteCount = musicStore.getActiveNotes().length;
+    const particleCount = Math.max(
+      5,
+      Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
+    );
+
     particleSystem.createParticles(
       note,
       particleConfig.value,
       canvasWidth.value,
       canvasHeight.value,
-      musicStore
+      musicStore,
+      particleCount
     );
 
-    console.log(`✨ Created blob and particles for ${note.name}`);
+    console.log(
+      `✨ Created blob and particles for ${note.name}${octave ? octave : ""}`
+    );
   };
 
   /**
-   * Handle note released event - start fade-out instead of immediate removal
+   * Handle note released event - enhanced for polyphonic support
    */
-  const handleNoteReleased = (noteName: string) => {
-    blobRenderer.startBlobFadeOut(noteName);
+  const handleNoteReleased = (noteName: string, noteId?: string) => {
+    if (noteId) {
+      // Use noteId for precise blob removal in polyphonic scenarios
+      blobRenderer.startBlobFadeOutById(noteId);
+    } else {
+      // Fallback to name-based removal for backward compatibility
+      blobRenderer.startBlobFadeOut(noteName);
+    }
+    console.log(`🎵 Note released: ${noteName}${noteId ? ` [${noteId}]` : ""}`);
   };
 
   /**

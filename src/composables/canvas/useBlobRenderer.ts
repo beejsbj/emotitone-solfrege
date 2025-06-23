@@ -3,7 +3,6 @@
  * Handles blob creation, rendering, and management with fluid animations
  */
 
-import { ref } from "vue";
 import type { ActiveBlob } from "@/types/canvas";
 import type { SolfegeData } from "@/types/music";
 import type { BlobConfig } from "@/types/visual";
@@ -13,7 +12,7 @@ import { createVisualFrequency } from "@/utils/visualEffects";
 export function useBlobRenderer() {
   const { getPrimaryColor, getSecondaryColor, withAlpha } = useColorSystem();
 
-  // Blob state
+  // Blob state - now supports both note names and noteIds for polyphonic tracking
   const activeBlobs = new Map<string, ActiveBlob>();
 
   /**
@@ -26,13 +25,17 @@ export function useBlobRenderer() {
     y: number,
     canvasWidth: number,
     canvasHeight: number,
-    blobConfig: BlobConfig
+    blobConfig: BlobConfig,
+    noteId?: string
   ) => {
     if (!blobConfig.isEnabled) return;
 
-    // Remove existing blob for this note if it exists
-    if (activeBlobs.has(note.name)) {
-      removeBlob(note.name);
+    // Use noteId for polyphonic tracking, fallback to note name for backward compatibility
+    const blobKey = noteId || note.name;
+
+    // Remove existing blob for this key if it exists
+    if (activeBlobs.has(blobKey)) {
+      removeBlob(blobKey);
     }
 
     // Convert percentage to pixel coordinates
@@ -64,22 +67,33 @@ export function useBlobRenderer() {
       scale: 0, // Start at zero scale for grow-in animation
     };
 
-    // Store the active blob
-    activeBlobs.set(note.name, blob);
+    // Store the active blob using the appropriate key
+    activeBlobs.set(blobKey, blob);
   };
 
   /**
-   * Remove blob for a specific note
+   * Remove blob for a specific note or noteId
    */
-  const removeBlob = (noteName: string) => {
-    activeBlobs.delete(noteName);
+  const removeBlob = (key: string) => {
+    activeBlobs.delete(key);
   };
 
   /**
-   * Start fade-out for a blob
+   * Start fade-out for a blob by note name (legacy)
    */
   const startBlobFadeOut = (noteName: string) => {
     const blob = activeBlobs.get(noteName);
+    if (blob && !blob.isFadingOut) {
+      blob.isFadingOut = true;
+      blob.fadeOutStartTime = Date.now();
+    }
+  };
+
+  /**
+   * Start fade-out for a blob by noteId (polyphonic)
+   */
+  const startBlobFadeOutById = (noteId: string) => {
+    const blob = activeBlobs.get(noteId);
     if (blob && !blob.isFadingOut) {
       blob.isFadingOut = true;
       blob.fadeOutStartTime = Date.now();
@@ -91,7 +105,7 @@ export function useBlobRenderer() {
    */
   const renderBlobs = (
     ctx: CanvasRenderingContext2D,
-    elapsed: number,
+    _elapsed: number,
     blobConfig: BlobConfig,
     musicStore: any
   ) => {
@@ -365,6 +379,7 @@ export function useBlobRenderer() {
     createBlob,
     removeBlob,
     startBlobFadeOut,
+    startBlobFadeOutById,
     renderBlobs,
     getActiveBlobCount,
     clearAllBlobs,

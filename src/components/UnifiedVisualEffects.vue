@@ -31,18 +31,24 @@ const {
   cleanup,
 } = useUnifiedCanvas(canvasRef);
 
-// Handle note played event
+// Handle note played event - enhanced for polyphonic support
 function onNotePlayed(event: CustomEvent) {
   const note: SolfegeData = event.detail.note;
   const frequency: number = event.detail.frequency;
-  handleNotePlayed(note, frequency);
+  const noteId: string | undefined = event.detail.noteId;
+  const octave: number | undefined = event.detail.octave;
+  const noteName: string | undefined = event.detail.noteName;
+
+  handleNotePlayed(note, frequency, noteId, octave, noteName);
 }
 
-// Handle note released event
+// Handle note released event - enhanced for polyphonic support
 function onNoteReleased(event: CustomEvent) {
   const noteName: string = event.detail.note;
+  const noteId: string | undefined = event.detail.noteId;
+
   if (noteName) {
-    handleNoteReleased(noteName);
+    handleNoteReleased(noteName, noteId);
   }
 }
 

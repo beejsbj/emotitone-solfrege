@@ -1,12 +1,14 @@
 import * as Tone from "tone";
 
 export class AudioService {
-  private synth: Tone.Synth;
+  private polySynth: Tone.PolySynth;
   private isInitialized = false;
+  private activeNotes: Map<string, { frequency: number; noteId: string }> =
+    new Map();
 
   constructor() {
-    // Create a warm, rich synth for solfege notes
-    this.synth = new Tone.Synth({
+    // Create a polyphonic synth for multiple simultaneous notes
+    this.polySynth = new Tone.PolySynth(Tone.Synth, {
       oscillator: {
         type: "sine",
       },
@@ -17,6 +19,9 @@ export class AudioService {
         release: 0.8,
       },
     }).toDestination();
+
+    // Set polyphony limit to 8 voices for performance
+    this.polySynth.maxPolyphony = 8;
   }
 
   async initialize() {
@@ -39,27 +44,67 @@ export class AudioService {
   async playNote(frequency: number, duration: string = "1n") {
     try {
       await this.initialize();
-      this.synth.triggerAttackRelease(frequency, duration);
+      this.polySynth.triggerAttackRelease(frequency, duration);
     } catch (error) {
       console.error("Error playing note:", error);
     }
   }
 
-  async attackNote(frequency: number) {
+  async attackNote(frequency: number, noteId?: string): Promise<string> {
     try {
       await this.initialize();
-      this.synth.triggerAttack(frequency);
+      const id = noteId || `note_${frequency}_${Date.now()}`;
+      this.polySynth.triggerAttack(frequency);
+      this.activeNotes.set(id, { frequency, noteId: id });
+      return id;
     } catch (error) {
       console.error("Error attacking note:", error);
+      return "";
     }
   }
 
-  releaseNote() {
+  releaseNote(noteId?: string) {
     try {
-      this.synth.triggerRelease();
+      if (noteId && this.activeNotes.has(noteId)) {
+        const noteData = this.activeNotes.get(noteId);
+        if (noteData) {
+          this.polySynth.triggerRelease(noteData.frequency);
+          this.activeNotes.delete(noteId);
+        }
+      } else {
+        // Release all notes if no specific noteId provided
+        this.polySynth.releaseAll();
+        this.activeNotes.clear();
+      }
     } catch (error) {
       console.error("Error releasing note:", error);
     }
+  }
+
+  // New method to release a specific frequency
+  releaseNoteByFrequency(frequency: number) {
+    try {
+      this.polySynth.triggerRelease(frequency);
+      // Remove from active notes
+      for (const [id, noteData] of this.activeNotes.entries()) {
+        if (noteData.frequency === frequency) {
+          this.activeNotes.delete(id);
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("Error releasing note by frequency:", error);
+    }
+  }
+
+  // Get currently active notes
+  getActiveNotes(): Array<{ frequency: number; noteId: string }> {
+    return Array.from(this.activeNotes.values());
+  }
+
+  // Check if a specific note is active
+  isNoteActive(noteId: string): boolean {
+    return this.activeNotes.has(noteId);
   }
 
   async playNoteByName(
@@ -70,7 +115,7 @@ export class AudioService {
     try {
       await this.initialize();
       const noteWithOctave = `${noteName}${octave}`;
-      this.synth.triggerAttackRelease(noteWithOctave, duration);
+      this.polySynth.triggerAttackRelease(noteWithOctave, duration);
     } catch (error) {
       console.error("Error playing note by name:", error);
     }
@@ -81,12 +126,13 @@ export class AudioService {
       await this.initialize();
 
       // Set the tempo
-      Tone.Transport.bpm.value = tempo;
+      const transport = Tone.getTransport();
+      transport.bpm.value = tempo;
 
       // Create a sequence
       const sequence = new Tone.Sequence(
         (time, note) => {
-          this.synth.triggerAttackRelease(note, "8n", time);
+          this.polySynth.triggerAttackRelease(note, "8n", time);
         },
         notes,
         "4n"
@@ -94,12 +140,12 @@ export class AudioService {
 
       // Start the sequence
       sequence.start(0);
-      Tone.Transport.start();
+      transport.start();
 
       // Stop after the sequence completes
       setTimeout(() => {
         sequence.stop();
-        Tone.Transport.stop();
+        transport.stop();
         sequence.dispose();
       }, notes.length * (60 / tempo) * 1000);
     } catch (error) {
@@ -108,11 +154,12 @@ export class AudioService {
   }
 
   stop() {
-    this.synth.triggerRelease();
+    this.polySynth.releaseAll();
+    this.activeNotes.clear();
   }
 
   dispose() {
-    this.synth.dispose();
+    this.polySynth.dispose();
   }
 }
 

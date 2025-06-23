@@ -1,14 +1,25 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, readonly } from "vue";
 import { musicTheory } from "@/services/music";
 import type { SolfegeData, MelodicPattern, MusicalMode } from "@/types/music";
 import { audioService } from "@/services/audio";
+
+// Interface for active note tracking
+interface ActiveNote {
+  solfegeIndex: number;
+  solfege: SolfegeData;
+  frequency: number;
+  octave: number;
+  noteId: string;
+  noteName: string; // e.g., "C4", "E5"
+}
 
 export const useMusicStore = defineStore("music", () => {
   // State
   const currentKey = ref<string>("C");
   const currentMode = ref<MusicalMode>("major");
-  const currentNote = ref<string | null>(null);
+  const currentNote = ref<string | null>(null); // Keep for backward compatibility
+  const activeNotes = ref<Map<string, ActiveNote>>(new Map());
   const isPlaying = ref<boolean>(false);
   const sequence = ref<string[]>([]);
 
@@ -73,47 +84,114 @@ export const useMusicStore = defineStore("music", () => {
     }
   }
 
-  async function attackNote(solfegeIndex: number) {
+  async function attackNote(
+    solfegeIndex: number,
+    octave: number = 4
+  ): Promise<string | null> {
     const solfege = solfegeData.value[solfegeIndex];
     if (solfege) {
-      currentNote.value = solfege.name;
-      isPlaying.value = true;
+      // Get the actual note name and frequency
+      const frequency = musicTheory.getNoteFrequency(solfegeIndex, octave);
+      const noteName = `${
+        musicTheory.getCurrentScaleNotes()[solfegeIndex]
+      }${octave}`;
 
-      // Get the actual note name and attack it
-      const frequency = musicTheory.getNoteFrequency(solfegeIndex, 4);
+      // Attack the audio and get note ID
+      const noteId = await audioService.attackNote(frequency);
 
-      // Attack the audio
-      await audioService.attackNote(frequency);
-
-      // Dispatch custom event for background effects
-      const notePlayedEvent = new CustomEvent("note-played", {
-        detail: {
-          note: solfege,
-          frequency,
+      if (noteId) {
+        // Create active note object
+        const activeNote: ActiveNote = {
           solfegeIndex,
-        },
-      });
-      window.dispatchEvent(notePlayedEvent);
+          solfege,
+          frequency,
+          octave,
+          noteId,
+          noteName,
+        };
+
+        // Add to active notes
+        activeNotes.value.set(noteId, activeNote);
+
+        // Update legacy state for backward compatibility
+        currentNote.value = solfege.name;
+        isPlaying.value = true;
+
+        // Dispatch custom event for background effects
+        const notePlayedEvent = new CustomEvent("note-played", {
+          detail: {
+            note: solfege,
+            frequency,
+            solfegeIndex,
+            octave,
+            noteId,
+            noteName,
+          },
+        });
+        window.dispatchEvent(notePlayedEvent);
+
+        return noteId;
+      }
     }
+    return null;
   }
 
-  function releaseNote() {
-    audioService.releaseNote();
+  function releaseNote(noteId?: string) {
+    if (noteId && activeNotes.value.has(noteId)) {
+      // Release specific note
+      const activeNote = activeNotes.value.get(noteId);
+      if (activeNote) {
+        audioService.releaseNote(noteId);
 
-    // Dispatch custom event for background effects before resetting state
-    const noteReleasedEvent = new CustomEvent("note-released", {
-      detail: {
-        note: currentNote.value,
-        isPlaying: isPlaying.value,
-      },
-    });
-    window.dispatchEvent(noteReleasedEvent);
+        // Dispatch custom event for background effects
+        const noteReleasedEvent = new CustomEvent("note-released", {
+          detail: {
+            note: activeNote.solfege.name,
+            noteId,
+            noteName: activeNote.noteName,
+            frequency: activeNote.frequency,
+            octave: activeNote.octave,
+          },
+        });
+        window.dispatchEvent(noteReleasedEvent);
 
-    // Reset state after a short delay to allow for release envelope
-    setTimeout(() => {
+        // Remove from active notes
+        activeNotes.value.delete(noteId);
+
+        // Update legacy state if this was the current note
+        if (currentNote.value === activeNote.solfege.name) {
+          // Set to another active note or null
+          const remainingNotes = Array.from(activeNotes.value.values());
+          currentNote.value =
+            remainingNotes.length > 0 ? remainingNotes[0].solfege.name : null;
+        }
+      }
+    } else {
+      // Release all notes (legacy behavior)
+      const allActiveNotes = Array.from(activeNotes.value.values());
+      audioService.releaseNote();
+
+      // Dispatch events for all released notes
+      allActiveNotes.forEach((activeNote) => {
+        const noteReleasedEvent = new CustomEvent("note-released", {
+          detail: {
+            note: activeNote.solfege.name,
+            noteId: activeNote.noteId,
+            noteName: activeNote.noteName,
+            frequency: activeNote.frequency,
+            octave: activeNote.octave,
+          },
+        });
+        window.dispatchEvent(noteReleasedEvent);
+      });
+
+      // Clear all active notes
+      activeNotes.value.clear();
       currentNote.value = null;
-      isPlaying.value = false;
-    }, 100);
+    }
+
+    // Update playing state
+    isPlaying.value = activeNotes.value.size > 0;
   }
 
   function addToSequence(solfegeName: string) {
@@ -143,11 +221,37 @@ export const useMusicStore = defineStore("music", () => {
     return musicTheory.getMelodicPatterns();
   }
 
+  // New polyphonic helper functions
+  function getActiveNotes(): ActiveNote[] {
+    return Array.from(activeNotes.value.values());
+  }
+
+  function getActiveNoteNames(): string[] {
+    return getActiveNotes().map((note) => note.noteName);
+  }
+
+  function isNoteActive(noteId: string): boolean {
+    return activeNotes.value.has(noteId);
+  }
+
+  function releaseAllNotes() {
+    releaseNote(); // Call without noteId to release all
+  }
+
+  // Enhanced attack note with octave support
+  async function attackNoteWithOctave(
+    solfegeIndex: number,
+    octave: number
+  ): Promise<string | null> {
+    return await attackNote(solfegeIndex, octave);
+  }
+
   return {
     // State
     currentKey,
     currentMode,
     currentNote,
+    activeNotes: readonly(activeNotes), // Make reactive but read-only
     isPlaying,
     sequence,
 
@@ -162,12 +266,19 @@ export const useMusicStore = defineStore("music", () => {
     setMode,
     playNote,
     attackNote,
+    attackNoteWithOctave,
     releaseNote,
+    releaseAllNotes,
     addToSequence,
     clearSequence,
     removeLastFromSequence,
     getSolfegeByName,
     getNoteFrequency,
     getMelodicPatterns,
+
+    // Polyphonic helpers
+    getActiveNotes,
+    getActiveNoteNames,
+    isNoteActive,
   };
 });

@@ -28,6 +28,11 @@
               <SolfegePalette />
             </div>
           </div>
+
+          <!-- Pattern Player -->
+          <div class="mt-6">
+            <PatternPlayer />
+          </div>
         </div>
       </main>
     </div>
@@ -43,6 +48,7 @@ import SolfegePalette from "@/components/SolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import DynamicColorPreview from "@/components/DynamicColorPreview.vue";
+import PatternPlayer from "@/components/PatternPlayer.vue";
 
 // Check if we're in development mode
 const isDev = import.meta.env.DEV;

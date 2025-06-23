@@ -1,7 +1,6 @@
 import { ref, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "./useVisualConfig";
-import { useDynamicColors } from "./useDynamicColors";
 import { useAnimationLifecycle } from "./useAnimationLifecycle";
 import type { SolfegeData } from "@/services/music";
 import type { VibratingStringConfig } from "@/types/visual";
@@ -32,9 +31,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     particleConfig,
     stringConfig,
     animationConfig,
-    dynamicColorConfig,
   } = useVisualConfig();
-  const { generateSolfegeColors, isDynamicColorsEnabled } = useDynamicColors();
 
   // Canvas state
   const canvasWidth = ref(window.innerWidth);
@@ -628,11 +625,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       const solfege = musicStore.solfegeData[index];
       if (!solfege) return;
 
-      // Use dynamic colors if enabled, otherwise use static colors
-      const enhancedSolfege = isDynamicColorsEnabled.value
-        ? generateSolfegeColors(solfege, 3, true) // Use middle octave with animation
-        : solfege;
-
       // Update string properties based on current note
       if (musicStore.currentNote === solfege.name) {
         string.isActive = true;
@@ -646,7 +638,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
           stringConfig.value.activeOpacity,
           stringConfig.value.opacityInterpolationSpeed
         );
-        string.color = enhancedSolfege.colorGradient;
+        string.color = solfege.colorGradient;
 
         // Get the actual musical frequency for this note and scale it for visual vibration
         const noteFrequency = musicStore.getNoteFrequency(index, 4);
@@ -829,18 +821,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    * Handle note played event
    */
   const handleNotePlayed = (note: SolfegeData, frequency: number) => {
-    // Use dynamic colors if enabled, otherwise use static colors
-    const enhancedNote = isDynamicColorsEnabled.value
-      ? generateSolfegeColors(note, 3, true) // Use middle octave with animation
-      : note;
-
     // Create persistent gradient blob at random position
     const x = 30 + Math.random() * 40;
     const y = 30 + Math.random() * 40;
-    createBlob(enhancedNote, frequency, x, y);
+    createBlob(note, frequency, x, y);
 
     // Create particles
-    createParticles(enhancedNote);
+    createParticles(note);
   };
 
   /**

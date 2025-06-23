@@ -1,13 +1,13 @@
 import { ref, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "./useVisualConfig";
+import { useDynamicColors } from "./useDynamicColors";
 import { useAnimationLifecycle } from "./useAnimationLifecycle";
 import type { SolfegeData } from "@/services/music";
 import type { VibratingStringConfig } from "@/types/visual";
 import type { ActiveBlob, Particle } from "@/types/canvas";
 import {
   createVisualFrequency,
-  createOscillation,
   createHarmonicVibration,
   createStringDamping,
 } from "@/utils/visualEffects";
@@ -32,7 +32,9 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     particleConfig,
     stringConfig,
     animationConfig,
+    dynamicColorConfig,
   } = useVisualConfig();
+  const { generateSolfegeColors, isDynamicColorsEnabled } = useDynamicColors();
 
   // Canvas state
   const canvasWidth = ref(window.innerWidth);
@@ -302,81 +304,197 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   };
 
   /**
-   * Render blobs (optimized)
+   * Render blobs with fluid vibrating edges, fade-out, and drifting movement
    */
   const renderBlobs = (elapsed: number) => {
     if (!ctx) return;
 
-    activeBlobs.forEach((blob) => {
+    // Use iterator to safely remove blobs during iteration
+    const blobsToRemove: string[] = [];
+
+    activeBlobs.forEach((blob, noteName) => {
       const blobElapsed = elapsed - blob.startTime / 1000;
 
-      // Create oscillation parameters using cached config
+      // Update blob position with drifting movement
+      blob.x += blob.driftVx * (1 / 60); // Assuming 60fps for smooth movement
+      blob.y += blob.driftVy * (1 / 60);
+
+      // Keep blobs within canvas bounds with gentle bouncing
+      if (
+        blob.x < blob.baseRadius ||
+        blob.x > canvasWidth.value - blob.baseRadius
+      ) {
+        blob.driftVx *= -0.8; // Gentle bounce with some energy loss
+        blob.x = Math.max(
+          blob.baseRadius,
+          Math.min(canvasWidth.value - blob.baseRadius, blob.x)
+        );
+      }
+      if (
+        blob.y < blob.baseRadius ||
+        blob.y > canvasHeight.value - blob.baseRadius
+      ) {
+        blob.driftVy *= -0.8; // Gentle bounce with some energy loss
+        blob.y = Math.max(
+          blob.baseRadius,
+          Math.min(canvasHeight.value - blob.baseRadius, blob.y)
+        );
+      }
+
+      // Handle fade-out animation
+      let currentOpacity = blob.opacity;
+      let vibrationIntensity = 1.0;
+
+      if (blob.isFadingOut && blob.fadeOutStartTime) {
+        const fadeElapsed = (Date.now() - blob.fadeOutStartTime) / 1000;
+        const fadeProgress = Math.min(
+          fadeElapsed / cachedConfigs.blob.fadeOutDuration,
+          1
+        );
+
+        // Smooth fade-out curve
+        const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
+        currentOpacity = blob.opacity * fadeMultiplier;
+        vibrationIntensity = fadeMultiplier; // Reduce vibration during fade-out
+
+        // Mark for removal when fade-out is complete
+        if (fadeProgress >= 1) {
+          blobsToRemove.push(noteName);
+          return;
+        }
+      }
+
+      // Create more fluid vibration parameters
       const visualFreq = createVisualFrequency(
         blob.frequency,
-        cachedConfigs.animation.visualFrequencyDivisor
+        cachedConfigs.blob.vibrationFrequencyDivisor
       );
-      const amplitude = cachedConfigs.blob.oscillationAmplitude;
-      const baseScale = 1;
-
-      // Calculate oscillating scale
-      const scaleVariation = createOscillation(
-        blobElapsed,
-        visualFreq,
-        amplitude,
-        0
-      );
-      const scale = baseScale + scaleVariation;
-
-      // Calculate radius
-      const radius = blob.baseRadius * scale;
+      const vibrationAmplitude =
+        cachedConfigs.blob.oscillationAmplitude *
+        blob.baseRadius *
+        0.15 *
+        vibrationIntensity; // Increased for more visible vibration
+      const baseRadius = blob.baseRadius;
 
       // Validate values before creating gradient
       if (
         !isFinite(blob.x) ||
         !isFinite(blob.y) ||
-        !isFinite(radius) ||
-        radius <= 0
+        !isFinite(baseRadius) ||
+        baseRadius <= 0 ||
+        currentOpacity <= 0
       ) {
         return;
       }
 
-      // Use cached gradient if possible
-      const gradientKey = `blob-${blob.note.name}-${
-        Math.floor(radius / 10) * 10
-      }`;
-      const gradient = getCachedGradient(gradientKey, () => {
-        return ctx!.createRadialGradient(
-          blob.x,
-          blob.y,
-          0,
-          blob.x,
-          blob.y,
-          radius
-        );
-      });
+      // Create gradient at current position
+      if (!ctx) return;
 
-      // Use cached colors
-      const primaryColorKey = `${blob.note.colorPrimary}-${blob.opacity}`;
-      const secondaryColorKey = `${blob.note.colorSecondary}-${blob.opacity}`;
-
-      const primaryColor = getCachedColor(primaryColorKey, () =>
-        toRgbaWithAlpha(blob.note.colorPrimary, 0.4 * blob.opacity)
+      const gradient = ctx.createRadialGradient(
+        blob.x,
+        blob.y,
+        0,
+        blob.x,
+        blob.y,
+        baseRadius + vibrationAmplitude
       );
-      const secondaryColor = getCachedColor(secondaryColorKey, () =>
-        toRgbaWithAlpha(blob.note.colorSecondary, 0.2 * blob.opacity)
+
+      // Use current opacity for colors
+      const primaryColor = toRgbaWithAlpha(
+        blob.note.colorPrimary,
+        0.4 * currentOpacity
+      );
+      const secondaryColor = toRgbaWithAlpha(
+        blob.note.colorSecondary,
+        0.2 * currentOpacity
       );
 
       gradient.addColorStop(0, primaryColor);
       gradient.addColorStop(0.7, secondaryColor);
       gradient.addColorStop(1, "transparent");
 
-      // Draw the blob
-      if (ctx) {
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(blob.x, blob.y, radius, 0, Math.PI * 2);
-        ctx.fill();
+      // Draw the blob with fluid vibrating edges
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+
+      // Create more organic vibrating circular path
+      const segments = 48; // Fewer segments for smoother curves
+
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+
+        // Create more dramatic vibration with irregular patterns
+        const primaryVibration =
+          Math.sin(
+            blobElapsed * visualFreq * 2 * Math.PI +
+              angle * 4 +
+              blob.vibrationPhase
+          ) *
+          vibrationAmplitude *
+          0.7;
+        const secondaryVibration =
+          Math.sin(
+            blobElapsed * visualFreq * 3.7 * Math.PI +
+              angle * 7 +
+              blob.vibrationPhase * 1.6
+          ) *
+          vibrationAmplitude *
+          0.4;
+        const tertiaryVibration =
+          Math.sin(
+            blobElapsed * visualFreq * 1.3 * Math.PI +
+              angle * 2.3 +
+              blob.vibrationPhase * 0.8
+          ) *
+          vibrationAmplitude *
+          0.2;
+
+        // Add irregular, chaotic vibration for more organic feel
+        const chaoticVibration =
+          Math.sin(
+            blobElapsed * visualFreq * 5.1 * Math.PI +
+              angle * 11 +
+              blob.vibrationPhase * 2.1
+          ) *
+          vibrationAmplitude *
+          0.15;
+
+        // Combine vibrations for dramatic, non-circular movement
+        const totalVibration =
+          primaryVibration +
+          secondaryVibration +
+          tertiaryVibration +
+          chaoticVibration;
+
+        // Apply more varied damping for irregular shape
+        const dampingFactor =
+          0.6 +
+          0.4 *
+            Math.sin(angle * 3.7 + blob.vibrationPhase) *
+            Math.cos(angle * 1.9 + blob.vibrationPhase * 0.5);
+        const dampedVibration = totalVibration * dampingFactor;
+
+        // Calculate the vibrating radius for this point
+        const vibratingRadius = baseRadius + dampedVibration;
+
+        // Calculate x, y coordinates
+        const x = blob.x + Math.cos(angle) * vibratingRadius;
+        const y = blob.y + Math.sin(angle) * vibratingRadius;
+
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
       }
+
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // Remove completed fade-out blobs
+    blobsToRemove.forEach((noteName) => {
+      activeBlobs.delete(noteName);
     });
   };
 
@@ -510,6 +628,11 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       const solfege = musicStore.solfegeData[index];
       if (!solfege) return;
 
+      // Use dynamic colors if enabled, otherwise use static colors
+      const enhancedSolfege = isDynamicColorsEnabled.value
+        ? generateSolfegeColors(solfege, 3, true) // Use middle octave with animation
+        : solfege;
+
       // Update string properties based on current note
       if (musicStore.currentNote === solfege.name) {
         string.isActive = true;
@@ -523,7 +646,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
           stringConfig.value.activeOpacity,
           stringConfig.value.opacityInterpolationSpeed
         );
-        string.color = solfege.colorGradient;
+        string.color = enhancedSolfege.colorGradient;
 
         // Get the actual musical frequency for this note and scale it for visual vibration
         const noteFrequency = musicStore.getNoteFrequency(index, 4);
@@ -638,7 +761,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       Math.min(blobConfig.value.maxSize, screenBasedSize)
     );
 
-    // Create blob data
+    // Create blob data with new properties
     const blob: ActiveBlob = {
       x: pixelX,
       y: pixelY,
@@ -647,6 +770,11 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       startTime: Date.now(),
       baseRadius: clampedSize,
       opacity: blobConfig.value.opacity,
+      isFadingOut: false,
+      fadeOutStartTime: undefined,
+      driftVx: (Math.random() - 0.5) * blobConfig.value.driftSpeed,
+      driftVy: (Math.random() - 0.5) * blobConfig.value.driftSpeed,
+      vibrationPhase: Math.random() * Math.PI * 2,
     };
 
     // Store the active blob
@@ -701,20 +829,29 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    * Handle note played event
    */
   const handleNotePlayed = (note: SolfegeData, frequency: number) => {
+    // Use dynamic colors if enabled, otherwise use static colors
+    const enhancedNote = isDynamicColorsEnabled.value
+      ? generateSolfegeColors(note, 3, true) // Use middle octave with animation
+      : note;
+
     // Create persistent gradient blob at random position
     const x = 30 + Math.random() * 40;
     const y = 30 + Math.random() * 40;
-    createBlob(note, frequency, x, y);
+    createBlob(enhancedNote, frequency, x, y);
 
     // Create particles
-    createParticles(note);
+    createParticles(enhancedNote);
   };
 
   /**
-   * Handle note released event
+   * Handle note released event - start fade-out instead of immediate removal
    */
   const handleNoteReleased = (noteName: string) => {
-    removeBlob(noteName);
+    const blob = activeBlobs.get(noteName);
+    if (blob && !blob.isFadingOut) {
+      blob.isFadingOut = true;
+      blob.fadeOutStartTime = Date.now();
+    }
   };
 
   /**

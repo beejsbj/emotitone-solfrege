@@ -7,6 +7,7 @@ import type {
   FontOscillationConfig,
   AnimationConfig,
   FrequencyMappingConfig,
+  DynamicColorConfig,
   VisualEffectsConfig,
 } from "@/types/visual";
 
@@ -24,6 +25,7 @@ export type {
   FontOscillationConfig,
   AnimationConfig,
   FrequencyMappingConfig,
+  DynamicColorConfig,
   VisualEffectsConfig,
 };
 
@@ -36,7 +38,10 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     maxSize: 800,
     opacity: 0.6,
     blurRadius: 60,
-    oscillationAmplitude: 0.2, // ±20%
+    oscillationAmplitude: 1, // Increased for more visible vibration
+    fadeOutDuration: 1.5, // 1.5 seconds fade-out
+    driftSpeed: 20, // 20 pixels per second max drift
+    vibrationFrequencyDivisor: 80, // Lower divisor for more noticeable vibration
   },
 
   ambient: {
@@ -90,6 +95,16 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     minValue: 400,
     maxValue: 700,
   },
+
+  dynamicColors: {
+    isEnabled: false, // Start with static colors by default
+    chromaticMapping: false, // Start with solfege (7 notes) mapping
+    hueAnimationAmplitude: 15, // ±15° animation range
+    animationSpeed: 1, // Normal animation speed
+    saturation: 0.8, // 80% saturation
+    baseLightness: 0.5, // 50% lightness for middle octave
+    lightnessRange: 0.6, // 60% range (20-80% lightness across octaves)
+  },
 };
 
 /**
@@ -107,6 +122,7 @@ export function useVisualConfig() {
   const fontOscillationConfig = computed(() => config.fontOscillation);
   const animationConfig = computed(() => config.animation);
   const frequencyMappingConfig = computed(() => config.frequencyMapping);
+  const dynamicColorConfig = computed(() => config.dynamicColors);
 
   /**
    * Update a specific configuration section
@@ -158,6 +174,7 @@ export function useVisualConfig() {
     fontOscillationConfig,
     animationConfig,
     frequencyMappingConfig,
+    dynamicColorConfig,
 
     // Methods
     updateConfig,

@@ -9,8 +9,8 @@
     <!-- Floating Interval Description Popup -->
     <FloatingPopup />
 
-    <!-- Visual Effects Debug Panel (Development Only) -->
-    <VisualEffectsDebugPanel v-if="isDev" />
+    <!-- Auto Visual Effects Debug Panel (Development Only) -->
+    <AutoDebugPanel />
 
     <!-- Main Content -->
     <div class="relative z-10 min-h-screen flex flex-col">
@@ -18,7 +18,7 @@
       <AppHeader />
 
       <!-- Main App Content -->
-      <main class="flex-1 p-4">
+      <main class="flex-1">
         <div class="max-w-6xl mx-auto">
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Key Selector -->
@@ -44,7 +44,7 @@ import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import SolfegePalette from "@/components/SolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
-import VisualEffectsDebugPanel from "@/components/VisualEffectsDebugPanel.vue";
+import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 
 // Check if we're in development mode
 const isDev = import.meta.env.DEV;

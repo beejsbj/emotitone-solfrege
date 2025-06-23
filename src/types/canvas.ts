@@ -3,7 +3,7 @@
  * Type definitions for canvas rendering, particles, and animation systems
  */
 
-import type { SolfegeData } from './music';
+import type { SolfegeData } from "./music";
 
 /**
  * Active blob state for canvas rendering
@@ -23,6 +23,16 @@ export interface ActiveBlob {
   baseRadius: number;
   /** Current opacity (0-1) */
   opacity: number;
+  /** Whether the blob is in fade-out phase */
+  isFadingOut: boolean;
+  /** Timestamp when fade-out started */
+  fadeOutStartTime?: number;
+  /** Drift velocity in X direction */
+  driftVx: number;
+  /** Drift velocity in Y direction */
+  driftVy: number;
+  /** Random phase offset for unique vibration pattern */
+  vibrationPhase: number;
 }
 
 /**
@@ -122,7 +132,7 @@ export interface PerformanceMetrics {
  */
 export interface CanvasNoteEvent {
   /** Event type */
-  type: 'note-played' | 'note-released';
+  type: "note-played" | "note-released";
   /** Associated solfege data */
   note: SolfegeData;
   /** Audio frequency */

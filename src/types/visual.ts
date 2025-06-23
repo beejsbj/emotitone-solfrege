@@ -3,7 +3,7 @@
  * Centralized type definitions for all visual effect configurations and states
  */
 
-import type { Ref } from 'vue';
+import type { Ref } from "vue";
 
 /**
  * Font weight oscillation configuration
@@ -113,8 +113,14 @@ export interface BlobConfig {
   opacity: number;
   /** Blur radius in pixels */
   blurRadius: number;
-  /** Oscillation amplitude (0-1) */
+  /** Vibration amplitude (0-1) - now used for edge vibration */
   oscillationAmplitude: number;
+  /** Fade-out duration in seconds */
+  fadeOutDuration: number;
+  /** Maximum drift speed in pixels per second */
+  driftSpeed: number;
+  /** Vibration frequency divisor for more fluid movement */
+  vibrationFrequencyDivisor: number;
 }
 
 /**
@@ -222,6 +228,52 @@ export interface FrequencyMappingConfig {
 }
 
 /**
+ * Dynamic color system configuration
+ */
+export interface DynamicColorConfig {
+  /** Whether dynamic colors are enabled (alternative to predefined colors) */
+  isEnabled: boolean;
+  /** Whether to use chromatic mapping (12 notes) instead of solfege (7 notes) */
+  chromaticMapping: boolean;
+  /** Hue animation amplitude in degrees (±) */
+  hueAnimationAmplitude: number;
+  /** Animation speed multiplier for hue changes */
+  animationSpeed: number;
+  /** Saturation level for dynamic colors (0-1) */
+  saturation: number;
+  /** Base lightness for middle octave (0-1) */
+  baseLightness: number;
+  /** Lightness range for octave variations (0-1) */
+  lightnessRange: number;
+}
+
+/**
+ * Color relationships for a note
+ */
+export interface NoteColorRelationships {
+  /** Primary color (base hue) */
+  primary: string;
+  /** Accent color (complementary - hue + 180°) */
+  accent: string;
+  /** Secondary color (first triadic - hue + 120°) */
+  secondary: string;
+  /** Tertiary color (second triadic - hue + 240°) */
+  tertiary: string;
+  /** Gradient combining primary and secondary */
+  gradient: string;
+}
+
+/**
+ * Octave configuration for lightness variations
+ */
+export interface OctaveConfig {
+  /** Octave number (1-5) */
+  octave: number;
+  /** Lightness value for this octave (0-1) */
+  lightness: number;
+}
+
+/**
  * Main visual effects configuration interface
  */
 export interface VisualEffectsConfig {
@@ -239,4 +291,6 @@ export interface VisualEffectsConfig {
   animation: AnimationConfig;
   /** Frequency mapping configuration */
   frequencyMapping: FrequencyMappingConfig;
+  /** Dynamic color system configuration */
+  dynamicColors: DynamicColorConfig;
 }

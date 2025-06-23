@@ -9,11 +9,11 @@
     </p>
 
     <!-- Solfege Buttons -->
-    <div class="grid grid-cols-8 gap-1">
+    <div class="grid grid-cols-8 gap-[1px]">
       <button
         v-for="(solfege, index) in musicStore.solfegeData"
         :key="solfege.name"
-        class="btn-solfege bg-white/20 hover:bg-white/30 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-150 backdrop-blur-sm border border-white/30 min-h-[4rem] aspect-[9/20] select-none active:scale-95"
+        class="btn-solfege bg-white/20 hover:bg-white/30 text-white font-semibold rounded-xl transition-all duration-150 backdrop-blur-sm border border-white/30 min-h-[4rem] aspect-[9/20] select-none active:scale-95"
         @mousedown="(e) => attackNote(index, e)"
         @mouseup="(e) => releaseNote(e)"
         @mouseleave="(e) => releaseNote(e)"

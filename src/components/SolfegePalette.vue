@@ -24,7 +24,7 @@
         :style="{
           background:
             musicStore.currentNote === solfege.name
-              ? solfege.colorGradient
+              ? getReactiveGradient(solfege.name)
               : undefined,
           transform:
             musicStore.currentNote === solfege.name ? 'scale(0.98)' : undefined,
@@ -46,9 +46,71 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref, onMounted, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { useColorSystem } from "@/composables/useColorSystem";
 
 const musicStore = useMusicStore();
+const { getGradient, isDynamicColorsEnabled } = useColorSystem();
+
+// Create a reactive animation frame counter to trigger re-renders for dynamic colors
+const animationFrame = ref(0);
+let animationId: number | null = null;
+
+// Start animation loop when dynamic colors are enabled
+const startAnimation = () => {
+  if (animationId) return;
+
+  const animate = () => {
+    animationFrame.value++;
+    animationId = requestAnimationFrame(animate);
+  };
+
+  animate();
+};
+
+// Stop animation loop
+const stopAnimation = () => {
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+};
+
+// Create a reactive computed property that updates with animation frames
+const getReactiveGradient = computed(() => {
+  return (noteName: string) => {
+    // Force reactivity by accessing animation frame when dynamic colors are enabled
+    if (isDynamicColorsEnabled.value) {
+      animationFrame.value; // This triggers re-computation on every frame
+    }
+    return getGradient(noteName, musicStore.currentMode);
+  };
+});
+
+// Watch for dynamic colors being enabled/disabled
+const shouldAnimate = computed(() => isDynamicColorsEnabled.value);
+
+// Lifecycle hooks
+onMounted(() => {
+  if (shouldAnimate.value) {
+    startAnimation();
+  }
+});
+
+onUnmounted(() => {
+  stopAnimation();
+});
+
+// Watch for changes in dynamic colors setting
+import { watch } from "vue";
+watch(shouldAnimate, (newValue) => {
+  if (newValue) {
+    startAnimation();
+  } else {
+    stopAnimation();
+  }
+});
 
 // Function for attacking notes (hold to sustain)
 const attackNote = (solfegeIndex: number, event?: Event) => {

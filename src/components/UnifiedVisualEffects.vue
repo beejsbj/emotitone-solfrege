@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useUnifiedCanvas } from "@/composables/useUnifiedCanvas";
+import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
 import type { SolfegeData } from "@/types/music";
 
 const musicStore = useMusicStore();
@@ -26,6 +26,8 @@ const {
   handleResize,
   handleNotePlayed,
   handleNoteReleased,
+  startAnimation,
+  stopAnimation,
   cleanup,
 } = useUnifiedCanvas(canvasRef);
 
@@ -53,8 +55,14 @@ watch(
 );
 
 onMounted(() => {
+  console.log("🚀 Mounting UnifiedVisualEffects...");
+
   // Initialize the unified canvas system
   initializeCanvas();
+
+  // Start the animation loop
+  console.log("▶️ Starting animation...");
+  startAnimation();
 
   // Handle window resize
   window.addEventListener("resize", handleResize);
@@ -62,10 +70,13 @@ onMounted(() => {
   // Listen for note events
   window.addEventListener("note-played", onNotePlayed as EventListener);
   window.addEventListener("note-released", onNoteReleased as EventListener);
+
+  console.log("✅ UnifiedVisualEffects mounted and ready");
 });
 
 onUnmounted(() => {
-  // Cleanup
+  // Stop animation and cleanup
+  stopAnimation();
   cleanup();
 
   // Remove event listeners

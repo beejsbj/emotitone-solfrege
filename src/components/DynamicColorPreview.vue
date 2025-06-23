@@ -30,21 +30,20 @@
             :title="`Tertiary: ${notePreview.colors.tertiary}`"
           ></div>
         </div>
-        <div class="hue-info" v-if="notePreview.hueRange">
-          <small>
-            Hue: {{ Math.round(notePreview.hueRange.baseHue) }}° 
-            (±{{ notePreview.hueRange.amplitude }}°)
-          </small>
+        <div class="hue-info" v-if="isDynamicColorsEnabled">
+          <small>Dynamic Colors Active</small>
         </div>
       </div>
     </div>
     <div class="mapping-info">
       <p>
-        <strong>Mapping:</strong> 
-        {{ isChromaticMappingEnabled ? '12 Chromatic Notes' : '7 Solfege Notes' }}
+        <strong>Mapping:</strong>
+        {{
+          isChromaticMappingEnabled ? "12 Chromatic Notes" : "7 Solfege Notes"
+        }}
       </p>
       <p>
-        <strong>Hue Distribution:</strong> 
+        <strong>Hue Distribution:</strong>
         {{ Math.round(360 / (isChromaticMappingEnabled ? 12 : 7)) }}° per note
       </p>
     </div>
@@ -53,16 +52,19 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useDynamicColors } from "@/composables/useDynamicColors";
+import { useColorSystem } from "@/composables/useColorSystem";
+import { useVisualConfig } from "@/composables/useVisualConfig";
 
-const {
-  isDynamicColorsEnabled,
-  isChromaticMappingEnabled,
-  getColorPreview,
-} = useDynamicColors();
+const { getColorPreview, isDynamicColorsEnabled } = useColorSystem();
+const { dynamicColorConfig } = useVisualConfig();
 
 // Get color preview for middle octave
-const colorPreview = computed(() => getColorPreview(3));
+const colorPreview = computed(() => getColorPreview("major", 3));
+
+// Check if chromatic mapping is enabled
+const isChromaticMappingEnabled = computed(
+  () => dynamicColorConfig.value.chromaticMapping
+);
 </script>
 
 <style scoped>

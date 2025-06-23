@@ -1,6 +1,6 @@
 // Composable for managing animation lifecycle (start/stop/cleanup)
-import { ref, onUnmounted } from 'vue';
-import type { AnimationLifecycleOptions } from './types';
+import { ref, onUnmounted } from "vue";
+import type { AnimationLifecycleOptions } from "@/types";
 
 /**
  * Composable for managing animation lifecycle with requestAnimationFrame
@@ -8,12 +8,7 @@ import type { AnimationLifecycleOptions } from './types';
  * @returns Object with animation control methods and state
  */
 export function useAnimationLifecycle(options: AnimationLifecycleOptions = {}) {
-  const {
-    onStart,
-    onStop,
-    onFrame,
-    autoCleanup = true
-  } = options;
+  const { onStart, onStop, onFrame, autoCleanup = true } = options;
 
   // Animation state
   const isAnimating = ref(false);
@@ -30,7 +25,7 @@ export function useAnimationLifecycle(options: AnimationLifecycleOptions = {}) {
 
     isAnimating.value = true;
     startTime.value = 0;
-    
+
     // Call onStart callback
     onStart?.();
 
@@ -38,7 +33,7 @@ export function useAnimationLifecycle(options: AnimationLifecycleOptions = {}) {
       if (!startTime.value) {
         startTime.value = timestamp;
       }
-      
+
       const elapsed = (timestamp - startTime.value) / 1000;
 
       // Call the frame callback
@@ -62,14 +57,14 @@ export function useAnimationLifecycle(options: AnimationLifecycleOptions = {}) {
     }
 
     isAnimating.value = false;
-    
+
     if (animationId.value !== null) {
       cancelAnimationFrame(animationId.value);
       animationId.value = null;
     }
 
     startTime.value = 0;
-    
+
     // Call onStop callback
     onStop?.();
   };
@@ -100,14 +95,14 @@ export function useAnimationLifecycle(options: AnimationLifecycleOptions = {}) {
   return {
     // State
     isAnimating: readonly(isAnimating),
-    
+
     // Methods
     startAnimation,
     stopAnimation,
     toggleAnimation,
-    cleanup
+    cleanup,
   };
 }
 
 // Re-export readonly from Vue for convenience
-import { readonly } from 'vue';
+import { readonly } from "vue";

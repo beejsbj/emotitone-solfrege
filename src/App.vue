@@ -1,8 +1,5 @@
 <template>
-  <div
-    id="app"
-    class="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 font-weight-oscillate-full"
-  >
+  <div id="app" class="min-h-screen">
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <UnifiedVisualEffects />
 
@@ -45,6 +42,7 @@ import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import SolfegePalette from "@/components/SolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
+import DynamicColorPreview from "@/components/DynamicColorPreview.vue";
 
 // Check if we're in development mode
 const isDev = import.meta.env.DEV;
@@ -55,6 +53,6 @@ const musicStore = useMusicStore();
 console.log("Number of solfege notes:", musicStore.solfegeData.length);
 console.log(
   "Solfege data:",
-  musicStore.solfegeData.map((s) => s.name)
+  musicStore.solfegeData.map((s: any) => s.name)
 );
 </script>

@@ -36,18 +36,24 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     baseSizeRatio: 0.4, // 40% of screen size
     minSize: 300,
     maxSize: 800,
-    opacity: 0.6,
-    blurRadius: 60,
+    opacity: 0.2,
+    blurRadius: 100,
     oscillationAmplitude: 1, // Increased for more visible vibration
     fadeOutDuration: 1.5, // 1.5 seconds fade-out
-    driftSpeed: 20, // 20 pixels per second max drift
+    scaleInDuration: 0.3, // 0.3 seconds scale-in animation
+    scaleOutDuration: 0.4, // 0.4 seconds scale-out animation
+    driftSpeed: 10, // 20 pixels per second max drift
     vibrationFrequencyDivisor: 80, // Lower divisor for more noticeable vibration
+    edgeSegments: 48, // Number of segments for blob edge
+    vibrationAmplitude: 15, // Amplitude of edge vibration
+    glowEnabled: true, // Enable glow effect
+    glowIntensity: 10, // Glow blur intensity
   },
 
   ambient: {
     isEnabled: true,
-    opacityMajor: 0.15,
-    opacityMinor: 0.08,
+    opacityMajor: 0.6,
+    opacityMinor: 0.4,
     brightnessMajor: 0.5,
     brightnessMinor: 0.3,
     saturationMajor: 0.8,
@@ -62,12 +68,14 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     lifetimeMin: 2000, // milliseconds
     lifetimeMax: 4000,
     speed: 4,
+    gravity: 0, // Gravity effect
+    airResistance: 0.99, // Air resistance (0.99 = 1% loss per frame)
   },
 
   strings: {
     isEnabled: true,
     count: 8,
-    baseOpacity: 0.15,
+    baseOpacity: 0.05,
     activeOpacity: 0.9,
     maxAmplitude: 15,
     dampingFactor: 0.08,
@@ -97,7 +105,7 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
   },
 
   dynamicColors: {
-    isEnabled: false, // Start with static colors by default
+    isEnabled: true, // Start with static colors by default
     chromaticMapping: false, // Start with solfege (7 notes) mapping
     hueAnimationAmplitude: 15, // ±15° animation range
     animationSpeed: 1, // Normal animation speed

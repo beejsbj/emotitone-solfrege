@@ -11,7 +11,7 @@ import {
   type SolfegeData,
   type Scale,
   type MelodicPattern,
-} from "./musicData";
+} from "@/data";
 import type { Note, MusicalMode } from "@/types/music";
 
 // Re-export types for backward compatibility

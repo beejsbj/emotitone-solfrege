@@ -11,7 +11,7 @@ export type {
   Note,
   MusicalMode,
   ChromaticNote,
-} from './music';
+} from "./music";
 
 // Visual Effects Types
 export type {
@@ -29,7 +29,9 @@ export type {
   AnimationConfig,
   FrequencyMappingConfig,
   VisualEffectsConfig,
-} from './visual';
+  NoteColorRelationships,
+  DynamicColorConfig,
+} from "./visual";
 
 // Canvas and Animation Types
 export type {
@@ -41,7 +43,7 @@ export type {
   EffectRenderState,
   PerformanceMetrics,
   CanvasNoteEvent,
-} from './canvas';
+} from "./canvas";
 
 // Audio System Types
 export type {
@@ -52,7 +54,7 @@ export type {
   AudioAnalysis,
   AudioEffect,
   AudioRouting,
-} from './audio';
+} from "./audio";
 
 // Re-export commonly used Vue types for convenience
-export type { Ref, ComputedRef, WritableComputedRef } from 'vue';
+export type { Ref, ComputedRef, WritableComputedRef } from "vue";

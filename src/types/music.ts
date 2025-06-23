@@ -5,6 +5,7 @@
 
 /**
  * Core solfege note data structure with emotional and visual properties
+ * Colors are now handled by the unified color system and not stored in the data structure
  */
 export interface SolfegeData {
   /** Solfege name (Do, Re, Mi, etc.) */
@@ -15,20 +16,6 @@ export interface SolfegeData {
   emotion: string;
   /** Detailed description of the note's character */
   description: string;
-  
-  // Enhanced color system
-  /** Primary gradient CSS variable reference */
-  colorGradient: string;
-  /** Main color CSS variable reference */
-  colorPrimary: string;
-  /** Supporting color CSS variable reference */
-  colorSecondary: string;
-  /** Accent/highlight color CSS variable reference */
-  colorAccent: string;
-  /** Bright highlight color CSS variable reference */
-  colorHighlight: string;
-  /** Fleck color CSS variable reference */
-  colorFlecks: string;
   /** Shape of visual flecks */
   fleckShape: "circle" | "star" | "diamond" | "sparkle" | "mist";
   /** Textural description for visual effects */
@@ -83,4 +70,16 @@ export type MusicalMode = "major" | "minor";
 /**
  * Chromatic note names
  */
-export type ChromaticNote = "C" | "C#" | "D" | "D#" | "E" | "F" | "F#" | "G" | "G#" | "A" | "A#" | "B";
+export type ChromaticNote =
+  | "C"
+  | "C#"
+  | "D"
+  | "D#"
+  | "E"
+  | "F"
+  | "F#"
+  | "G"
+  | "G#"
+  | "A"
+  | "A#"
+  | "B";

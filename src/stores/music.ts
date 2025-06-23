@@ -22,6 +22,7 @@ export const useMusicStore = defineStore("music", () => {
   });
 
   const solfegeData = computed(() => {
+    // Return the base solfege data - colors are now handled by ColorService
     return currentScale.value.solfege;
   });
 

@@ -1,6 +1,6 @@
 // Utility functions for frequency-based visual effects
 import type { FrequencyMapping, VisualEffectsConfig } from "@/types/visual";
-import { extractColorFromGradient as extractColorFromGradientNew } from "./cssVariableResolver";
+// Color extraction is now handled by unified color system
 
 /**
  * Maps a frequency to a visual value using linear interpolation
@@ -88,15 +88,7 @@ export function createOscillation(
   return baseValue + oscillation * amplitude;
 }
 
-/**
- * Extracts a base color from a CSS gradient string
- * @param gradient - CSS gradient string
- * @returns A hex color or fallback color
- * @deprecated Use extractColorFromGradient from cssVariableResolver.ts instead
- */
-export function extractColorFromGradient(gradient: string): string {
-  return extractColorFromGradientNew(gradient);
-}
+// Color extraction is now handled by ColorService
 
 /**
  * Creates damping effect for string-like animations
@@ -188,25 +180,4 @@ export function createParticleProperties(config: VisualEffectsConfig) {
   };
 }
 
-/**
- * Gets ambient colors based on mode and config
- * @param isMinor - Whether the current mode is minor
- * @param config - Visual effects configuration
- * @returns Ambient color configuration
- */
-export function getAmbientColors(
-  isMinor: boolean,
-  config: VisualEffectsConfig
-) {
-  return {
-    brightness: isMinor
-      ? config.ambient.brightnessMinor
-      : config.ambient.brightnessMajor,
-    saturation: isMinor
-      ? config.ambient.saturationMinor
-      : config.ambient.saturationMajor,
-    opacity: isMinor
-      ? config.ambient.opacityMinor
-      : config.ambient.opacityMajor,
-  };
-}
+// Ambient colors are now handled directly in the canvas rendering

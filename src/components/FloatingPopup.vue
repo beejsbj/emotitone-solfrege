@@ -5,8 +5,9 @@
     class="fixed top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out"
     :class="musicStore.currentNote ? 'translate-y-0' : '-translate-y-full'"
     :style="{
-      background:
-        getCurrentSolfegeData()?.colorGradient || 'rgba(0, 0, 0, 0.8)',
+      background: musicStore.currentNote
+        ? getGradient(musicStore.currentNote, musicStore.currentMode)
+        : 'rgba(0, 0, 0, 0.8)',
       transform: `translateX(-50%) translateY(${
         musicStore.currentNote ? '0' : '-100%'
       })`,
@@ -46,9 +47,11 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { useColorSystem } from "@/composables/useColorSystem";
 import { gsap } from "gsap";
 
 const musicStore = useMusicStore();
+const { getGradient } = useColorSystem();
 const floatingPopup = ref<HTMLElement | null>(null);
 
 // Get current solfege data for display

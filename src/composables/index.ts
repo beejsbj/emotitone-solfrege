@@ -5,5 +5,7 @@ export { initializeFontWeightOscillation } from "./useOscillatingFontWeight";
 
 export { useAnimationLifecycle } from "./useAnimationLifecycle";
 export { useVisualConfig } from "./useVisualConfig";
-export { useUnifiedCanvas } from "./useUnifiedCanvas";
-export * from "./types";
+export { useColorSystem } from "./useColorSystem";
+
+// Canvas modules
+export * from "./canvas";

@@ -33,6 +33,8 @@ export interface ActiveBlob {
   driftVy: number;
   /** Random phase offset for unique vibration pattern */
   vibrationPhase: number;
+  /** Current scale multiplier for grow/shrink animations */
+  scale: number;
 }
 
 /**

@@ -6,6 +6,28 @@
 import type { Ref } from "vue";
 
 /**
+ * Note color relationships for dynamic color system
+ */
+export interface NoteColorRelationships {
+  primary: string;
+  accent: string;
+  secondary: string;
+  tertiary: string;
+}
+
+/**
+ * Dynamic color configuration
+ */
+export interface DynamicColorConfig {
+  chromaticMapping: boolean;
+  saturation: number;
+  baseLightness: number;
+  lightnessRange: number;
+  hueAnimationAmplitude: number;
+  animationSpeed: number;
+}
+
+/**
  * Font weight oscillation configuration
  */
 export interface OscillationConfig {
@@ -117,10 +139,22 @@ export interface BlobConfig {
   oscillationAmplitude: number;
   /** Fade-out duration in seconds */
   fadeOutDuration: number;
+  /** Scale-in animation duration in seconds */
+  scaleInDuration: number;
+  /** Scale-out animation duration in seconds */
+  scaleOutDuration: number;
   /** Maximum drift speed in pixels per second */
   driftSpeed: number;
   /** Vibration frequency divisor for more fluid movement */
   vibrationFrequencyDivisor: number;
+  /** Number of segments for blob edge */
+  edgeSegments: number;
+  /** Amplitude of edge vibration */
+  vibrationAmplitude: number;
+  /** Enable glow effect */
+  glowEnabled: boolean;
+  /** Glow blur intensity */
+  glowIntensity: number;
 }
 
 /**
@@ -161,6 +195,10 @@ export interface ParticleConfig {
   lifetimeMax: number;
   /** Particle movement speed */
   speed: number;
+  /** Gravity effect on particles */
+  gravity: number;
+  /** Air resistance factor (0-1) */
+  airResistance: number;
 }
 
 /**
@@ -248,7 +286,7 @@ export interface DynamicColorConfig {
 }
 
 /**
- * Color relationships for a note
+ * Core color relationships for a note - only the essential colors
  */
 export interface NoteColorRelationships {
   /** Primary color (base hue) */
@@ -259,8 +297,30 @@ export interface NoteColorRelationships {
   secondary: string;
   /** Tertiary color (second triadic - hue + 240°) */
   tertiary: string;
-  /** Gradient combining primary and secondary */
-  gradient: string;
+}
+
+/**
+ * Static color palette for a solfege note - only stores the core colors
+ */
+export interface SolfegeColorPalette {
+  /** Primary color */
+  primary: string;
+  /** Secondary color */
+  secondary: string;
+  /** Accent color */
+  accent: string;
+  /** Tertiary color */
+  tertiary: string;
+}
+
+/**
+ * Complete color data for both major and minor modes
+ */
+export interface SolfegeColorData {
+  /** Major mode colors */
+  major: SolfegeColorPalette;
+  /** Minor mode colors */
+  minor: SolfegeColorPalette;
 }
 
 /**

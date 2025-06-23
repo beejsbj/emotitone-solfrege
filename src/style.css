@@ -1,5 +1,4 @@
-/* Import solfege color system */
-@import './styles/solfege-colors.css';
+/* Solfege color system now handled by unified color system */
 
 @tailwind base;
 @tailwind components;

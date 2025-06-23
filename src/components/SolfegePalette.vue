@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20"
-  >
+  <div class="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
     <h2 class="text-2xl text-white mb-4 text-center font-weight-oscillate-lg">
       Solfege Palette
     </h2>
@@ -11,11 +9,11 @@
     </p>
 
     <!-- Solfege Buttons -->
-    <div class="grid grid-cols-8 gap-4">
+    <div class="grid grid-cols-8 gap-1">
       <button
         v-for="(solfege, index) in musicStore.solfegeData"
         :key="solfege.name"
-        class="btn-solfege bg-white/20 hover:bg-white/30 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-150 backdrop-blur-sm border border-white/30 min-h-[4rem] select-none active:scale-95"
+        class="btn-solfege bg-white/20 hover:bg-white/30 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-150 backdrop-blur-sm border border-white/30 min-h-[4rem] aspect-[9/20] select-none active:scale-95"
         @mousedown="(e) => attackNote(index, e)"
         @mouseup="(e) => releaseNote(e)"
         @mouseleave="(e) => releaseNote(e)"

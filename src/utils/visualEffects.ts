@@ -1,5 +1,6 @@
 // Utility functions for frequency-based visual effects
-import type { FrequencyMapping } from '@/composables/types';
+import type { FrequencyMapping, VisualEffectsConfig } from "@/types/visual";
+import { extractColorFromGradient as extractColorFromGradientNew } from "./cssVariableResolver";
 
 /**
  * Maps a frequency to a visual value using linear interpolation
@@ -12,27 +13,35 @@ export function mapFrequencyToValue(
   mapping: FrequencyMapping
 ): number {
   const { minFreq, maxFreq, minValue, maxValue } = mapping;
-  
+
   // Clamp frequency to the specified range
   const clampedFreq = Math.max(minFreq, Math.min(maxFreq, frequency));
-  
+
   // Normalize frequency to 0-1 range
   const normalizedFreq = (clampedFreq - minFreq) / (maxFreq - minFreq);
-  
+
   // Map to output range
   return Math.round(minValue + normalizedFreq * (maxValue - minValue));
 }
 
 /**
- * Creates a default frequency mapping for font weights
+ * Creates a frequency mapping from config
+ * @param config - Visual effects configuration
  * @returns FrequencyMapping configuration for font weights
  */
-export function createFontWeightMapping(): FrequencyMapping {
+export function createFontWeightMapping(
+  config?: VisualEffectsConfig
+): FrequencyMapping {
+  if (config) {
+    return config.frequencyMapping;
+  }
+
+  // Fallback to default values
   return {
     minFreq: 200,
     maxFreq: 600,
     minValue: 400,
-    maxValue: 700
+    maxValue: 700,
   };
 }
 
@@ -41,7 +50,10 @@ export function createFontWeightMapping(): FrequencyMapping {
  * @param divisor - How much to divide the audio frequency for visual frequency
  * @returns The visual frequency
  */
-export function createVisualFrequency(audioFrequency: number, divisor: number = 100): number {
+export function createVisualFrequency(
+  audioFrequency: number,
+  divisor: number = 100
+): number {
   return audioFrequency / divisor;
 }
 
@@ -80,23 +92,10 @@ export function createOscillation(
  * Extracts a base color from a CSS gradient string
  * @param gradient - CSS gradient string
  * @returns A hex color or fallback color
+ * @deprecated Use extractColorFromGradient from cssVariableResolver.ts instead
  */
 export function extractColorFromGradient(gradient: string): string {
-  // Try to extract the first hex color from the gradient
-  const hexMatch = gradient.match(/#[0-9a-fA-F]{6}/);
-  if (hexMatch) {
-    return hexMatch[0];
-  }
-  
-  // Try to extract rgb color
-  const rgbMatch = gradient.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-  if (rgbMatch) {
-    const [, r, g, b] = rgbMatch;
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-  
-  // Fallback color
-  return '#ffffff';
+  return extractColorFromGradientNew(gradient);
 }
 
 /**
@@ -125,19 +124,89 @@ export function createHarmonicVibration(
   phase: number = 0
 ): number {
   // Primary vibration
-  const vibration1 = Math.sin(
-    elapsed * baseFrequency * 2 * Math.PI + phase + position * 0.005
-  ) * amplitude;
+  const vibration1 =
+    Math.sin(elapsed * baseFrequency * 2 * Math.PI + phase + position * 0.005) *
+    amplitude;
 
   // Second harmonic (more subtle)
-  const vibration2 = Math.sin(
-    elapsed * baseFrequency * 4 * Math.PI + phase * 1.2 + position * 0.008
-  ) * amplitude * 0.15;
+  const vibration2 =
+    Math.sin(
+      elapsed * baseFrequency * 4 * Math.PI + phase * 1.2 + position * 0.008
+    ) *
+    amplitude *
+    0.15;
 
   // Third harmonic (very subtle)
-  const vibration3 = Math.sin(
-    elapsed * baseFrequency * 6 * Math.PI + phase * 1.8 + position * 0.012
-  ) * amplitude * 0.05;
+  const vibration3 =
+    Math.sin(
+      elapsed * baseFrequency * 6 * Math.PI + phase * 1.8 + position * 0.012
+    ) *
+    amplitude *
+    0.05;
 
   return vibration1 + vibration2 + vibration3;
+}
+
+/**
+ * Creates a blob size based on screen dimensions and config
+ * @param screenWidth - Screen width in pixels
+ * @param screenHeight - Screen height in pixels
+ * @param config - Visual effects configuration
+ * @returns Calculated blob size
+ */
+export function calculateBlobSize(
+  screenWidth: number,
+  screenHeight: number,
+  config: VisualEffectsConfig
+): number {
+  const screenBasedSize =
+    Math.min(screenWidth, screenHeight) * config.blobs.baseSizeRatio;
+  return Math.max(
+    config.blobs.minSize,
+    Math.min(config.blobs.maxSize, screenBasedSize)
+  );
+}
+
+/**
+ * Creates particle properties based on config
+ * @param config - Visual effects configuration
+ * @returns Particle configuration object
+ */
+export function createParticleProperties(config: VisualEffectsConfig) {
+  return {
+    size:
+      config.particles.sizeMin +
+      Math.random() * (config.particles.sizeMax - config.particles.sizeMin),
+    lifetime:
+      config.particles.lifetimeMin +
+      Math.random() *
+        (config.particles.lifetimeMax - config.particles.lifetimeMin),
+    velocity: {
+      x: (Math.random() - 0.5) * config.particles.speed,
+      y: (Math.random() - 0.5) * config.particles.speed,
+    },
+  };
+}
+
+/**
+ * Gets ambient colors based on mode and config
+ * @param isMinor - Whether the current mode is minor
+ * @param config - Visual effects configuration
+ * @returns Ambient color configuration
+ */
+export function getAmbientColors(
+  isMinor: boolean,
+  config: VisualEffectsConfig
+) {
+  return {
+    brightness: isMinor
+      ? config.ambient.brightnessMinor
+      : config.ambient.brightnessMajor,
+    saturation: isMinor
+      ? config.ambient.saturationMinor
+      : config.ambient.saturationMajor,
+    opacity: isMinor
+      ? config.ambient.opacityMinor
+      : config.ambient.opacityMajor,
+  };
 }

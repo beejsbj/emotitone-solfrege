@@ -1,5 +1,6 @@
 // Simple font weight oscillation utility
 import { useMusicStore } from "@/stores/music";
+import { useVisualConfig } from "./useVisualConfig";
 import {
   mapFrequencyToValue,
   createFontWeightMapping,
@@ -8,13 +9,7 @@ import {
   clamp,
 } from "@/utils/visualEffects";
 
-// Configuration for different oscillation sizes
-const OSCILLATION_CONFIGS = {
-  sm: { amplitude: 50, baseWeight: 400 },
-  md: { amplitude: 100, baseWeight: 500 },
-  lg: { amplitude: 150, baseWeight: 600 },
-  full: { amplitude: 400, baseWeight: 500 }, // Oscillates from 100-900
-};
+// Configuration is now managed by useVisualConfig composable
 
 let animationId: number | null = null;
 let startTime: number | null = null;
@@ -23,26 +18,49 @@ let baseFontWeight = 500;
 let visualFrequency = 0;
 let musicStore: any = null;
 
+// Cache DOM elements to avoid repeated queries
+let cachedElements: HTMLElement[] = [];
+let lastElementCount = 0;
+
 /**
- * Updates font weights for all elements with oscillation classes
+ * Cache DOM elements for font weight oscillation
  */
-function updateFontWeights(elapsed: number) {
+function cacheOscillationElements() {
   const elements = document.querySelectorAll(
     ".font-weight-oscillate-sm, .font-weight-oscillate-md, .font-weight-oscillate-lg, .font-weight-oscillate-full"
   );
+  cachedElements = Array.from(elements) as HTMLElement[];
+  lastElementCount = cachedElements.length;
+}
 
-  elements.forEach((element) => {
-    const htmlElement = element as HTMLElement;
+/**
+ * Updates font weights for all elements with oscillation classes (optimized)
+ */
+function updateFontWeights(elapsed: number) {
+  const { fontOscillationConfig } = useVisualConfig();
+  if (!fontOscillationConfig.value.isEnabled) return;
+
+  // Check if we need to refresh the element cache
+  const currentElementCount = document.querySelectorAll(
+    ".font-weight-oscillate-sm, .font-weight-oscillate-md, .font-weight-oscillate-lg, .font-weight-oscillate-full"
+  ).length;
+
+  if (currentElementCount !== lastElementCount || cachedElements.length === 0) {
+    cacheOscillationElements();
+  }
+
+  cachedElements.forEach((element) => {
+    const htmlElement = element;
     let config;
 
     if (htmlElement.classList.contains("font-weight-oscillate-sm")) {
-      config = OSCILLATION_CONFIGS.sm;
+      config = fontOscillationConfig.value.sm;
     } else if (htmlElement.classList.contains("font-weight-oscillate-md")) {
-      config = OSCILLATION_CONFIGS.md;
+      config = fontOscillationConfig.value.md;
     } else if (htmlElement.classList.contains("font-weight-oscillate-lg")) {
-      config = OSCILLATION_CONFIGS.lg;
+      config = fontOscillationConfig.value.lg;
     } else if (htmlElement.classList.contains("font-weight-oscillate-full")) {
-      config = OSCILLATION_CONFIGS.full;
+      config = fontOscillationConfig.value.full;
     } else {
       return;
     }
@@ -124,15 +142,37 @@ function stopOscillation() {
   updateFontWeights(0);
 }
 
+// Store cleanup function for proper disposal
+let unsubscribe: (() => void) | null = null;
+
+/**
+ * Cleanup function for font weight oscillation
+ */
+export function cleanupFontWeightOscillation() {
+  stopOscillation();
+  cachedElements = [];
+  lastElementCount = 0;
+
+  if (unsubscribe) {
+    unsubscribe();
+    unsubscribe = null;
+  }
+}
+
 /**
  * Initialize the font weight oscillation system
  * Call this once in your app to set up automatic oscillation
  */
 export function initializeFontWeightOscillation() {
+  // Clean up any existing subscription
+  if (unsubscribe) {
+    unsubscribe();
+  }
+
   musicStore = useMusicStore();
 
   // Watch for note changes
-  musicStore.$subscribe((_mutation: any, state: any) => {
+  unsubscribe = musicStore.$subscribe((_mutation: any, state: any) => {
     if (state.currentNote) {
       startOscillation();
     } else {

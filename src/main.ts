@@ -1,4 +1,4 @@
-import { createApp } from "vue";
+import { createApp, nextTick } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./style.css";
@@ -11,6 +11,6 @@ app.use(pinia);
 app.mount("#app");
 
 // Initialize font weight oscillation after app is mounted
-app.config.globalProperties.$nextTick(() => {
+nextTick(() => {
   initializeFontWeightOscillation();
 });

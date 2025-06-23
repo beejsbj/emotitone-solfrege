@@ -3,14 +3,14 @@
     id="app"
     class="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 font-weight-oscillate-full"
   >
-    <!-- Dynamic Background -->
-    <DynamicBackground />
-
-    <!-- Vibrating Strings Canvas Background -->
-    <VibratingStrings />
+    <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
+    <UnifiedVisualEffects />
 
     <!-- Floating Interval Description Popup -->
     <FloatingPopup />
+
+    <!-- Visual Effects Debug Panel (Development Only) -->
+    <VisualEffectsDebugPanel v-if="isDev" />
 
     <!-- Main Content -->
     <div class="relative z-10 min-h-screen flex flex-col">
@@ -33,9 +33,6 @@
           </div>
         </div>
       </main>
-
-      <!-- Footer -->
-      <AppFooter />
     </div>
   </div>
 </template>
@@ -44,11 +41,13 @@
 import { useMusicStore } from "@/stores/music";
 import KeySelector from "@/components/KeySelector.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
-import VibratingStrings from "@/components/VibratingStrings.vue";
-import DynamicBackground from "@/components/DynamicBackground.vue";
+import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import SolfegePalette from "@/components/SolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
-import AppFooter from "@/components/AppFooter.vue";
+import VisualEffectsDebugPanel from "@/components/VisualEffectsDebugPanel.vue";
+
+// Check if we're in development mode
+const isDev = import.meta.env.DEV;
 
 const musicStore = useMusicStore();
 

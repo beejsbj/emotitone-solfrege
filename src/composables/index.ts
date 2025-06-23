@@ -3,6 +3,7 @@
 
 export { initializeFontWeightOscillation } from "./useOscillatingFontWeight";
 
-export { useVibratingAnimation } from "./useVibratingAnimation";
 export { useAnimationLifecycle } from "./useAnimationLifecycle";
+export { useVisualConfig } from "./useVisualConfig";
+export { useUnifiedCanvas } from "./useUnifiedCanvas";
 export * from "./types";

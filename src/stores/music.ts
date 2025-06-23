@@ -1,16 +1,13 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import {
-  musicTheory,
-  type SolfegeData,
-  type MelodicPattern,
-} from "@/services/music";
+import { musicTheory } from "@/services/music";
+import type { SolfegeData, MelodicPattern, MusicalMode } from "@/types/music";
 import { audioService } from "@/services/audio";
 
 export const useMusicStore = defineStore("music", () => {
   // State
   const currentKey = ref<string>("C");
-  const currentMode = ref<"major" | "minor">("major");
+  const currentMode = ref<MusicalMode>("major");
   const currentNote = ref<string | null>(null);
   const isPlaying = ref<boolean>(false);
   const sequence = ref<string[]>([]);
@@ -40,7 +37,7 @@ export const useMusicStore = defineStore("music", () => {
     musicTheory.setCurrentKey(key);
   }
 
-  function setMode(mode: "major" | "minor") {
+  function setMode(mode: MusicalMode) {
     currentMode.value = mode;
     musicTheory.setCurrentMode(mode);
   }
@@ -102,6 +99,15 @@ export const useMusicStore = defineStore("music", () => {
   function releaseNote() {
     audioService.releaseNote();
 
+    // Dispatch custom event for background effects before resetting state
+    const noteReleasedEvent = new CustomEvent("note-released", {
+      detail: {
+        note: currentNote.value,
+        isPlaying: isPlaying.value,
+      },
+    });
+    window.dispatchEvent(noteReleasedEvent);
+
     // Reset state after a short delay to allow for release envelope
     setTimeout(() => {
       currentNote.value = null;
@@ -125,7 +131,7 @@ export const useMusicStore = defineStore("music", () => {
   }
 
   function getSolfegeByName(name: string): SolfegeData | undefined {
-    return solfegeData.value.find((s) => s.name === name);
+    return solfegeData.value.find((s: SolfegeData) => s.name === name);
   }
 
   function getNoteFrequency(solfegeIndex: number, octave: number = 4): number {

@@ -14,15 +14,29 @@ export interface InstrumentConfig {
   /** Description of the instrument */
   description: string;
   /** Category classification */
-  category: "synth" | "sampler" | "percussion";
+  category:
+    | "keyboards"
+    | "synth"
+    | "strings"
+    | "brass"
+    | "woodwinds"
+    | "percussion";
   /** Optional icon identifier */
   icon?: string;
+  /** Whether to minify samples for this instrument (for sample-based instruments) */
+  minify?: boolean;
 }
 
 /**
  * Instrument category type
  */
-export type InstrumentCategory = "synth" | "sampler" | "percussion";
+export type InstrumentCategory =
+  | "keyboards"
+  | "synth"
+  | "strings"
+  | "brass"
+  | "woodwinds"
+  | "percussion";
 
 /**
  * Available instrument names

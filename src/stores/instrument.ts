@@ -7,12 +7,13 @@ import {
   MAX_POLYPHONY,
   PIANO_ENVELOPE,
   STANDARD_COMPRESSOR,
-  PIANO_SAMPLER_CONFIG,
   SYNTH_CONFIGS,
-  SAMPLE_INSTRUMENT_CONFIGS,
   getInstrumentsByCategory,
 } from "@/data/instruments";
-import { loadSampleInstrument } from "@/lib/sample-library";
+import {
+  loadSampleInstrument,
+  createSalamanderPiano,
+} from "@/lib/sample-library";
 import type { SampleInstrumentName } from "@/types/sample-library";
 
 /**
@@ -100,107 +101,37 @@ export const useInstrumentStore = defineStore("instrument", () => {
       metalPoly.maxPolyphony = MAX_POLYPHONY;
       instruments.value.set("metalSynth", metalPoly);
 
-      // Piano Sampler - create a wrapper to match PolySynth API
-      const pianoSampler = new Tone.Sampler(PIANO_SAMPLER_CONFIG);
+      // Salamander Piano - use the integrated sample library system
+      try {
+        console.log("Loading Salamander piano...");
+        const salamanderPiano = await createSalamanderPiano();
 
-      // Create a fallback synth for when piano isn't loaded
-      const pianoFallbackSynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: "triangle" },
-        envelope: PIANO_ENVELOPE,
-      });
-      pianoFallbackSynth.maxPolyphony = MAX_POLYPHONY;
+        // Connect to compressor
+        const pianoCompressor = createCompressor();
+        salamanderPiano.connect(pianoCompressor);
+        pianoCompressor.toDestination();
 
-      // Track loading state
-      let pianoLoaded = false;
+        instruments.value.set("piano", salamanderPiano);
+        pianoLoading.value = false;
+        console.log("Salamander piano loaded successfully");
+      } catch (error) {
+        console.error("Error loading Salamander piano:", error);
 
-      // Wait for piano samples to load
-      Tone.loaded()
-        .then(() => {
-          pianoLoaded = true;
-          pianoLoading.value = false;
-          console.log("Piano samples loaded successfully");
-        })
-        .catch((error) => {
-          console.error("Error loading piano samples:", error);
-          console.log("Piano will use fallback synth");
-          pianoLoading.value = false;
+        // Fallback to basic synth if Salamander piano fails
+        const pianoFallbackSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "triangle" },
+          envelope: PIANO_ENVELOPE,
         });
+        pianoFallbackSynth.maxPolyphony = MAX_POLYPHONY;
 
-      // Create a wrapper object that matches PolySynth API
-      const pianoWrapper = {
-        triggerAttack: (
-          note: string | number,
-          time?: number,
-          velocity?: number
-        ) => {
-          if (!pianoLoaded) {
-            console.log("Piano samples not loaded yet, using fallback synth");
-            pianoFallbackSynth.triggerAttack(note, time, velocity);
-            return;
-          }
-          const noteStr =
-            typeof note === "number" ? Tone.Frequency(note).toNote() : note;
-          pianoSampler.triggerAttack(noteStr, time, velocity);
-        },
-        triggerRelease: (note: string | number, time?: number) => {
-          if (!pianoLoaded) {
-            pianoFallbackSynth.triggerRelease(note, time);
-            return;
-          }
-          const noteStr =
-            typeof note === "number" ? Tone.Frequency(note).toNote() : note;
-          pianoSampler.triggerRelease(noteStr, time);
-        },
-        triggerAttackRelease: (
-          note: string | number,
-          duration: string | number,
-          time?: number,
-          velocity?: number
-        ) => {
-          if (!pianoLoaded) {
-            console.log("Piano samples not loaded yet, using fallback synth");
-            pianoFallbackSynth.triggerAttackRelease(
-              note,
-              duration,
-              time,
-              velocity
-            );
-            return;
-          }
-          const noteStr =
-            typeof note === "number" ? Tone.Frequency(note).toNote() : note;
-          pianoSampler.triggerAttackRelease(noteStr, duration, time, velocity);
-        },
-        releaseAll: (time?: number) => {
-          if (!pianoLoaded) {
-            pianoFallbackSynth.releaseAll(time);
-            return;
-          }
-          pianoSampler.releaseAll(time);
-        },
-        dispose: () => {
-          pianoSampler.dispose();
-        },
-        connect: (destination: any) => {
-          return pianoSampler.connect(destination);
-        },
-        disconnect: () => {
-          pianoSampler.disconnect();
-        },
-        isLoaded: () => pianoLoaded,
-        constructor: { name: "PianoWrapper" },
-      };
+        const pianoFallbackCompressor = createCompressor();
+        pianoFallbackSynth.connect(pianoFallbackCompressor);
+        pianoFallbackCompressor.toDestination();
 
-      const pianoCompressor = createCompressor();
-      pianoSampler.connect(pianoCompressor);
-      pianoCompressor.toDestination();
-
-      // Also connect the fallback synth to the same compressor
-      const pianoFallbackCompressor = createCompressor();
-      pianoFallbackSynth.connect(pianoFallbackCompressor);
-      pianoFallbackCompressor.toDestination();
-
-      instruments.value.set("piano", pianoWrapper);
+        instruments.value.set("piano", pianoFallbackSynth);
+        pianoLoading.value = false;
+        console.log("Using fallback synth for piano");
+      }
 
       // Initialize sample-based instruments
       await initializeSampleInstruments();
@@ -241,14 +172,14 @@ export const useInstrumentStore = defineStore("instrument", () => {
     for (const instrumentName of sampleInstrumentNames) {
       try {
         const config =
-          SAMPLE_INSTRUMENT_CONFIGS[instrumentName] ||
-          SAMPLE_INSTRUMENT_CONFIGS[`sample-${instrumentName}`];
+          AVAILABLE_INSTRUMENTS[instrumentName] ||
+          AVAILABLE_INSTRUMENTS[`sample-${instrumentName}`];
         if (!config) continue;
 
         console.log(`Loading sample instrument: ${instrumentName}`);
 
         const sampleInstrument = await loadSampleInstrument(instrumentName, {
-          minify: config.minify,
+          minify: config.minify || false,
           onload: () => {
             console.log(`${config.displayName} samples loaded successfully`);
           },

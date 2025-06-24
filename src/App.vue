@@ -31,14 +31,14 @@
 
             <!-- Sticky horizontal scroller -->
             <div
-              class="sticky bottom-0 flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1"
+              class="sticky bottom-0 flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"
             >
               <div class="snap-start shrink-0 w-screen">
-                <button>patterns</button>
+                <button @click="handleScroll(1)">patterns</button>
                 <SolfegePalette />
               </div>
               <div class="snap-start shrink-0 w-screen">
-                <button>Keys</button>
+                <button @click="handleScroll(-1)">Keys</button>
                 <PatternPlayer />
               </div>
             </div>
@@ -74,4 +74,24 @@ console.log(
   "Solfege data:",
   musicStore.solfegeData.map((s: any) => s.name)
 );
+
+const handleScroll = (direction: number) => {
+  const container = document.querySelector(".sticky");
+  if (container) {
+    container.scrollLeft += window.innerWidth * direction;
+  }
+};
 </script>
+
+<style scoped>
+/* Hide the scroller */
+/* Hide scrollbars */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+</style>

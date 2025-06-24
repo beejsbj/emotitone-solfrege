@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
-import { SAMPLE_INSTRUMENT_CONFIGS } from "@/data/instruments";
+import { CATEGORY_DISPLAY_NAMES } from "@/data/instruments";
 import type { InstrumentConfig } from "@/types/instrument";
 
 const instrumentStore = useInstrumentStore();
@@ -13,45 +13,9 @@ const currentInstrumentConfig = computed(
 );
 const isLoading = computed(() => instrumentStore.isLoading);
 
-// Create a better categorization system using the sample instrument categories
+// Use the unified categorization system
 const instrumentsByCategory = computed(() => {
-  const instruments = instrumentStore.availableInstruments;
-  const categories: Record<string, InstrumentConfig[]> = {
-    synth: [],
-    keyboards: [],
-    strings: [],
-    brass: [],
-    woodwinds: [],
-    percussion: [],
-  };
-
-  instruments.forEach((instrument) => {
-    // Check if it's a sample instrument with detailed category
-    const sampleConfig = SAMPLE_INSTRUMENT_CONFIGS[instrument.name];
-    if (sampleConfig) {
-      // Use the detailed category from sample config
-      categories[sampleConfig.category].push(instrument);
-    } else {
-      // Use the basic category for synths and other instruments
-      if (instrument.category === "synth") {
-        categories.synth.push(instrument);
-      } else if (instrument.category === "percussion") {
-        categories.percussion.push(instrument);
-      } else {
-        // Fallback for any other instruments
-        categories.synth.push(instrument);
-      }
-    }
-  });
-
-  // Remove empty categories
-  Object.keys(categories).forEach((key) => {
-    if (categories[key].length === 0) {
-      delete categories[key];
-    }
-  });
-
-  return categories;
+  return instrumentStore.instrumentsByCategory;
 });
 
 // Initialize instruments on mount
@@ -65,15 +29,7 @@ const selectInstrument = (instrumentName: string) => {
 };
 
 const getCategoryDisplayName = (category: string): string => {
-  const categoryNames: Record<string, string> = {
-    synth: "Synthesizers",
-    keyboards: "🎹 Keyboards",
-    strings: "🎻 Strings",
-    brass: "🎺 Brass",
-    woodwinds: "🪈 Woodwinds",
-    percussion: "🥁 Percussion",
-  };
-  return categoryNames[category] || category;
+  return CATEGORY_DISPLAY_NAMES[category] || category;
 };
 
 const getInstrumentIcon = (instrumentName: string): string => {

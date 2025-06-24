@@ -9,9 +9,10 @@ import type {
   SampleInstrumentName,
   SampleInstrumentWrapper,
 } from "@/types/sample-library";
+import { PIANO_SAMPLER_CONFIG } from "@/data/instruments";
 
 // Import the JavaScript SampleLibrary
-import SampleLibraryJS from "./tonejs-instruments.js";
+import SampleLibraryJS from "./tonejs-instruments";
 
 /**
  * TypeScript-wrapped SampleLibrary with proper typing
@@ -166,4 +167,32 @@ export function isValidSampleInstrument(
   name: string
 ): name is SampleInstrumentName {
   return SampleLibrary.list.includes(name as SampleInstrumentName);
+}
+
+/**
+ * Create a Salamander piano sampler using the high-quality samples
+ * This integrates the Salamander piano samples into the sample library system
+ */
+export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
+  return new Promise((resolve, reject) => {
+    try {
+      console.log("Loading Salamander piano samples...");
+
+      const pianoSampler = new Tone.Sampler({
+        ...PIANO_SAMPLER_CONFIG,
+        onload: () => {
+          console.log("Salamander piano samples loaded successfully");
+        },
+      });
+
+      const wrapper = createSampleInstrumentWrapper(
+        pianoSampler,
+        "salamander-piano"
+      );
+      resolve(wrapper);
+    } catch (error) {
+      console.error("Error loading Salamander piano:", error);
+      reject(error);
+    }
+  });
 }

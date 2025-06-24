@@ -22,29 +22,39 @@
           :key="key"
           class="config-row"
         >
-          <label>{{ formatLabel(key) }}:</label>
+          <label>{{ formatLabel(String(key)) }}:</label>
 
           <!-- Boolean controls -->
           <input
             v-if="typeof value === 'boolean'"
             type="checkbox"
             :checked="value"
-            @change="updateValue(sectionName, key, $event.target.checked)"
+            @change="
+              updateValue(
+                sectionName,
+                String(key),
+                ($event.target as HTMLInputElement)?.checked ?? false
+              )
+            "
           />
 
           <!-- Number controls -->
           <template v-else-if="typeof value === 'number'">
             <input
               type="range"
-              :min="getNumberMin(sectionName, key)"
-              :max="getNumberMax(sectionName, key)"
-              :step="getNumberStep(sectionName, key)"
+              :min="getNumberMin(sectionName, String(key))"
+              :max="getNumberMax(sectionName, String(key))"
+              :step="getNumberStep(sectionName, String(key))"
               :value="value"
               @input="
-                updateValue(sectionName, key, parseFloat($event.target.value))
+                updateValue(
+                  sectionName,
+                  String(key),
+                  parseFloat(($event.target as HTMLInputElement)?.value ?? '0')
+                )
               "
             />
-            <span>{{ formatValue(sectionName, key, value) }}</span>
+            <span>{{ formatValue(sectionName, String(key), value) }}</span>
           </template>
 
           <!-- String controls (if needed) -->
@@ -52,7 +62,13 @@
             v-else-if="typeof value === 'string'"
             type="text"
             :value="value"
-            @input="updateValue(sectionName, key, $event.target.value)"
+            @input="
+              updateValue(
+                sectionName,
+                String(key),
+                ($event.target as HTMLInputElement)?.value ?? ''
+              )
+            "
           />
         </div>
       </div>
@@ -102,7 +118,7 @@ const configSections = computed(() => {
       // Only include primitive values for now
       const primitives: Record<string, any> = {};
       Object.keys(section).forEach((key) => {
-        const value = section[key];
+        const value = (section as Record<string, any>)[key];
         if (
           typeof value === "boolean" ||
           typeof value === "number" ||

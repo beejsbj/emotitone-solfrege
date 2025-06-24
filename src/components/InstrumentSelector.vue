@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
+import { SAMPLE_INSTRUMENT_CONFIGS } from "@/data/instruments";
+import type { InstrumentConfig } from "@/types/instrument";
 
 const instrumentStore = useInstrumentStore();
 
@@ -9,10 +11,48 @@ const currentInstrument = computed(() => instrumentStore.currentInstrument);
 const currentInstrumentConfig = computed(
   () => instrumentStore.currentInstrumentConfig
 );
-const instrumentsByCategory = computed(
-  () => instrumentStore.instrumentsByCategory
-);
 const isLoading = computed(() => instrumentStore.isLoading);
+
+// Create a better categorization system using the sample instrument categories
+const instrumentsByCategory = computed(() => {
+  const instruments = instrumentStore.availableInstruments;
+  const categories: Record<string, InstrumentConfig[]> = {
+    synth: [],
+    keyboards: [],
+    strings: [],
+    brass: [],
+    woodwinds: [],
+    percussion: [],
+  };
+
+  instruments.forEach((instrument) => {
+    // Check if it's a sample instrument with detailed category
+    const sampleConfig = SAMPLE_INSTRUMENT_CONFIGS[instrument.name];
+    if (sampleConfig) {
+      // Use the detailed category from sample config
+      categories[sampleConfig.category].push(instrument);
+    } else {
+      // Use the basic category for synths and other instruments
+      if (instrument.category === "synth") {
+        categories.synth.push(instrument);
+      } else if (instrument.category === "percussion") {
+        categories.percussion.push(instrument);
+      } else {
+        // Fallback for any other instruments
+        categories.synth.push(instrument);
+      }
+    }
+  });
+
+  // Remove empty categories
+  Object.keys(categories).forEach((key) => {
+    if (categories[key].length === 0) {
+      delete categories[key];
+    }
+  });
+
+  return categories;
+});
 
 // Initialize instruments on mount
 onMounted(async () => {
@@ -27,8 +67,11 @@ const selectInstrument = (instrumentName: string) => {
 const getCategoryDisplayName = (category: string): string => {
   const categoryNames: Record<string, string> = {
     synth: "Synthesizers",
-    sampler: "Sampled Instruments",
-    percussion: "Percussion",
+    keyboards: "🎹 Keyboards",
+    strings: "🎻 Strings",
+    brass: "🎺 Brass",
+    woodwinds: "🪈 Woodwinds",
+    percussion: "🥁 Percussion",
   };
   return categoryNames[category] || category;
 };
@@ -66,13 +109,13 @@ const getInstrumentIcon = (instrumentName: string): string => {
         <h4 class="text-white/70 text-xs font-medium uppercase tracking-wider">
           {{ getCategoryDisplayName(category) }}
         </h4>
-        <div class="flex gap-1">
+        <div class="flex flex-wrap gap-1">
           <button
             v-for="instrument in instruments"
             :key="instrument.name"
             @click="selectInstrument(instrument.name)"
             :class="[
-              'flex flex-col items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-sm text-white/80 cursor-pointer transition-all duration-200 text-xs hover:bg-white/10 hover:border-white/30 hover:-translate-y-0.5',
+              'flex flex-col items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-sm text-white/80 cursor-pointer transition-all duration-200 text-xs hover:bg-white/10 hover:border-white/30 hover:-translate-y-0.5 flex-1 shrink-0',
               {
                 'bg-blue-500/30 border-blue-500/60 text-white':
                   currentInstrument === instrument.name,

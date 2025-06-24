@@ -35,15 +35,25 @@ export type InstrumentName =
   | "metalSynth"
   | "piano"
   | "sample-piano"
+  | "bass-electric"
+  | "bassoon"
+  | "cello"
+  | "clarinet"
+  | "contrabass"
+  | "flute"
+  | "french-horn"
   | "guitar-acoustic"
   | "guitar-electric"
-  | "violin"
-  | "cello"
-  | "flute"
-  | "trumpet"
-  | "saxophone"
+  | "guitar-nylon"
+  | "harmonium"
+  | "harp"
   | "organ"
-  | "harp";
+  | "saxophone"
+  | "trombone"
+  | "trumpet"
+  | "tuba"
+  | "violin"
+  | "xylophone";
 
 /**
  * Instrument store state interface

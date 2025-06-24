@@ -217,15 +217,25 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const initializeSampleInstruments = async () => {
     const sampleInstrumentNames: SampleInstrumentName[] = [
       "piano",
+      "bass-electric",
+      "bassoon",
+      "cello",
+      "clarinet",
+      "contrabass",
+      "flute",
+      "french-horn",
       "guitar-acoustic",
       "guitar-electric",
-      "violin",
-      "cello",
-      "flute",
-      "trumpet",
-      "saxophone",
-      "organ",
+      "guitar-nylon",
+      "harmonium",
       "harp",
+      "organ",
+      "saxophone",
+      "trombone",
+      "trumpet",
+      "tuba",
+      "violin",
+      "xylophone",
     ];
 
     for (const instrumentName of sampleInstrumentNames) {

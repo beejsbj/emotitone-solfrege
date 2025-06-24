@@ -98,9 +98,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    * Initialize the canvas system
    */
   const initializeCanvas = () => {
-    console.log("🎨 Initializing unified canvas...");
-    console.log("Canvas ref:", canvasRef.value);
-
     if (!canvasRef.value) {
       console.error("❌ Canvas ref is null!");
       return;
@@ -112,15 +109,9 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       return;
     }
 
-    console.log("✅ Got 2D context");
-
     // Set canvas size
     canvasRef.value.width = canvasWidth.value;
     canvasRef.value.height = canvasHeight.value;
-
-    console.log(
-      `📐 Canvas size set to: ${canvasWidth.value}x${canvasHeight.value}`
-    );
 
     // Set canvas style for crisp rendering
     ctx.imageSmoothingEnabled = true;
@@ -219,12 +210,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     octave?: number,
     _noteName?: string
   ) => {
-    console.log(
-      `🎵 Note played: ${note.name} (${frequency}Hz)${
-        noteId ? ` [${noteId}]` : ""
-      }`
-    );
-
     // Create persistent gradient blob at position based on octave and note
     // Higher octaves appear higher on screen, different notes spread horizontally
     const baseX = 20 + (note.number - 1) * 10; // Spread by solfege degree
@@ -258,10 +243,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       musicStore,
       particleCount
     );
-
-    console.log(
-      `✨ Created blob and particles for ${note.name}${octave ? octave : ""}`
-    );
   };
 
   /**
@@ -275,7 +256,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       // Fallback to name-based removal for backward compatibility
       blobRenderer.startBlobFadeOut(noteName);
     }
-    console.log(`🎵 Note released: ${noteName}${noteId ? ` [${noteId}]` : ""}`);
   };
 
   /**

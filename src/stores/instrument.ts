@@ -15,6 +15,7 @@ import {
   createSalamanderPiano,
 } from "@/lib/sample-library";
 import type { SampleInstrumentName } from "@/types/sample-library";
+import { toast } from "vue-sonner";
 
 /**
  * Instrument Store
@@ -25,7 +26,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
   // State
   const currentInstrument = ref<string>(DEFAULT_INSTRUMENT);
   const isLoading = ref(false);
-  const pianoLoading = ref(true);
   const instruments = ref<Map<string, any>>(new Map());
 
   // Getters
@@ -104,6 +104,13 @@ export const useInstrumentStore = defineStore("instrument", () => {
       // Salamander Piano - use the integrated sample library system
       try {
         console.log("Loading Salamander piano...");
+
+        // Show loading toast
+        const loadingToast = toast.loading("🎹 Loading piano samples...", {
+          description: "Using fallback synth until loaded",
+          duration: Infinity, // Keep until manually dismissed
+        });
+
         const salamanderPiano = await createSalamanderPiano();
 
         // Connect to compressor
@@ -112,10 +119,21 @@ export const useInstrumentStore = defineStore("instrument", () => {
         pianoCompressor.toDestination();
 
         instruments.value.set("piano", salamanderPiano);
-        pianoLoading.value = false;
+
+        // Dismiss loading toast and show success
+        toast.dismiss(loadingToast);
+        toast.success("🎹 Piano samples loaded!", {
+          description: "High-quality Salamander piano ready",
+        });
+
         console.log("Salamander piano loaded successfully");
       } catch (error) {
         console.error("Error loading Salamander piano:", error);
+
+        // Show error toast
+        toast.error("⚠️ Piano loading failed", {
+          description: "Using fallback synthesizer",
+        });
 
         // Fallback to basic synth if Salamander piano fails
         const pianoFallbackSynth = new Tone.PolySynth(Tone.Synth, {
@@ -129,7 +147,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
         pianoFallbackCompressor.toDestination();
 
         instruments.value.set("piano", pianoFallbackSynth);
-        pianoLoading.value = false;
         console.log("Using fallback synth for piano");
       }
 
@@ -169,6 +186,18 @@ export const useInstrumentStore = defineStore("instrument", () => {
       "xylophone",
     ];
 
+    let loadedCount = 0;
+    const totalInstruments = sampleInstrumentNames.length;
+
+    // Show initial loading toast for sample instruments
+    const sampleLoadingToast = toast.loading(
+      `🎼 Loading sample instruments... (0/${totalInstruments})`,
+      {
+        description: "High-quality instrument samples",
+        duration: Infinity,
+      }
+    );
+
     for (const instrumentName of sampleInstrumentNames) {
       try {
         const config =
@@ -176,11 +205,19 @@ export const useInstrumentStore = defineStore("instrument", () => {
           AVAILABLE_INSTRUMENTS[`sample-${instrumentName}`];
         if (!config) continue;
 
-        console.log(`Loading sample instrument: ${instrumentName}`);
-
         const sampleInstrument = await loadSampleInstrument(instrumentName, {
           minify: config.minify || false,
           onload: () => {
+            loadedCount++;
+            // Update loading toast with progress
+            toast.loading(
+              `🎼 Loading sample instruments... (${loadedCount}/${totalInstruments})`,
+              {
+                id: sampleLoadingToast,
+                description: `Just loaded: ${config.displayName}`,
+                duration: Infinity,
+              }
+            );
             console.log(`${config.displayName} samples loaded successfully`);
           },
         });
@@ -199,8 +236,15 @@ export const useInstrumentStore = defineStore("instrument", () => {
           `Error loading sample instrument ${instrumentName}:`,
           error
         );
+        // Don't show error toast for sample instruments to avoid spam
       }
     }
+
+    // Dismiss loading toast and show completion
+    toast.dismiss(sampleLoadingToast);
+    toast.success(`🎼 Sample instruments loaded!`, {
+      description: `${loadedCount} instruments ready to play`,
+    });
   };
 
   // Get current instrument instance
@@ -232,7 +276,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
     // State
     currentInstrument,
     isLoading,
-    pianoLoading,
 
     // Getters
     currentInstrumentConfig,

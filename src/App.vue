@@ -1,5 +1,8 @@
 <template>
   <div id="app" class="min-h-screen">
+    <!-- Vue Sonner Toast Notifications -->
+    <Toaster position="top-right" :duration="4000" theme="dark" richColors />
+
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <UnifiedVisualEffects />
 
@@ -23,8 +26,6 @@
               <KeySelector />
             </div>
 
-            <!-- Piano Loading Indicator -->
-            <PianoLoadingIndicator />
             <InstrumentSelector />
 
             <!-- Pattern Player -->
@@ -60,7 +61,7 @@ import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import DynamicColorPreview from "@/components/DynamicColorPreview.vue";
 import PatternPlayer from "@/components/PatternPlayer.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import PianoLoadingIndicator from "@/components/PianoLoadingIndicator.vue";
+import { Toaster } from "vue-sonner";
 import { useInstrumentStore } from "@/stores/instrument";
 
 // Check if we're in development mode

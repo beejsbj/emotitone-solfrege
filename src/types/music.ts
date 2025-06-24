@@ -83,3 +83,21 @@ export type ChromaticNote =
   | "A"
   | "A#"
   | "B";
+
+/**
+ * Interface for tracking active notes in the music store
+ */
+export interface ActiveNote {
+  /** Index of the solfege note in the scale */
+  solfegeIndex: number;
+  /** Solfege data for the note */
+  solfege: SolfegeData;
+  /** Frequency of the note in Hz */
+  frequency: number;
+  /** Octave number */
+  octave: number;
+  /** Unique identifier for the note */
+  noteId: string;
+  /** Note name with octave (e.g., "C4", "E5") */
+  noteName: string;
+}

@@ -11,10 +11,11 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "vue": "^3.4.0",
+    "gsap": "^3.12.5",
     "pinia": "^2.1.7",
     "tone": "^15.0.4",
-    "gsap": "^3.12.5"
+    "vue": "^3.4.0",
+    "vue-sonner": "^2.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.0",

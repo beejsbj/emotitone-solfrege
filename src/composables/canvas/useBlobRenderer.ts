@@ -154,11 +154,6 @@ export function useBlobRenderer() {
         );
         currentScale = 1 - Math.pow(1 - progress, 3); // easeOutCubic
         blob.scale = currentScale;
-        console.log(
-          `🔍 Scale-in: elapsed=${scaleInElapsed.toFixed(
-            3
-          )}, progress=${progress.toFixed(3)}, scale=${currentScale.toFixed(3)}`
-        );
       } else if (!blob.isFadingOut) {
         // Ensure scale is 1 when fully grown and not fading
         blob.scale = 1;

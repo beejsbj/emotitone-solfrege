@@ -1,19 +1,14 @@
 import { defineStore } from "pinia";
 import { ref, computed, readonly } from "vue";
 import { musicTheory } from "@/services/music";
-import type { SolfegeData, MelodicPattern, MusicalMode } from "@/types/music";
+import type {
+  SolfegeData,
+  MelodicPattern,
+  MusicalMode,
+  ActiveNote,
+} from "@/types/music";
 import { audioService } from "@/services/audio";
 import { useInstrumentStore } from "@/stores/instrument";
-
-// Interface for active note tracking
-interface ActiveNote {
-  solfegeIndex: number;
-  solfege: SolfegeData;
-  frequency: number;
-  octave: number;
-  noteId: string;
-  noteName: string; // e.g., "C4", "E5"
-}
 
 export const useMusicStore = defineStore("music", () => {
   // Get instrument store for current instrument info

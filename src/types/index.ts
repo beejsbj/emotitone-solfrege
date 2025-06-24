@@ -11,6 +11,7 @@ export type {
   Note,
   MusicalMode,
   ChromaticNote,
+  ActiveNote,
 } from "./music";
 
 // Visual Effects Types

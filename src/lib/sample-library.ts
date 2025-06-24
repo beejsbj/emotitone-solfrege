@@ -10,6 +10,7 @@ import type {
   SampleInstrumentWrapper,
 } from "@/types/sample-library";
 import { PIANO_SAMPLER_CONFIG } from "@/data/instruments";
+import { toast } from "vue-sonner";
 
 // Import the JavaScript SampleLibrary
 import SampleLibraryJS from "./tonejs-instruments";
@@ -32,10 +33,12 @@ export function createSampleInstrumentWrapper(
   Tone.loaded()
     .then(() => {
       isLoaded = true;
-      console.log(`${instrumentName} samples loaded successfully`);
     })
     .catch((error) => {
       console.error(`Error loading ${instrumentName} samples:`, error);
+      toast.error(`Failed to load ${instrumentName}`, {
+        description: "Sample loading error",
+      });
     });
 
   return {
@@ -45,7 +48,9 @@ export function createSampleInstrumentWrapper(
       velocity?: number
     ) => {
       if (!isLoaded) {
-        console.warn(`${instrumentName} samples not loaded yet`);
+        toast.warning(`${instrumentName} not ready`, {
+          description: "Samples still loading...",
+        });
         return;
       }
       const noteStr =
@@ -67,7 +72,9 @@ export function createSampleInstrumentWrapper(
       velocity?: number
     ) => {
       if (!isLoaded) {
-        console.warn(`${instrumentName} samples not loaded yet`);
+        toast.warning(`${instrumentName} not ready`, {
+          description: "Samples still loading...",
+        });
         return;
       }
       const noteStr =
@@ -110,14 +117,19 @@ export function loadSampleInstrument(
       const sampler = SampleLibrary.load({
         ...options,
         instruments: instrumentName,
-        onload: () => {
-          console.log(`${instrumentName} loaded successfully`);
-        },
+        onload: () => {},
       }) as Tone.Sampler;
 
       const wrapper = createSampleInstrumentWrapper(sampler, instrumentName);
       resolve(wrapper);
     } catch (error) {
+      console.error(
+        `Error loading sample instrument ${instrumentName}:`,
+        error
+      );
+      toast.error(`Failed to load ${instrumentName}`, {
+        description: "Sample loading error",
+      });
       reject(error);
     }
   });
@@ -136,7 +148,9 @@ export function loadSampleInstruments(
         ...options,
         instruments: instrumentNames,
         onload: () => {
-          console.log(`Instruments loaded: ${instrumentNames.join(", ")}`);
+          toast.success(`All instruments loaded!`, {
+            description: "Sample instruments ready",
+          });
         },
       }) as Record<string, Tone.Sampler>;
 
@@ -148,6 +162,10 @@ export function loadSampleInstruments(
 
       resolve(wrappers);
     } catch (error) {
+      console.error(`Error loading sample instruments:`, error);
+      toast.error("Failed to load sample instruments", {
+        description: "Multiple instrument loading error",
+      });
       reject(error);
     }
   });
@@ -176,13 +194,9 @@ export function isValidSampleInstrument(
 export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
   return new Promise((resolve, reject) => {
     try {
-      console.log("Loading Salamander piano samples...");
-
       const pianoSampler = new Tone.Sampler({
         ...PIANO_SAMPLER_CONFIG,
-        onload: () => {
-          console.log("Salamander piano samples loaded successfully");
-        },
+        onload: () => {},
       });
 
       const wrapper = createSampleInstrumentWrapper(
@@ -192,6 +206,9 @@ export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
       resolve(wrapper);
     } catch (error) {
       console.error("Error loading Salamander piano:", error);
+      toast.error("🎹 Salamander piano loading failed", {
+        description: "High-quality piano samples unavailable",
+      });
       reject(error);
     }
   });

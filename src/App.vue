@@ -23,13 +23,24 @@
               <KeySelector />
             </div>
 
+            <!-- Piano Loading Indicator -->
+            <PianoLoadingIndicator />
+            <InstrumentSelector />
+
             <!-- Pattern Player -->
-            <div class="mt-6">
-              <PatternPlayer />
-            </div>
-            <!-- Solfege Palette -->
-            <div class="sticky bottom-0">
-              <SolfegePalette />
+
+            <!-- Sticky horizontal scroller -->
+            <div
+              class="sticky bottom-0 flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1"
+            >
+              <div class="snap-start shrink-0 w-screen">
+                <button>patterns</button>
+                <SolfegePalette />
+              </div>
+              <div class="snap-start shrink-0 w-screen">
+                <button>Keys</button>
+                <PatternPlayer />
+              </div>
             </div>
           </div>
         </div>
@@ -48,6 +59,9 @@ import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import DynamicColorPreview from "@/components/DynamicColorPreview.vue";
 import PatternPlayer from "@/components/PatternPlayer.vue";
+import InstrumentSelector from "@/components/InstrumentSelector.vue";
+import PianoLoadingIndicator from "@/components/PianoLoadingIndicator.vue";
+import { useInstrumentStore } from "@/stores/instrument";
 
 // Check if we're in development mode
 const isDev = import.meta.env.DEV;

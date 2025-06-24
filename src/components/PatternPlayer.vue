@@ -109,7 +109,7 @@
     </div>
 
     <!-- Pattern Selection -->
-    <div class="">
+    <div class="max-h-[25vh] overflow-y-auto">
       <div class="grid grid-cols-2 gap-1 mb-1">
         <button
           @click="selectedCategory = 'intervals'"
@@ -140,20 +140,32 @@
           :key="pattern.name"
           @click="selectPattern(pattern)"
           :class="[
-            'p-3 rounded-sm text-left transition-all duration-200 border',
+            ' rounded-sm text-left transition-all duration-200 border',
             selectedPattern?.name === pattern.name
               ? 'bg-purple-500/80 border-purple-400 text-white'
               : 'bg-white/10 border-white/20 text-white/90 hover:bg-white/20',
           ]"
         >
-          <div class="font-bold">
+          <div class="font-bold bg-black px-1 py-[1px]">
             {{ pattern.name }}
           </div>
-          <div class="text-xs opacity-75 font-weight-oscillate-sm">
+          <div
+            class="text-xs opacity-75 px-1 py-[1px] font-weight-oscillate-sm bg-slate-800"
+          >
             {{ pattern.emotion }}
           </div>
-          <div class="text-2xs opacity-60 mt-1 font-weight-oscillate-sm">
-            {{ pattern.sequence.join(" → ") }}
+          <div
+            class="px-1 py-[1px] font-weight-oscillate-sm bg-slate-800 flex gap-[1px] leading-0"
+          >
+            <template v-for="(note, index) in pattern.sequence" :key="note">
+              <span
+                :style="{ background: getPrimaryColor(note) }"
+                class="p-1 text-2xs font-900 text-black"
+              >
+                {{ note }}
+              </span>
+              <span v-if="index !== pattern.sequence.length - 1"> →&nbsp;</span>
+            </template>
           </div>
         </button>
       </div>
@@ -172,8 +184,10 @@ import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
 import type { MelodicPattern } from "@/types/music";
 import * as Tone from "tone";
+import { useColorSystem } from "@/composables/useColorSystem";
 
 const musicStore = useMusicStore();
+const { getPrimaryColor } = useColorSystem();
 
 // State
 const selectedCategory = ref<"intervals" | "patterns">("intervals");

@@ -1,50 +1,150 @@
 import * as Tone from "tone";
 
 export class AudioService {
-  private polySynth: Tone.PolySynth;
   private isInitialized = false;
   private activeNotes: Map<string, { frequency: number; noteId: string }> =
     new Map();
+  private instrumentStore: any = null;
+  private userInteractionReceived = false;
 
   constructor() {
-    // Create a polyphonic synth for multiple simultaneous notes
-    this.polySynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: {
-        type: "sine",
-      },
-      envelope: {
-        attack: 0.05,
-        decay: 0.2,
-        sustain: 0.8,
-        release: 0.8,
-      },
-    }).toDestination();
+    // Don't initialize instruments here to avoid Pinia issues
+    // Instruments will be initialized lazily when needed
 
-    // Set polyphony limit to 8 voices for performance
-    this.polySynth.maxPolyphony = 8;
+    // Listen for user interaction to enable audio context
+    this.setupUserInteractionListener();
+  }
+
+  private setupUserInteractionListener() {
+    const enableAudio = () => {
+      this.userInteractionReceived = true;
+      document.removeEventListener("click", enableAudio);
+      document.removeEventListener("keydown", enableAudio);
+      document.removeEventListener("touchstart", enableAudio);
+    };
+
+    document.addEventListener("click", enableAudio);
+    document.addEventListener("keydown", enableAudio);
+    document.addEventListener("touchstart", enableAudio);
+  }
+
+  private async getInstrumentStore() {
+    if (!this.instrumentStore) {
+      try {
+        // Lazy import to avoid Pinia initialization issues
+        const { useInstrumentStore } = await import("@/stores/instrument");
+        this.instrumentStore = useInstrumentStore();
+        // Initialize instruments if not already done
+        await this.instrumentStore.initializeInstruments();
+      } catch (error) {
+        console.error("Failed to initialize instrument store:", error);
+        throw new Error("Instrument system unavailable");
+      }
+    }
+    return this.instrumentStore;
   }
 
   async initialize() {
     if (!this.isInitialized) {
       try {
-        console.log("Starting Tone.js audio context...");
-        await Tone.start();
+        // Wait for user interaction if not received yet
+        if (!this.userInteractionReceived) {
+          console.log("Waiting for user interaction to enable audio...");
+          return;
+        }
+
+        // Check if audio context is already running
+        const context = Tone.getContext();
+        if (context.state === "suspended") {
+          console.log("Starting Tone.js audio context...");
+          await Tone.start();
+        } else if (context.state === "running") {
+          console.log("Audio context already running");
+        }
+
         this.isInitialized = true;
-        console.log("Audio context started successfully");
-        console.log("Audio context state:", Tone.context.state);
+        console.log("Audio context state:", context.state);
       } catch (error) {
         console.error("Failed to start audio context:", error);
-        throw error;
+        // Don't throw error, just log it and continue
+        this.isInitialized = false;
       }
-    } else {
-      console.log("Audio context already initialized");
     }
+  }
+
+  // Method to manually start audio context (can be called from UI)
+  async startAudioContext(): Promise<boolean> {
+    try {
+      this.userInteractionReceived = true;
+      const context = Tone.getContext();
+
+      if (context.state === "suspended") {
+        await Tone.start();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      this.isInitialized = true;
+      console.log("Audio context manually started, state:", context.state);
+      return context.state === "running";
+    } catch (error) {
+      console.error("Failed to manually start audio context:", error);
+      return false;
+    }
+  }
+
+  // Check if audio is ready to use
+  isAudioReady(): boolean {
+    return this.isInitialized && Tone.getContext().state === "running";
+  }
+
+  // Get audio context state
+  getAudioState(): string {
+    return Tone.getContext().state;
   }
 
   async playNote(frequency: number, duration: string = "1n") {
     try {
+      // Force user interaction and audio context start
+      if (!this.userInteractionReceived) {
+        this.userInteractionReceived = true;
+      }
+
       await this.initialize();
-      this.polySynth.triggerAttackRelease(frequency, duration);
+
+      // Ensure audio context is properly started
+      const context = Tone.getContext();
+      if (context.state === "suspended") {
+        console.log("Audio context suspended, starting...");
+        await Tone.start();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+
+      if (instrument && Tone.getContext().state === "running") {
+        try {
+          const noteFreq =
+            typeof frequency === "number" ? frequency : parseFloat(frequency);
+
+          // All instruments now have consistent API
+          instrument.triggerAttackRelease(noteFreq, duration);
+        } catch (triggerError) {
+          console.error(
+            "Error triggering instrument in playNote:",
+            triggerError
+          );
+          console.log(
+            "Instrument type:",
+            instrument.constructor?.name || "Unknown"
+          );
+          console.log("Frequency:", frequency);
+        }
+      } else {
+        console.warn(
+          "Cannot play note - audio context not ready or no instrument"
+        );
+      }
     } catch (error) {
       console.error("Error playing note:", error);
     }
@@ -52,28 +152,85 @@ export class AudioService {
 
   async attackNote(frequency: number, noteId?: string): Promise<string> {
     try {
+      // Force user interaction and audio context start
+      if (!this.userInteractionReceived) {
+        this.userInteractionReceived = true;
+      }
+
       await this.initialize();
-      const id = noteId || `note_${frequency}_${Date.now()}`;
-      this.polySynth.triggerAttack(frequency);
-      this.activeNotes.set(id, { frequency, noteId: id });
-      return id;
+
+      // Ensure audio context is properly started
+      const context = Tone.getContext();
+      if (context.state === "suspended") {
+        console.log("Audio context suspended, starting...");
+        await Tone.start();
+        // Wait a bit for context to fully start
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+
+      if (instrument && typeof instrument.triggerAttack === "function") {
+        const id = noteId || `note_${frequency}_${Date.now()}`;
+
+        // Additional safety check before triggering
+        if (Tone.getContext().state === "running") {
+          try {
+            const noteFreq =
+              typeof frequency === "number" ? frequency : parseFloat(frequency);
+
+            // All instruments now have consistent API
+            instrument.triggerAttack(noteFreq);
+            this.activeNotes.set(id, { frequency: noteFreq, noteId: id });
+            return id;
+          } catch (triggerError) {
+            console.error("Error triggering instrument:", triggerError);
+            console.log(
+              "Instrument type:",
+              instrument.constructor?.name || "Unknown"
+            );
+            console.log("Frequency:", frequency);
+          }
+        } else {
+          console.warn("Audio context not running, cannot attack note");
+        }
+      } else {
+        console.warn("No valid instrument available for note attack");
+      }
+      return "";
     } catch (error) {
       console.error("Error attacking note:", error);
       return "";
     }
   }
 
-  releaseNote(noteId?: string) {
+  async releaseNote(noteId?: string) {
     try {
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+      if (!instrument) return;
+
       if (noteId && this.activeNotes.has(noteId)) {
         const noteData = this.activeNotes.get(noteId);
         if (noteData) {
-          this.polySynth.triggerRelease(noteData.frequency);
-          this.activeNotes.delete(noteId);
+          try {
+            // All instruments now have consistent API
+            instrument.triggerRelease(noteData.frequency);
+            this.activeNotes.delete(noteId);
+          } catch (releaseError) {
+            console.error("Error releasing note:", releaseError);
+            // Still remove from active notes even if release failed
+            this.activeNotes.delete(noteId);
+          }
         }
       } else {
         // Release all notes if no specific noteId provided
-        this.polySynth.releaseAll();
+        try {
+          instrument.releaseAll();
+        } catch (releaseError) {
+          console.error("Error releasing all notes:", releaseError);
+        }
         this.activeNotes.clear();
       }
     } catch (error) {
@@ -82,14 +239,24 @@ export class AudioService {
   }
 
   // New method to release a specific frequency
-  releaseNoteByFrequency(frequency: number) {
+  async releaseNoteByFrequency(frequency: number) {
     try {
-      this.polySynth.triggerRelease(frequency);
-      // Remove from active notes
-      for (const [id, noteData] of this.activeNotes.entries()) {
-        if (noteData.frequency === frequency) {
-          this.activeNotes.delete(id);
-          break;
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+      if (instrument) {
+        try {
+          // All instruments now have consistent API
+          instrument.triggerRelease(frequency);
+
+          // Remove from active notes
+          for (const [id, noteData] of this.activeNotes.entries()) {
+            if (noteData.frequency === frequency) {
+              this.activeNotes.delete(id);
+              break;
+            }
+          }
+        } catch (releaseError) {
+          console.error("Error releasing note by frequency:", releaseError);
         }
       }
     } catch (error) {
@@ -114,8 +281,12 @@ export class AudioService {
   ) {
     try {
       await this.initialize();
-      const noteWithOctave = `${noteName}${octave}`;
-      this.polySynth.triggerAttackRelease(noteWithOctave, duration);
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+      if (instrument) {
+        const noteWithOctave = `${noteName}${octave}`;
+        instrument.triggerAttackRelease(noteWithOctave, duration);
+      }
     } catch (error) {
       console.error("Error playing note by name:", error);
     }
@@ -124,6 +295,9 @@ export class AudioService {
   async playSequence(notes: string[], tempo: number = 120) {
     try {
       await this.initialize();
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+      if (!instrument) return;
 
       // Set the tempo
       const transport = Tone.getTransport();
@@ -132,7 +306,7 @@ export class AudioService {
       // Create a sequence
       const sequence = new Tone.Sequence(
         (time, note) => {
-          this.polySynth.triggerAttackRelease(note, "8n", time);
+          instrument.triggerAttackRelease(note, "8n", time);
         },
         notes,
         "4n"
@@ -153,13 +327,26 @@ export class AudioService {
     }
   }
 
-  stop() {
-    this.polySynth.releaseAll();
-    this.activeNotes.clear();
+  async stop() {
+    try {
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+      if (instrument) {
+        instrument.releaseAll();
+      }
+      this.activeNotes.clear();
+    } catch (error) {
+      console.error("Error stopping audio:", error);
+    }
   }
 
-  dispose() {
-    this.polySynth.dispose();
+  async dispose() {
+    try {
+      const instrumentStore = await this.getInstrumentStore();
+      instrumentStore.dispose();
+    } catch (error) {
+      console.error("Error disposing audio service:", error);
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import { ref, computed, readonly } from "vue";
 import { musicTheory } from "@/services/music";
 import type { SolfegeData, MelodicPattern, MusicalMode } from "@/types/music";
 import { audioService } from "@/services/audio";
+import { useInstrumentStore } from "@/stores/instrument";
 
 // Interface for active note tracking
 interface ActiveNote {
@@ -15,6 +16,9 @@ interface ActiveNote {
 }
 
 export const useMusicStore = defineStore("music", () => {
+  // Get instrument store for current instrument info
+  const instrumentStore = useInstrumentStore();
+
   // State
   const currentKey = ref<string>("C");
   const currentMode = ref<MusicalMode>("major");
@@ -72,6 +76,9 @@ export const useMusicStore = defineStore("music", () => {
           note: solfege,
           frequency,
           solfegeIndex,
+          octave: 4,
+          instrument: instrumentStore.currentInstrument,
+          instrumentConfig: instrumentStore.currentInstrumentConfig,
         },
       });
       window.dispatchEvent(notePlayedEvent);
@@ -126,6 +133,8 @@ export const useMusicStore = defineStore("music", () => {
             octave,
             noteId,
             noteName,
+            instrument: instrumentStore.currentInstrument,
+            instrumentConfig: instrumentStore.currentInstrumentConfig,
           },
         });
         window.dispatchEvent(notePlayedEvent);
@@ -151,6 +160,8 @@ export const useMusicStore = defineStore("music", () => {
             noteName: activeNote.noteName,
             frequency: activeNote.frequency,
             octave: activeNote.octave,
+            instrument: instrumentStore.currentInstrument,
+            instrumentConfig: instrumentStore.currentInstrumentConfig,
           },
         });
         window.dispatchEvent(noteReleasedEvent);
@@ -180,6 +191,8 @@ export const useMusicStore = defineStore("music", () => {
             noteName: activeNote.noteName,
             frequency: activeNote.frequency,
             octave: activeNote.octave,
+            instrument: instrumentStore.currentInstrument,
+            instrumentConfig: instrumentStore.currentInstrumentConfig,
           },
         });
         window.dispatchEvent(noteReleasedEvent);

@@ -36,8 +36,8 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     baseSizeRatio: 0.4, // 40% of screen size
     minSize: 300,
     maxSize: 800,
-    opacity: 0.2,
-    blurRadius: 100,
+    opacity: 0.4,
+    blurRadius: 60,
     oscillationAmplitude: 1, // Increased for more visible vibration
     fadeOutDuration: 1.5, // 1.5 seconds fade-out
     scaleInDuration: 0.3, // 0.3 seconds scale-in animation
@@ -62,11 +62,11 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
 
   particles: {
     isEnabled: true,
-    count: 20,
+    count: 10,
     sizeMin: 2,
     sizeMax: 6,
     lifetimeMin: 2000, // milliseconds
-    lifetimeMax: 4000,
+    lifetimeMax: 3000,
     speed: 4,
     gravity: 0, // Gravity effect
     airResistance: 0.99, // Air resistance (0.99 = 1% loss per frame)
@@ -110,8 +110,8 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     hueAnimationAmplitude: 15, // ±15° animation range
     animationSpeed: 1, // Normal animation speed
     saturation: 0.8, // 80% saturation
-    baseLightness: 0.5, // 50% lightness for middle octave
-    lightnessRange: 0.6, // 60% range (20-80% lightness across octaves)
+    baseLightness: 0.5, // 50% lightness for middle octave (octave 5)
+    lightnessRange: 0.7, // 70% range (15-85% lightness across octaves 2-8)
   },
 };
 

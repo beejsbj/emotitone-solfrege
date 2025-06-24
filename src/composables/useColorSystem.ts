@@ -39,14 +39,23 @@ function calculateOctaveLightness(
   baseLightness: number,
   lightnessRange: number
 ): number {
-  // Map octaves 1-5 to lightness range
-  const normalizedOctave = Math.max(1, Math.min(5, octave));
-  const octaveRatio = (normalizedOctave - 1) / 4; // 0 to 1
+  // Map octaves 2-8 to lightness range with more dramatic differences
+  const normalizedOctave = Math.max(2, Math.min(8, octave));
+  const octaveRatio = (normalizedOctave - 2) / 6; // 0 to 1 across 6 octaves
 
-  const minLightness = baseLightness - lightnessRange / 2;
-  const maxLightness = baseLightness + lightnessRange / 2;
+  // Use a more dramatic lightness curve for better visual distinction
+  // Lower octaves are much darker, higher octaves are much lighter
+  const minLightness = Math.max(0.15, baseLightness - lightnessRange / 2); // Ensure minimum 15%
+  const maxLightness = Math.min(0.85, baseLightness + lightnessRange / 2); // Ensure maximum 85%
 
-  return minLightness + octaveRatio * (maxLightness - minLightness);
+  // Apply a slight curve to make the differences more pronounced
+  // This makes lower octaves darker and higher octaves lighter more dramatically
+  const curvedRatio = Math.pow(octaveRatio, 0.8); // Slight curve for better distribution
+
+  const lightness = minLightness + curvedRatio * (maxLightness - minLightness);
+
+  // Ensure lightness stays within valid range
+  return Math.max(0.1, Math.min(0.9, lightness));
 }
 
 /**
@@ -232,6 +241,17 @@ export function useColorSystem() {
   };
 
   /**
+   * Get static primary color for a note (no animation)
+   */
+  const getStaticPrimaryColor = (
+    noteName: string,
+    mode: MusicalMode = "major",
+    octave: number = 3
+  ): string => {
+    return getNoteColors(noteName, mode, octave, false).primary;
+  };
+
+  /**
    * Get accent color for a note (used for strings/flecks)
    */
   const getAccentColor = (
@@ -240,6 +260,17 @@ export function useColorSystem() {
     octave: number = 3
   ): string => {
     return getNoteColors(noteName, mode, octave, true).accent;
+  };
+
+  /**
+   * Get static accent color for a note (no animation)
+   */
+  const getStaticAccentColor = (
+    noteName: string,
+    mode: MusicalMode = "major",
+    octave: number = 3
+  ): string => {
+    return getNoteColors(noteName, mode, octave, false).accent;
   };
 
   /**
@@ -254,6 +285,17 @@ export function useColorSystem() {
   };
 
   /**
+   * Get static secondary color for a note (no animation)
+   */
+  const getStaticSecondaryColor = (
+    noteName: string,
+    mode: MusicalMode = "major",
+    octave: number = 3
+  ): string => {
+    return getNoteColors(noteName, mode, octave, false).secondary;
+  };
+
+  /**
    * Get tertiary color for a note
    */
   const getTertiaryColor = (
@@ -262,6 +304,17 @@ export function useColorSystem() {
     octave: number = 3
   ): string => {
     return getNoteColors(noteName, mode, octave, true).tertiary;
+  };
+
+  /**
+   * Get static tertiary color for a note (no animation)
+   */
+  const getStaticTertiaryColor = (
+    noteName: string,
+    mode: MusicalMode = "major",
+    octave: number = 3
+  ): string => {
+    return getNoteColors(noteName, mode, octave, false).tertiary;
   };
 
   // Backward compatibility aliases
@@ -323,6 +376,12 @@ export function useColorSystem() {
     getAccentColor,
     getSecondaryColor,
     getTertiaryColor,
+
+    // Static color functions (no animation)
+    getStaticPrimaryColor,
+    getStaticAccentColor,
+    getStaticSecondaryColor,
+    getStaticTertiaryColor,
 
     // Backward compatibility aliases
     getStringColor,

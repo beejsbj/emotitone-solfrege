@@ -63,8 +63,14 @@ export function useStringRenderer() {
       const solfege = musicStore.solfegeData[index];
       if (!solfege) return;
 
-      // Update string properties based on current note
-      if (musicStore.currentNote === solfege.name) {
+      // Check if this string's note is currently active in any octave
+      const activeNotes = musicStore.getActiveNotes();
+      const isStringActive = activeNotes.some(
+        (activeNote: any) => activeNote.solfegeIndex === index
+      );
+
+      // Update string properties based on active notes
+      if (isStringActive) {
         string.isActive = true;
         string.amplitude = gsap.utils.interpolate(
           string.amplitude,
@@ -78,10 +84,17 @@ export function useStringRenderer() {
         );
         string.color = getPrimaryColor(solfege.name, musicStore.currentMode);
 
-        // Get the actual musical frequency for this note and scale it for visual vibration
-        const noteFrequency = musicStore.getNoteFrequency(index, 4);
+        // Get the highest octave frequency for visual vibration if multiple notes
+        const activeStringNotes = activeNotes.filter(
+          (activeNote: any) => activeNote.solfegeIndex === index
+        );
+        const highestOctaveNote = activeStringNotes.reduce(
+          (highest: any, current: any) =>
+            current.octave > highest.octave ? current : highest
+        );
+
         string.frequency = createVisualFrequency(
-          noteFrequency,
+          highestOctaveNote.frequency,
           animationConfig.visualFrequencyDivisor
         );
       } else {

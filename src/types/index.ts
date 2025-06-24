@@ -56,5 +56,22 @@ export type {
   AudioRouting,
 } from "./audio";
 
+// Instrument System Types
+export type {
+  InstrumentConfig,
+  InstrumentCategory,
+  InstrumentName,
+  InstrumentStoreState,
+  InstrumentInitOptions,
+  AudioEnvelope,
+  CompressorConfig,
+  VoiceConfig,
+  SamplerConfig,
+  OscillatorConfig,
+  CompleteInstrumentConfig,
+  InstrumentEvent,
+  AudioContextInfo,
+} from "./instrument";
+
 // Re-export commonly used Vue types for convenience
 export type { Ref, ComputedRef, WritableComputedRef } from "vue";

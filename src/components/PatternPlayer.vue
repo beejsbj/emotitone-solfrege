@@ -1,145 +1,105 @@
 <template>
-  <div class="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
-    <h2 class="text-2xl text-white mb-4 text-center font-weight-oscillate-lg">
-      Pattern Player
-    </h2>
-    <p class="text-gray-300 mb-6 text-center font-weight-oscillate-md">
-      Play melodic patterns and intervals to explore emotional relationships
-    </p>
-
+  <div
+    class="bg-white/10 backdrop-blur-sm rounded-sm border border-white/20 grid items-start gap-1 grid-cols-2 relative"
+  >
     <!-- Pattern Categories -->
-    <div class="mb-6">
-      <div class="flex justify-center gap-4 mb-4">
-        <button
-          @click="selectedCategory = 'intervals'"
-          :class="[
-            'px-4 py-2 rounded-lg transition-all duration-200 font-weight-oscillate-md',
-            selectedCategory === 'intervals'
-              ? 'bg-blue-500/80 text-white'
-              : 'bg-white/20 text-white/80 hover:bg-white/30'
-          ]"
-        >
-          Intervals
-        </button>
-        <button
-          @click="selectedCategory = 'patterns'"
-          :class="[
-            'px-4 py-2 rounded-lg transition-all duration-200 font-weight-oscillate-md',
-            selectedCategory === 'patterns'
-              ? 'bg-blue-500/80 text-white'
-              : 'bg-white/20 text-white/80 hover:bg-white/30'
-          ]"
-        >
-          Patterns
-        </button>
-      </div>
-    </div>
+    <div class="mb-1 sticky top-0 grid gap-1">
+      <div
+        class="bg-white/5 rounded-sm p-1 border border-white/10"
+        v-if="selectedPattern"
+      >
+        <div class="grid gap-1 bg-slate-700">
+          <h3 class="text-lg text-white font-900">
+            {{ selectedPattern.name }}
+          </h3>
+          <p class="text-white/80 text-md font-800">
+            {{ selectedPattern.description }}
+          </p>
+        </div>
 
-    <!-- Pattern Selection -->
-    <div class="mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
-        <button
-          v-for="pattern in filteredPatterns"
-          :key="pattern.name"
-          @click="selectPattern(pattern)"
-          :class="[
-            'p-3 rounded-lg text-left transition-all duration-200 border',
-            selectedPattern?.name === pattern.name
-              ? 'bg-purple-500/80 border-purple-400 text-white'
-              : 'bg-white/10 border-white/20 text-white/90 hover:bg-white/20'
-          ]"
-        >
-          <div class="font-semibold font-weight-oscillate-md">{{ pattern.name }}</div>
-          <div class="text-sm opacity-75 font-weight-oscillate-sm">{{ pattern.emotion }}</div>
-          <div class="text-xs opacity-60 mt-1 font-weight-oscillate-sm">
-            {{ pattern.sequence.join(' → ') }}
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <!-- Playback Controls -->
-    <div v-if="selectedPattern" class="mb-6">
-      <div class="bg-white/5 rounded-xl p-4 border border-white/10">
-        <h3 class="text-lg text-white mb-2 font-weight-oscillate-lg">
-          {{ selectedPattern.name }}
-        </h3>
-        <p class="text-white/80 text-sm mb-3 font-weight-oscillate-md">
-          {{ selectedPattern.description }}
-        </p>
-        
         <!-- Tempo Control -->
-        <div class="flex items-center gap-4 mb-4">
-          <label class="text-white/80 text-sm font-weight-oscillate-md">Tempo:</label>
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-white/80 text-xs font-bold"
+            >Tempo:
+            <span class="text-white/80 text-xs font-bold w-12"
+              >{{ tempo }} BPM</span
+            ></label
+          >
+
           <input
             v-model="tempo"
             type="range"
             min="60"
             max="180"
             step="10"
-            class="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
+            class="flex-1 h-2 bg-white/20 rounded-sm appearance-none cursor-pointer"
           />
-          <span class="text-white/80 text-sm font-weight-oscillate-md w-12">{{ tempo }} BPM</span>
         </div>
 
         <!-- Octave Control -->
-        <div class="flex items-center gap-4 mb-4">
-          <label class="text-white/80 text-sm font-weight-oscillate-md">Octave:</label>
-          <select
+        <div class="flex items-center gap-1 mb-1">
+          <label class="text-white/80 text-xs font-bold"
+            >Octave:
+
+            <span class="text-white/80 text-xs font-bold w-12">{{
+              baseOctave
+            }}</span>
+          </label>
+
+          <input
             v-model="baseOctave"
-            class="bg-white/20 text-white rounded-lg px-3 py-1 border border-white/30 font-weight-oscillate-md"
-          >
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
+            type="range"
+            min="3"
+            max="5"
+            step="1"
+            class="flex-1 h-2 bg-white/20 rounded-sm appearance-none cursor-pointer"
+          />
         </div>
 
         <!-- Play Controls -->
-        <div class="flex gap-3">
+        <div class="grid grid-cols-2 gap-1">
           <button
             @click="playPattern"
             :disabled="isPlaying"
             :class="[
-              'px-6 py-2 rounded-lg font-semibold transition-all duration-200 font-weight-oscillate-md',
+              'px-1 py-[1px] text-xs  rounded-sm  transition-all duration-200 font-bold',
               isPlaying
                 ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
-                : 'bg-green-500/80 hover:bg-green-500 text-white'
+                : 'bg-green-500/80 hover:bg-green-500 text-white',
             ]"
           >
-            {{ isPlaying ? 'Playing...' : 'Play Pattern' }}
+            {{ isPlaying ? "Playing..." : "Play Pattern" }}
           </button>
           <button
             @click="stopPattern"
             :disabled="!isPlaying"
             :class="[
-              'px-6 py-2 rounded-lg font-semibold transition-all duration-200 font-weight-oscillate-md',
+              'px-1 py-[1px] text-xs  rounded-sm  transition-all duration-200 font-bold',
               !isPlaying
                 ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
-                : 'bg-red-500/80 hover:bg-red-500 text-white'
+                : 'bg-red-500/80 hover:bg-red-500 text-white',
             ]"
           >
             Stop
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- Current Pattern Visualization -->
-    <div v-if="selectedPattern && currentNoteIndex >= 0" class="mb-4">
-      <div class="bg-white/5 rounded-xl p-4 border border-white/10">
-        <h4 class="text-white/80 text-sm mb-2 font-weight-oscillate-md">Now Playing:</h4>
-        <div class="flex flex-wrap gap-2">
+      <div
+        class="bg-white/5 rounded-sm p-1 border border-white/10"
+        v-if="isPlaying && selectedPattern"
+      >
+        <h4 class="text-white/80 text-xs mb-1 font-bold">Now Playing:</h4>
+        <div class="flex flex-wrap gap-1">
           <span
             v-for="(note, index) in selectedPattern.sequence"
             :key="index"
             :class="[
-              'px-2 py-1 rounded text-sm font-weight-oscillate-md',
+              'p-2 rounded text-xs font-bold ',
               index === currentNoteIndex
                 ? 'bg-yellow-500/80 text-white'
                 : index < currentNoteIndex
                 ? 'bg-green-500/50 text-white/80'
-                : 'bg-white/20 text-white/60'
+                : 'bg-white/20 text-white/60',
             ]"
           >
             {{ note }}
@@ -147,6 +107,63 @@
         </div>
       </div>
     </div>
+
+    <!-- Pattern Selection -->
+    <div class="">
+      <div class="grid grid-cols-2 gap-1 mb-1">
+        <button
+          @click="selectedCategory = 'intervals'"
+          :class="[
+            'px-1 py-[1px] text-xs rounded-sm transition-all duration-200 font-bold',
+            selectedCategory === 'intervals'
+              ? 'bg-blue-500/80 text-white'
+              : 'bg-white/20 text-white/80 hover:bg-white/30',
+          ]"
+        >
+          Intervals
+        </button>
+        <button
+          @click="selectedCategory = 'patterns'"
+          :class="[
+            'px-1 py-[1px] text-xs rounded-sm transition-all duration-200 font-bold',
+            selectedCategory === 'patterns'
+              ? 'bg-blue-500/80 text-white'
+              : 'bg-white/20 text-white/80 hover:bg-white/30',
+          ]"
+        >
+          Patterns
+        </button>
+      </div>
+      <div class="grid gap-1 max-h-full overflow-y-auto">
+        <button
+          v-for="pattern in filteredPatterns"
+          :key="pattern.name"
+          @click="selectPattern(pattern)"
+          :class="[
+            'p-3 rounded-sm text-left transition-all duration-200 border',
+            selectedPattern?.name === pattern.name
+              ? 'bg-purple-500/80 border-purple-400 text-white'
+              : 'bg-white/10 border-white/20 text-white/90 hover:bg-white/20',
+          ]"
+        >
+          <div class="font-bold">
+            {{ pattern.name }}
+          </div>
+          <div class="text-xs opacity-75 font-weight-oscillate-sm">
+            {{ pattern.emotion }}
+          </div>
+          <div class="text-2xs opacity-60 mt-1 font-weight-oscillate-sm">
+            {{ pattern.sequence.join(" → ") }}
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Playback Controls -->
+    <div v-if="selectedPattern" class="mb-1"></div>
+
+    <!-- Current Pattern Visualization -->
+    <div class="mb-1"></div>
   </div>
 </template>
 
@@ -159,7 +176,7 @@ import * as Tone from "tone";
 const musicStore = useMusicStore();
 
 // State
-const selectedCategory = ref<'intervals' | 'patterns'>('intervals');
+const selectedCategory = ref<"intervals" | "patterns">("intervals");
 const selectedPattern = ref<MelodicPattern | null>(null);
 const isPlaying = ref(false);
 const tempo = ref(120);
@@ -171,13 +188,13 @@ const currentScheduleIds = ref<number[]>([]);
 const allPatterns = computed(() => musicStore.getMelodicPatterns());
 
 const filteredPatterns = computed(() => {
-  if (selectedCategory.value === 'intervals') {
-    return allPatterns.value.filter(pattern => 
-      pattern.intervals && pattern.intervals.length === 1
+  if (selectedCategory.value === "intervals") {
+    return allPatterns.value.filter(
+      (pattern) => pattern.intervals && pattern.intervals.length === 1
     );
   } else {
-    return allPatterns.value.filter(pattern => 
-      !pattern.intervals || pattern.intervals.length !== 1
+    return allPatterns.value.filter(
+      (pattern) => !pattern.intervals || pattern.intervals.length !== 1
     );
   }
 });
@@ -197,7 +214,7 @@ const playPattern = async () => {
   try {
     await Tone.start();
     const transport = Tone.getTransport();
-    
+
     // Clear any existing schedules
     transport.cancel();
     transport.stop();
@@ -213,8 +230,10 @@ const playPattern = async () => {
 
     selectedPattern.value.sequence.forEach((solfegeName, index) => {
       // Find the solfege index
-      const solfegeIndex = musicStore.solfegeData.findIndex(s => s.name === solfegeName);
-      
+      const solfegeIndex = musicStore.solfegeData.findIndex(
+        (s) => s.name === solfegeName
+      );
+
       if (solfegeIndex >= 0) {
         // Schedule note start
         const startId = transport.schedule((time) => {
@@ -236,10 +255,9 @@ const playPattern = async () => {
     const endId = transport.schedule(() => {
       stopPattern();
     }, currentTime);
-    
+
     currentScheduleIds.value.push(endId);
     transport.start();
-
   } catch (error) {
     console.error("Error playing pattern:", error);
     stopPattern();
@@ -248,18 +266,18 @@ const playPattern = async () => {
 
 const stopPattern = () => {
   const transport = Tone.getTransport();
-  
+
   // Clear all scheduled events
-  currentScheduleIds.value.forEach(id => transport.clear(id));
+  currentScheduleIds.value.forEach((id) => transport.clear(id));
   currentScheduleIds.value = [];
-  
+
   // Stop transport and release all notes
   transport.cancel();
   transport.stop();
   transport.position = 0;
-  
+
   musicStore.releaseAllNotes();
-  
+
   isPlaying.value = false;
   currentNoteIndex.value = -1;
 };

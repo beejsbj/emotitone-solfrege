@@ -17,21 +17,20 @@
       <!-- Main App Content -->
       <main class="flex-1">
         <div class="max-w-6xl mx-auto">
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 gap-6">
             <!-- Key Selector -->
             <div class="lg:col-span-1">
               <KeySelector />
             </div>
 
+            <!-- Pattern Player -->
+            <div class="mt-6">
+              <PatternPlayer />
+            </div>
             <!-- Solfege Palette -->
-            <div class="lg:col-span-2">
+            <div class="sticky bottom-0">
               <SolfegePalette />
             </div>
-          </div>
-
-          <!-- Pattern Player -->
-          <div class="mt-6">
-            <PatternPlayer />
           </div>
         </div>
       </main>

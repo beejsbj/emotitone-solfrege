@@ -1,6 +1,6 @@
 <template>
   <div
-    class="key-selector bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20"
+    class="key-selector bg-white/10 backdrop-blur-sm rounded-sm p-6 border border-white/20"
   >
     <div class="space-y-6">
       <!-- Circle of Fifths -->

@@ -28,14 +28,12 @@
             <span
               v-for="note in activeNotes"
               :key="note.noteId"
-              class="px-2 py-1 bg-white/20 rounded-lg text-sm text-white font-weight-oscillate-md"
+              class="px-2 py-1 bg-white/20 rounded-sm text-sm text-white font-bold"
             >
               {{ note.noteName }}
             </span>
           </div>
-          <p
-            class="text-white/90 text-sm mb-1 drop-shadow font-weight-oscillate-md"
-          >
+          <p class="text-white/90 text-sm mb-1 drop-shadow font-bold">
             {{ getPolyphonicDescription() }}
           </p>
         </div>
@@ -47,14 +45,10 @@
           >
             {{ primaryActiveNote.solfege.name }}
           </h3>
-          <p
-            class="text-white/80 text-lg mb-2 drop-shadow font-weight-oscillate-md"
-          >
+          <p class="text-white/80 text-lg mb-2 drop-shadow font-bold">
             {{ primaryActiveNote.noteName }}
           </p>
-          <p
-            class="text-white/90 text-sm mb-1 drop-shadow font-weight-oscillate-md"
-          >
+          <p class="text-white/90 text-sm mb-1 drop-shadow font-bold">
             {{ primaryActiveNote.solfege.emotion }}
           </p>
           <p class="text-white/70 text-xs drop-shadow font-weight-oscillate-sm">

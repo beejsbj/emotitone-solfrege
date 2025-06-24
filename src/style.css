@@ -135,15 +135,13 @@ body {
 
 /* Font weight oscillation classes */
 .font-weight-oscillate-sm {
-  font-weight: 400; /* Default weight for small oscillation */
+  font-weight: 500; /* Default weight for small oscillation */
 }
 
-.font-weight-oscillate-md {
-  font-weight: 500; /* Default weight for medium oscillation */
-}
+
 
 .font-weight-oscillate-lg {
-  font-weight: 600; /* Default weight for large oscillation */
+  font-weight: 700; /* Default weight for large oscillation */
 }
 
 .font-weight-oscillate-full {
@@ -161,4 +159,10 @@ body {
   html {
     font-size: 16px;
   }
+}
+
+
+.text-2xs {
+  font-size: 0.625rem;
+  line-height: 1rem;
 }

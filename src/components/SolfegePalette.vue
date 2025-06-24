@@ -1,9 +1,9 @@
 <template>
-  <div class="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
+  <div class="bg-white/10 backdrop-blur-sm rounded-sm border border-white/20">
     <h2 class="text-2xl text-white mb-4 text-center font-weight-oscillate-lg">
       Solfege Palette
     </h2>
-    <p class="text-gray-300 mb-6 text-center font-weight-oscillate-md">
+    <p class="text-gray-300 mb-6 text-center font-bold">
       Tap the solfege degrees to hear their emotional character in
       {{ musicStore.currentKeyDisplay }}
     </p>
@@ -13,7 +13,7 @@
       <div
         v-for="(solfege, index) in musicStore.solfegeData"
         :key="solfege.name"
-        class="relative btn-solfege-container bg-white/20 hover:bg-white/30 text-white font-semibold rounded-xl transition-all duration-150 backdrop-blur-sm border border-white/30 min-h-[6rem] aspect-[9/30] select-none"
+        class="relative btn-solfege-container bg-white/20 hover:bg-white/30 text-white font-semibold rounded-sm transition-all duration-150 backdrop-blur-sm border border-white/30 min-h-[6rem] aspect-[9/30] select-none"
         :style="{
           background: isNoteActiveForSolfege(solfege.name)
             ? getReactiveGradient(solfege.name)
@@ -54,7 +54,7 @@
           <div class="text-lg font-weight-oscillate-lg">
             {{ solfege.name }}
           </div>
-          <div class="text-xs opacity-75 font-weight-oscillate-md">
+          <div class="text-xs opacity-75 font-bold">
             {{ musicStore.currentScaleNotes[index] }}4
           </div>
         </button>

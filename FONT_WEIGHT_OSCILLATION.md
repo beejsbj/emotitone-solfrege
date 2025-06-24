@@ -11,7 +11,7 @@ The font weight oscillation system has been simplified from a complex Vue compos
 Simply add one of these classes to any HTML element:
 
 - `.font-weight-oscillate-sm` - Small oscillation (amplitude: 50, base weight: 400)
-- `.font-weight-oscillate-md` - Medium oscillation (amplitude: 100, base weight: 500)
+- `.font-bold` - Medium oscillation (amplitude: 100, base weight: 500)
 - `.font-weight-oscillate-lg` - Large oscillation (amplitude: 150, base weight: 600)
 - `.font-weight-oscillate-full` - Full oscillation (amplitude: 400, base weight: 500) - Goes from 100-900!
 
@@ -28,7 +28,7 @@ Simply add one of these classes to any HTML element:
 <p class="font-weight-oscillate-sm">Feel the Music Theory</p>
 
 <!-- Button text with medium oscillation -->
-<button class="font-weight-oscillate-md">Do</button>
+<button class="font-bold">Do</button>
 ```
 
 ### 3. How It Works
@@ -90,7 +90,7 @@ The CSS classes are defined in `src/style.css`:
   font-weight: 400; /* Default weight for small oscillation */
 }
 
-.font-weight-oscillate-md {
+.font-bold {
   font-weight: 500; /* Default weight for medium oscillation */
 }
 

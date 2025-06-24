@@ -27,7 +27,7 @@ let lastElementCount = 0;
  */
 function cacheOscillationElements() {
   const elements = document.querySelectorAll(
-    ".font-weight-oscillate-sm, .font-weight-oscillate-md, .font-weight-oscillate-lg, .font-weight-oscillate-full"
+    ".font-weight-oscillate-sm, .font-bold, .font-weight-oscillate-lg, .font-weight-oscillate-full"
   );
   cachedElements = Array.from(elements) as HTMLElement[];
   lastElementCount = cachedElements.length;
@@ -42,7 +42,7 @@ function updateFontWeights(elapsed: number) {
 
   // Check if we need to refresh the element cache
   const currentElementCount = document.querySelectorAll(
-    ".font-weight-oscillate-sm, .font-weight-oscillate-md, .font-weight-oscillate-lg, .font-weight-oscillate-full"
+    ".font-weight-oscillate-sm, .font-bold, .font-weight-oscillate-lg, .font-weight-oscillate-full"
   ).length;
 
   if (currentElementCount !== lastElementCount || cachedElements.length === 0) {
@@ -55,7 +55,7 @@ function updateFontWeights(elapsed: number) {
 
     if (htmlElement.classList.contains("font-weight-oscillate-sm")) {
       config = fontOscillationConfig.value.sm;
-    } else if (htmlElement.classList.contains("font-weight-oscillate-md")) {
+    } else if (htmlElement.classList.contains("font-bold")) {
       config = fontOscillationConfig.value.md;
     } else if (htmlElement.classList.contains("font-weight-oscillate-lg")) {
       config = fontOscillationConfig.value.lg;

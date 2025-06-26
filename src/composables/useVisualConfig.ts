@@ -9,6 +9,7 @@ import type {
   AnimationConfig,
   FrequencyMappingConfig,
   DynamicColorConfig,
+  PaletteConfig,
   VisualEffectsConfig,
 } from "@/types/visual";
 
@@ -114,6 +115,11 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     baseLightness: 0.5, // 50% lightness for middle octave (octave 5)
     lightnessRange: 0.7, // 70% range (15-85% lightness across octaves 2-8)
   },
+
+  palette: {
+    isEnabled: true, // Enable palette gradient effects
+    gradientDirection: 225, // 45-degree gradient direction
+  },
 };
 
 /**
@@ -133,6 +139,7 @@ export function useVisualConfig() {
   const animationConfig = computed(() => store.config.animation);
   const frequencyMappingConfig = computed(() => store.config.frequencyMapping);
   const dynamicColorConfig = computed(() => store.config.dynamicColors);
+  const paletteConfig = computed(() => store.config.palette);
 
   return {
     // Configuration state
@@ -148,6 +155,7 @@ export function useVisualConfig() {
     animationConfig,
     frequencyMappingConfig,
     dynamicColorConfig,
+    paletteConfig,
 
     // Methods from store
     updateConfig: store.updateConfig,

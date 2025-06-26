@@ -33,7 +33,8 @@ export function usePaletteInteraction(
   visibleSolfegeData: Ref<any[]>,
   snapHeightToRows: (height: number) => number
 ) {
-  const { attackNoteWithOctave, releaseActiveNote } = useSolfegeInteraction();
+  const { attackNoteWithOctave, releaseActiveNote, releaseNoteByButtonKey } =
+    useSolfegeInteraction();
 
   /**
    * Hit test for buttons
@@ -82,7 +83,6 @@ export function usePaletteInteraction(
   const handleButtonPress = (layout: ButtonLayout, event?: Event) => {
     const solfege = visibleSolfegeData.value[layout.solfegeIndex];
     const buttonKey = `${solfege.name}-${layout.octave}`;
-    console.log(`Button pressed: ${solfege.name} (Octave ${layout.octave})`); // Add this line
 
     // Add to pressed buttons for visual feedback
     animationState.value.pressedButtons.add(buttonKey);
@@ -119,6 +119,68 @@ export function usePaletteInteraction(
 
     triggerNoteHaptic();
     releaseActiveNote(event);
+  };
+
+  /**
+   * Handle touch-specific button press (for multi-touch support)
+   */
+  const handleTouchButtonPress = (
+    layout: ButtonLayout,
+    touchId: number,
+    event?: Event
+  ) => {
+    const solfege = visibleSolfegeData.value[layout.solfegeIndex];
+    const buttonKey = `${solfege.name}-${layout.octave}`;
+    // Use the same format as solfege interaction for note tracking
+    const noteKey = `${layout.solfegeIndex}_${layout.octave}`;
+
+    // Track this touch with the note key (for proper note release)
+    paletteState.value.activeTouches.set(touchId, noteKey);
+
+    // Add to pressed buttons for visual feedback (using display key)
+    animationState.value.pressedButtons.add(buttonKey);
+
+    // Start smooth press animation
+    startButtonPressAnimation(buttonKey);
+
+    triggerNoteHaptic();
+    attackNoteWithOctave(layout.solfegeIndex, layout.octave, event);
+  };
+
+  /**
+   * Handle touch-specific button release (for multi-touch support)
+   */
+  const handleTouchButtonRelease = (touchId: number, event?: Event) => {
+    const noteKey = paletteState.value.activeTouches.get(touchId);
+
+    if (noteKey) {
+      // Remove this touch tracking
+      paletteState.value.activeTouches.delete(touchId);
+
+      // Only release the button if no other touches are holding it
+      const isStillPressed = Array.from(
+        paletteState.value.activeTouches.values()
+      ).includes(noteKey);
+
+      if (!isStillPressed) {
+        // Parse noteKey to get solfegeIndex and octave for visual feedback
+        const [solfegeIndexStr, octaveStr] = noteKey.split("_");
+        const solfegeIndex = parseInt(solfegeIndexStr);
+        const octave = parseInt(octaveStr);
+        const solfege = visibleSolfegeData.value[solfegeIndex];
+        const buttonKey = `${solfege.name}-${octave}`;
+
+        // Remove from pressed buttons (visual feedback)
+        animationState.value.pressedButtons.delete(buttonKey);
+
+        // Start release animation
+        startButtonReleaseAnimation(buttonKey);
+
+        triggerNoteHaptic();
+        // Release the specific note using the correct note key format
+        releaseNoteByButtonKey(noteKey, event);
+      }
+    }
   };
 
   /**
@@ -306,6 +368,8 @@ export function usePaletteInteraction(
     hitTestControl,
     handleButtonPress,
     handleButtonRelease,
+    handleTouchButtonPress,
+    handleTouchButtonRelease,
     handleKeyboardPress,
     handleKeyboardRelease,
     handleControlPress,

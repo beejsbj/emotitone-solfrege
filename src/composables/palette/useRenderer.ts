@@ -7,6 +7,7 @@ import { type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
+import { useVisualConfig } from "@/composables/useVisualConfig";
 import { PALETTE_STYLES } from "./index";
 import type {
   PaletteState,
@@ -53,6 +54,7 @@ export function usePaletteRenderer(
   const musicStore = useMusicStore();
   const { getStaticPrimaryColor, getGradient } = useColorSystem();
   const { isNoteActiveForSolfege } = useSolfegeInteraction();
+  const { paletteConfig } = useVisualConfig();
 
   /**
    * Create a canvas gradient from CSS gradient string
@@ -67,19 +69,27 @@ export function usePaletteRenderer(
   ): CanvasGradient | null => {
     const config = PALETTE_STYLES.rendering.gradient;
 
-    // Create linear gradient based on direction
-    let canvasGradient: CanvasGradient;
+    // Create linear gradient based on direction (0-360 degrees)
+    // Use configurable direction from visual config, fallback to palette styles
+    const direction = paletteConfig.value.gradientDirection ?? config.direction;
+    // Convert angle to radians and calculate end points
+    const angleInRadians = (direction * Math.PI) / 180;
 
-    if (config.direction === "vertical") {
-      // Top to bottom
-      canvasGradient = ctx.createLinearGradient(x, y, x, y + height);
-    } else if (config.direction === "45deg") {
-      // 45 degree diagonal (top-left to bottom-right)
-      canvasGradient = ctx.createLinearGradient(x, y, x + width, y + height);
-    } else {
-      // Default horizontal (left to right)
-      canvasGradient = ctx.createLinearGradient(x, y, x + width, y);
-    }
+    // Calculate the gradient line endpoints
+    // For a rectangle, we need to find where the angle intersects the edges
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    // Calculate the maximum distance from center to any corner
+    const maxDistance = Math.sqrt((width / 2) ** 2 + (height / 2) ** 2);
+
+    // Calculate start and end points along the angle
+    const startX = centerX - Math.cos(angleInRadians) * maxDistance;
+    const startY = centerY - Math.sin(angleInRadians) * maxDistance;
+    const endX = centerX + Math.cos(angleInRadians) * maxDistance;
+    const endY = centerY + Math.sin(angleInRadians) * maxDistance;
+
+    const canvasGradient = ctx.createLinearGradient(startX, startY, endX, endY);
 
     // Parse CSS gradient to extract colors
     const colors = cssGradient.match(config.colorRegex) || [];

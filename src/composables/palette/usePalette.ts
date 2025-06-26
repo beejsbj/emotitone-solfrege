@@ -35,6 +35,7 @@ export function usePalette() {
 
     lastTouchY: 0,
     touchStartTime: 0,
+    activeTouches: new Map<number, string>(),
 
     // Sustain hooks
     sustainHooksHeight: PALETTE_STYLES.dimensions.sustainHooksHeight,
@@ -86,6 +87,8 @@ export function usePalette() {
     hitTestControl,
     handleButtonPress,
     handleButtonRelease,
+    handleTouchButtonPress,
+    handleTouchButtonRelease,
     handleKeyboardPress,
     handleKeyboardRelease,
     handleControlPress,
@@ -209,6 +212,8 @@ export function usePalette() {
     hitTestControl,
     handleButtonPress,
     handleButtonRelease,
+    handleTouchButtonPress,
+    handleTouchButtonRelease,
     handleKeyboardPress,
     handleKeyboardRelease,
     handleControlPress,

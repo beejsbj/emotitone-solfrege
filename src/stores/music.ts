@@ -98,8 +98,11 @@ export const useMusicStore = defineStore("music", () => {
         musicTheory.getCurrentScaleNotes()[solfegeIndex]
       }${octave}`;
 
-      // Attack the audio and get note ID
-      const noteId = await audioService.attackNote(frequency);
+      // Create a clean, deterministic note ID using the note name
+      const cleanNoteId = `${noteName}_${solfegeIndex}_${octave}`;
+
+      // Attack the audio with the clean note ID
+      const noteId = await audioService.attackNote(frequency, cleanNoteId);
 
       if (noteId) {
         // Create active note object

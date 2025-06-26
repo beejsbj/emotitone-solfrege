@@ -30,6 +30,7 @@ export interface PaletteState {
   // Touch/mouse tracking
   lastTouchY: number;
   touchStartTime: number;
+  activeTouches: Map<number, string>; // Map touch identifier to button key
 
   // Sustain hooks
   sustainHooksHeight: number;

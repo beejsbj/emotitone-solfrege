@@ -329,10 +329,13 @@ export function useColorSystem() {
     noteName: string,
     mode: MusicalMode = "major",
     octave: number = 3,
-    direction: string = "45deg"
+    direction: number | string = 45
   ): string => {
     const colors = getNoteColors(noteName, mode, octave, true);
-    return `linear-gradient(${direction}, ${colors.primary} 60%, ${colors.accent}, ${colors.secondary}, ${colors.tertiary})`;
+    // Convert numeric direction to CSS format
+    const cssDirection =
+      typeof direction === "number" ? `${direction}deg` : direction;
+    return `linear-gradient(${cssDirection}, ${colors.primary} 60%, ${colors.accent}, ${colors.secondary}, ${colors.tertiary})`;
   };
 
   /**

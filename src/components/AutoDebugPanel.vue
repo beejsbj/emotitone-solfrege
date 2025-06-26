@@ -273,6 +273,9 @@ const configMetadata: Record<
     baseLightness: { min: 0.3, max: 0.7, step: 0.05 },
     lightnessRange: { min: 0.3, max: 0.8, step: 0.05 },
   },
+  palette: {
+    gradientDirection: { min: 0, max: 360, step: 15 },
+  },
 };
 
 // Helper functions
@@ -286,6 +289,7 @@ const getSectionIcon = (sectionName: string): string => {
     frequencyMapping: "🎵",
     fontOscillation: "📝",
     dynamicColors: "🌈",
+    palette: "🎹",
   };
   return icons[sectionName] || "⚙️";
 };

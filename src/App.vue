@@ -6,9 +6,6 @@
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <UnifiedVisualEffects />
 
-    <!-- Floating Interval Description Popup -->
-    <FloatingPopup />
-
     <!-- Auto Visual Effects Debug Panel (Development Only) -->
     <AutoDebugPanel />
 
@@ -31,28 +28,32 @@
             <!-- Pattern Player -->
 
             <!-- Sticky horizontal scroller -->
-            <div
-              class="sticky bottom-0 flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"
-            >
-              <div class="snap-start shrink-0 w-screen grid">
-                <button
-                  @click="handleScroll(1)"
-                  class="bg-gray-500 px-1 py-[1px] justify-self-end"
-                >
-                  patterns
-                </button>
-                <!-- DOM Palette (for comparison) -->
-                <!-- <SolfegePalette /> -->
-                <CanvasSolfegePalette />
-              </div>
-              <div class="snap-start shrink-0 w-screen">
-                <button
-                  @click="handleScroll(-1)"
-                  class="bg-gray-500 px-1 py-[1px]"
-                >
-                  Keys
-                </button>
-                <PatternPlayer />
+            <div class="sticky bottom-0">
+              <!-- Floating Interval Description Popup -->
+              <FloatingPopup />
+              <div
+                class="flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"
+              >
+                <div class="snap-start shrink-0 w-screen grid">
+                  <button
+                    @click="handleScroll(1)"
+                    class="bg-gray-500 px-1 py-[1px] justify-self-end"
+                  >
+                    patterns
+                  </button>
+                  <!-- DOM Palette (for comparison) -->
+                  <!-- <SolfegePalette /> -->
+                  <CanvasSolfegePalette />
+                </div>
+                <div class="snap-start shrink-0 w-screen">
+                  <button
+                    @click="handleScroll(-1)"
+                    class="bg-gray-500 px-1 py-[1px]"
+                  >
+                    Keys
+                  </button>
+                  <PatternPlayer />
+                </div>
               </div>
             </div>
 

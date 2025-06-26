@@ -1,16 +1,12 @@
 <template>
   <div
     ref="floatingPopup"
-    v-if="hasActiveNotes"
-    class="fixed top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out"
-    :class="hasActiveNotes ? 'translate-y-0' : '-translate-y-full'"
+    class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out"
+    :class="!hasActiveNotes ? 'translate-y-full' : '-translate-y-full'"
     :style="{
       background: primaryActiveNote
         ? getGradient(primaryActiveNote.solfege.name, musicStore.currentMode)
         : 'rgba(0, 0, 0, 0.8)',
-      transform: `translateX(-50%) translateY(${
-        hasActiveNotes ? '0' : '-100%'
-      })`,
     }"
   >
     <div
@@ -22,7 +18,11 @@
           <h3
             class="text-lg text-white mb-2 drop-shadow-lg font-weight-oscillate-lg"
           >
-            Playing {{ activeNotes.length }} Notes
+            {{
+              detectedChord
+                ? detectedChord
+                : `Playing ${activeNotes.length} Notes`
+            }}
           </h3>
           <div class="flex flex-wrap justify-center gap-2 mb-2">
             <span
@@ -74,6 +74,7 @@ import { ref, watch, nextTick, computed } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { gsap } from "gsap";
+import { Chord } from "@tonaljs/tonal";
 
 const musicStore = useMusicStore();
 const { getGradient } = useColorSystem();
@@ -82,13 +83,18 @@ const floatingPopup = ref<HTMLElement | null>(null);
 // Computed properties for polyphonic display
 const activeNotes = computed(() => musicStore.getActiveNotes());
 const hasActiveNotes = computed(() => activeNotes.value.length > 0);
+console.log(activeNotes.value);
 const primaryActiveNote = computed(() => activeNotes.value[0] || null);
 
-// Get current solfege data for display (legacy support)
-const getCurrentSolfegeData = () => {
-  if (!musicStore.currentNote) return null;
-  return musicStore.getSolfegeByName(musicStore.currentNote);
-};
+// Detect chord from active notes
+const detectedChord = computed(() => {
+  const notes = activeNotes.value.map((note) => note.noteName);
+  if (notes.length < 2) return null;
+
+  // Get possible chord names
+  const chords = Chord.detect(notes);
+  return chords.length > 0 ? chords[0] : null;
+});
 
 // Generate description for polyphonic notes
 const getPolyphonicDescription = () => {
@@ -96,7 +102,13 @@ const getPolyphonicDescription = () => {
   if (notes.length === 0) return "";
   if (notes.length === 1) return notes[0].solfege.emotion;
 
-  // For multiple notes, create a combined description
+  // For multiple notes, check if it forms a chord first
+  const chord = detectedChord.value;
+  if (chord) {
+    return `${chord} chord`;
+  }
+
+  // If no chord detected, use the existing emotion-based description
   const emotions = notes.map((note) => note.solfege.emotion);
   const uniqueEmotions = [...new Set(emotions)];
 
@@ -108,61 +120,6 @@ const getPolyphonicDescription = () => {
     return "Complex harmonic blend";
   }
 };
-
-// Watch for changes in active notes to animate the floating popup
-watch(
-  () => hasActiveNotes.value,
-  async (hasNotes, hadNotes) => {
-    if (!floatingPopup.value) return;
-
-    if (hasNotes && !hadNotes) {
-      // Notes started - animate in from top
-      await nextTick();
-      gsap.fromTo(
-        floatingPopup.value,
-        {
-          y: -100,
-          opacity: 0,
-          scale: 0.8,
-        },
-        {
-          y: 0,
-          opacity: 1,
-          scale: 1,
-          duration: 0.4,
-          ease: "back.out(1.7)",
-        }
-      );
-    } else if (!hasNotes && hadNotes) {
-      // Notes ended - animate out to top
-      gsap.to(floatingPopup.value, {
-        y: -100,
-        opacity: 0,
-        scale: 0.8,
-        duration: 0.3,
-        ease: "back.in(1.7)",
-      });
-    }
-  }
-);
-
-// Also watch for changes in the number of active notes for subtle animations
-watch(
-  () => activeNotes.value.length,
-  async (newCount, oldCount) => {
-    if (!floatingPopup.value || newCount === 0 || oldCount === 0) return;
-
-    // Subtle pulse animation when notes are added or removed
-    await nextTick();
-    gsap.to(floatingPopup.value, {
-      scale: 1.05,
-      duration: 0.1,
-      ease: "power2.out",
-      yoyo: true,
-      repeat: 1,
-    });
-  }
-);
 </script>
 
 <style scoped>

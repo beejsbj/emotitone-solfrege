@@ -11,6 +11,7 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@tonaljs/tonal": "^4.10.0",
     "gsap": "^3.12.5",
     "lucide-vue-next": "^0.523.0",
     "pinia": "^2.1.7",

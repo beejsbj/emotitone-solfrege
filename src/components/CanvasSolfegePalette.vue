@@ -1,5 +1,5 @@
 <template>
-  <div class="canvas-solfege-palette">
+  <div class="canvas-solfege-palette relative">
     <!-- Dedicated palette canvas -->
     <canvas
       ref="paletteCanvasRef"
@@ -13,6 +13,9 @@
       @touchend="handleTouchEnd"
       @touchmove="handleTouchMove"
     />
+
+    <!-- Floating popup -->
+    <FloatingPopup />
   </div>
 </template>
 
@@ -20,6 +23,7 @@
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { usePalette } from "@/composables/palette";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
+import FloatingPopup from "./FloatingPopup.vue";
 
 // Canvas setup
 const paletteCanvasRef = ref<HTMLCanvasElement | null>(null);
@@ -112,6 +116,19 @@ const getPaletteCoordinates = (
 };
 
 /**
+ * Get palette canvas coordinates from a specific touch
+ */
+const getTouchCoordinates = (touch: Touch): { x: number; y: number } => {
+  if (!paletteCanvasRef.value) return { x: 0, y: 0 };
+
+  const rect = paletteCanvasRef.value.getBoundingClientRect();
+  return {
+    x: touch.clientX - rect.left,
+    y: touch.clientY - rect.top,
+  };
+};
+
+/**
  * Mouse event handlers
  */
 const handleMouseDown = (event: MouseEvent) => {
@@ -156,28 +173,66 @@ const handleMouseMove = (event: MouseEvent) => {
  */
 const handleTouchStart = (event: TouchEvent) => {
   event.preventDefault();
-  const { x, y } = getPaletteCoordinates(event);
-  const handled = palette.handlePointerDown(x, y, event);
-  if (handled) {
-    needsRedraw.value = true;
+
+  // Process all new touches
+  for (let i = 0; i < event.touches.length; i++) {
+    const touch = event.touches[i];
+    const { x, y } = getTouchCoordinates(touch);
+
+    // Check if this is a button hit
+    const buttonHit = palette.hitTestButton(x, y);
+    if (buttonHit) {
+      palette.handleTouchButtonPress(buttonHit, touch.identifier, event);
+      needsRedraw.value = true;
+    } else {
+      // Check for control hits (for resizing, etc.)
+      const controlHit = palette.hitTestControl(x, y);
+      if (controlHit) {
+        // Store initial position for dragging/resizing
+        palette.paletteState.value.dragStartY = y;
+        palette.handleControlPress(controlHit, event);
+        needsRedraw.value = true;
+      }
+    }
   }
 };
 
 const handleTouchEnd = (event: TouchEvent) => {
   event.preventDefault();
-  const { x, y } = getPaletteCoordinates(event);
-  palette.handlePointerUp(x, y, event);
+
+  // Process all ended touches
+  for (let i = 0; i < event.changedTouches.length; i++) {
+    const touch = event.changedTouches[i];
+    palette.handleTouchButtonRelease(touch.identifier, event);
+  }
+
+  // Handle resize end if no more touches
+  if (event.touches.length === 0 && palette.paletteState.value.isResizing) {
+    palette.paletteState.value.isResizing = false;
+    palette.paletteState.value.isDragging = false;
+  }
+
   needsRedraw.value = true;
 };
 
 // Global touch end handler to catch releases outside canvas
 const handleGlobalTouchEnd = (event: TouchEvent) => {
-  if (
-    palette.paletteState.value.isDragging ||
-    palette.paletteState.value.isResizing
-  ) {
-    palette.handlePointerUp(0, 0, event);
-    needsRedraw.value = true;
+  // Process all ended touches
+  for (let i = 0; i < event.changedTouches.length; i++) {
+    const touch = event.changedTouches[i];
+    palette.handleTouchButtonRelease(touch.identifier, event);
+  }
+
+  // Handle resize/drag end if no more touches
+  if (event.touches.length === 0) {
+    if (
+      palette.paletteState.value.isResizing ||
+      palette.paletteState.value.isDragging
+    ) {
+      palette.paletteState.value.isResizing = false;
+      palette.paletteState.value.isDragging = false;
+      needsRedraw.value = true;
+    }
   }
 };
 
@@ -289,6 +344,7 @@ defineExpose({
 .canvas-solfege-palette {
   position: relative;
   z-index: 50; /* Ensure palette renders above other elements */
+  overflow: hidden; /* Contain the floating popup */
 }
 
 .palette-canvas {

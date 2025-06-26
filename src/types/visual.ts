@@ -28,6 +28,16 @@ export interface DynamicColorConfig {
 }
 
 /**
+ * Palette visual configuration
+ */
+export interface PaletteConfig {
+  /** Whether palette gradient effects are enabled */
+  isEnabled: boolean;
+  /** Gradient direction in degrees (0-360) */
+  gradientDirection: number;
+}
+
+/**
  * Font weight oscillation configuration
  */
 export interface OscillationConfig {
@@ -353,4 +363,6 @@ export interface VisualEffectsConfig {
   frequencyMapping: FrequencyMappingConfig;
   /** Dynamic color system configuration */
   dynamicColors: DynamicColorConfig;
+  /** Palette visual configuration */
+  palette: PaletteConfig;
 }

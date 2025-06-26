@@ -102,8 +102,8 @@ export const PALETTE_STYLES = {
 
     // Shadow properties
     shadow: {
-      blur: 4, // shadow-sm equivalent
-      pressedBlur: 2, // pressed shadow
+      blur: 0, // shadow-sm equivalent
+      pressedBlur: 0, // pressed shadow
     },
 
     // Button dimensions
@@ -118,8 +118,8 @@ export const PALETTE_STYLES = {
 
     // Gradient configuration for active buttons
     gradient: {
-      // Direction for linear gradients (supports multiple directions)
-      direction: "45deg" as "vertical" | "horizontal" | "45deg",
+      // Direction for linear gradients (0-360 degrees)
+      direction: 225,
       // Gradient parsing regex for extracting HSLA colors
       colorRegex: /hsla?\([^)]+\)/g,
       // Fallback gradient stops if parsing fails
@@ -167,8 +167,8 @@ export const PALETTE_STYLES = {
     },
     buttonPress: {
       scaleDown: 0.08, // 8% scale down for more weight
-      pressDuration: 150, // ms - quick press
-      releaseDuration: 300, // ms - slower release for smoothness
+      pressDuration: 100, // ms - quick press
+      releaseDuration: 100, // ms - slower release for smoothness
       pressEasing: "cubic-bezier(0.68, -0.55, 0.265, 1.55)", // Back easing with overshoot
       releaseEasing: "cubic-bezier(0.23, 1, 0.32, 1)", // Smooth elastic release
     },
@@ -176,7 +176,7 @@ export const PALETTE_STYLES = {
 
   // Visual effects
   effects: {
-    backdropBlur: true,
+    backdropBlur: false,
     buttonHover: true,
     smoothScrolling: true,
   },

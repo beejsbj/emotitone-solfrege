@@ -99,6 +99,21 @@ export function useSolfegeInteraction() {
     }
   };
 
+  // Function for releasing a specific note by button key
+  const releaseNoteByButtonKey = (buttonKey: string, event?: Event) => {
+    // Prevent unwanted behaviors
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    const noteId = activeNoteIds.value.get(buttonKey);
+    if (noteId) {
+      musicStore.releaseNote(noteId);
+      activeNoteIds.value.delete(buttonKey);
+    }
+  };
+
   // Check if any note is active for a given solfege name
   const isNoteActiveForSolfege = (
     solfegeName: string,
@@ -144,6 +159,7 @@ export function useSolfegeInteraction() {
     getReactiveGradient,
     attackNoteWithOctave,
     releaseActiveNote,
+    releaseNoteByButtonKey,
     isNoteActiveForSolfege,
     attackNote,
     releaseNote,

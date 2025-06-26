@@ -8,6 +8,7 @@ export { useVisualConfig } from "./useVisualConfig";
 export { useColorSystem } from "./useColorSystem";
 export { useKeyboardControls } from "./useKeyboardControls";
 export { useSolfegeInteraction } from "./useSolfegeInteraction";
+export { useAppLoading } from "./useAppLoading";
 
 // Canvas modules
 export * from "./canvas";

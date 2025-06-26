@@ -84,5 +84,14 @@ export type {
   SustainHook,
 } from "./palette";
 
+// App Loading and Initialization Types
+export type {
+  LoadingPhase,
+  LoadingState,
+  InitializationProgress,
+  SplashConfig,
+  AppLoadingState,
+} from "./loading";
+
 // Re-export commonly used Vue types for convenience
 export type { Ref, ComputedRef, WritableComputedRef } from "vue";

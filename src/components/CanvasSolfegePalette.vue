@@ -3,8 +3,6 @@
     <!-- Dedicated palette canvas -->
     <canvas
       ref="paletteCanvasRef"
-      :width="paletteWidth"
-      :height="paletteHeight"
       class="palette-canvas"
       @mousedown="handleMouseDown"
       @mouseup="handleMouseUp"
@@ -30,12 +28,21 @@ const paletteCanvasRef = ref<HTMLCanvasElement | null>(null);
 const paletteWidth = ref(window.innerWidth);
 const paletteHeight = ref(240); // Height for controls (20px) + 3 octave rows (80+56+56 = 192px) + padding
 
-// Palette system (now modular)
-const palette = usePalette();
+// High-DPI support
+const devicePixelRatio = window.devicePixelRatio || 1;
 
 // Animation frame
 let animationId: number | null = null;
 let needsRedraw = ref(true);
+
+// Create a temporary ref for main octave to initialize keyboard controls
+const tempMainOctave = ref(4);
+
+// Setup keyboard controls with visual feedback integration
+const keyboardControls = useKeyboardControls(tempMainOctave);
+
+// Palette system (now modular) - pass keyboard letter function to avoid duplicate instances
+const palette = usePalette(keyboardControls.getKeyboardLetterForNote);
 
 // Expose palette state for external control (like keyboard controls)
 const mainOctave = computed({
@@ -46,8 +53,14 @@ const mainOctave = computed({
   },
 });
 
-// Setup keyboard controls with visual feedback integration
-const keyboardControls = useKeyboardControls(mainOctave);
+// Update the temp ref to sync with palette state
+watch(
+  mainOctave,
+  (newValue) => {
+    tempMainOctave.value = newValue;
+  },
+  { immediate: true }
+);
 
 // Connect keyboard events to palette visual feedback
 const handleKeyboardPress = (event: CustomEvent) => {
@@ -56,9 +69,52 @@ const handleKeyboardPress = (event: CustomEvent) => {
   needsRedraw.value = true;
 };
 
-const handleKeyboardRelease = () => {
-  palette.handleKeyboardRelease();
+const handleKeyboardRelease = (event: CustomEvent) => {
+  const { key } = event.detail;
+
+  // Get the keyboard mapping to find which note this key corresponds to
+  const mapping = keyboardControls.getKeyboardMapping();
+  const noteMapping = mapping[key];
+
+  if (noteMapping) {
+    // Release the specific button for this key
+    palette.handleKeyboardRelease(noteMapping.solfegeIndex, noteMapping.octave);
+  } else {
+    // Fallback: release all if we can't determine the specific key
+    palette.handleKeyboardRelease();
+  }
+
   needsRedraw.value = true;
+};
+
+/**
+ * Setup canvas for high-DPI displays
+ */
+const setupHighDPICanvas = () => {
+  if (!paletteCanvasRef.value) return;
+
+  const canvas = paletteCanvasRef.value;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  // Get the display size (CSS pixels)
+  const displayWidth = paletteWidth.value;
+  const displayHeight = paletteHeight.value;
+
+  // Set the actual canvas size in memory (scaled up for high-DPI)
+  canvas.width = displayWidth * devicePixelRatio;
+  canvas.height = displayHeight * devicePixelRatio;
+
+  // Scale the canvas back down using CSS
+  canvas.style.width = displayWidth + "px";
+  canvas.style.height = displayHeight + "px";
+
+  // Scale the drawing context so everything draws at the correct size
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  // Enable high-quality rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 };
 
 /**
@@ -70,7 +126,7 @@ const renderPalette = (currentTime?: number) => {
   const ctx = paletteCanvasRef.value.getContext("2d");
   if (!ctx) return;
 
-  // Clear canvas
+  // Clear canvas using logical dimensions (the context is already scaled)
   ctx.clearRect(0, 0, paletteWidth.value, paletteHeight.value);
 
   // Render palette with current time for animations
@@ -164,6 +220,7 @@ const handleMouseMove = (event: MouseEvent) => {
 
     // Update canvas height to match palette height
     paletteHeight.value = palette.paletteState.value.height;
+    setupHighDPICanvas(); // Re-setup canvas for new height
     needsRedraw.value = true;
   }
 };
@@ -245,6 +302,7 @@ const handleTouchMove = (event: TouchEvent) => {
 
     // Update canvas height to match palette height
     paletteHeight.value = palette.paletteState.value.height;
+    setupHighDPICanvas(); // Re-setup canvas for new height
     needsRedraw.value = true;
   }
 };
@@ -254,6 +312,7 @@ const handleTouchMove = (event: TouchEvent) => {
  */
 const handleResize = () => {
   paletteWidth.value = window.innerWidth;
+  setupHighDPICanvas(); // Re-setup canvas for new dimensions
   palette.updateDimensions(paletteWidth.value, paletteHeight.value);
   needsRedraw.value = true;
 };
@@ -277,6 +336,9 @@ watch(
  * Initialize
  */
 onMounted(() => {
+  // Setup high-DPI canvas first
+  setupHighDPICanvas();
+
   // Set palette to full width and position at origin (canvas fills its container)
   palette.updateDimensions(paletteWidth.value, paletteHeight.value);
   palette.updatePosition(0, 0); // Canvas coordinates start at (0,0) within the canvas element
@@ -334,6 +396,7 @@ defineExpose({
   },
   updateHeight: (height: number) => {
     paletteHeight.value = height;
+    setupHighDPICanvas(); // Re-setup canvas for new height
     palette.updateDimensions(paletteWidth.value, height);
     needsRedraw.value = true;
   },
@@ -351,7 +414,6 @@ defineExpose({
   display: block;
   touch-action: none;
   pointer-events: auto;
-  width: 100%;
   background-color: black;
   position: relative;
   z-index: 51; /* Canvas above the container */

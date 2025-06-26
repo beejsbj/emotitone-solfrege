@@ -185,6 +185,7 @@ export function usePaletteInteraction(
 
   /**
    * Handle keyboard press (for external keyboard controls)
+   * This only handles VISUAL feedback - audio is handled by keyboard controls
    */
   const handleKeyboardPress = (solfegeIndex: number, octave: number) => {
     const solfege = visibleSolfegeData.value[solfegeIndex];
@@ -195,18 +196,40 @@ export function usePaletteInteraction(
 
     // Start smooth press animation
     startButtonPressAnimation(buttonKey);
+
+    // NOTE: Do NOT call attackNoteWithOctave here - keyboard controls handle that
   };
 
   /**
    * Handle keyboard release (for external keyboard controls)
+   * This only handles VISUAL feedback - audio is handled by keyboard controls
    */
-  const handleKeyboardRelease = () => {
-    // Start release animations for all pressed buttons
-    for (const buttonKey of animationState.value.pressedButtons) {
-      startButtonReleaseAnimation(buttonKey);
-    }
+  const handleKeyboardRelease = (solfegeIndex?: number, octave?: number) => {
+    if (solfegeIndex !== undefined && octave !== undefined) {
+      // Release specific button VISUAL feedback only
+      const solfege = visibleSolfegeData.value[solfegeIndex];
+      if (solfege) {
+        const buttonKey = `${solfege.name}-${octave}`;
 
-    animationState.value.pressedButtons.clear();
+        // Remove from pressed buttons (visual feedback)
+        animationState.value.pressedButtons.delete(buttonKey);
+
+        // Start release animation for this specific button
+        startButtonReleaseAnimation(buttonKey);
+
+        // NOTE: Do NOT release audio here - keyboard controls handle that
+      }
+    } else {
+      // Fallback: release all visual feedback (for compatibility)
+      for (const buttonKey of animationState.value.pressedButtons) {
+        startButtonReleaseAnimation(buttonKey);
+      }
+      animationState.value.pressedButtons.clear();
+
+      // Only release audio if this is a non-keyboard fallback call
+      // (e.g., from mouse/touch interactions)
+      releaseActiveNote();
+    }
   };
 
   /**

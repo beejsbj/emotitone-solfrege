@@ -3,11 +3,12 @@
  * Handles canvas rendering for the palette components
  */
 
-import { type Ref } from "vue";
+import { type Ref, computed } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import { shouldShowKeyboardShortcuts } from "@/utils/deviceDetection";
 import { PALETTE_STYLES } from "./index";
 import type {
   PaletteState,
@@ -49,12 +50,19 @@ export function usePaletteRenderer(
   animationState: Ref<AnimationState>,
   calculateButtonLayouts: () => ButtonLayout[],
   calculateControlLayouts: () => ControlLayout,
-  visibleSolfegeData: Ref<any[]>
+  visibleSolfegeData: Ref<any[]>,
+  getKeyboardLetterForNote?: (
+    solfegeIndex: number,
+    octave: number
+  ) => string | null
 ) {
   const musicStore = useMusicStore();
   const { getStaticPrimaryColor, getGradient } = useColorSystem();
   const { isNoteActiveForSolfege } = useSolfegeInteraction();
   const { paletteConfig } = useVisualConfig();
+
+  // Check if we should show keyboard shortcuts (desktop only)
+  const showKeyboardShortcuts = shouldShowKeyboardShortcuts();
 
   /**
    * Create a canvas gradient from CSS gradient string
@@ -356,6 +364,41 @@ export function usePaletteRenderer(
       ctx.font = `${PALETTE_STYLES.fonts.weights.semibold} ${PALETTE_STYLES.fonts.sizes.sm}px ${PALETTE_STYLES.fonts.systemFamily}`;
       ctx.fillStyle = textColor;
       ctx.fillText(`${scaleNote}${layout.octave}`, centerX, centerY);
+    }
+
+    // Add keyboard letter box on desktop
+    if (showKeyboardShortcuts && getKeyboardLetterForNote) {
+      const keyboardLetter = getKeyboardLetterForNote(
+        layout.solfegeIndex,
+        layout.octave
+      );
+      if (keyboardLetter) {
+        // Small box in top-right corner
+        const boxSize = 16;
+        const boxPadding = 4;
+        const boxX = buttonX + buttonWidth - boxSize - boxPadding;
+        const boxY = buttonY + boxPadding;
+
+        // Box background (semi-transparent dark)
+        ctx.fillStyle = "hsla(0, 0%, 0%, 0.6)";
+        ctx.fillRect(boxX, boxY, boxSize, boxSize);
+
+        // Box border
+        ctx.strokeStyle = "hsla(0, 0%, 100%, 0.3)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(boxX, boxY, boxSize, boxSize);
+
+        // Keyboard letter text
+        ctx.font = `${PALETTE_STYLES.fonts.weights.semibold} ${PALETTE_STYLES.fonts.sizes.xs}px ${PALETTE_STYLES.fonts.systemFamily}`;
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(keyboardLetter, boxX + boxSize / 2, boxY + boxSize / 2);
+
+        // Reset text alignment for next renders
+        ctx.textAlign = PALETTE_STYLES.rendering.textAlign;
+        ctx.textBaseline = PALETTE_STYLES.rendering.textBaseline;
+      }
     }
 
     ctx.restore();

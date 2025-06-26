@@ -63,6 +63,29 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     };
   };
 
+  /**
+   * Get the keyboard letter for a given solfege index and octave
+   * Returns the key that would trigger this note, or null if not mapped
+   */
+  const getKeyboardLetterForNote = (
+    solfegeIndex: number,
+    octave: number
+  ): string | null => {
+    const mapping = getKeyboardMapping();
+
+    // Find the key that maps to this solfege index and octave
+    for (const [key, noteMapping] of Object.entries(mapping)) {
+      if (
+        noteMapping.solfegeIndex === solfegeIndex &&
+        noteMapping.octave === octave
+      ) {
+        return key.toUpperCase(); // Return uppercase for display
+      }
+    }
+
+    return null; // No keyboard mapping for this note
+  };
+
   // Keyboard event handlers
   const handleKeyDown = async (event: KeyboardEvent) => {
     const key = event.key; // Don't convert to lowercase to preserve shift state
@@ -165,6 +188,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     pressedKeys: computed(() => pressedKeys.value),
     keyboardNoteIds: computed(() => keyboardNoteIds.value),
     getKeyboardMapping,
+    getKeyboardLetterForNote,
     setupKeyboardListeners,
     cleanupKeyboardListeners,
   };

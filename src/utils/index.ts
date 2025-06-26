@@ -17,3 +17,6 @@ export * from "./performanceMonitor";
 
 // Visual Effects
 export * from "./visualEffects";
+
+// Device Detection
+export * from "./deviceDetection";

@@ -1,16 +1,19 @@
 <template>
   <div id="app" class="min-h-screen">
+    <!-- Loading Splash Screen -->
+    <LoadingSplash />
+
     <!-- Vue Sonner Toast Notifications -->
     <Toaster position="top-right" :duration="4000" theme="dark" richColors />
 
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
-    <UnifiedVisualEffects />
+    <UnifiedVisualEffects v-if="!isLoading" />
 
     <!-- Auto Visual Effects Debug Panel (Development Only) -->
-    <AutoDebugPanel />
+    <AutoDebugPanel v-if="!isLoading" />
 
     <!-- Main Content -->
-    <div class="relative z-10 min-h-screen flex flex-col">
+    <div v-if="!isLoading" class="relative z-10 min-h-screen flex flex-col">
       <!-- Header -->
       <AppHeader />
 
@@ -67,6 +70,8 @@
 
 <script setup lang="ts">
 import { useMusicStore } from "@/stores/music";
+import { useAppLoading } from "@/composables/useAppLoading";
+import LoadingSplash from "@/components/LoadingSplash.vue";
 import KeySelector from "@/components/KeySelector.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
@@ -80,7 +85,9 @@ import { Toaster } from "vue-sonner";
 // Check if we're in development mode
 const isDev = import.meta.env.DEV;
 
+// Stores and composables
 const musicStore = useMusicStore();
+const { isLoading } = useAppLoading();
 
 // Debug: Log the number of solfege notes
 console.log("Number of solfege notes:", musicStore.solfegeData.length);

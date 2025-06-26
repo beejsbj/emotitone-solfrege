@@ -12,7 +12,12 @@ import { usePaletteInteraction } from "./useInteraction";
 import { PALETTE_STYLES } from "./index";
 import type { PaletteState } from "@/types";
 
-export function usePalette() {
+export function usePalette(
+  getKeyboardLetterForNote?: (
+    solfegeIndex: number,
+    octave: number
+  ) => string | null
+) {
   const musicStore = useMusicStore();
 
   // Palette state
@@ -78,7 +83,8 @@ export function usePalette() {
     animationState,
     calculateButtonLayouts,
     calculateControlLayouts,
-    visibleSolfegeData
+    visibleSolfegeData,
+    getKeyboardLetterForNote
   );
 
   // Initialize interaction system

@@ -15,7 +15,6 @@ export interface PaletteState {
 
   // Palette settings
   mainOctave: number;
-  showLastSolfege: boolean; //being Do', you keep confusing it with Ti
 
   // Visual properties
   controlsHeight: number;
@@ -59,7 +58,6 @@ export interface ControlLayout {
   rightFlick: { x: number; y: number; width: number; height: number };
   dragHandle: { x: number; y: number; width: number; height: number };
   resizeHandle: { x: number; y: number; width: number; height: number };
-  solfegeToggle: { x: number; y: number; width: number; height: number };
 }
 
 /**

@@ -3,7 +3,7 @@
  * Handles canvas rendering for the palette components
  */
 
-import { type Ref, computed } from "vue";
+import { type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
@@ -177,18 +177,6 @@ export function usePaletteRenderer(
       controls.leftFlick.y + controls.leftFlick.height / 2,
       PALETTE_STYLES.symbols.iconSize.small,
       PALETTE_STYLES.symbols.iconStroke
-    );
-
-    // Solfege toggle button
-    ctx.fillStyle = paletteState.value.showLastSolfege
-      ? PALETTE_STYLES.colors.text.controlActive
-      : PALETTE_STYLES.colors.text.control;
-    ctx.font = `${PALETTE_STYLES.fonts.sizes.xs}px ${PALETTE_STYLES.fonts.systemFamily}`;
-    ctx.textAlign = PALETTE_STYLES.rendering.textAlign;
-    ctx.fillText(
-      PALETTE_STYLES.symbols.solfegeToggle,
-      controls.solfegeToggle.x + controls.solfegeToggle.width / 2,
-      controls.solfegeToggle.y + controls.solfegeToggle.height / 2
     );
 
     // Resize handle (move-vertical icon) - now in center position

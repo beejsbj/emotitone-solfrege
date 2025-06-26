@@ -28,7 +28,6 @@ export function usePalette(
     height: 264, // Height for controls (20px) + 3 octave rows (80+56+56 = 192px) + sustain hooks (24px) + padding
 
     mainOctave: 4,
-    showLastSolfege: false,
 
     controlsHeight: PALETTE_STYLES.dimensions.controlsHeight,
     buttonGap: PALETTE_STYLES.dimensions.buttonGap,
@@ -156,13 +155,6 @@ export function usePalette(
     paletteState.value.mainOctave = Math.max(2, Math.min(6, octave));
   };
 
-  /**
-   * Toggle last solfege note
-   */
-  const toggleLastSolfege = () => {
-    paletteState.value.showLastSolfege = !paletteState.value.showLastSolfege;
-  };
-
   // Watch for music store changes to update pressed button states
   watch(
     () => musicStore.activeNotes,
@@ -233,7 +225,6 @@ export function usePalette(
     positionAtBottom,
     handleWindowResize,
     setMainOctave,
-    toggleLastSolfege,
 
     // Layout utilities
     visibleRowCount,

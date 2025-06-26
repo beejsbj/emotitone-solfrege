@@ -323,7 +323,6 @@ const handleResize = () => {
 watch(
   () => [
     palette.paletteState.value.mainOctave,
-    palette.paletteState.value.showLastSolfege,
     palette.paletteState.value.height,
   ],
   () => {
@@ -388,10 +387,6 @@ onUnmounted(() => {
 defineExpose({
   setMainOctave: (octave: number) => {
     palette.setMainOctave(octave);
-    needsRedraw.value = true;
-  },
-  toggleLastSolfege: () => {
-    palette.toggleLastSolfege();
     needsRedraw.value = true;
   },
   updateHeight: (height: number) => {

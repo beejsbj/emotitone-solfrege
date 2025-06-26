@@ -21,11 +21,8 @@ export function usePaletteLayout(
 
   // Computed properties for layout calculations
   const visibleSolfegeData = computed(() => {
-    if (paletteState.value.showLastSolfege) {
-      return musicStore.solfegeData; // Show all 8 notes
-    } else {
-      return musicStore.solfegeData.slice(0, -1); // Show only first 7 notes
-    }
+    // Always show only the first 7 notes (Do through Ti, no octave Do')
+    return musicStore.solfegeData.slice(0, 7);
   });
 
   const buttonCount = computed(() => visibleSolfegeData.value.length);
@@ -200,12 +197,6 @@ export function usePaletteLayout(
     return {
       leftFlick: {
         x: state.x,
-        y: state.y,
-        width: controlWidth,
-        height: state.controlsHeight,
-      },
-      solfegeToggle: {
-        x: state.x + controlWidth,
         y: state.y,
         width: controlWidth,
         height: state.controlsHeight,

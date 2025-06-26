@@ -280,12 +280,6 @@ export function usePaletteInteraction(
         }
         break;
 
-      case "solfegeToggle":
-        // Toggle last solfege note
-        state.showLastSolfege = !state.showLastSolfege;
-        triggerUIHaptic();
-        break;
-
       case "dragHandle":
         // Start dragging (for future implementation)
         state.isDragging = true;

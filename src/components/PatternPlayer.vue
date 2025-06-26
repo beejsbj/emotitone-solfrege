@@ -17,42 +17,30 @@
           </p>
         </div>
 
-        <!-- Tempo Control -->
-        <div class="flex items-center gap-1 mb-1">
-          <label class="text-white/80 text-xs font-bold"
-            >Tempo:
-            <span class="text-white/80 text-xs font-bold w-12"
-              >{{ tempo }} BPM</span
-            ></label
-          >
-
-          <input
-            v-model="tempo"
-            type="range"
-            min="60"
-            max="180"
-            step="10"
-            class="flex-1 h-2 bg-white/20 rounded-sm appearance-none cursor-pointer"
+        <!-- Controls Grid -->
+        <div class="grid grid-cols-2 gap-4 mb-2 p-2">
+          <!-- Tempo Control -->
+          <Knob
+            :value="tempo"
+            :min="60"
+            :max="180"
+            :step="10"
+            param-name="Tempo"
+            :format-value="formatTempo"
+            :is-disabled="isPlaying"
+            @update:value="(newValue: number) => tempo = newValue"
           />
-        </div>
 
-        <!-- Octave Control -->
-        <div class="flex items-center gap-1 mb-1">
-          <label class="text-white/80 text-xs font-bold"
-            >Octave:
-
-            <span class="text-white/80 text-xs font-bold w-12">{{
-              baseOctave
-            }}</span>
-          </label>
-
-          <input
-            v-model="baseOctave"
-            type="range"
-            min="3"
-            max="5"
-            step="1"
-            class="flex-1 h-2 bg-white/20 rounded-sm appearance-none cursor-pointer"
+          <!-- Octave Control -->
+          <Knob
+            :value="baseOctave"
+            :min="3"
+            :max="5"
+            :step="1"
+            param-name="Octave"
+            :format-value="formatOctave"
+            :is-disabled="isPlaying"
+            @update:value="(newValue: number) => baseOctave = newValue"
           />
         </div>
 
@@ -185,6 +173,7 @@ import { useMusicStore } from "@/stores/music";
 import type { MelodicPattern } from "@/types/music";
 import * as Tone from "tone";
 import { useColorSystem } from "@/composables/useColorSystem";
+import Knob from "./Knob.vue";
 
 const musicStore = useMusicStore();
 const { getPrimaryColor } = useColorSystem();
@@ -212,6 +201,10 @@ const filteredPatterns = computed(() => {
     );
   }
 });
+
+// Format functions for knobs
+const formatTempo = (value: number) => `${value}`;
+const formatOctave = (value: number) => `${value}`;
 
 // Methods
 const selectPattern = (pattern: MelodicPattern) => {

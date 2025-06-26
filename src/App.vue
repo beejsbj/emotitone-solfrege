@@ -34,15 +34,29 @@
             <div
               class="sticky bottom-0 flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"
             >
-              <div class="snap-start shrink-0 w-screen">
-                <button @click="handleScroll(1)">patterns</button>
-                <SolfegePalette />
+              <div class="snap-start shrink-0 w-screen grid">
+                <button
+                  @click="handleScroll(1)"
+                  class="bg-gray-500 px-1 py-[1px] justify-self-end"
+                >
+                  patterns
+                </button>
+                <!-- DOM Palette (for comparison) -->
+                <!-- <SolfegePalette /> -->
+                <CanvasSolfegePalette />
               </div>
               <div class="snap-start shrink-0 w-screen">
-                <button @click="handleScroll(-1)">Keys</button>
+                <button
+                  @click="handleScroll(-1)"
+                  class="bg-gray-500 px-1 py-[1px]"
+                >
+                  Keys
+                </button>
                 <PatternPlayer />
               </div>
             </div>
+
+            <!-- Canvas Palette (new implementation) -->
           </div>
         </div>
       </main>
@@ -55,14 +69,12 @@ import { useMusicStore } from "@/stores/music";
 import KeySelector from "@/components/KeySelector.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
-import SolfegePalette from "@/components/SolfegePalette.vue";
+import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
-import DynamicColorPreview from "@/components/DynamicColorPreview.vue";
 import PatternPlayer from "@/components/PatternPlayer.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import { Toaster } from "vue-sonner";
-import { useInstrumentStore } from "@/stores/instrument";
 
 // Check if we're in development mode
 const isDev = import.meta.env.DEV;

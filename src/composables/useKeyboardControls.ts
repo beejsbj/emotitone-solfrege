@@ -84,9 +84,19 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
         keyboardMapping[key as keyof typeof keyboardMapping];
 
       // Attack the note and track the note ID for this specific key
-      const noteId = await musicStore.attackNoteWithOctave(solfegeIndex, octave);
+      const noteId = await musicStore.attackNoteWithOctave(
+        solfegeIndex,
+        octave
+      );
       if (noteId) {
         keyboardNoteIds.value.set(key, noteId);
+
+        // Dispatch custom event for visual feedback
+        window.dispatchEvent(
+          new CustomEvent("keyboard-note-pressed", {
+            detail: { solfegeIndex, octave, key },
+          })
+        );
       }
     }
   };
@@ -102,6 +112,13 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       if (noteId) {
         musicStore.releaseNote(noteId);
         keyboardNoteIds.value.delete(key);
+
+        // Dispatch custom event for visual feedback
+        window.dispatchEvent(
+          new CustomEvent("keyboard-note-released", {
+            detail: { key },
+          })
+        );
       }
     }
   };

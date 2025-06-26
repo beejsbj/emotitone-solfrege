@@ -1,4 +1,5 @@
 import { computed, reactive } from "vue";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import type {
   BlobConfig,
   AmbientConfig,
@@ -117,62 +118,26 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
 
 /**
  * Composable for managing unified visual effects configuration
+ * Now uses Pinia store for persistence and centralized state management
  */
 export function useVisualConfig() {
-  // Reactive configuration state
-  const config = reactive<VisualEffectsConfig>({ ...DEFAULT_CONFIG });
+  // Use the Pinia store
+  const store = useVisualConfigStore();
 
   // Individual config sections as computed refs for convenience
-  const blobConfig = computed(() => config.blobs);
-  const ambientConfig = computed(() => config.ambient);
-  const particleConfig = computed(() => config.particles);
-  const stringConfig = computed(() => config.strings);
-  const fontOscillationConfig = computed(() => config.fontOscillation);
-  const animationConfig = computed(() => config.animation);
-  const frequencyMappingConfig = computed(() => config.frequencyMapping);
-  const dynamicColorConfig = computed(() => config.dynamicColors);
-
-  /**
-   * Update a specific configuration section
-   */
-  const updateConfig = <K extends keyof VisualEffectsConfig>(
-    section: K,
-    updates: Partial<VisualEffectsConfig[K]>
-  ) => {
-    Object.assign(config[section], updates);
-  };
-
-  /**
-   * Reset configuration to defaults
-   */
-  const resetConfig = () => {
-    Object.assign(config, DEFAULT_CONFIG);
-  };
-
-  /**
-   * Reset a specific section to defaults
-   */
-  const resetSection = <K extends keyof VisualEffectsConfig>(section: K) => {
-    Object.assign(config[section], DEFAULT_CONFIG[section]);
-  };
-
-  /**
-   * Get a deep copy of the current configuration
-   */
-  const getConfigSnapshot = (): VisualEffectsConfig => {
-    return JSON.parse(JSON.stringify(config));
-  };
-
-  /**
-   * Load configuration from a snapshot
-   */
-  const loadConfigSnapshot = (snapshot: VisualEffectsConfig) => {
-    Object.assign(config, snapshot);
-  };
+  const blobConfig = computed(() => store.config.blobs);
+  const ambientConfig = computed(() => store.config.ambient);
+  const particleConfig = computed(() => store.config.particles);
+  const stringConfig = computed(() => store.config.strings);
+  const fontOscillationConfig = computed(() => store.config.fontOscillation);
+  const animationConfig = computed(() => store.config.animation);
+  const frequencyMappingConfig = computed(() => store.config.frequencyMapping);
+  const dynamicColorConfig = computed(() => store.config.dynamicColors);
 
   return {
     // Configuration state
-    config,
+    config: store.config,
+    visualsEnabled: store.visualsEnabled,
 
     // Individual sections
     blobConfig,
@@ -184,12 +149,12 @@ export function useVisualConfig() {
     frequencyMappingConfig,
     dynamicColorConfig,
 
-    // Methods
-    updateConfig,
-    resetConfig,
-    resetSection,
-    getConfigSnapshot,
-    loadConfigSnapshot,
+    // Methods from store
+    updateConfig: store.updateConfig,
+    resetConfig: store.resetToDefaults,
+    resetSection: store.resetSection,
+    getConfigSnapshot: store.getConfigSnapshot,
+    loadConfigSnapshot: store.loadConfigSnapshot,
   };
 }
 

@@ -74,5 +74,15 @@ export type {
   AudioContextInfo,
 } from "./instrument";
 
+// Palette System Types
+export type {
+  PaletteState,
+  ButtonLayout,
+  ControlLayout,
+  AnimationState,
+  OctaveHeights,
+  SustainHook,
+} from "./palette";
+
 // Re-export commonly used Vue types for convenience
 export type { Ref, ComputedRef, WritableComputedRef } from "vue";

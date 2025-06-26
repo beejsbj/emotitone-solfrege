@@ -8,3 +8,4 @@ export { useParticleSystem } from "./useParticleSystem";
 export { useStringRenderer } from "./useStringRenderer";
 export { useAmbientRenderer } from "./useAmbientRenderer";
 export { useUnifiedCanvas } from "./useUnifiedCanvas";
+// Palette renderer moved to composables/palette module

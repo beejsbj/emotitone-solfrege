@@ -1,5 +1,5 @@
 <template>
-  <div class="unified-visual-effects">
+  <div v-if="visualsEnabled" class="unified-visual-effects">
     <canvas
       ref="canvasRef"
       :width="canvasWidth"
@@ -12,11 +12,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
 import type { SolfegeData } from "@/types/music";
 
 const musicStore = useMusicStore();
+const visualConfigStore = useVisualConfigStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+
+// Get visualsEnabled from store
+const { visualsEnabled } = visualConfigStore;
 
 // Use the unified canvas system
 const {
@@ -28,6 +33,7 @@ const {
   handleNoteReleased,
   startAnimation,
   stopAnimation,
+  isAnimating,
   cleanup,
 } = useUnifiedCanvas(canvasRef);
 
@@ -52,13 +58,7 @@ function onNoteReleased(event: CustomEvent) {
   }
 }
 
-// Watch for mode changes (handled automatically by the unified system)
-watch(
-  () => musicStore.currentMode,
-  () => {
-    // Mode changes will be reflected in the next animation frame
-  }
-);
+// Note: Mode changes and visual enable/disable are handled automatically by component lifecycle
 
 onMounted(() => {
   console.log("🚀 Mounting UnifiedVisualEffects...");
@@ -66,9 +66,11 @@ onMounted(() => {
   // Initialize the unified canvas system
   initializeCanvas();
 
-  // Start the animation loop
-  console.log("▶️ Starting animation...");
-  startAnimation();
+  // Start the animation loop only if visuals are enabled
+  if (visualsEnabled) {
+    console.log("▶️ Starting animation...");
+    startAnimation();
+  }
 
   // Handle window resize
   window.addEventListener("resize", handleResize);

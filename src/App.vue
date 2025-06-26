@@ -4,7 +4,7 @@
     <LoadingSplash />
 
     <!-- Vue Sonner Toast Notifications -->
-    <Toaster position="top-right" :duration="4000" theme="dark" richColors />
+    <!-- <Toaster position="top-right" :duration="4000" theme="dark" richColors /> -->
 
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <UnifiedVisualEffects v-if="!isLoading" />

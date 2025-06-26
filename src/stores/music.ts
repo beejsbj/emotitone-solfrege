@@ -59,17 +59,19 @@ export const useMusicStore = defineStore("music", () => {
       currentNote.value = solfege.name;
       isPlaying.value = true;
 
-      // Get the actual note name and play it
+      // Get both frequency (for visual effects) and note name (for audio)
       const frequency = musicTheory.getNoteFrequency(solfegeIndex, 4);
+      const noteName = musicTheory.getNoteName(solfegeIndex, 4);
 
-      // Play the audio
-      await audioService.playNote(frequency, "1n");
+      // Play the audio using note name for better compatibility
+      await audioService.playNote(noteName, "1n");
 
-      // Dispatch custom event for background effects
+      // Dispatch custom event for background effects (includes both note name and frequency)
       const notePlayedEvent = new CustomEvent("note-played", {
         detail: {
           note: solfege,
           frequency,
+          noteName,
           solfegeIndex,
           octave: 4,
           instrument: instrumentStore.currentInstrument,
@@ -92,17 +94,19 @@ export const useMusicStore = defineStore("music", () => {
   ): Promise<string | null> {
     const solfege = solfegeData.value[solfegeIndex];
     if (solfege) {
-      // Get the actual note name and frequency
+      // Get both frequency (for visual effects) and note name (for audio)
       const frequency = musicTheory.getNoteFrequency(solfegeIndex, octave);
-      const noteName = `${
-        musicTheory.getCurrentScaleNotes()[solfegeIndex]
-      }${octave}`;
+      const noteName = musicTheory.getNoteName(solfegeIndex, octave);
 
       // Create a clean, deterministic note ID using the note name
       const cleanNoteId = `${noteName}_${solfegeIndex}_${octave}`;
 
-      // Attack the audio with the clean note ID
-      const noteId = await audioService.attackNote(frequency, cleanNoteId);
+      // Attack the audio using note name with frequency as backup
+      const noteId = await audioService.attackNote(
+        noteName,
+        cleanNoteId,
+        frequency
+      );
 
       if (noteId) {
         // Create active note object
@@ -228,6 +232,10 @@ export const useMusicStore = defineStore("music", () => {
     return musicTheory.getNoteFrequency(solfegeIndex, octave);
   }
 
+  function getNoteName(solfegeIndex: number, octave: number = 4): string {
+    return musicTheory.getNoteName(solfegeIndex, octave);
+  }
+
   function getMelodicPatterns(): MelodicPattern[] {
     return musicTheory.getMelodicPatterns();
   }
@@ -285,6 +293,7 @@ export const useMusicStore = defineStore("music", () => {
     removeLastFromSequence,
     getSolfegeByName,
     getNoteFrequency,
+    getNoteName,
     getMelodicPatterns,
 
     // Polyphonic helpers

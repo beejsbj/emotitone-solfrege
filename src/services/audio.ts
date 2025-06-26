@@ -1,9 +1,15 @@
 import * as Tone from "tone";
 
+/**
+ * Enhanced Audio Service that can handle both note names and frequencies
+ * Prefers note names for better Tone.js compatibility, but supports frequencies for visual effects
+ */
 export class AudioService {
   private isInitialized = false;
-  private activeNotes: Map<string, { frequency: number; noteId: string }> =
-    new Map();
+  private activeNotes: Map<
+    string,
+    { note: string | number; noteId: string; frequency?: number }
+  > = new Map();
   private instrumentStore: any = null;
   private userInteractionReceived = false;
 
@@ -102,7 +108,7 @@ export class AudioService {
     return Tone.getContext().state;
   }
 
-  async playNote(frequency: number, duration: string = "1n") {
+  async playNote(note: string | number, duration: string = "1n") {
     try {
       // Force user interaction and audio context start
       if (!this.userInteractionReceived) {
@@ -124,11 +130,11 @@ export class AudioService {
 
       if (instrument && Tone.getContext().state === "running") {
         try {
-          const noteFreq =
-            typeof frequency === "number" ? frequency : parseFloat(frequency);
+          // Use note name directly if provided, otherwise use frequency
+          const noteToPlay = typeof note === "string" ? note : note;
 
           // All instruments now have consistent API
-          instrument.triggerAttackRelease(noteFreq, duration);
+          instrument.triggerAttackRelease(noteToPlay, duration);
         } catch (triggerError) {
           console.error(
             "Error triggering instrument in playNote:",
@@ -138,7 +144,7 @@ export class AudioService {
             "Instrument type:",
             instrument.constructor?.name || "Unknown"
           );
-          console.log("Frequency:", frequency);
+          console.log("Note:", note);
         }
       } else {
         console.warn(
@@ -150,7 +156,11 @@ export class AudioService {
     }
   }
 
-  async attackNote(frequency: number, noteId?: string): Promise<string> {
+  async attackNote(
+    note: string | number,
+    noteId?: string,
+    frequency?: number
+  ): Promise<string> {
     try {
       // Force user interaction and audio context start
       if (!this.userInteractionReceived) {
@@ -172,17 +182,23 @@ export class AudioService {
       const instrument = instrumentStore.getCurrentInstrument();
 
       if (instrument && typeof instrument.triggerAttack === "function") {
-        const id = noteId || `note_${frequency}_${Date.now()}`;
+        const id =
+          noteId ||
+          `note_${typeof note === "string" ? note : note}_${Date.now()}`;
 
         // Additional safety check before triggering
         if (Tone.getContext().state === "running") {
           try {
-            const noteFreq =
-              typeof frequency === "number" ? frequency : parseFloat(frequency);
+            // Use note name directly if provided, otherwise use frequency
+            const noteToPlay = typeof note === "string" ? note : note;
 
             // All instruments now have consistent API
-            instrument.triggerAttack(noteFreq);
-            this.activeNotes.set(id, { frequency: noteFreq, noteId: id });
+            instrument.triggerAttack(noteToPlay);
+            this.activeNotes.set(id, {
+              note: noteToPlay,
+              noteId: id,
+              frequency,
+            });
             return id;
           } catch (triggerError) {
             console.error("Error triggering instrument:", triggerError);
@@ -190,7 +206,7 @@ export class AudioService {
               "Instrument type:",
               instrument.constructor?.name || "Unknown"
             );
-            console.log("Frequency:", frequency);
+            console.log("Note:", note);
           }
         } else {
           console.warn("Audio context not running, cannot attack note");
@@ -216,7 +232,7 @@ export class AudioService {
         if (noteData) {
           try {
             // All instruments now have consistent API
-            instrument.triggerRelease(noteData.frequency);
+            instrument.triggerRelease(noteData.note);
             this.activeNotes.delete(noteId);
           } catch (releaseError) {
             console.error("Error releasing note:", releaseError);
@@ -265,7 +281,11 @@ export class AudioService {
   }
 
   // Get currently active notes
-  getActiveNotes(): Array<{ frequency: number; noteId: string }> {
+  getActiveNotes(): Array<{
+    note: string | number;
+    noteId: string;
+    frequency?: number;
+  }> {
     return Array.from(this.activeNotes.values());
   }
 

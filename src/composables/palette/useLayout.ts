@@ -167,6 +167,11 @@ export function usePaletteLayout(
           buttonY += prevIsMain ? heights.main : heights.other;
         }
 
+        // Calculate the correct octave for this note using music service logic
+        // This ensures proper ascending scale order for ALL rows (e.g., A4-B4-C5 in A minor)
+        const noteNameWithOctave = musicStore.getNoteName(solfegeIndex, octave);
+        const correctOctave = noteNameWithOctave.match(/\d+$/)?.[0] || octave;
+
         // Always create layout (render all rows like DOM)
         layouts.push({
           x: buttonX,
@@ -174,7 +179,7 @@ export function usePaletteLayout(
           width: buttonWidth.value,
           height: octaveHeight,
           solfegeIndex,
-          octave,
+          octave: parseInt(correctOctave.toString()),
           isMainOctave,
           // Always visible - let height changes handle the display
           isVisible: true,

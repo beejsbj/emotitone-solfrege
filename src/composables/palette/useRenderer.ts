@@ -420,10 +420,7 @@ export function usePaletteRenderer(
     // Render background
     renderPaletteBackground(ctx);
 
-    // Render controls at the top
-    renderControls(ctx);
-
-    // Render buttons below controls (prevent overlap)
+    // Render buttons first (prevent overlap with controls)
     const buttonLayouts = calculateButtonLayouts();
     buttonLayouts.forEach((layout) => {
       // Ensure buttons don't overlap with controls
@@ -434,6 +431,9 @@ export function usePaletteRenderer(
         renderButton(ctx, layout);
       }
     });
+
+    // Render controls on top (higher z-index)
+    renderControls(ctx);
   };
 
   return {

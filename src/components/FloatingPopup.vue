@@ -7,67 +7,68 @@
     <div
       class="floating-popup w-screen h-screen backdrop-blur-xs rounded-b-2xl px-6 py-4 shadow-2xl grid items-end"
     >
-      <div class="text-center">
-        <div v-if="hasActiveNotes" class="grid gap-[1px]">
-          <!-- Chord Display -->
+      <div
+        v-if="hasActiveNotes"
+        class="grid gap-[1px] text-center max-w-[300px] mx-auto"
+      >
+        <!-- Chord Display -->
+        <div
+          v-if="detectedChord"
+          class="rounded-sm py-2 px-6 text-center"
+          :style="{ background: notesGradient }"
+        >
+          <span class="text-2xl p-1 rounded-xs text-white font-bold">
+            {{ detectedChord }}
+          </span>
+        </div>
+
+        <!-- Notes Display -->
+        <div class="flex gap-[1px] justify-center">
           <div
-            v-if="detectedChord"
-            class="rounded-sm py-2 px-6 text-center"
-            :style="{ background: notesGradient }"
+            v-for="note in activeNotes"
+            :key="note.noteId"
+            class="flex-1 grid gap-[1px] items-center rounded-sm px-3 py-2"
+            :style="{ background: getNoteColor(note) }"
           >
-            <span class="text-2xl p-1 rounded-xs text-white font-bold">
-              {{ detectedChord }}
+            <span class="text-xl p-1 rounded-xs text-white font-bold">
+              {{ note.solfege.name }}
+            </span>
+            <div class="h-[1px] bg-black/20"></div>
+            <span class="text-sm p-1 rounded-xs text-white">
+              {{ note.noteName }}
             </span>
           </div>
+        </div>
 
-          <!-- Notes Display -->
-          <div class="flex gap-[1px] justify-center">
+        <!-- Intervals Display -->
+        <div v-if="intervalRows.length > 0" class="grid gap-[1px]">
+          <div
+            v-for="row in intervalRows"
+            :key="row.rowIndex"
+            class="flex gap-[1px]"
+          >
             <div
-              v-for="note in activeNotes"
-              :key="note.noteId"
-              class="grid gap-[1px] items-center rounded-sm px-3 py-2"
-              :style="{ background: getNoteColor(note) }"
+              v-for="interval in row.intervals"
+              :key="`${interval.fromIndex}-${interval.toIndex}`"
+              class="rounded-sm py-1 px-2 text-center flex-grow"
+              :style="{ background: getIntervalGradient(interval) }"
             >
-              <span class="text-xl p-1 rounded-xs text-white font-bold">
-                {{ note.solfege.name }}
-              </span>
-              <div class="h-[1px] bg-black/20"></div>
-              <span class="text-sm p-1 rounded-xs text-white">
-                {{ note.noteName }}
+              <span class="text-sm text-white font-bold drop-shadow">
+                {{ interval.interval }}
               </span>
             </div>
           </div>
+        </div>
 
-          <!-- Intervals Display -->
-          <div v-if="intervalRows.length > 0" class="grid gap-[1px]">
-            <div
-              v-for="row in intervalRows"
-              :key="row.rowIndex"
-              class="flex gap-[1px]"
-            >
-              <div
-                v-for="interval in row.intervals"
-                :key="`${interval.fromIndex}-${interval.toIndex}`"
-                class="rounded-sm py-1 px-2 text-center flex-grow"
-                :style="{ background: getIntervalGradient(interval) }"
-              >
-                <span class="text-sm text-white font-bold drop-shadow">
-                  {{ interval.interval }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Emotional Description -->
-          <div class="mt-4">
-            <div
-              class="inline-flex rounded-sm px-4 py-2"
-              :style="{ background: notesGradient }"
-            >
-              <span class="text-lg text-white font-bold drop-shadow">
-                {{ emotionalDescription }}
-              </span>
-            </div>
+        <!-- Emotional Description -->
+        <div class="mt-4">
+          <div
+            class="inline-flex rounded-sm px-4 py-2"
+            :style="{ background: notesGradient }"
+          >
+            <span class="text-lg text-white font-bold drop-shadow">
+              {{ emotionalDescription }}
+            </span>
           </div>
         </div>
       </div>

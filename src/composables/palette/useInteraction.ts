@@ -41,6 +41,8 @@ export function usePaletteInteraction(
    */
   const hitTestButton = (x: number, y: number): ButtonLayout | null => {
     const buttonLayouts = calculateButtonLayouts();
+    const controlAreaBottom =
+      paletteState.value.y + paletteState.value.controlsHeight;
 
     for (const layout of buttonLayouts) {
       if (
@@ -48,7 +50,9 @@ export function usePaletteInteraction(
         x >= layout.x &&
         x <= layout.x + layout.width &&
         y >= layout.y &&
-        y <= layout.y + layout.height
+        y <= layout.y + layout.height &&
+        // Exclude buttons that overlap with control area
+        layout.y >= controlAreaBottom
       ) {
         return layout;
       }

@@ -20,8 +20,8 @@
           v-if="displayedChord"
           class="rounded-sm py-2 px-6 text-center glass-morph backdrop-blur-md border border-white/20 shadow-lg"
           :style="{
-            background: createGlassmorphBackground(displayedNotesGradient),
-            boxShadow: createGlassmorphShadow(displayedNotesGradient),
+            background: createChordGlassmorphBackground(),
+            boxShadow: createChordGlassmorphShadow(),
           }"
         >
           <span
@@ -84,8 +84,8 @@
           <div
             class="inline-flex rounded-sm px-4 py-2 glass-morph backdrop-blur-md border border-white/20 shadow-lg"
             :style="{
-              background: createGlassmorphBackground(displayedNotesGradient),
-              boxShadow: createGlassmorphShadow(displayedNotesGradient),
+              background: createChordGlassmorphBackground(),
+              boxShadow: createChordGlassmorphShadow(),
             }"
           >
             <span class="text-lg text-white font-bold drop-shadow-lg">
@@ -113,37 +113,48 @@ const isVisible = ref(false);
 let hideTimer: number | null = null;
 let accumulationTimer: number | null = null;
 
-// Store the last active notes for lingering display
-const lastActiveNotes = ref<any[]>([]);
-const accumulatedNotes = ref<any[]>([]);
+// Store accumulated notes with better tracking
+const accumulatedNotes = ref<Map<string, any>>(new Map());
+const displayOrder = ref<string[]>([]);
 
 // Core computed properties
 const activeNotes = computed(() => musicStore.getActiveNotes());
-const hasActiveNotes = computed(() => activeNotes.value.length > 0);
 
-// Displayed notes (either current active notes or accumulated/last active notes)
+// Displayed notes from accumulated notes in order
 const displayedNotes = computed(() => {
-  if (activeNotes.value.length > 0) return activeNotes.value;
-  if (accumulatedNotes.value.length > 0) return accumulatedNotes.value;
-  return lastActiveNotes.value;
+  return displayOrder.value
+    .map((noteId) => accumulatedNotes.value.get(noteId))
+    .filter(Boolean);
 });
 
-// Watch for changes in active notes
+// Watch for changes in active notes with improved accumulation logic
 watch(
   () => [...activeNotes.value],
-  (newNotes) => {
-    // If we have new notes
-    if (newNotes.length > 0) {
-      // Add new notes to accumulated notes if they're not already there
-      newNotes.forEach((note) => {
-        if (!accumulatedNotes.value.some((n) => n.noteId === note.noteId)) {
-          accumulatedNotes.value.push(note);
-        }
-      });
+  (newNotes, oldNotes) => {
+    const oldNoteIds = new Set((oldNotes || []).map((n) => n.noteId));
+    const newNoteIds = new Set(newNotes.map((n) => n.noteId));
 
+    // Add new notes to accumulation
+    newNotes.forEach((note) => {
+      if (!accumulatedNotes.value.has(note.noteId)) {
+        accumulatedNotes.value.set(note.noteId, note);
+        displayOrder.value.push(note.noteId);
+
+        // Limit to 2 notes maximum for sequential intervals
+        if (displayOrder.value.length > 2) {
+          const oldestNoteId = displayOrder.value.shift();
+          if (oldestNoteId) {
+            accumulatedNotes.value.delete(oldestNoteId);
+          }
+        }
+      }
+    });
+
+    // If we have any notes (new or continuing)
+    if (newNotes.length > 0 || accumulatedNotes.value.size > 0) {
       isVisible.value = true;
 
-      // Clear any existing timers
+      // Clear existing timers
       if (hideTimer !== null) {
         clearTimeout(hideTimer);
         hideTimer = null;
@@ -152,38 +163,19 @@ watch(
         clearTimeout(accumulationTimer);
       }
 
-      // Start a new accumulation window
+      // Extend accumulation window when new notes are added
       accumulationTimer = window.setTimeout(() => {
-        // Transfer accumulated notes to last active notes
-        lastActiveNotes.value = [...accumulatedNotes.value];
-        accumulatedNotes.value = [];
-
-        // Start hide timer
+        // Start hide timer after accumulation period
         hideTimer = window.setTimeout(() => {
           isVisible.value = false;
           hideTimer = null;
-          lastActiveNotes.value = [];
-        }, 1500) as unknown as number;
+          // Clear accumulated notes after hiding
+          accumulatedNotes.value.clear();
+          displayOrder.value = [];
+        }, 2000) as unknown as number; // Show for 2 seconds after accumulation
 
         accumulationTimer = null;
-      }, 300) as unknown as number; // 300ms accumulation window
-    } else if (accumulationTimer === null) {
-      // If notes were released and we're not in accumulation window
-      if (hideTimer !== null) {
-        clearTimeout(hideTimer);
-      }
-
-      // Transfer any remaining accumulated notes
-      if (accumulatedNotes.value.length > 0) {
-        lastActiveNotes.value = [...accumulatedNotes.value];
-        accumulatedNotes.value = [];
-      }
-
-      hideTimer = window.setTimeout(() => {
-        isVisible.value = false;
-        hideTimer = null;
-        lastActiveNotes.value = [];
-      }, 1500) as unknown as number;
+      }, 500) as unknown as number; // 500ms accumulation window for arpeggios
     }
   },
   { deep: true }
@@ -217,6 +209,41 @@ const createGlassmorphBackground = (color: string): string => {
 const createGlassmorphShadow = (color: string): string => {
   const shadowColor = withAlpha(color, 0.09);
   return `hsla(0, 0%, 100%, 0.1) 0px 1px 0px 0px inset, hsla(0, 0%, 0%, 0.4) 0px 30px 50px 0px, ${shadowColor} 0px 4px 24px 0px, hsla(0, 0%, 100%, 0.06) 0px 0px 0px 1px inset`;
+};
+
+// Create chord-specific glassmorphism background using gradient of all note colors
+const createChordGlassmorphBackground = (): string => {
+  const colors = displayedNotes.value.map(getNoteColor);
+  if (colors.length === 0) return "rgba(255, 255, 255, 0.1)";
+
+  if (colors.length === 1) {
+    return createGlassmorphBackground(colors[0]);
+  }
+
+  // Create a blended linear gradient for multiple colors
+  const gradientColors = colors.map((color) => withAlpha(color, 0.4));
+  const gradientColorsLight = colors.map((color) => withAlpha(color, 0.06));
+
+  return `linear-gradient(135deg, 
+    ${gradientColors.join(", ")}, 
+    ${gradientColorsLight.join(", ")})`;
+};
+
+// Create chord-specific shadow
+const createChordGlassmorphShadow = (): string => {
+  const colors = displayedNotes.value.map(getNoteColor);
+  if (colors.length === 0) return createGlassmorphShadow("#ffffff");
+
+  // Use the first color for the shadow, or blend if multiple
+  const shadowColor =
+    colors.length === 1
+      ? colors[0]
+      : // Simple blend of first two colors for shadow
+      colors.length >= 2
+      ? colors[0]
+      : colors[0];
+
+  return createGlassmorphShadow(shadowColor);
 };
 
 const displayedNotesGradient = computed(() => {

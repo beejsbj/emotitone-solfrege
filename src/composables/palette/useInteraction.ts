@@ -147,7 +147,7 @@ export function usePaletteInteraction(
     // Start smooth press animation
     startButtonPressAnimation(buttonKey);
 
-    triggerNoteHaptic();
+    //  triggerNoteHaptic();
     attackNoteWithOctave(layout.solfegeIndex, layout.octave, event);
   };
 

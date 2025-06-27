@@ -114,14 +114,40 @@ export function loadSampleInstrument(
 ): Promise<SampleInstrumentWrapper> {
   return new Promise((resolve, reject) => {
     try {
+      let isResolved = false;
+
       const sampler = SampleLibrary.load({
         ...options,
         instruments: instrumentName,
-        onload: () => {},
+        onload: () => {
+          if (!isResolved) {
+            isResolved = true;
+            const wrapper = createSampleInstrumentWrapper(
+              sampler,
+              instrumentName
+            );
+            resolve(wrapper);
+
+            // Call the original onload if provided
+            if (options?.onload) {
+              options.onload();
+            }
+          }
+        },
       }) as Tone.Sampler;
 
-      const wrapper = createSampleInstrumentWrapper(sampler, instrumentName);
-      resolve(wrapper);
+      // Fallback: resolve immediately if sampler is already loaded
+      // This handles cases where samples load synchronously
+      setTimeout(() => {
+        if (!isResolved && sampler.loaded) {
+          isResolved = true;
+          const wrapper = createSampleInstrumentWrapper(
+            sampler,
+            instrumentName
+          );
+          resolve(wrapper);
+        }
+      }, 100);
     } catch (error) {
       console.error(
         `Error loading sample instrument ${instrumentName}:`,
@@ -194,16 +220,38 @@ export function isValidSampleInstrument(
 export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
   return new Promise((resolve, reject) => {
     try {
+      let isResolved = false;
+
       const pianoSampler = new Tone.Sampler({
         ...PIANO_SAMPLER_CONFIG,
-        onload: () => {},
+        onload: () => {
+          if (!isResolved) {
+            isResolved = true;
+            const wrapper = createSampleInstrumentWrapper(
+              pianoSampler,
+              "salamander-piano"
+            );
+            resolve(wrapper);
+          }
+        },
       });
 
-      const wrapper = createSampleInstrumentWrapper(
-        pianoSampler,
-        "salamander-piano"
-      );
-      resolve(wrapper);
+      // Add timeout for piano loading
+      setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          // Check if samples are loaded
+          if (pianoSampler.loaded) {
+            const wrapper = createSampleInstrumentWrapper(
+              pianoSampler,
+              "salamander-piano"
+            );
+            resolve(wrapper);
+          } else {
+            reject(new Error("Piano samples failed to load within timeout"));
+          }
+        }
+      }, 15000); // 15 second timeout for piano
     } catch (error) {
       console.error("Error loading Salamander piano:", error);
       toast.error("🎹 Salamander piano loading failed", {

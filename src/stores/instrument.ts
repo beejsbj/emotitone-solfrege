@@ -101,64 +101,89 @@ export const useInstrumentStore = defineStore("instrument", () => {
       metalPoly.maxPolyphony = MAX_POLYPHONY;
       instruments.value.set("metalSynth", metalPoly);
 
-      // Salamander Piano - use the integrated sample library system
-      try {
-        console.log("Loading Salamander piano...");
+      console.log("Basic instruments initialized");
 
-        // Show loading toast
-        const loadingToast = toast.loading("🎹 Loading piano samples...", {
-          description: "Using fallback synth until loaded",
-          duration: Infinity, // Keep until manually dismissed
-        });
+      // Load sample-based instruments in background (non-blocking)
+      // This prevents the loading from getting stuck
+      loadSampleInstrumentsInBackground(createCompressor);
 
-        const salamanderPiano = await createSalamanderPiano();
-
-        // Connect to compressor
-        const pianoCompressor = createCompressor();
-        salamanderPiano.connect(pianoCompressor);
-        pianoCompressor.toDestination();
-
-        instruments.value.set("piano", salamanderPiano);
-
-        // Dismiss loading toast and show success
-        toast.dismiss(loadingToast);
-        toast.success("🎹 Piano samples loaded!", {
-          description: "High-quality Salamander piano ready",
-        });
-
-        console.log("Salamander piano loaded successfully");
-      } catch (error) {
-        console.error("Error loading Salamander piano:", error);
-
-        // Show error toast
-        toast.error("⚠️ Piano loading failed", {
-          description: "Using fallback synthesizer",
-        });
-
-        // Fallback to basic synth if Salamander piano fails
-        const pianoFallbackSynth = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: "triangle" },
-          envelope: PIANO_ENVELOPE,
-        });
-        pianoFallbackSynth.maxPolyphony = MAX_POLYPHONY;
-
-        const pianoFallbackCompressor = createCompressor();
-        pianoFallbackSynth.connect(pianoFallbackCompressor);
-        pianoFallbackCompressor.toDestination();
-
-        instruments.value.set("piano", pianoFallbackSynth);
-        console.log("Using fallback synth for piano");
-      }
-
-      // Initialize sample-based instruments
-      await initializeSampleInstruments();
-
-      console.log("All instruments initialized successfully");
+      console.log(
+        "Instrument initialization completed (samples loading in background)"
+      );
     } catch (error) {
       console.error("Error initializing instruments:", error);
+
+      // Ensure we have at least a basic synth available
+      if (instruments.value.size === 0) {
+        try {
+          const fallbackSynth = new Tone.PolySynth(Tone.Synth);
+          fallbackSynth.toDestination();
+          instruments.value.set("synth", fallbackSynth);
+          console.log("Created fallback synth");
+        } catch (fallbackError) {
+          console.error("Failed to create fallback synth:", fallbackError);
+        }
+      }
     } finally {
       isLoading.value = false;
     }
+  };
+
+  // Load sample instruments in background to prevent blocking
+  const loadSampleInstrumentsInBackground = async (
+    createCompressor: () => any
+  ) => {
+    // Salamander Piano - use the integrated sample library system
+    try {
+      console.log("Loading Salamander piano...");
+
+      // Show loading toast
+      const loadingToast = toast.loading("🎹 Loading piano samples...", {
+        description: "Using fallback synth until loaded",
+        duration: Infinity, // Keep until manually dismissed
+      });
+
+      const salamanderPiano = await createSalamanderPiano();
+
+      // Connect to compressor
+      const pianoCompressor = createCompressor();
+      salamanderPiano.connect(pianoCompressor);
+      pianoCompressor.toDestination();
+
+      instruments.value.set("piano", salamanderPiano);
+
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingToast);
+      toast.success("🎹 Piano samples loaded!", {
+        description: "High-quality Salamander piano ready",
+      });
+
+      console.log("Salamander piano loaded successfully");
+    } catch (error) {
+      console.error("Error loading Salamander piano:", error);
+
+      // Show error toast
+      toast.error("⚠️ Piano loading failed", {
+        description: "Using fallback synthesizer",
+      });
+
+      // Fallback to basic synth if Salamander piano fails
+      const pianoFallbackSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "triangle" },
+        envelope: PIANO_ENVELOPE,
+      });
+      pianoFallbackSynth.maxPolyphony = MAX_POLYPHONY;
+
+      const pianoFallbackCompressor = createCompressor();
+      pianoFallbackSynth.connect(pianoFallbackCompressor);
+      pianoFallbackCompressor.toDestination();
+
+      instruments.value.set("piano", pianoFallbackSynth);
+      console.log("Using fallback synth for piano");
+    }
+
+    // Initialize sample-based instruments
+    await initializeSampleInstruments();
   };
 
   // Initialize sample-based instruments
@@ -198,14 +223,23 @@ export const useInstrumentStore = defineStore("instrument", () => {
       }
     );
 
-    for (const instrumentName of sampleInstrumentNames) {
+    // Load instruments with timeout and better error handling
+    const loadPromises = sampleInstrumentNames.map(async (instrumentName) => {
       try {
         const config =
           AVAILABLE_INSTRUMENTS[instrumentName] ||
           AVAILABLE_INSTRUMENTS[`sample-${instrumentName}`];
-        if (!config) continue;
+        if (!config) return null;
 
-        const sampleInstrument = await loadSampleInstrument(instrumentName, {
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`Timeout loading ${instrumentName}`)),
+            10000
+          );
+        });
+
+        const loadPromise = loadSampleInstrument(instrumentName, {
           minify: config.minify || false,
           onload: () => {
             loadedCount++;
@@ -222,6 +256,11 @@ export const useInstrumentStore = defineStore("instrument", () => {
           },
         });
 
+        const sampleInstrument = (await Promise.race([
+          loadPromise,
+          timeoutPromise,
+        ])) as any;
+
         // Connect to compressor
         const compressor = new Tone.Compressor(STANDARD_COMPRESSOR);
         sampleInstrument.connect(compressor);
@@ -231,20 +270,35 @@ export const useInstrumentStore = defineStore("instrument", () => {
         const storeKey =
           instrumentName === "piano" ? "sample-piano" : instrumentName;
         instruments.value.set(storeKey, sampleInstrument);
+
+        return { instrumentName, success: true };
       } catch (error) {
         console.error(
           `Error loading sample instrument ${instrumentName}:`,
           error
         );
-        // Don't show error toast for sample instruments to avoid spam
+        return { instrumentName, success: false, error };
       }
-    }
+    });
+
+    // Wait for all instruments to load (or timeout)
+    const results = await Promise.allSettled(loadPromises);
+    const successfulLoads = results.filter(
+      (result) => result.status === "fulfilled" && result.value?.success
+    ).length;
 
     // Dismiss loading toast and show completion
     toast.dismiss(sampleLoadingToast);
-    toast.success(`🎼 Sample instruments loaded!`, {
-      description: `${loadedCount} instruments ready to play`,
-    });
+
+    if (successfulLoads > 0) {
+      toast.success(`🎼 Sample instruments loaded!`, {
+        description: `${successfulLoads} instruments ready to play`,
+      });
+    } else {
+      toast.warning(`🎼 Sample instruments partially loaded`, {
+        description: `Some instruments may not be available`,
+      });
+    }
   };
 
   // Get current instrument instance

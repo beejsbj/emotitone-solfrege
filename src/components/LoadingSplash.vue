@@ -128,6 +128,7 @@ const {
   loadingState,
   isVisible,
   overallProgress,
+  updatePhase,
   enableAudioContext,
   initializeInstruments,
   initializeVisualEffects,
@@ -182,7 +183,17 @@ const handleRetry = () => {
   startInitialization();
 };
 
-const handleStartApp = () => {
+const handleStartApp = async () => {
+  // Initialize audio context when user clicks "Start App"
+  // This provides the required user interaction for audio
+  try {
+    await enableAudioContext();
+    console.log("Audio context enabled on app start");
+  } catch (error) {
+    console.warn("Audio context initialization failed:", error);
+    // Continue anyway - audio will be enabled when user first plays a note
+  }
+
   hideSplash();
 };
 
@@ -208,14 +219,18 @@ const startInitialization = async () => {
     // Start with visual effects (doesn't require user interaction)
     await initializeVisualEffects();
 
-    // Try to initialize audio context (may require user interaction)
-    const audioSuccess = await enableAudioContext();
+    // Initialize instruments (doesn't require audio context to be running)
+    await initializeInstruments();
 
-    if (audioSuccess) {
-      // If audio works, continue with instruments
-      await initializeInstruments();
-    }
-    // If audio fails, the UI will show the enable button
+    // Skip audio context initialization during loading
+    // Audio context will be enabled when user clicks "Start App"
+    // Mark audio as "ready" for loading completion
+    updatePhase("audioContext", {
+      phase: "audio-context",
+      progress: 100,
+      message: "Audio ready (will enable when you start)",
+      isComplete: true,
+    });
   } catch (error) {
     console.error("Initialization error:", error);
   }

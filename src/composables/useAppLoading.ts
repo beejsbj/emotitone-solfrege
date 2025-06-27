@@ -13,6 +13,7 @@ import type {
   LoadingEvent,
 } from "@/types/loading";
 import { audioService } from "@/services/audio";
+import { toast } from "vue-sonner";
 
 // Default splash configuration
 const DEFAULT_SPLASH_CONFIG: SplashConfig = {
@@ -149,8 +150,18 @@ export function useAppLoading() {
         message: "Initializing synthesizers...",
       });
 
-      // Initialize instruments
-      await instrumentStore.initializeInstruments();
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Instrument initialization timeout"));
+        }, 30000); // 30 second timeout
+      });
+
+      // Initialize instruments with timeout
+      await Promise.race([
+        instrumentStore.initializeInstruments(),
+        timeoutPromise,
+      ]);
 
       updatePhase("instruments", {
         progress: 100,
@@ -158,12 +169,20 @@ export function useAppLoading() {
         isComplete: true,
       });
     } catch (error) {
+      console.error("Instrument initialization error:", error);
+
+      // Don't fail completely - allow app to continue with basic instruments
       updatePhase("instruments", {
-        progress: 0,
-        message: "Instrument loading failed",
+        progress: 100, // Mark as complete even with errors
+        message: "Basic instruments ready",
+        isComplete: true,
         error: error instanceof Error ? error.message : "Unknown error",
       });
-      throw error;
+
+      // Show user-friendly message
+      toast.warning("⚠️ Some instruments may not be available", {
+        description: "App will continue with basic synthesizers",
+      });
     }
   };
 

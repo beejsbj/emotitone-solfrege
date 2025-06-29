@@ -275,6 +275,15 @@ const configMetadata: Record<
   },
   palette: {
     gradientDirection: { min: 0, max: 360, step: 15 },
+    glassmorphOpacity: { min: 0, max: 1, step: 0.05 },
+  },
+  floatingPopup: {
+    accumulationWindow: { min: 100, max: 2000, step: 50 },
+    hideDelay: { min: 500, max: 10000, step: 250 },
+    maxNotes: { min: 1, max: 12, step: 1 },
+    backdropBlur: { min: 0, max: 50, step: 2 },
+    glassmorphOpacity: { min: 0, max: 1, step: 0.05 },
+    animationDuration: { min: 100, max: 1000, step: 50 },
   },
 };
 
@@ -290,6 +299,7 @@ const getSectionIcon = (sectionName: string): string => {
     fontOscillation: "📝",
     dynamicColors: "🌈",
     palette: "🎹",
+    floatingPopup: "💬",
   };
   return icons[sectionName] || "⚙️";
 };
@@ -306,6 +316,16 @@ const formatLabel = (key: string): string => {
     animationSpeed: "Animation Speed",
     baseLightness: "Base Lightness",
     lightnessRange: "Lightness Range",
+    // Floating popup labels
+    accumulationWindow: "Accumulation Window",
+    hideDelay: "Hide Delay",
+    maxNotes: "Max Notes",
+    showChord: "Show Chord",
+    showIntervals: "Show Intervals",
+    showEmotionalDescription: "Show Emotions",
+    backdropBlur: "Backdrop Blur",
+    glassmorphOpacity: "Glass Opacity",
+    animationDuration: "Animation Duration",
   };
 
   if (specialLabels[key]) {
@@ -326,6 +346,30 @@ const formatValue = (sectionName: string, key: string, value: any): string => {
       key === "lightnessRange")
   ) {
     return `${Math.round(value * 100)}%`;
+  }
+
+  // Format palette glassmorphism opacity
+  if (sectionName === "palette" && key === "glassmorphOpacity") {
+    return `${Math.round(value * 100)}%`;
+  }
+
+  // Format floating popup values
+  if (sectionName === "floatingPopup") {
+    if (key === "accumulationWindow" || key === "hideDelay") {
+      return `${value}ms`;
+    }
+    if (key === "backdropBlur") {
+      return `${value}px`;
+    }
+    if (key === "glassmorphOpacity") {
+      return `${Math.round(value * 100)}%`;
+    }
+    if (key === "animationDuration") {
+      return `${value}ms`;
+    }
+    if (key === "maxNotes") {
+      return `${value} notes`;
+    }
   }
 
   // Format hue animation amplitude

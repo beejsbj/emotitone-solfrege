@@ -1,6 +1,7 @@
 <template>
   <div class="canvas-solfege-palette relative">
     <!-- Dedicated palette canvas -->
+
     <canvas
       ref="paletteCanvasRef"
       class="palette-canvas"
@@ -13,7 +14,6 @@
     />
 
     <!-- Floating popup -->
-    <FloatingPopup />
   </div>
 </template>
 
@@ -21,7 +21,7 @@
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { usePalette } from "@/composables/palette";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
-import FloatingPopup from "./FloatingPopup.vue";
+import KeySelector from "./KeySelector.vue";
 
 // Canvas setup
 const paletteCanvasRef = ref<HTMLCanvasElement | null>(null);
@@ -402,7 +402,6 @@ defineExpose({
 .canvas-solfege-palette {
   position: relative;
   z-index: 50; /* Ensure palette renders above other elements */
-  overflow: hidden; /* Contain the floating popup */
 }
 
 .palette-canvas {

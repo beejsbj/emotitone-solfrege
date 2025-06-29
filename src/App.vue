@@ -22,8 +22,8 @@
         <div class="max-w-6xl mx-auto">
           <div class="grid grid-cols-1 gap-6">
             <!-- Key Selector -->
-            <div class="lg:col-span-1">
-              <KeySelector />
+            <div class="lg:col-span-1 h-screen">
+              <!-- <KeySelector /> -->
             </div>
 
             <InstrumentSelector />
@@ -33,6 +33,8 @@
             <!-- Sticky horizontal scroller -->
             <div class="sticky bottom-0">
               <!-- Floating Interval Description Popup -->
+              <KeySelector />
+
               <FloatingPopup />
               <div
                 class="flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"

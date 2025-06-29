@@ -3,25 +3,27 @@
     ref="floatingPopup"
     class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out"
     :class="
-      !isVisible
+      !shouldShowPopup
         ? 'translate-y-full opacity-0'
         : '-translate-y-full opacity-100'
     "
+    :style="animationStyle"
   >
     <div
       class="floating-popup w-screen h-screen backdrop-blur-xs rounded-b-2xl px-6 py-4 shadow-2xl grid items-end"
+      :style="backdropBlurStyle"
     >
       <div
-        v-if="isVisible"
+        v-if="shouldShowPopup"
         class="grid gap-[1px] text-center max-w-[300px] mx-auto"
       >
         <!-- Chord Display -->
         <div
-          v-if="displayedChord"
+          v-if="displayedChord && floatingPopupConfig.showChord"
           class="rounded-sm py-2 px-6 text-center glass-morph backdrop-blur-md border border-white/20 shadow-lg"
           :style="{
-            background: createChordGlassmorphBackground(),
-            boxShadow: createChordGlassmorphShadow(),
+            background: createChordGlassmorphBackgroundLocal(),
+            boxShadow: createChordGlassmorphShadowLocal(),
           }"
         >
           <span
@@ -38,7 +40,10 @@
             :key="note.noteId"
             class="flex-1 grid gap-[1px] items-center rounded-sm px-3 py-2 glass-morph backdrop-blur-md border border-white/20 shadow-lg"
             :style="{
-              background: createGlassmorphBackground(getNoteColor(note)),
+              background: createGlassmorphBackground(
+                getNoteColor(note),
+                floatingPopupConfig.glassmorphOpacity
+              ),
               boxShadow: createGlassmorphShadow(getNoteColor(note)),
             }"
           >
@@ -55,7 +60,13 @@
         </div>
 
         <!-- Intervals Display -->
-        <div v-if="displayedIntervalRows.length > 0" class="grid gap-[1px]">
+        <div
+          v-if="
+            displayedIntervalRows.length > 0 &&
+            floatingPopupConfig.showIntervals
+          "
+          class="grid gap-[1px]"
+        >
           <div
             v-for="row in displayedIntervalRows"
             :key="row.rowIndex"
@@ -66,7 +77,7 @@
               :key="`${interval.fromIndex}-${interval.toIndex}`"
               class="rounded-sm py-1 px-2 text-center flex-grow glass-morph backdrop-blur-md border border-white/20 shadow-lg"
               :style="{
-                background: createIntervalGlassmorphBackground(interval),
+                background: createIntervalGlassmorphBackgroundLocal(interval),
                 boxShadow: createGlassmorphShadow(
                   getIntervalGradient(interval)
                 ),
@@ -80,12 +91,18 @@
         </div>
 
         <!-- Emotional Description -->
-        <div class="mt-4">
+        <div
+          v-if="
+            displayedEmotionalDescription &&
+            floatingPopupConfig.showEmotionalDescription
+          "
+          class="mt-4"
+        >
           <div
             class="inline-flex rounded-sm px-4 py-2 glass-morph backdrop-blur-md border border-white/20 shadow-lg"
             :style="{
-              background: createChordGlassmorphBackground(),
-              boxShadow: createChordGlassmorphShadow(),
+              background: createChordGlassmorphBackgroundLocal(),
+              boxShadow: createChordGlassmorphShadowLocal(),
             }"
           >
             <span class="text-lg text-white font-bold drop-shadow-lg">
@@ -102,10 +119,22 @@
 import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
+import { useVisualConfig } from "@/composables/useVisualConfig";
 import { Chord, Interval } from "@tonaljs/tonal";
 
 const musicStore = useMusicStore();
-const { getGradient, getPrimaryColor, withAlpha } = useColorSystem();
+const {
+  getGradient,
+  getPrimaryColor,
+  withAlpha,
+  createGlassmorphBackground,
+  createGlassmorphShadow,
+  createChordGlassmorphBackground,
+  createChordGlassmorphShadow,
+  createIntervalGlassmorphBackground,
+  createGradient,
+} = useColorSystem();
+const { floatingPopupConfig } = useVisualConfig();
 const floatingPopup = ref<HTMLElement | null>(null);
 
 // Visibility control with timer
@@ -120,6 +149,11 @@ const displayOrder = ref<string[]>([]);
 // Core computed properties
 const activeNotes = computed(() => musicStore.getActiveNotes());
 
+// Check if popup should be shown based on config
+const shouldShowPopup = computed(
+  () => floatingPopupConfig.value.isEnabled && isVisible.value
+);
+
 // Displayed notes from accumulated notes in order
 const displayedNotes = computed(() => {
   return displayOrder.value
@@ -131,6 +165,8 @@ const displayedNotes = computed(() => {
 watch(
   () => [...activeNotes.value],
   (newNotes, oldNotes) => {
+    if (!floatingPopupConfig.value.isEnabled) return;
+
     const oldNoteIds = new Set((oldNotes || []).map((n) => n.noteId));
     const newNoteIds = new Set(newNotes.map((n) => n.noteId));
 
@@ -140,8 +176,8 @@ watch(
         accumulatedNotes.value.set(note.noteId, note);
         displayOrder.value.push(note.noteId);
 
-        // Limit to 2 notes maximum for sequential intervals
-        if (displayOrder.value.length > 2) {
+        // Limit to configured max notes
+        if (displayOrder.value.length > floatingPopupConfig.value.maxNotes) {
           const oldestNoteId = displayOrder.value.shift();
           if (oldestNoteId) {
             accumulatedNotes.value.delete(oldestNoteId);
@@ -172,10 +208,10 @@ watch(
           // Clear accumulated notes after hiding
           accumulatedNotes.value.clear();
           displayOrder.value = [];
-        }, 2000) as unknown as number; // Show for 2 seconds after accumulation
+        }, floatingPopupConfig.value.hideDelay) as unknown as number;
 
         accumulationTimer = null;
-      }, 500) as unknown as number; // 500ms accumulation window for arpeggios
+      }, floatingPopupConfig.value.accumulationWindow) as unknown as number;
     }
   },
   { deep: true }
@@ -183,6 +219,8 @@ watch(
 
 // Update computed properties to use displayedNotes
 const displayedChord = computed(() => {
+  if (!floatingPopupConfig.value.showChord) return null;
+
   const notes = displayedNotes.value.map((note) => note.noteName);
   if (notes.length < 2) return null;
   const chords = Chord.detect(notes);
@@ -198,52 +236,19 @@ const getNoteColor = (note: any): string => {
   );
 };
 
-// Helper function to create glassmorphism background
-const createGlassmorphBackground = (color: string): string => {
-  const color1 = withAlpha(color, 0.57);
-  const color2 = withAlpha(color, 0.06);
-  return `radial-gradient(84.35% 70.19% at 50% 38.11%, ${color1}, ${color2})`;
-};
-
-// Helper function to create glassmorphism box shadow
-const createGlassmorphShadow = (color: string): string => {
-  const shadowColor = withAlpha(color, 0.09);
-  return `hsla(0, 0%, 100%, 0.1) 0px 1px 0px 0px inset, hsla(0, 0%, 0%, 0.4) 0px 30px 50px 0px, ${shadowColor} 0px 4px 24px 0px, hsla(0, 0%, 100%, 0.06) 0px 0px 0px 1px inset`;
-};
-
 // Create chord-specific glassmorphism background using gradient of all note colors
-const createChordGlassmorphBackground = (): string => {
+const createChordGlassmorphBackgroundLocal = (): string => {
   const colors = displayedNotes.value.map(getNoteColor);
-  if (colors.length === 0) return "rgba(255, 255, 255, 0.1)";
-
-  if (colors.length === 1) {
-    return createGlassmorphBackground(colors[0]);
-  }
-
-  // Create a blended linear gradient for multiple colors
-  const gradientColors = colors.map((color) => withAlpha(color, 0.4));
-  const gradientColorsLight = colors.map((color) => withAlpha(color, 0.06));
-
-  return `linear-gradient(135deg, 
-    ${gradientColors.join(", ")}, 
-    ${gradientColorsLight.join(", ")})`;
+  return createChordGlassmorphBackground(
+    colors,
+    floatingPopupConfig.value.glassmorphOpacity
+  );
 };
 
 // Create chord-specific shadow
-const createChordGlassmorphShadow = (): string => {
+const createChordGlassmorphShadowLocal = (): string => {
   const colors = displayedNotes.value.map(getNoteColor);
-  if (colors.length === 0) return createGlassmorphShadow("#ffffff");
-
-  // Use the first color for the shadow, or blend if multiple
-  const shadowColor =
-    colors.length === 1
-      ? colors[0]
-      : // Simple blend of first two colors for shadow
-      colors.length >= 2
-      ? colors[0]
-      : colors[0];
-
-  return createGlassmorphShadow(shadowColor);
+  return createChordGlassmorphShadow(colors);
 };
 
 const displayedNotesGradient = computed(() => {
@@ -251,14 +256,10 @@ const displayedNotesGradient = computed(() => {
   return createGradient(colors);
 });
 
-// Gradient creation helper
-const createGradient = (colors: string[], direction = "135deg"): string => {
-  if (colors.length === 1) return colors[0];
-  return `linear-gradient(${direction}, ${colors.join(", ")})`;
-};
-
 // Update interval calculations to use displayedNotes
 const displayedIntervals = computed(() => {
+  if (!floatingPopupConfig.value.showIntervals) return [];
+
   const notes = displayedNotes.value;
   if (notes.length < 2) return [];
 
@@ -310,16 +311,20 @@ const getIntervalGradient = (interval: any) => {
 };
 
 // Create glassmorphism background for intervals
-const createIntervalGlassmorphBackground = (interval: any): string => {
+const createIntervalGlassmorphBackgroundLocal = (interval: any): string => {
   const fromColor = getNoteColor(displayedNotes.value[interval.fromIndex]);
   const toColor = getNoteColor(displayedNotes.value[interval.toIndex]);
-  const fromColorAlpha = withAlpha(fromColor, 0.4);
-  const toColorAlpha = withAlpha(toColor, 0.4);
-  return `linear-gradient(90deg, ${fromColorAlpha}, ${toColorAlpha})`;
+  return createIntervalGlassmorphBackground(
+    fromColor,
+    toColor,
+    floatingPopupConfig.value.glassmorphOpacity
+  );
 };
 
 // Update emotional description to use displayedNotes
 const displayedEmotionalDescription = computed(() => {
+  if (!floatingPopupConfig.value.showEmotionalDescription) return "";
+
   const notes = displayedNotes.value;
   if (notes.length === 0) return "";
 
@@ -329,6 +334,17 @@ const displayedEmotionalDescription = computed(() => {
   if (emotions.length === 2) return `${emotions[0]} & ${emotions[1]}`;
   return "Complex harmonic blend";
 });
+
+// Computed style for backdrop blur
+const backdropBlurStyle = computed(() => ({
+  backdropFilter: `blur(${floatingPopupConfig.value.backdropBlur}px)`,
+  WebkitBackdropFilter: `blur(${floatingPopupConfig.value.backdropBlur}px)`,
+}));
+
+// Computed style for animation duration
+const animationStyle = computed(() => ({
+  transitionDuration: `${floatingPopupConfig.value.animationDuration}ms`,
+}));
 </script>
 
 <style scoped>
@@ -349,8 +365,7 @@ const displayedEmotionalDescription = computed(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /* Backdrop blur is now applied dynamically via :style */
   pointer-events: none;
   z-index: -1;
 }

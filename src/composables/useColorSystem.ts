@@ -372,6 +372,177 @@ export function useColorSystem() {
     }));
   };
 
+  /**
+   * Create glassmorphism background effect
+   */
+  const createGlassmorphBackground = (
+    color: string,
+    opacity: number = 0.4
+  ): string => {
+    const color1 = withAlpha(color, opacity * 1.425); // 57% of base opacity
+    const color2 = withAlpha(color, opacity * 0.15); // 6% of base opacity
+    return `radial-gradient(84.35% 70.19% at 50% 38.11%, ${color1}, ${color2})`;
+  };
+
+  /**
+   * Create glassmorphism box shadow effect
+   */
+  const createGlassmorphShadow = (color: string): string => {
+    const shadowColor = withAlpha(color, 0.09);
+    return `hsla(0, 0%, 100%, 0.1) 0px 1px 0px 0px inset, hsla(0, 0%, 0%, 0.4) 0px 30px 50px 0px, ${shadowColor} 0px 4px 24px 0px, hsla(0, 0%, 100%, 0.06) 0px 0px 0px 1px inset`;
+  };
+
+  /**
+   * Create chord-specific glassmorphism background using gradient of multiple colors
+   */
+  const createChordGlassmorphBackground = (
+    colors: string[],
+    opacity: number = 0.4
+  ): string => {
+    if (colors.length === 0) return "rgba(255, 255, 255, 0.1)";
+
+    if (colors.length === 1) {
+      return createGlassmorphBackground(colors[0], opacity);
+    }
+
+    // Create a blended linear gradient for multiple colors
+    const gradientColors = colors.map((color) => withAlpha(color, opacity));
+    const gradientColorsLight = colors.map((color) =>
+      withAlpha(color, opacity * 0.15)
+    );
+
+    return `linear-gradient(135deg, 
+      ${gradientColors.join(", ")}, 
+      ${gradientColorsLight.join(", ")})`;
+  };
+
+  /**
+   * Create chord-specific glassmorphism shadow
+   */
+  const createChordGlassmorphShadow = (colors: string[]): string => {
+    if (colors.length === 0) return createGlassmorphShadow("#ffffff");
+
+    // Use the first color for the shadow, or blend if multiple
+    const shadowColor = colors.length >= 1 ? colors[0] : "#ffffff";
+    return createGlassmorphShadow(shadowColor);
+  };
+
+  /**
+   * Create interval-specific glassmorphism background
+   */
+  const createIntervalGlassmorphBackground = (
+    fromColor: string,
+    toColor: string,
+    opacity: number = 0.4
+  ): string => {
+    const fromColorAlpha = withAlpha(fromColor, opacity);
+    const toColorAlpha = withAlpha(toColor, opacity);
+    return `linear-gradient(90deg, ${fromColorAlpha}, ${toColorAlpha})`;
+  };
+
+  /**
+   * Create gradient from multiple colors
+   */
+  const createGradient = (
+    colors: string[],
+    direction: string = "135deg"
+  ): string => {
+    if (colors.length === 1) return colors[0];
+    return `linear-gradient(${direction}, ${colors.join(", ")})`;
+  };
+
+  /**
+   * Create conical gradient from multiple colors
+   */
+  const createConicGradient = (
+    colors: string[],
+    startAngle: string = "0deg"
+  ): string => {
+    if (colors.length === 1) return colors[0];
+    return `conic-gradient(from ${startAngle}, ${colors.join(", ")})`;
+  };
+
+  /**
+   * Create conical glassmorphism background effect
+   */
+  const createConicGlassmorphBackground = (
+    color: string,
+    opacity: number = 0.4,
+    startAngle: string = "0deg"
+  ): string => {
+    const color1 = withAlpha(color, opacity * 1.425); // 57% of base opacity
+    const color2 = withAlpha(color, opacity * 0.15); // 6% of base opacity
+    const color3 = withAlpha(color, opacity * 0.8); // 32% of base opacity
+    return `conic-gradient(from ${startAngle}, ${color1}, ${color2}, ${color3}, ${color1})`;
+  };
+
+  /**
+   * Create chord-specific conical glassmorphism background using gradient of multiple colors
+   */
+  const createChordConicGlassmorphBackground = (
+    colors: string[],
+    opacity: number = 0.4,
+    startAngle: string = "0deg"
+  ): string => {
+    if (colors.length === 0) return "rgba(255, 255, 255, 0.1)";
+
+    if (colors.length === 1) {
+      return createConicGlassmorphBackground(colors[0], opacity, startAngle);
+    }
+
+    // Create a blended conical gradient for multiple colors
+    const gradientColors = colors.map((color) => withAlpha(color, opacity));
+    const gradientColorsLight = colors.map((color) =>
+      withAlpha(color, opacity * 0.15)
+    );
+
+    // Interleave full and light colors for better visual effect
+    const interleavedColors: string[] = [];
+    for (let i = 0; i < colors.length; i++) {
+      interleavedColors.push(gradientColors[i]);
+      interleavedColors.push(gradientColorsLight[i]);
+    }
+    // Complete the circle by adding the first color again
+    interleavedColors.push(gradientColors[0]);
+
+    return `conic-gradient(from ${startAngle}, ${interleavedColors.join(
+      ", "
+    )})`;
+  };
+
+  /**
+   * Create interval-specific conical glassmorphism background
+   */
+  const createIntervalConicGlassmorphBackground = (
+    fromColor: string,
+    toColor: string,
+    opacity: number = 0.4,
+    startAngle: string = "0deg"
+  ): string => {
+    const fromColorAlpha = withAlpha(fromColor, opacity);
+    const toColorAlpha = withAlpha(toColor, opacity);
+    const fromColorLight = withAlpha(fromColor, opacity * 0.15);
+    const toColorLight = withAlpha(toColor, opacity * 0.15);
+
+    return `conic-gradient(from ${startAngle}, ${fromColorAlpha}, ${toColorLight}, ${toColorAlpha}, ${fromColorLight}, ${fromColorAlpha})`;
+  };
+
+  /**
+   * Generate conical gradient string for CSS
+   */
+  const getConicGradient = (
+    noteName: string,
+    mode: MusicalMode = "major",
+    octave: number = 3,
+    startAngle: number | string = 0
+  ): string => {
+    const colors = getNoteColors(noteName, mode, octave, true);
+    // Convert numeric angle to CSS format
+    const cssAngle =
+      typeof startAngle === "number" ? `${startAngle}deg` : startAngle;
+    return `conic-gradient(from ${cssAngle}, ${colors.primary}, ${colors.accent}, ${colors.secondary}, ${colors.tertiary}, ${colors.primary})`;
+  };
+
   return {
     // Core color functions
     getNoteColors,
@@ -393,7 +564,22 @@ export function useColorSystem() {
 
     // Utility functions
     getGradient,
+    getConicGradient,
     withAlpha,
+    createGradient,
+    createConicGradient,
+
+    // Glassmorphism functions
+    createGlassmorphBackground,
+    createGlassmorphShadow,
+    createChordGlassmorphBackground,
+    createChordGlassmorphShadow,
+    createIntervalGlassmorphBackground,
+
+    // Conical glassmorphism functions
+    createConicGlassmorphBackground,
+    createChordConicGlassmorphBackground,
+    createIntervalConicGlassmorphBackground,
 
     // State
     isDynamicColorsEnabled,

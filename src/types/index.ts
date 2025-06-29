@@ -32,6 +32,8 @@ export type {
   VisualEffectsConfig,
   NoteColorRelationships,
   DynamicColorConfig,
+  PaletteConfig,
+  FloatingPopupConfig,
 } from "./visual";
 
 // Canvas and Animation Types

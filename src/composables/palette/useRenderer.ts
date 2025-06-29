@@ -57,12 +57,66 @@ export function usePaletteRenderer(
   ) => string | null
 ) {
   const musicStore = useMusicStore();
-  const { getStaticPrimaryColor, getGradient } = useColorSystem();
+  const {
+    getStaticPrimaryColor,
+    getGradient,
+    createGlassmorphBackground,
+    createChordGlassmorphBackground,
+    withAlpha,
+  } = useColorSystem();
   const { isNoteActiveForSolfege } = useSolfegeInteraction();
   const { paletteConfig } = useVisualConfig();
 
   // Check if we should show keyboard shortcuts (desktop only)
   const showKeyboardShortcuts = shouldShowKeyboardShortcuts();
+
+  /**
+   * Create a canvas radial gradient from CSS radial gradient string
+   */
+  const createCanvasRadialGradient = (
+    ctx: CanvasRenderingContext2D,
+    cssGradient: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): CanvasGradient | null => {
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    const radius = Math.min(width, height) / 2;
+
+    // Create radial gradient from center
+    const canvasGradient = ctx.createRadialGradient(
+      centerX,
+      centerY,
+      0,
+      centerX,
+      centerY,
+      radius
+    );
+
+    // Parse CSS gradient to extract colors
+    const config = PALETTE_STYLES.rendering.gradient;
+    const colors = cssGradient.match(config.colorRegex) || [];
+
+    if (colors.length >= 2 && colors[0] && colors[1]) {
+      canvasGradient.addColorStop(0, colors[0]);
+      canvasGradient.addColorStop(1, colors[1]);
+      return canvasGradient;
+    } else if (colors.length === 1 && colors[0]) {
+      // Single color - create subtle gradient with transparency
+      canvasGradient.addColorStop(0, colors[0]);
+      canvasGradient.addColorStop(1, colors[0] + config.transparencySuffix);
+      return canvasGradient;
+    }
+
+    // Fallback gradient
+    config.fallbackStops.forEach((stop) => {
+      canvasGradient.addColorStop(stop.offset, stop.color);
+    });
+
+    return canvasGradient;
+  };
 
   /**
    * Create a canvas gradient from CSS gradient string
@@ -262,24 +316,25 @@ export function usePaletteRenderer(
     const buttonWidth = layout.width * currentScale;
     const buttonHeight = layout.height * currentScale;
 
-    // Button background - use color system like DOM version
-    if (!isActive) {
-      // Static color background
-      const primaryColor = getStaticPrimaryColor(
-        solfege.name,
-        musicStore.currentMode,
-        layout.octave
-      );
-      ctx.fillStyle = primaryColor;
-      ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
-    } else {
-      // Active state - use reactive gradient
-      const gradient = getGradient(solfege.name, musicStore.currentMode);
-      if (gradient) {
-        // Use consolidated gradient creation
-        const canvasGradient = createCanvasGradient(
+    // Button background - use glassmorphism or solid colors based on config
+    const primaryColor = getStaticPrimaryColor(
+      solfege.name,
+      musicStore.currentMode,
+      layout.octave
+    );
+
+    if (paletteConfig.value.useGlassmorphism) {
+      // GLASSMORPHISM MODE
+      if (!isActive) {
+        // Static state - use glassmorphism background
+        const glassmorphBg = createGlassmorphBackground(
+          primaryColor,
+          paletteConfig.value.glassmorphOpacity
+        );
+
+        const canvasGradient = createCanvasRadialGradient(
           ctx,
-          gradient,
+          glassmorphBg,
           buttonX,
           buttonY,
           buttonWidth,
@@ -289,26 +344,122 @@ export function usePaletteRenderer(
         if (canvasGradient) {
           ctx.fillStyle = canvasGradient;
         } else {
-          // Fallback to primary color
-          ctx.fillStyle = getStaticPrimaryColor(
-            solfege.name,
-            musicStore.currentMode,
-            layout.octave
+          // Fallback to primary color with reduced opacity
+          ctx.fillStyle = withAlpha(
+            primaryColor,
+            paletteConfig.value.glassmorphOpacity
           );
         }
-      } else {
-        ctx.fillStyle = getStaticPrimaryColor(
-          solfege.name,
-          musicStore.currentMode,
-          layout.octave
-        );
-      }
-      ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
-
-      // Add pressed effect overlay for gradient buttons
-      if (buttonAnimation.isPressed && gradient) {
-        ctx.fillStyle = PALETTE_STYLES.rendering.gradient.pressedEffect.overlay;
         ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+      } else {
+        // Active state - use enhanced glassmorphism with gradient colors
+        const gradient = getGradient(solfege.name, musicStore.currentMode);
+
+        if (gradient) {
+          // Use linear gradient for active state background
+          const canvasGradient = createCanvasGradient(
+            ctx,
+            gradient,
+            buttonX,
+            buttonY,
+            buttonWidth,
+            buttonHeight
+          );
+
+          if (canvasGradient) {
+            ctx.fillStyle = canvasGradient;
+          } else {
+            // Fallback to glassmorphism with primary color
+            const glassmorphBg = createGlassmorphBackground(
+              primaryColor,
+              paletteConfig.value.glassmorphOpacity * 1.2 // Slightly more opaque when active
+            );
+
+            const radialGradient = createCanvasRadialGradient(
+              ctx,
+              glassmorphBg,
+              buttonX,
+              buttonY,
+              buttonWidth,
+              buttonHeight
+            );
+
+            ctx.fillStyle =
+              radialGradient ||
+              withAlpha(
+                primaryColor,
+                paletteConfig.value.glassmorphOpacity * 1.2
+              );
+          }
+        } else {
+          // Fallback to enhanced glassmorphism
+          const glassmorphBg = createGlassmorphBackground(
+            primaryColor,
+            paletteConfig.value.glassmorphOpacity * 1.2
+          );
+
+          const radialGradient = createCanvasRadialGradient(
+            ctx,
+            glassmorphBg,
+            buttonX,
+            buttonY,
+            buttonWidth,
+            buttonHeight
+          );
+
+          ctx.fillStyle =
+            radialGradient ||
+            withAlpha(
+              primaryColor,
+              paletteConfig.value.glassmorphOpacity * 1.2
+            );
+        }
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+        // Add pressed effect overlay for active buttons
+        if (buttonAnimation.isPressed) {
+          ctx.fillStyle =
+            PALETTE_STYLES.rendering.gradient.pressedEffect.overlay;
+          ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        }
+      }
+    } else {
+      // SOLID COLOR MODE (Original behavior)
+      if (!isActive) {
+        // Static color background
+        ctx.fillStyle = primaryColor;
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+      } else {
+        // Active state - use reactive gradient
+        const gradient = getGradient(solfege.name, musicStore.currentMode);
+        if (gradient) {
+          // Use consolidated gradient creation
+          const canvasGradient = createCanvasGradient(
+            ctx,
+            gradient,
+            buttonX,
+            buttonY,
+            buttonWidth,
+            buttonHeight
+          );
+
+          if (canvasGradient) {
+            ctx.fillStyle = canvasGradient;
+          } else {
+            // Fallback to primary color
+            ctx.fillStyle = primaryColor;
+          }
+        } else {
+          ctx.fillStyle = primaryColor;
+        }
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+        // Add pressed effect overlay for gradient buttons
+        if (buttonAnimation.isPressed && gradient) {
+          ctx.fillStyle =
+            PALETTE_STYLES.rendering.gradient.pressedEffect.overlay;
+          ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        }
       }
     }
 

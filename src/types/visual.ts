@@ -35,6 +35,36 @@ export interface PaletteConfig {
   isEnabled: boolean;
   /** Gradient direction in degrees (0-360) */
   gradientDirection: number;
+  /** Whether to use glassmorphism effects for palette keys */
+  useGlassmorphism: boolean;
+  /** Glassmorphism effect opacity for palette keys (0-1) */
+  glassmorphOpacity: number;
+}
+
+/**
+ * Floating popup configuration
+ */
+export interface FloatingPopupConfig {
+  /** Whether floating popup is enabled */
+  isEnabled: boolean;
+  /** Accumulation window for notes in milliseconds */
+  accumulationWindow: number;
+  /** Hide delay after last note stops in milliseconds */
+  hideDelay: number;
+  /** Maximum number of notes to display simultaneously */
+  maxNotes: number;
+  /** Whether to show chord information */
+  showChord: boolean;
+  /** Whether to show interval information */
+  showIntervals: boolean;
+  /** Whether to show emotional descriptions */
+  showEmotionalDescription: boolean;
+  /** Backdrop blur intensity in pixels */
+  backdropBlur: number;
+  /** Glassmorphism effect opacity (0-1) */
+  glassmorphOpacity: number;
+  /** Animation duration for show/hide transitions in milliseconds */
+  animationDuration: number;
 }
 
 /**
@@ -365,4 +395,6 @@ export interface VisualEffectsConfig {
   dynamicColors: DynamicColorConfig;
   /** Palette visual configuration */
   palette: PaletteConfig;
+  /** Floating popup configuration */
+  floatingPopup: FloatingPopupConfig;
 }

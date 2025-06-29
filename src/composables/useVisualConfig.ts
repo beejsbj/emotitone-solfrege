@@ -10,6 +10,7 @@ import type {
   FrequencyMappingConfig,
   DynamicColorConfig,
   PaletteConfig,
+  FloatingPopupConfig,
   VisualEffectsConfig,
 } from "@/types/visual";
 
@@ -28,6 +29,8 @@ export type {
   AnimationConfig,
   FrequencyMappingConfig,
   DynamicColorConfig,
+  PaletteConfig,
+  FloatingPopupConfig,
   VisualEffectsConfig,
 };
 
@@ -119,6 +122,21 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
   palette: {
     isEnabled: true, // Enable palette gradient effects
     gradientDirection: 225, // 45-degree gradient direction
+    useGlassmorphism: true, // Use glassmorphism effects by default
+    glassmorphOpacity: 0.4, // 40% glassmorphism opacity for palette keys
+  },
+
+  floatingPopup: {
+    isEnabled: true,
+    accumulationWindow: 500, // 500ms accumulation window for arpeggios
+    hideDelay: 2000, // Show for 2 seconds after last note
+    maxNotes: 7, // Limit to 2 notes maximum for sequential intervals
+    showChord: true, // Show chord information
+    showIntervals: true, // Show interval information
+    showEmotionalDescription: true, // Show emotional descriptions
+    backdropBlur: 12, // 12px backdrop blur
+    glassmorphOpacity: 0.4, // 40% glassmorphism opacity
+    animationDuration: 300, // 300ms animation duration
   },
 };
 
@@ -140,6 +158,7 @@ export function useVisualConfig() {
   const frequencyMappingConfig = computed(() => store.config.frequencyMapping);
   const dynamicColorConfig = computed(() => store.config.dynamicColors);
   const paletteConfig = computed(() => store.config.palette);
+  const floatingPopupConfig = computed(() => store.config.floatingPopup);
 
   return {
     // Configuration state
@@ -156,6 +175,7 @@ export function useVisualConfig() {
     frequencyMappingConfig,
     dynamicColorConfig,
     paletteConfig,
+    floatingPopupConfig,
 
     // Methods from store
     updateConfig: store.updateConfig,

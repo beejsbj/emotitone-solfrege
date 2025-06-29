@@ -82,10 +82,6 @@ import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import PatternPlayer from "@/components/PatternPlayer.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import { Toaster } from "vue-sonner";
-
-// Check if we're in development mode
-const isDev = import.meta.env.DEV;
 
 // Stores and composables
 const musicStore = useMusicStore();
@@ -95,7 +91,7 @@ const { isLoading } = useAppLoading();
 console.log("Number of solfege notes:", musicStore.solfegeData.length);
 console.log(
   "Solfege data:",
-  musicStore.solfegeData.map((s: any) => s.name)
+  musicStore.solfegeData.map((s) => s.name)
 );
 
 const handleScroll = (direction: number) => {

@@ -3,97 +3,99 @@
  * Centralized export of all type definitions for the Emotitone Solfege application
  */
 
-// Music Theory Types
-export type {
-  SolfegeData,
-  Scale,
-  MelodicPattern,
-  Note,
-  MusicalMode,
-  ChromaticNote,
-  ActiveNote,
-} from "./music";
+/**
+ * Centralized Type Exports
+ * Re-exports all types from various modules for easy importing
+ */
 
-// Visual Effects Types
-export type {
-  OscillationConfig,
-  FontWeightElement,
-  FrequencyMapping,
-  VibratingStringConfig,
-  AnimationLifecycleOptions,
-  VisualEffectConfig,
-  BlobConfig,
-  AmbientConfig,
-  ParticleConfig,
-  StringConfig,
-  FontOscillationConfig,
-  AnimationConfig,
-  FrequencyMappingConfig,
-  VisualEffectsConfig,
-  NoteColorRelationships,
-  DynamicColorConfig,
-  PaletteConfig,
-  FloatingPopupConfig,
-} from "./visual";
+import type { Ref } from "vue";
 
-// Canvas and Animation Types
-export type {
-  ActiveBlob,
-  Particle,
-  CanvasProperties,
-  AnimationFrame,
-  RenderContext,
-  EffectRenderState,
-  PerformanceMetrics,
-  CanvasNoteEvent,
-} from "./canvas";
+// Visual effect types - moved to other domain files
+// export * from "./visual"; // DELETED - types moved to domain-specific files
 
-// Audio System Types
-export type {
-  SynthConfig,
-  PlaybackOptions,
-  SequenceConfig,
-  AudioContextState,
-  AudioAnalysis,
-  AudioEffect,
-  AudioRouting,
-} from "./audio";
+// Audio and music types
+export * from "./audio";
+export * from "./music";
 
-// Instrument System Types
-export type {
-  InstrumentConfig,
-  InstrumentCategory,
-  InstrumentName,
-  InstrumentStoreState,
-  InstrumentInitOptions,
-  AudioEnvelope,
-  CompressorConfig,
-  VoiceConfig,
-  SamplerConfig,
-  OscillatorConfig,
-  CompleteInstrumentConfig,
-  InstrumentEvent,
-  AudioContextInfo,
-} from "./instrument";
+// UI and interaction types
+export * from "./palette";
+export * from "./canvas";
+export * from "./loading";
 
-// Palette System Types
-export type {
-  PaletteState,
-  ButtonLayout,
-  ControlLayout,
-  AnimationState,
-  OctaveHeights,
-  SustainHook,
-} from "./palette";
+// Library and data types
+export * from "./instrument";
+export * from "./sample-library";
 
-// App Loading and Initialization Types
-export type {
-  LoadingPhase,
-  LoadingState,
-  InitializationProgress,
-  SplashConfig,
-  AppLoadingState,
-} from "./loading";
+// Configuration system types
+export * from "./config";
 
-// Re-export commonly used Vue types for convenience
-export type { Ref, ComputedRef, WritableComputedRef } from "vue";
+// Color system types
+export * from "./color";
+
+/*
+ * ========================================
+ * MISCELLANEOUS UTILITY TYPES
+ * ========================================
+ * General-purpose types that don't belong in specific domain files
+ */
+
+/**
+ * Font weight oscillation configuration
+ * @deprecated Use CONFIG_DEFINITIONS.fontOscillation instead
+ */
+export interface OscillationConfig {
+  /** Base font weight when not oscillating */
+  baseWeight: number;
+  /** Minimum font weight allowed */
+  minWeight: number;
+  /** Maximum font weight allowed */
+  maxWeight: number;
+  /** Amplitude of the oscillation */
+  amplitude: number;
+  /** Frequency multiplier for visual oscillation */
+  frequencyMultiplier: number;
+}
+
+/**
+ * Font weight element with reactive properties
+ */
+export interface FontWeightElement {
+  /** Reactive font weight value */
+  weight: Ref<number>;
+  /** Configuration for this element's oscillation */
+  config: OscillationConfig;
+}
+
+/**
+ * Animation lifecycle callback options
+ */
+export interface AnimationLifecycleOptions {
+  /** Callback when animation starts */
+  onStart?: () => void;
+  /** Callback when animation stops */
+  onStop?: () => void;
+  /** Callback for each animation frame */
+  onFrame?: (timestamp: number, elapsed: number) => void;
+  /** Whether to automatically cleanup on component unmount */
+  autoCleanup?: boolean;
+}
+
+/**
+ * Visual effect state configuration
+ */
+export interface VisualEffectConfig {
+  /** Whether the effect is currently active */
+  isActive: boolean;
+  /** Current note being played */
+  currentNote: string | null;
+  /** Frequency of the current note */
+  frequency: number;
+  /** Index of the current solfege note */
+  solfegeIndex: number;
+}
+
+// Legacy/deprecated types (to be removed)
+// TODO: Remove these once all references are updated
+export type { VisualEffectsConfig } from "./config";
+
+export default {};

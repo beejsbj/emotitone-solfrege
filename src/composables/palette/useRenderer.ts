@@ -7,7 +7,7 @@ import { type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
-import { useVisualConfig } from "@/composables/useVisualConfig";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { shouldShowKeyboardShortcuts } from "@/utils/deviceDetection";
 import { PALETTE_STYLES } from "./index";
 import type {
@@ -65,7 +65,7 @@ export function usePaletteRenderer(
     withAlpha,
   } = useColorSystem();
   const { isNoteActiveForSolfege } = useSolfegeInteraction();
-  const { paletteConfig } = useVisualConfig();
+  const visualConfigStore = useVisualConfigStore();
 
   // Check if we should show keyboard shortcuts (desktop only)
   const showKeyboardShortcuts = shouldShowKeyboardShortcuts();
@@ -133,7 +133,8 @@ export function usePaletteRenderer(
 
     // Create linear gradient based on direction (0-360 degrees)
     // Use configurable direction from visual config, fallback to palette styles
-    const direction = paletteConfig.value.gradientDirection ?? config.direction;
+    const direction =
+      visualConfigStore.config.palette.gradientDirection ?? config.direction;
     // Convert angle to radians and calculate end points
     const angleInRadians = (direction * Math.PI) / 180;
 
@@ -323,13 +324,13 @@ export function usePaletteRenderer(
       layout.octave
     );
 
-    if (paletteConfig.value.useGlassmorphism) {
+    if (visualConfigStore.config.palette.useGlassmorphism) {
       // GLASSMORPHISM MODE
       if (!isActive) {
         // Static state - use glassmorphism background
         const glassmorphBg = createGlassmorphBackground(
           primaryColor,
-          paletteConfig.value.glassmorphOpacity
+          visualConfigStore.config.palette.glassmorphOpacity
         );
 
         const canvasGradient = createCanvasRadialGradient(
@@ -347,7 +348,7 @@ export function usePaletteRenderer(
           // Fallback to primary color with reduced opacity
           ctx.fillStyle = withAlpha(
             primaryColor,
-            paletteConfig.value.glassmorphOpacity
+            visualConfigStore.config.palette.glassmorphOpacity
           );
         }
         ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
@@ -372,7 +373,7 @@ export function usePaletteRenderer(
             // Fallback to glassmorphism with primary color
             const glassmorphBg = createGlassmorphBackground(
               primaryColor,
-              paletteConfig.value.glassmorphOpacity * 1.2 // Slightly more opaque when active
+              visualConfigStore.config.palette.glassmorphOpacity * 1.2 // Slightly more opaque when active
             );
 
             const radialGradient = createCanvasRadialGradient(
@@ -388,14 +389,14 @@ export function usePaletteRenderer(
               radialGradient ||
               withAlpha(
                 primaryColor,
-                paletteConfig.value.glassmorphOpacity * 1.2
+                visualConfigStore.config.palette.glassmorphOpacity * 1.2
               );
           }
         } else {
           // Fallback to enhanced glassmorphism
           const glassmorphBg = createGlassmorphBackground(
             primaryColor,
-            paletteConfig.value.glassmorphOpacity * 1.2
+            visualConfigStore.config.palette.glassmorphOpacity * 1.2
           );
 
           const radialGradient = createCanvasRadialGradient(
@@ -411,7 +412,7 @@ export function usePaletteRenderer(
             radialGradient ||
             withAlpha(
               primaryColor,
-              paletteConfig.value.glassmorphOpacity * 1.2
+              visualConfigStore.config.palette.glassmorphOpacity * 1.2
             );
         }
         ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);

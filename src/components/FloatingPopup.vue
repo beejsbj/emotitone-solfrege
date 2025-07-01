@@ -19,7 +19,9 @@
       >
         <!-- Chord Display -->
         <div
-          v-if="displayedChord && floatingPopupConfig.showChord"
+          v-if="
+            displayedChord && visualConfigStore.config.floatingPopup.showChord
+          "
           class="rounded-sm py-2 px-6 text-center glass-morph backdrop-blur-md border border-white/20 shadow-lg"
           :style="{
             background: createChordGlassmorphBackgroundLocal(),
@@ -42,7 +44,7 @@
             :style="{
               background: createGlassmorphBackground(
                 getNoteColor(note),
-                floatingPopupConfig.glassmorphOpacity
+                visualConfigStore.config.floatingPopup.glassmorphOpacity
               ),
               boxShadow: createGlassmorphShadow(getNoteColor(note)),
             }"
@@ -63,7 +65,7 @@
         <div
           v-if="
             displayedIntervalRows.length > 0 &&
-            floatingPopupConfig.showIntervals
+            visualConfigStore.config.floatingPopup.showIntervals
           "
           class="grid gap-[1px]"
         >
@@ -94,7 +96,7 @@
         <div
           v-if="
             displayedEmotionalDescription &&
-            floatingPopupConfig.showEmotionalDescription
+            visualConfigStore.config.floatingPopup.showEmotionalDescription
           "
           class="mt-4"
         >
@@ -119,7 +121,7 @@
 import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { useVisualConfig } from "@/composables/useVisualConfig";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { Chord, Interval } from "@tonaljs/tonal";
 
 const musicStore = useMusicStore();
@@ -134,7 +136,7 @@ const {
   createIntervalGlassmorphBackground,
   createGradient,
 } = useColorSystem();
-const { floatingPopupConfig } = useVisualConfig();
+const visualConfigStore = useVisualConfigStore();
 const floatingPopup = ref<HTMLElement | null>(null);
 
 // Visibility control with timer
@@ -151,7 +153,7 @@ const activeNotes = computed(() => musicStore.getActiveNotes());
 
 // Check if popup should be shown based on config
 const shouldShowPopup = computed(
-  () => floatingPopupConfig.value.isEnabled && isVisible.value
+  () => visualConfigStore.config.floatingPopup.isEnabled && isVisible.value
 );
 
 // Displayed notes from accumulated notes in order
@@ -165,7 +167,7 @@ const displayedNotes = computed(() => {
 watch(
   () => [...activeNotes.value],
   (newNotes, oldNotes) => {
-    if (!floatingPopupConfig.value.isEnabled) return;
+    if (!visualConfigStore.config.floatingPopup.isEnabled) return;
 
     const oldNoteIds = new Set((oldNotes || []).map((n) => n.noteId));
     const newNoteIds = new Set(newNotes.map((n) => n.noteId));
@@ -177,7 +179,10 @@ watch(
         displayOrder.value.push(note.noteId);
 
         // Limit to configured max notes
-        if (displayOrder.value.length > floatingPopupConfig.value.maxNotes) {
+        if (
+          displayOrder.value.length >
+          visualConfigStore.config.floatingPopup.maxNotes
+        ) {
           const oldestNoteId = displayOrder.value.shift();
           if (oldestNoteId) {
             accumulatedNotes.value.delete(oldestNoteId);
@@ -208,10 +213,10 @@ watch(
           // Clear accumulated notes after hiding
           accumulatedNotes.value.clear();
           displayOrder.value = [];
-        }, floatingPopupConfig.value.hideDelay) as unknown as number;
+        }, visualConfigStore.config.floatingPopup.hideDelay) as unknown as number;
 
         accumulationTimer = null;
-      }, floatingPopupConfig.value.accumulationWindow) as unknown as number;
+      }, visualConfigStore.config.floatingPopup.accumulationWindow) as unknown as number;
     }
   },
   { deep: true }
@@ -219,7 +224,7 @@ watch(
 
 // Update computed properties to use displayedNotes
 const displayedChord = computed(() => {
-  if (!floatingPopupConfig.value.showChord) return null;
+  if (!visualConfigStore.config.floatingPopup.showChord) return null;
 
   const notes = displayedNotes.value.map((note) => note.noteName);
   if (notes.length < 2) return null;
@@ -241,7 +246,7 @@ const createChordGlassmorphBackgroundLocal = (): string => {
   const colors = displayedNotes.value.map(getNoteColor);
   return createChordGlassmorphBackground(
     colors,
-    floatingPopupConfig.value.glassmorphOpacity
+    visualConfigStore.config.floatingPopup.glassmorphOpacity
   );
 };
 
@@ -258,7 +263,7 @@ const displayedNotesGradient = computed(() => {
 
 // Update interval calculations to use displayedNotes
 const displayedIntervals = computed(() => {
-  if (!floatingPopupConfig.value.showIntervals) return [];
+  if (!visualConfigStore.config.floatingPopup.showIntervals) return [];
 
   const notes = displayedNotes.value;
   if (notes.length < 2) return [];
@@ -317,13 +322,14 @@ const createIntervalGlassmorphBackgroundLocal = (interval: any): string => {
   return createIntervalGlassmorphBackground(
     fromColor,
     toColor,
-    floatingPopupConfig.value.glassmorphOpacity
+    visualConfigStore.config.floatingPopup.glassmorphOpacity
   );
 };
 
 // Update emotional description to use displayedNotes
 const displayedEmotionalDescription = computed(() => {
-  if (!floatingPopupConfig.value.showEmotionalDescription) return "";
+  if (!visualConfigStore.config.floatingPopup.showEmotionalDescription)
+    return "";
 
   const notes = displayedNotes.value;
   if (notes.length === 0) return "";
@@ -337,13 +343,13 @@ const displayedEmotionalDescription = computed(() => {
 
 // Computed style for backdrop blur
 const backdropBlurStyle = computed(() => ({
-  backdropFilter: `blur(${floatingPopupConfig.value.backdropBlur}px)`,
-  WebkitBackdropFilter: `blur(${floatingPopupConfig.value.backdropBlur}px)`,
+  backdropFilter: `blur(${visualConfigStore.config.floatingPopup.backdropBlur}px)`,
+  WebkitBackdropFilter: `blur(${visualConfigStore.config.floatingPopup.backdropBlur}px)`,
 }));
 
 // Computed style for animation duration
 const animationStyle = computed(() => ({
-  transitionDuration: `${floatingPopupConfig.value.animationDuration}ms`,
+  transitionDuration: `${visualConfigStore.config.floatingPopup.animationDuration}ms`,
 }));
 </script>
 

@@ -1,8 +1,9 @@
 import { ref, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useVisualConfig } from "@/composables/useVisualConfig";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import { logger, performanceLogger } from "@/utils/logger";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
-import type { SolfegeData } from "@/types/music";
+import type { SolfegeData } from "@/types";
 import { useBlobRenderer } from "./useBlobRenderer";
 import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
@@ -17,13 +18,7 @@ import { performanceMonitor } from "@/utils/performanceMonitor";
 
 export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   const musicStore = useMusicStore();
-  const {
-    blobConfig,
-    ambientConfig,
-    particleConfig,
-    stringConfig,
-    animationConfig,
-  } = useVisualConfig();
+  const visualConfigStore = useVisualConfigStore();
 
   // Canvas state (merged from useCanvasCore)
   const canvasWidth = ref(window.innerWidth);
@@ -36,10 +31,10 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
 
   // Cached configurations for performance
   let cachedConfigs = {
-    blob: blobConfig.value,
-    ambient: ambientConfig.value,
-    particle: particleConfig.value,
-    string: stringConfig.value,
+    blob: visualConfigStore.config.blobs,
+    ambient: visualConfigStore.config.ambient,
+    particle: visualConfigStore.config.particles,
+    string: visualConfigStore.config.strings,
   };
 
   // Rendering systems
@@ -53,10 +48,10 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const updateCachedConfigs = () => {
     cachedConfigs = {
-      blob: blobConfig.value,
-      ambient: ambientConfig.value,
-      particle: particleConfig.value,
-      string: stringConfig.value,
+      blob: visualConfigStore.config.blobs,
+      ambient: visualConfigStore.config.ambient,
+      particle: visualConfigStore.config.particles,
+      string: visualConfigStore.config.strings,
     };
   };
 
@@ -99,13 +94,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const initializeCanvas = () => {
     if (!canvasRef.value) {
-      console.error("❌ Canvas ref is null!");
+      logger.error("❌ Canvas ref is null!");
       return;
     }
 
     ctx = canvasRef.value.getContext("2d");
     if (!ctx) {
-      console.error("❌ Could not get 2D context!");
+              logger.error("❌ Could not get 2D context!");
       return;
     }
 
@@ -122,13 +117,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
 
     // Initialize strings
     stringRenderer.initializeStrings(
-      stringConfig.value,
+      visualConfigStore.config.strings,
       canvasWidth.value,
       canvasHeight.value,
       musicStore.solfegeData
     );
 
-    console.log("✅ Canvas initialized successfully");
+          logger.dev("✅ Canvas initialized successfully");
   };
 
   /**
@@ -136,7 +131,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const renderFrame = (elapsed: number) => {
     if (!ctx) {
-      console.warn("⚠️ No canvas context in renderFrame");
+              performanceLogger.throttled("⚠️ No canvas context in renderFrame");
       return;
     }
 
@@ -169,8 +164,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
 
     if (cachedConfigs.string.isEnabled) {
       stringRenderer.updateStringProperties(
-        stringConfig.value,
-        animationConfig.value,
+        visualConfigStore.config.strings,
+        visualConfigStore.config.animation,
         musicStore
       );
       stringRenderer.renderStrings(ctx, elapsed, canvasHeight.value);
@@ -224,7 +219,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       y,
       canvasWidth.value,
       canvasHeight.value,
-      blobConfig.value,
+      visualConfigStore.config.blobs,
       noteId // Pass noteId for tracking
     );
 
@@ -232,12 +227,15 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     const activeNoteCount = musicStore.getActiveNotes().length;
     const particleCount = Math.max(
       5,
-      Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
+      Math.floor(
+        visualConfigStore.config.particles.count /
+          Math.max(1, activeNoteCount - 1)
+      )
     );
 
     particleSystem.createParticles(
       note,
-      particleConfig.value,
+      visualConfigStore.config.particles,
       canvasWidth.value,
       canvasHeight.value,
       musicStore,

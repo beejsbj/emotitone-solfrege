@@ -8,7 +8,7 @@ import type {
   SampleLibraryLoadOptions,
   SampleInstrumentName,
   SampleInstrumentWrapper,
-} from "@/types/sample-library";
+} from "@/types";
 import { PIANO_SAMPLER_CONFIG } from "@/data/instruments";
 import { toast } from "vue-sonner";
 

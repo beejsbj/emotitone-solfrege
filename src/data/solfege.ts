@@ -3,7 +3,7 @@
  * Contains solfege note definitions for major and minor scales
  */
 
-import type { SolfegeData } from "@/types/music";
+import type { SolfegeData } from "@/types";
 
 // Re-export types for backward compatibility
 export type { SolfegeData };

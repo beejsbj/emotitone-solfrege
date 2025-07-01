@@ -1,11 +1,9 @@
 /**
- * Particle System
- * Handles particle creation, pooling, and rendering with optimizations
+ * Particle System Composable
+ * Manages floating particles that emit from played notes
  */
 
-import type { Particle } from "@/types/canvas";
-import type { SolfegeData } from "@/types/music";
-import type { ParticleConfig } from "@/types/visual";
+import type { Particle, ParticleConfig, SolfegeData } from "@/types";
 import { useColorSystem } from "../useColorSystem";
 
 export function useParticleSystem() {

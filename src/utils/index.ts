@@ -20,3 +20,6 @@ export * from "./visualEffects";
 
 // Device Detection
 export * from "./deviceDetection";
+
+// Logging
+export * from "./logger";

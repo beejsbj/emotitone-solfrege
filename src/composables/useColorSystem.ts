@@ -5,12 +5,9 @@
  */
 
 import { ref, computed, onUnmounted } from "vue";
-import { useVisualConfig } from "./useVisualConfig";
-import type {
-  NoteColorRelationships,
-  DynamicColorConfig,
-  MusicalMode,
-} from "@/types";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { NoteColorRelationships, DynamicColorConfig } from "@/types";
+import type { MusicalMode } from "@/types";
 import { CHROMATIC_NOTES, SOLFEGE_NOTES } from "@/data";
 
 /**
@@ -190,7 +187,7 @@ function stopGlobalAnimation() {
  * Unified Color System Composable
  */
 export function useColorSystem() {
-  const { dynamicColorConfig } = useVisualConfig();
+  const visualConfigStore = useVisualConfigStore();
 
   // Start animation when composable is used
   startGlobalAnimation();
@@ -210,7 +207,7 @@ export function useColorSystem() {
     octave: number = 3,
     animated: boolean = true
   ): NoteColorRelationships => {
-    const config = dynamicColorConfig.value;
+    const config = visualConfigStore.config.dynamicColors;
     const cleanNoteName = noteName.replace("'", "");
 
     const noteIndex = getNoteIndex(cleanNoteName, config.chromaticMapping);
@@ -362,7 +359,7 @@ export function useColorSystem() {
    * Get color preview for all notes
    */
   const getColorPreview = (mode: MusicalMode = "major", octave: number = 3) => {
-    const config = dynamicColorConfig.value;
+    const config = visualConfigStore.config.dynamicColors;
     const notes = config.chromaticMapping ? CHROMATIC_NOTES : SOLFEGE_NOTES;
 
     return notes.map((noteName, index) => ({

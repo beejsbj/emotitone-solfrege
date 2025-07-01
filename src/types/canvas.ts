@@ -144,3 +144,156 @@ export interface CanvasNoteEvent {
   /** Whether note is currently playing */
   isPlaying?: boolean;
 }
+
+/**
+ * Vibrating string configuration for string-like animations
+ */
+export interface VibratingStringConfig {
+  /** X position of the string */
+  x: number;
+  /** Base Y position of the string */
+  baseY: number;
+  /** Current amplitude of vibration */
+  amplitude: number;
+  /** Vibration frequency */
+  frequency: number;
+  /** Phase offset for the vibration */
+  phase: number;
+  /** Color of the string */
+  color: string;
+  /** Opacity of the string */
+  opacity: number;
+  /** Whether the string is currently active */
+  isActive: boolean;
+  /** Index of the associated note */
+  noteIndex: number;
+}
+
+/*
+ * ========================================
+ * CANVAS RENDERING CONFIGURATIONS
+ * ========================================
+ * These config interfaces define parameters for various canvas effects.
+ * Note: These are now managed by CONFIG_DEFINITIONS but kept for backwards compatibility.
+ */
+
+/**
+ * Blob visual effect configuration
+ * Used by useBlobRenderer.ts
+ */
+export interface BlobConfig {
+  /** Whether blob effects are enabled */
+  isEnabled: boolean;
+  /** Base size ratio relative to screen size */
+  baseSizeRatio: number;
+  /** Minimum blob size in pixels */
+  minSize: number;
+  /** Maximum blob size in pixels */
+  maxSize: number;
+  /** Blob opacity (0-1) */
+  opacity: number;
+  /** Blur radius in pixels */
+  blurRadius: number;
+  /** Vibration amplitude (0-1) - now used for edge vibration */
+  oscillationAmplitude: number;
+  /** Fade-out duration in seconds */
+  fadeOutDuration: number;
+  /** Scale-in animation duration in seconds */
+  scaleInDuration: number;
+  /** Scale-out animation duration in seconds */
+  scaleOutDuration: number;
+  /** Maximum drift speed in pixels per second */
+  driftSpeed: number;
+  /** Vibration frequency divisor for more fluid movement */
+  vibrationFrequencyDivisor: number;
+  /** Number of segments for blob edge */
+  edgeSegments: number;
+  /** Amplitude of edge vibration */
+  vibrationAmplitude: number;
+  /** Enable glow effect */
+  glowEnabled: boolean;
+  /** Glow blur intensity */
+  glowIntensity: number;
+}
+
+/**
+ * Ambient lighting effect configuration
+ * Used by useAmbientRenderer.ts
+ */
+export interface AmbientConfig {
+  /** Whether ambient effects are enabled */
+  isEnabled: boolean;
+  /** Opacity for major scale notes */
+  opacityMajor: number;
+  /** Opacity for minor scale notes */
+  opacityMinor: number;
+  /** Brightness for major scale notes */
+  brightnessMajor: number;
+  /** Brightness for minor scale notes */
+  brightnessMinor: number;
+  /** Saturation for major scale notes */
+  saturationMajor: number;
+  /** Saturation for minor scale notes */
+  saturationMinor: number;
+}
+
+/**
+ * Particle system configuration
+ * Used by useParticleSystem.ts
+ */
+export interface ParticleConfig {
+  /** Whether particle effects are enabled */
+  isEnabled: boolean;
+  /** Number of particles to generate */
+  count: number;
+  /** Minimum particle size */
+  sizeMin: number;
+  /** Maximum particle size */
+  sizeMax: number;
+  /** Minimum particle lifetime in milliseconds */
+  lifetimeMin: number;
+  /** Maximum particle lifetime in milliseconds */
+  lifetimeMax: number;
+  /** Particle movement speed */
+  speed: number;
+  /** Gravity effect on particles */
+  gravity: number;
+  /** Air resistance factor (0-1) */
+  airResistance: number;
+}
+
+/**
+ * String visual effect configuration
+ * Used by useStringRenderer.ts
+ */
+export interface StringConfig {
+  /** Whether string effects are enabled */
+  isEnabled: boolean;
+  /** Number of strings to render */
+  count: number;
+  /** Base opacity when inactive */
+  baseOpacity: number;
+  /** Opacity when active */
+  activeOpacity: number;
+  /** Maximum vibration amplitude */
+  maxAmplitude: number;
+  /** Damping factor for vibration decay */
+  dampingFactor: number;
+  /** Speed of amplitude interpolation */
+  interpolationSpeed: number;
+  /** Speed of opacity interpolation */
+  opacityInterpolationSpeed: number;
+}
+
+/**
+ * Animation timing and performance configuration
+ * Used by useStringRenderer.ts and other animation systems
+ */
+export interface AnimationConfig {
+  /** Divisor for converting audio frequency to visual frequency */
+  visualFrequencyDivisor: number;
+  /** Target frame rate for animations */
+  frameRate: number;
+  /** Smoothing factor for animations (0-1) */
+  smoothingFactor: number;
+}

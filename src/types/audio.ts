@@ -8,7 +8,7 @@
  */
 export interface SynthConfig {
   /** Oscillator type */
-  oscillatorType: 'sine' | 'square' | 'sawtooth' | 'triangle';
+  oscillatorType: "sine" | "square" | "sawtooth" | "triangle";
   /** ADSR envelope settings */
   envelope: {
     /** Attack time in seconds */
@@ -23,7 +23,7 @@ export interface SynthConfig {
   /** Filter settings */
   filter?: {
     /** Filter type */
-    type: 'lowpass' | 'highpass' | 'bandpass';
+    type: "lowpass" | "highpass" | "bandpass";
     /** Cutoff frequency in Hz */
     frequency: number;
     /** Filter resonance */
@@ -64,7 +64,7 @@ export interface AudioContextState {
   /** Whether audio context is initialized */
   isInitialized: boolean;
   /** Current audio context state */
-  state: 'suspended' | 'running' | 'closed';
+  state: "suspended" | "running" | "closed";
   /** Sample rate in Hz */
   sampleRate: number;
   /** Current time in audio context */
@@ -110,3 +110,58 @@ export interface AudioRouting {
   /** Gain level (0-1) */
   gain: number;
 }
+
+/*
+ * ========================================
+ * FREQUENCY MAPPING & ANALYSIS
+ * ========================================
+ * Types for mapping audio frequencies to visual parameters
+ */
+
+/**
+ * Frequency to value mapping configuration
+ * Used for mapping audio frequencies to visual effect parameters
+ */
+export interface FrequencyMapping {
+  /** Minimum frequency for mapping */
+  minFreq: number;
+  /** Maximum frequency for mapping */
+  maxFreq: number;
+  /** Minimum output value */
+  minValue: number;
+  /** Maximum output value */
+  maxValue: number;
+}
+
+/**
+ * Frequency mapping configuration for visual effects
+ * Extended version with additional metadata
+ */
+export interface FrequencyMappingConfig {
+  /** Minimum frequency in Hz */
+  minFreq: number;
+  /** Maximum frequency in Hz */
+  maxFreq: number;
+  /** Minimum mapped value */
+  minValue: number;
+  /** Maximum mapped value */
+  maxValue: number;
+}
+
+/**
+ * Audio frequency analysis result
+ */
+export interface FrequencyAnalysisResult {
+  /** Dominant frequency in Hz */
+  fundamentalFreq: number;
+  /** Frequency confidence (0-1) */
+  confidence: number;
+  /** Harmonic frequencies detected */
+  harmonics: number[];
+  /** Overall spectral centroid */
+  spectralCentroid: number;
+  /** Frequency bins with magnitudes */
+  frequencyBins: Array<{ frequency: number; magnitude: number }>;
+}
+
+export default {};

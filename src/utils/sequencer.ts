@@ -18,11 +18,14 @@ export function beatsToTonePart(
 ): Tone.Part {
   // Convert beats to [time, value] pairs for Tone.Part
   const events = beats.map(beat => {
-    // Calculate the time position as a fraction of the sequence
-    const timePosition = `${beat.step}:16n`; // Use Tone.js time notation
+    // Calculate the time position in Tone.js notation
+    // Each step is a 16th note, so step 0 = "0:0:0", step 1 = "0:0:1", etc.
+    const timePosition = `0:0:${beat.step}`; // Bars:Quarters:Sixteenths
     
     // Calculate proper duration
     const noteDuration = calculateNoteDuration(beat.duration, steps, tempo);
+    
+    console.log(`Part event: step ${beat.step} -> time ${timePosition}, duration ${noteDuration.toneNotation}`);
     
     return [
       timePosition,
@@ -37,6 +40,7 @@ export function beatsToTonePart(
 
   // Create Tone.Part with the events
   const part = new Tone.Part((time: number, value: any) => {
+    console.log(`Part callback: playing note ${value.beat.solfegeName} at time ${time}`);
     playNoteCallback(
       value.solfegeIndex,
       value.octave,
@@ -44,6 +48,10 @@ export function beatsToTonePart(
       time
     );
   }, events);
+
+  // Enable looping and set the loop end based on sequence length
+  part.loop = true;
+  part.loopEnd = `0:0:${steps}`; // Loop for the full sequence length (16 steps = 1 bar)
 
   return part;
 }
@@ -72,8 +80,14 @@ export function createToneSequence(
 
   // Create Tone.Sequence
   const toneSequence = new Tone.Sequence((time: number, value: SequencerBeat | null) => {
+    if (value) {
+      console.log(`Sequence callback: playing note ${value.solfegeName} at time ${time}`);
+    }
     playNoteCallback(value, time);
   }, sequence, "16n");
+
+  // Enable looping
+  toneSequence.loop = true;
 
   return toneSequence;
 }
@@ -102,6 +116,7 @@ export function createToneLoop(
     
     // Play each beat
     beatsToPlay.forEach(beat => {
+      console.log(`Loop callback: playing note ${beat.solfegeName} at step ${currentStep}, time ${time}`);
       playNoteCallback(beat, time);
     });
 
@@ -109,7 +124,49 @@ export function createToneLoop(
     currentStep = (currentStep + 1) % steps;
   }, "16n"); // 16th note timing
 
+  // Enable infinite looping (it's a loop by default, but being explicit)
+  loop.iterations = Infinity;
+
   return loop;
+}
+
+/**
+ * Improved Part implementation with better timing
+ */
+export function createImprovedPart(
+  beats: SequencerBeat[],
+  steps: number,
+  tempo: number,
+  playNoteCallback: (beat: SequencerBeat, time: number) => void,
+  onStepCallback?: (step: number, time: number) => void
+): { part: Tone.Part; stepTracker: Tone.Loop } {
+  // Create events for the Part
+  const events = beats.map(beat => {
+    const timePosition = `0:0:${beat.step}`;
+    return [timePosition, beat];
+  });
+
+  // Create the Part for note scheduling
+  const part = new Tone.Part((time: number, beat: SequencerBeat) => {
+    console.log(`Improved Part: playing note ${beat.solfegeName} at step ${beat.step}, time ${time}`);
+    playNoteCallback(beat, time);
+  }, events);
+
+  part.loop = true;
+  part.loopEnd = `0:0:${steps}`;
+
+  // Create a separate Loop for step tracking
+  let currentStep = 0;
+  const stepTracker = new Tone.Loop((time: number) => {
+    if (onStepCallback) {
+      onStepCallback(currentStep, time);
+    }
+    currentStep = (currentStep + 1) % steps;
+  }, "16n");
+
+  stepTracker.iterations = Infinity;
+
+  return { part, stepTracker };
 }
 
 /**
@@ -120,6 +177,7 @@ export class SequencerTransport {
   private part: Tone.Part | null = null;
   private sequence: Tone.Sequence | null = null;
   private loop: Tone.Loop | null = null;
+  private stepTracker: Tone.Loop | null = null;
   private isInitialized = false;
 
   constructor() {}
@@ -135,6 +193,24 @@ export class SequencerTransport {
   ) {
     this.cleanup();
     this.part = beatsToTonePart(beats, steps, tempo, playNoteCallback);
+    this.isInitialized = true;
+    this.setTempo(tempo);
+  }
+
+  /**
+   * Initialize with improved Part implementation
+   */
+  initWithImprovedPart(
+    beats: SequencerBeat[],
+    steps: number,
+    tempo: number,
+    playNoteCallback: (beat: SequencerBeat, time: number) => void,
+    onStepCallback?: (step: number, time: number) => void
+  ) {
+    this.cleanup();
+    const { part, stepTracker } = createImprovedPart(beats, steps, tempo, playNoteCallback, onStepCallback);
+    this.part = part;
+    this.stepTracker = stepTracker;
     this.isInitialized = true;
     this.setTempo(tempo);
   }
@@ -179,9 +255,14 @@ export class SequencerTransport {
       await Tone.start();
     }
 
+    console.log("Starting sequencer transport...");
+
     // Start the appropriate transport object
     if (this.part) {
       this.part.start(0);
+      if (this.stepTracker) {
+        this.stepTracker.start(0);
+      }
     } else if (this.sequence) {
       this.sequence.start(0);
     } else if (this.loop) {
@@ -190,21 +271,29 @@ export class SequencerTransport {
 
     // Start the global transport
     Tone.getTransport().start();
+    console.log("Transport started, BPM:", Tone.getTransport().bpm.value);
   }
 
   /**
    * Stop playback
    */
   stop() {
+    console.log("Stopping sequencer transport...");
+    
     // Stop the global transport
     Tone.getTransport().stop();
 
     // Stop and reset individual objects
     if (this.part) {
       this.part.stop();
-    } else if (this.sequence) {
+    }
+    if (this.stepTracker) {
+      this.stepTracker.stop();
+    }
+    if (this.sequence) {
       this.sequence.stop();
-    } else if (this.loop) {
+    }
+    if (this.loop) {
       this.loop.stop();
     }
 
@@ -263,6 +352,10 @@ export class SequencerTransport {
     if (this.part) {
       this.part.dispose();
       this.part = null;
+    }
+    if (this.stepTracker) {
+      this.stepTracker.dispose();
+      this.stepTracker = null;
     }
     if (this.sequence) {
       this.sequence.dispose();

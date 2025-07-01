@@ -654,14 +654,30 @@ const startPlayback = async () => {
       sequencerTransport = new SequencerTransport();
     }
 
-    // Initialize with Part for optimal scheduling
-    sequencerTransport.initWithPart(
+    // Use improved Part for better timing and visual sync
+    sequencerTransport.initWithImprovedPart(
       [...musicStore.sequencerBeats], // Convert readonly array to mutable
       config.value.steps,
       config.value.tempo,
-      (solfegeIndex, octave, duration, time) => {
-        // Play the note with the calculated duration
-        musicStore.playNoteWithDuration(solfegeIndex, octave, duration, time);
+      (beat, time) => {
+        // Calculate the proper duration based on the beat's visual representation
+        const noteDuration = calculateNoteDuration(
+          beat.duration,
+          config.value.steps,
+          config.value.tempo
+        );
+
+        // Play the note with the correct duration
+        musicStore.playNoteWithDuration(
+          beat.solfegeIndex,
+          beat.octave,
+          noteDuration.toneNotation,
+          time
+        );
+      },
+      (step, time) => {
+        // Update visual step indicator
+        musicStore.updateSequencerConfig({ currentStep: step });
       }
     );
 
@@ -669,17 +685,6 @@ const startPlayback = async () => {
 
     // Start playback
     await sequencerTransport.start();
-    
-    // Set up step tracking for visual feedback
-    let stepTracker = 0;
-    const stepInterval = setInterval(() => {
-      if (sequencerTransport?.isPlaying) {
-        musicStore.updateSequencerConfig({ currentStep: stepTracker });
-        stepTracker = (stepTracker + 1) % config.value.steps;
-      } else {
-        clearInterval(stepInterval);
-      }
-    }, (60 / config.value.tempo / 4) * 1000); // 16th note intervals
 
   } catch (error) {
     console.error("Error starting playback:", error);

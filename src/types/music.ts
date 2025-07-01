@@ -35,7 +35,22 @@ export interface Scale {
 }
 
 /**
- * Melodic pattern definition for emotional expression
+ * Enhanced Tonal.js analysis data for musical patterns
+ */
+export interface TonalAnalysis {
+  /** Full interval name from Tonal.js */
+  intervalName: string;
+  /** Consonance classification */
+  consonance: "perfect" | "imperfect consonant" | "dissonant";
+  /** Tension level (0-10 scale) */
+  tension: number;
+  /** Optional additional Tonal.js properties */
+  quality?: string;
+  semitones?: number;
+}
+
+/**
+ * Enhanced melodic pattern definition with Tonal.js analysis
  */
 export interface MelodicPattern {
   /** Pattern name */
@@ -48,6 +63,19 @@ export interface MelodicPattern {
   sequence: string[];
   /** Optional interval pattern in semitones */
   intervals?: number[];
+  /** Enhanced Tonal.js analysis data */
+  tonalAnalysis?: TonalAnalysis;
+  /** Optional scale pattern generated from Tonal.js */
+  scalePattern?: string[];
+  /** Optional harmonic context */
+  harmonicContext?: {
+    /** Roman numeral analysis */
+    romanNumerals?: string[];
+    /** Functional harmony labels */
+    functions?: string[];
+    /** Key center if applicable */
+    keyCenter?: string;
+  };
 }
 
 /**
@@ -100,4 +128,53 @@ export interface ActiveNote {
   noteId: string;
   /** Note name with octave (e.g., "C4", "E5") */
   noteName: string;
+}
+
+/**
+ * Enhanced note color relationships interface
+ */
+export interface NoteColorRelationships {
+  /** Primary color for the note */
+  primary: string;
+  /** Accent color (complementary) */
+  accent: string;
+  /** Secondary color (triadic) */
+  secondary: string;
+  /** Tertiary color (split-complementary) */
+  tertiary: string;
+}
+
+/**
+ * Music theory analysis result from Tonal.js
+ */
+export interface MusicAnalysis {
+  /** Key signature analysis */
+  key?: {
+    /** Detected key center */
+    keyCenter: string;
+    /** Scale type (major, minor, etc.) */
+    scaleType: string;
+    /** Confidence score (0-1) */
+    confidence: number;
+  };
+  /** Chord analysis */
+  chords?: {
+    /** Chord symbol */
+    symbol: string;
+    /** Root note */
+    root: string;
+    /** Chord quality */
+    quality: string;
+    /** Extensions */
+    extensions: string[];
+  }[];
+  /** Scale analysis */
+  scale?: {
+    /** Scale notes */
+    notes: string[];
+    /** Scale intervals */
+    intervals: string[];
+    /** Scale modes */
+    modes: string[];
+  };
 }

@@ -85,12 +85,12 @@
             <!-- Step markers for each track -->
             <g v-for="step in config.steps" :key="`${track.id}-step-${step}`">
               <line
-                :x1="getStepPosition(track.radius, step - 1).x"
-                :y1="getStepPosition(track.radius, step - 1).y"
-                :x2="getStepPosition(track.radius + 8, step - 1).x"
-                :y2="getStepPosition(track.radius + 8, step - 1).y"
-                stroke="rgba(255,255,255,0.2)"
-                stroke-width="1"
+                :x1="getStepPosition(track.radius - trackSpacing * 0.3, step - 1).x"
+                :y1="getStepPosition(track.radius - trackSpacing * 0.3, step - 1).y"
+                :x2="getStepPosition(track.radius + trackSpacing * 0.3, step - 1).x"
+                :y2="getStepPosition(track.radius + trackSpacing * 0.3, step - 1).y"
+                stroke="rgba(255,255,255,0.1)"
+                stroke-width="0.5"
                 class="step-marker"
               />
             </g>
@@ -101,13 +101,13 @@
             <line
               v-for="track in tracks"
               :key="`current-${track.id}`"
-              :x1="getStepPosition(track.radius - 10, config.currentStep).x"
-              :y1="getStepPosition(track.radius - 10, config.currentStep).y"
-              :x2="getStepPosition(track.radius + 10, config.currentStep).x"
-              :y2="getStepPosition(track.radius + 10, config.currentStep).y"
+              :x1="getStepPosition(track.radius - trackSpacing * 0.4, config.currentStep).x"
+              :y1="getStepPosition(track.radius - trackSpacing * 0.4, config.currentStep).y"
+              :x2="getStepPosition(track.radius + trackSpacing * 0.4, config.currentStep).x"
+              :y2="getStepPosition(track.radius + trackSpacing * 0.4, config.currentStep).y"
               stroke="white"
-              stroke-width="3"
-              opacity="0.8"
+              stroke-width="2"
+              opacity="0.9"
             />
           </g>
 
@@ -135,12 +135,13 @@
           <text
             v-for="(track, index) in tracks"
             :key="`label-${track.id}`"
-            :x="centerX + track.radius + 15"
-            :y="centerY + 5"
+            :x="centerX + track.radius + trackSpacing * 0.6"
+            :y="centerY + 4"
             fill="white"
-            font-size="12"
+            font-size="11"
             text-anchor="middle"
             class="solfege-label"
+            :style="{ fontSize: `${Math.max(8, Math.min(11, trackSpacing * 0.6))}px` }"
           >
             {{ track.solfegeName }}
           </text>
@@ -154,7 +155,7 @@
         Tap tracks to create beats • Drag left/right to move • Drag up/down to resize • Double-tap to delete
       </p>
       <p class="text-xs opacity-60">
-        {{ config.steps }} steps • Outer = {{ tracks[0]?.solfegeName }}, Inner = {{ tracks[6]?.solfegeName }}
+        {{ config.steps }} steps • Inner = Do (center), Outer = Ti
       </p>
     </div>
 
@@ -294,13 +295,13 @@ const angleSteps = computed(() => 360 / config.value.steps);
 // Create tracks from solfege data
 const tracks = ref<CircularTrack[]>([]);
 
-// Initialize tracks
+// Initialize tracks - Do should be innermost (reversed order)
 const initializeTracks = () => {
-  tracks.value = solfegeData.value.slice(0, 7).map((solfege, index) => ({
+  tracks.value = solfegeData.value.slice(0, 7).reverse().map((solfege, index) => ({
     id: `track-${index}`,
     radius: outerRadius - index * trackSpacing,
     solfegeName: solfege.name,
-    solfegeIndex: index,
+    solfegeIndex: 6 - index, // Reverse the index mapping
     color: getPrimaryColor(solfege.name),
     isActive: false,
     isHovered: false,
@@ -395,9 +396,10 @@ const createIndicatorPath = (indicator: CircularIndicator): string => {
   const track = tracks.value.find(t => t.id === indicator.trackId);
   if (!track) return '';
   
-  // Larger hit areas for mobile
-  const innerR = track.radius - 18;
-  const outerR = track.radius + 18;
+  // Indicators should fit within track boundaries, not exceed them
+  const trackHalfWidth = trackSpacing * 0.4; // Use 80% of track width for clean spacing
+  const innerR = track.radius - trackHalfWidth;
+  const outerR = track.radius + trackHalfWidth;
   
   const innerStart = polarToCartesian(centerX, centerY, innerR, indicator.startAngle);
   const innerEnd = polarToCartesian(centerX, centerY, innerR, indicator.endAngle);
@@ -459,10 +461,10 @@ const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
     return;
   }
   
-  // Create new beat
+  // Create new beat - use the track's index directly (already correctly mapped)
   const newBeat: SequencerBeat = {
     id: `beat-${Date.now()}-${Math.random()}`,
-    ring: track.solfegeIndex,
+    ring: parseInt(track.id.split('-')[1]), // Extract track index from ID
     step,
     duration: 1,
     solfegeName: track.solfegeName,
@@ -716,6 +718,8 @@ onUnmounted(() => {
   width: min(90vw, 90vh, 400px);
   height: min(90vw, 90vh, 400px);
   transition: opacity 0.3s ease;
+  /* Dynamic track width based on available space */
+  --track-width: calc((min(90vw, 90vh, 400px) - 120px) / 7 * 0.8);
 }
 
 .circular-sequencer-container.disabled {
@@ -734,10 +738,10 @@ onUnmounted(() => {
   user-select: none;
 }
 
-/* Track styles - Mobile-first with larger hit areas */
+/* Track styles - Dynamic width based on track spacing */
 .track-circle {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  stroke-width: 12;
+  stroke-width: calc(var(--track-width) * 0.8);
   fill: none;
   opacity: 0.3;
   cursor: pointer;
@@ -745,60 +749,63 @@ onUnmounted(() => {
 
 .track-circle.hovered {
   opacity: 0.6;
-  stroke-width: 16;
+  stroke-width: calc(var(--track-width) * 0.9);
 }
 
 .track-circle.active {
   opacity: 0.8;
-  stroke-width: 20;
+  stroke-width: var(--track-width);
 }
 
-/* Step marker styles */
+/* Step marker styles - Very subtle grid */
 .step-marker {
   transition: opacity 0.2s ease;
   pointer-events: none;
+  opacity: 0.1;
 }
 
-.track-circle.hovered + .step-marker {
-  opacity: 0.4;
+.track-circle.hovered ~ .step-marker {
+  opacity: 0.2;
 }
 
-/* Indicator styles - Mobile-first with better touch targets */
+/* Indicator styles - Clean design without glow effects */
 .indicator-path {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  stroke-width: 4;
+  stroke-width: 2;
   opacity: 0.9;
   transform-origin: center;
 }
 
 .indicator-path:hover,
 .indicator-path.hovered {
-  transform: scale(1.05);
   opacity: 1;
-  stroke-width: 5;
+  stroke-width: 3;
 }
 
 .indicator-path.selected {
-  stroke-width: 6;
+  stroke-width: 3;
   opacity: 1;
-  filter: drop-shadow(0 0 12px currentColor);
+  stroke: white;
+  stroke-opacity: 0.8;
 }
 
 .indicator-path.dragging {
-  transform: scale(1.1);
-  stroke-width: 8;
+  stroke-width: 4;
   opacity: 1;
-  filter: drop-shadow(0 0 16px currentColor);
+  stroke: white;
+  stroke-opacity: 0.9;
 }
 
 /* Removed drag handle styles - using new interaction model */
 
-/* Solfege labels */
+/* Solfege labels - Clean and readable */
 .solfege-label {
-  font-weight: bold;
+  font-weight: 600;
   pointer-events: none;
-  font-family: monospace;
+  font-family: system-ui, -apple-system, sans-serif;
+  opacity: 0.8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* Custom select styles */

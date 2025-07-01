@@ -130,19 +130,7 @@ export interface ActiveNote {
   noteName: string;
 }
 
-/**
- * Enhanced note color relationships interface
- */
-export interface NoteColorRelationships {
-  /** Primary color for the note */
-  primary: string;
-  /** Accent color (complementary) */
-  accent: string;
-  /** Secondary color (triadic) */
-  secondary: string;
-  /** Tertiary color (split-complementary) */
-  tertiary: string;
-}
+
 
 /**
  * Music theory analysis result from Tonal.js

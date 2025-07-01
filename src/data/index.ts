@@ -30,9 +30,12 @@ export type {
   MelodicPattern,
   ChromaticNote,
   TonalAnalysis,
-  NoteColorRelationships,
   MusicAnalysis,
 } from "@/types/music";
+
+export type {
+  NoteColorRelationships,
+} from "@/types/color";
 
 // Instruments
 export {

@@ -66,6 +66,9 @@
           </div>
         </div>
       </main>
+
+      <!-- Color System Showcase - Developer showcase at bottom -->
+      <ColorSystemShowcase v-if="!isLoading" />
     </div>
   </div>
 </template>
@@ -83,6 +86,7 @@ import AppHeader from "@/components/AppHeader.vue";
 import SettingsPanel from "@/components/SettingsPanel.vue";
 import PatternPlayer from "@/components/PatternPlayer.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
+import ColorSystemShowcase from "@/components/ColorSystemShowcase.vue";
 
 // Stores and composables
 const musicStore = useMusicStore();

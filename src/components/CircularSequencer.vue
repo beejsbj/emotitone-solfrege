@@ -263,10 +263,10 @@ let sequencerTransport: SequencerTransport | null = null;
 
 // Computed properties
 const config = computed(() => musicStore.sequencerConfig);
-const beats = computed(() => musicStore.sequencerBeats);
-const solfegeData = computed(() => musicStore.solfegeData);
-const patterns = computed(() => musicStore.getMelodicPatterns());
-const savedMelodies = computed(() => musicStore.savedMelodies);
+const beats = computed(() => [...musicStore.sequencerBeats]);
+const solfegeData = computed(() => [...musicStore.solfegeData]);
+const patterns = computed(() => [...musicStore.getMelodicPatterns()]);
+const savedMelodies = computed(() => [...musicStore.savedMelodies]);
 
 // Helper functions
 const polarToCartesian = (

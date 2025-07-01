@@ -167,7 +167,7 @@ const currentNoteIndex = ref(-1);
 const currentScheduleIds = ref<number[]>([]);
 
 // Computed
-const allPatterns = computed(() => musicStore.getMelodicPatterns());
+const allPatterns = computed(() => [...musicStore.getMelodicPatterns()]);
 
 const filteredPatterns = computed(() => {
   if (selectedCategory.value === "intervals") {
@@ -215,10 +215,10 @@ const playPattern = async () => {
     const noteDuration = 0.5; // Half second per note
 
     selectedPattern.value.sequence.forEach((solfegeName, index) => {
-      // Find the solfege index
-      const solfegeIndex = musicStore.solfegeData.findIndex(
-        (s) => s.name === solfegeName
-      );
+              // Find the solfege index
+        const solfegeIndex = [...musicStore.solfegeData].findIndex(
+          (s) => s.name === solfegeName
+        );
 
       if (solfegeIndex >= 0) {
         // Schedule note start

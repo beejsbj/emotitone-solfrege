@@ -155,13 +155,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, type DeepReadonly } from 'vue';
 import type { MelodicPattern, SavedMelody } from '@/types/music';
 
 // Props
 interface Props {
-  patterns: MelodicPattern[];
-  savedMelodies: SavedMelody[];
+  patterns: DeepReadonly<MelodicPattern[]>;
+  savedMelodies: DeepReadonly<SavedMelody[]>;
   hasBeats: boolean;
 }
 
@@ -184,19 +184,19 @@ const newMelodyName = ref('');
 
 // Computed properties
 const melodicPatterns = computed(() => 
-  props.patterns.filter(p => !p.intervals || p.intervals.length !== 1)
+  [...props.patterns].filter(p => !p.intervals || p.intervals.length !== 1)
 );
 
 const intervalPatterns = computed(() => 
-  props.patterns.filter(p => p.intervals && p.intervals.length === 1)
+  [...props.patterns].filter(p => p.intervals && p.intervals.length === 1)
 );
 
 const defaultMelodies = computed(() => 
-  props.savedMelodies.filter(m => m.emotion === 'Default' || m.description.includes('Default'))
+  [...props.savedMelodies].filter(m => m.emotion === 'Default' || m.description.includes('Default'))
 );
 
 const userMelodies = computed(() => 
-  props.savedMelodies.filter(m => m.emotion !== 'Default' && !m.description.includes('Default'))
+  [...props.savedMelodies].filter(m => m.emotion !== 'Default' && !m.description.includes('Default'))
 );
 
 // Methods

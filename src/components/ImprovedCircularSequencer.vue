@@ -656,7 +656,7 @@ const startPlayback = async () => {
 
     // Initialize with Part for optimal scheduling
     sequencerTransport.initWithPart(
-      musicStore.sequencerBeats,
+      [...musicStore.sequencerBeats], // Convert readonly array to mutable
       config.value.steps,
       config.value.tempo,
       (solfegeIndex, octave, duration, time) => {

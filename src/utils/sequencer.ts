@@ -36,7 +36,7 @@ export function beatsToTonePart(
   });
 
   // Create Tone.Part with the events
-  const part = new Tone.Part((time, value) => {
+  const part = new Tone.Part((time: number, value: any) => {
     playNoteCallback(
       value.solfegeIndex,
       value.octave,
@@ -55,7 +55,7 @@ export function beatsToTonePart(
 export function createToneSequence(
   beats: SequencerBeat[],
   steps: number,
-  playNoteCallback: (beat: SequencerBeat | null, time: number, step: number) => void
+  playNoteCallback: (beat: SequencerBeat | null, time: number) => void
 ): Tone.Sequence {
   // Create an array representing each step
   const sequence: (SequencerBeat | null)[] = [];
@@ -71,8 +71,8 @@ export function createToneSequence(
   });
 
   // Create Tone.Sequence
-  const toneSequence = new Tone.Sequence((time, value, step) => {
-    playNoteCallback(value, time, step);
+  const toneSequence = new Tone.Sequence((time: number, value: SequencerBeat | null) => {
+    playNoteCallback(value, time);
   }, sequence, "16n");
 
   return toneSequence;
@@ -91,7 +91,7 @@ export function createToneLoop(
 ): Tone.Loop {
   let currentStep = 0;
   
-  const loop = new Tone.Loop((time) => {
+  const loop = new Tone.Loop((time: number) => {
     // Call step callback if provided
     if (onStepCallback) {
       onStepCallback(currentStep, time);
@@ -145,7 +145,7 @@ export class SequencerTransport {
   initWithSequence(
     beats: SequencerBeat[],
     steps: number,
-    playNoteCallback: (beat: SequencerBeat | null, time: number, step: number) => void
+    playNoteCallback: (beat: SequencerBeat | null, time: number) => void
   ) {
     this.cleanup();
     this.sequence = createToneSequence(beats, steps, playNoteCallback);

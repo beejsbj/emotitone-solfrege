@@ -493,12 +493,12 @@ const createChordConicGlass = (notes: string[]): string => {
 
 .color-swatch {
   flex: 1;
-  height: 24px;
+  height: 32px;
   border-radius: 4px;
   cursor: pointer;
   transition: transform 0.2s ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  min-width: 0;
+  min-width: 60px;
 }
 
 .color-swatch:hover {
@@ -533,12 +533,12 @@ const createChordConicGlass = (notes: string[]): string => {
 
 .gradient-sample {
   flex: 1;
-  height: 24px;
+  height: 32px;
   border-radius: 4px;
   cursor: pointer;
   transition: transform 0.2s ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  min-width: 0;
+  min-width: 60px;
 }
 
 .gradient-sample.radial {
@@ -581,13 +581,13 @@ const createChordConicGlass = (notes: string[]): string => {
 
 .glassmorphism-sample {
   flex: 1;
-  height: 24px;
+  height: 32px;
   border-radius: 6px;
   cursor: pointer;
   transition: transform 0.2s ease;
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  min-width: 0;
+  min-width: 80px;
 }
 
 .glassmorphism-sample:hover {

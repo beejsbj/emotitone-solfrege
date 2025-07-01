@@ -54,10 +54,11 @@
           <div class="px-3 py-2 bg-slate-800/50 flex flex-wrap gap-1">
             <template v-for="(note, index) in pattern.sequence" :key="note">
               <span
-                :style="{ background: getPrimaryColor(note) }"
+                :style="{ background: getPrimaryColor(note.note) }"
                 class="px-2 py-1 text-xs font-bold text-black rounded"
               >
-                {{ note }}
+                {{ note.note }}
+                <span class="text-xs opacity-70 ml-1">{{ note.duration }}</span>
               </span>
               <span
                 v-if="index !== pattern.sequence.length - 1"
@@ -136,7 +137,7 @@
                   : 'bg-white/20 text-white/60',
               ]"
             >
-              {{ note }}
+              {{ note.note }}
             </span>
           </div>
         </div>
@@ -216,7 +217,8 @@ const playPattern = async () => {
     let currentTime = 0;
     const noteDuration = 0.5; // Half second per note
 
-    selectedPattern.value.sequence.forEach((solfegeName, index) => {
+    selectedPattern.value.sequence.forEach((noteData, index) => {
+      const solfegeName = noteData.note;
       // Find the solfege index
       const solfegeIndex = musicStore.solfegeData.findIndex(
         (s) => s.name === solfegeName
@@ -229,13 +231,16 @@ const playPattern = async () => {
           musicStore.attackNoteWithOctave(solfegeIndex, 4); // Fixed octave for quick preview
         }, currentTime);
 
+        // Calculate duration in seconds
+        const durationSeconds = Tone.Time(noteData.duration).toSeconds();
+
         // Schedule note stop
         const stopId = transport.schedule((time) => {
           musicStore.releaseAllNotes();
-        }, currentTime + noteDuration * 0.8); // Release slightly before next note
+        }, currentTime + durationSeconds * 0.9); // Release slightly before next note
 
         currentScheduleIds.value.push(startId, stopId);
-        currentTime += noteDuration;
+        currentTime += durationSeconds;
       }
     });
 

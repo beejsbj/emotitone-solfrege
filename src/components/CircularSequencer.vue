@@ -4,7 +4,7 @@
   >
     <!-- Header with controls -->
     <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-bold text-white">Circular Sequencer</h2>
+      <h2 class="text-xl font-bold text-white">Improved Circular Sequencer</h2>
       <div class="flex gap-2">
         <button
           @click="togglePlayback"
@@ -37,7 +37,7 @@
         param-name="Tempo"
         :format-value="formatTempo"
         :is-disabled="config.isPlaying"
-        @update:value="(newValue: number) => updateTempo(newValue)"
+        @update:value="updateTempo"
       />
 
       <!-- Octave Control -->
@@ -49,194 +49,102 @@
         param-name="Octave"
         :format-value="formatOctave"
         :is-disabled="config.isPlaying"
-        @update:value="(newValue: number) => updateOctave(newValue)"
+        @update:value="updateOctave"
       />
     </div>
 
-    <!-- Circular Sequencer SVG -->
+    <!-- Circular Sequencer -->
     <div class="flex justify-center mb-4">
-      <div class="relative w-96 h-96 max-w-full flex-shrink-0">
+      <div 
+        class="circular-sequencer-container"
+        :class="{ disabled: config.isPlaying }"
+      >
         <svg
           ref="svgRef"
-          width="400"
-          height="400"
           viewBox="0 0 400 400"
-          class="bg-gray-800/50 rounded-full border border-white/20 w-full h-full"
+          class="sequencer-svg"
           preserveAspectRatio="xMidYMid meet"
-          @mousedown="handlePointerDown"
-          @mousemove="handlePointerMove"
-          @mouseup="handlePointerUp"
-          @touchstart="handlePointerDown"
-          @touchmove="handlePointerMove"
-          @touchend="handlePointerUp"
-          style="touch-action: none; user-select: none"
         >
-          <!-- Background rings -->
-          <circle
-            v-for="i in 7"
-            :key="`ring-${i}`"
-            :cx="centerX"
-            :cy="centerY"
-            :r="innerRadius + (i - 1) * ringWidth + ringWidth / 2"
-            fill="none"
-            :stroke="getRingColor(i - 1)"
-            :stroke-width="ringWidth * 0.8"
-            opacity="0.3"
-          />
-
-          <!-- Step markers -->
-          <line
-            v-for="i in config.steps"
-            :key="`step-${i}`"
-            :x1="
-              polarToCartesian(
-                centerX,
-                centerY,
-                innerRadius,
-                ((i - 1) / config.steps) * 360
-              ).x
-            "
-            :y1="
-              polarToCartesian(
-                centerX,
-                centerY,
-                innerRadius,
-                ((i - 1) / config.steps) * 360
-              ).y
-            "
-            :x2="
-              polarToCartesian(
-                centerX,
-                centerY,
-                outerRadius,
-                ((i - 1) / config.steps) * 360
-              ).x
-            "
-            :y2="
-              polarToCartesian(
-                centerX,
-                centerY,
-                outerRadius,
-                ((i - 1) / config.steps) * 360
-              ).y
-            "
-            stroke="rgba(255,255,255,0.2)"
-            stroke-width="1"
-          />
+          <!-- Background tracks -->
+          <g v-for="track in tracks" :key="track.id">
+            <circle
+              :cx="centerX"
+              :cy="centerY"
+              :r="track.radius"
+              class="track-circle"
+              :class="{
+                active: track.isActive,
+                hovered: track.isHovered
+              }"
+              :stroke="track.color"
+              @mouseenter="handleTrackHover(track.id, true)"
+              @mouseleave="handleTrackHover(track.id, false)"
+              @click="handleTrackClick($event, track)"
+            />
+            
+            <!-- Step markers for each track -->
+            <g v-for="step in config.steps" :key="`${track.id}-step-${step}`">
+              <line
+                :x1="getStepPosition(track.radius - trackSpacing * 0.3, step - 1).x"
+                :y1="getStepPosition(track.radius - trackSpacing * 0.3, step - 1).y"
+                :x2="getStepPosition(track.radius + trackSpacing * 0.3, step - 1).x"
+                :y2="getStepPosition(track.radius + trackSpacing * 0.3, step - 1).y"
+                stroke="rgba(255,255,255,0.1)"
+                stroke-width="0.5"
+                class="step-marker"
+              />
+            </g>
+          </g>
 
           <!-- Current step indicator -->
-          <line
-            v-if="config.isPlaying"
-            :x1="
-              polarToCartesian(
-                centerX,
-                centerY,
-                innerRadius,
-                (config.currentStep / config.steps) * 360
-              ).x
-            "
-            :y1="
-              polarToCartesian(
-                centerX,
-                centerY,
-                innerRadius,
-                (config.currentStep / config.steps) * 360
-              ).y
-            "
-            :x2="
-              polarToCartesian(
-                centerX,
-                centerY,
-                outerRadius,
-                (config.currentStep / config.steps) * 360
-              ).x
-            "
-            :y2="
-              polarToCartesian(
-                centerX,
-                centerY,
-                outerRadius,
-                (config.currentStep / config.steps) * 360
-              ).y
-            "
-            stroke="white"
-            stroke-width="3"
-          />
-
-          <!-- Beats -->
-          <g v-for="beat in beats" :key="beat.id">
-            <!-- Selection outline for selected beat -->
-            <path
-              v-if="selectedBeatId === beat.id"
-              :d="createSegmentPath(beat.ring, beat.step, beat.duration)"
-              fill="none"
+          <g v-if="config.isPlaying">
+            <line
+              v-for="track in tracks"
+              :key="`current-${track.id}`"
+              :x1="getStepPosition(track.radius - trackSpacing * 0.4, config.currentStep).x"
+              :y1="getStepPosition(track.radius - trackSpacing * 0.4, config.currentStep).y"
+              :x2="getStepPosition(track.radius + trackSpacing * 0.4, config.currentStep).x"
+              :y2="getStepPosition(track.radius + trackSpacing * 0.4, config.currentStep).y"
               stroke="white"
               stroke-width="2"
-              opacity="0.8"
+              opacity="0.9"
             />
-            <!-- Main beat segment -->
+          </g>
+
+          <!-- Indicators (sequencer beats) -->
+          <g v-for="indicator in indicators" :key="indicator.id">
+            <!-- Main indicator path -->
             <path
-              :d="createSegmentPath(beat.ring, beat.step, beat.duration)"
-              :fill="getRingColor(beat.ring)"
-              :stroke="getRingColor(beat.ring)"
-              stroke-width="1"
-              opacity="0.8"
-              @click="selectBeat(beat.id)"
-              @dblclick="removeBeat(beat.id)"
-              class="cursor-pointer"
-            />
-            <!-- Drag handle -->
-            <rect
-              :x="getHandlePosition(beat.ring, beat.step, beat.duration).x - 3"
-              :y="getHandlePosition(beat.ring, beat.step, beat.duration).y - 8"
-              width="6"
-              height="16"
-              :fill="
-                isDraggingHandle && selectedBeatId === beat.id ? 'red' : 'black'
-              "
-              rx="2"
-              @mousedown="startDragHandle($event, beat.id)"
-              @touchstart="startDragHandle($event, beat.id)"
-              class="cursor-ew-resize drag-handle"
-              style="pointer-events: all"
+              :d="createIndicatorPath(indicator)"
+              class="indicator-path"
+              :class="{
+                dragging: indicator.isDragging,
+                selected: indicator.isSelected,
+                hovered: indicator.isHovered
+              }"
+              :fill="getIndicatorColor(indicator)"
+              :stroke="getIndicatorColor(indicator)"
+              @mousedown="handleIndicatorStart($event, indicator)"
+              @touchstart="handleIndicatorStart($event, indicator)"
+              @mouseenter="handleIndicatorHover(indicator.id, true)"
+              @mouseleave="handleIndicatorHover(indicator.id, false)"
             />
           </g>
 
-          <!-- Solfege labels (only 7 notes, no Do') -->
+          <!-- Solfege labels -->
           <text
-            v-for="(solfege, i) in solfegeData.slice(0, 7)"
-            :key="`label-${i}`"
-            :x="centerX + innerRadius + i * ringWidth + ringWidth / 2"
-            :y="centerY + 5"
+            v-for="(track, index) in tracks"
+            :key="`label-${track.id}`"
+            :x="centerX + track.radius + trackSpacing * 0.6"
+            :y="centerY + 4"
             fill="white"
-            font-size="12"
+            font-size="11"
             text-anchor="middle"
-            class="pointer-events-none font-bold"
+            class="solfege-label"
+            :style="{ fontSize: `${Math.max(8, Math.min(11, trackSpacing * 0.6))}px` }"
           >
-            {{ solfege.name }}
+            {{ track.solfegeName }}
           </text>
-
-          <!-- Debug click indicator -->
-          <g v-if="debugClick">
-            <circle
-              :cx="debugClick.x"
-              :cy="debugClick.y"
-              r="8"
-              fill="none"
-              stroke="yellow"
-              stroke-width="2"
-            />
-            <text
-              :x="debugClick.x"
-              :y="debugClick.y - 12"
-              fill="yellow"
-              font-size="10"
-              text-anchor="middle"
-              class="pointer-events-none"
-            >
-              Ring {{ debugClick.ring }}
-            </text>
-          </g>
         </svg>
       </div>
     </div>
@@ -244,11 +152,10 @@
     <!-- Instructions -->
     <div class="text-center text-white/80 text-sm">
       <p class="mb-1">
-        Tap to create beats • Drag black handle to extend • Double-tap to delete
+        Tap tracks to create beats • Drag left/right to move • Drag up/down to resize • Double-tap to delete
       </p>
       <p class="text-xs opacity-60">
-        {{ config.steps }} steps • Outer ring = {{ solfegeData[0]?.name }},
-        Inner ring = {{ solfegeData[6]?.name }}
+        {{ config.steps }} steps • Inner = Do (center), Outer = Ti
       </p>
     </div>
 
@@ -285,7 +192,7 @@
           <div class="flex gap-1">
             <button
               @click="saveCurrentMelody"
-              :disabled="!newMelodyName || beats.length === 0"
+              :disabled="!newMelodyName || indicators.length === 0"
               class="flex-1 px-2 py-1 bg-blue-500/80 hover:bg-blue-500 disabled:bg-gray-500/50 text-white rounded-sm text-xs font-bold transition-all duration-200"
             >
               Save
@@ -312,25 +219,50 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
+import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import type { SequencerBeat, MelodicPattern } from "@/types/music";
 import { calculateNoteDuration } from "@/utils/duration";
 import { SequencerTransport } from "@/utils/sequencer";
 import * as Tone from "tone";
 import Knob from "./Knob.vue";
 
+// Interfaces for the new system
+interface CircularTrack {
+  id: string;
+  radius: number;
+  solfegeName: string;
+  solfegeIndex: number;
+  color: string;
+  isActive: boolean;
+  isHovered: boolean;
+}
+
+interface CircularIndicator {
+  id: string;
+  trackId: string;
+  startAngle: number;
+  endAngle: number;
+  isDragging: boolean;
+  isSelected: boolean;
+  isHovered: boolean;
+  solfegeName: string;
+  solfegeIndex: number;
+  octave: number;
+}
+
 // Store and composables
 const musicStore = useMusicStore();
 const { getPrimaryColor } = useColorSystem();
 
-// SVG dimensions
+// SVG dimensions - Mobile-first sizing
 const centerX = 200;
 const centerY = 200;
-const outerRadius = 180;
-const innerRadius = 40;
-const ringWidth = (outerRadius - innerRadius) / 7; // Full space divided by 7 rings only
+const outerRadius = 190;
+const innerRadius = 60;
+const trackSpacing = (outerRadius - innerRadius) / 7;
 
 // Refs
 const svgRef = ref<SVGElement | null>(null);
@@ -338,28 +270,70 @@ const selectedPatternName = ref("");
 const selectedMelodyId = ref("");
 const newMelodyName = ref("");
 
-// Interaction state
+// Interaction state (mobile-first approach)
 const isDragging = ref(false);
-const dragBeat = ref<SequencerBeat | null>(null);
-
-// Debug state
-const debugClick = ref<{ x: number; y: number; ring: number } | null>(null);
+const selectedIndicator = ref<CircularIndicator | null>(null);
+const dragStart = ref({
+  x: 0,
+  y: 0,
+  startAngle: 0,
+  endAngle: 0,
+  time: 0,
+  moved: false,
+});
 
 // Sequencer transport for Tone.js integration
 let sequencerTransport: SequencerTransport | null = null;
 
 // Computed properties
 const config = computed(() => musicStore.sequencerConfig);
-const beats = computed(() => musicStore.sequencerBeats);
 const solfegeData = computed(() => musicStore.solfegeData);
 const patterns = computed(() => musicStore.getMelodicPatterns());
 const savedMelodies = computed(() => musicStore.savedMelodies);
+
+// Angle step size (like knob steps)
+const angleSteps = computed(() => 360 / config.value.steps);
+
+// Create tracks from solfege data
+const tracks = ref<CircularTrack[]>([]);
+
+// Initialize tracks - Do should be innermost (reversed order)
+const initializeTracks = () => {
+  tracks.value = solfegeData.value.slice(0, 7).reverse().map((solfege, index) => ({
+    id: `track-${index}`,
+    radius: outerRadius - index * trackSpacing,
+    solfegeName: solfege.name,
+    solfegeIndex: 6 - index, // Reverse the index mapping
+    color: getPrimaryColor(solfege.name),
+    isActive: false,
+    isHovered: false,
+  }));
+};
+
+// Watch for solfege data changes
+watch(solfegeData, initializeTracks, { immediate: true });
+
+// Convert sequencer beats to indicators
+const indicators = computed((): CircularIndicator[] => {
+  return musicStore.sequencerBeats.map(beat => ({
+    id: beat.id,
+    trackId: `track-${beat.ring}`,
+    startAngle: (beat.step / config.value.steps) * 360,
+    endAngle: ((beat.step + beat.duration) / config.value.steps) * 360,
+    isDragging: false,
+    isSelected: selectedIndicator.value?.id === beat.id,
+    isHovered: false,
+    solfegeName: beat.solfegeName,
+    solfegeIndex: beat.solfegeIndex,
+    octave: beat.octave,
+  }));
+});
 
 // Format functions for knobs
 const formatTempo = (value: number) => `${value}`;
 const formatOctave = (value: number) => `${value}`;
 
-// Helper functions
+// Helper functions (following knob patterns)
 const polarToCartesian = (
   centerX: number,
   centerY: number,
@@ -373,16 +347,18 @@ const polarToCartesian = (
   };
 };
 
-const getAngleFromPosition = (x: number, y: number): number => {
+const getAngleFromEvent = (e: MouseEvent | TouchEvent): number => {
   if (!svgRef.value) return 0;
+  
   const rect = svgRef.value.getBoundingClientRect();
-
-  // Convert screen coordinates to SVG coordinates
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
   const scaleX = 400 / rect.width;
   const scaleY = 400 / rect.height;
-  const svgX = (x - rect.left) * scaleX;
-  const svgY = (y - rect.top) * scaleY;
-
+  const svgX = (clientX - rect.left) * scaleX;
+  const svgY = (clientY - rect.top) * scaleY;
+  
   const dx = svgX - centerX;
   const dy = svgY - centerY;
   let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
@@ -390,55 +366,50 @@ const getAngleFromPosition = (x: number, y: number): number => {
   return angle;
 };
 
-const getRingFromRadius = (x: number, y: number): number => {
-  if (!svgRef.value) return -1;
-  const rect = svgRef.value.getBoundingClientRect();
-
-  // Convert screen coordinates to SVG coordinates
-  const scaleX = 400 / rect.width;
-  const scaleY = 400 / rect.height;
-  const svgX = (x - rect.left) * scaleX;
-  const svgY = (y - rect.top) * scaleY;
-
-  const dx = svgX - centerX;
-  const dy = svgY - centerY;
-  const radius = Math.sqrt(dx * dx + dy * dy);
-
-  // Only 7 rings now (0-6), using full space
-  // Add some padding to make ring detection more forgiving
-  for (let i = 0; i < 7; i++) {
-    const ringInner = innerRadius + i * ringWidth - 2; // Slight padding
-    const ringOuter = innerRadius + (i + 1) * ringWidth + 2; // Slight padding
-    if (radius >= ringInner && radius <= ringOuter) {
-      console.log(
-        `Detected ring ${i} at radius ${radius.toFixed(
-          1
-        )} (range: ${ringInner.toFixed(1)}-${ringOuter.toFixed(1)})`
-      );
-      return i;
-    }
-  }
-  console.log(`No ring detected at radius ${radius.toFixed(1)}`);
-  return -1;
+const snapToStep = (angle: number): number => {
+  return Math.round(angle / angleSteps.value) * angleSteps.value;
 };
 
-const createSegmentPath = (
-  ring: number,
-  step: number,
-  duration: number
-): string => {
-  const innerR = innerRadius + ring * ringWidth + ringWidth * 0.1;
-  const outerR = innerRadius + ring * ringWidth + ringWidth * 0.9;
-  const startAngle = (step / config.value.steps) * 360;
-  const endAngle = ((step + duration) / config.value.steps) * 360;
+const constrainAngles = (startAngle: number, endAngle: number) => {
+  const snappedStart = snapToStep(startAngle);
+  let snappedEnd = snapToStep(endAngle);
+  
+  // Ensure minimum duration
+  const minDuration = angleSteps.value;
+  const minEnd = snappedStart + minDuration;
+  
+  // Ensure we don't go beyond full circle
+  const maxEnd = snappedStart + 360;
+  
+  snappedEnd = Math.max(minEnd, Math.min(snappedEnd, maxEnd));
+  
+  return {
+    startAngle: snappedStart,
+    endAngle: snappedEnd
+  };
+};
 
-  const innerStart = polarToCartesian(centerX, centerY, innerR, startAngle);
-  const innerEnd = polarToCartesian(centerX, centerY, innerR, endAngle);
-  const outerStart = polarToCartesian(centerX, centerY, outerR, startAngle);
-  const outerEnd = polarToCartesian(centerX, centerY, outerR, endAngle);
+const getStepPosition = (radius: number, step: number) => {
+  const angle = (step / config.value.steps) * 360;
+  return polarToCartesian(centerX, centerY, radius, angle);
+};
 
-  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-
+const createIndicatorPath = (indicator: CircularIndicator): string => {
+  const track = tracks.value.find(t => t.id === indicator.trackId);
+  if (!track) return '';
+  
+  // Indicators should fit within track boundaries, not exceed them
+  const trackHalfWidth = trackSpacing * 0.4; // Use 80% of track width for clean spacing
+  const innerR = track.radius - trackHalfWidth;
+  const outerR = track.radius + trackHalfWidth;
+  
+  const innerStart = polarToCartesian(centerX, centerY, innerR, indicator.startAngle);
+  const innerEnd = polarToCartesian(centerX, centerY, innerR, indicator.endAngle);
+  const outerStart = polarToCartesian(centerX, centerY, outerR, indicator.startAngle);
+  const outerEnd = polarToCartesian(centerX, centerY, outerR, indicator.endAngle);
+  
+  const largeArcFlag = indicator.endAngle - indicator.startAngle <= 180 ? "0" : "1";
+  
   return `
     M ${innerStart.x} ${innerStart.y}
     L ${outerStart.x} ${outerStart.y}
@@ -449,150 +420,169 @@ const createSegmentPath = (
   `;
 };
 
-const getHandlePosition = (ring: number, step: number, duration: number) => {
-  const radius = innerRadius + ring * ringWidth + ringWidth / 2;
-  const angle = ((step + duration) / config.value.steps) * 360;
-  return polarToCartesian(centerX, centerY, radius, angle);
+// Removed getIndicatorEndPosition - no longer needed without drag handles
+
+const getIndicatorColor = (indicator: CircularIndicator): string => {
+  const track = tracks.value.find(t => t.id === indicator.trackId);
+  return track?.color || '#ffffff';
 };
 
-const getRingColor = (ring: number): string => {
-  const solfege = solfegeData.value[6 - ring]; // Reverse for outer = higher (Do=outer, Ti=inner)
-  return solfege ? getPrimaryColor(solfege.name) : "#ffffff";
+// Event handlers (following knob pattern)
+const handleTrackHover = (trackId: string, isHovered: boolean) => {
+  const track = tracks.value.find(t => t.id === trackId);
+  if (track) {
+    track.isHovered = isHovered;
+  }
 };
 
-// New interaction state
-const selectedBeatId = ref<string | null>(null);
-const isDraggingHandle = ref(false);
-
-const selectBeat = (beatId: string) => {
-  selectedBeatId.value = beatId;
+const handleIndicatorHover = (indicatorId: string, isHovered: boolean) => {
+  const indicator = indicators.value.find(i => i.id === indicatorId);
+  if (indicator) {
+    indicator.isHovered = isHovered;
+  }
 };
 
-const startDragHandle = (e: MouseEvent | TouchEvent, beatId: string) => {
+const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
+  if (config.value.isPlaying || isDragging.value) return;
+  
   e.preventDefault();
   e.stopPropagation();
-  selectedBeatId.value = beatId;
-  isDraggingHandle.value = true;
-  isDragging.value = true; // Also set this to ensure move handler works
-  dragBeat.value = beats.value.find((b) => b.id === beatId) || null;
-  console.log("Started dragging handle for beat:", beatId);
-};
-
-// Event handlers
-const handlePointerDown = (e: MouseEvent | TouchEvent) => {
-  // Don't handle if this event was from a drag handle
-  if ((e.target as HTMLElement).classList.contains("drag-handle")) {
+  
+  const angle = getAngleFromEvent(e);
+  const snappedAngle = snapToStep(angle);
+  const step = Math.floor((snappedAngle / 360) * config.value.steps);
+  
+  // Check if there's already an indicator at this position
+  const existingIndicator = indicators.value.find(indicator => 
+    indicator.trackId === track.id && 
+    Math.abs(indicator.startAngle - snappedAngle) < angleSteps.value / 2
+  );
+  
+  if (existingIndicator) {
+    selectedIndicator.value = existingIndicator;
     return;
   }
+  
+  // Create new beat - use the track's index directly (already correctly mapped)
+  const newBeat: SequencerBeat = {
+    id: `beat-${Date.now()}-${Math.random()}`,
+    ring: parseInt(track.id.split('-')[1]), // Extract track index from ID
+    step,
+    duration: 1,
+    solfegeName: track.solfegeName,
+    solfegeIndex: track.solfegeIndex,
+    octave: config.value.baseOctave,
+  };
+  
+  musicStore.addSequencerBeat(newBeat);
+  triggerUIHaptic();
+};
 
+const handleIndicatorStart = (e: MouseEvent | TouchEvent, indicator: CircularIndicator) => {
+  if (config.value.isPlaying) return;
+  
   e.preventDefault();
-  const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-  const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-
-  console.log(`Click at screen coordinates: ${clientX}, ${clientY}`);
-
-  const angle = getAngleFromPosition(clientX, clientY);
-  const ring = getRingFromRadius(clientX, clientY);
-
-  // Convert to SVG coordinates for debug visualization
-  const rect = svgRef.value!.getBoundingClientRect();
-  const scaleX = 400 / rect.width;
-  const scaleY = 400 / rect.height;
-  const svgX = (clientX - rect.left) * scaleX;
-  const svgY = (clientY - rect.top) * scaleY;
-
-  // Show debug indicator
-  debugClick.value = { x: svgX, y: svgY, ring };
-  setTimeout(() => {
-    debugClick.value = null;
-  }, 1000);
-
-  console.log(`Angle: ${angle.toFixed(1)}°, Ring: ${ring}`);
-
-  if (ring >= 0 && ring < 7) {
-    // Check if clicking on existing beat (but not on drag handle)
-    const clickedBeat = beats.value.find((beat) => {
-      const beatAngle = (beat.step / config.value.steps) * 360;
-      const beatEndAngle =
-        ((beat.step + beat.duration) / config.value.steps) * 360;
-      return beat.ring === ring && angle >= beatAngle && angle <= beatEndAngle;
-    });
-
-    if (clickedBeat) {
-      // Just select the beat, don't start dragging
-      console.log(`Selected existing beat: ${clickedBeat.solfegeName}`);
-      selectBeat(clickedBeat.id);
-    } else {
-      // Create new beat only in empty space
-      const step = Math.floor((angle / 360) * config.value.steps);
-      const solfegeIndex = 6 - ring; // Reverse for outer = higher (ring 0 = Do, ring 6 = Ti)
-      const solfegeArray = solfegeData.value.slice(0, 7);
-      const solfege = solfegeArray[solfegeIndex]; // Only use first 7 notes
-
-      console.log(
-        `Creating beat: ring=${ring}, solfegeIndex=${solfegeIndex}, note=${solfege?.name}`
-      );
-
-      if (solfege && solfegeIndex >= 0 && solfegeIndex < 7) {
-        const newBeat: SequencerBeat = {
-          id: `beat-${Date.now()}-${Math.random()}`,
-          ring,
-          step,
-          duration: 1,
-          solfegeName: solfege.name,
-          solfegeIndex,
-          octave: config.value.baseOctave,
-        };
-
-        musicStore.addSequencerBeat(newBeat);
-        selectBeat(newBeat.id);
-        console.log(`Created new beat: ${solfege.name} at ring ${ring}`);
-      } else {
-        console.log(
-          `Failed to create beat - invalid solfege index: ${solfegeIndex}`
-        );
-      }
-    }
+  e.stopPropagation();
+  
+  // Select indicator immediately
+  selectedIndicator.value = indicator;
+  
+  // Check for double tap to delete
+  const now = Date.now();
+  if (lastTapTime.value && now - lastTapTime.value < 300) {
+    removeIndicator(indicator.id);
+    return;
+  }
+  lastTapTime.value = now;
+  
+  isDragging.value = true;
+  
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
+  dragStart.value = {
+    x: clientX,
+    y: clientY,
+    startAngle: indicator.startAngle,
+    endAngle: indicator.endAngle,
+    time: now,
+    moved: false,
+  };
+  
+  // Add global event listeners
+  if ('touches' in e) {
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
   } else {
-    console.log(`Click outside valid ring area (ring: ${ring})`);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
   }
+  
+  triggerUIHaptic();
 };
 
-const handlePointerMove = (e: MouseEvent | TouchEvent) => {
-  if (!isDragging.value || !dragBeat.value) return;
+// Add double tap detection
+const lastTapTime = ref<number>(0);
 
+const handleMove = (e: MouseEvent | TouchEvent) => {
+  if (!isDragging.value || !selectedIndicator.value) return;
+  
   e.preventDefault();
-  const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-  const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-
-  const angle = getAngleFromPosition(clientX, clientY);
-  const startAngle = (dragBeat.value.step / config.value.steps) * 360;
-
-  // Calculate duration based on angle difference
-  let angleDiff = (angle - startAngle + 360) % 360;
-  let duration = Math.max(
-    1,
-    Math.round(angleDiff / (360 / config.value.steps))
-  );
-
-  // Ensure duration doesn't exceed available steps
-  const maxDuration = config.value.steps - dragBeat.value.step;
-  duration = Math.min(duration, maxDuration);
-
-  if (isDraggingHandle.value) {
-    console.log("Dragging handle - new duration:", duration);
+  e.stopPropagation();
+  
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
+  const deltaX = clientX - dragStart.value.x;
+  const deltaY = clientY - dragStart.value.y;
+  
+  // Mark as moved if significant movement
+  if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+    dragStart.value.moved = true;
   }
-
-  musicStore.updateSequencerBeat(dragBeat.value.id, { duration });
+  
+  // Horizontal movement = position along track
+  // Vertical movement = duration change
+  
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    // Horizontal movement - move along track
+    const sensitivity = 0.8; // More responsive for mobile
+    const angleChange = deltaX * sensitivity;
+    const newStartAngle = dragStart.value.startAngle + angleChange;
+    const duration = (dragStart.value.endAngle - dragStart.value.startAngle) / angleSteps.value;
+    const constrained = constrainAngles(newStartAngle, newStartAngle + duration * angleSteps.value);
+    
+    const newStep = Math.round(constrained.startAngle / angleSteps.value);
+    musicStore.updateSequencerBeat(selectedIndicator.value.id, { step: newStep });
+  } else {
+    // Vertical movement - change duration
+    const sensitivity = 0.02; // More responsive for mobile duration control
+    const durationChange = -deltaY * sensitivity; // Negative because up = longer
+    const currentDuration = (dragStart.value.endAngle - dragStart.value.startAngle) / angleSteps.value;
+    const newDuration = Math.max(1, Math.round(currentDuration + durationChange));
+    
+    musicStore.updateSequencerBeat(selectedIndicator.value.id, { duration: newDuration });
+  }
+  
+  triggerUIHaptic();
 };
 
-const handlePointerUp = () => {
-  if (isDraggingHandle.value) {
-    console.log("Finished dragging handle");
-  }
+const handleEnd = (e: MouseEvent | TouchEvent) => {
+  if (!isDragging.value) return;
+  
+  e.preventDefault();
+  e.stopPropagation();
+  
   isDragging.value = false;
-  isDraggingHandle.value = false;
-  dragBeat.value = null;
+  
+  // Remove global event listeners
+  if ('touches' in e) {
+    document.removeEventListener('touchmove', handleMove);
+    document.removeEventListener('touchend', handleEnd);
+  } else {
+    document.removeEventListener('mousemove', handleMove);
+    document.removeEventListener('mouseup', handleEnd);
+  }
 };
 
 // Control functions
@@ -609,32 +599,35 @@ const clearSequencer = () => {
     stopPlayback();
   }
   musicStore.clearSequencerBeats();
+  selectedIndicator.value = null;
 };
 
-const removeBeat = (beatId: string) => {
-  musicStore.removeSequencerBeat(beatId);
+const removeIndicator = (indicatorId: string) => {
+  musicStore.removeSequencerBeat(indicatorId);
+  if (selectedIndicator.value?.id === indicatorId) {
+    selectedIndicator.value = null;
+  }
+  triggerUIHaptic();
 };
 
 // Pattern and melody functions
 const loadSelectedPattern = () => {
   if (!selectedPatternName.value) return;
-  const pattern = patterns.value.find(
-    (p) => p.name === selectedPatternName.value
-  );
+  const pattern = patterns.value.find(p => p.name === selectedPatternName.value);
   if (pattern) {
     musicStore.loadPatternToSequencer(pattern);
   }
 };
 
 const saveCurrentMelody = () => {
-  if (!newMelodyName.value || beats.value.length === 0) return;
-
+  if (!newMelodyName.value || indicators.value.length === 0) return;
+  
   musicStore.saveMelody(
     newMelodyName.value,
-    `Custom melody with ${beats.value.length} beats`,
+    `Improved sequencer melody with ${indicators.value.length} beats`,
     "Custom"
   );
-
+  
   newMelodyName.value = "";
 };
 
@@ -653,8 +646,8 @@ const togglePlayback = async () => {
 };
 
 const startPlayback = async () => {
-  if (beats.value.length === 0) return;
-
+  if (indicators.value.length === 0) return;
+  
   try {
     // Initialize sequencer transport if not already done
     if (!sequencerTransport) {
@@ -663,7 +656,7 @@ const startPlayback = async () => {
 
     // Use improved Part for better timing and visual sync
     sequencerTransport.initWithImprovedPart(
-      [...beats.value], // Convert readonly array to mutable
+      [...musicStore.sequencerBeats], // Convert readonly array to mutable
       config.value.steps,
       config.value.tempo,
       (beat, time) => {
@@ -703,22 +696,14 @@ const stopPlayback = () => {
   if (sequencerTransport) {
     sequencerTransport.stop();
   }
-
+  
   musicStore.releaseAllNotes();
   musicStore.updateSequencerConfig({ isPlaying: false, currentStep: 0 });
 };
 
 // Lifecycle
 onMounted(() => {
-  // Add global mouse event listeners for drag operations
-  document.addEventListener("mousemove", handlePointerMove);
-  document.addEventListener("mouseup", handlePointerUp);
-  // Prevent context menu on drag handles
-  document.addEventListener("contextmenu", (e) => {
-    if ((e.target as HTMLElement).classList.contains("drag-handle")) {
-      e.preventDefault();
-    }
-  });
+  // Global event listeners are added/removed per interaction in handleStart/handleEnd
 });
 
 onUnmounted(() => {
@@ -727,19 +712,109 @@ onUnmounted(() => {
     sequencerTransport.dispose();
     sequencerTransport = null;
   }
-  document.removeEventListener("mousemove", handlePointerMove);
-  document.removeEventListener("mouseup", handlePointerUp);
+  // Clean up any remaining global listeners
+  document.removeEventListener('mousemove', handleMove);
+  document.removeEventListener('mouseup', handleEnd);
+  document.removeEventListener('touchmove', handleMove);
+  document.removeEventListener('touchend', handleEnd);
 });
 </script>
 
 <style scoped>
-/* Ensure SVG is interactive */
-svg {
-  cursor: crosshair;
+.circular-sequencer-container {
+  position: relative;
+  /* Mobile-first: use viewport width but maintain square aspect ratio */
+  width: min(90vw, 90vh, 400px);
+  height: min(90vw, 90vh, 400px);
+  transition: opacity 0.3s ease;
+  /* Dynamic track width based on available space */
+  --track-width: calc((min(90vw, 90vh, 400px) - 120px) / 7 * 0.8);
 }
 
-svg path {
+.circular-sequencer-container.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.sequencer-svg {
+  width: 100%;
+  height: 100%;
+  background: rgba(31, 41, 55, 0.5);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+/* Track styles - Dynamic width based on track spacing */
+.track-circle {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  stroke-width: calc(var(--track-width) * 0.8);
+  fill: none;
+  opacity: 0.3;
   cursor: pointer;
+}
+
+.track-circle.hovered {
+  opacity: 0.6;
+  stroke-width: calc(var(--track-width) * 0.9);
+}
+
+.track-circle.active {
+  opacity: 0.8;
+  stroke-width: var(--track-width);
+}
+
+/* Step marker styles - Very subtle grid */
+.step-marker {
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  opacity: 0.1;
+}
+
+.track-circle.hovered ~ .step-marker {
+  opacity: 0.2;
+}
+
+/* Indicator styles - Clean design without glow effects */
+.indicator-path {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  stroke-width: 2;
+  opacity: 0.9;
+  transform-origin: center;
+}
+
+.indicator-path:hover,
+.indicator-path.hovered {
+  opacity: 1;
+  stroke-width: 3;
+}
+
+.indicator-path.selected {
+  stroke-width: 3;
+  opacity: 1;
+  stroke: white;
+  stroke-opacity: 0.8;
+}
+
+.indicator-path.dragging {
+  stroke-width: 4;
+  opacity: 1;
+  stroke: white;
+  stroke-opacity: 0.9;
+}
+
+/* Removed drag handle styles - using new interaction model */
+
+/* Solfege labels - Clean and readable */
+.solfege-label {
+  font-weight: 600;
+  pointer-events: none;
+  font-family: system-ui, -apple-system, sans-serif;
+  opacity: 0.8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* Custom select styles */

@@ -1,160 +1,178 @@
 <template>
-  <div v-if="showPanel" class="debug-panel">
-    <!-- Sticky Header -->
-    <div class="debug-header">
-      <h3>
+  <FloatingDropdown position="top-right" max-height="80vh">
+    <!-- Trigger Button -->
+    <template #trigger="{ toggle }">
+      <button @click="toggle" class="debug-toggle">
         <Settings :size="16" />
-        Config
-      </h3>
-
-      <button @click="togglePanel" class="close-btn" title="Close Panel">
-        <X :size="18" />
       </button>
-    </div>
+    </template>
 
-    <div class="debug-content">
-      <!-- Global Controls -->
-      <div class="global-controls">
-        <div class="config-row global-toggle">
-          <label class="toggle-label">
-            <input
-              type="checkbox"
-              :checked="visualsEnabled"
-              @change="
-                setVisualsEnabled(
-                  ($event.target as HTMLInputElement)?.checked ?? false
-                )
-              "
-              class="toggle-checkbox"
-            />
-            <span class="toggle-slider"></span>
-            Enable All Visuals
-          </label>
+    <!-- Dropdown Panel -->
+    <template #panel="{ close, toggle, position }">
+      <div class="debug-panel">
+        <!-- Sticky Header -->
+        <div
+          class="debug-header"
+          :class="{ 'flex-row-reverse': position === 'top-left' }"
+        >
+          <h3>
+            <Settings :size="16" />
+            Config
+          </h3>
+
+          <button @click="toggle" class="close-btn" title="Close Panel">
+            <X :size="18" />
+          </button>
         </div>
 
-        <div v-if="lastSaved" class="last-saved">
-          Last saved: {{ formatLastSaved(lastSaved) }}
-        </div>
-      </div>
+        <div class="debug-content">
+          <!-- Global Controls -->
+          <div class="global-controls">
+            <div class="config-row global-toggle">
+              <label class="toggle-label">
+                <input
+                  type="checkbox"
+                  :checked="visualsEnabled"
+                  @change="
+                    setVisualsEnabled(
+                      ($event.target as HTMLInputElement)?.checked ?? false
+                    )
+                  "
+                  class="toggle-checkbox"
+                />
+                <span class="toggle-slider"></span>
+                Enable All Visuals
+              </label>
+            </div>
 
-      <!-- Auto-generated sections -->
-      <div
-        v-for="(sectionConfig, sectionName) in configSections"
-        :key="sectionName"
-        class="config-section"
-        :class="{ disabled: !visualsEnabled }"
-      >
-        <h4>
-          {{ getSectionIcon(sectionName) }} {{ getSectionTitle(sectionName) }}
-        </h4>
-
-        <!-- Knobs grid layout -->
-        <div class="knobs-grid">
-          <div
-            v-for="(value, key) in sectionConfig"
-            :key="key"
-            class="knob-item"
-          >
-            <!-- Boolean toggle knobs -->
-            <Knob
-              v-if="typeof value === 'boolean'"
-              :value="value ? 1 : 0"
-              :min="0"
-              :max="1"
-              :step="1"
-              :param-name="formatLabel(String(key))"
-              :format-value="(val: number) => val === 1 ? 'ON' : 'OFF'"
-              :is-disabled="!visualsEnabled"
-              @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue === 1)"
-              @click="() => updateValue(sectionName, String(key), !value)"
-            />
-
-            <!-- Number knobs -->
-            <Knob
-              v-else-if="typeof value === 'number'"
-              :value="value"
-              :min="getNumberMin(sectionName, String(key))"
-              :max="getNumberMax(sectionName, String(key))"
-              :step="getNumberStep(sectionName, String(key))"
-              :param-name="formatLabel(String(key))"
-              :format-value="(val: number) => formatValue(sectionName, String(key), val)"
-              :is-disabled="!visualsEnabled"
-              @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue)"
-            />
-
-            <!-- String controls (if needed) -->
-            <div v-else-if="typeof value === 'string'" class="string-control">
-              <label>{{ formatLabel(String(key)) }}</label>
-              <input
-                type="text"
-                :value="value"
-                :disabled="!visualsEnabled"
-                @input="
-                  updateValue(
-                    sectionName,
-                    String(key),
-                    ($event.target as HTMLInputElement)?.value ?? ''
-                  )
-                "
-              />
+            <div v-if="lastSaved" class="last-saved">
+              Last saved: {{ formatLastSaved(lastSaved) }}
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Saved Configurations -->
-      <div v-if="savedConfigs.length > 0" class="config-section">
-        <h4>💾 Saved Configurations</h4>
-        <div class="saved-configs">
+          <!-- Auto-generated sections -->
           <div
-            v-for="savedConfig in savedConfigs"
-            :key="savedConfig.id"
-            class="saved-config-item"
+            v-for="(sectionConfig, sectionName) in configSections"
+            :key="sectionName"
+            class="config-section"
+            :class="{ disabled: !visualsEnabled }"
           >
-            <span class="config-name">{{ savedConfig.name }}</span>
-            <div class="config-actions">
-              <button @click="loadSavedConfig(savedConfig.id)" class="load-btn">
-                Load
-              </button>
-              <button
-                @click="deleteSavedConfig(savedConfig.id)"
-                class="delete-btn"
+            <h4>
+              {{ getSectionIcon(sectionName) }}
+              {{ getSectionTitle(sectionName) }}
+            </h4>
+
+            <!-- Knobs grid layout -->
+            <div class="knobs-grid">
+              <div
+                v-for="(value, key) in sectionConfig"
+                :key="key"
+                class="knob-item"
               >
-                <Trash2 :size="12" />
-              </button>
+                <!-- Boolean toggle knobs -->
+                <Knob
+                  v-if="typeof value === 'boolean'"
+                  :value="value ? 1 : 0"
+                  :min="0"
+                  :max="1"
+                  :step="1"
+                  :param-name="formatLabel(String(key))"
+                  :format-value="(val: number) => val === 1 ? 'ON' : 'OFF'"
+                  :is-disabled="!visualsEnabled"
+                  @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue === 1)"
+                  @click="() => updateValue(sectionName, String(key), !value)"
+                />
+
+                <!-- Number knobs -->
+                <Knob
+                  v-else-if="typeof value === 'number'"
+                  :value="value"
+                  :min="getNumberMin(sectionName, String(key))"
+                  :max="getNumberMax(sectionName, String(key))"
+                  :step="getNumberStep(sectionName, String(key))"
+                  :param-name="formatLabel(String(key))"
+                  :format-value="(val: number) => formatValue(sectionName, String(key), val)"
+                  :is-disabled="!visualsEnabled"
+                  @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue)"
+                />
+
+                <!-- String controls (if needed) -->
+                <div
+                  v-else-if="typeof value === 'string'"
+                  class="string-control"
+                >
+                  <label>{{ formatLabel(String(key)) }}</label>
+                  <input
+                    type="text"
+                    :value="value"
+                    :disabled="!visualsEnabled"
+                    @input="
+                      updateValue(
+                        sectionName,
+                        String(key),
+                        ($event.target as HTMLInputElement)?.value ?? ''
+                      )
+                    "
+                  />
+                </div>
+              </div>
             </div>
+          </div>
+
+          <!-- Saved Configurations -->
+          <div v-if="savedConfigs.length > 0" class="config-section">
+            <h4>💾 Saved Configurations</h4>
+            <div class="saved-configs">
+              <div
+                v-for="savedConfig in savedConfigs"
+                :key="savedConfig.id"
+                class="saved-config-item"
+              >
+                <span class="config-name">{{ savedConfig.name }}</span>
+                <div class="config-actions">
+                  <button
+                    @click="loadSavedConfig(savedConfig.id)"
+                    class="load-btn"
+                  >
+                    Load
+                  </button>
+                  <button
+                    @click="deleteSavedConfig(savedConfig.id)"
+                    class="delete-btn"
+                  >
+                    <Trash2 :size="12" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="config-actions">
+            <button @click="resetToDefaults" class="reset-btn">
+              <RotateCcw :size="14" />
+              Reset to Defaults
+            </button>
+            <button @click="exportConfig" class="export-btn">
+              <Download :size="14" />
+              Export Config
+            </button>
+            <button @click="promptSaveConfig" class="save-as-btn">
+              <Save :size="14" />
+              Save As...
+            </button>
           </div>
         </div>
       </div>
-
-      <!-- Actions -->
-      <div class="config-actions">
-        <button @click="resetToDefaults" class="reset-btn">
-          <RotateCcw :size="14" />
-          Reset to Defaults
-        </button>
-        <button @click="exportConfig" class="export-btn">
-          <Download :size="14" />
-          Export Config
-        </button>
-        <button @click="promptSaveConfig" class="save-as-btn">
-          <Save :size="14" />
-          Save As...
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toggle Button -->
-  <button v-if="!showPanel" @click="togglePanel" class="debug-toggle">
-    <Settings :size="16" />
-  </button>
+    </template>
+  </FloatingDropdown>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import Knob from "./Knob.vue";
+import FloatingDropdown from "./FloatingDropdown.vue";
 import {
   Settings,
   Save,
@@ -165,7 +183,6 @@ import {
 } from "lucide-vue-next";
 
 const visualConfigStore = useVisualConfigStore();
-const showPanel = ref(false);
 
 // Store state
 const {
@@ -397,12 +414,6 @@ const getNumberStep = (sectionName: string, key: string): number => {
   return configMetadata[sectionName]?.[key]?.step ?? 0.1;
 };
 
-// Note: Knob now works directly with actual values, no conversion needed
-
-const togglePanel = () => {
-  showPanel.value = !showPanel.value;
-};
-
 const exportConfig = () => {
   const configJson = storeExportConfig();
 
@@ -437,21 +448,11 @@ const formatLastSaved = (timestamp: string): string => {
 
 <style scoped>
 .debug-panel {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 320px;
-  max-height: 80vh;
-  background: rgba(0, 0, 0, 0.9);
-  border: 1px solid #333;
-  border-radius: 8px;
-  color: white;
-  font-family: monospace;
-  font-size: 12px;
-  z-index: 9999;
-  overflow: hidden;
+  width: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  flex: 1;
 }
 
 .debug-header {
@@ -706,9 +707,6 @@ const formatLastSaved = (timestamp: string): string => {
 }
 
 .debug-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.8);
   border: 1px solid #333;
@@ -716,10 +714,11 @@ const formatLastSaved = (timestamp: string): string => {
   color: white;
   cursor: pointer;
   font-size: 12px;
-  z-index: 9999;
   display: flex;
   align-items: center;
   gap: 6px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
 }
 
 .debug-toggle:hover {

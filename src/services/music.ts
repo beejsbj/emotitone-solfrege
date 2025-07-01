@@ -3,30 +3,23 @@
 
 import {
   CHROMATIC_NOTES,
-  MAJOR_SOLFEGE,
-  MINOR_SOLFEGE,
-  MELODIC_PATTERNS,
   MAJOR_SCALE,
   MINOR_SCALE,
   type SolfegeData,
   type Scale,
-  type MelodicPattern,
+  getAllMelodicPatterns,
+  getPatternsByEmotion,
+  getIntervalPatterns,
+  getMelodicPatterns,
 } from "@/data";
-import type { Note, MusicalMode } from "@/types/music";
+import type { Note, MusicalMode, Melody } from "@/types/music";
 import { Note as TonalNote, Scale as TonalScale } from "@tonaljs/tonal";
 
 // Re-export types for backward compatibility
-export type { SolfegeData, Scale, MelodicPattern, Note, MusicalMode };
+export type { SolfegeData, Scale, Melody, Note, MusicalMode };
 
 // Re-export the imported constants for backward compatibility
-export {
-  CHROMATIC_NOTES,
-  MAJOR_SOLFEGE,
-  MINOR_SOLFEGE,
-  MELODIC_PATTERNS,
-  MAJOR_SCALE,
-  MINOR_SCALE,
-};
+export { CHROMATIC_NOTES, MAJOR_SCALE, MINOR_SCALE };
 
 export class MusicTheoryService {
   private currentKey: string = "C";
@@ -122,7 +115,7 @@ export class MusicTheoryService {
 
     // Fallback to manual calculation if Tonal.js fails
     const noteIndex = CHROMATIC_NOTES.indexOf(actualNoteName as any);
-    const A4_INDEX = 9; // A is at index 9 in CHROMATIC_NOTES
+    const A4_INDEX = 9; // A is at index 9 in scales
     const A4_FREQUENCY = 440;
     const semitonesFromA4 = (actualOctave - 4) * 12 + (noteIndex - A4_INDEX);
     return A4_FREQUENCY * Math.pow(2, semitonesFromA4 / 12);
@@ -160,22 +153,19 @@ export class MusicTheoryService {
   }
 
   // Get all melodic patterns
-  getMelodicPatterns(): MelodicPattern[] {
-    return MELODIC_PATTERNS;
+  getMelodicPatterns(): Melody[] {
+    return getAllMelodicPatterns();
   }
 
   // Get melodic patterns by category
-  getMelodicPatternsByCategory(
-    category: "intervals" | "patterns"
-  ): MelodicPattern[] {
+  getMelodicPatternsByCategory(category: "intervals" | "patterns"): Melody[] {
     if (category === "intervals") {
-      return MELODIC_PATTERNS.filter(
-        (pattern: MelodicPattern) =>
-          pattern.intervals && pattern.intervals.length === 1
+      return getAllMelodicPatterns().filter(
+        (pattern: Melody) => pattern.intervals && pattern.intervals.length === 1
       );
     } else {
-      return MELODIC_PATTERNS.filter(
-        (pattern: MelodicPattern) =>
+      return getAllMelodicPatterns().filter(
+        (pattern: Melody) =>
           !pattern.intervals || pattern.intervals.length !== 1
       );
     }

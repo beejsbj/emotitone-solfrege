@@ -35,20 +35,44 @@ export interface Scale {
 }
 
 /**
- * Melodic pattern definition for emotional expression
+ * Individual note in a sequence with duration
  */
-export interface MelodicPattern {
-  /** Pattern name */
-  name: string;
-  /** Pattern description */
-  description: string;
-  /** Emotional character of the pattern */
-  emotion: string;
-  /** Sequence of solfege names */
-  sequence: string[];
-  /** Optional interval pattern in semitones */
-  intervals?: number[];
+export interface SequenceNote {
+  /** Note name - can be solfege (Do, Re, Mi) or absolute pitch (C4, E2, etc.) */
+  note: string;
+  /** Duration in Tone.js notation (4n, 8n, 2n, etc.) */
+  duration: string;
 }
+
+/**
+ * Unified melody definition that can represent both simple patterns and complete melodies
+ */
+export interface Melody {
+  /** Melody name */
+  name: string;
+  /** Optional description */
+  description?: string;
+  /** Optional emotional character of the melody */
+  emotion?: string;
+  /** Sequence of notes with their durations */
+  sequence: SequenceNote[];
+  /** Optional interval pattern in semitones (for simple interval patterns) */
+  intervals?: number[];
+  /** Optional default tempo in BPM (for complete melodies) */
+  defaultBpm?: number;
+  /** Optional default key signature (for complete melodies) */
+  defaultKey?: string;
+}
+
+/**
+ * @deprecated Use Melody interface instead
+ */
+export interface MelodicPattern extends Melody {}
+
+/**
+ * @deprecated Use Melody interface instead
+ */
+export interface CompleteMelody extends Melody {}
 
 /**
  * Basic note structure with frequency and MIDI data

@@ -8,7 +8,7 @@
 export { CHROMATIC_NOTES } from "./notes";
 export { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "./solfege";
 export { MAJOR_SCALE, MINOR_SCALE } from "./scales";
-export { MELODIC_PATTERNS } from "./patterns";
+export { melodicPatterns as MELODIC_PATTERNS } from "./patterns";
 
 // Re-export types for backward compatibility
 export type {

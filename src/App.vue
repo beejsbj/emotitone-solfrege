@@ -11,6 +11,7 @@
 
     <!-- Auto Visual Effects Debug Panel (Development Only) -->
     <AutoDebugPanel v-if="!isLoading" />
+    <InstrumentSelector />
 
     <!-- Main Content -->
     <div v-if="!isLoading" class="relative z-10 min-h-screen flex flex-col">
@@ -26,9 +27,7 @@
               <!-- <KeySelector /> -->
             </div>
 
-            <InstrumentSelector />
-
-            <PatternPlayer />
+            <CircularSequencerVisual />
 
             <!-- Pattern Player -->
 
@@ -38,6 +37,9 @@
               <KeySelector />
 
               <FloatingPopup />
+
+              <SequencerControls />
+
               <div
                 class="flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"
               >
@@ -67,8 +69,9 @@ import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
-import PatternPlayer from "@/components/PatternPlayer.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
+import CircularSequencerVisual from "@/components/CircularSequencerVisual.vue";
+import SequencerControls from "@/components/SequencerControls.vue";
 
 // Stores and composables
 const musicStore = useMusicStore();

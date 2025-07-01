@@ -3,7 +3,7 @@ import { ref, computed, readonly } from "vue";
 import { musicTheory } from "@/services/music";
 import type {
   SolfegeData,
-  MelodicPattern,
+  Melody,
   MusicalMode,
   ActiveNote,
   SequencerBeat,
@@ -12,6 +12,12 @@ import type {
 } from "@/types/music";
 import { audioService } from "@/services/audio";
 import { useInstrumentStore } from "@/stores/instrument";
+import {
+  MAJOR_SOLFEGE,
+  MINOR_SOLFEGE,
+  type Scale,
+  getAllMelodicPatterns,
+} from "@/data";
 
 export const useMusicStore = defineStore(
   "music",
@@ -256,7 +262,7 @@ export const useMusicStore = defineStore(
       return musicTheory.getNoteName(solfegeIndex, octave);
     }
 
-    function getMelodicPatterns(): MelodicPattern[] {
+    function getMelodicPatterns(): Melody[] {
       return musicTheory.getMelodicPatterns();
     }
 
@@ -299,7 +305,11 @@ export const useMusicStore = defineStore(
         const frequency = musicTheory.getNoteFrequency(solfegeIndex, octave);
 
         // Play the audio with the specified duration
-        const noteId = await audioService.playNoteWithDuration(noteName, duration, time);
+        const noteId = await audioService.playNoteWithDuration(
+          noteName,
+          duration,
+          time
+        );
 
         // Dispatch custom event for visual effects
         const notePlayedEvent = new CustomEvent("note-played", {
@@ -364,27 +374,68 @@ export const useMusicStore = defineStore(
     }
 
     // Pattern to sequencer conversion
-    function loadPatternToSequencer(pattern: MelodicPattern) {
+    function loadPatternToSequencer(pattern: Melody) {
       const beats: SequencerBeat[] = [];
       let stepPosition = 0;
 
-      pattern.sequence.forEach((solfegeName, index) => {
+      pattern.sequence.forEach((noteData, index) => {
+        const solfegeName = noteData.note;
         const solfegeIndex = solfegeData.value.findIndex(
           (s) => s.name === solfegeName
         );
+
         // Only use the first 7 solfege notes (exclude Do' if present)
         if (solfegeIndex >= 0 && solfegeIndex < 7) {
+          // Convert duration from Tone.js notation to step duration
+          const noteDuration = noteData.duration;
+          let stepDuration = 1; // Default to 1 step
+
+          // Convert common durations to step lengths (assuming 16 steps = 1 bar)
+          switch (noteDuration) {
+            case "1n":
+              stepDuration = 16;
+              break; // Whole note
+            case "2n":
+              stepDuration = 8;
+              break; // Half note
+            case "4n":
+              stepDuration = 4;
+              break; // Quarter note
+            case "8n":
+              stepDuration = 2;
+              break; // Eighth note
+            case "16n":
+              stepDuration = 1;
+              break; // Sixteenth note
+            case "32n":
+              stepDuration = 0.5;
+              break; // Thirty-second note (rare)
+            default:
+              stepDuration = 1;
+              break; // Default to sixteenth note
+          }
+
+          // Ensure step duration is at least 1 and fits in remaining steps
+          stepDuration = Math.max(1, Math.floor(stepDuration));
+
           const beat: SequencerBeat = {
             id: `pattern-${Date.now()}-${index}`,
             ring: 6 - solfegeIndex, // Reverse for visual representation (outer ring = higher notes)
             step: stepPosition,
-            duration: 1,
+            duration: stepDuration,
             solfegeName,
             solfegeIndex,
             octave: sequencerConfig.value.baseOctave,
           };
           beats.push(beat);
-          stepPosition += 2; // Space out the notes
+
+          // Move to next position based on the actual duration
+          stepPosition += stepDuration;
+
+          // Ensure we don't exceed the sequence length
+          if (stepPosition >= sequencerConfig.value.steps) {
+            stepPosition = stepPosition % sequencerConfig.value.steps;
+          }
         }
       });
 

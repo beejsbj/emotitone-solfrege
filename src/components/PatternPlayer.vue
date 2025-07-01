@@ -1,108 +1,17 @@
 <template>
-  <div
-    class="bg-white/10 backdrop-blur-sm rounded-sm border border-white/20 grid items-start gap-1 grid-cols-2 relative"
-  >
-    <!-- Pattern Categories -->
-    <div class="mb-1 sticky top-0 grid gap-1">
-      <div
-        class="bg-white/5 rounded-sm p-1 border border-white/10"
-        v-if="selectedPattern"
-      >
-        <div class="grid gap-1 bg-slate-700">
-          <h3 class="text-lg text-white font-900">
-            {{ selectedPattern.name }}
-          </h3>
-          <p class="text-white/80 text-md font-800">
-            {{ selectedPattern.description }}
-          </p>
-        </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- Pattern Selection Panel -->
+    <div
+      class="bg-white/10 backdrop-blur-sm rounded-sm border border-white/20 p-4"
+    >
+      <h2 class="text-xl font-bold text-white mb-4">Pattern Library</h2>
 
-        <!-- Controls Grid -->
-        <div class="grid grid-cols-2 gap-4 mb-2 p-2">
-          <!-- Tempo Control -->
-          <Knob
-            :value="tempo"
-            :min="60"
-            :max="180"
-            :step="10"
-            param-name="Tempo"
-            :format-value="formatTempo"
-            :is-disabled="isPlaying"
-            @update:value="(newValue: number) => tempo = newValue"
-          />
-
-          <!-- Octave Control -->
-          <Knob
-            :value="baseOctave"
-            :min="3"
-            :max="5"
-            :step="1"
-            param-name="Octave"
-            :format-value="formatOctave"
-            :is-disabled="isPlaying"
-            @update:value="(newValue: number) => baseOctave = newValue"
-          />
-        </div>
-
-        <!-- Play Controls -->
-        <div class="grid grid-cols-2 gap-1">
-          <button
-            @click="playPattern"
-            :disabled="isPlaying"
-            :class="[
-              'px-1 py-[1px] text-xs  rounded-sm  transition-all duration-200 font-bold',
-              isPlaying
-                ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
-                : 'bg-green-500/80 hover:bg-green-500 text-white',
-            ]"
-          >
-            {{ isPlaying ? "Playing..." : "Play Pattern" }}
-          </button>
-          <button
-            @click="stopPattern"
-            :disabled="!isPlaying"
-            :class="[
-              'px-1 py-[1px] text-xs  rounded-sm  transition-all duration-200 font-bold',
-              !isPlaying
-                ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
-                : 'bg-red-500/80 hover:bg-red-500 text-white',
-            ]"
-          >
-            Stop
-          </button>
-        </div>
-      </div>
-      <div
-        class="bg-white/5 rounded-sm p-1 border border-white/10"
-        v-if="isPlaying && selectedPattern"
-      >
-        <h4 class="text-white/80 text-xs mb-1 font-bold">Now Playing:</h4>
-        <div class="flex flex-wrap gap-1">
-          <span
-            v-for="(note, index) in selectedPattern.sequence"
-            :key="index"
-            :class="[
-              'p-2 rounded text-xs font-bold ',
-              index === currentNoteIndex
-                ? 'bg-yellow-500/80 text-white'
-                : index < currentNoteIndex
-                ? 'bg-green-500/50 text-white/80'
-                : 'bg-white/20 text-white/60',
-            ]"
-          >
-            {{ note }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pattern Selection -->
-    <div class="max-h-[25vh] overflow-y-auto">
-      <div class="grid grid-cols-2 gap-1 mb-1">
+      <!-- Pattern Categories -->
+      <div class="grid grid-cols-2 gap-2 mb-4">
         <button
           @click="selectedCategory = 'intervals'"
           :class="[
-            'px-1 py-[1px] text-xs rounded-sm transition-all duration-200 font-bold',
+            'px-3 py-2 text-sm rounded-sm transition-all duration-200 font-bold',
             selectedCategory === 'intervals'
               ? 'bg-blue-500/80 text-white'
               : 'bg-white/20 text-white/80 hover:bg-white/30',
@@ -113,7 +22,7 @@
         <button
           @click="selectedCategory = 'patterns'"
           :class="[
-            'px-1 py-[1px] text-xs rounded-sm transition-all duration-200 font-bold',
+            'px-3 py-2 text-sm rounded-sm transition-all duration-200 font-bold',
             selectedCategory === 'patterns'
               ? 'bg-blue-500/80 text-white'
               : 'bg-white/20 text-white/80 hover:bg-white/30',
@@ -122,48 +31,122 @@
           Patterns
         </button>
       </div>
-      <div class="grid gap-1 max-h-full overflow-y-auto">
-        <button
+
+      <!-- Pattern List -->
+      <div class="max-h-[50vh] overflow-y-auto space-y-2">
+        <div
           v-for="pattern in filteredPatterns"
           :key="pattern.name"
-          @click="selectPattern(pattern)"
           :class="[
-            ' rounded-sm text-left transition-all duration-200 border',
+            'rounded-sm border transition-all duration-200 cursor-pointer',
             selectedPattern?.name === pattern.name
               ? 'bg-purple-500/80 border-purple-400 text-white'
               : 'bg-white/10 border-white/20 text-white/90 hover:bg-white/20',
           ]"
+          @click="selectPattern(pattern)"
         >
-          <div class="font-bold bg-black px-1 py-[1px]">
+          <div class="font-bold bg-black/50 px-3 py-2">
             {{ pattern.name }}
           </div>
-          <div
-            class="text-xs opacity-75 px-1 py-[1px] font-weight-oscillate-sm bg-slate-800"
-          >
+          <div class="text-sm opacity-75 px-3 py-1 bg-slate-800/50">
             {{ pattern.emotion }}
           </div>
-          <div
-            class="px-1 py-[1px] font-weight-oscillate-sm bg-slate-800 flex gap-[1px] leading-0"
-          >
+          <div class="px-3 py-2 bg-slate-800/50 flex flex-wrap gap-1">
             <template v-for="(note, index) in pattern.sequence" :key="note">
               <span
                 :style="{ background: getPrimaryColor(note) }"
-                class="p-1 text-2xs font-900 text-black"
+                class="px-2 py-1 text-xs font-bold text-black rounded"
               >
                 {{ note }}
               </span>
-              <span v-if="index !== pattern.sequence.length - 1"> →&nbsp;</span>
+              <span
+                v-if="index !== pattern.sequence.length - 1"
+                class="text-white/60 self-center"
+                >→</span
+              >
             </template>
           </div>
-        </button>
+          <div class="px-3 py-2 border-t border-white/10">
+            <button
+              @click.stop="loadPatternToSequencer(pattern)"
+              class="w-full px-3 py-1 bg-green-500/80 hover:bg-green-500 text-white rounded-sm text-sm font-bold transition-all duration-200"
+            >
+              Load to Sequencer
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Pattern Details -->
+      <div
+        v-if="selectedPattern"
+        class="mt-4 bg-white/5 rounded-sm p-3 border border-white/10"
+      >
+        <h3 class="text-lg text-white font-bold mb-2">
+          {{ selectedPattern.name }}
+        </h3>
+        <p class="text-white/80 text-sm mb-3">
+          {{ selectedPattern.description }}
+        </p>
+
+        <!-- Quick Play Controls -->
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            @click="playPattern"
+            :disabled="isPlaying"
+            :class="[
+              'px-3 py-2 text-sm rounded-sm transition-all duration-200 font-bold',
+              isPlaying
+                ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
+                : 'bg-green-500/80 hover:bg-green-500 text-white',
+            ]"
+          >
+            {{ isPlaying ? "Playing..." : "Quick Play" }}
+          </button>
+          <button
+            @click="stopPattern"
+            :disabled="!isPlaying"
+            :class="[
+              'px-3 py-2 text-sm rounded-sm transition-all duration-200 font-bold',
+              !isPlaying
+                ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
+                : 'bg-red-500/80 hover:bg-red-500 text-white',
+            ]"
+          >
+            Stop
+          </button>
+        </div>
+
+        <!-- Now Playing Indicator -->
+        <div
+          v-if="isPlaying && selectedPattern"
+          class="mt-3 p-2 bg-yellow-500/20 rounded-sm border border-yellow-500/30"
+        >
+          <h4 class="text-yellow-200 text-xs mb-2 font-bold">Now Playing:</h4>
+          <div class="flex flex-wrap gap-1">
+            <span
+              v-for="(note, index) in selectedPattern.sequence"
+              :key="index"
+              :class="[
+                'px-2 py-1 rounded text-xs font-bold transition-all duration-200',
+                index === currentNoteIndex
+                  ? 'bg-yellow-500 text-black'
+                  : index < currentNoteIndex
+                  ? 'bg-green-500/50 text-white'
+                  : 'bg-white/20 text-white/60',
+              ]"
+            >
+              {{ note }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Playback Controls -->
-    <div v-if="selectedPattern" class="mb-1"></div>
-
-    <!-- Current Pattern Visualization -->
-    <div class="mb-1"></div>
+    <!-- Circular Sequencer -->
+    <div class="lg:col-span-1">
+      <CircularSequencer />
+    </div>
   </div>
 </template>
 
@@ -173,7 +156,7 @@ import { useMusicStore } from "@/stores/music";
 import type { MelodicPattern } from "@/types/music";
 import * as Tone from "tone";
 import { useColorSystem } from "@/composables/useColorSystem";
-import Knob from "./Knob.vue";
+import CircularSequencer from "./CircularSequencer.vue";
 
 const musicStore = useMusicStore();
 const { getPrimaryColor } = useColorSystem();
@@ -182,8 +165,6 @@ const { getPrimaryColor } = useColorSystem();
 const selectedCategory = ref<"intervals" | "patterns">("intervals");
 const selectedPattern = ref<MelodicPattern | null>(null);
 const isPlaying = ref(false);
-const tempo = ref(120);
-const baseOctave = ref(4);
 const currentNoteIndex = ref(-1);
 const currentScheduleIds = ref<number[]>([]);
 
@@ -202,10 +183,6 @@ const filteredPatterns = computed(() => {
   }
 });
 
-// Format functions for knobs
-const formatTempo = (value: number) => `${value}`;
-const formatOctave = (value: number) => `${value}`;
-
 // Methods
 const selectPattern = (pattern: MelodicPattern) => {
   if (isPlaying.value) {
@@ -213,6 +190,10 @@ const selectPattern = (pattern: MelodicPattern) => {
   }
   selectedPattern.value = pattern;
   currentNoteIndex.value = -1;
+};
+
+const loadPatternToSequencer = (pattern: MelodicPattern) => {
+  musicStore.loadPatternToSequencer(pattern);
 };
 
 const playPattern = async () => {
@@ -226,7 +207,7 @@ const playPattern = async () => {
     transport.cancel();
     transport.stop();
     transport.position = 0;
-    transport.bpm.value = tempo.value;
+    transport.bpm.value = 120; // Fixed tempo for quick preview
 
     isPlaying.value = true;
     currentNoteIndex.value = -1;
@@ -245,7 +226,7 @@ const playPattern = async () => {
         // Schedule note start
         const startId = transport.schedule((time) => {
           currentNoteIndex.value = index;
-          musicStore.attackNoteWithOctave(solfegeIndex, baseOctave.value);
+          musicStore.attackNoteWithOctave(solfegeIndex, 4); // Fixed octave for quick preview
         }, currentTime);
 
         // Schedule note stop

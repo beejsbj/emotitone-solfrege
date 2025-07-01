@@ -134,7 +134,7 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     showChord: true, // Show chord information
     showIntervals: true, // Show interval information
     showEmotionalDescription: true, // Show emotional descriptions
-    backdropBlur: 12, // 12px backdrop blur
+    backdropBlur: 1, // 12px backdrop blur
     glassmorphOpacity: 0.4, // 40% glassmorphism opacity
     animationDuration: 300, // 300ms animation duration
   },

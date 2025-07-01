@@ -9,8 +9,8 @@
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <UnifiedVisualEffects v-if="!isLoading" />
 
-    <!-- Auto Visual Effects Debug Panel (Development Only) -->
-    <AutoDebugPanel v-if="!isLoading" />
+    <!-- Settings Panel - User configuration interface -->
+    <SettingsPanel v-if="!isLoading" />
 
     <!-- Main Content -->
     <div v-if="!isLoading" class="relative z-10 min-h-screen flex flex-col">
@@ -80,7 +80,7 @@ import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
-import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
+import SettingsPanel from "@/components/SettingsPanel.vue";
 import PatternPlayer from "@/components/PatternPlayer.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 

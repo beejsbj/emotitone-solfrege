@@ -1,11 +1,11 @@
 <template>
-  <!-- Debug Panel - Only shown in development mode -->
-  <div v-if="isDevelopment && showPanel" class="debug-panel">
+  <!-- Settings Panel - User configuration interface -->
+  <div v-if="showPanel" class="settings-panel">
     <!-- Sticky Header -->
     <div class="debug-header">
       <h3>
         <Settings :size="16" />
-        Config
+        Settings
       </h3>
 
       <button @click="togglePanel" class="close-btn" title="Close Panel">
@@ -165,8 +165,8 @@
     </div>
   </div>
 
-  <!-- Toggle Button - Only shown in development mode -->
-  <button v-if="isDevelopment && !showPanel" @click="togglePanel" class="debug-toggle">
+  <!-- Settings Toggle Button -->
+  <button v-if="!showPanel" @click="togglePanel" class="settings-toggle">
     <Settings :size="16" />
   </button>
 </template>
@@ -192,10 +192,7 @@ import {
 const visualConfigStore = useVisualConfigStore();
 const showPanel = ref(false);
 
-// Environment check for debug panel visibility
-const isDevelopment = computed(() => {
-  return typeof window !== 'undefined' && window.location.hostname === 'localhost';
-});
+// Note: This was previously called "AutoDebugPanel" but it's actually the user settings panel
 
 // Store state
 const {
@@ -245,8 +242,8 @@ const promptSaveConfig = () => {
 </script>
 
 <style scoped>
-/* Only include styles if component can render (development check handles visibility) */
-.debug-panel {
+/* Settings Panel Styles */
+.settings-panel {
   position: fixed;
   top: 20px;
   right: 20px;
@@ -533,7 +530,7 @@ const promptSaveConfig = () => {
   border-color: #28a745;
 }
 
-.debug-toggle {
+.settings-toggle {
   position: fixed;
   top: 20px;
   right: 20px;
@@ -551,7 +548,7 @@ const promptSaveConfig = () => {
   transition: all 0.2s ease;
 }
 
-.debug-toggle:hover {
+.settings-toggle:hover {
   background: rgba(0, 255, 136, 0.2);
   border-color: #00ff88;
   transform: scale(1.1);

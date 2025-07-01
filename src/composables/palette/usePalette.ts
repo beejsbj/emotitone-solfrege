@@ -162,12 +162,52 @@ export function usePalette(
       // Update pressed buttons based on active notes
       animationState.value.pressedButtons.clear();
       newActiveNotes.forEach((note) => {
-        const buttonKey = `${note.solfege}-${note.octave}`;
+        const buttonKey = `${note.solfege.name}-${note.octave}`;
         animationState.value.pressedButtons.add(buttonKey);
       });
     },
     { deep: true }
   );
+
+  // Add visual feedback for sequencer playback
+  const handleSequencerNotePlayed = (event: CustomEvent) => {
+    const { note, octave, solfegeIndex } = event.detail;
+
+    // Only respond if this note is in our visible range
+    const solfege = visibleSolfegeData.value[solfegeIndex];
+    if (
+      solfege &&
+      octave >= paletteState.value.mainOctave - 1 &&
+      octave <= paletteState.value.mainOctave + 1
+    ) {
+      const buttonKey = `${solfege.name}-${octave}`;
+
+      // Add temporary visual press
+      animationState.value.pressedButtons.add(buttonKey);
+      startButtonPressAnimation(buttonKey);
+
+      // Auto-release after a short duration (slightly longer than the note to feel natural)
+      setTimeout(() => {
+        animationState.value.pressedButtons.delete(buttonKey);
+        startButtonReleaseAnimation(buttonKey);
+      }, 200); // 200ms visual feedback duration
+    }
+  };
+
+  // Add event listener for sequencer notes (lifecycle managed by parent component)
+  const addSequencerListeners = () => {
+    window.addEventListener(
+      "note-played",
+      handleSequencerNotePlayed as EventListener
+    );
+  };
+
+  const removeSequencerListeners = () => {
+    window.removeEventListener(
+      "note-played",
+      handleSequencerNotePlayed as EventListener
+    );
+  };
 
   // Enhanced render function that includes animation updates
   const renderPaletteWithAnimation = (
@@ -230,6 +270,10 @@ export function usePalette(
     visibleRowCount,
     calculateHeightForRows,
     snapHeightToRows,
+
+    // Sequencer integration
+    addSequencerListeners,
+    removeSequencerListeners,
 
     // Style configuration (for external access)
     PALETTE_STYLES,

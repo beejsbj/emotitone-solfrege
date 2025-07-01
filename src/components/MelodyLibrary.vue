@@ -77,7 +77,7 @@
                   </div>
                   <div class="pattern-actions">
                     <button
-                      @click="playPattern(pattern)"
+                      @click="playPattern(pattern, close)"
                       :disabled="currentlyPlaying === pattern.name"
                       class="action-btn play-btn"
                     >
@@ -88,7 +88,7 @@
                       }}
                     </button>
                     <button
-                      @click="loadToSequencer(pattern)"
+                      @click="loadToSequencer(pattern, close)"
                       class="action-btn load-btn"
                     >
                       Load
@@ -137,7 +137,7 @@
                   </div>
                   <div class="pattern-actions">
                     <button
-                      @click="playPattern(pattern)"
+                      @click="playPattern(pattern, close)"
                       :disabled="currentlyPlaying === pattern.name"
                       class="action-btn play-btn"
                     >
@@ -148,7 +148,7 @@
                       }}
                     </button>
                     <button
-                      @click="loadToSequencer(pattern)"
+                      @click="loadToSequencer(pattern, close)"
                       class="action-btn load-btn"
                     >
                       Load
@@ -178,7 +178,7 @@
                   </div>
                   <div class="melody-actions">
                     <button
-                      @click="loadMelody(melody.id)"
+                      @click="loadMelody(melody.id, close)"
                       class="action-btn load-btn"
                     >
                       Load
@@ -203,23 +203,23 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { useSequencerStore } from "@/stores/sequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { MelodicPattern } from "@/types/music";
-import * as Tone from "tone";
 import { ChevronDown, Music } from "lucide-vue-next";
 import FloatingDropdown from "./FloatingDropdown.vue";
 
 const musicStore = useMusicStore();
+const sequencerStore = useSequencerStore();
 const { getPrimaryColor } = useColorSystem();
 
 // Local state
 const searchTerm = ref("");
-const currentlyPlaying = ref<string | null>(null);
-const currentScheduleIds = ref<number[]>([]);
 
 // Computed properties
-const allPatterns = computed(() => musicStore.getMelodicPatterns());
-const savedMelodies = computed(() => musicStore.savedMelodies);
+const allPatterns = computed(() => sequencerStore.melodicPatterns);
+const savedMelodies = computed(() => sequencerStore.savedMelodies);
+const currentlyPlaying = computed(() => sequencerStore.currentlyPlaying);
 
 // Filter patterns by type
 const intervalPatterns = computed(() => {
@@ -269,100 +269,39 @@ const filteredSavedMelodies = computed(() => {
 });
 
 // Methods
-const loadToSequencer = (pattern: MelodicPattern) => {
-  musicStore.loadPatternToSequencer(pattern);
+const loadToSequencer = (
+  pattern: MelodicPattern,
+  closeDropdown?: () => void
+) => {
+  sequencerStore.loadPattern(pattern);
+  if (closeDropdown) closeDropdown();
 };
 
-const loadMelody = (melodyId: string) => {
-  musicStore.loadMelody(melodyId);
+const loadMelody = (melodyId: string, closeDropdown?: () => void) => {
+  sequencerStore.loadMelody(melodyId);
+  if (closeDropdown) closeDropdown();
 };
 
 const deleteMelody = (melodyId: string) => {
-  musicStore.deleteMelody(melodyId);
+  sequencerStore.deleteMelody(melodyId);
 };
 
-const playPattern = async (pattern: MelodicPattern) => {
+const playPattern = async (
+  pattern: MelodicPattern,
+  closeDropdown?: () => void
+) => {
   if (currentlyPlaying.value === pattern.name) return;
-
-  try {
-    await Tone.start();
-    const transport = Tone.getTransport();
-
-    // Clear any existing playback
-    stopCurrentPattern();
-
-    transport.cancel();
-    transport.stop();
-    transport.position = 0;
-    transport.bpm.value = 120;
-
-    currentlyPlaying.value = pattern.name;
-    currentScheduleIds.value = [];
-
-    let currentTime = 0;
-
-    pattern.sequence.forEach((noteData, index) => {
-      const solfegeName = noteData.note;
-      const duration = noteData.duration;
-
-      // Find the solfege index
-      const solfegeIndex = musicStore.solfegeData.findIndex(
-        (s) => s.name === solfegeName
-      );
-
-      if (solfegeIndex >= 0) {
-        // Calculate duration in seconds
-        const durationSeconds = Tone.Time(duration).toSeconds();
-
-        // Schedule note start
-        const startId = transport.schedule((time) => {
-          musicStore.attackNoteWithOctave(solfegeIndex, 4);
-        }, currentTime);
-
-        // Schedule note stop
-        const stopId = transport.schedule((time) => {
-          musicStore.releaseAllNotes();
-        }, currentTime + durationSeconds * 0.9);
-
-        currentScheduleIds.value.push(startId, stopId);
-        currentTime += durationSeconds;
-      }
-    });
-
-    // Schedule playback end
-    const endId = transport.schedule(() => {
-      stopCurrentPattern();
-    }, currentTime);
-
-    currentScheduleIds.value.push(endId);
-    transport.start();
-  } catch (error) {
-    console.error("Error playing pattern:", error);
-    stopCurrentPattern();
-  }
+  await sequencerStore.playPattern(pattern);
+  if (closeDropdown) closeDropdown();
 };
 
 const stopCurrentPattern = () => {
-  if (!currentlyPlaying.value) return;
-
-  const transport = Tone.getTransport();
-
-  // Clear all scheduled events
-  currentScheduleIds.value.forEach((id) => transport.clear(id));
-  currentScheduleIds.value = [];
-
-  // Stop transport and release notes
-  transport.cancel();
-  transport.stop();
-  transport.position = 0;
-
-  musicStore.releaseAllNotes();
-  currentlyPlaying.value = null;
+  sequencerStore.stopPatternPlayback();
 };
 
 // Cleanup on unmount
 onUnmounted(() => {
-  stopCurrentPattern();
+  sequencerStore.stopPatternPlayback();
 });
 </script>
 

@@ -134,14 +134,16 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { useSequencerStore } from "@/stores/sequencer";
 import { SequencerTransport } from "@/utils/sequencer";
 import { calculateNoteDuration } from "@/utils/duration";
 import Knob from "./Knob.vue";
 import MelodyLibrary from "./MelodyLibrary.vue";
 import { Save, CircleStop, Play, Trash, ChevronDown } from "lucide-vue-next";
 
-// Remove function props - component is now self-contained
+// Store instances
 const musicStore = useMusicStore();
+const sequencerStore = useSequencerStore();
 
 // Transport management - moved from parent component
 let sequencerTransport: SequencerTransport | null = null;
@@ -153,14 +155,14 @@ const newMelodyName = ref("");
 const isCollapsed = ref(false);
 
 // Computed values from store
-const isPlaying = computed(() => musicStore.sequencerConfig.isPlaying);
-const tempo = computed(() => musicStore.sequencerConfig.tempo);
-const baseOctave = computed(() => musicStore.sequencerConfig.baseOctave);
-const steps = computed(() => musicStore.sequencerConfig.steps);
-const currentStep = computed(() => musicStore.sequencerConfig.currentStep);
-const beatCount = computed(() => musicStore.sequencerBeats.length);
-const beats = computed(() => musicStore.sequencerBeats);
-const config = computed(() => musicStore.sequencerConfig);
+const isPlaying = computed(() => sequencerStore.isPlaying);
+const tempo = computed(() => sequencerStore.tempo);
+const baseOctave = computed(() => sequencerStore.baseOctave);
+const steps = computed(() => sequencerStore.steps);
+const currentStep = computed(() => sequencerStore.currentStep);
+const beatCount = computed(() => sequencerStore.beatCount);
+const beats = computed(() => sequencerStore.beats);
+const config = computed(() => sequencerStore.config);
 
 // Format functions for knobs
 const formatTempo = (value: number) => `${value}`;
@@ -173,11 +175,11 @@ const toggleCollapsed = () => {
 
 // Control functions - now directly using the store
 const updateTempo = (newTempo: number) => {
-  musicStore.updateSequencerConfig({ tempo: newTempo });
+  sequencerStore.setTempo(newTempo);
 };
 
 const updateOctave = (newOctave: number) => {
-  musicStore.updateSequencerConfig({ baseOctave: newOctave });
+  sequencerStore.setBaseOctave(newOctave);
 };
 
 // Playback functions - moved from parent component and made internal
@@ -198,9 +200,9 @@ const startPlayback = async () => {
       sequencerTransport = new SequencerTransport();
     }
 
-    // Use improved Part for better timing and visual sync
-    sequencerTransport.initWithImprovedPart(
-      [...beats.value], // Convert readonly array to mutable
+    // Use REACTIVE Loop for live editing during playback! 🔥
+    sequencerTransport.initWithReactiveLoop(
+      () => sequencerStore.beats, // Reactive getter - reads current beats every step
       config.value.steps,
       config.value.tempo,
       (beat, time) => {
@@ -221,11 +223,12 @@ const startPlayback = async () => {
       },
       (step, time) => {
         // Update visual step indicator
-        musicStore.updateSequencerConfig({ currentStep: step });
+        sequencerStore.setCurrentStep(step);
       }
     );
 
-    musicStore.updateSequencerConfig({ isPlaying: true, currentStep: 0 });
+    sequencerStore.setIsPlaying(true);
+    sequencerStore.setCurrentStep(0);
 
     // Start playback
     await sequencerTransport.start();
@@ -241,7 +244,8 @@ const stopPlayback = () => {
   }
 
   musicStore.releaseAllNotes();
-  musicStore.updateSequencerConfig({ isPlaying: false, currentStep: 0 });
+  sequencerStore.setIsPlaying(false);
+  sequencerStore.setCurrentStep(0);
 };
 
 const clearSequencer = () => {
@@ -249,13 +253,13 @@ const clearSequencer = () => {
   if (isPlaying.value) {
     stopPlayback();
   }
-  musicStore.clearSequencerBeats();
+  sequencerStore.clearBeats();
 };
 
 const saveCurrentMelody = () => {
   if (!newMelodyName.value || beatCount.value === 0) return;
 
-  musicStore.saveMelody(
+  sequencerStore.saveMelody(
     newMelodyName.value,
     `Sequencer melody with ${beatCount.value} beats`,
     "Custom"

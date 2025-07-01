@@ -17,6 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const showPanel = ref(false);
 const dropdownRef = ref<HTMLElement | null>(null);
+const panelRef = ref<HTMLElement | null>(null);
 
 const togglePanel = () => {
   showPanel.value = !showPanel.value;
@@ -26,9 +27,15 @@ const closePanel = () => {
   showPanel.value = false;
 };
 
-// Click outside detection
+// Click outside detection - check both the trigger container and the teleported panel
 const handleClickOutside = (event: MouseEvent) => {
-  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
+  const target = event.target as Node;
+  const isInsideTrigger =
+    dropdownRef.value && dropdownRef.value.contains(target);
+  const isInsidePanel = panelRef.value && panelRef.value.contains(target);
+
+  // Only close if click is outside both the trigger and the panel
+  if (!isInsideTrigger && !isInsidePanel) {
     closePanel();
   }
 };
@@ -56,6 +63,7 @@ defineExpose({
     <Teleport to="body">
       <div
         v-if="showPanel"
+        ref="panelRef"
         class="dropdown-panel w-full max-w-[90%]"
         :class="[
           'dropdown-panel',

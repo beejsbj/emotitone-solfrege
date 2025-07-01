@@ -1,126 +1,7 @@
-<template>
-  <div class="circular-sequencer-container p-1">
-    <svg
-      ref="svgRef"
-      viewBox="0 0 400 400"
-      class="sequencer-svg w-full h-auto block"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <!-- Quarter and sixteenth markers -->
-      <g class="grid-markers">
-        <line
-          v-for="i in 16"
-          :key="`sixteenth-${i}`"
-          :x1="centerX"
-          :y1="centerY"
-          :x2="getGridMarkerEnd(i * 22.5).x"
-          :y2="getGridMarkerEnd(i * 22.5).y"
-          class="sixteenth-marker"
-          :stroke="
-            i % 4 === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.3)'
-          "
-          :stroke-width="i % 4 === 0 ? 0.8 : 0.5"
-          stroke-dasharray="2 4"
-        />
-      </g>
-
-      <!-- Background tracks -->
-      <g v-for="track in tracks" :key="track.id">
-        <circle
-          :cx="centerX"
-          :cy="centerY"
-          :r="track.radius"
-          class="track-circle"
-          :class="{
-            active: track.isActive,
-            hovered: track.isHovered,
-          }"
-          :stroke="track.color"
-          @mouseenter="handleTrackHover(track.id, true)"
-          @mouseleave="handleTrackHover(track.id, false)"
-          @click="handleTrackClick($event, track)"
-        />
-
-        <!-- Step markers for each track -->
-        <g v-for="step in steps" :key="`${track.id}-step-${step}`">
-          <line
-            :x1="getStepPosition(track.radius - trackSpacing * 0.3, step - 1).x"
-            :y1="getStepPosition(track.radius - trackSpacing * 0.3, step - 1).y"
-            :x2="getStepPosition(track.radius + trackSpacing * 0.3, step - 1).x"
-            :y2="getStepPosition(track.radius + trackSpacing * 0.3, step - 1).y"
-            stroke="rgba(255,255,255,0.1)"
-            stroke-width="0.5"
-            class="step-marker"
-          />
-        </g>
-      </g>
-
-      <!-- Current step indicator -->
-      <g v-if="isPlaying">
-        <line
-          v-for="track in tracks"
-          :key="`current-${track.id}`"
-          :x1="
-            getStepPosition(track.radius - trackSpacing * 0.4, currentStep).x
-          "
-          :y1="
-            getStepPosition(track.radius - trackSpacing * 0.4, currentStep).y
-          "
-          :x2="
-            getStepPosition(track.radius + trackSpacing * 0.4, currentStep).x
-          "
-          :y2="
-            getStepPosition(track.radius + trackSpacing * 0.4, currentStep).y
-          "
-          stroke="white"
-          stroke-width="2"
-          opacity="0.9"
-        />
-      </g>
-
-      <!-- Indicators (sequencer beats) -->
-      <g v-for="indicator in indicators" :key="indicator.id">
-        <!-- Main indicator path -->
-        <path
-          :d="createIndicatorPath(indicator)"
-          class="indicator-path"
-          :class="{
-            dragging: indicator.isDragging,
-            selected: indicator.isSelected,
-            hovered: indicator.isHovered,
-          }"
-          :fill="getIndicatorColor(indicator)"
-          :stroke="getIndicatorColor(indicator)"
-          @mousedown="handleIndicatorStart($event, indicator)"
-          @touchstart="handleIndicatorStart($event, indicator)"
-          @mouseenter="handleIndicatorHover(indicator.id, true)"
-          @mouseleave="handleIndicatorHover(indicator.id, false)"
-        />
-      </g>
-
-      <!-- Solfege labels -->
-      <text
-        v-for="(track, index) in tracks"
-        :key="`label-${track.id}`"
-        :x="centerX + track.radius + trackSpacing * 0.8 - 16"
-        :y="centerY + 4"
-        fill="white"
-        font-size="11"
-        text-anchor="middle"
-        class="solfege-label"
-        :style="{
-          fontSize: `${Math.max(8, Math.min(11, trackSpacing * 0.6))}px`,
-        }"
-      >
-        {{ track.solfegeName }}
-      </text>
-    </svg>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { useSequencerStore } from "@/stores/sequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import type { SequencerBeat } from "@/types/music";
@@ -151,14 +32,144 @@ interface CircularIndicator {
 
 // Store and composables
 const musicStore = useMusicStore();
+const sequencerStore = useSequencerStore();
 const { getPrimaryColor } = useColorSystem();
 
+// Styling Configuration Object - Easy tweaking zone ✨
+// Change these values to customize the visual appearance
+const styles = ref({
+  // Core SVG dimensions and layout
+  dimensions: {
+    centerX: 200, // X center point of the circular sequencer
+    centerY: 200, // Y center point of the circular sequencer
+    outerRadius: 190, // Outer boundary - controls overall sequencer size
+    innerRadius: 20, // Inner boundary - creates the "donut hole" (smaller = more compact)
+    viewBox: "0 0 400 400", // SVG coordinate system (keep proportional to center values)
+  },
+
+  // Track ring configuration
+  track: {
+    spacing: 0, // Auto-calculated: space between each solfege ring
+    indicatorWidthRatio: 0.35, // Beat indicator thickness (0.1 = thin, 0.5 = thick)
+    stepMarkerWidthRatio: 0.3, // Step grid line length (0.1 = short, 0.5 = long)
+    currentStepWidthRatio: 0.4, // Playhead indicator length (how far it extends)
+    labelOffset: 0.6, // Distance of solfege labels from track (0.5 = close, 1.0 = far)
+    labelOffsetPixels: -15, // Fine-tune label positioning (negative = move left)
+  },
+
+  // Time grid (quarter/sixteenth note markers radiating from center)
+  grid: {
+    sixteenthSteps: 16, // Number of subdivision lines (16 = sixteenth notes)
+    quarterOpacity: 0.8, // Visibility of main beat lines (0.0 = invisible, 1.0 = solid)
+    sixteenthOpacity: 0.3, // Visibility of subdivision lines (lower = more subtle)
+    quarterStrokeWidth: 0.8, // Thickness of main beat lines
+    sixteenthStrokeWidth: 0.5, // Thickness of subdivision lines
+    dashArray: "2 4", // Dash pattern for grid lines (dash length, gap length)
+    markerExtension: 5, // How far grid lines extend beyond outermost track (pixels)
+  },
+
+  // Step position markers (tiny lines on each track showing beat positions)
+  stepMarkers: {
+    stroke: "rgba(255,255,255,0.1)", // Color of step markers (very subtle white)
+    strokeWidth: 0.5, // Thickness of step markers (keep thin)
+    baseOpacity: 0.1, // Default visibility (barely visible until hover)
+    hoveredOpacity: 0.2, // Visibility when track is hovered (slightly more visible)
+  },
+
+  // Track ring appearance states
+  trackCircles: {
+    baseOpacity: 0.3, // Default track visibility (subtle background presence)
+    hoveredOpacity: 0.4, // Track visibility on mouse hover (more prominent)
+    activeOpacity: 0.5, // Track visibility when active/selected (most prominent)
+    baseStrokeWidthRatio: 0.8, // Default track thickness (relative to available space)
+    hoveredStrokeWidthRatio: 0.9, // Track thickness on hover (slightly thicker)
+    activeStrokeWidthRatio: 1.0, // Track thickness when active (thickest)
+    saturation: 0.4, // Track color intensity (0.0 = grayscale, 1.0 = full color)
+  },
+
+  // Beat indicator appearance states (the actual sequencer beats)
+  indicators: {
+    baseOpacity: 1, // Default beat visibility (prominent but not overwhelming)
+    hoveredOpacity: 1, // Beat visibility on hover (fully opaque)
+    selectedOpacity: 1, // Beat visibility when selected (fully opaque)
+    draggingOpacity: 1, // Beat visibility while dragging (fully opaque)
+    baseStrokeWidth: 2, // Default beat outline thickness
+    hoveredStrokeWidth: 1, // Beat outline thickness on hover (thinner for subtle feedback)
+    selectedStrokeWidth: 2, // Beat outline thickness when selected
+    draggingStrokeWidth: 3, // Beat outline thickness while dragging (thicker for emphasis)
+    selectedStroke: "white", // Outline color when beat is selected
+    selectedStrokeOpacity: 0.8, // Opacity of selection outline
+    draggingStroke: "white", // Outline color while dragging
+    draggingStrokeOpacity: 0.9, // Opacity of drag outline
+    saturation: 1, // Beat color intensity (0.0 = grayscale, 1.0 = full color)
+  },
+
+  // Playhead (current step) indicator - shows where playback is
+  currentStep: {
+    stroke: "white", // Color of the playhead line
+    strokeWidth: 2, // Thickness of playhead line
+    opacity: 0.9, // Visibility of playhead (slightly transparent for subtlety)
+  },
+
+  // Solfege note labels (Do, Re, Mi, Fa, Sol, La, Ti text)
+  labels: {
+    fill: "white", // Text color
+    baseFontSize: 11, // Default font size
+    minFontSize: 8, // Minimum font size (prevents text getting too small)
+    maxFontSize: 11, // Maximum font size (prevents text getting too large)
+    fontSizeRatio: 0.6, // Auto-sizing based on track spacing (0.5 = smaller, 0.8 = larger)
+    fontWeight: 600, // Text weight (400 = normal, 700 = bold)
+    opacity: 0.8, // Text transparency
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.5)", // Drop shadow for readability
+    fontFamily: "system-ui, -apple-system, sans-serif", // Font family
+  },
+
+  // Touch/mouse interaction behavior settings
+  interaction: {
+    doubleTapThreshold: 300, // Max time between taps for double-tap delete (milliseconds)
+    movementThreshold: 10, // Min pixel movement to register as drag (prevents accidental moves)
+    horizontalSensitivity: 0.8, // How responsive horizontal dragging is (higher = more sensitive)
+    durationSensitivity: 0.02, // How responsive vertical duration dragging is (higher = more sensitive)
+  },
+
+  // Animation and transition settings for smooth interactions
+  transitions: {
+    default: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)", // Smooth easing for most animations
+    opacity: "opacity 0.3s ease", // Fade in/out timing
+    stepMarker: "opacity 0.2s ease", // Step marker visibility changes
+  },
+
+  // Overall container styling
+  container: {
+    background: "rgba(31, 41, 55, 0.5)", // Semi-transparent dark background
+    borderRadius: "50%", // Circular shape
+    border: "1px solid rgba(255, 255, 255, 0.2)", // Subtle white border
+    disabledOpacity: 0.4, // Opacity when sequencer is disabled
+  },
+});
+
+// Calculate derived values
+const trackSpacing = computed(
+  () =>
+    (styles.value.dimensions.outerRadius -
+      styles.value.dimensions.innerRadius) /
+    7
+);
+
+// Update track spacing in styles for CSS variables
+watch(
+  trackSpacing,
+  (newSpacing) => {
+    styles.value.track.spacing = newSpacing;
+  },
+  { immediate: true }
+);
+
 // SVG dimensions - Mobile-first sizing
-const centerX = 200;
-const centerY = 200;
-const outerRadius = 190;
-const innerRadius = 60;
-const trackSpacing = (outerRadius - innerRadius) / 7;
+const centerX = computed(() => styles.value.dimensions.centerX);
+const centerY = computed(() => styles.value.dimensions.centerY);
+const outerRadius = computed(() => styles.value.dimensions.outerRadius);
+const innerRadius = computed(() => styles.value.dimensions.innerRadius);
 
 // Refs
 const svgRef = ref<SVGElement | null>(null);
@@ -176,11 +187,11 @@ const dragStart = ref({
 });
 
 // Computed properties from store
-const config = computed(() => musicStore.sequencerConfig);
+const config = computed(() => sequencerStore.config);
 const solfegeData = computed(() => musicStore.solfegeData);
-const isPlaying = computed(() => config.value.isPlaying);
-const currentStep = computed(() => config.value.currentStep);
-const steps = computed(() => config.value.steps);
+const isPlaying = computed(() => sequencerStore.isPlaying);
+const currentStep = computed(() => sequencerStore.currentStep);
+const steps = computed(() => sequencerStore.steps);
 
 // Angle step size
 const angleSteps = computed(() => 360 / steps.value);
@@ -195,7 +206,7 @@ const initializeTracks = () => {
     .reverse()
     .map((solfege, index) => ({
       id: `track-${index}`,
-      radius: outerRadius - index * trackSpacing,
+      radius: outerRadius.value - index * trackSpacing.value,
       solfegeName: solfege.name,
       solfegeIndex: 6 - index, // Reverse the index mapping
       color: getPrimaryColor(solfege.name),
@@ -209,7 +220,7 @@ watch(solfegeData, initializeTracks, { immediate: true });
 
 // Convert sequencer beats to indicators
 const indicators = computed((): CircularIndicator[] => {
-  return musicStore.sequencerBeats.map((beat) => ({
+  return sequencerStore.beats.map((beat) => ({
     id: beat.id,
     trackId: `track-${beat.ring}`,
     startAngle: (beat.step / steps.value) * 360,
@@ -239,7 +250,12 @@ const polarToCartesian = (
 
 // Grid marker helper
 const getGridMarkerEnd = (angle: number) => {
-  return polarToCartesian(centerX, centerY, outerRadius + 5, angle);
+  return polarToCartesian(
+    centerX.value,
+    centerY.value,
+    outerRadius.value + styles.value.grid.markerExtension,
+    angle
+  );
 };
 
 const getAngleFromEvent = (e: MouseEvent | TouchEvent): number => {
@@ -254,8 +270,8 @@ const getAngleFromEvent = (e: MouseEvent | TouchEvent): number => {
   const svgX = (clientX - rect.left) * scaleX;
   const svgY = (clientY - rect.top) * scaleY;
 
-  const dx = svgX - centerX;
-  const dy = svgY - centerY;
+  const dx = svgX - centerX.value;
+  const dy = svgY - centerY.value;
   let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
   if (angle < 0) angle += 360;
   return angle;
@@ -286,7 +302,7 @@ const constrainAngles = (startAngle: number, endAngle: number) => {
 
 const getStepPosition = (radius: number, step: number) => {
   const angle = (step / steps.value) * 360;
-  return polarToCartesian(centerX, centerY, radius, angle);
+  return polarToCartesian(centerX.value, centerY.value, radius, angle);
 };
 
 const createIndicatorPath = (indicator: CircularIndicator): string => {
@@ -294,31 +310,32 @@ const createIndicatorPath = (indicator: CircularIndicator): string => {
   if (!track) return "";
 
   // Indicators should fit within track boundaries, not exceed them
-  const trackHalfWidth = trackSpacing * 0.4; // Use 80% of track width for clean spacing
+  const trackHalfWidth =
+    trackSpacing.value * styles.value.track.indicatorWidthRatio; // Use 80% of track width for clean spacing
   const innerR = track.radius - trackHalfWidth;
   const outerR = track.radius + trackHalfWidth;
 
   const innerStart = polarToCartesian(
-    centerX,
-    centerY,
+    centerX.value,
+    centerY.value,
     innerR,
     indicator.startAngle
   );
   const innerEnd = polarToCartesian(
-    centerX,
-    centerY,
+    centerX.value,
+    centerY.value,
     innerR,
     indicator.endAngle
   );
   const outerStart = polarToCartesian(
-    centerX,
-    centerY,
+    centerX.value,
+    centerY.value,
     outerR,
     indicator.startAngle
   );
   const outerEnd = polarToCartesian(
-    centerX,
-    centerY,
+    centerX.value,
+    centerY.value,
     outerR,
     indicator.endAngle
   );
@@ -357,7 +374,7 @@ const handleIndicatorHover = (indicatorId: string, isHovered: boolean) => {
 };
 
 const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
-  if (isPlaying.value || isDragging.value) return;
+  if (isDragging.value) return;
 
   e.preventDefault();
   e.stopPropagation();
@@ -389,7 +406,7 @@ const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
     octave: config.value.baseOctave,
   };
 
-  musicStore.addSequencerBeat(newBeat);
+  sequencerStore.addBeat(newBeat);
   triggerUIHaptic();
 };
 
@@ -397,8 +414,6 @@ const handleIndicatorStart = (
   e: MouseEvent | TouchEvent,
   indicator: CircularIndicator
 ) => {
-  if (isPlaying.value) return;
-
   e.preventDefault();
   e.stopPropagation();
 
@@ -407,7 +422,10 @@ const handleIndicatorStart = (
 
   // Check for double tap to delete
   const now = Date.now();
-  if (lastTapTime.value && now - lastTapTime.value < 300) {
+  if (
+    lastTapTime.value &&
+    now - lastTapTime.value < styles.value.interaction.doubleTapThreshold
+  ) {
     removeIndicator(indicator.id);
     return;
   }
@@ -455,7 +473,10 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
   const deltaY = clientY - dragStart.value.y;
 
   // Mark as moved if significant movement
-  if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+  if (
+    Math.abs(deltaX) > styles.value.interaction.movementThreshold ||
+    Math.abs(deltaY) > styles.value.interaction.movementThreshold
+  ) {
     dragStart.value.moved = true;
   }
 
@@ -464,7 +485,7 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
 
   if (Math.abs(deltaX) > Math.abs(deltaY)) {
     // Horizontal movement - move along track
-    const sensitivity = 0.8; // More responsive for mobile
+    const sensitivity = styles.value.interaction.horizontalSensitivity;
     const angleChange = deltaX * sensitivity;
     const newStartAngle = dragStart.value.startAngle + angleChange;
     const duration =
@@ -476,12 +497,12 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
     );
 
     const newStep = Math.round(constrained.startAngle / angleSteps.value);
-    musicStore.updateSequencerBeat(selectedIndicator.value.id, {
+    sequencerStore.updateBeat(selectedIndicator.value.id, {
       step: newStep,
     });
   } else {
     // Vertical movement - change duration
-    const sensitivity = 0.02; // More responsive for mobile duration control
+    const sensitivity = styles.value.interaction.durationSensitivity;
     const durationChange = -deltaY * sensitivity; // Negative because up = longer
     const currentDuration =
       (dragStart.value.endAngle - dragStart.value.startAngle) /
@@ -491,7 +512,7 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
       Math.round(currentDuration + durationChange)
     );
 
-    musicStore.updateSequencerBeat(selectedIndicator.value.id, {
+    sequencerStore.updateBeat(selectedIndicator.value.id, {
       duration: newDuration,
     });
   }
@@ -518,7 +539,7 @@ const handleEnd = (e: MouseEvent | TouchEvent) => {
 };
 
 const removeIndicator = (indicatorId: string) => {
-  musicStore.removeSequencerBeat(indicatorId);
+  sequencerStore.removeBeat(indicatorId);
   if (selectedIndicator.value?.id === indicatorId) {
     selectedIndicator.value = null;
   }
@@ -539,97 +560,240 @@ onUnmounted(() => {
 });
 </script>
 
-<style scoped>
-.circular-sequencer-container {
-  position: relative;
-  /* Mobile-first: use viewport width but maintain square aspect ratio */
+<template>
+  <div
+    class="relative p-1 transition-opacity duration-300"
+    :style="{
+      '--track-width': `calc((min(90vw, 90vh, 400px) - 120px) / 7 * ${styles.trackCircles.baseStrokeWidthRatio})`,
+    }"
+  >
+    <svg
+      ref="svgRef"
+      :viewBox="styles.dimensions.viewBox"
+      class="w-full h-auto block rounded-full border cursor-crosshair touch-none select-none"
+      :style="{
+        background: styles.container.background,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+      }"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <!-- Quarter and sixteenth markers -->
+      <g class="grid-markers">
+        <line
+          v-for="i in styles.grid.sixteenthSteps"
+          :key="`sixteenth-${i}`"
+          :x1="centerX"
+          :y1="centerY"
+          :x2="getGridMarkerEnd(i * 22.5).x"
+          :y2="getGridMarkerEnd(i * 22.5).y"
+          class="sixteenth-marker"
+          :stroke="
+            i % 4 === 0
+              ? `rgba(255,255,255,${styles.grid.quarterOpacity})`
+              : `rgba(255,255,255,${styles.grid.sixteenthOpacity})`
+          "
+          :stroke-width="
+            i % 4 === 0
+              ? styles.grid.quarterStrokeWidth
+              : styles.grid.sixteenthStrokeWidth
+          "
+          :stroke-dasharray="styles.grid.dashArray"
+        />
+      </g>
 
-  transition: opacity 0.3s ease;
-  /* Dynamic track width based on available space */
-  --track-width: calc((min(90vw, 90vh, 400px) - 120px) / 7 * 0.8);
-}
+      <!-- Background tracks -->
+      <g v-for="track in tracks" :key="track.id">
+        <circle
+          :cx="centerX"
+          :cy="centerY"
+          :r="track.radius"
+          fill="none"
+          :stroke="track.color"
+          :stroke-width="
+            track.isActive
+              ? `calc(var(--track-width) * ${styles.trackCircles.activeStrokeWidthRatio})`
+              : track.isHovered
+              ? `calc(var(--track-width) * ${styles.trackCircles.hoveredStrokeWidthRatio})`
+              : `calc(var(--track-width) * ${styles.trackCircles.baseStrokeWidthRatio})`
+          "
+          :opacity="
+            track.isActive
+              ? styles.trackCircles.activeOpacity
+              : track.isHovered
+              ? styles.trackCircles.hoveredOpacity
+              : styles.trackCircles.baseOpacity
+          "
+          :style="{
+            transition: styles.transitions.default,
+            cursor: 'pointer',
+            filter: `saturate(${styles.trackCircles.saturation})`,
+          }"
+          @mouseenter="handleTrackHover(track.id, true)"
+          @mouseleave="handleTrackHover(track.id, false)"
+          @click="handleTrackClick($event, track)"
+        />
 
-.circular-sequencer-container.disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
+        <!-- Step markers for each track -->
+        <g v-for="step in steps" :key="`${track.id}-step-${step}`">
+          <line
+            :x1="
+              getStepPosition(
+                track.radius - trackSpacing * styles.track.stepMarkerWidthRatio,
+                step - 1
+              ).x
+            "
+            :y1="
+              getStepPosition(
+                track.radius - trackSpacing * styles.track.stepMarkerWidthRatio,
+                step - 1
+              ).y
+            "
+            :x2="
+              getStepPosition(
+                track.radius + trackSpacing * styles.track.stepMarkerWidthRatio,
+                step - 1
+              ).x
+            "
+            :y2="
+              getStepPosition(
+                track.radius + trackSpacing * styles.track.stepMarkerWidthRatio,
+                step - 1
+              ).y
+            "
+            :stroke="styles.stepMarkers.stroke"
+            :stroke-width="styles.stepMarkers.strokeWidth"
+            :opacity="
+              track.isHovered
+                ? styles.stepMarkers.hoveredOpacity
+                : styles.stepMarkers.baseOpacity
+            "
+            :style="{
+              transition: styles.transitions.stepMarker,
+              pointerEvents: 'none',
+            }"
+          />
+        </g>
+      </g>
 
-.sequencer-svg {
-  width: 100%;
-  height: 100%;
-  background: rgba(31, 41, 55, 0.5);
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  cursor: crosshair;
-  touch-action: none;
-  user-select: none;
-}
+      <!-- Current step indicator -->
+      <g v-if="isPlaying">
+        <line
+          v-for="track in tracks"
+          :key="`current-${track.id}`"
+          :x1="
+            getStepPosition(
+              track.radius - trackSpacing * styles.track.currentStepWidthRatio,
+              currentStep
+            ).x
+          "
+          :y1="
+            getStepPosition(
+              track.radius - trackSpacing * styles.track.currentStepWidthRatio,
+              currentStep
+            ).y
+          "
+          :x2="
+            getStepPosition(
+              track.radius + trackSpacing * styles.track.currentStepWidthRatio,
+              currentStep
+            ).x
+          "
+          :y2="
+            getStepPosition(
+              track.radius + trackSpacing * styles.track.currentStepWidthRatio,
+              currentStep
+            ).y
+          "
+          :stroke="styles.currentStep.stroke"
+          :stroke-width="styles.currentStep.strokeWidth"
+          :opacity="styles.currentStep.opacity"
+        />
+      </g>
 
-/* Track styles - Dynamic width based on track spacing */
-.track-circle {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  stroke-width: calc(var(--track-width) * 0.8);
-  fill: none;
-  opacity: 0.3;
-  cursor: pointer;
-}
+      <!-- Indicators (sequencer beats) -->
+      <g v-for="indicator in indicators" :key="indicator.id">
+        <!-- Main indicator path -->
+        <path
+          :d="createIndicatorPath(indicator)"
+          :fill="getIndicatorColor(indicator)"
+          :stroke="
+            indicator.isSelected || indicator.isDragging
+              ? indicator.isDragging
+                ? styles.indicators.draggingStroke
+                : styles.indicators.selectedStroke
+              : getIndicatorColor(indicator)
+          "
+          :stroke-width="
+            indicator.isDragging
+              ? styles.indicators.draggingStrokeWidth
+              : indicator.isSelected
+              ? styles.indicators.selectedStrokeWidth
+              : indicator.isHovered
+              ? styles.indicators.hoveredStrokeWidth
+              : styles.indicators.baseStrokeWidth
+          "
+          :stroke-opacity="
+            indicator.isDragging
+              ? styles.indicators.draggingStrokeOpacity
+              : indicator.isSelected
+              ? styles.indicators.selectedStrokeOpacity
+              : 1
+          "
+          :opacity="
+            indicator.isDragging
+              ? styles.indicators.draggingOpacity
+              : indicator.isSelected
+              ? styles.indicators.selectedOpacity
+              : indicator.isHovered
+              ? styles.indicators.hoveredOpacity
+              : styles.indicators.baseOpacity
+          "
+          :style="{
+            transition: styles.transitions.default,
+            cursor: 'pointer',
+            transformOrigin: 'center',
+            filter: `saturate(${styles.indicators.saturation})`,
+          }"
+          @mousedown="handleIndicatorStart($event, indicator)"
+          @touchstart="handleIndicatorStart($event, indicator)"
+          @mouseenter="handleIndicatorHover(indicator.id, true)"
+          @mouseleave="handleIndicatorHover(indicator.id, false)"
+        />
+      </g>
 
-.track-circle.hovered {
-  opacity: 0.6;
-  stroke-width: calc(var(--track-width) * 0.9);
-}
+      <!-- Solfege labels -->
+      <text
+        v-for="(track, index) in tracks"
+        :key="`label-${track.id}`"
+        :x="
+          centerX +
+          track.radius +
+          trackSpacing * styles.track.labelOffset +
+          styles.track.labelOffsetPixels
+        "
+        :y="centerY + 4"
+        :fill="styles.labels.fill"
+        :font-size="styles.labels.baseFontSize"
+        text-anchor="middle"
+        :style="{
+          fontSize: `${Math.max(
+            styles.labels.minFontSize,
+            Math.min(
+              styles.labels.maxFontSize,
+              trackSpacing * styles.labels.fontSizeRatio
+            )
+          )}px`,
+          fontWeight: styles.labels.fontWeight,
+          opacity: styles.labels.opacity,
+          textShadow: styles.labels.textShadow,
+          fontFamily: styles.labels.fontFamily,
+          pointerEvents: 'none',
+        }"
+      >
+        {{ track.solfegeName }}
+      </text>
+    </svg>
+  </div>
+</template>
 
-.track-circle.active {
-  opacity: 0.8;
-  stroke-width: var(--track-width);
-}
-
-/* Step marker styles - Very subtle grid */
-.step-marker {
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-  opacity: 0.1;
-}
-
-.track-circle.hovered ~ .step-marker {
-  opacity: 0.2;
-}
-
-/* Indicator styles - Clean design without glow effects */
-.indicator-path {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  stroke-width: 2;
-  opacity: 0.9;
-  transform-origin: center;
-}
-
-.indicator-path:hover,
-.indicator-path.hovered {
-  opacity: 1;
-  stroke-width: 3;
-}
-
-.indicator-path.selected {
-  stroke-width: 3;
-  opacity: 1;
-  stroke: white;
-  stroke-opacity: 0.8;
-}
-
-.indicator-path.dragging {
-  stroke-width: 4;
-  opacity: 1;
-  stroke: white;
-  stroke-opacity: 0.9;
-}
-
-/* Solfege labels - Clean and readable */
-.solfege-label {
-  font-weight: 600;
-  pointer-events: none;
-  font-family: system-ui, -apple-system, sans-serif;
-  opacity: 0.8;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-</style>
+<!-- No scoped styles needed - using Tailwind utilities and inline styles -->

@@ -14,39 +14,43 @@ export function beatsToTonePart(
   beats: SequencerBeat[],
   steps: number,
   tempo: number,
-  playNoteCallback: (solfegeIndex: number, octave: number, duration: string, time: number) => void
+  playNoteCallback: (
+    solfegeIndex: number,
+    octave: number,
+    duration: string,
+    time: number
+  ) => void
 ): Tone.Part {
   // Convert beats to [time, value] pairs for Tone.Part
-  const events: [string, any][] = beats.map(beat => {
+  const events: [string, any][] = beats.map((beat) => {
     // Calculate the time position in Tone.js notation
     // Each step is a 16th note, so step 0 = "0:0:0", step 1 = "0:0:1", etc.
     const timePosition = `0:0:${beat.step}`; // Bars:Quarters:Sixteenths
-    
+
     // Calculate proper duration
     const noteDuration = calculateNoteDuration(beat.duration, steps, tempo);
-    
-    console.log(`Part event: step ${beat.step} -> time ${timePosition}, duration ${noteDuration.toneNotation}`);
-    
+
+    console.log(
+      `Part event: step ${beat.step} -> time ${timePosition}, duration ${noteDuration.toneNotation}`
+    );
+
     return [
       timePosition,
       {
         solfegeIndex: beat.solfegeIndex,
         octave: beat.octave,
         duration: noteDuration.toneNotation,
-        beat: beat
-      }
+        beat: beat,
+      },
     ];
   });
 
   // Create Tone.Part with the events
   const part = new Tone.Part((time: number, value: any) => {
-    console.log(`Part callback: playing note ${value.beat.solfegeName} at time ${time}`);
-    playNoteCallback(
-      value.solfegeIndex,
-      value.octave,
-      value.duration,
-      time
+    console.log(
+      `Part callback: playing note ${value.beat.solfegeName} at time ${time}`
     );
+    playNoteCallback(value.solfegeIndex, value.octave, value.duration, time);
   }, events);
 
   // Enable looping and set the loop end based on sequence length
@@ -70,21 +74,27 @@ export function createToneSequence(
   for (let i = 0; i < steps; i++) {
     sequence.push(null);
   }
-  
+
   // Place beats at their step positions
-  beats.forEach(beat => {
+  beats.forEach((beat) => {
     if (beat.step < steps) {
       sequence[beat.step] = beat;
     }
   });
 
   // Create Tone.Sequence
-  const toneSequence = new Tone.Sequence((time: number, value: SequencerBeat | null) => {
-    if (value) {
-      console.log(`Sequence callback: playing note ${value.solfegeName} at time ${time}`);
-    }
-    playNoteCallback(value, time);
-  }, sequence, "16n");
+  const toneSequence = new Tone.Sequence(
+    (time: number, value: SequencerBeat | null) => {
+      if (value) {
+        console.log(
+          `Sequence callback: playing note ${value.solfegeName} at time ${time}`
+        );
+      }
+      playNoteCallback(value, time);
+    },
+    sequence,
+    "16n"
+  );
 
   // Enable looping
   toneSequence.loop = true;
@@ -95,6 +105,50 @@ export function createToneSequence(
 /**
  * Create a Tone.js Loop for custom timing control
  * Most flexible option for complex sequencing
+ * REACTIVE VERSION - reads beats dynamically from a getter function
+ */
+export function createReactiveToneLoop(
+  getBeats: () => SequencerBeat[], // Function that returns current beats
+  steps: number,
+  tempo: number,
+  playNoteCallback: (beat: SequencerBeat, time: number) => void,
+  onStepCallback?: (step: number, time: number) => void
+): Tone.Loop {
+  let currentStep = 0;
+
+  const loop = new Tone.Loop((time: number) => {
+    // Call step callback if provided
+    if (onStepCallback) {
+      onStepCallback(currentStep, time);
+    }
+
+    // Get current beats dynamically - this makes it reactive! 🎉
+    // This is called EVERY step, so live edits are immediately reflected in playback
+    const currentBeats = getBeats();
+    const beatsToPlay = currentBeats.filter(
+      (beat) => beat.step === currentStep
+    );
+
+    // Play each beat
+    beatsToPlay.forEach((beat) => {
+      console.log(
+        `Reactive Loop: playing note ${beat.solfegeName} at step ${currentStep}, time ${time}`
+      );
+      playNoteCallback(beat, time);
+    });
+
+    // Advance to next step
+    currentStep = (currentStep + 1) % steps;
+  }, "16n"); // 16th note timing
+
+  // Enable infinite looping
+  loop.iterations = Infinity;
+
+  return loop;
+}
+
+/**
+ * Legacy non-reactive version (keeping for compatibility)
  */
 export function createToneLoop(
   beats: SequencerBeat[],
@@ -104,7 +158,7 @@ export function createToneLoop(
   onStepCallback?: (step: number, time: number) => void
 ): Tone.Loop {
   let currentStep = 0;
-  
+
   const loop = new Tone.Loop((time: number) => {
     // Call step callback if provided
     if (onStepCallback) {
@@ -112,11 +166,13 @@ export function createToneLoop(
     }
 
     // Find beats that start on this step
-    const beatsToPlay = beats.filter(beat => beat.step === currentStep);
-    
+    const beatsToPlay = beats.filter((beat) => beat.step === currentStep);
+
     // Play each beat
-    beatsToPlay.forEach(beat => {
-      console.log(`Loop callback: playing note ${beat.solfegeName} at step ${currentStep}, time ${time}`);
+    beatsToPlay.forEach((beat) => {
+      console.log(
+        `Loop callback: playing note ${beat.solfegeName} at step ${currentStep}, time ${time}`
+      );
       playNoteCallback(beat, time);
     });
 
@@ -141,14 +197,16 @@ export function createImprovedPart(
   onStepCallback?: (step: number, time: number) => void
 ): { part: Tone.Part; stepTracker: Tone.Loop } {
   // Create events for the Part
-  const events: [string, SequencerBeat][] = beats.map(beat => {
+  const events: [string, SequencerBeat][] = beats.map((beat) => {
     const timePosition = `0:0:${beat.step}`;
     return [timePosition, beat];
   });
 
   // Create the Part for note scheduling
   const part = new Tone.Part((time: number, beat: any) => {
-    console.log(`Improved Part: playing note ${beat.solfegeName} at step ${beat.step}, time ${time}`);
+    console.log(
+      `Improved Part: playing note ${beat.solfegeName} at step ${beat.step}, time ${time}`
+    );
     playNoteCallback(beat, time);
   }, events);
 
@@ -189,7 +247,12 @@ export class SequencerTransport {
     beats: SequencerBeat[],
     steps: number,
     tempo: number,
-    playNoteCallback: (solfegeIndex: number, octave: number, duration: string, time: number) => void
+    playNoteCallback: (
+      solfegeIndex: number,
+      octave: number,
+      duration: string,
+      time: number
+    ) => void
   ) {
     this.cleanup();
     this.part = beatsToTonePart(beats, steps, tempo, playNoteCallback);
@@ -208,7 +271,13 @@ export class SequencerTransport {
     onStepCallback?: (step: number, time: number) => void
   ) {
     this.cleanup();
-    const { part, stepTracker } = createImprovedPart(beats, steps, tempo, playNoteCallback, onStepCallback);
+    const { part, stepTracker } = createImprovedPart(
+      beats,
+      steps,
+      tempo,
+      playNoteCallback,
+      onStepCallback
+    );
     this.part = part;
     this.stepTracker = stepTracker;
     this.isInitialized = true;
@@ -239,7 +308,36 @@ export class SequencerTransport {
     onStepCallback?: (step: number, time: number) => void
   ) {
     this.cleanup();
-    this.loop = createToneLoop(beats, steps, tempo, playNoteCallback, onStepCallback);
+    this.loop = createToneLoop(
+      beats,
+      steps,
+      tempo,
+      playNoteCallback,
+      onStepCallback
+    );
+    this.isInitialized = true;
+    this.setTempo(tempo);
+  }
+
+  /**
+   * Initialize with REACTIVE Loop - beats are read dynamically each step
+   * This is what you want for live editing! 🔥
+   */
+  initWithReactiveLoop(
+    getBeats: () => SequencerBeat[],
+    steps: number,
+    tempo: number,
+    playNoteCallback: (beat: SequencerBeat, time: number) => void,
+    onStepCallback?: (step: number, time: number) => void
+  ) {
+    this.cleanup();
+    this.loop = createReactiveToneLoop(
+      getBeats,
+      steps,
+      tempo,
+      playNoteCallback,
+      onStepCallback
+    );
     this.isInitialized = true;
     this.setTempo(tempo);
   }
@@ -279,7 +377,7 @@ export class SequencerTransport {
    */
   stop() {
     console.log("Stopping sequencer transport...");
-    
+
     // Stop the global transport
     Tone.getTransport().stop();
 

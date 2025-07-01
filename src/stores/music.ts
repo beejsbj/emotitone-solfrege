@@ -6,9 +6,6 @@ import type {
   Melody,
   MusicalMode,
   ActiveNote,
-  SequencerBeat,
-  SavedMelody,
-  SequencerConfig,
 } from "@/types/music";
 import { audioService } from "@/services/audio";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -32,18 +29,6 @@ export const useMusicStore = defineStore(
     const activeNotes = ref<Map<string, ActiveNote>>(new Map());
     const isPlaying = ref<boolean>(false);
     const sequence = ref<string[]>([]);
-
-    // Sequencer state
-    const sequencerBeats = ref<SequencerBeat[]>([]);
-    const savedMelodies = ref<SavedMelody[]>([]);
-    const sequencerConfig = ref<SequencerConfig>({
-      steps: 16,
-      rings: 7, // 7 rings for Do, Re, Mi, Fa, Sol, La, Ti (no Do')
-      tempo: 120,
-      baseOctave: 4,
-      isPlaying: false,
-      currentStep: 0,
-    });
 
     // Getters
     const currentScale = computed(() => musicTheory.getCurrentScale());
@@ -332,169 +317,6 @@ export const useMusicStore = defineStore(
       return "";
     }
 
-    // Sequencer functions
-    function addSequencerBeat(beat: SequencerBeat) {
-      sequencerBeats.value.push(beat);
-    }
-
-    function removeSequencerBeat(beatId: string) {
-      const index = sequencerBeats.value.findIndex(
-        (beat) => beat.id === beatId
-      );
-      if (index > -1) {
-        sequencerBeats.value.splice(index, 1);
-      }
-    }
-
-    function updateSequencerBeat(
-      beatId: string,
-      updates: Partial<SequencerBeat>
-    ) {
-      const index = sequencerBeats.value.findIndex(
-        (beat) => beat.id === beatId
-      );
-      if (index > -1) {
-        sequencerBeats.value[index] = {
-          ...sequencerBeats.value[index],
-          ...updates,
-        };
-      }
-    }
-
-    function clearSequencerBeats() {
-      sequencerBeats.value = [];
-    }
-
-    function setSequencerBeats(beats: SequencerBeat[]) {
-      sequencerBeats.value = [...beats];
-    }
-
-    function updateSequencerConfig(updates: Partial<SequencerConfig>) {
-      sequencerConfig.value = { ...sequencerConfig.value, ...updates };
-    }
-
-    // Pattern to sequencer conversion
-    function loadPatternToSequencer(pattern: Melody) {
-      const beats: SequencerBeat[] = [];
-      let stepPosition = 0;
-
-      pattern.sequence.forEach((noteData, index) => {
-        const solfegeName = noteData.note;
-        const solfegeIndex = solfegeData.value.findIndex(
-          (s) => s.name === solfegeName
-        );
-
-        // Only use the first 7 solfege notes (exclude Do' if present)
-        if (solfegeIndex >= 0 && solfegeIndex < 7) {
-          // Convert duration from Tone.js notation to step duration
-          const noteDuration = noteData.duration;
-          let stepDuration = 1; // Default to 1 step
-
-          // Convert common durations to step lengths (assuming 16 steps = 1 bar)
-          switch (noteDuration) {
-            case "1n":
-              stepDuration = 16;
-              break; // Whole note
-            case "2n":
-              stepDuration = 8;
-              break; // Half note
-            case "4n":
-              stepDuration = 4;
-              break; // Quarter note
-            case "8n":
-              stepDuration = 2;
-              break; // Eighth note
-            case "16n":
-              stepDuration = 1;
-              break; // Sixteenth note
-            case "32n":
-              stepDuration = 0.5;
-              break; // Thirty-second note (rare)
-            default:
-              stepDuration = 1;
-              break; // Default to sixteenth note
-          }
-
-          // Ensure step duration is at least 1 and fits in remaining steps
-          stepDuration = Math.max(1, Math.floor(stepDuration));
-
-          const beat: SequencerBeat = {
-            id: `pattern-${Date.now()}-${index}`,
-            ring: 6 - solfegeIndex, // Reverse for visual representation (outer ring = higher notes)
-            step: stepPosition,
-            duration: stepDuration,
-            solfegeName,
-            solfegeIndex,
-            octave: sequencerConfig.value.baseOctave,
-          };
-          beats.push(beat);
-
-          // Move to next position based on the actual duration
-          stepPosition += stepDuration;
-
-          // Ensure we don't exceed the sequence length
-          if (stepPosition >= sequencerConfig.value.steps) {
-            stepPosition = stepPosition % sequencerConfig.value.steps;
-          }
-        }
-      });
-
-      setSequencerBeats(beats);
-    }
-
-    // Melody management
-    function saveMelody(
-      name: string,
-      description: string,
-      emotion: string
-    ): SavedMelody {
-      const melody: SavedMelody = {
-        id: `melody-${Date.now()}`,
-        name,
-        description,
-        emotion,
-        beats: [...sequencerBeats.value],
-        tempo: sequencerConfig.value.tempo,
-        baseOctave: sequencerConfig.value.baseOctave,
-        steps: sequencerConfig.value.steps,
-        createdAt: new Date(),
-        modifiedAt: new Date(),
-      };
-
-      savedMelodies.value.push(melody);
-      return melody;
-    }
-
-    function loadMelody(melodyId: string) {
-      const melody = savedMelodies.value.find((m) => m.id === melodyId);
-      if (melody) {
-        setSequencerBeats(melody.beats);
-        updateSequencerConfig({
-          tempo: melody.tempo,
-          baseOctave: melody.baseOctave,
-          steps: melody.steps,
-        });
-      }
-    }
-
-    function deleteMelody(melodyId: string) {
-      const index = savedMelodies.value.findIndex((m) => m.id === melodyId);
-      if (index > -1) {
-        savedMelodies.value.splice(index, 1);
-      }
-    }
-
-    function updateMelody(melodyId: string, updates: Partial<SavedMelody>) {
-      const index = savedMelodies.value.findIndex((m) => m.id === melodyId);
-      if (index > -1) {
-        savedMelodies.value[index] = {
-          ...savedMelodies.value[index],
-          ...updates,
-          modifiedAt: new Date(),
-        };
-      }
-    }
-
     return {
       // State
       currentKey,
@@ -503,11 +325,6 @@ export const useMusicStore = defineStore(
       activeNotes: readonly(activeNotes), // Make reactive but read-only
       isPlaying,
       sequence,
-
-      // Sequencer state
-      sequencerBeats: readonly(sequencerBeats),
-      savedMelodies: readonly(savedMelodies),
-      sequencerConfig: readonly(sequencerConfig),
 
       // Getters
       currentScale,
@@ -536,21 +353,6 @@ export const useMusicStore = defineStore(
       getActiveNoteNames,
       isNoteActive,
       playNoteWithDuration,
-
-      // Sequencer functions
-      addSequencerBeat,
-      removeSequencerBeat,
-      updateSequencerBeat,
-      clearSequencerBeats,
-      setSequencerBeats,
-      updateSequencerConfig,
-      loadPatternToSequencer,
-
-      // Melody management
-      saveMelody,
-      loadMelody,
-      deleteMelody,
-      updateMelody,
     };
   },
   {

@@ -9,12 +9,12 @@
     <!-- Floating Toggle Button -->
     <button
       @click="toggleCollapsed"
-      class="absolute top-2 right-4 -translate-y-full px-4 z-10 bg-white/80 p-2 hover:bg-white/40 transition-all duration-200 group rounded-lg flex items-center gap-2 text-black"
+      class="absolute top-2 right-4 -translate-y-full px-4 z-10 bg-gradient-to-b from-gray-700/80 to-black inset-shadow-lg p-2 hover:bg-white/40 transition-all duration-200 group rounded-lg flex items-center gap-2"
     >
       Player
       <ChevronDown
         :size="16"
-        class="text-black/80 transition-transform duration-300"
+        class="text-white/80 transition-transform duration-300"
         :class="{ 'rotate-180': isCollapsed }"
       />
     </button>

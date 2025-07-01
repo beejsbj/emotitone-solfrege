@@ -1,6 +1,6 @@
 <template>
   <div
-    class="key-selector rounded-sm transition-all duration-300 absolute top-0 left-0 w-full"
+    class="key-selector transition-all duration-300 absolute top-0 left-0 w-full bg-black/70 backdrop-blur-sm rounded-sm border border-white/20"
     :class="{
       'transform translate-y-[60%]': isCollapsed,
       'transform translate-y-0': !isCollapsed,
@@ -9,12 +9,12 @@
     <!-- Floating Toggle Button -->
     <button
       @click="toggleCollapsed"
-      class="absolute top-0 left-4 transform -translate-y-full px-4 z-10 bg-white/80 p-2 hover:bg-white/40 transition-all duration-200 group rounded-lg flex items-center gap-2 text-black"
+      class="absolute top-2 left-4 transform -translate-y-full px-4 z-10 bg-gradient-to-b from-gray-700/80 to-black p-2 hover:bg-white/40 transition-all duration-200 group rounded-lg flex items-center gap-2"
     >
       Keys
       <ChevronDown
         :size="16"
-        class="text-black/80 transition-transform duration-300"
+        class="text-white/80 transition-transform duration-300"
         :class="{ 'rotate-180': isCollapsed }"
       />
     </button>
@@ -130,7 +130,7 @@
           </g>
         </g>
 
-        <!-- Center key display (moved below mode carousel) -->
+        <!-- Center key display (moved below mode knob) -->
         <text
           x="160"
           y="195"
@@ -141,64 +141,19 @@
         </text>
       </svg>
 
-      <!-- Scroll-based mode carousel in center -->
+      <!-- Mode selector knob in center -->
       <div
-        class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-20 overflow-hidden"
+        class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10"
       >
-        <!-- Scrollable container -->
-        <div
-          ref="modeCarouselRef"
-          class="h-1/2 overflow-y-scroll scrollbar-hide snap-y snap-mandatory"
-          @scroll="onModeScroll"
-        >
-          <!-- Spacer to center first item -->
-          <div class="h-6"></div>
-
-          <!-- Major mode option -->
-          <div class="snap-center flex justify-center mb-2">
-            <div
-              class="px-3 py-1 border-2 flex items-center justify-center text-xs font-bold transition-all duration-200"
-              :class="
-                musicStore.currentMode === 'major'
-                  ? 'bg-yellow-500/80 border-yellow-500 text-black'
-                  : 'bg-white/10 border-white/30 text-white/50'
-              "
-            >
-              Major
-            </div>
-          </div>
-
-          <!-- Minor mode option -->
-          <div class="snap-center flex justify-center mb-2">
-            <div
-              class="px-3 py-1 border-2 flex items-center justify-center text-xs font-bold transition-all duration-200"
-              :class="
-                musicStore.currentMode === 'minor'
-                  ? 'bg-purple-500/80 border-purple-500 text-white'
-                  : 'bg-white/10 border-white/30 text-white/50'
-              "
-            >
-              Minor
-            </div>
-          </div>
-
-          <!-- Spacer to center last item -->
-          <div class="h-6"></div>
-        </div>
-
-        <!-- Carousel indicators -->
-        <div
-          class="absolute -left-6 top-1/2 transform -translate-y-1/2 flex flex-col gap-4 pointer-events-none"
-        >
-          <div class="w-4 h-0.5 bg-white/30"></div>
-          <div class="w-4 h-0.5 bg-white/30"></div>
-        </div>
-        <div
-          class="absolute -right-6 top-1/2 transform -translate-y-1/2 flex flex-col gap-4 pointer-events-none"
-        >
-          <div class="w-4 h-0.5 bg-white/30"></div>
-          <div class="w-4 h-0.5 bg-white/30"></div>
-        </div>
+        <Knob
+          :value="musicStore.currentMode"
+          :options="[
+            { label: 'Major', value: 'major', color: 'yellow' },
+            { label: 'Minor', value: 'minor', color: 'purple' },
+          ]"
+          param-name="Mode"
+          @update:value="musicStore.setMode"
+        />
       </div>
     </div>
   </div>
@@ -208,6 +163,7 @@
 import { useMusicStore } from "@/stores/music";
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { ChevronDown } from "lucide-vue-next";
+import Knob from "./Knob.vue";
 
 const musicStore = useMusicStore();
 
@@ -251,7 +207,6 @@ const lastAngle = ref(0);
 const centerX = 160;
 const centerY = 160;
 const isSnapping = ref(false);
-const modeCarouselRef = ref<HTMLElement | null>(null);
 
 // Calculate which key is currently at the top position
 const selectedKey = computed(() => {
@@ -316,11 +271,6 @@ watch(
     } else {
       musicStore.setKey(selectedMinorKey.value);
     }
-
-    // Update scroll position when mode changes programmatically
-    nextTick(() => {
-      initializeScrollPosition();
-    });
   }
 );
 
@@ -334,11 +284,10 @@ watch(
   }
 );
 
-// Initialize scroll position on mount
+// Initialize on mount
 onMounted(() => {
   nextTick(() => {
     initializeRotation();
-    initializeScrollPosition();
   });
 });
 
@@ -463,37 +412,6 @@ function selectMode(mode: "major" | "minor") {
 const toggleCollapsed = () => {
   isCollapsed.value = !isCollapsed.value;
 };
-function onModeScroll() {
-  if (!modeCarouselRef.value) return;
-
-  const scrollTop = modeCarouselRef.value.scrollTop;
-  const scrollHeight = modeCarouselRef.value.scrollHeight;
-  const clientHeight = modeCarouselRef.value.clientHeight;
-
-  // Calculate scroll progress (0 = top/major, 1 = bottom/minor)
-  const maxScroll = scrollHeight - clientHeight;
-  const scrollProgress = scrollTop / maxScroll;
-
-  // Switch mode based on scroll position
-  if (scrollProgress < 0.3 && musicStore.currentMode === "minor") {
-    musicStore.setMode("major");
-  } else if (scrollProgress > 0.7 && musicStore.currentMode === "major") {
-    musicStore.setMode("minor");
-  }
-}
-
-// Initialize scroll position based on current mode
-function initializeScrollPosition() {
-  if (!modeCarouselRef.value) return;
-
-  const scrollHeight = modeCarouselRef.value.scrollHeight;
-  const clientHeight = modeCarouselRef.value.clientHeight;
-  const maxScroll = scrollHeight - clientHeight;
-
-  // Set initial scroll position based on current mode
-  const targetScroll = musicStore.currentMode === "major" ? 0 : maxScroll;
-  modeCarouselRef.value.scrollTop = targetScroll;
-}
 </script>
 
 <style scoped>

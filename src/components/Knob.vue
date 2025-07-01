@@ -1,6 +1,7 @@
 <template>
   <div class="knob-container" :class="{ disabled: isDisabled }">
     <div
+      ref="knobWrapperRef"
       class="knob-wrapper"
       @mousedown="handleStart"
       @touchstart="handleStart"
@@ -35,6 +36,11 @@
       </svg>
     </div>
     <span class="knob-title">{{ paramName }}</span>
+
+    <!-- Floating tooltip -->
+    <div v-if="showTooltip" class="knob-tooltip" :style="tooltipStyle">
+      {{ displayValue }}
+    </div>
   </div>
 </template>
 
@@ -45,7 +51,7 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
 // Props
 const props = defineProps({
   value: {
-    type: Number,
+    type: [Number, String],
     required: true,
   },
   min: {
@@ -59,6 +65,12 @@ const props = defineProps({
   step: {
     type: Number,
     default: 1,
+  },
+  options: {
+    type: Array as () =>
+      | string[]
+      | { label: string; value: string | number; color?: string }[],
+    default: undefined,
   },
   paramName: {
     type: String,
@@ -80,41 +92,157 @@ const emit = defineEmits(["update:value", "click"]);
 // Reactive data
 const isDragging = ref(false);
 const isHeld = ref(false);
+const showTooltip = ref(false);
+const tooltipPosition = ref({ x: 0, y: 0 });
 const dragStart = ref({
   y: 0,
   value: 0,
   time: 0, // Track touch start time
   moved: false, // Track if touch moved
+  index: 0, // Track starting index for options mode
 });
 
-// Check if this is a boolean toggle (0/1 with step 1)
-const isBooleanToggle = computed(() => {
-  return props.min === 0 && props.max === 1 && props.step === 1;
+// Check if we're in options mode
+const isOptionsMode = computed(() => {
+  return (
+    props.options && Array.isArray(props.options) && props.options.length > 0
+  );
 });
+
+// Check if this is a boolean toggle (0/1 with step 1) - only for numeric mode
+const isBooleanToggle = computed(() => {
+  return (
+    !isOptionsMode.value &&
+    props.min === 0 &&
+    props.max === 1 &&
+    props.step === 1
+  );
+});
+
+// Get current option index (for options mode)
+const currentOptionIndex = computed(() => {
+  if (!isOptionsMode.value || !props.options) return 0;
+
+  const options = props.options;
+  if (typeof options[0] === "string") {
+    return (options as string[]).indexOf(props.value as string);
+  } else {
+    return (
+      options as { label: string; value: string | number; color?: string }[]
+    ).findIndex((opt) => opt.value === props.value);
+  }
+});
+
+// Get current option (for accessing color and label)
+const getCurrentOption = () => {
+  if (!isOptionsMode.value || !props.options) return null;
+
+  const options = props.options;
+  if (typeof options[0] === "string") {
+    return null; // String arrays don't have color property
+  } else {
+    return (
+      options as { label: string; value: string | number; color?: string }[]
+    ).find((opt) => opt.value === props.value);
+  }
+};
+
+// Get current option's color
+const getCurrentColor = computed(() => {
+  const currentOption = getCurrentOption();
+  return currentOption?.color || null;
+});
+
+// Get display label for current value
+const getDisplayLabel = (value: string | number | undefined = props.value) => {
+  if (!isOptionsMode.value || !props.options) {
+    return props.formatValue(value as number);
+  }
+
+  const options = props.options;
+  if (typeof options[0] === "string") {
+    return value as string;
+  } else {
+    const option = (
+      options as { label: string; value: string | number; color?: string }[]
+    ).find((opt) => opt.value === value);
+    return option?.label || String(value);
+  }
+};
+
+// Convert color names to hex values
+const getColorHex = (colorName: string): string => {
+  const colorMap: Record<string, string> = {
+    yellow: "#fbbf24", // Yellow-400
+    purple: "#a855f7", // Purple-500
+    red: "#ef4444", // Red-500
+    blue: "#3b82f6", // Blue-500
+    green: "#10b981", // Green-500
+    orange: "#f97316", // Orange-500
+    pink: "#ec4899", // Pink-500
+    cyan: "#06b6d4", // Cyan-500
+    indigo: "#6366f1", // Indigo-500
+    gray: "#6b7280", // Gray-500
+  };
+
+  // If it's already a hex color, return as is
+  if (colorName.startsWith("#")) return colorName;
+
+  // Otherwise lookup in color map or default to green
+  return colorMap[colorName.toLowerCase()] || "#00ff88";
+};
 
 // Calculate color intensity based on value
 const getColorIntensity = (baseColor: string, intensity: number): string => {
-  // For the green component, we'll make it more intense as the value increases
-  if (baseColor === "#00ff88") {
-    const normalizedValue = (props.value - props.min) / (props.max - props.min);
-    const r = 0;
-    const g = Math.round(255 * (0.2 + 0.8 * normalizedValue)); // Varies from 20% to 100% intensity
-    const b = Math.round(136 * (0.2 + 0.8 * normalizedValue)); // Varies from 20% to 100% intensity
-    return `rgb(${r}, ${g}, ${b})`;
+  // Convert color name to hex if needed
+  const hexColor = getColorHex(baseColor);
+
+  // Parse hex color
+  const hex = hexColor.replace("#", "");
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+
+  let normalizedValue: number;
+
+  if (isOptionsMode.value && props.options) {
+    // For options mode, use the index position
+    normalizedValue = currentOptionIndex.value / (props.options.length - 1);
+  } else {
+    // For numeric mode, use the actual value
+    normalizedValue =
+      ((props.value as number) - props.min) / (props.max - props.min);
   }
-  return baseColor;
+
+  // Apply intensity (0.2 to 1.0 range for visibility)
+  const finalIntensity = 0.2 + 0.8 * normalizedValue;
+
+  const finalR = Math.round(r * finalIntensity);
+  const finalG = Math.round(g * finalIntensity);
+  const finalB = Math.round(b * finalIntensity);
+
+  return `rgb(${finalR}, ${finalG}, ${finalB})`;
 };
 
 // Constants
 const color = computed(() => (props.isDisabled ? "#333" : "#666"));
 const activeColor = computed(() => {
   if (props.isDisabled) return "#444";
+
+  // For options mode with color support
+  if (isOptionsMode.value && getCurrentColor.value) {
+    return getColorIntensity(getCurrentColor.value, 1);
+  }
+
+  // For boolean toggles
   if (isBooleanToggle.value) {
-    return props.value === 1
-      ? getColorIntensity("#00ff88", props.value)
+    return (props.value as number) === 1
+      ? getColorIntensity("#00ff88", props.value as number)
       : "#ff6b6b";
   }
-  return getColorIntensity("#00ff88", props.value);
+
+  // Default numeric mode
+  return getColorIntensity("#00ff88", 1);
 });
 
 const knobRadius = 18;
@@ -134,8 +262,37 @@ const svgStyle = computed(() => ({
   transition: "transform 0.2s ease",
 }));
 
+const tooltipStyle = computed(() => {
+  let backgroundColor = "rgba(0, 0, 0, 0.8)";
+  let borderColor = "transparent";
+
+  // Use current option color for tooltip if available
+  if (isOptionsMode.value && getCurrentColor.value) {
+    const hexColor = getColorHex(getCurrentColor.value);
+    backgroundColor = hexColor + "20"; // Add 20% opacity
+    borderColor = hexColor + "60"; // Add 60% opacity for border
+  }
+
+  return {
+    position: "fixed" as const,
+    left: `${tooltipPosition.value.x}px`,
+    top: `${tooltipPosition.value.y}px`,
+    transform: "translate(-50%, -100%)",
+    zIndex: 9999,
+    isolation: "isolate" as const,
+    backgroundColor,
+    borderColor,
+    borderWidth: getCurrentColor.value ? "1px" : "0",
+    borderStyle: "solid",
+  };
+});
+
 const displayValue = computed(() => {
-  const formatted = props.formatValue(props.value);
+  if (isOptionsMode.value) {
+    return getDisplayLabel();
+  }
+
+  const formatted = props.formatValue(props.value as number);
   // If it's a number, format it with 1 decimal place, otherwise return as-is
   if (typeof formatted === "number") {
     return formatted.toFixed(1);
@@ -156,9 +313,18 @@ const backgroundArcPath = computed(() => {
 });
 
 const dynamicArcPath = computed(() => {
-  const normalizedValue = (props.value - props.min) / (props.max - props.min);
-  const currentAngle = startAngle + normalizedValue * (endAngle - startAngle);
+  let normalizedValue: number;
 
+  if (isOptionsMode.value && props.options) {
+    // For options mode, use the index position
+    normalizedValue = currentOptionIndex.value / (props.options.length - 1);
+  } else {
+    // For numeric mode, use the actual value
+    normalizedValue =
+      ((props.value as number) - props.min) / (props.max - props.min);
+  }
+
+  const currentAngle = startAngle + normalizedValue * (endAngle - startAngle);
   return describeArc(centerX, centerY, knobRadius, startAngle, currentAngle);
 });
 
@@ -207,6 +373,26 @@ const clampValue = (value: number): number => {
   return Math.round(clamped / props.step) * props.step;
 };
 
+const clampIndex = (index: number): number => {
+  if (!props.options) return 0;
+  return Math.max(0, Math.min(props.options.length - 1, Math.round(index)));
+};
+
+const getValueFromIndex = (index: number) => {
+  if (!isOptionsMode.value || !props.options) return index;
+
+  const clampedIndex = clampIndex(index);
+  const options = props.options;
+
+  if (typeof options[0] === "string") {
+    return (options as string[])[clampedIndex];
+  } else {
+    return (options as { label: string; value: string | number }[])[
+      clampedIndex
+    ].value;
+  }
+};
+
 // Event handlers
 const handleClick = (e: MouseEvent | TouchEvent) => {
   // Skip click handling for touch events - we'll handle those in touchend
@@ -218,10 +404,38 @@ const handleClick = (e: MouseEvent | TouchEvent) => {
   if (isBooleanToggle.value) {
     e.preventDefault();
     e.stopPropagation();
-    const newValue = props.value === 1 ? 0 : 1;
+    const newValue = (props.value as number) === 1 ? 0 : 1;
     emit("update:value", newValue);
     triggerUIHaptic();
   }
+
+  // Handle click for options mode - cycle to next option
+  if (isOptionsMode.value && props.options) {
+    e.preventDefault();
+    e.stopPropagation();
+    const nextIndex = (currentOptionIndex.value + 1) % props.options.length;
+    const newValue = getValueFromIndex(nextIndex);
+    emit("update:value", newValue);
+    triggerUIHaptic();
+  }
+};
+
+const updateTooltipPosition = (event: MouseEvent | TouchEvent) => {
+  let x: number, y: number;
+
+  if (event instanceof TouchEvent) {
+    const touch = event.touches[0] || event.changedTouches[0];
+    x = touch.pageX;
+    y = touch.pageY;
+  } else {
+    x = event.pageX;
+    y = event.pageY;
+  }
+
+  tooltipPosition.value = {
+    x,
+    y: y - 40, // 40px above finger/cursor
+  };
 };
 
 const handleStart = (e: MouseEvent | TouchEvent) => {
@@ -232,14 +446,20 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
 
   isDragging.value = true;
   isHeld.value = true;
+  showTooltip.value = true;
 
   const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+  const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+
+  // Set initial tooltip position
+  updateTooltipPosition(e);
 
   dragStart.value = {
     y: clientY,
-    value: props.value,
+    value: isOptionsMode.value ? 0 : (props.value as number),
     time: Date.now(),
     moved: false,
+    index: isOptionsMode.value ? currentOptionIndex.value : 0,
   };
 
   // Add global event listeners
@@ -259,6 +479,10 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
   e.stopPropagation();
 
   const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+  const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+
+  // Update tooltip position
+  updateTooltipPosition(e);
 
   // Mark as moved if the touch has moved more than a few pixels
   if (Math.abs(clientY - dragStart.value.y) > 5) {
@@ -267,15 +491,29 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
 
   // Only use vertical movement, inverted (up = increase)
   const yDiff = (dragStart.value.y - clientY) * 0.5; // Sensitivity factor
-  const valueRange = props.max - props.min;
-  const sensitivity = valueRange / 100; // Adjust based on range
 
-  const newValue = dragStart.value.value + yDiff * sensitivity;
-  const clampedValue = clampValue(newValue);
+  if (isOptionsMode.value && props.options) {
+    // Options mode: discrete steps between options
+    const sensitivity = props.options.length / 100; // Adjust based on number of options
+    const newIndex = dragStart.value.index + yDiff * sensitivity;
+    const clampedIndex = clampIndex(newIndex);
 
-  if (clampedValue !== props.value) {
-    emit("update:value", clampedValue);
-    triggerUIHaptic();
+    if (clampedIndex !== currentOptionIndex.value) {
+      const newValue = getValueFromIndex(clampedIndex);
+      emit("update:value", newValue);
+      triggerUIHaptic();
+    }
+  } else {
+    // Numeric mode: continuous values
+    const valueRange = props.max - props.min;
+    const sensitivity = valueRange / 100; // Adjust based on range
+    const newValue = dragStart.value.value + yDiff * sensitivity;
+    const clampedValue = clampValue(newValue);
+
+    if (clampedValue !== (props.value as number)) {
+      emit("update:value", clampedValue);
+      triggerUIHaptic();
+    }
   }
 };
 
@@ -285,23 +523,27 @@ const handleEnd = (e: MouseEvent | TouchEvent) => {
   e.preventDefault();
   e.stopPropagation();
 
-  // Handle tap for boolean toggles on touch devices
+  // Handle tap for boolean toggles and options on touch devices
   if ("touches" in e || "changedTouches" in e) {
     const touchDuration = Date.now() - dragStart.value.time;
     // If it was a short touch (< 200ms) and didn't move much, treat as tap
-    if (
-      isBooleanToggle.value &&
-      touchDuration < 200 &&
-      !dragStart.value.moved
-    ) {
-      const newValue = props.value === 1 ? 0 : 1;
-      emit("update:value", newValue);
-      triggerUIHaptic();
+    if (touchDuration < 200 && !dragStart.value.moved) {
+      if (isBooleanToggle.value) {
+        const newValue = (props.value as number) === 1 ? 0 : 1;
+        emit("update:value", newValue);
+        triggerUIHaptic();
+      } else if (isOptionsMode.value && props.options) {
+        const nextIndex = (currentOptionIndex.value + 1) % props.options.length;
+        const newValue = getValueFromIndex(nextIndex);
+        emit("update:value", newValue);
+        triggerUIHaptic();
+      }
     }
   }
 
   isDragging.value = false;
   isHeld.value = false;
+  showTooltip.value = false;
 
   // Remove global event listeners
   if ("touches" in e) {
@@ -375,5 +617,22 @@ const handleEnd = (e: MouseEvent | TouchEvent) => {
 
 .knob-wrapper:active .knob-value {
   font-size: 10px;
+}
+
+.knob-tooltip {
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  position: fixed;
+  isolation: isolate;
+  z-index: 9999;
+  transform: translate(-50%, 0);
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.1s ease-out;
 }
 </style>

@@ -27,7 +27,7 @@
               <!-- <KeySelector /> -->
             </div>
 
-            <CircularSequencerVisual />
+            <CircularSequencer />
 
             <!-- Pattern Player -->
 
@@ -70,8 +70,8 @@ import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import CircularSequencerVisual from "@/components/CircularSequencerVisual.vue";
 import SequencerControls from "@/components/SequencerControls.vue";
+import CircularSequencer from "@/components/CircularSequencer.vue";
 
 // Stores and composables
 const musicStore = useMusicStore();

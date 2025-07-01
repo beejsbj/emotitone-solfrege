@@ -25,8 +25,9 @@
       </div>
     </div>
 
-    <!-- Note Colors Section -->
-    <section class="showcase-section">
+    <div class="showcase-content">
+      <!-- Note Colors Section -->
+      <section class="showcase-section">
       <div class="section-row">
         <h3 class="section-heading">🎵 Note Colors</h3>
         <div class="note-colors-rows">
@@ -260,6 +261,7 @@
         </div>
       </div>
     </section>
+    </div>
   </div>
 </template>
 
@@ -382,18 +384,28 @@ const createChordConicGlass = (notes: string[]): string => {
 
 <style scoped>
 .color-showcase {
-  padding: 1rem;
+  padding: 0;
   font-size: 0.85rem;
   line-height: 1.2;
 }
 
+.showcase-content {
+  padding: 1rem;
+}
+
 .showcase-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  padding-bottom: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px 8px 0 0;
 }
 
 .showcase-header h2 {
@@ -476,15 +488,17 @@ const createChordConicGlass = (notes: string[]): string => {
 .color-swatches {
   display: flex;
   gap: 0.25rem;
+  flex: 1;
 }
 
 .color-swatch {
-  width: 24px;
+  flex: 1;
   height: 24px;
   border-radius: 4px;
   cursor: pointer;
   transition: transform 0.2s ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 0;
 }
 
 .color-swatch:hover {
@@ -514,15 +528,17 @@ const createChordConicGlass = (notes: string[]): string => {
 .gradient-samples {
   display: flex;
   gap: 0.25rem;
+  flex: 1;
 }
 
 .gradient-sample {
-  width: 24px;
+  flex: 1;
   height: 24px;
   border-radius: 4px;
   cursor: pointer;
   transition: transform 0.2s ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 0;
 }
 
 .gradient-sample.radial {
@@ -560,16 +576,18 @@ const createChordConicGlass = (notes: string[]): string => {
 .glassmorphism-samples {
   display: flex;
   gap: 0.25rem;
+  flex: 1;
 }
 
 .glassmorphism-sample {
-  width: 32px;
+  flex: 1;
   height: 24px;
   border-radius: 6px;
   cursor: pointer;
   transition: transform 0.2s ease;
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.15);
+  min-width: 0;
 }
 
 .glassmorphism-sample:hover {

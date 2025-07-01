@@ -317,6 +317,7 @@ import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { SequencerBeat, MelodicPattern } from "@/types/music";
 import { calculateNoteDuration } from "@/utils/duration";
+import { SequencerTransport } from "@/utils/sequencer";
 import * as Tone from "tone";
 import Knob from "./Knob.vue";
 
@@ -344,8 +345,8 @@ const dragBeat = ref<SequencerBeat | null>(null);
 // Debug state
 const debugClick = ref<{ x: number; y: number; ring: number } | null>(null);
 
-// Transport reference for cleanup
-let sequenceRef: Tone.Sequence | null = null;
+// Sequencer transport for Tone.js integration
+let sequencerTransport: SequencerTransport | null = null;
 
 // Computed properties
 const config = computed(() => musicStore.sequencerConfig);
@@ -655,48 +656,39 @@ const startPlayback = async () => {
   if (beats.value.length === 0) return;
 
   try {
-    await Tone.start();
-    const transport = Tone.getTransport();
+    // Initialize sequencer transport if not already done
+    if (!sequencerTransport) {
+      sequencerTransport = new SequencerTransport();
+    }
 
-    // Clear any existing schedules
-    transport.cancel();
-    transport.stop();
-    transport.position = 0;
-    transport.bpm.value = config.value.tempo;
+    // Initialize with Part for optimal scheduling
+    sequencerTransport.initWithPart(
+      beats.value,
+      config.value.steps,
+      config.value.tempo,
+      (solfegeIndex, octave, duration, time) => {
+        // Play the note with the calculated duration
+        musicStore.playNoteWithDuration(solfegeIndex, octave, duration, time);
+      }
+    );
 
     musicStore.updateSequencerConfig({ isPlaying: true, currentStep: 0 });
 
-    // Create sequence
-    sequenceRef = new Tone.Sequence(
-      (time, step) => {
-        musicStore.updateSequencerConfig({ currentStep: step });
+    // Start playback
+    await sequencerTransport.start();
+    
+    // Set up step tracking (optional for visual feedback)
+    // We can use a simple interval for step indication since Tone.Part handles the music
+    let stepTracker = 0;
+    const stepInterval = setInterval(() => {
+      if (sequencerTransport?.isPlaying) {
+        musicStore.updateSequencerConfig({ currentStep: stepTracker });
+        stepTracker = (stepTracker + 1) % config.value.steps;
+      } else {
+        clearInterval(stepInterval);
+      }
+    }, (60 / config.value.tempo / 4) * 1000); // 16th note intervals
 
-        // Play beats that start on this step
-        beats.value.forEach((beat) => {
-          if (beat.step === step) {
-            // Calculate the proper duration based on the beat's visual representation
-            const noteDuration = calculateNoteDuration(
-              beat.duration,
-              config.value.steps,
-              config.value.tempo
-            );
-
-            // Play the note with the correct duration
-            musicStore.playNoteWithDuration(
-              beat.solfegeIndex,
-              beat.octave,
-              noteDuration.toneNotation,
-              time
-            );
-          }
-        });
-      },
-      Array.from({ length: config.value.steps }, (_, i) => i),
-      "16n"
-    );
-
-    sequenceRef.start(0);
-    transport.start();
   } catch (error) {
     console.error("Error starting playback:", error);
     stopPlayback();
@@ -704,16 +696,9 @@ const startPlayback = async () => {
 };
 
 const stopPlayback = () => {
-  const transport = Tone.getTransport();
-
-  if (sequenceRef) {
-    sequenceRef.dispose();
-    sequenceRef = null;
+  if (sequencerTransport) {
+    sequencerTransport.stop();
   }
-
-  transport.cancel();
-  transport.stop();
-  transport.position = 0;
 
   musicStore.releaseAllNotes();
   musicStore.updateSequencerConfig({ isPlaying: false, currentStep: 0 });
@@ -734,6 +719,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPlayback();
+  if (sequencerTransport) {
+    sequencerTransport.dispose();
+    sequencerTransport = null;
+  }
   document.removeEventListener("mousemove", handlePointerMove);
   document.removeEventListener("mouseup", handlePointerUp);
 });

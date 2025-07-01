@@ -25,6 +25,8 @@ export interface InstrumentConfig {
   icon?: string;
   /** Whether to minify samples for this instrument (for sample-based instruments) */
   minify?: boolean;
+  /** Optional envelope override for this specific instrument */
+  envelope?: AudioEnvelope;
 }
 
 /**

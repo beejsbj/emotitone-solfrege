@@ -1,5 +1,6 @@
 // Utility functions for frequency-based visual effects
-import type { FrequencyMapping, VisualEffectsConfig } from "@/types/visual";
+import type { FrequencyMapping } from "@/types/audio";
+import type { VisualEffectsConfig } from "@/types/config";
 // Color extraction is now handled by unified color system
 
 /**

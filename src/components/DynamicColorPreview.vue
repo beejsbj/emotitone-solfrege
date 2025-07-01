@@ -53,17 +53,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { useVisualConfig } from "@/composables/useVisualConfig";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 
 const { getColorPreview, isDynamicColorsEnabled } = useColorSystem();
-const { dynamicColorConfig } = useVisualConfig();
+const visualConfigStore = useVisualConfigStore();
 
 // Get color preview for middle octave
 const colorPreview = computed(() => getColorPreview("major", 3));
 
 // Check if chromatic mapping is enabled
 const isChromaticMappingEnabled = computed(
-  () => dynamicColorConfig.value.chromaticMapping
+  () => visualConfigStore.config.dynamicColors.chromaticMapping
 );
 </script>
 

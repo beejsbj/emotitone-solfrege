@@ -5,7 +5,7 @@
 
 import type { Particle } from "@/types/canvas";
 import type { SolfegeData } from "@/types/music";
-import type { ParticleConfig } from "@/types/visual";
+import type { ParticleConfig } from "@/types/canvas";
 import { useColorSystem } from "../useColorSystem";
 
 export function useParticleSystem() {

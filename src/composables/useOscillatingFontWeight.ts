@@ -1,6 +1,6 @@
 // Simple font weight oscillation utility
 import { useMusicStore } from "@/stores/music";
-import { useVisualConfig } from "./useVisualConfig";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import {
   mapFrequencyToValue,
   createFontWeightMapping,
@@ -37,8 +37,8 @@ function cacheOscillationElements() {
  * Updates font weights for all elements with oscillation classes (optimized)
  */
 function updateFontWeights(elapsed: number) {
-  const { fontOscillationConfig } = useVisualConfig();
-  if (!fontOscillationConfig.value.isEnabled) return;
+  const visualConfigStore = useVisualConfigStore();
+  if (!visualConfigStore.config.fontOscillation.isEnabled) return;
 
   // Check if we need to refresh the element cache
   const currentElementCount = document.querySelectorAll(
@@ -54,13 +54,13 @@ function updateFontWeights(elapsed: number) {
     let config;
 
     if (htmlElement.classList.contains("font-weight-oscillate-sm")) {
-      config = fontOscillationConfig.value.sm;
+      config = visualConfigStore.config.fontOscillation.sm;
     } else if (htmlElement.classList.contains("font-bold")) {
-      config = fontOscillationConfig.value.md;
+      config = visualConfigStore.config.fontOscillation.md;
     } else if (htmlElement.classList.contains("font-weight-oscillate-lg")) {
-      config = fontOscillationConfig.value.lg;
+      config = visualConfigStore.config.fontOscillation.lg;
     } else if (htmlElement.classList.contains("font-weight-oscillate-full")) {
-      config = fontOscillationConfig.value.full;
+      config = visualConfigStore.config.fontOscillation.full;
     } else {
       return;
     }

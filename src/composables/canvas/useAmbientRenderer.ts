@@ -3,7 +3,7 @@
  * Handles ambient background effects and atmospheric visuals
  */
 
-import type { AmbientConfig } from "@/types/visual";
+import type { AmbientConfig } from "@/types/canvas";
 
 export function useAmbientRenderer() {
   /**

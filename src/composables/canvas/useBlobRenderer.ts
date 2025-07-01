@@ -5,7 +5,7 @@
 
 import type { ActiveBlob } from "@/types/canvas";
 import type { SolfegeData } from "@/types/music";
-import type { BlobConfig } from "@/types/visual";
+import type { BlobConfig } from "@/types/canvas";
 import { useColorSystem } from "../useColorSystem";
 import { createVisualFrequency } from "@/utils/visualEffects";
 

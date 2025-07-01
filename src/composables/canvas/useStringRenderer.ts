@@ -8,7 +8,7 @@ import type {
   VibratingStringConfig,
   StringConfig,
   AnimationConfig,
-} from "@/types/visual";
+} from "@/types/canvas";
 import { useColorSystem } from "../useColorSystem";
 import {
   createVisualFrequency,

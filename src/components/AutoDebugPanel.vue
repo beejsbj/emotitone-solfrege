@@ -32,71 +32,90 @@
           </label>
         </div>
 
-        <div v-if="lastSaved" class="last-saved">
-          Last saved: {{ formatLastSaved(lastSaved) }}
-        </div>
+        <div class="last-saved">Auto-saving enabled via Pinia persistence</div>
       </div>
 
-      <!-- Auto-generated sections -->
+      <!-- Auto-generated sections from CONFIG_DEFINITIONS -->
       <div
-        v-for="(sectionConfig, sectionName) in configSections"
+        v-for="(sectionDef, sectionName) in CONFIG_DEFINITIONS"
         :key="sectionName"
         class="config-section"
         :class="{ disabled: !visualsEnabled }"
       >
-        <h4>
-          {{ getSectionIcon(sectionName) }} {{ getSectionTitle(sectionName) }}
-        </h4>
+        <h4>{{ sectionDef.icon }} {{ sectionDef.label }}</h4>
 
         <!-- Knobs grid layout -->
         <div class="knobs-grid">
           <div
-            v-for="(value, key) in sectionConfig"
-            :key="key"
+            v-for="(fieldDef, fieldName) in sectionDef.fields"
+            :key="fieldName"
             class="knob-item"
           >
             <!-- Boolean toggle knobs -->
             <Knob
-              v-if="typeof value === 'boolean'"
-              :value="value ? 1 : 0"
+              v-if="typeof fieldDef.value === 'boolean'"
+              :value="getCurrentValue(sectionName, fieldName) ? 1 : 0"
               :min="0"
               :max="1"
               :step="1"
-              :param-name="formatLabel(String(key))"
+              :param-name="fieldDef.label || formatLabel(String(fieldName))"
               :format-value="(val: number) => val === 1 ? 'ON' : 'OFF'"
               :is-disabled="!visualsEnabled"
-              @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue === 1)"
-              @click="() => updateValue(sectionName, String(key), !value)"
+              @update:value="(newValue: number) => updateValue(sectionName, String(fieldName), newValue === 1)"
+              @click="
+                () =>
+                  updateValue(
+                    sectionName,
+                    String(fieldName),
+                    !getCurrentValue(sectionName, fieldName)
+                  )
+              "
             />
 
             <!-- Number knobs -->
             <Knob
-              v-else-if="typeof value === 'number'"
-              :value="value"
-              :min="getNumberMin(sectionName, String(key))"
-              :max="getNumberMax(sectionName, String(key))"
-              :step="getNumberStep(sectionName, String(key))"
-              :param-name="formatLabel(String(key))"
-              :format-value="(val: number) => formatValue(sectionName, String(key), val)"
+              v-else-if="typeof fieldDef.value === 'number'"
+              :value="getCurrentValue(sectionName, fieldName)"
+              :min="fieldDef.min ?? 0"
+              :max="fieldDef.max ?? 100"
+              :step="fieldDef.step ?? 0.1"
+              :param-name="fieldDef.label || formatLabel(String(fieldName))"
+              :format-value="(val: number) => formatFieldValue(fieldDef, val)"
               :is-disabled="!visualsEnabled"
-              @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue)"
+              @update:value="(newValue: number) => updateValue(sectionName, String(fieldName), newValue)"
             />
 
             <!-- String controls (if needed) -->
-            <div v-else-if="typeof value === 'string'" class="string-control">
-              <label>{{ formatLabel(String(key)) }}</label>
+            <div
+              v-else-if="typeof fieldDef.value === 'string'"
+              class="string-control"
+            >
+              <label>{{
+                fieldDef.label || formatLabel(String(fieldName))
+              }}</label>
               <input
                 type="text"
-                :value="value"
+                :value="getCurrentValue(sectionName, fieldName)"
                 :disabled="!visualsEnabled"
                 @input="
                   updateValue(
                     sectionName,
-                    String(key),
+                    String(fieldName),
                     ($event.target as HTMLInputElement)?.value ?? ''
                   )
                 "
               />
+            </div>
+
+            <!-- Complex object fields (skip for now) -->
+            <div
+              v-else-if="typeof fieldDef.value === 'object'"
+              class="object-control"
+            >
+              <label>{{
+                fieldDef.label || formatLabel(String(fieldName))
+              }}</label>
+              <span class="object-indicator">Complex Object</span>
             </div>
           </div>
         </div>
@@ -153,7 +172,11 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useVisualConfigStore } from "@/stores/visualConfig";
+import {
+  useVisualConfigStore,
+  CONFIG_DEFINITIONS,
+} from "@/stores/visualConfig";
+import { formatFieldValue, formatLabel } from "@/utils/configHelpers";
 import Knob from "./Knob.vue";
 import {
   Settings,
@@ -172,7 +195,7 @@ const {
   config,
   visualsEnabled,
   savedConfigs,
-  lastSaved,
+
   updateValue,
   resetToDefaults,
   exportConfig: storeExportConfig,
@@ -182,222 +205,10 @@ const {
   deleteSavedConfig,
 } = visualConfigStore;
 
-// Computed sections that exclude nested objects for now
-const configSections = computed(() => {
-  const sections: Record<string, any> = {};
-
-  Object.keys(config).forEach((sectionName) => {
-    const section = config[sectionName as keyof typeof config];
-    if (
-      typeof section === "object" &&
-      section !== null &&
-      !Array.isArray(section)
-    ) {
-      // Only include primitive values for now
-      const primitives: Record<string, any> = {};
-      Object.keys(section).forEach((key) => {
-        const value = (section as Record<string, any>)[key];
-        if (
-          typeof value === "boolean" ||
-          typeof value === "number" ||
-          typeof value === "string"
-        ) {
-          primitives[key] = value;
-        }
-      });
-      if (Object.keys(primitives).length > 0) {
-        sections[sectionName] = primitives;
-      }
-    }
-  });
-
-  return sections;
-});
-
-// Configuration metadata for better controls
-const configMetadata: Record<
-  string,
-  Record<string, { min?: number; max?: number; step?: number }>
-> = {
-  blobs: {
-    baseSizeRatio: { min: 0.1, max: 1, step: 0.05 },
-    minSize: { min: 50, max: 500, step: 25 },
-    maxSize: { min: 200, max: 1200, step: 50 },
-    opacity: { min: 0, max: 1, step: 0.05 },
-    blurRadius: { min: 0, max: 100, step: 5 },
-    oscillationAmplitude: { min: 0, max: 1, step: 0.02 },
-    fadeOutDuration: { min: 0.1, max: 5, step: 0.1 },
-    driftSpeed: { min: 0, max: 100, step: 2 },
-    vibrationFrequencyDivisor: { min: 10, max: 500, step: 5 },
-  },
-  strings: {
-    count: { min: 1, max: 16, step: 1 },
-    baseOpacity: { min: 0, max: 1, step: 0.05 },
-    activeOpacity: { min: 0, max: 1, step: 0.05 },
-    maxAmplitude: { min: 1, max: 100, step: 1 },
-    dampingFactor: { min: 0.01, max: 0.5, step: 0.01 },
-    interpolationSpeed: { min: 0.01, max: 1, step: 0.01 },
-    opacityInterpolationSpeed: { min: 0.01, max: 1, step: 0.01 },
-  },
-  particles: {
-    count: { min: 0, max: 100, step: 5 },
-    sizeMin: { min: 1, max: 20, step: 1 },
-    sizeMax: { min: 1, max: 20, step: 1 },
-    lifetimeMin: { min: 500, max: 10000, step: 250 },
-    lifetimeMax: { min: 500, max: 10000, step: 250 },
-    speed: { min: 0, max: 20, step: 0.5 },
-  },
-  ambient: {
-    opacityMajor: { min: 0, max: 1, step: 0.05 },
-    opacityMinor: { min: 0, max: 1, step: 0.05 },
-    brightnessMajor: { min: 0, max: 1, step: 0.05 },
-    brightnessMinor: { min: 0, max: 1, step: 0.05 },
-    saturationMajor: { min: 0, max: 1, step: 0.05 },
-    saturationMinor: { min: 0, max: 1, step: 0.05 },
-  },
-  animation: {
-    visualFrequencyDivisor: { min: 10, max: 1000, step: 10 },
-    frameRate: { min: 30, max: 120, step: 15 },
-    smoothingFactor: { min: 0.01, max: 1, step: 0.01 },
-  },
-  frequencyMapping: {
-    minFreq: { min: 50, max: 500, step: 10 },
-    maxFreq: { min: 200, max: 2000, step: 50 },
-    minValue: { min: 100, max: 800, step: 25 },
-    maxValue: { min: 200, max: 1000, step: 25 },
-  },
-  dynamicColors: {
-    hueAnimationAmplitude: { min: 5, max: 30, step: 5 },
-    animationSpeed: { min: 0.1, max: 3, step: 0.1 },
-    saturation: { min: 0.3, max: 1, step: 0.1 },
-    baseLightness: { min: 0.3, max: 0.7, step: 0.05 },
-    lightnessRange: { min: 0.3, max: 0.8, step: 0.05 },
-  },
-  palette: {
-    gradientDirection: { min: 0, max: 360, step: 15 },
-    glassmorphOpacity: { min: 0, max: 1, step: 0.05 },
-  },
-  floatingPopup: {
-    accumulationWindow: { min: 100, max: 2000, step: 50 },
-    hideDelay: { min: 500, max: 10000, step: 250 },
-    maxNotes: { min: 1, max: 12, step: 1 },
-    backdropBlur: { min: 0, max: 50, step: 2 },
-    glassmorphOpacity: { min: 0, max: 1, step: 0.05 },
-    animationDuration: { min: 100, max: 1000, step: 50 },
-  },
+// Helper function to get current value from config
+const getCurrentValue = (sectionName: string, fieldName: string): any => {
+  return (config as any)[sectionName]?.[fieldName];
 };
-
-// Helper functions
-const getSectionIcon = (sectionName: string): string => {
-  const icons: Record<string, string> = {
-    blobs: "🫧",
-    strings: "🎸",
-    particles: "✨",
-    ambient: "🌅",
-    animation: "🎬",
-    frequencyMapping: "🎵",
-    fontOscillation: "📝",
-    dynamicColors: "🌈",
-    palette: "🎹",
-    floatingPopup: "💬",
-  };
-  return icons[sectionName] || "⚙️";
-};
-
-const getSectionTitle = (sectionName: string): string => {
-  return sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
-};
-
-const formatLabel = (key: string): string => {
-  // Special labels for dynamic colors
-  const specialLabels: Record<string, string> = {
-    chromaticMapping: "Chromatic Mapping (12 notes vs 7 solfege)",
-    hueAnimationAmplitude: "Hue Animation (±°)",
-    animationSpeed: "Animation Speed",
-    baseLightness: "Base Lightness",
-    lightnessRange: "Lightness Range",
-    // Floating popup labels
-    accumulationWindow: "Accumulation Window",
-    hideDelay: "Hide Delay",
-    maxNotes: "Max Notes",
-    showChord: "Show Chord",
-    showIntervals: "Show Intervals",
-    showEmotionalDescription: "Show Emotions",
-    backdropBlur: "Backdrop Blur",
-    glassmorphOpacity: "Glass Opacity",
-    animationDuration: "Animation Duration",
-  };
-
-  if (specialLabels[key]) {
-    return specialLabels[key];
-  }
-
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/^./, (str) => str.toUpperCase());
-};
-
-const formatValue = (sectionName: string, key: string, value: any): string => {
-  // Format percentage values
-  if (
-    sectionName === "dynamicColors" &&
-    (key === "saturation" ||
-      key === "baseLightness" ||
-      key === "lightnessRange")
-  ) {
-    return `${Math.round(value * 100)}%`;
-  }
-
-  // Format palette glassmorphism opacity
-  if (sectionName === "palette" && key === "glassmorphOpacity") {
-    return `${Math.round(value * 100)}%`;
-  }
-
-  // Format floating popup values
-  if (sectionName === "floatingPopup") {
-    if (key === "accumulationWindow" || key === "hideDelay") {
-      return `${value}ms`;
-    }
-    if (key === "backdropBlur") {
-      return `${value}px`;
-    }
-    if (key === "glassmorphOpacity") {
-      return `${Math.round(value * 100)}%`;
-    }
-    if (key === "animationDuration") {
-      return `${value}ms`;
-    }
-    if (key === "maxNotes") {
-      return `${value} notes`;
-    }
-  }
-
-  // Format hue animation amplitude
-  if (sectionName === "dynamicColors" && key === "hueAnimationAmplitude") {
-    return `${value}°`;
-  }
-
-  // Format animation speed
-  if (sectionName === "dynamicColors" && key === "animationSpeed") {
-    return `${value}x`;
-  }
-
-  return value.toString();
-};
-
-const getNumberMin = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.min ?? 0;
-};
-
-const getNumberMax = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.max ?? 100;
-};
-
-const getNumberStep = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.step ?? 0.1;
-};
-
-// Note: Knob now works directly with actual values, no conversion needed
 
 const togglePanel = () => {
   showPanel.value = !showPanel.value;
@@ -422,15 +233,6 @@ const promptSaveConfig = () => {
   if (name?.trim()) {
     saveConfigAs(name.trim());
     alert(`Configuration "${name}" saved!`);
-  }
-};
-
-const formatLastSaved = (timestamp: string): string => {
-  try {
-    const date = new Date(timestamp);
-    return date.toLocaleString();
-  } catch {
-    return "Unknown";
   }
 };
 </script>
@@ -594,7 +396,8 @@ const formatLastSaved = (timestamp: string): string => {
   justify-content: center;
 }
 
-.string-control {
+.string-control,
+.object-control {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -603,7 +406,8 @@ const formatLastSaved = (timestamp: string): string => {
   justify-content: center;
 }
 
-.string-control label {
+.string-control label,
+.object-control label {
   margin-bottom: 5px;
   font-size: 10px;
   color: #ccc;
@@ -623,6 +427,12 @@ const formatLastSaved = (timestamp: string): string => {
   border-radius: 4px;
   font-size: 10px;
   text-align: center;
+}
+
+.object-indicator {
+  font-size: 8px;
+  color: #888;
+  font-style: italic;
 }
 
 .saved-configs {

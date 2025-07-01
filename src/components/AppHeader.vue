@@ -1,7 +1,7 @@
 <template>
   <header class="p-4 text-center">
     <h1
-      class="text-4xl md:text-6xl text-white mb-2 tracking-wide font-weight-oscillate-full"
+      class="text-4xl text-white mb-2 tracking-wide font-weight-oscillate-full"
     >
       Emotitone
     </h1>

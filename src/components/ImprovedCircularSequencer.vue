@@ -61,8 +61,6 @@
       >
         <svg
           ref="svgRef"
-          width="400"
-          height="400"
           viewBox="0 0 400 400"
           class="sequencer-svg"
           preserveAspectRatio="xMidYMid meet"
@@ -130,24 +128,6 @@
               @touchstart="handleIndicatorStart($event, indicator)"
               @mouseenter="handleIndicatorHover(indicator.id, true)"
               @mouseleave="handleIndicatorHover(indicator.id, false)"
-              @dblclick="removeIndicator(indicator.id)"
-            />
-            
-            <!-- Drag handle -->
-            <circle
-              :cx="getIndicatorEndPosition(indicator).x"
-              :cy="getIndicatorEndPosition(indicator).y"
-              r="6"
-              class="drag-handle"
-              :class="{
-                active: indicator.isDragging,
-                visible: indicator.isSelected || indicator.isHovered
-              }"
-              fill="white"
-              stroke="black"
-              stroke-width="2"
-              @mousedown="handleDragHandleStart($event, indicator)"
-              @touchstart="handleDragHandleStart($event, indicator)"
             />
           </g>
 
@@ -171,7 +151,7 @@
     <!-- Instructions -->
     <div class="text-center text-white/80 text-sm">
       <p class="mb-1">
-        Click tracks to create beats • Drag indicators to move • Drag handle to resize • Double-click to delete
+        Tap tracks to create beats • Drag left/right to move • Drag up/down to resize • Double-tap to delete
       </p>
       <p class="text-xs opacity-60">
         {{ config.steps }} steps • Outer = {{ tracks[0]?.solfegeName }}, Inner = {{ tracks[6]?.solfegeName }}
@@ -274,11 +254,11 @@ interface CircularIndicator {
 const musicStore = useMusicStore();
 const { getPrimaryColor } = useColorSystem();
 
-// SVG dimensions
+// SVG dimensions - Mobile-first sizing
 const centerX = 200;
 const centerY = 200;
-const outerRadius = 180;
-const innerRadius = 40;
+const outerRadius = 190;
+const innerRadius = 60;
 const trackSpacing = (outerRadius - innerRadius) / 7;
 
 // Refs
@@ -287,12 +267,12 @@ const selectedPatternName = ref("");
 const selectedMelodyId = ref("");
 const newMelodyName = ref("");
 
-// Interaction state (following knob pattern)
+// Interaction state (mobile-first approach)
 const isDragging = ref(false);
-const isDraggingHandle = ref(false);
 const selectedIndicator = ref<CircularIndicator | null>(null);
 const dragStart = ref({
-  angle: 0,
+  x: 0,
+  y: 0,
   startAngle: 0,
   endAngle: 0,
   time: 0,
@@ -415,8 +395,9 @@ const createIndicatorPath = (indicator: CircularIndicator): string => {
   const track = tracks.value.find(t => t.id === indicator.trackId);
   if (!track) return '';
   
-  const innerR = track.radius - 12;
-  const outerR = track.radius + 12;
+  // Larger hit areas for mobile
+  const innerR = track.radius - 18;
+  const outerR = track.radius + 18;
   
   const innerStart = polarToCartesian(centerX, centerY, innerR, indicator.startAngle);
   const innerEnd = polarToCartesian(centerX, centerY, innerR, indicator.endAngle);
@@ -435,12 +416,7 @@ const createIndicatorPath = (indicator: CircularIndicator): string => {
   `;
 };
 
-const getIndicatorEndPosition = (indicator: CircularIndicator) => {
-  const track = tracks.value.find(t => t.id === indicator.trackId);
-  if (!track) return { x: 0, y: 0 };
-  
-  return polarToCartesian(centerX, centerY, track.radius, indicator.endAngle);
-};
+// Removed getIndicatorEndPosition - no longer needed without drag handles
 
 const getIndicatorColor = (indicator: CircularIndicator): string => {
   const track = tracks.value.find(t => t.id === indicator.trackId);
@@ -504,46 +480,28 @@ const handleIndicatorStart = (e: MouseEvent | TouchEvent, indicator: CircularInd
   e.preventDefault();
   e.stopPropagation();
   
-  isDragging.value = true;
+  // Select indicator immediately
   selectedIndicator.value = indicator;
   
-  const angle = getAngleFromEvent(e);
-  dragStart.value = {
-    angle,
-    startAngle: indicator.startAngle,
-    endAngle: indicator.endAngle,
-    time: Date.now(),
-    moved: false,
-  };
-  
-  // Add global event listeners (same pattern as knob)
-  if ('touches' in e) {
-    document.addEventListener('touchmove', handleMove, { passive: false });
-    document.addEventListener('touchend', handleEnd);
-  } else {
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleEnd);
+  // Check for double tap to delete
+  const now = Date.now();
+  if (lastTapTime.value && now - lastTapTime.value < 300) {
+    removeIndicator(indicator.id);
+    return;
   }
-  
-  triggerUIHaptic();
-};
-
-const handleDragHandleStart = (e: MouseEvent | TouchEvent, indicator: CircularIndicator) => {
-  if (config.value.isPlaying) return;
-  
-  e.preventDefault();
-  e.stopPropagation();
+  lastTapTime.value = now;
   
   isDragging.value = true;
-  isDraggingHandle.value = true;
-  selectedIndicator.value = indicator;
   
-  const angle = getAngleFromEvent(e);
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
   dragStart.value = {
-    angle,
+    x: clientX,
+    y: clientY,
     startAngle: indicator.startAngle,
     endAngle: indicator.endAngle,
-    time: Date.now(),
+    time: now,
     moved: false,
   };
   
@@ -559,37 +517,47 @@ const handleDragHandleStart = (e: MouseEvent | TouchEvent, indicator: CircularIn
   triggerUIHaptic();
 };
 
+// Add double tap detection
+const lastTapTime = ref<number>(0);
+
 const handleMove = (e: MouseEvent | TouchEvent) => {
   if (!isDragging.value || !selectedIndicator.value) return;
   
   e.preventDefault();
   e.stopPropagation();
   
-  const currentAngle = getAngleFromEvent(e);
-  const angleDiff = currentAngle - dragStart.value.angle;
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
   
-  // Mark as moved (same pattern as knob)
-  if (Math.abs(angleDiff) > 5) {
+  const deltaX = clientX - dragStart.value.x;
+  const deltaY = clientY - dragStart.value.y;
+  
+  // Mark as moved if significant movement
+  if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
     dragStart.value.moved = true;
   }
   
-  if (isDraggingHandle.value) {
-    // Resize duration
-    const newEndAngle = dragStart.value.endAngle + angleDiff;
-    const constrained = constrainAngles(dragStart.value.startAngle, newEndAngle);
-    
-    const newDuration = Math.round((constrained.endAngle - constrained.startAngle) / angleSteps.value);
-    
-    musicStore.updateSequencerBeat(selectedIndicator.value.id, { duration: newDuration });
-  } else {
-    // Move entire indicator
-    const newStartAngle = dragStart.value.startAngle + angleDiff;
+  // Horizontal movement = position along track
+  // Vertical movement = duration change
+  
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    // Horizontal movement - move along track
+    const sensitivity = 0.8; // More responsive for mobile
+    const angleChange = deltaX * sensitivity;
+    const newStartAngle = dragStart.value.startAngle + angleChange;
     const duration = (dragStart.value.endAngle - dragStart.value.startAngle) / angleSteps.value;
     const constrained = constrainAngles(newStartAngle, newStartAngle + duration * angleSteps.value);
     
     const newStep = Math.round(constrained.startAngle / angleSteps.value);
-    
     musicStore.updateSequencerBeat(selectedIndicator.value.id, { step: newStep });
+  } else {
+    // Vertical movement - change duration
+    const sensitivity = 0.02; // More responsive for mobile duration control
+    const durationChange = -deltaY * sensitivity; // Negative because up = longer
+    const currentDuration = (dragStart.value.endAngle - dragStart.value.startAngle) / angleSteps.value;
+    const newDuration = Math.max(1, Math.round(currentDuration + durationChange));
+    
+    musicStore.updateSequencerBeat(selectedIndicator.value.id, { duration: newDuration });
   }
   
   triggerUIHaptic();
@@ -601,18 +569,9 @@ const handleEnd = (e: MouseEvent | TouchEvent) => {
   e.preventDefault();
   e.stopPropagation();
   
-  // Handle tap for selection on touch devices (same pattern as knob)
-  if ('touches' in e || 'changedTouches' in e) {
-    const touchDuration = Date.now() - dragStart.value.time;
-    if (touchDuration < 200 && !dragStart.value.moved) {
-      // Short tap without movement - just select
-    }
-  }
-  
   isDragging.value = false;
-  isDraggingHandle.value = false;
   
-  // Remove global event listeners (same pattern as knob)
+  // Remove global event listeners
   if ('touches' in e) {
     document.removeEventListener('touchmove', handleMove);
     document.removeEventListener('touchend', handleEnd);
@@ -753,9 +712,9 @@ onUnmounted(() => {
 <style scoped>
 .circular-sequencer-container {
   position: relative;
-  width: 400px;
-  height: 400px;
-  max-width: 100%;
+  /* Mobile-first: use viewport width but maintain square aspect ratio */
+  width: min(90vw, 90vh, 400px);
+  height: min(90vw, 90vh, 400px);
   transition: opacity 0.3s ease;
 }
 
@@ -775,10 +734,10 @@ onUnmounted(() => {
   user-select: none;
 }
 
-/* Track styles (like knob background arcs) */
+/* Track styles - Mobile-first with larger hit areas */
 .track-circle {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  stroke-width: 6;
+  stroke-width: 12;
   fill: none;
   opacity: 0.3;
   cursor: pointer;
@@ -786,12 +745,12 @@ onUnmounted(() => {
 
 .track-circle.hovered {
   opacity: 0.6;
-  stroke-width: 8;
+  stroke-width: 16;
 }
 
 .track-circle.active {
   opacity: 0.8;
-  stroke-width: 10;
+  stroke-width: 20;
 }
 
 /* Step marker styles */
@@ -804,56 +763,36 @@ onUnmounted(() => {
   opacity: 0.4;
 }
 
-/* Indicator styles (like knob value arcs) */
+/* Indicator styles - Mobile-first with better touch targets */
 .indicator-path {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  stroke-width: 3;
-  opacity: 0.8;
+  stroke-width: 4;
+  opacity: 0.9;
   transform-origin: center;
 }
 
 .indicator-path:hover,
 .indicator-path.hovered {
   transform: scale(1.05);
-  opacity: 0.9;
-  stroke-width: 4;
+  opacity: 1;
+  stroke-width: 5;
 }
 
 .indicator-path.selected {
-  stroke-width: 4;
+  stroke-width: 6;
   opacity: 1;
-  filter: drop-shadow(0 0 8px currentColor);
+  filter: drop-shadow(0 0 12px currentColor);
 }
 
 .indicator-path.dragging {
   transform: scale(1.1);
-  stroke-width: 5;
+  stroke-width: 8;
   opacity: 1;
+  filter: drop-shadow(0 0 16px currentColor);
 }
 
-/* Drag handle styles */
-.drag-handle {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: ew-resize;
-  opacity: 0;
-  transform: scale(0.8);
-  transform-origin: center;
-}
-
-.drag-handle.visible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.drag-handle.active {
-  opacity: 1;
-  transform: scale(1.2);
-}
-
-.drag-handle:hover {
-  transform: scale(1.1);
-}
+/* Removed drag handle styles - using new interaction model */
 
 /* Solfege labels */
 .solfege-label {

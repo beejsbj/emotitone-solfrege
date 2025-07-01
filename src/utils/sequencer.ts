@@ -17,7 +17,7 @@ export function beatsToTonePart(
   playNoteCallback: (solfegeIndex: number, octave: number, duration: string, time: number) => void
 ): Tone.Part {
   // Convert beats to [time, value] pairs for Tone.Part
-  const events = beats.map(beat => {
+  const events: [string, any][] = beats.map(beat => {
     // Calculate the time position in Tone.js notation
     // Each step is a 16th note, so step 0 = "0:0:0", step 1 = "0:0:1", etc.
     const timePosition = `0:0:${beat.step}`; // Bars:Quarters:Sixteenths
@@ -141,13 +141,13 @@ export function createImprovedPart(
   onStepCallback?: (step: number, time: number) => void
 ): { part: Tone.Part; stepTracker: Tone.Loop } {
   // Create events for the Part
-  const events = beats.map(beat => {
+  const events: [string, SequencerBeat][] = beats.map(beat => {
     const timePosition = `0:0:${beat.step}`;
     return [timePosition, beat];
   });
 
   // Create the Part for note scheduling
-  const part = new Tone.Part((time: number, beat: SequencerBeat) => {
+  const part = new Tone.Part((time: number, beat: any) => {
     console.log(`Improved Part: playing note ${beat.solfegeName} at step ${beat.step}, time ${time}`);
     playNoteCallback(beat, time);
   }, events);

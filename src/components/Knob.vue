@@ -72,6 +72,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  size: {
+    type: Number,
+    default: 48,
+  },
 });
 
 // Emits
@@ -117,19 +121,19 @@ const activeColor = computed(() => {
   return getColorIntensity("#00ff88", props.value);
 });
 
-const knobRadius = 18;
+const knobRadius = computed(() => (props.size / 2) - 6);
 const knobStrokeWidth = 6;
 const topArcStrokeWidth = 2;
-const topArcRadius = knobRadius + topArcStrokeWidth + 1;
+const topArcRadius = computed(() => knobRadius.value + topArcStrokeWidth + 1);
 const startAngle = -137;
 const endAngle = 137;
-const centerX = knobRadius + knobStrokeWidth;
-const centerY = knobRadius + knobStrokeWidth;
+const centerX = computed(() => knobRadius.value + knobStrokeWidth);
+const centerY = computed(() => knobRadius.value + knobStrokeWidth);
 
 // Computed properties
 const svgStyle = computed(() => ({
-  height: `${2 * (knobRadius + knobStrokeWidth)}px`,
-  width: `${2 * (knobRadius + knobStrokeWidth)}px`,
+  height: `${2 * (knobRadius.value + knobStrokeWidth)}px`,
+  width: `${2 * (knobRadius.value + knobStrokeWidth)}px`,
   transform: isHeld.value ? "scale(1.2)" : "scale(1)",
   transition: "transform 0.2s ease",
 }));
@@ -152,14 +156,14 @@ const displayValue = computed(() => {
 });
 
 const backgroundArcPath = computed(() => {
-  return describeArc(centerX, centerY, topArcRadius, startAngle, endAngle);
+  return describeArc(centerX.value, centerY.value, topArcRadius.value, startAngle, endAngle);
 });
 
 const dynamicArcPath = computed(() => {
   const normalizedValue = (props.value - props.min) / (props.max - props.min);
   const currentAngle = startAngle + normalizedValue * (endAngle - startAngle);
 
-  return describeArc(centerX, centerY, knobRadius, startAngle, currentAngle);
+  return describeArc(centerX.value, centerY.value, knobRadius.value, startAngle, currentAngle);
 });
 
 // Utility functions

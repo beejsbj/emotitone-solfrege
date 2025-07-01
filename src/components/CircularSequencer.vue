@@ -1,67 +1,24 @@
 <template>
-  <div
-    class="bg-white/10 backdrop-blur-sm rounded-sm border border-white/20 grid grid-cols-1 gap-4 relative p-4"
-  >
-    <!-- Header with controls -->
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-bold text-white">Circular Sequencer</h2>
-      <div class="flex gap-2">
-        <button
-          @click="togglePlayback"
-          :class="[
-            'px-4 py-2 rounded-sm font-bold transition-all duration-200',
-            config.isPlaying
-              ? 'bg-red-500/80 hover:bg-red-500 text-white'
-              : 'bg-green-500/80 hover:bg-green-500 text-white',
-          ]"
-        >
-          {{ config.isPlaying ? "Stop" : "Play" }}
-        </button>
-        <button
-          @click="clearSequencer"
-          class="px-4 py-2 bg-gray-500/80 hover:bg-gray-500 text-white rounded-sm font-bold transition-all duration-200"
-        >
-          Clear
-        </button>
-      </div>
-    </div>
+  <div class="circular-sequencer">
+    <!-- Player Component (Sticky) -->
+    <SequencerPlayer
+      :is-playing="config.isPlaying"
+      :tempo="config.tempo"
+      :octave="config.baseOctave"
+      @toggle-playback="togglePlayback"
+      @clear-sequencer="clearSequencer"
+      @update-tempo="updateTempo"
+      @update-octave="updateOctave"
+    />
 
-    <!-- Controls Grid -->
-    <div class="grid grid-cols-2 gap-4 mb-4">
-      <!-- Tempo Control -->
-      <Knob
-        :value="config.tempo"
-        :min="60"
-        :max="180"
-        :step="10"
-        param-name="Tempo"
-        :format-value="formatTempo"
-        :is-disabled="config.isPlaying"
-        @update:value="(newValue: number) => updateTempo(newValue)"
-      />
-
-      <!-- Octave Control -->
-      <Knob
-        :value="config.baseOctave"
-        :min="3"
-        :max="5"
-        :step="1"
-        param-name="Octave"
-        :format-value="formatOctave"
-        :is-disabled="config.isPlaying"
-        @update:value="(newValue: number) => updateOctave(newValue)"
-      />
-    </div>
-
-    <!-- Circular Sequencer SVG -->
-    <div class="flex justify-center mb-4">
-      <div class="relative w-96 h-96 max-w-full flex-shrink-0">
+    <!-- Main Content Container -->
+    <div class="sequencer-content">
+      <!-- Circular Sequencer SVG - Full Viewport Width -->
+      <div class="sequencer-circle-container">
         <svg
           ref="svgRef"
-          width="400"
-          height="400"
           viewBox="0 0 400 400"
-          class="bg-gray-800/50 rounded-full border border-white/20 w-full h-full"
+          class="sequencer-svg bg-gray-800/50 border border-white/20"
           preserveAspectRatio="xMidYMid meet"
           @mousedown="handlePointerDown"
           @mousemove="handlePointerMove"
@@ -239,73 +196,29 @@
           </g>
         </svg>
       </div>
-    </div>
 
-    <!-- Instructions -->
-    <div class="text-center text-white/80 text-sm">
-      <p class="mb-1">
-        Tap to create beats • Drag black handle to extend • Double-tap to delete
-      </p>
-      <p class="text-xs opacity-60">
-        {{ config.steps }} steps • Outer ring = {{ solfegeData[0]?.name }},
-        Inner ring = {{ solfegeData[6]?.name }}
-      </p>
-    </div>
-
-    <!-- Pattern and Melody Management -->
-    <div class="grid grid-cols-2 gap-4 mt-4">
-      <!-- Pattern Loading -->
-      <div class="bg-white/5 rounded-sm p-3 border border-white/10">
-        <h3 class="text-white font-bold mb-2">Load Pattern</h3>
-        <select
-          v-model="selectedPatternName"
-          @change="loadSelectedPattern"
-          class="w-full bg-gray-800 text-white border border-white/20 rounded-sm p-2 text-sm"
-        >
-          <option value="">Select a pattern...</option>
-          <option
-            v-for="pattern in patterns"
-            :key="pattern.name"
-            :value="pattern.name"
-          >
-            {{ pattern.name }}
-          </option>
-        </select>
+      <!-- Instructions -->
+      <div class="text-center text-white/80 text-sm py-4">
+        <p class="mb-1">
+          Tap to create beats • Drag black handle to extend • Double-tap to delete
+        </p>
+        <p class="text-xs opacity-60">
+          {{ config.steps }} steps • Outer ring = {{ solfegeData[0]?.name }},
+          Inner ring = {{ solfegeData[6]?.name }}
+        </p>
       </div>
 
-      <!-- Melody Management -->
-      <div class="bg-white/5 rounded-sm p-3 border border-white/10">
-        <h3 class="text-white font-bold mb-2">Save/Load Melody</h3>
-        <div class="grid gap-2">
-          <input
-            v-model="newMelodyName"
-            placeholder="Melody name..."
-            class="w-full bg-gray-800 text-white border border-white/20 rounded-sm p-2 text-sm"
-          />
-          <div class="flex gap-1">
-            <button
-              @click="saveCurrentMelody"
-              :disabled="!newMelodyName || beats.length === 0"
-              class="flex-1 px-2 py-1 bg-blue-500/80 hover:bg-blue-500 disabled:bg-gray-500/50 text-white rounded-sm text-xs font-bold transition-all duration-200"
-            >
-              Save
-            </button>
-            <select
-              v-model="selectedMelodyId"
-              @change="loadSelectedMelody"
-              class="flex-1 bg-gray-800 text-white border border-white/20 rounded-sm p-1 text-xs"
-            >
-              <option value="">Load...</option>
-              <option
-                v-for="melody in savedMelodies"
-                :key="melody.id"
-                :value="melody.id"
-              >
-                {{ melody.name }}
-              </option>
-            </select>
-          </div>
-        </div>
+      <!-- Pattern & Melody Library Component (Sticky) -->
+      <div class="library-container">
+        <PatternMelodyLibrary
+          :patterns="patterns"
+          :saved-melodies="savedMelodies"
+          :has-beats="beats.length > 0"
+          @load-pattern="loadPattern"
+          @load-melody="loadMelody"
+          @save-melody="saveCurrentMelody"
+          @delete-melody="deleteMelody"
+        />
       </div>
     </div>
   </div>
@@ -315,9 +228,12 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
-import type { SequencerBeat, MelodicPattern } from "@/types/music";
+import type { SequencerBeat, MelodicPattern, SavedMelody } from "@/types/music";
+import { calculateNoteDuration } from "@/utils/duration";
+import { SequencerTransport } from "@/utils/sequencer";
 import * as Tone from "tone";
-import Knob from "./Knob.vue";
+import SequencerPlayer from "./SequencerPlayer.vue";
+import PatternMelodyLibrary from "./PatternMelodyLibrary.vue";
 
 // Store and composables
 const musicStore = useMusicStore();
@@ -328,34 +244,29 @@ const centerX = 200;
 const centerY = 200;
 const outerRadius = 180;
 const innerRadius = 40;
-const ringWidth = (outerRadius - innerRadius) / 7; // Full space divided by 7 rings only
+const ringWidth = (outerRadius - innerRadius) / 7;
 
 // Refs
 const svgRef = ref<SVGElement | null>(null);
-const selectedPatternName = ref("");
-const selectedMelodyId = ref("");
-const newMelodyName = ref("");
 
 // Interaction state
 const isDragging = ref(false);
 const dragBeat = ref<SequencerBeat | null>(null);
+const selectedBeatId = ref<string | null>(null);
+const isDraggingHandle = ref(false);
 
 // Debug state
 const debugClick = ref<{ x: number; y: number; ring: number } | null>(null);
 
-// Transport reference for cleanup
-let sequenceRef: Tone.Sequence | null = null;
+// Sequencer transport for Tone.js integration
+let sequencerTransport: SequencerTransport | null = null;
 
 // Computed properties
 const config = computed(() => musicStore.sequencerConfig);
-const beats = computed(() => musicStore.sequencerBeats);
-const solfegeData = computed(() => musicStore.solfegeData);
-const patterns = computed(() => musicStore.getMelodicPatterns());
-const savedMelodies = computed(() => musicStore.savedMelodies);
-
-// Format functions for knobs
-const formatTempo = (value: number) => `${value}`;
-const formatOctave = (value: number) => `${value}`;
+const beats = computed(() => [...musicStore.sequencerBeats]);
+const solfegeData = computed(() => [...musicStore.solfegeData]);
+const patterns = computed(() => [...musicStore.getMelodicPatterns()]);
+const savedMelodies = computed(() => [...musicStore.savedMelodies]);
 
 // Helper functions
 const polarToCartesian = (
@@ -375,7 +286,6 @@ const getAngleFromPosition = (x: number, y: number): number => {
   if (!svgRef.value) return 0;
   const rect = svgRef.value.getBoundingClientRect();
 
-  // Convert screen coordinates to SVG coordinates
   const scaleX = 400 / rect.width;
   const scaleY = 400 / rect.height;
   const svgX = (x - rect.left) * scaleX;
@@ -392,7 +302,6 @@ const getRingFromRadius = (x: number, y: number): number => {
   if (!svgRef.value) return -1;
   const rect = svgRef.value.getBoundingClientRect();
 
-  // Convert screen coordinates to SVG coordinates
   const scaleX = 400 / rect.width;
   const scaleY = 400 / rect.height;
   const svgX = (x - rect.left) * scaleX;
@@ -402,21 +311,13 @@ const getRingFromRadius = (x: number, y: number): number => {
   const dy = svgY - centerY;
   const radius = Math.sqrt(dx * dx + dy * dy);
 
-  // Only 7 rings now (0-6), using full space
-  // Add some padding to make ring detection more forgiving
   for (let i = 0; i < 7; i++) {
-    const ringInner = innerRadius + i * ringWidth - 2; // Slight padding
-    const ringOuter = innerRadius + (i + 1) * ringWidth + 2; // Slight padding
+    const ringInner = innerRadius + i * ringWidth - 2;
+    const ringOuter = innerRadius + (i + 1) * ringWidth + 2;
     if (radius >= ringInner && radius <= ringOuter) {
-      console.log(
-        `Detected ring ${i} at radius ${radius.toFixed(
-          1
-        )} (range: ${ringInner.toFixed(1)}-${ringOuter.toFixed(1)})`
-      );
       return i;
     }
   }
-  console.log(`No ring detected at radius ${radius.toFixed(1)}`);
   return -1;
 };
 
@@ -454,13 +355,9 @@ const getHandlePosition = (ring: number, step: number, duration: number) => {
 };
 
 const getRingColor = (ring: number): string => {
-  const solfege = solfegeData.value[6 - ring]; // Reverse for outer = higher (Do=outer, Ti=inner)
+  const solfege = solfegeData.value[6 - ring];
   return solfege ? getPrimaryColor(solfege.name) : "#ffffff";
 };
-
-// New interaction state
-const selectedBeatId = ref<string | null>(null);
-const isDraggingHandle = ref(false);
 
 const selectBeat = (beatId: string) => {
   selectedBeatId.value = beatId;
@@ -471,14 +368,12 @@ const startDragHandle = (e: MouseEvent | TouchEvent, beatId: string) => {
   e.stopPropagation();
   selectedBeatId.value = beatId;
   isDraggingHandle.value = true;
-  isDragging.value = true; // Also set this to ensure move handler works
+  isDragging.value = true;
   dragBeat.value = beats.value.find((b) => b.id === beatId) || null;
-  console.log("Started dragging handle for beat:", beatId);
 };
 
 // Event handlers
 const handlePointerDown = (e: MouseEvent | TouchEvent) => {
-  // Don't handle if this event was from a drag handle
   if ((e.target as HTMLElement).classList.contains("drag-handle")) {
     return;
   }
@@ -487,28 +382,21 @@ const handlePointerDown = (e: MouseEvent | TouchEvent) => {
   const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
   const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
 
-  console.log(`Click at screen coordinates: ${clientX}, ${clientY}`);
-
   const angle = getAngleFromPosition(clientX, clientY);
   const ring = getRingFromRadius(clientX, clientY);
 
-  // Convert to SVG coordinates for debug visualization
   const rect = svgRef.value!.getBoundingClientRect();
   const scaleX = 400 / rect.width;
   const scaleY = 400 / rect.height;
   const svgX = (clientX - rect.left) * scaleX;
   const svgY = (clientY - rect.top) * scaleY;
 
-  // Show debug indicator
   debugClick.value = { x: svgX, y: svgY, ring };
   setTimeout(() => {
     debugClick.value = null;
   }, 1000);
 
-  console.log(`Angle: ${angle.toFixed(1)}°, Ring: ${ring}`);
-
   if (ring >= 0 && ring < 7) {
-    // Check if clicking on existing beat (but not on drag handle)
     const clickedBeat = beats.value.find((beat) => {
       const beatAngle = (beat.step / config.value.steps) * 360;
       const beatEndAngle =
@@ -517,19 +405,12 @@ const handlePointerDown = (e: MouseEvent | TouchEvent) => {
     });
 
     if (clickedBeat) {
-      // Just select the beat, don't start dragging
-      console.log(`Selected existing beat: ${clickedBeat.solfegeName}`);
       selectBeat(clickedBeat.id);
     } else {
-      // Create new beat only in empty space
       const step = Math.floor((angle / 360) * config.value.steps);
-      const solfegeIndex = 6 - ring; // Reverse for outer = higher (ring 0 = Do, ring 6 = Ti)
+      const solfegeIndex = 6 - ring;
       const solfegeArray = solfegeData.value.slice(0, 7);
-      const solfege = solfegeArray[solfegeIndex]; // Only use first 7 notes
-
-      console.log(
-        `Creating beat: ring=${ring}, solfegeIndex=${solfegeIndex}, note=${solfege?.name}`
-      );
+      const solfege = solfegeArray[solfegeIndex];
 
       if (solfege && solfegeIndex >= 0 && solfegeIndex < 7) {
         const newBeat: SequencerBeat = {
@@ -543,16 +424,9 @@ const handlePointerDown = (e: MouseEvent | TouchEvent) => {
         };
 
         musicStore.addSequencerBeat(newBeat);
-        selectBeat(newBeat.id);
-        console.log(`Created new beat: ${solfege.name} at ring ${ring}`);
-      } else {
-        console.log(
-          `Failed to create beat - invalid solfege index: ${solfegeIndex}`
-        );
+        selectedBeatId.value = newBeat.id;
       }
     }
-  } else {
-    console.log(`Click outside valid ring area (ring: ${ring})`);
   }
 };
 
@@ -566,14 +440,12 @@ const handlePointerMove = (e: MouseEvent | TouchEvent) => {
   const angle = getAngleFromPosition(clientX, clientY);
   const startAngle = (dragBeat.value.step / config.value.steps) * 360;
 
-  // Calculate duration based on angle difference
   let angleDiff = (angle - startAngle + 360) % 360;
   let duration = Math.max(
     1,
     Math.round(angleDiff / (360 / config.value.steps))
   );
 
-  // Ensure duration doesn't exceed available steps
   const maxDuration = config.value.steps - dragBeat.value.step;
   duration = Math.min(duration, maxDuration);
 
@@ -614,31 +486,26 @@ const removeBeat = (beatId: string) => {
 };
 
 // Pattern and melody functions
-const loadSelectedPattern = () => {
-  if (!selectedPatternName.value) return;
-  const pattern = patterns.value.find(
-    (p) => p.name === selectedPatternName.value
-  );
-  if (pattern) {
-    musicStore.loadPatternToSequencer(pattern);
-  }
+const loadPattern = (pattern: MelodicPattern) => {
+  musicStore.loadPatternToSequencer(pattern);
 };
 
-const saveCurrentMelody = () => {
-  if (!newMelodyName.value || beats.value.length === 0) return;
+const loadMelody = (melody: SavedMelody) => {
+  musicStore.loadMelody(melody.id);
+};
 
+const saveCurrentMelody = (melodyName: string) => {
+  if (!melodyName || beats.value.length === 0) return;
+  
   musicStore.saveMelody(
-    newMelodyName.value,
+    melodyName,
     `Custom melody with ${beats.value.length} beats`,
     "Custom"
   );
-
-  newMelodyName.value = "";
 };
 
-const loadSelectedMelody = () => {
-  if (!selectedMelodyId.value) return;
-  musicStore.loadMelody(selectedMelodyId.value);
+const deleteMelody = (melodyId: string) => {
+  musicStore.deleteMelody(melodyId);
 };
 
 // Playback functions
@@ -654,40 +521,37 @@ const startPlayback = async () => {
   if (beats.value.length === 0) return;
 
   try {
-    await Tone.start();
-    const transport = Tone.getTransport();
+    if (!sequencerTransport) {
+      sequencerTransport = new SequencerTransport();
+    }
 
-    // Clear any existing schedules
-    transport.cancel();
-    transport.stop();
-    transport.position = 0;
-    transport.bpm.value = config.value.tempo;
+    sequencerTransport.initWithImprovedPart(
+      [...beats.value],
+      config.value.steps,
+      config.value.tempo,
+      (beat, time) => {
+        const noteDuration = calculateNoteDuration(
+          beat.duration,
+          config.value.steps,
+          config.value.tempo
+        );
+
+        musicStore.playNoteWithDuration(
+          beat.solfegeIndex,
+          beat.octave,
+          noteDuration.toneNotation,
+          time
+        );
+      },
+      (step, time) => {
+        musicStore.updateSequencerConfig({ currentStep: step });
+      }
+    );
 
     musicStore.updateSequencerConfig({ isPlaying: true, currentStep: 0 });
 
-    // Create sequence
-    sequenceRef = new Tone.Sequence(
-      (time, step) => {
-        musicStore.updateSequencerConfig({ currentStep: step });
+    await sequencerTransport.start();
 
-        // Play beats that start on this step
-        beats.value.forEach((beat) => {
-          if (beat.step === step) {
-            musicStore.attackNoteWithOctave(beat.solfegeIndex, beat.octave);
-
-            // Schedule note release
-            Tone.getTransport().schedule(() => {
-              // This is a simple release - in a real sequencer you'd want more sophisticated note management
-            }, time + 0.1);
-          }
-        });
-      },
-      Array.from({ length: config.value.steps }, (_, i) => i),
-      "16n"
-    );
-
-    sequenceRef.start(0);
-    transport.start();
   } catch (error) {
     console.error("Error starting playback:", error);
     stopPlayback();
@@ -695,16 +559,9 @@ const startPlayback = async () => {
 };
 
 const stopPlayback = () => {
-  const transport = Tone.getTransport();
-
-  if (sequenceRef) {
-    sequenceRef.dispose();
-    sequenceRef = null;
+  if (sequencerTransport) {
+    sequencerTransport.stop();
   }
-
-  transport.cancel();
-  transport.stop();
-  transport.position = 0;
 
   musicStore.releaseAllNotes();
   musicStore.updateSequencerConfig({ isPlaying: false, currentStep: 0 });
@@ -712,10 +569,8 @@ const stopPlayback = () => {
 
 // Lifecycle
 onMounted(() => {
-  // Add global mouse event listeners for drag operations
   document.addEventListener("mousemove", handlePointerMove);
   document.addEventListener("mouseup", handlePointerUp);
-  // Prevent context menu on drag handles
   document.addEventListener("contextmenu", (e) => {
     if ((e.target as HTMLElement).classList.contains("drag-handle")) {
       e.preventDefault();
@@ -725,27 +580,109 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPlayback();
+  if (sequencerTransport) {
+    sequencerTransport.dispose();
+    sequencerTransport = null;
+  }
   document.removeEventListener("mousemove", handlePointerMove);
   document.removeEventListener("mouseup", handlePointerUp);
 });
 </script>
 
 <style scoped>
-/* Ensure SVG is interactive */
-svg {
-  cursor: crosshair;
+.circular-sequencer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
 }
 
+.sequencer-content {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 80px); /* Account for player height */
+}
+
+.sequencer-circle-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  min-height: 60vh;
+}
+
+.sequencer-svg {
+  width: 100%;
+  height: 100%;
+  max-width: min(80vw, 80vh);
+  max-height: min(80vw, 80vh);
+  border-radius: 50%;
+  cursor: crosshair;
+  transition: all 0.3s ease;
+}
+
+.sequencer-svg:hover {
+  transform: scale(1.02);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.library-container {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 1rem;
+}
+
+/* SVG interaction styles */
 svg path {
   cursor: pointer;
+  transition: opacity 0.2s ease;
 }
 
-/* Custom select styles */
-select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 8px center;
-  background-repeat: no-repeat;
-  background-size: 16px;
-  padding-right: 32px;
+svg path:hover {
+  opacity: 1 !important;
+}
+
+.drag-handle {
+  transition: fill 0.2s ease;
+}
+
+.drag-handle:hover {
+  fill: #ef4444 !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .sequencer-circle-container {
+    padding: 1rem;
+    min-height: 50vh;
+  }
+  
+  .sequencer-svg {
+    max-width: 90vw;
+    max-height: 90vw;
+  }
+  
+  .library-container {
+    padding: 0.75rem;
+  }
+}
+
+/* Smooth animations */
+@media (prefers-reduced-motion: no-preference) {
+  .sequencer-svg {
+    animation: subtle-rotate 60s linear infinite;
+  }
+}
+
+@keyframes subtle-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(1deg);
+  }
 }
 </style>

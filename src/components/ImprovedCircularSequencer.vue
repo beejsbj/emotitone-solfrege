@@ -224,6 +224,8 @@ import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import type { SequencerBeat, MelodicPattern } from "@/types/music";
+import { calculateNoteDuration } from "@/utils/duration";
+import { SequencerTransport } from "@/utils/sequencer";
 import * as Tone from "tone";
 import Knob from "./Knob.vue";
 
@@ -280,8 +282,8 @@ const dragStart = ref({
   moved: false,
 });
 
-// Transport reference
-let sequenceRef: Tone.Sequence | null = null;
+// Sequencer transport for Tone.js integration
+let sequencerTransport: SequencerTransport | null = null;
 
 // Computed properties
 const config = computed(() => musicStore.sequencerConfig);
@@ -647,33 +649,43 @@ const startPlayback = async () => {
   if (indicators.value.length === 0) return;
   
   try {
-    await Tone.start();
-    const transport = Tone.getTransport();
-    
-    transport.cancel();
-    transport.stop();
-    transport.position = 0;
-    transport.bpm.value = config.value.tempo;
-    
-    musicStore.updateSequencerConfig({ isPlaying: true, currentStep: 0 });
-    
-    sequenceRef = new Tone.Sequence(
-      (time, step) => {
-        musicStore.updateSequencerConfig({ currentStep: step });
-        
-        // Play beats that start on this step
-        musicStore.sequencerBeats.forEach(beat => {
-          if (beat.step === step) {
-            musicStore.attackNoteWithOctave(beat.solfegeIndex, beat.octave);
-          }
-        });
+    // Initialize sequencer transport if not already done
+    if (!sequencerTransport) {
+      sequencerTransport = new SequencerTransport();
+    }
+
+    // Use improved Part for better timing and visual sync
+    sequencerTransport.initWithImprovedPart(
+      [...musicStore.sequencerBeats], // Convert readonly array to mutable
+      config.value.steps,
+      config.value.tempo,
+      (beat, time) => {
+        // Calculate the proper duration based on the beat's visual representation
+        const noteDuration = calculateNoteDuration(
+          beat.duration,
+          config.value.steps,
+          config.value.tempo
+        );
+
+        // Play the note with the correct duration
+        musicStore.playNoteWithDuration(
+          beat.solfegeIndex,
+          beat.octave,
+          noteDuration.toneNotation,
+          time
+        );
       },
-      Array.from({ length: config.value.steps }, (_, i) => i),
-      "16n"
+      (step, time) => {
+        // Update visual step indicator
+        musicStore.updateSequencerConfig({ currentStep: step });
+      }
     );
-    
-    sequenceRef.start(0);
-    transport.start();
+
+    musicStore.updateSequencerConfig({ isPlaying: true, currentStep: 0 });
+
+    // Start playback
+    await sequencerTransport.start();
+
   } catch (error) {
     console.error("Error starting playback:", error);
     stopPlayback();
@@ -681,16 +693,9 @@ const startPlayback = async () => {
 };
 
 const stopPlayback = () => {
-  const transport = Tone.getTransport();
-  
-  if (sequenceRef) {
-    sequenceRef.dispose();
-    sequenceRef = null;
+  if (sequencerTransport) {
+    sequencerTransport.stop();
   }
-  
-  transport.cancel();
-  transport.stop();
-  transport.position = 0;
   
   musicStore.releaseAllNotes();
   musicStore.updateSequencerConfig({ isPlaying: false, currentStep: 0 });
@@ -703,6 +708,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPlayback();
+  if (sequencerTransport) {
+    sequencerTransport.dispose();
+    sequencerTransport = null;
+  }
   // Clean up any remaining global listeners
   document.removeEventListener('mousemove', handleMove);
   document.removeEventListener('mouseup', handleEnd);

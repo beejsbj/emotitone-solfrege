@@ -285,6 +285,43 @@ export const useMusicStore = defineStore(
       return await attackNote(solfegeIndex, octave);
     }
 
+    // Play note with specific duration (for sequencer)
+    async function playNoteWithDuration(
+      solfegeIndex: number,
+      octave: number,
+      duration: string,
+      time?: number
+    ): Promise<string> {
+      const solfege = solfegeData.value[solfegeIndex];
+      if (solfege) {
+        // Get note name for Tone.js compatibility
+        const noteName = musicTheory.getNoteName(solfegeIndex, octave);
+        const frequency = musicTheory.getNoteFrequency(solfegeIndex, octave);
+
+        // Play the audio with the specified duration
+        const noteId = await audioService.playNoteWithDuration(noteName, duration, time);
+
+        // Dispatch custom event for visual effects
+        const notePlayedEvent = new CustomEvent("note-played", {
+          detail: {
+            note: solfege,
+            frequency,
+            noteName,
+            solfegeIndex,
+            octave,
+            duration,
+            time,
+            instrument: instrumentStore.currentInstrument,
+            instrumentConfig: instrumentStore.currentInstrumentConfig,
+          },
+        });
+        window.dispatchEvent(notePlayedEvent);
+
+        return noteId;
+      }
+      return "";
+    }
+
     // Sequencer functions
     function addSequencerBeat(beat: SequencerBeat) {
       sequencerBeats.value.push(beat);
@@ -447,6 +484,7 @@ export const useMusicStore = defineStore(
       getActiveNotes,
       getActiveNoteNames,
       isNoteActive,
+      playNoteWithDuration,
 
       // Sequencer functions
       addSequencerBeat,

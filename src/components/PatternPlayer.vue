@@ -1,8 +1,8 @@
 <template>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  <div class="space-y-4">
     <!-- Pattern Selection Panel -->
     <div
-      class="bg-white/10 backdrop-blur-sm rounded-sm border border-white/20 p-4"
+      class="bg-white/10 backdrop-blur-sm rounded-sm border border-white/20 p-4 max-w-2xl mx-auto"
     >
       <h2 class="text-xl font-bold text-white mb-4">Pattern Library</h2>
 
@@ -143,10 +143,8 @@
       </div>
     </div>
 
-    <!-- Improved Circular Sequencer -->
-    <div class="lg:col-span-1">
-      <ImprovedCircularSequencer />
-    </div>
+    <!-- Updated Circular Sequencer (Full Width) -->
+    <CircularSequencer />
   </div>
 </template>
 
@@ -156,7 +154,7 @@ import { useMusicStore } from "@/stores/music";
 import type { MelodicPattern } from "@/types/music";
 import * as Tone from "tone";
 import { useColorSystem } from "@/composables/useColorSystem";
-import ImprovedCircularSequencer from "./ImprovedCircularSequencer.vue";
+import CircularSequencer from "./CircularSequencer.vue";
 
 const musicStore = useMusicStore();
 const { getPrimaryColor } = useColorSystem();
@@ -169,7 +167,7 @@ const currentNoteIndex = ref(-1);
 const currentScheduleIds = ref<number[]>([]);
 
 // Computed
-const allPatterns = computed(() => musicStore.getMelodicPatterns());
+const allPatterns = computed(() => [...musicStore.getMelodicPatterns()]);
 
 const filteredPatterns = computed(() => {
   if (selectedCategory.value === "intervals") {
@@ -217,10 +215,10 @@ const playPattern = async () => {
     const noteDuration = 0.5; // Half second per note
 
     selectedPattern.value.sequence.forEach((solfegeName, index) => {
-      // Find the solfege index
-      const solfegeIndex = musicStore.solfegeData.findIndex(
-        (s) => s.name === solfegeName
-      );
+              // Find the solfege index
+        const solfegeIndex = [...musicStore.solfegeData].findIndex(
+          (s) => s.name === solfegeName
+        );
 
       if (solfegeIndex >= 0) {
         // Schedule note start

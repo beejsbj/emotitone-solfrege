@@ -1,24 +1,39 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
-import { melodies } from "../utils/melodies";
-import { startNote, stopNote, setBPM } from "../utils/audio";
+import { melodies } from "../data/melodies";
 import * as Tone from "tone";
+import { logger } from "@/utils/logger";
+
+// Define types for melody data
+interface MelodyNote {
+  note: string;
+  duration: string;
+}
+
+interface Melody {
+  notes: MelodyNote[];
+  defaultBpm?: number;
+  name?: string;
+  description?: string;
+}
+
+type MelodyCollection = Record<string, Melody>;
 
 export const useMelodyStore = defineStore("melody", () => {
-  const selectedMelody = ref(Object.keys(melodies)[0]);
-  const isPlaying = ref(false);
-  const bpm = ref(melodies[selectedMelody.value].defaultBpm || 120);
-  const highlightedNote = ref(null);
-  let currentScheduleId = null;
+  const selectedMelody = ref<string>(Object.keys(melodies)[0]);
+  const isPlaying = ref<boolean>(false);
+  const bpm = ref<number>(melodies[selectedMelody.value].defaultBpm || 120);
+  const highlightedNote = ref<string | null>(null);
+  let currentScheduleId: number[] | null = null;
 
   // Helper function to get base note without octave
-  function getBaseNote(note) {
+  function getBaseNote(note: string): string {
     return note.replace(/\d+$/, "");
   }
 
-  console.log(melodies);
+  logger.dev(melodies);
 
-  function setSelectedMelody(melodyName) {
+  function setSelectedMelody(melodyName: string): void {
     selectedMelody.value = melodyName;
     const melody = melodies[melodyName];
     if (melody && melody.defaultBpm) {
@@ -26,13 +41,13 @@ export const useMelodyStore = defineStore("melody", () => {
     }
   }
 
-  function setBpm(newBpm) {
+  function setBpm(newBpm: number): void {
     const validBpm = Math.max(40, Math.min(240, newBpm));
     bpm.value = validBpm;
-    setBPM(validBpm);
+    Tone.getTransport().bpm.value = validBpm;
   }
 
-  async function playMelody() {
+  async function playMelody(): Promise<void> {
     if (isPlaying.value) {
       // If already playing, stop the current playback first
       stopPlayback();
@@ -57,14 +72,15 @@ export const useMelodyStore = defineStore("melody", () => {
       melody.notes.forEach(({ note, duration }) => {
         // Schedule note start
         const startId = transport.schedule((time) => {
-          startNote(note);
+          // Note: Using basic synth for melody playback - could be enhanced
+          const synth = new Tone.Synth().toDestination();
+          synth.triggerAttackRelease(note, duration, time);
           highlightedNote.value = getBaseNote(note);
         }, currentTime);
 
         // Schedule note stop and calculate next time
         const durationSeconds = new Tone.Time(duration).toSeconds();
         const stopId = transport.schedule((time) => {
-          stopNote(note);
           highlightedNote.value = null;
         }, currentTime + durationSeconds);
 
@@ -82,28 +98,18 @@ export const useMelodyStore = defineStore("melody", () => {
 
       if (currentScheduleId) currentScheduleId.push(finalId);
     } catch (error) {
-      console.error("Error playing melody:", error);
+      logger.error("Error playing melody:", error);
       stopPlayback();
     }
   }
 
-  function stopPlayback() {
+  function stopPlayback(): void {
     const transport = Tone.getTransport();
 
     // Clear all scheduled events
     if (currentScheduleId) {
-      if (Array.isArray(currentScheduleId)) {
-        currentScheduleId.forEach((id) => transport.clear(id));
-      } else {
-        transport.clear(currentScheduleId);
-      }
+      currentScheduleId.forEach((id) => transport.clear(id));
       currentScheduleId = null;
-    }
-
-    // Stop all active notes
-    const melody = melodies[selectedMelody.value];
-    if (melody) {
-      melody.notes.forEach(({ note }) => stopNote(note));
     }
 
     transport.cancel(); // Clear all scheduled events
@@ -120,7 +126,7 @@ export const useMelodyStore = defineStore("melody", () => {
     isPlaying,
     bpm,
     highlightedNote,
-    melodies,
+    melodies: melodies as MelodyCollection,
     playMelody,
     stopPlayback,
     setBpm,

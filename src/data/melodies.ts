@@ -1,4 +1,20 @@
-export const melodies = {
+// Melody data for the application
+// Converted from .js to .ts with proper typing
+
+interface MelodyNote {
+  note: string;
+  duration: string;
+}
+
+interface MelodyData {
+  name: string;
+  defaultBpm: number;
+  notes: MelodyNote[];
+}
+
+type MelodyCollection = Record<string, MelodyData>;
+
+export const melodies: MelodyCollection = {
   "Twinkle Twinkle Little Star": {
     name: "Twinkle Twinkle Little Star",
     defaultBpm: 100, // Gentle, child-friendly tempo
@@ -215,3 +231,6 @@ export const melodies = {
     ],
   },
 };
+
+// Export types for use in other files
+export type { MelodyNote, MelodyData, MelodyCollection };

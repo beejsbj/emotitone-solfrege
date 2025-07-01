@@ -1,5 +1,6 @@
 <template>
-  <div v-if="showPanel" class="debug-panel">
+  <!-- Debug Panel - Only shown in development mode -->
+  <div v-if="isDevelopment && showPanel" class="debug-panel">
     <!-- Sticky Header -->
     <div class="debug-header">
       <h3>
@@ -164,8 +165,8 @@
     </div>
   </div>
 
-  <!-- Toggle Button -->
-  <button v-if="!showPanel" @click="togglePanel" class="debug-toggle">
+  <!-- Toggle Button - Only shown in development mode -->
+  <button v-if="isDevelopment && !showPanel" @click="togglePanel" class="debug-toggle">
     <Settings :size="16" />
   </button>
 </template>
@@ -177,6 +178,7 @@ import {
   CONFIG_DEFINITIONS,
 } from "@/stores/visualConfig";
 import { formatFieldValue, formatLabel } from "@/utils/configHelpers";
+import { logger } from "@/utils/logger";
 import Knob from "./Knob.vue";
 import {
   Settings,
@@ -189,6 +191,9 @@ import {
 
 const visualConfigStore = useVisualConfigStore();
 const showPanel = ref(false);
+
+// @ts-ignore - Vite provides import.meta.env
+const isDevelopment = computed(() => import.meta.env?.DEV || false);
 
 // Store state
 const {
@@ -223,7 +228,7 @@ const exportConfig = () => {
       alert("Configuration copied to clipboard!");
     })
     .catch(() => {
-      console.log("Visual Effects Configuration:", configJson);
+      logger.dev("Visual Effects Configuration:", configJson);
       alert("Configuration logged to console");
     });
 };
@@ -238,6 +243,7 @@ const promptSaveConfig = () => {
 </script>
 
 <style scoped>
+/* Only include styles if component can render (development check handles visibility) */
 .debug-panel {
   position: fixed;
   top: 20px;
@@ -502,37 +508,50 @@ const promptSaveConfig = () => {
   color: white;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  transition: all 0.2s ease;
 }
 
-.reset-btn:hover,
-.export-btn:hover,
+.reset-btn:hover {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: #ffc107;
+}
+
+.export-btn:hover {
+  background: rgba(0, 123, 255, 0.2);
+  border-color: #007bff;
+}
+
 .save-as-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(40, 167, 69, 0.2);
+  border-color: #28a745;
 }
 
 .debug-toggle {
   position: fixed;
   top: 20px;
   right: 20px;
-  padding: 8px 12px;
+  width: 40px;
+  height: 40px;
   background: rgba(0, 0, 0, 0.8);
   border: 1px solid #333;
-  border-radius: 4px;
-  color: white;
+  border-radius: 50%;
+  color: #00ff88;
   cursor: pointer;
-  font-size: 12px;
-  z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  z-index: 9998;
+  transition: all 0.2s ease;
 }
 
 .debug-toggle:hover {
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 255, 136, 0.2);
+  border-color: #00ff88;
+  transform: scale(1.1);
 }
 </style>

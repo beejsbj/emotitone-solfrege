@@ -170,6 +170,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { logger } from "@/utils/logger";
 import type { MelodicPattern } from "@/types/music";
 import * as Tone from "tone";
 import { useColorSystem } from "@/composables/useColorSystem";
@@ -266,7 +267,7 @@ const playPattern = async () => {
     currentScheduleIds.value.push(endId);
     transport.start();
   } catch (error) {
-    console.error("Error playing pattern:", error);
+          logger.error("Error playing pattern:", error);
     stopPattern();
   }
 };

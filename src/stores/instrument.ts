@@ -1,5 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
+import { logger } from "@/utils/logger";
 import * as Tone from "tone";
 import {
   AVAILABLE_INSTRUMENTS,
@@ -101,17 +102,17 @@ export const useInstrumentStore = defineStore("instrument", () => {
       metalPoly.maxPolyphony = MAX_POLYPHONY;
       instruments.value.set("metalSynth", metalPoly);
 
-      console.log("Basic instruments initialized");
+      logger.dev("Basic instruments initialized");
 
       // Load sample-based instruments in background (non-blocking)
       // This prevents the loading from getting stuck
       loadSampleInstrumentsInBackground(createCompressor);
 
-      console.log(
+      logger.dev(
         "Instrument initialization completed (samples loading in background)"
       );
     } catch (error) {
-      console.error("Error initializing instruments:", error);
+      logger.error("Error initializing instruments:", error);
 
       // Ensure we have at least a basic synth available
       if (instruments.value.size === 0) {
@@ -119,9 +120,9 @@ export const useInstrumentStore = defineStore("instrument", () => {
           const fallbackSynth = new Tone.PolySynth(Tone.Synth);
           fallbackSynth.toDestination();
           instruments.value.set("synth", fallbackSynth);
-          console.log("Created fallback synth");
+          logger.dev("Created fallback synth");
         } catch (fallbackError) {
-          console.error("Failed to create fallback synth:", fallbackError);
+          logger.error("Failed to create fallback synth:", fallbackError);
         }
       }
     } finally {
@@ -135,7 +136,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   ) => {
     // Salamander Piano - use the integrated sample library system
     try {
-      console.log("Loading Salamander piano...");
+      logger.dev("Loading Salamander piano...");
 
       // Show loading toast
       const loadingToast = toast.loading("🎹 Loading piano samples...", {
@@ -158,9 +159,9 @@ export const useInstrumentStore = defineStore("instrument", () => {
         description: "High-quality Salamander piano ready",
       });
 
-      console.log("Salamander piano loaded successfully");
+      logger.dev("Salamander piano loaded successfully");
     } catch (error) {
-      console.error("Error loading Salamander piano:", error);
+      logger.error("Error loading Salamander piano:", error);
 
       // Show error toast
       toast.error("⚠️ Piano loading failed", {
@@ -179,7 +180,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
       pianoFallbackCompressor.toDestination();
 
       instruments.value.set("piano", pianoFallbackSynth);
-      console.log("Using fallback synth for piano");
+      logger.dev("Using fallback synth for piano");
     }
 
     // Initialize sample-based instruments
@@ -252,7 +253,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
                 duration: Infinity,
               }
             );
-            console.log(`${config.displayName} samples loaded successfully`);
+            logger.dev(`${config.displayName} samples loaded successfully`);
           },
         });
 
@@ -273,7 +274,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
         return { instrumentName, success: true };
       } catch (error) {
-        console.error(
+        logger.error(
           `Error loading sample instrument ${instrumentName}:`,
           error
         );
@@ -310,11 +311,11 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const setInstrument = (instrumentName: string) => {
     if (AVAILABLE_INSTRUMENTS[instrumentName]) {
       currentInstrument.value = instrumentName;
-      console.log(
+      logger.dev(
         `Switched to instrument: ${AVAILABLE_INSTRUMENTS[instrumentName].displayName}`
       );
     } else {
-      console.warn(`Unknown instrument: ${instrumentName}`);
+      logger.warn(`Unknown instrument: ${instrumentName}`);
     }
   };
 

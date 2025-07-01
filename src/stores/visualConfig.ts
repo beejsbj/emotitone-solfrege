@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, reactive } from "vue";
+import { logger } from "@/utils/logger";
 import type {
   VisualEffectsConfig,
   ConfigFieldDef,
@@ -662,7 +663,7 @@ export const useVisualConfigStore = defineStore(
           return true;
         }
       } catch (error) {
-        console.error("Failed to import config:", error);
+        logger.error("Failed to import config:", error);
       }
       return false;
     };

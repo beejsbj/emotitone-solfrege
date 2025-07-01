@@ -73,6 +73,7 @@
 <script setup lang="ts">
 import { useMusicStore } from "@/stores/music";
 import { useAppLoading } from "@/composables/useAppLoading";
+import { logger } from "@/utils/logger";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import KeySelector from "@/components/KeySelector.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
@@ -88,8 +89,8 @@ const musicStore = useMusicStore();
 const { isLoading } = useAppLoading();
 
 // Debug: Log the number of solfege notes
-console.log("Number of solfege notes:", musicStore.solfegeData.length);
-console.log(
+logger.dev("Number of solfege notes:", musicStore.solfegeData.length);
+logger.dev(
   "Solfege data:",
   musicStore.solfegeData.map((s) => s.name)
 );

@@ -14,7 +14,7 @@
     "@tonaljs/tonal": "^4.10.0",
     "gsap": "^3.12.5",
     "lucide-vue-next": "^0.523.0",
-    "pinia": "^2.1.7",
+    "pinia": "^3.0.3",
     "pinia-plugin-persistedstate": "^4.4.0",
     "tone": "^15.0.4",
     "vue": "^3.4.0",

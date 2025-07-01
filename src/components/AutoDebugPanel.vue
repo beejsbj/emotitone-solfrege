@@ -192,8 +192,10 @@ import {
 const visualConfigStore = useVisualConfigStore();
 const showPanel = ref(false);
 
-// @ts-ignore - Vite provides import.meta.env
-const isDevelopment = computed(() => import.meta.env?.DEV || false);
+// Environment check for debug panel visibility
+const isDevelopment = computed(() => {
+  return typeof window !== 'undefined' && window.location.hostname === 'localhost';
+});
 
 // Store state
 const {

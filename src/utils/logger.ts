@@ -11,8 +11,8 @@ interface Logger {
   debug: (...args: any[]) => void;
 }
 
-// @ts-ignore - Vite provides import.meta.env
-const isDev = import.meta.env?.DEV || false;
+// Environment detection - simple approach for build compatibility
+const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
 export const logger: Logger = {
   dev: isDev ? console.log : () => {},

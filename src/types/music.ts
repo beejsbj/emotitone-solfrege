@@ -85,6 +85,18 @@ export type ChromaticNote =
   | "B";
 
 /**
+ * Duration calculation result for sequencer timing
+ */
+export interface SequencerDuration {
+  /** Duration in Tone.js notation (e.g., "4n", "8n", "2n") */
+  toneNotation: string;
+  /** Duration in seconds */
+  seconds: number;
+  /** Duration as a fraction of a whole note */
+  fraction: number;
+}
+
+/**
  * Interface for tracking active notes in the music store
  */
 export interface ActiveNote {

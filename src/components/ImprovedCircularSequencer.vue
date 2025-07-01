@@ -224,6 +224,7 @@ import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import type { SequencerBeat, MelodicPattern } from "@/types/music";
+import { calculateNoteDuration } from "@/utils/duration";
 import * as Tone from "tone";
 import Knob from "./Knob.vue";
 
@@ -664,7 +665,20 @@ const startPlayback = async () => {
         // Play beats that start on this step
         musicStore.sequencerBeats.forEach(beat => {
           if (beat.step === step) {
-            musicStore.attackNoteWithOctave(beat.solfegeIndex, beat.octave);
+            // Calculate the proper duration based on the beat's visual representation
+            const noteDuration = calculateNoteDuration(
+              beat.duration,
+              config.value.steps,
+              config.value.tempo
+            );
+
+            // Play the note with the correct duration
+            musicStore.playNoteWithDuration(
+              beat.solfegeIndex,
+              beat.octave,
+              noteDuration.toneNotation,
+              time
+            );
           }
         });
       },

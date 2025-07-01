@@ -316,6 +316,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { SequencerBeat, MelodicPattern } from "@/types/music";
+import { calculateNoteDuration } from "@/utils/duration";
 import * as Tone from "tone";
 import Knob from "./Knob.vue";
 
@@ -673,12 +674,20 @@ const startPlayback = async () => {
         // Play beats that start on this step
         beats.value.forEach((beat) => {
           if (beat.step === step) {
-            musicStore.attackNoteWithOctave(beat.solfegeIndex, beat.octave);
+            // Calculate the proper duration based on the beat's visual representation
+            const noteDuration = calculateNoteDuration(
+              beat.duration,
+              config.value.steps,
+              config.value.tempo
+            );
 
-            // Schedule note release
-            Tone.getTransport().schedule(() => {
-              // This is a simple release - in a real sequencer you'd want more sophisticated note management
-            }, time + 0.1);
+            // Play the note with the correct duration
+            musicStore.playNoteWithDuration(
+              beat.solfegeIndex,
+              beat.octave,
+              noteDuration.toneNotation,
+              time
+            );
           }
         });
       },

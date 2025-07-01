@@ -170,11 +170,13 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { logger } from "@/utils/logger";
-import type { MelodicPattern } from "@/types/music";
-import * as Tone from "tone";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useColorSystem } from "@/composables/useColorSystem";
+import type { MelodicPattern } from "@/types";
+import { logger } from "@/utils/logger";
+import * as Tone from "tone";
 import Knob from "./Knob.vue";
+import { Play, Pause, RotateCcw } from "lucide-vue-next";
 
 const musicStore = useMusicStore();
 const { getPrimaryColor } = useColorSystem();

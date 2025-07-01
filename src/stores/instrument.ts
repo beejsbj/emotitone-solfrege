@@ -15,8 +15,9 @@ import {
   loadSampleInstrument,
   createSalamanderPiano,
 } from "@/lib/sample-library";
-import type { SampleInstrumentName } from "@/types/sample-library";
+import type { SampleInstrumentName } from "@/types";
 import { toast } from "vue-sonner";
+import type { Sampler } from "tone";
 
 /**
  * Instrument Store

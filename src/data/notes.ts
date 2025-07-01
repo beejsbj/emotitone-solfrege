@@ -4,7 +4,7 @@
  */
 
 import { Note, Interval } from "@tonaljs/tonal";
-import type { ChromaticNote } from "@/types/music";
+import type { ChromaticNote } from "@/types";
 
 // Re-export types for backward compatibility
 export type { ChromaticNote };

@@ -29,8 +29,8 @@ export * from "./sample-library";
 // Configuration system types
 export * from "./config";
 
-// Color system types (now integrated with music types)
-// export * from "./color"; // Moved to music.ts to avoid duplication
+// Color system types
+export * from "./color";
 
 /*
  * ========================================

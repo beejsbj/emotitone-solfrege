@@ -4,7 +4,7 @@
  */
 
 import { Interval, Scale } from "@tonaljs/tonal";
-import type { MelodicPattern } from "@/types/music";
+import type { MelodicPattern } from "@/types";
 
 // Re-export types for backward compatibility
 export type { MelodicPattern };

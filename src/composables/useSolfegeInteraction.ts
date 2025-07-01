@@ -1,12 +1,13 @@
 /**
  * Solfege Interaction Composable
- * Handles note attack/release logic and active note tracking for solfege buttons
+ * Handles user interactions with solfege notes
  */
 
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
-import type { MusicalMode } from "@/types/music";
+import type { MusicalMode } from "@/types";
+import { logger } from "@/utils/logger";
 
 /**
  * Composable for handling solfege note interactions

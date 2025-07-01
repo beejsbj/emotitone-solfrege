@@ -1,3 +1,8 @@
+/**
+ * Visual Configuration Store
+ * Manages configuration for visual effects and audio visualization
+ */
+
 import { defineStore } from "pinia";
 import { ref, reactive } from "vue";
 import { logger } from "@/utils/logger";
@@ -6,7 +11,7 @@ import type {
   ConfigFieldDef,
   ConfigSectionDef,
   ConfigDefinitions,
-} from "@/types/config";
+} from "@/types";
 import { extractConfigValues } from "@/utils/configHelpers";
 
 export interface SavedConfig {

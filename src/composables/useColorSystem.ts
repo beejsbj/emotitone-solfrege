@@ -6,7 +6,7 @@
 
 import { ref, computed, onUnmounted } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import type { NoteColorRelationships, DynamicColorConfig } from "@/types/color";
+import type { NoteColorRelationships, DynamicColorConfig } from "@/types";
 import type { MusicalMode } from "@/types";
 import { CHROMATIC_NOTES, SOLFEGE_NOTES } from "@/data";
 

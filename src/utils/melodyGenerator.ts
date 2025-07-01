@@ -11,7 +11,7 @@ import {
   Mode,
   Progression 
 } from "@tonaljs/tonal";
-import type { MusicalMode } from "@/types/music";
+import type { MusicalMode } from "@/types";
 import { logger } from "./logger";
 
 export interface MelodyOptions {

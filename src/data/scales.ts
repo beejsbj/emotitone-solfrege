@@ -4,7 +4,7 @@
  */
 
 import { Scale as TonalScale, Interval } from "@tonaljs/tonal";
-import type { Scale } from "@/types/music";
+import type { Scale } from "@/types";
 import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "./solfege";
 
 // Re-export types for backward compatibility

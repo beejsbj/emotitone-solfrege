@@ -11,11 +11,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from "vue";
+import { storeToRefs } from "pinia";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { logger } from "@/utils/logger";
+import type { SolfegeData } from "@/types";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
-import type { SolfegeData } from "@/types/music";
+import { logger } from "@/utils/logger";
 
 const musicStore = useMusicStore();
 const visualConfigStore = useVisualConfigStore();

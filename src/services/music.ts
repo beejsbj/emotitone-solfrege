@@ -17,7 +17,7 @@ import {
   getPitchClass,
   noteToSolfege,
 } from "@/data";
-import type { Note, MusicalMode, MusicAnalysis } from "@/types/music";
+import type { Note, MusicalMode, MusicAnalysis } from "@/types";
 import { 
   Note as TonalNote, 
   Scale as TonalScale, 

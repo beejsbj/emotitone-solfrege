@@ -1,6 +1,6 @@
 /**
- * String Rendering System
- * Handles vibrating string visualization with realistic physics
+ * String Renderer Composable
+ * Renders vibrating string visualizations
  */
 
 import { ref } from "vue";
@@ -8,7 +8,7 @@ import type {
   VibratingStringConfig,
   StringConfig,
   AnimationConfig,
-} from "@/types/canvas";
+} from "@/types";
 import { useColorSystem } from "../useColorSystem";
 import {
   createVisualFrequency,

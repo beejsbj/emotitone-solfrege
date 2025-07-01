@@ -1,13 +1,14 @@
 /**
- * Instrument Configuration Data
- * Centralized instrument definitions and configurations
+ * Instrument Data Configuration
+ * Static data defining available instruments and their audio properties
  */
 
 import type {
   InstrumentConfig,
+  InstrumentCategory,
   AudioEnvelope,
   CompressorConfig,
-} from "@/types/instrument";
+} from "@/types";
 
 /**
  * Piano-like envelope settings for consistent feel across instruments

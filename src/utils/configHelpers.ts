@@ -1,13 +1,19 @@
 /**
- * Configuration Utilities
- * Helper functions for config value formatting, validation, and UI generation
+ * Configuration Helper Utilities
+ * Utilities for working with configuration values and validation
  */
 
 import type {
+  VisualEffectsConfig,
   ConfigFieldDef,
   ConfigValidationResult,
   ValueFormatter,
-} from "@/types/config";
+} from "@/types";
+
+/**
+ * Configuration Utilities
+ * Helper functions for config value formatting, validation, and UI generation
+ */
 
 /**
  * Common value formatters for different unit types

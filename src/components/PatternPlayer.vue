@@ -143,9 +143,9 @@
       </div>
     </div>
 
-    <!-- Circular Sequencer -->
+    <!-- Improved Circular Sequencer -->
     <div class="lg:col-span-1">
-      <CircularSequencer />
+      <ImprovedCircularSequencer />
     </div>
   </div>
 </template>
@@ -156,7 +156,7 @@ import { useMusicStore } from "@/stores/music";
 import type { MelodicPattern } from "@/types/music";
 import * as Tone from "tone";
 import { useColorSystem } from "@/composables/useColorSystem";
-import CircularSequencer from "./CircularSequencer.vue";
+import ImprovedCircularSequencer from "./ImprovedCircularSequencer.vue";
 
 const musicStore = useMusicStore();
 const { getPrimaryColor } = useColorSystem();

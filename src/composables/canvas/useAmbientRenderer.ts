@@ -1,9 +1,10 @@
 /**
- * Ambient Background Renderer
- * Handles ambient background effects and atmospheric visuals
+ * Ambient Renderer Composable
+ * Renders background ambient effects
  */
 
-import type { AmbientConfig } from "@/types/canvas";
+import type { AmbientConfig } from "@/types";
+import { useColorSystem } from "../useColorSystem";
 
 export function useAmbientRenderer() {
   /**

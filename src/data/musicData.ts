@@ -16,4 +16,4 @@ export type {
   Scale,
   MelodicPattern,
   ChromaticNote,
-} from "@/types/music";
+} from "@/types";

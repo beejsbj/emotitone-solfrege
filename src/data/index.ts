@@ -1,24 +1,41 @@
 /**
- * Data Module Exports
- * Centralized exports for all music theory data
+ * Music Theory Data for Emotitone Solfege
+ * Consolidated exports from modular data files
+ * This file maintains backward compatibility while the data is now organized in separate modules
  */
 
-// Notes
-export { CHROMATIC_NOTES } from "./notes";
-export type { ChromaticNote } from "./notes";
-export { SOLFEGE_NOTES } from "./notes";
-
-// Solfege
+// Import from modular files
+export { 
+  CHROMATIC_NOTES, 
+  SOLFEGE_NOTES, 
+  EXTENDED_SOLFEGE_NOTES,
+  validateNote,
+  getSemitoneDistance,
+  transposeNote,
+  getPitchClass,
+  noteToSolfege,
+} from "./notes";
 export { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "./solfege";
-export type { SolfegeData } from "./solfege";
-
-// Scales
 export { MAJOR_SCALE, MINOR_SCALE } from "./scales";
-export type { Scale } from "./scales";
+export { 
+  MELODIC_PATTERNS,
+  getPatternsByInterval,
+  getPatternsByTension,
+} from "./patterns";
 
-// Patterns
-export { MELODIC_PATTERNS } from "./patterns";
-export type { MelodicPattern } from "./patterns";
+// Re-export types for backward compatibility
+export type {
+  SolfegeData,
+  Scale,
+  MelodicPattern,
+  ChromaticNote,
+  TonalAnalysis,
+  MusicAnalysis,
+} from "@/types/music";
+
+export type {
+  NoteColorRelationships,
+} from "@/types/color";
 
 // Instruments
 export {

@@ -1,11 +1,9 @@
 /**
- * Blob Rendering System
- * Handles blob creation, rendering, and management with fluid animations
+ * Blob Renderer Composable
+ * Renders animated blob effects
  */
 
-import type { ActiveBlob } from "@/types/canvas";
-import type { SolfegeData } from "@/types/music";
-import type { BlobConfig } from "@/types/canvas";
+import type { ActiveBlob, BlobConfig, SolfegeData } from "@/types";
 import { useColorSystem } from "../useColorSystem";
 import { createVisualFrequency } from "@/utils/visualEffects";
 

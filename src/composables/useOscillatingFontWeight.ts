@@ -1,6 +1,7 @@
 // Simple font weight oscillation utility
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import { logger } from "@/utils/logger";
 import {
   mapFrequencyToValue,
   createFontWeightMapping,
@@ -188,7 +189,7 @@ if (typeof window !== "undefined") {
     try {
       initializeFontWeightOscillation();
     } catch (error) {
-      console.warn("Font weight oscillation initialization failed:", error);
+      logger.warn("Font weight oscillation initialization failed:", error);
     }
   }, 100);
 }

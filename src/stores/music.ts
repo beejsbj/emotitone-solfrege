@@ -1,14 +1,16 @@
 import { defineStore } from "pinia";
 import { ref, computed, readonly } from "vue";
-import { musicTheory } from "@/services/music";
 import type {
   SolfegeData,
+  Scale,
   MelodicPattern,
-  MusicalMode,
   ActiveNote,
-} from "@/types/music";
+  MusicalMode,
+} from "@/types";
+import { musicTheory } from "@/services/music";
 import { audioService } from "@/services/audio";
 import { useInstrumentStore } from "@/stores/instrument";
+import { logger } from "@/utils/logger";
 
 export const useMusicStore = defineStore(
   "music",

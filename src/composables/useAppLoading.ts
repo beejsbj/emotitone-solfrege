@@ -11,9 +11,10 @@ import type {
   SplashConfig,
   AppLoadingState,
   LoadingEvent,
-} from "@/types/loading";
+} from "@/types";
 import { audioService } from "@/services/audio";
 import { toast } from "vue-sonner";
+import { logger } from "@/utils/logger";
 
 // Default splash configuration
 const DEFAULT_SPLASH_CONFIG: SplashConfig = {

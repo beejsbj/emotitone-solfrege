@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
+import type { InstrumentConfig } from "@/types";
 import { CATEGORY_DISPLAY_NAMES } from "@/data/instruments";
-import type { InstrumentConfig } from "@/types/instrument";
+import { ChevronDown, Loader2, AlertCircle } from "lucide-vue-next";
 
 const instrumentStore = useInstrumentStore();
 

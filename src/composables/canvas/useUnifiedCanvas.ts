@@ -1,8 +1,9 @@
 import { ref, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import { logger, performanceLogger } from "@/utils/logger";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
-import type { SolfegeData } from "@/types/music";
+import type { SolfegeData } from "@/types";
 import { useBlobRenderer } from "./useBlobRenderer";
 import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
@@ -93,13 +94,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const initializeCanvas = () => {
     if (!canvasRef.value) {
-      console.error("❌ Canvas ref is null!");
+      logger.error("❌ Canvas ref is null!");
       return;
     }
 
     ctx = canvasRef.value.getContext("2d");
     if (!ctx) {
-      console.error("❌ Could not get 2D context!");
+              logger.error("❌ Could not get 2D context!");
       return;
     }
 
@@ -122,7 +123,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       musicStore.solfegeData
     );
 
-    console.log("✅ Canvas initialized successfully");
+          logger.dev("✅ Canvas initialized successfully");
   };
 
   /**
@@ -130,7 +131,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const renderFrame = (elapsed: number) => {
     if (!ctx) {
-      console.warn("⚠️ No canvas context in renderFrame");
+              performanceLogger.throttled("⚠️ No canvas context in renderFrame");
       return;
     }
 

@@ -1,4 +1,5 @@
 import * as Tone from "tone";
+import { logger, performanceLogger } from "@/utils/logger";
 
 /**
  * Enhanced Audio Service that can handle both note names and frequencies
@@ -43,7 +44,7 @@ export class AudioService {
         // Initialize instruments if not already done
         await this.instrumentStore.initializeInstruments();
       } catch (error) {
-        console.error("Failed to initialize instrument store:", error);
+        logger.error("Failed to initialize instrument store:", error);
         throw new Error("Instrument system unavailable");
       }
     }
@@ -55,23 +56,23 @@ export class AudioService {
       try {
         // Wait for user interaction if not received yet
         if (!this.userInteractionReceived) {
-          console.log("Waiting for user interaction to enable audio...");
+          logger.dev("Waiting for user interaction to enable audio...");
           return;
         }
 
         // Check if audio context is already running
         const context = Tone.getContext();
         if (context.state === "suspended") {
-          console.log("Starting Tone.js audio context...");
+          logger.dev("Starting Tone.js audio context...");
           await Tone.start();
         } else if (context.state === "running") {
-          console.log("Audio context already running");
+          logger.dev("Audio context already running");
         }
 
         this.isInitialized = true;
-        console.log("Audio context state:", context.state);
+        logger.dev("Audio context state:", context.state);
       } catch (error) {
-        console.error("Failed to start audio context:", error);
+        logger.error("Failed to start audio context:", error);
         // Don't throw error, just log it and continue
         this.isInitialized = false;
       }
@@ -90,10 +91,10 @@ export class AudioService {
       }
 
       this.isInitialized = true;
-      console.log("Audio context manually started, state:", context.state);
+      logger.dev("Audio context manually started, state:", context.state);
       return context.state === "running";
     } catch (error) {
-      console.error("Failed to manually start audio context:", error);
+      logger.error("Failed to manually start audio context:", error);
       return false;
     }
   }
@@ -120,7 +121,7 @@ export class AudioService {
       // Ensure audio context is properly started
       const context = Tone.getContext();
       if (context.state === "suspended") {
-        console.log("Audio context suspended, starting...");
+        logger.dev("Audio context suspended, starting...");
         await Tone.start();
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -136,24 +137,24 @@ export class AudioService {
           // All instruments now have consistent API
           instrument.triggerAttackRelease(noteToPlay, duration);
         } catch (triggerError) {
-          console.error(
+          logger.error(
             "Error triggering instrument in playNote:",
             triggerError
           );
-          console.log(
+          logger.dev(
             "Instrument type:",
             instrument.constructor?.name || "Unknown"
           );
-          console.log("Note:", note);
+          logger.dev("Note:", note);
         }
-      } else {
-        console.warn(
-          "Cannot play note - audio context not ready or no instrument"
-        );
+              } else {
+          logger.warn(
+            "Cannot play note - audio context not ready or no instrument"
+          );
+        }
+      } catch (error) {
+        logger.error("Error playing note:", error);
       }
-    } catch (error) {
-      console.error("Error playing note:", error);
-    }
   }
 
   async attackNote(
@@ -172,7 +173,7 @@ export class AudioService {
       // Ensure audio context is properly started
       const context = Tone.getContext();
       if (context.state === "suspended") {
-        console.log("Audio context suspended, starting...");
+        logger.dev("Audio context suspended, starting...");
         await Tone.start();
         // Wait a bit for context to fully start
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -201,22 +202,22 @@ export class AudioService {
             });
             return id;
           } catch (triggerError) {
-            console.error("Error triggering instrument:", triggerError);
-            console.log(
+            logger.error("Error triggering instrument:", triggerError);
+            logger.dev(
               "Instrument type:",
               instrument.constructor?.name || "Unknown"
             );
-            console.log("Note:", note);
+            logger.dev("Note:", note);
+          }
+                  } else {
+            logger.warn("Audio context not running, cannot attack note");
           }
         } else {
-          console.warn("Audio context not running, cannot attack note");
+          logger.warn("No valid instrument available for note attack");
         }
-      } else {
-        console.warn("No valid instrument available for note attack");
-      }
-      return "";
-    } catch (error) {
-      console.error("Error attacking note:", error);
+        return "";
+      } catch (error) {
+        logger.error("Error attacking note:", error);
       return "";
     }
   }
@@ -235,7 +236,7 @@ export class AudioService {
             instrument.triggerRelease(noteData.note);
             this.activeNotes.delete(noteId);
           } catch (releaseError) {
-            console.error("Error releasing note:", releaseError);
+            logger.error("Error releasing note:", releaseError);
             // Still remove from active notes even if release failed
             this.activeNotes.delete(noteId);
           }
@@ -245,13 +246,13 @@ export class AudioService {
         try {
           instrument.releaseAll();
         } catch (releaseError) {
-          console.error("Error releasing all notes:", releaseError);
+          logger.error("Error releasing all notes:", releaseError);
         }
         this.activeNotes.clear();
       }
-    } catch (error) {
-      console.error("Error releasing note:", error);
-    }
+          } catch (error) {
+        logger.error("Error releasing note:", error);
+      }
   }
 
   // New method to release a specific frequency
@@ -272,12 +273,12 @@ export class AudioService {
             }
           }
         } catch (releaseError) {
-          console.error("Error releasing note by frequency:", releaseError);
+          logger.error("Error releasing note by frequency:", releaseError);
         }
       }
-    } catch (error) {
-      console.error("Error releasing note by frequency:", error);
-    }
+          } catch (error) {
+        logger.error("Error releasing note by frequency:", error);
+      }
   }
 
   // Get currently active notes
@@ -308,7 +309,7 @@ export class AudioService {
         instrument.triggerAttackRelease(noteWithOctave, duration);
       }
     } catch (error) {
-      console.error("Error playing note by name:", error);
+      logger.error("Error playing note by name:", error);
     }
   }
 
@@ -343,7 +344,7 @@ export class AudioService {
         sequence.dispose();
       }, notes.length * (60 / tempo) * 1000);
     } catch (error) {
-      console.error("Error playing sequence:", error);
+      logger.error("Error playing sequence:", error);
     }
   }
 
@@ -356,7 +357,7 @@ export class AudioService {
       }
       this.activeNotes.clear();
     } catch (error) {
-      console.error("Error stopping audio:", error);
+      logger.error("Error stopping audio:", error);
     }
   }
 
@@ -365,7 +366,7 @@ export class AudioService {
       const instrumentStore = await this.getInstrumentStore();
       instrumentStore.dispose();
     } catch (error) {
-      console.error("Error disposing audio service:", error);
+      logger.error("Error disposing audio service:", error);
     }
   }
 }

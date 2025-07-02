@@ -82,9 +82,22 @@ export const useMultiSequencerStore = defineStore(
     };
 
     const setActiveSequencer = (id: string) => {
-      if (sequencers.value.find((s) => s.id === id)) {
+      console.log("setActiveSequencer called with:", id);
+      console.log("Current activeSequencerId:", config.value.activeSequencerId);
+
+      if (id === "" || id === null) {
+        // Clear active sequencer
+        console.log("Clearing active sequencer");
+        config.value.activeSequencerId = null;
+      } else if (sequencers.value.find((s) => s.id === id)) {
+        // Set valid sequencer as active
+        console.log("Setting active sequencer to:", id);
         config.value.activeSequencerId = id;
+      } else {
+        console.log("Invalid sequencer ID, not setting");
       }
+
+      console.log("New activeSequencerId:", config.value.activeSequencerId);
     };
 
     const duplicateSequencer = (id: string) => {

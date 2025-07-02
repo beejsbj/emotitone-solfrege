@@ -9,22 +9,218 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
 // Store
 const multiSequencerStore = useMultiSequencerStore();
 
-// Local state
-const expandedSequencerId = ref<string | null>(null);
-
 // Computed
 const sequencers = computed(() => multiSequencerStore.sequencers);
+const activeSequencer = computed(() => multiSequencerStore.activeSequencer);
+
+// Define slot types
+interface SequencerSlot {
+  type: "sequencer";
+  sequencer: any;
+  index: number;
+}
+
+interface EmptySlot {
+  type: "empty";
+  sequencer: null;
+  index: number;
+}
+
+type GridSlot = SequencerSlot | EmptySlot;
+
+// Create grid slots (16 total)
+const gridSlots = computed((): GridSlot[] => {
+  const slots: GridSlot[] = [];
+  const maxSlots = 16;
+
+  // Add existing sequencers
+  for (let i = 0; i < Math.min(sequencers.value.length, maxSlots); i++) {
+    slots.push({
+      type: "sequencer",
+      sequencer: sequencers.value[i],
+      index: i,
+    });
+  }
+
+  // Fill remaining slots with empty slots
+  for (let i = sequencers.value.length; i < maxSlots; i++) {
+    slots.push({
+      type: "empty",
+      sequencer: null,
+      index: i,
+    });
+  }
+
+  return slots;
+});
+
+// Interaction state
+const lastTapTime = ref<{ [key: string]: number }>({});
+const pressState = ref<{
+  [key: string]: {
+    isPressed: boolean;
+    timeout?: number;
+    startTime: number;
+    transport?: any; // Store the transport instance here
+  };
+}>({});
 
 // Methods
-const expandSequencer = (sequencerId: string) => {
-  expandedSequencerId.value = sequencerId;
-  multiSequencerStore.setActiveSequencer(sequencerId);
-  triggerUIHaptic();
+const handleSequencerTap = (sequencerId: string) => {
+  // This is now only called from click events that don't conflict with press/hold
+  // Most tap detection will happen in handleSequencerPressEnd for short presses
+  const now = Date.now();
+  const lastTap = lastTapTime.value[sequencerId] || 0;
+  const timeDiff = now - lastTap;
+
+  console.log(`Click on ${sequencerId}: timeDiff=${timeDiff}ms`);
+
+  lastTapTime.value[sequencerId] = now;
+
+  // Double tap detection (within 300ms)
+  if (timeDiff < 300 && timeDiff > 0) {
+    console.log("Double tap detected!");
+    // Double tap - toggle selection
+    if (multiSequencerStore.config.activeSequencerId === sequencerId) {
+      multiSequencerStore.setActiveSequencer("");
+    } else {
+      multiSequencerStore.setActiveSequencer(sequencerId);
+    }
+    triggerUIHaptic();
+  }
 };
 
-const collapseSequencer = () => {
-  expandedSequencerId.value = null;
-  triggerUIHaptic();
+const handleSequencerPressStart = (sequencerId: string, event: Event) => {
+  event.preventDefault();
+  console.log("Press start:", sequencerId);
+
+  const now = Date.now();
+
+  // Initialize press state
+  pressState.value[sequencerId] = {
+    isPressed: true,
+    startTime: now,
+    transport: null,
+  };
+
+  // Start playing after 200ms hold
+  const timeout = setTimeout(async () => {
+    if (pressState.value[sequencerId]?.isPressed) {
+      console.log("Starting sequencer from hold:", sequencerId);
+
+      // Create and store the transport
+      const transport = await startSequencerPlayback(sequencerId);
+      if (transport && pressState.value[sequencerId]) {
+        pressState.value[sequencerId].transport = transport;
+      }
+      triggerUIHaptic();
+    }
+  }, 200);
+
+  pressState.value[sequencerId].timeout = timeout;
+};
+
+const handleSequencerPressEnd = (sequencerId: string) => {
+  console.log("Press end:", sequencerId);
+  const state = pressState.value[sequencerId];
+  if (!state) return;
+
+  const now = Date.now();
+  const pressDuration = now - state.startTime;
+
+  state.isPressed = false;
+
+  // Clear timeout if still pending
+  if (state.timeout) {
+    clearTimeout(state.timeout);
+  }
+
+  // If there's a transport playing, stop it
+  if (state.transport) {
+    console.log("Stopping transport for:", sequencerId);
+    try {
+      state.transport.stopAll();
+      state.transport.dispose();
+    } catch (error) {
+      console.error("Error stopping transport:", error);
+    }
+    state.transport = null;
+  }
+
+  // Stop playing in store
+  multiSequencerStore.stopSequencer(sequencerId);
+
+  // Handle short press as tap for double-tap detection
+  if (pressDuration < 200) {
+    console.log(`Short press (${pressDuration}ms) - treating as tap`);
+
+    const lastTap = lastTapTime.value[sequencerId] || 0;
+    const timeSinceLastTap = now - lastTap;
+
+    lastTapTime.value[sequencerId] = now;
+
+    // Double tap detection (within 300ms)
+    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+      console.log("Double tap detected from short press!");
+      console.log(
+        "Current active sequencer ID:",
+        multiSequencerStore.config.activeSequencerId
+      );
+      console.log("Tapped sequencer ID:", sequencerId);
+      // Double tap - toggle selection
+      if (multiSequencerStore.config.activeSequencerId === sequencerId) {
+        console.log("Deselecting active sequencer");
+        multiSequencerStore.setActiveSequencer("");
+      } else {
+        console.log("Selecting new sequencer");
+        multiSequencerStore.setActiveSequencer(sequencerId);
+      }
+      triggerUIHaptic();
+    }
+  }
+};
+
+const addNewSequencer = () => {
+  if (sequencers.value.length < 16) {
+    multiSequencerStore.createSequencer();
+    triggerUIHaptic();
+  }
+};
+
+// Extract the sequencer playback logic into a separate function
+const startSequencerPlayback = async (sequencerId: string) => {
+  console.log("Starting sequencer playback for:", sequencerId);
+  const sequencer = sequencers.value.find((s) => s.id === sequencerId);
+  if (!sequencer || sequencer.beats.length === 0) {
+    console.log("No sequencer or no beats");
+    return null;
+  }
+
+  try {
+    // Import the transport system
+    const { MultiSequencerTransport } = await import("@/utils/multiSequencer");
+
+    // Create a transport instance
+    const transport = new MultiSequencerTransport();
+
+    // Set the sequencer to playing in the store
+    multiSequencerStore.startSequencer(sequencerId);
+
+    // Start the transport with just this sequencer
+    await transport.startSequencer(sequencer, multiSequencerStore.config.steps);
+
+    console.log("Started sequencer successfully");
+    return transport;
+  } catch (error) {
+    console.error("Error in sequencer playback:", error);
+    return null;
+  }
+};
+
+// Simple test method to play a sequencer directly
+const testPlaySequencer = async (sequencerId: string) => {
+  // This function is now replaced by startSequencerPlayback
+  return startSequencerPlayback(sequencerId);
 };
 
 const getSequencerDisplayName = (sequencer: any) => {
@@ -52,185 +248,215 @@ const getThemeColor = (paletteId?: string) => {
   return paletteId ? colorMap[paletteId] : null;
 };
 
-// Handle sequencer instance events
-const handleSequencerInstancePlayback = (
-  sequencerId: string,
-  shouldPlay: boolean
-) => {
-  // This will be handled by the parent component
-  // For now, just emit the event up
-  console.log("Sequencer playback toggle:", sequencerId, shouldPlay);
-};
-
-const handleDeleteSequencer = (sequencerId: string) => {
-  multiSequencerStore.deleteSequencer(sequencerId);
-  if (expandedSequencerId.value === sequencerId) {
-    expandedSequencerId.value = null;
-  }
-  triggerUIHaptic();
-};
+// Sequencer instance events are now handled internally by the component
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Expanded View -->
+  <div class="flex flex-col h-full space-y-4">
+    <!-- Expanded Sequencer View -->
     <div
-      v-if="expandedSequencerId"
-      class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-      @click.self="collapseSequencer"
+      class="transition-opacity duration-300"
+      :class="activeSequencer ? 'opacity-100' : 'opacity-0 pointer-events-none'"
     >
-      <div
-        class="bg-gray-900/95 border border-white/20 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-        @click.stop
-      >
-        <!-- Header -->
-        <div
-          class="flex items-center justify-between p-4 border-b border-white/10"
-        >
-          <h3 class="text-white font-medium">
-            {{
-              getSequencerDisplayName(
-                sequencers.find((s) => s.id === expandedSequencerId)
-              )
-            }}
-          </h3>
-          <button
-            @click="collapseSequencer"
-            class="p-2 hover:bg-white/10 rounded transition-colors text-white/60 hover:text-white"
-          >
-            ✕
-          </button>
-        </div>
-
-        <!-- Expanded Sequencer Content -->
-        <div class="p-6 space-y-6">
-          <!-- Full Circular Sequencer -->
-          <div class="flex justify-center">
-            <div class="w-full max-w-md">
-              <CircularSequencer
-                :sequencer-id="expandedSequencerId"
-                :key="expandedSequencerId"
-              />
-            </div>
-          </div>
-
-          <!-- Instance Controls -->
-          <SequencerInstanceControls
-            :sequencer-id="expandedSequencerId"
-            @delete-sequencer="handleDeleteSequencer"
-            @playback-toggle="handleSequencerInstancePlayback"
-          />
+      <!-- Full Circular Sequencer -->
+      <div class="flex justify-center">
+        <div class="w-full max-w-sm">
+          <CircularSequencer :expanded="true" />
         </div>
       </div>
+
+      <!-- Instance Controls -->
+      <SequencerInstanceControls />
     </div>
 
-    <!-- Grid View -->
-    <div v-if="!expandedSequencerId" class="space-y-4">
-      <div class="text-center text-white/80 py-2">
-        <h2 class="text-lg font-medium">Sequencers</h2>
-        <p class="text-sm text-white/60">
-          Tap to expand • {{ sequencers.length }} tracks
-        </p>
-      </div>
-
-      <!-- Empty State -->
-      <div
-        v-if="sequencers.length === 0"
-        class="text-center text-white/60 py-12"
-      >
-        <p class="text-lg mb-2">No sequencers yet</p>
-        <p class="text-sm">Add a sequencer to get started</p>
-      </div>
-
-      <!-- Sequencer Grid -->
-      <div
-        v-else
-        class="grid gap-4"
-        :class="{
-          'grid-cols-2': sequencers.length <= 4,
-          'grid-cols-3': sequencers.length > 4 && sequencers.length <= 9,
-          'grid-cols-4': sequencers.length > 9,
-        }"
-      >
+    <!-- Sequencer Grid -->
+    <div class="flex-1 space-y-3">
+      <!-- Fixed 16-Slot Grid (4x4) -->
+      <div class="grid grid-cols-4 gap-1 px-1">
         <div
-          v-for="sequencer in sequencers"
-          :key="sequencer.id"
-          @click="expandSequencer(sequencer.id)"
-          class="relative group cursor-pointer transition-all duration-300 hover:scale-105"
+          v-for="slot in gridSlots"
+          :key="
+            slot.type === 'sequencer'
+              ? slot.sequencer.id
+              : `empty-${slot.index}`
+          "
+          @click.stop="
+            slot.type === 'empty' && sequencers.length < 16
+              ? addNewSequencer()
+              : null
+          "
+          @mousedown.stop="
+            slot.type === 'sequencer'
+              ? handleSequencerPressStart(slot.sequencer.id, $event)
+              : null
+          "
+          @mouseup.stop="
+            slot.type === 'sequencer'
+              ? handleSequencerPressEnd(slot.sequencer.id)
+              : null
+          "
+          @mouseleave="
+            slot.type === 'sequencer'
+              ? handleSequencerPressEnd(slot.sequencer.id)
+              : null
+          "
+          @touchstart.stop.prevent="
+            slot.type === 'sequencer'
+              ? handleSequencerPressStart(slot.sequencer.id, $event)
+              : null
+          "
+          @touchend.stop.prevent="
+            slot.type === 'sequencer'
+              ? handleSequencerPressEnd(slot.sequencer.id)
+              : null
+          "
+          class="relative group cursor-pointer transition-all duration-200 hover:scale-105"
         >
           <!-- Sequencer Card -->
           <div
-            class="bg-gray-900/80 border rounded-lg p-3 backdrop-blur-sm transition-all duration-300 hover:bg-gray-800/80"
-            :class="sequencer.color ? '' : 'border-white/10'"
+            v-if="slot.type === 'sequencer'"
+            class="border rounded-lg p-1 backdrop-blur-sm transition-all duration-150 ease-out aspect-square flex flex-col"
+            :class="[
+              slot.sequencer.id === activeSequencer?.id
+                ? 'border-2'
+                : slot.sequencer.color
+                ? 'border'
+                : 'border border-white/20',
+              // Press state styling
+              pressState[slot.sequencer.id]?.isPressed
+                ? 'scale-95 shadow-inner'
+                : 'hover:scale-105 shadow-lg',
+            ]"
             :style="
-              sequencer.color
+              slot.sequencer.color
                 ? {
-                    borderColor: getThemeColor(sequencer.color)?.replace(
+                    backgroundColor: pressState[slot.sequencer.id]?.isPressed
+                      ? getThemeColor(slot.sequencer.color)?.replace(
+                          '1)',
+                          '0.25)'
+                        )
+                      : getThemeColor(slot.sequencer.color)?.replace(
+                          '1)',
+                          '0.15)'
+                        ),
+                    borderColor: getThemeColor(slot.sequencer.color)?.replace(
                       '1)',
-                      '0.3)'
+                      pressState[slot.sequencer.id]?.isPressed ? '0.8)' : '0.6)'
                     ),
-                    boxShadow: `0 0 20px ${getThemeColor(
-                      sequencer.color
-                    )?.replace('1)', '0.1)')}`,
+                    boxShadow: pressState[slot.sequencer.id]?.isPressed
+                      ? `inset 0 2px 8px ${getThemeColor(
+                          slot.sequencer.color
+                        )?.replace('1)', '0.4)')}`
+                      : slot.sequencer.id === activeSequencer?.id
+                      ? `0 0 20px ${getThemeColor(
+                          slot.sequencer.color
+                        )?.replace('1)', '0.3)')}`
+                      : `0 0 10px ${getThemeColor(
+                          slot.sequencer.color
+                        )?.replace('1)', '0.2)')}`,
+                    transform: pressState[slot.sequencer.id]?.isPressed
+                      ? 'translateY(1px)'
+                      : 'translateY(0px)',
                   }
-                : {}
+                : {
+                    backgroundColor: pressState[slot.sequencer.id]?.isPressed
+                      ? 'rgba(255,255,255,0.2)'
+                      : slot.sequencer.id === activeSequencer?.id
+                      ? 'rgba(255,255,255,0.1)'
+                      : 'rgba(31, 41, 55, 0.6)',
+                    borderColor: pressState[slot.sequencer.id]?.isPressed
+                      ? 'rgba(255,255,255,0.8)'
+                      : slot.sequencer.id === activeSequencer?.id
+                      ? 'rgba(255,255,255,0.6)'
+                      : 'rgba(255,255,255,0.2)',
+                    boxShadow: pressState[slot.sequencer.id]?.isPressed
+                      ? 'inset 0 2px 8px rgba(0,0,0,0.3)'
+                      : slot.sequencer.id === activeSequencer?.id
+                      ? '0 0 20px rgba(255,255,255,0.1)'
+                      : 'none',
+                    transform: pressState[slot.sequencer.id]?.isPressed
+                      ? 'translateY(1px)'
+                      : 'translateY(0px)',
+                  }
             "
           >
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
-                <span class="text-sm">{{ getSequencerIcon(sequencer) }}</span>
-                <span class="text-xs font-medium text-white truncate">
-                  {{ getSequencerDisplayName(sequencer) }}
-                </span>
-              </div>
-              <div class="flex items-center gap-1 text-xs">
-                <span
-                  class="px-1.5 py-0.5 rounded-sm font-medium"
-                  :class="
-                    sequencer.color
-                      ? 'bg-white/20'
-                      : 'bg-blue-500/20 text-blue-400'
-                  "
-                  :style="
-                    sequencer.color && getThemeColor(sequencer.color)
-                      ? { color: getThemeColor(sequencer.color)! }
-                      : {}
-                  "
-                >
-                  {{ sequencer.beats.length }}
-                </span>
-              </div>
+            <!-- Icon Only -->
+            <div class="flex items-center justify-center py-1">
+              <span class="text-sm">{{
+                getSequencerIcon(slot.sequencer)
+              }}</span>
             </div>
 
             <!-- Compact Circular Sequencer -->
-            <div class="flex justify-center">
-              <div class="w-20 h-20">
+            <div class="flex-1 flex items-center justify-center">
+              <div class="w-full h-full max-w-[60px] max-h-[60px]">
                 <CircularSequencer
-                  :sequencer-id="sequencer.id"
+                  :sequencer-id="slot.sequencer.id"
                   :compact="true"
-                  :key="`compact-${sequencer.id}`"
-                  @expand="expandSequencer(sequencer.id)"
+                  :key="`compact-${slot.sequencer.id}`"
                 />
               </div>
             </div>
 
             <!-- Status Indicator -->
-            <div class="flex items-center justify-center mt-2">
+            <div class="flex items-center justify-center py-1">
               <div
-                class="w-2 h-2 rounded-full transition-colors"
+                class="w-1.5 h-1.5 rounded-full transition-colors"
                 :class="{
-                  'bg-green-400': sequencer.isPlaying && !sequencer.isMuted,
-                  'bg-red-400': sequencer.isMuted,
-                  'bg-gray-500': !sequencer.isPlaying && !sequencer.isMuted,
+                  'bg-green-400':
+                    slot.sequencer.isPlaying && !slot.sequencer.isMuted,
+                  'bg-red-400': slot.sequencer.isMuted,
+                  'bg-gray-500':
+                    !slot.sequencer.isPlaying && !slot.sequencer.isMuted,
                 }"
               />
             </div>
           </div>
 
-          <!-- Hover Overlay -->
+          <!-- Empty Slot Card -->
           <div
-            class="absolute inset-0 bg-white/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+            v-else
+            class="border-2 border-dashed border-white/20 rounded-lg p-1 backdrop-blur-sm transition-all duration-200 hover:border-white/40 hover:bg-white/5 aspect-square flex flex-col items-center justify-center"
+            :class="
+              sequencers.length >= 16 ? 'opacity-50 cursor-not-allowed' : ''
+            "
+          >
+            <div class="text-white/40 text-2xl">+</div>
+            <div class="text-white/30 text-[8px] mt-1">Add</div>
+          </div>
+
+          <!-- Selection Overlay -->
+          <div
+            v-if="
+              slot.type === 'sequencer' &&
+              slot.sequencer.id === activeSequencer?.id
+            "
+            class="absolute inset-0 rounded-lg pointer-events-none"
+            :style="{
+              background:
+                slot.sequencer.color && getThemeColor(slot.sequencer.color)
+                  ? `linear-gradient(135deg, ${getThemeColor(
+                      slot.sequencer.color
+                    )?.replace('1)', '0.2)')}, ${getThemeColor(
+                      slot.sequencer.color
+                    )?.replace('1)', '0.1)')})`
+                  : 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05))',
+              boxShadow:
+                slot.sequencer.color && getThemeColor(slot.sequencer.color)
+                  ? `inset 0 0 20px ${getThemeColor(
+                      slot.sequencer.color
+                    )?.replace('1)', '0.3)')}`
+                  : 'inset 0 0 20px rgba(255,255,255,0.1)',
+            }"
+          />
+
+          <!-- Press State Overlay -->
+          <div
+            v-if="
+              slot.type === 'sequencer' &&
+              pressState[slot.sequencer.id]?.isPressed
+            "
+            class="absolute inset-0 bg-white/20 rounded-lg pointer-events-none transition-opacity duration-100"
           />
         </div>
       </div>
@@ -241,6 +467,6 @@ const handleDeleteSequencer = (sequencerId: string) => {
 <style scoped>
 /* Smooth transitions for grid items */
 .grid > div {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 </style>

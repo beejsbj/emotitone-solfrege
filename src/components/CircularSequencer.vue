@@ -9,18 +9,14 @@ import type { SequencerBeat } from "@/types/music";
 // Props
 interface Props {
   sequencerId?: string;
-  compact?: boolean; // New prop for compact mode
+  compact?: boolean;
+  expanded?: boolean; // New prop for expanded mode (uses active sequencer)
 }
 
 const props = defineProps<Props>();
 
-// Emits
-const emit = defineEmits<{
-  expand: [];
-}>();
-
 // Extract compact prop for template usage
-const { compact } = props;
+const { compact, expanded } = props;
 
 // Interfaces for the visual system
 interface CircularTrack {
@@ -56,11 +52,11 @@ const { getPrimaryColor } = useColorSystem();
 const styles = computed(() => ({
   // Core SVG dimensions and layout
   dimensions: {
-    centerX: compact ? 50 : 200, // X center point of the circular sequencer
-    centerY: compact ? 50 : 200, // Y center point of the circular sequencer
-    outerRadius: compact ? 45 : 190, // Outer boundary - controls overall sequencer size
-    innerRadius: compact ? 5 : 20, // Inner boundary - creates the "donut hole" (smaller = more compact)
-    viewBox: compact ? "0 0 100 100" : "0 0 400 400", // SVG coordinate system (keep proportional to center values)
+    centerX: compact ? 40 : 200, // X center point of the circular sequencer
+    centerY: compact ? 40 : 200, // Y center point of the circular sequencer
+    outerRadius: compact ? 35 : 190, // Outer boundary - controls overall sequencer size
+    innerRadius: compact ? 3 : 20, // Inner boundary - creates the "donut hole" (smaller = more compact)
+    viewBox: compact ? "0 0 80 80" : "0 0 400 400", // SVG coordinate system (keep proportional to center values)
   },
 
   // Track ring configuration
@@ -195,8 +191,16 @@ const dragStart = ref({
 
 // Get the current sequencer instance
 const currentSequencer = computed(() => {
-  if (!props.sequencerId) return null;
-  return multiSequencerStore.sequencers.find((s) => s.id === props.sequencerId);
+  if (props.expanded) {
+    // In expanded mode, use the active sequencer from the store
+    return multiSequencerStore.activeSequencer;
+  } else if (props.sequencerId) {
+    // In regular mode, use the provided sequencer ID
+    return multiSequencerStore.sequencers.find(
+      (s) => s.id === props.sequencerId
+    );
+  }
+  return null;
 });
 
 // Computed properties from store - now using multi-sequencer
@@ -613,7 +617,12 @@ onUnmounted(() => {
           : 'rgba(255, 255, 255, 0.2)',
       }"
       preserveAspectRatio="xMidYMid meet"
-      @click="compact ? emit('expand') : null"
+      @click="
+        compact
+          ? (multiSequencerStore.setActiveSequencer(props.sequencerId || ''),
+            triggerUIHaptic())
+          : null
+      "
     >
       <!-- Quarter and sixteenth markers (hidden in compact mode) -->
       <g v-if="!compact" class="grid-markers">

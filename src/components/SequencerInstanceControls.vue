@@ -20,22 +20,27 @@ import {
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 interface Props {
-  sequencerId: string;
+  sequencerId?: string; // Made optional so it can access active sequencer internally
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{
-  deleteSequencer: [sequencerId: string];
-  playbackToggle: [sequencerId: string, shouldPlay: boolean];
-}>();
+// No longer need to emit events - handle everything internally
 
 // Stores
 const multiSequencerStore = useMultiSequencerStore();
 const instrumentStore = useInstrumentStore();
 
-// Get current sequencer
-const sequencer = computed(() =>
-  multiSequencerStore.sequencers.find((s) => s.id === props.sequencerId)
+// Get current sequencer - use active sequencer if no ID provided
+const sequencer = computed(() => {
+  const targetId =
+    props.sequencerId || multiSequencerStore.config.activeSequencerId;
+  if (!targetId) return null;
+  return multiSequencerStore.sequencers.find((s) => s.id === targetId);
+});
+
+// Get the sequencer ID to use for operations
+const sequencerId = computed(
+  () => props.sequencerId || multiSequencerStore.config.activeSequencerId || ""
 );
 
 // Local state
@@ -148,34 +153,46 @@ const dynamicStyles = computed(() => {
 
 // Methods
 const togglePlayback = () => {
-  if (!sequencer.value) return;
-  emit("playbackToggle", props.sequencerId, !isPlaying.value);
+  if (!sequencer.value || !sequencerId.value) return;
+
+  if (isPlaying.value) {
+    // Stop the sequencer
+    multiSequencerStore.stopSequencer(sequencerId.value);
+  } else {
+    // Start the sequencer
+    multiSequencerStore.startSequencer(sequencerId.value);
+  }
   triggerUIHaptic();
 };
 
 const toggleMute = () => {
-  multiSequencerStore.toggleSequencerMute(props.sequencerId);
+  if (!sequencerId.value) return;
+  multiSequencerStore.toggleSequencerMute(sequencerId.value);
   triggerUIHaptic();
 };
 
 const updateOctave = (newOctave: number) => {
-  multiSequencerStore.updateSequencer(props.sequencerId, {
+  if (!sequencerId.value) return;
+  multiSequencerStore.updateSequencer(sequencerId.value, {
     octave: newOctave,
   });
 };
 
 const updateVolume = (newVolume: number) => {
-  multiSequencerStore.setSequencerVolume(props.sequencerId, newVolume);
+  if (!sequencerId.value) return;
+  multiSequencerStore.setSequencerVolume(sequencerId.value, newVolume);
 };
 
 const updateColor = (newColor: any) => {
-  multiSequencerStore.updateSequencer(props.sequencerId, {
+  if (!sequencerId.value) return;
+  multiSequencerStore.updateSequencer(sequencerId.value, {
     color: newColor === "default" ? undefined : newColor,
   });
 };
 
 const selectInstrument = (instrumentId: string) => {
-  multiSequencerStore.updateSequencer(props.sequencerId, {
+  if (!sequencerId.value) return;
+  multiSequencerStore.updateSequencer(sequencerId.value, {
     instrument: instrumentId,
   });
   showInstrumentSelector.value = false;
@@ -183,12 +200,14 @@ const selectInstrument = (instrumentId: string) => {
 };
 
 const duplicateSequencer = () => {
-  multiSequencerStore.duplicateSequencer(props.sequencerId);
+  if (!sequencerId.value) return;
+  multiSequencerStore.duplicateSequencer(sequencerId.value);
   triggerUIHaptic();
 };
 
 const deleteSequencer = () => {
-  emit("deleteSequencer", props.sequencerId);
+  if (!sequencerId.value) return;
+  multiSequencerStore.deleteSequencer(sequencerId.value);
   triggerUIHaptic();
 };
 
@@ -200,10 +219,10 @@ const startEditingName = () => {
 };
 
 const saveName = () => {
-  if (!sequencer.value) return;
+  if (!sequencer.value || !sequencerId.value) return;
   const trimmedName = editedName.value.trim();
   if (trimmedName && trimmedName !== sequencer.value.name) {
-    multiSequencerStore.updateSequencer(props.sequencerId, {
+    multiSequencerStore.updateSequencer(sequencerId.value, {
       name: trimmedName,
     });
   }
@@ -251,13 +270,21 @@ const getPlayButtonStyles = () => {
 
   return {};
 };
+
+const closeSequencer = () => {
+  // Close by clearing the active sequencer
+  multiSequencerStore.setActiveSequencer("");
+  triggerUIHaptic();
+};
 </script>
 
 <template>
   <div
-    v-if="sequencer"
-    class="flex flex-col gap-3 rounded-md p-3 bg-black/80 border shadow-lg backdrop-blur-sm"
-    :class="themeColors ? '' : 'border-white/10'"
+    class="flex flex-col gap-3 rounded-md p-3 bg-black/80 border shadow-lg backdrop-blur-sm transition-opacity duration-300"
+    :class="[
+      sequencer ? 'opacity-100' : 'opacity-0 pointer-events-none',
+      themeColors ? '' : 'border-white/10',
+    ]"
     :style="
       themeColors
         ? {
@@ -334,6 +361,13 @@ const getPlayButtonStyles = () => {
 
       <!-- Quick Actions -->
       <div class="flex gap-1">
+        <button
+          @click="closeSequencer"
+          class="p-1.5 rounded transition-all duration-200 border text-white/60 hover:text-white border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10"
+          title="Close"
+        >
+          <X :size="14" />
+        </button>
         <button
           @click="duplicateSequencer"
           class="p-1.5 rounded transition-all duration-200 border"

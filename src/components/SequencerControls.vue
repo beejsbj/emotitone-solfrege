@@ -6,16 +6,8 @@
     >
       <!-- Global Controls -->
       <div class="flex items-center justify-between gap-4 p-3 bg-black/30">
-        <!-- Left: Add & Play All -->
+        <!-- Left: Play All -->
         <div class="flex items-center gap-2">
-          <button
-            @click="addNewSequencer"
-            class="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 rounded text-xs font-medium transition-all duration-200 flex items-center gap-1"
-          >
-            <Plus :size="12" />
-            <span>Add</span>
-          </button>
-
           <button
             @click="toggleGlobalPlayback"
             :disabled="totalBeats === 0"
@@ -83,7 +75,7 @@ import { Tabs, TabsList, TabsTrigger } from "./ui";
 import SequencerInstanceControls from "./SequencerInstanceControls.vue";
 import MelodyLibrary from "./MelodyLibrary.vue";
 import Knob from "./Knob.vue";
-import { Plus, CircleStop, Play, ChevronDown } from "lucide-vue-next";
+import { CircleStop, Play, ChevronDown } from "lucide-vue-next";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 // Store instances
@@ -149,11 +141,6 @@ const setActiveSequencer = (id: string) => {
   triggerUIHaptic();
 };
 
-const addNewSequencer = () => {
-  const newSeq = multiSequencerStore.createSequencer();
-  triggerUIHaptic();
-};
-
 const updateTempo = (newTempo: number) => {
   multiSequencerStore.setTempo(newTempo);
   if (multiTransport) {
@@ -170,23 +157,41 @@ const toggleGlobalPlayback = async () => {
 };
 
 const startAllPlayback = async () => {
-  if (totalBeats.value === 0) return;
+  if (totalBeats.value === 0) {
+    console.log("No beats to play");
+    return;
+  }
 
   try {
+    console.log("Starting all playback...", {
+      totalBeats: totalBeats.value,
+      sequencers: sequencers.value.length,
+    });
+
+    // Ensure Tone.js context is started
+    const Tone = await import("tone");
+    if (Tone.getContext().state === "suspended") {
+      await Tone.start();
+      console.log("Tone.js context started");
+    }
+
     // Initialize transport if needed
     if (!multiTransport) {
       multiTransport = new MultiSequencerTransport();
+      console.log("Created new MultiSequencerTransport");
     }
 
-    // Start all sequencers
+    // Start all sequencers in store first
     await multiSequencerStore.startAllSequencers();
+    console.log("Store sequencers started");
 
     // Start transport with all playing sequencers
-    await multiTransport.startAll(
-      multiSequencerStore.playingSequencers,
-      tempo.value,
-      steps.value
-    );
+    const playingSeqs = multiSequencerStore.playingSequencers;
+    console.log("Playing sequencers:", playingSeqs.length);
+
+    await multiTransport.startAll(playingSeqs, tempo.value, steps.value);
+
+    console.log("Transport started successfully");
   } catch (error) {
     console.error("Error starting playback:", error);
     stopAllPlayback();

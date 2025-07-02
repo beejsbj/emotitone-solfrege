@@ -85,11 +85,6 @@ defineExpose({
         </TabsContent>
       </div>
     </Tabs>
-
-    <!-- Drag Handle for Resizing (Optional UX Enhancement) -->
-    <div class="flex justify-center py-2">
-      <div class="w-12 h-1 bg-gray-600 rounded-full"></div>
-    </div>
   </div>
 </template>
 

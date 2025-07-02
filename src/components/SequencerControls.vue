@@ -4,55 +4,6 @@
     <div
       class="bg-gray-900/95 backdrop-blur-sm border-t border-white/20 overflow-hidden"
     >
-      <Tabs :value="activeSequencerId || ''" @update:value="setActiveSequencer">
-        <!-- Tab Navigation for Sequencers -->
-        <div class="border-b border-white/10 px-2 py-1">
-          <TabsList class="w-full h-auto bg-gray-800/50 p-1 gap-1">
-            <TabsTrigger
-              v-for="tab in sequencerTabs"
-              :key="tab.id"
-              :value="tab.id"
-              :disabled="tab.disabled"
-              class="flex items-center gap-2 px-3 py-2 text-xs data-[state=active]:bg-gray-700 data-[state=active]:text-white hover:text-white text-gray-300 bg-transparent border-0 rounded-md whitespace-nowrap"
-              :style="{
-                boxShadow:
-                  tab.id === activeSequencerId && tab.color
-                    ? `0 0 10px ${tab.color}30`
-                    : undefined,
-              }"
-            >
-              <span
-                class="text-sm"
-                :style="{
-                  color:
-                    tab.id === activeSequencerId && tab.color
-                      ? tab.color
-                      : undefined,
-                }"
-              >
-                {{ tab.icon }}
-              </span>
-              <span>{{ tab.label }}</span>
-              <span
-                v-if="tab.badge"
-                class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-white/10 text-white/70"
-              >
-                {{ tab.badge }}
-              </span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
-      </Tabs>
-
-      <!-- Active Sequencer Controls -->
-      <div v-if="activeSequencer" class="p-3 border-b border-white/10">
-        <SequencerInstanceControls
-          :sequencer-id="activeSequencer.id"
-          @delete-sequencer="confirmDeleteSequencer"
-          @playback-toggle="handleSequencerInstancePlayback"
-        />
-      </div>
-
       <!-- Global Controls -->
       <div class="flex items-center justify-between gap-4 p-3 bg-black/30">
         <!-- Left: Add & Play All -->

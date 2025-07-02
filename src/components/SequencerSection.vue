@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useMultiSequencerStore } from "@/stores/multiSequencer";
-import CircularSequencer from "./CircularSequencer.vue";
+import SequencerGrid from "./SequencerGrid.vue";
 
 // Store
 const multiSequencerStore = useMultiSequencerStore();
@@ -15,18 +15,10 @@ const activeSequencerId = computed(
 
 <template>
   <div class="space-y-4">
-    <!-- Circular Sequencer for Active Track -->
+    <!-- Sequencer Grid - Alternative to single sequencer view -->
     <div class="flex justify-center">
-      <div class="w-full max-w-md">
-        <CircularSequencer
-          v-if="activeSequencerId"
-          :sequencer-id="activeSequencerId"
-          :key="activeSequencerId"
-        />
-        <div v-else class="text-center text-white/60 py-12">
-          <p class="text-lg mb-2">No sequencer selected</p>
-          <p class="text-sm">Add a sequencer to get started</p>
-        </div>
+      <div class="w-full max-w-4xl">
+        <SequencerGrid />
       </div>
     </div>
   </div>

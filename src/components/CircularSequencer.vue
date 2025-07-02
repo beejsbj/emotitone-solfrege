@@ -9,9 +9,18 @@ import type { SequencerBeat } from "@/types/music";
 // Props
 interface Props {
   sequencerId?: string;
+  compact?: boolean; // New prop for compact mode
 }
 
 const props = defineProps<Props>();
+
+// Emits
+const emit = defineEmits<{
+  expand: [];
+}>();
+
+// Extract compact prop for template usage
+const { compact } = props;
 
 // Interfaces for the visual system
 interface CircularTrack {
@@ -44,14 +53,14 @@ const { getPrimaryColor } = useColorSystem();
 
 // Styling Configuration Object - Easy tweaking zone ✨
 // Change these values to customize the visual appearance
-const styles = ref({
+const styles = computed(() => ({
   // Core SVG dimensions and layout
   dimensions: {
-    centerX: 200, // X center point of the circular sequencer
-    centerY: 200, // Y center point of the circular sequencer
-    outerRadius: 190, // Outer boundary - controls overall sequencer size
-    innerRadius: 20, // Inner boundary - creates the "donut hole" (smaller = more compact)
-    viewBox: "0 0 400 400", // SVG coordinate system (keep proportional to center values)
+    centerX: compact ? 50 : 200, // X center point of the circular sequencer
+    centerY: compact ? 50 : 200, // Y center point of the circular sequencer
+    outerRadius: compact ? 45 : 190, // Outer boundary - controls overall sequencer size
+    innerRadius: compact ? 5 : 20, // Inner boundary - creates the "donut hole" (smaller = more compact)
+    viewBox: compact ? "0 0 100 100" : "0 0 400 400", // SVG coordinate system (keep proportional to center values)
   },
 
   // Track ring configuration
@@ -153,7 +162,7 @@ const styles = ref({
     border: "1px solid rgba(255, 255, 255, 0.2)", // Subtle white border
     disabledOpacity: 0.4, // Opacity when sequencer is disabled
   },
-});
+}));
 
 // Calculate derived values
 const trackSpacing = computed(
@@ -161,15 +170,6 @@ const trackSpacing = computed(
     (styles.value.dimensions.outerRadius -
       styles.value.dimensions.innerRadius) /
     7
-);
-
-// Update track spacing in styles for CSS variables
-watch(
-  trackSpacing,
-  (newSpacing) => {
-    styles.value.track.spacing = newSpacing;
-  },
-  { immediate: true }
 );
 
 // SVG dimensions - Mobile-first sizing
@@ -390,7 +390,7 @@ const handleIndicatorHover = (indicatorId: string, isHovered: boolean) => {
 };
 
 const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
-  if (isDragging.value || !props.sequencerId) return;
+  if (isDragging.value || !props.sequencerId || compact) return;
 
   e.preventDefault();
   e.stopPropagation();
@@ -430,6 +430,8 @@ const handleIndicatorStart = (
   e: MouseEvent | TouchEvent,
   indicator: CircularIndicator
 ) => {
+  if (compact) return; // Disable interaction in compact mode
+
   e.preventDefault();
   e.stopPropagation();
 
@@ -591,7 +593,8 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="relative p-1 transition-opacity duration-300"
+    class="relative transition-opacity duration-300"
+    :class="compact ? 'p-0' : 'p-1'"
     :style="{
       '--track-width': `calc((min(90vw, 90vh, 400px) - 120px) / 7 * ${styles.trackCircles.baseStrokeWidthRatio})`,
     }"
@@ -599,15 +602,21 @@ onUnmounted(() => {
     <svg
       ref="svgRef"
       :viewBox="styles.dimensions.viewBox"
-      class="w-full h-auto block rounded-full border cursor-crosshair touch-none select-none"
+      class="w-full h-auto block rounded-full border touch-none select-none"
+      :class="compact ? 'cursor-pointer' : 'cursor-crosshair'"
       :style="{
-        background: styles.container.background,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        background: compact
+          ? 'rgba(31, 41, 55, 0.8)'
+          : styles.container.background,
+        borderColor: compact
+          ? 'rgba(255, 255, 255, 0.1)'
+          : 'rgba(255, 255, 255, 0.2)',
       }"
       preserveAspectRatio="xMidYMid meet"
+      @click="compact ? emit('expand') : null"
     >
-      <!-- Quarter and sixteenth markers -->
-      <g class="grid-markers">
+      <!-- Quarter and sixteenth markers (hidden in compact mode) -->
+      <g v-if="!compact" class="grid-markers">
         <line
           v-for="i in styles.grid.sixteenthSteps"
           :key="`sixteenth-${i}`"
@@ -630,8 +639,8 @@ onUnmounted(() => {
         />
       </g>
 
-      <!-- Background tracks -->
-      <g v-for="track in tracks" :key="track.id">
+      <!-- Background tracks (hidden in compact mode) -->
+      <g v-if="!compact" v-for="track in tracks" :key="track.id">
         <circle
           :cx="centerX"
           :cy="centerY"
@@ -706,7 +715,9 @@ onUnmounted(() => {
 
       <!-- Current step indicator -->
       <g v-if="isPlaying">
+        <!-- Full mode: show on all tracks -->
         <line
+          v-if="!compact"
           v-for="track in tracks"
           :key="`current-${track.id}`"
           :x1="
@@ -736,6 +747,18 @@ onUnmounted(() => {
           :stroke="styles.currentStep.stroke"
           :stroke-width="styles.currentStep.strokeWidth"
           :opacity="styles.currentStep.opacity"
+        />
+
+        <!-- Compact mode: show single clock hand from center to edge -->
+        <line
+          v-if="compact"
+          :x1="centerX"
+          :y1="centerY"
+          :x2="getStepPosition(outerRadius, currentStep).x"
+          :y2="getStepPosition(outerRadius, currentStep).y"
+          :stroke="styles.currentStep.stroke"
+          :stroke-width="2"
+          :opacity="0.9"
         />
       </g>
 
@@ -790,8 +813,9 @@ onUnmounted(() => {
         />
       </g>
 
-      <!-- Solfege labels -->
+      <!-- Solfege labels (hidden in compact mode) -->
       <text
+        v-if="!compact"
         v-for="(track, index) in tracks"
         :key="`label-${track.id}`"
         :x="

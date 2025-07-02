@@ -8,8 +8,8 @@ import type {
 } from "@/types/music";
 import { SEQUENCER_ICONS } from "@/data";
 
-export const useMultiSequencerStore = defineStore(
-  "multiSequencer",
+export const useSequencerStore = defineStore(
+  "sequencer",
   () => {
     // Add flag to track if we've been restored from persistence
     const hasInitialized = ref(false);

@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useMultiSequencerStore } from "@/stores/multiSequencer";
+import { useSequencerStore } from "@/stores/sequencer";
 import SequencerGrid from "./SequencerGrid.vue";
 
 // Store
-const multiSequencerStore = useMultiSequencerStore();
+const sequencerStore = useSequencerStore();
 
 // Computed
-const activeSequencer = computed(() => multiSequencerStore.activeSequencer);
+const activeSequencer = computed(() => sequencerStore.activeSequencer);
 const activeSequencerId = computed(
-  () => multiSequencerStore.config.activeSequencerId
+  () => sequencerStore.config.activeSequencerId
 );
 </script>
 

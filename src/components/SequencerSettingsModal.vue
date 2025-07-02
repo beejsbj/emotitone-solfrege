@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { useMultiSequencerStore } from "@/stores/multiSequencer";
+import { useSequencerStore } from "@/stores/sequencer";
 import { SEQUENCER_ICONS, SEQUENCER_COLOR_PALETTES } from "@/data";
 import FloatingDropdown from "@/components/FloatingDropdown.vue";
 import { Settings, X, Trash } from "lucide-vue-next";
@@ -17,12 +17,12 @@ const emit = defineEmits<{
 }>();
 
 // Store
-const multiSequencerStore = useMultiSequencerStore();
+const sequencerStore = useSequencerStore();
 
 // Get current sequencer
 const sequencer = computed(() =>
   props.sequencerId
-    ? multiSequencerStore.sequencers.find((s) => s.id === props.sequencerId)
+    ? sequencerStore.sequencers.find((s) => s.id === props.sequencerId)
     : null
 );
 
@@ -47,7 +47,7 @@ watch(
 // Methods
 const updateName = () => {
   if (sequencer.value && editedName.value.trim()) {
-    multiSequencerStore.updateSequencer(sequencer.value.id, {
+    sequencerStore.updateSequencer(sequencer.value.id, {
       name: editedName.value.trim(),
     });
     triggerUIHaptic();
@@ -57,7 +57,7 @@ const updateName = () => {
 const selectIcon = (icon: string) => {
   if (sequencer.value) {
     selectedIcon.value = icon;
-    multiSequencerStore.updateSequencer(sequencer.value.id, { icon });
+    sequencerStore.updateSequencer(sequencer.value.id, { icon });
     triggerUIHaptic();
   }
 };
@@ -65,7 +65,7 @@ const selectIcon = (icon: string) => {
 const selectColor = (colorId: string | undefined) => {
   if (sequencer.value) {
     selectedColor.value = colorId;
-    multiSequencerStore.updateSequencer(sequencer.value.id, { color: colorId });
+    sequencerStore.updateSequencer(sequencer.value.id, { color: colorId });
     triggerUIHaptic();
   }
 };

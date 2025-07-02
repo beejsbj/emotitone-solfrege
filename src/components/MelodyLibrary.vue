@@ -239,7 +239,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useMultiSequencerStore } from "@/stores/multiSequencer";
+import { useSequencerStore } from "@/stores/sequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { MelodicPattern } from "@/types/music";
 import { ChevronDown, Music } from "lucide-vue-next";
@@ -247,7 +247,7 @@ import FloatingDropdown from "./FloatingDropdown.vue";
 import { getAllMelodicPatterns } from "@/data";
 
 const musicStore = useMusicStore();
-const multiSequencerStore = useMultiSequencerStore();
+const sequencerStore = useSequencerStore();
 const { getPrimaryColor } = useColorSystem();
 
 // Local state
@@ -256,7 +256,7 @@ const currentlyPlaying = ref<string | null>(null);
 
 // Computed properties
 const allPatterns = computed(() => getAllMelodicPatterns());
-const activeSequencer = computed(() => multiSequencerStore.activeSequencer);
+const activeSequencer = computed(() => sequencerStore.activeSequencer);
 
 // Get saved melodies from the old sequencer store for backward compatibility
 // TODO: Implement multi-sequencer project save/load
@@ -316,17 +316,17 @@ const loadToSequencer = (
 ) => {
   if (!activeSequencer.value) {
     // Create a new sequencer if none exists
-    multiSequencerStore.createSequencer();
+    sequencerStore.createSequencer();
   }
 
   if (activeSequencer.value) {
     // Clear existing beats in the active sequencer
-    multiSequencerStore.clearBeatsInSequencer(activeSequencer.value.id);
+    sequencerStore.clearBeatsInSequencer(activeSequencer.value.id);
 
     // Convert pattern to beats and add them
     const newBeats = convertPatternToBeats(pattern);
     newBeats.forEach((beat) => {
-      multiSequencerStore.addBeatToSequencer(activeSequencer.value!.id, beat);
+      sequencerStore.addBeatToSequencer(activeSequencer.value!.id, beat);
     });
   }
 

@@ -67,9 +67,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, onMounted, watch, nextTick } from "vue";
-import { useMultiSequencerStore } from "@/stores/multiSequencer";
+import { useSequencerStore } from "@/stores/sequencer";
 import { useMusicStore } from "@/stores/music";
-import { MultiSequencerTransport } from "@/utils/multiSequencer";
+import { MultiSequencerTransport } from "@/utils/sequencer";
 import { AVAILABLE_INSTRUMENTS } from "@/data/instruments";
 import { Tabs, TabsList, TabsTrigger } from "./ui";
 import SequencerInstanceControls from "./SequencerInstanceControls.vue";
@@ -79,7 +79,7 @@ import { CircleStop, Play, ChevronDown } from "lucide-vue-next";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 // Store instances
-const multiSequencerStore = useMultiSequencerStore();
+const sequencerStore = useSequencerStore();
 const musicStore = useMusicStore();
 
 // Transport management
@@ -89,16 +89,14 @@ let multiTransport: MultiSequencerTransport | null = null;
 const isCollapsed = ref(false);
 
 // Computed values
-const sequencers = computed(() => multiSequencerStore.sequencers);
+const sequencers = computed(() => sequencerStore.sequencers);
 const activeSequencerId = computed(
-  () => multiSequencerStore.config.activeSequencerId
+  () => sequencerStore.config.activeSequencerId
 );
-const activeSequencer = computed(() => multiSequencerStore.activeSequencer);
-const globalIsPlaying = computed(
-  () => multiSequencerStore.config.globalIsPlaying
-);
-const tempo = computed(() => multiSequencerStore.config.tempo);
-const steps = computed(() => multiSequencerStore.config.steps);
+const activeSequencer = computed(() => sequencerStore.activeSequencer);
+const globalIsPlaying = computed(() => sequencerStore.config.globalIsPlaying);
+const tempo = computed(() => sequencerStore.config.tempo);
+const steps = computed(() => sequencerStore.config.steps);
 
 // Calculate total beats across all sequencers
 const totalBeats = computed(() =>
@@ -137,12 +135,12 @@ const toggleCollapsed = () => {
 };
 
 const setActiveSequencer = (id: string) => {
-  multiSequencerStore.setActiveSequencer(id);
+  sequencerStore.setActiveSequencer(id);
   triggerUIHaptic();
 };
 
 const updateTempo = (newTempo: number) => {
-  multiSequencerStore.setTempo(newTempo);
+  sequencerStore.setTempo(newTempo);
   if (multiTransport) {
     multiTransport.updateTempo(newTempo);
   }
@@ -182,11 +180,11 @@ const startAllPlayback = async () => {
     }
 
     // Start all sequencers in store first
-    await multiSequencerStore.startAllSequencers();
+    await sequencerStore.startAllSequencers();
     console.log("Store sequencers started");
 
     // Start transport with all playing sequencers
-    const playingSeqs = multiSequencerStore.playingSequencers;
+    const playingSeqs = sequencerStore.playingSequencers;
     console.log("Playing sequencers:", playingSeqs.length);
 
     await multiTransport.startAll(playingSeqs, tempo.value, steps.value);
@@ -203,7 +201,7 @@ const stopAllPlayback = () => {
     multiTransport.stopAll();
   }
 
-  multiSequencerStore.stopAllSequencers();
+  sequencerStore.stopAllSequencers();
   musicStore.releaseAllNotes();
 };
 
@@ -222,13 +220,13 @@ const handleSequencerInstancePlayback = async (
       }
 
       // Update store state first
-      multiSequencerStore.startSequencer(sequencerId);
+      sequencerStore.startSequencer(sequencerId);
 
       // Then start transport for this specific sequencer
       await multiTransport.startSequencer(sequencer, steps.value);
     } catch (error) {
       console.error(`Error starting sequencer ${sequencerId}:`, error);
-      multiSequencerStore.stopSequencer(sequencerId);
+      sequencerStore.stopSequencer(sequencerId);
     }
   } else {
     // Stop transport first
@@ -237,7 +235,7 @@ const handleSequencerInstancePlayback = async (
     }
 
     // Then update store state
-    multiSequencerStore.stopSequencer(sequencerId);
+    sequencerStore.stopSequencer(sequencerId);
   }
 };
 
@@ -248,7 +246,7 @@ const confirmDeleteSequencer = (sequencerId: string) => {
     return;
   }
 
-  multiSequencerStore.deleteSequencer(sequencerId);
+  sequencerStore.deleteSequencer(sequencerId);
   triggerUIHaptic();
 };
 
@@ -256,7 +254,7 @@ const confirmDeleteSequencer = (sequencerId: string) => {
 onMounted(async () => {
   // Wait for next tick to ensure pinia persistence is fully loaded
   await nextTick();
-  multiSequencerStore.initialize();
+  sequencerStore.initialize();
 });
 
 // Cleanup on unmount

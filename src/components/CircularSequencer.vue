@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useSequencerStore } from "@/stores/sequencer";
+import { useMultiSequencerStore } from "@/stores/multiSequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import type { SequencerBeat } from "@/types/music";
+
+// Props
+interface Props {
+  sequencerId?: string;
+}
+
+const props = defineProps<Props>();
 
 // Interfaces for the visual system
 interface CircularTrack {
@@ -32,7 +39,7 @@ interface CircularIndicator {
 
 // Store and composables
 const musicStore = useMusicStore();
-const sequencerStore = useSequencerStore();
+const multiSequencerStore = useMultiSequencerStore();
 const { getPrimaryColor } = useColorSystem();
 
 // Styling Configuration Object - Easy tweaking zone ✨
@@ -186,12 +193,19 @@ const dragStart = ref({
   moved: false,
 });
 
-// Computed properties from store
-const config = computed(() => sequencerStore.config);
+// Get the current sequencer instance
+const currentSequencer = computed(() => {
+  if (!props.sequencerId) return null;
+  return multiSequencerStore.sequencers.find((s) => s.id === props.sequencerId);
+});
+
+// Computed properties from store - now using multi-sequencer
+const config = computed(() => multiSequencerStore.config);
 const solfegeData = computed(() => musicStore.solfegeData);
-const isPlaying = computed(() => sequencerStore.isPlaying);
-const currentStep = computed(() => sequencerStore.currentStep);
-const steps = computed(() => sequencerStore.steps);
+const isPlaying = computed(() => currentSequencer.value?.isPlaying || false);
+const currentStep = computed(() => currentSequencer.value?.currentStep || 0);
+const steps = computed(() => config.value.steps);
+const beats = computed(() => currentSequencer.value?.beats || []);
 
 // Angle step size
 const angleSteps = computed(() => 360 / steps.value);
@@ -220,7 +234,9 @@ watch(solfegeData, initializeTracks, { immediate: true });
 
 // Convert sequencer beats to indicators
 const indicators = computed((): CircularIndicator[] => {
-  return sequencerStore.beats.map((beat) => ({
+  if (!currentSequencer.value) return [];
+
+  return currentSequencer.value.beats.map((beat) => ({
     id: beat.id,
     trackId: `track-${beat.ring}`,
     startAngle: (beat.step / steps.value) * 360,
@@ -374,7 +390,7 @@ const handleIndicatorHover = (indicatorId: string, isHovered: boolean) => {
 };
 
 const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
-  if (isDragging.value) return;
+  if (isDragging.value || !props.sequencerId) return;
 
   e.preventDefault();
   e.stopPropagation();
@@ -395,18 +411,18 @@ const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
     return;
   }
 
-  // Create new beat - use the track's index directly (already correctly mapped)
+  // Create new beat - use the sequencer's octave
   const newBeat: SequencerBeat = {
     id: `beat-${Date.now()}-${Math.random()}`,
-    ring: parseInt(track.id.split("-")[1]), // Extract track index from ID
+    ring: parseInt(track.id.split("-")[1]),
     step,
     duration: 1,
     solfegeName: track.solfegeName,
     solfegeIndex: track.solfegeIndex,
-    octave: config.value.baseOctave,
+    octave: currentSequencer.value?.octave || 4,
   };
 
-  sequencerStore.addBeat(newBeat);
+  multiSequencerStore.addBeatToSequencer(props.sequencerId, newBeat);
   triggerUIHaptic();
 };
 
@@ -480,6 +496,9 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
     dragStart.value.moved = true;
   }
 
+  // Only update if we have a valid sequencer ID
+  if (!props.sequencerId) return;
+
   // Horizontal movement = position along track
   // Vertical movement = duration change
 
@@ -497,9 +516,13 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
     );
 
     const newStep = Math.round(constrained.startAngle / angleSteps.value);
-    sequencerStore.updateBeat(selectedIndicator.value.id, {
-      step: newStep,
-    });
+    multiSequencerStore.updateBeatInSequencer(
+      props.sequencerId,
+      selectedIndicator.value.id,
+      {
+        step: newStep,
+      }
+    );
   } else {
     // Vertical movement - change duration
     const sensitivity = styles.value.interaction.durationSensitivity;
@@ -512,9 +535,13 @@ const handleMove = (e: MouseEvent | TouchEvent) => {
       Math.round(currentDuration + durationChange)
     );
 
-    sequencerStore.updateBeat(selectedIndicator.value.id, {
-      duration: newDuration,
-    });
+    multiSequencerStore.updateBeatInSequencer(
+      props.sequencerId,
+      selectedIndicator.value.id,
+      {
+        duration: newDuration,
+      }
+    );
   }
 
   triggerUIHaptic();
@@ -539,7 +566,9 @@ const handleEnd = (e: MouseEvent | TouchEvent) => {
 };
 
 const removeIndicator = (indicatorId: string) => {
-  sequencerStore.removeBeat(indicatorId);
+  if (!props.sequencerId) return;
+
+  multiSequencerStore.removeBeatFromSequencer(props.sequencerId, indicatorId);
   if (selectedIndicator.value?.id === indicatorId) {
     selectedIndicator.value = null;
   }

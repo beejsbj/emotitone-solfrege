@@ -2,84 +2,104 @@
   <FloatingDropdown position="top-left" max-height="80vh" :floating="false">
     <!-- Trigger Button -->
     <template #trigger="{ toggle }">
-      <button @click="toggle" class="melody-library-toggle">
-        <span class="library-icon">🎼</span>
-        <span class="library-label">Melody Library</span>
+      <button
+        @click="toggle"
+        class="p-2 sm:px-3 bg-black/80 border border-gray-600 rounded-md text-white cursor-pointer text-xs flex items-center gap-1.5 sm:gap-2 transition-all duration-200 backdrop-blur-sm min-w-fit justify-center hover:bg-black/90 hover:border-gray-500 hover:scale-105"
+      >
+        <span class="text-base leading-none">🎼</span>
+        <span class="font-medium text-xs whitespace-nowrap"
+          >Melody Library</span
+        >
         <ChevronDown :size="14" />
       </button>
     </template>
 
     <!-- Dropdown Panel -->
     <template #panel="{ close, toggle, position }">
-      <div class="melody-library-panel">
+      <div class="w-full flex flex-col min-h-0 flex-1">
         <!-- Header -->
         <div
-          class="library-header"
+          class="sticky top-0 flex items-center justify-between p-3 border-b border-gray-600 bg-black/95 backdrop-blur-sm z-10"
           :class="{ 'flex-row-reverse': position === 'top-left' }"
         >
-          <h3>
+          <h3
+            class="m-0 text-sm text-emerald-400 flex items-center gap-1.5 font-semibold"
+          >
             <Music :size="16" />
             Melody Library
           </h3>
-          <button @click="toggle" class="close-btn" title="Close Library">
+          <button
+            @click="toggle"
+            class="bg-transparent border-0 text-red-400 cursor-pointer p-1 flex items-center justify-center rounded transition-all duration-200 hover:bg-red-400/20 hover:rotate-180"
+            title="Close Library"
+          >
             <ChevronDown :size="18" />
           </button>
         </div>
 
-        <div class="library-content">
+        <div class="p-4 overflow-y-auto flex-1">
           <!-- Search Bar -->
-          <div class="search-container">
+          <div class="mb-5">
             <input
               v-model="searchTerm"
               placeholder="Search patterns, intervals, melodies..."
-              class="search-input"
+              class="w-full p-2 sm:px-3 bg-black/60 border border-white/20 rounded-md text-white text-xs placeholder-white/50 focus:outline-none focus:border-emerald-400 focus:bg-black/80"
             />
           </div>
 
           <!-- Content Sections -->
-          <div class="sections-container">
+          <div class="flex flex-col gap-5">
             <!-- Intervals Section -->
-            <div class="melody-section">
-              <h4 class="section-title">Intervals</h4>
-              <div class="patterns-grid">
+            <div class="flex flex-col gap-2.5">
+              <h4
+                class="m-0 text-xs text-yellow-300 uppercase tracking-wider font-semibold border-b border-yellow-300/30 pb-1"
+              >
+                Intervals
+              </h4>
+              <div class="grid grid-cols-1 gap-2">
                 <div
                   v-for="pattern in filteredIntervals"
                   :key="pattern.name"
-                  class="pattern-card"
+                  class="bg-white/5 border border-white/10 rounded-md p-2.5 transition-all duration-200 hover:bg-white/8 hover:border-white/20"
                 >
-                  <div class="pattern-header">
-                    <h5 class="pattern-name">{{ pattern.name }}</h5>
-                    <span class="pattern-emotion">{{ pattern.emotion }}</span>
+                  <div class="flex justify-between items-center mb-1.5">
+                    <h5 class="m-0 text-xs text-white font-semibold">
+                      {{ pattern.name }}
+                    </h5>
+                    <span
+                      class="text-xs text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-sm"
+                      >{{ pattern.emotion }}</span
+                    >
                   </div>
-                  <div class="pattern-description">
+                  <div class="text-xs text-white/70 mb-2 leading-tight">
                     {{ pattern.description }}
                   </div>
-                  <div class="pattern-sequence">
+                  <div class="flex flex-wrap items-center gap-1 mb-2">
                     <template
                       v-for="(note, index) in pattern.sequence"
                       :key="index"
                     >
                       <span
                         :style="{ background: getPrimaryColor(note.note) }"
-                        class="note-badge"
+                        class="inline-flex flex-col items-center px-1.5 py-1 rounded text-black text-xs font-semibold leading-none"
                       >
                         {{ note.note }}
-                        <span class="duration-indicator">{{
+                        <span class="text-xs opacity-80 mt-0.5">{{
                           note.duration
                         }}</span>
                       </span>
                       <span
                         v-if="index !== pattern.sequence.length - 1"
-                        class="note-arrow"
+                        class="text-white/50 text-xs"
                         >→</span
                       >
                     </template>
                   </div>
-                  <div class="pattern-actions">
+                  <div class="flex gap-1">
                     <button
                       @click="playPattern(pattern, close)"
                       :disabled="currentlyPlaying === pattern.name"
-                      class="action-btn play-btn"
+                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-emerald-400/20 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {{
                         currentlyPlaying === pattern.name
@@ -89,7 +109,7 @@
                     </button>
                     <button
                       @click="loadToSequencer(pattern, close)"
-                      class="action-btn load-btn"
+                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30"
                     >
                       Load
                     </button>
@@ -99,47 +119,56 @@
             </div>
 
             <!-- Patterns Section -->
-            <div class="melody-section">
-              <h4 class="section-title">Melodic Patterns</h4>
-              <div class="patterns-grid">
+            <div class="flex flex-col gap-2.5">
+              <h4
+                class="m-0 text-xs text-yellow-300 uppercase tracking-wider font-semibold border-b border-yellow-300/30 pb-1"
+              >
+                Melodic Patterns
+              </h4>
+              <div class="grid grid-cols-1 gap-2">
                 <div
                   v-for="pattern in filteredPatterns"
                   :key="pattern.name"
-                  class="pattern-card"
+                  class="bg-white/5 border border-white/10 rounded-md p-2.5 transition-all duration-200 hover:bg-white/8 hover:border-white/20"
                 >
-                  <div class="pattern-header">
-                    <h5 class="pattern-name">{{ pattern.name }}</h5>
-                    <span class="pattern-emotion">{{ pattern.emotion }}</span>
+                  <div class="flex justify-between items-center mb-1.5">
+                    <h5 class="m-0 text-xs text-white font-semibold">
+                      {{ pattern.name }}
+                    </h5>
+                    <span
+                      class="text-xs text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-sm"
+                      >{{ pattern.emotion }}</span
+                    >
                   </div>
-                  <div class="pattern-description">
+                  <div class="text-xs text-white/70 mb-2 leading-tight">
                     {{ pattern.description }}
                   </div>
-                  <div class="pattern-sequence">
+                  <div class="flex flex-wrap items-center gap-1 mb-2">
                     <template
                       v-for="(note, index) in pattern.sequence"
                       :key="index"
                     >
                       <span
                         :style="{ background: getPrimaryColor(note.note) }"
-                        class="note-badge"
+                        class="inline-flex flex-col items-center px-1.5 py-1 rounded text-black text-xs font-semibold leading-none"
                       >
                         {{ note.note }}
-                        <span class="duration-indicator">{{
+                        <span class="text-xs opacity-80 mt-0.5">{{
                           note.duration
                         }}</span>
                       </span>
                       <span
                         v-if="index !== pattern.sequence.length - 1"
-                        class="note-arrow"
+                        class="text-white/50 text-xs"
                         >→</span
                       >
                     </template>
                   </div>
-                  <div class="pattern-actions">
+                  <div class="flex gap-1">
                     <button
                       @click="playPattern(pattern, close)"
                       :disabled="currentlyPlaying === pattern.name"
-                      class="action-btn play-btn"
+                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-emerald-400/20 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {{
                         currentlyPlaying === pattern.name
@@ -149,7 +178,7 @@
                     </button>
                     <button
                       @click="loadToSequencer(pattern, close)"
-                      class="action-btn load-btn"
+                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30"
                     >
                       Load
                     </button>
@@ -159,33 +188,40 @@
             </div>
 
             <!-- Saved Melodies Section -->
-            <div v-if="savedMelodies.length > 0" class="melody-section">
-              <h4 class="section-title">User Melodies</h4>
-              <div class="melodies-grid">
+            <div v-if="savedMelodies.length > 0" class="flex flex-col gap-2.5">
+              <h4
+                class="m-0 text-xs text-yellow-300 uppercase tracking-wider font-semibold border-b border-yellow-300/30 pb-1"
+              >
+                User Melodies
+              </h4>
+              <div class="grid grid-cols-1 gap-2">
                 <div
                   v-for="melody in filteredSavedMelodies"
-                  :key="melody.id"
-                  class="melody-card"
+                  :key="(melody as any).id"
+                  class="bg-white/5 border border-white/10 rounded-md p-2.5 transition-all duration-200 hover:bg-white/8 hover:border-white/20"
                 >
-                  <div class="melody-header">
-                    <h5 class="melody-name">{{ melody.name }}</h5>
-                    <span class="melody-info"
-                      >{{ melody.beats.length }} beats</span
+                  <div class="flex justify-between items-center mb-1.5">
+                    <h5 class="m-0 text-xs text-white font-semibold">
+                      {{ (melody as any).name }}
+                    </h5>
+                    <span
+                      class="text-xs text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-sm"
+                      >{{ (melody as any).beats?.length || 0 }} beats</span
                     >
                   </div>
-                  <div class="melody-description">
-                    {{ melody.description }}
+                  <div class="text-xs text-white/70 mb-2 leading-tight">
+                    {{ (melody as any).description }}
                   </div>
-                  <div class="melody-actions">
+                  <div class="flex gap-1">
                     <button
-                      @click="loadMelody(melody.id, close)"
-                      class="action-btn load-btn"
+                      @click="loadMelody((melody as any).id, close)"
+                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30"
                     >
                       Load
                     </button>
                     <button
-                      @click="deleteMelody(melody.id)"
-                      class="action-btn delete-btn"
+                      @click="deleteMelody((melody as any).id)"
+                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-red-500/20 text-red-500 border border-red-500/30 hover:bg-red-500/30"
                     >
                       Delete
                     </button>
@@ -203,23 +239,28 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useSequencerStore } from "@/stores/sequencer";
+import { useMultiSequencerStore } from "@/stores/multiSequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { MelodicPattern } from "@/types/music";
 import { ChevronDown, Music } from "lucide-vue-next";
 import FloatingDropdown from "./FloatingDropdown.vue";
+import { getAllMelodicPatterns } from "@/data";
 
 const musicStore = useMusicStore();
-const sequencerStore = useSequencerStore();
+const multiSequencerStore = useMultiSequencerStore();
 const { getPrimaryColor } = useColorSystem();
 
 // Local state
 const searchTerm = ref("");
+const currentlyPlaying = ref<string | null>(null);
 
 // Computed properties
-const allPatterns = computed(() => sequencerStore.melodicPatterns);
-const savedMelodies = computed(() => sequencerStore.savedMelodies);
-const currentlyPlaying = computed(() => sequencerStore.currentlyPlaying);
+const allPatterns = computed(() => getAllMelodicPatterns());
+const activeSequencer = computed(() => multiSequencerStore.activeSequencer);
+
+// Get saved melodies from the old sequencer store for backward compatibility
+// TODO: Implement multi-sequencer project save/load
+const savedMelodies = computed(() => []);
 
 // Filter patterns by type
 const intervalPatterns = computed(() => {
@@ -261,7 +302,7 @@ const filteredSavedMelodies = computed(() => {
   if (!searchTerm.value) return savedMelodies.value;
   const term = searchTerm.value.toLowerCase();
   return savedMelodies.value.filter(
-    (melody) =>
+    (melody: any) =>
       melody.name.toLowerCase().includes(term) ||
       melody.description.toLowerCase().includes(term) ||
       melody.emotion.toLowerCase().includes(term)
@@ -273,17 +314,98 @@ const loadToSequencer = (
   pattern: MelodicPattern,
   closeDropdown?: () => void
 ) => {
-  sequencerStore.loadPattern(pattern);
+  if (!activeSequencer.value) {
+    // Create a new sequencer if none exists
+    multiSequencerStore.createSequencer();
+  }
+
+  if (activeSequencer.value) {
+    // Clear existing beats in the active sequencer
+    multiSequencerStore.clearBeatsInSequencer(activeSequencer.value.id);
+
+    // Convert pattern to beats and add them
+    const newBeats = convertPatternToBeats(pattern);
+    newBeats.forEach((beat) => {
+      multiSequencerStore.addBeatToSequencer(activeSequencer.value!.id, beat);
+    });
+  }
+
   if (closeDropdown) closeDropdown();
 };
 
+// Convert melodic pattern to sequencer beats
+const convertPatternToBeats = (pattern: MelodicPattern) => {
+  const beats: any[] = [];
+  let stepPosition = 0;
+
+  pattern.sequence.forEach((noteData, index) => {
+    const solfegeName = noteData.note;
+    const solfegeIndex = musicStore.solfegeData.findIndex(
+      (s) => s.name === solfegeName
+    );
+
+    // Only use the first 7 solfege notes
+    if (solfegeIndex >= 0 && solfegeIndex < 7) {
+      // Convert duration from Tone.js notation to step duration
+      const noteDuration = noteData.duration;
+      let stepDuration = 1; // Default to 1 step
+
+      // Convert common durations to step lengths (assuming 16 steps = 1 bar)
+      switch (noteDuration) {
+        case "1n":
+          stepDuration = 16;
+          break; // Whole note
+        case "2n":
+          stepDuration = 8;
+          break; // Half note
+        case "4n":
+          stepDuration = 4;
+          break; // Quarter note
+        case "8n":
+          stepDuration = 2;
+          break; // Eighth note
+        case "16n":
+          stepDuration = 1;
+          break; // Sixteenth note
+        case "32n":
+          stepDuration = 0.5;
+          break; // Thirty-second note (rare)
+        default:
+          stepDuration = 1;
+          break; // Default to sixteenth note
+      }
+
+      // Ensure step duration is at least 1 and fits in remaining steps
+      stepDuration = Math.max(1, Math.floor(stepDuration));
+
+      const beat = {
+        id: `pattern-${Date.now()}-${index}`,
+        ring: 6 - solfegeIndex, // Reverse for visual representation
+        step: stepPosition % 16, // Wrap around at 16 steps
+        duration: stepDuration,
+        solfegeName,
+        solfegeIndex,
+        octave: activeSequencer.value?.octave || 4,
+      };
+      beats.push(beat);
+
+      // Move to next position based on the actual duration
+      stepPosition += stepDuration;
+    }
+  });
+
+  return beats;
+};
+
 const loadMelody = (melodyId: string, closeDropdown?: () => void) => {
-  sequencerStore.loadMelody(melodyId);
+  // TODO: Implement loading saved melodies in multi-sequencer context
+  console.log("Loading melody:", melodyId);
   if (closeDropdown) closeDropdown();
 };
 
 const deleteMelody = (melodyId: string) => {
-  sequencerStore.deleteMelody(melodyId);
+  // TODO: Implement deleting saved melodies in multi-sequencer context
+  console.log("Deleting melody:", melodyId);
 };
 
 const playPattern = async (
@@ -291,305 +413,28 @@ const playPattern = async (
   closeDropdown?: () => void
 ) => {
   if (currentlyPlaying.value === pattern.name) return;
-  await sequencerStore.playPattern(pattern);
+
+  // TODO: Implement pattern preview playback
+  currentlyPlaying.value = pattern.name;
+
+  // Simulate playback for now
+  setTimeout(() => {
+    currentlyPlaying.value = null;
+  }, 3000);
+
   if (closeDropdown) closeDropdown();
 };
 
 const stopCurrentPattern = () => {
-  sequencerStore.stopPatternPlayback();
+  currentlyPlaying.value = null;
 };
 
 // Cleanup on unmount
 onUnmounted(() => {
-  sequencerStore.stopPatternPlayback();
+  stopCurrentPattern();
 });
 </script>
 
 <style scoped>
-.melody-library-toggle {
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.8);
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
-  min-width: auto;
-  justify-content: center;
-}
-
-.melody-library-toggle:hover {
-  background: rgba(0, 0, 0, 0.9);
-  border-color: #555;
-  transform: scale(1.05);
-}
-
-.library-icon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.library-label {
-  font-weight: 500;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.melody-library-panel {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1;
-}
-
-.library-header {
-  position: sticky;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 15px;
-  border-bottom: 1px solid #333;
-  background: rgba(0, 0, 0, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 10;
-}
-
-.library-header h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #00ff88;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #ff6b6b;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.close-btn:hover {
-  background: rgba(255, 107, 107, 0.2);
-  transform: rotate(180deg);
-}
-
-.library-content {
-  padding: 15px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.search-container {
-  margin-bottom: 20px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: white;
-  font-size: 12px;
-  placeholder-color: rgba(255, 255, 255, 0.5);
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #00ff88;
-  background: rgba(0, 0, 0, 0.8);
-}
-
-.sections-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.melody-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.section-title {
-  margin: 0;
-  font-size: 11px;
-  color: #ffd93d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
-  border-bottom: 1px solid rgba(255, 217, 61, 0.3);
-  padding-bottom: 4px;
-}
-
-.patterns-grid,
-.melodies-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-.pattern-card,
-.melody-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  padding: 10px;
-  transition: all 0.2s ease;
-}
-
-.pattern-card:hover,
-.melody-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.pattern-header,
-.melody-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.pattern-name,
-.melody-name {
-  margin: 0;
-  font-size: 12px;
-  color: white;
-  font-weight: 600;
-}
-
-.pattern-emotion,
-.melody-info {
-  font-size: 10px;
-  color: #00ff88;
-  background: rgba(0, 255, 136, 0.1);
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.pattern-description,
-.melody-description {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 8px;
-  line-height: 1.3;
-}
-
-.pattern-sequence {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 3px;
-  margin-bottom: 8px;
-}
-
-.note-badge {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 3px 6px;
-  border-radius: 3px;
-  color: black;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.duration-indicator {
-  font-size: 8px;
-  opacity: 0.8;
-  margin-top: 1px;
-}
-
-.note-arrow {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 10px;
-}
-
-.pattern-actions,
-.melody-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.action-btn {
-  flex: 1;
-  padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.play-btn {
-  background: rgba(0, 255, 136, 0.2);
-  color: #00ff88;
-  border: 1px solid rgba(0, 255, 136, 0.3);
-}
-
-.play-btn:hover:not(:disabled) {
-  background: rgba(0, 255, 136, 0.3);
-}
-
-.play-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.load-btn {
-  background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.load-btn:hover {
-  background: rgba(59, 130, 246, 0.3);
-}
-
-.delete-btn {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.delete-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
-}
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-  .patterns-grid,
-  .melodies-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .library-label {
-    font-size: 11px;
-  }
-
-  .melody-library-toggle {
-    padding: 6px 10px;
-  }
-}
+/* Mobile responsiveness handled by Tailwind responsive classes */
 </style>

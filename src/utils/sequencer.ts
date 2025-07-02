@@ -30,10 +30,6 @@ export function beatsToTonePart(
     // Calculate proper duration
     const noteDuration = calculateNoteDuration(beat.duration, steps, tempo);
 
-    console.log(
-      `Part event: step ${beat.step} -> time ${timePosition}, duration ${noteDuration.toneNotation}`
-    );
-
     return [
       timePosition,
       {
@@ -47,9 +43,6 @@ export function beatsToTonePart(
 
   // Create Tone.Part with the events
   const part = new Tone.Part((time: number, value: any) => {
-    console.log(
-      `Part callback: playing note ${value.beat.solfegeName} at time ${time}`
-    );
     playNoteCallback(value.solfegeIndex, value.octave, value.duration, time);
   }, events);
 
@@ -85,11 +78,6 @@ export function createToneSequence(
   // Create Tone.Sequence
   const toneSequence = new Tone.Sequence(
     (time: number, value: SequencerBeat | null) => {
-      if (value) {
-        console.log(
-          `Sequence callback: playing note ${value.solfegeName} at time ${time}`
-        );
-      }
       playNoteCallback(value, time);
     },
     sequence,
@@ -131,9 +119,6 @@ export function createReactiveToneLoop(
 
     // Play each beat
     beatsToPlay.forEach((beat) => {
-      console.log(
-        `Reactive Loop: playing note ${beat.solfegeName} at step ${currentStep}, time ${time}`
-      );
       playNoteCallback(beat, time);
     });
 
@@ -170,9 +155,6 @@ export function createToneLoop(
 
     // Play each beat
     beatsToPlay.forEach((beat) => {
-      console.log(
-        `Loop callback: playing note ${beat.solfegeName} at step ${currentStep}, time ${time}`
-      );
       playNoteCallback(beat, time);
     });
 
@@ -204,9 +186,6 @@ export function createImprovedPart(
 
   // Create the Part for note scheduling
   const part = new Tone.Part((time: number, beat: any) => {
-    console.log(
-      `Improved Part: playing note ${beat.solfegeName} at step ${beat.step}, time ${time}`
-    );
     playNoteCallback(beat, time);
   }, events);
 
@@ -353,8 +332,6 @@ export class SequencerTransport {
       await Tone.start();
     }
 
-    console.log("Starting sequencer transport...");
-
     // Start the appropriate transport object
     if (this.part) {
       this.part.start(0);
@@ -369,15 +346,12 @@ export class SequencerTransport {
 
     // Start the global transport
     Tone.getTransport().start();
-    console.log("Transport started, BPM:", Tone.getTransport().bpm.value);
   }
 
   /**
    * Stop playback
    */
   stop() {
-    console.log("Stopping sequencer transport...");
-
     // Stop the global transport
     Tone.getTransport().stop();
 

@@ -1,78 +1,90 @@
 <template>
-  <div
-    class="relative transition-all duration-300 ease-in-out"
-    :class="{
-      'transform translate-y-full': isCollapsed,
-      'transform translate-y-0': !isCollapsed,
-    }"
-  >
-    <!-- Floating Toggle Button -->
-    <button
-      @click="toggleCollapsed"
-      class="absolute top-2 right-4 -translate-y-full px-4 z-10 bg-gradient-to-b from-gray-700/80 to-black inset-shadow-lg p-2 hover:bg-white/40 transition-all duration-200 group rounded-lg flex items-center gap-2"
-    >
-      Player
-      <ChevronDown
-        :size="16"
-        class="text-white/80 transition-transform duration-300"
-        :class="{ 'rotate-180': isCollapsed }"
-      />
-    </button>
-
+  <div class="relative transition-all duration-300 ease-in-out">
     <!-- Main Controls Container -->
     <div
-      class="bg-black/70 backdrop-blur-sm rounded-sm border border-white/20 p-4 overflow-hidden"
+      class="bg-gray-900/95 backdrop-blur-sm border-t border-white/20 overflow-hidden"
     >
-      <!-- Melody Management Row -->
-      <div
-        class="grid grid-cols-2 items-center gap-1 pb-4 border-b border-white/10"
-      >
-        <!-- Melody Library Dropdown -->
-        <MelodyLibrary />
-
-        <!-- Save Melody Section -->
-        <div class="grid grid-cols-[1fr_auto] items-center gap-[1px]">
-          <input
-            v-model="newMelodyName"
-            placeholder="Melody name..."
-            class="bg-gray-800/80 text-white border border-white/20 rounded-sm px-3 py-2 text-sm placeholder-white/60 w-40"
-          />
-          <button
-            @click="saveCurrentMelody"
-            :disabled="!newMelodyName || beatCount === 0"
-            class="p-3 bg-blue-500/80 hover:bg-blue-500 disabled:bg-gray-500/50 text-white rounded-sm font-bold transition-all duration-200"
-          >
-            <Save :size="14" />
-          </button>
+      <Tabs :value="activeSequencerId || ''" @update:value="setActiveSequencer">
+        <!-- Tab Navigation for Sequencers -->
+        <div class="border-b border-white/10 px-2 py-1">
+          <TabsList class="w-full h-auto bg-gray-800/50 p-1 gap-1">
+            <TabsTrigger
+              v-for="tab in sequencerTabs"
+              :key="tab.id"
+              :value="tab.id"
+              :disabled="tab.disabled"
+              class="flex items-center gap-2 px-3 py-2 text-xs data-[state=active]:bg-gray-700 data-[state=active]:text-white hover:text-white text-gray-300 bg-transparent border-0 rounded-md whitespace-nowrap"
+              :style="{
+                boxShadow:
+                  tab.id === activeSequencerId && tab.color
+                    ? `0 0 10px ${tab.color}30`
+                    : undefined,
+              }"
+            >
+              <span
+                class="text-sm"
+                :style="{
+                  color:
+                    tab.id === activeSequencerId && tab.color
+                      ? tab.color
+                      : undefined,
+                }"
+              >
+                {{ tab.icon }}
+              </span>
+              <span>{{ tab.label }}</span>
+              <span
+                v-if="tab.badge"
+                class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-white/10 text-white/70"
+              >
+                {{ tab.badge }}
+              </span>
+            </TabsTrigger>
+          </TabsList>
         </div>
+      </Tabs>
+
+      <!-- Active Sequencer Controls -->
+      <div v-if="activeSequencer" class="p-3 border-b border-white/10">
+        <SequencerInstanceControls
+          :sequencer-id="activeSequencer.id"
+          @delete-sequencer="confirmDeleteSequencer"
+          @playback-toggle="handleSequencerInstancePlayback"
+        />
       </div>
-      <!-- Main Controls Row -->
-      <div class="grid grid-cols-3 items-center gap-1">
-        <!-- Playback Controls -->
-        <div class="flex gap-2">
+
+      <!-- Global Controls -->
+      <div class="flex items-center justify-between gap-4 p-3 bg-black/30">
+        <!-- Left: Add & Play All -->
+        <div class="flex items-center gap-2">
           <button
-            @click="togglePlayback"
+            @click="addNewSequencer"
+            class="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 rounded text-xs font-medium transition-all duration-200 flex items-center gap-1"
+          >
+            <Plus :size="12" />
+            <span>Add</span>
+          </button>
+
+          <button
+            @click="toggleGlobalPlayback"
+            :disabled="totalBeats === 0"
             :class="[
-              'px-4 py-2 rounded-sm font-bold transition-all duration-200 flex items-center gap-2',
-              isPlaying
-                ? 'bg-red-500/80 hover:bg-red-500 text-white'
-                : 'bg-green-500/80 hover:bg-green-500 text-white',
+              'px-3 py-1.5 rounded text-xs font-medium transition-all duration-200 flex items-center gap-1',
+              globalIsPlaying
+                ? 'bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400'
+                : totalBeats > 0
+                ? 'bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-400'
+                : 'bg-gray-600/20 border border-gray-600/30 text-gray-500 cursor-not-allowed',
             ]"
           >
-            <CircleStop v-if="isPlaying" :size="16" />
-            <Play v-else :size="16" />
-          </button>
-
-          <button
-            @click="clearSequencer"
-            class="px-4 py-2 bg-gray-500/80 hover:bg-gray-500 text-white rounded-sm font-bold transition-all duration-200 flex items-center gap-2"
-          >
-            <Trash :size="16" />
+            <CircleStop v-if="globalIsPlaying" :size="12" />
+            <Play v-else :size="12" />
+            <span>{{ globalIsPlaying ? "Stop All" : "Play All" }}</span>
           </button>
         </div>
 
-        <!-- Tempo Control -->
-        <div class="flex items-center justify-self-center gap-2">
+        <!-- Center: Tempo -->
+        <div class="flex items-center gap-2">
           <Knob
             :value="tempo"
             :min="60"
@@ -80,51 +92,30 @@
             :step="10"
             param-name="Tempo"
             :format-value="formatTempo"
-            :is-disabled="isPlaying"
+            :is-disabled="globalIsPlaying"
             @update:value="updateTempo"
-            class="w-16 h-16"
+            class="tempo-knob"
           />
         </div>
 
-        <!-- Octave Control -->
-        <div class="flex items-center justify-self-center gap-2">
-          <Knob
-            :value="baseOctave"
-            :min="3"
-            :max="5"
-            :step="1"
-            param-name="Octave"
-            :format-value="formatOctave"
-            :is-disabled="isPlaying"
-            @update:value="updateOctave"
-            class="w-16 h-16"
-          />
-        </div>
-
-        <div class="flex items-center gap-2">
-          <!-- Beat Count -->
-          <div class="flex items-center gap-2 text-white/80 text-sm">
-            <span class="font-bold">Beats:</span>
-            <span class="bg-blue-500/20 px-2 py-1 rounded text-blue-200">
-              {{ beatCount }}
-            </span>
-          </div>
-          <!-- Steps Display -->
-          <div class="flex items-center gap-2 text-white/80 text-sm">
-            <span class="font-bold">Steps:</span>
-            <span>{{ steps }}</span>
+        <!-- Right: Stats & Library -->
+        <div class="flex flex-col gap-2 items-end">
+          <!-- Stats -->
+          <div class="flex items-center gap-3 text-[10px]">
+            <div class="flex items-center gap-1">
+              <span class="text-white/50">Tracks:</span>
+              <span class="text-white/70 font-medium">{{
+                sequencers.length
+              }}</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-white/50">Beats:</span>
+              <span class="text-blue-400 font-medium">{{ totalBeats }}</span>
+            </div>
           </div>
 
-          <!-- Current Step Indicator -->
-          <div
-            v-if="isPlaying"
-            class="flex items-center gap-2 text-white/80 text-sm"
-          >
-            <span class="font-bold">Current:</span>
-            <span class="bg-yellow-500/20 px-2 py-1 rounded text-yellow-200">
-              {{ currentStep + 1 }}/{{ steps }}
-            </span>
-          </div>
+          <!-- Library -->
+          <MelodyLibrary />
         </div>
       </div>
     </div>
@@ -132,159 +123,197 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from "vue";
+import { ref, computed, onUnmounted, onMounted, watch, nextTick } from "vue";
+import { useMultiSequencerStore } from "@/stores/multiSequencer";
 import { useMusicStore } from "@/stores/music";
-import { useSequencerStore } from "@/stores/sequencer";
-import { SequencerTransport } from "@/utils/sequencer";
-import { calculateNoteDuration } from "@/utils/duration";
-import Knob from "./Knob.vue";
+import { MultiSequencerTransport } from "@/utils/multiSequencer";
+import { AVAILABLE_INSTRUMENTS } from "@/data/instruments";
+import { Tabs, TabsList, TabsTrigger } from "./ui";
+import SequencerInstanceControls from "./SequencerInstanceControls.vue";
 import MelodyLibrary from "./MelodyLibrary.vue";
-import { Save, CircleStop, Play, Trash, ChevronDown } from "lucide-vue-next";
+import Knob from "./Knob.vue";
+import { Plus, CircleStop, Play, ChevronDown } from "lucide-vue-next";
+import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 // Store instances
+const multiSequencerStore = useMultiSequencerStore();
 const musicStore = useMusicStore();
-const sequencerStore = useSequencerStore();
 
-// Transport management - moved from parent component
-let sequencerTransport: SequencerTransport | null = null;
+// Transport management
+let multiTransport: MultiSequencerTransport | null = null;
 
-// Local state for melody saving
-const newMelodyName = ref("");
-
-// Collapse state
+// Local state
 const isCollapsed = ref(false);
 
-// Computed values from store
-const isPlaying = computed(() => sequencerStore.isPlaying);
-const tempo = computed(() => sequencerStore.tempo);
-const baseOctave = computed(() => sequencerStore.baseOctave);
-const steps = computed(() => sequencerStore.steps);
-const currentStep = computed(() => sequencerStore.currentStep);
-const beatCount = computed(() => sequencerStore.beatCount);
-const beats = computed(() => sequencerStore.beats);
-const config = computed(() => sequencerStore.config);
+// Computed values
+const sequencers = computed(() => multiSequencerStore.sequencers);
+const activeSequencerId = computed(
+  () => multiSequencerStore.config.activeSequencerId
+);
+const activeSequencer = computed(() => multiSequencerStore.activeSequencer);
+const globalIsPlaying = computed(
+  () => multiSequencerStore.config.globalIsPlaying
+);
+const tempo = computed(() => multiSequencerStore.config.tempo);
+const steps = computed(() => multiSequencerStore.config.steps);
 
-// Format functions for knobs
+// Calculate total beats across all sequencers
+const totalBeats = computed(() =>
+  sequencers.value.reduce((total, seq) => total + seq.beats.length, 0)
+);
+
+// Create tabs for sequencer navigation
+const sequencerTabs = computed(() =>
+  sequencers.value.map((seq) => {
+    const instrumentConfig = AVAILABLE_INSTRUMENTS[seq.instrument];
+    const autoDisplayName = instrumentConfig
+      ? `${instrumentConfig.displayName} ${seq.octave}`
+      : `Unknown ${seq.octave}`;
+
+    // Use custom name if set (not empty), otherwise auto-generated name
+    const displayName = seq.name || autoDisplayName;
+
+    return {
+      id: seq.id,
+      label: displayName,
+      icon: instrumentConfig?.icon || "🎵",
+      badge: seq.beats.length > 0 ? `${seq.beats.length}` : undefined,
+      disabled: false,
+      color: seq.color,
+    };
+  })
+);
+
+// Format functions
 const formatTempo = (value: number) => `${value}`;
-const formatOctave = (value: number) => `${value}`;
 
-// Toggle collapse function
+// Methods
 const toggleCollapsed = () => {
   isCollapsed.value = !isCollapsed.value;
+  triggerUIHaptic();
 };
 
-// Control functions - now directly using the store
+const setActiveSequencer = (id: string) => {
+  multiSequencerStore.setActiveSequencer(id);
+  triggerUIHaptic();
+};
+
+const addNewSequencer = () => {
+  const newSeq = multiSequencerStore.createSequencer();
+  triggerUIHaptic();
+};
+
 const updateTempo = (newTempo: number) => {
-  sequencerStore.setTempo(newTempo);
-};
-
-const updateOctave = (newOctave: number) => {
-  sequencerStore.setBaseOctave(newOctave);
-};
-
-// Playback functions - moved from parent component and made internal
-const togglePlayback = async () => {
-  if (config.value.isPlaying) {
-    stopPlayback();
-  } else {
-    await startPlayback();
+  multiSequencerStore.setTempo(newTempo);
+  if (multiTransport) {
+    multiTransport.updateTempo(newTempo);
   }
 };
 
-const startPlayback = async () => {
-  if (beats.value.length === 0) return;
+const toggleGlobalPlayback = async () => {
+  if (globalIsPlaying.value) {
+    stopAllPlayback();
+  } else {
+    await startAllPlayback();
+  }
+};
+
+const startAllPlayback = async () => {
+  if (totalBeats.value === 0) return;
 
   try {
-    // Initialize sequencer transport if not already done
-    if (!sequencerTransport) {
-      sequencerTransport = new SequencerTransport();
+    // Initialize transport if needed
+    if (!multiTransport) {
+      multiTransport = new MultiSequencerTransport();
     }
 
-    // Use REACTIVE Loop for live editing during playback! 🔥
-    sequencerTransport.initWithReactiveLoop(
-      () => sequencerStore.beats, // Reactive getter - reads current beats every step
-      config.value.steps,
-      config.value.tempo,
-      (beat, time) => {
-        // Calculate the proper duration based on the beat's visual representation
-        const noteDuration = calculateNoteDuration(
-          beat.duration,
-          config.value.steps,
-          config.value.tempo
-        );
+    // Start all sequencers
+    await multiSequencerStore.startAllSequencers();
 
-        // Play the note with the correct duration
-        musicStore.playNoteWithDuration(
-          beat.solfegeIndex,
-          beat.octave,
-          noteDuration.toneNotation,
-          time
-        );
-      },
-      (step, time) => {
-        // Update visual step indicator
-        sequencerStore.setCurrentStep(step);
-      }
+    // Start transport with all playing sequencers
+    await multiTransport.startAll(
+      multiSequencerStore.playingSequencers,
+      tempo.value,
+      steps.value
     );
-
-    sequencerStore.setIsPlaying(true);
-    sequencerStore.setCurrentStep(0);
-
-    // Start playback
-    await sequencerTransport.start();
   } catch (error) {
     console.error("Error starting playback:", error);
-    stopPlayback();
+    stopAllPlayback();
   }
 };
 
-const stopPlayback = () => {
-  if (sequencerTransport) {
-    sequencerTransport.stop();
+const stopAllPlayback = () => {
+  if (multiTransport) {
+    multiTransport.stopAll();
   }
 
+  multiSequencerStore.stopAllSequencers();
   musicStore.releaseAllNotes();
-  sequencerStore.setIsPlaying(false);
-  sequencerStore.setCurrentStep(0);
 };
 
-const clearSequencer = () => {
-  // Stop playback if running and clear beats
-  if (isPlaying.value) {
-    stopPlayback();
+// Handle individual sequencer play state changes
+const handleSequencerInstancePlayback = async (
+  sequencerId: string,
+  shouldPlay: boolean
+) => {
+  const sequencer = sequencers.value.find((s) => s.id === sequencerId);
+  if (!sequencer) return;
+
+  if (shouldPlay) {
+    try {
+      if (!multiTransport) {
+        multiTransport = new MultiSequencerTransport();
+      }
+
+      // Update store state first
+      multiSequencerStore.startSequencer(sequencerId);
+
+      // Then start transport for this specific sequencer
+      await multiTransport.startSequencer(sequencer, steps.value);
+    } catch (error) {
+      console.error(`Error starting sequencer ${sequencerId}:`, error);
+      multiSequencerStore.stopSequencer(sequencerId);
+    }
+  } else {
+    // Stop transport first
+    if (multiTransport) {
+      multiTransport.stopSequencer(sequencerId);
+    }
+
+    // Then update store state
+    multiSequencerStore.stopSequencer(sequencerId);
   }
-  sequencerStore.clearBeats();
 };
 
-const saveCurrentMelody = () => {
-  if (!newMelodyName.value || beatCount.value === 0) return;
+// Delete sequencer handling
+const confirmDeleteSequencer = (sequencerId: string) => {
+  if (sequencers.value.length === 1) {
+    // Don't delete the last sequencer
+    return;
+  }
 
-  sequencerStore.saveMelody(
-    newMelodyName.value,
-    `Sequencer melody with ${beatCount.value} beats`,
-    "Custom"
-  );
-
-  newMelodyName.value = "";
+  multiSequencerStore.deleteSequencer(sequencerId);
+  triggerUIHaptic();
 };
 
-// Lifecycle cleanup
+// Initialize store on mount
+onMounted(async () => {
+  // Wait for next tick to ensure pinia persistence is fully loaded
+  await nextTick();
+  multiSequencerStore.initialize();
+});
+
+// Cleanup on unmount
 onUnmounted(() => {
-  stopPlayback();
-  if (sequencerTransport) {
-    sequencerTransport.dispose();
-    sequencerTransport = null;
+  stopAllPlayback();
+  if (multiTransport) {
+    multiTransport.dispose();
+    multiTransport = null;
   }
 });
+
+// Export for child components
+defineExpose({
+  handleSequencerInstancePlayback,
+});
 </script>
-
-<style scoped>
-/* Ensure knobs are properly sized */
-.w-16 {
-  min-width: 4rem;
-}
-
-.h-16 {
-  min-height: 4rem;
-}
-</style>

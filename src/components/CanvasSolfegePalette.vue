@@ -2,6 +2,7 @@
   <div class="canvas-solfege-palette relative">
     <!-- Dedicated palette canvas -->
 
+    <KeySelector />
     <canvas
       ref="paletteCanvasRef"
       class="palette-canvas"

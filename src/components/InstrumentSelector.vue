@@ -6,13 +6,36 @@ import type { InstrumentConfig } from "@/types/instrument";
 import { ChevronDown, Music } from "lucide-vue-next";
 import FloatingDropdown from "./FloatingDropdown.vue";
 
+interface Props {
+  // For per-sequencer usage
+  currentInstrument?: string;
+  onSelectInstrument?: (instrumentId: string) => void;
+  onClose?: () => void;
+  // For styling
+  compact?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  compact: false,
+});
+
+const emit = defineEmits<{
+  "select-instrument": [instrumentId: string];
+  close: [];
+}>();
+
 const instrumentStore = useInstrumentStore();
 
-// Computed properties
-const currentInstrument = computed(() => instrumentStore.currentInstrument);
-const currentInstrumentConfig = computed(
-  () => instrumentStore.currentInstrumentConfig
+// Computed properties - use props if provided, otherwise use global store
+const currentInstrumentId = computed(
+  () => props.currentInstrument || instrumentStore.currentInstrument
 );
+
+const currentInstrumentConfig = computed(() => {
+  const instruments = instrumentStore.availableInstruments;
+  return instruments.find((i) => i.name === currentInstrumentId.value);
+});
+
 const isLoading = computed(() => instrumentStore.isLoading);
 
 // Use the unified categorization system
@@ -27,8 +50,23 @@ onMounted(async () => {
 
 // Methods
 const selectInstrument = (instrumentName: string, closePanel: () => void) => {
-  instrumentStore.setInstrument(instrumentName);
-  closePanel(); // Close panel after selection
+  if (props.onSelectInstrument) {
+    // Per-sequencer mode
+    props.onSelectInstrument(instrumentName);
+  } else {
+    // Global mode
+    instrumentStore.setInstrument(instrumentName);
+  }
+
+  emit("select-instrument", instrumentName);
+
+  // Close panel after selection
+  closePanel();
+
+  if (props.onClose) {
+    props.onClose();
+  }
+  emit("close");
 };
 
 const getCategoryDisplayName = (category: string): string => {
@@ -44,34 +82,37 @@ const getInstrumentIcon = (instrumentName: string): string => {
 </script>
 
 <template>
-  <FloatingDropdown position="top-left" max-height="80vh">
+  <FloatingDropdown position="top-left" max-height="80vh" :floating="!compact">
     <!-- Trigger Button -->
     <template #trigger="{ toggle }">
-      <button @click="toggle" class="instrument-toggle">
+      <button
+        @click="toggle"
+        :class="['instrument-toggle', { compact: compact }]"
+      >
         <span class="current-icon">{{
-          getInstrumentIcon(currentInstrument)
+          getInstrumentIcon(currentInstrumentId)
         }}</span>
         <span class="current-name">{{
           currentInstrumentConfig?.displayName || "Loading..."
         }}</span>
-        <ChevronDown :size="14" />
+        <ChevronDown :size="compact ? 12 : 14" />
       </button>
     </template>
 
     <!-- Dropdown Panel -->
     <template #panel="{ close, toggle, position }">
-      <div class="instrument-panel">
+      <div :class="['instrument-panel', { compact: compact }]">
         <!-- Header -->
         <div
           class="instrument-header"
           :class="{ 'flex-row-reverse': position === 'top-left' }"
         >
           <h3>
-            <Music :size="16" />
+            <Music :size="compact ? 14 : 16" />
             Instruments
           </h3>
           <button @click="toggle" class="close-btn" title="Close Panel">
-            <ChevronDown :size="18" />
+            <ChevronDown :size="compact ? 16 : 18" />
           </button>
         </div>
 
@@ -79,8 +120,8 @@ const getInstrumentIcon = (instrumentName: string): string => {
           <!-- Current Selection Display -->
           <div class="current-selection">
             <div class="current-instrument">
-              <span class="text-lg">{{
-                getInstrumentIcon(currentInstrument)
+              <span :class="compact ? 'text-base' : 'text-lg'">{{
+                getInstrumentIcon(currentInstrumentId)
               }}</span>
               <span class="instrument-name">{{
                 currentInstrumentConfig?.displayName || "Loading..."
@@ -98,7 +139,7 @@ const getInstrumentIcon = (instrumentName: string): string => {
               <h4 class="category-title">
                 {{ getCategoryDisplayName(category) }}
               </h4>
-              <div class="instruments-grid">
+              <div :class="['instruments-grid', { compact: compact }]">
                 <button
                   v-for="instrument in instruments"
                   :key="instrument.name"
@@ -106,7 +147,8 @@ const getInstrumentIcon = (instrumentName: string): string => {
                   :class="[
                     'instrument-btn',
                     {
-                      active: currentInstrument === instrument.name,
+                      active: currentInstrumentId === instrument.name,
+                      compact: compact,
                     },
                   ]"
                   :title="instrument.description"
@@ -142,6 +184,10 @@ const getInstrumentIcon = (instrumentName: string): string => {
   flex: 1;
 }
 
+.instrument-panel.compact {
+  font-size: 11px;
+}
+
 .instrument-header {
   position: sticky;
   top: 0;
@@ -155,6 +201,10 @@ const getInstrumentIcon = (instrumentName: string): string => {
   z-index: 10;
 }
 
+.compact .instrument-header {
+  padding: 8px 12px;
+}
+
 .instrument-header h3 {
   margin: 0;
   font-size: 14px;
@@ -163,6 +213,11 @@ const getInstrumentIcon = (instrumentName: string): string => {
   align-items: center;
   gap: 6px;
   font-weight: 600;
+}
+
+.compact .instrument-header h3 {
+  font-size: 12px;
+  gap: 4px;
 }
 
 .close-btn {
@@ -189,10 +244,19 @@ const getInstrumentIcon = (instrumentName: string): string => {
   flex: 1;
 }
 
+.compact .instrument-content {
+  padding: 10px;
+}
+
 .current-selection {
   margin-bottom: 15px;
   padding-bottom: 15px;
   border-bottom: 1px solid #333;
+}
+
+.compact .current-selection {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
 }
 
 .current-instrument {
@@ -205,10 +269,20 @@ const getInstrumentIcon = (instrumentName: string): string => {
   border-radius: 6px;
 }
 
+.compact .current-instrument {
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
 .instrument-name {
   font-weight: 600;
   color: #00ff88;
   font-size: 13px;
+}
+
+.compact .instrument-name {
+  font-size: 11px;
 }
 
 .categories-container {
@@ -217,10 +291,18 @@ const getInstrumentIcon = (instrumentName: string): string => {
   gap: 15px;
 }
 
+.compact .categories-container {
+  gap: 10px;
+}
+
 .instrument-category {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.compact .instrument-category {
+  gap: 6px;
 }
 
 .category-title {
@@ -232,10 +314,19 @@ const getInstrumentIcon = (instrumentName: string): string => {
   font-weight: 600;
 }
 
+.compact .category-title {
+  font-size: 10px;
+}
+
 .instruments-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
   gap: 6px;
+}
+
+.instruments-grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 4px;
 }
 
 .instrument-btn {
@@ -255,6 +346,14 @@ const getInstrumentIcon = (instrumentName: string): string => {
   justify-content: center;
 }
 
+.instrument-btn.compact {
+  gap: 2px;
+  padding: 6px 3px;
+  border-radius: 4px;
+  font-size: 9px;
+  min-height: 45px;
+}
+
 .instrument-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.3);
@@ -271,6 +370,10 @@ const getInstrumentIcon = (instrumentName: string): string => {
 .instrument-icon {
   font-size: 18px;
   line-height: 1;
+}
+
+.compact .instrument-icon {
+  font-size: 14px;
 }
 
 .instrument-label {
@@ -324,6 +427,14 @@ const getInstrumentIcon = (instrumentName: string): string => {
   justify-content: center;
 }
 
+.instrument-toggle.compact {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  gap: 4px;
+  max-width: 150px;
+}
+
 .instrument-toggle:hover {
   background: rgba(0, 0, 0, 0.9);
   border-color: #555;
@@ -335,6 +446,10 @@ const getInstrumentIcon = (instrumentName: string): string => {
   line-height: 1;
 }
 
+.compact .current-icon {
+  font-size: 14px;
+}
+
 .current-name {
   font-weight: 500;
   font-size: 12px;
@@ -344,10 +459,19 @@ const getInstrumentIcon = (instrumentName: string): string => {
   max-width: 120px;
 }
 
+.compact .current-name {
+  font-size: 10px;
+  max-width: 80px;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .instruments-grid {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  }
+
+  .instruments-grid.compact {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
   }
 
   .instrument-btn {
@@ -355,8 +479,17 @@ const getInstrumentIcon = (instrumentName: string): string => {
     padding: 6px 4px;
   }
 
+  .instrument-btn.compact {
+    min-height: 40px;
+    padding: 4px 3px;
+  }
+
   .instrument-icon {
     font-size: 16px;
+  }
+
+  .compact .instrument-icon {
+    font-size: 12px;
   }
 
   .instrument-toggle {
@@ -364,9 +497,19 @@ const getInstrumentIcon = (instrumentName: string): string => {
     padding: 6px 10px;
   }
 
+  .instrument-toggle.compact {
+    max-width: 120px;
+    padding: 4px 6px;
+  }
+
   .current-name {
     font-size: 11px;
     max-width: 100px;
+  }
+
+  .compact .current-name {
+    font-size: 9px;
+    max-width: 70px;
   }
 }
 </style>

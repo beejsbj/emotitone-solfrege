@@ -1,14 +1,21 @@
 <template>
-  <div class="knob-container" :class="{ disabled: isDisabled }">
+  <div
+    class="text-center select-none transition-opacity duration-300"
+    :class="{ 'opacity-40 pointer-events-none': isDisabled }"
+  >
     <div
       ref="knobWrapperRef"
-      class="knob-wrapper"
+      class="inline-block cursor-ns-resize touch-none transition-transform duration-200 ease-out will-change-transform hover:cursor-pointer hover:scale-110"
+      :class="{ 'scale-125': isHeld }"
       @mousedown="handleStart"
       @touchstart="handleStart"
       @click="handleClick"
       @contextmenu.prevent
     >
-      <svg class="knob-svg" :style="svgStyle">
+      <svg
+        class="block will-change-transform transition-transform duration-200 ease-out"
+        :style="svgStyle"
+      >
         <!-- background static arc -->
         <path
           fill="none"
@@ -29,13 +36,18 @@
           :y="centerY"
           text-anchor="middle"
           dominant-baseline="central"
-          class="knob-value"
+          class="fill-white text-[9px] font-bold font-mono pointer-events-none transition-[font-size] duration-200"
+          :class="{ 'text-[10px]': isHeld }"
         >
           {{ displayValue }}
         </text>
       </svg>
     </div>
-    <span class="knob-title">{{ paramName }}</span>
+    <span
+      class="text-gray-300 text-xs select-none capitalize block break-words max-w-20 leading-tight transition-opacity duration-200"
+    >
+      {{ paramName }}
+    </span>
 
     <!-- Floating tooltip -->
     <div v-if="showTooltip" class="knob-tooltip" :style="tooltipStyle">
@@ -83,6 +95,10 @@ const props = defineProps({
   isDisabled: {
     type: Boolean,
     default: false,
+  },
+  themeColor: {
+    type: String,
+    default: undefined,
   },
 });
 
@@ -170,38 +186,35 @@ const getDisplayLabel = (value: string | number | undefined = props.value) => {
   }
 };
 
-// Convert color names to hex values
-const getColorHex = (colorName: string): string => {
+// Convert color names to HSLA values
+const getColorHsla = (colorName: string): string => {
   const colorMap: Record<string, string> = {
-    yellow: "#fbbf24", // Yellow-400
-    purple: "#a855f7", // Purple-500
-    red: "#ef4444", // Red-500
-    blue: "#3b82f6", // Blue-500
-    green: "#10b981", // Green-500
-    orange: "#f97316", // Orange-500
-    pink: "#ec4899", // Pink-500
-    cyan: "#06b6d4", // Cyan-500
-    indigo: "#6366f1", // Indigo-500
-    gray: "#6b7280", // Gray-500
+    yellow: "hsla(43, 96%, 56%, 1)", // Yellow-400
+    purple: "hsla(271, 91%, 65%, 1)", // Purple-500
+    red: "hsla(0, 84%, 60%, 1)", // Red-500
+    blue: "hsla(217, 91%, 60%, 1)", // Blue-500
+    green: "hsla(158, 64%, 52%, 1)", // Green-500
+    orange: "hsla(21, 90%, 48%, 1)", // Orange-500
+    pink: "hsla(328, 85%, 70%, 1)", // Pink-500
+    cyan: "hsla(188, 95%, 43%, 1)", // Cyan-500
+    indigo: "hsla(239, 84%, 67%, 1)", // Indigo-500
+    gray: "hsla(220, 9%, 46%, 1)", // Gray-500
   };
 
-  // If it's already a hex color, return as is
-  if (colorName.startsWith("#")) return colorName;
+  // If it's already an HSLA color, return as is
+  if (colorName.startsWith("hsla")) return colorName;
+
+  // If it's a hex color, convert to HSLA (simplified conversion to default green)
+  if (colorName.startsWith("#")) return "hsla(158, 100%, 53%, 1)"; // Green equivalent
 
   // Otherwise lookup in color map or default to green
-  return colorMap[colorName.toLowerCase()] || "#00ff88";
+  return colorMap[colorName.toLowerCase()] || "hsla(158, 100%, 53%, 1)";
 };
 
 // Calculate color intensity based on value
 const getColorIntensity = (baseColor: string, intensity: number): string => {
-  // Convert color name to hex if needed
-  const hexColor = getColorHex(baseColor);
-
-  // Parse hex color
-  const hex = hexColor.replace("#", "");
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
+  // Convert color name to HSLA if needed
+  const hslaColor = getColorHsla(baseColor);
 
   let normalizedValue: number;
 
@@ -217,17 +230,29 @@ const getColorIntensity = (baseColor: string, intensity: number): string => {
   // Apply intensity (0.2 to 1.0 range for visibility)
   const finalIntensity = 0.2 + 0.8 * normalizedValue;
 
-  const finalR = Math.round(r * finalIntensity);
-  const finalG = Math.round(g * finalIntensity);
-  const finalB = Math.round(b * finalIntensity);
+  // Extract HSLA values and adjust lightness/alpha
+  const hslaMatch = hslaColor.match(
+    /hsla\((\d+),\s*(\d+)%,\s*(\d+)%,\s*([0-9.]+)\)/
+  );
+  if (hslaMatch) {
+    const h = hslaMatch[1];
+    const s = hslaMatch[2];
+    const l = Math.round(parseInt(hslaMatch[3]) * finalIntensity);
+    return `hsla(${h}, ${s}%, ${l}%, 1)`;
+  }
 
-  return `rgb(${finalR}, ${finalG}, ${finalB})`;
+  return hslaColor;
 };
 
 // Constants
-const color = computed(() => (props.isDisabled ? "#333" : "#666"));
+const color = computed(() =>
+  props.isDisabled ? "hsla(0, 0%, 20%, 1)" : "hsla(0, 0%, 40%, 1)"
+);
 const activeColor = computed(() => {
-  if (props.isDisabled) return "#444";
+  if (props.isDisabled) return "hsla(0, 0%, 27%, 1)";
+
+  // Use theme color if provided
+  const baseColor = props.themeColor || "hsla(158, 100%, 53%, 1)";
 
   // For options mode with color support
   if (isOptionsMode.value && getCurrentColor.value) {
@@ -237,12 +262,12 @@ const activeColor = computed(() => {
   // For boolean toggles
   if (isBooleanToggle.value) {
     return (props.value as number) === 1
-      ? getColorIntensity("#00ff88", props.value as number)
-      : "#ff6b6b";
+      ? getColorIntensity(baseColor, props.value as number)
+      : "hsla(0, 84%, 60%, 1)"; // Red
   }
 
-  // Default numeric mode
-  return getColorIntensity("#00ff88", 1);
+  // Default numeric mode - use theme color or fallback
+  return getColorIntensity(baseColor, 1);
 });
 
 const knobRadius = 18;
@@ -258,19 +283,26 @@ const centerY = knobRadius + knobStrokeWidth;
 const svgStyle = computed(() => ({
   height: `${2 * (knobRadius + knobStrokeWidth)}px`,
   width: `${2 * (knobRadius + knobStrokeWidth)}px`,
-  transform: isHeld.value ? "scale(1.2)" : "scale(1)",
-  transition: "transform 0.2s ease",
 }));
 
 const tooltipStyle = computed(() => {
-  let backgroundColor = "rgba(0, 0, 0, 0.8)";
+  let backgroundColor = "hsla(0, 0%, 0%, 0.8)";
   let borderColor = "transparent";
 
   // Use current option color for tooltip if available
   if (isOptionsMode.value && getCurrentColor.value) {
-    const hexColor = getColorHex(getCurrentColor.value);
-    backgroundColor = hexColor + "20"; // Add 20% opacity
-    borderColor = hexColor + "60"; // Add 60% opacity for border
+    const hslaColor = getColorHsla(getCurrentColor.value);
+    // Extract HSLA and modify alpha
+    const hslaMatch = hslaColor.match(
+      /hsla\((\d+),\s*(\d+)%,\s*(\d+)%,\s*([0-9.]+)\)/
+    );
+    if (hslaMatch) {
+      const h = hslaMatch[1];
+      const s = hslaMatch[2];
+      const l = hslaMatch[3];
+      backgroundColor = `hsla(${h}, ${s}%, ${l}%, 0.2)`;
+      borderColor = `hsla(${h}, ${s}%, ${l}%, 0.6)`;
+    }
   }
 
   return {
@@ -284,6 +316,16 @@ const tooltipStyle = computed(() => {
     borderColor,
     borderWidth: getCurrentColor.value ? "1px" : "0",
     borderStyle: "solid",
+    color: "white",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontWeight: "500",
+    pointerEvents: "none" as const,
+    backdropFilter: "blur(4px)",
+    boxShadow:
+      "0 4px 6px -1px hsla(0, 0%, 0%, 0.1), 0 2px 4px -1px hsla(0, 0%, 0%, 0.06)",
+    transition: "all 0.1s ease-out",
   };
 });
 
@@ -557,82 +599,8 @@ const handleEnd = (e: MouseEvent | TouchEvent) => {
 </script>
 
 <style scoped>
-.knob-container {
-  text-align: center;
-  user-select: none;
-  transition: opacity 0.3s ease;
-}
-
-.knob-container.disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-.knob-wrapper {
-  display: inline-block;
-  cursor: ns-resize;
-  touch-action: none; /* Prevent scrolling on touch */
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
-}
-
-.knob-wrapper:hover {
-  cursor: pointer;
-  transform: scale(1.1);
-}
-
-.knob-title {
-  color: #ccc;
-  font-size: 10px;
-  user-select: none;
-  text-transform: capitalize;
-  margin-top: 4px;
-  display: block;
-  word-wrap: break-word;
-  max-width: 80px;
-  line-height: 1.2;
-  transition: opacity 0.2s ease;
-}
-
-.knob-svg {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: scale(1);
-  display: block;
-  will-change: transform;
-}
-
-.knob-wrapper:active .knob-svg,
-.knob-wrapper:active {
-  transform: scale(1.2);
-}
-
-.knob-value {
-  fill: #fff;
-  font-size: 9px;
-  font-weight: bold;
-  font-family: monospace;
-  pointer-events: none;
-  transition: font-size 0.2s ease;
-}
-
-.knob-wrapper:active .knob-value {
-  font-size: 10px;
-}
-
+/* Minimal custom styles for tooltip since it uses dynamic positioning */
 .knob-tooltip {
-  color: #fff;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  position: fixed;
-  isolation: isolate;
-  z-index: 9999;
-  transform: translate(-50%, 0);
-  pointer-events: none;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: all 0.1s ease-out;
+  /* All styling moved to computed tooltipStyle for dynamic colors */
 }
 </style>

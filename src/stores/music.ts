@@ -281,7 +281,8 @@ export const useMusicStore = defineStore(
       solfegeIndex: number,
       octave: number,
       duration: string,
-      time?: number
+      time?: number,
+      specificInstrument?: string
     ): Promise<string> {
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
@@ -289,12 +290,22 @@ export const useMusicStore = defineStore(
         const noteName = musicTheory.getNoteName(solfegeIndex, octave);
         const frequency = musicTheory.getNoteFrequency(solfegeIndex, octave);
 
-        // Play the audio with the specified duration
+        // Play the audio with the specified duration (audio service doesn't support per-instrument yet)
         const noteId = await audioService.playNoteWithDuration(
           noteName,
           duration,
           time
         );
+
+        // Use the specific instrument or fall back to current global instrument for event dispatching
+        const instrumentToReport =
+          specificInstrument || instrumentStore.currentInstrument;
+
+        // Import getInstrumentConfig from data layer
+        const { getInstrumentConfig } = await import("@/data/instruments");
+        const instrumentConfig = specificInstrument
+          ? getInstrumentConfig(specificInstrument)
+          : instrumentStore.currentInstrumentConfig;
 
         // Dispatch custom event for visual effects
         const notePlayedEvent = new CustomEvent("note-played", {
@@ -306,8 +317,9 @@ export const useMusicStore = defineStore(
             octave,
             duration,
             time,
-            instrument: instrumentStore.currentInstrument,
-            instrumentConfig: instrumentStore.currentInstrumentConfig,
+            instrument: instrumentToReport,
+            instrumentConfig: instrumentConfig,
+            sequencerInstrument: specificInstrument, // Mark as sequencer-specific
           },
         });
         window.dispatchEvent(notePlayedEvent);

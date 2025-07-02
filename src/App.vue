@@ -27,35 +27,30 @@
               <!-- <KeySelector /> -->
             </div>
 
-            <CircularSequencer />
+            <!-- Multi-Sequencer Section -->
+            <SequencerSection class="pb-50" />
 
-            <!-- Pattern Player -->
-
-            <!-- Sticky horizontal scroller -->
-            <div class="sticky bottom-0">
+            <!-- Main Content Area - Add bottom padding for the bottom tab bar -->
+            <div class="">
+              <!-- Generous padding to account for bottom tab bar -->
               <!-- Floating Interval Description Popup -->
-              <KeySelector />
-
               <FloatingPopup />
-
-              <SequencerControls />
-
-              <div
-                class="flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"
-              >
-                <div class="snap-start shrink-0 w-screen grid">
-                  <!-- DOM Palette (for comparison) -->
-                  <!-- <SolfegePalette /> -->
-                  <CanvasSolfegePalette />
-                </div>
-              </div>
             </div>
-
-            <!-- Canvas Palette (new implementation) -->
           </div>
         </div>
       </main>
     </div>
+
+    <!-- Bottom Tab Bar - Always visible when app is loaded -->
+    <BottomTabBar v-if="!isLoading" class="pt-20">
+      <template #palette>
+        <CanvasSolfegePalette />
+      </template>
+
+      <template #sequencer>
+        <SequencerControls />
+      </template>
+    </BottomTabBar>
   </div>
 </template>
 
@@ -70,8 +65,9 @@ import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
+import SequencerSection from "@/components/SequencerSection.vue";
 import SequencerControls from "@/components/SequencerControls.vue";
-import CircularSequencer from "@/components/CircularSequencer.vue";
+import BottomTabBar from "@/components/BottomTabBar.vue";
 
 // Stores and composables
 const musicStore = useMusicStore();

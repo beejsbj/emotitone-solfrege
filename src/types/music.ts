@@ -201,3 +201,102 @@ export interface SequencerConfig {
   /** Current step position during playback */
   currentStep: number;
 }
+
+/**
+ * Individual sequencer instance for multi-sequencer system
+ */
+export interface SequencerInstance {
+  /** Unique identifier for the sequencer */
+  id: string;
+  /** Display name for the sequencer */
+  name: string;
+  /** Instrument ID from instrumentStore */
+  instrument: string;
+  /** Octave (3-5 range) */
+  octave: number;
+  /** Array of beats for this sequencer */
+  beats: SequencerBeat[];
+  /** Whether this sequencer is currently playing */
+  isPlaying: boolean;
+  /** Current step position during playback */
+  currentStep: number;
+  /** Whether this sequencer is muted */
+  isMuted: boolean;
+  /** Volume level (0-1) */
+  volume: number;
+  /** Icon identifier for visual distinction */
+  icon: string;
+  /** Optional color from predefined palette */
+  color?: string;
+}
+
+/**
+ * Multi-sequencer global configuration
+ */
+export interface MultiSequencerConfig {
+  /** Global tempo in BPM (shared across all sequencers) */
+  tempo: number;
+  /** Number of steps (shared across all sequencers) */
+  steps: number;
+  /** Number of rings (shared across all sequencers) */
+  rings: number;
+  /** Whether the global playback is active */
+  globalIsPlaying: boolean;
+  /** Currently active/selected sequencer ID */
+  activeSequencerId: string | null;
+}
+
+/**
+ * Multi-sequencer project save format
+ */
+export interface MultiSequencerProject {
+  /** Unique identifier for the project */
+  id: string;
+  /** Project name */
+  name: string;
+  /** Project description */
+  description: string;
+  /** Emotional character of the project */
+  emotion: string;
+  /** Array of sequencer instances */
+  sequencers: SequencerInstance[];
+  /** Global configuration */
+  config: MultiSequencerConfig;
+  /** Creation timestamp */
+  createdAt: Date;
+  /** Last modified timestamp */
+  modifiedAt: Date;
+}
+
+/**
+ * Predefined color palette for sequencer customization
+ */
+export interface SequencerColorPalette {
+  /** Unique identifier for the palette */
+  id: string;
+  /** Display name for the palette */
+  name: string;
+  /** Primary color hex code */
+  primary: string;
+  /** Secondary color hex code */
+  secondary: string;
+  /** Accent color hex code */
+  accent: string;
+}
+
+/**
+ * Available icon options for sequencers
+ */
+export type SequencerIcon =
+  | "music"
+  | "piano"
+  | "guitar"
+  | "violin"
+  | "drums"
+  | "trumpet"
+  | "microphone"
+  | "headphones"
+  | "radio"
+  | "speaker"
+  | "heart"
+  | "star";

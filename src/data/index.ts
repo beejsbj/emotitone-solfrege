@@ -47,5 +47,13 @@ export {
   isValidInstrument,
 } from "./instruments";
 
+// Sequencer
+export {
+  SEQUENCER_ICONS,
+  SEQUENCER_COLOR_PALETTES,
+  getColorPaletteById,
+  getDefaultColorPalette,
+} from "./sequencer";
+
 // Backward compatibility - re-export everything from musicData for existing imports
 export * from "./musicData";

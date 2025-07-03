@@ -43,11 +43,6 @@
       :theme-color="themeColor || defaultThemeColor"
       @update:modelValue="handleValueUpdate"
     />
-
-    <!-- Floating tooltip -->
-    <div v-if="showTooltip" class="knob-tooltip" :style="tooltipStyle">
-      {{ actualValue }}
-    </div>
   </div>
 </template>
 
@@ -131,10 +126,8 @@ const emit = defineEmits(["update:modelValue", "update:value", "click"]);
 
 // Refs
 const wrapperRef = ref<HTMLElement>();
-const showTooltip = ref(false);
-const tooltipPosition = ref({ x: 0, y: 0 });
 
-// Interaction state
+// Interaction state (migrated from useKnobInteraction)
 const interaction = {
   isDragging: ref(false),
   isHeld: ref(false),
@@ -197,44 +190,7 @@ const actualLabel = computed(() => {
 // Default theme color
 const defaultThemeColor = "hsla(158, 100%, 53%, 1)";
 
-// Tooltip style
-const tooltipStyle = computed(() => ({
-  position: "fixed" as const,
-  left: `${tooltipPosition.value.x}px`,
-  top: `${tooltipPosition.value.y - 40}px`, // 40px above finger/cursor
-  transform: "translate(-50%, -100%)",
-  zIndex: 9999,
-  isolation: "isolate" as const,
-  backgroundColor: "hsla(0, 0%, 0%, 0.8)",
-  color: "white",
-  padding: "4px 8px",
-  borderRadius: "4px",
-  fontSize: "12px",
-  fontWeight: "500",
-  pointerEvents: "none" as const,
-  backdropFilter: "blur(4px)",
-  boxShadow:
-    "0 4px 6px -1px hsla(0, 0%, 0%, 0.1), 0 2px 4px -1px hsla(0, 0%, 0%, 0.06)",
-  transition: "all 0.1s ease-out",
-}));
-
-// Update tooltip position
-const updateTooltipPosition = (event: MouseEvent | TouchEvent) => {
-  let x: number, y: number;
-
-  if (event instanceof TouchEvent) {
-    const touch = event.touches[0] || event.changedTouches[0];
-    x = touch.pageX;
-    y = touch.pageY;
-  } else {
-    x = event.pageX;
-    y = event.pageY;
-  }
-
-  tooltipPosition.value = { x, y };
-};
-
-// Interaction handlers
+// Interaction logic (migrated from useKnobInteraction)
 const handleStart = (e: MouseEvent | TouchEvent) => {
   if (props.isDisabled) return;
 
@@ -243,13 +199,9 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
 
   interaction.isDragging.value = true;
   interaction.isHeld.value = true;
-  showTooltip.value = true;
 
   const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
   const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-
-  // Update tooltip position
-  updateTooltipPosition(e);
 
   interaction.dragStart.value = {
     y: clientY,
@@ -286,9 +238,6 @@ const handleMove = (e: Event) => {
 
   const clientY = "touches" in event ? event.touches[0].clientY : event.clientY;
   const clientX = "touches" in event ? event.touches[0].clientX : event.clientX;
-
-  // Update tooltip position
-  updateTooltipPosition(event);
 
   // Mark as moved if the touch has moved more than threshold from start position
   const totalMovement = Math.sqrt(
@@ -340,7 +289,6 @@ const handleEnd = (e: Event) => {
 
   interaction.isDragging.value = false;
   interaction.isHeld.value = false;
-  showTooltip.value = false;
 
   // Remove global event listeners
   if ("touches" in event) {
@@ -453,9 +401,5 @@ useGSAP(({ gsap }: { gsap: any }) => {
 .knob-wrapper {
   user-select: none;
   touch-action: none;
-}
-
-.knob-tooltip {
-  /* All styling moved to computed tooltipStyle */
 }
 </style>

@@ -15,10 +15,11 @@ import {
   createHarmonicVibration,
   createStringDamping,
 } from "@/utils/visualEffects";
-import { gsap } from "gsap";
+import useGSAP from "../useGSAP";
 
 export function useStringRenderer() {
   const { getPrimaryColor } = useColorSystem();
+  const { gsap } = useGSAP();
 
   // String state
   const strings = ref<VibratingStringConfig[]>([]);

@@ -72,28 +72,25 @@
                 <!-- Boolean toggle knobs -->
                 <Knob
                   v-if="typeof value === 'boolean'"
-                  :value="value ? 1 : 0"
-                  :min="0"
-                  :max="1"
-                  :step="1"
-                  :param-name="formatLabel(String(key))"
-                  :format-value="(val: number) => val === 1 ? 'ON' : 'OFF'"
+                  :model-value="value"
+                  type="boolean"
+                  :label="formatLabel(String(key))"
                   :is-disabled="!visualsEnabled"
-                  @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue === 1)"
-                  @click="() => updateValue(sectionName, String(key), !value)"
+                  @update:modelValue="(newValue: boolean) => updateValue(sectionName, String(key), newValue)"
                 />
 
                 <!-- Number knobs -->
                 <Knob
                   v-else-if="typeof value === 'number'"
-                  :value="value"
+                  :model-value="value"
+                  type="range"
                   :min="getNumberMin(sectionName, String(key))"
                   :max="getNumberMax(sectionName, String(key))"
                   :step="getNumberStep(sectionName, String(key))"
-                  :param-name="formatLabel(String(key))"
+                  :label="formatLabel(String(key))"
                   :format-value="(val: number) => formatValue(sectionName, String(key), val)"
                   :is-disabled="!visualsEnabled"
-                  @update:value="(newValue: number) => updateValue(sectionName, String(key), newValue)"
+                  @update:modelValue="(newValue: number) => updateValue(sectionName, String(key), newValue)"
                 />
 
                 <!-- String controls (if needed) -->
@@ -171,7 +168,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import Knob from "./Knob.vue";
+import { Knob } from "./knobs";
 import FloatingDropdown from "./FloatingDropdown.vue";
 import {
   Settings,

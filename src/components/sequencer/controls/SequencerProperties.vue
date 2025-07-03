@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useSequencerStore } from "@/stores/sequencer";
 import { SEQUENCER_COLOR_PALETTES } from "@/data/sequencer";
-import Knob from "@/components/Knob.vue";
+import { Knob } from "@/components/knobs";
 
 interface Props {
   sequencerId: string;
@@ -74,14 +74,15 @@ const updateColor = (newColor: any) => {
   <div class="flex items-center gap-3 flex-1">
     <div class="flex items-center gap-2">
       <Knob
-        :value="octave"
+        :model-value="octave"
+        type="range"
         :min="2"
         :max="8"
         :step="1"
-        param-name="Octave"
+        label="Octave"
         :format-value="formatOctave"
         :is-disabled="isPlaying"
-        @update:value="updateOctave"
+        @update:modelValue="updateOctave"
         class="mini-knob"
         :theme-color="themeColors?.primary"
       />
@@ -89,13 +90,14 @@ const updateColor = (newColor: any) => {
 
     <div class="flex items-center gap-2">
       <Knob
-        :value="volume"
+        :model-value="volume"
+        type="range"
         :min="0"
         :max="1"
         :step="0.1"
-        param-name="Vol"
+        label="Vol"
         :format-value="formatVolume"
-        @update:value="updateVolume"
+        @update:modelValue="updateVolume"
         class="mini-knob"
         :theme-color="themeColors?.primary"
       />
@@ -103,11 +105,12 @@ const updateColor = (newColor: any) => {
 
     <div class="flex items-center gap-2">
       <Knob
-        :value="knobColorValue"
+        :model-value="knobColorValue"
+        type="options"
         :options="colorOptions"
-        param-name="Color"
+        label="Color"
         :format-value="formatColor"
-        @update:value="updateColor"
+        @update:modelValue="updateColor"
         class="mini-knob"
         :theme-color="themeColors?.primary"
       />

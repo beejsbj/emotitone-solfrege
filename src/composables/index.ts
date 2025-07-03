@@ -9,6 +9,7 @@ export { useColorSystem } from "./useColorSystem";
 export { useKeyboardControls } from "./useKeyboardControls";
 export { useSolfegeInteraction } from "./useSolfegeInteraction";
 export { useAppLoading } from "./useAppLoading";
+export { useTooltip } from "./useTooltip";
 
 // Canvas modules
 export * from "./canvas";

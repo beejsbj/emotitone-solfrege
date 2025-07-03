@@ -146,13 +146,14 @@
         class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10"
       >
         <Knob
-          :value="musicStore.currentMode"
+          :model-value="musicStore.currentMode"
+          type="options"
           :options="[
             { label: 'Major', value: 'major', color: 'yellow' },
             { label: 'Minor', value: 'minor', color: 'purple' },
           ]"
-          param-name="Mode"
-          @update:value="musicStore.setMode"
+          label="Mode"
+          @update:modelValue="musicStore.setMode"
         />
       </div>
     </div>
@@ -163,7 +164,7 @@
 import { useMusicStore } from "@/stores/music";
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { ChevronDown } from "lucide-vue-next";
-import Knob from "./Knob.vue";
+import { Knob } from "./knobs";
 
 const musicStore = useMusicStore();
 

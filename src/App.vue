@@ -35,6 +35,12 @@
               <!-- Generous padding to account for bottom tab bar -->
               <!-- Floating Interval Description Popup -->
               <FloatingPopup />
+
+              <!-- Tooltip Examples -->
+              <TooltipExample />
+
+              <!-- Knob System Demo -->
+              <KnobDemo />
             </div>
           </div>
         </div>
@@ -51,6 +57,13 @@
         <SequencerControls />
       </template>
     </BottomTabBar>
+
+    <!-- Global Tooltip Renderer -->
+    <TooltipRenderer
+      :tooltip-state="globalTooltip.tooltipState.value"
+      :rotation="globalTooltip.rotation.value"
+      :translation="globalTooltip.translation.value"
+    />
   </div>
 </template>
 
@@ -68,6 +81,10 @@ import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import SequencerSection from "@/components/SequencerSection.vue";
 import SequencerControls from "@/components/SequencerControls.vue";
 import BottomTabBar from "@/components/BottomTabBar.vue";
+import TooltipRenderer from "@/components/TooltipRenderer.vue";
+import TooltipExample from "@/components/TooltipExample.vue";
+import KnobDemo from "@/components/KnobDemo.vue";
+import { globalTooltip } from "@/directives/tooltip";
 
 // Stores and composables
 const musicStore = useMusicStore();

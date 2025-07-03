@@ -6,54 +6,62 @@
     >
       <!-- Global Controls -->
       <div class="flex items-center justify-between gap-4 p-3 bg-black/30">
-        <!-- Left: Play All -->
+        <!-- Left: Master Play Button Knob -->
         <div class="flex items-center gap-2">
-          <button
-            @click="toggleGlobalPlayback"
-            :disabled="totalBeats === 0"
-            :class="[
-              'px-3 py-1.5 rounded text-xs font-medium transition-all duration-200 flex items-center gap-1',
-              globalIsPlaying
-                ? 'bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400'
-                : totalBeats > 0
-                ? 'bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-400'
-                : 'bg-gray-600/20 border border-gray-600/30 text-gray-500 cursor-not-allowed',
-            ]"
-          >
-            <CircleStop v-if="globalIsPlaying" :size="12" />
-            <Play v-else :size="12" />
-            <span>{{ globalIsPlaying ? "Stop All" : "Play All" }}</span>
-          </button>
+          <ButtonKnob
+            :model-value="globalIsPlaying"
+            param-name="Master"
+            button-text="PLAY"
+            active-text="STOP"
+            :ready-color="
+              totalBeats > 0 ? 'hsla(120, 70%, 50%, 1)' : 'hsla(0, 0%, 40%, 1)'
+            "
+            :active-color="'hsla(0, 84%, 60%, 1)'"
+            :is-disabled="totalBeats === 0"
+            @update:modelValue="toggleGlobalPlayback"
+          />
         </div>
 
         <!-- Center: Tempo -->
         <div class="flex items-center gap-2">
-          <Knob
-            :value="tempo"
+          <RangeKnob
+            :model-value="tempo"
             :min="60"
             :max="180"
-            :step="10"
-            param-name="Tempo"
-            :format-value="formatTempo"
-            :is-disabled="globalIsPlaying"
-            @update:value="updateTempo"
-            class="tempo-knob"
+            mode="display"
+            label="Tempo"
+            :format-value="(v) => `${v}`"
+            theme-color="hsla(43, 96%, 56%, 1)"
           />
         </div>
 
         <!-- Right: Stats & Library -->
         <div class="flex flex-col gap-2 items-end">
-          <!-- Stats -->
-          <div class="flex items-center gap-3 text-[10px]">
-            <div class="flex items-center gap-1">
-              <span class="text-white/50">Tracks:</span>
-              <span class="text-white/70 font-medium">{{
-                sequencers.length
-              }}</span>
+          <!-- Stats Display Knobs -->
+          <div class="flex items-center gap-3">
+            <!-- Track Count Display -->
+            <div class="text-center">
+              <DisplayKnob
+                :model-value="sequencers.length"
+                param-name="Tracks"
+                :min="0"
+                :max="8"
+                :format-value="(v: number) => `${v}`"
+                :theme-color="'hsla(271, 91%, 65%, 1)'"
+              />
             </div>
-            <div class="flex items-center gap-1">
-              <span class="text-white/50">Beats:</span>
-              <span class="text-blue-400 font-medium">{{ totalBeats }}</span>
+
+            <!-- Beat Count Display -->
+            <div class="text-center">
+              <RangeKnob
+                :model-value="totalBeats"
+                :min="0"
+                :max="100"
+                mode="display"
+                label="Beats"
+                :format-value="(v) => `${v}`"
+                theme-color="hsla(188, 95%, 43%, 1)"
+              />
             </div>
           </div>
 
@@ -69,13 +77,13 @@
 import { ref, computed, onUnmounted, onMounted, watch, nextTick } from "vue";
 import { useSequencerStore } from "@/stores/sequencer";
 import { useMusicStore } from "@/stores/music";
-import { MultiSequencerTransport } from "@/utils/sequencer";
+import { MultiSequencerTransport } from "@/utils/sequencer/index";
 import { AVAILABLE_INSTRUMENTS } from "@/data/instruments";
 import { Tabs, TabsList, TabsTrigger } from "./ui";
 import SequencerInstanceControls from "./SequencerInstanceControls.vue";
 import MelodyLibrary from "./MelodyLibrary.vue";
-import Knob from "./Knob.vue";
-import { CircleStop, Play, ChevronDown } from "lucide-vue-next";
+import { Knob, ButtonKnob, RangeKnob } from "./knobs";
+import { ChevronDown } from "lucide-vue-next";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 // Store instances

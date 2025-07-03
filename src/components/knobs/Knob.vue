@@ -21,7 +21,7 @@
       :mode="rangeMode"
       :format-value="formatValue"
       :is-disabled="isDisabled"
-      :is-held="interaction.isHeld.value"
+      :show-progress="true"
       :theme-color="themeColor || defaultThemeColor"
       @update:modelValue="handleValueUpdate"
     />
@@ -32,7 +32,6 @@
       :model-value="actualValue as boolean"
       :label="actualLabel"
       :is-disabled="isDisabled"
-      :is-held="interaction.isHeld.value"
       :theme-color="themeColor || defaultThemeColor"
       @update:modelValue="handleValueUpdate"
     />
@@ -44,8 +43,23 @@
       :label="actualLabel"
       :options="options!"
       :is-disabled="isDisabled"
-      :is-held="interaction.isHeld.value"
       :theme-color="themeColor || defaultThemeColor"
+      @update:modelValue="handleValueUpdate"
+    />
+
+    <!-- Button Knob -->
+    <ButtonKnob
+      v-else-if="knobType === 'button'"
+      :model-value="actualValue as boolean"
+      :label="actualLabel"
+      :is-disabled="isDisabled"
+      :button-text="buttonText"
+      :active-text="activeText"
+      :is-loading="isLoading"
+      :ready-color="readyColor"
+      :active-color="activeColor"
+      :loading-color="loadingColor"
+      :icon="icon"
       @update:modelValue="handleValueUpdate"
     />
   </div>
@@ -55,7 +69,12 @@
 import { computed, ref, watch, type PropType } from "vue";
 import useGSAP from "@/composables/useGSAP";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
-import { RangeKnob, BooleanKnob, OptionsKnob } from "@/components/knobs";
+import {
+  RangeKnob,
+  BooleanKnob,
+  OptionsKnob,
+  ButtonKnob,
+} from "@/components/knobs";
 import type { KnobType } from "@/types/knob";
 
 // Props - keeping the original API for backwards compatibility
@@ -127,6 +146,34 @@ const props = defineProps({
   tapDuration: {
     type: Number,
     default: 200,
+  },
+  buttonText: {
+    type: String,
+    default: undefined,
+  },
+  activeText: {
+    type: String,
+    default: undefined,
+  },
+  isLoading: {
+    type: Boolean,
+    default: false,
+  },
+  readyColor: {
+    type: String,
+    default: "hsla(120, 70%, 50%, 1)",
+  },
+  activeColor: {
+    type: String,
+    default: "hsla(0, 84%, 60%, 1)",
+  },
+  loadingColor: {
+    type: String,
+    default: "hsla(43, 96%, 56%, 1)",
+  },
+  icon: {
+    type: [String, Object],
+    default: undefined,
   },
 });
 
@@ -246,14 +293,14 @@ const handleMove = (e: Event) => {
   const clientY = "touches" in event ? event.touches[0].clientY : event.clientY;
   const clientX = "touches" in event ? event.touches[0].clientX : event.clientX;
 
-  // Calculate movement relative to last position with adjusted sensitivity
+  // Calculate movement relative to last position
   const yDiff = interaction.lastY.value - clientY;
 
   // Update last known position
   interaction.lastY.value = clientY;
   interaction.lastX.value = clientX;
 
-  // Check if moved beyond threshold (still using start position for this)
+  // Check if moved beyond threshold (for tap detection)
   const totalMovement = Math.sqrt(
     Math.pow(clientY - interaction.dragStart.value.y, 2) +
       Math.pow(clientX - interaction.dragStart.value.x, 2)
@@ -263,11 +310,60 @@ const handleMove = (e: Event) => {
     interaction.dragStart.value.moved = true;
   }
 
-  // Handle different knob types with adjusted sensitivity
+  const MOVEMENT_THRESHOLD = 3; // Increased threshold for better control
+
+  // Handle movement based on knob type
   if (knobType.value === "range") {
-    handleRangeMove(yDiff * 0.01); // Adjusted sensitivity for smoother control
-  } else if (knobType.value === "options") {
-    handleOptionsMove(yDiff * 0.01);
+    // For range, apply continuous movement
+    const range = props.max - props.min;
+    const change = yDiff * 0.01 * range;
+    let newValue = (actualValue.value as number) + change;
+
+    // Clamp to min/max
+    newValue = Math.max(props.min, Math.min(props.max, newValue));
+
+    // Round to step
+    if (props.step > 0) {
+      newValue = Math.round(newValue / props.step) * props.step;
+    }
+
+    if (newValue !== actualValue.value) {
+      handleValueUpdate(newValue);
+      triggerUIHaptic();
+    }
+  } else if (knobType.value === "boolean") {
+    // For boolean, simple up/down toggle
+    if (Math.abs(yDiff) >= MOVEMENT_THRESHOLD) {
+      // Moving down is true, up is false
+      const newValue = yDiff > 0;
+
+      if (newValue !== actualValue.value) {
+        handleValueUpdate(newValue);
+        triggerUIHaptic();
+      }
+    }
+  } else if (knobType.value === "options" && props.options?.length) {
+    // Enhanced options cycling with continuous dragging
+    if (Math.abs(yDiff) >= MOVEMENT_THRESHOLD) {
+      const currentIndex = getCurrentOptionIndex();
+      // Determine direction based on movement
+      const direction = yDiff > 0 ? 1 : -1;
+      // Calculate new index with wrapping
+      const nextIndex =
+        (currentIndex + direction + props.options.length) %
+        props.options.length;
+      const nextOption = props.options[nextIndex];
+      const nextValue =
+        typeof nextOption === "string" ? nextOption : nextOption.value;
+
+      if (nextValue !== actualValue.value) {
+        handleValueUpdate(nextValue);
+        triggerUIHaptic();
+      }
+
+      // Reset the last Y position to prevent rapid cycling
+      interaction.lastY.value = clientY;
+    }
   }
 };
 
@@ -318,6 +414,11 @@ const handleTap = () => {
     const newValue = !(actualValue.value as boolean);
     handleValueUpdate(newValue);
     triggerUIHaptic();
+  } else if (knobType.value === "button") {
+    // For button type, toggle the value and trigger haptic
+    const newValue = !(actualValue.value as boolean);
+    handleValueUpdate(newValue);
+    triggerUIHaptic();
   } else if (knobType.value === "options" && props.options) {
     // Cycle to next option
     const currentIndex = getCurrentOptionIndex();
@@ -326,47 +427,6 @@ const handleTap = () => {
     const nextValue =
       typeof nextOption === "string" ? nextOption : nextOption.value;
     handleValueUpdate(nextValue);
-    triggerUIHaptic();
-  }
-};
-
-const handleRangeMove = (yDiff: number) => {
-  const currentValue = actualValue.value as number;
-  const range = props.max - props.min;
-  // Moving up (negative y) increases value
-  const change = yDiff * range;
-  let newValue = currentValue + change;
-
-  // Clamp to min/max
-  newValue = Math.max(props.min, Math.min(props.max, newValue));
-
-  // Round to step
-  if (props.step > 0) {
-    newValue = Math.round(newValue / props.step) * props.step;
-  }
-
-  if (newValue !== currentValue) {
-    handleValueUpdate(newValue);
-    triggerUIHaptic();
-  }
-};
-
-const handleOptionsMove = (yDiff: number) => {
-  if (!props.options) return;
-
-  const currentIndex = getCurrentOptionIndex();
-  // Moving up (negative y) increases index
-  const change = Math.round(yDiff / 50);
-  const newIndex = Math.max(
-    0,
-    Math.min(props.options.length - 1, currentIndex + change)
-  );
-
-  if (newIndex !== currentIndex) {
-    const newOption = props.options[newIndex];
-    const newValue =
-      typeof newOption === "string" ? newOption : newOption.value;
-    handleValueUpdate(newValue);
     triggerUIHaptic();
   }
 };

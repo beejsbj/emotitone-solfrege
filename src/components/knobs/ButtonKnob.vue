@@ -1,9 +1,5 @@
 <template>
-  <div
-    ref="wrapperRef"
-    class="relative select-none text-center inline-block"
-    :class="{ 'cursor-not-allowed opacity-50': isDisabled }"
-  >
+  <div ref="wrapperRef">
     <div class="w-12 h-12 mx-auto">
       <KnobCircles
         type="boolean"

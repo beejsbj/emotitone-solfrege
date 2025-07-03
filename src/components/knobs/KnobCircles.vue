@@ -3,10 +3,7 @@ import { computed, watch, ref } from "vue";
 import useGSAP from "@/composables/useGSAP";
 
 interface Props {
-  // Explicit type - no more guessing!
   type: "range" | "boolean" | "options";
-
-  // Universal props
   color: string;
   backgroundOpacity?: number;
   strokeWidth?: number;
@@ -33,44 +30,65 @@ const props = withDefaults(defineProps<Props>(), {
 const backgroundRef = ref<SVGPathElement | null>(null);
 const valueRef = ref<SVGPathElement | null>(null);
 
-// Using a 100x100 viewBox for easy percentage calculations
-const circlePath = `M 50 ${props.strokeWidth}
-                    A ${50 - props.strokeWidth} ${
-  50 - props.strokeWidth
-} 0 1 1 50 ${100 - props.strokeWidth}
-                    A ${50 - props.strokeWidth} ${
-  50 - props.strokeWidth
-} 0 1 1 50 ${props.strokeWidth}`;
+// Circle properties for cleaner rotation handling
+const circleRadius = computed(() => 50 - props.strokeWidth);
+const circleCenter = 50;
 
-// Calculate draw value based on explicit type
-const drawValue = computed(() => {
+// Calculate segment length for options type
+const segmentLength = computed(() => {
+  if (
+    props.type !== "options" ||
+    !props.totalSegments ||
+    props.totalSegments === 0
+  ) {
+    return 0;
+  }
+  return 100 / props.totalSegments;
+});
+
+// Calculate start position based on type
+const startValue = computed(() => {
   switch (props.type) {
     case "options":
-      // Clock-like: each segment is a portion of the circle
-      if (!props.totalSegments || props.totalSegments === 0) return 0;
+      // Start position moves forward by one segment length each time
       const segment = props.activeSegment ?? 0;
-      return (segment + 1) / props.totalSegments;
+      return -50 + segment * segmentLength.value;
 
     case "boolean":
-      return props.isActive ? 1 : 0;
-
     case "range":
     default:
-      return Math.max(0, Math.min(1, props.value ?? 0));
+      return -50;
   }
 });
 
-// GSAP animations - watch the computed draw value
+// Calculate draw value based on type
+const drawValue = computed(() => {
+  switch (props.type) {
+    case "options":
+      // Draw value is always one segment length ahead of start
+      // This creates a moving segment that continues clockwise indefinitely
+      return startValue.value + segmentLength.value;
+
+    case "boolean":
+      return props.isActive ? 75 : -50; // Full circle or no circle
+
+    case "range":
+    default:
+      const normalizedValue = Math.max(0, Math.min(1, props.value ?? 0));
+      return -50 + normalizedValue * 100;
+  }
+});
+
+// GSAP animations
 useGSAP(({ gsap }) => {
   // Watch for draw value changes
   watch(
-    drawValue,
-    (newValue) => {
+    [startValue, drawValue],
+    ([newStart, newDraw]) => {
       if (!valueRef.value) return;
 
-      const percentage = newValue * 100;
       gsap.to(valueRef.value, {
-        drawSVG: `0% ${percentage}%`,
+        drawSVG: `${newStart}% ${newDraw}%`,
         duration: 0.3,
         ease: "power2.out",
       });
@@ -100,9 +118,11 @@ useGSAP(({ gsap }) => {
     preserveAspectRatio="xMidYMid meet"
   >
     <!-- Background Circle -->
-    <path
+    <circle
       ref="backgroundRef"
-      :d="circlePath"
+      :cx="circleCenter"
+      :cy="circleCenter"
+      :r="circleRadius"
       fill="none"
       :stroke="color"
       :stroke-width="backgroundStrokeWidth"
@@ -110,9 +130,11 @@ useGSAP(({ gsap }) => {
     />
 
     <!-- Value Circle -->
-    <path
+    <circle
       ref="valueRef"
-      :d="circlePath"
+      :cx="circleCenter"
+      :cy="circleCenter"
+      :r="circleRadius"
       fill="none"
       :stroke="color"
       :stroke-width="strokeWidth"

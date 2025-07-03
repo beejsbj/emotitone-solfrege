@@ -27,7 +27,6 @@ const plugins = [DrawSVGPlugin, Draggable, InertiaPlugin];
 gsap.registerPlugin(...plugins);
 
 // Create a tuple type of all plugins for better type inference
-type GSAPPlugins = typeof plugins;
 type GSAPContext = gsap.Context | null;
 
 // Improve type safety for the animation function

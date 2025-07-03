@@ -95,7 +95,7 @@ useGSAP(({ gsap }) => {
 
 <template>
   <svg
-    class="w-full h-full transform -rotate-90"
+    class="w-full h-auto transform -rotate-90 block"
     viewBox="0 0 100 100"
     preserveAspectRatio="xMidYMid meet"
   >

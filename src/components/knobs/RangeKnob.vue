@@ -1,29 +1,18 @@
 <template>
-  <div
-    class="relative select-none"
-    :class="{ 'cursor-not-allowed opacity-50': isDisabled || isDisplayMode }"
-  >
-    <div class="inline-block" :class="{ 'pointer-events-none': isDisplayMode }">
-      <div class="w-12 h-12">
-        <KnobCircles
-          type="range"
-          :value="showProgress ? normalizedValue : 0"
-          :color="themeColor"
-        />
-      </div>
-    </div>
+  <div>
+    <KnobCircles
+      type="range"
+      :value="showProgress ? normalizedValue : 0"
+      :color="themeColor"
+    />
 
     <!-- Labels -->
-    <div
-      class="absolute inset-0 flex items-center justify-center text-center pointer-events-none"
+
+    <span
+      class="text-sm font-medium absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none"
     >
-      <div class="flex flex-col">
-        <span class="text-xs opacity-50">{{ labelText }}</span>
-        <span class="text-sm font-medium">
-          {{ displayValue }}
-        </span>
-      </div>
-    </div>
+      {{ displayValue }}
+    </span>
   </div>
 </template>
 

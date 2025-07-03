@@ -1,7 +1,11 @@
 <template>
   <div
     ref="wrapperRef"
-    class="knob-wrapper"
+    class="knob-wrapper max-w-12 max-h-12 mx-auto relative select-none"
+    :class="{
+      'cursor-not-allowed opacity-50 pointer-events-none':
+        isDisabled || isDisplayMode,
+    }"
     @mousedown="handleStart"
     @touchstart="handleStart"
     @click="handleClick"
@@ -14,6 +18,7 @@
       :min="min"
       :max="max"
       :step="step"
+      :mode="rangeMode"
       :format-value="formatValue"
       :is-disabled="isDisabled"
       :is-held="interaction.isHeld.value"
@@ -67,6 +72,10 @@ const props = defineProps({
   type: {
     type: String as () => KnobType,
     default: undefined,
+  },
+  rangeMode: {
+    type: String as () => "interactive" | "display",
+    default: "interactive",
   },
   min: {
     type: Number,
@@ -139,10 +148,8 @@ const interaction = {
     moved: false,
     index: 0,
   }),
-  lastPosition: ref({
-    y: 0,
-    x: 0,
-  }),
+  lastY: ref(0),
+  lastX: ref(0),
 };
 
 // Get the actual value (prioritize modelValue, fallback to value for backwards compatibility)
@@ -152,6 +159,8 @@ const actualValue = computed(() => {
   // Default fallback values
   return 0;
 });
+
+const isDisplayMode = computed(() => props.rangeMode === "display");
 
 // Auto-detect knob type if not explicitly provided
 const knobType = computed((): KnobType => {
@@ -212,10 +221,8 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
     index: 0,
   };
 
-  interaction.lastPosition.value = {
-    y: clientY,
-    x: clientX,
-  };
+  interaction.lastY.value = clientY;
+  interaction.lastX.value = clientX;
 
   // Add global event listeners
   if ("touches" in e) {
@@ -239,7 +246,14 @@ const handleMove = (e: Event) => {
   const clientY = "touches" in event ? event.touches[0].clientY : event.clientY;
   const clientX = "touches" in event ? event.touches[0].clientX : event.clientX;
 
-  // Mark as moved if the touch has moved more than threshold from start position
+  // Calculate movement relative to last position with adjusted sensitivity
+  const yDiff = interaction.lastY.value - clientY;
+
+  // Update last known position
+  interaction.lastY.value = clientY;
+  interaction.lastX.value = clientX;
+
+  // Check if moved beyond threshold (still using start position for this)
   const totalMovement = Math.sqrt(
     Math.pow(clientY - interaction.dragStart.value.y, 2) +
       Math.pow(clientX - interaction.dragStart.value.x, 2)
@@ -249,23 +263,12 @@ const handleMove = (e: Event) => {
     interaction.dragStart.value.moved = true;
   }
 
-  // Calculate movement deltas based on last position
-  const yDiff =
-    (clientY - interaction.lastPosition.value.y) * props.sensitivity;
-
-  // Update last position for next move
-  interaction.lastPosition.value = {
-    y: clientY,
-    x: clientX,
-  };
-
-  // Handle different knob types
+  // Handle different knob types with adjusted sensitivity
   if (knobType.value === "range") {
-    handleRangeMove(-yDiff); // Negative because moving up (negative y) should increase value
+    handleRangeMove(yDiff * 0.01); // Adjusted sensitivity for smoother control
   } else if (knobType.value === "options") {
-    handleOptionsMove(-yDiff); // Same for options
+    handleOptionsMove(yDiff * 0.01);
   }
-  // Boolean knobs don't need move handling, they're tap-only
 };
 
 const handleEnd = (e: Event) => {
@@ -331,7 +334,7 @@ const handleRangeMove = (yDiff: number) => {
   const currentValue = actualValue.value as number;
   const range = props.max - props.min;
   // Moving up (negative y) increases value
-  const change = (yDiff / 200) * range;
+  const change = yDiff * range;
   let newValue = currentValue + change;
 
   // Clamp to min/max

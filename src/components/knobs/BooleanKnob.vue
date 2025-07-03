@@ -1,24 +1,17 @@
 <template>
-  <div
-    class="relative select-none"
-    :class="{ 'cursor-not-allowed opacity-50': isDisabled }"
-  >
-    <div class="inline-block">
-      <div class="w-12 h-12 mx-auto">
-        <KnobCircles
-          type="boolean"
-          :is-active="modelValue"
-          :color="activeStrokeColor"
-        />
-      </div>
-    </div>
+  <div>
+    <KnobCircles
+      type="boolean"
+      :is-active="modelValue"
+      :color="activeStrokeColor"
+    />
 
     <!-- Value text in the centre -->
-    <div
-      class="absolute inset-0 flex items-center justify-center pointer-events-none"
+    <span
+      class="text-[10px] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none"
     >
-      <span class="text-[10px] font-bold text-white">{{ displayValue }}</span>
-    </div>
+      {{ displayValue }}
+    </span>
 
     <!-- Label -->
     <div class="text-gray-300 text-xs mt-1 text-center select-none">

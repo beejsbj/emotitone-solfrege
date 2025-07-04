@@ -3,27 +3,34 @@
     <!-- Loading Splash Screen -->
     <LoadingSplash />
 
-    <!-- Vue Sonner Toast Notifications -->
-    <!-- <Toaster position="top-right" :duration="4000" theme="dark" richColors /> -->
+    <!-- Main Tabs Interface -->
+    <TabsContainer v-if="!isLoading">
+      <!-- App Tab Content -->
+      <template #app>
+        <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
+        <UnifiedVisualEffects />
 
-    <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
-    <UnifiedVisualEffects v-if="!isLoading" />
+        <!-- Auto Visual Effects Debug Panel (Development Only) -->
+        <ConfigPanel />
+        <InstrumentSelector />
 
-    <!-- Auto Visual Effects Debug Panel (Development Only) -->
-    <ConfigPanel v-if="!isLoading" />
-    <SystemsCheckButton v-if="!isLoading" />
-    <InstrumentSelector />
+        <!-- Main Content -->
+        <div class="relative z-10 min-h-screen flex flex-col">
+          <!-- Header -->
+          <AppHeader />
 
-    <!-- Main Content -->
-    <div v-if="!isLoading" class="relative z-10 min-h-screen flex flex-col">
-      <!-- Header -->
-      <AppHeader />
+          <SequencerSection />
 
-      <SequencerSection />
+          <FloatingPopup />
+          <StickyBottom />
+        </div>
+      </template>
 
-      <FloatingPopup />
-      <StickyBottom />
-    </div>
+      <!-- Systems Check Tab Content -->
+      <template #systems>
+        <SystemsCheck />
+      </template>
+    </TabsContainer>
 
     <!-- Global Tooltip Renderer -->
     <TooltipRenderer
@@ -48,7 +55,8 @@ import SequencerSection from "@/components/SequencerSection.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";
 import { globalTooltip } from "@/directives/tooltip";
 import StickyBottom from "@/components/StickyBottom.vue";
-import SystemsCheckButton from "@/components/SystemsCheckButton.vue";
+import TabsContainer from "@/components/TabsContainer.vue";
+import SystemsCheck from "@/components/SystemsCheck.vue";
 // Stores and composables
 const musicStore = useMusicStore();
 const { isLoading } = useAppLoading();

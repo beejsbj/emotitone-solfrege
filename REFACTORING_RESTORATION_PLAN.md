@@ -23,6 +23,66 @@ This document provides a comprehensive plan to restore lost refactoring work fro
 3. **Console Statements**: 22 files still have console.log instead of logger
 4. **Color System Duplication**: Old 596-line system exists alongside new modular one
 
+
+---
+
+## 📞 Agent Instructions 
+
+### **Getting Started**
+1. **Read this entire document** to understand scope and context
+2. **Review current state** by running type check and build
+3. **Start with Phase 1, Task 1.1**: Restore music theory service first
+4. **Use recovery commands** provided in File Recovery section
+5. **Test incrementally** after each major change
+
+### **Key Resources**
+- **Refactor branch**: `origin/refactor` contains all lost functionality
+- **Current working code**: Main branch with sequencer functionality
+- **Recovery commands**: Use `git show origin/refactor:path/to/file` to restore
+- **Type checking**: `npm run type-check` to verify changes
+- **Build verification**: `npm run build` to ensure production readiness
+
+### **Success Indicators**
+- All type checks pass
+- Build completes successfully  
+- Systems check page demonstrates all functionality
+- Zero console statements in source code
+- ConfigPanel shows proper values (no NaN)
+- FloatingPopup responds to note playing
+
+**This plan provides a comprehensive roadmap to restore all lost refactoring work while maintaining the new sequencer functionality and ensuring proper integration across all systems.**
+
+
+
+### **Order of Operations**
+1. **Start with Phase 1**: Restore core services first
+2. **Parallel Phase 2 & 3**: Component fixes can happen alongside console cleanup
+3. **Phase 4 after Phase 1**: Service restructuring depends on restored functionality
+4. **Phase 5 & 6 last**: Data harmonization and testing come after core restoration
+
+### **Testing Strategy**
+- **Run type check** after each phase: `npm run type-check`
+- **Build verification** after major changes: `npm run build`
+- **Manual testing** of visual components after color system migration
+- **Systems check page** as final integration verification
+
+### **Rollback Plan**
+- **Keep backups** of current working files before restoration
+- **Git branch** for each phase to allow selective rollback
+- **Component-by-component migration** to isolate issues
+
+### **Risk Mitigation**
+- **Incremental approach**: Don't change everything at once
+- **Backup current state**: Tag current working version
+- **Test frequently**: Type check and build after each change
+- **Document changes**: Track what was modified for easier debugging
+
+
+
+
+
+
+
 ---
 
 ## 📋 Phase 1: Restore Core Refactoring Architecture
@@ -368,57 +428,4 @@ npm list @tonaljs/tonal
 - [ ] Integration testing passes
 - [ ] Documentation updated
 
----
 
-## 💡 Implementation Notes
-
-### **Order of Operations**
-1. **Start with Phase 1**: Restore core services first
-2. **Parallel Phase 2 & 3**: Component fixes can happen alongside console cleanup
-3. **Phase 4 after Phase 1**: Service restructuring depends on restored functionality
-4. **Phase 5 & 6 last**: Data harmonization and testing come after core restoration
-
-### **Testing Strategy**
-- **Run type check** after each phase: `npm run type-check`
-- **Build verification** after major changes: `npm run build`
-- **Manual testing** of visual components after color system migration
-- **Systems check page** as final integration verification
-
-### **Rollback Plan**
-- **Keep backups** of current working files before restoration
-- **Git branch** for each phase to allow selective rollback
-- **Component-by-component migration** to isolate issues
-
-### **Risk Mitigation**
-- **Incremental approach**: Don't change everything at once
-- **Backup current state**: Tag current working version
-- **Test frequently**: Type check and build after each change
-- **Document changes**: Track what was modified for easier debugging
-
----
-
-## 📞 Next Agent Instructions
-
-### **Getting Started**
-1. **Read this entire document** to understand scope and context
-2. **Review current state** by running type check and build
-3. **Start with Phase 1, Task 1.1**: Restore music theory service first
-4. **Use recovery commands** provided in File Recovery section
-5. **Test incrementally** after each major change
-
-### **Key Resources**
-- **Refactor branch**: `origin/refactor` contains all lost functionality
-- **Current working code**: Main branch with sequencer functionality
-- **Recovery commands**: Use `git show origin/refactor:path/to/file` to restore
-- **Type checking**: `npm run type-check` to verify changes
-- **Build verification**: `npm run build` to ensure production readiness
-
-### **Success Indicators**
-- All type checks pass
-- Build completes successfully  
-- Systems check page demonstrates all functionality
-- Zero console statements in source code
-- ConfigPanel shows proper values (no NaN)
-- FloatingPopup responds to note playing
-
-**This plan provides a comprehensive roadmap to restore all lost refactoring work while maintaining the new sequencer functionality and ensuring proper integration across all systems.**

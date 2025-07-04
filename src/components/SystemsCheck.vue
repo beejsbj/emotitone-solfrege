@@ -368,7 +368,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].indexOf(currentKey)"
               :max="11"
               :size="40"
-              @change="(value) => { currentKey = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][value]; handleKnobChange('music', 'key', currentKey); }"
+                             @change="(value: number) => { currentKey = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][value]; handleKnobChange('music', 'key', currentKey); }"
               color="hsla(120, 50%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ currentKey }}</div>
@@ -379,7 +379,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="currentMode === 'major' ? 0 : 1"
               :max="1"
               :size="40"
-              @change="(value) => { currentMode = value === 0 ? 'major' : 'minor'; handleKnobChange('music', 'mode', currentMode); }"
+                             @change="(value: number) => { currentMode = value === 0 ? 'major' : 'minor'; handleKnobChange('music', 'mode', currentMode); }"
               color="hsla(220, 50%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ currentMode }}</div>
@@ -391,7 +391,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :min="0"
               :max="7"
               :size="40"
-              @change="(value) => { colorSystemSettings.octave = value + 1; handleKnobChange('music', 'octave', value + 1); }"
+                             @change="(value: number) => { colorSystemSettings.octave = value + 1; handleKnobChange('music', 'octave', value + 1); }"
               color="hsla(280, 50%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.octave }}</div>
@@ -402,7 +402,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="colorSystemSettings.chromaticMapping ? 1 : 0"
               :max="1"
               :size="40"
-              @change="(value) => { colorSystemSettings.chromaticMapping = value === 1; handleKnobChange('music', 'chromatic', colorSystemSettings.chromaticMapping); }"
+                             @change="(value: number) => { colorSystemSettings.chromaticMapping = value === 1; handleKnobChange('music', 'chromatic', colorSystemSettings.chromaticMapping); }"
               color="hsla(340, 50%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.chromaticMapping ? 'ON' : 'OFF' }}</div>
@@ -454,11 +454,11 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
             <div>
               <div class="text-gray-400">Chord Type</div>
-              <div class="text-green-400 font-bold">{{ liveChordAnalysis.type || 'Unknown' }}</div>
+                             <div class="text-green-400 font-bold">{{ (liveChordAnalysis as any)?.type || liveChordAnalysis?.symbol || 'Unknown' }}</div>
             </div>
             <div>
               <div class="text-gray-400">Root Note</div>
-              <div class="text-green-400 font-bold">{{ liveChordAnalysis.root || 'N/A' }}</div>
+                             <div class="text-green-400 font-bold">{{ (liveChordAnalysis as any)?.root || 'N/A' }}</div>
             </div>
             <div>
               <div class="text-gray-400">Quality</div>
@@ -475,10 +475,10 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               <div class="text-gray-400 text-sm">Selected Notes:</div>
               <div class="text-white font-mono">{{ chordBuilderNotes.join(', ') }}</div>
             </div>
-            <div v-if="liveChordAnalysis.notes">
-              <div class="text-gray-400 text-sm">Analyzed Notes:</div>
-              <div class="text-white font-mono">{{ liveChordAnalysis.notes.join(', ') }}</div>
-            </div>
+                         <div v-if="(liveChordAnalysis as any)?.notes">
+               <div class="text-gray-400 text-sm">Analyzed Notes:</div>
+               <div class="text-white font-mono">{{ (liveChordAnalysis as any).notes.join(', ') }}</div>
+             </div>
           </div>
         </div>
         
@@ -536,7 +536,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="colorSystemSettings.saturation * 100"
               :max="100"
               :size="40"
-              @change="(value) => { colorSystemSettings.saturation = value / 100; handleColorSettingChange('saturation', value / 100); }"
+                             @change="(value: number) => { colorSystemSettings.saturation = value / 100; handleColorSettingChange('saturation', value / 100); }"
               color="hsla(300, 70%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.saturation * 100).toFixed(0) }}%</div>
@@ -547,7 +547,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="colorSystemSettings.baseLightness * 100"
               :max="100"
               :size="40"
-              @change="(value) => { colorSystemSettings.baseLightness = value / 100; handleColorSettingChange('baseLightness', value / 100); }"
+                             @change="(value: number) => { colorSystemSettings.baseLightness = value / 100; handleColorSettingChange('baseLightness', value / 100); }"
               color="hsla(60, 70%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.baseLightness * 100).toFixed(0) }}%</div>
@@ -558,7 +558,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="colorSystemSettings.lightnessRange * 100"
               :max="100"
               :size="40"
-              @change="(value) => { colorSystemSettings.lightnessRange = value / 100; handleColorSettingChange('lightnessRange', value / 100); }"
+                             @change="(value: number) => { colorSystemSettings.lightnessRange = value / 100; handleColorSettingChange('lightnessRange', value / 100); }"
               color="hsla(180, 70%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.lightnessRange * 100).toFixed(0) }}%</div>
@@ -569,7 +569,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="colorSystemSettings.hueAnimation"
               :max="50"
               :size="40"
-              @change="(value) => { colorSystemSettings.hueAnimation = value; handleColorSettingChange('hueAnimation', value); }"
+                             @change="(value: number) => { colorSystemSettings.hueAnimation = value; handleColorSettingChange('hueAnimation', value); }"
               color="hsla(240, 70%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.hueAnimation }}°</div>
@@ -580,7 +580,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
               :value="colorSystemSettings.animationSpeed * 10"
               :max="30"
               :size="40"
-              @change="(value) => { colorSystemSettings.animationSpeed = value / 10; handleColorSettingChange('animationSpeed', value / 10); }"
+                             @change="(value: number) => { colorSystemSettings.animationSpeed = value / 10; handleColorSettingChange('animationSpeed', value / 10); }"
               color="hsla(0, 70%, 50%, 1)"
             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.animationSpeed.toFixed(1) }}x</div>
@@ -634,22 +634,22 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
             <div class="p-3 rounded-lg" :style="{ backgroundColor: testNoteColor(selectedTestNote) }">
               <div class="text-white font-bold text-center">{{ selectedTestNote }} - Primary</div>
             </div>
-            <div class="grid grid-cols-3 gap-2">
-              <div 
-                v-for="(colorType, index) in ['accent', 'tint', 'shade']" 
-                :key="colorType"
-                class="p-2 rounded text-xs text-white text-center font-bold"
-                :style="{ 
-                  backgroundColor: colorType === 'accent' 
-                    ? getNoteColors(selectedTestNote, currentMode, colorSystemSettings.octave).accent
-                    : colorType === 'tint'
-                    ? getNoteColors(selectedTestNote, currentMode, colorSystemSettings.octave).tint
-                    : getNoteColors(selectedTestNote, currentMode, colorSystemSettings.octave).shade
-                }"
-              >
-                {{ colorType }}
-              </div>
-            </div>
+                         <div class="grid grid-cols-3 gap-2">
+               <div 
+                 v-for="(colorType, index) in ['accent', 'secondary', 'tertiary']" 
+                 :key="colorType"
+                 class="p-2 rounded text-xs text-white text-center font-bold"
+                 :style="{ 
+                   backgroundColor: colorType === 'accent' 
+                     ? getNoteColors(selectedTestNote, currentMode, colorSystemSettings.octave).accent
+                     : colorType === 'secondary'
+                     ? getNoteColors(selectedTestNote, currentMode, colorSystemSettings.octave).secondary
+                     : getNoteColors(selectedTestNote, currentMode, colorSystemSettings.octave).tertiary
+                 }"
+               >
+                 {{ colorType }}
+               </div>
+             </div>
             <div class="text-xs space-y-1">
               <div class="text-gray-400">Primary: <span class="text-white font-mono">{{ testNoteColor(selectedTestNote) }}</span></div>
               <div class="text-gray-400">Generation Time: <span class="text-yellow-400">{{ performanceMetrics.colorGenerationTime.toFixed(2) }}ms</span></div>

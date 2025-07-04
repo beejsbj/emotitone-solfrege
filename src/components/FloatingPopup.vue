@@ -134,8 +134,16 @@ const {
   createChordGlassmorphBackground,
   createChordGlassmorphShadow,
   createIntervalGlassmorphBackground,
-  createGradient,
 } = useColorSystem();
+
+// Create gradient helper function
+const createGradient = (
+  colors: string[],
+  direction: string = "135deg"
+): string => {
+  if (colors.length === 1) return colors[0];
+  return `linear-gradient(${direction}, ${colors.join(", ")})`;
+};
 const visualConfigStore = useVisualConfigStore();
 const floatingPopup = ref<HTMLElement | null>(null);
 

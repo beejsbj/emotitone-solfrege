@@ -391,6 +391,12 @@ const formatLabel = (key: string): string => {
 };
 
 const formatValue = (sectionName: string, key: string, value: any): string => {
+  // Check for invalid values that would cause NaN
+  if (typeof value !== 'number' || !isFinite(value)) {
+    console.warn(`Invalid value for ${sectionName}.${key}:`, value);
+    return '0'; // Return a safe default
+  }
+
   // Format percentage values
   if (
     sectionName === "dynamicColors" &&
@@ -439,15 +445,18 @@ const formatValue = (sectionName: string, key: string, value: any): string => {
 };
 
 const getNumberMin = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.min ?? 0;
+  const min = configMetadata[sectionName]?.[key]?.min ?? 0;
+  return isFinite(min) ? min : 0;
 };
 
 const getNumberMax = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.max ?? 100;
+  const max = configMetadata[sectionName]?.[key]?.max ?? 100;
+  return isFinite(max) ? max : 100;
 };
 
 const getNumberStep = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.step ?? 0.1;
+  const step = configMetadata[sectionName]?.[key]?.step ?? 0.1;
+  return isFinite(step) ? step : 0.1;
 };
 
 const exportConfig = () => {

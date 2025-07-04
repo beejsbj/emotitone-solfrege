@@ -4,7 +4,7 @@
  */
 
 import type { AmbientConfig } from "@/types";
-import { useColorSystem } from "../useColorSystem";
+import { useColorSystem } from "../color";
 
 export function useAmbientRenderer() {
   /**

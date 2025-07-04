@@ -1,5 +1,5 @@
 import { ref, computed, watch } from "vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import { useMusicStore } from "@/stores/music";
 import { useSequencerStore } from "@/stores/sequencer";
 import type { SequencerInstance } from "@/types/music";

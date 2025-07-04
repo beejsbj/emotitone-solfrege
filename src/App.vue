@@ -10,7 +10,7 @@
     <UnifiedVisualEffects v-if="!isLoading" />
 
     <!-- Auto Visual Effects Debug Panel (Development Only) -->
-    <AutoDebugPanel v-if="!isLoading" />
+    <ConfigPanel v-if="!isLoading" />
     <SystemsCheckButton v-if="!isLoading" />
     <InstrumentSelector />
 
@@ -42,7 +42,7 @@ import LoadingSplash from "@/components/LoadingSplash.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import AppHeader from "@/components/AppHeader.vue";
-import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
+import ConfigPanel from "@/components/ConfigPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import SequencerSection from "@/components/SequencerSection.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";

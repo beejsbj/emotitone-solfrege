@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isDynamicColorsEnabled" class="dynamic-color-preview">
+  <div class="dynamic-color-preview">
     <h3>🌈 Dynamic Color Preview</h3>
     <div class="color-grid">
       <div
@@ -30,7 +30,7 @@
             :title="`Tertiary: ${notePreview.colors.tertiary}`"
           ></div>
         </div>
-        <div class="hue-info" v-if="isDynamicColorsEnabled">
+        <div class="hue-info">
           <small>Dynamic Colors Active</small>
         </div>
       </div>
@@ -52,14 +52,24 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 
-const { getColorPreview, isDynamicColorsEnabled } = useColorSystem();
+const { getNoteColors } = useColorSystem();
 const visualConfigStore = useVisualConfigStore();
 
-// Get color preview for middle octave
-const colorPreview = computed(() => getColorPreview("major", 3));
+// Generate color preview for notes
+const colorPreview = computed(() => {
+  const notes = visualConfigStore.config.dynamicColors.chromaticMapping 
+    ? ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+    : ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"];
+  
+  return notes.map((noteName, index) => ({
+    name: noteName,
+    index,
+    colors: getNoteColors(noteName, "major", 3, false)
+  }));
+});
 
 // Check if chromatic mapping is enabled
 const isChromaticMappingEnabled = computed(

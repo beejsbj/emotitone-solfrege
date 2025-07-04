@@ -120,7 +120,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { Chord, Interval } from "@tonaljs/tonal";
 

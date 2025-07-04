@@ -5,7 +5,7 @@
 
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import type { MusicalMode } from "@/types";
 import { logger } from "@/utils/logger";
 
@@ -14,7 +14,7 @@ import { logger } from "@/utils/logger";
  */
 export function useSolfegeInteraction() {
   const musicStore = useMusicStore();
-  const { getGradient, isDynamicColorsEnabled } = useColorSystem();
+  const { getGradient } = useColorSystem();
 
   // Track active note IDs for each button press
   const activeNoteIds = ref<Map<string, string>>(new Map());
@@ -46,16 +46,14 @@ export function useSolfegeInteraction() {
   // Create a reactive computed property that updates with animation frames
   const getReactiveGradient = computed(() => {
     return (noteName: string, mode: MusicalMode) => {
-      // Force reactivity by accessing animation frame when dynamic colors are enabled
-      if (isDynamicColorsEnabled.value) {
-        animationFrame.value; // This triggers re-computation on every frame
-      }
+      // Force reactivity by accessing animation frame (dynamic colors always enabled)
+      animationFrame.value; // This triggers re-computation on every frame
       return getGradient(noteName, mode);
     };
   });
 
-  // Watch for dynamic colors being enabled/disabled
-  const shouldAnimate = computed(() => isDynamicColorsEnabled.value);
+  // Dynamic colors are always enabled in the new system
+  const shouldAnimate = computed(() => true);
 
   // Function for attacking notes with octave support
   const attackNoteWithOctave = async (

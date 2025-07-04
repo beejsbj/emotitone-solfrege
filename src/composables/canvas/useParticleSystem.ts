@@ -4,10 +4,10 @@
  */
 
 import type { Particle, ParticleConfig, SolfegeData } from "@/types";
-import { useColorSystem } from "../useColorSystem";
+import { useColorSystem } from "../color";
 
 export function useParticleSystem() {
-  const { getFleckColor } = useColorSystem();
+  const { getNoteColors } = useColorSystem();
 
   // Particle state
   const particles: Particle[] = [];
@@ -70,7 +70,7 @@ export function useParticleSystem() {
       particle.y = Math.random() * canvasHeight;
       particle.vx = (Math.random() - 0.5) * particleConfig.speed;
       particle.vy = (Math.random() - 0.5) * particleConfig.speed;
-      particle.color = getFleckColor(note.name, musicStore.currentMode);
+      particle.color = getNoteColors(note.name, musicStore.currentMode).accent;
       particle.shape = note.fleckShape || "circle";
       particle.size =
         particleConfig.sizeMin +

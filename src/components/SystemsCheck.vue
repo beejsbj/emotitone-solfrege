@@ -47,7 +47,10 @@ const colorSystemSettings = computed(() => ({
 }));
 
 // Local octave setting for testing
-const testOctave = ref(4);
+const testOctave = ref<number>(4);
+
+// Computed for template usage
+const testOctaveForTemplate = computed(() => testOctave.value);
 
 // Interactive chord builder
 const chordBuilderNotes = ref<string[]>([]);
@@ -272,6 +275,13 @@ const handleKnobChange = (section: string, key: string, value: any) => {
   });
 };
 
+// Handler for octave changes
+const handleOctaveChange = (value: string | number | boolean) => {
+  const numVal = typeof value === 'number' ? value : 0;
+  testOctave.value = numVal + 1;
+  handleKnobChange('music', 'octave', numVal + 1);
+};
+
 // Live chord analysis for chord builder
 const liveChordAnalysis = computed(() => {
   if (chordBuilderNotes.value.length < 2) return null;
@@ -288,9 +298,10 @@ const allNotesColorPalette = computed(() => {
 });
 
 // Comprehensive note analysis using Tonal.js
-const getComprehensiveNoteAnalysis = (noteName: string, octave: number = testOctave.value) => {
+const getComprehensiveNoteAnalysis = (noteName: string, octave?: number) => {
+  const useOctave = octave ?? testOctave.value;
   try {
-    const fullNoteName = noteName.includes(octave.toString()) ? noteName : `${noteName}${octave}`;
+    const fullNoteName = noteName.includes(useOctave.toString()) ? noteName : `${noteName}${useOctave}`;
     const note = Note.get(fullNoteName);
     const pitchClass = Note.get(noteName);
     
@@ -304,14 +315,14 @@ const getComprehensiveNoteAnalysis = (noteName: string, octave: number = testOct
       step: pitchClass.step !== undefined ? pitchClass.step : -1,
       acc: note.acc || pitchClass.acc || '',
       alt: note.alt !== undefined ? note.alt : (pitchClass.alt !== undefined ? pitchClass.alt : 0),
-      oct: note.oct !== undefined ? note.oct : octave,
+      oct: note.oct !== undefined ? note.oct : useOctave,
       chroma: pitchClass.chroma !== undefined ? pitchClass.chroma : -1,
       midi: note.midi || null,
       freq: note.freq || null,
       
       // Our color system integration
       color: testNoteColor(noteName),
-      colors: getNoteColors(noteName, currentMode.value, octave),
+      colors: getNoteColors(noteName, currentMode.value, useOctave),
       
       // Validate note
       isValid: !note.empty && !pitchClass.empty
@@ -325,12 +336,12 @@ const getComprehensiveNoteAnalysis = (noteName: string, octave: number = testOct
       step: -1,
       acc: '',
       alt: 0,
-      oct: octave,
+      oct: useOctave,
       chroma: -1,
       midi: null,
       freq: null,
       color: testNoteColor(noteName),
-      colors: getNoteColors(noteName, currentMode.value, octave),
+      colors: getNoteColors(noteName, currentMode.value, useOctave),
       isValid: false
     };
   }
@@ -581,14 +592,14 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Octave</label>
                          <Knob
-               :model-value="testOctave - 1"
+               :model-value="testOctaveForTemplate - 1"
                :min="0"
                :max="7"
                type="range"
-               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; testOctave.value = numVal + 1; handleKnobChange('music', 'octave', numVal + 1); }"
+               @update:model-value="handleOctaveChange"
                :theme-color="'hsla(280, 50%, 50%, 1)'"
              />
-                          <div class="text-xs text-white mt-1">{{ testOctave }}</div>
+                          <div class="text-xs text-white mt-1">{{ testOctaveForTemplate }}</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Chromatic</label>

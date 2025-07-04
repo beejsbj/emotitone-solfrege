@@ -2,8 +2,7 @@
   <div class="color-showcase">
     <!-- Header -->
     <div class="showcase-header">
-      <h2>🎨 Color System Showcase</h2>
-      <p>Exploring all color functions and effects</p>
+      <h2>🎨 Color System</h2>
       <div class="showcase-controls">
         <label>
           Mode:
@@ -26,153 +25,116 @@
       </div>
     </div>
 
-    <!-- Note Colors Section -->
-    <section class="showcase-section">
-      <h3>🎵 Note Colors</h3>
-      <div class="note-colors-grid">
-        <div 
-          v-for="note in SOLFEGE_NOTES" 
-          :key="note"
-          class="note-color-card"
-        >
-          <div class="note-name">{{ note }}</div>
-          <div class="color-relationships">
-            <div 
-              class="color-swatch primary"
-              :style="{ backgroundColor: getPrimaryColor(note, currentMode, currentOctave) }"
-              :title="`Primary: ${getPrimaryColor(note, currentMode, currentOctave)}`"
-            >
-              Primary
-            </div>
-            <div 
-              class="color-swatch accent"
-              :style="{ backgroundColor: getAccentColor(note, currentMode, currentOctave) }"
-              :title="`Accent: ${getAccentColor(note, currentMode, currentOctave)}`"
-            >
-              Accent
-            </div>
-            <div 
-              class="color-swatch secondary"
-              :style="{ backgroundColor: getSecondaryColor(note, currentMode, currentOctave) }"
-              :title="`Secondary: ${getSecondaryColor(note, currentMode, currentOctave)}`"
-            >
-              Secondary
-            </div>
-            <div 
-              class="color-swatch tertiary"
-              :style="{ backgroundColor: getTertiaryColor(note, currentMode, currentOctave) }"
-              :title="`Tertiary: ${getTertiaryColor(note, currentMode, currentOctave)}`"
-            >
-              Tertiary
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Gradients Section -->
-    <section class="showcase-section">
-      <h3>🌈 Color Gradients</h3>
-      <div class="gradients-grid">
-        <div 
-          v-for="note in SOLFEGE_NOTES" 
-          :key="note"
-          class="gradient-card"
-        >
-          <div class="gradient-name">{{ note }}</div>
+    <div class="showcase-content">
+      <!-- Note Colors Section -->
+      <section class="showcase-section">
+      <div class="section-row">
+        <h3 class="section-heading">🎵 Note Colors</h3>
+        <div class="note-colors-rows">
           <div 
-            class="gradient-sample"
-            :style="{ background: getGradient(note, currentMode, currentOctave, 45) }"
-          ></div>
-          <div class="gradient-directions">
-            <div 
-              class="gradient-mini"
-              :style="{ background: getGradient(note, currentMode, currentOctave, 0) }"
-              title="0° (horizontal)"
-            ></div>
-            <div 
-              class="gradient-mini"
-              :style="{ background: getGradient(note, currentMode, currentOctave, 90) }"
-              title="90° (vertical)"
-            ></div>
-            <div 
-              class="gradient-mini"
-              :style="{ background: getGradient(note, currentMode, currentOctave, 135) }"
-              title="135° (diagonal)"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Glassmorphism Section -->
-    <section class="showcase-section">
-      <h3>✨ Glassmorphism Effects</h3>
-      <div class="glassmorphism-grid">
-        <div 
-          v-for="note in SOLFEGE_NOTES" 
-          :key="note"
-          class="glassmorphism-card"
-          :style="{ 
-            background: createGlassmorphBackground(getPrimaryColor(note, currentMode, currentOctave)),
-            boxShadow: createGlassmorphShadow(getPrimaryColor(note, currentMode, currentOctave))
-          }"
-        >
-          <div class="glassmorphism-content">
-            <div class="note-label">{{ note }}</div>
-            <div class="glassmorphism-demo">Glassmorphism</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Alpha Variations Section -->
-    <section class="showcase-section">
-      <h3>🔍 Alpha Variations</h3>
-      <div class="alpha-grid">
-        <div 
-          v-for="note in ['Do', 'Mi', 'Sol']" 
-          :key="note"
-          class="alpha-demo"
-        >
-          <div class="alpha-note">{{ note }}</div>
-          <div class="alpha-samples">
-            <div 
-              v-for="alpha in [1.0, 0.8, 0.6, 0.4, 0.2]"
-              :key="alpha"
-              class="alpha-swatch"
-              :style="{ backgroundColor: withAlpha(getPrimaryColor(note, currentMode, currentOctave), alpha) }"
-            >
-              {{ (alpha * 100).toFixed(0) }}%
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Chord Colors Section -->
-    <section class="showcase-section">
-      <h3>🎹 Chord Color Examples</h3>
-      <div class="chord-grid">
-        <div 
-          v-for="chord in chordExamples" 
-          :key="chord.name"
-          class="chord-card"
-        >
-          <div class="chord-name">{{ chord.name }}</div>
-          <div class="chord-notes">{{ chord.notes.join(' - ') }}</div>
-          <div 
-            class="chord-background"
-            :style="{ 
-              background: createChordGlassmorphBackground(
-                chord.notes.map(note => getPrimaryColor(note, currentMode, currentOctave))
-              ),
-              boxShadow: createChordGlassmorphShadow(
-                chord.notes.map(note => getPrimaryColor(note, currentMode, currentOctave))
-              )
-            }"
+            v-for="note in SOLFEGE_NOTES" 
+            :key="note"
+            class="note-row"
           >
-            <div class="chord-content">Chord Colors</div>
+            <div class="note-label">{{ note }}</div>
+            <div class="color-swatches">
+              <div 
+                class="color-swatch primary"
+                :style="{ backgroundColor: getPrimaryColor(note, currentMode, currentOctave) }"
+                :title="`Primary: ${getPrimaryColor(note, currentMode, currentOctave)}`"
+              ></div>
+              <div 
+                class="color-swatch accent"
+                :style="{ backgroundColor: getAccentColor(note, currentMode, currentOctave) }"
+                :title="`Accent: ${getAccentColor(note, currentMode, currentOctave)}`"
+              ></div>
+              <div 
+                class="color-swatch secondary"
+                :style="{ backgroundColor: getSecondaryColor(note, currentMode, currentOctave) }"
+                :title="`Secondary: ${getSecondaryColor(note, currentMode, currentOctave)}`"
+              ></div>
+              <div 
+                class="color-swatch tertiary"
+                :style="{ backgroundColor: getTertiaryColor(note, currentMode, currentOctave) }"
+                :title="`Tertiary: ${getTertiaryColor(note, currentMode, currentOctave)}`"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Linear Gradients Section -->
+    <section class="showcase-section">
+      <div class="section-row">
+        <h3 class="section-heading">📐 Linear Gradients</h3>
+        <div class="gradient-rows">
+          <div 
+            v-for="note in SOLFEGE_NOTES" 
+            :key="note"
+            class="gradient-row"
+          >
+            <div class="gradient-label">{{ note }}</div>
+            <div class="gradient-samples">
+              <div 
+                class="gradient-sample"
+                :style="{ background: getGradient(note, currentMode, currentOctave, 0) }"
+                :title="`0° (horizontal)`"
+              ></div>
+              <div 
+                class="gradient-sample"
+                :style="{ background: getGradient(note, currentMode, currentOctave, 45) }"
+                :title="`45° (diagonal)`"
+              ></div>
+              <div 
+                class="gradient-sample"
+                :style="{ background: getGradient(note, currentMode, currentOctave, 90) }"
+                :title="`90° (vertical)`"
+              ></div>
+              <div 
+                class="gradient-sample"
+                :style="{ background: getGradient(note, currentMode, currentOctave, 135) }"
+                :title="`135° (diagonal)`"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Radial Gradients Section -->
+    <section class="showcase-section">
+      <div class="section-row">
+        <h3 class="section-heading">🔘 Radial Gradients</h3>
+        <div class="gradient-rows">
+          <div 
+            v-for="note in SOLFEGE_NOTES" 
+            :key="note"
+            class="gradient-row"
+          >
+            <div class="gradient-label">{{ note }}</div>
+            <div class="gradient-samples">
+              <div 
+                class="gradient-sample radial"
+                :style="{ background: getRadialGradient(note, currentMode, currentOctave, 'circle') }"
+                :title="`Circle`"
+              ></div>
+              <div 
+                class="gradient-sample radial"
+                :style="{ background: getRadialGradient(note, currentMode, currentOctave, 'ellipse') }"
+                :title="`Ellipse`"
+              ></div>
+              <div 
+                class="gradient-sample radial"
+                :style="{ background: getRadialGradient(note, currentMode, currentOctave, 'circle at top') }"
+                :title="`Circle at top`"
+              ></div>
+              <div 
+                class="gradient-sample radial"
+                :style="{ background: getRadialGradient(note, currentMode, currentOctave, 'circle at bottom') }"
+                :title="`Circle at bottom`"
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -180,74 +142,126 @@
 
     <!-- Conic Gradients Section -->
     <section class="showcase-section">
-      <h3>🌀 Conic Gradients</h3>
-      <div class="conic-grid">
-        <div 
-          v-for="note in ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Ti']" 
-          :key="note"
-          class="conic-card"
-        >
-          <div class="conic-name">{{ note }}</div>
+      <div class="section-row">
+        <h3 class="section-heading">🌀 Conic Gradients</h3>
+        <div class="gradient-rows">
           <div 
-            class="conic-sample"
-            :style="{ background: getConicGradient(note, currentMode, currentOctave) }"
-          ></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Color Analysis Section -->
-    <section class="showcase-section">
-      <h3>📊 Color Analysis</h3>
-      <div class="analysis-grid">
-        <div 
-          v-for="note in ['Do', 'Mi', 'Sol']" 
-          :key="note"
-          class="analysis-card"
-        >
-          <div class="analysis-note">{{ note }}</div>
-          <div class="color-info">
-            <div class="color-preview" :style="{ backgroundColor: getPrimaryColor(note, currentMode, currentOctave) }"></div>
-            <div class="color-details">
-              <div class="color-value">{{ getPrimaryColor(note, currentMode, currentOctave) }}</div>
-              <div class="color-static">Static: {{ getStaticPrimaryColor(note, currentMode, currentOctave) }}</div>
+            v-for="note in SOLFEGE_NOTES" 
+            :key="note"
+            class="gradient-row"
+          >
+            <div class="gradient-label">{{ note }}</div>
+            <div class="gradient-samples">
+              <div 
+                class="gradient-sample conic"
+                :style="{ background: getConicGradient(note, currentMode, currentOctave, 0) }"
+                :title="`0° start`"
+              ></div>
+              <div 
+                class="gradient-sample conic"
+                :style="{ background: getConicGradient(note, currentMode, currentOctave, 90) }"
+                :title="`90° start`"
+              ></div>
+              <div 
+                class="gradient-sample conic"
+                :style="{ background: getConicGradient(note, currentMode, currentOctave, 180) }"
+                :title="`180° start`"
+              ></div>
+              <div 
+                class="gradient-sample conic"
+                :style="{ background: getConicGradient(note, currentMode, currentOctave, 270) }"
+                :title="`270° start`"
+              ></div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Technical Info -->
+    <!-- Interval Glassmorphism Section -->
     <section class="showcase-section">
-      <h3>⚙️ Technical Information</h3>
-      <div class="tech-info">
-        <div class="info-card">
-          <h4>Dynamic Colors</h4>
-          <p>Enabled: {{ isDynamicColorsEnabled ? 'Yes' : 'No' }}</p>
-          <p>Animation: Real-time hue shifts</p>
-        </div>
-        <div class="info-card">
-          <h4>Color Functions</h4>
-          <ul>
-            <li>Primary/Accent/Secondary/Tertiary Colors</li>
-            <li>Static vs Animated Variants</li>
-            <li>Gradients (Linear & Conic)</li>
-            <li>Glassmorphism Effects</li>
-            <li>Alpha Channel Manipulation</li>
-            <li>Chord Color Blending</li>
-          </ul>
-        </div>
-        <div class="info-card">
-          <h4>Music Theory Integration</h4>
-          <ul>
-            <li>Solfege-based color mapping</li>
-            <li>Octave lightness variations</li>
-            <li>Major/Minor mode differences</li>
-            <li>Harmonic color relationships</li>
-          </ul>
+      <div class="section-row">
+        <h3 class="section-heading">🔗 Interval Glass</h3>
+        <div class="glassmorphism-rows">
+          <div 
+            v-for="interval in intervalExamples" 
+            :key="interval.name"
+            class="glassmorphism-row"
+          >
+            <div class="glassmorphism-label">{{ interval.name }}</div>
+            <div class="glassmorphism-samples">
+              <div 
+                class="glassmorphism-sample"
+                :style="{ 
+                  background: createIntervalLinearGlass(interval.from, interval.to),
+                  boxShadow: createGlassmorphShadow(getPrimaryColor(interval.from, currentMode, currentOctave))
+                }"
+                :title="'Linear'"
+              ></div>
+              <div 
+                class="glassmorphism-sample"
+                :style="{ 
+                  background: createIntervalRadialGlass(interval.from, interval.to),
+                  boxShadow: createGlassmorphShadow(getPrimaryColor(interval.from, currentMode, currentOctave))
+                }"
+                :title="'Radial'"
+              ></div>
+              <div 
+                class="glassmorphism-sample"
+                :style="{ 
+                  background: createIntervalConicGlass(interval.from, interval.to),
+                  boxShadow: createGlassmorphShadow(getPrimaryColor(interval.from, currentMode, currentOctave))
+                }"
+                :title="'Conic'"
+              ></div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
+
+    <!-- Chord Glassmorphism Section -->
+    <section class="showcase-section">
+      <div class="section-row">
+        <h3 class="section-heading">🎹 Chord Glass</h3>
+        <div class="glassmorphism-rows">
+          <div 
+            v-for="chord in chordExamples" 
+            :key="chord.name"
+            class="glassmorphism-row"
+          >
+            <div class="glassmorphism-label">{{ chord.name }}</div>
+            <div class="glassmorphism-samples">
+              <div 
+                class="glassmorphism-sample"
+                :style="{ 
+                  background: createChordLinearGlass(chord.notes),
+                  boxShadow: createChordGlassmorphShadow(chord.notes.map(note => getPrimaryColor(note, currentMode, currentOctave)))
+                }"
+                :title="'Linear'"
+              ></div>
+              <div 
+                class="glassmorphism-sample"
+                :style="{ 
+                  background: createChordRadialGlass(chord.notes),
+                  boxShadow: createChordGlassmorphShadow(chord.notes.map(note => getPrimaryColor(note, currentMode, currentOctave)))
+                }"
+                :title="'Radial'"
+              ></div>
+              <div 
+                class="glassmorphism-sample"
+                :style="{ 
+                  background: createChordConicGlass(chord.notes),
+                  boxShadow: createChordGlassmorphShadow(chord.notes.map(note => getPrimaryColor(note, currentMode, currentOctave)))
+                }"
+                :title="'Conic'"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    </div>
   </div>
 </template>
 
@@ -258,12 +272,10 @@ import { SOLFEGE_NOTES } from '@/data';
 import type { MusicalMode } from '@/types';
 
 const {
-  getNoteColors,
   getPrimaryColor,
   getAccentColor,
   getSecondaryColor,
   getTertiaryColor,
-  getStaticPrimaryColor,
   getGradient,
   getConicGradient,
   withAlpha,
@@ -271,12 +283,23 @@ const {
   createGlassmorphShadow,
   createChordGlassmorphBackground,
   createChordGlassmorphShadow,
-  isDynamicColorsEnabled,
 } = useColorSystem();
 
 // Reactive state
 const currentMode = ref<MusicalMode>('major');
 const currentOctave = ref(4);
+
+// Interval examples for demonstration
+const intervalExamples = [
+  { name: 'Unison', from: 'Do', to: 'Do' },
+  { name: 'Major 2nd', from: 'Do', to: 'Re' },
+  { name: 'Major 3rd', from: 'Do', to: 'Mi' },
+  { name: 'Perfect 4th', from: 'Do', to: 'Fa' },
+  { name: 'Perfect 5th', from: 'Do', to: 'Sol' },
+  { name: 'Major 6th', from: 'Do', to: 'La' },
+  { name: 'Major 7th', from: 'Do', to: 'Ti' },
+  { name: 'Octave', from: 'Do', to: 'Do' },
+];
 
 // Chord examples for demonstration
 const chordExamples = [
@@ -284,415 +307,309 @@ const chordExamples = [
   { name: 'D Minor', notes: ['Re', 'Fa', 'La'] },
   { name: 'F Major', notes: ['Fa', 'La', 'Do'] },
   { name: 'G Major', notes: ['Sol', 'Ti', 'Re'] },
+  { name: 'A Minor', notes: ['La', 'Do', 'Mi'] },
+  { name: 'E Minor', notes: ['Mi', 'Sol', 'Ti'] },
 ];
+
+// Custom gradient functions
+const getRadialGradient = (
+  noteName: string,
+  mode: MusicalMode = 'major',
+  octave: number = 3,
+  shape: string = 'circle'
+): string => {
+  const primary = getPrimaryColor(noteName, mode, octave);
+  const accent = getAccentColor(noteName, mode, octave);
+  const secondary = getSecondaryColor(noteName, mode, octave);
+  const tertiary = getTertiaryColor(noteName, mode, octave);
+  
+  return `radial-gradient(${shape}, ${primary} 20%, ${accent} 40%, ${secondary} 70%, ${tertiary})`;
+};
+
+// Glassmorphism functions for intervals
+const createIntervalLinearGlass = (fromNote: string, toNote: string): string => {
+  const fromColor = getPrimaryColor(fromNote, currentMode.value, currentOctave.value);
+  const toColor = getPrimaryColor(toNote, currentMode.value, currentOctave.value);
+  
+  const fromColorAlpha = withAlpha(fromColor, 0.4);
+  const toColorAlpha = withAlpha(toColor, 0.15);
+  
+  return `linear-gradient(135deg, ${fromColorAlpha}, ${toColorAlpha})`;
+};
+
+const createIntervalRadialGlass = (fromNote: string, toNote: string): string => {
+  const fromColor = getPrimaryColor(fromNote, currentMode.value, currentOctave.value);
+  const toColor = getPrimaryColor(toNote, currentMode.value, currentOctave.value);
+  
+  const fromColorAlpha = withAlpha(fromColor, 0.4);
+  const toColorAlpha = withAlpha(toColor, 0.15);
+  
+  return `radial-gradient(circle, ${fromColorAlpha} 30%, ${toColorAlpha})`;
+};
+
+const createIntervalConicGlass = (fromNote: string, toNote: string): string => {
+  const fromColor = getPrimaryColor(fromNote, currentMode.value, currentOctave.value);
+  const toColor = getPrimaryColor(toNote, currentMode.value, currentOctave.value);
+  
+  const fromColorAlpha = withAlpha(fromColor, 0.4);
+  const toColorAlpha = withAlpha(toColor, 0.15);
+  
+  return `conic-gradient(from 0deg, ${fromColorAlpha}, ${toColorAlpha}, ${fromColorAlpha})`;
+};
+
+// Glassmorphism functions for chords
+const createChordLinearGlass = (notes: string[]): string => {
+  const colors = notes.map(note => 
+    withAlpha(getPrimaryColor(note, currentMode.value, currentOctave.value), 0.3)
+  );
+  return `linear-gradient(135deg, ${colors.join(', ')})`;
+};
+
+const createChordRadialGlass = (notes: string[]): string => {
+  const colors = notes.map(note => 
+    withAlpha(getPrimaryColor(note, currentMode.value, currentOctave.value), 0.3)
+  );
+  return `radial-gradient(circle, ${colors.join(', ')})`;
+};
+
+const createChordConicGlass = (notes: string[]): string => {
+  const colors = notes.map(note => 
+    withAlpha(getPrimaryColor(note, currentMode.value, currentOctave.value), 0.3)
+  );
+  // Repeat colors to fill the circle
+  const extendedColors = [...colors, ...colors];
+  return `conic-gradient(from 0deg, ${extendedColors.join(', ')})`;
+};
 </script>
 
 <style scoped>
 .color-showcase {
-  padding: 2rem;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(255, 255, 255, 0.02));
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  margin-top: 2rem;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+.showcase-content {
+  padding: 1rem;
 }
 
 .showcase-header {
-  text-align: center;
-  margin-bottom: 3rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px 8px 0 0;
 }
 
 .showcase-header h2 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.showcase-header p {
-  font-size: 1.2rem;
-  opacity: 0.8;
-  margin-bottom: 1.5rem;
-}
-
 .showcase-controls {
   display: flex;
-  gap: 2rem;
-  justify-content: center;
+  gap: 1rem;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .showcase-controls label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
 .mode-selector {
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.1);
   color: inherit;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
 }
 
 .octave-slider {
-  width: 100px;
-  margin: 0 0.5rem;
+  width: 60px;
 }
 
 .showcase-section {
-  margin-bottom: 3rem;
-}
-
-.showcase-section h3 {
-  font-size: 1.8rem;
-  font-weight: 600;
   margin-bottom: 1.5rem;
-  text-align: center;
 }
 
-/* Note Colors Grid */
-.note-colors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-}
-
-.note-color-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-}
-
-.note-name {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.color-relationships {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.color-swatch {
-  height: 60px;
-  border-radius: 8px;
+.section-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.color-swatch:hover {
-  transform: scale(1.05);
-}
-
-/* Gradients Grid */
-.gradients-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: flex-start;
   gap: 1rem;
 }
 
-.gradient-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-}
-
-.gradient-name {
+.section-heading {
+  font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.gradient-sample {
-  height: 80px;
-  border-radius: 8px;
-  margin-bottom: 0.5rem;
-}
-
-.gradient-directions {
-  display: flex;
-  gap: 0.25rem;
-  justify-content: center;
-}
-
-.gradient-mini {
-  width: 30px;
-  height: 20px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-/* Glassmorphism Grid */
-.glassmorphism-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1rem;
-}
-
-.glassmorphism-card {
-  height: 120px;
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.3s ease;
-}
-
-.glassmorphism-card:hover {
-  transform: translateY(-5px);
-}
-
-.glassmorphism-content {
-  text-align: center;
-}
-
-.note-label {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.glassmorphism-demo {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-
-/* Alpha Grid */
-.alpha-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-}
-
-.alpha-demo {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-}
-
-.alpha-note {
-  font-size: 1.3rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.alpha-samples {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-}
-
-.alpha-swatch {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-/* Chord Grid */
-.chord-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.5rem;
-}
-
-.chord-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-}
-
-.chord-name {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.chord-notes {
-  font-size: 0.9rem;
-  opacity: 0.8;
-  margin-bottom: 1rem;
-}
-
-.chord-background {
-  height: 80px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.chord-content {
-  font-weight: 500;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-/* Conic Grid */
-.conic-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1rem;
-}
-
-.conic-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-}
-
-.conic-name {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.conic-sample {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  margin: 0 auto;
-}
-
-/* Analysis Grid */
-.analysis-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-}
-
-.analysis-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1rem;
-}
-
-.analysis-note {
-  font-size: 1.3rem;
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-.color-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.color-preview {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  flex-shrink: 0;
-}
-
-.color-details {
-  flex: 1;
-}
-
-.color-value {
-  font-family: 'Courier New', monospace;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.color-static {
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-/* Tech Info */
-.tech-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
-.info-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1.5rem;
-}
-
-.info-card h4 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #667eea;
-}
-
-.info-card ul {
-  list-style: none;
-  padding: 0;
-}
-
-.info-card li {
-  padding: 0.25rem 0;
+  margin: 0;
+  min-width: 120px;
+  padding-top: 0.25rem;
+  text-align: right;
   opacity: 0.9;
 }
 
-.info-card li::before {
-  content: '•';
-  color: #667eea;
-  margin-right: 0.5rem;
+/* Note Colors Rows */
+.note-colors-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.note-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.note-label {
+  font-weight: 600;
+  min-width: 30px;
+  font-size: 0.9rem;
+}
+
+.color-swatches {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.color-swatch {
+  flex: 1;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 60px;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+/* Gradient Rows */
+.gradient-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.gradient-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.gradient-label {
+  font-weight: 600;
+  min-width: 30px;
+  font-size: 0.9rem;
+}
+
+.gradient-samples {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.gradient-sample {
+  flex: 1;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 60px;
+}
+
+.gradient-sample.radial {
+  border-radius: 6px;
+}
+
+.gradient-sample.conic {
+  border-radius: 50%;
+}
+
+.gradient-sample:hover {
+  transform: scale(1.1);
+}
+
+/* Glassmorphism Rows */
+.glassmorphism-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.glassmorphism-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.glassmorphism-label {
+  font-weight: 600;
+  min-width: 80px;
+  font-size: 0.85rem;
+}
+
+.glassmorphism-samples {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.glassmorphism-sample {
+  flex: 1;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  min-width: 80px;
+}
+
+.glassmorphism-sample:hover {
+  transform: scale(1.05);
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .color-showcase {
-    padding: 1rem;
-  }
-  
-  .showcase-header h2 {
-    font-size: 2rem;
-  }
-  
-  .showcase-controls {
+  .section-row {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
   
-  .note-colors-grid,
-  .gradients-grid,
-  .glassmorphism-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  .section-heading {
+    text-align: left;
+    min-width: auto;
   }
   
-  .tech-info {
-    grid-template-columns: 1fr;
+  .showcase-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
   }
 }
 </style>

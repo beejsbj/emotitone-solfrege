@@ -308,3 +308,19 @@ export type SequencerIcon =
   | "speaker"
   | "heart"
   | "star";
+
+/**
+ * Analysis of interval relationships using music theory
+ */
+export interface TonalAnalysis {
+  intervalName: string;
+  consonance: "perfect" | "imperfect consonant" | "dissonant";
+  tension: number; // 0-10 scale
+}
+
+/**
+ * Enhanced melody pattern with tonal analysis
+ */
+export interface EnhancedMelody extends Melody {
+  tonalAnalysis?: TonalAnalysis;
+}

@@ -1,6 +1,7 @@
 <template>
-  <FloatingDropdown position="top-right" max-height="80vh">
-    <!-- Trigger Button -->
+  <div>
+    <FloatingDropdown position="top-right" max-height="80vh">
+      <!-- Trigger Button -->
     <template #trigger="{ toggle }">
       <button
         @click="toggle"
@@ -198,9 +199,24 @@
             Save As...
           </button>
         </div>
+        
+        <!-- Systems Check Button -->
+        <div class="mt-3">
+          <button
+            @click="showSystemsCheck = true"
+            class="w-full px-2 py-2 text-xs text-white bg-purple-600/20 border border-purple-600 rounded flex items-center justify-center gap-1 hover:bg-purple-600/30 transition-colors"
+          >
+            <CheckCircle :size="14" />
+            Systems Check (Phase 1)
+          </button>
+        </div>
       </div>
-    </template>
-  </FloatingDropdown>
+          </template>
+    </FloatingDropdown>
+    
+    <!-- Systems Check Modal -->
+    <SystemsCheckModal :is-open="showSystemsCheck" @close="showSystemsCheck = false" />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -215,9 +231,14 @@ import {
   RotateCcw,
   Download,
   Trash2,
+  CheckCircle,
 } from "lucide-vue-next";
+import SystemsCheckModal from "./SystemsCheckModal.vue";
 
 const visualConfigStore = useVisualConfigStore();
+
+// Local state for systems check modal
+const showSystemsCheck = ref(false);
 
 // Store state
 const {

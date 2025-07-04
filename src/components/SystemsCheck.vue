@@ -525,7 +525,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :max="11"
                :options="['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']"
                type="options"
-               @update:model-value="(value: number) => { currentKey = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][value]; handleKnobChange('music', 'key', currentKey); }"
+               @update:model-value="(value: string | number | boolean) => { const idx = typeof value === 'number' ? value : 0; currentKey = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][idx]; handleKnobChange('music', 'key', currentKey); }"
                :theme-color="'hsla(120, 50%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ currentKey }}</div>
@@ -536,7 +536,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="currentMode === 'major' ? 0 : 1"
                :max="1"
                type="boolean"
-               @update:model-value="(value: number) => { currentMode = value === 0 ? 'major' : 'minor'; handleKnobChange('music', 'mode', currentMode); }"
+               @update:model-value="(value: string | number | boolean) => { const boolVal = typeof value === 'boolean' ? value : (typeof value === 'number' ? value === 0 : false); currentMode = boolVal ? 'major' : 'minor'; handleKnobChange('music', 'mode', currentMode); }"
                :theme-color="'hsla(220, 50%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ currentMode }}</div>
@@ -548,7 +548,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :min="0"
                :max="7"
                type="range"
-               @update:model-value="(value: number) => { colorSystemSettings.octave = value + 1; handleKnobChange('music', 'octave', value + 1); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.octave = numVal + 1; handleKnobChange('music', 'octave', numVal + 1); }"
                :theme-color="'hsla(280, 50%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.octave }}</div>
@@ -558,7 +558,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                          <Knob
                :model-value="colorSystemSettings.chromaticMapping"
                type="boolean"
-               @update:model-value="(value: boolean) => { colorSystemSettings.chromaticMapping = value; handleKnobChange('music', 'chromatic', colorSystemSettings.chromaticMapping); }"
+               @update:model-value="(value: string | number | boolean) => { const boolVal = typeof value === 'boolean' ? value : Boolean(value); colorSystemSettings.chromaticMapping = boolVal; handleKnobChange('music', 'chromatic', colorSystemSettings.chromaticMapping); }"
                :theme-color="'hsla(340, 50%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.chromaticMapping ? 'ON' : 'OFF' }}</div>
@@ -692,7 +692,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.saturation * 100"
                :max="100"
                type="range"
-               @update:model-value="(value: number) => { colorSystemSettings.saturation = value / 100; handleColorSettingChange('saturation', value / 100); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.saturation = numVal / 100; handleColorSettingChange('saturation', numVal / 100); }"
                :theme-color="'hsla(300, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.saturation * 100).toFixed(0) }}%</div>
@@ -703,7 +703,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.baseLightness * 100"
                :max="100"
                type="range"
-               @update:model-value="(value: number) => { colorSystemSettings.baseLightness = value / 100; handleColorSettingChange('baseLightness', value / 100); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.baseLightness = numVal / 100; handleColorSettingChange('baseLightness', numVal / 100); }"
                :theme-color="'hsla(60, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.baseLightness * 100).toFixed(0) }}%</div>
@@ -714,7 +714,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.lightnessRange * 100"
                :max="100"
                type="range"
-               @update:model-value="(value: number) => { colorSystemSettings.lightnessRange = value / 100; handleColorSettingChange('lightnessRange', value / 100); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.lightnessRange = numVal / 100; handleColorSettingChange('lightnessRange', numVal / 100); }"
                :theme-color="'hsla(180, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.lightnessRange * 100).toFixed(0) }}%</div>
@@ -725,7 +725,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.hueAnimation"
                :max="50"
                type="range"
-               @update:model-value="(value: number) => { colorSystemSettings.hueAnimation = value; handleColorSettingChange('hueAnimation', value); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.hueAnimation = numVal; handleColorSettingChange('hueAnimation', numVal); }"
                :theme-color="'hsla(240, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.hueAnimation }}°</div>
@@ -736,7 +736,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.animationSpeed * 10"
                :max="30"
                type="range"
-               @update:model-value="(value: number) => { colorSystemSettings.animationSpeed = value / 10; handleColorSettingChange('animationSpeed', value / 10); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.animationSpeed = numVal / 10; handleColorSettingChange('animationSpeed', numVal / 10); }"
                :theme-color="'hsla(0, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.animationSpeed.toFixed(1) }}x</div>

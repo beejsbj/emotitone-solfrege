@@ -15,13 +15,26 @@ import {
   createHarmonicVibration,
   createStringDamping,
 } from "@/utils/visualEffects";
-import { gsap } from "gsap";
+import useGSAP from "../useGSAP";
 
 export function useStringRenderer() {
   const { getPrimaryColor } = useColorSystem();
+  const { gsap } = useGSAP();
 
   // String state
   const strings = ref<VibratingStringConfig[]>([]);
+
+  // Event-based activation for sequencer notes
+  const eventActivatedStrings = ref(
+    new Map<
+      number,
+      {
+        frequency: number;
+        octave: number;
+        endTime: number;
+      }
+    >()
+  );
 
   /**
    * Initialize string configurations
@@ -52,6 +65,55 @@ export function useStringRenderer() {
   };
 
   /**
+   * Handle note played events (for sequencer integration)
+   */
+  const handleNotePlayed = (event: CustomEvent) => {
+    const { solfegeIndex, frequency, octave, duration } = event.detail;
+
+    if (solfegeIndex !== undefined && frequency && octave) {
+      // Calculate end time based on duration or default to 500ms
+      let durationMs = 500; // Default duration
+
+      if (duration) {
+        // Convert Tone.js duration to milliseconds (rough approximation)
+        const durationMap: Record<string, number> = {
+          "1n": 2000, // whole note
+          "2n": 1000, // half note
+          "4n": 500, // quarter note
+          "8n": 250, // eighth note
+          "16n": 125, // sixteenth note
+          "32n": 62.5, // thirty-second note
+        };
+        durationMs = durationMap[duration] || 500;
+      }
+
+      const endTime = Date.now() + durationMs;
+
+      // Add to event-activated strings
+      eventActivatedStrings.value.set(solfegeIndex, {
+        frequency,
+        octave,
+        endTime,
+      });
+    }
+  };
+
+  /**
+   * Clean up expired event activations
+   */
+  const cleanupExpiredActivations = () => {
+    const now = Date.now();
+    for (const [
+      solfegeIndex,
+      activation,
+    ] of eventActivatedStrings.value.entries()) {
+      if (now > activation.endTime) {
+        eventActivatedStrings.value.delete(solfegeIndex);
+      }
+    }
+  };
+
+  /**
    * Update string properties based on current note
    */
   const updateStringProperties = (
@@ -59,15 +121,25 @@ export function useStringRenderer() {
     animationConfig: AnimationConfig,
     musicStore: any
   ) => {
+    // Clean up expired event activations
+    cleanupExpiredActivations();
+
     strings.value.forEach((string, index) => {
       const solfege = musicStore.solfegeData[index];
       if (!solfege) return;
 
-      // Check if this string's note is currently active in any octave
+      // Check if this string's note is currently active in any octave (from direct input)
       const activeNotes = musicStore.getActiveNotes();
-      const isStringActive = activeNotes.some(
+      const isStringActiveFromInput = activeNotes.some(
         (activeNote: any) => activeNote.solfegeIndex === index
       );
+
+      // Check if this string is activated by sequencer events
+      const eventActivation = eventActivatedStrings.value.get(index);
+      const isStringActiveFromEvent =
+        eventActivation && Date.now() <= eventActivation.endTime;
+
+      const isStringActive = isStringActiveFromInput || isStringActiveFromEvent;
 
       // Update string properties based on active notes
       if (isStringActive) {
@@ -84,17 +156,29 @@ export function useStringRenderer() {
         );
         string.color = getPrimaryColor(solfege.name, musicStore.currentMode);
 
-        // Get the highest octave frequency for visual vibration if multiple notes
-        const activeStringNotes = activeNotes.filter(
-          (activeNote: any) => activeNote.solfegeIndex === index
-        );
-        const highestOctaveNote = activeStringNotes.reduce(
-          (highest: any, current: any) =>
-            current.octave > highest.octave ? current : highest
-        );
+        // Determine frequency for visual vibration
+        let visualFrequency;
+
+        if (isStringActiveFromInput) {
+          // Use the highest octave frequency from direct input
+          const activeStringNotes = activeNotes.filter(
+            (activeNote: any) => activeNote.solfegeIndex === index
+          );
+          const highestOctaveNote = activeStringNotes.reduce(
+            (highest: any, current: any) =>
+              current.octave > highest.octave ? current : highest
+          );
+          visualFrequency = highestOctaveNote.frequency;
+        } else if (eventActivation) {
+          // Use frequency from event activation (sequencer)
+          visualFrequency = eventActivation.frequency;
+        } else {
+          // Fallback
+          visualFrequency = musicStore.getNoteFrequency(index, 4);
+        }
 
         string.frequency = createVisualFrequency(
-          highestOctaveNote.frequency,
+          visualFrequency,
           animationConfig.visualFrequencyDivisor
         );
       } else {
@@ -189,6 +273,24 @@ export function useStringRenderer() {
    */
   const clearAllStrings = () => {
     strings.value = [];
+    eventActivatedStrings.value.clear();
+  };
+
+  /**
+   * Add event listeners for sequencer integration
+   */
+  const addEventListeners = () => {
+    window.addEventListener("note-played", handleNotePlayed as EventListener);
+  };
+
+  /**
+   * Remove event listeners
+   */
+  const removeEventListeners = () => {
+    window.removeEventListener(
+      "note-played",
+      handleNotePlayed as EventListener
+    );
   };
 
   return {
@@ -201,5 +303,10 @@ export function useStringRenderer() {
     renderStrings,
     getActiveStringCount,
     clearAllStrings,
+
+    // Event system
+    addEventListeners,
+    removeEventListeners,
+    handleNotePlayed,
   };
 }

@@ -7,7 +7,7 @@
 export type {
   SolfegeData,
   Scale,
-  MelodicPattern,
+  Melody,
   Note,
   MusicalMode,
   ChromaticNote,

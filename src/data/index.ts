@@ -16,9 +16,20 @@ export type { SolfegeData } from "./solfege";
 export { MAJOR_SCALE, MINOR_SCALE } from "./scales";
 export type { Scale } from "./scales";
 
-// Patterns
-export { MELODIC_PATTERNS } from "./patterns";
-export type { MelodicPattern } from "./patterns";
+// Patterns - updated exports
+export {
+  melodicPatterns as MELODIC_PATTERNS, // Export new structure with old name for compatibility
+  getAllMelodicPatterns,
+  getPatternsByEmotion,
+  getIntervalPatterns,
+  getMelodicPatterns,
+  completeMelodies,
+  allMelodies,
+  getCompleteMelodies,
+  getMelodyByName,
+  getAllMelodiesByEmotion,
+} from "./patterns";
+export type { MelodicPattern, Melody } from "./patterns";
 
 // Instruments
 export {
@@ -35,6 +46,14 @@ export {
   getAvailableInstrumentNames,
   isValidInstrument,
 } from "./instruments";
+
+// Sequencer
+export {
+  SEQUENCER_ICONS,
+  SEQUENCER_COLOR_PALETTES,
+  getColorPaletteById,
+  getDefaultColorPalette,
+} from "./sequencer";
 
 // Backward compatibility - re-export everything from musicData for existing imports
 export * from "./musicData";

@@ -10,13 +10,73 @@ import type {
 } from "@/types/instrument";
 
 /**
- * Piano-like envelope settings for consistent feel across instruments
+ * Piano-like envelope settings for keyboards
  */
 export const PIANO_ENVELOPE: AudioEnvelope = {
   attack: 0.01, // Very quick attack for piano-like feel
   decay: 0.3, // Moderate decay
   sustain: 0.2, // Low sustain level
   release: 1.2, // Longer release for natural decay
+};
+
+/**
+ * String instruments envelope - slower attack, sustained tone
+ */
+export const STRING_ENVELOPE: AudioEnvelope = {
+  attack: 0.1, // Slower attack as bow contacts string
+  decay: 0.2, // Quick initial decay
+  sustain: 0.8, // High sustain for bowed instruments
+  release: 0.8, // Moderate release
+};
+
+/**
+ * Brass instruments envelope - moderate attack, sustained tone
+ */
+export const BRASS_ENVELOPE: AudioEnvelope = {
+  attack: 0.05, // Moderate attack as air pressure builds
+  decay: 0.15, // Quick decay to sustain level
+  sustain: 0.7, // Good sustain for wind instruments
+  release: 0.6, // Moderate release
+};
+
+/**
+ * Woodwind instruments envelope - quick attack, sustained tone
+ */
+export const WOODWIND_ENVELOPE: AudioEnvelope = {
+  attack: 0.02, // Quick attack from reed/embouchure
+  decay: 0.1, // Very quick decay
+  sustain: 0.85, // Very high sustain for wind instruments
+  release: 0.4, // Quick release when breath stops
+};
+
+/**
+ * Percussion envelope - very quick attack, quick decay
+ */
+export const PERCUSSION_ENVELOPE: AudioEnvelope = {
+  attack: 0.001, // Instant attack for struck instruments
+  decay: 0.3, // Quick decay
+  sustain: 0.05, // Very low sustain
+  release: 0.8, // Natural decay tail
+};
+
+/**
+ * Plucked string envelope (guitar, harp, etc.)
+ */
+export const PLUCKED_ENVELOPE: AudioEnvelope = {
+  attack: 0.005, // Very quick attack from pluck
+  decay: 0.4, // Moderate decay
+  sustain: 0.3, // Moderate sustain
+  release: 1.5, // Longer release for string resonance
+};
+
+/**
+ * Organ/sustained keyboard envelope
+ */
+export const ORGAN_ENVELOPE: AudioEnvelope = {
+  attack: 0.02, // Quick attack
+  decay: 0.05, // Minimal decay
+  sustain: 0.95, // Very high sustain
+  release: 0.3, // Quick release when key released
 };
 
 /**
@@ -302,18 +362,18 @@ export const PIANO_SAMPLER_CONFIG = {
 };
 
 /**
- * Synthesizer configurations
+ * Synthesizer configurations with instrument-appropriate envelopes
  */
 export const SYNTH_CONFIGS = {
   basic: {
     oscillator: { type: "sine" as const },
-    envelope: PIANO_ENVELOPE,
+    envelope: PIANO_ENVELOPE, // Keep piano envelope for basic synth
   },
 
   amSynth: {
     harmonicity: 2,
     oscillator: { type: "sine" as const },
-    envelope: PIANO_ENVELOPE,
+    envelope: ORGAN_ENVELOPE, // AM synth works well with sustained envelope
     modulation: { type: "sine" as const },
     modulationEnvelope: {
       attack: 0.01,
@@ -327,7 +387,7 @@ export const SYNTH_CONFIGS = {
     harmonicity: 1.5,
     modulationIndex: 10,
     oscillator: { type: "sine" as const },
-    envelope: PIANO_ENVELOPE,
+    envelope: BRASS_ENVELOPE, // FM synth can sound brass-like
     modulation: { type: "sine" as const },
     modulationEnvelope: {
       attack: 0.01,
@@ -341,20 +401,11 @@ export const SYNTH_CONFIGS = {
     pitchDecay: 0.05,
     octaves: 2,
     oscillator: { type: "sine" as const },
-    envelope: {
-      attack: 0.001,
-      decay: 0.4,
-      sustain: 0.01,
-      release: 1.4,
-    },
+    envelope: PERCUSSION_ENVELOPE, // Perfect for membrane drums
   },
 
   metal: {
-    envelope: {
-      attack: 0.001,
-      decay: 0.1,
-      release: 0.8,
-    },
+    envelope: PERCUSSION_ENVELOPE, // Metal synth is percussion
     harmonicity: 5.1,
     modulationIndex: 32,
     resonance: 4000,
@@ -403,4 +454,54 @@ export function getAvailableInstrumentNames(): string[] {
  */
 export function isValidInstrument(name: string): boolean {
   return name in AVAILABLE_INSTRUMENTS;
+}
+
+/**
+ * Get the appropriate envelope for an instrument category
+ */
+export function getEnvelopeForCategory(category: string): AudioEnvelope {
+  switch (category) {
+    case "keyboards":
+      return PIANO_ENVELOPE;
+    case "synth":
+      return PIANO_ENVELOPE; // Synths use their own configured envelopes
+    case "strings":
+      return STRING_ENVELOPE;
+    case "brass":
+      return BRASS_ENVELOPE;
+    case "woodwinds":
+      return WOODWIND_ENVELOPE;
+    case "percussion":
+      return PERCUSSION_ENVELOPE;
+    default:
+      return PIANO_ENVELOPE; // Fallback
+  }
+}
+
+/**
+ * Get the appropriate envelope for a specific instrument
+ * Checks for instrument-specific envelope first, then falls back to category envelope
+ */
+export function getInstrumentEnvelope(instrumentName: string): AudioEnvelope {
+  const config = AVAILABLE_INSTRUMENTS[instrumentName];
+  if (!config) {
+    return PIANO_ENVELOPE; // Fallback
+  }
+
+  // Use instrument-specific envelope if defined
+  if (config.envelope) {
+    return config.envelope;
+  }
+
+  // Handle special cases for stringed instruments
+  if (["guitar-acoustic", "guitar-electric", "guitar-nylon", "harp"].indexOf(instrumentName) !== -1) {
+    return PLUCKED_ENVELOPE;
+  }
+
+  if (["organ", "harmonium"].indexOf(instrumentName) !== -1) {
+    return ORGAN_ENVELOPE;
+  }
+
+  // Fall back to category envelope
+  return getEnvelopeForCategory(config.category);
 }

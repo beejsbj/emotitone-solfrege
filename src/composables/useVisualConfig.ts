@@ -38,11 +38,11 @@ export type {
 const DEFAULT_CONFIG: VisualEffectsConfig = {
   blobs: {
     isEnabled: true,
-    baseSizeRatio: 0.4, // 40% of screen size
-    minSize: 300,
-    maxSize: 800,
+    baseSizeRatio: 0.2, // 40% of screen size
+    minSize: 100,
+    maxSize: 400,
     opacity: 0.4,
-    blurRadius: 60,
+    blurRadius: 5,
     oscillationAmplitude: 1, // Increased for more visible vibration
     fadeOutDuration: 1.5, // 1.5 seconds fade-out
     scaleInDuration: 0.3, // 0.3 seconds scale-in animation
@@ -52,7 +52,7 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     edgeSegments: 48, // Number of segments for blob edge
     vibrationAmplitude: 15, // Amplitude of edge vibration
     glowEnabled: true, // Enable glow effect
-    glowIntensity: 10, // Glow blur intensity
+    glowIntensity: 5, // Glow blur intensity
   },
 
   ambient: {
@@ -79,7 +79,7 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
 
   strings: {
     isEnabled: true,
-    count: 8,
+    count: 7,
     baseOpacity: 0.05,
     activeOpacity: 0.9,
     maxAmplitude: 15,
@@ -134,7 +134,7 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     showChord: true, // Show chord information
     showIntervals: true, // Show interval information
     showEmotionalDescription: true, // Show emotional descriptions
-    backdropBlur: 12, // 12px backdrop blur
+    backdropBlur: 1, // 12px backdrop blur
     glassmorphOpacity: 0.4, // 40% glassmorphism opacity
     animationDuration: 300, // 300ms animation duration
   },

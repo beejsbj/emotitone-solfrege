@@ -359,6 +359,9 @@ onMounted(() => {
     handleKeyboardRelease as EventListener
   );
 
+  // Add sequencer visual feedback listeners
+  palette.addSequencerListeners();
+
   // Start animation loop with requestAnimationFrame
   animationId = requestAnimationFrame(animate);
 
@@ -381,6 +384,9 @@ onUnmounted(() => {
     "keyboard-note-released",
     handleKeyboardRelease as EventListener
   );
+
+  // Remove sequencer visual feedback listeners
+  palette.removeSequencerListeners();
 });
 
 // Expose methods for external control

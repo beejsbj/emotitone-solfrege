@@ -1,6 +1,7 @@
 <template>
-  <FloatingDropdown position="top-right" max-height="80vh">
-    <!-- Trigger Button -->
+  <div>
+    <FloatingDropdown position="top-right" max-height="80vh">
+      <!-- Trigger Button -->
     <template #trigger="{ toggle }">
       <button
         @click="toggle"
@@ -199,8 +200,9 @@
           </button>
         </div>
       </div>
-    </template>
-  </FloatingDropdown>
+          </template>
+    </FloatingDropdown>
+  </div>
 </template>
 
 <script setup lang="ts">

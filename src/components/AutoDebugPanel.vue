@@ -23,9 +23,6 @@
               <Settings :size="16" />
               Config
             </h3>
-            <p v-if="lastSaved" class="text-[10px] text-neutral-400 italic">
-              Last saved: {{ formatLastSaved(lastSaved) }}
-            </p>
           </div>
 
           <button
@@ -227,7 +224,6 @@ const {
   config,
   visualsEnabled,
   savedConfigs,
-  lastSaved,
   updateValue,
   resetToDefaults,
   exportConfig: storeExportConfig,

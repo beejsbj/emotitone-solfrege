@@ -5,14 +5,22 @@ import type {
   AmbientConfig,
   ParticleConfig,
   StringConfig,
-  FontOscillationConfig,
   AnimationConfig,
-  FrequencyMappingConfig,
-  DynamicColorConfig,
+} from "@/types/canvas";
+import type {
+  FontOscillationConfig,
   PaletteConfig,
   FloatingPopupConfig,
+} from "@/types/palette";
+import type {
+  FrequencyMappingConfig,
+} from "@/types/audio";
+import type {
+  DynamicColorConfig,
+} from "@/types/color";
+import type {
   VisualEffectsConfig,
-} from "@/types/visual";
+} from "@/types/config";
 
 /**
  * Unified Visual Effects Configuration System

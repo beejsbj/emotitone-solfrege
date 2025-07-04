@@ -17,11 +17,6 @@ export {
 } from "./notes";
 export { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "./solfege";
 export { MAJOR_SCALE, MINOR_SCALE } from "./scales";
-export { 
-  MELODIC_PATTERNS,
-  getPatternsByInterval,
-  getPatternsByTension,
-} from "./patterns";
 
 // Patterns - updated exports (remove duplicates and invalid exports)
 export {
@@ -43,8 +38,6 @@ export type {
   SolfegeData,
   Scale,
   ChromaticNote,
-  TonalAnalysis,
-  MusicAnalysis,
 } from "@/types/music";
 
 export type {

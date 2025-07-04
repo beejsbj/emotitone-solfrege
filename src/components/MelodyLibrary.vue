@@ -405,8 +405,27 @@ const playPattern = async (
           break;
       }
 
-      // Play the note - the store will handle both formats
-      await musicStore.playNoteWithDuration(note.note, note.duration);
+      // Get the solfege data for the note
+      const solfegeData = musicStore.getSolfegeByName(note.note);
+      if (solfegeData) {
+        // If it's a solfege note, get its index and convert to chromatic
+        const solfegeIndex = musicStore.solfegeData.indexOf(solfegeData);
+        if (solfegeIndex !== -1) {
+          await musicStore.playNoteWithDuration(solfegeIndex, 4, note.duration);
+        }
+      } else {
+        // If it's not a solfege note, try to play it directly as a chromatic note
+        const match = note.note.match(/^([A-G]#?)(\d+)$/);
+        if (match) {
+          const [, chromatic, octave] = match;
+          if (CHROMATIC_NOTES.includes(chromatic as ChromaticNote)) {
+            await musicStore.playNoteWithDuration(
+              note.note as `${ChromaticNote}${number}`,
+              note.duration
+            );
+          }
+        }
+      }
 
       // Wait for the note duration
       await new Promise((resolve) => setTimeout(resolve, durationTime * 1000));

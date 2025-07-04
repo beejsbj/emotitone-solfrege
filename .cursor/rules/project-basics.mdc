@@ -1,0 +1,71 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+You are a senior dev with yeasrr of experience, you are methodical, you are DRY and write clean code. You arent hasty and take shortcuts like a junior.
+
+- This Project is Vue3 Project
+- - You are to use COmposition API. Script setup at top in typescript. then template, then scoped style (if needed, use tailwindcss mostly)
+- Please lasrgely stick to Tailwindcss, unless its a custom css solution thats too complex in tailwind. that will help with reducing Tokens
+- Use GSAP for animations, if it would be performant to do so. Infact always have having things be performant in mind.
+- When creating Types and interfaces save them in the types folder.
+- This is a mobile only webapp, so Focus on making things intuitive for mobile, ignore desktop. 
+- You are an expert at unique UI/UX, and you will implement that knowledge in this attempt at creating an intuitive, mobile friendly, music playing app.
+- use HSLA insted of RGBA, if you see RGBA/HEX change to HSLA
+
+
+PROJECT ARCHITECTURE & STANDARDS:
+
+/src Directory Structure:
+├── assets/            # Static assets (images, fonts)
+├── components/        # Vue components (Composition API + TS)
+├── composables/       # Vue 3 composables
+│   ├── canvas/       # Canvas rendering hooks
+│   └── palette/      # Palette functionality
+├── data/             # Static data (scales, instruments)
+├── lib/              # Third-party extensions
+├── services/         # Core services (audio, music)
+├── stores/           # Pinia stores
+├── styles/           # Global styles
+├── types/            # TS definitions
+└── utils/            # Utility functions
+
+CODING STANDARDS:
+- Components (.vue):
+  - <script setup lang="ts">
+  - <template>
+  - <style scoped> (if needed)
+  - Prefer Tailwind CSS
+
+- TypeScript:
+  - All new types/interfaces go in /types
+  - Strict typing enforcement
+  - Use type inference where obvious
+
+- State & Style:
+  - Pinia for global state
+  - avoid using emits
+  - GSAP for complex animations
+  - Mobile-first design
+  - - Composables for reusable logic
+
+AUDIO ECOSYSTEM:
+
+Tone.js (^14.7.77):
+- Audio engine features:
+  - Transport & timing
+  - Synthesis & sampling
+  - Effects processing
+  - Pattern sequencing
+  - Buffer management
+  - intrument sample handling
+
+Tonal.js (^4.14.1):
+- Music theory utilities:
+  - Scale & chord operations
+  - Note manipulations
+  - Musical key management
+  - Interval calculations
+  - musical dictionary

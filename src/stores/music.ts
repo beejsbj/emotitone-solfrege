@@ -1,16 +1,29 @@
 import { defineStore } from "pinia";
 import { ref, computed, readonly } from "vue";
+import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type {
   SolfegeData,
-  Scale,
-  MelodicPattern,
-  ActiveNote,
+  Melody,
   MusicalMode,
-} from "@/types";
-import { musicTheory } from "@/services/music";
+  ActiveNote,
+  ChromaticNote,
+  CategorizedMelody,
+  MelodyCategory,
+} from "@/types/music";
 import { audioService } from "@/services/audio";
 import { useInstrumentStore } from "@/stores/instrument";
-import { logger } from "@/utils/logger";
+import {
+  MAJOR_SOLFEGE,
+  MINOR_SOLFEGE,
+  type Scale,
+  getAllMelodicPatterns,
+} from "@/data";
+
+// Type for note input - either a chromatic note with octave or solfege index
+type NoteInput = string | { solfegeIndex: number; octave: number };
+
+// Type for chromatic note with octave (e.g., "C4", "F#5")
+type ChromaticNoteWithOctave = `${ChromaticNote}${number}`;
 
 export const useMusicStore = defineStore(
   "music",
@@ -30,7 +43,7 @@ export const useMusicStore = defineStore(
     const currentScale = computed(() => musicTheory.getCurrentScale());
 
     const currentScaleNotes = computed(() => {
-      musicTheory.setCurrentKey(currentKey.value);
+      musicTheory.setCurrentKey(currentKey.value as ChromaticNote);
       musicTheory.setCurrentMode(currentMode.value);
       return musicTheory.getCurrentScaleNotes();
     });
@@ -46,10 +59,108 @@ export const useMusicStore = defineStore(
       }`;
     });
 
+    // Melody-related getters
+    const allMelodies = computed<CategorizedMelody[]>(() => {
+      return musicTheory.getAllMelodies();
+    });
+
+    const melodiesByCategory = computed(() => {
+      return (category: MelodyCategory) =>
+        musicTheory.getMelodiesByCategory(category);
+    });
+
+    // Helper function to convert note input to solfege index and octave
+    function parseNoteInput(
+      note: NoteInput
+    ): { solfegeIndex: number; octave: number } | null {
+      if (typeof note === "string") {
+        // Handle chromatic note with octave (e.g., "C4", "F#5")
+        const noteName = note.slice(0, -1);
+        const octave = parseInt(note.slice(-1));
+
+        // Get current scale notes
+        const scaleNotes = currentScaleNotes.value;
+
+        // Try to find exact match in scale
+        const noteInScale = scaleNotes.find((n) => {
+          const normalizedNote = n.replace("#", "").replace("b", "");
+          const normalizedInput = noteName.replace("#", "").replace("b", "");
+          return normalizedNote === normalizedInput;
+        });
+
+        if (noteInScale) {
+          return {
+            solfegeIndex: scaleNotes.indexOf(noteInScale),
+            octave,
+          };
+        }
+
+        // If not in scale, find closest scale degree
+        const chromaticIndex = CHROMATIC_NOTES.indexOf(
+          noteName as ChromaticNote
+        );
+        if (chromaticIndex !== -1) {
+          const keyIndex = CHROMATIC_NOTES.indexOf(
+            currentKey.value as ChromaticNote
+          );
+          const relativeIndex = (chromaticIndex - keyIndex + 12) % 12;
+          return {
+            solfegeIndex: Math.floor(relativeIndex / 2),
+            octave,
+          };
+        }
+
+        return null;
+      }
+
+      // Already in solfege index format
+      return note;
+    }
+
+    // Helper function to convert chromatic note to solfege index and octave
+    function parseChromatic(
+      note: ChromaticNoteWithOctave
+    ): { solfegeIndex: number; octave: number } | null {
+      const noteName = note.slice(0, -1) as ChromaticNote;
+      const octave = parseInt(note.slice(-1));
+
+      // Get current scale notes
+      const scaleNotes = currentScaleNotes.value;
+
+      // Try to find exact match in scale
+      const noteInScale = scaleNotes.find((n) => {
+        const normalizedNote = n.replace("#", "").replace("b", "");
+        const normalizedInput = noteName.replace("#", "").replace("b", "");
+        return normalizedNote === normalizedInput;
+      });
+
+      if (noteInScale) {
+        return {
+          solfegeIndex: scaleNotes.indexOf(noteInScale),
+          octave,
+        };
+      }
+
+      // If not in scale, find closest scale degree
+      const chromaticIndex = CHROMATIC_NOTES.indexOf(noteName);
+      if (chromaticIndex !== -1) {
+        const keyIndex = CHROMATIC_NOTES.indexOf(
+          currentKey.value as ChromaticNote
+        );
+        const relativeIndex = (chromaticIndex - keyIndex + 12) % 12;
+        return {
+          solfegeIndex: Math.floor(relativeIndex / 2),
+          octave,
+        };
+      }
+
+      return null;
+    }
+
     // Actions
     function setKey(key: string) {
       currentKey.value = key;
-      musicTheory.setCurrentKey(key);
+      musicTheory.setCurrentKey(key as ChromaticNote);
     }
 
     function setMode(mode: MusicalMode) {
@@ -57,34 +168,53 @@ export const useMusicStore = defineStore(
       musicTheory.setCurrentMode(mode);
     }
 
-    async function playNote(solfegeIndex: number) {
+    // Play note with either format
+    async function playNoteWithFormat(
+      input: number | ChromaticNoteWithOctave,
+      octave: number = 4
+    ): Promise<void> {
+      let solfegeIndex: number;
+      let finalOctave: number;
+
+      if (typeof input === "number") {
+        solfegeIndex = input;
+        finalOctave = octave;
+      } else {
+        const parsed = parseChromatic(input);
+        if (!parsed) {
+          console.warn(`Invalid note: ${input}`);
+          return;
+        }
+        solfegeIndex = parsed.solfegeIndex;
+        finalOctave = parsed.octave;
+      }
+
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
         currentNote.value = solfege.name;
         isPlaying.value = true;
 
-        // Get both frequency (for visual effects) and note name (for audio)
-        const frequency = musicTheory.getNoteFrequency(solfegeIndex, 4);
-        const noteName = musicTheory.getNoteName(solfegeIndex, 4);
+        const frequency = musicTheory.getNoteFrequency(
+          solfegeIndex,
+          finalOctave
+        );
+        const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
 
-        // Play the audio using note name for better compatibility
         await audioService.playNote(noteName, "1n");
 
-        // Dispatch custom event for background effects (includes both note name and frequency)
         const notePlayedEvent = new CustomEvent("note-played", {
           detail: {
             note: solfege,
             frequency,
             noteName,
             solfegeIndex,
-            octave: 4,
+            octave: finalOctave,
             instrument: instrumentStore.currentInstrument,
             instrumentConfig: instrumentStore.currentInstrumentConfig,
           },
         });
         window.dispatchEvent(notePlayedEvent);
 
-        // Auto-reset after 2 seconds
         setTimeout(() => {
           currentNote.value = null;
           isPlaying.value = false;
@@ -92,20 +222,36 @@ export const useMusicStore = defineStore(
       }
     }
 
-    async function attackNote(
-      solfegeIndex: number,
+    // Attack note with either format
+    async function attackNoteWithFormat(
+      input: number | ChromaticNoteWithOctave,
       octave: number = 4
     ): Promise<string | null> {
+      let solfegeIndex: number;
+      let finalOctave: number;
+
+      if (typeof input === "number") {
+        solfegeIndex = input;
+        finalOctave = octave;
+      } else {
+        const parsed = parseChromatic(input);
+        if (!parsed) {
+          console.warn(`Invalid note: ${input}`);
+          return null;
+        }
+        solfegeIndex = parsed.solfegeIndex;
+        finalOctave = parsed.octave;
+      }
+
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
-        // Get both frequency (for visual effects) and note name (for audio)
-        const frequency = musicTheory.getNoteFrequency(solfegeIndex, octave);
-        const noteName = musicTheory.getNoteName(solfegeIndex, octave);
+        const frequency = musicTheory.getNoteFrequency(
+          solfegeIndex,
+          finalOctave
+        );
+        const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
 
-        // Create a clean, deterministic note ID using the note name
-        const cleanNoteId = `${noteName}_${solfegeIndex}_${octave}`;
-
-        // Attack the audio using note name with frequency as backup
+        const cleanNoteId = `${noteName}_${solfegeIndex}_${finalOctave}`;
         const noteId = await audioService.attackNote(
           noteName,
           cleanNoteId,
@@ -113,30 +259,25 @@ export const useMusicStore = defineStore(
         );
 
         if (noteId) {
-          // Create active note object
           const activeNote: ActiveNote = {
             solfegeIndex,
             solfege,
             frequency,
-            octave,
+            octave: finalOctave,
             noteId,
             noteName,
           };
 
-          // Add to active notes
           activeNotes.value.set(noteId, activeNote);
-
-          // Update legacy state for backward compatibility
           currentNote.value = solfege.name;
           isPlaying.value = true;
 
-          // Dispatch custom event for background effects
           const notePlayedEvent = new CustomEvent("note-played", {
             detail: {
               note: solfege,
               frequency,
               solfegeIndex,
-              octave,
+              octave: finalOctave,
               noteId,
               noteName,
               instrument: instrumentStore.currentInstrument,
@@ -149,6 +290,133 @@ export const useMusicStore = defineStore(
         }
       }
       return null;
+    }
+
+    // Play note with duration with either format
+    async function playNoteWithDurationFormat(
+      input: number | ChromaticNoteWithOctave,
+      octaveOrDuration: number | string,
+      durationOrTime?: string | number,
+      timeOrInstrument?: number | string,
+      specificInstrument?: string
+    ): Promise<string> {
+      let solfegeIndex: number;
+      let finalOctave: number;
+      let duration: string;
+      let time: number | undefined;
+      let instrument: string | undefined;
+
+      if (typeof input === "number") {
+        solfegeIndex = input;
+        finalOctave = octaveOrDuration as number;
+        duration = durationOrTime as string;
+        time = timeOrInstrument as number;
+        instrument = specificInstrument;
+      } else {
+        const parsed = parseChromatic(input);
+        if (!parsed) {
+          console.warn(`Invalid note: ${input}`);
+          return "";
+        }
+        solfegeIndex = parsed.solfegeIndex;
+        finalOctave = parsed.octave;
+        duration = octaveOrDuration as string;
+        time = durationOrTime as number;
+        instrument = timeOrInstrument as string;
+      }
+
+      const solfege = solfegeData.value[solfegeIndex];
+      if (solfege) {
+        const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
+        const frequency = musicTheory.getNoteFrequency(
+          solfegeIndex,
+          finalOctave
+        );
+
+        const noteId = await audioService.playNoteWithDuration(
+          noteName,
+          duration,
+          time
+        );
+
+        const instrumentToReport =
+          instrument || instrumentStore.currentInstrument;
+        const { getInstrumentConfig } = await import("@/data/instruments");
+        const instrumentConfig = instrument
+          ? getInstrumentConfig(instrument)
+          : instrumentStore.currentInstrumentConfig;
+
+        const notePlayedEvent = new CustomEvent("note-played", {
+          detail: {
+            note: solfege,
+            frequency,
+            noteName,
+            solfegeIndex,
+            octave: finalOctave,
+            duration,
+            time,
+            instrument: instrumentToReport,
+            instrumentConfig: instrumentConfig,
+            sequencerInstrument: instrument,
+          },
+        });
+        window.dispatchEvent(notePlayedEvent);
+
+        return noteId;
+      }
+      return "";
+    }
+
+    // Public API with overloads
+    async function playNote(solfegeIndex: number): Promise<void>;
+    async function playNote(note: ChromaticNoteWithOctave): Promise<void>;
+    async function playNote(
+      input: number | ChromaticNoteWithOctave
+    ): Promise<void> {
+      return playNoteWithFormat(input);
+    }
+
+    async function attackNote(
+      solfegeIndex: number,
+      octave?: number
+    ): Promise<string | null>;
+    async function attackNote(
+      note: ChromaticNoteWithOctave
+    ): Promise<string | null>;
+    async function attackNote(
+      input: number | ChromaticNoteWithOctave,
+      octave?: number
+    ): Promise<string | null> {
+      return attackNoteWithFormat(input, octave);
+    }
+
+    async function playNoteWithDuration(
+      solfegeIndex: number,
+      octave: number,
+      duration: string,
+      time?: number,
+      specificInstrument?: string
+    ): Promise<string>;
+    async function playNoteWithDuration(
+      note: ChromaticNoteWithOctave,
+      duration: string,
+      time?: number,
+      specificInstrument?: string
+    ): Promise<string>;
+    async function playNoteWithDuration(
+      input: number | ChromaticNoteWithOctave,
+      octaveOrDuration: number | string,
+      durationOrTime?: string | number,
+      timeOrInstrument?: number | string,
+      specificInstrument?: string
+    ): Promise<string> {
+      return playNoteWithDurationFormat(
+        input,
+        octaveOrDuration,
+        durationOrTime,
+        timeOrInstrument,
+        specificInstrument
+      );
     }
 
     function releaseNote(noteId?: string) {
@@ -243,7 +511,7 @@ export const useMusicStore = defineStore(
       return musicTheory.getNoteName(solfegeIndex, octave);
     }
 
-    function getMelodicPatterns(): MelodicPattern[] {
+    function getMelodicPatterns(): Melody[] {
       return musicTheory.getMelodicPatterns();
     }
 
@@ -269,7 +537,26 @@ export const useMusicStore = defineStore(
       solfegeIndex: number,
       octave: number
     ): Promise<string | null> {
-      return await attackNote(solfegeIndex, octave);
+      return attackNoteWithFormat(solfegeIndex, octave);
+    }
+
+    // Methods for melody management
+    function searchMelodies(query: string): CategorizedMelody[] {
+      return musicTheory.searchMelodies(query);
+    }
+
+    function getMelodiesByEmotion(emotion: string): CategorizedMelody[] {
+      return musicTheory.getMelodiesByEmotion(emotion);
+    }
+
+    function addUserMelody(
+      melody: Omit<Melody, "category">
+    ): CategorizedMelody {
+      return musicTheory.addUserMelody(melody);
+    }
+
+    function removeUserMelody(melodyName: string): void {
+      musicTheory.removeUserMelody(melodyName);
     }
 
     return {
@@ -286,6 +573,8 @@ export const useMusicStore = defineStore(
       currentScaleNotes,
       solfegeData,
       currentKeyDisplay,
+      allMelodies,
+      melodiesByCategory,
 
       // Actions
       setKey,
@@ -307,6 +596,15 @@ export const useMusicStore = defineStore(
       getActiveNotes,
       getActiveNoteNames,
       isNoteActive,
+      playNoteWithDuration,
+
+      // Add new melody management methods
+      searchMelodies,
+      getMelodiesByEmotion,
+      addUserMelody,
+      removeUserMelody,
+
+      parseNoteInput, // Export for testing/debugging
     };
   },
   {

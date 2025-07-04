@@ -1,263 +1,602 @@
 /**
- * Enhanced Melodic Patterns Data using Tonal.js
- * Leverages Tonal.js for accurate interval calculations and pattern analysis
+ * Melodic Patterns Data
+ * Contains common melodic patterns and interval relationships
  */
 
-import { Interval, Scale } from "@tonaljs/tonal";
-import type { MelodicPattern } from "@/types";
+import type { Melody } from "@/types/music";
 
 // Re-export types for backward compatibility
-export type { MelodicPattern };
+export type { Melody };
+export type MelodicPattern = Melody; // Backward compatibility
 
 /**
- * Generate interval data using Tonal.js
+ * Emotional Melodic Patterns
+ * Each pattern represents specific emotional states using solfege sequences
+ * Updated to use the new SequenceNote structure for cleaner data organization
  */
-function generateIntervalData(intervalName: string): { 
-  semitones: number; 
-  name: string; 
-} {
-  const interval = Interval.get(intervalName);
-  return {
-    semitones: interval.semitones || 0,
-    name: interval.name || intervalName,
-  };
-}
 
-/**
- * Generate melodic pattern from scale degrees using Tonal.js
- */
-function generatePatternFromDegrees(
-  degrees: number[], 
-  key: string = "C", 
-  scaleType: string = "major"
-): string[] {
-  const scale = Scale.get(`${key} ${scaleType}`);
-  return degrees.map(degree => {
-    const noteIndex = (degree - 1) % scale.notes.length;
-    return scale.notes[noteIndex] || "C";
-  });
-}
-
-/**
- * Common melodic patterns and intervals with enhanced Tonal.js analysis
- */
-export const MELODIC_PATTERNS: MelodicPattern[] = [
-  // Basic Intervals - Enhanced with Tonal.js calculations
+export const melodicPatterns: Melody[] = [
+  // === INTERVALS ===
   {
     name: "Unison",
-    description: "Perfect unity, no movement",
-    emotion: "Unity, completion, stillness",
-    sequence: ["Do", "Do"],
-    intervals: [generateIntervalData("1P").semitones], // Perfect unison
-    tonalAnalysis: {
-      intervalName: "Perfect Unison",
-      consonance: "perfect",
-      tension: 0,
-    }
+    description: "The foundation - perfect unity and stability",
+    emotion: "Grounded",
+    sequence: [
+      { note: "Do", duration: "2n" },
+      { note: "Do", duration: "2n" },
+    ],
+    intervals: [0],
   },
   {
-    name: "Minor 2nd",
-    description: "Half-step dissonance, intense yearning",
-    emotion: "Dissonance, yearning, pain, tension",
-    sequence: ["Do", "Ra"],
-    intervals: [generateIntervalData("2m").semitones], // Minor 2nd
-    tonalAnalysis: {
-      intervalName: "Minor Second",
-      consonance: "dissonant",
-      tension: 9,
-    }
+    name: "Minor Second",
+    description: "Dissonant tension seeking resolution",
+    emotion: "Anxious",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Ra", duration: "4n" },
+    ],
+    intervals: [1],
   },
   {
-    name: "Major 2nd",
-    description: "Whole step, gentle forward motion",
-    emotion: "Gentle tension, stepping forward, hope",
-    sequence: ["Do", "Re"],
-    intervals: [generateIntervalData("2M").semitones], // Major 2nd
-    tonalAnalysis: {
-      intervalName: "Major Second",
-      consonance: "dissonant",
-      tension: 7,
-    }
+    name: "Major Second",
+    description: "Step forward with gentle momentum",
+    emotion: "Hopeful",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Re", duration: "4n" },
+    ],
+    intervals: [2],
   },
   {
-    name: "Minor 3rd",
-    description: "The sound of melancholy and introspection",
-    emotion: "Sadness, introspection, tenderness",
-    sequence: ["Do", "Me"],
-    intervals: [generateIntervalData("3m").semitones], // Minor 3rd
-    tonalAnalysis: {
-      intervalName: "Minor Third",
-      consonance: "imperfect consonant",
-      tension: 3,
-    }
+    name: "Minor Third",
+    description: "Melancholic beauty and introspection",
+    emotion: "Wistful",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Me", duration: "4n" },
+    ],
+    intervals: [3],
   },
   {
-    name: "Major 3rd",
-    description: "Bright, joyful, optimistic interval",
-    emotion: "Joy, brightness, optimism",
-    sequence: ["Do", "Mi"],
-    intervals: [generateIntervalData("3M").semitones], // Major 3rd
-    tonalAnalysis: {
-      intervalName: "Major Third",
-      consonance: "imperfect consonant",
-      tension: 2,
-    }
+    name: "Major Third",
+    description: "Bright and optimistic foundation",
+    emotion: "Joyful",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Mi", duration: "4n" },
+    ],
+    intervals: [4],
   },
   {
-    name: "Perfect 4th",
-    description: "Open, stable, foundational",
-    emotion: "Stability, openness, strength",
-    sequence: ["Do", "Fa"],
-    intervals: [generateIntervalData("4P").semitones], // Perfect 4th
-    tonalAnalysis: {
-      intervalName: "Perfect Fourth",
-      consonance: "imperfect consonant",
-      tension: 1,
-    }
+    name: "Perfect Fourth",
+    description: "Stable and noble - the cornerstone interval",
+    emotion: "Noble",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Fa", duration: "4n" },
+    ],
+    intervals: [5],
   },
   {
     name: "Tritone",
     description: "The devil's interval - maximum tension",
-    emotion: "Tension, mystery, unrest, instability",
-    sequence: ["Do", "Fi"],
-    intervals: [generateIntervalData("4A").semitones], // Tritone
-    tonalAnalysis: {
-      intervalName: "Tritone",
-      consonance: "dissonant",
-      tension: 10,
-    }
+    emotion: "Unsettling",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Fi", duration: "4n" },
+    ],
+    intervals: [6],
   },
   {
-    name: "Perfect 5th",
-    description: "Pure, powerful, cosmic",
-    emotion: "Power, openness, clarity, strength",
-    sequence: ["Do", "Sol"],
-    intervals: [generateIntervalData("5P").semitones], // Perfect 5th
-    tonalAnalysis: {
-      intervalName: "Perfect Fifth",
-      consonance: "perfect",
-      tension: 0,
-    }
+    name: "Perfect Fifth",
+    description: "Pure and powerful - the most consonant",
+    emotion: "Triumphant",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Sol", duration: "4n" },
+    ],
+    intervals: [7],
   },
   {
-    name: "Major 6th",
-    description: "Warm, embracing, romantic",
-    emotion: "Warmth, romance, longing",
-    sequence: ["Do", "La"],
-    intervals: [generateIntervalData("6M").semitones], // Major 6th
-    tonalAnalysis: {
-      intervalName: "Major Sixth",
-      consonance: "imperfect consonant",
-      tension: 3,
-    }
+    name: "Minor Sixth",
+    description: "Longing and romantic yearning",
+    emotion: "Yearning",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Le", duration: "4n" },
+    ],
+    intervals: [8],
   },
   {
-    name: "Major 7th",
-    description: "Sophisticated tension, jazz color",
-    emotion: "Sophisticated tension, complexity",
-    sequence: ["Do", "Ti"],
-    intervals: [generateIntervalData("7M").semitones], // Major 7th
-    tonalAnalysis: {
-      intervalName: "Major Seventh",
-      consonance: "dissonant",
-      tension: 8,
-    }
+    name: "Major Sixth",
+    description: "Sweet and warm embrace",
+    emotion: "Warm",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "La", duration: "4n" },
+    ],
+    intervals: [9],
+  },
+  {
+    name: "Minor Seventh",
+    description: "Sophisticated tension and color",
+    emotion: "Sophisticated",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Te", duration: "4n" },
+    ],
+    intervals: [10],
+  },
+  {
+    name: "Major Seventh",
+    description: "Dreamy and ethereal floating",
+    emotion: "Ethereal",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Ti", duration: "4n" },
+    ],
+    intervals: [11],
   },
   {
     name: "Octave",
-    description: "Perfect completion, return home",
-    emotion: "Completion, resolution, return",
-    sequence: ["Do", "Do'"],
-    intervals: [generateIntervalData("8P").semitones], // Octave
-    tonalAnalysis: {
-      intervalName: "Perfect Octave",
-      consonance: "perfect",
-      tension: 0,
-    }
+    description: "Perfect unity across dimensions",
+    emotion: "Complete",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Do", duration: "4n" },
+    ],
+    intervals: [12],
   },
 
-  // Enhanced Melodic Patterns
+  // === MELODIC PATTERNS ===
   {
-    name: "Scale Ascent",
-    description: "Complete major scale ascending journey",
-    emotion: "Rising, building energy, optimism",
-    sequence: ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti", "Do'"],
-    intervals: [2, 2, 1, 2, 2, 2, 1], // Whole and half steps
-    scalePattern: generatePatternFromDegrees([1, 2, 3, 4, 5, 6, 7, 8]),
+    name: "Ascending Scale",
+    description: "Rising journey from earth to sky",
+    emotion: "Ascending",
+    sequence: [
+      { note: "Do", duration: "8n" },
+      { note: "Re", duration: "8n" },
+      { note: "Mi", duration: "8n" },
+      { note: "Fa", duration: "8n" },
+      { note: "Sol", duration: "8n" },
+      { note: "La", duration: "8n" },
+      { note: "Ti", duration: "8n" },
+      { note: "Do", duration: "4n" },
+    ],
   },
   {
-    name: "Scale Descent",
-    description: "Complete major scale descending journey",
-    emotion: "Falling, releasing energy, resolution",
-    sequence: ["Do'", "Ti", "La", "Sol", "Fa", "Mi", "Re", "Do"],
-    intervals: [-1, -2, -2, -1, -2, -2, -2], // Negative intervals for descent
-    scalePattern: generatePatternFromDegrees([8, 7, 6, 5, 4, 3, 2, 1]),
+    name: "Descending Scale",
+    description: "Graceful descent back to foundation",
+    emotion: "Settling",
+    sequence: [
+      { note: "Do", duration: "8n" },
+      { note: "Ti", duration: "8n" },
+      { note: "La", duration: "8n" },
+      { note: "Sol", duration: "8n" },
+      { note: "Fa", duration: "8n" },
+      { note: "Mi", duration: "8n" },
+      { note: "Re", duration: "8n" },
+      { note: "Do", duration: "4n" },
+    ],
   },
   {
-    name: "Do-Sol-Do (Power Leap)",
-    description: "Perfect fifth leap and return - triumphant",
-    emotion: "Triumphant, powerful, heroic",
-    sequence: ["Do", "Sol", "Do'"],
-    intervals: [7, 5], // Perfect 5th up, Perfect 4th up
-    scalePattern: generatePatternFromDegrees([1, 5, 8]),
+    name: "Joy Pattern",
+    description: "Exuberant leap and playful return",
+    emotion: "Exuberant",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Mi", duration: "4n" },
+      { note: "Sol", duration: "4n" },
+      { note: "Do", duration: "2n" },
+    ],
   },
   {
-    name: "Leading Tone Resolution",
-    description: "Ti resolving to Do - strongest resolution",
-    emotion: "Urgent resolution, satisfaction",
-    sequence: ["Ti", "Do'"],
-    intervals: [1], // Half step up
-    scalePattern: generatePatternFromDegrees([7, 8]),
+    name: "Sadness Pattern",
+    description: "Gentle descent into melancholy",
+    emotion: "Melancholic",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Te", duration: "4n" },
+      { note: "Le", duration: "4n" },
+      { note: "Sol", duration: "2n" },
+    ],
   },
   {
-    name: "Lament Bass",
-    description: "Descending chromatic line - deeply emotional",
-    emotion: "Grief, sorrow, lamenting",
-    sequence: ["Do", "Ti", "La", "Sol"],
-    intervals: [-1, -1, -1], // Chromatic descent
-    scalePattern: generatePatternFromDegrees([1, 7, 6, 5]),
+    name: "Mystery Pattern",
+    description: "Chromatic whispers and hidden paths",
+    emotion: "Mysterious",
+    sequence: [
+      { note: "Do", duration: "8n" },
+      { note: "Ra", duration: "8n" },
+      { note: "Re", duration: "8n" },
+      { note: "Me", duration: "8n" },
+      { note: "Mi", duration: "4n" },
+      { note: "Fa", duration: "4n" },
+    ],
   },
   {
-    name: "Circle of Fifths Progression",
-    description: "Moving through keys via perfect fifths",
-    emotion: "Harmonic journey, sophistication",
-    sequence: ["Do", "Sol", "Re", "La", "Mi"],
-    intervals: [7, 7, 7, 7], // All perfect fifths
-    scalePattern: generatePatternFromDegrees([1, 5, 2, 6, 3]),
+    name: "Triumph Pattern",
+    description: "Bold ascending fifths of victory",
+    emotion: "Victorious",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Sol", duration: "4n" },
+      { note: "Do", duration: "4n" },
+      { note: "Sol", duration: "2n" },
+    ],
   },
   {
-    name: "Picardy Third",
-    description: "Minor to major resolution",
-    emotion: "Unexpected brightness, hope from darkness",
-    sequence: ["Me", "Mi"],
-    intervals: [1], // Half step up
-    scalePattern: ["Eb", "E"], // Example in C
+    name: "Peaceful Pattern",
+    description: "Gentle waves of tranquil thirds",
+    emotion: "Serene",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Mi", duration: "4n" },
+      { note: "Re", duration: "4n" },
+      { note: "Fa", duration: "4n" },
+      { note: "Mi", duration: "2n" },
+    ],
+  },
+  {
+    name: "Tension Pattern",
+    description: "Dissonant climbs and urgent pulses",
+    emotion: "Tense",
+    sequence: [
+      { note: "Do", duration: "16n" },
+      { note: "Ra", duration: "16n" },
+      { note: "Fi", duration: "16n" },
+      { note: "Te", duration: "16n" },
+      { note: "Ti", duration: "8n" },
+      { note: "Do", duration: "4n" },
+    ],
+  },
+  {
+    name: "Playful Pattern",
+    description: "Bouncing skips and cheerful leaps",
+    emotion: "Playful",
+    sequence: [
+      { note: "Do", duration: "8n" },
+      { note: "Mi", duration: "8n" },
+      { note: "Re", duration: "8n" },
+      { note: "Fa", duration: "8n" },
+      { note: "Mi", duration: "8n" },
+      { note: "Sol", duration: "8n" },
+      { note: "Do", duration: "4n" },
+    ],
+  },
+  {
+    name: "Longing Pattern",
+    description: "Reaching upward with heartfelt yearning",
+    emotion: "Yearning",
+    sequence: [
+      { note: "Do", duration: "4n" },
+      { note: "Re", duration: "8n" },
+      { note: "Mi", duration: "8n" },
+      { note: "Sol", duration: "4n" },
+      { note: "La", duration: "2n" },
+    ],
   },
 ];
 
 /**
- * Get patterns by interval type using Tonal.js classification
+ * Get all melodic patterns
  */
-export function getPatternsByInterval(intervalType: "consonant" | "dissonant"): MelodicPattern[] {
-  return MELODIC_PATTERNS.filter(pattern => {
-    if (!pattern.tonalAnalysis) return false;
-    
-    if (intervalType === "consonant") {
-      return pattern.tonalAnalysis.consonance.includes("consonant") || 
-             pattern.tonalAnalysis.consonance === "perfect";
-    } else {
-      return pattern.tonalAnalysis.consonance === "dissonant";
-    }
-  });
+export function getAllMelodicPatterns(): Melody[] {
+  return melodicPatterns;
 }
 
 /**
- * Get patterns by tension level (0-10 scale)
+ * Get patterns by emotion
  */
-export function getPatternsByTension(minTension: number, maxTension: number): MelodicPattern[] {
-  return MELODIC_PATTERNS.filter(pattern => {
-    if (!pattern.tonalAnalysis?.tension) return false;
-    return pattern.tonalAnalysis.tension >= minTension && 
-           pattern.tonalAnalysis.tension <= maxTension;
-  });
+export function getPatternsByEmotion(emotion: string): Melody[] {
+  return melodicPatterns.filter((pattern) =>
+    pattern.emotion?.toLowerCase().includes(emotion.toLowerCase())
+  );
+}
+
+/**
+ * Get interval patterns (single intervals)
+ */
+export function getIntervalPatterns(): Melody[] {
+  return melodicPatterns.filter(
+    (pattern) => pattern.intervals && pattern.intervals.length === 1
+  );
+}
+
+/**
+ * Get complex melodic patterns (not just intervals)
+ */
+export function getMelodicPatterns(): Melody[] {
+  return melodicPatterns.filter(
+    (pattern) => !pattern.intervals || pattern.intervals.length !== 1
+  );
+}
+
+// Export the main patterns array as the default for backward compatibility
+export default melodicPatterns;
+
+/**
+ * Complete Melodies Collection
+ * Famous melodies with tempo and key information
+ */
+export const completeMelodies: Melody[] = [
+  {
+    name: "Twinkle Twinkle Little Star",
+    description: "Classic children's lullaby with gentle, comforting melody",
+    emotion: "Peaceful",
+    defaultBpm: 100,
+    defaultKey: "C",
+    sequence: [
+      { note: "C4", duration: "4n" },
+      { note: "C4", duration: "4n" },
+      { note: "G4", duration: "4n" },
+      { note: "G4", duration: "4n" },
+      { note: "A4", duration: "4n" },
+      { note: "A4", duration: "4n" },
+      { note: "G4", duration: "2n" },
+      { note: "F4", duration: "4n" },
+      { note: "F4", duration: "4n" },
+      { note: "E4", duration: "4n" },
+      { note: "E4", duration: "4n" },
+      { note: "D4", duration: "4n" },
+      { note: "D4", duration: "4n" },
+      { note: "C4", duration: "2n" },
+    ],
+  },
+  {
+    name: "Six Hundred Men",
+    description: "Epic the Musical - Energetic and dramatic theme",
+    emotion: "Epic",
+    defaultBpm: 140,
+    defaultKey: "D#",
+    sequence: [
+      { note: "D#4", duration: "8n" },
+      { note: "F4", duration: "8n" },
+      { note: "G4", duration: "8n" },
+      { note: "G#4", duration: "8n" },
+      { note: "A#4", duration: "8n" },
+      { note: "A#4", duration: "8n" },
+      { note: "C5", duration: "4n" },
+      { note: "A#4", duration: "8n" },
+      { note: "G#4", duration: "8n" },
+    ],
+  },
+  {
+    name: "Full Speed Ahead",
+    description: "Epic the Musical - Fast and determined adventure theme",
+    emotion: "Adventurous",
+    defaultBpm: 160,
+    defaultKey: "D#",
+    sequence: [
+      { note: "D#4", duration: "8n" },
+      { note: "G4", duration: "8n" },
+      { note: "G#4", duration: "8n" },
+      { note: "F4", duration: "4n" },
+    ],
+  },
+  {
+    name: "Magical Adventure",
+    description: "Mystical journey with soaring melodic lines",
+    emotion: "Mystical",
+    defaultBpm: 120,
+    defaultKey: "B",
+    sequence: [
+      { note: "B4", duration: "4n" },
+      { note: "E5", duration: "4n" },
+      { note: "G5", duration: "4n" },
+      { note: "F#5", duration: "2n" },
+      { note: "E5", duration: "4n" },
+      { note: "B4", duration: "4n" },
+      { note: "A4", duration: "2n" },
+      { note: "F#4", duration: "4n" },
+      { note: "E4", duration: "4n" },
+      { note: "G4", duration: "4n" },
+      { note: "F#4", duration: "2n" },
+    ],
+  },
+  {
+    name: "Hedwig's Theme",
+    description: "Harry Potter - Mysterious and flowing magical theme",
+    emotion: "Mysterious",
+    defaultBpm: 84,
+    defaultKey: "B",
+    sequence: [
+      { note: "B4", duration: "8n" },
+      { note: "E5", duration: "4n" },
+      { note: "G5", duration: "8n" },
+      { note: "F#5", duration: "4n" },
+      { note: "E5", duration: "2n" },
+      { note: "B4", duration: "8n" },
+      { note: "E5", duration: "4n" },
+      { note: "G5", duration: "8n" },
+      { note: "F#5", duration: "4n" },
+      { note: "D#5", duration: "2n" },
+      { note: "F5", duration: "8n" },
+      { note: "C#5", duration: "4n" },
+      { note: "E5", duration: "8n" },
+      { note: "D#5", duration: "4n" },
+      { note: "B4", duration: "2n" },
+    ],
+  },
+  {
+    name: "Athena's Theme",
+    description:
+      "Epic the Musical - Wisdom goddess's intricate and powerful theme",
+    emotion: "Wise",
+    defaultBpm: 120,
+    defaultKey: "E",
+    sequence: [
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "B4", duration: "16n" },
+      { note: "G#4", duration: "16n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "B4", duration: "16n" },
+      { note: "G#4", duration: "16n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "B4", duration: "16n" },
+      { note: "G#4", duration: "16n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "B4", duration: "16n" },
+      { note: "G#4", duration: "16n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+      { note: "B4", duration: "16n" },
+      { note: "G#4", duration: "16n" },
+      { note: "E4", duration: "8n" },
+      { note: "G#4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "E5", duration: "8n" },
+    ],
+  },
+  {
+    name: "Warrior of the Mind - Athena's Theme (Opening)",
+    description:
+      "Epic the Musical - Athena's ascending wisdom theme with rapid arpeggios",
+    emotion: "Strategic",
+    defaultBpm: 120,
+    defaultKey: "A",
+    sequence: [
+      { note: "A4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "C#5", duration: "16n" },
+      { note: "D5", duration: "16n" },
+      { note: "E5", duration: "16n" },
+      { note: "F#5", duration: "16n" },
+      { note: "E5", duration: "16n" },
+      { note: "C#5", duration: "16n" },
+      { note: "A4", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "C#5", duration: "16n" },
+      { note: "D5", duration: "16n" },
+      { note: "E5", duration: "16n" },
+      { note: "F#5", duration: "16n" },
+      { note: "E5", duration: "16n" },
+      { note: "D5", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "C#5", duration: "16n" },
+      { note: "D5", duration: "16n" },
+      { note: "E5", duration: "16n" },
+      { note: "F#5", duration: "16n" },
+      { note: "G5", duration: "16n" },
+      { note: "F#5", duration: "16n" },
+      { note: "D5", duration: "16n" },
+      { note: "B4", duration: "16n" },
+      { note: "C#5", duration: "16n" },
+      { note: "D5", duration: "16n" },
+      { note: "E5", duration: "16n" },
+      { note: "F#5", duration: "16n" },
+      { note: "G5", duration: "16n" },
+      { note: "F#5", duration: "16n" },
+      { note: "E5", duration: "16n" },
+    ],
+  },
+];
+
+/**
+ * Melody Categories
+ */
+export type MelodyCategory =
+  | "intervals"
+  | "patterns"
+  | "complete"
+  | "userCreated";
+
+export interface CategorizedMelody extends Melody {
+  category: MelodyCategory;
+  name: string;
+  sequence: Array<{ note: string; duration: string }>;
+}
+
+/**
+ * Helper function to categorize a melody
+ */
+function categorizeMelody(melody: Melody): CategorizedMelody {
+  let category: MelodyCategory;
+
+  if (melody.intervals?.length === 1) {
+    category = "intervals";
+  } else if (melody.defaultBpm && melody.defaultKey) {
+    category = "complete";
+  } else {
+    category = "patterns";
+  }
+
+  return {
+    ...melody,
+    category,
+    name: melody.name,
+    sequence: melody.sequence,
+  };
+}
+
+/**
+ * All melodies combined with categories
+ */
+export const allMelodies: CategorizedMelody[] = [
+  ...melodicPatterns.map((melody) => categorizeMelody(melody)),
+  ...completeMelodies.map((melody) => categorizeMelody(melody)),
+];
+
+/**
+ * Get melodies by category
+ */
+export function getMelodiesByCategory(
+  category: MelodyCategory
+): CategorizedMelody[] {
+  return allMelodies.filter((melody) => melody.category === category);
+}
+
+/**
+ * Get all complete melodies with tempo/key information
+ */
+export function getCompleteMelodies(): Melody[] {
+  return completeMelodies;
+}
+
+/**
+ * Get melody by name (searches both patterns and complete melodies)
+ */
+export function getMelodyByName(name: string): Melody | undefined {
+  return allMelodies.find(
+    (melody) => melody.name.toLowerCase() === name.toLowerCase()
+  );
+}
+
+/**
+ * Get melodies by emotion (searches both patterns and complete melodies)
+ */
+export function getAllMelodiesByEmotion(emotion: string): Melody[] {
+  return allMelodies.filter((melody) =>
+    melody.emotion?.toLowerCase().includes(emotion.toLowerCase())
+  );
 }

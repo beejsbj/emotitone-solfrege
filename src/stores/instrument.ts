@@ -308,6 +308,16 @@ export const useInstrumentStore = defineStore("instrument", () => {
     return instruments.value.get(currentInstrument.value) || null;
   };
 
+  // Get any specific instrument by name (without changing global state)
+  const getInstrument = (instrumentName: string): any => {
+    return instruments.value.get(instrumentName) || null;
+  };
+
+  // Check if instrument is loaded
+  const isInstrumentLoaded = (instrumentName: string): boolean => {
+    return instruments.value.has(instrumentName);
+  };
+
   // Set current instrument
   const setInstrument = (instrumentName: string) => {
     if (AVAILABLE_INSTRUMENTS[instrumentName]) {
@@ -341,6 +351,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
     // Actions
     initializeInstruments,
     getCurrentInstrument,
+    getInstrument,
+    isInstrumentLoaded,
     setInstrument,
     dispose,
   };

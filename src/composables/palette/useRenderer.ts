@@ -290,8 +290,11 @@ export function usePaletteRenderer(
 
     const solfege = visibleSolfegeData.value[layout.solfegeIndex];
     const scaleNote = musicStore.currentScaleNotes[layout.solfegeIndex];
-    const isActive = isNoteActiveForSolfege(solfege.name, layout.octave);
     const buttonKey = `${solfege.name}-${layout.octave}`;
+    // Check for both direct interaction AND sequencer visual feedback
+    const isActive =
+      isNoteActiveForSolfege(solfege.name, layout.octave) ||
+      animationState.value.pressedButtons.has(buttonKey);
 
     ctx.save();
 

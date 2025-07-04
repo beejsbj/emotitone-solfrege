@@ -10,6 +10,14 @@ export type HapticIntensity =
   | "heavy"
   | "string";
 
+interface HapticFeedback {
+  impact(intensity: HapticIntensity): void;
+}
+
+interface WindowWithHaptics extends Window {
+  hapticFeedback?: HapticFeedback;
+}
+
 /**
  * Triggers haptic feedback on supported devices
  * @param intensity - The intensity of the haptic feedback
@@ -31,10 +39,10 @@ export const triggerHapticFeedback = (
   }
 
   // For devices with more advanced haptic feedback (iOS Safari with Haptic Engine)
-  if ("hapticFeedback" in window) {
+  const win = window as WindowWithHaptics;
+  if (win.hapticFeedback) {
     try {
-      // @ts-ignore - hapticFeedback is not in standard types yet
-      window.hapticFeedback.impact(intensity);
+      win.hapticFeedback.impact(intensity);
     } catch (e) {
       // Fallback to vibration if haptic feedback fails
       console.debug(

@@ -157,6 +157,66 @@ export class AudioService {
       }
   }
 
+  async playNoteWithDuration(note: string | number, duration: string, time?: number): Promise<string> {
+    try {
+      // Force user interaction and audio context start
+      if (!this.userInteractionReceived) {
+        this.userInteractionReceived = true;
+      }
+
+      await this.initialize();
+
+      // Ensure audio context is properly started
+      const context = Tone.getContext();
+      if (context.state === "suspended") {
+        console.log("Audio context suspended, starting...");
+        await Tone.start();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      const instrumentStore = await this.getInstrumentStore();
+      const instrument = instrumentStore.getCurrentInstrument();
+
+      if (instrument && Tone.getContext().state === "running") {
+        try {
+          // Use note name directly if provided, otherwise use frequency
+          const noteToPlay = typeof note === "string" ? note : note;
+          
+          // Create a unique note ID for tracking
+          const noteId = `note_${typeof note === "string" ? note : note}_${Date.now()}_${Math.random()}`;
+
+          // Schedule the note with proper duration and timing
+          if (time !== undefined) {
+            // Schedule for future playback
+            instrument.triggerAttackRelease(noteToPlay, duration, time);
+          } else {
+            // Play immediately
+            instrument.triggerAttackRelease(noteToPlay, duration);
+          }
+
+          return noteId;
+        } catch (triggerError) {
+          console.error(
+            "Error triggering instrument in playNoteWithDuration:",
+            triggerError
+          );
+          console.log(
+            "Instrument type:",
+            instrument.constructor?.name || "Unknown"
+          );
+          console.log("Note:", note, "Duration:", duration);
+        }
+      } else {
+        console.warn(
+          "Cannot play note - audio context not ready or no instrument"
+        );
+      }
+    } catch (error) {
+      console.error("Error playing note with duration:", error);
+    }
+    return "";
+  }
+
   async attackNote(
     note: string | number,
     noteId?: string,

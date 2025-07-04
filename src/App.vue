@@ -9,67 +9,27 @@
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <UnifiedVisualEffects v-if="!isLoading" />
 
-    <!-- Settings Panel - User configuration interface -->
-    <SettingsPanel v-if="!isLoading" />
+    <!-- Auto Visual Effects Debug Panel (Development Only) -->
+    <AutoDebugPanel v-if="!isLoading" />
+    <InstrumentSelector />
 
     <!-- Main Content -->
     <div v-if="!isLoading" class="relative z-10 min-h-screen flex flex-col">
       <!-- Header -->
       <AppHeader />
 
-      <!-- Main App Content -->
-      <main class="flex-1">
-        <div class="max-w-6xl mx-auto">
-          <div class="grid grid-cols-1 gap-6">
-            <!-- Key Selector -->
-            <div class="lg:col-span-1 h-screen">
-              <!-- <KeySelector /> -->
-            </div>
+      <SequencerSection />
 
-            <InstrumentSelector />
-
-            <!-- Pattern Player -->
-
-            <!-- Sticky horizontal scroller -->
-            <div class="sticky bottom-0">
-              <!-- Floating Interval Description Popup -->
-              <KeySelector />
-
-              <FloatingPopup />
-              <div
-                class="flex items-end overflow-x-auto snap-x snap-mandatory scroll-smooth gap-1 scrollbar-hide"
-              >
-                <div class="snap-start shrink-0 w-screen grid">
-                  <button
-                    @click="handleScroll(1)"
-                    class="bg-gray-500 px-1 py-[1px] justify-self-end"
-                  >
-                    patterns
-                  </button>
-                  <!-- DOM Palette (for comparison) -->
-                  <!-- <SolfegePalette /> -->
-                  <CanvasSolfegePalette />
-                </div>
-                <div class="snap-start shrink-0 w-screen">
-                  <button
-                    @click="handleScroll(-1)"
-                    class="bg-gray-500 px-1 py-[1px]"
-                  >
-                    Keys
-                  </button>
-                  <PatternPlayer />
-                </div>
-              </div>
-            </div>
-
-            <!-- Canvas Palette (new implementation) -->
-          </div>
-        </div>
-      </main>
-
-      <!-- Color System Showcase - Developer showcase at bottom -->
-      <ColorSystemShowcase v-if="!isLoading" />
+      <FloatingPopup />
+      <StickyBottom />
     </div>
+
+    <!-- Global Tooltip Renderer -->
+    <TooltipRenderer
+      :tooltip-state="globalTooltip.tooltipState.value"
+      :rotation="globalTooltip.rotation.value"
+      :translation="globalTooltip.translation.value"
+    />
   </div>
 </template>
 
@@ -78,16 +38,15 @@ import { useMusicStore } from "@/stores/music";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { logger } from "@/utils/logger";
 import LoadingSplash from "@/components/LoadingSplash.vue";
-import KeySelector from "@/components/KeySelector.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
-import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
-import SettingsPanel from "@/components/SettingsPanel.vue";
-import PatternPlayer from "@/components/PatternPlayer.vue";
+import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import ColorSystemShowcase from "@/components/ColorSystemShowcase.vue";
-
+import SequencerSection from "@/components/SequencerSection.vue";
+import TooltipRenderer from "@/components/TooltipRenderer.vue";
+import { globalTooltip } from "@/directives/tooltip";
+import StickyBottom from "@/components/StickyBottom.vue";
 // Stores and composables
 const musicStore = useMusicStore();
 const { isLoading } = useAppLoading();

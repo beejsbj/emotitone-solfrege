@@ -6,6 +6,7 @@
 2. **Clean up this plan**: Remove completed phases from this document to reduce token usage
 3. **Track progress**: Update `completed_REFACTORING_RESTORATION_PLAN.md` with implementation details
 4. **Success metrics**: Are tracked in the completed tracker file, not here
+5. **⚠️ NEW: Create completed documents**: Starting from Phase 2, create new `completed_PHASE_X_REFACTORING.md` documents for each phase instead of just updating the main completed file
 
 ## Overview
 

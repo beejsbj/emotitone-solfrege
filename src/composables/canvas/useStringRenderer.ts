@@ -9,7 +9,7 @@ import type {
   StringConfig,
   AnimationConfig,
 } from "@/types";
-import { useColorSystem } from "../useColorSystem";
+import { useColorSystem } from "../color";
 import {
   createVisualFrequency,
   createHarmonicVibration,

@@ -5,7 +5,7 @@ export { initializeFontWeightOscillation } from "./useOscillatingFontWeight";
 
 export { useAnimationLifecycle } from "./useAnimationLifecycle";
 // export { useVisualConfig } from "./useVisualConfig"; // DELETED - moved to visualConfig store
-export { useColorSystem } from "./useColorSystem";
+export { useColorSystem } from "./color";
 export { useKeyboardControls } from "./useKeyboardControls";
 export { useSolfegeInteraction } from "./useSolfegeInteraction";
 export { useAppLoading } from "./useAppLoading";

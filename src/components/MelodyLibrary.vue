@@ -196,7 +196,7 @@
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useSequencerStore } from "@/stores/sequencer";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import useGSAP from "@/composables/useGSAP";
 import type {
   CategorizedMelody,

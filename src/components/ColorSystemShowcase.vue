@@ -267,23 +267,44 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useColorSystem } from '@/composables/useColorSystem';
+import { useColorSystem } from '@/composables/color';
 import { SOLFEGE_NOTES } from '@/data';
 import type { MusicalMode } from '@/types';
 
 const {
   getPrimaryColor,
-  getAccentColor,
-  getSecondaryColor,
-  getTertiaryColor,
+  getNoteColors,
   getGradient,
-  getConicGradient,
   withAlpha,
   createGlassmorphBackground,
   createGlassmorphShadow,
   createChordGlassmorphBackground,
   createChordGlassmorphShadow,
 } = useColorSystem();
+
+// Helper functions for missing color system functions
+const getAccentColor = (noteName: string, mode: MusicalMode = 'major', octave: number = 4): string => {
+  return getNoteColors(noteName, mode, octave).accent;
+};
+
+const getSecondaryColor = (noteName: string, mode: MusicalMode = 'major', octave: number = 4): string => {
+  return getNoteColors(noteName, mode, octave).secondary;
+};
+
+const getTertiaryColor = (noteName: string, mode: MusicalMode = 'major', octave: number = 4): string => {
+  return getNoteColors(noteName, mode, octave).tertiary;
+};
+
+const getConicGradient = (
+  noteName: string,
+  mode: MusicalMode = 'major',
+  octave: number = 3,
+  startAngle: number = 0
+): string => {
+  const colors = getNoteColors(noteName, mode, octave);
+  const cssStartAngle = typeof startAngle === "number" ? `${startAngle}deg` : startAngle;
+  return `conic-gradient(from ${cssStartAngle}, ${colors.primary} 60%, ${colors.accent}, ${colors.secondary}, ${colors.tertiary})`;
+};
 
 // Reactive state
 const currentMode = ref<MusicalMode>('major');

@@ -4,11 +4,11 @@
  */
 
 import type { ActiveBlob, BlobConfig, SolfegeData } from "@/types";
-import { useColorSystem } from "../useColorSystem";
+import { useColorSystem } from "../color";
 import { createVisualFrequency } from "@/utils/visualEffects";
 
 export function useBlobRenderer() {
-  const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
+  const { getPrimaryColor, getNoteColors, withAlpha } = useColorSystem();
 
   // Blob state - now supports both note names and noteIds for polyphonic tracking
   const activeBlobs = new Map<string, ActiveBlob>();
@@ -277,10 +277,10 @@ export function useBlobRenderer() {
         blob.note.name,
         musicStore.currentMode
       );
-      const accentColor = getAccentColor(
+      const accentColor = getNoteColors(
         blob.note.name,
         musicStore.currentMode
-      );
+      ).accent;
 
       // Apply opacity to colors using withAlpha from color system
       const primaryWithOpacity = withAlpha(primaryColor, currentOpacity);

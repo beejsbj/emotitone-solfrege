@@ -1,132 +1,311 @@
-// Enhanced Music Theory Service using Tonal.js
-// Comprehensive music theory calculations, scales, chords, and analysis
+// Music Theory Service for Emotitone Solfege
+// Handles all music theory calculations, scales, and emotional mappings
 
 import {
   CHROMATIC_NOTES,
-  MAJOR_SOLFEGE,
-  MINOR_SOLFEGE,
-  MELODIC_PATTERNS,
   MAJOR_SCALE,
   MINOR_SCALE,
   type SolfegeData,
   type Scale,
-  type MelodicPattern,
-  validateNote,
-  getSemitoneDistance,
-  transposeNote,
-  getPitchClass,
-  noteToSolfege,
+  getAllMelodicPatterns,
+  getPatternsByEmotion,
+  getIntervalPatterns,
+  getMelodicPatterns,
+  getCompleteMelodies,
 } from "@/data";
-import type { Note, MusicalMode, MusicAnalysis } from "@/types";
-import { 
-  Note as TonalNote, 
-  Scale as TonalScale, 
-  Chord, 
-  Key, 
-  Interval,
-  Mode,
-  Progression
-} from "@tonaljs/tonal";
-import { logger } from "@/utils/logger";
+import type {
+  Note,
+  MusicalMode,
+  Melody,
+  ChromaticNote,
+  MelodyCategory,
+  CategorizedMelody,
+} from "@/types/music";
+import { Note as TonalNote, Scale as TonalScale } from "@tonaljs/tonal";
 
 // Re-export types for backward compatibility
-export type { SolfegeData, Scale, MelodicPattern, Note, MusicalMode, MusicAnalysis };
+export type {
+  SolfegeData,
+  Scale,
+  Melody,
+  Note,
+  MusicalMode,
+  MelodyCategory,
+  CategorizedMelody,
+};
 
 // Re-export the imported constants for backward compatibility
-export {
-  CHROMATIC_NOTES,
-  MAJOR_SOLFEGE,
-  MINOR_SOLFEGE,
-  MELODIC_PATTERNS,
-  MAJOR_SCALE,
-  MINOR_SCALE,
-  validateNote,
-  getSemitoneDistance,
-  transposeNote,
-  getPitchClass,
-  noteToSolfege,
+export { CHROMATIC_NOTES, MAJOR_SCALE, MINOR_SCALE };
+
+// Add flat to sharp conversion map and edge case handling
+const FLAT_TO_SHARP_MAP: Record<string, ChromaticNote> = {
+  Db: "C#",
+  Eb: "D#",
+  Gb: "F#",
+  Ab: "G#",
+  Bb: "A#",
+};
+
+const EDGE_CASE_MAP: Record<string, ChromaticNote> = {
+  "E#": "F",
+  "B#": "C",
+  Fb: "E",
+  Cb: "B",
+};
+
+const DOUBLE_ACCIDENTAL_MAP: Record<string, ChromaticNote> = {
+  "F##": "G",
+  "C##": "D",
+  "G##": "A",
+  "D##": "E",
+  "A##": "B",
+  "E##": "F#",
+  "B##": "C#",
+  Gbb: "F",
+  Dbb: "C",
+  Abb: "G",
+  Ebb: "D",
+  Bbb: "A",
+  Fbb: "E",
+  Cbb: "B",
 };
 
 export class MusicTheoryService {
-  private currentKey: string = "C";
+  private currentKey: ChromaticNote = "C";
   private currentMode: MusicalMode = "major";
+  private melodyCache: Map<string, CategorizedMelody[]> = new Map();
 
   constructor() {
-    logger.info("Enhanced MusicTheoryService initialized with Tonal.js");
+    this.initializeMelodyCache();
   }
 
-  // Enhanced key management with validation
+  private initializeMelodyCache(): void {
+    // Initialize melody cache with categorized melodies
+    const allMelodies = this.categorizeMelodies();
+    this.melodyCache.set("all", allMelodies);
+
+    // Cache by category
+    const categories: MelodyCategory[] = [
+      "intervals",
+      "patterns",
+      "complete",
+      "userCreated",
+    ];
+    categories.forEach((category) => {
+      this.melodyCache.set(
+        category,
+        allMelodies.filter((m) => m.category === category)
+      );
+    });
+  }
+
+  private categorizeMelodies(): CategorizedMelody[] {
+    const melodies: CategorizedMelody[] = [];
+
+    // Categorize interval patterns
+    const intervals = getIntervalPatterns().map((melody) => ({
+      ...melody,
+      category: "intervals" as MelodyCategory,
+    }));
+
+    // Categorize melodic patterns
+    const patterns = getMelodicPatterns().map((melody) => ({
+      ...melody,
+      category: "patterns" as MelodyCategory,
+    }));
+
+    // Categorize complete melodies
+    const complete = getCompleteMelodies().map((melody) => ({
+      ...melody,
+      category: "complete" as MelodyCategory,
+    }));
+
+    return [...intervals, ...patterns, ...complete];
+  }
+
+  // Get all melodies with categories
+  getAllMelodies(): CategorizedMelody[] {
+    return this.melodyCache.get("all") || this.categorizeMelodies();
+  }
+
+  // Get melodies by category
+  getMelodiesByCategory(category: MelodyCategory): CategorizedMelody[] {
+    return this.melodyCache.get(category) || [];
+  }
+
+  // Get melodies by emotion
+  getMelodiesByEmotion(emotion: string): CategorizedMelody[] {
+    const allMelodies = this.getAllMelodies();
+    return allMelodies.filter((melody) =>
+      melody.emotion?.toLowerCase().includes(emotion.toLowerCase())
+    );
+  }
+
+  // Search melodies by text
+  searchMelodies(query: string): CategorizedMelody[] {
+    const searchTerm = query.toLowerCase();
+    return this.getAllMelodies().filter(
+      (melody) =>
+        melody.name.toLowerCase().includes(searchTerm) ||
+        melody.description?.toLowerCase().includes(searchTerm) ||
+        melody.emotion?.toLowerCase().includes(searchTerm)
+    );
+  }
+
+  // Add a user-created melody
+  addUserMelody(melody: Omit<Melody, "category">): CategorizedMelody {
+    const categorizedMelody: CategorizedMelody = {
+      ...melody,
+      category: "userCreated",
+    };
+
+    // Update cache
+    const allMelodies = this.getAllMelodies();
+    allMelodies.push(categorizedMelody);
+    this.melodyCache.set("all", allMelodies);
+
+    const userMelodies = this.getMelodiesByCategory("userCreated");
+    userMelodies.push(categorizedMelody);
+    this.melodyCache.set("userCreated", userMelodies);
+
+    return categorizedMelody;
+  }
+
+  // Remove a user-created melody
+  removeUserMelody(melodyName: string): void {
+    const allMelodies = this.getAllMelodies().filter(
+      (m) => m.name !== melodyName
+    );
+    this.melodyCache.set("all", allMelodies);
+
+    const userMelodies = this.getMelodiesByCategory("userCreated").filter(
+      (m) => m.name !== melodyName
+    );
+    this.melodyCache.set("userCreated", userMelodies);
+  }
+
+  // Get the current key
   getCurrentKey(): string {
     return this.currentKey;
   }
 
-  setCurrentKey(key: string): void {
-    const validatedKey = validateNote(key);
-    if (validatedKey) {
-      this.currentKey = getPitchClass(validatedKey);
-      logger.debug(`Key changed to ${this.currentKey}`);
+  // Set the current key
+  setCurrentKey(key: ChromaticNote): void {
+    if (CHROMATIC_NOTES.includes(key)) {
+      this.currentKey = key;
     } else {
       throw new Error(`Invalid key: ${key}`);
     }
   }
 
-  // Enhanced mode management
+  // Get the current mode
   getCurrentMode(): MusicalMode {
     return this.currentMode;
   }
 
+  // Set the current mode
   setCurrentMode(mode: MusicalMode): void {
     this.currentMode = mode;
-    logger.debug(`Mode changed to ${mode}`);
   }
 
-  // Enhanced scale retrieval with Tonal.js validation
+  // Get the current scale
   getCurrentScale(): Scale {
-    const baseScale = this.currentMode === "major" ? MAJOR_SCALE : MINOR_SCALE;
-    
-    // Validate with Tonal.js
-    const tonalScale = TonalScale.get(`${this.currentKey} ${this.currentMode}`);
-    if (tonalScale.empty) {
-      logger.warn(`Invalid scale combination: ${this.currentKey} ${this.currentMode}`);
-    }
-    
-    return baseScale;
+    return this.currentMode === "major" ? MAJOR_SCALE : MINOR_SCALE;
   }
 
-  // Enhanced scale notes with better octave handling
-  getCurrentScaleNotes(): string[] {
-    const scaleName = this.currentMode === "major" ? "major" : "natural minor";
-    const scaleData = TonalScale.get(`${this.currentKey} ${scaleName}`);
-    
-    if (scaleData.empty) {
-      logger.warn(`Could not generate scale for ${this.currentKey} ${scaleName}`);
-      return ["C", "D", "E", "F", "G", "A", "B"]; // fallback
+  // Helper function to convert flat notes to sharp notes
+  private normalizeToSharp(note: string): ChromaticNote {
+    // Remove any octave numbers that might be present
+    const baseNote = note.replace(/\d/g, "");
+
+    // Check double accidentals first (F## -> G, Gbb -> F)
+    if (DOUBLE_ACCIDENTAL_MAP[baseNote]) {
+      return DOUBLE_ACCIDENTAL_MAP[baseNote];
     }
 
-    return scaleData.notes;
+    // Check single accidental edge cases (E# -> F, B# -> C)
+    if (EDGE_CASE_MAP[baseNote]) {
+      return EDGE_CASE_MAP[baseNote];
+    }
+
+    // If it's already a valid note, return it
+    if (CHROMATIC_NOTES.includes(baseNote as ChromaticNote)) {
+      return baseNote as ChromaticNote;
+    }
+
+    // Convert flat to sharp if it exists in our map
+    const sharpVersion = FLAT_TO_SHARP_MAP[baseNote];
+    if (sharpVersion) {
+      return sharpVersion;
+    }
+
+    throw new Error(`Unable to normalize note: ${note}`);
   }
 
-  // Enhanced frequency calculation with Tonal.js
+  // Update getCurrentScaleNotes to use the new normalizeToSharp function
+  getCurrentScaleNotes(): ChromaticNote[] {
+    const scaleName = this.currentMode === "major" ? "major" : "minor";
+    const scaleNotes = TonalScale.get(`${this.currentKey} ${scaleName}`).notes;
+
+    // Ensure we have 7 notes and normalize them to sharps
+    return scaleNotes.slice(0, 7).map((note) => {
+      try {
+        return this.normalizeToSharp(note);
+      } catch (error) {
+        console.warn(
+          `Note normalization failed for ${note}, attempting direct conversion...`
+        );
+        // If normalization fails, try direct conversion from Tonal.js note
+        const tonalNote = TonalNote.get(note);
+        if (
+          tonalNote.pc &&
+          CHROMATIC_NOTES.includes(tonalNote.pc as ChromaticNote)
+        ) {
+          return tonalNote.pc as ChromaticNote;
+        }
+        throw new Error(`Invalid note ${note} returned by Tonal.js`);
+      }
+    });
+  }
+
+  // Calculate the correct octave for a note to ensure ascending scale order
+  private calculateCorrectOctave(
+    noteName: ChromaticNote,
+    rootKey: ChromaticNote,
+    baseOctave: number
+  ): number {
+    const noteIndex = CHROMATIC_NOTES.indexOf(noteName);
+    const rootIndex = CHROMATIC_NOTES.indexOf(rootKey);
+
+    // If the note comes before the root in the chromatic sequence, it needs to be in the next octave
+    if (noteIndex < rootIndex) {
+      return baseOctave + 1;
+    }
+
+    return baseOctave;
+  }
+
+  // Update getNoteFrequency to use normalizeToSharp
   getNoteFrequency(solfegeIndex: number, octave: number = 4): number {
     const scaleNotes = this.getCurrentScaleNotes();
-    const noteName = scaleNotes[solfegeIndex % scaleNotes.length];
-    
+    const noteName = scaleNotes[solfegeIndex] as ChromaticNote;
+
+    // Handle octave note (Do') - use the root note but one octave higher
     let actualOctave = octave;
     let actualNoteName = noteName;
 
-    // Handle octave Do'
     if (solfegeIndex === 7) {
       actualOctave = octave + 1;
-      actualNoteName = scaleNotes[0];
-    } else if (solfegeIndex >= scaleNotes.length) {
-      // Handle extended scale degrees
-      const extraOctaves = Math.floor(solfegeIndex / scaleNotes.length);
-      actualOctave = octave + extraOctaves;
-      actualNoteName = scaleNotes[solfegeIndex % scaleNotes.length];
+      actualNoteName = scaleNotes[0] as ChromaticNote;
     } else {
-      actualOctave = this.calculateCorrectOctave(noteName, this.currentKey, octave);
+      actualOctave = this.calculateCorrectOctave(
+        actualNoteName,
+        this.currentKey,
+        octave
+      );
     }
 
+    // Use Tonal.js for accurate frequency calculation
     const noteWithOctave = `${actualNoteName}${actualOctave}`;
     const tonalNote = TonalNote.get(noteWithOctave);
 
@@ -134,14 +313,18 @@ export class MusicTheoryService {
       return tonalNote.freq;
     }
 
-    // Enhanced fallback calculation
-    return this.calculateFrequencyFallback(actualNoteName, actualOctave);
+    // Fallback calculation remains the same
+    const noteIndex = CHROMATIC_NOTES.indexOf(actualNoteName);
+    const A4_INDEX = 9;
+    const A4_FREQUENCY = 440;
+    const semitonesFromA4 = (actualOctave - 4) * 12 + (noteIndex - A4_INDEX);
+    return A4_FREQUENCY * Math.pow(2, semitonesFromA4 / 12);
   }
 
-  // Enhanced note name generation
+  // Update getNoteName to use normalizeToSharp
   getNoteName(solfegeIndex: number, octave: number = 4): string {
     const scaleNotes = this.getCurrentScaleNotes();
-    const noteName = scaleNotes[solfegeIndex % scaleNotes.length];
+    const noteName = scaleNotes[solfegeIndex];
 
     let actualOctave = octave;
     let actualNoteName = noteName;
@@ -149,195 +332,42 @@ export class MusicTheoryService {
     if (solfegeIndex === 7) {
       actualOctave = octave + 1;
       actualNoteName = scaleNotes[0];
-    } else if (solfegeIndex >= scaleNotes.length) {
-      const extraOctaves = Math.floor(solfegeIndex / scaleNotes.length);
-      actualOctave = octave + extraOctaves;
-      actualNoteName = scaleNotes[solfegeIndex % scaleNotes.length];
     } else {
-      actualOctave = this.calculateCorrectOctave(noteName, this.currentKey, octave);
+      actualOctave = this.calculateCorrectOctave(
+        actualNoteName,
+        this.currentKey,
+        octave
+      );
     }
 
     return `${actualNoteName}${actualOctave}`;
   }
 
-  // NEW: Chord analysis and generation
-  analyzeChord(notes: string[]): { name: string; symbol: string; quality: string } | null {
-    try {
-      const chord = Chord.detect(notes);
-      if (chord.length > 0) {
-        const primaryChord = Chord.get(chord[0]);
-        return {
-          name: primaryChord.name || chord[0],
-          symbol: primaryChord.symbol || chord[0],
-          quality: primaryChord.quality || "unknown"
-        };
-      }
-    } catch (error) {
-      logger.warn("Chord analysis failed:", error);
-    }
-    return null;
-  }
-
-  // NEW: Generate chord from scale degree
-  getChordFromDegree(degree: number, chordType: string = "triad"): string[] {
-    const scaleNotes = this.getCurrentScaleNotes();
-    const rootNote = scaleNotes[(degree - 1) % scaleNotes.length];
-    
-    if (!rootNote) return [];
-
-    try {
-      let chordSymbol = rootNote;
-      if (chordType === "seventh") {
-        chordSymbol += this.currentMode === "major" ? "maj7" : "m7";
-      } else if (this.currentMode === "minor" && [1, 4, 5].includes(degree)) {
-        chordSymbol += "m";
-      }
-
-      const chord = Chord.get(chordSymbol);
-      return chord.notes || [];
-    } catch (error) {
-      logger.warn(`Chord generation failed for degree ${degree}:`, error);
-      return [];
-    }
-  }
-
-  // NEW: Key detection from notes
-  detectKey(notes: string[]): { key: string; mode: string; confidence: number } | null {
-    try {
-      // Try major keys first
-      const possibleKeys = ["C", "G", "D", "A", "E", "B", "F#", "F", "Bb", "Eb", "Ab", "Db"];
-      
-      let bestMatch = { key: "C", mode: "major", confidence: 0 };
-
-      for (const keyCenter of possibleKeys) {
-        // Check major
-        const majorScale = TonalScale.get(`${keyCenter} major`);
-        const majorMatch = this.calculateKeyConfidence(notes, majorScale.notes);
-        if (majorMatch > bestMatch.confidence) {
-          bestMatch = { key: keyCenter, mode: "major", confidence: majorMatch };
-        }
-
-        // Check minor
-        const minorScale = TonalScale.get(`${keyCenter} minor`);
-        const minorMatch = this.calculateKeyConfidence(notes, minorScale.notes);
-        if (minorMatch > bestMatch.confidence) {
-          bestMatch = { key: keyCenter, mode: "minor", confidence: minorMatch };
-        }
-      }
-
-      return bestMatch.confidence > 0.5 ? bestMatch : null;
-    } catch (error) {
-      logger.warn("Key detection failed:", error);
-      return null;
-    }
-  }
-
-  // NEW: Scale mode exploration
-  getScaleModes(scaleType: string = "major"): Array<{ name: string; notes: string[] }> {
-    try {
-      const baseScale = TonalScale.get(`${this.currentKey} ${scaleType}`);
-      const modes: Array<{ name: string; notes: string[] }> = [];
-      
-      // Simplified mode generation - just rotate the scale
-      const scaleNotes = baseScale.notes;
-      const modeNames = ["Ionian", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Aeolian", "Locrian"];
-
-      for (let i = 0; i < scaleNotes.length; i++) {
-        const modeName = modeNames[i] || `Mode ${i + 1}`;
-        const rotatedNotes = [...scaleNotes.slice(i), ...scaleNotes.slice(0, i)];
-        modes.push({ name: modeName, notes: rotatedNotes });
-      }
-
-      return modes;
-    } catch (error) {
-      logger.warn("Mode generation failed:", error);
-      return [];
-    }
-  }
-
-  // NEW: Progression analysis
-  analyzeProgression(chords: string[]): Array<{ chord: string; degree: number; function: string }> {
-    try {
-      const key = Key.majorKey(this.currentKey);
-      const analysis: Array<{ chord: string; degree: number; function: string }> = [];
-
-      chords.forEach(chordSymbol => {
-        const chord = Chord.get(chordSymbol);
-        if (!chord.empty) {
-          // Find scale degree
-          const degree = key.scale.indexOf(chord.root) + 1;
-          
-          // Determine function (simplified)
-          let func = "unknown";
-          if (degree === 1) func = "tonic";
-          else if (degree === 4) func = "subdominant";
-          else if (degree === 5) func = "dominant";
-          else if ([2, 3, 6].includes(degree)) func = "predominant";
-
-          analysis.push({
-            chord: chordSymbol,
-            degree: degree || 0,
-            function: func
-          });
-        }
-      });
-
-      return analysis;
-    } catch (error) {
-      logger.warn("Progression analysis failed:", error);
-      return [];
-    }
-  }
-
-  // Private helper methods
-  private calculateCorrectOctave(noteName: string, rootKey: string, baseOctave: number): number {
-    const noteIndex = CHROMATIC_NOTES.indexOf(getPitchClass(noteName) as any);
-    const rootIndex = CHROMATIC_NOTES.indexOf(getPitchClass(rootKey) as any);
-
-    if (noteIndex < rootIndex) {
-      return baseOctave + 1;
-    }
-    return baseOctave;
-  }
-
-  private calculateFrequencyFallback(noteName: string, octave: number): number {
-    const noteIndex = CHROMATIC_NOTES.indexOf(getPitchClass(noteName) as any);
-    const A4_INDEX = 9; // A is at index 9
-    const A4_FREQUENCY = 440;
-    const semitonesFromA4 = (octave - 4) * 12 + (noteIndex - A4_INDEX);
-    return A4_FREQUENCY * Math.pow(2, semitonesFromA4 / 12);
-  }
-
-  private calculateKeyConfidence(notes: string[], scaleNotes: string[]): number {
-    const cleanNotes = notes.map(note => getPitchClass(note));
-    const cleanScale = scaleNotes.map(note => getPitchClass(note));
-    
-    const matches = cleanNotes.filter(note => cleanScale.includes(note)).length;
-    return matches / Math.max(cleanNotes.length, 1);
-  }
-
-  // Existing methods preserved for backward compatibility
+  // Get solfege data for a specific degree
   getSolfegeData(degree: number): SolfegeData | null {
     const scale = this.getCurrentScale();
     return scale.solfege[degree] || null;
   }
 
-  getMelodicPatterns(): MelodicPattern[] {
-    return MELODIC_PATTERNS;
+  // Get all melodic patterns
+  getMelodicPatterns(): Melody[] {
+    return getAllMelodicPatterns();
   }
 
-  getMelodicPatternsByCategory(category: "intervals" | "patterns"): MelodicPattern[] {
+  // Get melodic patterns by category
+  getMelodicPatternsByCategory(category: "intervals" | "patterns"): Melody[] {
     if (category === "intervals") {
-      return MELODIC_PATTERNS.filter((pattern: MelodicPattern) =>
-        pattern.intervals && pattern.intervals.length === 1
+      return getAllMelodicPatterns().filter(
+        (pattern: Melody) => pattern.intervals && pattern.intervals.length === 1
       );
     } else {
-      return MELODIC_PATTERNS.filter((pattern: MelodicPattern) =>
-        !pattern.intervals || pattern.intervals.length !== 1
+      return getAllMelodicPatterns().filter(
+        (pattern: Melody) =>
+          !pattern.intervals || pattern.intervals.length !== 1
       );
     }
   }
 }
 
-// Export enhanced singleton instance
+// Export a singleton instance
 export const musicTheory = new MusicTheoryService();

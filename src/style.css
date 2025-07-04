@@ -1,5 +1,13 @@
 /* Solfege color system now handled by unified color system */
 
+@font-face {
+  font-family: "Lets Jazz";
+  src: url("@/assets/fonts/lets-jazz-regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  size-adjust: 75%;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,48 +22,9 @@
   --color-text: #ffffff;
   --color-text-muted: #a1a1aa;
 
-
-
   /* Typography */
-  --font-family-primary: "Ojuju", sans-serif;
-
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
-
-  /* Border Radius */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg:
-    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl:
-    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-}
-
-/* Dark theme variations */
-[data-theme="dark"] {
-  --color-background: #000000;
-  --color-surface: #111111;
-  --color-text: #ffffff;
-  --color-text-muted: #71717a;
-}
-
-/* Light theme variations */
-[data-theme="light"] {
-  --color-background: #ffffff;
-  --color-surface: #f8fafc;
-  --color-text: #1f2937;
-  --color-text-muted: #6b7280;
+  --font-family-primary: "Lets Jazz", sans-serif;
+  /* Base font size adjustment */
 }
 
 /* Base styles */
@@ -67,6 +36,7 @@ html {
   font-family: var(--font-family-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "salt" 1, "smcp" 1, "onum" 1;
 }
 
 body {
@@ -131,38 +101,4 @@ body {
   touch-action: manipulation;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Font weight oscillation classes */
-.font-weight-oscillate-sm {
-  font-weight: 500; /* Default weight for small oscillation */
-}
-
-
-
-.font-weight-oscillate-lg {
-  font-weight: 700; /* Default weight for large oscillation */
-}
-
-.font-weight-oscillate-full {
-  font-weight: 500; /* Default weight for full oscillation (100-900) */
-}
-
-/* Responsive typography */
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-@media (min-width: 1024px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-
-.text-2xs {
-  font-size: 0.625rem;
-  line-height: 1rem;
 }

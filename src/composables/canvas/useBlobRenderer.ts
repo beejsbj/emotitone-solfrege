@@ -8,10 +8,36 @@ import { useColorSystem } from "../useColorSystem";
 import { createVisualFrequency } from "@/utils/visualEffects";
 
 export function useBlobRenderer() {
-  const { getPrimaryColor, getSecondaryColor, withAlpha } = useColorSystem();
+  const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
 
   // Blob state - now supports both note names and noteIds for polyphonic tracking
   const activeBlobs = new Map<string, ActiveBlob>();
+
+  // Maximum blob lifetime in milliseconds (10 seconds as safety)
+  const MAX_BLOB_LIFETIME = 10000;
+
+  /**
+   * Safety cleanup for old blobs
+   */
+  const cleanupStaleBlobs = (blobConfig?: BlobConfig) => {
+    const now = Date.now();
+    const fadeOutDuration = blobConfig?.fadeOutDuration || 1;
+
+    activeBlobs.forEach((blob, key) => {
+      // Remove blobs that have existed longer than MAX_BLOB_LIFETIME
+      if (now - blob.startTime > MAX_BLOB_LIFETIME) {
+        activeBlobs.delete(key);
+      }
+      // Remove fully faded blobs that somehow weren't cleaned
+      if (
+        blob.isFadingOut &&
+        blob.fadeOutStartTime &&
+        now - blob.fadeOutStartTime > fadeOutDuration * 1000 + 100
+      ) {
+        activeBlobs.delete(key);
+      }
+    });
+  };
 
   /**
    * Create a persistent blob
@@ -28,6 +54,9 @@ export function useBlobRenderer() {
   ) => {
     if (!blobConfig.isEnabled) return;
 
+    // Cleanup stale blobs before creating new ones
+    cleanupStaleBlobs(blobConfig);
+
     // Use noteId for polyphonic tracking, fallback to note name for backward compatibility
     const blobKey = noteId || note.name;
 
@@ -36,9 +65,14 @@ export function useBlobRenderer() {
       removeBlob(blobKey);
     }
 
+    // Adjust y coordinate to favor top half of screen
+    // Map y from 0-100 to 0-70 to keep blobs in top 70% of screen
+    const adjustedY = (y / 100) * 70;
+
     // Convert percentage to pixel coordinates
     const pixelX = (x / 100) * canvasWidth;
-    const pixelY = (y / 100) * canvasHeight;
+    // Apply additional upward bias by reducing the y coordinate by 20%
+    const pixelY = (adjustedY / 100) * canvasHeight * 0.8;
 
     // Calculate blob size based on screen size with min/max constraints
     const screenBasedSize =
@@ -59,8 +93,9 @@ export function useBlobRenderer() {
       opacity: blobConfig.opacity,
       isFadingOut: false,
       fadeOutStartTime: undefined,
+      // Adjust drift to favor upward movement
       driftVx: (Math.random() - 0.5) * blobConfig.driftSpeed,
-      driftVy: (Math.random() - 0.5) * blobConfig.driftSpeed,
+      driftVy: (Math.random() - 0.8) * blobConfig.driftSpeed, // Bias upward drift
       vibrationPhase: Math.random() * Math.PI * 2,
       scale: 0, // Start at zero scale for grow-in animation
     };
@@ -109,6 +144,9 @@ export function useBlobRenderer() {
   ) => {
     if (!ctx) return;
 
+    // Run safety cleanup before rendering
+    cleanupStaleBlobs(blobConfig);
+
     const blobsToRemove: string[] = [];
 
     activeBlobs.forEach((blob, noteName) => {
@@ -140,27 +178,34 @@ export function useBlobRenderer() {
         );
       }
 
-      // Handle scale-in animation
+      // Handle scale-in animation with bounce
       const scaleInElapsed = blobElapsed;
       let currentScale = blob.scale;
+      let bounceScale = 1; // Default scale multiplier
 
       if (scaleInElapsed < blobConfig.scaleInDuration) {
-        // Scale-in animation using easeOutCubic for smooth growth
+        // Scale-in animation using easeOutBack for bounce effect
         const progress = Math.min(
           scaleInElapsed / blobConfig.scaleInDuration,
           1
         );
-        currentScale = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+        const c1 = 1.70158; // Controls bounce size
+        const c3 = c1 + 1;
+
+        currentScale =
+          1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
         blob.scale = currentScale;
       } else if (!blob.isFadingOut) {
-        // Ensure scale is 1 when fully grown and not fading
-        blob.scale = 1;
-        currentScale = 1;
+        // Add subtle continuous scale oscillation after initial bounce
+        const oscillation = Math.sin(blobElapsed * 3) * 0.02; // Subtle size oscillation
+        bounceScale = 1 + oscillation;
+        currentScale = bounceScale;
       }
 
       // Handle fade-out animation
       let currentOpacity = blob.opacity;
       let vibrationIntensity = 1.0;
+      let glowIntensity = blobConfig.glowIntensity || 0;
 
       if (blob.isFadingOut && blob.fadeOutStartTime) {
         const fadeElapsed = (Date.now() - blob.fadeOutStartTime) / 1000;
@@ -194,14 +239,14 @@ export function useBlobRenderer() {
         blob.frequency,
         blobConfig.vibrationFrequencyDivisor
       );
-      const scaledRadius = blob.baseRadius * currentScale;
+      const scaledRadius = blob.baseRadius * currentScale * bounceScale; // Apply bounce scale
       const vibrationAmplitude =
         blobConfig.vibrationAmplitude *
         scaledRadius *
         0.01 *
-        vibrationIntensity; // Use configured vibration amplitude
+        vibrationIntensity;
 
-      // Validate values before creating gradient (allow scale 0 for animation)
+      // Validate values before creating gradient
       if (
         !isFinite(blob.x) ||
         !isFinite(blob.y) ||
@@ -212,7 +257,7 @@ export function useBlobRenderer() {
         return;
       }
 
-      // Skip rendering if scale is effectively 0 (but allow very small scales for animation)
+      // Skip rendering if scale is effectively 0
       if (currentScale < 0.01) {
         return;
       }
@@ -232,17 +277,17 @@ export function useBlobRenderer() {
         blob.note.name,
         musicStore.currentMode
       );
-      const secondaryColor = getSecondaryColor(
+      const accentColor = getAccentColor(
         blob.note.name,
         musicStore.currentMode
       );
 
       // Apply opacity to colors using withAlpha from color system
-      const primaryWithOpacity = withAlpha(primaryColor, currentOpacity); // Full opacity for testing
-      const secondaryWithOpacity = withAlpha(secondaryColor, currentOpacity); // High opacity for testing
+      const primaryWithOpacity = withAlpha(primaryColor, currentOpacity);
+      const accentWithOpacity = withAlpha(accentColor, currentOpacity);
 
       gradient.addColorStop(0, primaryWithOpacity);
-      gradient.addColorStop(0.7, secondaryWithOpacity);
+      gradient.addColorStop(0.9, accentWithOpacity);
       gradient.addColorStop(1, "transparent");
 
       // Apply blur effect if configured
@@ -250,10 +295,16 @@ export function useBlobRenderer() {
         ctx.filter = `blur(${blobConfig.blurRadius}px)`;
       }
 
-      // Apply glow effect if enabled
+      // Apply glow effect with bounce
       if (blobConfig.glowEnabled && blobConfig.glowIntensity > 0) {
+        // Increase glow during initial bounce
+        const bounceGlow =
+          scaleInElapsed < blobConfig.scaleInDuration
+            ? glowIntensity * (1 + (1 - currentScale) * 0.5) // Stronger glow during expansion
+            : glowIntensity * bounceScale; // Subtle glow oscillation after
+
         ctx.shadowColor = primaryWithOpacity;
-        ctx.shadowBlur = blobConfig.glowIntensity;
+        ctx.shadowBlur = bounceGlow;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
       }
@@ -350,6 +401,13 @@ export function useBlobRenderer() {
     blobsToRemove.forEach((noteName) => {
       activeBlobs.delete(noteName);
     });
+
+    // Log warning if we have too many active blobs
+    if (activeBlobs.size > 20) {
+      console.warn(
+        `High blob count detected: ${activeBlobs.size} active blobs`
+      );
+    }
   };
 
   /**
@@ -376,5 +434,7 @@ export function useBlobRenderer() {
     renderBlobs,
     getActiveBlobCount,
     clearAllBlobs,
+    // Expose cleanup for external use if needed
+    cleanupStaleBlobs,
   };
 }

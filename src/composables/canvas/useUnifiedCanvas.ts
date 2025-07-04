@@ -123,7 +123,10 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       musicStore.solfegeData
     );
 
-          logger.dev("✅ Canvas initialized successfully");
+    // Add string event listeners for sequencer integration
+    stringRenderer.addEventListeners();
+
+    logger.dev("✅ Canvas initialized successfully");
   };
 
   /**
@@ -279,6 +282,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     blobRenderer.clearAllBlobs();
     particleSystem.clearAllParticles();
     stringRenderer.clearAllStrings();
+    stringRenderer.removeEventListeners(); // Clean up string event listeners
     clearCaches();
     window.removeEventListener("resize", handleResize);
     performanceMonitor.reset();

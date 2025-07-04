@@ -3,10 +3,16 @@
  * Centralized export of all type definitions for the Emotitone Solfege application
  */
 
-/**
- * Centralized Type Exports
- * Re-exports all types from various modules for easy importing
- */
+// Music Theory Types
+export type {
+  SolfegeData,
+  Scale,
+  Melody,
+  Note,
+  MusicalMode,
+  ChromaticNote,
+  ActiveNote,
+} from "./music";
 
 import type { Ref } from "vue";
 

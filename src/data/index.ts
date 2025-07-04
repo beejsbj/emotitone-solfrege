@@ -23,11 +23,25 @@ export {
   getPatternsByTension,
 } from "./patterns";
 
+// Patterns - updated exports (remove duplicates and invalid exports)
+export {
+  melodicPatterns as MELODIC_PATTERNS_NEW, // Export new structure with different name to avoid conflict
+  getAllMelodicPatterns,
+  getPatternsByEmotion,
+  getIntervalPatterns,
+  getMelodicPatterns,
+  getCompleteMelodies,
+  getMelodyByName,
+  getAllMelodiesByEmotion,
+  allMelodies,
+  getMelodiesByCategory,
+} from "./patterns";
+export type { MelodicPattern, Melody, MelodyCategory, CategorizedMelody } from "./patterns";
+
 // Re-export types for backward compatibility
 export type {
   SolfegeData,
   Scale,
-  MelodicPattern,
   ChromaticNote,
   TonalAnalysis,
   MusicAnalysis,
@@ -52,6 +66,14 @@ export {
   getAvailableInstrumentNames,
   isValidInstrument,
 } from "./instruments";
+
+// Sequencer
+export {
+  SEQUENCER_ICONS,
+  SEQUENCER_COLOR_PALETTES,
+  getColorPaletteById,
+  getDefaultColorPalette,
+} from "./sequencer";
 
 // Backward compatibility - re-export everything from musicData for existing imports
 export * from "./musicData";

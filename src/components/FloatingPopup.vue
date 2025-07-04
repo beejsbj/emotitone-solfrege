@@ -1,7 +1,7 @@
 <template>
   <div
     ref="floatingPopup"
-    class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out"
+    class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out pointer-events-none"
     :class="
       !shouldShowPopup
         ? 'translate-y-full opacity-0'

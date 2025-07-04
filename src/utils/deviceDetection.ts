@@ -3,15 +3,19 @@
  * Provides functions to detect device type and capabilities
  */
 
+interface NavigatorWithMSMaxTouchPoints extends Navigator {
+  msMaxTouchPoints?: number;
+}
+
 /**
  * Check if the device is a touch device
  */
 export const isTouchDevice = (): boolean => {
+  const nav = navigator as NavigatorWithMSMaxTouchPoints;
   return (
-    'ontouchstart' in window ||
+    "ontouchstart" in window ||
     navigator.maxTouchPoints > 0 ||
-    // @ts-ignore - for older browsers
-    navigator.msMaxTouchPoints > 0
+    (nav.msMaxTouchPoints ?? 0) > 0
   );
 };
 
@@ -22,7 +26,7 @@ export const isTouchDevice = (): boolean => {
 export const isMobileDevice = (): boolean => {
   const isMobileScreen = window.innerWidth <= 768; // Mobile breakpoint
   const hasTouch = isTouchDevice();
-  
+
   // Mobile if small screen OR (touch device AND not a large screen)
   return isMobileScreen || (hasTouch && window.innerWidth <= 1024);
 };
@@ -48,16 +52,16 @@ export const hasPhysicalKeyboard = (): boolean => {
 /**
  * Get device type as a string
  */
-export const getDeviceType = (): 'mobile' | 'tablet' | 'desktop' => {
+export const getDeviceType = (): "mobile" | "tablet" | "desktop" => {
   const width = window.innerWidth;
   const hasTouch = isTouchDevice();
-  
+
   if (width <= 768) {
-    return 'mobile';
+    return "mobile";
   } else if (width <= 1024 && hasTouch) {
-    return 'tablet';
+    return "tablet";
   } else {
-    return 'desktop';
+    return "desktop";
   }
 };
 

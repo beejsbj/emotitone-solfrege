@@ -362,7 +362,7 @@ export function useColorSystem() {
     const config = visualConfigStore.config.dynamicColors;
     const notes = config.chromaticMapping ? CHROMATIC_NOTES : SOLFEGE_NOTES;
 
-    return notes.map((noteName, index) => ({
+    return notes.map((noteName: string, index: number) => ({
       name: noteName,
       index,
       colors: getNoteColors(noteName, mode, octave, false), // Static preview

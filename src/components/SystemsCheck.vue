@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger';
 import { useColorSystem } from '@/composables/color';
 import { Knob } from '@/components/knobs';
 import DynamicColorPreview from '@/components/DynamicColorPreview.vue';
+import { Note, Interval, Chord, Scale } from '@tonaljs/tonal';
 import type { EnhancedMelody } from '@/types/music';
 
 // Color system for Phase 2 testing
@@ -263,6 +264,158 @@ const allNotesColorPalette = computed(() => {
   }));
 });
 
+// Comprehensive note analysis using Tonal.js
+const getComprehensiveNoteAnalysis = (noteName: string, octave: number = colorSystemSettings.value.octave) => {
+  try {
+    const fullNoteName = noteName.includes(octave.toString()) ? noteName : `${noteName}${octave}`;
+    const note = Note.get(fullNoteName);
+    const pitchClass = Note.get(noteName);
+    
+    logger.dev('SystemsCheck: Analyzing note', { noteName, fullNoteName, note, pitchClass });
+    
+    return {
+      // Basic note properties
+      name: note.name || noteName,
+      pc: pitchClass.pc || noteName,
+      letter: note.letter || pitchClass.letter || noteName[0],
+      step: pitchClass.step !== undefined ? pitchClass.step : -1,
+      acc: note.acc || pitchClass.acc || '',
+      alt: note.alt !== undefined ? note.alt : (pitchClass.alt !== undefined ? pitchClass.alt : 0),
+      oct: note.oct !== undefined ? note.oct : octave,
+      chroma: pitchClass.chroma !== undefined ? pitchClass.chroma : -1,
+      midi: note.midi || null,
+      freq: note.freq || null,
+      
+      // Our color system integration
+      color: testNoteColor(noteName),
+      colors: getNoteColors(noteName, currentMode.value, octave),
+      
+      // Validate note
+      isValid: !note.empty && !pitchClass.empty
+    };
+  } catch (error) {
+    logger.warn('SystemsCheck: Note analysis failed', { noteName, error });
+    return {
+      name: noteName,
+      pc: noteName,
+      letter: noteName[0] || '',
+      step: -1,
+      acc: '',
+      alt: 0,
+      oct: octave,
+      chroma: -1,
+      midi: null,
+      freq: null,
+      color: testNoteColor(noteName),
+      colors: getNoteColors(noteName, currentMode.value, octave),
+      isValid: false
+    };
+  }
+};
+
+// Interval analysis between two notes
+const getIntervalAnalysis = (fromNote: string, toNote: string) => {
+  try {
+    const interval = Interval.distance(fromNote, toNote);
+    const intervalData = Interval.get(interval);
+    
+    logger.dev('SystemsCheck: Interval analysis', { fromNote, toNote, interval, intervalData });
+    
+    return {
+      name: intervalData.name || interval,
+      type: intervalData.type || 'unknown',
+      dir: intervalData.dir || 1,
+      num: intervalData.num || 0,
+      q: intervalData.q || '',
+      alt: intervalData.alt || 0,
+      oct: intervalData.oct || 0,
+      semitones: intervalData.semitones || 0,
+      simple: intervalData.simple || '',
+      distance: interval,
+      
+      // Color gradient between notes
+      fromColor: testNoteColor(fromNote),
+      toColor: testNoteColor(toNote),
+      gradient: `linear-gradient(90deg, ${testNoteColor(fromNote)}, ${testNoteColor(toNote)})`
+    };
+  } catch (error) {
+    logger.warn('SystemsCheck: Interval analysis failed', { fromNote, toNote, error });
+    return null;
+  }
+};
+
+// Scale analysis
+const getScaleAnalysis = (keyCenter: string, scaleType: string = currentMode.value) => {
+  try {
+    const scale = Scale.get(`${keyCenter} ${scaleType}`);
+    
+    logger.dev('SystemsCheck: Scale analysis', { keyCenter, scaleType, scale });
+    
+    return {
+      name: scale.name,
+      notes: scale.notes,
+      intervals: scale.intervals,
+      chroma: scale.chroma,
+      
+      // Get chords that fit this scale
+      chords: scale.notes.map((note, index) => {
+        const chordNotes = [note, scale.notes[(index + 2) % scale.notes.length], scale.notes[(index + 4) % scale.notes.length]];
+        const chordAnalysis = Chord.detect(chordNotes);
+        return {
+          degree: index + 1,
+          note,
+          chordNotes,
+          chords: chordAnalysis,
+          color: testNoteColor(note)
+        };
+      }),
+      
+      // Color mapping for degrees
+      colorMapping: scale.notes.map(note => ({
+        note,
+        color: testNoteColor(note),
+        colors: getNoteColors(note, currentMode.value, colorSystemSettings.value.octave)
+      }))
+    };
+  } catch (error) {
+    logger.warn('SystemsCheck: Scale analysis failed', { keyCenter, scaleType, error });
+    return null;
+  }
+};
+
+// Current note analysis
+const currentNoteAnalysis = computed(() => {
+  return getComprehensiveNoteAnalysis(selectedTestNote.value);
+});
+
+// Current scale analysis
+const currentScaleAnalysis = computed(() => {
+  return getScaleAnalysis(currentKey.value, currentMode.value);
+});
+
+// Debug color system
+const debugColorSystem = () => {
+  logger.dev('SystemsCheck: Color system debug', {
+    selectedNote: selectedTestNote.value,
+    currentKey: currentKey.value,
+    currentMode: currentMode.value,
+    colorSystemSettings: colorSystemSettings.value,
+    
+    // Test color generation
+    testColors: colorTestNotes.value.map(note => ({
+      note,
+      primary: testNoteColor(note),
+      colors: getNoteColors(note, currentMode.value, colorSystemSettings.value.octave)
+    })),
+    
+    // Test all notes with Do
+    doColors: {
+      primary: testNoteColor('Do'),
+      colors: getNoteColors('Do', currentMode.value, colorSystemSettings.value.octave)
+    }
+  });
+};
+
 // Interactive tracking for validation
 const interactionCounts = ref({
   chordBuilds: 0,
@@ -282,6 +435,9 @@ onMounted(() => {
   testProgressionAnalysis();
   testPatternAnalysis();
   generatedChords.value = generateChordsForKey();
+  
+  // Debug color system
+  debugColorSystem();
   
   // Log initial state for validation
   logger.dev('SystemsCheck: Initial color system state', {
@@ -364,47 +520,47 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Key</label>
-            <Knob
-              :value="['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].indexOf(currentKey)"
-              :max="11"
-              :size="40"
-                             @change="(value: number) => { currentKey = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][value]; handleKnobChange('music', 'key', currentKey); }"
-              color="hsla(120, 50%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].indexOf(currentKey)"
+               :max="11"
+               :options="['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']"
+               type="options"
+               @update:model-value="(value: number) => { currentKey = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][value]; handleKnobChange('music', 'key', currentKey); }"
+               :theme-color="'hsla(120, 50%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ currentKey }}</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Mode</label>
-            <Knob
-              :value="currentMode === 'major' ? 0 : 1"
-              :max="1"
-              :size="40"
-                             @change="(value: number) => { currentMode = value === 0 ? 'major' : 'minor'; handleKnobChange('music', 'mode', currentMode); }"
-              color="hsla(220, 50%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="currentMode === 'major' ? 0 : 1"
+               :max="1"
+               type="boolean"
+               @update:model-value="(value: number) => { currentMode = value === 0 ? 'major' : 'minor'; handleKnobChange('music', 'mode', currentMode); }"
+               :theme-color="'hsla(220, 50%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ currentMode }}</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Octave</label>
-            <Knob
-              :value="colorSystemSettings.octave - 1"
-              :min="0"
-              :max="7"
-              :size="40"
-                             @change="(value: number) => { colorSystemSettings.octave = value + 1; handleKnobChange('music', 'octave', value + 1); }"
-              color="hsla(280, 50%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="colorSystemSettings.octave - 1"
+               :min="0"
+               :max="7"
+               type="range"
+               @update:model-value="(value: number) => { colorSystemSettings.octave = value + 1; handleKnobChange('music', 'octave', value + 1); }"
+               :theme-color="'hsla(280, 50%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.octave }}</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Chromatic</label>
-            <Knob
-              :value="colorSystemSettings.chromaticMapping ? 1 : 0"
-              :max="1"
-              :size="40"
-                             @change="(value: number) => { colorSystemSettings.chromaticMapping = value === 1; handleKnobChange('music', 'chromatic', colorSystemSettings.chromaticMapping); }"
-              color="hsla(340, 50%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="colorSystemSettings.chromaticMapping"
+               type="boolean"
+               @update:model-value="(value: boolean) => { colorSystemSettings.chromaticMapping = value; handleKnobChange('music', 'chromatic', colorSystemSettings.chromaticMapping); }"
+               :theme-color="'hsla(340, 50%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.chromaticMapping ? 'ON' : 'OFF' }}</div>
           </div>
         </div>
@@ -532,57 +688,57 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
         <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Saturation</label>
-            <Knob
-              :value="colorSystemSettings.saturation * 100"
-              :max="100"
-              :size="40"
-                             @change="(value: number) => { colorSystemSettings.saturation = value / 100; handleColorSettingChange('saturation', value / 100); }"
-              color="hsla(300, 70%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="colorSystemSettings.saturation * 100"
+               :max="100"
+               type="range"
+               @update:model-value="(value: number) => { colorSystemSettings.saturation = value / 100; handleColorSettingChange('saturation', value / 100); }"
+               :theme-color="'hsla(300, 70%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.saturation * 100).toFixed(0) }}%</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Base Light</label>
-            <Knob
-              :value="colorSystemSettings.baseLightness * 100"
-              :max="100"
-              :size="40"
-                             @change="(value: number) => { colorSystemSettings.baseLightness = value / 100; handleColorSettingChange('baseLightness', value / 100); }"
-              color="hsla(60, 70%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="colorSystemSettings.baseLightness * 100"
+               :max="100"
+               type="range"
+               @update:model-value="(value: number) => { colorSystemSettings.baseLightness = value / 100; handleColorSettingChange('baseLightness', value / 100); }"
+               :theme-color="'hsla(60, 70%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.baseLightness * 100).toFixed(0) }}%</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Light Range</label>
-            <Knob
-              :value="colorSystemSettings.lightnessRange * 100"
-              :max="100"
-              :size="40"
-                             @change="(value: number) => { colorSystemSettings.lightnessRange = value / 100; handleColorSettingChange('lightnessRange', value / 100); }"
-              color="hsla(180, 70%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="colorSystemSettings.lightnessRange * 100"
+               :max="100"
+               type="range"
+               @update:model-value="(value: number) => { colorSystemSettings.lightnessRange = value / 100; handleColorSettingChange('lightnessRange', value / 100); }"
+               :theme-color="'hsla(180, 70%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.lightnessRange * 100).toFixed(0) }}%</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Hue Anim</label>
-            <Knob
-              :value="colorSystemSettings.hueAnimation"
-              :max="50"
-              :size="40"
-                             @change="(value: number) => { colorSystemSettings.hueAnimation = value; handleColorSettingChange('hueAnimation', value); }"
-              color="hsla(240, 70%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="colorSystemSettings.hueAnimation"
+               :max="50"
+               type="range"
+               @update:model-value="(value: number) => { colorSystemSettings.hueAnimation = value; handleColorSettingChange('hueAnimation', value); }"
+               :theme-color="'hsla(240, 70%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.hueAnimation }}°</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Anim Speed</label>
-            <Knob
-              :value="colorSystemSettings.animationSpeed * 10"
-              :max="30"
-              :size="40"
-                             @change="(value: number) => { colorSystemSettings.animationSpeed = value / 10; handleColorSettingChange('animationSpeed', value / 10); }"
-              color="hsla(0, 70%, 50%, 1)"
-            />
+                         <Knob
+               :model-value="colorSystemSettings.animationSpeed * 10"
+               :max="30"
+               type="range"
+               @update:model-value="(value: number) => { colorSystemSettings.animationSpeed = value / 10; handleColorSettingChange('animationSpeed', value / 10); }"
+               :theme-color="'hsla(0, 70%, 50%, 1)'"
+             />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.animationSpeed.toFixed(1) }}x</div>
           </div>
           <div class="text-center">
@@ -619,11 +775,92 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
         </div>
       </div>
 
-      <!-- Dynamic Color Preview Integration -->
-      <div class="mb-6">
-        <h3 class="text-lg font-semibold text-white mb-3">🎨 Full Color Palette Preview</h3>
-        <DynamicColorPreview />
-      </div>
+             <!-- Dynamic Color Preview Integration -->
+       <div class="mb-6">
+         <h3 class="text-lg font-semibold text-white mb-3">🎨 Full Color Palette Preview</h3>
+         <DynamicColorPreview />
+       </div>
+
+       <!-- Comprehensive Note Analysis -->
+       <div class="mb-6">
+         <h3 class="text-lg font-semibold text-white mb-3">🎵 Comprehensive Note Analysis</h3>
+         <div class="p-4 bg-gray-700 rounded-lg">
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <!-- Selected Note Analysis -->
+             <div>
+               <h4 class="font-medium mb-3 text-purple-400">Selected Note: {{ selectedTestNote }}</h4>
+               <div v-if="currentNoteAnalysis" class="space-y-2 text-sm">
+                 <div class="grid grid-cols-2 gap-3">
+                   <div><span class="text-gray-400">Name:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.name }}</span></div>
+                   <div><span class="text-gray-400">PC:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.pc }}</span></div>
+                   <div><span class="text-gray-400">Letter:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.letter }}</span></div>
+                   <div><span class="text-gray-400">Step:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.step }}</span></div>
+                   <div><span class="text-gray-400">Acc:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.acc || 'none' }}</span></div>
+                   <div><span class="text-gray-400">Alt:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.alt }}</span></div>
+                   <div><span class="text-gray-400">Oct:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.oct }}</span></div>
+                   <div><span class="text-gray-400">Chroma:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.chroma }}</span></div>
+                   <div><span class="text-gray-400">MIDI:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.midi || 'null' }}</span></div>
+                   <div><span class="text-gray-400">Freq:</span> <span class="text-white font-mono">{{ currentNoteAnalysis.freq ? currentNoteAnalysis.freq.toFixed(2) + 'Hz' : 'null' }}</span></div>
+                 </div>
+                 <div class="mt-3">
+                   <div class="text-gray-400 text-sm mb-1">Color Integration:</div>
+                   <div class="flex items-center gap-2">
+                     <div class="w-6 h-6 rounded" :style="{ backgroundColor: currentNoteAnalysis.color }"></div>
+                     <span class="text-white font-mono text-xs">{{ currentNoteAnalysis.color }}</span>
+                   </div>
+                 </div>
+                 <div class="mt-2">
+                   <div class="text-gray-400 text-sm mb-1">Valid Note:</div>
+                   <span :class="currentNoteAnalysis.isValid ? 'text-green-400' : 'text-red-400'">
+                     {{ currentNoteAnalysis.isValid ? '✅ Valid' : '❌ Invalid' }}
+                   </span>
+                 </div>
+               </div>
+             </div>
+
+             <!-- Scale Analysis -->
+             <div v-if="currentScaleAnalysis">
+               <h4 class="font-medium mb-3 text-purple-400">Current Scale: {{ currentScaleAnalysis.name }}</h4>
+               <div class="space-y-3 text-sm">
+                 <div>
+                   <div class="text-gray-400 text-sm mb-1">Scale Notes:</div>
+                   <div class="flex flex-wrap gap-1">
+                     <div 
+                       v-for="(note, index) in currentScaleAnalysis.notes" 
+                       :key="note"
+                       class="px-2 py-1 rounded text-xs text-white font-bold"
+                       :style="{ backgroundColor: testNoteColor(note) }"
+                     >
+                       {{ index + 1 }}. {{ note }}
+                     </div>
+                   </div>
+                 </div>
+                 <div>
+                   <div class="text-gray-400 text-sm mb-1">Scale Intervals:</div>
+                   <div class="text-white font-mono text-xs">{{ currentScaleAnalysis.intervals.join(', ') }}</div>
+                 </div>
+                 <div>
+                   <div class="text-gray-400 text-sm mb-1">Chroma:</div>
+                   <div class="text-white font-mono text-xs">{{ currentScaleAnalysis.chroma }}</div>
+                 </div>
+                 <div>
+                   <div class="text-gray-400 text-sm mb-1">Degree Colors:</div>
+                   <div class="grid grid-cols-4 gap-1">
+                     <div 
+                       v-for="(mapping, index) in currentScaleAnalysis.colorMapping.slice(0, 4)" 
+                       :key="mapping.note"
+                       class="flex items-center gap-1"
+                     >
+                       <div class="w-3 h-3 rounded" :style="{ backgroundColor: mapping.color }"></div>
+                       <span class="text-xs text-white">{{ index + 1 }}</span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
 
       <!-- Real-time Color Analysis -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -771,11 +1008,21 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
             <span>ConfigPanel</span>
           </div>
         </div>
-        <div class="mt-3 text-sm text-green-400 font-bold">
-          🎉 All 11 components successfully migrated to new modular color system!
-        </div>
-      </div>
-    </div>
+                 <div class="mt-3 text-sm text-green-400 font-bold">
+           🎉 All 11 components successfully migrated to new modular color system!
+         </div>
+         
+         <!-- Debug Color System Button -->
+         <div class="mt-4">
+           <button 
+             @click="debugColorSystem"
+             class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+           >
+             🐛 Debug Color System
+           </button>
+         </div>
+       </div>
+     </div>
 
     <!-- Service Integration Status -->
     <div class="p-4 bg-gray-800 rounded-lg">

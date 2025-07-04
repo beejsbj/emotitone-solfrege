@@ -4,6 +4,7 @@ import { unifiedMusicService } from '@/services/musicUnified';
 import { audioService } from '@/services/audio';
 import { logger } from '@/utils/logger';
 import { useColorSystem } from '@/composables/color';
+import { useVisualConfigStore } from '@/stores/visualConfig';
 import { Knob } from '@/components/knobs';
 import DynamicColorPreview from '@/components/DynamicColorPreview.vue';
 import { Note, Interval, Chord, Scale } from '@tonaljs/tonal';
@@ -11,6 +12,7 @@ import type { EnhancedMelody } from '@/types/music';
 
 // Color system for Phase 2 testing
 const { getNoteColors, getPrimaryColor, createGlassmorphBackground } = useColorSystem();
+const visualConfigStore = useVisualConfigStore();
 
 // Test states
 const currentKey = ref('C');
@@ -32,15 +34,20 @@ const highTensionPatterns = ref<EnhancedMelody[]>([]);
 // Phase 2 color system tests - Enhanced for interactivity
 const colorTestNotes = ref(['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Ti']);
 const selectedTestNote = ref('Do');
-const colorSystemSettings = ref({
-  saturation: 0.8,
-  baseLightness: 0.5,
-  lightnessRange: 0.4,
-  hueAnimation: 15,
-  animationSpeed: 1,
-  octave: 4,
-  chromaticMapping: false
-});
+
+// Use store settings directly instead of local state
+const colorSystemSettings = computed(() => ({
+  saturation: visualConfigStore.config.dynamicColors.saturation,
+  baseLightness: visualConfigStore.config.dynamicColors.baseLightness,
+  lightnessRange: visualConfigStore.config.dynamicColors.lightnessRange,
+  hueAnimation: visualConfigStore.config.dynamicColors.hueAnimationAmplitude,
+  animationSpeed: visualConfigStore.config.dynamicColors.animationSpeed,
+  octave: 4, // Keep local for testing different octaves
+  chromaticMapping: visualConfigStore.config.dynamicColors.chromaticMapping
+}));
+
+// Local octave setting for testing
+const testOctave = ref(4);
 
 // Interactive chord builder
 const chordBuilderNotes = ref<string[]>([]);
@@ -149,7 +156,7 @@ const generateChordsForKey = () => {
 // Enhanced Phase 2 color system tests with performance tracking
 const testNoteColor = (noteName: string) => {
   const startTime = performance.now();
-  const color = getPrimaryColor(noteName, currentMode.value, colorSystemSettings.value.octave);
+  const color = getPrimaryColor(noteName, currentMode.value, testOctave.value);
   const endTime = performance.now();
   
   performanceMetrics.value.colorGenerationTime = endTime - startTime;
@@ -158,14 +165,16 @@ const testNoteColor = (noteName: string) => {
   logger.dev('SystemsCheck: Color generated', {
     note: noteName,
     color,
-    generationTime: performanceMetrics.value.colorGenerationTime
+    generationTime: performanceMetrics.value.colorGenerationTime,
+    octave: testOctave.value,
+    storeSettings: colorSystemSettings.value
   });
   
   return color;
 };
 
 const testGlassmorphBackground = (noteName: string) => {
-  const color = getPrimaryColor(noteName, currentMode.value, colorSystemSettings.value.octave);
+  const color = getPrimaryColor(noteName, currentMode.value, testOctave.value);
   return createGlassmorphBackground(color, colorSystemSettings.value.saturation);
 };
 
@@ -208,7 +217,7 @@ const playChordBuilderNotes = async () => {
   
   try {
     for (let i = 0; i < chordBuilderNotes.value.length; i++) {
-      const note = chordBuilderNotes.value[i] + colorSystemSettings.value.octave;
+      const note = chordBuilderNotes.value[i] + testOctave.value;
       audioService.playNote(note, "4n");
       if (i < chordBuilderNotes.value.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -228,13 +237,27 @@ const clearChord = () => {
 
 // Color system setting handlers with logging
 const handleColorSettingChange = (setting: string, value: any) => {
-  (colorSystemSettings.value as any)[setting] = value;
+  // Update the store directly
+  if (setting === 'saturation') {
+    visualConfigStore.updateValue('dynamicColors', 'saturation', value);
+  } else if (setting === 'baseLightness') {
+    visualConfigStore.updateValue('dynamicColors', 'baseLightness', value);
+  } else if (setting === 'lightnessRange') {
+    visualConfigStore.updateValue('dynamicColors', 'lightnessRange', value);
+  } else if (setting === 'hueAnimation') {
+    visualConfigStore.updateValue('dynamicColors', 'hueAnimationAmplitude', value);
+  } else if (setting === 'animationSpeed') {
+    visualConfigStore.updateValue('dynamicColors', 'animationSpeed', value);
+  } else if (setting === 'chromaticMapping') {
+    visualConfigStore.updateValue('dynamicColors', 'chromaticMapping', value);
+  }
+  
   interactionCounts.value.colorChanges++;
   
-  logger.dev('SystemsCheck: Color setting changed', {
+  logger.dev('SystemsCheck: Color setting changed in store', {
     setting,
     value,
-    allSettings: colorSystemSettings.value
+    storeSettings: visualConfigStore.config.dynamicColors
   });
 };
 
@@ -260,12 +283,12 @@ const allNotesColorPalette = computed(() => {
   return colorTestNotes.value.map(note => ({
     name: note,
     color: testNoteColor(note),
-    colors: getNoteColors(note, currentMode.value, colorSystemSettings.value.octave)
+    colors: getNoteColors(note, currentMode.value, testOctave.value)
   }));
 });
 
 // Comprehensive note analysis using Tonal.js
-const getComprehensiveNoteAnalysis = (noteName: string, octave: number = colorSystemSettings.value.octave) => {
+const getComprehensiveNoteAnalysis = (noteName: string, octave: number = testOctave.value) => {
   try {
     const fullNoteName = noteName.includes(octave.toString()) ? noteName : `${noteName}${octave}`;
     const note = Note.get(fullNoteName);
@@ -374,7 +397,7 @@ const getScaleAnalysis = (keyCenter: string, scaleType: string = currentMode.val
       colorMapping: scale.notes.map(note => ({
         note,
         color: testNoteColor(note),
-        colors: getNoteColors(note, currentMode.value, colorSystemSettings.value.octave)
+        colors: getNoteColors(note, currentMode.value, testOctave.value)
       }))
     };
   } catch (error) {
@@ -399,20 +422,26 @@ const debugColorSystem = () => {
     selectedNote: selectedTestNote.value,
     currentKey: currentKey.value,
     currentMode: currentMode.value,
-    colorSystemSettings: colorSystemSettings.value,
+    testOctave: testOctave.value,
+    storeSettings: visualConfigStore.config.dynamicColors,
+    computedSettings: colorSystemSettings.value,
     
     // Test color generation
     testColors: colorTestNotes.value.map(note => ({
       note,
       primary: testNoteColor(note),
-      colors: getNoteColors(note, currentMode.value, colorSystemSettings.value.octave)
+      colors: getNoteColors(note, currentMode.value, testOctave.value)
     })),
     
     // Test all notes with Do
     doColors: {
       primary: testNoteColor('Do'),
-      colors: getNoteColors('Do', currentMode.value, colorSystemSettings.value.octave)
-    }
+      colors: getNoteColors('Do', currentMode.value, testOctave.value)
+    },
+    
+    // Store state inspection
+    isStoreConnected: !!visualConfigStore,
+    storeIsEnabled: visualConfigStore.config.dynamicColors.isEnabled
   });
 };
 
@@ -429,6 +458,13 @@ const interactionCounts = ref({
 onMounted(() => {
   logger.info('Systems Check: Running functionality tests');
   logger.dev('SystemsCheck: Initializing interactive components');
+  
+  // Ensure dynamic colors are enabled
+  if (!visualConfigStore.config.dynamicColors.isEnabled) {
+    visualConfigStore.updateValue('dynamicColors', 'isEnabled', true);
+    logger.dev('SystemsCheck: Enabled dynamic colors in store');
+  }
+  
   testChordAnalysis();
   testKeyDetection();
   testScaleModes();
@@ -443,7 +479,8 @@ onMounted(() => {
   logger.dev('SystemsCheck: Initial color system state', {
     selectedNote: selectedTestNote.value,
     currentKey: currentKey.value,
-    currentMode: currentMode.value
+    currentMode: currentMode.value,
+    testOctave: testOctave.value
   });
 });
 
@@ -544,21 +581,21 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Octave</label>
                          <Knob
-               :model-value="colorSystemSettings.octave - 1"
+               :model-value="testOctave - 1"
                :min="0"
                :max="7"
                type="range"
-               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.octave = numVal + 1; handleKnobChange('music', 'octave', numVal + 1); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; testOctave.value = numVal + 1; handleKnobChange('music', 'octave', numVal + 1); }"
                :theme-color="'hsla(280, 50%, 50%, 1)'"
              />
-            <div class="text-xs text-white mt-1">{{ colorSystemSettings.octave }}</div>
+                          <div class="text-xs text-white mt-1">{{ testOctave }}</div>
           </div>
           <div class="text-center">
             <label class="text-xs text-gray-400 block mb-2">Chromatic</label>
                          <Knob
                :model-value="colorSystemSettings.chromaticMapping"
                type="boolean"
-               @update:model-value="(value: string | number | boolean) => { const boolVal = typeof value === 'boolean' ? value : Boolean(value); colorSystemSettings.chromaticMapping = boolVal; handleKnobChange('music', 'chromatic', colorSystemSettings.chromaticMapping); }"
+               @update:model-value="(value: string | number | boolean) => { const boolVal = typeof value === 'boolean' ? value : Boolean(value); handleColorSettingChange('chromaticMapping', boolVal); handleKnobChange('music', 'chromatic', boolVal); }"
                :theme-color="'hsla(340, 50%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.chromaticMapping ? 'ON' : 'OFF' }}</div>
@@ -692,7 +729,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.saturation * 100"
                :max="100"
                type="range"
-               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.saturation = numVal / 100; handleColorSettingChange('saturation', numVal / 100); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; handleColorSettingChange('saturation', numVal / 100); }"
                :theme-color="'hsla(300, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.saturation * 100).toFixed(0) }}%</div>
@@ -703,7 +740,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.baseLightness * 100"
                :max="100"
                type="range"
-               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.baseLightness = numVal / 100; handleColorSettingChange('baseLightness', numVal / 100); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; handleColorSettingChange('baseLightness', numVal / 100); }"
                :theme-color="'hsla(60, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.baseLightness * 100).toFixed(0) }}%</div>
@@ -714,7 +751,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.lightnessRange * 100"
                :max="100"
                type="range"
-               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.lightnessRange = numVal / 100; handleColorSettingChange('lightnessRange', numVal / 100); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; handleColorSettingChange('lightnessRange', numVal / 100); }"
                :theme-color="'hsla(180, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ (colorSystemSettings.lightnessRange * 100).toFixed(0) }}%</div>
@@ -725,7 +762,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.hueAnimation"
                :max="50"
                type="range"
-               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.hueAnimation = numVal; handleColorSettingChange('hueAnimation', numVal); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; handleColorSettingChange('hueAnimation', numVal); }"
                :theme-color="'hsla(240, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.hueAnimation }}°</div>
@@ -736,7 +773,7 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                :model-value="colorSystemSettings.animationSpeed * 10"
                :max="30"
                type="range"
-               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; colorSystemSettings.animationSpeed = numVal / 10; handleColorSettingChange('animationSpeed', numVal / 10); }"
+               @update:model-value="(value: string | number | boolean) => { const numVal = typeof value === 'number' ? value : 0; handleColorSettingChange('animationSpeed', numVal / 10); }"
                :theme-color="'hsla(0, 70%, 50%, 1)'"
              />
             <div class="text-xs text-white mt-1">{{ colorSystemSettings.animationSpeed.toFixed(1) }}x</div>

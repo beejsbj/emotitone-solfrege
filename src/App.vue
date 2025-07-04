@@ -11,6 +11,7 @@
 
     <!-- Auto Visual Effects Debug Panel (Development Only) -->
     <AutoDebugPanel v-if="!isLoading" />
+    <SystemsCheckButton v-if="!isLoading" />
     <InstrumentSelector />
 
     <!-- Main Content -->
@@ -47,6 +48,7 @@ import SequencerSection from "@/components/SequencerSection.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";
 import { globalTooltip } from "@/directives/tooltip";
 import StickyBottom from "@/components/StickyBottom.vue";
+import SystemsCheckButton from "@/components/SystemsCheckButton.vue";
 // Stores and composables
 const musicStore = useMusicStore();
 const { isLoading } = useAppLoading();

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { unifiedMusicService } from '@/services/musicUnified';
+import { audioService } from '@/services/audio';
 import { logger } from '@/utils/logger';
 import type { EnhancedMelody } from '@/types/music';
 
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 const currentKey = ref('C');
 const currentMode = ref<'major' | 'minor'>('major');
 const testNotes = ref(['C4', 'E4', 'G4']);
+const testNotesInput = ref('C4 E4 G4');
 const testProgression = ref(['C', 'Am', 'F', 'G']);
 
 // Results storage
@@ -27,6 +29,31 @@ const consonantPatterns = ref<EnhancedMelody[]>([]);
 const dissonantPatterns = ref<EnhancedMelody[]>([]);
 const lowTensionPatterns = ref<EnhancedMelody[]>([]);
 const highTensionPatterns = ref<EnhancedMelody[]>([]);
+
+// Update test notes from input
+const updateTestNotes = () => {
+  const notes = testNotesInput.value.trim().split(/\s+/).filter(n => n);
+  if (notes.length > 0) {
+    testNotes.value = notes;
+    testChordAnalysis();
+  }
+};
+
+// Play test notes
+const playTestNotes = async () => {
+  try {
+    // Play each note with a slight delay
+    for (let i = 0; i < testNotes.value.length; i++) {
+      const note = testNotes.value[i];
+      audioService.playNote(note, "8n"); // 8th note duration
+      if (i < testNotes.value.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 150)); // 150ms between notes
+      }
+    }
+  } catch (error) {
+    logger.warn('Failed to play test notes:', error);
+  }
+};
 
 // Test advanced music theory features
 const testChordAnalysis = () => {
@@ -43,7 +70,11 @@ const testKeyDetection = () => {
 const testScaleModes = () => {
   logger.dev('Getting scale modes for current key:', currentKey.value);
   unifiedMusicService.setCurrentKey(currentKey.value as any);
-  scaleModes.value = unifiedMusicService.getScaleModes();
+  unifiedMusicService.setCurrentMode(currentMode.value);
+  scaleModes.value = unifiedMusicService.getScaleModes(currentMode.value);
+  
+  // Also regenerate chords for new key
+  generatedChords.value = generateChordsForKey();
 };
 
 const testProgressionAnalysis = () => {
@@ -68,21 +99,28 @@ const testPatternAnalysis = () => {
   highTensionPatterns.value = unifiedMusicService.getPatternsByTension(7, 10).slice(0, 5);
 };
 
+// Chord generation state
+const generatedChords = ref<any[]>([]);
+
 // Test chord generation
-const generatedChords = computed(() => {
+const generateChordsForKey = () => {
   const chords = [];
+  const romanNumerals = currentMode.value === 'major' 
+    ? ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°']
+    : ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'];
+    
   for (let degree = 1; degree <= 7; degree++) {
     const chordNotes = unifiedMusicService.getChordFromDegree(degree);
     if (chordNotes.length > 0) {
       chords.push({
         degree,
         notes: chordNotes,
-        roman: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'][degree - 1]
+        roman: romanNumerals[degree - 1]
       });
     }
   }
   return chords;
-});
+};
 
 // Run tests when modal opens
 watch(() => props.isOpen, (isOpen) => {
@@ -93,6 +131,14 @@ watch(() => props.isOpen, (isOpen) => {
     testScaleModes();
     testProgressionAnalysis();
     testPatternAnalysis();
+    generatedChords.value = generateChordsForKey();
+  }
+});
+
+// Update when mode changes
+watch(currentMode, () => {
+  if (props.isOpen) {
+    testScaleModes();
   }
 });
 
@@ -152,11 +198,25 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
                 <div class="p-3 bg-gray-700 rounded">
                   <h3 class="font-medium mb-2 text-sm">✅ Chord Analysis</h3>
                   <div class="text-xs">
-                    <p class="text-gray-400">Test notes: {{ testNotes.join(', ') }}</p>
+                    <div class="mb-2">
+                      <input 
+                        v-model="testNotesInput"
+                        @change="updateTestNotes"
+                        placeholder="Enter notes (e.g., C4 E4 G4)"
+                        class="w-full px-2 py-1 bg-gray-600 rounded text-white placeholder-gray-400"
+                      />
+                    </div>
+                    <p class="text-gray-400">Testing: {{ testNotes.join(', ') }}</p>
                     <div v-if="chordAnalysis" class="mt-2 p-2 bg-gray-600 rounded">
-                      <p>Chord: <span class="text-green-400">{{ chordAnalysis.symbol }}</span></p>
+                      <p>Chord: <span class="text-green-400 font-bold">{{ chordAnalysis.symbol }}</span></p>
                       <p>Quality: <span class="text-blue-400">{{ chordAnalysis.quality }}</span></p>
                     </div>
+                    <div v-else class="mt-2 p-2 bg-gray-600 rounded text-gray-400">
+                      No chord detected
+                    </div>
+                    <button @click="playTestNotes" class="mt-2 px-2 py-1 bg-blue-600 rounded text-xs hover:bg-blue-700 transition-colors">
+                      🎵 Play Notes
+                    </button>
                   </div>
                 </div>
 
@@ -171,24 +231,25 @@ const formatPatternInfo = (pattern: EnhancedMelody) => {
 
                 <!-- Scale Modes -->
                 <div class="p-3 bg-gray-700 rounded">
-                  <h3 class="font-medium mb-2 text-sm">✅ Scale Modes</h3>
+                  <h3 class="font-medium mb-2 text-sm">✅ Scale Modes ({{ currentKey }} {{ currentMode }})</h3>
                   <div v-if="scaleModes.length" class="text-xs space-y-1">
-                    <div v-for="(mode, index) in scaleModes.slice(0, 2)" :key="index" class="p-1 bg-gray-600 rounded">
-                      <span class="text-green-400">{{ mode.name }}</span>
+                    <div v-for="(mode, index) in scaleModes.slice(0, 3)" :key="index" class="p-1 bg-gray-600 rounded">
+                      <p class="text-green-400 font-medium">{{ mode.name }}</p>
+                      <p class="text-gray-400 text-[10px]">{{ mode.notes.join(' ') }}</p>
                     </div>
-                    <p v-if="scaleModes.length > 2" class="text-gray-500">
-                      +{{ scaleModes.length - 2 }} more
+                    <p v-if="scaleModes.length > 3" class="text-gray-500">
+                      +{{ scaleModes.length - 3 }} more modes
                     </p>
                   </div>
                 </div>
 
                 <!-- Chord Generation -->
                 <div class="p-3 bg-gray-700 rounded">
-                  <h3 class="font-medium mb-2 text-sm">✅ Chord Generation</h3>
+                  <h3 class="font-medium mb-2 text-sm">✅ Chord Generation ({{ currentKey }} {{ currentMode }})</h3>
                   <div class="text-xs space-y-1">
-                    <div v-for="chord in generatedChords.slice(0, 3)" :key="chord.degree" class="flex">
-                      <span class="text-green-400 w-8">{{ chord.roman }}:</span>
-                      <span class="text-gray-300">{{ chord.notes.join('-') }}</span>
+                    <div v-for="chord in generatedChords" :key="chord.degree" class="flex items-center p-1 bg-gray-600 rounded">
+                      <span class="text-green-400 w-10 font-medium">{{ chord.roman }}:</span>
+                      <span class="text-gray-300 flex-1">{{ chord.notes.join('-') }}</span>
                     </div>
                   </div>
                 </div>

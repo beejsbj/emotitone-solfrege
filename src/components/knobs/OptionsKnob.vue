@@ -1,24 +1,18 @@
 <template>
-  <div>
-    <KnobCircles
-      type="options"
-      :total-segments="normalizedOptions.length"
-      :active-segment="currentIndex"
-      :color="activeStrokeColor"
-    />
+  <KnobCircles
+    type="options"
+    :total-segments="normalizedOptions.length"
+    :active-segment="currentIndex"
+    :color="activeStrokeColor"
+  />
 
-    <!-- Value text -->
-    <span
-      class="text-[8px] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none"
-    >
-      {{ displayValue }}
-    </span>
-
-    <!-- Label -->
-    <div class="text-gray-300 text-xs mt-1 text-center select-none">
-      {{ labelText }}
-    </div>
-  </div>
+  <!-- Value text -->
+  <span
+    class="text-[8px] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none"
+    :style="{ color: activeStrokeColor }"
+  >
+    {{ displayValue }}
+  </span>
 </template>
 
 <script setup lang="ts">
@@ -56,6 +50,4 @@ const displayValue = computed(
 const activeStrokeColor = computed(
   () => currentOption.value?.color || props.themeColor
 );
-
-const labelText = computed(() => props.label || props.paramName);
 </script>

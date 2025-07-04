@@ -1,23 +1,6 @@
 <template>
-  <div
-    class="key-selector transition-all duration-300 absolute top-0 left-0 w-full bg-black/70 backdrop-blur-sm rounded-sm border border-white/20"
-    :class="{
-      'transform translate-y-[60%]': isCollapsed,
-      'transform translate-y-0': !isCollapsed,
-    }"
-  >
+  <div class="key-selector">
     <!-- Floating Toggle Button -->
-    <button
-      @click="toggleCollapsed"
-      class="absolute top-2 left-4 transform -translate-y-full px-4 z-10 bg-gradient-to-b from-gray-700/80 to-black p-2 hover:bg-white/40 transition-all duration-200 group rounded-lg flex items-center gap-2"
-    >
-      Keys
-      <ChevronDown
-        :size="16"
-        class="text-white/80 transition-transform duration-300"
-        :class="{ 'rotate-180': isCollapsed }"
-      />
-    </button>
 
     <!-- Circle of Fifths -->
     <div class="relative w-80 h-80 mx-auto">
@@ -149,7 +132,7 @@
           :model-value="musicStore.currentMode"
           type="options"
           :options="[
-            { label: 'Major', value: 'major', color: 'yellow' },
+            { label: 'Major', value: 'major', color: 'orange' },
             { label: 'Minor', value: 'minor', color: 'purple' },
           ]"
           label="Mode"
@@ -163,7 +146,6 @@
 <script setup lang="ts">
 import { useMusicStore } from "@/stores/music";
 import { ref, computed, watch, onMounted, nextTick } from "vue";
-import { ChevronDown } from "lucide-vue-next";
 import { Knob } from "./knobs";
 
 const musicStore = useMusicStore();
@@ -201,7 +183,6 @@ const relativeMinors = [
 ];
 
 // Collapse state
-const isCollapsed = ref(true);
 const rotationAngle = ref(0);
 const isDragging = ref(false);
 const lastAngle = ref(0);
@@ -410,9 +391,6 @@ function selectMode(mode: "major" | "minor") {
 }
 
 // Toggle collapse function
-const toggleCollapsed = () => {
-  isCollapsed.value = !isCollapsed.value;
-};
 </script>
 
 <style scoped>

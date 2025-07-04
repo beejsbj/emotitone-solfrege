@@ -24,14 +24,14 @@ export type {
  * Consolidates all canvas rendering styles in one place
  */
 export const PALETTE_STYLES = {
-  // Typography (using Ojuju font from style.css)
+  // Typography (using Let's Jazz font from style.css)
   fonts: {
     family:
-      "'Ojuju', sans-serif, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
+      "'Lets Jazz', sans-serif, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
     systemFamily:
-      "'Ojuju', sans-serif, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
+      "'Lets Jazz', sans-serif, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
     tailwindFamily:
-      "'Ojuju', sans-serif, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
+      "'Lets Jazz', sans-serif, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
     weights: {
       normal: "600",
       semibold: "600",

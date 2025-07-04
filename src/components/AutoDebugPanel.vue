@@ -2,34 +2,47 @@
   <FloatingDropdown position="top-right" max-height="80vh">
     <!-- Trigger Button -->
     <template #trigger="{ toggle }">
-      <button @click="toggle" class="debug-toggle">
+      <button
+        @click="toggle"
+        class="flex items-center gap-1.5 px-3 py-2 text-xs text-white bg-black/80 border border-neutral-700 rounded backdrop-blur-lg transition-all hover:bg-black/90"
+      >
         <Settings :size="16" />
       </button>
     </template>
 
     <!-- Dropdown Panel -->
     <template #panel="{ close, toggle, position }">
-      <div class="debug-panel">
+      <div class="flex flex-col w-full min-h-0 flex-1">
         <!-- Sticky Header -->
         <div
-          class="debug-header"
+          class="sticky top-0 flex items-center justify-between px-4 py-2.5 border-b border-neutral-700 bg-black/95 backdrop-blur-lg z-10"
           :class="{ 'flex-row-reverse': position === 'top-left' }"
         >
-          <h3>
-            <Settings :size="16" />
-            Config
-          </h3>
+          <div>
+            <h3 class="flex items-center gap-1.5 m-0 text-sm text-[#00ff88]">
+              <Settings :size="16" />
+              Config
+            </h3>
+            <p v-if="lastSaved" class="text-[10px] text-neutral-400 italic">
+              Last saved: {{ formatLastSaved(lastSaved) }}
+            </p>
+          </div>
 
-          <button @click="toggle" class="close-btn" title="Close Panel">
+          <button
+            @click="toggle"
+            class="flex items-center justify-center p-0.5 text-[#ff6b6b] rounded hover:bg-[#ff6b6b]/20 transition-colors"
+          >
             <X :size="18" />
           </button>
         </div>
 
-        <div class="debug-content">
+        <div class="p-4 overflow-y-auto flex-1">
           <!-- Global Controls -->
-          <div class="global-controls">
-            <div class="config-row global-toggle">
-              <label class="toggle-label">
+          <div class="mb-5 pb-4 border-b border-neutral-700">
+            <div class="mb-2.5">
+              <label
+                class="flex items-center gap-2 cursor-pointer font-bold text-[#ffd93d]"
+              >
                 <input
                   type="checkbox"
                   :checked="visualsEnabled"
@@ -38,127 +51,155 @@
                       ($event.target as HTMLInputElement)?.checked ?? false
                     )
                   "
-                  class="toggle-checkbox"
+                  class="hidden"
                 />
-                <span class="toggle-slider"></span>
+                <span
+                  class="relative w-10 h-5 bg-neutral-700 rounded-full border border-neutral-600 transition-colors before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 before:transition-transform peer-checked:bg-[#00ff88] peer-checked:before:translate-x-5"
+                ></span>
                 Enable All Visuals
               </label>
             </div>
 
-            <div v-if="lastSaved" class="last-saved">
-              Last saved: {{ formatLastSaved(lastSaved) }}
+            <!-- Category Toggles Section -->
+            <div
+              class="grid grid-cols-[repeat(auto-fill,minmax(70px,1fr))] gap-4 gap-y-16"
+            >
+              <template
+                v-for="(sectionConfig, sectionName) in configSections"
+                :key="sectionName"
+              >
+                <div v-if="sectionConfig.isEnabled !== undefined">
+                  <Knob
+                    :model-value="sectionConfig.isEnabled"
+                    type="boolean"
+                    :label="getSectionTitle(sectionName)"
+                    :is-disabled="!visualsEnabled"
+                    @update:modelValue="
+                      (newValue) =>
+                        updateValue(sectionName, 'isEnabled', newValue)
+                    "
+                  />
+                </div>
+              </template>
             </div>
           </div>
 
           <!-- Auto-generated sections -->
-          <div
-            v-for="(sectionConfig, sectionName) in configSections"
-            :key="sectionName"
-            class="config-section"
-            :class="{ disabled: !visualsEnabled }"
-          >
-            <h4>
-              {{ getSectionIcon(sectionName) }}
-              {{ getSectionTitle(sectionName) }}
-            </h4>
+          <ul class="grid gap-[50px]">
+            <li
+              v-for="(sectionConfig, sectionName) in configSections"
+              :key="sectionName"
+              class="pb-12 border-b border-neutral-700 last:border-b-0 transition-opacity"
+              :class="{
+                'opacity-50 pointer-events-none':
+                  !visualsEnabled || !sectionConfig.isEnabled,
+              }"
+            >
+              <h4 class="m-0 mb-2.5 text-xs text-[#ffd93d]">
+                {{ getSectionIcon(sectionName) }}
+                {{ getSectionTitle(sectionName) }}
+              </h4>
 
-            <!-- Knobs grid layout -->
-            <div class="knobs-grid">
+              <!-- Knobs grid layout -->
               <div
-                v-for="(value, key) in sectionConfig"
-                :key="key"
-                class="knob-item"
+                class="grid grid-cols-[repeat(auto-fill,minmax(70px,1fr))] gap-4 gap-y-16"
               >
-                <!-- Boolean toggle knobs -->
-                <Knob
-                  v-if="typeof value === 'boolean'"
-                  :model-value="value"
-                  type="boolean"
-                  :label="formatLabel(String(key))"
-                  :is-disabled="!visualsEnabled"
-                  @update:modelValue="(newValue: boolean) => updateValue(sectionName, String(key), newValue)"
-                />
-
-                <!-- Number knobs -->
-                <Knob
-                  v-else-if="typeof value === 'number'"
-                  :model-value="value"
-                  type="range"
-                  :min="getNumberMin(sectionName, String(key))"
-                  :max="getNumberMax(sectionName, String(key))"
-                  :step="getNumberStep(sectionName, String(key))"
-                  :label="formatLabel(String(key))"
-                  :format-value="(val: number) => formatValue(sectionName, String(key), val)"
-                  :is-disabled="!visualsEnabled"
-                  @update:modelValue="(newValue: number) => updateValue(sectionName, String(key), newValue)"
-                />
-
-                <!-- String controls (if needed) -->
-                <div
-                  v-else-if="typeof value === 'string'"
-                  class="string-control"
-                >
-                  <label>{{ formatLabel(String(key)) }}</label>
-                  <input
-                    type="text"
-                    :value="value"
-                    :disabled="!visualsEnabled"
-                    @input="
-                      updateValue(
-                        sectionName,
-                        String(key),
-                        ($event.target as HTMLInputElement)?.value ?? ''
-                      )
+                <template v-for="(value, key) in sectionConfig" :key="key">
+                  <!-- Boolean toggle knobs -->
+                  <Knob
+                    v-if="
+                      typeof value === 'boolean' && String(key) !== 'isEnabled'
+                    "
+                    :model-value="value"
+                    type="boolean"
+                    :label="formatLabel(String(key))"
+                    :is-disabled="!visualsEnabled || !sectionConfig.isEnabled"
+                    @update:modelValue="
+                      (newValue) =>
+                        updateValue(sectionName, String(key), newValue)
                     "
                   />
-                </div>
+
+                  <!-- Number knobs -->
+                  <Knob
+                    v-else-if="typeof value === 'number'"
+                    :model-value="value"
+                    type="range"
+                    :min="getNumberMin(sectionName, String(key))"
+                    :max="getNumberMax(sectionName, String(key))"
+                    :step="getNumberStep(sectionName, String(key))"
+                    :label="formatLabel(String(key))"
+                    :format-value="(val: number) => formatValue(sectionName, String(key), val)"
+                    :is-disabled="!visualsEnabled || !sectionConfig.isEnabled"
+                    @update:modelValue="
+                      (newValue) =>
+                        updateValue(sectionName, String(key), newValue)
+                    "
+                  />
+                </template>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Saved Configurations -->
+        <div
+          v-if="savedConfigs.length > 0"
+          class="mb-5 pb-4 border-b border-neutral-700"
+        >
+          <h4 class="m-0 mb-2.5 text-xs text-[#ffd93d]">
+            💾 Saved Configurations
+          </h4>
+          <div class="flex flex-col gap-2">
+            <div
+              v-for="savedConfig in savedConfigs"
+              :key="savedConfig.id"
+              class="flex items-center justify-between p-1.5 bg-white/5 rounded border border-neutral-700"
+            >
+              <span class="text-xs text-neutral-300 flex-1">{{
+                savedConfig.name
+              }}</span>
+              <div class="flex gap-1.5">
+                <button
+                  @click="loadSavedConfig(savedConfig.id)"
+                  class="px-1.5 py-0.5 text-[10px] text-white bg-white/10 border border-neutral-600 rounded hover:bg-[#00ff88]/20 hover:border-[#00ff88] transition-colors flex items-center gap-0.5"
+                >
+                  Load
+                </button>
+                <button
+                  @click="deleteSavedConfig(savedConfig.id)"
+                  class="px-1.5 py-0.5 text-[10px] text-white bg-white/10 border border-neutral-600 rounded hover:bg-[#ff6b6b]/20 hover:border-[#ff6b6b] transition-colors flex items-center gap-0.5"
+                >
+                  <Trash2 :size="12" />
+                </button>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Saved Configurations -->
-          <div v-if="savedConfigs.length > 0" class="config-section">
-            <h4>💾 Saved Configurations</h4>
-            <div class="saved-configs">
-              <div
-                v-for="savedConfig in savedConfigs"
-                :key="savedConfig.id"
-                class="saved-config-item"
-              >
-                <span class="config-name">{{ savedConfig.name }}</span>
-                <div class="config-actions">
-                  <button
-                    @click="loadSavedConfig(savedConfig.id)"
-                    class="load-btn"
-                  >
-                    Load
-                  </button>
-                  <button
-                    @click="deleteSavedConfig(savedConfig.id)"
-                    class="delete-btn"
-                  >
-                    <Trash2 :size="12" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="config-actions">
-            <button @click="resetToDefaults" class="reset-btn">
-              <RotateCcw :size="14" />
-              Reset to Defaults
-            </button>
-            <button @click="exportConfig" class="export-btn">
-              <Download :size="14" />
-              Export Config
-            </button>
-            <button @click="promptSaveConfig" class="save-as-btn">
-              <Save :size="14" />
-              Save As...
-            </button>
-          </div>
+        <!-- Actions -->
+        <div class="flex gap-2.5 mt-5">
+          <button
+            @click="resetToDefaults"
+            class="flex-1 px-2 py-2 text-xs text-white bg-white/10 border border-neutral-600 rounded flex items-center justify-center gap-1 hover:bg-white/20 transition-colors"
+          >
+            <RotateCcw :size="14" />
+            Reset to Defaults
+          </button>
+          <button
+            @click="exportConfig"
+            class="flex-1 px-2 py-2 text-xs text-white bg-white/10 border border-neutral-600 rounded flex items-center justify-center gap-1 hover:bg-white/20 transition-colors"
+          >
+            <Download :size="14" />
+            Export Config
+          </button>
+          <button
+            @click="promptSaveConfig"
+            class="flex-1 px-2 py-2 text-xs text-white bg-white/10 border border-neutral-600 rounded flex items-center justify-center gap-1 hover:bg-white/20 transition-colors"
+          >
+            <Save :size="14" />
+            Save As...
+          </button>
         </div>
       </div>
     </template>
@@ -442,283 +483,3 @@ const formatLastSaved = (timestamp: string): string => {
   }
 };
 </script>
-
-<style scoped>
-.debug-panel {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1;
-}
-
-.debug-header {
-  position: sticky;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 15px;
-  border-bottom: 1px solid #333;
-  background: rgba(0, 0, 0, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 10;
-}
-
-.debug-header h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #00ff88;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #ff6b6b;
-  cursor: pointer;
-  padding: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2px;
-  transition: background-color 0.2s ease;
-}
-
-.close-btn:hover {
-  background: rgba(255, 107, 107, 0.2);
-}
-
-.debug-content {
-  padding: 15px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.global-controls {
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #333;
-}
-
-.global-toggle {
-  margin-bottom: 10px;
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  color: #ffd93d;
-}
-
-.toggle-checkbox {
-  display: none;
-}
-
-.toggle-slider {
-  width: 40px;
-  height: 20px;
-  background: #333;
-  border-radius: 10px;
-  position: relative;
-  transition: background-color 0.3s ease;
-  border: 1px solid #555;
-}
-
-.toggle-slider::before {
-  content: "";
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  top: 1px;
-  left: 1px;
-  transition: transform 0.3s ease;
-}
-
-.toggle-checkbox:checked + .toggle-slider {
-  background: #00ff88;
-}
-
-.toggle-checkbox:checked + .toggle-slider::before {
-  transform: translateX(20px);
-}
-
-.last-saved {
-  font-size: 10px;
-  color: #888;
-  font-style: italic;
-}
-
-.config-section {
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #333;
-  transition: opacity 0.3s ease;
-}
-
-.config-section.disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.config-section:last-of-type {
-  border-bottom: none;
-}
-
-.config-section h4 {
-  margin: 0 0 10px 0;
-  font-size: 13px;
-  color: #ffd93d;
-}
-
-.knobs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 15px;
-  padding: 10px 0;
-}
-
-.knob-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.string-control {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  min-height: 80px;
-  justify-content: center;
-}
-
-.string-control label {
-  margin-bottom: 5px;
-  font-size: 10px;
-  color: #ccc;
-  text-align: center;
-  word-wrap: break-word;
-  max-width: 80px;
-  line-height: 1.2;
-}
-
-.string-control input {
-  width: 100%;
-  max-width: 80px;
-  padding: 3px;
-  border: 1px solid #555;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border-radius: 4px;
-  font-size: 10px;
-  text-align: center;
-}
-
-.saved-configs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.saved-config-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  border: 1px solid #444;
-}
-
-.config-name {
-  font-size: 11px;
-  color: #ccc;
-  flex: 1;
-}
-
-.config-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.load-btn,
-.delete-btn {
-  padding: 2px 6px;
-  border: 1px solid #555;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.load-btn:hover {
-  background: rgba(0, 255, 136, 0.2);
-  border-color: #00ff88;
-}
-
-.delete-btn:hover {
-  background: rgba(255, 107, 107, 0.2);
-  border-color: #ff6b6b;
-}
-
-.config-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.reset-btn,
-.export-btn,
-.save-as-btn {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid #555;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.reset-btn:hover,
-.export-btn:hover,
-.save-as-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.debug-toggle {
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.8);
-  border: 1px solid #333;
-  border-radius: 4px;
-  color: white;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
-}
-
-.debug-toggle:hover {
-  background: rgba(0, 0, 0, 0.9);
-}
-</style>

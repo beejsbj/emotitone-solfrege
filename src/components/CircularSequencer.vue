@@ -220,12 +220,13 @@ onUnmounted(() => {
       class="w-full h-auto block rounded-full border touch-none select-none"
       :class="compact ? 'cursor-pointer' : 'cursor-crosshair'"
       :style="{
-        background: compact
-          ? 'rgba(31, 41, 55, 0.8)'
-          : styles.container.background,
+        background: compact ? 'transparent' : styles.container.background,
+        borderWidth: compact ? '0px' : styles.container.border.width,
+        borderStyle: styles.container.border.style,
         borderColor: compact
-          ? 'rgba(255, 255, 255, 0.1)'
-          : 'rgba(255, 255, 255, 0.2)',
+          ? styles.container.border.colorCompact
+          : styles.container.border.colorDefault,
+        boxShadow: compact ? 'none' : `0 0 20px ${styles.container.shadow}`,
       }"
       preserveAspectRatio="xMidYMid meet"
       @click="handleContainerClick"

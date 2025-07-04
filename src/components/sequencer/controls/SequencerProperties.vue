@@ -53,14 +53,22 @@ const formatColor = (value: any) => {
 };
 
 // Methods
-const updateOctave = (newOctave: number) => {
-  sequencerStore.updateSequencer(props.sequencerId, {
-    octave: newOctave,
-  });
+const updateOctave = (value: string | number | boolean) => {
+  const newOctave =
+    typeof value === "number" ? value : parseInt(value as string);
+  if (!isNaN(newOctave)) {
+    sequencerStore.updateSequencer(props.sequencerId, {
+      octave: newOctave,
+    });
+  }
 };
 
-const updateVolume = (newVolume: number) => {
-  sequencerStore.setSequencerVolume(props.sequencerId, newVolume);
+const updateVolume = (value: string | number | boolean) => {
+  const newVolume =
+    typeof value === "number" ? value : parseFloat(value as string);
+  if (!isNaN(newVolume)) {
+    sequencerStore.setSequencerVolume(props.sequencerId, newVolume);
+  }
 };
 
 const updateColor = (newColor: any) => {

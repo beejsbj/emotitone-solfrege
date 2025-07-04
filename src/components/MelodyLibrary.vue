@@ -42,189 +42,145 @@
           <div class="mb-5">
             <input
               v-model="searchTerm"
-              placeholder="Search patterns, intervals, melodies..."
+              placeholder="Search melodies by name, emotion, or description..."
               class="w-full p-2 sm:px-3 bg-black/60 border border-white/20 rounded-md text-white text-xs placeholder-white/50 focus:outline-none focus:border-emerald-400 focus:bg-black/80"
             />
           </div>
 
-          <!-- Content Sections -->
-          <div class="flex flex-col gap-5">
-            <!-- Intervals Section -->
-            <div class="flex flex-col gap-2.5">
-              <h4
-                class="m-0 text-xs text-yellow-300 uppercase tracking-wider font-semibold border-b border-yellow-300/30 pb-1"
+          <!-- Categorized Melodies Accordion -->
+          <div class="space-y-2">
+            <div
+              v-for="(melodies, category) in categorizedMelodies"
+              :key="category"
+              class="bg-white/5 border border-white/10 rounded-md overflow-hidden"
+            >
+              <!-- Category Header -->
+              <button
+                @click="toggleCategory(category)"
+                class="w-full p-3 flex items-center justify-between bg-black/40 cursor-pointer transition-colors duration-200 hover:bg-black/50"
               >
-                Intervals
-              </h4>
-              <div class="grid grid-cols-1 gap-2">
-                <div
-                  v-for="pattern in filteredIntervals"
-                  :key="pattern.name"
-                  class="bg-white/5 border border-white/10 rounded-md p-2.5 transition-all duration-200 hover:bg-white/8 hover:border-white/20"
-                >
-                  <div class="flex justify-between items-center mb-1.5">
-                    <h5 class="m-0 text-xs text-white font-semibold">
-                      {{ pattern.name }}
-                    </h5>
-                    <span
-                      class="text-xs text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-sm"
-                      >{{ pattern.emotion }}</span
-                    >
-                  </div>
-                  <div class="text-xs text-white/70 mb-2 leading-tight">
-                    {{ pattern.description }}
-                  </div>
-                  <div class="flex flex-wrap items-center gap-1 mb-2">
-                    <template
-                      v-for="(note, index) in pattern.sequence"
-                      :key="index"
-                    >
-                      <span
-                        :style="{ background: getPrimaryColor(note.note) }"
-                        class="inline-flex flex-col items-center px-1.5 py-1 rounded text-black text-xs font-semibold leading-none"
-                      >
-                        {{ note.note }}
-                        <span class="text-xs opacity-80 mt-0.5">{{
-                          note.duration
-                        }}</span>
-                      </span>
-                      <span
-                        v-if="index !== pattern.sequence.length - 1"
-                        class="text-white/50 text-xs"
-                        >→</span
-                      >
-                    </template>
-                  </div>
-                  <div class="flex gap-1">
-                    <button
-                      @click="playPattern(pattern, close)"
-                      :disabled="currentlyPlaying === pattern.name"
-                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-emerald-400/20 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {{
-                        currentlyPlaying === pattern.name
-                          ? "Playing..."
-                          : "▶ Play"
-                      }}
-                    </button>
-                    <button
-                      @click="loadToSequencer(pattern, close)"
-                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30"
-                    >
-                      Load
-                    </button>
-                  </div>
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="[
+                      getCategoryInfo(category).color.text,
+                      getCategoryInfo(category).color.bg,
+                    ]"
+                    class="px-2 py-1 rounded text-xs font-medium"
+                  >
+                    {{ getCategoryInfo(category).title }}
+                  </span>
+                  <span class="text-white/70 text-xs">
+                    {{ melodies.length }} melodies
+                  </span>
                 </div>
-              </div>
-            </div>
+                <ChevronDown
+                  :size="16"
+                  class="text-white/70 transition-transform duration-300"
+                  :class="{ 'rotate-180': expandedCategories.has(category) }"
+                />
+              </button>
 
-            <!-- Patterns Section -->
-            <div class="flex flex-col gap-2.5">
-              <h4
-                class="m-0 text-xs text-yellow-300 uppercase tracking-wider font-semibold border-b border-yellow-300/30 pb-1"
+              <!-- Category Content -->
+              <div
+                v-show="expandedCategories.has(category)"
+                class="border-t border-white/10"
               >
-                Melodic Patterns
-              </h4>
-              <div class="grid grid-cols-1 gap-2">
-                <div
-                  v-for="pattern in filteredPatterns"
-                  :key="pattern.name"
-                  class="bg-white/5 border border-white/10 rounded-md p-2.5 transition-all duration-200 hover:bg-white/8 hover:border-white/20"
-                >
-                  <div class="flex justify-between items-center mb-1.5">
-                    <h5 class="m-0 text-xs text-white font-semibold">
-                      {{ pattern.name }}
-                    </h5>
-                    <span
-                      class="text-xs text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-sm"
-                      >{{ pattern.emotion }}</span
-                    >
-                  </div>
-                  <div class="text-xs text-white/70 mb-2 leading-tight">
-                    {{ pattern.description }}
-                  </div>
-                  <div class="flex flex-wrap items-center gap-1 mb-2">
-                    <template
-                      v-for="(note, index) in pattern.sequence"
-                      :key="index"
-                    >
-                      <span
-                        :style="{ background: getPrimaryColor(note.note) }"
-                        class="inline-flex flex-col items-center px-1.5 py-1 rounded text-black text-xs font-semibold leading-none"
+                <div class="p-2 space-y-2">
+                  <div
+                    v-for="melody in melodies"
+                    :key="melody.name"
+                    class="bg-white/5 border border-white/10 rounded-md p-2.5 transition-all duration-200 hover:bg-white/8 hover:border-white/20"
+                  >
+                    <div class="flex justify-between items-center mb-1.5">
+                      <h5 class="m-0 text-xs text-white font-semibold">
+                        {{ melody.name }}
+                      </h5>
+                      <div class="flex items-center gap-1">
+                        <!-- Category Badge -->
+                        <span
+                          :class="[
+                            getCategoryInfo(melody.category).color.text,
+                            getCategoryInfo(melody.category).color.bg,
+                          ]"
+                          class="px-1.5 py-0.5 rounded-sm text-xs"
+                        >
+                          {{ getCategoryInfo(melody.category).title }}
+                        </span>
+                        <!-- Emotion Badge -->
+                        <span
+                          v-if="melody.emotion"
+                          class="text-xs text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-sm"
+                        >
+                          {{ melody.emotion }}
+                        </span>
+                        <!-- Key & BPM Badge -->
+                        <span
+                          v-if="melody.defaultKey && melody.defaultBpm"
+                          :style="{
+                            backgroundColor: `${getKeyColor(
+                              melody.defaultKey
+                            )}33`,
+                            color: getKeyColor(melody.defaultKey),
+                          }"
+                          class="text-xs px-1.5 py-0.5 rounded-sm"
+                        >
+                          {{ melody.defaultKey }} {{ melody.defaultBpm }}bpm
+                        </span>
+                      </div>
+                    </div>
+                    <div class="text-xs text-white/70 mb-2 leading-tight">
+                      {{ melody.description }}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1 mb-2">
+                      <template
+                        v-for="(note, index) in melody.sequence.slice(0, 8)"
+                        :key="index"
                       >
-                        {{ note.note }}
-                        <span class="text-xs opacity-80 mt-0.5">{{
-                          note.duration
-                        }}</span>
-                      </span>
+                        <span
+                          :style="{
+                            background: getPrimaryColor(
+                              musicStore.getSolfegeByName(note.note)?.name ||
+                                note.note
+                            ),
+                          }"
+                          class="inline-flex flex-col items-center px-1.5 py-1 rounded text-black text-xs font-semibold leading-none"
+                        >
+                          {{ note.note }}
+                          <span class="text-xs opacity-80 mt-0.5">{{
+                            note.duration
+                          }}</span>
+                        </span>
+                        <span
+                          v-if="index !== melody.sequence.length - 1"
+                          class="text-white/50 text-xs"
+                          >→</span
+                        >
+                      </template>
                       <span
-                        v-if="index !== pattern.sequence.length - 1"
+                        v-if="melody.sequence.length > 8"
                         class="text-white/50 text-xs"
-                        >→</span
+                        >...</span
                       >
-                    </template>
-                  </div>
-                  <div class="flex gap-1">
-                    <button
-                      @click="playPattern(pattern, close)"
-                      :disabled="currentlyPlaying === pattern.name"
-                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-emerald-400/20 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {{
-                        currentlyPlaying === pattern.name
-                          ? "Playing..."
-                          : "▶ Play"
-                      }}
-                    </button>
-                    <button
-                      @click="loadToSequencer(pattern, close)"
-                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30"
-                    >
-                      Load
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Saved Melodies Section -->
-            <div v-if="savedMelodies.length > 0" class="flex flex-col gap-2.5">
-              <h4
-                class="m-0 text-xs text-yellow-300 uppercase tracking-wider font-semibold border-b border-yellow-300/30 pb-1"
-              >
-                User Melodies
-              </h4>
-              <div class="grid grid-cols-1 gap-2">
-                <div
-                  v-for="melody in filteredSavedMelodies"
-                  :key="(melody as any).id"
-                  class="bg-white/5 border border-white/10 rounded-md p-2.5 transition-all duration-200 hover:bg-white/8 hover:border-white/20"
-                >
-                  <div class="flex justify-between items-center mb-1.5">
-                    <h5 class="m-0 text-xs text-white font-semibold">
-                      {{ (melody as any).name }}
-                    </h5>
-                    <span
-                      class="text-xs text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-sm"
-                      >{{ (melody as any).beats?.length || 0 }} beats</span
-                    >
-                  </div>
-                  <div class="text-xs text-white/70 mb-2 leading-tight">
-                    {{ (melody as any).description }}
-                  </div>
-                  <div class="flex gap-1">
-                    <button
-                      @click="loadMelody((melody as any).id, close)"
-                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30"
-                    >
-                      Load
-                    </button>
-                    <button
-                      @click="deleteMelody((melody as any).id)"
-                      class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-red-500/20 text-red-500 border border-red-500/30 hover:bg-red-500/30"
-                    >
-                      Delete
-                    </button>
+                    </div>
+                    <div class="flex gap-1">
+                      <button
+                        @click="playPattern(melody, close)"
+                        :disabled="currentlyPlaying === melody.name"
+                        class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-emerald-400/20 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {{
+                          currentlyPlaying === melody.name
+                            ? "Playing..."
+                            : "▶ Play"
+                        }}
+                      </button>
+                      <button
+                        @click="loadToSequencer(melody, close)"
+                        class="flex-1 px-2 py-1 border-0 rounded text-xs font-semibold cursor-pointer transition-all duration-200 bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30"
+                      >
+                        Load
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -241,92 +197,107 @@ import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useSequencerStore } from "@/stores/sequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
-import type { MelodicPattern } from "@/types/music";
+import useGSAP from "@/composables/useGSAP";
+import type {
+  CategorizedMelody,
+  SequencerBeat,
+  ChromaticNote,
+} from "@/types/music";
 import { ChevronDown, Music } from "lucide-vue-next";
 import FloatingDropdown from "./FloatingDropdown.vue";
-import { getAllMelodicPatterns } from "@/data";
+import { MusicTheoryService, CHROMATIC_NOTES } from "@/services/music";
 
 const musicStore = useMusicStore();
 const sequencerStore = useSequencerStore();
 const { getPrimaryColor } = useColorSystem();
+const { gsap } = useGSAP();
 
 // Local state
 const searchTerm = ref("");
 const currentlyPlaying = ref<string | null>(null);
+const expandedCategories = ref<Set<string>>(new Set(["complete"]));
+const originalKey = ref(musicStore.currentKey);
 
-// Computed properties
-const allPatterns = computed(() => getAllMelodicPatterns());
-const activeSequencer = computed(() => sequencerStore.activeSequencer);
+// Filtered and categorized melodies
+const categorizedMelodies = computed(() => {
+  const melodies = searchTerm.value
+    ? musicStore.searchMelodies(searchTerm.value)
+    : musicStore.allMelodies;
 
-// Get saved melodies from the old sequencer store for backward compatibility
-// TODO: Implement multi-sequencer project save/load
-const savedMelodies = computed(() => []);
-
-// Filter patterns by type
-const intervalPatterns = computed(() => {
-  return allPatterns.value.filter(
-    (pattern) => pattern.intervals && pattern.intervals.length === 1
-  );
+  return melodies.reduce((acc, melody) => {
+    if (!acc[melody.category]) {
+      acc[melody.category] = [];
+    }
+    acc[melody.category].push(melody);
+    return acc;
+  }, {} as Record<string, CategorizedMelody[]>);
 });
 
-const melodicPatterns = computed(() => {
-  return allPatterns.value.filter(
-    (pattern) => !pattern.intervals || pattern.intervals.length !== 1
-  );
-});
+// Get category display info
+const getCategoryInfo = (category: string) => {
+  switch (category) {
+    case "intervals":
+      return {
+        title: "Intervals",
+        color: { text: "text-purple-400", bg: "bg-purple-400/10" },
+      };
+    case "patterns":
+      return {
+        title: "Melodic Pattern",
+        color: { text: "text-yellow-400", bg: "bg-yellow-400/10" },
+      };
+    case "complete":
+      return {
+        title: "Complete Melody",
+        color: { text: "text-blue-400", bg: "bg-blue-400/10" },
+      };
+    case "userCreated":
+      return {
+        title: "User Created",
+        color: { text: "text-emerald-400", bg: "bg-emerald-400/10" },
+      };
+    default:
+      return {
+        title: "Other",
+        color: { text: "text-gray-400", bg: "bg-gray-400/10" },
+      };
+  }
+};
 
-// Search filtering
-const filteredIntervals = computed(() => {
-  if (!searchTerm.value) return intervalPatterns.value;
-  const term = searchTerm.value.toLowerCase();
-  return intervalPatterns.value.filter(
-    (pattern) =>
-      pattern.name.toLowerCase().includes(term) ||
-      pattern.emotion?.toLowerCase().includes(term) ||
-      pattern.description?.toLowerCase().includes(term)
-  );
-});
+// Toggle category expansion
+const toggleCategory = (category: string) => {
+  if (expandedCategories.value.has(category)) {
+    expandedCategories.value.delete(category);
+  } else {
+    expandedCategories.value.add(category);
+  }
+};
 
-const filteredPatterns = computed(() => {
-  if (!searchTerm.value) return melodicPatterns.value;
-  const term = searchTerm.value.toLowerCase();
-  return melodicPatterns.value.filter(
-    (pattern) =>
-      pattern.name.toLowerCase().includes(term) ||
-      pattern.emotion?.toLowerCase().includes(term) ||
-      pattern.description?.toLowerCase().includes(term)
-  );
-});
-
-const filteredSavedMelodies = computed(() => {
-  if (!searchTerm.value) return savedMelodies.value;
-  const term = searchTerm.value.toLowerCase();
-  return savedMelodies.value.filter(
-    (melody: any) =>
-      melody.name.toLowerCase().includes(term) ||
-      melody.description.toLowerCase().includes(term) ||
-      melody.emotion.toLowerCase().includes(term)
-  );
-});
+// Get the color for a key badge
+const getKeyColor = (key: string) => {
+  const tempMusicService = new MusicTheoryService();
+  tempMusicService.setCurrentKey(key as ChromaticNote);
+  const solfegeData = tempMusicService.getCurrentScale().solfege[0];
+  return getPrimaryColor(solfegeData.name);
+};
 
 // Methods
 const loadToSequencer = (
-  pattern: MelodicPattern,
+  melody: CategorizedMelody,
   closeDropdown?: () => void
 ) => {
-  if (!activeSequencer.value) {
-    // Create a new sequencer if none exists
+  if (!sequencerStore.activeSequencer) {
     sequencerStore.createSequencer();
   }
 
-  if (activeSequencer.value) {
-    // Clear existing beats in the active sequencer
-    sequencerStore.clearBeatsInSequencer(activeSequencer.value.id);
-
-    // Convert pattern to beats and add them
-    const newBeats = convertPatternToBeats(pattern);
+  if (sequencerStore.activeSequencer) {
+    sequencerStore.clearBeatsInSequencer(sequencerStore.activeSequencer.id);
+    const newBeats = convertPatternToBeats(melody);
     newBeats.forEach((beat) => {
-      sequencerStore.addBeatToSequencer(activeSequencer.value!.id, beat);
+      sequencerStore.addBeatToSequencer(
+        sequencerStore.activeSequencer!.id,
+        beat
+      );
     });
   }
 
@@ -334,62 +305,57 @@ const loadToSequencer = (
 };
 
 // Convert melodic pattern to sequencer beats
-const convertPatternToBeats = (pattern: MelodicPattern) => {
-  const beats: any[] = [];
+const convertPatternToBeats = (melody: CategorizedMelody) => {
+  const beats: SequencerBeat[] = [];
   let stepPosition = 0;
 
-  pattern.sequence.forEach((noteData, index) => {
+  melody.sequence.forEach((noteData, index) => {
     const solfegeName = noteData.note;
     const solfegeIndex = musicStore.solfegeData.findIndex(
       (s) => s.name === solfegeName
     );
 
-    // Only use the first 7 solfege notes
     if (solfegeIndex >= 0 && solfegeIndex < 7) {
-      // Convert duration from Tone.js notation to step duration
       const noteDuration = noteData.duration;
-      let stepDuration = 1; // Default to 1 step
+      let stepDuration = 1;
 
-      // Convert common durations to step lengths (assuming 16 steps = 1 bar)
       switch (noteDuration) {
         case "1n":
           stepDuration = 16;
-          break; // Whole note
+          break;
         case "2n":
           stepDuration = 8;
-          break; // Half note
+          break;
         case "4n":
           stepDuration = 4;
-          break; // Quarter note
+          break;
         case "8n":
           stepDuration = 2;
-          break; // Eighth note
+          break;
         case "16n":
           stepDuration = 1;
-          break; // Sixteenth note
+          break;
         case "32n":
           stepDuration = 0.5;
-          break; // Thirty-second note (rare)
+          break;
         default:
           stepDuration = 1;
-          break; // Default to sixteenth note
+          break;
       }
 
-      // Ensure step duration is at least 1 and fits in remaining steps
       stepDuration = Math.max(1, Math.floor(stepDuration));
 
       const beat = {
         id: `pattern-${Date.now()}-${index}`,
-        ring: 6 - solfegeIndex, // Reverse for visual representation
-        step: stepPosition % 16, // Wrap around at 16 steps
+        ring: 6 - solfegeIndex,
+        step: stepPosition % 16,
         duration: stepDuration,
         solfegeName,
         solfegeIndex,
-        octave: activeSequencer.value?.octave || 4,
+        octave: sequencerStore.activeSequencer?.octave || 4,
       };
       beats.push(beat);
 
-      // Move to next position based on the actual duration
       stepPosition += stepDuration;
     }
   });
@@ -397,32 +363,60 @@ const convertPatternToBeats = (pattern: MelodicPattern) => {
   return beats;
 };
 
-const loadMelody = (melodyId: string, closeDropdown?: () => void) => {
-  // TODO: Implement loading saved melodies in multi-sequencer context
-  console.log("Loading melody:", melodyId);
-  if (closeDropdown) closeDropdown();
-};
-
-const deleteMelody = (melodyId: string) => {
-  // TODO: Implement deleting saved melodies in multi-sequencer context
-  console.log("Deleting melody:", melodyId);
-};
-
 const playPattern = async (
-  pattern: MelodicPattern,
+  melody: CategorizedMelody,
   closeDropdown?: () => void
 ) => {
-  if (currentlyPlaying.value === pattern.name) return;
+  if (currentlyPlaying.value === melody.name) return;
 
-  // TODO: Implement pattern preview playback
-  currentlyPlaying.value = pattern.name;
+  try {
+    currentlyPlaying.value = melody.name;
 
-  // Simulate playback for now
-  setTimeout(() => {
+    // Set the key if specified in the melody
+    if (melody.defaultKey) {
+      musicStore.setKey(melody.defaultKey);
+    }
+
+    // Play each note in sequence
+    for (const note of melody.sequence) {
+      // Check if we should stop playing
+      if (currentlyPlaying.value !== melody.name) break;
+
+      // Calculate note duration in seconds
+      let durationTime = 0.25; // default to quarter note
+      switch (note.duration) {
+        case "1n":
+          durationTime = 2;
+          break;
+        case "2n":
+          durationTime = 1;
+          break;
+        case "4n":
+          durationTime = 0.5;
+          break;
+        case "8n":
+          durationTime = 0.25;
+          break;
+        case "16n":
+          durationTime = 0.125;
+          break;
+        case "32n":
+          durationTime = 0.0625;
+          break;
+      }
+
+      // Play the note - the store will handle both formats
+      await musicStore.playNoteWithDuration(note.note, note.duration);
+
+      // Wait for the note duration
+      await new Promise((resolve) => setTimeout(resolve, durationTime * 1000));
+    }
+  } catch (error) {
+    console.error("Error playing pattern:", error);
+  } finally {
     currentlyPlaying.value = null;
-  }, 3000);
-
-  if (closeDropdown) closeDropdown();
+    if (closeDropdown) closeDropdown();
+  }
 };
 
 const stopCurrentPattern = () => {

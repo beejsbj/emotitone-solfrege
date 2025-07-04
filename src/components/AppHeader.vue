@@ -8,6 +8,7 @@
     <p class="text-lg md:text-xl text-gray-300 font-weight-oscillate-sm">
       Feel the Music Theory
     </p>
+    <p class="text-2xl">ABCabc & 123</p>
   </header>
 </template>
 

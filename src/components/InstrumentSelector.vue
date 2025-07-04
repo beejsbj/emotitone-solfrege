@@ -87,86 +87,140 @@ const getInstrumentIcon = (instrumentName: string): string => {
     <template #trigger="{ toggle }">
       <button
         @click="toggle"
-        :class="['instrument-toggle', { compact: compact }]"
+        :class="[
+          'flex items-center gap-2 px-3 py-2 bg-black/80 border border-neutral-700 rounded-md cursor-pointer text-xs transition-all duration-200 backdrop-blur-lg min-w-0 justify-center hover:bg-black/90 hover:border-neutral-500 hover:scale-105',
+          compact
+            ? 'px-2 py-1 text-[10px] gap-1 max-w-[150px] rounded'
+            : 'max-w-[200px]',
+        ]"
       >
-        <span class="current-icon">{{
-          getInstrumentIcon(currentInstrumentId)
-        }}</span>
-        <span class="current-name">{{
-          currentInstrumentConfig?.displayName || "Loading..."
-        }}</span>
+        <span :class="['leading-none', compact ? 'text-sm' : 'text-base']">
+          {{ getInstrumentIcon(currentInstrumentId) }}
+        </span>
+        <span
+          :class="[
+            'font-medium truncate',
+            compact ? 'max-w-[70px] text-[10px]' : 'max-w-[120px]',
+          ]"
+        >
+          {{ currentInstrumentConfig?.displayName || "Loading..." }}
+        </span>
         <ChevronDown :size="compact ? 12 : 14" />
       </button>
     </template>
 
     <!-- Dropdown Panel -->
     <template #panel="{ close, toggle, position }">
-      <div :class="['instrument-panel', { compact: compact }]">
+      <div
+        :class="['flex flex-col min-h-0 flex-1', compact ? 'text-[11px]' : '']"
+      >
         <!-- Header -->
         <div
-          class="instrument-header"
-          :class="{ 'flex-row-reverse': position === 'top-left' }"
+          :class="[
+            'sticky top-0 flex items-center justify-between border-b border-neutral-700 bg-black/95 backdrop-blur-lg z-10',
+            compact ? 'p-2' : 'p-3',
+            position === 'top-left' ? 'flex-row-reverse' : '',
+          ]"
         >
-          <h3>
+          <h3
+            :class="[
+              'm-0 text-[#00ff88] flex items-center gap-1.5 font-semibold',
+              compact ? 'text-xs' : 'text-sm',
+            ]"
+          >
             <Music :size="compact ? 14 : 16" />
             Instruments
           </h3>
-          <button @click="toggle" class="close-btn" title="Close Panel">
+          <button
+            @click="toggle"
+            class="p-1 text-[#ff6b6b] rounded hover:bg-[#ff6b6b]/20 hover:rotate-180 transition-all duration-200"
+            title="Close Panel"
+          >
             <ChevronDown :size="compact ? 16 : 18" />
           </button>
         </div>
 
-        <div class="instrument-content">
+        <div :class="['overflow-y-auto flex-1', compact ? 'p-2.5' : 'p-4']">
           <!-- Current Selection Display -->
-          <div class="current-selection">
-            <div class="current-instrument">
-              <span :class="compact ? 'text-base' : 'text-lg'">{{
-                getInstrumentIcon(currentInstrumentId)
-              }}</span>
-              <span class="instrument-name">{{
-                currentInstrumentConfig?.displayName || "Loading..."
-              }}</span>
+          <div
+            :class="[
+              'border-b border-neutral-700',
+              compact ? 'mb-2.5 pb-2.5' : 'mb-4 pb-4',
+            ]"
+          >
+            <div
+              :class="[
+                'flex items-center gap-2 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-md',
+                compact ? 'p-1.5 gap-1.5 rounded' : 'p-2',
+              ]"
+            >
+              <span :class="compact ? 'text-base' : 'text-lg'">
+                {{ getInstrumentIcon(currentInstrumentId) }}
+              </span>
+              <span class="font-semibold text-[#00ff88] text-xs">
+                {{ currentInstrumentConfig?.displayName || "Loading..." }}
+              </span>
             </div>
           </div>
 
           <!-- Instrument Categories -->
-          <div class="categories-container">
+          <div :class="['flex flex-col', compact ? 'gap-2.5' : 'gap-4']">
             <div
               v-for="(instruments, category) in instrumentsByCategory"
               :key="category"
-              class="instrument-category"
+              :class="['flex flex-col', compact ? 'gap-1.5' : 'gap-2']"
             >
-              <h4 class="category-title">
+              <h4
+                class="m-0 text-[#ffd93d] uppercase tracking-wider font-semibold text-[10px]"
+              >
                 {{ getCategoryDisplayName(category) }}
               </h4>
-              <div :class="['instruments-grid', { compact: compact }]">
+              <div
+                :class="[
+                  'grid gap-1.5',
+                  compact
+                    ? 'grid-cols-[repeat(auto-fill,minmax(70px,1fr))] gap-1'
+                    : 'grid-cols-[repeat(auto-fill,minmax(90px,1fr))]',
+                ]"
+              >
                 <button
                   v-for="instrument in instruments"
                   :key="instrument.name"
                   @click="selectInstrument(instrument.name, close)"
                   :class="[
-                    'instrument-btn',
-                    {
-                      active: currentInstrumentId === instrument.name,
-                      compact: compact,
-                    },
+                    'flex flex-col items-center gap-1 p-2 bg-white/5 border border-white/10 rounded-md text-white/80 cursor-pointer transition-all duration-200 text-[10px] justify-center hover:bg-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:text-white',
+                    currentInstrumentId === instrument.name
+                      ? 'bg-[#00ff88]/20 border-[#00ff88]/50 text-[#00ff88]'
+                      : '',
+                    compact
+                      ? 'gap-0.5 p-1.5 rounded min-h-[45px] text-[9px]'
+                      : 'min-h-[60px]',
                   ]"
                   :title="instrument.description"
                 >
-                  <span class="instrument-icon">{{
-                    getInstrumentIcon(instrument.name)
-                  }}</span>
-                  <span class="instrument-label">{{
-                    instrument.displayName
-                  }}</span>
+                  <span
+                    :class="['leading-none', compact ? 'text-sm' : 'text-lg']"
+                  >
+                    {{ getInstrumentIcon(instrument.name) }}
+                  </span>
+                  <span
+                    class="font-medium text-center break-words max-w-full leading-tight"
+                  >
+                    {{ instrument.displayName }}
+                  </span>
                 </button>
               </div>
             </div>
           </div>
 
           <!-- Loading State -->
-          <div v-if="isLoading" class="loading-state">
-            <div class="loading-spinner"></div>
+          <div
+            v-if="isLoading"
+            class="flex items-center justify-center gap-2 p-4 text-white/70 text-xs"
+          >
+            <div
+              class="w-4 h-4 border-2 border-white/20 border-t-[#00ff88] rounded-full animate-spin"
+            ></div>
             <span>Loading instruments...</span>
           </div>
         </div>
@@ -174,342 +228,3 @@ const getInstrumentIcon = (instrumentName: string): string => {
     </template>
   </FloatingDropdown>
 </template>
-
-<style scoped>
-.instrument-panel {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1;
-}
-
-.instrument-panel.compact {
-  font-size: 11px;
-}
-
-.instrument-header {
-  position: sticky;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 15px;
-  border-bottom: 1px solid #333;
-  background: rgba(0, 0, 0, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 10;
-}
-
-.compact .instrument-header {
-  padding: 8px 12px;
-}
-
-.instrument-header h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #00ff88;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-
-.compact .instrument-header h3 {
-  font-size: 12px;
-  gap: 4px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #ff6b6b;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.close-btn:hover {
-  background: rgba(255, 107, 107, 0.2);
-  transform: rotate(180deg);
-}
-
-.instrument-content {
-  padding: 15px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.compact .instrument-content {
-  padding: 10px;
-}
-
-.current-selection {
-  margin-bottom: 15px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #333;
-}
-
-.compact .current-selection {
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-}
-
-.current-instrument {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: rgba(0, 255, 136, 0.1);
-  border: 1px solid rgba(0, 255, 136, 0.3);
-  border-radius: 6px;
-}
-
-.compact .current-instrument {
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 4px;
-}
-
-.instrument-name {
-  font-weight: 600;
-  color: #00ff88;
-  font-size: 13px;
-}
-
-.compact .instrument-name {
-  font-size: 11px;
-}
-
-.categories-container {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.compact .categories-container {
-  gap: 10px;
-}
-
-.instrument-category {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.compact .instrument-category {
-  gap: 6px;
-}
-
-.category-title {
-  margin: 0;
-  font-size: 11px;
-  color: #ffd93d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
-}
-
-.compact .category-title {
-  font-size: 10px;
-}
-
-.instruments-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 6px;
-}
-
-.instruments-grid.compact {
-  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-  gap: 4px;
-}
-
-.instrument-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 10px;
-  min-height: 60px;
-  justify-content: center;
-}
-
-.instrument-btn.compact {
-  gap: 2px;
-  padding: 6px 3px;
-  border-radius: 4px;
-  font-size: 9px;
-  min-height: 45px;
-}
-
-.instrument-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
-  color: white;
-}
-
-.instrument-btn.active {
-  background: rgba(0, 255, 136, 0.2);
-  border-color: rgba(0, 255, 136, 0.5);
-  color: #00ff88;
-}
-
-.instrument-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.compact .instrument-icon {
-  font-size: 14px;
-}
-
-.instrument-label {
-  font-weight: 500;
-  text-align: center;
-  line-height: 1.2;
-  max-width: 100%;
-  word-wrap: break-word;
-}
-
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 15px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-}
-
-.loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #00ff88;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.instrument-toggle {
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.8);
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
-  min-width: auto;
-  max-width: 200px;
-  justify-content: center;
-}
-
-.instrument-toggle.compact {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  gap: 4px;
-  max-width: 150px;
-}
-
-.instrument-toggle:hover {
-  background: rgba(0, 0, 0, 0.9);
-  border-color: #555;
-  transform: scale(1.05);
-}
-
-.current-icon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.compact .current-icon {
-  font-size: 14px;
-}
-
-.current-name {
-  font-weight: 500;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
-}
-
-.compact .current-name {
-  font-size: 10px;
-  max-width: 80px;
-}
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-  .instruments-grid {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  }
-
-  .instruments-grid.compact {
-    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-  }
-
-  .instrument-btn {
-    min-height: 55px;
-    padding: 6px 4px;
-  }
-
-  .instrument-btn.compact {
-    min-height: 40px;
-    padding: 4px 3px;
-  }
-
-  .instrument-icon {
-    font-size: 16px;
-  }
-
-  .compact .instrument-icon {
-    font-size: 12px;
-  }
-
-  .instrument-toggle {
-    max-width: 160px;
-    padding: 6px 10px;
-  }
-
-  .instrument-toggle.compact {
-    max-width: 120px;
-    padding: 4px 6px;
-  }
-
-  .current-name {
-    font-size: 11px;
-    max-width: 100px;
-  }
-
-  .compact .current-name {
-    font-size: 9px;
-    max-width: 70px;
-  }
-}
-</style>

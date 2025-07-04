@@ -3,6 +3,7 @@
  */
 
 import * as Tone from "tone";
+import type { ToneAudioNode } from "tone";
 import type {
   SampleLibrary as SampleLibraryType,
   SampleLibraryLoadOptions,
@@ -13,6 +14,7 @@ import { PIANO_SAMPLER_CONFIG } from "@/data/instruments";
 import { toast } from "vue-sonner";
 
 // Import the JavaScript SampleLibrary
+// @ts-expect-error - JS module without types
 import SampleLibraryJS from "./tonejs-instruments";
 
 /**
@@ -91,7 +93,7 @@ export function createSampleInstrumentWrapper(
       sampler.dispose();
     },
 
-    connect: (destination: any) => {
+    connect: (destination: ToneAudioNode): ToneAudioNode => {
       return sampler.connect(destination);
     },
 
@@ -101,7 +103,7 @@ export function createSampleInstrumentWrapper(
 
     isLoaded: () => isLoaded,
 
-    constructor: { name: `${instrumentName}Wrapper` },
+    constructor: { name: instrumentName },
   };
 }
 

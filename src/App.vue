@@ -18,45 +18,11 @@
       <!-- Header -->
       <AppHeader />
 
-      <!-- Main App Content -->
-      <main class="flex-1">
-        <div class="max-w-6xl mx-auto">
-          <div class="grid grid-cols-1 gap-6">
-            <!-- Key Selector -->
-            <div class="lg:col-span-1 h-screen">
-              <!-- <KeySelector /> -->
-            </div>
+      <SequencerSection />
 
-            <!-- Multi-Sequencer Section -->
-            <SequencerSection class="pb-50" />
-
-            <!-- Main Content Area - Add bottom padding for the bottom tab bar -->
-            <div class="">
-              <!-- Generous padding to account for bottom tab bar -->
-              <!-- Floating Interval Description Popup -->
-              <FloatingPopup />
-
-              <!-- Tooltip Examples -->
-              <TooltipExample />
-
-              <!-- Knob System Demo -->
-              <KnobDemo />
-            </div>
-          </div>
-        </div>
-      </main>
+      <FloatingPopup />
+      <StickyBottom />
     </div>
-
-    <!-- Bottom Tab Bar - Always visible when app is loaded -->
-    <BottomTabBar v-if="!isLoading" class="pt-20">
-      <template #palette>
-        <CanvasSolfegePalette />
-      </template>
-
-      <template #sequencer>
-        <SequencerControls />
-      </template>
-    </BottomTabBar>
 
     <!-- Global Tooltip Renderer -->
     <TooltipRenderer
@@ -71,21 +37,15 @@
 import { useMusicStore } from "@/stores/music";
 import { useAppLoading } from "@/composables/useAppLoading";
 import LoadingSplash from "@/components/LoadingSplash.vue";
-import KeySelector from "@/components/KeySelector.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
-import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AutoDebugPanel from "@/components/AutoDebugPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import SequencerSection from "@/components/SequencerSection.vue";
-import SequencerControls from "@/components/SequencerControls.vue";
-import BottomTabBar from "@/components/BottomTabBar.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";
-import TooltipExample from "@/components/TooltipExample.vue";
-import KnobDemo from "@/components/KnobDemo.vue";
 import { globalTooltip } from "@/directives/tooltip";
-
+import StickyBottom from "@/components/StickyBottom.vue";
 // Stores and composables
 const musicStore = useMusicStore();
 const { isLoading } = useAppLoading();

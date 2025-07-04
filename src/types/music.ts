@@ -45,6 +45,15 @@ export interface SequenceNote {
 }
 
 /**
+ * Melody Categories
+ */
+export type MelodyCategory =
+  | "intervals"
+  | "patterns"
+  | "complete"
+  | "userCreated";
+
+/**
  * Unified melody definition that can represent both simple patterns and complete melodies
  */
 export interface Melody {
@@ -62,17 +71,16 @@ export interface Melody {
   defaultBpm?: number;
   /** Optional default key signature (for complete melodies) */
   defaultKey?: string;
+  /** Category of the melody */
+  category?: MelodyCategory;
 }
 
 /**
- * @deprecated Use Melody interface instead
+ * Categorized melody with required category
  */
-export interface MelodicPattern extends Melody {}
-
-/**
- * @deprecated Use Melody interface instead
- */
-export interface CompleteMelody extends Melody {}
+export interface CategorizedMelody extends Melody {
+  category: MelodyCategory;
+}
 
 /**
  * Basic note structure with frequency and MIDI data

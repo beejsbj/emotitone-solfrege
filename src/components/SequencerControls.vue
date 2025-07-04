@@ -2,72 +2,62 @@
   <div class="relative transition-all duration-300 ease-in-out">
     <!-- Main Controls Container -->
     <div
-      class="bg-gray-900/95 backdrop-blur-sm border-t border-white/20 overflow-hidden"
+      class="bg-gray-900/95 backdrop-blur-sm border-t border-white/20 overflow-hidden flex items-center justify-between gap-1"
     >
       <!-- Global Controls -->
-      <div class="flex items-center justify-between gap-4 p-3 bg-black/30">
+      <div class="flex items-center justify-between gap-4 p-2">
         <!-- Left: Master Play Button Knob -->
         <div class="flex items-center gap-2">
-          <ButtonKnob
-            :model-value="globalIsPlaying"
-            param-name="Master"
-            button-text="PLAY"
-            active-text="STOP"
+          <Knob
+            type="button"
+            label="Master"
+            :icon="globalIsPlaying ? Square : Play"
             :ready-color="
               totalBeats > 0 ? 'hsla(120, 70%, 50%, 1)' : 'hsla(0, 0%, 40%, 1)'
             "
             :active-color="'hsla(0, 84%, 60%, 1)'"
             :is-disabled="totalBeats === 0"
-            @update:modelValue="toggleGlobalPlayback"
+            :is-active="globalIsPlaying"
+            @click="toggleGlobalPlayback"
           />
         </div>
 
         <!-- Center: Tempo -->
         <div class="flex items-center gap-2">
-          <RangeKnob
+          <Knob
+            type="range"
             :model-value="tempo"
             :min="60"
             :max="180"
-            mode="display"
             label="Tempo"
-            :format-value="(v) => `${v}`"
+            :format-value="(v: number) => `${v}`"
             theme-color="hsla(43, 96%, 56%, 1)"
+            @update:modelValue="updateTempo"
           />
         </div>
 
-        <!-- Right: Stats & Library -->
-        <div class="flex flex-col gap-2 items-end">
-          <!-- Stats Display Knobs -->
-          <div class="flex items-center gap-3">
-            <!-- Track Count Display -->
-            <div class="text-center">
-              <DisplayKnob
-                :model-value="sequencers.length"
-                param-name="Tracks"
-                :min="0"
-                :max="8"
-                :format-value="(v: number) => `${v}`"
-                :theme-color="'hsla(271, 91%, 65%, 1)'"
-              />
-            </div>
-
-            <!-- Beat Count Display -->
-            <div class="text-center">
-              <RangeKnob
-                :model-value="totalBeats"
-                :min="0"
-                :max="100"
-                mode="display"
-                label="Beats"
-                :format-value="(v) => `${v}`"
-                theme-color="hsla(188, 95%, 43%, 1)"
-              />
-            </div>
-          </div>
-
-          <!-- Library -->
-          <MelodyLibrary />
+        <!-- Current Step Display -->
+        <div class="text-center">
+          <Knob
+            type="range"
+            :is-display="true"
+            :model-value="currentStep"
+            :min="0"
+            :max="sequencerStore.config.steps - 1"
+            label="Step"
+            :format-value="(v: number) => `${v + 1}`"
+            theme-color="hsla(271, 91%, 65%, 1)"
+          />
         </div>
+      </div>
+
+      <!-- Right: Stats & Library -->
+      <!-- Stats Display Knobs -->
+      <div class="p-4">
+        <!-- Track Count Display -->
+
+        <!-- Library -->
+        <MelodyLibrary />
       </div>
     </div>
   </div>
@@ -79,12 +69,10 @@ import { useSequencerStore } from "@/stores/sequencer";
 import { useMusicStore } from "@/stores/music";
 import { MultiSequencerTransport } from "@/utils/sequencer/index";
 import { AVAILABLE_INSTRUMENTS } from "@/data/instruments";
-import { Tabs, TabsList, TabsTrigger } from "./ui";
-import SequencerInstanceControls from "./SequencerInstanceControls.vue";
 import MelodyLibrary from "./MelodyLibrary.vue";
-import { Knob, ButtonKnob, RangeKnob } from "./knobs";
-import { ChevronDown } from "lucide-vue-next";
+import { Knob } from "./knobs";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
+import { Play, Square } from "lucide-vue-next";
 
 // Store instances
 const sequencerStore = useSequencerStore();
@@ -105,52 +93,21 @@ const activeSequencer = computed(() => sequencerStore.activeSequencer);
 const globalIsPlaying = computed(() => sequencerStore.config.globalIsPlaying);
 const tempo = computed(() => sequencerStore.config.tempo);
 const steps = computed(() => sequencerStore.config.steps);
+const currentStep = computed(() => {
+  const playingSequencers = sequencerStore.playingSequencers;
+  return playingSequencers.length > 0 ? playingSequencers[0].currentStep : 0;
+});
 
 // Calculate total beats across all sequencers
 const totalBeats = computed(() =>
   sequencers.value.reduce((total, seq) => total + seq.beats.length, 0)
 );
 
-// Create tabs for sequencer navigation
-const sequencerTabs = computed(() =>
-  sequencers.value.map((seq) => {
-    const instrumentConfig = AVAILABLE_INSTRUMENTS[seq.instrument];
-    const autoDisplayName = instrumentConfig
-      ? `${instrumentConfig.displayName} ${seq.octave}`
-      : `Unknown ${seq.octave}`;
-
-    // Use custom name if set (not empty), otherwise auto-generated name
-    const displayName = seq.name || autoDisplayName;
-
-    return {
-      id: seq.id,
-      label: displayName,
-      icon: instrumentConfig?.icon || "🎵",
-      badge: seq.beats.length > 0 ? `${seq.beats.length}` : undefined,
-      disabled: false,
-      color: seq.color,
-    };
-  })
-);
-
-// Format functions
-const formatTempo = (value: number) => `${value}`;
-
-// Methods
-const toggleCollapsed = () => {
-  isCollapsed.value = !isCollapsed.value;
-  triggerUIHaptic();
-};
-
-const setActiveSequencer = (id: string) => {
-  sequencerStore.setActiveSequencer(id);
-  triggerUIHaptic();
-};
-
-const updateTempo = (newTempo: number) => {
-  sequencerStore.setTempo(newTempo);
+const updateTempo = (newTempo: string | number | boolean) => {
+  const tempoValue = typeof newTempo === "number" ? newTempo : Number(newTempo);
+  sequencerStore.setTempo(tempoValue);
   if (multiTransport) {
-    multiTransport.updateTempo(newTempo);
+    multiTransport.updateTempo(tempoValue);
   }
 };
 

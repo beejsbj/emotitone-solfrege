@@ -7,11 +7,14 @@ export { default as KnobCircles } from "./KnobCircles.vue";
 
 // Re-export types for convenience
 export type {
+  KnobType,
   BaseKnobProps,
   RangeKnobProps,
   BooleanKnobProps,
   OptionsKnobProps,
+  ButtonKnobProps,
   KnobOption,
   KnobEmits,
-  KnobType,
 } from "@/types/knob";
+
+// Use the Knob component the componnent across the app as it is a wrapper for all the other knobs

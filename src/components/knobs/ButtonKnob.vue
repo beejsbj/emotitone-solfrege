@@ -1,42 +1,21 @@
 <template>
-  <div ref="wrapperRef">
-    <div class="w-12 h-12 mx-auto">
-      <KnobCircles
-        type="boolean"
-        :is-active="modelValue && !isLoading"
-        :color="currentStrokeColor"
-      />
-      <!-- Additional loading path for spinner -->
-      <svg
-        class="absolute inset-0 w-full h-full transform -rotate-90"
-        viewBox="0 0 100 100"
-        v-if="isLoading"
-      >
-        <path
-          ref="spinnerRef"
-          :d="circlePath"
-          fill="none"
-          :stroke="loadingColor"
-          stroke-width="6"
-          stroke-linecap="round"
-        />
-      </svg>
-    </div>
+  <KnobCircles
+    type="button"
+    :is-active="isActive && !isLoading"
+    :color="currentStrokeColor"
+  />
 
-    <!-- Text/Icon -->
-    <div
-      class="absolute inset-0 flex items-center justify-center pointer-events-none"
+  <!-- Text/Icon -->
+  <div
+    class="absolute inset-0 flex items-center justify-center pointer-events-none"
+    :style="{ color: currentStrokeColor }"
+  >
+    <component v-if="icon && !isLoading" :is="icon" :size="16" />
+    <span
+      v-else-if="buttonText && !isLoading"
+      class="text-[9px] font-bold text-white"
+      >{{ buttonText }}</span
     >
-      <component v-if="icon && !isLoading" :is="icon" :size="16" />
-      <span v-else class="text-[9px] font-bold text-white">{{
-        displayText
-      }}</span>
-    </div>
-
-    <!-- Label -->
-    <span class="text-gray-300 text-xs mt-1 block select-none">{{
-      labelText
-    }}</span>
   </div>
 </template>
 
@@ -49,69 +28,72 @@ import type { ButtonKnobProps } from "@/types/knob";
 const props = withDefaults(defineProps<ButtonKnobProps>(), {
   isDisabled: false,
   isLoading: false,
+  isActive: false,
   themeColor: "hsla(158, 100%, 53%, 1)",
   readyColor: "hsla(120, 70%, 50%, 1)",
   activeColor: "hsla(0, 84%, 60%, 1)",
   loadingColor: "hsla(43, 96%, 56%, 1)",
 });
 
-// Refs for spinner
+// Refs
 const spinnerRef = ref<SVGPathElement | null>(null);
+const wrapperRef = ref<HTMLElement | null>(null);
 
-// Stroke colors depending on state
+// Computed
 const currentStrokeColor = computed(() => {
   if (props.isLoading) return props.loadingColor;
-  if (props.modelValue) return props.activeColor;
+  if (props.isActive) return props.activeColor;
   return props.readyColor;
 });
 
-// Display text
-const displayText = computed(() => {
-  if (props.isLoading) return "...";
-  if (props.modelValue && props.activeText) return props.activeText;
-  if (props.modelValue) return "STOP";
-  return props.buttonText || "PLAY";
+const circlePath = computed(() => {
+  const radius = 44; // Slightly smaller than the background circle
+  return `M ${50 + radius} 50 A ${radius} ${radius} 0 1 1 ${50 - radius} 50`;
 });
 
-// Loading spinner path (full circle)
-const circlePath = "M 50 6 A 44 44 0 1 1 49.999 6";
-
-// GSAP animation for spinner only
-useGSAP(({ gsap }: { gsap: any }) => {
-  // Loading spinner rotation
+// GSAP animations
+useGSAP(({ gsap }) => {
+  // Loading spinner animation
   watch(
     () => props.isLoading,
-    (loading) => {
+    (isLoading) => {
       if (!spinnerRef.value) return;
-      if (loading) {
+
+      if (isLoading) {
         gsap.to(spinnerRef.value, {
           rotation: 360,
-          repeat: -1,
-          ease: "none",
+          transformOrigin: "50% 50%",
           duration: 1,
+          ease: "none",
+          repeat: -1,
         });
       } else {
         gsap.killTweensOf(spinnerRef.value);
-        gsap.set(spinnerRef.value, { rotation: 0 });
       }
     },
     { immediate: true }
   );
-});
 
-const labelText = computed(() => props.label || props.paramName);
+  // Click animation
+  watch(
+    () => props.isActive,
+    (isActive) => {
+      if (!wrapperRef.value) return;
+
+      gsap.to(wrapperRef.value, {
+        scale: isActive ? 1.05 : 1,
+        duration: 0.2,
+        ease: "power2.out",
+      });
+    }
+  );
+});
 </script>
 
 <style scoped>
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+.knob-wrapper {
+  user-select: none;
+  touch-action: none;
+  cursor: pointer;
 }
 </style>

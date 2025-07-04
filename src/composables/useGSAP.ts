@@ -1,8 +1,6 @@
 import { onMounted, onUnmounted } from "vue";
 import gsap from "gsap";
-import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
-import { Draggable } from "gsap/Draggable";
-import { InertiaPlugin } from "gsap/InertiaPlugin";
+import { DrawSVGPlugin, Draggable, InertiaPlugin, Flip } from "gsap/all";
 
 /**
  * GSAP Plugin Registration
@@ -23,7 +21,7 @@ import { InertiaPlugin } from "gsap/InertiaPlugin";
 
 // Register all GSAP plugins here
 // This runs once when the module is imported
-const plugins = [DrawSVGPlugin, Draggable, InertiaPlugin];
+const plugins = [DrawSVGPlugin, Draggable, InertiaPlugin, Flip];
 gsap.registerPlugin(...plugins);
 
 // Create a tuple type of all plugins for better type inference
@@ -35,6 +33,7 @@ type GSAPTools = {
   DrawSVGPlugin: typeof DrawSVGPlugin;
   Draggable: typeof Draggable;
   InertiaPlugin: typeof InertiaPlugin;
+  Flip: typeof Flip;
 };
 
 type AnimationFunction = (tools: GSAPTools) => void;
@@ -79,7 +78,13 @@ export default function useGSAP(
       context = gsap.context(() => {
         if (animationFunction) {
           // Pass gsap and all plugins as a single object
-          animationFunction({ gsap, DrawSVGPlugin, Draggable, InertiaPlugin });
+          animationFunction({
+            gsap,
+            DrawSVGPlugin,
+            Draggable,
+            InertiaPlugin,
+            Flip,
+          });
         }
       });
 
@@ -116,6 +121,7 @@ export default function useGSAP(
     DrawSVGPlugin,
     Draggable,
     InertiaPlugin,
+    Flip,
     getContext: () => context,
   };
 }

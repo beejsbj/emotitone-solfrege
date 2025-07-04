@@ -108,7 +108,6 @@ defineExpose({
   border: 1px solid #333;
   border-radius: 8px;
   color: white;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 12px;
   overflow: hidden;
   display: flex;

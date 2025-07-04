@@ -62,8 +62,9 @@ const props = defineProps<Props>();
       :x2="getStepPosition(outerRadius, currentStep).x"
       :y2="getStepPosition(outerRadius, currentStep).y"
       :stroke="styles.currentStep.stroke"
-      :stroke-width="2"
-      :opacity="0.9"
+      :linecap="styles.currentStep.linecap"
+      :stroke-width="styles.currentStep.strokeWidth"
+      :opacity="styles.currentStep.opacity"
     />
   </g>
 </template>

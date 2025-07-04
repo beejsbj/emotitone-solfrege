@@ -29,8 +29,11 @@ const props = defineProps<Props>();
       class="sixteenth-marker"
       :stroke="
         i % 4 === 0
-          ? `rgba(255,255,255,${styles.grid.quarterOpacity})`
-          : `rgba(255,255,255,${styles.grid.sixteenthOpacity})`
+          ? styles.grid.stroke.replace('0.5)', `${styles.grid.quarterOpacity})`)
+          : styles.grid.stroke.replace(
+              '0.5)',
+              `${styles.grid.sixteenthOpacity})`
+            )
       "
       :stroke-width="
         i % 4 === 0

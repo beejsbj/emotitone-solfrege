@@ -208,7 +208,14 @@ export interface InstrumentEvent {
   /** Event timestamp */
   timestamp: number;
   /** Additional event data */
-  data?: any;
+  data?: {
+    /** Error message if type is instrument-error */
+    error?: string;
+    /** Configuration if type is instrument-changed */
+    config?: CompleteInstrumentConfig;
+    /** Loading progress if type is instrument-loaded */
+    progress?: number;
+  };
 }
 
 /**

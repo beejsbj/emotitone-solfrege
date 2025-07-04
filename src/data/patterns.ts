@@ -476,16 +476,6 @@ export const completeMelodies: Melody[] = [
       { note: "G#4", duration: "16n" },
       { note: "B4", duration: "16n" },
       { note: "E5", duration: "8n" },
-      { note: "E4", duration: "8n" },
-      { note: "G#4", duration: "16n" },
-      { note: "B4", duration: "16n" },
-      { note: "E5", duration: "8n" },
-      { note: "B4", duration: "16n" },
-      { note: "G#4", duration: "16n" },
-      { note: "E4", duration: "8n" },
-      { note: "G#4", duration: "16n" },
-      { note: "B4", duration: "16n" },
-      { note: "E5", duration: "8n" },
     ],
   },
   {
@@ -533,9 +523,58 @@ export const completeMelodies: Melody[] = [
 ];
 
 /**
- * All melodies combined (patterns + complete melodies)
+ * Melody Categories
  */
-export const allMelodies: Melody[] = [...melodicPatterns, ...completeMelodies];
+export type MelodyCategory =
+  | "intervals"
+  | "patterns"
+  | "complete"
+  | "userCreated";
+
+export interface CategorizedMelody extends Melody {
+  category: MelodyCategory;
+  name: string;
+  sequence: Array<{ note: string; duration: string }>;
+}
+
+/**
+ * Helper function to categorize a melody
+ */
+function categorizeMelody(melody: Melody): CategorizedMelody {
+  let category: MelodyCategory;
+
+  if (melody.intervals?.length === 1) {
+    category = "intervals";
+  } else if (melody.defaultBpm && melody.defaultKey) {
+    category = "complete";
+  } else {
+    category = "patterns";
+  }
+
+  return {
+    ...melody,
+    category,
+    name: melody.name,
+    sequence: melody.sequence,
+  };
+}
+
+/**
+ * All melodies combined with categories
+ */
+export const allMelodies: CategorizedMelody[] = [
+  ...melodicPatterns.map((melody) => categorizeMelody(melody)),
+  ...completeMelodies.map((melody) => categorizeMelody(melody)),
+];
+
+/**
+ * Get melodies by category
+ */
+export function getMelodiesByCategory(
+  category: MelodyCategory
+): CategorizedMelody[] {
+  return allMelodies.filter((melody) => melody.category === category);
+}
 
 /**
  * Get all complete melodies with tempo/key information

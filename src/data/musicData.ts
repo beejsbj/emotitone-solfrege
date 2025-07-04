@@ -11,9 +11,4 @@ export { MAJOR_SCALE, MINOR_SCALE } from "./scales";
 export { melodicPatterns as MELODIC_PATTERNS } from "./patterns";
 
 // Re-export types for backward compatibility
-export type {
-  SolfegeData,
-  Scale,
-  MelodicPattern,
-  ChromaticNote,
-} from "@/types/music";
+export type { SolfegeData, Scale, Melody, ChromaticNote } from "@/types/music";

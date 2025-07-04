@@ -3,6 +3,7 @@
  */
 
 import * as Tone from "tone";
+import type { ToneAudioNode } from "tone";
 
 /**
  * Sample mapping for an instrument
@@ -144,7 +145,7 @@ export interface SampleInstrumentWrapper {
   /** Dispose of the instrument */
   dispose(): void;
   /** Connect to audio destination */
-  connect(destination: any): any;
+  connect(destination: ToneAudioNode): ToneAudioNode;
   /** Disconnect from audio destination */
   disconnect(): void;
   /** Check if samples are loaded */

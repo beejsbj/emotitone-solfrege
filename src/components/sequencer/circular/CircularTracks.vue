@@ -29,7 +29,7 @@ const handleTrackClick = (e: MouseEvent, track: CircularTrack) => {
       :cx="centerX"
       :cy="centerY"
       :r="track.radius"
-      fill="none"
+      :fill="styles.trackCircles.fill"
       :stroke="track.color"
       :stroke-width="
         track.isActive

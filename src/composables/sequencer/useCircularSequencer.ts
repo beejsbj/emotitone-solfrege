@@ -3,6 +3,7 @@ import { useColorSystem } from "@/composables/useColorSystem";
 import { useMusicStore } from "@/stores/music";
 import { useSequencerStore } from "@/stores/sequencer";
 import type { SequencerInstance } from "@/types/music";
+import { useSequencerControls } from "./useSequencerControls";
 
 // Interfaces for the visual system
 export interface CircularTrack {
@@ -39,6 +40,9 @@ export function useCircularSequencer(
   const musicStore = useMusicStore();
   const sequencerStore = useSequencerStore();
   const { getPrimaryColor } = useColorSystem();
+  const { sequencer, themeColors, dynamicStyles } = useSequencerControls(
+    sequencerStore.config.activeSequencerId || sequencerId || ""
+  );
 
   // Styling Configuration - centralized for easy tweaking
   const styles = computed(() => ({
@@ -70,11 +74,16 @@ export function useCircularSequencer(
       sixteenthStrokeWidth: 0.5,
       dashArray: "2 4",
       markerExtension: 5,
+      stroke:
+        themeColors?.value?.primary?.replace("1)", "0.5)") ||
+        "hsla(0, 0%, 100%, 0.5)",
     },
 
     // Step markers
     stepMarkers: {
-      stroke: "rgba(255,255,255,0.1)",
+      stroke:
+        themeColors?.value?.primary?.replace("1)", "0.5)") ||
+        "hsla(0, 0%, 100%, 0.5)",
       strokeWidth: 0.5,
       baseOpacity: 0.1,
       hoveredOpacity: 0.2,
@@ -88,6 +97,7 @@ export function useCircularSequencer(
       baseStrokeWidthRatio: 0.8,
       hoveredStrokeWidthRatio: 0.9,
       activeStrokeWidthRatio: 1.0,
+      fill: themeColors?.value?.primary?.replace("1)", "0.2)") || "none",
       saturation: 0.4,
     },
 
@@ -101,18 +111,25 @@ export function useCircularSequencer(
       hoveredStrokeWidth: 1,
       selectedStrokeWidth: 2,
       draggingStrokeWidth: 3,
-      selectedStroke: "white",
+      selectedStroke:
+        themeColors?.value?.primary?.replace("1)", "0.8)") ||
+        "hsla(0, 0%, 100%, 0.8)",
       selectedStrokeOpacity: 0.8,
-      draggingStroke: "white",
+      draggingStroke:
+        themeColors?.value?.primary?.replace("1)", "0.9)") ||
+        "hsla(0, 0%, 100%, 0.9)",
       draggingStrokeOpacity: 0.9,
       saturation: 1,
     },
 
     // Playhead
     currentStep: {
-      stroke: "white",
-      strokeWidth: 2,
-      opacity: 0.9,
+      stroke:
+        themeColors?.value?.primary?.replace("1)", "0.9)") ||
+        "hsla(0, 0%, 100%, 0.9)",
+      strokeWidth: 0.5,
+      opacity: 0.5,
+      linecap: "round",
     },
 
     // Labels
@@ -124,8 +141,11 @@ export function useCircularSequencer(
       fontSizeRatio: 0.6,
       fontWeight: 600,
       opacity: 0.8,
-      textShadow: "0 1px 2px rgba(0, 0, 0, 0.5)",
-      fontFamily: "system-ui, -apple-system, sans-serif",
+      textShadow: `0 1px 2px ${
+        themeColors?.value?.primary?.replace("1)", "0.5)") ||
+        "hsla(0, 0%, 100%, 0.5)"
+      }`,
+      fontFamily: "Let's Jazz, system-ui, -apple-system, sans-serif",
     },
 
     // Transitions
@@ -137,9 +157,21 @@ export function useCircularSequencer(
 
     // Container
     container: {
-      background: "rgba(31, 41, 55, 0.5)",
+      background: "hsla(217, 24%, 17%, 0.5)",
       borderRadius: "50%",
-      border: "1px solid rgba(255, 255, 255, 0.2)",
+      border: {
+        width: "1px",
+        style: "solid",
+        colorCompact:
+          themeColors?.value?.primary?.replace("1)", "0.1)") ||
+          "hsla(0, 0%, 100%, 0.1)",
+        colorDefault:
+          themeColors?.value?.primary?.replace("1)", "0.2)") ||
+          "hsla(0, 0%, 100%, 0.2)",
+      },
+      shadow:
+        themeColors?.value?.primary?.replace("1)", "0.1)") ||
+        "hsla(0, 0%, 100%, 0.1)",
       disabledOpacity: 0.4,
     },
   }));

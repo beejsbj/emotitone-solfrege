@@ -1,42 +1,78 @@
 <template>
-  <div>
-    <KnobCircles
-      type="boolean"
-      :is-active="modelValue"
-      :color="activeStrokeColor"
-    />
+  <KnobCircles
+    type="boolean"
+    :is-active="modelValue"
+    :color="activeStrokeColor"
+  />
 
-    <!-- Value text in the centre -->
-    <span
-      class="text-[10px] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none"
-    >
-      {{ displayValue }}
-    </span>
+  <!-- Animated ball -->
+  <div
+    ref="ballRef"
+    class="w-5 h-5 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+    :style="{
+      backgroundColor: activeStrokeColor,
+    }"
+  />
 
-    <!-- Label -->
-    <div class="text-gray-300 text-xs mt-1 text-center select-none">
-      {{ labelText }}
-    </div>
-  </div>
+  <!-- Icon component -->
+  <component
+    v-if="displayValue && typeof displayValue !== 'string'"
+    :is="displayValue"
+    class="w-4 h-4 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+    :style="{ color: props.modelValue ? 'black' : activeStrokeColor }"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import KnobCircles from "./KnobCircles.vue";
 import type { BooleanKnobProps } from "@/types/knob";
+import useGSAP from "@/composables/useGSAP";
 
-const props = withDefaults(defineProps<BooleanKnobProps>(), {
+interface Props extends BooleanKnobProps {
+  modelValue: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
   isDisabled: false,
   themeColor: "hsla(158, 100%, 53%, 1)",
 });
 
-// Display value text
-const displayValue = computed(() => (props.modelValue ? "ON" : "OFF"));
+const ballRef = ref<HTMLElement | null>(null);
+
+// Display value (icon component)
+const displayValue = computed(() => {
+  if (props.modelValue) {
+    return props.valueLabelTrue;
+  } else {
+    return props.valueLabelFalse;
+  }
+});
 
 // Stroke color when active
-const activeStrokeColor = computed(() =>
-  props.isDisabled ? "hsla(0,0%,27%,1)" : props.themeColor
+const activeStrokeColor = computed(
+  () =>
+    props.isDisabled
+      ? "hsla(0,0%,27%,1)"
+      : props.modelValue
+      ? props.themeColor
+      : "hsla(0, 84%, 60%, 1)" // Red color when OFF
 );
 
-const labelText = computed(() => props.label || props.paramName);
+// GSAP animation for the ball
+useGSAP(({ gsap }) => {
+  watch(
+    () => props.modelValue,
+    (isActive) => {
+      if (!ballRef.value) return;
+
+      gsap.to(ballRef.value, {
+        scale: isActive ? 1.2 : 0.2,
+        duration: 0.6,
+        ease: "elastic.out(1, 0.3)",
+      });
+    },
+    { immediate: true }
+  );
+});
 </script>

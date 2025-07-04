@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onUnmounted } from "vue";
 import { useSequencerStore } from "@/stores/sequencer";
-import { ButtonKnob, RangeKnob } from "@/components/knobs";
+import { Knob } from "@/components/knobs";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import { Play, Square, Volume2, VolumeX } from "lucide-vue-next";
 
@@ -97,9 +97,9 @@ onUnmounted(() => {
   <div class="flex items-center gap-4">
     <!-- Play/Stop Button Knob -->
     <div class="text-center">
-      <ButtonKnob
-        :model-value="isPlaying"
-        param-name="Play"
+      <Knob
+        type="button"
+        label="Play"
         :icon="playIcon"
         :ready-color="
           canPlay ? 'hsla(120, 70%, 50%, 1)' : 'hsla(0, 0%, 40%, 1)'
@@ -108,31 +108,34 @@ onUnmounted(() => {
         :loading-color="'hsla(43, 96%, 56%, 1)'"
         :is-disabled="!canPlay && !isPlaying"
         :is-loading="isStarting"
-        @update:modelValue="togglePlayback"
+        :is-active="isPlaying"
+        @click="togglePlayback"
       />
     </div>
 
-    <!-- Mute Button Knob -->
+    <!-- Mute Boolean Knob -->
     <div class="text-center">
-      <ButtonKnob
+      <Knob
+        type="boolean"
+        label="Mute"
         :model-value="isMuted"
-        param-name="Mute"
-        :icon="muteIcon"
-        :ready-color="themeColors?.primary || 'hsla(200, 70%, 50%, 1)'"
-        :active-color="'hsla(0, 84%, 60%, 1)'"
-        @update:modelValue="toggleMute"
+        :value-label-true="Volume2"
+        :value-label-false="VolumeX"
+        :theme-color="themeColors?.primary || 'hsla(200, 70%, 50%, 1)'"
+        @update:model-value="toggleMute"
       />
     </div>
 
     <!-- Beat Count Display Knob -->
     <div class="text-center">
-      <RangeKnob
+      <Knob
+        type="range"
         :model-value="beatCount"
         :min="0"
         :max="32"
-        mode="display"
+        :is-display="true"
         label="Beats"
-        theme-color="hsla(271, 91%, 65%, 1)"
+        :theme-color="'hsla(271, 91%, 65%, 1)'"
       />
     </div>
   </div>

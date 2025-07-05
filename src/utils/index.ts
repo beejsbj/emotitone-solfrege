@@ -26,3 +26,7 @@ export { logger, performanceLogger } from "./logger";
 
 // Colors
 export * from "./colors";
+
+// Event Bus
+export { eventBus } from "./eventBus";
+export type { EventType, EventData } from "./eventBus";

@@ -22,8 +22,8 @@
           v-if="displayedChord && floatingPopupConfig.showChord"
           class="rounded-sm py-2 px-6 text-center glass-morph backdrop-blur-md border border-white/20 shadow-lg"
           :style="{
-            background: createChordGlassmorphBackgroundLocal(),
-            boxShadow: createChordGlassmorphShadowLocal(),
+            background: createGlassMorph('#6b46c1', 0.3),
+            boxShadow: createShadow('#6b46c1'),
           }"
         >
           <span
@@ -40,11 +40,11 @@
             :key="note.noteId"
             class="flex-1 grid gap-[1px] items-center rounded-sm px-3 py-2 glass-morph backdrop-blur-md border border-white/20 shadow-lg"
             :style="{
-              background: createGlassmorphBackground(
-                getNoteColor(note),
+              background: createGlassMorph(
+                getNoteColorForNote(note),
                 floatingPopupConfig.glassmorphOpacity
               ),
-              boxShadow: createGlassmorphShadow(getNoteColor(note)),
+              boxShadow: createShadow(getNoteColorForNote(note)),
             }"
           >
             <span
@@ -77,10 +77,8 @@
               :key="`${interval.fromIndex}-${interval.toIndex}`"
               class="rounded-sm py-1 px-2 text-center flex-grow glass-morph backdrop-blur-md border border-white/20 shadow-lg"
               :style="{
-                background: createIntervalGlassmorphBackgroundLocal(interval),
-                boxShadow: createGlassmorphShadow(
-                  getIntervalGradient(interval)
-                ),
+                background: createGlassMorph('#10b981', 0.3),
+                boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
               }"
             >
               <span class="text-sm text-white font-bold drop-shadow-lg">
@@ -101,8 +99,8 @@
           <div
             class="inline-flex rounded-sm px-4 py-2 glass-morph backdrop-blur-md border border-white/20 shadow-lg"
             :style="{
-              background: createChordGlassmorphBackgroundLocal(),
-              boxShadow: createChordGlassmorphShadowLocal(),
+              background: createGlassMorph('#f59e0b', 0.3),
+              boxShadow: createShadow('#f59e0b'),
             }"
           >
             <span class="text-lg text-white font-bold drop-shadow-lg">
@@ -118,22 +116,23 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { getNoteColor, getNoteColorWithAlpha, createGlassBackground, createNoteGradient } from "@/utils";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { Chord, Interval } from "@tonaljs/tonal";
 
 const musicStore = useMusicStore();
-const {
-  getGradient,
-  getPrimaryColor,
-  withAlpha,
-  createGlassmorphBackground,
-  createGlassmorphShadow,
-  createChordGlassmorphBackground,
-  createChordGlassmorphShadow,
-  createIntervalGlassmorphBackground,
-  createGradient,
-} = useColorSystem();
+// Simplified color utilities
+const getNoteColorForNote = (note: any) => {
+  return getNoteColor(note.solfege.name, note.octave);
+};
+
+const createGlassMorph = (color: string, opacity = 0.3) => {
+  return createGlassBackground(color, opacity);
+};
+
+const createShadow = (color: string) => {
+  return `0 4px 16px ${getNoteColorWithAlpha('', 0.3)}`;
+};
 const { floatingPopupConfig } = useVisualConfig();
 const floatingPopup = ref<HTMLElement | null>(null);
 
@@ -227,33 +226,25 @@ const displayedChord = computed(() => {
   return chords.length > 0 ? chords[0] : null;
 });
 
-// Note colors and gradients
-const getNoteColor = (note: any): string => {
-  return getPrimaryColor(
-    note.solfege.name,
-    musicStore.currentMode,
-    note.octave || 3
-  );
+// Note colors using simplified system
+const getNoteColorOld = (note: any): string => {
+  return getNoteColor(note.solfege.name, note.octave || 3);
 };
 
-// Create chord-specific glassmorphism background using gradient of all note colors
+// Create chord-specific background using simplified gradient
 const createChordGlassmorphBackgroundLocal = (): string => {
-  const colors = displayedNotes.value.map(getNoteColor);
-  return createChordGlassmorphBackground(
-    colors,
-    floatingPopupConfig.value.glassmorphOpacity
-  );
+  const noteNames = displayedNotes.value.map(note => note.solfege.name);
+  return createNoteGradient(noteNames);
 };
 
 // Create chord-specific shadow
 const createChordGlassmorphShadowLocal = (): string => {
-  const colors = displayedNotes.value.map(getNoteColor);
-  return createChordGlassmorphShadow(colors);
+  return '0 4px 16px rgba(0, 0, 0, 0.3)';
 };
 
 const displayedNotesGradient = computed(() => {
-  const colors = displayedNotes.value.map(getNoteColor);
-  return createGradient(colors);
+  const noteNames = displayedNotes.value.map(note => note.solfege.name);
+  return createNoteGradient(noteNames);
 });
 
 // Update interval calculations to use displayedNotes
@@ -305,20 +296,16 @@ const displayedIntervalRows = computed(() => {
 });
 
 const getIntervalGradient = (interval: any) => {
-  const fromColor = getNoteColor(displayedNotes.value[interval.fromIndex]);
-  const toColor = getNoteColor(displayedNotes.value[interval.toIndex]);
-  return createGradient([fromColor, toColor], "90deg");
+  const fromNote = displayedNotes.value[interval.fromIndex].solfege.name;
+  const toNote = displayedNotes.value[interval.toIndex].solfege.name;
+  return createNoteGradient([fromNote, toNote], "90deg");
 };
 
-// Create glassmorphism background for intervals
+// Create simplified background for intervals
 const createIntervalGlassmorphBackgroundLocal = (interval: any): string => {
-  const fromColor = getNoteColor(displayedNotes.value[interval.fromIndex]);
-  const toColor = getNoteColor(displayedNotes.value[interval.toIndex]);
-  return createIntervalGlassmorphBackground(
-    fromColor,
-    toColor,
-    floatingPopupConfig.value.glassmorphOpacity
-  );
+  const fromNote = displayedNotes.value[interval.fromIndex].solfege.name;
+  const fromColor = getNoteColor(fromNote);
+  return createGlassBackground(fromColor, floatingPopupConfig.value.glassmorphOpacity);
 };
 
 // Update emotional description to use displayedNotes

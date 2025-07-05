@@ -23,3 +23,6 @@ export * from "./deviceDetection";
 
 // Logging
 export { logger, performanceLogger } from "./logger";
+
+// Colors
+export * from "./colors";

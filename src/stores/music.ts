@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed, readonly } from "vue";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
+import { logger } from "@/utils";
 import type {
   SolfegeData,
   Melody,
@@ -182,7 +183,7 @@ export const useMusicStore = defineStore(
       } else {
         const parsed = parseChromatic(input);
         if (!parsed) {
-          console.warn(`Invalid note: ${input}`);
+          logger.warn(`Invalid note: ${input}`);
           return;
         }
         solfegeIndex = parsed.solfegeIndex;
@@ -236,7 +237,7 @@ export const useMusicStore = defineStore(
       } else {
         const parsed = parseChromatic(input);
         if (!parsed) {
-          console.warn(`Invalid note: ${input}`);
+          logger.warn(`Invalid note: ${input}`);
           return null;
         }
         solfegeIndex = parsed.solfegeIndex;
@@ -315,7 +316,7 @@ export const useMusicStore = defineStore(
       } else {
         const parsed = parseChromatic(input);
         if (!parsed) {
-          console.warn(`Invalid note: ${input}`);
+          logger.warn(`Invalid note: ${input}`);
           return "";
         }
         solfegeIndex = parsed.solfegeIndex;
@@ -500,20 +501,12 @@ export const useMusicStore = defineStore(
       return solfegeData.value.find((s: SolfegeData) => s.name === name);
     }
 
-    function getNoteFrequency(
-      solfegeIndex: number,
-      octave: number = 4
-    ): number {
-      return musicTheory.getNoteFrequency(solfegeIndex, octave);
-    }
+    // Direct access to music theory service
+    const getNoteFrequency = musicTheory.getNoteFrequency.bind(musicTheory);
 
-    function getNoteName(solfegeIndex: number, octave: number = 4): string {
-      return musicTheory.getNoteName(solfegeIndex, octave);
-    }
+    const getNoteName = musicTheory.getNoteName.bind(musicTheory);
 
-    function getMelodicPatterns(): Melody[] {
-      return musicTheory.getMelodicPatterns();
-    }
+    const getMelodicPatterns = musicTheory.getMelodicPatterns.bind(musicTheory);
 
     // New polyphonic helper functions
     function getActiveNotes(): ActiveNote[] {
@@ -541,13 +534,9 @@ export const useMusicStore = defineStore(
     }
 
     // Methods for melody management
-    function searchMelodies(query: string): CategorizedMelody[] {
-      return musicTheory.searchMelodies(query);
-    }
+    const searchMelodies = musicTheory.searchMelodies.bind(musicTheory);
 
-    function getMelodiesByEmotion(emotion: string): CategorizedMelody[] {
-      return musicTheory.getMelodiesByEmotion(emotion);
-    }
+    const getMelodiesByEmotion = musicTheory.getMelodiesByEmotion.bind(musicTheory);
 
     function addUserMelody(
       melody: Omit<Melody, "category">

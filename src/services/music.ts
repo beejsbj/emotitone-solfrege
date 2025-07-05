@@ -1,6 +1,7 @@
 // Music Theory Service for Emotitone Solfege
 // Handles all music theory calculations, scales, and emotional mappings
 
+import { logger } from "@/utils";
 import {
   CHROMATIC_NOTES,
   MAJOR_SCALE,
@@ -252,7 +253,7 @@ export class MusicTheoryService {
       try {
         return this.normalizeToSharp(note);
       } catch (error) {
-        console.warn(
+        logger.warn(
           `Note normalization failed for ${note}, attempting direct conversion...`
         );
         // If normalization fails, try direct conversion from Tonal.js note

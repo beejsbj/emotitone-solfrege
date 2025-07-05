@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { logger } from "@/utils";
 import type {
   SequencerBeat,
   SequencerInstance,
@@ -82,22 +83,22 @@ export const useSequencerStore = defineStore(
     };
 
     const setActiveSequencer = (id: string) => {
-      console.log("setActiveSequencer called with:", id);
-      console.log("Current activeSequencerId:", config.value.activeSequencerId);
+      logger.dev("setActiveSequencer called with:", id);
+      logger.dev("Current activeSequencerId:", config.value.activeSequencerId);
 
       if (id === "" || id === null) {
         // Clear active sequencer
-        console.log("Clearing active sequencer");
+        logger.dev("Clearing active sequencer");
         config.value.activeSequencerId = null;
       } else if (sequencers.value.find((s) => s.id === id)) {
         // Set valid sequencer as active
-        console.log("Setting active sequencer to:", id);
+        logger.dev("Setting active sequencer to:", id);
         config.value.activeSequencerId = id;
       } else {
-        console.log("Invalid sequencer ID, not setting");
+        logger.dev("Invalid sequencer ID, not setting");
       }
 
-      console.log("New activeSequencerId:", config.value.activeSequencerId);
+      logger.dev("New activeSequencerId:", config.value.activeSequencerId);
     };
 
     const duplicateSequencer = (id: string) => {

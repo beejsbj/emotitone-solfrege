@@ -196,7 +196,7 @@
 import { ref, computed, onUnmounted } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useSequencerStore } from "@/stores/sequencer";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import useGSAP from "@/composables/useGSAP";
 import type {
   CategorizedMelody,
@@ -206,6 +206,7 @@ import type {
 import { ChevronDown, Music } from "lucide-vue-next";
 import FloatingDropdown from "./FloatingDropdown.vue";
 import { MusicTheoryService, CHROMATIC_NOTES } from "@/services/music";
+import { logger } from "@/utils/logger";
 
 const musicStore = useMusicStore();
 const sequencerStore = useSequencerStore();
@@ -431,7 +432,7 @@ const playPattern = async (
       await new Promise((resolve) => setTimeout(resolve, durationTime * 1000));
     }
   } catch (error) {
-    console.error("Error playing pattern:", error);
+    logger.error("Error playing pattern:", error);
   } finally {
     currentlyPlaying.value = null;
     if (closeDropdown) closeDropdown();

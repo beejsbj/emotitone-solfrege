@@ -8,6 +8,7 @@ import type { SolfegeData } from "@/types/music";
 import type { BlobConfig } from "@/types/visual";
 import { useColorSystem } from "../useColorSystem";
 import { createVisualFrequency } from "@/utils/visualEffects";
+import { logger } from "@/utils/logger";
 
 export function useBlobRenderer() {
   const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
@@ -406,7 +407,7 @@ export function useBlobRenderer() {
 
     // Log warning if we have too many active blobs
     if (activeBlobs.size > 20) {
-      console.warn(
+      logger.warn(
         `High blob count detected: ${activeBlobs.size} active blobs`
       );
     }

@@ -4,6 +4,7 @@
  */
 
 import type { NoteEvent } from "@/interfaces/systems";
+import { logger } from "@/utils/logger";
 
 export type EventType = 
   | 'note-played'
@@ -53,7 +54,7 @@ class EventBus {
         try {
           callback(data);
         } catch (error) {
-          console.error(`Error in event listener for ${event}:`, error);
+          logger.error(`Error in event listener for ${event}:`, error);
         }
       });
     }

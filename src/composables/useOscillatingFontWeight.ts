@@ -8,6 +8,7 @@ import {
   createOscillation,
   clamp,
 } from "@/utils/visualEffects";
+import { logger } from "@/utils/logger";
 
 // Configuration is now managed by useVisualConfig composable
 
@@ -188,7 +189,7 @@ if (typeof window !== "undefined") {
     try {
       initializeFontWeightOscillation();
     } catch (error) {
-      console.warn("Font weight oscillation initialization failed:", error);
+      logger.warn("Font weight oscillation initialization failed:", error);
     }
   }, 100);
 }

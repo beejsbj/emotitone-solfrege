@@ -73,6 +73,7 @@ import MelodyLibrary from "./MelodyLibrary.vue";
 import { Knob } from "./knobs";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import { Play, Square } from "lucide-vue-next";
+import { logger } from "@/utils";
 
 // Store instances
 const sequencerStore = useSequencerStore();
@@ -121,12 +122,12 @@ const toggleGlobalPlayback = async () => {
 
 const startAllPlayback = async () => {
   if (totalBeats.value === 0) {
-    console.log("No beats to play");
+    logger.dev("No beats to play");
     return;
   }
 
   try {
-    console.log("Starting all playback...", {
+    logger.dev("Starting all playback...", {
       totalBeats: totalBeats.value,
       sequencers: sequencers.value.length,
     });
@@ -135,28 +136,28 @@ const startAllPlayback = async () => {
     const Tone = await import("tone");
     if (Tone.getContext().state === "suspended") {
       await Tone.start();
-      console.log("Tone.js context started");
+      logger.dev("Tone.js context started");
     }
 
     // Initialize transport if needed
     if (!multiTransport) {
       multiTransport = new MultiSequencerTransport();
-      console.log("Created new MultiSequencerTransport");
+      logger.dev("Created new MultiSequencerTransport");
     }
 
     // Start all sequencers in store first
     await sequencerStore.startAllSequencers();
-    console.log("Store sequencers started");
+    logger.dev("Store sequencers started");
 
     // Start transport with all playing sequencers
     const playingSeqs = sequencerStore.playingSequencers;
-    console.log("Playing sequencers:", playingSeqs.length);
+    logger.dev("Playing sequencers:", playingSeqs.length);
 
     await multiTransport.startAll(playingSeqs, tempo.value, steps.value);
 
-    console.log("Transport started successfully");
+    logger.dev("Transport started successfully");
   } catch (error) {
-    console.error("Error starting playback:", error);
+    logger.error("Error starting playback:", error);
     stopAllPlayback();
   }
 };
@@ -190,7 +191,7 @@ const handleSequencerInstancePlayback = async (
       // Then start transport for this specific sequencer
       await multiTransport.startSequencer(sequencer, steps.value);
     } catch (error) {
-      console.error(`Error starting sequencer ${sequencerId}:`, error);
+      logger.error(`Error starting sequencer ${sequencerId}:`, error);
       sequencerStore.stopSequencer(sequencerId);
     }
   } else {

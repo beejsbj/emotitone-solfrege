@@ -4,6 +4,7 @@ import { useSequencerStore } from "@/stores/sequencer";
 import { Knob } from "@/components/knobs";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import { Play, Square, Volume2, VolumeX } from "lucide-vue-next";
+import { logger } from "@/utils/logger";
 
 interface Props {
   sequencerId: string;
@@ -71,7 +72,7 @@ const togglePlayback = async () => {
 
       isStarting.value = false;
     } catch (error) {
-      console.error("Error starting sequencer playback:", error);
+      logger.error("Error starting sequencer playback:", error);
       sequencerStore.stopSequencer(props.sequencerId);
       isStarting.value = false;
     }

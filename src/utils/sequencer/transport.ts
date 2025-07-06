@@ -4,6 +4,7 @@ import { calculateNoteDuration } from "@/utils/duration";
 import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useSequencerStore } from "@/stores/sequencer";
+import { logger } from "@/utils/logger";
 
 /**
  * Convert SequencerBeat array to Tone.js Part-compatible events
@@ -454,19 +455,19 @@ export class MultiSequencerTransport {
         });
         window.dispatchEvent(notePlayedEvent);
 
-        console.log(
+        logger.dev(
           `🎵 Playing ${noteName} on ${sequencer.instrument} (sequencer ${sequencer.id}) at volume ${sequencer.volume}`
         );
       } catch (error) {
-        console.error(
+        logger.error(
           `Error playing note for sequencer ${sequencer.id}:`,
           error
         );
-        console.error(`Instrument: ${sequencer.instrument}, Note: ${noteName}`);
+        logger.error(`Instrument: ${sequencer.instrument}, Note: ${noteName}`);
       }
     } else {
       // Instrument not loaded yet - fallback to global instrument with sequencer-specific parameters
-      console.warn(
+      logger.warn(
         `Instrument ${sequencer.instrument} not loaded for sequencer ${sequencer.id}, using fallback`
       );
 

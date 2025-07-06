@@ -14,6 +14,7 @@ import type {
 } from "@/types/loading";
 import { audioService } from "@/services/audio";
 import { toast } from "vue-sonner";
+import { logger } from "@/utils/logger";
 
 // Default splash configuration
 const DEFAULT_SPLASH_CONFIG: SplashConfig = {
@@ -169,7 +170,7 @@ export function useAppLoading() {
         isComplete: true,
       });
     } catch (error) {
-      console.error("Instrument initialization error:", error);
+      logger.error("Instrument initialization error:", error);
 
       // Don't fail completely - allow app to continue with basic instruments
       updatePhase("instruments", {

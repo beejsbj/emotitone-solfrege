@@ -12,6 +12,7 @@ import type {
 } from "@/types/sample-library";
 import { PIANO_SAMPLER_CONFIG } from "@/data/instruments";
 import { toast } from "vue-sonner";
+import { logger } from "@/utils/logger";
 
 // Import the JavaScript SampleLibrary
 // @ts-expect-error - JS module without types
@@ -37,7 +38,7 @@ export function createSampleInstrumentWrapper(
       isLoaded = true;
     })
     .catch((error) => {
-      console.error(`Error loading ${instrumentName} samples:`, error);
+      logger.error(`Error loading ${instrumentName} samples:`, error);
       toast.error(`Failed to load ${instrumentName}`, {
         description: "Sample loading error",
       });
@@ -151,7 +152,7 @@ export function loadSampleInstrument(
         }
       }, 100);
     } catch (error) {
-      console.error(
+      logger.error(
         `Error loading sample instrument ${instrumentName}:`,
         error
       );
@@ -190,7 +191,7 @@ export function loadSampleInstruments(
 
       resolve(wrappers);
     } catch (error) {
-      console.error(`Error loading sample instruments:`, error);
+      logger.error(`Error loading sample instruments:`, error);
       toast.error("Failed to load sample instruments", {
         description: "Multiple instrument loading error",
       });
@@ -255,7 +256,7 @@ export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
         }
       }, 15000); // 15 second timeout for piano
     } catch (error) {
-      console.error("Error loading Salamander piano:", error);
+      logger.error("Error loading Salamander piano:", error);
       toast.error("🎹 Salamander piano loading failed", {
         description: "High-quality piano samples unavailable",
       });

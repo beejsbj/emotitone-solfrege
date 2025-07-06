@@ -8,6 +8,7 @@ import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
 import { useAmbientRenderer } from "./useAmbientRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
+import { logger } from "@/utils";
 
 /**
  * Unified Canvas Management System
@@ -99,13 +100,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const initializeCanvas = () => {
     if (!canvasRef.value) {
-      console.error("❌ Canvas ref is null!");
+      logger.error("❌ Canvas ref is null!");
       return;
     }
 
     ctx = canvasRef.value.getContext("2d");
     if (!ctx) {
-      console.error("❌ Could not get 2D context!");
+      logger.error("❌ Could not get 2D context!");
       return;
     }
 
@@ -131,7 +132,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     // Add string event listeners for sequencer integration
     stringRenderer.addEventListeners();
 
-    console.log("✅ Canvas initialized successfully");
+    logger.dev("✅ Canvas initialized successfully");
   };
 
   /**
@@ -139,7 +140,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const renderFrame = (elapsed: number) => {
     if (!ctx) {
-      console.warn("⚠️ No canvas context in renderFrame");
+      logger.warn("⚠️ No canvas context in renderFrame");
       return;
     }
 

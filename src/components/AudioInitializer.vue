@@ -4,52 +4,57 @@
       <div class="audio-icon">🔊</div>
       <h3>Enable Audio</h3>
       <p>Click to enable audio for the best experience</p>
-      <button @click="initializeAudio" class="enable-audio-btn" :disabled="initializing">
-        {{ initializing ? 'Initializing...' : 'Enable Audio' }}
+      <button
+        @click="initializeAudio"
+        class="enable-audio-btn"
+        :disabled="initializing"
+      >
+        {{ initializing ? "Initializing..." : "Enable Audio" }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { audioService } from '@/services/audio'
+import { ref, onMounted } from "vue";
+import { audioService } from "@/services/audio";
+import { logger } from "@/utils";
 
-const audioReady = ref(false)
-const initializing = ref(false)
+const audioReady = ref(false);
+const initializing = ref(false);
 
 const initializeAudio = async () => {
-  initializing.value = true
+  initializing.value = true;
   try {
-    const success = await audioService.startAudioContext()
+    const success = await audioService.startAudioContext();
     if (success) {
-      audioReady.value = true
-      console.log('Audio context successfully initialized')
+      audioReady.value = true;
+      logger.dev("Audio context successfully initialized");
     } else {
-      console.warn('Failed to initialize audio context')
+      logger.warn("Failed to initialize audio context");
     }
   } catch (error) {
-    console.error('Error initializing audio:', error)
+    logger.error("Error initializing audio:", error);
   } finally {
-    initializing.value = false
+    initializing.value = false;
   }
-}
+};
 
 // Check if audio is already ready
 onMounted(async () => {
   // Give a small delay to let other components initialize
   setTimeout(async () => {
     try {
-      const success = await audioService.startAudioContext()
+      const success = await audioService.startAudioContext();
       if (success) {
-        audioReady.value = true
+        audioReady.value = true;
       }
     } catch (error) {
       // Audio not ready, user will need to click
-      console.log('Audio requires user interaction')
+      logger.dev("Audio requires user interaction");
     }
-  }, 500)
-})
+  }, 500);
+});
 </script>
 
 <style scoped>
@@ -128,15 +133,15 @@ onMounted(async () => {
     margin: 1rem;
     padding: 1.5rem;
   }
-  
+
   .audio-icon {
     font-size: 2.5rem;
   }
-  
+
   .audio-prompt h3 {
     font-size: 1.3rem;
   }
-  
+
   .enable-audio-btn {
     padding: 0.875rem 1.5rem;
     font-size: 1rem;

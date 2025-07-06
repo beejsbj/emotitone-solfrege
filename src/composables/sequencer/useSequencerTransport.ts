@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useSequencerStore } from "@/stores/sequencer";
 import { useSequencerInteraction } from "./useSequencerInteraction";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
+import { logger } from "@/utils";
 
 interface PressState {
   isPressed: boolean;
@@ -23,12 +24,12 @@ export function useSequencerTransport() {
 
   // Transport logic
   const startSequencerPlayback = async (sequencerId: string) => {
-    console.log("Starting sequencer playback for:", sequencerId);
+    logger.dev("Starting sequencer playback for:", sequencerId);
     const sequencer = sequencerStore.sequencers.find(
       (s) => s.id === sequencerId
     );
     if (!sequencer || sequencer.beats.length === 0) {
-      console.log("No sequencer or no beats");
+      logger.dev("No sequencer or no beats");
       return null;
     }
 
@@ -45,10 +46,10 @@ export function useSequencerTransport() {
       // Start the transport with just this sequencer
       await transport.startSequencer(sequencer, sequencerStore.config.steps);
 
-      console.log("Started sequencer successfully");
+      logger.dev("Started sequencer successfully");
       return transport;
     } catch (error) {
-      console.error("Error in sequencer playback:", error);
+      logger.error("Error in sequencer playback:", error);
       return null;
     }
   };
@@ -59,12 +60,12 @@ export function useSequencerTransport() {
 
     // If there's a transport playing, stop it
     if (state.transport) {
-      console.log("Stopping transport for:", sequencerId);
+      logger.dev("Stopping transport for:", sequencerId);
       try {
         state.transport.stopAll();
         state.transport.dispose();
       } catch (error) {
-        console.error("Error stopping transport:", error);
+        logger.error("Error stopping transport:", error);
       }
       state.transport = null;
     }
@@ -76,7 +77,7 @@ export function useSequencerTransport() {
   // Interaction handlers
   const handleSequencerPressStart = (sequencerId: string, event: Event) => {
     event.preventDefault();
-    console.log("Press start:", sequencerId);
+    logger.dev("Press start:", sequencerId);
 
     const now = Date.now();
 
@@ -90,7 +91,7 @@ export function useSequencerTransport() {
     // Start playing after 200ms hold
     const timeout = setTimeout(async () => {
       if (pressState.value[sequencerId]?.isPressed) {
-        console.log("Starting sequencer from hold:", sequencerId);
+        logger.dev("Starting sequencer from hold:", sequencerId);
 
         // Create and store the transport
         const transport = await startSequencerPlayback(sequencerId);
@@ -105,7 +106,7 @@ export function useSequencerTransport() {
   };
 
   const handleSequencerPressEnd = (sequencerId: string) => {
-    console.log("Press end:", sequencerId);
+    logger.dev("Press end:", sequencerId);
     const state = pressState.value[sequencerId];
     if (!state) return;
 
@@ -124,7 +125,7 @@ export function useSequencerTransport() {
 
     // Handle short press as tap for double-tap detection
     if (pressDuration < 200) {
-      console.log(`Short press (${pressDuration}ms) - treating as tap`);
+      logger.dev(`Short press (${pressDuration}ms) - treating as tap`);
 
       const lastTap = lastTapTime.value[sequencerId] || 0;
       const timeSinceLastTap = now - lastTap;
@@ -133,13 +134,13 @@ export function useSequencerTransport() {
 
       // Double tap detection (within 300ms)
       if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
-        console.log("Double tap detected from short press!");
+        logger.dev("Double tap detected from short press!");
         // Double tap - toggle selection
         if (sequencerStore.config.activeSequencerId === sequencerId) {
-          console.log("Deselecting active sequencer");
+          logger.dev("Deselecting active sequencer");
           sequencerStore.setActiveSequencer("");
         } else {
-          console.log("Selecting new sequencer");
+          logger.dev("Selecting new sequencer");
           sequencerStore.setActiveSequencer(sequencerId);
         }
         triggerUIHaptic();
@@ -153,13 +154,13 @@ export function useSequencerTransport() {
     const lastTap = lastTapTime.value[sequencerId] || 0;
     const timeDiff = now - lastTap;
 
-    console.log(`Click on ${sequencerId}: timeDiff=${timeDiff}ms`);
+    logger.dev(`Click on ${sequencerId}: timeDiff=${timeDiff}ms`);
 
     lastTapTime.value[sequencerId] = now;
 
     // Double tap detection (within 300ms)
     if (timeDiff < 300 && timeDiff > 0) {
-      console.log("Double tap detected!");
+      logger.dev("Double tap detected!");
       // Double tap - toggle selection
       if (sequencerStore.config.activeSequencerId === sequencerId) {
         sequencerStore.setActiveSequencer("");
@@ -192,7 +193,7 @@ export function useSequencerTransport() {
           state.transport.stopAll();
           state.transport.dispose();
         } catch (error) {
-          console.error("Error disposing transport:", error);
+          logger.error("Error disposing transport:", error);
         }
       }
     });

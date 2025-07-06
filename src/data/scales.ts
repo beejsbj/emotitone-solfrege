@@ -6,6 +6,7 @@
 import { Scale as TonalScale, Interval } from "@tonaljs/tonal";
 import type { Scale } from "@/types/music";
 import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "./solfege";
+import { logger } from "@/utils/logger";
 
 // Re-export types for backward compatibility
 export type { Scale };
@@ -21,7 +22,7 @@ function generateScaleIntervals(scaleType: string): number[] {
       return semitones ?? 0;
     });
   } catch (error) {
-    console.warn(
+    logger.warn(
       `Failed to generate intervals for ${scaleType}, using fallback`
     );
     return scaleType === "major"

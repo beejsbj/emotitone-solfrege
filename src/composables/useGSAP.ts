@@ -1,6 +1,7 @@
 import { onMounted, onUnmounted } from "vue";
 import gsap from "gsap";
 import { DrawSVGPlugin, Draggable, InertiaPlugin, Flip } from "gsap/all";
+import { logger } from "@/utils";
 
 /**
  * GSAP Plugin Registration
@@ -57,7 +58,7 @@ type UseGSAPReturn = GSAPTools & {
  *   gsap.to('.element', {
  *     opacity: 0,
  *     duration: 1,
- *     onComplete: () => console.log('Animation complete')
+ *     onComplete: () => logger.dev('Animation complete')
  *   });
  * });
  *
@@ -89,10 +90,10 @@ export default function useGSAP(
       });
 
       if (import.meta.env.DEV) {
-        console.log("[useGSAP] Context created", context);
+        logger.dev("[useGSAP] Context created", context);
       }
     } catch (error) {
-      console.error("[useGSAP] Failed to create GSAP context:", error);
+      logger.error("[useGSAP] Failed to create GSAP context:", error);
     }
   });
 
@@ -105,14 +106,14 @@ export default function useGSAP(
         context.kill();
 
         if (import.meta.env.DEV) {
-          console.log(
+          logger.dev(
             "[useGSAP] Context killed and animations reverted",
             context
           );
         }
       }
     } catch (error) {
-      console.error("[useGSAP] Failed to cleanup GSAP context:", error);
+      logger.error("[useGSAP] Failed to cleanup GSAP context:", error);
     }
   });
 

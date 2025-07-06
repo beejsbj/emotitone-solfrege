@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useAppLoading } from "@/composables/useAppLoading";
+import { logger } from "@/utils";
 
 // Props
 interface Props {
@@ -172,7 +173,7 @@ const handleEnableAudio = async () => {
       await initializeVisualEffects();
     }
   } catch (error) {
-    console.error("Error enabling audio:", error);
+    logger.error("Error enabling audio:", error);
   } finally {
     audioInitializing.value = false;
   }
@@ -188,9 +189,9 @@ const handleStartApp = async () => {
   // This provides the required user interaction for audio
   try {
     await enableAudioContext();
-    console.log("Audio context enabled on app start");
+    logger.dev("Audio context enabled on app start");
   } catch (error) {
-    console.warn("Audio context initialization failed:", error);
+    logger.warn("Audio context initialization failed:", error);
     // Continue anyway - audio will be enabled when user first plays a note
   }
 
@@ -232,7 +233,7 @@ const startInitialization = async () => {
       isComplete: true,
     });
   } catch (error) {
-    console.error("Initialization error:", error);
+    logger.error("Initialization error:", error);
   }
 };
 

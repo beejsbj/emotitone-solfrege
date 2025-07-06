@@ -3,6 +3,8 @@
  * Provides cross-platform haptic feedback for touch interactions
  */
 
+import { logger } from "@/utils/logger";
+
 export type HapticIntensity =
   | "lighter"
   | "light"
@@ -45,7 +47,7 @@ export const triggerHapticFeedback = (
       win.hapticFeedback.impact(intensity);
     } catch (e) {
       // Fallback to vibration if haptic feedback fails
-      console.debug(
+      logger.dev(
         "Advanced haptic feedback not available, using vibration fallback"
       );
     }

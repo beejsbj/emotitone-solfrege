@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, reactive, watch } from "vue";
 import { DEFAULT_CONFIG } from "@/composables/useVisualConfig";
 import type { VisualEffectsConfig } from "@/types/visual";
+import { logger } from "@/utils/logger";
 
 const STORAGE_KEY = "emotitone-visual-config";
 const SAVED_CONFIGS_KEY = "emotitone-saved-configs";
@@ -37,7 +38,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         savedConfigs.value = JSON.parse(storedSavedConfigs);
       }
     } catch (error) {
-      console.error("Failed to load visual config from localStorage:", error);
+      logger.error("Failed to load visual config from localStorage:", error);
       resetToDefaults();
     }
   };
@@ -53,7 +54,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToStore));
       lastSaved.value = dataToStore.lastSaved;
     } catch (error) {
-      console.error("Failed to save visual config to localStorage:", error);
+      logger.error("Failed to save visual config to localStorage:", error);
     }
   };
 
@@ -108,7 +109,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         JSON.stringify(savedConfigs.value)
       );
     } catch (error) {
-      console.error("Failed to save config to localStorage:", error);
+      logger.error("Failed to save config to localStorage:", error);
     }
 
     return savedConfig;
@@ -134,7 +135,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
           JSON.stringify(savedConfigs.value)
         );
       } catch (error) {
-        console.error("Failed to update saved configs in localStorage:", error);
+        logger.error("Failed to update saved configs in localStorage:", error);
       }
     }
   };
@@ -186,7 +187,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         return true;
       }
     } catch (error) {
-      console.error("Failed to import config:", error);
+      logger.error("Failed to import config:", error);
     }
     return false;
   };

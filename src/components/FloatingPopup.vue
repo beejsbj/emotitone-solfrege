@@ -116,22 +116,24 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { getNoteColor, getNoteColorWithAlpha, createGlassBackground, createNoteGradient } from "@/utils";
+import { useColorSystem } from "@/composables/color";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { Chord, Interval } from "@tonaljs/tonal";
 
 const musicStore = useMusicStore();
+const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
+
 // Simplified color utilities
 const getNoteColorForNote = (note: any) => {
-  return getNoteColor(note.solfege.name, note.octave);
+  return getPrimaryColor(note.solfege.name);
 };
 
 const createGlassMorph = (color: string, opacity = 0.3) => {
-  return createGlassBackground(color, opacity);
+  return withAlpha(color, opacity);
 };
 
 const createShadow = (color: string) => {
-  return `0 4px 16px ${getNoteColorWithAlpha('', 0.3)}`;
+  return `0 4px 16px ${withAlpha(color, 0.3)}`;
 };
 const { floatingPopupConfig } = useVisualConfig();
 const floatingPopup = ref<HTMLElement | null>(null);
@@ -228,13 +230,17 @@ const displayedChord = computed(() => {
 
 // Note colors using simplified system
 const getNoteColorOld = (note: any): string => {
-  return getNoteColor(note.solfege.name, note.octave || 3);
+  return getPrimaryColor(note.solfege.name);
 };
 
 // Create chord-specific background using simplified gradient
 const createChordGlassmorphBackgroundLocal = (): string => {
   const noteNames = displayedNotes.value.map(note => note.solfege.name);
-  return createNoteGradient(noteNames);
+  if (noteNames.length === 0) return 'hsla(220, 13%, 18%, 0.8)';
+  // Simple gradient between first and last note colors
+  const firstColor = getPrimaryColor(noteNames[0]);
+  const lastColor = getPrimaryColor(noteNames[noteNames.length - 1]);
+  return `linear-gradient(135deg, ${withAlpha(firstColor, 0.8)}, ${withAlpha(lastColor, 0.8)})`;
 };
 
 // Create chord-specific shadow
@@ -244,7 +250,10 @@ const createChordGlassmorphShadowLocal = (): string => {
 
 const displayedNotesGradient = computed(() => {
   const noteNames = displayedNotes.value.map(note => note.solfege.name);
-  return createNoteGradient(noteNames);
+  if (noteNames.length === 0) return 'hsla(220, 13%, 18%, 0.8)';
+  const firstColor = getPrimaryColor(noteNames[0]);
+  const lastColor = getPrimaryColor(noteNames[noteNames.length - 1]);
+  return `linear-gradient(135deg, ${withAlpha(firstColor, 0.8)}, ${withAlpha(lastColor, 0.8)})`;
 });
 
 // Update interval calculations to use displayedNotes
@@ -298,14 +307,16 @@ const displayedIntervalRows = computed(() => {
 const getIntervalGradient = (interval: any) => {
   const fromNote = displayedNotes.value[interval.fromIndex].solfege.name;
   const toNote = displayedNotes.value[interval.toIndex].solfege.name;
-  return createNoteGradient([fromNote, toNote], "90deg");
+  const fromColor = getPrimaryColor(fromNote);
+  const toColor = getPrimaryColor(toNote);
+  return `linear-gradient(90deg, ${withAlpha(fromColor, 0.8)}, ${withAlpha(toColor, 0.8)})`;
 };
 
 // Create simplified background for intervals
 const createIntervalGlassmorphBackgroundLocal = (interval: any): string => {
   const fromNote = displayedNotes.value[interval.fromIndex].solfege.name;
-  const fromColor = getNoteColor(fromNote);
-  return createGlassBackground(fromColor, floatingPopupConfig.value.glassmorphOpacity);
+  const fromColor = getPrimaryColor(fromNote);
+  return withAlpha(fromColor, floatingPopupConfig.value.glassmorphOpacity);
 };
 
 // Update emotional description to use displayedNotes

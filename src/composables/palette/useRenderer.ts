@@ -5,7 +5,7 @@
 
 import { type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { shouldShowKeyboardShortcuts } from "@/utils/deviceDetection";

@@ -10,6 +10,7 @@ import {
   triggerControlHaptic,
   triggerUIHaptic,
 } from "@/utils/hapticFeedback";
+import { logger } from "@/utils";
 import { PALETTE_STYLES } from "./index";
 import type {
   PaletteState,
@@ -292,7 +293,7 @@ export function usePaletteInteraction(
         state.resizeStartHeight = state.height;
         state.dragStartY = paletteState.value.dragStartY; // Ensure we have the start position
         triggerUIHaptic();
-        console.log("Resize started:", {
+        logger.dev("Resize started:", {
           startHeight: state.height,
           startY: state.dragStartY,
         });

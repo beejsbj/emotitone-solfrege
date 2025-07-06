@@ -6,6 +6,7 @@
  */
 
 import * as Tone from "tone";
+import { logger } from "@/utils";
 
 var SampleLibrary = {
   minify: false,
@@ -48,7 +49,7 @@ var SampleLibrary = {
       }
     }
     this.ext = newExt;
-    return console.log("sample extensions set to " + this.ext);
+    return logger.dev("sample extensions set to " + this.ext);
   },
 
   load: function (arg) {

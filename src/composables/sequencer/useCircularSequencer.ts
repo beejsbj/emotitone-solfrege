@@ -1,5 +1,6 @@
 import { ref, computed, watch } from "vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
+import { useThemeColors } from "@/composables/ui/useThemeColors";
 import { useMusicStore } from "@/stores/music";
 import { useSequencerStore } from "@/stores/sequencer";
 import type { SequencerInstance } from "@/types/music";
@@ -40,6 +41,7 @@ export function useCircularSequencer(
   const musicStore = useMusicStore();
   const sequencerStore = useSequencerStore();
   const { getPrimaryColor } = useColorSystem();
+  const { adjustAlpha } = useThemeColors();
   const { sequencer, themeColors, dynamicStyles } = useSequencerControls(
     sequencerStore.config.activeSequencerId || sequencerId || ""
   );
@@ -74,16 +76,18 @@ export function useCircularSequencer(
       sixteenthStrokeWidth: 0.5,
       dashArray: "2 4",
       markerExtension: 5,
-      stroke:
-        themeColors?.value?.primary?.replace("1)", "0.5)") ||
-        "hsla(0, 0%, 100%, 0.5)",
+      stroke: adjustAlpha(
+        themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)",
+        0.5
+      ),
     },
 
     // Step markers
     stepMarkers: {
-      stroke:
-        themeColors?.value?.primary?.replace("1)", "0.5)") ||
-        "hsla(0, 0%, 100%, 0.5)",
+      stroke: adjustAlpha(
+        themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)",
+        0.5
+      ),
       strokeWidth: 0.5,
       baseOpacity: 0.1,
       hoveredOpacity: 0.2,
@@ -97,7 +101,10 @@ export function useCircularSequencer(
       baseStrokeWidthRatio: 0.8,
       hoveredStrokeWidthRatio: 0.9,
       activeStrokeWidthRatio: 1.0,
-      fill: themeColors?.value?.primary?.replace("1)", "0.2)") || "none",
+      fill: adjustAlpha(
+        themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)",
+        0.2
+      ),
       saturation: 0.4,
     },
 
@@ -112,11 +119,11 @@ export function useCircularSequencer(
       selectedStrokeWidth: 2,
       draggingStrokeWidth: 3,
       selectedStroke:
-        themeColors?.value?.primary?.replace("1)", "0.8)") ||
+        adjustAlpha(themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)", 0.8) ||
         "hsla(0, 0%, 100%, 0.8)",
       selectedStrokeOpacity: 0.8,
       draggingStroke:
-        themeColors?.value?.primary?.replace("1)", "0.9)") ||
+        adjustAlpha(themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)", 0.9) ||
         "hsla(0, 0%, 100%, 0.9)",
       draggingStrokeOpacity: 0.9,
       saturation: 1,
@@ -125,7 +132,7 @@ export function useCircularSequencer(
     // Playhead
     currentStep: {
       stroke:
-        themeColors?.value?.primary?.replace("1)", "0.9)") ||
+        adjustAlpha(themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)", 0.9) ||
         "hsla(0, 0%, 100%, 0.9)",
       strokeWidth: 0.5,
       opacity: 0.5,
@@ -142,7 +149,7 @@ export function useCircularSequencer(
       fontWeight: 600,
       opacity: 0.8,
       textShadow: `0 1px 2px ${
-        themeColors?.value?.primary?.replace("1)", "0.5)") ||
+        adjustAlpha(themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)", 0.5) ||
         "hsla(0, 0%, 100%, 0.5)"
       }`,
       fontFamily: "Let's Jazz, system-ui, -apple-system, sans-serif",
@@ -163,14 +170,14 @@ export function useCircularSequencer(
         width: "1px",
         style: "solid",
         colorCompact:
-          themeColors?.value?.primary?.replace("1)", "0.1)") ||
+          adjustAlpha(themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)", 0.1) ||
           "hsla(0, 0%, 100%, 0.1)",
         colorDefault:
-          themeColors?.value?.primary?.replace("1)", "0.2)") ||
+          adjustAlpha(themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)", 0.2) ||
           "hsla(0, 0%, 100%, 0.2)",
       },
       shadow:
-        themeColors?.value?.primary?.replace("1)", "0.1)") ||
+        adjustAlpha(themeColors?.value?.primary || "hsla(0, 0%, 100%, 1)", 0.1) ||
         "hsla(0, 0%, 100%, 0.1)",
       disabledOpacity: 0.4,
     },

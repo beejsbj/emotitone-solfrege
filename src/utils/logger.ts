@@ -3,7 +3,7 @@
  * Intelligently handles logging for development and production environments
  */
 
-type LogLevel = 'dev' | 'warn' | 'error';
+type LogLevel = "dev" | "warn" | "error";
 
 class Logger {
   private isDevelopment = import.meta.env.DEV;
@@ -68,7 +68,7 @@ class PerformanceLogger extends Logger {
         this.error(...args);
         this.lastLog = now;
       }
-    }
+    },
   };
 }
 

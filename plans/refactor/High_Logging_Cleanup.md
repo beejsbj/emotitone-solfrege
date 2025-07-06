@@ -27,7 +27,7 @@ import { logger, performanceLogger } from "@/utils/logger";
 
 Replace according to these rules:
 
-- `console.log(...)` → `logger.dev(...)`
+- `logger.dev(...)` → `logger.dev(...)`
 - `console.warn(...)` → `logger.warn(...)`
 - `console.error(...)` → `logger.error(...)` (Errors should always be logged)
 - `console.info(...)` → `logger.dev(...)`
@@ -36,7 +36,7 @@ Replace according to these rules:
 
 For frequently-called functions (animation loops), use:
 
-- `console.log(...)` → `performanceLogger.throttled.dev(...)`
+- `logger.dev(...)` → `performanceLogger.throttled.dev(...)`
 
 ### Step 3: Target Files
 

@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useColorSystem } from "@/composables/color";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 
 const { getColorPreview, isDynamicColorsEnabled } = useColorSystem();

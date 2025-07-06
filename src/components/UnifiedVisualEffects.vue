@@ -14,6 +14,7 @@ import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
+import { logger } from "@/utils";
 import type { SolfegeData } from "@/types/music";
 
 const musicStore = useMusicStore();
@@ -61,14 +62,14 @@ function onNoteReleased(event: CustomEvent) {
 // Note: Mode changes and visual enable/disable are handled automatically by component lifecycle
 
 onMounted(() => {
-  console.log("🚀 Mounting UnifiedVisualEffects...");
+  logger.dev("🚀 Mounting UnifiedVisualEffects...");
 
   // Initialize the unified canvas system
   initializeCanvas();
 
   // Start the animation loop only if visuals are enabled
   if (visualsEnabled) {
-    console.log("▶️ Starting animation...");
+    logger.dev("▶️ Starting animation...");
     startAnimation();
   }
 
@@ -79,7 +80,7 @@ onMounted(() => {
   window.addEventListener("note-played", onNotePlayed as EventListener);
   window.addEventListener("note-released", onNoteReleased as EventListener);
 
-  console.log("✅ UnifiedVisualEffects mounted and ready");
+  logger.dev("✅ UnifiedVisualEffects mounted and ready");
 });
 
 onUnmounted(() => {

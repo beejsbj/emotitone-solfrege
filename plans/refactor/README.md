@@ -1,3 +1,35 @@
+Hello Agent,
+
+Your task is to implement a specific phase of our project's refactoring plan.
+
+## 📋 Before You Start
+
+1. **Read the current status**: Check [PROGRESS_REPORT.md](./PROGRESS_REPORT.md) for the latest completion status
+2. **Review priorities**: See [PRIORITY_TASKS.md](./PRIORITY_TASKS.md) for immediate action items
+3. **Monitor progress**: Use the SystemCheck component (🔬 System Check tab) for real-time monitoring
+
+## 🎯 Implementation Process
+
+1. **Choose a priority level** - Start with High priority for critical fixes
+2. **Select a phase** - Pick one that aligns with your goals/timeline  
+3. **Create a branch** - Use descriptive naming like `high/logging-cleanup`
+4. **Follow the steps** - Each phase has detailed implementation guidance
+5. **Monitor progress** - Use SystemCheck component to validate changes
+6. **Verify completion** - Use the provided verification criteria
+7. **Rename completed file** - Add `COMPLETED_` prefix when verified complete
+
+## 📊 Current Status (Updated 2025-01-05)
+
+**Overall Progress: 17% Complete (3 of 18 phases)**
+- ✅ High_TonalJS_Integration
+- ✅ Med_TypeScript_Migration  
+- ✅ Med_Music_Logic_Deduplication
+- ✅ Feature_Systems_Check (SystemCheck monitoring component)
+
+**Next Priority:** High_Logging_Cleanup (console statement replacement)
+
+Thank you for your help in restoring and improving our codebase.
+
 # Emotitone Solfrege Refactor Phases
 
 This directory contains the reorganized refactor phases for the Emotitone Solfrege project. The phases have been restructured to be:
@@ -100,6 +132,19 @@ Each phase now:
 - Includes complete implementation details
 - Has comprehensive verification steps
 - Maintains backward compatibility where needed
+
+## 📋 Planning Documents
+
+### Key Reference Files
+- **[PROGRESS_REPORT.md](./PROGRESS_REPORT.md)** - Comprehensive audit of all 18 phases with completion status
+- **[PRIORITY_TASKS.md](./PRIORITY_TASKS.md)** - Actionable task list with time estimates and priorities
+- **SystemCheck Component** - Real-time monitoring dashboard (🔬 System Check tab in app)
+
+### How to Use These Documents
+1. **Check Progress**: Review PROGRESS_REPORT.md for current completion status
+2. **Pick Next Task**: Use PRIORITY_TASKS.md to select your next focus area
+3. **Monitor Work**: Use SystemCheck component to validate changes in real-time
+4. **Track Completion**: Update documents when phases are verified complete
 
 ## Getting Started
 

@@ -6,6 +6,7 @@
 import { ref } from "vue";
 import type { AnimationState } from "@/types";
 import { PALETTE_STYLES } from "./index";
+import { logger } from "@/utils";
 
 export function usePaletteAnimation() {
   // Animation state for smooth transitions
@@ -54,7 +55,7 @@ export function usePaletteAnimation() {
     animationState.value.isAnimating = true;
     animationState.value.animationStartTime = performance.now();
 
-    console.log("Starting octave animation:", {
+    logger.dev("Starting octave animation:", {
       from: startOffset,
       to: targetOffset,
       difference: targetOffset - startOffset,

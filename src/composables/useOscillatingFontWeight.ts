@@ -27,7 +27,7 @@ let lastElementCount = 0;
  */
 function cacheOscillationElements() {
   const elements = document.querySelectorAll(
-    ".font-weight-oscillate-sm, .font-bold, .font-weight-oscillate-lg, .font-weight-oscillate-full"
+    ".font-weight-oscillate-sm, .font-bold, .font-weight-oscillate-lg, . "
   );
   cachedElements = Array.from(elements) as HTMLElement[];
   lastElementCount = cachedElements.length;
@@ -42,7 +42,7 @@ function updateFontWeights(elapsed: number) {
 
   // Check if we need to refresh the element cache
   const currentElementCount = document.querySelectorAll(
-    ".font-weight-oscillate-sm, .font-bold, .font-weight-oscillate-lg, .font-weight-oscillate-full"
+    ".font-weight-oscillate-sm, .font-bold, .font-weight-oscillate-lg, . "
   ).length;
 
   if (currentElementCount !== lastElementCount || cachedElements.length === 0) {
@@ -59,7 +59,7 @@ function updateFontWeights(elapsed: number) {
       config = fontOscillationConfig.value.md;
     } else if (htmlElement.classList.contains("font-weight-oscillate-lg")) {
       config = fontOscillationConfig.value.lg;
-    } else if (htmlElement.classList.contains("font-weight-oscillate-full")) {
+    } else if (htmlElement.classList.contains(" ")) {
       config = fontOscillationConfig.value.full;
     } else {
       return;

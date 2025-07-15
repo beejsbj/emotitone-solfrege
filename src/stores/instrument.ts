@@ -273,9 +273,9 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
         return { instrumentName, success: true };
       } catch (error) {
-        console.error(
-          `Error loading sample instrument ${instrumentName}:`,
-          error
+        // Use console.warn instead of console.error to reduce noise
+        console.warn(
+          `Sample instrument ${instrumentName} not available, will use basic synth fallback`
         );
         return { instrumentName, success: false, error };
       }

@@ -34,6 +34,14 @@ bun run type-check
 bun run build
 ```
 
+## Development Guidelines
+
+### Preferred Package Manager
+
+- Use Bun as the primary package manager and runtime for this project
+- Bun offers faster package management and script execution compared to npm/yarn
+- All development commands and scripts are configured for Bun
+
 ## Architecture Overview
 
 ### Core Systems

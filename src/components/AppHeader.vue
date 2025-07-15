@@ -1,14 +1,6 @@
 <template>
   <header class="p-4 text-center">
-    <h1
-      class="text-4xl md:text-6xl text-white mb-2 tracking-wide font-weight-oscillate-full"
-    >
-      Emotitone
-    </h1>
-    <p class="text-lg md:text-xl text-gray-300 font-weight-oscillate-sm">
-      Feel the Music Theory
-    </p>
-    <p class="text-2xl">ABCabc & 123</p>
+    <h1 class="text-x text-white mb-2 tracking-wide">Emotitone</h1>
   </header>
 </template>
 

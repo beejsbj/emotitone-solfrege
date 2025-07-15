@@ -419,7 +419,7 @@ export const useMusicStore = defineStore(
       );
     }
 
-    function releaseNote(noteId?: string) {
+    async function releaseNote(noteId?: string) {
       if (noteId && activeNotes.value.has(noteId)) {
         // Release specific note
         const activeNote = activeNotes.value.get(noteId);
@@ -528,8 +528,8 @@ export const useMusicStore = defineStore(
       return activeNotes.value.has(noteId);
     }
 
-    function releaseAllNotes() {
-      releaseNote(); // Call without noteId to release all
+    async function releaseAllNotes() {
+      await releaseNote(); // Call without noteId to release all
     }
 
     // Enhanced attack note with octave support

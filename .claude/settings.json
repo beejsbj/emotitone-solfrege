@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "EditFile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [[ \"$TOOL_PARAMS\" == *\".vue\"* ]] || [[ \"$TOOL_PARAMS\" == *\".ts\"* ]] || [[ \"$TOOL_PARAMS\" == *\".js\"* ]]; then echo \"🧪 Running tests after code changes...\"; bun run test:run; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "CreateFile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(echo \"$TOOL_PARAMS\" | grep -o '\"[^\"]*\\.(vue|ts|js)\"' | tr -d '\"'); if [[ -n \"$file_path\" ]] && [[ \"$file_path\" == src/* ]] && [[ \"$file_path\" != *test* ]] && [[ \"$file_path\" != *spec* ]]; then echo \"🆕 New source file: $file_path\"; echo \"📝 Generating test template...\"; test_dir=$(dirname \"$file_path\" | sed 's|src|src/__tests__|'); test_file=\"$test_dir/$(basename \"$file_path\" .vue).test.ts\"; mkdir -p \"$test_dir\"; if [[ ! -f \"$test_file\" ]]; then echo \"import { describe, it, expect } from 'vitest'\\nimport { mount } from '@vue/test-utils'\\n\\n// TODO: Import the component/function to test\\n// import ComponentName from '../$(basename \"$file_path\")'\\n\\ndescribe('$(basename \"$file_path\" .vue)', () => {\\n  it('should render correctly', () => {\\n    // TODO: Implement test\\n    expect(true).toBe(true)\\n  })\\n\\n  // TODO: Add more specific tests\\n})\" > \"$test_file\"; echo \"✅ Created test template: $test_file\"; else echo \"ℹ️  Test file already exists: $test_file\"; fi; bun run test:coverage; fi"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "CreateFile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [[ \"$TOOL_PARAMS\" == *\"src/\"* ]] && [[ \"$TOOL_PARAMS\" == *\".vue\"* || \"$TOOL_PARAMS\" == *\".ts\"* || \"$TOOL_PARAMS\" == *\".js\"* ]] && [[ \"$TOOL_PARAMS\" != *\"test\"* ]] && [[ \"$TOOL_PARAMS\" != *\"spec\"* ]]; then echo \"⚠️  New source file detected. Test template will be auto-generated.\"; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [[ \"$TOOL_PARAMS\" == *\"rm \"* ]] && [[ \"$TOOL_PARAMS\" == *\".vue\"* || \"$TOOL_PARAMS\" == *\".ts\"* || \"$TOOL_PARAMS\" == *\".js\"* ]]; then echo \"⚠️  Deleting source files. Consider cleaning up corresponding test files.\"; fi"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"📊 Final test report:\"; bun run test:coverage --silent 2>/dev/null || echo \"❌ Tests failed or no tests found\"; echo \"🎯 Consider running 'bun run test:ui' for interactive testing\""
+          }
+        ]
+      }
+    ]
+  }
+}

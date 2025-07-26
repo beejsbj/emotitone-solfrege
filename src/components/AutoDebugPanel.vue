@@ -137,26 +137,6 @@
                     "
                   />
 
-                  <!-- String enum knobs for Hilbert Scope colorMode -->
-                  <Knob
-                    v-else-if="
-                      sectionName === 'hilbertScope' &&
-                      String(key) === 'colorMode'
-                    "
-                    :model-value="value === 'amplitude' ? 1 : 0"
-                    type="boolean"
-                    :label="'Color Mode'"
-                    :format-value="(val: number) => val ? 'Amplitude' : 'White'"
-                    :is-disabled="!visualsEnabled || !sectionConfig.isEnabled"
-                    @update:modelValue="
-                      (newValue) =>
-                        updateValue(
-                          sectionName,
-                          'colorMode',
-                          newValue ? 'amplitude' : 'white'
-                        )
-                    "
-                  />
                 </template>
               </div>
             </li>

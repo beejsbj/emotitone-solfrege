@@ -318,43 +318,41 @@ export function useHilbertScopeRenderer() {
     ctx.save();
     ctx.globalAlpha = config.opacity * state.fadeInProgress * (1 - state.fadeOutProgress);
     
-    // Get color based on current mode and active notes
-    let strokeColor = 'white';
-    let glowColor = 'white';
+    // Always use color system for dynamic solfège colors
+    let strokeColor: string;
+    let glowColor: string;
     
-    if (config.colorMode === 'amplitude') {
-      // Use the color system based on active notes
-      const activeNotes = musicStore.getActiveNotes();
-      if (activeNotes.length > 0) {
-        // Use the first active note's color, or blend multiple
-        const firstNote = activeNotes[0];
-        const noteName = firstNote.solfege.name;
-        const noteColor = colorSystem.getPrimaryColor(noteName, musicStore.currentMode);
+    // Use the color system based on active notes
+    const activeNotes = musicStore.getActiveNotes();
+    if (activeNotes.length > 0) {
+      // Use the first active note's color, or blend multiple
+      const firstNote = activeNotes[0];
+      const noteName = firstNote.solfege.name;
+      const noteColor = colorSystem.getPrimaryColor(noteName, musicStore.currentMode);
+      
+      // Modulate opacity based on amplitude
+      const alphaValue = 0.5 + amplitude * 0.5; // Range from 0.5 to 1.0
+      strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
+      glowColor = noteColor;
+    } else {
+      // When no notes are active, cycle through scale colors based on amplitude
+      // This creates a dynamic color effect even when not playing
+      const scaleNotes = musicStore.solfegeData;
+      if (scaleNotes && scaleNotes.length > 0) {
+        // Pick a note from the scale based on amplitude
+        const noteIndex = Math.floor(amplitude * (scaleNotes.length - 1));
+        const scaleNote = scaleNotes[noteIndex];
+        const noteColor = colorSystem.getPrimaryColor(scaleNote.name, musicStore.currentMode);
         
-        // Modulate opacity based on amplitude
-        const alphaValue = 0.5 + amplitude * 0.5; // Range from 0.5 to 1.0
+        const alphaValue = 0.3 + amplitude * 0.7;
         strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
         glowColor = noteColor;
       } else {
-        // When no notes are active, cycle through scale colors based on amplitude
-        // This creates a dynamic color effect even when not playing
-        const scaleNotes = musicStore.solfegeData;
-        if (scaleNotes && scaleNotes.length > 0) {
-          // Pick a note from the scale based on amplitude
-          const noteIndex = Math.floor(amplitude * (scaleNotes.length - 1));
-          const scaleNote = scaleNotes[noteIndex];
-          const noteColor = colorSystem.getPrimaryColor(scaleNote.name, musicStore.currentMode);
-          
-          const alphaValue = 0.3 + amplitude * 0.7;
-          strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
-          glowColor = noteColor;
-        } else {
-          // Ultimate fallback
-          const defaultColor = colorSystem.getPrimaryColor('C', 'major');
-          const alphaValue = 0.3 + amplitude * 0.7;
-          strokeColor = colorSystem.withAlpha(defaultColor, alphaValue);
-          glowColor = defaultColor;
-        }
+        // Ultimate fallback
+        const defaultColor = colorSystem.getPrimaryColor('C', 'major');
+        const alphaValue = 0.3 + amplitude * 0.7;
+        strokeColor = colorSystem.withAlpha(defaultColor, alphaValue);
+        glowColor = defaultColor;
       }
     }
     

@@ -401,8 +401,6 @@ export interface HilbertScopeConfig {
   history: number;
   /** Base line width */
   lineWidth: number;
-  /** Color mode: white or amplitude-based */
-  colorMode: 'white' | 'amplitude';
 }
 
 /**

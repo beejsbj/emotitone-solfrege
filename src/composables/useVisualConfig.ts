@@ -145,7 +145,7 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     isEnabled: true, // Enabled by default
     sizeRatio: 0.6, // 60% of screen - much larger!
     minSize: 600,
-    maxSize: 1400,
+    maxSize: 800,
     opacity: 0.7,
     scaleInDuration: 0.5,
     scaleOutDuration: 0.5,
@@ -154,7 +154,6 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     glowIntensity: 10,
     history: 0.85, // Trail strength
     lineWidth: 3,
-    colorMode: 'amplitude' as const, // Amplitude-based coloring by default
   },
 };
 

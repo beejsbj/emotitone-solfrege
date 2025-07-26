@@ -11,6 +11,7 @@ import type {
   DynamicColorConfig,
   PaletteConfig,
   FloatingPopupConfig,
+  HilbertScopeConfig,
   VisualEffectsConfig,
 } from "@/types/visual";
 
@@ -31,6 +32,7 @@ export type {
   DynamicColorConfig,
   PaletteConfig,
   FloatingPopupConfig,
+  HilbertScopeConfig,
   VisualEffectsConfig,
 };
 
@@ -138,6 +140,22 @@ const DEFAULT_CONFIG: VisualEffectsConfig = {
     glassmorphOpacity: 0.4, // 40% glassmorphism opacity
     animationDuration: 300, // 300ms animation duration
   },
+
+  hilbertScope: {
+    isEnabled: true, // Enabled by default
+    sizeRatio: 0.3, // 30% of screen
+    minSize: 150,
+    maxSize: 400,
+    opacity: 0.7,
+    scaleInDuration: 0.5,
+    scaleOutDuration: 0.5,
+    driftSpeed: 5,
+    glowEnabled: true,
+    glowIntensity: 10,
+    history: 0.85, // Trail strength
+    lineWidth: 3,
+    colorMode: 'white' as const,
+  },
 };
 
 /**
@@ -159,6 +177,7 @@ export function useVisualConfig() {
   const dynamicColorConfig = computed(() => store.config.dynamicColors);
   const paletteConfig = computed(() => store.config.palette);
   const floatingPopupConfig = computed(() => store.config.floatingPopup);
+  const hilbertScopeConfig = computed(() => store.config.hilbertScope);
 
   return {
     // Configuration state
@@ -176,6 +195,7 @@ export function useVisualConfig() {
     dynamicColorConfig,
     paletteConfig,
     floatingPopupConfig,
+    hilbertScopeConfig,
 
     // Methods from store
     updateConfig: store.updateConfig,

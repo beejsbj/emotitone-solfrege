@@ -7,6 +7,7 @@ import { useBlobRenderer } from "./useBlobRenderer";
 import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
 import { useAmbientRenderer } from "./useAmbientRenderer";
+import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 
 /**
@@ -23,6 +24,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     particleConfig,
     stringConfig,
     animationConfig,
+    hilbertScopeConfig,
   } = useVisualConfig();
 
   // Canvas state (merged from useCanvasCore)
@@ -40,6 +42,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     ambient: ambientConfig.value,
     particle: particleConfig.value,
     string: stringConfig.value,
+    hilbertScope: hilbertScopeConfig.value,
   };
 
   // Rendering systems
@@ -47,6 +50,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   const particleSystem = useParticleSystem();
   const stringRenderer = useStringRenderer();
   const ambientRenderer = useAmbientRenderer();
+  const hilbertScopeRenderer = useHilbertScopeRenderer();
 
   /**
    * Update cached configurations for performance
@@ -57,6 +61,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       ambient: ambientConfig.value,
       particle: particleConfig.value,
       string: stringConfig.value,
+      hilbertScope: hilbertScopeConfig.value,
     };
   };
 
@@ -71,6 +76,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       canvasRef.value.width = canvasWidth.value;
       canvasRef.value.height = canvasHeight.value;
     }
+
+    // Resize Hilbert Scope
+    hilbertScopeRenderer.resizeHilbertScope(
+      canvasWidth.value,
+      canvasHeight.value,
+      hilbertScopeConfig.value
+    );
   };
 
   /**
@@ -131,6 +143,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     // Add string event listeners for sequencer integration
     stringRenderer.addEventListeners();
 
+    // Initialize Hilbert Scope
+    hilbertScopeRenderer.initializeHilbertScope(
+      canvasWidth.value,
+      canvasHeight.value,
+      hilbertScopeConfig.value
+    );
+
     console.log("✅ Canvas initialized successfully");
   };
 
@@ -159,6 +178,17 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
         canvasHeight.value,
         musicStore,
         getCachedGradient
+      );
+    }
+
+    // Render Hilbert Scope (after ambient, before blobs)
+    if (cachedConfigs.hilbertScope.isEnabled) {
+      hilbertScopeRenderer.renderHilbertScope(
+        ctx,
+        elapsed,
+        cachedConfigs.hilbertScope,
+        canvasWidth.value,
+        canvasHeight.value
       );
     }
 
@@ -285,6 +315,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     particleSystem.clearAllParticles();
     stringRenderer.clearAllStrings();
     stringRenderer.removeEventListeners(); // Clean up string event listeners
+    hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
     clearCaches();
     window.removeEventListener("resize", handleResize);
     performanceMonitor.reset();

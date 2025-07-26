@@ -374,6 +374,38 @@ export interface OctaveConfig {
 }
 
 /**
+ * Hilbert Scope visual effect configuration
+ */
+export interface HilbertScopeConfig {
+  /** Whether Hilbert Scope is enabled */
+  isEnabled: boolean;
+  /** Base size as ratio of screen (0-1) */
+  sizeRatio: number;
+  /** Minimum size in pixels */
+  minSize: number;
+  /** Maximum size in pixels */
+  maxSize: number;
+  /** Base opacity (0-1) */
+  opacity: number;
+  /** Scale in animation duration in seconds */
+  scaleInDuration: number;
+  /** Scale out animation duration in seconds */
+  scaleOutDuration: number;
+  /** Drift speed in pixels per second */
+  driftSpeed: number;
+  /** Enable glow effect */
+  glowEnabled: boolean;
+  /** Glow blur intensity */
+  glowIntensity: number;
+  /** Trail effect strength (0-1) */
+  history: number;
+  /** Base line width */
+  lineWidth: number;
+  /** Color mode: white or amplitude-based */
+  colorMode: 'white' | 'amplitude';
+}
+
+/**
  * Main visual effects configuration interface
  */
 export interface VisualEffectsConfig {
@@ -397,4 +429,6 @@ export interface VisualEffectsConfig {
   palette: PaletteConfig;
   /** Floating popup configuration */
   floatingPopup: FloatingPopupConfig;
+  /** Hilbert Scope configuration */
+  hilbertScope: HilbertScopeConfig;
 }

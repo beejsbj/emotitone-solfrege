@@ -136,6 +136,27 @@
                         updateValue(sectionName, String(key), newValue)
                     "
                   />
+
+                  <!-- String enum knobs for Hilbert Scope colorMode -->
+                  <Knob
+                    v-else-if="
+                      sectionName === 'hilbertScope' &&
+                      String(key) === 'colorMode'
+                    "
+                    :model-value="value === 'amplitude' ? 1 : 0"
+                    type="boolean"
+                    :label="'Color Mode'"
+                    :format-value="(val: number) => val ? 'Amplitude' : 'White'"
+                    :is-disabled="!visualsEnabled || !sectionConfig.isEnabled"
+                    @update:modelValue="
+                      (newValue) =>
+                        updateValue(
+                          sectionName,
+                          'colorMode',
+                          newValue ? 'amplitude' : 'white'
+                        )
+                    "
+                  />
                 </template>
               </div>
             </li>
@@ -340,6 +361,18 @@ const configMetadata: Record<
     glassmorphOpacity: { min: 0, max: 1, step: 0.05 },
     animationDuration: { min: 100, max: 1000, step: 50 },
   },
+  hilbertScope: {
+    sizeRatio: { min: 0.1, max: 1, step: 0.05 },
+    minSize: { min: 500, max: 800, step: 25 },
+    maxSize: { min: 1200, max: 1600, step: 50 },
+    opacity: { min: 0, max: 1, step: 0.05 },
+    scaleInDuration: { min: 0.1, max: 2, step: 0.1 },
+    scaleOutDuration: { min: 0.1, max: 2, step: 0.1 },
+    driftSpeed: { min: 0, max: 20, step: 1 },
+    glowIntensity: { min: 0, max: 50, step: 5 },
+    history: { min: 0, max: 0.95, step: 0.05 },
+    lineWidth: { min: 1, max: 10, step: 0.5 },
+  },
 };
 
 // Helper functions
@@ -355,6 +388,7 @@ const getSectionIcon = (sectionName: string): string => {
     dynamicColors: "🌈",
     palette: "🎹",
     floatingPopup: "💬",
+    hilbertScope: "🌀",
   };
   return icons[sectionName] || "⚙️";
 };

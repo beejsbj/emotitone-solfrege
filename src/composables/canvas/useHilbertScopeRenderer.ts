@@ -6,6 +6,8 @@
 
 import type { HilbertScopeConfig } from "@/types/visual";
 import * as Tone from "tone";
+import { useColorSystem } from "../useColorSystem";
+import { useMusicStore } from "@/stores/music";
 
 // Math utility functions needed for Hilbert transform
 const mathScale = (value: number, inMin: number, inMax: number, outMin: number, outMax: number): number => {
@@ -27,30 +29,6 @@ const sigmoidFactory = (k: number) => {
   };
 };
 
-// Color utilities for amplitude-based coloring
-const ampColors = [
-  [0, 0, 0],       // black
-  [86, 167, 84],   // green
-  [237, 217, 41],  // yellow
-  [227, 48, 89],   // red
-];
-
-const amp2Color = (amp: number, exp = 0.7): string => {
-  const scaledAmp = mathClamp(Math.pow(amp, exp), 0, 1);
-  const index = mathScale(scaledAmp, 0, 1, 0, ampColors.length - 1);
-  const a0 = Math.floor(index);
-  const a1 = Math.ceil(index);
-  const percent = a0 !== ampColors.length - 1 ? index - a0 : 1;
-
-  const color0 = ampColors[a0];
-  const color1 = ampColors[a1];
-
-  const r = Math.round(color0[0] + (color1[0] - color0[0]) * percent);
-  const g = Math.round(color0[1] + (color1[1] - color0[1]) * percent);
-  const b = Math.round(color0[2] + (color1[2] - color0[2]) * percent);
-
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 // Hilbert transform processor using Web Audio API
 class HilbertProcessor {
@@ -207,6 +185,10 @@ export function useHilbertScopeRenderer() {
   const hilbertProcessor = new HilbertProcessor();
   const amplitudeAnalyzer = new AmplitudeAnalyzer();
   const sigmoid = sigmoidFactory(7);
+  
+  // Color system and music store
+  const colorSystem = useColorSystem();
+  const musicStore = useMusicStore();
 
   // State
   const state: HilbertScopeState = {
@@ -336,10 +318,50 @@ export function useHilbertScopeRenderer() {
     ctx.save();
     ctx.globalAlpha = config.opacity * state.fadeInProgress * (1 - state.fadeOutProgress);
     
+    // Get color based on current mode and active notes
+    let strokeColor = 'white';
+    let glowColor = 'white';
+    
+    if (config.colorMode === 'amplitude') {
+      // Use the color system based on active notes
+      const activeNotes = musicStore.getActiveNotes();
+      if (activeNotes.length > 0) {
+        // Use the first active note's color, or blend multiple
+        const firstNote = activeNotes[0];
+        const noteName = firstNote.solfege.name;
+        const noteColor = colorSystem.getPrimaryColor(noteName, musicStore.currentMode);
+        
+        // Modulate opacity based on amplitude
+        const alphaValue = 0.5 + amplitude * 0.5; // Range from 0.5 to 1.0
+        strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
+        glowColor = noteColor;
+      } else {
+        // When no notes are active, cycle through scale colors based on amplitude
+        // This creates a dynamic color effect even when not playing
+        const scaleNotes = musicStore.solfegeData;
+        if (scaleNotes && scaleNotes.length > 0) {
+          // Pick a note from the scale based on amplitude
+          const noteIndex = Math.floor(amplitude * (scaleNotes.length - 1));
+          const scaleNote = scaleNotes[noteIndex];
+          const noteColor = colorSystem.getPrimaryColor(scaleNote.name, musicStore.currentMode);
+          
+          const alphaValue = 0.3 + amplitude * 0.7;
+          strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
+          glowColor = noteColor;
+        } else {
+          // Ultimate fallback
+          const defaultColor = colorSystem.getPrimaryColor('C', 'major');
+          const alphaValue = 0.3 + amplitude * 0.7;
+          strokeColor = colorSystem.withAlpha(defaultColor, alphaValue);
+          glowColor = defaultColor;
+        }
+      }
+    }
+    
     // Apply glow effect if enabled
     if (config.glowEnabled) {
       ctx.shadowBlur = config.glowIntensity;
-      ctx.shadowColor = config.colorMode === 'amplitude' ? amp2Color(amplitude, 0.5) : 'white';
+      ctx.shadowColor = glowColor;
     }
 
     // Draw Hilbert curve
@@ -359,7 +381,7 @@ export function useHilbertScopeRenderer() {
       }
     }
     
-    ctx.strokeStyle = config.colorMode === 'amplitude' ? amp2Color(amplitude, 0.5) : 'white';
+    ctx.strokeStyle = strokeColor;
     ctx.stroke();
     ctx.restore();
   };

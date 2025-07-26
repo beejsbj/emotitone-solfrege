@@ -7,20 +7,22 @@
     <!-- <Toaster position="top-right" :duration="4000" theme="dark" richColors /> -->
 
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
-    <UnifiedVisualEffects v-if="!isLoading" />
+    <div class="relative isolate" v-if="!isLoading">
+      <UnifiedVisualEffects class="z-0" />
+      <FloatingPopup class="z-2" />
+    </div>
 
     <!-- Auto Visual Effects Debug Panel (Development Only) -->
     <AutoDebugPanel v-if="!isLoading" />
     <InstrumentSelector />
 
     <!-- Main Content -->
-    <div v-if="!isLoading" class="relative z-10 min-h-screen flex flex-col">
+    <div v-if="!isLoading" class="relative z-50 min-h-screen flex flex-col">
       <!-- Header -->
       <AppHeader />
 
       <SequencerSection />
 
-      <FloatingPopup />
       <StickyBottom />
     </div>
 

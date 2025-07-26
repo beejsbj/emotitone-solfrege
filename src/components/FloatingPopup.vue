@@ -1,21 +1,17 @@
 <template>
   <div
     ref="floatingPopup"
-    class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out pointer-events-none"
-    :class="
-      !shouldShowPopup
-        ? 'translate-y-full opacity-0'
-        : '-translate-y-full opacity-100'
-    "
+    class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out pointer-events-none w-screen h-screen backdrop-blur-xs"
     :style="animationStyle"
   >
-    <div
-      class="floating-popup w-screen h-screen backdrop-blur-xs rounded-b-2xl px-6 py-4 shadow-2xl grid items-end"
-      :style="backdropBlurStyle"
-    >
+    <div class="floating-popup grid items-end pt-16" :style="backdropBlurStyle">
       <div
-        v-if="shouldShowPopup"
-        class="grid gap-[1px] text-center max-w-[300px] mx-auto"
+        class="grid gap-[1px] text-center mx-auto transition-all duration-300 ease-out"
+        :class="
+          shouldShowPopup
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 -translate-y-full'
+        "
       >
         <!-- Chord Display -->
         <div

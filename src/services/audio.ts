@@ -23,9 +23,8 @@ export class AudioService {
 
   private setupUserInteractionListener() {
     // Check if we're in a test environment specifically
-    const isTestEnvironment = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test' || 
-                              typeof window !== 'undefined' && window?.location?.protocol === 'test:' ||
-                              typeof global !== 'undefined' && (global as any)?.vitest;
+    const isTestEnvironment = import.meta.env?.MODE === 'test' || 
+                              typeof window !== 'undefined' && window?.location?.protocol === 'test:';
     
     if (isTestEnvironment || typeof document === 'undefined' || !document.addEventListener) {
       // In test environment, assume user interaction is already received

@@ -325,7 +325,11 @@ export const MAX_POLYPHONY = 12;
 /**
  * Piano sampler configuration
  */
-export const PIANO_SAMPLER_CONFIG = {
+export const PIANO_SAMPLER_CONFIG: {
+  urls: Record<string, string>;
+  release: number;
+  baseUrl: string;
+} = {
   urls: {
     A0: "A0.mp3",
     C1: "C1.mp3",

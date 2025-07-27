@@ -243,20 +243,24 @@ export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
         }
       }, 30000); // 30 second timeout for piano
 
-      // Store original onload to clear timeout
-      const originalOnload = PIANO_SAMPLER_CONFIG.onload;
-      PIANO_SAMPLER_CONFIG.onload = () => {
-        clearTimeout(timeoutId);
-        if (originalOnload) originalOnload();
-        if (!isResolved) {
-          isResolved = true;
-          const wrapper = createSampleInstrumentWrapper(
-            pianoSampler,
-            "salamander-piano"
-          );
-          resolve(wrapper);
+      // Create sampler options with onload callback
+      const samplerOptions = {
+        ...PIANO_SAMPLER_CONFIG,
+        onload: () => {
+          clearTimeout(timeoutId);
+          if (!isResolved) {
+            isResolved = true;
+            const wrapper = createSampleInstrumentWrapper(
+              pianoSampler,
+              "salamander-piano"
+            );
+            resolve(wrapper);
+          }
         }
       };
+
+      // Pass options to sampler
+      Object.assign(pianoSampler, samplerOptions);
     } catch (error) {
       console.error("Error loading Salamander piano:", error);
       reject(error);

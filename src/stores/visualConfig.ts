@@ -194,7 +194,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   // Note: Manual save is no longer needed - auto-save handles all persistence
 
   // Watch for changes and auto-save (debounced)
-  let saveTimeout: number | null = null;
+  let saveTimeout: ReturnType<typeof setTimeout> | null = null;
   watch(
     [config, visualsEnabled],
     () => {

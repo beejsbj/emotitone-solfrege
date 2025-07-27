@@ -40,14 +40,21 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const instrumentsByCategory = computed(() => getInstrumentsByCategory());
 
   // Initialize instruments
-  const initializeInstruments = async () => {
+  const initializeInstruments = async (
+    progressCallback?: (progress: number, message: string) => void
+  ) => {
     if (instruments.value.size > 0) return; // Already initialized
 
     isLoading.value = true;
+    const reportProgress = (progress: number, message: string) => {
+      if (progressCallback) progressCallback(progress, message);
+    };
 
     try {
       // Create compressor for all instruments to prevent clipping
       const createCompressor = () => new Tone.Compressor(STANDARD_COMPRESSOR);
+
+      reportProgress(15, "Loading basic synthesizers...");
 
       // Basic Synth
       const synthPoly = new Tone.PolySynth(Tone.Synth, SYNTH_CONFIGS.basic);
@@ -56,6 +63,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
       synthCompressor.toDestination();
       synthPoly.maxPolyphony = MAX_POLYPHONY;
       instruments.value.set("synth", synthPoly);
+
+      reportProgress(20, "Loading AM synthesizer...");
 
       // AM Synth
       const amSynthPoly = new Tone.PolySynth(
@@ -68,6 +77,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
       amSynthPoly.maxPolyphony = MAX_POLYPHONY;
       instruments.value.set("amSynth", amSynthPoly);
 
+      reportProgress(25, "Loading FM synthesizer...");
+
       // FM Synth
       const fmSynthPoly = new Tone.PolySynth(
         Tone.FMSynth,
@@ -79,6 +90,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
       fmSynthPoly.maxPolyphony = MAX_POLYPHONY;
       instruments.value.set("fmSynth", fmSynthPoly);
 
+      reportProgress(30, "Loading membrane synthesizer...");
+
       // Membrane Synth (for percussion-like sounds)
       const membranePoly = new Tone.PolySynth(
         Tone.MembraneSynth,
@@ -89,6 +102,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
       membraneCompressor.toDestination();
       membranePoly.maxPolyphony = MAX_POLYPHONY;
       instruments.value.set("membraneSynth", membranePoly);
+
+      reportProgress(35, "Loading metal synthesizer...");
 
       // Metal Synth
       const metalPoly = new Tone.PolySynth(
@@ -102,14 +117,12 @@ export const useInstrumentStore = defineStore("instrument", () => {
       instruments.value.set("metalSynth", metalPoly);
 
       console.log("Basic instruments initialized");
+      reportProgress(40, "Basic synthesizers ready, loading sample instruments...");
 
-      // Load sample-based instruments in background (non-blocking)
-      // This prevents the loading from getting stuck
-      loadSampleInstrumentsInBackground(createCompressor);
+      // Load sample-based instruments (blocking to ensure they're ready)
+      await loadSampleInstrumentsWithProgress(createCompressor, reportProgress);
 
-      console.log(
-        "Instrument initialization completed (samples loading in background)"
-      );
+      console.log("All instruments initialized successfully");
     } catch (error) {
       console.error("Error initializing instruments:", error);
 
@@ -129,19 +142,15 @@ export const useInstrumentStore = defineStore("instrument", () => {
     }
   };
 
-  // Load sample instruments in background to prevent blocking
-  const loadSampleInstrumentsInBackground = async (
-    createCompressor: () => any
+  // Load sample instruments with progress tracking
+  const loadSampleInstrumentsWithProgress = async (
+    createCompressor: () => any,
+    reportProgress: (progress: number, message: string) => void
   ) => {
     // Salamander Piano - use the integrated sample library system
     try {
       console.log("Loading Salamander piano...");
-
-      // Show loading toast
-      const loadingToast = toast.loading("🎹 Loading piano samples...", {
-        description: "Using fallback synth until loaded",
-        duration: Infinity, // Keep until manually dismissed
-      });
+      reportProgress(45, "Loading high-quality piano samples...");
 
       const salamanderPiano = await createSalamanderPiano();
 
@@ -151,21 +160,10 @@ export const useInstrumentStore = defineStore("instrument", () => {
       pianoCompressor.toDestination();
 
       instruments.value.set("piano", salamanderPiano);
-
-      // Dismiss loading toast and show success
-      toast.dismiss(loadingToast);
-      toast.success("🎹 Piano samples loaded!", {
-        description: "High-quality Salamander piano ready",
-      });
-
       console.log("Salamander piano loaded successfully");
+      reportProgress(55, "Piano loaded, loading orchestral instruments...");
     } catch (error) {
       console.error("Error loading Salamander piano:", error);
-
-      // Show error toast
-      toast.error("⚠️ Piano loading failed", {
-        description: "Using fallback synthesizer",
-      });
 
       // Fallback to basic synth if Salamander piano fails
       const pianoFallbackSynth = new Tone.PolySynth(Tone.Synth, {
@@ -182,12 +180,15 @@ export const useInstrumentStore = defineStore("instrument", () => {
       console.log("Using fallback synth for piano");
     }
 
-    // Initialize sample-based instruments
-    await initializeSampleInstruments();
+    // Initialize sample-based instruments with progress
+    await initializeSampleInstrumentsWithProgress(createCompressor, reportProgress);
   };
 
-  // Initialize sample-based instruments
-  const initializeSampleInstruments = async () => {
+  // Initialize sample-based instruments with progress tracking
+  const initializeSampleInstrumentsWithProgress = async (
+    createCompressor: () => any,
+    reportProgress: (progress: number, message: string) => void
+  ) => {
     const sampleInstrumentNames: SampleInstrumentName[] = [
       "piano",
       "bass-electric",
@@ -213,15 +214,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
     let loadedCount = 0;
     const totalInstruments = sampleInstrumentNames.length;
-
-    // Show initial loading toast for sample instruments
-    const sampleLoadingToast = toast.loading(
-      `🎼 Loading sample instruments... (0/${totalInstruments})`,
-      {
-        description: "High-quality instrument samples",
-        duration: Infinity,
-      }
-    );
+    const startProgress = 55;
+    const endProgress = 90;
 
     // Load instruments with timeout and better error handling
     const loadPromises = sampleInstrumentNames.map(async (instrumentName) => {
@@ -243,14 +237,10 @@ export const useInstrumentStore = defineStore("instrument", () => {
           minify: config.minify || false,
           onload: () => {
             loadedCount++;
-            // Update loading toast with progress
-            toast.loading(
-              `🎼 Loading sample instruments... (${loadedCount}/${totalInstruments})`,
-              {
-                id: sampleLoadingToast,
-                description: `Just loaded: ${config.displayName}`,
-                duration: Infinity,
-              }
+            const progress = startProgress + ((endProgress - startProgress) * loadedCount) / totalInstruments;
+            reportProgress(
+              Math.round(progress),
+              `Loading ${config.displayName}... (${loadedCount}/${totalInstruments})`
             );
             console.log(`${config.displayName} samples loaded successfully`);
           },
@@ -287,17 +277,13 @@ export const useInstrumentStore = defineStore("instrument", () => {
       (result) => result.status === "fulfilled" && result.value?.success
     ).length;
 
-    // Dismiss loading toast and show completion
-    toast.dismiss(sampleLoadingToast);
-
-    if (successfulLoads > 0) {
-      toast.success(`🎼 Sample instruments loaded!`, {
-        description: `${successfulLoads} instruments ready to play`,
-      });
+    // Report completion
+    if (successfulLoads === totalInstruments) {
+      reportProgress(90, `All ${successfulLoads} sample instruments loaded successfully!`);
+    } else if (successfulLoads > 0) {
+      reportProgress(90, `${successfulLoads} of ${totalInstruments} instruments loaded`);
     } else {
-      toast.warning(`🎼 Sample instruments partially loaded`, {
-        description: `Some instruments may not be available`,
-      });
+      reportProgress(90, "Sample instruments unavailable, using synthesizers");
     }
   };
 

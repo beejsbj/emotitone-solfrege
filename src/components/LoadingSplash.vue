@@ -45,6 +45,11 @@
             {{ loadingState.progress.overall.message }}
           </div>
 
+          <!-- Detailed instrument loading message -->
+          <div v-if="loadingState.progress.instruments.message && !loadingState.progress.instruments.isComplete" class="loading-submessage">
+            {{ loadingState.progress.instruments.message }}
+          </div>
+
           <!-- Detailed progress (development mode) -->
           <div v-if="isDev" class="detailed-progress">
             <div class="progress-item">
@@ -85,10 +90,23 @@
         >
           <div class="ready-icon">🎵</div>
           <h3>Ready to Play!</h3>
-          <p>Everything is loaded and ready to go</p>
+          <p>All instruments and resources are loaded</p>
           <button @click="handleStartApp" class="start-app-btn">
             Start App
           </button>
+
+          <!-- Loading summary -->
+          <div class="loading-summary">
+            <div class="summary-item" v-if="loadingState.progress.audioContext.isComplete">
+              ✓ Audio System Ready
+            </div>
+            <div class="summary-item" v-if="loadingState.progress.instruments.isComplete">
+              ✓ All Instruments Loaded
+            </div>
+            <div class="summary-item" v-if="loadingState.progress.visualEffects.isComplete">
+              ✓ Visual Effects Ready
+            </div>
+          </div>
         </div>
 
         <!-- Error state -->
@@ -403,7 +421,14 @@ onUnmounted(() => {
 .loading-message {
   font-size: 1rem;
   opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.loading-submessage {
+  font-size: 0.875rem;
+  opacity: 0.7;
   margin-bottom: 1rem;
+  font-style: italic;
 }
 
 .detailed-progress {
@@ -530,6 +555,22 @@ onUnmounted(() => {
     hsla(120, 50%, 50%, 1) 0%,
     hsla(140, 60%, 40%, 1) 100%
   );
+}
+
+.loading-summary {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid hsla(120, 50%, 50%, 0.2);
+}
+
+.summary-item {
+  font-size: 0.875rem;
+  color: hsla(120, 50%, 70%, 0.9);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .error-section {

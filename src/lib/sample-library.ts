@@ -29,19 +29,13 @@ export function createSampleInstrumentWrapper(
   sampler: Tone.Sampler,
   instrumentName: string
 ): SampleInstrumentWrapper {
-  let isLoaded = false;
+  // Check if already loaded
+  let isLoaded = sampler.loaded;
 
-  // Track loading state
-  Tone.loaded()
-    .then(() => {
-      isLoaded = true;
-    })
-    .catch((error) => {
-      console.error(`Error loading ${instrumentName} samples:`, error);
-      toast.error(`Failed to load ${instrumentName}`, {
-        description: "Sample loading error",
-      });
-    });
+  // If not loaded, wait for it
+  if (!isLoaded) {
+    sampler.context.decodeAudioData = sampler.context.decodeAudioData.bind(sampler.context);
+  }
 
   return {
     triggerAttack: (
@@ -49,19 +43,12 @@ export function createSampleInstrumentWrapper(
       time?: number,
       velocity?: number
     ) => {
-      if (!isLoaded) {
-        toast.warning(`${instrumentName} not ready`, {
-          description: "Samples still loading...",
-        });
-        return;
-      }
       const noteStr =
         typeof note === "number" ? Tone.Frequency(note).toNote() : note;
       sampler.triggerAttack(noteStr, time, velocity);
     },
 
     triggerRelease: (note: string | number, time?: number) => {
-      if (!isLoaded) return;
       const noteStr =
         typeof note === "number" ? Tone.Frequency(note).toNote() : note;
       sampler.triggerRelease(noteStr, time);
@@ -73,19 +60,12 @@ export function createSampleInstrumentWrapper(
       time?: number,
       velocity?: number
     ) => {
-      if (!isLoaded) {
-        toast.warning(`${instrumentName} not ready`, {
-          description: "Samples still loading...",
-        });
-        return;
-      }
       const noteStr =
         typeof note === "number" ? Tone.Frequency(note).toNote() : note;
       sampler.triggerAttackRelease(noteStr, duration, time, velocity);
     },
 
     releaseAll: (time?: number) => {
-      if (!isLoaded) return;
       sampler.releaseAll(time);
     },
 
@@ -101,7 +81,7 @@ export function createSampleInstrumentWrapper(
       sampler.disconnect();
     },
 
-    isLoaded: () => isLoaded,
+    isLoaded: () => sampler.loaded,
 
     constructor: { name: instrumentName },
   };
@@ -138,26 +118,27 @@ export function loadSampleInstrument(
         },
       }) as Tone.Sampler;
 
-      // Fallback: resolve immediately if sampler is already loaded
-      // This handles cases where samples load synchronously
-      setTimeout(() => {
-        if (!isResolved && sampler.loaded) {
+      // Set a timeout to reject if loading takes too long
+      const timeoutId = setTimeout(() => {
+        if (!isResolved) {
           isResolved = true;
-          const wrapper = createSampleInstrumentWrapper(
-            sampler,
-            instrumentName
-          );
-          resolve(wrapper);
+          reject(new Error(`Timeout loading ${instrumentName} after 30 seconds`));
         }
-      }, 100);
+      }, 30000);
+
+      // Clear timeout when resolved
+      const originalOnload = options?.onload;
+      if (options) {
+        options.onload = () => {
+          clearTimeout(timeoutId);
+          if (originalOnload) originalOnload();
+        };
+      }
     } catch (error) {
       console.error(
         `Error loading sample instrument ${instrumentName}:`,
         error
       );
-      toast.error(`Failed to load ${instrumentName}`, {
-        description: "Sample loading error",
-      });
       reject(error);
     }
   });
@@ -236,10 +217,17 @@ export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
             resolve(wrapper);
           }
         },
+        onerror: (error) => {
+          if (!isResolved) {
+            isResolved = true;
+            console.error("Piano sampler error:", error);
+            reject(new Error("Failed to load piano samples"));
+          }
+        },
       });
 
       // Add timeout for piano loading
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (!isResolved) {
           isResolved = true;
           // Check if samples are loaded
@@ -253,12 +241,24 @@ export function createSalamanderPiano(): Promise<SampleInstrumentWrapper> {
             reject(new Error("Piano samples failed to load within timeout"));
           }
         }
-      }, 15000); // 15 second timeout for piano
+      }, 30000); // 30 second timeout for piano
+
+      // Store original onload to clear timeout
+      const originalOnload = PIANO_SAMPLER_CONFIG.onload;
+      PIANO_SAMPLER_CONFIG.onload = () => {
+        clearTimeout(timeoutId);
+        if (originalOnload) originalOnload();
+        if (!isResolved) {
+          isResolved = true;
+          const wrapper = createSampleInstrumentWrapper(
+            pianoSampler,
+            "salamander-piano"
+          );
+          resolve(wrapper);
+        }
+      };
     } catch (error) {
       console.error("Error loading Salamander piano:", error);
-      toast.error("🎹 Salamander piano loading failed", {
-        description: "High-quality piano samples unavailable",
-      });
       reject(error);
     }
   });

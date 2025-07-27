@@ -14,6 +14,7 @@ import type {
 } from "@/types/loading";
 import { audioService } from "@/services/audio";
 import { toast } from "vue-sonner";
+import * as Tone from "tone";
 
 // Default splash configuration
 const DEFAULT_SPLASH_CONFIG: SplashConfig = {
@@ -144,28 +145,38 @@ export function useAppLoading() {
       const { useInstrumentStore } = await import("@/stores/instrument");
       const instrumentStore = useInstrumentStore();
 
-      // Set up progress tracking
-      updatePhase("instruments", {
-        progress: 30,
-        message: "Initializing synthesizers...",
-      });
+      // Set up progress callback
+      const progressCallback = (progress: number, message: string) => {
+        updatePhase("instruments", {
+          progress: Math.min(progress, 99), // Cap at 99 until fully complete
+          message,
+        });
+      };
 
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
           reject(new Error("Instrument initialization timeout"));
-        }, 30000); // 30 second timeout
+        }, 60000); // 60 second timeout for all instruments
       });
 
-      // Initialize instruments with timeout
+      // Initialize instruments with progress tracking
       await Promise.race([
-        instrumentStore.initializeInstruments(),
+        instrumentStore.initializeInstruments(progressCallback),
         timeoutPromise,
       ]);
 
+      // Wait for all Tone.js resources to be loaded
+      updatePhase("instruments", {
+        progress: 95,
+        message: "Finalizing audio resources...",
+      });
+
+      await Tone.loaded();
+
       updatePhase("instruments", {
         progress: 100,
-        message: "Instruments ready",
+        message: "All instruments ready",
         isComplete: true,
       });
     } catch (error) {

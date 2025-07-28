@@ -1,8 +1,10 @@
 <template>
   <div
+    v-if="shouldShowPopup"
     ref="floatingPopup"
     class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out pointer-events-none w-screen h-screen backdrop-blur-xs"
     :style="animationStyle"
+    
   >
     <div class="floating-popup grid items-end pt-16" :style="backdropBlurStyle">
       <div
@@ -23,7 +25,7 @@
           }"
         >
           <span
-            class="text-2xl p-1 rounded-xs text-white font-bold drop-shadow-lg"
+            class="text-lg p-1 rounded-xs text-white font-bold drop-shadow-lg"
           >
             {{ displayedChord }}
           </span>
@@ -44,12 +46,12 @@
             }"
           >
             <span
-              class="text-xl p-1 rounded-xs text-white font-bold drop-shadow-lg"
+              class="text-base p-1 rounded-xs text-white font-bold drop-shadow-lg"
             >
               {{ note.solfege.name }}
             </span>
             <div class="h-[1px] bg-white/30"></div>
-            <span class="text-sm p-1 rounded-xs text-white drop-shadow">
+            <span class="text-xs p-1 rounded-xs text-white drop-shadow">
               {{ note.noteName }}
             </span>
           </div>
@@ -79,7 +81,7 @@
                 ),
               }"
             >
-              <span class="text-sm text-white font-bold drop-shadow-lg">
+              <span class="text-xs text-white font-bold drop-shadow-lg">
                 {{ interval.interval }}
               </span>
             </div>
@@ -101,7 +103,7 @@
               boxShadow: createChordGlassmorphShadowLocal(),
             }"
           >
-            <span class="text-lg text-white font-bold drop-shadow-lg">
+            <span class="text-sm text-white font-bold drop-shadow-lg">
               {{ displayedEmotionalDescription }}
             </span>
           </div>
@@ -207,7 +209,8 @@ watch(
         }, floatingPopupConfig.value.hideDelay) as unknown as number;
 
         accumulationTimer = null;
-      }, floatingPopupConfig.value.accumulationWindow) as unknown as number;
+      }, 800) as unknown as number; // Decreased from default accumulation window
+
     }
   },
   { deep: true }

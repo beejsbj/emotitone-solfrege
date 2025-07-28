@@ -3,7 +3,38 @@
  * Centralized type definitions for all visual effect configurations and states
  */
 
-import type { Ref } from "vue";
+/**
+ * Configuration field with metadata for auto-generation of UI controls
+ */
+export interface ConfigField<T> {
+  /** The current value */
+  value: T;
+  /** Minimum value (for numeric fields) */
+  min?: number;
+  /** Maximum value (for numeric fields) */
+  max?: number;
+  /** Step increment (for numeric fields) */
+  step?: number;
+  /** Display label for the field */
+  label?: string;
+  /** Optional formatter function for display */
+  format?: (value: T) => string;
+  /** Optional icon for the field */
+  icon?: string;
+}
+
+/**
+ * Configuration section metadata
+ */
+export interface ConfigSectionMeta {
+  /** Section display label */
+  label: string;
+  /** Section icon */
+  icon: string;
+  /** Section description */
+  description?: string;
+}
+
 
 /**
  * Note color relationships for dynamic color system
@@ -67,31 +98,6 @@ export interface FloatingPopupConfig {
   animationDuration: number;
 }
 
-/**
- * Font weight oscillation configuration
- */
-export interface OscillationConfig {
-  /** Base font weight when not oscillating */
-  baseWeight: number;
-  /** Minimum font weight allowed */
-  minWeight: number;
-  /** Maximum font weight allowed */
-  maxWeight: number;
-  /** Amplitude of the oscillation */
-  amplitude: number;
-  /** Frequency multiplier for visual oscillation */
-  frequencyMultiplier: number;
-}
-
-/**
- * Font weight element with reactive properties
- */
-export interface FontWeightElement {
-  /** Reactive font weight value */
-  weight: Ref<number>;
-  /** Configuration for this element's oscillation */
-  config: OscillationConfig;
-}
 
 /**
  * Frequency to value mapping configuration
@@ -263,21 +269,6 @@ export interface StringConfig {
   opacityInterpolationSpeed: number;
 }
 
-/**
- * Font oscillation configuration for different sizes
- */
-export interface FontOscillationConfig {
-  /** Whether font oscillation is enabled */
-  isEnabled: boolean;
-  /** Small text oscillation settings */
-  sm: { amplitude: number; baseWeight: number };
-  /** Medium text oscillation settings */
-  md: { amplitude: number; baseWeight: number };
-  /** Large text oscillation settings */
-  lg: { amplitude: number; baseWeight: number };
-  /** Full range oscillation settings */
-  full: { amplitude: number; baseWeight: number };
-}
 
 /**
  * Animation timing and performance configuration
@@ -404,6 +395,35 @@ export interface HilbertScopeConfig {
 }
 
 /**
+ * Enhanced config types with metadata - for internal use
+ */
+export type EnhancedBlobConfig = {
+  isEnabled: ConfigField<boolean>;
+  baseSizeRatio: ConfigField<number>;
+  minSize: ConfigField<number>;
+  maxSize: ConfigField<number>;
+  opacity: ConfigField<number>;
+  blurRadius: ConfigField<number>;
+  oscillationAmplitude: ConfigField<number>;
+  fadeOutDuration: ConfigField<number>;
+  scaleInDuration: ConfigField<number>;
+  scaleOutDuration: ConfigField<number>;
+  driftSpeed: ConfigField<number>;
+  vibrationFrequencyDivisor: ConfigField<number>;
+  edgeSegments: ConfigField<number>;
+  vibrationAmplitude: ConfigField<number>;
+  glowEnabled: ConfigField<boolean>;
+  glowIntensity: ConfigField<number>;
+};
+
+/**
+ * Type to extract values from enhanced config
+ */
+export type ExtractConfigValues<T> = {
+  [K in keyof T]: T[K] extends ConfigField<infer V> ? V : never;
+};
+
+/**
  * Main visual effects configuration interface
  */
 export interface VisualEffectsConfig {
@@ -415,8 +435,6 @@ export interface VisualEffectsConfig {
   particles: ParticleConfig;
   /** String effect configuration */
   strings: StringConfig;
-  /** Font oscillation configuration */
-  fontOscillation: FontOscillationConfig;
   /** Animation configuration */
   animation: AnimationConfig;
   /** Frequency mapping configuration */

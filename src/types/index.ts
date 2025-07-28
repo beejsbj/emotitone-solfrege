@@ -16,8 +16,6 @@ export type {
 
 // Visual Effects Types
 export type {
-  OscillationConfig,
-  FontWeightElement,
   FrequencyMapping,
   VibratingStringConfig,
   AnimationLifecycleOptions,
@@ -26,7 +24,6 @@ export type {
   AmbientConfig,
   ParticleConfig,
   StringConfig,
-  FontOscillationConfig,
   AnimationConfig,
   FrequencyMappingConfig,
   VisualEffectsConfig,

@@ -35,8 +35,8 @@ vi.mock('@/components/TooltipRenderer.vue', () => ({
   }
 }))
 
-vi.mock('@/components/AutoDebugPanel.vue', () => ({
-  default: { template: '<div data-testid="auto-debug-panel">Debug</div>' }
+vi.mock('@/components/ConfigPanel.vue', () => ({
+  default: { template: '<div data-testid="config-panel">Config</div>' }
 }))
 
 vi.mock('@/components/StickyBottom.vue', () => ({

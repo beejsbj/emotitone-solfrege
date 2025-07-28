@@ -11,7 +11,7 @@
     </template>
 
     <!-- Dropdown Panel -->
-    <template #panel="{ close, toggle, position }">
+    <template #panel="{ toggle, position }">
       <div class="flex flex-col w-full min-h-0 flex-1">
         <!-- Sticky Header -->
         <div
@@ -112,7 +112,7 @@
                     "
                     :model-value="value"
                     type="boolean"
-                    :label="formatLabel(String(key))"
+                    :label="formatLabel(sectionName, String(key))"
                     :is-disabled="!visualsEnabled || !sectionConfig.isEnabled"
                     @update:modelValue="
                       (newValue) =>
@@ -128,7 +128,7 @@
                     :min="getNumberMin(sectionName, String(key))"
                     :max="getNumberMax(sectionName, String(key))"
                     :step="getNumberStep(sectionName, String(key))"
-                    :label="formatLabel(String(key))"
+                    :label="formatLabel(sectionName, String(key))"
                     :format-value="(val: number) => formatValue(sectionName, String(key), val)"
                     :is-disabled="!visualsEnabled || !sectionConfig.isEnabled"
                     @update:modelValue="
@@ -208,8 +208,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import { UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 import { Knob } from "./knobs";
 import FloatingDropdown from "./FloatingDropdown.vue";
 import {
@@ -238,7 +239,10 @@ const {
   deleteSavedConfig,
 } = visualConfigStore;
 
-// Computed sections that exclude nested objects for now
+// Use the unified config for metadata
+const unifiedConfig = UNIFIED_CONFIG;
+
+// Computed sections that use the actual config values
 const configSections = computed(() => {
   const sections: Record<string, any> = {};
 
@@ -249,221 +253,70 @@ const configSections = computed(() => {
       section !== null &&
       !Array.isArray(section)
     ) {
-      // Only include primitive values for now
-      const primitives: Record<string, any> = {};
-      Object.keys(section).forEach((key) => {
-        const value = (section as Record<string, any>)[key];
-        if (
-          typeof value === "boolean" ||
-          typeof value === "number" ||
-          typeof value === "string"
-        ) {
-          primitives[key] = value;
-        }
-      });
-      if (Object.keys(primitives).length > 0) {
-        sections[sectionName] = primitives;
-      }
+      sections[sectionName] = section;
     }
   });
 
   return sections;
 });
 
-// Configuration metadata for better controls
-const configMetadata: Record<
-  string,
-  Record<string, { min?: number; max?: number; step?: number }>
-> = {
-  blobs: {
-    baseSizeRatio: { min: 0.1, max: 1, step: 0.05 },
-    minSize: { min: 50, max: 500, step: 25 },
-    maxSize: { min: 200, max: 1200, step: 50 },
-    opacity: { min: 0, max: 1, step: 0.05 },
-    blurRadius: { min: 0, max: 100, step: 5 },
-    oscillationAmplitude: { min: 0, max: 1, step: 0.02 },
-    fadeOutDuration: { min: 0.1, max: 5, step: 0.1 },
-    driftSpeed: { min: 0, max: 100, step: 2 },
-    vibrationFrequencyDivisor: { min: 10, max: 500, step: 5 },
-  },
-  strings: {
-    count: { min: 1, max: 16, step: 1 },
-    baseOpacity: { min: 0, max: 1, step: 0.05 },
-    activeOpacity: { min: 0, max: 1, step: 0.05 },
-    maxAmplitude: { min: 1, max: 100, step: 1 },
-    dampingFactor: { min: 0.01, max: 0.5, step: 0.01 },
-    interpolationSpeed: { min: 0.01, max: 1, step: 0.01 },
-    opacityInterpolationSpeed: { min: 0.01, max: 1, step: 0.01 },
-  },
-  particles: {
-    count: { min: 0, max: 100, step: 5 },
-    sizeMin: { min: 1, max: 20, step: 1 },
-    sizeMax: { min: 1, max: 20, step: 1 },
-    lifetimeMin: { min: 500, max: 10000, step: 250 },
-    lifetimeMax: { min: 500, max: 10000, step: 250 },
-    speed: { min: 0, max: 20, step: 0.5 },
-  },
-  ambient: {
-    opacityMajor: { min: 0, max: 1, step: 0.05 },
-    opacityMinor: { min: 0, max: 1, step: 0.05 },
-    brightnessMajor: { min: 0, max: 1, step: 0.05 },
-    brightnessMinor: { min: 0, max: 1, step: 0.05 },
-    saturationMajor: { min: 0, max: 1, step: 0.05 },
-    saturationMinor: { min: 0, max: 1, step: 0.05 },
-  },
-  animation: {
-    visualFrequencyDivisor: { min: 10, max: 1000, step: 10 },
-    frameRate: { min: 30, max: 120, step: 15 },
-    smoothingFactor: { min: 0.01, max: 1, step: 0.01 },
-  },
-  frequencyMapping: {
-    minFreq: { min: 50, max: 500, step: 10 },
-    maxFreq: { min: 200, max: 2000, step: 50 },
-    minValue: { min: 100, max: 800, step: 25 },
-    maxValue: { min: 200, max: 1000, step: 25 },
-  },
-  dynamicColors: {
-    hueAnimationAmplitude: { min: 5, max: 30, step: 5 },
-    animationSpeed: { min: 0.1, max: 3, step: 0.1 },
-    saturation: { min: 0.3, max: 1, step: 0.1 },
-    baseLightness: { min: 0.3, max: 0.7, step: 0.05 },
-    lightnessRange: { min: 0.3, max: 0.8, step: 0.05 },
-  },
-  palette: {
-    gradientDirection: { min: 0, max: 360, step: 15 },
-    glassmorphOpacity: { min: 0, max: 1, step: 0.05 },
-  },
-  floatingPopup: {
-    accumulationWindow: { min: 100, max: 2000, step: 50 },
-    hideDelay: { min: 500, max: 10000, step: 250 },
-    maxNotes: { min: 1, max: 12, step: 1 },
-    backdropBlur: { min: 0, max: 50, step: 2 },
-    glassmorphOpacity: { min: 0, max: 1, step: 0.05 },
-    animationDuration: { min: 100, max: 1000, step: 50 },
-  },
-  hilbertScope: {
-    sizeRatio: { min: 0.1, max: 1, step: 0.05 },
-    minSize: { min: 500, max: 800, step: 25 },
-    maxSize: { min: 1200, max: 1600, step: 50 },
-    opacity: { min: 0, max: 1, step: 0.05 },
-    scaleInDuration: { min: 0.1, max: 2, step: 0.1 },
-    scaleOutDuration: { min: 0.1, max: 2, step: 0.1 },
-    driftSpeed: { min: 0, max: 20, step: 1 },
-    glowIntensity: { min: 0, max: 50, step: 5 },
-    history: { min: 0, max: 0.95, step: 0.05 },
-    lineWidth: { min: 1, max: 10, step: 0.5 },
-  },
+// Get metadata from unified config
+const getFieldMetadata = (sectionName: string, fieldName: string) => {
+  const section = unifiedConfig[sectionName as keyof typeof unifiedConfig];
+  if (section && typeof section === 'object' && fieldName in section && fieldName !== '_meta') {
+    return (section as any)[fieldName];
+  }
+  return null;
 };
 
 // Helper functions
 const getSectionIcon = (sectionName: string): string => {
-  const icons: Record<string, string> = {
-    blobs: "🫧",
-    strings: "🎸",
-    particles: "✨",
-    ambient: "🌅",
-    animation: "🎬",
-    frequencyMapping: "🎵",
-    fontOscillation: "📝",
-    dynamicColors: "🌈",
-    palette: "🎹",
-    floatingPopup: "💬",
-    hilbertScope: "🌀",
-  };
-  return icons[sectionName] || "⚙️";
+  const section = unifiedConfig[sectionName as keyof typeof unifiedConfig];
+  return (section as any)?._meta?.icon || "⚙️";
 };
 
 const getSectionTitle = (sectionName: string): string => {
-  return sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+  const section = unifiedConfig[sectionName as keyof typeof unifiedConfig];
+  return (section as any)?._meta?.label || sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
 };
 
-const formatLabel = (key: string): string => {
-  // Special labels for dynamic colors
-  const specialLabels: Record<string, string> = {
-    chromaticMapping: "Chromatic Mapping (12 notes vs 7 solfege)",
-    hueAnimationAmplitude: "Hue Animation (±°)",
-    animationSpeed: "Animation Speed",
-    baseLightness: "Base Lightness",
-    lightnessRange: "Lightness Range",
-    // Floating popup labels
-    accumulationWindow: "Accumulation Window",
-    hideDelay: "Hide Delay",
-    maxNotes: "Max Notes",
-    showChord: "Show Chord",
-    showIntervals: "Show Intervals",
-    showEmotionalDescription: "Show Emotions",
-    backdropBlur: "Backdrop Blur",
-    glassmorphOpacity: "Glass Opacity",
-    animationDuration: "Animation Duration",
-  };
-
-  if (specialLabels[key]) {
-    return specialLabels[key];
+const formatLabel = (sectionName: string, key: string): string => {
+  const metadata = getFieldMetadata(sectionName, key);
+  if (metadata?.label) {
+    return metadata.label;
   }
-
+  
   return key
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (str) => str.toUpperCase());
 };
 
 const formatValue = (sectionName: string, key: string, value: any): string => {
-  // Format percentage values
-  if (
-    sectionName === "dynamicColors" &&
-    (key === "saturation" ||
-      key === "baseLightness" ||
-      key === "lightnessRange")
-  ) {
-    return `${Math.round(value * 100)}%`;
-  }
-
-  // Format palette glassmorphism opacity
-  if (sectionName === "palette" && key === "glassmorphOpacity") {
-    return `${Math.round(value * 100)}%`;
-  }
-
-  // Format floating popup values
-  if (sectionName === "floatingPopup") {
-    if (key === "accumulationWindow" || key === "hideDelay") {
-      return `${value}ms`;
-    }
-    if (key === "backdropBlur") {
-      return `${value}px`;
-    }
-    if (key === "glassmorphOpacity") {
-      return `${Math.round(value * 100)}%`;
-    }
-    if (key === "animationDuration") {
-      return `${value}ms`;
-    }
-    if (key === "maxNotes") {
-      return `${value} notes`;
+  const metadata = getFieldMetadata(sectionName, key);
+  if (metadata?.format && typeof metadata.format === 'function') {
+    try {
+      return metadata.format(value);
+    } catch (error) {
+      console.error(`Error formatting ${sectionName}.${key}:`, error);
+      return value.toString();
     }
   }
-
-  // Format hue animation amplitude
-  if (sectionName === "dynamicColors" && key === "hueAnimationAmplitude") {
-    return `${value}°`;
-  }
-
-  // Format animation speed
-  if (sectionName === "dynamicColors" && key === "animationSpeed") {
-    return `${value}x`;
-  }
-
   return value.toString();
 };
 
 const getNumberMin = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.min ?? 0;
+  const metadata = getFieldMetadata(sectionName, key);
+  return metadata?.min ?? 0;
 };
 
 const getNumberMax = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.max ?? 100;
+  const metadata = getFieldMetadata(sectionName, key);
+  return metadata?.max ?? 100;
 };
 
 const getNumberStep = (sectionName: string, key: string): number => {
-  return configMetadata[sectionName]?.[key]?.step ?? 0.1;
+  const metadata = getFieldMetadata(sectionName, key);
+  return metadata?.step ?? 0.1;
 };
 
 const exportConfig = () => {

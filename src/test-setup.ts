@@ -386,13 +386,6 @@ vi.mock('@/composables/useVisualConfig', () => ({
       interpolationSpeed: 0.1,
       opacityInterpolationSpeed: 0.05
     },
-    fontOscillation: {
-      isEnabled: true,
-      sm: { amplitude: 100, baseWeight: 400 },
-      md: { amplitude: 200, baseWeight: 500 },
-      lg: { amplitude: 300, baseWeight: 600 },
-      full: { amplitude: 400, baseWeight: 700 }
-    },
     animation: {
       visualFrequencyDivisor: 10,
       frameRate: 60,

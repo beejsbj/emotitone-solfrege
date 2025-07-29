@@ -497,7 +497,7 @@ export const UNIFIED_CONFIG = {
       description: "Note information popup",
     },
     isEnabled: {
-      value: true,
+      value: false,
       label: "Enable Floating Popup",
     },
     accumulationWindow: {

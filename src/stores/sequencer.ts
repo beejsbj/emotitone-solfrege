@@ -330,7 +330,7 @@ export const useSequencerStore = defineStore(
       // Only create a default sequencer if we haven't been restored from persistence
       // and there are no sequencers
       if (!hasInitialized.value && sequencers.value.length === 0) {
-        createSequencer();
+       // createSequencer();
       }
       hasInitialized.value = true;
     };

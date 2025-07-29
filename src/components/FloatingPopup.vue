@@ -4,16 +4,16 @@
     ref="floatingPopup"
     class="absolute top-0 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-out pointer-events-none w-screen h-screen backdrop-blur-xs"
     :style="animationStyle"
-    
   >
     <div class="floating-popup grid items-end pt-16" :style="backdropBlurStyle">
       <div
         class="grid gap-[1px] text-center mx-auto transition-all duration-300 ease-out"
         :class="
-          shouldShowPopup
-            ? 'opacity-100 translate-y-0'
-            : 'opacity-0 -translate-y-full'
+          shouldShowPopup ? 'translate-y-0' : 'opacity-0 -translate-y-full'
         "
+        :style="{
+          opacity: shouldShowPopup ? floatingPopupConfig.opacity : 0,
+        }"
       >
         <!-- Chord Display -->
         <div
@@ -210,7 +210,6 @@ watch(
 
         accumulationTimer = null;
       }, 800) as unknown as number; // Decreased from default accumulation window
-
     }
   },
   { deep: true }

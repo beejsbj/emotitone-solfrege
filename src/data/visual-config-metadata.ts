@@ -559,6 +559,14 @@ export const UNIFIED_CONFIG = {
       label: "Animation Duration",
       format: (v: number) => `${v}ms`,
     },
+    opacity: {
+      value: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.1,
+      label: "Popup Opacity",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
   },
 
   hilbertScope: {

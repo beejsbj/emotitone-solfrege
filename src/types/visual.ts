@@ -35,7 +35,6 @@ export interface ConfigSectionMeta {
   description?: string;
 }
 
-
 /**
  * Note color relationships for dynamic color system
  */
@@ -96,8 +95,9 @@ export interface FloatingPopupConfig {
   glassmorphOpacity: number;
   /** Animation duration for show/hide transitions in milliseconds */
   animationDuration: number;
+  /** Popup opacity when visible (0-1) */
+  opacity: number;
 }
-
 
 /**
  * Frequency to value mapping configuration
@@ -268,7 +268,6 @@ export interface StringConfig {
   /** Speed of opacity interpolation */
   opacityInterpolationSpeed: number;
 }
-
 
 /**
  * Animation timing and performance configuration

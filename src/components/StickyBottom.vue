@@ -10,6 +10,7 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
 // State for component visibility
 const isKeyWheelMinimized = ref(true);
 const isMinimized = ref(false);
+const isControlsMinimized = ref(true);
 
 // Refs for animation targets
 const keyWheelRef = ref<HTMLElement | null>(null);
@@ -52,6 +53,11 @@ const toggleMinimize = () => {
   triggerUIHaptic();
   isMinimized.value = !isMinimized.value;
 };
+
+const toggleControlsMinimize = () => {
+  triggerUIHaptic();
+  isControlsMinimized.value = !isControlsMinimized.value;
+};
 </script>
 
 <template>
@@ -60,38 +66,53 @@ const toggleMinimize = () => {
     ref="containerRef"
     class="grid sticky bottom-0 w-full z-50 bg-black/80 backdrop-blur-lg"
   >
-    <!-- Key Selector Toggle Button -->
-    <button
-      @click="toggleKeySelector"
-      class="absolute top-2 left-4 transform -translate-y-full px-4 z-10 bg-gradient-to-b from-gray-700/80 to-black p-2 hover:bg-white/40 transition-colors duration-200 group rounded-lg flex items-center gap-2"
+    <div
+      class="flex gap-2 justify-between absolute top-2 left-4 right-4 transform -translate-y-full z-999"
     >
-      Keys
-      <ChevronDown
-        :size="16"
-        class="text-white/80 transition-transform duration-300"
-        :class="{ 'rotate-180': isKeyWheelMinimized }"
-      />
-    </button>
+      <!-- Key Selector Toggle Button -->
+      <button
+        @click="toggleKeySelector"
+        class="p-1 text-xs bg-black transition-colors duration-200 group border-1 rounded-sm border-white flex items-center gap-2"
+      >
+        Keys
+        <ChevronDown
+          :size="12"
+          class="transition-transform duration-300"
+          :class="{ 'rotate-180': isKeyWheelMinimized }"
+        />
+      </button>
 
-    <!-- Minimize Button -->
-    <button
-      @click="toggleMinimize"
-      class="absolute top-2 right-4 transform -translate-y-full px-4 z-10 bg-gradient-to-b from-gray-700/80 to-black p-2 hover:bg-white/40 transition-colors duration-200 group rounded-lg flex items-center gap-2"
-    >
-      <ChevronDown
-        :size="16"
-        class="text-white/80 transition-transform duration-300"
-        :class="{ 'rotate-180': isMinimized }"
-      />
-    </button>
+      <!-- Minimize Button -->
+      <button
+        @click="toggleMinimize"
+        class="p-1 text-xs bg-black transition-colors duration-200 group border-1 rounded-sm border-white flex items-center gap-2"
+      >
+        <ChevronDown
+          :size="12"
+          class="transition-transform duration-300"
+          :class="{ 'rotate-180': isMinimized }"
+        />
+      </button>
+
+      <button
+        @click="toggleControlsMinimize"
+        class="p-1 text-xs bg-black transition-colors duration-200 group border-1 rounded-sm border-white flex items-center gap-2"
+      >
+        <ChevronDown
+          :size="12"
+          class="transition-transform duration-300"
+          :class="{ 'rotate-180': isControlsMinimized }"
+        />
+      </button>
+    </div>
 
     <div
       ref="keyWheelRef"
-      class="absolute bottom-full left-0 w-full transform-gpu"
+      class="absolute bottom-full left-0 w-full transform-gpu -z-10"
     >
       <KeySelector />
     </div>
-    <SequencerControls />
+    <SequencerControls v-if="!isControlsMinimized" />
     <CanvasSolfegePalette />
   </div>
 </template>

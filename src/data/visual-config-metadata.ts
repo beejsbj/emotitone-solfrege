@@ -25,7 +25,7 @@ export const UNIFIED_CONFIG = {
       label: "Enable Blobs",
     },
     baseSizeRatio: {
-      value: 0.2,
+      value: 0.1,
       min: 0.1,
       max: 1,
       step: 0.05,
@@ -33,7 +33,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     minSize: {
-      value: 100,
+      value: 75,
       min: 50,
       max: 500,
       step: 25,
@@ -49,7 +49,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${v}px`,
     },
     opacity: {
-      value: 0.4,
+      value: 0.5,
       min: 0,
       max: 1,
       step: 0.05,
@@ -57,7 +57,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     blurRadius: {
-      value: 5,
+      value: 10,
       min: 0,
       max: 100,
       step: 5,
@@ -104,7 +104,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${v}px/s`,
     },
     vibrationFrequencyDivisor: {
-      value: 80,
+      value: 10,
       min: 10,
       max: 500,
       step: 5,
@@ -118,7 +118,7 @@ export const UNIFIED_CONFIG = {
       label: "Edge Segments",
     },
     vibrationAmplitude: {
-      value: 15,
+      value: 10,
       min: 0,
       max: 50,
       step: 1,

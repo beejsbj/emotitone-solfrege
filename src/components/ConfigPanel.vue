@@ -136,7 +136,6 @@
                         updateValue(sectionName, String(key), newValue)
                     "
                   />
-
                 </template>
               </div>
             </li>
@@ -263,7 +262,12 @@ const configSections = computed(() => {
 // Get metadata from unified config
 const getFieldMetadata = (sectionName: string, fieldName: string) => {
   const section = unifiedConfig[sectionName as keyof typeof unifiedConfig];
-  if (section && typeof section === 'object' && fieldName in section && fieldName !== '_meta') {
+  if (
+    section &&
+    typeof section === "object" &&
+    fieldName in section &&
+    fieldName !== "_meta"
+  ) {
     return (section as any)[fieldName];
   }
   return null;
@@ -277,7 +281,10 @@ const getSectionIcon = (sectionName: string): string => {
 
 const getSectionTitle = (sectionName: string): string => {
   const section = unifiedConfig[sectionName as keyof typeof unifiedConfig];
-  return (section as any)?._meta?.label || sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+  return (
+    (section as any)?._meta?.label ||
+    sectionName.charAt(0).toUpperCase() + sectionName.slice(1)
+  );
 };
 
 const formatLabel = (sectionName: string, key: string): string => {
@@ -285,7 +292,7 @@ const formatLabel = (sectionName: string, key: string): string => {
   if (metadata?.label) {
     return metadata.label;
   }
-  
+
   return key
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (str) => str.toUpperCase());
@@ -293,7 +300,7 @@ const formatLabel = (sectionName: string, key: string): string => {
 
 const formatValue = (sectionName: string, key: string, value: any): string => {
   const metadata = getFieldMetadata(sectionName, key);
-  if (metadata?.format && typeof metadata.format === 'function') {
+  if (metadata?.format && typeof metadata.format === "function") {
     try {
       return metadata.format(value);
     } catch (error) {

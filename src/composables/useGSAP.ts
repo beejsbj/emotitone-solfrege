@@ -89,7 +89,7 @@ export default function useGSAP(
       });
 
       if (import.meta.env.DEV) {
-        console.log("[useGSAP] Context created", context);
+        //   console.log("[useGSAP] Context created", context);
       }
     } catch (error) {
       console.error("[useGSAP] Failed to create GSAP context:", error);
@@ -105,10 +105,10 @@ export default function useGSAP(
         context.kill();
 
         if (import.meta.env.DEV) {
-          console.log(
-            "[useGSAP] Context killed and animations reverted",
-            context
-          );
+          //  console.log(
+          //    "[useGSAP] Context killed and animations reverted",
+          //    context
+          //  );
         }
       }
     } catch (error) {

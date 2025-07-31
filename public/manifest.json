@@ -1,0 +1,34 @@
+{
+  "name": "EmotiTone Solfège",
+  "short_name": "EmotiTone",
+  "description": "An interactive music theory web app that teaches solfège through emotional experiences",
+  "theme_color": "#1a1a1a",
+  "background_color": "#1a1a1a",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["music", "education", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "Start Learning",
+      "short_name": "Learn",
+      "description": "Start learning solfège with EmotiTone",
+      "url": "/",
+      "icons": [
+        {
+          "src": "icon.svg",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

@@ -423,6 +423,46 @@ export type ExtractConfigValues<T> = {
 };
 
 /**
+ * Beat types configuration for BeatingShapes
+ */
+export interface BeatTypesConfig {
+  /** Common time beat (whole note) */
+  common: boolean;
+  /** Quarter time beat */
+  quarter: boolean;
+  /** Third time beat (triplet) */
+  third: boolean;
+  /** Half time beat */
+  half: boolean;
+  /** Double time beat */
+  double: boolean;
+  /** Triple time beat */
+  triple: boolean;
+  /** Quadruple time beat */
+  quadruple: boolean;
+}
+
+/**
+ * BeatingShapes visual effect configuration
+ */
+export interface BeatingShapesConfig {
+  /** Whether BeatingShapes are enabled */
+  isEnabled: boolean;
+  /** Which beat types to show */
+  beatTypes: BeatTypesConfig;
+  /** Overall scale multiplier */
+  scale: number;
+  /** Base hue for color system */
+  hueOffset: number;
+  /** Speed of color shifting animation */
+  colorShiftSpeed: number;
+  /** Opacity of shapes */
+  opacity: number;
+  /** Whether to enable shape rotation animations */
+  enableRotation: boolean;
+}
+
+/**
  * Main visual effects configuration interface
  */
 export interface VisualEffectsConfig {
@@ -446,4 +486,6 @@ export interface VisualEffectsConfig {
   floatingPopup: FloatingPopupConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
+  /** BeatingShapes configuration */
+  beatingShapes: BeatingShapesConfig;
 }

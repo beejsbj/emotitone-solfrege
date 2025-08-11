@@ -7,6 +7,8 @@ import type {
   ConfigField,
   ExtractConfigValues,
   VisualEffectsConfig,
+  BeatingShapesConfig,
+  BeatTypesConfig,
 } from "@/types/visual";
 
 /**
@@ -661,6 +663,66 @@ export const UNIFIED_CONFIG = {
       step: 0.5,
       label: "Line Width",
       format: (v: number) => `${v}px`,
+    },
+  },
+
+  beatingShapes: {
+    _meta: {
+      label: "Beating Shapes",
+      icon: "🎵",
+      description: "Animated shapes that beat to the sequencer tempo",
+    },
+    isEnabled: {
+      value: true,
+      label: "Enable Beating Shapes",
+    },
+    beatTypes: {
+      value: {
+        common: true,
+        quarter: true,
+        third: false,
+        half: true,
+        double: true,
+        triple: false,
+        quadruple: true,
+      },
+      label: "Beat Types",
+    },
+    scale: {
+      value: 1,
+      min: 0.1,
+      max: 3,
+      step: 0.1,
+      label: "Scale",
+      format: (v: number) => `${v}x`,
+    },
+    hueOffset: {
+      value: 80,
+      min: 0,
+      max: 360,
+      step: 10,
+      label: "Hue Offset",
+      format: (v: number) => `${v}°`,
+    },
+    colorShiftSpeed: {
+      value: 1,
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      label: "Color Shift Speed",
+      format: (v: number) => `${v}x`,
+    },
+    opacity: {
+      value: 0.8,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Opacity",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    enableRotation: {
+      value: true,
+      label: "Enable Rotation",
     },
   },
 };

@@ -100,6 +100,32 @@ export interface FloatingPopupConfig {
 }
 
 /**
+ * Beating Shapes visual effect configuration
+ */
+export interface BeatingShapesConfig {
+  /** Whether beating shapes are enabled */
+  isEnabled: boolean;
+  /** Number of shape sets */
+  count: number;
+  /** Base scale for shapes */
+  scale: number;
+  /** Enable common beat duration */
+  commonBeat: boolean;
+  /** Enable half beat duration */
+  halfBeat: boolean;
+  /** Enable quarter beat duration */
+  quarterBeat: boolean;
+  /** Enable third beat duration */
+  thirdBeat: boolean;
+  /** Enable double beat duration */
+  doubleBeat: boolean;
+  /** Enable triple beat duration */
+  tripleBeat: boolean;
+  /** Enable quadruple beat duration */
+  quadrupleBeat: boolean;
+}
+
+/**
  * Frequency to value mapping configuration
  */
 export interface FrequencyMapping {
@@ -446,4 +472,6 @@ export interface VisualEffectsConfig {
   floatingPopup: FloatingPopupConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
+  /** Beating shapes configuration */
+  beatingShapes: BeatingShapesConfig;
 }

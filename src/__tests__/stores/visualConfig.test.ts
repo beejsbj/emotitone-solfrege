@@ -29,6 +29,7 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.config.ambient.isEnabled).toBe(true)
       expect(visualConfigStore.config.particles.isEnabled).toBe(true)
       expect(visualConfigStore.config.strings.isEnabled).toBe(true)
+      expect(visualConfigStore.config.beatingShapes.isEnabled).toBe(true)
       expect(visualConfigStore.visualsEnabled).toBe(true)
       expect(visualConfigStore.savedConfigs).toEqual([])
       expect(visualConfigStore.isLoading).toBe(false)

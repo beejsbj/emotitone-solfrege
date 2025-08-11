@@ -569,6 +569,61 @@ export const UNIFIED_CONFIG = {
     },
   },
 
+  beatingShapes: {
+    _meta: {
+      label: "Beating Shapes",
+      icon: "🔷",
+      description: "Geometric shapes that pulse with the beat",
+    },
+    isEnabled: {
+      value: true,
+      label: "Enable Beating Shapes",
+    },
+    count: {
+      value: 1,
+      min: 1,
+      max: 10,
+      step: 1,
+      label: "Shape Sets",
+    },
+    scale: {
+      value: 1,
+      min: 0.5,
+      max: 2,
+      step: 0.1,
+      label: "Scale",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    commonBeat: {
+      value: true,
+      label: "Common Beat",
+    },
+    halfBeat: {
+      value: true,
+      label: "Half Beat",
+    },
+    quarterBeat: {
+      value: true,
+      label: "Quarter Beat",
+    },
+    thirdBeat: {
+      value: false,
+      label: "Third Beat",
+    },
+    doubleBeat: {
+      value: true,
+      label: "Double Beat",
+    },
+    tripleBeat: {
+      value: false,
+      label: "Triple Beat",
+    },
+    quadrupleBeat: {
+      value: true,
+      label: "Quadruple Beat",
+    },
+  },
+
   hilbertScope: {
     _meta: {
       label: "Hilbert Scope",

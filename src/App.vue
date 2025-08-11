@@ -8,6 +8,7 @@
 
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <div class="relative isolate" v-if="!isLoading">
+      <BeatingShapes class="z-[-1]" />
       <UnifiedVisualEffects class="z-0" />
       <FloatingPopup class="z-2" />
     </div>
@@ -41,6 +42,7 @@ import { useAppLoading } from "@/composables/useAppLoading";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
+import BeatingShapes from "@/components/BeatingShapes.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";

@@ -31,6 +31,7 @@ export type {
   DynamicColorConfig,
   PaletteConfig,
   FloatingPopupConfig,
+  BeatingShapesConfig,
 } from "./visual";
 
 // Canvas and Animation Types

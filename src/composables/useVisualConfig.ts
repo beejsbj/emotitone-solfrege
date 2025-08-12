@@ -1,6 +1,10 @@
 import { computed, reactive } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { DEFAULT_CONFIG, ENHANCED_DEFAULT_CONFIG, CONFIG_SECTIONS } from "@/data/visual-config-metadata";
+import {
+  DEFAULT_CONFIG,
+  ENHANCED_DEFAULT_CONFIG,
+  CONFIG_SECTIONS,
+} from "@/data/visual-config-metadata";
 import type {
   BlobConfig,
   AmbientConfig,
@@ -12,6 +16,7 @@ import type {
   PaletteConfig,
   FloatingPopupConfig,
   HilbertScopeConfig,
+  BeatingShapesConfig,
   VisualEffectsConfig,
 } from "@/types/visual";
 
@@ -32,6 +37,7 @@ export type {
   PaletteConfig,
   FloatingPopupConfig,
   HilbertScopeConfig,
+  BeatingShapesConfig,
   VisualEffectsConfig,
 };
 
@@ -54,6 +60,7 @@ export function useVisualConfig() {
   const paletteConfig = computed(() => store.config.palette);
   const floatingPopupConfig = computed(() => store.config.floatingPopup);
   const hilbertScopeConfig = computed(() => store.config.hilbertScope);
+  const beatingShapesConfig = computed(() => store.config.beatingShapes);
 
   return {
     // Configuration state
@@ -71,6 +78,7 @@ export function useVisualConfig() {
     paletteConfig,
     floatingPopupConfig,
     hilbertScopeConfig,
+    beatingShapesConfig,
 
     // Methods from store
     updateConfig: store.updateConfig,

@@ -394,6 +394,24 @@ export interface HilbertScopeConfig {
 }
 
 /**
+ * Beating Shapes visual effect configuration
+ */
+export interface BeatingShapesConfig {
+  /** Whether beating shapes effects are enabled */
+  isEnabled: boolean;
+  /** Maximum opacity when shapes are active (0-1) */
+  opacity: number;
+  /** Scale multiplier for shape sizes */
+  scale: number;
+  /** Number of shapes to display */
+  shapeCount: number;
+  /** Saturation level for shape colors (0-1) */
+  saturation: number;
+  /** Enable glassmorphism effects for shapes */
+  useGlassmorphism: boolean;
+}
+
+/**
  * Enhanced config types with metadata - for internal use
  */
 export type EnhancedBlobConfig = {
@@ -446,4 +464,6 @@ export interface VisualEffectsConfig {
   floatingPopup: FloatingPopupConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
+  /** Beating Shapes configuration */
+  beatingShapes: BeatingShapesConfig;
 }

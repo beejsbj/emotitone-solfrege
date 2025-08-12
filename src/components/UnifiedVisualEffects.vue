@@ -1,5 +1,10 @@
 <template>
   <div v-if="visualsEnabled" class="unified-visual-effects">
+    <!-- BeatingShapes behind canvas -->
+    <BeatingShapes
+      class="beating-shapes-layer"
+    />
+
     <canvas
       ref="canvasRef"
       :width="canvasWidth"
@@ -14,6 +19,7 @@ import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
+import BeatingShapes from "./BeatingShapes.vue";
 import type { SolfegeData } from "@/types/music";
 
 const musicStore = useMusicStore();
@@ -103,10 +109,17 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+.beating-shapes-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* Behind canvas */
+}
+
 .unified-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 2; /* In front of beating shapes */
 }
 </style>

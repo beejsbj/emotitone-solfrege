@@ -663,6 +663,53 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${v}px`,
     },
   },
+
+  beatingShapes: {
+    _meta: {
+      label: "Beating Shapes",
+      icon: "💎",
+      description: "Geometric shapes that beat with the rhythm",
+    },
+    isEnabled: {
+      value: true,
+      label: "Enable Beating Shapes",
+    },
+    opacity: {
+      value: 0.8,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Max Opacity",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    scale: {
+      value: 1.0,
+      min: 0.5,
+      max: 2.0,
+      step: 0.1,
+      label: "Scale",
+      format: (v: number) => `${v}x`,
+    },
+    shapeCount: {
+      value: 7,
+      min: 3,
+      max: 12,
+      step: 1,
+      label: "Shape Count",
+    },
+    saturation: {
+      value: 100,
+      min: 0,
+      max: 100,
+      step: 5,
+      label: "Saturation",
+      format: (v: number) => `${v}%`,
+    },
+    useGlassmorphism: {
+      value: false,
+      label: "Enable Glassmorphism",
+    },
+  },
 };
 
 /**

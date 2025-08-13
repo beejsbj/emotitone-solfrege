@@ -16,7 +16,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useSequencerStore } from "@/stores/sequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
@@ -29,10 +29,10 @@ const sequencerStore = useSequencerStore();
 
 const currentBpm = ref(100);
 const isAnimating = ref(false);
-const colorShiftInterval = ref(null);
+const colorShiftInterval = ref<number | null>(null);
 const currentHue = ref(80);
 
-const beatVisualizer = ref(null);
+const beatVisualizer = ref<HTMLElement | null>(null);
 
 // Available shape types
 const allShapes = [
@@ -85,7 +85,7 @@ const visualizerStyles = computed(() => {
 });
 
 // Function to get shape-specific styles
-const getShapeStyles = (shape, index) => {
+const getShapeStyles = (shape: string, index: number) => {
   const opacity = shouldAnimate.value ? beatingShapesConfig.value.opacity : 0;
   return {
     opacity: opacity,
@@ -150,7 +150,7 @@ const accentColor = computed(() => {
   return finalAccent;
 });
 
-const updateBpm = (bpm) => {
+const updateBpm = (bpm: number) => {
   currentBpm.value = bpm;
   if (isAnimating.value) {
     restartColorShifting();
@@ -172,36 +172,38 @@ const toggleAnimation = () => {
     const thirtySecondNote = quarterNote / 8; // 1/8 beat
 
     shapes.forEach((shape) => {
+      const element = shape as HTMLElement;
       // Add animation classes and set custom duration
       if (shape.classList.contains("square")) {
         shape.classList.add("beat-scale");
-        shape.style.animationDuration = `${quarterNote}s`;
+        element.style.animationDuration = `${quarterNote}s`;
       } else if (shape.classList.contains("line")) {
         shape.classList.add("beat-rotate");
-        shape.style.animationDuration = `${wholeNote}s`;
+        element.style.animationDuration = `${wholeNote}s`;
       } else if (shape.classList.contains("triangle")) {
         shape.classList.add("beat-rotate");
-        shape.style.animationDuration = `${third}s`;
+        element.style.animationDuration = `${third}s`;
       } else if (shape.classList.contains("rectangle")) {
         shape.classList.add("beat-rotate");
-        shape.style.animationDuration = `${halfNote}s`;
+        element.style.animationDuration = `${halfNote}s`;
       } else if (shape.classList.contains("circle")) {
         shape.classList.add("beat-scale");
-        shape.style.animationDuration = `${eighthNote}s`;
+        element.style.animationDuration = `${eighthNote}s`;
       } else if (shape.classList.contains("hexagon")) {
         shape.classList.add("beat-rotate");
-        shape.style.animationDuration = `${sixteenthNote}s`;
+        element.style.animationDuration = `${sixteenthNote}s`;
       } else if (shape.classList.contains("octagon")) {
         shape.classList.add("beat-scale");
-        shape.style.animationDuration = `${thirtySecondNote}s`;
+        element.style.animationDuration = `${thirtySecondNote}s`;
       }
     });
     startColorShifting();
   } else {
     shapes.forEach((shape) => {
+      const element = shape as HTMLElement;
       // Remove animation classes and reset duration
       shape.classList.remove("beat-scale", "beat-rotate");
-      shape.style.animationDuration = "";
+      element.style.animationDuration = "";
     });
     stopColorShifting();
   }

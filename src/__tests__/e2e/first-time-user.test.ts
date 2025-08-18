@@ -40,7 +40,7 @@ describe('First-Time User Experience', () => {
     await wrapper.vm.$nextTick()
     
     // Find a palette or sequencer element to interact with
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     
     if (palette.exists()) {
       // Simulate user interaction

@@ -21,7 +21,7 @@ export interface IntegrationTestContext {
   }
   components: {
     UnifiedVisualEffects?: any
-    CanvasSolfegePalette?: any
+    DomSolfegePalette?: any
     SequencerGrid?: any
     KeySelector?: any
     InstrumentSelector?: any
@@ -93,7 +93,7 @@ export async function setupIntegrationTest(): Promise<IntegrationTestContext> {
 export async function loadComponent(name: string) {
   const componentMap: Record<string, string> = {
     UnifiedVisualEffects: '@/components/UnifiedVisualEffects.vue',
-    CanvasSolfegePalette: '@/components/CanvasSolfegePalette.vue',
+    DomSolfegePalette: '@/components/DomSolfegePalette.vue',
     SequencerGrid: '@/components/SequencerGrid.vue',
     KeySelector: '@/components/KeySelector.vue',
     InstrumentSelector: '@/components/InstrumentSelector.vue',

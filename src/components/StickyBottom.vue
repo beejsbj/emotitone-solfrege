@@ -3,7 +3,7 @@ import { ref, watch } from "vue";
 import { ChevronDown } from "lucide-vue-next";
 import SequencerControls from "@/components/SequencerControls.vue";
 import KeySelector from "@/components/KeySelector.vue";
-import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
+import DomSolfegePalette from "@/components/DomSolfegePalette.vue";
 import useGSAP from "@/composables/useGSAP";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
@@ -113,6 +113,6 @@ const toggleControlsMinimize = () => {
       <KeySelector />
     </div>
     <SequencerControls v-if="!isControlsMinimized" />
-    <CanvasSolfegePalette />
+    <DomSolfegePalette />
   </div>
 </template>

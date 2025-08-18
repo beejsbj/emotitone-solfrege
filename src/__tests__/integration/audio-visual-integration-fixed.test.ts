@@ -24,11 +24,11 @@ describe('Audio-Visual Integration (Fixed)', () => {
 
       // Load components
       const UnifiedVisualEffects = await loadComponent('UnifiedVisualEffects')
-      const CanvasSolfegePalette = await loadComponent('CanvasSolfegePalette')
+      const DomSolfegePalette = await loadComponent('DomSolfegePalette')
 
       // Mount components
       const visualEffects = createTestWrapper(UnifiedVisualEffects)
-      const palette = createTestWrapper(CanvasSolfegePalette)
+      const palette = createTestWrapper(DomSolfegePalette)
 
       // Enable visual effects
       context.stores.visualConfig.setMasterEffectsEnabled(true)

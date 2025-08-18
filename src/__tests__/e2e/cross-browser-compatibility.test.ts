@@ -79,7 +79,7 @@ describe('Cross-Browser Compatibility', () => {
       expect(wrapper.find('#app')).toBeTruthy()
       
       // Main components should still be present
-      expect(wrapper.findComponent({ name: 'CanvasSolfegePalette' }).exists()).toBe(true)
+      expect(wrapper.findComponent({ name: 'DomSolfegePalette' }).exists()).toBe(true)
       expect(wrapper.findComponent({ name: 'SequencerSection' }).exists()).toBe(true)
     })
   })
@@ -91,7 +91,7 @@ describe('Cross-Browser Compatibility', () => {
     await waitForAudioLoad(200)
     await wrapper.vm.$nextTick()
     
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     const paletteElement = palette.element
     
     // Test with different touch event properties
@@ -126,59 +126,6 @@ describe('Cross-Browser Compatibility', () => {
     })
     
     expect(wrapper.find('#app')).toBeTruthy()
-  })
-
-  it('handles different canvas implementations', async () => {
-    const wrapper = createTestWrapper(App)
-    
-    await waitForAudioLoad(200)
-    await wrapper.vm.$nextTick()
-    
-    // Test with different canvas context implementations
-    const canvasContexts = [
-      // Standard 2D context
-      {
-        fillRect: vi.fn(),
-        arc: vi.fn(),
-        fill: vi.fn(),
-        beginPath: vi.fn(),
-        closePath: vi.fn(),
-        stroke: vi.fn(),
-        clearRect: vi.fn(),
-        save: vi.fn(),
-        restore: vi.fn(),
-        translate: vi.fn(),
-        scale: vi.fn(),
-        rotate: vi.fn()
-      },
-      // WebGL context fallback
-      {
-        fillRect: vi.fn(),
-        arc: vi.fn(),
-        fill: vi.fn(),
-        beginPath: vi.fn(),
-        closePath: vi.fn(),
-        stroke: vi.fn(),
-        clearRect: vi.fn(),
-        save: vi.fn(),
-        restore: vi.fn(),
-        translate: vi.fn(),
-        scale: vi.fn(),
-        rotate: vi.fn(),
-        // WebGL specific
-        createShader: vi.fn(),
-        shaderSource: vi.fn(),
-        compileShader: vi.fn()
-      }
-    ]
-    
-    canvasContexts.forEach(context => {
-      global.HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(context)
-      
-      // Should handle different canvas implementations
-      expect(wrapper.findComponent({ name: 'UnifiedVisualEffects' }).exists()).toBe(true)
-      expect(wrapper.findComponent({ name: 'CanvasSolfegePalette' }).exists()).toBe(true)
-    })
   })
 
   it('handles different localStorage implementations', async () => {
@@ -307,7 +254,7 @@ describe('Cross-Browser Compatibility', () => {
     await waitForAudioLoad(200)
     await wrapper.vm.$nextTick()
     
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     const paletteElement = palette.element
     
     // Test pointer events (modern)
@@ -409,7 +356,7 @@ describe('Cross-Browser Compatibility', () => {
       expect(wrapper.find('#app')).toBeTruthy()
       
       // Responsive design should still work
-      expect(wrapper.findComponent({ name: 'CanvasSolfegePalette' }).exists()).toBe(true)
+      expect(wrapper.findComponent({ name: 'DomSolfegePalette' }).exists()).toBe(true)
     })
   })
 
@@ -419,7 +366,7 @@ describe('Cross-Browser Compatibility', () => {
     await waitForAudioLoad(200)
     await wrapper.vm.$nextTick()
     
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     const paletteElement = palette.element
     
     // Test different event propagation

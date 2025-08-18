@@ -16,7 +16,7 @@ describe('Performance and Stress Testing', () => {
     await waitForAudioLoad(200)
     await wrapper.vm.$nextTick()
     
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     await simulateUserInteraction(palette)
     
     // Measure performance of rapid note playing
@@ -182,7 +182,7 @@ describe('Performance and Stress Testing', () => {
     await waitForAudioLoad(200)
     await wrapper.vm.$nextTick()
     
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     const paletteElement = palette.element
     
     // Simulate rapid touch events

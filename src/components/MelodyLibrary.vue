@@ -146,9 +146,9 @@
                           class="inline-flex flex-col items-center px-1.5 py-1 rounded text-black text-xs font-semibold leading-none"
                         >
                           {{ note.note }}
-                          <span class="text-xs opacity-80 mt-0.5">{{
-                            note.duration
-                          }}</span>
+                          <span class="text-xs opacity-80 mt-0.5"
+                            >@{{ note.duration }}</span
+                          >
                         </span>
                         <span
                           v-if="index !== melody.sequence.length - 1"

@@ -60,8 +60,8 @@ const octaves = computed(() => {
   return result
 })
 
-function playNote(idx: number, oct: number) {
-  musicStore.playNote(idx, oct)
+async function playNote(idx: number, oct: number) {
+  await musicStore.playNoteWithDuration(idx, oct, '1n')
 }
 
 function octaveUp() {
@@ -80,7 +80,6 @@ function toggleDrawer() {
   drawerOpen.value = !drawerOpen.value
 }
 
-defineOptions({ name: 'DomSolfegePalette' })
 </script>
 
 <style scoped>

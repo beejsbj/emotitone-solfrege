@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-EmotiTone Solfège is an interactive music theory web application that teaches solfège through emotional experiences. Built with Vue 3, TypeScript, and Tone.js, it provides a sequencer-based interface for learning musical scales and intervals using canvas-based visual effects.
+EmotiTone Solfège is an interactive music theory web application that teaches solfège through emotional experiences. Built with Vue 3, TypeScript, and Tone.js, it provides a palette-based interface for learning musical scales and intervals using canvas-based visual effects. The sequencer and melody library have been removed; Tone.js is now used only for palette playback through the audio service.
 
 ## Common Development Commands
 
@@ -50,7 +50,7 @@ bun run test:e2e
 
 **Music Theory → Audio → Visual Flow:**
 1. **Theory Layer**: Tonal.js handles pure music theory calculations
-2. **Audio Layer**: Tone.js manages audio synthesis with polyphonic support  
+2. **Audio Layer**: Tone.js manages audio synthesis for palette playback with polyphonic support
 3. **Visual Layer**: Canvas-based effects respond to audio events
 4. **State Layer**: Pinia stores coordinate between systems
 
@@ -64,26 +64,23 @@ bun run test:e2e
 
 **Music Theory System** (`src/services/music.ts`)
 - Pure music theory calculations using Tonal.js
-- Manages scales, keys, solfège data, and melody categorization
+- Manages scales, keys, solfège data
 - Provides frequency calculations and note name conversions
-- Maintains melody cache for performance
 
 **State Management** (Pinia stores in `src/stores/`)
 - `music.ts`: Current key, mode, active notes, solfège data
 - `instrument.ts`: Current instrument selection and configuration  
-- `sequencer.ts`: Sequencer state and transport controls
 - `visualConfig.ts`: Visual effects and animation settings
 
 ### Component Architecture
 
 **Main Application Components:**
 - `App.vue`: Root with loading state management
-- `SequencerSection.vue`: Main sequencer interface
 - `UnifiedVisualEffects.vue`: Canvas-based visual effects coordination
-- `CanvasSolfegePalette.vue`: Interactive solfège wheel interface
+- `CanvasSolfegePalette.vue`: Interactive solfège palette interface (primary UI)
 
 **Key Composables by Domain:**
-- **Audio/Music**: `useSequencerTransport.ts`, `useSequencerGrid.ts`, `useSolfegeInteraction.ts`
+- **Audio/Music**: `useSolfegeInteraction.ts`
 - **Visual Effects**: `useUnifiedCanvas.ts`, `useParticleSystem.ts`, `useColorSystem.ts`
 - **Utilities**: `useAppLoading.ts`, `useKeyboardControls.ts`, `useTooltip.ts`
 
@@ -101,7 +98,7 @@ bun run test:e2e
 ```
 /src
 ├── components/        # Single-file Vue components  
-├── composables/       # Grouped by functionality (audio, visual, sequencer)
+├── composables/       # Grouped by functionality (audio, visual, palette)
 ├── data/             # Static data (scales, instruments, patterns)
 ├── services/         # Core services (audio, music theory)
 ├── stores/           # Pinia stores
@@ -117,7 +114,8 @@ bun run test:e2e
 
 ### Visual Effects System
 - All canvas operations coordinated through `UnifiedVisualEffects.vue`
-- Effects respond to `note-played` and `note-released` custom events  
+- Effects respond to `note-played` and `note-released` custom events
+- BeatingShapes is currently visible and inert (no sequencer coupling)
 - Animation cleanup handled through `useAnimationLifecycle.ts`
 - Use `requestAnimationFrame` for smooth rendering
 
@@ -125,6 +123,7 @@ bun run test:e2e
 - **Unit tests**: Services and utilities in isolation
 - **Integration tests**: Store + service interactions
 - **E2E tests**: Full user workflows with audio/visual coordination
+- Sequencer-related tests have been removed
 - Audio mocking available in `__tests__/helpers/audio-mocks.ts`
 
 ## Technology Stack Notes

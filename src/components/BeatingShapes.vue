@@ -18,14 +18,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
-import { useSequencerStore } from "@/stores/sequencer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 
 const { createGlassmorphBackground } = useColorSystem();
 const { beatingShapesConfig } = useVisualConfig();
 
-const sequencerStore = useSequencerStore();
 
 const currentBpm = ref(100);
 const isAnimating = ref(false);
@@ -52,26 +50,12 @@ const visibleShapes = computed(() => {
 
 // Computed properties to determine if we should be animating and what BPM to use
 const shouldAnimate = computed(() => {
-  // Check if global playback is active or any individual sequencer is playing
-  return (
-    sequencerStore.config.globalIsPlaying ||
-    sequencerStore.playingSequencers.length > 0
-  );
+  // Inert mode: do not animate, but keep classes and structure
+  return false;
 });
 
 const effectiveBpm = computed(() => {
-  // Use global BPM when global playback is active
-  if (sequencerStore.config.globalIsPlaying) {
-    return sequencerStore.config.tempo;
-  }
-
-  // Use BPM from the first playing sequencer if only individual sequencers are playing
-  // (Note: all sequencers share the same global tempo, so this is the same as global tempo)
-  if (sequencerStore.playingSequencers.length > 0) {
-    return sequencerStore.config.tempo;
-  }
-
-  // Fallback to current BPM if nothing is playing (shouldn't happen when shouldAnimate is true)
+  // Inert mode: static BPM reference
   return currentBpm.value;
 });
 
@@ -230,22 +214,7 @@ const stopColorShifting = () => {
   }
 };
 
-// Watch for changes in sequencer state and BPM
-watch(shouldAnimate, (newValue) => {
-  // Force color computeds to re-evaluate when shouldAnimate changes
-  baseColor.value;
-  highlightColor.value;
-  accentColor.value;
-
-  if (newValue && !isAnimating.value) {
-    // Start animation when sequencers start playing
-    currentBpm.value = effectiveBpm.value;
-    toggleAnimation();
-  } else if (!newValue && isAnimating.value) {
-    // Stop animation when no sequencers are playing
-    toggleAnimation();
-  }
-});
+// Inert mode: no sequencer-coupled animation watchers
 
 watch(effectiveBpm, (newBpm) => {
   if (isAnimating.value && newBpm !== currentBpm.value) {

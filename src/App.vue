@@ -21,7 +21,6 @@
       <!-- Header -->
       <AppHeader />
 
-      <SequencerSection />
 
       <StickyBottom />
     </div>
@@ -44,7 +43,6 @@ import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import SequencerSection from "@/components/SequencerSection.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";
 import { globalTooltip } from "@/directives/tooltip";
 import StickyBottom from "@/components/StickyBottom.vue";

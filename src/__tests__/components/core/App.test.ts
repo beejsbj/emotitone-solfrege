@@ -16,9 +16,7 @@ vi.mock('@/components/AppHeader.vue', () => ({
   default: { template: '<div data-testid="app-header">Header</div>' }
 }))
 
-vi.mock('@/components/SequencerSection.vue', () => ({
-  default: { template: '<div data-testid="sequencer-section">Sequencer</div>' }
-}))
+// SequencerSection removed from project
 
 vi.mock('@/components/FloatingPopup.vue', () => ({
   default: { template: '<div data-testid="floating-popup">Popup</div>' }
@@ -121,7 +119,7 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="app-header"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="sequencer-section"]').exists()).toBe(true)
+// Sequencer section removed
     expect(wrapper.find('[data-testid="floating-popup"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)

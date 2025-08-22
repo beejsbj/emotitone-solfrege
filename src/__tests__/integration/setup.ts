@@ -63,12 +63,8 @@ export async function setupIntegrationTest(): Promise<IntegrationTestContext> {
     console.warn('Failed to load music store:', e)
   }
   
-  try {
-    const sequencerModule = await import('@/stores/sequencer')
-    context.stores.sequencer = sequencerModule.useSequencerStore()
-  } catch (e) {
-    console.warn('Failed to load sequencer store:', e)
-  }
+  // Sequencer removed from project; keep placeholder
+  context.stores.sequencer = undefined as any
   
   try {
     const instrumentModule = await import('@/stores/instrument')
@@ -94,10 +90,8 @@ export async function loadComponent(name: string) {
   const componentMap: Record<string, string> = {
     UnifiedVisualEffects: '@/components/UnifiedVisualEffects.vue',
     CanvasSolfegePalette: '@/components/CanvasSolfegePalette.vue',
-    SequencerGrid: '@/components/SequencerGrid.vue',
     KeySelector: '@/components/KeySelector.vue',
     InstrumentSelector: '@/components/InstrumentSelector.vue',
-    SequencerSection: '@/components/SequencerSection.vue',
     App: '@/App.vue',
   }
   

@@ -1,68 +1,30 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useSequencerStore } from "@/stores/sequencer";
-import { useSequencerControls } from "@/composables/sequencer/useSequencerControls";
+import { ref } from "vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import SequencerHeader from "@/components/sequencer/controls/SequencerHeader.vue";
-import SequencerPlayback from "@/components/sequencer/controls/SequencerPlayback.vue";
-import SequencerProperties from "@/components/sequencer/controls/SequencerProperties.vue";
-import { triggerUIHaptic } from "@/utils/hapticFeedback";
+import { Knob } from "@/components/knobs";
 
 interface Props {
-  sequencerId?: string; // Made optional so it can access active sequencer internally
+  sequencerId?: string;
 }
 
 const props = defineProps<Props>();
 
-// Stores
-const sequencerStore = useSequencerStore();
+// Inert local state
+const instrument = ref("synth");
+const themeColors = null as any;
+const dynamicStyles = {} as any;
 
-// Get the sequencer ID to use for operations
-const sequencerId = computed(
-  () => props.sequencerId || sequencerStore.config.activeSequencerId || ""
-);
-
-// Use the composable for shared logic
-const { sequencer, themeColors, dynamicStyles } = useSequencerControls(
-  sequencerId.value
-);
-
-// Computed
-const instrument = computed(() => sequencer.value?.instrument || "synth");
-
-// Methods
 const selectInstrument = (instrumentId: string) => {
-  if (!sequencerId.value) return;
-  sequencerStore.updateSequencer(sequencerId.value, {
-    instrument: instrumentId,
-  });
-  triggerUIHaptic();
+  instrument.value = instrumentId;
 };
 </script>
 
 <template>
   <div
-    class="flex flex-col gap-3 rounded-md p-3 bg-black/80 border shadow-lg backdrop-blur-sm transition-opacity duration-300"
-    :class="[
-      sequencer ? 'opacity-100' : 'opacity-0 pointer-events-none',
-      themeColors ? '' : 'border-white/10',
-    ]"
-    :style="
-      themeColors
-        ? {
-            ...dynamicStyles,
-            borderColor: themeColors.primary
-              .replace('1)', '0.3)')
-              .replace('hsla(', 'hsla('),
-            boxShadow: `0 0 20px ${themeColors.primary
-              .replace('1)', '0.1)')
-              .replace('hsla(', 'hsla(')}`,
-          }
-        : dynamicStyles
-    "
+    class="flex flex-col gap-3 rounded-md p-3 bg-black/80 border shadow-lg backdrop-blur-sm"
   >
-    <!-- Header: Icon, Name, Beat Count, Quick Actions -->
-    <SequencerHeader :sequencer-id="sequencerId" :theme-colors="themeColors" />
+    <!-- Inert Header Placeholder -->
+    <div class="text-xs text-white/60">Sequencer Controls (inactive)</div>
 
     <!-- Instrument Selector -->
     <div class="w-full">
@@ -73,23 +35,14 @@ const selectInstrument = (instrumentId: string) => {
       />
     </div>
 
-    <!-- Control Sections -->
-    <div class="flex gap-3">
-      <!-- Playback Controls -->
-      <SequencerPlayback
-        :sequencer-id="sequencerId"
-        :theme-colors="themeColors"
-      />
-
-      <!-- Audio Controls -->
-      <SequencerProperties
-        :sequencer-id="sequencerId"
-        :theme-colors="themeColors"
-      />
+    <!-- Control Sections (inert placeholders) -->
+    <div class="flex gap-3 items-center">
+      <Knob type="button" label="Play" :is-disabled="true" />
+      <Knob type="range" :model-value="120" label="Vol" :min="0" :max="1" :step="0.1" />
+      <Knob type="range" :model-value="4" label="Octave" :min="2" :max="8" :step="1" />
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Minimal custom styles - most styling now handled by Tailwind classes */
 </style>

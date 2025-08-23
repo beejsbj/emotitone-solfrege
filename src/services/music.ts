@@ -7,19 +7,11 @@ import {
   MINOR_SCALE,
   type SolfegeData,
   type Scale,
-  getAllMelodicPatterns,
-  getPatternsByEmotion,
-  getIntervalPatterns,
-  getMelodicPatterns,
-  getCompleteMelodies,
 } from "@/data";
 import type {
   Note,
   MusicalMode,
-  Melody,
   ChromaticNote,
-  MelodyCategory,
-  CategorizedMelody,
 } from "@/types/music";
 import { Note as TonalNote, Scale as TonalScale } from "@tonaljs/tonal";
 
@@ -27,11 +19,8 @@ import { Note as TonalNote, Scale as TonalScale } from "@tonaljs/tonal";
 export type {
   SolfegeData,
   Scale,
-  Melody,
   Note,
   MusicalMode,
-  MelodyCategory,
-  CategorizedMelody,
 };
 
 // Re-export the imported constants for backward compatibility
@@ -73,116 +62,6 @@ const DOUBLE_ACCIDENTAL_MAP: Record<string, ChromaticNote> = {
 export class MusicTheoryService {
   private currentKey: ChromaticNote = "C";
   private currentMode: MusicalMode = "major";
-  private melodyCache: Map<string, CategorizedMelody[]> = new Map();
-
-  constructor() {
-    this.initializeMelodyCache();
-  }
-
-  private initializeMelodyCache(): void {
-    // Initialize melody cache with categorized melodies
-    const allMelodies = this.categorizeMelodies();
-    this.melodyCache.set("all", allMelodies);
-
-    // Cache by category
-    const categories: MelodyCategory[] = [
-      "intervals",
-      "patterns",
-      "complete",
-      "userCreated",
-    ];
-    categories.forEach((category) => {
-      this.melodyCache.set(
-        category,
-        allMelodies.filter((m) => m.category === category)
-      );
-    });
-  }
-
-  private categorizeMelodies(): CategorizedMelody[] {
-    const melodies: CategorizedMelody[] = [];
-
-    // Categorize interval patterns
-    const intervals = getIntervalPatterns().map((melody) => ({
-      ...melody,
-      category: "intervals" as MelodyCategory,
-    }));
-
-    // Categorize melodic patterns
-    const patterns = getMelodicPatterns().map((melody) => ({
-      ...melody,
-      category: "patterns" as MelodyCategory,
-    }));
-
-    // Categorize complete melodies
-    const complete = getCompleteMelodies().map((melody) => ({
-      ...melody,
-      category: "complete" as MelodyCategory,
-    }));
-
-    return [...intervals, ...patterns, ...complete];
-  }
-
-  // Get all melodies with categories
-  getAllMelodies(): CategorizedMelody[] {
-    return this.melodyCache.get("all") || this.categorizeMelodies();
-  }
-
-  // Get melodies by category
-  getMelodiesByCategory(category: MelodyCategory): CategorizedMelody[] {
-    return this.melodyCache.get(category) || [];
-  }
-
-  // Get melodies by emotion
-  getMelodiesByEmotion(emotion: string): CategorizedMelody[] {
-    const allMelodies = this.getAllMelodies();
-    return allMelodies.filter((melody) =>
-      melody.emotion?.toLowerCase().includes(emotion.toLowerCase())
-    );
-  }
-
-  // Search melodies by text
-  searchMelodies(query: string): CategorizedMelody[] {
-    const searchTerm = query.toLowerCase();
-    return this.getAllMelodies().filter(
-      (melody) =>
-        melody.name.toLowerCase().includes(searchTerm) ||
-        melody.description?.toLowerCase().includes(searchTerm) ||
-        melody.emotion?.toLowerCase().includes(searchTerm)
-    );
-  }
-
-  // Add a user-created melody
-  addUserMelody(melody: Omit<Melody, "category">): CategorizedMelody {
-    const categorizedMelody: CategorizedMelody = {
-      ...melody,
-      category: "userCreated",
-    };
-
-    // Update cache
-    const allMelodies = this.getAllMelodies();
-    allMelodies.push(categorizedMelody);
-    this.melodyCache.set("all", allMelodies);
-
-    const userMelodies = this.getMelodiesByCategory("userCreated");
-    userMelodies.push(categorizedMelody);
-    this.melodyCache.set("userCreated", userMelodies);
-
-    return categorizedMelody;
-  }
-
-  // Remove a user-created melody
-  removeUserMelody(melodyName: string): void {
-    const allMelodies = this.getAllMelodies().filter(
-      (m) => m.name !== melodyName
-    );
-    this.melodyCache.set("all", allMelodies);
-
-    const userMelodies = this.getMelodiesByCategory("userCreated").filter(
-      (m) => m.name !== melodyName
-    );
-    this.melodyCache.set("userCreated", userMelodies);
-  }
 
   // Get the current key
   getCurrentKey(): string {
@@ -349,24 +228,6 @@ export class MusicTheoryService {
     return scale.solfege[degree] || null;
   }
 
-  // Get all melodic patterns
-  getMelodicPatterns(): Melody[] {
-    return getAllMelodicPatterns();
-  }
-
-  // Get melodic patterns by category
-  getMelodicPatternsByCategory(category: "intervals" | "patterns"): Melody[] {
-    if (category === "intervals") {
-      return getAllMelodicPatterns().filter(
-        (pattern: Melody) => pattern.intervals && pattern.intervals.length === 1
-      );
-    } else {
-      return getAllMelodicPatterns().filter(
-        (pattern: Melody) =>
-          !pattern.intervals || pattern.intervals.length !== 1
-      );
-    }
-  }
 }
 
 // Export a singleton instance

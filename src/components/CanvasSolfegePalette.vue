@@ -359,8 +359,8 @@ onMounted(() => {
     handleKeyboardRelease as EventListener
   );
 
-  // Add sequencer visual feedback listeners
-  palette.addSequencerListeners();
+  // Sequencer removed: keep no-op for compatibility
+  // palette.addSequencerListeners();
 
   // Start animation loop with requestAnimationFrame
   animationId = requestAnimationFrame(animate);
@@ -385,8 +385,8 @@ onUnmounted(() => {
     handleKeyboardRelease as EventListener
   );
 
-  // Remove sequencer visual feedback listeners
-  palette.removeSequencerListeners();
+  // Sequencer removed: keep no-op for compatibility
+  // palette.removeSequencerListeners();
 });
 
 // Expose methods for external control

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { ChevronDown } from "lucide-vue-next";
-import SequencerControls from "@/components/SequencerControls.vue";
 import KeySelector from "@/components/KeySelector.vue";
 import CanvasSolfegePalette from "@/components/CanvasSolfegePalette.vue";
 import useGSAP from "@/composables/useGSAP";
@@ -10,7 +9,6 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
 // State for component visibility
 const isKeyWheelMinimized = ref(true);
 const isMinimized = ref(false);
-const isControlsMinimized = ref(true);
 
 // Refs for animation targets
 const keyWheelRef = ref<HTMLElement | null>(null);
@@ -54,17 +52,13 @@ const toggleMinimize = () => {
   isMinimized.value = !isMinimized.value;
 };
 
-const toggleControlsMinimize = () => {
-  triggerUIHaptic();
-  isControlsMinimized.value = !isControlsMinimized.value;
-};
 </script>
 
 <template>
   <!-- Bottom Tab Bar - Always visible when app is loaded -->
   <div
     ref="containerRef"
-    class="grid sticky bottom-0 w-full z-50 bg-black/80 backdrop-blur-lg"
+    class="grid fixed bottom-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-lg"
   >
     <div
       class="flex gap-2 justify-between absolute top-2 left-4 right-4 transform -translate-y-full z-999"
@@ -94,16 +88,6 @@ const toggleControlsMinimize = () => {
         />
       </button>
 
-      <button
-        @click="toggleControlsMinimize"
-        class="p-1 text-xs bg-black transition-colors duration-200 group border-1 rounded-sm border-white flex items-center gap-2"
-      >
-        <ChevronDown
-          :size="12"
-          class="transition-transform duration-300"
-          :class="{ 'rotate-180': isControlsMinimized }"
-        />
-      </button>
     </div>
 
     <div
@@ -112,7 +96,6 @@ const toggleControlsMinimize = () => {
     >
       <KeySelector />
     </div>
-    <SequencerControls v-if="!isControlsMinimized" />
     <CanvasSolfegePalette />
   </div>
 </template>

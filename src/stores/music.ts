@@ -3,12 +3,9 @@ import { ref, computed, readonly } from "vue";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type {
   SolfegeData,
-  Melody,
   MusicalMode,
   ActiveNote,
   ChromaticNote,
-  CategorizedMelody,
-  MelodyCategory,
 } from "@/types/music";
 import { audioService } from "@/services/audio";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -16,7 +13,6 @@ import {
   MAJOR_SOLFEGE,
   MINOR_SOLFEGE,
   type Scale,
-  getAllMelodicPatterns,
 } from "@/data";
 
 // Type for note input - either a chromatic note with octave or solfege index
@@ -59,15 +55,7 @@ export const useMusicStore = defineStore(
       }`;
     });
 
-    // Melody-related getters
-    const allMelodies = computed<CategorizedMelody[]>(() => {
-      return musicTheory.getAllMelodies();
-    });
-
-    const melodiesByCategory = computed(() => {
-      return (category: MelodyCategory) =>
-        musicTheory.getMelodiesByCategory(category);
-    });
+    // Melody-related getters (removed)
 
     // Helper function to convert note input to solfege index and octave
     function parseNoteInput(
@@ -511,9 +499,7 @@ export const useMusicStore = defineStore(
       return musicTheory.getNoteName(solfegeIndex, octave);
     }
 
-    function getMelodicPatterns(): Melody[] {
-      return musicTheory.getMelodicPatterns();
-    }
+    // getMelodicPatterns removed
 
     // New polyphonic helper functions
     function getActiveNotes(): ActiveNote[] {
@@ -540,24 +526,7 @@ export const useMusicStore = defineStore(
       return attackNoteWithFormat(solfegeIndex, octave);
     }
 
-    // Methods for melody management
-    function searchMelodies(query: string): CategorizedMelody[] {
-      return musicTheory.searchMelodies(query);
-    }
-
-    function getMelodiesByEmotion(emotion: string): CategorizedMelody[] {
-      return musicTheory.getMelodiesByEmotion(emotion);
-    }
-
-    function addUserMelody(
-      melody: Omit<Melody, "category">
-    ): CategorizedMelody {
-      return musicTheory.addUserMelody(melody);
-    }
-
-    function removeUserMelody(melodyName: string): void {
-      musicTheory.removeUserMelody(melodyName);
-    }
+    // Melody management methods removed
 
     return {
       // State
@@ -573,8 +542,6 @@ export const useMusicStore = defineStore(
       currentScaleNotes,
       solfegeData,
       currentKeyDisplay,
-      allMelodies,
-      melodiesByCategory,
 
       // Actions
       setKey,
@@ -590,7 +557,6 @@ export const useMusicStore = defineStore(
       getSolfegeByName,
       getNoteFrequency,
       getNoteName,
-      getMelodicPatterns,
 
       // Polyphonic helpers
       getActiveNotes,
@@ -598,11 +564,6 @@ export const useMusicStore = defineStore(
       isNoteActive,
       playNoteWithDuration,
 
-      // Add new melody management methods
-      searchMelodies,
-      getMelodiesByEmotion,
-      addUserMelody,
-      removeUserMelody,
 
       parseNoteInput, // Export for testing/debugging
     };

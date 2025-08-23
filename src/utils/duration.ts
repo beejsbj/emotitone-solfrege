@@ -1,4 +1,9 @@
-import type { SequencerDuration } from "@/types/music";
+// Local duration type since sequencer types were removed
+interface NoteDurationResult {
+  toneNotation: string;
+  seconds: number;
+  fraction: number;
+}
 
 /**
  * Duration Calculation Utilities for Circular Sequencer
@@ -24,7 +29,7 @@ export function calculateNoteDuration(
   stepDuration: number,
   totalSteps: number = 16,
   tempo: number = 120
-): SequencerDuration {
+): NoteDurationResult {
   // Calculate fraction of a whole note
   // Since 16 steps = 1 whole note (4/4 bar), each step = 1/16
   const fraction = stepDuration / totalSteps;

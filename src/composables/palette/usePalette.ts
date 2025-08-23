@@ -169,7 +169,7 @@ export function usePalette(
     { deep: true }
   );
 
-  // Add visual feedback for sequencer playback
+  // Add visual feedback for sequencer playback (inert)
   const handleSequencerNotePlayed = (event: CustomEvent) => {
     const { note, octave, solfegeIndex } = event.detail;
 
@@ -194,20 +194,9 @@ export function usePalette(
     }
   };
 
-  // Add event listener for sequencer notes (lifecycle managed by parent component)
-  const addSequencerListeners = () => {
-    window.addEventListener(
-      "note-played",
-      handleSequencerNotePlayed as EventListener
-    );
-  };
-
-  const removeSequencerListeners = () => {
-    window.removeEventListener(
-      "note-played",
-      handleSequencerNotePlayed as EventListener
-    );
-  };
+  // Sequencer removed: keep inert listeners to maintain API shape
+  const addSequencerListeners = () => {};
+  const removeSequencerListeners = () => {};
 
   // Enhanced render function that includes animation updates
   const renderPaletteWithAnimation = (

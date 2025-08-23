@@ -58,7 +58,7 @@ const toggleMinimize = () => {
   <!-- Bottom Tab Bar - Always visible when app is loaded -->
   <div
     ref="containerRef"
-    class="grid sticky bottom-0 w-full z-50 bg-black/80 backdrop-blur-lg"
+    class="grid fixed bottom-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-lg"
   >
     <div
       class="flex gap-2 justify-between absolute top-2 left-4 right-4 transform -translate-y-full z-999"

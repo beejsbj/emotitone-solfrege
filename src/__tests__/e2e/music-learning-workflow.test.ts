@@ -62,7 +62,7 @@ describe('Music Learning Workflow', () => {
     await wrapper.vm.$nextTick()
     
     // Find the solfege palette
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     expect(palette.exists()).toBe(true)
     
     // Mock audio service
@@ -88,7 +88,7 @@ describe('Music Learning Workflow', () => {
     await waitForAudioLoad(200)
     await wrapper.vm.$nextTick()
     
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     await simulateUserInteraction(palette)
     
     // Mock canvas context for visual feedback
@@ -152,7 +152,7 @@ describe('Music Learning Workflow', () => {
     await waitForAudioLoad(200)
     await wrapper.vm.$nextTick()
     
-    const palette = wrapper.findComponent({ name: 'CanvasSolfegePalette' })
+    const palette = wrapper.findComponent({ name: 'DomSolfegePalette' })
     const paletteElement = palette.element
     
     // Mock touch events

@@ -543,6 +543,104 @@ export function useColorSystem() {
     return `conic-gradient(from ${cssAngle}, ${colors.primary}, ${colors.accent}, ${colors.secondary}, ${colors.tertiary}, ${colors.primary})`;
   };
 
+  /**
+   * Helper function to adjust color brightness and saturation
+   */
+  const adjustColorHSL = (
+    color: string,
+    brightness: number = 1,
+    saturation: number = 1
+  ): string => {
+    // Parse HSLA color
+    const hslaMatch = color.match(
+      /hsla?\((\d+),\s*(\d+)%,\s*(\d+)%(?:,\s*([\d.]+))?\)/
+    );
+    if (!hslaMatch) return color;
+
+    const [, h, s, l, a = "1"] = hslaMatch;
+    const adjustedS = Math.max(0, Math.min(100, parseFloat(s) * saturation));
+    const adjustedL = Math.max(0, Math.min(100, parseFloat(l) * brightness));
+
+    return `hsla(${h}, ${adjustedS}%, ${adjustedL}%, ${a})`;
+  };
+
+  /**
+   * Get key background based on color mode and configuration
+   */
+  const getKeyBackground = (
+    solfegeName: string,
+    mode: "major" | "minor",
+    octave: number,
+    colorMode: "colored" | "monochrome" | "glassmorphism",
+    isAccidental: boolean,
+    config: {
+      keyBrightness?: number;
+      keySaturation?: number;
+      glassmorphOpacity?: number;
+    } = {}
+  ): { background: string; primaryColor: string } => {
+    const {
+      keyBrightness = 1,
+      keySaturation = 1,
+      glassmorphOpacity = 0.4,
+    } = config;
+
+    if (colorMode === "monochrome") {
+      // Monochrome: white for accidentals, black for naturals
+      const baseColor = isAccidental
+        ? "hsla(0, 0%, 100%, 1)"
+        : "hsla(0, 0%, 10%, 1)";
+      const adjustedColor = adjustColorHSL(baseColor, keyBrightness, keySaturation);
+      return {
+        background: adjustedColor,
+        primaryColor: adjustedColor,
+      };
+    }
+
+    // Get primary color for colored and glassmorphism modes
+    const primaryColor = getPrimaryColor(solfegeName, mode, octave);
+    if (!primaryColor) {
+      // Fallback color
+      const fallback = "hsla(200, 70%, 50%, 1)";
+      return {
+        background: fallback,
+        primaryColor: fallback,
+      };
+    }
+
+    if (colorMode === "glassmorphism") {
+      // Glassmorphism mode
+      const glassBg = createGlassmorphBackground(primaryColor, glassmorphOpacity);
+      return {
+        background: glassBg || `hsla(200, 70%, 50%, ${glassmorphOpacity})`,
+        primaryColor,
+      };
+    }
+
+    // Colored mode
+    const adjustedColor = adjustColorHSL(primaryColor, keyBrightness, keySaturation);
+    return {
+      background: adjustedColor,
+      primaryColor: adjustedColor,
+    };
+  };
+
+  /**
+   * Get text color for key labels
+   */
+  const getKeyTextColor = (
+    colorMode: "colored" | "monochrome" | "glassmorphism",
+    isAccidental: boolean
+  ): string => {
+    if (colorMode === "monochrome") {
+      // Monochrome: opposite of key color
+      return isAccidental ? "text-black" : "text-white";
+    }
+    
+    // Colored and glassmorphism: black for accidentals, white for naturals
+    return isAccidental ? "text-black" : "text-white";
+  };
+
   return {
     // Core color functions
     getNoteColors,
@@ -580,6 +678,11 @@ export function useColorSystem() {
     createConicGlassmorphBackground,
     createChordConicGlassmorphBackground,
     createIntervalConicGlassmorphBackground,
+
+    // Key styling functions
+    adjustColorHSL,
+    getKeyBackground,
+    getKeyTextColor,
 
     // State
     isDynamicColorsEnabled,

@@ -48,12 +48,12 @@
             {
               label: 'Major',
               value: 'major',
-              color: 'hsl(0, 100%, 95%)', // warm white
+              color: 'hsl(0, 40%, 75%)', // warm white
             },
             {
               label: 'Minor',
               value: 'minor',
-              color: 'hsl(240, 100%, 95%)', // cool white
+              color: 'hsl(240, 40%, 75%)', // cool white
             },
             // {
             //   label: 'Pentatonic',

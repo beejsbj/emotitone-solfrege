@@ -695,9 +695,12 @@ export const UNIFIED_CONFIG = {
       label: "Key Gaps",
     },
     keyShape: {
-      value: "rounded",
-      options: ["square", "rounded"],
-      label: "Key Shape",
+      value: 8,
+      min: 0,
+      max: 20,
+      step: 1,
+      label: "Border Radius",
+      format: (v: number) => `${v}px`,
     },
     colorMode: {
       value: "colored",

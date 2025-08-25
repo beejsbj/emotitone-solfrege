@@ -431,9 +431,12 @@ const handleRangeMovement = (deltaY: number, timeDelta: number) => {
     // Clamp to bounds
     newValue = Math.max(props.min, Math.min(props.max, newValue));
 
-    // Apply step quantization
+    // Apply step quantization - ensure we land on valid step values
     if (props.step > 0) {
-      newValue = Math.round(newValue / props.step) * props.step;
+      const stepsFromMin = Math.round((newValue - props.min) / props.step);
+      newValue = props.min + (stepsFromMin * props.step);
+      // Ensure we stay within bounds after step adjustment
+      newValue = Math.max(props.min, Math.min(props.max, newValue));
     }
 
     // Only update if value actually changed

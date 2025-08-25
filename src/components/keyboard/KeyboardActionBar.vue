@@ -23,7 +23,7 @@
           label="Rows"
           :min="1"
           :max="8"
-          :step="1"
+          :step="2"
           @update:modelValue="store.setRowCount"
         />
       </div>
@@ -55,6 +55,16 @@
               value: 'minor',
               color: 'hsl(240, 100%, 95%)', // cool white
             },
+            // {
+            //   label: 'Pentatonic',
+            //   value: 'pentatonic',
+            //   color: 'hsl(120, 100%, 95%)',
+            // }, // light green
+            // {
+            //   label: 'Chromatic',
+            //   value: 'chromatic',
+            //   color: 'hsl(60, 100%, 95%)',
+            // }, // light yellow
           ]"
           label="Mode"
           @update:modelValue="musicStore.setMode"

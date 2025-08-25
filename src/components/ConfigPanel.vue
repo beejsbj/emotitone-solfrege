@@ -120,6 +120,23 @@
                     "
                   />
 
+                  <!-- String/Options knobs -->
+                  <Knob
+                    v-else-if="
+                      typeof value === 'string' && 
+                      hasOptions(sectionName, String(key))
+                    "
+                    :model-value="value"
+                    type="options"
+                    :options="getFieldOptions(sectionName, String(key))"
+                    :label="formatLabel(sectionName, String(key))"
+                    :is-disabled="!visualsEnabled || !sectionConfig.isEnabled"
+                    @update:modelValue="
+                      (newValue) =>
+                        updateValue(sectionName, String(key), newValue)
+                    "
+                  />
+
                   <!-- Number knobs -->
                   <Knob
                     v-else-if="typeof value === 'number'"
@@ -324,6 +341,17 @@ const getNumberMax = (sectionName: string, key: string): number => {
 const getNumberStep = (sectionName: string, key: string): number => {
   const metadata = getFieldMetadata(sectionName, key);
   return metadata?.step ?? 0.1;
+};
+
+// Helper functions for options/string fields
+const hasOptions = (sectionName: string, key: string): boolean => {
+  const metadata = getFieldMetadata(sectionName, key);
+  return metadata?.options && Array.isArray(metadata.options) && metadata.options.length > 0;
+};
+
+const getFieldOptions = (sectionName: string, key: string): string[] => {
+  const metadata = getFieldMetadata(sectionName, key);
+  return metadata?.options || [];
 };
 
 const exportConfig = () => {

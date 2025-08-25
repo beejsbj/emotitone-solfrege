@@ -91,14 +91,17 @@ const valueArc = computed(() => {
       if (!props.totalSegments || props.totalSegments === 0) {
         return { start: 0, end: 0 };
       }
-      const segmentLength = CONSTANTS.FULL_CIRCLE_END / props.totalSegments;
+      console.log(props.totalSegments);
+      const segmentLength =
+        CONSTANTS.FULL_CIRCLE_END /
+        (props.totalSegments <= 2 ? 3 : props.totalSegments);
       // Fixed segment at top position - we'll rotate this instead of redrawing
       return {
-        start: CONSTANTS.OPTIONS_SEGMENT_START,
-        end: CONSTANTS.OPTIONS_SEGMENT_START + segmentLength,
+        start: CONSTANTS.OPTIONS_SEGMENT_START - segmentLength / 2,
+        end: CONSTANTS.OPTIONS_SEGMENT_START + segmentLength / 2,
         // Add opposite segment
-        oppositeStart: CONSTANTS.OPTIONS_SEGMENT_START + 50, // 50% = 180 degrees offset
-        oppositeEnd: CONSTANTS.OPTIONS_SEGMENT_START + 50 + segmentLength,
+        oppositeStart: CONSTANTS.OPTIONS_SEGMENT_START + 50 - segmentLength / 2, // 50% = 180 degrees offset
+        oppositeEnd: CONSTANTS.OPTIONS_SEGMENT_START + 50 + segmentLength / 2,
       };
 
     case "boolean":

@@ -406,8 +406,8 @@ export interface KeyboardConfig {
 
   /** Key gap style */
   keyGaps: "none" | "small" | "medium";
-  /** Key shape style */
-  keyShape: "square" | "rounded";
+  /** Key border radius in pixels */
+  keyShape: number;
   /** Color mode for keys */
   colorMode: "colored" | "monochrome" | "glassmorphism";
   /** Key size multiplier */

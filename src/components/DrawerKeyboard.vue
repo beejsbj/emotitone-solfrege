@@ -81,9 +81,7 @@ const drawerStyles = computed(() => ({
 
 const keyboardGridClasses = computed(() => [
   // Layout
-  "flex flex-col-reverse flex-1",
-  // Spacing
-  "px-2 pb-2",
+  "flex flex-col flex-1",
   // Position so we can slide the whole keys section
   "relative",
   // Overflow
@@ -121,13 +119,6 @@ const octaveRowClasses = (octave: number) => {
     }[store.keyboardConfig.keyGaps] || "gap-0.5";
 
   const octaveClasses = [];
-  if (octave === store.keyboardConfig.mainOctave) {
-    octaveClasses.push("order-2"); // Middle position in column-reverse
-  } else if (octave > store.keyboardConfig.mainOctave) {
-    octaveClasses.push("order-1 opacity-90"); // Top in column-reverse
-  } else {
-    octaveClasses.push("order-3 opacity-90"); // Bottom in column-reverse
-  }
 
   return [...baseClasses, gapClasses, ...octaveClasses];
 };

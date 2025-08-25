@@ -58,20 +58,6 @@ export interface DynamicColorConfig {
 }
 
 /**
- * Palette visual configuration
- */
-export interface PaletteConfig {
-  /** Whether palette gradient effects are enabled */
-  isEnabled: boolean;
-  /** Gradient direction in degrees (0-360) */
-  gradientDirection: number;
-  /** Whether to use glassmorphism effects for palette keys */
-  useGlassmorphism: boolean;
-  /** Glassmorphism effect opacity for palette keys (0-1) */
-  glassmorphOpacity: number;
-}
-
-/**
  * Floating popup configuration
  */
 export interface FloatingPopupConfig {
@@ -412,6 +398,40 @@ export interface BeatingShapesConfig {
 }
 
 /**
+ * Keyboard styling and layout configuration
+ */
+export interface KeyboardConfig {
+  /** Whether palette gradient effects are enabled */
+  isEnabled: boolean;
+
+  /** Key gap style */
+  keyGaps: "none" | "small" | "medium";
+  /** Key shape style */
+  keyShape: "square" | "rounded";
+  /** Color mode for keys */
+  colorMode: "colored" | "monochrome" | "glassmorphism";
+  /** Key size multiplier */
+  keySize: number;
+  /** Number of visible octave rows */
+  rowCount: number;
+  /** Main octave number */
+  mainOctave: number;
+  /** Enable haptic feedback */
+  hapticFeedback: boolean;
+  /** Show note labels on keys */
+  showLabels: boolean;
+  /** Key brightness multiplier */
+  keyBrightness: number;
+  /** Key saturation multiplier */
+  keySaturation: number;
+
+  /** Gradient direction in degrees (0-360) */
+  gradientDirection: number;
+  /** Glassmorphism effect opacity for palette keys (0-1) */
+  glassmorphOpacity: number;
+}
+
+/**
  * Enhanced config types with metadata - for internal use
  */
 export type EnhancedBlobConfig = {
@@ -458,12 +478,12 @@ export interface VisualEffectsConfig {
   frequencyMapping: FrequencyMappingConfig;
   /** Dynamic color system configuration */
   dynamicColors: DynamicColorConfig;
-  /** Palette visual configuration */
-  palette: PaletteConfig;
   /** Floating popup configuration */
   floatingPopup: FloatingPopupConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
   /** Beating Shapes configuration */
   beatingShapes: BeatingShapesConfig;
+  /** Keyboard styling configuration */
+  keyboard: KeyboardConfig;
 }

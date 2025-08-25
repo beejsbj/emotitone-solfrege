@@ -73,15 +73,6 @@ export type {
   AudioContextInfo,
 } from "./instrument";
 
-// Palette System Types
-export type {
-  PaletteState,
-  ButtonLayout,
-  ControlLayout,
-  AnimationState,
-  OctaveHeights,
-  SustainHook,
-} from "./palette";
 
 // App Loading and Initialization Types
 export type {

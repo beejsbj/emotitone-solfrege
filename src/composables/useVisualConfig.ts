@@ -61,6 +61,7 @@ export function useVisualConfig() {
   const floatingPopupConfig = computed(() => store.config.floatingPopup);
   const hilbertScopeConfig = computed(() => store.config.hilbertScope);
   const beatingShapesConfig = computed(() => store.config.beatingShapes);
+  const keyboardConfig = computed(() => store.config.keyboard);
 
   return {
     // Configuration state
@@ -79,6 +80,7 @@ export function useVisualConfig() {
     floatingPopupConfig,
     hilbertScopeConfig,
     beatingShapesConfig,
+    keyboardConfig,
 
     // Methods from store
     updateConfig: store.updateConfig,

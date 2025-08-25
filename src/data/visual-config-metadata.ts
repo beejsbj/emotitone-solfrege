@@ -458,38 +458,6 @@ export const UNIFIED_CONFIG = {
     },
   },
 
-  palette: {
-    _meta: {
-      label: "Palette",
-      icon: "🎹",
-      description: "Solfège palette visual settings",
-    },
-    isEnabled: {
-      value: true,
-      label: "Enable Palette Effects",
-    },
-    gradientDirection: {
-      value: 225,
-      min: 0,
-      max: 360,
-      step: 15,
-      label: "Gradient Direction",
-      format: (v: number) => `${v}°`,
-    },
-    useGlassmorphism: {
-      value: true,
-      label: "Use Glassmorphism",
-    },
-    glassmorphOpacity: {
-      value: 0.4,
-      min: 0,
-      max: 1,
-      step: 0.05,
-      label: "Glass Opacity",
-      format: (v: number) => `${(v * 100).toFixed(0)}%`,
-    },
-  },
-
   floatingPopup: {
     _meta: {
       label: "Floating Popup",
@@ -708,6 +676,96 @@ export const UNIFIED_CONFIG = {
     useGlassmorphism: {
       value: false,
       label: "Enable Glassmorphism",
+    },
+  },
+
+  keyboard: {
+    _meta: {
+      label: "Keyboard",
+      icon: "⌨️",
+      description: "Keyboard styling and layout options",
+    },
+    isEnabled: {
+      value: true,
+      label: "Enable Keyboard",
+    },
+    keyGaps: {
+      value: "small",
+      options: ["none", "small", "medium"],
+      label: "Key Gaps",
+    },
+    keyShape: {
+      value: "rounded",
+      options: ["square", "rounded"],
+      label: "Key Shape",
+    },
+    colorMode: {
+      value: "colored",
+      options: ["colored", "monochrome", "glassmorphism"],
+      label: "Color Mode",
+    },
+    keySize: {
+      value: 1.0,
+      min: 0.6,
+      max: 1.8,
+      step: 0.1,
+      label: "Key Size",
+      format: (v: number) => `${v}x`,
+    },
+    rowCount: {
+      value: 3,
+      min: 1,
+      max: 8,
+      step: 1,
+      label: "Visible Rows",
+    },
+    mainOctave: {
+      value: 4,
+      min: 1,
+      max: 8,
+      step: 1,
+      label: "Main Octave",
+    },
+    hapticFeedback: {
+      value: true,
+      label: "Haptic Feedback",
+    },
+    showLabels: {
+      value: true,
+      label: "Show Note Labels",
+    },
+    keyBrightness: {
+      value: 1.0,
+      min: 0.3,
+      max: 2.0,
+      step: 0.1,
+      label: "Key Brightness",
+      format: (v: number) => `${v}x`,
+    },
+    keySaturation: {
+      value: 1.0,
+      min: 0.0,
+      max: 1.5,
+      step: 0.1,
+      label: "Key Saturation",
+      format: (v: number) => `${v}x`,
+    },
+    gradientDirection: {
+      value: 225,
+      min: 0,
+      max: 360,
+      step: 15,
+      label: "Gradient Direction",
+      format: (v: number) => `${v}°`,
+    },
+
+    glassmorphOpacity: {
+      value: 0.4,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Glass Opacity",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
   },
 };

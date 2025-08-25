@@ -50,9 +50,10 @@ bun run test:e2e
 
 **Music Theory → Audio → Visual Flow:**
 1. **Theory Layer**: Tonal.js handles pure music theory calculations
-2. **Audio Layer**: Tone.js manages audio synthesis for palette playback with polyphonic support
-3. **Visual Layer**: Canvas-based effects respond to audio events
-4. **State Layer**: Pinia stores coordinate between systems
+2. **Interface Layer**: DOM-based drawer keyboard for touch-optimized interaction
+3. **Audio Layer**: Tone.js manages audio synthesis with polyphonic support
+4. **Visual Layer**: Canvas-based effects respond to audio events
+5. **State Layer**: Pinia stores coordinate between systems
 
 ### Key Services
 
@@ -70,17 +71,22 @@ bun run test:e2e
 **State Management** (Pinia stores in `src/stores/`)
 - `music.ts`: Current key, mode, active notes, solfège data
 - `instrument.ts`: Current instrument selection and configuration  
-- `visualConfig.ts`: Visual effects and animation settings
+- `visualConfig.ts`: Visual effects and animation settings (includes keyboard styling)
+- `keyboardDrawer.ts`: Drawer state, touch interactions, and keyboard configuration
 
 ### Component Architecture
 
 **Main Application Components:**
 - `App.vue`: Root with loading state management
 - `UnifiedVisualEffects.vue`: Canvas-based visual effects coordination
-- `CanvasSolfegePalette.vue`: Interactive solfège palette interface (primary UI)
+- `DrawerKeyboard.vue`: DOM-based interactive solfège keyboard interface (primary UI)
+ UI)
+  - `keyboard/KeyboardActionBar.vue`: Control knobs for octave, rows, key/mode, styling
+  - `keyboard/KeyboardKey.vue`: Individual solfège key buttons with touch/haptic support
 
 **Key Composables by Domain:**
 - **Audio/Music**: `useSolfegeInteraction.ts`
+- **Keyboard Interface**: `useKeyboardDrawer.ts` (drawer behavior and GSAP animations)
 - **Visual Effects**: `useUnifiedCanvas.ts`, `useParticleSystem.ts`, `useColorSystem.ts`
 - **Utilities**: `useAppLoading.ts`, `useKeyboardControls.ts`, `useTooltip.ts`
 

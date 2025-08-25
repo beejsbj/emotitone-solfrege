@@ -21,8 +21,7 @@
       <!-- Header -->
       <AppHeader />
 
-
-      <StickyBottom />
+      <DrawerKeyboard class="fixed bottom-0 w-full" />
     </div>
 
     <!-- Global Tooltip Renderer -->
@@ -45,7 +44,8 @@ import ConfigPanel from "@/components/ConfigPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";
 import { globalTooltip } from "@/directives/tooltip";
-import StickyBottom from "@/components/StickyBottom.vue";
+import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
+
 // Stores and composables
 const musicStore = useMusicStore();
 const { isLoading } = useAppLoading();

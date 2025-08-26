@@ -3,7 +3,7 @@
  * Defines interfaces for the automatic pattern detection and history tracking system
  */
 
-import type { ChromaticNote, MusicalMode, SolfegeData } from './music'
+import type { ChromaticNote, MusicalMode, SolfegeData } from "./music";
 
 /**
  * Individual note interaction record with complete musical context
@@ -11,45 +11,45 @@ import type { ChromaticNote, MusicalMode, SolfegeData } from './music'
  */
 export interface HistoryNote {
   /** Unique identifier for this note interaction */
-  id: string
-  
+  id: string;
+
   /** Musical Context */
   /** Note name with octave (e.g., "C4", "F#5") */
-  note: string
+  note: string;
   /** Current musical key */
-  key: ChromaticNote
+  key: ChromaticNote;
   /** Current musical scale/mode */
-  mode: MusicalMode
+  mode: MusicalMode;
   /** Scale degree (1-7) */
-  scaleDegree: number
+  scaleDegree: number;
   /** Solfège information for this note */
-  solfege: SolfegeData
+  solfege: SolfegeData;
   /** Solfège index in current scale (0-6) */
-  solfegeIndex: number
+  solfegeIndex: number;
   /** Octave number */
-  octave: number
+  octave: number;
   /** Frequency in Hz */
-  frequency: number
-  
+  frequency: number;
+
   /** Audio Context */
   /** Current instrument identifier */
-  instrument: string
+  instrument: string;
   /** Velocity/volume (0-1) */
-  velocity?: number
-  
+  velocity?: number;
+
   /** Timing Information */
   /** Timestamp when note was pressed (Date.now()) */
-  pressTime: number
+  pressTime: number;
   /** Timestamp when note was released (Date.now()) */
-  releaseTime?: number
+  releaseTime?: number;
   /** Calculated duration in milliseconds */
-  duration?: number
-  
+  duration?: number;
+
   /** Additional Metadata */
   /** Session identifier to group related interactions */
-  sessionId: string
+  sessionId: string;
   /** Unique note ID from audio service for polyphonic tracking */
-  audioNoteId?: string
+  audioNoteId?: string;
 }
 
 /**
@@ -58,53 +58,61 @@ export interface HistoryNote {
  */
 export interface Pattern {
   /** Unique pattern identifier */
-  id: string
-  
+  id: string;
+
   /** Pattern Content */
   /** Array of notes that make up this pattern */
-  notes: HistoryNote[]
+  notes: HistoryNote[];
   /** Total duration of pattern in milliseconds */
-  totalDuration: number
+  totalDuration?: number;
   /** Number of notes in pattern */
-  noteCount: number
-  
+  noteCount?: number;
+
+  /** Tempo information */
+  bpm?: number;
+  /** Time signature */
+  timeSignature?: string;
+  /** Number of beats per measure */
+
   /** Musical Context */
   /** Primary key for this pattern */
-  key: ChromaticNote
+  key?: ChromaticNote;
   /** Primary scale/mode for this pattern */
-  mode: MusicalMode
+  mode?: MusicalMode;
   /** Primary instrument for this pattern */
-  instrument: string
+  instrument?: string;
   /** Visual color associated with this pattern (from color system) */
-  color?: string
-  
+  color?: string;
+
   /** Pattern Metadata */
   /** When this pattern was first detected */
-  createdAt: number
+  createdAt: number;
   /** When this pattern was last played/accessed */
-  lastPlayedAt: number
+  lastPlayedAt: number;
   /** Whether user has explicitly saved this pattern */
-  isSaved: boolean
+  isSaved: boolean;
+  /** Whether this is a default pattern from the library */
+  isDefault?: boolean;
   /** How many times this pattern has been played */
-  playCount: number
+  playCount: number;
   /** Optional user-assigned name */
-  name?: string
+  name?: string;
   /** Optional user-assigned tags */
-  tags?: string[]
-  
+  tags?: string[];
+
   /** Pattern Statistics */
   /** Average note duration in milliseconds */
-  averageNoteDuration?: number
+  averageNoteDuration?: number;
   /** Most common scale degree in pattern */
-  dominantScaleDegree?: number
+  dominantScaleDegree?: number;
   /** Complexity score (0-1) based on rhythm and pitch variety */
-  complexityScore?: number
-  
+  complexityScore?: number;
+
   /** Pattern Classification */
   /** Auto-detected pattern type */
-  patternType: 'melody' | 'rhythm' | 'chord' | 'scale' | 'arpeggio' | 'mixed'
+  patternType: "melody" | "rhythm" | "chord" | "scale" | "arpeggio" | "mixed";
   /** Confidence in auto-detection (0-1) */
-  detectionConfidence?: number
+  detectionConfidence?: number;
 }
 
 /**
@@ -112,28 +120,28 @@ export interface Pattern {
  */
 export interface PatternDetectionConfig {
   /** Minimum silence duration (ms) to split patterns (default: 3000ms = 3 seconds) */
-  silenceThreshold: number
-  
+  silenceThreshold: number;
+
   /** Maximum age for patterns before auto-purge (ms) (default: 24 hours) */
-  autoPurgeAge: number
-  
+  autoPurgeAge: number;
+
   /** Maximum number of history notes to keep in memory (default: 10000) */
-  maxHistorySize: number
-  
+  maxHistorySize: number;
+
   /** Minimum pattern length to save (default: 2 notes) */
-  minPatternLength: number
-  
+  minPatternLength: number;
+
   /** Maximum pattern length before auto-splitting (default: 50 notes) */
-  maxPatternLength: number
-  
+  maxPatternLength: number;
+
   /** Whether to auto-detect patterns on context changes */
-  detectOnContextChange: boolean
-  
+  detectOnContextChange: boolean;
+
   /** Whether to auto-save interesting patterns */
-  autoSaveInterestingPatterns: boolean
-  
+  autoSaveInterestingPatterns: boolean;
+
   /** Minimum complexity score for auto-saving patterns */
-  autoSaveComplexityThreshold: number
+  autoSaveComplexityThreshold: number;
 }
 
 /**
@@ -147,38 +155,45 @@ export const DEFAULT_PATTERN_CONFIG: PatternDetectionConfig = {
   maxPatternLength: 50,
   detectOnContextChange: true,
   autoSaveInterestingPatterns: false, // Start disabled, user can enable
-  autoSaveComplexityThreshold: 0.6
-}
+  autoSaveComplexityThreshold: 0.6,
+};
 
 /**
  * Pattern search and filter options
  */
 export interface PatternSearchOptions {
   /** Filter by key */
-  key?: ChromaticNote
+  key?: ChromaticNote;
   /** Filter by mode */
-  mode?: MusicalMode  
+  mode?: MusicalMode;
   /** Filter by instrument */
-  instrument?: string
+  instrument?: string;
   /** Filter by pattern type */
-  patternType?: Pattern['patternType']
+  patternType?: Pattern["patternType"];
   /** Filter by saved status */
-  isSaved?: boolean
+  isSaved?: boolean;
+  /** Filter by default status (library patterns vs user patterns) */
+  isDefault?: boolean;
   /** Filter by minimum play count */
-  minPlayCount?: number
+  minPlayCount?: number;
   /** Filter by date range */
   dateRange?: {
-    start: number
-    end: number
-  }
+    start: number;
+    end: number;
+  };
   /** Text search in name/tags */
-  searchText?: string
+  searchText?: string;
   /** Sort field */
-  sortBy?: 'createdAt' | 'lastPlayedAt' | 'playCount' | 'noteCount' | 'complexityScore'
+  sortBy?:
+    | "createdAt"
+    | "lastPlayedAt"
+    | "playCount"
+    | "noteCount"
+    | "complexityScore";
   /** Sort direction */
-  sortDirection?: 'asc' | 'desc'
+  sortDirection?: "asc" | "desc";
   /** Maximum results to return */
-  limit?: number
+  limit?: number;
 }
 
 /**
@@ -186,21 +201,21 @@ export interface PatternSearchOptions {
  */
 export interface PatternStorageStats {
   /** Total number of patterns */
-  totalPatterns: number
+  totalPatterns: number;
   /** Number of saved patterns */
-  savedPatterns: number
+  savedPatterns: number;
   /** Number of history notes */
-  historySize: number
+  historySize: number;
   /** Storage usage in bytes (estimated) */
-  storageUsage: number
+  storageUsage: number;
   /** Oldest pattern date */
-  oldestPattern?: number
+  oldestPattern?: number;
   /** Most recent pattern date */
-  newestPattern?: number
+  newestPattern?: number;
   /** Most played pattern */
-  mostPlayedPattern?: Pattern
+  mostPlayedPattern?: Pattern;
   /** Average pattern length */
-  averagePatternLength: number
+  averagePatternLength: number;
 }
 
 /**
@@ -208,16 +223,16 @@ export interface PatternStorageStats {
  */
 export interface PatternExportData {
   /** Export metadata */
-  version: string
-  exportedAt: number
-  appVersion?: string
-  
+  version: string;
+  exportedAt: number;
+  appVersion?: string;
+
   /** Exported patterns */
-  patterns: Pattern[]
+  patterns: Pattern[];
   /** Configuration used */
-  config: PatternDetectionConfig
+  config: PatternDetectionConfig;
   /** Statistics at export time */
-  stats: PatternStorageStats
+  stats: PatternStorageStats;
 }
 
 /**
@@ -225,17 +240,17 @@ export interface PatternExportData {
  */
 export interface PatternSession {
   /** Unique session identifier */
-  id: string
+  id: string;
   /** When session started */
-  startTime: number
+  startTime: number;
   /** When session ended */
-  endTime?: number
+  endTime?: number;
   /** Musical context at session start */
-  initialKey: ChromaticNote
-  initialMode: MusicalMode
-  initialInstrument: string
+  initialKey: ChromaticNote;
+  initialMode: MusicalMode;
+  initialInstrument: string;
   /** Total notes played in session */
-  noteCount: number
+  noteCount: number;
   /** Patterns detected in this session */
-  patternIds: string[]
+  patternIds: string[];
 }

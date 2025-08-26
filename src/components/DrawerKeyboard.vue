@@ -1,35 +1,44 @@
 <template>
   <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
-    <!-- Action bar with controls -->
-    <KeyboardActionBar
-      class="absolute top-0 -translate-y-full left-0 right-0"
-    />
+    <!-- Live notation strip positioned above everything -->
+    <div class="absolute top-0 -translate-y-full left-0 right-0">
+      <LiveStrip
+        v-if="showLiveStrip"
+        class="live-strip-overlay"
+        :is-visible="store.drawer.isOpen"
+        :show-controls="false"
+        :show-metadata="true"
+      />
+
+      <!-- Action bar with controls -->
+      <KeyboardActionBar @toggle-live-strip="showLiveStrip = $event" />
+    </div>
 
     <!-- Keyboard grid -->
     <div :class="keyboardGridClasses" :style="keyboardGridStyles">
       <!-- Inner wrapper for padding -->
       <div :class="keyboardWrapperClasses">
         <!-- Solfège keys organized in octave rows -->
-      <div
-        v-for="octave in store.visibleOctaves"
-        :key="`octave-${octave}`"
-        :class="octaveRowClasses(octave)"
-      >
-        <template
-          v-for="(solfege, index) in store.solfegeData"
-          :key="`${solfege.name}-${octave}`"
+        <div
+          v-for="octave in store.visibleOctaves"
+          :key="`octave-${octave}`"
+          :class="octaveRowClasses(octave)"
         >
-          <KeyboardKey
-            v-if="index < 7"
+          <template
+            v-for="(solfege, index) in store.solfegeData"
             :key="`${solfege.name}-${octave}`"
-            :solfege="solfege"
-            :octave="octave"
-            :solfege-index="index"
-            :is-main-octave="octave === store.keyboardConfig.mainOctave"
-            class="flex-1 min-w-0"
-          />
-        </template>
-      </div>
+          >
+            <KeyboardKey
+              v-if="index < 7"
+              :key="`${solfege.name}-${octave}`"
+              :solfege="solfege"
+              :octave="octave"
+              :solfege-index="index"
+              :is-main-octave="octave === store.keyboardConfig.mainOctave"
+              class="flex-1 min-w-0"
+            />
+          </template>
+        </div>
       </div>
     </div>
   </div>
@@ -40,8 +49,9 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
+import { usePatternsStore } from "@/stores/patterns";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
-
+import LiveStrip from "./patterns/LiveStrip.vue";
 import KeyboardKey from "./keyboard/KeyboardKey.vue";
 
 // Component refs
@@ -49,6 +59,11 @@ const drawerRef = ref<HTMLElement | null>(null);
 
 // Store
 const store = useKeyboardDrawerStore();
+const patternsStore = usePatternsStore();
+
+// UI state
+const showLiveStrip = ref(true);
+const actionBarHeight = ref(48); // Height of the action bar in pixels
 
 // Drawer behavior composable
 const { animateDrawer } = useKeyboardDrawer(drawerRef);
@@ -180,6 +195,11 @@ div[ref="drawerRef"] > div:first-child {
   div[ref="drawerRef"] {
     max-height: 90vh !important;
   }
+}
+
+/* LiveStrip positioning - above action bar */
+.live-strip-overlay {
+  /* Space for action bar which is translated up */
 }
 
 /* Reduced motion support */

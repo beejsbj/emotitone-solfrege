@@ -26,7 +26,7 @@
         >
           {{ solfege.name }}
         </div>
-        <div :class="['mt-0.5', labelColorSecondary]" :style="subLabelStyles">
+        <div :class="['mt-0.5', labelColor]" :style="subLabelStyles">
           {{ noteName }}
         </div>
       </template>

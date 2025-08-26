@@ -31,6 +31,7 @@ export class PatternService {
   private currentSessionId: string = generateId()
   private lastNoteTime: number = 0
   private silenceTimer: number | null = null
+  private defaultPatternsLoaded: boolean = false
 
   constructor(config?: Partial<PatternDetectionConfig>) {
     // Import default config - handle async import safely
@@ -47,6 +48,9 @@ export class PatternService {
     }
 
     console.log('🎵 Pattern Service initialized with config:', this.config)
+    
+    // Load default patterns on initialization
+    this.loadDefaultPatterns()
   }
 
   /**
@@ -412,6 +416,9 @@ export class PatternService {
     if (options.isSaved !== undefined) {
       patterns = patterns.filter(p => p.isSaved === options.isSaved)
     }
+    if ('isDefault' in options && options.isDefault !== undefined) {
+      patterns = patterns.filter(p => p.isDefault === options.isDefault)
+    }
     if (options.minPlayCount) {
       patterns = patterns.filter(p => p.playCount >= options.minPlayCount!)
     }
@@ -449,6 +456,66 @@ export class PatternService {
   }
 
   /**
+   * Loads default patterns from the library
+   */
+  async loadDefaultPatterns(): Promise<void> {
+    if (this.defaultPatternsLoaded) {
+      console.log('🎵 Default patterns already loaded, skipping...')
+      console.log('🎵 Current default patterns count:', this.getDefaultPatterns().length)
+      return
+    }
+
+    try {
+      const { defaultPatterns } = await import('@/data/defaultPatterns')
+      
+      console.log(`📚 Loading ${defaultPatterns.length} default patterns...`)
+      
+      // Use deterministic IDs to prevent duplicates
+      let loadedCount = 0
+      for (const pattern of defaultPatterns) {
+        // Create a deterministic ID based on pattern name
+        const deterministicId = `default_${pattern.name?.toLowerCase().replace(/\s+/g, '_')}`
+        
+        // Check if this default pattern already exists
+        if (!this.patterns.has(deterministicId)) {
+          // Update the pattern with the deterministic ID
+          const patternWithId = {
+            ...pattern,
+            id: deterministicId,
+            createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000, // Set to 1 week ago
+            lastPlayedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+            isDefault: true, // Ensure isDefault flag is set
+          }
+          this.patterns.set(deterministicId, patternWithId)
+          loadedCount++
+        }
+      }
+      
+      this.defaultPatternsLoaded = true
+      console.log(`📚 Successfully loaded ${loadedCount} default patterns into pattern service`)
+      console.log('📚 Total patterns in service:', this.patterns.size)
+      console.log('📚 Default patterns now available:', this.getDefaultPatterns().length)
+    } catch (error) {
+      console.error('❌ Failed to load default patterns:', error)
+      this.defaultPatternsLoaded = false // Reset flag on error
+    }
+  }
+
+  /**
+   * Gets only default patterns
+   */
+  getDefaultPatterns(): Pattern[] {
+    return Array.from(this.patterns.values()).filter(p => p.isDefault === true)
+  }
+
+  /**
+   * Gets only user-recorded patterns
+   */
+  getUserPatterns(): Pattern[] {
+    return Array.from(this.patterns.values()).filter(p => !p.isDefault)
+  }
+
+  /**
    * Purges old patterns that aren't saved
    */
   purgeOldPatterns(): number {
@@ -456,7 +523,8 @@ export class PatternService {
     let purgedCount = 0
 
     for (const [id, pattern] of this.patterns) {
-      if (!pattern.isSaved && pattern.createdAt < cutoffTime) {
+      // Don't purge saved patterns or default patterns
+      if (!pattern.isSaved && !pattern.isDefault && pattern.createdAt < cutoffTime) {
         this.patterns.delete(id)
         purgedCount++
       }
@@ -509,8 +577,13 @@ export class PatternService {
     }
     
     if (data.patterns) {
-      this.patterns = new Map(data.patterns.map(p => [p.id, p]))
-      console.log(`📥 Loaded ${data.patterns.length} patterns`)
+      // Filter out any old default patterns before loading
+      const nonDefaultPatterns = data.patterns.filter(p => !p.isDefault)
+      this.patterns = new Map(nonDefaultPatterns.map(p => [p.id, p]))
+      console.log(`📥 Loaded ${nonDefaultPatterns.length} user patterns`)
+      
+      // Re-load default patterns to ensure we have the latest
+      this.loadDefaultPatterns()
     }
     
     if (data.config) {

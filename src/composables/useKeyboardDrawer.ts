@@ -4,7 +4,14 @@
  * - Just open/close slide animation for the keys container
  */
 
-import { computed, nextTick, onMounted, watch, type Ref } from "vue";
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  watch,
+  type Ref,
+} from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import useGSAP from "@/composables/useGSAP";
 
@@ -55,6 +62,11 @@ export function useKeyboardDrawer(targetRef: Ref<HTMLElement | null>) {
   const openDrawerAnimated = () => store.openDrawer();
   const closeDrawerAnimated = () => store.closeDrawer();
   const toggleDrawerAnimated = () => store.toggleDrawer();
+
+  onUnmounted(() => {
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  });
 
   return {
     store,

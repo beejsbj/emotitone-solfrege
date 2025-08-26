@@ -477,6 +477,75 @@ export function useColorSystem() {
   };
 
   /**
+   * Helper: Normalize an index within a base using positive modulo
+   */
+  const normalizeIndex = (index: number, base: number): number => {
+    return ((index % base) + base) % base;
+  };
+
+  /**
+   * Resolve solfege name from various inputs.
+   * - inputType 'scaleIndex': 0-6 (may be any integer; wraps mod 7)
+   * - inputType 'solfegeIndex': 1-7 (may be any integer; wraps so 7->Do, 8->Re, -1->Ti, etc.)
+   * - inputType 'solfegeName': a string like 'Do', 'Re', etc. (case-insensitive)
+   */
+  type SolfegeInputType = "scaleIndex" | "solfegeIndex" | "solfegeName";
+
+  const resolveSolfegeName = (
+    input: number | string,
+    inputType: SolfegeInputType = "scaleIndex"
+  ): string => {
+    if (inputType === "solfegeName") {
+      const name = String(input).replace("'", "");
+      const match = SOLFEGE_NOTES.find(
+        (n) => n.toLowerCase() === name.toLowerCase()
+      );
+      return match || SOLFEGE_NOTES[0];
+    }
+
+    if (inputType === "solfegeIndex") {
+      // 1-7 scale; wrap and map back to 1-7, then to 0-6
+      const normalizedOneToSeven = normalizeIndex(Number(input) - 1, 7) + 1;
+      const zeroToSix = normalizedOneToSeven - 1;
+      return SOLFEGE_NOTES[zeroToSix] || SOLFEGE_NOTES[0];
+    }
+
+    // Default: scaleIndex (0-6), but allow any integer and wrap
+    const zeroToSix = normalizeIndex(Number(input), 7);
+    return SOLFEGE_NOTES[zeroToSix] || SOLFEGE_NOTES[0];
+  };
+
+  /**
+   * Convenience: return static primary color from any solfege input format
+   */
+  const getStaticPrimaryColorFromSolfegeInput = (
+    input: number | string,
+    inputType: SolfegeInputType = "scaleIndex",
+    mode: MusicalMode = "major",
+    octave: number = 3
+  ): string => {
+    const solfegeName = resolveSolfegeName(input, inputType);
+    return getStaticPrimaryColor(solfegeName, mode, octave);
+  };
+
+  /**
+   * Expose normalized mapping info for external use
+   */
+  const getSolfegeMappingInfo = (
+    input: number | string,
+    inputType: SolfegeInputType = "scaleIndex"
+  ) => {
+    const name = resolveSolfegeName(input, inputType);
+    const zeroToSix = SOLFEGE_NOTES.indexOf(name);
+    const oneToSeven = zeroToSix + 1;
+    return {
+      solfegeName: name,
+      scaleIndex: zeroToSix, // 0-6
+      solfegeIndex: oneToSeven, // 1-7
+    };
+  };
+
+  /**
    * Create chord-specific conical glassmorphism background using gradient of multiple colors
    */
   const createChordConicGlassmorphBackground = (
@@ -677,6 +746,11 @@ export function useColorSystem() {
     withAlpha,
     createGradient,
     createConicGradient,
+
+    // Solfege helpers
+    resolveSolfegeName,
+    getStaticPrimaryColorFromSolfegeInput,
+    getSolfegeMappingInfo,
 
     // Glassmorphism functions
     createGlassmorphBackground,

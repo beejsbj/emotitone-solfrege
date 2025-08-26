@@ -2,6 +2,7 @@
   <button
     ref="keyRef"
     :class="keyClasses"
+    :style="keyStyles"
     :aria-label="ariaLabel"
     :aria-pressed="isPressed"
     @touchstart.prevent="handleTouchStart"
@@ -14,16 +15,26 @@
     @blur="isFocused = false"
   >
     <!-- Labels -->
-    <div v-if="config.showLabels" class="relative z-10 flex flex-col items-center justify-center pointer-events-none">
+    <div
+      v-if="config.showLabels"
+      class="relative z-10 flex flex-col items-center justify-center pointer-events-none"
+    >
       <template v-if="isMainOctave">
-        <div :class="['text-sm font-bold leading-tight', labelColor]">
+        <div
+          :class="['font-bold leading-[12px]', labelColor]"
+          :style="mainLabelStyles"
+        >
           {{ solfege.name }}
         </div>
-        <div :class="['text-[0.65rem] mt-0.5', labelColorSecondary]">
+        <div :class="['mt-0.5', labelColorSecondary]" :style="subLabelStyles">
           {{ noteName }}
         </div>
       </template>
-      <div v-else :class="['text-xs font-bold', labelColor]">
+      <div
+        v-else
+        :class="['font-bold leading-[0]', labelColor]"
+        :style="secondaryLabelStyles"
+      >
         {{ noteName }}
       </div>
     </div>
@@ -53,7 +64,8 @@ const props = withDefaults(defineProps<Props>(), {
 // Stores and composables
 const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
-const { attackNoteWithOctave, releaseNoteByButtonKey } = useSolfegeInteraction();
+const { attackNoteWithOctave, releaseNoteByButtonKey } =
+  useSolfegeInteraction();
 const { getKeyBackground, getKeyTextColor } = useColorSystem();
 
 // Component state
@@ -95,10 +107,40 @@ const keyColors = computed(() => {
 });
 
 // Text colors
-const labelColor = computed(() => getKeyTextColor(config.value.colorMode, isAccidental.value));
+const labelColor = computed(() =>
+  getKeyTextColor(config.value.colorMode, isAccidental.value)
+);
 const labelColorSecondary = computed(() => {
   const base = getKeyTextColor(config.value.colorMode, isAccidental.value);
   return base.replace("text-", "text-") + "/80";
+});
+
+// Font size styles based on keySize multiplier
+const mainLabelStyles = computed(() => ({
+  fontSize: `${0.875 * config.value.keySize}rem`, // Base 14px (text-sm)
+}));
+
+const subLabelStyles = computed(() => ({
+  fontSize: `${0.65 * config.value.keySize}rem`, // Base ~10.4px
+}));
+
+const secondaryLabelStyles = computed(() => ({
+  fontSize: `${0.75 * config.value.keySize}rem`, // Base 12px (text-xs)
+}));
+
+// Dynamic key sizing based on font size
+const keyStyles = computed(() => {
+  const baseHeight = props.isMainOctave ? 3.5 : 2.75; // rem units
+  const scaledHeight = baseHeight * config.value.keySize;
+  const minHeight = 2.75; // Minimum 44px touch target
+
+  return {
+    height: `${Math.max(scaledHeight, minHeight)}rem`,
+    minWidth: "2.75rem", // 44px min touch target
+    padding: `${0.5 * config.value.keySize}rem ${
+      0.75 * config.value.keySize
+    }rem`,
+  };
 });
 
 // Dynamic classes
@@ -108,29 +150,39 @@ const keyClasses = computed(() => {
     "relative flex items-center justify-center",
     "font-bold transition-all duration-150 ease-out",
     "select-none touch-manipulation",
-    // Minimum touch target
-    "min-h-[44px]",
   ];
 
-  // Size classes
-  const sizeClasses = props.isMainOctave 
-    ? "h-14 min-w-[44px]"  // Main octave: 56px (h-14)
-    : "h-11 min-w-[44px]"; // Other octaves: 44px (h-11)
+  // Dynamic sizing based on font size
+  const sizeClasses = props.isMainOctave
+    ? "" // Size handled by dynamic styles
+    : ""; // Size handled by dynamic styles
 
-  // Border radius using Tailwind's arbitrary value support
-  const radiusClass = `rounded-[${config.value.keyShape}px]`;
+  // Border radius class
+  const radiusClass = (() => {
+    const radius = config.value.keyShape;
+    if (radius === 0) return "rounded-none";
+    if (radius <= 4) return "rounded-sm";
+    if (radius <= 8) return "rounded-md";
+    if (radius <= 12) return "rounded-lg";
+    if (radius <= 16) return "rounded-xl";
+    if (radius <= 20) return "rounded-2xl";
+    if (radius <= 50) return "rounded-full";
+    return "rounded-2xl";
+  })();
 
   // Color mode specific classes
-  const colorModeClasses = {
-    glassmorphism: "backdrop-blur-md shadow-lg",
-    monochrome: "shadow-inner border border-gray-300",
-    colored: "shadow-lg",
-  }[config.value.colorMode] || "shadow-lg";
+  const colorModeClasses =
+    {
+      glassmorphism: "backdrop-blur-md shadow-lg",
+      monochrome: "shadow-inner border border-gray-300",
+      colored: "shadow-lg",
+    }[config.value.colorMode] || "shadow-lg";
 
   // State classes
   const stateClasses = [];
   if (isPressed.value) stateClasses.push("shadow-inner scale-95");
-  if (isFocused.value && !isPressed.value) stateClasses.push("ring-2 ring-offset-2 ring-blue-400/30");
+  if (isFocused.value && !isPressed.value)
+    stateClasses.push("ring-2 ring-offset-2 ring-blue-400/30");
 
   return [
     ...baseClasses,
@@ -214,14 +266,26 @@ const handleKeyboardRelease = (event: CustomEvent) => {
 
 // Lifecycle
 onMounted(() => {
-  window.addEventListener("keyboard-note-pressed", handleKeyboardPress as EventListener);
-  window.addEventListener("keyboard-note-released", handleKeyboardRelease as EventListener);
+  window.addEventListener(
+    "keyboard-note-pressed",
+    handleKeyboardPress as EventListener
+  );
+  window.addEventListener(
+    "keyboard-note-released",
+    handleKeyboardRelease as EventListener
+  );
 });
 
 onUnmounted(() => {
   store.clearAllTouches();
-  window.removeEventListener("keyboard-note-pressed", handleKeyboardPress as EventListener);
-  window.removeEventListener("keyboard-note-released", handleKeyboardRelease as EventListener);
+  window.removeEventListener(
+    "keyboard-note-pressed",
+    handleKeyboardPress as EventListener
+  );
+  window.removeEventListener(
+    "keyboard-note-released",
+    handleKeyboardRelease as EventListener
+  );
 });
 
 // Expose for parent components
@@ -239,9 +303,8 @@ button {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
-  background: v-bind('keyColors.background');
-  transform: scale(v-bind('config.keySize'));
-  transform-origin: center;
+  background: v-bind("keyColors.background");
+  border-radius: v-bind('config.keyShape + "px"');
 }
 
 /* High contrast mode support */

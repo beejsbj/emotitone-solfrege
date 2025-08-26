@@ -429,6 +429,8 @@ export interface KeyboardConfig {
   gradientDirection: number;
   /** Glassmorphism effect opacity for palette keys (0-1) */
   glassmorphOpacity: number;
+  /** Whether to add padding around the keyboard */
+  keyboardPadding: boolean;
 }
 
 /**

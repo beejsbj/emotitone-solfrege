@@ -697,7 +697,7 @@ export const UNIFIED_CONFIG = {
     keyShape: {
       value: 8,
       min: 0,
-      max: 20,
+      max: 50,
       step: 1,
       label: "Border Radius",
       format: (v: number) => `${v}px`,
@@ -769,6 +769,10 @@ export const UNIFIED_CONFIG = {
       step: 0.05,
       label: "Glass Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    keyboardPadding: {
+      value: false,
+      label: "Keyboard Padding",
     },
   },
 };

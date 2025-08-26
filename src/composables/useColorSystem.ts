@@ -590,7 +590,11 @@ export function useColorSystem() {
       const baseColor = isAccidental
         ? "hsla(0, 0%, 100%, 1)"
         : "hsla(0, 0%, 10%, 1)";
-      const adjustedColor = adjustColorHSL(baseColor, keyBrightness, keySaturation);
+      const adjustedColor = adjustColorHSL(
+        baseColor,
+        keyBrightness,
+        keySaturation
+      );
       return {
         background: adjustedColor,
         primaryColor: adjustedColor,
@@ -598,7 +602,7 @@ export function useColorSystem() {
     }
 
     // Get primary color for colored and glassmorphism modes
-    const primaryColor = getPrimaryColor(solfegeName, mode, octave);
+    const primaryColor = getStaticPrimaryColor(solfegeName, mode, octave);
     if (!primaryColor) {
       // Fallback color
       const fallback = "hsla(200, 70%, 50%, 1)";
@@ -610,7 +614,10 @@ export function useColorSystem() {
 
     if (colorMode === "glassmorphism") {
       // Glassmorphism mode
-      const glassBg = createGlassmorphBackground(primaryColor, glassmorphOpacity);
+      const glassBg = createGlassmorphBackground(
+        primaryColor,
+        glassmorphOpacity
+      );
       return {
         background: glassBg || `hsla(200, 70%, 50%, ${glassmorphOpacity})`,
         primaryColor,
@@ -618,7 +625,11 @@ export function useColorSystem() {
     }
 
     // Colored mode
-    const adjustedColor = adjustColorHSL(primaryColor, keyBrightness, keySaturation);
+    const adjustedColor = adjustColorHSL(
+      primaryColor,
+      keyBrightness,
+      keySaturation
+    );
     return {
       background: adjustedColor,
       primaryColor: adjustedColor,
@@ -636,7 +647,7 @@ export function useColorSystem() {
       // Monochrome: opposite of key color
       return isAccidental ? "text-black" : "text-white";
     }
-    
+
     // Colored and glassmorphism: black for accidentals, white for naturals
     return isAccidental ? "text-black" : "text-white";
   };

@@ -7,7 +7,9 @@
 
     <!-- Keyboard grid -->
     <div :class="keyboardGridClasses" :style="keyboardGridStyles">
-      <!-- Solfège keys organized in octave rows -->
+      <!-- Inner wrapper for padding -->
+      <div :class="keyboardWrapperClasses">
+        <!-- Solfège keys organized in octave rows -->
       <div
         v-for="octave in store.visibleOctaves"
         :key="`octave-${octave}`"
@@ -27,6 +29,7 @@
             class="flex-1 min-w-0"
           />
         </template>
+      </div>
       </div>
     </div>
   </div>
@@ -88,6 +91,13 @@ const keyboardGridClasses = computed(() => [
   "overflow-y-auto overflow-x-hidden",
   // Scroll behavior
   "scroll-smooth",
+]);
+
+const keyboardWrapperClasses = computed(() => [
+  // Layout
+  "flex flex-col flex-1",
+  // Padding if enabled
+  store.keyboardConfig.keyboardPadding ? "p-1" : "",
 ]);
 
 const keyboardGridStyles = computed(() => {

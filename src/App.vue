@@ -36,6 +36,8 @@
 <script setup lang="ts">
 import { useMusicStore } from "@/stores/music";
 import { useAppLoading } from "@/composables/useAppLoading";
+import { usePatternRecording } from "@/composables/usePatternRecording";
+import '@/utils/patternDebug'; // Initialize debug utilities
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
@@ -50,12 +52,19 @@ import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
 const musicStore = useMusicStore();
 const { isLoading } = useAppLoading();
 
+// Initialize pattern recording system
+const patternRecording = usePatternRecording();
+
 // Debug: Log the number of solfege notes
 console.log("Number of solfege notes:", musicStore.solfegeData.length);
 console.log(
   "Solfege data:",
   musicStore.solfegeData.map((s) => s.name)
 );
+
+// Debug: Log pattern recording initialization
+console.log("🎵 Pattern recording system initialized");
+console.log("   Recording status:", patternRecording.getRecordingStatus());
 
 const handleScroll = (direction: number) => {
   const container = document.querySelector(".sticky");

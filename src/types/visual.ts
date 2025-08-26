@@ -398,6 +398,30 @@ export interface BeatingShapesConfig {
 }
 
 /**
+ * Pattern recording and detection configuration
+ */
+export interface PatternConfig {
+  /** Whether pattern recording is enabled */
+  isEnabled: boolean;
+  /** Silence threshold in milliseconds to split patterns */
+  silenceThreshold: number;
+  /** Minimum number of notes to form a pattern */
+  minPatternLength: number;
+  /** Maximum number of notes in a pattern before auto-splitting */
+  maxPatternLength: number;
+  /** Maximum number of history notes to keep in memory */
+  maxHistorySize: number;
+  /** Age in hours after which unsaved patterns are purged */
+  autoPurgeAge: number;
+  /** Whether to detect patterns on musical context changes */
+  detectOnContextChange: boolean;
+  /** Whether to automatically save interesting patterns */
+  autoSaveInterestingPatterns: boolean;
+  /** Minimum complexity score for auto-saving patterns (0-1) */
+  autoSaveComplexityThreshold: number;
+}
+
+/**
  * Keyboard styling and layout configuration
  */
 export interface KeyboardConfig {
@@ -486,6 +510,8 @@ export interface VisualEffectsConfig {
   hilbertScope: HilbertScopeConfig;
   /** Beating Shapes configuration */
   beatingShapes: BeatingShapesConfig;
+  /** Pattern recording configuration */
+  patterns: PatternConfig;
   /** Keyboard styling configuration */
   keyboard: KeyboardConfig;
 }

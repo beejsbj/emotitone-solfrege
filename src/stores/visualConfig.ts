@@ -2,6 +2,8 @@ import { defineStore } from "pinia";
 import { ref, reactive, watch } from "vue";
 import { DEFAULT_CONFIG } from "@/composables/useVisualConfig";
 import type { VisualEffectsConfig } from "@/types/visual";
+import { patternService } from "@/services/patterns";
+import type { PatternDetectionConfig } from '@/types/patterns';
 
 const STORAGE_KEY = "emotitone-visual-config";
 const SAVED_CONFIGS_KEY = "emotitone-saved-configs";
@@ -202,6 +204,35 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       saveTimeout = setTimeout(saveToStorage, 500); // Debounce saves by 500ms
     },
     { deep: true }
+  );
+
+  // Watch specifically for pattern config changes and sync to pattern service
+  watch(
+    () => config.patterns,
+    (newPatternsConfig) => {
+      if (newPatternsConfig) {
+        try {
+          // Convert visual config format to pattern service format
+          const patternServiceConfig: Partial<PatternDetectionConfig> = {
+            silenceThreshold: newPatternsConfig.silenceThreshold,
+            minPatternLength: newPatternsConfig.minPatternLength,
+            maxPatternLength: newPatternsConfig.maxPatternLength,
+            maxHistorySize: newPatternsConfig.maxHistorySize,
+            autoPurgeAge: newPatternsConfig.autoPurgeAge * 60 * 60 * 1000, // Convert hours to milliseconds
+            detectOnContextChange: newPatternsConfig.detectOnContextChange,
+            autoSaveInterestingPatterns: newPatternsConfig.autoSaveInterestingPatterns,
+            autoSaveComplexityThreshold: newPatternsConfig.autoSaveComplexityThreshold,
+          };
+          
+          // Update pattern service configuration
+          patternService.updateConfig(patternServiceConfig);
+          console.log('🎵 Pattern service config synced from visual config:', patternServiceConfig);
+        } catch (error) {
+          console.error('❌ Failed to sync pattern config to pattern service:', error);
+        }
+      }
+    },
+    { deep: true, immediate: true }
   );
 
   // Initialize on store creation

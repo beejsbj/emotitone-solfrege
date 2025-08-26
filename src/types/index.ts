@@ -29,7 +29,8 @@ export type {
   VisualEffectsConfig,
   NoteColorRelationships,
   DynamicColorConfig,
-  PaletteConfig,
+  PatternConfig,
+  KeyboardConfig,
   FloatingPopupConfig,
 } from "./visual";
 

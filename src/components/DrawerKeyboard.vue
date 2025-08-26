@@ -128,7 +128,7 @@ const octaveRowClasses = (octave: number) => {
       medium: "gap-1",
     }[store.keyboardConfig.keyGaps] || "gap-0.5";
 
-  const octaveClasses = [];
+  const octaveClasses: string[] = [];
 
   return [...baseClasses, gapClasses, ...octaveClasses];
 };
@@ -136,7 +136,8 @@ const octaveRowClasses = (octave: number) => {
 // Initialize drawer with default state on mount
 onMounted(() => {
   // Ensure the drawer reflects current store state immediately
-  animateDrawer?.(true);
+  // The animateDrawer function may be null initially, but will be set by GSAP callback
+  // The useKeyboardDrawer composable handles initial animation in its onMounted
 });
 
 // Expose methods for external control if needed

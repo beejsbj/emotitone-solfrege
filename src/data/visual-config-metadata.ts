@@ -679,6 +679,74 @@ export const UNIFIED_CONFIG = {
     },
   },
 
+  patterns: {
+    _meta: {
+      label: "Pattern Recording",
+      icon: "🎵",
+      description: "Automatic pattern detection and recording settings",
+    },
+    isEnabled: {
+      value: true,
+      label: "Enable Pattern Recording",
+    },
+    silenceThreshold: {
+      value: 30000,
+      min: 30000,
+      max: 60000,
+      step: 5000,
+      label: "Silence Threshold",
+      format: (v: number) => `${(v / 1000).toFixed(0)}s`,
+    },
+    minPatternLength: {
+      value: 3,
+      min: 3,
+      max: 10,
+      step: 1,
+      label: "Min Pattern Length",
+      format: (v: number) => `${v} notes`,
+    },
+    maxPatternLength: {
+      value: 50,
+      min: 10,
+      max: 200,
+      step: 10,
+      label: "Max Pattern Length",
+      format: (v: number) => `${v} notes`,
+    },
+    maxHistorySize: {
+      value: 10000,
+      min: 1000,
+      max: 50000,
+      step: 1000,
+      label: "Max History Size",
+      format: (v: number) => `${v} notes`,
+    },
+    autoPurgeAge: {
+      value: 24,
+      min: 1,
+      max: 168,
+      step: 1,
+      label: "Auto-purge Age",
+      format: (v: number) => `${v}h`,
+    },
+    detectOnContextChange: {
+      value: true,
+      label: "Detect on Context Change",
+    },
+    autoSaveInterestingPatterns: {
+      value: false,
+      label: "Auto-save Interesting Patterns",
+    },
+    autoSaveComplexityThreshold: {
+      value: 0.6,
+      min: 0.1,
+      max: 1.0,
+      step: 0.1,
+      label: "Auto-save Complexity Threshold",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+  },
+
   keyboard: {
     _meta: {
       label: "Keyboard",

@@ -1,468 +1,385 @@
 /**
- * Bracket Notation Utilities
- * Functions to convert Pattern data to bracket notation for display/export
+ * Bracket Notation Utilities V2
+ *
+ * Simplified and normalized bracket notation generation with relative timing.
+ * V2 Changes:
+ * - Timing normalized to pattern start (relative, not absolute)
+ * - Simplified initial rest handling
+ * - Cleaner notation output
+ * - Better performance with reduced complexity
  */
 
-import type { Pattern, HistoryNote } from '@/types/patterns'
+import type { Pattern, HistoryNote } from "@/types/patterns";
 
-interface ConvertedNote {
-  name: string
-  start: number
-  release: number
-  velocity: number
+interface RelativeNote {
+  name: string;
+  relativeStart: number; // Seconds from pattern start
+  relativeDuration: number; // Duration in seconds
+  velocity: number;
+  originalNote: HistoryNote;
+}
+
+interface BracketNotationOptions {
+  isChromatic?: boolean; // Use note names instead of scale degrees
+  includeVelocity?: boolean; // Include velocity pattern
+  trimLongRests?: boolean; // Trim very long rests at start/end
+  maxInitialRest?: number; // Max initial rest duration (seconds)
+}
+
+interface BracketNotationResult {
+  notation: string;
+  velocityPattern?: string;
+  scaleString: string;
+  stats: {
+    totalDuration: number;
+    noteCount: number;
+    restCount: number;
+    trimmedInitialRest: number;
+  };
 }
 
 /**
- * Pure function to convert your Pattern to bracket notation
+ * Convert Pattern to clean bracket notation with relative timing
  */
 export function patternToBracketNotation(
   pattern: Pattern,
-  options: {
-    isChromatic?: boolean // Use note names instead of scale degrees
-    includeVelocity?: boolean // Include velocity pattern
-  } = {}
-): {
-  notation: string
-  velocityPattern?: string
-  scaleString: string
-} {
-  // Extract settings with defaults
-  const bpm = pattern.bpm ?? 60 // Default: 1 bar = 1 second (60 BPM at 4/4)
-  const timeSignature = parseTimeSignature(pattern.timeSignature ?? '4/4')
+  options: BracketNotationOptions = {}
+): BracketNotationResult {
+  // Default options
+  const opts = {
+    isChromatic: false,
+    includeVelocity: false,
+    trimLongRests: true,
+    maxInitialRest: 2.0, // Max 2 seconds initial rest
+    ...options,
+  };
 
-  // Calculate cycles per second (1 cycle = 1 bar)
-  // At 60 BPM with 4/4: 60/60/4 = 0.25 cycles/second
-  const cyclesPerSecond = bpm / 60 / timeSignature.numerator
+  if (!pattern.notes || pattern.notes.length === 0) {
+    return {
+      notation: "~",
+      scaleString: `${pattern.key || "C"} ${
+        pattern.mode || "major"
+      }`.toLowerCase(),
+      stats: {
+        totalDuration: 0,
+        noteCount: 0,
+        restCount: 0,
+        trimmedInitialRest: 0,
+      },
+    };
+  }
 
-  // Convert notes from milliseconds to cycles (beats)
-  const convertedNotes = pattern.notes.map((note) => ({
-    // Use scale degree (0-indexed) or note name based on isChromatic
-    name: options.isChromatic ? note.note : String(note.scaleDegree - 1), // Convert 1-7 to 0-6 for Strudel
-    start: (note.pressTime / 1000) * cyclesPerSecond,
-    release:
-      ((note.releaseTime ?? note.pressTime + (note.duration ?? 0)) / 1000) *
-      cyclesPerSecond,
-    velocity: note.velocity ?? 0.8,
-  }))
+  // Step 1: Normalize timing to be relative to pattern start
+  const relativeNotes = normalizePatternTiming(pattern.notes, opts);
 
-  // Sort by start time
-  const sortedNotes = [...convertedNotes].sort((a, b) => a.start - b.start)
+  // Step 2: Generate notation from relative notes
+  const notation = generateCleanNotation(relativeNotes, opts);
 
-  // Generate main notation
-  const notation = generateBracketNotation(sortedNotes)
+  // Step 3: Generate velocity pattern if requested
+  const velocityPattern = opts.includeVelocity
+    ? generateVelocityPattern(relativeNotes, opts)
+    : undefined;
 
-  // Generate velocity pattern if requested
-  const velocityPattern = options.includeVelocity
-    ? generateVelocityPattern(sortedNotes)
-    : undefined
-
-  // Format scale string for Strudel
-  const scaleString = `${pattern.key} ${pattern.mode}`.toLowerCase()
+  // Step 4: Calculate statistics
+  const stats = calculateNotationStats(relativeNotes, pattern);
 
   return {
     notation,
     velocityPattern,
-    scaleString,
-  }
+    scaleString: `${pattern.key || "C"} ${
+      pattern.mode || "major"
+    }`.toLowerCase(),
+    stats,
+  };
 }
 
 /**
- * Convert a single HistoryNote to simple bracket notation
+ * Normalize pattern timing to be relative to pattern start
  */
-export function historyNoteToBracketNotation(note: HistoryNote): string {
-  // Simple representation: just the scale degree or note name
-  return note.solfege.name.toLowerCase()
+function normalizePatternTiming(
+  notes: HistoryNote[],
+  options: BracketNotationOptions
+): RelativeNote[] {
+  if (notes.length === 0) return [];
+
+  // Find pattern start time
+  const patternStartTime = Math.min(...notes.map((n) => n.pressTime));
+
+  // Convert to relative timing
+  const relativeNotes: RelativeNote[] = notes.map((note) => {
+    const relativeStart = (note.pressTime - patternStartTime) / 1000; // Convert to seconds
+    const duration = note.duration || 500; // Default 500ms if no duration
+    const relativeDuration = duration / 1000; // Convert to seconds
+
+    return {
+      name: options.isChromatic ? note.note : String(note.scaleDegree - 1), // 0-indexed for Strudel
+      relativeStart,
+      relativeDuration,
+      velocity: note.velocity || 0.8,
+      originalNote: note,
+    };
+  });
+
+  // Sort by start time
+  return relativeNotes.sort((a, b) => a.relativeStart - b.relativeStart);
 }
 
 /**
- * Convert an array of HistoryNotes to a display-friendly string
+ * Generate clean bracket notation from relative notes
  */
-export function historyNotesToDisplay(notes: HistoryNote[]): string {
-  if (notes.length === 0) return ''
-  
-  // Group consecutive notes that are very close together (chords)
-  const grouped: string[] = []
-  let currentGroup: HistoryNote[] = []
-  let lastTime = 0
-  
-  for (const note of notes) {
-    if (currentGroup.length > 0 && note.pressTime - lastTime > 100) {
-      // More than 100ms gap, flush current group
-      if (currentGroup.length === 1) {
-        grouped.push(currentGroup[0].solfege.name)
-      } else {
-        // Chord notation
-        grouped.push(`[${currentGroup.map(n => n.solfege.name).join(',')}]`)
-      }
-      currentGroup = [note]
-    } else {
-      currentGroup.push(note)
-    }
-    lastTime = note.pressTime
-  }
-  
-  // Flush last group
-  if (currentGroup.length === 1) {
-    grouped.push(currentGroup[0].solfege.name)
-  } else if (currentGroup.length > 1) {
-    grouped.push(`[${currentGroup.map(n => n.solfege.name).join(',')}]`)
-  }
-  
-  return grouped.join(' ')
-}
-
-// Helper to parse time signature string
-function parseTimeSignature(timeSig: string): {
-  numerator: number
-  denominator: number
-} {
-  const [num, denom] = timeSig.split('/').map(Number)
-  return {
-    numerator: num || 4,
-    denominator: denom || 4,
-  }
-}
-
-// Core bracket notation generation
-function generateBracketNotation(
-  notes: ConvertedNote[]
+function generateCleanNotation(
+  notes: RelativeNote[],
+  options: BracketNotationOptions
 ): string {
-  if (notes.length === 0) return ''
+  if (notes.length === 0) return "~";
 
-  // Group overlapping notes
-  const groups = groupOverlappingNotes(notes)
-  const sortedGroups = groups.sort(
-    (a, b) =>
-      Math.min(...a.map((n) => n.start)) - Math.min(...b.map((n) => n.start))
-  )
+  const parts: string[] = [];
+  let currentTime = 0;
+  let trimmedInitialRest = 0;
 
-  const parts: string[] = []
-  let lastEnd = 0
-  let totalRestDuration = 0
-  let isCollectingInitialRests = true
+  for (let i = 0; i < notes.length; i++) {
+    const note = notes[i];
+    const restDuration = note.relativeStart - currentTime;
 
-  for (const group of sortedGroups) {
-    const groupStart = Math.min(...group.map((n) => n.start))
-    const groupEnd = Math.max(...group.map((n) => n.release))
-
-    // Add rest if there's a gap
-    const restDuration = groupStart - lastEnd
-    if (restDuration > 0.0001) {
-      // Floating point threshold
-      if (isCollectingInitialRests) {
-        // Collect initial rests
-        totalRestDuration += restDuration
+    // Handle rest before this note
+    if (restDuration > 0.001) {
+      // Ignore tiny gaps
+      if (
+        i === 0 &&
+        options.trimLongRests &&
+        restDuration > options.maxInitialRest!
+      ) {
+        // Trim long initial rest
+        const trimmedRest = Math.min(restDuration, options.maxInitialRest!);
+        if (trimmedRest > 0.001) {
+          parts.push(`~@${formatDuration(trimmedRest)}`);
+        }
+        trimmedInitialRest = restDuration - trimmedRest;
       } else {
-        // Add individual rest between notes
-        parts.push(`~@${formatDuration(restDuration)}`)
+        parts.push(`~@${formatDuration(restDuration)}`);
       }
-    }
-
-    // Generate notation for this group
-    const groupNotation = generateGroupNotation(group)
-    if (groupNotation) {
-      // If we were collecting initial rests, add them now as a single bundled rest
-      if (isCollectingInitialRests && totalRestDuration > 0.0001) {
-        parts.push(`~@${formatDuration(totalRestDuration)}`)
-        isCollectingInitialRests = false
-      }
-      isCollectingInitialRests = false
-      parts.push(groupNotation)
-      lastEnd = groupEnd
-    }
-  }
-
-  // If we only had rests, add the total
-  if (isCollectingInitialRests && totalRestDuration > 0.0001) {
-    parts.push(`~@${formatDuration(totalRestDuration)}`)
-  }
-
-  return bundleConsecutiveRests(parts.join(' '))
-}
-
-// Generate notation for a single group
-function generateGroupNotation(
-  group: ConvertedNote[]
-): string {
-  // Single note
-  if (group.length === 1) {
-    const note = group[0]
-    const duration = note.release - note.start
-    if (duration <= 0.0001) return ''
-    return `${note.name}${formatDurationString(duration)}`
-  }
-
-  // Multiple overlapping notes
-  const earliestStart = Math.min(...group.map((n) => n.start))
-  const latestRelease = Math.max(...group.map((n) => n.release))
-  const bracketLength = latestRelease - earliestStart
-
-  if (bracketLength <= 0.0001) return ''
-
-  const entries: string[] = []
-
-  for (const note of group) {
-    const offset = note.start - earliestStart
-    const duration = note.release - note.start
-    if (duration <= 0.0001) continue
-    const pad = bracketLength - offset - duration
-
-    let entry = ''
-
-    // Add pre-rest if note doesn't start immediately
-    if (offset > 0.0001) {
-      entry += `~${formatDurationString(offset)} `
     }
 
     // Add the note
-    entry += `${note.name}${formatDurationString(duration)}`
-
-    // Add post-rest if bracket continues beyond note
-    if (pad > 0.0001) {
-      entry += ` ~${formatDurationString(pad)}`
+    if (note.relativeDuration > 0.001) {
+      const notePart =
+        note.relativeDuration === 1.0
+          ? note.name // Whole note doesn't need @duration
+          : `${note.name}@${formatDuration(note.relativeDuration)}`;
+      parts.push(notePart);
     }
 
-    entries.push(entry)
+    currentTime = note.relativeStart + note.relativeDuration;
   }
 
-  if (entries.length === 0) return ''
-  return `{${entries.join(', ')}}${formatDurationString(bracketLength)}`
+  return parts.join(" ");
 }
 
-// Generate velocity pattern matching the note structure
+/**
+ * Generate velocity pattern matching the note structure
+ */
 function generateVelocityPattern(
-  notes: ConvertedNote[]
+  notes: RelativeNote[],
+  options: BracketNotationOptions
 ): string {
-  if (notes.length === 0) return ''
+  if (notes.length === 0) return "~";
 
-  const groups = groupOverlappingNotes(notes)
-  const sortedGroups = groups.sort(
-    (a, b) =>
-      Math.min(...a.map((n) => n.start)) - Math.min(...b.map((n) => n.start))
-  )
-
-  const parts: string[] = []
-  let lastEnd = 0
-
-  for (const group of sortedGroups) {
-    const groupStart = Math.min(...group.map((n) => n.start))
-    const groupEnd = Math.max(...group.map((n) => n.release))
-
-    // Add rest if there's a gap
-    const restDuration = groupStart - lastEnd
-    if (restDuration > 0.0001) {
-      parts.push(`~@${formatDuration(restDuration)}`)
-    }
-
-    // Generate velocity notation for this group
-    const groupNotation = generateVelocityGroupNotation(group)
-    if (groupNotation) {
-      parts.push(groupNotation)
-      lastEnd = groupEnd
-    }
-  }
-
-  return parts.join(' ')
-}
-
-// Generate velocity notation for a group
-function generateVelocityGroupNotation(
-  group: ConvertedNote[]
-): string {
-  // Single velocity
-  if (group.length === 1) {
-    const note = group[0]
-    const duration = note.release - note.start
-    if (duration <= 0.0001) return ''
-    return `${note.velocity.toFixed(2)}${formatDurationString(duration)}`
-  }
-
-  // Multiple overlapping velocities
-  const earliestStart = Math.min(...group.map((n) => n.start))
-  const latestRelease = Math.max(...group.map((n) => n.release))
-  const bracketLength = latestRelease - earliestStart
-
-  if (bracketLength <= 0.0001) return ''
-
-  const entries: string[] = []
-
-  for (const note of group) {
-    const offset = note.start - earliestStart
-    const duration = note.release - note.start
-    if (duration <= 0.0001) continue
-    const pad = bracketLength - offset - duration
-
-    let entry = ''
-
-    if (offset > 0.0001) {
-      entry += `~${formatDurationString(offset)} `
-    }
-
-    entry += `${note.velocity.toFixed(2)}${formatDurationString(duration)}`
-
-    if (pad > 0.0001) {
-      entry += ` ~${formatDurationString(pad)}`
-    }
-
-    entries.push(entry)
-  }
-
-  if (entries.length === 0) return ''
-  return `{${entries.join(', ')}}${formatDurationString(bracketLength)}`
-}
-
-// Helper: Group overlapping notes
-function groupOverlappingNotes<T extends { start: number; release: number }>(
-  notes: T[]
-): T[][] {
-  const groups: T[][] = []
+  const parts: string[] = [];
+  let currentTime = 0;
 
   for (const note of notes) {
-    let addedToGroup = false
+    const restDuration = note.relativeStart - currentTime;
 
-    for (const group of groups) {
-      if (group.some((gNote) => notesOverlap(note, gNote))) {
-        group.push(note)
-        addedToGroup = true
-        break
-      }
+    // Handle rest before this note
+    if (restDuration > 0.001) {
+      parts.push(`~@${formatDuration(restDuration)}`);
     }
 
-    if (!addedToGroup) {
-      groups.push([note])
+    // Add velocity value
+    if (note.relativeDuration > 0.001) {
+      const velocityPart =
+        note.relativeDuration === 1.0
+          ? note.velocity.toFixed(2)
+          : `${note.velocity.toFixed(2)}@${formatDuration(
+              note.relativeDuration
+            )}`;
+      parts.push(velocityPart);
     }
+
+    currentTime = note.relativeStart + note.relativeDuration;
   }
 
-  return groups
+  return parts.join(" ");
 }
 
-// Helper: Check if notes overlap
-function notesOverlap(
-  note1: { start: number; release: number },
-  note2: { start: number; release: number }
-): boolean {
-  return (
-    Math.max(note1.start, note2.start) <
-    Math.min(note1.release, note2.release)
-  )
+/**
+ * Calculate notation statistics
+ */
+function calculateNotationStats(
+  notes: RelativeNote[],
+  pattern: Pattern
+): BracketNotationResult["stats"] {
+  if (notes.length === 0) {
+    return {
+      totalDuration: 0,
+      noteCount: 0,
+      restCount: 0,
+      trimmedInitialRest: 0,
+    };
+  }
+
+  const lastNote = notes[notes.length - 1];
+  const totalDuration = lastNote.relativeStart + lastNote.relativeDuration;
+
+  // Count rests (simplified - just count gaps between notes)
+  let restCount = 0;
+  for (let i = 1; i < notes.length; i++) {
+    const prevNote = notes[i - 1];
+    const currentNote = notes[i];
+    const gap =
+      currentNote.relativeStart -
+      (prevNote.relativeStart + prevNote.relativeDuration);
+    if (gap > 0.001) restCount++;
+  }
+
+  return {
+    totalDuration,
+    noteCount: notes.length,
+    restCount,
+    trimmedInitialRest: 0, // TODO: Track this if needed
+  };
 }
 
-// Format duration for output
-function formatDurationString(duration: number): string {
-  // Special cases for common durations
-  if (Math.abs(duration - 1) < 0.0001) return '' // Whole note has no @
-  if (Math.abs(duration - 0.5) < 0.0001) return '@0.5'
-  if (Math.abs(duration - 0.25) < 0.0001) return '@0.25'
-  if (Math.abs(duration - 0.125) < 0.0001) return '@0.125'
-
-  // Round to 4 decimal places
-  return `@${formatDuration(duration)}`
+/**
+ * Convert a single HistoryNote to simple notation
+ */
+export function historyNoteToBracketNotation(note: HistoryNote): string {
+  return note.solfege.name.toLowerCase();
 }
 
-// Round duration to 4 decimal places
-function formatDuration(duration: number): string {
-  return String(Math.round(duration * 10000) / 10000)
-}
+/**
+ * Convert an array of HistoryNotes to display-friendly string
+ * Simplified version that just shows the sequence
+ */
+export function historyNotesToDisplay(notes: HistoryNote[]): string {
+  if (notes.length === 0) return "";
 
-// Bundle consecutive rests in notation string
-function bundleConsecutiveRests(notation: string): string {
-  if (!notation) return ''
-  
-  // Split the notation into parts
-  const parts = notation.split(' ')
-  const bundled: string[] = []
-  let restAccumulator = 0
-  let hasAccumulatedRest = false
-  
-  for (const part of parts) {
-    // Check if this part is a rest (starts with ~@)
-    if (part.startsWith('~@')) {
-      // Extract the duration
-      const duration = parseFloat(part.substring(2))
-      if (!isNaN(duration)) {
-        restAccumulator += duration
-        hasAccumulatedRest = true
+  // Simple approach: just show note names with basic chord detection
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < notes.length) {
+    const currentNote = notes[i];
+    const chordNotes = [currentNote];
+
+    // Look for notes that start very close together (chord)
+    while (i + 1 < notes.length) {
+      const nextNote = notes[i + 1];
+      if (nextNote.pressTime - currentNote.pressTime < 100) {
+        // 100ms window
+        chordNotes.push(nextNote);
+        i++;
       } else {
-        // If we can't parse it, just add it as is
-        if (hasAccumulatedRest) {
-          bundled.push(`~@${formatDuration(restAccumulator)}`)
-          restAccumulator = 0
-          hasAccumulatedRest = false
-        }
-        bundled.push(part)
+        break;
       }
+    }
+
+    // Format as chord or single note
+    if (chordNotes.length === 1) {
+      result.push(chordNotes[0].solfege.name);
     } else {
-      // Not a rest, flush any accumulated rests
-      if (hasAccumulatedRest) {
-        bundled.push(`~@${formatDuration(restAccumulator)}`)
-        restAccumulator = 0
-        hasAccumulatedRest = false
-      }
-      bundled.push(part)
+      const chordNames = chordNotes.map((n) => n.solfege.name).join(",");
+      result.push(`[${chordNames}]`);
     }
+
+    i++;
   }
-  
-  // Flush any remaining accumulated rests
-  if (hasAccumulatedRest) {
-    bundled.push(`~@${formatDuration(restAccumulator)}`)
-  }
-  
-  // Now trim long rests at start and end
-  return trimLongRests(bundled)
+
+  return result.join(" ");
 }
 
-// Trim long rests at the start and end of notation
-function trimLongRests(parts: string[]): string {
-  if (parts.length === 0) return ''
-  
-  const result = [...parts]
-  const REST_THRESHOLD = 10 // Threshold for "long" rests
-  const TRIMMED_REST = '~@2' // What to replace long rests with
-  
-  // Check and trim first element if it's a long rest
-  if (result.length > 0 && result[0].startsWith('~@')) {
-    const duration = parseFloat(result[0].substring(2))
-    if (!isNaN(duration) && duration > REST_THRESHOLD) {
-      result[0] = TRIMMED_REST
-    }
-  }
-  
-  // Check and trim last element if it's a long rest
-  if (result.length > 0 && result[result.length - 1].startsWith('~@')) {
-    const duration = parseFloat(result[result.length - 1].substring(2))
-    if (!isNaN(duration) && duration > REST_THRESHOLD) {
-      result[result.length - 1] = TRIMMED_REST
-    }
-  }
-  
-  return result.join(' ')
-}
-
-// Generate Strudel code from the bracket notation
+/**
+ * Generate Strudel code from bracket notation
+ */
 export function generateStrudelCode(
   notation: string,
   scaleString: string,
   options: {
-    isChromatic?: boolean
-    sound?: string
-    velocityPattern?: string
+    isChromatic?: boolean;
+    sound?: string;
+    velocityPattern?: string;
   } = {}
 ): string {
-  const sound = options.sound ?? 'piano'
+  const sound = options.sound ?? "piano";
 
-  let code: string
+  let code: string;
   if (options.isChromatic) {
     // Chromatic mode - use note() with note names
-    code = `note(\`${notation}\`).sound("${sound}")`
+    code = `note(\`${notation}\`).sound("${sound}")`;
   } else {
     // Scale degree mode - use n() with scale
-    code = `n(\`${notation}\`).scale("${scaleString}").sound("${sound}")`
+    code = `n(\`${notation}\`).scale("${scaleString}").sound("${sound}")`;
   }
 
   // Add velocity if available
   if (options.velocityPattern) {
-    code += `.velocity(\`${options.velocityPattern}\`)`
+    code += `.velocity(\`${options.velocityPattern}\`)`;
   }
 
-  return code
+  return code;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Format duration to clean string representation
+ */
+function formatDuration(duration: number): string {
+  // Handle common musical durations
+  if (Math.abs(duration - 1.0) < 0.001) return "1";
+  if (Math.abs(duration - 0.5) < 0.001) return "0.5";
+  if (Math.abs(duration - 0.25) < 0.001) return "0.25";
+  if (Math.abs(duration - 0.125) < 0.001) return "0.125";
+
+  // Round to reasonable precision
+  return duration.toFixed(3).replace(/\.?0+$/, "");
+}
+
+/**
+ * Parse time signature string
+ */
+function parseTimeSignature(timeSig: string): {
+  numerator: number;
+  denominator: number;
+} {
+  const [num, denom] = timeSig.split("/").map(Number);
+  return {
+    numerator: num || 4,
+    denominator: denom || 4,
+  };
+}
+
+// ============================================================================
+// LEGACY COMPATIBILITY
+// ============================================================================
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use patternToBracketNotation instead
+ */
+export function patternToBracketNotationLegacy(
+  pattern: Pattern,
+  options: any = {}
+): any {
+  console.warn(
+    "patternToBracketNotationLegacy is deprecated, use patternToBracketNotation"
+  );
+  const result = patternToBracketNotation(pattern, options);
+  return {
+    notation: result.notation,
+    velocityPattern: result.velocityPattern,
+    scaleString: result.scaleString,
+  };
 }

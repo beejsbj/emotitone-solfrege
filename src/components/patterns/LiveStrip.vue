@@ -20,9 +20,9 @@
         <div
           v-if="patterns.length === 0"
           key="placeholder"
-          class="pattern-segment placeholder"
+          class="pattern-card placeholder"
         >
-          <div class="pattern-notation">
+          <div class="card-body">
             <span class="notation-text"
               >Play some notes to see patterns...</span
             >
@@ -37,39 +37,78 @@
           class="pattern-card"
           :class="{
             'is-default': pattern.isDefault,
-            'is-saved': pattern.isSaved,
-            'is-current':
-              !pattern.isDefault &&
-              !pattern.isSaved &&
-              index === patterns.length - 1,
+            'is-saved': pattern.isSaved && !pattern.isDefault,
+            'is-current': isCurrentPattern(pattern, index),
           }"
         >
+          <!-- Pattern header with metadata and actions -->
           <div class="card-header">
-            <div class="flex gap-4 items-center">
+            <div class="pattern-info">
               <span class="pattern-name">{{ getPatternName(pattern) }}</span>
-              <span class="meta-type" v-if="pattern.isDefault">default</span>
-              <span class="meta-type" v-else-if="pattern.isSaved">saved</span>
-              <span class="meta-key"
-                >{{ pattern.key || "C" }} {{ pattern.mode || "major" }}</span
-              >
-              <span class="meta-notes"
-                >{{
-                  pattern.noteCount || pattern.notes?.length || 0
-                }}
-                notes</span
-              >
+              <div class="pattern-meta">
+                <span v-if="pattern.isDefault" class="meta-badge meta-default">
+                  default
+                </span>
+                <span v-else-if="pattern.isSaved" class="meta-badge meta-saved">
+                  saved
+                </span>
+                <span
+                  v-else-if="isCurrentPattern(pattern, index)"
+                  class="meta-badge meta-current"
+                >
+                  current
+                </span>
+                <span class="meta-info">
+                  {{ pattern.key || "C" }} {{ pattern.mode || "major" }}
+                </span>
+                <span class="meta-info">
+                  {{ pattern.noteCount || pattern.notes?.length || 0 }} notes
+                </span>
+              </div>
             </div>
+
             <div class="card-actions">
-              <button class="copy-btn" @click="copyNotation(pattern)">
+              <!-- Backspace button for current pattern -->
+              <button
+                v-if="isCurrentPattern(pattern, index) && canBackspace"
+                class="action-btn backspace-btn"
+                @click="handleBackspace"
+                title="Remove last note"
+                :disabled="!canBackspace"
+              >
+                ⌫
+              </button>
+
+              <!-- Copy button -->
+              <button
+                class="action-btn copy-btn"
+                @click="copyPattern(pattern)"
+                title="Copy notation"
+              >
                 Copy
+              </button>
+
+              <!-- Save button for unsaved patterns -->
+              <button
+                v-if="!pattern.isSaved && !pattern.isDefault"
+                class="action-btn save-btn"
+                @click="savePattern(pattern)"
+                title="Save pattern"
+              >
+                Save
               </button>
             </div>
           </div>
+
+          <!-- Pattern notation display (safe rendering) -->
           <div class="card-body">
-            <code
-              class="flex items-center gap-4 notation-text"
-              v-html="getPatternNotation(pattern)"
-            ></code>
+            <div class="notation-display">
+              <NotationRenderer
+                :pattern="pattern"
+                :show-colors="true"
+                class="notation-content"
+              />
+            </div>
           </div>
         </div>
       </TransitionGroup>
@@ -84,16 +123,10 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { gsap } from "gsap";
 import { usePatternsStore } from "@/stores/patterns";
-import {
-  patternToBracketNotation,
-  historyNotesToDisplay,
-} from "@/utils/bracketNotation";
+import { usePatternRecording } from "@/composables/usePatternRecording";
+import { patternToBracketNotation } from "@/utils/bracketNotation";
 import type { Pattern } from "@/types/patterns";
-import type { MusicalMode } from "@/types";
-import { useColorSystem } from "@/composables/useColorSystem";
-
-const { getStaticPrimaryColorFromSolfegeInput, createGradient } =
-  useColorSystem();
+import NotationRenderer from "./NotationRenderer.vue";
 
 // Props
 interface Props {
@@ -108,12 +141,13 @@ const props = withDefaults(defineProps<Props>(), {
   showMetadata: true,
   showControls: true,
   isVisible: true,
-  maxPatterns: 100, // Show more patterns since they're the ledger
+  maxPatterns: 50, // Reasonable limit for performance
   autoScroll: true,
 });
 
-// Store
+// Stores and composables
 const patternsStore = usePatternsStore();
+const patternRecording = usePatternRecording();
 
 // Refs
 const containerRef = ref<HTMLElement>();
@@ -121,28 +155,21 @@ const scrollContainerRef = ref<HTMLElement>();
 const endMarkerRef = ref<HTMLElement>();
 const segmentRefs = ref<Map<number, HTMLElement>>(new Map());
 
-// Scroll state
-const canScrollLeft = ref(false);
-const canScrollRight = ref(false);
+// State
 const isAutoScrolling = ref(false);
 
 // Animation context
 let animationContext: any | null = null;
 
-// Set segment ref for animation targeting
-function setSegmentRef(el: any, index: number) {
-  if (el) {
-    segmentRefs.value.set(index, el as HTMLElement);
-  } else {
-    segmentRefs.value.delete(index);
-  }
-}
+// ============================================================================
+// COMPUTED PROPERTIES
+// ============================================================================
 
-// Get patterns from store - this is reactive and updates immediately
+// Get patterns from store with optional limiting
 const patterns = computed(() => {
   const allPatterns = patternsStore.patterns;
 
-  // Limit if needed
+  // Apply pattern limit if specified
   if (props.maxPatterns && allPatterns.length > props.maxPatterns) {
     // Keep default patterns and most recent user patterns
     const defaultPatterns = allPatterns.filter((p) => p.isDefault);
@@ -156,260 +183,134 @@ const patterns = computed(() => {
   return allPatterns;
 });
 
-// Pattern name fallback
+// Check if backspace is available
+const canBackspace = computed(() => {
+  const current = patternsStore.currentPattern;
+  return current && current.notes && current.notes.length > 0;
+});
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Check if a pattern is the current pattern being built
+ */
+function isCurrentPattern(pattern: Pattern, index: number): boolean {
+  // Current pattern is the last non-default, non-saved pattern
+  return (
+    !pattern.isDefault &&
+    !pattern.isSaved &&
+    pattern.id === patternsStore.currentPattern?.id
+  );
+}
+
+/**
+ * Get display name for a pattern
+ */
 function getPatternName(pattern: Pattern): string {
   if (pattern.name) return pattern.name;
+
   const type = pattern.patternType || "pattern";
   const count = pattern.noteCount || pattern.notes?.length || 0;
+
+  if (pattern.isDefault) {
+    return pattern.name || `${type}`;
+  }
+
   return `${type} · ${count} notes`;
 }
 
-// Convert pattern to display notation
-function getPatternNotation(pattern: Pattern): string {
-  if (!pattern.notes || pattern.notes.length === 0) {
-    return pattern.name || "~";
+/**
+ * Set segment ref for animation targeting
+ */
+function setSegmentRef(el: any, index: number) {
+  if (el) {
+    segmentRefs.value.set(index, el as HTMLElement);
+  } else {
+    segmentRefs.value.delete(index);
   }
-
-  // For longer patterns, use bracket notation
-  const { notation } = patternToBracketNotation(pattern, {
-    isChromatic: false,
-    includeVelocity: false,
-  });
-
-  console.log("notation", notation);
-
-  const key = pattern.key || "C";
-  const mode = pattern.mode || "major";
-
-  const notationTemplate = `
-	<div class="inline-grid justify-items-center select-none">	
-		<div class="note w-full text-center text-white font-black clip-path-note text-sm leading-none" style="background: {{ color }};">
-			{{ content }}
-		</div>
-		<div class="duration w-full bg-black text-white text-center text-xs">
-			{{ duration }}
-		</div>
-      </div>
-    </div>
-    `;
-
-  // Smaller inner template for grouped notes
-  const innerNotationTemplate = `
-	<div class="inline-grid justify-items-center select-none">	
-		<div class="note w-full text-center text-white font-semibold text-xs leading-none" style="background: {{ color }};">
-			{{ note }}
-		</div>
-		<div class="duration w-full bg-black text-white text-center text-[10px]">
-			{{ duration }}
-		</div>
-      </div>
-    `;
-
-  // Tokenize notation respecting curly-brace groups
-  function tokenizeNotationString(input: string): string[] {
-    const tokens: string[] = [];
-    let buffer = "";
-    let depth = 0;
-    for (let i = 0; i < input.length; i++) {
-      const ch = input[i];
-      if (ch === "{") {
-        depth++;
-        buffer += ch;
-        continue;
-      }
-      if (ch === "}") {
-        depth = Math.max(0, depth - 1);
-        buffer += ch;
-        continue;
-      }
-      if (ch === " " && depth === 0) {
-        if (buffer.trim().length > 0) tokens.push(buffer.trim());
-        buffer = "";
-        continue;
-      }
-      buffer += ch;
-    }
-    if (buffer.trim().length > 0) tokens.push(buffer.trim());
-    return tokens;
-  }
-
-  type SimpleToken = { type: "simple"; note: string; duration: string };
-  type GroupToken = {
-    type: "group";
-    items: (SimpleToken | GroupToken)[];
-    duration: string;
-  };
-
-  function parseToken(token: string): SimpleToken | GroupToken {
-    if (token.startsWith("{")) {
-      // Format: { ... }@duration
-      const closeIdx = token.lastIndexOf("}@");
-      if (closeIdx !== -1) {
-        const inner = token.slice(1, closeIdx);
-        const duration = token.slice(closeIdx + 2 + 1); // skip }@
-        const innerTokens = tokenizeNotationString(inner).map(parseToken);
-        return { type: "group", items: innerTokens, duration };
-      }
-      // Fallback: treat as simple if malformed
-    }
-    const [note, duration = ""] = token.split("@");
-    return { type: "simple", note, duration };
-  }
-
-  function flattenFirstSimple(t: SimpleToken | GroupToken): SimpleToken | null {
-    if (t.type === "simple") return t;
-    for (const it of t.items) {
-      const found = flattenFirstSimple(it);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  function renderSimple(token: SimpleToken, mode: MusicalMode): string {
-    const note = token.note;
-    const duration = token.duration;
-    const scaleIndex = Number(note);
-    const color =
-      note === "~"
-        ? "hsla(0, 0%, 10%, 1)"
-        : getStaticPrimaryColorFromSolfegeInput(
-            isNaN(scaleIndex) ? 0 : scaleIndex,
-            "scaleIndex",
-            mode
-          );
-    const durationFormatted = isNaN(Number(duration))
-      ? duration
-      : Number(duration).toFixed(4);
-    return notationTemplate
-      .replace("{{ color }}", color)
-      .replace("{{ content }}", note)
-      .replace("{{ duration }}", durationFormatted);
-  }
-
-  function renderGroup(token: GroupToken, mode: MusicalMode): string {
-    // Build gradient from all inner simple note colors
-    const collectColors = (t: SimpleToken | GroupToken, acc: string[]) => {
-      if (t.type === "simple") {
-        const note = t.note;
-        const idx = Number(note);
-        if (note !== "~") {
-          const c = getStaticPrimaryColorFromSolfegeInput(
-            isNaN(idx) ? 0 : idx,
-            "scaleIndex",
-            mode
-          );
-          acc.push(c);
-        }
-        return acc;
-      }
-      t.items.forEach((it) => collectColors(it, acc));
-      return acc;
-    };
-    const colors = collectColors(token, [] as string[]);
-    const outerColor =
-      colors.length > 0 ? createGradient(colors) : "hsla(0, 0%, 10%, 1)";
-
-    // Render inner items using the inner template
-    const innerHTML = token.items
-      .map((it) => {
-        if (it.type === "simple") {
-          const note = it.note;
-          const duration = it.duration;
-          const scaleIndex = Number(note);
-          const color =
-            note === "~"
-              ? "hsla(0, 0%, 10%, 1)"
-              : getStaticPrimaryColorFromSolfegeInput(
-                  isNaN(scaleIndex) ? 0 : scaleIndex,
-                  "scaleIndex",
-                  mode
-                );
-          const durationFormatted = isNaN(Number(duration))
-            ? duration
-            : Number(duration).toFixed(4);
-          return innerNotationTemplate
-            .replace("{{ color }}", color)
-            .replace("{{ note }}", note)
-            .replace("{{ duration }}", durationFormatted);
-        } else {
-          return renderGroup(it, mode);
-        }
-      })
-      .join("");
-
-    const durationFormatted = isNaN(Number(token.duration))
-      ? token.duration
-      : Number(token.duration).toFixed(4);
-
-    return notationTemplate
-      .replace("{{ color }}", outerColor)
-      .replace("{{ content }}", innerHTML)
-      .replace("{{ duration }}", durationFormatted);
-  }
-
-  const rawTokens = tokenizeNotationString(notation);
-  const parsedTokens = rawTokens.map(parseToken);
-
-  const notationString = parsedTokens
-    .map((tok) =>
-      tok.type === "simple"
-        ? renderSimple(tok, mode as MusicalMode)
-        : renderGroup(tok, mode as MusicalMode)
-    )
-    .join("");
-
-  console.log("notationArray", parsedTokens);
-
-  return notationString || pattern.name || "~";
 }
 
-// Copy notation to clipboard
-async function copyNotation(pattern: Pattern) {
-  const text = getPatternNotation(pattern);
+// ============================================================================
+// ACTIONS
+// ============================================================================
+
+/**
+ * Handle backspace action - remove last note
+ */
+function handleBackspace() {
+  if (!canBackspace.value) return;
+
+  const success = patternRecording.removeLastNote();
+  if (success) {
+    console.log("🎵 Removed last note from current pattern");
+  }
+}
+
+/**
+ * Copy pattern notation to clipboard
+ */
+async function copyPattern(pattern: Pattern) {
   try {
-    await navigator.clipboard.writeText(text);
-  } catch (e) {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
+    const result = patternToBracketNotation(pattern, {
+      isChromatic: false,
+      includeVelocity: false,
+    });
+
+    const textToCopy = result.notation;
+
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(textToCopy);
+    } else {
+      // Fallback for older browsers
+      const textarea = document.createElement("textarea");
+      textarea.value = textToCopy;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
       document.execCommand("copy");
-    } catch {}
-    document.body.removeChild(textarea);
+      document.body.removeChild(textarea);
+    }
+
+    console.log(`📋 Copied pattern notation: ${textToCopy}`);
+  } catch (error) {
+    console.error("❌ Failed to copy pattern:", error);
   }
 }
 
-// Handle scroll events
+/**
+ * Save a pattern
+ */
+function savePattern(pattern: Pattern) {
+  const success = patternsStore.savePattern(pattern.id);
+  if (success) {
+    console.log(`💾 Pattern saved: ${pattern.id}`);
+  }
+}
+
+/**
+ * Handle scroll events
+ */
 function handleScroll() {
   if (!scrollContainerRef.value || isAutoScrolling.value) return;
-
-  const container = scrollContainerRef.value;
-  canScrollLeft.value = container.scrollLeft > 0;
-  canScrollRight.value =
-    container.scrollLeft < container.scrollWidth - container.clientWidth;
+  // Could add scroll indicators here if needed
 }
 
-// Scroll to start
-function scrollToStart() {
-  if (!scrollContainerRef.value) return;
-  scrollContainerRef.value.scrollTo({
-    left: 0,
-    behavior: "smooth",
-  });
-}
-
-// Scroll to end (auto-scroll)
+/**
+ * Scroll to end (auto-scroll for new patterns)
+ */
 function scrollToEnd() {
   if (!scrollContainerRef.value || !props.autoScroll) return;
 
   isAutoScrolling.value = true;
   const container = scrollContainerRef.value;
+
+  // Scroll to bottom (vertical scroll)
   container.scrollTo({
-    left: container.scrollWidth,
+    top: container.scrollHeight,
     behavior: "smooth",
   });
 
@@ -419,18 +320,9 @@ function scrollToEnd() {
   }, 500);
 }
 
-// Clear history
-function clearHistory() {
-  if (
-    confirm(
-      "Clear all playing history? This will remove all auto-detected patterns."
-    )
-  ) {
-    patternsStore.clearAllData();
-  }
-}
-
-// Animate new segments
+/**
+ * Animate new pattern segments
+ */
 function animateNewSegment(index: number) {
   const element = segmentRefs.value.get(index);
   if (!element || !animationContext) return;
@@ -438,18 +330,19 @@ function animateNewSegment(index: number) {
   animationContext.add(() => {
     gsap.from(element, {
       opacity: 0,
-      scale: 0.9,
-      x: 20,
+      scale: 0.95,
+      y: -10,
       duration: 0.3,
       ease: "power2.out",
       clearProps: "all",
     });
 
     // Highlight new user patterns
-    if (!patterns.value[index]?.isDefault) {
+    const pattern = patterns.value[index];
+    if (pattern && !pattern.isDefault && !pattern.isSaved) {
       gsap.to(element, {
-        boxShadow: "0 0 20px hsla(200, 70%, 50%, 0.3)",
-        duration: 0.2,
+        boxShadow: "0 0 15px hsla(200, 70%, 50%, 0.4)",
+        duration: 0.3,
         yoyo: true,
         repeat: 1,
         ease: "power2.inOut",
@@ -458,11 +351,15 @@ function animateNewSegment(index: number) {
   });
 }
 
+// ============================================================================
+// WATCHERS
+// ============================================================================
+
 // Watch for pattern changes
 watch(
   () => patterns.value.length,
   async (newLength, oldLength) => {
-    console.log("LiveStrip: Patterns changed:", oldLength, "->", newLength);
+    console.log("LiveStrip V2: Patterns changed:", oldLength, "->", newLength);
 
     if (newLength > oldLength) {
       await nextTick();
@@ -495,17 +392,20 @@ watch(
   }
 );
 
-// Lifecycle
+// ============================================================================
+// LIFECYCLE
+// ============================================================================
+
 onMounted(async () => {
-  console.log("LiveStrip: Mounting...");
+  console.log("LiveStrip V2: Mounting...");
 
   // Ensure patterns store is initialized
   if (!patternsStore.isInitialized) {
-    console.log("LiveStrip: Initializing patterns store...");
+    console.log("LiveStrip V2: Initializing patterns store...");
     await patternsStore.initialize();
   }
 
-  console.log("LiveStrip: Patterns available:", patterns.value.length);
+  console.log("LiveStrip V2: Patterns available:", patterns.value.length);
 
   // Create GSAP context for cleanup
   animationContext = gsap.context(() => {}, containerRef.value);
@@ -514,7 +414,7 @@ onMounted(async () => {
   if (containerRef.value) {
     gsap.set(containerRef.value, {
       opacity: props.isVisible ? 1 : 0,
-      y: props.isVisible ? 0 : -20,
+      y: props.isVisible ? 0 : -10,
     });
   }
 
@@ -539,7 +439,7 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: auto;
-  max-height: 120px;
+  max-height: 300px; /* Increased for better visibility */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid hsla(0, 0%, 100%, 0.1);
@@ -584,10 +484,7 @@ onUnmounted(() => {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: stretch;
   min-width: 0;
-  height: auto;
   background: hsla(0, 0%, 100%, 0.05);
   border: 1px solid hsla(0, 0%, 100%, 0.1);
   border-radius: 0.5rem;
@@ -600,32 +497,20 @@ onUnmounted(() => {
 .pattern-card:hover {
   background: hsla(0, 0%, 100%, 0.08);
   border-color: hsla(0, 0%, 100%, 0.2);
-  transform: scale(1.02);
+  transform: translateY(-1px);
 }
 
-/* Default patterns (library) */
+/* Pattern type styling */
 .pattern-card.is-default {
-  background: hsla(280, 50%, 30%, 0.2);
+  background: hsla(280, 50%, 30%, 0.15);
   border-color: hsla(280, 50%, 50%, 0.3);
 }
 
-.pattern-card.is-default:hover {
-  background: hsla(280, 50%, 35%, 0.25);
-  border-color: hsla(280, 50%, 50%, 0.4);
-}
-
-/* Saved patterns (bookmarked) */
 .pattern-card.is-saved {
-  background: hsla(120, 50%, 30%, 0.2);
+  background: hsla(120, 50%, 30%, 0.15);
   border-color: hsla(120, 50%, 50%, 0.3);
 }
 
-.pattern-card.is-saved:hover {
-  background: hsla(120, 50%, 35%, 0.25);
-  border-color: hsla(120, 50%, 50%, 0.4);
-}
-
-/* Current pattern being played */
 .pattern-card.is-current {
   background: hsla(200, 70%, 50%, 0.15);
   border-color: hsla(200, 70%, 50%, 0.4);
@@ -642,13 +527,11 @@ onUnmounted(() => {
   }
 }
 
-.pattern-card.is-complete {
-  opacity: 0.7;
-}
-
 .pattern-card.placeholder {
-  opacity: 0.5;
+  opacity: 0.6;
   font-style: italic;
+  text-align: center;
+  padding: 2rem;
 }
 
 .card-header {
@@ -656,79 +539,136 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.375rem;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1rem 0.5rem;
+}
+
+.pattern-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .pattern-name {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: hsla(0, 0%, 100%, 0.9);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.pattern-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meta-badge {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.meta-default {
+  background: hsla(280, 50%, 50%, 0.3);
+  color: hsla(280, 50%, 90%, 1);
+}
+
+.meta-saved {
+  background: hsla(120, 50%, 50%, 0.3);
+  color: hsla(120, 50%, 90%, 1);
+}
+
+.meta-current {
+  background: hsla(200, 70%, 50%, 0.3);
+  color: hsla(200, 70%, 90%, 1);
+}
+
+.meta-info {
+  font-size: 0.75rem;
+  color: hsla(0, 0%, 100%, 0.6);
 }
 
 .card-actions {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.375rem;
 }
 
-.copy-btn {
+.action-btn {
   appearance: none;
   background: hsla(0, 0%, 100%, 0.08);
-  border: 1px solid hsla(0, 0%, 100%, 0.18);
-  color: hsla(0, 0%, 100%, 0.85);
-  font-size: 0.7rem;
-  padding: 0.25rem 0.5rem;
+  border: 1px solid hsla(0, 0%, 100%, 0.15);
+  color: hsla(0, 0%, 100%, 0.8);
+  font-size: 0.75rem;
+  padding: 0.375rem 0.75rem;
   border-radius: 0.375rem;
   cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
 
-.copy-btn:hover {
+.action-btn:hover:not(:disabled) {
   background: hsla(0, 0%, 100%, 0.12);
+  border-color: hsla(0, 0%, 100%, 0.25);
+  color: hsla(0, 0%, 100%, 0.95);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.backspace-btn {
+  background: hsla(0, 70%, 50%, 0.2);
+  border-color: hsla(0, 70%, 50%, 0.3);
+  color: hsla(0, 70%, 90%, 1);
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.backspace-btn:hover:not(:disabled) {
+  background: hsla(0, 70%, 50%, 0.3);
+  border-color: hsla(0, 70%, 50%, 0.4);
+}
+
+.save-btn {
+  background: hsla(120, 50%, 50%, 0.2);
+  border-color: hsla(120, 50%, 50%, 0.3);
+  color: hsla(120, 50%, 90%, 1);
+}
+
+.save-btn:hover {
+  background: hsla(120, 50%, 50%, 0.3);
+  border-color: hsla(120, 50%, 50%, 0.4);
 }
 
 .card-body {
-  white-space: nowrap;
-  /* width: max-content; */
   border-top: 1px solid hsla(0, 0%, 100%, 0.08);
-  background: hsla(0, 0%, 0%, 0.95);
-  padding: 0.375rem;
+  background: hsla(0, 0%, 0%, 0.3);
+  padding: 0.75rem 1rem;
+}
+
+.notation-display {
+  width: 100%;
   overflow-x: auto;
+}
+
+.notation-content {
+  font-family: "Fira Code", "Monaco", "Courier New", monospace;
+  font-size: 0.875rem;
+  color: hsla(0, 0%, 100%, 0.9);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .notation-text {
   font-family: "Fira Code", "Monaco", "Courier New", monospace;
-  font-size: 0.9rem;
-  color: hsla(0, 0%, 100%, 0.9);
+  font-size: 0.875rem;
+  color: hsla(0, 0%, 100%, 0.7);
   letter-spacing: 0.05em;
-}
-
-.pattern-meta {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-  font-size: 0.65rem;
-  color: hsla(0, 0%, 100%, 0.5);
-}
-
-.meta-type {
-  padding: 0 0.25rem;
-  background: hsla(0, 0%, 100%, 0.1);
-  border-radius: 0.25rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.55rem;
-}
-
-.meta-key {
-  font-weight: 500;
-  font-size: 0.65rem;
-}
-
-.meta-notes {
-  opacity: 0.7;
-  font-size: 0.65rem;
 }
 
 .end-marker {
@@ -736,45 +676,6 @@ onUnmounted(() => {
   width: 1px;
   height: 1px;
   opacity: 0;
-}
-
-.live-strip-controls {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  transform: translateY(-50%);
-  display: flex;
-  justify-content: space-between;
-  padding: 0 0.25rem;
-  pointer-events: none;
-}
-
-.control-btn {
-  pointer-events: all;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  background: hsla(0, 0%, 0%, 0.8);
-  border: 1px solid hsla(0, 0%, 100%, 0.2);
-  border-radius: 50%;
-  color: hsla(0, 0%, 100%, 0.7);
-  font-size: 0.7rem;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.control-btn:hover:not(:disabled) {
-  background: hsla(0, 0%, 100%, 0.1);
-  color: hsla(0, 0%, 100%, 0.9);
-  border-color: hsla(0, 0%, 100%, 0.3);
-}
-
-.control-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 /* Animation classes for TransitionGroup */
@@ -788,12 +689,12 @@ onUnmounted(() => {
 
 .pattern-segment-enter-from {
   opacity: 0;
-  transform: translateX(20px) scale(0.9);
+  transform: translateY(-10px) scale(0.95);
 }
 
 .pattern-segment-leave-to {
   opacity: 0;
-  transform: translateX(-20px) scale(0.9);
+  transform: translateY(10px) scale(0.95);
 }
 
 /* Reduced motion support */
@@ -802,12 +703,16 @@ onUnmounted(() => {
     scroll-behavior: auto !important;
   }
 
-  .pattern-segment {
+  .pattern-segment-enter-active,
+  .pattern-segment-leave-active {
     transition: none !important;
   }
 
-  .pattern-segment-enter-active,
-  .pattern-segment-leave-active {
+  .pattern-card {
+    transition: none !important;
+  }
+
+  .action-btn {
     transition: none !important;
   }
 }

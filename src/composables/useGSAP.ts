@@ -8,7 +8,7 @@ import { DrawSVGPlugin, Draggable, InertiaPlugin, Flip } from "gsap/all";
  * Registers GSAP core and plugins for advanced animation capabilities.
  *
  * @features
- * - Registers GSAP core and plugins (DrawSVGPlugin, Draggable, InertiaPlugin)
+ * - Registers GSAP core and plugins (DrawSVGPlugin, Draggablew, InertiaPlugin)
  * - Ensures plugins are only registered once
  * - Provides type-safe access to GSAP and its plugins
  *

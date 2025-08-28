@@ -38,6 +38,15 @@ const currentInstrumentConfig = computed(() => {
 
 const isLoading = computed(() => instrumentStore.isLoading);
 
+// Envelope-related computed properties
+const currentInstrumentEnvelopes = computed(
+  () => instrumentStore.currentInstrumentEnvelopes
+);
+const currentEnvelope = computed(() => instrumentStore.currentEnvelope);
+const hasMultipleEnvelopes = computed(
+  () => instrumentStore.hasMultipleEnvelopes
+);
+
 // Use the unified categorization system
 const instrumentsByCategory = computed(() => {
   return instrumentStore.instrumentsByCategory;
@@ -78,6 +87,10 @@ const getInstrumentIcon = (instrumentName: string): string => {
     (i) => i.name === instrumentName
   );
   return instrument?.icon || "🎵";
+};
+
+const selectEnvelope = (envelopeName: string) => {
+  instrumentStore.setEnvelope(envelopeName);
 };
 </script>
 
@@ -160,6 +173,29 @@ const getInstrumentIcon = (instrumentName: string): string => {
               <span class="font-semibold text-[#00ff88] text-xs">
                 {{ currentInstrumentConfig?.displayName || "Loading..." }}
               </span>
+            </div>
+
+            <!-- Envelope Selection -->
+            <div v-if="hasMultipleEnvelopes" :class="compact ? 'mt-2' : 'mt-3'">
+              <div
+                :class="['grid gap-1', compact ? 'grid-cols-3' : 'grid-cols-4']"
+              >
+                <button
+                  v-for="envelope in currentInstrumentEnvelopes"
+                  :key="envelope.name"
+                  @click="selectEnvelope(envelope.name)"
+                  :class="[
+                    'px-2 py-1 text-xs rounded border transition-all duration-200',
+                    currentEnvelope === envelope.name
+                      ? 'bg-[#00ff88]/20 border-[#00ff88]/50 text-[#00ff88]'
+                      : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/30',
+                    compact ? 'text-[10px] px-1 py-0.5' : '',
+                  ]"
+                  :title="`Switch to ${envelope.displayName} envelope`"
+                >
+                  {{ envelope.displayName }}
+                </button>
+              </div>
             </div>
           </div>
 

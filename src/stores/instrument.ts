@@ -9,7 +9,9 @@ import {
   STANDARD_COMPRESSOR,
   SYNTH_CONFIGS,
   getInstrumentsByCategory,
+  getInstrumentEnvelope,
 } from "@/data/instruments";
+import type { AudioEnvelope } from "@/types/instrument";
 import {
   loadSampleInstrument,
   createSalamanderPiano,
@@ -25,6 +27,7 @@ import { toast } from "vue-sonner";
 export const useInstrumentStore = defineStore("instrument", () => {
   // State
   const currentInstrument = ref<string>(DEFAULT_INSTRUMENT);
+  const currentEnvelope = ref<string>("default");
   const isLoading = ref(false);
   const instruments = ref<Map<string, any>>(new Map());
 
@@ -34,10 +37,36 @@ export const useInstrumentStore = defineStore("instrument", () => {
   );
 
   const availableInstruments = computed(() =>
-    Object.values(AVAILABLE_INSTRUMENTS)
+    Object.values(AVAILABLE_INSTRUMENTS).filter(
+      (instrument) => !instrument.isDisabled
+    )
   );
 
-  const instrumentsByCategory = computed(() => getInstrumentsByCategory());
+  const instrumentsByCategory = computed(() => {
+    const categories = getInstrumentsByCategory();
+    // Filter out disabled instruments from each category
+    Object.keys(categories).forEach((category) => {
+      categories[category] = categories[category].filter(
+        (instrument) => !instrument.isDisabled
+      );
+    });
+    return categories;
+  });
+
+  // Envelope getters
+  const currentInstrumentEnvelopes = computed(() => {
+    const config = currentInstrumentConfig.value;
+    return config?.envelopes || [];
+  });
+
+  const currentEnvelopeConfig = computed(() => {
+    const envelopes = currentInstrumentEnvelopes.value;
+    return envelopes.find((env) => env.name === currentEnvelope.value) || null;
+  });
+
+  const hasMultipleEnvelopes = computed(() => {
+    return currentInstrumentEnvelopes.value.length > 1;
+  });
 
   // Initialize instruments
   const initializeInstruments = async (
@@ -57,67 +86,80 @@ export const useInstrumentStore = defineStore("instrument", () => {
       reportProgress(15, "Loading basic synthesizers...");
 
       // Basic Synth
-      const synthPoly = new Tone.PolySynth(Tone.Synth, SYNTH_CONFIGS.basic);
-      const synthCompressor = createCompressor();
-      synthPoly.connect(synthCompressor);
-      synthCompressor.toDestination();
-      synthPoly.maxPolyphony = MAX_POLYPHONY;
-      instruments.value.set("synth", synthPoly);
+      if (!AVAILABLE_INSTRUMENTS.synth.isDisabled) {
+        const synthPoly = new Tone.PolySynth(Tone.Synth, SYNTH_CONFIGS.basic);
+        const synthCompressor = createCompressor();
+        synthPoly.connect(synthCompressor);
+        synthCompressor.toDestination();
+        synthPoly.maxPolyphony = MAX_POLYPHONY;
+        instruments.value.set("synth", synthPoly);
+      }
 
       reportProgress(20, "Loading AM synthesizer...");
 
       // AM Synth
-      const amSynthPoly = new Tone.PolySynth(
-        Tone.AMSynth,
-        SYNTH_CONFIGS.amSynth
-      );
-      const amCompressor = createCompressor();
-      amSynthPoly.connect(amCompressor);
-      amCompressor.toDestination();
-      amSynthPoly.maxPolyphony = MAX_POLYPHONY;
-      instruments.value.set("amSynth", amSynthPoly);
+      if (!AVAILABLE_INSTRUMENTS.amSynth.isDisabled) {
+        const amSynthPoly = new Tone.PolySynth(
+          Tone.AMSynth,
+          SYNTH_CONFIGS.amSynth
+        );
+        const amCompressor = createCompressor();
+        amSynthPoly.connect(amCompressor);
+        amCompressor.toDestination();
+        amSynthPoly.maxPolyphony = MAX_POLYPHONY;
+        instruments.value.set("amSynth", amSynthPoly);
+      }
 
       reportProgress(25, "Loading FM synthesizer...");
 
       // FM Synth
-      const fmSynthPoly = new Tone.PolySynth(
-        Tone.FMSynth,
-        SYNTH_CONFIGS.fmSynth
-      );
-      const fmCompressor = createCompressor();
-      fmSynthPoly.connect(fmCompressor);
-      fmCompressor.toDestination();
-      fmSynthPoly.maxPolyphony = MAX_POLYPHONY;
-      instruments.value.set("fmSynth", fmSynthPoly);
+      if (!AVAILABLE_INSTRUMENTS.fmSynth.isDisabled) {
+        const fmSynthPoly = new Tone.PolySynth(
+          Tone.FMSynth,
+          SYNTH_CONFIGS.fmSynth
+        );
+        const fmCompressor = createCompressor();
+        fmSynthPoly.connect(fmCompressor);
+        fmCompressor.toDestination();
+        fmSynthPoly.maxPolyphony = MAX_POLYPHONY;
+        instruments.value.set("fmSynth", fmSynthPoly);
+      }
 
       reportProgress(30, "Loading membrane synthesizer...");
 
       // Membrane Synth (for percussion-like sounds)
-      const membranePoly = new Tone.PolySynth(
-        Tone.MembraneSynth,
-        SYNTH_CONFIGS.membrane
-      );
-      const membraneCompressor = createCompressor();
-      membranePoly.connect(membraneCompressor);
-      membraneCompressor.toDestination();
-      membranePoly.maxPolyphony = MAX_POLYPHONY;
-      instruments.value.set("membraneSynth", membranePoly);
+      if (!AVAILABLE_INSTRUMENTS.membraneSynth.isDisabled) {
+        const membranePoly = new Tone.PolySynth(
+          Tone.MembraneSynth,
+          SYNTH_CONFIGS.membrane
+        );
+        const membraneCompressor = createCompressor();
+        membranePoly.connect(membraneCompressor);
+        membraneCompressor.toDestination();
+        membranePoly.maxPolyphony = MAX_POLYPHONY;
+        instruments.value.set("membraneSynth", membranePoly);
+      }
 
       reportProgress(35, "Loading metal synthesizer...");
 
       // Metal Synth
-      const metalPoly = new Tone.PolySynth(
-        Tone.MetalSynth,
-        SYNTH_CONFIGS.metal
-      );
-      const metalCompressor = createCompressor();
-      metalPoly.connect(metalCompressor);
-      metalCompressor.toDestination();
-      metalPoly.maxPolyphony = MAX_POLYPHONY;
-      instruments.value.set("metalSynth", metalPoly);
+      if (!AVAILABLE_INSTRUMENTS.metalSynth.isDisabled) {
+        const metalPoly = new Tone.PolySynth(
+          Tone.MetalSynth,
+          SYNTH_CONFIGS.metal
+        );
+        const metalCompressor = createCompressor();
+        metalPoly.connect(metalCompressor);
+        metalCompressor.toDestination();
+        metalPoly.maxPolyphony = MAX_POLYPHONY;
+        instruments.value.set("metalSynth", metalPoly);
+      }
 
       console.log("Basic instruments initialized");
-      reportProgress(40, "Basic synthesizers ready, loading sample instruments...");
+      reportProgress(
+        40,
+        "Basic synthesizers ready, loading sample instruments..."
+      );
 
       // Load sample-based instruments (blocking to ensure they're ready)
       await loadSampleInstrumentsWithProgress(createCompressor, reportProgress);
@@ -181,7 +223,10 @@ export const useInstrumentStore = defineStore("instrument", () => {
     }
 
     // Initialize sample-based instruments with progress
-    await initializeSampleInstrumentsWithProgress(createCompressor, reportProgress);
+    await initializeSampleInstrumentsWithProgress(
+      createCompressor,
+      reportProgress
+    );
   };
 
   // Initialize sample-based instruments with progress tracking
@@ -212,64 +257,79 @@ export const useInstrumentStore = defineStore("instrument", () => {
       "xylophone",
     ];
 
+    // Filter out disabled instruments
+    const enabledSampleInstrumentNames = sampleInstrumentNames.filter(
+      (name) => {
+        const config =
+          AVAILABLE_INSTRUMENTS[name] ||
+          AVAILABLE_INSTRUMENTS[`sample-${name}`];
+        return config && !config.isDisabled;
+      }
+    );
+
     let loadedCount = 0;
-    const totalInstruments = sampleInstrumentNames.length;
+    const totalInstruments = enabledSampleInstrumentNames.length;
     const startProgress = 55;
     const endProgress = 90;
 
     // Load instruments with timeout and better error handling
-    const loadPromises = sampleInstrumentNames.map(async (instrumentName) => {
-      try {
-        const config =
-          AVAILABLE_INSTRUMENTS[instrumentName] ||
-          AVAILABLE_INSTRUMENTS[`sample-${instrumentName}`];
-        if (!config) return null;
+    const loadPromises = enabledSampleInstrumentNames.map(
+      async (instrumentName) => {
+        try {
+          const config =
+            AVAILABLE_INSTRUMENTS[instrumentName] ||
+            AVAILABLE_INSTRUMENTS[`sample-${instrumentName}`];
+          if (!config) return null;
 
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(
-            () => reject(new Error(`Timeout loading ${instrumentName}`)),
-            10000
-          );
-        });
-
-        const loadPromise = loadSampleInstrument(instrumentName, {
-          minify: config.minify || false,
-          onload: () => {
-            loadedCount++;
-            const progress = startProgress + ((endProgress - startProgress) * loadedCount) / totalInstruments;
-            reportProgress(
-              Math.round(progress),
-              `Loading ${config.displayName}... (${loadedCount}/${totalInstruments})`
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(
+              () => reject(new Error(`Timeout loading ${instrumentName}`)),
+              10000
             );
-            console.log(`${config.displayName} samples loaded successfully`);
-          },
-        });
+          });
 
-        const sampleInstrument = (await Promise.race([
-          loadPromise,
-          timeoutPromise,
-        ])) as any;
+          const loadPromise = loadSampleInstrument(instrumentName, {
+            minify: config.minify || false,
+            onload: () => {
+              loadedCount++;
+              const progress =
+                startProgress +
+                ((endProgress - startProgress) * loadedCount) /
+                  totalInstruments;
+              reportProgress(
+                Math.round(progress),
+                `Loading ${config.displayName}... (${loadedCount}/${totalInstruments})`
+              );
+              console.log(`${config.displayName} samples loaded successfully`);
+            },
+          });
 
-        // Connect to compressor
-        const compressor = new Tone.Compressor(STANDARD_COMPRESSOR);
-        sampleInstrument.connect(compressor);
-        compressor.toDestination();
+          const sampleInstrument = (await Promise.race([
+            loadPromise,
+            timeoutPromise,
+          ])) as any;
 
-        // Store with appropriate key
-        const storeKey =
-          instrumentName === "piano" ? "sample-piano" : instrumentName;
-        instruments.value.set(storeKey, sampleInstrument);
+          // Connect to compressor
+          const compressor = new Tone.Compressor(STANDARD_COMPRESSOR);
+          sampleInstrument.connect(compressor);
+          compressor.toDestination();
 
-        return { instrumentName, success: true };
-      } catch (error) {
-        // Use console.warn instead of console.error to reduce noise
-        console.warn(
-          `Sample instrument ${instrumentName} not available, will use basic synth fallback`
-        );
-        return { instrumentName, success: false, error };
+          // Store with appropriate key
+          const storeKey =
+            instrumentName === "piano" ? "sample-piano" : instrumentName;
+          instruments.value.set(storeKey, sampleInstrument);
+
+          return { instrumentName, success: true };
+        } catch (error) {
+          // Use console.warn instead of console.error to reduce noise
+          console.warn(
+            `Sample instrument ${instrumentName} not available, will use basic synth fallback`
+          );
+          return { instrumentName, success: false, error };
+        }
       }
-    });
+    );
 
     // Wait for all instruments to load (or timeout)
     const results = await Promise.allSettled(loadPromises);
@@ -279,9 +339,15 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
     // Report completion
     if (successfulLoads === totalInstruments) {
-      reportProgress(90, `All ${successfulLoads} sample instruments loaded successfully!`);
+      reportProgress(
+        90,
+        `All ${successfulLoads} sample instruments loaded successfully!`
+      );
     } else if (successfulLoads > 0) {
-      reportProgress(90, `${successfulLoads} of ${totalInstruments} instruments loaded`);
+      reportProgress(
+        90,
+        `${successfulLoads} of ${totalInstruments} instruments loaded`
+      );
     } else {
       reportProgress(90, "Sample instruments unavailable, using synthesizers");
     }
@@ -304,14 +370,43 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
   // Set current instrument
   const setInstrument = (instrumentName: string) => {
-    if (AVAILABLE_INSTRUMENTS[instrumentName]) {
+    const config = AVAILABLE_INSTRUMENTS[instrumentName];
+    if (config) {
+      if (config.isDisabled) {
+        console.warn(`Cannot switch to disabled instrument: ${instrumentName}`);
+        return;
+      }
       currentInstrument.value = instrumentName;
-      console.log(
-        `Switched to instrument: ${AVAILABLE_INSTRUMENTS[instrumentName].displayName}`
-      );
+      // Reset envelope to default when switching instruments
+      currentEnvelope.value = "default";
+      console.log(`Switched to instrument: ${config.displayName}`);
     } else {
       console.warn(`Unknown instrument: ${instrumentName}`);
     }
+  };
+
+  // Set current envelope
+  const setEnvelope = (envelopeName: string) => {
+    const envelopes = currentInstrumentEnvelopes.value;
+    if (envelopes.length === 0) {
+      // No custom envelopes, use default
+      currentEnvelope.value = "default";
+    } else if (envelopes.some((env) => env.name === envelopeName)) {
+      currentEnvelope.value = envelopeName;
+      console.log(`Switched to envelope: ${envelopeName}`);
+    } else {
+      console.warn(`Unknown envelope: ${envelopeName}`);
+    }
+  };
+
+  // Get current envelope (either custom or default)
+  const getCurrentEnvelope = (): AudioEnvelope => {
+    const customEnvelope = currentEnvelopeConfig.value;
+    if (customEnvelope) {
+      return customEnvelope.envelope;
+    }
+    // Fall back to default envelope logic
+    return getInstrumentEnvelope(currentInstrument.value);
   };
 
   // Dispose all instruments
@@ -325,12 +420,16 @@ export const useInstrumentStore = defineStore("instrument", () => {
   return {
     // State
     currentInstrument,
+    currentEnvelope,
     isLoading,
 
     // Getters
     currentInstrumentConfig,
     availableInstruments,
     instrumentsByCategory,
+    currentInstrumentEnvelopes,
+    currentEnvelopeConfig,
+    hasMultipleEnvelopes,
 
     // Actions
     initializeInstruments,
@@ -338,6 +437,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
     getInstrument,
     isInstrumentLoaded,
     setInstrument,
+    setEnvelope,
+    getCurrentEnvelope,
     dispose,
   };
 });

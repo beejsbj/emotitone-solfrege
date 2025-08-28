@@ -27,6 +27,14 @@ export interface InstrumentConfig {
   minify?: boolean;
   /** Optional envelope override for this specific instrument */
   envelope?: AudioEnvelope;
+  /** Multiple envelopes available for this instrument */
+  envelopes?: {
+    name: string;
+    displayName: string;
+    envelope: AudioEnvelope;
+  }[];
+  /** Whether this instrument is disabled and should not be loaded */
+  isDisabled?: boolean;
 }
 
 /**

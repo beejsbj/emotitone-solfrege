@@ -99,6 +99,7 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     description: "Clean sine wave synthesizer",
     category: "synth",
     icon: "🎛️",
+    isDisabled: true,
   },
   amSynth: {
     name: "amSynth",
@@ -106,6 +107,7 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     description: "Amplitude modulation synthesizer",
     category: "synth",
     icon: "📻",
+    isDisabled: true,
   },
   fmSynth: {
     name: "fmSynth",
@@ -113,6 +115,7 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     description: "Frequency modulation synthesizer",
     category: "synth",
     icon: "🔊",
+    isDisabled: true,
   },
   membraneSynth: {
     name: "membraneSynth",
@@ -120,6 +123,7 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     description: "Drum-like membrane synthesizer",
     category: "percussion",
     icon: "🥁",
+    isDisabled: true,
   },
   metalSynth: {
     name: "metalSynth",
@@ -127,6 +131,7 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     description: "Metallic percussion synthesizer",
     category: "percussion",
     icon: "🔔",
+    isDisabled: true,
   },
   piano: {
     name: "piano",
@@ -193,6 +198,23 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     category: "woodwinds",
     icon: "🪈",
     minify: true,
+    envelopes: [
+      {
+        name: "normal",
+        displayName: "Normal",
+        envelope: WOODWIND_ENVELOPE,
+      },
+      {
+        name: "flutter",
+        displayName: "Flutter",
+        envelope: {
+          attack: 0.03,
+          decay: 0.12,
+          sustain: 0.8,
+          release: 0.5,
+        },
+      },
+    ],
   },
   "french-horn": {
     name: "french-horn",
@@ -273,6 +295,33 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     category: "brass",
     icon: "🎺",
     minify: true,
+    envelopes: [
+      {
+        name: "open",
+        displayName: "Open",
+        envelope: BRASS_ENVELOPE,
+      },
+      {
+        name: "muted",
+        displayName: "Muted",
+        envelope: {
+          attack: 0.08,
+          decay: 0.2,
+          sustain: 0.6,
+          release: 0.7,
+        },
+      },
+      {
+        name: "vibrato",
+        displayName: "Vibrato",
+        envelope: {
+          attack: 0.06,
+          decay: 0.18,
+          sustain: 0.75,
+          release: 0.65,
+        },
+      },
+    ],
   },
   tuba: {
     name: "tuba",
@@ -289,6 +338,38 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
     category: "strings",
     icon: "🎻",
     minify: true,
+    envelopes: [
+      {
+        name: "legato",
+        displayName: "Legato",
+        envelope: {
+          attack: 0.1,
+          decay: 0.2,
+          sustain: 0.8,
+          release: 0.8,
+        },
+      },
+      {
+        name: "staccato",
+        displayName: "Staccato",
+        envelope: {
+          attack: 0.02,
+          decay: 0.1,
+          sustain: 0.3,
+          release: 0.2,
+        },
+      },
+      {
+        name: "pizzicato",
+        displayName: "Pizzicato",
+        envelope: {
+          attack: 0.005,
+          decay: 0.4,
+          sustain: 0.1,
+          release: 0.3,
+        },
+      },
+    ],
   },
   xylophone: {
     name: "xylophone",
@@ -498,7 +579,11 @@ export function getInstrumentEnvelope(instrumentName: string): AudioEnvelope {
   }
 
   // Handle special cases for stringed instruments
-  if (["guitar-acoustic", "guitar-electric", "guitar-nylon", "harp"].indexOf(instrumentName) !== -1) {
+  if (
+    ["guitar-acoustic", "guitar-electric", "guitar-nylon", "harp"].indexOf(
+      instrumentName
+    ) !== -1
+  ) {
     return PLUCKED_ENVELOPE;
   }
 

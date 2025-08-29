@@ -77,6 +77,16 @@ export function usePatternRecording() {
   // ========================================================================
 
   /**
+   * Helper function to get current counts for logging
+   */
+  function getCounts() {
+    return {
+      patterns: patternsStore.patterns.length,
+      history: patternsStore.historySize,
+    };
+  }
+
+  /**
    * Handle 'note-played' events from the audio system
    */
   function handleNotePlayedEvent(event: CustomEvent<NotePlayedEventDetail>) {
@@ -107,6 +117,20 @@ export function usePatternRecording() {
         velocity: detail.velocity,
         audioNoteId: detail.noteId,
       });
+
+      // DEV-only logging for note-played
+      if (import.meta.env.DEV) {
+        const counts = getCounts();
+        console.log("note-played", {
+          noteName: detail.noteName,
+          key,
+          mode,
+          instrument: detail.instrument,
+          historyNoteId: historyNote.id,
+          patterns: counts.patterns,
+          history: counts.history,
+        });
+      }
 
       // Update session context if changed
       updateSessionContext(
@@ -140,6 +164,16 @@ export function usePatternRecording() {
       // Update release timing via store
       if (detail.noteId) {
         patternsStore.updateNoteRelease(detail.noteId, now);
+
+        // DEV-only logging for note-released
+        if (import.meta.env.DEV) {
+          const counts = getCounts();
+          console.log("note-released", {
+            noteId: detail.noteId,
+            history: counts.history,
+          });
+        }
+
         console.log(`🎵 Note release recorded: ${detail.noteName}`);
       }
 
@@ -367,7 +401,19 @@ export function usePatternRecording() {
   // LIFECYCLE
   // ========================================================================
 
-  onMounted(() => {
+  onMounted(async () => {
+    // Ensure patterns store is initialized
+    if (!patternsStore.isInitialized) {
+      if (import.meta.env.DEV) {
+        console.log("LiveStrip: initializing patterns store…");
+      }
+      await patternsStore.initialize();
+    } else {
+      if (import.meta.env.DEV) {
+        console.log("LiveStrip: patterns store already initialized");
+      }
+    }
+
     // Auto-start recording when component mounts
     startRecording();
   });

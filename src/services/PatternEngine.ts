@@ -73,11 +73,15 @@ export class PatternEngine extends EventTarget {
   private lastPersistTime = 0;
   private persistDebounceMs = 2000;
 
+  // De-duplication tracking fields
+  private lastRecordSig: string | null = null;
+  private lastRecordTime = 0;
+
   constructor(config?: Partial<PatternDetectionConfig>) {
     super();
 
     this.config = {
-      silenceThreshold: 3000, // 3 seconds for musical grouping
+      silenceThreshold: 30000, // 30 seconds for musical grouping
       autoPurgeAge: 24 * 60 * 60 * 1000, // 24 hours
       maxHistorySize: 10000,
       minPatternLength: 2, // Minimum 2 notes for a pattern
@@ -102,15 +106,49 @@ export class PatternEngine extends EventTarget {
    * Records a new note interaction and immediately updates patterns
    */
   recordNote(noteData: NoteRecordingData): HistoryNote {
+    // Compute signature for de-duplication
+    const sig = `${noteData.audioNoteId || ""}|${noteData.note}|${
+      noteData.key
+    }|${noteData.mode}|${noteData.instrument}`;
+    const now = Date.now();
+
+    // Check for duplicate within 35ms window
+    if (this.lastRecordSig === sig && now - this.lastRecordTime <= 35) {
+      // Find the most recent matching HistoryNote
+      const lastHistoryNote = this.history[this.history.length - 1];
+
+      if (import.meta.env.DEV) {
+        const delta = now - this.lastRecordTime;
+        console.log(
+          `🔁 Suppressed duplicate note record ${noteData.note} (${noteData.instrument}), dt=${delta}ms`
+        );
+      }
+
+      // Return the last recorded HistoryNote if it matches, otherwise fall back to current behavior
+      if (
+        lastHistoryNote &&
+        lastHistoryNote.note === noteData.note &&
+        lastHistoryNote.key === noteData.key &&
+        lastHistoryNote.mode === noteData.mode &&
+        lastHistoryNote.instrument === noteData.instrument
+      ) {
+        return lastHistoryNote;
+      }
+    }
+
     const historyNote: HistoryNote = {
       id: this.generateId(),
       ...noteData,
-      pressTime: Date.now(),
+      pressTime: now,
       sessionId: this.currentSessionId,
     };
 
     // Add to history
     this.history.push(historyNote);
+
+    // Update de-duplication tracking
+    this.lastRecordSig = sig;
+    this.lastRecordTime = now;
 
     // Trim history if too large
     this.trimHistoryIfNeeded();

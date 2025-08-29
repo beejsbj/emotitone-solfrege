@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref, reactive, watch } from "vue";
 import { DEFAULT_CONFIG } from "@/composables/useVisualConfig";
 import type { VisualEffectsConfig } from "@/types/visual";
-import { patternService } from "@/services/patterns";
+import { patternEngine } from "@/services/PatternEngine";
 import type { PatternDetectionConfig } from '@/types/patterns';
 
 const STORAGE_KEY = "emotitone-visual-config";
@@ -224,9 +224,10 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
             autoSaveComplexityThreshold: newPatternsConfig.autoSaveComplexityThreshold,
           };
           
-          // Update pattern service configuration
-          patternService.updateConfig(patternServiceConfig);
-          console.log('🎵 Pattern service config synced from visual config:', patternServiceConfig);
+          // Update pattern engine configuration
+          // Note: PatternEngine doesn't have updateConfig method, config is set in constructor
+          // This sync is now handled by the patterns store initialization
+          console.log('🎵 Pattern config would sync to PatternEngine (handled by store):', patternServiceConfig);
         } catch (error) {
           console.error('❌ Failed to sync pattern config to pattern service:', error);
         }

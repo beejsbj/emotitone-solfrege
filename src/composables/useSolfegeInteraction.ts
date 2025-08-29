@@ -156,7 +156,14 @@ export function useSolfegeInteraction() {
   onMounted(async () => {
     // Initialize patterns store if not already initialized
     if (!patternsStore.isInitialized) {
+      if (import.meta.env.DEV) {
+        console.log("LiveStrip: initializing patterns store…");
+      }
       await patternsStore.initialize();
+    } else {
+      if (import.meta.env.DEV) {
+        console.log("LiveStrip: patterns store already initialized");
+      }
     }
     
     if (shouldAnimate.value) {

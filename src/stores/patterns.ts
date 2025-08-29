@@ -42,31 +42,51 @@ export const usePatternsStore = defineStore("patterns-v2", () => {
   const isInitialized = ref(false);
   const engine = patternEngine; // Use singleton instance
 
+  // Internal reactive tick for engine events
+  const engineVersion = ref(0);
+
+  // Helper to bump engine version for reactivity
+  function bumpEngineVersion() {
+    engineVersion.value++;
+  }
+
   // ========================================================================
   // REACTIVE COMPUTED PROPERTIES
   // ========================================================================
 
   // All patterns (reactive to engine changes)
-  const patterns = computed(() => engine.getPatterns());
+  const patterns = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.getPatterns();
+  });
 
   // Current pattern being built
-  const currentPattern = computed(() => engine.getCurrentPattern());
+  const currentPattern = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.getCurrentPattern();
+  });
 
   // Saved patterns (bookmarked by user)
-  const savedPatterns = computed(() =>
-    engine.getPatterns({ isSaved: true, isDefault: false })
-  );
+  const savedPatterns = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.getPatterns({ isSaved: true, isDefault: false });
+  });
 
   // Default patterns from library
-  const defaultPatterns = computed(() =>
-    engine.getPatterns({ isDefault: true })
-  );
+  const defaultPatterns = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.getPatterns({ isDefault: true });
+  });
 
   // User-created patterns (auto-detected, not default)
-  const userPatterns = computed(() => engine.getPatterns({ isDefault: false }));
+  const userPatterns = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.getPatterns({ isDefault: false });
+  });
 
   // Recent patterns (last 24 hours)
   const recentPatterns = computed(() => {
+    engineVersion.value; // Depend on reactive tick
     const yesterday = Date.now() - 24 * 60 * 60 * 1000;
     return engine.getPatterns({
       dateRange: { start: yesterday, end: Date.now() },
@@ -78,6 +98,7 @@ export const usePatternsStore = defineStore("patterns-v2", () => {
 
   // Patterns grouped by key/mode
   const patternsByKey = computed(() => {
+    engineVersion.value; // Depend on reactive tick
     const byKey: Record<string, Pattern[]> = {};
     const allPatterns = engine.getPatterns();
 
@@ -92,6 +113,7 @@ export const usePatternsStore = defineStore("patterns-v2", () => {
 
   // Patterns grouped by instrument
   const patternsByInstrument = computed(() => {
+    engineVersion.value; // Depend on reactive tick
     const byInstrument: Record<string, Pattern[]> = {};
     const allPatterns = engine.getPatterns();
 
@@ -107,13 +129,22 @@ export const usePatternsStore = defineStore("patterns-v2", () => {
   });
 
   // Storage statistics
-  const storageStats = computed(() => engine.getStorageStats());
+  const storageStats = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.getStorageStats();
+  });
 
   // History size
-  const historySize = computed(() => engine.exportData().history.length);
+  const historySize = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.exportData().history.length;
+  });
 
   // Current session
-  const currentSession = computed(() => engine.getCurrentSession());
+  const currentSession = computed(() => {
+    engineVersion.value; // Depend on reactive tick
+    return engine.getCurrentSession();
+  });
 
   // ========================================================================
   // ACTIONS (Delegate to Engine)
@@ -144,6 +175,9 @@ export const usePatternsStore = defineStore("patterns-v2", () => {
           `🧹 Auto-purged ${purged.patternsRemoved} patterns, ${purged.notesRemoved} notes`
         );
       }
+
+      // Ensure initial render after initialization (fallback)
+      bumpEngineVersion();
 
       isInitialized.value = true;
       console.log("✅ Pattern Store V2 initialized successfully");
@@ -485,8 +519,35 @@ export const usePatternsStore = defineStore("patterns-v2", () => {
       persistData();
     });
 
-    // Note: patterns-changed, history-changed events are automatically
-    // handled by Vue's reactivity system through computed properties
+    // Wire engine events to reactive tick with DEV logging
+    engine.addEventListener("patterns-changed", (e) => {
+      if (import.meta.env.DEV) {
+        console.log(
+          "patterns-changed",
+          (e as CustomEvent).detail?.length,
+          "patterns"
+        );
+      }
+      bumpEngineVersion();
+    });
+
+    engine.addEventListener("history-changed", (e) => {
+      if (import.meta.env.DEV) {
+        console.log(
+          "history-changed",
+          (e as CustomEvent).detail?.length,
+          "notes"
+        );
+      }
+      bumpEngineVersion();
+    });
+
+    engine.addEventListener("session-started", () => {
+      if (import.meta.env.DEV) {
+        console.log("session-started");
+      }
+      bumpEngineVersion();
+    });
   }
 
   // ========================================================================

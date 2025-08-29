@@ -119,7 +119,7 @@ export interface Pattern {
  * Configuration for pattern detection behavior
  */
 export interface PatternDetectionConfig {
-  /** Minimum silence duration (ms) to split patterns (default: 3000ms = 3 seconds) */
+  /** Minimum silence duration (ms) to split patterns (default: 30000ms = 30 seconds) */
   silenceThreshold: number;
 
   /** Maximum age for patterns before auto-purge (ms) (default: 24 hours) */

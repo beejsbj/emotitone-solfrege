@@ -63,11 +63,6 @@ export function useKeyboardDrawer(targetRef: Ref<HTMLElement | null>) {
   const closeDrawerAnimated = () => store.closeDrawer();
   const toggleDrawerAnimated = () => store.toggleDrawer();
 
-  onUnmounted(() => {
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
-  });
-
   return {
     store,
     drawerTransform,

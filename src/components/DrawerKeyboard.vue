@@ -1,17 +1,8 @@
 <template>
   <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
-    <!-- Live notation strip positioned above everything -->
+    <!-- Action bar with controls -->
     <div class="absolute top-0 -translate-y-full left-0 right-0">
-      <LiveStrip
-        v-if="showLiveStrip"
-        class="live-strip-overlay"
-        :is-visible="store.drawer.isOpen"
-        :show-controls="false"
-        :show-metadata="true"
-      />
-
-      <!-- Action bar with controls -->
-      <KeyboardActionBar @toggle-live-strip="showLiveStrip = $event" />
+      <KeyboardActionBar />
     </div>
 
     <!-- Keyboard grid -->
@@ -49,9 +40,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
-import { usePatternsStore } from "@/stores/patterns";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
-import LiveStrip from "./patterns/LiveStrip.vue";
 import KeyboardKey from "./keyboard/KeyboardKey.vue";
 
 // Component refs
@@ -59,7 +48,6 @@ const drawerRef = ref<HTMLElement | null>(null);
 
 // Store
 const store = useKeyboardDrawerStore();
-const patternsStore = usePatternsStore();
 
 // UI state
 const showLiveStrip = ref(true);

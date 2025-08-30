@@ -8,8 +8,48 @@
  * - Single source of truth for default patterns
  */
 
-import type { Pattern, HistoryNote } from "@/types/patterns";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
+
+// Local type definitions for patterns
+export interface HistoryNote {
+  id: string;
+  note: string;
+  key: ChromaticNote;
+  mode: MusicalMode;
+  scaleDegree: number;
+  solfege: SolfegeData;
+  solfegeIndex: number;
+  octave: number;
+  frequency: number;
+  instrument: string;
+  pressTime: number;
+  releaseTime: number;
+  duration: number;
+  sessionId: string;
+}
+
+export interface Pattern {
+  id: string;
+  notes: HistoryNote[];
+  totalDuration: number;
+  noteCount: number;
+  key: ChromaticNote;
+  mode: MusicalMode;
+  instrument: string;
+  createdAt: number;
+  lastPlayedAt: number;
+  isSaved: boolean;
+  isDefault: boolean;
+  playCount: number;
+  name: string;
+  tags: string[];
+  averageNoteDuration: number;
+  patternType: "melody" | "scale" | "arpeggio";
+  detectionConfidence: number;
+  complexityScore: number;
+  dominantScaleDegree: number;
+  color?: string;
+}
 
 /**
  * Generates a deterministic ID for default patterns (V2)

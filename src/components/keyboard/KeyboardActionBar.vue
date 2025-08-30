@@ -11,7 +11,7 @@
           :min="1"
           :max="8"
           :step="1"
-          @update:modelValue="store.setMainOctave"
+          @update:modelValue="(value) => store.setMainOctave(value as number)"
         />
       </div>
 
@@ -24,7 +24,7 @@
           :min="1"
           :max="8"
           :step="2"
-          @update:modelValue="store.setRowCount"
+          @update:modelValue="(value) => store.setRowCount(value as number)"
         />
       </div>
 
@@ -35,7 +35,7 @@
           type="options"
           :options="CHROMATIC_NOTES"
           label="Key"
-          @update:modelValue="musicStore.setKey"
+          @update:modelValue="(value) => musicStore.setKey(value as string)"
         />
       </div>
 
@@ -67,20 +67,10 @@
             // }, // light yellow
           ]"
           label="Mode"
-          @update:modelValue="musicStore.setMode"
+          @update:modelValue="(value) => musicStore.setMode(value as MusicalMode)"
         />
       </div>
 
-      <!-- Live Strip toggle -->
-      <div class="control-group">
-        <Knob
-          :model-value="showLiveStrip"
-          type="boolean"
-          label="Notation"
-          @update:modelValue="toggleLiveStrip"
-        />
-      </div>
-      
       <!-- Drawer toggle -->
       <div class="control-group">
         <Knob
@@ -101,6 +91,7 @@ import { ref } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { CHROMATIC_NOTES } from "@/data/musicData";
+import type { MusicalMode } from "@/types/music";
 import { Knob } from "@/components/knobs";
 
 // Store references
@@ -112,13 +103,13 @@ const showLiveStrip = ref(true);
 
 // Emit events to parent
 const emit = defineEmits<{
-  'toggle-live-strip': [value: boolean]
+  "toggle-live-strip": [value: boolean];
 }>();
 
 // Toggle live strip
 function toggleLiveStrip(value: boolean) {
   showLiveStrip.value = value;
-  emit('toggle-live-strip', value);
+  emit("toggle-live-strip", value);
 }
 </script>
 

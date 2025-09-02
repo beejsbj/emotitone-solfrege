@@ -29,7 +29,6 @@ export type {
   VisualEffectsConfig,
   NoteColorRelationships,
   DynamicColorConfig,
-  PaletteConfig,
   FloatingPopupConfig,
 } from "./visual";
 
@@ -73,7 +72,6 @@ export type {
   AudioContextInfo,
 } from "./instrument";
 
-
 // App Loading and Initialization Types
 export type {
   LoadingPhase,
@@ -82,6 +80,9 @@ export type {
   SplashConfig,
   AppLoadingState,
 } from "./loading";
+
+// Pattern Logging Types
+export type { LogNote, PatternsStoreState, PatternConfig } from "./patterns";
 
 // Re-export commonly used Vue types for convenience
 export type { Ref, ComputedRef, WritableComputedRef } from "vue";

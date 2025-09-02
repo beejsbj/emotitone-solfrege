@@ -37,12 +37,6 @@ export interface Scale {
 /**
  * Individual note in a sequence with duration
  */
-export interface SequenceNote {
-  /** Note name - can be solfege (Do, Re, Mi) or absolute pitch (C4, E2, etc.) */
-  note: string;
-  /** Duration in Tone.js notation (4n, 8n, 2n, etc.) */
-  duration: string;
-}
 
 /**
  * Melody Categories
@@ -52,35 +46,6 @@ export type MelodyCategory =
   | "patterns"
   | "complete"
   | "userCreated";
-
-/**
- * Unified melody definition that can represent both simple patterns and complete melodies
- */
-export interface Melody {
-  /** Melody name */
-  name: string;
-  /** Optional description */
-  description?: string;
-  /** Optional emotional character of the melody */
-  emotion?: string;
-  /** Sequence of notes with their durations */
-  sequence: SequenceNote[];
-  /** Optional interval pattern in semitones (for simple interval patterns) */
-  intervals?: number[];
-  /** Optional default tempo in BPM (for complete melodies) */
-  defaultBpm?: number;
-  /** Optional default key signature (for complete melodies) */
-  defaultKey?: string;
-  /** Category of the melody */
-  category?: MelodyCategory;
-}
-
-/**
- * Categorized melody with required category
- */
-export interface CategorizedMelody extends Melody {
-  category: MelodyCategory;
-}
 
 /**
  * Basic note structure with frequency and MIDI data
@@ -133,5 +98,3 @@ export interface ActiveNote {
   /** Note name with octave (e.g., "C4", "E5") */
   noteName: string;
 }
-
-

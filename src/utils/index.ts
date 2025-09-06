@@ -20,3 +20,5 @@ export * from "./visualEffects";
 
 // Device Detection
 export * from "./deviceDetection";
+
+export { convert } from "./musicNotationConverter";

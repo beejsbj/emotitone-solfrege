@@ -1,35 +1,36 @@
 <template>
   <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
     <!-- Action bar with controls -->
-    <KeyboardActionBar
-      class="absolute top-0 -translate-y-full left-0 right-0"
-    />
+    <div class="absolute top-0 -translate-y-full left-0 right-0 grid">
+      <LiveStrip />
+      <KeyboardActionBar />
+    </div>
 
     <!-- Keyboard grid -->
     <div :class="keyboardGridClasses" :style="keyboardGridStyles">
       <!-- Inner wrapper for padding -->
       <div :class="keyboardWrapperClasses">
         <!-- Solfège keys organized in octave rows -->
-      <div
-        v-for="octave in store.visibleOctaves"
-        :key="`octave-${octave}`"
-        :class="octaveRowClasses(octave)"
-      >
-        <template
-          v-for="(solfege, index) in store.solfegeData"
-          :key="`${solfege.name}-${octave}`"
+        <div
+          v-for="octave in store.visibleOctaves"
+          :key="`octave-${octave}`"
+          :class="octaveRowClasses(octave)"
         >
-          <KeyboardKey
-            v-if="index < 7"
+          <template
+            v-for="(solfege, index) in store.solfegeData"
             :key="`${solfege.name}-${octave}`"
-            :solfege="solfege"
-            :octave="octave"
-            :solfege-index="index"
-            :is-main-octave="octave === store.keyboardConfig.mainOctave"
-            class="flex-1 min-w-0"
-          />
-        </template>
-      </div>
+          >
+            <KeyboardKey
+              v-if="index < 7"
+              :key="`${solfege.name}-${octave}`"
+              :solfege="solfege"
+              :octave="octave"
+              :solfege-index="index"
+              :is-main-octave="octave === store.keyboardConfig.mainOctave"
+              class="flex-1 min-w-0"
+            />
+          </template>
+        </div>
       </div>
     </div>
   </div>
@@ -41,6 +42,7 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
+import LiveStrip from "@/components/patterns/LiveStrip.vue";
 
 import KeyboardKey from "./keyboard/KeyboardKey.vue";
 

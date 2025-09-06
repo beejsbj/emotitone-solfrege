@@ -17,19 +17,6 @@ export { MAJOR_SCALE, MINOR_SCALE } from "./scales";
 export type { Scale } from "./scales";
 
 // Patterns - updated exports
-export {
-  melodicPatterns as MELODIC_PATTERNS, // Export new structure with old name for compatibility
-  getAllMelodicPatterns,
-  getPatternsByEmotion,
-  getIntervalPatterns,
-  getMelodicPatterns,
-  completeMelodies,
-  allMelodies,
-  getCompleteMelodies,
-  getMelodyByName,
-  getAllMelodiesByEmotion,
-} from "./patterns";
-export type { MelodicPattern, Melody } from "./patterns";
 
 // Instruments
 export {
@@ -46,7 +33,6 @@ export {
   getAvailableInstrumentNames,
   isValidInstrument,
 } from "./instruments";
-
 
 // Backward compatibility - re-export everything from musicData for existing imports
 export * from "./musicData";

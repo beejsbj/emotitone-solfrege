@@ -248,6 +248,8 @@ export function useColorSystem() {
     mode: MusicalMode = "major",
     octave: number = 3
   ): string => {
+    console.log(noteName, mode, octave);
+
     return getNoteColors(noteName, mode, octave, false).primary;
   };
 

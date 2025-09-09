@@ -11,7 +11,7 @@
           :min="1"
           :max="8"
           :step="1"
-          @update:modelValue="store.setMainOctave"
+          @update:modelValue="(value) => store.setMainOctave(Number(value))"
         />
       </div>
 
@@ -24,7 +24,7 @@
           :min="1"
           :max="8"
           :step="2"
-          @update:modelValue="store.setRowCount"
+          @update:modelValue="(value) => store.setRowCount(Number(value))"
         />
       </div>
 
@@ -35,7 +35,7 @@
           type="options"
           :options="CHROMATIC_NOTES"
           label="Key"
-          @update:modelValue="musicStore.setKey"
+          @update:modelValue="(value) => musicStore.setKey(String(value))"
         />
       </div>
 
@@ -67,7 +67,7 @@
             // }, // light yellow
           ]"
           label="Mode"
-          @update:modelValue="musicStore.setMode"
+          @update:modelValue="(value) => musicStore.setMode(value as any)"
         />
       </div>
 
@@ -77,10 +77,10 @@
           :model-value="showLiveStrip"
           type="boolean"
           label="Notation"
-          @update:modelValue="toggleLiveStrip"
+          @update:modelValue="(value) => toggleLiveStrip(Boolean(value))"
         />
       </div>
-      
+
       <!-- Drawer toggle -->
       <div class="control-group">
         <Knob
@@ -112,13 +112,13 @@ const showLiveStrip = ref(true);
 
 // Emit events to parent
 const emit = defineEmits<{
-  'toggle-live-strip': [value: boolean]
+  "toggle-live-strip": [value: boolean];
 }>();
 
 // Toggle live strip
 function toggleLiveStrip(value: boolean) {
   showLiveStrip.value = value;
-  emit('toggle-live-strip', value);
+  emit("toggle-live-strip", value);
 }
 </script>
 

@@ -332,6 +332,14 @@ export const UNIFIED_CONFIG = {
       step: 0.01,
       label: "Opacity Interpolation Speed",
     },
+    octaveOffset: {
+      value: 0,
+      min: 0,
+      max: 50,
+      step: 1,
+      label: "Octave Offset",
+      format: (v: number) => `${v}px`,
+    },
   },
 
   animation: {

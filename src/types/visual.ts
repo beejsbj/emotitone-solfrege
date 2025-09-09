@@ -121,6 +121,8 @@ export interface VibratingStringConfig {
   isActive: boolean;
   /** Index of the associated note */
   noteIndex: number;
+  /** Octave of the string */
+  octave: number;
 }
 
 /**
@@ -253,6 +255,8 @@ export interface StringConfig {
   interpolationSpeed: number;
   /** Speed of opacity interpolation */
   opacityInterpolationSpeed: number;
+  /** Horizontal offset between octave strings in pixels (0-50) */
+  octaveOffset: number;
 }
 
 /**

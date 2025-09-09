@@ -3,7 +3,7 @@
  * Handles vibrating string visualization with realistic physics
  */
 
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import type {
   VibratingStringConfig,
   StringConfig,
@@ -15,14 +15,24 @@ import {
   createHarmonicVibration,
   createStringDamping,
 } from "@/utils/visualEffects";
+import { useMusicStore } from "@/stores/music";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import useGSAP from "../useGSAP";
 
 export function useStringRenderer() {
   const { getPrimaryColor } = useColorSystem();
   const { gsap } = useGSAP();
+  const musicStore = useMusicStore();
+  const keyboardDrawerStore = useKeyboardDrawerStore();
+  const visualConfigStore = useVisualConfigStore();
 
   // String state
   const strings = ref<VibratingStringConfig[]>([]);
+
+  // Cache the last canvas size for reinitialization
+  let lastCanvasWidth = 0;
+  let lastCanvasHeight = 0;
 
   // Event-based activation for sequencer notes
   const eventActivatedStrings = ref(
@@ -47,22 +57,83 @@ export function useStringRenderer() {
   ) => {
     if (!stringConfig.isEnabled) return;
 
-    // Use the configured count, but limit to available solfege data
-    const stringCount = Math.min(stringConfig.count, solfegeData.length);
-    const stringsToCreate = solfegeData.slice(0, stringCount);
+    // Cache canvas size for reactive updates
+    lastCanvasWidth = canvasWidth;
+    lastCanvasHeight = _canvasHeight;
 
-    strings.value = stringsToCreate.map((solfege, index) => ({
-      x: (canvasWidth / (stringCount + 1)) * (index + 1),
-      baseY: 0,
-      amplitude: 0,
-      frequency: 1,
-      phase: Math.random() * Math.PI * 2,
-      color: getPrimaryColor(solfege.name, "major"),
-      opacity: stringConfig.baseOpacity,
-      isActive: false,
-      noteIndex: index,
-    }));
+    // Get visible octaves from keyboard drawer store
+    const visibleOctaves = keyboardDrawerStore.visibleOctaves;
+    const scaleDegreesCount = solfegeData.length;
+
+    // Create strings for each scale degree in each visible octave
+    const stringsToCreate: VibratingStringConfig[] = [];
+
+    // Group by octave first, then distribute scale degrees within each group
+    // Cluster by scale degree: for each degree, group all octaves together
+    solfegeData.forEach((solfege, degreeIndex) => {
+      // Center of this group (leftmost = degree 0)
+      const usableWidth = canvasWidth * 1.15; // How much space for groups
+      const leftMargin = (canvasWidth - usableWidth) / 2; // Center them
+      const groupCenter =
+        (usableWidth / (scaleDegreesCount + 1)) * (degreeIndex + 1) +
+        leftMargin;
+
+      visibleOctaves.forEach((octave, octaveIndex) => {
+        let x;
+        if (stringConfig.octaveOffset === 0) {
+          x = groupCenter;
+        } else {
+          // Offset each octave within the group
+          const mainOctaveIndex = Math.floor(visibleOctaves.length / 2);
+          const octaveOffsetDirection = octaveIndex - mainOctaveIndex;
+          x = groupCenter + octaveOffsetDirection * stringConfig.octaveOffset;
+        }
+        stringsToCreate.push({
+          x,
+          baseY: 0,
+          amplitude: 0,
+          frequency: 1,
+          phase: Math.random() * Math.PI * 2,
+          color: getPrimaryColor(solfege.name, "major", octave),
+          opacity: stringConfig.baseOpacity,
+          isActive: false,
+          noteIndex: degreeIndex,
+          octave: octave,
+        });
+      });
+    });
+
+    strings.value = stringsToCreate;
   };
+
+  /**
+   * Reinitialize strings when configuration changes
+   */
+  const reinitializeStrings = () => {
+    if (lastCanvasWidth > 0 && lastCanvasHeight > 0) {
+      initializeStrings(
+        visualConfigStore.config.strings,
+        lastCanvasWidth,
+        lastCanvasHeight,
+        musicStore.solfegeData
+      );
+    }
+  };
+
+  // Watch for changes that should trigger reinitialization
+  watch(
+    [
+      () => visualConfigStore.config.strings.octaveOffset,
+      () => keyboardDrawerStore.keyboardConfig.mainOctave,
+      () => keyboardDrawerStore.keyboardConfig.rowCount,
+      () => musicStore.currentKey,
+      () => musicStore.currentMode,
+    ],
+    () => {
+      reinitializeStrings();
+    },
+    { deep: true }
+  );
 
   /**
    * Handle note played events (for sequencer integration)
@@ -124,20 +195,24 @@ export function useStringRenderer() {
     // Clean up expired event activations
     cleanupExpiredActivations();
 
-    strings.value.forEach((string, index) => {
-      const solfege = musicStore.solfegeData[index];
+    strings.value.forEach((string) => {
+      const solfege = musicStore.solfegeData[string.noteIndex];
       if (!solfege) return;
 
-      // Check if this string's note is currently active in any octave (from direct input)
+      // Check if this string's note is currently active for its specific octave (from direct input)
       const activeNotes = musicStore.getActiveNotes();
       const isStringActiveFromInput = activeNotes.some(
-        (activeNote: any) => activeNote.solfegeIndex === index
+        (activeNote: any) =>
+          activeNote.solfegeIndex === string.noteIndex &&
+          activeNote.octave === string.octave
       );
 
-      // Check if this string is activated by sequencer events
-      const eventActivation = eventActivatedStrings.value.get(index);
+      // Check if this string is activated by sequencer events (for the specific octave)
+      const eventActivation = eventActivatedStrings.value.get(string.noteIndex);
       const isStringActiveFromEvent =
-        eventActivation && Date.now() <= eventActivation.endTime;
+        eventActivation &&
+        Date.now() <= eventActivation.endTime &&
+        eventActivation.octave === string.octave;
 
       const isStringActive = isStringActiveFromInput || isStringActiveFromEvent;
 
@@ -160,21 +235,24 @@ export function useStringRenderer() {
         let visualFrequency;
 
         if (isStringActiveFromInput) {
-          // Use the highest octave frequency from direct input
-          const activeStringNotes = activeNotes.filter(
-            (activeNote: any) => activeNote.solfegeIndex === index
+          // Use the frequency from the matching octave note
+          const matchingNote = activeNotes.find(
+            (activeNote: any) =>
+              activeNote.solfegeIndex === string.noteIndex &&
+              activeNote.octave === string.octave
           );
-          const highestOctaveNote = activeStringNotes.reduce(
-            (highest: any, current: any) =>
-              current.octave > highest.octave ? current : highest
-          );
-          visualFrequency = highestOctaveNote.frequency;
+          visualFrequency =
+            matchingNote?.frequency ||
+            musicStore.getNoteFrequency(string.noteIndex, string.octave);
         } else if (eventActivation) {
           // Use frequency from event activation (sequencer)
           visualFrequency = eventActivation.frequency;
         } else {
           // Fallback
-          visualFrequency = musicStore.getNoteFrequency(index, 4);
+          visualFrequency = musicStore.getNoteFrequency(
+            string.noteIndex,
+            string.octave
+          );
         }
 
         string.frequency = createVisualFrequency(
@@ -195,7 +273,10 @@ export function useStringRenderer() {
         );
 
         // Keep a subtle base frequency when inactive
-        const noteFrequency = musicStore.getNoteFrequency(index, 4);
+        const noteFrequency = musicStore.getNoteFrequency(
+          string.noteIndex,
+          string.octave
+        );
         string.frequency = createVisualFrequency(noteFrequency, 200);
       }
     });

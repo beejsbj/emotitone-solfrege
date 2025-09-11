@@ -234,7 +234,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   });
 
   /**
-   * Handle note played event - enhanced for polyphonic support
+   * Handle note played event - enhanced for polyphonic support with Circle of Fifths positioning
    */
   const handleNotePlayed = (
     note: SolfegeData,
@@ -243,22 +243,19 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     octave?: number,
     _noteName?: string
   ) => {
-    // Create persistent gradient blob at position based on octave and note
-    // Higher octaves appear higher on screen, different notes spread horizontally
-    const baseX = 20 + (note.number - 1) * 10; // Spread by solfege degree
-    const baseY = octave ? 60 - (octave - 3) * 15 : 40; // Higher octaves = higher position
-    const x = baseX + Math.random() * 20; // Add some randomness
-    const y = Math.max(10, Math.min(80, baseY + Math.random() * 20));
-
+    // Create blob using Circle of Fifths positioning
+    // No longer need to calculate x,y - the blob renderer handles positioning
     blobRenderer.createBlob(
       note,
       frequency,
-      x,
-      y,
+      0, // x parameter is now ignored but kept for compatibility
+      0, // y parameter is now ignored but kept for compatibility
       canvasWidth.value,
       canvasHeight.value,
       blobConfig.value,
-      noteId // Pass noteId for tracking
+      noteId, // Pass noteId for tracking
+      musicStore.currentKey, // Pass current key for circle positioning
+      musicStore.currentMode // Pass current mode for circle direction
     );
 
     // Create particles with reduced count for polyphonic scenarios

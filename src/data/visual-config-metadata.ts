@@ -136,6 +136,14 @@ export const UNIFIED_CONFIG = {
       step: 5,
       label: "Glow Intensity",
     },
+    circleTopMargin: {
+      value: 30,
+      min: 0,
+      max: 200,
+      step: 10,
+      label: "Circle Top Margin",
+      format: (v: number) => `${v}px`,
+    },
   },
 
   ambient: {

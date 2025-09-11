@@ -189,6 +189,8 @@ export interface BlobConfig {
   glowEnabled: boolean;
   /** Glow blur intensity */
   glowIntensity: number;
+  /** Top margin for circle of fifths positioning in pixels */
+  circleTopMargin: number;
 }
 
 /**

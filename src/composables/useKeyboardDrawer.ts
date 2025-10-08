@@ -63,9 +63,9 @@ export function useKeyboardDrawer(targetRef: Ref<HTMLElement | null>) {
   const closeDrawerAnimated = () => store.closeDrawer();
   const toggleDrawerAnimated = () => store.toggleDrawer();
 
+  // Cleanup is handled by GSAP context automatically
   onUnmounted(() => {
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
+    // No manual cleanup needed
   });
 
   return {

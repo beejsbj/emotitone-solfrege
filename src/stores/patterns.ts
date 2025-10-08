@@ -17,47 +17,56 @@ import type {
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 
 // Helper function to create a Pattern from HistoryNotes
-function createPatternFromNotes(notes: HistoryNote[], id: string): Pattern | null {
+function createPatternFromNotes(
+  notes: HistoryNote[],
+  id: string
+): Pattern | null {
   if (notes.length === 0) return null;
 
   const firstNote = notes[0];
   const lastNote = notes[notes.length - 1];
-  
+
   // Calculate total duration
-  const totalDuration = (lastNote.releaseTime || lastNote.pressTime) - firstNote.pressTime;
+  const totalDuration =
+    (lastNote.releaseTime || lastNote.pressTime) - firstNote.pressTime;
 
   // Calculate pattern statistics
   const durations = notes
-    .map(n => n.duration)
+    .map((n) => n.duration)
     .filter((d): d is number => d !== undefined);
-  
-  const averageNoteDuration = durations.length > 0 
-    ? durations.reduce((a, b) => a + b, 0) / durations.length 
-    : undefined;
+
+  const averageNoteDuration =
+    durations.length > 0
+      ? durations.reduce((a, b) => a + b, 0) / durations.length
+      : undefined;
 
   // Find dominant scale degree
   const scaleDegreeCounts = new Map<number, number>();
-  notes.forEach(note => {
+  notes.forEach((note) => {
     const current = scaleDegreeCounts.get(note.scaleDegree) || 0;
     scaleDegreeCounts.set(note.scaleDegree, current + 1);
   });
-  
-  const dominantScaleDegree = Array.from(scaleDegreeCounts.entries())
-    .reduce((a, b) => b[1] > a[1] ? b : a)[0];
+
+  const dominantScaleDegree = Array.from(scaleDegreeCounts.entries()).reduce(
+    (a, b) => (b[1] > a[1] ? b : a)
+  )[0];
 
   // Calculate complexity score
-  const uniqueNotes = new Set(notes.map(n => n.note)).size;
+  const uniqueNotes = new Set(notes.map((n) => n.note)).size;
   const pitchVariety = uniqueNotes / notes.length;
-  const rhythmVariety = durations.length > 0 
-    ? new Set(durations.map(d => Math.round(d / 100))).size / durations.length 
-    : 0;
+  const rhythmVariety =
+    durations.length > 0
+      ? new Set(durations.map((d) => Math.round(d / 100))).size /
+        durations.length
+      : 0;
   const complexityScore = (pitchVariety + rhythmVariety) / 2;
 
   // Detect pattern type
-  let patternType: Pattern['patternType'] = 'melody';
-  if (uniqueNotes === 1) patternType = 'rhythm';
-  else if (notes.length > 2 && (lastNote.pressTime - firstNote.pressTime) < 1000) patternType = 'chord';
-  else if (complexityScore > 0.7) patternType = 'mixed';
+  let patternType: Pattern["patternType"] = "melody";
+  if (uniqueNotes === 1) patternType = "rhythm";
+  else if (notes.length > 2 && lastNote.pressTime - firstNote.pressTime < 1000)
+    patternType = "chord";
+  else if (complexityScore > 0.7) patternType = "mixed";
 
   const pattern: Pattern = {
     id,
@@ -75,7 +84,7 @@ function createPatternFromNotes(notes: HistoryNote[], id: string): Pattern | nul
     dominantScaleDegree,
     complexityScore,
     patternType,
-    detectionConfidence: Math.min(complexityScore + 0.3, 1.0)
+    detectionConfidence: Math.min(complexityScore + 0.3, 1.0),
   };
 
   return pattern;
@@ -103,18 +112,21 @@ export const usePatternsStore = defineStore(
 
     // History notes - this is what needs persistence!
     const historyNotes = ref<HistoryNote[]>([]);
-    
+
     // Computed: Automatically convert history to patterns based on silence gaps
     // This updates IMMEDIATELY when historyNotes changes - no delays!
     const patterns = computed(() => {
       // ALWAYS get default patterns first
       const defaultPatterns = patternService.getDefaultPatterns();
-      
+
       // Get saved patterns (user bookmarked patterns)
-      const savedUserPatterns = patternService.getPatterns({ isSaved: true, isDefault: false });
-      
+      const savedUserPatterns = patternService.getPatterns({
+        isSaved: true,
+        isDefault: false,
+      });
+
       const detectedPatterns: Pattern[] = [];
-      
+
       // Process history notes into auto-detected patterns
       // This happens instantly whenever historyNotes.value changes
       if (historyNotes.value.length > 0) {
@@ -126,19 +138,24 @@ export const usePatternsStore = defineStore(
         // The silence threshold is ONLY for grouping, not for delaying display!
         for (const note of historyNotes.value) {
           if (lastNote) {
-            const timeSinceLastNote = note.pressTime - (lastNote.releaseTime || lastNote.pressTime);
-            const contextChanged = 
+            const timeSinceLastNote =
+              note.pressTime - (lastNote.releaseTime || lastNote.pressTime);
+            const contextChanged =
               lastNote.key !== note.key ||
               lastNote.mode !== note.mode ||
               lastNote.instrument !== note.instrument;
 
             // Start new pattern if silence threshold exceeded or context changed
-            if (timeSinceLastNote > config.value.silenceThreshold || 
-                (contextChanged && config.value.detectOnContextChange)) {
-              
+            if (
+              timeSinceLastNote > config.value.silenceThreshold ||
+              (contextChanged && config.value.detectOnContextChange)
+            ) {
               // Save current group as a pattern if it has enough notes
               if (currentGroup.length >= config.value.minPatternLength) {
-                const pattern = createPatternFromNotes(currentGroup, `auto_${Date.now()}_${patternId++}`);
+                const pattern = createPatternFromNotes(
+                  currentGroup,
+                  `auto_${Date.now()}_${patternId++}`
+                );
                 if (pattern) {
                   detectedPatterns.push(pattern);
                 }
@@ -156,7 +173,10 @@ export const usePatternsStore = defineStore(
         // Don't forget the last group (currently being played)
         // This ensures the current pattern shows up immediately
         if (currentGroup.length >= config.value.minPatternLength) {
-          const pattern = createPatternFromNotes(currentGroup, `auto_${Date.now()}_${patternId}`);
+          const pattern = createPatternFromNotes(
+            currentGroup,
+            `auto_${Date.now()}_${patternId}`
+          );
           if (pattern) {
             detectedPatterns.push(pattern);
           }
@@ -194,8 +214,10 @@ export const usePatternsStore = defineStore(
 
       for (const pattern of allPatterns) {
         const key = `${pattern.key} ${pattern.mode}`;
-        if (!byKey[key]) byKey[key] = [];
-        byKey[key].push(pattern);
+        if (!byKey[key]) {
+          byKey[key] = [];
+        }
+        byKey[key]?.push(pattern);
       }
 
       return byKey;
@@ -206,10 +228,11 @@ export const usePatternsStore = defineStore(
       const allPatterns = patternService.getPatterns();
 
       for (const pattern of allPatterns) {
-        if (!byInstrument[pattern.instrument]) {
-          byInstrument[pattern.instrument] = [];
+        const instrument = pattern.instrument ?? "unknown";
+        if (!byInstrument[instrument]) {
+          byInstrument[instrument] = [];
         }
-        byInstrument[pattern.instrument].push(pattern);
+        byInstrument[instrument].push(pattern);
       }
 
       return byInstrument;
@@ -223,7 +246,7 @@ export const usePatternsStore = defineStore(
 
     // Computed getters for default/user pattern separation
     const defaultPatterns = computed(() => patternService.getDefaultPatterns());
-    
+
     const userPatterns = computed(() => patternService.getUserPatterns());
 
     // Actions
@@ -238,39 +261,49 @@ export const usePatternsStore = defineStore(
 
       try {
         // Load persisted history from localStorage
-        const savedHistory = localStorage.getItem('emotitone-history');
+        const savedHistory = localStorage.getItem("emotitone-history");
         if (savedHistory) {
           try {
             const parsed = JSON.parse(savedHistory);
             // Only load notes from the last 24 hours
-            const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-            historyNotes.value = parsed.filter((note: HistoryNote) => note.pressTime > oneDayAgo);
-            console.log(`📥 Loaded ${historyNotes.value.length} history notes from last 24 hours`);
+            const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+            historyNotes.value = parsed.filter(
+              (note: HistoryNote) => note.pressTime > oneDayAgo
+            );
+            console.log(
+              `📥 Loaded ${historyNotes.value.length} history notes from last 24 hours`
+            );
           } catch (e) {
-            console.error('Failed to parse saved history:', e);
+            console.error("Failed to parse saved history:", e);
             historyNotes.value = [];
           }
         }
-        
+
         // Update service configuration
         patternService.updateConfig(config.value);
 
         // Load default patterns (will skip if already loaded)
         await patternService.loadDefaultPatterns();
-        
+
         // Load any saved user patterns from service
-        const savedServiceData = localStorage.getItem('emotitone-patterns-service-data');
+        const savedServiceData = localStorage.getItem(
+          "emotitone-patterns-service-data"
+        );
         if (savedServiceData) {
           try {
             const data = JSON.parse(savedServiceData);
             // Only load saved patterns, not history (we handle that separately)
             if (data.patterns) {
-              const savedPatterns = data.patterns.filter((p: Pattern) => p.isSaved && !p.isDefault);
+              const savedPatterns = data.patterns.filter(
+                (p: Pattern) => p.isSaved && !p.isDefault
+              );
               patternService.loadData({ patterns: savedPatterns });
-              console.log(`📥 Loaded ${savedPatterns.length} saved user patterns`);
+              console.log(
+                `📥 Loaded ${savedPatterns.length} saved user patterns`
+              );
             }
           } catch (e) {
-            console.error('Failed to load saved patterns:', e);
+            console.error("Failed to load saved patterns:", e);
           }
         }
 
@@ -322,22 +355,28 @@ export const usePatternsStore = defineStore(
         pressTime: Date.now(),
         sessionId: sessionStartTime.value.toString(),
       };
-      
+
       // Add to our reactive history array - this triggers immediate pattern update!
       historyNotes.value.push(historyNote);
-      
+
       // Persist to localStorage immediately
       persistHistory();
-      
+
       // Clean up old notes (older than 24 hours)
-      const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
       const beforeCleanup = historyNotes.value.length;
-      historyNotes.value = historyNotes.value.filter(note => note.pressTime > oneDayAgo);
+      historyNotes.value = historyNotes.value.filter(
+        (note) => note.pressTime > oneDayAgo
+      );
       if (beforeCleanup > historyNotes.value.length) {
-        console.log(`🧹 Cleaned ${beforeCleanup - historyNotes.value.length} old notes (>24h)`);
+        console.log(
+          `🧹 Cleaned ${
+            beforeCleanup - historyNotes.value.length
+          } old notes (>24h)`
+        );
         persistHistory();
       }
-      
+
       return historyNote;
     }
 
@@ -346,7 +385,9 @@ export const usePatternsStore = defineStore(
      */
     function updateNoteRelease(noteId: string, releaseTime: number): void {
       // Update in our history array
-      const note = historyNotes.value.find(n => n.audioNoteId === noteId || n.id === noteId);
+      const note = historyNotes.value.find(
+        (n) => n.audioNoteId === noteId || n.id === noteId
+      );
       if (note) {
         note.releaseTime = releaseTime;
         note.duration = releaseTime - note.pressTime;
@@ -466,7 +507,10 @@ export const usePatternsStore = defineStore(
         patterns: [...patterns.value],
         config: { ...config.value },
         currentSessionId: String(sessionStartTime.value),
-        lastNoteTime: historyNotes.value.length > 0 ? Math.max(...historyNotes.value.map(h => h.pressTime)) : 0,
+        lastNoteTime:
+          historyNotes.value.length > 0
+            ? Math.max(...historyNotes.value.map((h) => h.pressTime))
+            : 0,
       };
     }
 
@@ -488,8 +532,8 @@ export const usePatternsStore = defineStore(
       patternService.clearAllData();
       sessionStartTime.value = Date.now();
       lastPatternDetection.value = 0;
-      localStorage.removeItem('emotitone-history');
-      localStorage.removeItem('emotitone-patterns-service-data');
+      localStorage.removeItem("emotitone-history");
+      localStorage.removeItem("emotitone-patterns-service-data");
       console.log("🧹 All pattern data cleared from store");
     }
 
@@ -525,14 +569,19 @@ export const usePatternsStore = defineStore(
     function persistHistory(): void {
       try {
         // Only keep last 24 hours of history
-        const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-        const recentHistory = historyNotes.value.filter(note => note.pressTime > oneDayAgo);
-        localStorage.setItem('emotitone-history', JSON.stringify(recentHistory));
+        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        const recentHistory = historyNotes.value.filter(
+          (note) => note.pressTime > oneDayAgo
+        );
+        localStorage.setItem(
+          "emotitone-history",
+          JSON.stringify(recentHistory)
+        );
       } catch (error) {
-        console.error('Failed to persist history:', error);
+        console.error("Failed to persist history:", error);
       }
     }
-    
+
     /**
      * Gets pattern statistics and insights
      */
@@ -571,7 +620,9 @@ export const usePatternsStore = defineStore(
       // Longest pattern
       const longestPattern = allPatterns.reduce(
         (longest, current) =>
-          current.noteCount > (longest?.noteCount || 0) ? current : longest,
+          (current.noteCount ?? 0) > (longest?.noteCount ?? 0)
+            ? current
+            : longest,
         undefined as Pattern | undefined
       );
 

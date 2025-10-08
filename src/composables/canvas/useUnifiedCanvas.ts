@@ -255,7 +255,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       blobConfig.value,
       noteId, // Pass noteId for tracking
       musicStore.currentKey, // Pass current key for circle positioning
-      musicStore.currentMode // Pass current mode for circle direction
+      musicStore.currentMode, // Pass current mode for circle direction
+      octave // Pass octave for vertical offset positioning
     );
 
     // Create particles with reduced count for polyphonic scenarios

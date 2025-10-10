@@ -204,16 +204,33 @@ const ariaLabel = computed(() => {
 
 // Event handlers
 const handleTouchStart = async (event: TouchEvent) => {
-  const touch = event.touches[0];
-  const touchId = touch.identifier;
+  // Use changedTouches to get the NEW touch that just started on THIS button
+  // (not touches[0] which could be an older touch from another button)
+  for (const touch of Array.from(event.changedTouches)) {
+    const touchId = touch.identifier;
 
-  store.addTouch(touchId, noteKey.value);
+    // Verify this touch is actually on this button by checking bounds
+    const element = keyRef.value;
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      const isOnThisKey =
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom;
 
-  if (config.value.hapticFeedback) {
-    triggerNoteHaptic();
+      if (isOnThisKey) {
+        store.addTouch(touchId, noteKey.value);
+
+        if (config.value.hapticFeedback) {
+          triggerNoteHaptic();
+        }
+
+        await attackNoteWithOctave(props.solfegeIndex, props.octave, event);
+        break; // Only handle the first touch that's on this key
+      }
+    }
   }
-
-  await attackNoteWithOctave(props.solfegeIndex, props.octave, event);
 };
 
 const handleTouchMove = (event: TouchEvent) => {

@@ -6,6 +6,7 @@
     :aria-label="ariaLabel"
     :aria-pressed="isPressed"
     @touchstart.prevent="handleTouchStart"
+    @touchmove.prevent="handleTouchMove"
     @touchend.prevent="handleTouchEnd"
     @touchcancel.prevent="handleTouchCancel"
     @mousedown="handleMouseDown"
@@ -215,6 +216,36 @@ const handleTouchStart = async (event: TouchEvent) => {
   await attackNoteWithOctave(props.solfegeIndex, props.octave, event);
 };
 
+const handleTouchMove = (event: TouchEvent) => {
+  // Check if any of the touches have moved outside this key's bounds
+  for (const touch of Array.from(event.touches)) {
+    const touchId = touch.identifier;
+
+    // Only process if this touch belongs to this key
+    if (store.touch.activeTouches.get(touchId) === noteKey.value) {
+      const element = keyRef.value;
+      if (!element) continue;
+
+      // Get element bounds
+      const rect = element.getBoundingClientRect();
+
+      // Check if touch is still within bounds (with small tolerance)
+      const tolerance = 5; // pixels
+      const isInBounds =
+        touch.clientX >= rect.left - tolerance &&
+        touch.clientX <= rect.right + tolerance &&
+        touch.clientY >= rect.top - tolerance &&
+        touch.clientY <= rect.bottom + tolerance;
+
+      // If touch has moved outside, release the key
+      if (!isInBounds) {
+        store.removeTouch(touchId);
+        releaseNoteByButtonKey(noteKey.value, event);
+      }
+    }
+  }
+};
+
 const handleTouchEnd = (event: TouchEvent) => {
   for (const touch of Array.from(event.changedTouches)) {
     const touchId = touch.identifier;
@@ -264,6 +295,27 @@ const handleKeyboardRelease = (event: CustomEvent) => {
   }
 };
 
+// Cleanup handler for stuck touches
+const handleVisibilityOrBlur = () => {
+  // If this key is pressed and page loses focus, release it
+  if (store.isKeyPressed(noteKey.value)) {
+    // Find all touches for this key and remove them
+    const touchesToRemove: number[] = [];
+    store.touch.activeTouches.forEach((key, touchId) => {
+      if (key === noteKey.value) {
+        touchesToRemove.push(touchId);
+      }
+    });
+
+    touchesToRemove.forEach((touchId) => {
+      store.removeTouch(touchId);
+    });
+
+    // Release the note
+    releaseNoteByButtonKey(noteKey.value, new Event("blur"));
+  }
+};
+
 // Lifecycle
 onMounted(() => {
   window.addEventListener(
@@ -274,6 +326,10 @@ onMounted(() => {
     "keyboard-note-released",
     handleKeyboardRelease as EventListener
   );
+
+  // Add cleanup listeners for stuck touches
+  document.addEventListener("visibilitychange", handleVisibilityOrBlur);
+  window.addEventListener("blur", handleVisibilityOrBlur);
 });
 
 onUnmounted(() => {
@@ -286,6 +342,10 @@ onUnmounted(() => {
     "keyboard-note-released",
     handleKeyboardRelease as EventListener
   );
+
+  // Remove cleanup listeners
+  document.removeEventListener("visibilitychange", handleVisibilityOrBlur);
+  window.removeEventListener("blur", handleVisibilityOrBlur);
 });
 
 // Expose for parent components
@@ -305,6 +365,21 @@ button {
   -webkit-user-select: none;
   background: v-bind("keyColors.background");
   border-radius: v-bind('config.keyShape + "px"');
+}
+
+/* Prevent hover/active states on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  button:hover,
+  button:active {
+    /* Reset any hover-specific styles that might stick */
+    transform: none;
+  }
+
+  /* Only apply press styles when explicitly pressed via touch state */
+  button:not([aria-pressed="true"]):active {
+    transform: none;
+    box-shadow: inherit;
+  }
 }
 
 /* High contrast mode support */

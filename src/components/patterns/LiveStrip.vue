@@ -555,6 +555,8 @@ onUnmounted(() => {
   overflow-x: auto; /* Horizontal scroll */
   overflow-y: hidden; /* No vertical scroll */
   scroll-behavior: smooth;
+  scroll-snap-align: center;
+  scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   padding: 0.75rem;
   white-space: nowrap; /* Prevent wrapping */

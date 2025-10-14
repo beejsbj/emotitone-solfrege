@@ -9,8 +9,8 @@
     </span>
 
     <!-- Safe notation rendering -->
-    <div v-else class="notation-sequence">
-      <span
+    <ul v-else ref="notationSequenceRef" class="notation-sequence">
+      <li
         v-for="(token, index) in notationTokens"
         :key="index"
         class="notation-token"
@@ -18,13 +18,13 @@
         :style="token.style"
       >
         {{ token.text }}
-      </span>
-    </div>
+      </li>
+    </ul>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
 import { patternToBracketNotation } from "@/utils/bracketNotation";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { Pattern } from "@/types/patterns";
@@ -42,6 +42,9 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const { getStaticPrimaryColorFromSolfegeInput } = useColorSystem();
+
+// Template ref for the notation sequence
+const notationSequenceRef = ref<HTMLElement | null>(null);
 
 interface NotationToken {
   text: string;
@@ -151,6 +154,38 @@ function parseNotationSafely(
 
   return tokens;
 }
+
+// Scroll to end when pattern notes change
+watch(
+  () => props.pattern?.notes?.length,
+  (newLength, oldLength) => {
+    console.log(" scroll 🎵 Pattern notes length changed:", {
+      newLength,
+      oldLength,
+      notes: props.pattern?.notes,
+    });
+
+    nextTick(() => {
+      if (notationSequenceRef.value) {
+        console.log(" scroll 📜 Scrolling notation sequence:", {
+          scrollLeft: notationSequenceRef.value.scrollLeft,
+          scrollWidth: notationSequenceRef.value.scrollWidth,
+          clientWidth: notationSequenceRef.value.clientWidth,
+        });
+
+        notationSequenceRef.value.scrollLeft =
+          notationSequenceRef.value.scrollWidth;
+
+        console.log(
+          "✅ After scroll, scrollLeft:",
+          notationSequenceRef.value.scrollLeft
+        );
+      } else {
+        console.log(" scroll ❌ notationSequenceRef is null");
+      }
+    });
+  }
+);
 </script>
 
 <style scoped>
@@ -166,15 +201,19 @@ function parseNotationSafely(
 }
 
 .notation-sequence {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.125rem;
+  display: flex;
+  overflow-x: scroll;
+  max-width: 90vw;
+  align-items: center;
+  gap: 1px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
 }
 
 .notation-token {
   display: inline-block;
   transition: all 0.2s ease;
+  scroll-snap-align: end;
 }
 
 .notation-token.note {

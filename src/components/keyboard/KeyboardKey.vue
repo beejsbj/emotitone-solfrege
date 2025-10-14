@@ -22,18 +22,18 @@
     >
       <template v-if="isMainOctave">
         <div
-          :class="['font-bold leading-[12px]', labelColor]"
+          :class="['font-bold leading-[12px] scale-125', labelColor]"
           :style="mainLabelStyles"
         >
           {{ solfege.name }}
         </div>
-        <div :class="['mt-0.5', labelColor]" :style="subLabelStyles">
+        <div :class="['mt-0.5 scale-125', labelColor]" :style="subLabelStyles">
           {{ noteName }}
         </div>
       </template>
       <div
         v-else
-        :class="['font-bold leading-[0]', labelColor]"
+        :class="['font-bold leading-[0] scale-125', labelColor]"
         :style="secondaryLabelStyles"
       >
         {{ noteName }}
@@ -72,6 +72,14 @@ const { getKeyBackground, getKeyTextColor } = useColorSystem();
 // Component state
 const keyRef = ref<HTMLElement | null>(null);
 const isFocused = ref(false);
+
+// Random clip-path coordinates for each key
+const clipPathCoords = ref({
+  topLeft: 10,
+  topRight: 90,
+  bottomRight: 90,
+  bottomLeft: 10,
+});
 
 // Configuration
 const config = computed(() => store.keyboardConfig);
@@ -135,13 +143,20 @@ const keyStyles = computed(() => {
   const scaledHeight = baseHeight * config.value.keySize;
   const minHeight = 2.75; // Minimum 44px touch target
 
-  return {
+  const styles: Record<string, string> = {
     height: `${Math.max(scaledHeight, minHeight)}rem`,
     minWidth: "2.75rem", // 44px min touch target
     padding: `${0.5 * config.value.keySize}rem ${
       0.75 * config.value.keySize
     }rem`,
   };
+
+  // Only apply clip-path if angledStyle is enabled
+  if (config.value.angledStyle) {
+    styles.clipPath = `polygon(${clipPathCoords.value.topLeft}% 1%, ${clipPathCoords.value.topRight}% 1%, ${clipPathCoords.value.bottomRight}% 99%, ${clipPathCoords.value.bottomLeft}% 99%)`;
+  }
+
+  return styles;
 });
 
 // Dynamic classes
@@ -335,6 +350,16 @@ const handleVisibilityOrBlur = () => {
 
 // Lifecycle
 onMounted(() => {
+  // Generate random clip-path coordinates for this key (only if angledStyle is enabled)
+  if (config.value.angledStyle) {
+    clipPathCoords.value = {
+      topLeft: Math.floor(Math.random() * 11), // 0-10
+      topRight: 90 + Math.floor(Math.random() * 11), // 90-100
+      bottomRight: 90 + Math.floor(Math.random() * 11), // 90-100
+      bottomLeft: Math.floor(Math.random() * 11), // 0-10
+    };
+  }
+
   window.addEventListener(
     "keyboard-note-pressed",
     handleKeyboardPress as EventListener

@@ -461,6 +461,8 @@ export interface KeyboardConfig {
   glassmorphOpacity: number;
   /** Whether to add padding around the keyboard */
   keyboardPadding: boolean;
+  /** Whether to apply randomized angled clip-path to keys */
+  angledStyle: boolean;
 }
 
 /**

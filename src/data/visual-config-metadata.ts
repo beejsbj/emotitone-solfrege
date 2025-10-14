@@ -858,6 +858,10 @@ export const UNIFIED_CONFIG = {
       value: false,
       label: "Keyboard Padding",
     },
+    angledStyle: {
+      value: false,
+      label: "Angled Style",
+    },
   },
 };
 

@@ -21,7 +21,7 @@ watch(
 
 <template>
   <div>
-    <ul ref="listRef" class="flex overflow-x-auto">
+    <ul ref="listRef" class="flex overflow-x-auto justify-end">
       <li
         v-for="note in patterns.loggedNotes"
         :key="note.id"
@@ -34,7 +34,9 @@ watch(
           ),
         }"
       >
-        {{ note.note }}
+        <span class="relative z-10">
+          {{ note.note }}
+        </span>
       </li>
     </ul>
   </div>
@@ -53,9 +55,9 @@ ul::after {
   position: absolute;
   top: 50%;
   left: 0;
-  translate: ;
-  height: 1px;
+  /* translate:  */
+  height: 2px;
   width: 100%;
-  background-color: var(--color-text);
+  background-color: black;
 }
 </style>

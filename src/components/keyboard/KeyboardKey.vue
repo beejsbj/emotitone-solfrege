@@ -6,6 +6,7 @@
     :aria-label="ariaLabel"
     :aria-pressed="isPressed"
     @touchstart.prevent="handleTouchStart"
+    @touchmove.prevent="handleTouchMove"
     @touchend.prevent="handleTouchEnd"
     @touchcancel.prevent="handleTouchCancel"
     @mousedown="handleMouseDown"
@@ -21,18 +22,18 @@
     >
       <template v-if="isMainOctave">
         <div
-          :class="['font-bold leading-[12px]', labelColor]"
+          :class="['font-bold leading-[12px] scale-125', labelColor]"
           :style="mainLabelStyles"
         >
           {{ solfege.name }}
         </div>
-        <div :class="['mt-0.5', labelColorSecondary]" :style="subLabelStyles">
+        <div :class="['mt-0.5 scale-125', labelColor]" :style="subLabelStyles">
           {{ noteName }}
         </div>
       </template>
       <div
         v-else
-        :class="['font-bold leading-[0]', labelColor]"
+        :class="['font-bold leading-[0] scale-125', labelColor]"
         :style="secondaryLabelStyles"
       >
         {{ noteName }}
@@ -71,6 +72,14 @@ const { getKeyBackground, getKeyTextColor } = useColorSystem();
 // Component state
 const keyRef = ref<HTMLElement | null>(null);
 const isFocused = ref(false);
+
+// Random clip-path coordinates for each key
+const clipPathCoords = ref({
+  topLeft: 10,
+  topRight: 90,
+  bottomRight: 90,
+  bottomLeft: 10,
+});
 
 // Configuration
 const config = computed(() => store.keyboardConfig);
@@ -134,13 +143,20 @@ const keyStyles = computed(() => {
   const scaledHeight = baseHeight * config.value.keySize;
   const minHeight = 2.75; // Minimum 44px touch target
 
-  return {
+  const styles: Record<string, string> = {
     height: `${Math.max(scaledHeight, minHeight)}rem`,
     minWidth: "2.75rem", // 44px min touch target
     padding: `${0.5 * config.value.keySize}rem ${
       0.75 * config.value.keySize
     }rem`,
   };
+
+  // Only apply clip-path if angledStyle is enabled
+  if (config.value.angledStyle) {
+    styles.clipPath = `polygon(${clipPathCoords.value.topLeft}% 1%, ${clipPathCoords.value.topRight}% 1%, ${clipPathCoords.value.bottomRight}% 99%, ${clipPathCoords.value.bottomLeft}% 99%)`;
+  }
+
+  return styles;
 });
 
 // Dynamic classes
@@ -203,16 +219,63 @@ const ariaLabel = computed(() => {
 
 // Event handlers
 const handleTouchStart = async (event: TouchEvent) => {
-  const touch = event.touches[0];
-  const touchId = touch.identifier;
+  // Use changedTouches to get the NEW touch that just started on THIS button
+  // (not touches[0] which could be an older touch from another button)
+  for (const touch of Array.from(event.changedTouches)) {
+    const touchId = touch.identifier;
 
-  store.addTouch(touchId, noteKey.value);
+    // Verify this touch is actually on this button by checking bounds
+    const element = keyRef.value;
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      const isOnThisKey =
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom;
 
-  if (config.value.hapticFeedback) {
-    triggerNoteHaptic();
+      if (isOnThisKey) {
+        store.addTouch(touchId, noteKey.value);
+
+        if (config.value.hapticFeedback) {
+          triggerNoteHaptic();
+        }
+
+        await attackNoteWithOctave(props.solfegeIndex, props.octave, event);
+        break; // Only handle the first touch that's on this key
+      }
+    }
   }
+};
 
-  await attackNoteWithOctave(props.solfegeIndex, props.octave, event);
+const handleTouchMove = (event: TouchEvent) => {
+  // Check if any of the touches have moved outside this key's bounds
+  for (const touch of Array.from(event.touches)) {
+    const touchId = touch.identifier;
+
+    // Only process if this touch belongs to this key
+    if (store.touch.activeTouches.get(touchId) === noteKey.value) {
+      const element = keyRef.value;
+      if (!element) continue;
+
+      // Get element bounds
+      const rect = element.getBoundingClientRect();
+
+      // Check if touch is still within bounds (with small tolerance)
+      const tolerance = 5; // pixels
+      const isInBounds =
+        touch.clientX >= rect.left - tolerance &&
+        touch.clientX <= rect.right + tolerance &&
+        touch.clientY >= rect.top - tolerance &&
+        touch.clientY <= rect.bottom + tolerance;
+
+      // If touch has moved outside, release the key
+      if (!isInBounds) {
+        store.removeTouch(touchId);
+        releaseNoteByButtonKey(noteKey.value, event);
+      }
+    }
+  }
 };
 
 const handleTouchEnd = (event: TouchEvent) => {
@@ -264,8 +327,39 @@ const handleKeyboardRelease = (event: CustomEvent) => {
   }
 };
 
+// Cleanup handler for stuck touches
+const handleVisibilityOrBlur = () => {
+  // If this key is pressed and page loses focus, release it
+  if (store.isKeyPressed(noteKey.value)) {
+    // Find all touches for this key and remove them
+    const touchesToRemove: number[] = [];
+    store.touch.activeTouches.forEach((key, touchId) => {
+      if (key === noteKey.value) {
+        touchesToRemove.push(touchId);
+      }
+    });
+
+    touchesToRemove.forEach((touchId) => {
+      store.removeTouch(touchId);
+    });
+
+    // Release the note
+    releaseNoteByButtonKey(noteKey.value, new Event("blur"));
+  }
+};
+
 // Lifecycle
 onMounted(() => {
+  // Generate random clip-path coordinates for this key (only if angledStyle is enabled)
+  if (config.value.angledStyle) {
+    clipPathCoords.value = {
+      topLeft: Math.floor(Math.random() * 11), // 0-10
+      topRight: 90 + Math.floor(Math.random() * 11), // 90-100
+      bottomRight: 90 + Math.floor(Math.random() * 11), // 90-100
+      bottomLeft: Math.floor(Math.random() * 11), // 0-10
+    };
+  }
+
   window.addEventListener(
     "keyboard-note-pressed",
     handleKeyboardPress as EventListener
@@ -274,6 +368,10 @@ onMounted(() => {
     "keyboard-note-released",
     handleKeyboardRelease as EventListener
   );
+
+  // Add cleanup listeners for stuck touches
+  document.addEventListener("visibilitychange", handleVisibilityOrBlur);
+  window.addEventListener("blur", handleVisibilityOrBlur);
 });
 
 onUnmounted(() => {
@@ -286,6 +384,10 @@ onUnmounted(() => {
     "keyboard-note-released",
     handleKeyboardRelease as EventListener
   );
+
+  // Remove cleanup listeners
+  document.removeEventListener("visibilitychange", handleVisibilityOrBlur);
+  window.removeEventListener("blur", handleVisibilityOrBlur);
 });
 
 // Expose for parent components
@@ -305,6 +407,21 @@ button {
   -webkit-user-select: none;
   background: v-bind("keyColors.background");
   border-radius: v-bind('config.keyShape + "px"');
+}
+
+/* Prevent hover/active states on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  button:hover,
+  button:active {
+    /* Reset any hover-specific styles that might stick */
+    transform: none;
+  }
+
+  /* Only apply press styles when explicitly pressed via touch state */
+  button:not([aria-pressed="true"]):active {
+    transform: none;
+    box-shadow: inherit;
+  }
 }
 
 /* High contrast mode support */

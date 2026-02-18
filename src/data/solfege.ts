@@ -68,14 +68,6 @@ export const MAJOR_SOLFEGE: SolfegeData[] = [
     fleckShape: "sparkle",
     texture: "spiritual tension, strong upward pull",
   },
-  {
-    name: "Do'",
-    number: 8,
-    emotion: "Resolution, completion",
-    description: "Octave completion, return home at higher level",
-    fleckShape: "star",
-    texture: "elevated foundation, triumphant return",
-  },
 ];
 
 /**
@@ -137,13 +129,5 @@ export const MINOR_SOLFEGE: SolfegeData[] = [
     description: "Softer leading tone than Ti.",
     fleckShape: "sparkle",
     texture: "shadowed anticipation",
-  },
-  {
-    name: "Do'",
-    number: 8,
-    emotion: "Somber resolution, completion",
-    description: "Octave completion in minor - dignified return",
-    fleckShape: "star",
-    texture: "elevated dignified stability with emotional depth",
   },
 ];

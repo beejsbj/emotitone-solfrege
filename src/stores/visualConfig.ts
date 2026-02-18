@@ -204,6 +204,15 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     { deep: true }
   );
 
+  // Watch specifically for pattern config changes and sync to pattern service
+  watch(
+    () => config.patterns,
+    (newPatternsConfig) => {
+      // Pattern config sync removed (pattern service deprecated)
+    },
+    { deep: true, immediate: true }
+  );
+
   // Initialize on store creation
   loadFromStorage();
 

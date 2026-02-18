@@ -13,10 +13,11 @@ import type {
   AnimationConfig,
   FrequencyMappingConfig,
   DynamicColorConfig,
-  PaletteConfig,
+  KeyboardConfig,
   FloatingPopupConfig,
   HilbertScopeConfig,
   BeatingShapesConfig,
+  PatternConfig,
   VisualEffectsConfig,
 } from "@/types/visual";
 
@@ -34,7 +35,7 @@ export type {
   AnimationConfig,
   FrequencyMappingConfig,
   DynamicColorConfig,
-  PaletteConfig,
+  KeyboardConfig,
   FloatingPopupConfig,
   HilbertScopeConfig,
   BeatingShapesConfig,
@@ -57,10 +58,10 @@ export function useVisualConfig() {
   const animationConfig = computed(() => store.config.animation);
   const frequencyMappingConfig = computed(() => store.config.frequencyMapping);
   const dynamicColorConfig = computed(() => store.config.dynamicColors);
-  const paletteConfig = computed(() => store.config.palette);
   const floatingPopupConfig = computed(() => store.config.floatingPopup);
   const hilbertScopeConfig = computed(() => store.config.hilbertScope);
   const beatingShapesConfig = computed(() => store.config.beatingShapes);
+  const patternsConfig = computed(() => store.config.patterns);
   const keyboardConfig = computed(() => store.config.keyboard);
 
   return {
@@ -76,10 +77,10 @@ export function useVisualConfig() {
     animationConfig,
     frequencyMappingConfig,
     dynamicColorConfig,
-    paletteConfig,
     floatingPopupConfig,
     hilbertScopeConfig,
     beatingShapesConfig,
+    patternsConfig,
     keyboardConfig,
 
     // Methods from store

@@ -5,14 +5,18 @@
 
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { usePatternsStore } from "@/stores/patterns";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useColorSystem } from "@/composables/useColorSystem";
-import type { MusicalMode } from "@/types/music";
+import type { MusicalMode, ChromaticNote } from "@/types/music";
 
 /**
  * Composable for handling solfege note interactions
  */
 export function useSolfegeInteraction() {
   const musicStore = useMusicStore();
+  const patternsStore = usePatternsStore();
+  const instrumentStore = useInstrumentStore();
   const { getGradient, isDynamicColorsEnabled } = useColorSystem();
 
   // Track active note IDs for each button press
@@ -78,6 +82,17 @@ export function useSolfegeInteraction() {
     const noteId = await musicStore.attackNoteWithOctave(solfegeIndex, octave);
     if (noteId) {
       activeNoteIds.value.set(buttonKey, noteId);
+      
+      // Record this note in the patterns history
+      const noteData = musicStore.getActiveNotes().find(n => n.noteId === noteId);
+      console.log('Found note data:', noteData);
+      console.log('Active notes:', musicStore.getActiveNotes());
+      if (noteData) {
+        // Recording is handled centrally by usePatternRecording via note-played/note-released events
+        // We intentionally avoid duplicating entries here.
+      } else {
+        console.warn('No note data found for noteId:', noteId);
+      }
     }
   };
 
@@ -135,7 +150,7 @@ export function useSolfegeInteraction() {
   };
 
   // Setup and cleanup
-  onMounted(() => {
+  onMounted(async () => {
     if (shouldAnimate.value) {
       startAnimation();
     }

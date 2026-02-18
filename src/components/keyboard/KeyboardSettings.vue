@@ -29,7 +29,7 @@
             :min="0"
             :max="20"
             :step="1"
-            :format="(v) => `${v}px`"
+            :format="(v: number) => `${v}px`"
             @update:modelValue="updateConfig('keyShape', $event)"
           />
         </div>
@@ -43,7 +43,7 @@
             :min="0.6"
             :max="1.8"
             :step="0.1"
-            :format="(v) => `${v}x`"
+            :format="(v: number) => `${v}x`"
             @update:modelValue="updateConfig('keySize', $event)"
           />
         </div>
@@ -99,7 +99,7 @@
             :min="0.3"
             :max="2.0"
             :step="0.1"
-            :format="(v) => `${(v * 100).toFixed(0)}%`"
+            :format="(v: number) => `${(v * 100).toFixed(0)}%`"
             @update:modelValue="updateConfig('keyBrightness', $event)"
           />
         </div>
@@ -113,7 +113,7 @@
             :min="0.0"
             :max="1.5"
             :step="0.1"
-            :format="(v) => `${(v * 100).toFixed(0)}%`"
+            :format="(v: number) => `${(v * 100).toFixed(0)}%`"
             @update:modelValue="updateConfig('keySaturation', $event)"
           />
         </div>
@@ -134,7 +134,7 @@
             :min="0"
             :max="1"
             :step="0.05"
-            :format="(v) => `${(v * 100).toFixed(0)}%`"
+            :format="(v: number) => `${(v * 100).toFixed(0)}%`"
             @update:modelValue="updateConfig('glassmorphOpacity', $event)"
           />
         </div>

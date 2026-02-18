@@ -1,6 +1,7 @@
 /**
  * Blob Rendering System
  * Handles blob creation, rendering, and management with fluid animations
+ * Now uses Circle of Fifths positioning for harmonic visualization
  */
 
 import type { ActiveBlob } from "@/types/canvas";
@@ -8,9 +9,137 @@ import type { SolfegeData } from "@/types/music";
 import type { BlobConfig } from "@/types/visual";
 import { useColorSystem } from "../useColorSystem";
 import { createVisualFrequency } from "@/utils/visualEffects";
+import { CHROMATIC_NOTES } from "@/data/notes";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 
 export function useBlobRenderer() {
   const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
+  const keyboardDrawerStore = useKeyboardDrawerStore();
+
+  // Circle of Fifths progression (starting from C at position 0)
+  // Going clockwise: C(0), G(1), D(2), A(3), E(4), B(5), F#(6), C#(7), Ab(8), Eb(9), Bb(10), F(11)
+  const CIRCLE_OF_FIFTHS = [
+    "C", // 0
+    "G", // 1
+    "D", // 2
+    "A", // 3
+    "E", // 4
+    "B", // 5
+    "F#", // 6
+    "C#", // 7 (or Db)
+    "Ab", // 8 (or G#)
+    "Eb", // 9 (or D#)
+    "Bb", // 10 (or A#)
+    "F", // 11 (or -1 from C)
+  ];
+
+  // Map chromatic notes to their circle of fifths positions
+  const NOTE_TO_CIRCLE_POSITION = new Map<string, number>();
+  CIRCLE_OF_FIFTHS.forEach((note, index) => {
+    NOTE_TO_CIRCLE_POSITION.set(note, index);
+    // Handle enharmonic equivalents
+    switch (note) {
+      case "F#":
+        NOTE_TO_CIRCLE_POSITION.set("Gb", index);
+        break;
+      case "C#":
+        NOTE_TO_CIRCLE_POSITION.set("Db", index);
+        break;
+      case "Bb":
+        NOTE_TO_CIRCLE_POSITION.set("A#", index);
+        break;
+      case "Eb":
+        NOTE_TO_CIRCLE_POSITION.set("D#", index);
+        break;
+      case "Ab":
+        NOTE_TO_CIRCLE_POSITION.set("G#", index);
+        break;
+    }
+  });
+
+  /**
+   * Calculate position on circle of fifths for a given note
+   * Uses the actual circle of fifths positions relative to the current key
+   * Supports octave-based vertical offset
+   */
+  const getCircleOfFifthsPosition = (
+    noteName: string,
+    currentKey: string,
+    currentMode: string,
+    canvasWidth: number,
+    canvasHeight: number,
+    topMargin: number = 30,
+    blobRadius: number = 50,
+    solfegeIndex: number = 0, // Use solfege index for positioning
+    octave: number = 4, // Current octave
+    highestVisibleOctave: number = 5 // Highest visible octave (reference point)
+  ): { x: number; y: number } => {
+    // Get the position of the current key in the circle of fifths
+    const keyPosition = NOTE_TO_CIRCLE_POSITION.get(currentKey) || 0;
+
+    // Get the position of the note in the circle of fifths
+    const notePosition = NOTE_TO_CIRCLE_POSITION.get(noteName) || 0;
+
+    // Calculate the relative position (how many steps from the key)
+    let relativePosition = notePosition - keyPosition;
+
+    // The circle of fifths positions are absolute - mode doesn't change the direction
+    // What changes is which notes are selected for the scale (handled in getChromaticNoteFromSolfege)
+    // So we remove the mode-based direction reversal
+
+    // Normalize to 0-11 range
+    relativePosition = ((relativePosition % 12) + 12) % 12;
+
+    // Convert to angle - position key at 12 o'clock (top)
+    // In circle of fifths: F(-1), C(0), G(+1), D(+2), A(+3), E(+4), B(+5)
+    const angle = relativePosition * ((2 * Math.PI) / 12) - Math.PI / 2; // -π/2 to start at top
+
+    // Calculate circle radius based on available space
+    const availableHeight = canvasHeight - topMargin - blobRadius;
+    const maxRadius = Math.min(canvasWidth * 0.4, availableHeight * 0.4);
+    const radius = maxRadius;
+
+    // Calculate octave offset - higher octaves appear slightly higher
+    // Each octave difference creates a small vertical offset
+    const octaveDifference = highestVisibleOctave - octave;
+    const octaveOffsetPerStep = 15; // pixels per octave step - adjust as needed
+    const octaveOffset = octaveDifference * octaveOffsetPerStep;
+
+    // Calculate center position with octave offset
+    const centerX = canvasWidth / 2;
+    const centerY = topMargin + blobRadius + radius + octaveOffset;
+
+    // Calculate position on circle
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+
+    return { x, y };
+  };
+
+  /**
+   * Get chromatic note name from solfege data
+   */
+  const getChromaticNoteFromSolfege = (
+    solfegeData: SolfegeData,
+    currentKey: string,
+    currentMode: string
+  ): string => {
+    // Map solfege numbers to scale intervals
+    const majorIntervals = [0, 2, 4, 5, 7, 9, 11]; // Do, Re, Mi, Fa, Sol, La, Ti
+    const minorIntervals = [0, 2, 3, 5, 7, 8, 10]; // Do, Re, Me, Fa, Sol, Le, Te
+
+    const intervals = currentMode === "major" ? majorIntervals : minorIntervals;
+    const solfegeIndex = (solfegeData.number - 1) % 7; // Convert 1-8 to 0-6
+    const interval = intervals[solfegeIndex];
+
+    // Get the key's chromatic position
+    const keyIndex = CHROMATIC_NOTES.indexOf(currentKey as any);
+
+    // Calculate the note's chromatic position
+    const noteIndex = (keyIndex + interval) % 12;
+
+    return CHROMATIC_NOTES[noteIndex];
+  };
 
   // Blob state - now supports both note names and noteIds for polyphonic tracking
   const activeBlobs = new Map<string, ActiveBlob>();
@@ -42,17 +171,20 @@ export function useBlobRenderer() {
   };
 
   /**
-   * Create a persistent blob
+   * Create a persistent blob with Circle of Fifths positioning
    */
   const createBlob = (
     note: SolfegeData,
     frequency: number,
-    x: number,
-    y: number,
+    _x: number, // Legacy parameter - now ignored
+    _y: number, // Legacy parameter - now ignored
     canvasWidth: number,
     canvasHeight: number,
     blobConfig: BlobConfig,
-    noteId?: string
+    noteId?: string,
+    currentKey?: string,
+    currentMode?: string,
+    octave?: number // Add octave parameter for vertical offset
   ) => {
     if (!blobConfig.isEnabled) return;
 
@@ -67,16 +199,14 @@ export function useBlobRenderer() {
       removeBlob(blobKey);
     }
 
-    // Adjust y coordinate to favor top half of screen
-    // Map y from 0-100 to 0-70 to keep blobs in top 70% of screen
-    const adjustedY = (y / 100) * 70;
+    // Get the chromatic note name from solfege data
+    const chromaticNote = getChromaticNoteFromSolfege(
+      note,
+      currentKey || "C",
+      currentMode || "major"
+    );
 
-    // Convert percentage to pixel coordinates
-    const pixelX = (x / 100) * canvasWidth;
-    // Apply additional upward bias by reducing the y coordinate by 20%
-    const pixelY = (adjustedY / 100) * canvasHeight * 0.8;
-
-    // Calculate blob size based on screen size with min/max constraints
+    // Calculate blob size first so we can account for it in positioning
     const screenBasedSize =
       Math.min(canvasWidth, canvasHeight) * blobConfig.baseSizeRatio;
     const clampedSize = Math.max(
@@ -84,7 +214,34 @@ export function useBlobRenderer() {
       Math.min(blobConfig.maxSize, screenBasedSize)
     );
 
-    // Create blob data with new properties
+    // Calculate position using Circle of Fifths with blob size consideration
+    // Use solfege index directly for more accurate positioning
+    const solfegeIndex = (note.number - 1) % 7; // Convert 1-8 to 0-6
+
+    // Get the highest visible octave for octave offset calculation
+    const visibleOctaves = keyboardDrawerStore.visibleOctaves;
+    const highestVisibleOctave = Math.max(...visibleOctaves);
+    const currentOctave = octave || 4; // Default to octave 4 if not provided
+
+    const circlePosition = getCircleOfFifthsPosition(
+      chromaticNote,
+      currentKey || "C",
+      currentMode || "major",
+      canvasWidth,
+      canvasHeight,
+      blobConfig.circleTopMargin || 30, // Use configured top margin
+      clampedSize, // Pass blob radius to account for blob size
+      solfegeIndex, // Pass solfege index for proper positioning
+      currentOctave, // Pass current octave
+      highestVisibleOctave // Pass highest visible octave as reference
+    );
+
+    // Add slight randomization to avoid overlapping blobs for same note
+    const randomOffset = 20; // pixels
+    const pixelX = circlePosition.x + (Math.random() - 0.5) * randomOffset;
+    const pixelY = circlePosition.y + (Math.random() - 0.5) * randomOffset;
+
+    // Create blob data with circle of fifths positioning
     const blob: ActiveBlob = {
       x: pixelX,
       y: pixelY,
@@ -95,9 +252,9 @@ export function useBlobRenderer() {
       opacity: blobConfig.opacity,
       isFadingOut: false,
       fadeOutStartTime: undefined,
-      // Adjust drift to favor upward movement
-      driftVx: (Math.random() - 0.5) * blobConfig.driftSpeed,
-      driftVy: (Math.random() - 0.8) * blobConfig.driftSpeed, // Bias upward drift
+      // Reduced drift for circle positioning - keep blobs near their harmonic positions
+      driftVx: (Math.random() - 0.5) * blobConfig.driftSpeed * 0.3, // 30% of normal drift
+      driftVy: (Math.random() - 0.5) * blobConfig.driftSpeed * 0.3, // 30% of normal drift
       vibrationPhase: Math.random() * Math.PI * 2,
       scale: 0, // Start at zero scale for grow-in animation
     };
@@ -286,10 +443,11 @@ export function useBlobRenderer() {
 
       // Apply opacity to colors using withAlpha from color system
       const primaryWithOpacity = withAlpha(primaryColor, currentOpacity);
+      const primary2WithOpacity = withAlpha(primaryColor, currentOpacity - 1);
       const accentWithOpacity = withAlpha(accentColor, currentOpacity);
 
       gradient.addColorStop(0, primaryWithOpacity);
-      gradient.addColorStop(0.9, accentWithOpacity);
+      gradient.addColorStop(0.9, primary2WithOpacity);
       gradient.addColorStop(1, "transparent");
 
       // Apply blur effect if configured

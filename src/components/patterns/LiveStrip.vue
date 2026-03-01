@@ -121,6 +121,10 @@ watch(
   flex-direction: column;
   background-color: hsla(0, 0%, 0%, 0.6);
   border-bottom: 1px solid hsla(0, 0%, 100%, 0.08);
+  /* must be constrained so children can actually scroll */
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* ── Note strip ─────────────────────────────────────── */
@@ -128,8 +132,9 @@ watch(
   display: flex;
   overflow-x: auto;
   scroll-behavior: smooth;
-  max-width: 100vw;
-  /* hide scrollbar visually but keep it functional */
+  /* min-width: 0 prevents flex item from blowing past parent */
+  min-width: 0;
+  width: 100%;
   scrollbar-width: none;
 }
 .note-list::-webkit-scrollbar {
@@ -168,6 +173,9 @@ watch(
 .notation-bar {
   overflow-x: auto;
   border-top: 1px solid hsla(0, 0%, 100%, 0.05);
+  /* constrain width so overflow-x actually scrolls */
+  width: 100%;
+  min-width: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }

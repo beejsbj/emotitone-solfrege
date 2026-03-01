@@ -8,6 +8,7 @@ import type {
   ChromaticNote,
 } from "@/types/music";
 import { audioService } from "@/services/audio";
+import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
 import {
   MAJOR_SOLFEGE,
@@ -17,6 +18,23 @@ import {
 
 // Type for note input - either a chromatic note with octave or solfege index
 type NoteInput = string | { solfegeIndex: number; octave: number };
+
+/**
+ * Convert a Tone.js duration notation string to milliseconds.
+ * Uses 120 BPM as the default (whole note = 2 000 ms).
+ * e.g. "1n" → 2000, "2n" → 1000, "4n" → 500, "8n" → 250, "16n" → 125
+ */
+function toneNotationToMs(notation: string, bpm: number = 120): number {
+  const match = notation.match(/^(\d+)n$/);
+  if (match) {
+    const noteValue = parseInt(match[1], 10);
+    // wholeNoteDuration = (60 / bpm) * 4 seconds
+    const wholeNoteMs = (60 / bpm) * 4 * 1000;
+    return wholeNoteMs / noteValue;
+  }
+  // Fallback: treat as 500ms (quarter note at 120 BPM)
+  return 500;
+}
 
 // Type for chromatic note with octave (e.g., "C4", "F#5")
 type ChromaticNoteWithOctave = `${ChromaticNote}${number}`;
@@ -188,7 +206,11 @@ export const useMusicStore = defineStore(
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
 
-        await audioService.playNote(noteName, "1n");
+        await superdoughAudio.attackNote(
+          `play_${noteName}_${Date.now()}`,
+          noteName,
+          instrumentStore.currentInstrument
+        );
 
         const notePlayedEvent = new CustomEvent("note-played", {
           detail: {
@@ -240,11 +262,15 @@ export const useMusicStore = defineStore(
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
 
         const cleanNoteId = `${noteName}_${solfegeIndex}_${finalOctave}`;
-        const noteId = await audioService.attackNote(
-          noteName,
+
+        // Fire-and-forget via superdough — it manages its own voice lifecycle
+        await superdoughAudio.attackNote(
           cleanNoteId,
-          frequency
+          noteName,
+          instrumentStore.currentInstrument
         );
+
+        const noteId: string = cleanNoteId;
 
         if (noteId) {
           const activeNote: ActiveNote = {
@@ -321,10 +347,13 @@ export const useMusicStore = defineStore(
           finalOctave
         );
 
-        const noteId = await audioService.playNoteWithDuration(
+        // Convert Tone.js duration notation to milliseconds for superdough
+        const durationMs = toneNotationToMs(duration);
+        const noteId = `sdplay_${noteName}_${Date.now()}`;
+        await superdoughAudio.playNoteWithDuration(
           noteName,
-          duration,
-          time
+          durationMs,
+          instrument || instrumentStore.currentInstrument
         );
 
         const instrumentToReport =
@@ -412,7 +441,7 @@ export const useMusicStore = defineStore(
         // Release specific note
         const activeNote = activeNotes.value.get(noteId);
         if (activeNote) {
-          audioService.releaseNote(noteId);
+          superdoughAudio.releaseNote(noteId);
 
           // Dispatch custom event for background effects
           const noteReleasedEvent = new CustomEvent("note-released", {
@@ -442,7 +471,7 @@ export const useMusicStore = defineStore(
       } else {
         // Release all notes (legacy behavior)
         const allActiveNotes = Array.from(activeNotes.value.values());
-        audioService.releaseNote();
+        superdoughAudio.releaseAll();
 
         // Dispatch events for all released notes
         allActiveNotes.forEach((activeNote) => {

@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed, readonly } from "vue";
+import { ref, computed, readonly, watch } from "vue";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type {
   SolfegeData,
@@ -7,7 +7,6 @@ import type {
   ActiveNote,
   ChromaticNote,
 } from "@/types/music";
-import { audioService } from "@/services/audio";
 import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
 import {
@@ -174,6 +173,19 @@ export const useMusicStore = defineStore(
       musicTheory.setCurrentMode(mode);
     }
 
+    // Keep the MusicTheoryService singleton in sync with Pinia-persisted state.
+    // Pinia's persist plugin restores ref values directly (bypassing setKey/setMode),
+    // so a watcher with immediate:true ensures the service is always up-to-date
+    // before any component calls getNoteName().
+    watch(
+      [currentKey, currentMode],
+      ([key, mode]) => {
+        musicTheory.setCurrentKey(key as ChromaticNote);
+        musicTheory.setCurrentMode(mode);
+      },
+      { immediate: true }
+    );
+
     // Play note with either format
     async function playNoteWithFormat(
       input: number | ChromaticNoteWithOctave,
@@ -188,7 +200,6 @@ export const useMusicStore = defineStore(
       } else {
         const parsed = parseChromatic(input);
         if (!parsed) {
-          console.warn(`Invalid note: ${input}`);
           return;
         }
         solfegeIndex = parsed.solfegeIndex;
@@ -246,7 +257,6 @@ export const useMusicStore = defineStore(
       } else {
         const parsed = parseChromatic(input);
         if (!parsed) {
-          console.warn(`Invalid note: ${input}`);
           return null;
         }
         solfegeIndex = parsed.solfegeIndex;
@@ -329,7 +339,6 @@ export const useMusicStore = defineStore(
       } else {
         const parsed = parseChromatic(input);
         if (!parsed) {
-          console.warn(`Invalid note: ${input}`);
           return "";
         }
         solfegeIndex = parsed.solfegeIndex;

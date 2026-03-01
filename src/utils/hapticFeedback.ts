@@ -45,9 +45,6 @@ export const triggerHapticFeedback = (
       win.hapticFeedback.impact(intensity);
     } catch (e) {
       // Fallback to vibration if haptic feedback fails
-      console.debug(
-        "Advanced haptic feedback not available, using vibration fallback"
-      );
     }
   }
 };

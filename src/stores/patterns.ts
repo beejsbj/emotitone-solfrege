@@ -190,7 +190,7 @@ export const usePatternsStore = defineStore(
 
       const purgedCount = initialCount - loggedNotes.value.length;
       if (purgedCount > 0) {
-        console.log(`Purged ${purgedCount} old notes from pattern log`);
+        // old notes purged
       }
     }
 
@@ -210,7 +210,6 @@ export const usePatternsStore = defineStore(
 
       // Use noteId directly as the tracking key
       if (!noteId) {
-        console.warn("Note played event missing noteId, skipping logging");
         return;
       }
 
@@ -242,9 +241,6 @@ export const usePatternsStore = defineStore(
 
       // Use noteId directly to find matching pending note
       if (!noteId || !pendingNotes.value.has(noteId)) {
-        console.warn(
-          "Note released event missing noteId or no matching pending note"
-        );
         return;
       }
 
@@ -282,9 +278,6 @@ export const usePatternsStore = defineStore(
 
       // Purge old notes after adding new one
       purgeOldNotes();
-
-      console.log(loggedNotes.value);
-      console.log(patterns.value);
     }
 
     // Actions
@@ -302,22 +295,17 @@ export const usePatternsStore = defineStore(
 
     function startNewSession(): void {
       currentSessionId.value = generateSessionId();
-      console.log(
-        `Started new pattern logging session: ${currentSessionId.value}`
-      );
     }
 
     function clearAllNotes(): void {
       loggedNotes.value = [];
       pendingNotes.value.clear();
-      console.log("Cleared all logged notes");
     }
 
     function clearCurrentSession(): void {
       loggedNotes.value = loggedNotes.value.filter(
         (note) => note.sessionId !== currentSessionId.value
       );
-      console.log(`Cleared notes for session: ${currentSessionId.value}`);
     }
 
     function updateConfig(newConfig: Partial<PatternConfig>): void {

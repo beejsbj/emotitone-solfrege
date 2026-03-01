@@ -91,7 +91,6 @@ const valueArc = computed(() => {
       if (!props.totalSegments || props.totalSegments === 0) {
         return { start: 0, end: 0 };
       }
-      console.log(props.totalSegments);
       const segmentLength =
         CONSTANTS.FULL_CIRCLE_END /
         (props.totalSegments <= 2 ? 3 : props.totalSegments);

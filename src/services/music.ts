@@ -131,9 +131,6 @@ export class MusicTheoryService {
       try {
         return this.normalizeToSharp(note);
       } catch (error) {
-        console.warn(
-          `Note normalization failed for ${note}, attempting direct conversion...`
-        );
         // If normalization fails, try direct conversion from Tonal.js note
         const tonalNote = TonalNote.get(note);
         if (

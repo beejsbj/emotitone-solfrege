@@ -6,7 +6,6 @@ import { useColorSystem } from "@/composables/useColorSystem";
 const patternsStore = usePatternsStore();
 const { getStaticPrimaryColor } = useColorSystem();
 
-const listRef = ref<HTMLElement | null>(null);
 const notationRef = ref<HTMLElement | null>(null);
 
 // Only show notes belonging to the current in-progress pattern —
@@ -58,14 +57,11 @@ const coloredTokens = computed(() => {
   return tokens;
 });
 
-// Auto-scroll both strips to the right whenever a new note lands.
+// Auto-scroll to the right whenever a new note lands.
 watch(
   () => currentNotes.value.length,
   async () => {
     await nextTick();
-    if (listRef.value) {
-      listRef.value.scrollLeft = listRef.value.scrollWidth;
-    }
     if (notationRef.value) {
       notationRef.value.scrollLeft = notationRef.value.scrollWidth;
     }
@@ -75,105 +71,35 @@ watch(
 
 <template>
   <div class="live-strip">
-    <!-- Note boxes -->
-    <ul ref="listRef" class="note-list">
-      <li
-        v-for="note in currentNotes"
-        :key="note.id"
-        class="note-box"
-        :style="{
-          backgroundColor: getStaticPrimaryColor(
-            note.solfege.name,
-            note.mode,
-            note.octave
-          ),
-        }"
-      >
-        <span class="note-label">{{ note.note }}</span>
-      </li>
-
-      <!-- Empty state -->
-      <li v-if="currentNotes.length === 0" class="empty-hint">
-        play something…
-      </li>
-    </ul>
-
-    <!-- Strudel notation preview — colored tokens, horizontally scrollable -->
     <div v-if="coloredTokens.length" ref="notationRef" class="notation-bar">
-      <code class="notation-text">
-        <span class="token-prefix">`&lt; </span>
+      <div class="notation-tokens">
         <span
           v-for="(token, i) in coloredTokens"
           :key="i"
           class="token"
           :class="token.color ? 'token--note' : 'token--rest'"
-          :style="token.color ? { color: token.color } : {}"
-        >{{ token.text }} </span>
-        <span class="token-suffix">&gt;`.as("note")</span>
-      </code>
+          :style="token.color ? { backgroundColor: token.color } : {}"
+        >{{ token.text }}</span>
+      </div>
     </div>
+    <div v-else class="empty-hint">play something…</div>
   </div>
 </template>
 
 <style scoped>
 .live-strip {
   display: flex;
-  flex-direction: column;
   background-color: hsla(0, 0%, 0%, 0.6);
   border-bottom: 1px solid hsla(0, 0%, 100%, 0.08);
-  /* must be constrained so children can actually scroll */
   width: 100%;
   min-width: 0;
   overflow: hidden;
-}
-
-/* ── Note strip ─────────────────────────────────────── */
-.note-list {
-  display: flex;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  /* min-width: 0 prevents flex item from blowing past parent */
-  min-width: 0;
-  width: 100%;
-  scrollbar-width: none;
-}
-.note-list::-webkit-scrollbar {
-  display: none;
-}
-
-.note-box {
-  flex: 0 0 auto;
-  min-width: 2rem;
-  padding: 0.3rem 0.4rem;
-  display: flex;
   align-items: center;
-  justify-content: center;
+  min-height: 2.5rem;
 }
 
-.note-label {
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: hsla(0, 0%, 100%, 0.9);
-  white-space: nowrap;
-  position: relative;
-  z-index: 1;
-}
-
-.empty-hint {
-  flex: 1;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.65rem;
-  color: hsla(0, 0%, 100%, 0.25);
-  font-style: italic;
-  display: flex;
-  align-items: center;
-}
-
-/* ── Strudel notation ───────────────────────────────── */
 .notation-bar {
   overflow-x: auto;
-  border-top: 1px solid hsla(0, 0%, 100%, 0.05);
-  /* constrain width so overflow-x actually scrolls */
   width: 100%;
   min-width: 0;
   scrollbar-width: none;
@@ -183,31 +109,40 @@ watch(
   display: none;
 }
 
-.notation-text {
-  display: block;
-  font-family: monospace;
-  font-size: 0.65rem;
-  white-space: nowrap;
-  padding: 0.15rem 0.5rem;
+.notation-tokens {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem;
   width: max-content;
-}
-
-.token-prefix,
-.token-suffix {
-  color: hsla(0, 0%, 100%, 0.2);
+  align-items: center;
 }
 
 .token {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0.2rem 0.35rem;
+  border-radius: 3px;
 }
 
 .token--note {
-  font-weight: 600;
-  /* color set via :style binding */
+  color: hsla(0, 0%, 100%, 0.9);
+  /* backgroundColor set via :style binding */
 }
 
 .token--rest {
   color: hsla(0, 0%, 100%, 0.2);
+  background-color: hsla(0, 0%, 100%, 0.05);
   font-weight: 400;
+}
+
+.empty-hint {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.65rem;
+  color: hsla(0, 0%, 100%, 0.25);
+  font-style: italic;
 }
 </style>

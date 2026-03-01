@@ -6,7 +6,13 @@
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext } from "superdough";
+import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound } from "superdough";
+
+/** Re-export so other modules can get the superdough AudioContext without importing Tone. */
+export function getAudioContext(): AudioContext {
+  // @ts-ignore
+  return _getAudioContext() as AudioContext;
+}
 
 // ---------------------------------------------------------------------------
 // Instrument → superdough sound name mapping
@@ -34,6 +40,47 @@ let _initialized = false;
 let _initPromise: Promise<void> | null = null;
 
 /**
+ * Pre-loads every piano AudioBuffer directly into superdough's internal
+ * bufferCache by calling its exported `loadBuffer(url, audioContext)`.
+ *
+ * Background: superdough lazy-decodes sample buffers on first play and
+ * checks `if (ac.currentTime > scheduledTime)` after the async load.
+ * We schedule notes only 10 ms into the future, but fetch + decodeAudioData
+ * takes 50–200 ms on a cold cache, so the check fires and the note drops.
+ *
+ * We read the full CDN URLs from the already-registered piano bank
+ * (populated by the `samples()` call above, which applies the base URL
+ * prefix via processSampleMap).  Calling `loadBuffer` on those full URLs
+ * runs fetch → decodeAudioData and stores the decoded AudioBuffer in the
+ * shared cache BEFORE any user interaction, so the "took too long" check
+ * is never reached during actual play.
+ */
+async function _prewarmPianoSamples(): Promise<void> {
+  try {
+    const ac = getAudioContext();
+
+    // getSound('piano') returns the registered sound entry whose .data.samples
+    // is the bank object: { "C4": ["https://.../C4v8.mp3"], ... } (full URLs).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sound = (getSound as any)("piano");
+    if (!sound?.data?.samples) return;
+
+    const bank = sound.data.samples as Record<string, string[]> | string[];
+    const audioUrls: string[] = Array.isArray(bank)
+      ? bank
+      : (Object.values(bank) as string[][]).flat();
+
+    // Drive fetch + decodeAudioData for every sample through superdough's own
+    // loadBuffer so the result lands in its shared bufferCache.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await Promise.allSettled(audioUrls.map((url) => (loadBuffer as any)(url, ac)));
+  } catch {
+    // Non-fatal — worst case, the very first note on an uncached range is
+    // silently dropped once, then cached for all future plays.
+  }
+}
+
+/**
  * One-time setup: registers synth sounds, loads piano samples, starts the
  * audio context.  Safe to call multiple times — subsequent calls are no-ops.
  */
@@ -54,8 +101,14 @@ export async function initSuperdoughAudio(): Promise<void> {
       // Resume / set up the AudioContext and load worklets
       await initAudio();
 
+      // Pre-warm piano sample buffers so the first user keypress doesn't miss.
+      // superdough lazy-fetches buffers on first play and has a short internal
+      // timeout; if the fetch isn't done in time, the note is silently dropped.
+      // Triggering near-silent notes here forces the buffers to download and
+      // cache while the app is still loading, before the user can interact.
+      await _prewarmPianoSamples();
+
       _initialized = true;
-      console.log("[superdoughAudio] ready");
     } catch (err) {
       console.error("[superdoughAudio] init error:", err);
       // Reset so callers can retry after a user gesture
@@ -166,4 +219,18 @@ export async function playNoteWithDuration(
  */
 export function releaseAll(): void {
   // No-op stub.
+}
+
+/**
+ * Returns the superdough master GainNode that all superdough audio flows through.
+ * Fan-out via WebAudio lets callers connect this to additional analysis chains
+ * while superdough continues routing to the speakers normally.
+ */
+export function getSuperdoughMasterGain(): GainNode | null {
+  try {
+    // @ts-ignore — getSuperdoughAudioController has no TS declarations
+    return (getSuperdoughAudioController() as any)?.output?.destinationGain ?? null;
+  } catch {
+    return null;
+  }
 }

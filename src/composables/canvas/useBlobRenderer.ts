@@ -562,11 +562,8 @@ export function useBlobRenderer() {
       activeBlobs.delete(noteName);
     });
 
-    // Log warning if we have too many active blobs
     if (activeBlobs.size > 20) {
-      console.warn(
-        `High blob count detected: ${activeBlobs.size} active blobs`
-      );
+      // high blob count, performance may degrade
     }
   };
 

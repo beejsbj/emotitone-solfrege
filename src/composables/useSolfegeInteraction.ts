@@ -85,13 +85,9 @@ export function useSolfegeInteraction() {
       
       // Record this note in the patterns history
       const noteData = musicStore.getActiveNotes().find(n => n.noteId === noteId);
-      console.log('Found note data:', noteData);
-      console.log('Active notes:', musicStore.getActiveNotes());
       if (noteData) {
         // Recording is handled centrally by usePatternRecording via note-played/note-released events
         // We intentionally avoid duplicating entries here.
-      } else {
-        console.warn('No note data found for noteId:', noteId);
       }
     }
   };

@@ -67,14 +67,11 @@ function onNoteReleased(event: CustomEvent) {
 // Note: Mode changes and visual enable/disable are handled automatically by component lifecycle
 
 onMounted(() => {
-  console.log("🚀 Mounting UnifiedVisualEffects...");
-
   // Initialize the unified canvas system
   initializeCanvas();
 
   // Start the animation loop only if visuals are enabled
   if (visualsEnabled) {
-    console.log("▶️ Starting animation...");
     startAnimation();
   }
 
@@ -84,8 +81,6 @@ onMounted(() => {
   // Listen for note events
   window.addEventListener("note-played", onNotePlayed as EventListener);
   window.addEventListener("note-released", onNoteReleased as EventListener);
-
-  console.log("✅ UnifiedVisualEffects mounted and ready");
 });
 
 onUnmounted(() => {

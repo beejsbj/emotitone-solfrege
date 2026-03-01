@@ -114,7 +114,6 @@ class PerformanceMonitor {
       const status = this.getPerformanceStatus();
       
       if (status === 'poor') {
-        console.warn(`Performance Warning: FPS: ${this.metrics.fps.toFixed(1)}, Frame Time: ${this.metrics.frameTime.toFixed(1)}ms`);
       } else if (status === 'fair') {
         console.info(`Performance Notice: FPS: ${this.metrics.fps.toFixed(1)}, Frame Time: ${this.metrics.frameTime.toFixed(1)}ms`);
       }

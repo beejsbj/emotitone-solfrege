@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { audioService } from '@/services/audio'
+import { initSuperdoughAudio } from '@/services/superdoughAudio'
 
 const audioReady = ref(false)
 const initializing = ref(false)
@@ -21,13 +21,8 @@ const initializing = ref(false)
 const initializeAudio = async () => {
   initializing.value = true
   try {
-    const success = await audioService.startAudioContext()
-    if (success) {
-      audioReady.value = true
-      console.log('Audio context successfully initialized')
-    } else {
-      console.warn('Failed to initialize audio context')
-    }
+    await initSuperdoughAudio()
+    audioReady.value = true
   } catch (error) {
     console.error('Error initializing audio:', error)
   } finally {
@@ -40,13 +35,10 @@ onMounted(async () => {
   // Give a small delay to let other components initialize
   setTimeout(async () => {
     try {
-      const success = await audioService.startAudioContext()
-      if (success) {
-        audioReady.value = true
-      }
+      await initSuperdoughAudio()
+      audioReady.value = true
     } catch (error) {
       // Audio not ready, user will need to click
-      console.log('Audio requires user interaction')
     }
   }, 500)
 })

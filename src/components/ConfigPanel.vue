@@ -363,7 +363,6 @@ const exportConfig = () => {
       alert("Configuration copied to clipboard!");
     })
     .catch(() => {
-      console.log("Visual Effects Configuration:", configJson);
       alert("Configuration logged to console");
     });
 };

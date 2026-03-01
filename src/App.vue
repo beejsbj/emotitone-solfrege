@@ -52,13 +52,6 @@ const musicStore = useMusicStore();
 const patternsStore = usePatternsStore(); // Initialize patterns store
 const { isLoading } = useAppLoading();
 
-// Debug: Log the number of solfege notes
-console.log("Number of solfege notes:", musicStore.solfegeData.length);
-console.log(
-  "Solfege data:",
-  musicStore.solfegeData.map((s) => s.name)
-);
-
 const handleScroll = (direction: number) => {
   const container = document.querySelector(".sticky");
   if (container) {

@@ -22,11 +22,8 @@ export type { Scale } from "./scales";
 export {
   AVAILABLE_INSTRUMENTS,
   DEFAULT_INSTRUMENT,
-  MAX_POLYPHONY,
   PIANO_ENVELOPE,
   STANDARD_COMPRESSOR,
-  PIANO_SAMPLER_CONFIG,
-  SYNTH_CONFIGS,
   CATEGORY_DISPLAY_NAMES,
   getInstrumentConfig,
   getInstrumentsByCategory,

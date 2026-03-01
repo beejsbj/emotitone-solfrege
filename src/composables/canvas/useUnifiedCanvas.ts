@@ -150,7 +150,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       hilbertScopeConfig.value
     );
 
-    console.log("✅ Canvas initialized successfully");
   };
 
   /**
@@ -158,7 +157,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    */
   const renderFrame = (elapsed: number) => {
     if (!ctx) {
-      console.warn("⚠️ No canvas context in renderFrame");
       return;
     }
 

@@ -5,7 +5,7 @@
  */
 
 import type { HilbertScopeConfig } from "@/types/visual";
-import * as Tone from "tone";
+import { getAudioContext, getSuperdoughMasterGain } from "@/services/superdoughAudio";
 import { useColorSystem } from "../useColorSystem";
 import { useMusicStore } from "@/stores/music";
 
@@ -217,8 +217,8 @@ export function useHilbertScopeRenderer() {
   ) => {
     if (state.isInitialized) return;
 
-    // Get Tone.js audio context
-    const audioContext = Tone.getContext().rawContext as AudioContext;
+    // Get the superdough AudioContext
+    const audioContext = getAudioContext() as AudioContext;
     if (!audioContext) {
       console.error("No audio context available for Hilbert Scope");
       return;
@@ -228,9 +228,9 @@ export function useHilbertScopeRenderer() {
     audioGainNode = audioContext.createGain();
     audioGainNode.gain.value = 1.0;
 
-    // Connect to Tone.js destination
-    const toneDestination = Tone.getDestination();
-    toneDestination.connect(audioGainNode);
+    // Fan-out: superdough master gain → [speakers] AND [audioGainNode → hilbert processors]
+    const masterGain = getSuperdoughMasterGain();
+    if (masterGain) masterGain.connect(audioGainNode);
 
     // Connect processors
     await hilbertProcessor.connect(audioContext, audioGainNode);

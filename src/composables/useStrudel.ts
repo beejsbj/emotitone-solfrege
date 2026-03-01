@@ -88,7 +88,6 @@ export function useStrudel() {
       isPlaying.value = true;
       currentCode.value = code;
     } catch (e) {
-      console.warn("[useStrudel] eval error:", e);
       isPlaying.value = false;
     } finally {
       isLoading.value = false;

@@ -206,9 +206,7 @@ const handleStartApp = async () => {
   // This provides the required user interaction for audio
   try {
     await enableAudioContext();
-    console.log("Audio context enabled on app start");
   } catch (error) {
-    console.warn("Audio context initialization failed:", error);
     // Continue anyway - audio will be enabled when user first plays a note
   }
 

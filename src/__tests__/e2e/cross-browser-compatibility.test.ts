@@ -4,7 +4,6 @@ import { simulateUserInteraction, waitForAudioLoad, waitForAnimation } from './s
 import App from '@/App.vue'
 import { useMusicStore } from '@/stores/music'
 import { useSequencerStore } from '@/stores/sequencer'
-import { audioService } from '@/services/audio'
 
 describe('Cross-Browser Compatibility', () => {
   it('handles different Web Audio API implementations', async () => {

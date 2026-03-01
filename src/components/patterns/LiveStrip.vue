@@ -2,12 +2,12 @@
 import { computed, watch, nextTick, ref } from "vue";
 import { usePatternsStore } from "@/stores/patterns";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { logNotesToStrudel } from "@/services/StrudelNotation";
 
 const patternsStore = usePatternsStore();
 const { getStaticPrimaryColor } = useColorSystem();
 
 const listRef = ref<HTMLElement | null>(null);
+const notationRef = ref<HTMLElement | null>(null);
 
 // Only show notes belonging to the current in-progress pattern —
 // everything from the last isStartingNewPattern boundary to the end.
@@ -23,17 +23,51 @@ const currentNotes = computed(() => {
   return notes.slice(lastBreak);
 });
 
-const strudelNotation = computed(() =>
-  currentNotes.value.length ? logNotesToStrudel(currentNotes.value) : ""
-);
+// Build colored token list from currentNotes — avoids parsing the string.
+const BAR_MS = (60000 / 120) * 4; // 2000ms at 120bpm
 
-// Auto-scroll the note strip to the right whenever a new note lands.
+const coloredTokens = computed(() => {
+  const notes = currentNotes.value;
+  if (!notes.length) return [];
+
+  const origin = notes[0].pressTime;
+  const tokens: Array<{ text: string; color: string | null }> = [];
+  let cursor = 0;
+
+  for (const note of notes) {
+    const start = note.pressTime - origin;
+    const dur = Math.max(1, note.duration);
+    const gap = start - cursor;
+
+    // Rest for gaps > 50ms
+    if (gap > 50) {
+      const x = parseFloat((gap / BAR_MS).toFixed(4));
+      tokens.push({ text: `~@${x}`, color: null });
+    }
+
+    const x = parseFloat((dur / BAR_MS).toFixed(4));
+    const durStr = x === 1 ? "" : `@${x}`;
+    tokens.push({
+      text: `${note.note}${durStr}`,
+      color: getStaticPrimaryColor(note.solfege.name, note.mode, note.octave),
+    });
+
+    cursor = start + dur;
+  }
+
+  return tokens;
+});
+
+// Auto-scroll both strips to the right whenever a new note lands.
 watch(
   () => currentNotes.value.length,
   async () => {
     await nextTick();
     if (listRef.value) {
       listRef.value.scrollLeft = listRef.value.scrollWidth;
+    }
+    if (notationRef.value) {
+      notationRef.value.scrollLeft = notationRef.value.scrollWidth;
     }
   }
 );
@@ -64,9 +98,19 @@ watch(
       </li>
     </ul>
 
-    <!-- Strudel notation preview -->
-    <div v-if="strudelNotation" class="notation-bar">
-      <code class="notation-text">{{ strudelNotation }}</code>
+    <!-- Strudel notation preview — colored tokens, horizontally scrollable -->
+    <div v-if="coloredTokens.length" ref="notationRef" class="notation-bar">
+      <code class="notation-text">
+        <span class="token-prefix">`&lt; </span>
+        <span
+          v-for="(token, i) in coloredTokens"
+          :key="i"
+          class="token"
+          :class="token.color ? 'token--note' : 'token--rest'"
+          :style="token.color ? { color: token.color } : {}"
+        >{{ token.text }} </span>
+        <span class="token-suffix">&gt;`.as("note")</span>
+      </code>
     </div>
   </div>
 </template>
@@ -122,18 +166,40 @@ watch(
 
 /* ── Strudel notation ───────────────────────────────── */
 .notation-bar {
-  padding: 0.15rem 0.5rem;
+  overflow-x: auto;
   border-top: 1px solid hsla(0, 0%, 100%, 0.05);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.notation-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .notation-text {
   display: block;
   font-family: monospace;
   font-size: 0.65rem;
-  color: hsla(0, 0%, 100%, 0.5);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  padding: 0.15rem 0.5rem;
+  width: max-content;
+}
+
+.token-prefix,
+.token-suffix {
+  color: hsla(0, 0%, 100%, 0.2);
+}
+
+.token {
+  display: inline;
+}
+
+.token--note {
+  font-weight: 600;
+  /* color set via :style binding */
+}
+
+.token--rest {
+  color: hsla(0, 0%, 100%, 0.2);
+  font-weight: 400;
 }
 </style>

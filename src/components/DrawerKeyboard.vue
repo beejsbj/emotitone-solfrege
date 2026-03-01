@@ -2,6 +2,7 @@
   <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
     <!-- Action bar with controls -->
     <div class="absolute top-0 -translate-y-full left-0 right-0 grid">
+      <PatternList />
       <LiveStrip />
       <KeyboardActionBar />
     </div>
@@ -43,7 +44,7 @@ import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
 import LiveStrip from "@/components/patterns/LiveStrip.vue";
-
+import PatternList from "@/components/patterns/PatternList.vue";
 import KeyboardKey from "./keyboard/KeyboardKey.vue";
 
 // Component refs
@@ -53,7 +54,7 @@ const drawerRef = ref<HTMLElement | null>(null);
 const store = useKeyboardDrawerStore();
 
 // Drawer behavior composable
-const { animateDrawer } = useKeyboardDrawer(drawerRef);
+const { animateDrawer } = useKeyboardDrawer(drawerRef) as any;
 
 // Physical keyboard controls integration
 const keyboardControls = useKeyboardControls(
@@ -130,15 +131,13 @@ const octaveRowClasses = (octave: number) => {
       medium: "gap-1",
     }[store.keyboardConfig.keyGaps] || "gap-0.5";
 
-  const octaveClasses = [];
-
-  return [...baseClasses, gapClasses, ...octaveClasses];
+  return [...baseClasses, gapClasses];
 };
 
 // Initialize drawer with default state on mount
 onMounted(() => {
   // Ensure the drawer reflects current store state immediately
-  animateDrawer?.(true);
+  animateDrawer && animateDrawer(true);
 });
 
 // Expose methods for external control if needed

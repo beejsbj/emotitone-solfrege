@@ -92,6 +92,16 @@
           "
         />
       </div>
+
+      <!-- Send / break pattern -->
+      <div class="control-group">
+        <Knob
+          type="button"
+          button-text="⏎"
+          label="Send"
+          @click="patternsStore.setNextNoteAsNewPattern()"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -100,12 +110,14 @@
 import { ref } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { usePatternsStore } from "@/stores/patterns";
 import { CHROMATIC_NOTES } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
 
 // Store references
 const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
+const patternsStore = usePatternsStore();
 
 // UI state
 const showLiveStrip = ref(true);

@@ -90,213 +90,168 @@ export const STANDARD_COMPRESSOR: CompressorConfig = {
 };
 
 /**
- * Available instrument configurations
+ * Available instrument configurations — all backed by superdough/Strudel.
+ * WebAudio oscillators need no loading; vcsl/piano sounds are pre-loaded
+ * via initSuperdoughAudio().
  */
 export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
+  // ── WebAudio oscillators (zero load time) ──────────────────────────
   synth: {
     name: "synth",
-    displayName: "Basic Synth",
-    description: "Clean sine wave synthesizer",
+    displayName: "Triangle",
+    description: "Soft triangle wave oscillator",
     category: "synth",
-    icon: "🎛️",
+    icon: "△",
   },
   amSynth: {
     name: "amSynth",
-    displayName: "AM Synth",
-    description: "Amplitude modulation synthesizer",
+    displayName: "Sawtooth",
+    description: "Bright sawtooth wave oscillator",
     category: "synth",
-    icon: "📻",
+    icon: "⋀",
   },
   fmSynth: {
     name: "fmSynth",
-    displayName: "FM Synth",
-    description: "Frequency modulation synthesizer",
+    displayName: "Square",
+    description: "Hollow square wave oscillator",
     category: "synth",
-    icon: "🔊",
-  },
-  membraneSynth: {
-    name: "membraneSynth",
-    displayName: "Membrane",
-    description: "Drum-like membrane synthesizer",
-    category: "percussion",
-    icon: "🥁",
-  },
-  metalSynth: {
-    name: "metalSynth",
-    displayName: "Metal",
-    description: "Metallic percussion synthesizer",
-    category: "percussion",
-    icon: "🔔",
-  },
-  piano: {
-    name: "piano",
-    displayName: "Salamander Piano",
-    description: "High-quality Salamander piano samples",
-    category: "keyboards",
-    icon: "🎹",
-    minify: false,
+    icon: "⊓",
   },
 
-  // Sample-based instruments from tonejs-instruments
-  "sample-piano": {
-    name: "sample-piano",
-    displayName: "Grand Piano",
-    description: "High-quality sampled grand piano",
+  // ── Keyboards (piano.json + vcsl.json) ─────────────────────────────
+  piano: {
+    name: "piano",
+    displayName: "Piano",
+    description: "Salamander grand piano samples",
     category: "keyboards",
     icon: "🎹",
-    minify: false,
   },
-  "bass-electric": {
-    name: "bass-electric",
-    displayName: "Electric Bass",
-    description: "Sampled electric bass guitar",
-    category: "strings",
-    icon: "🎸",
-    minify: true,
-  },
-  bassoon: {
-    name: "bassoon",
-    displayName: "Bassoon",
-    description: "Sampled bassoon",
-    category: "woodwinds",
-    icon: "🪈",
-    minify: true,
-  },
-  cello: {
-    name: "cello",
-    displayName: "Cello",
-    description: "Sampled cello",
-    category: "strings",
-    icon: "🎻",
-    minify: false,
-  },
-  clarinet: {
-    name: "clarinet",
-    displayName: "Clarinet",
-    description: "Sampled clarinet",
-    category: "woodwinds",
-    icon: "🪈",
-    minify: true,
-  },
-  contrabass: {
-    name: "contrabass",
-    displayName: "Contrabass",
-    description: "Sampled double bass",
-    category: "strings",
-    icon: "🎻",
-    minify: true,
-  },
-  flute: {
-    name: "flute",
-    displayName: "Flute",
-    description: "Sampled flute",
-    category: "woodwinds",
-    icon: "🪈",
-    minify: true,
-  },
-  "french-horn": {
-    name: "french-horn",
-    displayName: "French Horn",
-    description: "Sampled french horn",
-    category: "brass",
-    icon: "🎺",
-    minify: true,
-  },
-  "guitar-acoustic": {
-    name: "guitar-acoustic",
-    displayName: "Acoustic Guitar",
-    description: "Sampled acoustic guitar",
-    category: "strings",
-    icon: "🎸",
-    minify: true,
-  },
-  "guitar-electric": {
-    name: "guitar-electric",
-    displayName: "Electric Guitar",
-    description: "Sampled electric guitar",
-    category: "strings",
-    icon: "🎸",
-    minify: true,
-  },
-  "guitar-nylon": {
-    name: "guitar-nylon",
-    displayName: "Nylon Guitar",
-    description: "Sampled nylon string guitar",
-    category: "strings",
-    icon: "🎸",
-    minify: true,
-  },
-  harmonium: {
-    name: "harmonium",
-    displayName: "Harmonium",
-    description: "Sampled harmonium",
+  steinway: {
+    name: "steinway",
+    displayName: "Steinway",
+    description: "Steinway concert grand",
     category: "keyboards",
     icon: "🎹",
-    minify: false,
   },
+  kawai: {
+    name: "kawai",
+    displayName: "Kawai",
+    description: "Kawai grand piano",
+    category: "keyboards",
+    icon: "🎹",
+  },
+  fmpiano: {
+    name: "fmpiano",
+    displayName: "FM Piano",
+    description: "FM synthesis piano tone",
+    category: "keyboards",
+    icon: "🎹",
+  },
+  clavisynth: {
+    name: "clavisynth",
+    displayName: "Clavi",
+    description: "Clavichord-style keyboard",
+    category: "keyboards",
+    icon: "🎹",
+  },
+
+  // ── Mallets (vcsl.json) ─────────────────────────────────────────────
+  marimba: {
+    name: "marimba",
+    displayName: "Marimba",
+    description: "Orchestral marimba",
+    category: "mallets",
+    icon: "🎵",
+  },
+  vibraphone: {
+    name: "vibraphone",
+    displayName: "Vibraphone",
+    description: "Jazz vibraphone with motor",
+    category: "mallets",
+    icon: "🎵",
+  },
+  kalimba: {
+    name: "kalimba",
+    displayName: "Kalimba",
+    description: "African thumb piano",
+    category: "mallets",
+    icon: "🎵",
+  },
+  glockenspiel: {
+    name: "glockenspiel",
+    displayName: "Glockenspiel",
+    description: "Orchestral glockenspiel",
+    category: "mallets",
+    icon: "🔔",
+  },
+  tubularbells: {
+    name: "tubularbells",
+    displayName: "Chimes",
+    description: "Orchestral tubular bells",
+    category: "mallets",
+    icon: "🔔",
+  },
+
+  // ── Strings (vcsl.json) ─────────────────────────────────────────────
   harp: {
     name: "harp",
     displayName: "Harp",
-    description: "Sampled harp",
+    description: "Concert pedal harp",
     category: "strings",
     icon: "🪕",
-    minify: true,
   },
+  folkharp: {
+    name: "folkharp",
+    displayName: "Folk Harp",
+    description: "Celtic / folk harp",
+    category: "strings",
+    icon: "🪕",
+  },
+
+  // ── Organs (vcsl.json) ──────────────────────────────────────────────
   organ: {
     name: "organ",
     displayName: "Organ",
-    description: "Sampled organ",
-    category: "keyboards",
+    description: "Full organ all stops",
+    category: "organs",
     icon: "🎹",
-    minify: false,
   },
-  saxophone: {
-    name: "saxophone",
+  pipeorgan: {
+    name: "pipeorgan",
+    displayName: "Pipe Organ",
+    description: "Quiet classical pipe organ",
+    category: "organs",
+    icon: "🎹",
+  },
+
+  // ── Winds (vcsl.json) ───────────────────────────────────────────────
+  sax: {
+    name: "sax",
     displayName: "Saxophone",
-    description: "Sampled saxophone",
-    category: "woodwinds",
+    description: "Sustained saxophone",
+    category: "winds",
     icon: "🎷",
-    minify: false,
   },
-  trombone: {
-    name: "trombone",
-    displayName: "Trombone",
-    description: "Sampled trombone",
-    category: "brass",
-    icon: "🎺",
-    minify: true,
+  recorder: {
+    name: "recorder",
+    displayName: "Recorder",
+    description: "Tenor recorder sustained",
+    category: "winds",
+    icon: "🪈",
   },
-  trumpet: {
-    name: "trumpet",
-    displayName: "Trumpet",
-    description: "Sampled trumpet",
-    category: "brass",
-    icon: "🎺",
-    minify: true,
+  ocarina: {
+    name: "ocarina",
+    displayName: "Ocarina",
+    description: "Clay ocarina",
+    category: "winds",
+    icon: "🪈",
   },
-  tuba: {
-    name: "tuba",
-    displayName: "Tuba",
-    description: "Sampled tuba",
-    category: "brass",
-    icon: "🎺",
-    minify: true,
-  },
-  violin: {
-    name: "violin",
-    displayName: "Violin",
-    description: "Sampled violin",
-    category: "strings",
-    icon: "🎻",
-    minify: true,
-  },
-  xylophone: {
-    name: "xylophone",
-    displayName: "Xylophone",
-    description: "Sampled xylophone",
-    category: "percussion",
+  harmonica: {
+    name: "harmonica",
+    displayName: "Harmonica",
+    description: "Diatonic harmonica",
+    category: "winds",
     icon: "🎵",
-    minify: true,
   },
 };
 
@@ -304,12 +259,12 @@ export const AVAILABLE_INSTRUMENTS: Record<string, InstrumentConfig> = {
  * Instrument category display names
  */
 export const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
-  keyboards: "🎹 Keyboards",
-  synth: "🎛️ Synthesizers",
-  strings: "🎻 Strings",
-  brass: "🎺 Brass",
-  woodwinds: "🪈 Woodwinds",
-  percussion: "🥁 Percussion",
+  synth: "Synthesizers",
+  keyboards: "Keyboards",
+  mallets: "Mallets",
+  strings: "Strings",
+  organs: "Organs",
+  winds: "Winds",
 };
 
 /**
@@ -331,12 +286,12 @@ export function getInstrumentConfig(
  */
 export function getInstrumentsByCategory(): Record<string, InstrumentConfig[]> {
   const categories: Record<string, InstrumentConfig[]> = {
-    keyboards: [],
     synth: [],
+    keyboards: [],
+    mallets: [],
     strings: [],
-    brass: [],
-    woodwinds: [],
-    percussion: [],
+    organs: [],
+    winds: [],
   };
 
   Object.values(AVAILABLE_INSTRUMENTS).forEach((instrument) => {

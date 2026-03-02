@@ -8,18 +8,42 @@
 
 import { ref, readonly } from "vue";
 
-// Tone.js instrument name → Strudel-compatible sound name
+// Instrument key → Strudel/superdough sound name
 const INSTRUMENT_SOUND_MAP: Record<string, string> = {
+  // WebAudio oscillators
   synth: "triangle",
   amSynth: "sawtooth",
-  fmSynth: "sawtooth",
+  fmSynth: "square",
   membraneSynth: "sine",
   metalSynth: "square",
-  piano: "piano",
+  // Pass-through for raw sound names
   sine: "sine",
   sawtooth: "sawtooth",
   square: "square",
   triangle: "triangle",
+  // Keyboards
+  piano: "piano",
+  steinway: "steinway",
+  kawai: "kawai",
+  fmpiano: "fmpiano",
+  clavisynth: "clavisynth",
+  // Mallets
+  marimba: "marimba",
+  vibraphone: "vibraphone",
+  kalimba: "kalimba",
+  glockenspiel: "glockenspiel",
+  tubularbells: "tubularbells",
+  // Strings
+  harp: "harp",
+  folkharp: "folkharp",
+  // Organs
+  organ: "organ_full",
+  pipeorgan: "pipeorgan_quiet",
+  // Winds
+  sax: "sax",
+  recorder: "recorder_tenor_sus",
+  ocarina: "ocarina",
+  harmonica: "harmonica",
 };
 
 /** Map a Tone.js instrument name to a Strudel sound name. */

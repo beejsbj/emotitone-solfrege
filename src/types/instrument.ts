@@ -14,13 +14,7 @@ export interface InstrumentConfig {
   /** Description of the instrument */
   description: string;
   /** Category classification */
-  category:
-    | "keyboards"
-    | "synth"
-    | "strings"
-    | "brass"
-    | "woodwinds"
-    | "percussion";
+  category: InstrumentCategory;
   /** Optional icon identifier */
   icon?: string;
   /** Whether to minify samples for this instrument (for sample-based instruments) */
@@ -33,12 +27,12 @@ export interface InstrumentConfig {
  * Instrument category type
  */
 export type InstrumentCategory =
-  | "keyboards"
   | "synth"
+  | "keyboards"
+  | "mallets"
   | "strings"
-  | "brass"
-  | "woodwinds"
-  | "percussion";
+  | "organs"
+  | "winds";
 
 /**
  * Available instrument names

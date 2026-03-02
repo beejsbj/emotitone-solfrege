@@ -19,13 +19,35 @@ export function getAudioContext(): AudioContext {
 // ---------------------------------------------------------------------------
 
 const INSTRUMENT_SOUND_MAP: Record<string, string> = {
-  piano: "piano",
+  // WebAudio oscillators
   synth: "triangle",
   amSynth: "sawtooth",
-  fmSynth: "sawtooth",
+  fmSynth: "square",
   membraneSynth: "sine",
   metalSynth: "square",
-  flute: "flute",
+  // Keyboards
+  piano: "piano",
+  steinway: "steinway",
+  kawai: "kawai",
+  fmpiano: "fmpiano",
+  clavisynth: "clavisynth",
+  // Mallets
+  marimba: "marimba",
+  vibraphone: "vibraphone",
+  kalimba: "kalimba",
+  glockenspiel: "glockenspiel",
+  tubularbells: "tubularbells",
+  // Strings
+  harp: "harp",
+  folkharp: "folkharp",
+  // Organs
+  organ: "organ_full",
+  pipeorgan: "pipeorgan_quiet",
+  // Winds
+  sax: "sax",
+  recorder: "recorder_tenor_sus",
+  ocarina: "ocarina",
+  harmonica: "harmonica",
 };
 
 function toSuperdoughSound(instrument: string): string {
@@ -93,10 +115,11 @@ export async function initSuperdoughAudio(): Promise<void> {
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
 
-      // Load piano samples from the dough-samples CDN
-      await samples(
-        "https://raw.githubusercontent.com/felixroos/dough-samples/main/piano.json"
-      );
+      // Load sample packs from the dough-samples CDN
+      await Promise.all([
+        samples("https://raw.githubusercontent.com/felixroos/dough-samples/main/piano.json"),
+        samples("https://raw.githubusercontent.com/felixroos/dough-samples/main/vcsl.json"),
+      ]);
 
       // Resume / set up the AudioContext and load worklets
       await initAudio();

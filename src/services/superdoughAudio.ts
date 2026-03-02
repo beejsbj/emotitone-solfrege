@@ -6,7 +6,9 @@
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound } from "superdough";
+import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap } from "superdough";
+// @ts-ignore
+import { registerSoundfonts } from "@strudel/soundfonts";
 
 /** Re-export so other modules can get the superdough AudioContext without importing Tone. */
 export function getAudioContext(): AudioContext {
@@ -115,10 +117,16 @@ export async function initSuperdoughAudio(): Promise<void> {
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
 
-      // Load sample packs from the dough-samples CDN
+      // Load all sample packs from the dough-samples CDN + GM soundfonts
+      const BASE = "https://raw.githubusercontent.com/felixroos/dough-samples/main/";
       await Promise.all([
-        samples("https://raw.githubusercontent.com/felixroos/dough-samples/main/piano.json"),
-        samples("https://raw.githubusercontent.com/felixroos/dough-samples/main/vcsl.json"),
+        samples(`${BASE}piano.json`),
+        samples(`${BASE}vcsl.json`),
+        samples(`${BASE}tidal-drum-machines.json`),
+        samples(`${BASE}EmuSP12.json`),
+        samples(`${BASE}Dirt-Samples.json`),
+        samples(`${BASE}mridangam.json`),
+        registerSoundfonts(), // loads all gm_* General MIDI soundfonts
       ]);
 
       // Resume / set up the AudioContext and load worklets
@@ -255,5 +263,20 @@ export function getSuperdoughMasterGain(): GainNode | null {
     return (getSuperdoughAudioController() as any)?.output?.destinationGain ?? null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Returns all sound names currently registered in superdough's soundMap.
+ * Available after initSuperdoughAudio() resolves.
+ * Excludes internal entries starting with "_".
+ */
+export function getRegisteredSounds(): string[] {
+  try {
+    // @ts-ignore — soundMap is a nanostores map
+    const dict = (soundMap as any).get() as Record<string, unknown>;
+    return Object.keys(dict).filter((k) => !k.startsWith("_"));
+  } catch {
+    return [];
   }
 }

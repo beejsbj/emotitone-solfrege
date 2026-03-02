@@ -1,24 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
-import { CATEGORY_DISPLAY_NAMES } from "@/data/instruments";
-import type { InstrumentConfig } from "@/types/instrument";
-import { ChevronDown, Music } from "lucide-vue-next";
+import { getRegisteredSounds, initSuperdoughAudio } from "@/services/superdoughAudio";
 import FloatingDropdown from "./FloatingDropdown.vue";
+import { ChevronDown } from "lucide-vue-next";
 
 interface Props {
-  // For per-sequencer usage
   currentInstrument?: string;
   onSelectInstrument?: (instrumentId: string) => void;
   onClose?: () => void;
-  // For styling
   compact?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  compact: false,
-});
-
+const props = withDefaults(defineProps<Props>(), { compact: false });
 const emit = defineEmits<{
   "select-instrument": [instrumentId: string];
   close: [];
@@ -26,203 +20,187 @@ const emit = defineEmits<{
 
 const instrumentStore = useInstrumentStore();
 
-// Computed properties - use props if provided, otherwise use global store
 const currentInstrumentId = computed(
   () => props.currentInstrument || instrumentStore.currentInstrument
 );
 
-const currentInstrumentConfig = computed(() => {
-  const instruments = instrumentStore.availableInstruments;
-  return instruments.find((i) => i.name === currentInstrumentId.value);
-});
+// All sounds dynamically loaded from superdough after init
+const allSounds = ref<string[]>([]);
+const query = ref("");
 
-const isLoading = computed(() => instrumentStore.isLoading);
-
-// Use the unified categorization system
-const instrumentsByCategory = computed(() => {
-  return instrumentStore.instrumentsByCategory;
-});
-
-// Initialize instruments on mount
 onMounted(async () => {
   await instrumentStore.initializeInstruments();
+  allSounds.value = getRegisteredSounds().sort();
 });
 
-// Methods
-const selectInstrument = (instrumentName: string, closePanel: () => void) => {
+// Simple categorisation by prefix/suffix heuristics
+type Category = "synths" | "keyboards" | "mallets" | "strings" | "organs" | "winds" | "drums" | "gm" | "other";
+
+const CATEGORY_ORDER: Category[] = ["keyboards", "mallets", "strings", "organs", "winds", "synths", "drums", "gm", "other"];
+
+const CATEGORY_LABELS: Record<Category, string> = {
+  synths:    "Synths",
+  keyboards: "Keyboards",
+  mallets:   "Mallets",
+  strings:   "Strings",
+  organs:    "Organs",
+  winds:     "Winds",
+  drums:     "Drums & Percussion",
+  gm:        "GM Soundfonts",
+  other:     "Other",
+};
+
+// Curated pitched-melodic sets
+const KEYBOARD_SOUNDS = new Set(["piano", "steinway", "kawai", "fmpiano", "clavisynth", "gm_piano", "gm_epiano1", "gm_epiano2", "gm_harpsichord", "gm_clavinet", "gm_music_box", "gm_celesta"]);
+const MALLET_SOUNDS   = new Set(["marimba", "vibraphone", "vibraphone_bowed", "vibraphone_soft", "kalimba", "kalimba2", "kalimba3", "kalimba4", "kalimba5", "glockenspiel", "tubularbells", "tubularbells2", "xylophone_hard_ff", "xylophone_hard_pp", "xylophone_medium_ff", "xylophone_medium_pp", "xylophone_soft_ff", "xylophone_soft_pp", "gm_glockenspiel", "gm_xylophone", "gm_vibraphone", "gm_marimba", "gm_tubular_bells", "gm_steel_drums", "gm_kalimba"]);
+const STRING_SOUNDS   = new Set(["harp", "folkharp", "gm_orchestral_harp", "gm_pizzicato_strings", "gm_tremolo_strings", "gm_string_ensemble_1", "gm_string_ensemble_2", "gm_synth_strings_1", "gm_synth_strings_2", "gm_violin", "gm_viola", "gm_cello", "gm_contrabass", "gm_fiddle"]);
+const ORGAN_SOUNDS    = new Set(["organ_full", "organ_4inch", "organ_8inch", "pipeorgan_loud", "pipeorgan_quiet", "pipeorgan_loud_pedal", "pipeorgan_quiet_pedal", "gm_church_organ", "gm_percussive_organ", "gm_rock_organ", "gm_reed_organ", "gm_drawbar_organ", "organ"]);
+const WIND_SOUNDS     = new Set(["sax", "sax_stacc", "sax_vib", "saxello", "saxello_stacc", "saxello_vib", "recorder_alto_stacc", "recorder_alto_sus", "recorder_alto_vib", "recorder_bass_stacc", "recorder_bass_sus", "recorder_bass_vib", "recorder_soprano_stacc", "recorder_soprano_sus", "recorder_tenor_stacc", "recorder_tenor_sus", "recorder_tenor_vib", "ocarina", "ocarina_small", "ocarina_small_stacc", "ocarina_vib", "harmonica", "harmonica_soft", "harmonica_vib", "super64", "super64_acc", "super64_vib", "gm_flute", "gm_clarinet", "gm_oboe", "gm_bassoon", "gm_piccolo", "gm_recorder", "gm_pan_flute", "gm_blown_bottle", "gm_shakuhachi", "gm_whistle", "gm_ocarina", "gm_english_horn", "gm_alto_sax", "gm_tenor_sax", "gm_soprano_sax", "gm_baritone_sax", "gm_shanai", "gm_sitar", "gm_koto", "gm_shamisen", "gm_dulcimer", "gm_banjo"]);
+const SYNTH_SOUNDS    = new Set(["triangle", "sine", "square", "sawtooth", "pulse", "supersaw", "tri", "sin", "sqr", "saw", "brown", "white", "pink", "bytebeat", "crackle", "sbd", "zzfx", "user", "z_noise", "z_sine", "z_square", "z_sawtooth", "z_triangle", "z_tan", "gm_lead_1_square", "gm_lead_2_sawtooth", "gm_lead_3_calliope", "gm_lead_4_chiff", "gm_lead_5_charang", "gm_lead_6_voice", "gm_lead_7_fifths", "gm_lead_8_bass_lead", "gm_pad_new_age", "gm_pad_warm", "gm_pad_poly", "gm_pad_choir", "gm_pad_bowed", "gm_pad_metallic", "gm_pad_halo", "gm_pad_sweep", "gm_fx_rain", "gm_fx_soundtrack", "gm_fx_crystal", "gm_fx_atmosphere", "gm_fx_brightness", "gm_fx_goblins", "gm_fx_echoes", "gm_fx_sci_fi", "gm_synth_bass_1", "gm_synth_bass_2", "gm_synth_brass_1", "gm_synth_brass_2", "gm_synth_drum", "gm_synth_choir"]);
+
+function categorise(name: string): Category {
+  if (KEYBOARD_SOUNDS.has(name)) return "keyboards";
+  if (MALLET_SOUNDS.has(name))   return "mallets";
+  if (STRING_SOUNDS.has(name))   return "strings";
+  if (ORGAN_SOUNDS.has(name))    return "organs";
+  if (WIND_SOUNDS.has(name))     return "winds";
+  if (SYNTH_SOUNDS.has(name))    return "synths";
+  // Drum / percussion heuristics
+  if (/^(gm_drum|gm_taiko|gm_melodic_tom|gm_reverse_cymbal|gm_gunshot|gm_helicopter|gm_applause|gm_bird_tweet|gm_telephone|gm_seashore|gm_orchestra_hit|gm_brass_section|gm_voice_oohs|gm_choir_aahs|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|bass|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|trian|vibra|wine|wood)/.test(name)) return "drums";
+  if (name.startsWith("gm_"))    return "gm";
+  if (name.startsWith("AJK") || name.startsWith("Akai") || name.startsWith("Roland") || name.includes("_bd") || name.includes("_sd") || name.includes("_hh")) return "drums";
+  return "other";
+}
+
+const filteredSounds = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  return q ? allSounds.value.filter((s) => s.includes(q)) : allSounds.value;
+});
+
+const grouped = computed(() => {
+  const map: Partial<Record<Category, string[]>> = {};
+  for (const s of filteredSounds.value) {
+    const cat = categorise(s);
+    if (!map[cat]) map[cat] = [];
+    map[cat]!.push(s);
+  }
+  return map;
+});
+
+const orderedGroups = computed(() =>
+  CATEGORY_ORDER.filter((c) => grouped.value[c]?.length).map((c) => ({
+    key: c,
+    label: CATEGORY_LABELS[c],
+    sounds: grouped.value[c]!,
+  }))
+);
+
+function selectInstrument(name: string, close: () => void) {
   if (props.onSelectInstrument) {
-    // Per-sequencer mode
-    props.onSelectInstrument(instrumentName);
+    props.onSelectInstrument(name);
   } else {
-    // Global mode
-    instrumentStore.setInstrument(instrumentName);
+    instrumentStore.setInstrument(name);
   }
-
-  emit("select-instrument", instrumentName);
-
-  // Close panel after selection
-  closePanel();
-
-  if (props.onClose) {
-    props.onClose();
-  }
+  emit("select-instrument", name);
+  close();
+  props.onClose?.();
   emit("close");
-};
+}
 
-const getCategoryDisplayName = (category: string): string => {
-  return CATEGORY_DISPLAY_NAMES[category] || category;
-};
-
-const getInstrumentIcon = (instrumentName: string): string => {
-  const instrument = instrumentStore.availableInstruments.find(
-    (i) => i.name === instrumentName
-  );
-  return instrument?.icon || "🎵";
-};
 </script>
 
 <template>
   <FloatingDropdown position="top-left" max-height="80vh" :floating="!compact">
-    <!-- Trigger Button -->
+    <!-- Trigger -->
     <template #trigger="{ toggle }">
       <button
         @click="toggle"
         :class="[
           'flex items-center gap-2 px-3 py-2 bg-black/80 border border-neutral-700 rounded-md cursor-pointer text-xs transition-all duration-200 backdrop-blur-lg min-w-0 justify-center hover:bg-black/90 hover:border-neutral-500 hover:scale-105',
-          compact
-            ? 'px-2 py-1 text-[10px] gap-1 max-w-[150px] rounded'
-            : 'max-w-[200px]',
+          compact ? 'px-2 py-1 text-[10px] gap-1 max-w-[150px] rounded' : 'max-w-[200px]',
         ]"
       >
-        <span :class="['leading-none', compact ? 'text-sm' : 'text-base']">
-          {{ getInstrumentIcon(currentInstrumentId) }}
-        </span>
-        <span
-          :class="[
-            'font-medium truncate',
-            compact ? 'max-w-[70px] text-[10px]' : 'max-w-[120px]',
-          ]"
-        >
-          {{ currentInstrumentConfig?.displayName || "Loading..." }}
+        <span class="font-mono text-[#00ff88] leading-none truncate" :class="compact ? 'text-[10px] max-w-[80px]' : 'text-xs max-w-[120px]'">
+          {{ currentInstrumentId }}
         </span>
         <ChevronDown :size="compact ? 12 : 14" />
       </button>
     </template>
 
-    <!-- Dropdown Panel -->
+    <!-- Panel -->
     <template #panel="{ close, toggle, position }">
-      <div
-        :class="['flex flex-col min-h-0 flex-1', compact ? 'text-[11px]' : '']"
-      >
-        <!-- Header -->
+      <div class="flex flex-col min-h-0 flex-1" :class="compact ? 'text-[11px]' : ''">
+
+        <!-- Header + search -->
         <div
-          :class="[
-            'sticky top-0 flex items-center justify-between border-b border-neutral-700 bg-black/95 backdrop-blur-lg z-10',
-            compact ? 'p-2' : 'p-3',
-            position === 'top-left' ? 'flex-row-reverse' : '',
-          ]"
+          class="sticky top-0 z-10 bg-black/95 backdrop-blur-lg border-b border-neutral-800"
+          :class="position === 'top-left' ? 'flex-col-reverse' : ''"
         >
-          <h3
-            :class="[
-              'm-0 text-[#00ff88] flex items-center gap-1.5 font-semibold',
-              compact ? 'text-xs' : 'text-sm',
-            ]"
-          >
-            <Music :size="compact ? 14 : 16" />
-            Instruments
-          </h3>
-          <button
-            @click="toggle"
-            class="p-1 text-[#ff6b6b] rounded hover:bg-[#ff6b6b]/20 hover:rotate-180 transition-all duration-200"
-            title="Close Panel"
-          >
-            <ChevronDown :size="compact ? 16 : 18" />
-          </button>
+          <div class="flex items-center justify-between px-3 py-2">
+            <span class="text-[#00ff88] font-semibold text-xs tracking-wide">
+              Instruments
+              <span v-if="allSounds.length" class="text-neutral-500 font-normal ml-1">{{ allSounds.length }}</span>
+            </span>
+            <button @click="toggle" class="p-1 text-neutral-500 hover:text-white rounded transition-colors">
+              <ChevronDown :size="16" />
+            </button>
+          </div>
+          <!-- Search bar -->
+          <div class="px-3 pb-2">
+            <input
+              v-model="query"
+              type="text"
+              placeholder="search sounds…"
+              class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-neutral-500 outline-none focus:border-[#00ff88]/50 focus:ring-0 font-mono"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+            />
+          </div>
         </div>
 
-        <div :class="['overflow-y-auto flex-1', compact ? 'p-2.5' : 'p-4']">
-          <!-- Current Selection Display -->
-          <div
-            :class="[
-              'border-b border-neutral-700',
-              compact ? 'mb-2.5 pb-2.5' : 'mb-4 pb-4',
-            ]"
-          >
-            <div
-              :class="[
-                'flex items-center gap-2 bg-[#00ff88]/10 border border-[#00ff88]/30 rounded-md',
-                compact ? 'p-1.5 gap-1.5 rounded' : 'p-2',
-              ]"
-            >
-              <span :class="compact ? 'text-base' : 'text-lg'">
-                {{ getInstrumentIcon(currentInstrumentId) }}
-              </span>
-              <span class="font-semibold text-[#00ff88] text-xs">
-                {{ currentInstrumentConfig?.displayName || "Loading..." }}
-              </span>
-            </div>
+        <!-- Sound list -->
+        <div class="overflow-y-auto flex-1 px-2 py-2" style="scrollbar-width: none;">
+          <div v-if="!allSounds.length" class="text-neutral-500 text-xs text-center py-6 italic">
+            loading sounds…
           </div>
 
-          <!-- Instrument Categories -->
-          <div :class="['flex flex-col', compact ? 'gap-2.5' : 'gap-4']">
-            <div
-              v-for="(instruments, category) in instrumentsByCategory"
-              :key="category"
-              :class="['flex flex-col', compact ? 'gap-1.5' : 'gap-2']"
-            >
-              <h4
-                class="m-0 text-[#ffd93d] uppercase tracking-wider font-semibold text-[10px]"
-              >
-                {{ getCategoryDisplayName(category) }}
-              </h4>
-              <div
-                :class="[
-                  'grid gap-1.5',
-                  compact
-                    ? 'grid-cols-[repeat(auto-fill,minmax(70px,1fr))] gap-1'
-                    : 'grid-cols-[repeat(auto-fill,minmax(90px,1fr))]',
-                ]"
-              >
+          <div v-else-if="!filteredSounds.length" class="text-neutral-500 text-xs text-center py-6 italic">
+            no matches for "{{ query }}"
+          </div>
+
+          <template v-else>
+            <div v-for="group in orderedGroups" :key="group.key" class="mb-3">
+              <!-- Category header -->
+              <div class="text-[9px] font-bold uppercase tracking-widest text-neutral-500 px-1 mb-1 mt-1">
+                {{ group.label }}
+                <span class="text-neutral-700 font-normal normal-case tracking-normal">{{ group.sounds.length }}</span>
+              </div>
+
+              <!-- Sound chips -->
+              <div class="flex flex-wrap gap-1">
                 <button
-                  v-for="instrument in instruments"
-                  :key="instrument.name"
-                  @click="selectInstrument(instrument.name, close)"
+                  v-for="sound in group.sounds"
+                  :key="sound"
+                  @click="selectInstrument(sound, close)"
                   :class="[
-                    'flex flex-col items-center gap-1 p-2 bg-white/5 border border-white/10 rounded-md text-white/80 cursor-pointer transition-all duration-200 text-[10px] justify-center hover:bg-white/10 hover:border-white/30 hover:-translate-y-0.5 hover:text-white',
-                    currentInstrumentId === instrument.name
-                      ? 'bg-[#00ff88]/20 border-[#00ff88]/50 text-[#00ff88]'
-                      : '',
-                    compact
-                      ? 'gap-0.5 p-1.5 rounded min-h-[45px] text-[9px]'
-                      : 'min-h-[60px]',
+                    'px-2 py-0.5 rounded text-[10px] font-mono border transition-all duration-150 cursor-pointer whitespace-nowrap',
+                    currentInstrumentId === sound
+                      ? 'bg-[#00ff88]/15 border-[#00ff88]/50 text-[#00ff88]'
+                      : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-white hover:bg-neutral-800',
                   ]"
-                  :title="instrument.description"
                 >
-                  <span
-                    :class="['leading-none', compact ? 'text-sm' : 'text-lg']"
-                  >
-                    {{ getInstrumentIcon(instrument.name) }}
-                  </span>
-                  <span
-                    class="font-medium text-center break-words max-w-full leading-tight"
-                  >
-                    {{ instrument.displayName }}
-                  </span>
+                  {{ sound }}
                 </button>
               </div>
             </div>
-          </div>
+          </template>
+        </div>
 
-          <!-- Loading State -->
-          <div
-            v-if="isLoading"
-            class="flex items-center justify-center gap-2 p-4 text-white/70 text-xs"
-          >
-            <div
-              class="w-4 h-4 border-2 border-white/20 border-t-[#00ff88] rounded-full animate-spin"
-            ></div>
-            <span>Loading instruments...</span>
-          </div>
+        <!-- Current selection footer -->
+        <div class="border-t border-neutral-800 px-3 py-2 bg-black/80 flex items-center gap-2">
+          <span class="text-neutral-500 text-[10px]">playing</span>
+          <span class="font-mono text-[#00ff88] text-[11px] font-semibold">{{ currentInstrumentId }}</span>
         </div>
       </div>
     </template>

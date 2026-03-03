@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
 import { defaultPatterns } from "@/data/patterns";
@@ -36,6 +36,20 @@ export const usePatternsStore = defineStore(
     // Pattern variables
     const savedPatterns = ref<Pattern[]>([]);
 
+    // Focused pattern (used by LiveStrip + ActionBar)
+    const focusedPatternId = ref<string | null>(null);
+
+    // Working buffer — base notes loaded from a tapped pattern
+    const loadedBaseNotes = ref<PatternNote[]>([]);
+    const loadedBaseMeta = ref<{
+      mode: MusicalMode;
+      key: ChromaticNote;
+      instrument: string;
+    } | null>(null);
+
+    // True immediately after Send, until first new note arrives
+    const isStripCleared = ref(false);
+
     // Getters
     const noteCount = computed(() => loggedNotes.value.length);
     const sessionNotes = computed(() =>
@@ -43,6 +57,19 @@ export const usePatternsStore = defineStore(
         (note) => note.sessionId === currentSessionId.value
       )
     );
+
+    // Current working notes: loggedNotes since last isStartingNewPattern boundary
+    const currentWorkingNotes = computed(() => {
+      const notes = loggedNotes.value;
+      let lastBreak = 0;
+      for (let i = notes.length - 1; i >= 0; i--) {
+        if (notes[i].isStartingNewPattern) {
+          lastBreak = i;
+          break;
+        }
+      }
+      return notes.slice(lastBreak);
+    });
 
     // Extract dynamic patterns from logged notes using isStartingNewPattern
     const dynamicPatterns = computed(() => {
@@ -77,6 +104,25 @@ export const usePatternsStore = defineStore(
       ...savedPatterns.value,
       ...dynamicPatterns.value,
     ]);
+
+    // Focused pattern derived from id
+    const focusedPattern = computed<Pattern | null>(
+      () => patterns.value.find((p) => p.id === focusedPatternId.value) ?? null
+    );
+
+    // Action to set focused pattern
+    function setFocusedPattern(id: string | null): void {
+      focusedPatternId.value = id;
+    }
+
+    // Auto-focus newest pattern when a new dynamic one arrives
+    watch(
+      () => dynamicPatterns.value.length,
+      () => {
+        const last = patterns.value[patterns.value.length - 1];
+        if (last) focusedPatternId.value = last.id;
+      }
+    );
 
     // Helper functions
     function generateSessionId(): string {
@@ -178,6 +224,96 @@ export const usePatternsStore = defineStore(
       };
     }
 
+    // Convert a LogNote to PatternNote
+    function toPatternNote(note: LogNote): PatternNote {
+      return {
+        id: note.id,
+        note: note.note,
+        scaleDegree: note.scaleDegree,
+        scaleIndex: note.scaleIndex,
+        octave: note.octave,
+        frequency: note.frequency,
+        velocity: note.velocity,
+        pressTime: note.pressTime,
+        releaseTime: note.releaseTime,
+        duration: note.duration,
+      };
+    }
+
+    // Create a Pattern from PatternNote[] + explicit meta
+    function createPatternFromNoteSet(
+      notes: PatternNote[],
+      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string }
+    ): Pattern {
+      if (notes.length === 0) {
+        throw new Error("Cannot create pattern from empty notes array");
+      }
+      const firstNote = notes[0];
+      const lastNote = notes[notes.length - 1];
+      return {
+        id: `saved-pattern-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`,
+        name: `Pattern ${new Date().toLocaleDateString()}`,
+        notes,
+        duration: lastNote.releaseTime - firstNote.pressTime,
+        noteCount: notes.length,
+        key: meta.key,
+        mode: meta.mode,
+        instrument: meta.instrument,
+        createdAt: Date.now(),
+        isDefault: false,
+        isSaved: true,
+      };
+    }
+
+    // Load a saved pattern as the working base (typewriter desk model)
+    function loadPatternAsBase(patternId: string): void {
+      const pattern = patterns.value.find((p) => p.id === patternId);
+      if (!pattern) return;
+
+      loadedBaseNotes.value = [...pattern.notes];
+      loadedBaseMeta.value = {
+        mode: pattern.mode,
+        key: pattern.key,
+        instrument: pattern.instrument,
+      };
+      isStripCleared.value = false;
+      focusedPatternId.value = patternId;
+
+      // Sync the desk to the pattern's musical context
+      musicStore.setKey(pattern.key);
+      musicStore.setMode(pattern.mode as MusicalMode);
+      instrumentStore.setInstrument(pattern.instrument);
+
+      // Create fresh boundary so new live notes start clean after the base
+      setNextNoteAsNewPattern();
+    }
+
+    // Send the current working buffer as a new saved pattern, then clear the desk
+    function sendCurrentPattern(): void {
+      const liveNotes = currentWorkingNotes.value.map(toPatternNote);
+      const allNotes = [...loadedBaseNotes.value, ...liveNotes];
+
+      if (allNotes.length > 2) {
+        const meta = loadedBaseMeta.value ?? {
+          mode: musicStore.currentMode as MusicalMode,
+          key: musicStore.currentKey as ChromaticNote,
+          instrument: instrumentStore.currentInstrument,
+        };
+        const newPattern = createPatternFromNoteSet(allNotes, meta);
+        savedPatterns.value.push(newPattern);
+        focusedPatternId.value = newPattern.id;
+      }
+
+      loadedBaseNotes.value = [];
+      loadedBaseMeta.value = null;
+      isStripCleared.value = true;
+      // Clear logged notes so dynamicPatterns doesn't duplicate saved content
+      loggedNotes.value = [];
+      forceNextPatternStart.value = false;
+    }
+
     // Purge old notes (older than 24 hours)
     function purgeOldNotes(): void {
       const now = Date.now();
@@ -267,6 +403,9 @@ export const usePatternsStore = defineStore(
 
       // Add to logged notes
       loggedNotes.value.push(completedLogNote);
+
+      // Clear the strip-cleared flag now that a note has arrived
+      isStripCleared.value = false;
 
       // Reset the force flag after using it
       if (forceNextPatternStart.value) {
@@ -363,11 +502,26 @@ export const usePatternsStore = defineStore(
       config,
       savedPatterns,
 
+      // Working buffer state
+      loadedBaseNotes,
+      loadedBaseMeta,
+      isStripCleared,
+
       // Getters
       noteCount,
       sessionNotes,
       dynamicPatterns,
       patterns,
+      currentWorkingNotes,
+
+      // Focused pattern
+      focusedPatternId,
+      focusedPattern,
+      setFocusedPattern,
+
+      // Working buffer actions
+      loadPatternAsBase,
+      sendCurrentPattern,
 
       // Actions
       enableLogging,

@@ -8,47 +8,22 @@
 
 import { ref, readonly } from "vue";
 
-// Instrument key → Strudel/superdough sound name
-const INSTRUMENT_SOUND_MAP: Record<string, string> = {
-  // WebAudio oscillators
+// Legacy Tone.js alias → Strudel/superdough sound name.
+// Only non-identity mappings; all other instrument keys pass through.
+const LEGACY_ALIASES: Record<string, string> = {
   synth: "triangle",
   amSynth: "sawtooth",
   fmSynth: "square",
   membraneSynth: "sine",
   metalSynth: "square",
-  // Pass-through for raw sound names
-  sine: "sine",
-  sawtooth: "sawtooth",
-  square: "square",
-  triangle: "triangle",
-  // Keyboards
-  piano: "piano",
-  steinway: "steinway",
-  kawai: "kawai",
-  fmpiano: "fmpiano",
-  clavisynth: "clavisynth",
-  // Mallets
-  marimba: "marimba",
-  vibraphone: "vibraphone",
-  kalimba: "kalimba",
-  glockenspiel: "glockenspiel",
-  tubularbells: "tubularbells",
-  // Strings
-  harp: "harp",
-  folkharp: "folkharp",
-  // Organs
   organ: "organ_full",
   pipeorgan: "pipeorgan_quiet",
-  // Winds
-  sax: "sax",
   recorder: "recorder_tenor_sus",
-  ocarina: "ocarina",
-  harmonica: "harmonica",
 };
 
-/** Map a Tone.js instrument name to a Strudel sound name. */
+/** Resolve a Tone.js legacy alias to its Strudel/superdough sound name. */
 export function toStrudelSound(instrument: string): string {
-  return INSTRUMENT_SOUND_MAP[instrument] ?? "triangle";
+  return LEGACY_ALIASES[instrument] ?? instrument;
 }
 
 // @strudel/web exposes initStrudel + evaluate globally after init
@@ -79,12 +54,19 @@ async function ensureInit() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { initStrudel, samples, registerSynthSounds } = strudel as any;
 
+      // @ts-ignore
+      const { registerSoundfonts } = await import("@strudel/soundfonts");
+
       const ctx = await initStrudel({
         prebake: async () => {
           await Promise.all([
-            // Piano samples from dough-samples CDN
             samples(`${DOUGH_SAMPLES}piano.json`),
-            // Register built-in WebAudio synth sounds (sine, sawtooth, etc.)
+            samples(`${DOUGH_SAMPLES}vcsl.json`),
+            samples(`${DOUGH_SAMPLES}tidal-drum-machines.json`),
+            samples(`${DOUGH_SAMPLES}EmuSP12.json`),
+            samples(`${DOUGH_SAMPLES}Dirt-Samples.json`),
+            samples(`${DOUGH_SAMPLES}mridangam.json`),
+            registerSoundfonts(),
             registerSynthSounds(),
           ]);
         },

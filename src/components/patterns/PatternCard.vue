@@ -1,28 +1,21 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
-import { useStrudel, toStrudelSound } from "@/composables/useStrudel";
-import type { Pattern } from "@/types/patterns";
-import type { LogNote } from "@/types/patterns";
+import { toStrudelSound } from "@/composables/useStrudel";
+import { usePatternsStore } from "@/stores/patterns";
+import { useColorSystem } from "@/composables/useColorSystem";
+import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "@/data";
+import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
+import type { MusicalMode } from "@/types/music";
 
-const { toggle, isPlaying, currentCode } = useStrudel();
+const patternsStore = usePatternsStore();
+const { getStaticPrimaryColor } = useColorSystem();
 
 const props = defineProps<{
   pattern: Pattern;
-  isExpanded: boolean;
-}>();
-
-const emit = defineEmits<{
-  "toggle-expand": [];
 }>();
 
 const copied = ref(false);
-
-const notation = computed(() =>
-  logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
-    sound: toStrudelSound(props.pattern.instrument ?? "sine"),
-  })
-);
 
 const keyModeLabel = computed(() => {
   const key = props.pattern.key ?? "C";
@@ -34,8 +27,15 @@ const noteCount = computed(
   () => props.pattern.noteCount ?? props.pattern.notes.length
 );
 
-const isThisPlaying = computed(
-  () => isPlaying.value && currentCode.value === notation.value
+const isFocused = computed(
+  () => patternsStore.focusedPatternId === props.pattern.id
+);
+
+// ── notation for copy ──────────────────────────────────────────────────────
+const notation = computed(() =>
+  logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
+    sound: toStrudelSound(props.pattern.instrument ?? "sine"),
+  })
 );
 
 async function copyNotation() {
@@ -47,8 +47,23 @@ async function copyNotation() {
       copied.value = false;
     }, 1500);
   } catch {
-    // clipboard not available — silently ignore
+    // clipboard not available
   }
+}
+
+// ── color strip helpers ───────────────────────────────────────────────────
+function solfegeName(scaleIndex: number, mode: string): string {
+  const list = mode === "minor" ? MINOR_SOLFEGE : MAJOR_SOLFEGE;
+  return list[scaleIndex]?.name ?? "Do";
+}
+
+function colorFor(note: PatternNote, pattern: Pattern): string {
+  const name = solfegeName(note.scaleIndex, pattern.mode);
+  return getStaticPrimaryColor(name, pattern.mode as MusicalMode, note.octave);
+}
+
+function handleCardClick() {
+  patternsStore.loadPatternAsBase(props.pattern.id);
 }
 </script>
 
@@ -57,30 +72,21 @@ async function copyNotation() {
     class="track"
     :class="{
       'track--default': pattern.isDefault,
-      'track--expanded': isExpanded,
-      'track--playing': isThisPlaying,
+      'track--focused': isFocused,
     }"
+    @click="handleCardClick"
   >
     <!-- Single always-visible row -->
-    <div class="track-row" @click="emit('toggle-expand')">
-      <!-- Play / stop -->
-      <button
-        class="play-btn"
-        :class="{ 'play-btn--active': isThisPlaying }"
-        @click.stop="toggle(notation)"
-        :aria-label="isThisPlaying ? 'Stop' : 'Play'"
-      >
-        <span class="play-icon">{{ isThisPlaying ? "■" : "▶" }}</span>
-      </button>
-
-      <!-- Label + badge -->
+    <div class="track-row">
+      <!-- Label + badges -->
       <div class="track-meta">
+        <span class="track-instrument">{{ pattern.instrument ?? "sine" }}</span>
         <span class="track-label">{{ keyModeLabel }}</span>
         <span class="track-badge">{{ noteCount }}</span>
         <span v-if="pattern.isDefault" class="default-pip" />
       </div>
 
-      <!-- Copy + chevron — stop propagation so tapping these doesn't toggle expand -->
+      <!-- Copy button — stop propagation so tapping doesn't re-focus -->
       <div class="track-actions" @click.stop>
         <button
           class="copy-btn"
@@ -91,19 +97,19 @@ async function copyNotation() {
           {{ copied ? "✓" : "⎘" }}
         </button>
       </div>
-
-      <span
-        class="track-chevron"
-        :class="{ 'track-chevron--open': isExpanded }"
-        >›</span
-      >
     </div>
 
-    <!-- Expandable notation body -->
-    <div class="track-body">
-      <div class="notation-scroll">
-        <pre class="notation-code">{{ notation }}</pre>
-      </div>
+    <!-- Color strip — always visible, proportional to note duration -->
+    <div class="note-color-strip">
+      <span
+        v-for="note in (pattern.notes as PatternNote[])"
+        :key="note.id"
+        class="note-color-segment"
+        :style="{
+          backgroundColor: colorFor(note, pattern),
+          flex: Math.max(note.duration, 50),
+        }"
+      />
     </div>
   </article>
 </template>
@@ -118,6 +124,9 @@ async function copyNotation() {
   border-radius: 3px;
   overflow: hidden;
   transition: border-left-color 0.18s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .track--default {
@@ -125,8 +134,13 @@ async function copyNotation() {
   border-left-color: hsla(280, 70%, 60%, 0.55);
 }
 
-.track--playing {
-  border-left-color: hsla(150, 65%, 48%, 0.85);
+.track--focused {
+  border-left-color: hsla(280, 70%, 62%, 0.9);
+  background: hsla(280, 15%, 11%, 0.7);
+}
+
+.track:active {
+  background: hsla(0, 0%, 12%, 1);
 }
 
 /* ─── Row ─── */
@@ -134,59 +148,8 @@ async function copyNotation() {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  height: 2.75rem; /* 44 px touch target */
-  padding: 0 0.5rem 0 0.375rem;
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.12s ease;
-}
-
-.track-row:active {
-  background: hsla(0, 0%, 100%, 0.03);
-}
-
-/* ─── Play button ─── */
-.play-btn {
-  flex-shrink: 0;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  border: none;
-  background: hsla(150, 65%, 44%, 1);
-  color: hsla(0, 0%, 4%, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  transition:
-    background 0.14s ease,
-    transform 0.1s ease,
-    box-shadow 0.14s ease;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 0 0 0 hsla(150, 65%, 48%, 0);
-}
-
-.play-btn:active {
-  transform: scale(0.9);
-}
-
-.play-btn--active {
-  background: hsla(0, 65%, 52%, 1);
-  box-shadow: 0 0 8px 1px hsla(0, 65%, 52%, 0.35);
-}
-
-.play-icon {
-  font-size: 0.52rem;
-  line-height: 1;
-  display: block;
-  transform: translateX(1px); /* optical nudge for ▶ */
-}
-
-.play-btn--active .play-icon {
-  transform: none;
-  font-size: 0.58rem;
+  height: 2.5rem;
+  padding: 0 0.5rem 0 0.5rem;
 }
 
 /* ─── Track meta ─── */
@@ -199,12 +162,24 @@ async function copyNotation() {
   overflow: hidden;
 }
 
-.track-label {
-  font-size: 0.58rem;
+.track-instrument {
+  font-size: 0.52rem;
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: hsla(0, 0%, 100%, 0.55);
+  color: hsla(0, 0%, 100%, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 4.5rem;
+}
+
+.track-label {
+  font-size: 0.52rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: hsla(0, 0%, 100%, 0.4);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -221,7 +196,7 @@ async function copyNotation() {
   border-radius: 2px;
   background: hsla(0, 0%, 100%, 0.07);
   color: hsla(0, 0%, 100%, 0.3);
-  font-size: 0.52rem;
+  font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
@@ -273,59 +248,16 @@ async function copyNotation() {
   border-color: hsla(150, 55%, 38%, 0.35);
 }
 
-/* ─── Expand chevron ─── */
-.track-chevron {
-  flex-shrink: 0;
-  font-size: 0.8rem;
-  color: hsla(0, 0%, 100%, 0.18);
-  display: block;
-  line-height: 1;
-  transition:
-    transform 0.22s ease,
-    color 0.18s ease;
-}
-
-.track-chevron--open {
-  transform: rotate(90deg);
-  color: hsla(0, 0%, 100%, 0.42);
-}
-
-/* ─── Expandable body ─── */
-.track-body {
-  max-height: 0;
+/* ─── Note color strip ─── */
+.note-color-strip {
+  display: flex;
+  height: 4px;
   overflow: hidden;
-  transition: max-height 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.track--expanded .track-body {
-  max-height: 7rem;
-}
-
-.notation-scroll {
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: 7rem;
-  padding: 0.375rem 0.625rem 0.5rem;
-  background: hsla(0, 0%, 5%, 1);
-  border-top: 1px solid hsla(0, 0%, 100%, 0.05);
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.notation-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.notation-code {
-  font-family:
-    "SF Mono",
-    "Fira Code",
-    "Courier New",
-    monospace;
-  font-size: 0.58rem;
-  line-height: 1.65;
-  color: hsla(175, 55%, 65%, 1);
-  margin: 0;
-  white-space: pre;
+.note-color-segment {
+  height: 100%;
+  flex-shrink: 0;
+  min-width: 2px;
 }
 </style>

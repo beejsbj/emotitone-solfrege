@@ -2,35 +2,63 @@
 import { computed, watch, nextTick, ref } from "vue";
 import { usePatternsStore } from "@/stores/patterns";
 import { useColorSystem } from "@/composables/useColorSystem";
+import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "@/data";
+import type { PatternNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
 const { getStaticPrimaryColor } = useColorSystem();
 
 const notationRef = ref<HTMLElement | null>(null);
 
-// Only show notes belonging to the current in-progress pattern —
-// everything from the last isStartingNewPattern boundary to the end.
-const currentNotes = computed(() => {
-  const notes = patternsStore.loggedNotes;
-  let lastBreak = 0;
-  for (let i = notes.length - 1; i >= 0; i--) {
-    if (notes[i].isStartingNewPattern) {
-      lastBreak = i;
-      break;
-    }
-  }
-  return notes.slice(lastBreak);
-});
-
-// Build colored token list from currentNotes — avoids parsing the string.
+// ── helpers ───────────────────────────────────────────────────────────────
 const BAR_MS = (60000 / 120) * 4; // 2000ms at 120bpm
 
-const coloredTokens = computed(() => {
-  const notes = currentNotes.value;
+function solfegeName(scaleIndex: number, mode: string): string {
+  const list = mode === "minor" ? MINOR_SOLFEGE : MAJOR_SOLFEGE;
+  return list[scaleIndex]?.name ?? "Do";
+}
+
+type Token = { text: string; color: string | null };
+
+// ── base tokens (from loaded pattern, if any) ─────────────────────────────
+const baseTokens = computed((): Token[] => {
+  const base = patternsStore.loadedBaseNotes as PatternNote[];
+  const meta = patternsStore.loadedBaseMeta;
+  if (!base.length || !meta) return [];
+
+  const origin = base[0].pressTime;
+  const tokens: Token[] = [];
+  let cursor = 0;
+
+  for (const note of base) {
+    const start = note.pressTime - origin;
+    const dur = Math.max(1, note.duration);
+    const gap = start - cursor;
+
+    if (gap > 50) {
+      const x = parseFloat((gap / BAR_MS).toFixed(4));
+      tokens.push({ text: `~@${x}`, color: null });
+    }
+
+    const x = parseFloat((dur / BAR_MS).toFixed(4));
+    const durStr = x === 1 ? "" : `@${x}`;
+    const name = solfegeName(note.scaleIndex, meta.mode);
+    const color = getStaticPrimaryColor(name, meta.mode, note.octave);
+    tokens.push({ text: `${note.note}${durStr}`, color });
+
+    cursor = start + dur;
+  }
+
+  return tokens;
+});
+
+// ── live tokens (in-progress since last boundary) ─────────────────────────
+const liveTokens = computed((): Token[] => {
+  const notes = patternsStore.currentWorkingNotes;
   if (!notes.length) return [];
 
   const origin = notes[0].pressTime;
-  const tokens: Array<{ text: string; color: string | null }> = [];
+  const tokens: Token[] = [];
   let cursor = 0;
 
   for (const note of notes) {
@@ -38,7 +66,6 @@ const coloredTokens = computed(() => {
     const dur = Math.max(1, note.duration);
     const gap = start - cursor;
 
-    // Rest for gaps > 50ms
     if (gap > 50) {
       const x = parseFloat((gap / BAR_MS).toFixed(4));
       tokens.push({ text: `~@${x}`, color: null });
@@ -57,9 +84,16 @@ const coloredTokens = computed(() => {
   return tokens;
 });
 
-// Auto-scroll to the right whenever a new note lands.
+// ── combined display — no mode switch, just concat ────────────────────────
+const displayTokens = computed((): Token[] => {
+  if (patternsStore.isStripCleared) return [];
+  return [...baseTokens.value, ...liveTokens.value];
+});
+
+// ── scroll behaviour ──────────────────────────────────────────────────────
+// Auto-scroll right when live tokens grow
 watch(
-  () => currentNotes.value.length,
+  () => liveTokens.value.length,
   async () => {
     await nextTick();
     if (notationRef.value) {
@@ -67,14 +101,26 @@ watch(
     }
   }
 );
+
+// When base loads, scroll to start
+watch(
+  () => patternsStore.loadedBaseNotes.length,
+  async () => {
+    await nextTick();
+    if (notationRef.value) {
+      notationRef.value.scrollLeft = 0;
+    }
+  }
+);
 </script>
 
 <template>
   <div class="live-strip">
-    <div v-if="coloredTokens.length" ref="notationRef" class="notation-bar">
+    <!-- Tokens -->
+    <div v-if="displayTokens.length" ref="notationRef" class="notation-bar">
       <div class="notation-tokens">
         <span
-          v-for="(token, i) in coloredTokens"
+          v-for="(token, i) in displayTokens"
           :key="i"
           class="token"
           :class="token.color ? 'token--note' : 'token--rest'"
@@ -98,9 +144,10 @@ watch(
   min-height: 2.5rem;
 }
 
+/* ─── Notation area ─── */
 .notation-bar {
   overflow-x: auto;
-  width: 100%;
+  flex: 1;
   min-width: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -130,7 +177,6 @@ watch(
 
 .token--note {
   color: hsla(0, 0%, 100%, 0.9);
-  /* backgroundColor set via :style binding */
 }
 
 .token--rest {
@@ -140,6 +186,7 @@ watch(
 }
 
 .empty-hint {
+  flex: 1;
   padding: 0.35rem 0.6rem;
   font-size: 0.65rem;
   color: hsla(0, 0%, 100%, 0.25);

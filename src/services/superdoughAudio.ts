@@ -17,44 +17,25 @@ export function getAudioContext(): AudioContext {
 }
 
 // ---------------------------------------------------------------------------
-// Instrument → superdough sound name mapping
+// Legacy Tone.js alias → superdough sound name
+// Only non-identity mappings needed; all other instrument keys pass through.
 // ---------------------------------------------------------------------------
 
-const INSTRUMENT_SOUND_MAP: Record<string, string> = {
-  // WebAudio oscillators
+/** Oscillator-based sounds that have no sample bank — skip pre-warm for these. */
+const SYNTH_SOUNDS = new Set([
+  "triangle", "sawtooth", "square", "sine", "buzz", "supersaw",
+]);
+
+const LEGACY_ALIASES: Record<string, string> = {
   synth: "triangle",
   amSynth: "sawtooth",
   fmSynth: "square",
   membraneSynth: "sine",
   metalSynth: "square",
-  // Keyboards
-  piano: "piano",
-  steinway: "steinway",
-  kawai: "kawai",
-  fmpiano: "fmpiano",
-  clavisynth: "clavisynth",
-  // Mallets
-  marimba: "marimba",
-  vibraphone: "vibraphone",
-  kalimba: "kalimba",
-  glockenspiel: "glockenspiel",
-  tubularbells: "tubularbells",
-  // Strings
-  harp: "harp",
-  folkharp: "folkharp",
-  // Organs
   organ: "organ_full",
   pipeorgan: "pipeorgan_quiet",
-  // Winds
-  sax: "sax",
   recorder: "recorder_tenor_sus",
-  ocarina: "ocarina",
-  harmonica: "harmonica",
 };
-
-function toSuperdoughSound(instrument: string): string {
-  return INSTRUMENT_SOUND_MAP[instrument] ?? "triangle";
-}
 
 // ---------------------------------------------------------------------------
 // Module-level init state so we only set up once
@@ -63,52 +44,72 @@ function toSuperdoughSound(instrument: string): string {
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
 
+// Sample packs with user-friendly labels for progress reporting
+const SAMPLE_PACKS = [
+  { key: "piano", label: "Piano" },
+  { key: "vcsl", label: "Orchestra" },
+  { key: "tidal-drum-machines", label: "Drum Machines" },
+  { key: "EmuSP12", label: "EmuSP12" },
+  { key: "Dirt-Samples", label: "Dirt Samples" },
+  { key: "mridangam", label: "Mridangam" },
+] as const;
+
 /**
- * Pre-loads every piano AudioBuffer directly into superdough's internal
- * bufferCache by calling its exported `loadBuffer(url, audioContext)`.
- *
- * Background: superdough lazy-decodes sample buffers on first play and
- * checks `if (ac.currentTime > scheduledTime)` after the async load.
- * We schedule notes only 10 ms into the future, but fetch + decodeAudioData
- * takes 50–200 ms on a cold cache, so the check fires and the note drops.
- *
- * We read the full CDN URLs from the already-registered piano bank
- * (populated by the `samples()` call above, which applies the base URL
- * prefix via processSampleMap).  Calling `loadBuffer` on those full URLs
- * runs fetch → decodeAudioData and stores the decoded AudioBuffer in the
- * shared cache BEFORE any user interaction, so the "took too long" check
- * is never reached during actual play.
+ * Core pre-warm logic — assumes superdough is already initialised.
+ * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
+ * from inside the init flow (e.g. _prewarmPianoSamples called by initSuperdoughAudio).
  */
-async function _prewarmPianoSamples(): Promise<void> {
-  try {
-    const ac = getAudioContext();
+async function _prewarmSoundCore(soundName: string): Promise<void> {
+  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
+  if (SYNTH_SOUNDS.has(resolved)) return; // oscillators have no sample bank
 
-    // getSound('piano') returns the registered sound entry whose .data.samples
-    // is the bank object: { "C4": ["https://.../C4v8.mp3"], ... } (full URLs).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sound = (getSound as any)("piano");
-    if (!sound?.data?.samples) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sound = (getSound as any)(resolved);
+  if (!sound?.data?.samples) return;
 
-    const bank = sound.data.samples as Record<string, string[]> | string[];
-    const audioUrls: string[] = Array.isArray(bank)
-      ? bank
-      : (Object.values(bank) as string[][]).flat();
+  const ac = getAudioContext();
+  const bank = sound.data.samples as Record<string, string[]> | string[];
+  const audioUrls: string[] = Array.isArray(bank)
+    ? bank
+    : (Object.values(bank) as string[][]).flat();
 
-    // Drive fetch + decodeAudioData for every sample through superdough's own
-    // loadBuffer so the result lands in its shared bufferCache.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await Promise.allSettled(audioUrls.map((url) => (loadBuffer as any)(url, ac)));
-  } catch {
-    // Non-fatal — worst case, the very first note on an uncached range is
-    // silently dropped once, then cached for all future plays.
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await Promise.allSettled(audioUrls.map((url) => (loadBuffer as any)(url, ac)));
 }
 
 /**
- * One-time setup: registers synth sounds, loads piano samples, starts the
- * audio context.  Safe to call multiple times — subsequent calls are no-ops.
+ * Pre-loads every AudioBuffer for any registered superdough sound into its
+ * shared bufferCache.  Works for any sample-based instrument; oscillator
+ * sounds (sine, triangle, etc.) are skipped immediately.
+ *
+ * Safe to call at any time — triggers audio init if not yet done,
+ * then drives fetch → decodeAudioData for all samples in the bank
+ * so the first keypress is never silently dropped.
  */
-export async function initSuperdoughAudio(): Promise<void> {
+export async function prewarmSoundSamples(soundName: string): Promise<void> {
+  try {
+    await initSuperdoughAudio(); // no-op if already initialised; safe for external callers
+    await _prewarmSoundCore(soundName);
+  } catch {
+    // Non-fatal — worst case the first note may be silently dropped once.
+  }
+}
+
+async function _prewarmPianoSamples(): Promise<void> {
+  // Called from within initSuperdoughAudio — skip the init guard to avoid deadlock.
+  return _prewarmSoundCore("piano");
+}
+
+/**
+ * One-time setup: registers synth sounds, loads all sample packs, starts the
+ * audio context.  Safe to call multiple times — subsequent calls are no-ops.
+ *
+ * @param progressCallback  Optional callback receiving (0-100, message) as each
+ *                          sample pack resolves so callers can drive a loading UI.
+ */
+export async function initSuperdoughAudio(
+  progressCallback?: (progress: number, message: string) => void
+): Promise<void> {
   if (_initialized) return;
   if (_initPromise) return _initPromise;
 
@@ -116,29 +117,38 @@ export async function initSuperdoughAudio(): Promise<void> {
     try {
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
+      progressCallback?.(3, "Synth sounds registered");
 
-      // Load all sample packs from the dough-samples CDN + GM soundfonts
+      // Load all sample packs from the dough-samples CDN + GM soundfonts.
+      // Track individual completions so the loading screen shows real steps.
       const BASE = "https://raw.githubusercontent.com/felixroos/dough-samples/main/";
+      // 7 items total: 6 JSON packs + soundfonts
+      const total = SAMPLE_PACKS.length + 1;
+      let done = 0;
+
+      const reportPack = (label: string) => {
+        done++;
+        // Range: 5 % → 75 % across all packs
+        const pct = Math.round(5 + (done / total) * 70);
+        progressCallback?.(pct, `${label} loaded (${done}/${total})`);
+      };
+
       await Promise.all([
-        samples(`${BASE}piano.json`),
-        samples(`${BASE}vcsl.json`),
-        samples(`${BASE}tidal-drum-machines.json`),
-        samples(`${BASE}EmuSP12.json`),
-        samples(`${BASE}Dirt-Samples.json`),
-        samples(`${BASE}mridangam.json`),
-        registerSoundfonts(), // loads all gm_* General MIDI soundfonts
+        ...SAMPLE_PACKS.map(({ key, label }) =>
+          samples(`${BASE}${key}.json`).then(() => reportPack(label))
+        ),
+        registerSoundfonts().then(() => reportPack("Soundfonts")),
       ]);
 
       // Resume / set up the AudioContext and load worklets
+      progressCallback?.(78, "Starting audio context…");
       await initAudio();
 
-      // Pre-warm piano sample buffers so the first user keypress doesn't miss.
-      // superdough lazy-fetches buffers on first play and has a short internal
-      // timeout; if the fetch isn't done in time, the note is silently dropped.
-      // Triggering near-silent notes here forces the buffers to download and
-      // cache while the app is still loading, before the user can interact.
+      // Pre-warm piano buffers so the first keypress is never silently dropped.
+      progressCallback?.(82, "Warming up piano…");
       await _prewarmPianoSamples();
 
+      progressCallback?.(100, "Audio engine ready");
       _initialized = true;
     } catch (err) {
       console.error("[superdoughAudio] init error:", err);
@@ -182,7 +192,7 @@ export async function attackNote(
 ): Promise<void> {
   await initSuperdoughAudio();
 
-  const sound = toSuperdoughSound(instrument);
+  const sound = LEGACY_ALIASES[instrument] ?? instrument;
   const duration = 3; // seconds — long enough to feel "held"
 
   await superdough(
@@ -226,7 +236,7 @@ export async function playNoteWithDuration(
 ): Promise<void> {
   await initSuperdoughAudio();
 
-  const sound = toSuperdoughSound(instrument);
+  const sound = LEGACY_ALIASES[instrument] ?? instrument;
   const durationSeconds = durationMs / 1000;
 
   await superdough(

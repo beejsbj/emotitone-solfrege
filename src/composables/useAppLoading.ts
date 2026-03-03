@@ -126,8 +126,8 @@ export function useAppLoading() {
   const initializeInstruments = async () => {
     updatePhase("instruments", {
       phase: "instruments",
-      progress: 10,
-      message: "Loading instruments...",
+      progress: 0,
+      message: "Loading audio samples…",
     });
 
     try {
@@ -135,12 +135,14 @@ export function useAppLoading() {
       const { useInstrumentStore } = await import("@/stores/instrument");
       const instrumentStore = useInstrumentStore();
 
-      // Set up progress callback
+      // Granular callback: update instruments phase with the step detail but
+      // keep overall.message as a stable header ("Loading audio samples…")
+      // so the two message lines don't echo each other in the UI.
       const progressCallback = (progress: number, message: string) => {
-        updatePhase("instruments", {
-          progress: Math.min(progress, 99), // Cap at 99 until fully complete
-          message,
-        });
+        loadingState.progress.instruments.progress = Math.min(progress, 99);
+        loadingState.progress.instruments.message = message;
+        loadingState.progress.overall.progress = overallProgress.value;
+        // overall.message intentionally left unchanged ("Loading audio samples…")
       };
 
       // Add timeout to prevent hanging

@@ -1,69 +1,7 @@
 /**
  * Instrument System Types
- * Type definitions for instrument management, configuration, and audio synthesis
+ * Type definitions for instrument management and audio synthesis
  */
-
-/**
- * Instrument configuration interface
- */
-export interface InstrumentConfig {
-  /** Unique instrument identifier */
-  name: string;
-  /** Human-readable display name */
-  displayName: string;
-  /** Description of the instrument */
-  description: string;
-  /** Category classification */
-  category: InstrumentCategory;
-  /** Optional icon identifier */
-  icon?: string;
-  /** Whether to minify samples for this instrument (for sample-based instruments) */
-  minify?: boolean;
-  /** Optional envelope override for this specific instrument */
-  envelope?: AudioEnvelope;
-}
-
-/**
- * Instrument category type
- */
-export type InstrumentCategory =
-  | "synth"
-  | "keyboards"
-  | "mallets"
-  | "strings"
-  | "organs"
-  | "winds";
-
-/**
- * Available instrument names
- */
-export type InstrumentName =
-  | "synth"
-  | "amSynth"
-  | "fmSynth"
-  | "membraneSynth"
-  | "metalSynth"
-  | "piano"
-  | "sample-piano"
-  | "bass-electric"
-  | "bassoon"
-  | "cello"
-  | "clarinet"
-  | "contrabass"
-  | "flute"
-  | "french-horn"
-  | "guitar-acoustic"
-  | "guitar-electric"
-  | "guitar-nylon"
-  | "harmonium"
-  | "harp"
-  | "organ"
-  | "saxophone"
-  | "trombone"
-  | "trumpet"
-  | "tuba"
-  | "violin"
-  | "xylophone";
 
 /**
  * Instrument store state interface
@@ -84,7 +22,7 @@ export interface InstrumentInitOptions {
   /** Whether to initialize all instruments at once */
   initializeAll?: boolean;
   /** Specific instruments to initialize */
-  instruments?: InstrumentName[];
+  instruments?: string[];
   /** Audio context options */
   audioContext?: {
     sampleRate?: number;
@@ -174,24 +112,6 @@ export interface OscillatorConfig {
 }
 
 /**
- * Complete instrument configuration
- */
-export interface CompleteInstrumentConfig extends InstrumentConfig {
-  /** Audio envelope settings */
-  envelope: AudioEnvelope;
-  /** Voice configuration */
-  voice: VoiceConfig;
-  /** Compressor settings */
-  compressor: CompressorConfig;
-  /** Oscillator settings (for synths) */
-  oscillator?: OscillatorConfig;
-  /** Sampler settings (for samplers) */
-  sampler?: SamplerConfig;
-  /** Additional instrument-specific parameters */
-  parameters?: Record<string, any>;
-}
-
-/**
  * Instrument event data
  */
 export interface InstrumentEvent {
@@ -205,8 +125,6 @@ export interface InstrumentEvent {
   data?: {
     /** Error message if type is instrument-error */
     error?: string;
-    /** Configuration if type is instrument-changed */
-    config?: CompleteInstrumentConfig;
     /** Loading progress if type is instrument-loaded */
     progress?: number;
   };

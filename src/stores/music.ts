@@ -231,7 +231,7 @@ export const useMusicStore = defineStore(
             solfegeIndex,
             octave: finalOctave,
             instrument: instrumentStore.currentInstrument,
-            instrumentConfig: instrumentStore.currentInstrumentConfig,
+            instrumentConfig: null,
           },
         });
         window.dispatchEvent(notePlayedEvent);
@@ -305,7 +305,7 @@ export const useMusicStore = defineStore(
               noteId,
               noteName,
               instrument: instrumentStore.currentInstrument,
-              instrumentConfig: instrumentStore.currentInstrumentConfig,
+              instrumentConfig: null,
             },
           });
           window.dispatchEvent(notePlayedEvent);
@@ -367,10 +367,6 @@ export const useMusicStore = defineStore(
 
         const instrumentToReport =
           instrument || instrumentStore.currentInstrument;
-        const { getInstrumentConfig } = await import("@/data/instruments");
-        const instrumentConfig = instrument
-          ? getInstrumentConfig(instrument)
-          : instrumentStore.currentInstrumentConfig;
 
         const notePlayedEvent = new CustomEvent("note-played", {
           detail: {
@@ -382,7 +378,7 @@ export const useMusicStore = defineStore(
             duration,
             time,
             instrument: instrumentToReport,
-            instrumentConfig: instrumentConfig,
+            instrumentConfig: null,
             sequencerInstrument: instrument,
           },
         });
@@ -461,7 +457,7 @@ export const useMusicStore = defineStore(
               frequency: activeNote.frequency,
               octave: activeNote.octave,
               instrument: instrumentStore.currentInstrument,
-              instrumentConfig: instrumentStore.currentInstrumentConfig,
+              instrumentConfig: null,
             },
           });
           window.dispatchEvent(noteReleasedEvent);
@@ -492,7 +488,7 @@ export const useMusicStore = defineStore(
               frequency: activeNote.frequency,
               octave: activeNote.octave,
               instrument: instrumentStore.currentInstrument,
-              instrumentConfig: instrumentStore.currentInstrumentConfig,
+              instrumentConfig: null,
             },
           });
           window.dispatchEvent(noteReleasedEvent);

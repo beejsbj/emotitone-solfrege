@@ -71,13 +71,16 @@
         />
       </div>
 
-      <!-- Live Strip toggle -->
+      <!-- Play / Stop focused pattern -->
       <div class="control-group">
         <Knob
-          :model-value="showLiveStrip"
-          type="boolean"
-          label="Notation"
-          @update:modelValue="(value) => toggleLiveStrip(Boolean(value))"
+          type="button"
+          :button-text="isPlaying ? '■' : '▶'"
+          :is-active="isPlaying"
+          :ready-color="'hsla(150, 65%, 45%, 1)'"
+          :active-color="'hsla(0, 84%, 60%, 1)'"
+          label="Play"
+          @click="toggleFocusedPattern"
         />
       </div>
 
@@ -99,7 +102,7 @@
           type="button"
           button-text="⏎"
           label="Send"
-          @click="patternsStore.setNextNoteAsNewPattern()"
+          @click="patternsStore.sendCurrentPattern()"
         />
       </div>
     </div>
@@ -107,30 +110,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
+import { useStrudel, toStrudelSound } from "@/composables/useStrudel";
+import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { CHROMATIC_NOTES } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
+import type { LogNote } from "@/types/patterns";
 
 // Store references
 const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const patternsStore = usePatternsStore();
+const { play, stop, isPlaying } = useStrudel();
 
-// UI state
-const showLiveStrip = ref(true);
+// Notation for the currently focused pattern
+const focusedNotation = computed(() => {
+  const p = patternsStore.focusedPattern;
+  if (!p) return null;
+  return logNotesToStrudel(p.notes as unknown as LogNote[], {
+    sound: toStrudelSound(p.instrument ?? "sine"),
+  });
+});
 
-// Emit events to parent
-const emit = defineEmits<{
-  "toggle-live-strip": [value: boolean];
-}>();
-
-// Toggle live strip
-function toggleLiveStrip(value: boolean) {
-  showLiveStrip.value = value;
-  emit("toggle-live-strip", value);
+function toggleFocusedPattern() {
+  if (isPlaying.value) {
+    stop();
+  } else if (focusedNotation.value) {
+    play(focusedNotation.value);
+  }
 }
 </script>
 

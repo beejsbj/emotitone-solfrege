@@ -19,17 +19,7 @@ export type { Scale } from "./scales";
 // Patterns - updated exports
 
 // Instruments
-export {
-  AVAILABLE_INSTRUMENTS,
-  DEFAULT_INSTRUMENT,
-  PIANO_ENVELOPE,
-  STANDARD_COMPRESSOR,
-  CATEGORY_DISPLAY_NAMES,
-  getInstrumentConfig,
-  getInstrumentsByCategory,
-  getAvailableInstrumentNames,
-  isValidInstrument,
-} from "./instruments";
+export { DEFAULT_INSTRUMENT } from "./instruments";
 
 // Backward compatibility - re-export everything from musicData for existing imports
 export * from "./musicData";

@@ -56,9 +56,6 @@ export type {
 
 // Instrument System Types
 export type {
-  InstrumentConfig,
-  InstrumentCategory,
-  InstrumentName,
   InstrumentStoreState,
   InstrumentInitOptions,
   AudioEnvelope,
@@ -66,7 +63,6 @@ export type {
   VoiceConfig,
   SamplerConfig,
   OscillatorConfig,
-  CompleteInstrumentConfig,
   InstrumentEvent,
   AudioContextInfo,
 } from "./instrument";

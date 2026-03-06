@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { defineStore } from "pinia";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
-import { initSuperdoughAudio, prewarmSoundSamples } from "@/services/superdoughAudio";
+import { initSuperdoughAudio, isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 
 /**
  * Instrument Store
@@ -32,10 +32,17 @@ export const useInstrumentStore = defineStore("instrument", () => {
   };
 
   // Set current instrument — any registered superdough sound name is valid.
-  // Pre-warm samples in the background so the first keypress is never dropped.
-  const setInstrument = (instrumentName: string) => {
+  // Awaits pre-warming for cold instruments so the first keypress is never dropped.
+  const setInstrument = async (instrumentName: string) => {
     currentInstrument.value = instrumentName;
-    prewarmSoundSamples(instrumentName); // fire-and-forget, never blocks UI
+    if (!isPrewarmed(instrumentName)) {
+      isLoading.value = true;
+      try {
+        await prewarmSoundSamples(instrumentName);
+      } finally {
+        isLoading.value = false;
+      }
+    }
   };
 
   return {

@@ -43,6 +43,7 @@ const LEGACY_ALIASES: Record<string, string> = {
 
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
+const _prewarmedSounds = new Set<string>();
 
 // Sample packs with user-friendly labels for progress reporting
 const SAMPLE_PACKS = [
@@ -61,11 +62,17 @@ const SAMPLE_PACKS = [
  */
 async function _prewarmSoundCore(soundName: string): Promise<void> {
   const resolved = LEGACY_ALIASES[soundName] ?? soundName;
-  if (SYNTH_SOUNDS.has(resolved)) return; // oscillators have no sample bank
+  if (SYNTH_SOUNDS.has(resolved)) {
+    _prewarmedSounds.add(resolved);
+    return; // oscillators have no sample bank
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sound = (getSound as any)(resolved);
-  if (!sound?.data?.samples) return;
+  if (!sound?.data?.samples) {
+    _prewarmedSounds.add(resolved); // no samples needed → already "ready"
+    return;
+  }
 
   const ac = getAudioContext();
   const bank = sound.data.samples as Record<string, string[]> | string[];
@@ -75,6 +82,7 @@ async function _prewarmSoundCore(soundName: string): Promise<void> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await Promise.allSettled(audioUrls.map((url) => (loadBuffer as any)(url, ac)));
+  _prewarmedSounds.add(resolved);
 }
 
 /**
@@ -92,6 +100,39 @@ export async function prewarmSoundSamples(soundName: string): Promise<void> {
     await _prewarmSoundCore(soundName);
   } catch {
     // Non-fatal — worst case the first note may be silently dropped once.
+  }
+}
+
+/**
+ * Returns true if the given sound's buffers are already loaded into the cache.
+ * Used by setInstrument to decide whether to await pre-warming.
+ */
+export function isPrewarmed(soundName: string): boolean {
+  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
+  return _prewarmedSounds.has(resolved);
+}
+
+/**
+ * Pre-warms a list of sounds sequentially, reporting progress via callback.
+ * Intended for use during the loading splash screen.
+ *
+ * @param sounds           List of sound names to pre-warm.
+ * @param progressCallback Optional callback receiving (0-100, message).
+ * @param progressStart    Progress % at start of this batch.
+ * @param progressEnd      Progress % at end of this batch.
+ */
+export async function prewarmSoundList(
+  sounds: string[],
+  progressCallback?: (progress: number, message: string) => void,
+  progressStart = 82,
+  progressEnd = 98
+): Promise<void> {
+  const total = sounds.length;
+  for (let i = 0; i < total; i++) {
+    const name = sounds[i];
+    await _prewarmSoundCore(name);
+    const pct = Math.round(progressStart + ((i + 1) / total) * (progressEnd - progressStart));
+    progressCallback?.(pct, `Warming ${name} (${i + 1}/${total})`);
   }
 }
 
@@ -144,9 +185,14 @@ export async function initSuperdoughAudio(
       progressCallback?.(78, "Starting audio context…");
       await initAudio();
 
-      // Pre-warm piano buffers so the first keypress is never silently dropped.
-      progressCallback?.(82, "Warming up piano…");
+      // Pre-warm piano first (always the default)
+      progressCallback?.(80, "Warming up piano…");
       await _prewarmPianoSamples();
+
+      // Pre-warm 3 sounds per category so most instruments are ready on first tap
+      const { PRELOAD_SOUNDS } = await import("@/data/instrumentCategories");
+      const remaining = PRELOAD_SOUNDS.filter((s) => s !== "piano");
+      await prewarmSoundList(remaining, progressCallback, 82, 98);
 
       progressCallback?.(100, "Audio engine ready");
       _initialized = true;
@@ -192,6 +238,14 @@ export async function attackNote(
 ): Promise<void> {
   await initSuperdoughAudio();
 
+  // Ensure the AudioContext is running before scheduling.
+  // On first note the context may still be "suspended" from loading-screen init;
+  // this call is a fast no-op on all subsequent notes.
+  const ac = getAudioContext();
+  if (ac.state !== "running") {
+    await ac.resume();
+  }
+
   const sound = LEGACY_ALIASES[instrument] ?? instrument;
   const duration = 3; // seconds — long enough to feel "held"
 
@@ -235,6 +289,11 @@ export async function playNoteWithDuration(
   instrument: string
 ): Promise<void> {
   await initSuperdoughAudio();
+
+  const ac = getAudioContext();
+  if (ac.state !== "running") {
+    await ac.resume();
+  }
 
   const sound = LEGACY_ALIASES[instrument] ?? instrument;
   const durationSeconds = durationMs / 1000;

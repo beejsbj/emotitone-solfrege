@@ -7,6 +7,7 @@
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
 import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap } from "superdough";
+import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
 // @ts-ignore
 import { registerSoundfonts } from "@strudel/soundfonts";
 
@@ -44,6 +45,8 @@ const LEGACY_ALIASES: Record<string, string> = {
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
 const _prewarmedSounds = new Set<string>();
+let _strudelInitialized = false;
+let _strudelInitPromise: Promise<void> | null = null;
 
 // Sample packs with user-friendly labels for progress reporting
 const SAMPLE_PACKS = [
@@ -141,6 +144,21 @@ async function _prewarmPianoSamples(): Promise<void> {
   return _prewarmSoundCore("piano");
 }
 
+async function initSharedStrudelRuntime(): Promise<void> {
+  if (_strudelInitialized) return;
+  if (_strudelInitPromise) return _strudelInitPromise;
+
+  _strudelInitPromise = (async () => {
+    await initStrudel();
+    _strudelInitialized = true;
+  })().catch((error) => {
+    _strudelInitPromise = null;
+    throw error;
+  });
+
+  return _strudelInitPromise;
+}
+
 /**
  * One-time setup: registers synth sounds, loads all sample packs, starts the
  * audio context.  Safe to call multiple times — subsequent calls are no-ops.
@@ -176,13 +194,18 @@ export async function initSuperdoughAudio(
 
       await Promise.all([
         ...SAMPLE_PACKS.map(({ key, label }) =>
-          samples(`${BASE}${key}.json`).then(() => reportPack(label))
+          Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
         ),
-        registerSoundfonts().then(() => reportPack("Soundfonts")),
+        Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
       ]);
 
-      // Resume / set up the AudioContext and load worklets
-      progressCallback?.(78, "Starting audio context…");
+      // Create the Strudel playback runtime up front so Play and live notes
+      // share one scheduler/output stack instead of booting separately.
+      progressCallback?.(78, "Preparing Strudel runtime…");
+      await initSharedStrudelRuntime();
+
+      // Resume / set up the AudioContext and load worklets for live note triggering
+      progressCallback?.(79, "Starting audio context…");
       await initAudio();
 
       // Pre-warm piano first (always the default)
@@ -348,4 +371,21 @@ export function getRegisteredSounds(): string[] {
   } catch {
     return [];
   }
+}
+
+export async function playStrudelCode(code: string): Promise<void> {
+  await initSuperdoughAudio();
+  await initSharedStrudelRuntime();
+
+  const ac = getAudioContext();
+  if (ac.state !== "running") {
+    await ac.resume();
+  }
+
+  await evaluateStrudel(code);
+}
+
+export function stopStrudelPlayback(): void {
+  if (!_strudelInitialized) return;
+  hushStrudel();
 }

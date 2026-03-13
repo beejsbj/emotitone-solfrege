@@ -71,6 +71,23 @@ export const usePatternsStore = defineStore(
       return notes.slice(lastBreak);
     });
 
+    const currentSketchMeta = computed(() => {
+      return (
+        loadedBaseMeta.value ?? {
+          mode: musicStore.currentMode as MusicalMode,
+          key: musicStore.currentKey as ChromaticNote,
+          instrument: instrumentStore.currentInstrument,
+        }
+      );
+    });
+
+    // The active sketch is whatever is currently loaded on the desk plus any
+    // newly played notes since that pattern was loaded.
+    const currentSketchNotes = computed<PatternNote[]>(() => {
+      const liveNotes = currentWorkingNotes.value.map(toPatternNote);
+      return [...loadedBaseNotes.value, ...liveNotes];
+    });
+
     // Extract dynamic patterns from logged notes using isStartingNewPattern
     const dynamicPatterns = computed(() => {
       const patterns: Pattern[] = [];
@@ -292,16 +309,10 @@ export const usePatternsStore = defineStore(
 
     // Send the current working buffer as a new saved pattern, then clear the desk
     function sendCurrentPattern(): void {
-      const liveNotes = currentWorkingNotes.value.map(toPatternNote);
-      const allNotes = [...loadedBaseNotes.value, ...liveNotes];
+      const allNotes = currentSketchNotes.value;
 
       if (allNotes.length > 2) {
-        const meta = loadedBaseMeta.value ?? {
-          mode: musicStore.currentMode as MusicalMode,
-          key: musicStore.currentKey as ChromaticNote,
-          instrument: instrumentStore.currentInstrument,
-        };
-        const newPattern = createPatternFromNoteSet(allNotes, meta);
+        const newPattern = createPatternFromNoteSet(allNotes, currentSketchMeta.value);
         savedPatterns.value.push(newPattern);
         focusedPatternId.value = newPattern.id;
       }
@@ -513,6 +524,8 @@ export const usePatternsStore = defineStore(
       dynamicPatterns,
       patterns,
       currentWorkingNotes,
+      currentSketchNotes,
+      currentSketchMeta,
 
       // Focused pattern
       focusedPatternId,

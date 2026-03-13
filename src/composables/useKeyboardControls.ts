@@ -5,6 +5,7 @@
 
 import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
+import { usePatternsStore } from "@/stores/patterns";
 
 /**
  * Keyboard mapping interface
@@ -21,6 +22,7 @@ interface KeyboardMapping {
  */
 export function useKeyboardControls(mainOctave: Ref<number>) {
   const musicStore = useMusicStore();
+  const patternsStore = usePatternsStore();
 
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
@@ -86,9 +88,30 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     return null; // No keyboard mapping for this note
   };
 
+  const isEditableTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    const tagName = target.tagName;
+    return (
+      tagName === "INPUT" ||
+      tagName === "TEXTAREA" ||
+      tagName === "SELECT" ||
+      target.isContentEditable
+    );
+  };
+
   // Keyboard event handlers
   const handleKeyDown = async (event: KeyboardEvent) => {
+    if (isEditableTarget(event.target)) {
+      return;
+    }
+
     const key = event.key; // Don't convert to lowercase to preserve shift state
+
+    if (key === "Backspace" || key === "Delete") {
+      event.preventDefault();
+      patternsStore.removeLastFromCurrentSketch();
+      return;
+    }
 
     // Ignore if key is already pressed (prevents key repeat)
     if (pressedKeys.value.has(key)) {

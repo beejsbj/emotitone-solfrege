@@ -325,6 +325,17 @@ export const usePatternsStore = defineStore(
       forceNextPatternStart.value = false;
     }
 
+    function removeLastFromCurrentSketch(): void {
+      if (currentWorkingNotes.value.length > 0) {
+        loggedNotes.value = loggedNotes.value.slice(0, -1);
+        return;
+      }
+
+      if (loadedBaseNotes.value.length > 0) {
+        loadedBaseNotes.value = loadedBaseNotes.value.slice(0, -1);
+      }
+    }
+
     // Purge old notes (older than 24 hours)
     function purgeOldNotes(): void {
       const now = Date.now();
@@ -535,6 +546,7 @@ export const usePatternsStore = defineStore(
       // Working buffer actions
       loadPatternAsBase,
       sendCurrentPattern,
+      removeLastFromCurrentSketch,
 
       // Actions
       enableLogging,

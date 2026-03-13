@@ -153,4 +153,24 @@ describe("Patterns Store", () => {
     expect(patternsStore.loadedBaseNotes).toEqual([]);
     expect(patternsStore.loggedNotes).toEqual([]);
   });
+
+  it("removes live notes before loaded base notes when undoing the current sketch", () => {
+    const pattern = createPattern({
+      notes: [createPatternNote()],
+      noteCount: 1,
+      duration: 400,
+    });
+
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    patternsStore.loggedNotes.push(createLogNote());
+
+    patternsStore.removeLastFromCurrentSketch();
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual([
+      "C4",
+    ]);
+
+    patternsStore.removeLastFromCurrentSketch();
+    expect(patternsStore.currentSketchNotes).toEqual([]);
+  });
 });

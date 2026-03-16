@@ -14,7 +14,6 @@
 
     <!-- Visual Effects Configuration Panel -->
     <ConfigPanel v-if="!isLoading" />
-    <InstrumentSelector />
 
     <!-- Main Content -->
     <div v-if="!isLoading" class="relative z-50 min-h-screen flex flex-col">
@@ -42,7 +41,6 @@ import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import AppHeader from "@/components/AppHeader.vue";
 import ConfigPanel from "@/components/ConfigPanel.vue";
-import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";
 import { globalTooltip } from "@/directives/tooltip";
 import DrawerKeyboard from "@/components/DrawerKeyboard.vue";

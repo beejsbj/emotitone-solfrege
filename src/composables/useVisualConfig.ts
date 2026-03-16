@@ -18,6 +18,7 @@ import type {
   HilbertScopeConfig,
   BeatingShapesConfig,
   PatternConfig,
+  LiveStripConfig,
   VisualEffectsConfig,
 } from "@/types/visual";
 
@@ -39,6 +40,7 @@ export type {
   FloatingPopupConfig,
   HilbertScopeConfig,
   BeatingShapesConfig,
+  LiveStripConfig,
   VisualEffectsConfig,
 };
 
@@ -63,6 +65,7 @@ export function useVisualConfig() {
   const beatingShapesConfig = computed(() => store.config.beatingShapes);
   const patternsConfig = computed(() => store.config.patterns);
   const keyboardConfig = computed(() => store.config.keyboard);
+  const liveStripConfig = computed(() => store.config.liveStrip);
 
   return {
     // Configuration state
@@ -82,6 +85,7 @@ export function useVisualConfig() {
     beatingShapesConfig,
     patternsConfig,
     keyboardConfig,
+    liveStripConfig,
 
     // Methods from store
     updateConfig: store.updateConfig,

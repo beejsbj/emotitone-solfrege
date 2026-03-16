@@ -53,15 +53,14 @@ function openDeck() {
           />
         </div>
 
-        <!-- Count chip floating in the ghost peek zone -->
-        <button
+        <!-- Count chip floating in the ghost peek zone — visual only, stack div handles tap -->
+        <span
           v-if="completedPatterns.length > 1"
           class="deck-count"
-          @click.stop="isOpen = true"
-          :aria-label="`Show all ${completedPatterns.length} patterns`"
+          :aria-label="`${completedPatterns.length} patterns`"
         >
           {{ completedPatterns.length }} ≡
-        </button>
+        </span>
       </div>
     </Transition>
 
@@ -157,16 +156,7 @@ function openDeck() {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.deck-count:active {
-  color: hsla(0, 0%, 100%, 0.7);
-  background: hsla(0, 0%, 18%, 1);
+  pointer-events: none;
 }
 
 /* ─── Drawer (expanded) ─── */

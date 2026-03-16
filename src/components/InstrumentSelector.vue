@@ -95,6 +95,8 @@ const orderedGroups = computed(() =>
   }))
 );
 
+const displayName = (id: string) => id.startsWith('gm_') ? id.slice(3) : id;
+
 function selectInstrument(name: string, close: () => void) {
   if (props.onSelectInstrument) {
     props.onSelectInstrument(name);
@@ -121,7 +123,7 @@ function selectInstrument(name: string, close: () => void) {
         ]"
       >
         <span class="font-mono text-[#00ff88] leading-none truncate" :class="compact ? 'text-[10px] max-w-[80px]' : 'text-xs max-w-[120px]'">
-          {{ currentInstrumentId }}
+          {{ displayName(currentInstrumentId) }}
         </span>
         <ChevronDown :size="compact ? 12 : 14" />
       </button>
@@ -190,7 +192,7 @@ function selectInstrument(name: string, close: () => void) {
                       : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-white hover:bg-neutral-800',
                   ]"
                 >
-                  {{ sound }}
+                  {{ displayName(sound) }}
                 </button>
               </div>
             </div>
@@ -200,7 +202,7 @@ function selectInstrument(name: string, close: () => void) {
         <!-- Current selection footer -->
         <div class="border-t border-neutral-800 px-3 py-2 bg-black/80 flex items-center gap-2">
           <span class="text-neutral-500 text-[10px]">playing</span>
-          <span class="font-mono text-[#00ff88] text-[11px] font-semibold">{{ currentInstrumentId }}</span>
+          <span class="font-mono text-[#00ff88] text-[11px] font-semibold">{{ displayName(currentInstrumentId) }}</span>
         </div>
       </div>
     </template>

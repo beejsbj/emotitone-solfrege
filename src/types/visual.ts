@@ -36,28 +36,6 @@ export interface ConfigSectionMeta {
 }
 
 /**
- * Note color relationships for dynamic color system
- */
-export interface NoteColorRelationships {
-  primary: string;
-  accent: string;
-  secondary: string;
-  tertiary: string;
-}
-
-/**
- * Dynamic color configuration
- */
-export interface DynamicColorConfig {
-  chromaticMapping: boolean;
-  saturation: number;
-  baseLightness: number;
-  lightnessRange: number;
-  hueAnimationAmplitude: number;
-  animationSpeed: number;
-}
-
-/**
  * Floating popup configuration
  */
 export interface FloatingPopupConfig {
@@ -495,6 +473,22 @@ export type ExtractConfigValues<T> = {
 };
 
 /**
+ * Live Strip display configuration
+ */
+export interface LiveStripConfig {
+  /** Whether live strip is enabled */
+  enabled: boolean;
+  /** Strip opacity (0-1) */
+  opacity: number;
+  /** Notation mode: solfege names, note names, or scale degrees */
+  notation: 'solfege' | 'note' | 'degree';
+  /** Whether to show rest tokens */
+  showRests: boolean;
+  /** Whether to show the Strudel code line */
+  showStrudelLine: boolean;
+}
+
+/**
  * Main visual effects configuration interface
  */
 export interface VisualEffectsConfig {
@@ -522,4 +516,6 @@ export interface VisualEffectsConfig {
   patterns: PatternConfig;
   /** Keyboard styling configuration */
   keyboard: KeyboardConfig;
+  /** Live strip display configuration */
+  liveStrip: LiveStripConfig;
 }

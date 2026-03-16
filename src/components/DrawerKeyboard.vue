@@ -1,9 +1,9 @@
 <template>
   <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
     <!-- Action bar with controls -->
-    <div class="absolute top-0 -translate-y-full left-0 right-0 grid">
+    <div class="absolute top-0 -translate-y-full left-0 right-0 grid grid-cols-1 overflow-x-hidden">
       <PatternList />
-      <LiveStrip />
+      <LiveCard />
       <KeyboardActionBar />
     </div>
 
@@ -43,7 +43,7 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
-import LiveStrip from "@/components/patterns/LiveStrip.vue";
+import LiveCard from "@/components/patterns/LiveCard.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import KeyboardKey from "./keyboard/KeyboardKey.vue";
 

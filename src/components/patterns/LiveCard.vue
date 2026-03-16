@@ -131,7 +131,9 @@ function toggleFocusedPattern() {
     <!-- Collapsible body -->
     <Transition name="body">
       <div v-if="bodyOpen" class="live-card__body">
-        <LiveStrip />
+        <div class="live-card__body-scroll">
+          <LiveStrip />
+        </div>
       </div>
     </Transition>
   </div>
@@ -209,6 +211,13 @@ function toggleFocusedPattern() {
   overflow: hidden;
 }
 
+.live-card__body-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.08rem 0.12rem 0.12rem;
+  scrollbar-width: thin;
+}
+
 /* ─── Body transition ─── */
 .body-enter-from,
 .body-leave-to {
@@ -238,6 +247,10 @@ function toggleFocusedPattern() {
 
   .control-group {
     max-width: 4rem;
+  }
+
+  .live-card__body-scroll {
+    padding: 0.05rem 0.08rem 0.08rem;
   }
 }
 </style>

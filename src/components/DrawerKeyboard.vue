@@ -3,7 +3,9 @@
     <!-- Action bar with controls -->
     <div class="absolute top-0 -translate-y-full left-0 right-0 grid">
       <PatternList />
-      <LiveStrip />
+      <div class="drawer-live-strip-shell">
+        <LiveStrip />
+      </div>
       <KeyboardActionBar />
     </div>
 
@@ -167,6 +169,13 @@ div[ref="drawerRef"] > div:first-child {
 /* Webkit-specific scrolling optimization */
 .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
+}
+
+.drawer-live-strip-shell {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.08rem 0.12rem 0.12rem;
+  scrollbar-width: thin;
 }
 
 /* Responsive adjustments */

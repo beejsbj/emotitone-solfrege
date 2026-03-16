@@ -32,12 +32,18 @@ const currentCode = ref<string | null>(null);
 
 export function useStrudel() {
   async function play(code: string) {
+    if (!code.trim()) {
+      isPlaying.value = false;
+      return;
+    }
+
     isLoading.value = true;
     try {
       await playStrudelCode(code);
       isPlaying.value = true;
       currentCode.value = code;
-    } catch {
+    } catch (error) {
+      console.error("[useStrudel] play error:", error);
       isPlaying.value = false;
     } finally {
       isLoading.value = false;

@@ -77,6 +77,7 @@
           type="button"
           :button-text="isPlaying ? '■' : '▶'"
           :is-active="isPlaying"
+          :is-disabled="!hasPlayableCode"
           :ready-color="'hsla(150, 65%, 45%, 1)'"
           :active-color="'hsla(0, 84%, 60%, 1)'"
           label="Play"
@@ -110,37 +111,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
-import { useStrudel, toStrudelSound } from "@/composables/useStrudel";
-import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { CHROMATIC_NOTES } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
-import type { LogNote } from "@/types/patterns";
 
 // Store references
 const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const patternsStore = usePatternsStore();
-const { play, stop, isPlaying } = useStrudel();
-
-// Notation for the currently focused pattern
-const focusedNotation = computed(() => {
-  const p = patternsStore.focusedPattern;
-  if (!p) return null;
-  return logNotesToStrudel(p.notes as unknown as LogNote[], {
-    sound: toStrudelSound(p.instrument ?? "sine"),
-  });
-});
+const { toggle, isPlaying, hasPlayableCode } = useLiveStrudelMirror();
 
 function toggleFocusedPattern() {
-  if (isPlaying.value) {
-    stop();
-  } else if (focusedNotation.value) {
-    play(focusedNotation.value);
+  if (!hasPlayableCode.value) {
+    return;
   }
+
+  void toggle();
 }
 </script>
 

@@ -355,6 +355,7 @@ export const usePatternsStore = defineStore(
     // Event handlers
     function handleNotePressed(event: CustomEvent): void {
       if (!isLoggingEnabled.value) return;
+      if (event.detail?.source === "strudel-playback") return;
 
       const {
         note,
@@ -393,6 +394,7 @@ export const usePatternsStore = defineStore(
 
     function handleNoteReleased(event: CustomEvent): void {
       if (!isLoggingEnabled.value) return;
+      if (event.detail?.source === "strudel-playback") return;
 
       const { noteId } = event.detail;
       const releaseTime = Date.now();

@@ -17,7 +17,7 @@ const ghostCount = computed(() =>
 const listPatterns = computed(() => [...completedPatterns.value].reverse());
 
 function selectPattern(id: string) {
-  patternsStore.setFocusedPattern(id);
+  patternsStore.loadPatternAsBase(id);
   isOpen.value = false;
 }
 

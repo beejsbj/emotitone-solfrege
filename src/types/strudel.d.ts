@@ -9,8 +9,11 @@ declare module "@strudel/codemirror" {
     setCode(code: string): void;
     getCode(): string;
     evaluate(): Promise<void>;
-    stop(): void;
-    destroy(): void;
+    stop(): Promise<void> | void;
+    clear(): void;
+    destroy?(): void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    editor?: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     view?: any;
   }
@@ -34,6 +37,7 @@ declare module "@strudel/core" {
   export function evalScope(...modules: Promise<any>[]): Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export function samples(url: string): Promise<any>;
+  export function isNote(note: string): boolean;
 }
 
 declare module "@strudel/mini" {

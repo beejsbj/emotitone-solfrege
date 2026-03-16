@@ -8,8 +8,12 @@
 // @ts-ignore
 import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap } from "superdough";
 import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
+import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
 import { registerSoundfonts } from "@strudel/soundfonts";
+import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
+import type { ChromaticNote, SolfegeData } from "@/types/music";
+import { Note as TonalNote } from "@tonaljs/tonal";
 
 /** Re-export so other modules can get the superdough AudioContext without importing Tone. */
 export function getAudioContext(): AudioContext {
@@ -47,6 +51,19 @@ let _initPromise: Promise<void> | null = null;
 const _prewarmedSounds = new Set<string>();
 let _strudelInitialized = false;
 let _strudelInitPromise: Promise<void> | null = null;
+const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
+const _activeStrudelVisuals = new Map<
+  string,
+  {
+    note: SolfegeData;
+    noteName: string;
+    frequency: number;
+    octave: number;
+    instrument: string;
+    releaseTimeout: number;
+  }
+>();
+let _strudelVisualCounter = 0;
 
 // Sample packs with user-friendly labels for progress reporting
 const SAMPLE_PACKS = [
@@ -149,7 +166,9 @@ async function initSharedStrudelRuntime(): Promise<void> {
   if (_strudelInitPromise) return _strudelInitPromise;
 
   _strudelInitPromise = (async () => {
-    await initStrudel();
+    await initStrudel({
+      defaultOutput: emotitoneStrudelOutput,
+    });
     _strudelInitialized = true;
   })().catch((error) => {
     _strudelInitPromise = null;
@@ -223,10 +242,196 @@ export async function initSuperdoughAudio(
       console.error("[superdoughAudio] init error:", err);
       // Reset so callers can retry after a user gesture
       _initPromise = null;
+      throw err;
     }
   })();
 
   return _initPromise;
+}
+
+function normalizeChromaticNote(noteName: string): ChromaticNote | null {
+  const candidates = [noteName, TonalNote.enharmonic(noteName)]
+    .map((candidate) => TonalNote.get(candidate).pc)
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (CHROMATIC_NOTES.includes(candidate as ChromaticNote)) {
+      return candidate as ChromaticNote;
+    }
+  }
+
+  return null;
+}
+
+function resolveSolfegeIndex(noteName: string): number | null {
+  const chromaticNote = normalizeChromaticNote(noteName);
+  if (!chromaticNote) {
+    return null;
+  }
+
+  const scaleNotes = musicTheory.getCurrentScaleNotes();
+  const directIndex = scaleNotes.indexOf(chromaticNote);
+  if (directIndex !== -1) {
+    return directIndex;
+  }
+
+  const keyIndex = CHROMATIC_NOTES.indexOf(
+    musicTheory.getCurrentKey() as ChromaticNote
+  );
+  const chromaticIndex = CHROMATIC_NOTES.indexOf(chromaticNote);
+  if (keyIndex === -1 || chromaticIndex === -1) {
+    return null;
+  }
+
+  return Math.floor(((chromaticIndex - keyIndex + 12) % 12) / 2);
+}
+
+function extractHapNoteName(hap: unknown): string | null {
+  const value = (hap as { value?: unknown })?.value;
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const candidate = (value as { note?: unknown; value?: unknown }).note
+      ?? (value as { note?: unknown; value?: unknown }).value;
+    return typeof candidate === "string" ? candidate : null;
+  }
+
+  return null;
+}
+
+function extractHapFrequency(hap: unknown, noteName: string): number {
+  const value = (hap as { value?: unknown })?.value;
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const freq = (value as { freq?: unknown }).freq;
+    if (typeof freq === "number") {
+      return freq;
+    }
+  }
+
+  return TonalNote.get(noteName).freq || 0;
+}
+
+function buildStrudelVisualPayload(hap: unknown) {
+  try {
+    const noteValue = extractHapNoteName(hap);
+    if (!noteValue) {
+      return null;
+    }
+
+    const parsedNote = TonalNote.get(noteValue);
+    if (parsedNote.empty || parsedNote.oct === undefined) {
+      return null;
+    }
+
+    const solfegeIndex = resolveSolfegeIndex(noteValue);
+    if (solfegeIndex === null) {
+      return null;
+    }
+
+    const note = musicTheory.getCurrentScale().solfege[solfegeIndex];
+    if (!note) {
+      return null;
+    }
+
+    return {
+      note,
+      solfegeIndex,
+      noteName: parsedNote.name,
+      octave: parsedNote.oct,
+      frequency: extractHapFrequency(hap, noteValue),
+      instrument:
+        typeof (hap as { value?: { s?: unknown } })?.value?.s === "string"
+          ? String((hap as { value?: { s?: unknown } }).value?.s)
+          : "sine",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function releaseStrudelVisual(noteId: string) {
+  const active = _activeStrudelVisuals.get(noteId);
+  if (!active || typeof window === "undefined") {
+    return;
+  }
+
+  window.clearTimeout(active.releaseTimeout);
+  window.dispatchEvent(
+    new CustomEvent("note-released", {
+      detail: {
+        note: active.note.name,
+        noteId,
+        noteName: active.noteName,
+        frequency: active.frequency,
+        octave: active.octave,
+        instrument: active.instrument,
+        instrumentConfig: null,
+        source: STRUDEL_PLAYBACK_SOURCE,
+      },
+    })
+  );
+  _activeStrudelVisuals.delete(noteId);
+}
+
+export function stopStrudelVisuals(): void {
+  if (typeof window === "undefined") {
+    _activeStrudelVisuals.clear();
+    return;
+  }
+
+  for (const noteId of Array.from(_activeStrudelVisuals.keys())) {
+    releaseStrudelVisual(noteId);
+  }
+}
+
+export async function emotitoneStrudelOutput(
+  hap: unknown,
+  deadline: number,
+  hapDuration: number,
+  cps: number,
+  t: number
+): Promise<void> {
+  const visualPayload = buildStrudelVisualPayload(hap);
+
+  if (visualPayload && typeof window !== "undefined") {
+    const noteId = `strudel_${++_strudelVisualCounter}`;
+    const durationMs = Math.max(40, Math.round(hapDuration * 1000));
+    const releaseTimeout = window.setTimeout(() => {
+      releaseStrudelVisual(noteId);
+    }, durationMs);
+
+    _activeStrudelVisuals.set(noteId, {
+      note: visualPayload.note,
+      noteName: visualPayload.noteName,
+      frequency: visualPayload.frequency,
+      octave: visualPayload.octave,
+      instrument: visualPayload.instrument,
+      releaseTimeout,
+    });
+
+    window.dispatchEvent(
+      new CustomEvent("note-played", {
+        detail: {
+          note: visualPayload.note,
+          frequency: visualPayload.frequency,
+          solfegeIndex: visualPayload.solfegeIndex,
+          octave: visualPayload.octave,
+          noteId,
+          noteName: visualPayload.noteName,
+          instrument: visualPayload.instrument,
+          instrumentConfig: null,
+          durationMs,
+          source: STRUDEL_PLAYBACK_SOURCE,
+        },
+      })
+    );
+  }
+
+  await webaudioOutput(hap as never, deadline, hapDuration, cps, t);
 }
 
 // ---------------------------------------------------------------------------
@@ -376,6 +581,7 @@ export function getRegisteredSounds(): string[] {
 export async function playStrudelCode(code: string): Promise<void> {
   await initSuperdoughAudio();
   await initSharedStrudelRuntime();
+  stopStrudelVisuals();
 
   const ac = getAudioContext();
   if (ac.state !== "running") {
@@ -386,6 +592,7 @@ export async function playStrudelCode(code: string): Promise<void> {
 }
 
 export function stopStrudelPlayback(): void {
+  stopStrudelVisuals();
   if (!_strudelInitialized) return;
   hushStrudel();
 }

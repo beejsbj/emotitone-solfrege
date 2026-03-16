@@ -139,13 +139,15 @@ export function useStringRenderer() {
    * Handle note played events (for sequencer integration)
    */
   const handleNotePlayed = (event: CustomEvent) => {
-    const { solfegeIndex, frequency, octave, duration } = event.detail;
+    const { solfegeIndex, frequency, octave, duration, durationMs: eventDurationMs } = event.detail;
 
     if (solfegeIndex !== undefined && frequency && octave) {
       // Calculate end time based on duration or default to 500ms
       let durationMs = 500; // Default duration
 
-      if (duration) {
+      if (typeof eventDurationMs === "number") {
+        durationMs = eventDurationMs;
+      } else if (duration) {
         // Convert Tone.js duration to milliseconds (rough approximation)
         const durationMap: Record<string, number> = {
           "1n": 2000, // whole note

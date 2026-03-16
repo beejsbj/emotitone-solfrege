@@ -1,139 +1,110 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
-import { useInstrumentStore } from "@/stores/instrument";
-import { useStrudel, toStrudelSound } from "@/composables/useStrudel";
-import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { CHROMATIC_NOTES } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
-import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import LiveStrip from "@/components/patterns/LiveStrip.vue";
-import type { LogNote } from "@/types/patterns";
+import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
+import { Play, Square } from "lucide-vue-next";
 
-const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const patternsStore = usePatternsStore();
-const instrumentStore = useInstrumentStore();
-const { play, stop, isPlaying } = useStrudel();
+const { toggle, isPlaying, hasPlayableCode } = useLiveStrudelMirror();
 
 const bodyOpen = ref(true);
 
-const focusedNotation = computed(() => {
-  const p = patternsStore.focusedPattern;
-  if (!p) return null;
-  return logNotesToStrudel(p.notes as unknown as LogNote[], {
-    sound: toStrudelSound(p.instrument ?? "sine"),
-  });
+const sketchSummary = computed(() => {
+  const noteCount = patternsStore.currentSketchNotes.length;
+  const meta = patternsStore.currentSketchMeta;
+  return `${noteCount} note${noteCount === 1 ? "" : "s"} · ${meta.key} ${meta.mode}`;
 });
 
-const currentSketchNotation = computed(() => {
-  const notes = patternsStore.currentSketchNotes;
-  if (!notes.length) return null;
-  const sound = toStrudelSound(
-    patternsStore.currentSketchMeta.instrument ?? instrumentStore.currentInstrument ?? "sine"
-  );
-  return logNotesToStrudel(notes as unknown as LogNote[], { sound });
-});
-
-function toggleFocusedPattern() {
-  if (isPlaying.value) {
-    stop();
-  } else {
-    const code = currentSketchNotation.value ?? focusedNotation.value;
-    if (code) play(code);
+async function toggleSketchPlayback() {
+  if (!hasPlayableCode.value) {
+    return;
   }
+
+  await toggle();
 }
 </script>
 
 <template>
   <div class="live-card" :class="{ 'live-card--playing': isPlaying }">
-    <!-- Header row — always visible -->
     <div class="live-card__header">
-      <!-- Instrument chip -->
-      <div class="control-group control-group--instrument">
-        <InstrumentSelector :compact="true" />
+      <div class="live-card__meta">
+        <span class="live-card__summary">{{ sketchSummary }}</span>
       </div>
 
-      <!-- Key knob -->
-      <div class="control-group">
-        <Knob
-          :model-value="musicStore.currentKey"
-          type="options"
-          :options="CHROMATIC_NOTES"
-          label="Key"
-          @update:modelValue="(value) => musicStore.setKey(String(value))"
-        />
-      </div>
+      <div class="live-card__controls">
+        <div class="control-group">
+          <Knob
+            :model-value="musicStore.currentKey"
+            type="options"
+            :options="CHROMATIC_NOTES"
+            label="Key"
+            @update:modelValue="(value) => musicStore.setKey(String(value))"
+          />
+        </div>
 
-      <!-- Mode knob -->
-      <div class="control-group">
-        <Knob
-          :model-value="musicStore.currentMode"
-          type="options"
-          :options="[
-            { label: 'Major', value: 'major', color: 'hsl(0, 40%, 75%)' },
-            { label: 'Minor', value: 'minor', color: 'hsl(240, 40%, 75%)' },
-          ]"
-          label="Mode"
-          @update:modelValue="(value) => musicStore.setMode(value as any)"
-        />
-      </div>
+        <div class="control-group">
+          <Knob
+            :model-value="musicStore.currentMode"
+            type="options"
+            :options="[
+              { label: 'Major', value: 'major', color: 'hsl(0, 40%, 75%)' },
+              { label: 'Minor', value: 'minor', color: 'hsl(240, 40%, 75%)' },
+            ]"
+            label="Mode"
+            @update:modelValue="(value) => musicStore.setMode(value as any)"
+          />
+        </div>
 
-      <!-- Octave knob -->
-      <div class="control-group">
-        <Knob
-          :model-value="store.keyboardConfig.mainOctave"
-          type="range"
-          label="Oct"
-          :min="1"
-          :max="8"
-          :step="1"
-          @update:modelValue="(value) => store.setMainOctave(Number(value))"
-        />
-      </div>
+        <div class="control-group">
+          <Knob
+            type="button"
+            button-text="⌫"
+            label="Undo"
+            @click="patternsStore.removeLastFromCurrentSketch()"
+          />
+        </div>
 
-      <!-- Play button -->
-      <div class="control-group">
-        <Knob
-          type="button"
-          :button-text="isPlaying ? '■' : '▶'"
-          :is-active="isPlaying"
-          :ready-color="'hsla(145, 100%, 50%, 1)'"
-          :active-color="'hsla(0, 84%, 60%, 1)'"
-          label="Play"
-          @click="toggleFocusedPattern"
-        />
-      </div>
+        <div class="control-group">
+          <Knob
+            :model-value="isPlaying"
+            type="boolean"
+            :is-disabled="!hasPlayableCode"
+            :theme-color="'hsla(145, 100%, 50%, 1)'"
+            :value-label-true="Square"
+            :value-label-false="Play"
+            label="Play"
+            @update:modelValue="toggleSketchPlayback"
+          />
+        </div>
 
-      <!-- Send button -->
-      <div class="control-group">
-        <Knob
-          type="button"
-          button-text="⏎"
-          label="Send"
-          @click="patternsStore.sendCurrentPattern()"
-        />
-      </div>
+        <div class="control-group">
+          <Knob
+            type="button"
+            button-text="⏎"
+            label="Send"
+            @click="patternsStore.sendCurrentPattern()"
+          />
+        </div>
 
-      <!-- Collapse chevron -->
-      <button
-        class="live-card__chevron"
-        :class="{ 'live-card__chevron--open': bodyOpen }"
-        @click="bodyOpen = !bodyOpen"
-        :aria-label="bodyOpen ? 'Collapse strip' : 'Expand strip'"
-      >
-        ›
-      </button>
+        <button
+          class="live-card__chevron"
+          :class="{ 'live-card__chevron--open': bodyOpen }"
+          @click="bodyOpen = !bodyOpen"
+          :aria-label="bodyOpen ? 'Collapse strip' : 'Expand strip'"
+        >
+          ›
+        </button>
+      </div>
     </div>
 
-    <!-- Collapsible body -->
     <Transition name="body">
       <div v-if="bodyOpen" class="live-card__body">
-        <div class="live-card__body-scroll">
-          <LiveStrip />
-        </div>
+        <LiveStrip />
       </div>
     </Transition>
   </div>
@@ -157,27 +128,45 @@ function toggleFocusedPattern() {
   box-shadow: 0 0 16px hsla(145, 100%, 40%, 0.08);
 }
 
-/* ─── Header ─── */
 .live-card__header {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.35rem 0.75rem 0.35rem 0.5rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.5rem;
   min-height: 3rem;
 }
 
-.control-group {
-  flex: 1 1 0%;
+.live-card__meta {
+  display: flex;
+  align-items: center;
   min-width: 0;
-  max-width: 5rem;
+  flex: 0 1 10rem;
 }
 
-.control-group--instrument {
+.live-card__summary {
+  font-size: 0.62rem;
+  color: hsla(0, 0%, 100%, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-card__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.control-group {
   flex: 0 0 auto;
-  max-width: none;
+  min-width: 0;
+  width: 4.7rem;
+  max-width: 4.7rem;
 }
 
-/* ─── Chevron ─── */
 .live-card__chevron {
   flex: 0 0 auto;
   display: flex;
@@ -205,20 +194,11 @@ function toggleFocusedPattern() {
   color: hsla(0, 0%, 100%, 0.7);
 }
 
-/* ─── Body ─── */
 .live-card__body {
   border-top: 1px solid hsla(0, 0%, 100%, 0.06);
   overflow: hidden;
 }
 
-.live-card__body-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.08rem 0.12rem 0.12rem;
-  scrollbar-width: thin;
-}
-
-/* ─── Body transition ─── */
 .body-enter-from,
 .body-leave-to {
   opacity: 0;
@@ -234,23 +214,38 @@ function toggleFocusedPattern() {
 .body-enter-to,
 .body-leave-from {
   opacity: 1;
-  max-height: 8rem;
+  max-height: 16rem;
 }
 
-/* ─── Mobile ─── */
+@media (max-width: 900px) {
+  .live-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .live-card__meta {
+    flex: none;
+  }
+
+  .live-card__controls {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 480px) {
   .live-card__header {
-    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
-    gap: 0.15rem;
-    min-height: 2.5rem;
+    padding: 0.3rem 0.4rem;
+    gap: 0.35rem;
+  }
+
+  .live-card__controls {
+    gap: 0.18rem;
   }
 
   .control-group {
+    width: 4rem;
     max-width: 4rem;
-  }
-
-  .live-card__body-scroll {
-    padding: 0.05rem 0.08rem 0.08rem;
   }
 }
 </style>

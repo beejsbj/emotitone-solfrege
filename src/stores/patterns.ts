@@ -14,7 +14,7 @@ import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 // Default configuration
 const DEFAULT_CONFIG: PatternConfig = {
   silenceGapThreshold: 30000, // 30 seconds
-  maxRetentionTime: 24 * 60 * 60 * 1000, // 24 hours
+  maxRetentionTime: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 export const usePatternsStore = defineStore(
@@ -71,21 +71,32 @@ export const usePatternsStore = defineStore(
       return notes.slice(lastBreak);
     });
 
-    const currentSketchMeta = computed(() => {
-      return (
-        loadedBaseMeta.value ?? {
-          mode: musicStore.currentMode as MusicalMode,
-          key: musicStore.currentKey as ChromaticNote,
-          instrument: instrumentStore.currentInstrument,
-        }
-      );
-    });
+    const currentSketchMeta = computed(() => ({
+      mode: musicStore.currentMode as MusicalMode,
+      key: musicStore.currentKey as ChromaticNote,
+      instrument: instrumentStore.currentInstrument,
+    }));
 
     // The active sketch is whatever is currently loaded on the desk plus any
     // newly played notes since that pattern was loaded.
     const currentSketchNotes = computed<PatternNote[]>(() => {
       const liveNotes = currentWorkingNotes.value.map(toPatternNote);
-      return [...loadedBaseNotes.value, ...liveNotes];
+      if (!loadedBaseNotes.value.length || !liveNotes.length) {
+        return [...loadedBaseNotes.value, ...liveNotes];
+      }
+
+      const baseEnd = loadedBaseNotes.value[loadedBaseNotes.value.length - 1].releaseTime;
+      const firstLiveStart = liveNotes[0].pressTime;
+      const seamOffset = Math.max(0, firstLiveStart - baseEnd);
+
+      return [
+        ...loadedBaseNotes.value,
+        ...liveNotes.map((note) => ({
+          ...note,
+          pressTime: note.pressTime - seamOffset,
+          releaseTime: note.releaseTime - seamOffset,
+        })),
+      ];
     });
 
     // Extract dynamic patterns from logged notes using isStartingNewPattern
@@ -116,11 +127,15 @@ export const usePatternsStore = defineStore(
     });
 
     // Combined patterns: default + saved + dynamic
-    const patterns = computed(() => [
-      ...defaultPatterns,
-      ...savedPatterns.value,
-      ...dynamicPatterns.value,
-    ]);
+    const patterns = computed(() => {
+      const savedIds = new Set(savedPatterns.value.map((pattern) => pattern.id));
+
+      return [
+        ...defaultPatterns,
+        ...savedPatterns.value,
+        ...dynamicPatterns.value.filter((pattern) => !savedIds.has(pattern.id)),
+      ];
+    });
 
     // Focused pattern derived from id
     const focusedPattern = computed<Pattern | null>(
@@ -156,6 +171,12 @@ export const usePatternsStore = defineStore(
 
     function calculateScaleIndex(solfegeIndex: number): number {
       return solfegeIndex; // Scale index is 0-based
+    }
+
+    function buildDynamicPatternId(notes: LogNote[]): string {
+      const firstNote = notes[0];
+      const lastNote = notes[notes.length - 1];
+      return `dynamic-pattern-${firstNote.id}-${lastNote.id}`;
     }
 
     // Pattern detection helpers
@@ -225,9 +246,7 @@ export const usePatternsStore = defineStore(
       }));
 
       return {
-        id: `dynamic-pattern-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`,
+        id: buildDynamicPatternId(notes),
         name: `Pattern ${new Date().toLocaleDateString()}`,
         notes: patternNotes,
         duration: lastNote.releaseTime - firstNote.pressTime,
@@ -235,7 +254,7 @@ export const usePatternsStore = defineStore(
         key: firstNote.key,
         mode: firstNote.mode,
         instrument: firstNote.instrument,
-        createdAt: Date.now(),
+        createdAt: lastNote.releaseTime,
         isDefault: false,
         isSaved: false,
       };
@@ -323,6 +342,7 @@ export const usePatternsStore = defineStore(
       // Clear logged notes so dynamicPatterns doesn't duplicate saved content
       loggedNotes.value = [];
       forceNextPatternStart.value = false;
+      purgeOldPatterns();
     }
 
     function removeLastFromCurrentSketch(): void {
@@ -336,20 +356,47 @@ export const usePatternsStore = defineStore(
       }
     }
 
-    // Purge old notes (older than 24 hours)
+    function keepPattern(patternId: string): void {
+      const existingSaved = savedPatterns.value.find((pattern) => pattern.id === patternId);
+      if (existingSaved) {
+        existingSaved.isKept = true;
+        return;
+      }
+
+      const patternToKeep = patterns.value.find((pattern) => pattern.id === patternId);
+      if (!patternToKeep || patternToKeep.isDefault) {
+        return;
+      }
+
+      savedPatterns.value.push({
+        ...patternToKeep,
+        notes: [...patternToKeep.notes],
+        isSaved: true,
+        isKept: true,
+      });
+    }
+
+    function purgeOldPatterns(): void {
+      const cutoffTime = Date.now() - config.value.maxRetentionTime;
+
+      savedPatterns.value = savedPatterns.value.filter((pattern) => {
+        if (pattern.isDefault || pattern.isKept) {
+          return true;
+        }
+
+        return pattern.createdAt >= cutoffTime;
+      });
+    }
+
+    // Purge old notes and non-kept user patterns.
     function purgeOldNotes(): void {
       const now = Date.now();
       const cutoffTime = now - config.value.maxRetentionTime;
 
-      const initialCount = loggedNotes.value.length;
       loggedNotes.value = loggedNotes.value.filter(
         (note) => note.pressTime >= cutoffTime
       );
-
-      const purgedCount = initialCount - loggedNotes.value.length;
-      if (purgedCount > 0) {
-        // old notes purged
-      }
+      purgeOldPatterns();
     }
 
     // Event handlers
@@ -517,6 +564,7 @@ export const usePatternsStore = defineStore(
 
     // Initialize event listeners when store is created
     setupEventListeners();
+    purgeOldNotes();
 
     return {
       // State (raw refs for persistence)
@@ -549,6 +597,7 @@ export const usePatternsStore = defineStore(
       loadPatternAsBase,
       sendCurrentPattern,
       removeLastFromCurrentSketch,
+      keepPattern,
 
       // Actions
       enableLogging,
@@ -562,6 +611,7 @@ export const usePatternsStore = defineStore(
       exportNotes,
       importNotes,
       purgeOldNotes,
+      purgeOldPatterns,
 
       // Pattern control
       setNextNoteAsNewPattern,

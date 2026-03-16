@@ -51,10 +51,15 @@
                       ($event.target as HTMLInputElement)?.checked ?? false
                     )
                   "
-                  class="hidden"
+                  class="peer hidden"
                 />
                 <span
-                  class="relative w-10 h-5 bg-neutral-700 rounded-full border border-neutral-600 transition-colors before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 before:transition-transform peer-checked:bg-[#00ff88] peer-checked:before:translate-x-5"
+                  class="relative w-10 h-5 rounded-full border transition-colors before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:top-0.5 before:left-0.5 before:transition-transform"
+                  :class="
+                    visualsEnabled
+                      ? 'bg-[#00ff88]/80 border-[#00ff88] before:bg-white before:translate-x-5'
+                      : 'bg-neutral-700 border-neutral-600 before:bg-neutral-400'
+                  "
                 ></span>
                 Enable All Visuals
               </label>

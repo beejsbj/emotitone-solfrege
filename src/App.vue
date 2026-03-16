@@ -14,7 +14,7 @@
 
     <!-- Visual Effects Configuration Panel -->
     <ConfigPanel v-if="!isLoading" />
-    <InstrumentSelector />
+    <InstrumentSelector v-if="!isLoading" :compact="true" :floating="true" />
 
     <!-- Main Content -->
     <div v-if="!isLoading" class="relative z-50 min-h-screen flex flex-col">

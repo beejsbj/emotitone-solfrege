@@ -21,6 +21,10 @@ export interface StrudelConfig {
   precision: number;
   /** Sound/instrument name passed to .sound(). @default 'sine' */
   sound: string;
+  /** Optional scale key override for relative notation. */
+  scaleKey?: string;
+  /** Optional scale mode override for relative notation. */
+  scaleMode?: string;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {
@@ -88,7 +92,7 @@ export class StrudelNotation {
 
     if (this.config.notationType === "relative") {
       const first = this.notes[0];
-      const scale = `${first?.key ?? "C"}4:${first?.mode ?? "major"}`;
+      const scale = `${this.config.scaleKey ?? first?.key ?? "C"}4:${this.config.scaleMode ?? first?.mode ?? "major"}`;
       return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}")`;
     }
 

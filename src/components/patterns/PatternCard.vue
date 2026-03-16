@@ -5,6 +5,7 @@ import { toStrudelSound } from "@/composables/useStrudel";
 import { usePatternsStore } from "@/stores/patterns";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "@/data";
+import { Knob } from "@/components/knobs";
 import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
 
@@ -34,9 +35,35 @@ const isFocused = computed(
 // ── notation for copy ──────────────────────────────────────────────────────
 const notation = computed(() =>
   logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
+    notationType: "relative",
+    scaleKey: props.pattern.key,
+    scaleMode: props.pattern.mode,
     sound: toStrudelSound(props.pattern.instrument ?? "sine"),
   })
 );
+
+const isPurgeEligible = computed(
+  () => !props.pattern.isDefault && !props.pattern.isKept
+);
+
+const retentionLabel = computed(() => {
+  if (!isPurgeEligible.value) {
+    return null;
+  }
+
+  const msRemaining =
+    props.pattern.createdAt + 7 * 24 * 60 * 60 * 1000 - Date.now();
+
+  if (msRemaining <= 0) {
+    return "expiring";
+  }
+
+  const daysRemaining = Math.max(
+    1,
+    Math.ceil(msRemaining / (24 * 60 * 60 * 1000))
+  );
+  return `${daysRemaining}d left`;
+});
 
 async function copyNotation() {
   if (!notation.value) return;
@@ -62,8 +89,16 @@ function colorFor(note: PatternNote, pattern: Pattern): string {
   return getStaticPrimaryColor(name, pattern.mode as MusicalMode, note.octave);
 }
 
+function displayInstrumentName(instrument: string): string {
+  return instrument.startsWith("gm_") ? instrument.slice(3) : instrument;
+}
+
 function handleCardClick() {
   patternsStore.loadPatternAsBase(props.pattern.id);
+}
+
+function keepPattern() {
+  patternsStore.keepPattern(props.pattern.id);
 }
 </script>
 
@@ -80,14 +115,30 @@ function handleCardClick() {
     <div class="track-row">
       <!-- Label + badges -->
       <div class="track-meta">
-        <span class="track-instrument">{{ pattern.instrument ?? "sine" }}</span>
+        <span class="track-instrument">{{ displayInstrumentName(pattern.instrument ?? "sine") }}</span>
         <span class="track-label">{{ keyModeLabel }}</span>
         <span class="track-badge">{{ noteCount }}</span>
         <span v-if="pattern.isDefault" class="default-pip" />
+        <span v-if="retentionLabel" class="track-status">{{ retentionLabel }}</span>
+        <span
+          v-else-if="pattern.isKept && !pattern.isDefault"
+          class="track-status track-status--kept"
+        >
+          kept
+        </span>
       </div>
 
       <!-- Copy button — stop propagation so tapping doesn't re-focus -->
       <div class="track-actions" @click.stop>
+        <Knob
+          v-if="isPurgeEligible"
+          class="keep-knob"
+          :model-value="Boolean(pattern.isKept)"
+          type="boolean"
+          label=" "
+          :theme-color="'hsla(38, 100%, 70%, 1)'"
+          @update:modelValue="keepPattern"
+        />
         <button
           class="copy-btn"
           :class="{ 'copy-btn--done': copied }"
@@ -202,6 +253,18 @@ function handleCardClick() {
   font-variant-numeric: tabular-nums;
 }
 
+.track-status {
+  flex-shrink: 0;
+  color: hsla(38, 100%, 75%, 0.7);
+  font-size: 0.45rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.track-status--kept {
+  color: hsla(145, 100%, 65%, 0.75);
+}
+
 .default-pip {
   flex-shrink: 0;
   width: 0.3rem;
@@ -236,6 +299,20 @@ function handleCardClick() {
     color 0.13s ease,
     border-color 0.13s ease;
   -webkit-tap-highlight-color: transparent;
+}
+
+.keep-knob {
+  width: 1.35rem;
+  min-width: 1.35rem;
+}
+
+.keep-knob:deep(.knob-wrapper) {
+  max-width: 1.35rem;
+  margin: 0;
+}
+
+.keep-knob:deep(label) {
+  display: none;
 }
 
 .copy-btn:active {

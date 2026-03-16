@@ -23,8 +23,8 @@ export interface PatternsStoreState {
 export interface PatternConfig {
   /** Minimum silence gap (ms) to consider starting a new pattern */
   silenceGapThreshold: number; //30sec
-  /** Maximum time (ms) to keep logged notes before purging */
-  maxRetentionTime: number; //24hrs
+  /** Maximum time (ms) to keep non-default, non-kept user patterns before purging */
+  maxRetentionTime: number;
 }
 
 /**
@@ -159,6 +159,8 @@ export interface Pattern {
   isSaved?: boolean;
   //  Whether this is a default pattern from the library */
   isDefault?: boolean;
+  // Whether this pattern should be kept and exempted from auto-purge.
+  isKept?: boolean;
 
   //   ui related. when a pattern is selected then played notes go directly into the pattern, allowing me to edit.
   isSelected?: boolean;

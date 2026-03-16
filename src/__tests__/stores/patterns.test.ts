@@ -84,7 +84,7 @@ function createPattern(overrides: Partial<Pattern> = {}): Pattern {
     key: "C",
     mode: "major",
     instrument: "piano",
-    createdAt: 1000,
+    createdAt: Date.now(),
     isSaved: true,
     isDefault: false,
     ...overrides,
@@ -93,8 +93,12 @@ function createPattern(overrides: Partial<Pattern> = {}): Pattern {
 
 describe("Patterns Store", () => {
   let patternsStore: ReturnType<typeof usePatternsStore>;
+  let dateNowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    dateNowSpy = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(new Date("2026-03-16T12:00:00Z").getTime());
     setActivePinia(createTestPinia());
     patternsStore = usePatternsStore();
     patternsStore.clearAllNotes();
@@ -102,7 +106,8 @@ describe("Patterns Store", () => {
   });
 
   afterEach(() => {
-    patternsStore.removeEventListeners();
+    patternsStore?.removeEventListeners();
+    dateNowSpy?.mockRestore();
   });
 
   it("treats loaded base notes and live notes as one current sketch", () => {
@@ -172,5 +177,108 @@ describe("Patterns Store", () => {
 
     patternsStore.removeLastFromCurrentSketch();
     expect(patternsStore.currentSketchNotes).toEqual([]);
+  });
+
+  it("normalizes the seam between a loaded pattern and resumed live notes", () => {
+    const pattern = createPattern({
+      notes: [
+        createPatternNote({
+          id: "base-note-1",
+          note: "C4",
+          pressTime: 0,
+          releaseTime: 400,
+          duration: 400,
+        }),
+      ],
+      noteCount: 1,
+      duration: 400,
+    });
+
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    patternsStore.loggedNotes.push(
+      createLogNote({
+        id: "log-note-2",
+        note: "D4",
+        pressTime: 30_000,
+        releaseTime: 30_300,
+        duration: 300,
+      })
+    );
+
+    expect(patternsStore.currentSketchNotes.map((note) => note.pressTime)).toEqual([
+      0,
+      400,
+    ]);
+  });
+
+  it("keeps a dynamic pattern by promoting it into saved patterns", () => {
+    const dynamicPattern = createPattern({
+      id: "dynamic-pattern-a-c",
+      isSaved: false,
+      createdAt: Date.now(),
+    });
+
+    patternsStore.loggedNotes = [
+      createLogNote({
+        id: "a",
+        note: "C4",
+        scaleDegree: 1,
+        scaleIndex: 0,
+        pressTime: 1000,
+        releaseTime: 1200,
+        duration: 200,
+      }),
+      createLogNote({
+        id: "b",
+        note: "E4",
+        scaleDegree: 3,
+        scaleIndex: 2,
+        pressTime: 1300,
+        releaseTime: 1500,
+        duration: 200,
+        isStartingNewPattern: false,
+      }),
+      createLogNote({
+        id: "c",
+        note: "G4",
+        scaleDegree: 5,
+        scaleIndex: 4,
+        pressTime: 1600,
+        releaseTime: 1800,
+        duration: 200,
+        isStartingNewPattern: false,
+      }),
+    ];
+
+    expect(patternsStore.dynamicPatterns[0]?.id).toBe(dynamicPattern.id);
+
+    patternsStore.keepPattern(dynamicPattern.id);
+
+    expect(patternsStore.savedPatterns).toHaveLength(1);
+    expect(patternsStore.savedPatterns[0]?.id).toBe(dynamicPattern.id);
+    expect(patternsStore.savedPatterns[0]?.isKept).toBe(true);
+  });
+
+  it("purges non-kept user patterns older than a week but keeps defaults and kept patterns", () => {
+    patternsStore.savedPatterns = [
+      createPattern({
+        id: "old-user-pattern",
+        createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
+        isKept: false,
+      }),
+      createPattern({
+        id: "kept-pattern",
+        createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
+        isKept: true,
+      }),
+    ];
+
+    patternsStore.purgeOldPatterns();
+
+    expect(patternsStore.savedPatterns.map((pattern) => pattern.id)).toEqual([
+      "kept-pattern",
+    ]);
+    expect(patternsStore.patterns.some((pattern) => pattern.isDefault)).toBe(true);
   });
 });

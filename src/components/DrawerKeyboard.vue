@@ -3,9 +3,7 @@
     <!-- Action bar with controls -->
     <div class="absolute top-0 -translate-y-full left-0 right-0 grid">
       <PatternList />
-      <div class="drawer-live-strip-shell">
-        <LiveStrip />
-      </div>
+      <LiveCard />
       <KeyboardActionBar />
     </div>
 
@@ -40,12 +38,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
-import LiveStrip from "@/components/patterns/LiveStrip.vue";
+import LiveCard from "@/components/patterns/LiveCard.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import KeyboardKey from "./keyboard/KeyboardKey.vue";
 
@@ -169,13 +167,6 @@ div[ref="drawerRef"] > div:first-child {
 /* Webkit-specific scrolling optimization */
 .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
-}
-
-.drawer-live-strip-shell {
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.08rem 0.12rem 0.12rem;
-  scrollbar-width: thin;
 }
 
 /* Responsive adjustments */

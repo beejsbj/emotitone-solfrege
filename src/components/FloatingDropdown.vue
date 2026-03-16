@@ -119,8 +119,8 @@ defineExpose({
 /* Fixed positioning styles for floating mode */
 .dropdown-panel.position-top-left {
   position: fixed;
-  top: 20px;
-  left: 20px;
+  top: 28px;
+  left: 28px;
   z-index: 9999;
 }
 
@@ -143,8 +143,8 @@ defineExpose({
 
 .dropdown-toggle.position-top-left {
   position: fixed;
-  top: 20px;
-  left: 20px;
+  top: 28px;
+  left: 28px;
   z-index: 9999;
 }
 

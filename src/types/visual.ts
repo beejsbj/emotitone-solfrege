@@ -466,6 +466,22 @@ export interface KeyboardConfig {
 }
 
 /**
+ * Live strip presentation configuration
+ */
+export interface LiveStripConfig {
+  /** Whether the token strip/code line is enabled */
+  enabled: boolean;
+  /** Supplemental strip opacity */
+  opacity: number;
+  /** Display notation mode for note tokens */
+  notation: "solfege" | "note" | "degree";
+  /** Whether to show rest tokens */
+  showRests: boolean;
+  /** Whether to show the compact code line */
+  showStrudelLine: boolean;
+}
+
+/**
  * Enhanced config types with metadata - for internal use
  */
 export type EnhancedBlobConfig = {
@@ -522,4 +538,6 @@ export interface VisualEffectsConfig {
   patterns: PatternConfig;
   /** Keyboard styling configuration */
   keyboard: KeyboardConfig;
+  /** Live strip presentation configuration */
+  liveStrip: LiveStripConfig;
 }

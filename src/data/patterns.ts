@@ -1,155 +1,134 @@
-import type { Pattern } from "@/types/patterns";
+import type { Pattern, PatternNote } from "@/types/patterns";
 
-export const defaultPatterns: Pattern[] = [
-  {
-    id: "pattern-twinkle-1",
-    name: "Twinkle Twinkle Little Star",
-    notes: [
-      {
-        id: "note-1",
-        note: "C4",
-        scaleDegree: 1,
-        scaleIndex: 0,
-        octave: 4,
-        pressTime: 0,
-        releaseTime: 500,
-        duration: 500,
-      },
-      {
-        id: "note-2",
-        note: "C4",
-        scaleDegree: 1,
-        scaleIndex: 0,
-        octave: 4,
-        pressTime: 500,
-        releaseTime: 1000,
-        duration: 500,
-      },
-      {
-        id: "note-3",
-        note: "G4",
-        scaleDegree: 5,
-        scaleIndex: 4,
-        octave: 4,
-        pressTime: 1000,
-        releaseTime: 1500,
-        duration: 500,
-      },
-      {
-        id: "note-4",
-        note: "G4",
-        scaleDegree: 5,
-        scaleIndex: 4,
-        octave: 4,
-        pressTime: 1500,
-        releaseTime: 2000,
-        duration: 500,
-      },
-      {
-        id: "note-5",
-        note: "A4",
-        scaleDegree: 6,
-        scaleIndex: 5,
-        octave: 4,
-        pressTime: 2000,
-        releaseTime: 2500,
-        duration: 500,
-      },
-      {
-        id: "note-6",
-        note: "A4",
-        scaleDegree: 6,
-        scaleIndex: 5,
-        octave: 4,
-        pressTime: 2500,
-        releaseTime: 3000,
-        duration: 500,
-      },
-      {
-        id: "note-7",
-        note: "G4",
-        scaleDegree: 5,
-        scaleIndex: 4,
-        octave: 4,
-        pressTime: 3000,
-        releaseTime: 4000,
-        duration: 1000,
-      },
-      {
-        id: "note-8",
-        note: "F4",
-        scaleDegree: 4,
-        scaleIndex: 3,
-        octave: 4,
-        pressTime: 4000,
-        releaseTime: 4500,
-        duration: 500,
-      },
-      {
-        id: "note-9",
-        note: "F4",
-        scaleDegree: 4,
-        scaleIndex: 3,
-        octave: 4,
-        pressTime: 4500,
-        releaseTime: 5000,
-        duration: 500,
-      },
-      {
-        id: "note-10",
-        note: "E4",
-        scaleDegree: 3,
-        scaleIndex: 2,
-        octave: 4,
-        pressTime: 5000,
-        releaseTime: 5500,
-        duration: 500,
-      },
-      {
-        id: "note-11",
-        note: "E4",
-        scaleDegree: 3,
-        scaleIndex: 2,
-        octave: 4,
-        pressTime: 5500,
-        releaseTime: 6000,
-        duration: 500,
-      },
-      {
-        id: "note-12",
-        note: "D4",
-        scaleDegree: 2,
-        scaleIndex: 1,
-        octave: 4,
-        pressTime: 6000,
-        releaseTime: 6500,
-        duration: 500,
-      },
-      {
-        id: "note-13",
-        note: "D4",
-        scaleDegree: 2,
-        scaleIndex: 1,
-        octave: 4,
-        pressTime: 6500,
-        releaseTime: 7000,
-        duration: 500,
-      },
-      {
-        id: "note-14",
-        note: "C4",
-        scaleDegree: 1,
-        scaleIndex: 0,
-        octave: 4,
-        pressTime: 7000,
-        releaseTime: 8000,
-        duration: 1000,
-      },
-    ],
+type MelodyStep = {
+  note: string;
+  duration: number;
+};
+
+const SCALE_INDEX_BY_NOTE: Record<string, number> = {
+  C: 0,
+  D: 1,
+  E: 2,
+  F: 3,
+  G: 4,
+  A: 5,
+  B: 6,
+};
+
+function buildPatternNotes(patternId: string, steps: MelodyStep[]): PatternNote[] {
+  let cursor = 0;
+
+  return steps.map((step, index) => {
+    const noteLetter = step.note[0];
+    const octave = Number(step.note.slice(-1));
+    const scaleIndex = SCALE_INDEX_BY_NOTE[noteLetter] ?? 0;
+    const note: PatternNote = {
+      id: `${patternId}-note-${index + 1}`,
+      note: step.note,
+      scaleDegree: scaleIndex + 1,
+      scaleIndex,
+      octave,
+      pressTime: cursor,
+      releaseTime: cursor + step.duration,
+      duration: step.duration,
+    };
+
+    cursor += step.duration;
+    return note;
+  });
+}
+
+function buildDefaultPattern(
+  id: string,
+  name: string,
+  steps: MelodyStep[],
+  instrument = "piano"
+): Pattern {
+  const notes = buildPatternNotes(id, steps);
+  const firstNote = notes[0];
+  const lastNote = notes[notes.length - 1];
+
+  return {
+    id,
+    name,
+    notes,
+    duration: lastNote.releaseTime - firstNote.pressTime,
+    noteCount: notes.length,
     key: "C",
     mode: "major",
-    instrument: "piano",
-    createdAt: Date.now(),
+    instrument,
+    createdAt: 0,
     isDefault: true,
-  },
+    isKept: true,
+  };
+}
+
+export const defaultPatterns: Pattern[] = [
+  buildDefaultPattern("pattern-twinkle-1", "Twinkle Twinkle Little Star", [
+    { note: "C4", duration: 500 },
+    { note: "C4", duration: 500 },
+    { note: "G4", duration: 500 },
+    { note: "G4", duration: 500 },
+    { note: "A4", duration: 500 },
+    { note: "A4", duration: 500 },
+    { note: "G4", duration: 1000 },
+    { note: "F4", duration: 500 },
+    { note: "F4", duration: 500 },
+    { note: "E4", duration: 500 },
+    { note: "E4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "C4", duration: 1000 },
+  ]),
+  buildDefaultPattern("pattern-mary-1", "Mary Had a Little Lamb", [
+    { note: "E4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "C4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "E4", duration: 500 },
+    { note: "E4", duration: 500 },
+    { note: "E4", duration: 1000 },
+    { note: "D4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "D4", duration: 1000 },
+    { note: "E4", duration: 500 },
+    { note: "G4", duration: 500 },
+    { note: "G4", duration: 1000 },
+  ]),
+  buildDefaultPattern("pattern-hot-cross-buns-1", "Hot Cross Buns", [
+    { note: "E4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "C4", duration: 1000 },
+    { note: "E4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "C4", duration: 1000 },
+    { note: "C4", duration: 250 },
+    { note: "C4", duration: 250 },
+    { note: "C4", duration: 250 },
+    { note: "C4", duration: 250 },
+    { note: "D4", duration: 250 },
+    { note: "D4", duration: 250 },
+    { note: "D4", duration: 250 },
+    { note: "D4", duration: 250 },
+    { note: "E4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "C4", duration: 1000 },
+  ]),
+  buildDefaultPattern("pattern-ode-to-joy-1", "Ode to Joy", [
+    { note: "E4", duration: 500 },
+    { note: "E4", duration: 500 },
+    { note: "F4", duration: 500 },
+    { note: "G4", duration: 500 },
+    { note: "G4", duration: 500 },
+    { note: "F4", duration: 500 },
+    { note: "E4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "C4", duration: 500 },
+    { note: "C4", duration: 500 },
+    { note: "D4", duration: 500 },
+    { note: "E4", duration: 500 },
+    { note: "E4", duration: 750 },
+    { note: "D4", duration: 250 },
+    { note: "D4", duration: 1000 },
+  ]),
 ];

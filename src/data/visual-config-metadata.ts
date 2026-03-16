@@ -863,6 +863,39 @@ export const UNIFIED_CONFIG = {
       label: "Angled Style",
     },
   },
+
+  liveStrip: {
+    _meta: {
+      label: "Live Strip",
+      icon: "🎼",
+      description: "Workspace sketch strip display settings",
+    },
+    enabled: {
+      value: true,
+      label: "Enable Live Strip",
+    },
+    opacity: {
+      value: 1,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Opacity",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    notation: {
+      value: "solfege",
+      options: ["solfege", "note", "degree"],
+      label: "Notation Mode",
+    },
+    showRests: {
+      value: true,
+      label: "Show Rests",
+    },
+    showStrudelLine: {
+      value: true,
+      label: "Show Code Line",
+    },
+  },
 };
 
 /**

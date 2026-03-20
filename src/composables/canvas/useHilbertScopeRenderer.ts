@@ -328,7 +328,14 @@ export function useHilbertScopeRenderer() {
       // Use the first active note's color, or blend multiple
       const firstNote = activeNotes[0];
       const noteName = firstNote.solfege.name;
-      const noteColor = colorSystem.getPrimaryColor(noteName, musicStore.currentMode);
+      const noteMode = firstNote.mode ?? musicStore.currentMode;
+      const noteKey = firstNote.key ?? musicStore.currentKey;
+      const noteColor = colorSystem.getPrimaryColor(
+        noteName,
+        noteMode,
+        firstNote.octave,
+        noteKey as any
+      );
       
       // Modulate opacity based on amplitude
       const alphaValue = 0.5 + amplitude * 0.5; // Range from 0.5 to 1.0
@@ -342,14 +349,24 @@ export function useHilbertScopeRenderer() {
         // Pick a note from the scale based on amplitude
         const noteIndex = Math.floor(amplitude * (scaleNotes.length - 1));
         const scaleNote = scaleNotes[noteIndex];
-        const noteColor = colorSystem.getPrimaryColor(scaleNote.name, musicStore.currentMode);
+        const noteColor = colorSystem.getPrimaryColor(
+          scaleNote.name,
+          musicStore.currentMode,
+          3,
+          musicStore.currentKey as any
+        );
         
         const alphaValue = 0.3 + amplitude * 0.7;
         strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
         glowColor = noteColor;
       } else {
         // Ultimate fallback
-        const defaultColor = colorSystem.getPrimaryColor('C', 'major');
+        const defaultColor = colorSystem.getPrimaryColorByScaleIndex(
+          0,
+          musicStore.currentMode,
+          musicStore.currentKey as any,
+          3
+        );
         const alphaValue = 0.3 + amplitude * 0.7;
         strokeColor = colorSystem.withAlpha(defaultColor, alphaValue);
         glowColor = defaultColor;

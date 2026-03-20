@@ -1,5 +1,5 @@
 <template>
-  <TopDrawer anchor="top-right" offset-top="4.15rem" offset-side="0.75rem">
+  <TopDrawer anchor="top-right" offset-top="0.75rem" offset-side="0.75rem">
     <template #trigger="{ toggle }">
       <button
         data-testid="config-panel-trigger"
@@ -13,7 +13,7 @@
     <template #panel="{ close }">
       <Tabs :value="activeTab" @update:value="activeTab = $event">
         <OverlayPanelShell
-          width="min(46rem, calc(100vw - 0.75rem))"
+          width="min(46rem, calc(100vw - 1.5rem))"
           height="min(54vh, 34rem)"
           max-height="min(54vh, 34rem)"
           body-class="px-3 py-3"

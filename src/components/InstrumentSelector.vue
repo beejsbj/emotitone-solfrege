@@ -375,7 +375,7 @@ function selectInstrument(name: string, close: () => void) {
 
     <template #panel="{ close }">
       <OverlayPanelShell
-        :width="compact ? 'min(21rem, calc(100vw - 0.9rem))' : 'min(24rem, calc(100vw - 0.9rem))'"
+        :width="compact ? 'min(34rem, calc(100vw - 1.5rem))' : 'min(42rem, calc(100vw - 1.5rem))'"
         :max-height="compact ? 'min(67vh, 28rem)' : 'min(72vh, 31rem)'"
         body-class="px-3 py-3"
       >

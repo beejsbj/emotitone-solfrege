@@ -23,14 +23,12 @@ const closePanel = () => {
   showPanel.value = false;
 };
 
-const panelClass = computed(() => {
+const panelFrameClass = computed(() => {
   if (!props.floating) {
-    return "floating-dropdown__panel--inline";
+    return "floating-dropdown__panel-frame--inline";
   }
 
-  return props.position === "top-left"
-    ? "floating-dropdown__panel--left"
-    : "floating-dropdown__panel--right";
+  return "floating-dropdown__panel-frame--floating";
 });
 
 const triggerClass = computed(() => {
@@ -100,19 +98,23 @@ defineExpose({
       <Transition name="floating-dropdown-fade">
         <div
           v-if="showPanel"
-          ref="panelRef"
-          data-testid="floating-dropdown-panel"
-          class="floating-dropdown__panel"
-          :class="panelClass"
+          class="floating-dropdown__panel-frame"
+          :class="panelFrameClass"
         >
-          <slot
-            name="panel"
-            :close="closePanel"
-            :toggle="togglePanel"
-            :open="togglePanel"
-            :is-open="showPanel"
-            :position="position"
-          />
+          <div
+            ref="panelRef"
+            data-testid="floating-dropdown-panel"
+            class="floating-dropdown__panel"
+          >
+            <slot
+              name="panel"
+              :close="closePanel"
+              :toggle="togglePanel"
+              :open="togglePanel"
+              :is-open="showPanel"
+              :position="position"
+            />
+          </div>
         </div>
       </Transition>
     </Teleport>
@@ -144,26 +146,30 @@ defineExpose({
   position: relative;
 }
 
-.floating-dropdown__panel {
+.floating-dropdown__panel-frame {
   z-index: 9999;
 }
 
-.floating-dropdown__panel--left {
+.floating-dropdown__panel-frame--floating {
+  z-index: 9999;
   position: fixed;
-  top: max(env(safe-area-inset-top), 0px);
-  left: 0.75rem;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding:
+    max(env(safe-area-inset-top), 0px) 0.75rem 0.75rem;
+  pointer-events: none;
 }
 
-.floating-dropdown__panel--right {
-  position: fixed;
-  top: max(env(safe-area-inset-top), 0px);
-  right: 0.75rem;
-}
-
-.floating-dropdown__panel--inline {
+.floating-dropdown__panel-frame--inline {
   position: absolute;
   top: calc(100% + 0.25rem);
   left: 0;
+}
+
+.floating-dropdown__panel {
+  pointer-events: auto;
 }
 
 .floating-dropdown-fade-enter-active,

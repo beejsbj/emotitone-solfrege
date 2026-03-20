@@ -26,8 +26,9 @@ const closePanel = () => {
 };
 
 const panelStyle = computed(() => ({
-  top: props.offsetTop,
-  [props.anchor === "top-left" ? "left" : "right"]: props.offsetSide,
+  paddingTop: props.offsetTop,
+  paddingLeft: props.offsetSide,
+  paddingRight: props.offsetSide,
 }));
 
 const handlePointerDown = (event: MouseEvent) => {
@@ -88,19 +89,23 @@ defineExpose({
       <Transition name="top-drawer-slide">
         <div
           v-if="showPanel"
-          ref="panelRef"
-          data-testid="top-drawer-panel"
-          class="top-drawer__panel"
+          class="top-drawer__panel-frame"
           :style="panelStyle"
         >
-          <slot
-            name="panel"
-            :toggle="togglePanel"
-            :open="togglePanel"
-            :close="closePanel"
-            :is-open="showPanel"
-            :anchor="anchor"
-          />
+          <div
+            ref="panelRef"
+            data-testid="top-drawer-panel"
+            class="top-drawer__panel"
+          >
+            <slot
+              name="panel"
+              :toggle="togglePanel"
+              :open="togglePanel"
+              :close="closePanel"
+              :is-open="showPanel"
+              :anchor="anchor"
+            />
+          </div>
         </div>
       </Transition>
     </Teleport>
@@ -127,9 +132,18 @@ defineExpose({
   right: 1rem;
 }
 
-.top-drawer__panel {
+.top-drawer__panel-frame {
   position: fixed;
+  inset: 0;
   z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.top-drawer__panel {
+  pointer-events: auto;
 }
 
 .top-drawer-slide-enter-active,

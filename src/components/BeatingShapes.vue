@@ -17,13 +17,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 
 const { createGlassmorphBackground } = useColorSystem();
-const { beatingShapesConfig } = useVisualConfig();
-
+const { beatingShapesConfig, liveStripConfig } = useVisualConfig();
+const { isPlaying: isStrudelPlaying } = useLiveStrudelMirror();
 
 const currentBpm = ref(100);
 const isAnimating = ref(false);
@@ -45,18 +46,22 @@ const allShapes = [
 
 // Computed properties to determine visible shapes based on config
 const visibleShapes = computed(() => {
-  return allShapes.slice(0, beatingShapesConfig.value.shapeCount);
+  return allShapes.slice(
+    0,
+    Math.min(Math.max(0, beatingShapesConfig.value.shapeCount), allShapes.length)
+  );
 });
 
 // Computed properties to determine if we should be animating and what BPM to use
 const shouldAnimate = computed(() => {
-  // Inert mode: do not animate, but keep classes and structure
-  return false;
+  return beatingShapesConfig.value.isEnabled && isStrudelPlaying.value;
 });
 
 const effectiveBpm = computed(() => {
-  // Inert mode: static BPM reference
-  return currentBpm.value;
+  const bpm = liveStripConfig.value.bpm;
+  return typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0
+    ? bpm
+    : currentBpm.value;
 });
 
 // Computed styles for the visualizer container
@@ -75,6 +80,57 @@ const getShapeStyles = (shape: string, index: number) => {
     opacity: opacity,
     transform: `scale(${beatingShapesConfig.value.scale})`,
   };
+};
+
+const getShapeElements = (): HTMLElement[] => {
+  if (!beatVisualizer.value) {
+    return [];
+  }
+
+  return Array.from(beatVisualizer.value.querySelectorAll<HTMLElement>(".shape"));
+};
+
+const applyAnimationTimings = () => {
+  const safeBpm =
+    typeof currentBpm.value === "number" &&
+    Number.isFinite(currentBpm.value) &&
+    currentBpm.value > 0
+      ? currentBpm.value
+      : 120;
+  const quarterNote = 60 / safeBpm;
+  const wholeNote = quarterNote * 4;
+  const halfNote = quarterNote * 2;
+  const third = quarterNote / 3;
+  const eighthNote = quarterNote / 2;
+  const sixteenthNote = quarterNote / 4;
+  const thirtySecondNote = quarterNote / 8;
+
+  getShapeElements().forEach((shape) => {
+    shape.classList.remove("beat-scale", "beat-rotate");
+
+    if (shape.classList.contains("square")) {
+      shape.classList.add("beat-scale");
+      shape.style.animationDuration = `${quarterNote}s`;
+    } else if (shape.classList.contains("line")) {
+      shape.classList.add("beat-rotate");
+      shape.style.animationDuration = `${wholeNote}s`;
+    } else if (shape.classList.contains("triangle")) {
+      shape.classList.add("beat-rotate");
+      shape.style.animationDuration = `${third}s`;
+    } else if (shape.classList.contains("rectangle")) {
+      shape.classList.add("beat-rotate");
+      shape.style.animationDuration = `${halfNote}s`;
+    } else if (shape.classList.contains("circle")) {
+      shape.classList.add("beat-scale");
+      shape.style.animationDuration = `${eighthNote}s`;
+    } else if (shape.classList.contains("hexagon")) {
+      shape.classList.add("beat-rotate");
+      shape.style.animationDuration = `${sixteenthNote}s`;
+    } else if (shape.classList.contains("octagon")) {
+      shape.classList.add("beat-scale");
+      shape.style.animationDuration = `${thirtySecondNote}s`;
+    }
+  });
 };
 
 // Computed color values
@@ -135,62 +191,46 @@ const accentColor = computed(() => {
 });
 
 const updateBpm = (bpm: number) => {
-  currentBpm.value = bpm;
+  currentBpm.value =
+    typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0 ? bpm : 120;
   if (isAnimating.value) {
+    applyAnimationTimings();
     restartColorShifting();
   }
 };
 
-const toggleAnimation = () => {
-  isAnimating.value = !isAnimating.value;
-  const shapes = document.querySelectorAll(".shape");
-
+const startAnimation = () => {
   if (isAnimating.value) {
-    const quarterNote = 60 / currentBpm.value; // 1 beat
-    const wholeNote = quarterNote * 4; // 4 beats
-    const dottedHalfNote = quarterNote * 3; // 3 beats
-    const halfNote = quarterNote * 2; // 2 beats
-    const third = quarterNote / 3;
-    const eighthNote = quarterNote / 2; // 1/2 beat
-    const sixteenthNote = quarterNote / 4; // 1/4 beat
-    const thirtySecondNote = quarterNote / 8; // 1/8 beat
-
-    shapes.forEach((shape) => {
-      const element = shape as HTMLElement;
-      // Add animation classes and set custom duration
-      if (shape.classList.contains("square")) {
-        shape.classList.add("beat-scale");
-        element.style.animationDuration = `${quarterNote}s`;
-      } else if (shape.classList.contains("line")) {
-        shape.classList.add("beat-rotate");
-        element.style.animationDuration = `${wholeNote}s`;
-      } else if (shape.classList.contains("triangle")) {
-        shape.classList.add("beat-rotate");
-        element.style.animationDuration = `${third}s`;
-      } else if (shape.classList.contains("rectangle")) {
-        shape.classList.add("beat-rotate");
-        element.style.animationDuration = `${halfNote}s`;
-      } else if (shape.classList.contains("circle")) {
-        shape.classList.add("beat-scale");
-        element.style.animationDuration = `${eighthNote}s`;
-      } else if (shape.classList.contains("hexagon")) {
-        shape.classList.add("beat-rotate");
-        element.style.animationDuration = `${sixteenthNote}s`;
-      } else if (shape.classList.contains("octagon")) {
-        shape.classList.add("beat-scale");
-        element.style.animationDuration = `${thirtySecondNote}s`;
-      }
-    });
-    startColorShifting();
-  } else {
-    shapes.forEach((shape) => {
-      const element = shape as HTMLElement;
-      // Remove animation classes and reset duration
-      shape.classList.remove("beat-scale", "beat-rotate");
-      element.style.animationDuration = "";
-    });
-    stopColorShifting();
+    applyAnimationTimings();
+    restartColorShifting();
+    return;
   }
+
+  isAnimating.value = true;
+  applyAnimationTimings();
+  startColorShifting();
+};
+
+const stopAnimation = () => {
+  if (!isAnimating.value) {
+    return;
+  }
+
+  isAnimating.value = false;
+  getShapeElements().forEach((shape) => {
+    shape.classList.remove("beat-scale", "beat-rotate");
+    shape.style.animationDuration = "";
+  });
+  stopColorShifting();
+};
+
+const toggleAnimation = () => {
+  if (isAnimating.value) {
+    stopAnimation();
+    return;
+  }
+
+  startAnimation();
 };
 
 const startColorShifting = () => {
@@ -214,14 +254,35 @@ const stopColorShifting = () => {
   }
 };
 
-// Inert mode: no sequencer-coupled animation watchers
+watch(shouldAnimate, (nextValue) => {
+  baseColor.value;
+  highlightColor.value;
+  accentColor.value;
+
+  if (nextValue) {
+    updateBpm(effectiveBpm.value);
+    startAnimation();
+    return;
+  }
+
+  stopAnimation();
+});
 
 watch(effectiveBpm, (newBpm) => {
   if (isAnimating.value && newBpm !== currentBpm.value) {
-    // Update BPM if it changes while animating
     updateBpm(newBpm);
   }
 });
+
+watch(
+  () => visibleShapes.value.length,
+  async () => {
+    await nextTick();
+    if (isAnimating.value) {
+      applyAnimationTimings();
+    }
+  }
+);
 
 // Watch for hue changes and force color updates
 watch(currentHue, () => {
@@ -251,15 +312,14 @@ onMounted(() => {
   highlightColor.value;
   accentColor.value;
 
-  // Start animation if sequencers are already playing on mount
   if (shouldAnimate.value) {
-    currentBpm.value = effectiveBpm.value;
-    toggleAnimation();
+    updateBpm(effectiveBpm.value);
+    startAnimation();
   }
 });
 
 onUnmounted(() => {
-  stopColorShifting();
+  stopAnimation();
 });
 
 // Expose functions for external usage
@@ -268,6 +328,8 @@ defineExpose({
   isAnimating,
   updateBpm,
   toggleAnimation,
+  startAnimation,
+  stopAnimation,
   shouldAnimate,
   effectiveBpm,
   currentHue,

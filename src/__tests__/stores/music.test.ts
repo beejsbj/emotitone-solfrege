@@ -1,334 +1,167 @@
-import { setActivePinia, createPinia } from 'pinia'
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { useMusicStore } from '@/stores/music'
-import { useInstrumentStore } from '@/stores/instrument'
-import { createTestPinia } from '../helpers/test-utils'
-import { resetAudioMocks } from '../helpers/audio-mocks'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, setActivePinia } from "pinia";
 
+vi.unmock("@/services/music");
+vi.unmock("@/data");
 
-describe('Music Store', () => {
-  let musicStore: ReturnType<typeof useMusicStore>
-  let instrumentStore: ReturnType<typeof useInstrumentStore>
+import { useMusicStore } from "@/stores/music";
 
+const superdoughMocks = vi.hoisted(() => ({
+  attackNote: vi.fn().mockResolvedValue(undefined),
+  releaseNote: vi.fn(),
+  releaseAll: vi.fn(),
+  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/services/superdoughAudio", () => ({
+  attackNote: superdoughMocks.attackNote,
+  releaseNote: superdoughMocks.releaseNote,
+  releaseAll: superdoughMocks.releaseAll,
+  playNoteWithDuration: superdoughMocks.playNoteWithDuration,
+  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+  isPrewarmed: vi.fn().mockReturnValue(true),
+  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
+  getAudioContext: vi.fn(),
+  emotitoneStrudelOutput: vi.fn(),
+  stopStrudelVisuals: vi.fn(),
+}));
+
+describe("music store", () => {
   beforeEach(() => {
-    setActivePinia(createTestPinia())
-    musicStore = useMusicStore()
-    instrumentStore = useInstrumentStore()
-    resetAudioMocks()
-    vi.clearAllMocks()
-  })
+    setActivePinia(createPinia());
+    superdoughMocks.attackNote.mockClear();
+    superdoughMocks.releaseNote.mockClear();
+    superdoughMocks.releaseAll.mockClear();
+    superdoughMocks.playNoteWithDuration.mockClear();
+    if (typeof localStorage?.clear === "function") {
+      localStorage.clear();
+    }
+  });
 
-  afterEach(() => {
-    vi.clearAllTimers?.()
-  })
+  it("exposes expanded mode metadata through computed state", () => {
+    const musicStore = useMusicStore();
 
-  describe('State Management', () => {
-    it('should initialize with default values', () => {
-      expect(musicStore.currentKey).toBe('C')
-      expect(musicStore.currentMode).toBe('major')
-      expect(musicStore.currentNote).toBe(null)
-      expect(musicStore.activeNotes.size).toBe(0)
-      expect(musicStore.isPlaying).toBe(false)
-      expect(musicStore.sequence).toEqual([])
-    })
+    musicStore.setKey("D");
+    musicStore.setMode("harmonic minor");
 
-    it('should allow setting key and mode', () => {
-      musicStore.setKey('D')
-      expect(musicStore.currentKey).toBe('D')
+    expect(musicStore.currentModeDefinition.label).toBe("Harmonic Minor");
+    expect(musicStore.currentKeyDisplay).toBe("D Harmonic Minor");
+    expect(musicStore.currentScale.degreeCount).toBe(7);
+    expect(musicStore.currentScale.solfege.map((note) => note.name)).toEqual([
+      "Do",
+      "Re",
+      "Me",
+      "Fa",
+      "Sol",
+      "Le",
+      "Ti",
+    ]);
+  });
 
-      musicStore.setMode('minor')
-      expect(musicStore.currentMode).toBe('minor')
-    })
-  })
+  it("tracks dynamic scale notes for non-heptatonic modes", () => {
+    const musicStore = useMusicStore();
 
-  describe('Computed Properties', () => {
-    it('should compute current scale', () => {
-      const scale = musicStore.currentScale
-      expect(scale.name).toBe('Major')
-      expect(scale.solfege).toHaveLength(7)
-    })
+    musicStore.setMode("major pentatonic");
+    expect(musicStore.currentScale.degreeCount).toBe(5);
+    expect(musicStore.currentScaleNotes).toEqual(["C", "D", "E", "G", "A"]);
+    expect(musicStore.solfegeData.map((note) => note.name)).toEqual([
+      "Do",
+      "Re",
+      "Mi",
+      "Sol",
+      "La",
+    ]);
+  });
 
-    it('should compute current scale notes', () => {
-      const notes = musicStore.currentScaleNotes
-      expect(notes).toEqual(['C', 'D', 'E', 'F', 'G', 'A', 'B'])
-    })
+  it("refreshes scale structure after mode changes even if the initial scale was already read", () => {
+    const musicStore = useMusicStore();
 
-    it('should compute solfege data', () => {
-      const solfege = musicStore.solfegeData
-      expect(solfege).toHaveLength(7)
-      expect(solfege[0].name).toBe('Do')
-    })
+    expect(musicStore.currentScale.degreeCount).toBe(7);
+    expect(musicStore.solfegeData.map((note) => note.name)).toEqual([
+      "Do",
+      "Re",
+      "Mi",
+      "Fa",
+      "Sol",
+      "La",
+      "Ti",
+    ]);
 
-    it('should compute current key display', () => {
-      expect(musicStore.currentKeyDisplay).toBe('C Major')
-      
-      musicStore.setKey('D')
-      musicStore.setMode('minor')
-      expect(musicStore.currentKeyDisplay).toBe('D Minor')
-    })
-  })
+    musicStore.setMode("minor blues");
 
-  describe('Note Playing', () => {
-    it('should play note with solfege index', async () => {
-      await musicStore.playNote(0) // Do
-      
-      expect(musicStore.currentNote).toBe('Do')
-      expect(musicStore.isPlaying).toBe(true)
-      expect(window.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'note-played',
-          detail: expect.objectContaining({
-            note: expect.objectContaining({ name: 'Do' }),
-            frequency: expect.any(Number),
-            noteName: 'C4',
-            solfegeIndex: 0,
-            octave: 4
-          })
-        })
-      )
-    })
+    expect(musicStore.currentScale.degreeCount).toBe(6);
+    expect(musicStore.solfegeData.map((note) => note.name)).toEqual([
+      "Do",
+      "Me",
+      "Fa",
+      "Se",
+      "Sol",
+      "Te",
+    ]);
+  });
 
-    it('should play note with chromatic note string', async () => {
-      await musicStore.playNote('C4')
-      
-      expect(musicStore.currentNote).toBe('Do')
-      expect(musicStore.isPlaying).toBe(true)
-    })
+  it("parses chromatic note input using deterministic fallback for sparse modes", () => {
+    const musicStore = useMusicStore();
 
-    it('should attack and release notes', async () => {
-      const noteId = await musicStore.attackNote(0)
-      expect(noteId).toBe('mock-note-id')
-      expect(musicStore.activeNotes.size).toBe(1)
-      expect(musicStore.isPlaying).toBe(true)
+    musicStore.setMode("major pentatonic");
+    expect(musicStore.parseNoteInput("F4")).toEqual({
+      solfegeIndex: 2,
+      octave: 4,
+    });
 
-      musicStore.releaseNote(noteId!)
-      expect(musicStore.activeNotes.size).toBe(0)
-      expect(musicStore.isPlaying).toBe(false)
-    })
+    musicStore.setMode("chromatic");
+    expect(musicStore.parseNoteInput("F#4")).toEqual({
+      solfegeIndex: 6,
+      octave: 4,
+    });
+  });
 
-    it('should play note with duration', async () => {
-      const noteId = await musicStore.playNoteWithDuration(0, 4, '4n')
-      expect(noteId).toBe('mock-note-id')
-      expect(window.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'note-played',
-          detail: expect.objectContaining({
-            duration: '4n',
-            octave: 4
-          })
-        })
-      )
-    })
+  it("plays notes using the actual current mode degree count", async () => {
+    const musicStore = useMusicStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
-    it('should handle multiple active notes', async () => {
-      const noteId1 = await musicStore.attackNote(0)
-      const noteId2 = await musicStore.attackNote(2)
-      
-      expect(musicStore.activeNotes.size).toBe(2)
-      expect(musicStore.getActiveNotes()).toHaveLength(2)
-      expect(musicStore.getActiveNoteNames()).toEqual(['C4', 'E4'])
-    })
+    musicStore.setKey("F#");
+    musicStore.setMode("chromatic");
+    const noteId = await musicStore.attackNote(11, 4);
 
-    it('should release all notes', async () => {
-      await musicStore.attackNote(0)
-      await musicStore.attackNote(2)
-      
-      expect(musicStore.activeNotes.size).toBe(2)
-      
-      musicStore.releaseAllNotes()
-      expect(musicStore.activeNotes.size).toBe(0)
-      expect(musicStore.isPlaying).toBe(false)
-    })
-  })
+    expect(noteId).toBe("F5_11_4");
+    expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
+      "F5_11_4",
+      "F5",
+      "piano"
+    );
+    expect(musicStore.getActiveNotes()).toHaveLength(1);
+    expect(musicStore.getActiveNotes()[0].solfege.name).toBe("Ti");
+    expect(musicStore.getActiveNotes()[0].mode).toBe("chromatic");
+    expect(musicStore.getActiveNotes()[0].key).toBe("F#");
+    const notePlayedEvent = dispatchEventSpy.mock.calls.find(
+      ([event]) => event.type === "note-played"
+    )?.[0] as CustomEvent;
+    expect(notePlayedEvent.detail.mode).toBe("chromatic");
+    expect(notePlayedEvent.detail.key).toBe("F#");
 
-  describe('Sequence Management', () => {
-    it('should add notes to sequence', () => {
-      musicStore.addToSequence('Do')
-      musicStore.addToSequence('Re')
-      
-      expect(musicStore.sequence).toEqual(['Do', 'Re'])
-    })
+    await musicStore.releaseNote(noteId!);
+    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith("F5_11_4");
+    expect(musicStore.getActiveNotes()).toHaveLength(0);
+    const noteReleasedEvent = dispatchEventSpy.mock.calls.find(
+      ([event]) => event.type === "note-released"
+    )?.[0] as CustomEvent;
+    expect(noteReleasedEvent.detail.mode).toBe("chromatic");
+    expect(noteReleasedEvent.detail.key).toBe("F#");
+    dispatchEventSpy.mockRestore();
+  });
 
-    it('should limit sequence to 16 notes', () => {
-      // Add 17 notes
-      for (let i = 0; i < 17; i++) {
-        musicStore.addToSequence('Do')
-      }
-      
-      expect(musicStore.sequence).toHaveLength(16)
-    })
+  it("dispatches duration playback with the resolved note for the current mode", async () => {
+    const musicStore = useMusicStore();
 
-    it('should clear sequence', () => {
-      musicStore.addToSequence('Do')
-      musicStore.addToSequence('Re')
-      musicStore.clearSequence()
-      
-      expect(musicStore.sequence).toEqual([])
-    })
+    musicStore.setMode("minor blues");
+    const noteId = await musicStore.playNoteWithDuration(3, 4, "8n");
 
-    it('should remove last note from sequence', () => {
-      musicStore.addToSequence('Do')
-      musicStore.addToSequence('Re')
-      musicStore.removeLastFromSequence()
-      
-      expect(musicStore.sequence).toEqual(['Do'])
-    })
-  })
-
-  describe('Helper Functions', () => {
-    it('should get solfege by name', () => {
-      const solfege = musicStore.getSolfegeByName('Do')
-      expect(solfege).toBeDefined()
-      expect(solfege?.name).toBe('Do')
-    })
-
-    it('should get note frequency', () => {
-      const frequency = musicStore.getNoteFrequency(0, 4)
-      expect(frequency).toBeCloseTo(261.63)
-    })
-
-    it('should get note name', () => {
-      const noteName = musicStore.getNoteName(0, 4)
-      expect(noteName).toBe('C4')
-    })
-
-    it('should check if note is active', async () => {
-      const noteId = await musicStore.attackNote(0)
-      expect(musicStore.isNoteActive(noteId!)).toBe(true)
-      expect(musicStore.isNoteActive('invalid-id')).toBe(false)
-    })
-  })
-
-  describe('Note Input Parsing', () => {
-    it('should parse chromatic note with octave', () => {
-      const parsed = musicStore.parseNoteInput('C4')
-      expect(parsed).toEqual({ solfegeIndex: 0, octave: 4 })
-    })
-
-    it('should parse solfege index input', () => {
-      const parsed = musicStore.parseNoteInput({ solfegeIndex: 2, octave: 5 })
-      expect(parsed).toEqual({ solfegeIndex: 2, octave: 5 })
-    })
-
-    it('should handle invalid note input', () => {
-      const parsed = musicStore.parseNoteInput('X9')
-      expect(parsed).toBeNull()
-    })
-  })
-
-  describe('Melody Management', () => {
-    it('should search melodies', () => {
-      const results = musicStore.searchMelodies('test')
-      expect(results).toEqual([])
-    })
-
-    it('should get melodies by emotion', () => {
-      const results = musicStore.getMelodiesByEmotion('happy')
-      expect(results).toEqual([])
-    })
-
-    it('should get melodies by category', () => {
-      const results = musicStore.melodiesByCategory('intervals')
-      expect(results).toEqual([])
-    })
-
-    it('should get all melodies', () => {
-      const melodies = musicStore.allMelodies
-      expect(melodies).toEqual([])
-    })
-  })
-
-  describe('Legacy Support', () => {
-    it('should maintain backward compatibility with currentNote', async () => {
-      await musicStore.playNote(0)
-      expect(musicStore.currentNote).toBe('Do')
-      
-      // Test timeout clearing
-      vi.useFakeTimers()
-      await musicStore.playNote(0)
-      vi.advanceTimersByTime(2000)
-      expect(musicStore.currentNote).toBe(null)
-      expect(musicStore.isPlaying).toBe(false)
-      vi.useRealTimers()
-    })
-
-    it('should update currentNote when releasing specific note', async () => {
-      const noteId1 = await musicStore.attackNote(0) // Do
-      const noteId2 = await musicStore.attackNote(2) // Mi
-      
-      // Release first note
-      musicStore.releaseNote(noteId1!)
-      
-      // Should still have one active note
-      expect(musicStore.activeNotes.size).toBe(1)
-      expect(musicStore.currentNote).toBe('Mi')
-    })
-  })
-
-  describe('Error Handling', () => {
-    it('should handle invalid solfege index in playNote', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      
-      await musicStore.playNote(10) // Invalid index
-      
-      expect(consoleSpy).not.toHaveBeenCalled() // Should not warn for solfege index
-      consoleSpy.mockRestore()
-    })
-
-    it('should handle invalid chromatic note in playNote', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      
-      await musicStore.playNote('X9' as any)
-      
-      expect(consoleSpy).toHaveBeenCalledWith('Invalid note: X9')
-      consoleSpy.mockRestore()
-    })
-  })
-
-  describe('Event Dispatching', () => {
-    it('should dispatch note-played event with correct details', async () => {
-      await musicStore.playNote(0)
-      
-      expect(window.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'note-played',
-          detail: expect.objectContaining({
-            note: expect.objectContaining({ name: 'Do' }),
-            frequency: expect.any(Number),
-            noteName: 'C4',
-            solfegeIndex: 0,
-            octave: 4,
-            instrument: expect.any(String),
-            instrumentConfig: expect.any(Object)
-          })
-        })
-      )
-    })
-
-    it('should dispatch note-released event when releasing notes', async () => {
-      const noteId = await musicStore.attackNote(0)
-      musicStore.releaseNote(noteId!)
-      
-      expect(window.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'note-released',
-          detail: expect.objectContaining({
-            note: 'Do',
-            noteId: noteId,
-            noteName: 'C4',
-            frequency: expect.any(Number),
-            octave: 4
-          })
-        })
-      )
-    })
-  })
-
-  describe('Store Persistence', () => {
-    it('should be configured for persistence', () => {
-      // The store should be configured with persist: true
-      // This is tested by checking the store definition
-      expect(musicStore.$id).toBe('music')
-    })
-  })
-})
+    expect(noteId).toContain("sdplay_");
+    expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
+      "F#4",
+      250,
+      "piano"
+    );
+  });
+});

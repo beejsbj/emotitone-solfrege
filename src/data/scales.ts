@@ -1,48 +1,85 @@
 /**
- * Enhanced Musical Scales Data using Tonal.js
- * Leverages Tonal.js for accurate scale generation and validation
+ * Musical scales generated from the centralized mode catalog and Tonal.js.
  */
 
-import { Scale as TonalScale, Interval } from "@tonaljs/tonal";
-import type { Scale } from "@/types/music";
-import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "./solfege";
+import { Interval, Scale as TonalScale } from "@tonaljs/tonal";
+import type { MusicalMode, Scale } from "@/types/music";
+import { MODE_DEFINITIONS, MODE_ORDER } from "./modes";
+import { createSolfegeData } from "./solfege";
 
-// Re-export types for backward compatibility
 export type { Scale };
 
-/**
- * Generate scale intervals using Tonal.js
- */
-function generateScaleIntervals(scaleType: string): number[] {
+function fallbackScale(mode: MusicalMode): Scale {
+  const definition = MODE_DEFINITIONS[mode];
+  const intervalNames =
+    mode === "major"
+      ? ["1P", "2M", "3M", "4P", "5P", "6M", "7M"]
+      : mode === "minor"
+        ? ["1P", "2M", "3m", "4P", "5P", "6m", "7m"]
+        : ["1P"];
+  const intervals = intervalNames.map((intervalName) => {
+    const semitones = Interval.semitones(intervalName);
+    return semitones ?? 0;
+  });
+
+  return {
+    name: definition.label,
+    mode,
+    tonalName: definition.tonalName,
+    family: definition.family,
+    degreeCount: intervalNames.length,
+    intervalNames,
+    intervals,
+    solfege: createSolfegeData(intervalNames, intervals, mode),
+  };
+}
+
+function createScale(mode: MusicalMode): Scale {
+  const definition = MODE_DEFINITIONS[mode];
+
   try {
-    const scale = TonalScale.get(`C ${scaleType}`);
-    return scale.intervals.map((interval) => {
-      const semitones = Interval.semitones(interval);
+    const scale = TonalScale.get(`C ${definition.tonalName}`);
+    const intervalNames = scale.intervals.length
+      ? scale.intervals
+      : fallbackScale(mode).intervalNames;
+    const intervals = intervalNames.map((intervalName) => {
+      const semitones = Interval.semitones(intervalName);
       return semitones ?? 0;
     });
-  } catch (error) {
-    return scaleType === "major"
-      ? [0, 2, 4, 5, 7, 9, 11, 12]
-      : [0, 2, 3, 5, 7, 8, 10, 12];
+
+    return {
+      name: definition.label,
+      mode,
+      tonalName: definition.tonalName,
+      family: definition.family,
+      degreeCount: intervalNames.length,
+      intervalNames,
+      intervals,
+      solfege: createSolfegeData(intervalNames, intervals, mode),
+    };
+  } catch {
+    return fallbackScale(mode);
   }
 }
 
-/**
- * Enhanced Major scale definition using Tonal.js
- * W-W-H-W-W-W-H pattern + octave (validated by Tonal.js)
- */
-export const MAJOR_SCALE: Scale = {
-  name: "Major",
-  intervals: generateScaleIntervals("major"),
-  solfege: MAJOR_SOLFEGE,
-};
+export const SCALE_MAP: Record<MusicalMode, Scale> = MODE_ORDER.reduce(
+  (map, mode) => {
+    map[mode] = createScale(mode);
+    return map;
+  },
+  {} as Record<MusicalMode, Scale>
+);
 
-/**
- * Enhanced Minor scale definition using Tonal.js
- * W-H-W-W-H-W-W pattern (natural minor) + octave (validated by Tonal.js)
- */
-export const MINOR_SCALE: Scale = {
-  name: "Minor",
-  intervals: generateScaleIntervals("minor"),
-  solfege: MINOR_SOLFEGE,
-};
+export const MAJOR_SCALE = SCALE_MAP.major;
+export const MINOR_SCALE = SCALE_MAP.minor;
+
+export function getScaleForMode(mode: MusicalMode): Scale {
+  return SCALE_MAP[mode] ?? MAJOR_SCALE;
+}
+
+export function getSolfegeNameForMode(
+  mode: MusicalMode,
+  scaleIndex: number
+): string {
+  return getScaleForMode(mode).solfege[scaleIndex]?.name ?? "Do";
+}

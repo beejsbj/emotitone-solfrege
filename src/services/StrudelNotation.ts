@@ -9,6 +9,7 @@
  */
 
 import type { LogNote } from "@/types/patterns";
+import type { MusicalMode } from "@/types/music";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. @default 120 */
@@ -24,7 +25,7 @@ export interface StrudelConfig {
   /** Optional scale key override for relative notation. */
   scaleKey?: string;
   /** Optional scale mode override for relative notation. */
-  scaleMode?: string;
+  scaleMode?: MusicalMode;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {

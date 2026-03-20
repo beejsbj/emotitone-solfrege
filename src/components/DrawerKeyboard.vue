@@ -1,7 +1,7 @@
 <template>
   <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
     <!-- Action bar with controls -->
-    <div class="absolute top-0 -translate-y-full left-0 right-0 grid">
+    <div class="absolute top-0 -translate-y-full left-0 right-0 grid min-w-0">
       <PatternList />
       <LiveCard />
       <KeyboardActionBar />

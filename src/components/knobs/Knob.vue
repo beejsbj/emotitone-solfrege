@@ -207,8 +207,13 @@ const interaction = {
   isDragging: ref(false),
   isHeld: ref(false),
   gestureState: ref<
-    "idle" | "potential_tap" | "confirmed_drag" | "gesture_ended"
+    | "idle"
+    | "potential_tap"
+    | "horizontal_scroll"
+    | "confirmed_drag"
+    | "gesture_ended"
   >("idle"),
+  suppressClick: ref(false),
 
   start: ref({
     y: 0,
@@ -216,6 +221,7 @@ const interaction = {
     value: 0,
     time: 0,
     optionIndex: 0,
+    scrollLeft: 0,
   }),
 
   current: ref({
@@ -293,10 +299,16 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
   interaction.gestureState.value = "potential_tap";
   interaction.isDragging.value = false;
   interaction.isHeld.value = true;
+  interaction.suppressClick.value = false;
   interaction.valueAccumulator.value = 0;
   interaction.optionAccumulator.value = 0; // Reset options accumulator
   interaction.lastOptionChange.value = 0; // Reset options debounce
   interaction.movementBuffer.value = [];
+
+  const scrollHost =
+    wrapperRef.value?.closest(".action-scroll") instanceof HTMLElement
+      ? (wrapperRef.value?.closest(".action-scroll") as HTMLElement)
+      : null;
 
   // Store initial state
   interaction.start.value = {
@@ -305,6 +317,7 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
     value: actualValue.value as number,
     time: now,
     optionIndex: getCurrentOptionIndex(),
+    scrollLeft: scrollHost?.scrollLeft ?? 0,
   };
 
   interaction.current.value = {
@@ -325,19 +338,17 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
     document.addEventListener("mouseup", handleEnd);
   }
 
-  triggerUIHaptic();
 };
 
 const handleMove = (e: Event) => {
   if (!interaction.isHeld.value || props.isDisabled) return;
 
   const event = e as MouseEvent | TouchEvent;
-  event.preventDefault();
-  event.stopPropagation();
-
   const clientY = "touches" in event ? event.touches[0].clientY : event.clientY;
   const clientX = "touches" in event ? event.touches[0].clientX : event.clientX;
   const now = Date.now();
+  const deltaFromStartX = clientX - interaction.start.value.x;
+  const deltaFromStartY = clientY - interaction.start.value.y;
 
   // Update current position
   const deltaY = interaction.current.value.y - clientY;
@@ -378,12 +389,42 @@ const handleMove = (e: Event) => {
     interaction.gestureState.value === "potential_tap" &&
     totalMovement > props.tapThreshold
   ) {
-    interaction.gestureState.value = "confirmed_drag";
-    interaction.isDragging.value = true;
+    const absX = Math.abs(deltaFromStartX);
+    const absY = Math.abs(deltaFromStartY);
+
+    if (absX > absY * 1.15) {
+      interaction.gestureState.value = "horizontal_scroll";
+      interaction.isDragging.value = true;
+      interaction.suppressClick.value = true;
+    } else if (absY > absX * 1.05) {
+      interaction.gestureState.value = "confirmed_drag";
+      interaction.isDragging.value = true;
+      interaction.suppressClick.value = true;
+    } else {
+      return;
+    }
+  }
+
+  if (interaction.gestureState.value === "horizontal_scroll") {
+    const scrollHost =
+      wrapperRef.value?.closest(".action-scroll") instanceof HTMLElement
+        ? (wrapperRef.value?.closest(".action-scroll") as HTMLElement)
+        : null;
+
+    if (scrollHost) {
+      scrollHost.scrollLeft = interaction.start.value.scrollLeft - deltaFromStartX;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    return;
   }
 
   // Only process movement if we're in confirmed drag state
   if (interaction.gestureState.value !== "confirmed_drag") return;
+
+  event.preventDefault();
+  event.stopPropagation();
 
   // Apply movement based on knob type with enhanced algorithms
   const timeDelta = now - interaction.current.value.lastMoveTime;
@@ -507,8 +548,10 @@ const handleEnd = (e: Event) => {
   if (props.isDisabled) return;
 
   const event = e as MouseEvent | TouchEvent;
-  event.preventDefault();
-  event.stopPropagation();
+  if (interaction.gestureState.value !== "potential_tap") {
+    event.preventDefault();
+    event.stopPropagation();
+  }
 
   const now = Date.now();
   const touchDuration = now - interaction.start.value.time;
@@ -549,7 +592,10 @@ const handleEnd = (e: Event) => {
 const handleClick = (e: MouseEvent | TouchEvent) => {
   // Skip click handling for touch events (handled in handleEnd)
   if ("touches" in e) return;
-  if (props.isDisabled || interaction.isDragging.value) return;
+  if (props.isDisabled || interaction.isDragging.value || interaction.suppressClick.value) {
+    interaction.suppressClick.value = false;
+    return;
+  }
 
   e.preventDefault();
   e.stopPropagation();

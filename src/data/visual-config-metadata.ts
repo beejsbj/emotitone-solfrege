@@ -882,6 +882,14 @@ export const UNIFIED_CONFIG = {
       label: "Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
+    bpm: {
+      value: 120,
+      min: 40,
+      max: 220,
+      step: 1,
+      label: "Tempo",
+      format: (v: number) => `${v} bpm`,
+    },
     notation: {
       value: "solfege",
       options: ["solfege", "note", "degree"],

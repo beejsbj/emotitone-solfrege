@@ -473,6 +473,8 @@ export interface LiveStripConfig {
   enabled: boolean;
   /** Supplemental strip opacity */
   opacity: number;
+  /** Playback tempo in beats per minute */
+  bpm: number;
   /** Display notation mode for note tokens */
   notation: "solfege" | "note" | "degree";
   /** Whether to show rest tokens */

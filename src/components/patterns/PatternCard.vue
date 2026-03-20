@@ -3,6 +3,8 @@ import { computed, ref } from "vue";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { usePatternsStore } from "@/stores/patterns";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "@/data";
 import { Knob } from "@/components/knobs";
@@ -10,6 +12,8 @@ import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
 
 const patternsStore = usePatternsStore();
+const keyboardStore = useKeyboardDrawerStore();
+const visualConfigStore = useVisualConfigStore();
 const { getStaticPrimaryColor } = useColorSystem();
 
 const props = defineProps<{
@@ -35,9 +39,11 @@ const isFocused = computed(
 // ── notation for copy ──────────────────────────────────────────────────────
 const notation = computed(() =>
   logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
+    bpm: visualConfigStore.config.liveStrip.bpm,
     notationType: "relative",
     scaleKey: props.pattern.key,
     scaleMode: props.pattern.mode,
+    scaleOctave: keyboardStore.keyboardConfig.mainOctave,
     sound: toStrudelSound(props.pattern.instrument ?? "sine"),
   })
 );

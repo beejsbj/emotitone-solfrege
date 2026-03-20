@@ -52,18 +52,62 @@ type NoteToken = {
   color: string;
   text: string;
   isRelative: boolean;
+  noteIndex: number;
+  noteKey: string;
 };
+
+type PatternSegment = {
+  kind: "group" | "note" | "rest";
+  from: number;
+  to: number;
+  closeBrace?: number;
+};
+
+type ActiveNoteState = {
+  noteKey: string;
+  cycle: number;
+  progress: number;
+  begin: number;
+};
+
+type PlaybackState = {
+  filledNoteKeys: string[];
+  cycle: number;
+};
+
+type GroupPartRender =
+  | {
+      kind: "note";
+      text: string;
+      inlineDuration?: string;
+      style: string;
+      active: boolean;
+      begin?: number;
+      compact: boolean;
+    }
+  | {
+      kind: "rest";
+      text: string;
+      inlineDuration?: string;
+      compact: boolean;
+    }
+  | {
+      kind: "punct";
+      text: string;
+    };
 
 type StripToken = {
   from: number;
   to: number;
-  kind: "note" | "rest";
-  noteIndex?: number;
+  kind: "note" | "rest" | "group";
   color?: string;
   label?: string;
   duration?: string;
   isActive?: boolean;
   style?: string;
+  followRank?: number;
+  displayMode?: "cluster" | "literal";
+  parts?: GroupPartRender[];
 };
 
 type InlineMetaToken = {
@@ -74,7 +118,6 @@ type InlineMetaToken = {
 const INLINE_META_REGEX = /(?:@(?:\d+(?:\.\d+)?)|:(?:\d+(?:\.\d+)?))/g;
 const RELATIVE_NOTE_REGEX = /(?<![@.\w])[0-6](?=@|\b)/g;
 const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?\d\b/g;
-const REST_TOKEN_REGEX = /~(?=@|\b)/g;
 const SOLFEGE_LABELS = {
   major: ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"],
   minor: ["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"],
@@ -252,25 +295,18 @@ const noteTokens = StateField.define<NoteToken[]>({
   },
 });
 
-type PlayedTokenState = {
-  filledNoteIndices: number[];
-  lastActiveIndex: number;
-  lastPlaybackTime: number;
-};
-
-const emptyPlayedTokenState = (): PlayedTokenState => ({
-  filledNoteIndices: [],
-  lastActiveIndex: -1,
-  lastPlaybackTime: 0,
+const emptyPlaybackState = (): PlaybackState => ({
+  filledNoteKeys: [],
+  cycle: -1,
 });
 
-const playedTokens = StateField.define<PlayedTokenState>({
+const playedTokens = StateField.define<PlaybackState>({
   create() {
-    return emptyPlayedTokenState();
+    return emptyPlaybackState();
   },
   update(current, tr) {
     if (tr.docChanged) {
-      return emptyPlayedTokenState();
+      return emptyPlaybackState();
     }
 
     for (const effect of tr.effects) {
@@ -280,43 +316,32 @@ const playedTokens = StateField.define<PlayedTokenState>({
 
       const atTime = effect.value.atTime.valueOf();
       if (!effect.value.haps.length) {
-        return atTime === 0
-          ? emptyPlayedTokenState()
-          : {
-              ...current,
-              lastPlaybackTime: atTime,
-            };
+        return atTime === 0 ? emptyPlaybackState() : current;
       }
 
       const notes = tr.state.field(noteTokens);
-      const activeIndices = notes.flatMap((note, index) =>
-        effect.value.haps.some((hap) => isTokenActive(note, hap)) ? [index] : []
+      const active = collectActiveNotes(
+        notes,
+        effect.value.haps,
+        effect.value.atTime
       );
 
-      if (!activeIndices.length) {
-        return {
-          ...current,
-          lastPlaybackTime: atTime,
-        };
+      if (active.cycle == null || !active.activeByKey.size) {
+        return atTime === 0 ? emptyPlaybackState() : current;
       }
 
-      const firstActiveIndex = activeIndices[0];
-      const didLoopBack =
-        current.lastActiveIndex >= 0 &&
-        firstActiveIndex < current.lastActiveIndex &&
-        atTime > current.lastPlaybackTime;
-      const filledNoteIndices = didLoopBack ? [] : [...current.filledNoteIndices];
+      const filledNoteKeys =
+        active.cycle === current.cycle ? [...current.filledNoteKeys] : [];
 
-      for (const index of activeIndices) {
-        if (!filledNoteIndices.includes(index)) {
-          filledNoteIndices.push(index);
+      for (const noteKey of active.activeByKey.keys()) {
+        if (!filledNoteKeys.includes(noteKey)) {
+          filledNoteKeys.push(noteKey);
         }
       }
 
       return {
-        filledNoteIndices,
-        lastActiveIndex: Math.max(...activeIndices),
-        lastPlaybackTime: atTime,
+        filledNoteKeys,
+        cycle: active.cycle,
       };
     }
 
@@ -331,12 +356,12 @@ const stripTokenDecorations = EditorView.decorations.compute(
       return Decoration.none;
     }
 
-    const tokens = state.field(noteTokens);
+    const notes = state.field(noteTokens);
     const options = state.field(playbackOptions);
     const { atTime, haps } = state.field(activePlayback);
     const played = state.field(playedTokens);
     const builder = new RangeSetBuilder<Decoration>();
-    const stripTokens = buildStripTokens(tokens, state.doc, options, atTime, haps, played);
+    const stripTokens = buildStripTokens(notes, state.doc, options, atTime, haps, played);
 
     for (const token of stripTokens) {
       builder.add(
@@ -365,7 +390,7 @@ export const strudelPlaybackHighlightExtension = [
 ];
 
 function extractNoteTokens(doc: Text): NoteToken[] {
-  const tokens: NoteToken[] = [];
+  const unsorted: Omit<NoteToken, "noteIndex" | "noteKey">[] = [];
   const content = doc.toString();
   const patternBounds = getPatternBounds(content);
 
@@ -382,7 +407,7 @@ function extractNoteTokens(doc: Text): NoteToken[] {
       continue;
     }
 
-    tokens.push({
+    unsorted.push({
       from,
       to: from + note.length,
       color,
@@ -399,7 +424,7 @@ function extractNoteTokens(doc: Text): NoteToken[] {
       continue;
     }
 
-    tokens.push({
+    unsorted.push({
       from,
       to: from + degree.length,
       color: degreeToHslColor(Number(degree)),
@@ -408,7 +433,13 @@ function extractNoteTokens(doc: Text): NoteToken[] {
     });
   }
 
-  return tokens.sort((left, right) => left.from - right.from);
+  return unsorted
+    .sort((left, right) => left.from - right.from)
+    .map((token, noteIndex) => ({
+      ...token,
+      noteIndex,
+      noteKey: `${token.from}:${token.to}`,
+    }));
 }
 
 function buildStripTokens(
@@ -417,88 +448,289 @@ function buildStripTokens(
   options: PlaybackHighlightOptions,
   atTime: NumericLike,
   haps: HapLike[],
-  played: PlayedTokenState
+  played: PlaybackState
 ): StripToken[] {
   const content = doc.toString();
   const patternBounds = getPatternBounds(content);
-  const filledNoteIndices = new Set(played.filledNoteIndices);
-  const tokens: StripToken[] = notes.map((note, index) => {
-    const matchingHap = haps.find((hap) => isTokenActive(note, hap));
-    const skin = options.noteSkins[index];
+  const segments = extractPatternSegments(content, patternBounds);
+  const active = collectActiveNotes(notes, haps, atTime);
+  const activeByKey = active.activeByKey;
+  const filledNoteKeys = new Set(
+    played.cycle === -1 || active.cycle == null || played.cycle === active.cycle
+      ? played.filledNoteKeys
+      : []
+  );
+  const noteByStart = new Map(notes.map((note) => [note.from, note]));
+  const stripTokens: StripToken[] = [];
+
+  for (const segment of segments) {
+    if (segment.kind === "group") {
+      stripTokens.push(
+        buildGroupToken(
+          segment,
+          content,
+          notes,
+          options,
+          activeByKey,
+          filledNoteKeys
+        )
+      );
+      continue;
+    }
+
+    if (segment.kind === "rest") {
+      const duration = extractTrailingDuration(content, segment.from + 1);
+      stripTokens.push({
+        from: segment.from,
+        to: duration ? segment.from + 1 + duration.length : segment.to,
+        kind: "rest",
+        label: "~",
+        duration,
+      });
+      continue;
+    }
+
+    const note = noteByStart.get(segment.from);
+    if (!note) {
+      continue;
+    }
+
+    const skin = options.noteSkins[note.noteIndex];
     const color =
       skin?.color ??
       (options.isNoteColoringEnabled ? note.color : "hsla(0, 0%, 100%, 0.82)");
     const duration = extractTrailingDuration(content, note.to);
-    const end = duration ? note.to + duration.length : note.to;
+    const activeState = activeByKey.get(note.noteKey);
+    const isFilled = filledNoteKeys.has(note.noteKey);
 
-    return {
+    stripTokens.push({
       from: note.from,
-      to: end,
+      to: duration ? note.to + duration.length : note.to,
       kind: "note",
-      noteIndex: index,
       color,
       label: skin?.label ?? resolveDisplayLabel(note, options) ?? note.text,
       duration,
-      isActive: Boolean(matchingHap),
-      style: matchingHap
+      isActive: Boolean(activeState),
+      followRank: activeState?.begin,
+      style: activeState
         ? buildFilledTokenStyle(
             color,
             getFillScale(
-              options.isProgressiveFillEnabled
-                ? getProgressPercent(atTime, matchingHap)
-                : 100
+              options.isProgressiveFillEnabled ? activeState.progress : 100
             ),
             options.isPatternTextColoringEnabled,
             skin
           )
-        : filledNoteIndices.has(index)
-          ? buildFilledTokenStyle(
-              color,
-              1,
-              options.isPatternTextColoringEnabled,
-              skin
-            )
-        : buildPassiveTokenStyle(color, options.isNoteColoringEnabled, skin),
-    };
-  });
-
-  for (const match of content.matchAll(REST_TOKEN_REGEX)) {
-    const from = match.index;
-    if (from == null || !isInsidePattern(from, patternBounds)) {
-      continue;
-    }
-    const duration = extractTrailingDuration(content, from + match[0].length);
-    const end =
-      duration ? from + match[0].length + duration.length : from + match[0].length;
-
-    tokens.push({
-      from,
-      to: end,
-      kind: "rest",
-      label: match[0],
-      duration,
+        : isFilled
+          ? buildFilledTokenStyle(color, 1, options.isPatternTextColoringEnabled, skin)
+          : buildPassiveTokenStyle(color, options.isNoteColoringEnabled, skin),
     });
   }
 
-  return tokens.sort((left, right) => left.from - right.from);
+  return stripTokens;
 }
 
-function resolveDisplayLabel(note: NoteToken, options: PlaybackHighlightOptions) {
-  if (!note.isRelative) {
-    return undefined;
+function buildGroupToken(
+  segment: PatternSegment,
+  content: string,
+  notes: NoteToken[],
+  options: PlaybackHighlightOptions,
+  activeByKey: Map<string, ActiveNoteState>,
+  filledNoteKeys: Set<string>
+): StripToken {
+  const closeBrace = segment.closeBrace ?? segment.to - 1;
+  const duration = extractTrailingDuration(content, closeBrace + 1);
+  const notesInGroup = notes.filter(
+    (note) => note.from > segment.from && note.to <= closeBrace
+  );
+  const renderedParts = buildGroupParts(
+    content,
+    segment.from,
+    closeBrace,
+    notesInGroup,
+    options,
+    activeByKey,
+    filledNoteKeys
+  );
+  const meaningfulParts = renderedParts.filter(
+    (part): part is Extract<GroupPartRender, { kind: "note" }> => part.kind === "note"
+  );
+  const displayMode = isCompactChord(renderedParts) ? "cluster" : "literal";
+  const parts =
+    displayMode === "cluster"
+      ? meaningfulParts.map((part) => ({ ...part, compact: true }))
+      : renderedParts;
+  const activeNotes = meaningfulParts.filter((part) => part.active);
+  const followRank = activeNotes.length
+    ? Math.max(...activeNotes.map((part) => part.begin ?? -Infinity))
+    : undefined;
+
+  return {
+    from: segment.from,
+    to: segment.to,
+    kind: "group",
+    duration,
+    isActive: activeNotes.length > 0,
+    followRank,
+    displayMode,
+    parts,
+  };
+}
+
+function buildGroupParts(
+  content: string,
+  groupStart: number,
+  closeBrace: number,
+  notesInGroup: NoteToken[],
+  options: PlaybackHighlightOptions,
+  activeByKey: Map<string, ActiveNoteState>,
+  filledNoteKeys: Set<string>
+): GroupPartRender[] {
+  const parts: GroupPartRender[] = [];
+  const noteQueue = [...notesInGroup].sort((left, right) => left.from - right.from);
+  let cursor = groupStart + 1;
+
+  while (cursor < closeBrace) {
+    const nextNote = noteQueue[0];
+
+    if (nextNote && nextNote.from === cursor) {
+      noteQueue.shift();
+
+      const skin = options.noteSkins[nextNote.noteIndex];
+      const color =
+        skin?.color ??
+        (options.isNoteColoringEnabled
+          ? nextNote.color
+          : "hsla(0, 0%, 100%, 0.82)");
+      const inlineDuration = extractTrailingDuration(content, nextNote.to);
+      const activeState = activeByKey.get(nextNote.noteKey);
+      const isFilled = filledNoteKeys.has(nextNote.noteKey);
+
+      parts.push({
+        kind: "note",
+        text: skin?.label ?? resolveDisplayLabel(nextNote, options) ?? nextNote.text,
+        inlineDuration,
+        style: activeState
+          ? buildFilledTokenStyle(
+              color,
+              getFillScale(
+                options.isProgressiveFillEnabled ? activeState.progress : 100
+              ),
+              options.isPatternTextColoringEnabled,
+              skin
+            )
+          : isFilled
+            ? buildFilledTokenStyle(
+                color,
+                1,
+                options.isPatternTextColoringEnabled,
+                skin
+              )
+            : buildPassiveTokenStyle(color, options.isNoteColoringEnabled, skin),
+        active: Boolean(activeState),
+        begin: activeState?.begin,
+        compact: false,
+      });
+
+      cursor = nextNote.to + (inlineDuration?.length ?? 0);
+      continue;
+    }
+
+    if (content[cursor] === "~") {
+      const inlineDuration = extractTrailingDuration(content, cursor + 1);
+      parts.push({
+        kind: "rest",
+        text: "~",
+        inlineDuration,
+        compact: false,
+      });
+      cursor += 1 + (inlineDuration?.length ?? 0);
+      continue;
+    }
+
+    let end = cursor + 1;
+    while (end < closeBrace) {
+      const upcomingNote = noteQueue[0];
+      if ((upcomingNote && upcomingNote.from === end) || content[end] === "~") {
+        break;
+      }
+      end++;
+    }
+
+    const punct = content.slice(cursor, end);
+    if (punct) {
+      parts.push({
+        kind: "punct",
+        text: punct,
+      });
+    }
+    cursor = end;
   }
 
-  if (options.notationMode === "degree") {
-    return String(Number(note.text) + 1);
+  return parts;
+}
+
+function isCompactChord(parts: GroupPartRender[]) {
+  const meaningfulParts = parts.filter((part) => part.kind !== "punct");
+  if (!meaningfulParts.length) {
+    return false;
   }
 
-  if (options.notationMode === "solfege") {
-    const labels =
-      options.scaleMode === "minor" ? SOLFEGE_LABELS.minor : SOLFEGE_LABELS.major;
-    return labels[Number(note.text)] ?? note.text;
+  return meaningfulParts.every((part) => part.kind === "note") &&
+    parts
+      .filter((part): part is Extract<GroupPartRender, { kind: "punct" }> => part.kind === "punct")
+      .every((part) => /^[,\s]+$/.test(part.text));
+}
+
+function collectActiveNotes(
+  notes: NoteToken[],
+  haps: HapLike[],
+  atTime: NumericLike
+) {
+  const activeByKey = new Map<string, ActiveNoteState>();
+
+  for (const note of notes) {
+    for (const hap of haps) {
+      if (!isTokenActive(note, hap) || !hap.whole) {
+        continue;
+      }
+
+      const begin = hap.whole.begin.valueOf();
+      const cycle = Math.floor(begin);
+      const existing = activeByKey.get(note.noteKey);
+      const nextState: ActiveNoteState = {
+        noteKey: note.noteKey,
+        cycle,
+        progress: getProgressPercent(atTime, hap),
+        begin,
+      };
+
+      if (
+        !existing ||
+        cycle > existing.cycle ||
+        (cycle === existing.cycle && begin >= existing.begin)
+      ) {
+        activeByKey.set(note.noteKey, nextState);
+      }
+    }
   }
 
-  return undefined;
+  if (!activeByKey.size) {
+    return {
+      cycle: null as number | null,
+      activeByKey,
+    };
+  }
+
+  const currentCycle = Math.max(...Array.from(activeByKey.values()).map((state) => state.cycle));
+  const currentCycleEntries = new Map(
+    Array.from(activeByKey.entries()).filter(([, state]) => state.cycle === currentCycle)
+  );
+
+  return {
+    cycle: currentCycle,
+    activeByKey: currentCycleEntries,
+  };
 }
 
 class StripTokenWidget extends WidgetType {
@@ -512,12 +744,21 @@ class StripTokenWidget extends WidgetType {
 
   toDOM() {
     const element = document.createElement("span");
-    element.className =
-      this.token.kind === "rest"
-        ? "cm-live-strip-token cm-live-strip-token--rest"
-        : this.token.isActive
-          ? "cm-live-strip-token cm-live-strip-token--active"
-          : "cm-live-strip-token";
+    const classes = ["cm-live-strip-token"];
+
+    if (this.token.kind === "rest") {
+      classes.push("cm-live-strip-token--rest");
+    }
+
+    if (this.token.kind === "group") {
+      classes.push("cm-live-strip-token--group");
+    }
+
+    if (this.token.isActive) {
+      classes.push("cm-live-strip-token--active");
+    }
+
+    element.className = classes.join(" ");
 
     if (this.token.style) {
       element.setAttribute("style", this.token.style);
@@ -527,14 +768,18 @@ class StripTokenWidget extends WidgetType {
       element.setAttribute("data-strudel-note-color", this.token.color);
     }
 
-    if (this.token.noteIndex != null) {
-      element.setAttribute("data-note-index", String(this.token.noteIndex));
+    if (this.token.followRank != null) {
+      element.setAttribute("data-follow-rank", String(this.token.followRank));
     }
 
-    const label = document.createElement("span");
-    label.className = "cm-live-strip-token__label";
-    label.textContent = this.token.label ?? "";
-    element.appendChild(label);
+    if (this.token.kind === "group") {
+      element.appendChild(this.renderGroupBody());
+    } else {
+      const label = document.createElement("span");
+      label.className = "cm-live-strip-token__label";
+      label.textContent = this.token.label ?? "";
+      element.appendChild(label);
+    }
 
     if (this.token.duration) {
       const duration = document.createElement("span");
@@ -546,9 +791,84 @@ class StripTokenWidget extends WidgetType {
     return element;
   }
 
+  private renderGroupBody() {
+    const body = document.createElement("span");
+    body.className = "cm-live-strip-token__group";
+
+    const openBrace = document.createElement("span");
+    openBrace.className = "cm-live-strip-token__brace";
+    openBrace.textContent = "{";
+    body.appendChild(openBrace);
+
+    const inner = document.createElement("span");
+    inner.className = `cm-live-strip-token__group-inner cm-live-strip-token__group-inner--${this.token.displayMode ?? "literal"}`;
+
+    for (const part of this.token.parts ?? []) {
+      inner.appendChild(renderGroupPart(part));
+    }
+
+    body.appendChild(inner);
+
+    const closeBrace = document.createElement("span");
+    closeBrace.className = "cm-live-strip-token__brace";
+    closeBrace.textContent = "}";
+    body.appendChild(closeBrace);
+
+    return body;
+  }
+
   ignoreEvent() {
     return false;
   }
+}
+
+function renderGroupPart(part: GroupPartRender) {
+  if (part.kind === "punct") {
+    const punct = document.createElement("span");
+    punct.className = "cm-live-strip-part cm-live-strip-part--punct";
+    punct.textContent = part.text;
+    return punct;
+  }
+
+  const element = document.createElement("span");
+  element.className =
+    part.kind === "note"
+      ? [
+          "cm-live-strip-part",
+          "cm-live-strip-part--note",
+          part.active ? "cm-live-strip-part--active" : "",
+          part.compact ? "cm-live-strip-part--compact" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : [
+          "cm-live-strip-part",
+          "cm-live-strip-part--rest",
+          part.compact ? "cm-live-strip-part--compact" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+  if (part.kind === "note") {
+    element.setAttribute("style", part.style);
+  }
+
+  const label = document.createElement("span");
+  label.className =
+    part.kind === "note"
+      ? "cm-live-strip-part__label"
+      : "cm-live-strip-part__rest-label";
+  label.textContent = part.text;
+  element.appendChild(label);
+
+  if (part.inlineDuration) {
+    const meta = document.createElement("span");
+    meta.className = "cm-live-strip-part__meta";
+    meta.textContent = part.inlineDuration;
+    element.appendChild(meta);
+  }
+
+  return element;
 }
 
 function isTokenActive(token: NoteToken, hap: HapLike) {
@@ -559,6 +879,70 @@ function isTokenActive(token: NoteToken, hap: HapLike) {
   return hap.context.locations.some(
     ({ start, end }) => start < token.to && end > token.from
   );
+}
+
+function extractPatternSegments(
+  content: string,
+  bounds: { start: number; end: number } | null
+) {
+  if (!bounds) {
+    return [];
+  }
+
+  const segments: PatternSegment[] = [];
+  let cursor = bounds.start + 1;
+
+  while (cursor < bounds.end) {
+    if (/\s/.test(content[cursor])) {
+      cursor++;
+      continue;
+    }
+
+    if (content[cursor] === "{") {
+      const from = cursor;
+      let depth = 1;
+      cursor++;
+
+      while (cursor < bounds.end && depth > 0) {
+        if (content[cursor] === "{") {
+          depth++;
+        } else if (content[cursor] === "}") {
+          depth--;
+        }
+        cursor++;
+      }
+
+      const closeBrace = cursor - 1;
+      const duration = extractTrailingDuration(content, closeBrace + 1);
+      const to = closeBrace + 1 + (duration?.length ?? 0);
+      segments.push({
+        kind: "group",
+        from,
+        to,
+        closeBrace,
+      });
+      cursor = to;
+      continue;
+    }
+
+    const from = cursor;
+    while (cursor < bounds.end && !/\s/.test(content[cursor])) {
+      cursor++;
+    }
+
+    const text = content.slice(from, cursor);
+    if (!text) {
+      continue;
+    }
+
+    segments.push({
+      kind: text.startsWith("~") ? "rest" : "note",
+      from,
+      to: cursor,
+    });
+  }
+
+  return segments;
 }
 
 function extractTrailingDuration(content: string, start: number) {
@@ -586,6 +970,24 @@ function isInsidePattern(position: number, bounds: { start: number; end: number 
   }
 
   return position > bounds.start && position < bounds.end;
+}
+
+function resolveDisplayLabel(note: NoteToken, options: PlaybackHighlightOptions) {
+  if (!note.isRelative) {
+    return undefined;
+  }
+
+  if (options.notationMode === "degree") {
+    return String(Number(note.text) + 1);
+  }
+
+  if (options.notationMode === "solfege") {
+    const labels =
+      options.scaleMode === "minor" ? SOLFEGE_LABELS.minor : SOLFEGE_LABELS.major;
+    return labels[Number(note.text)] ?? note.text;
+  }
+
+  return undefined;
 }
 
 function buildPassiveTokenStyle(

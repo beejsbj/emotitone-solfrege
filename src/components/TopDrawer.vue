@@ -2,13 +2,15 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 
 interface Props {
-  position?: "top-left" | "top-right";
-  floating?: boolean;
+  anchor?: "top-left" | "top-right";
+  offsetTop?: string;
+  offsetSide?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  position: "top-right",
-  floating: true,
+  anchor: "top-right",
+  offsetTop: "1rem",
+  offsetSide: "1rem",
 });
 
 const showPanel = ref(false);
@@ -23,29 +25,18 @@ const closePanel = () => {
   showPanel.value = false;
 };
 
-const panelFrameClass = computed(() => {
-  if (!props.floating) {
-    return "floating-dropdown__panel-frame--inline";
-  }
-
-  return "floating-dropdown__panel-frame--floating";
-});
-
-const triggerClass = computed(() => {
-  if (!props.floating) {
-    return "floating-dropdown__trigger--inline";
-  }
-
-  return props.position === "top-left"
-    ? "floating-dropdown__trigger--left"
-    : "floating-dropdown__trigger--right";
-});
+const panelStyle = computed(() => ({
+  paddingTop: props.offsetTop,
+  paddingLeft: props.offsetSide,
+  paddingRight: props.offsetSide,
+}));
 
 const handlePointerDown = (event: MouseEvent) => {
   if (!showPanel.value) return;
 
   const target = event.target as Node;
-  const clickedTrigger = triggerRef.value && triggerRef.value.contains(target);
+  const clickedTrigger =
+    triggerRef.value && triggerRef.value.contains(target);
   const clickedPanel = panelRef.value && panelRef.value.contains(target);
 
   if (!clickedTrigger && !clickedPanel) {
@@ -77,13 +68,13 @@ defineExpose({
 </script>
 
 <template>
-  <div class="floating-dropdown">
+  <div class="top-drawer">
     <div
       v-if="!showPanel"
       ref="triggerRef"
-      data-testid="floating-dropdown-trigger"
-      class="floating-dropdown__trigger"
-      :class="triggerClass"
+      data-testid="top-drawer-trigger"
+      class="top-drawer__trigger"
+      :class="anchor === 'top-left' ? 'top-drawer__trigger--left' : 'top-drawer__trigger--right'"
     >
       <slot
         name="trigger"
@@ -95,24 +86,24 @@ defineExpose({
     </div>
 
     <Teleport to="body">
-      <Transition name="floating-dropdown-fade">
+      <Transition name="top-drawer-slide">
         <div
           v-if="showPanel"
-          class="floating-dropdown__panel-frame"
-          :class="panelFrameClass"
+          class="top-drawer__panel-frame"
+          :style="panelStyle"
         >
           <div
             ref="panelRef"
-            data-testid="floating-dropdown-panel"
-            class="floating-dropdown__panel"
+            data-testid="top-drawer-panel"
+            class="top-drawer__panel"
           >
             <slot
               name="panel"
-              :close="closePanel"
               :toggle="togglePanel"
               :open="togglePanel"
+              :close="closePanel"
               :is-open="showPanel"
-              :position="position"
+              :anchor="anchor"
             />
           </div>
         </div>
@@ -122,71 +113,54 @@ defineExpose({
 </template>
 
 <style scoped>
-.floating-dropdown {
+.top-drawer {
   position: relative;
 }
 
-.floating-dropdown__trigger {
+.top-drawer__trigger {
+  position: fixed;
   z-index: 9999;
 }
 
-.floating-dropdown__trigger--left {
-  position: fixed;
+.top-drawer__trigger--left {
   top: 1rem;
   left: 1rem;
 }
 
-.floating-dropdown__trigger--right {
-  position: fixed;
+.top-drawer__trigger--right {
   top: 1rem;
   right: 1rem;
 }
 
-.floating-dropdown__trigger--inline {
-  position: relative;
-}
-
-.floating-dropdown__panel-frame {
-  z-index: 9999;
-}
-
-.floating-dropdown__panel-frame--floating {
-  z-index: 9999;
+.top-drawer__panel-frame {
   position: fixed;
   inset: 0;
+  z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding:
-    max(env(safe-area-inset-top), 0px) 0.75rem 0.75rem;
   pointer-events: none;
 }
 
-.floating-dropdown__panel-frame--inline {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  left: 0;
-}
-
-.floating-dropdown__panel {
+.top-drawer__panel {
   pointer-events: auto;
 }
 
-.floating-dropdown-fade-enter-active,
-.floating-dropdown-fade-leave-active {
+.top-drawer-slide-enter-active,
+.top-drawer-slide-leave-active {
   transition:
-    transform 0.18s ease,
-    opacity 0.18s ease;
+    transform 0.22s ease,
+    opacity 0.22s ease;
 }
 
-.floating-dropdown-fade-enter-from,
-.floating-dropdown-fade-leave-to {
-  transform: translateY(-10px);
+.top-drawer-slide-enter-from,
+.top-drawer-slide-leave-to {
+  transform: translateY(-18px);
   opacity: 0;
 }
 
-.floating-dropdown-fade-enter-to,
-.floating-dropdown-fade-leave-from {
+.top-drawer-slide-enter-to,
+.top-drawer-slide-leave-from {
   transform: translateY(0);
   opacity: 1;
 }

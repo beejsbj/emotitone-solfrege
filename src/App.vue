@@ -37,6 +37,7 @@
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useAppLoading } from "@/composables/useAppLoading";
+import { useMidiControls } from "@/composables/useMidiControls";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
@@ -51,6 +52,7 @@ import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
 const musicStore = useMusicStore();
 const patternsStore = usePatternsStore(); // Initialize patterns store
 const { isLoading } = useAppLoading();
+useMidiControls();
 
 const handleScroll = (direction: number) => {
   const container = document.querySelector(".sticky");

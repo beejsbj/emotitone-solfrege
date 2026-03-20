@@ -57,7 +57,7 @@ const store = useKeyboardDrawerStore();
 const { animateDrawer } = useKeyboardDrawer(drawerRef) as any;
 
 // Physical keyboard controls integration
-const keyboardControls = useKeyboardControls(
+useKeyboardControls(
   computed(() => store.keyboardConfig.mainOctave)
 );
 

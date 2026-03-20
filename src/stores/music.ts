@@ -9,6 +9,7 @@ import type {
 } from "@/types/music";
 import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
+import { Note as TonalNote } from "@tonaljs/tonal";
 import {
   MAJOR_SOLFEGE,
   MINOR_SOLFEGE,
@@ -37,6 +38,39 @@ function toneNotationToMs(notation: string, bpm: number = 120): number {
 
 // Type for chromatic note with octave (e.g., "C4", "F#5")
 type ChromaticNoteWithOctave = `${ChromaticNote}${number}`;
+
+function normalizePitchClass(noteName: string): ChromaticNote | null {
+  const candidates = [noteName, TonalNote.enharmonic(noteName)]
+    .map((candidate) => TonalNote.get(candidate).pc)
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (CHROMATIC_NOTES.includes(candidate as ChromaticNote)) {
+      return candidate as ChromaticNote;
+    }
+  }
+
+  return null;
+}
+
+function parseNoteWithOctave(
+  note: string
+): { noteName: ChromaticNote; octave: number } | null {
+  const match = note.trim().match(/^([A-Ga-g](?:#|b)?)(-?\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, rawNoteName, rawOctave] = match;
+  const noteName = normalizePitchClass(rawNoteName);
+  const octave = Number.parseInt(rawOctave, 10);
+
+  if (!noteName || Number.isNaN(octave)) {
+    return null;
+  }
+
+  return { noteName, octave };
+}
 
 export const useMusicStore = defineStore(
   "music",
@@ -74,44 +108,65 @@ export const useMusicStore = defineStore(
 
     // Melody-related getters (removed)
 
+    function getBaseOctave(
+      noteName: ChromaticNote,
+      actualOctave: number
+    ): number {
+      const noteIndex = CHROMATIC_NOTES.indexOf(noteName);
+      const keyIndex = CHROMATIC_NOTES.indexOf(
+        currentKey.value as ChromaticNote
+      );
+
+      if (noteIndex === -1 || keyIndex === -1) {
+        return actualOctave;
+      }
+
+      return noteIndex < keyIndex ? actualOctave - 1 : actualOctave;
+    }
+
     // Helper function to convert note input to solfege index and octave
     function parseNoteInput(
       note: NoteInput
     ): { solfegeIndex: number; octave: number } | null {
       if (typeof note === "string") {
-        // Handle chromatic note with octave (e.g., "C4", "F#5")
-        const noteName = note.slice(0, -1);
-        const octave = parseInt(note.slice(-1));
+        const parsedNote = parseNoteWithOctave(note);
+        if (!parsedNote) {
+          return null;
+        }
+
+        const { noteName, octave } = parsedNote;
 
         // Get current scale notes
         const scaleNotes = currentScaleNotes.value;
 
         // Try to find exact match in scale
-        const noteInScale = scaleNotes.find((n) => {
-          const normalizedNote = n.replace("#", "").replace("b", "");
-          const normalizedInput = noteName.replace("#", "").replace("b", "");
-          return normalizedNote === normalizedInput;
-        });
-
-        if (noteInScale) {
+        const noteInScaleIndex = scaleNotes.indexOf(noteName);
+        if (noteInScaleIndex !== -1) {
           return {
-            solfegeIndex: scaleNotes.indexOf(noteInScale),
-            octave,
+            solfegeIndex: noteInScaleIndex,
+            octave: getBaseOctave(noteName, octave),
           };
         }
 
         // If not in scale, find closest scale degree
-        const chromaticIndex = CHROMATIC_NOTES.indexOf(
-          noteName as ChromaticNote
-        );
+        const chromaticIndex = CHROMATIC_NOTES.indexOf(noteName);
         if (chromaticIndex !== -1) {
           const keyIndex = CHROMATIC_NOTES.indexOf(
             currentKey.value as ChromaticNote
           );
           const relativeIndex = (chromaticIndex - keyIndex + 12) % 12;
+          const solfegeIndex = Math.floor(relativeIndex / 2);
+          const mappedNoteName = scaleNotes[solfegeIndex] as
+            | ChromaticNote
+            | undefined;
+
+          if (!mappedNoteName) {
+            return null;
+          }
+
           return {
-            solfegeIndex: Math.floor(relativeIndex / 2),
-            octave,
+            solfegeIndex,
+            octave: getBaseOctave(mappedNoteName, octave),
           };
         }
 
@@ -126,23 +181,22 @@ export const useMusicStore = defineStore(
     function parseChromatic(
       note: ChromaticNoteWithOctave
     ): { solfegeIndex: number; octave: number } | null {
-      const noteName = note.slice(0, -1) as ChromaticNote;
-      const octave = parseInt(note.slice(-1));
+      const parsedNote = parseNoteWithOctave(note);
+      if (!parsedNote) {
+        return null;
+      }
+
+      const { noteName, octave } = parsedNote;
 
       // Get current scale notes
       const scaleNotes = currentScaleNotes.value;
 
       // Try to find exact match in scale
-      const noteInScale = scaleNotes.find((n) => {
-        const normalizedNote = n.replace("#", "").replace("b", "");
-        const normalizedInput = noteName.replace("#", "").replace("b", "");
-        return normalizedNote === normalizedInput;
-      });
-
-      if (noteInScale) {
+      const noteInScaleIndex = scaleNotes.indexOf(noteName);
+      if (noteInScaleIndex !== -1) {
         return {
-          solfegeIndex: scaleNotes.indexOf(noteInScale),
-          octave,
+          solfegeIndex: noteInScaleIndex,
+          octave: getBaseOctave(noteName, octave),
         };
       }
 
@@ -153,9 +207,18 @@ export const useMusicStore = defineStore(
           currentKey.value as ChromaticNote
         );
         const relativeIndex = (chromaticIndex - keyIndex + 12) % 12;
+        const solfegeIndex = Math.floor(relativeIndex / 2);
+        const mappedNoteName = scaleNotes[solfegeIndex] as
+          | ChromaticNote
+          | undefined;
+
+        if (!mappedNoteName) {
+          return null;
+        }
+
         return {
-          solfegeIndex: Math.floor(relativeIndex / 2),
-          octave,
+          solfegeIndex,
+          octave: getBaseOctave(mappedNoteName, octave),
         };
       }
 
@@ -271,7 +334,13 @@ export const useMusicStore = defineStore(
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
 
-        const cleanNoteId = `${noteName}_${solfegeIndex}_${finalOctave}`;
+        const cleanNoteId = [
+          noteName,
+          solfegeIndex,
+          finalOctave,
+          Date.now(),
+          Math.random().toString(36).slice(2, 8),
+        ].join("_");
 
         // Fire-and-forget via superdough — it manages its own voice lifecycle
         await superdoughAudio.attackNote(

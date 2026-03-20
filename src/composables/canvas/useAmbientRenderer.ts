@@ -4,8 +4,58 @@
  */
 
 import type { AmbientConfig } from "@/types/visual";
+import type { ChromaticNote, MusicalMode } from "@/types/music";
+import { getScaleForMode } from "@/data";
+import { useColorSystem } from "../useColorSystem";
+
+const HSLA_PATTERN =
+  /hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%(?:\s*,\s*([\d.]+))?\s*\)/i;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function tuneAmbientColor(
+  color: string,
+  saturationMultiplier: number,
+  brightnessMultiplier: number,
+  alpha: number
+): string {
+  const match = color.match(HSLA_PATTERN);
+  if (!match) {
+    return color;
+  }
+
+  const hue = Number(match[1]);
+  const saturation = clamp(Number(match[2]) * saturationMultiplier, 0, 100);
+  const lightness = clamp(Number(match[3]) * brightnessMultiplier, 0, 100);
+
+  return `hsla(${hue}, ${saturation}%, ${lightness}%, ${clamp(alpha, 0, 1)})`;
+}
+
+function resolveAmbientContext(musicStore: any) {
+  const activeNotes =
+    typeof musicStore?.getActiveNotes === "function"
+      ? musicStore.getActiveNotes()
+      : [];
+  const firstActiveNote = activeNotes[0];
+  const mode = (firstActiveNote?.mode ?? musicStore?.currentMode ?? "major") as MusicalMode;
+  const key = (firstActiveNote?.key ?? musicStore?.currentKey ?? "C") as ChromaticNote;
+  const scale = getScaleForMode(mode);
+  const accentIndex = scale.degreeCount > 1 ? Math.floor(scale.degreeCount / 2) : 0;
+  const highlightIndex = firstActiveNote?.solfegeIndex ?? accentIndex;
+
+  return {
+    mode,
+    key,
+    accentIndex,
+    highlightIndex,
+  };
+}
 
 export function useAmbientRenderer() {
+  const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+
   /**
    * Render subtle texture overlay
    */
@@ -41,6 +91,10 @@ export function useAmbientRenderer() {
 
   /**
    * Render ambient background
+   *
+   * Note: the config field names retain their legacy "major/minor" keys so
+   * persisted configs remain compatible, but they now control a tonic/accent
+   * ambient wash rather than a binary major/minor split.
    */
   const renderAmbientBackground = (
     ctx: CanvasRenderingContext2D,
@@ -48,7 +102,7 @@ export function useAmbientRenderer() {
     ambientConfig: AmbientConfig,
     canvasWidth: number,
     canvasHeight: number,
-    _musicStore: any,
+    musicStore: any,
     getCachedGradient: (
       key: string,
       createFn: () => CanvasGradient
@@ -56,8 +110,41 @@ export function useAmbientRenderer() {
   ) => {
     if (!ctx) return;
 
-    // Simple black background with subtle warm lighting
-    const gradientKey = `ambient-warm`;
+    const context = resolveAmbientContext(musicStore);
+    const tonicColor = getStaticPrimaryColorByScaleIndex(
+      0,
+      context.mode,
+      context.key,
+      4
+    );
+    const accentColor = getStaticPrimaryColorByScaleIndex(
+      context.highlightIndex,
+      context.mode,
+      context.key,
+      4
+    );
+    const supportColor = getStaticPrimaryColorByScaleIndex(
+      context.accentIndex,
+      context.mode,
+      context.key,
+      3
+    );
+
+    const gradientKey = [
+      "ambient",
+      context.key,
+      context.mode,
+      context.highlightIndex,
+      canvasWidth,
+      canvasHeight,
+      ambientConfig.opacityMajor,
+      ambientConfig.opacityMinor,
+      ambientConfig.brightnessMajor,
+      ambientConfig.brightnessMinor,
+      ambientConfig.saturationMajor,
+      ambientConfig.saturationMinor,
+    ].join("-");
+
     const gradient = getCachedGradient(gradientKey, () => {
       const grad = ctx.createRadialGradient(
         canvasWidth * 0.5,
@@ -68,10 +155,34 @@ export function useAmbientRenderer() {
         Math.max(canvasWidth, canvasHeight) * 0.8
       );
 
-      // Warm subtle lighting on black
-      grad.addColorStop(0, "rgba(40, 30, 20, 0.3)"); // Warm center
-      grad.addColorStop(0.6, "rgba(20, 15, 10, 0.6)"); // Darker warm
-      grad.addColorStop(1, "rgba(0, 0, 0, 0.9)"); // Black edges
+      grad.addColorStop(
+        0,
+        tuneAmbientColor(
+          tonicColor,
+          ambientConfig.saturationMajor,
+          ambientConfig.brightnessMajor,
+          ambientConfig.opacityMajor * 0.55
+        )
+      );
+      grad.addColorStop(
+        0.45,
+        tuneAmbientColor(
+          accentColor,
+          ambientConfig.saturationMinor,
+          ambientConfig.brightnessMinor,
+          ambientConfig.opacityMinor * 0.45
+        )
+      );
+      grad.addColorStop(
+        0.72,
+        tuneAmbientColor(
+          supportColor,
+          ambientConfig.saturationMinor,
+          ambientConfig.brightnessMinor,
+          ambientConfig.opacityMinor * 0.2
+        )
+      );
+      grad.addColorStop(1, "rgba(0, 0, 0, 0.94)");
 
       return grad;
     });
@@ -80,7 +191,7 @@ export function useAmbientRenderer() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Apply warm lighting gradient
+    // Apply mode-aware ambient lighting gradient
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 

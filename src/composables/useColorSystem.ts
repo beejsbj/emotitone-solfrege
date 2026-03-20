@@ -1,87 +1,86 @@
 /**
  * Unified Color System
- * Single source of truth for all color-related functionality in the application
- * Combines dynamic color generation with reactive Vue composable patterns
+ * Dynamic colors are scale-relative; the persisted chromaticMapping toggle
+ * is reinterpreted as static 12-pitch-class coloring.
  */
 
-import { ref, computed, onUnmounted } from "vue";
+import { computed, onUnmounted, ref } from "vue";
 import { useVisualConfig } from "./useVisualConfig";
 import type {
-  NoteColorRelationships,
+  ChromaticNote,
   DynamicColorConfig,
   MusicalMode,
+  NoteColorRelationships,
 } from "@/types";
-import { CHROMATIC_NOTES, SOLFEGE_NOTES } from "@/data";
+import {
+  ALL_SOLFEGE_NOTES,
+  CHROMATIC_NOTES,
+  getScaleForMode,
+} from "@/data";
 
-/**
- * Solfege note names for mapping
- */
+const FLAT_TO_SHARP_MAP: Record<string, ChromaticNote> = {
+  Db: "C#",
+  Eb: "D#",
+  Gb: "F#",
+  Ab: "G#",
+  Bb: "A#",
+};
 
-/**
- * Calculate base hue for a note index (center of the hue interval)
- */
-function calculateBaseHue(
-  noteIndex: number,
-  chromaticMapping: boolean
-): number {
-  const totalNotes = chromaticMapping ? 12 : 7;
-  const hueInterval = 360 / totalNotes;
-  // Place hue at the center of the interval
+const EDGE_CASE_MAP: Record<string, ChromaticNote> = {
+  "E#": "F",
+  "B#": "C",
+  Fb: "E",
+  Cb: "B",
+};
+
+function normalizeIndex(index: number, base: number): number {
+  return ((index % base) + base) % base;
+}
+
+function calculateChromaticBaseHue(noteIndex: number): number {
+  const hueInterval = 360 / 12;
   return (noteIndex * hueInterval + hueInterval / 2) % 360;
 }
 
-/**
- * Calculate octave-based lightness
- */
+function calculateDegreeBaseHue(
+  scaleIndex: number,
+  degreeCount: number,
+  key: ChromaticNote
+): number {
+  const tonicIndex = CHROMATIC_NOTES.indexOf(key);
+  const tonicHue = calculateChromaticBaseHue(Math.max(0, tonicIndex));
+  const hueInterval = 360 / degreeCount;
+  return (tonicHue + normalizeIndex(scaleIndex, degreeCount) * hueInterval) % 360;
+}
 
 function calculateOctaveLightness(
   octave: number,
   baseLightness: number,
   lightnessRange: number
 ): number {
-  // Map octaves 2-8 to lightness range with more dramatic differences
   const normalizedOctave = Math.max(2, Math.min(8, octave));
-  const octaveRatio = (normalizedOctave - 2) / 6; // 0 to 1 across 6 octaves
-
-  // Use a more dramatic lightness curve for better visual distinction
-  // Lower octaves are much darker, higher octaves are much lighter
-  const minLightness = Math.max(0.15, baseLightness - lightnessRange / 2); // Ensure minimum 15%
-  const maxLightness = Math.min(0.85, baseLightness + lightnessRange / 2); // Ensure maximum 85%
-
-  // Apply a slight curve to make the differences more pronounced
-  // This makes lower octaves darker and higher octaves lighter more dramatically
-  const curvedRatio = Math.pow(octaveRatio, 0.8); // Slight curve for better distribution
-
+  const octaveRatio = (normalizedOctave - 2) / 6;
+  const minLightness = Math.max(0.15, baseLightness - lightnessRange / 2);
+  const maxLightness = Math.min(0.85, baseLightness + lightnessRange / 2);
+  const curvedRatio = Math.pow(octaveRatio, 0.8);
   const lightness = minLightness + curvedRatio * (maxLightness - minLightness);
-
-  // Ensure lightness stays within valid range
   return Math.max(0.1, Math.min(0.9, lightness));
 }
 
-/**
- * Generate color relationships from hue, saturation, and lightness
- */
 function generateColorRelationships(
   hue: number,
   saturation: number,
   lightness: number
 ): NoteColorRelationships {
-  // Primary: base color
   const primary = `hsla(${hue}, ${saturation * 100}%, ${lightness * 100}%, 1)`;
-
-  // Accent: complementary hue (180° opposite)
   const accentHue = (hue + 180) % 360;
   const accent = `hsla(${accentHue}, ${saturation * 100}%, ${
     lightness * 100
   }%, 1)`;
-
-  // Secondary: triadic harmony (+120°)
   const secondaryHue = (hue + 120) % 360;
   const secondary = `hsla(${secondaryHue}, ${saturation * 100}%, ${
     lightness * 100
   }%, 1)`;
-
-  // Tertiary: triadic harmony (-120°)
   const tertiaryHue = (hue + 240) % 360;
   const tertiary = `hsla(${tertiaryHue}, ${saturation * 100}%, ${
     lightness * 100
@@ -90,83 +89,152 @@ function generateColorRelationships(
   return { primary, accent, secondary, tertiary };
 }
 
-/**
- * Generate animated hue within the note's range
- */
 function generateAnimatedHue(
   baseHue: number,
   amplitude: number,
   time: number,
   speed: number,
-  chromaticMapping: boolean
+  intervalCount: number
 ): number {
-  const totalNotes = chromaticMapping ? 12 : 7;
-  const hueInterval = 360 / totalNotes;
-
-  // Ensure amplitude doesn't exceed half the interval to prevent overlap
-  const maxAmplitude = hueInterval / 2;
-  const clampedAmplitude = Math.min(amplitude, maxAmplitude);
-
-  // Use sine wave for smooth animation
+  const hueInterval = 360 / intervalCount;
+  const clampedAmplitude = Math.min(amplitude, hueInterval / 2);
   const animationOffset = Math.sin(time * speed * 0.001) * clampedAmplitude;
-
   return (baseHue + animationOffset + 360) % 360;
 }
 
-/**
- * Get note index from name
- */
-function getNoteIndex(noteName: string, chromaticMapping: boolean): number {
-  const cleanName = noteName.replace("'", "");
+function normalizeChromaticNote(noteName: string): ChromaticNote | null {
+  const cleanName = noteName.replace(/[0-9']/g, "");
 
-  if (chromaticMapping) {
-    return CHROMATIC_NOTES.indexOf(cleanName as any);
-  } else {
-    return SOLFEGE_NOTES.indexOf(cleanName);
+  if (CHROMATIC_NOTES.includes(cleanName as ChromaticNote)) {
+    return cleanName as ChromaticNote;
   }
+
+  if (EDGE_CASE_MAP[cleanName]) {
+    return EDGE_CASE_MAP[cleanName];
+  }
+
+  return FLAT_TO_SHARP_MAP[cleanName] ?? null;
 }
 
-/**
- * Generate dynamic colors for a note
- */
-function generateDynamicNoteColors(
-  noteIndex: number,
+function getChromaticNoteForScaleIndex(
+  scaleIndex: number,
+  mode: MusicalMode,
+  key: ChromaticNote
+): ChromaticNote | null {
+  const scale = getScaleForMode(mode);
+  const normalizedScaleIndex = normalizeIndex(scaleIndex, scale.degreeCount);
+  const semitoneOffset = scale.intervals[normalizedScaleIndex];
+  const tonicIndex = CHROMATIC_NOTES.indexOf(key);
+
+  if (tonicIndex === -1 || semitoneOffset == null) {
+    return null;
+  }
+
+  return CHROMATIC_NOTES[(tonicIndex + semitoneOffset) % 12];
+}
+
+function getScaleIndexForSolfegeName(
+  noteName: string,
+  mode: MusicalMode
+): number | null {
+  const scale = getScaleForMode(mode);
+  const cleanName = noteName.replace("'", "");
+  const matchIndex = scale.solfege.findIndex(
+    (note) => note.name.toLowerCase() === cleanName.toLowerCase()
+  );
+
+  return matchIndex === -1 ? null : matchIndex;
+}
+
+function getFallbackScaleIndexForChromaticNote(
+  noteName: ChromaticNote,
+  mode: MusicalMode,
+  key: ChromaticNote
+): number | null {
+  const scale = getScaleForMode(mode);
+  const chromaticIndex = CHROMATIC_NOTES.indexOf(noteName);
+  const tonicIndex = CHROMATIC_NOTES.indexOf(key);
+
+  if (chromaticIndex === -1 || tonicIndex === -1) {
+    return null;
+  }
+
+  const relativeSemitone = (chromaticIndex - tonicIndex + 12) % 12;
+  let fallbackIndex = 0;
+
+  for (let index = 0; index < scale.intervals.length; index++) {
+    if (scale.intervals[index] <= relativeSemitone) {
+      fallbackIndex = index;
+    } else {
+      break;
+    }
+  }
+
+  return fallbackIndex;
+}
+
+function getDynamicNoteColors(
+  scaleIndex: number,
   octave: number,
+  key: ChromaticNote,
+  degreeCount: number,
   config: DynamicColorConfig,
   time?: number
 ): NoteColorRelationships {
-  const baseHue = calculateBaseHue(noteIndex, config.chromaticMapping);
-
-  // Use animated hue if time is provided, otherwise use base hue
-  const currentHue =
+  const baseHue = calculateDegreeBaseHue(scaleIndex, degreeCount, key);
+  const hue =
     time !== undefined
       ? generateAnimatedHue(
           baseHue,
           config.hueAnimationAmplitude,
           time,
           config.animationSpeed,
-          config.chromaticMapping
+          degreeCount
         )
       : baseHue;
-
   const lightness = calculateOctaveLightness(
     octave,
     config.baseLightness,
     config.lightnessRange
   );
 
-  return generateColorRelationships(currentHue, config.saturation, lightness);
+  return generateColorRelationships(hue, config.saturation, lightness);
 }
 
-// Singleton instance for animation management
+function getStaticChromaticNoteColors(
+  chromaticNote: ChromaticNote,
+  octave: number,
+  config: DynamicColorConfig,
+  time?: number
+): NoteColorRelationships {
+  const noteIndex = CHROMATIC_NOTES.indexOf(chromaticNote);
+  const baseHue = calculateChromaticBaseHue(Math.max(0, noteIndex));
+  const hue =
+    time !== undefined
+      ? generateAnimatedHue(
+          baseHue,
+          config.hueAnimationAmplitude,
+          time,
+          config.animationSpeed,
+          12
+        )
+      : baseHue;
+  const lightness = calculateOctaveLightness(
+    octave,
+    config.baseLightness,
+    config.lightnessRange
+  );
+
+  return generateColorRelationships(hue, config.saturation, lightness);
+}
+
 let animationId: number | null = null;
 const animationTime = ref(0);
 
-/**
- * Start global animation loop
- */
 function startGlobalAnimation() {
-  if (animationId) return;
+  if (animationId) {
+    return;
+  }
 
   const animate = () => {
     animationTime.value = Date.now();
@@ -176,260 +244,261 @@ function startGlobalAnimation() {
   animate();
 }
 
-/**
- * Stop global animation loop
- */
-function stopGlobalAnimation() {
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
-}
-
-/**
- * Unified Color System Composable
- */
 export function useColorSystem() {
   const { dynamicColorConfig } = useVisualConfig();
 
-  // Start animation when composable is used
   startGlobalAnimation();
 
-  // Cleanup on unmount
   onUnmounted(() => {
-    // Note: Don't stop global animation here as other components might be using it
-    // Animation will be cleaned up when the app is destroyed
+    // Intentionally left running while the app is mounted.
   });
 
-  /**
-   * Generate colors for a solfege note
-   */
-  const getNoteColors = (
-    noteName: string,
+  const isStaticChromaticColors = computed(
+    () => dynamicColorConfig.value.chromaticMapping
+  );
+
+  const getNoteColorsByScaleIndex = (
+    scaleIndex: number,
     mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
     octave: number = 3,
     animated: boolean = true
   ): NoteColorRelationships => {
     const config = dynamicColorConfig.value;
-    const cleanNoteName = noteName.replace("'", "");
+    const scale = getScaleForMode(mode);
+    const normalizedScaleIndex = normalizeIndex(scaleIndex, scale.degreeCount);
+    const time = animated ? animationTime.value : undefined;
 
-    const noteIndex = getNoteIndex(cleanNoteName, config.chromaticMapping);
+    if (isStaticChromaticColors.value) {
+      const chromaticNote = getChromaticNoteForScaleIndex(
+        normalizedScaleIndex,
+        mode,
+        key
+      );
 
-    if (noteIndex === -1) {
-      // Invalid note name, return default colors
-      return {
-        primary: "hsla(0, 80%, 50%, 1)",
-        accent: "hsla(180, 80%, 50%, 1)",
-        secondary: "hsla(120, 80%, 50%, 1)",
-        tertiary: "hsla(240, 80%, 50%, 1)",
-      };
+      if (chromaticNote) {
+        return getStaticChromaticNoteColors(chromaticNote, octave, config, time);
+      }
     }
 
-    const time = animated ? animationTime.value : undefined;
-    return generateDynamicNoteColors(noteIndex, octave, config, time);
+    return getDynamicNoteColors(
+      normalizedScaleIndex,
+      octave,
+      key,
+      scale.degreeCount,
+      config,
+      time
+    );
   };
 
-  /**
-   * Get primary color for a note
-   */
+  const getNoteColors = (
+    noteName: string,
+    mode: MusicalMode = "major",
+    octave: number = 3,
+    animated: boolean = true,
+    key: ChromaticNote = "C"
+  ): NoteColorRelationships => {
+    const scaleIndex = getScaleIndexForSolfegeName(noteName, mode);
+    if (scaleIndex !== null) {
+      return getNoteColorsByScaleIndex(scaleIndex, mode, key, octave, animated);
+    }
+
+    const chromaticNote = normalizeChromaticNote(noteName);
+    if (chromaticNote) {
+      if (isStaticChromaticColors.value) {
+        return getStaticChromaticNoteColors(
+          chromaticNote,
+          octave,
+          dynamicColorConfig.value,
+          animated ? animationTime.value : undefined
+        );
+      }
+
+      const fallbackIndex = getFallbackScaleIndexForChromaticNote(
+        chromaticNote,
+        mode,
+        key
+      );
+      if (fallbackIndex !== null) {
+        return getNoteColorsByScaleIndex(
+          fallbackIndex,
+          mode,
+          key,
+          octave,
+          animated
+        );
+      }
+    }
+
+    return {
+      primary: "hsla(0, 80%, 50%, 1)",
+      accent: "hsla(180, 80%, 50%, 1)",
+      secondary: "hsla(120, 80%, 50%, 1)",
+      tertiary: "hsla(240, 80%, 50%, 1)",
+    };
+  };
+
+  const getPrimaryColorByScaleIndex = (
+    scaleIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3
+  ): string => getNoteColorsByScaleIndex(scaleIndex, mode, key, octave, true).primary;
+
+  const getStaticPrimaryColorByScaleIndex = (
+    scaleIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3
+  ): string =>
+    getNoteColorsByScaleIndex(scaleIndex, mode, key, octave, false).primary;
+
   const getPrimaryColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, true).primary;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, true, key).primary;
 
-  /**
-   * Get static primary color for a note (no animation)
-   */
   const getStaticPrimaryColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, false).primary;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, false, key).primary;
 
-  /**
-   * Get accent color for a note (used for strings/flecks)
-   */
   const getAccentColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, true).accent;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, true, key).accent;
 
-  /**
-   * Get static accent color for a note (no animation)
-   */
   const getStaticAccentColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, false).accent;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, false, key).accent;
 
-  /**
-   * Get secondary color for a note
-   */
   const getSecondaryColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, true).secondary;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, true, key).secondary;
 
-  /**
-   * Get static secondary color for a note (no animation)
-   */
   const getStaticSecondaryColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, false).secondary;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, false, key).secondary;
 
-  /**
-   * Get tertiary color for a note
-   */
   const getTertiaryColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, true).tertiary;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, true, key).tertiary;
 
-  /**
-   * Get static tertiary color for a note (no animation)
-   */
   const getStaticTertiaryColor = (
     noteName: string,
     mode: MusicalMode = "major",
-    octave: number = 3
-  ): string => {
-    return getNoteColors(noteName, mode, octave, false).tertiary;
-  };
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ): string => getNoteColors(noteName, mode, octave, false, key).tertiary;
 
-  // Backward compatibility aliases
   const getStringColor = getAccentColor;
   const getFleckColor = getAccentColor;
   const getHighlightColor = getAccentColor;
 
-  /**
-   * Generate gradient string for CSS
-   */
   const getGradient = (
     noteName: string,
     mode: MusicalMode = "major",
     octave: number = 3,
-    direction: number | string = 45
+    direction: number | string = 45,
+    key: ChromaticNote = "C"
   ): string => {
-    const colors = getNoteColors(noteName, mode, octave, true);
-    // Convert numeric direction to CSS format
+    const colors = getNoteColors(noteName, mode, octave, true, key);
     const cssDirection =
       typeof direction === "number" ? `${direction}deg` : direction;
     return `linear-gradient(${cssDirection}, ${colors.primary} 60%, ${colors.accent}, ${colors.secondary}, ${colors.tertiary})`;
   };
 
-  /**
-   * Convert HSLA color to have specific alpha
-   */
   const withAlpha = (color: string, alpha: number): string => {
-    // Convert hsla(h, s%, l%, a) to hsla(h, s%, l%, newAlpha)
     if (color.startsWith("hsla(")) {
       return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
     }
-    // Convert hsl(h, s%, l%) to hsla(h, s%, l%, alpha)
+
     if (color.startsWith("hsl(")) {
       return color.replace("hsl(", "hsla(").replace(")", `, ${alpha})`);
     }
+
     return color;
   };
 
-  /**
-   * Check if dynamic colors are enabled
-   */
-  const isDynamicColorsEnabled = computed(() => true); // Always true in unified system
+  const isDynamicColorsEnabled = computed(() => true);
 
-  /**
-   * Get color preview for all notes
-   */
-  const getColorPreview = (mode: MusicalMode = "major", octave: number = 3) => {
-    const config = dynamicColorConfig.value;
-    const notes = config.chromaticMapping ? CHROMATIC_NOTES : SOLFEGE_NOTES;
+  const getColorPreview = (
+    mode: MusicalMode = "major",
+    octave: number = 3,
+    key: ChromaticNote = "C"
+  ) => {
+    const scale = getScaleForMode(mode);
 
-    return notes.map((noteName: string, index: number) => ({
-      name: noteName,
+    return scale.solfege.map((note, index) => ({
+      name: note.name,
       index,
-      colors: getNoteColors(noteName, mode, octave, false), // Static preview
+      chromaticNote: getChromaticNoteForScaleIndex(index, mode, key),
+      colors: getNoteColorsByScaleIndex(index, mode, key, octave, false),
     }));
   };
 
-  /**
-   * Create glassmorphism background effect
-   */
   const createGlassmorphBackground = (
     color: string,
     opacity: number = 0.4
   ): string => {
-    const color1 = withAlpha(color, opacity * 1.425); // 57% of base opacity
-    const color2 = withAlpha(color, opacity * 0.15); // 6% of base opacity
+    const color1 = withAlpha(color, opacity * 1.425);
+    const color2 = withAlpha(color, opacity * 0.15);
     return `radial-gradient(84.35% 70.19% at 50% 38.11%, ${color1}, ${color2})`;
   };
 
-  /**
-   * Create glassmorphism box shadow effect
-   */
   const createGlassmorphShadow = (color: string): string => {
     const shadowColor = withAlpha(color, 0.09);
     return `hsla(0, 0%, 100%, 0.1) 0px 1px 0px 0px inset, hsla(0, 0%, 0%, 0.4) 0px 30px 50px 0px, ${shadowColor} 0px 4px 24px 0px, hsla(0, 0%, 100%, 0.06) 0px 0px 0px 1px inset`;
   };
 
-  /**
-   * Create chord-specific glassmorphism background using gradient of multiple colors
-   */
   const createChordGlassmorphBackground = (
     colors: string[],
     opacity: number = 0.4
   ): string => {
-    if (colors.length === 0) return "rgba(255, 255, 255, 0.1)";
+    if (colors.length === 0) {
+      return "rgba(255, 255, 255, 0.1)";
+    }
 
     if (colors.length === 1) {
       return createGlassmorphBackground(colors[0], opacity);
     }
 
-    // Create a blended linear gradient for multiple colors
     const gradientColors = colors.map((color) => withAlpha(color, opacity));
     const gradientColorsLight = colors.map((color) =>
       withAlpha(color, opacity * 0.15)
     );
 
-    return `linear-gradient(135deg, 
-      ${gradientColors.join(", ")}, 
-      ${gradientColorsLight.join(", ")})`;
+    return `linear-gradient(135deg, ${gradientColors.join(
+      ", "
+    )}, ${gradientColorsLight.join(", ")})`;
   };
 
-  /**
-   * Create chord-specific glassmorphism shadow
-   */
   const createChordGlassmorphShadow = (colors: string[]): string => {
-    if (colors.length === 0) return createGlassmorphShadow("#ffffff");
+    if (colors.length === 0) {
+      return createGlassmorphShadow("#ffffff");
+    }
 
-    // Use the first color for the shadow, or blend if multiple
-    const shadowColor = colors.length >= 1 ? colors[0] : "#ffffff";
-    return createGlassmorphShadow(shadowColor);
+    return createGlassmorphShadow(colors[0]);
   };
 
-  /**
-   * Create interval-specific glassmorphism background
-   */
   const createIntervalGlassmorphBackground = (
     fromColor: string,
     toColor: string,
@@ -440,148 +509,129 @@ export function useColorSystem() {
     return `linear-gradient(90deg, ${fromColorAlpha}, ${toColorAlpha})`;
   };
 
-  /**
-   * Create gradient from multiple colors
-   */
   const createGradient = (
     colors: string[],
     direction: string = "135deg"
   ): string => {
-    if (colors.length === 1) return colors[0];
+    if (colors.length === 1) {
+      return colors[0];
+    }
+
     return `linear-gradient(${direction}, ${colors.join(", ")})`;
   };
 
-  /**
-   * Create conical gradient from multiple colors
-   */
   const createConicGradient = (
     colors: string[],
     startAngle: string = "0deg"
   ): string => {
-    if (colors.length === 1) return colors[0];
+    if (colors.length === 1) {
+      return colors[0];
+    }
+
     return `conic-gradient(from ${startAngle}, ${colors.join(", ")})`;
   };
 
-  /**
-   * Create conical glassmorphism background effect
-   */
   const createConicGlassmorphBackground = (
     color: string,
     opacity: number = 0.4,
     startAngle: string = "0deg"
   ): string => {
-    const color1 = withAlpha(color, opacity * 1.425); // 57% of base opacity
-    const color2 = withAlpha(color, opacity * 0.15); // 6% of base opacity
-    const color3 = withAlpha(color, opacity * 0.8); // 32% of base opacity
+    const color1 = withAlpha(color, opacity * 1.425);
+    const color2 = withAlpha(color, opacity * 0.15);
+    const color3 = withAlpha(color, opacity * 0.8);
     return `conic-gradient(from ${startAngle}, ${color1}, ${color2}, ${color3}, ${color1})`;
   };
 
-  /**
-   * Helper: Normalize an index within a base using positive modulo
-   */
-  const normalizeIndex = (index: number, base: number): number => {
-    return ((index % base) + base) % base;
-  };
-
-  /**
-   * Resolve solfege name from various inputs.
-   * - inputType 'scaleIndex': 0-6 (may be any integer; wraps mod 7)
-   * - inputType 'solfegeIndex': 1-7 (may be any integer; wraps so 7->Do, 8->Re, -1->Ti, etc.)
-   * - inputType 'solfegeName': a string like 'Do', 'Re', etc. (case-insensitive)
-   */
   type SolfegeInputType = "scaleIndex" | "solfegeIndex" | "solfegeName";
 
   const resolveSolfegeName = (
     input: number | string,
-    inputType: SolfegeInputType = "scaleIndex"
+    inputType: SolfegeInputType = "scaleIndex",
+    mode: MusicalMode = "major"
   ): string => {
+    const scale = getScaleForMode(mode);
+
     if (inputType === "solfegeName") {
       const name = String(input).replace("'", "");
-      const match = SOLFEGE_NOTES.find(
-        (n) => n.toLowerCase() === name.toLowerCase()
+      const match = scale.solfege.find(
+        (note) => note.name.toLowerCase() === name.toLowerCase()
       );
-      return match || SOLFEGE_NOTES[0];
+      return match?.name || scale.solfege[0]?.name || ALL_SOLFEGE_NOTES[0];
     }
 
     if (inputType === "solfegeIndex") {
-      // 1-7 scale; wrap and map back to 1-7, then to 0-6
-      const normalizedOneToSeven = normalizeIndex(Number(input) - 1, 7) + 1;
-      const zeroToSix = normalizedOneToSeven - 1;
-      return SOLFEGE_NOTES[zeroToSix] || SOLFEGE_NOTES[0];
+      const normalizedOneBased =
+        normalizeIndex(Number(input) - 1, scale.degreeCount) + 1;
+      return (
+        scale.solfege[normalizedOneBased - 1]?.name ||
+        scale.solfege[0]?.name ||
+        ALL_SOLFEGE_NOTES[0]
+      );
     }
 
-    // Default: scaleIndex (0-6), but allow any integer and wrap
-    const zeroToSix = normalizeIndex(Number(input), 7);
-    return SOLFEGE_NOTES[zeroToSix] || SOLFEGE_NOTES[0];
+    const normalizedIndex = normalizeIndex(Number(input), scale.degreeCount);
+    return (
+      scale.solfege[normalizedIndex]?.name ||
+      scale.solfege[0]?.name ||
+      ALL_SOLFEGE_NOTES[0]
+    );
   };
 
-  /**
-   * Convenience: return static primary color from any solfege input format
-   */
   const getStaticPrimaryColorFromSolfegeInput = (
     input: number | string,
     inputType: SolfegeInputType = "scaleIndex",
     mode: MusicalMode = "major",
-    octave: number = 3
+    octave: number = 3,
+    key: ChromaticNote = "C"
   ): string => {
-    const solfegeName = resolveSolfegeName(input, inputType);
-    return getStaticPrimaryColor(solfegeName, mode, octave);
+    const solfegeName = resolveSolfegeName(input, inputType, mode);
+    return getStaticPrimaryColor(solfegeName, mode, octave, key);
   };
 
-  /**
-   * Expose normalized mapping info for external use
-   */
   const getSolfegeMappingInfo = (
     input: number | string,
-    inputType: SolfegeInputType = "scaleIndex"
+    inputType: SolfegeInputType = "scaleIndex",
+    mode: MusicalMode = "major"
   ) => {
-    const name = resolveSolfegeName(input, inputType);
-    const zeroToSix = SOLFEGE_NOTES.indexOf(name);
-    const oneToSeven = zeroToSix + 1;
+    const scale = getScaleForMode(mode);
+    const name = resolveSolfegeName(input, inputType, mode);
+    const scaleIndex = scale.solfege.findIndex((note) => note.name === name);
     return {
       solfegeName: name,
-      scaleIndex: zeroToSix, // 0-6
-      solfegeIndex: oneToSeven, // 1-7
+      scaleIndex,
+      solfegeIndex: scaleIndex + 1,
     };
   };
 
-  /**
-   * Create chord-specific conical glassmorphism background using gradient of multiple colors
-   */
   const createChordConicGlassmorphBackground = (
     colors: string[],
     opacity: number = 0.4,
     startAngle: string = "0deg"
   ): string => {
-    if (colors.length === 0) return "rgba(255, 255, 255, 0.1)";
+    if (colors.length === 0) {
+      return "rgba(255, 255, 255, 0.1)";
+    }
 
     if (colors.length === 1) {
       return createConicGlassmorphBackground(colors[0], opacity, startAngle);
     }
 
-    // Create a blended conical gradient for multiple colors
     const gradientColors = colors.map((color) => withAlpha(color, opacity));
     const gradientColorsLight = colors.map((color) =>
       withAlpha(color, opacity * 0.15)
     );
-
-    // Interleave full and light colors for better visual effect
     const interleavedColors: string[] = [];
-    for (let i = 0; i < colors.length; i++) {
-      interleavedColors.push(gradientColors[i]);
-      interleavedColors.push(gradientColorsLight[i]);
+
+    for (let index = 0; index < colors.length; index++) {
+      interleavedColors.push(gradientColors[index]);
+      interleavedColors.push(gradientColorsLight[index]);
     }
-    // Complete the circle by adding the first color again
+
     interleavedColors.push(gradientColors[0]);
 
-    return `conic-gradient(from ${startAngle}, ${interleavedColors.join(
-      ", "
-    )})`;
+    return `conic-gradient(from ${startAngle}, ${interleavedColors.join(", ")})`;
   };
 
-  /**
-   * Create interval-specific conical glassmorphism background
-   */
   const createIntervalConicGlassmorphBackground = (
     fromColor: string,
     toColor: string,
@@ -596,35 +646,30 @@ export function useColorSystem() {
     return `conic-gradient(from ${startAngle}, ${fromColorAlpha}, ${toColorLight}, ${toColorAlpha}, ${fromColorLight}, ${fromColorAlpha})`;
   };
 
-  /**
-   * Generate conical gradient string for CSS
-   */
   const getConicGradient = (
     noteName: string,
     mode: MusicalMode = "major",
     octave: number = 3,
-    startAngle: number | string = 0
+    startAngle: number | string = 0,
+    key: ChromaticNote = "C"
   ): string => {
-    const colors = getNoteColors(noteName, mode, octave, true);
-    // Convert numeric angle to CSS format
+    const colors = getNoteColors(noteName, mode, octave, true, key);
     const cssAngle =
       typeof startAngle === "number" ? `${startAngle}deg` : startAngle;
     return `conic-gradient(from ${cssAngle}, ${colors.primary}, ${colors.accent}, ${colors.secondary}, ${colors.tertiary}, ${colors.primary})`;
   };
 
-  /**
-   * Helper function to adjust color brightness and saturation
-   */
   const adjustColorHSL = (
     color: string,
     brightness: number = 1,
     saturation: number = 1
   ): string => {
-    // Parse HSLA color
     const hslaMatch = color.match(
       /hsla?\((\d+),\s*(\d+)%,\s*(\d+)%(?:,\s*([\d.]+))?\)/
     );
-    if (!hslaMatch) return color;
+    if (!hslaMatch) {
+      return color;
+    }
 
     const [, h, s, l, a = "1"] = hslaMatch;
     const adjustedS = Math.max(0, Math.min(100, parseFloat(s) * saturation));
@@ -633,12 +678,10 @@ export function useColorSystem() {
     return `hsla(${h}, ${adjustedS}%, ${adjustedL}%, ${a})`;
   };
 
-  /**
-   * Get key background based on color mode and configuration
-   */
   const getKeyBackground = (
-    solfegeName: string,
-    mode: "major" | "minor",
+    scaleIndex: number,
+    mode: MusicalMode,
+    key: ChromaticNote,
     octave: number,
     colorMode: "colored" | "monochrome" | "glassmorphism",
     isAccidental: boolean,
@@ -655,7 +698,6 @@ export function useColorSystem() {
     } = config;
 
     if (colorMode === "monochrome") {
-      // Monochrome: white for accidentals, black for naturals
       const baseColor = isAccidental
         ? "hsla(0, 0%, 100%, 1)"
         : "hsla(0, 0%, 10%, 1)";
@@ -670,30 +712,20 @@ export function useColorSystem() {
       };
     }
 
-    // Get primary color for colored and glassmorphism modes
-    const primaryColor = getStaticPrimaryColor(solfegeName, mode, octave);
-    if (!primaryColor) {
-      // Fallback color
-      const fallback = "hsla(200, 70%, 50%, 1)";
-      return {
-        background: fallback,
-        primaryColor: fallback,
-      };
-    }
+    const primaryColor = getStaticPrimaryColorByScaleIndex(
+      scaleIndex,
+      mode,
+      key,
+      octave
+    );
 
     if (colorMode === "glassmorphism") {
-      // Glassmorphism mode
-      const glassBg = createGlassmorphBackground(
-        primaryColor,
-        glassmorphOpacity
-      );
       return {
-        background: glassBg || `hsla(200, 70%, 50%, ${glassmorphOpacity})`,
+        background: createGlassmorphBackground(primaryColor, glassmorphOpacity),
         primaryColor,
       };
     }
 
-    // Colored mode
     const adjustedColor = adjustColorHSL(
       primaryColor,
       keyBrightness,
@@ -705,82 +737,53 @@ export function useColorSystem() {
     };
   };
 
-  /**
-   * Get text color for key labels
-   */
   const getKeyTextColor = (
     colorMode: "colored" | "monochrome" | "glassmorphism",
     isAccidental: boolean
   ): string => {
     if (colorMode === "monochrome") {
-      // Monochrome: opposite of key color
       return isAccidental ? "text-black" : "text-white";
     }
 
-    // Colored and glassmorphism: black for accidentals, white for naturals
     return isAccidental ? "text-black" : "text-white";
   };
 
   return {
-    // Core color functions
     getNoteColors,
+    getNoteColorsByScaleIndex,
     getPrimaryColor,
+    getPrimaryColorByScaleIndex,
     getAccentColor,
     getSecondaryColor,
     getTertiaryColor,
-
-    // Static color functions (no animation)
     getStaticPrimaryColor,
+    getStaticPrimaryColorByScaleIndex,
     getStaticAccentColor,
     getStaticSecondaryColor,
     getStaticTertiaryColor,
-
-    // Backward compatibility aliases
     getStringColor,
     getFleckColor,
     getHighlightColor,
-
-    // Utility functions
     getGradient,
     getConicGradient,
     withAlpha,
     createGradient,
     createConicGradient,
-
-    // Solfege helpers
     resolveSolfegeName,
     getStaticPrimaryColorFromSolfegeInput,
     getSolfegeMappingInfo,
-
-    // Glassmorphism functions
     createGlassmorphBackground,
     createGlassmorphShadow,
     createChordGlassmorphBackground,
     createChordGlassmorphShadow,
     createIntervalGlassmorphBackground,
-
-    // Conical glassmorphism functions
     createConicGlassmorphBackground,
     createChordConicGlassmorphBackground,
     createIntervalConicGlassmorphBackground,
-
-    // Key styling functions
-    adjustColorHSL,
+    getColorPreview,
     getKeyBackground,
     getKeyTextColor,
-
-    // State
     isDynamicColorsEnabled,
-
-    // Preview function
-    getColorPreview,
-
-    // Animation time for external use
-    animationTime: computed(() => animationTime.value),
+    isStaticChromaticColors,
   };
-}
-
-// Export cleanup function for app-level cleanup
-export function cleanupColorSystem() {
-  stopGlobalAnimation();
 }

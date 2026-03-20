@@ -150,7 +150,7 @@ export const UNIFIED_CONFIG = {
     _meta: {
       label: "Ambient",
       icon: "🌅",
-      description: "Background lighting effects",
+      description: "Scale-aware background lighting effects",
     },
     isEnabled: {
       value: true,
@@ -161,7 +161,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Opacity Major",
+      label: "Center Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     opacityMinor: {
@@ -169,7 +169,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Opacity Minor",
+      label: "Accent Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     brightnessMajor: {
@@ -177,7 +177,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Brightness Major",
+      label: "Tonic Brightness",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     brightnessMinor: {
@@ -185,7 +185,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Brightness Minor",
+      label: "Accent Brightness",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     saturationMajor: {
@@ -193,7 +193,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Saturation Major",
+      label: "Tonic Saturation",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     saturationMinor: {
@@ -201,7 +201,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Saturation Minor",
+      label: "Accent Saturation",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
   },
@@ -430,7 +430,7 @@ export const UNIFIED_CONFIG = {
     },
     chromaticMapping: {
       value: false,
-      label: "Chromatic Mapping (12 notes vs 7 solfège)",
+      label: "Static Chromatic Colors",
     },
     hueAnimationAmplitude: {
       value: 15,

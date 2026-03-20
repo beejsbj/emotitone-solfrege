@@ -19,11 +19,9 @@
         >
           <template
             v-for="(solfege, index) in store.solfegeData"
-            :key="`${solfege.name}-${octave}`"
+            :key="`${solfege.intervalName ?? solfege.name}-${index}-${octave}`"
           >
             <KeyboardKey
-              v-if="index < 7"
-              :key="`${solfege.name}-${octave}`"
               :solfege="solfege"
               :octave="octave"
               :solfege-index="index"
@@ -57,9 +55,7 @@ const store = useKeyboardDrawerStore();
 const { animateDrawer } = useKeyboardDrawer(drawerRef) as any;
 
 // Physical keyboard controls integration
-const keyboardControls = useKeyboardControls(
-  computed(() => store.keyboardConfig.mainOctave)
-);
+useKeyboardControls(computed(() => store.keyboardConfig.mainOctave));
 
 // Styling computations
 const drawerClasses = computed(() => {

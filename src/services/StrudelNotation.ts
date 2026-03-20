@@ -9,6 +9,7 @@
  */
 
 import type { LogNote } from "@/types/patterns";
+import type { MusicalMode } from "@/types/music";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -26,7 +27,7 @@ export interface StrudelConfig {
   /** Optional scale key override for relative notation. */
   scaleKey?: string;
   /** Optional scale mode override for relative notation. */
-  scaleMode?: string;
+  scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
 }

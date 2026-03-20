@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed, readonly, watch } from "vue";
-import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
+import { musicTheory } from "@/services/music";
+import { getModeDefinition } from "@/data";
 import type {
   SolfegeData,
   MusicalMode,
@@ -9,11 +10,6 @@ import type {
 } from "@/types/music";
 import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
-import {
-  MAJOR_SOLFEGE,
-  MINOR_SOLFEGE,
-  type Scale,
-} from "@/data";
 
 // Type for note input - either a chromatic note with octave or solfege index
 type NoteInput = string | { solfegeIndex: number; octave: number };
@@ -53,7 +49,17 @@ export const useMusicStore = defineStore(
     const sequence = ref<string[]>([]);
 
     // Getters
-    const currentScale = computed(() => musicTheory.getCurrentScale());
+    const currentScale = computed(() => {
+      // Bind the singleton service to reactive store state so downstream
+      // consumers like the keyboard and visual systems actually refresh
+      // when mode or key changes after initial mount.
+      musicTheory.setCurrentKey(currentKey.value as ChromaticNote);
+      musicTheory.setCurrentMode(currentMode.value);
+      return musicTheory.getCurrentScale();
+    });
+    const currentModeDefinition = computed(() =>
+      getModeDefinition(currentMode.value)
+    );
 
     const currentScaleNotes = computed(() => {
       musicTheory.setCurrentKey(currentKey.value as ChromaticNote);
@@ -67,10 +73,15 @@ export const useMusicStore = defineStore(
     });
 
     const currentKeyDisplay = computed(() => {
-      return `${currentKey.value} ${
-        currentMode.value.charAt(0).toUpperCase() + currentMode.value.slice(1)
-      }`;
+      return `${currentKey.value} ${currentModeDefinition.value.label}`;
     });
+
+    function getCurrentNoteContext() {
+      return {
+        mode: currentMode.value,
+        key: currentKey.value as ChromaticNote,
+      };
+    }
 
     // Melody-related getters (removed)
 
@@ -79,46 +90,12 @@ export const useMusicStore = defineStore(
       note: NoteInput
     ): { solfegeIndex: number; octave: number } | null {
       if (typeof note === "string") {
-        // Handle chromatic note with octave (e.g., "C4", "F#5")
         const noteName = note.slice(0, -1);
         const octave = parseInt(note.slice(-1));
-
-        // Get current scale notes
-        const scaleNotes = currentScaleNotes.value;
-
-        // Try to find exact match in scale
-        const noteInScale = scaleNotes.find((n) => {
-          const normalizedNote = n.replace("#", "").replace("b", "");
-          const normalizedInput = noteName.replace("#", "").replace("b", "");
-          return normalizedNote === normalizedInput;
-        });
-
-        if (noteInScale) {
-          return {
-            solfegeIndex: scaleNotes.indexOf(noteInScale),
-            octave,
-          };
-        }
-
-        // If not in scale, find closest scale degree
-        const chromaticIndex = CHROMATIC_NOTES.indexOf(
-          noteName as ChromaticNote
-        );
-        if (chromaticIndex !== -1) {
-          const keyIndex = CHROMATIC_NOTES.indexOf(
-            currentKey.value as ChromaticNote
-          );
-          const relativeIndex = (chromaticIndex - keyIndex + 12) % 12;
-          return {
-            solfegeIndex: Math.floor(relativeIndex / 2),
-            octave,
-          };
-        }
-
-        return null;
+        const solfegeIndex = musicTheory.getScaleIndexForChromaticNote(noteName);
+        return solfegeIndex === null ? null : { solfegeIndex, octave };
       }
 
-      // Already in solfege index format
       return note;
     }
 
@@ -128,38 +105,8 @@ export const useMusicStore = defineStore(
     ): { solfegeIndex: number; octave: number } | null {
       const noteName = note.slice(0, -1) as ChromaticNote;
       const octave = parseInt(note.slice(-1));
-
-      // Get current scale notes
-      const scaleNotes = currentScaleNotes.value;
-
-      // Try to find exact match in scale
-      const noteInScale = scaleNotes.find((n) => {
-        const normalizedNote = n.replace("#", "").replace("b", "");
-        const normalizedInput = noteName.replace("#", "").replace("b", "");
-        return normalizedNote === normalizedInput;
-      });
-
-      if (noteInScale) {
-        return {
-          solfegeIndex: scaleNotes.indexOf(noteInScale),
-          octave,
-        };
-      }
-
-      // If not in scale, find closest scale degree
-      const chromaticIndex = CHROMATIC_NOTES.indexOf(noteName);
-      if (chromaticIndex !== -1) {
-        const keyIndex = CHROMATIC_NOTES.indexOf(
-          currentKey.value as ChromaticNote
-        );
-        const relativeIndex = (chromaticIndex - keyIndex + 12) % 12;
-        return {
-          solfegeIndex: Math.floor(relativeIndex / 2),
-          octave,
-        };
-      }
-
-      return null;
+      const solfegeIndex = musicTheory.getScaleIndexForChromaticNote(noteName);
+      return solfegeIndex === null ? null : { solfegeIndex, octave };
     }
 
     // Actions
@@ -208,6 +155,7 @@ export const useMusicStore = defineStore(
 
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
+        const noteContext = getCurrentNoteContext();
         currentNote.value = solfege.name;
         isPlaying.value = true;
 
@@ -230,6 +178,7 @@ export const useMusicStore = defineStore(
             noteName,
             solfegeIndex,
             octave: finalOctave,
+            ...noteContext,
             instrument: instrumentStore.currentInstrument,
             instrumentConfig: null,
           },
@@ -265,6 +214,7 @@ export const useMusicStore = defineStore(
 
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
+        const noteContext = getCurrentNoteContext();
         const frequency = musicTheory.getNoteFrequency(
           solfegeIndex,
           finalOctave
@@ -290,6 +240,7 @@ export const useMusicStore = defineStore(
             octave: finalOctave,
             noteId,
             noteName,
+            ...noteContext,
           };
 
           activeNotes.value.set(noteId, activeNote);
@@ -304,6 +255,7 @@ export const useMusicStore = defineStore(
               octave: finalOctave,
               noteId,
               noteName,
+              ...noteContext,
               instrument: instrumentStore.currentInstrument,
               instrumentConfig: null,
             },
@@ -350,6 +302,7 @@ export const useMusicStore = defineStore(
 
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
+        const noteContext = getCurrentNoteContext();
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
         const frequency = musicTheory.getNoteFrequency(
           solfegeIndex,
@@ -377,6 +330,7 @@ export const useMusicStore = defineStore(
             octave: finalOctave,
             duration,
             time,
+            ...noteContext,
             instrument: instrumentToReport,
             instrumentConfig: null,
             sequencerInstrument: instrument,
@@ -456,6 +410,8 @@ export const useMusicStore = defineStore(
               noteName: activeNote.noteName,
               frequency: activeNote.frequency,
               octave: activeNote.octave,
+              mode: activeNote.mode,
+              key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
               instrumentConfig: null,
             },
@@ -487,6 +443,8 @@ export const useMusicStore = defineStore(
               noteName: activeNote.noteName,
               frequency: activeNote.frequency,
               octave: activeNote.octave,
+              mode: activeNote.mode,
+              key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
               instrumentConfig: null,
             },
@@ -573,6 +531,7 @@ export const useMusicStore = defineStore(
 
       // Getters
       currentScale,
+      currentModeDefinition,
       currentScaleNotes,
       solfegeData,
       currentKeyDisplay,

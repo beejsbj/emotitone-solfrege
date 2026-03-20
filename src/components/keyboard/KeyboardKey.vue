@@ -49,7 +49,7 @@ import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useMusicStore } from "@/stores/music";
 import { triggerNoteHaptic } from "@/utils/hapticFeedback";
-import type { SolfegeData } from "@/types/music";
+import type { ChromaticNote, SolfegeData } from "@/types/music";
 
 interface Props {
   solfege: SolfegeData;
@@ -87,23 +87,21 @@ const config = computed(() => store.keyboardConfig);
 // Note tracking
 const noteKey = computed(() => `${props.solfegeIndex}_${props.octave}`);
 const noteName = computed(() => {
-  // Make sure we're reactive to key and mode changes
-  const key = musicStore.currentKey;
-  const mode = musicStore.currentMode;
-  // Force re-evaluation when key or mode changes
+  musicStore.currentKey;
+  musicStore.currentMode;
   return musicStore.getNoteName(props.solfegeIndex, props.octave);
 });
 const isAccidental = computed(() => noteName.value.includes("#"));
 const isPressed = computed(() => store.isKeyPressed(noteKey.value));
 const currentMode = computed(() => musicStore.currentMode);
+const currentKey = computed(() => musicStore.currentKey as ChromaticNote);
 
 // Get background and colors from color system
 const keyColors = computed(() => {
-  // Make sure we're reactive to key changes (affects color system)
-  const key = musicStore.currentKey;
   return getKeyBackground(
-    props.solfege.name,
+    props.solfegeIndex,
     currentMode.value,
+    currentKey.value,
     props.octave,
     config.value.colorMode,
     isAccidental.value,

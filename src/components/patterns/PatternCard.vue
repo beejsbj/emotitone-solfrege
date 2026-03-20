@@ -5,14 +5,13 @@ import { toStrudelSound } from "@/composables/useStrudel";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "@/data";
+import { getModeDefinition } from "@/data";
 import { Knob } from "@/components/knobs";
 import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
-import type { MusicalMode } from "@/types/music";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
-const { getStaticPrimaryColor } = useColorSystem();
+const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
 
 const props = defineProps<{
   pattern: Pattern;
@@ -23,7 +22,7 @@ const copied = ref(false);
 const keyModeLabel = computed(() => {
   const key = props.pattern.key ?? "C";
   const mode = props.pattern.mode ?? "major";
-  return `${key} ${mode}`;
+  return `${key} ${getModeDefinition(mode).label}`;
 });
 
 const noteCount = computed(
@@ -89,14 +88,13 @@ async function copyNotation() {
 }
 
 // ── color strip helpers ───────────────────────────────────────────────────
-function solfegeName(scaleIndex: number, mode: string): string {
-  const list = mode === "minor" ? MINOR_SOLFEGE : MAJOR_SOLFEGE;
-  return list[scaleIndex]?.name ?? "Do";
-}
-
 function colorFor(note: PatternNote, pattern: Pattern): string {
-  const name = solfegeName(note.scaleIndex, pattern.mode);
-  return getStaticPrimaryColor(name, pattern.mode as MusicalMode, note.octave);
+  return getStaticPrimaryColorByScaleIndex(
+    note.scaleIndex,
+    pattern.mode,
+    pattern.key,
+    note.octave
+  );
 }
 
 function displayInstrumentName(instrument: string): string {

@@ -3,7 +3,7 @@
  * Type definitions for canvas rendering, particles, and animation systems
  */
 
-import type { SolfegeData } from "./music";
+import type { ChromaticNote, MusicalMode, SolfegeData } from "./music";
 
 /**
  * Active blob state for canvas rendering
@@ -35,6 +35,12 @@ export interface ActiveBlob {
   vibrationPhase: number;
   /** Current scale multiplier for grow/shrink animations */
   scale: number;
+  /** Harmonic context snapshot used for stable color rendering */
+  mode: MusicalMode;
+  /** Key snapshot used for stable color rendering */
+  key: ChromaticNote;
+  /** Octave snapshot used for scale-relative lightness */
+  octave: number;
 }
 
 /**
@@ -141,6 +147,10 @@ export interface CanvasNoteEvent {
   frequency: number;
   /** Solfege index */
   solfegeIndex: number;
+  /** Harmonic mode snapshot */
+  mode?: MusicalMode;
+  /** Key snapshot */
+  key?: ChromaticNote;
   /** Whether note is currently playing */
   isPlaying?: boolean;
 }

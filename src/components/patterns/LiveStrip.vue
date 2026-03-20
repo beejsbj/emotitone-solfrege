@@ -20,7 +20,7 @@ import {
   emotitoneStrudelOutput,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
-import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
 import {
   strudelPlaybackHighlightExtension,
   highlightPlaybackLocations,
@@ -92,7 +92,11 @@ const highlightOptions = computed(() => ({
   scaleMode: patternsStore.currentSketchMeta.mode,
   noteSkins: noteSkins.value,
 }));
-const barMs = computed(() => (60000 / liveStripConfig.value.bpm) * 4);
+const sourceBpm = computed(() => {
+  const bpm = patternsStore.focusedPattern?.bpm;
+  return typeof bpm === "number" && bpm > 0 ? bpm : DEFAULT_SOURCE_BPM;
+});
+const barMs = computed(() => (60000 / sourceBpm.value) * 4);
 
 const generatedCode = computed(() => {
   if (patternsStore.isStripCleared) {
@@ -105,7 +109,7 @@ const generatedCode = computed(() => {
   }
 
   return logNotesToStrudel(notes as LogNote[], {
-    bpm: liveStripConfig.value.bpm,
+    sourceBpm: sourceBpm.value,
     notationType: liveStripConfig.value.notation === "note" ? "absolute" : "relative",
     scaleKey: patternsStore.currentSketchMeta.key,
     scaleMode: patternsStore.currentSketchMeta.mode,

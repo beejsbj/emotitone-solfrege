@@ -35,6 +35,20 @@ function makeNote(
 }
 
 describe('StrudelNotation', () => {
+  it('keeps @ durations tied to source BPM rather than playback BPM', () => {
+    const notes = [
+      makeNote('c', 'C4', 0, 4, 1000, 500),
+    ]
+
+    const result = logNotesToStrudel(notes, {
+      bpm: 60,
+      sourceBpm: 120,
+    })
+
+    expect(result).toContain('C4@0.25')
+    expect(result).not.toContain('C4@0.125')
+  })
+
   it('groups simultaneous notes into a chord block', () => {
     const notes = [
       makeNote('c', 'C4', 0, 4, 1000, 500),

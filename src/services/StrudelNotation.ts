@@ -2,7 +2,7 @@
  * StrudelNotation — converts LogNote arrays into Strudel mini-notation strings.
  *
  * @example
- * const strudel = logNotesToStrudel(loggedNotes, { bpm: 120 })
+ * const strudel = logNotesToStrudel(loggedNotes, { sourceBpm: 120 })
  * // `<
  * // C4@0.5 D4@0.25 E4@0.25 G4@0.5
  * // >`.as("note").sound("sine")
@@ -11,8 +11,10 @@
 import type { LogNote } from "@/types/patterns";
 
 export interface StrudelConfig {
-  /** Playback tempo in BPM. @default 120 */
+  /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
   bpm: number;
+  /** Source tempo in BPM used to convert milliseconds into Strudel cycle fractions. @default 120 */
+  sourceBpm: number;
   /** Beats per bar. @default 4 */
   beatsPerBar: number;
   /** 'absolute' uses note names (C4), 'relative' uses scale degrees (0-6). @default 'absolute' */
@@ -31,18 +33,21 @@ export interface StrudelConfig {
 
 const DEFAULT_CONFIG: StrudelConfig = {
   bpm: 120,
+  sourceBpm: 120,
   beatsPerBar: 4,
   notationType: "absolute",
   precision: 4,
   sound: "sine",
 };
 
+export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
+
 const REST_GAP_THRESHOLD_MS = 50;
 const OVERLAP_EPSILON_MS = 1;
 
 /** Length of one bar in milliseconds. */
 function barLengthMs(config: StrudelConfig): number {
-  return (60000 / config.bpm) * config.beatsPerBar;
+  return (60000 / config.sourceBpm) * config.beatsPerBar;
 }
 
 /** Converts a duration in ms to a Strudel @x string. Returns "" when @x === 1. */
@@ -246,7 +251,7 @@ export class StrudelNotation {
  * One-liner convenience wrapper.
  *
  * @example
- * const strudel = logNotesToStrudel(store.loggedNotes, { bpm: 90 })
+ * const strudel = logNotesToStrudel(store.loggedNotes, { sourceBpm: 90 })
  * window.open(`https://strudel.cc/#${btoa(strudel)}`) // open in strudel.cc
  */
 export function logNotesToStrudel(

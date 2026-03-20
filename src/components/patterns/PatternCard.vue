@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "@/data";
 import { Knob } from "@/components/knobs";
@@ -13,7 +12,6 @@ import type { MusicalMode } from "@/types/music";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
-const visualConfigStore = useVisualConfigStore();
 const { getStaticPrimaryColor } = useColorSystem();
 
 const props = defineProps<{
@@ -36,10 +34,15 @@ const isFocused = computed(
   () => patternsStore.focusedPatternId === props.pattern.id
 );
 
+const sourceBpm = computed(() => {
+  const bpm = props.pattern.bpm;
+  return typeof bpm === "number" && bpm > 0 ? bpm : DEFAULT_SOURCE_BPM;
+});
+
 // ── notation for copy ──────────────────────────────────────────────────────
 const notation = computed(() =>
   logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
-    bpm: visualConfigStore.config.liveStrip.bpm,
+    sourceBpm: sourceBpm.value,
     notationType: "relative",
     scaleKey: props.pattern.key,
     scaleMode: props.pattern.mode,

@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
-import { CHROMATIC_NOTES } from "@/data/musicData";
+import { CHROMATIC_NOTES, MODE_OPTIONS, getModeDefinition } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
 import LiveStrip from "@/components/patterns/LiveStrip.vue";
 import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
@@ -17,7 +17,9 @@ const bodyOpen = ref(true);
 const sketchSummary = computed(() => {
   const noteCount = patternsStore.currentSketchNotes.length;
   const meta = patternsStore.currentSketchMeta;
-  return `${noteCount} note${noteCount === 1 ? "" : "s"} · ${meta.key} ${meta.mode}`;
+  return `${noteCount} note${noteCount === 1 ? "" : "s"} · ${meta.key} ${
+    getModeDefinition(meta.mode).label
+  }`;
 });
 
 async function toggleSketchPlayback() {
@@ -51,10 +53,7 @@ async function toggleSketchPlayback() {
           <Knob
             :model-value="musicStore.currentMode"
             type="options"
-            :options="[
-              { label: 'Major', value: 'major', color: 'hsl(0, 40%, 75%)' },
-              { label: 'Minor', value: 'minor', color: 'hsl(240, 40%, 75%)' },
-            ]"
+            :options="MODE_OPTIONS"
             label="Mode"
             @update:modelValue="(value) => musicStore.setMode(value as any)"
           />

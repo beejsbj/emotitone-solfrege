@@ -3,9 +3,9 @@
  *
  * @example
  * const strudel = logNotesToStrudel(loggedNotes, { bpm: 120, sourceBpm: 120 })
- * // const BPM = 120; `<
+ * // `<
  * // C4@0.5 D4@0.25 E4@0.25 G4@0.5
- * // >`.as("note").sound("sine").cpm(BPM / 4)
+ * // >`.as("note").sound("sine").cpm(30)
  */
 
 import type { LogNote } from "@/types/patterns";
@@ -54,6 +54,10 @@ function barLengthMs(config: StrudelConfig): number {
 function toAt(ms: number, barMs: number, precision: number): string {
   const x = parseFloat((ms / barMs).toFixed(precision));
   return x === 1 ? "" : `@${x}`;
+}
+
+function toCompactNumber(value: number, precision: number): string {
+  return String(parseFloat(value.toFixed(precision)));
 }
 
 /**
@@ -119,7 +123,10 @@ export class StrudelNotation {
     }
 
     const inner = tokens.join(" ");
-    const tempoPrelude = `const BPM = ${this.config.bpm}; `;
+    const cpm = toCompactNumber(
+      this.config.bpm / this.config.beatsPerBar,
+      this.config.precision
+    );
 
     if (this.config.notationType === "relative") {
       const first = this.notes[0];
@@ -127,10 +134,10 @@ export class StrudelNotation {
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `${tempoPrelude}\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(BPM / ${this.config.beatsPerBar})`;
+      return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(${cpm})`;
     }
 
-    return `${tempoPrelude}\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(BPM / ${this.config.beatsPerBar})`;
+    return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(${cpm})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {

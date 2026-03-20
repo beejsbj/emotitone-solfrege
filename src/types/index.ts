@@ -8,7 +8,9 @@ export type {
   SolfegeData,
   Scale,
   Note,
+  ModeDefinition,
   MusicalMode,
+  MusicalModeFamily,
   ChromaticNote,
   ActiveNote,
 } from "./music";

@@ -37,14 +37,15 @@
     </div>
     <div class="mapping-info">
       <p>
-        <strong>Mapping:</strong>
-        {{
-          isChromaticMappingEnabled ? "12 Chromatic Notes" : "7 Solfege Notes"
-        }}
+        <strong>Mode:</strong> {{ musicStore.currentKeyDisplay }}
       </p>
       <p>
-        <strong>Hue Distribution:</strong>
-        {{ Math.round(360 / (isChromaticMappingEnabled ? 12 : 7)) }}° per note
+        <strong>Mapping:</strong>
+        {{
+          isChromaticMappingEnabled
+            ? "Static 12-pitch colors"
+            : "Dynamic scale-relative colors"
+        }}
       </p>
     </div>
   </div>
@@ -54,14 +55,20 @@
 import { computed } from "vue";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import { useMusicStore } from "@/stores/music";
 
 const { getColorPreview, isDynamicColorsEnabled } = useColorSystem();
 const { dynamicColorConfig } = useVisualConfig();
+const musicStore = useMusicStore();
 
-// Get color preview for middle octave
-const colorPreview = computed(() => getColorPreview("major", 3));
+const colorPreview = computed(() =>
+  getColorPreview(
+    musicStore.currentMode,
+    3,
+    musicStore.currentKey as any
+  )
+);
 
-// Check if chromatic mapping is enabled
 const isChromaticMappingEnabled = computed(
   () => dynamicColorConfig.value.chromaticMapping
 );

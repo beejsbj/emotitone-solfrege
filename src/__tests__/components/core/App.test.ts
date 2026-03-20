@@ -1,250 +1,129 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createTestWrapper } from '../../helpers/test-utils'
 import App from '@/App.vue'
 
-// Mock all child components
+const appLoadingState = vi.hoisted(() => ({
+  isLoading: false,
+}))
+
+const musicStore = vi.hoisted(() => ({
+  solfegeData: [{ name: 'Do' }, { name: 'Re' }, { name: 'Mi' }],
+}))
+
+const patternsStore = vi.hoisted(() => ({
+  patternCount: 0,
+}))
+
+const useMidiControls = vi.hoisted(() => vi.fn())
+
+const tooltipState = vi.hoisted(() => ({
+  tooltipState: { value: { id: 'tip-1' } },
+  rotation: { value: 12 },
+  translation: { value: { x: 10, y: 24 } },
+}))
+
 vi.mock('@/components/LoadingSplash.vue', () => ({
-  default: { template: '<div data-testid="loading-splash">Loading...</div>' }
+  default: { template: '<div data-testid="loading-splash">Loading...</div>' },
 }))
 
 vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
-  default: { template: '<div data-testid="unified-visual-effects">Visual Effects</div>' }
+  default: { template: '<div data-testid="unified-visual-effects">Visual Effects</div>' },
 }))
-
-vi.mock('@/components/AppHeader.vue', () => ({
-  default: { template: '<div data-testid="app-header">Header</div>' }
-}))
-
-// SequencerSection removed from project
 
 vi.mock('@/components/FloatingPopup.vue', () => ({
-  default: { template: '<div data-testid="floating-popup">Popup</div>' }
-}))
-
-vi.mock('@/components/InstrumentSelector.vue', () => ({
-  default: { template: '<div data-testid="instrument-selector">Instrument</div>' }
-}))
-
-vi.mock('@/components/TooltipRenderer.vue', () => ({
-  default: { 
-    template: '<div data-testid="tooltip-renderer">Tooltip</div>',
-    props: ['tooltipState', 'rotation', 'translation']
-  }
+  default: { template: '<div data-testid="floating-popup">Popup</div>' },
 }))
 
 vi.mock('@/components/ConfigPanel.vue', () => ({
-  default: { template: '<div data-testid="config-panel">Config</div>' }
+  default: { template: '<div data-testid="config-panel">Config</div>' },
 }))
 
-vi.mock('@/components/StickyBottom.vue', () => ({
-  default: { template: '<div data-testid="sticky-bottom">Sticky</div>' }
+vi.mock('@/components/InstrumentSelector.vue', () => ({
+  default: {
+    props: ['compact', 'floating'],
+    template: '<div data-testid="instrument-selector">Instrument</div>',
+  },
 }))
 
-// Mock composables
+vi.mock('@/components/TooltipRenderer.vue', () => ({
+  default: {
+    name: 'TooltipRenderer',
+    props: ['tooltipState', 'rotation', 'translation'],
+    template: '<div data-testid="tooltip-renderer">Tooltip</div>',
+  },
+}))
+
+vi.mock('@/components/DrawerKeyboard.vue', () => ({
+  default: { template: '<div data-testid="drawer-keyboard">Keyboard</div>' },
+}))
+
 vi.mock('@/composables/useAppLoading', () => ({
   useAppLoading: () => ({
-    isLoading: vi.fn(() => false)
-  })
+    isLoading: appLoadingState.isLoading,
+  }),
 }))
 
 vi.mock('@/stores/music', () => ({
-  useMusicStore: () => ({
-    solfegeData: [
-      { name: 'Do' },
-      { name: 'Re' },
-      { name: 'Mi' },
-      { name: 'Fa' },
-      { name: 'Sol' },
-      { name: 'La' },
-      { name: 'Ti' }
-    ]
-  })
+  useMusicStore: () => musicStore,
+}))
+
+vi.mock('@/stores/patterns', () => ({
+  usePatternsStore: () => patternsStore,
+}))
+
+vi.mock('@/composables/useMidiControls', () => ({
+  useMidiControls,
 }))
 
 vi.mock('@/directives/tooltip', () => ({
-  globalTooltip: {
-    tooltipState: { value: null },
-    rotation: { value: 0 },
-    translation: { value: { x: 0, y: 0 } }
-  }
+  globalTooltip: tooltipState,
 }))
 
 describe('App.vue', () => {
-  let wrapper: any
-  let mockUseAppLoading: any
-  let mockUseMusicStore: any
-
   beforeEach(() => {
-    // Reset mocks
     vi.clearAllMocks()
-    
-    // Mock console.log to prevent test output noise
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-    
-    // Set up mock returns
-    mockUseAppLoading = {
-      isLoading: vi.fn(() => false)
-    }
-    
-    mockUseMusicStore = {
-      solfegeData: [
-        { name: 'Do' },
-        { name: 'Re' },
-        { name: 'Mi' },
-        { name: 'Fa' },
-        { name: 'Sol' },
-        { name: 'La' },
-        { name: 'Ti' }
-      ]
-    }
-    
-    // Update mocks
-    vi.mocked(require('@/composables/useAppLoading').useAppLoading).mockReturnValue(mockUseAppLoading)
-    vi.mocked(require('@/stores/music').useMusicStore).mockReturnValue(mockUseMusicStore)
+    appLoadingState.isLoading = false
   })
 
-  afterEach(() => {
-    if (wrapper) {
-      wrapper.unmount()
-    }
-    vi.restoreAllMocks()
-  })
+  it('renders the current shell when the app is ready', () => {
+    const wrapper = createTestWrapper(App)
 
-  it('renders correctly when not loading', () => {
-    mockUseAppLoading.isLoading.mockReturnValue(false)
-    
-    wrapper = createTestWrapper(App)
-    
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="app-header"]').exists()).toBe(true)
-// Sequencer section removed
     expect(wrapper.find('[data-testid="floating-popup"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="auto-debug-panel"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="sticky-bottom"]').exists()).toBe(true)
+    expect(wrapper.find('.relative.z-50.min-h-screen.flex.flex-col').exists()).toBe(true)
+    expect(useMidiControls).toHaveBeenCalledTimes(1)
   })
 
-  it('hides main content when loading', async () => {
-    mockUseAppLoading.isLoading.mockReturnValue(true)
-    
-    wrapper = createTestWrapper(App)
+  it('hides the interactive shell while loading', async () => {
+    appLoadingState.isLoading = true
+
+    const wrapper = createTestWrapper(App)
     await nextTick()
-    
+
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="auto-debug-panel"]').exists()).toBe(false)
-    
-    // Main content should not be visible
-    const mainContent = wrapper.find('.relative.z-10.min-h-screen.flex.flex-col')
-    expect(mainContent.exists()).toBe(false)
+    expect(wrapper.find('[data-testid="floating-popup"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
   })
 
-  it('shows main content when not loading', async () => {
-    mockUseAppLoading.isLoading.mockReturnValue(false)
-    
-    wrapper = createTestWrapper(App)
-    await nextTick()
-    
-    expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="auto-debug-panel"]').exists()).toBe(true)
-    
-    // Main content should be visible
-    const mainContent = wrapper.find('.relative.z-10.min-h-screen.flex.flex-col')
-    expect(mainContent.exists()).toBe(true)
-  })
+  it('passes the tooltip state through to the renderer', () => {
+    const wrapper = createTestWrapper(App)
 
-  it('has correct app structure', () => {
-    wrapper = createTestWrapper(App)
-    
-    const appDiv = wrapper.find('#app')
-    expect(appDiv.exists()).toBe(true)
-    expect(appDiv.classes()).toContain('min-h-screen')
-  })
-
-  it('initializes music store and logs solfege data', () => {
-    wrapper = createTestWrapper(App)
-    
-    expect(console.log).toHaveBeenCalledWith('Number of solfege notes:', 7)
-    expect(console.log).toHaveBeenCalledWith('Solfege data:', ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Ti'])
-  })
-
-  it('passes correct props to TooltipRenderer', () => {
-    wrapper = createTestWrapper(App)
-    
-    const tooltipRenderer = wrapper.findComponent({ name: 'TooltipRenderer' })
-    expect(tooltipRenderer.exists()).toBe(true)
-    expect(tooltipRenderer.props()).toEqual({
-      tooltipState: null,
-      rotation: 0,
-      translation: { x: 0, y: 0 }
+    const renderer = wrapper.findComponent({ name: 'TooltipRenderer' })
+    expect(renderer.exists()).toBe(true)
+    expect(renderer.props()).toEqual({
+      tooltipState: tooltipState.tooltipState.value,
+      rotation: tooltipState.rotation.value,
+      translation: tooltipState.translation.value,
     })
-  })
-
-  it('handles handleScroll function', () => {
-    wrapper = createTestWrapper(App)
-    
-    // Mock querySelector
-    const mockContainer = {
-      scrollLeft: 0
-    }
-    const mockQuerySelector = vi.spyOn(document, 'querySelector').mockReturnValue(mockContainer as any)
-    
-    // Access the component instance
-    const component = wrapper.vm
-    
-    // Call handleScroll
-    component.handleScroll(1)
-    
-    expect(mockQuerySelector).toHaveBeenCalledWith('.sticky')
-    expect(mockContainer.scrollLeft).toBe(window.innerWidth)
-    
-    mockQuerySelector.mockRestore()
-  })
-
-  it('handles handleScroll with no container', () => {
-    wrapper = createTestWrapper(App)
-    
-    // Mock querySelector to return null
-    const mockQuerySelector = vi.spyOn(document, 'querySelector').mockReturnValue(null)
-    
-    // Access the component instance
-    const component = wrapper.vm
-    
-    // Should not throw error
-    expect(() => {
-      component.handleScroll(1)
-    }).not.toThrow()
-    
-    mockQuerySelector.mockRestore()
-  })
-
-  it('reactively updates when loading state changes', async () => {
-    const loadingRef = vi.fn(() => false)
-    mockUseAppLoading.isLoading = loadingRef
-    
-    wrapper = createTestWrapper(App)
-    
-    // Initially not loading
-    expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
-    
-    // Change to loading
-    loadingRef.mockReturnValue(true)
-    await nextTick()
-    
-    // Should hide visual effects
-    expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(false)
-  })
-
-  it('applies correct CSS classes', () => {
-    wrapper = createTestWrapper(App)
-    
-    const appDiv = wrapper.find('#app')
-    expect(appDiv.classes()).toContain('min-h-screen')
-    
-    const mainContent = wrapper.find('.relative.z-10.min-h-screen.flex.flex-col')
-    expect(mainContent.classes()).toEqual(['relative', 'z-10', 'min-h-screen', 'flex', 'flex-col'])
   })
 })

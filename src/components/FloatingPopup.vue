@@ -119,12 +119,11 @@ import { useMusicStore } from "@/stores/music";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { Chord, Interval } from "@tonaljs/tonal";
+import type { ChromaticNote } from "@/types/music";
 
 const musicStore = useMusicStore();
 const {
-  getGradient,
-  getPrimaryColor,
-  withAlpha,
+  getPrimaryColorByScaleIndex,
   createGlassmorphBackground,
   createGlassmorphShadow,
   createChordGlassmorphBackground,
@@ -227,9 +226,10 @@ const displayedChord = computed(() => {
 
 // Note colors and gradients
 const getNoteColor = (note: any): string => {
-  return getPrimaryColor(
-    note.solfege.name,
-    musicStore.currentMode,
+  return getPrimaryColorByScaleIndex(
+    note.solfegeIndex,
+    note.mode ?? musicStore.currentMode,
+    (note.key ?? musicStore.currentKey) as ChromaticNote,
     note.octave || 3
   );
 };

@@ -5,6 +5,7 @@ export { useAnimationLifecycle } from "./useAnimationLifecycle";
 export { useVisualConfig } from "./useVisualConfig";
 export { useColorSystem } from "./useColorSystem";
 export { useKeyboardControls } from "./useKeyboardControls";
+export { useMidiControls } from "./useMidiControls";
 export { useSolfegeInteraction } from "./useSolfegeInteraction";
 export { useAppLoading } from "./useAppLoading";
 export { useTooltip } from "./useTooltip";

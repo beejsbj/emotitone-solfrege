@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 
 /**
  * Keyboard mapping interface
@@ -14,8 +15,63 @@ interface KeyboardMapping {
   [key: string]: {
     solfegeIndex: number;
     octave: number;
+    label: string;
   };
 }
+
+const KEY_ROWS = [
+  {
+    octaveOffset: 1,
+    keys: [
+      { code: "Digit1", label: "1" },
+      { code: "Digit2", label: "2" },
+      { code: "Digit3", label: "3" },
+      { code: "Digit4", label: "4" },
+      { code: "Digit5", label: "5" },
+      { code: "Digit6", label: "6" },
+      { code: "Digit7", label: "7" },
+      { code: "Digit8", label: "8" },
+      { code: "Digit9", label: "9" },
+      { code: "Digit0", label: "0" },
+      { code: "Minus", label: "-" },
+      { code: "Equal", label: "=" },
+    ],
+  },
+  {
+    octaveOffset: 0,
+    keys: [
+      { code: "KeyQ", label: "Q" },
+      { code: "KeyW", label: "W" },
+      { code: "KeyE", label: "E" },
+      { code: "KeyR", label: "R" },
+      { code: "KeyT", label: "T" },
+      { code: "KeyY", label: "Y" },
+      { code: "KeyU", label: "U" },
+      { code: "KeyI", label: "I" },
+      { code: "KeyO", label: "O" },
+      { code: "KeyP", label: "P" },
+      { code: "BracketLeft", label: "[" },
+      { code: "BracketRight", label: "]" },
+    ],
+  },
+  {
+    octaveOffset: -1,
+    keys: [
+      { code: "KeyA", label: "A" },
+      { code: "KeyS", label: "S" },
+      { code: "KeyD", label: "D" },
+      { code: "KeyF", label: "F" },
+      { code: "KeyG", label: "G" },
+      { code: "KeyH", label: "H" },
+      { code: "KeyJ", label: "J" },
+      { code: "KeyK", label: "K" },
+      { code: "KeyL", label: "L" },
+      { code: "Semicolon", label: ";" },
+      { code: "Quote", label: "'" },
+      { code: "Backslash", label: "\\" },
+    ],
+  },
+] as const;
 
 /**
  * Composable for handling keyboard controls for solfege notes
@@ -23,6 +79,7 @@ interface KeyboardMapping {
 export function useKeyboardControls(mainOctave: Ref<number>) {
   const musicStore = useMusicStore();
   const patternsStore = usePatternsStore();
+  const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
@@ -30,39 +87,26 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
   // Track keyboard-triggered notes separately from mouse-triggered notes
   const keyboardNoteIds = ref<Map<string, string>>(new Map());
 
-  // Dynamic keyboard mapping for solfege notes across 3 octaves
-  // Top row (qwertyu) -> Above main octave
-  // Middle row (asdfghj) -> Main octave
-  // Bottom row (zxcvbnm) -> Below main octave
   const getKeyboardMapping = (): KeyboardMapping => {
-    return {
-      // Above main octave - Top row
-      q: { solfegeIndex: 0, octave: mainOctave.value + 1 },
-      w: { solfegeIndex: 1, octave: mainOctave.value + 1 },
-      e: { solfegeIndex: 2, octave: mainOctave.value + 1 },
-      r: { solfegeIndex: 3, octave: mainOctave.value + 1 },
-      t: { solfegeIndex: 4, octave: mainOctave.value + 1 },
-      y: { solfegeIndex: 5, octave: mainOctave.value + 1 },
-      u: { solfegeIndex: 6, octave: mainOctave.value + 1 },
+    const degreeCount = musicStore.currentScale.degreeCount;
+    const mapping: KeyboardMapping = {};
 
-      // Main octave - Middle row
-      a: { solfegeIndex: 0, octave: mainOctave.value },
-      s: { solfegeIndex: 1, octave: mainOctave.value },
-      d: { solfegeIndex: 2, octave: mainOctave.value },
-      f: { solfegeIndex: 3, octave: mainOctave.value },
-      g: { solfegeIndex: 4, octave: mainOctave.value },
-      h: { solfegeIndex: 5, octave: mainOctave.value },
-      j: { solfegeIndex: 6, octave: mainOctave.value },
+    KEY_ROWS.forEach((row) => {
+      const octave = mainOctave.value + row.octaveOffset;
+      if (octave < 1 || octave > 8) {
+        return;
+      }
 
-      // Below main octave - Bottom row
-      z: { solfegeIndex: 0, octave: mainOctave.value - 1 },
-      x: { solfegeIndex: 1, octave: mainOctave.value - 1 },
-      c: { solfegeIndex: 2, octave: mainOctave.value - 1 },
-      v: { solfegeIndex: 3, octave: mainOctave.value - 1 },
-      b: { solfegeIndex: 4, octave: mainOctave.value - 1 },
-      n: { solfegeIndex: 5, octave: mainOctave.value - 1 },
-      m: { solfegeIndex: 6, octave: mainOctave.value - 1 },
-    };
+      row.keys.slice(0, degreeCount).forEach((key, index) => {
+        mapping[key.code] = {
+          solfegeIndex: index,
+          octave,
+          label: key.label,
+        };
+      });
+    });
+
+    return mapping;
   };
 
   /**
@@ -81,7 +125,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
         noteMapping.solfegeIndex === solfegeIndex &&
         noteMapping.octave === octave
       ) {
-        return key.toUpperCase(); // Return uppercase for display
+        return noteMapping.label;
       }
     }
 
@@ -99,15 +143,19 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     );
   };
 
+  const getKeyboardPressId = (key: string) => `keyboard:${key}`;
+  const getNoteKey = (solfegeIndex: number, octave: number) =>
+    `${solfegeIndex}_${octave}`;
+
   // Keyboard event handlers
   const handleKeyDown = async (event: KeyboardEvent) => {
     if (isEditableTarget(event.target)) {
       return;
     }
 
-    const key = event.key; // Don't convert to lowercase to preserve shift state
+    const key = event.code;
 
-    if (key === "Backspace" || key === "Delete") {
+    if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
       patternsStore.removeLastFromCurrentSketch();
       return;
@@ -120,35 +168,38 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
     // Get current keyboard mapping
     const keyboardMapping = getKeyboardMapping();
-
-    // Check if this key is mapped to a solfege note
     if (key in keyboardMapping) {
       event.preventDefault();
       pressedKeys.value.add(key);
 
-      const { solfegeIndex, octave } =
+      const { solfegeIndex, octave, label } =
         keyboardMapping[key as keyof typeof keyboardMapping];
 
-      // Attack the note and track the note ID for this specific key
       const noteId = await musicStore.attackNoteWithOctave(
         solfegeIndex,
         octave
       );
       if (noteId) {
         keyboardNoteIds.value.set(key, noteId);
+        keyboardDrawerStore.addTouch(
+          getKeyboardPressId(key),
+          getNoteKey(solfegeIndex, octave)
+        );
 
         // Dispatch custom event for visual feedback
         window.dispatchEvent(
           new CustomEvent("keyboard-note-pressed", {
-            detail: { solfegeIndex, octave, key },
+            detail: { solfegeIndex, octave, key: label },
           })
         );
+      } else {
+        pressedKeys.value.delete(key);
       }
     }
   };
 
   const handleKeyUp = (event: KeyboardEvent) => {
-    const key = event.key; // Don't convert to lowercase to preserve shift state
+    const key = event.code;
 
     if (pressedKeys.value.has(key)) {
       pressedKeys.value.delete(key);
@@ -162,18 +213,25 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
         // Dispatch custom event for visual feedback
         window.dispatchEvent(
           new CustomEvent("keyboard-note-released", {
-            detail: { key },
+            detail: { key: keyboardMappingLabel(key) },
           })
         );
       }
+
+      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
+  };
+
+  const keyboardMappingLabel = (code: string): string => {
+    return getKeyboardMapping()[code]?.label ?? code;
   };
 
   // Handle window blur to release all keyboard notes (safety mechanism)
   const handleWindowBlur = () => {
     // Release all keyboard-triggered notes when window loses focus
-    for (const noteId of keyboardNoteIds.value.values()) {
+    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
       musicStore.releaseNote(noteId);
+      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
 
     // Clear tracking maps
@@ -194,8 +252,9 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     window.removeEventListener("blur", handleWindowBlur);
 
     // Release any keyboard-triggered notes that are still active
-    for (const noteId of keyboardNoteIds.value.values()) {
+    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
       musicStore.releaseNote(noteId);
+      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
 
     // Clear tracking maps

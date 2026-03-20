@@ -92,4 +92,24 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.as("n").scale("C3:major")')
     expect(result).toContain('.cpm(90 / 4)')
   })
+
+  it("normalizes wrapped relative scale indices for sparse modes", () => {
+    const notes = [
+      {
+        ...makeNote("la", "A4", 5, 4, 1000, 500),
+        key: "C",
+        mode: "major pentatonic" as const,
+      },
+    ]
+
+    const result = logNotesToStrudel(notes, {
+      notationType: "relative",
+      scaleKey: "C",
+      scaleMode: "major pentatonic",
+      scaleOctave: 4,
+    })
+
+    expect(result).toContain("\n0@0.25\n")
+    expect(result).toContain('.scale("C4:major pentatonic")')
+  })
 })

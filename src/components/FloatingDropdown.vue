@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
 interface Props {
   position?: "top-left" | "top-right";
@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const showPanel = ref(false);
-const dropdownRef = ref<HTMLElement | null>(null);
+const triggerRef = ref<HTMLElement | null>(null);
 const panelRef = ref<HTMLElement | null>(null);
 
 const togglePanel = () => {
@@ -27,136 +27,203 @@ const closePanel = () => {
   showPanel.value = false;
 };
 
-// Click outside detection - check both the trigger container and the teleported panel
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as Node;
-  const isInsideTrigger =
-    dropdownRef.value && dropdownRef.value.contains(target);
-  const isInsidePanel = panelRef.value && panelRef.value.contains(target);
+const panelFrameClass = computed(() => {
+  if (!props.floating) {
+    return "floating-dropdown__panel-frame--inline";
+  }
 
-  // Only close if click is outside both the trigger and the panel
-  if (!isInsideTrigger && !isInsidePanel) {
+  return "floating-dropdown__panel-frame--floating";
+});
+
+const triggerClass = computed(() => {
+  if (!props.floating) {
+    return "floating-dropdown__trigger--inline";
+  }
+
+  return props.position === "top-left"
+    ? "floating-dropdown__trigger--left"
+    : "floating-dropdown__trigger--right";
+});
+
+const handlePointerDown = (event: MouseEvent) => {
+  if (!showPanel.value) return;
+
+  const target = event.target as Node;
+  const clickedTrigger = triggerRef.value && triggerRef.value.contains(target);
+  const clickedPanel = panelRef.value && panelRef.value.contains(target);
+
+  if (!clickedTrigger && !clickedPanel) {
+    closePanel();
+  }
+};
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === "Escape") {
     closePanel();
   }
 };
 
 onMounted(() => {
-  document.addEventListener("mousedown", handleClickOutside);
+  document.addEventListener("mousedown", handlePointerDown);
+  document.addEventListener("keydown", handleKeydown);
 });
 
 onUnmounted(() => {
-  document.removeEventListener("mousedown", handleClickOutside);
+  document.removeEventListener("mousedown", handlePointerDown);
+  document.removeEventListener("keydown", handleKeydown);
 });
 
-// Expose methods to parent components
 defineExpose({
+  showPanel,
   closePanel,
   togglePanel,
-  showPanel,
 });
 </script>
 
 <template>
-  <div ref="dropdownRef" class="floating-dropdown">
-    <!-- Panel -->
+  <div class="floating-dropdown">
+    <div
+      v-if="!showPanel || !floating"
+      ref="triggerRef"
+      data-testid="floating-dropdown-trigger"
+      class="floating-dropdown__trigger"
+      :class="triggerClass"
+    >
+      <slot
+        name="trigger"
+        :toggle="togglePanel"
+        :open="togglePanel"
+        :close="closePanel"
+        :is-open="showPanel"
+      />
+    </div>
 
-    <Teleport to="body">
+    <Teleport v-if="floating" to="body">
+      <Transition name="floating-dropdown-fade">
+        <div
+          v-if="showPanel"
+          ref="panelRef"
+          data-testid="floating-dropdown-panel"
+          class="floating-dropdown__panel-frame"
+          :class="panelFrameClass"
+          :style="{
+            width: maxWidth,
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+            height: 'auto',
+          }"
+        >
+          <div class="floating-dropdown__panel">
+            <slot
+              name="panel"
+              :close="closePanel"
+              :toggle="togglePanel"
+              :open="togglePanel"
+              :is-open="showPanel"
+              :position="position"
+            />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Transition v-else name="floating-dropdown-fade">
       <div
         v-if="showPanel"
         ref="panelRef"
-        class="dropdown-panel w-full max-w-[90%]"
-        :class="[
-          'dropdown-panel',
-          floating ? `position-${position}` : 'fixed top-[20px] left-[20px]',
-          { 'mx-auto': floating },
-        ]"
+        data-testid="floating-dropdown-panel"
+        class="floating-dropdown__panel-frame floating-dropdown__panel-frame--inline"
         :style="{
+          width: maxWidth,
+          maxWidth: maxWidth,
           maxHeight: maxHeight,
           height: 'auto',
         }"
       >
-        <slot
-          name="panel"
-          :close="closePanel"
-          :toggle="togglePanel"
-          :position="position"
-        />
+        <div class="floating-dropdown__panel">
+          <slot
+            name="panel"
+            :close="closePanel"
+            :toggle="togglePanel"
+            :open="togglePanel"
+            :is-open="showPanel"
+            :position="position"
+          />
+        </div>
       </div>
-    </Teleport>
-
-    <!-- Toggle Button -->
-    <div
-      v-if="!showPanel"
-      :class="[
-        'dropdown-toggle',
-        floating ? `position-${position}` : 'position-inline',
-      ]"
-    >
-      <slot name="trigger" :open="togglePanel" :toggle="togglePanel" />
-    </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 .floating-dropdown {
   position: relative;
+  display: inline-block;
 }
 
-/* Floating styles (fixed positioning) */
-.dropdown-panel {
-  background: rgba(0, 0, 0, 0.9);
-  border: 1px solid #333;
-  border-radius: 8px;
-  color: white;
-  font-size: 12px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  backdrop-filter: blur(10px);
+.floating-dropdown__trigger {
   z-index: 9999;
 }
 
-/* Fixed positioning styles for floating mode */
-.dropdown-panel.position-top-left {
+.floating-dropdown__trigger--left {
   position: fixed;
-  top: 28px;
-  left: 28px;
-  z-index: 9999;
+  top: 1rem;
+  left: 1rem;
 }
 
-.dropdown-panel.position-top-right {
+.floating-dropdown__trigger--right {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
+  top: 1rem;
+  right: 1rem;
 }
 
-/* Inline positioning styles for non-floating mode */
-.dropdown-panel.position-inline {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  margin-top: 4px;
-}
-
-.dropdown-toggle.position-top-left {
-  position: fixed;
-  top: 28px;
-  left: 28px;
-  z-index: 9999;
-}
-
-.dropdown-toggle.position-top-right {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
-}
-
-/* Inline toggle positioning for non-floating mode */
-.dropdown-toggle.position-inline {
+.floating-dropdown__trigger--inline {
   position: relative;
+}
+
+.floating-dropdown__panel-frame {
+  z-index: 9999;
+}
+
+.floating-dropdown__panel-frame--floating {
+  z-index: 9999;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding:
+    max(env(safe-area-inset-top), 0px) 0.75rem 0.75rem;
+  pointer-events: none;
+}
+
+.floating-dropdown__panel-frame--inline {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 1000;
+}
+
+.floating-dropdown__panel {
+  pointer-events: auto;
+}
+
+.floating-dropdown-fade-enter-active,
+.floating-dropdown-fade-leave-active {
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.floating-dropdown-fade-enter-from,
+.floating-dropdown-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+.floating-dropdown-fade-enter-to,
+.floating-dropdown-fade-leave-from {
+  transform: translateY(0);
+  opacity: 1;
 }
 </style>

@@ -360,7 +360,7 @@ function selectInstrument(name: string, close: () => void) {
         @click="toggle"
         :class="[
           'group flex items-center gap-2 border border-[#6f6128]/80 bg-[#090805]/88 text-[#d8c985] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#9c8837] hover:text-[#f7f0d8] [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]',
-          compact ? 'max-w-[144px] px-2.25 py-1.5 text-[9px]' : 'max-w-[208px] px-2.75 py-1.75 text-[10px]',
+          compact ? 'max-w-[144px] px-[9px] py-1.5 text-[9px]' : 'max-w-[208px] px-[11px] py-[7px] text-[10px]',
         ]"
       >
         <span

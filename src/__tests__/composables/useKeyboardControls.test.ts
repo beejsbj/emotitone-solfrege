@@ -23,6 +23,11 @@ const mockPatternsStore = {
   removeLastFromCurrentSketch: vi.fn(),
 };
 
+const mockKeyboardDrawerStore = {
+  addTouch: vi.fn(),
+  removeTouch: vi.fn(),
+};
+
 vi.mock("@/stores/music", () => ({
   useMusicStore: () => mockMusicStore,
 }));
@@ -31,12 +36,18 @@ vi.mock("@/stores/patterns", () => ({
   usePatternsStore: () => mockPatternsStore,
 }));
 
+vi.mock("@/stores/keyboardDrawer", () => ({
+  useKeyboardDrawerStore: () => mockKeyboardDrawerStore,
+}));
+
 describe("useKeyboardControls", () => {
   beforeEach(() => {
     mockMusicStore.currentScale.degreeCount = 12;
     mockMusicStore.attackNoteWithOctave.mockClear();
     mockMusicStore.releaseNote.mockClear();
     mockPatternsStore.removeLastFromCurrentSketch.mockClear();
+    mockKeyboardDrawerStore.addTouch.mockClear();
+    mockKeyboardDrawerStore.removeTouch.mockClear();
   });
 
   it("builds three full 12-key rows for chromatic parity", () => {

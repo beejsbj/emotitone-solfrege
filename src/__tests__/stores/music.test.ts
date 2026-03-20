@@ -124,9 +124,9 @@ describe("music store", () => {
     musicStore.setMode("chromatic");
     const noteId = await musicStore.attackNote(11, 4);
 
-    expect(noteId).toBe("F5_11_4");
+    expect(noteId).toMatch(/^F5_11_4_/);
     expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
-      "F5_11_4",
+      noteId,
       "F5",
       "piano"
     );
@@ -141,7 +141,7 @@ describe("music store", () => {
     expect(notePlayedEvent.detail.key).toBe("F#");
 
     await musicStore.releaseNote(noteId!);
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith("F5_11_4");
+    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(noteId);
     expect(musicStore.getActiveNotes()).toHaveLength(0);
     const noteReleasedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-released"

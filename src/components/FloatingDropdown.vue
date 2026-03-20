@@ -3,11 +3,15 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 
 interface Props {
   position?: "top-left" | "top-right";
+  maxWidth?: string;
+  maxHeight?: string;
   floating?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   position: "top-right",
+  maxWidth: "320px",
+  maxHeight: "80vh",
   floating: true,
 });
 
@@ -79,7 +83,7 @@ defineExpose({
 <template>
   <div class="floating-dropdown">
     <div
-      v-if="!showPanel"
+      v-if="!showPanel || !floating"
       ref="triggerRef"
       data-testid="floating-dropdown-trigger"
       class="floating-dropdown__trigger"
@@ -94,18 +98,22 @@ defineExpose({
       />
     </div>
 
-    <Teleport to="body">
+    <Teleport v-if="floating" to="body">
       <Transition name="floating-dropdown-fade">
         <div
           v-if="showPanel"
+          ref="panelRef"
+          data-testid="floating-dropdown-panel"
           class="floating-dropdown__panel-frame"
           :class="panelFrameClass"
+          :style="{
+            width: maxWidth,
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+            height: 'auto',
+          }"
         >
-          <div
-            ref="panelRef"
-            data-testid="floating-dropdown-panel"
-            class="floating-dropdown__panel"
-          >
+          <div class="floating-dropdown__panel">
             <slot
               name="panel"
               :close="closePanel"
@@ -118,12 +126,39 @@ defineExpose({
         </div>
       </Transition>
     </Teleport>
+
+    <Transition v-else name="floating-dropdown-fade">
+      <div
+        v-if="showPanel"
+        ref="panelRef"
+        data-testid="floating-dropdown-panel"
+        class="floating-dropdown__panel-frame floating-dropdown__panel-frame--inline"
+        :style="{
+          width: maxWidth,
+          maxWidth: maxWidth,
+          maxHeight: maxHeight,
+          height: 'auto',
+        }"
+      >
+        <div class="floating-dropdown__panel">
+          <slot
+            name="panel"
+            :close="closePanel"
+            :toggle="togglePanel"
+            :open="togglePanel"
+            :is-open="showPanel"
+            :position="position"
+          />
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 .floating-dropdown {
   position: relative;
+  display: inline-block;
 }
 
 .floating-dropdown__trigger {
@@ -166,6 +201,7 @@ defineExpose({
   position: absolute;
   top: calc(100% + 0.25rem);
   left: 0;
+  z-index: 1000;
 }
 
 .floating-dropdown__panel {

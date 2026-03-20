@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+
+vi.unmock("@/services/music");
+vi.unmock("@/data");
+
 import { useMusicStore } from "@/stores/music";
-import { musicTheory } from "@/services/music";
 
 vi.mock("@/services/superdoughAudio", () => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
@@ -27,19 +30,9 @@ describe("music store MIDI helpers", () => {
 
   it("maps wrapped scale tones back to the correct base octave", () => {
     const musicStore = useMusicStore();
-    const mockedMusicTheory = vi.mocked(musicTheory);
-
-    mockedMusicTheory.getCurrentScaleNotes.mockReturnValue([
-      "B",
-      "C#",
-      "D#",
-      "E",
-      "F#",
-      "G#",
-      "A#",
-    ]);
 
     musicStore.setKey("B");
+    musicStore.setMode("major");
 
     expect(musicStore.parseNoteInput("C#4")).toEqual({
       solfegeIndex: 1,
@@ -49,19 +42,9 @@ describe("music store MIDI helpers", () => {
 
   it("normalizes flat note names when matching scale notes", () => {
     const musicStore = useMusicStore();
-    const mockedMusicTheory = vi.mocked(musicTheory);
-
-    mockedMusicTheory.getCurrentScaleNotes.mockReturnValue([
-      "F",
-      "G",
-      "A",
-      "A#",
-      "C",
-      "D",
-      "E",
-    ]);
 
     musicStore.setKey("F");
+    musicStore.setMode("major");
 
     expect(musicStore.parseNoteInput("Bb4")).toEqual({
       solfegeIndex: 3,

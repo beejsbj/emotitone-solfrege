@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 
 /**
  * Keyboard mapping interface
@@ -78,6 +79,7 @@ const KEY_ROWS = [
 export function useKeyboardControls(mainOctave: Ref<number>) {
   const musicStore = useMusicStore();
   const patternsStore = usePatternsStore();
+  const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
@@ -141,6 +143,10 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     );
   };
 
+  const getKeyboardPressId = (key: string) => `keyboard:${key}`;
+  const getNoteKey = (solfegeIndex: number, octave: number) =>
+    `${solfegeIndex}_${octave}`;
+
   // Keyboard event handlers
   const handleKeyDown = async (event: KeyboardEvent) => {
     if (isEditableTarget(event.target)) {
@@ -175,6 +181,10 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       );
       if (noteId) {
         keyboardNoteIds.value.set(key, noteId);
+        keyboardDrawerStore.addTouch(
+          getKeyboardPressId(key),
+          getNoteKey(solfegeIndex, octave)
+        );
 
         // Dispatch custom event for visual feedback
         window.dispatchEvent(
@@ -182,6 +192,8 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
             detail: { solfegeIndex, octave, key: label },
           })
         );
+      } else {
+        pressedKeys.value.delete(key);
       }
     }
   };
@@ -205,6 +217,8 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
           })
         );
       }
+
+      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
   };
 
@@ -215,8 +229,9 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
   // Handle window blur to release all keyboard notes (safety mechanism)
   const handleWindowBlur = () => {
     // Release all keyboard-triggered notes when window loses focus
-    for (const noteId of keyboardNoteIds.value.values()) {
+    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
       musicStore.releaseNote(noteId);
+      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
 
     // Clear tracking maps
@@ -237,8 +252,9 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     window.removeEventListener("blur", handleWindowBlur);
 
     // Release any keyboard-triggered notes that are still active
-    for (const noteId of keyboardNoteIds.value.values()) {
+    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
       musicStore.releaseNote(noteId);
+      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
 
     // Clear tracking maps

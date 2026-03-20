@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed, readonly, watch } from "vue";
-import { musicTheory } from "@/services/music";
+import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import { getModeDefinition } from "@/data";
 import type {
   SolfegeData,
@@ -10,6 +10,7 @@ import type {
 } from "@/types/music";
 import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
+import { Note as TonalNote } from "@tonaljs/tonal";
 
 // Type for note input - either a chromatic note with octave or solfege index
 type NoteInput = string | { solfegeIndex: number; octave: number };
@@ -33,6 +34,39 @@ function toneNotationToMs(notation: string, bpm: number = 120): number {
 
 // Type for chromatic note with octave (e.g., "C4", "F#5")
 type ChromaticNoteWithOctave = `${ChromaticNote}${number}`;
+
+function normalizePitchClass(noteName: string): ChromaticNote | null {
+  const candidates = [noteName, TonalNote.enharmonic(noteName)]
+    .map((candidate) => TonalNote.get(candidate).pc)
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (CHROMATIC_NOTES.includes(candidate as ChromaticNote)) {
+      return candidate as ChromaticNote;
+    }
+  }
+
+  return null;
+}
+
+function parseNoteWithOctave(
+  note: string
+): { noteName: ChromaticNote; octave: number } | null {
+  const match = note.trim().match(/^([A-Ga-g](?:#|b)?)(-?\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, rawNoteName, rawOctave] = match;
+  const noteName = normalizePitchClass(rawNoteName);
+  const octave = Number.parseInt(rawOctave, 10);
+
+  if (!noteName || Number.isNaN(octave)) {
+    return null;
+  }
+
+  return { noteName, octave };
+}
 
 export const useMusicStore = defineStore(
   "music",
@@ -85,15 +119,40 @@ export const useMusicStore = defineStore(
 
     // Melody-related getters (removed)
 
+    function getBaseOctave(
+      noteName: ChromaticNote,
+      actualOctave: number
+    ): number {
+      const noteIndex = CHROMATIC_NOTES.indexOf(noteName);
+      const keyIndex = CHROMATIC_NOTES.indexOf(
+        currentKey.value as ChromaticNote
+      );
+
+      if (noteIndex === -1 || keyIndex === -1) {
+        return actualOctave;
+      }
+
+      return noteIndex < keyIndex ? actualOctave - 1 : actualOctave;
+    }
+
     // Helper function to convert note input to solfege index and octave
     function parseNoteInput(
       note: NoteInput
     ): { solfegeIndex: number; octave: number } | null {
       if (typeof note === "string") {
-        const noteName = note.slice(0, -1);
-        const octave = parseInt(note.slice(-1));
+        const parsedNote = parseNoteWithOctave(note);
+        if (!parsedNote) {
+          return null;
+        }
+
+        const { noteName, octave } = parsedNote;
         const solfegeIndex = musicTheory.getScaleIndexForChromaticNote(noteName);
-        return solfegeIndex === null ? null : { solfegeIndex, octave };
+        return solfegeIndex === null
+          ? null
+          : {
+              solfegeIndex,
+              octave: getBaseOctave(noteName, octave),
+            };
       }
 
       return note;
@@ -103,10 +162,19 @@ export const useMusicStore = defineStore(
     function parseChromatic(
       note: ChromaticNoteWithOctave
     ): { solfegeIndex: number; octave: number } | null {
-      const noteName = note.slice(0, -1) as ChromaticNote;
-      const octave = parseInt(note.slice(-1));
+      const parsedNote = parseNoteWithOctave(note);
+      if (!parsedNote) {
+        return null;
+      }
+
+      const { noteName, octave } = parsedNote;
       const solfegeIndex = musicTheory.getScaleIndexForChromaticNote(noteName);
-      return solfegeIndex === null ? null : { solfegeIndex, octave };
+      return solfegeIndex === null
+        ? null
+        : {
+            solfegeIndex,
+            octave: getBaseOctave(noteName, octave),
+          };
     }
 
     // Actions
@@ -221,7 +289,13 @@ export const useMusicStore = defineStore(
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
 
-        const cleanNoteId = `${noteName}_${solfegeIndex}_${finalOctave}`;
+        const cleanNoteId = [
+          noteName,
+          solfegeIndex,
+          finalOctave,
+          Date.now(),
+          Math.random().toString(36).slice(2, 8),
+        ].join("_");
 
         // Fire-and-forget via superdough — it manages its own voice lifecycle
         await superdoughAudio.attackNote(

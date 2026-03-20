@@ -92,9 +92,12 @@ const noteName = computed(() => {
   return musicStore.getNoteName(props.solfegeIndex, props.octave);
 });
 const isAccidental = computed(() => noteName.value.includes("#"));
-const isPressed = computed(() => store.isKeyPressed(noteKey.value));
+const isPressed = computed(() => store.isKeyVisuallyActive(noteKey.value));
 const currentMode = computed(() => musicStore.currentMode);
 const currentKey = computed(() => musicStore.currentKey as ChromaticNote);
+
+const getTouchPressId = (touchId: number) => `touch:${touchId}`;
+const mousePressId = "mouse";
 
 // Get background and colors from color system
 const keyColors = computed(() => {
@@ -233,7 +236,7 @@ const handleTouchStart = async (event: TouchEvent) => {
         touch.clientY <= rect.bottom;
 
       if (isOnThisKey) {
-        store.addTouch(touchId, noteKey.value);
+        store.addTouch(getTouchPressId(touchId), noteKey.value);
 
         if (config.value.hapticFeedback) {
           triggerNoteHaptic();
@@ -252,7 +255,7 @@ const handleTouchMove = (event: TouchEvent) => {
     const touchId = touch.identifier;
 
     // Only process if this touch belongs to this key
-    if (store.touch.activeTouches.get(touchId) === noteKey.value) {
+    if (store.touch.activeTouches.get(getTouchPressId(touchId)) === noteKey.value) {
       const element = keyRef.value;
       if (!element) continue;
 
@@ -269,7 +272,7 @@ const handleTouchMove = (event: TouchEvent) => {
 
       // If touch has moved outside, release the key
       if (!isInBounds) {
-        store.removeTouch(touchId);
+        store.removeTouch(getTouchPressId(touchId));
         releaseNoteByButtonKey(noteKey.value, event);
       }
     }
@@ -280,8 +283,8 @@ const handleTouchEnd = (event: TouchEvent) => {
   for (const touch of Array.from(event.changedTouches)) {
     const touchId = touch.identifier;
 
-    if (store.touch.activeTouches.get(touchId) === noteKey.value) {
-      store.removeTouch(touchId);
+    if (store.touch.activeTouches.get(getTouchPressId(touchId)) === noteKey.value) {
+      store.removeTouch(getTouchPressId(touchId));
       releaseNoteByButtonKey(noteKey.value, event);
     }
   }
@@ -290,7 +293,7 @@ const handleTouchEnd = (event: TouchEvent) => {
 const handleTouchCancel = handleTouchEnd;
 
 const handleMouseDown = async (event: MouseEvent) => {
-  store.addTouch(-1, noteKey.value);
+  store.addTouch(mousePressId, noteKey.value);
 
   if (config.value.hapticFeedback) {
     triggerNoteHaptic();
@@ -300,28 +303,13 @@ const handleMouseDown = async (event: MouseEvent) => {
 };
 
 const handleMouseUp = (event: MouseEvent) => {
-  store.removeTouch(-1);
+  store.removeTouch(mousePressId);
   releaseNoteByButtonKey(noteKey.value, event);
 };
 
 const handleMouseLeave = (event: MouseEvent) => {
-  if (store.touch.activeTouches.has(-1)) {
+  if (store.touch.activeTouches.has(mousePressId)) {
     handleMouseUp(event);
-  }
-};
-
-// Keyboard event handlers for visual feedback
-const handleKeyboardPress = (event: CustomEvent) => {
-  const { solfegeIndex, octave } = event.detail;
-
-  if (solfegeIndex === props.solfegeIndex && octave === props.octave) {
-    store.touch.pressedKeys.add(noteKey.value);
-  }
-};
-
-const handleKeyboardRelease = (event: CustomEvent) => {
-  if (store.touch.pressedKeys.has(noteKey.value)) {
-    store.touch.pressedKeys.delete(noteKey.value);
   }
 };
 
@@ -330,7 +318,7 @@ const handleVisibilityOrBlur = () => {
   // If this key is pressed and page loses focus, release it
   if (store.isKeyPressed(noteKey.value)) {
     // Find all touches for this key and remove them
-    const touchesToRemove: number[] = [];
+    const touchesToRemove: string[] = [];
     store.touch.activeTouches.forEach((key, touchId) => {
       if (key === noteKey.value) {
         touchesToRemove.push(touchId);
@@ -358,15 +346,6 @@ onMounted(() => {
     };
   }
 
-  window.addEventListener(
-    "keyboard-note-pressed",
-    handleKeyboardPress as EventListener
-  );
-  window.addEventListener(
-    "keyboard-note-released",
-    handleKeyboardRelease as EventListener
-  );
-
   // Add cleanup listeners for stuck touches
   document.addEventListener("visibilitychange", handleVisibilityOrBlur);
   window.addEventListener("blur", handleVisibilityOrBlur);
@@ -374,14 +353,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   store.clearAllTouches();
-  window.removeEventListener(
-    "keyboard-note-pressed",
-    handleKeyboardPress as EventListener
-  );
-  window.removeEventListener(
-    "keyboard-note-released",
-    handleKeyboardRelease as EventListener
-  );
 
   // Remove cleanup listeners
   document.removeEventListener("visibilitychange", handleVisibilityOrBlur);

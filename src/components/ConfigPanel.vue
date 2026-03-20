@@ -300,6 +300,43 @@
                   </div>
                 </article>
               </div>
+
+              <div class="space-y-2">
+                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#17120a] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#f7b22c] border-[#f7b22c]">
+                  ROLI
+                </span>
+
+                <article
+                  class="space-y-3 rounded-[12px] border border-[#2d2717] bg-[#100e09] px-3 py-3"
+                >
+                  <div class="space-y-2">
+                    <p class="m-0 text-[11px] leading-relaxed text-neutral-400">
+                      Generate a live-sync LittleFoot script from the current
+                      palette and load it in ROLI Dashboard or BLOCKS Code.
+                    </p>
+                    <p class="m-0 text-[10px] leading-relaxed text-neutral-500">
+                      {{ roliSyncMessage }}
+                    </p>
+                  </div>
+
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      @click="copyRoliPianoScript"
+                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
+                      :class="actionToneClass('green')"
+                    >
+                      Copy Script
+                    </button>
+                    <button
+                      @click="downloadRoliPianoScript"
+                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
+                      :class="actionToneClass('cream')"
+                    >
+                      Download
+                    </button>
+                  </div>
+                </article>
+              </div>
             </section>
           </TabsContent>
 
@@ -335,9 +372,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { CONFIG_SECTIONS, UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
+import type { ChromaticNote } from "@/types";
 import type { VisualEffectsConfig } from "@/types/visual";
 import {
   Tabs,
@@ -360,6 +400,8 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-vue-next";
+import { generateRoliPianoScript } from "@/services/roliPianoExport";
+import { isRoliMidiPortName } from "@/services/roliLiveSync";
 
 type ConfigSectionKey = keyof VisualEffectsConfig;
 type PosterTone = "amber" | "red" | "violet" | "cream";
@@ -432,6 +474,8 @@ const SECTION_ORDER: ConfigSectionKey[] = [
 ];
 
 const visualConfigStore = useVisualConfigStore();
+const keyboardDrawerStore = useKeyboardDrawerStore();
+const musicStore = useMusicStore();
 const activeTab = ref("home");
 
 const { config, visualsEnabled, savedConfigs } = storeToRefs(visualConfigStore);
@@ -595,6 +639,28 @@ const resetSectionToDefaults = (sectionName: ConfigSectionKey) => {
   resetSection(sectionName);
 };
 
+const roliSyncMessage = computed(() => {
+  const midi = keyboardDrawerStore.midi;
+
+  if (midi.syncedOutput) {
+    return `Live sync active on ${midi.syncedOutput}.`;
+  }
+
+  const detectedRoliOutput = midi.connectedOutputs.find((outputName) =>
+    isRoliMidiPortName(outputName)
+  );
+
+  if (detectedRoliOutput) {
+    return `ROLI output ${detectedRoliOutput} is connected. Load the script onto the keyboard to arm live sync.`;
+  }
+
+  if (midi.connectedOutputs.length > 0) {
+    return "MIDI outputs are connected, but none look like a ROLI/LUMI port yet.";
+  }
+
+  return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
+});
+
 const getFieldMetadata = (sectionName: ConfigSectionKey, fieldName: string) => {
   const section = UNIFIED_CONFIG[sectionName];
   if (
@@ -682,6 +748,44 @@ const exportConfig = async () => {
 
   console.log(configJson);
   notify("Configuration logged to console.");
+};
+
+const getRoliPianoScript = () =>
+  generateRoliPianoScript({
+    dynamicColorConfig: { ...config.value.dynamicColors },
+    currentKey: musicStore.currentKey as ChromaticNote,
+    currentMode: musicStore.currentMode,
+  });
+
+const downloadTextFile = (filename: string, contents: string) => {
+  const blob = new Blob([contents], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+
+  URL.revokeObjectURL(url);
+};
+
+const copyRoliPianoScript = async () => {
+  const script = getRoliPianoScript();
+
+  try {
+    await navigator.clipboard.writeText(script);
+    alert("ROLI live-sync LittleFoot script copied to clipboard!");
+  } catch {
+    alert("Clipboard unavailable, downloading the script instead.");
+    downloadTextFile("emotitone-roli-live-sync.littlefoot", script);
+  }
+};
+
+const downloadRoliPianoScript = () => {
+  downloadTextFile(
+    "emotitone-roli-live-sync.littlefoot",
+    getRoliPianoScript()
+  );
 };
 
 const promptSaveConfig = () => {

@@ -100,7 +100,7 @@ const generatedCode = computed(() => {
   }
 
   return logNotesToStrudel(notes as LogNote[], {
-    bpm: patternsStore.currentSketchMeta.bpm,
+    bpm: liveStripConfig.value.bpm,
     sourceBpm: patternsStore.currentSketchMeta.bpm,
     notationType: liveStripConfig.value.notation === "note" ? "absolute" : "relative",
     scaleKey: patternsStore.currentSketchMeta.key,
@@ -455,7 +455,7 @@ watch(generatedCode, (nextCode) => {
 });
 
 watch(
-  () => patternsStore.currentSketchMeta.bpm,
+  [() => patternsStore.currentSketchMeta.bpm, () => liveStripConfig.value.bpm],
   async () => {
     if (!mirror.value || !isPlaying.value) {
       return;

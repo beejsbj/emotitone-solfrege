@@ -359,17 +359,28 @@ function selectInstrument(name: string, close: () => void) {
         data-testid="instrument-selector-trigger"
         @click="toggle"
         :class="[
-          'group flex items-center gap-2 rounded-full border border-[#7a6929]/85 bg-[#090805]/92 text-[#f4df95] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#b39b40] hover:text-white',
-          compact ? 'max-w-[132px] px-2 py-1 text-[9px]' : 'max-w-[176px] px-2.5 py-1.5 text-[10px]',
+          'group flex items-center gap-2 border border-[#7a6929]/85 bg-[#090805]/94 text-[#f4df95] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#b39b40] hover:text-white [clip-path:polygon(0_10px,10px_0,calc(100%-10px)_0,100%_10px,100%_100%,0_100%)]',
+          compact ? 'max-w-[156px] px-2.5 py-1.5 text-[9px]' : 'max-w-[220px] px-3 py-2 text-[10px]',
         ]"
       >
         <span
+          class="relative flex h-6 w-8 shrink-0 items-center justify-center border border-[#c2922b]/80 bg-[#f7b22c] text-[#18120a] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+        >
+          <span class="absolute inset-y-1 left-[7px] w-[2px] bg-[#18120a]" />
+          <span class="absolute inset-y-[5px] left-[12px] w-[2px] bg-[#18120a]" />
+          <span class="absolute inset-y-1 left-[17px] w-[2px] bg-[#18120a]" />
+        </span>
+
+        <span
           class="truncate font-mono leading-none text-[#00ff88]"
-          :class="compact ? 'max-w-[70px]' : 'max-w-[106px]'"
+          :class="compact ? 'max-w-[88px]' : 'max-w-[132px]'"
         >
           {{ displayName(currentInstrumentId) }}
         </span>
-        <ChevronDown :size="compact ? 12 : 14" />
+        <ChevronDown
+          :size="compact ? 12 : 14"
+          class="shrink-0 text-[#d8c985] transition-transform duration-200 group-hover:translate-y-[1px]"
+        />
       </button>
     </template>
 

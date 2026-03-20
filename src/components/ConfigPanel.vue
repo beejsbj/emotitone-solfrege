@@ -4,9 +4,20 @@
       <button
         data-testid="config-panel-trigger"
         @click="toggle"
-        class="group flex h-11 w-11 items-center justify-center rounded-full border border-[#7a6929]/85 bg-[#090805]/92 text-[#00ff88] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#b39b40] hover:text-white"
+        class="group flex h-11 items-center gap-2 border border-[#7a6929]/85 bg-[#090805]/94 px-2.5 text-[#00ff88] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#b39b40] hover:text-white [clip-path:polygon(0_10px,10px_0,calc(100%-10px)_0,100%_10px,100%_100%,0_100%)]"
       >
-        <Settings :size="16" />
+        <span class="flex items-center gap-1">
+          <span
+            class="h-2.5 w-4 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] bg-[#f7b22c]"
+          />
+          <span
+            class="h-2.5 w-3 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] bg-[#e53d2d]"
+          />
+          <span
+            class="h-2.5 w-3 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] bg-[#5a4295]"
+          />
+        </span>
+        <Settings :size="15" class="shrink-0" />
       </button>
     </template>
 

@@ -40,6 +40,21 @@ describe("keyboardDrawer store", () => {
     expect(keyboardDrawerStore.hasActiveTouch("midi:test:1:60")).toBe(false);
   });
 
+  it("clears touches for only the targeted key", () => {
+    const keyboardDrawerStore = useKeyboardDrawerStore();
+
+    keyboardDrawerStore.addTouch("touch:a", "0_4");
+    keyboardDrawerStore.addTouch("touch:b", "1_4");
+    keyboardDrawerStore.addTouch("touch:c", "0_4");
+
+    keyboardDrawerStore.clearTouchesForNoteKey("0_4");
+
+    expect(keyboardDrawerStore.hasActiveTouch("touch:a")).toBe(false);
+    expect(keyboardDrawerStore.hasActiveTouch("touch:c")).toBe(false);
+    expect(keyboardDrawerStore.hasActiveTouch("touch:b")).toBe(true);
+    expect(keyboardDrawerStore.isKeyPressed("1_4")).toBe(true);
+  });
+
   it("keeps playback activations alive until every overlapping activation releases", () => {
     const keyboardDrawerStore = useKeyboardDrawerStore();
 

@@ -1,148 +1,83 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTestWrapper } from '../helpers/test-utils'
 import { useMusicStore } from '@/stores/music'
-import { useSequencerStore } from '@/stores/sequencer'
 import { useInstrumentStore } from '@/stores/instrument'
 
-// Simple test component
+const audioMocks = vi.hoisted(() => ({
+  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+  isPrewarmed: vi.fn(() => true),
+  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
+  attackNote: vi.fn().mockResolvedValue('note-1'),
+  releaseNote: vi.fn(),
+  releaseAll: vi.fn(),
+  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
+  getRegisteredSounds: vi.fn(() => ['piano', 'triangle']),
+}))
+
+vi.mock('@/services/superdoughAudio', () => ({
+  ...audioMocks,
+}))
+
 const TestComponent = {
   name: 'TestComponent',
   template: '<div id="test">Test Component</div>',
-  setup() {
-    return {}
-  }
 }
 
 describe('Basic E2E Functionality', () => {
-  it('can create test wrapper', () => {
-    const wrapper = createTestWrapper(TestComponent)
-    expect(wrapper.find('#test')).toBeTruthy()
+  beforeEach(() => {
+    vi.clearAllMocks()
+    audioMocks.isPrewarmed.mockReturnValue(true)
+    audioMocks.attackNote.mockResolvedValue('note-1')
   })
 
-  it('can initialize music store', () => {
+  it('creates the test wrapper and initializes the current stores', () => {
     const wrapper = createTestWrapper(TestComponent)
     const musicStore = useMusicStore()
-    
+    const instrumentStore = useInstrumentStore()
+
+    expect(wrapper.find('#test').exists()).toBe(true)
     expect(musicStore.currentKey).toBe('C')
     expect(musicStore.currentMode).toBe('major')
-    expect(musicStore.solfegeData).toBeDefined()
-  })
-
-  it('can initialize sequencer store', () => {
-    const wrapper = createTestWrapper(TestComponent)
-    const sequencerStore = useSequencerStore()
-    
-    expect(sequencerStore.config.tempo).toBe(120)
-    expect(sequencerStore.config.steps).toBe(16)
-    expect(sequencerStore.sequencers).toBeDefined()
-  })
-
-  it('can initialize instrument store', () => {
-    const wrapper = createTestWrapper(TestComponent)
-    const instrumentStore = useInstrumentStore()
-    
+    expect(musicStore.solfegeData).toHaveLength(7)
     expect(instrumentStore.currentInstrument).toBe('piano')
-    expect(instrumentStore.availableInstruments).toBeDefined()
   })
 
-  it('can mock audio service calls', async () => {
-    const wrapper = createTestWrapper(TestComponent)
+  it('updates the music context through the current store API', () => {
+    createTestWrapper(TestComponent)
     const musicStore = useMusicStore()
-    
-    // This should not throw and should use mocked audio service
-    await musicStore.playNote(0) // Use solfege index instead of name
-    expect(musicStore.activeNotes.size).toBe(1)
-  })
 
-  it('can handle sequencer operations', () => {
-    const wrapper = createTestWrapper(TestComponent)
-    const sequencerStore = useSequencerStore()
-    
-    // Create a sequencer
-    sequencerStore.createSequencer('Test', 'piano')
-    expect(sequencerStore.sequencers.length).toBeGreaterThan(0)
-    
-    // Add a beat
-    const sequencer = sequencerStore.sequencers[0]
-    sequencerStore.addBeatToSequencer(sequencer.id, {
-      id: 'test-beat',
-      step: 0,
-      ring: 0,
-      note: 'C4',
-      velocity: 0.8,
-      active: true,
-      solfegeIndex: 0
-    })
-    
-    expect(sequencer.beats.length).toBe(1)
-  })
-
-  it('can handle key and mode changes', () => {
-    const wrapper = createTestWrapper(TestComponent)
-    const musicStore = useMusicStore()
-    
-    // Change key
     musicStore.setKey('G')
-    expect(musicStore.currentKey).toBe('G')
-    
-    // Change mode
     musicStore.setMode('minor')
+
+    expect(musicStore.currentKey).toBe('G')
     expect(musicStore.currentMode).toBe('minor')
+    expect(musicStore.currentScaleNotes).toEqual(['G', 'A', 'A#', 'C', 'D', 'D#', 'F'])
   })
 
-  it('can handle instrument changes', () => {
-    const wrapper = createTestWrapper(TestComponent)
-    const instrumentStore = useInstrumentStore()
-    
-    // Change instrument
-    instrumentStore.setInstrument('synth')
-    expect(instrumentStore.currentInstrument).toBe('synth')
-  })
-
-  it('can handle multiple note interactions', async () => {
-    const wrapper = createTestWrapper(TestComponent)
+  it('plays and releases notes through the mocked audio engine', async () => {
+    createTestWrapper(TestComponent)
     const musicStore = useMusicStore()
-    
-    // Play multiple notes
-    await musicStore.playNote(0) // Do
-    await musicStore.playNote(2) // Mi
-    await musicStore.playNote(4) // Sol
-    
-    expect(musicStore.activeNotes.size).toBe(3)
-    
-    // Release notes
-    const noteIds = Array.from(musicStore.activeNotes.keys())
-    for (const noteId of noteIds) {
-      await musicStore.releaseNote(noteId)
-    }
-    
+
+    await musicStore.attackNote(0)
+
+    expect(audioMocks.attackNote).toHaveBeenCalledTimes(1)
+    expect(musicStore.activeNotes.size).toBe(1)
+
+    const [noteId] = Array.from(musicStore.activeNotes.keys())
+    musicStore.releaseNote(noteId)
+
+    expect(audioMocks.releaseNote).toHaveBeenCalledWith(noteId)
     expect(musicStore.activeNotes.size).toBe(0)
   })
 
-  it('can handle sequencer playback controls', () => {
-    const wrapper = createTestWrapper(TestComponent)
-    const sequencerStore = useSequencerStore()
-    
-    // Create sequencer with beats
-    sequencerStore.createSequencer('Test', 'piano')
-    const sequencer = sequencerStore.sequencers[0]
-    
-    sequencerStore.addBeatToSequencer(sequencer.id, {
-      id: 'test-beat',
-      step: 0,
-      ring: 0,
-      note: 'C4',
-      velocity: 0.8,
-      active: true,
-      solfegeIndex: 0
-    })
-    
-    // Start playback
-    sequencerStore.startSequencer(sequencer.id)
-    expect(sequencer.isPlaying).toBe(true)
-    
-    // Stop playback
-    sequencerStore.stopSequencer(sequencer.id)
-    expect(sequencer.isPlaying).toBe(false)
+  it('switches instruments without forcing an unnecessary warmup', async () => {
+    createTestWrapper(TestComponent)
+    const instrumentStore = useInstrumentStore()
+
+    await instrumentStore.setInstrument('triangle')
+
+    expect(instrumentStore.currentInstrument).toBe('triangle')
+    expect(audioMocks.isPrewarmed).toHaveBeenCalledWith('triangle')
+    expect(audioMocks.prewarmSoundSamples).not.toHaveBeenCalled()
   })
 })

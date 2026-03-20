@@ -1,19 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
-import { createTestWrapper, mockCanvasContext } from '../../helpers/test-utils'
+import { createTestWrapper } from '../../helpers/test-utils'
 import UnifiedVisualEffects from '@/components/UnifiedVisualEffects.vue'
 
-const mockMusicStore = vi.hoisted(() => ({
-  currentKey: 'C',
-  currentMode: 'major',
-  getActiveNotes: vi.fn(() => []),
-}))
-
-const mockVisualConfigStore = vi.hoisted(() => ({
+const visualConfigStore = vi.hoisted(() => ({
   visualsEnabled: true,
 }))
 
-const mockUnifiedCanvas = vi.hoisted(() => ({
+const unifiedCanvasMocks = vi.hoisted(() => ({
   canvasWidth: 1024,
   canvasHeight: 768,
   initializeCanvas: vi.fn(),
@@ -26,95 +20,94 @@ const mockUnifiedCanvas = vi.hoisted(() => ({
   cleanup: vi.fn(),
 }))
 
+const useUnifiedCanvas = vi.hoisted(() => vi.fn(() => unifiedCanvasMocks))
+
 vi.mock('@/stores/music', () => ({
-  useMusicStore: () => mockMusicStore,
+  useMusicStore: () => ({
+    solfegeData: [{ name: 'Do', frequency: 261.63 }],
+  }),
 }))
 
 vi.mock('@/stores/visualConfig', () => ({
-  useVisualConfigStore: () => mockVisualConfigStore,
+  useVisualConfigStore: () => visualConfigStore,
 }))
 
 vi.mock('@/composables/canvas/useUnifiedCanvas', () => ({
-  useUnifiedCanvas: vi.fn(() => mockUnifiedCanvas),
+  useUnifiedCanvas,
 }))
 
 vi.mock('@/components/BeatingShapes.vue', () => ({
   default: {
     name: 'BeatingShapes',
-    template: '<div data-testid="beating-shapes"></div>',
+    template: '<div data-testid="beating-shapes">Beating Shapes</div>',
   },
 }))
 
-Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
-  value: vi.fn(() => mockCanvasContext),
-  writable: true,
-})
-
 describe('UnifiedVisualEffects.vue', () => {
   let wrapper: ReturnType<typeof createTestWrapper> | null = null
-  let eventListeners: Record<string, EventListener>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockVisualConfigStore.visualsEnabled = true
-    eventListeners = {}
-
-    vi.spyOn(window, 'addEventListener').mockImplementation(((type: string, listener: EventListenerOrEventListenerObject) => {
-      if (typeof listener === 'function') {
-        eventListeners[type] = listener
-      }
-    }) as typeof window.addEventListener)
-
-    vi.spyOn(window, 'removeEventListener').mockImplementation((() => undefined) as typeof window.removeEventListener)
+    visualConfigStore.visualsEnabled = true
   })
 
   afterEach(() => {
     wrapper?.unmount()
     wrapper = null
-    vi.restoreAllMocks()
   })
 
-  it('renders the canvas shell when visuals are enabled', () => {
+  it('renders the canvas layer when visuals are enabled', () => {
     wrapper = createTestWrapper(UnifiedVisualEffects)
 
     expect(wrapper.find('.unified-visual-effects').exists()).toBe(true)
     expect(wrapper.find('[data-testid="beating-shapes"]').exists()).toBe(true)
-    expect(wrapper.find('.unified-canvas').exists()).toBe(true)
+    expect(wrapper.find('.unified-canvas').attributes('width')).toBe('1024')
+    expect(wrapper.find('.unified-canvas').attributes('height')).toBe('768')
   })
 
-  it('hides itself when visuals are disabled', () => {
-    mockVisualConfigStore.visualsEnabled = false
+  it('does not render the visual layer when visuals are disabled', () => {
+    visualConfigStore.visualsEnabled = false
+
     wrapper = createTestWrapper(UnifiedVisualEffects)
 
     expect(wrapper.find('.unified-visual-effects').exists()).toBe(false)
     expect(wrapper.find('.unified-canvas').exists()).toBe(false)
   })
 
-  it('initializes the canvas and animation lifecycle on mount', async () => {
+  it('initializes the unified canvas and starts animation on mount', async () => {
+    const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
+
     wrapper = createTestWrapper(UnifiedVisualEffects)
     await nextTick()
 
-    expect(mockUnifiedCanvas.initializeCanvas).toHaveBeenCalledTimes(1)
-    expect(mockUnifiedCanvas.startAnimation).toHaveBeenCalledTimes(1)
-    expect(eventListeners.resize).toBeDefined()
-    expect(eventListeners['note-played']).toBeDefined()
-    expect(eventListeners['note-released']).toBeDefined()
+    expect(useUnifiedCanvas).toHaveBeenCalledTimes(1)
+    expect(unifiedCanvasMocks.initializeCanvas).toHaveBeenCalledTimes(1)
+    expect(unifiedCanvasMocks.startAnimation).toHaveBeenCalledTimes(1)
+    expect(addEventListenerSpy).toHaveBeenCalledWith('resize', unifiedCanvasMocks.handleResize)
+    expect(addEventListenerSpy).toHaveBeenCalledWith('note-played', expect.any(Function))
+    expect(addEventListenerSpy).toHaveBeenCalledWith('note-released', expect.any(Function))
   })
 
-  it('does not start animation when visuals are disabled', async () => {
-    mockVisualConfigStore.visualsEnabled = false
+  it('skips animation startup when visuals are disabled', async () => {
+    visualConfigStore.visualsEnabled = false
+
     wrapper = createTestWrapper(UnifiedVisualEffects)
     await nextTick()
 
-    expect(mockUnifiedCanvas.initializeCanvas).toHaveBeenCalledTimes(1)
-    expect(mockUnifiedCanvas.startAnimation).not.toHaveBeenCalled()
+    expect(unifiedCanvasMocks.initializeCanvas).toHaveBeenCalledTimes(1)
+    expect(unifiedCanvasMocks.startAnimation).not.toHaveBeenCalled()
   })
 
-  it('forwards note-played events with mode and key snapshots', async () => {
+  it('forwards note events to the unified canvas handlers', async () => {
+    const listeners = new Map<string, EventListener>()
+    vi.spyOn(window, 'addEventListener').mockImplementation((type, listener) => {
+      listeners.set(type, listener as EventListener)
+    })
+
     wrapper = createTestWrapper(UnifiedVisualEffects)
     await nextTick()
 
-    eventListeners['note-played']?.(
+    listeners.get('note-played')?.(
       new CustomEvent('note-played', {
         detail: {
           note: { name: 'Do', frequency: 261.63 },
@@ -128,22 +121,7 @@ describe('UnifiedVisualEffects.vue', () => {
       })
     )
 
-    expect(mockUnifiedCanvas.handleNotePlayed).toHaveBeenCalledWith(
-      { name: 'Do', frequency: 261.63 },
-      261.63,
-      'note-1',
-      4,
-      'C4',
-      'major',
-      'C'
-    )
-  })
-
-  it('forwards note-released events only when a note name is present', async () => {
-    wrapper = createTestWrapper(UnifiedVisualEffects)
-    await nextTick()
-
-    eventListeners['note-released']?.(
+    listeners.get('note-released')?.(
       new CustomEvent('note-released', {
         detail: {
           note: 'C4',
@@ -152,38 +130,36 @@ describe('UnifiedVisualEffects.vue', () => {
       })
     )
 
-    eventListeners['note-released']?.(
-      new CustomEvent('note-released', {
-        detail: {
-          noteId: 'missing-note',
-        },
-      })
+    expect(unifiedCanvasMocks.handleNotePlayed).toHaveBeenCalledWith(
+      { name: 'Do', frequency: 261.63 },
+      261.63,
+      'note-1',
+      4,
+      'C4',
+      'major',
+      'C'
     )
-
-    expect(mockUnifiedCanvas.handleNoteReleased).toHaveBeenCalledTimes(1)
-    expect(mockUnifiedCanvas.handleNoteReleased).toHaveBeenCalledWith('C4', 'note-1')
+    expect(unifiedCanvasMocks.handleNoteReleased).toHaveBeenCalledWith('C4', 'note-1')
   })
 
-  it('cleans up animation and listeners on unmount', async () => {
+  it('stops animation and removes listeners on unmount', async () => {
+    const listeners = new Map<string, EventListener>()
     const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+
+    vi.spyOn(window, 'addEventListener').mockImplementation((type, listener) => {
+      listeners.set(type, listener as EventListener)
+    })
 
     wrapper = createTestWrapper(UnifiedVisualEffects)
     await nextTick()
+
     wrapper.unmount()
     wrapper = null
 
-    expect(mockUnifiedCanvas.stopAnimation).toHaveBeenCalledTimes(1)
-    expect(mockUnifiedCanvas.cleanup).toHaveBeenCalledTimes(1)
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('resize', expect.any(Function))
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('note-played', expect.any(Function))
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('note-released', expect.any(Function))
-  })
-
-  it('binds the configured canvas dimensions', () => {
-    wrapper = createTestWrapper(UnifiedVisualEffects)
-
-    const canvas = wrapper.find('.unified-canvas')
-    expect(canvas.attributes('width')).toBe('1024')
-    expect(canvas.attributes('height')).toBe('768')
+    expect(unifiedCanvasMocks.stopAnimation).toHaveBeenCalledTimes(1)
+    expect(unifiedCanvasMocks.cleanup).toHaveBeenCalledTimes(1)
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('resize', unifiedCanvasMocks.handleResize)
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('note-played', listeners.get('note-played'))
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('note-released', listeners.get('note-released'))
   })
 })

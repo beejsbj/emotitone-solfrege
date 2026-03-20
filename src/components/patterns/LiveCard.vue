@@ -71,12 +71,12 @@ async function toggleSketchPlayback() {
 
         <div class="control-group">
           <Knob
-            :model-value="isPlaying"
+            :model-value="!isPlaying"
             type="boolean"
             :is-disabled="!hasPlayableCode"
             :theme-color="'hsla(145, 100%, 50%, 1)'"
-            :value-label-true="Square"
-            :value-label-false="Play"
+            :value-label-true="Play"
+            :value-label-false="Square"
             label="Play"
             @update:modelValue="toggleSketchPlayback"
           />

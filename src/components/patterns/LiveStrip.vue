@@ -26,6 +26,7 @@ import {
   highlightPlaybackLocations,
   updatePlaybackHighlightOptions,
 } from "./strudelPlaybackHighlight";
+import type { KeyboardConfig } from "@/types/visual";
 import type { LogNote, PatternNote } from "@/types/patterns";
 
 interface StrudelMirrorInstance {
@@ -50,7 +51,10 @@ const BAR_MS = (60000 / 120) * 4;
 
 const patternsStore = usePatternsStore();
 const visualConfigStore = useVisualConfigStore();
-const { getStaticPrimaryColor } = useColorSystem();
+const {
+  getKeyBackground,
+  getStaticPrimaryColor,
+} = useColorSystem();
 const { attachEditor, detachEditor, syncCode, setPlaying, setError } =
   useLiveStrudelMirror();
 
@@ -59,8 +63,31 @@ const notationRef = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
 const isBooting = ref(true);
 const mirror = ref<StrudelMirrorInstance | null>(null);
+let followLoopFrame: number | null = null;
+let followTargetScrollLeft = 0;
+let followPlaybackActive = false;
 
 const liveStripConfig = computed(() => visualConfigStore.config.liveStrip);
+const keyboardConfig = computed(() => visualConfigStore.config.keyboard);
+const noteSkins = computed(() =>
+  patternsStore.currentSketchNotes.map((note, index) =>
+    buildNoteSkin(
+      note,
+      index,
+      keyboardConfig.value,
+      liveStripConfig.value.notation,
+      patternsStore.currentSketchMeta.mode
+    )
+  )
+);
+const highlightOptions = computed(() => ({
+  isNoteColoringEnabled: true,
+  isProgressiveFillEnabled: true,
+  isPatternTextColoringEnabled: true,
+  notationMode: liveStripConfig.value.notation,
+  scaleMode: patternsStore.currentSketchMeta.mode,
+  noteSkins: noteSkins.value,
+}));
 
 const generatedCode = computed(() => {
   if (patternsStore.isStripCleared) {
@@ -73,7 +100,7 @@ const generatedCode = computed(() => {
   }
 
   return logNotesToStrudel(notes as LogNote[], {
-    notationType: "relative",
+    notationType: liveStripConfig.value.notation === "note" ? "absolute" : "relative",
     scaleKey: patternsStore.currentSketchMeta.key,
     scaleMode: patternsStore.currentSketchMeta.mode,
     sound: toStrudelSound(patternsStore.currentSketchMeta.instrument ?? "sine"),
@@ -96,6 +123,72 @@ function tokenText(note: PatternNote): string {
   }
 
   return solfegeName(note.scaleIndex, patternsStore.currentSketchMeta.mode);
+}
+
+function keyTextColorValue(
+  colorMode: KeyboardConfig["colorMode"],
+  isAccidental: boolean
+): string {
+  if (colorMode === "monochrome") {
+    return isAccidental ? "hsla(0, 0%, 0%, 0.94)" : "hsla(0, 0%, 100%, 0.96)";
+  }
+
+  return isAccidental ? "hsla(0, 0%, 0%, 0.9)" : "hsla(0, 0%, 100%, 0.96)";
+}
+
+function buildStripClipPath(index: number, config: KeyboardConfig) {
+  if (!config.angledStyle) {
+    return undefined;
+  }
+
+  const topLeft = (index * 7) % 11;
+  const topRight = 90 + ((index * 5 + 3) % 11);
+  const bottomRight = 90 + ((index * 11 + 5) % 11);
+  const bottomLeft = (index * 13 + 2) % 11;
+
+  return `polygon(${topLeft}% 1%, ${topRight}% 1%, ${bottomRight}% 99%, ${bottomLeft}% 99%)`;
+}
+
+function buildNoteSkin(
+  note: PatternNote,
+  index: number,
+  config: KeyboardConfig,
+  notation: "solfege" | "note" | "degree",
+  mode: string
+) {
+  const label =
+    notation === "note"
+      ? note.note
+      : notation === "degree"
+        ? String(note.scaleIndex + 1)
+        : solfegeName(note.scaleIndex, mode);
+  const isAccidental = note.note.includes("#");
+  const solfege = solfegeName(note.scaleIndex, mode);
+  const { background, primaryColor } = getKeyBackground(
+    solfege,
+    mode as "major" | "minor",
+    note.octave,
+    config.colorMode,
+    isAccidental,
+    {
+      keyBrightness: config.keyBrightness,
+      keySaturation: config.keySaturation,
+      glassmorphOpacity: config.glassmorphOpacity,
+    }
+  );
+  const passiveColor =
+    getStaticPrimaryColor(solfege, mode as "major" | "minor", note.octave) || primaryColor;
+  const activeTextColor = keyTextColorValue(config.colorMode, isAccidental);
+
+  return {
+    label,
+    color: passiveColor,
+    activeTextColor,
+    fillBackground: background,
+    fillColor: primaryColor,
+    shapeRadius: `${config.keyShape}px`,
+    clipPath: buildStripClipPath(index, config),
+  };
 }
 
 const displayTokens = computed((): Token[] => {
@@ -164,6 +257,10 @@ function getMirrorCode(instance: StrudelMirrorInstance | null): string {
   return instance?.code ?? "";
 }
 
+function resetPlaybackFollow() {
+  followTargetScrollLeft = 0;
+}
+
 function syncMirrorCode(code: string) {
   const instance = mirror.value;
   if (!instance) {
@@ -177,6 +274,60 @@ function syncMirrorCode(code: string) {
 
   instance.setCode(code);
   syncCode(code);
+}
+
+function followActivePlayback() {
+  const view = getMirrorView(mirror.value);
+  const root = editorRoot.value;
+  if (!view || !root || view.hasFocus) {
+    return;
+  }
+
+  const scroller = root.querySelector<HTMLElement>(".cm-scroller");
+  const activeToken = root.querySelector<HTMLElement>(
+    ".cm-live-strip-token--active[data-note-index]"
+  );
+  if (!scroller || !activeToken) {
+    return;
+  }
+
+  const targetCenter = activeToken.offsetLeft + activeToken.offsetWidth / 2;
+  followTargetScrollLeft = Math.max(
+    0,
+    Math.min(
+      scroller.scrollWidth - scroller.clientWidth,
+      targetCenter - scroller.clientWidth * 0.42
+    )
+  );
+
+  if (followLoopFrame != null) {
+    return;
+  }
+
+  const step = () => {
+    followLoopFrame = null;
+
+    const followView = getMirrorView(mirror.value);
+    const followRoot = editorRoot.value;
+    if (!followPlaybackActive || !followView || !followRoot || followView.hasFocus) {
+      return;
+    }
+
+    const followScroller = followRoot.querySelector<HTMLElement>(".cm-scroller");
+    if (!followScroller) {
+      return;
+    }
+
+    const delta = followTargetScrollLeft - followScroller.scrollLeft;
+    if (Math.abs(delta) < 0.5) {
+      return;
+    }
+
+    followScroller.scrollLeft += delta * 0.14;
+    followLoopFrame = requestAnimationFrame(step);
+  };
+
+  followLoopFrame = requestAnimationFrame(step);
 }
 
 onMounted(async () => {
@@ -209,11 +360,18 @@ onMounted(async () => {
         if (view) {
           highlightPlaybackLocations(view, time, activeHaps as never[]);
         }
+        followActivePlayback();
       },
       onToggle: (started: boolean) => {
         setPlaying(started);
+        followPlaybackActive = started;
 
         if (!started) {
+          resetPlaybackFollow();
+          if (followLoopFrame != null) {
+            cancelAnimationFrame(followLoopFrame);
+            followLoopFrame = null;
+          }
           stopStrudelVisuals();
           const view = getMirrorView(mirror.value);
           if (view) {
@@ -256,9 +414,7 @@ onMounted(async () => {
       });
 
       updatePlaybackHighlightOptions(view, {
-        isNoteColoringEnabled: true,
-        isProgressiveFillEnabled: true,
-        isPatternTextColoringEnabled: false,
+        ...highlightOptions.value,
       });
     }
 
@@ -282,8 +438,22 @@ onMounted(async () => {
 });
 
 watch(generatedCode, (nextCode) => {
+  resetPlaybackFollow();
   syncMirrorCode(nextCode);
 });
+
+watch(
+  highlightOptions,
+  (nextOptions) => {
+    const view = getMirrorView(mirror.value);
+    if (!view) {
+      return;
+    }
+
+    updatePlaybackHighlightOptions(view, nextOptions);
+  },
+  { deep: true }
+);
 
 watch(
   () => patternsStore.currentWorkingNotes.length,
@@ -306,6 +476,11 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  if (followLoopFrame != null) {
+    cancelAnimationFrame(followLoopFrame);
+    followLoopFrame = null;
+  }
+
   const instance = mirror.value;
   if (!instance) {
     return;
@@ -332,7 +507,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-if="liveStripConfig.enabled"
+      v-if="liveStripConfig.enabled && !liveStripConfig.showStrudelLine"
       class="live-strip__supplement"
       :style="{ opacity: liveStripConfig.opacity }"
     >
@@ -354,6 +529,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div
+      v-show="liveStripConfig.enabled && liveStripConfig.showStrudelLine"
       ref="editorRoot"
       class="live-strip__editor"
       :class="{ 'live-strip__editor--booting': isBooting }"
@@ -434,15 +610,18 @@ onBeforeUnmount(() => {
 }
 
 .live-strip__editor {
-  min-height: 2.35rem;
-  max-height: 2.75rem;
+  min-height: 0;
+  height: auto;
   width: 100%;
   min-width: 0;
   border: 1px solid var(--strip-border);
   border-radius: 6px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, hsla(0, 0%, 10%, 0.96), hsla(0, 0%, 5%, 0.98));
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
 }
 
 .live-strip__editor--booting {
@@ -450,28 +629,152 @@ onBeforeUnmount(() => {
 }
 
 .live-strip__editor:deep(.cm-editor) {
-  min-height: 2.35rem;
-  max-height: 2.75rem;
-  background: transparent;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  background: transparent !important;
+  background-color: transparent !important;
   color: hsla(0, 0%, 100%, 0.9);
 }
 
 .live-strip__editor:deep(.cm-scroller) {
   font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  line-height: 1.35;
+  line-height: 1.15;
   overflow-x: auto;
   overflow-y: hidden;
+  background: transparent !important;
+  background-color: transparent !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.live-strip__editor:deep(.cm-scroller::-webkit-scrollbar) {
+  display: none;
 }
 
 .live-strip__editor:deep(.cm-content) {
-  padding: 0.18rem 0.4rem 0.22rem;
+  padding: 0.18rem 0.4rem 0.2rem;
   white-space: pre;
   width: max-content;
   min-width: 100%;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.live-strip__editor:deep(.cm-live-strip-token) {
+  position: relative;
+  display: inline-grid;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  align-items: end;
+  min-width: 1.18rem;
+  margin: 0 0.07rem 0 0;
+  padding: 0.06rem 0.14rem 0.08rem;
+  border-radius: var(--live-strip-radius, 4px);
+  clip-path: var(--live-strip-clip-path, none);
+  white-space: nowrap;
+  overflow: hidden;
+  background-color: transparent;
+  isolation: isolate;
+  box-shadow: var(--live-strip-shadow, none);
+  transition:
+    clip-path 120ms ease,
+    border-radius 120ms ease,
+    box-shadow 100ms linear,
+    color 100ms linear,
+    transform 100ms linear,
+    opacity 100ms linear;
+}
+
+.live-strip__editor:deep(.cm-live-strip-token)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--live-strip-fill-surface, var(--live-strip-fill-color, transparent));
+  transform-origin: bottom center;
+  transform: scaleY(var(--live-strip-fill-scale, 0));
+  transition: transform 72ms linear, opacity 100ms linear;
+  pointer-events: none;
+}
+
+.live-strip__editor:deep(.cm-live-strip-token__label) {
+  position: relative;
+  z-index: 1;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-size: 0.74rem;
+  line-height: 0.88;
+  color: var(--live-strip-label-color, var(--strudel-note-color));
+  transition: color 90ms linear;
+}
+
+.live-strip__editor:deep(.cm-live-strip-token__duration) {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.05rem;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.45rem;
+  line-height: 0.82;
+  letter-spacing: 0.01em;
+  color: color-mix(
+    in srgb,
+    var(--live-strip-label-color, var(--strudel-note-color)) 62%,
+    transparent
+  );
+  transition: color 90ms linear;
+}
+
+.live-strip__editor:deep(.cm-live-strip-token--rest) {
+  min-width: 0.85rem;
+  background-image: none;
+  box-shadow: none;
+}
+
+.live-strip__editor:deep(.cm-live-strip-token--rest .cm-live-strip-token__label) {
+  color: hsla(0, 0%, 100%, 0.42);
+}
+
+.live-strip__editor:deep(.cm-live-strip-token--rest .cm-live-strip-token__duration) {
+  color: hsla(0, 0%, 100%, 0.24);
+}
+
+.live-strip__editor:deep(.cm-inline-meta) {
+  opacity: 0.76;
+  font-size: 0.55em;
+  vertical-align: 0.46em;
+  color: hsla(92, 42%, 60%, 0.88);
+  background: transparent;
+  border-radius: 0;
+  padding: 0 0 0 0.03rem;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    font-size 120ms ease;
+}
+
+.live-strip__editor:deep(.cm-inline-meta.cm-inline-meta-active) {
+  opacity: 0.95;
+  font-size: 0.58em;
+  vertical-align: 0.34em;
+  color: hsla(0, 0%, 100%, 0.92);
+  background: hsla(152, 100%, 50%, 0.08);
+  border-radius: 3px;
+  padding: 0 0.08rem;
+}
+
+.live-strip__editor:deep([data-strudel-note-color]) {
+  color: var(--strudel-note-color) !important;
+}
+
+.live-strip__editor:deep([data-strudel-note-color] *) {
+  color: inherit !important;
 }
 
 .live-strip__editor:deep(.cm-activeLine) {
-  background: hsla(152, 100%, 50%, 0.06);
+  background: transparent !important;
 }
 
 .live-strip__editor:deep(.cm-activeLineGutter) {
@@ -494,8 +797,7 @@ onBeforeUnmount(() => {
   border-left-color: hsla(152, 100%, 72%, 0.95);
 }
 
-.live-strip__editor:deep(.cm-note-playing) {
-  border-radius: 4px;
-  transition: background-image 90ms linear, box-shadow 90ms linear;
+.live-strip__editor:deep(.cm-live-strip-token--active) {
+  transform: translateY(-0.5px);
 }
 </style>

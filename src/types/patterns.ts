@@ -21,8 +21,8 @@ export interface PatternsStoreState {
  * Configuration for pattern detection and logging
  */
 export interface PatternConfig {
-  /** Minimum silence gap (ms) to consider starting a new pattern */
-  silenceGapThreshold: number; //30sec
+  /** Upper clamp (ms) for the tempo-aware silence gap used to start a new pattern */
+  silenceGapThreshold: number;
   /** Maximum time (ms) to keep non-default, non-kept user patterns before purging */
   maxRetentionTime: number;
 }
@@ -59,6 +59,8 @@ export interface LogNote {
   /* Audio Context */
   /** Current instrument identifier */
   instrument: string;
+  /** Source tempo used to interpret this note's Strudel duration context */
+  bpm?: number;
   /** Velocity/volume (0-1) */
   velocity?: number;
 

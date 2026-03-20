@@ -2,7 +2,9 @@ import { defineStore } from "pinia";
 import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { defaultPatterns } from "@/data/patterns";
+import { DEFAULT_SOURCE_BPM } from "@/services/StrudelNotation";
 import type {
   LogNote,
   PatternConfig,
@@ -13,9 +15,13 @@ import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 
 // Default configuration
 const DEFAULT_CONFIG: PatternConfig = {
-  silenceGapThreshold: 30000, // 30 seconds
+  silenceGapThreshold: 4000,
   maxRetentionTime: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
+
+const BEATS_PER_BAR = 4;
+const SILENCE_BOUNDARY_BARS = 1.5;
+const MIN_SILENCE_GAP_MS = 1500;
 
 export const usePatternsStore = defineStore(
   "patterns",
@@ -23,6 +29,7 @@ export const usePatternsStore = defineStore(
     // Get stores for current musical context
     const musicStore = useMusicStore();
     const instrumentStore = useInstrumentStore();
+    const visualConfigStore = useVisualConfigStore();
 
     // State
     const loggedNotes = ref<LogNote[]>([]);
@@ -45,6 +52,7 @@ export const usePatternsStore = defineStore(
       mode: MusicalMode;
       key: ChromaticNote;
       instrument: string;
+      bpm: number;
     } | null>(null);
 
     // True immediately after Send, until first new note arrives
@@ -71,11 +79,43 @@ export const usePatternsStore = defineStore(
       return notes.slice(lastBreak);
     });
 
-    const currentSketchMeta = computed(() => ({
+    const liveInputMeta = computed(() => ({
       mode: musicStore.currentMode as MusicalMode,
       key: musicStore.currentKey as ChromaticNote,
       instrument: instrumentStore.currentInstrument,
+      bpm: resolveBpm(visualConfigStore.config.liveStrip.bpm),
     }));
+
+    const currentSketchMeta = computed(() => {
+      const firstLiveNote = currentWorkingNotes.value[0];
+      if (firstLiveNote) {
+        return {
+          mode: firstLiveNote.mode,
+          key: firstLiveNote.key,
+          instrument: firstLiveNote.instrument,
+          bpm: resolveBpm(firstLiveNote.bpm),
+        };
+      }
+
+      if (loadedBaseMeta.value) {
+        return loadedBaseMeta.value;
+      }
+
+      return liveInputMeta.value;
+    });
+
+    const canContinueLoadedBase = computed(() => {
+      if (!loadedBaseNotes.value.length || !loadedBaseMeta.value) {
+        return false;
+      }
+
+      const firstLiveNote = currentWorkingNotes.value[0];
+      if (!firstLiveNote) {
+        return true;
+      }
+
+      return isSamePatternContext(loadedBaseMeta.value, firstLiveNote);
+    });
 
     // The active sketch is whatever is currently loaded on the desk plus any
     // newly played notes since that pattern was loaded.
@@ -83,6 +123,10 @@ export const usePatternsStore = defineStore(
       const liveNotes = currentWorkingNotes.value.map(toPatternNote);
       if (!loadedBaseNotes.value.length || !liveNotes.length) {
         return [...loadedBaseNotes.value, ...liveNotes];
+      }
+
+      if (!canContinueLoadedBase.value) {
+        return liveNotes;
       }
 
       const baseEnd = loadedBaseNotes.value[loadedBaseNotes.value.length - 1].releaseTime;
@@ -165,6 +209,52 @@ export const usePatternsStore = defineStore(
       return `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
+    function resolveBpm(bpm?: number): number {
+      return typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0
+        ? bpm
+        : DEFAULT_SOURCE_BPM;
+    }
+
+    function clamp(value: number, min: number, max: number): number {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function silenceGapThresholdMs(note: Partial<LogNote>, previousNote?: LogNote): number {
+      const bpm = resolveBpm(note.bpm ?? previousNote?.bpm);
+      const barMs = (60000 / bpm) * BEATS_PER_BAR;
+      return clamp(
+        barMs * SILENCE_BOUNDARY_BARS,
+        MIN_SILENCE_GAP_MS,
+        config.value.silenceGapThreshold
+      );
+    }
+
+    function isSamePatternContext(
+      left:
+        | {
+            mode: MusicalMode;
+            key: ChromaticNote;
+            instrument: string;
+            bpm?: number;
+          }
+        | Pick<LogNote, "mode" | "key" | "instrument" | "bpm">,
+      right:
+        | {
+            mode: MusicalMode;
+            key: ChromaticNote;
+            instrument: string;
+            bpm?: number;
+          }
+        | Pick<LogNote, "mode" | "key" | "instrument" | "bpm">
+    ): boolean {
+      return (
+        left.key === right.key &&
+        left.mode === right.mode &&
+        left.instrument === right.instrument &&
+        resolveBpm(left.bpm) === resolveBpm(right.bpm)
+      );
+    }
+
     function calculateScaleDegree(solfegeIndex: number): number {
       return solfegeIndex + 1; // Scale degree is 1-based
     }
@@ -192,7 +282,7 @@ export const usePatternsStore = defineStore(
       // Check silence gap - if current note's press time is >= silence gap threshold
       // after the previous note's release time
       const silenceGap = currentNote.pressTime! - previousNote.releaseTime;
-      if (silenceGap >= config.value.silenceGapThreshold) {
+      if (silenceGap >= silenceGapThresholdMs(currentNote, previousNote)) {
         return true;
       }
 
@@ -208,6 +298,11 @@ export const usePatternsStore = defineStore(
 
       // Check if instrument changed
       if (currentNote.instrument !== previousNote.instrument) {
+        return true;
+      }
+
+      // Check if source BPM changed
+      if (resolveBpm(currentNote.bpm) !== resolveBpm(previousNote.bpm)) {
         return true;
       }
 
@@ -254,6 +349,7 @@ export const usePatternsStore = defineStore(
         key: firstNote.key,
         mode: firstNote.mode,
         instrument: firstNote.instrument,
+        bpm: resolveBpm(firstNote.bpm),
         createdAt: lastNote.releaseTime,
         isDefault: false,
         isSaved: false,
@@ -279,7 +375,7 @@ export const usePatternsStore = defineStore(
     // Create a Pattern from PatternNote[] + explicit meta
     function createPatternFromNoteSet(
       notes: PatternNote[],
-      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string }
+      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number }
     ): Pattern {
       if (notes.length === 0) {
         throw new Error("Cannot create pattern from empty notes array");
@@ -297,6 +393,7 @@ export const usePatternsStore = defineStore(
         key: meta.key,
         mode: meta.mode,
         instrument: meta.instrument,
+        bpm: resolveBpm(meta.bpm),
         createdAt: Date.now(),
         isDefault: false,
         isSaved: true,
@@ -313,6 +410,7 @@ export const usePatternsStore = defineStore(
         mode: pattern.mode,
         key: pattern.key,
         instrument: pattern.instrument,
+        bpm: resolveBpm(pattern.bpm),
       };
       isStripCleared.value = false;
       focusedPatternId.value = patternId;
@@ -321,6 +419,9 @@ export const usePatternsStore = defineStore(
       musicStore.setKey(pattern.key);
       musicStore.setMode(pattern.mode as MusicalMode);
       instrumentStore.setInstrument(pattern.instrument);
+      visualConfigStore.updateConfig("liveStrip", {
+        bpm: resolveBpm(pattern.bpm),
+      });
 
       // Create fresh boundary so new live notes start clean after the base
       setNextNoteAsNewPattern();
@@ -431,6 +532,7 @@ export const usePatternsStore = defineStore(
         octave,
         frequency,
         instrument: instrumentStore.currentInstrument,
+        bpm: resolveBpm(visualConfigStore.config.liveStrip.bpm),
         pressTime: Date.now(),
         sessionId: currentSessionId.value,
       };
@@ -617,6 +719,8 @@ export const usePatternsStore = defineStore(
       setNextNoteAsNewPattern,
 
       // Internal methods (exposed for testing/debugging)
+      handleNotePressed,
+      handleNoteReleased,
       setupEventListeners,
       removeEventListeners,
     };

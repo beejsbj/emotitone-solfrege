@@ -20,7 +20,7 @@ import {
   emotitoneStrudelOutput,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
-import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
+import { logNotesToStrudel } from "@/services/StrudelNotation";
 import {
   strudelPlaybackHighlightExtension,
   highlightPlaybackLocations,
@@ -38,11 +38,6 @@ interface StrudelMirrorInstance {
   code?: string;
   editor?: unknown;
   view?: unknown;
-  repl?: {
-    scheduler?: {
-      setCps?: (cps: number) => void;
-    };
-  };
 }
 
 type Token = {
@@ -92,11 +87,7 @@ const highlightOptions = computed(() => ({
   scaleMode: patternsStore.currentSketchMeta.mode,
   noteSkins: noteSkins.value,
 }));
-const sourceBpm = computed(() => {
-  const bpm = patternsStore.focusedPattern?.bpm;
-  return typeof bpm === "number" && bpm > 0 ? bpm : DEFAULT_SOURCE_BPM;
-});
-const barMs = computed(() => (60000 / sourceBpm.value) * 4);
+const barMs = computed(() => (60000 / patternsStore.currentSketchMeta.bpm) * 4);
 
 const generatedCode = computed(() => {
   if (patternsStore.isStripCleared) {
@@ -109,7 +100,8 @@ const generatedCode = computed(() => {
   }
 
   return logNotesToStrudel(notes as LogNote[], {
-    sourceBpm: sourceBpm.value,
+    bpm: patternsStore.currentSketchMeta.bpm,
+    sourceBpm: patternsStore.currentSketchMeta.bpm,
     notationType: liveStripConfig.value.notation === "note" ? "absolute" : "relative",
     scaleKey: patternsStore.currentSketchMeta.key,
     scaleMode: patternsStore.currentSketchMeta.mode,
@@ -287,14 +279,6 @@ function syncMirrorCode(code: string) {
   syncCode(code);
 }
 
-function bpmToCps(bpm: number) {
-  return bpm / 240;
-}
-
-function updateMirrorTempo(bpm: number) {
-  mirror.value?.repl?.scheduler?.setCps?.(bpmToCps(bpm));
-}
-
 function followActivePlayback() {
   const view = getMirrorView(mirror.value);
   const root = editorRoot.value;
@@ -410,7 +394,6 @@ onMounted(async () => {
     }) as StrudelMirrorInstance;
 
     mirror.value = instance;
-    updateMirrorTempo(liveStripConfig.value.bpm);
 
     instance.updateSettings?.({
       fontSize: 13,
@@ -472,10 +455,8 @@ watch(generatedCode, (nextCode) => {
 });
 
 watch(
-  () => liveStripConfig.value.bpm,
-  async (nextBpm) => {
-    updateMirrorTempo(nextBpm);
-
+  () => patternsStore.currentSketchMeta.bpm,
+  async () => {
     if (!mirror.value || !isPlaying.value) {
       return;
     }

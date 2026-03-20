@@ -47,6 +47,8 @@ describe('StrudelNotation', () => {
 
     expect(result).toContain('C4@0.25')
     expect(result).not.toContain('C4@0.125')
+    expect(result).toContain('const BPM = 60;')
+    expect(result).toContain('.cpm(BPM / 4)')
   })
 
   it('groups simultaneous notes into a chord block', () => {
@@ -80,6 +82,7 @@ describe('StrudelNotation', () => {
     ]
 
     const result = logNotesToStrudel(notes, {
+      bpm: 90,
       notationType: 'relative',
       scaleKey: 'C',
       scaleMode: 'major',
@@ -88,5 +91,7 @@ describe('StrudelNotation', () => {
 
     expect(result).toContain('{0, 2}@0.25')
     expect(result).toContain('.as("n").scale("C3:major")')
+    expect(result).toContain('const BPM = 90;')
+    expect(result).toContain('.cpm(BPM / 4)')
   })
 })

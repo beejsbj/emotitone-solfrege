@@ -42,6 +42,7 @@ const sourceBpm = computed(() => {
 // ── notation for copy ──────────────────────────────────────────────────────
 const notation = computed(() =>
   logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
+    bpm: sourceBpm.value,
     sourceBpm: sourceBpm.value,
     notationType: "relative",
     scaleKey: props.pattern.key,

@@ -2,10 +2,10 @@
  * StrudelNotation — converts LogNote arrays into Strudel mini-notation strings.
  *
  * @example
- * const strudel = logNotesToStrudel(loggedNotes, { sourceBpm: 120 })
- * // `<
+ * const strudel = logNotesToStrudel(loggedNotes, { bpm: 120, sourceBpm: 120 })
+ * // const BPM = 120; `<
  * // C4@0.5 D4@0.25 E4@0.25 G4@0.5
- * // >`.as("note").sound("sine")
+ * // >`.as("note").sound("sine").cpm(BPM / 4)
  */
 
 import type { LogNote } from "@/types/patterns";
@@ -119,6 +119,7 @@ export class StrudelNotation {
     }
 
     const inner = tokens.join(" ");
+    const tempoPrelude = `const BPM = ${this.config.bpm}; `;
 
     if (this.config.notationType === "relative") {
       const first = this.notes[0];
@@ -126,10 +127,10 @@ export class StrudelNotation {
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}")`;
+      return `${tempoPrelude}\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(BPM / ${this.config.beatsPerBar})`;
     }
 
-    return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}")`;
+    return `${tempoPrelude}\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(BPM / ${this.config.beatsPerBar})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {

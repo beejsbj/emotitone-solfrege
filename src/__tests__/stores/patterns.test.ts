@@ -2,6 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -52,6 +53,7 @@ function createLogNote(overrides: Partial<LogNote> = {}): LogNote {
     octave: 4,
     frequency: 293.66,
     instrument: "piano",
+    bpm: 120,
     velocity: 0.8,
     pressTime: 1500,
     releaseTime: 1800,
@@ -84,6 +86,7 @@ function createPattern(overrides: Partial<Pattern> = {}): Pattern {
     key: "C",
     mode: "major",
     instrument: "piano",
+    bpm: 120,
     createdAt: Date.now(),
     isSaved: true,
     isDefault: false,
@@ -91,8 +94,42 @@ function createPattern(overrides: Partial<Pattern> = {}): Pattern {
   };
 }
 
+function dispatchLoggedNote(
+  store: ReturnType<typeof usePatternsStore>,
+  noteId: string,
+  noteName: string,
+  solfegeIndex: number
+) {
+  store.handleNotePressed({
+    detail: {
+      noteId,
+      noteName,
+      solfegeIndex,
+      octave: 4,
+      frequency: 293.66,
+      instrument: "piano",
+      note: createLogNote().solfege,
+    },
+  } as CustomEvent);
+
+  store.handleNoteReleased({
+    detail: { noteId },
+  } as CustomEvent);
+}
+
+function sequenceDateNow(
+  spy: ReturnType<typeof vi.spyOn>,
+  values: number[]
+) {
+  const queue = [...values];
+  const fallback = queue[queue.length - 1] ?? 0;
+  spy.mockReset();
+  spy.mockImplementation(() => queue.shift() ?? fallback);
+}
+
 describe("Patterns Store", () => {
   let patternsStore: ReturnType<typeof usePatternsStore>;
+  let visualConfigStore: ReturnType<typeof useVisualConfigStore>;
   let dateNowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -100,7 +137,9 @@ describe("Patterns Store", () => {
       .spyOn(Date, "now")
       .mockReturnValue(new Date("2026-03-16T12:00:00Z").getTime());
     setActivePinia(createTestPinia());
+    visualConfigStore = useVisualConfigStore();
     patternsStore = usePatternsStore();
+    visualConfigStore.updateConfig("liveStrip", { bpm: 120 });
     patternsStore.clearAllNotes();
     patternsStore.savedPatterns = [];
   });
@@ -126,6 +165,7 @@ describe("Patterns Store", () => {
       "D4",
     ]);
     expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
+    expect(patternsStore.currentSketchMeta.bpm).toBe(120);
   });
 
   it("saves the combined sketch when sending a continued pattern", () => {
@@ -280,5 +320,98 @@ describe("Patterns Store", () => {
       "kept-pattern",
     ]);
     expect(patternsStore.patterns.some((pattern) => pattern.isDefault)).toBe(true);
+  });
+
+  it("starts a new pattern when BPM changes between notes", () => {
+    sequenceDateNow(dateNowSpy, [
+      1000,
+      1001,
+      1200,
+      1201,
+      1300,
+      1301,
+      1500,
+      1501,
+    ]);
+
+    dispatchLoggedNote(patternsStore, "note-a", "C4", 0);
+    visualConfigStore.updateConfig("liveStrip", { bpm: 90 });
+    dispatchLoggedNote(patternsStore, "note-b", "D4", 1);
+
+    expect(patternsStore.loggedNotes[0]?.bpm).toBe(120);
+    expect(patternsStore.loggedNotes[1]?.bpm).toBe(90);
+    expect(patternsStore.loggedNotes[1]?.isStartingNewPattern).toBe(true);
+    expect(patternsStore.currentSketchMeta.bpm).toBe(90);
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["D4"]);
+  });
+
+  it("uses a tempo-aware silence boundary instead of waiting 30 seconds", () => {
+    sequenceDateNow(dateNowSpy, [
+      1000,
+      1001,
+      1200,
+      1201,
+      4300,
+      4301,
+      4500,
+      4501,
+    ]);
+
+    dispatchLoggedNote(patternsStore, "note-a", "C4", 0);
+    dispatchLoggedNote(patternsStore, "note-b", "D4", 1);
+
+    expect(patternsStore.loggedNotes[1]?.isStartingNewPattern).toBe(true);
+  });
+
+  it("keeps loaded-base sketches single-context when BPM changes before continuing", () => {
+    const pattern = createPattern({
+      bpm: 108,
+      notes: [createPatternNote({ note: "C4" })],
+      noteCount: 1,
+      duration: 400,
+    });
+
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    visualConfigStore.updateConfig("liveStrip", { bpm: 90 });
+
+    sequenceDateNow(dateNowSpy, [
+      1000,
+      1001,
+      1200,
+      1201,
+      1300,
+      1301,
+      1500,
+      1501,
+      1600,
+      1601,
+      1800,
+      1801,
+      1900,
+      1901,
+    ]);
+
+    dispatchLoggedNote(patternsStore, "note-a", "D4", 1);
+    dispatchLoggedNote(patternsStore, "note-b", "E4", 2);
+    dispatchLoggedNote(patternsStore, "note-c", "G4", 4);
+
+    expect(patternsStore.currentSketchMeta.bpm).toBe(90);
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual([
+      "D4",
+      "E4",
+      "G4",
+    ]);
+
+    patternsStore.sendCurrentPattern();
+
+    const savedPattern = patternsStore.savedPatterns.at(-1);
+    expect(savedPattern?.notes.map((note) => note.note)).toEqual([
+      "D4",
+      "E4",
+      "G4",
+    ]);
+    expect(savedPattern?.bpm).toBe(90);
   });
 });

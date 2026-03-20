@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, reactive, watch } from "vue";
-import { DEFAULT_CONFIG } from "@/composables/useVisualConfig";
+import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import type { VisualEffectsConfig } from "@/types/visual";
 
 const STORAGE_KEY = "emotitone-visual-config";
@@ -62,6 +62,11 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     section: K,
     updates: Partial<VisualEffectsConfig[K]>
   ) => {
+    if (!config[section]) {
+      (config[section] as VisualEffectsConfig[K]) = JSON.parse(
+        JSON.stringify(DEFAULT_CONFIG[section])
+      );
+    }
     Object.assign(config[section], updates);
   };
 

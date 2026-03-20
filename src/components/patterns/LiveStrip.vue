@@ -13,7 +13,7 @@ import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { getSolfegeNameForMode } from "@/data";
+import { getSolfegeNameForMode, normalizeScaleIndex } from "@/data";
 import {
   initSuperdoughAudio,
   getAudioContext,
@@ -122,7 +122,12 @@ function tokenText(note: PatternNote): string {
   }
 
   if (notation === "degree") {
-    return String(note.scaleIndex + 1);
+    return String(
+      normalizeScaleIndex(
+        patternsStore.currentSketchMeta.mode as MusicalMode,
+        note.scaleIndex
+      ) + 1
+    );
   }
 
   return solfegeName(note.scaleIndex, patternsStore.currentSketchMeta.mode);
@@ -163,7 +168,7 @@ function buildNoteSkin(
     notation === "note"
       ? note.note
       : notation === "degree"
-        ? String(note.scaleIndex + 1)
+        ? String(normalizeScaleIndex(mode as MusicalMode, note.scaleIndex) + 1)
         : solfegeName(note.scaleIndex, mode);
   const isAccidental = note.note.includes("#");
   const { background, primaryColor } = getKeyBackground(

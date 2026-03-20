@@ -77,9 +77,14 @@ export function getScaleForMode(mode: MusicalMode): Scale {
   return SCALE_MAP[mode] ?? MAJOR_SCALE;
 }
 
+export function normalizeScaleIndex(mode: MusicalMode, scaleIndex: number): number {
+  const degreeCount = getScaleForMode(mode).degreeCount;
+  return ((scaleIndex % degreeCount) + degreeCount) % degreeCount;
+}
+
 export function getSolfegeNameForMode(
   mode: MusicalMode,
   scaleIndex: number
 ): string {
-  return getScaleForMode(mode).solfege[scaleIndex]?.name ?? "Do";
+  return getScaleForMode(mode).solfege[normalizeScaleIndex(mode, scaleIndex)]?.name ?? "Do";
 }

@@ -352,7 +352,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  store.clearAllTouches();
+  store.clearTouchesForNoteKey(noteKey.value);
 
   // Remove cleanup listeners
   document.removeEventListener("visibilitychange", handleVisibilityOrBlur);

@@ -225,6 +225,21 @@ export const useKeyboardDrawerStore = defineStore(
       touch.pressedKeys.clear();
     };
 
+    const clearTouchesForNoteKey = (noteKey: string) => {
+      ensureTouchCollections();
+
+      const touchesToRemove: KeyboardPressId[] = [];
+      touch.activeTouches.forEach((activeNoteKey, touchId) => {
+        if (activeNoteKey === noteKey) {
+          touchesToRemove.push(touchId);
+        }
+      });
+
+      touchesToRemove.forEach((touchId) => {
+        removeTouch(touchId);
+      });
+    };
+
     const isKeyPressed = (noteKey: string): boolean => {
       const pk: any = touch.pressedKeys as any;
       if (!(pk instanceof Set) || typeof pk.has !== "function") {
@@ -383,6 +398,7 @@ export const useKeyboardDrawerStore = defineStore(
       addTouch,
       removeTouch,
       clearAllTouches,
+      clearTouchesForNoteKey,
       hasActiveTouch,
       isKeyPressed,
       activateVisualNote,

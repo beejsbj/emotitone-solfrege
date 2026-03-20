@@ -75,6 +75,12 @@ function shouldExposeDevMidiSimulator() {
 interface ActiveMidiNote {
   noteId: string;
   pressId: string;
+  isRoliInput: boolean;
+}
+
+interface PendingMidiPress {
+  noteName: string;
+  isRoliInput: boolean;
 }
 
 interface MidiNoteResolver {
@@ -250,6 +256,7 @@ export function useMidiControls() {
   const selectedRoliOutput = ref<MIDIOutput | null>(null);
   const roliInputIds = ref<Set<string>>(new Set());
   const activeMidiNotes = ref<Map<string, ActiveMidiNote>>(new Map());
+  const pendingMidiPresses = ref<Map<string, PendingMidiPress>>(new Map());
   const pendingReleasedPressIds = ref<Set<string>>(new Set());
   const pendingInputNoteOns = ref<Map<string, number>>(new Map());
   const pendingInputNoteOffs = ref<Set<string>>(new Set());
@@ -333,10 +340,13 @@ export function useMidiControls() {
     const messageType = status & MIDI_STATUS_MASK;
     const channel = (status & MIDI_CHANNEL_MASK) + 1;
     const pressId = buildMidiPressId(inputId, channel, noteNumber);
+    const noteName = midiNoteNumberToName(noteNumber);
+    const isRoliInput = roliInputIds.value.has(inputId);
 
     if (messageType === MIDI_NOTE_ON && velocity > 0) {
       if (
         activeMidiNotes.value.has(pressId)
+        || pendingMidiPresses.value.has(pressId)
         || hasActiveTouchPress(keyboardDrawerStore.touch.activeTouches, pressId)
       ) {
         return;
@@ -351,19 +361,21 @@ export function useMidiControls() {
         pressId,
         `${parsed.solfegeIndex}_${parsed.octave}`
       );
-      incrementPendingNoteCount(
-        pendingInputNoteOns.value,
-        midiNoteNumberToName(noteNumber)
-      );
+      pendingMidiPresses.value.set(pressId, { noteName, isRoliInput });
+      if (isRoliInput) {
+        incrementPendingNoteCount(pendingInputNoteOns.value, noteName);
+      }
 
       void musicStore
         .attackNoteWithOctave(parsed.solfegeIndex, parsed.octave)
         .then((noteId) => {
+          const pendingPress = pendingMidiPresses.value.get(pressId);
+          pendingMidiPresses.value.delete(pressId);
+
           if (!noteId) {
-            consumePendingNoteCount(
-              pendingInputNoteOns.value,
-              midiNoteNumberToName(noteNumber)
-            );
+            if (pendingPress?.isRoliInput) {
+              consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
+            }
             pendingReleasedPressIds.value.delete(pressId);
             keyboardDrawerStore.removeTouch(pressId);
             return;
@@ -371,13 +383,26 @@ export function useMidiControls() {
 
           if (pendingReleasedPressIds.value.has(pressId)) {
             pendingReleasedPressIds.value.delete(pressId);
-            pendingInputNoteOffs.value.add(noteId);
+            if (pendingPress?.isRoliInput) {
+              pendingInputNoteOffs.value.add(noteId);
+            }
             musicStore.releaseNote(noteId);
             keyboardDrawerStore.removeTouch(pressId);
             return;
           }
 
-          activeMidiNotes.value.set(pressId, { noteId, pressId });
+          activeMidiNotes.value.set(pressId, { noteId, pressId, isRoliInput });
+        })
+        .catch(() => {
+          const pendingPress = pendingMidiPresses.value.get(pressId);
+          pendingMidiPresses.value.delete(pressId);
+
+          if (pendingPress?.isRoliInput) {
+            consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
+          }
+
+          pendingReleasedPressIds.value.delete(pressId);
+          keyboardDrawerStore.removeTouch(pressId);
         });
       return;
     }
@@ -388,12 +413,16 @@ export function useMidiControls() {
     ) {
       const activeNote = activeMidiNotes.value.get(pressId);
       if (!activeNote) {
-        pendingReleasedPressIds.value.add(pressId);
-        keyboardDrawerStore.removeTouch(pressId);
+        if (pendingMidiPresses.value.has(pressId)) {
+          pendingReleasedPressIds.value.add(pressId);
+          keyboardDrawerStore.removeTouch(pressId);
+        }
         return;
       }
 
-      pendingInputNoteOffs.value.add(activeNote.noteId);
+      if (activeNote.isRoliInput) {
+        pendingInputNoteOffs.value.add(activeNote.noteId);
+      }
       musicStore.releaseNote(activeNote.noteId);
       keyboardDrawerStore.removeTouch(activeNote.pressId);
       activeMidiNotes.value.delete(pressId);
@@ -546,10 +575,19 @@ export function useMidiControls() {
   const releaseMidiNotes = (inputId?: string) => {
     for (const [pressId, activeNote] of activeMidiNotes.value.entries()) {
       if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
-        pendingInputNoteOffs.value.add(activeNote.noteId);
+        if (activeNote.isRoliInput) {
+          pendingInputNoteOffs.value.add(activeNote.noteId);
+        }
         musicStore.releaseNote(activeNote.noteId);
         keyboardDrawerStore.removeTouch(activeNote.pressId);
         activeMidiNotes.value.delete(pressId);
+      }
+    }
+
+    for (const [pressId] of pendingMidiPresses.value.entries()) {
+      if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
+        pendingReleasedPressIds.value.add(pressId);
+        keyboardDrawerStore.removeTouch(pressId);
       }
     }
   };
@@ -622,14 +660,14 @@ export function useMidiControls() {
   };
 
   const mirrorNotePlayed = (event: Event) => {
-    if (!selectedRoliOutput.value) {
-      return;
-    }
-
     const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
     const noteName = detail?.noteName;
 
     if (noteName && consumePendingNoteCount(pendingInputNoteOns.value, noteName)) {
+      return;
+    }
+
+    if (!selectedRoliOutput.value) {
       return;
     }
 
@@ -666,14 +704,14 @@ export function useMidiControls() {
   };
 
   const mirrorNoteReleased = (event: Event) => {
-    if (!selectedRoliOutput.value) {
-      return;
-    }
-
     const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
 
     if (detail?.noteId && pendingInputNoteOffs.value.has(detail.noteId)) {
       pendingInputNoteOffs.value.delete(detail.noteId);
+      return;
+    }
+
+    if (!selectedRoliOutput.value) {
       return;
     }
 

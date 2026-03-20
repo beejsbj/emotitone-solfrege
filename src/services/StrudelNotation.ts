@@ -10,6 +10,7 @@
 
 import type { LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
+import { normalizeScaleIndex } from "@/data";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -232,7 +233,12 @@ export class StrudelNotation {
 
   private noteValue(note: LogNote) {
     return this.config.notationType === "relative"
-      ? String(note.scaleIndex)
+      ? String(
+          normalizeScaleIndex(
+            (this.config.scaleMode ?? note.mode ?? "major") as MusicalMode,
+            note.scaleIndex
+          )
+        )
       : note.note;
   }
 

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
-import { getRegisteredSounds, initSuperdoughAudio } from "@/services/superdoughAudio";
+import { getRegisteredSounds } from "@/services/superdoughAudio";
+import { IconButton } from "@/components/ui";
 import FloatingDropdown from "./FloatingDropdown.vue";
-import { ChevronDown } from "lucide-vue-next";
+import OverlayPanelShell from "./OverlayPanelShell.vue";
+import { ChevronDown, Search, X } from "lucide-vue-next";
 
 interface Props {
   currentInstrument?: string;
@@ -17,20 +19,18 @@ const props = withDefaults(defineProps<Props>(), {
   compact: false,
   floating: undefined,
 });
+
 const emit = defineEmits<{
   "select-instrument": [instrumentId: string];
   close: [];
 }>();
 
 const instrumentStore = useInstrumentStore();
-
 const currentInstrumentId = computed(
   () => props.currentInstrument || instrumentStore.currentInstrument
 );
-
 const isFloating = computed(() => props.floating ?? !props.compact);
 
-// All sounds dynamically loaded from superdough after init
 const allSounds = ref<string[]>([]);
 const query = ref("");
 
@@ -39,69 +39,304 @@ onMounted(async () => {
   allSounds.value = getRegisteredSounds().sort();
 });
 
-// Simple categorisation by prefix/suffix heuristics
-type Category = "synths" | "keyboards" | "mallets" | "strings" | "organs" | "winds" | "drums" | "gm" | "other";
+type Category =
+  | "synths"
+  | "keyboards"
+  | "mallets"
+  | "strings"
+  | "organs"
+  | "winds"
+  | "drums"
+  | "gm"
+  | "other";
 
-const CATEGORY_ORDER: Category[] = ["keyboards", "mallets", "strings", "organs", "winds", "synths", "drums", "gm", "other"];
+const CATEGORY_ORDER: Category[] = [
+  "keyboards",
+  "mallets",
+  "strings",
+  "organs",
+  "winds",
+  "synths",
+  "drums",
+  "gm",
+  "other",
+];
 
 const CATEGORY_LABELS: Record<Category, string> = {
-  synths:    "Synths",
+  synths: "Synths",
   keyboards: "Keyboards",
-  mallets:   "Mallets",
-  strings:   "Strings",
-  organs:    "Organs",
-  winds:     "Winds",
-  drums:     "Drums & Percussion",
-  gm:        "GM Soundfonts",
-  other:     "Other",
+  mallets: "Mallets",
+  strings: "Strings",
+  organs: "Organs",
+  winds: "Winds",
+  drums: "Drums & Percussion",
+  gm: "GM Soundfonts",
+  other: "Other",
 };
 
-// Curated pitched-melodic sets
-const KEYBOARD_SOUNDS = new Set(["piano", "steinway", "kawai", "fmpiano", "clavisynth", "gm_piano", "gm_epiano1", "gm_epiano2", "gm_harpsichord", "gm_clavinet", "gm_music_box", "gm_celesta"]);
-const MALLET_SOUNDS   = new Set(["marimba", "vibraphone", "vibraphone_bowed", "vibraphone_soft", "kalimba", "kalimba2", "kalimba3", "kalimba4", "kalimba5", "glockenspiel", "tubularbells", "tubularbells2", "xylophone_hard_ff", "xylophone_hard_pp", "xylophone_medium_ff", "xylophone_medium_pp", "xylophone_soft_ff", "xylophone_soft_pp", "gm_glockenspiel", "gm_xylophone", "gm_vibraphone", "gm_marimba", "gm_tubular_bells", "gm_steel_drums", "gm_kalimba"]);
-const STRING_SOUNDS   = new Set(["harp", "folkharp", "gm_orchestral_harp", "gm_pizzicato_strings", "gm_tremolo_strings", "gm_string_ensemble_1", "gm_string_ensemble_2", "gm_synth_strings_1", "gm_synth_strings_2", "gm_violin", "gm_viola", "gm_cello", "gm_contrabass", "gm_fiddle"]);
-const ORGAN_SOUNDS    = new Set(["organ_full", "organ_4inch", "organ_8inch", "pipeorgan_loud", "pipeorgan_quiet", "pipeorgan_loud_pedal", "pipeorgan_quiet_pedal", "gm_church_organ", "gm_percussive_organ", "gm_rock_organ", "gm_reed_organ", "gm_drawbar_organ", "organ"]);
-const WIND_SOUNDS     = new Set(["sax", "sax_stacc", "sax_vib", "saxello", "saxello_stacc", "saxello_vib", "recorder_alto_stacc", "recorder_alto_sus", "recorder_alto_vib", "recorder_bass_stacc", "recorder_bass_sus", "recorder_bass_vib", "recorder_soprano_stacc", "recorder_soprano_sus", "recorder_tenor_stacc", "recorder_tenor_sus", "recorder_tenor_vib", "ocarina", "ocarina_small", "ocarina_small_stacc", "ocarina_vib", "harmonica", "harmonica_soft", "harmonica_vib", "super64", "super64_acc", "super64_vib", "gm_flute", "gm_clarinet", "gm_oboe", "gm_bassoon", "gm_piccolo", "gm_recorder", "gm_pan_flute", "gm_blown_bottle", "gm_shakuhachi", "gm_whistle", "gm_ocarina", "gm_english_horn", "gm_alto_sax", "gm_tenor_sax", "gm_soprano_sax", "gm_baritone_sax", "gm_shanai", "gm_sitar", "gm_koto", "gm_shamisen", "gm_dulcimer", "gm_banjo"]);
-const SYNTH_SOUNDS    = new Set(["triangle", "sine", "square", "sawtooth", "pulse", "supersaw", "tri", "sin", "sqr", "saw", "brown", "white", "pink", "bytebeat", "crackle", "sbd", "zzfx", "user", "z_noise", "z_sine", "z_square", "z_sawtooth", "z_triangle", "z_tan", "gm_lead_1_square", "gm_lead_2_sawtooth", "gm_lead_3_calliope", "gm_lead_4_chiff", "gm_lead_5_charang", "gm_lead_6_voice", "gm_lead_7_fifths", "gm_lead_8_bass_lead", "gm_pad_new_age", "gm_pad_warm", "gm_pad_poly", "gm_pad_choir", "gm_pad_bowed", "gm_pad_metallic", "gm_pad_halo", "gm_pad_sweep", "gm_fx_rain", "gm_fx_soundtrack", "gm_fx_crystal", "gm_fx_atmosphere", "gm_fx_brightness", "gm_fx_goblins", "gm_fx_echoes", "gm_fx_sci_fi", "gm_synth_bass_1", "gm_synth_bass_2", "gm_synth_brass_1", "gm_synth_brass_2", "gm_synth_drum", "gm_synth_choir"]);
+const KEYBOARD_SOUNDS = new Set([
+  "piano",
+  "steinway",
+  "kawai",
+  "fmpiano",
+  "clavisynth",
+  "gm_piano",
+  "gm_epiano1",
+  "gm_epiano2",
+  "gm_harpsichord",
+  "gm_clavinet",
+  "gm_music_box",
+  "gm_celesta",
+]);
+const MALLET_SOUNDS = new Set([
+  "marimba",
+  "vibraphone",
+  "vibraphone_bowed",
+  "vibraphone_soft",
+  "kalimba",
+  "kalimba2",
+  "kalimba3",
+  "kalimba4",
+  "kalimba5",
+  "glockenspiel",
+  "tubularbells",
+  "tubularbells2",
+  "xylophone_hard_ff",
+  "xylophone_hard_pp",
+  "xylophone_medium_ff",
+  "xylophone_medium_pp",
+  "xylophone_soft_ff",
+  "xylophone_soft_pp",
+  "gm_glockenspiel",
+  "gm_xylophone",
+  "gm_vibraphone",
+  "gm_marimba",
+  "gm_tubular_bells",
+  "gm_steel_drums",
+  "gm_kalimba",
+]);
+const STRING_SOUNDS = new Set([
+  "harp",
+  "folkharp",
+  "gm_orchestral_harp",
+  "gm_pizzicato_strings",
+  "gm_tremolo_strings",
+  "gm_string_ensemble_1",
+  "gm_string_ensemble_2",
+  "gm_synth_strings_1",
+  "gm_synth_strings_2",
+  "gm_violin",
+  "gm_viola",
+  "gm_cello",
+  "gm_contrabass",
+  "gm_fiddle",
+]);
+const ORGAN_SOUNDS = new Set([
+  "organ_full",
+  "organ_4inch",
+  "organ_8inch",
+  "pipeorgan_loud",
+  "pipeorgan_quiet",
+  "pipeorgan_loud_pedal",
+  "pipeorgan_quiet_pedal",
+  "gm_church_organ",
+  "gm_percussive_organ",
+  "gm_rock_organ",
+  "gm_reed_organ",
+  "gm_drawbar_organ",
+  "organ",
+]);
+const WIND_SOUNDS = new Set([
+  "sax",
+  "sax_stacc",
+  "sax_vib",
+  "saxello",
+  "saxello_stacc",
+  "saxello_vib",
+  "recorder_alto_stacc",
+  "recorder_alto_sus",
+  "recorder_alto_vib",
+  "recorder_bass_stacc",
+  "recorder_bass_sus",
+  "recorder_bass_vib",
+  "recorder_soprano_stacc",
+  "recorder_soprano_sus",
+  "recorder_tenor_stacc",
+  "recorder_tenor_sus",
+  "recorder_tenor_vib",
+  "ocarina",
+  "ocarina_small",
+  "ocarina_small_stacc",
+  "ocarina_vib",
+  "harmonica",
+  "harmonica_soft",
+  "harmonica_vib",
+  "super64",
+  "super64_acc",
+  "super64_vib",
+  "gm_flute",
+  "gm_clarinet",
+  "gm_oboe",
+  "gm_bassoon",
+  "gm_piccolo",
+  "gm_recorder",
+  "gm_pan_flute",
+  "gm_blown_bottle",
+  "gm_shakuhachi",
+  "gm_whistle",
+  "gm_ocarina",
+  "gm_english_horn",
+  "gm_alto_sax",
+  "gm_tenor_sax",
+  "gm_soprano_sax",
+  "gm_baritone_sax",
+  "gm_shanai",
+  "gm_sitar",
+  "gm_koto",
+  "gm_shamisen",
+  "gm_dulcimer",
+  "gm_banjo",
+]);
+const SYNTH_SOUNDS = new Set([
+  "triangle",
+  "sine",
+  "square",
+  "sawtooth",
+  "pulse",
+  "supersaw",
+  "tri",
+  "sin",
+  "sqr",
+  "saw",
+  "brown",
+  "white",
+  "pink",
+  "bytebeat",
+  "crackle",
+  "sbd",
+  "zzfx",
+  "user",
+  "z_noise",
+  "z_sine",
+  "z_square",
+  "z_sawtooth",
+  "z_triangle",
+  "z_tan",
+  "gm_lead_1_square",
+  "gm_lead_2_sawtooth",
+  "gm_lead_3_calliope",
+  "gm_lead_4_chiff",
+  "gm_lead_5_charang",
+  "gm_lead_6_voice",
+  "gm_lead_7_fifths",
+  "gm_lead_8_bass_lead",
+  "gm_pad_new_age",
+  "gm_pad_warm",
+  "gm_pad_poly",
+  "gm_pad_choir",
+  "gm_pad_bowed",
+  "gm_pad_metallic",
+  "gm_pad_halo",
+  "gm_pad_sweep",
+  "gm_fx_rain",
+  "gm_fx_soundtrack",
+  "gm_fx_crystal",
+  "gm_fx_atmosphere",
+  "gm_fx_brightness",
+  "gm_fx_goblins",
+  "gm_fx_echoes",
+  "gm_fx_sci_fi",
+  "gm_synth_bass_1",
+  "gm_synth_bass_2",
+  "gm_synth_brass_1",
+  "gm_synth_brass_2",
+  "gm_synth_drum",
+  "gm_synth_choir",
+]);
 
 function categorise(name: string): Category {
   if (KEYBOARD_SOUNDS.has(name)) return "keyboards";
-  if (MALLET_SOUNDS.has(name))   return "mallets";
-  if (STRING_SOUNDS.has(name))   return "strings";
-  if (ORGAN_SOUNDS.has(name))    return "organs";
-  if (WIND_SOUNDS.has(name))     return "winds";
-  if (SYNTH_SOUNDS.has(name))    return "synths";
-  // Drum / percussion heuristics
-  if (/^(gm_drum|gm_taiko|gm_melodic_tom|gm_reverse_cymbal|gm_gunshot|gm_helicopter|gm_applause|gm_bird_tweet|gm_telephone|gm_seashore|gm_orchestra_hit|gm_brass_section|gm_voice_oohs|gm_choir_aahs|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|bass|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|trian|vibra|wine|wood)/.test(name)) return "drums";
-  if (name.startsWith("gm_"))    return "gm";
-  if (name.startsWith("AJK") || name.startsWith("Akai") || name.startsWith("Roland") || name.includes("_bd") || name.includes("_sd") || name.includes("_hh")) return "drums";
+  if (MALLET_SOUNDS.has(name)) return "mallets";
+  if (STRING_SOUNDS.has(name)) return "strings";
+  if (ORGAN_SOUNDS.has(name)) return "organs";
+  if (WIND_SOUNDS.has(name)) return "winds";
+  if (SYNTH_SOUNDS.has(name)) return "synths";
+  if (
+    /^(gm_drum|gm_taiko|gm_melodic_tom|gm_reverse_cymbal|gm_gunshot|gm_helicopter|gm_applause|gm_bird_tweet|gm_telephone|gm_seashore|gm_orchestra_hit|gm_brass_section|gm_voice_oohs|gm_choir_aahs|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|bass|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|trian|vibra|wine|wood)/.test(
+      name
+    )
+  ) {
+    return "drums";
+  }
+  if (name.startsWith("gm_")) return "gm";
+  if (
+    name.startsWith("AJK") ||
+    name.startsWith("Akai") ||
+    name.startsWith("Roland") ||
+    name.includes("_bd") ||
+    name.includes("_sd") ||
+    name.includes("_hh")
+  ) {
+    return "drums";
+  }
+
   return "other";
 }
 
 const filteredSounds = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  return q ? allSounds.value.filter((s) => s.includes(q)) : allSounds.value;
+  const normalizedQuery = query.value.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return allSounds.value;
+  }
+
+  return allSounds.value.filter((sound) => sound.includes(normalizedQuery));
 });
 
 const grouped = computed(() => {
   const map: Partial<Record<Category, string[]>> = {};
-  for (const s of filteredSounds.value) {
-    const cat = categorise(s);
-    if (!map[cat]) map[cat] = [];
-    map[cat]!.push(s);
+
+  for (const sound of filteredSounds.value) {
+    const category = categorise(sound);
+    if (!map[category]) {
+      map[category] = [];
+    }
+    map[category]!.push(sound);
   }
+
   return map;
 });
 
 const orderedGroups = computed(() =>
-  CATEGORY_ORDER.filter((c) => grouped.value[c]?.length).map((c) => ({
-    key: c,
-    label: CATEGORY_LABELS[c],
-    sounds: grouped.value[c]!,
-  }))
+  CATEGORY_ORDER.filter((category) => grouped.value[category]?.length).map(
+    (category, index) => ({
+      key: category,
+      label: CATEGORY_LABELS[category],
+      sounds: grouped.value[category]!,
+      tone: sceneTone(index),
+    })
+  )
 );
 
 const displayName = (id: string) => (id.startsWith("gm_") ? id.slice(3) : id);
+
+function sceneTone(index: number) {
+  return ["amber", "red", "violet", "cream"][index % 4] as
+    | "amber"
+    | "red"
+    | "violet"
+    | "cream";
+}
+
+function toneChipClass(tone: "amber" | "red" | "violet" | "cream") {
+  return (
+    {
+      amber: "bg-[#f7b22c] text-[#17120a]",
+      red: "bg-[#e53d2d] text-white",
+      violet: "bg-[#5a4295] text-white",
+      cream: "bg-[#efe5cf] text-[#17120a]",
+    } as const
+  )[tone];
+}
 
 function selectInstrument(name: string, close: () => void) {
   if (props.onSelectInstrument) {
@@ -109,108 +344,155 @@ function selectInstrument(name: string, close: () => void) {
   } else {
     instrumentStore.setInstrument(name);
   }
+
   emit("select-instrument", name);
   close();
   props.onClose?.();
   emit("close");
 }
-
 </script>
 
 <template>
-  <FloatingDropdown position="top-left" max-height="80vh" :floating="isFloating">
-    <!-- Trigger -->
+  <FloatingDropdown position="top-left" :floating="isFloating">
     <template #trigger="{ toggle }">
       <button
+        data-testid="instrument-selector-trigger"
         @click="toggle"
         :class="[
-          'flex items-center gap-2 px-3 py-2 bg-black/80 border border-neutral-700 rounded-md cursor-pointer text-xs transition-all duration-200 backdrop-blur-lg min-w-0 justify-center hover:bg-black/90 hover:border-neutral-500 hover:scale-105',
-          compact ? 'px-2 py-1 text-[10px] gap-1 max-w-[150px] rounded' : 'max-w-[200px]',
+          'group flex items-center gap-2 rounded-full border border-[#7a6929]/85 bg-[#090805]/92 text-[#f4df95] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#b39b40] hover:text-white',
+          compact ? 'max-w-[132px] px-2 py-1 text-[9px]' : 'max-w-[176px] px-2.5 py-1.5 text-[10px]',
         ]"
       >
-        <span class="font-mono text-[#00ff88] leading-none truncate" :class="compact ? 'text-[10px] max-w-[80px]' : 'text-xs max-w-[120px]'">
+        <span
+          class="truncate font-mono leading-none text-[#00ff88]"
+          :class="compact ? 'max-w-[70px]' : 'max-w-[106px]'"
+        >
           {{ displayName(currentInstrumentId) }}
         </span>
         <ChevronDown :size="compact ? 12 : 14" />
       </button>
     </template>
 
-    <!-- Panel -->
-    <template #panel="{ close, toggle, position }">
-      <div class="flex flex-col min-h-0 flex-1" :class="compact ? 'text-[11px]' : ''">
+    <template #panel="{ close }">
+      <OverlayPanelShell
+        :width="compact ? 'min(21rem, calc(100vw - 0.9rem))' : 'min(24rem, calc(100vw - 0.9rem))'"
+        :max-height="compact ? 'min(67vh, 28rem)' : 'min(72vh, 31rem)'"
+        body-class="px-3 py-3"
+      >
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-1.5">
+              <span
+                class="inline-flex h-6 items-center px-2 text-[7px] font-semibold uppercase tracking-[0.22em] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+                :class="toneChipClass('amber')"
+              >
+                Sound
+              </span>
+              <span
+                class="inline-flex h-6 items-center border border-[#332b16] bg-[#141109] px-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#d7cca0] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+              >
+                Bank
+              </span>
+            </div>
 
-        <!-- Header + search -->
-        <div
-          class="sticky top-0 z-10 bg-black/95 backdrop-blur-lg border-b border-neutral-800"
-          :class="position === 'top-left' ? 'flex-col-reverse' : ''"
-        >
-          <div class="flex items-center justify-between px-3 py-2">
-            <span class="text-[#00ff88] font-semibold text-xs tracking-wide">
-              Instruments
-              <span v-if="allSounds.length" class="text-neutral-500 font-normal ml-1">{{ allSounds.length }}</span>
+            <div class="flex shrink-0 items-center gap-1.5">
+              <span
+                class="inline-flex h-8 items-center border border-[#37311c] bg-[#15120b] px-2 text-[8px] uppercase tracking-[0.18em] text-neutral-400 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+              >
+                {{ filteredSounds.length }}
+              </span>
+
+              <IconButton
+                title="Close sounds"
+                aria-label="Close sounds"
+                tone="red"
+                @click="close"
+              >
+                <X :size="14" />
+              </IconButton>
+            </div>
+          </div>
+        </template>
+
+        <template #toolbar>
+          <div class="flex items-center gap-2">
+            <label
+              class="flex flex-1 items-center gap-2 border border-[#37311c] bg-[#15120b] px-2.5 py-1.5 text-neutral-300 transition-colors focus-within:border-[#1e7f54] focus-within:text-white [clip-path:polygon(2%_0,100%_0,98%_100%,0_100%)]"
+            >
+              <Search :size="14" class="text-neutral-500" />
+              <input
+                v-model="query"
+                data-testid="instrument-search"
+                type="text"
+                placeholder="search sounds"
+                class="w-full bg-transparent text-[10px] text-white placeholder:text-neutral-600 focus:outline-none"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+              />
+            </label>
+
+            <span
+              class="hidden h-8 shrink-0 items-center border border-[#332b16] bg-[#141109] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#00ff88] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
+            >
+              {{ displayName(currentInstrumentId) }}
             </span>
-            <button @click="toggle" class="p-1 text-neutral-500 hover:text-white rounded transition-colors">
-              <ChevronDown :size="16" />
-            </button>
           </div>
-          <!-- Search bar -->
-          <div class="px-3 pb-2">
-            <input
-              v-model="query"
-              type="text"
-              placeholder="search sounds…"
-              class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-neutral-500 outline-none focus:border-[#00ff88]/50 focus:ring-0 font-mono"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="false"
-            />
-          </div>
-        </div>
+        </template>
 
-        <!-- Sound list -->
-        <div class="overflow-y-auto flex-1 px-2 py-2" style="scrollbar-width: none;">
-          <div v-if="!allSounds.length" class="text-neutral-500 text-xs text-center py-6 italic">
+        <div class="space-y-3">
+          <div
+            v-if="!allSounds.length"
+            class="border border-dashed border-[#3a321d] bg-[#100e09] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+          >
             loading sounds…
           </div>
 
-          <div v-else-if="!filteredSounds.length" class="text-neutral-500 text-xs text-center py-6 italic">
+          <div
+            v-else-if="!filteredSounds.length"
+            class="border border-dashed border-[#3a321d] bg-[#100e09] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+          >
             no matches for "{{ query }}"
           </div>
 
           <template v-else>
-            <div v-for="group in orderedGroups" :key="group.key" class="mb-3">
-              <!-- Category header -->
-              <div class="text-[9px] font-bold uppercase tracking-widest text-neutral-500 px-1 mb-1 mt-1">
-                {{ group.label }}
-                <span class="text-neutral-700 font-normal normal-case tracking-normal">{{ group.sounds.length }}</span>
+            <section
+              v-for="group in orderedGroups"
+              :key="group.key"
+              class="border border-[#2d2717] bg-[#100e09] px-3 py-2.5 [clip-path:polygon(0_12px,12px_0,calc(100%-12px)_0,100%_12px,100%_100%,0_100%)]"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2 px-0.5">
+                <span
+                  class="px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.2em] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+                  :class="toneChipClass(group.tone)"
+                >
+                  {{ group.label }}
+                </span>
+                <div class="text-[8px] uppercase tracking-[0.18em] text-neutral-600">
+                  {{ group.sounds.length }}
+                </div>
               </div>
 
-              <!-- Sound chips -->
-              <div class="flex flex-wrap gap-1">
+              <div class="flex flex-wrap gap-1.5">
                 <button
                   v-for="sound in group.sounds"
                   :key="sound"
+                  :data-testid="`instrument-option-${sound}`"
                   @click="selectInstrument(sound, close)"
                   :class="[
-                    'px-2 py-0.5 rounded text-[10px] font-mono border transition-all duration-150 cursor-pointer whitespace-nowrap',
+                    'border px-2.5 py-1 font-mono text-[9px] transition-colors [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]',
                     currentInstrumentId === sound
-                      ? 'bg-[#00ff88]/15 border-[#00ff88]/50 text-[#00ff88]'
-                      : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-white hover:bg-neutral-800',
+                      ? 'border-[#1e7f54] bg-[#072a1d] text-[#b7ffd8]'
+                      : 'border-[#37311c] bg-[#15120b] text-neutral-300 hover:border-[#8b7733] hover:text-white',
                   ]"
                 >
                   {{ displayName(sound) }}
                 </button>
               </div>
-            </div>
+            </section>
           </template>
         </div>
-
-        <!-- Current selection footer -->
-        <div class="border-t border-neutral-800 px-3 py-2 bg-black/80 flex items-center gap-2">
-          <span class="text-neutral-500 text-[10px]">playing</span>
-          <span class="font-mono text-[#00ff88] text-[11px] font-semibold">{{ displayName(currentInstrumentId) }}</span>
-        </div>
-      </div>
+      </OverlayPanelShell>
     </template>
   </FloatingDropdown>
 </template>

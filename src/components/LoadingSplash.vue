@@ -67,10 +67,17 @@ const midiMessage = computed(() => {
   }
 
   if (midi.connectedInputs.length > 0) {
-    return `MIDI ready: ${midi.connectedInputs.join(", ")}`;
+    const roliSync = midi.syncedOutput
+      ? ` Live sync: ${midi.syncedOutput}.`
+      : "";
+    return `MIDI ready: ${midi.connectedInputs.join(", ")}.${roliSync}`;
   }
 
   if (midi.isListening) {
+    if (midi.syncedOutput) {
+      return `MIDI ready. Live sync armed on ${midi.syncedOutput}.`;
+    }
+
     return "MIDI ready. Connect a controller anytime.";
   }
 

@@ -27,6 +27,13 @@ export interface TouchState {
   touchStartY: number;
 }
 
+export interface VisualActivationState {
+  /** Active playback/event activations by activation id */
+  activeActivations: Map<string, string>;
+  /** Ref-counted active note keys for event-driven highlights */
+  noteKeyCounts: Map<string, number>;
+}
+
 export interface MidiState {
   /** Whether the browser exposes the Web MIDI API */
   isSupported: boolean;
@@ -36,6 +43,10 @@ export interface MidiState {
   isListening: boolean;
   /** Names of currently connected MIDI inputs */
   connectedInputs: string[];
+  /** Names of currently connected MIDI outputs */
+  connectedOutputs: string[];
+  /** Preferred ROLI/LUMI output currently used for live sync */
+  syncedOutput: string | null;
   /** Last connection or permission error */
   lastError: string | null;
 }
@@ -70,11 +81,18 @@ export const useKeyboardDrawerStore = defineStore(
       touchStartY: 0,
     });
 
+    const visual = reactive<VisualActivationState>({
+      activeActivations: new Map(),
+      noteKeyCounts: new Map(),
+    });
+
     const midi = reactive<MidiState>({
       isSupported: isMidiSupported(),
       isConnecting: false,
       isListening: false,
       connectedInputs: [],
+      connectedOutputs: [],
+      syncedOutput: null,
       lastError: null,
     });
 
@@ -84,6 +102,12 @@ export const useKeyboardDrawerStore = defineStore(
     }
     if (!(touch.pressedKeys instanceof Set)) {
       touch.pressedKeys = new Set();
+    }
+    if (!(visual.activeActivations instanceof Map)) {
+      visual.activeActivations = new Map();
+    }
+    if (!(visual.noteKeyCounts instanceof Map)) {
+      visual.noteKeyCounts = new Map();
     }
 
     // Helper to rehydrate non-serializable collections safely when needed
@@ -102,6 +126,33 @@ export const useKeyboardDrawerStore = defineStore(
       if (!(touch.pressedKeys instanceof Set)) {
         const pk = touch.pressedKeys as unknown as string[] | undefined;
         touch.pressedKeys = new Set<string>(Array.isArray(pk) ? pk : []);
+      }
+    }
+
+    function ensureVisualCollections() {
+      if (!(visual.activeActivations instanceof Map)) {
+        const activations = visual.activeActivations as unknown as
+          | Record<string, string>
+          | undefined;
+        visual.activeActivations = new Map<KeyboardPressId, string>(
+          activations && typeof activations === "object"
+            ? Object.entries(activations)
+            : []
+        );
+      }
+
+      if (!(visual.noteKeyCounts instanceof Map)) {
+        const noteKeyCounts = visual.noteKeyCounts as unknown as
+          | Record<string, number>
+          | undefined;
+        visual.noteKeyCounts = new Map<string, number>(
+          noteKeyCounts && typeof noteKeyCounts === "object"
+            ? Object.entries(noteKeyCounts).map(([noteKey, count]) => [
+                noteKey,
+                Number(count) || 0,
+              ])
+            : []
+        );
       }
     }
 
@@ -183,6 +234,71 @@ export const useKeyboardDrawerStore = defineStore(
       return touch.pressedKeys.has(noteKey);
     };
 
+    const hasActiveTouch = (touchId: KeyboardPressId): boolean => {
+      ensureTouchCollections();
+      return touch.activeTouches.has(touchId);
+    };
+
+    const activateVisualNote = (
+      activationId: KeyboardPressId,
+      noteKey: string
+    ) => {
+      ensureVisualCollections();
+
+      const existingNoteKey = visual.activeActivations.get(activationId);
+      if (existingNoteKey === noteKey) {
+        return;
+      }
+
+      if (existingNoteKey) {
+        releaseVisualNote(activationId);
+      }
+
+      visual.activeActivations.set(activationId, noteKey);
+      visual.noteKeyCounts.set(noteKey, (visual.noteKeyCounts.get(noteKey) || 0) + 1);
+    };
+
+    const releaseVisualNote = (activationId: KeyboardPressId) => {
+      ensureVisualCollections();
+
+      const noteKey = visual.activeActivations.get(activationId);
+      if (!noteKey) {
+        return;
+      }
+
+      visual.activeActivations.delete(activationId);
+
+      const nextCount = (visual.noteKeyCounts.get(noteKey) || 0) - 1;
+      if (nextCount > 0) {
+        visual.noteKeyCounts.set(noteKey, nextCount);
+      } else {
+        visual.noteKeyCounts.delete(noteKey);
+      }
+    };
+
+    const clearVisualNotes = () => {
+      ensureVisualCollections();
+      visual.activeActivations.clear();
+      visual.noteKeyCounts.clear();
+    };
+
+    const isVisualNoteActive = (noteKey: string): boolean => {
+      ensureVisualCollections();
+      return (visual.noteKeyCounts.get(noteKey) || 0) > 0;
+    };
+
+    const isKeyVisuallyActive = (noteKey: string): boolean => {
+      const activeNoteFromStore = musicStore.getActiveNotes().some(
+        (note) => `${note.solfegeIndex}_${note.octave}` === noteKey
+      );
+
+      return (
+        isKeyPressed(noteKey)
+        || isVisualNoteActive(noteKey)
+        || activeNoteFromStore
+      );
+    };
+
     // Actions for keyboard configuration (layout only - styling via visual config)
     const updateKeyboardConfig = (
       updates: Partial<typeof keyboardConfig.value>
@@ -210,6 +326,8 @@ export const useKeyboardDrawerStore = defineStore(
         midi.isConnecting = false;
         midi.isListening = false;
         midi.connectedInputs = [];
+        midi.connectedOutputs = [];
+        midi.syncedOutput = null;
         midi.lastError = null;
       }
     };
@@ -223,11 +341,21 @@ export const useKeyboardDrawerStore = defineStore(
 
       if (!isListening) {
         midi.connectedInputs = [];
+        midi.connectedOutputs = [];
+        midi.syncedOutput = null;
       }
     };
 
     const setMidiInputs = (inputs: string[]) => {
       midi.connectedInputs = inputs;
+    };
+
+    const setMidiOutputs = (outputs: string[]) => {
+      midi.connectedOutputs = outputs;
+    };
+
+    const setMidiSyncedOutput = (output: string | null) => {
+      midi.syncedOutput = output;
     };
 
     const setMidiError = (message: string | null) => {
@@ -238,6 +366,7 @@ export const useKeyboardDrawerStore = defineStore(
       // State
       drawer,
       touch,
+      visual,
       midi,
 
       // Computed
@@ -254,7 +383,13 @@ export const useKeyboardDrawerStore = defineStore(
       addTouch,
       removeTouch,
       clearAllTouches,
+      hasActiveTouch,
       isKeyPressed,
+      activateVisualNote,
+      releaseVisualNote,
+      clearVisualNotes,
+      isVisualNoteActive,
+      isKeyVisuallyActive,
 
       // Configuration actions (layout only)
       updateKeyboardConfig,
@@ -264,6 +399,8 @@ export const useKeyboardDrawerStore = defineStore(
       setMidiConnecting,
       setMidiListening,
       setMidiInputs,
+      setMidiOutputs,
+      setMidiSyncedOutput,
       setMidiError,
     };
   },
@@ -271,6 +408,7 @@ export const useKeyboardDrawerStore = defineStore(
     persist: {
       key: "emotitone-keyboard-drawer",
       storage: localStorage,
+      pick: ["drawer.isOpen"],
     },
   }
 );

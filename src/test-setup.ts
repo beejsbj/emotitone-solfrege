@@ -253,6 +253,7 @@ vi.mock('@/services/music', () => ({
 // Mock data files
 vi.mock('@/data', () => ({
   SEQUENCER_ICONS: ['music', 'piano', 'guitar', 'violin', 'drums', 'trumpet', 'microphone'],
+  CHROMATIC_NOTES: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
   MAJOR_SOLFEGE: [
     { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
     { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
@@ -261,6 +262,32 @@ vi.mock('@/data', () => ({
     { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
     { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
   ],
+  MAJOR_SCALE: {
+    name: 'Major',
+    intervals: [0, 2, 4, 5, 7, 9, 11, 12],
+    solfege: [
+      { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
+      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' },
+      { name: 'Mi', number: 3, emotion: 'bright', description: 'clarity', fleckShape: 'diamond', texture: 'clear' },
+      { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', fleckShape: 'mist', texture: 'soft' },
+      { name: 'So', number: 5, emotion: 'strong', description: 'resolve', fleckShape: 'star', texture: 'firm' },
+      { name: 'La', number: 6, emotion: 'warm', description: 'yearning', fleckShape: 'sparkle', texture: 'glowing' },
+      { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', fleckShape: 'diamond', texture: 'tense' },
+    ],
+  },
+  MINOR_SCALE: {
+    name: 'Minor',
+    intervals: [0, 2, 3, 5, 7, 8, 10, 12],
+    solfege: [
+      { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
+      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' },
+      { name: 'Me', number: 3, emotion: 'wistful', description: 'shade', fleckShape: 'diamond', texture: 'velvet' },
+      { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', fleckShape: 'mist', texture: 'soft' },
+      { name: 'So', number: 5, emotion: 'strong', description: 'resolve', fleckShape: 'star', texture: 'firm' },
+      { name: 'Le', number: 6, emotion: 'dark', description: 'falling', fleckShape: 'sparkle', texture: 'glowing' },
+      { name: 'Te', number: 7, emotion: 'haunting', description: 'pull', fleckShape: 'diamond', texture: 'tense' },
+    ],
+  },
   getAllMelodicPatterns: vi.fn(() => [])
 }))
 

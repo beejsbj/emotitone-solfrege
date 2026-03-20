@@ -199,6 +199,31 @@
           </div>
         </div>
 
+        <div class="mb-5 pb-4 border-b border-neutral-700">
+          <h4 class="m-0 mb-2.5 text-xs text-[#ffd93d]">ROLI Piano</h4>
+          <p class="m-0 mb-3 text-[11px] leading-relaxed text-neutral-400">
+            Generate a live-sync LittleFoot script from the current palette and
+            load it in ROLI Dashboard or BLOCKS Code.
+          </p>
+          <p class="m-0 mb-3 text-[11px] leading-relaxed text-neutral-500">
+            {{ roliSyncMessage }}
+          </p>
+          <div class="flex gap-2.5">
+            <button
+              @click="copyRoliPianoScript"
+              class="flex-1 px-2 py-2 text-xs text-white bg-white/10 border border-neutral-600 rounded flex items-center justify-center gap-1 hover:bg-white/20 transition-colors"
+            >
+              Copy Live Script
+            </button>
+            <button
+              @click="downloadRoliPianoScript"
+              class="flex-1 px-2 py-2 text-xs text-white bg-white/10 border border-neutral-600 rounded flex items-center justify-center gap-1 hover:bg-white/20 transition-colors"
+            >
+              Download Live .littlefoot
+            </button>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="flex gap-2.5 mt-5">
           <button
@@ -230,7 +255,10 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { ChromaticNote } from "@/types";
 import { UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 import { Knob } from "./knobs";
 import FloatingDropdown from "./FloatingDropdown.vue";
@@ -242,8 +270,12 @@ import {
   Download,
   Trash2,
 } from "lucide-vue-next";
+import { generateRoliPianoScript } from "@/services/roliPianoExport";
+import { isRoliMidiPortName } from "@/services/roliLiveSync";
 
 const visualConfigStore = useVisualConfigStore();
+const keyboardDrawerStore = useKeyboardDrawerStore();
+const musicStore = useMusicStore();
 
 // Store state
 const {
@@ -279,6 +311,28 @@ const configSections = computed(() => {
   });
 
   return sections;
+});
+
+const roliSyncMessage = computed(() => {
+  const midi = keyboardDrawerStore.midi;
+
+  if (midi.syncedOutput) {
+    return `Live sync active on ${midi.syncedOutput}.`;
+  }
+
+  const detectedRoliOutput = midi.connectedOutputs.find((outputName) =>
+    isRoliMidiPortName(outputName)
+  );
+
+  if (detectedRoliOutput) {
+    return `ROLI output ${detectedRoliOutput} is connected. Load the script onto the keyboard to arm live sync.`;
+  }
+
+  if (midi.connectedOutputs.length > 0) {
+    return "MIDI outputs are connected, but none look like a ROLI/LUMI port yet.";
+  }
+
+  return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
 });
 
 // Get metadata from unified config
@@ -370,6 +424,44 @@ const exportConfig = () => {
     .catch(() => {
       alert("Configuration logged to console");
     });
+};
+
+const getRoliPianoScript = () =>
+  generateRoliPianoScript({
+    dynamicColorConfig: { ...config.dynamicColors },
+    currentKey: musicStore.currentKey as ChromaticNote,
+    currentMode: musicStore.currentMode,
+  });
+
+const downloadTextFile = (filename: string, contents: string) => {
+  const blob = new Blob([contents], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+
+  URL.revokeObjectURL(url);
+};
+
+const copyRoliPianoScript = async () => {
+  const script = getRoliPianoScript();
+
+  try {
+    await navigator.clipboard.writeText(script);
+    alert("ROLI live-sync LittleFoot script copied to clipboard!");
+  } catch {
+    alert("Clipboard unavailable, downloading the script instead.");
+    downloadTextFile("emotitone-roli-live-sync.littlefoot", script);
+  }
+};
+
+const downloadRoliPianoScript = () => {
+  downloadTextFile(
+    "emotitone-roli-live-sync.littlefoot",
+    getRoliPianoScript()
+  );
 };
 
 const promptSaveConfig = () => {

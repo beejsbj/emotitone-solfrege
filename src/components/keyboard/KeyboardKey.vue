@@ -94,7 +94,7 @@ const noteName = computed(() => {
   return musicStore.getNoteName(props.solfegeIndex, props.octave);
 });
 const isAccidental = computed(() => noteName.value.includes("#"));
-const isPressed = computed(() => store.isKeyPressed(noteKey.value));
+const isPressed = computed(() => store.isKeyVisuallyActive(noteKey.value));
 const currentMode = computed(() => musicStore.currentMode);
 
 const getTouchPressId = (touchId: number) => `touch:${touchId}`;

@@ -4,7 +4,10 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
 import { IconButton } from "@/components/ui";
 import FloatingDropdown from "./FloatingDropdown.vue";
-import OverlayPanelShell from "./OverlayPanelShell.vue";
+import TabbedOverlayPanel, {
+  type TabbedOverlayTab,
+  type TabbedOverlayTone,
+} from "./TabbedOverlayPanel.vue";
 import { ChevronDown, Search, X } from "lucide-vue-next";
 
 interface Props {
@@ -71,6 +74,18 @@ const CATEGORY_LABELS: Record<Category, string> = {
   winds: "Winds",
   drums: "Drums & Percussion",
   gm: "GM Soundfonts",
+  other: "Other",
+};
+
+const CATEGORY_SHORT_LABELS: Record<Category, string> = {
+  synths: "Synths",
+  keyboards: "Keys",
+  mallets: "Mallets",
+  strings: "Strings",
+  organs: "Organs",
+  winds: "Winds",
+  drums: "Drums",
+  gm: "GM",
   other: "Other",
 };
 
@@ -292,10 +307,10 @@ const filteredSounds = computed(() => {
   return allSounds.value.filter((sound) => sound.includes(normalizedQuery));
 });
 
-const grouped = computed(() => {
+function groupSounds(sounds: string[]) {
   const map: Partial<Record<Category, string[]>> = {};
 
-  for (const sound of filteredSounds.value) {
+  for (const sound of sounds) {
     const category = categorise(sound);
     if (!map[category]) {
       map[category] = [];
@@ -304,30 +319,114 @@ const grouped = computed(() => {
   }
 
   return map;
-});
+}
 
-const orderedGroups = computed(() =>
-  CATEGORY_ORDER.filter((category) => grouped.value[category]?.length).map(
+const panelWidth = "min(46rem, calc(100vw - 1.5rem))";
+const panelHeight = "min(62vh, 36rem)";
+const panelViewportMaxHeight = "calc(100vh - 1.5rem)";
+
+type PanelTone = Extract<TabbedOverlayTone, "amber" | "red" | "violet" | "cream">;
+type PanelTab = "all" | Category;
+
+const activeTab = ref<PanelTab>("all");
+const hasSearchQuery = computed(() => query.value.trim().length > 0);
+const allGrouped = computed(() => groupSounds(allSounds.value));
+const grouped = computed(() => groupSounds(filteredSounds.value));
+
+const categoryTabs = computed(() =>
+  CATEGORY_ORDER.filter((category) => allGrouped.value[category]?.length).map(
     (category, index) => ({
       key: category,
       label: CATEGORY_LABELS[category],
-      sounds: grouped.value[category]!,
+      shortLabel: CATEGORY_SHORT_LABELS[category],
       tone: sceneTone(index),
     })
   )
 );
 
+const allTabs = computed<TabbedOverlayTab[]>(() => [
+  {
+    value: "all",
+    label: "All Sounds",
+    shortLabel: "All",
+    tone: "amber",
+  },
+  ...categoryTabs.value.map((tab) => ({
+    value: tab.key,
+    label: tab.label,
+    shortLabel: tab.shortLabel,
+    tone: tab.tone,
+  })),
+]);
+
+const activeTabMeta = computed(
+  () =>
+    allTabs.value.find((tab) => tab.value === activeTab.value) ?? {
+      value: "all",
+      label: "All Sounds",
+      shortLabel: "All",
+      tone: "amber" as TabbedOverlayTone,
+    }
+);
+
+const orderedGroups = computed(() => {
+  if (hasSearchQuery.value || activeTab.value === "all") {
+    return CATEGORY_ORDER.filter((category) => grouped.value[category]?.length).map(
+      (category) => ({
+        key: category,
+        label: CATEGORY_LABELS[category],
+        sounds: grouped.value[category]!,
+        tone:
+          categoryTabs.value.find((tab) => tab.key === category)?.tone ?? "amber",
+      })
+    );
+  }
+
+  const category = activeTab.value as Category;
+  const sounds = grouped.value[category] ?? [];
+
+  if (!sounds.length) {
+    return [];
+  }
+
+  return [
+    {
+      key: category,
+      label: CATEGORY_LABELS[category],
+      sounds,
+      tone:
+        categoryTabs.value.find((tab) => tab.key === category)?.tone ?? "amber",
+    },
+  ];
+});
+
+const visibleSoundCount = computed(() => {
+  if (hasSearchQuery.value) {
+    return filteredSounds.value.length;
+  }
+
+  if (activeTab.value === "all") {
+    return allSounds.value.length;
+  }
+
+  return allGrouped.value[activeTab.value as Category]?.length ?? 0;
+});
+
+const bankLabel = computed(() => {
+  if (hasSearchQuery.value) {
+    return "Search";
+  }
+
+  return activeTabMeta.value.label;
+});
+
 const displayName = (id: string) => (id.startsWith("gm_") ? id.slice(3) : id);
 
-function sceneTone(index: number) {
-  return ["amber", "red", "violet", "cream"][index % 4] as
-    | "amber"
-    | "red"
-    | "violet"
-    | "cream";
+function sceneTone(index: number): PanelTone {
+  return ["amber", "red", "violet", "cream"][index % 4] as PanelTone;
 }
 
-function toneChipClass(tone: "amber" | "red" | "violet" | "cream") {
+function toneChipClass(tone: PanelTone) {
   return (
     {
       amber: "bg-[#f7b22c] text-[#17120a]",
@@ -353,7 +452,12 @@ function selectInstrument(name: string, close: () => void) {
 </script>
 
 <template>
-  <FloatingDropdown position="top-left" :floating="isFloating">
+  <FloatingDropdown
+    position="top-left"
+    :floating="isFloating"
+    :max-width="panelWidth"
+    :max-height="panelViewportMaxHeight"
+  >
     <template #trigger="{ toggle }">
       <button
         data-testid="instrument-selector-trigger"
@@ -385,9 +489,13 @@ function selectInstrument(name: string, close: () => void) {
     </template>
 
     <template #panel="{ close }">
-      <OverlayPanelShell
-        :width="compact ? 'min(34rem, calc(100vw - 1.5rem))' : 'min(42rem, calc(100vw - 1.5rem))'"
-        :max-height="compact ? 'min(67vh, 28rem)' : 'min(72vh, 31rem)'"
+      <TabbedOverlayPanel
+        v-model="activeTab"
+        :tabs="allTabs"
+        tab-test-id-prefix="instrument-tab"
+        :width="panelWidth"
+        :height="panelHeight"
+        :max-height="panelHeight"
         body-class="px-3 py-3"
       >
         <template #header>
@@ -400,9 +508,11 @@ function selectInstrument(name: string, close: () => void) {
                 Sound
               </span>
               <span
-                class="inline-flex h-6 items-center border border-[#332b16] bg-[#141109] px-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#d7cca0] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+                class="inline-flex h-6 max-w-[12rem] items-center border border-[#332b16] bg-[#141109] px-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#d7cca0] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
               >
-                Bank
+                <span class="truncate">
+                  {{ bankLabel }}
+                </span>
               </span>
             </div>
 
@@ -410,7 +520,7 @@ function selectInstrument(name: string, close: () => void) {
               <span
                 class="inline-flex h-8 items-center border border-[#37311c] bg-[#15120b] px-2 text-[8px] uppercase tracking-[0.18em] text-neutral-400 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
               >
-                {{ filteredSounds.length }}
+                {{ visibleSoundCount }}
               </span>
 
               <IconButton
@@ -466,6 +576,13 @@ function selectInstrument(name: string, close: () => void) {
             no matches for "{{ query }}"
           </div>
 
+          <div
+            v-else-if="!orderedGroups.length"
+            class="border border-dashed border-[#3a321d] bg-[#100e09] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+          >
+            no sounds in this bank yet.
+          </div>
+
           <template v-else>
             <section
               v-for="group in orderedGroups"
@@ -484,26 +601,31 @@ function selectInstrument(name: string, close: () => void) {
                 </div>
               </div>
 
-              <div class="flex flex-wrap gap-1.5">
+              <div
+                class="grid grid-cols-[repeat(auto-fill,minmax(6.7rem,1fr))] gap-1.5 sm:grid-cols-[repeat(auto-fill,minmax(7.2rem,1fr))]"
+              >
                 <button
                   v-for="sound in group.sounds"
                   :key="sound"
                   :data-testid="`instrument-option-${sound}`"
+                  :title="displayName(sound)"
                   @click="selectInstrument(sound, close)"
                   :class="[
-                    'border px-2.5 py-1 font-mono text-[9px] transition-colors [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]',
+                    'min-w-0 w-full border px-2.5 py-1 font-mono text-[9px] transition-colors [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]',
                     currentInstrumentId === sound
                       ? 'border-[#1e7f54] bg-[#072a1d] text-[#b7ffd8]'
                       : 'border-[#37311c] bg-[#15120b] text-neutral-300 hover:border-[#8b7733] hover:text-white',
                   ]"
                 >
-                  {{ displayName(sound) }}
+                  <span class="block truncate">
+                    {{ displayName(sound) }}
+                  </span>
                 </button>
               </div>
             </section>
           </template>
         </div>
-      </OverlayPanelShell>
+      </TabbedOverlayPanel>
     </template>
   </FloatingDropdown>
 </template>

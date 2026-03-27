@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import MidiPermissionIcon from "@/components/MidiPermissionIcon.vue";
 
 // Props
 interface Props {
@@ -231,7 +232,10 @@ onUnmounted(() => {
             {{ loadingState.progress.instruments.message }}
           </p>
           <p v-if="showMidiMessage" class="status-step status-step--midi">
-            {{ midiMessage }}
+            <span class="midi-inline">
+              <MidiPermissionIcon class="midi-inline__icon" />
+              <span>{{ midiMessage }}</span>
+            </span>
           </p>
         </div>
 
@@ -264,7 +268,10 @@ onUnmounted(() => {
             </div>
           </div>
           <p v-if="showMidiMessage" class="ready-midi">
-            {{ midiMessage }}
+            <span class="midi-inline">
+              <MidiPermissionIcon class="midi-inline__icon" />
+              <span>{{ midiMessage }}</span>
+            </span>
           </p>
           <button class="btn btn--start" @click="handleStartApp">
             ► PLAY
@@ -510,6 +517,19 @@ onUnmounted(() => {
 
 .status-step--midi {
   color: hsla(190, 68%, 72%, 0.85);
+}
+
+.midi-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.midi-inline__icon {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex-shrink: 0;
+  opacity: 0.88;
 }
 
 @keyframes step-in {

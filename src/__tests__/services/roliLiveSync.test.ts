@@ -7,6 +7,7 @@ import {
   buildRoliPaletteUpdateMessages,
   clampRoliAppMainOctave,
   isRoliMidiPortName,
+  isVirtualMidiPortName,
   pickPreferredRoliOutput,
   ROLI_SYNC_CONTROL_CHANNEL,
   ROLI_SYNC_CONTROL_STATUS,
@@ -18,6 +19,12 @@ describe("roliLiveSync", () => {
     expect(isRoliMidiPortName("LUMI Keys BLOCK")).toBe(true);
     expect(isRoliMidiPortName("ROLI Seaboard")).toBe(true);
     expect(isRoliMidiPortName("Scarlett MIDI")).toBe(false);
+  });
+
+  it("recognizes common virtual MIDI loopback port names", () => {
+    expect(isVirtualMidiPortName("IAC Driver Bus 1")).toBe(true);
+    expect(isVirtualMidiPortName("loopMIDI Port")).toBe(true);
+    expect(isVirtualMidiPortName("Launchkey Mini MK3")).toBe(false);
   });
 
   it("prefers a connected ROLI-compatible output", () => {

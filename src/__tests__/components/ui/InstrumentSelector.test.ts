@@ -26,16 +26,29 @@ vi.mock('@/components/ui', () => ({
     emits: ['click'],
     template: '<button data-testid="icon-button" @click="$emit(\'click\')"><slot /></button>',
   },
+  Tabs: {
+    props: ['value'],
+    emits: ['update:value'],
+    template: '<div data-testid="mock-tabs"><slot /></div>',
+  },
+  TabsList: {
+    template: '<div data-testid="mock-tabs-list"><slot /></div>',
+  },
+  TabsTrigger: {
+    props: ['value'],
+    template: '<button data-testid="mock-tabs-trigger" :data-value="value"><slot /></button>',
+  },
 }))
 
 vi.mock('./../../components/OverlayPanelShell.vue', () => ({
   default: {
-    props: ['width', 'maxHeight', 'bodyClass'],
+    props: ['width', 'height', 'maxHeight', 'bodyClass'],
     template: `
       <section data-testid="overlay-panel-shell">
         <header data-testid="overlay-panel-header"><slot name="header" /></header>
         <div data-testid="overlay-panel-toolbar"><slot name="toolbar" /></div>
         <div data-testid="overlay-panel-body"><slot /></div>
+        <footer data-testid="overlay-panel-footer"><slot name="footer" /></footer>
       </section>
     `,
   },
@@ -43,12 +56,13 @@ vi.mock('./../../components/OverlayPanelShell.vue', () => ({
 
 vi.mock('@/components/OverlayPanelShell.vue', () => ({
   default: {
-    props: ['width', 'maxHeight', 'bodyClass'],
+    props: ['width', 'height', 'maxHeight', 'bodyClass'],
     template: `
       <section data-testid="overlay-panel-shell">
         <header data-testid="overlay-panel-header"><slot name="header" /></header>
         <div data-testid="overlay-panel-toolbar"><slot name="toolbar" /></div>
         <div data-testid="overlay-panel-body"><slot /></div>
+        <footer data-testid="overlay-panel-footer"><slot name="footer" /></footer>
       </section>
     `,
   },
@@ -56,7 +70,7 @@ vi.mock('@/components/OverlayPanelShell.vue', () => ({
 
 vi.mock('@/components/FloatingDropdown.vue', () => ({
   default: {
-    props: ['position', 'floating'],
+    props: ['position', 'floating', 'maxWidth', 'maxHeight'],
     template: `
       <div data-testid="floating-dropdown">
         <slot name="trigger" :toggle="toggle" />
@@ -114,6 +128,7 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.text()).toContain('Synths')
     expect(wrapper.text()).toContain('GM Soundfonts')
     expect(wrapper.text()).toContain('trumpet')
+    expect(wrapper.text()).toContain('All Sounds')
   })
 
   it('filters sounds by search query and shows an empty state when nothing matches', async () => {
@@ -174,5 +189,14 @@ describe('InstrumentSelector.vue', () => {
     expect(trigger.text()).toContain('triangle')
     expect(selected.classes()).toContain('border-[#1e7f54]')
     expect(selected.classes()).toContain('bg-[#072a1d]')
+  })
+
+  it('renders footer bank tabs with the shared panel aesthetic structure', async () => {
+    wrapper = await mountSelector()
+
+    expect(wrapper.find('[data-testid="overlay-panel-footer"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="instrument-tab-all"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="instrument-tab-keyboards"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="instrument-tab-gm"]').exists()).toBe(true)
   })
 })

@@ -16,10 +16,7 @@
           <Knob
             :model-value="musicStore.currentMode"
             type="options"
-            :options="[
-              { label: 'Major', value: 'major', color: 'hsl(0, 40%, 75%)' },
-              { label: 'Minor', value: 'minor', color: 'hsl(240, 40%, 75%)' },
-            ]"
+            :options="MODE_OPTIONS"
             label="Mode"
             @update:modelValue="(value) => musicStore.setMode(value as any)"
           />
@@ -116,7 +113,7 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { usePatternsStore } from "@/stores/patterns";
 import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { CHROMATIC_NOTES } from "@/data/musicData";
+import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
 import { Play, Square } from "lucide-vue-next";
 

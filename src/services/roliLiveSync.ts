@@ -27,6 +27,8 @@ export const ROLI_SYNC_CCS = {
 } as const;
 
 const ROLI_PORT_NAME_PATTERN = /\b(roli|lumi|lightkey|seaboard|blocks?)\b/i;
+const VIRTUAL_MIDI_PORT_NAME_PATTERN =
+  /\b(iac driver|loopmidi|loopbe|virtual midi|network session|apple dls synth|microsoft gs wavetable synth|internal midi)\b/i;
 
 function clampMidiData(value: number): number {
   return Math.max(0, Math.min(127, Math.round(value)));
@@ -66,6 +68,12 @@ function toMidiColorComponent(value: number): number {
 
 export function isRoliMidiPortName(name?: string | null): boolean {
   return typeof name === "string" && ROLI_PORT_NAME_PATTERN.test(name);
+}
+
+export function isVirtualMidiPortName(name?: string | null): boolean {
+  return (
+    typeof name === "string" && VIRTUAL_MIDI_PORT_NAME_PATTERN.test(name)
+  );
 }
 
 export function pickPreferredRoliOutput<T extends MidiPortLike>(

@@ -1,114 +1,141 @@
 <template>
   <TopDrawer anchor="top-right" offset-top="0.75rem" offset-side="0.75rem">
-    <template #trigger="{ toggle }">
-      <button
-        data-testid="config-panel-trigger"
-        @click="toggle"
-        class="group flex h-10 w-10 items-center justify-center border border-[#6f6128]/80 bg-[#090805]/88 text-[#d8c985] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#9c8837] hover:text-[#f7f0d8] [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]"
-      >
-        <Settings :size="15" class="shrink-0 transition-transform duration-200 group-hover:rotate-[10deg]" />
-      </button>
+    <template #trigger="{ open }">
+      <div class="flex flex-col items-end gap-1.5">
+        <button
+          data-testid="config-panel-trigger"
+          @click="openSettingsPanel(open)"
+          class="group relative flex h-10 w-10 items-center justify-center border border-[#6f6128]/80 bg-[#090805]/88 text-[#d8c985] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#9c8837] hover:text-[#f7f0d8] [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]"
+          :aria-label="midiTriggerLabel"
+          :title="midiTriggerLabel"
+        >
+          <span
+            class="absolute right-[5px] top-[5px] h-2.5 w-2.5 rounded-full border border-[#050504]/80 transition-all duration-200"
+            :class="midiLedToneClass"
+          />
+          <Settings :size="15" class="shrink-0 transition-transform duration-200 group-hover:rotate-[10deg]" />
+        </button>
+
+        <Transition name="config-midi-chip">
+          <button
+            v-if="showMidiShortcut"
+            data-testid="config-midi-trigger"
+            @click.stop="openMidiPanel(open)"
+            class="group flex h-7 w-7 items-center justify-center self-end overflow-hidden border border-[#173524]/85 bg-[#080b09]/88 text-[#6fb591] shadow-[0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-md transition-all duration-200 hover:border-[#2faa72] hover:text-[#e6fff1] [clip-path:polygon(0_7px,7px_0,calc(100%-7px)_0,100%_7px,100%_100%,0_100%)]"
+            :aria-label="midiTriggerLabel"
+            :title="midiTriggerLabel"
+          >
+            <MidiPermissionIcon
+              class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:translate-y-[-1px]"
+            />
+          </button>
+        </Transition>
+      </div>
     </template>
 
     <template #panel="{ close }">
-      <Tabs :value="activeTab" @update:value="activeTab = $event">
-        <OverlayPanelShell
-          width="min(46rem, calc(100vw - 1.5rem))"
-          height="min(54vh, 34rem)"
-          max-height="min(54vh, 34rem)"
-          body-class="px-3 py-3"
-        >
-          <template #toolbar>
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex shrink-0 items-center gap-1">
-                <span class="h-2.5 w-7 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#f7b22c]" />
-                <span class="h-2.5 w-5 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#e53d2d]" />
-              </div>
-
-              <div class="ml-auto flex shrink-0 items-center gap-1">
-                <IconButton
-                  v-if="activeSectionName && activeSectionHasToggle"
-                  :data-testid="`section-toggle-${activeSectionName}`"
-                  :title="
-                    activeSectionEnabled
-                      ? `Disable ${activeTabMeta.label}`
-                      : `Enable ${activeTabMeta.label}`
-                  "
-                  :aria-label="
-                    activeSectionEnabled
-                      ? `Disable ${activeTabMeta.label}`
-                      : `Enable ${activeTabMeta.label}`
-                  "
-                  @click="toggleSectionEnabled(activeSectionName)"
-                  :tone="activeSectionEnabled ? 'green' : 'neutral'"
-                >
-                  <ToggleRight v-if="activeSectionEnabled" :size="14" />
-                  <ToggleLeft v-else :size="14" />
-                </IconButton>
-
-                <IconButton
-                  v-if="activeSectionName"
-                  :data-testid="`section-reset-${activeSectionName}`"
-                  :title="`Reset ${activeTabMeta.label}`"
-                  :aria-label="`Reset ${activeTabMeta.label}`"
-                  @click="resetSectionToDefaults(activeSectionName)"
-                  tone="amber"
-                >
-                  <RotateCcw :size="14" />
-                </IconButton>
-
-                <IconButton
-                  data-testid="config-panel-global-toggle"
-                  :title="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
-                  :aria-label="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
-                  @click="setVisualsEnabled(!visualsEnabled)"
-                  :tone="visualsEnabled ? 'green' : 'red'"
-                >
-                  <Power :size="14" />
-                </IconButton>
-
-                <IconButton
-                  data-testid="config-reset-all"
-                  title="Reset all settings"
-                  aria-label="Reset all settings"
-                  @click="resetToDefaults"
-                  tone="cream"
-                >
-                  <RefreshCw :size="14" />
-                </IconButton>
-
-                <IconButton
-                  data-testid="config-export"
-                  title="Export configuration"
-                  aria-label="Export configuration"
-                  @click="exportConfig"
-                  tone="neutral"
-                >
-                  <Download :size="14" />
-                </IconButton>
-
-                <IconButton
-                  data-testid="config-save-as"
-                  title="Save configuration"
-                  aria-label="Save configuration"
-                  @click="promptSaveConfig"
-                  tone="violet"
-                >
-                  <Save :size="14" />
-                </IconButton>
-
-                <IconButton
-                  title="Close settings"
-                  aria-label="Close settings"
-                  @click="close"
-                  tone="red"
-                >
-                  <X :size="14" />
-                </IconButton>
-              </div>
+      <TabbedOverlayPanel
+        v-model="activeTab"
+        :tabs="allTabs"
+        tab-test-id-prefix="config-tab"
+        width="min(46rem, calc(100vw - 1.5rem))"
+        height="min(54vh, 34rem)"
+        max-height="min(54vh, 34rem)"
+        body-class="px-3 py-3"
+        inactive-tab-width-class="min-w-[3.6rem] max-w-[3.6rem]"
+      >
+        <template #header>
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex shrink-0 items-center gap-1">
+              <span class="h-2.5 w-7 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#f7b22c]" />
+              <span class="h-2.5 w-5 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#e53d2d]" />
             </div>
-          </template>
 
+            <div class="ml-auto flex shrink-0 items-center gap-1">
+              <IconButton
+                v-if="activeSectionName && activeSectionHasToggle"
+                :data-testid="`section-toggle-${activeSectionName}`"
+                :title="
+                  activeSectionEnabled
+                    ? `Disable ${activeTabMeta.label}`
+                    : `Enable ${activeTabMeta.label}`
+                "
+                :aria-label="
+                  activeSectionEnabled
+                    ? `Disable ${activeTabMeta.label}`
+                    : `Enable ${activeTabMeta.label}`
+                "
+                @click="toggleSectionEnabled(activeSectionName)"
+                :tone="activeSectionEnabled ? 'green' : 'neutral'"
+              >
+                <ToggleRight v-if="activeSectionEnabled" :size="14" />
+                <ToggleLeft v-else :size="14" />
+              </IconButton>
+
+              <IconButton
+                v-if="activeSectionName"
+                :data-testid="`section-reset-${activeSectionName}`"
+                :title="`Reset ${activeTabMeta.label}`"
+                :aria-label="`Reset ${activeTabMeta.label}`"
+                @click="resetSectionToDefaults(activeSectionName)"
+                tone="amber"
+              >
+                <RotateCcw :size="14" />
+              </IconButton>
+
+              <IconButton
+                data-testid="config-panel-global-toggle"
+                :title="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
+                :aria-label="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
+                @click="setVisualsEnabled(!visualsEnabled)"
+                :tone="visualsEnabled ? 'green' : 'red'"
+              >
+                <Power :size="14" />
+              </IconButton>
+
+              <IconButton
+                data-testid="config-reset-all"
+                title="Reset all settings"
+                aria-label="Reset all settings"
+                @click="resetToDefaults"
+                tone="cream"
+              >
+                <RefreshCw :size="14" />
+              </IconButton>
+
+              <IconButton
+                data-testid="config-export"
+                title="Export configuration"
+                aria-label="Export configuration"
+                @click="exportConfig"
+                tone="neutral"
+              >
+                <Download :size="14" />
+              </IconButton>
+
+              <IconButton
+                data-testid="config-save-as"
+                title="Save configuration"
+                aria-label="Save configuration"
+                @click="promptSaveConfig"
+                tone="violet"
+              >
+                <Save :size="14" />
+              </IconButton>
+
+              <IconButton
+                title="Close settings"
+                aria-label="Close settings"
+                @click="close"
+                tone="red"
+              >
+                <X :size="14" />
+              </IconButton>
+            </div>
+          </div>
+        </template>
+
+        <div class="space-y-3">
           <TabsContent value="home">
             <section class="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <article
@@ -301,70 +328,113 @@
                 </article>
               </div>
 
-              <div class="space-y-2">
-                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#17120a] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#f7b22c] border-[#f7b22c]">
-                  ROLI
-                </span>
-
-                <article
-                  class="space-y-3 rounded-[12px] border border-[#2d2717] bg-[#100e09] px-3 py-3"
-                >
-                  <div class="space-y-2">
-                    <p class="m-0 text-[11px] leading-relaxed text-neutral-400">
-                      Generate a live-sync LittleFoot script from the current
-                      palette and load it in ROLI Dashboard or BLOCKS Code.
-                    </p>
-                    <p class="m-0 text-[10px] leading-relaxed text-neutral-500">
-                      {{ roliSyncMessage }}
-                    </p>
-                  </div>
-
-                  <div class="flex flex-wrap gap-1.5">
-                    <button
-                      @click="copyRoliPianoScript"
-                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                      :class="actionToneClass('green')"
-                    >
-                      Copy Script
-                    </button>
-                    <button
-                      @click="downloadRoliPianoScript"
-                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                      :class="actionToneClass('cream')"
-                    >
-                      Download
-                    </button>
-                  </div>
-                </article>
-              </div>
             </section>
           </TabsContent>
 
-          <template #footer>
-            <TabsList
-              class="w-full justify-start gap-1 overflow-x-auto border-0 bg-transparent p-0"
-            >
-              <TabsTrigger
-                v-for="tab in allTabs"
-                :key="tab.value"
-                :value="tab.value"
-                :data-testid="`config-tab-${tab.value}`"
-                class="h-9 shrink-0 overflow-hidden border px-2 text-[8px] font-semibold uppercase tracking-[0.2em] transition-[min-width,max-width,padding,background-color,border-color,color] duration-200 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] data-[state=active]:px-3"
-                :class="[
-                  tabTriggerToneClass(tab.tone),
-                  activeTab === tab.value
-                    ? 'min-w-[8.75rem] max-w-[12rem]'
-                    : 'min-w-[3.6rem] max-w-[3.6rem]',
-                ]"
+          <TabsContent value="midi">
+            <section class="grid gap-3 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+              <article
+                class="space-y-4 rounded-[14px] border border-[#164131] bg-[#07110d] px-4 py-4"
               >
-                <span class="block truncate">
-                  {{ activeTab === tab.value ? tab.label : tab.shortLabel }}
-                </span>
-              </TabsTrigger>
-            </TabsList>
-          </template>
-        </OverlayPanelShell>
-      </Tabs>
+                <div class="flex items-start gap-3">
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors duration-200"
+                    :class="midiStatusBadgeClass"
+                  >
+                    <MidiPermissionIcon class="h-4.5 w-4.5" />
+                  </div>
+
+                  <div class="min-w-0 space-y-1">
+                    <p
+                      class="m-0 text-[8px] font-semibold uppercase tracking-[0.24em] text-[#8ec7ad]"
+                    >
+                      MIDI Status
+                    </p>
+                    <h4 class="m-0 text-[13px] uppercase tracking-[0.08em] text-[#f4efe0]">
+                      {{ midiStatusHeadline }}
+                    </h4>
+                    <p class="m-0 text-[11px] leading-relaxed text-neutral-400">
+                      {{ midiStatusDetail }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="grid gap-2 sm:grid-cols-2">
+                  <article
+                    class="rounded-[12px] border border-[#1c3429] bg-[#0a1611] px-3 py-3"
+                  >
+                    <p
+                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-[#7cb59a]"
+                    >
+                      Inputs
+                    </p>
+                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-[#e4e0d3]">
+                      {{
+                        connectedInputs.length > 0
+                          ? connectedInputs.join(", ")
+                          : "No connected MIDI inputs yet."
+                      }}
+                    </p>
+                  </article>
+
+                  <article
+                    class="rounded-[12px] border border-[#1c3429] bg-[#0a1611] px-3 py-3"
+                  >
+                    <p
+                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-[#7cb59a]"
+                    >
+                      Outputs
+                    </p>
+                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-[#e4e0d3]">
+                      {{
+                        connectedOutputs.length > 0
+                          ? connectedOutputs.join(", ")
+                          : "No connected MIDI outputs yet."
+                      }}
+                    </p>
+                  </article>
+                </div>
+              </article>
+
+              <article
+                class="space-y-3 rounded-[14px] border border-[#2d2717] bg-[#100e09] px-4 py-4"
+              >
+                <div class="space-y-2">
+                  <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#17120a] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#f7b22c] border-[#f7b22c]">
+                    ROLI
+                  </span>
+
+                  <p class="m-0 text-[11px] leading-relaxed text-neutral-400">
+                    Generate a live-sync LittleFoot script from the current
+                    palette and load it in ROLI Dashboard or BLOCKS Code.
+                  </p>
+                  <p class="m-0 text-[10px] leading-relaxed text-neutral-500">
+                    {{ roliSyncMessage }}
+                  </p>
+                </div>
+
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    @click="copyRoliPianoScript"
+                    class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
+                    :class="actionToneClass('green')"
+                  >
+                    Copy Script
+                  </button>
+                  <button
+                    @click="downloadRoliPianoScript"
+                    class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
+                    :class="actionToneClass('cream')"
+                  >
+                    Download
+                  </button>
+                </div>
+              </article>
+            </section>
+          </TabsContent>
+        </div>
+
+      </TabbedOverlayPanel>
     </template>
   </TopDrawer>
 </template>
@@ -379,15 +449,10 @@ import { CONFIG_SECTIONS, UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
 import type { ChromaticNote } from "@/types";
 import type { VisualEffectsConfig } from "@/types/visual";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  IconButton,
-} from "@/components/ui";
+import { TabsContent, IconButton } from "@/components/ui";
 import { Knob } from "./knobs";
-import OverlayPanelShell from "./OverlayPanelShell.vue";
+import MidiPermissionIcon from "./MidiPermissionIcon.vue";
+import TabbedOverlayPanel from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
 import {
   Settings,
@@ -401,11 +466,14 @@ import {
   ToggleRight,
 } from "lucide-vue-next";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
-import { isRoliMidiPortName } from "@/services/roliLiveSync";
+import {
+  isRoliMidiPortName,
+  isVirtualMidiPortName,
+} from "@/services/roliLiveSync";
 
 type ConfigSectionKey = keyof VisualEffectsConfig;
-type PosterTone = "amber" | "red" | "violet" | "cream";
-type ActionTone = PosterTone | "green" | "neutral";
+type PosterTone = "amber" | "red" | "violet" | "cream" | "green";
+type ActionTone = PosterTone | "neutral";
 type SectionField = {
   key: string;
   value: string | number | boolean;
@@ -455,6 +523,14 @@ const PRESET_TAB = {
   label: "Presets",
   shortLabel: "Presets",
   tone: "violet" as PosterTone,
+};
+
+const MIDI_TAB = {
+  value: "midi",
+  label: "MIDI & ROLI",
+  shortLabel: "MIDI",
+  tone: "green" as PosterTone,
+  icon: MidiPermissionIcon,
 };
 
 const SECTION_ORDER: ConfigSectionKey[] = [
@@ -515,6 +591,7 @@ const allTabs = computed(() => [
     shortLabel: tab.shortLabel,
     tone: tab.tone,
   })),
+  MIDI_TAB,
   PRESET_TAB,
 ]);
 
@@ -565,20 +642,7 @@ const toneBarClass = (tone: PosterTone) =>
       red: "bg-[#e53d2d]",
       violet: "bg-[#5a4295]",
       cream: "bg-[#efe5cf]",
-    } as const
-  )[tone];
-
-const tabTriggerToneClass = (tone: PosterTone) =>
-  (
-    {
-      amber:
-        "border-[#423617] bg-[#131008] text-[#c8bf9b] hover:border-[#7d6825] hover:text-[#f5edd9] data-[state=active]:border-[#f7b22c] data-[state=active]:bg-[#f7b22c] data-[state=active]:text-[#18120a]",
-      red:
-        "border-[#402019] bg-[#131008] text-[#c8bf9b] hover:border-[#8b392d] hover:text-[#f5edd9] data-[state=active]:border-[#e53d2d] data-[state=active]:bg-[#e53d2d] data-[state=active]:text-white",
-      violet:
-        "border-[#2b2248] bg-[#131008] text-[#c8bf9b] hover:border-[#5a4295] hover:text-[#f5edd9] data-[state=active]:border-[#5a4295] data-[state=active]:bg-[#5a4295] data-[state=active]:text-white",
-      cream:
-        "border-[#4a4333] bg-[#131008] text-[#c8bf9b] hover:border-[#a79b7a] hover:text-[#f5edd9] data-[state=active]:border-[#efe5cf] data-[state=active]:bg-[#efe5cf] data-[state=active]:text-[#17120a]",
+      green: "bg-[#34c97f]",
     } as const
   )[tone];
 
@@ -639,6 +703,159 @@ const resetSectionToDefaults = (sectionName: ConfigSectionKey) => {
   resetSection(sectionName);
 };
 
+const connectedInputs = computed(() => keyboardDrawerStore.midi.connectedInputs);
+const connectedOutputs = computed(() => keyboardDrawerStore.midi.connectedOutputs);
+const physicalInputs = computed(() =>
+  connectedInputs.value.filter((name) => !isVirtualMidiPortName(name))
+);
+const physicalOutputs = computed(() =>
+  connectedOutputs.value.filter((name) => !isVirtualMidiPortName(name))
+);
+const virtualPortNames = computed(() =>
+  Array.from(
+    new Set(
+      [...connectedInputs.value, ...connectedOutputs.value].filter((name) =>
+        isVirtualMidiPortName(name)
+      )
+    )
+  )
+);
+const hasConnectedInput = computed(() => physicalInputs.value.length > 0);
+const detectedRoliOutput = computed(
+  () =>
+    physicalOutputs.value.find((outputName) => isRoliMidiPortName(outputName))
+    ?? null
+);
+const hasVirtualOnlyMidiPorts = computed(
+  () =>
+    !hasConnectedInput.value
+    && !detectedRoliOutput.value
+    && !keyboardDrawerStore.midi.syncedOutput
+    && virtualPortNames.value.length > 0
+);
+
+const hasActionableMidiDevice = computed(
+  () =>
+    hasConnectedInput.value
+    || Boolean(detectedRoliOutput.value)
+    || Boolean(keyboardDrawerStore.midi.syncedOutput)
+);
+
+const midiStatusState = computed(() => {
+  const midi = keyboardDrawerStore.midi;
+
+  if (midi.lastError) {
+    return "error";
+  }
+
+  if (midi.isConnecting) {
+    return "connecting";
+  }
+
+  if (hasActionableMidiDevice.value) {
+    return "connected";
+  }
+
+  return "idle";
+});
+
+const showMidiShortcut = computed(
+  () => keyboardDrawerStore.midi.isSupported && hasActionableMidiDevice.value
+);
+
+const midiStatusHeadline = computed(() => {
+  const midi = keyboardDrawerStore.midi;
+
+  if (!midi.isSupported) {
+    return "Browser MIDI unavailable";
+  }
+
+  if (midi.lastError) {
+    return "MIDI permission blocked";
+  }
+
+  if (midi.isConnecting) {
+    return "Requesting MIDI access";
+  }
+
+  if (midi.syncedOutput) {
+    return `Live sync armed on ${midi.syncedOutput}`;
+  }
+
+  if (hasConnectedInput.value) {
+    return "MIDI controller connected";
+  }
+
+  if (detectedRoliOutput.value) {
+    return "ROLI/LUMI output detected";
+  }
+
+  if (hasVirtualOnlyMidiPorts.value) {
+    return "Virtual MIDI ports detected";
+  }
+
+  if (physicalOutputs.value.length > 0) {
+    return "MIDI output available";
+  }
+
+  if (midi.isListening) {
+    return "MIDI ready for hot-plug";
+  }
+
+  return "Waiting for MIDI";
+});
+
+const midiStatusDetail = computed(() => {
+  const midi = keyboardDrawerStore.midi;
+
+  if (!midi.isSupported) {
+    return "This browser does not expose the Web MIDI API, so external controllers cannot be connected here.";
+  }
+
+  if (midi.lastError) {
+    return "The app still works with touch and QWERTY input, but browser MIDI access was not granted.";
+  }
+
+  if (hasVirtualOnlyMidiPorts.value) {
+    const visiblePortList = virtualPortNames.value.join(", ");
+    return `Chrome can see software MIDI ports like ${visiblePortList}. Those are virtual loopback connections, not physical controllers.`;
+  }
+
+  return roliSyncMessage.value;
+});
+
+const midiTriggerLabel = computed(() => {
+  if (showMidiShortcut.value) {
+    return `Open MIDI and ROLI controls. ${midiStatusHeadline.value}.`;
+  }
+
+  return `Open settings. ${midiStatusHeadline.value}.`;
+});
+
+const midiLedToneClass = computed(
+  () =>
+    (
+      {
+        connected: "bg-[#34c97f] shadow-[0_0_10px_rgba(52,201,127,0.7)]",
+        connecting: "bg-[#f7b22c] shadow-[0_0_10px_rgba(247,178,44,0.7)] animate-pulse",
+        error: "bg-[#e53d2d] shadow-[0_0_10px_rgba(229,61,45,0.55)]",
+        idle: "bg-[#6f6a59]",
+      } as const
+    )[midiStatusState.value]
+);
+
+const midiStatusBadgeClass = computed(
+  () =>
+    (
+      {
+        connected: "border-[#1f593f] bg-[#0a1f16] text-[#baf6d5]",
+        connecting: "border-[#7d6825] bg-[#1a1408] text-[#f7d167]",
+        error: "border-[#6e2a1d] bg-[#170d0b] text-[#f28b72]",
+        idle: "border-[#323128] bg-[#11110d] text-[#b6b1a0]",
+      } as const
+    )[midiStatusState.value]
+);
+
 const roliSyncMessage = computed(() => {
   const midi = keyboardDrawerStore.midi;
 
@@ -646,20 +863,25 @@ const roliSyncMessage = computed(() => {
     return `Live sync active on ${midi.syncedOutput}.`;
   }
 
-  const detectedRoliOutput = midi.connectedOutputs.find((outputName) =>
-    isRoliMidiPortName(outputName)
-  );
-
-  if (detectedRoliOutput) {
-    return `ROLI output ${detectedRoliOutput} is connected. Load the script onto the keyboard to arm live sync.`;
+  if (detectedRoliOutput.value) {
+    return `ROLI output ${detectedRoliOutput.value} is connected. Load the script onto the keyboard to arm live sync.`;
   }
 
-  if (midi.connectedOutputs.length > 0) {
+  if (physicalOutputs.value.length > 0) {
     return "MIDI outputs are connected, but none look like a ROLI/LUMI port yet.";
   }
 
   return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
 });
+
+const openSettingsPanel = (open: () => void) => {
+  open();
+};
+
+const openMidiPanel = (open: () => void) => {
+  activeTab.value = MIDI_TAB.value;
+  open();
+};
 
 const getFieldMetadata = (sectionName: ConfigSectionKey, fieldName: string) => {
   const section = UNIFIED_CONFIG[sectionName];
@@ -814,3 +1036,27 @@ const formatTimestamp = (timestamp: string) => {
   }
 };
 </script>
+
+<style scoped>
+.config-midi-chip-enter-active,
+.config-midi-chip-leave-active {
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease,
+    filter 0.22s ease;
+}
+
+.config-midi-chip-enter-from,
+.config-midi-chip-leave-to {
+  opacity: 0;
+  transform: translateY(-0.55rem) scale(0.94);
+  filter: blur(4px);
+}
+
+.config-midi-chip-enter-to,
+.config-midi-chip-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+</style>

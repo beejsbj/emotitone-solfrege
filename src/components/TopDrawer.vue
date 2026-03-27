@@ -21,6 +21,10 @@ const togglePanel = () => {
   showPanel.value = !showPanel.value;
 };
 
+const openPanel = () => {
+  showPanel.value = true;
+};
+
 const closePanel = () => {
   showPanel.value = false;
 };
@@ -63,6 +67,7 @@ onUnmounted(() => {
 defineExpose({
   showPanel,
   closePanel,
+  openPanel,
   togglePanel,
 });
 </script>
@@ -79,7 +84,7 @@ defineExpose({
       <slot
         name="trigger"
         :toggle="togglePanel"
-        :open="togglePanel"
+        :open="openPanel"
         :close="closePanel"
         :is-open="showPanel"
       />
@@ -100,7 +105,7 @@ defineExpose({
             <slot
               name="panel"
               :toggle="togglePanel"
-              :open="togglePanel"
+              :open="openPanel"
               :close="closePanel"
               :is-open="showPanel"
               :anchor="anchor"

@@ -6,7 +6,7 @@
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap } from "superdough";
+import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, releaseVoice, releaseAllVoices } from "superdough";
 import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
@@ -52,6 +52,7 @@ const _prewarmedSounds = new Set<string>();
 let _strudelInitialized = false;
 let _strudelInitPromise: Promise<void> | null = null;
 const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
+const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
 const _activeStrudelVisuals = new Map<
   string,
   {
@@ -451,11 +452,10 @@ function nowPlusOffset(offsetSeconds = 0.01): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Attack a note.  Because superdough is fire-and-forget (no true sustain),
- * we schedule it with a long duration + release tail so it sounds "held".
+ * Attack a live note. The patched superdough layer promotes this to a
+ * first-class held voice that sustains until releaseNote(noteId) is called.
  *
- * @param noteId      Unique identifier for this press (unused by superdough
- *                    itself but kept so call-sites remain symmetric).
+ * @param noteId      Unique identifier for this press.
  * @param noteName    Scientific pitch notation e.g. "C4", "F#5".
  * @param instrument  Instrument key from the instrument store.
  */
@@ -475,16 +475,22 @@ export async function attackNote(
   }
 
   const sound = LEGACY_ALIASES[instrument] ?? instrument;
-  const duration = 3; // seconds — long enough to feel "held"
+  const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
+
+  // Defensively clear stale voices if a note id is ever re-used.
+  if (hasVoice(noteId)) {
+    stopVoice(noteId, ac.currentTime);
+  }
 
   await superdough(
     {
       s: sound,
       note: noteName,
-      duration,
       gain: 0.8,
       attack: 0.01,
       release: 1.5,
+      voiceId: noteId,
+      sustainUntilRelease: true,
     },
     nowPlusOffset(),
     duration,
@@ -493,15 +499,10 @@ export async function attackNote(
 }
 
 /**
- * Release a note.  superdough manages its own voice lifecycle via the
- * release envelope set in attackNote, so this is a no-op stub.
- * Web Audio gain ramping can be added here if true sustain is needed later.
- *
- * @param _noteId  The ID that was returned by attackNote (unused for now).
+ * Start the release phase for a live note if it is still active.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function releaseNote(_noteId: string): void {
-  // No-op: superdough voices decay via their own release envelope.
+export function releaseNote(noteId: string): void {
+  releaseVoice(noteId);
 }
 
 /**
@@ -542,11 +543,10 @@ export async function playNoteWithDuration(
 }
 
 /**
- * Release all active voices.  Stub for now — superdough voices are
- * self-managing.  Replace with AudioContext gain ramp if needed.
+ * Release every live voice currently tracked by the patched superdough layer.
  */
 export function releaseAll(): void {
-  // No-op stub.
+  releaseAllVoices();
 }
 
 /**

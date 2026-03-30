@@ -68,20 +68,22 @@ vi.mock('@/components/OverlayPanelShell.vue', () => ({
   },
 }))
 
-vi.mock('@/components/FloatingDropdown.vue', () => ({
+vi.mock('@/components/TopDrawer.vue', () => ({
   default: {
-    props: ['position', 'floating', 'maxWidth', 'maxHeight'],
+    props: ['anchor', 'offsetTop', 'offsetSide'],
     template: `
-      <div data-testid="floating-dropdown">
-        <slot name="trigger" :toggle="toggle" />
-        <div data-testid="floating-dropdown-panel">
-          <slot name="panel" :close="close" />
+      <div data-testid="top-drawer">
+        <div data-testid="top-drawer-trigger">
+          <slot name="trigger" :open="open" :close="close" :toggle="open" :is-open="true" />
+        </div>
+        <div data-testid="top-drawer-panel">
+          <slot name="panel" :close="close" :open="open" :toggle="open" :is-open="true" />
         </div>
       </div>
     `,
     setup() {
       return {
-        toggle: () => undefined,
+        open: () => undefined,
         close: () => undefined,
       }
     },

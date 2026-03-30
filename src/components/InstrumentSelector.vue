@@ -3,11 +3,11 @@ import { computed, onMounted, ref } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
 import { IconButton } from "@/components/ui";
-import FloatingDropdown from "./FloatingDropdown.vue";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
   type TabbedOverlayTone,
 } from "./TabbedOverlayPanel.vue";
+import TopDrawer from "./TopDrawer.vue";
 import { ChevronDown, Search, X } from "lucide-vue-next";
 
 interface Props {
@@ -32,7 +32,6 @@ const instrumentStore = useInstrumentStore();
 const currentInstrumentId = computed(
   () => props.currentInstrument || instrumentStore.currentInstrument
 );
-const isFloating = computed(() => props.floating ?? !props.compact);
 
 const allSounds = ref<string[]>([]);
 const query = ref("");
@@ -323,7 +322,6 @@ function groupSounds(sounds: string[]) {
 
 const panelWidth = "min(46rem, calc(100vw - 1.5rem))";
 const panelHeight = "min(62vh, 36rem)";
-const panelViewportMaxHeight = "calc(100vh - 1.5rem)";
 
 type PanelTone = Extract<TabbedOverlayTone, "amber" | "red" | "violet" | "cream">;
 type PanelTab = "all" | Category;
@@ -452,16 +450,15 @@ function selectInstrument(name: string, close: () => void) {
 </script>
 
 <template>
-  <FloatingDropdown
-    position="top-left"
-    :floating="isFloating"
-    :max-width="panelWidth"
-    :max-height="panelViewportMaxHeight"
+  <TopDrawer
+    anchor="top-left"
+    offset-top="0.75rem"
+    offset-side="0.75rem"
   >
-    <template #trigger="{ toggle }">
+    <template #trigger="{ open }">
       <button
         data-testid="instrument-selector-trigger"
-        @click="toggle"
+        @click="open"
         :class="[
           'group flex items-center gap-2 border border-[#6f6128]/80 bg-[#090805]/88 text-[#d8c985] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#9c8837] hover:text-[#f7f0d8] [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]',
           compact ? 'max-w-[144px] px-[9px] py-1.5 text-[9px]' : 'max-w-[208px] px-[11px] py-[7px] text-[10px]',
@@ -627,5 +624,5 @@ function selectInstrument(name: string, close: () => void) {
         </div>
       </TabbedOverlayPanel>
     </template>
-  </FloatingDropdown>
+  </TopDrawer>
 </template>

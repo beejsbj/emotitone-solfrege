@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useAppLoading } from "@/composables/useAppLoading";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import MidiPermissionIcon from "@/components/MidiPermissionIcon.vue";
 
 // Props
 interface Props {
@@ -12,6 +14,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Composables
+const keyboardDrawerStore = useKeyboardDrawerStore();
 const {
   loadingState,
   isVisible,
@@ -48,6 +51,41 @@ const errorMessage = computed(() => {
   );
   return errorState?.error || "An error occurred during initialization";
 });
+
+const midiMessage = computed(() => {
+  const midi = keyboardDrawerStore.midi;
+
+  if (!midi.isSupported) {
+    return "";
+  }
+
+  if (midi.isConnecting) {
+    return "Requesting browser MIDI access...";
+  }
+
+  if (midi.lastError) {
+    return "MIDI permission wasn’t granted. Touch and QWERTY still work.";
+  }
+
+  if (midi.connectedInputs.length > 0) {
+    const roliSync = midi.syncedOutput
+      ? ` Live sync: ${midi.syncedOutput}.`
+      : "";
+    return `MIDI ready: ${midi.connectedInputs.join(", ")}.${roliSync}`;
+  }
+
+  if (midi.isListening) {
+    if (midi.syncedOutput) {
+      return `MIDI ready. Live sync armed on ${midi.syncedOutput}.`;
+    }
+
+    return "MIDI ready. Connect a controller anytime.";
+  }
+
+  return "If you have a controller connected, your browser may ask for MIDI access.";
+});
+
+const showMidiMessage = computed(() => Boolean(midiMessage.value));
 
 // Methods
 const handleEnableAudio = async () => {
@@ -193,6 +231,12 @@ onUnmounted(() => {
           >
             {{ loadingState.progress.instruments.message }}
           </p>
+          <p v-if="showMidiMessage" class="status-step status-step--midi">
+            <span class="midi-inline">
+              <MidiPermissionIcon class="midi-inline__icon" />
+              <span>{{ midiMessage }}</span>
+            </span>
+          </p>
         </div>
 
         <!-- Audio interaction required -->
@@ -223,6 +267,12 @@ onUnmounted(() => {
               <span class="check-label">VISUAL ENGINE</span>
             </div>
           </div>
+          <p v-if="showMidiMessage" class="ready-midi">
+            <span class="midi-inline">
+              <MidiPermissionIcon class="midi-inline__icon" />
+              <span>{{ midiMessage }}</span>
+            </span>
+          </p>
           <button class="btn btn--start" @click="handleStartApp">
             ► PLAY
           </button>
@@ -465,6 +515,23 @@ onUnmounted(() => {
   animation: step-in 0.25s ease;
 }
 
+.status-step--midi {
+  color: hsla(190, 68%, 72%, 0.85);
+}
+
+.midi-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.midi-inline__icon {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex-shrink: 0;
+  opacity: 0.88;
+}
+
 @keyframes step-in {
   from { opacity: 0; transform: translateY(3px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -527,6 +594,15 @@ onUnmounted(() => {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: hsla(150, 55%, 62%, 0.8);
+}
+
+.ready-midi {
+  margin: -0.8rem 0 0;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsla(190, 68%, 72%, 0.85);
 }
 
 /* ─── Error ──────────────────────────────────────────── */

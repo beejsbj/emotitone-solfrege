@@ -60,6 +60,8 @@ const _activeStrudelVisuals = new Map<
     noteName: string;
     frequency: number;
     octave: number;
+    mode: string;
+    key: ChromaticNote;
     instrument: string;
     releaseTimeout: number;
   }
@@ -270,21 +272,7 @@ function resolveSolfegeIndex(noteName: string): number | null {
     return null;
   }
 
-  const scaleNotes = musicTheory.getCurrentScaleNotes();
-  const directIndex = scaleNotes.indexOf(chromaticNote);
-  if (directIndex !== -1) {
-    return directIndex;
-  }
-
-  const keyIndex = CHROMATIC_NOTES.indexOf(
-    musicTheory.getCurrentKey() as ChromaticNote
-  );
-  const chromaticIndex = CHROMATIC_NOTES.indexOf(chromaticNote);
-  if (keyIndex === -1 || chromaticIndex === -1) {
-    return null;
-  }
-
-  return Math.floor(((chromaticIndex - keyIndex + 12) % 12) / 2);
+  return musicTheory.getScaleIndexForChromaticNote(chromaticNote);
 }
 
 function extractHapNoteName(hap: unknown): string | null {
@@ -344,6 +332,8 @@ function buildStrudelVisualPayload(hap: unknown) {
       noteName: parsedNote.name,
       octave: parsedNote.oct,
       frequency: extractHapFrequency(hap, noteValue),
+      mode: musicTheory.getCurrentMode(),
+      key: musicTheory.getCurrentKey() as ChromaticNote,
       instrument:
         typeof (hap as { value?: { s?: unknown } })?.value?.s === "string"
           ? String((hap as { value?: { s?: unknown } }).value?.s)
@@ -369,6 +359,8 @@ function releaseStrudelVisual(noteId: string) {
         noteName: active.noteName,
         frequency: active.frequency,
         octave: active.octave,
+        mode: active.mode,
+        key: active.key,
         instrument: active.instrument,
         instrumentConfig: null,
         source: STRUDEL_PLAYBACK_SOURCE,
@@ -410,6 +402,8 @@ export async function emotitoneStrudelOutput(
       noteName: visualPayload.noteName,
       frequency: visualPayload.frequency,
       octave: visualPayload.octave,
+      mode: visualPayload.mode,
+      key: visualPayload.key,
       instrument: visualPayload.instrument,
       releaseTimeout,
     });
@@ -423,6 +417,8 @@ export async function emotitoneStrudelOutput(
           octave: visualPayload.octave,
           noteId,
           noteName: visualPayload.noteName,
+          mode: visualPayload.mode,
+          key: visualPayload.key,
           instrument: visualPayload.instrument,
           instrumentConfig: null,
           durationMs,

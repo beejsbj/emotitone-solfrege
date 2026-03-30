@@ -15,11 +15,11 @@ describe("Music Store live note semantics", () => {
 
     const noteId = await musicStore.attackNote(0);
 
-    expect(noteId).toBe("C4_0_4");
+    expect(noteId).toMatch(/^C4_0_4_\d+_[a-z0-9]{6}$/);
     expect(musicStore.activeNotes.size).toBe(1);
     expect(musicStore.isPlaying).toBe(true);
     expect(vi.mocked(superdoughAudio.attackNote)).toHaveBeenCalledWith(
-      "C4_0_4",
+      noteId,
       "C4",
       expect.any(String),
     );
@@ -27,7 +27,7 @@ describe("Music Store live note semantics", () => {
       expect.objectContaining({
         type: "note-played",
         detail: expect.objectContaining({
-          noteId: "C4_0_4",
+          noteId,
           noteName: "C4",
         }),
       }),
@@ -42,7 +42,7 @@ describe("Music Store live note semantics", () => {
 
     expect(musicStore.activeNotes.size).toBe(0);
     expect(musicStore.isPlaying).toBe(false);
-    expect(vi.mocked(superdoughAudio.releaseNote)).toHaveBeenCalledWith("C4_0_4");
+    expect(vi.mocked(superdoughAudio.releaseNote)).toHaveBeenCalledWith(noteId);
 
     const dispatchedTypes = vi
       .mocked(window.dispatchEvent)

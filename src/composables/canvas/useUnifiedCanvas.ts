@@ -2,7 +2,7 @@ import { ref, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
-import type { SolfegeData } from "@/types/music";
+import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import { useBlobRenderer } from "./useBlobRenderer";
 import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
@@ -239,8 +239,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     frequency: number,
     noteId?: string,
     octave?: number,
-    _noteName?: string
+    _noteName?: string,
+    mode?: MusicalMode,
+    key?: ChromaticNote
   ) => {
+    const noteMode = mode ?? musicStore.currentMode;
+    const noteKey = key ?? (musicStore.currentKey as ChromaticNote);
+
     // Create blob using Circle of Fifths positioning
     // No longer need to calculate x,y - the blob renderer handles positioning
     blobRenderer.createBlob(
@@ -252,8 +257,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       canvasHeight.value,
       blobConfig.value,
       noteId, // Pass noteId for tracking
-      musicStore.currentKey, // Pass current key for circle positioning
-      musicStore.currentMode, // Pass current mode for circle direction
+      noteKey, // Pass event key snapshot for circle positioning
+      noteMode, // Pass event mode snapshot for scale positioning
       octave // Pass octave for vertical offset positioning
     );
 
@@ -269,7 +274,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       particleConfig.value,
       canvasWidth.value,
       canvasHeight.value,
-      musicStore,
+      noteMode,
+      noteKey,
       particleCount
     );
   };

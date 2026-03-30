@@ -3,12 +3,14 @@
  *
  * @example
  * const strudel = logNotesToStrudel(loggedNotes, { bpm: 120, sourceBpm: 120 })
- * // const BPM = 120; `<
+ * // `<
  * // C4@0.5 D4@0.25 E4@0.25 G4@0.5
- * // >`.as("note").sound("sine").cpm(BPM / 4)
+ * // >`.as("note").sound("sine").cpm(120 / 4)
  */
 
 import type { LogNote } from "@/types/patterns";
+import type { MusicalMode } from "@/types/music";
+import { normalizeScaleIndex } from "@/data";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -26,7 +28,7 @@ export interface StrudelConfig {
   /** Optional scale key override for relative notation. */
   scaleKey?: string;
   /** Optional scale mode override for relative notation. */
-  scaleMode?: string;
+  scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
 }
@@ -119,7 +121,7 @@ export class StrudelNotation {
     }
 
     const inner = tokens.join(" ");
-    const tempoPrelude = `const BPM = ${this.config.bpm}; `;
+    const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
 
     if (this.config.notationType === "relative") {
       const first = this.notes[0];
@@ -127,10 +129,10 @@ export class StrudelNotation {
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `${tempoPrelude}\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(BPM / ${this.config.beatsPerBar})`;
+      return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(${cpmExpression})`;
     }
 
-    return `${tempoPrelude}\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(BPM / ${this.config.beatsPerBar})`;
+    return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(${cpmExpression})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {
@@ -231,7 +233,12 @@ export class StrudelNotation {
 
   private noteValue(note: LogNote) {
     return this.config.notationType === "relative"
-      ? String(note.scaleIndex)
+      ? String(
+          normalizeScaleIndex(
+            (this.config.scaleMode ?? note.mode ?? "major") as MusicalMode,
+            note.scaleIndex
+          )
+        )
       : note.note;
   }
 

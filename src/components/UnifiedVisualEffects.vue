@@ -20,7 +20,7 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
 import BeatingShapes from "./BeatingShapes.vue";
-import type { SolfegeData } from "@/types/music";
+import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 
 const musicStore = useMusicStore();
 const visualConfigStore = useVisualConfigStore();
@@ -50,8 +50,10 @@ function onNotePlayed(event: CustomEvent) {
   const noteId: string | undefined = event.detail.noteId;
   const octave: number | undefined = event.detail.octave;
   const noteName: string | undefined = event.detail.noteName;
+  const mode: MusicalMode | undefined = event.detail.mode;
+  const key: ChromaticNote | undefined = event.detail.key;
 
-  handleNotePlayed(note, frequency, noteId, octave, noteName);
+  handleNotePlayed(note, frequency, noteId, octave, noteName, mode, key);
 }
 
 // Handle note released event - enhanced for polyphonic support

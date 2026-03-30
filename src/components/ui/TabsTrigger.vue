@@ -29,9 +29,9 @@ const handleClick = () => {
 
 <template>
   <button
-    class="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 border-0 bg-transparent min-h-8 select-none"
+    class="inline-flex min-h-0 items-center justify-center whitespace-nowrap rounded-md border-0 bg-transparent px-2 py-1.5 text-xs font-medium transition-all duration-200 select-none"
     :class="{
-      'text-white bg-white/15 shadow-lg shadow-black/30': isActive,
+      'text-white shadow-none': isActive,
       'text-gray-300 hover:text-white hover:bg-white/5 active:bg-white/10 active:scale-95':
         !isActive && !disabled,
       'opacity-40 cursor-not-allowed pointer-events-none': disabled,

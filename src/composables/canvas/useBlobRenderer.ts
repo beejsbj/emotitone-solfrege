@@ -5,11 +5,11 @@
  */
 
 import type { ActiveBlob } from "@/types/canvas";
-import type { SolfegeData } from "@/types/music";
+import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import type { BlobConfig } from "@/types/visual";
 import { useColorSystem } from "../useColorSystem";
 import { createVisualFrequency } from "@/utils/visualEffects";
-import { CHROMATIC_NOTES } from "@/data/notes";
+import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 
 export function useBlobRenderer() {
@@ -124,21 +124,11 @@ export function useBlobRenderer() {
     currentKey: string,
     currentMode: string
   ): string => {
-    // Map solfege numbers to scale intervals
-    const majorIntervals = [0, 2, 4, 5, 7, 9, 11]; // Do, Re, Mi, Fa, Sol, La, Ti
-    const minorIntervals = [0, 2, 3, 5, 7, 8, 10]; // Do, Re, Me, Fa, Sol, Le, Te
-
-    const intervals = currentMode === "major" ? majorIntervals : minorIntervals;
-    const solfegeIndex = (solfegeData.number - 1) % 7; // Convert 1-8 to 0-6
-    const interval = intervals[solfegeIndex];
-
-    // Get the key's chromatic position
-    const keyIndex = CHROMATIC_NOTES.indexOf(currentKey as any);
-
-    // Calculate the note's chromatic position
-    const noteIndex = (keyIndex + interval) % 12;
-
-    return CHROMATIC_NOTES[noteIndex];
+    const scale = getScaleForMode(currentMode as MusicalMode);
+    const solfegeIndex = ((solfegeData.number - 1) % scale.degreeCount + scale.degreeCount) % scale.degreeCount;
+    const interval = scale.intervals[solfegeIndex] ?? 0;
+    const keyIndex = CHROMATIC_NOTES.indexOf(currentKey as ChromaticNote);
+    return CHROMATIC_NOTES[(keyIndex + interval + 12) % 12];
   };
 
   // Blob state - now supports both note names and noteIds for polyphonic tracking
@@ -216,7 +206,10 @@ export function useBlobRenderer() {
 
     // Calculate position using Circle of Fifths with blob size consideration
     // Use solfege index directly for more accurate positioning
-    const solfegeIndex = (note.number - 1) % 7; // Convert 1-8 to 0-6
+    const scale = getScaleForMode((currentMode || "major") as MusicalMode);
+    const solfegeIndex =
+      ((note.number - 1) % scale.degreeCount + scale.degreeCount) %
+      scale.degreeCount;
 
     // Get the highest visible octave for octave offset calculation
     const visibleOctaves = keyboardDrawerStore.visibleOctaves;
@@ -257,6 +250,9 @@ export function useBlobRenderer() {
       driftVy: (Math.random() - 0.5) * blobConfig.driftSpeed * 0.3, // 30% of normal drift
       vibrationPhase: Math.random() * Math.PI * 2,
       scale: 0, // Start at zero scale for grow-in animation
+      mode: (currentMode || "major") as MusicalMode,
+      key: (currentKey || "C") as ChromaticNote,
+      octave: currentOctave,
     };
 
     // Store the active blob using the appropriate key
@@ -434,11 +430,15 @@ export function useBlobRenderer() {
       // Use current opacity for colors
       const primaryColor = getPrimaryColor(
         blob.note.name,
-        musicStore.currentMode
+        blob.mode,
+        blob.octave,
+        blob.key
       );
       const accentColor = getAccentColor(
         blob.note.name,
-        musicStore.currentMode
+        blob.mode,
+        blob.octave,
+        blob.key
       );
 
       // Apply opacity to colors using withAlpha from color system

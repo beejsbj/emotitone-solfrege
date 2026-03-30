@@ -101,21 +101,47 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
 }))
 
 // Mock Web Audio API
+class MockBaseAudioContext {}
+
+const MockAudioContext = vi.fn(() => ({
+  state: 'running',
+  resume: vi.fn(),
+  suspend: vi.fn(),
+  close: vi.fn(),
+  createOscillator: vi.fn(),
+  createGain: vi.fn(),
+  destination: {},
+}))
+
+Object.defineProperty(globalThis, 'BaseAudioContext', {
+  value: MockBaseAudioContext,
+  writable: true,
+  configurable: true,
+})
+
+Object.defineProperty(window, 'BaseAudioContext', {
+  value: MockBaseAudioContext,
+  writable: true,
+  configurable: true,
+})
+
+Object.defineProperty(globalThis, 'AudioContext', {
+  value: MockAudioContext,
+  writable: true,
+  configurable: true,
+})
+
 Object.defineProperty(window, 'AudioContext', {
-  value: vi.fn(() => ({
-    state: 'running',
-    resume: vi.fn(),
-    suspend: vi.fn(),
-    close: vi.fn(),
-    createOscillator: vi.fn(),
-    createGain: vi.fn(),
-    destination: {},
-  })),
+  value: MockAudioContext,
+  writable: true,
+  configurable: true,
 })
 
 // Mock requestAnimationFrame
 Object.defineProperty(window, 'requestAnimationFrame', {
   value: vi.fn(cb => setTimeout(cb, 16)),
+  writable: true,
+  configurable: true,
 })
 
 // Mock Touch Events
@@ -163,21 +189,6 @@ Object.defineProperty(global, 'localStorage', {
   configurable: true,
 });
 
-// Mock document
-Object.defineProperty(global, 'document', {
-  value: {
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    querySelector: vi.fn(),
-    querySelectorAll: vi.fn(),
-    getElementById: vi.fn(),
-    createElement: vi.fn(),
-    createEvent: vi.fn(),
-    body: {},
-    head: {},
-  },
-})
-
 // Mock performance
 Object.defineProperty(window, 'performance', {
   value: {
@@ -186,6 +197,8 @@ Object.defineProperty(window, 'performance', {
     measure: vi.fn(),
     timing: {},
   },
+  writable: true,
+  configurable: true,
 })
 
 // Mock Audio Service to prevent DOM access during module loading
@@ -251,18 +264,50 @@ vi.mock('@/services/music', () => ({
 }))
 
 // Mock data files
-vi.mock('@/data', () => ({
-  SEQUENCER_ICONS: ['music', 'piano', 'guitar', 'violin', 'drums', 'trumpet', 'microphone'],
-  MAJOR_SOLFEGE: [
-    { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
-    { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
-  ],
-  MINOR_SOLFEGE: [
-    { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
-    { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
-  ],
-  getAllMelodicPatterns: vi.fn(() => [])
-}))
+vi.mock('@/data', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/data')>()
+
+  return {
+    ...actual,
+    SEQUENCER_ICONS: ['music', 'piano', 'guitar', 'violin', 'drums', 'trumpet', 'microphone'],
+    CHROMATIC_NOTES: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+    MAJOR_SOLFEGE: [
+      { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
+      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
+    ],
+    MINOR_SOLFEGE: [
+      { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
+      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
+    ],
+    MAJOR_SCALE: {
+      name: 'Major',
+      intervals: [0, 2, 4, 5, 7, 9, 11, 12],
+      solfege: [
+        { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
+        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' },
+        { name: 'Mi', number: 3, emotion: 'bright', description: 'clarity', fleckShape: 'diamond', texture: 'clear' },
+        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', fleckShape: 'mist', texture: 'soft' },
+        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', fleckShape: 'star', texture: 'firm' },
+        { name: 'La', number: 6, emotion: 'warm', description: 'yearning', fleckShape: 'sparkle', texture: 'glowing' },
+        { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', fleckShape: 'diamond', texture: 'tense' },
+      ],
+    },
+    MINOR_SCALE: {
+      name: 'Minor',
+      intervals: [0, 2, 3, 5, 7, 8, 10, 12],
+      solfege: [
+        { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
+        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' },
+        { name: 'Me', number: 3, emotion: 'wistful', description: 'shade', fleckShape: 'diamond', texture: 'velvet' },
+        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', fleckShape: 'mist', texture: 'soft' },
+        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', fleckShape: 'star', texture: 'firm' },
+        { name: 'Le', number: 6, emotion: 'dark', description: 'falling', fleckShape: 'sparkle', texture: 'glowing' },
+        { name: 'Te', number: 7, emotion: 'haunting', description: 'pull', fleckShape: 'diamond', texture: 'tense' },
+      ],
+    },
+    getAllMelodicPatterns: vi.fn(() => [])
+  }
+})
 
 // Mock instrument configurations
 vi.mock('@/data/instruments', () => ({
@@ -468,6 +513,12 @@ Object.defineProperty(document, 'addEventListener', {
 })
 
 Object.defineProperty(document, 'removeEventListener', {
+  value: vi.fn(),
+  writable: true,
+  configurable: true,
+})
+
+Object.defineProperty(document, 'dispatchEvent', {
   value: vi.fn(),
   writable: true,
   configurable: true,

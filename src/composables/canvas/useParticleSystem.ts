@@ -4,7 +4,7 @@
  */
 
 import type { Particle } from "@/types/canvas";
-import type { SolfegeData } from "@/types/music";
+import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import type { ParticleConfig } from "@/types/visual";
 import { useColorSystem } from "../useColorSystem";
 
@@ -57,7 +57,8 @@ export function useParticleSystem() {
     particleConfig: ParticleConfig,
     canvasWidth: number,
     canvasHeight: number,
-    musicStore: any,
+    mode: MusicalMode,
+    key: ChromaticNote,
     count?: number
   ) => {
     if (!particleConfig.isEnabled) return;
@@ -72,7 +73,12 @@ export function useParticleSystem() {
       particle.y = Math.random() * canvasHeight;
       particle.vx = (Math.random() - 0.5) * particleConfig.speed;
       particle.vy = (Math.random() - 0.5) * particleConfig.speed;
-      particle.color = getFleckColor(note.name, musicStore.currentMode);
+      particle.color = getFleckColor(
+        note.name,
+        mode,
+        3,
+        key
+      );
       particle.shape = note.fleckShape || "circle";
       particle.size =
         particleConfig.sizeMin +

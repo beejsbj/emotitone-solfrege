@@ -14,6 +14,8 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { isNote } from "@strudel/core";
+import { getSolfegeNameForMode } from "@/data";
+import type { MusicalMode } from "@/types/music";
 
 type NumericLike = number | { valueOf(): number };
 type NotationMode = "solfege" | "note" | "degree";
@@ -32,7 +34,7 @@ type PlaybackHighlightOptions = {
   isProgressiveFillEnabled: boolean;
   isPatternTextColoringEnabled: boolean;
   notationMode: NotationMode;
-  scaleMode: string;
+  scaleMode: MusicalMode;
   noteSkins: NoteSkin[];
 };
 
@@ -116,12 +118,9 @@ type InlineMetaToken = {
 };
 
 const INLINE_META_REGEX = /(?:@(?:\d+(?:\.\d+)?)|:(?:\d+(?:\.\d+)?))/g;
-const RELATIVE_NOTE_REGEX = /(?<![@.\w])[0-6](?=@|\b)/g;
+const RELATIVE_NOTE_REGEX = /(?<![@.\w])\d{1,2}(?=@|\b)/g;
 const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?\d\b/g;
-const SOLFEGE_LABELS = {
-  major: ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"],
-  minor: ["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"],
-} as const;
+const REST_TOKEN_REGEX = /~(?=@|\b)/g;
 
 const defaultOptions: PlaybackHighlightOptions = {
   isNoteColoringEnabled: true,
@@ -982,9 +981,10 @@ function resolveDisplayLabel(note: NoteToken, options: PlaybackHighlightOptions)
   }
 
   if (options.notationMode === "solfege") {
-    const labels =
-      options.scaleMode === "minor" ? SOLFEGE_LABELS.minor : SOLFEGE_LABELS.major;
-    return labels[Number(note.text)] ?? note.text;
+    return getSolfegeNameForMode(
+      options.scaleMode as MusicalMode,
+      Number(note.text)
+    );
   }
 
   return undefined;
@@ -1099,7 +1099,7 @@ function noteToHslColor(note: string) {
 }
 
 function degreeToHslColor(degree: number) {
-  const hueInterval = 360 / 7;
+  const hueInterval = 360 / 12;
   const hue = (degree * hueInterval + hueInterval / 2) % 360;
 
   return `hsl(${hue} 88% 72%)`;

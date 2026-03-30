@@ -199,17 +199,17 @@ export interface BlobConfig {
 export interface AmbientConfig {
   /** Whether ambient effects are enabled */
   isEnabled: boolean;
-  /** Opacity for major scale notes */
+  /** Legacy field retained for compatibility; now controls tonic/center opacity */
   opacityMajor: number;
-  /** Opacity for minor scale notes */
+  /** Legacy field retained for compatibility; now controls accent opacity */
   opacityMinor: number;
-  /** Brightness for major scale notes */
+  /** Legacy field retained for compatibility; now controls tonic brightness */
   brightnessMajor: number;
-  /** Brightness for minor scale notes */
+  /** Legacy field retained for compatibility; now controls accent brightness */
   brightnessMinor: number;
-  /** Saturation for major scale notes */
+  /** Legacy field retained for compatibility; now controls tonic saturation */
   saturationMajor: number;
-  /** Saturation for minor scale notes */
+  /** Legacy field retained for compatibility; now controls accent saturation */
   saturationMinor: number;
 }
 

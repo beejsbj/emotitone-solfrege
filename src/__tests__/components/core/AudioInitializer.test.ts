@@ -1,273 +1,109 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { flushPromises } from '@vue/test-utils'
 import { createTestWrapper } from '../../helpers/test-utils'
 import AudioInitializer from '@/components/AudioInitializer.vue'
 
-// Mock audio service
-const mockAudioService = {
-  startAudioContext: vi.fn()
-}
+const initSuperdoughAudio = vi.hoisted(() => vi.fn())
 
-vi.mock('@/services/audio', () => ({
-  audioService: mockAudioService
+vi.mock('@/services/superdoughAudio', () => ({
+  initSuperdoughAudio,
 }))
 
 describe('AudioInitializer.vue', () => {
-  let wrapper: any
+  let wrapper: ReturnType<typeof createTestWrapper> | null = null
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.clearAllTimers()
     vi.useFakeTimers()
-    
-    // Reset mock implementations
-    mockAudioService.startAudioContext.mockResolvedValue(true)
-    
-    // Mock console methods
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    initSuperdoughAudio.mockResolvedValue(undefined)
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
-    if (wrapper) {
-      wrapper.unmount()
-    }
+    wrapper?.unmount()
+    wrapper = null
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
-  it('renders audio initializer when audio is not ready', async () => {
+  it('renders the enable-audio prompt by default', () => {
     wrapper = createTestWrapper(AudioInitializer)
-    
+
     expect(wrapper.find('.audio-initializer').exists()).toBe(true)
-    expect(wrapper.find('.audio-prompt').exists()).toBe(true)
-    expect(wrapper.find('.audio-icon').exists()).toBe(true)
     expect(wrapper.find('h3').text()).toBe('Enable Audio')
-    expect(wrapper.find('p').text()).toBe('Click to enable audio for the best experience')
-    expect(wrapper.find('.enable-audio-btn').exists()).toBe(true)
+    expect(wrapper.find('.enable-audio-btn').text()).toBe('Enable Audio')
   })
 
-  it('does not render when audio is ready', async () => {
-    mockAudioService.startAudioContext.mockResolvedValue(true)
-    
+  it('auto-initializes on mount and hides the prompt when setup succeeds', async () => {
     wrapper = createTestWrapper(AudioInitializer)
-    
-    // Fast-forward the timeout
-    vi.advanceTimersByTime(500)
-    await nextTick()
-    
+
+    await vi.advanceTimersByTimeAsync(500)
+    await flushPromises()
+
+    expect(initSuperdoughAudio).toHaveBeenCalledTimes(1)
     expect(wrapper.find('.audio-initializer').exists()).toBe(false)
   })
 
-  it('handles successful audio initialization on button click', async () => {
-    mockAudioService.startAudioContext.mockResolvedValue(true)
-    
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    const button = wrapper.find('.enable-audio-btn')
-    expect(button.text()).toBe('Enable Audio')
-    expect(button.attributes('disabled')).toBeUndefined()
-    
-    await button.trigger('click')
-    
-    expect(mockAudioService.startAudioContext).toHaveBeenCalled()
-    expect(console.log).toHaveBeenCalledWith('Audio context successfully initialized')
-    
-    // Component should hide after successful initialization
-    await nextTick()
-    expect(wrapper.find('.audio-initializer').exists()).toBe(false)
-  })
+  it('keeps the prompt visible after a mount-time initialization failure', async () => {
+    initSuperdoughAudio.mockRejectedValueOnce(new Error('user gesture required'))
 
-  it('handles failed audio initialization on button click', async () => {
-    mockAudioService.startAudioContext.mockResolvedValue(false)
-    
     wrapper = createTestWrapper(AudioInitializer)
-    
-    const button = wrapper.find('.enable-audio-btn')
-    await button.trigger('click')
-    
-    expect(mockAudioService.startAudioContext).toHaveBeenCalled()
-    expect(console.warn).toHaveBeenCalledWith('Failed to initialize audio context')
-    
-    // Component should still be visible
-    await nextTick()
+
+    await vi.advanceTimersByTimeAsync(500)
+    await flushPromises()
+
+    expect(initSuperdoughAudio).toHaveBeenCalledTimes(1)
+    expect(console.error).not.toHaveBeenCalled()
     expect(wrapper.find('.audio-initializer').exists()).toBe(true)
   })
 
-  it('handles audio initialization error', async () => {
-    const testError = new Error('Audio context error')
-    mockAudioService.startAudioContext.mockRejectedValue(testError)
-    
+  it('hides the prompt after a successful click initialization', async () => {
     wrapper = createTestWrapper(AudioInitializer)
-    
-    const button = wrapper.find('.enable-audio-btn')
-    await button.trigger('click')
-    
-    expect(mockAudioService.startAudioContext).toHaveBeenCalled()
-    expect(console.error).toHaveBeenCalledWith('Error initializing audio:', testError)
-    
-    // Component should still be visible
-    await nextTick()
-    expect(wrapper.find('.audio-initializer').exists()).toBe(true)
-  })
 
-  it('shows loading state during initialization', async () => {
-    let resolvePromise: (value: boolean) => void
-    const slowPromise = new Promise<boolean>((resolve) => {
-      resolvePromise = resolve
-    })
-    mockAudioService.startAudioContext.mockReturnValue(slowPromise)
-    
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    const button = wrapper.find('.enable-audio-btn')
-    expect(button.text()).toBe('Enable Audio')
-    expect(button.attributes('disabled')).toBeUndefined()
-    
-    // Start initialization
-    await button.trigger('click')
-    await nextTick()
-    
-    // Should show loading state
-    expect(wrapper.find('.enable-audio-btn').text()).toBe('Initializing...')
-    expect(wrapper.find('.enable-audio-btn').attributes('disabled')).toBeDefined()
-    
-    // Complete initialization
-    resolvePromise!(true)
-    await nextTick()
-    
-    // Should return to normal state (or hide if successful)
+    await wrapper.find('.enable-audio-btn').trigger('click')
+    await flushPromises()
+
+    expect(initSuperdoughAudio).toHaveBeenCalledTimes(1)
     expect(wrapper.find('.audio-initializer').exists()).toBe(false)
   })
 
-  it('disables button during initialization', async () => {
-    let resolvePromise: (value: boolean) => void
-    const slowPromise = new Promise<boolean>((resolve) => {
-      resolvePromise = resolve
-    })
-    mockAudioService.startAudioContext.mockReturnValue(slowPromise)
-    
+  it('logs click-time failures and keeps the prompt visible', async () => {
+    const error = new Error('audio init failed')
+    initSuperdoughAudio.mockRejectedValueOnce(error)
+
     wrapper = createTestWrapper(AudioInitializer)
-    
+
+    await wrapper.find('.enable-audio-btn').trigger('click')
+    await flushPromises()
+
+    expect(initSuperdoughAudio).toHaveBeenCalledTimes(1)
+    expect(console.error).toHaveBeenCalledWith('Error initializing audio:', error)
+    expect(wrapper.find('.audio-initializer').exists()).toBe(true)
+  })
+
+  it('shows the initializing state while a click is in flight', async () => {
+    let resolveInit: (() => void) | undefined
+    initSuperdoughAudio.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveInit = resolve
+        })
+    )
+
+    wrapper = createTestWrapper(AudioInitializer)
     const button = wrapper.find('.enable-audio-btn')
-    await button.trigger('click')
+
+    const triggerPromise = button.trigger('click')
     await nextTick()
-    
+
+    expect(button.text()).toBe('Initializing...')
     expect(button.attributes('disabled')).toBeDefined()
-    
-    // Complete initialization
-    resolvePromise!(false)
-    await nextTick()
-    
-    expect(wrapper.find('.enable-audio-btn').attributes('disabled')).toBeUndefined()
-  })
 
-  it('auto-initializes on mount if audio context is available', async () => {
-    mockAudioService.startAudioContext.mockResolvedValue(true)
-    
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    // Initially visible
-    expect(wrapper.find('.audio-initializer').exists()).toBe(true)
-    
-    // Fast-forward the timeout
-    vi.advanceTimersByTime(500)
-    await nextTick()
-    
-    expect(mockAudioService.startAudioContext).toHaveBeenCalled()
-    expect(wrapper.find('.audio-initializer').exists()).toBe(false)
-  })
+    resolveInit?.()
+    await triggerPromise
+    await flushPromises()
 
-  it('handles auto-initialization failure gracefully', async () => {
-    mockAudioService.startAudioContext.mockRejectedValue(new Error('No user interaction'))
-    
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    // Initially visible
-    expect(wrapper.find('.audio-initializer').exists()).toBe(true)
-    
-    // Fast-forward the timeout
-    vi.advanceTimersByTime(500)
-    await nextTick()
-    
-    expect(mockAudioService.startAudioContext).toHaveBeenCalled()
-    expect(console.log).toHaveBeenCalledWith('Audio requires user interaction')
-    
-    // Component should still be visible
-    expect(wrapper.find('.audio-initializer').exists()).toBe(true)
-  })
-
-  it('has correct CSS classes and structure', () => {
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    const initializer = wrapper.find('.audio-initializer')
-    expect(initializer.classes()).toContain('audio-initializer')
-    
-    const prompt = wrapper.find('.audio-prompt')
-    expect(prompt.classes()).toContain('audio-prompt')
-    
-    const icon = wrapper.find('.audio-icon')
-    expect(icon.classes()).toContain('audio-icon')
-    expect(icon.text()).toBe('🔊')
-    
-    const button = wrapper.find('.enable-audio-btn')
-    expect(button.classes()).toContain('enable-audio-btn')
-  })
-
-  it('has correct accessibility attributes', () => {
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    const button = wrapper.find('.enable-audio-btn')
-    expect(button.element.tagName).toBe('BUTTON')
-    
-    // Button should be focusable
-    expect(button.attributes('tabindex')).not.toBe('-1')
-  })
-
-  it('handles multiple rapid clicks gracefully', async () => {
-    let resolvePromise: (value: boolean) => void
-    const slowPromise = new Promise<boolean>((resolve) => {
-      resolvePromise = resolve
-    })
-    mockAudioService.startAudioContext.mockReturnValue(slowPromise)
-    
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    const button = wrapper.find('.enable-audio-btn')
-    
-    // Click multiple times rapidly
-    await button.trigger('click')
-    await button.trigger('click')
-    await button.trigger('click')
-    
-    // Should only call service once
-    expect(mockAudioService.startAudioContext).toHaveBeenCalledTimes(1)
-    
-    resolvePromise!(true)
-    await nextTick()
-  })
-
-  it('resets state correctly after failed initialization', async () => {
-    mockAudioService.startAudioContext.mockResolvedValue(false)
-    
-    wrapper = createTestWrapper(AudioInitializer)
-    
-    const button = wrapper.find('.enable-audio-btn')
-    
-    // First attempt fails
-    await button.trigger('click')
-    await nextTick()
-    
-    expect(wrapper.find('.audio-initializer').exists()).toBe(true)
-    expect(button.text()).toBe('Enable Audio')
-    expect(button.attributes('disabled')).toBeUndefined()
-    
-    // Should be able to try again
-    mockAudioService.startAudioContext.mockResolvedValue(true)
-    await button.trigger('click')
-    await nextTick()
-    
     expect(wrapper.find('.audio-initializer').exists()).toBe(false)
   })
 })

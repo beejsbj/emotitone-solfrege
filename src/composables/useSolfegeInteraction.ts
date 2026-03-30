@@ -53,7 +53,13 @@ export function useSolfegeInteraction() {
       if (isDynamicColorsEnabled.value) {
         animationFrame.value; // This triggers re-computation on every frame
       }
-      return getGradient(noteName, mode);
+      return getGradient(
+        noteName,
+        mode,
+        3,
+        45,
+        musicStore.currentKey as ChromaticNote
+      );
     };
   });
 

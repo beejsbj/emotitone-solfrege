@@ -19,9 +19,10 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import useGSAP from "../useGSAP";
+import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export function useStringRenderer() {
-  const { getPrimaryColor } = useColorSystem();
+  const { getPrimaryColor, getPrimaryColorByScaleIndex } = useColorSystem();
   const { gsap } = useGSAP();
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
@@ -37,14 +38,19 @@ export function useStringRenderer() {
   // Event-based activation for sequencer notes
   const eventActivatedStrings = ref(
     new Map<
-      number,
+      string,
       {
         frequency: number;
         octave: number;
+        mode: MusicalMode;
+        key: ChromaticNote;
         endTime: number;
       }
     >()
   );
+
+  const getStringActivationKey = (solfegeIndex: number, octave: number) =>
+    `${solfegeIndex}_${octave}`;
 
   /**
    * Initialize string configurations
@@ -94,7 +100,12 @@ export function useStringRenderer() {
           amplitude: 0,
           frequency: 1,
           phase: Math.random() * Math.PI * 2,
-          color: getPrimaryColor(solfege.name, "major", octave),
+          color: getPrimaryColorByScaleIndex(
+            degreeIndex,
+            musicStore.currentMode,
+            musicStore.currentKey as any,
+            octave
+          ),
           opacity: stringConfig.baseOpacity,
           isActive: false,
           noteIndex: degreeIndex,
@@ -139,7 +150,15 @@ export function useStringRenderer() {
    * Handle note played events (for sequencer integration)
    */
   const handleNotePlayed = (event: CustomEvent) => {
-    const { solfegeIndex, frequency, octave, duration, durationMs: eventDurationMs } = event.detail;
+    const {
+      solfegeIndex,
+      frequency,
+      octave,
+      duration,
+      durationMs: eventDurationMs,
+      mode,
+      key,
+    } = event.detail;
 
     if (solfegeIndex !== undefined && frequency && octave) {
       // Calculate end time based on duration or default to 500ms
@@ -163,9 +182,11 @@ export function useStringRenderer() {
       const endTime = Date.now() + durationMs;
 
       // Add to event-activated strings
-      eventActivatedStrings.value.set(solfegeIndex, {
+      eventActivatedStrings.value.set(getStringActivationKey(solfegeIndex, octave), {
         frequency,
         octave,
+        mode: (mode ?? musicStore.currentMode) as MusicalMode,
+        key: (key ?? musicStore.currentKey) as ChromaticNote,
         endTime,
       });
     }
@@ -177,11 +198,11 @@ export function useStringRenderer() {
   const cleanupExpiredActivations = () => {
     const now = Date.now();
     for (const [
-      solfegeIndex,
+      activationKey,
       activation,
     ] of eventActivatedStrings.value.entries()) {
       if (now > activation.endTime) {
-        eventActivatedStrings.value.delete(solfegeIndex);
+        eventActivatedStrings.value.delete(activationKey);
       }
     }
   };
@@ -203,14 +224,17 @@ export function useStringRenderer() {
 
       // Check if this string's note is currently active for its specific octave (from direct input)
       const activeNotes = musicStore.getActiveNotes();
-      const isStringActiveFromInput = activeNotes.some(
+      const matchingActiveNote = activeNotes.find(
         (activeNote: any) =>
           activeNote.solfegeIndex === string.noteIndex &&
           activeNote.octave === string.octave
       );
+      const isStringActiveFromInput = Boolean(matchingActiveNote);
 
       // Check if this string is activated by sequencer events (for the specific octave)
-      const eventActivation = eventActivatedStrings.value.get(string.noteIndex);
+      const eventActivation = eventActivatedStrings.value.get(
+        getStringActivationKey(string.noteIndex, string.octave)
+      );
       const isStringActiveFromEvent =
         eventActivation &&
         Date.now() <= eventActivation.endTime &&
@@ -231,20 +255,26 @@ export function useStringRenderer() {
           stringConfig.activeOpacity,
           stringConfig.opacityInterpolationSpeed
         );
-        string.color = getPrimaryColor(solfege.name, musicStore.currentMode);
+        const noteMode = (matchingActiveNote?.mode ??
+          eventActivation?.mode ??
+          musicStore.currentMode) as MusicalMode;
+        const noteKey = (matchingActiveNote?.key ??
+          eventActivation?.key ??
+          musicStore.currentKey) as ChromaticNote;
+        string.color = getPrimaryColor(
+          solfege.name,
+          noteMode,
+          string.octave,
+          noteKey
+        );
 
         // Determine frequency for visual vibration
         let visualFrequency;
 
         if (isStringActiveFromInput) {
           // Use the frequency from the matching octave note
-          const matchingNote = activeNotes.find(
-            (activeNote: any) =>
-              activeNote.solfegeIndex === string.noteIndex &&
-              activeNote.octave === string.octave
-          );
           visualFrequency =
-            matchingNote?.frequency ||
+            matchingActiveNote?.frequency ||
             musicStore.getNoteFrequency(string.noteIndex, string.octave);
         } else if (eventActivation) {
           // Use frequency from event activation (sequencer)

@@ -13,7 +13,7 @@ import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { MAJOR_SOLFEGE, MINOR_SOLFEGE } from "@/data";
+import { getSolfegeNameForMode, normalizeScaleIndex } from "@/data";
 import {
   initSuperdoughAudio,
   getAudioContext,
@@ -28,6 +28,7 @@ import {
 } from "./strudelPlaybackHighlight";
 import type { KeyboardConfig } from "@/types/visual";
 import type { LogNote, PatternNote } from "@/types/patterns";
+import type { MusicalMode } from "@/types/music";
 
 interface StrudelMirrorInstance {
   setCode: (code: string) => void;
@@ -52,7 +53,7 @@ const patternsStore = usePatternsStore();
 const visualConfigStore = useVisualConfigStore();
 const {
   getKeyBackground,
-  getStaticPrimaryColor,
+  getStaticPrimaryColorByScaleIndex,
 } = useColorSystem();
 const { attachEditor, detachEditor, syncCode, setPlaying, setError, isPlaying } =
   useLiveStrudelMirror();
@@ -100,7 +101,7 @@ const generatedCode = computed(() => {
   }
 
   return logNotesToStrudel(notes as LogNote[], {
-    bpm: patternsStore.currentSketchMeta.bpm,
+    bpm: liveStripConfig.value.bpm,
     sourceBpm: patternsStore.currentSketchMeta.bpm,
     notationType: liveStripConfig.value.notation === "note" ? "absolute" : "relative",
     scaleKey: patternsStore.currentSketchMeta.key,
@@ -111,8 +112,7 @@ const generatedCode = computed(() => {
 });
 
 function solfegeName(scaleIndex: number, mode: string): string {
-  const list = mode === "minor" ? MINOR_SOLFEGE : MAJOR_SOLFEGE;
-  return list[scaleIndex]?.name ?? "Do";
+  return getSolfegeNameForMode(mode as MusicalMode, scaleIndex);
 }
 
 function tokenText(note: PatternNote): string {
@@ -122,7 +122,12 @@ function tokenText(note: PatternNote): string {
   }
 
   if (notation === "degree") {
-    return String(note.scaleIndex + 1);
+    return String(
+      normalizeScaleIndex(
+        patternsStore.currentSketchMeta.mode as MusicalMode,
+        note.scaleIndex
+      ) + 1
+    );
   }
 
   return solfegeName(note.scaleIndex, patternsStore.currentSketchMeta.mode);
@@ -163,13 +168,13 @@ function buildNoteSkin(
     notation === "note"
       ? note.note
       : notation === "degree"
-        ? String(note.scaleIndex + 1)
+        ? String(normalizeScaleIndex(mode as MusicalMode, note.scaleIndex) + 1)
         : solfegeName(note.scaleIndex, mode);
   const isAccidental = note.note.includes("#");
-  const solfege = solfegeName(note.scaleIndex, mode);
   const { background, primaryColor } = getKeyBackground(
-    solfege,
-    mode as "major" | "minor",
+    note.scaleIndex,
+    mode as MusicalMode,
+    patternsStore.currentSketchMeta.key,
     note.octave,
     config.colorMode,
     isAccidental,
@@ -180,7 +185,12 @@ function buildNoteSkin(
     }
   );
   const passiveColor =
-    getStaticPrimaryColor(solfege, mode as "major" | "minor", note.octave) || primaryColor;
+    getStaticPrimaryColorByScaleIndex(
+      note.scaleIndex,
+      mode as MusicalMode,
+      patternsStore.currentSketchMeta.key,
+      note.octave
+    ) || primaryColor;
   const activeTextColor = keyTextColorValue(config.colorMode, isAccidental);
 
   return {
@@ -225,9 +235,10 @@ const displayTokens = computed((): Token[] => {
     const durationRatio = parseFloat((duration / barMs.value).toFixed(4));
     const durationSuffix = durationRatio === 1 ? "" : `@${durationRatio}`;
     const tokenLabel = tokenText(note);
-    const color = getStaticPrimaryColor(
-      solfegeName(note.scaleIndex, patternsStore.currentSketchMeta.mode),
+    const color = getStaticPrimaryColorByScaleIndex(
+      note.scaleIndex,
       patternsStore.currentSketchMeta.mode,
+      patternsStore.currentSketchMeta.key,
       note.octave
     );
 
@@ -455,7 +466,7 @@ watch(generatedCode, (nextCode) => {
 });
 
 watch(
-  () => patternsStore.currentSketchMeta.bpm,
+  [() => patternsStore.currentSketchMeta.bpm, () => liveStripConfig.value.bpm],
   async () => {
     if (!mirror.value || !isPlaying.value) {
       return;

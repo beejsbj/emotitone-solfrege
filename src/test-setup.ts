@@ -380,6 +380,27 @@ vi.mock('vue-sonner', () => ({
   }
 }))
 
+vi.mock('@/services/superdoughAudio', () => ({
+  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
+  isPrewarmed: vi.fn().mockReturnValue(true),
+  attackNote: vi.fn().mockResolvedValue(undefined),
+  releaseNote: vi.fn(),
+  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
+  releaseAll: vi.fn(),
+  getAudioContext: vi.fn(() => ({
+    currentTime: 0,
+    state: 'running',
+    resume: vi.fn().mockResolvedValue(undefined),
+  })),
+  getSuperdoughMasterGain: vi.fn().mockReturnValue(null),
+  getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
+  stopStrudelVisuals: vi.fn(),
+  emotitoneStrudelOutput: vi.fn().mockResolvedValue(undefined),
+  playStrudelCode: vi.fn().mockResolvedValue(undefined),
+  stopStrudelPlayback: vi.fn(),
+}))
+
 // Mock visual config composable
 vi.mock('@/composables/useVisualConfig', () => ({
   DEFAULT_CONFIG: {

@@ -84,7 +84,9 @@ const highlightOptions = computed(() => ({
   isNoteColoringEnabled: true,
   isProgressiveFillEnabled: true,
   isPatternTextColoringEnabled: true,
+  musicColorMode: visualConfigStore.config.dynamicColors.musicColorMode,
   notationMode: liveStripConfig.value.notation,
+  scaleKey: patternsStore.currentSketchMeta.key,
   scaleMode: patternsStore.currentSketchMeta.mode,
   noteSkins: noteSkins.value,
 }));
@@ -134,10 +136,10 @@ function tokenText(note: PatternNote): string {
 }
 
 function keyTextColorValue(
-  colorMode: KeyboardConfig["colorMode"],
+  surfaceStyle: KeyboardConfig["surfaceStyle"],
   isAccidental: boolean
 ): string {
-  if (colorMode === "monochrome") {
+  if (surfaceStyle === "monochrome") {
     return isAccidental ? "hsla(0, 0%, 0%, 0.94)" : "hsla(0, 0%, 100%, 0.96)";
   }
 
@@ -176,7 +178,7 @@ function buildNoteSkin(
     mode as MusicalMode,
     patternsStore.currentSketchMeta.key,
     note.octave,
-    config.colorMode,
+    config.surfaceStyle,
     isAccidental,
     {
       keyBrightness: config.keyBrightness,
@@ -191,7 +193,7 @@ function buildNoteSkin(
       patternsStore.currentSketchMeta.key,
       note.octave
     ) || primaryColor;
-  const activeTextColor = keyTextColorValue(config.colorMode, isAccidental);
+  const activeTextColor = keyTextColorValue(config.surfaceStyle, isAccidental);
 
   return {
     label,

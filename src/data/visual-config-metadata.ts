@@ -428,9 +428,10 @@ export const UNIFIED_CONFIG = {
       value: true,
       label: "Enable Dynamic Colors",
     },
-    chromaticMapping: {
-      value: false,
-      label: "Static Chromatic Colors",
+    musicColorMode: {
+      value: "movable",
+      options: ["fixed", "movable"],
+      label: "Music Color Mode",
     },
     hueAnimationAmplitude: {
       value: 15,
@@ -786,10 +787,10 @@ export const UNIFIED_CONFIG = {
       label: "Border Radius",
       format: (v: number) => `${v}px`,
     },
-    colorMode: {
+    surfaceStyle: {
       value: "colored",
       options: ["colored", "monochrome", "glassmorphism"],
-      label: "Color Mode",
+      label: "Surface Style",
     },
     keySize: {
       value: 1.0,

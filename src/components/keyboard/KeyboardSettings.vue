@@ -8,15 +8,15 @@
         <!-- Color Mode -->
         <div class="control-group">
           <Knob
-            :model-value="keyboardConfig.colorMode"
+            :model-value="keyboardConfig.surfaceStyle"
             type="options"
             :options="[
               { label: 'Colored', value: 'colored' },
               { label: 'Monochrome', value: 'monochrome' },
               { label: 'Glass', value: 'glassmorphism' }
             ]"
-            label="Color Mode"
-            @update:modelValue="updateConfig('colorMode', $event)"
+            label="Surface Style"
+            @update:modelValue="updateConfig('surfaceStyle', $event)"
           />
         </div>
 
@@ -86,7 +86,7 @@
     </div>
 
     <!-- Color Adjustments Section (for colored/monochrome modes) -->
-    <div v-if="keyboardConfig.colorMode !== 'glassmorphism'" class="settings-section">
+    <div v-if="keyboardConfig.surfaceStyle !== 'glassmorphism'" class="settings-section">
       <h3 class="section-title">Color Adjustments</h3>
       
       <div class="controls-grid">
@@ -121,7 +121,7 @@
     </div>
 
     <!-- Glassmorphism Settings (for glassmorphism mode) -->
-    <div v-if="keyboardConfig.colorMode === 'glassmorphism'" class="settings-section">
+    <div v-if="keyboardConfig.surfaceStyle === 'glassmorphism'" class="settings-section">
       <h3 class="section-title">Glass Effect</h3>
       
       <div class="controls-grid">

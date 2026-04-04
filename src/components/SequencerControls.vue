@@ -8,7 +8,7 @@
           label="Master"
           :icon="Play"
           :ready-color="'hsla(0, 0%, 40%, 1)'"
-          :active-color="'hsla(0, 84%, 60%, 1)'"
+          :active-color="'hsla(0, 0%, 94%, 1)'"
           :is-disabled="true"
           :is-active="false"
         />
@@ -23,7 +23,7 @@
           :max="180"
           label="Tempo"
           :format-value="(v: number) => `${v}`"
-          theme-color="hsla(43, 96%, 56%, 1)"
+          theme-color="hsla(0, 0%, 82%, 1)"
           @update:modelValue="(v: any) => (tempo = typeof v === 'number' ? v : Number(v))"
         />
       </div>
@@ -38,7 +38,7 @@
           :max="15"
           label="Step"
           :format-value="(v: number) => `${v + 1}`"
-          theme-color="hsla(271, 91%, 65%, 1)"
+          theme-color="hsla(0, 0%, 82%, 1)"
         />
       </div>
     </div>

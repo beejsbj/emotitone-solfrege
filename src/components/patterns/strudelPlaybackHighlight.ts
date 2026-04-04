@@ -15,7 +15,12 @@ import {
 } from "@codemirror/view";
 import { isNote } from "@strudel/core";
 import { getSolfegeNameForMode } from "@/data";
-import type { MusicalMode } from "@/types/music";
+import {
+  resolveMusicColorsByNoteName,
+  resolveMusicColorsByScaleIndex,
+} from "@/services/musicColor";
+import type { ChromaticNote, MusicalMode } from "@/types/music";
+import type { DynamicColorConfig } from "@/types/visual";
 
 type NumericLike = number | { valueOf(): number };
 type NotationMode = "solfege" | "note" | "degree";
@@ -33,7 +38,9 @@ type PlaybackHighlightOptions = {
   isNoteColoringEnabled: boolean;
   isProgressiveFillEnabled: boolean;
   isPatternTextColoringEnabled: boolean;
+  musicColorMode: DynamicColorConfig["musicColorMode"];
   notationMode: NotationMode;
+  scaleKey: ChromaticNote;
   scaleMode: MusicalMode;
   noteSkins: NoteSkin[];
 };
@@ -126,7 +133,9 @@ const defaultOptions: PlaybackHighlightOptions = {
   isNoteColoringEnabled: true,
   isProgressiveFillEnabled: true,
   isPatternTextColoringEnabled: false,
+  musicColorMode: "movable",
   notationMode: "solfege",
+  scaleKey: "C",
   scaleMode: "major",
   noteSkins: [],
 };
@@ -287,10 +296,12 @@ const inlineMetaPlugin = ViewPlugin.fromClass(
 
 const noteTokens = StateField.define<NoteToken[]>({
   create(state) {
-    return extractNoteTokens(state.doc);
+    return extractNoteTokens(state.doc, state.field(playbackOptions));
   },
   update(tokens, tr) {
-    return tr.docChanged ? extractNoteTokens(tr.newDoc) : tokens;
+    return tr.docChanged
+      ? extractNoteTokens(tr.newDoc, tr.state.field(playbackOptions))
+      : tokens;
   },
 });
 
@@ -388,10 +399,22 @@ export const strudelPlaybackHighlightExtension = [
   stripTokenDecorations,
 ];
 
-function extractNoteTokens(doc: Text): NoteToken[] {
+function extractNoteTokens(
+  doc: Text,
+  options: PlaybackHighlightOptions
+): NoteToken[] {
   const unsorted: Omit<NoteToken, "noteIndex" | "noteKey">[] = [];
   const content = doc.toString();
   const patternBounds = getPatternBounds(content);
+  const highlightConfig: DynamicColorConfig = {
+    isEnabled: true,
+    musicColorMode: options.musicColorMode,
+    hueAnimationAmplitude: 0,
+    animationSpeed: 1,
+    saturation: 0.92,
+    baseLightness: 0.7,
+    lightnessRange: 0,
+  };
 
   for (const match of content.matchAll(ABSOLUTE_NOTE_REGEX)) {
     const note = match[0];
@@ -401,10 +424,14 @@ function extractNoteTokens(doc: Text): NoteToken[] {
       continue;
     }
 
-    const color = noteToHslColor(note);
-    if (!color) {
-      continue;
-    }
+    const color =
+      resolveMusicColorsByNoteName(
+        note,
+        options.scaleMode,
+        options.scaleKey,
+        4,
+        highlightConfig
+      )?.primary ?? "hsla(0, 0%, 16%, 1)";
 
     unsorted.push({
       from,
@@ -426,7 +453,14 @@ function extractNoteTokens(doc: Text): NoteToken[] {
     unsorted.push({
       from,
       to: from + degree.length,
-      color: degreeToHslColor(Number(degree)),
+      color:
+        resolveMusicColorsByScaleIndex(
+          Number(degree),
+          options.scaleMode,
+          options.scaleKey,
+          4,
+          highlightConfig
+        )?.primary ?? "hsla(0, 0%, 16%, 1)",
       text: degree,
       isRelative: true,
     });
@@ -1062,47 +1096,6 @@ function getFillScale(progressPercent: number) {
   }
 
   return Math.max(0.04, Math.min(1, progressPercent / 100));
-}
-
-function noteToHslColor(note: string) {
-  const chromaMap: Record<string, number> = {
-    C: 0,
-    "C#": 30,
-    Db: 30,
-    D: 60,
-    "D#": 90,
-    Eb: 90,
-    E: 120,
-    F: 150,
-    "F#": 180,
-    Gb: 180,
-    G: 210,
-    "G#": 240,
-    Ab: 240,
-    A: 270,
-    "A#": 300,
-    Bb: 300,
-    B: 330,
-  };
-
-  const match = note.match(/^([A-G](?:#|b)?)/);
-  if (!match) {
-    return null;
-  }
-
-  const hue = chromaMap[match[1]];
-  if (hue == null) {
-    return null;
-  }
-
-  return `hsl(${hue} 92% 70%)`;
-}
-
-function degreeToHslColor(degree: number) {
-  const hueInterval = 360 / 12;
-  const hue = (degree * hueInterval + hueInterval / 2) % 360;
-
-  return `hsl(${hue} 88% 72%)`;
 }
 
 function toTransparentColor(color: string, alpha: number) {

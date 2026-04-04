@@ -5,7 +5,7 @@
         <button
           data-testid="config-panel-trigger"
           @click="openSettingsPanel(open)"
-          class="group relative flex h-10 w-10 items-center justify-center border border-[#6f6128]/80 bg-[#090805]/88 text-[#d8c985] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#9c8837] hover:text-[#f7f0d8] [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]"
+          class="group relative flex h-10 w-10 items-center justify-center border border-[#4a4a4a]/80 bg-[#090909]/88 text-[#d2d2d2] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]"
           :aria-label="midiTriggerLabel"
           :title="midiTriggerLabel"
         >
@@ -21,7 +21,7 @@
             v-if="showMidiShortcut"
             data-testid="config-midi-trigger"
             @click.stop="openMidiPanel(open)"
-            class="group flex h-7 w-7 items-center justify-center self-end overflow-hidden border border-[#173524]/85 bg-[#080b09]/88 text-[#6fb591] shadow-[0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-md transition-all duration-200 hover:border-[#2faa72] hover:text-[#e6fff1] [clip-path:polygon(0_7px,7px_0,calc(100%-7px)_0,100%_7px,100%_100%,0_100%)]"
+            class="group flex h-7 w-7 items-center justify-center self-end overflow-hidden border border-[#444444]/85 bg-[#090909]/88 text-[#cfcfcf] shadow-[0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_7px,7px_0,calc(100%-7px)_0,100%_7px,100%_100%,0_100%)]"
             :aria-label="midiTriggerLabel"
             :title="midiTriggerLabel"
           >
@@ -47,8 +47,8 @@
         <template #header>
           <div class="flex items-center justify-between gap-2">
             <div class="flex shrink-0 items-center gap-1">
-              <span class="h-2.5 w-7 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#f7b22c]" />
-              <span class="h-2.5 w-5 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#e53d2d]" />
+              <span class="h-2.5 w-7 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#d4d4d4]" />
+              <span class="h-2.5 w-5 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#8a8a8a]" />
             </div>
 
             <div class="ml-auto flex shrink-0 items-center gap-1">
@@ -141,7 +141,7 @@
               <article
                 v-for="(preset, index) in builtInPresets"
                 :key="preset.id"
-                class="relative overflow-hidden rounded-[12px] border border-[#2d2717] bg-[#0d0c08] px-3 py-3 transition-colors hover:border-[#8c7832] hover:bg-[#131109]"
+                class="relative overflow-hidden rounded-[12px] border border-[#323232] bg-[#111111] px-3 py-3 transition-colors hover:border-[#7b7b7b] hover:bg-[#181818]"
               >
                 <span
                   class="absolute inset-y-3 left-0 w-1 rounded-r-full"
@@ -152,7 +152,7 @@
                   <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0">
                       <h4
-                        class="m-0 truncate text-[13px] uppercase tracking-[0.08em] text-[#f4efe0]"
+                        class="m-0 truncate text-[13px] uppercase tracking-[0.08em] text-[#efefef]"
                       >
                         {{ preset.name }}
                       </h4>
@@ -161,7 +161,7 @@
                     <button
                       :data-testid="`preset-apply-${preset.id}`"
                       @click="applyBuiltInPreset(preset.id)"
-                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#b7ffd8] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
+                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#e3e3e3] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
                       :class="actionToneClass('green')"
                     >
                       Apply
@@ -178,7 +178,7 @@
             :value="tab.name"
           >
             <section
-              class="rounded-[14px] border border-[#2d2717] bg-[#080705] px-4 py-4 transition-opacity"
+              class="rounded-[14px] border border-[#2c2c2c] bg-[#0a0a0a] px-4 py-4 transition-opacity"
               :class="{
                 'pointer-events-none opacity-45':
                   !visualsEnabled || !isSectionInteractable(tab.name),
@@ -241,7 +241,7 @@
           <TabsContent value="presets">
             <section class="space-y-3">
               <div class="space-y-2">
-                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#17120a] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#efe5cf] border-[#efe5cf]">
+                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#111111] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#d9d9d9] border-[#d9d9d9]">
                   Built In
                 </span>
 
@@ -249,7 +249,7 @@
                   <article
                     v-for="(preset, index) in builtInPresets"
                     :key="`library-${preset.id}`"
-                    class="relative overflow-hidden rounded-[12px] border border-[#2d2717] bg-[#0d0c08] px-3 py-3"
+                    class="relative overflow-hidden rounded-[12px] border border-[#323232] bg-[#111111] px-3 py-3"
                   >
                     <span
                       class="absolute inset-y-3 left-0 w-1 rounded-r-full"
@@ -258,7 +258,7 @@
                     <div class="pl-2">
                       <div class="flex items-start justify-between gap-2">
                         <h5
-                          class="m-0 truncate text-[12px] uppercase tracking-[0.08em] text-[#f4efe0]"
+                          class="m-0 truncate text-[12px] uppercase tracking-[0.08em] text-[#efefef]"
                         >
                           {{ preset.name }}
                         </h5>
@@ -266,7 +266,7 @@
                         <button
                           :data-testid="`library-apply-${preset.id}`"
                           @click="applyBuiltInPreset(preset.id)"
-                          class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#b7ffd8] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
+                          class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#e3e3e3] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
                           :class="actionToneClass('green')"
                         >
                           Apply
@@ -278,13 +278,13 @@
               </div>
 
               <div class="space-y-2">
-                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-white [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#5a4295] border-[#5a4295]">
+                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#111111] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#b9b9b9] border-[#b9b9b9]">
                   Saved
                 </span>
 
                 <div
                   v-if="savedConfigs.length === 0"
-                  class="rounded-[12px] border border-dashed border-[#3a321d] bg-[#100e09] px-3 py-3 text-[10px] text-neutral-500"
+                  class="rounded-[12px] border border-dashed border-[#3a3a3a] bg-[#121212] px-3 py-3 text-[10px] text-neutral-500"
                 >
                   No saved configs yet.
                 </div>
@@ -292,11 +292,11 @@
                 <article
                   v-for="savedConfig in savedConfigs"
                   :key="savedConfig.id"
-                  class="flex items-center justify-between gap-2 rounded-[12px] border border-[#2d2717] bg-[#100e09] px-3 py-3"
+                  class="flex items-center justify-between gap-2 rounded-[12px] border border-[#2c2c2c] bg-[#121212] px-3 py-3"
                 >
                   <div class="min-w-0">
                     <h6
-                      class="m-0 truncate text-[12px] uppercase tracking-[0.08em] text-[#f4efe0]"
+                      class="m-0 truncate text-[12px] uppercase tracking-[0.08em] text-[#efefef]"
                     >
                       {{ savedConfig.name }}
                     </h6>
@@ -311,7 +311,7 @@
                     <button
                       :data-testid="`saved-load-${savedConfig.id}`"
                       @click="loadSavedConfig(savedConfig.id)"
-                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#b7ffd8] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
+                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#e3e3e3] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
                       :class="actionToneClass('green')"
                     >
                       Load
@@ -334,7 +334,7 @@
           <TabsContent value="midi">
             <section class="grid gap-3 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
               <article
-                class="space-y-4 rounded-[14px] border border-[#164131] bg-[#07110d] px-4 py-4"
+                class="space-y-4 rounded-[14px] border border-[#2e2e2e] bg-[#0f0f0f] px-4 py-4"
               >
                 <div class="flex items-start gap-3">
                   <div
@@ -346,7 +346,7 @@
 
                   <div class="min-w-0 space-y-1">
                     <p
-                      class="m-0 text-[8px] font-semibold uppercase tracking-[0.24em] text-[#8ec7ad]"
+                      class="m-0 text-[8px] font-semibold uppercase tracking-[0.24em] text-neutral-400"
                     >
                       MIDI Status
                     </p>
@@ -361,14 +361,14 @@
 
                 <div class="grid gap-2 sm:grid-cols-2">
                   <article
-                    class="rounded-[12px] border border-[#1c3429] bg-[#0a1611] px-3 py-3"
+                    class="rounded-[12px] border border-[#2f2f2f] bg-[#121212] px-3 py-3"
                   >
                     <p
-                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-[#7cb59a]"
+                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-neutral-500"
                     >
                       Inputs
                     </p>
-                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-[#e4e0d3]">
+                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-neutral-200">
                       {{
                         connectedInputs.length > 0
                           ? connectedInputs.join(", ")
@@ -378,14 +378,14 @@
                   </article>
 
                   <article
-                    class="rounded-[12px] border border-[#1c3429] bg-[#0a1611] px-3 py-3"
+                    class="rounded-[12px] border border-[#2f2f2f] bg-[#121212] px-3 py-3"
                   >
                     <p
-                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-[#7cb59a]"
+                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-neutral-500"
                     >
                       Outputs
                     </p>
-                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-[#e4e0d3]">
+                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-neutral-200">
                       {{
                         connectedOutputs.length > 0
                           ? connectedOutputs.join(", ")
@@ -397,10 +397,10 @@
               </article>
 
               <article
-                class="space-y-3 rounded-[14px] border border-[#2d2717] bg-[#100e09] px-4 py-4"
+                class="space-y-3 rounded-[14px] border border-[#2c2c2c] bg-[#121212] px-4 py-4"
               >
                 <div class="space-y-2">
-                  <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#17120a] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#f7b22c] border-[#f7b22c]">
+                  <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#111111] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#cfcfcf] border-[#cfcfcf]">
                     ROLI
                   </span>
 
@@ -621,28 +621,28 @@ const actionToneClass = (tone: ActionTone) =>
   (
     {
       amber:
-        "border-[#7d6825] bg-[#171209] text-[#f7d167] hover:border-[#f7b22c] hover:text-[#fff1c5]",
+        "border-[#47433a] bg-[#151413] text-[#d4d0c7] hover:border-[#8d887d] hover:text-white",
       red:
-        "border-[#6e2a1d] bg-[#170d0b] text-[#f28b72] hover:border-[#e53d2d] hover:text-white",
+        "border-[#433d3d] bg-[#151313] text-[#d3cccc] hover:border-[#8a8383] hover:text-white",
       violet:
-        "border-[#433066] bg-[#100c18] text-[#d8caf7] hover:border-[#5a4295] hover:text-white",
+        "border-[#3f4049] bg-[#141418] text-[#d1d2db] hover:border-[#878992] hover:text-white",
       cream:
-        "border-[#7e7255] bg-[#171209] text-[#efe5cf] hover:border-[#efe5cf] hover:text-white",
+        "border-[#53504a] bg-[#171615] text-[#e0ddd6] hover:border-[#9a968d] hover:text-white",
       green:
-        "border-[#1e7f54] bg-[#072a1d] text-[#b7ffd8] hover:border-[#34c97f] hover:text-white",
+        "border-[#3c443d] bg-[#131613] text-[#d0d7d0] hover:border-[#899089] hover:text-white",
       neutral:
-        "border-[#37311c] bg-[#15120b] text-neutral-300 hover:border-[#a38d3a] hover:text-white",
+        "border-[#3d3d3d] bg-[#151515] text-neutral-300 hover:border-[#8a8a8a] hover:text-white",
     } as const
   )[tone];
 
 const toneBarClass = (tone: PosterTone) =>
   (
     {
-      amber: "bg-[#f7b22c]",
-      red: "bg-[#e53d2d]",
-      violet: "bg-[#5a4295]",
-      cream: "bg-[#efe5cf]",
-      green: "bg-[#34c97f]",
+      amber: "bg-[#cfcfcf]",
+      red: "bg-[#b5b5b5]",
+      violet: "bg-[#9a9a9a]",
+      cream: "bg-[#e0e0e0]",
+      green: "bg-[#7e7e7e]",
     } as const
   )[tone];
 
@@ -836,10 +836,10 @@ const midiLedToneClass = computed(
   () =>
     (
       {
-        connected: "bg-[#34c97f] shadow-[0_0_10px_rgba(52,201,127,0.7)]",
-        connecting: "bg-[#f7b22c] shadow-[0_0_10px_rgba(247,178,44,0.7)] animate-pulse",
-        error: "bg-[#e53d2d] shadow-[0_0_10px_rgba(229,61,45,0.55)]",
-        idle: "bg-[#6f6a59]",
+        connected: "bg-[#d7d7d7] shadow-[0_0_10px_rgba(215,215,215,0.45)]",
+        connecting: "bg-[#bdbdbd] shadow-[0_0_10px_rgba(189,189,189,0.55)] animate-pulse",
+        error: "bg-[#8a8a8a] shadow-[0_0_10px_rgba(138,138,138,0.45)]",
+        idle: "bg-[#5e5e5e]",
       } as const
     )[midiStatusState.value]
 );
@@ -848,10 +848,10 @@ const midiStatusBadgeClass = computed(
   () =>
     (
       {
-        connected: "border-[#1f593f] bg-[#0a1f16] text-[#baf6d5]",
-        connecting: "border-[#7d6825] bg-[#1a1408] text-[#f7d167]",
-        error: "border-[#6e2a1d] bg-[#170d0b] text-[#f28b72]",
-        idle: "border-[#323128] bg-[#11110d] text-[#b6b1a0]",
+        connected: "border-[#4a4a4a] bg-[#141414] text-[#e0e0e0]",
+        connecting: "border-[#5b5b5b] bg-[#171717] text-[#d7d7d7]",
+        error: "border-[#4b4b4b] bg-[#151515] text-[#d2d2d2]",
+        idle: "border-[#323232] bg-[#111111] text-[#b6b6b6]",
       } as const
     )[midiStatusState.value]
 );

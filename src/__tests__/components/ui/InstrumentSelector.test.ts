@@ -189,8 +189,8 @@ describe('InstrumentSelector.vue', () => {
 
     expect(trigger.classes()).toContain('max-w-[144px]')
     expect(trigger.text()).toContain('triangle')
-    expect(selected.classes()).toContain('border-[#1e7f54]')
-    expect(selected.classes()).toContain('bg-[#072a1d]')
+    expect(selected.classes()).toContain('border-[#8b8b8b]')
+    expect(selected.classes()).toContain('bg-[#242424]')
   })
 
   it('renders footer bank tabs with the shared panel aesthetic structure', async () => {

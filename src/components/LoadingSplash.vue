@@ -290,15 +290,15 @@ onUnmounted(() => {
 
       </div><!-- /content -->
 
-      <!-- Solfège syllable strip — ambient coloured decoration -->
+      <!-- Solfège syllable strip — ambient notation texture -->
       <div class="solfege-row" aria-hidden="true">
-        <span class="syl" style="--h: 0;   --d: 0s">DO</span>
-        <span class="syl" style="--h: 30;  --d: 0.12s">RE</span>
-        <span class="syl" style="--h: 55;  --d: 0.24s">MI</span>
-        <span class="syl" style="--h: 120; --d: 0.36s">FA</span>
-        <span class="syl" style="--h: 200; --d: 0.48s">SOL</span>
-        <span class="syl" style="--h: 260; --d: 0.60s">LA</span>
-        <span class="syl" style="--h: 290; --d: 0.72s">TI</span>
+        <span class="syl" style="--d: 0s">DO</span>
+        <span class="syl" style="--d: 0.12s">RE</span>
+        <span class="syl" style="--d: 0.24s">MI</span>
+        <span class="syl" style="--d: 0.36s">FA</span>
+        <span class="syl" style="--d: 0.48s">SOL</span>
+        <span class="syl" style="--d: 0.60s">LA</span>
+        <span class="syl" style="--d: 0.72s">TI</span>
       </div>
 
       <!-- Dev skip -->
@@ -364,7 +364,7 @@ onUnmounted(() => {
 .logo-glyph {
   font-size: 3rem;
   line-height: 1;
-  color: hsla(280, 70%, 62%, 0.85);
+  color: hsla(0, 0%, 82%, 0.85);
   flex-shrink: 0;
   animation: glyph-pulse 3s ease-in-out infinite;
 }
@@ -413,12 +413,7 @@ onUnmounted(() => {
   border-radius: 2px 2px 0 0;
   transform-origin: bottom center;
   transform: scaleY(0.05);
-  /* subtle purple-to-violet shift across bars */
-  background: hsl(
-    calc(270 + var(--i, 1) * 2.5),
-    68%,
-    calc(52% + var(--i, 1) * 1.5%)
-  );
+  background: hsl(0, 0%, calc(30% + var(--i, 1) * 2.2%));
   animation:
     wave-live calc(0.48s + var(--i, 1) * 0.027s) ease-in-out infinite alternate;
   animation-delay: calc((var(--i, 1) - 1) * 52ms);
@@ -466,7 +461,7 @@ onUnmounted(() => {
   font-family: 'Courier New', Courier, monospace;
   font-size: 1.6rem;
   font-weight: 400;
-  color: hsla(280, 70%, 62%, 0.65);
+  color: hsla(0, 0%, 62%, 0.65);
   margin-left: 0.1rem;
 }
 
@@ -481,12 +476,12 @@ onUnmounted(() => {
   height: 100%;
   background: linear-gradient(
     90deg,
-    hsla(280, 70%, 48%, 0.9),
-    hsla(280, 70%, 70%, 1)
+    hsla(0, 0%, 42%, 0.9),
+    hsla(0, 0%, 78%, 1)
   );
   border-radius: 1px;
   transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  box-shadow: 0 0 14px hsla(280, 70%, 62%, 0.65);
+  box-shadow: 0 0 14px hsla(0, 0%, 70%, 0.22);
 }
 
 /* ─── Status messages ────────────────────────────────── */
@@ -510,13 +505,13 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: hsla(280, 65%, 72%, 0.9);
+  color: hsla(0, 0%, 78%, 0.9);
   margin: 0;
   animation: step-in 0.25s ease;
 }
 
 .status-step--midi {
-  color: hsla(190, 68%, 72%, 0.85);
+  color: hsla(0, 0%, 70%, 0.85);
 }
 
 .midi-inline {
@@ -550,7 +545,7 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: hsla(40, 85%, 65%, 0.65);
+  color: hsla(0, 0%, 58%, 0.72);
   margin: 0;
 }
 
@@ -583,8 +578,8 @@ onUnmounted(() => {
   width: 0.32rem;
   height: 0.32rem;
   border-radius: 50%;
-  background: hsla(150, 65%, 62%, 1);
-  box-shadow: 0 0 8px hsla(150, 65%, 62%, 0.65);
+  background: hsla(0, 0%, 78%, 1);
+  box-shadow: 0 0 8px hsla(0, 0%, 76%, 0.24);
   flex-shrink: 0;
 }
 
@@ -593,7 +588,7 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: hsla(150, 55%, 62%, 0.8);
+  color: hsla(0, 0%, 74%, 0.8);
 }
 
 .ready-midi {
@@ -602,7 +597,7 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: hsla(190, 68%, 72%, 0.85);
+  color: hsla(0, 0%, 70%, 0.85);
 }
 
 /* ─── Error ──────────────────────────────────────────── */
@@ -611,10 +606,10 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 0.55rem;
   padding: 1rem;
-  border: 1px solid hsla(0, 70%, 50%, 0.18);
-  border-left: 2px solid hsla(0, 70%, 55%, 0.5);
+  border: 1px solid hsla(0, 0%, 100%, 0.08);
+  border-left: 2px solid hsla(0, 0%, 72%, 0.5);
   border-radius: 3px;
-  background: hsla(0, 70%, 50%, 0.05);
+  background: hsla(0, 0%, 100%, 0.04);
   margin-top: 0.5rem;
 }
 
@@ -623,7 +618,7 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: hsla(0, 70%, 62%, 0.9);
+  color: hsla(0, 0%, 84%, 0.9);
   margin: 0;
 }
 
@@ -660,9 +655,9 @@ onUnmounted(() => {
   font-size: 1.6rem;
   letter-spacing: 0.22em;
   padding: 0.85rem 2rem 0.85rem 2.5rem; /* extra left for letter-spacing */
-  background: hsla(150, 65%, 22%, 0.22);
-  border: 1px solid hsla(150, 65%, 55%, 0.35);
-  color: hsla(150, 65%, 65%, 1);
+  background: hsla(0, 0%, 100%, 0.08);
+  border: 1px solid hsla(0, 0%, 82%, 0.24);
+  color: hsla(0, 0%, 92%, 1);
   width: 100%;
   animation: start-glow 2.2s ease-in-out infinite;
 }
@@ -670,14 +665,14 @@ onUnmounted(() => {
 @keyframes start-glow {
   0%, 100% {
     box-shadow:
-      0 0 10px hsla(150, 65%, 62%, 0.15),
+      0 0 10px hsla(0, 0%, 84%, 0.08),
       inset 0 0 0 transparent;
   }
   50% {
     box-shadow:
-      0 0 28px hsla(150, 65%, 62%, 0.45),
-      0 0 56px hsla(150, 65%, 62%, 0.12),
-      inset 0 0 14px hsla(150, 65%, 62%, 0.04);
+      0 0 24px hsla(0, 0%, 86%, 0.14),
+      0 0 44px hsla(0, 0%, 86%, 0.08),
+      inset 0 0 14px hsla(0, 0%, 92%, 0.03);
   }
 }
 
@@ -685,9 +680,9 @@ onUnmounted(() => {
 .btn--audio {
   font-size: 0.58rem;
   padding: 0.7rem 1.25rem;
-  background: hsla(280, 70%, 28%, 0.18);
-  border: 1px solid hsla(280, 70%, 62%, 0.28);
-  color: hsla(280, 70%, 75%, 1);
+  background: hsla(0, 0%, 100%, 0.06);
+  border: 1px solid hsla(0, 0%, 76%, 0.22);
+  color: hsla(0, 0%, 82%, 1);
   align-self: flex-start;
 }
 
@@ -703,9 +698,9 @@ onUnmounted(() => {
 .btn--retry {
   font-size: 0.52rem;
   padding: 0.5rem 1rem;
-  background: hsla(0, 70%, 38%, 0.18);
-  border: 1px solid hsla(0, 70%, 50%, 0.28);
-  color: hsla(0, 70%, 68%, 1);
+  background: hsla(0, 0%, 100%, 0.06);
+  border: 1px solid hsla(0, 0%, 72%, 0.22);
+  color: hsla(0, 0%, 82%, 1);
   align-self: flex-start;
 }
 
@@ -730,7 +725,7 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: hsl(var(--h, 0), 62%, 60%);
+  color: hsla(0, 0%, 74%, 0.42);
   opacity: 0.4;
   animation: syl-float 3.2s ease-in-out infinite alternate;
   animation-delay: var(--d, 0s);

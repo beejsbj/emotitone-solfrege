@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<Props>(), {
   isDisabled: false,
   mode: "interactive",
   showProgress: true,
-  themeColor: "hsla(158, 100%, 53%, 1)",
+  themeColor: "hsla(0, 0%, 82%, 1)",
   formatValue: (value: number) => value.toString(),
 });
 

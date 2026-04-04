@@ -168,6 +168,32 @@ describe("Patterns Store", () => {
     expect(patternsStore.currentSketchMeta.bpm).toBe(120);
   });
 
+  it("records load and append mutations for the active desk", () => {
+    const pattern = createPattern({
+      notes: [createPatternNote()],
+      noteCount: 1,
+      duration: 400,
+    });
+
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    expect(patternsStore.lastSketchMutation).toMatchObject({
+      type: "load",
+      segment: "base",
+      affectedIndex: 0,
+    });
+
+    sequenceDateNow(dateNowSpy, [2000, 2001]);
+    dispatchLoggedNote(patternsStore, "note-a", "D4", 1);
+
+    expect(patternsStore.lastSketchMutation).toMatchObject({
+      type: "append",
+      segment: "live",
+      affectedIndex: 1,
+    });
+  });
+
   it("saves the combined sketch when sending a continued pattern", () => {
     const pattern = createPattern();
 
@@ -197,6 +223,12 @@ describe("Patterns Store", () => {
     expect(savedPattern?.instrument).toBe("piano");
     expect(patternsStore.loadedBaseNotes).toEqual([]);
     expect(patternsStore.loggedNotes).toEqual([]);
+    expect(patternsStore.isStripCleared).toBe(true);
+    expect(patternsStore.lastSketchMutation).toMatchObject({
+      type: "send",
+      segment: "desk",
+      affectedIndex: null,
+    });
   });
 
   it("removes live notes before loaded base notes when undoing the current sketch", () => {
@@ -214,9 +246,19 @@ describe("Patterns Store", () => {
     expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual([
       "C4",
     ]);
+    expect(patternsStore.lastSketchMutation).toMatchObject({
+      type: "delete",
+      segment: "live",
+      affectedIndex: 0,
+    });
 
     patternsStore.removeLastFromCurrentSketch();
     expect(patternsStore.currentSketchNotes).toEqual([]);
+    expect(patternsStore.lastSketchMutation).toMatchObject({
+      type: "delete",
+      segment: "base",
+      affectedIndex: null,
+    });
   });
 
   it("normalizes the seam between a loaded pattern and resumed live notes", () => {

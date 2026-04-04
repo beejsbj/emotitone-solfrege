@@ -1,291 +1,131 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance for coding agents working in this repository.
 
 ## Project Overview
 
-EmotiTone Solfège is an interactive music theory web application that teaches solfège through emotional experiences. Built with Vue 3, TypeScript, and Tone.js, it provides a sequencer-based interface for learning musical scales and intervals.
+EmotiTone Solfege is a browser-based pocket instrument for quick note play, fast pattern sketching, and intuitive musical exploration. It is built for immediacy first, then uses solfege, color, and reactive visuals to help musical understanding emerge through play instead of requiring theory up front.
+
+The codebase is brownfield and close to feature complete for its intended purpose. Current project work is a finishing pass focused on polish, correctness, cohesion, and instrument feel rather than major feature expansion.
+
+## Current Planning Context
+
+Planning artifacts live in `.planning/`.
+
+- `.planning/PROJECT.md`: project context and scope
+- `.planning/REQUIREMENTS.md`: current v1/v2 requirements
+- `.planning/ROADMAP.md`: four-phase finishing roadmap
+- `.planning/STATE.md`: current project state
+- `.planning/codebase/`: architecture, stack, conventions, testing, and concerns maps
+
+Current roadmap:
+
+1. `Phase 1: Instrument Trust & Flow`
+2. `Phase 2: Color System Correctness`
+3. `Phase 3: Visual Config & Theme Cohesion`
+4. `Phase 4: Pattern Workflow Cohesion`
+
+Keep unresolved harmonic-teaching surface work, including any `FloatingPopup` redesign, out of v1 unless requirements are explicitly updated.
 
 ## Common Development Commands
 
-### Building and Development
-
 ```bash
-# Start development server (runs on port 5175)
+# Dev server
 bun run dev
 
-# Build for production
+# Production build
 bun run build
 
-# Preview production build
+# Preview built app
 bun run preview
-```
 
-### Code Quality
-
-```bash
-# Run linting with auto-fix
-bun run lint
-
-# Type checking without compilation
+# Type checking
 bun run type-check
 
-# Full build process (includes type checking)
-bun run build
+# Tests
+bun run test:run
+bun run test:e2e
 ```
 
-## Development Guidelines
+Notes:
 
-### Preferred Package Manager
+- Package manager/runtime is Bun, pinned in `package.json`.
+- The current lint script is known to be broken and should not be treated as a trustworthy guardrail until fixed.
+- The current test suite is not fully green; treat test results carefully and verify behavior manually for UI/audio work.
 
-- Use Bun as the primary package manager and runtime for this project
-- Bun offers faster package management and script execution compared to npm/yarn
-- All development commands and scripts are configured for Bun
+## Stack
+
+- Vue 3 with `<script setup>` and TypeScript
+- Pinia for app state
+- Vite for development/build
+- Tailwind CSS for styling
+- Strudel + Superdough for sequencing/audio runtime
+- Tonal.js for music theory helpers
+- GSAP for selected animation work
+- PWA support via `vite-plugin-pwa`
 
 ## Architecture Overview
 
-### Core Systems
+This is a client-only single-screen app. There is no backend in this repository.
 
-**Music Theory System** (`src/services/music.ts`)
+Key layers:
 
-- Manages scales, keys, and solfège data using Tonal.js
-- Handles frequency calculations and note name conversions
-- Provides melody categorization and search functionality
+- `src/main.ts`, `src/App.vue`: bootstrap and root shell
+- `src/components/`: UI surfaces, especially keyboard, patterns, config, overlays, and visuals
+- `src/composables/`: reusable interaction/runtime logic
+- `src/composables/canvas/`: unified visual rendering system
+- `src/stores/`: Pinia stores for music, patterns, instrument state, keyboard drawer, and visual config
+- `src/services/`: music theory, audio runtime, Strudel notation, ROLI sync, color helpers
+- `src/data/`: musical reference data and visual config metadata/presets
+- `src/types/`, `src/utils/`: shared contracts and helpers
 
-**Audio System** (`src/services/audio.ts`)
+Cross-cutting note playback currently fans out through browser `CustomEvent`s such as `note-played` and `note-released`. Be careful when changing note payloads or listeners because audio, visuals, pattern capture, and MIDI sync all depend on them.
 
-- Manages Tone.js audio context and instrument initialization
-- Handles polyphonic note attack/release with unique note IDs
-- Supports both note names and frequency-based playback
+## Product Priorities
 
-**State Management** (Pinia stores in `src/stores/`)
+Optimize for the instrument feeling:
 
-- `music.ts`: Current key, mode, active notes, and solfège data
-- `instrument.ts`: Current instrument selection and configuration
-- `sequencer.ts`: Sequencer state and transport controls
-- `visualConfig.ts`: Visual effects and animation settings
+- immediate
+- smooth
+- trustworthy
+- visually coherent
+- musically intentional
 
-### Component Architecture
+Do not accidentally turn the app into a mini-DAW or a generic web dashboard.
 
-**Main Application Flow**
+For shell UI:
 
-1. `App.vue` - Root component with loading state management
-2. `SequencerSection.vue` - Main sequencer interface
-3. `UnifiedVisualEffects.vue` - Canvas-based visual effects system
-4. `CanvasSolfegePalette.vue` - Interactive solfège wheel interface
+- calmer neutral chrome is preferred
+- vivid chromatic color should stay focused on musical surfaces and music-linked indicators
 
-**Sequencer Components**
+For scope:
 
-- Grid-based sequencer with circular and linear layouts
-- Transport controls (play/pause/stop/tempo)
-- Per-track instrument and property controls
-- Real-time visual feedback during playback
+- finishing and polish beat novelty
+- bug fixes and misleading behavior beat adding features
+- pattern workflow is important, but only after the base instrument is stable and visually coherent
 
-**Visual System**
+## File and Editing Guidance
 
-- Canvas-based unified visual effects (particles, ambient, strings)
-- GSAP animations for smooth transitions
-- Responsive design with mobile optimization
-- Color system tied to musical intervals and emotions
+- Preserve existing Vue 3 + Pinia patterns unless there is a clear reason to simplify them.
+- Prefer small, local changes over sweeping architecture rewrites during polish phases.
+- Keep file names and component names aligned with the existing conventions in `src/components/`, `src/composables/`, and `src/stores/`.
+- When changing visual config shape, update metadata, store behavior, and any dependent UI together.
+- When changing audio or note-event behavior, audit downstream consumers in patterns, visuals, and MIDI integration.
 
-### Key Composables
+## Known Risks
 
-**Audio & Music**
+- `src/services/superdoughAudio.ts` and startup/loading flows are central and somewhat fragile.
+- Visual config is metadata-driven and can drift if schema, controls, and behavior get out of sync.
+- The repo has stale tests and a broken lint path, so manual verification is still important.
+- There may be unrelated local work in the tree; do not overwrite user changes outside your task.
 
-- `useSequencerTransport.ts`: Transport controls and timing
-- `useSequencerGrid.ts`: Grid state and note management
-- `useSolfegeInteraction.ts`: Solfège palette interactions
+## Verification Expectations
 
-**Visual Effects**
+For UI or interaction work, prefer:
 
-- `useUnifiedCanvas.ts`: Canvas rendering coordination
-- `useParticleSystem.ts`: Particle animations for note events
-- `useColorSystem.ts`: Color mapping for musical elements
+1. targeted reading of affected stores/composables/components
+2. local type-check/build/test commands when relevant
+3. manual reasoning through user-visible flows
+4. explicit notes about what was and was not verified
 
-**Utilities**
-
-- `useAppLoading.ts`: Application initialization state
-- `useKeyboardControls.ts`: Keyboard shortcuts and navigation
-- `useTooltip.ts`: Global tooltip system
-
-## Development Guidelines
-
-### Vue 3 Coding Standards
-
-**Component Structure** (always in this order):
-
-```vue
-<script setup lang="ts">
-// TypeScript imports and logic
-</script>
-
-<template>
-  <!-- HTML template -->
-</template>
-
-<style scoped>
-/* Only if needed - prefer Tailwind CSS */
-</style>
-```
-
-**Key Principles**:
-
-- Use Vue 3 Composition API exclusively
-- Prefer `<script setup>` with TypeScript
-- Mobile-first design (ignore desktop)
-- Use HSLA instead of RGBA/HEX colors
-- GSAP for performant animations
-- Avoid emits - use composables for shared state
-- Expert-level unique UI/UX patterns
-
-### File Organization
-
-- Components use single-file Vue components with TypeScript
-- Composables are grouped by functionality (audio, visual, sequencer)
-- All TypeScript types/interfaces go in `src/types/` directory
-- Data files contain scales, instruments, and musical patterns
-
-### Styling Guidelines
-
-- **Primary**: Tailwind CSS for most styling
-- **Secondary**: Custom CSS only for complex solutions that are too verbose in Tailwind
-- **Colors**: Always use HSLA format instead of RGBA or HEX
-- **Mobile**: Design for mobile first, intuitive touch interactions
-
-### Audio Context Management
-
-- Audio initialization requires user interaction (handled in `AudioInitializer.vue`)
-- Always check audio context state before playing notes
-- Use note IDs for polyphonic note tracking and release
-
-### Visual Effects
-
-- Canvas operations are coordinated through `UnifiedVisualEffects.vue`
-- Effects respond to `note-played` and `note-released` custom events
-- Animation cleanup is handled through `useAnimationLifecycle.ts`
-
-### State Management Patterns
-
-- Pinia stores use composition API with TypeScript
-- Reactive state is kept minimal and derived values use computed properties
-- Store persistence is handled through pinia-plugin-persistedstate
-
-## Testing and Verification
-
-### Manual Testing Workflow
-
-1. Start dev server and verify audio initialization
-2. Test solfège palette interactions (click, drag, hover)
-3. Verify sequencer playback with different instruments
-4. Check visual effects respond to note events
-5. Test keyboard shortcuts and transport controls
-
-### Common Issues
-
-- Audio context suspended: Check user interaction handling
-- Note stuck playing: Verify note ID tracking in audio service
-- Visual effects lag: Monitor canvas performance and cleanup
-- Type errors: Run `npm run type-check` before builds
-
-## Refactoring Plans
-
-The project has detailed refactoring plans in `/plans/refactor/` organized by priority:
-
-**High Priority**: Logging cleanup, TonalJS integration, color system consolidation
-**Medium Priority**: TypeScript migration, configuration store splitting, large file breakdown  
-**Low Priority**: UI standardization, performance optimizations
-**Features**: Record player visuals, chord buttons, session history
-
-Each phase includes detailed implementation steps, verification criteria, and completion definitions.
-
-## Project Structure Notes
-
-**Technology Stack**:
-
-- Vue 3 Composition API with `<script setup>` TypeScript
-- Tone.js (^14.7.77) for audio synthesis and timing
-- Tonal.js (^4.14.1) for music theory utilities
-- GSAP for performant animations
-- Tailwind CSS for styling (HSLA colors only)
-- Pinia for state management
-- Vite for build tooling with TypeScript support
-- Path alias `@/` maps to `src/`
-
-**Directory Structure**:
-
-```
-/src
-├── assets/            # Static assets (images, fonts)
-├── components/        # Vue components (Composition API + TS)
-├── composables/       # Vue 3 composables
-│   ├── canvas/       # Canvas rendering hooks
-│   └── palette/      # Palette functionality
-├── data/             # Static data (scales, instruments)
-├── lib/              # Third-party extensions
-├── services/         # Core services (audio, music)
-├── stores/           # Pinia stores
-├── styles/           # Global styles
-├── types/            # TypeScript definitions
-└── utils/            # Utility functions
-```
-
-## Performance Considerations
-
-- **Mobile Optimization**: Touch-friendly interfaces, gesture-based interactions
-- **Animations**: GSAP for performant animations over CSS transitions
-- **Canvas**: Operations throttled, requestAnimationFrame for smooth rendering
-- **Audio**: Context lazily initialized on user interaction
-- **Loading**: Large audio files loaded asynchronously through instrument system
-- **State**: Minimal reactive state, computed properties for derived values
-- **Code Splitting**: TypeScript types in `/types`, composables for reusable logic
-
-### **Ideal System Families** (is this a good idea?)
-
-```
-┌─── DUAL COLOR SYSTEMS ────────────────────────┐
-│ Music Color System (scale-degree based)      │
-│ ├─ Emotional note colors                     │
-│ └─ Dynamic hue generation                    │
-│                                              │
-│ UI Color System (design tokens - TBD)        │
-│ ├─ Functional interface colors               │
-│ └─ Consistent design language                │
-└──────────────────────────────────────────────┘
-                     │
-┌─── THEORY → AUDIO PIPELINE ───────────────────┐
-│ Tonal.js (theory) → Music Service (playback) │
-│              ↓                               │
-│         Tone.js (audio engine)               │
-│              ↓                               │
-│      Instrument System (samples/synths)      │
-└───────────────────────────────────────────────┘
-                     │
-┌─── MELODY ←→ SEQUENCER RELATIONSHIP ──────────┐
-│ Melody System (data: notes, patterns)        │
-│           ↓                                  │
-│ Sequencer System (playback: loops, timing)   │
-│ ├─ Multiple track support                    │
-│ └─ Circular loop constraints                 │
-└───────────────────────────────────────────────┘
-                     │
-┌─── VISUAL SYSTEM (Multi-modal) ───────────────┐
-│ Canvas Animations (reactive to music)        │
-│ ├─ Strings, blobs, particles, ambiance      │
-│ └─ Beat/rhythm reactive effects              │
-│                                              │
-│ Floating Popup (theory descriptions)         │
-│ └─ Real-time harmonic analysis               │
-└───────────────────────────────────────────────┘
-                     │
-┌─── INTUITIVE INTERFACES ──────────────────────┐
-│ Palette Interface (keyboard-like)            │
-│ ├─ Portrait-friendly note playing            │
-│ ├─ Key/scale changes                         │
-│ └─ Session history tracking                  │
-│                                              │
-│ Circular Sequencer (record player style)     │
-│ ├─ 7 concentric tracks                       │
-│ ├─ 16 overlapping circles per track          │
-│ └─ SVG stroke-based visualization            │
-└───────────────────────────────────────────────┘
-```
+If you touch roadmap-scoped work, keep the implementation aligned with `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md` rather than improvising scope.

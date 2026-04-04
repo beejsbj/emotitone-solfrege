@@ -117,6 +117,21 @@ export const useMusicStore = defineStore(
       };
     }
 
+    function resolvePlayableInstrument(specificInstrument?: string): string | null {
+      if (specificInstrument) {
+        return specificInstrument;
+      }
+
+      if (
+        instrumentStore.isWarmingInstrument
+        || instrumentStore.readyInstrument !== instrumentStore.currentInstrument
+      ) {
+        return null;
+      }
+
+      return instrumentStore.readyInstrument;
+    }
+
     // Melody-related getters (removed)
 
     function getBaseOctave(
@@ -223,6 +238,11 @@ export const useMusicStore = defineStore(
 
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
+        const playableInstrument = resolvePlayableInstrument();
+        if (!playableInstrument) {
+          return;
+        }
+
         const noteContext = getCurrentNoteContext();
         currentNote.value = solfege.name;
         isPlaying.value = true;
@@ -236,7 +256,7 @@ export const useMusicStore = defineStore(
         await superdoughAudio.attackNote(
           `play_${noteName}_${Date.now()}`,
           noteName,
-          instrumentStore.currentInstrument
+          playableInstrument
         );
 
         const notePlayedEvent = new CustomEvent("note-played", {
@@ -247,7 +267,7 @@ export const useMusicStore = defineStore(
             solfegeIndex,
             octave: finalOctave,
             ...noteContext,
-            instrument: instrumentStore.currentInstrument,
+            instrument: playableInstrument,
             instrumentConfig: null,
           },
         });
@@ -282,6 +302,11 @@ export const useMusicStore = defineStore(
 
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
+        const playableInstrument = resolvePlayableInstrument();
+        if (!playableInstrument) {
+          return null;
+        }
+
         const noteContext = getCurrentNoteContext();
         const frequency = musicTheory.getNoteFrequency(
           solfegeIndex,
@@ -301,7 +326,7 @@ export const useMusicStore = defineStore(
         await superdoughAudio.attackNote(
           cleanNoteId,
           noteName,
-          instrumentStore.currentInstrument
+          playableInstrument
         );
 
         const noteId: string = cleanNoteId;
@@ -314,6 +339,7 @@ export const useMusicStore = defineStore(
             octave: finalOctave,
             noteId,
             noteName,
+            instrument: playableInstrument,
             ...noteContext,
           };
 
@@ -330,7 +356,7 @@ export const useMusicStore = defineStore(
               noteId,
               noteName,
               ...noteContext,
-              instrument: instrumentStore.currentInstrument,
+              instrument: playableInstrument,
               instrumentConfig: null,
             },
           });
@@ -376,6 +402,11 @@ export const useMusicStore = defineStore(
 
       const solfege = solfegeData.value[solfegeIndex];
       if (solfege) {
+        const playableInstrument = resolvePlayableInstrument(instrument);
+        if (!playableInstrument) {
+          return "";
+        }
+
         const noteContext = getCurrentNoteContext();
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
         const frequency = musicTheory.getNoteFrequency(
@@ -389,11 +420,8 @@ export const useMusicStore = defineStore(
         await superdoughAudio.playNoteWithDuration(
           noteName,
           durationMs,
-          instrument || instrumentStore.currentInstrument
+          playableInstrument
         );
-
-        const instrumentToReport =
-          instrument || instrumentStore.currentInstrument;
 
         const notePlayedEvent = new CustomEvent("note-played", {
           detail: {
@@ -405,7 +433,7 @@ export const useMusicStore = defineStore(
             duration,
             time,
             ...noteContext,
-            instrument: instrumentToReport,
+            instrument: playableInstrument,
             instrumentConfig: null,
             sequencerInstrument: instrument,
           },
@@ -486,7 +514,7 @@ export const useMusicStore = defineStore(
               octave: activeNote.octave,
               mode: activeNote.mode,
               key: activeNote.key,
-              instrument: instrumentStore.currentInstrument,
+              instrument: activeNote.instrument,
               instrumentConfig: null,
             },
           });
@@ -519,7 +547,7 @@ export const useMusicStore = defineStore(
               octave: activeNote.octave,
               mode: activeNote.mode,
               key: activeNote.key,
-              instrument: instrumentStore.currentInstrument,
+              instrument: activeNote.instrument,
               instrumentConfig: null,
             },
           });

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
 import { createTestWrapper } from "../../helpers/test-utils";
 import KeyboardActionBar from "@/components/keyboard/KeyboardActionBar.vue";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
@@ -25,11 +24,6 @@ const mockMusicStore = {
   setMode: vi.fn(),
 };
 
-const mockPatternsStore = {
-  removeLastFromCurrentSketch: vi.fn(),
-  sendCurrentPattern: vi.fn(),
-};
-
 const mockVisualConfigStore = {
   config: {
     liveStrip: {
@@ -37,12 +31,6 @@ const mockVisualConfigStore = {
     },
   },
   updateConfig: vi.fn(),
-};
-
-const mockMirror = {
-  toggle: vi.fn(),
-  isPlaying: ref(false),
-  hasPlayableCode: ref(true),
 };
 
 vi.mock("@/stores/keyboardDrawer", () => ({
@@ -53,16 +41,8 @@ vi.mock("@/stores/music", () => ({
   useMusicStore: () => mockMusicStore,
 }));
 
-vi.mock("@/stores/patterns", () => ({
-  usePatternsStore: () => mockPatternsStore,
-}));
-
 vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: () => mockVisualConfigStore,
-}));
-
-vi.mock("@/composables/useLiveStrudelMirror", () => ({
-  useLiveStrudelMirror: () => mockMirror,
 }));
 
 vi.mock("@/components/knobs", () => ({
@@ -97,8 +77,6 @@ describe("KeyboardActionBar.vue", () => {
     mockKeyboardDrawerStore.keyboardConfig.rowCount = 3;
     mockKeyboardDrawerStore.drawer.isOpen = false;
     mockVisualConfigStore.config.liveStrip.bpm = 120;
-    mockMirror.isPlaying.value = false;
-    mockMirror.hasPlayableCode.value = true;
   });
 
   afterEach(() => {
@@ -146,5 +124,18 @@ describe("KeyboardActionBar.vue", () => {
     modeKnob?.vm.$emit("update:modelValue", "dorian");
 
     expect(mockMusicStore.setMode).toHaveBeenCalledWith("dorian");
+  });
+
+  it("keeps only instrument and configuration knobs in the action bar", () => {
+    wrapper = createTestWrapper(KeyboardActionBar);
+
+    const labels = wrapper
+      .findAllComponents({ name: "Knob" })
+      .map((component: any) => component.props("label"));
+
+    expect(labels).toEqual(["Key", "Mode", "BPM", "Octave", "Rows", "Drawer"]);
+    expect(labels).not.toContain("Undo");
+    expect(labels).not.toContain("Play");
+    expect(labels).not.toContain("Send");
   });
 });

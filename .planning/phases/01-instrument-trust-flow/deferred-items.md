@@ -1,0 +1,1 @@
+- 2026-04-02: `bun run type-check` fails in `src/components/patterns/LiveStrip.vue` because locally edited `Token` objects at lines 232 and 249 are missing required `noteIndex`. This is outside plan `01-02` scope and was not modified here.

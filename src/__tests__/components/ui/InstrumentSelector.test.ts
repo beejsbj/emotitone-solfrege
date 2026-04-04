@@ -6,6 +6,10 @@ import InstrumentSelector from '@/components/InstrumentSelector.vue'
 
 const instrumentStore = vi.hoisted(() => ({
   currentInstrument: 'piano',
+  readyInstrument: 'piano',
+  warmingInstrument: null as string | null,
+  isWarmingInstrument: false,
+  instrumentStatus: 'ready',
   initializeInstruments: vi.fn().mockResolvedValue(undefined),
   setInstrument: vi.fn(),
 }))
@@ -109,6 +113,10 @@ describe('InstrumentSelector.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     instrumentStore.currentInstrument = 'piano'
+    instrumentStore.readyInstrument = 'piano'
+    instrumentStore.warmingInstrument = null
+    instrumentStore.isWarmingInstrument = false
+    instrumentStore.instrumentStatus = 'ready'
     instrumentStore.initializeInstruments.mockResolvedValue(undefined)
     getRegisteredSounds.mockReturnValue(['triangle', 'gm_trumpet', 'vibraphone', 'piano'])
   })
@@ -191,6 +199,22 @@ describe('InstrumentSelector.vue', () => {
     expect(trigger.text()).toContain('triangle')
     expect(selected.classes()).toContain('border-[#1e7f54]')
     expect(selected.classes()).toContain('bg-[#072a1d]')
+  })
+
+  it('shows an honest warming state when the selected instrument is not ready yet', async () => {
+    instrumentStore.currentInstrument = 'triangle'
+    instrumentStore.readyInstrument = 'piano'
+    instrumentStore.warmingInstrument = 'triangle'
+    instrumentStore.isWarmingInstrument = true
+    instrumentStore.instrumentStatus = 'warming'
+
+    wrapper = await mountSelector()
+
+    expect(wrapper.find('[data-testid="instrument-selector-trigger"]').text()).toContain('triangle')
+    expect(wrapper.find('[data-testid="instrument-selector-status"]').attributes('aria-busy')).toBe('true')
+    expect(wrapper.find('[data-testid="instrument-selector-status"]').text()).toContain('warming...')
+    expect(wrapper.find('[data-testid="instrument-selector-status"]').text()).toContain('selected, not ready yet')
+    expect(wrapper.find('[data-testid="instrument-selector-ready"]').text()).toContain('piano')
   })
 
   it('renders footer bank tabs with the shared panel aesthetic structure', async () => {

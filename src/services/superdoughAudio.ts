@@ -6,7 +6,7 @@
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, releaseVoice, releaseAllVoices } from "superdough";
+import * as superdoughModule from "superdough";
 import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
@@ -14,6 +14,47 @@ import { registerSoundfonts } from "@strudel/soundfonts";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type { ChromaticNote, SolfegeData } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
+
+// Vite can occasionally serve a stale optimized copy of the patched dependency
+// after merges; namespace access plus guarded helpers avoids hard-crashing
+// module evaluation while still using the patched API when it is present.
+// @ts-ignore
+const superdoughApi = superdoughModule as any;
+const {
+  superdough,
+  initAudio,
+  registerSynthSounds,
+  samples,
+  getAudioContext: _getAudioContext,
+  getSuperdoughAudioController,
+  loadBuffer,
+  getSound,
+  soundMap,
+} = superdoughApi;
+const hasVoice =
+  typeof superdoughApi.hasVoice === "function"
+    ? // @ts-ignore
+      ((voiceId: string) => superdoughApi.hasVoice(voiceId))
+    : () => false;
+const stopVoice =
+  typeof superdoughApi.stopVoice === "function"
+    ? // @ts-ignore
+      ((voiceId: string, at?: number) =>
+        at === undefined ? superdoughApi.stopVoice(voiceId) : superdoughApi.stopVoice(voiceId, at))
+    : () => false;
+const releaseVoice =
+  typeof superdoughApi.releaseVoice === "function"
+    ? // @ts-ignore
+      ((voiceId: string, at?: number) =>
+        at === undefined
+          ? superdoughApi.releaseVoice(voiceId)
+          : superdoughApi.releaseVoice(voiceId, at))
+    : () => false;
+const releaseAllVoices =
+  typeof superdoughApi.releaseAllVoices === "function"
+    ? // @ts-ignore
+      ((at?: number) => (at === undefined ? superdoughApi.releaseAllVoices() : superdoughApi.releaseAllVoices(at)))
+    : () => undefined;
 
 /** Re-export so other modules can get the superdough AudioContext without importing Tone. */
 export function getAudioContext(): AudioContext {

@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 vi.unmock("@/services/music");
 vi.unmock("@/data");
 
+import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 
 const superdoughMocks = vi.hoisted(() => ({
@@ -33,6 +34,11 @@ describe("music store", () => {
     superdoughMocks.releaseNote.mockClear();
     superdoughMocks.releaseAll.mockClear();
     superdoughMocks.playNoteWithDuration.mockClear();
+    const instrumentStore = useInstrumentStore();
+    instrumentStore.currentInstrument = "piano";
+    instrumentStore.readyInstrument = "piano";
+    instrumentStore.warmingInstrument = null;
+    instrumentStore.instrumentStatus = "ready";
     if (typeof localStorage?.clear === "function") {
       localStorage.clear();
     }
@@ -153,6 +159,11 @@ describe("music store", () => {
 
   it("dispatches duration playback with the resolved note for the current mode", async () => {
     const musicStore = useMusicStore();
+    const instrumentStore = useInstrumentStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+
+    instrumentStore.currentInstrument = "organ_full";
+    instrumentStore.readyInstrument = "organ_full";
 
     musicStore.setMode("minor blues");
     const noteId = await musicStore.playNoteWithDuration(3, 4, "8n");
@@ -161,7 +172,42 @@ describe("music store", () => {
     expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
       "F#4",
       250,
-      "piano"
+      "organ_full"
     );
+    const notePlayedEvent = dispatchEventSpy.mock.calls.find(
+      ([event]) => event.type === "note-played"
+    )?.[0] as CustomEvent;
+    expect(notePlayedEvent.detail).toEqual(
+      expect.objectContaining({
+        note: expect.any(Object),
+        frequency: expect.any(Number),
+        noteName: "F#4",
+        solfegeIndex: 3,
+        octave: 4,
+        duration: "8n",
+        mode: "minor blues",
+        key: "C",
+        instrument: "organ_full",
+      })
+    );
+    dispatchEventSpy.mockRestore();
+  });
+
+  it("skips duration playback while the selected instrument is still warming", async () => {
+    const musicStore = useMusicStore();
+    const instrumentStore = useInstrumentStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+
+    instrumentStore.currentInstrument = "organ_full";
+    instrumentStore.readyInstrument = "piano";
+    instrumentStore.warmingInstrument = "organ_full";
+    instrumentStore.instrumentStatus = "warming";
+
+    const noteId = await musicStore.playNoteWithDuration(3, 4, "8n");
+
+    expect(noteId).toBe("");
+    expect(superdoughMocks.playNoteWithDuration).not.toHaveBeenCalled();
+    expect(dispatchEventSpy).not.toHaveBeenCalled();
+    dispatchEventSpy.mockRestore();
   });
 });

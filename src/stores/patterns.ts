@@ -23,6 +23,16 @@ const BEATS_PER_BAR = 4;
 const SILENCE_BOUNDARY_BARS = 1.5;
 const MIN_SILENCE_GAP_MS = 1500;
 
+type SketchMutationType = "append" | "load" | "delete" | "send";
+type SketchMutationSegment = "live" | "base" | "desk";
+
+interface SketchMutation {
+  type: SketchMutationType;
+  segment: SketchMutationSegment;
+  affectedIndex: number | null;
+  timestamp: number;
+}
+
 export const usePatternsStore = defineStore(
   "patterns",
   () => {
@@ -57,6 +67,7 @@ export const usePatternsStore = defineStore(
 
     // True immediately after Send, until first new note arrives
     const isStripCleared = ref(false);
+    const lastSketchMutation = ref<SketchMutation | null>(null);
 
     // Getters
     const noteCount = computed(() => loggedNotes.value.length);
@@ -217,6 +228,20 @@ export const usePatternsStore = defineStore(
 
     function clamp(value: number, min: number, max: number): number {
       return Math.min(max, Math.max(min, value));
+    }
+
+    function recordSketchMutation(
+      type: SketchMutationType,
+      segment: SketchMutationSegment,
+      affectedIndex: number | null,
+      timestamp = Date.now()
+    ): void {
+      lastSketchMutation.value = {
+        type,
+        segment,
+        affectedIndex,
+        timestamp,
+      };
     }
 
     function silenceGapThresholdMs(note: Partial<LogNote>, previousNote?: LogNote): number {
@@ -425,11 +450,17 @@ export const usePatternsStore = defineStore(
 
       // Create fresh boundary so new live notes start clean after the base
       setNextNoteAsNewPattern();
+      recordSketchMutation(
+        "load",
+        "base",
+        pattern.notes.length > 0 ? 0 : null
+      );
     }
 
     // Send the current working buffer as a new saved pattern, then clear the desk
     function sendCurrentPattern(): void {
       const allNotes = currentSketchNotes.value;
+      const sendTimestamp = Date.now();
 
       if (allNotes.length > 2) {
         const newPattern = createPatternFromNoteSet(allNotes, currentSketchMeta.value);
@@ -444,16 +475,27 @@ export const usePatternsStore = defineStore(
       loggedNotes.value = [];
       forceNextPatternStart.value = false;
       purgeOldPatterns();
+      recordSketchMutation("send", "desk", null, sendTimestamp);
     }
 
     function removeLastFromCurrentSketch(): void {
       if (currentWorkingNotes.value.length > 0) {
         loggedNotes.value = loggedNotes.value.slice(0, -1);
+        recordSketchMutation(
+          "delete",
+          "live",
+          currentSketchNotes.value.length > 0 ? currentSketchNotes.value.length - 1 : null
+        );
         return;
       }
 
       if (loadedBaseNotes.value.length > 0) {
         loadedBaseNotes.value = loadedBaseNotes.value.slice(0, -1);
+        recordSketchMutation(
+          "delete",
+          "base",
+          currentSketchNotes.value.length > 0 ? currentSketchNotes.value.length - 1 : null
+        );
       }
     }
 
@@ -579,6 +621,12 @@ export const usePatternsStore = defineStore(
 
       // Clear the strip-cleared flag now that a note has arrived
       isStripCleared.value = false;
+      recordSketchMutation(
+        "append",
+        "live",
+        currentSketchNotes.value.length > 0 ? currentSketchNotes.value.length - 1 : null,
+        releaseTime
+      );
 
       // Reset the force flag after using it
       if (forceNextPatternStart.value) {
@@ -680,6 +728,7 @@ export const usePatternsStore = defineStore(
       loadedBaseNotes,
       loadedBaseMeta,
       isStripCleared,
+      lastSketchMutation,
 
       // Getters
       noteCount,

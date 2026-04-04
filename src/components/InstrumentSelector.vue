@@ -32,6 +32,20 @@ const instrumentStore = useInstrumentStore();
 const currentInstrumentId = computed(
   () => props.currentInstrument || instrumentStore.currentInstrument
 );
+const readyInstrumentId = computed(
+  () => instrumentStore.readyInstrument || currentInstrumentId.value
+);
+const showSelectedInstrumentWarmingState = computed(() => {
+  const storeSelectedInstrument = instrumentStore.currentInstrument || currentInstrumentId.value;
+  const isStoreWarming =
+    Boolean(instrumentStore.isWarmingInstrument) || instrumentStore.instrumentStatus === "warming";
+
+  return (
+    currentInstrumentId.value === storeSelectedInstrument
+    && isStoreWarming
+    && readyInstrumentId.value !== currentInstrumentId.value
+  );
+});
 
 const allSounds = ref<string[]>([]);
 const query = ref("");
@@ -472,11 +486,21 @@ function selectInstrument(name: string, close: () => void) {
           <span class="absolute inset-y-[4px] left-[14px] w-px bg-current/90" />
         </span>
 
-        <span
-          class="truncate font-mono leading-none text-[#a9f4c8] transition-colors duration-200 group-hover:text-[#c6ffdf]"
-          :class="compact ? 'max-w-[82px]' : 'max-w-[126px]'"
-        >
-          {{ displayName(currentInstrumentId) }}
+        <span class="min-w-0 flex-1">
+          <span
+            class="block truncate font-mono leading-none text-[#a9f4c8] transition-colors duration-200 group-hover:text-[#c6ffdf]"
+            :class="compact ? 'max-w-[82px]' : 'max-w-[126px]'"
+          >
+            {{ displayName(currentInstrumentId) }}
+          </span>
+          <span
+            v-if="showSelectedInstrumentWarmingState"
+            data-testid="instrument-selector-status"
+            aria-busy="true"
+            class="mt-1 block truncate text-[7px] uppercase tracking-[0.14em] text-[#f7b22c]"
+          >
+            warming... selected, not ready yet
+          </span>
         </span>
         <ChevronDown
           :size="compact ? 12 : 14"
@@ -553,7 +577,15 @@ function selectInstrument(name: string, close: () => void) {
             <span
               class="hidden h-8 shrink-0 items-center border border-[#332b16] bg-[#141109] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#00ff88] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
             >
-              {{ displayName(currentInstrumentId) }}
+              <span
+                v-if="showSelectedInstrumentWarmingState"
+                data-testid="instrument-selector-ready"
+              >
+                ready: {{ displayName(readyInstrumentId) }}
+              </span>
+              <span v-else>
+                {{ displayName(currentInstrumentId) }}
+              </span>
             </span>
           </div>
         </template>

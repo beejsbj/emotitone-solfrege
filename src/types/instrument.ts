@@ -6,9 +6,32 @@
 /**
  * Instrument store state interface
  */
+export type InstrumentStatus = "ready" | "warming";
+
+export interface InstrumentReadyState {
+  /** Currently selected instrument shown in the UI */
+  currentInstrument: string;
+  /** Instrument whose samples are actually ready for playback */
+  readyInstrument: string;
+  /** Selected instrument that is still warming, if any */
+  warmingInstrument: string | null;
+  /** Whether the selected instrument is still warming */
+  isWarmingInstrument: boolean;
+  /** Honest readiness status for the selected instrument */
+  instrumentStatus: InstrumentStatus;
+}
+
 export interface InstrumentStoreState {
   /** Currently selected instrument */
   currentInstrument: string;
+  /** Instrument whose samples are actually ready for playback */
+  readyInstrument: string;
+  /** Selected instrument that is still warming */
+  warmingInstrument: string | null;
+  /** Whether the selected instrument is still warming */
+  isWarmingInstrument: boolean;
+  /** Honest readiness status for the selected instrument */
+  instrumentStatus: InstrumentStatus;
   /** Loading state for instrument initialization */
   isLoading: boolean;
   /** Map of initialized instruments */

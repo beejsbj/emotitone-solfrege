@@ -149,4 +149,6 @@ export interface ActiveNote {
   mode: MusicalMode;
   /** Key snapshot for downstream visuals */
   key: ChromaticNote;
+  /** Instrument that actually started playback for this note */
+  instrument: string;
 }

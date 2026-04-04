@@ -45,6 +45,7 @@ type Token = {
   text: string;
   color: string | null;
   isRest: boolean;
+  noteIndex: number | null;
 };
 
 const EMPTY_EDITOR_CODE = "// Play or load a pattern to see it in Strudel.";
@@ -89,6 +90,9 @@ const highlightOptions = computed(() => ({
   noteSkins: noteSkins.value,
 }));
 const barMs = computed(() => (60000 / patternsStore.currentSketchMeta.bpm) * 4);
+const lastMutationType = computed(
+  () => patternsStore.lastSketchMutation?.type ?? "idle"
+);
 
 const generatedCode = computed(() => {
   if (patternsStore.isStripCleared) {
@@ -218,7 +222,7 @@ const displayTokens = computed((): Token[] => {
   const tokens: Token[] = [];
   let cursor = 0;
 
-  for (const note of notes) {
+  for (const [noteIndex, note] of notes.entries()) {
     const start = note.pressTime - origin;
     const duration = Math.max(1, note.duration);
     const gap = start - cursor;
@@ -229,6 +233,7 @@ const displayTokens = computed((): Token[] => {
         text: `~@${restRatio}`,
         color: null,
         isRest: true,
+        noteIndex: null,
       });
     }
 
@@ -246,6 +251,7 @@ const displayTokens = computed((): Token[] => {
       text: `${tokenLabel}${durationSuffix}`,
       color,
       isRest: false,
+      noteIndex,
     });
 
     cursor = start + duration;
@@ -273,6 +279,95 @@ function getMirrorCode(instance: StrudelMirrorInstance | null): string {
 
 function resetPlaybackFollow() {
   followTargetScrollLeft = 0;
+}
+
+function getActiveScroller(): HTMLElement | null {
+  if (liveStripConfig.value.showStrudelLine) {
+    return editorRoot.value?.querySelector<HTMLElement>(".cm-scroller") ?? null;
+  }
+
+  return notationRef.value;
+}
+
+function getVisibleNoteElements(): HTMLElement[] {
+  if (liveStripConfig.value.showStrudelLine) {
+    const root = editorRoot.value;
+    if (!root) {
+      return [];
+    }
+
+    const tokenElements = Array.from(
+      root.querySelectorAll<HTMLElement>(".cm-live-strip-token")
+    ).filter((element) => !element.classList.contains("cm-live-strip-token--rest"));
+
+    if (tokenElements.length > 0) {
+      return tokenElements;
+    }
+
+    return Array.from(
+      root.querySelectorAll<HTMLElement>(".cm-live-strip-part--note")
+    );
+  }
+
+  if (!notationRef.value) {
+    return [];
+  }
+
+  return Array.from(
+    notationRef.value.querySelectorAll<HTMLElement>("[data-note-index]")
+  );
+}
+
+function scrollToMutationStart() {
+  const scroller = getActiveScroller();
+  if (!scroller) {
+    return;
+  }
+
+  scroller.scrollLeft = 0;
+}
+
+function scrollToMutationTail() {
+  const scroller = getActiveScroller();
+  if (!scroller) {
+    return;
+  }
+
+  scroller.scrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+}
+
+function scrollMutationTargetIntoView(affectedIndex: number | null) {
+  const scroller = getActiveScroller();
+  if (!scroller) {
+    return;
+  }
+
+  const noteElements = getVisibleNoteElements();
+  if (!noteElements.length) {
+    scrollToMutationStart();
+    return;
+  }
+
+  const target =
+    (affectedIndex != null ? noteElements[affectedIndex] : undefined) ??
+    noteElements[noteElements.length - 1];
+  if (!target) {
+    return;
+  }
+
+  const targetLeft = target.offsetLeft;
+  const targetRight = targetLeft + target.offsetWidth;
+  const viewportLeft = scroller.scrollLeft;
+  const viewportRight = viewportLeft + scroller.clientWidth;
+
+  if (targetLeft >= viewportLeft && targetRight <= viewportRight) {
+    return;
+  }
+
+  scroller.scrollLeft = Math.max(
+    0,
+    targetLeft - (scroller.clientWidth - target.offsetWidth) / 2
+  );
 }
 
 function syncMirrorCode(code: string) {
@@ -491,21 +586,26 @@ watch(
 );
 
 watch(
-  () => patternsStore.currentWorkingNotes.length,
-  async () => {
-    await nextTick();
-    if (notationRef.value) {
-      notationRef.value.scrollLeft = notationRef.value.scrollWidth;
+  () => patternsStore.lastSketchMutation,
+  async (mutation) => {
+    if (!mutation) {
+      return;
     }
-  }
-);
 
-watch(
-  () => patternsStore.loadedBaseNotes.length,
-  async () => {
     await nextTick();
-    if (notationRef.value) {
-      notationRef.value.scrollLeft = 0;
+
+    if (mutation.type === "append") {
+      scrollToMutationTail();
+      return;
+    }
+
+    if (mutation.type === "load" || mutation.type === "send") {
+      scrollToMutationStart();
+      return;
+    }
+
+    if (mutation.type === "delete") {
+      scrollMutationTargetIntoView(mutation.affectedIndex);
     }
   }
 );
@@ -536,7 +636,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="live-strip">
+  <div class="live-strip" :data-last-mutation="lastMutationType">
     <div v-if="initError" class="live-strip__error">
       {{ initError }}
     </div>
@@ -553,6 +653,7 @@ onBeforeUnmount(() => {
             :key="index"
             class="token"
             :class="token.isRest ? 'token--rest' : 'token--note'"
+            :data-note-index="token.noteIndex ?? undefined"
             :style="token.color ? { backgroundColor: token.color } : {}"
           >
             {{ token.text }}
@@ -582,6 +683,18 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.live-strip[data-last-mutation="load"] {
+  --strip-border: hsla(210, 90%, 72%, 0.22);
+}
+
+.live-strip[data-last-mutation="delete"] {
+  --strip-border: hsla(14, 88%, 64%, 0.26);
+}
+
+.live-strip[data-last-mutation="send"] {
+  --strip-border: hsla(44, 100%, 76%, 0.24);
+}
+
 .live-strip__error {
   padding: 0 0.35rem;
   font-size: 0.72rem;
@@ -595,6 +708,17 @@ onBeforeUnmount(() => {
   border: 1px solid hsla(0, 0%, 100%, 0.06);
   border-radius: 6px;
   overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.live-strip[data-last-mutation="delete"] .live-strip__supplement {
+  border-color: hsla(14, 88%, 64%, 0.2);
+  box-shadow: inset 0 0 0 1px hsla(14, 88%, 64%, 0.08);
+}
+
+.live-strip[data-last-mutation="send"] .live-strip__supplement {
+  border-color: hsla(44, 100%, 76%, 0.18);
+  box-shadow: inset 0 0 0 1px hsla(44, 100%, 76%, 0.06);
 }
 
 .notation-bar {

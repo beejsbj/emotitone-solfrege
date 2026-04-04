@@ -104,8 +104,17 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      "@strudel/webaudio": resolve(
+        __dirname,
+        "src/vendor/strudel-webaudio-compat.ts"
+      ),
       "@": resolve(__dirname, "src"),
     },
+  },
+  optimizeDeps: {
+    // superdough is locally patched; excluding it prevents Vite from serving
+    // a stale prebundled copy that can miss newly added exports after merges.
+    exclude: ["superdough"],
   },
   server: {
     port: 5175,

@@ -15,6 +15,9 @@ const ghostCount = computed(() =>
 
 // List sorted newest-first
 const listPatterns = computed(() => [...completedPatterns.value].reverse());
+const canSendCurrentSketch = computed(
+  () => Number(patternsStore.currentSketchNotes?.length ?? 0) > 0
+);
 
 function selectPattern(id: string) {
   patternsStore.loadPatternAsBase(id);
@@ -24,10 +27,27 @@ function selectPattern(id: string) {
 function openDeck() {
   if (completedPatterns.value.length > 1) isOpen.value = true;
 }
+
+function sendCurrentSketch() {
+  patternsStore.sendCurrentPattern();
+}
 </script>
 
 <template>
   <div class="deck">
+    <div class="deck-toolbar">
+      <button
+        type="button"
+        class="pattern-send-button"
+        data-testid="pattern-send-button"
+        :disabled="!canSendCurrentSketch"
+        @click.stop="sendCurrentSketch"
+      >
+        <span class="pattern-send-button__lead">send</span>
+        <span class="pattern-send-button__trail">new line ↵</span>
+      </button>
+    </div>
+
     <!-- ── Empty state ── -->
     <p v-if="!completedPatterns.length" class="empty-hint">
       play some notes, then press send ↵
@@ -94,6 +114,63 @@ function openDeck() {
 /* ─── Deck shell ─── */
 .deck {
   padding: 0.375rem;
+}
+
+.deck-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.34rem;
+}
+
+.pattern-send-button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.42rem;
+  min-height: 1.7rem;
+  padding: 0 0.72rem;
+  border: 1px solid hsla(44, 100%, 83%, 0.18);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, hsla(28, 26%, 18%, 0.98), hsla(18, 20%, 11%, 0.98));
+  color: hsla(42, 75%, 88%, 0.94);
+  font-family: "SF Mono", "Fira Code", monospace;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pattern-send-button:hover:not(:disabled),
+.pattern-send-button:focus-visible {
+  border-color: hsla(44, 100%, 83%, 0.34);
+  box-shadow: 0 0 18px hsla(34, 55%, 40%, 0.18);
+  color: hsla(42, 85%, 94%, 1);
+}
+
+.pattern-send-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.pattern-send-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pattern-send-button__lead {
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pattern-send-button__trail {
+  font-size: 0.63rem;
+  font-style: italic;
+  letter-spacing: 0.04em;
 }
 
 /* ─── Stack (collapsed) ─── */
@@ -302,5 +379,25 @@ function openDeck() {
 .drawer-leave-to {
   opacity: 0;
   transform: translateY(-5px) scale(0.99);
+}
+
+@media (max-width: 480px) {
+  .deck-toolbar {
+    margin-bottom: 0.28rem;
+  }
+
+  .pattern-send-button {
+    min-height: 1.52rem;
+    padding: 0 0.6rem;
+    gap: 0.34rem;
+  }
+
+  .pattern-send-button__lead {
+    font-size: 0.5rem;
+  }
+
+  .pattern-send-button__trail {
+    font-size: 0.58rem;
+  }
 }
 </style>

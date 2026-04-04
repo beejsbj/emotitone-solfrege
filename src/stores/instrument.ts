@@ -1,7 +1,8 @@
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import { initSuperdoughAudio, isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
+import type { InstrumentStatus } from "@/types/instrument";
 
 /**
  * Instrument Store
@@ -12,7 +13,12 @@ import { initSuperdoughAudio, isPrewarmed, prewarmSoundSamples } from "@/service
 export const useInstrumentStore = defineStore("instrument", () => {
   // State
   const currentInstrument = ref<string>(DEFAULT_INSTRUMENT);
+  const readyInstrument = ref<string>(DEFAULT_INSTRUMENT);
+  const warmingInstrument = ref<string | null>(null);
+  const instrumentStatus = ref<InstrumentStatus>("ready");
+  const isWarmingInstrument = computed(() => instrumentStatus.value === "warming");
   const isLoading = ref(false);
+  let requestToken = 0;
 
   // Initialize — boots superdough and reports granular sample-pack progress
   // through the optional callback so loading screens can show real steps.
@@ -32,22 +38,43 @@ export const useInstrumentStore = defineStore("instrument", () => {
   };
 
   // Set current instrument — any registered superdough sound name is valid.
-  // Awaits pre-warming for cold instruments so the first keypress is never dropped.
+  // Selected state changes immediately, but ready/playable state only changes
+  // once the latest warmup request completes.
   const setInstrument = async (instrumentName: string) => {
     currentInstrument.value = instrumentName;
-    if (!isPrewarmed(instrumentName)) {
-      isLoading.value = true;
-      try {
-        await prewarmSoundSamples(instrumentName);
-      } finally {
-        isLoading.value = false;
-      }
+
+    const nextRequestToken = ++requestToken;
+    if (isPrewarmed(instrumentName)) {
+      readyInstrument.value = instrumentName;
+      warmingInstrument.value = null;
+      instrumentStatus.value = "ready";
+      isLoading.value = false;
+      return;
     }
+
+    warmingInstrument.value = instrumentName;
+    instrumentStatus.value = "warming";
+    isLoading.value = true;
+
+    await prewarmSoundSamples(instrumentName);
+
+    if (nextRequestToken !== requestToken) {
+      return;
+    }
+
+    readyInstrument.value = instrumentName;
+    warmingInstrument.value = null;
+    instrumentStatus.value = "ready";
+    isLoading.value = false;
   };
 
   return {
     // State
     currentInstrument,
+    readyInstrument,
+    warmingInstrument,
+    isWarmingInstrument,
+    instrumentStatus,
     isLoading,
 
     // Actions

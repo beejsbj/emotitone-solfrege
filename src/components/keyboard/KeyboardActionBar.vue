@@ -71,37 +71,6 @@
             "
           />
         </div>
-
-        <div class="control-group">
-          <Knob
-            type="button"
-            button-text="⌫"
-            label="Undo"
-            @click="patternsStore.removeLastFromCurrentSketch()"
-          />
-        </div>
-
-        <div class="control-group">
-          <Knob
-            :model-value="!isPlaying"
-            type="boolean"
-            :is-disabled="!hasPlayableCode"
-            :theme-color="'hsla(145, 100%, 50%, 1)'"
-            :value-label-true="Play"
-            :value-label-false="Square"
-            label="Play"
-            @update:modelValue="toggleSketchPlayback"
-          />
-        </div>
-
-        <div class="control-group">
-          <Knob
-            type="button"
-            button-text="⏎"
-            label="Send"
-            @click="patternsStore.sendCurrentPattern()"
-          />
-        </div>
       </div>
     </div>
   </div>
@@ -110,26 +79,13 @@
 <script setup lang="ts">
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { usePatternsStore } from "@/stores/patterns";
-import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
-import { Play, Square } from "lucide-vue-next";
 
 const store = useKeyboardDrawerStore();
 const visualConfigStore = useVisualConfigStore();
 const musicStore = useMusicStore();
-const patternsStore = usePatternsStore();
-const { toggle, isPlaying, hasPlayableCode } = useLiveStrudelMirror();
-
-async function toggleSketchPlayback() {
-  if (!hasPlayableCode.value) {
-    return;
-  }
-
-  await toggle();
-}
 </script>
 
 <style scoped>

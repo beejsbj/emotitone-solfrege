@@ -4,6 +4,7 @@ import {
   StateEffect,
   StateField,
   Text,
+  type Transaction,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -299,11 +300,33 @@ const noteTokens = StateField.define<NoteToken[]>({
     return extractNoteTokens(state.doc, state.field(playbackOptions));
   },
   update(tokens, tr) {
-    return tr.docChanged
-      ? extractNoteTokens(tr.newDoc, tr.state.field(playbackOptions))
+    const didUpdatePlaybackOptions = tr.effects.some((effect) =>
+      effect.is(setPlaybackOptions)
+    );
+
+    return tr.docChanged || didUpdatePlaybackOptions
+      ? extractNoteTokens(
+          tr.state.doc,
+          getNextPlaybackOptions(tr)
+        )
       : tokens;
   },
 });
+
+function getNextPlaybackOptions(tr: Transaction): PlaybackHighlightOptions {
+  let nextOptions = tr.startState.field(playbackOptions);
+
+  for (const effect of tr.effects) {
+    if (effect.is(setPlaybackOptions)) {
+      nextOptions = {
+        ...nextOptions,
+        ...effect.value,
+      };
+    }
+  }
+
+  return nextOptions;
+}
 
 const emptyPlaybackState = (): PlaybackState => ({
   filledNoteKeys: [],

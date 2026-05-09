@@ -1,22 +1,37 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { nextTick } from 'vue'
 import { useVisualConfigStore } from '@/stores/visualConfig'
+import { DEFAULT_CONFIG } from '@/data/visual-config-metadata'
 import { createTestPinia } from '../helpers/test-utils'
 import type { VisualEffectsConfig } from '@/types/visual'
 
 // localStorage is now mocked in test setup
+const mockDefaultConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as VisualEffectsConfig
 
 describe('Visual Config Store', () => {
   let visualConfigStore: ReturnType<typeof useVisualConfigStore>
 
-  beforeEach(() => {
+  const createFreshStore = () => {
     setActivePinia(createTestPinia())
-    visualConfigStore = useVisualConfigStore()
-    vi.clearAllMocks()
-    
-    // Reset localStorage mock
+    return useVisualConfigStore()
+  }
+
+  beforeEach(() => {
     const mockLocalStorage = (window as any).localStorage
-    mockLocalStorage.getItem.mockReturnValue(null)
+    vi.restoreAllMocks()
+    const storage = new Map<string, string>()
+    mockLocalStorage.getItem.mockReset()
+    mockLocalStorage.setItem.mockReset()
+    mockLocalStorage.removeItem.mockReset()
+    mockLocalStorage.getItem.mockImplementation((key: string) => storage.get(key) || null)
+    mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
+      storage.set(key, value)
+    })
+    mockLocalStorage.removeItem.mockImplementation((key: string) => {
+      storage.delete(key)
+    })
+    visualConfigStore = createFreshStore()
   })
 
   afterEach(() => {
@@ -48,11 +63,33 @@ describe('Visual Config Store', () => {
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify(storedConfig))
       
       // Create new store instance to trigger initialization
-      const newStore = useVisualConfigStore()
+      const newStore = createFreshStore()
       
       expect(newStore.config.blobs.isEnabled).toBe(false)
       expect(newStore.config.ambient.isEnabled).toBe(false)
       expect(newStore.visualsEnabled).toBe(false)
+    })
+
+    it('should migrate legacy color keys from localStorage on initialization', () => {
+      const storedConfig = {
+        config: {
+          dynamicColors: { chromaticMapping: true },
+          keyboard: { colorMode: 'glassmorphism' }
+        }
+      }
+
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'emotitone-visual-config') {
+          return JSON.stringify(storedConfig)
+        }
+        return null
+      })
+
+      const newStore = createFreshStore()
+
+      expect(newStore.config.dynamicColors.musicColorMode).toBe('fixed')
+      expect(newStore.config.keyboard.surfaceStyle).toBe('glassmorphism')
     })
 
     it('should handle malformed localStorage data gracefully', () => {
@@ -60,7 +97,7 @@ describe('Visual Config Store', () => {
       const mockLocalStorage = (window as any).localStorage
       mockLocalStorage.getItem.mockReturnValue('invalid json')
       
-      const newStore = useVisualConfigStore()
+      const newStore = createFreshStore()
       
       expect(consoleSpy).toHaveBeenCalledWith('Failed to load visual config from localStorage:', expect.any(Error))
       expect(newStore.config.blobs.isEnabled).toBe(true) // Should fallback to defaults
@@ -78,7 +115,7 @@ describe('Visual Config Store', () => {
       
       expect(visualConfigStore.config.blobs.isEnabled).toBe(false)
       expect(visualConfigStore.config.blobs.opacity).toBe(0.5)
-      expect(visualConfigStore.config.blobs.baseSizeRatio).toBe(0.15) // Should preserve other values
+      expect(visualConfigStore.config.blobs.baseSizeRatio).toBe(mockDefaultConfig.blobs.baseSizeRatio) // Should preserve other values
     })
 
     it('should update specific value in section', () => {
@@ -114,8 +151,8 @@ describe('Visual Config Store', () => {
       
       visualConfigStore.resetSection('particles')
       
-      expect(visualConfigStore.config.particles.count).toBe(20)
-      expect(visualConfigStore.config.particles.speed).toBe(100)
+      expect(visualConfigStore.config.particles.count).toBe(mockDefaultConfig.particles.count)
+      expect(visualConfigStore.config.particles.speed).toBe(mockDefaultConfig.particles.speed)
     })
   })
 
@@ -130,7 +167,7 @@ describe('Visual Config Store', () => {
       expect(savedConfig.id).toBeDefined()
       expect(savedConfig.createdAt).toBeDefined()
       expect(savedConfig.updatedAt).toBeDefined()
-      expect(visualConfigStore.savedConfigs).toContain(savedConfig)
+      expect(visualConfigStore.savedConfigs).toContainEqual(savedConfig)
     })
 
     it('should load saved config', () => {
@@ -171,7 +208,7 @@ describe('Visual Config Store', () => {
       
       // Should not affect existing configs
       expect(visualConfigStore.savedConfigs).toHaveLength(1)
-      expect(visualConfigStore.savedConfigs[0]).toBe(savedConfig)
+      expect(visualConfigStore.savedConfigs[0]).toEqual(savedConfig)
     })
   })
 
@@ -243,6 +280,25 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.visualsEnabled).toBe(false)
     })
 
+    it('should import legacy configuration keys from JSON', () => {
+      const configData = {
+        config: {
+          dynamicColors: { chromaticMapping: true },
+          keyboard: { colorMode: 'glassmorphism' }
+        },
+        visualsEnabled: false,
+        exportedAt: new Date().toISOString(),
+        version: '0.9.0'
+      }
+
+      const success = visualConfigStore.importConfig(JSON.stringify(configData))
+
+      expect(success).toBe(true)
+      expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe('fixed')
+      expect(visualConfigStore.config.keyboard.surfaceStyle).toBe('glassmorphism')
+      expect(visualConfigStore.visualsEnabled).toBe(false)
+    })
+
     it('should handle invalid JSON in import', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       
@@ -262,10 +318,11 @@ describe('Visual Config Store', () => {
   })
 
   describe('Persistence', () => {
-    it('should save to localStorage on config changes', () => {
+    it('should save to localStorage on config changes', async () => {
       vi.useFakeTimers()
       
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
+      await nextTick()
       
       // Wait for debounced save
       vi.advanceTimersByTime(500)
@@ -339,10 +396,38 @@ describe('Visual Config Store', () => {
         return null
       })
       
-      const newStore = useVisualConfigStore()
+      const newStore = createFreshStore()
       
       expect(newStore.savedConfigs).toHaveLength(1)
       expect(newStore.savedConfigs[0].name).toBe('Test Config')
+    })
+
+    it('should migrate legacy saved configs from localStorage', () => {
+      const savedConfigs = [
+        {
+          id: '1',
+          name: 'Legacy Config',
+          config: {
+            dynamicColors: { chromaticMapping: true },
+            keyboard: { colorMode: 'monochrome' }
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ]
+
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'emotitone-saved-configs') {
+          return JSON.stringify(savedConfigs)
+        }
+        return null
+      })
+
+      const newStore = createFreshStore()
+
+      expect(newStore.savedConfigs[0].config.dynamicColors.musicColorMode).toBe('fixed')
+      expect(newStore.savedConfigs[0].config.keyboard.surfaceStyle).toBe('monochrome')
     })
   })
 
@@ -381,7 +466,7 @@ describe('Visual Config Store', () => {
       const mockLocalStorage = (window as any).localStorage
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify({ config: partialConfig }))
       
-      const newStore = useVisualConfigStore()
+      const newStore = createFreshStore()
       
       expect(newStore.config.blobs.isEnabled).toBe(false)
       expect(newStore.config.particles.isEnabled).toBe(true) // Should use defaults
@@ -447,11 +532,13 @@ describe('Visual Config Store', () => {
   })
 
   describe('Performance Considerations', () => {
-    it('should debounce localStorage saves', () => {
+    it('should debounce localStorage saves', async () => {
       vi.useFakeTimers()
+      const mockLocalStorage = (window as any).localStorage
       
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
       visualConfigStore.updateConfig('particles', { count: 50 })
+      await nextTick()
       
       // Should not save immediately
       expect(mockLocalStorage.setItem).not.toHaveBeenCalled()

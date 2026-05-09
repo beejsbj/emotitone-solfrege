@@ -31,6 +31,12 @@ const sigmoidFactory = (k: number) => {
 
 const DEFAULT_SCOPE_COLOR = "hsl(48, 96%, 78%)";
 
+const calculateTargetRadius = (
+  canvasWidth: number,
+  canvasHeight: number,
+  sizeRatio: number
+) => (Math.min(canvasWidth, canvasHeight) * sizeRatio) / 2;
+
 
 // Hilbert transform processor using Web Audio API
 class HilbertProcessor {
@@ -261,8 +267,11 @@ export function useHilbertScopeRenderer() {
     state.swapContext = state.swapCanvas.getContext("2d");
 
     // Calculate initial radius
-    const screenBasedSize = Math.min(canvasWidth, canvasHeight) * config.sizeRatio;
-    state.targetRadius = screenBasedSize / 2;
+    state.targetRadius = calculateTargetRadius(
+      canvasWidth,
+      canvasHeight,
+      config.sizeRatio
+    );
 
     state.isInitialized = true;
     state.isActive = true;
@@ -318,21 +327,41 @@ export function useHilbertScopeRenderer() {
     state.x = mathClamp(state.x, 50, canvasWidth - 50);
     state.y = mathClamp(state.y, 50, canvasHeight * 0.5);
 
-    // Smooth radius transitions
+    state.targetRadius = calculateTargetRadius(
+      canvasWidth,
+      canvasHeight,
+      config.sizeRatio
+    );
+
+    // Smooth radius transitions, including live Size control changes.
     state.currentRadius += (state.targetRadius - state.currentRadius) * 0.1;
 
     // Maintain an offscreen trail buffer instead of sampling the main canvas.
-    const persistence = mathClamp(
-      config.history + config.smear * (1 - config.history),
-      0,
-      0.99
-    );
+    const persistence = mathClamp(config.history, 0, 0.99);
 
     state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
     if (persistence > 0) {
       state.swapContext.globalAlpha = persistence;
       state.swapContext.drawImage(state.historyCanvas, 0, 0);
       state.swapContext.globalAlpha = 1;
+
+      if (config.smear > 0) {
+        const smearScale = 1 + config.smear * 0.012;
+        const smearWidth = canvasWidth * smearScale;
+        const smearHeight = canvasHeight * smearScale;
+        const smearX = (canvasWidth - smearWidth) / 2;
+        const smearY = (canvasHeight - smearHeight) / 2;
+
+        state.swapContext.globalAlpha = persistence * config.smear * 0.25;
+        state.swapContext.drawImage(
+          state.historyCanvas,
+          smearX,
+          smearY,
+          smearWidth,
+          smearHeight
+        );
+        state.swapContext.globalAlpha = 1;
+      }
     }
 
     state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -445,8 +474,7 @@ export function useHilbertScopeRenderer() {
     state.y = height * 0.25;
 
     // Recalculate radius
-    const screenBasedSize = Math.min(width, height) * config.sizeRatio;
-    state.targetRadius = screenBasedSize / 2;
+    state.targetRadius = calculateTargetRadius(width, height, config.sizeRatio);
   };
 
   /**

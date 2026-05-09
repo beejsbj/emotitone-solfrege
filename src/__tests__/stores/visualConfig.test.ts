@@ -92,6 +92,39 @@ describe('Visual Config Store', () => {
       expect(newStore.config.keyboard.surfaceStyle).toBe('glassmorphism')
     })
 
+    it('should drop removed Hilbert keys and default new Hilbert controls', () => {
+      const storedConfig = {
+        config: {
+          hilbertScope: {
+            isEnabled: true,
+            sizeRatio: 1.2,
+            lineWidth: 9,
+            minSize: 600,
+            maxSize: 1200
+          }
+        }
+      }
+
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'emotitone-visual-config') {
+          return JSON.stringify(storedConfig)
+        }
+        return null
+      })
+
+      const newStore = createFreshStore()
+      const hilbertScope = newStore.config.hilbertScope as Record<string, unknown>
+
+      expect(newStore.config.hilbertScope.sizeRatio).toBe(1.2)
+      expect(newStore.config.hilbertScope.thickness).toBe(DEFAULT_CONFIG.hilbertScope.thickness)
+      expect(newStore.config.hilbertScope.history).toBe(DEFAULT_CONFIG.hilbertScope.history)
+      expect(newStore.config.hilbertScope.smear).toBe(DEFAULT_CONFIG.hilbertScope.smear)
+      expect('lineWidth' in hilbertScope).toBe(false)
+      expect('minSize' in hilbertScope).toBe(false)
+      expect('maxSize' in hilbertScope).toBe(false)
+    })
+
     it('should handle malformed localStorage data gracefully', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const mockLocalStorage = (window as any).localStorage

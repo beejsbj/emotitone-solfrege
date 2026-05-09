@@ -83,10 +83,13 @@ function migrateVisualConfig(
       continue;
     }
 
-    const mergedSection = {
-      ...defaultSection,
-      ...incomingSection,
-    };
+    const mergedSection: Record<string, unknown> = {};
+    const defaultSectionRecord = defaultSection as Record<string, unknown>;
+
+    for (const key of Object.keys(defaultSectionRecord)) {
+      mergedSection[key] =
+        key in incomingSection ? incomingSection[key] : defaultSectionRecord[key];
+    }
 
     migrateLegacySectionKeys(sectionName, incomingSection, mergedSection);
     migratedConfigRecord[sectionName as string] = mergedSection;
@@ -174,7 +177,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Reset configuration to defaults
   const resetToDefaults = () => {
-    Object.assign(config, JSON.parse(JSON.stringify(DEFAULT_CONFIG)));
+    Object.assign(config, cloneDefaultConfig());
     visualsEnabled.value = true;
     saveToStorage();
   };

@@ -133,7 +133,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         isEnabled: true,
         glowIntensity: 14,
         history: 0.62,
-        lineWidth: 4.5,
+        thickness: 4.5,
       },
       beatingShapes: {
         isEnabled: true,
@@ -294,7 +294,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         glowEnabled: true,
         glowIntensity: 30,
         history: 0.82,
-        lineWidth: 5,
+        thickness: 5,
       },
       beatingShapes: {
         isEnabled: true,
@@ -306,6 +306,24 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         surfaceStyle: "colored",
         keyBrightness: 1.3,
         keySaturation: 1.25,
+      },
+    }
+  ),
+  createPreset(
+    "hilbert-trace",
+    "Hilbert Trace",
+    "Thin luminous Hilbert lines with light history, soft glow, and a pushed size.",
+    {
+      hilbertScope: {
+        isEnabled: true,
+        thickness: 0.01,
+        opacity: 0.3,
+        history: 0.1,
+        driftSpeed: 4,
+        glowEnabled: true,
+        glowIntensity: 5,
+        smear: 1,
+        sizeRatio: 1.5,
       },
     }
   ),

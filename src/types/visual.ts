@@ -364,12 +364,8 @@ export interface OctaveConfig {
 export interface HilbertScopeConfig {
   /** Whether Hilbert Scope is enabled */
   isEnabled: boolean;
-  /** Base size as ratio of screen (0-1) */
+  /** Scope size as a percentage of the viewport's smaller dimension */
   sizeRatio: number;
-  /** Minimum size in pixels */
-  minSize: number;
-  /** Maximum size in pixels */
-  maxSize: number;
   /** Base opacity (0-1) */
   opacity: number;
   /** Scale in animation duration in seconds */
@@ -382,10 +378,12 @@ export interface HilbertScopeConfig {
   glowEnabled: boolean;
   /** Glow blur intensity */
   glowIntensity: number;
+  /** Additional screen smear/persistence amount (0-1) */
+  smear: number;
   /** Trail effect strength (0-1) */
   history: number;
-  /** Base line width */
-  lineWidth: number;
+  /** Base line thickness */
+  thickness: number;
 }
 
 /**

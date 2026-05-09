@@ -29,6 +29,8 @@ const sigmoidFactory = (k: number) => {
   };
 };
 
+const DEFAULT_SCOPE_COLOR = "hsl(48, 96%, 78%)";
+
 
 // Hilbert transform processor using Web Audio API
 class HilbertProcessor {
@@ -169,6 +171,8 @@ class AmplitudeAnalyzer {
 // State management for the Hilbert Scope
 interface HilbertScopeState {
   isInitialized: boolean;
+  historyCanvas: HTMLCanvasElement | null;
+  historyContext: CanvasRenderingContext2D | null;
   swapCanvas: HTMLCanvasElement | null;
   swapContext: CanvasRenderingContext2D | null;
   x: number;
@@ -178,6 +182,7 @@ interface HilbertScopeState {
   fadeInProgress: number;
   fadeOutProgress: number;
   isActive: boolean;
+  lastResolvedColor: string | null;
 }
 
 export function useHilbertScopeRenderer() {
@@ -193,6 +198,8 @@ export function useHilbertScopeRenderer() {
   // State
   const state: HilbertScopeState = {
     isInitialized: false,
+    historyCanvas: null,
+    historyContext: null,
     swapCanvas: null,
     swapContext: null,
     x: 0,
@@ -202,6 +209,7 @@ export function useHilbertScopeRenderer() {
     fadeInProgress: 0,
     fadeOutProgress: 0,
     isActive: false,
+    lastResolvedColor: null,
   };
 
   // Audio connection state
@@ -240,7 +248,13 @@ export function useHilbertScopeRenderer() {
     state.x = canvasWidth / 2;
     state.y = canvasHeight * 0.25; // 25% from top
 
-    // Create swap canvas for trail effect
+    // Create dedicated history and swap canvases so the scope can preserve
+    // its own colored trail even though the main canvas is cleared every frame.
+    state.historyCanvas = document.createElement("canvas");
+    state.historyCanvas.width = canvasWidth;
+    state.historyCanvas.height = canvasHeight;
+    state.historyContext = state.historyCanvas.getContext("2d");
+
     state.swapCanvas = document.createElement("canvas");
     state.swapCanvas.width = canvasWidth;
     state.swapCanvas.height = canvasHeight;
@@ -248,10 +262,13 @@ export function useHilbertScopeRenderer() {
 
     // Calculate initial radius
     const screenBasedSize = Math.min(canvasWidth, canvasHeight) * config.sizeRatio;
-    state.targetRadius = mathClamp(screenBasedSize, config.minSize, config.maxSize) / 2;
+    state.targetRadius = screenBasedSize / 2;
 
     state.isInitialized = true;
     state.isActive = true;
+    state.fadeInProgress = 0;
+    state.fadeOutProgress = 0;
+    state.lastResolvedColor = null;
   };
 
   /**
@@ -273,11 +290,19 @@ export function useHilbertScopeRenderer() {
     canvasHeight: number
   ) => {
     if (!state.isInitialized || !state.isActive || !config.isEnabled) return;
-    if (!state.swapContext) return;
+    if (
+      !state.historyCanvas ||
+      !state.historyContext ||
+      !state.swapCanvas ||
+      !state.swapContext
+    ) {
+      return;
+    }
 
     // Get audio data
     const [xVals, yVals] = hilbertProcessor.getValues();
     const amplitude = amplitudeAnalyzer.getAmplitude();
+    const activeNotes = musicStore.getActiveNotes();
 
     // Handle fade animations
     if (state.fadeInProgress < 1) {
@@ -296,108 +321,105 @@ export function useHilbertScopeRenderer() {
     // Smooth radius transitions
     state.currentRadius += (state.targetRadius - state.currentRadius) * 0.1;
 
-    // Apply trail effect
-    if (config.history > 0 && state.swapCanvas) {
-      // Clear swap canvas
-      state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      
-      // Draw previous frame with reduced opacity
-      state.swapContext.globalAlpha = config.history;
-      state.swapContext.drawImage(ctx.canvas, 0, 0);
+    // Maintain an offscreen trail buffer instead of sampling the main canvas.
+    const persistence = mathClamp(
+      config.history + config.smear * (1 - config.history),
+      0,
+      0.99
+    );
+
+    state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
+    if (persistence > 0) {
+      state.swapContext.globalAlpha = persistence;
+      state.swapContext.drawImage(state.historyCanvas, 0, 0);
       state.swapContext.globalAlpha = 1;
-      
-      // Copy swap canvas back to main canvas
-      ctx.save();
-      ctx.globalAlpha = 1;
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      ctx.drawImage(state.swapCanvas, 0, 0);
-      ctx.restore();
     }
 
-    // Set up drawing style
-    ctx.save();
-    ctx.globalAlpha = config.opacity * state.fadeInProgress * (1 - state.fadeOutProgress);
-    
-    // Always use color system for dynamic solfège colors
-    let strokeColor: string;
-    let glowColor: string;
-    
-    // Use the color system based on active notes
-    const activeNotes = musicStore.getActiveNotes();
+    state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
+    state.historyContext.drawImage(state.swapCanvas, 0, 0);
+
+    let resolvedColor: string | null = null;
+
     if (activeNotes.length > 0) {
-      // Use the first active note's color, or blend multiple
       const firstNote = activeNotes[0];
-      const noteName = firstNote.solfege.name;
       const noteMode = firstNote.mode ?? musicStore.currentMode;
       const noteKey = firstNote.key ?? musicStore.currentKey;
-      const noteColor = colorSystem.getPrimaryColor(
-        noteName,
+      resolvedColor = colorSystem.getPrimaryColor(
+        firstNote.solfege.name,
         noteMode,
         firstNote.octave,
         noteKey as any
       );
-      
-      // Modulate opacity based on amplitude
-      const alphaValue = 0.5 + amplitude * 0.5; // Range from 0.5 to 1.0
-      strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
-      glowColor = noteColor;
-    } else {
-      // When no notes are active, cycle through scale colors based on amplitude
-      // This creates a dynamic color effect even when not playing
+    }
+
+    if (!resolvedColor && state.lastResolvedColor) {
+      resolvedColor = state.lastResolvedColor;
+    }
+
+    if (!resolvedColor) {
       const scaleNotes = musicStore.solfegeData;
       if (scaleNotes && scaleNotes.length > 0) {
-        // Pick a note from the scale based on amplitude
-        const noteIndex = Math.floor(amplitude * (scaleNotes.length - 1));
-        const scaleNote = scaleNotes[noteIndex];
-        const noteColor = colorSystem.getPrimaryColor(
-          scaleNote.name,
+        resolvedColor = colorSystem.getPrimaryColor(
+          scaleNotes[0].name,
           musicStore.currentMode,
           3,
           musicStore.currentKey as any
         );
-        
-        const alphaValue = 0.3 + amplitude * 0.7;
-        strokeColor = colorSystem.withAlpha(noteColor, alphaValue);
-        glowColor = noteColor;
-      } else {
-        // Ultimate fallback
-        const defaultColor = colorSystem.getPrimaryColorByScaleIndex(
-          0,
-          musicStore.currentMode,
-          musicStore.currentKey as any,
-          3
-        );
-        const alphaValue = 0.3 + amplitude * 0.7;
-        strokeColor = colorSystem.withAlpha(defaultColor, alphaValue);
-        glowColor = defaultColor;
       }
-    }
-    
-    // Apply glow effect if enabled
-    if (config.glowEnabled) {
-      ctx.shadowBlur = config.glowIntensity;
-      ctx.shadowColor = glowColor;
     }
 
-    // Draw Hilbert curve
-    ctx.beginPath();
-    ctx.lineWidth = mathScale(amplitude, 0, 1, config.lineWidth * 0.5, config.lineWidth * 2);
-    
-    const scalar = state.currentRadius;
-    
-    for (let i = 0; i < xVals.length; i++) {
-      const xVal = scaleValue(xVals[i]) * scalar + state.x;
-      const yVal = scaleValue(yVals[i]) * scalar + state.y;
-      
-      if (i === 0) {
-        ctx.moveTo(xVal, yVal);
-      } else {
-        ctx.lineTo(xVal, yVal);
+    const strokeColor = resolvedColor ?? DEFAULT_SCOPE_COLOR;
+    state.lastResolvedColor = strokeColor;
+
+    const drawAlpha =
+      config.opacity *
+      state.fadeInProgress *
+      (1 - state.fadeOutProgress) *
+      mathScale(amplitude, 0, 1, 0.35, 1);
+
+    const drawCurve = (targetContext: CanvasRenderingContext2D) => {
+      targetContext.save();
+      targetContext.globalAlpha = drawAlpha;
+
+      if (config.glowEnabled) {
+        targetContext.shadowBlur = config.glowIntensity;
+        targetContext.shadowColor = strokeColor;
       }
+
+      targetContext.beginPath();
+      targetContext.lineWidth = mathScale(
+        amplitude,
+        0,
+        1,
+        config.thickness * 0.5,
+        config.thickness * 2
+      );
+
+      const scalar = state.currentRadius;
+
+      for (let i = 0; i < xVals.length; i++) {
+        const xVal = scaleValue(xVals[i]) * scalar + state.x;
+        const yVal = scaleValue(yVals[i]) * scalar + state.y;
+
+        if (i === 0) {
+          targetContext.moveTo(xVal, yVal);
+        } else {
+          targetContext.lineTo(xVal, yVal);
+        }
+      }
+
+      targetContext.strokeStyle = strokeColor;
+      targetContext.stroke();
+      targetContext.restore();
+    };
+
+    if (amplitude > 0.01 || activeNotes.length > 0) {
+      drawCurve(state.historyContext);
     }
-    
-    ctx.strokeStyle = strokeColor;
-    ctx.stroke();
+
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.drawImage(state.historyCanvas, 0, 0);
     ctx.restore();
   };
 
@@ -406,6 +428,11 @@ export function useHilbertScopeRenderer() {
    */
   const resizeHilbertScope = (width: number, height: number, config: HilbertScopeConfig) => {
     if (!state.isInitialized) return;
+
+    if (state.historyCanvas) {
+      state.historyCanvas.width = width;
+      state.historyCanvas.height = height;
+    }
 
     // Update swap canvas size
     if (state.swapCanvas) {
@@ -419,7 +446,7 @@ export function useHilbertScopeRenderer() {
 
     // Recalculate radius
     const screenBasedSize = Math.min(width, height) * config.sizeRatio;
-    state.targetRadius = mathClamp(screenBasedSize, config.minSize, config.maxSize) / 2;
+    state.targetRadius = screenBasedSize / 2;
   };
 
   /**
@@ -451,8 +478,11 @@ export function useHilbertScopeRenderer() {
 
     state.isInitialized = false;
     state.isActive = false;
+    state.historyCanvas = null;
+    state.historyContext = null;
     state.swapCanvas = null;
     state.swapContext = null;
+    state.lastResolvedColor = null;
   };
 
   return {

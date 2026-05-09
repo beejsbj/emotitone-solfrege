@@ -60,47 +60,6 @@
             @update:modelValue="(value) => store.setRowCount(Number(value))"
           />
         </div>
-
-        <div class="control-group">
-          <Knob
-            :model-value="store.drawer.isOpen"
-            type="boolean"
-            label="Drawer"
-            @update:modelValue="
-              (isOpen) => (isOpen ? store.openDrawer() : store.closeDrawer())
-            "
-          />
-        </div>
-
-        <div class="control-group">
-          <Knob
-            type="button"
-            button-text="⌫"
-            label="Undo"
-            @click="patternsStore.removeLastFromCurrentSketch()"
-          />
-        </div>
-
-        <div class="control-group">
-          <Knob
-            :model-value="!isPlaying"
-            type="boolean"
-            :is-disabled="!hasPlayableCode"
-            :value-label-true="Play"
-            :value-label-false="Square"
-            label="Play"
-            @update:modelValue="toggleSketchPlayback"
-          />
-        </div>
-
-        <div class="control-group">
-          <Knob
-            type="button"
-            button-text="⏎"
-            label="Send"
-            @click="patternsStore.sendCurrentPattern()"
-          />
-        </div>
       </div>
     </div>
   </div>
@@ -109,26 +68,13 @@
 <script setup lang="ts">
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { usePatternsStore } from "@/stores/patterns";
-import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import { Knob } from "@/components/knobs";
-import { Play, Square } from "lucide-vue-next";
 
 const store = useKeyboardDrawerStore();
 const visualConfigStore = useVisualConfigStore();
 const musicStore = useMusicStore();
-const patternsStore = usePatternsStore();
-const { toggle, isPlaying, hasPlayableCode } = useLiveStrudelMirror();
-
-async function toggleSketchPlayback() {
-  if (!hasPlayableCode.value) {
-    return;
-  }
-
-  await toggle();
-}
 </script>
 
 <style scoped>
@@ -138,13 +84,25 @@ async function toggleSketchPlayback() {
   min-width: 0;
   box-sizing: border-box;
   overflow: hidden;
-  background-color: rgba(0, 0, 0, 0.8);
+  background:
+    linear-gradient(180deg, rgba(9, 8, 5, 0.96), rgba(5, 5, 4, 0.98));
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0.34rem 0.4rem 0.42rem;
+  border: 1px solid rgba(111, 97, 40, 0.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.22);
+  padding: 0.32rem 0.36rem 0.4rem;
   user-select: none;
   contain: layout style;
+  clip-path: polygon(
+    0 10px,
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    0 100%
+  );
 }
 
 .action-scroll {
@@ -167,18 +125,18 @@ async function toggleSketchPlayback() {
 .action-row {
   display: flex;
   align-items: center;
-  gap: 0.42rem;
+  gap: 0.34rem;
   min-height: 3rem;
   min-width: max-content;
   width: max-content;
-  padding: 0 0.2rem;
+  padding: 0 0.12rem;
 }
 
 .control-group {
   flex: 0 0 auto;
   min-width: 0;
-  width: 4.7rem;
-  max-width: 4.7rem;
+  width: 4.3rem;
+  max-width: 4.3rem;
 }
 
 .action-row:deep(.knob-wrapper) {
@@ -187,18 +145,18 @@ async function toggleSketchPlayback() {
 
 @media (max-width: 480px) {
   .keyboard-action-bar {
-    padding: 0.3rem 0.22rem 0.35rem;
+    padding: 0.28rem 0.22rem 0.34rem;
   }
 
   .action-row {
-    gap: 0.26rem;
+    gap: 0.22rem;
     min-height: 2.5rem;
-    padding: 0 0.14rem;
+    padding: 0 0.1rem;
   }
 
   .control-group {
-    width: 4rem;
-    max-width: 4rem;
+    width: 3.8rem;
+    max-width: 3.8rem;
   }
 }
 </style>

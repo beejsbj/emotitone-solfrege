@@ -1,34 +1,51 @@
 <template>
-  <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
-    <!-- Action bar with controls -->
-    <div class="absolute top-0 -translate-y-full left-0 right-0 grid min-w-0">
-      <PatternList />
-      <LiveCard />
-      <KeyboardActionBar />
-    </div>
-
-    <!-- Keyboard grid -->
-    <div :class="keyboardGridClasses" :style="keyboardGridStyles">
-      <!-- Inner wrapper for padding -->
-      <div :class="keyboardWrapperClasses">
-        <!-- Solfège keys organized in octave rows -->
-        <div
-          v-for="octave in store.visibleOctaves"
-          :key="`octave-${octave}`"
-          :class="octaveRowClasses(octave)"
+  <div class="drawer-shell">
+    <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
+      <div class="drawer-shell__toggle">
+        <IconButton
+          data-testid="drawer-toggle"
+          size="xs"
+          tone="cream"
+          :active="store.drawer.isOpen"
+          :title="store.drawer.isOpen ? 'Close keyboard drawer' : 'Open keyboard drawer'"
+          :aria-label="store.drawer.isOpen ? 'Close keyboard drawer' : 'Open keyboard drawer'"
+          @click="store.toggleDrawer()"
         >
-          <template
-            v-for="(solfege, index) in store.solfegeData"
-            :key="`${solfege.intervalName ?? solfege.name}-${index}-${octave}`"
+          <ChevronDown v-if="store.drawer.isOpen" :size="13" />
+          <ChevronUp v-else :size="13" />
+        </IconButton>
+      </div>
+
+      <!-- Action bar with controls -->
+      <div class="absolute top-0 -translate-y-full left-0 right-0 grid min-w-0 gap-1">
+        <PatternList />
+        <LiveCard />
+        <KeyboardActionBar />
+      </div>
+
+      <!-- Keyboard grid -->
+      <div :class="keyboardGridClasses" :style="keyboardGridStyles">
+        <!-- Inner wrapper for padding -->
+        <div :class="keyboardWrapperClasses">
+          <!-- Solfège keys organized in octave rows -->
+          <div
+            v-for="octave in store.visibleOctaves"
+            :key="`octave-${octave}`"
+            :class="octaveRowClasses(octave)"
           >
-            <KeyboardKey
-              :solfege="solfege"
-              :octave="octave"
-              :solfege-index="index"
-              :is-main-octave="octave === store.keyboardConfig.mainOctave"
-              class="flex-1 min-w-0"
-            />
-          </template>
+            <template
+              v-for="(solfege, index) in store.solfegeData"
+              :key="`${solfege.intervalName ?? solfege.name}-${index}-${octave}`"
+            >
+              <KeyboardKey
+                :solfege="solfege"
+                :octave="octave"
+                :solfege-index="index"
+                :is-main-octave="octave === store.keyboardConfig.mainOctave"
+                class="flex-1 min-w-0"
+              />
+            </template>
+          </div>
         </div>
       </div>
     </div>
@@ -44,6 +61,8 @@ import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
 import LiveCard from "@/components/patterns/LiveCard.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import KeyboardKey from "./keyboard/KeyboardKey.vue";
+import { IconButton } from "@/components/ui";
+import { ChevronDown, ChevronUp } from "lucide-vue-next";
 
 // Component refs
 const drawerRef = ref<HTMLElement | null>(null);
@@ -61,7 +80,7 @@ useKeyboardControls(computed(() => store.keyboardConfig.mainOctave));
 const drawerClasses = computed(() => {
   const baseClasses = [
     // Visual styling
-    "bg-black/90 backdrop-blur-xl",
+    "relative pointer-events-auto bg-black/90 backdrop-blur-xl",
     "border-t border-white/10 shadow-2xl",
     // Performance optimizations
     "contain-layout will-change-transform",
@@ -147,6 +166,18 @@ defineExpose({
 
 <style scoped>
 /* Vendor-specific optimizations */
+.drawer-shell {
+  pointer-events: none;
+}
+
+.drawer-shell__toggle {
+  position: absolute;
+  right: max(0.75rem, env(safe-area-inset-right));
+  top: 0;
+  transform: translateY(calc(-100% - 0.3rem));
+  z-index: 80;
+  pointer-events: auto;
+}
 
 /* Touch optimizations */
 div[ref="drawerRef"] {

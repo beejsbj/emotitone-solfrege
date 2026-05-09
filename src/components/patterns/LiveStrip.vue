@@ -66,6 +66,7 @@ const mirror = ref<StrudelMirrorInstance | null>(null);
 let followLoopFrame: number | null = null;
 let followTargetScrollLeft = 0;
 let followPlaybackActive = false;
+let pendingScrollIntent: "start" | "end" | null = null;
 
 const liveStripConfig = computed(() => visualConfigStore.config.liveStrip);
 const keyboardConfig = computed(() => visualConfigStore.config.keyboard);
@@ -292,6 +293,86 @@ function syncMirrorCode(code: string) {
   syncCode(code);
 }
 
+function getStripScroller(): HTMLElement | null {
+  if (liveStripConfig.value.showStrudelLine) {
+    return editorRoot.value?.querySelector<HTMLElement>(".cm-scroller") ?? null;
+  }
+
+  return notationRef.value;
+}
+
+function setScrollerPosition(
+  scroller: HTMLElement,
+  left: number,
+  behavior: ScrollBehavior = "auto"
+) {
+  if (typeof scroller.scrollTo === "function") {
+    scroller.scrollTo({ left, behavior });
+    return;
+  }
+
+  scroller.scrollLeft = left;
+}
+
+function resolveFollowTargetLeft(scroller: HTMLElement, targetElement: HTMLElement): number {
+  const targetCenter = targetElement.offsetLeft + targetElement.offsetWidth / 2;
+  return Math.max(
+    0,
+    Math.min(
+      scroller.scrollWidth - scroller.clientWidth,
+      targetCenter - scroller.clientWidth * 0.42
+    )
+  );
+}
+
+function getLatestStripToken(): HTMLElement | null {
+  if (liveStripConfig.value.showStrudelLine) {
+    const editorTokens = Array.from(
+      editorRoot.value?.querySelectorAll<HTMLElement>(".cm-live-strip-token") ?? []
+    );
+    return editorTokens[editorTokens.length - 1] ?? null;
+  }
+
+  const notationTokens = Array.from(
+    notationRef.value?.querySelectorAll<HTMLElement>(".token") ?? []
+  );
+  return notationTokens[notationTokens.length - 1] ?? null;
+}
+
+async function flushPendingStripScroll() {
+  const intent = pendingScrollIntent;
+  if (!intent) {
+    return;
+  }
+
+  pendingScrollIntent = null;
+  await nextTick();
+
+  const scroller = getStripScroller();
+  if (!scroller) {
+    return;
+  }
+
+  if (intent === "end" && liveStripConfig.value.showStrudelLine) {
+    const view = getMirrorView(mirror.value);
+    if (followPlaybackActive || view?.hasFocus) {
+      return;
+    }
+  }
+
+  const latestToken = intent === "end" ? getLatestStripToken() : null;
+  const shouldUseTokenTarget =
+    latestToken != null && (latestToken.offsetLeft > 0 || latestToken.offsetWidth > 0);
+  const targetLeft =
+    intent === "start"
+      ? 0
+      : shouldUseTokenTarget
+        ? resolveFollowTargetLeft(scroller, latestToken)
+        : Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+
+  setScrollerPosition(scroller, targetLeft, intent === "end" ? "smooth" : "auto");
+}
+
 function followActivePlayback() {
   const view = getMirrorView(mirror.value);
   const root = editorRoot.value;
@@ -316,14 +397,7 @@ function followActivePlayback() {
     return;
   }
 
-  const targetCenter = activeToken.offsetLeft + activeToken.offsetWidth / 2;
-  followTargetScrollLeft = Math.max(
-    0,
-    Math.min(
-      scroller.scrollWidth - scroller.clientWidth,
-      targetCenter - scroller.clientWidth * 0.42
-    )
-  );
+  followTargetScrollLeft = resolveFollowTargetLeft(scroller, activeToken);
 
   if (followLoopFrame != null) {
     return;
@@ -494,20 +568,30 @@ watch(
 
 watch(
   () => patternsStore.currentWorkingNotes.length,
-  async () => {
-    await nextTick();
-    if (notationRef.value) {
-      notationRef.value.scrollLeft = notationRef.value.scrollWidth;
+  async (nextLength, previousLength) => {
+    if (nextLength > previousLength) {
+      pendingScrollIntent = "end";
+      await flushPendingStripScroll();
     }
   }
 );
 
 watch(
-  () => patternsStore.loadedBaseNotes.length,
+  [() => patternsStore.focusedPatternId, () => patternsStore.loadedBaseNotes.length],
   async () => {
-    await nextTick();
-    if (notationRef.value) {
-      notationRef.value.scrollLeft = 0;
+    if (patternsStore.loadedBaseNotes.length > 0) {
+      pendingScrollIntent = "start";
+      await flushPendingStripScroll();
+    }
+  }
+);
+
+watch(
+  () => patternsStore.isStripCleared,
+  async (isCleared) => {
+    if (isCleared) {
+      pendingScrollIntent = "start";
+      await flushPendingStripScroll();
     }
   }
 );
@@ -545,10 +629,16 @@ onBeforeUnmount(() => {
 
     <div
       v-if="liveStripConfig.enabled && !liveStripConfig.showStrudelLine"
+      data-testid="live-strip-supplement"
       class="live-strip__supplement"
       :style="{ opacity: liveStripConfig.opacity }"
     >
-      <div v-if="displayTokens.length" ref="notationRef" class="notation-bar">
+      <div
+        v-if="displayTokens.length"
+        ref="notationRef"
+        data-testid="live-strip-notation"
+        class="notation-bar"
+      >
         <div class="notation-tokens">
           <span
             v-for="(token, index) in displayTokens"
@@ -568,6 +658,7 @@ onBeforeUnmount(() => {
     <div
       v-show="liveStripConfig.enabled && liveStripConfig.showStrudelLine"
       ref="editorRoot"
+      data-testid="live-strip-editor"
       class="live-strip__editor"
       :class="{ 'live-strip__editor--booting': isBooting }"
     />
@@ -593,10 +684,19 @@ onBeforeUnmount(() => {
 .live-strip__supplement {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, hsla(0, 0%, 7%, 0.96), hsla(0, 0%, 4%, 0.98));
-  border: 1px solid hsla(0, 0%, 100%, 0.06);
-  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(9, 8, 5, 0.98), rgba(5, 5, 4, 0.98));
+  border: 1px solid rgba(111, 97, 40, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   overflow: hidden;
+  clip-path: polygon(
+    0 8px,
+    8px 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    0 100%
+  );
 }
 
 .notation-bar {
@@ -651,14 +751,21 @@ onBeforeUnmount(() => {
   height: auto;
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--strip-border);
-  border-radius: 6px;
+  border: 1px solid rgba(111, 97, 40, 0.28);
   overflow: hidden;
   background: transparent !important;
   background-color: transparent !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  clip-path: polygon(
+    0 8px,
+    8px 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% 100%,
+    0 100%
+  );
 }
 
 .live-strip__editor--booting {

@@ -2,18 +2,20 @@
 import { computed } from "vue";
 
 type Tone = "amber" | "red" | "violet" | "cream" | "green" | "neutral";
-type Size = "sm" | "md";
+type Size = "xs" | "sm" | "md";
 
 interface Props {
   tone?: Tone;
   size?: Size;
   type?: "button" | "submit" | "reset";
+  active?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   tone: "neutral",
   size: "sm",
   type: "button",
+  active: false,
 });
 
 const toneClass = computed(
@@ -40,18 +42,25 @@ const sizeClass = computed(
   () =>
     (
       {
+        xs: "h-7 w-7 text-[8px]",
         sm: "h-8 w-8 text-[9px]",
         md: "h-9 w-9 text-[10px]",
       } as const
     )[props.size]
+);
+
+const activeClass = computed(() =>
+  props.active
+    ? "translate-y-[-1px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_12px_24px_rgba(0,0,0,0.3)]"
+    : "shadow-[0_0_0_1px_rgba(255,255,255,0.02)]"
 );
 </script>
 
 <template>
   <button
     :type="type"
-    class="inline-flex items-center justify-center border transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)] disabled:pointer-events-none disabled:opacity-40"
-    :class="[toneClass, sizeClass]"
+    class="inline-flex items-center justify-center border transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)] active:translate-y-px disabled:pointer-events-none disabled:opacity-40"
+    :class="[toneClass, sizeClass, activeClass]"
   >
     <slot />
   </button>

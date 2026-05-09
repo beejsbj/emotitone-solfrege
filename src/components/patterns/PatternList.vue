@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { usePatternsStore } from "@/stores/patterns";
+import { IconButton } from "@/components/ui";
+import { CornerDownRight } from "lucide-vue-next";
 import PatternCard from "./PatternCard.vue";
 
 const patternsStore = usePatternsStore();
 
 const completedPatterns = computed(() => patternsStore.patterns);
+const hasSketchToSend = computed(() => patternsStore.currentSketchNotes.length > 2);
 const isOpen = ref(false);
 
 // How many ghost cards to show behind the front card (max 2)
@@ -27,73 +30,119 @@ function openDeck() {
 </script>
 
 <template>
-  <div class="deck">
-    <!-- ── Empty state ── -->
-    <p v-if="!completedPatterns.length" class="empty-hint">
-      play some notes, then press send ↵
-    </p>
+  <div class="pattern-list-shell">
+    <div class="deck">
+      <!-- ── Empty state ── -->
+      <p v-if="!completedPatterns.length" class="empty-hint">
+        play some notes, then press send ↵
+      </p>
 
-    <!-- ── Collapsed: card stack ── -->
-    <Transition name="stack">
-      <div
-        v-if="!isOpen && completedPatterns.length"
-        class="stack"
-        :class="{ 'stack--multi': completedPatterns.length > 1 }"
-        @click="openDeck"
-      >
-        <!-- Ghost cards peeking below the front card -->
-        <div v-if="ghostCount >= 2" class="ghost ghost--2" />
-        <div v-if="ghostCount >= 1" class="ghost ghost--1" />
-
-        <!-- Front focused card -->
-        <div class="front-card" @click.stop>
-          <PatternCard
-            v-if="patternsStore.focusedPattern"
-            :pattern="patternsStore.focusedPattern"
-          />
-        </div>
-
-        <!-- Count chip floating in the ghost peek zone -->
-        <button
-          v-if="completedPatterns.length > 1"
-          class="deck-count"
-          @click.stop="isOpen = true"
-          :aria-label="`Show all ${completedPatterns.length} patterns`"
+      <!-- ── Collapsed: card stack ── -->
+      <Transition name="stack">
+        <div
+          v-if="!isOpen && completedPatterns.length"
+          class="stack"
+          :class="{ 'stack--multi': completedPatterns.length > 1 }"
+          @click="openDeck"
         >
-          {{ completedPatterns.length }} ≡
-        </button>
-      </div>
-    </Transition>
+          <!-- Ghost cards peeking below the front card -->
+          <div v-if="ghostCount >= 2" class="ghost ghost--2" />
+          <div v-if="ghostCount >= 1" class="ghost ghost--1" />
 
-    <!-- ── Expanded: pattern list drawer ── -->
-    <Transition name="drawer">
-      <div v-if="isOpen" class="drawer">
-        <!-- Header -->
-        <div class="drawer-head">
-          <span class="drawer-label">{{ completedPatterns.length }} patterns</span>
-          <button class="drawer-close" @click="isOpen = false" aria-label="Close">✕</button>
-        </div>
+          <!-- Front focused card -->
+          <div class="front-card" @click.stop>
+            <PatternCard
+              v-if="patternsStore.focusedPattern"
+              :pattern="patternsStore.focusedPattern"
+            />
+          </div>
 
-        <!-- Scrollable rows — each row is a PatternCard -->
-        <div class="drawer-body">
-          <div
-            v-for="pattern in listPatterns"
-            :key="pattern.id"
-            class="drawer-row"
-            @click="selectPattern(pattern.id)"
+          <!-- Count chip floating in the ghost peek zone -->
+          <button
+            v-if="completedPatterns.length > 1"
+            class="deck-count"
+            @click.stop="isOpen = true"
+            :aria-label="`Show all ${completedPatterns.length} patterns`"
           >
-            <PatternCard :pattern="pattern" />
+            {{ completedPatterns.length }} ≡
+          </button>
+        </div>
+      </Transition>
+
+      <!-- ── Expanded: pattern list drawer ── -->
+      <Transition name="drawer">
+        <div v-if="isOpen" class="drawer">
+          <!-- Header -->
+          <div class="drawer-head">
+            <span class="drawer-label">{{ completedPatterns.length }} patterns</span>
+            <button class="drawer-close" @click="isOpen = false" aria-label="Close">✕</button>
+          </div>
+
+          <!-- Scrollable rows — each row is a PatternCard -->
+          <div class="drawer-body">
+            <div
+              v-for="pattern in listPatterns"
+              :key="pattern.id"
+              class="drawer-row"
+              @click="selectPattern(pattern.id)"
+            >
+              <PatternCard :pattern="pattern" />
+            </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </div>
+
+    <div class="pattern-list-shell__actions">
+      <IconButton
+        data-testid="pattern-list-send"
+        size="xs"
+        tone="amber"
+        :disabled="!hasSketchToSend"
+        :title="hasSketchToSend ? 'Send pattern' : 'Need 3 notes to send'"
+        :aria-label="hasSketchToSend ? 'Send pattern' : 'Need 3 notes to send'"
+        @click="patternsStore.sendCurrentPattern()"
+      >
+        <CornerDownRight :size="13" />
+      </IconButton>
+    </div>
   </div>
 </template>
 
 <style scoped>
 /* ─── Deck shell ─── */
+.pattern-list-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.4rem;
+  padding: 0.28rem 0.36rem;
+  background:
+    linear-gradient(180deg, rgba(9, 8, 5, 0.96), rgba(5, 5, 4, 0.98));
+  border: 1px solid rgba(111, 97, 40, 0.34);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 12px 30px rgba(0, 0, 0, 0.2);
+  clip-path: polygon(
+    0 10px,
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    0 100%
+  );
+}
+
 .deck {
-  padding: 0.375rem;
+  min-width: 0;
+  padding: 0.1rem 0;
+}
+
+.pattern-list-shell__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 0.05rem;
 }
 
 /* ─── Stack (collapsed) ─── */
@@ -302,5 +351,12 @@ function openDeck() {
 .drawer-leave-to {
   opacity: 0;
   transform: translateY(-5px) scale(0.99);
+}
+
+@media (max-width: 480px) {
+  .pattern-list-shell {
+    gap: 0.32rem;
+    padding: 0.24rem 0.22rem;
+  }
 }
 </style>

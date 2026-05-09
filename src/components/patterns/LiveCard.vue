@@ -27,8 +27,8 @@ const { isPlaying } = useLiveStrudelMirror();
 }
 
 .live-card--playing {
-  border-bottom-color: hsla(145, 100%, 50%, 0.25);
-  box-shadow: 0 0 16px hsla(145, 100%, 40%, 0.08);
+  border-bottom-color: hsla(0, 0%, 76%, 0.2);
+  box-shadow: 0 0 16px hsla(0, 0%, 100%, 0.04);
 }
 
 .live-card__body {

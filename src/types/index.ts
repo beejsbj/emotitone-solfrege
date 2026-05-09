@@ -30,6 +30,7 @@ export type {
   VisualEffectsConfig,
   NoteColorRelationships,
   DynamicColorConfig,
+  MusicColorMode,
   FloatingPopupConfig,
 } from "./visual";
 

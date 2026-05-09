@@ -144,7 +144,6 @@ function keepPattern() {
           :model-value="Boolean(pattern.isKept)"
           type="boolean"
           label=" "
-          :theme-color="'hsla(38, 100%, 70%, 1)'"
           @update:modelValue="keepPattern"
         />
         <button
@@ -189,13 +188,13 @@ function keepPattern() {
 }
 
 .track--default {
-  background: hsla(280, 18%, 10%, 1);
-  border-left-color: hsla(280, 70%, 60%, 0.55);
+  background: hsla(0, 0%, 10%, 1);
+  border-left-color: hsla(0, 0%, 42%, 0.55);
 }
 
 .track--focused {
-  border-left-color: hsla(280, 70%, 62%, 0.9);
-  background: hsla(280, 15%, 11%, 0.7);
+  border-left-color: hsla(0, 0%, 78%, 0.72);
+  background: hsla(0, 0%, 13%, 0.9);
 }
 
 .track:active {
@@ -263,14 +262,14 @@ function keepPattern() {
 
 .track-status {
   flex-shrink: 0;
-  color: hsla(38, 100%, 75%, 0.7);
+  color: hsla(0, 0%, 64%, 0.72);
   font-size: 0.45rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .track-status--kept {
-  color: hsla(145, 100%, 65%, 0.75);
+  color: hsla(0, 0%, 78%, 0.78);
 }
 
 .default-pip {
@@ -278,7 +277,7 @@ function keepPattern() {
   width: 0.3rem;
   height: 0.3rem;
   border-radius: 50%;
-  background: hsla(280, 70%, 65%, 0.65);
+  background: hsla(0, 0%, 74%, 0.6);
 }
 
 /* ─── Action buttons ─── */
@@ -328,9 +327,9 @@ function keepPattern() {
 }
 
 .copy-btn--done {
-  background: hsla(150, 55%, 25%, 0.45);
-  color: hsla(150, 65%, 62%, 1);
-  border-color: hsla(150, 55%, 38%, 0.35);
+  background: hsla(0, 0%, 100%, 0.12);
+  color: hsla(0, 0%, 92%, 1);
+  border-color: hsla(0, 0%, 80%, 0.24);
 }
 
 /* ─── Note color strip ─── */

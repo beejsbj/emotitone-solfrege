@@ -35,7 +35,7 @@ interface Props extends BooleanKnobProps {
 
 const props = withDefaults(defineProps<Props>(), {
   isDisabled: false,
-  themeColor: "hsla(158, 100%, 53%, 1)",
+  themeColor: "hsla(0, 0%, 82%, 1)",
 });
 
 const ballRef = ref<HTMLElement | null>(null);
@@ -56,7 +56,7 @@ const activeStrokeColor = computed(
       ? "hsla(0,0%,27%,1)"
       : props.modelValue
       ? props.themeColor
-      : "hsla(0, 84%, 60%, 1)" // Red color when OFF
+      : "hsla(0, 0%, 38%, 1)"
 );
 
 // GSAP animation for the ball

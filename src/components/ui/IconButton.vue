@@ -21,17 +21,17 @@ const toneClass = computed(
     (
       {
         amber:
-          "border-[#7d6825] bg-[#171209] text-[#f7d167] hover:border-[#f7b22c] hover:text-[#fff1c5]",
+          "border-[#47433a] bg-[#151413] text-[#d4d0c7] hover:border-[#8d887d] hover:text-white",
         red:
-          "border-[#6e2a1d] bg-[#170d0b] text-[#f28b72] hover:border-[#e53d2d] hover:text-white",
+          "border-[#433d3d] bg-[#151313] text-[#d3cccc] hover:border-[#8a8383] hover:text-white",
         violet:
-          "border-[#433066] bg-[#100c18] text-[#d8caf7] hover:border-[#5a4295] hover:text-white",
+          "border-[#3f4049] bg-[#141418] text-[#d1d2db] hover:border-[#878992] hover:text-white",
         cream:
-          "border-[#7e7255] bg-[#171209] text-[#efe5cf] hover:border-[#efe5cf] hover:text-white",
+          "border-[#53504a] bg-[#171615] text-[#e0ddd6] hover:border-[#9a968d] hover:text-white",
         green:
-          "border-[#1e7f54] bg-[#072a1d] text-[#b7ffd8] hover:border-[#34c97f] hover:text-white",
+          "border-[#3c443d] bg-[#131613] text-[#d0d7d0] hover:border-[#899089] hover:text-white",
         neutral:
-          "border-[#37311c] bg-[#15120b] text-neutral-300 hover:border-[#a38d3a] hover:text-white",
+          "border-[#3d3d3d] bg-[#151515] text-neutral-300 hover:border-[#8a8a8a] hover:text-white",
       } as const
     )[props.tone]
 );

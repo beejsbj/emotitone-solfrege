@@ -40,12 +40,8 @@
         <strong>Mode:</strong> {{ musicStore.currentKeyDisplay }}
       </p>
       <p>
-        <strong>Mapping:</strong>
-        {{
-          isChromaticMappingEnabled
-            ? "Static 12-pitch colors"
-            : "Dynamic scale-relative colors"
-        }}
+        <strong>Music Color Mode:</strong>
+        {{ musicColorModeLabel }}
       </p>
     </div>
   </div>
@@ -69,8 +65,10 @@ const colorPreview = computed(() =>
   )
 );
 
-const isChromaticMappingEnabled = computed(
-  () => dynamicColorConfig.value.chromaticMapping
+const musicColorModeLabel = computed(() =>
+  dynamicColorConfig.value.musicColorMode === "fixed"
+    ? "Fixed"
+    : "Movable"
 );
 </script>
 

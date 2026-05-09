@@ -79,7 +79,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         opacity: 0.9,
       },
       keyboard: {
-        colorMode: "glassmorphism",
+        surfaceStyle: "glassmorphism",
         glassmorphOpacity: 0.56,
         keyBrightness: 0.85,
         keySaturation: 0.8,
@@ -119,7 +119,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       dynamicColors: {
         isEnabled: true,
-        chromaticMapping: true,
+        musicColorMode: "fixed",
         hueAnimationAmplitude: 42,
         animationSpeed: 1.4,
         saturation: 0.95,
@@ -142,7 +142,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         shapeCount: 9,
       },
       keyboard: {
-        colorMode: "colored",
+        surfaceStyle: "colored",
         keyBrightness: 1.2,
         keySaturation: 1.15,
         angledStyle: true,
@@ -241,7 +241,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       keyboard: {
         isEnabled: true,
-        colorMode: "monochrome",
+        surfaceStyle: "monochrome",
         showLabels: true,
         rowCount: 2,
         keyboardPadding: true,
@@ -276,7 +276,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       dynamicColors: {
         isEnabled: true,
-        chromaticMapping: true,
+        musicColorMode: "fixed",
         hueAnimationAmplitude: 60,
         animationSpeed: 1.8,
         saturation: 1,
@@ -303,7 +303,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         saturation: 100,
       },
       keyboard: {
-        colorMode: "colored",
+        surfaceStyle: "colored",
         keyBrightness: 1.3,
         keySaturation: 1.25,
       },

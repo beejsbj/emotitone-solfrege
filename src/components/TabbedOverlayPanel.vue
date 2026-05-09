@@ -53,15 +53,15 @@ const tabTriggerToneClass = (tone: TabbedOverlayTone) =>
   (
     {
       amber:
-        "border-[#423617] bg-[#131008] text-[#c8bf9b] hover:border-[#7d6825] hover:text-[#f5edd9] data-[state=active]:border-[#f7b22c] data-[state=active]:bg-[#f7b22c] data-[state=active]:text-[#18120a]",
+        "border-[#3e3e3e] bg-[#131313] text-[#c8c8c8] hover:border-[#6f6f6f] hover:text-[#f2f2f2] data-[state=active]:border-[#b8b8b8] data-[state=active]:bg-[#b8b8b8] data-[state=active]:text-[#121212]",
       red:
-        "border-[#402019] bg-[#131008] text-[#c8bf9b] hover:border-[#8b392d] hover:text-[#f5edd9] data-[state=active]:border-[#e53d2d] data-[state=active]:bg-[#e53d2d] data-[state=active]:text-white",
+        "border-[#3d3c3c] bg-[#131313] text-[#c8c8c8] hover:border-[#6d6a6a] hover:text-[#f2f2f2] data-[state=active]:border-[#a8a4a4] data-[state=active]:bg-[#a8a4a4] data-[state=active]:text-[#121212]",
       violet:
-        "border-[#2b2248] bg-[#131008] text-[#c8bf9b] hover:border-[#5a4295] hover:text-[#f5edd9] data-[state=active]:border-[#5a4295] data-[state=active]:bg-[#5a4295] data-[state=active]:text-white",
+        "border-[#383943] bg-[#131313] text-[#c8c8c8] hover:border-[#666874] hover:text-[#f2f2f2] data-[state=active]:border-[#a9abb5] data-[state=active]:bg-[#a9abb5] data-[state=active]:text-[#121212]",
       cream:
-        "border-[#4a4333] bg-[#131008] text-[#c8bf9b] hover:border-[#a79b7a] hover:text-[#f5edd9] data-[state=active]:border-[#efe5cf] data-[state=active]:bg-[#efe5cf] data-[state=active]:text-[#17120a]",
+        "border-[#43413d] bg-[#131313] text-[#c8c8c8] hover:border-[#72706b] hover:text-[#f2f2f2] data-[state=active]:border-[#d3d0ca] data-[state=active]:bg-[#d3d0ca] data-[state=active]:text-[#121212]",
       green:
-        "border-[#1c3429] bg-[#131008] text-[#c8bf9b] hover:border-[#2faa72] hover:text-[#f5edd9] data-[state=active]:border-[#34c97f] data-[state=active]:bg-[#34c97f] data-[state=active]:text-[#07110d]",
+        "border-[#39403a] bg-[#131313] text-[#c8c8c8] hover:border-[#676d67] hover:text-[#f2f2f2] data-[state=active]:border-[#b0b6b0] data-[state=active]:bg-[#b0b6b0] data-[state=active]:text-[#121212]",
     } as const
   )[tone];
 </script>

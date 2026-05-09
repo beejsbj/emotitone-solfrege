@@ -427,10 +427,10 @@ function sceneTone(index: number): PanelTone {
 function toneChipClass(tone: PanelTone) {
   return (
     {
-      amber: "bg-[#f7b22c] text-[#17120a]",
-      red: "bg-[#e53d2d] text-white",
-      violet: "bg-[#5a4295] text-white",
-      cream: "bg-[#efe5cf] text-[#17120a]",
+      amber: "bg-[#d2d2d2] text-[#111111]",
+      red: "bg-[#ababab] text-[#111111]",
+      violet: "bg-[#929292] text-[#111111]",
+      cream: "bg-[#e2e2e2] text-[#111111]",
     } as const
   )[tone];
 }
@@ -460,12 +460,12 @@ function selectInstrument(name: string, close: () => void) {
         data-testid="instrument-selector-trigger"
         @click="open"
         :class="[
-          'group flex items-center gap-2 border border-[#6f6128]/80 bg-[#090805]/88 text-[#d8c985] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#9c8837] hover:text-[#f7f0d8] [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]',
+          'group flex items-center gap-2 border border-[#4a4a4a]/80 bg-[#090909]/88 text-[#d2d2d2] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]',
           compact ? 'max-w-[144px] px-[9px] py-1.5 text-[9px]' : 'max-w-[208px] px-[11px] py-[7px] text-[10px]',
         ]"
       >
         <span
-          class="relative flex h-5 w-6 shrink-0 items-center justify-center border border-[#4c4322] bg-[#121009]/85 text-[#d8c985] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]"
+          class="relative flex h-5 w-6 shrink-0 items-center justify-center border border-[#444444] bg-[#121212]/85 text-[#d2d2d2] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]"
         >
           <span class="absolute inset-y-[4px] left-[6px] w-px bg-current/90" />
           <span class="absolute inset-y-[2px] left-[10px] w-px bg-current/90" />
@@ -473,14 +473,14 @@ function selectInstrument(name: string, close: () => void) {
         </span>
 
         <span
-          class="truncate font-mono leading-none text-[#a9f4c8] transition-colors duration-200 group-hover:text-[#c6ffdf]"
+          class="truncate font-mono leading-none text-[#e5e5e5] transition-colors duration-200 group-hover:text-white"
           :class="compact ? 'max-w-[82px]' : 'max-w-[126px]'"
         >
           {{ displayName(currentInstrumentId) }}
         </span>
         <ChevronDown
           :size="compact ? 12 : 14"
-          class="shrink-0 text-[#b9ac7a] transition-transform duration-200 group-hover:translate-y-[1px] group-hover:text-[#f2e7bf]"
+          class="shrink-0 text-[#a8a8a8] transition-transform duration-200 group-hover:translate-y-[1px] group-hover:text-white"
         />
       </button>
     </template>
@@ -505,7 +505,7 @@ function selectInstrument(name: string, close: () => void) {
                 Sound
               </span>
               <span
-                class="inline-flex h-6 max-w-[12rem] items-center border border-[#332b16] bg-[#141109] px-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#d7cca0] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+                class="inline-flex h-6 max-w-[12rem] items-center border border-[#3b3b3b] bg-[#141414] px-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#d3d3d3] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
               >
                 <span class="truncate">
                   {{ bankLabel }}
@@ -515,7 +515,7 @@ function selectInstrument(name: string, close: () => void) {
 
             <div class="flex shrink-0 items-center gap-1.5">
               <span
-                class="inline-flex h-8 items-center border border-[#37311c] bg-[#15120b] px-2 text-[8px] uppercase tracking-[0.18em] text-neutral-400 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+                class="inline-flex h-8 items-center border border-[#3d3d3d] bg-[#151515] px-2 text-[8px] uppercase tracking-[0.18em] text-neutral-400 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
               >
                 {{ visibleSoundCount }}
               </span>
@@ -535,7 +535,7 @@ function selectInstrument(name: string, close: () => void) {
         <template #toolbar>
           <div class="flex items-center gap-2">
             <label
-              class="flex flex-1 items-center gap-2 border border-[#37311c] bg-[#15120b] px-2.5 py-1.5 text-neutral-300 transition-colors focus-within:border-[#1e7f54] focus-within:text-white [clip-path:polygon(2%_0,100%_0,98%_100%,0_100%)]"
+              class="flex flex-1 items-center gap-2 border border-[#3d3d3d] bg-[#151515] px-2.5 py-1.5 text-neutral-300 transition-colors focus-within:border-[#7d7d7d] focus-within:text-white [clip-path:polygon(2%_0,100%_0,98%_100%,0_100%)]"
             >
               <Search :size="14" class="text-neutral-500" />
               <input
@@ -551,7 +551,7 @@ function selectInstrument(name: string, close: () => void) {
             </label>
 
             <span
-              class="hidden h-8 shrink-0 items-center border border-[#332b16] bg-[#141109] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#00ff88] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
+              class="hidden h-8 shrink-0 items-center border border-[#3b3b3b] bg-[#141414] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#dfdfdf] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
             >
               {{ displayName(currentInstrumentId) }}
             </span>
@@ -561,21 +561,21 @@ function selectInstrument(name: string, close: () => void) {
         <div class="space-y-3">
           <div
             v-if="!allSounds.length"
-            class="border border-dashed border-[#3a321d] bg-[#100e09] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             loading sounds…
           </div>
 
           <div
             v-else-if="!filteredSounds.length"
-            class="border border-dashed border-[#3a321d] bg-[#100e09] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no matches for "{{ query }}"
           </div>
 
           <div
             v-else-if="!orderedGroups.length"
-            class="border border-dashed border-[#3a321d] bg-[#100e09] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no sounds in this bank yet.
           </div>
@@ -584,7 +584,7 @@ function selectInstrument(name: string, close: () => void) {
             <section
               v-for="group in orderedGroups"
               :key="group.key"
-              class="border border-[#2d2717] bg-[#100e09] px-3 py-2.5 [clip-path:polygon(0_12px,12px_0,calc(100%-12px)_0,100%_12px,100%_100%,0_100%)]"
+              class="border border-[#2d2d2d] bg-[#121212] px-3 py-2.5 [clip-path:polygon(0_12px,12px_0,calc(100%-12px)_0,100%_12px,100%_100%,0_100%)]"
             >
               <div class="mb-2 flex items-center justify-between gap-2 px-0.5">
                 <span
@@ -610,8 +610,8 @@ function selectInstrument(name: string, close: () => void) {
                   :class="[
                     'min-w-0 w-full border px-2.5 py-1 font-mono text-[9px] transition-colors [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]',
                     currentInstrumentId === sound
-                      ? 'border-[#1e7f54] bg-[#072a1d] text-[#b7ffd8]'
-                      : 'border-[#37311c] bg-[#15120b] text-neutral-300 hover:border-[#8b7733] hover:text-white',
+                      ? 'border-[#8b8b8b] bg-[#242424] text-white'
+                      : 'border-[#3d3d3d] bg-[#151515] text-neutral-300 hover:border-[#7f7f7f] hover:text-white',
                   ]"
                 >
                   <span class="block truncate">

@@ -118,27 +118,9 @@ export const MODE_DEFINITIONS: Record<MusicalMode, ModeDefinition> = {
   },
 };
 
-const MODE_OPTION_COLORS: Record<MusicalMode, string> = {
-  major: "hsl(22, 60%, 72%)",
-  minor: "hsl(210, 48%, 72%)",
-  dorian: "hsl(164, 40%, 68%)",
-  phrygian: "hsl(350, 42%, 72%)",
-  lydian: "hsl(56, 62%, 72%)",
-  mixolydian: "hsl(132, 42%, 70%)",
-  locrian: "hsl(280, 34%, 72%)",
-  "harmonic minor": "hsl(328, 48%, 72%)",
-  "melodic minor": "hsl(188, 42%, 72%)",
-  "major pentatonic": "hsl(40, 68%, 72%)",
-  "minor pentatonic": "hsl(230, 48%, 72%)",
-  "major blues": "hsl(20, 72%, 68%)",
-  "minor blues": "hsl(215, 58%, 68%)",
-  chromatic: "hsl(302, 40%, 74%)",
-};
-
 export const MODE_OPTIONS = MODE_ORDER.map((mode) => ({
   label: MODE_DEFINITIONS[mode].label,
   value: mode,
-  color: MODE_OPTION_COLORS[mode],
 }));
 
 export function getModeDefinition(mode: MusicalMode): ModeDefinition {

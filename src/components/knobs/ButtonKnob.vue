@@ -29,10 +29,10 @@ const props = withDefaults(defineProps<ButtonKnobProps>(), {
   isDisabled: false,
   isLoading: false,
   isActive: false,
-  themeColor: "hsla(158, 100%, 53%, 1)",
-  readyColor: "hsla(120, 70%, 50%, 1)",
-  activeColor: "hsla(0, 84%, 60%, 1)",
-  loadingColor: "hsla(43, 96%, 56%, 1)",
+  themeColor: "hsla(0, 0%, 82%, 1)",
+  readyColor: "hsla(0, 0%, 72%, 1)",
+  activeColor: "hsla(0, 0%, 96%, 1)",
+  loadingColor: "hsla(0, 0%, 58%, 1)",
 });
 
 // Refs

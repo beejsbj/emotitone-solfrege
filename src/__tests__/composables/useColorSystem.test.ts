@@ -26,7 +26,7 @@ vi.unmock("@/data");
 
 const dynamicColorConfig = ref({
   isEnabled: true,
-  chromaticMapping: false,
+  musicColorMode: "movable" as const,
   hueAnimationAmplitude: 15,
   animationSpeed: 1,
   saturation: 0.8,
@@ -43,8 +43,8 @@ vi.mock("@/composables/useVisualConfig", () => ({
 import { useColorSystem } from "@/composables/useColorSystem";
 
 describe("useColorSystem", () => {
-  it("rotates dynamic hues by key and degree count", () => {
-    dynamicColorConfig.value.chromaticMapping = false;
+  it("keeps movable tonic colors aligned while still respecting scale size", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
     const colorSystem = useColorSystem();
 
     const cMajorDo = colorSystem.getStaticPrimaryColorByScaleIndex(
@@ -59,51 +59,60 @@ describe("useColorSystem", () => {
       "D",
       3
     );
+    const cMajorLa = colorSystem.getStaticPrimaryColorByScaleIndex(
+      5,
+      "major",
+      "C",
+      3
+    );
     const cPentatonicLa = colorSystem.getStaticPrimaryColorByScaleIndex(
       4,
       "major pentatonic",
       "C",
       3
     );
-    const cMajorTi = colorSystem.getStaticPrimaryColorByScaleIndex(
-      6,
-      "major",
-      "C",
-      3
-    );
 
-    expect(cMajorDo).not.toBe(dMajorDo);
-    expect(cPentatonicLa).not.toBe(cMajorTi);
+    expect(cMajorDo).toBe(dMajorDo);
+    expect(cPentatonicLa).not.toBe(cMajorLa);
   });
 
-  it("uses static pitch-class colors when chromatic mapping is enabled", () => {
-    dynamicColorConfig.value.chromaticMapping = true;
+  it("uses fixed pitch-class colors independent of key and mode", () => {
+    dynamicColorConfig.value.musicColorMode = "fixed";
     const colorSystem = useColorSystem();
 
-    const minorBluesSe = colorSystem.getStaticPrimaryColorByScaleIndex(
-      3,
-      "minor blues",
-      "C",
-      3
-    );
-    const chromaticFs = colorSystem.getStaticPrimaryColorByScaleIndex(
-      6,
+    const cChromatic = colorSystem.getStaticPrimaryColorByScaleIndex(
+      0,
       "chromatic",
       "C",
       3
     );
+    const dMinorC = colorSystem.getStaticPrimaryColorByScaleIndex(
+      6,
+      "minor",
+      "D",
+      3
+    );
 
-    expect(minorBluesSe).toBe(chromaticFs);
+    expect(cChromatic).toBe(dMinorC);
+  });
+
+  it("returns neutral off-scale colors for pitch classes in movable mode", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
+    const colorSystem = useColorSystem();
+
+    expect(colorSystem.getStaticPrimaryColor("C#", "major", 3, "C")).toBe(
+      "hsla(0, 0%, 16%, 1)"
+    );
   });
 
   it("resolves altered syllables without falling back to the default error color", () => {
-    dynamicColorConfig.value.chromaticMapping = false;
+    dynamicColorConfig.value.musicColorMode = "movable";
     const colorSystem = useColorSystem();
 
     const fi = colorSystem.getStaticPrimaryColor("Fi", "lydian", 3, "C");
     const se = colorSystem.getStaticPrimaryColor("Se", "minor blues", 3, "C");
 
-    expect(fi).not.toBe("hsla(0, 80%, 50%, 1)");
-    expect(se).not.toBe("hsla(0, 80%, 50%, 1)");
+    expect(fi).not.toBe("hsla(0, 0%, 16%, 1)");
+    expect(se).not.toBe("hsla(0, 0%, 16%, 1)");
   });
 });

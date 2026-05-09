@@ -45,11 +45,14 @@ export interface NoteColorRelationships {
   tertiary: string;
 }
 
+export type MusicColorMode = "fixed" | "movable";
+
 /**
  * Dynamic color configuration
  */
 export interface DynamicColorConfig {
-  chromaticMapping: boolean;
+  isEnabled: boolean;
+  musicColorMode: MusicColorMode;
   saturation: number;
   baseLightness: number;
   lightnessRange: number;
@@ -293,8 +296,8 @@ export interface FrequencyMappingConfig {
 export interface DynamicColorConfig {
   /** Whether dynamic colors are enabled (alternative to predefined colors) */
   isEnabled: boolean;
-  /** Whether to use chromatic mapping (12 notes) instead of solfege (7 notes) */
-  chromaticMapping: boolean;
+  /** Whether music colors are fixed to pitch class or movable with the scale */
+  musicColorMode: MusicColorMode;
   /** Hue animation amplitude in degrees (±) */
   hueAnimationAmplitude: number;
   /** Animation speed multiplier for hue changes */
@@ -438,8 +441,8 @@ export interface KeyboardConfig {
   keyGaps: "none" | "small" | "medium";
   /** Key border radius in pixels */
   keyShape: number;
-  /** Color mode for keys */
-  colorMode: "colored" | "monochrome" | "glassmorphism";
+  /** Presentation style for keys */
+  surfaceStyle: "colored" | "monochrome" | "glassmorphism";
   /** Key size multiplier */
   keySize: number;
   /** Number of visible octave rows */

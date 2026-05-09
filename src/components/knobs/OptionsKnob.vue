@@ -22,7 +22,7 @@ import type { OptionsKnobProps, KnobOption } from "@/types/knob";
 
 const props = withDefaults(defineProps<OptionsKnobProps>(), {
   isDisabled: false,
-  themeColor: "hsla(158, 100%, 53%, 1)",
+  themeColor: "hsla(0, 0%, 82%, 1)",
 });
 
 // Option normalization

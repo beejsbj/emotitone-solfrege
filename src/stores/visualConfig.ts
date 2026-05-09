@@ -14,9 +14,101 @@ export interface SavedConfig {
   updatedAt: string;
 }
 
+type LegacyDynamicColors = Partial<VisualEffectsConfig["dynamicColors"]> & {
+  chromaticMapping?: boolean;
+};
+
+type LegacyKeyboardConfig = Partial<VisualEffectsConfig["keyboard"]> & {
+  colorMode?: VisualEffectsConfig["keyboard"]["surfaceStyle"];
+};
+
+type LegacyVisualEffectsConfig = Partial<VisualEffectsConfig> & {
+  dynamicColors?: LegacyDynamicColors;
+  keyboard?: LegacyKeyboardConfig;
+};
+
+function cloneDefaultConfig(): VisualEffectsConfig {
+  return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as VisualEffectsConfig;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function migrateLegacySectionKeys(
+  sectionName: keyof VisualEffectsConfig,
+  incomingSection: Record<string, unknown>,
+  mergedSection: Record<string, unknown>
+) {
+  if (sectionName === "dynamicColors") {
+    if (
+      !("musicColorMode" in incomingSection) &&
+      typeof incomingSection.chromaticMapping === "boolean"
+    ) {
+      mergedSection.musicColorMode = incomingSection.chromaticMapping
+        ? "fixed"
+        : "movable";
+    }
+    delete mergedSection.chromaticMapping;
+  }
+
+  if (sectionName === "keyboard") {
+    if (
+      !("surfaceStyle" in incomingSection) &&
+      typeof incomingSection.colorMode === "string"
+    ) {
+      mergedSection.surfaceStyle = incomingSection.colorMode;
+    }
+    delete mergedSection.colorMode;
+  }
+}
+
+function migrateVisualConfig(
+  rawConfig: unknown
+): VisualEffectsConfig {
+  const migratedConfig = cloneDefaultConfig();
+  const migratedConfigRecord = migratedConfig as unknown as Record<string, unknown>;
+
+  if (!isRecord(rawConfig)) {
+    return migratedConfig;
+  }
+
+  for (const sectionName of Object.keys(
+    migratedConfig
+  ) as Array<keyof VisualEffectsConfig>) {
+    const incomingSection = rawConfig[sectionName];
+    const defaultSection = migratedConfig[sectionName];
+
+    if (!isRecord(incomingSection) || !isRecord(defaultSection)) {
+      continue;
+    }
+
+    const mergedSection = {
+      ...defaultSection,
+      ...incomingSection,
+    };
+
+    migrateLegacySectionKeys(sectionName, incomingSection, mergedSection);
+    migratedConfigRecord[sectionName as string] = mergedSection;
+  }
+
+  return migratedConfig;
+}
+
+function migrateSavedConfig(rawSavedConfig: unknown): SavedConfig | null {
+  if (!isRecord(rawSavedConfig)) {
+    return null;
+  }
+
+  return {
+    ...(rawSavedConfig as Omit<SavedConfig, "config">),
+    config: migrateVisualConfig((rawSavedConfig as { config?: unknown }).config),
+  } as SavedConfig;
+}
+
 export const useVisualConfigStore = defineStore("visualConfig", () => {
   // State
-  const config = reactive<VisualEffectsConfig>({ ...DEFAULT_CONFIG });
+  const config = reactive<VisualEffectsConfig>(cloneDefaultConfig());
   const visualsEnabled = ref(true);
   const savedConfigs = ref<SavedConfig[]>([]);
   const isLoading = ref(false);
@@ -28,13 +120,18 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsedConfig = JSON.parse(stored);
-        Object.assign(config, parsedConfig.config || parsedConfig);
+        Object.assign(config, migrateVisualConfig(parsedConfig.config || parsedConfig));
         visualsEnabled.value = parsedConfig.visualsEnabled ?? true;
       }
 
       const storedSavedConfigs = localStorage.getItem(SAVED_CONFIGS_KEY);
       if (storedSavedConfigs) {
-        savedConfigs.value = JSON.parse(storedSavedConfigs);
+        const parsedSavedConfigs = JSON.parse(storedSavedConfigs);
+        savedConfigs.value = Array.isArray(parsedSavedConfigs)
+          ? parsedSavedConfigs
+              .map(migrateSavedConfig)
+              .filter((savedConfig): savedConfig is SavedConfig => savedConfig != null)
+          : [];
       }
     } catch (error) {
       console.error("Failed to load visual config from localStorage:", error);
@@ -63,9 +160,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     updates: Partial<VisualEffectsConfig[K]>
   ) => {
     if (!config[section]) {
-      (config[section] as VisualEffectsConfig[K]) = JSON.parse(
-        JSON.stringify(DEFAULT_CONFIG[section])
-      );
+      config[section] = cloneDefaultConfig()[section];
     }
     Object.assign(config[section], updates);
   };
@@ -88,7 +183,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const resetSection = <K extends keyof VisualEffectsConfig>(section: K) => {
     Object.assign(
       config[section],
-      JSON.parse(JSON.stringify(DEFAULT_CONFIG[section]))
+      cloneDefaultConfig()[section]
     );
   };
 
@@ -100,7 +195,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const savedConfig: SavedConfig = {
       id,
       name,
-      config: JSON.parse(JSON.stringify(config)),
+      config: getConfigSnapshot(),
       createdAt: now,
       updatedAt: now,
     };
@@ -123,7 +218,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const loadSavedConfig = (configId: string) => {
     const savedConfig = savedConfigs.value.find((c) => c.id === configId);
     if (savedConfig) {
-      Object.assign(config, JSON.parse(JSON.stringify(savedConfig.config)));
+      Object.assign(config, migrateVisualConfig(savedConfig.config));
       saveToStorage();
     }
   };
@@ -157,12 +252,12 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Get a deep copy of the current configuration
   const getConfigSnapshot = (): VisualEffectsConfig => {
-    return JSON.parse(JSON.stringify(config));
+    return migrateVisualConfig(JSON.parse(JSON.stringify(config)));
   };
 
   // Load configuration from a snapshot
   const loadConfigSnapshot = (snapshot: VisualEffectsConfig) => {
-    Object.assign(config, JSON.parse(JSON.stringify(snapshot)));
+    Object.assign(config, migrateVisualConfig(snapshot));
     saveToStorage();
   };
 
@@ -183,7 +278,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     try {
       const importedData = JSON.parse(jsonData);
       if (importedData.config) {
-        Object.assign(config, importedData.config);
+        Object.assign(config, migrateVisualConfig(importedData.config));
         if (typeof importedData.visualsEnabled === "boolean") {
           visualsEnabled.value = importedData.visualsEnabled;
         }

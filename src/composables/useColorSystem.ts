@@ -1,232 +1,29 @@
 /**
  * Unified Color System
- * Dynamic colors are scale-relative; the persisted chromaticMapping toggle
- * is reinterpreted as static 12-pitch-class coloring.
+ * Music color assignment and keyboard surface styling share one runtime entry point.
  */
 
 import { computed, onUnmounted, ref } from "vue";
 import { useVisualConfig } from "./useVisualConfig";
 import type {
   ChromaticNote,
-  DynamicColorConfig,
   MusicalMode,
   NoteColorRelationships,
 } from "@/types";
+import { getScaleForMode } from "@/data";
 import {
-  ALL_SOLFEGE_NOTES,
-  CHROMATIC_NOTES,
-  getScaleForMode,
-} from "@/data";
+  getChromaticNoteForScaleIndex,
+  resolveMusicColorsByNoteName,
+  resolveMusicColorsByScaleIndex,
+  resolveSolfegeName as resolveMusicSolfegeName,
+} from "@/services/musicColor";
 
-const FLAT_TO_SHARP_MAP: Record<string, ChromaticNote> = {
-  Db: "C#",
-  Eb: "D#",
-  Gb: "F#",
-  Ab: "G#",
-  Bb: "A#",
+const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
+  primary: "hsla(0, 0%, 16%, 1)",
+  accent: "hsla(0, 0%, 26%, 1)",
+  secondary: "hsla(0, 0%, 22%, 1)",
+  tertiary: "hsla(0, 0%, 30%, 1)",
 };
-
-const EDGE_CASE_MAP: Record<string, ChromaticNote> = {
-  "E#": "F",
-  "B#": "C",
-  Fb: "E",
-  Cb: "B",
-};
-
-function normalizeIndex(index: number, base: number): number {
-  return ((index % base) + base) % base;
-}
-
-function calculateChromaticBaseHue(noteIndex: number): number {
-  const hueInterval = 360 / 12;
-  return (noteIndex * hueInterval + hueInterval / 2) % 360;
-}
-
-function calculateDegreeBaseHue(
-  scaleIndex: number,
-  degreeCount: number,
-  key: ChromaticNote
-): number {
-  const tonicIndex = CHROMATIC_NOTES.indexOf(key);
-  const tonicHue = calculateChromaticBaseHue(Math.max(0, tonicIndex));
-  const hueInterval = 360 / degreeCount;
-  return (tonicHue + normalizeIndex(scaleIndex, degreeCount) * hueInterval) % 360;
-}
-
-function calculateOctaveLightness(
-  octave: number,
-  baseLightness: number,
-  lightnessRange: number
-): number {
-  const normalizedOctave = Math.max(2, Math.min(8, octave));
-  const octaveRatio = (normalizedOctave - 2) / 6;
-  const minLightness = Math.max(0.15, baseLightness - lightnessRange / 2);
-  const maxLightness = Math.min(0.85, baseLightness + lightnessRange / 2);
-  const curvedRatio = Math.pow(octaveRatio, 0.8);
-  const lightness = minLightness + curvedRatio * (maxLightness - minLightness);
-  return Math.max(0.1, Math.min(0.9, lightness));
-}
-
-function generateColorRelationships(
-  hue: number,
-  saturation: number,
-  lightness: number
-): NoteColorRelationships {
-  const primary = `hsla(${hue}, ${saturation * 100}%, ${lightness * 100}%, 1)`;
-  const accentHue = (hue + 180) % 360;
-  const accent = `hsla(${accentHue}, ${saturation * 100}%, ${
-    lightness * 100
-  }%, 1)`;
-  const secondaryHue = (hue + 120) % 360;
-  const secondary = `hsla(${secondaryHue}, ${saturation * 100}%, ${
-    lightness * 100
-  }%, 1)`;
-  const tertiaryHue = (hue + 240) % 360;
-  const tertiary = `hsla(${tertiaryHue}, ${saturation * 100}%, ${
-    lightness * 100
-  }%, 1)`;
-
-  return { primary, accent, secondary, tertiary };
-}
-
-function generateAnimatedHue(
-  baseHue: number,
-  amplitude: number,
-  time: number,
-  speed: number,
-  intervalCount: number
-): number {
-  const hueInterval = 360 / intervalCount;
-  const clampedAmplitude = Math.min(amplitude, hueInterval / 2);
-  const animationOffset = Math.sin(time * speed * 0.001) * clampedAmplitude;
-  return (baseHue + animationOffset + 360) % 360;
-}
-
-function normalizeChromaticNote(noteName: string): ChromaticNote | null {
-  const cleanName = noteName.replace(/[0-9']/g, "");
-
-  if (CHROMATIC_NOTES.includes(cleanName as ChromaticNote)) {
-    return cleanName as ChromaticNote;
-  }
-
-  if (EDGE_CASE_MAP[cleanName]) {
-    return EDGE_CASE_MAP[cleanName];
-  }
-
-  return FLAT_TO_SHARP_MAP[cleanName] ?? null;
-}
-
-function getChromaticNoteForScaleIndex(
-  scaleIndex: number,
-  mode: MusicalMode,
-  key: ChromaticNote
-): ChromaticNote | null {
-  const scale = getScaleForMode(mode);
-  const normalizedScaleIndex = normalizeIndex(scaleIndex, scale.degreeCount);
-  const semitoneOffset = scale.intervals[normalizedScaleIndex];
-  const tonicIndex = CHROMATIC_NOTES.indexOf(key);
-
-  if (tonicIndex === -1 || semitoneOffset == null) {
-    return null;
-  }
-
-  return CHROMATIC_NOTES[(tonicIndex + semitoneOffset) % 12];
-}
-
-function getScaleIndexForSolfegeName(
-  noteName: string,
-  mode: MusicalMode
-): number | null {
-  const scale = getScaleForMode(mode);
-  const cleanName = noteName.replace("'", "");
-  const matchIndex = scale.solfege.findIndex(
-    (note) => note.name.toLowerCase() === cleanName.toLowerCase()
-  );
-
-  return matchIndex === -1 ? null : matchIndex;
-}
-
-function getFallbackScaleIndexForChromaticNote(
-  noteName: ChromaticNote,
-  mode: MusicalMode,
-  key: ChromaticNote
-): number | null {
-  const scale = getScaleForMode(mode);
-  const chromaticIndex = CHROMATIC_NOTES.indexOf(noteName);
-  const tonicIndex = CHROMATIC_NOTES.indexOf(key);
-
-  if (chromaticIndex === -1 || tonicIndex === -1) {
-    return null;
-  }
-
-  const relativeSemitone = (chromaticIndex - tonicIndex + 12) % 12;
-  let fallbackIndex = 0;
-
-  for (let index = 0; index < scale.intervals.length; index++) {
-    if (scale.intervals[index] <= relativeSemitone) {
-      fallbackIndex = index;
-    } else {
-      break;
-    }
-  }
-
-  return fallbackIndex;
-}
-
-function getDynamicNoteColors(
-  scaleIndex: number,
-  octave: number,
-  key: ChromaticNote,
-  degreeCount: number,
-  config: DynamicColorConfig,
-  time?: number
-): NoteColorRelationships {
-  const baseHue = calculateDegreeBaseHue(scaleIndex, degreeCount, key);
-  const hue =
-    time !== undefined
-      ? generateAnimatedHue(
-          baseHue,
-          config.hueAnimationAmplitude,
-          time,
-          config.animationSpeed,
-          degreeCount
-        )
-      : baseHue;
-  const lightness = calculateOctaveLightness(
-    octave,
-    config.baseLightness,
-    config.lightnessRange
-  );
-
-  return generateColorRelationships(hue, config.saturation, lightness);
-}
-
-function getStaticChromaticNoteColors(
-  chromaticNote: ChromaticNote,
-  octave: number,
-  config: DynamicColorConfig,
-  time?: number
-): NoteColorRelationships {
-  const noteIndex = CHROMATIC_NOTES.indexOf(chromaticNote);
-  const baseHue = calculateChromaticBaseHue(Math.max(0, noteIndex));
-  const hue =
-    time !== undefined
-      ? generateAnimatedHue(
-          baseHue,
-          config.hueAnimationAmplitude,
-          time,
-          config.animationSpeed,
-          12
-        )
-      : baseHue;
-  const lightness = calculateOctaveLightness(
-    octave,
-    config.baseLightness,
-    config.lightnessRange
-  );
-
-  return generateColorRelationships(hue, config.saturation, lightness);
-}
 
 let animationId: number | null = null;
 const animationTime = ref(0);
@@ -253,8 +50,8 @@ export function useColorSystem() {
     // Intentionally left running while the app is mounted.
   });
 
-  const isStaticChromaticColors = computed(
-    () => dynamicColorConfig.value.chromaticMapping
+  const isFixedMusicColorMode = computed(
+    () => dynamicColorConfig.value.musicColorMode === "fixed"
   );
 
   const getNoteColorsByScaleIndex = (
@@ -265,29 +62,16 @@ export function useColorSystem() {
     animated: boolean = true
   ): NoteColorRelationships => {
     const config = dynamicColorConfig.value;
-    const scale = getScaleForMode(mode);
-    const normalizedScaleIndex = normalizeIndex(scaleIndex, scale.degreeCount);
     const time = animated ? animationTime.value : undefined;
-
-    if (isStaticChromaticColors.value) {
-      const chromaticNote = getChromaticNoteForScaleIndex(
-        normalizedScaleIndex,
+    return (
+      resolveMusicColorsByScaleIndex(
+        scaleIndex,
         mode,
-        key
-      );
-
-      if (chromaticNote) {
-        return getStaticChromaticNoteColors(chromaticNote, octave, config, time);
-      }
-    }
-
-    return getDynamicNoteColors(
-      normalizedScaleIndex,
-      octave,
-      key,
-      scale.degreeCount,
-      config,
-      time
+        key,
+        octave,
+        config,
+        time
+      ) ?? FALLBACK_NOTE_COLORS
     );
   };
 
@@ -298,44 +82,16 @@ export function useColorSystem() {
     animated: boolean = true,
     key: ChromaticNote = "C"
   ): NoteColorRelationships => {
-    const scaleIndex = getScaleIndexForSolfegeName(noteName, mode);
-    if (scaleIndex !== null) {
-      return getNoteColorsByScaleIndex(scaleIndex, mode, key, octave, animated);
-    }
-
-    const chromaticNote = normalizeChromaticNote(noteName);
-    if (chromaticNote) {
-      if (isStaticChromaticColors.value) {
-        return getStaticChromaticNoteColors(
-          chromaticNote,
-          octave,
-          dynamicColorConfig.value,
-          animated ? animationTime.value : undefined
-        );
-      }
-
-      const fallbackIndex = getFallbackScaleIndexForChromaticNote(
-        chromaticNote,
+    return (
+      resolveMusicColorsByNoteName(
+        noteName,
         mode,
-        key
-      );
-      if (fallbackIndex !== null) {
-        return getNoteColorsByScaleIndex(
-          fallbackIndex,
-          mode,
-          key,
-          octave,
-          animated
-        );
-      }
-    }
-
-    return {
-      primary: "hsla(0, 80%, 50%, 1)",
-      accent: "hsla(180, 80%, 50%, 1)",
-      secondary: "hsla(120, 80%, 50%, 1)",
-      tertiary: "hsla(240, 80%, 50%, 1)",
-    };
+        key,
+        octave,
+        dynamicColorConfig.value,
+        animated ? animationTime.value : undefined
+      ) ?? FALLBACK_NOTE_COLORS
+    );
   };
 
   const getPrimaryColorByScaleIndex = (
@@ -544,39 +300,6 @@ export function useColorSystem() {
 
   type SolfegeInputType = "scaleIndex" | "solfegeIndex" | "solfegeName";
 
-  const resolveSolfegeName = (
-    input: number | string,
-    inputType: SolfegeInputType = "scaleIndex",
-    mode: MusicalMode = "major"
-  ): string => {
-    const scale = getScaleForMode(mode);
-
-    if (inputType === "solfegeName") {
-      const name = String(input).replace("'", "");
-      const match = scale.solfege.find(
-        (note) => note.name.toLowerCase() === name.toLowerCase()
-      );
-      return match?.name || scale.solfege[0]?.name || ALL_SOLFEGE_NOTES[0];
-    }
-
-    if (inputType === "solfegeIndex") {
-      const normalizedOneBased =
-        normalizeIndex(Number(input) - 1, scale.degreeCount) + 1;
-      return (
-        scale.solfege[normalizedOneBased - 1]?.name ||
-        scale.solfege[0]?.name ||
-        ALL_SOLFEGE_NOTES[0]
-      );
-    }
-
-    const normalizedIndex = normalizeIndex(Number(input), scale.degreeCount);
-    return (
-      scale.solfege[normalizedIndex]?.name ||
-      scale.solfege[0]?.name ||
-      ALL_SOLFEGE_NOTES[0]
-    );
-  };
-
   const getStaticPrimaryColorFromSolfegeInput = (
     input: number | string,
     inputType: SolfegeInputType = "scaleIndex",
@@ -584,7 +307,7 @@ export function useColorSystem() {
     octave: number = 3,
     key: ChromaticNote = "C"
   ): string => {
-    const solfegeName = resolveSolfegeName(input, inputType, mode);
+    const solfegeName = resolveMusicSolfegeName(input, inputType, mode);
     return getStaticPrimaryColor(solfegeName, mode, octave, key);
   };
 
@@ -594,7 +317,7 @@ export function useColorSystem() {
     mode: MusicalMode = "major"
   ) => {
     const scale = getScaleForMode(mode);
-    const name = resolveSolfegeName(input, inputType, mode);
+    const name = resolveMusicSolfegeName(input, inputType, mode);
     const scaleIndex = scale.solfege.findIndex((note) => note.name === name);
     return {
       solfegeName: name,
@@ -683,7 +406,7 @@ export function useColorSystem() {
     mode: MusicalMode,
     key: ChromaticNote,
     octave: number,
-    colorMode: "colored" | "monochrome" | "glassmorphism",
+    surfaceStyle: "colored" | "monochrome" | "glassmorphism",
     isAccidental: boolean,
     config: {
       keyBrightness?: number;
@@ -697,7 +420,7 @@ export function useColorSystem() {
       glassmorphOpacity = 0.4,
     } = config;
 
-    if (colorMode === "monochrome") {
+    if (surfaceStyle === "monochrome") {
       const baseColor = isAccidental
         ? "hsla(0, 0%, 100%, 1)"
         : "hsla(0, 0%, 10%, 1)";
@@ -719,7 +442,7 @@ export function useColorSystem() {
       octave
     );
 
-    if (colorMode === "glassmorphism") {
+    if (surfaceStyle === "glassmorphism") {
       return {
         background: createGlassmorphBackground(primaryColor, glassmorphOpacity),
         primaryColor,
@@ -738,10 +461,10 @@ export function useColorSystem() {
   };
 
   const getKeyTextColor = (
-    colorMode: "colored" | "monochrome" | "glassmorphism",
+    surfaceStyle: "colored" | "monochrome" | "glassmorphism",
     isAccidental: boolean
   ): string => {
-    if (colorMode === "monochrome") {
+    if (surfaceStyle === "monochrome") {
       return isAccidental ? "text-black" : "text-white";
     }
 
@@ -769,7 +492,7 @@ export function useColorSystem() {
     withAlpha,
     createGradient,
     createConicGradient,
-    resolveSolfegeName,
+    resolveSolfegeName: resolveMusicSolfegeName,
     getStaticPrimaryColorFromSolfegeInput,
     getSolfegeMappingInfo,
     createGlassmorphBackground,
@@ -784,6 +507,6 @@ export function useColorSystem() {
     getKeyBackground,
     getKeyTextColor,
     isDynamicColorsEnabled,
-    isStaticChromaticColors,
+    isFixedMusicColorMode,
   };
 }

@@ -164,15 +164,15 @@ const props = defineProps({
   },
   readyColor: {
     type: String,
-    default: "hsla(120, 70%, 50%, 1)",
+    default: "hsla(0, 0%, 72%, 1)",
   },
   activeColor: {
     type: String,
-    default: "hsla(0, 84%, 60%, 1)",
+    default: "hsla(0, 0%, 96%, 1)",
   },
   loadingColor: {
     type: String,
-    default: "hsla(43, 96%, 56%, 1)",
+    default: "hsla(0, 0%, 58%, 1)",
   },
   icon: {
     type: [String, Object],
@@ -282,7 +282,7 @@ const actualLabel = computed(() => {
 });
 
 // Default theme color
-const defaultThemeColor = "hsla(158, 100%, 53%, 1)";
+const defaultThemeColor = "hsla(0, 0%, 82%, 1)";
 
 // Enhanced gesture detection and interaction
 const handleStart = (e: MouseEvent | TouchEvent) => {

@@ -106,7 +106,7 @@ const keyColors = computed(() => {
     currentMode.value,
     currentKey.value,
     props.octave,
-    config.value.colorMode,
+    config.value.surfaceStyle,
     isAccidental.value,
     {
       keyBrightness: config.value.keyBrightness,
@@ -118,10 +118,10 @@ const keyColors = computed(() => {
 
 // Text colors
 const labelColor = computed(() =>
-  getKeyTextColor(config.value.colorMode, isAccidental.value)
+  getKeyTextColor(config.value.surfaceStyle, isAccidental.value)
 );
 const labelColorSecondary = computed(() => {
-  const base = getKeyTextColor(config.value.colorMode, isAccidental.value);
+  const base = getKeyTextColor(config.value.surfaceStyle, isAccidental.value);
   return base.replace("text-", "text-") + "/80";
 });
 
@@ -193,7 +193,7 @@ const keyClasses = computed(() => {
       glassmorphism: "backdrop-blur-md shadow-lg",
       monochrome: "shadow-inner border border-gray-300",
       colored: "shadow-lg",
-    }[config.value.colorMode] || "shadow-lg";
+    }[config.value.surfaceStyle] || "shadow-lg";
 
   // State classes
   const stateClasses = [];

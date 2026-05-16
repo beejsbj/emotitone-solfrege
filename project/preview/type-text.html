@@ -1,0 +1,101 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .rule{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 16px;border:1px solid var(--hairline);border-radius:6px;
+    background:var(--ink-2);margin-bottom:18px;
+  }
+  .rule .icon{
+    flex-shrink:0;width:42px;height:42px;border-radius:50%;
+    border:1.5px solid var(--ivory);display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--ivory);
+  }
+  .rule .copy{font-family:var(--font-display);font-size:18px;color:var(--ivory);line-height:1.35;font-weight:600;}
+  .rule .copy b{color:#d2b272;}
+  .rule .copy em{font-family:'JetBrains Mono',ui-monospace,monospace;font-style:normal;font-size:13px;color:var(--ivory-2);background:var(--ink-3);padding:1px 6px;border-radius:3px;letter-spacing:.02em;}
+
+  .grid{display:grid;grid-template-columns:90px 1fr;gap:8px 18px;align-items:baseline;}
+  .grid .k{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ivory-3);padding-top:6px;}
+  .grid .v{padding:4px 0;border-bottom:1px dashed var(--hairline);}
+
+  .jazz-xl{font-family:var(--font-display);font-weight:700;font-size:42px;color:var(--ivory);line-height:1;letter-spacing:.005em;}
+  .jazz-l {font-family:var(--font-display);font-weight:700;font-size:28px;color:var(--ivory);line-height:1.1;}
+  .jazz-m {font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--ivory);line-height:1.2;}
+  .jazz-s {font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ivory);text-transform:uppercase;letter-spacing:.04em;}
+
+  .mono-body{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;line-height:1.55;color:var(--ivory-2);max-width:62ch;}
+  .mono-meta{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;line-height:1.5;color:var(--ivory-3);}
+
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px;}
+  .compare > div{padding:12px 14px;border:1px solid var(--hairline);border-radius:6px;background:var(--ink-2);}
+  .compare h4{font-family:var(--font-display);font-weight:700;font-size:11px;letter-spacing:.1em;
+              text-transform:uppercase;color:var(--ivory-3);margin:0 0 8px;}
+  .swatch-jazz{font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--ivory);line-height:1.3;}
+  .swatch-mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;line-height:1.55;color:var(--ivory-2);}
+  .word-count{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:9px;color:var(--ivory-4);
+              letter-spacing:.1em;text-transform:uppercase;margin-top:6px;display:block;}
+
+  .never{margin-top:6px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--ivory-3);line-height:1.55;}
+  .never s{color:var(--ivory-4);text-decoration:line-through wavy rgba(184,146,63,.5);}
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">TEXT · LETS JAZZ FIRST · MONO FOR THE LONG STUFF</div>
+
+  <div class="rule">
+    <span class="icon">≤4</span>
+    <div class="copy">
+      <b>Lets Jazz</b> by default — labels, headlines, knobs, buttons, captions, the lot.
+      Switch to <em>JetBrains Mono</em> only when a line runs <b>more than four words</b>.
+    </div>
+  </div>
+
+  <!-- ═══ LETS JAZZ — primary face ═══ -->
+  <div class="grid">
+    <div class="k">XL · 42</div>
+    <div class="v"><span class="jazz-xl">Sing the room.</span><span class="word-count">3 words · jazz</span></div>
+
+    <div class="k">L · 28</div>
+    <div class="v"><span class="jazz-l">Press a key.</span><span class="word-count">3 words · jazz</span></div>
+
+    <div class="k">M · 20</div>
+    <div class="v"><span class="jazz-m">Tap to record</span><span class="word-count">3 words · jazz</span></div>
+
+    <div class="k">S · 14</div>
+    <div class="v"><span class="jazz-s">All sounds &nbsp;·&nbsp; presets &nbsp;·&nbsp; scope &nbsp;·&nbsp; sync</span><span class="word-count">labels — always jazz</span></div>
+  </div>
+
+  <!-- ═══ Crossover examples ═══ -->
+  <div class="compare">
+    <div>
+      <h4>≤ 4 words → JAZZ</h4>
+      <div class="swatch-jazz">Open yearning, tender reach.</div>
+      <span class="word-count">4 words · jazz</span>
+      <div class="swatch-jazz" style="margin-top:10px;">La carries romantic ache.</div>
+      <span class="word-count">4 words · jazz</span>
+      <div class="swatch-jazz" style="margin-top:10px;">120 BPM</div>
+      <span class="word-count">2 words · jazz</span>
+    </div>
+    <div>
+      <h4>&gt; 4 words → MONO</h4>
+      <div class="swatch-mono">La carries the romantic ache of a major sixth — a song heard from a window across the street.</div>
+      <span class="word-count">21 words · mono</span>
+      <div class="swatch-mono" style="margin-top:10px;color:var(--ivory-3);">Secondary body, tertiary metadata, tooltips, helper copy and walls of explanatory text all live here.</div>
+      <span class="word-count">15 words · mono</span>
+    </div>
+  </div>
+
+  <!-- ═══ Mono sub-grades (only used past 4 words) ═══ -->
+  <div style="margin-top:18px;padding:12px 14px;border:1px solid var(--hairline);border-radius:6px;background:var(--ink-2);">
+    <h4 style="font-family:var(--font-display);font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ivory-3);margin:0 0 10px">Mono sub-grades</h4>
+    <div class="mono-body">Body · 13px · 1.55 — paragraphs and helper copy that genuinely need the word count.</div>
+    <div class="mono-meta" style="margin-top:8px;">Meta · 11px · 1.5 — tooltips, timestamps, kbd hints, error strings.</div>
+    <div class="mono-meta" style="margin-top:6px;font-size:10px;color:var(--ivory-4);">Caption · 10px — chrome metadata, debug readouts, file paths.</div>
+  </div>
+
+  <div class="never">
+    <b style="color:var(--ivory-2);font-family:var(--font-display);">Never:</b>
+    <s>Lets Jazz on a 30-word paragraph</s> &nbsp;·&nbsp;
+    <s>Mono on a 2-word button</s> &nbsp;·&nbsp;
+    <s>Mono on a section header</s>
+  </div>
+</div></body></html>

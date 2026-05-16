@@ -1,0 +1,122 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .panel{background:var(--ink-2);box-shadow:var(--ring);border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:10px;}
+  .led{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .led.green{background:hsl(138 80% 55%);box-shadow:0 0 8px hsl(138 80% 55%);}
+  .led.amber{background:hsl(40 95% 58%);box-shadow:0 0 8px hsl(40 95% 58%);}
+  .led.red{background:hsl(2 86% 58%);box-shadow:0 0 10px hsl(2 86% 58%);}
+  .led.dim{background:#2a2a2a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);}
+  /* 7-seg style numeric panel */
+  .seg{
+    font-family: var(--font-display);
+    font-weight: 700; font-size: 24px; letter-spacing: .04em;
+    color: var(--ivory);
+    text-shadow: 0 0 6px rgba(244,239,230,.25);
+    background: #0a0a0a;
+    padding: 4px 10px; border-radius: 6px;
+    box-shadow: inset 0 1px 0 rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.04);
+    line-height: 1;
+  }
+  .seg.green{color: var(--ivory); text-shadow: 0 0 6px rgba(244,239,230,.25);}
+  .tick{display:inline-block;width:3px;height:14px;background:#1a1a1a;border-radius:1px;}
+  .tick.on{background:hsl(138 80% 55%);box-shadow:0 0 6px hsl(138 80% 55%);}
+  .tick.warn{background:hsl(40 95% 58%);box-shadow:0 0 6px hsl(40 95% 58%);}
+  .tick.peak{background:hsl(2 86% 58%);box-shadow:0 0 6px hsl(2 86% 58%);}
+  /* level meter strip */
+  .meter{display:flex;gap:2px;align-items:flex-end;}
+  /* beat dots */
+  .beats{display:flex;gap:6px;align-items:center;}
+  .beat{width:14px;height:14px;border-radius:3px;background:#1a1a1a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);}
+  .beat.on{background:var(--ivory);box-shadow:0 0 6px var(--ivory);}
+  /* chromatic dots scrubber */
+  .scrub{display:flex;gap:3px;height:10px;align-items:center;}
+  .pix{width:14px;height:8px;border-radius:1px;}
+  /* sound chip */
+  .sound{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;background:var(--ink-3);box-shadow:var(--ring);border-radius:10px;}
+  .sound .iconbox{width:32px;height:32px;border-radius:6px;display:grid;place-items:center;background:#000;}
+  .sound .name{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:.02em;text-transform:uppercase;color:var(--fg);}
+  .sound .glyph{font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--ivory);}
+  /* tempo led ring */
+  .tempo{display:flex;align-items:center;gap:6px;}
+  .tempo .dots{display:flex;gap:3px;}
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:10px; font-family: var(--font-display); font-weight: 700; font-size: 14px;">HARDWARE BAR</div>
+
+  <!-- Row 1: instrument + key + transport -->
+  <div class="row">
+    <div class="sound">
+      <div class="iconbox"><span class="glyph">𝄞</span></div>
+      <div class="name">PIANO</div>
+      <span style="opacity:.4;font-size:10px">▾</span>
+    </div>
+
+    <div class="panel">
+      <span class="led" style="background:var(--ivory);box-shadow:0 0 6px rgba(244,239,230,.6);"></span>
+      <span class="seg">C·MAJ</span>
+    </div>
+
+    <div class="panel">
+      <span class="seg">120</span>
+      <span class="cap" style="font-family: var(--font-display); font-weight: 700; font-size: 14px; letter-spacing: .08em; color:var(--fg-3);">BPM</span>
+    </div>
+
+    <div class="panel">
+      <div class="beats">
+        <div class="beat on"></div>
+        <div class="beat"></div>
+        <div class="beat"></div>
+        <div class="beat"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: VU meter + chromatic scrubber + status leds -->
+  <div class="row" style="margin-top:10px;">
+    <div class="panel">
+      <div class="meter">
+        <span class="tick on" style="height:6px"></span>
+        <span class="tick on" style="height:8px"></span>
+        <span class="tick on" style="height:10px"></span>
+        <span class="tick on" style="height:12px"></span>
+        <span class="tick on" style="height:14px"></span>
+        <span class="tick on" style="height:16px"></span>
+        <span class="tick warn" style="height:18px"></span>
+        <span class="tick warn" style="height:20px"></span>
+        <span class="tick peak" style="height:22px"></span>
+        <span class="tick" style="height:22px;background:#1a1a1a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);"></span>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1;">
+      <div class="scrub" style="flex:1;">
+        <div class="pix" style="background:hsl(18 85% 56%)"></div>
+        <div class="pix" style="background:hsl(48 90% 56%)"></div>
+        <div class="pix" style="background:hsl(78 72% 52%)"></div>
+        <div class="pix" style="background:hsl(108 62% 48%)"></div>
+        <div class="pix" style="background:hsl(138 60% 46%);height:14px;border:1px solid #fff;"></div>
+        <div class="pix" style="background:hsl(178 68% 50%)"></div>
+        <div class="pix" style="background:hsl(202 82% 56%)"></div>
+        <div class="pix" style="background:hsl(228 78% 58%)"></div>
+        <div class="pix" style="background:hsl(252 72% 60%)"></div>
+        <div class="pix" style="background:hsl(282 66% 60%)"></div>
+        <div class="pix" style="background:hsl(312 76% 58%)"></div>
+        <div class="pix" style="background:hsl(342 80% 56%)"></div>
+        <div class="pix" style="background:hsl(2 86% 58%)"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="led green"></span>
+      <span class="led amber"></span>
+      <span class="led dim"></span>
+      <span class="led dim"></span>
+    </div>
+  </div>
+
+  <div class="caption" style="margin-top:12px;color:var(--fg-3)">
+    Live chrome reads as instrument hardware: lit LEDs, 7-seg numerics, VU ticks, beat squares,
+    and a 13-step chromatic scrubber whose lit slice = the currently sounding note.
+  </div>
+</div></body></html>

@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .ring{display:flex;gap:4px;align-items:flex-end;}
+  .n{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;}
+  .n .sw{width:100%;height:48px;border-radius:6px;box-shadow:var(--ring);}
+  .n .nm{font:var(--t-label);letter-spacing:var(--tracking-label);color:var(--fg-2);font-size:10px;}
+  .n .iv{font:var(--t-mono);color:var(--fg-3);font-size:9px;}
+  .mode{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;}
+  .mode b{font:var(--t-label);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--fg);}
+  .mode em{font:var(--t-mono);font-style:normal;color:var(--fg-3);}
+  .legend{font:var(--t-caption);color:var(--fg-3);margin-top:6px;}
+  .sect + .sect { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+</style></head><body>
+<div class="card">
+
+  <!-- FIXED MODE -->
+  <div class="sect">
+    <div class="mode"><b>Fixed · Do-coloring</b><em>Do is always orange. Hue +30° per semitone.</em></div>
+    <div class="ring">
+      <div class="n"><div class="sw" style="background:hsl(18 85% 56%)"></div><div class="nm">DO</div><div class="iv">1P</div></div>
+      <div class="n"><div class="sw" style="background:hsl(48 90% 56%)"></div><div class="nm">RA</div><div class="iv">2m</div></div>
+      <div class="n"><div class="sw" style="background:hsl(78 72% 52%)"></div><div class="nm">RE</div><div class="iv">2M</div></div>
+      <div class="n"><div class="sw" style="background:hsl(108 62% 48%)"></div><div class="nm">ME</div><div class="iv">3m</div></div>
+      <div class="n"><div class="sw" style="background:hsl(138 60% 46%)"></div><div class="nm">MI</div><div class="iv">3M</div></div>
+      <div class="n"><div class="sw" style="background:hsl(178 68% 50%)"></div><div class="nm">FA</div><div class="iv">4P</div></div>
+      <div class="n"><div class="sw" style="background:hsl(202 82% 56%)"></div><div class="nm">FI</div><div class="iv">4A</div></div>
+      <div class="n"><div class="sw" style="background:hsl(228 78% 58%)"></div><div class="nm">SE</div><div class="iv">5d</div></div>
+      <div class="n"><div class="sw" style="background:hsl(252 72% 60%)"></div><div class="nm">SOL</div><div class="iv">5P</div></div>
+      <div class="n"><div class="sw" style="background:hsl(282 66% 60%)"></div><div class="nm">LE</div><div class="iv">6m</div></div>
+      <div class="n"><div class="sw" style="background:hsl(312 76% 58%)"></div><div class="nm">LA</div><div class="iv">6M</div></div>
+      <div class="n"><div class="sw" style="background:hsl(342 80% 56%)"></div><div class="nm">TE</div><div class="iv">7m</div></div>
+      <div class="n"><div class="sw" style="background:hsl(2 86% 58%)"></div><div class="nm">TI</div><div class="iv">7M</div></div>
+    </div>
+    <div class="legend"><code>hue = (semitone × 30 + 18) mod 360</code> · 13 fixed slots tied to chromatic position.</div>
+  </div>
+
+  <!-- MOVABLE — MAJOR (7 notes) -->
+  <div class="sect">
+    <div class="mode"><b>Movable · 7-note (major)</b><em>360° ÷ 7 ≈ 51.4° · root = first slice</em></div>
+    <div class="ring">
+      <div class="n"><div class="sw" style="background:hsl(0 78% 56%)"></div><div class="nm">DO</div><div class="iv">0°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(51 78% 56%)"></div><div class="nm">RE</div><div class="iv">51°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(103 60% 50%)"></div><div class="nm">MI</div><div class="iv">103°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(154 64% 48%)"></div><div class="nm">FA</div><div class="iv">154°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(206 78% 56%)"></div><div class="nm">SOL</div><div class="iv">206°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(257 70% 60%)"></div><div class="nm">LA</div><div class="iv">257°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(309 76% 58%)"></div><div class="nm">TI</div><div class="iv">309°</div></div>
+    </div>
+  </div>
+
+  <!-- MOVABLE — PENTATONIC (5 notes) -->
+  <div class="sect">
+    <div class="mode"><b>Movable · 5-note (pentatonic)</b><em>360° ÷ 5 = 72° · root = first slice</em></div>
+    <div class="ring">
+      <div class="n"><div class="sw" style="background:hsl(0 78% 56%)"></div><div class="nm">DO</div><div class="iv">0°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(72 70% 52%)"></div><div class="nm">RE</div><div class="iv">72°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(144 60% 48%)"></div><div class="nm">MI</div><div class="iv">144°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(216 76% 58%)"></div><div class="nm">SOL</div><div class="iv">216°</div></div>
+      <div class="n"><div class="sw" style="background:hsl(288 68% 60%)"></div><div class="nm">LA</div><div class="iv">288°</div></div>
+      <div class="n" style="visibility:hidden;"><div class="sw"></div><div class="nm">·</div><div class="iv">·</div></div>
+      <div class="n" style="visibility:hidden;"><div class="sw"></div><div class="nm">·</div><div class="iv">·</div></div>
+    </div>
+    <div class="legend"><code>hue = (i / scale.length) × 360</code> · scale-relative, root anchored at the user's chosen tonic offset.</div>
+  </div>
+
+</div></body></html>

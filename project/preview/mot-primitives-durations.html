@@ -1,0 +1,165 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── DURATIONS · FOUR GESTURES ────────────────────────────────
+     A scale of four time tokens. Pair each with its named ease
+     in the easings card; the duration determines the rhythm.
+     ─────────────────────────────────────────────────────────── */
+  .grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .dur {
+    background: #0a0908;
+    border: 1px solid var(--hairline);
+    padding: 16px 14px 14px;
+    display: flex; flex-direction: column; gap: 12px;
+    position: relative;
+  }
+  .dur .pin {
+    position: absolute; top: 6px; right: 10px;
+    font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ivory-4); text-transform: uppercase;
+  }
+  .dur .name {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 28px; line-height: 1; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--ivory);
+  }
+  .dur .ms {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 16px; color: var(--saffron);
+    letter-spacing: .02em;
+  }
+  .dur .ms sup {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+    color: var(--ivory-4); margin-left: 6px; vertical-align: 6px;
+  }
+  .dur .track {
+    height: 28px; background: var(--ink-2);
+    border: 1px solid var(--hairline);
+    position: relative; overflow: hidden;
+  }
+  .dur .track i {
+    position: absolute; top: 0; bottom: 0; left: 0;
+    background: var(--ivory);
+    width: 12px;
+    animation: dur-fill var(--d) var(--ease-brush) infinite;
+  }
+  .dur.tap   .track i { --d: 1.2s;  animation-timing-function: var(--ease-stab); }
+  .dur.ui    .track i { --d: 1.6s;  animation-timing-function: var(--ease-brush); }
+  .dur.panel .track i { --d: 2.2s;  animation-timing-function: var(--ease-swing); }
+  .dur.scene .track i { --d: 3.0s;  animation-timing-function: var(--ease-bend); }
+  @keyframes dur-fill {
+    0%, 100% { width: 12px; }
+    50%      { width: calc(100% - 12px); }
+  }
+  .dur .use {
+    font-family: var(--font-mono); font-size: 10px; line-height: 1.5;
+    letter-spacing: .14em; color: var(--ivory-3); text-transform: uppercase;
+  }
+
+  /* a 4-bar 4/4 grid showing where each duration falls */
+  .scale {
+    margin-top: 14px;
+    border: 1px solid var(--hairline);
+    background: var(--ink-2);
+    padding: 14px;
+  }
+  .scale .head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 10px;
+  }
+  .scale .head b {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .scale .head span {
+    font: var(--t-mono); font-size: 10px; letter-spacing: .14em;
+    color: var(--ivory-3); text-transform: uppercase; margin-left: auto;
+  }
+  .ruler {
+    position: relative;
+    height: 36px;
+    background: linear-gradient(to right, var(--hairline) 1px, transparent 1px) 0 0 / 12.5% 100% no-repeat,
+                linear-gradient(to right, var(--hairline) 1px, transparent 1px) 12.5% 0 / 12.5% 100% no-repeat,
+                linear-gradient(to right, var(--hairline) 1px, transparent 1px) 25% 0 / 12.5% 100% no-repeat,
+                linear-gradient(to right, var(--hairline) 1px, transparent 1px) 37.5% 0 / 12.5% 100% no-repeat,
+                linear-gradient(to right, var(--hairline) 1px, transparent 1px) 50% 0 / 12.5% 100% no-repeat,
+                linear-gradient(to right, var(--hairline) 1px, transparent 1px) 62.5% 0 / 12.5% 100% no-repeat,
+                linear-gradient(to right, var(--hairline) 1px, transparent 1px) 75% 0 / 12.5% 100% no-repeat,
+                linear-gradient(to right, var(--hairline) 1px, transparent 1px) 87.5% 0 / 12.5% 100% no-repeat;
+  }
+  /* 4 bars @ 120bpm = 2000ms total. Show each duration as a tinted band starting at bar 1. */
+  .band {
+    position: absolute; left: 0; height: 6px;
+    background: var(--saffron);
+  }
+  .band.tap   { top: 4px;  width: 4.5%;  background: var(--tomato); }
+  .band.ui    { top: 12px; width: 11%;   background: var(--saffron); }
+  .band.panel { top: 20px; width: 18%;   background: var(--ivory); }
+  .band.scene { top: 28px; width: 30%;   background: var(--grape); }
+  .ticks {
+    margin-top: 4px;
+    display: flex; justify-content: space-between;
+    font: var(--t-mono); font-size: 9px; letter-spacing: .16em;
+    color: var(--ivory-4); text-transform: uppercase;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">DURATIONS · FOUR GESTURES · PRIMITIVE</div>
+
+  <div class="grid">
+    <div class="dur tap">
+      <span class="pin">01</span>
+      <div class="name">Tap</div>
+      <div class="ms">90<sup>ms</sup></div>
+      <div class="track"><i></i></div>
+      <div class="use">Press · ripple<br>Instant ack</div>
+    </div>
+    <div class="dur ui">
+      <span class="pin">02</span>
+      <div class="name">UI</div>
+      <div class="ms">220<sup>ms</sup></div>
+      <div class="track"><i></i></div>
+      <div class="use">Tab swap · chip<br>Segmented select</div>
+    </div>
+    <div class="dur panel">
+      <span class="pin">03</span>
+      <div class="name">Panel</div>
+      <div class="ms">360<sup>ms</sup></div>
+      <div class="track"><i></i></div>
+      <div class="use">Drawer in/out<br>Mode change</div>
+    </div>
+    <div class="dur scene">
+      <span class="pin">04</span>
+      <div class="name">Scene</div>
+      <div class="ms">600<sup>ms</sup></div>
+      <div class="track"><i></i></div>
+      <div class="use">Visual fx fade<br>Hero swap</div>
+    </div>
+  </div>
+
+  <div class="scale">
+    <div class="head">
+      <b>4/4 · 120 BPM</b>
+      <span>each tick = 1/8 note · 250 ms</span>
+    </div>
+    <div class="ruler">
+      <span class="band tap"></span>
+      <span class="band ui"></span>
+      <span class="band panel"></span>
+      <span class="band scene"></span>
+    </div>
+    <div class="ticks">
+      <span>1</span><span>&amp;</span>
+      <span>2</span><span>&amp;</span>
+      <span>3</span><span>&amp;</span>
+      <span>4</span><span>&amp;</span>
+      <span>1</span>
+    </div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    The four durations are sized to the bar: <b>tap</b> sneaks inside a 16th, <b>ui</b> covers a 16th, <b>panel</b> covers an 8th, and <b>scene</b> spans a full beat. Quantize on: durations snap to the nearest grid tick while the transport runs.
+  </div>
+</div></body></html>

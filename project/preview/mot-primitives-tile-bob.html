@@ -1,0 +1,135 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── TILE BOB · &-OF-BEAT STAGGER ─────────────────────────────
+     Solfège tiles bob 2px down on the &-of-every-beat, staggered
+     by .03s per tile, using Brush. The whole row reads as a small
+     wave that runs the chromatic scale.
+     ─────────────────────────────────────────────────────────── */
+  .stage {
+    background: #0a0908;
+    border: 1px solid var(--hairline);
+    padding: 24px 18px 14px;
+  }
+  .row {
+    display: flex; gap: 8px; justify-content: center;
+    padding: 18px 0 22px;
+  }
+  .tile {
+    width: 76px; height: 76px;
+    border-radius: 4px;
+    padding: 9px 10px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    border: 1px solid rgba(0,0,0,.42);
+    position: relative; overflow: hidden;
+    animation: bob 500ms var(--ease-brush) infinite;
+  }
+  .tile::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.20), transparent 60%),
+                linear-gradient(180deg, transparent 70%, rgba(0,0,0,.2) 100%);
+    mix-blend-mode: overlay;
+  }
+  .tile .syll {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 24px; line-height: .92; color: rgba(0,0,0,.86);
+    text-transform: capitalize;
+  }
+  .tile .pitch {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 13px; color: rgba(0,0,0,.55);
+  }
+  .tile.dark .syll  { color: rgba(255,255,255,.95); }
+  .tile.dark .pitch { color: rgba(255,255,255,.7); }
+
+  /* staggered delays */
+  .tile:nth-child(1) { animation-delay:   0ms; }
+  .tile:nth-child(2) { animation-delay:  30ms; }
+  .tile:nth-child(3) { animation-delay:  60ms; }
+  .tile:nth-child(4) { animation-delay:  90ms; }
+  .tile:nth-child(5) { animation-delay: 120ms; }
+  .tile:nth-child(6) { animation-delay: 150ms; }
+  .tile:nth-child(7) { animation-delay: 180ms; }
+
+  /* the bob — drops 2px down on the &-of-beat (50% of the cycle) */
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    48%      { transform: translateY(0); }
+    52%      { transform: translateY(2px); }
+    62%      { transform: translateY(2px); }
+    78%      { transform: translateY(0); }
+  }
+
+  /* a pair of phase markers underneath: 1 e & a 2 e & a … */
+  .phase {
+    margin: 6px 0 0;
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    border-top: 1px solid var(--hairline);
+    padding-top: 8px;
+  }
+  .phase span {
+    font: var(--t-mono); font-size: 10px; letter-spacing: .16em;
+    color: var(--ivory-3); text-transform: uppercase; text-align: center;
+  }
+  .phase span.amp {
+    color: var(--saffron);
+  }
+
+  .meta {
+    margin-top: 14px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .meta .a { border-left: 2px solid var(--hairline); padding: 4px 0 4px 8px; }
+  .meta .a b {
+    display: block; font-family: var(--font-display); font-weight: 700;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ivory);
+  }
+  .meta .a code {
+    display: block; font: var(--t-mono); font-size: 9px; letter-spacing: .14em;
+    color: var(--ivory-3); text-transform: uppercase; margin-top: 2px;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">TILE BOB · &-OF-BEAT · PRIMITIVE</div>
+
+  <div class="stage">
+    <div class="row">
+      <div class="tile" style="background: hsl(18 85% 56%);">
+        <span class="syll">Do</span><span class="pitch">E<sub>4</sub></span>
+      </div>
+      <div class="tile" style="background: hsl(78 72% 52%);">
+        <span class="syll">Re</span><span class="pitch">F<sub>4</sub></span>
+      </div>
+      <div class="tile" style="background: hsl(138 60% 46%);">
+        <span class="syll">Mi</span><span class="pitch">G<sub>4</sub></span>
+      </div>
+      <div class="tile" style="background: hsl(178 68% 50%);">
+        <span class="syll">Fa</span><span class="pitch">A<sub>4</sub></span>
+      </div>
+      <div class="tile dark" style="background: hsl(228 78% 58%);">
+        <span class="syll">Sol</span><span class="pitch">B<sub>4</sub></span>
+      </div>
+      <div class="tile dark" style="background: hsl(282 66% 60%);">
+        <span class="syll">La</span><span class="pitch">C<sub>5</sub></span>
+      </div>
+      <div class="tile dark" style="background: hsl(342 80% 56%);">
+        <span class="syll">Ti</span><span class="pitch">D<sub>5</sub></span>
+      </div>
+    </div>
+    <div class="phase">
+      <span>1</span><span class="amp">e</span><span class="amp">&amp;</span><span class="amp">a</span>
+      <span>2</span><span class="amp">e</span><span class="amp">&amp;</span><span class="amp">a</span>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="a"><b>Travel</b><code>2 px ↓ then back · no scale</code></div>
+    <div class="a"><b>Curve</b><code>--ease-brush · 500 ms loop</code></div>
+    <div class="a"><b>Stagger</b><code>30 ms × index · row reads as a wave</code></div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    The tiles do <em>not</em> pulse on the quarter — that's the knobs' job. They sneak down on the &-of-beat
+    instead, brushing a small wave from Do to Ti. The stagger keeps the row from looking stamped; the
+    saffron <em>e</em>/<em>&amp;</em>/<em>a</em> ticks below mark the off-beat positions.
+  </div>
+</div></body></html>

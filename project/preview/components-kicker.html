@@ -1,0 +1,132 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── KICKER PRIMITIVE ─────────────────────────────────────────
+     A coloured square + an ALLCAPS mono line. The "you are here"
+     marker that opens every card, section, or panel. One per scope.
+     ────────────────────────────────────────────────────────── */
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ivory-3);
+  }
+  .kicker .dot {
+    display: inline-block;
+    width: 9px; height: 9px;
+    transform: translateY(-1px);
+    background: var(--saffron);
+  }
+  .kicker.tomato .dot   { background: var(--tomato); }
+  .kicker.grape  .dot   { background: var(--grape); }
+  .kicker.pine   .dot   { background: var(--pine); }
+  .kicker.coral  .dot   { background: var(--coral); }
+  .kicker.cream  .dot   { background: var(--cream); }
+
+  /* size variants */
+  .kicker.sm { font-size: 9px; letter-spacing: .22em; gap: 8px; }
+  .kicker.sm .dot { width: 6px; height: 6px; }
+  .kicker.lg { font-size: 13px; letter-spacing: .16em; gap: 12px; }
+  .kicker.lg .dot { width: 11px; height: 11px; }
+
+  /* layout */
+  .swatch-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);
+  }
+  .swatch-grid .cell {
+    background: #0a0908;
+    padding: 18px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .swatch-grid .cell code {
+    font: var(--t-mono); font-size: 9px; letter-spacing: .18em;
+    color: var(--ivory-4); text-transform: uppercase;
+  }
+  .uses {
+    margin-top: 18px;
+    display: grid; gap: 12px;
+  }
+  .use {
+    border: 1px solid var(--hairline);
+    padding: 14px 16px;
+    background: #0a0908;
+    display: flex; align-items: baseline; gap: 18px;
+  }
+  .use .demo { flex: 1; min-width: 0; }
+  .use .meta {
+    font: var(--t-mono); font-size: 9px; letter-spacing: .18em;
+    color: var(--ivory-4); text-transform: uppercase;
+  }
+  .use h3 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 22px; letter-spacing: .02em; line-height: 1.05;
+    text-transform: uppercase; color: var(--ivory);
+    margin: 8px 0 0;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">KICKER · COLOURED SQUARE + ALLCAPS MONO</div>
+
+  <!-- Six color variants -->
+  <div class="swatch-grid">
+    <div class="cell">
+      <span class="kicker"><span class="dot"></span>The Thesis</span>
+      <code>SAFFRON · default</code>
+    </div>
+    <div class="cell">
+      <span class="kicker tomato"><span class="dot"></span>Don't</span>
+      <code>TOMATO · warn / anti-pattern</code>
+    </div>
+    <div class="cell">
+      <span class="kicker grape"><span class="dot"></span>Type</span>
+      <code>GRAPE · foundations</code>
+    </div>
+    <div class="cell">
+      <span class="kicker pine"><span class="dot"></span>Spacing</span>
+      <code>PINE · structure</code>
+    </div>
+    <div class="cell">
+      <span class="kicker coral"><span class="dot"></span>Components</span>
+      <code>CORAL · the kit</code>
+    </div>
+    <div class="cell">
+      <span class="kicker cream"><span class="dot"></span>In Context</span>
+      <code>CREAM · application</code>
+    </div>
+  </div>
+
+  <!-- Sizes & uses -->
+  <div class="label" style="margin-top:18px;margin-bottom:8px">USES · ALWAYS PAIRED WITH A HEADING OR PANEL</div>
+  <div class="uses">
+    <div class="use">
+      <div class="demo">
+        <span class="kicker sm"><span class="dot"></span>Foundations · Stage · 02 of 06</span>
+      </div>
+      <span class="meta">SM · 9px · file mark</span>
+    </div>
+    <div class="use">
+      <div class="demo">
+        <span class="kicker"><span class="dot"></span>05 — Components</span>
+        <h3>The kit.</h3>
+      </div>
+      <span class="meta">M · 11px · section opener</span>
+    </div>
+    <div class="use">
+      <div class="demo">
+        <span class="kicker lg coral"><span class="dot"></span>Pattern reel · stacked deck</span>
+      </div>
+      <span class="meta">L · 13px · sub-section</span>
+    </div>
+  </div>
+
+  <div class="caption" style="margin-top:16px;color:var(--fg-3);line-height:1.55">
+    A unit of attention. The square is never larger than the cap-height; the line never longer than 40 characters.
+    One kicker per scope — section, sub-section, or panel — never two on the same line. Colour signals category,
+    not state: saffron is the default, tomato is reserved for anti-patterns.
+  </div>
+</div></body></html>

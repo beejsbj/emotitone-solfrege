@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .pulse { width:96px; height:96px; border-radius:24px; background: var(--ink-3); box-shadow: var(--ring); display:grid; place-items:center;
+    font: var(--t-h2); letter-spacing:.01em; text-transform:uppercase; color:var(--fg);}
+  @keyframes b { 0%,100%{transform:scale(1)} 6%{transform:scale(1.06)} 60%{transform:scale(.99)} }
+  .pulse{animation: b 500ms cubic-bezier(.2,.9,.2,1) infinite;}
+  .pulse.half{animation-duration:1000ms;}
+  .pulse.qtr{animation-duration:250ms;}
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">MOTION · BEATING UI</div>
+  <div style="display:flex; gap:18px; align-items:center;">
+    <div class="pulse">120</div>
+    <div class="pulse half">60</div>
+    <div class="pulse qtr">240</div>
+    <div class="caption" style="margin-left:auto; max-width:240px;">UI surfaces breathe on the kick. Default <code style="font:var(--t-mono)">--beat: 500ms</code>. Scale ~6% on 1, 1% under on the off-beat. Hi-Fi-Rush style.</div>
+  </div>
+</div></body></html>

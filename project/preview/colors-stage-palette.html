@@ -1,0 +1,102 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  .sw{height:72px;border-radius:6px;box-shadow:var(--ring);}
+  .nm{font:var(--t-label);letter-spacing:var(--tracking-label);color:var(--fg-2);margin-top:8px;font-size:10px;}
+  .iv{font:var(--t-mono);color:var(--fg-3);font-size:9px;}
+  .role{font:var(--t-mono);color:var(--fg-3);font-size:9px;margin-top:2px;}
+  em{font-family:Georgia,serif;font-style:italic;color:var(--fg-2);font-size:13px;}
+
+  .accent-block{
+    margin-top:18px;display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:stretch;
+    padding:14px;border:1px solid var(--hairline);border-radius:8px;background:var(--ink-2);
+  }
+  .brass-plate{
+    height:120px;border-radius:8px;
+    display:flex;align-items:flex-end;padding:10px 12px;
+  }
+  .brass-plate .stamp{
+    font:var(--t-label);letter-spacing:var(--tracking-label);
+    color:var(--brass-edge);font-size:10px;font-weight:700;
+  }
+  .legend{font:var(--t-mono);color:var(--fg-3);font-size:11px;line-height:1.55;}
+  .legend b{color:var(--fg-2);font-weight:600;}
+  .pill{
+    display:inline-block;padding:3px 8px;border-radius:3px;
+    font:var(--t-label);letter-spacing:var(--tracking-label);font-size:9px;font-weight:700;
+  }
+
+  /* Application examples row */
+  .uses{display:flex;gap:14px;align-items:center;margin-top:14px;flex-wrap:wrap;}
+  .rec-dot{width:18px;height:18px;border-radius:50%;}
+  .seg{
+    font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:700;font-size:18px;
+    padding:4px 10px;border-radius:6px;line-height:1;letter-spacing:.04em;
+  }
+  .key{
+    width:36px;height:48px;border-radius:6px 6px 4px 4px;
+    box-shadow:var(--ring);
+  }
+  .uselabel{font:var(--t-mono);color:var(--fg-3);font-size:10px;}
+</style></head><body>
+<div class="card">
+  <div class="label">STAGE PALETTE · WARM-NEUTRAL CHROME</div>
+  <em style="display:block;margin:6px 0 14px">Black, ivory, warm greys. One accent — brass — used very rarely, always with its sheen.</em>
+
+  <div class="row">
+    <div><div class="sw" style="background:#0A0908"></div><div class="nm">STAGE</div><div class="iv">#0A0908</div><div class="role">deepest, the room</div></div>
+    <div><div class="sw" style="background:#141210"></div><div class="nm">RISE</div><div class="iv">#141210</div><div class="role">slight lift</div></div>
+    <div><div class="sw" style="background:#1B1815"></div><div class="nm">PANEL</div><div class="iv">#1B1815</div><div class="role">card body</div></div>
+    <div><div class="sw" style="background:#25211D"></div><div class="nm">PANEL+</div><div class="iv">#25211D</div><div class="role">hover / press</div></div>
+    <div><div class="sw" style="background:#3A352F"></div><div class="nm">WIRE</div><div class="iv">#3A352F</div><div class="role">hairline</div></div>
+    <div><div class="sw" style="background:#6E6253"></div><div class="nm">WIRE·HOT</div><div class="iv">#6E6253</div><div class="role">active hairline</div></div>
+  </div>
+
+  <div class="row" style="margin-top:14px;">
+    <div><div class="sw" style="background:#514B42"></div><div class="nm">FAINT</div><div class="iv">#514B42</div><div class="role">disabled</div></div>
+    <div><div class="sw" style="background:#8E867A"></div><div class="nm">MUTE</div><div class="iv">#8E867A</div><div class="role">meta / labels</div></div>
+    <div><div class="sw" style="background:#C9C2B5"></div><div class="nm">BONE</div><div class="iv">#C9C2B5</div><div class="role">paper sticker</div></div>
+    <div><div class="sw" style="background:#E6DDC6"></div><div class="nm">CREAM</div><div class="iv">#E6DDC6</div><div class="role">cut paper</div></div>
+    <div><div class="sw" style="background:#F4EFE6"></div><div class="nm">INK</div><div class="iv">#F4EFE6</div><div class="role">primary text / face</div></div>
+    <div><div class="sw" style="background:#FFFFFF"></div><div class="nm">WHITE</div><div class="iv">#FFFFFF</div><div class="role">spotlight only</div></div>
+  </div>
+
+  <div class="accent-block">
+    <div class="brass brass-plate">
+      <span class="stamp">BRASS · #E0A93A</span>
+    </div>
+    <div class="legend">
+      <span class="pill brass">USE RARELY</span>
+      <div style="margin-top:8px;">
+        <b>The lone accent — applied as a finish, not a fill.</b>
+        Borrowed from sax keys, trumpet bells, cymbal edges. Whenever it appears
+        it carries the gradient + slow <i>sheen sweep</i> — never as a flat colour.
+      </div>
+      <div style="margin-top:6px;">
+        <b>Reserve for one signal at a time:</b> active record, the captured value,
+        a single beat lit on the metronome, the brand wordmark on a hero.
+      </div>
+      <div style="margin-top:6px;">Never as a background fill on chrome. Never on borders. Never on text smaller than 12px.</div>
+    </div>
+  </div>
+
+  <div class="uses">
+    <span class="uselabel">APPLIED:</span>
+    <span class="brass rec-dot" title="record"></span>
+    <span class="uselabel">REC</span>
+
+    <span class="brass seg">120</span>
+    <span class="uselabel">CAPTURED VALUE</span>
+
+    <span class="brass key" title="lit sax key"></span>
+    <span class="uselabel">LIT KEY</span>
+
+    <span class="brass-text" style="font-family:'Lets Jazz',serif;font-size:30px;line-height:1;">Emotitone</span>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3)">
+    Decorative bits — posters, stickers, illustrations, the chromatic note ring —
+    are free to carry full colour. Chrome is not. Add the <code>.brass</code> class
+    (or <code>.brass-text</code> for type) to inherit fill + sheen automatically.
+  </div>
+</div></body></html>

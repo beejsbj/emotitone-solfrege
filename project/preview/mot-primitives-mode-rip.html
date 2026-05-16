@@ -1,0 +1,135 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── MODE RIP · KNOB LABEL CROSS-FADE ─────────────────────────
+     Changing key or mode tears the old label off the knob (skew +
+     lift + fade) while the new one slides up from below. Bend.
+     ─────────────────────────────────────────────────────────── */
+  .stage {
+    background: #0a0908;
+    border: 1px solid var(--hairline);
+    padding: 32px 20px 22px;
+    display: flex; gap: 28px; justify-content: center; align-items: center;
+  }
+  .knob {
+    width: 130px; height: 130px;
+    position: relative;
+  }
+  .knob svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .knob .trk { fill: none; stroke-linecap: butt; }
+  .knob .trk.bg { stroke: var(--ivory); stroke-opacity: .18; stroke-width: 2; }
+  .knob .trk.val{ stroke: var(--ivory); stroke-width: 8; }
+  .knob .label-wrap {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .knob .label {
+    position: absolute;
+    font-family: var(--font-display); font-weight: 700;
+    color: var(--ivory); letter-spacing: .04em;
+    text-transform: uppercase; line-height: 1;
+  }
+  .knob .cap {
+    position: absolute; bottom: -22px; left: 0; right: 0; text-align: center;
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ivory-3);
+  }
+
+  /* mode knob — text crossfade-rip, cycling */
+  .knob.modes .label {
+    font-size: 14px;
+    animation: rip-mode 3.6s var(--ease-bend) infinite;
+  }
+  .knob.modes .label.lyd  { animation-delay:    0ms; }
+  .knob.modes .label.loc  { animation-delay:  900ms; }
+  .knob.modes .label.dor  { animation-delay: 1800ms; }
+  .knob.modes .label.aeol { animation-delay: 2700ms; }
+  @keyframes rip-mode {
+    0%, 14%  { opacity: 0; transform: translateY(18px) skew(8deg); }
+    18%      { opacity: 1; transform: translateY(0) skew(0); }
+    22%      { opacity: 1; transform: translateY(0) skew(0); }
+    25%      { opacity: 1; transform: translateY(-14px) skew(-10deg); }
+    28%, 100%{ opacity: 0; transform: translateY(-22px) skew(-14deg); }
+  }
+
+  /* key knob — single letter rotating */
+  .knob.keys .label {
+    font-size: 36px;
+    animation: rip-key 3.6s var(--ease-bend) infinite;
+  }
+  .knob.keys .label.k1 { animation-delay:    0ms; }
+  .knob.keys .label.k2 { animation-delay:  900ms; }
+  .knob.keys .label.k3 { animation-delay: 1800ms; }
+  .knob.keys .label.k4 { animation-delay: 2700ms; }
+  @keyframes rip-key {
+    0%, 14%  { opacity: 0; transform: translateY(22px) skew(8deg); }
+    18%      { opacity: 1; transform: translateY(0) skew(0); }
+    22%      { opacity: 1; transform: translateY(0) skew(0); }
+    25%      { opacity: 1; transform: translateY(-18px) skew(-10deg); }
+    28%, 100%{ opacity: 0; transform: translateY(-26px) skew(-14deg); }
+  }
+
+  .meta {
+    margin-top: 14px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .meta .a { border-left: 2px solid var(--hairline); padding: 4px 0 4px 8px; }
+  .meta .a b {
+    display: block; font-family: var(--font-display); font-weight: 700;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ivory);
+  }
+  .meta .a code {
+    display: block; font: var(--t-mono); font-size: 9px; letter-spacing: .14em;
+    color: var(--ivory-3); text-transform: uppercase; margin-top: 2px;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">MODE RIP · KNOB LABEL · PRIMITIVE</div>
+
+  <div class="stage">
+    <div class="knob keys">
+      <svg viewBox="0 0 100 100">
+        <path class="trk bg"  d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"/>
+        <path class="trk val" pathLength="100"
+              d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"
+              stroke-dasharray="22 100"/>
+      </svg>
+      <div class="label-wrap">
+        <span class="label k1">E</span>
+        <span class="label k2">A</span>
+        <span class="label k3">D</span>
+        <span class="label k4">G</span>
+      </div>
+      <div class="cap">Key</div>
+    </div>
+
+    <div class="knob modes">
+      <svg viewBox="0 0 100 100">
+        <path class="trk bg"  d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"/>
+        <path class="trk val" pathLength="100"
+              d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"
+              stroke-dasharray="50 100"/>
+      </svg>
+      <div class="label-wrap">
+        <span class="label lyd">Lydian</span>
+        <span class="label loc">Locrian</span>
+        <span class="label dor">Dorian</span>
+        <span class="label aeol">Aeolian</span>
+      </div>
+      <div class="cap">Mode</div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="a"><b>Out</b><code>−skew · ↑18 px · fade · 360 ms</code></div>
+    <div class="a"><b>In</b><code>+skew · ↑from 18 px · 360 ms</code></div>
+    <div class="a"><b>Curve</b><code>--ease-bend · panel scale</code></div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    The old value <em>tears off</em> rather than crossfading — skewing into a smear before vanishing — while the
+    new value slides up from below. The skew direction is the gesture: changing key or mode is a physical bend,
+    not a swap. Used on Key, Mode, and any setting where the option set wraps.
+  </div>
+</div></body></html>

@@ -1,0 +1,143 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── TAB SLIDE · PERSONA-5 OFFCUT ─────────────────────────────
+     Active chip is a torn paper rectangle with wobbly cut-paper edges,
+     shadows, and skew. Clicking tabs slides the chip smoothly between
+     positions. mix-blend-mode: difference on buttons inverts text color
+     when the ivory chip passes underneath.
+     ─────────────────────────────────────────────────────────── */
+  .stage {
+    background: #0a0908;
+    border: 1px solid var(--hairline);
+    padding: 28px 20px 22px;
+  }
+  .tabs {
+    position: relative;
+    display: inline-flex;
+    border: 1px solid var(--ink-5);
+    background: var(--ink-2);
+    padding: 6px;
+    gap: 0;
+    isolation: isolate;
+  }
+  /* the streak — full-width black bar behind all tabs */
+  .tabs .streak {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 60%;
+    transform: translateY(-50%);
+    background: var(--ink);
+    z-index: 0;
+  }
+  /* the active chip — paper with wobbly cut-paper edges, shadow, and smooth transitions */
+  .tabs .active-chip {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    background: var(--ivory);
+    z-index: 1;
+    box-shadow: 3px 3px 0 var(--ink);
+    clip-path: polygon(2% 0, 100% 4%, 98% 100%, 0 96%);
+    transition: left 320ms var(--ease-swing), width 320ms var(--ease-swing), transform 320ms var(--ease-swing);
+  }
+  .tabs .active-chip.smearing {
+    transform: scaleX(1.08) skewX(-12deg);
+  }
+  /* clickable tab buttons — mix-blend-mode: difference inverts text color when chip passes underneath */
+  .tabs .btn {
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    border: 0;
+    font: 700 13px/1 var(--font-display);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    cursor: pointer;
+    mix-blend-mode: difference;
+    color: var(--ivory);
+  }
+
+  .legend {
+    margin-top: 12px;
+    display: flex; gap: 14px; justify-content: center;
+    font: var(--t-mono); font-size: 10px; letter-spacing: .18em;
+    color: var(--ivory-3); text-transform: uppercase;
+  }
+  .legend span {
+    width: 20%; text-align: center;
+  }
+
+  .meta {
+    margin-top: 14px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .meta .a { border-left: 2px solid var(--hairline); padding: 4px 0 4px 8px; }
+  .meta .a b {
+    display: block; font-family: var(--font-display); font-weight: 700;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ivory);
+  }
+  .meta .a code {
+    display: block; font: var(--t-mono); font-size: 9px; letter-spacing: .14em;
+    color: var(--ivory-3); text-transform: uppercase; margin-top: 2px;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">TAB SLIDE · PERSONA-5 · PRIMITIVE</div>
+
+  <div class="stage">
+    <div class="tabs">
+      <span class="streak"></span>
+      <span class="active-chip" id="activeChip"></span>
+      <button class="btn on">Anim</button>
+      <button class="btn">Freq</button>
+      <button class="btn">Color</button>
+      <button class="btn">Popup</button>
+      <button class="btn">Scope</button>
+    </div>
+    <div class="legend">
+      <span>Anim</span><span>Freq</span><span>Color</span><span>Popup</span><span>Scope</span>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="a"><b>Chip</b><code>paper · wobbly edges · 3/3 ink shadow</code></div>
+    <div class="a"><b>Streak</b><code>ink bar · full height behind</code></div>
+    <div class="a"><b>Curve</b><code>--ease-swing · 320 ms · mix-blend-mode trick</code></div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    Click each tab to slide the active chip to that position. The chip's wobbly cut-paper edges and
+    shadow give it hand-cut texture. The <code>mix-blend-mode: difference</code> trick on button text
+    inverts colors when the ivory chip passes underneath, eliminating the need for separate active labels.
+    Reserved for top-level mode switchers; for low-stakes filters fall back to the quiet segmented
+    (see <code>components-tabs</code>).
+  </div>
+</div>
+<script>
+(function(){
+  const tabs = document.querySelector('.tabs');
+  const chip = document.getElementById('activeChip');
+  const btns = [...tabs.querySelectorAll('.btn')];
+
+  function moveTo(btn) {
+    const tr = tabs.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
+    chip.style.left = (br.left - tr.left) + 'px';
+    chip.style.width = br.width + 'px';
+    chip.classList.add('smearing');
+    setTimeout(() => chip.classList.remove('smearing'), 220);
+    btns.forEach(b => b.classList.toggle('on', b === btn));
+  }
+
+  // init to first tab
+  requestAnimationFrame(() => moveTo(btns[0]));
+  btns.forEach(btn => btn.addEventListener('click', () => moveTo(btn)));
+  window.addEventListener('resize', () => {
+    const on = tabs.querySelector('.btn.on');
+    if (on) moveTo(on);
+  });
+})();
+</script></body></html>

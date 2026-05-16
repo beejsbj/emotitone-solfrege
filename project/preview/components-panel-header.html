@@ -1,0 +1,181 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── PANEL HEADER PART ─────────────────────────────────────────
+     Badge + meta line + right-side icon row, with the chromatic
+     bar-tape glued underneath. The whole assembly always ships
+     together — the workhorse panel chrome.
+     ───────────────────────────────────────────────────────────── */
+  .ph-wrap {
+    background: var(--ink-2);
+    border: 1px solid var(--hairline);
+  }
+  .ph {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px 11px;
+  }
+  .ph .badge {
+    display: inline-flex; align-items: baseline;
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 14px; line-height: 1; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ivory);
+    border: 1px solid var(--ink-5);
+    padding: 5px 10px 4px;
+  }
+  .ph .meta {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ivory-3);
+  }
+  .ph .meta strong { color: var(--ivory); font-weight: 500; }
+  .ph .right { margin-left: auto; display: flex; gap: 6px; }
+  .ph .icon-btn {
+    width: 28px; height: 28px;
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--ivory-2);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 12px;
+    cursor: pointer;
+  }
+  .ph .icon-btn.rec {
+    color: var(--brass-edge);
+  }
+  /* live (recording) variant — brass dot inside the meta */
+  .ph .ind {
+    width: 8px; height: 8px;
+    background: transparent;
+    margin-right: 2px;
+  }
+  .ph.live .ind { background: var(--saffron); box-shadow: 0 0 6px rgba(240,177,55,.6); }
+
+  /* the bar-tape glued underneath */
+  .tape {
+    height: 6px;
+    display: flex;
+    border-top: 1px solid var(--hairline);
+  }
+  .tape span { display: block; height: 100%; }
+  .tape .do { background: var(--note-do); flex: 16; }
+  .tape .re { background: var(--note-re); flex: 16; }
+  .tape .mi { background: var(--note-mi); flex: 16; }
+  .tape .fa { background: var(--note-fa); flex: 16; }
+  .tape .sol{ background: var(--note-sol); flex: 16; }
+  .tape .la { background: var(--note-la); flex: 12; }
+  .tape .ti { background: var(--note-ti); flex: 8; }
+
+  /* labelled wrapper */
+  .frame {
+    background: #0a0908; border: 1px solid var(--hairline);
+    padding: 22px 18px 14px; position: relative;
+  }
+  .frame .pin {
+    position: absolute; top: 6px; left: 12px;
+    font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ivory-4); text-transform: uppercase;
+  }
+  .frame .note {
+    font: var(--t-mono); font-size: 10px; line-height: 1.55;
+    color: var(--ivory-3); margin-top: 10px;
+    border-top: 1px solid var(--hairline); padding-top: 10px;
+  }
+  .frame + .frame { margin-top: 12px; }
+
+  /* anatomy markers */
+  .anatomy { position: relative; }
+  .anatomy::after {
+    content: ""; position: absolute;
+    left: 14px; right: 14px;
+    bottom: -1px; height: 6px;
+    pointer-events: none;
+  }
+  .anno {
+    margin-top: 14px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .anno .a {
+    border-left: 2px solid var(--hairline);
+    padding: 4px 0 4px 8px;
+  }
+  .anno .a b {
+    display: block;
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .anno .a code {
+    display: block;
+    font: var(--t-mono); font-size: 9px; letter-spacing: .14em;
+    color: var(--ivory-3); text-transform: uppercase; margin-top: 2px;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">PANEL HEADER · BADGE + META + ICONS + TAPE · PART</div>
+
+  <!-- 01: rest -->
+  <div class="frame">
+    <span class="pin">01 · REST</span>
+    <div class="ph-wrap">
+      <div class="ph">
+        <span class="badge">Piano</span>
+        <span class="meta">E LOCRIAN · <strong>2I</strong> · EXPIRING</span>
+        <div class="right">
+          <button class="icon-btn rec">●</button>
+          <button class="icon-btn">⎘</button>
+        </div>
+      </div>
+      <div class="tape">
+        <span class="do"></span><span class="re"></span><span class="mi"></span>
+        <span class="fa"></span><span class="sol"></span><span class="la"></span><span class="ti"></span>
+      </div>
+    </div>
+    <div class="anno">
+      <div class="a"><b>Badge</b><code>Lets Jazz 14 / wire box</code></div>
+      <div class="a"><b>Meta</b><code>JBM 11 / 0.14em caps</code></div>
+      <div class="a"><b>Icons</b><code>28sq / 1px wire / 6gap</code></div>
+      <div class="a"><b>Tape</b><code>6px / diatonic widths</code></div>
+    </div>
+  </div>
+
+  <!-- 02: live recording -->
+  <div class="frame">
+    <span class="pin">02 · LIVE · RECORDING</span>
+    <div class="ph-wrap">
+      <div class="ph live">
+        <span class="badge">Piano</span>
+        <span class="meta"><span class="ind"></span>E LOCRIAN · <strong>2I</strong> · BAR 03/08</span>
+        <div class="right">
+          <button class="icon-btn rec brass">●</button>
+          <button class="icon-btn">⎘</button>
+          <button class="icon-btn">⤴</button>
+        </div>
+      </div>
+      <div class="tape">
+        <span class="do"></span><span class="re"></span><span class="mi"></span>
+        <span class="fa"></span><span class="sol"></span><span class="la"></span><span class="ti"></span>
+      </div>
+    </div>
+    <div class="note">When armed, the record icon takes the brass finish (the only lit element on the panel) and a saffron pip lands in the meta line. Bar-tape stays its rest colours; the panel-state changes belong to chrome, not music.</div>
+  </div>
+
+  <!-- 03: minimal -->
+  <div class="frame">
+    <span class="pin">03 · MINIMAL · NO ACTIONS</span>
+    <div class="ph-wrap">
+      <div class="ph">
+        <span class="badge">Sound</span>
+        <span class="meta">992 SAMPLES · I2 PRESETS</span>
+      </div>
+      <div class="tape">
+        <span class="do"></span><span class="re"></span><span class="mi"></span>
+        <span class="fa"></span><span class="sol"></span><span class="la"></span><span class="ti"></span>
+      </div>
+    </div>
+    <div class="note">No icon row when the panel doesn't own any actions. The tape still runs full-width so panels stay visually phrased the same way.</div>
+  </div>
+
+  <div class="caption" style="margin-top:16px;color:var(--fg-3);line-height:1.55">
+    The full assembly is the unit. Two voices: Jazz in the badge, Mono everywhere else. Right-aligned icons are
+    capped at three. The tape is the visual seam to the rest of the panel — never the same colour as the badge
+    border, never thicker than 8px.
+  </div>
+</div></body></html>

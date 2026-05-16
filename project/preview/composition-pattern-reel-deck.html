@@ -1,0 +1,283 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>
+.v2-card {
+  --stage:        #0A0908;
+  --stage-rise:   #141210;
+  --panel:        #1B1815;
+  --panel-hi:     #25211D;
+  --wire:         #3A352F;
+  --wire-hot:     #6E6253;
+  --ink:          #F4EFE6;
+  --ink-mute:     #8E867A;
+  --ink-faint:    #514B42;
+  --paper:        #F1E9D8;
+  --paper-rise:   #FAF5E9;
+  --jazz-red:     #D8362A;
+  --jazz-mustard: #F0B137;
+  --jazz-grape:   #4B1E78;
+  --jazz-pine:    #1F4D3F;
+  --jazz-coral:   #E96A4A;
+  --do:  #F26B3D;
+  --ra:  #B7E232;
+  --me:  #1FCB5A;
+  --fa:  #2BD4D6;
+  --se:  #2E6BFF;
+  --le:  #B452F0;
+  --te:  #F23A86;
+  --tracking-jazz: 0.02em;
+  --tracking-mono: 0.06em;
+  background: var(--stage); color: var(--ink); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; line-height: 1.5; padding: 32px 36px; width: 700px; box-sizing: border-box;
+}
+
+.v2-card .t-jazz { font-family: "Lets Jazz", "Instrument Serif", serif;
+          font-feature-settings: "salt" 1, "smcp" 1, "onum" 1;
+          letter-spacing: var(--tracking-jazz); }
+.v2-card .t-mono { font-family: "JetBrains Mono", ui-monospace, monospace;
+          letter-spacing: var(--tracking-mono); }
+.v2-card .cap   { text-transform: uppercase; letter-spacing: 0.14em; }
+.v2-card .mute  { color: var(--ink-mute); }
+.v2-card .faint { color: var(--ink-faint); }
+.v2-card .cream { color: var(--paper); }
+
+.v2-card .row { display: flex; gap: 24px; align-items: stretch; }
+.v2-card .grid { display: grid; gap: 24px; }
+.v2-card .g-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+
+.v2-card .kicker {
+  display: inline-flex; align-items: baseline; gap: 10px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px; color: var(--ink-mute);
+  text-transform: uppercase; letter-spacing: 0.18em;
+  margin-bottom: 18px;
+}
+.v2-card .kicker .dot { width: 8px; height: 8px; background: var(--jazz-mustard); display:inline-block; transform: translateY(-1px); }
+.v2-card .kicker.red .dot   { background: var(--jazz-red); }
+
+.v2-card h2 { font-family: "Lets Jazz", serif; font-size: clamp(36px, 4.4vw, 60px); line-height: 1.0;  letter-spacing: 0.01em; font-weight: 400; }
+.v2-card p { margin: 0 0 12px; color: var(--ink); }
+.v2-card p.mute { color: var(--ink-mute); }
+
+.v2-card .demo-card {
+  background: var(--panel);
+  border: 1px solid var(--wire);
+  padding: 28px;
+  position: relative;
+}
+.v2-card .demo-card .demo-label {
+  position: absolute; top: -10px; left: 14px;
+  background: var(--stage); color: var(--ink-mute);
+  font-family: "JetBrains Mono"; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 0 8px;
+}
+
+.v2-card .reel { position: relative; display: flex; flex-direction: column; gap: 0; padding-top: 8px; }
+.v2-card .reel-card {
+  position: relative; background: var(--panel); border: 1px solid var(--wire);
+  margin-bottom: -8px; cursor: pointer;
+  transition: transform 360ms cubic-bezier(.7, -0.2, .3, 1.2),
+              margin-bottom 360ms cubic-bezier(.7, -0.2, .3, 1.2),
+              opacity 360ms cubic-bezier(.4,0,.2,1),
+              border-color 220ms cubic-bezier(.4,0,.2,1);
+}
+.v2-card .reel-card .reel-spine {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent);
+}
+.v2-card .reel-card.stacked         { transform: translateY(0)    scale(1); }
+.v2-card .reel-card.stacked.s-1     { transform: translateY(-6px)  scale(0.98); opacity: 0.92; }
+.v2-card .reel-card.stacked.s-2     { transform: translateY(-12px) scale(0.96); opacity: 0.78; }
+.v2-card .reel-card.stacked.s-3     { transform: translateY(-18px) scale(0.94); opacity: 0.62; }
+.v2-card .reel-card.stacked:hover   { transform: translateY(-22px) scale(1); opacity: 1; border-color: var(--wire-hot); }
+
+.v2-card .reel-meta {
+  display: grid; grid-template-columns: 56px 1.6fr 2fr 80px;
+  align-items: center; gap: 16px; padding: 14px 18px 14px 22px;
+}
+.v2-card .reel-num { font-size: 32px; line-height: 1; color: var(--ink-faint); }
+.v2-card .reel-name { font-size: 22px; line-height: 1; }
+.v2-card .reel-sub { font-size: 10px; color: var(--ink-mute); letter-spacing: 0.16em; margin-top: 4px; }
+.v2-card .reel-roll { display: flex; align-items: flex-end; gap: 2px; height: 32px; padding: 0 4px; border-left: 1px solid var(--wire); border-right: 1px solid var(--wire); }
+.v2-card .reel-roll span { flex: 1; min-width: 4px; opacity: 0.85; }
+.v2-card .reel-roll.big { height: 88px; gap: 3px; }
+.v2-card .reel-when { font-family: "JetBrains Mono"; font-size: 10px; letter-spacing: 0.18em; color: var(--ink-mute); text-align: right; text-transform: uppercase; }
+
+.v2-card .reel-card.active { margin-bottom: 0; cursor: default; border-color: var(--wire-hot); background: var(--panel-hi); }
+.v2-card .reel-active-body { padding: 22px 24px; }
+.v2-card .reel-active-head { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; }
+.v2-card .reel-active-head .reel-num { font-size: 44px; color: var(--ink-mute); }
+.v2-card .reel-active-foot { display: flex; align-items: center; gap: 16px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--wire); }
+
+.v2-card .icon-btn {
+  width: 28px; height: 28px; border: 1px solid var(--wire); background: transparent;
+  display: grid; place-items: center; color: var(--ink-mute); cursor: pointer;
+}
+
+.v2-card .rule {
+  height: 1px; background: var(--wire); position: relative; margin: 24px 0;
+}
+
+.v2-card .mt-8 { margin-top: 8px; }
+.v2-card .mt-16 { margin-top: 16px; }
+.v2-card .mt-24 { margin-top: 24px; }
+.v2-card .mt-40 { margin-top: 40px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-card .reel-card { transition-duration: 0ms !important; }
+}
+</style>
+</head><body>
+<div class="v2-card">
+  <div class="label">Composition · 08 Pattern reel</div>
+  <div class="kicker red"><span class="dot"></span>08 — Pattern reel · stacked deck</div>
+  <h2 class="t-jazz" style="max-width: 18ch;">A deck you flip through with your thumb.</h2>
+  <p class="mute mt-16" style="max-width: 60ch;">Inactive patterns stack at the top — small cards showing only their metadata (name, key, BPM, length, last touched). The active pattern rests at the bottom as a tall, full-bleed card with the live mini-roll, controls, and the same cut-paper edge as a poster fragment. Tap a stacked card to promote it.</p>
+
+  <div class="mt-40 demo-card">
+    <div class="demo-label">The reel · interactive</div>
+    <div class="reel" id="reel">
+      <div class="reel-card stacked" data-id="0" style="--accent: var(--jazz-mustard);">
+        <span class="reel-spine"></span>
+        <div class="reel-meta">
+          <span class="reel-num t-jazz">2I</span>
+          <div>
+            <div class="reel-name t-jazz">Glass Bell</div>
+            <div class="t-mono cap reel-sub">F♯ DORIAN · 96 BPM · 8 BARS</div>
+          </div>
+          <div class="reel-roll" aria-hidden="true">
+            <span style="height: 40%; background: var(--ra);"></span>
+            <span style="height: 70%; background: var(--me);"></span>
+            <span style="height: 30%; background: var(--do);"></span>
+            <span style="height: 80%; background: var(--fa);"></span>
+            <span style="height: 50%; background: var(--ra);"></span>
+            <span style="height: 60%; background: var(--le);"></span>
+            <span style="height: 35%; background: var(--me);"></span>
+            <span style="height: 75%; background: var(--te);"></span>
+          </div>
+          <div class="reel-when t-mono cap">2d ago</div>
+        </div>
+      </div>
+      <div class="reel-card stacked" data-id="1" style="--accent: var(--jazz-red);">
+        <span class="reel-spine"></span>
+        <div class="reel-meta">
+          <span class="reel-num t-jazz">I2</span>
+          <div>
+            <div class="reel-name t-jazz">Late Night Tram</div>
+            <div class="t-mono cap reel-sub">A MINOR · 72 BPM · 16 BARS</div>
+          </div>
+          <div class="reel-roll" aria-hidden="true">
+            <span style="height: 30%; background: var(--se);"></span>
+            <span style="height: 60%; background: var(--le);"></span>
+            <span style="height: 80%; background: var(--te);"></span>
+            <span style="height: 40%; background: var(--se);"></span>
+            <span style="height: 70%; background: var(--le);"></span>
+            <span style="height: 25%; background: var(--do);"></span>
+            <span style="height: 55%; background: var(--ra);"></span>
+            <span style="height: 65%; background: var(--me);"></span>
+          </div>
+          <div class="reel-when t-mono cap">5h ago</div>
+        </div>
+      </div>
+      <div class="reel-card stacked" data-id="2" style="--accent: var(--jazz-grape);">
+        <span class="reel-spine"></span>
+        <div class="reel-meta">
+          <span class="reel-num t-jazz">II</span>
+          <div>
+            <div class="reel-name t-jazz">Hilbert Tape</div>
+            <div class="t-mono cap reel-sub">D♯ LYDIAN · 132 BPM · 4 BARS</div>
+          </div>
+          <div class="reel-roll" aria-hidden="true">
+            <span style="height: 70%; background: var(--fa);"></span>
+            <span style="height: 50%; background: var(--me);"></span>
+            <span style="height: 90%; background: var(--ra);"></span>
+            <span style="height: 30%; background: var(--do);"></span>
+            <span style="height: 60%; background: var(--fa);"></span>
+            <span style="height: 75%; background: var(--le);"></span>
+            <span style="height: 45%; background: var(--te);"></span>
+            <span style="height: 80%; background: var(--ra);"></span>
+          </div>
+          <div class="reel-when t-mono cap">just now</div>
+        </div>
+      </div>
+      <div class="reel-card active" data-id="3" style="--accent: var(--jazz-coral);">
+        <span class="reel-spine"></span>
+        <div class="reel-active-body">
+          <div class="reel-active-head">
+            <span class="reel-num t-jazz">I0</span>
+            <div style="flex: 1;">
+              <div class="reel-name t-jazz" style="font-size: 28px;">Brass Whistle</div>
+              <div class="t-mono cap reel-sub">E LOCRIAN · 120 BPM · 8 BARS · PIANO</div>
+            </div>
+            <div class="row" style="gap: 6px;">
+              <button class="icon-btn">●</button>
+              <button class="icon-btn">⎘</button>
+              <button class="icon-btn">⤵</button>
+            </div>
+          </div>
+          <div class="reel-roll big" aria-hidden="true">
+            <span style="height: 55%; background: var(--do);"></span>
+            <span style="height: 80%; background: var(--ra);"></span>
+            <span style="height: 30%; background: var(--me);"></span>
+            <span style="height: 70%; background: var(--fa);"></span>
+            <span style="height: 90%; background: var(--se);"></span>
+            <span style="height: 40%; background: var(--le);"></span>
+            <span style="height: 65%; background: var(--te);"></span>
+            <span style="height: 50%; background: var(--do);"></span>
+            <span style="height: 75%; background: var(--ra);"></span>
+            <span style="height: 35%; background: var(--me);"></span>
+            <span style="height: 60%; background: var(--fa);"></span>
+            <span style="height: 85%; background: var(--se);"></span>
+            <span style="height: 45%; background: var(--le);"></span>
+            <span style="height: 70%; background: var(--te);"></span>
+            <span style="height: 55%; background: var(--do);"></span>
+            <span style="height: 80%; background: var(--ra);"></span>
+          </div>
+          <div class="reel-active-foot">
+            <button class="t-jazz cap" style="background: var(--paper); color: var(--stage); border: 0; padding: 9px 18px; font-size: 13px; letter-spacing: 0.14em; cursor: pointer;">Play</button>
+            <span class="t-mono cap mute" style="font-size: 11px; letter-spacing: 0.18em;">Bar 03 / 08 · Steps 16/16</span>
+            <span class="t-mono cap" style="font-size: 11px; letter-spacing: 0.18em; color: var(--jazz-mustard); margin-left: auto; display: inline-flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 60 60" width="13" height="13" style="color: currentColor;"><path d="M8 30 L 52 22 L 52 38 L 8 30 Z" fill="currentColor"/></svg>
+              REC ARMED
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="t-mono mute mt-24" style="font-size: 11px; text-align: center; letter-spacing: 0.18em;">click a stacked card to promote it</p>
+    <div class="rule mt-24"></div>
+    <div class="grid g-3" style="gap: 24px; font-size: 12px;">
+      <div><span class="cap mute" style="font-size: 10px; letter-spacing: 0.18em;">Stack</span><div class="t-mono mt-8">3 visible · -12px y per row · 0.96 scale per row · oldest first</div></div>
+      <div><span class="cap mute" style="font-size: 10px; letter-spacing: 0.18em;">Hover</span><div class="t-mono mt-8">card lifts 6px · spine accent saturates · Brush 220ms</div></div>
+      <div><span class="cap mute" style="font-size: 10px; letter-spacing: 0.18em;">Promote</span><div class="t-mono mt-8">card swaps to bottom · old active joins stack · Swing 360ms · paper-tear sound</div></div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const reel = document.getElementById('reel');
+  if (reel) {
+    function layout() {
+      const cards = [...reel.children];
+      const stacked = cards.filter(c => c.classList.contains('stacked'));
+      const lastIdx = stacked.length - 1;
+      stacked.forEach((c, i) => {
+        c.classList.remove('s-1','s-2','s-3');
+        const dist = lastIdx - i;
+        if (dist === 0) c.classList.add('s-1');
+        else if (dist === 1) c.classList.add('s-2');
+        else c.classList.add('s-3');
+      });
+    }
+    layout();
+    reel.addEventListener('click', e => {
+      const card = e.target.closest('.reel-card.stacked');
+      if (!card) return;
+      const active = reel.querySelector('.reel-card.active');
+      active.classList.remove('active'); active.classList.add('stacked');
+      card.classList.remove('stacked','s-1','s-2','s-3'); card.classList.add('active');
+      reel.appendChild(card);
+      layout();
+    });
+  }
+})();
+</script>
+</body></html>

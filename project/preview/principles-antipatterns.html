@@ -1,0 +1,184 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── PRINCIPLES · ANTI-PATTERNS ──────────────────────────────
+     Five "don't" cards. Each shows the broken thing in-situ with a
+     red kicker and a one-line rationale. Loud about being wrong.
+     ──────────────────────────────────────────────────────────── */
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .anti {
+    background: #0a0908;
+    border: 1px solid var(--hairline);
+    padding: 16px 16px 14px;
+    position: relative;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .anti.wide { grid-column: 1 / -1; }
+  .anti .kick {
+    display: inline-flex; align-items: center; gap: 9px;
+    font: var(--t-mono); font-size: 10px; letter-spacing: .18em;
+    color: var(--ivory-3); text-transform: uppercase;
+  }
+  .anti .kick .dot { width: 8px; height: 8px; background: var(--tomato); }
+  .anti .ttl {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 17px; line-height: 1.05; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--ivory);
+  }
+  .anti .why {
+    font: var(--t-mono); font-size: 11px; line-height: 1.55;
+    color: var(--ivory-3);
+  }
+
+  /* big diagonal "NO" slash on the broken specimen */
+  .demo {
+    position: relative;
+    background: var(--ink-2);
+    border: 1px solid var(--hairline);
+    padding: 14px;
+    margin-top: auto;
+    overflow: hidden;
+  }
+  .demo::after {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      135deg,
+      transparent 0 38px,
+      rgba(216,54,42,.12) 38px 39px
+    );
+    pointer-events: none;
+  }
+  .demo::before {
+    content: ""; position: absolute; inset: 0;
+    border-left: 3px solid var(--tomato);
+    pointer-events: none;
+  }
+
+  /* ── 01: music colour as chrome ─────────────────────────── */
+  .bad-buttons { display: flex; gap: 8px; align-items: center; }
+  .bad-buttons button {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    border: 0; padding: 8px 14px; color: white; cursor: not-allowed;
+  }
+
+  /* ── 02: Jazz-on-Jazz ────────────────────────────────────── */
+  .bad-stack { display: flex; align-items: baseline; gap: 14px; padding: 8px 4px; }
+  .bad-stack b, .bad-stack span {
+    font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .02em; color: var(--ivory);
+  }
+
+  /* ── 03: glass ───────────────────────────────────────────── */
+  .bad-glass {
+    background: rgba(255,255,255,.08);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.16);
+    padding: 14px;
+  }
+  .bad-glass b {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 18px; letter-spacing: .02em; text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .bad-glass p {
+    font: var(--t-mono); font-size: 10px; color: var(--ivory-3);
+    margin: 4px 0 0;
+  }
+
+  /* ── 04: gradient bg ─────────────────────────────────────── */
+  .bad-gradient {
+    height: 64px;
+    background: linear-gradient(135deg, #5B2A86 0%, #2E6BFF 50%, #29CDB0 100%);
+    border: 1px solid var(--hairline);
+  }
+
+  /* ── 05: emoji slop ──────────────────────────────────────── */
+  .bad-emoji {
+    display: flex; align-items: center; gap: 10px; padding: 6px 4px;
+  }
+  .bad-emoji b {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 22px; letter-spacing: .02em; text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .bad-emoji .emoji { font-size: 22px; letter-spacing: .08em; }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">PRINCIPLES · FIVE THINGS TO STOP DOING</div>
+
+  <div class="grid">
+    <!-- 01 -->
+    <div class="anti">
+      <span class="kick"><span class="dot"></span>01 · Don't</span>
+      <div class="ttl">Music colour as chrome</div>
+      <p class="why">Painting buttons in note-blue or dividers in note-pink. The whole system loses its primary signal — chromatic now means nothing.</p>
+      <div class="demo">
+        <div class="bad-buttons">
+          <button style="background: hsl(228 78% 58%);">Play</button>
+          <button style="background: hsl(342 80% 56%);">Stop</button>
+          <button style="background: hsl(108 62% 48%);">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 -->
+    <div class="anti">
+      <span class="kick"><span class="dot"></span>02 · Don't</span>
+      <div class="ttl">Stack Jazz on Jazz</div>
+      <p class="why">Two display sizes side by side compete for the same eye. One must drop to Mono caps; otherwise no anchor wins.</p>
+      <div class="demo">
+        <div class="bad-stack">
+          <b style="font-size:22px;">Sound</b>
+          <b style="font-size:14px;">All sounds</b>
+          <span style="font-size:18px; margin-left:auto;">992</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 -->
+    <div class="anti">
+      <span class="kick"><span class="dot"></span>03 · Don't</span>
+      <div class="ttl">Glassmorphism</div>
+      <p class="why">Backdrop blurs and translucent panels make every SaaS dashboard. The poster aesthetic is opaque — ink, paper, no blur.</p>
+      <div class="demo">
+        <div class="bad-glass">
+          <b>A glassy panel</b>
+          <p>Looks like every SaaS dashboard. Drop it.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 -->
+    <div class="anti">
+      <span class="kick"><span class="dot"></span>04 · Don't</span>
+      <div class="ttl">Gradient backgrounds</div>
+      <p class="why">Fade-from-purple-to-blue isn't jazz; it's Vue 2014. The stage glow is the only gradient on screen; brass is the only metallic.</p>
+      <div class="demo">
+        <div class="bad-gradient"></div>
+      </div>
+    </div>
+
+    <!-- 05 -->
+    <div class="anti wide">
+      <span class="kick"><span class="dot"></span>05 · Don't</span>
+      <div class="ttl">Decorative emoji &amp; SVG slop</div>
+      <p class="why">🎹 ⭐ ✨ in labels and headers. The cut-paper marks and music glyphs already do this job — emoji read as filler.</p>
+      <div class="demo">
+        <div class="bad-emoji">
+          <span class="emoji">🎹</span><b>Piano</b>
+          <span class="emoji" style="margin-left:18px;">⭐</span><b>Favourite</b>
+          <span class="emoji" style="margin-left:18px;">✨</span><b>New preset!</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    Every "don't" is shown in-situ — broken on purpose, with a striped tomato gutter and a hatch overlay so you
+    can't quote it out of context. The fix isn't to choose one mood; it's to give each its job. Chrome stays
+    warm-neutral. Music stays chromatic. Type stays a duet. Edges stay crisp.
+  </div>
+</div></body></html>

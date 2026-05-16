@@ -1,0 +1,218 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── PATTERN REEL SURFACE ─────────────────────────────────────
+     The stacking/list chrome with empty placeholders. The MECHANIC,
+     not the populated state — that lives in composition-pattern-reel.
+     ──────────────────────────────────────────────────────────── */
+  .reel {
+    background: #0a0908;
+    border: 1px solid var(--hairline);
+    padding: 22px 22px 22px;
+    display: flex; flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .reel-head {
+    display: flex; align-items: baseline; gap: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--hairline);
+    margin-bottom: 14px;
+  }
+  .reel-head .ttl {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 18px; letter-spacing: .03em; text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .reel-head .meta {
+    font: var(--t-mono); font-size: 10px; letter-spacing: .18em;
+    color: var(--ivory-3); text-transform: uppercase;
+    margin-left: auto;
+  }
+
+  /* placeholder card */
+  .ph-card {
+    position: relative;
+    border: 1px dashed var(--ink-5);
+    background: rgba(20,18,16,.5);
+    height: 56px;
+    display: grid;
+    grid-template-columns: 4px 56px 1fr 130px 60px;
+    align-items: center;
+    gap: 14px;
+    padding: 0 14px 0 0;
+    color: var(--ivory-4);
+  }
+  .ph-card .spine {
+    width: 4px; height: 100%;
+    background: repeating-linear-gradient(
+      45deg, var(--ink-5) 0 4px, transparent 4px 8px
+    );
+  }
+  .ph-card .num {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 22px; color: var(--ivory-4); text-align: center;
+  }
+  .ph-card .nm {
+    height: 12px; background: var(--ink-3); border-radius: 1px;
+    width: 70%;
+  }
+  .ph-card .roll {
+    display: flex; gap: 2px; align-items: flex-end; height: 22px;
+  }
+  .ph-card .roll i {
+    flex: 1; background: var(--ink-3); opacity: .6;
+  }
+  .ph-card .when {
+    height: 8px; background: var(--ink-3); border-radius: 1px;
+  }
+
+  /* stacked placeholders sit closer with overlap to show stacking */
+  .stack {
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;
+  }
+  .stack .ph-card:nth-child(1) { transform: scale(.96); opacity: .55; transform-origin: 50% 0; }
+  .stack .ph-card:nth-child(2) { transform: scale(.98); opacity: .75; }
+  .stack .ph-card:nth-child(3) { opacity: .92; }
+
+  /* active placeholder: full-height card with mini-roll skeleton */
+  .ph-active {
+    position: relative;
+    border: 1px dashed var(--ivory-3);
+    background: rgba(20,18,16,.7);
+    padding: 18px;
+    color: var(--ivory-3);
+    margin-top: 4px;
+  }
+  .ph-active .row {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 14px;
+  }
+  .ph-active .num {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 30px; color: var(--ivory-3);
+  }
+  .ph-active .title {
+    flex: 1; height: 18px; background: var(--ink-3); border-radius: 1px;
+    max-width: 240px;
+  }
+  .ph-active .iconrow { display: flex; gap: 6px; }
+  .ph-active .iconrow b {
+    display: inline-block; width: 26px; height: 26px;
+    border: 1px dashed var(--ink-5);
+  }
+  .ph-active .bigroll {
+    display: flex; gap: 3px; align-items: flex-end; height: 78px;
+    margin-bottom: 14px;
+  }
+  .ph-active .bigroll i {
+    flex: 1; background: var(--ink-3); opacity: .8;
+  }
+  .ph-active .footer {
+    display: flex; align-items: center; gap: 12px;
+    border-top: 1px solid var(--hairline); padding-top: 12px;
+  }
+  .ph-active .footer .play {
+    width: 80px; height: 26px; background: var(--ink-3); border-radius: 1px;
+  }
+  .ph-active .footer .pos {
+    flex: 1; height: 10px; background: var(--ink-3); border-radius: 1px;
+    max-width: 200px;
+  }
+  .ph-active .footer .rec {
+    width: 76px; height: 10px; background: var(--ink-3); border-radius: 1px;
+    margin-left: auto;
+  }
+
+  /* divider */
+  .restline {
+    display: flex; align-items: center; gap: 10px; margin: 6px 0 6px;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ivory-4); text-transform: uppercase;
+  }
+  .restline::before, .restline::after {
+    content: ""; flex: 1; height: 1px; background: var(--hairline);
+  }
+
+  /* legend */
+  .legend {
+    margin-top: 14px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .legend .a { border-left: 2px solid var(--hairline); padding: 4px 0 4px 8px; }
+  .legend .a b {
+    display: block; font-family: var(--font-display); font-weight: 700;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ivory);
+  }
+  .legend .a code {
+    display: block; font: var(--t-mono); font-size: 9px; letter-spacing: .14em;
+    color: var(--ivory-3); text-transform: uppercase; margin-top: 2px;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:14px">PATTERN REEL · STACKING CHROME · SURFACE</div>
+
+  <div class="reel">
+    <div class="reel-head">
+      <span class="ttl">Patterns</span>
+      <span class="meta">EMPTY · MECHANIC</span>
+    </div>
+
+    <!-- Stacked placeholders: oldest at top, smaller, more faded -->
+    <div class="stack">
+      <div class="ph-card">
+        <span class="spine"></span>
+        <span class="num">01</span>
+        <span class="nm"></span>
+        <div class="roll"><i style="height:60%"></i><i style="height:30%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:70%"></i><i style="height:25%"></i><i style="height:55%"></i><i style="height:40%"></i></div>
+        <span class="when"></span>
+      </div>
+      <div class="ph-card">
+        <span class="spine"></span>
+        <span class="num">02</span>
+        <span class="nm"></span>
+        <div class="roll"><i style="height:30%"></i><i style="height:75%"></i><i style="height:40%"></i><i style="height:60%"></i><i style="height:50%"></i><i style="height:85%"></i><i style="height:35%"></i><i style="height:65%"></i></div>
+        <span class="when"></span>
+      </div>
+      <div class="ph-card">
+        <span class="spine"></span>
+        <span class="num">03</span>
+        <span class="nm"></span>
+        <div class="roll"><i style="height:55%"></i><i style="height:45%"></i><i style="height:70%"></i><i style="height:30%"></i><i style="height:80%"></i><i style="height:60%"></i><i style="height:40%"></i><i style="height:50%"></i></div>
+        <span class="when"></span>
+      </div>
+    </div>
+
+    <div class="restline">Active rests at the bottom</div>
+
+    <!-- Active placeholder: full-height -->
+    <div class="ph-active">
+      <div class="row">
+        <span class="num">04</span>
+        <span class="title"></span>
+        <span class="iconrow"><b></b><b></b><b></b></span>
+      </div>
+      <div class="bigroll">
+        <i style="height:55%"></i><i style="height:80%"></i><i style="height:30%"></i><i style="height:70%"></i>
+        <i style="height:90%"></i><i style="height:40%"></i><i style="height:65%"></i><i style="height:50%"></i>
+        <i style="height:75%"></i><i style="height:35%"></i><i style="height:60%"></i><i style="height:85%"></i>
+        <i style="height:45%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:80%"></i>
+      </div>
+      <div class="footer">
+        <span class="play"></span>
+        <span class="pos"></span>
+        <span class="rec"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="a"><b>Stack</b><code>3 visible · −scale per row · oldest first</code></div>
+    <div class="a"><b>Active</b><code>tall card, full mini-roll, controls</code></div>
+    <div class="a"><b>Tap stacked</b><code>swaps to bottom · old joins stack</code></div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    The mechanic: a stack of small inactive cards above one tall active card. Stacked cards step down in scale
+    and opacity so you read them as a deck. Placeholders here are dashed and grey — fills, names, and times
+    are content. A populated example lives in <code>composition-pattern-reel-populated</code>.
+  </div>
+</div></body></html>

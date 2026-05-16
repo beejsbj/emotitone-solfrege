@@ -1,0 +1,140 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+/* ─── Pillar card with floating-label tab ─── */
+.pillar-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 0;
+}
+
+.pillar {
+  border: 1px solid var(--ink-5);
+  background: var(--ink-3);
+  padding: 20px 18px 24px;
+  position: relative;
+  min-height: 190px;
+  box-sizing: border-box;
+  margin-top: 14px;
+}
+
+/* Floating label — clips into top border like a folder tab */
+.pillar::before {
+  content: attr(data-label);
+  position: absolute;
+  top: -10px;
+  left: 14px;
+  background: var(--ink);
+  font: 600 10px/1.1 "JetBrains Mono";
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+  padding: 0 8px;
+  pointer-events: none;
+}
+
+/* Large faint ordinal — decorative, top-right corner */
+.pillar .num {
+  font: 400 52px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--ivory-4);
+  position: absolute;
+  right: 12px;
+  top: 8px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.pillar h3 {
+  font: 400 19px/1.12 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--ivory);
+  margin: 0 0 10px;
+  max-width: 14ch;
+}
+
+.pillar p {
+  font: var(--t-body-s);
+  color: var(--ivory-3);
+  margin: 0;
+  max-width: 28ch;
+}
+
+/* Rotation — hand-cut feel */
+.pillar:nth-child(1) { transform: rotate(0.2deg); }
+.pillar:nth-child(2) { transform: rotate(-0.3deg); }
+.pillar:nth-child(3) { transform: rotate(0.15deg); }
+
+/* Anatomy callouts below */
+.anno {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.anno-item {
+  border-top: 1px solid var(--hairline);
+  padding-top: 10px;
+}
+
+.anno-item .k {
+  font: var(--t-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ivory-4);
+  margin-bottom: 4px;
+}
+
+.anno-item .v {
+  font: var(--t-caption);
+  color: var(--ivory-3);
+}
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:22px">PILLAR CARD · NUMBERED PRINCIPLE</div>
+
+  <div class="pillar-row">
+
+    <!-- Pillar 1 -->
+    <div class="pillar" data-label="01 — Stage / Ivory">
+      <div class="num">01</div>
+      <h3>A dark room. Ivory type.</h3>
+      <p>Everything sits on the dark stage. Ivory at four steps — text, secondary, meta, disabled — is the only light. No foreground panels.</p>
+    </div>
+
+    <!-- Pillar 2 -->
+    <div class="pillar" data-label="02 — Two Colours">
+      <div class="num">02</div>
+      <h3>UI warm-neutral. Music chromatic.</h3>
+      <p>Six warm greys plus four poster accents for chrome. The 12-tone wheel reserved for notes — never buttons, never borders.</p>
+    </div>
+
+    <!-- Pillar 3 -->
+    <div class="pillar" data-label="03 — Two Voices">
+      <div class="num">03</div>
+      <h3>Jazz speaks. Mono whispers.</h3>
+      <p>Lets Jazz for everything read and remembered. JetBrains Mono for everything the system says back: timecodes, data, deltas.</p>
+    </div>
+
+  </div>
+
+  <!-- Anatomy annotations -->
+  <div class="anno">
+    <div class="anno-item">
+      <div class="k">Floating Label</div>
+      <div class="v">10px JetBrains Mono · ivory-3 · clips top border at -10px · ink background</div>
+    </div>
+    <div class="anno-item">
+      <div class="k">Ordinal</div>
+      <div class="v">52px Lets Jazz · ivory-4 · absolute top-right · decorative only</div>
+    </div>
+    <div class="anno-item">
+      <div class="k">Title</div>
+      <div class="v">19px Lets Jazz upper · max 14ch · h3 semantic · --ivory on --ink-3</div>
+    </div>
+  </div>
+
+</div></body></html>

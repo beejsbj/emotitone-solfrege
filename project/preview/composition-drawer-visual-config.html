@@ -1,0 +1,326 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  /* ─── COMPOSITION: DRAWER + VISUAL CONFIG ────────────────────
+     Drawer surface filled with the visual-presets pane: a 2×2
+     preset grid (paper-spine cards) + visual config tabs +
+     param rows + the "live preview" thumbnail.
+     ─────────────────────────────────────────────────────────── */
+  .stage {
+    position: relative;
+    height: 600px; overflow: hidden;
+    background: var(--ink); border: 1px solid var(--hairline);
+  }
+
+  .drawer {
+    position: absolute; left: 0; right: 0; top: 0;
+    background: var(--ink-3);
+    border-bottom: 1px solid var(--hairline);
+    padding: 16px 18px 18px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.45);
+    z-index: 3;
+  }
+  .drawer .head {
+    display: flex; align-items: center; gap: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--hairline);
+  }
+  .drawer .head .ttl {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 22px; letter-spacing: .03em; text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .drawer .head .pre {
+    font: var(--t-mono); font-size: 10px; letter-spacing: .16em;
+    color: var(--ivory-3); text-transform: uppercase;
+    margin-left: auto;
+  }
+  .drawer .head .icons { display: flex; gap: 6px; }
+  .drawer .head .icons b {
+    width: 26px; height: 26px;
+    background: transparent; border: 1px solid var(--hairline);
+    color: var(--ivory-2); display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 12px; cursor: pointer;
+  }
+
+  /* layout: presets left | preview right */
+  .body {
+    display: grid; grid-template-columns: 1.1fr 1fr;
+    gap: 14px; margin-top: 14px;
+  }
+
+  /* preset cards */
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .preset {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--hairline);
+    background: var(--ink-2);
+    padding: 0 12px 0 0;
+    height: 44px;
+    position: relative;
+  }
+  .preset .spine { width: 4px; align-self: stretch; }
+  .preset .name {
+    flex: 1;
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 16px; letter-spacing: .02em; text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .preset .apply {
+    padding: 4px 8px;
+    border: 1px solid var(--hairline);
+    background: transparent;
+    color: var(--ivory-2);
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .preset.on {
+    background: var(--ivory); color: var(--ink); border-color: var(--ivory);
+  }
+  .preset.on .name { color: var(--ink); }
+  .preset.on .apply { color: var(--ink); border-color: var(--ink); }
+
+  /* preview */
+  .preview {
+    border: 1px solid var(--hairline);
+    background: var(--ink-2);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .preview .pv {
+    position: relative;
+    height: 130px;
+    background:
+      radial-gradient(120% 80% at 50% 50%, rgba(244,239,230,.06), transparent 60%),
+      var(--ink);
+    overflow: hidden;
+  }
+  .preview .pv svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .preview .meta {
+    border-top: 1px solid var(--hairline);
+    padding: 8px 12px;
+    display: flex; align-items: center; gap: 10px;
+    font: var(--t-mono); font-size: 9px; letter-spacing: .18em;
+    color: var(--ivory-3); text-transform: uppercase;
+  }
+
+  /* tabs */
+  .tabs {
+    display: flex; gap: 0;
+    background: var(--ink-2);
+    border: 1px solid var(--hairline);
+    margin-top: 14px;
+  }
+  .tabs button {
+    flex: 1; padding: 8px 6px;
+    background: transparent; border: 0;
+    color: var(--ivory-3);
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    cursor: pointer;
+    border-right: 1px solid var(--hairline);
+  }
+  .tabs button:last-child { border-right: 0; }
+  .tabs button.on {
+    background: var(--ivory); color: var(--ink);
+    clip-path: polygon(4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%);
+    transform: skewX(-2deg);
+  }
+
+  /* params */
+  .params {
+    margin-top: 12px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .param {
+    border: 1px solid var(--hairline);
+    padding: 8px 10px;
+    background: var(--ink-2);
+  }
+  .param .k {
+    font: var(--t-mono); font-size: 9px; letter-spacing: .18em;
+    color: var(--ivory-3); text-transform: uppercase;
+  }
+  .param .v {
+    margin-top: 4px;
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 16px; letter-spacing: .02em;
+    color: var(--ivory);
+  }
+  .param .slider {
+    flex: 1; height: 3px; background: var(--hairline); position: relative;
+  }
+  .param .slider i {
+    position: absolute; top: 0; bottom: 0; left: 0;
+    background: var(--ivory);
+  }
+  .param .slider b {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 8px; height: 8px; background: var(--ivory);
+  }
+
+  /* handle */
+  .handle {
+    position: absolute; left: 0; right: 0;
+    height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px;
+    user-select: none;
+    z-index: 4;
+  }
+  .handle .grip { width: 40px; height: 3px; background: var(--ink-5); }
+  .handle .h {
+    font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ivory-3); text-transform: uppercase;
+  }
+
+  /* dimmed app */
+  .scrim {
+    position: absolute; left: 0; right: 0; bottom: 0; top: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,.45));
+    pointer-events: none; z-index: 2;
+  }
+  .app {
+    position: absolute; left: 16px; right: 16px; bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    opacity: .55;
+    transform: scale(.97);
+    z-index: 1;
+  }
+  .app span {
+    font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ivory-3); text-transform: uppercase;
+  }
+</style></head><body>
+<div class="card">
+  <div class="label" style="margin-bottom:12px">COMPOSITION · DRAWER · VISUAL CONFIG</div>
+
+  <div class="stage">
+    <div class="drawer">
+      <div class="head">
+        <span class="ttl">Visual presets</span>
+        <span class="pre">PULSE LAB · APPLIED · 04 PARAMS DIFF</span>
+        <div class="icons">
+          <b>⏻</b><b>↻</b><b>⤓</b>
+        </div>
+      </div>
+
+      <div class="body">
+        <div>
+          <!-- preset grid -->
+          <div class="presets">
+            <div class="preset">
+              <span class="spine" style="background:var(--saffron);"></span>
+              <span class="name">Soft Glass</span>
+              <button class="apply">Apply</button>
+            </div>
+            <div class="preset on">
+              <span class="spine" style="background:var(--tomato);"></span>
+              <span class="name">Pulse Lab</span>
+              <button class="apply">Applied</button>
+            </div>
+            <div class="preset">
+              <span class="spine" style="background:var(--grape);"></span>
+              <span class="name">Ambient Bloom</span>
+              <button class="apply">Apply</button>
+            </div>
+            <div class="preset">
+              <span class="spine" style="background:var(--pine);"></span>
+              <span class="name">Classroom</span>
+              <button class="apply">Apply</button>
+            </div>
+            <div class="preset">
+              <span class="spine" style="background:var(--coral);"></span>
+              <span class="name">Neon Score</span>
+              <button class="apply">Apply</button>
+            </div>
+            <div class="preset">
+              <span class="spine" style="background:var(--cream);"></span>
+              <span class="name">Hilbert Tape</span>
+              <button class="apply">Apply</button>
+            </div>
+          </div>
+
+          <!-- config tabs -->
+          <div class="tabs">
+            <button>Anim</button>
+            <button>Freq</button>
+            <button class="on">Color</button>
+            <button>Popup</button>
+            <button>Scope</button>
+          </div>
+
+          <!-- params -->
+          <div class="params">
+            <div class="param">
+              <div class="k">Bloom</div>
+              <div class="v">68 <span class="slider"><i style="width:68%"></i><b style="left:68%"></b></span></div>
+            </div>
+            <div class="param">
+              <div class="k">Speed</div>
+              <div class="v">1.24× <span class="slider"><i style="width:42%"></i><b style="left:42%"></b></span></div>
+            </div>
+            <div class="param">
+              <div class="k">Hue rot</div>
+              <div class="v">+12° <span class="slider"><i style="width:54%"></i><b style="left:54%"></b></span></div>
+            </div>
+            <div class="param">
+              <div class="k">Grain</div>
+              <div class="v">22% <span class="slider"><i style="width:22%"></i><b style="left:22%"></b></span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- preview -->
+        <div class="preview">
+          <div class="pv">
+            <svg viewBox="0 0 220 130" preserveAspectRatio="none">
+              <!-- pulse-lab visualization -->
+              <defs>
+                <radialGradient id="bloom" cx="50%" cy="55%" r="60%">
+                  <stop offset="0%" stop-color="hsl(18 85% 56%)" stop-opacity=".95"/>
+                  <stop offset="55%" stop-color="hsl(312 76% 58%)" stop-opacity=".55"/>
+                  <stop offset="100%" stop-color="hsl(228 78% 58%)" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect width="220" height="130" fill="url(#bloom)"/>
+              <g fill="none" stroke-width="1.4" stroke-linecap="butt">
+                <path d="M0 110 Q 30 60 50 80 T 100 70 T 150 90 T 220 60" stroke="hsl(252 72% 60%)"/>
+                <path d="M0 86 Q 40 100 70 50 T 130 70 T 210 100" stroke="hsl(18 85% 56%)" opacity=".7"/>
+              </g>
+              <g fill="hsl(178 68% 50%)">
+                <rect x="22" y="70" width="2" height="22"/>
+                <rect x="58" y="48" width="2" height="44"/>
+                <rect x="98" y="60" width="2" height="32"/>
+                <rect x="148" y="50" width="2" height="42"/>
+                <rect x="190" y="65" width="2" height="27"/>
+              </g>
+            </svg>
+          </div>
+          <div class="meta">
+            <span>LIVE PREVIEW</span>
+            <span style="margin-left:auto">120 BPM · BAR 03</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="handle" style="top: 562px;">
+      <span class="grip"></span>
+      <span class="h">DRAG · ESC · TAP</span>
+      <span class="grip"></span>
+    </div>
+
+    <div class="scrim"></div>
+    <div class="app">
+      <span>Stage · compressed</span>
+      <span>PIANO · E LOCRIAN · 120 BPM</span>
+    </div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    Drawer filled with the visual-presets pane. Left column holds the six poster-spined preset cards (one active,
+    paper-on-stage) and the Anim/Freq/Color/Popup/Scope tabs with the live params. Right column shows a
+    live preview thumbnail — chromatic, because it <em>is</em> the music.
+  </div>
+</div></body></html>

@@ -607,6 +607,7 @@ function buildPage() {
       <div class="swatch"><div class="swatch-block" style="background:var(--pine)"></div><div class="swatch-meta"><div class="swatch-name">--pine</div><div class="swatch-val">#1f4d3f</div></div></div>
       <div class="swatch"><div class="swatch-block" style="background:var(--plum)"></div><div class="swatch-meta"><div class="swatch-name">--plum</div><div class="swatch-val">#6b3fa0</div></div></div>
       <div class="swatch"><div class="swatch-block" style="background:var(--bone)"></div><div class="swatch-meta"><div class="swatch-name">--bone</div><div class="swatch-val">#efe6d0</div></div></div>
+      <div class="swatch"><div class="swatch-block" style="background:var(--mustard)"></div><div class="swatch-meta"><div class="swatch-name">--mustard</div><div class="swatch-val">#f0b137</div></div></div>
     </div>
 
     <div class="tok-sub" id="tok-chromatic">Chromatic Notes</div>

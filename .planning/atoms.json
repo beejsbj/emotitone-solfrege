@@ -58,9 +58,9 @@
 
   "removal_candidates": [
     {
-      "name": "ease-dot",
-      "family": "marks",
-      "reason": "Specimen-internal device for visualizing easing curves. Not a brand mark. Drop from primitive promotion."
+      "name": "knob-dial-faux",
+      "family": "inputs",
+      "reason": "The plain circle in composition-drawer with a value but no angle indicator. Not a real knob — purge during knob promotion. (User decision 2026-05-17.)"
     },
     {
       "name": "tile-swatch",
@@ -139,19 +139,19 @@
       "what": "_card.css has its own @keyframes brass-sheen at 5.5s with a different bezier. Because every specimen loads _card.css after the canonical colors_and_type.css, the canonical 6.5s timing is dead.",
       "action": "Delete the _card.css copy. Verify all .brass elements still animate correctly."
     },
-    "no_slider_atom": {
-      "title": "No slider/range/toggle primitive exists",
-      "what": "Drawer composition has 'Haptic feedback ON · MEDIUM' as text-only. Token sheet reserves --r-pill: 999px 'for Toggles only' but no toggle exists. The whole settings pane has no real controls.",
-      "action": "Phase 3 must build a slider primitive AND a toggle primitive. These don't exist yet."
+    "knobs_are_universal_control": {
+      "title": "Knobs handle slider/toggle/segmented roles — no separate primitives needed",
+      "what": "User confirmed (2026-05-17): there are no slider or toggle primitives because knobs cover all of those affordances. Knobs function as boolean toggles, range sliders, option sliders, and unique buttons. Drawer composition's 'Haptic feedback ON · MEDIUM' will become a knob in toggle mode, not a slider/toggle pair. Token sheet's `--r-pill: 999px` reservation still stands but is unused by knobs.",
+      "action": "Phase 3 promotes ONE `knob` primitive with role variants: range / boolean / options / button. Do NOT build slider or toggle primitives."
     },
     "knob_rendering_techniques": {
-      "title": "Three incompatible knob rendering techniques all called 'knob'",
+      "title": "Knob has two canonical visual variants per role",
       "files_affected": [
-        "project/preview/components-knobs.html (SVG arc — canonical)",
-        "project/preview/composition-motion-overview.html (conic-gradient ring)",
-        "project/preview/composition-drawer.html (plain circle with value, no angle indicator)"
+        "project/preview/components-knobs.html (SVG arc — CANONICAL visual variant A)",
+        "project/preview/composition-motion-overview.html (conic-gradient ring — visual variant B, kept)",
+        "project/preview/composition-drawer.html (plain circle with value — PURGE, see removal_candidates: knob-dial-faux)"
       ],
-      "action": "Lock SVG-arc as canonical (matches the butt-cap brand grammar). Refactor compositions to use it. The decorative 'value-chip dressed as a knob' in drawer is not actually a knob — promote it as 'value-chip' or remove it."
+      "action": "User decision (2026-05-17): each knob role can wear EITHER the components-knobs SVG-arc style (A) OR the composition-motion-overview conic-gradient style (B). Phase 3 promotion must support both as visual variants of the same primitive. The drawer's plain-circle dial is not a knob and gets purged."
     }
   },
 
@@ -167,7 +167,7 @@
     {"family": "marks",      "subfamily": "cut-paper",         "name": "decorative-scatter",       "canonical_candidate": "project/preview/composition-music-marks.html",      "consumers": 2, "drift_severity": "medium"},
 
     {"family": "inputs",     "subfamily": "knobs",             "name": "knob-rotary",              "canonical_candidate": "project/preview/components-knobs.html",             "consumers": 3, "drift_severity": "high"},
-    {"family": "inputs",     "subfamily": "knobs",             "name": "knob-dial-faux",           "canonical_candidate": "project/preview/composition-motion-overview.html",  "consumers": 2, "drift_severity": "high", "note": "not a real knob — value-chip; recategorize during promotion"},
+    {"family": "inputs",     "subfamily": "knobs",             "name": "knob-conic-variant",       "canonical_candidate": "project/preview/composition-motion-overview.html",  "consumers": 1, "drift_severity": "low",  "note": "Kept as visual variant B of knob-rotary (user 2026-05-17). Drawer's plain-circle version is purged — see removal_candidates: knob-dial-faux."},
     {"family": "inputs",     "subfamily": "tiles",             "name": "tile-solfege",             "canonical_candidate": "project/preview/components-solfege-tile.html",      "consumers": 7, "drift_severity": "high"},
     {"family": "inputs",     "subfamily": "keys",              "name": "key-clip-paper",           "canonical_candidate": "project/preview/components-keys.html",              "consumers": 1, "drift_severity": "low"},
     {"family": "inputs",     "subfamily": "buttons",           "name": "button-icon",              "canonical_candidate": "project/preview/components-buttons.html",           "consumers": 5, "drift_severity": "medium"},
@@ -210,5 +210,13 @@
     "by_family": { "marks": 9, "inputs": 14, "containers": 11, "motion": 10 },
     "by_severity": { "critical": 1, "high": 18, "medium": 14, "low": 8, "note_only": 3 },
     "phase3_estimated_commits": 12
+  },
+
+  "decisions_2026_05_17": {
+    "mustard_reinstated": "Brand set restored to 5 colors: tomato, pine, plum, bone, mustard (#f0b137). Updated colors_and_type.css, tokens-brand-colors.html (5-col grid), sink.js Brand swatches.",
+    "ease_dot_kept": "Removed from removal_candidates. Functions as a primitive for the style guide itself even though it's not a brand mark in the app. Stays as specimen-internal device.",
+    "knobs_universal": "No slider/toggle/segmented primitives. Knobs cover boolean toggle, range slider, options slider, unique button affordances. See cross_cutting_findings.knobs_are_universal_control.",
+    "knob_two_variants": "Each knob role supports two visual styles: components-knobs SVG-arc (A, canonical) and composition-motion-overview conic-gradient (B). Drawer's plain-circle dial is purged.",
+    "future_geometry_tokens": "User flagged: wobbly/angular/uneven shaping (tilt rotations, butt caps, off-cut clips, torn-paper edges) should become a GEOMETRY token family — promote in a later phase. Not in current atom list."
   }
 }

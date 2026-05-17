@@ -4,7 +4,7 @@
 
    TOKEN ARCHITECTURE (top-level groups)
      1. UI         chrome — ink, ivory, brass, glass, scrim, hairline
-     2. BRAND      decorative — tomato, pine, plum, bone
+     2. BRAND      decorative — tomato, pine, plum, bone, mustard
      3. MUSIC      chromatic — recipe (oklch) + legacy --note-* aliases
      4. GEOMETRY   spacing, radii, shadows, ring
      5. MOTION     beat, durations, easings, keyframes
@@ -75,12 +75,13 @@
   /* ===============================================================
      2. BRAND — decorative-only poster colors. Cut-paper marks,
         kicker dots, sticker spines, brand artifacts. Never on
-        functional UI chrome. Four colors, that's the set.
+        functional UI chrome. Five colors, that's the set.
      =============================================================== */
   --tomato:     #d8362a;     /* poster red */
   --pine:       #1f4d3f;     /* deep green */
   --plum:       #6b3fa0;     /* lifted purple */
   --bone:       #efe6d0;     /* warm off-white (brand backgrounds) */
+  --mustard:    #f0b137;     /* poster yellow */
 
   /* ===============================================================
      3. MUSIC — chromatic, computed. Every key / tile / note glyph

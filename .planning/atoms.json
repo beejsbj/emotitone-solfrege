@@ -166,8 +166,7 @@
     {"family": "marks",      "subfamily": "cut-paper",         "name": "torn-paper-edge",          "canonical_candidate": "project/preview/composition-drawer.html",           "consumers": 1, "drift_severity": "low"},
     {"family": "marks",      "subfamily": "cut-paper",         "name": "decorative-scatter",       "canonical_candidate": "project/preview/composition-music-marks.html",      "consumers": 2, "drift_severity": "medium"},
 
-    {"family": "inputs",     "subfamily": "knobs",             "name": "knob-rotary",              "canonical_candidate": "project/preview/components-knobs.html",             "consumers": 3, "drift_severity": "high"},
-    {"family": "inputs",     "subfamily": "knobs",             "name": "knob-conic-variant",       "canonical_candidate": "project/preview/composition-motion-overview.html",  "consumers": 1, "drift_severity": "low",  "note": "Kept as visual variant B of knob-rotary (user 2026-05-17). Drawer's plain-circle version is purged — see removal_candidates: knob-dial-faux."},
+    {"family": "inputs",     "subfamily": "knobs",             "name": "knob-rotary",              "canonical_candidate": "project/preview/components-knobs.html",             "consumers": 3, "drift_severity": "promoted", "note": "PROMOTED 3.2d: .knob.knob--arc|--ring × .knob--{range|boolean|options|button}. Covers slider/toggle/segmented/button affordances."},
     {"family": "inputs",     "subfamily": "tiles",             "name": "tile-solfege",             "canonical_candidate": "project/preview/components-solfege-tile.html",      "consumers": 7, "drift_severity": "high"},
     {"family": "inputs",     "subfamily": "keys",              "name": "key-clip-paper",           "canonical_candidate": "project/preview/components-keys.html",              "consumers": 1, "drift_severity": "low"},
     {"family": "inputs",     "subfamily": "buttons",           "name": "button-icon",              "canonical_candidate": "project/preview/components-buttons.html",           "consumers": 5, "drift_severity": "medium"},
@@ -178,10 +177,10 @@
     {"family": "inputs",     "subfamily": "tabs",              "name": "tabs-segmented",           "canonical_candidate": "project/preview/composition-drawer.html",           "consumers": 1, "drift_severity": "medium", "note": "no primitive specimen — needs new card"},
     {"family": "inputs",     "subfamily": "chips",             "name": "transport-row",            "canonical_candidate": "project/preview/components-chip.html",              "consumers": 1, "drift_severity": "low",  "note": "actually 7 sub-atoms — split during promotion"},
     {"family": "inputs",     "subfamily": "chips",             "name": "pattern-card",             "canonical_candidate": "project/preview/components-pattern-card.html",      "consumers": 3, "drift_severity": "medium"},
-    {"family": "inputs",     "subfamily": "chips",             "name": "preset-row",               "canonical_candidate": "project/preview/composition-drawer.html",           "consumers": 2, "drift_severity": "high", "note": "components-preset-card.html is the WRONG implementation; drawer version is correct"},
+    {"family": "inputs",     "subfamily": "chips",             "name": "preset-row",               "canonical_candidate": "project/preview/components-preset-card.html",       "consumers": 2, "drift_severity": "promoted", "note": "PROMOTED 3.2e: components-preset-card rewritten to match drawer treatment (flat 1px box + 4px coloured spine + ghost Apply). 4 brand spines, 3 states demoed."},
 
-    {"family": "containers", "subfamily": "panels",            "name": "panel-floating-label",     "canonical_candidate": "project/preview/composition-pattern-reel.html",     "consumers": 6, "drift_severity": "high"},
-    {"family": "containers", "subfamily": "panels",            "name": "labelled-state-frame",     "canonical_candidate": "project/preview/components-panel-header.html",      "consumers": 7, "drift_severity": "high"},
+    {"family": "containers", "subfamily": "panels",            "name": "panel-floating-label",     "canonical_candidate": "project/preview/_card.css",                         "consumers": 6, "drift_severity": "promoted", "note": "PROMOTED 3.2b: canonical .panel + .panel-label live in _card.css. Migrated: components-card, composition-pattern-reel (bg drift fixed), 3× v2-card composition files."},
+    {"family": "containers", "subfamily": "panels",            "name": "labelled-state-frame",     "canonical_candidate": "project/preview/_card.css",                         "consumers": 7, "drift_severity": "promoted", "note": "PROMOTED 3.2c: canonical .state-frame + .state-pin live in _card.css. Migrated: panel-header, pattern-card, badge (color drift fixed), code-strip, durations. Deferred: section-anchor, bar-tape, solfege-tile, knobs (different layouts)."},
     {"family": "containers", "subfamily": "card-shells",       "name": "card-pillar",              "canonical_candidate": "project/preview/components-card.html",              "consumers": 1, "drift_severity": "low"},
     {"family": "containers", "subfamily": "card-shells",       "name": "v2-card-wrapper",          "canonical_candidate": "project/preview/composition-motion-overview.html",  "consumers": 3, "drift_severity": "critical", "note": "MUST RECONCILE BEFORE OTHER CONTAINER WORK"},
     {"family": "containers", "subfamily": "tabs",              "name": "tabs-offcut-active",       "canonical_candidate": "project/preview/mot-primitives-tab-slide.html",     "consumers": 4, "drift_severity": "high"},
@@ -208,8 +207,14 @@
   "stats": {
     "total_atoms": 44,
     "by_family": { "marks": 9, "inputs": 14, "containers": 11, "motion": 10 },
-    "by_severity": { "critical": 1, "high": 18, "medium": 14, "low": 8, "note_only": 3 },
-    "phase3_estimated_commits": 12
+    "by_severity": { "critical": 1, "high": 18, "medium": 14, "low": 8, "note_only": 3, "promoted": 4 },
+    "phase3_estimated_commits": 12,
+    "phase3_promoted_so_far": [
+      "panel-floating-label (3.2b)",
+      "labelled-state-frame (3.2c)",
+      "knob-rotary (3.2d, with dual-variant API)",
+      "preset-row (3.2e)"
+    ]
   },
 
   "decisions_2026_05_17": {

@@ -1,0 +1,63 @@
+{
+  "pairings": [
+    {
+      "composition": "project/preview/composition-brand-cover.html",
+      "composition_title": "COMPOSITION \u00b7 BRAND COVER / HERO",
+      "screenshot": "project/assets/jazz-collage.png",
+      "match_confidence": "high",
+      "match_reason": "Cut-paper jazz collage directly matches the brand cover hero language."
+    },
+    {
+      "composition": "project/preview/composition-drawer.html",
+      "composition_title": "COMPOSITION \u00b7 TOP DRAWER \u00b7 INTERACTIVE",
+      "screenshot": "project/assets/screen-config-presets.png",
+      "match_confidence": "high",
+      "match_reason": "Open top drawer over the keyboard matches the drawer composition mechanic."
+    },
+    {
+      "composition": "project/preview/composition-motion-overview.html",
+      "composition_title": "Composition \u00b7 06 Motion",
+      "screenshot": "project/assets/play-state-piano.png",
+      "match_confidence": "high",
+      "match_reason": "Live piano play state shows the moving performance surface in context."
+    },
+    {
+      "composition": "project/preview/composition-music-marks.html",
+      "composition_title": "Composition \u00b7 07 Music marks",
+      "screenshot": "project/assets/loading-splash.png",
+      "match_confidence": "high",
+      "match_reason": "Loading splash uses the large music-note mark as real app chrome."
+    },
+    {
+      "composition": "project/preview/composition-pattern-reel.html",
+      "composition_title": "COMPOSITION \u00b7 08 PATTERN REEL",
+      "screenshot": "project/assets/pattern-bw.png",
+      "match_confidence": "high",
+      "match_reason": "Black-and-white pattern field is the direct source for the reel pattern surface."
+    },
+    {
+      "composition": "project/preview/composition-spacing-overview.html",
+      "composition_title": "Composition \u00b7 04 Spacing",
+      "screenshot": "project/assets/screen-keyboard-locrian.png",
+      "match_confidence": "high",
+      "match_reason": "Dense Locrian screen exposes spacing, radii, borders, and keyboard scale."
+    }
+  ],
+  "unmatched_compositions": [],
+  "unmatched_screenshots": [
+    "project/assets/aesthetic-board.png",
+    "project/assets/instruments-spread.png",
+    "project/assets/play-state-contrabass.png",
+    "project/assets/play-state-piano-2.png",
+    "project/assets/screen-instrument-picker.png",
+    "project/assets/screen-strudel-locrian.png"
+  ],
+  "_notes": [
+    "composition-app-reference-index.html is deliberately excluded from pairings because it is the generated SURFACE index, not an app composition.",
+    "composition-brand-cover.html could also claim aesthetic-board.png, but jazz-collage.png is the tighter single-screen match.",
+    "composition-drawer.html could also claim screen-keyboard-locrian.png, but screen-config-presets.png shows the drawer interaction more directly.",
+    "composition-motion-overview.html could also claim play-state-piano-2.png or play-state-contrabass.png; play-state-piano.png has the clearest active motion state.",
+    "composition-music-marks.html could also claim screen-strudel-locrian.png, but loading-splash.png shows the notation mark as a large app-surface element.",
+    "composition-spacing-overview.html could also claim screen-instrument-picker.png, but screen-keyboard-locrian.png is the filename-aligned dense screen called out in the heuristic."
+  ]
+}

@@ -1,21 +1,355 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
 <style>
-  ol{margin:0;padding:0;list-style:none;display:grid;gap:8px;}
-  li{display:grid;grid-template-columns:28px 1fr;gap:14px;align-items:baseline;padding:10px 0;border-top:1px solid var(--hairline);}
-  li:first-child{border-top:0;}
-  .n{font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--saffron);letter-spacing:.02em;}
-  .ttl{font-family:var(--font-display);font-weight:700;text-transform:uppercase;letter-spacing:.02em;font-size:15px;color:var(--fg);}
-  .sub{font:var(--t-caption);color:var(--fg-3);margin-top:2px;}
-  em{font-family:var(--font-serif);font-style:italic;color:var(--fg-2);font-size:13px;}
+  .intro {
+    margin: 0 0 var(--s-5);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--fg-2);
+  }
+
+  .pairs {
+    display: grid;
+    gap: var(--s-4);
+  }
+
+  .pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--s-4);
+    align-items: stretch;
+    border-top: 1px solid var(--hairline);
+    padding-top: var(--s-4);
+  }
+  .pair:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+  .pair.unpaired {
+    grid-template-columns: 1fr;
+  }
+
+  .rule,
+  .anti {
+    background: var(--ink-3);
+    border: 1px solid var(--hairline);
+    border-radius: 0;
+    min-width: 0;
+  }
+
+  .rule {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: var(--s-4);
+    align-items: start;
+    padding: var(--s-5);
+  }
+
+  .n {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    line-height: .9;
+    letter-spacing: var(--tracking-display);
+    color: var(--saffron);
+  }
+
+  .eyebrow,
+  .kick {
+    font: var(--t-label);
+    font-family: var(--font-mono);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    color: var(--fg-3);
+  }
+
+  .ttl {
+    margin-top: var(--s-3);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 1.06;
+    letter-spacing: var(--tracking-display);
+    text-transform: uppercase;
+    color: var(--fg);
+  }
+
+  .sub,
+  .why,
+  .caption {
+    font: var(--t-caption);
+    font-family: var(--font-mono);
+    color: var(--fg-3);
+  }
+
+  .sub {
+    margin-top: var(--s-2);
+    line-height: 1.45;
+  }
+
+  .anti {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    padding: var(--s-5);
+    background: var(--ink);
+  }
+
+  .kick {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    background: var(--tomato);
+    border-radius: 0;
+    flex: 0 0 auto;
+  }
+
+  .anti .ttl {
+    margin-top: 0;
+  }
+
+  .why {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .demo {
+    position: relative;
+    margin-top: auto;
+    overflow: hidden;
+    padding: var(--s-5);
+    background: var(--ink-2);
+    border: 1px solid var(--hairline);
+    border-radius: 0;
+  }
+  .demo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      135deg,
+      transparent 0 38px,
+      color-mix(in srgb, var(--tomato) 18%, transparent) 38px 39px
+    );
+    pointer-events: none;
+  }
+  .demo::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-left: 3px solid var(--tomato);
+    pointer-events: none;
+  }
+
+  .bad-buttons {
+    display: flex;
+    gap: var(--s-4);
+    align-items: center;
+  }
+  .bad-buttons button {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    border: 0;
+    border-radius: 0;
+    padding: var(--s-4) var(--s-5);
+    color: var(--ivory);
+    cursor: not-allowed;
+  }
+  .bad-buttons .se { background: var(--note-se); }
+  .bad-buttons .te { background: var(--note-te); }
+  .bad-buttons .me { background: var(--note-me); }
+
+  .bad-stack {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-5);
+    padding: var(--s-4) var(--s-2);
+  }
+  .bad-stack b,
+  .bad-stack span {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-display);
+    color: var(--ivory);
+  }
+  .bad-stack .sound { font-size: 22px; }
+  .bad-stack .all { font-size: 14px; }
+  .bad-stack .count {
+    margin-left: auto;
+    font-size: 18px;
+  }
+
+  .bad-glass {
+    padding: var(--s-5);
+    background: color-mix(in srgb, var(--ivory) 8%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid color-mix(in srgb, var(--ivory) 16%, transparent);
+    border-radius: var(--r-sm);
+  }
+  .bad-glass b {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: var(--tracking-display);
+    text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .bad-glass p {
+    margin: var(--s-2) 0 0;
+    font: var(--t-caption);
+    font-family: var(--font-mono);
+    color: var(--ivory-3);
+  }
+
+  .bad-emoji {
+    display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) var(--s-2);
+    flex-wrap: wrap;
+  }
+  .bad-emoji b {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 22px; letter-spacing: var(--tracking-display); text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .bad-emoji .emoji { font-size: 22px; letter-spacing: .08em; }
+
+  .caption {
+    margin-top: var(--s-5);
+    line-height: 1.55;
+  }
 </style></head><body>
 <div class="card">
-  <div class="label" style="margin-bottom:4px">PRINCIPLES · FIVE THINGS TO STOP DOING</div>
-  <em>The fix isn't to pick one mood — it's to give each its job.</em>
-  <ol style="margin-top:10px;">
-    <li><span class="n">01</span><div><div class="ttl">Don't mix chrome &amp; music on one surface</div><div class="sub">UI never borrows from Music. Music never borrows from UI.</div></div></li>
-    <li><span class="n">02</span><div><div class="ttl">Don't paint a button by its note</div><div class="sub">The button is chrome. It's holding the note, not being it.</div></div></li>
-    <li><span class="n">03</span><div><div class="ttl">Don't double up on Jazz sizes</div><div class="sub">Two Jazz sizes adjacent = noisy. Drop labels to Mono caps.</div></div></li>
-    <li><span class="n">04</span><div><div class="ttl">Don't bevel, blur or round the poster</div><div class="sub">Edges crisp. Radii tiny. No drop shadows on poster shapes.</div></div></li>
-    <li><span class="n">05</span><div><div class="ttl">Don't hold still</div><div class="sub">If it doesn't move with the music, it's furniture. Stillness = silent state.</div></div></li>
-  </ol>
+  <div class="label" style="margin-bottom:4px">PRINCIPLES &middot; RULES &amp; ANTIPATTERNS</div>
+  <p class="intro">The fix isn't to pick one mood &mdash; it's to give each its job.</p>
+
+  <div class="pairs">
+    <div class="pair">
+      <div class="rule">
+        <span class="n">01</span>
+        <div>
+          <div class="eyebrow">Rule</div>
+          <div class="ttl">Don't mix chrome &amp; music on one surface</div>
+          <div class="sub">UI never borrows from Music. Music never borrows from UI.</div>
+        </div>
+      </div>
+      <div class="anti">
+        <span class="kick"><span class="dot"></span>01 &middot; Don't</span>
+        <div class="ttl">Music colour as chrome</div>
+        <p class="why">Painting buttons in note-blue or dividers in note-pink. The whole system loses its primary signal &mdash; chromatic now means nothing.</p>
+        <div class="demo">
+          <div class="bad-buttons">
+            <button class="se">Play</button>
+            <button class="te">Stop</button>
+            <button class="me">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="rule">
+        <span class="n">02</span>
+        <div>
+          <div class="eyebrow">Rule</div>
+          <div class="ttl">Don't paint a button by its note</div>
+          <div class="sub">The button is chrome. It's holding the note, not being it.</div>
+        </div>
+      </div>
+      <div class="anti">
+        <span class="kick"><span class="dot"></span>01 &middot; Don't</span>
+        <div class="ttl">Music colour as chrome</div>
+        <p class="why">Painting buttons in note-blue or dividers in note-pink. The whole system loses its primary signal &mdash; chromatic now means nothing.</p>
+        <div class="demo">
+          <div class="bad-buttons">
+            <button class="se">Play</button>
+            <button class="te">Stop</button>
+            <button class="me">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="rule">
+        <span class="n">03</span>
+        <div>
+          <div class="eyebrow">Rule</div>
+          <div class="ttl">Don't double up on Jazz sizes</div>
+          <div class="sub">Two Jazz sizes adjacent = noisy. Drop labels to Mono caps.</div>
+        </div>
+      </div>
+      <div class="anti">
+        <span class="kick"><span class="dot"></span>02 &middot; Don't</span>
+        <div class="ttl">Stack Jazz on Jazz</div>
+        <p class="why">Two display sizes side by side compete for the same eye. One must drop to Mono caps; otherwise no anchor wins.</p>
+        <div class="demo">
+          <div class="bad-stack">
+            <b class="sound">Sound</b>
+            <b class="all">All sounds</b>
+            <span class="count">992</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="rule">
+        <span class="n">04</span>
+        <div>
+          <div class="eyebrow">Rule</div>
+          <div class="ttl">Don't bevel, blur or round the poster</div>
+          <div class="sub">Edges crisp. Radii tiny. No drop shadows on poster shapes.</div>
+        </div>
+      </div>
+      <div class="anti">
+        <span class="kick"><span class="dot"></span>03 &middot; Don't</span>
+        <div class="ttl">Glassmorphism</div>
+        <p class="why">Backdrop blurs and translucent panels make every SaaS dashboard. The poster aesthetic is opaque &mdash; ink, paper, no blur.</p>
+        <div class="demo">
+          <div class="bad-glass">
+            <b>A glassy panel</b>
+            <p>Looks like every SaaS dashboard. Drop it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair unpaired">
+      <div class="rule">
+        <span class="n">05</span>
+        <div>
+          <div class="eyebrow">Rule &middot; no paired antipattern</div>
+          <div class="ttl">Don't hold still</div>
+          <div class="sub">If it doesn't move with the music, it's furniture. Stillness = silent state.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair unpaired">
+      <div class="anti">
+        <span class="kick"><span class="dot"></span>04 &middot; Don't &middot; no paired rule</span>
+        <div class="ttl">Decorative emoji &amp; SVG slop</div>
+        <p class="why">Emoji and clip-art glyphs in labels and headers. The cut-paper marks and music glyphs already do this job &mdash; emoji read as filler.</p>
+        <div class="demo">
+          <div class="bad-emoji">
+            <span class="emoji">&#127929;</span><b>Piano</b>
+            <span class="emoji" style="margin-left:18px;">&#11088;</span><b>Favourite</b>
+            <span class="emoji" style="margin-left:18px;">&#10024;</span><b>New preset!</b>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">Each rule pairs with its visual antipattern: striped tomato gutter and hatch overlay so the broken state can't be quoted out of context. Chrome stays warm-neutral. Music stays chromatic. Type stays a duet. Edges stay crisp.</div>
 </div></body></html>

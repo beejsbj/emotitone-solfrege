@@ -5,17 +5,15 @@ import { join, basename } from 'path'
 const PORT = 3000
 const PROJECT = join(import.meta.dir, 'project')
 const PREVIEW = join(PROJECT, 'preview')
+const UNIFICATION_DATA = join(import.meta.dir, '.planning', 'unification-data.json')
 
-const GROUPS = [
-  { id: 'type',         label: 'Type',         prefixes: ['type-'] },
-  { id: 'colors',       label: 'Colors',        prefixes: ['colors-'] },
-  { id: 'spacing',      label: 'Spacing',       prefixes: ['spacing-'] },
-  { id: 'brand',        label: 'Brand',         prefixes: ['brand-'] },
-  { id: 'components',   label: 'Components',    prefixes: ['components-'] },
-  { id: 'compositions', label: 'Compositions',  prefixes: ['composition-'] },
-  { id: 'motion',       label: 'Motion',        prefixes: ['mot-', 'motion-'] },
-  { id: 'principles',   label: 'Principles',    prefixes: ['principles'] },
-]
+const PHASE_LABELS = {
+  foundations: 'Foundations',
+  motion: 'Motion',
+  components: 'Components',
+  'brand-principles': 'Brand & Principles',
+  compositions: 'Compositions',
+}
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -59,14 +57,8 @@ function extract(filename) {
   return { raw, body }
 }
 
-function grouped() {
-  const out = Object.fromEntries(GROUPS.map(g => [g.id, []]))
-  for (const f of cards()) {
-    for (const g of GROUPS) {
-      if (g.prefixes.some(p => f.startsWith(p))) { out[g.id].push(f); break }
-    }
-  }
-  return out
+function loadUnification() {
+  return JSON.parse(readFileSync(UNIFICATION_DATA, 'utf8'))
 }
 
 function shortLabel(f) {
@@ -76,43 +68,98 @@ function shortLabel(f) {
 // ── page builder ─────────────────────────────────────────────────────────────
 
 function buildPage() {
-  const byGroup = grouped()
+  const data = loadUnification()
+  const allCards = new Set(readdirSync(PREVIEW).filter(f => f.endsWith('.html') && f !== 'index.html'))
+  const mapped = new Set()
+  for (const g of data.groups) for (const c of g.cards) mapped.add(c.file)
+  const ungrouped = [...allCards].filter(f => !mapped.has(f)).sort()
+
+  // Stats for header
+  const stats = { pending: 0, keep: 0, kill: 0, merge: 0, rename: 0, rebuild: 0 }
+  for (const g of data.groups) for (const c of g.cards) stats[c.status] = (stats[c.status] || 0) + 1
+  const total = Object.values(stats).reduce((a, b) => a + b, 0)
+
+  // Sidebar: phases → groups, plus reference + ungrouped
+  const byPhase = {}
+  for (const g of data.groups) (byPhase[g.phase] ||= []).push(g)
 
   const navHtml = [
-    `<div class="ng">Tokens</div>
-     <a href="#tok-neutrals">Neutrals</a>
-     <a href="#tok-brass">Brass</a>
-     <a href="#tok-jazz">Jazz Accents</a>
-     <a href="#tok-chromatic">Chromatic</a>
-     <a href="#tok-type">Typography</a>
-     <a href="#tok-spacing">Spacing</a>
-     <a href="#tok-radii">Radii</a>
-     <a href="#tok-motion">Motion</a>`,
-    ...GROUPS.map(g => `
-     <div class="ng">${g.label}</div>
-     ${byGroup[g.id].map(f => `<a href="#card-${basename(f,'.html')}">${shortLabel(f)}</a>`).join('\n')}`),
-    `<div class="ng">Assets</div>
-     <a href="#assets">Images</a>
-     <div class="ng">UI Kit</div>
-     <a href="#mobile-kit">Mobile</a>`
+    `<div class="ng">Reference</div>
+     <a href="#tok-neutrals">Tokens</a>
+     <a href="#assets">Assets</a>`,
+    ...Object.entries(byPhase).map(([phase, groups]) => `
+      <div class="ng">${PHASE_LABELS[phase] || phase}</div>
+      ${groups.map(g => `<a href="#group-${g.id}"><span class="nav-code">G${String(g.order).padStart(2,'0')}</span> ${g.label}</a>`).join('\n')}`),
+    ungrouped.length > 0
+      ? `<div class="ng">Ungrouped (${ungrouped.length})</div>
+         ${ungrouped.map(f => `<a href="#card-${basename(f,'.html')}">${shortLabel(f)}</a>`).join('\n')}`
+      : ''
   ].join('\n')
 
-  const cardSections = GROUPS.map(g => {
-    const cardHtml = byGroup[g.id].map(f => {
-      const { raw, body } = extract(f)
-      const id = `card-${basename(f, '.html')}`
-      const styles = raw ? scopeStyles(raw, id) : ''
-      return `<div class="specimen" id="${id}">
-        <div class="specimen-label">${shortLabel(f)}</div>
-        ${styles ? `<style>${styles}</style>` : ''}
-        <div class="specimen-body">${body}</div>
+  const renderCard = (file, num, total, status, note, iteration) => {
+    if (!allCards.has(file)) {
+      return `<div class="specimen status-${status} missing" id="card-${basename(file,'.html')}">
+        <div class="specimen-head">
+          <span class="card-num">${num}/${total}</span>
+          <span class="specimen-label">${shortLabel(file)}</span>
+          <span class="status-badge status-${status}">${status}</span>
+        </div>
+        <div class="card-missing">file not found in preview/ — was it deleted?</div>
       </div>`
-    }).join('\n')
+    }
+    const { raw, body } = extract(file)
+    const id = `card-${basename(file, '.html')}`
+    const styles = raw ? scopeStyles(raw, id) : ''
+    const iterTag = iteration ? `<span class="iter-tag iter-${iteration}">${iteration}</span>` : ''
+    return `<div class="specimen status-${status}" id="${id}">
+      <div class="specimen-head">
+        <span class="card-num">${num}/${total}</span>
+        <span class="specimen-label">${shortLabel(file)}</span>
+        ${iterTag}
+        <span class="status-badge status-${status}">${status}</span>
+      </div>
+      ${note ? `<div class="card-note">⚑ ${note}</div>` : ''}
+      ${styles ? `<style>${styles}</style>` : ''}
+      <div class="specimen-body">${body}</div>
+    </div>`
+  }
+
+  const groupSections = data.groups.map(g => {
+    const cards = g.cards.map(c => renderCard(c.file, c.num, g.cards.length, c.status, c.note, c.iteration)).join('\n')
+    const log = g.decisions_log && g.decisions_log.length
+      ? g.decisions_log.map(d => `<li>${d}</li>`).join('')
+      : '<li class="empty">(no decisions yet)</li>'
+    const code = `G${String(g.order).padStart(2,'0')}`
     return `<section class="group" id="group-${g.id}">
-      <h2 class="group-header">${g.label}</h2>
-      ${cardHtml}
+      <div class="group-header">
+        <span class="group-code">${code}</span>
+        <h2>${g.label}</h2>
+        <span class="phase-tag">${g.phase}</span>
+        <span class="status-tag status-${g.status}">${g.status}</span>
+      </div>
+      <div class="recommendation">
+        <div class="rec-label">Recommendation</div>
+        <div class="rec-body">${g.recommendation}</div>
+      </div>
+      ${cards}
+      <div class="decisions">
+        <div class="dec-label">Decisions log</div>
+        <ul>${log}</ul>
+      </div>
     </section>`
   }).join('\n')
+
+  const ungroupedSection = ungrouped.length === 0 ? '' : `
+    <section class="group" id="group-ungrouped">
+      <div class="group-header"><h2>Ungrouped</h2><span class="phase-tag">unmapped</span></div>
+      <div class="recommendation">
+        <div class="rec-label">Note</div>
+        <div class="rec-body">These cards exist in preview/ but aren't in .planning/unification-data.json. Add them or remove them.</div>
+      </div>
+      ${ungrouped.map((f, i) => renderCard(f, i + 1, ungrouped.length, 'pending', '', null)).join('\n')}
+    </section>`
+
+  const cardSections = groupSections + ungroupedSection
 
   const assetFiles = readdirSync(join(PROJECT, 'assets')).filter(f => /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(f))
   const assetGrid = assetFiles.map(f =>
@@ -215,16 +262,17 @@ function buildPage() {
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
       gap: 6px;
     }
-    .swatch {
+    /* tokens-only swatch override — scoped so it doesn't leak into specimens
+       (colors-neutrals.html relies on _card.css's 56×56 swatch sizing) */
+    .tok-grid .swatch {
       border-radius: var(--r-sm);
       overflow: hidden;
       box-shadow: var(--ring);
-      /* override _card.css fixed 56×56 sizing */
       width: 100%;
       height: auto;
       flex-shrink: 1;
     }
-    .swatch-block { height: 44px; }
+    .tok-grid .swatch-block { height: 44px; }
     .swatch-meta { padding: 5px 8px; background: var(--ink-3); }
     .swatch-name { font: var(--t-caption); color: var(--fg-2); }
     .swatch-val  { font: var(--t-caption); color: var(--fg-3); font-size: 10px; }
@@ -299,12 +347,194 @@ function buildPage() {
     .specimen-body {
       padding: 0;
     }
-    /* make .card inside specimens play nice — remove its own border-radius/shadow since the wrapper handles that */
-    .specimen-body .card {
+    /* make .card and .v2-card inside specimens play nice — remove their own radius/shadow since the wrapper handles that */
+    .specimen-body .card,
+    .specimen-body .v2-card {
       border-radius: 0;
       box-shadow: none;
       width: 100%;
     }
+
+    /* ── unification: group header, recommendation, decisions, badges ─ */
+    .group { position: relative; }
+    .group-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--hairline);
+      margin-bottom: 20px;
+      scroll-margin-top: 16px;
+    }
+    .group-header h2 {
+      font: var(--t-h1);
+      letter-spacing: var(--tracking-display);
+      text-transform: uppercase;
+      color: var(--fg);
+      margin: 0;
+    }
+    .group-code {
+      font: var(--t-mono);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      color: var(--saffron);
+      background: var(--ink);
+      padding: 4px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--ink-5);
+      font-weight: 600;
+    }
+    .nav-code {
+      font: var(--t-mono);
+      font-size: 10px;
+      color: var(--saffron);
+      background: var(--ink);
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-right: 6px;
+      letter-spacing: 0.04em;
+    }
+    .phase-tag, .status-tag, .iter-tag {
+      font: var(--t-caption);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 2px;
+    }
+    .phase-tag      { background: var(--ink-4); color: var(--ivory-3); }
+    .status-tag.status-open     { background: var(--ink-4); color: var(--ivory-3); }
+    .status-tag.status-decided  { background: var(--saffron); color: var(--ink); }
+    .status-tag.status-executed { background: var(--note-me); color: var(--ink); }
+
+    .iter-tag.iter-current { background: var(--ink-4); color: var(--ivory-2); }
+    .iter-tag.iter-v2      { background: var(--plum); color: var(--ivory); }
+    .iter-tag.iter-hybrid  { background: var(--coral); color: var(--ink); }
+
+    .recommendation {
+      background: var(--ink-3);
+      border-left: 3px solid var(--saffron);
+      border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+    }
+    .rec-label {
+      font: var(--t-caption);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--saffron);
+      margin-bottom: 6px;
+    }
+    .rec-body {
+      font: var(--t-body-s);
+      color: var(--ivory-2);
+      line-height: 1.55;
+    }
+
+    /* specimen head bar */
+    .specimen-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      background: var(--ink-3);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .card-num {
+      font: var(--t-caption);
+      font-size: 11px;
+      color: var(--ivory-3);
+      background: var(--ink);
+      padding: 2px 7px;
+      border-radius: 2px;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .specimen-head .specimen-label {
+      flex: 1;
+      padding: 0;
+      background: none;
+      border: none;
+    }
+    .status-badge {
+      font: var(--t-caption);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 2px;
+      font-weight: 600;
+    }
+    .status-badge.status-pending { background: var(--ink-4); color: var(--ivory-3); }
+    .status-badge.status-keep    { background: var(--note-me); color: var(--ink); }
+    .status-badge.status-kill    { background: var(--tomato); color: var(--ivory); }
+    .status-badge.status-merge   { background: var(--saffron); color: var(--ink); }
+    .status-badge.status-rename  { background: var(--plum); color: var(--ivory); }
+    .status-badge.status-rebuild { background: var(--coral); color: var(--ink); }
+
+    /* status outline on the whole specimen */
+    .specimen.status-keep    { box-shadow: var(--ring), inset 0 0 0 2px var(--note-me); }
+    .specimen.status-kill    { box-shadow: var(--ring), inset 0 0 0 2px var(--tomato); opacity: 0.62; }
+    .specimen.status-merge   { box-shadow: var(--ring), inset 0 0 0 2px var(--saffron); }
+    .specimen.status-rename  { box-shadow: var(--ring), inset 0 0 0 2px var(--plum); }
+    .specimen.status-rebuild { box-shadow: var(--ring), inset 0 0 0 2px var(--coral); }
+
+    .card-note {
+      font: var(--t-caption);
+      color: var(--saffron);
+      padding: 6px 14px;
+      background: var(--ink-3);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .card-missing {
+      padding: 24px;
+      text-align: center;
+      color: var(--tomato);
+      font: var(--t-caption);
+      letter-spacing: 0.12em;
+    }
+    .specimen.missing { opacity: 0.5; }
+
+    .decisions {
+      margin-top: 14px;
+      padding: 12px 16px;
+      background: var(--ink-2);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+    }
+    .dec-label {
+      font: var(--t-caption);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ivory-3);
+      margin-bottom: 6px;
+    }
+    .decisions ul { list-style: none; padding: 0; margin: 0; }
+    .decisions li { font: var(--t-body-s); color: var(--ivory-2); padding: 3px 0; }
+    .decisions li.empty { color: var(--ivory-4); font-style: italic; }
+
+    /* stats strip in sidebar */
+    .stats-strip {
+      display: flex;
+      gap: 4px;
+      padding: 8px 14px 12px;
+      border-bottom: 1px solid var(--hairline);
+      flex-wrap: wrap;
+    }
+    .stat {
+      font: var(--t-caption);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      padding: 2px 6px;
+      border-radius: 2px;
+    }
+    .stat-pending { background: var(--ink-3); color: var(--ivory-3); }
+    .stat-keep    { background: var(--note-me); color: var(--ink); }
+    .stat-kill    { background: var(--tomato); color: var(--ivory); }
+    .stat-merge   { background: var(--saffron); color: var(--ink); }
 
     /* inner box for token sections */
     .tok-box {
@@ -319,10 +549,6 @@ function buildPage() {
     .asset-card { background: var(--ink-3); border-radius: var(--r-sm); box-shadow: var(--ring); overflow: hidden; }
     .asset-card img { width: 100%; height: 150px; object-fit: cover; display: block; }
     .asset-name { font: var(--t-caption); color: var(--fg-3); padding: 7px 10px; }
-
-    /* mobile kit */
-    .mobile-wrap { display: inline-block; background: var(--ink-3); padding: 14px; border-radius: calc(var(--r-xl) + 14px); box-shadow: var(--ring); }
-    #mobile-frame { display: block; width: 390px; height: 844px; border: none; border-radius: var(--r-xl); overflow: hidden; }
   </style>
 </head>
 <body>
@@ -330,7 +556,14 @@ function buildPage() {
 <aside id="sidebar">
   <div id="sidebar-head">
     <div class="wm">Emotitone</div>
-    <div class="sub">kitchen sink</div>
+    <div class="sub">unification review</div>
+  </div>
+  <div class="stats-strip">
+    <span class="stat stat-pending">${stats.pending || 0} pending</span>
+    <span class="stat stat-keep">${stats.keep || 0} keep</span>
+    <span class="stat stat-kill">${stats.kill || 0} kill</span>
+    <span class="stat stat-merge">${stats.merge || 0} merge</span>
+    <span class="stat stat-pending">${total} total</span>
   </div>
   <nav>${navHtml}</nav>
 </aside>
@@ -456,14 +689,6 @@ function buildPage() {
   <section class="group" id="assets">
     <h2 class="group-header">Reference Assets</h2>
     <div class="assets-grid">${assetGrid}</div>
-  </section>
-
-  <!-- MOBILE KIT ─────────────────────────── -->
-  <section class="group" id="mobile-kit">
-    <h2 class="group-header">Mobile UI Kit</h2>
-    <div class="mobile-wrap">
-      <iframe id="mobile-frame" src="/ui_kits/mobile/index.html"></iframe>
-    </div>
   </section>
 
 </main>

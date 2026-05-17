@@ -1,0 +1,247 @@
+{
+  "meta": {
+    "version": 1,
+    "updated": "2026-05-16",
+    "schema": {
+      "card.status": ["pending", "keep", "kill", "merge", "rename", "rebuild"],
+      "group.status": ["open", "decided", "executed"],
+      "phases": ["foundations", "motion", "components", "brand-principles", "compositions"]
+    },
+    "notes": "Source of truth for the unification pass. Edit card.status + card.note as decisions get made. Group.status auto-advances when all cards in the group leave 'pending'. sink.js reads this on every request."
+  },
+  "groups": [
+    {
+      "id": "palette-neutrals",
+      "label": "Palette · Neutrals",
+      "phase": "foundations",
+      "order": 1,
+      "status": "open",
+      "recommendation": "colors-neutrals is canonical — it matches the tokens in colors_and_type.css. colors-stage-palette uses v2-style names (--stage, --rise, --panel) that don't exist in the current token file, so it's likely visually broken. Suggest: keep [1], kill [2] OR rewrite [2] to use current tokens if its 12-step gradation adds something neutrals doesn't.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "colors-neutrals.html",      "num": 1, "iteration": "current", "tier": "token-specimen", "summary": "Five ink steps (dark) + four ivory steps (light) for all UI chrome.", "status": "pending", "note": "" },
+        { "file": "colors-stage-palette.html", "num": 2, "iteration": "current", "tier": "token-specimen", "summary": "12-step warm-neutral gradation; references v2-style --stage/--rise/--panel tokens not present in colors_and_type.css.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "palette-accents",
+      "label": "Palette · Jazz & Chromatic",
+      "phase": "foundations",
+      "order": 2,
+      "status": "open",
+      "recommendation": "Different concerns — keep both. Note: colors-jazz-accents only shows 4 (tomato, saffron, plum, bone) but the token file defines more (grape, coral, pine, paper). Worth extending [1] to show the full palette.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "colors-jazz-accents.html", "num": 1, "iteration": "current", "tier": "token-specimen", "summary": "Four brand accents — splash/decoration only, never functional chrome.", "status": "pending", "note": "" },
+        { "file": "colors-chromatic.html",    "num": 2, "iteration": "current", "tier": "token-specimen", "summary": "Three chromatic coloring modes: fixed semitone, 7-note major, 5-note pentatonic.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "type",
+      "label": "Type",
+      "phase": "foundations",
+      "order": 3,
+      "status": "open",
+      "recommendation": "Distinct concerns — keep all three. type-display = specimen, type-mono = specimen, type-text = usage rule (when to switch from Jazz to Mono).",
+      "decisions_log": [],
+      "cards": [
+        { "file": "type-display.html", "num": 1, "iteration": "current", "tier": "token-specimen", "summary": "Lets Jazz display typeface in five sizes (56/40/28/22/18px) all-caps with tight tracking.", "status": "pending", "note": "" },
+        { "file": "type-mono.html",    "num": 2, "iteration": "current", "tier": "token-specimen", "summary": "JetBrains Mono 12px with Strudel syntax preserving punctuation personality.", "status": "pending", "note": "" },
+        { "file": "type-text.html",    "num": 3, "iteration": "current", "tier": "principle",      "summary": "Rule: Lets Jazz for labels/headlines; switch to Mono only past four words.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "spacing",
+      "label": "Spacing · Scale & Radius",
+      "phase": "foundations",
+      "order": 4,
+      "status": "open",
+      "recommendation": "Keep the two specimens [1][2]. v2's composition-spacing-overview [3] aggregates spacing+radius+stroke+cut-paper marks — duplicates the specimens AND mixes in marks (which live in components-marks). Suggest kill [3].",
+      "decisions_log": [],
+      "cards": [
+        { "file": "spacing-scale.html",                "num": 1, "iteration": "current", "tier": "token-specimen", "summary": "Nine-step spacing scale, 2px–64px, proportional bar widths.", "status": "pending", "note": "" },
+        { "file": "spacing-radius.html",               "num": 2, "iteration": "current", "tier": "token-specimen", "summary": "Six radius tokens (XS 4px → XL 24px) + pill.", "status": "pending", "note": "" },
+        { "file": "composition-spacing-overview.html", "num": 3, "iteration": "v2",      "tier": "composition",     "summary": "v2 aggregate: spacing scale, radius scale, stroke weights, six cut-paper marks.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "motion-foundation",
+      "label": "Motion · Foundation (beat, durations, easings)",
+      "phase": "motion",
+      "order": 5,
+      "status": "open",
+      "recommendation": "Three distinct concerns — keep all. motion-beat shows tempo concept; durations is the token list; easings is the token list.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "motion-beat.html",                "num": 1, "iteration": "current", "tier": "primitive", "summary": "Three boxes pulsing at 120/60/240 BPM — beat fundamentals.", "status": "pending", "note": "" },
+        { "file": "mot-primitives-durations.html",   "num": 2, "iteration": "current", "tier": "primitive", "summary": "Four duration tokens (90/220/360/600ms) shown against a 4-bar timeline.", "status": "pending", "note": "" },
+        { "file": "mot-primitives-easings.html",     "num": 3, "iteration": "current", "tier": "primitive", "summary": "Five named easing curves (Swing/Stab/Brush/Sustain/Bend) with bezier values and use cases.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "motion-primitives",
+      "label": "Motion · Primitives",
+      "phase": "motion",
+      "order": 6,
+      "status": "open",
+      "recommendation": "Six distinct motion atoms — keep all. Each shows ONE motion in isolation; the compositions below show them combined.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "mot-primitives-beat-pulse.html",      "num": 1, "iteration": "current", "tier": "primitive", "summary": "Knob ring scales 1.04x on quarter notes; downbeat strobe rings saffron.", "status": "pending", "note": "" },
+        { "file": "mot-primitives-downbeat-strobe.html", "num": 2, "iteration": "current", "tier": "primitive", "summary": "Panel outer wire heats to brass on bar 1, snaps back.", "status": "pending", "note": "" },
+        { "file": "mot-primitives-mode-rip.html",        "num": 3, "iteration": "current", "tier": "primitive", "summary": "Knob labels cycle with rip-and-slide animation (skew + fade + translate).", "status": "pending", "note": "" },
+        { "file": "mot-primitives-played-flash.html",    "num": 4, "iteration": "current", "tier": "primitive", "summary": "Clicked tile lifts 2px, chromatic ring expands, corner paper-rip.", "status": "pending", "note": "" },
+        { "file": "mot-primitives-tab-slide.html",       "num": 5, "iteration": "current", "tier": "primitive", "summary": "Persona-5 torn-paper chip slides between tabs; mix-blend-mode difference.", "status": "pending", "note": "" },
+        { "file": "mot-primitives-tile-bob.html",        "num": 6, "iteration": "current", "tier": "primitive", "summary": "Seven solfège tiles bob 2px on &-of-beat with 30ms stagger.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "motion-compositions",
+      "label": "Motion · Compositions",
+      "phase": "motion",
+      "order": 7,
+      "status": "open",
+      "recommendation": "Two current compositions are focused (beat-room = 4 motions in sync, state-cascade = 3 motions in sequence). v2 overview [3] aggregates everything with interactive playback. Visual comparison needed. Suggest keep [1][2], kill [3] unless v2's interactive playback is worth saving — in which case merge that interactivity into [1].",
+      "decisions_log": [],
+      "cards": [
+        { "file": "mot-compositions-beat-room.html",     "num": 1, "iteration": "current", "tier": "composition", "summary": "Full panel with 4 motion primitives synced: wire strobe, knob pulse, tile bob, badge glow.", "status": "pending", "note": "" },
+        { "file": "mot-compositions-state-cascade.html", "num": 2, "iteration": "current", "tier": "composition", "summary": "Three motions in sequence (tab-slide → mode-rip → played-flash) on a timeline scrubber.", "status": "pending", "note": "" },
+        { "file": "composition-motion-overview.html",    "num": 3, "iteration": "v2",      "tier": "composition", "summary": "v2 motion overview: easings + interactive beat room + P5 tabs + tile flash + mode knob.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "inputs",
+      "label": "Inputs · Tile, Keys, Knob, Button",
+      "phase": "components",
+      "order": 8,
+      "status": "open",
+      "recommendation": "Four distinct input primitives — keep all. Token cleanup needed: components-buttons references deprecated --paper (rewrite to use --ivory).",
+      "decisions_log": [],
+      "cards": [
+        { "file": "components-solfege-tile.html", "num": 1, "iteration": "current", "tier": "primitive", "summary": "130px chromatic-fill tile with syllable, pitch, corner octave; rest/hover/active/played/disabled.", "status": "pending", "note": "" },
+        { "file": "components-keys.html",         "num": 2, "iteration": "current", "tier": "primitive", "summary": "Seven diatonic keypad tiles with cut-paper clip-path, inset shadow, chromatic fill.", "status": "pending", "note": "" },
+        { "file": "components-knobs.html",        "num": 3, "iteration": "current", "tier": "primitive", "summary": "Four knob types: range, boolean, options, button. Angular, ivory by default.", "status": "pending", "note": "" },
+        { "file": "components-buttons.html",      "num": 4, "iteration": "current", "tier": "primitive", "summary": "Icon buttons in paper / wire / brass / wire-erase roles. References deprecated --paper token.", "status": "pending", "note": "needs --paper → --ivory cleanup" }
+      ]
+    },
+    {
+      "id": "markers",
+      "label": "Markers · Badge, Kicker, Marks, Bar Tape",
+      "phase": "components",
+      "order": 9,
+      "status": "open",
+      "recommendation": "Keep [1][2][3][4]. components-chip is mislabeled — it's actually a Hardware Bar composition (instrument, key, BPM, beat counter, VU). Suggest rename → components-hardware-bar.html and move to a Chrome group (or its own composition). Also consider building a real components-chip if you want a chip primitive.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "components-badge.html",   "num": 1, "iteration": "current", "tier": "primitive",   "summary": "Lets Jazz wordmark in wire box: rest / off-cut / tilted / brass-lit variants, three sizes.", "status": "pending", "note": "" },
+        { "file": "components-kicker.html",  "num": 2, "iteration": "current", "tier": "primitive",   "summary": "Coloured 9px square + 11px mono line; six colour variants; three sizes.", "status": "pending", "note": "" },
+        { "file": "components-marks.html",   "num": 3, "iteration": "current", "tier": "primitive",   "summary": "Two mark families: cut-paper shapes (triangle/disk/zigzag/blade/wave) + music glyphs.", "status": "pending", "note": "" },
+        { "file": "components-bar-tape.html","num": 4, "iteration": "current", "tier": "primitive",   "summary": "Seven-segment chromatic strip with diatonic width ratios.", "status": "pending", "note": "" },
+        { "file": "components-chip.html",    "num": 5, "iteration": "current", "tier": "composition", "summary": "Mislabeled — actually a Hardware Bar (instrument, key, BPM, beat counter, VU, scrubber, status LEDs).", "status": "pending", "note": "suggest rename → components-hardware-bar.html" }
+      ]
+    },
+    {
+      "id": "containers",
+      "label": "Containers · Pattern Card, Preset Card, Tabs",
+      "phase": "components",
+      "order": 10,
+      "status": "open",
+      "recommendation": "Three distinct containers — keep all. components-tabs references deprecated --paper, needs the same token cleanup as components-buttons.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "components-pattern-card.html", "num": 1, "iteration": "current", "tier": "primitive", "summary": "Pattern list item: spine, number badge, name, mode/BPM/bars, mini-roll; rest/hover/active/expiring.", "status": "pending", "note": "" },
+        { "file": "components-preset-card.html",  "num": 2, "iteration": "current", "tier": "primitive", "summary": "Horizontal preset card with ivory border, name, apply button; two-column grid.", "status": "pending", "note": "" },
+        { "file": "components-tabs.html",         "num": 3, "iteration": "current", "tier": "primitive", "summary": "Off-cut active tab: skewed, lifted, ivory paper fill, Persona-5 clip-path. References --paper.", "status": "pending", "note": "needs --paper → --ivory cleanup" }
+      ]
+    },
+    {
+      "id": "parts",
+      "label": "Parts · Code Strip, Panel Header, Section Anchor",
+      "phase": "components",
+      "order": 11,
+      "status": "open",
+      "recommendation": "Three distinct multi-element assemblies — keep all.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "components-code-strip.html",     "num": 1, "iteration": "current", "tier": "part", "summary": "Strudel-style notation row: play head, chromatic syllables, mono timestamps, control buttons.", "status": "pending", "note": "" },
+        { "file": "components-panel-header.html",   "num": 2, "iteration": "current", "tier": "part", "summary": "Panel chrome: badge + meta + icon row (max 3) + glued chromatic bar-tape; three states.", "status": "pending", "note": "" },
+        { "file": "components-section-anchor.html", "num": 3, "iteration": "current", "tier": "part", "summary": "Hero section opener: cut-paper mark, tilted ivory sticker, display heading, lede, chromatic tape footer.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "drawer",
+      "label": "Drawer",
+      "phase": "components",
+      "order": 12,
+      "status": "open",
+      "recommendation": "Phase 0: collapsed to single composition card. The instrument/presets/settings panes all live in composition-drawer.html. Surface mechanic + visual-config + top-drawer interactivity demos were deleted; copy preserved in .planning/extracted-copy.md.",
+      "decisions_log": [
+        { "date": "2026-05-16", "note": "Phase 0 clutter pass: deleted components-drawer.html, composition-drawer-visual-config.html, composition-top-drawer.html. Renamed composition-drawer-instrument-picker.html -> composition-drawer.html." }
+      ],
+      "cards": [
+        { "file": "composition-drawer.html",                   "num": 1, "iteration": "current", "tier": "composition", "summary": "Drawer with instrument picker, presets, settings panes; scrim + torn-paper handle.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "pattern-reel",
+      "label": "Pattern Reel",
+      "phase": "components",
+      "order": 13,
+      "status": "open",
+      "recommendation": "Phase 0: deck visuals + active-at-bottom interaction merged into one composition card. Surface mechanic kept separate.",
+      "decisions_log": [
+        { "date": "2026-05-16", "note": "Phase 0 clutter pass: merged composition-pattern-reel-deck.html (good visuals) + composition-pattern-reel-populated.html (active-at-bottom interaction) into composition-pattern-reel.html. Both source cards deleted." }
+      ],
+      "cards": [
+        { "file": "components-pattern-reel.html",  "num": 1, "iteration": "current", "tier": "surface",     "summary": "Empty stacked list chrome: three scaled inactive placeholders above one tall active card.", "status": "pending", "note": "" },
+        { "file": "composition-pattern-reel.html", "num": 2, "iteration": "current", "tier": "composition", "summary": "Stacked deck with click-to-promote interaction; clicking any stacked card swaps it with the active card at the bottom.", "status": "pending", "note": "merged from deck + populated" }
+      ]
+    },
+    {
+      "id": "brand",
+      "label": "Brand identity",
+      "phase": "brand-principles",
+      "order": 14,
+      "status": "open",
+      "recommendation": "Five distinct brand assets — keep all.",
+      "decisions_log": [],
+      "cards": [
+        { "file": "brand-logo.html",            "num": 1, "iteration": "current", "tier": "brand",       "summary": "Emotitone wordmark + solfège subtitle + chromatic music note glyphs.", "status": "pending", "note": "" },
+        { "file": "brand-tagline.html",         "num": 2, "iteration": "current", "tier": "brand",       "summary": "Jazz tagline with collage image illustrating mood.", "status": "pending", "note": "" },
+        { "file": "brand-pattern.html",         "num": 3, "iteration": "current", "tier": "brand",       "summary": "High-contrast B&W instrument pattern for empty surfaces and brand splashes.", "status": "pending", "note": "" },
+        { "file": "brand-stickers.html",        "num": 4, "iteration": "current", "tier": "brand",       "summary": "Bitmap instrument stickers for splash screens and empty states.", "status": "pending", "note": "" },
+        { "file": "brand-loading-screen.html",  "num": 5, "iteration": "current", "tier": "composition", "summary": "Loading state: cut-paper anchor, sticker badge, display headline, chromatic progress tape pulsing on beat.", "status": "pending", "note": "" }
+      ]
+    },
+    {
+      "id": "principles",
+      "label": "Principles",
+      "phase": "brand-principles",
+      "order": 15,
+      "status": "open",
+      "recommendation": "Phase 0: rules + antipatterns merged into one canonical principles.html (do/don't pairs). components-card.html stays here pending Phase 4 schema rewrite (it's actually a card-shell spec that will move under primitives/cards).",
+      "decisions_log": [
+        { "date": "2026-05-16", "note": "Phase 0 clutter pass: merged principles.html + principles-antipatterns.html into one card with paired rules and antipatterns; emoji-slop antipattern kept as unpaired (no canonical rule)." }
+      ],
+      "cards": [
+        { "file": "principles.html",      "num": 1, "iteration": "current", "tier": "principle", "summary": "Five design rules each paired with its visual antipattern. Emoji-slop antipattern is unpaired.", "status": "pending", "note": "merged from principles + principles-antipatterns" },
+        { "file": "components-card.html", "num": 2, "iteration": "current", "tier": "principle", "summary": "Three principle pillars: dark stage + ivory text, UI warm-neutral vs music chromatic, Jazz + Mono voices.", "status": "pending", "note": "misfiled here; regrouping to primitives/cards in Phase 4" }
+      ]
+    },
+    {
+      "id": "compositions-aggregate",
+      "label": "Compositions · Aggregate showcases",
+      "phase": "compositions",
+      "order": 16,
+      "status": "open",
+      "recommendation": "Phase 0: components-overview deleted (the site IS the kit now). Music-marks still pending merge into components-marks (deferred to Phase 3 atom promotion).",
+      "decisions_log": [
+        { "date": "2026-05-16", "note": "Phase 0 clutter pass: deleted composition-components-overview.html." }
+      ],
+      "cards": [
+        { "file": "composition-brand-cover.html",  "num": 1, "iteration": "current", "tier": "composition", "summary": "Brand hero: headline, kicker, body copy, cut-paper collage panel with logo + shapes.", "status": "pending", "note": "" },
+        { "file": "composition-music-marks.html",  "num": 2, "iteration": "v2",      "tier": "composition", "summary": "v2 glyph set: 12 music notation marks (8th, beam, sharp, flat, fermata, slur, accent, staccato).", "status": "pending", "note": "merge into components-marks during Phase 3" }
+      ]
+    }
+  ]
+}

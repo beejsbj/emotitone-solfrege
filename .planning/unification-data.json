@@ -89,13 +89,13 @@
         {
           "file": "preview/tokens-ui-colors.html",
           "name": "UI Colors",
-          "blurb": "Ink, ivory, brass, glass, scrim, and hairline tokens for chrome.",
+          "blurb": "Chrome token set — neutrals + the one lit signal.",
           "consumes": []
         },
         {
           "file": "preview/tokens-brand-colors.html",
           "name": "Brand Colors",
-          "blurb": "Poster-only tomato, pine, plum, bone, and mustard fills.",
+          "blurb": "Five flat fills for poster, sticker, and brand use only.",
           "consumes": []
         },
         {
@@ -174,7 +174,7 @@
         {
           "file": "preview/components-marks.html",
           "name": "Marks",
-          "blurb": "Cut-paper poster shapes and angular music glyphs.",
+          "blurb": "Two mark families — structural and notational.",
           "consumes": [
             "poster-shape",
             "music-glyph"
@@ -196,7 +196,7 @@
         {
           "file": "preview/components-solfege-tile.html",
           "name": "Solf\u00e8ge Tile",
-          "blurb": "Chromatic fill tile with syllable, pitch, octave, and states.",
+          "blurb": "Playable chromatic-filled tile.",
           "consumes": [
             "tile-solfege"
           ]
@@ -235,7 +235,7 @@
         {
           "file": "preview/components-buttons.html",
           "name": "Icon Buttons",
-          "blurb": "Paper, wire, brass, erase, size, and clustered icon buttons.",
+          "blurb": "Icon button system — roles and sizes.",
           "consumes": [
             "button-icon",
             "brass-sheen"
@@ -268,7 +268,7 @@
         {
           "file": "preview/components-pattern-card.html",
           "name": "Pattern Card",
-          "blurb": "Pattern list item with spine, number, metadata, mini-roll, and states.",
+          "blurb": "Pattern row chip with stateful interactions.",
           "consumes": [
             "pattern-card",
             "preset-spine",
@@ -302,7 +302,7 @@
         {
           "file": "preview/components-bar-tape.html",
           "name": "Bar Tape",
-          "blurb": "Chromatic 7-segment tape with major, equal, live, and thin variants.",
+          "blurb": "Chromatic 7-segment tape.",
           "consumes": []
         }
       ]
@@ -451,7 +451,7 @@
         {
           "file": "preview/components-chip.html",
           "name": "Hardware Bar",
-          "blurb": "Instrument, key, BPM, beat counter, VU, scrubber, and status LEDs.",
+          "blurb": "Hardware status bar — transport, meters, indicators.",
           "consumes": [
             "transport-row",
             "meta-anno-row"
@@ -467,7 +467,7 @@
         {
           "file": "preview/components-panel-header.html",
           "name": "Panel Header",
-          "blurb": "Badge, meta, icon row, and glued chromatic tape.",
+          "blurb": "Hardware panel header with chromatic tape.",
           "consumes": [
             "panel-header-with-tape",
             "meta-anno-row",
@@ -478,7 +478,7 @@
         {
           "file": "preview/components-section-anchor.html",
           "name": "Section Anchor",
-          "blurb": "Section opener with mark, tilted sticker, display heading, and tape.",
+          "blurb": "Section opener treatment.",
           "consumes": [
             "poster-shape",
             "tilted-sticker",
@@ -496,7 +496,7 @@
         {
           "file": "preview/components-code-strip.html",
           "name": "Code Strip",
-          "blurb": "Strudel notation row with play head, syllables, timestamps, and buttons.",
+          "blurb": "Strudel notation row with transport.",
           "consumes": [
             "code-strip-notation",
             "button-icon",
@@ -586,7 +586,7 @@
         {
           "file": "preview/composition-drawer.html",
           "name": "Top Drawer",
-          "blurb": "Interactive top drawer with instrument, presets, and settings panes.",
+          "blurb": "Top drawer — three modes, one ceiling.",
           "consumes": [
             "drawer-from-ceiling",
             "drawer-rise",
@@ -663,7 +663,7 @@
         {
           "file": "preview/composition-motion-overview.html",
           "name": "Motion Overview",
-          "blurb": "Interactive overview of easings, beat room, tabs, flash, and mode rip.",
+          "blurb": "Motion overview across all primitives.",
           "consumes": [
             "v2-card-wrapper",
             "beat-pulse",
@@ -726,7 +726,7 @@
         {
           "file": "preview/composition-brand-cover.html",
           "name": "Brand Cover",
-          "blurb": "Brand hero with headline, kicker, collage panel, logo, and shapes.",
+          "blurb": "Brand hero composition.",
           "consumes": [
             "kicker-dot",
             "poster-shape",
@@ -739,7 +739,7 @@
         {
           "file": "preview/brand-loading-screen.html",
           "name": "Loading Screen",
-          "blurb": "Loading state with anchor mark, sticker badge, headline, and pulsing tape.",
+          "blurb": "App loading screen.",
           "consumes": [
             "tilted-sticker",
             "beat-pulse",

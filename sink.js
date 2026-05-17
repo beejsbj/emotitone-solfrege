@@ -112,9 +112,15 @@ function buildPage() {
     ...LAYER_ORDER.map(layer => {
       const layerGroups = groups.filter(g => g.layer === layer)
       if (!layerGroups.length) return ''
-      return `<div class="ng">${LAYER_LABELS[layer] || layer}</div>
-        <a href="#layer-${anchorId(layer)}"><span class="nav-code">${layer.slice(0, 3)}</span> ${LAYER_LABELS[layer] || layer}</a>
-        ${layerGroups.map(g => `<a href="#group-${anchorId(g.layer, g.family)}"><span class="nav-code">${escapeHtml(g.family)}</span> ${escapeHtml(g.title)}</a>`).join('\n')}`
+      // Make the layer heading itself the jump-link to the layer hero;
+      // strip the layer-prefix from each family title so it doesn't repeat the section.
+      return `<a class="ng ng-link" href="#layer-${anchorId(layer)}">${LAYER_LABELS[layer] || layer}</a>
+        ${layerGroups.map(g => {
+          // Label only — the family slug (chip) is internal metadata that just repeats
+          // the label or adds nothing useful ("general", "card-shells"). Keep the link clean.
+          const familyTitle = (g.title || '').replace(/^[^·]+·\s*/, '').trim() || g.family
+          return `<a href="#group-${anchorId(g.layer, g.family)}">${escapeHtml(familyTitle)}</a>`
+        }).join('\n')}`
     }),
     ungrouped.length > 0
       ? `<div class="ng">Ungrouped (${ungrouped.length})</div>
@@ -138,7 +144,6 @@ function buildPage() {
         <div class="specimen-head">
           <span class="card-num">${num}/${total}</span>
           <span class="specimen-label">${escapeHtml(card.name || shortLabel(file))}</span>
-          <span class="file-tag">${escapeHtml(card.file)}</span>
         </div>
         <div class="card-missing">file not found in preview/ — was it deleted?</div>
       </div>`
@@ -150,7 +155,6 @@ function buildPage() {
       <div class="specimen-head">
         <span class="card-num">${num}/${total}</span>
         <span class="specimen-label">${escapeHtml(card.name || shortLabel(file))}</span>
-        <span class="file-tag">${escapeHtml(card.file)}</span>
       </div>
       ${blurb}
       ${consumeRow}
@@ -161,11 +165,11 @@ function buildPage() {
 
   const groupSection = g => {
     const cards = g.cards.map((c, i) => renderCard(c, i + 1, g.cards.length)).join('\n')
+    // strip the layer prefix from g.title for the H2 (the parent layer-section already says it)
+    const familyHeading = (g.title || '').replace(/^[^·]+·\s*/, '').trim() || g.family
     return `<section class="group" id="group-${anchorId(g.layer, g.family)}">
       <div class="group-header">
-        <span class="group-code">${escapeHtml(g.family)}</span>
-        <h2>${escapeHtml(g.title)}</h2>
-        <span class="phase-tag">${escapeHtml(g.layer)}</span>
+        <h2>${escapeHtml(familyHeading)}</h2>
       </div>
       ${cards}
     </section>`
@@ -176,7 +180,6 @@ function buildPage() {
     if (!layerGroups.length) return ''
     return `<section class="layer-section" id="layer-${anchorId(layer)}">
       <div class="layer-header">
-        <span class="layer-code">${escapeHtml(layer)}</span>
         <h1>${escapeHtml(LAYER_LABELS[layer] || layer)}</h1>
         <span class="layer-count">${layerStats[layer]} cards</span>
       </div>
@@ -258,6 +261,13 @@ function buildPage() {
       color: var(--fg-3);
       padding: 12px 14px 3px;
     }
+    /* When .ng is itself an <a> jump-link to the layer hero, keep the heading look + add affordance. */
+    a.ng-link {
+      display: block;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    a.ng-link:hover { color: var(--ivory); }
     nav a {
       display: block;
       padding: 4px 14px 4px 18px;
@@ -384,16 +394,6 @@ function buildPage() {
       border-radius: 3px;
       border: 1px solid var(--ink-5);
       font-weight: 600;
-    }
-    .nav-code {
-      font: var(--t-mono);
-      font-size: 10px;
-      color: var(--brass);
-      background: var(--ink);
-      padding: 1px 5px;
-      border-radius: 2px;
-      margin-right: 6px;
-      letter-spacing: 0.04em;
     }
     .phase-tag, .file-tag {
       font: var(--t-caption);

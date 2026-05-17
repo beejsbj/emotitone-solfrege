@@ -1,16 +1,161 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
 <style>
-.preset{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--ink-3);box-shadow:var(--ring);border-radius:12px;border-left:3px solid var(--ivory);}
-.preset .name{flex:1;font:var(--t-h2);letter-spacing:.02em;text-transform:uppercase;color:var(--fg);}
-.preset .apply{padding:8px 14px;font:var(--t-label);letter-spacing:var(--tracking-label);text-transform:uppercase;background:transparent;color:var(--fg-2);box-shadow:var(--ring);border-radius:8px;border:0;}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  /* ─── PRESET ROW · PART ──────────────────────────────────────
+     Visual-preset row used inside the drawer's Presets pane.
+     Flat 1px ink-5 border, 4px colored brand spine, Lets Jazz
+     uppercase name, ghost Apply button. No rounded corners, no
+     drop shadow — this is paper, not glass. Spine colour is the
+     only brand accent allowed in this part. */
+
+  .preset-row {
+    border: 1px solid var(--ink-5);
+    background: var(--ink-2);
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+    transition: background var(--dur-tap) var(--ease-brush),
+                border-color var(--dur-tap) var(--ease-brush);
+  }
+  .preset-row:hover {
+    background: var(--ink-3);
+    border-color: var(--hairline);
+  }
+  .preset-row.active {
+    border-color: var(--ivory-4);
+    background: var(--ink-3);
+  }
+  .preset-row.expiring {
+    border-color: var(--tomato);
+  }
+
+  .preset-spine {
+    width: 4px; align-self: stretch; flex-shrink: 0;
+    background: var(--ivory-4);
+  }
+  .preset-row.tomato  .preset-spine { background: var(--tomato);  }
+  .preset-row.plum    .preset-spine { background: var(--plum);    }
+  .preset-row.pine    .preset-spine { background: var(--pine);    }
+  .preset-row.mustard .preset-spine { background: var(--mustard); }
+
+  .preset-name {
+    font: 400 18px/1 var(--font-display);
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--ivory);
+    flex: 1;
+  }
+  .preset-meta {
+    font: var(--t-mono); font-size: 9px;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ivory-4);
+    margin-right: 4px;
+  }
+  .preset-row.active .preset-meta { color: var(--ivory-3); }
+
+  .preset-apply {
+    padding: 4px 10px;
+    border: 1px solid var(--ink-5);
+    background: transparent;
+    color: var(--ivory-3);
+    font: 700 11px/1 var(--font-display);
+    letter-spacing: .14em; text-transform: uppercase;
+    cursor: pointer;
+    transition: color var(--dur-tap) var(--ease-brush),
+                border-color var(--dur-tap) var(--ease-brush);
+  }
+  .preset-apply:hover {
+    color: var(--ivory);
+    border-color: var(--hairline);
+  }
+  .preset-row.active .preset-apply {
+    color: var(--ivory);
+    border-color: var(--hairline);
+  }
+
+  /* State matrix — uses canonical .state-frame + .state-pin from _card.css */
+  .state-stack { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+  .state-stack .state-frame { padding: 24px 14px 12px; }
+  .state-stack .state-frame .preset-row { margin-bottom: 0; }
+
+  .anno {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+  }
+  .anno .a { border-left: 2px solid var(--hairline); padding: 4px 0 4px 8px; }
+  .anno .a b {
+    display: block; font: 700 11px/1 var(--font-display);
+    letter-spacing: .14em; text-transform: uppercase; color: var(--ivory);
+  }
+  .anno .a code {
+    display: block; font: var(--t-mono); font-size: 9px;
+    letter-spacing: .14em; color: var(--ivory-3);
+    text-transform: uppercase; margin-top: 4px;
+  }
 </style></head><body>
 <div class="card">
-  <div class="label" style="margin-bottom:12px">PRESET CARDS</div>
-  <div class="grid2">
-    <div class="preset"><div class="name">SOFT GLASS</div><button class="apply">APPLY</button></div>
-    <div class="preset"><div class="name">PULSE LAB</div><button class="apply">APPLY</button></div>
-    <div class="preset"><div class="name">AMBIENT B…</div><button class="apply">APPLY</button></div>
-    <div class="preset"><div class="name">NEON SCO…</div><button class="apply">APPLY</button></div>
+  <div class="label" style="margin-bottom:10px">PRESET ROW · VISUAL PRESET · PART</div>
+  <p class="caption" style="margin:0 0 12px;color:var(--ivory-3);line-height:1.55">
+    Flat 1px box, 4px coloured spine, Lets Jazz name, ghost Apply.
+    Brand spine carries the only colour. Mixing two on one row reads as gift-wrap.
+  </p>
+
+  <!-- Canonical row set: one of each spine colour -->
+  <div class="preset-row tomato">
+    <span class="preset-spine"></span>
+    <span class="preset-name">Soft Glass</span>
+    <button class="preset-apply">Apply</button>
+  </div>
+  <div class="preset-row plum">
+    <span class="preset-spine"></span>
+    <span class="preset-name">Ambient Bloom</span>
+    <button class="preset-apply">Apply</button>
+  </div>
+  <div class="preset-row pine">
+    <span class="preset-spine"></span>
+    <span class="preset-name">Classroom</span>
+    <button class="preset-apply">Apply</button>
+  </div>
+  <div class="preset-row mustard">
+    <span class="preset-spine"></span>
+    <span class="preset-name">Pulse Lab</span>
+    <button class="preset-apply">Apply</button>
+  </div>
+
+  <!-- State matrix -->
+  <div class="state-stack">
+    <div class="state-frame">
+      <span class="state-pin">01 · Rest</span>
+      <div class="preset-row tomato">
+        <span class="preset-spine"></span>
+        <span class="preset-name">Soft Glass</span>
+        <button class="preset-apply">Apply</button>
+      </div>
+    </div>
+    <div class="state-frame">
+      <span class="state-pin">02 · Active · Applied</span>
+      <div class="preset-row plum active">
+        <span class="preset-spine"></span>
+        <span class="preset-name">Ambient Bloom</span>
+        <span class="preset-meta">Applied</span>
+        <button class="preset-apply">Revert</button>
+      </div>
+    </div>
+    <div class="state-frame">
+      <span class="state-pin">03 · Expiring · Trial Ends</span>
+      <div class="preset-row mustard expiring">
+        <span class="preset-spine"></span>
+        <span class="preset-name">Pulse Lab</span>
+        <span class="preset-meta">2:14 left</span>
+        <button class="preset-apply">Keep</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="anno">
+    <div class="a"><b>Box</b><code>1px ink-5 · ink-2 fill · sharp corners</code></div>
+    <div class="a"><b>Spine</b><code>4px · brand fill · full stretch</code></div>
+    <div class="a"><b>Name</b><code>18px Lets Jazz · ivory · upper</code></div>
+    <div class="a"><b>Apply</b><code>ghost · 11px display · ivory-3</code></div>
   </div>
 </div></body></html>

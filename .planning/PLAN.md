@@ -120,15 +120,23 @@ TOKENS (layer)
 ### Phase 3 — per atom family
 Loop: pick family → pick canonical → build primitive card → refactor consumers → commit. Each family = one commit.
 
-### Phase 4 — sink schema
-1. Codex transforms `atoms.json` → new `unification-data.json` (layer / family / cards)
-2. I rewrite the sink render to display by layer + show consumer badges ("CONSUMES: tile, kicker, mark")
-3. Commit: "Phase 4: sink schema by layer/family"
+### Phase 4 — sink schema (CODEX)
+Delegate the whole phase to codex via `scripts/codex-task.sh`:
+1. Codex reads `atoms.json` + current `unification-data.json` + `sink.js`.
+2. Codex writes a NEW `unification-data.json` reorganised by LAYER (token/primitive/part/surface/composition) × FAMILY (marks/inputs/containers/motion).
+3. Codex rewrites `sink.js`'s group-rendering block to render by layer with "CONSUMES: x, y, z" badges per card.
+4. Codex writes draft to its workspace; I (the orchestrator) review the diff before commit.
+5. Commit: "Phase 4: sink schema by layer/family"
 
-### Phase 5 — composition references
-1. Walk `project/assets/` for app screenshots
-2. For each composition card, embed paired reference image side-by-side
-3. Commit: "Phase 5: compositions reference app screens"
+Decision recorded 2026-05-17: user wants codex to drive this phase end-to-end. Orchestrator's job is to write the goals-style prompt, review the diff, and commit. Do NOT hand-rewrite the sink — write the prompt instead.
+
+### Phase 5 — composition references (CODEX)
+Delegate to codex — user explicitly approved it for visual pairing 2026-05-17.
+1. Codex walks `project/assets/` and indexes available app screenshots.
+2. Codex reads every `project/preview/composition-*.html` to understand what each composition demonstrates.
+3. Codex matches screenshots to compositions by name/intent and produces a pairing manifest.
+4. Codex either (a) embeds the paired image into each composition card's footer or (b) generates a side-by-side index card — user decides at the kickoff prompt.
+5. Commit: "Phase 5: compositions reference app screens"
 
 ---
 
@@ -162,13 +170,14 @@ IF BLOCKED: <what to report instead of guessing>
 | 0 | G15 merge draft | Mechanical merge of two rule lists |
 | 0 | G13 merge draft | Combine 2 cards' CSS+HTML |
 | 1 | Token swap sweep (after user decisions) | Execute a known mapping list |
-| 4 | atoms.json → unification-data.json | Pure transformation |
+| 3.1.1 | Mustard re-integration | Multi-file additive change |
+| 4 | atoms.json → unification-data.json + sink rewrite (FULL phase) | Pure transformation + mechanical render rewrite — user delegated entire phase |
+| 5 | Composition ↔ screenshot pairing + embed (FULL phase) | User confirmed 2026-05-17 codex is good at visual matching |
 
 ### When NOT to use codex
 - Atom inventory (Phase 2) — visual/system judgment
 - Atom promotion (Phase 3) — per-swap design choices
 - Music-color recipe — that IS the design
-- Screenshot pairing (Phase 5) — visual matching
 
 ### Convention for codex-drafted cards
 When codex produces a draft HTML card under `.planning/codex-runs/<name>-DRAFT.html`, copy it into `project/preview/<canonical-name>.html` BEFORE presenting for user review, so the user can see it in the running sink (live reload picks it up). Fix the relative `_card.css` path during the copy (drafts use `../../project/preview/_card.css` so they render from their drafts dir; the canonical location uses bare `_card.css`).
@@ -185,6 +194,21 @@ When codex produces a draft HTML card under `.planning/codex-runs/<name>-DRAFT.h
 ## Resume hints (for post-compact recovery)
 - This file = source of truth. Read it first.
 - Current state file: `.planning/unification-data.json` (interim, gets replaced in Phase 4)
+- Atom registry: `.planning/atoms.json` (Phase 2 output, updated through Phase 3.2)
 - Live sink: `bun sink.js` → http://localhost:3000 (or use `mcp__Claude_Preview__preview_start` with name `sink`)
 - Codex helper: `scripts/codex-task.sh`
 - Phase status: see git log + `.planning/codex-runs/` (per-task outputs)
+
+## Where we are (as of 2026-05-17)
+Phase 3.2 promotions DONE (5 commits, 4 atoms promoted):
+- panel-floating-label canonical (.panel + .panel-label in _card.css)
+- labelled-state-frame canonical (.state-frame + .state-pin in _card.css)
+- knob-rotary canonical (.knob.knob--{arc|ring}.knob--{range|boolean|options|button})
+- preset-row canonical (matches drawer treatment)
+Plus: drawer faux-knob purged, sink Tokens-section deleted (single source of truth via specimen cards).
+
+Phase 3.2f deferred (SVG sprite — optimisation, not drift fix).
+
+Next up:
+1. **Phase 4** — write codex goals-prompt, dispatch, review diff, commit.
+2. **Phase 5** — write codex goals-prompt (ask user inline vs side-by-side first), dispatch, review, commit.

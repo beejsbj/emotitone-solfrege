@@ -64,21 +64,21 @@
   .tape .ti { background: var(--note-ti); flex: 8; }
 
   /* labelled wrapper */
-  .frame {
+  .state-frame {
     background: #0a0908; border: 1px solid var(--hairline);
     padding: 22px 18px 14px; position: relative;
   }
-  .frame .pin {
+  .state-frame .state-pin {
     position: absolute; top: 6px; left: 12px;
     font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
     color: var(--ivory-4); text-transform: uppercase;
   }
-  .frame .note {
+  .state-frame .frame-note {
     font: var(--t-mono); font-size: 10px; line-height: 1.55;
     color: var(--ivory-3); margin-top: 10px;
     border-top: 1px solid var(--hairline); padding-top: 10px;
   }
-  .frame + .frame { margin-top: 12px; }
+  .state-frame + .state-frame { margin-top: 12px; }
 
   /* anatomy markers */
   .anatomy { position: relative; }
@@ -112,8 +112,8 @@
   <div class="label" style="margin-bottom:14px">PANEL HEADER · BADGE + META + ICONS + TAPE · PART</div>
 
   <!-- 01: rest -->
-  <div class="frame">
-    <span class="pin">01 · REST</span>
+  <div class="state-frame">
+    <span class="state-pin">01 · REST</span>
     <div class="ph-wrap">
       <div class="ph">
         <span class="badge">Piano</span>
@@ -137,8 +137,8 @@
   </div>
 
   <!-- 02: live recording -->
-  <div class="frame">
-    <span class="pin">02 · LIVE · RECORDING</span>
+  <div class="state-frame">
+    <span class="state-pin">02 · LIVE · RECORDING</span>
     <div class="ph-wrap">
       <div class="ph live">
         <span class="badge">Piano</span>
@@ -154,12 +154,12 @@
         <span class="fa"></span><span class="sol"></span><span class="la"></span><span class="ti"></span>
       </div>
     </div>
-    <div class="note">When armed, the record icon takes the brass finish (the only lit element on the panel) and a saffron pip lands in the meta line. Bar-tape stays its rest colours; the panel-state changes belong to chrome, not music.</div>
+    <div class="frame-note">When armed, the record icon takes the brass finish (the only lit element on the panel) and a saffron pip lands in the meta line. Bar-tape stays its rest colours; the panel-state changes belong to chrome, not music.</div>
   </div>
 
   <!-- 03: minimal -->
-  <div class="frame">
-    <span class="pin">03 · MINIMAL · NO ACTIONS</span>
+  <div class="state-frame">
+    <span class="state-pin">03 · MINIMAL · NO ACTIONS</span>
     <div class="ph-wrap">
       <div class="ph">
         <span class="badge">Sound</span>
@@ -170,7 +170,7 @@
         <span class="fa"></span><span class="sol"></span><span class="la"></span><span class="ti"></span>
       </div>
     </div>
-    <div class="note">No icon row when the panel doesn't own any actions. The tape still runs full-width so panels stay visually phrased the same way.</div>
+    <div class="frame-note">No icon row when the panel doesn't own any actions. The tape still runs full-width so panels stay visually phrased the same way.</div>
   </div>
 
   <div class="caption" style="margin-top:16px;color:var(--fg-3);line-height:1.55">

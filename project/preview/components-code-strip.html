@@ -59,16 +59,16 @@
   }
 
   /* labelled wrapper */
-  .frame {
+  .state-frame {
     background: #0a0908; border: 1px solid var(--hairline);
     padding: 22px 16px 14px; position: relative;
   }
-  .frame .pin {
+  .state-frame .state-pin {
     position: absolute; top: 6px; left: 12px;
     font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
     color: var(--ivory-4); text-transform: uppercase;
   }
-  .frame + .frame { margin-top: 12px; }
+  .state-frame + .state-frame { margin-top: 12px; }
 
   /* anatomy notes */
   .legend {
@@ -95,8 +95,8 @@
   <div class="label" style="margin-bottom:14px">CODE STRIP · STRUDEL NOTATION · PART</div>
 
   <!-- 01: rest -->
-  <div class="frame">
-    <span class="pin">01 · REST</span>
+  <div class="state-frame">
+    <span class="state-pin">01 · REST</span>
     <div class="cs">
       <span class="play">▶</span>
       <div class="seq">
@@ -116,8 +116,8 @@
   </div>
 
   <!-- 02: playing — one syllable lit -->
-  <div class="frame">
-    <span class="pin">02 · PLAYING · MI LIT</span>
+  <div class="state-frame">
+    <span class="state-pin">02 · PLAYING · MI LIT</span>
     <div class="cs">
       <span class="play">❚❚</span>
       <div class="seq">
@@ -142,8 +142,8 @@
   </div>
 
   <!-- 03: longer chord, accidentals -->
-  <div class="frame">
-    <span class="pin">03 · LONG · WITH ACCIDENTALS</span>
+  <div class="state-frame">
+    <span class="state-pin">03 · LONG · WITH ACCIDENTALS</span>
     <div class="cs">
       <span class="play">▶</span>
       <div class="seq">

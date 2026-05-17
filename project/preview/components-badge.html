@@ -52,20 +52,14 @@
 
   /* layout */
   .row { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
-  .group {
+  /* state-frame + state-pin canonical in _card.css.
+     Local additions: flex-column layout for centered badge specimen. */
+  .state-frame {
     flex: 1; min-width: 0;
-    background: #0a0908;
-    border: 1px solid var(--hairline);
     padding: 22px 18px 14px;
     display: flex; flex-direction: column; align-items: center; gap: 18px;
-    position: relative;
   }
-  .group .pin {
-    position: absolute; top: 8px; left: 10px;
-    font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
-    color: var(--ivory-3); text-transform: uppercase;
-  }
-  .group .lbl {
+  .state-frame .lbl {
     font-family: var(--font-display); font-weight: 700;
     font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
     color: var(--ivory-2);
@@ -90,23 +84,23 @@
 
   <!-- Variants row -->
   <div class="row">
-    <div class="group">
-      <span class="pin">01</span>
+    <div class="state-frame">
+      <span class="state-pin">01</span>
       <span class="badge">Piano</span>
       <div class="lbl">Rest</div>
     </div>
-    <div class="group">
-      <span class="pin">02</span>
+    <div class="state-frame">
+      <span class="state-pin">02</span>
       <span class="badge cut">Piano</span>
       <div class="lbl">Off-cut</div>
     </div>
-    <div class="group">
-      <span class="pin">03</span>
+    <div class="state-frame">
+      <span class="state-pin">03</span>
       <span class="badge-wrap"><span class="badge">Piano</span></span>
       <div class="lbl">Tilted</div>
     </div>
-    <div class="group">
-      <span class="pin">04</span>
+    <div class="state-frame">
+      <span class="state-pin">04</span>
       <span class="badge lit brass">Piano</span>
       <div class="lbl">Brass-lit</div>
     </div>

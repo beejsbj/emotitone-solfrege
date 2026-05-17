@@ -80,13 +80,13 @@
   .pc.coral  .spine { background: var(--tomato); }
 
   /* state-row layout */
-  .state {
+  .state-frame {
     background: #0a0908; border: 1px solid var(--hairline);
     padding: 20px 14px 14px;
     position: relative;
   }
-  .state + .state { margin-top: 10px; }
-  .state .pin {
+  .state-frame + .state-frame { margin-top: 10px; }
+  .state-frame .state-pin {
     position: absolute; top: 6px; left: 12px;
     font: var(--t-mono); font-size: 9px; letter-spacing: .22em;
     color: var(--ivory-4); text-transform: uppercase;
@@ -96,8 +96,8 @@
   <div class="label" style="margin-bottom:12px">PATTERN CARD · STATE MATRIX · PRIMITIVE</div>
 
   <!-- 01: rest -->
-  <div class="state">
-    <span class="pin">01 · REST</span>
+  <div class="state-frame">
+    <span class="state-pin">01 · REST</span>
     <div class="pc">
       <span class="spine"></span>
       <div class="body">
@@ -122,8 +122,8 @@
   </div>
 
   <!-- 02: hover -->
-  <div class="state">
-    <span class="pin">02 · HOVER · LIFT 3PX</span>
+  <div class="state-frame">
+    <span class="state-pin">02 · HOVER · LIFT 3PX</span>
     <div class="pc hover tomato">
       <span class="spine"></span>
       <div class="body">
@@ -148,8 +148,8 @@
   </div>
 
   <!-- 03: active -->
-  <div class="state">
-    <span class="pin">03 · ACTIVE · IVORY INSET</span>
+  <div class="state-frame">
+    <span class="state-pin">03 · ACTIVE · IVORY INSET</span>
     <div class="pc active grape">
       <span class="spine"></span>
       <div class="body">
@@ -174,8 +174,8 @@
   </div>
 
   <!-- 04: expiring -->
-  <div class="state">
-    <span class="pin">04 · EXPIRING · STRIPED SPINE</span>
+  <div class="state-frame">
+    <span class="state-pin">04 · EXPIRING · STRIPED SPINE</span>
     <div class="pc expiring coral">
       <span class="spine"></span>
       <div class="body">

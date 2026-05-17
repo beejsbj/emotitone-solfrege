@@ -52,5 +52,27 @@ html, body {
   pointer-events: none;
 }
 
+/* CANONICAL STATE-FRAME · labelled state cell ───────────────────────
+   A thin-bordered cell that holds a STATE specimen (rest/hover/
+   active/disabled/etc.) with a tiny corner pin naming the state.
+   Used by primitive cards that show all states of one element side
+   by side. Previously diverged as .frame / .state / .group / .anchor. */
+.state-frame {
+  position: relative;
+  border: 1px solid var(--hairline);
+  background: #0a0908;
+  padding: 24px 16px 14px;
+}
+.state-pin {
+  position: absolute;
+  top: 6px;
+  left: 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ivory-4);
+}
+
 /* .brass / .brass-text utilities + @keyframes brass-sheen
    live in colors_and_type.css (imported above). Don't duplicate here. */

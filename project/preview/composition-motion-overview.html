@@ -1,29 +1,19 @@
 <!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="_card.css">
 <style>
-.v2-card {
-  --stage:#0A0908; --stage-rise:#141210; --panel:#1B1815; --panel-hi:#25211D;
-  --wire:#3A352F; --wire-hot:#6E6253;
-  --ink:#F4EFE6; --ink-mute:#8E867A; --ink-faint:#514B42;
-  --paper:#F1E9D8; --paper-rise:#FAF5E9;
-  --jazz-red:#D8362A; --jazz-mustard:#e0a93a; --jazz-grape:#6b3fa0; --jazz-pine:#1F4D3F; --jazz-coral:#d8362a;
-  --do:#F26B3D; --ra:#B7E232; --me:#1FCB5A; --fa:#2BD4D6; --se:#2E6BFF; --le:#B452F0; --te:#F23A86;
-  --tracking-jazz:0.02em; --tracking-mono:0.06em;
-}
-
-.v2-card { background: var(--stage); color: var(--ink); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; line-height: 1.5; padding: 32px 36px; width: 700px;
+.v2-card { background: var(--ink); color: var(--ivory); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; line-height: 1.5; padding: 32px 36px; width: 700px;
     box-sizing: border-box; }
 .v2-card h1, .v2-card h2, .v2-card h3 { margin: 0; font-family: "Lets Jazz", "Instrument Serif", serif; font-weight: 400; letter-spacing: 0.01em; }
 .v2-card h2 { font-size: 44px; line-height: 1; }
 .v2-card h3 { font-size: 22px; line-height: 1.1; }
-.v2-card p { margin: 0 0 12px; color: var(--ink); }
+.v2-card p { margin: 0 0 12px; color: var(--ivory); }
 
 /* Typography utils */
-.v2-card .t-jazz { font-family: "Lets Jazz", "Instrument Serif", serif; font-feature-settings: "salt" 1, "smcp" 1, "onum" 1; letter-spacing: var(--tracking-jazz); }
-.v2-card .t-mono { font-family: "JetBrains Mono", ui-monospace, monospace; letter-spacing: var(--tracking-mono); }
+.v2-card .t-jazz { font-family: "Lets Jazz", "Instrument Serif", serif; font-feature-settings: "salt" 1, "smcp" 1, "onum" 1; letter-spacing: 0.02em; }
+.v2-card .t-mono { font-family: "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; }
 .v2-card .cap { text-transform: uppercase; letter-spacing: 0.14em; }
-.v2-card .mute { color: var(--ink-mute); }
-.v2-card .faint { color: var(--ink-faint); }
+.v2-card .mute { color: var(--ivory-3); }
+.v2-card .faint { color: var(--ivory-4); }
 
 /* Layout */
 .v2-card .row { display: flex; gap: 24px; align-items: stretch; }
@@ -44,32 +34,32 @@
 .v2-card .kicker {
   display: inline-flex; align-items: baseline; gap: 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px; color: var(--ink-mute);
+  font-size: 11px; color: var(--ivory-3);
   text-transform: uppercase; letter-spacing: 0.18em;
   margin-bottom: 18px;
 }
-.v2-card .kicker .dot { width: 8px; height: 8px; background: var(--jazz-coral); display: inline-block; transform: translateY(-1px); }
+.v2-card .kicker .dot { width: 8px; height: 8px; background: var(--tomato); display: inline-block; transform: translateY(-1px); }
 
 /* Demo card */
 .v2-card .demo-card {
-  background: var(--panel);
-  border: 1px solid var(--wire);
+  background: var(--ink-3);
+  border: 1px solid var(--ink-5);
   padding: 28px;
   position: relative;
 }
 .v2-card .demo-label {
   position: absolute; top: -10px; left: 14px;
-  background: var(--stage); color: var(--ink-mute);
+  background: var(--ink); color: var(--ivory-3);
   font-family: "JetBrains Mono"; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
   padding: 0 8px;
 }
 
 /* Rule */
 .v2-card .rule {
-  height: 1px; background: var(--wire); position: relative; margin: 24px 0;
+  height: 1px; background: var(--ink-5); position: relative; margin: 24px 0;
 }
 .v2-card .rule::before {
-  content: ""; position: absolute; left: 0; top: -3px; width: 36px; height: 7px; background: var(--jazz-mustard);
+  content: ""; position: absolute; left: 0; top: -3px; width: 36px; height: 7px; background: var(--brass);
 }
 
 /* Tile */
@@ -100,20 +90,20 @@
   border-radius: 50%;
   background: radial-gradient(circle at 50% 35%, #2C2723 0%, #110F0D 70%);
   position: relative;
-  border: 1px solid var(--wire);
+  border: 1px solid var(--ink-5);
   display: grid; place-items: center;
 }
 .v2-card .knob .ring::before {
   content: ""; position: absolute; inset: 6px; border-radius: 50%;
-  background: conic-gradient(from -135deg, var(--ink-mute) 0%, var(--ink-mute) var(--p,60%), transparent var(--p,60%), transparent 75%, transparent 100%);
+  background: conic-gradient(from -135deg, var(--ivory-3) 0%, var(--ivory-3) var(--p,60%), transparent var(--p,60%), transparent 75%, transparent 100%);
   -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%);
           mask: radial-gradient(circle, transparent 60%, #000 61%);
 }
 .v2-card .knob .ring .v {
-  font-family: "Lets Jazz"; font-size: 20px; color: var(--ink); line-height: 1; position: relative;
+  font-family: "Lets Jazz"; font-size: 20px; color: var(--ivory); line-height: 1; position: relative;
 }
 .v2-card .knob .lbl {
-  font-family: "Lets Jazz"; font-size: 14px; color: var(--ink-mute);
+  font-family: "Lets Jazz"; font-size: 14px; color: var(--ivory-3);
   text-transform: uppercase; letter-spacing: 0.12em; margin-top: 8px;
 }
 
@@ -121,55 +111,55 @@
 
 /* Easings */
 .v2-card .ease-grid { display: grid; gap: 12px; }
-.v2-card .ease-card { border: 1px solid var(--wire); padding: 14px; }
+.v2-card .ease-card { border: 1px solid var(--ink-5); padding: 14px; }
 .v2-card .ease-name { font-size: 22px; line-height: 1; margin-bottom: 4px; }
-.v2-card .ease-meta { font-size: 9px; color: var(--ink-faint); letter-spacing: 0.06em; margin-bottom: 14px; word-break: break-all; }
-.v2-card .ease-track { position: relative; height: 48px; border: 1px solid var(--wire); background: var(--stage); margin-bottom: 10px; cursor: pointer; overflow: hidden; }
+.v2-card .ease-meta { font-size: 9px; color: var(--ivory-4); letter-spacing: 0.06em; margin-bottom: 14px; word-break: break-all; }
+.v2-card .ease-track { position: relative; height: 48px; border: 1px solid var(--ink-5); background: var(--ink); margin-bottom: 10px; cursor: pointer; overflow: hidden; }
 .v2-card .ease-track .ease-curve { position: absolute; left: 8px; right: 8px; bottom: 8px; height: 24px; width: calc(100% - 16px); }
-.v2-card .ease-track .ease-dot { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; background: var(--paper); border: 1px solid var(--stage); }
-.v2-card .ease-track[data-ease="swing"]:hover .ease-dot   { animation: ease-run 1.2s cubic-bezier(.7, -0.2, .3, 1.2) both; }
-.v2-card .ease-track[data-ease="stab"]:hover .ease-dot    { animation: ease-run 0.6s cubic-bezier(.2, .9, .3, 1) both; }
-.v2-card .ease-track[data-ease="brush"]:hover .ease-dot   { animation: ease-run 1s cubic-bezier(.4, 0, .2, 1) both; }
+.v2-card .ease-track .ease-dot { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; background: var(--bone); border: 1px solid var(--ink); }
+.v2-card .ease-track[data-ease="swing"]:hover .ease-dot   { animation: ease-run 1.2s var(--ease-swing) both; }
+.v2-card .ease-track[data-ease="stab"]:hover .ease-dot    { animation: ease-run 0.6s var(--ease-stab) both; }
+.v2-card .ease-track[data-ease="brush"]:hover .ease-dot   { animation: ease-run 1s var(--ease-brush) both; }
 .v2-card .ease-track[data-ease="sustain"]:hover .ease-dot { animation: ease-run 1.4s linear both; }
-.v2-card .ease-track[data-ease="bend"]:hover .ease-dot    { animation: ease-run 1s cubic-bezier(.85, 0, .15, 1) both; }
+.v2-card .ease-track[data-ease="bend"]:hover .ease-dot    { animation: ease-run 1s var(--ease-bend) both; }
 
 @keyframes ease-run {
   from { left: 4px; }
   to   { left: calc(100% - 16px); }
 }
 
-.v2-card .ease-use { font-family: "Lets Jazz"; font-size: 13px; letter-spacing: 0.04em; color: var(--ink-mute); }
+.v2-card .ease-use { font-family: "Lets Jazz"; font-size: 13px; letter-spacing: 0.04em; color: var(--ivory-3); }
 
 /* Beat room */
-.v2-card .beat-room { background: var(--stage-rise); border: 1px solid var(--wire); padding: 16px; }
-.v2-card .beat-toolbar { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--wire); margin-bottom: 16px; }
-.v2-card .beat-play { width: 36px; height: 36px; background: transparent; border: 1px solid var(--wire); color: var(--ink); cursor: pointer; display: grid; place-items: center; }
-.v2-card .beat-play[aria-pressed="true"] { background: var(--paper); color: var(--stage); border-color: var(--paper); }
+.v2-card .beat-room { background: var(--ink-2); border: 1px solid var(--ink-5); padding: 16px; }
+.v2-card .beat-toolbar { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--ink-5); margin-bottom: 16px; }
+.v2-card .beat-play { width: 36px; height: 36px; background: transparent; border: 1px solid var(--ink-5); color: var(--ivory); cursor: pointer; display: grid; place-items: center; }
+.v2-card .beat-play[aria-pressed="true"] { background: var(--bone); color: var(--ink); border-color: var(--bone); }
 .v2-card .beat-play[aria-pressed="true"] .beat-play-glyph::before { content: "❚❚"; letter-spacing: -1px; }
 .v2-card .beat-play-glyph::before { content: "▶"; }
 .v2-card .beat-grid { display: flex; gap: 6px; }
-.v2-card .beat-step { width: 14px; height: 14px; border: 1px solid var(--wire); display: inline-block; }
+.v2-card .beat-step { width: 14px; height: 14px; border: 1px solid var(--ink-5); display: inline-block; }
 .v2-card .beat-room.is-playing .beat-step { transition: background .08s linear, border-color .08s linear; }
-.v2-card .beat-room.is-playing .beat-step.on { background: var(--jazz-mustard); border-color: var(--jazz-mustard); }
+.v2-card .beat-room.is-playing .beat-step.on { background: var(--brass); border-color: var(--brass); }
 .v2-card .beat-stage { position: relative; }
 .v2-card .beat-room.is-playing { animation: roomDownbeat 2s linear infinite; }
 
 @keyframes roomDownbeat {
-  0%, 49%   { box-shadow: inset 0 0 0 1px var(--wire); }
-  50%       { box-shadow: inset 0 0 0 1px var(--wire-hot), 0 0 0 1px var(--wire-hot), 0 0 24px -8px var(--jazz-mustard); }
-  60%, 100% { box-shadow: inset 0 0 0 1px var(--wire); }
+  0%, 49%   { box-shadow: inset 0 0 0 1px var(--ink-5); }
+  50%       { box-shadow: inset 0 0 0 1px var(--brass-lo), 0 0 0 1px var(--brass-lo), 0 0 24px -8px var(--brass); }
+  60%, 100% { box-shadow: inset 0 0 0 1px var(--ink-5); }
 }
 
-.v2-card .beat-room.is-playing .beat-pulse .ring { animation: knobBeat 0.5s cubic-bezier(.2,.9,.3,1) infinite; }
+.v2-card .beat-room.is-playing .beat-pulse .ring { animation: knobBeat 0.5s var(--ease-stab) infinite; }
 
 @keyframes knobBeat {
   0%, 70% { transform: scale(1); }
-  80%     { transform: scale(1.05); border-color: var(--wire-hot); }
+  80%     { transform: scale(1.05); border-color: var(--brass-lo); }
   100%    { transform: scale(1); }
 }
 
 .v2-card .beat-room.is-playing .beat-tile {
-  animation: tileBob 0.5s cubic-bezier(.4,0,.2,1) infinite;
+  animation: tileBob 0.5s var(--ease-brush) infinite;
   animation-delay: calc(var(--d) * 0.03s);
   will-change: transform;
 }
@@ -188,20 +178,20 @@
 /* Persona-5 tabs */
 .v2-card .p5-tabs {
   position: relative; display: inline-flex; gap: 6px;
-  padding: 6px; border: 1px solid var(--wire); background: var(--panel);
+  padding: 6px; border: 1px solid var(--ink-5); background: var(--ink-3);
   isolation: isolate;
 }
 .v2-card .p5-streak {
   position: absolute; left: 4px; right: 4px; top: 50%; transform: translateY(-50%);
-  height: 60%; background: var(--stage); z-index: 0;
+  height: 60%; background: var(--ink); z-index: 0;
 }
 .v2-card .p5-active {
   position: absolute; top: 6px; bottom: 6px;
-  background: var(--paper);
+  background: var(--bone);
   transform-origin: 50% 50%;
-  transition: left 320ms cubic-bezier(.7, -0.2, .3, 1.2),
-              width 320ms cubic-bezier(.7, -0.2, .3, 1.2),
-              transform 320ms cubic-bezier(.7, -0.2, .3, 1.2);
+  transition: left 320ms var(--ease-swing),
+              width 320ms var(--ease-swing),
+              transform 320ms var(--ease-swing);
   z-index: 1;
   box-shadow: 3px 3px 0 #000;
   clip-path: polygon(2% 0, 100% 4%, 98% 100%, 0 96%);
@@ -211,16 +201,16 @@
   position: relative; z-index: 2;
   background: transparent; border: 0;
   font-family: "Lets Jazz"; font-size: 14px; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--ink-mute); cursor: pointer;
+  text-transform: uppercase; color: var(--ivory-3); cursor: pointer;
   padding: 8px 16px;
-  transition: color 240ms cubic-bezier(.7, -0.2, .3, 1.2);
-  mix-blend-mode: difference; color: var(--paper);
+  transition: color 240ms var(--ease-swing);
+  mix-blend-mode: difference; color: var(--bone);
 }
-.v2-card .p5-btn.on { color: var(--paper); }
+.v2-card .p5-btn.on { color: var(--bone); }
 
 /* Note flash */
-.v2-card .flash-target { position: relative; cursor: pointer; transition: transform 220ms cubic-bezier(.4,0,.2,1); }
-.v2-card .flash-target.firing { animation: tileFire 360ms cubic-bezier(.2,.9,.3,1); }
+.v2-card .flash-target { position: relative; cursor: pointer; transition: transform 220ms var(--ease-brush); }
+.v2-card .flash-target.firing { animation: tileFire 360ms var(--ease-stab); }
 
 @keyframes tileFire {
   0%   { transform: translateY(0)   scale(1); filter: brightness(1); }
@@ -232,7 +222,7 @@
   content: ""; position: absolute; inset: 0; pointer-events: none;
   border: 2px solid currentColor; opacity: 0;
 }
-.v2-card .flash-target.firing::after { animation: ringOut 360ms cubic-bezier(.4,0,.2,1); }
+.v2-card .flash-target.firing::after { animation: ringOut 360ms var(--ease-brush); }
 
 @keyframes ringOut {
   0%   { transform: scale(1);    opacity: 0.6; }
@@ -241,9 +231,9 @@
 
 /* Mode rip */
 .v2-card .mode-knob { cursor: pointer; }
-.v2-card .mode-label { display: inline-block; transition: transform 360ms cubic-bezier(.85,0,.15,1), opacity 360ms cubic-bezier(.85,0,.15,1); }
+.v2-card .mode-label { display: inline-block; transition: transform 360ms var(--ease-bend), opacity 360ms var(--ease-bend); }
 .v2-card .mode-knob.ripping .mode-label {
-  animation: labelRip 360ms cubic-bezier(.85,0,.15,1);
+  animation: labelRip 360ms var(--ease-bend);
 }
 
 @keyframes labelRip {
@@ -280,31 +270,31 @@
       <div class="ease-card">
         <div class="ease-name t-jazz">Swing</div>
         <div class="ease-meta t-mono">cubic-bezier(.7, -0.2, .3, 1.2)</div>
-        <div class="ease-track" data-ease="swing"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 70 26, 30 -2, 100 0" stroke="var(--jazz-mustard)" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="ease-track" data-ease="swing"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 70 26, 30 -2, 100 0" stroke="var(--brass)" stroke-width="1.5" fill="none"/></svg></div>
         <div class="ease-use">Tabs, knobs, drawer in</div>
       </div>
       <div class="ease-card">
         <div class="ease-name t-jazz">Stab</div>
         <div class="ease-meta t-mono">cubic-bezier(.2, .9, .3, 1)</div>
-        <div class="ease-track" data-ease="stab"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 20 0, 30 0, 100 0" stroke="var(--jazz-red)" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="ease-track" data-ease="stab"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 20 0, 30 0, 100 0" stroke="var(--tomato)" stroke-width="1.5" fill="none"/></svg></div>
         <div class="ease-use">Press, play, hit</div>
       </div>
       <div class="ease-card">
         <div class="ease-name t-jazz">Brush</div>
         <div class="ease-meta t-mono">cubic-bezier(.4, 0, .2, 1)</div>
-        <div class="ease-track" data-ease="brush"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 40 24, 60 0, 100 0" stroke="var(--paper)" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="ease-track" data-ease="brush"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 40 24, 60 0, 100 0" stroke="var(--bone)" stroke-width="1.5" fill="none"/></svg></div>
         <div class="ease-use">Reveal, fade, drift</div>
       </div>
       <div class="ease-card">
         <div class="ease-name t-jazz">Sustain</div>
         <div class="ease-meta t-mono">linear</div>
-        <div class="ease-track" data-ease="sustain"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 L 100 0" stroke="var(--jazz-pine)" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="ease-track" data-ease="sustain"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 L 100 0" stroke="var(--pine)" stroke-width="1.5" fill="none"/></svg></div>
         <div class="ease-use">Playhead, scrub, meters</div>
       </div>
       <div class="ease-card">
         <div class="ease-name t-jazz">Bend</div>
         <div class="ease-meta t-mono">cubic-bezier(.85, 0, .15, 1)</div>
-        <div class="ease-track" data-ease="bend"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 60 22, 40 2, 100 0" stroke="var(--jazz-grape)" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="ease-track" data-ease="bend"><div class="ease-dot"></div><svg viewBox="0 0 100 24" class="ease-curve"><path d="M0 24 C 60 22, 40 2, 100 0" stroke="var(--plum)" stroke-width="1.5" fill="none"/></svg></div>
         <div class="ease-use">Pitch, mode change</div>
       </div>
     </div>
@@ -382,7 +372,7 @@
     <div class="row mt-16" style="gap: 32px; align-items: flex-start;">
       <div style="flex: 1;">
         <div class="cap mute" style="font-size: 10px; letter-spacing: 0.18em;">Anatomy</div>
-        <ul class="t-mono" style="font-size: 11px; color: var(--ink-mute); line-height: 1.9; padding-left: 16px;">
+        <ul class="t-mono" style="font-size: 11px; color: var(--ivory-3); line-height: 1.9; padding-left: 16px;">
           <li>Active layer: paper fill, skew(-8deg), translate to position</li>
           <li>Shadow layer: ink, +2px / +2px, follows with 40ms lag</li>
           <li>Streak: black bar widens during transit, shrinks on settle</li>

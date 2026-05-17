@@ -1,38 +1,28 @@
 <!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="_card.css">
 <style>
-.v2-card {
-  --stage:#0A0908; --stage-rise:#141210; --panel:#1B1815; --panel-hi:#25211D;
-  --wire:#3A352F; --wire-hot:#6E6253;
-  --ink:#F4EFE6; --ink-mute:#8E867A; --ink-faint:#514B42;
-  --paper:#F1E9D8; --paper-rise:#FAF5E9;
-  --jazz-red:#D8362A; --jazz-mustard:#e0a93a; --jazz-grape:#6b3fa0; --jazz-pine:#1F4D3F; --jazz-coral:#d8362a;
-  --do:#F26B3D; --ra:#B7E232; --me:#1FCB5A; --fa:#2BD4D6; --se:#2E6BFF; --le:#B452F0; --te:#F23A86;
-  --tracking-jazz:0.02em; --tracking-mono:0.06em;
-}
-
-.v2-card { background: var(--stage); color: var(--ink); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; line-height: 1.5; padding: 32px 36px; width: 700px;
+.v2-card { background: var(--ink); color: var(--ivory); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; line-height: 1.5; padding: 32px 36px; width: 700px;
     box-sizing: border-box; }
 .v2-card h1, .v2-card h2, .v2-card h3 { margin: 0; font-family: "Lets Jazz", "Instrument Serif", serif; font-weight: 400; letter-spacing: 0.01em; }
 .v2-card h2 { font-size: 44px; line-height: 1; }
 .v2-card h3 { font-size: 22px; line-height: 1.1; }
-.v2-card p { margin: 0 0 12px; color: var(--ink); }
+.v2-card p { margin: 0 0 12px; color: var(--ivory); }
 
-.v2-card .label { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; color: var(--ink-mute); margin-bottom: 18px; }
+.v2-card .label { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; color: var(--ivory-3); margin-bottom: 18px; }
 
 .v2-card .kicker {
   display: inline-flex; align-items: baseline; gap: 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px; color: var(--ink-mute);
+  font-size: 11px; color: var(--ivory-3);
   text-transform: uppercase; letter-spacing: 0.18em;
   margin-bottom: 18px;
 }
-.v2-card .kicker .dot { width: 8px; height: 8px; background: var(--jazz-mustard); display: inline-block; transform: translateY(-1px); }
-.v2-card .kicker.pine .dot { background: var(--jazz-pine); }
+.v2-card .kicker .dot { width: 8px; height: 8px; background: var(--brass); display: inline-block; transform: translateY(-1px); }
+.v2-card .kicker.pine .dot { background: var(--pine); }
 
-.v2-card .t-jazz { font-family: "Lets Jazz", "Instrument Serif", serif; font-feature-settings: "salt" 1, "smcp" 1, "onum" 1; letter-spacing: var(--tracking-jazz); }
-.v2-card .mute { color: var(--ink-mute); }
-.v2-card .faint { color: var(--ink-faint); }
+.v2-card .t-jazz { font-family: "Lets Jazz", "Instrument Serif", serif; font-feature-settings: "salt" 1, "smcp" 1, "onum" 1; letter-spacing: 0.02em; }
+.v2-card .mute { color: var(--ivory-3); }
+.v2-card .faint { color: var(--ivory-4); }
 
 .v2-card .grid { display: grid; gap: 24px; }
 .v2-card .g-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -48,33 +38,33 @@
 
 .v2-card .tokens-table { width: 100%; border-collapse: collapse; }
 .v2-card .tokens-table th, .v2-card .tokens-table td {
-  border-bottom: 1px solid var(--wire); padding: 14px 0; text-align: left;
+  border-bottom: 1px solid var(--ink-5); padding: 14px 0; text-align: left;
   font-family: "JetBrains Mono"; font-size: 12px;
 }
-.v2-card .tokens-table th { color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.18em; font-size: 10px; font-weight: 500; }
-.v2-card .tokens-table td.name { color: var(--paper); }
+.v2-card .tokens-table th { color: var(--ivory-3); text-transform: uppercase; letter-spacing: 0.18em; font-size: 10px; font-weight: 500; }
+.v2-card .tokens-table td.name { color: var(--bone); }
 .v2-card .tokens-table td.box { width: 220px; }
-.v2-card .tokens-table td.box .b { background: var(--jazz-mustard); height: 14px; }
+.v2-card .tokens-table td.box .b { background: var(--brass); height: 14px; }
 
 .v2-card .demo-card {
-  background: var(--panel);
-  border: 1px solid var(--wire);
+  background: var(--ink-3);
+  border: 1px solid var(--ink-5);
   padding: 28px;
   position: relative;
 }
 
 .v2-card .demo-card .demo-label {
   position: absolute; top: -10px; left: 14px;
-  background: var(--stage); color: var(--ink-mute);
+  background: var(--ink); color: var(--ivory-3);
   font-family: "JetBrains Mono"; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
   padding: 0 8px;
 }
 
 .v2-card .rule {
-  height: 1px; background: var(--wire); position: relative; margin: 24px 0;
+  height: 1px; background: var(--ink-5); position: relative; margin: 24px 0;
 }
 .v2-card .rule::before {
-  content: ""; position: absolute; left: 0; top: -3px; width: 36px; height: 7px; background: var(--jazz-mustard);
+  content: ""; position: absolute; left: 0; top: -3px; width: 36px; height: 7px; background: var(--brass);
 }
 </style>
 </head><body>
@@ -107,14 +97,14 @@
       <table class="tokens-table">
         <thead><tr><th>Token</th><th>Value</th><th>Use</th><th>Visual</th></tr></thead>
         <tbody>
-          <tr><td class="name">radius-0</td><td>0</td><td>Posters, cards</td><td class="box"><div style="height: 28px; width: 80px; background: var(--paper); border-radius: 0;"></div></td></tr>
-          <tr><td class="name">radius-1</td><td>4&nbsp;px</td><td>Tiles, chips</td><td class="box"><div style="height: 28px; width: 80px; background: var(--paper); border-radius: 4px;"></div></td></tr>
-          <tr><td class="name">radius-2</td><td>8&nbsp;px</td><td>Pop-ups</td><td class="box"><div style="height: 28px; width: 80px; background: var(--paper); border-radius: 8px;"></div></td></tr>
-          <tr><td class="name">radius-pill</td><td>999&nbsp;px</td><td>Toggles only</td><td class="box"><div style="height: 28px; width: 80px; background: var(--paper); border-radius: 999px;"></div></td></tr>
-          <tr><td class="name">stroke-1</td><td>1&nbsp;px · wire</td><td>All borders</td><td class="box"><div style="height: 28px; width: 80px; border: 1px solid var(--wire);"></div></td></tr>
-          <tr><td class="name">stroke-2</td><td>2&nbsp;px · ink</td><td>Active state</td><td class="box"><div style="height: 28px; width: 80px; border: 2px solid var(--paper);"></div></td></tr>
-          <tr><td class="name">stroke-cut</td><td>3&nbsp;px · accent</td><td>Section markers</td><td class="box"><div style="height: 28px; width: 80px; border-left: 3px solid var(--jazz-mustard); background: var(--panel);"></div></td></tr>
-          <tr><td class="name">shadow-cut</td><td>6 6 0 #000</td><td>Lifted card (paper only)</td><td class="box"><div style="height: 28px; width: 80px; background: var(--paper); box-shadow: 4px 4px 0 #000;"></div></td></tr>
+          <tr><td class="name">radius-0</td><td>0</td><td>Posters, cards</td><td class="box"><div style="height: 28px; width: 80px; background: var(--bone); border-radius: 0;"></div></td></tr>
+          <tr><td class="name">radius-1</td><td>4&nbsp;px</td><td>Tiles, chips</td><td class="box"><div style="height: 28px; width: 80px; background: var(--bone); border-radius: 4px;"></div></td></tr>
+          <tr><td class="name">radius-2</td><td>8&nbsp;px</td><td>Pop-ups</td><td class="box"><div style="height: 28px; width: 80px; background: var(--bone); border-radius: 8px;"></div></td></tr>
+          <tr><td class="name">radius-pill</td><td>999&nbsp;px</td><td>Toggles only</td><td class="box"><div style="height: 28px; width: 80px; background: var(--bone); border-radius: 999px;"></div></td></tr>
+          <tr><td class="name">stroke-1</td><td>1&nbsp;px · wire</td><td>All borders</td><td class="box"><div style="height: 28px; width: 80px; border: 1px solid var(--ink-5);"></div></td></tr>
+          <tr><td class="name">stroke-2</td><td>2&nbsp;px · ink</td><td>Active state</td><td class="box"><div style="height: 28px; width: 80px; border: 2px solid var(--bone);"></div></td></tr>
+          <tr><td class="name">stroke-cut</td><td>3&nbsp;px · accent</td><td>Section markers</td><td class="box"><div style="height: 28px; width: 80px; border-left: 3px solid var(--brass); background: var(--ink-3);"></div></td></tr>
+          <tr><td class="name">shadow-cut</td><td>6 6 0 #000</td><td>Lifted card (paper only)</td><td class="box"><div style="height: 28px; width: 80px; background: var(--bone); box-shadow: 4px 4px 0 #000;"></div></td></tr>
         </tbody>
       </table>
     </div>

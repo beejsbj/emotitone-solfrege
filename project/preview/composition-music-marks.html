@@ -2,18 +2,8 @@
 <link rel="stylesheet" href="_card.css">
 <style>
 .v2-card {
-  --stage:#0A0908; --stage-rise:#141210; --panel:#1B1815; --panel-hi:#25211D;
-  --wire:#3A352F; --wire-hot:#6E6253;
-  --ink:#F4EFE6; --ink-mute:#8E867A; --ink-faint:#514B42;
-  --paper:#F1E9D8; --paper-rise:#FAF5E9;
-  --jazz-red:#D8362A; --jazz-mustard:#e0a93a; --jazz-grape:#6b3fa0; --jazz-pine:#1F4D3F; --jazz-coral:#d8362a;
-  --do:#F26B3D; --ra:#B7E232; --me:#1FCB5A; --fa:#2BD4D6; --se:#2E6BFF; --le:#B452F0; --te:#F23A86;
-  --tracking-jazz:0.02em; --tracking-mono:0.06em;
-}
-
-.v2-card {
-  background: var(--stage);
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--ivory);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 14px;
   line-height: 1.5;
@@ -25,13 +15,13 @@
 .v2-card h1, .v2-card h2, .v2-card h3 { margin: 0; font-family: "Lets Jazz", "Instrument Serif", serif; font-weight: 400; letter-spacing: 0.01em; }
 .v2-card h2 { font-size: 44px; line-height: 1; }
 .v2-card h3 { font-size: 22px; line-height: 1.1; }
-.v2-card p { margin: 0 0 12px; color: var(--ink); }
+.v2-card p { margin: 0 0 12px; color: var(--ivory); }
 
 .label {
   text-transform: uppercase;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
-  color: var(--ink-mute);
+  color: var(--ivory-3);
   letter-spacing: 0.18em;
   margin-bottom: 32px;
 }
@@ -39,18 +29,18 @@
 .kicker {
   display: inline-flex; align-items: baseline; gap: 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px; color: var(--ink-mute);
+  font-size: 11px; color: var(--ivory-3);
   text-transform: uppercase; letter-spacing: 0.18em;
   margin-bottom: 18px;
 }
-.kicker .dot { width: 8px; height: 8px; background: var(--jazz-grape); display: inline-block; transform: translateY(-1px); }
+.kicker .dot { width: 8px; height: 8px; background: var(--plum); display: inline-block; transform: translateY(-1px); }
 
-.t-jazz { font-family: "Lets Jazz", "Instrument Serif", serif; letter-spacing: var(--tracking-jazz); }
-.t-mono { font-family: "JetBrains Mono", ui-monospace, monospace; letter-spacing: var(--tracking-mono); }
+.t-jazz { font-family: "Lets Jazz", "Instrument Serif", serif; letter-spacing: 0.02em; }
+.t-mono { font-family: "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; }
 
 .cap   { text-transform: uppercase; letter-spacing: 0.14em; }
-.mute  { color: var(--ink-mute); }
-.faint { color: var(--ink-faint); }
+.mute  { color: var(--ivory-3); }
+.faint { color: var(--ivory-4); }
 
 .mt-16 { margin-top: 16px; }
 .mt-24 { margin-top: 24px; }
@@ -58,48 +48,48 @@
 .mb-16 { margin-bottom: 16px; }
 
 .demo-card {
-  background: var(--panel);
-  border: 1px solid var(--wire);
+  background: var(--ink-3);
+  border: 1px solid var(--ink-5);
   padding: 28px;
   position: relative;
   margin-top: 24px;
 }
 .demo-card .demo-label {
   position: absolute; top: -10px; left: 14px;
-  background: var(--stage); color: var(--ink-mute);
+  background: var(--ink); color: var(--ivory-3);
   font-family: "JetBrains Mono"; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
   padding: 0 8px;
 }
 
 /* ===================== MUSIC MARKS ===================== */
 .v2-card .glyph-grid {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; border: 1px solid var(--wire);
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; border: 1px solid var(--ink-5);
 }
 .v2-card .glyph-cell {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; padding: 18px 10px;
-  border-right: 1px solid var(--wire); border-bottom: 1px solid var(--wire);
-  color: var(--paper);
+  border-right: 1px solid var(--ink-5); border-bottom: 1px solid var(--ink-5);
+  color: var(--bone);
 }
 .v2-card .glyph-cell:nth-child(6n) { border-right: 0; }
 .v2-card .glyph-cell:nth-last-child(-n+6) { border-bottom: 0; }
 .v2-card .glyph-cell .g { width: 44px; height: 44px; }
 .v2-card .glyph-cell .cap {
-  font-family: "JetBrains Mono"; font-size: 10px; color: var(--ink-mute);
+  font-family: "JetBrains Mono"; font-size: 10px; color: var(--ivory-3);
   letter-spacing: 0.16em; text-transform: uppercase;
 }
 .v2-card .confetti-stage {
-  position: relative; height: 200px; border: 1px solid var(--wire); background: var(--stage);
+  position: relative; height: 200px; border: 1px solid var(--ink-5); background: var(--ink);
   display: grid; place-content: center; overflow: hidden;
 }
 .v2-card .confetti-stage .confetti-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .row { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
 .rule {
-  height: 1px; background: var(--wire); position: relative; margin: 24px 0;
+  height: 1px; background: var(--ink-5); position: relative; margin: 24px 0;
 }
 .rule::before {
-  content: ""; position: absolute; left: 0; top: -3px; width: 36px; height: 7px; background: var(--jazz-mustard);
+  content: ""; position: absolute; left: 0; top: -3px; width: 36px; height: 7px; background: var(--brass);
 }
 </style>
 </head><body>
@@ -177,20 +167,20 @@
     <div class="rule mt-24"></div>
     <div class="row" style="gap: 24px; flex-wrap: wrap; align-items: center;">
       <span class="cap mute" style="font-size: 10px; letter-spacing: 0.18em;">Inline use</span>
-      <span class="t-jazz" style="font-size: 22px; color: var(--ink); display: inline-flex; align-items: center; gap: 10px;">
-        <svg viewBox="0 0 60 60" width="18" height="18" style="color: var(--paper);"><path d="M35 8 L38 11 L37 24 L38 36 L37 46 L33 46 L34 36 L33 24 L34 11 Z" fill="currentColor"/><path d="M11 42 L18 38 L28 38 L34 41 L36 47 L31 52 L21 53 L13 51 L8 47 Z" fill="currentColor"/><path d="M37 8 L46 14 L51 22 L49 30 L44 33 L48 24 L43 18 L37 14 Z" fill="currentColor"/></svg>
+      <span class="t-jazz" style="font-size: 22px; color: var(--ivory); display: inline-flex; align-items: center; gap: 10px;">
+        <svg viewBox="0 0 60 60" width="18" height="18" style="color: var(--bone);"><path d="M35 8 L38 11 L37 24 L38 36 L37 46 L33 46 L34 36 L33 24 L34 11 Z" fill="currentColor"/><path d="M11 42 L18 38 L28 38 L34 41 L36 47 L31 52 L21 53 L13 51 L8 47 Z" fill="currentColor"/><path d="M37 8 L46 14 L51 22 L49 30 L44 33 L48 24 L43 18 L37 14 Z" fill="currentColor"/></svg>
         Pattern · I2 bars
       </span>
-      <span class="t-jazz" style="font-size: 22px; color: var(--ink); display: inline-flex; align-items: center; gap: 10px;">
-        <svg viewBox="0 0 60 60" width="16" height="16" style="color: var(--jazz-mustard);"><path d="M16 8 L 16 50 M 36 4 L 36 48 M 8 22 L 44 16 L 44 24 L 8 30 Z M 8 38 L 44 32 L 44 40 L 8 46 Z" stroke="currentColor" stroke-width="2" fill="currentColor"/></svg>
-        F<span style="font-size: 14px; color: var(--ink-mute);">♯</span> Locrian
+      <span class="t-jazz" style="font-size: 22px; color: var(--ivory); display: inline-flex; align-items: center; gap: 10px;">
+        <svg viewBox="0 0 60 60" width="16" height="16" style="color: var(--brass);"><path d="M16 8 L 16 50 M 36 4 L 36 48 M 8 22 L 44 16 L 44 24 L 8 30 Z M 8 38 L 44 32 L 44 40 L 8 46 Z" stroke="currentColor" stroke-width="2" fill="currentColor"/></svg>
+        F<span style="font-size: 14px; color: var(--ivory-3);">♯</span> Locrian
       </span>
-      <span class="t-mono cap" style="font-size: 11px; color: var(--ink-mute); display: inline-flex; align-items: center; gap: 8px; letter-spacing: 0.18em;">
-        <svg viewBox="0 0 60 60" width="14" height="14" style="color: var(--jazz-red);"><path d="M8 30 L 52 22 L 52 38 L 8 30 Z" fill="currentColor"/></svg>
+      <span class="t-mono cap" style="font-size: 11px; color: var(--ivory-3); display: inline-flex; align-items: center; gap: 8px; letter-spacing: 0.18em;">
+        <svg viewBox="0 0 60 60" width="14" height="14" style="color: var(--tomato);"><path d="M8 30 L 52 22 L 52 38 L 8 30 Z" fill="currentColor"/></svg>
         Recording
       </span>
-      <span class="t-mono cap" style="font-size: 11px; color: var(--ink-mute); display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.18em;">
-        <svg viewBox="0 0 60 60" width="14" height="14" style="color: var(--paper);"><circle cx="14" cy="36" r="4" fill="currentColor"/><circle cx="30" cy="32" r="4" fill="currentColor"/><circle cx="46" cy="28" r="4" fill="currentColor"/></svg>
+      <span class="t-mono cap" style="font-size: 11px; color: var(--ivory-3); display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.18em;">
+        <svg viewBox="0 0 60 60" width="14" height="14" style="color: var(--bone);"><circle cx="14" cy="36" r="4" fill="currentColor"/><circle cx="30" cy="32" r="4" fill="currentColor"/><circle cx="46" cy="28" r="4" fill="currentColor"/></svg>
         Staccato preset
       </span>
     </div>

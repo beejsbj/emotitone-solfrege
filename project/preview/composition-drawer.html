@@ -149,18 +149,10 @@
 
 .chromatic-tape { height: 5px; background: linear-gradient(90deg, var(--note-do) 0 14%, var(--note-re) 14% 28%, var(--note-mi) 28% 43%, var(--note-fa) 43% 57%, var(--note-sol) 57% 71%, var(--note-la) 71% 86%, var(--note-ti) 86% 100%); border-left: 1px solid var(--ink-5); border-right: 1px solid var(--ink-5); border-bottom: 1px solid var(--ink-5); margin-top: -1px; margin-bottom: 14px; }
 
-.knob-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-bottom: 14px; }
-.knob { text-align: center; }
-.knob .ring {
-  width: 52px; height: 52px; margin: 0 auto;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 35%, var(--ink-4) 0%, var(--ink-2) 70%);
-  border: 1px solid var(--ink-5);
-  display: grid; place-items: center;
-  position: relative;
-}
-.knob .ring .v { font: 400 18px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: var(--ivory); }
-.knob .lbl { font: var(--t-label); letter-spacing: .12em; text-transform: uppercase; color: var(--ivory-3); margin-top: 6px; font-size: 10px; }
+.param-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-bottom: 14px; padding: 8px 4px; border-top: 1px solid var(--ink-5); border-bottom: 1px solid var(--ink-5); }
+.param { text-align: center; }
+.param .v { display: block; font: 400 18px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: var(--ivory); }
+.param .lbl { display: block; font: var(--t-label); letter-spacing: .12em; text-transform: uppercase; color: var(--ivory-3); margin-top: 4px; font-size: 10px; }
 
 .tile-row { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
 .tile { aspect-ratio: 1.05; display: flex; flex-direction: column; justify-content: space-between; padding: 7px 8px 8px; border: 1px solid rgba(0,0,0,.5); position: relative; overflow: hidden; }
@@ -264,12 +256,12 @@
         </div>
       </div>
       <div class="chromatic-tape"></div>
-      <div class="knob-row">
-        <div class="knob"><div class="ring"><span class="v">E</span></div><div class="lbl">Key</div></div>
-        <div class="knob"><div class="ring"><span class="v" style="font-size:11px;letter-spacing:.02em;">LOCRIAN</span></div><div class="lbl">Mode</div></div>
-        <div class="knob"><div class="ring"><span class="v">120</span></div><div class="lbl">BPM</div></div>
-        <div class="knob"><div class="ring"><span class="v">4</span></div><div class="lbl">Octave</div></div>
-        <div class="knob"><div class="ring"><span class="v">3</span></div><div class="lbl">Rows</div></div>
+      <div class="param-row">
+        <div class="param"><span class="v">E</span><span class="lbl">Key</span></div>
+        <div class="param"><span class="v" style="font-size:11px;letter-spacing:.02em;">LOCRIAN</span><span class="lbl">Mode</span></div>
+        <div class="param"><span class="v">120</span><span class="lbl">BPM</span></div>
+        <div class="param"><span class="v">4</span><span class="lbl">Octave</span></div>
+        <div class="param"><span class="v">3</span><span class="lbl">Rows</span></div>
       </div>
       <div class="tile-row">
         <div class="tile" style="background:hsl(18 85% 56%)"><span class="corner">E5</span><span class="syll">Do</span><span class="pitch">E₄</span></div>

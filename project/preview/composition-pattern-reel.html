@@ -53,25 +53,11 @@
   text-align: right;
 }
 
-.pattern-merge .specimen-panel {
-  position: relative;
-  background: var(--ink-3);
-  border: 1px solid var(--ink-5);
+/* Specimen outer = canonical .panel (in _card.css) + box-shadow + extra padding */
+.pattern-merge .panel {
   box-shadow: var(--ring);
   padding: 28px 24px 22px;
-}
-
-.pattern-merge .panel-label {
-  position: absolute;
-  top: -10px;
-  left: 14px;
-  background: var(--ink-2);
-  padding: 0 var(--s-3);
-  font: var(--t-label);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ivory-3);
+  margin-top: 0;       /* outer container — no margin needed */
 }
 
 .pattern-merge .reel-head {
@@ -408,8 +394,8 @@
     <div class="head-meta" id="reelMeta">4 patterns<br>last 12h</div>
   </div>
 
-  <section class="specimen-panel" aria-label="Interactive pattern reel">
-    <div class="panel-label">The reel · interactive</div>
+  <section class="panel" aria-label="Interactive pattern reel">
+    <span class="panel-label">The reel · interactive</span>
 
     <div class="reel-head">
       <span class="reel-title">Patterns</span>

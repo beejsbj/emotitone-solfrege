@@ -1,6 +1,8 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
 <style>
-/* ─── Pillar card with floating-label tab ─── */
+/* ─── Pillar = canonical .panel + numbered-ordinal extras ───
+   Panel chrome (border, bg, floating label) comes from _card.css.
+   .pillar adds: tilted rotation, min-height, typed children. */
 .pillar-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -9,28 +11,9 @@
 }
 
 .pillar {
-  border: 1px solid var(--ink-5);
-  background: var(--ink-3);
-  padding: 20px 18px 24px;
-  position: relative;
+  padding: 20px 18px 24px;       /* override .panel padding for ordinal headroom */
   min-height: 190px;
   box-sizing: border-box;
-  margin-top: 14px;
-}
-
-/* Floating label — clips into top border like a folder tab */
-.pillar::before {
-  content: attr(data-label);
-  position: absolute;
-  top: -10px;
-  left: 14px;
-  background: var(--ink);
-  font: 600 10px/1.1 "JetBrains Mono";
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ivory-3);
-  padding: 0 8px;
-  pointer-events: none;
 }
 
 /* Large faint ordinal — decorative, top-right corner */
@@ -99,21 +82,24 @@
   <div class="pillar-row">
 
     <!-- Pillar 1 -->
-    <div class="pillar" data-label="01 — Stage / Ivory">
+    <div class="panel pillar">
+      <span class="panel-label">01 — Stage / Ivory</span>
       <div class="num">01</div>
       <h3>A dark room. Ivory type.</h3>
       <p>Everything sits on the dark stage. Ivory at four steps — text, secondary, meta, disabled — is the only light. No foreground panels.</p>
     </div>
 
     <!-- Pillar 2 -->
-    <div class="pillar" data-label="02 — Two Colours">
+    <div class="panel pillar">
+      <span class="panel-label">02 — Two Colours</span>
       <div class="num">02</div>
       <h3>UI warm-neutral. Music chromatic.</h3>
       <p>Six warm greys plus four poster accents for chrome. The 12-tone wheel reserved for notes — never buttons, never borders.</p>
     </div>
 
     <!-- Pillar 3 -->
-    <div class="pillar" data-label="03 — Two Voices">
+    <div class="panel pillar">
+      <span class="panel-label">03 — Two Voices</span>
       <div class="num">03</div>
       <h3>Jazz speaks. Mono whispers.</h3>
       <p>Lets Jazz for everything read and remembered. JetBrains Mono for everything the system says back: timecodes, data, deltas.</p>

@@ -41,13 +41,13 @@
 .v2-card .kicker .dot { width: 8px; height: 8px; background: var(--tomato); display: inline-block; transform: translateY(-1px); }
 
 /* Demo card */
-.v2-card .demo-card {
+.v2-card .panel {
   background: var(--ink-3);
   border: 1px solid var(--ink-5);
   padding: 28px;
   position: relative;
 }
-.v2-card .demo-label {
+.v2-card .panel-label {
   position: absolute; top: -10px; left: 14px;
   background: var(--ink); color: var(--ivory-3);
   font-family: "JetBrains Mono"; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
@@ -263,8 +263,8 @@
   <p class="mute mt-16" style="max-width: 60ch;">EmotiTone is a sketchpad you play with your fingertips. The whole room — panels, tabs, knobs, the tiles themselves — should feel alive on the beat. Stillness is the silent state.</p>
 
   <!-- Easing curves -->
-  <div class="mt-40 demo-card">
-    <div class="demo-label">Easings · named like a horn section</div>
+  <div class="mt-40 panel">
+    <div class="panel-label">Easings · named like a horn section</div>
     <p class="mute mb-16" style="font-size: 12px;">Five curves do all the work. Pick the one whose <em>name</em> matches the gesture; never invent a new one.</p>
     <div class="grid g-5 ease-grid">
       <div class="ease-card">
@@ -307,8 +307,8 @@
   </div>
 
   <!-- HiFi Rush — UI as the beat -->
-  <div class="mt-24 demo-card">
-    <div class="demo-label">The room beats · HiFi-Rush rule</div>
+  <div class="mt-24 panel">
+    <div class="panel-label">The room beats · HiFi-Rush rule</div>
     <p class="mute mb-16" style="font-size: 12px;">Drop the dedicated "beat shapes." Instead the chrome <em>itself</em> moves: panels micro-scale, wire borders flash mustard on the downbeat, knob rings pulse, tiles bob 2-3px on the &amp; of every beat. Click the play head to feel it.</p>
     <div class="beat-room" id="beatRoom">
       <div class="beat-toolbar">
@@ -355,8 +355,8 @@
   </div>
 
   <!-- Persona-5 tabs -->
-  <div class="mt-24 demo-card">
-    <div class="demo-label">Persona-5 tabs · the offcut slide</div>
+  <div class="mt-24 panel">
+    <div class="panel-label">Persona-5 tabs · the offcut slide</div>
     <p class="mute mb-16" style="font-size: 12px;">The active chip is a torn paper rectangle, skewed −8°, with a 2px ink shadow. It <em>slides</em> between positions over a black-banner streak, briefly stretching like a smear before snapping flat. Click each label.</p>
 
     <div class="p5-tabs" data-p5="anim">
@@ -388,8 +388,8 @@
 
   <!-- Note-played flash + scrub haptic -->
   <div class="grid g-2 mt-24" style="gap: 24px;">
-    <div class="demo-card">
-      <div class="demo-label">Note-played · paper-rip flash</div>
+    <div class="panel">
+      <div class="panel-label">Note-played · paper-rip flash</div>
       <p class="mute mb-16" style="font-size: 12px;">When a tile fires, it lifts 2px, paper-rips at one corner, and emits a single chromatic ring matching its hue. No particle burst, no sparkle.</p>
       <div class="row" style="gap: 12px; align-items: center; justify-content: center; padding: 18px 0;">
         <div class="tile flash-target" style="background: #F26B3D; width: 110px; height: 110px;"><span class="corner">E5</span><span class="syll">Do</span><span class="pitch">E<sub>4</sub></span></div>
@@ -398,8 +398,8 @@
       </div>
       <p class="t-mono mute" style="font-size: 11px; text-align: center;">click a tile</p>
     </div>
-    <div class="demo-card">
-      <div class="demo-label">Mode change · cross-fade rip</div>
+    <div class="panel">
+      <div class="panel-label">Mode change · cross-fade rip</div>
       <p class="mute mb-16" style="font-size: 12px;">Changing key or mode tears the old label off the knob (skew + lift + fade) while the new one slides up from below. Bend ease, 360ms.</p>
       <div style="display: grid; place-items: center; height: 132px;">
         <div class="knob mode-knob" id="modeKnob" style="--p: 50%;">

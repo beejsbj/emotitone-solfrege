@@ -47,14 +47,14 @@
 .mt-40 { margin-top: 40px; }
 .mb-16 { margin-bottom: 16px; }
 
-.demo-card {
+.panel {
   background: var(--ink-3);
   border: 1px solid var(--ink-5);
   padding: 28px;
   position: relative;
   margin-top: 24px;
 }
-.demo-card .demo-label {
+.panel .panel-label {
   position: absolute; top: -10px; left: 14px;
   background: var(--ink); color: var(--ivory-3);
   font-family: "JetBrains Mono"; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
@@ -100,8 +100,8 @@
   <h2 class="t-jazz">Notation, cut from the same paper.</h2>
   <p class="mute mt-16" style="max-width: 60ch;">Functional cut-paper marks (§4) handle structure. These angular notation glyphs handle <em>music</em>: dropped into headers, captions, status, empty states. Two weights — paper (cream) for chrome, chromatic when riding a played note.</p>
 
-  <div class="mt-40 demo-card">
-    <div class="demo-label">The glyph set</div>
+  <div class="mt-40 panel">
+    <div class="panel-label">The glyph set</div>
     <div class="glyph-grid">
       <div class="glyph-cell"><svg viewBox="0 0 60 60" class="g"><!-- 8th note: angular notehead + cut stem + angular flag -->
         <path d="M35 8 L38 11 L37 24 L38 36 L37 46 L33 46 L34 36 L33 24 L34 11 Z" fill="currentColor"/>
@@ -188,8 +188,8 @@
   </div>
 
   <!-- Decorative confetti as section break -->
-  <div class="mt-24 demo-card">
-    <div class="demo-label">Confetti rule · sparingly</div>
+  <div class="mt-24 panel">
+    <div class="panel-label">Confetti rule · sparingly</div>
     <p class="mute mb-16" style="font-size: 12px;">A scatter of 4–6 marks sits on big blank stages: empty state for "no patterns yet," loading splash, success toasts. Never inside a populated panel.</p>
     <div class="confetti-stage">
       <svg viewBox="0 0 100 60" preserveAspectRatio="none" class="confetti-svg" aria-hidden="true">

@@ -3,7 +3,7 @@
   .pulse { width:96px; height:96px; border-radius:24px; background: var(--ink-3); box-shadow: var(--ring); display:grid; place-items:center;
     font: var(--t-h2); letter-spacing:.01em; text-transform:uppercase; color:var(--fg);}
   @keyframes b { 0%,100%{transform:scale(1)} 6%{transform:scale(1.06)} 60%{transform:scale(.99)} }
-  .pulse{animation: b 500ms cubic-bezier(.2,.9,.2,1) infinite;}
+  .pulse{animation: b var(--beat) var(--ease-stab) infinite;}
   .pulse.half{animation-duration:1000ms;}
   .pulse.qtr{animation-duration:250ms;}
 </style></head><body>

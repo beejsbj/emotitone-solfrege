@@ -53,11 +53,11 @@
     50.01% { left: calc(100% - 14px); }
     100% { left: 4px; }
   }
-  .ease.swing  .dot { animation: ease-run 2.4s cubic-bezier(.7,-0.2,.3,1.2) infinite alternate; }
-  .ease.stab   .dot { animation: ease-run 1.6s cubic-bezier(.2,.9,.3,1)    infinite alternate; }
-  .ease.brush  .dot { animation: ease-run 2.0s cubic-bezier(.4,0,.2,1)     infinite alternate; }
-  .ease.sustain .dot{ animation: ease-run 2.8s linear                       infinite alternate; }
-  .ease.bend   .dot { animation: ease-run 2.0s cubic-bezier(.85,0,.15,1)   infinite alternate; }
+  .ease.swing   .dot { animation: ease-run 2.4s var(--ease-swing)   infinite alternate; }
+  .ease.stab    .dot { animation: ease-run 1.6s var(--ease-stab)    infinite alternate; }
+  .ease.brush   .dot { animation: ease-run 2.0s var(--ease-brush)   infinite alternate; }
+  .ease.sustain .dot { animation: ease-run 2.8s var(--ease-sustain) infinite alternate; }
+  .ease.bend    .dot { animation: ease-run 2.0s var(--ease-bend)    infinite alternate; }
 
   .meta {
     margin-top: 14px;

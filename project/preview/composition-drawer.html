@@ -23,16 +23,16 @@
 .drawer-app {
   position: relative;
   padding: 14px;
-  transition: transform 360ms cubic-bezier(.7,-0.2,.3,1.2);
+  transition: transform var(--dur-panel) var(--ease-swing);
 }
 .drawer-frame.is-open .drawer-app { transform: translateY(16px); }
 
 /* Scrim */
 .drawer-scrim {
   position: absolute; inset: 0;
-  background: rgba(10,9,8,.55);
+  background: var(--scrim);
   opacity: 0; pointer-events: none;
-  transition: opacity 360ms cubic-bezier(.4,0,.2,1);
+  transition: opacity var(--dur-panel) var(--ease-brush);
   z-index: 2;
 }
 .drawer-frame.is-open .drawer-scrim { opacity: 1; pointer-events: auto; }
@@ -42,7 +42,7 @@
   position: absolute; left: 0; right: 0; top: 0;
   background: var(--ink-3);
   transform: translateY(-100%);
-  transition: transform 380ms cubic-bezier(.7,-0.2,.3,1.2);
+  transition: transform var(--dur-panel) var(--ease-swing);
   z-index: 3;
   max-height: 72%;
   display: flex; flex-direction: column;

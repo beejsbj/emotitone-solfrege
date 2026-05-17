@@ -11,29 +11,19 @@
   },
   "groups": [
     {
-      "id": "palette-neutrals",
-      "label": "Palette · Neutrals",
+      "id": "tokens-color",
+      "label": "Tokens · Color",
       "phase": "foundations",
       "order": 1,
       "status": "open",
-      "recommendation": "colors-neutrals is canonical — it matches the tokens in colors_and_type.css. colors-stage-palette uses v2-style names (--stage, --rise, --panel) that don't exist in the current token file, so it's likely visually broken. Suggest: keep [1], kill [2] OR rewrite [2] to use current tokens if its 12-step gradation adds something neutrals doesn't.",
-      "decisions_log": [],
+      "recommendation": "Phase 1: three tokens cards mirror the three color families in colors_and_type.css (UI / BRAND / MUSIC). Music card includes interactive controls for --music-count, --music-rotate, --music-c, --note-octave so the recipe is demonstrably correct.",
+      "decisions_log": [
+        { "date": "2026-05-17", "note": "Phase 1 token rebuild: deleted colors-neutrals.html, colors-stage-palette.html, colors-jazz-accents.html, colors-chromatic.html. Replaced with tokens-ui-colors.html, tokens-brand-colors.html, tokens-music-colors.html. Dead tokens removed: --saffron, --grape, --coral, --paper, --paper-rise, --cream." }
+      ],
       "cards": [
-        { "file": "colors-neutrals.html",      "num": 1, "iteration": "current", "tier": "token-specimen", "summary": "Five ink steps (dark) + four ivory steps (light) for all UI chrome.", "status": "pending", "note": "" },
-        { "file": "colors-stage-palette.html", "num": 2, "iteration": "current", "tier": "token-specimen", "summary": "12-step warm-neutral gradation; references v2-style --stage/--rise/--panel tokens not present in colors_and_type.css.", "status": "pending", "note": "" }
-      ]
-    },
-    {
-      "id": "palette-accents",
-      "label": "Palette · Jazz & Chromatic",
-      "phase": "foundations",
-      "order": 2,
-      "status": "open",
-      "recommendation": "Different concerns — keep both. Note: colors-jazz-accents only shows 4 (tomato, saffron, plum, bone) but the token file defines more (grape, coral, pine, paper). Worth extending [1] to show the full palette.",
-      "decisions_log": [],
-      "cards": [
-        { "file": "colors-jazz-accents.html", "num": 1, "iteration": "current", "tier": "token-specimen", "summary": "Four brand accents — splash/decoration only, never functional chrome.", "status": "pending", "note": "" },
-        { "file": "colors-chromatic.html",    "num": 2, "iteration": "current", "tier": "token-specimen", "summary": "Three chromatic coloring modes: fixed semitone, 7-note major, 5-note pentatonic.", "status": "pending", "note": "" }
+        { "file": "tokens-ui-colors.html",    "num": 1, "iteration": "current", "tier": "token-specimen", "summary": "UI chrome: ink-1..5, ivory-1..4, brass + sheen, glass, scrim, hairline. The whole app frame lives here.", "status": "pending", "note": "" },
+        { "file": "tokens-brand-colors.html", "num": 2, "iteration": "current", "tier": "token-specimen", "summary": "Brand poster set: tomato, pine, plum, bone. Decorative only — never on functional chrome.", "status": "pending", "note": "" },
+        { "file": "tokens-music-colors.html", "num": 3, "iteration": "current", "tier": "token-specimen", "summary": "Chromatic music color recipe (oklch). Interactive: switch between fixed (chromatic) and rooted (scale) modes; adjust --music-count, --music-rotate, --music-c, --note-octave.", "status": "pending", "note": "" }
       ]
     },
     {

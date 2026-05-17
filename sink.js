@@ -127,7 +127,10 @@ function buildPage() {
   const groupSections = data.groups.map(g => {
     const cards = g.cards.map(c => renderCard(c.file, c.num, g.cards.length, c.status, c.note, c.iteration)).join('\n')
     const log = g.decisions_log && g.decisions_log.length
-      ? g.decisions_log.map(d => `<li>${d}</li>`).join('')
+      ? g.decisions_log.map(d => {
+          if (typeof d === 'string') return `<li>${d}</li>`
+          return `<li><span class="log-date">${d.date || ''}</span> ${d.note || ''}</li>`
+        }).join('')
       : '<li class="empty">(no decisions yet)</li>'
     const code = `G${String(g.order).padStart(2,'0')}`
     return `<section class="group" id="group-${g.id}">
@@ -378,7 +381,7 @@ function buildPage() {
       font: var(--t-mono);
       font-size: 13px;
       letter-spacing: 0.04em;
-      color: var(--saffron);
+      color: var(--brass);
       background: var(--ink);
       padding: 4px 8px;
       border-radius: 3px;
@@ -388,7 +391,7 @@ function buildPage() {
     .nav-code {
       font: var(--t-mono);
       font-size: 10px;
-      color: var(--saffron);
+      color: var(--brass);
       background: var(--ink);
       padding: 1px 5px;
       border-radius: 2px;
@@ -405,16 +408,16 @@ function buildPage() {
     }
     .phase-tag      { background: var(--ink-4); color: var(--ivory-3); }
     .status-tag.status-open     { background: var(--ink-4); color: var(--ivory-3); }
-    .status-tag.status-decided  { background: var(--saffron); color: var(--ink); }
+    .status-tag.status-decided  { background: var(--brass); color: var(--ink); }
     .status-tag.status-executed { background: var(--note-me); color: var(--ink); }
 
     .iter-tag.iter-current { background: var(--ink-4); color: var(--ivory-2); }
     .iter-tag.iter-v2      { background: var(--plum); color: var(--ivory); }
-    .iter-tag.iter-hybrid  { background: var(--coral); color: var(--ink); }
+    .iter-tag.iter-hybrid  { background: var(--tomato); color: var(--ink); }
 
     .recommendation {
       background: var(--ink-3);
-      border-left: 3px solid var(--saffron);
+      border-left: 3px solid var(--brass);
       border-radius: 0 var(--r-sm) var(--r-sm) 0;
       padding: 12px 16px;
       margin-bottom: 18px;
@@ -424,7 +427,7 @@ function buildPage() {
       font-size: 10px;
       letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: var(--saffron);
+      color: var(--brass);
       margin-bottom: 6px;
     }
     .rec-body {
@@ -470,20 +473,20 @@ function buildPage() {
     .status-badge.status-pending { background: var(--ink-4); color: var(--ivory-3); }
     .status-badge.status-keep    { background: var(--note-me); color: var(--ink); }
     .status-badge.status-kill    { background: var(--tomato); color: var(--ivory); }
-    .status-badge.status-merge   { background: var(--saffron); color: var(--ink); }
+    .status-badge.status-merge   { background: var(--brass); color: var(--ink); }
     .status-badge.status-rename  { background: var(--plum); color: var(--ivory); }
-    .status-badge.status-rebuild { background: var(--coral); color: var(--ink); }
+    .status-badge.status-rebuild { background: var(--tomato); color: var(--ink); }
 
     /* status outline on the whole specimen */
     .specimen.status-keep    { box-shadow: var(--ring), inset 0 0 0 2px var(--note-me); }
     .specimen.status-kill    { box-shadow: var(--ring), inset 0 0 0 2px var(--tomato); opacity: 0.62; }
-    .specimen.status-merge   { box-shadow: var(--ring), inset 0 0 0 2px var(--saffron); }
+    .specimen.status-merge   { box-shadow: var(--ring), inset 0 0 0 2px var(--brass); }
     .specimen.status-rename  { box-shadow: var(--ring), inset 0 0 0 2px var(--plum); }
-    .specimen.status-rebuild { box-shadow: var(--ring), inset 0 0 0 2px var(--coral); }
+    .specimen.status-rebuild { box-shadow: var(--ring), inset 0 0 0 2px var(--tomato); }
 
     .card-note {
       font: var(--t-caption);
-      color: var(--saffron);
+      color: var(--brass);
       padding: 6px 14px;
       background: var(--ink-3);
       border-bottom: 1px solid var(--hairline);
@@ -515,6 +518,7 @@ function buildPage() {
     .decisions ul { list-style: none; padding: 0; margin: 0; }
     .decisions li { font: var(--t-body-s); color: var(--ivory-2); padding: 3px 0; }
     .decisions li.empty { color: var(--ivory-4); font-style: italic; }
+    .decisions .log-date { font-family: var(--font-mono); font-size: 10px; color: var(--ivory-3); margin-right: 6px; }
 
     /* stats strip in sidebar */
     .stats-strip {
@@ -534,7 +538,7 @@ function buildPage() {
     .stat-pending { background: var(--ink-3); color: var(--ivory-3); }
     .stat-keep    { background: var(--note-me); color: var(--ink); }
     .stat-kill    { background: var(--tomato); color: var(--ivory); }
-    .stat-merge   { background: var(--saffron); color: var(--ink); }
+    .stat-merge   { background: var(--brass); color: var(--ink); }
 
     /* inner box for token sections */
     .tok-box {
@@ -597,16 +601,12 @@ function buildPage() {
       <div class="swatch"><div class="swatch-block brass"></div><div class="swatch-meta"><div class="swatch-name">.brass</div><div class="swatch-val">gradient + sheen</div></div></div>
     </div>
 
-    <div class="tok-sub" id="tok-jazz">Jazz Accents</div>
+    <div class="tok-sub" id="tok-brand">Brand</div>
     <div class="tok-grid">
       <div class="swatch"><div class="swatch-block" style="background:var(--tomato)"></div><div class="swatch-meta"><div class="swatch-name">--tomato</div><div class="swatch-val">#d8362a</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--saffron)"></div><div class="swatch-meta"><div class="swatch-name">--saffron</div><div class="swatch-val">#f0b137</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--plum)"></div><div class="swatch-meta"><div class="swatch-name">--plum</div><div class="swatch-val">#6b3fa0</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--grape)"></div><div class="swatch-meta"><div class="swatch-name">--grape</div><div class="swatch-val">#4b1e78</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--coral)"></div><div class="swatch-meta"><div class="swatch-name">--coral</div><div class="swatch-val">#e96a4a</div></div></div>
       <div class="swatch"><div class="swatch-block" style="background:var(--pine)"></div><div class="swatch-meta"><div class="swatch-name">--pine</div><div class="swatch-val">#1f4d3f</div></div></div>
+      <div class="swatch"><div class="swatch-block" style="background:var(--plum)"></div><div class="swatch-meta"><div class="swatch-name">--plum</div><div class="swatch-val">#6b3fa0</div></div></div>
       <div class="swatch"><div class="swatch-block" style="background:var(--bone)"></div><div class="swatch-meta"><div class="swatch-name">--bone</div><div class="swatch-val">#efe6d0</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--paper)"></div><div class="swatch-meta"><div class="swatch-name">--paper</div><div class="swatch-val">#f1e9d8</div></div></div>
     </div>
 
     <div class="tok-sub" id="tok-chromatic">Chromatic Notes</div>

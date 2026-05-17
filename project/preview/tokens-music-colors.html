@@ -1,0 +1,264 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .recipe {
+    background: var(--ink-2);
+    border: 1px solid var(--hairline);
+    padding: 10px 12px;
+    font: var(--t-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--ivory-2);
+    white-space: pre;
+    overflow-x: auto;
+    margin: 0 0 14px;
+  }
+  .recipe .k { color: var(--brass); }
+  .recipe .v { color: var(--ivory); }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ctrl {
+    background: var(--ink-3);
+    border: 1px solid var(--hairline);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ctrl > label {
+    font: var(--t-label);
+    letter-spacing: var(--tracking-label);
+    color: var(--ivory-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .ctrl > label .val { color: var(--ivory); font-family: var(--font-mono); font-size: 11px; }
+  .ctrl input[type=range] {
+    width: 100%;
+    accent-color: var(--brass);
+  }
+  .mode-pills {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 14px;
+  }
+  .mode-pills button {
+    flex: 1;
+    background: var(--ink-3);
+    border: 1px solid var(--hairline);
+    color: var(--ivory-3);
+    font: var(--t-label);
+    letter-spacing: var(--tracking-label);
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 0;
+    text-transform: uppercase;
+  }
+  .mode-pills button.on {
+    background: var(--ivory);
+    color: var(--ink);
+    border-color: var(--ivory);
+  }
+
+  /* The note grid — the actual recipe demo */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 4px;
+    background: var(--ink);
+    padding: 8px;
+    border: 1px solid var(--hairline);
+  }
+  .grid .tile {
+    aspect-ratio: 1;
+    border: 1px solid rgba(0,0,0,.35);
+    display: grid;
+    place-items: center;
+    font: var(--t-label);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: rgba(0,0,0,.55);
+    letter-spacing: 0;
+    user-select: none;
+  }
+
+  /* Octave column (one column per octave, 12 cells deep). */
+  .stack {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 4px;
+    margin-top: 14px;
+    background: var(--ink);
+    padding: 8px;
+    border: 1px solid var(--hairline);
+  }
+  .stack .col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stack .col > .o-label {
+    text-align: center;
+    font: var(--t-label);
+    font-family: var(--font-mono);
+    color: var(--ivory-3);
+    font-size: 9px;
+    margin-bottom: 2px;
+  }
+  .stack .col > .swatch {
+    height: 22px;
+    border: 1px solid rgba(0,0,0,.35);
+  }
+
+  .legend {
+    margin-top: 14px;
+    font: var(--t-caption);
+    color: var(--ivory-3);
+    line-height: 1.55;
+  }
+  .legend code { font-family: var(--font-mono); color: var(--ivory-2); }
+</style></head><body>
+<div class="card" id="music-card">
+  <div class="label" style="margin-bottom:6px">TOKENS · MUSIC COLORS · OKLCH RECIPE</div>
+
+  <pre class="recipe"><span class="k">.note</span> {
+  --note-degree: <span class="v">0</span>;            <span style="color:var(--ivory-3)">/* 0..music-count-1 */</span>
+  --note-octave: <span class="v">4</span>;            <span style="color:var(--ivory-3)">/* 0..8 */</span>
+  --note-l:   calc(<span class="v">20%</span> + (var(--note-octave) * <span class="v">7.5%</span>));
+  --note-hue: calc((var(--note-degree) + var(--music-rotate)) * (<span class="v">360</span> / var(--music-count)));
+  background: oklch(var(--note-l) var(--music-c) var(--note-hue));
+}</pre>
+
+  <div class="mode-pills">
+    <button data-mode="fixed" class="on">Fixed · chromatic (count = 12)</button>
+    <button data-mode="rooted">Rooted · N-note scale</button>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>--music-count <span class="val" id="vCount">12</span></label>
+      <input type="range" id="rCount" min="2" max="12" step="1" value="12">
+    </div>
+    <div class="ctrl">
+      <label>--music-rotate <span class="val" id="vRot">0</span></label>
+      <input type="range" id="rRot" min="0" max="11" step="1" value="0">
+    </div>
+    <div class="ctrl">
+      <label>--music-c <span class="val" id="vChroma">0.18</span></label>
+      <input type="range" id="rChroma" min="0" max="0.4" step="0.01" value="0.18">
+    </div>
+    <div class="ctrl">
+      <label>--note-octave (preview row) <span class="val" id="vOct">4</span></label>
+      <input type="range" id="rOct" min="0" max="8" step="1" value="4">
+    </div>
+  </div>
+
+  <div class="grid" id="row" aria-label="One row per degree, fixed octave"></div>
+  <div class="legend"><b style="color:var(--ivory)">Above:</b> 12 cells = all chromatic degrees at the current octave. In Rooted mode, only the first <code>N</code> are emitted.</div>
+
+  <div class="stack" id="stack" aria-label="Octave stack — root degree, 9 octaves"></div>
+  <div class="legend"><b style="color:var(--ivory)">Below:</b> the root degree across 9 octaves (0..8). Octave drives lightness 20%→80%.</div>
+
+  <div class="caption" style="margin-top:14px">
+    Switch the FIXED/ROOTED pills to toggle the meaning of <code>--music-count</code>.
+    Fixed (12) keeps C in the same 30° slice forever. Rooted (set count = scale length and rotate = root degree)
+    puts the tonic at hue 0° and spreads the scale evenly around the wheel.
+  </div>
+</div>
+
+<script>
+(function () {
+  const card = document.getElementById('music-card');
+  const row = document.getElementById('row');
+  const stack = document.getElementById('stack');
+  const rCount = document.getElementById('rCount');
+  const rRot = document.getElementById('rRot');
+  const rChroma = document.getElementById('rChroma');
+  const rOct = document.getElementById('rOct');
+  const vCount = document.getElementById('vCount');
+  const vRot = document.getElementById('vRot');
+  const vChroma = document.getElementById('vChroma');
+  const vOct = document.getElementById('vOct');
+  const pills = card.querySelectorAll('.mode-pills button');
+
+  let mode = 'fixed';
+
+  function render() {
+    const count = parseInt(rCount.value, 10);
+    const rot = parseInt(rRot.value, 10);
+    const chroma = parseFloat(rChroma.value);
+    const oct = parseInt(rOct.value, 10);
+
+    vCount.textContent = count;
+    vRot.textContent = rot;
+    vChroma.textContent = chroma.toFixed(2);
+    vOct.textContent = oct;
+
+    card.style.setProperty('--music-count', count);
+    card.style.setProperty('--music-rotate', rot);
+    card.style.setProperty('--music-c', chroma);
+
+    // Top row: one tile per degree at the selected octave
+    row.innerHTML = '';
+    const total = mode === 'fixed' ? 12 : count;
+    for (let d = 0; d < total; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'tile note';
+      cell.style.setProperty('--note-degree', d);
+      cell.style.setProperty('--note-octave', oct);
+      cell.textContent = d;
+      row.appendChild(cell);
+    }
+    // Pad empty cells so the 12-col grid stays aligned in rooted mode
+    for (let p = total; p < 12; p++) {
+      const cell = document.createElement('div');
+      cell.className = 'tile';
+      cell.style.background = 'transparent';
+      cell.style.border = '1px dashed var(--ink-5)';
+      cell.style.color = 'var(--ink-5)';
+      cell.textContent = '·';
+      row.appendChild(cell);
+    }
+
+    // Stack: 9 columns (octaves), root degree only
+    stack.innerHTML = '';
+    for (let o = 0; o < 9; o++) {
+      const col = document.createElement('div');
+      col.className = 'col';
+      const ol = document.createElement('div');
+      ol.className = 'o-label';
+      ol.textContent = 'O' + o;
+      col.appendChild(ol);
+      const sw = document.createElement('div');
+      sw.className = 'swatch note';
+      sw.style.setProperty('--note-degree', 0);
+      sw.style.setProperty('--note-octave', o);
+      col.appendChild(sw);
+      stack.appendChild(col);
+    }
+  }
+
+  rCount.addEventListener('input', render);
+  rRot.addEventListener('input', render);
+  rChroma.addEventListener('input', render);
+  rOct.addEventListener('input', render);
+  pills.forEach(b => b.addEventListener('click', () => {
+    pills.forEach(p => p.classList.remove('on'));
+    b.classList.add('on');
+    mode = b.dataset.mode;
+    if (mode === 'fixed') {
+      rCount.value = 12;
+      rRot.value = 0;
+    }
+    render();
+  }));
+
+  render();
+})();
+</script>
+</body></html>

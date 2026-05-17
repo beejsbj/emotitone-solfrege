@@ -1,6 +1,15 @@
 /* ==========================================================================
    Emotitone Design System — Tokens
    Cut-paper jazz, lit by a synth.
+
+   TOKEN ARCHITECTURE (top-level groups)
+     1. UI         chrome — ink, ivory, brass, glass, scrim, hairline
+     2. BRAND      decorative — tomato, pine, plum, bone
+     3. MUSIC      chromatic — recipe (oklch) + legacy --note-* aliases
+     4. GEOMETRY   spacing, radii, shadows, ring
+     5. MOTION     beat, durations, easings, keyframes
+     6. SEMANTIC   bg/fg/border/danger roles backed by the above
+     7. TYPOGRAPHY display/text/mono stacks + scale + tracking
    ========================================================================== */
 
 @font-face {
@@ -13,28 +22,30 @@
 }
 
 :root {
-  /* ---------------------------------------------------------------
-     1. NEUTRALS — the cut-paper / noir-neon UI surface
-     The whole app frame is black & white. Color belongs to MUSIC.
-     --------------------------------------------------------------- */
+  /* ===============================================================
+     1. UI — chrome only. The whole app frame is black + white.
+        Color belongs to MUSIC, accent belongs to BRASS.
+     =============================================================== */
+
+  /* Ink (dark stage) */
   --ink:        #0A0908;     /* deepest stage black */
   --ink-2:      #141210;     /* surface 1 — rise */
   --ink-3:      #1B1815;     /* panel body */
   --ink-4:      #25211D;     /* hovered / pressed */
   --ink-5:      #3A352F;     /* wire / divider */
 
-  --ivory:      #F4EFE6;     /* off-white text */
-  --ivory-2:    #C9C2B5;
-  --ivory-3:    #8E867A;     /* meta */
-  --ivory-4:    #514B42;     /* disabled */
+  /* Ivory (light text on dark) */
+  --ivory:      #F4EFE6;     /* primary text */
+  --ivory-2:    #C9C2B5;     /* secondary text */
+  --ivory-3:    #8E867A;     /* meta / muted */
+  --ivory-4:    #514B42;     /* disabled / decorative */
 
-  /* ---------------------------------------------------------------
-     BRASS — the lone accent, applied as a metallic finish.
-     Add the .brass class (or use these vars) to fill any face/text
-     with a polished saxophone-key gradient + slow sheen.
-     --------------------------------------------------------------- */
-  /* Trumpet-bell brass — vivid gold with softened tonal swing.
-     Darks lifted so the gradient reads as a glimmer, not a hard fold. */
+  /* Brass — the lone lit signal. Apply via the .brass utility
+     (gradient + sheen). Reserve for ONE signal at a time. */
+  --brass:      #e0a93a;     /* base — vivid trumpet gold */
+  --brass-hi:   #f5d278;     /* warm highlight */
+  --brass-lo:   #c89230;     /* deep recess */
+  --brass-edge: #2a1c08;     /* engraved edge text */
   --brass-fill:
       linear-gradient(160deg,
         #d6a03e 0%,
@@ -54,47 +65,42 @@
         transparent 60%,
         transparent 100%);
 
-  --hairline:   rgba(255, 255, 255, 0.10);  /* borders on dark */
+  /* Glass, scrim, hairline — separators and over-content layers */
   --hairline:   rgba(255, 255, 255, 0.10);  /* borders on dark */
   --hairline-2: rgba(255, 255, 255, 0.06);  /* fainter dividers */
   --scrim:      rgba(0, 0, 0, 0.55);        /* over-content scrim */
   --glass:      rgba(20, 20, 20, 0.72);     /* drawer / popup */
   --glass-2:    rgba(255, 255, 255, 0.04);  /* on-glass tint */
 
-  /* ---------------------------------------------------------------
-     2. JAZZ ACCENTS — used SPARINGLY in static UI for personality
-     (poster scraps, tape, stickers, brand marks). Music notes get
-     their own chromatic system below.
-     --------------------------------------------------------------- */
-  /* The single accent. Treat as a finish, not a fill — always with
-     the .brass utility (gradient + sheen). Reserve for ONE signal at a time. */
-  --brass:      #e0a93a;     /* base tone — vivid trumpet gold */
-  --brass-hi:   #f5d278;     /* warm golden highlight (never white) */
-  --brass-lo:   #c89230;     /* deep recess (lifted) */
-  --brass-edge: #2a1c08;     /* shadow / engraved edge text */
+  /* ===============================================================
+     2. BRAND — decorative-only poster colors. Cut-paper marks,
+        kicker dots, sticker spines, brand artifacts. Never on
+        functional UI chrome. Four colors, that's the set.
+     =============================================================== */
+  --tomato:     #d8362a;     /* poster red */
+  --pine:       #1f4d3f;     /* deep green */
+  --plum:       #6b3fa0;     /* lifted purple */
+  --bone:       #efe6d0;     /* warm off-white (brand backgrounds) */
 
-  /* Decorative-only (posters, stickers, illustrations — never on chrome) */
-  --paper:      #f1e9d8;
-  --paper-rise: #faf5e9;
-  --bone:       #efe6d0;
+  /* ===============================================================
+     3. MUSIC — chromatic, computed. Every key / tile / note glyph
+        just sets --note-degree (0..n-1) and --note-octave (0..8).
 
-  /* Poster accents — flat fills for cut-paper marks, kicker dots, sticker
-     spines, badges. Never used on functional UI chrome. */
-  --saffron:    #f0b137;   /* mustard / signal */
-  --tomato:     #d8362a;   /* poster red */
-  --plum:       #6b3fa0;   /* lifted purple */
-  --grape:      #4b1e78;   /* deep purple */
-  --pine:       #1f4d3f;   /* deep green */
-  --coral:      #e96a4a;   /* warm pop */
-  --cream:      #f1e9d8;   /* alias of paper */
+        Mode switching:
+          - FIXED (chromatic): --music-count: 12  -> each degree
+            owns a 30° slice (C is always 0–30°).
+          - ROOTED (scale):    --music-count: N   -> N = scale
+            length, --music-rotate: <root-degree> to set tonic = hue 0.
 
-  /* ---------------------------------------------------------------
-     3. CHROMATIC MUSIC SCALE — 12 semitones, hsl-based
-     These are the SCALE-DEGREE colors. They move with the key.
-     The values below are the C-major rotation; the live system
-     rotates hue by +30° per semitone starting at the tonic.
-     Use these only for music feedback (keys, popups, particles).
-     --------------------------------------------------------------- */
+        Octave drives lightness 20%..80% across 8 octaves.
+     =============================================================== */
+  --music-count:  12;          /* 12 chromatic | N scale-length */
+  --music-rotate: 0;           /* root-degree offset, 0..count-1 */
+  --music-c:      0.18;        /* chroma in oklch */
+
+  /* Legacy named tokens (C major rotation, HSL). Kept while
+     individual cards migrate to the .note recipe. Phase 3 sweep
+     will replace these consumers with .note + --note-degree/-octave. */
   --note-do:    hsl( 18  85% 56%);  /* C  — orange (root, home) */
   --note-ra:    hsl( 48  90% 56%);  /* C# — gold */
   --note-re:    hsl( 78  72% 52%);  /* D  — lime */
@@ -113,57 +119,9 @@
   --glow-warm:  0 0 24px hsla(18 85% 56% / .45);
   --glow-cool:  0 0 24px hsla(202 82% 56% / .45);
 
-  /* ---------------------------------------------------------------
-     4. SEMANTIC ROLES (UI)
-     --------------------------------------------------------------- */
-  --bg:           var(--ink);
-  --bg-elevated:  var(--ink-2);
-  --bg-raised:    var(--ink-3);
-
-  --fg:           var(--ivory);
-  --fg-2:         var(--ivory-2);
-  --fg-3:         var(--ivory-3);
-  --fg-disabled:  var(--ivory-4);
-
-  --border:       var(--hairline);
-  --border-strong:var(--ink-5);
-
-  --accent:       var(--saffron);   /* sparingly: brand sparks */
-  --danger:       var(--tomato);
-  --success:      var(--note-mi);
-  --info:         var(--note-fi);
-
-  /* ---------------------------------------------------------------
-     5. TYPOGRAPHY
-     Display: "Lets Jazz" — condensed, all-caps poster face.
-     Text:    JetBrains Mono — body, labels, numbers (terminal feel).
-     Serif:   Instrument Serif — italic accents only.
-     --------------------------------------------------------------- */
-  --font-display: "Lets Jazz", "Instrument Serif", "Oswald", system-ui, sans-serif;
-  --font-serif:   "Instrument Serif", Georgia, serif; /* italic accents only */
-  /* Body + labels intentionally use JetBrains Mono — gives the UI a
-     terminal/score-like rhythm that complements the cut-paper display face. */
-  --font-text:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-
-  /* Type scale — mobile first. Display always UPPERCASE w/ tracking. */
-  --t-display-xl: 700 56px/0.92 var(--font-display);
-  --t-display-l:  700 40px/0.94 var(--font-display);
-  --t-display-m:  700 28px/0.96 var(--font-display);
-  --t-h1:         700 22px/1.10 var(--font-display);
-  --t-h2:         700 18px/1.14 var(--font-display);
-  --t-label:      600 11px/1.10 var(--font-text);   /* JetBrains Mono, tracked */
-  --t-body:       450 14px/1.55 var(--font-text);
-  --t-body-s:     450 12px/1.50 var(--font-text);
-  --t-caption:    450 11px/1.40 var(--font-text);
-  --t-mono:       500 12px/1.40 var(--font-mono);
-
-  --tracking-display: 0.01em;
-  --tracking-label:   0.14em;   /* generous spacing on UI labels */
-
-  /* ---------------------------------------------------------------
-     6. SPACING / RADII / SHADOW
-     --------------------------------------------------------------- */
+  /* ===============================================================
+     4. GEOMETRY — spacing, radii, shadow, ring
+     =============================================================== */
   --s-1: 2px;  --s-2: 4px;  --s-3: 6px;  --s-4: 8px;
   --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px;
   --s-9: 32px; --s-10: 48px; --s-11: 64px;
@@ -176,8 +134,7 @@
   --r-xl: 24px;
   --r-pill: 999px;
 
-  /* Hard offset cut-paper shadow — pinned-to-stage feel.
-     Use on lifted cream panels and active off-cut tabs. */
+  /* Hard offset cut-paper shadow — pinned-to-stage feel. */
   --shadow-cut: 6px 6px 0 var(--ink);
 
   /* Shadows: low-key. The app is mostly dark + glow, not drop-shadow. */
@@ -189,23 +146,23 @@
   /* Inner outline used everywhere on dark surfaces */
   --ring: inset 0 0 0 1px var(--hairline);
 
-  /* ---------------------------------------------------------------
-     7. MOTION
-     Beats are the foundation. Default tempo = 120bpm = 500ms/beat.
-     UI breathes on the beat; transitions snap with cut-paper edges.
-     --------------------------------------------------------------- */
+  /* ===============================================================
+     5. MOTION — beat, durations, easings
+        Beats are the foundation. Default tempo = 120bpm = 500ms/beat.
+        UI breathes on the beat; transitions snap with cut-paper edges.
+     =============================================================== */
   --beat: 500ms;          /* one quarter note at 120bpm */
   --eighth: 250ms;
   --sixteenth: 125ms;
 
-  /* Named curves — the horn section. Pick whose NAME matches the gesture;
-     never invent a new one. (Aliased from v2 §06.) */
+  /* The horn section — named curves. Pick whose NAME matches the
+     gesture; never invent a new one. */
   --ease-swing:   cubic-bezier(.7, -0.2, .3, 1.2);  /* tabs, knobs, drawer-in */
   --ease-stab:    cubic-bezier(.2, .9, .3, 1);      /* press, play, hit */
   --ease-brush:   cubic-bezier(.4, 0, .2, 1);       /* reveal, fade, drift */
   --ease-sustain: linear;                            /* playhead, scrub, meters */
   --ease-bend:    cubic-bezier(.85, 0, .15, 1);     /* pitch, mode change */
-  /* Legacy aliases kept for components shipped before the horn-section rename. */
+  /* Legacy aliases — kept for components shipped before the horn-section rename. */
   --ease-cut:     var(--ease-stab);
   --ease-paper:   cubic-bezier(.7, 0, .2, 1);
   --ease-stand:   var(--ease-brush);
@@ -220,6 +177,66 @@
   --dur-snap:   var(--dur-ui);
   --dur-slide:  var(--dur-panel);
   --dur-bloom:  var(--dur-scene);
+
+  /* ===============================================================
+     6. SEMANTIC — role aliases over the above
+     =============================================================== */
+  --bg:           var(--ink);
+  --bg-elevated:  var(--ink-2);
+  --bg-raised:    var(--ink-3);
+
+  --fg:           var(--ivory);
+  --fg-2:         var(--ivory-2);
+  --fg-3:         var(--ivory-3);
+  --fg-disabled:  var(--ivory-4);
+
+  --border:       var(--hairline);
+  --border-strong:var(--ink-5);
+
+  --accent:       var(--brass);     /* the one lit signal */
+  --danger:       var(--tomato);
+  --success:      var(--note-mi);
+  --info:         var(--note-fi);
+
+  /* ===============================================================
+     7. TYPOGRAPHY — Display, Text, Mono, Serif
+        Display: "Lets Jazz" — condensed all-caps poster face
+        Text:    JetBrains Mono — terminal/score feel
+        Serif:   Instrument Serif — italic accents only
+     =============================================================== */
+  --font-display: "Lets Jazz", "Instrument Serif", "Oswald", system-ui, sans-serif;
+  --font-serif:   "Instrument Serif", Georgia, serif; /* italic accents only */
+  --font-text:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Type scale — mobile first. Display always UPPERCASE w/ tracking. */
+  --t-display-xl: 700 56px/0.92 var(--font-display);
+  --t-display-l:  700 40px/0.94 var(--font-display);
+  --t-display-m:  700 28px/0.96 var(--font-display);
+  --t-h1:         700 22px/1.10 var(--font-display);
+  --t-h2:         700 18px/1.14 var(--font-display);
+  --t-label:      600 11px/1.10 var(--font-text);
+  --t-body:       450 14px/1.55 var(--font-text);
+  --t-body-s:     450 12px/1.50 var(--font-text);
+  --t-caption:    450 11px/1.40 var(--font-text);
+  --t-mono:       500 12px/1.40 var(--font-mono);
+
+  --tracking-display: 0.01em;
+  --tracking-label:   0.14em;
+}
+
+/* =================================================================
+   MUSIC RECIPE — apply by adding .note + --note-degree, --note-octave
+   to any element. The element computes its own oklch fill from the
+   --music-* knobs above. Switch the whole system to a scale by
+   setting --music-count and --music-rotate on the nearest ancestor.
+   ================================================================= */
+.note {
+  --note-degree: 0;        /* 0..music-count-1 */
+  --note-octave: 4;        /* 0..8 */
+  --note-l:   calc(20% + (var(--note-octave) * 7.5%));
+  --note-hue: calc((var(--note-degree) + var(--music-rotate)) * (360 / var(--music-count)));
+  background: oklch(var(--note-l) var(--music-c) var(--note-hue));
 }
 
 /* =================================================================

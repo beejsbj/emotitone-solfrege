@@ -85,7 +85,6 @@ function buildPage() {
 
   const navHtml = [
     `<div class="ng">Reference</div>
-     <a href="#tok-neutrals">Tokens</a>
      <a href="#assets">Assets</a>`,
     ...Object.entries(byPhase).map(([phase, groups]) => `
       <div class="ng">${PHASE_LABELS[phase] || phase}</div>
@@ -249,72 +248,6 @@ function buildPage() {
       scrollbar-width: thin;
       scrollbar-color: var(--ink-5) transparent;
     }
-
-    /* tokens */
-    .tok-section { margin-bottom: 48px; }
-    .tok-sub {
-      font: var(--t-label);
-      letter-spacing: var(--tracking-label);
-      text-transform: uppercase;
-      color: var(--fg-3);
-      margin: 24px 0 10px;
-      scroll-margin-top: 24px;
-    }
-    .tok-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 6px;
-    }
-    /* tokens-only swatch override — scoped so it doesn't leak into specimens
-       (colors-neutrals.html relies on _card.css's 56×56 swatch sizing) */
-    .tok-grid .swatch {
-      border-radius: var(--r-sm);
-      overflow: hidden;
-      box-shadow: var(--ring);
-      width: 100%;
-      height: auto;
-      flex-shrink: 1;
-    }
-    .tok-grid .swatch-block { height: 44px; }
-    .swatch-meta { padding: 5px 8px; background: var(--ink-3); }
-    .swatch-name { font: var(--t-caption); color: var(--fg-2); }
-    .swatch-val  { font: var(--t-caption); color: var(--fg-3); font-size: 10px; }
-
-    .type-row {
-      padding: 9px 0;
-      border-bottom: 1px solid var(--hairline-2);
-      display: flex;
-      align-items: baseline;
-      gap: 16px;
-    }
-    .type-row:last-child { border: none; }
-    .type-lbl { font: var(--t-caption); color: var(--fg-3); width: 110px; flex-shrink: 0; letter-spacing: var(--tracking-label); text-transform: uppercase; }
-
-    .sp-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
-    .sp-bar  { background: var(--ink-5); height: 12px; border-radius: 2px; }
-    .sp-lbl  { font: var(--t-caption); color: var(--fg-3); width: 52px; flex-shrink: 0; }
-    .sp-val  { font: var(--t-caption); color: var(--fg-2); }
-
-    .radii-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
-    .radius-block { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-    .radius-box { width: 48px; height: 48px; background: var(--ink-4); box-shadow: var(--ring); }
-    .radius-lbl { font: var(--t-caption); color: var(--fg-3); text-align: center; }
-
-    .easing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-    .easing-demo { background: var(--ink-3); border-radius: var(--r-sm); box-shadow: var(--ring); padding: 12px; }
-    .easing-name { font: var(--t-caption); color: var(--fg-3); letter-spacing: var(--tracking-label); text-transform: uppercase; margin-bottom: 8px; }
-    .easing-track { height: 28px; background: var(--ink-2); border-radius: var(--r-xs); position: relative; overflow: hidden; }
-    .easing-ball { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; background: var(--brass); border-radius: var(--r-xs); transition: left var(--dur-panel); }
-    .easing-demo:hover .easing-ball { left: calc(100% - 24px); }
-    .easing-demo[data-ease="swing"]   .easing-ball { transition-timing-function: var(--ease-swing); }
-    .easing-demo[data-ease="stab"]    .easing-ball { transition-timing-function: var(--ease-stab); }
-    .easing-demo[data-ease="brush"]   .easing-ball { transition-timing-function: var(--ease-brush); }
-    .easing-demo[data-ease="sustain"] .easing-ball { transition-timing-function: var(--ease-sustain); }
-    .easing-demo[data-ease="bend"]    .easing-ball { transition-timing-function: var(--ease-bend); }
-    .easing-demo[data-ease="paper"]   .easing-ball { transition-timing-function: var(--ease-paper); }
-
-    .beat-demo { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
-    .beat-box { width: 36px; height: 36px; background: var(--ink-4); border-radius: var(--r-xs); box-shadow: var(--ring); animation: beat var(--beat) var(--ease-cut) infinite; }
 
     /* group sections */
     .group { margin-bottom: 56px; }
@@ -540,14 +473,6 @@ function buildPage() {
     .stat-kill    { background: var(--tomato); color: var(--ivory); }
     .stat-merge   { background: var(--brass); color: var(--ink); }
 
-    /* inner box for token sections */
-    .tok-box {
-      background: var(--ink-3);
-      border-radius: var(--r-sm);
-      box-shadow: var(--ring);
-      padding: 18px 22px;
-    }
-
     /* assets */
     .assets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
     .asset-card { background: var(--ink-3); border-radius: var(--r-sm); box-shadow: var(--ring); overflow: hidden; }
@@ -573,115 +498,6 @@ function buildPage() {
 </aside>
 
 <main id="main">
-
-  <!-- TOKENS ─────────────────────────────── -->
-  <div class="tok-section">
-    <h2 class="group-header" id="tokens">Tokens</h2>
-
-    <div class="tok-sub" id="tok-neutrals">Neutrals</div>
-    <div class="tok-grid">
-      <div class="swatch"><div class="swatch-block" style="background:var(--ink)"></div><div class="swatch-meta"><div class="swatch-name">--ink</div><div class="swatch-val">#0A0908</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ink-2)"></div><div class="swatch-meta"><div class="swatch-name">--ink-2</div><div class="swatch-val">#141210</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ink-3)"></div><div class="swatch-meta"><div class="swatch-name">--ink-3</div><div class="swatch-val">#1B1815</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ink-4)"></div><div class="swatch-meta"><div class="swatch-name">--ink-4</div><div class="swatch-val">#25211D</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ink-5)"></div><div class="swatch-meta"><div class="swatch-name">--ink-5</div><div class="swatch-val">#3A352F</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ivory)"></div><div class="swatch-meta"><div class="swatch-name">--ivory</div><div class="swatch-val">#F4EFE6</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ivory-2)"></div><div class="swatch-meta"><div class="swatch-name">--ivory-2</div><div class="swatch-val">#C9C2B5</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ivory-3)"></div><div class="swatch-meta"><div class="swatch-name">--ivory-3</div><div class="swatch-val">#8E867A</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--ivory-4)"></div><div class="swatch-meta"><div class="swatch-name">--ivory-4</div><div class="swatch-val">#514B42</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--glass)"></div><div class="swatch-meta"><div class="swatch-name">--glass</div><div class="swatch-val">rgba(20,20,20,.72)</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--scrim)"></div><div class="swatch-meta"><div class="swatch-name">--scrim</div><div class="swatch-val">rgba(0,0,0,.55)</div></div></div>
-    </div>
-
-    <div class="tok-sub" id="tok-brass">Brass</div>
-    <div class="tok-grid">
-      <div class="swatch"><div class="swatch-block" style="background:var(--brass)"></div><div class="swatch-meta"><div class="swatch-name">--brass</div><div class="swatch-val">#e0a93a</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--brass-hi)"></div><div class="swatch-meta"><div class="swatch-name">--brass-hi</div><div class="swatch-val">#f5d278</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--brass-lo)"></div><div class="swatch-meta"><div class="swatch-name">--brass-lo</div><div class="swatch-val">#c89230</div></div></div>
-      <div class="swatch"><div class="swatch-block brass"></div><div class="swatch-meta"><div class="swatch-name">.brass</div><div class="swatch-val">gradient + sheen</div></div></div>
-    </div>
-
-    <div class="tok-sub" id="tok-brand">Brand</div>
-    <div class="tok-grid">
-      <div class="swatch"><div class="swatch-block" style="background:var(--tomato)"></div><div class="swatch-meta"><div class="swatch-name">--tomato</div><div class="swatch-val">#d8362a</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--pine)"></div><div class="swatch-meta"><div class="swatch-name">--pine</div><div class="swatch-val">#1f4d3f</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--plum)"></div><div class="swatch-meta"><div class="swatch-name">--plum</div><div class="swatch-val">#6b3fa0</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--bone)"></div><div class="swatch-meta"><div class="swatch-name">--bone</div><div class="swatch-val">#efe6d0</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--mustard)"></div><div class="swatch-meta"><div class="swatch-name">--mustard</div><div class="swatch-val">#f0b137</div></div></div>
-    </div>
-
-    <div class="tok-sub" id="tok-chromatic">Chromatic Notes</div>
-    <div class="tok-grid">
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-do)"></div><div class="swatch-meta"><div class="swatch-name">--note-do</div><div class="swatch-val">C · orange</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-ra)"></div><div class="swatch-meta"><div class="swatch-name">--note-ra</div><div class="swatch-val">C# · gold</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-re)"></div><div class="swatch-meta"><div class="swatch-name">--note-re</div><div class="swatch-val">D · lime</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-me)"></div><div class="swatch-meta"><div class="swatch-name">--note-me</div><div class="swatch-val">D# · green</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-mi)"></div><div class="swatch-meta"><div class="swatch-name">--note-mi</div><div class="swatch-val">E · emerald</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-fa)"></div><div class="swatch-meta"><div class="swatch-name">--note-fa</div><div class="swatch-val">F · cyan</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-fi)"></div><div class="swatch-meta"><div class="swatch-name">--note-fi</div><div class="swatch-val">F# · sky</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-se)"></div><div class="swatch-meta"><div class="swatch-name">--note-se</div><div class="swatch-val">G♭ · indigo</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-sol)"></div><div class="swatch-meta"><div class="swatch-name">--note-sol</div><div class="swatch-val">G · violet</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-le)"></div><div class="swatch-meta"><div class="swatch-name">--note-le</div><div class="swatch-val">G# · magenta</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-la)"></div><div class="swatch-meta"><div class="swatch-name">--note-la</div><div class="swatch-val">A · pink</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-te)"></div><div class="swatch-meta"><div class="swatch-name">--note-te</div><div class="swatch-val">A# · rose</div></div></div>
-      <div class="swatch"><div class="swatch-block" style="background:var(--note-ti)"></div><div class="swatch-meta"><div class="swatch-name">--note-ti</div><div class="swatch-val">B · coral</div></div></div>
-    </div>
-
-    <div class="tok-sub" id="tok-type">Typography</div>
-    <div class="tok-box">
-      <div class="type-row"><span class="type-lbl">display-xl</span><span style="font:var(--t-display-xl);letter-spacing:var(--tracking-display);text-transform:uppercase">Emotitone</span></div>
-      <div class="type-row"><span class="type-lbl">display-l</span><span style="font:var(--t-display-l);letter-spacing:var(--tracking-display);text-transform:uppercase">Jazz is Feeling</span></div>
-      <div class="type-row"><span class="type-lbl">display-m</span><span style="font:var(--t-display-m);letter-spacing:var(--tracking-display);text-transform:uppercase">Play. Learn. Emote.</span></div>
-      <div class="type-row"><span class="type-lbl">h1</span><span style="font:var(--t-h1);letter-spacing:var(--tracking-display);text-transform:uppercase">C Major · 3 · 7d left</span></div>
-      <div class="type-row"><span class="type-lbl">h2</span><span style="font:var(--t-h2);letter-spacing:var(--tracking-display);text-transform:uppercase">Soft Glass Preset</span></div>
-      <div class="type-row"><span class="type-lbl">label</span><span style="font:var(--t-label);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--fg-3)">sound · all sounds · 992</span></div>
-      <div class="type-row"><span class="type-lbl">body</span><span style="font:var(--t-body)">piano · c major · 3 · 7d left</span></div>
-      <div class="type-row"><span class="type-lbl">body-s</span><span style="font:var(--t-body-s);color:var(--fg-2)">contrabass, clavinet, music box</span></div>
-      <div class="type-row"><span class="type-lbl">mono</span><span style="font:var(--t-mono);color:var(--fg-3)">&#60; { Do@0.282 ~@0.041 Ra } &#62;</span></div>
-    </div>
-
-    <div class="tok-sub" id="tok-spacing">Spacing</div>
-    <div class="tok-box" style="display:flex;flex-direction:column;gap:5px;">
-      <div class="sp-row"><span class="sp-lbl">--s-1</span><div class="sp-bar" style="width:2px"></div><span class="sp-val">2px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-2</span><div class="sp-bar" style="width:4px"></div><span class="sp-val">4px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-3</span><div class="sp-bar" style="width:6px"></div><span class="sp-val">6px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-4</span><div class="sp-bar" style="width:8px"></div><span class="sp-val">8px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-5</span><div class="sp-bar" style="width:12px"></div><span class="sp-val">12px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-6</span><div class="sp-bar" style="width:16px"></div><span class="sp-val">16px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-7</span><div class="sp-bar" style="width:20px"></div><span class="sp-val">20px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-8</span><div class="sp-bar" style="width:24px"></div><span class="sp-val">24px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-9</span><div class="sp-bar" style="width:32px"></div><span class="sp-val">32px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-10</span><div class="sp-bar" style="width:48px"></div><span class="sp-val">48px</span></div>
-      <div class="sp-row"><span class="sp-lbl">--s-11</span><div class="sp-bar" style="width:64px"></div><span class="sp-val">64px</span></div>
-    </div>
-
-    <div class="tok-sub" id="tok-radii">Radii</div>
-    <div class="tok-box">
-      <div class="radii-row">
-        <div class="radius-block"><div class="radius-box" style="border-radius:0"></div><div class="radius-lbl">0<br><span style="color:var(--fg-3)">poster</span></div></div>
-        <div class="radius-block"><div class="radius-box" style="border-radius:var(--r-xs)"></div><div class="radius-lbl">--r-xs<br><span style="color:var(--fg-3)">4px</span></div></div>
-        <div class="radius-block"><div class="radius-box" style="border-radius:var(--r-sm)"></div><div class="radius-lbl">--r-sm<br><span style="color:var(--fg-3)">8px</span></div></div>
-        <div class="radius-block"><div class="radius-box" style="border-radius:var(--r-md)"></div><div class="radius-lbl">--r-md<br><span style="color:var(--fg-3)">14px</span></div></div>
-        <div class="radius-block"><div class="radius-box" style="border-radius:var(--r-lg)"></div><div class="radius-lbl">--r-lg<br><span style="color:var(--fg-3)">18px</span></div></div>
-        <div class="radius-block"><div class="radius-box" style="border-radius:var(--r-xl)"></div><div class="radius-lbl">--r-xl<br><span style="color:var(--fg-3)">24px</span></div></div>
-        <div class="radius-block"><div class="radius-box" style="border-radius:var(--r-pill)"></div><div class="radius-lbl">--r-pill<br><span style="color:var(--fg-3)">999px</span></div></div>
-      </div>
-    </div>
-
-    <div class="tok-sub" id="tok-motion">Motion — Easings (hover to animate)</div>
-    <div class="easing-grid">
-      <div class="easing-demo" data-ease="swing"><div class="easing-name">--ease-swing</div><div class="easing-track"><div class="easing-ball"></div></div></div>
-      <div class="easing-demo" data-ease="stab"><div class="easing-name">--ease-stab</div><div class="easing-track"><div class="easing-ball"></div></div></div>
-      <div class="easing-demo" data-ease="brush"><div class="easing-name">--ease-brush</div><div class="easing-track"><div class="easing-ball"></div></div></div>
-      <div class="easing-demo" data-ease="sustain"><div class="easing-name">--ease-sustain</div><div class="easing-track"><div class="easing-ball"></div></div></div>
-      <div class="easing-demo" data-ease="bend"><div class="easing-name">--ease-bend</div><div class="easing-track"><div class="easing-ball"></div></div></div>
-      <div class="easing-demo" data-ease="paper"><div class="easing-name">--ease-paper</div><div class="easing-track"><div class="easing-ball"></div></div></div>
-    </div>
-    <div class="beat-demo">
-      <div class="beat-box"></div>
-      <span style="font:var(--t-caption);color:var(--fg-3)">--beat: 500ms · .beat-pulse</span>
-    </div>
-  </div>
 
   <!-- CARD SECTIONS ──────────────────────── -->
   ${cardSections}

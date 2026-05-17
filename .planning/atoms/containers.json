@@ -1,0 +1,216 @@
+{
+  "family": "containers",
+  "subfamilies": ["card-shells", "panels", "tabs", "drawers", "reels", "strips", "meta-rows"],
+  "atoms": [
+    {
+      "name": "panel-floating-label",
+      "subfamily": "panels",
+      "description": "Inset panel with a small JetBrains-Mono caps label clipping into the top border like a folder tab (label sits on top:-10px, has a solid background matching the outer surface so it 'cuts' the border). The workhorse panel chrome — used to label any block of content inside a card.",
+      "files_using": [
+        "project/preview/components-card.html",
+        "project/preview/composition-pattern-reel.html",
+        "project/preview/composition-motion-overview.html",
+        "project/preview/composition-spacing-overview.html",
+        "project/preview/composition-music-marks.html",
+        "project/preview/composition-drawer.html"
+      ],
+      "canonical_candidate": "project/preview/composition-pattern-reel.html",
+      "canonical_reason": "Cleanest abstraction: a dedicated .specimen-panel + .panel-label pair using current tokens (--ink-3 bg, --ink-5 border, --ink-2 label bg, --ivory-3 text, 10px 0.18em). Other consumers re-implement inline with subtle variations.",
+      "variants_found": [
+        "Class names: .pillar (components-card), .specimen-panel + .panel-label (composition-pattern-reel), .demo-card + .demo-label (composition-motion-overview, -spacing-overview, -music-marks), .group + .group-label (composition-drawer)",
+        "Outer bg: --ink-3 (pillar, specimen-panel, demo-card via --panel #1B1815, drawer .group has none)",
+        "Border: 1px solid --ink-5 (pillar, specimen-panel) vs 1px solid --wire #3A352F (v2 demo-card) — different token, same intent",
+        "Label background (what 'cuts' the border): --ink (pillar — assumes ivory-on-ink outer card), --ink-2 (specimen-panel — pattern-merge wraps in .card so ink-2), --stage #0A0908 (demo-label in v2 — matches body), --ink-3 (group-label in drawer — matches drawer bg)",
+        "Label color: --ivory-3 everywhere except composition-drawer where it's --ivory (stronger), and v2 demo-label uses --ink-mute",
+        "Label font: 600 10px JBM 0.18em (pillar), --t-label 10px 0.18em (specimen-panel), 10px JBM 0.18em (v2), 700 13px Lets Jazz 0.14em (drawer .group-label — Jazz! not Mono!)",
+        "Label position: top:-10px left:14px is the dominant pattern; drawer's group-label uses top:-10px left:12px"
+      ],
+      "drift_notes": "Same visual pattern reinvented in 5+ places under 4 different class-name pairs. Critically, the 'cut' background of the floating label must match its outer surface — when consumers wrap differently (raw card vs v2-card vs drawer body) they each guess. composition-drawer breaks the convention by using Lets Jazz 13px for the label instead of Mono 10px. This is the single most-reinvented atom in the family."
+    },
+    {
+      "name": "labelled-state-frame",
+      "subfamily": "panels",
+      "description": "A dark inset wrapper (.frame / .state / .stage / .anchor) with a 'pin' caption in the top-left ('01 · REST' etc.) used to chunk specimen variants vertically inside a card. The presentational frame for state-matrix demos.",
+      "files_using": [
+        "project/preview/components-panel-header.html",
+        "project/preview/components-code-strip.html",
+        "project/preview/components-pattern-card.html",
+        "project/preview/components-solfege-tile.html",
+        "project/preview/mot-primitives-tab-slide.html",
+        "project/preview/components-section-anchor.html",
+        "project/preview/components-badge.html"
+      ],
+      "canonical_candidate": "project/preview/components-panel-header.html",
+      "canonical_reason": "Most fully specified .frame implementation: #0a0908 bg, 1px --hairline border, 22px padding, .pin in 9px JBM 0.22em --ivory-4, with sibling-margin rule (.frame + .frame { margin-top: 12px }).",
+      "variants_found": [
+        "Class names: .frame (panel-header, code-strip), .state (pattern-card), .stage (tab-slide), .group (badge), .anchor (section-anchor) — same shape, six different names",
+        "Background: #0a0908 hard-coded (most) vs no bg (.group in badge)",
+        "Padding: 22px 18px 14px (panel-header) / 22px 16px 14px (code-strip) / 20px 14px 14px (pattern-card) / 28px 20px 22px (tab-slide stage) / 22px 18px 14px (badge .group) / 38px 32px 32px (anchor)",
+        "Pin position: top:6px left:12px (most) vs top:8px left:10px (badge) vs top:10px left:14px (anchor)",
+        "Pin color: --ivory-4 (most) vs --ivory-3 (badge .pin)",
+        "Some have a sibling-margin rule, some don't"
+      ],
+      "drift_notes": "Six different class names for the same 'dark inset frame with a tiny ordinal pin' pattern. Padding values are all slightly different, background is hard-coded #0a0908 in every copy (should be a token). Pin color and position drift. Used as the de-facto container for any state-matrix or anatomy demo — desperately needs to be one primitive."
+    },
+    {
+      "name": "card-pillar",
+      "subfamily": "card-shells",
+      "description": "Numbered-principle card variant of panel-floating-label: an inset panel that additionally carries a large faint ordinal digit in the top-right (52px Lets Jazz, --ivory-4) plus a title (h3) and body. Documented as the 'floating-label card pattern' in CLAUDE.md.",
+      "files_using": [
+        "project/preview/components-card.html"
+      ],
+      "canonical_candidate": "project/preview/components-card.html",
+      "canonical_reason": "The only specimen — this is the documented reference for the pattern, and CLAUDE.md explicitly enshrines it.",
+      "variants_found": [
+        "Only one variant currently exists, but the 'large faint ordinal in top-right corner' decoration also appears alone on stack-cards / active-cards in composition-pattern-reel — that's a related but distinct atom (number badge)",
+        "Hand-cut rotation per child: rotate(0.2deg) / rotate(-0.3deg) / rotate(0.15deg) — typical 'cut-paper' jitter"
+      ],
+      "drift_notes": "Pattern is documented but only used once. If the design system wants 'pillar' or 'numbered principle' cards elsewhere, this atom must be promoted; otherwise it should fold into panel-floating-label with an opt-in 'ordinal' slot."
+    },
+    {
+      "name": "v2-card-wrapper",
+      "subfamily": "card-shells",
+      "description": "Parallel root container used by all v2-imported composition cards. Defines its own local token namespace (--stage, --panel, --wire, --paper, --jazz-*, --do/--ra/...) inside a .v2-card scope, sets its own width:700px, padding, color, and font. It bypasses .card from _card.css entirely.",
+      "files_using": [
+        "project/preview/composition-motion-overview.html",
+        "project/preview/composition-spacing-overview.html",
+        "project/preview/composition-music-marks.html"
+      ],
+      "canonical_candidate": "project/preview/composition-motion-overview.html",
+      "canonical_reason": "Most fully specified — defines the complete shadow token set the other two reuse verbatim. If we keep .v2-card it should be extracted to a stylesheet; if we kill it, this is the migration baseline.",
+      "variants_found": [
+        "Local tokens duplicated verbatim across all 3 files (--stage:#0A0908, --panel:#1B1815, --wire:#3A352F, --paper:#F1E9D8, plus --do/--ra/.../--te chromatic and --jazz-* accents)",
+        "Hard-coded width:700px in each, matching .card",
+        "Padding: 32px 36px (vs .card 22px 24px)",
+        "Body font: JBM 14px (vs .card body inherits from _card.css)"
+      ],
+      "drift_notes": "MAJOR DRIFT. The v2-card system is a parallel universe of tokens that shadows the canonical palette: --stage vs --ink, --panel vs --ink-3, --wire vs --hairline, --paper vs --ivory, --do vs --note-do, --jazz-mustard vs --brass. CLAUDE.md explicitly says 'never use --paper, never use cream' but these compositions do. Three of the six composition cards live in this parallel system — they must either be migrated to the canonical .card + canonical tokens or the v2 tokens must be reconciled. This is the single highest-priority reconciliation in the design system."
+    },
+    {
+      "name": "tabs-offcut-active",
+      "subfamily": "tabs",
+      "description": "Persona-5 tab control: a row of labels in a wire/inked container; the active label is a paper-fill rectangle skewed and clipped on an irregular cut-paper polygon, sitting above a dark 'streak' bar. Slides between positions with a smear during transit.",
+      "files_using": [
+        "project/preview/components-tabs.html",
+        "project/preview/mot-primitives-tab-slide.html",
+        "project/preview/composition-motion-overview.html",
+        "project/preview/mot-compositions-state-cascade.html"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-tab-slide.html",
+      "canonical_reason": "Has the full mechanic (streak layer, active-chip slide via JS, smear transform during transit, mix-blend-mode:difference on text). components-tabs.html only shows the static styled state; composition-motion-overview reimplements the entire chip in .p5-* classes.",
+      "variants_found": [
+        "Static-only (components-tabs.html): clip-path applied directly to active tab, skewX(-2deg), --shadow-cut box-shadow, no streak, no slide JS",
+        "Animated primitive (mot-primitives-tab-slide.html): .tabs + .streak + .active-chip layered, JS-driven left/width, smear class during transit",
+        "v2-namespaced (composition-motion-overview.html .p5-*): same mechanic re-implemented under different class names (.p5-tabs / .p5-streak / .p5-active / .p5-btn) with skew(-12deg) (vs -8deg elsewhere), uses --paper instead of --ivory",
+        "Active-chip clip polygons differ: polygon(4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%) in components-tabs vs polygon(2% 0, 100% 4%, 98% 100%, 0 96%) in p5-active",
+        "Transition durations differ: 320ms (p5) vs whatever components-tabs uses (none — instant)"
+      ],
+      "drift_notes": "Three implementations of the same control under three class-name systems (.tab.active / .active-chip / .p5-active). The polygon clip-path coordinates differ. Smear/skew values differ. No segmented-control primitive exists — see segmented-control atom below for the quieter sibling that is also fragmented."
+    },
+    {
+      "name": "segmented-control",
+      "subfamily": "tabs",
+      "description": "Quiet pill/segmented control — multiple text buttons in a wire box, with the active one filled (paper or ivory-4 bg). The non-Persona-5 fallback for low-stakes filters.",
+      "files_using": [
+        "project/preview/composition-drawer.html"
+      ],
+      "canonical_candidate": "project/preview/composition-drawer.html",
+      "canonical_reason": "Only fully-implemented copy lives here (.seg class). Composition-motion-overview's note references 'the quiet segmented in §5' but no spec card exists for it.",
+      "variants_found": [
+        "Inside the drawer, two instances use different active treatments: button.on { background: var(--ivory-4); color: var(--ivory) } — note the inverted contrast (light text on slightly-lighter bg)",
+        "Inline-defined only; no dedicated specimen card"
+      ],
+      "drift_notes": "No standalone specimen — exists only inline in the drawer composition. CLAUDE.md and the motion overview both reference 'segmented' as a primitive but it has never been documented. Should be promoted to its own card and tokenised."
+    },
+    {
+      "name": "drawer-from-ceiling",
+      "subfamily": "drawers",
+      "description": "Top-anchored drawer that drops from the ceiling: a stage frame with overflow:hidden, an absolutely positioned drawer translating from translateY(-100%) → 0, a scrim layer underneath the drawer, app content visible behind, and a torn-paper SVG handle at the bottom that drags/taps to close. Includes pane-switching for multiple drawer contents.",
+      "files_using": [
+        "project/preview/composition-drawer.html"
+      ],
+      "canonical_candidate": "project/preview/composition-drawer.html",
+      "canonical_reason": "Sole implementation. No other 'drawer' specimen card exists — components-drawer.html was deleted per the task brief.",
+      "variants_found": [
+        "Three drawer-pane variants are documented inside the single file: 'instrument' (group + grid + seg), 'presets' (preset-row stack), 'settings' (setting-item list) — three different inner-content layouts for the same drawer chrome",
+        "Trigger buttons (.trig.primary / .trig.ghost) are inlined here and not extracted"
+      ],
+      "drift_notes": "The drawer mechanic itself is well-isolated, but the inner pane layouts (groups, preset rows, setting items) are inlined and not yet abstracted as standalone container atoms. The 'torn paper handle' SVG is hand-built and would need a primitive of its own if reused. No specimen card exists for the drawer in isolation; this is the only specification."
+    },
+    {
+      "name": "pattern-reel-stack",
+      "subfamily": "reels",
+      "description": "Vertical stack of small inactive cards above one tall active card. Stacked cards step down in scale and opacity to read as a deck; clicking a stacked card promotes it (active demotes into the stack). The Patterns list mechanic.",
+      "files_using": [
+        "project/preview/components-pattern-reel.html",
+        "project/preview/composition-pattern-reel.html"
+      ],
+      "canonical_candidate": "project/preview/composition-pattern-reel.html",
+      "canonical_reason": "Has the live JS, real data, proper transitions (--ease-swing, --ease-brush, --ease-paper tokens), and hover lift behaviour. The components- version only shows dashed empty placeholders.",
+      "variants_found": [
+        "Empty/mechanic surface (components-pattern-reel.html): dashed --ink-5 borders on .ph-card placeholders, .ph-active is full-height with skeleton bars",
+        "Populated/interactive (composition-pattern-reel.html): solid borders, real .stack-card buttons with .s-1/.s-2/.s-3 depth classes (rotation + scale + opacity per depth), .active-card with animated rise-in, hover lifts -6px",
+        "Stack-card class-name and grid template differ: 4px 56px 1fr 130px 60px (empty) vs 4px 56px minmax(0,1fr) 156px 74px (populated)",
+        "Restline divider style is identical in both — a Mono caps line with hairlines on either side"
+      ],
+      "drift_notes": "Two specimens converge on the same mechanic but the column grids are subtly different. The active card uses an animation in the populated version (active-rise keyframe) that doesn't exist in the empty version. The 'tap stacked → promote' interaction is only documented in the composition. Should consolidate on one .reel + one .stack-card primitive with optional placeholder/populated modes."
+    },
+    {
+      "name": "code-strip-notation",
+      "subfamily": "strips",
+      "description": "Horizontal strip showing live Strudel-style notation: a play head icon (28sq wire), a horizontally flowing sequence of chromatic syllables (Lets Jazz 18 bold caps) interleaved with mono punctuation and timestamps (JBM 11–13, ivory-4/ivory-3), optional right-aligned action buttons (28sq wire). The pattern's 'voice' row.",
+      "files_using": [
+        "project/preview/components-code-strip.html"
+      ],
+      "canonical_candidate": "project/preview/components-code-strip.html",
+      "canonical_reason": "Only specimen. Well structured with three states (rest / playing-lit / long-with-accidentals).",
+      "variants_found": [
+        "Three states documented: rest (no right-buttons), playing (one syllable lit with text-shadow + trailing filled square + two right-buttons), long-with-accidentals (one right-button, accidental ♭ inline)",
+        "The 'lit' syllable uses currentColor text-shadow and a 6px square trail — only chromatic feedback in the strip"
+      ],
+      "drift_notes": "Single isolated specimen. Composition cards that show 'app stage' content (composition-drawer, composition-motion-overview) re-implement their own chromatic tapes/strips but don't use this code-strip atom. If the design wants 'notation everywhere' this needs to migrate into the drawer's app surface too."
+    },
+    {
+      "name": "panel-header-with-tape",
+      "subfamily": "panels",
+      "description": "Workhorse panel header: badge + meta line + right-side icon row (≤3), with the chromatic bar-tape glued underneath as a 6px diatonic-width strip. Always ships as one unit; the seam between header and panel body.",
+      "files_using": [
+        "project/preview/components-panel-header.html",
+        "project/preview/composition-drawer.html"
+      ],
+      "canonical_candidate": "project/preview/components-panel-header.html",
+      "canonical_reason": "Documented specimen with three states (rest, live-recording with brass dot, minimal-no-actions) and clear anatomy callouts (badge / meta / icons / tape).",
+      "variants_found": [
+        "Spec primitive (components-panel-header.html): .ph-wrap + .ph + .tape, with diatonic widths (do/re/mi/fa/sol=16, la=12, ti=8) implemented as flex children",
+        "Composition (composition-drawer.html .app-panel-header + .chromatic-tape): same intent re-implemented inline; tape is a linear-gradient instead of flex spans (loses the diatonic widths — every segment is equal), tape thickness is 5px instead of 6px",
+        "Badge size in drawer composition is 14px (matches), but icon-btn is 26sq there vs 28sq in the primitive"
+      ],
+      "drift_notes": "Drawer composition reinvents the panel-header and loses the diatonic-width tape (the whole point of the bar-tape). The wire-border thickness, icon button size, and tape height all drift by 1-2px. Should be promoted to a primitive that drawer can compose with."
+    },
+    {
+      "name": "meta-anno-row",
+      "subfamily": "meta-rows",
+      "description": "Small horizontal info row that documents a specimen's anatomy: a series of (label, code/value) pairs separated by left-border hairlines. Always appears below a panel/frame as the 'callouts' line. Typically 3 or 4 columns.",
+      "files_using": [
+        "project/preview/components-card.html",
+        "project/preview/components-panel-header.html",
+        "project/preview/components-pattern-reel.html",
+        "project/preview/components-code-strip.html",
+        "project/preview/components-solfege-tile.html",
+        "project/preview/composition-drawer.html",
+        "project/preview/composition-motion-overview.html",
+        "project/preview/composition-spacing-overview.html"
+      ],
+      "canonical_candidate": "project/preview/components-panel-header.html",
+      "canonical_reason": "Most consistent definition: .anno grid + .a items with .b (label, display 700 11px 0.14em --ivory) and .code (JBM 9px 0.14em --ivory-3). Several other files copy this verbatim; this is the closest to a baseline.",
+      "variants_found": [
+        "Class names: .anno + .a (panel-header, code-strip legend), .anno + .anno-item (components-card with .k/.v inside), .legend + .a (pattern-reel, code-strip), inline grid (composition-drawer, composition-motion-overview .grid g-3/g-4)",
+        "Column count: 3 (card pillars, code-strip rest, motion durations) vs 4 (panel-header anno, pattern-reel legend, drawer anatomy, motion beat-room notes)",
+        "Divider style: 2px solid --hairline left border (most) vs 1px top border (components-card .anno-item) vs no divider (v2 .grid)",
+        "Label font: 700 11px Lets Jazz 0.14em (most) vs --t-label 10px (components-card) vs 10px JBM 0.18em (v2 .cap mute)"
+      ],
+      "drift_notes": "Same atom under at least 4 different class-name systems. The fact that composition-drawer inlines the entire styling for each .anno cell with full style attributes per element shows there is no shared primitive — each consumer recreates it. This is the second-most-reinvented atom after panel-floating-label."
+    }
+  ],
+  "global_notes": "Two giant cross-cutting issues. (1) The v2-card wrapper (composition-motion-overview, composition-spacing-overview, composition-music-marks) is a parallel container family with its own shadow token namespace (--stage/--panel/--wire/--paper/--jazz-*/--do/--ra/...) that duplicates the canonical palette under different names AND violates the CLAUDE.md rule against --paper. These three files should be migrated to canonical tokens + .card before any container consolidation can succeed. (2) The 'floating label that clips into a border' visual appears under at least four class-name systems (.pillar/.specimen-panel/.demo-card/.group) with subtle differences in label background, label typeface (Mono everywhere except drawer which uses Lets Jazz), and outer surface — and similarly the 'dark inset state-matrix frame' appears under six class-names (.frame/.state/.stage/.group/.anchor/.demo-card). These two are the highest-leverage consolidations: promoting one panel-floating-label primitive and one labelled-state-frame primitive would simplify almost every component- and composition- file in the system."
+}

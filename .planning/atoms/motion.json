@@ -1,0 +1,260 @@
+{
+  "family": "motion",
+  "subfamilies": [
+    "pulse",
+    "flash",
+    "strobe",
+    "bob",
+    "slide",
+    "rip",
+    "rise",
+    "sheen",
+    "demo-runner",
+    "hover-lift"
+  ],
+  "atoms": [
+    {
+      "name": "beat-pulse",
+      "subfamily": "pulse",
+      "description": "Element scales 1 -> ~1.035-1.04 -> ~0.992-0.996 -> 1 over one beat (~500ms at 120bpm). The global UI breath on the kick. Drives knob rings, brand marks, panel-header badges.",
+      "files_using": [
+        "project/colors_and_type.css:287 (canonical @keyframes beat + .beat-pulse / .beat-pulse-half utilities, ease --ease-cut)",
+        "project/kitchen-sink.html:309 (duplicate of .beat-pulse utility for the kitchen-sink page)",
+        "project/preview/mot-primitives-beat-pulse.html:20 (local @keyframes 'pulse', 18% scale(1.04) 60% scale(.994), ease --ease-stab — DIFFERENT name + curve from canonical)",
+        "project/preview/mot-compositions-beat-room.html:84 (local @keyframes 'pulse', 18% scale(1.04) 60% scale(.996), ease --ease-stab — different from canonical)",
+        "project/preview/motion-beat.html:5 (local @keyframes 'b', 6% scale(1.06) 60% scale(.99), raw cubic-bezier(.2,.9,.2,1) — different shape AND raw bezier)",
+        "project/preview/composition-motion-overview.html:165 (local @keyframes 'knobBeat', 80% scale(1.05), raw cubic-bezier, on .beat-pulse .ring)",
+        "project/preview/brand-loading-screen.html:124 (local @keyframes 'pulseTape' uses filter brightness — a different mechanism but the same beat-driven breath idea, 500ms, raw bezier)",
+        "project/EmotiTone Design System v2.html:1404 (v2 @keyframes 'knobBeat', mirror of motion-overview)"
+      ],
+      "canonical_candidate": "project/colors_and_type.css",
+      "canonical_reason": "Already lives in the token file as @keyframes beat + .beat-pulse utility, paired with the --beat duration token. The only motion atom with a real canonical home.",
+      "variants_found": [
+        "Canonical: scale 1 -> 1.035 (6%) -> 0.992 (60%) -> 1, ease --ease-cut, var(--beat)",
+        ".beat-pulse-half: same curve, doubled period (2 * --beat)",
+        "mot-primitives-beat-pulse 'pulse': scale 1 -> 1.04 (18%) -> 0.994 (60%), 500ms, --ease-stab",
+        "mot-compositions-beat-room 'pulse': scale 1 -> 1.04 (18%) -> 0.996 (60%), 500ms, --ease-stab",
+        "motion-beat 'b': scale 1 -> 1.06 (6%) -> 0.99 (60%), 500ms, raw cubic-bezier(.2,.9,.2,1)",
+        "motion-overview 'knobBeat': scale 1 -> 1.05 (80%), 500ms, raw cubic-bezier(.2,.9,.3,1) — applied to .ring inside .beat-pulse",
+        "brand-loading 'pulseTape': filter brightness(1) -> 1.18, 500ms, raw bezier (substitute mechanism but same family)"
+      ],
+      "drift_notes": "Eight specimens reinvent the canonical .beat-pulse. Intensity varies 3.5% to 6%, naming varies (pulse / b / knobBeat / pulseTape), ease tokens vary (--ease-cut canonical vs --ease-stab in specimens vs raw bezier in motion-overview/motion-beat). Motion-overview and v2 paper use raw cubic-bezier values, which the brand explicitly forbids."
+    },
+    {
+      "name": "downbeat-strobe",
+      "subfamily": "strobe",
+      "description": "Outer panel wire flashes wire-hot (saffron-rim) for ~100ms on bar 1 of a 4-bar loop (2s cycle at 120bpm), then snaps back to hairline. Used on panel chrome to mark the bar.",
+      "files_using": [
+        "project/preview/mot-primitives-downbeat-strobe.html:19 (local @keyframes 'strobe', 0-5% wire-hot border + saffron rim, 6%-100% hairline, 2s steps(1))",
+        "project/preview/mot-compositions-beat-room.html:17 (local @keyframes 'room-down', 0-5% inset hot wire + saffron drop, 6%-100% hairline, 2s steps(1))",
+        "project/preview/composition-motion-overview.html:157 (local @keyframes 'roomDownbeat', 0-49% wire 50-60% wire-hot inset + saffron mustard glow, 2s linear — DIFFERENT phase: strobe centered at 50% not 0%)",
+        "project/EmotiTone Design System v2.html:1398 (v2 @keyframes 'roomDownbeat', mirror of motion-overview)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-downbeat-strobe.html",
+      "canonical_reason": "Primitive specimen captures the cleanest definition. Should be lifted to colors_and_type.css as @keyframes downbeat-strobe + .downbeat-strobe utility, keyed off var(--beat).",
+      "variants_found": [
+        "primitive 'strobe': 0-5% hot, 6%-100% cool, 2s steps(1) — strobe lands on bar 1 (start of cycle)",
+        "composition 'room-down': identical phase to primitive but with a stronger outer drop shadow (0 0 24px -8px brass .45)",
+        "motion-overview 'roomDownbeat': flash at 50% of cycle (not 0%), 2s linear, uses --wire-hot + jazz-mustard variables that don't exist in current token set"
+      ],
+      "drift_notes": "Three near-duplicate keyframes; motion-overview/v2 versions are phase-shifted (50% vs 0%) and use stale tokens (--wire-hot, --jazz-mustard, --paper) from the v2 era. No canonical utility class exists today."
+    },
+    {
+      "name": "tile-bob",
+      "subfamily": "bob",
+      "description": "Solfège tiles drop ~2-4px on the &-of-beat, staggered by ~30ms per index across the row. 500ms loop using --ease-brush. The row reads as a wave running the chromatic scale.",
+      "files_using": [
+        "project/preview/mot-primitives-tile-bob.html:54 (local @keyframes 'bob', 0/48% translateY(0) 52-62% translateY(2px) 78% back, 500ms --ease-brush)",
+        "project/preview/mot-compositions-beat-room.html:134 (local @keyframes 'bob', identical to primitive — 2px drop, 500ms --ease-brush)",
+        "project/preview/composition-motion-overview.html:177 (local @keyframes 'tileBob', 20% translate3d(0,4px,0) 55% (0,-3px,0) 80% (0,1px,0), 500ms raw cubic-bezier(.4,0,.2,1) — LARGER travel and a bounce-back, NOT the primitive curve)",
+        "project/EmotiTone Design System v2.html:1414 (v2 @keyframes 'tileBob', mirror of motion-overview)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-tile-bob.html",
+      "canonical_reason": "Primitive specifies the 2px-down-only gesture the brand docs describe. Should be promoted to colors_and_type.css as @keyframes tile-bob + .tile-bob utility, plus the 30ms-per-index stagger as a documented pattern.",
+      "variants_found": [
+        "primitive/beat-room 'bob': single 2px drop on &-of-beat, no lift, --ease-brush, 500ms",
+        "motion-overview/v2 'tileBob': 4px drop + 3px LIFT + 1px settle, raw bezier — much busier, contradicts the 'no lift' brief in the primitive's caption"
+      ],
+      "drift_notes": "Two genuinely different gestures share the name. The motion-overview version adds an unauthorized lift component (-3px) that the primitive explicitly omits. Also uses raw cubic-bezier instead of --ease-brush."
+    },
+    {
+      "name": "played-flash-lift",
+      "subfamily": "flash",
+      "description": "Tile lifts ~3px and returns on tap. Component of the three-part Played Flash gesture (lift + ring + rip). 360ms with --ease-stab.",
+      "files_using": [
+        "project/preview/mot-primitives-played-flash.html:30 (local @keyframes 'lift', 14% translateY(-3px) 34% back, 360ms --ease-stab — TAP-driven, fires once)",
+        "project/preview/mot-compositions-state-cascade.html:196 (local @keyframes 'lift', same 3px lift but as a phase inside a 4s loop)",
+        "project/preview/composition-motion-overview.html:225 (local @keyframes 'tileFire', 25% translateY(-3px) scale(1.04) brightness(1.25), 360ms raw cubic-bezier — adds scale AND filter not in primitive)",
+        "project/EmotiTone Design System v2.html:1457 (v2 @keyframes 'tileFire', mirror of motion-overview)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-played-flash.html",
+      "canonical_reason": "The three-part Played Flash atom (lift + ring + rip) is best canonicalized as a single named utility .played-flash composing the three keyframes together. Primitive is the source of truth.",
+      "variants_found": [
+        "primitive 'lift': translateY only, 3px, --ease-stab",
+        "motion-overview 'tileFire': translateY + scale(1.04) + brightness(1.25), raw bezier — three properties bundled where the primitive uses one"
+      ],
+      "drift_notes": "Motion-overview/v2 inflate the gesture (scale + filter) and drop the canonical ease token for a raw bezier."
+    },
+    {
+      "name": "played-flash-ring",
+      "subfamily": "flash",
+      "description": "Thin chromatic ring expands from scale 1 to ~1.18-1.45 in the tile's own hue, opacity 0 -> .9 -> 0. 360ms with --ease-brush. Part of the Played Flash composite.",
+      "files_using": [
+        "project/preview/mot-primitives-played-flash.html:84 (local @keyframes 'ring', scale 1 -> 1.45, 360ms --ease-brush)",
+        "project/preview/mot-compositions-state-cascade.html:210 (local @keyframes 'ring', same scale 1 -> 1.45, --ease-brush)",
+        "project/preview/composition-motion-overview.html:237 (local @keyframes 'ringOut', scale 1 -> 1.18, 360ms raw cubic-bezier(.4,0,.2,1) — smaller travel)",
+        "project/EmotiTone Design System v2.html:1467 (v2 @keyframes 'ringOut', mirror of motion-overview)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-played-flash.html",
+      "canonical_reason": "Primitive defines the canonical curve. Should be promoted alongside the lift and rip as a composite .played-flash utility in the token file.",
+      "variants_found": [
+        "primitive 'ring': scale 1 -> 1.45, currentColor border 2px->1px, --ease-brush",
+        "motion-overview 'ringOut': scale 1 -> 1.18 only, no border-width change, raw bezier"
+      ],
+      "drift_notes": "Two different magnitudes (1.45 vs 1.18) under different names. Motion-overview also drops the 2px->1px border-width interpolation that gives the ring its 'fade out' character."
+    },
+    {
+      "name": "played-flash-rip",
+      "subfamily": "rip",
+      "description": "Top-right corner of the tile paper-rips: a zigzag clip-path scales 0 -> 1 -> 0 with a small rotate/translate, 360ms --ease-stab. Part of the Played Flash composite.",
+      "files_using": [
+        "project/preview/mot-primitives-played-flash.html:54 (local @keyframes 'rip', scale 0 -> 1 -> .6 translate -> 0, 360ms --ease-stab)",
+        "project/preview/mot-compositions-state-cascade.html:151 (local @keyframes 'rip', repurposed name — actually drives the mode-rip knob label here, NOT the corner rip)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-played-flash.html",
+      "canonical_reason": "Only one true definition of the corner rip; the state-cascade 'rip' is name-collision (it's the mode-rip label, not the corner). Promote primitive as .played-flash-rip.",
+      "variants_found": [
+        "primitive 'rip': corner zigzag scale 0/1/.6/0, --ease-stab, 360ms",
+        "state-cascade 'rip': name collision — this is mode-rip-key (translateY + skew), 4s --ease-bend"
+      ],
+      "drift_notes": "Name reuse for two unrelated keyframes is the worst kind of drift here. Renaming required during promotion."
+    },
+    {
+      "name": "mode-rip",
+      "subfamily": "rip",
+      "description": "Knob label tears off when key/mode changes: lifts ~12-22px with skew(-10 to -14deg), fades, while new label slides up from below with +skew. Uses --ease-bend (panel-scale, 360ms-3.6s depending on whether it's a one-shot or a looping demo).",
+      "files_using": [
+        "project/preview/mot-primitives-mode-rip.html:48 (local @keyframes 'rip-mode' for word labels, 'rip-key' for single letters — 3.6s --ease-bend, looping demo)",
+        "project/preview/mot-compositions-state-cascade.html:151 (local @keyframes 'rip' — wrongly-named, is actually a mode-rip variant, 4s --ease-bend)",
+        "project/preview/composition-motion-overview.html:249 (local @keyframes 'labelRip', 45% translateY(-12px) skew(-10deg) opacity 0, 360ms raw cubic-bezier(.85,0,.15,1) — one-shot, same curve as --ease-bend but written raw)",
+        "project/EmotiTone Design System v2.html:1478 (v2 @keyframes 'labelRip', mirror of motion-overview)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-mode-rip.html",
+      "canonical_reason": "Primitive defines both the word-form and letter-form variants with the right ease. Should become @keyframes mode-rip in tokens with a .mode-rip utility at --dur-panel (360ms) using --ease-bend.",
+      "variants_found": [
+        "primitive 'rip-mode': word label, 18px lift, skew(-14deg) out, 3.6s loop --ease-bend",
+        "primitive 'rip-key': single letter, 22-26px lift, skew(-14deg) out, 3.6s loop --ease-bend",
+        "motion-overview 'labelRip': 12px lift, raw bezier (matches --ease-bend numerically), 360ms one-shot",
+        "state-cascade 'rip': 4s loop variant of the gesture"
+      ],
+      "drift_notes": "Two specimen-local names ('labelRip' and 'rip-mode/rip-key') do the same gesture. Motion-overview hardcodes the bezier values."
+    },
+    {
+      "name": "tab-slide",
+      "subfamily": "slide",
+      "description": "Active tab chip slides between positions via CSS transitions on `left` and `width`, with an optional skewX(-12deg) scaleX(1.08) 'smear' class added briefly during travel. 320ms --ease-swing. Persona-5 off-cut tab swap.",
+      "files_using": [
+        "project/preview/mot-primitives-tab-slide.html:43 (canonical primitive: transition left/width/transform 320ms var(--ease-swing); .smearing class adds skewX/scaleX)",
+        "project/preview/composition-motion-overview.html:202 (.v2-card .p5-active: same transition but with raw cubic-bezier(.7,-0.2,.3,1.2) — the swing curve, written raw)",
+        "project/preview/mot-compositions-state-cascade.html:104 (local @keyframes 'tab-cycle' as a looping demo of the same slide; --ease-swing)",
+        "project/EmotiTone Design System v2.html (.p5-active equivalent block)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-tab-slide.html",
+      "canonical_reason": "Primitive uses the token ease and clean transition. Promote as .tab-slide utility (transition shorthand + .smearing modifier) in colors_and_type.css.",
+      "variants_found": [
+        "primitive: transition 320ms --ease-swing on left/width/transform; .smearing adds scaleX(1.08) skewX(-12deg) for 220ms",
+        "motion-overview .p5-active: same intent, raw bezier, 320ms",
+        "state-cascade 'tab-cycle': keyframe-form (looping) at 4s --ease-swing"
+      ],
+      "drift_notes": "Note this is RELATED to but distinct from the canonical cut-slide-in keyframe (which is a one-shot tab-enter animation). Tab-slide is the position-change transition. Both should be documented together as the tab vocabulary."
+    },
+    {
+      "name": "cut-slide-in",
+      "subfamily": "slide",
+      "description": "Persona-5-style swap: element enters from translateX(-12%) skewX(-8deg) opacity 0, overshoots to translateX(2%) skewX(-2deg) at 60%, then settles. Used when a NEW tab content appears (vs tab-slide which moves the existing chip).",
+      "files_using": [
+        "project/colors_and_type.css:296 (canonical @keyframes cut-slide-in + .cut-slide utility, uses --dur-snap + --ease-cut)"
+      ],
+      "canonical_candidate": "project/colors_and_type.css",
+      "canonical_reason": "Already canonical. Mentioned for completeness — no drift detected.",
+      "variants_found": [
+        "Canonical only: --dur-snap --ease-cut"
+      ],
+      "drift_notes": "Clean. Worth noting that --dur-snap and --ease-cut are referenced here but I should sanity-check those tokens still exist in the same file."
+    },
+    {
+      "name": "drawer-rise",
+      "subfamily": "rise",
+      "description": "Top drawer slides down from translateY(-100%) to 0; the app stage behind slides down 16px to make room; scrim opacity fades in. 360-380ms with raw cubic-bezier(.7,-0.2,.3,1.2) — the swing curve, written inline.",
+      "files_using": [
+        "project/preview/composition-drawer.html:26 (.drawer-app transition: transform 360ms cubic-bezier(.7,-0.2,.3,1.2) — swing raw)",
+        "project/preview/composition-drawer.html:35 (.drawer-scrim transition: opacity 360ms cubic-bezier(.4,0,.2,1) — brush raw)",
+        "project/preview/composition-drawer.html:45 (.drawer transition: transform 380ms cubic-bezier(.7,-0.2,.3,1.2) — swing raw)",
+        "project/preview/composition-pattern-reel.html:381 (@keyframes active-rise, translateY(-8px) opacity .72 -> 0, --dur-panel --ease-swing — DIFFERENT use: card-promotion lift not drawer)"
+      ],
+      "canonical_candidate": "project/preview/composition-drawer.html",
+      "canonical_reason": "Drawer-rise should be lifted to a named .drawer-rise pattern in tokens, using --dur-panel and --ease-swing. active-rise in pattern-reel is a related but distinct atom for promoted-card emphasis.",
+      "variants_found": [
+        "drawer slide: translateY(-100%) -> 0, 380ms, raw swing bezier",
+        "drawer-app push: translateY(0) -> 16px, 360ms, raw swing bezier",
+        "drawer scrim: opacity fade, 360ms, raw brush bezier",
+        "active-rise (pattern-reel): translateY(-8px) -> 0 with opacity .72 -> 1, --dur-panel --ease-swing — promoted card emphasis"
+      ],
+      "drift_notes": "Drawer entirely uses raw bezier values (forbidden per brand). active-rise in pattern-reel correctly uses tokens — it's the only well-formed rise in the system. They should both promote to one utility family."
+    },
+    {
+      "name": "brass-sheen",
+      "subfamily": "sheen",
+      "description": "Slow horizontal background-position sweep on the brass gradient overlay. Drifts background-position from -60% to 160% over 5.5s-6.5s, then holds. Continuous infinite loop. The lit-brass shimmer that makes brass elements 'breathe'.",
+      "files_using": [
+        "project/colors_and_type.css:333 (canonical @keyframes brass-sheen + .brass .brass::after rule, 6.5s raw cubic-bezier(.55,.05,.45,.95) infinite)",
+        "project/preview/_card.css:55 (DUPLICATE @keyframes brass-sheen — identical curve, but timing is 5.5s with cubic-bezier(.65,.05,.35,.95) — slightly faster and slightly different bezier)"
+      ],
+      "canonical_candidate": "project/colors_and_type.css",
+      "canonical_reason": "Lives next to the brass tokens. The _card.css copy is unnecessary because _card.css already @imports colors_and_type.css — the duplicate keyframe just overrides the canonical one with different timing.",
+      "variants_found": [
+        "colors_and_type.css: 6.5s, cubic-bezier(.55,.05,.45,.95)",
+        "_card.css: 5.5s, cubic-bezier(.65,.05,.35,.95) — overrides canonical for any specimen that loads _card.css (which is ALL of them)"
+      ],
+      "drift_notes": "Drift-by-shadowing: every specimen card loads _card.css after the @import, so the _card.css redefinition wins. Effective brass-sheen on cards is 5.5s, not the canonical 6.5s. Also the bezier is hand-tuned and should be a named ease token like --ease-sheen or composed from --ease-brush."
+    },
+    {
+      "name": "hover-lift",
+      "subfamily": "hover-lift",
+      "description": "Cards / tiles / pattern-cards in the 'hover' demo state shift translateY(-3px), gain a stacked drop shadow, and often increase border / spine saturation. NOT a CSS transition in specimens — these are state demos with the modifier applied statically — but the recurring gesture is the same.",
+      "files_using": [
+        "project/preview/components-solfege-tile.html:57 (.tile.played transform: translateY(-3px) — used for 'played' state, not hover)",
+        "project/preview/components-pattern-card.html:58 (.pc.hover transform: translateY(-3px) + 0 6px 0 rgba(0,0,0,.5) drop shadow)",
+        "project/preview/components-section-anchor.html:40 (transform: rotate(-3deg) translateY(-2px))",
+        "project/preview/composition-pattern-reel.html:381 (@keyframes active-rise — the ANIMATED version of this gesture)",
+        "Many specimen state cards across components-*.html show the static -3px lift"
+      ],
+      "canonical_candidate": "project/preview/composition-pattern-reel.html (as the animated form)",
+      "canonical_reason": "active-rise (translateY(-8px) -> 0 with opacity .72 -> 1, --dur-panel --ease-swing) is the only token-clean implementation. Promote it as @keyframes lift + .lift-on-hover utility, with a static .is-lifted modifier for spec demos.",
+      "variants_found": [
+        "Static -3px lift in component state demos (pattern-card, solfege-tile.played, section-anchor with rotate)",
+        "Animated active-rise (pattern-reel): -8px -> 0, opacity .72 -> 1, --dur-panel --ease-swing — the only correctly-token'd one",
+        "tile.played -3px is permanent, not a hover gesture — it's the played-flash-lift settled state"
+      ],
+      "drift_notes": "Six-plus ad-hoc 'hover lift' decorations across specimens. None of them animate — they all use the modifier-class trick to show the lifted state. There is no shared transition timing. Phase 3 should pair the .lift-on-hover utility with active-rise so any element that needs hover lift gets a uniform 8px -> 0 swing motion."
+    },
+    {
+      "name": "ease-run-demo",
+      "subfamily": "demo-runner",
+      "description": "Demo-only animation: a dot runs left-to-right inside a track to visualize each named easing curve. Different durations per curve (0.6s-2.8s) but identical motion shape. Used in easing showcase cards.",
+      "files_using": [
+        "project/preview/mot-primitives-easings.html:50 (local @keyframes 'ease-run' 4% -> 50% -> 100% return, multiple .ease.* runners with raw bezier per curve)",
+        "project/preview/composition-motion-overview.html:136 (local @keyframes 'ease-run' from -> to, identical hover-only on .v2-card .ease-track[data-ease=...] — raw bezier per curve)",
+        "project/EmotiTone Design System v2.html:1379 (v2 @keyframes 'ease-run', mirror of motion-overview)"
+      ],
+      "canonical_candidate": "project/preview/mot-primitives-easings.html",
+      "canonical_reason": "Primitive defines the demo with the cleaner loop pattern. Motion-overview is the duplicate the user flagged in the task prompt. Both should collapse to one shared utility (or simply have motion-overview reference the primitive's classes).",
+      "variants_found": [
+        "primitive: alternate infinite, full sweep then return, 1.6s-2.8s per curve",
+        "motion-overview/v2: hover-only one-shot 'both', 0.6s-1.4s per curve, same raw bezier values"
+      ],
+      "drift_notes": "Pure duplication. The exact same five cubic-bezier values are hardcoded in both files for the same five named eases — these should all reference the --ease-swing/--ease-stab/--ease-brush/--ease-sustain/--ease-bend tokens via attribute selectors that read the token, never inline the bezier."
+    }
+  ],
+  "global_notes": "Three systemic problems across the motion family: (1) RAW BEZIERS — composition-motion-overview.html, motion-beat.html, EmotiTone v2 file, and composition-drawer.html all hardcode cubic-bezier(...) values that should reference --ease-swing/-stab/-brush/-sustain/-bend (this is explicitly forbidden by the brand brief). (2) NAME COLLISIONS — 'rip' is used for the corner-paper-rip in played-flash AND for the knob-label mode-rip in state-cascade; 'pulse' / 'b' / 'knobBeat' / 'pulseTape' / 'beat' all describe the same beat breath; 'lift' / 'tileFire' / 'tile-bob' overlap. (3) SHADOWED CANONICALS — _card.css redefines brass-sheen with different timing than colors_and_type.css, and since every specimen loads _card.css the canonical is effectively dead. Phase 3 fold: promote downbeat-strobe / tile-bob / played-flash (lift+ring+rip composite) / mode-rip / tab-slide / drawer-rise into @keyframes + utility classes in colors_and_type.css; delete the _card.css brass-sheen duplicate; remove the composition-motion-overview.html keyframe re-definitions and have it consume the primitive utilities; strip all raw cubic-bezier(...) values and replace with --ease-* tokens; collapse the EmotiTone Design System v2.html legacy file out of the inventory (it's the source the motion-overview was copied from)."
+}

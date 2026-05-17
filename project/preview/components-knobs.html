@@ -1,82 +1,179 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
 <style>
-  /* Aesthetic-focused specimen sheet — one tile per type, the styling is the point. */
-  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-  .tile{
-    position:relative;
-    background:#0a0908;
-    border:1px solid var(--hairline);
-    border-radius:0;                       /* angular */
-    padding:14px 14px 12px;
-    display:flex;flex-direction:column;align-items:center;gap:8px;
-    min-height:200px;
-  }
-  /* Hand-wobble — tiny rotation per tile so they don't look stamped */
-  .tile:nth-child(1){transform:rotate(-.45deg);}
-  .tile:nth-child(2){transform:rotate(.3deg);}
-  .tile:nth-child(3){transform:rotate(-.2deg);}
-  .tile:nth-child(4){transform:rotate(.5deg);}
+  /* ─── KNOBS · UNIVERSAL CONTROL · PRIMITIVE ──────────────────
+     Knobs cover the slider, toggle, segmented and momentary
+     button affordances. Four roles × two visual variants.
+     Each role can be drawn as either VARIANT A (Angular SVG arc)
+     or VARIANT B (Conic ring) — pick the variant that matches
+     the surface the knob sits on, never invent a new style. */
 
-  .tile .top{
-    font-family:var(--font-display);font-weight:700;text-transform:uppercase;
-    font-size:13px;letter-spacing:.05em;color:var(--ivory);
-    border-bottom:1px solid var(--hairline);width:100%;text-align:center;padding-bottom:8px;
+  .variant-row {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
   }
-  .tile .bot{
-    font-family:var(--font-display);font-weight:700;text-transform:uppercase;
-    font-size:12px;letter-spacing:.05em;color:var(--ivory-2);margin-top:auto;
+  .variant-head {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ivory-3);
+    padding-bottom: 4px;
+    margin: 18px 0 6px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex; justify-content: space-between; align-items: baseline;
   }
-
-  .knob{position:relative;width:96px;height:96px;}
-  .knob svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
-  .knob .center{
-    position:absolute;inset:0;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;pointer-events:none;
-    font-family:var(--font-display);font-weight:700;color:var(--ivory);
-    line-height:1;
-  }
-  .knob .num{font-size:26px;letter-spacing:.01em;}
-  .knob .num.gold{color:#f5d278;}
-  .knob .glyph{display:flex;align-items:center;justify-content:center;}
-
-  /* Angular strokes — butt caps, slightly thicker */
-  .trk{fill:none;stroke-linecap:butt;stroke-linejoin:miter;}
-  .trk.bg{stroke:var(--ivory);stroke-opacity:.18;stroke-width:2;}
-  .trk.val{stroke:var(--ivory);stroke-width:8;}
-  .trk.brass{stroke:#e0a93a;stroke-width:8;
-    filter: drop-shadow(0 0 6px rgba(224,169,58,.45));}
-
-  /* Boolean ball — square-cornered for angularity */
-  .ball{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
-  .ball.on{
-    width:30px;height:30px;
-    background:linear-gradient(160deg,#c89232,#f5d278 50%,#a87420);
-    box-shadow:0 0 12px rgba(224,169,58,.55),inset 0 1px 0 rgba(255,238,194,.55),inset 0 -1px 0 rgba(0,0,0,.45);
+  .variant-head em {
+    font-style: normal; font-family: var(--font-mono);
+    font-size: 9px; letter-spacing: .14em; color: var(--ivory-4);
   }
 
-  /* Slow rotation for active button segment */
+  .k-tile {
+    position: relative;
+    background: #0a0908;
+    border: 1px solid var(--hairline);
+    padding: 12px 12px 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    min-height: 178px;
+  }
+  /* Hand-wobble — keeps the row from feeling stamped */
+  .k-tile:nth-child(1){ transform: rotate(-.4deg); }
+  .k-tile:nth-child(2){ transform: rotate( .3deg); }
+  .k-tile:nth-child(3){ transform: rotate(-.2deg); }
+  .k-tile:nth-child(4){ transform: rotate( .45deg); }
+
+  .k-tile .top {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 12px; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ivory);
+    border-bottom: 1px solid var(--hairline);
+    width: 100%; text-align: center; padding-bottom: 6px;
+  }
+  .k-tile .bot {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ivory-2); margin-top: auto;
+  }
+
+  /* ─── BASE KNOB ──────────────────────────────────── */
+  .knob {
+    position: relative;
+    width: 88px; height: 88px;
+    display: grid; place-items: center;
+  }
+  .knob .center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    pointer-events: none;
+    font-family: var(--font-display); font-weight: 700;
+    color: var(--ivory); line-height: 1;
+  }
+  .knob .num { font-size: 24px; letter-spacing: .01em; }
+  .knob .num.gold { color: var(--brass-hi); }
+  .knob .glyph { display: flex; align-items: center; justify-content: center; }
+
+  /* ─── VARIANT A · ANGULAR SVG ARC ─────────────────── */
+  .knob--arc svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .trk { fill: none; stroke-linecap: butt; stroke-linejoin: miter; }
+  .trk.bg    { stroke: var(--ivory); stroke-opacity: .18; stroke-width: 2; }
+  .trk.val   { stroke: var(--ivory); stroke-width: 8; }
+  .trk.brass { stroke: var(--brass); stroke-width: 8;
+               filter: drop-shadow(0 0 6px rgba(224,169,58,.45)); }
+
+  .ball { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .ball.on {
+    width: 28px; height: 28px;
+    background: linear-gradient(160deg, var(--brass-lo), var(--brass-hi) 50%, #a87420);
+    box-shadow: 0 0 12px rgba(224,169,58,.55),
+                inset 0 1px 0 rgba(255,238,194,.55),
+                inset 0 -1px 0 rgba(0,0,0,.45);
+  }
+
   @keyframes spin360 { to { transform: rotate(360deg); } }
-  .seg-rotate{transform-origin:50% 50%;animation:spin360 2.4s linear infinite;}
+  .seg-rotate { transform-origin: 50% 50%; animation: spin360 2.4s linear infinite; }
+
+  /* ─── VARIANT B · CONIC RING ──────────────────────── */
+  .knob--ring .ring {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 35%, #2C2723 0%, #110F0D 70%);
+    border: 1px solid var(--ink-5);
+    position: relative;
+    display: grid; place-items: center;
+  }
+  .knob--ring .ring::before {
+    content: ""; position: absolute; inset: 6px; border-radius: 50%;
+    -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%);
+            mask: radial-gradient(circle, transparent 60%, #000 61%);
+  }
+  /* range — single sweep, ivory by default */
+  .knob--ring.knob--range .ring::before {
+    background: conic-gradient(
+      from -135deg,
+      var(--ivory-3) 0%, var(--ivory-3) var(--p, 60%),
+      transparent  var(--p, 60%), transparent 75%, transparent 100%);
+  }
+  /* boolean — full brass ring with glow when on; empty when off */
+  .knob--ring.knob--boolean.on .ring::before {
+    background: conic-gradient(var(--brass) 0% 75%, transparent 75% 100%);
+    filter: drop-shadow(0 0 6px rgba(224,169,58,.55));
+  }
+  .knob--ring.knob--boolean.off .ring::before {
+    background: conic-gradient(transparent 0% 75%, transparent 75% 100%);
+  }
+  /* options — 4 equal segments, active one brass */
+  .knob--ring.knob--options .ring::before {
+    background: conic-gradient(
+      from -135deg,
+      var(--brass)   0%   18.75%,
+      transparent    18.75% 25%,
+      var(--ivory-3) 25%   43.75%,
+      transparent    43.75% 50%,
+      var(--ivory-3) 50%   68.75%,
+      transparent    68.75% 75%,
+      var(--ivory-3) 75%   93.75%,
+      transparent    93.75% 100%);
+  }
+  /* button — rotating brass arc */
+  .knob--ring.knob--button .ring::before {
+    background: conic-gradient(var(--brass) 0% 25%, transparent 25% 100%);
+    filter: drop-shadow(0 0 6px rgba(224,169,58,.45));
+    animation: spin360 2.4s linear infinite;
+  }
+  .knob--ring .v {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 20px; color: var(--ivory); line-height: 1;
+    position: relative;
+  }
+  .knob--ring .v.gold { color: var(--brass-hi); }
 
   /* Aesthetic note row */
-  .notes{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px;}
-  .notes div{
-    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;line-height:1.55;
-    color:var(--ivory-3);padding:0 4px;letter-spacing:.02em;
+  .notes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .notes div {
+    font-family: var(--font-mono); font-size: 10px; line-height: 1.55;
+    color: var(--ivory-3); padding: 0 4px; letter-spacing: .02em;
   }
-  .notes b{color:var(--ivory);font-weight:600;}
+  .notes b { color: var(--ivory); font-weight: 600; }
 </style></head><body>
 <div class="card">
-  <div class="label" style="margin-bottom:14px">KNOBS · ANGULAR · IVORY DEFAULT · BRASS RARELY</div>
+  <div class="label" style="margin-bottom:6px">KNOBS · UNIVERSAL CONTROL · PRIMITIVE</div>
+  <p class="caption" style="margin:0 0 10px;color:var(--ivory-3);line-height:1.55">
+    Slider, toggle, segmented selector and momentary trigger — all four affordances live on the knob.
+    Pick the role for behaviour, the variant for the surface. Default ivory; brass appears once per panel as the lit signal.
+  </p>
 
-  <div class="grid">
-    <!-- ═══ RANGE ═══ -->
-    <div class="tile">
+  <!-- ════════════════ VARIANT A ════════════════ -->
+  <div class="variant-head">
+    <span>Variant A · Angular SVG arc</span>
+    <em>.knob.knob--arc — partial sweep, butt caps</em>
+  </div>
+  <div class="variant-row">
+    <!-- Range -->
+    <div class="k-tile">
       <div class="top">Range</div>
-      <div class="knob">
+      <div class="knob knob--arc knob--range">
         <svg viewBox="0 0 100 100">
-          <!-- partial arc, gap at bottom: from -144° (bottom-left) clockwise through top to +144° (bottom-right) -->
-          <path class="trk bg"  d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"/>
+          <path class="trk bg"    d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"/>
           <path class="trk brass" pathLength="100"
                 d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"
                 stroke-dasharray="58 100"/>
@@ -86,10 +183,10 @@
       <div class="bot">Volume</div>
     </div>
 
-    <!-- ═══ BOOLEAN ═══ -->
-    <div class="tile">
+    <!-- Boolean -->
+    <div class="k-tile">
       <div class="top">Boolean</div>
-      <div class="knob">
+      <div class="knob knob--arc knob--boolean on">
         <svg viewBox="0 0 100 100">
           <path class="trk brass" pathLength="100"
                 d="M 25.31 83.98 A 42 42 0 1 1 74.69 83.98"
@@ -100,12 +197,11 @@
       <div class="bot">Sync</div>
     </div>
 
-    <!-- ═══ OPTIONS ═══ -->
-    <div class="tile">
+    <!-- Options -->
+    <div class="k-tile">
       <div class="top">Options</div>
-      <div class="knob">
+      <div class="knob knob--arc knob--options">
         <svg viewBox="0 0 100 100">
-          <!-- full ring background, two opposing segments rotated to "active" position -->
           <circle class="trk bg" cx="50" cy="50" r="42" pathLength="100"/>
           <g transform="rotate(-90 50 50)">
             <circle class="trk val" cx="50" cy="50" r="42" pathLength="100"
@@ -114,15 +210,15 @@
                     stroke-dasharray="12.5 87.5" stroke-dashoffset="-43.75"/>
           </g>
         </svg>
-        <div class="center"><span class="num" style="font-size:20px;">SQ</span></div>
+        <div class="center"><span class="num" style="font-size:18px;">SQ</span></div>
       </div>
       <div class="bot">Wave · Four</div>
     </div>
 
-    <!-- ═══ BUTTON ═══ -->
-    <div class="tile">
+    <!-- Button -->
+    <div class="k-tile">
       <div class="top">Button</div>
-      <div class="knob">
+      <div class="knob knob--arc knob--button">
         <svg viewBox="0 0 100 100">
           <circle class="trk bg" cx="50" cy="50" r="42"/>
           <g class="seg-rotate" transform-origin="50 50">
@@ -132,7 +228,7 @@
             </g>
           </g>
         </svg>
-        <div class="center"><span class="glyph" style="color:#f5d278;">
+        <div class="center"><span class="glyph" style="color:var(--brass-hi);">
           <svg width="22" height="22" viewBox="0 0 16 16" style="position:static;">
             <circle cx="8" cy="8" r="2.2" fill="currentColor"/>
             <path d="M3.5 8a4.5 4.5 0 0 1 9 0M2 8a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="butt"/>
@@ -143,18 +239,61 @@
     </div>
   </div>
 
-  <div class="notes">
-    <div><b>RANGE.</b> Partial arc, gap at bottom. Value fills from -144° → +144° clockwise. Numeric value sits centered, larger.</div>
-    <div><b>BOOLEAN.</b> Same partial arc — full or empty. Centered ball scales between dot and brass orb.</div>
-    <div><b>OPTIONS.</b> Faint full ring + two opposing segments. Segments rotate to the active option's clock position.</div>
-    <div><b>BUTTON.</b> Faint full ring + 25% segment that rotates infinitely while active or loading.</div>
+  <!-- ════════════════ VARIANT B ════════════════ -->
+  <div class="variant-head">
+    <span>Variant B · Conic ring</span>
+    <em>.knob.knob--ring — masked conic-gradient, soft inset</em>
+  </div>
+  <div class="variant-row">
+    <!-- Range -->
+    <div class="k-tile">
+      <div class="top">Range</div>
+      <div class="knob knob--ring knob--range">
+        <div class="ring" style="--p:64%;"><span class="v gold">64</span></div>
+      </div>
+      <div class="bot">Volume</div>
+    </div>
+
+    <!-- Boolean -->
+    <div class="k-tile">
+      <div class="top">Boolean</div>
+      <div class="knob knob--ring knob--boolean on">
+        <div class="ring"><span class="v gold">ON</span></div>
+      </div>
+      <div class="bot">Sync</div>
+    </div>
+
+    <!-- Options -->
+    <div class="k-tile">
+      <div class="top">Options</div>
+      <div class="knob knob--ring knob--options">
+        <div class="ring"><span class="v" style="font-size:16px;">SQ</span></div>
+      </div>
+      <div class="bot">Wave · Four</div>
+    </div>
+
+    <!-- Button -->
+    <div class="k-tile">
+      <div class="top">Button</div>
+      <div class="knob knob--ring knob--button">
+        <div class="ring"><span class="v" style="color:var(--brass-hi);font-size:14px;">REC</span></div>
+      </div>
+      <div class="bot">Live</div>
+    </div>
   </div>
 
-  <div class="caption" style="margin-top:18px;color:var(--fg-3);line-height:1.5">
-    <b style="color:var(--ivory);font-family:var(--font-display);">Aesthetic rules.</b>
-    Stroke caps are <code>butt</code>, not round — the angular line is the look.
-    Tiles are square; tiny per-tile wobble keeps the row from feeling stamped.
-    Default stroke is ivory at 8px. Brass appears on one knob in a panel, max — the lit signal.
-    Centered numerics use Lets Jazz; longer captions drop to the row labels.
+  <!-- ════════════════ NOTES ════════════════ -->
+  <div class="notes">
+    <div><b>RANGE.</b> Continuous 0–100. Arc fills clockwise from gap; ring fills clockwise from -135°. Numeric center.</div>
+    <div><b>BOOLEAN.</b> On/off. Arc: full vs empty, ball indicator. Ring: full brass with glow vs empty.</div>
+    <div><b>OPTIONS.</b> Discrete N positions. Arc: two opposing segments rotate. Ring: equal segments, active one brass.</div>
+    <div><b>BUTTON.</b> Momentary trigger. Arc: 25% segment spins. Ring: brass arc spins around the perimeter.</div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--fg-3);line-height:1.55">
+    <b style="color:var(--ivory);font-family:var(--font-display);">Pick by surface.</b>
+    Arc reads like print — flat, hand-cut, anchors the bare ink-3 panels.
+    Ring reads like hardware — soft inset, glows on signal, sits on app chrome.
+    Same role API across both. Default ivory; brass once per panel, max.
   </div>
 </div></body></html>

@@ -7,12 +7,13 @@ const PROJECT = join(import.meta.dir, 'project')
 const PREVIEW = join(PROJECT, 'preview')
 const UNIFICATION_DATA = join(import.meta.dir, '.planning', 'unification-data.json')
 
-const PHASE_LABELS = {
-  foundations: 'Foundations',
-  motion: 'Motion',
-  components: 'Components',
-  'brand-principles': 'Brand & Principles',
-  compositions: 'Compositions',
+const LAYER_ORDER = ['TOKEN', 'PRIMITIVE', 'PART', 'SURFACE', 'COMPOSITION']
+const LAYER_LABELS = {
+  TOKEN: 'Tokens',
+  PRIMITIVE: 'Primitives',
+  PART: 'Parts',
+  SURFACE: 'Surfaces',
+  COMPOSITION: 'Compositions',
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -65,103 +66,137 @@ function shortLabel(f) {
   return basename(f, '.html')
 }
 
+function previewName(file) {
+  return file.replace(/^preview\//, '')
+}
+
+function anchorId(...parts) {
+  return parts
+    .join('-')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
 // ── page builder ─────────────────────────────────────────────────────────────
 
 function buildPage() {
   const data = loadUnification()
   const allCards = new Set(readdirSync(PREVIEW).filter(f => f.endsWith('.html') && f !== 'index.html'))
+  const groups = [...data.groups].sort((a, b) => {
+    const layerDelta = LAYER_ORDER.indexOf(a.layer) - LAYER_ORDER.indexOf(b.layer)
+    if (layerDelta !== 0) return layerDelta
+    return data.groups.indexOf(a) - data.groups.indexOf(b)
+  })
   const mapped = new Set()
-  for (const g of data.groups) for (const c of g.cards) mapped.add(c.file)
+  for (const g of groups) for (const c of g.cards) mapped.add(previewName(c.file))
   const ungrouped = [...allCards].filter(f => !mapped.has(f)).sort()
 
-  // Stats for header
-  const stats = { pending: 0, keep: 0, kill: 0, merge: 0, rename: 0, rebuild: 0 }
-  for (const g of data.groups) for (const c of g.cards) stats[c.status] = (stats[c.status] || 0) + 1
-  const total = Object.values(stats).reduce((a, b) => a + b, 0)
+  const cardCount = groups.reduce((sum, g) => sum + g.cards.length, 0)
+  const layerStats = Object.fromEntries(LAYER_ORDER.map(layer => [layer, 0]))
+  for (const g of groups) layerStats[g.layer] += g.cards.length
 
-  // Sidebar: phases → groups, plus reference + ungrouped
-  const byPhase = {}
-  for (const g of data.groups) (byPhase[g.phase] ||= []).push(g)
-
+  // Sidebar: layer → family, plus reference + any unmatched preview files.
   const navHtml = [
     `<div class="ng">Reference</div>
      <a href="#assets">Assets</a>`,
-    ...Object.entries(byPhase).map(([phase, groups]) => `
-      <div class="ng">${PHASE_LABELS[phase] || phase}</div>
-      ${groups.map(g => `<a href="#group-${g.id}"><span class="nav-code">G${String(g.order).padStart(2,'0')}</span> ${g.label}</a>`).join('\n')}`),
+    ...LAYER_ORDER.map(layer => {
+      const layerGroups = groups.filter(g => g.layer === layer)
+      if (!layerGroups.length) return ''
+      return `<div class="ng">${LAYER_LABELS[layer] || layer}</div>
+        <a href="#layer-${anchorId(layer)}"><span class="nav-code">${layer.slice(0, 3)}</span> ${LAYER_LABELS[layer] || layer}</a>
+        ${layerGroups.map(g => `<a href="#group-${anchorId(g.layer, g.family)}"><span class="nav-code">${escapeHtml(g.family)}</span> ${escapeHtml(g.title)}</a>`).join('\n')}`
+    }),
     ungrouped.length > 0
       ? `<div class="ng">Ungrouped (${ungrouped.length})</div>
          ${ungrouped.map(f => `<a href="#card-${basename(f,'.html')}">${shortLabel(f)}</a>`).join('\n')}`
       : ''
   ].join('\n')
 
-  const renderCard = (file, num, total, status, note, iteration) => {
+  const renderCard = (card, num, total) => {
+    const file = previewName(card.file)
+    const id = `card-${basename(file, '.html')}`
+    const consumes = Array.isArray(card.consumes) ? card.consumes : []
+    const consumeRow = consumes.length
+      ? `<div class="consume-row">
+          <span class="consume-label">CONSUMES</span>
+          <span class="consume-list">${consumes.map(escapeHtml).join('<span class="consume-sep">·</span>')}</span>
+        </div>`
+      : ''
+
     if (!allCards.has(file)) {
-      return `<div class="specimen status-${status} missing" id="card-${basename(file,'.html')}">
+      return `<div class="specimen missing" id="${id}">
         <div class="specimen-head">
           <span class="card-num">${num}/${total}</span>
-          <span class="specimen-label">${shortLabel(file)}</span>
-          <span class="status-badge status-${status}">${status}</span>
+          <span class="specimen-label">${escapeHtml(card.name || shortLabel(file))}</span>
+          <span class="file-tag">${escapeHtml(card.file)}</span>
         </div>
         <div class="card-missing">file not found in preview/ — was it deleted?</div>
       </div>`
     }
     const { raw, body } = extract(file)
-    const id = `card-${basename(file, '.html')}`
     const styles = raw ? scopeStyles(raw, id) : ''
-    const iterTag = iteration ? `<span class="iter-tag iter-${iteration}">${iteration}</span>` : ''
-    return `<div class="specimen status-${status}" id="${id}">
+    const blurb = card.blurb ? `<div class="card-blurb">${escapeHtml(card.blurb)}</div>` : ''
+    return `<div class="specimen" id="${id}">
       <div class="specimen-head">
         <span class="card-num">${num}/${total}</span>
-        <span class="specimen-label">${shortLabel(file)}</span>
-        ${iterTag}
-        <span class="status-badge status-${status}">${status}</span>
+        <span class="specimen-label">${escapeHtml(card.name || shortLabel(file))}</span>
+        <span class="file-tag">${escapeHtml(card.file)}</span>
       </div>
-      ${note ? `<div class="card-note">⚑ ${note}</div>` : ''}
+      ${blurb}
+      ${consumeRow}
       ${styles ? `<style>${styles}</style>` : ''}
       <div class="specimen-body">${body}</div>
     </div>`
   }
 
-  const groupSections = data.groups.map(g => {
-    const cards = g.cards.map(c => renderCard(c.file, c.num, g.cards.length, c.status, c.note, c.iteration)).join('\n')
-    const log = g.decisions_log && g.decisions_log.length
-      ? g.decisions_log.map(d => {
-          if (typeof d === 'string') return `<li>${d}</li>`
-          return `<li><span class="log-date">${d.date || ''}</span> ${d.note || ''}</li>`
-        }).join('')
-      : '<li class="empty">(no decisions yet)</li>'
-    const code = `G${String(g.order).padStart(2,'0')}`
-    return `<section class="group" id="group-${g.id}">
+  const groupSection = g => {
+    const cards = g.cards.map((c, i) => renderCard(c, i + 1, g.cards.length)).join('\n')
+    return `<section class="group" id="group-${anchorId(g.layer, g.family)}">
       <div class="group-header">
-        <span class="group-code">${code}</span>
-        <h2>${g.label}</h2>
-        <span class="phase-tag">${g.phase}</span>
-        <span class="status-tag status-${g.status}">${g.status}</span>
-      </div>
-      <div class="recommendation">
-        <div class="rec-label">Recommendation</div>
-        <div class="rec-body">${g.recommendation}</div>
+        <span class="group-code">${escapeHtml(g.family)}</span>
+        <h2>${escapeHtml(g.title)}</h2>
+        <span class="phase-tag">${escapeHtml(g.layer)}</span>
       </div>
       ${cards}
-      <div class="decisions">
-        <div class="dec-label">Decisions log</div>
-        <ul>${log}</ul>
+    </section>`
+  }
+
+  const layerSections = LAYER_ORDER.map(layer => {
+    const layerGroups = groups.filter(g => g.layer === layer)
+    if (!layerGroups.length) return ''
+    return `<section class="layer-section" id="layer-${anchorId(layer)}">
+      <div class="layer-header">
+        <span class="layer-code">${escapeHtml(layer)}</span>
+        <h1>${escapeHtml(LAYER_LABELS[layer] || layer)}</h1>
+        <span class="layer-count">${layerStats[layer]} cards</span>
       </div>
+      ${layerGroups.map(groupSection).join('\n')}
     </section>`
   }).join('\n')
 
   const ungroupedSection = ungrouped.length === 0 ? '' : `
     <section class="group" id="group-ungrouped">
-      <div class="group-header"><h2>Ungrouped</h2><span class="phase-tag">unmapped</span></div>
-      <div class="recommendation">
-        <div class="rec-label">Note</div>
-        <div class="rec-body">These cards exist in preview/ but aren't in .planning/unification-data.json. Add them or remove them.</div>
-      </div>
-      ${ungrouped.map((f, i) => renderCard(f, i + 1, ungrouped.length, 'pending', '', null)).join('\n')}
+      <div class="group-header"><h2>Ungrouped</h2><span class="phase-tag">UNMAPPED</span></div>
+      <div class="card-blurb">These cards exist in preview/ but are not in .planning/unification-data.json.</div>
+      ${ungrouped.map((f, i) => renderCard({
+        file: `preview/${f}`,
+        name: shortLabel(f),
+        blurb: 'Preview file exists but is not mapped in the schema.',
+        consumes: []
+      }, i + 1, ungrouped.length)).join('\n')}
     </section>`
 
-  const cardSections = groupSections + ungroupedSection
+  const cardSections = layerSections + ungroupedSection
 
   const assetFiles = readdirSync(join(PROJECT, 'assets')).filter(f => /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(f))
   const assetGrid = assetFiles.map(f =>
@@ -250,7 +285,36 @@ function buildPage() {
     }
 
     /* group sections */
-    .group { margin-bottom: 56px; }
+    .layer-section {
+      margin-bottom: 72px;
+      scroll-margin-top: 16px;
+    }
+    .layer-header {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      padding-bottom: 14px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--hairline);
+      scroll-margin-top: 16px;
+    }
+    .layer-header h1 {
+      font: var(--t-display-l);
+      letter-spacing: var(--tracking-display);
+      text-transform: uppercase;
+      color: var(--fg);
+    }
+    .layer-code,
+    .layer-count {
+      font: var(--t-caption);
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+      color: var(--ivory-3);
+    }
+    .layer-code {
+      color: var(--brass);
+    }
+    .group { margin-bottom: 48px; }
     .group-header {
       font: var(--t-h1);
       letter-spacing: var(--tracking-display);
@@ -331,7 +395,7 @@ function buildPage() {
       margin-right: 6px;
       letter-spacing: 0.04em;
     }
-    .phase-tag, .status-tag, .iter-tag {
+    .phase-tag, .file-tag {
       font: var(--t-caption);
       font-size: 10px;
       letter-spacing: 0.18em;
@@ -339,35 +403,8 @@ function buildPage() {
       padding: 3px 8px;
       border-radius: 2px;
     }
-    .phase-tag      { background: var(--ink-4); color: var(--ivory-3); }
-    .status-tag.status-open     { background: var(--ink-4); color: var(--ivory-3); }
-    .status-tag.status-decided  { background: var(--brass); color: var(--ink); }
-    .status-tag.status-executed { background: var(--note-me); color: var(--ink); }
-
-    .iter-tag.iter-current { background: var(--ink-4); color: var(--ivory-2); }
-    .iter-tag.iter-v2      { background: var(--plum); color: var(--ivory); }
-    .iter-tag.iter-hybrid  { background: var(--tomato); color: var(--ink); }
-
-    .recommendation {
-      background: var(--ink-3);
-      border-left: 3px solid var(--brass);
-      border-radius: 0 var(--r-sm) var(--r-sm) 0;
-      padding: 12px 16px;
-      margin-bottom: 18px;
-    }
-    .rec-label {
-      font: var(--t-caption);
-      font-size: 10px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--brass);
-      margin-bottom: 6px;
-    }
-    .rec-body {
-      font: var(--t-body-s);
-      color: var(--ivory-2);
-      line-height: 1.55;
-    }
+    .phase-tag { background: var(--ink-4); color: var(--ivory-3); }
+    .file-tag { background: var(--ink); color: var(--ivory-4); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* specimen head bar */
     .specimen-head {
@@ -394,35 +431,39 @@ function buildPage() {
       background: none;
       border: none;
     }
-    .status-badge {
+
+    .card-blurb {
+      font: var(--t-caption);
+      color: var(--ivory-3);
+      padding: 6px 14px;
+      background: var(--ink-3);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .consume-row {
+      display: flex;
+      gap: 9px;
+      align-items: baseline;
+      padding: 6px 14px 7px;
+      background: var(--ink-2);
+      border-bottom: 1px solid var(--hairline);
       font: var(--t-caption);
       font-size: 10px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 2px;
-      font-weight: 600;
+      color: var(--ivory-3);
     }
-    .status-badge.status-pending { background: var(--ink-4); color: var(--ivory-3); }
-    .status-badge.status-keep    { background: var(--note-me); color: var(--ink); }
-    .status-badge.status-kill    { background: var(--tomato); color: var(--ivory); }
-    .status-badge.status-merge   { background: var(--brass); color: var(--ink); }
-    .status-badge.status-rename  { background: var(--plum); color: var(--ivory); }
-    .status-badge.status-rebuild { background: var(--tomato); color: var(--ink); }
-
-    /* status outline on the whole specimen */
-    .specimen.status-keep    { box-shadow: var(--ring), inset 0 0 0 2px var(--note-me); }
-    .specimen.status-kill    { box-shadow: var(--ring), inset 0 0 0 2px var(--tomato); opacity: 0.62; }
-    .specimen.status-merge   { box-shadow: var(--ring), inset 0 0 0 2px var(--brass); }
-    .specimen.status-rename  { box-shadow: var(--ring), inset 0 0 0 2px var(--plum); }
-    .specimen.status-rebuild { box-shadow: var(--ring), inset 0 0 0 2px var(--tomato); }
-
-    .card-note {
-      font: var(--t-caption);
+    .consume-label {
       color: var(--brass);
-      padding: 6px 14px;
-      background: var(--ink-3);
-      border-bottom: 1px solid var(--hairline);
+    }
+    .consume-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 7px;
+      min-width: 0;
+    }
+    .consume-sep {
+      color: var(--ivory-4);
+      margin-left: 7px;
     }
     .card-missing {
       padding: 24px;
@@ -432,26 +473,6 @@ function buildPage() {
       letter-spacing: 0.12em;
     }
     .specimen.missing { opacity: 0.5; }
-
-    .decisions {
-      margin-top: 14px;
-      padding: 12px 16px;
-      background: var(--ink-2);
-      border: 1px solid var(--hairline);
-      border-radius: var(--r-sm);
-    }
-    .dec-label {
-      font: var(--t-caption);
-      font-size: 10px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ivory-3);
-      margin-bottom: 6px;
-    }
-    .decisions ul { list-style: none; padding: 0; margin: 0; }
-    .decisions li { font: var(--t-body-s); color: var(--ivory-2); padding: 3px 0; }
-    .decisions li.empty { color: var(--ivory-4); font-style: italic; }
-    .decisions .log-date { font-family: var(--font-mono); font-size: 10px; color: var(--ivory-3); margin-right: 6px; }
 
     /* stats strip in sidebar */
     .stats-strip {
@@ -468,10 +489,7 @@ function buildPage() {
       padding: 2px 6px;
       border-radius: 2px;
     }
-    .stat-pending { background: var(--ink-3); color: var(--ivory-3); }
-    .stat-keep    { background: var(--note-me); color: var(--ink); }
-    .stat-kill    { background: var(--tomato); color: var(--ivory); }
-    .stat-merge   { background: var(--brass); color: var(--ink); }
+    .stat { background: var(--ink-3); color: var(--ivory-3); }
 
     /* assets */
     .assets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
@@ -485,14 +503,12 @@ function buildPage() {
 <aside id="sidebar">
   <div id="sidebar-head">
     <div class="wm">Emotitone</div>
-    <div class="sub">unification review</div>
+    <div class="sub">layer/family sink</div>
   </div>
   <div class="stats-strip">
-    <span class="stat stat-pending">${stats.pending || 0} pending</span>
-    <span class="stat stat-keep">${stats.keep || 0} keep</span>
-    <span class="stat stat-kill">${stats.kill || 0} kill</span>
-    <span class="stat stat-merge">${stats.merge || 0} merge</span>
-    <span class="stat stat-pending">${total} total</span>
+    <span class="stat">${cardCount} cards</span>
+    <span class="stat">${groups.length} groups</span>
+    <span class="stat">${LAYER_ORDER.filter(layer => layerStats[layer] > 0).length} layers</span>
   </div>
   <nav>${navHtml}</nav>
 </aside>

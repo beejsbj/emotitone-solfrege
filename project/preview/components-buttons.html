@@ -1,51 +1,648 @@
-<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
 <style>
-  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;}
-  .ico{width:40px;height:40px;display:grid;place-items:center;background:var(--ink-3);box-shadow:var(--ring);border-radius:8px;border:0;color:var(--fg);cursor:pointer;}
-  .ico.sm{width:32px;height:32px;border-radius:6px;}
-  .ico.lg{width:48px;height:48px;}
-  .ico.paper{background:var(--ivory);color:var(--ink);box-shadow:none;}
-  .ico.wire{background:transparent;box-shadow:inset 0 0 0 1.5px var(--ink-5);color:var(--fg-2);}
-  /* brass record uses the .brass utility from _card.css for sheen */
-  .ico.brass{color:var(--brass-edge);}
-  .ico.wire-erase{background:transparent;box-shadow:inset 0 0 0 1.5px var(--ivory-3);color:var(--ivory-2);}
-  .ico.active{background:var(--ink-4);box-shadow:inset 0 0 0 1px var(--ink-5);}
-  .pair{display:flex;gap:0;background:var(--ink-3);box-shadow:var(--ring);border-radius:8px;overflow:hidden;}
-  .pair .ico{background:transparent;box-shadow:none;border-radius:0;}
-  .pair .ico+.ico{border-left:1px solid var(--hairline);}
-  .lbl{font:var(--t-label);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--fg-3);}
+/* =====================================================================
+   BUTTONS - ICON-BUTTON PRIMITIVE
+   Canonical 40px touch button plus the full role, brand, state, and
+   composite variants.
+   ===================================================================== */
+
+/* Shared grammar - specimen-card-grammar */
+.section-head {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ivory-4);
+  margin: 24px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink-5);
+}
+.section-head:first-child { margin-top: 6px; }
+
+.anatomy-wrap {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+.anatomy {
+  display: grid;
+  align-content: start;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+}
+.anatomy .row {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ink-5);
+}
+.anatomy .row:last-child { border-bottom: 0; }
+.anatomy .row b { color: var(--ivory); font-weight: 700; }
+
+.variants-full {
+  display: grid;
+  gap: 12px;
+}
+
+/* ── hero ─────────────────────────────────────────────────────────── */
+.button-hero {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  border: 1px solid var(--ink-5);
+}
+.button-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── base icon-button ─────────────────────────────────────────────── */
+.ico {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: var(--ink-3);
+  box-shadow: var(--ring);
+  border-radius: var(--r-sm);
+  border: 0;
+  color: var(--ivory);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--dur-tap) var(--ease-stab),
+    box-shadow var(--dur-tap) var(--ease-stab),
+    transform var(--dur-tap) var(--ease-stab),
+    opacity var(--dur-tap) var(--ease-stab);
+}
+.ico:hover { background: var(--ink-4); }
+.ico:active { transform: scale(.96); }
+.ico.sm { width: 32px; height: 32px; border-radius: var(--r-xs); }
+.ico.lg { width: 48px; height: 48px; }
+
+/* ── role variants ──────────────────────────────────────────────── */
+.ico.paper { background: var(--ivory); color: var(--ink); box-shadow: none; }
+.ico.paper:hover { background: var(--ivory-2); }
+
+.ico.wire {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ink-5);
+  color: var(--ivory-2);
+}
+.ico.wire:hover { background: var(--ink-3); }
+
+.ico.wire-erase {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ivory-3);
+  color: var(--ivory-2);
+}
+
+/* hairline-only: thinnest possible wire, ivory-4 icon */
+.ico.wire-hairline {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--ivory-4);
+}
+.ico.wire-hairline:hover { color: var(--ivory-2); background: var(--ink-3); }
+
+/* filled solid — ivory fill, ink icon (max contrast, CTAs) */
+.ico.solid {
+  background: var(--ivory);
+  color: var(--ink);
+  box-shadow: none;
+  border-radius: var(--r-xs);
+}
+.ico.solid:hover { background: var(--ivory-2); }
+
+/* brass variant — lit signal, one per panel */
+.ico.brass { color: var(--brass-edge); }
+
+/* brass text — text label variant with brass treatment */
+.btn-brass-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 14px;
+  font: 700 11px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: var(--ink-3);
+  border-radius: var(--r-xs);
+  box-shadow: var(--ring);
+  cursor: pointer;
+  border: 0;
+  color: var(--brass);
+  transition: background var(--dur-tap) var(--ease-stab);
+}
+.btn-brass-text:hover { background: var(--ink-4); }
+
+/* ── brand-mark variants ──────────────────────────────────────────── */
+.ico.brand-tomato {
+  background: var(--tomato);
+  color: var(--ivory);
+  box-shadow: none;
+}
+.ico.brand-tomato:hover { filter: brightness(1.1); }
+
+.ico.brand-pine {
+  background: var(--pine);
+  color: var(--ivory);
+  box-shadow: none;
+}
+.ico.brand-pine:hover { filter: brightness(1.1); }
+
+.ico.brand-plum {
+  background: var(--plum);
+  color: var(--ivory);
+  box-shadow: none;
+}
+.ico.brand-plum:hover { filter: brightness(1.1); }
+
+/* inverse — bone bg proves the primitive survives a light surface */
+.ico-inverse-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bone);
+  border-radius: var(--r-xs);
+}
+.ico.on-bone {
+  background: var(--ink-3);
+  color: var(--ivory);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
+}
+.ico.on-bone:hover { background: var(--ink-4); }
+
+/* ── state variants ─────────────────────────────────────────────── */
+.ico.active {
+  background: var(--ink-4);
+  box-shadow: inset 0 0 0 1px var(--ink-5);
+}
+
+.ico:disabled,
+.ico.disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* press-state: mid-press captured */
+.ico.press {
+  transform: scale(.93);
+  background: var(--ink-4);
+  box-shadow: var(--shadow-pressed), var(--ring);
+}
+
+/* hover-state: explicit hover surface */
+.ico.hover-state {
+  background: var(--ink-4);
+  box-shadow: var(--ring);
+}
+
+/* ── toggle pairs ─────────────────────────────────────────────────── */
+.ico-pair {
+  display: flex;
+  background: var(--ink-3);
+  box-shadow: var(--ring);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.ico-pair .ico {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+.ico-pair .ico + .ico { border-left: 1px solid var(--hairline); }
+
+/* mute / mic toggle — on state: ivory fill with ink icon */
+.btn-toggle {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--ink-5);
+  border-radius: var(--r-sm);
+  color: var(--ivory);
+  cursor: pointer;
+  transition:
+    background var(--dur-tap) var(--ease-stab),
+    border-color var(--dur-tap) var(--ease-stab),
+    color var(--dur-tap) var(--ease-stab);
+}
+.btn-toggle[aria-pressed="true"] {
+  background: var(--ivory);
+  border-color: var(--ivory);
+  color: var(--ink);
+}
+
+/* play toggle */
+.btn-play-toggle {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--ink-5);
+  border-radius: var(--r-sm);
+  color: var(--ivory);
+  cursor: pointer;
+  transition:
+    background var(--dur-tap) var(--ease-stab),
+    border-color var(--dur-tap) var(--ease-stab),
+    color var(--dur-tap) var(--ease-stab);
+}
+.btn-play-toggle[aria-pressed="true"] {
+  background: var(--ivory);
+  border-color: var(--ivory);
+  color: var(--ink);
+}
+
+/* ── text buttons ─────────────────────────────────────────────────── */
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 8px 14px;
+  font: 700 12px/1 var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.text-btn.ghost {
+  background: transparent;
+  color: var(--ivory);
+  border: 1px solid var(--ink-5);
+  border-radius: 0;
+}
+.text-btn.pill {
+  background: var(--ivory);
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--r-pill);
+}
+
+/* ── variant cell chrome ─────────────────────────────────────────── */
+.variant-cell {
+  min-height: 116px;
+  display: grid;
+  grid-template-rows: 48px auto auto;
+  justify-items: center;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink-3);
+  border: 1px solid var(--ink-5);
+  padding: 14px 8px 12px;
+  box-sizing: border-box;
+}
+.variant-demo {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.variant-label,
+.variant-note {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  text-align: center;
+}
+.variant-label {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: var(--ivory);
+}
+.variant-note {
+  font-size: 7.5px;
+  letter-spacing: 0.12em;
+  color: var(--ivory-4);
+}
+
+/* ── SVG stroke default ─────────────────────────────────────────── */
+.ico svg { display: block; }
+
+/* ── reduced-motion guard ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ico,
+  .btn-play-toggle,
+  .btn-toggle,
+  .btn-brass-text,
+  .text-btn {
+    transition: none !important;
+  }
+  .ico.brass::after {
+    animation: none !important;
+  }
+}
 </style></head><body>
 <div class="card">
-  <div class="lbl">PAPER RARE · WIRE DEFAULT · BRASS ONCE PER PANEL</div>
-  <div class="row">
-    <button class="ico paper" title="Play (primary)"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg></button>
-    <button class="ico wire" title="Pause (secondary)"><svg width="12" height="14" viewBox="0 0 12 14"><rect x="1" y="1" width="3.5" height="12" fill="currentColor"/><rect x="7.5" y="1" width="3.5" height="12" fill="currentColor"/></svg></button>
-    <button class="ico brass" title="Record (the lone brass — captured)"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="currentColor"/></svg></button>
-    <button class="ico wire-erase" title="Erase (destructive)"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
-    <span style="width:8px"></span>
-    <button class="ico" title="Undo"><svg width="16" height="14" viewBox="0 0 16 14"><path d="M3 5h7a4 4 0 0 1 0 8h-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M5 2 1 5l4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button class="ico" title="Save"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2h8l2 2v8H2z" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="4" y="2" width="6" height="4" fill="currentColor"/></svg></button>
-    <button class="ico" title="Settings"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.5 2.5l1.5 1.5M10 10l1.5 1.5M2.5 11.5 4 10M10 4l1.5-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
-    <button class="ico" title="Menu"><svg width="14" height="12" viewBox="0 0 14 12"><path d="M1 2h12M1 6h12M1 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
-    <button class="ico active" title="Active state"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="3" fill="currentColor"/></svg></button>
+  <div class="label">BUTTONS &middot; ICON-BUTTON PRIMITIVE</div>
+
+  <div class="section-head">Anatomy</div>
+  <div class="anatomy-wrap">
+    <div class="button-hero">
+      <div class="button-cluster" aria-label="Canonical icon button roles">
+        <button class="ico" title="Default">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="currentColor"/></svg>
+        </button>
+        <button class="ico wire" title="Wire">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5h7a4 4 0 0 1 0 8h-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="butt"/><path d="M5 2 1 5l4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="butt" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="ico paper" title="Primary">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>
+        </button>
+        <button class="ico brass" title="Record">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="anatomy">
+      <div class="row"><b>Shape</b><span>40x40 md · 8px r-sm · border 0 · grid center</span></div>
+      <div class="row"><b>Fill</b><span>ink-3 default · ivory primary · transparent wire</span></div>
+      <div class="row"><b>Ring</b><span>var(--ring) default · 1.5px ink-5 wire</span></div>
+      <div class="row"><b>Icon</b><span>SVG currentColor · 12-18px · butt stroke caps</span></div>
+      <div class="row"><b>Sizes</b><span>sm 32 r-xs · md 40 r-sm · lg 48 r-sm</span></div>
+      <div class="row"><b>State</b><span>hover ink-4 · active scale .96 · disabled .35 opacity</span></div>
+      <div class="row"><b>Brass</b><span>.brass utility only · lit record/capture · one per panel</span></div>
+    </div>
   </div>
 
-  <div class="lbl" style="margin-top:18px">SM 32 · MD 40 · LG 48 · CRISP 8R</div>
-  <div class="row">
-    <button class="ico sm"><svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 1v9l7-4.5z" fill="currentColor"/></svg></button>
-    <button class="ico"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg></button>
-    <button class="ico lg paper"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M4 2v14l11-7z" fill="currentColor"/></svg></button>
-    <span style="width:12px"></span>
-    <div class="pair">
-      <button class="ico sm" title="Up oct"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 1l4 5H1z" fill="currentColor"/></svg></button>
-      <button class="ico sm" title="Down oct"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 9 1 4h8z" fill="currentColor"/></svg></button>
+  <!-- ═══ GROUP 1: Roles ═══════════════════════════════════════════ -->
+  <div class="section-head">Roles</div>
+  <div class="variants-full" style="grid-template-columns: repeat(4, 1fr);">
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico" title="Default">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5h7a4 4 0 0 1 0 8h-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="butt"/><path d="M5 2 1 5l4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="butt" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Default</div>
+      <div class="variant-note">ink-3 · hairline ring</div>
     </div>
-    <div class="pair">
-      <button class="ico sm"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="2" width="2" height="6" fill="currentColor"/><rect x="4" y="2" width="2" height="6" fill="currentColor"/><rect x="7" y="2" width="2" height="6" fill="currentColor"/></svg></button>
-      <button class="ico sm"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="2" cy="5" r="1.5" fill="currentColor"/><circle cx="5" cy="5" r="1.5" fill="currentColor"/><circle cx="8" cy="5" r="1.5" fill="currentColor"/></svg></button>
-      <button class="ico sm"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5h8M1 5l3-3M1 5l3 3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg></button>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico sm" title="Save">
+          <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2h8l2 2v8H2z" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="4" y="2" width="6" height="4" fill="currentColor"/></svg>
+        </button>
+        <button class="ico sm" title="Settings">
+          <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.5 2.5l1.5 1.5M10 10l1.5 1.5M2.5 11.5 4 10M10 4l1.5-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="butt"/></svg>
+        </button>
+        <button class="ico sm" title="Menu">
+          <svg width="12" height="10" viewBox="0 0 14 12" aria-hidden="true"><path d="M1 2h12M1 6h12M1 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="butt"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Icon set</div>
+      <div class="variant-note">same shell · new glyph</div>
     </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico paper" title="Primary">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Paper</div>
+      <div class="variant-note">ivory · ink glyph</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico wire" title="Wire">
+          <svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="1" width="3.5" height="12" fill="currentColor"/><rect x="7.5" y="1" width="3.5" height="12" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Wire</div>
+      <div class="variant-note">transparent · ink-5</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico wire-erase" title="Erase">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="butt"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Wire-erase</div>
+      <div class="variant-note">ivory-3 wire</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico wire-hairline" title="Hairline only">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="butt"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Hairline</div>
+      <div class="variant-note">1px · ghost minimal</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico solid" title="Solid filled">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Solid</div>
+      <div class="variant-note">ivory fill · ink icon</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico sm" title="Small">
+          <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2 1v9l7-4.5z" fill="currentColor"/></svg>
+        </button>
+        <button class="ico" title="Medium">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>
+        </button>
+        <button class="ico lg paper" title="Large">
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2v14l11-7z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">SM / MD / LG</div>
+      <div class="variant-note">32 · 40 · 48px</div>
+    </div>
+
   </div>
 
-  <div class="caption" style="margin-top:14px;color:var(--fg-3)">Paper = primary (rare). Wire = secondary. <b>Brass = the lone accent</b> — record/capture only, with sheen. Erase is wire-outlined neutral. Default ink-3 holds everything else. Press: shrink 96%.</div>
+  <!-- ═══ GROUP 2: Brand Marks ═══════════════════════════════════════ -->
+  <div class="section-head">Brand Marks</div>
+  <div class="variants-full" style="grid-template-columns: repeat(3, 1fr);">
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico brass" title="Record — brass lit">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Brass</div>
+      <div class="variant-note">lit record only</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="btn-brass-text" title="Brass text REC">REC</button>
+      </div>
+      <div class="variant-label">Brass-text</div>
+      <div class="variant-note">mono · brass label</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico brand-tomato" title="Record — tomato">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Tomato</div>
+      <div class="variant-note">record · danger</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico brand-pine" title="Live — pine">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="butt"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Pine</div>
+      <div class="variant-note">live · transmit</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico brand-plum" title="Ambient — plum">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2C4.5 4 3 6 3 8a4 4 0 0 0 8 0c0-2-1.5-4-4-6z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Plum</div>
+      <div class="variant-note">ambient · bloom</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <div class="ico-inverse-wrap">
+          <button class="ico on-bone" title="On bone surface">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="variant-label">Inverse</div>
+      <div class="variant-note">bone bg · survives light</div>
+    </div>
+
+  </div>
+
+  <!-- ═══ GROUP 3: States &amp; Composites ═══════════════════════════ -->
+  <div class="section-head">States &amp; Composites</div>
+  <div class="variants-full" style="grid-template-columns: repeat(4, 1fr);">
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico hover-state" title="Hover surface">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Hover</div>
+      <div class="variant-note">ink-4 surface</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico active" title="Active">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Active</div>
+      <div class="variant-note">ink-4 · inset wire</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico press" title="In mid-press">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Press</div>
+      <div class="variant-note">scale .93 · shadow</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="ico disabled" title="Disabled" disabled>
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Disabled</div>
+      <div class="variant-note">opacity .35</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo" style="flex-direction:column; gap:6px;">
+        <div class="ico-pair">
+          <button class="ico sm" title="Up octave"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1l4 5H1z" fill="currentColor"/></svg></button>
+          <button class="ico sm" title="Down octave"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 9 1 4h8z" fill="currentColor"/></svg></button>
+        </div>
+        <div class="ico-pair">
+          <button class="ico sm" title="Bars"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="1" y="2" width="2" height="6" fill="currentColor"/><rect x="4" y="2" width="2" height="6" fill="currentColor"/><rect x="7" y="2" width="2" height="6" fill="currentColor"/></svg></button>
+          <button class="ico sm" title="Dots"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="2" cy="5" r="1.5" fill="currentColor"/><circle cx="5" cy="5" r="1.5" fill="currentColor"/><circle cx="8" cy="5" r="1.5" fill="currentColor"/></svg></button>
+          <button class="ico sm" title="Back"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8M1 5l3-3M1 5l3 3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="butt"/></svg></button>
+        </div>
+      </div>
+      <div class="variant-label">ico-pair</div>
+      <div class="variant-note">shared shell</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="btn-play-toggle" aria-pressed="false" title="Play rest">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>
+        </button>
+        <button class="btn-play-toggle" aria-pressed="true" title="Play active">
+          <svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="1" width="3.5" height="12" fill="currentColor"/><rect x="7.5" y="1" width="3.5" height="12" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Play-toggle</div>
+      <div class="variant-note">wire rest · ivory on</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo">
+        <button class="btn-toggle" aria-pressed="false" title="Mute off">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 4 9 7 5 10V4z" fill="currentColor"/><path d="M10 5q1 2 0 4" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="butt"/></svg>
+        </button>
+        <button class="btn-toggle" aria-pressed="true" title="Mute on">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 4 9 7 5 10V4z" fill="currentColor"/><path d="M9 5l3 4M12 5l-3 4" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="butt"/></svg>
+        </button>
+      </div>
+      <div class="variant-label">Mute-toggle</div>
+      <div class="variant-note">same pattern · mute role</div>
+    </div>
+
+    <div class="variant-cell">
+      <div class="variant-demo" style="flex-direction:column; gap:6px;">
+        <button class="text-btn ghost" title="Ghost instrument">Visual presets</button>
+        <button class="text-btn pill" title="Paper pill">Apply</button>
+      </div>
+      <div class="variant-label">Ghost / Pill</div>
+      <div class="variant-note">drawer trigger refs</div>
+    </div>
+
+  </div>
+
+  <div class="caption" style="margin-top:14px">Icon buttons own touch targets; text buttons borrow only documented drawer roles; brass is reserved for one lit record/capture signal per panel. Brand-mark fills (tomato/pine/plum) earn their role by function — never decoration.</div>
 </div></body></html>

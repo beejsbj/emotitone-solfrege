@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "version": 2,
+    "version": 3,
     "updated": "2026-05-17",
-    "schema": "Layer/family sink schema. Cards are grouped by TOKEN -> PRIMITIVE -> PART -> SURFACE -> COMPOSITION, then family.",
+    "schema": "v3 user-directed restructure",
     "source_files": [
       ".planning/atoms.json",
       "project/preview"
@@ -14,77 +14,78 @@
       "SURFACE",
       "COMPOSITION"
     ],
+    "drift_candidates": [
+      {
+        "file": "preview/composition-motion-overview.html",
+        "reason": "Rehashes motion primitives instead of showing an app screen."
+      },
+      {
+        "file": "preview/composition-music-marks.html",
+        "reason": "Rehashes marks primitives; extract the music glyph specimen later."
+      },
+      {
+        "file": "preview/composition-spacing-overview.html",
+        "reason": "Rehashes spacing and geometry tokens."
+      },
+      {
+        "file": "preview/mot-compositions-beat-room.html",
+        "reason": "Rehashes motion primitives inside a panel."
+      },
+      {
+        "file": "preview/mot-compositions-state-cascade.html",
+        "reason": "Rehashes motion primitives on a timeline."
+      },
+      {
+        "file": "preview/composition-brand-cover.html",
+        "reason": "Brand hero, not a real app screen."
+      },
+      {
+        "file": "preview/composition-pattern-reel.html",
+        "reason": "Overlaps pattern-card and future bottom-area composition."
+      },
+      {
+        "file": "preview/principles.html",
+        "reason": "Contains useful ideas but is not a reusable app layer card."
+      },
+      {
+        "file": "preview/components-section-anchor.html",
+        "reason": "Section-anchor concept needs decomposition into decoration."
+      },
+      {
+        "file": "preview/components-solfege-tile.html",
+        "reason": "Both visual styles now live in components-keys.html (wide-angular + tall-long). Tile is drift."
+      }
+    ],
     "review": [
       {
-        "file": "preview/type-display.html",
-        "note": "Placed under TOKEN/general because the new family enum has no type family."
+        "file": "preview/brand-loading-screen.html",
+        "note": "Kept old filename under COMPOSITION/loading-screen; rename is deferred."
       },
       {
-        "file": "preview/type-mono.html",
-        "note": "Placed under TOKEN/general because the new family enum has no type family."
-      },
-      {
-        "file": "preview/type-text.html",
-        "note": "Placed under SURFACE/general as a typography usage rule, not an atom specimen."
-      },
-      {
-        "file": "preview/composition-app-reference-index.html",
-        "note": "Existing untracked Phase 5 preview card placed under SURFACE/general so every preview card remains reachable."
-      },
-      {
-        "file": "preview/brand-logo.html",
-        "note": "Placed under SURFACE/general because the new schema has no brand layer or family."
-      },
-      {
-        "file": "preview/brand-tagline.html",
-        "note": "Placed under SURFACE/general because the new schema has no brand layer or family."
-      },
-      {
-        "file": "preview/brand-pattern.html",
-        "note": "Placed under SURFACE/general because the new schema has no brand layer or family."
-      },
-      {
-        "file": "preview/brand-stickers.html",
-        "note": "Placed under SURFACE/general because the new schema has no brand layer or family."
-      },
-      {
-        "file": "preview/components-chip.html",
-        "note": "Kept as PART/chips because it is a hardware-bar assembly despite the components-* filename."
+        "file": "preview/composition-drawer.html",
+        "note": "Kept old filename under COMPOSITION/top-drawer; rename is deferred."
       },
       {
         "file": "preview/mot-primitives-durations.html",
-        "note": "Kept under PRIMITIVE/motion per filename heuristic, but it demonstrates duration tokens rather than a named atom."
+        "note": "Grouped as TOKEN/motion while tokens-motion-durations rename is deferred."
+      },
+      {
+        "file": "preview/mot-primitives-easings.html",
+        "note": "Grouped as TOKEN/motion while tokens-motion-easings rename is deferred."
+      },
+      {
+        "file": "preview/components-pattern-reel.html",
+        "note": "Moved out of SURFACE into PART/pattern-card to keep SURFACE empty."
       }
     ],
-    "unresolved": [
-      {
-        "file": "preview/components-badge.html",
-        "note": "Badge primitive is demonstrated here but has no atom name in atoms.json."
-      },
-      {
-        "file": "preview/components-bar-tape.html",
-        "note": "Bar tape primitive is demonstrated here but has no atom name in atoms.json."
-      },
-      {
-        "file": "preview/mot-primitives-durations.html",
-        "note": "Duration-token specimen has no corresponding atom name in atoms.json."
-      },
-      {
-        "file": "preview/brand-pattern.html",
-        "note": "Brand pattern surface has no corresponding atom name in atoms.json."
-      },
-      {
-        "file": "preview/brand-stickers.html",
-        "note": "Bitmap sticker surface has no corresponding atom name in atoms.json."
-      }
-    ],
+    "unresolved": [],
     "orphan_atoms": []
   },
   "groups": [
     {
       "layer": "TOKEN",
       "family": "color",
-      "title": "Tokens \u00b7 Color",
+      "title": "Tokens · Color",
       "cards": [
         {
           "file": "preview/tokens-ui-colors.html",
@@ -108,8 +109,33 @@
     },
     {
       "layer": "TOKEN",
+      "family": "typography",
+      "title": "Tokens · Typography",
+      "cards": [
+        {
+          "file": "preview/type-display.html",
+          "name": "Display Type",
+          "blurb": "Lets Jazz display sizes and uppercase voice.",
+          "consumes": []
+        },
+        {
+          "file": "preview/type-text.html",
+          "name": "Text Rule",
+          "blurb": "Typography usage rule for Jazz labels and Mono long text.",
+          "consumes": []
+        },
+        {
+          "file": "preview/type-mono.html",
+          "name": "Mono Type",
+          "blurb": "JetBrains Mono for Strudel code and timestamps.",
+          "consumes": []
+        }
+      ]
+    },
+    {
+      "layer": "TOKEN",
       "family": "geometry",
-      "title": "Tokens \u00b7 Geometry",
+      "title": "Tokens · Geometry",
       "cards": [
         {
           "file": "preview/spacing-scale.html",
@@ -122,45 +148,63 @@
           "name": "Radii",
           "blurb": "Radius tokens from XS through XL plus pill.",
           "consumes": []
+        },
+        {
+          "file": "preview/composition-spacing-overview.html",
+          "name": "Spacing Overview",
+          "blurb": "Aggregate spacing, radius, stroke, and cut-paper mark study.",
+          "consumes": [
+            "v2-card-wrapper",
+            "poster-shape",
+            "tomato-divider-tab",
+            "panel-floating-label"
+          ]
+        },
+        {
+          "file": "preview/tokens-geometry.html",
+          "name": "Geometry Tokens",
+          "blurb": "Clip-paths, transforms, shadows, and stroke caps as named recipes.",
+          "consumes": []
         }
       ]
     },
     {
       "layer": "TOKEN",
       "family": "motion",
-      "title": "Tokens \u00b7 Motion",
+      "title": "Tokens · Motion",
       "cards": [
         {
           "file": "preview/motion-beat.html",
           "name": "Beat",
           "blurb": "Global beat timing concept for breathing UI surfaces.",
           "consumes": []
-        }
-      ]
-    },
-    {
-      "layer": "TOKEN",
-      "family": "general",
-      "title": "Tokens \u00b7 Type",
-      "cards": [
+        },
         {
-          "file": "preview/type-display.html",
-          "name": "Display Type",
-          "blurb": "Lets Jazz display sizes and uppercase voice.",
+          "file": "preview/mot-primitives-durations.html",
+          "name": "Durations",
+          "blurb": "Four gesture durations shown against a four-bar timeline.",
           "consumes": []
         },
         {
-          "file": "preview/type-mono.html",
-          "name": "Mono Type",
-          "blurb": "JetBrains Mono for Strudel code and timestamps.",
+          "file": "preview/mot-primitives-easings.html",
+          "name": "Easings",
+          "blurb": "Named easing curves with animated runner dots and use cases.",
+          "consumes": [
+            "ease-run-demo"
+          ]
+        },
+        {
+          "file": "preview/tokens-motion-keyframes.html",
+          "name": "Motion Keyframes",
+          "blurb": "Catalog of every named keyframe — pulse, strobe, rip, flash, bob, slide, shimmer.",
           "consumes": []
         }
       ]
     },
     {
       "layer": "PRIMITIVE",
-      "family": "marks",
-      "title": "Primitives \u00b7 Marks",
+      "family": "decoration",
+      "title": "Primitives · Decoration",
       "cards": [
         {
           "file": "preview/components-kicker.html",
@@ -181,26 +225,49 @@
           ]
         },
         {
+          "file": "preview/composition-music-marks.html",
+          "name": "Music Marks",
+          "blurb": "Music notation glyph set with decorative scatter and v2 shell.",
+          "consumes": [
+            "v2-card-wrapper",
+            "music-glyph",
+            "poster-shape",
+            "decorative-scatter"
+          ]
+        },
+        {
           "file": "preview/components-badge.html",
           "name": "Badge",
           "blurb": "Lets Jazz wordmark in a sharp wire box.",
           "consumes": []
+        },
+        {
+          "file": "preview/components-section-anchor.html",
+          "name": "Section Anchor",
+          "blurb": "Section opener treatment.",
+          "consumes": [
+            "poster-shape",
+            "tilted-sticker",
+            "kicker-dot",
+            "panel-floating-label"
+          ]
+        },
+        {
+          "file": "preview/principles.html",
+          "name": "Principles",
+          "blurb": "Design rules paired with visual antipatterns.",
+          "consumes": [
+            "card-pillar",
+            "kicker-dot"
+          ]
         }
       ]
     },
     {
       "layer": "PRIMITIVE",
-      "family": "tiles",
-      "title": "Primitives \u00b7 Tiles",
+      "family": "keys",
+      "title": "Primitives · Keys",
       "cards": [
-        {
-          "file": "preview/components-solfege-tile.html",
-          "name": "Solf\u00e8ge Tile",
-          "blurb": "Playable chromatic-filled tile.",
-          "consumes": [
-            "tile-solfege"
-          ]
-        },
         {
           "file": "preview/components-keys.html",
           "name": "Keyboard Keys",
@@ -209,13 +276,21 @@
             "key-clip-paper",
             "tile-solfege"
           ]
+        },
+        {
+          "file": "preview/components-solfege-tile.html",
+          "name": "Solfège Tile",
+          "blurb": "Playable chromatic-filled tile.",
+          "consumes": [
+            "tile-solfege"
+          ]
         }
       ]
     },
     {
       "layer": "PRIMITIVE",
       "family": "knobs",
-      "title": "Primitives \u00b7 Knobs",
+      "title": "Primitives · Knobs",
       "cards": [
         {
           "file": "preview/components-knobs.html",
@@ -230,7 +305,7 @@
     {
       "layer": "PRIMITIVE",
       "family": "buttons",
-      "title": "Primitives \u00b7 Buttons",
+      "title": "Primitives · Buttons",
       "cards": [
         {
           "file": "preview/components-buttons.html",
@@ -246,7 +321,7 @@
     {
       "layer": "PRIMITIVE",
       "family": "tabs",
-      "title": "Primitives \u00b7 Tabs",
+      "title": "Primitives · Tabs",
       "cards": [
         {
           "file": "preview/components-tabs.html",
@@ -262,298 +337,37 @@
     },
     {
       "layer": "PRIMITIVE",
-      "family": "chips",
-      "title": "Primitives \u00b7 Chips",
-      "cards": [
-        {
-          "file": "preview/components-pattern-card.html",
-          "name": "Pattern Card",
-          "blurb": "Pattern row chip with stateful interactions.",
-          "consumes": [
-            "pattern-card",
-            "preset-spine",
-            "labelled-state-frame",
-            "hover-lift"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "card-shells",
-      "title": "Primitives \u00b7 Card Shells",
+      "family": "card-shell",
+      "title": "Primitives · Card Shell",
       "cards": [
         {
           "file": "preview/components-card.html",
-          "name": "Pillar Card",
-          "blurb": "Numbered principle shell with floating label and dark stage.",
+          "name": "Card",
+          "blurb": "Fundamental card shell — panel, floating label, decoration-mark slot, title, body.",
           "consumes": [
             "card-pillar",
             "panel-floating-label"
           ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "strips",
-      "title": "Primitives \u00b7 Strips",
-      "cards": [
-        {
-          "file": "preview/components-bar-tape.html",
-          "name": "Bar Tape",
-          "blurb": "Chromatic 7-segment tape.",
-          "consumes": []
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "motion",
-      "title": "Primitives \u00b7 Motion Tokens",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-durations.html",
-          "name": "Durations",
-          "blurb": "Four gesture durations shown against a four-bar timeline.",
-          "consumes": []
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "pulse",
-      "title": "Primitives \u00b7 Pulse",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-beat-pulse.html",
-          "name": "Beat Pulse",
-          "blurb": "Knob ring breathes on the quarter note.",
-          "consumes": [
-            "beat-pulse",
-            "knob-rotary"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "strobe",
-      "title": "Primitives \u00b7 Strobe",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-downbeat-strobe.html",
-          "name": "Downbeat Strobe",
-          "blurb": "Panel wire heats to brass on bar one, then snaps back.",
-          "consumes": [
-            "downbeat-strobe",
-            "panel-floating-label"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "rip",
-      "title": "Primitives \u00b7 Rip",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-mode-rip.html",
-          "name": "Mode Rip",
-          "blurb": "Knob label tears out while the new mode slides in.",
-          "consumes": [
-            "mode-rip",
-            "knob-rotary"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "flash",
-      "title": "Primitives \u00b7 Flash",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-played-flash.html",
-          "name": "Played Flash",
-          "blurb": "Tapped tile lift, chromatic ring, and corner paper rip.",
-          "consumes": [
-            "played-flash",
-            "tile-solfege"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "slide",
-      "title": "Primitives \u00b7 Slide",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-tab-slide.html",
-          "name": "Tab Slide",
-          "blurb": "Persona-5 torn-paper chip slides between tab positions.",
-          "consumes": [
-            "tab-slide",
-            "tabs-offcut",
-            "tabs-offcut-active",
-            "cut-slide-in"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "bob",
-      "title": "Primitives \u00b7 Bob",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-tile-bob.html",
-          "name": "Tile Bob",
-          "blurb": "Seven solf\u00e8ge tiles bob on the and-of-beat with stagger.",
-          "consumes": [
-            "tile-bob",
-            "tile-solfege"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PRIMITIVE",
-      "family": "demo-runner",
-      "title": "Primitives \u00b7 Demo Runner",
-      "cards": [
-        {
-          "file": "preview/mot-primitives-easings.html",
-          "name": "Easings",
-          "blurb": "Named easing curves with animated runner dots and use cases.",
-          "consumes": [
-            "ease-run-demo"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PART",
-      "family": "chips",
-      "title": "Parts \u00b7 Chips",
-      "cards": [
-        {
-          "file": "preview/components-preset-card.html",
-          "name": "Preset Row",
-          "blurb": "Visual preset row with spine, name, and ghost apply action.",
-          "consumes": [
-            "preset-row",
-            "preset-spine",
-            "button-paper-pill"
-          ]
         },
         {
-          "file": "preview/components-chip.html",
-          "name": "Hardware Bar",
-          "blurb": "Hardware status bar — transport, meters, indicators.",
+          "file": "preview/components-spine-card.html",
+          "name": "Spine Card",
+          "blurb": "Brand-marked card shell — ink-2 panel, colored spine, dot kicker, jazz stamp.",
           "consumes": [
-            "transport-row",
-            "meta-anno-row"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PART",
-      "family": "panels",
-      "title": "Parts \u00b7 Panels",
-      "cards": [
-        {
-          "file": "preview/components-panel-header.html",
-          "name": "Panel Header",
-          "blurb": "Hardware panel header with chromatic tape.",
-          "consumes": [
-            "panel-header-with-tape",
-            "meta-anno-row",
-            "button-icon",
-            "brass-sheen"
-          ]
-        },
-        {
-          "file": "preview/components-section-anchor.html",
-          "name": "Section Anchor",
-          "blurb": "Section opener treatment.",
-          "consumes": [
-            "poster-shape",
-            "tilted-sticker",
-            "kicker-dot",
-            "panel-floating-label"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "PART",
-      "family": "strips",
-      "title": "Parts \u00b7 Strips",
-      "cards": [
-        {
-          "file": "preview/components-code-strip.html",
-          "name": "Code Strip",
-          "blurb": "Strudel notation row with transport.",
-          "consumes": [
-            "code-strip-notation",
-            "button-icon",
-            "music-glyph",
-            "meta-anno-row"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "SURFACE",
-      "family": "reels",
-      "title": "Surfaces \u00b7 Reels",
-      "cards": [
-        {
-          "file": "preview/components-pattern-reel.html",
-          "name": "Pattern Reel Chrome",
-          "blurb": "Empty stacked reel surface with inactive placeholders and active slot.",
-          "consumes": [
-            "pattern-reel-stack",
-            "pattern-card",
-            "panel-floating-label",
-            "hover-lift"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "SURFACE",
-      "family": "general",
-      "title": "Surfaces \u00b7 General",
-      "cards": [
-        {
-          "file": "preview/principles.html",
-          "name": "Principles",
-          "blurb": "Design rules paired with visual antipatterns.",
-          "consumes": [
-            "card-pillar",
             "kicker-dot"
           ]
-        },
-        {
-          "file": "preview/composition-app-reference-index.html",
-          "name": "App Reference Index",
-          "blurb": "Composition cards mapped to their closest app screenshot references.",
-          "consumes": []
-        },
-        {
-          "file": "preview/type-text.html",
-          "name": "Text Rule",
-          "blurb": "Typography usage rule for Jazz labels and Mono long text.",
-          "consumes": []
-        },
+        }
+      ]
+    },
+    {
+      "layer": "PRIMITIVE",
+      "family": "brand",
+      "title": "Primitives · Brand",
+      "cards": [
         {
           "file": "preview/brand-logo.html",
           "name": "Brand Logo",
-          "blurb": "Emotitone wordmark with solf\u00e8ge subtitle and note glyphs.",
+          "blurb": "Emotitone wordmark with solfège subtitle and note glyphs.",
           "consumes": [
             "music-glyph"
           ]
@@ -575,62 +389,103 @@
           "name": "Brand Stickers",
           "blurb": "Bitmap instrument stickers for splash screens and empty states.",
           "consumes": []
+        },
+        {
+          "file": "preview/composition-brand-cover.html",
+          "name": "Brand Cover",
+          "blurb": "Brand hero composition.",
+          "consumes": [
+            "kicker-dot",
+            "poster-shape",
+            "music-glyph",
+            "filemark-stamp",
+            "decorative-scatter",
+            "meta-anno-row"
+          ]
         }
       ]
     },
     {
-      "layer": "COMPOSITION",
-      "family": "drawers",
-      "title": "Compositions \u00b7 Drawers",
+      "layer": "PRIMITIVE",
+      "family": "motion-applied",
+      "title": "Primitives · Motion Applied",
       "cards": [
         {
-          "file": "preview/composition-drawer.html",
-          "name": "Top Drawer",
-          "blurb": "Top drawer — three modes, one ceiling.",
+          "file": "preview/mot-primitives-beat-pulse.html",
+          "name": "Beat Pulse",
+          "blurb": "Knob ring breathes on the quarter note.",
           "consumes": [
-            "drawer-from-ceiling",
-            "drawer-rise",
-            "torn-paper-edge",
-            "button-paper-pill",
-            "button-ghost-instrument",
-            "tabs-segmented",
-            "segmented-control",
-            "preset-row",
-            "preset-spine",
-            "panel-header-with-tape",
-            "button-icon",
+            "beat-pulse",
+            "knob-rotary"
+          ]
+        },
+        {
+          "file": "preview/mot-primitives-downbeat-strobe.html",
+          "name": "Downbeat Strobe",
+          "blurb": "Panel wire heats to brass on bar one, then snaps back.",
+          "consumes": [
+            "downbeat-strobe",
+            "panel-floating-label"
+          ]
+        },
+        {
+          "file": "preview/mot-primitives-mode-rip.html",
+          "name": "Mode Rip",
+          "blurb": "Knob label tears out while the new mode slides in.",
+          "consumes": [
+            "mode-rip",
+            "knob-rotary"
+          ]
+        },
+        {
+          "file": "preview/mot-primitives-played-flash.html",
+          "name": "Played Flash",
+          "blurb": "Tapped tile lift, chromatic ring, and corner paper rip.",
+          "consumes": [
+            "played-flash",
             "tile-solfege"
           ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOSITION",
-      "family": "reels",
-      "title": "Compositions \u00b7 Reels",
-      "cards": [
+        },
         {
-          "file": "preview/composition-pattern-reel.html",
-          "name": "Pattern Reel",
-          "blurb": "Stacked deck with click-to-promote active pattern interaction.",
+          "file": "preview/mot-primitives-tab-slide.html",
+          "name": "Tab Slide",
+          "blurb": "Persona-5 torn-paper chip slides between tab positions.",
           "consumes": [
-            "pattern-reel-stack",
-            "pattern-card",
-            "preset-spine",
-            "button-icon",
-            "button-paper-pill",
-            "play-toggle",
-            "panel-floating-label",
-            "hover-lift"
+            "tab-slide",
+            "tabs-offcut",
+            "tabs-offcut-active",
+            "cut-slide-in"
           ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOSITION",
-      "family": "motion",
-      "title": "Compositions \u00b7 Motion",
-      "cards": [
+        },
+        {
+          "file": "preview/mot-primitives-tile-bob.html",
+          "name": "Tile Bob",
+          "blurb": "Seven solfège tiles bob on the and-of-beat with stagger.",
+          "consumes": [
+            "tile-bob",
+            "tile-solfege"
+          ]
+        },
+        {
+          "file": "preview/composition-motion-overview.html",
+          "name": "Motion Overview",
+          "blurb": "Motion overview across all primitives.",
+          "consumes": [
+            "v2-card-wrapper",
+            "beat-pulse",
+            "downbeat-strobe",
+            "tile-bob",
+            "played-flash",
+            "mode-rip",
+            "tab-slide",
+            "knob-rotary",
+            "tile-solfege",
+            "tabs-segmented",
+            "segmented-control",
+            "play-toggle",
+            "code-strip-notation"
+          ]
+        },
         {
           "file": "preview/mot-compositions-beat-room.html",
           "name": "Beat Room",
@@ -659,83 +514,133 @@
             "knob-rotary",
             "tile-solfege"
           ]
+        }
+      ]
+    },
+    {
+      "layer": "PART",
+      "family": "strips",
+      "title": "Parts · Strips",
+      "cards": [
+        {
+          "file": "preview/components-bar-tape.html",
+          "name": "Bar Tape",
+          "blurb": "Chromatic 7-segment tape.",
+          "consumes": []
         },
         {
-          "file": "preview/composition-motion-overview.html",
-          "name": "Motion Overview",
-          "blurb": "Motion overview across all primitives.",
+          "file": "preview/components-code-strip.html",
+          "name": "Code Strip",
+          "blurb": "Strudel notation row with transport.",
           "consumes": [
-            "v2-card-wrapper",
-            "beat-pulse",
-            "downbeat-strobe",
-            "tile-bob",
-            "played-flash",
-            "mode-rip",
-            "tab-slide",
-            "knob-rotary",
-            "tile-solfege",
-            "tabs-segmented",
-            "segmented-control",
-            "play-toggle",
-            "code-strip-notation"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOSITION",
-      "family": "geometry",
-      "title": "Compositions \u00b7 Geometry",
-      "cards": [
-        {
-          "file": "preview/composition-spacing-overview.html",
-          "name": "Spacing Overview",
-          "blurb": "Aggregate spacing, radius, stroke, and cut-paper mark study.",
-          "consumes": [
-            "v2-card-wrapper",
-            "poster-shape",
-            "tomato-divider-tab",
-            "panel-floating-label"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOSITION",
-      "family": "marks",
-      "title": "Compositions \u00b7 Marks",
-      "cards": [
-        {
-          "file": "preview/composition-music-marks.html",
-          "name": "Music Marks",
-          "blurb": "Music notation glyph set with decorative scatter and v2 shell.",
-          "consumes": [
-            "v2-card-wrapper",
+            "code-strip-notation",
+            "button-icon",
             "music-glyph",
-            "poster-shape",
-            "decorative-scatter"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOSITION",
-      "family": "general",
-      "title": "Compositions \u00b7 General",
-      "cards": [
-        {
-          "file": "preview/composition-brand-cover.html",
-          "name": "Brand Cover",
-          "blurb": "Brand hero composition.",
-          "consumes": [
-            "kicker-dot",
-            "poster-shape",
-            "music-glyph",
-            "filemark-stamp",
-            "decorative-scatter",
             "meta-anno-row"
           ]
+        }
+      ]
+    },
+    {
+      "layer": "PART",
+      "family": "pattern-card",
+      "title": "Parts · Pattern Card",
+      "cards": [
+        {
+          "file": "preview/components-pattern-card.html",
+          "name": "Pattern Card",
+          "blurb": "Pattern row chip with stateful interactions.",
+          "consumes": [
+            "pattern-card",
+            "preset-spine",
+            "labelled-state-frame",
+            "hover-lift"
+          ]
         },
+        {
+          "file": "preview/components-pattern-reel.html",
+          "name": "Pattern Reel Chrome",
+          "blurb": "Empty stacked reel surface with inactive placeholders and active slot.",
+          "consumes": [
+            "pattern-reel-stack",
+            "pattern-card",
+            "panel-floating-label",
+            "hover-lift"
+          ]
+        },
+        {
+          "file": "preview/composition-pattern-reel.html",
+          "name": "Pattern Reel",
+          "blurb": "Stacked deck with click-to-promote active pattern interaction.",
+          "consumes": [
+            "pattern-reel-stack",
+            "pattern-card",
+            "preset-spine",
+            "button-icon",
+            "button-paper-pill",
+            "play-toggle",
+            "panel-floating-label",
+            "hover-lift"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "PART",
+      "family": "preset-card",
+      "title": "Parts · Preset Card",
+      "cards": [
+        {
+          "file": "preview/components-preset-card.html",
+          "name": "Preset Row",
+          "blurb": "Visual preset row with spine, name, and ghost apply action.",
+          "consumes": [
+            "preset-row",
+            "preset-spine",
+            "button-paper-pill"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "PART",
+      "family": "panel-header",
+      "title": "Parts · Panel Header",
+      "cards": [
+        {
+          "file": "preview/components-panel-header.html",
+          "name": "Panel Header",
+          "blurb": "Hardware panel header with chromatic tape.",
+          "consumes": [
+            "panel-header-with-tape",
+            "meta-anno-row",
+            "button-icon",
+            "brass-sheen"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "PART",
+      "family": "hardware-bar",
+      "title": "Parts · Hardware Bar",
+      "cards": [
+        {
+          "file": "preview/components-chip.html",
+          "name": "Hardware Bar",
+          "blurb": "Hardware status bar — transport, meters, indicators.",
+          "consumes": [
+            "transport-row",
+            "meta-anno-row"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "COMPOSITION",
+      "family": "loading-screen",
+      "title": "Compositions · Loading Screen",
+      "cards": [
         {
           "file": "preview/brand-loading-screen.html",
           "name": "Loading Screen",
@@ -746,6 +651,45 @@
             "brass-sheen",
             "button-paper-pill"
           ]
+        }
+      ]
+    },
+    {
+      "layer": "COMPOSITION",
+      "family": "top-drawer",
+      "title": "Compositions · Top Drawer",
+      "cards": [
+        {
+          "file": "preview/composition-drawer.html",
+          "name": "Top Drawer",
+          "blurb": "Top drawer — three modes, one ceiling.",
+          "consumes": [
+            "drawer-from-ceiling",
+            "drawer-rise",
+            "torn-paper-edge",
+            "button-paper-pill",
+            "button-ghost-instrument",
+            "tabs-segmented",
+            "segmented-control",
+            "preset-row",
+            "preset-spine",
+            "panel-header-with-tape",
+            "button-icon",
+            "tile-solfege"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "COMPOSITION",
+      "family": "reference",
+      "title": "Compositions · Reference",
+      "cards": [
+        {
+          "file": "preview/composition-app-reference-index.html",
+          "name": "App Reference Index",
+          "blurb": "Composition cards mapped to their closest app screenshot references.",
+          "consumes": []
         }
       ]
     }

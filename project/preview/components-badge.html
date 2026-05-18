@@ -1,131 +1,287 @@
-<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
 <style>
-  /* ─── BADGE PRIMITIVE ──────────────────────────────────────────
-     A Lets-Jazz CAPS wordmark seated in a thin wire box.
-     Sharp corners. Butt strokes. Ivory by default. One brass per panel.
-     ────────────────────────────────────────────────────────── */
-  .badge {
-    display: inline-flex;
-    align-items: baseline;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 14px;
-    line-height: 1;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--ivory);
-    background: transparent;
-    border: 1px solid var(--ink-5);
-    padding: 5px 10px 4px;
-    border-radius: 0;
-  }
-  .badge.sm { font-size: 12px; padding: 4px 7px 3px; }
-  .badge.lg { font-size: 18px; padding: 6px 14px 5px; letter-spacing: .03em; }
+/* ─── BADGE PRIMITIVE ─────────────────────────────────────────────────
+   Lets-Jazz CAPS wordmark in a thin wire box.
+   Sharp corners. Butt strokes. Ivory by default.
+   ───────────────────────────────────────────────────────────────────── */
 
-  /* off-cut: persona-5 swap clip */
-  .badge.cut {
-    clip-path: polygon(4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%);
-    border: 0;
-    background: var(--ink-2);
-    box-shadow: inset 0 0 0 1px var(--ink-5);
-    padding-left: 12px; padding-right: 12px;
-  }
+.badge {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  background: transparent;
+  border: 1px solid var(--ink-5);
+  padding: 5px 10px 4px;
+  border-radius: 0;
+}
 
-  /* tilted: poster sticker, with hard cut-paper shadow */
-  .badge-wrap {
-    display: inline-block;
-    transform: rotate(-2.2deg);
-    filter: drop-shadow(3px 3px 0 rgba(0,0,0,.6));
-  }
+/* ── Shared grammar (specimen-card-grammar) ───────────────────────── */
+.section-head {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ivory-4);
+  margin: 24px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink-5);
+}
+.section-head:first-child { margin-top: 6px; }
 
-  /* brass-lit: the lone signal */
-  .badge.lit {
-    border: 0;
-    color: var(--brass-edge);
-    padding: 6px 11px 5px;
-  }
+.anatomy-wrap {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+.anatomy {
+  display: grid;
+  align-content: start;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+}
+.anatomy .row {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ink-5);
+}
+.anatomy .row:last-child { border-bottom: 0; }
+.anatomy .row b { color: var(--ivory); font-weight: 700; }
 
-  /* state matrix variants */
-  .badge.hover { border-color: var(--ivory-2); color: var(--ivory); background: var(--ink-3); }
-  .badge.active { background: var(--ivory); color: var(--ink); border-color: var(--ivory); }
-  .badge.disabled { color: var(--ivory-4); border-color: var(--hairline-2); }
+/* ── hero stage ─────────────────────────────────────────────────── */
+.hero-stage {
+  background: var(--ink);
+  border: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
 
-  /* layout */
-  .row { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
-  /* state-frame + state-pin canonical in _card.css.
-     Local additions: flex-column layout for centered badge specimen. */
-  .state-frame {
-    flex: 1; min-width: 0;
-    padding: 22px 18px 14px;
-    display: flex; flex-direction: column; align-items: center; gap: 18px;
-  }
-  .state-frame .lbl {
-    font-family: var(--font-display); font-weight: 700;
-    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--ivory-2);
-    border-top: 1px solid var(--hairline);
-    width: 100%; text-align: center; padding-top: 10px;
-  }
-  .sizes-row { display: flex; gap: 16px; align-items: baseline; padding: 10px 0; }
-  .size-cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .size-cell code { font: var(--t-mono); font-size: 9px; letter-spacing: .14em; color: var(--ivory-3); text-transform: uppercase; }
-  .matrix {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 12px; margin-top: 16px;
-    padding: 16px;
-    background: #0a0908;
-    border: 1px solid var(--hairline);
-  }
-  .matrix .cell { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  .matrix .cell code { font: var(--t-mono); font-size: 9px; letter-spacing: .14em; color: var(--ivory-3); text-transform: uppercase; }
+/* ── variants grid ────────────────────────────────────────────────
+   9 variants → 3 columns × 3 rows.
+   Each cell: a small stage + the badge centred + a mono caption.
+   ────────────────────────────────────────────────────────────── */
+.variants-full {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.v-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.v-stage {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 12px;
+  border: 1px solid var(--hairline);
+  background: var(--ink);
+}
+
+/* Bone stage needs a lighter border so it doesn't disappear */
+.v-stage.stage-bone {
+  background: var(--ink-3);
+  border-color: var(--ink-5);
+}
+
+/* Ink fill stage — slightly elevated panel */
+.v-stage.stage-ink2 {
+  background: var(--ink-2);
+}
+
+.v-caption {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ivory-4);
+  text-align: center;
+}
+
+/* ── per-variant badge overrides ──────────────────────────────── */
+
+/* 1. Default: ivory wire on ink (already the .badge default) */
+
+/* 2. Dark inverse — ink-3 fill, ivory wire at 2px, deep well */
+.badge-dark-inverse {
+  background: var(--ink-3);
+  border: 2px solid var(--ivory);
+  color: var(--ivory);
+}
+
+/* 3. Bone inverse — bone fill, ink wordmark, ink wire */
+.badge-bone-inverse {
+  background: var(--bone);
+  border: 1px solid var(--ink-5);
+  color: var(--ink);
+}
+
+/* 4. Brass wire — ivory wordmark, brass-coloured border */
+.badge-brass-wire {
+  color: var(--ivory);
+  border: 1px solid var(--brass);
+}
+
+/* 5. Brass filled — uses .brass utility class; text inherits brass-edge */
+.badge-brass-filled {
+  /* .brass applied in markup; override geometry to match badge */
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 5px 10px 4px;
+  border-radius: 0;
+  border: none; /* .brass supplies its own shadow border */
+}
+
+/* 6. Brass text — ivory wire, brass-clipped wordmark (span.brass-text inside) */
+.badge-brass-text {
+  color: transparent; /* text rendered by inner span */
+  border: 1px solid var(--ink-5);
+}
+
+/* 7. Tomato accent — tomato wire, ivory wordmark */
+.badge-tomato {
+  color: var(--ivory);
+  border: 1px solid var(--tomato);
+}
+
+/* 8. Plum accent — plum wire, ivory wordmark */
+.badge-plum {
+  color: var(--ivory);
+  border: 1px solid var(--plum);
+}
+
+/* 9. Pine accent — pine wire, ivory wordmark */
+.badge-pine {
+  color: var(--ivory);
+  border: 1px solid var(--pine);
+}
+
+/* reduced-motion: kill the brass sheen sweep */
+@media (prefers-reduced-motion: reduce) {
+  .brass::after { animation: none; }
+}
 </style></head><body>
 <div class="card">
-  <div class="label" style="margin-bottom:16px">INSTRUMENT WORDMARK</div>
+  <div class="label">BADGE · INSTRUMENT WORDMARK PRIMITIVE</div>
 
-  <!-- Variants row -->
-  <div class="row">
-    <div class="state-frame">
-      <span class="state-pin">01</span>
-      <span class="badge">Piano</span>
-      <div class="lbl">Rest</div>
+  <div class="section-head">Anatomy</div>
+  <div class="anatomy-wrap">
+    <div class="hero-stage">
+      <span class="badge" style="font-size:28px;padding:9px 18px 8px;letter-spacing:.04em">Piano</span>
     </div>
-    <div class="state-frame">
-      <span class="state-pin">02</span>
-      <span class="badge cut">Piano</span>
-      <div class="lbl">Off-cut</div>
-    </div>
-    <div class="state-frame">
-      <span class="state-pin">03</span>
-      <span class="badge-wrap"><span class="badge">Piano</span></span>
-      <div class="lbl">Tilted</div>
-    </div>
-    <div class="state-frame">
-      <span class="state-pin">04</span>
-      <span class="badge lit brass">Piano</span>
-      <div class="lbl">Brass-lit</div>
+    <div class="anatomy">
+      <div class="row"><b>Wordmark</b><span>Jazz 14 · 700 · uppercase · ivory</span></div>
+      <div class="row"><b>Box</b><span>1px ink-5 wire · transparent fill · radius 0</span></div>
+      <div class="row"><b>Padding</b><span>5px 10px 4px · baseline-compensated bottom</span></div>
+      <div class="row"><b>Size</b><span>inline-flex · line-height 1 · letter-spacing .04em</span></div>
     </div>
   </div>
 
-  <!-- Sizes -->
-  <div class="label" style="margin-top:18px;margin-bottom:6px">S 12 · M 14 · L 18</div>
-  <div class="sizes-row">
-    <div class="size-cell"><span class="badge sm">Piano</span><code>S · 12 / 4·7</code></div>
-    <div class="size-cell"><span class="badge">Piano</span><code>M · 14 / 5·10</code></div>
-    <div class="size-cell"><span class="badge lg">Piano</span><code>L · 18 / 6·14</code></div>
+  <div class="section-head">Variants — toolbox</div>
+  <div class="variants-full">
+
+    <!-- 1. Default: ivory wire on ink -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge">Flute</span>
+      </div>
+      <div class="v-caption">Ivory wire</div>
+    </div>
+
+    <!-- 2. Dark inverse: ink fill, 2px ivory wire -->
+    <div class="v-cell">
+      <div class="v-stage stage-ink2">
+        <span class="badge badge-dark-inverse">Flute</span>
+      </div>
+      <div class="v-caption">Dark inverse</div>
+    </div>
+
+    <!-- 3. Bone inverse: bone fill, ink wordmark + ink wire -->
+    <div class="v-cell">
+      <div class="v-stage stage-bone">
+        <span class="badge badge-bone-inverse">Flute</span>
+      </div>
+      <div class="v-caption">Bone inverse</div>
+    </div>
+
+    <!-- 4. Brass wire: ivory text, brass-coloured border -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-brass-wire">Flute</span>
+      </div>
+      <div class="v-caption">Brass wire</div>
+    </div>
+
+    <!-- 5. Brass filled: .brass utility, ink edge text -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-brass-filled brass">Flute</span>
+      </div>
+      <div class="v-caption">Brass filled</div>
+    </div>
+
+    <!-- 6. Brass text: ivory wire, brass-clipped wordmark -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-brass-text"><span class="brass-text">Flute</span></span>
+      </div>
+      <div class="v-caption">Brass text</div>
+    </div>
+
+    <!-- 7. Tomato accent: tomato wire, ivory text -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-tomato">Flute</span>
+      </div>
+      <div class="v-caption">Tomato accent</div>
+    </div>
+
+    <!-- 8. Plum accent: plum wire, ivory text -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-plum">Flute</span>
+      </div>
+      <div class="v-caption">Plum accent</div>
+    </div>
+
+    <!-- 9. Pine accent: pine wire, ivory text -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-pine">Flute</span>
+      </div>
+      <div class="v-caption">Pine accent</div>
+    </div>
+
   </div>
 
-  <!-- State matrix -->
-  <div class="label" style="margin-top:10px;margin-bottom:0">INTERACTIVE STATES</div>
-  <div class="matrix">
-    <div class="cell"><span class="badge">Piano</span><code>rest</code></div>
-    <div class="cell"><span class="badge hover">Piano</span><code>hover</code></div>
-    <div class="cell"><span class="badge active">Piano</span><code>active</code></div>
-    <div class="cell"><span class="badge disabled">Piano</span><code>disabled</code></div>
-  </div>
-
-  <div class="caption" style="margin-top:16px;color:var(--fg-3);line-height:1.55">
-    The workhorse. Default ivory-on-ink in a 1px wire box, sharp corners, butt strokes. Variants are visual
-    treatments only — the off-cut clips on the Persona-5 polygon; the tilted wrap adds a hard cut-paper shadow;
-    the brass-lit form is the one place a panel may have a signal. Active state is paper-on-stage.
+  <div class="caption" style="margin-top:16px">
+    Ivory-on-ink in a 1px wire box is the default. Brass filled is the loudest one lit signal &mdash;
+    never stack it with a brass wire or brass text badge. Brand accents (tomato / plum / pine) mark
+    the wire only; the wordmark stays ivory. Bone inverse is the only light-stage variant.
   </div>
 </div></body></html>

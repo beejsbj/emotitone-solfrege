@@ -1,15 +1,349 @@
-<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
 <style>
-  .keys{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
-  .k{height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;font:var(--t-h2);text-transform:uppercase;color:#fff;
-    box-shadow: inset 0 -3px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18);
-    clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
-    position:relative;}
-  .k small{font:var(--t-caption);opacity:.85;margin-left:4px;}
+/* =====================================================================
+   KEYS — one primitive, two cut styles.
+   "Tile" was a drift name; both styles below are keys.
+   - Wide-angular cut: full chromatic tile (130sq) with syllable + pitch.
+                       Lives in the bottom playable surface.
+   - Tall-long cut:    diatonic clip strip — narrower, longer rectangle,
+                       cut-paper polygon. Lives in the keyboard row.
+   The two styles consume the same atoms (tile-solfege, key-clip-paper).
+   ===================================================================== */
+
+/* ── WIDE-ANGULAR (square tile) — chromatic fill, 5 states ────────── */
+.tile {
+  position: relative;
+  width: 110px; height: 110px;
+  border-radius: 4px;
+  padding: 10px 10px 11px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid rgba(0,0,0,.42);
+}
+.tile::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.20), transparent 60%),
+    linear-gradient(180deg, transparent 70%, rgba(0,0,0,.20) 100%);
+  mix-blend-mode: overlay;
+}
+.tile .syll {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 32px; line-height: .92; letter-spacing: .02em;
+  color: rgba(0,0,0,.86);
+  text-transform: capitalize;
+}
+.tile .pitch {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 16px; line-height: .9; color: rgba(0,0,0,.55);
+}
+.tile .pitch sub { font-size: 10px; }
+.tile .corner {
+  position: absolute; right: 8px; top: 8px;
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: .16em;
+  color: rgba(0,0,0,.5); text-transform: uppercase;
+}
+.tile.dark .syll  { color: rgba(255,255,255,.94); }
+.tile.dark .pitch { color: rgba(255,255,255,.7); }
+.tile.dark .corner{ color: rgba(255,255,255,.55); }
+
+/* STATES */
+.tile.hover { filter: brightness(1.12); }
+.tile.active {
+  box-shadow: inset 0 0 0 2px var(--ivory);
+}
+.tile.active .syll { color: rgba(0,0,0,.95); }
+.tile.played {
+  box-shadow: 0 0 0 2px var(--ivory), 0 0 28px 4px currentColor;
+  transform: translateY(-3px);
+}
+.tile.disabled {
+  filter: saturate(.15) brightness(.5);
+  cursor: not-allowed;
+}
+.tile.disabled::before {
+  content: ""; position: absolute; inset: 0; z-index: 3;
+  background: linear-gradient(transparent 48%, rgba(0,0,0,.35) 50%, transparent 52%);
+}
+
+.state-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.state {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 8px 6px;
+  background: var(--ink);
+  border: 1px solid var(--hairline);
+  flex: 1; min-width: 0;
+}
+.state .lbl {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ivory);
+}
+.state code {
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: .14em;
+  color: var(--ivory-3); text-transform: uppercase; text-align: center;
+}
+
+/* ── TALL-LONG (cut-paper clip strip) — diatonic row ──────────────── */
+.keys-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.k {
+  height: 88px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 18px; letter-spacing: .04em; text-transform: uppercase;
+  color: #fff;
+  box-shadow:
+    inset 0 -3px 0 rgba(0,0,0,.4),
+    inset 0 1px 0 rgba(255,255,255,.18);
+  clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
+  position: relative;
+}
+.k small {
+  font-family: var(--font-mono);
+  font-size: 9px; letter-spacing: .14em;
+  opacity: .82; margin-left: 4px;
+}
+
+/* ── TREATMENT variants ───────────────────────────────────────────── */
+/* Brass-lit: brass gradient fill, engraved-edge text */
+.tile.brass-lit {
+  background: var(--brass-fill);
+  border-color: var(--brass-lo);
+}
+.tile.brass-lit .syll  { color: var(--brass-edge); }
+.tile.brass-lit .pitch { color: rgba(42,28,8,.6); }
+.tile.brass-lit .corner{ color: rgba(42,28,8,.5); }
+
+/* Ink: dark ink-3 fill, ivory text */
+.tile.ink-fill {
+  background: var(--ink-3);
+  border-color: var(--ink-5);
+}
+.tile.ink-fill .syll  { color: var(--ivory); }
+.tile.ink-fill .pitch { color: var(--ivory-2); }
+.tile.ink-fill .corner{ color: var(--ivory-4); }
+
+/* Ivory: ivory fill, ink text */
+.tile.ivory-fill {
+  background: var(--ivory);
+  border-color: rgba(0,0,0,.22);
+}
+.tile.ivory-fill .syll  { color: var(--ink-3); }
+.tile.ivory-fill .pitch { color: rgba(20,18,16,.55); }
+.tile.ivory-fill .corner{ color: rgba(20,18,16,.45); }
+
+/* Bone: warm off-white fill, ink text */
+.tile.bone-fill {
+  background: var(--bone);
+  border-color: rgba(0,0,0,.18);
+}
+.tile.bone-fill .syll  { color: var(--ink-2); }
+.tile.bone-fill .pitch { color: rgba(20,18,16,.55); }
+.tile.bone-fill .corner{ color: rgba(20,18,16,.4); }
+
+/* Wire: hairline border only, transparent fill */
+.tile.wire {
+  background: transparent;
+  border-color: var(--hairline);
+}
+.tile.wire .syll  { color: var(--ivory-3); }
+.tile.wire .pitch { color: var(--ivory-4); }
+.tile.wire .corner{ color: var(--ivory-4); }
+.tile.wire::after { display: none; }
+
+/* Tomato accent: chromatic fill + tomato border ring */
+.tile.tomato-accent {
+  box-shadow: inset 0 0 0 2px var(--tomato), inset 0 0 0 3px rgba(0,0,0,.55);
+}
+
+/* Glow: chromatic fill + self-hue radial bloom underneath, no lift */
+.tile.glow {
+  box-shadow:
+    0 0 0 2px rgba(255,255,255,.18),
+    0 0 32px 8px currentColor;
+}
+
+/* treatment wrapper */
+.treatment {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 10px 6px 9px;
+  background: var(--ink);
+  border: 1px solid var(--hairline);
+  flex: 1; min-width: 0;
+}
+.treatment .lbl {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ivory);
+}
+.treatment code {
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: .14em;
+  color: var(--ivory-3); text-transform: uppercase; text-align: center;
+}
+.variants-full .treatment .tile {
+  width: 100%; height: auto; aspect-ratio: 1;
+}
+
+/* ── Shared grammar (specimen-card-grammar) ───────────────────────── */
+.section-head {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ivory-4);
+  margin: 24px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink-5);
+}
+.section-head:first-child { margin-top: 6px; }
+
+.anatomy-wrap {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+.anatomy {
+  display: grid;
+  align-content: start;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+}
+.anatomy .row {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ink-5);
+}
+.anatomy .row:last-child { border-bottom: 0; }
+.anatomy .row b { color: var(--ivory); font-weight: 700; }
+
+.variants-full {
+  display: grid;
+  gap: 12px;
+  /* set grid-template-columns: repeat(N, 1fr) per card based on variant count */
+}
+
+.key-hero {
+  display: grid;
+  place-items: center;
+  min-height: 214px;
+  background: var(--ink);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--ring);
+}
+.key-hero .tile {
+  width: 172px;
+  height: 172px;
+  padding: 16px 16px 18px;
+  transform: rotate(-0.2deg);
+}
+.key-hero .tile .syll { font-size: 52px; }
+.key-hero .tile .pitch { font-size: 25px; }
+.key-hero .tile .pitch sub { font-size: 14px; }
+.key-hero .tile .corner { right: 13px; top: 12px; font-size: 10px; }
+
+.variants-full .state {
+  padding: 8px 6px 9px;
+}
+.variants-full .tile {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+.variants-full .k {
+  min-width: 0;
+  height: 88px;
+}
 </style></head><body>
 <div class="card">
-  <div class="label" style="margin-bottom:10px">DIATONIC CLIPS · MAIN OCTAVE</div>
-  <div class="keys">
+  <div class="label">KEYS · PRIMITIVE · TWO CUT STYLES</div>
+
+  <div class="section-head">Anatomy</div>
+  <div class="anatomy-wrap">
+    <div class="key-hero">
+      <div class="tile" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
+        <span class="corner">E5</span>
+        <span class="syll">Do</span>
+        <span class="pitch">E<sub>4</sub></span>
+      </div>
+    </div>
+    <div class="anatomy">
+      <div class="row"><b>Geometry</b><span>110sq wide tile · 88h tall strip · clipped paper edge</span></div>
+      <div class="row"><b>Fill</b><span>chromatic note hue · one key owns one color</span></div>
+      <div class="row"><b>Type</b><span>Jazz syllable + pitch · JBM corner cap</span></div>
+      <div class="row"><b>Grain</b><span>radial sheen · bottom ink wash · inset shadow</span></div>
+      <div class="row"><b>Cut</b><span>wide-angular tile · tall-long diatonic clip</span></div>
+      <div class="row"><b>States</b><span>rest · hover · active · played · disabled</span></div>
+    </div>
+  </div>
+
+  <div class="section-head">States</div>
+  <div class="variants-full" style="grid-template-columns: repeat(5, 1fr)">
+    <div class="state">
+      <div class="tile" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
+        <span class="corner">E5</span>
+        <span class="syll">Do</span>
+        <span class="pitch">E<sub>4</sub></span>
+      </div>
+      <div class="lbl">Rest</div>
+      <code>ink syllable</code>
+    </div>
+    <div class="state">
+      <div class="tile hover" style="background: hsl(78 72% 52%); color: hsl(78 72% 52%);">
+        <span class="corner">G5</span>
+        <span class="syll">Re</span>
+        <span class="pitch">G<sub>4</sub></span>
+      </div>
+      <div class="lbl">Hover</div>
+      <code>brightness +12%</code>
+    </div>
+    <div class="state">
+      <div class="tile active" style="background: hsl(178 68% 50%); color: hsl(178 68% 50%);">
+        <span class="corner">B5</span>
+        <span class="syll">Fa</span>
+        <span class="pitch">B<sub>4</sub></span>
+      </div>
+      <div class="lbl">Active</div>
+      <code>2px inset ivory</code>
+    </div>
+    <div class="state">
+      <div class="tile dark played" style="background: hsl(252 72% 60%); color: hsl(252 72% 60%);">
+        <span class="corner">D♭6</span>
+        <span class="syll">Sol</span>
+        <span class="pitch">D♭<sub>5</sub></span>
+      </div>
+      <div class="lbl">Played</div>
+      <code>lift · self-hue glow</code>
+    </div>
+    <div class="state">
+      <div class="tile disabled" style="background: hsl(312 76% 58%); color: hsl(312 76% 58%);">
+        <span class="corner">F6</span>
+        <span class="syll">La</span>
+        <span class="pitch">F<sub>5</sub></span>
+      </div>
+      <div class="lbl">Disabled</div>
+      <code>desaturate · slash</code>
+    </div>
+  </div>
+
+  <div class="section-head">Cuts</div>
+  <div class="variants-full" style="grid-template-columns: repeat(7, 1fr)">
     <div class="k" style="background:hsl(18 85% 56%)">DO<small>C4</small></div>
     <div class="k" style="background:hsl(78 72% 52%)">RE<small>D4</small></div>
     <div class="k" style="background:hsl(138 60% 46%)">MI<small>E4</small></div>
@@ -18,5 +352,76 @@
     <div class="k" style="background:hsl(312 76% 58%)">LA<small>A4</small></div>
     <div class="k" style="background:hsl(2 86% 58%)">TI<small>B4</small></div>
   </div>
-  <div class="caption" style="margin-top:10px">Cut-paper clip-path · inset bottom shadow · color = scale degree.</div>
+
+  <div class="section-head">Treatments</div>
+  <div class="variants-full" style="grid-template-columns: repeat(7, 1fr)">
+    <div class="treatment">
+      <div class="tile" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
+        <span class="corner">C4</span>
+        <span class="syll">Do</span>
+        <span class="pitch">C<sub>4</sub></span>
+      </div>
+      <div class="lbl">Chromatic</div>
+      <code>note hue fill</code>
+    </div>
+    <div class="treatment">
+      <div class="tile brass-lit">
+        <span class="corner">C4</span>
+        <span class="syll">Do</span>
+        <span class="pitch">C<sub>4</sub></span>
+      </div>
+      <div class="lbl">Brass-Lit</div>
+      <code>brass fill · capture</code>
+    </div>
+    <div class="treatment">
+      <div class="tile ink-fill">
+        <span class="corner">C4</span>
+        <span class="syll">Do</span>
+        <span class="pitch">C<sub>4</sub></span>
+      </div>
+      <div class="lbl">Ink</div>
+      <code>ink-3 · muted off</code>
+    </div>
+    <div class="treatment">
+      <div class="tile ivory-fill">
+        <span class="corner">C4</span>
+        <span class="syll">Do</span>
+        <span class="pitch">C<sub>4</sub></span>
+      </div>
+      <div class="lbl">Ivory</div>
+      <code>ivory fill · inverse</code>
+    </div>
+    <div class="treatment">
+      <div class="tile bone-fill">
+        <span class="corner">C4</span>
+        <span class="syll">Do</span>
+        <span class="pitch">C<sub>4</sub></span>
+      </div>
+      <div class="lbl">Bone</div>
+      <code>bone · warm light</code>
+    </div>
+    <div class="treatment">
+      <div class="tile wire">
+        <span class="corner">C4</span>
+        <span class="syll">Do</span>
+        <span class="pitch">C<sub>4</sub></span>
+      </div>
+      <div class="lbl">Wire</div>
+      <code>transparent · empty</code>
+    </div>
+    <div class="treatment">
+      <div class="tile tomato-accent" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
+        <span class="corner">C4</span>
+        <span class="syll">Do</span>
+        <span class="pitch">C<sub>4</sub></span>
+      </div>
+      <div class="lbl">Alert</div>
+      <code>tomato ring · sharp</code>
+    </div>
+  </div>
+
+  <div class="caption" style="margin-top:14px;color:var(--ivory-3);line-height:1.55">
+    One key primitive, two cuts. Wide-angular tiles carry playable chromatic states;
+    tall-long clips carry the diatonic keyboard row. Color belongs to music feedback only.
+  </div>
 </div></body></html>

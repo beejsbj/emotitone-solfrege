@@ -1,5 +1,6 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
 <style>
+  /* ── Recipe code block ────────────────────────────────────── */
   .recipe {
     background: var(--ink-2);
     border: 1px solid var(--hairline);
@@ -10,253 +11,525 @@
     color: var(--ivory-2);
     white-space: pre;
     overflow-x: auto;
-    margin: 0 0 14px;
+    margin: 0 0 18px;
   }
   .recipe .k { color: var(--brass); }
   .recipe .v { color: var(--ivory); }
 
-  .controls {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+  /* ── Section dividers ─────────────────────────────────────── */
+  .section-head {
+    display: flex;
+    align-items: baseline;
     gap: 10px;
-    margin-bottom: 14px;
+    margin: 20px 0 10px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 14px;
   }
-  .ctrl {
+  .section-head:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .section-head .sec-label {
+    font: var(--t-label);
+    letter-spacing: var(--tracking-label);
+    color: var(--ivory);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .section-head .sec-desc {
+    font: var(--t-caption);
+    color: var(--ivory-3);
+  }
+
+  /* ── Shared control row ───────────────────────────────────── */
+  .ctrl-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .ctrl-group {
     background: var(--ink-3);
     border: 1px solid var(--hairline);
-    padding: 8px 10px;
+    padding: 7px 10px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
+    min-width: 120px;
   }
-  .ctrl > label {
+  .ctrl-group > label {
     font: var(--t-label);
     letter-spacing: var(--tracking-label);
     color: var(--ivory-3);
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    white-space: nowrap;
   }
-  .ctrl > label .val { color: var(--ivory); font-family: var(--font-mono); font-size: 11px; }
-  .ctrl input[type=range] {
+  .ctrl-group > label .val {
+    color: var(--ivory);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .ctrl-group input[type=range] {
     width: 100%;
     accent-color: var(--brass);
   }
-  .mode-pills {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 14px;
+  .ctrl-group input[type=checkbox] {
+    accent-color: var(--brass);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
   }
-  .mode-pills button {
+
+  /* ── Root selector (12 note buttons) ─────────────────────── */
+  .root-picker {
+    display: flex;
+    gap: 3px;
+    flex-wrap: nowrap;
+    margin-bottom: 10px;
+  }
+  .root-picker button {
     flex: 1;
+    min-width: 0;
+    padding: 5px 2px;
     background: var(--ink-3);
     border: 1px solid var(--hairline);
     color: var(--ivory-3);
-    font: var(--t-label);
-    letter-spacing: var(--tracking-label);
-    padding: 6px 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0;
     cursor: pointer;
     border-radius: 0;
-    text-transform: uppercase;
+    text-align: center;
+    line-height: 1.2;
+    transition: background var(--dur-tap), color var(--dur-tap), border-color var(--dur-tap);
   }
-  .mode-pills button.on {
+  .root-picker button.on {
     background: var(--ivory);
     color: var(--ink);
     border-color: var(--ivory);
   }
+  .root-picker button:hover:not(.on) {
+    background: var(--ink-4);
+    color: var(--ivory-2);
+  }
 
-  /* The note grid — the actual recipe demo */
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
+  /* ── Note grid ────────────────────────────────────────────── */
+  .note-grid {
+    display: flex;
     gap: 4px;
     background: var(--ink);
     padding: 8px;
     border: 1px solid var(--hairline);
+    flex-wrap: nowrap;
   }
-  .grid .tile {
+  .note-grid .tile {
+    flex: 1;
+    min-width: 0;
     aspect-ratio: 1;
     border: 1px solid rgba(0,0,0,.35);
-    display: grid;
-    place-items: center;
-    font: var(--t-label);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    user-select: none;
+    position: relative;
+  }
+  .note-grid .tile .t-name {
     font-family: var(--font-mono);
     font-size: 9px;
-    color: rgba(0,0,0,.55);
+    font-weight: 600;
+    color: rgba(0,0,0,.65);
+    line-height: 1;
     letter-spacing: 0;
-    user-select: none;
+  }
+  .note-grid .tile .t-deg {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: rgba(0,0,0,.40);
+    line-height: 1;
+    letter-spacing: 0;
+  }
+  .note-grid .tile.root-cell {
+    outline: 2px solid rgba(255,255,255,.45);
+    outline-offset: -2px;
   }
 
-  /* Octave column (one column per octave, 12 cells deep). */
-  .stack {
-    display: grid;
-    grid-template-columns: repeat(9, 1fr);
+  .sol-name {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 600;
+    color: rgba(0,0,0,.65);
+    line-height: 1;
+  }
+  .sol-deg {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: rgba(0,0,0,.40);
+    line-height: 1;
+  }
+
+  /* ── Octave stack ─────────────────────────────────────────── */
+  .oct-stack {
+    display: flex;
     gap: 4px;
-    margin-top: 14px;
     background: var(--ink);
     padding: 8px;
     border: 1px solid var(--hairline);
+    margin-top: 8px;
   }
-  .stack .col {
+  .oct-stack .oct-col {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;
+    align-items: center;
   }
-  .stack .col > .o-label {
-    text-align: center;
-    font: var(--t-label);
+  .oct-stack .oct-col .o-label {
     font-family: var(--font-mono);
+    font-size: 8px;
     color: var(--ivory-3);
-    font-size: 9px;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
   }
-  .stack .col > .swatch {
-    height: 22px;
+  .oct-stack .oct-col .swatch {
+    width: 100%;
+    height: 20px;
     border: 1px solid rgba(0,0,0,.35);
   }
 
+  /* ── Legend ───────────────────────────────────────────────── */
   .legend {
-    margin-top: 14px;
+    margin-top: 8px;
     font: var(--t-caption);
     color: var(--ivory-3);
-    line-height: 1.55;
+    line-height: 1.5;
   }
   .legend code { font-family: var(--font-mono); color: var(--ivory-2); }
+  .legend b { color: var(--ivory); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tile { animation: none !important; }
+  }
 </style></head><body>
 <div class="card" id="music-card">
-  <div class="label" style="margin-bottom:6px">OKLCH RECIPE</div>
+  <div class="label" style="margin-bottom:6px">MUSIC COLOR RECIPE</div>
 
   <pre class="recipe"><span class="k">.note</span> {
-  --note-degree: <span class="v">0</span>;            <span style="color:var(--ivory-3)">/* 0..music-count-1 */</span>
+  --note-degree: <span class="v">0</span>;            <span style="color:var(--ivory-3)">/* semitones from C (fixed) or from root (movable) */</span>
   --note-octave: <span class="v">4</span>;            <span style="color:var(--ivory-3)">/* 0..8 */</span>
   --note-l:   calc(<span class="v">20%</span> + (var(--note-octave) * <span class="v">7.5%</span>));
-  --note-hue: calc((var(--note-degree) + var(--music-rotate)) * (<span class="v">360</span> / var(--music-count)));
+  --note-hue: calc((var(--note-degree) + var(--music-rotate)) * <span class="v">30deg</span>);   <span style="color:var(--ivory-3)">/* 30° per semitone, always */</span>
   background: oklch(var(--note-l) var(--music-c) var(--note-hue));
 }</pre>
 
-  <div class="mode-pills">
-    <button data-mode="fixed" class="on">Fixed · chromatic (count = 12)</button>
-    <button data-mode="rooted">Rooted · N-note scale</button>
+  <!-- ───────────────────────────────────────────────────────────
+       PANEL 1 — FIXED CHROMA
+       Root does nothing here. C is always hue 0–30°.
+       ─────────────────────────────────────────────────────────── -->
+  <div class="section-head">
+    <span class="sec-label">01 — Fixed Chroma</span>
+    <span class="sec-desc">C is always 0°. Each semitone = 30°. Root does nothing.</span>
   </div>
 
-  <div class="controls">
-    <div class="ctrl">
-      <label>--music-count <span class="val" id="vCount">12</span></label>
-      <input type="range" id="rCount" min="2" max="12" step="1" value="12">
-    </div>
-    <div class="ctrl">
-      <label>--music-rotate <span class="val" id="vRot">0</span></label>
-      <input type="range" id="rRot" min="0" max="11" step="1" value="0">
-    </div>
-    <div class="ctrl">
-      <label>--music-c <span class="val" id="vChroma">0.18</span></label>
+  <div class="ctrl-row">
+    <div class="ctrl-group" style="flex:1">
+      <label>--music-c (chroma) <span class="val" id="vChroma">0.18</span></label>
       <input type="range" id="rChroma" min="0" max="0.4" step="0.01" value="0.18">
     </div>
-    <div class="ctrl">
-      <label>--note-octave (preview row) <span class="val" id="vOct">4</span></label>
+    <div class="ctrl-group" style="flex:1">
+      <label>--note-octave (preview) <span class="val" id="vOct">4</span></label>
       <input type="range" id="rOct" min="0" max="8" step="1" value="4">
     </div>
   </div>
 
-  <div class="grid" id="row" aria-label="One row per degree, fixed octave"></div>
-  <div class="legend"><b style="color:var(--ivory)">Above:</b> 12 cells = all chromatic degrees at the current octave. In Rooted mode, only the first <code>N</code> are emitted.</div>
+  <div class="note-grid" id="chromatic-grid" aria-label="Fixed chromatic grid"></div>
 
-  <div class="stack" id="stack" aria-label="Octave stack — root degree, 9 octaves"></div>
-  <div class="legend"><b style="color:var(--ivory)">Below:</b> the root degree across 9 octaves (0..8). Octave drives lightness 20%→80%.</div>
+  <!-- Octave lightness stack (C across octaves) -->
+  <div class="oct-stack" id="oct-stack" aria-label="C across 9 octaves"></div>
+  <div class="legend"><b>Octave row:</b> C across octaves 0–8. Lightness <code>20%..80%</code>.</div>
 
-  <div class="caption" style="margin-top:14px">
-    Switch the FIXED/ROOTED pills to toggle the meaning of <code>--music-count</code>.
-    Fixed (12) keeps C in the same 30° slice forever. Rooted (set count = scale length and rotate = root degree)
-    puts the tonic at hue 0° and spreads the scale evenly around the wheel.
+  <!-- ───────────────────────────────────────────────────────────
+       PANEL 2 — MOVABLE CHROMA
+       Root + scale change the mapping. Root = hue 0.
+       ─────────────────────────────────────────────────────────── -->
+  <div class="section-head">
+    <span class="sec-label">02 — Movable Chroma</span>
+    <span class="sec-desc">Root rotates the palette to hue 0. Scale count drops cells. Moveable Do.</span>
+  </div>
+
+  <div class="root-picker" id="scale-root-picker" role="group" aria-label="Scale root selector"></div>
+
+  <div class="ctrl-row">
+    <div class="ctrl-group" style="flex:1">
+      <label>Scale count <span class="val" id="vScaleCount">7</span></label>
+      <input type="range" id="rScaleCount" min="5" max="12" step="1" value="7">
+    </div>
+  </div>
+
+  <div class="note-grid" id="scale-grid" aria-label="Scale note grid"></div>
+  <div class="legend" id="scale-legend"><b>Scale grid:</b> 7 of 12 chromatic positions. Root: C = Do.</div>
+
+  <!-- ───────────────────────────────────────────────────────────
+       PANEL 3 — HUE-RANGE ANIMATION
+       Toggle sweeps each cell across its slice bandwidth.
+       Operates on the fixed chromatic — no root.
+       ─────────────────────────────────────────────────────────── -->
+  <div class="section-head">
+    <span class="sec-label">03 — Hue Range</span>
+    <span class="sec-desc">Each chromatic cell oscillates through its 30° slice. Toggle to start.</span>
+  </div>
+
+  <div class="ctrl-row">
+    <div class="ctrl-group">
+      <label>Animate hue sweep <span class="val" id="vSweepOn">off</span></label>
+      <input type="checkbox" id="cbSweep" style="margin-top:2px">
+    </div>
+    <div class="ctrl-group" style="flex:1">
+      <label>Sweep spread (% of slice) <span class="val" id="vSpread">60</span>%</label>
+      <input type="range" id="rSpread" min="0" max="100" step="5" value="60">
+    </div>
+    <div class="ctrl-group" style="flex:1">
+      <label>Sweep duration <span class="val" id="vDur">5</span>s</label>
+      <input type="range" id="rDur" min="2" max="12" step="1" value="5">
+    </div>
+  </div>
+
+  <div class="note-grid" id="sweep-grid" aria-label="Hue sweep animation grid"></div>
+  <div class="legend">
+    <b>Hue range:</b> each semitone owns a <code>30°</code> slice. Spread controls how far the cell sweeps within that slice.
+    Respects <code>prefers-reduced-motion</code>.
+  </div>
+
+  <style id="sweep-styles"></style>
+
+  <div class="caption" style="margin-top:16px">
+    <b>Fixed chroma</b> nails C to hue 0 and steps 30° per semitone, always. <b>Movable chroma</b>
+    rotates the palette so the chosen root lands at hue 0 and shows only the scale-count cells —
+    the dropped cells aren't redrawn, they're removed.
   </div>
 </div>
 
 <script>
 (function () {
-  const card = document.getElementById('music-card');
-  const row = document.getElementById('row');
-  const stack = document.getElementById('stack');
-  const rCount = document.getElementById('rCount');
-  const rRot = document.getElementById('rRot');
-  const rChroma = document.getElementById('rChroma');
-  const rOct = document.getElementById('rOct');
-  const vCount = document.getElementById('vCount');
-  const vRot = document.getElementById('vRot');
-  const vChroma = document.getElementById('vChroma');
-  const vOct = document.getElementById('vOct');
-  const pills = card.querySelectorAll('.mode-pills button');
+  const NOTE_LETTERS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  // Moveable-Do solfege (chromatic positions from root)
+  const SOL_MOVEABLE = ['Do','Ra','Re','Me','Mi','Fa','Fi','Sol','Le','La','Te','Ti'];
 
-  let mode = 'fixed';
+  let scaleRoot   = 0;     // 0..11 (movable chroma only)
+  let chroma      = 0.18;
+  let previewOct  = 4;
+  let scaleCount  = 7;
+  let sweepOn     = false;
+  let sweepSpread = 60;    // % of slice
+  let sweepDur    = 5;     // seconds
 
-  function render() {
-    const count = parseInt(rCount.value, 10);
-    const rot = parseInt(rRot.value, 10);
-    const chroma = parseFloat(rChroma.value);
-    const oct = parseInt(rOct.value, 10);
+  const card           = document.getElementById('music-card');
+  const chromaticGrid  = document.getElementById('chromatic-grid');
+  const octStack       = document.getElementById('oct-stack');
+  const scalePicker    = document.getElementById('scale-root-picker');
+  const scaleGrid      = document.getElementById('scale-grid');
+  const scaleLegend    = document.getElementById('scale-legend');
+  const sweepGrid      = document.getElementById('sweep-grid');
+  const sweepStyles    = document.getElementById('sweep-styles');
 
-    vCount.textContent = count;
-    vRot.textContent = rot;
-    vChroma.textContent = chroma.toFixed(2);
-    vOct.textContent = oct;
+  const rChroma     = document.getElementById('rChroma');
+  const rOct        = document.getElementById('rOct');
+  const rScaleCount = document.getElementById('rScaleCount');
+  const cbSweep     = document.getElementById('cbSweep');
+  const rSpread     = document.getElementById('rSpread');
+  const rDur        = document.getElementById('rDur');
 
-    card.style.setProperty('--music-count', count);
-    card.style.setProperty('--music-rotate', rot);
+  const vChroma     = document.getElementById('vChroma');
+  const vOct        = document.getElementById('vOct');
+  const vScaleCount = document.getElementById('vScaleCount');
+  const vSweepOn    = document.getElementById('vSweepOn');
+  const vSpread     = document.getElementById('vSpread');
+  const vDur        = document.getElementById('vDur');
+
+  // Color helper — always 30° per semitone.
+  // semitone 0..11 → hue 0..330. Octave drives lightness.
+  function noteColor(semitone, octave, c) {
+    const l = 20 + octave * 7.5;
+    const hue = semitone * 30;
+    return `oklch(${l}% ${c} ${hue})`;
+  }
+
+  function buildRootPicker(container, activeRoot, onChange) {
+    container.innerHTML = '';
+    NOTE_LETTERS.forEach((name, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.title = 'Set root to ' + name;
+      if (i === activeRoot) btn.classList.add('on');
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        onChange(i);
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  /* ── PANEL 1 — Fixed Chroma render ─────────────────────────
+     12 cells in C..B order. Hue = semitone × 30°. Always.
+     ─────────────────────────────────────────────────────────── */
+  function renderChromatic() {
     card.style.setProperty('--music-c', chroma);
 
-    // Top row: one tile per degree at the selected octave
-    row.innerHTML = '';
-    const total = mode === 'fixed' ? 12 : count;
-    for (let d = 0; d < total; d++) {
-      const cell = document.createElement('div');
-      cell.className = 'tile note';
-      cell.style.setProperty('--note-degree', d);
-      cell.style.setProperty('--note-octave', oct);
-      cell.textContent = d;
-      row.appendChild(cell);
-    }
-    // Pad empty cells so the 12-col grid stays aligned in rooted mode
-    for (let p = total; p < 12; p++) {
-      const cell = document.createElement('div');
-      cell.className = 'tile';
-      cell.style.background = 'transparent';
-      cell.style.border = '1px dashed var(--ink-5)';
-      cell.style.color = 'var(--ink-5)';
-      cell.textContent = '·';
-      row.appendChild(cell);
+    chromaticGrid.innerHTML = '';
+    for (let i = 0; i < 12; i++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.style.background = noteColor(i, previewOct, chroma);
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 't-name';
+      nameEl.textContent = NOTE_LETTERS[i];
+
+      const degEl = document.createElement('span');
+      degEl.className = 't-deg';
+      degEl.textContent = (i * 30) + '°';
+
+      tile.appendChild(nameEl);
+      tile.appendChild(degEl);
+      chromaticGrid.appendChild(tile);
     }
 
-    // Stack: 9 columns (octaves), root degree only
-    stack.innerHTML = '';
+    // Octave stack — C (semitone 0) across 9 octaves
+    octStack.innerHTML = '';
     for (let o = 0; o < 9; o++) {
       const col = document.createElement('div');
-      col.className = 'col';
-      const ol = document.createElement('div');
-      ol.className = 'o-label';
-      ol.textContent = 'O' + o;
-      col.appendChild(ol);
+      col.className = 'oct-col';
+      const lbl = document.createElement('div');
+      lbl.className = 'o-label';
+      lbl.textContent = 'O' + o;
       const sw = document.createElement('div');
-      sw.className = 'swatch note';
-      sw.style.setProperty('--note-degree', 0);
-      sw.style.setProperty('--note-octave', o);
+      sw.className = 'swatch';
+      sw.style.background = noteColor(0, o, chroma);
+      col.appendChild(lbl);
       col.appendChild(sw);
-      stack.appendChild(col);
+      octStack.appendChild(col);
     }
   }
 
-  rCount.addEventListener('input', render);
-  rRot.addEventListener('input', render);
-  rChroma.addEventListener('input', render);
-  rOct.addEventListener('input', render);
-  pills.forEach(b => b.addEventListener('click', () => {
-    pills.forEach(p => p.classList.remove('on'));
-    b.classList.add('on');
-    mode = b.dataset.mode;
-    if (mode === 'fixed') {
-      rCount.value = 12;
-      rRot.value = 0;
+  /* ── PANEL 2 — Movable Chroma render ────────────────────────
+     Root maps to hue 0. Each scale degree is laid out at its
+     chromatic position from the root (30° per semitone).
+     Scale count chooses N of 12 chromatic positions, evenly
+     distributed (deg * 12 / scaleCount).
+     ─────────────────────────────────────────────────────────── */
+  function renderScale() {
+    scaleGrid.innerHTML = '';
+    for (let deg = 0; deg < scaleCount; deg++) {
+      const chromaticOffset = Math.round(deg * 12 / scaleCount);
+      const pitch = (scaleRoot + chromaticOffset) % 12;
+
+      const tile = document.createElement('div');
+      tile.className = 'tile' + (deg === 0 ? ' root-cell' : '');
+      // Hue = chromatic offset from root × 30°. Root (offset 0) is at hue 0.
+      tile.style.background = noteColor(chromaticOffset, previewOct, chroma);
+
+      const solLbl = document.createElement('span');
+      solLbl.className = 'sol-name';
+      solLbl.textContent = SOL_MOVEABLE[chromaticOffset] || ('d' + deg);
+
+      const noteLbl = document.createElement('span');
+      noteLbl.className = 'sol-deg';
+      noteLbl.textContent = NOTE_LETTERS[pitch];
+
+      tile.appendChild(solLbl);
+      tile.appendChild(noteLbl);
+      scaleGrid.appendChild(tile);
     }
+
+    scaleLegend.innerHTML = '<b>Scale grid:</b> showing <code>' + scaleCount +
+      '</code> of 12 chromatic positions. Root: <code>' + NOTE_LETTERS[scaleRoot] +
+      '</code> = Do.';
+  }
+
+  /* ── PANEL 3 — Hue sweep render ─────────────────────────────
+     12 fixed chromatic cells. Each sweeps within its 30° slice.
+     ─────────────────────────────────────────────────────────── */
+  function renderSweep() {
+    const sliceWidth = 30;  // always 30° per semitone
+    sweepGrid.innerHTML = '';
+    let kfCss = '';
+
+    for (let i = 0; i < 12; i++) {
+      const centerHue  = i * sliceWidth;
+      const halfSpread = (sliceWidth * sweepSpread / 100) / 2;
+      const hFrom = centerHue - halfSpread;
+      const hTo   = centerHue + halfSpread;
+      const lVal  = 20 + previewOct * 7.5;
+
+      kfCss += `
+@keyframes hue-sweep-${i} {
+  0%   { background: oklch(${lVal}% ${chroma} ${hFrom}); }
+  50%  { background: oklch(${lVal}% ${chroma} ${hTo}); }
+  100% { background: oklch(${lVal}% ${chroma} ${hFrom}); }
+}`;
+
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.style.background = noteColor(i, previewOct, chroma);
+
+      if (sweepOn) {
+        const stagger = (i / 12) * sweepDur;
+        tile.style.animation = `hue-sweep-${i} ${sweepDur}s ease-in-out ${-stagger}s infinite`;
+      }
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 't-name';
+      nameEl.textContent = NOTE_LETTERS[i];
+
+      tile.appendChild(nameEl);
+      sweepGrid.appendChild(tile);
+    }
+
+    sweepStyles.textContent = kfCss;
+  }
+
+  function render() {
+    renderChromatic();
+    renderScale();
+    renderSweep();
+  }
+
+  buildRootPicker(scalePicker, scaleRoot, (i) => {
+    scaleRoot = i;
+    renderScale();
+  });
+
+  rChroma.addEventListener('input', () => {
+    chroma = parseFloat(rChroma.value);
+    vChroma.textContent = chroma.toFixed(2);
     render();
-  }));
+  });
+  rOct.addEventListener('input', () => {
+    previewOct = parseInt(rOct.value, 10);
+    vOct.textContent = previewOct;
+    render();
+  });
+  rScaleCount.addEventListener('input', () => {
+    scaleCount = parseInt(rScaleCount.value, 10);
+    vScaleCount.textContent = scaleCount;
+    renderScale();
+  });
+  cbSweep.addEventListener('change', () => {
+    sweepOn = cbSweep.checked;
+    vSweepOn.textContent = sweepOn ? 'on' : 'off';
+    renderSweep();
+  });
+  rSpread.addEventListener('input', () => {
+    sweepSpread = parseInt(rSpread.value, 10);
+    vSpread.textContent = sweepSpread;
+    renderSweep();
+  });
+  rDur.addEventListener('input', () => {
+    sweepDur = parseInt(rDur.value, 10);
+    vDur.textContent = sweepDur;
+    renderSweep();
+  });
 
   render();
 })();

@@ -1,35 +1,48 @@
-<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
 <style>
-/* ─── Pillar = canonical .panel + numbered-ordinal extras ───
-   Panel chrome (border, bg, floating label) comes from _card.css.
-   .pillar adds: tilted rotation, min-height, typed children. */
-.pillar-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-top: 0;
-}
+/* =====================================================================
+   CARD — the fundamental shell of the app.
+   .panel base from _card.css (border + floating label) + decoration-mark
+   slot top-right + display title + mono body. The mark slot accepts ANY
+   decoration primitive: ordinal, music glyph, filemark stamp, badge.
+   ===================================================================== */
 
-.pillar {
-  padding: 20px 18px 24px;       /* override .panel padding for ordinal headroom */
+.panel-card {
+  padding: 20px 18px 22px;
   min-height: 190px;
   box-sizing: border-box;
 }
 
-/* Large faint ordinal — decorative, top-right corner */
-.pillar .num {
-  font: 400 52px/1 var(--font-display);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  color: var(--ivory-4);
+/* Decoration-mark slot — anchored top-right, any primitive plugs in here. */
+.panel-card .mark {
   position: absolute;
   right: 12px;
   top: 8px;
   user-select: none;
   pointer-events: none;
+  color: var(--ivory-4);
+  line-height: 1;
+}
+.panel-card .mark.mark-ordinal {
+  font: 400 52px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+.panel-card .mark.mark-glyph svg { display: block; }
+.panel-card .mark.mark-stamp {
+  border: 1px solid var(--ivory-4);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+  transform: rotate(2deg);
 }
 
-.pillar h3 {
+.panel-card h3 {
   font: 400 19px/1.12 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
@@ -37,90 +50,129 @@
   margin: 0 0 10px;
   max-width: 14ch;
 }
-
-.pillar p {
+.panel-card p {
   font: var(--t-body-s);
   color: var(--ivory-3);
   margin: 0;
   max-width: 28ch;
 }
 
-/* Rotation — hand-cut feel */
-.pillar:nth-child(1) { transform: rotate(0.2deg); }
-.pillar:nth-child(2) { transform: rotate(-0.3deg); }
-.pillar:nth-child(3) { transform: rotate(0.15deg); }
-
-/* Anatomy callouts below */
-.anno {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-top: 18px;
-}
-
-.anno-item {
-  border-top: 1px solid var(--hairline);
-  padding-top: 10px;
-}
-
-.anno-item .k {
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
+/* ── Shared grammar (specimen-card-grammar) ───────────────────────── */
+.section-head {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ivory-4);
-  margin-bottom: 4px;
+  margin: 24px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink-5);
 }
+.section-head:first-child { margin-top: 6px; }
 
-.anno-item .v {
-  font: var(--t-caption);
+.anatomy-wrap {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+.anatomy-wrap .panel-card { transform: rotate(-0.2deg); }
+
+.anatomy {
+  display: grid;
+  align-content: start;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--ivory-3);
 }
+.anatomy .row {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ink-5);
+}
+.anatomy .row:last-child { border-bottom: 0; }
+.anatomy .row b { color: var(--ivory); font-weight: 700; }
+
+.variants-full {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.variants-full .panel-card {
+  padding: 14px 12px 16px;
+  min-height: 158px;
+}
+.variants-full .panel-card h3 { font-size: 14px; margin-bottom: 6px; max-width: none; padding-right: 38px; }
+.variants-full .panel-card p  { font-size: 10px; line-height: 1.5; max-width: none; }
+.variants-full .panel-card .panel-label { font-size: 8px; }
+.variants-full .panel-card .mark.mark-ordinal { font-size: 32px; right: 8px; top: 4px; }
+.variants-full .panel-card .mark.mark-glyph svg { width: 22px; height: 22px; }
+.variants-full .panel-card .mark.mark-stamp { font-size: 7px; padding: 3px 5px; letter-spacing: 0.18em; }
+
+.variants-full .panel-card:nth-child(1) { transform: rotate(0.2deg); }
+.variants-full .panel-card:nth-child(2) { transform: rotate(-0.3deg); }
+.variants-full .panel-card:nth-child(3) { transform: rotate(0.15deg); }
+.variants-full .panel-card:nth-child(4) { transform: rotate(-0.25deg); }
 </style></head><body>
 <div class="card">
-  <div class="label" style="margin-bottom:22px">FLOATING LABEL · FAINT ORDINAL · DARK STAGE</div>
+  <div class="label">CARD · FUNDAMENTAL SHELL</div>
 
-  <div class="pillar-row">
-
-    <!-- Pillar 1 -->
-    <div class="panel pillar">
-      <span class="panel-label">01 — Stage / Ivory</span>
-      <div class="num">01</div>
+  <div class="section-head">Anatomy</div>
+  <div class="anatomy-wrap">
+    <div class="panel panel-card">
+      <span class="panel-label">01 &mdash; Stage / Ivory</span>
+      <div class="mark mark-ordinal">01</div>
       <h3>A dark room. Ivory type.</h3>
-      <p>Everything sits on the dark stage. Ivory at four steps — text, secondary, meta, disabled — is the only light. No foreground panels.</p>
+      <p>Everything sits on the dark stage. Ivory at four steps &mdash; text, secondary, meta, disabled &mdash; is the only light.</p>
     </div>
-
-    <!-- Pillar 2 -->
-    <div class="panel pillar">
-      <span class="panel-label">02 — Two Colours</span>
-      <div class="num">02</div>
-      <h3>UI warm-neutral. Music chromatic.</h3>
-      <p>Six warm greys plus four poster accents for chrome. The 12-tone wheel reserved for notes — never buttons, never borders.</p>
-    </div>
-
-    <!-- Pillar 3 -->
-    <div class="panel pillar">
-      <span class="panel-label">03 — Two Voices</span>
-      <div class="num">03</div>
-      <h3>Jazz speaks. Mono whispers.</h3>
-      <p>Lets Jazz for everything read and remembered. JetBrains Mono for everything the system says back: timecodes, data, deltas.</p>
-    </div>
-
-  </div>
-
-  <!-- Anatomy annotations -->
-  <div class="anno">
-    <div class="anno-item">
-      <div class="k">Floating Label</div>
-      <div class="v">10px JetBrains Mono · ivory-3 · clips top border at -10px · ink background</div>
-    </div>
-    <div class="anno-item">
-      <div class="k">Ordinal</div>
-      <div class="v">52px Lets Jazz · ivory-4 · absolute top-right · decorative only</div>
-    </div>
-    <div class="anno-item">
-      <div class="k">Title</div>
-      <div class="v">19px Lets Jazz upper · max 14ch · h3 semantic · --ivory on --ink-3</div>
+    <div class="anatomy">
+      <div class="row"><b>Panel</b><span>ink-3 · 1px ink-5 hairline · .panel base from _card.css</span></div>
+      <div class="row"><b>Label</b><span>JBM 10 · ivory-3 · clips top edge at -10px · ink bg</span></div>
+      <div class="row"><b>Mark</b><span>top-right slot · any decoration primitive · 28–52px</span></div>
+      <div class="row"><b>Title</b><span>Jazz 19 upper · ivory · max 14ch · h3 semantic</span></div>
+      <div class="row"><b>Body</b><span>body-s · ivory-3 · max 28ch · sits below title</span></div>
+      <div class="row"><b>Tilt</b><span>±0.15–0.3deg per card · hand-cut, not stamped</span></div>
     </div>
   </div>
 
+  <div class="section-head">Mark variants — same shell, different decoration</div>
+  <div class="variants-full">
+    <div class="panel panel-card">
+      <span class="panel-label">01 &mdash; Stage / Ivory</span>
+      <div class="mark mark-ordinal">01</div>
+      <h3>Dark room. Ivory type.</h3>
+      <p>Ordinal mark · enumerates a series.</p>
+    </div>
+    <div class="panel panel-card">
+      <span class="panel-label">Mode &mdash; Aeolian</span>
+      <div class="mark mark-glyph">
+        <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M14 4 v18 a4 4 0 1 1 -4 -4 l4 0 z" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <h3>Mode picker. Music mark.</h3>
+      <p>Music-glyph mark · signals musical context.</p>
+    </div>
+    <div class="panel panel-card">
+      <span class="panel-label">Draft &mdash; Rev / 02</span>
+      <div class="mark mark-stamp">REV · 02</div>
+      <h3>Doc revision. Stamp mark.</h3>
+      <p>Filemark stamp · revision, draft, status.</p>
+    </div>
+    <div class="panel panel-card">
+      <span class="panel-label">Mono &mdash; No Mark</span>
+      <h3>Quiet card. No mark.</h3>
+      <p>The slot is optional. Empty when the card carries no count, mode, or status.</p>
+    </div>
+  </div>
+
+  <div class="caption" style="margin-top:14px">
+    The mark slot is decorative, not functional — never put an active control there. One mark per card.
+    Pick from the decoration family (ordinal, music glyph, sticker, filemark stamp) or leave the slot empty.
+  </div>
 </div></body></html>

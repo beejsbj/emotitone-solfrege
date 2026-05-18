@@ -24,10 +24,6 @@
         "reason": "Rehashes marks primitives; extract the music glyph specimen later."
       },
       {
-        "file": "preview/composition-spacing-overview.html",
-        "reason": "Rehashes spacing and geometry tokens."
-      },
-      {
         "file": "preview/mot-compositions-beat-room.html",
         "reason": "Rehashes motion primitives inside a panel."
       },
@@ -64,14 +60,6 @@
       {
         "file": "preview/composition-drawer.html",
         "note": "Kept old filename under COMPOSITION/top-drawer; rename is deferred."
-      },
-      {
-        "file": "preview/mot-primitives-durations.html",
-        "note": "Grouped as TOKEN/motion while tokens-motion-durations rename is deferred."
-      },
-      {
-        "file": "preview/mot-primitives-easings.html",
-        "note": "Grouped as TOKEN/motion while tokens-motion-easings rename is deferred."
       },
       {
         "file": "preview/components-pattern-reel.html",
@@ -113,21 +101,9 @@
       "title": "Tokens · Typography",
       "cards": [
         {
-          "file": "preview/type-display.html",
-          "name": "Display Type",
-          "blurb": "Lets Jazz display sizes and uppercase voice.",
-          "consumes": []
-        },
-        {
-          "file": "preview/type-text.html",
-          "name": "Text Rule",
-          "blurb": "Typography usage rule for Jazz labels and Mono long text.",
-          "consumes": []
-        },
-        {
-          "file": "preview/type-mono.html",
-          "name": "Mono Type",
-          "blurb": "JetBrains Mono for Strudel code and timestamps.",
+          "file": "preview/tokens-typography.html",
+          "name": "Typography",
+          "blurb": "Typeface samples, type ramp, tracking, and usage rules.",
           "consumes": []
         }
       ]
@@ -140,7 +116,7 @@
         {
           "file": "preview/spacing-scale.html",
           "name": "Spacing Scale",
-          "blurb": "Nine-step spacing scale from 2px to 64px.",
+          "blurb": "Eleven-step spacing scale from 2px to 64px.",
           "consumes": []
         },
         {
@@ -148,17 +124,6 @@
           "name": "Radii",
           "blurb": "Radius tokens from XS through XL plus pill.",
           "consumes": []
-        },
-        {
-          "file": "preview/composition-spacing-overview.html",
-          "name": "Spacing Overview",
-          "blurb": "Aggregate spacing, radius, stroke, and cut-paper mark study.",
-          "consumes": [
-            "v2-card-wrapper",
-            "poster-shape",
-            "tomato-divider-tab",
-            "panel-floating-label"
-          ]
         },
         {
           "file": "preview/tokens-geometry.html",
@@ -174,29 +139,9 @@
       "title": "Tokens · Motion",
       "cards": [
         {
-          "file": "preview/motion-beat.html",
-          "name": "Beat",
-          "blurb": "Global beat timing concept for breathing UI surfaces.",
-          "consumes": []
-        },
-        {
-          "file": "preview/mot-primitives-durations.html",
-          "name": "Durations",
-          "blurb": "Four gesture durations shown against a four-bar timeline.",
-          "consumes": []
-        },
-        {
-          "file": "preview/mot-primitives-easings.html",
-          "name": "Easings",
-          "blurb": "Named easing curves with animated runner dots and use cases.",
-          "consumes": [
-            "ease-run-demo"
-          ]
-        },
-        {
-          "file": "preview/tokens-motion-keyframes.html",
-          "name": "Motion Keyframes",
-          "blurb": "Catalog of every named keyframe — pulse, strobe, rip, flash, bob, slide, shimmer.",
+          "file": "preview/tokens-motion.html",
+          "name": "Motion",
+          "blurb": "Beat, durations, easings, and named keyframes in one card.",
           "consumes": []
         }
       ]

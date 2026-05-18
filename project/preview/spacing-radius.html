@@ -1,12 +1,72 @@
-<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"></head><body>
+<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>
+.radius-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+  margin-top: 8px;
+}
+.radius-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.radius-box {
+  background: var(--ivory-3);
+  box-shadow: var(--ring);
+}
+.radius-token {
+  font: var(--t-mono);
+  color: var(--ivory-2);
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+.radius-val {
+  font: var(--t-caption);
+  color: var(--ivory-4);
+  text-align: center;
+}
+</style>
+</head><body>
 <div class="card">
-  <div class="label" style="margin-bottom:14px">XS–XL + PILL</div>
-  <div style="display:flex; gap:14px; align-items:flex-end;">
-    <div style="text-align:center;"><div style="width:64px;height:64px;background:var(--ink-3);box-shadow:var(--ring);border-radius:4px"></div><div class="caption" style="margin-top:6px;">XS · 4</div></div>
-    <div style="text-align:center;"><div style="width:64px;height:64px;background:var(--ink-3);box-shadow:var(--ring);border-radius:8px"></div><div class="caption" style="margin-top:6px;">SM · 8</div></div>
-    <div style="text-align:center;"><div style="width:64px;height:64px;background:var(--ink-3);box-shadow:var(--ring);border-radius:12px"></div><div class="caption" style="margin-top:6px;">MD · 12</div></div>
-    <div style="text-align:center;"><div style="width:64px;height:64px;background:var(--ink-3);box-shadow:var(--ring);border-radius:18px"></div><div class="caption" style="margin-top:6px;">LG · 18</div></div>
-    <div style="text-align:center;"><div style="width:64px;height:64px;background:var(--ink-3);box-shadow:var(--ring);border-radius:24px"></div><div class="caption" style="margin-top:6px;">XL · 24</div></div>
-    <div style="text-align:center;"><div style="width:64px;height:64px;background:var(--ink-3);box-shadow:var(--ring);border-radius:999px"></div><div class="caption" style="margin-top:6px;">PILL</div></div>
+  <div class="label">Radius</div>
+  <div class="caption" style="margin-bottom:14px">Radius tokens from XS through XL plus pill.</div>
+
+  <div class="radius-grid">
+    <div class="radius-tile">
+      <div class="radius-box" style="width:64px;height:64px;border-radius:var(--r-xs)"></div>
+      <div class="radius-token">--r-xs</div>
+      <div class="radius-val">4px</div>
+    </div>
+    <div class="radius-tile">
+      <div class="radius-box" style="width:64px;height:64px;border-radius:var(--r-sm)"></div>
+      <div class="radius-token">--r-sm</div>
+      <div class="radius-val">8px</div>
+    </div>
+    <div class="radius-tile">
+      <div class="radius-box" style="width:64px;height:64px;border-radius:var(--r-md)"></div>
+      <div class="radius-token">--r-md</div>
+      <div class="radius-val">14px</div>
+    </div>
+    <div class="radius-tile">
+      <div class="radius-box" style="width:64px;height:64px;border-radius:var(--r-lg)"></div>
+      <div class="radius-token">--r-lg</div>
+      <div class="radius-val">18px</div>
+    </div>
+    <div class="radius-tile">
+      <div class="radius-box" style="width:64px;height:64px;border-radius:var(--r-xl)"></div>
+      <div class="radius-token">--r-xl</div>
+      <div class="radius-val">24px</div>
+    </div>
+    <div class="radius-tile">
+      <div class="radius-box" style="width:120px;height:40px;border-radius:var(--r-pill)"></div>
+      <div class="radius-token">--r-pill</div>
+      <div class="radius-val">999px</div>
+    </div>
   </div>
-</div></body></html>
+</div>
+</body></html>

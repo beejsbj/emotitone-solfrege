@@ -219,10 +219,10 @@
 
         Display: "Lets Jazz" — condensed all-caps poster face
         Mono:    JetBrains Mono — terminal/score feel, long-form
-        Serif:   Instrument Serif — italic accents only
+
+        There is no serif. Two faces, that's the set.
      =============================================================== */
-  --font-display: "Lets Jazz", "Instrument Serif", "Oswald", system-ui, sans-serif;
-  --font-serif:   "Instrument Serif", Georgia, serif; /* italic accents only */
+  --font-display: "Lets Jazz", "Oswald", system-ui, sans-serif;
   --font-text:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 

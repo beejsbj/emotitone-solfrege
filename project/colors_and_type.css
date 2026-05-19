@@ -27,14 +27,18 @@
         Color belongs to MUSIC, accent belongs to BRASS.
      =============================================================== */
 
-  /* Ink (dark stage) */
+  /* Ink (dark stage)
+     RULE: --ink and --ivory are the workhorses — reach for them first.
+     The shaded steps (--ink-2…5, --ivory-2…4) are surface and meta;
+     use them surgically. The dark stage earns its high contrast by
+     keeping the gray midtones rare, not by adding more of them. */
   --ink:        #0A0908;     /* deepest stage black */
   --ink-2:      #141210;     /* surface 1 — rise */
   --ink-3:      #1B1815;     /* panel body */
   --ink-4:      #25211D;     /* hovered / pressed */
   --ink-5:      #3A352F;     /* wire / divider */
 
-  /* Ivory (light text on dark) */
+  /* Ivory (light text on dark) — same rule as ink: --ivory does the work. */
   --ivory:      #F4EFE6;     /* primary text */
   --ivory-2:    #C9C2B5;     /* secondary text */
   --ivory-3:    #8E867A;     /* meta / muted */
@@ -201,8 +205,20 @@
 
   /* ===============================================================
      7. TYPOGRAPHY — Display, Text, Mono, Serif
+
+        RULE: Lets Jazz is the primary typeface — use it across the
+        board by default. Mono is the EXCEPTION, not the default:
+          - Captions are mono.
+          - Code, timestamps, file paths are mono.
+          - Body text past ~5 words switches to mono for readability.
+          - Labels are Jazz, NOT mono.
+          - One Lets Jazz size per scope — don't stack display on display.
+
+        Display always UPPERCASE with tracking-display.
+        Mono caps use tracking-label.
+
         Display: "Lets Jazz" — condensed all-caps poster face
-        Text:    JetBrains Mono — terminal/score feel
+        Mono:    JetBrains Mono — terminal/score feel, long-form
         Serif:   Instrument Serif — italic accents only
      =============================================================== */
   --font-display: "Lets Jazz", "Instrument Serif", "Oswald", system-ui, sans-serif;
@@ -210,17 +226,18 @@
   --font-text:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Type scale — mobile first. Display always UPPERCASE w/ tracking. */
+  /* Type scale — mobile first. Labels and body default to Lets Jazz per
+     the rule above; long body and captions/mono explicitly use --font-mono. */
   --t-display-xl: 700 56px/0.92 var(--font-display);
   --t-display-l:  700 40px/0.94 var(--font-display);
   --t-display-m:  700 28px/0.96 var(--font-display);
   --t-h1:         700 22px/1.10 var(--font-display);
   --t-h2:         700 18px/1.14 var(--font-display);
-  --t-label:      600 11px/1.10 var(--font-text);
-  --t-body:       450 14px/1.55 var(--font-text);
-  --t-body-s:     450 12px/1.50 var(--font-text);
-  --t-caption:    450 11px/1.40 var(--font-text);
-  --t-mono:       500 12px/1.40 var(--font-mono);
+  --t-label:      600 11px/1.10 var(--font-display);  /* labels are Jazz */
+  --t-body:       450 14px/1.55 var(--font-display);  /* short body; >5 words override to --font-mono */
+  --t-body-s:     450 12px/1.50 var(--font-display);  /* short body-s; >5 words override to --font-mono */
+  --t-caption:    450 11px/1.40 var(--font-mono);     /* captions stay mono */
+  --t-mono:       500 12px/1.40 var(--font-mono);     /* explicit mono */
 
   --tracking-display: 0.01em;
   --tracking-label:   0.14em;

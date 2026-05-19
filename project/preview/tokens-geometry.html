@@ -262,6 +262,17 @@
   background: var(--ink-4);
 }
 
+/* --shadow-glow: hairline ring + tomato halo — hero panel ambient glow */
+.shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+/* --shadow-glow-brass: brass halo — canonical from the digital knob.
+   Sample stays ink-3 (default) — we are showing the glow, not the brass fill. */
+.shadow-glow-brass {
+  box-shadow: var(--shadow-glow-brass);
+}
+
 .shadow-token {
   font-family: var(--font-mono);
   font-size: 8px;
@@ -503,6 +514,24 @@
           --shadow-pressed
           <em>inset 0 2px 6px rgba(0,0,0,.6)</em>
           <em style="color:var(--ivory-4);font-size:7px">Tap active / pressed state</em>
+        </div>
+      </div>
+
+      <div class="shadow-cell">
+        <div class="shadow-sample shadow-glow">Glow</div>
+        <div class="shadow-token">
+          --shadow-glow
+          <em>0 0 0 1px hairline,<br>0 18px 60px -28px rgba(242,107,61,.35)</em>
+          <em style="color:var(--ivory-4);font-size:7px">Hero panel ambient halo</em>
+        </div>
+      </div>
+
+      <div class="shadow-cell">
+        <div class="shadow-sample shadow-glow-brass">Brass Glow</div>
+        <div class="shadow-token">
+          --shadow-glow-brass
+          <em>0 0 14px rgba(224,169,58,.45)</em>
+          <em style="color:var(--ivory-4);font-size:7px">Lit brass signal — digital knob</em>
         </div>
       </div>
 

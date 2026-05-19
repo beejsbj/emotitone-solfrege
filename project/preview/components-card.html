@@ -141,7 +141,7 @@
   </div>
 
   <div class="section-head">Mark variants — same shell, different decoration</div>
-  <div class="variants-full">
+  <div class="variants-full" style="grid-template-columns: repeat(5, 1fr)">
     <div class="panel panel-card">
       <span class="panel-label">01 &mdash; Stage / Ivory</span>
       <div class="mark mark-ordinal">01</div>
@@ -168,6 +168,28 @@
       <span class="panel-label">Mono &mdash; No Mark</span>
       <h3>Quiet card. No mark.</h3>
       <p>The slot is optional. Empty when the card carries no count, mode, or status.</p>
+    </div>
+    <div class="panel panel-card" style="border: none; padding-top: 22px;">
+      <span class="panel-label" style="top: 0; background: transparent; color: var(--ivory-3);">No Border</span>
+      <div class="mark mark-ordinal">02</div>
+      <h3>Spaced apart. Hairline ring.</h3>
+      <p>Border removed · visual separation via spacing and hairline ring.</p>
+    </div>
+  </div>
+
+  <div class="section-head">Shell variants — inverted contrast</div>
+  <div class="variants-full" style="grid-template-columns: repeat(2, 1fr)">
+    <div class="panel" style="background: var(--ink); border: 1px solid var(--ink-5); padding: 14px 12px 16px; min-height: 158px; position: relative; margin-top: 14px;">
+      <span style="position: absolute; top: -10px; left: 14px; background: var(--ink); padding: 0 4px; font-family: var(--font-mono); font-size: 8px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ivory-3);">Inverted Dark</span>
+      <div style="position: absolute; right: 8px; top: 4px; font-size: 32px; font-weight: 400; line-height: 1; letter-spacing: var(--tracking-display); text-transform: uppercase; color: var(--ivory-4);">02</div>
+      <h3 style="font: 400 14px/1.12 var(--font-display); letter-spacing: var(--tracking-display); text-transform: uppercase; color: var(--ivory); margin: 0 0 6px; max-width: none; padding-right: 38px;">Full ink. Ivory text.</h3>
+      <p style="font: 10px/1.5 var(--font-body); color: var(--ivory-3); margin: 0; max-width: none;">Inverted dark · maximum contrast on dark stage.</p>
+    </div>
+    <div class="panel" style="background: var(--ivory); border: 1px solid var(--ivory-3); padding: 14px 12px 16px; min-height: 158px; position: relative; margin-top: 14px;">
+      <span style="position: absolute; top: -10px; left: 14px; background: var(--ivory); padding: 0 4px; font-family: var(--font-mono); font-size: 8px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-3);">Inverted Light</span>
+      <div style="position: absolute; right: 8px; top: 4px; font-size: 32px; font-weight: 400; line-height: 1; letter-spacing: var(--tracking-display); text-transform: uppercase; color: var(--ink-5);">03</div>
+      <h3 style="font: 400 14px/1.12 var(--font-display); letter-spacing: var(--tracking-display); text-transform: uppercase; color: var(--ink); margin: 0 0 6px; max-width: none; padding-right: 38px;">Full ivory. Ink text.</h3>
+      <p style="font: 10px/1.5 var(--font-body); color: var(--ink-3); margin: 0; max-width: none;">Inverted light · vice versa, for spec only.</p>
     </div>
   </div>
 

@@ -3,198 +3,260 @@
 <link rel="stylesheet" href="_card.css">
 <style>
 /* =====================================================================
-   KEYS — one primitive, two cut styles.
-   "Tile" was a drift name; both styles below are keys.
-   - Wide-angular cut: full chromatic tile (130sq) with syllable + pitch.
-                       Lives in the bottom playable surface.
-   - Tall-long cut:    diatonic clip strip — narrower, longer rectangle,
-                       cut-paper polygon. Lives in the keyboard row.
-   The two styles consume the same atoms (tile-solfege, key-clip-paper).
+   KEYS — PRIMITIVE
+   One canonical key structure. Playable face = --note-* only.
+   Chrome (border, shadow, label) = ink / ivory only.
+   In-key label stack (lifted from v2 .note-card):
+     top    .k-syll  — solfege syllable  — Lets Jazz, meta opacity
+     center .k-deg   — degree numeral    — Lets Jazz 56px, large/hero
+     bottom .k-raw   — raw note string   — JBM mono, meta opacity
+   Format toggle: which label is the hero (large, opaque).
+   Variant axes:
+     1. Center-format toggle (syll / deg / raw centered)
+     2. Degree-numeral toggle (arabic+roman vs roman-only)
+     3. Cuts    — clip-path geometry tokens
+     4. Shapes  — tall / wide / squary
+     5. States  — rest / pressed / disabled
    ===================================================================== */
 
-/* ── WIDE-ANGULAR (square tile) — chromatic fill, 5 states ────────── */
-.tile {
+/* ── CANONICAL KEY STRUCTURE ──────────────────────────────────────── */
+.key {
   position: relative;
-  width: 110px; height: 110px;
-  border-radius: 4px;
-  padding: 10px 10px 11px;
-  display: flex; flex-direction: column; justify-content: space-between;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 9px 8px 10px;
   box-sizing: border-box;
   cursor: pointer;
   user-select: none;
-  border: 1px solid rgba(0,0,0,.42);
+  background: var(--key-bg, var(--note-do));
+  box-shadow: var(--shadow-key);
+  transition:
+    box-shadow var(--dur-tap) var(--ease-stab),
+    filter      var(--dur-tap) var(--ease-stab),
+    transform   var(--dur-tap) var(--ease-stab);
+  overflow: hidden;
 }
-.tile::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
+
+/* Sheen overlay — same as before */
+.key::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background:
-    radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.20), transparent 60%),
-    linear-gradient(180deg, transparent 70%, rgba(0,0,0,.20) 100%);
+    radial-gradient(110% 60% at 50% 0%, rgba(255,255,255,.18), transparent 55%),
+    linear-gradient(180deg, transparent 65%, rgba(0,0,0,.22) 100%);
   mix-blend-mode: overlay;
 }
-.tile .syll {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 32px; line-height: .92; letter-spacing: .02em;
-  color: rgba(0,0,0,.86);
-  text-transform: capitalize;
-}
-.tile .pitch {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 16px; line-height: .9; color: rgba(0,0,0,.55);
-}
-.tile .pitch sub { font-size: 10px; }
-.tile .corner {
-  position: absolute; right: 8px; top: 8px;
-  font-family: var(--font-mono); font-size: 8px; letter-spacing: .16em;
-  color: rgba(0,0,0,.5); text-transform: uppercase;
-}
-.tile.dark .syll  { color: rgba(255,255,255,.94); }
-.tile.dark .pitch { color: rgba(255,255,255,.7); }
-.tile.dark .corner{ color: rgba(255,255,255,.55); }
 
-/* STATES */
-.tile.hover { filter: brightness(1.12); }
-.tile.active {
-  box-shadow: inset 0 0 0 2px var(--ivory);
+/* ── IN-KEY LABEL STACK (v2 .note-card anatomy) ───────────────────── */
+/*   top: solfege syllable (meta tier by default) */
+.key .k-syll {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(0,0,0,.55);
+  line-height: 1;
 }
-.tile.active .syll { color: rgba(0,0,0,.95); }
-.tile.played {
-  box-shadow: 0 0 0 2px var(--ivory), 0 0 28px 4px currentColor;
-  transform: translateY(-3px);
+/*   center: degree — Lets Jazz large, hero by default */
+.key .k-deg {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 0.85;
+  color: rgba(0,0,0,.85);
+  /* center vertically via auto margin within the flex column */
+  margin: auto 0;
 }
-.tile.disabled {
-  filter: saturate(.15) brightness(.5);
+.key .k-deg sub {
+  font-size: 11px;
+  color: rgba(0,0,0,.55);
+  margin-left: 1px;
+  vertical-align: baseline;
+  position: relative;
+  bottom: -4px;
+}
+/*   bottom: raw note — JBM mono, meta tier by default */
+.key .k-raw {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(0,0,0,.55);
+  line-height: 1;
+}
+
+/* ── FORMAT TOGGLE MODIFIER CLASSES ──────────────────────────────── */
+/* Syllable-centered: syll is hero, deg + raw are meta */
+.key.fmt-syll .k-syll {
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  color: rgba(0,0,0,.85);
+}
+.key.fmt-syll .k-deg {
+  font-size: 12px;
+  color: rgba(0,0,0,.55);
+  margin: 0;
+}
+.key.fmt-syll .k-deg sub {
+  font-size: 8px;
+  bottom: -2px;
+}
+.key.fmt-syll .k-raw {
+  font-size: 7px;
+  color: rgba(0,0,0,.45);
+}
+
+/* Degree-centered: DEFAULT — deg is hero (no extra class needed, base is deg-hero) */
+/* .fmt-deg is explicit alias for clarity */
+.key.fmt-deg .k-syll { color: rgba(0,0,0,.55); font-size: 9px; }
+.key.fmt-deg .k-deg  { font-size: 32px; color: rgba(0,0,0,.85); }
+.key.fmt-deg .k-raw  { color: rgba(0,0,0,.55); font-size: 7px; }
+
+/* Raw-centered: raw note is hero, syll + deg are meta */
+.key.fmt-raw .k-syll {
+  font-size: 9px;
+  color: rgba(0,0,0,.45);
+}
+.key.fmt-raw .k-deg {
+  font-size: 12px;
+  color: rgba(0,0,0,.50);
+  margin: 0;
+}
+.key.fmt-raw .k-deg sub {
+  font-size: 8px;
+  bottom: -2px;
+}
+.key.fmt-raw .k-raw {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: rgba(0,0,0,.85);
+}
+
+/* Degree-numeral: roman-only (replaces arabic+roman) — class on key */
+/* When .deg-roman, the .k-deg element shows only roman text via data-roman */
+/* Implemented in HTML: second span inside k-deg for roman-only variant */
+
+/* ── STATES ────────────────────────────────────────────────────────── */
+.key.pressed {
+  box-shadow: var(--shadow-pressed);
+  filter: brightness(.88);
+  transform: translateY(1px);
+}
+.key.disabled {
+  filter: saturate(.12) brightness(.45);
   cursor: not-allowed;
 }
-.tile.disabled::before {
-  content: ""; position: absolute; inset: 0; z-index: 3;
-  background: linear-gradient(transparent 48%, rgba(0,0,0,.35) 50%, transparent 52%);
-}
 
-.state-row { display: flex; gap: 10px; flex-wrap: wrap; }
-.state {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 8px 6px;
-  background: var(--ink);
-  border: 1px solid var(--hairline);
-  flex: 1; min-width: 0;
-}
-.state .lbl {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--ivory);
-}
-.state code {
-  font-family: var(--font-mono); font-size: 8px; letter-spacing: .14em;
-  color: var(--ivory-3); text-transform: uppercase; text-align: center;
-}
-
-/* ── TALL-LONG (cut-paper clip strip) — diatonic row ──────────────── */
-.keys-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-.k {
+/* ── DEFAULT PROPORTIONS (tall strip) ─────────────────────────────── */
+.key {
+  width: 56px;
   height: 88px;
-  border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 18px; letter-spacing: .04em; text-transform: uppercase;
-  color: #fff;
-  box-shadow:
-    inset 0 -3px 0 rgba(0,0,0,.4),
-    inset 0 1px 0 rgba(255,255,255,.18);
+  border-radius: var(--r-sm);
+  /* TODO: decompose into tokens-geometry (Wave 5)
+     Proposed: --clip-key-strip  polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%) */
   clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
-  position: relative;
-}
-.k small {
-  font-family: var(--font-mono);
-  font-size: 9px; letter-spacing: .14em;
-  opacity: .82; margin-left: 4px;
 }
 
-/* ── TREATMENT variants ───────────────────────────────────────────── */
-/* Brass-lit: brass gradient fill, engraved-edge text */
-.tile.brass-lit {
-  background: var(--brass-fill);
-  border-color: var(--brass-lo);
+/* ── CUTS ─────────────────────────────────────────────────────────── */
+.key.cut-tile {
+  width: 88px;
+  height: 88px;
+  border-radius: 4px;
+  clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%); /* --clip-tile */
 }
-.tile.brass-lit .syll  { color: var(--brass-edge); }
-.tile.brass-lit .pitch { color: rgba(42,28,8,.6); }
-.tile.brass-lit .corner{ color: rgba(42,28,8,.5); }
+.key.cut-tile .k-deg { font-size: 44px; }
+.key.cut-tile .k-syll { font-size: 10px; }
+.key.cut-tile .k-raw  { font-size: 8px; }
 
-/* Ink: dark ink-3 fill, ivory text */
-.tile.ink-fill {
-  background: var(--ink-3);
-  border-color: var(--ink-5);
+.key.cut-offcut {
+  width: 88px;
+  height: 88px;
+  border-radius: 0;
+  clip-path: polygon(4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%); /* --clip-offcut */
 }
-.tile.ink-fill .syll  { color: var(--ivory); }
-.tile.ink-fill .pitch { color: var(--ivory-2); }
-.tile.ink-fill .corner{ color: var(--ivory-4); }
+.key.cut-offcut .k-deg { font-size: 40px; }
 
-/* Ivory: ivory fill, ink text */
-.tile.ivory-fill {
-  background: var(--ivory);
-  border-color: rgba(0,0,0,.22);
+.key.cut-tab {
+  width: 88px;
+  height: 88px;
+  border-radius: 0;
+  clip-path: polygon(2% 0, 100% 4%, 98% 100%, 0 96%); /* --clip-tab */
 }
-.tile.ivory-fill .syll  { color: var(--ink-3); }
-.tile.ivory-fill .pitch { color: rgba(20,18,16,.55); }
-.tile.ivory-fill .corner{ color: rgba(20,18,16,.45); }
+.key.cut-tab .k-deg { font-size: 40px; }
 
-/* Bone: warm off-white fill, ink text */
-.tile.bone-fill {
-  background: var(--bone);
-  border-color: rgba(0,0,0,.18);
-}
-.tile.bone-fill .syll  { color: var(--ink-2); }
-.tile.bone-fill .pitch { color: rgba(20,18,16,.55); }
-.tile.bone-fill .corner{ color: rgba(20,18,16,.4); }
-
-/* Wire: hairline border only, transparent fill */
-.tile.wire {
-  background: transparent;
-  border-color: var(--hairline);
-}
-.tile.wire .syll  { color: var(--ivory-3); }
-.tile.wire .pitch { color: var(--ivory-4); }
-.tile.wire .corner{ color: var(--ivory-4); }
-.tile.wire::after { display: none; }
-
-/* Tomato accent: chromatic fill + tomato border ring */
-.tile.tomato-accent {
-  box-shadow: inset 0 0 0 2px var(--tomato), inset 0 0 0 3px rgba(0,0,0,.55);
+.key.cut-pill {
+  width: 56px;
+  height: 88px;
+  clip-path: none;
+  border-radius: 44px;
+  /* TODO: decompose into tokens-geometry (Wave 5)
+     Proposed: --clip-key-pill  border-radius: 44px */
 }
 
-/* Glow: chromatic fill + self-hue radial bloom underneath, no lift */
-.tile.glow {
-  box-shadow:
-    0 0 0 2px rgba(255,255,255,.18),
-    0 0 32px 8px currentColor;
+/* ── SHAPE VARIANTS ─────────────────────────────────────────────── */
+.key.shape-squary {
+  width: 72px;
+  height: 72px;
+  clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
 }
+.key.shape-squary .k-deg { font-size: 28px; }
 
-/* treatment wrapper */
-.treatment {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 10px 6px 9px;
+.key.shape-wide {
+  width: 120px;
+  height: 56px;
+  clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
+  padding: 6px 12px 8px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.key.shape-wide .k-syll { font-size: 9px; align-self: flex-start; }
+.key.shape-wide .k-deg  { font-size: 24px; margin: 0; align-self: center; }
+.key.shape-wide .k-deg sub { font-size: 9px; }
+.key.shape-wide .k-raw  { font-size: 7px; align-self: flex-end; }
+
+.key.shape-tall {
+  width: 40px;
+  height: 116px;
+  clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
+  padding: 8px 5px 9px;
+}
+.key.shape-tall .k-syll { font-size: 7px; }
+.key.shape-tall .k-deg  { font-size: 20px; }
+.key.shape-tall .k-deg sub { font-size: 8px; }
+.key.shape-tall .k-raw  { font-size: 6px; }
+
+/* ── HERO WRAPPER ─────────────────────────────────────────────────── */
+.key-hero {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
   background: var(--ink);
   border: 1px solid var(--hairline);
-  flex: 1; min-width: 0;
+  box-shadow: var(--ring);
 }
-.treatment .lbl {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--ivory);
+.key-hero .key {
+  width: 80px;
+  height: 130px;
+  clip-path: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
+  transform: rotate(-0.2deg);
 }
-.treatment code {
-  font-family: var(--font-mono); font-size: 8px; letter-spacing: .14em;
-  color: var(--ivory-3); text-transform: uppercase; text-align: center;
-}
-.variants-full .treatment .tile {
-  width: 100%; height: auto; aspect-ratio: 1;
-}
+.key-hero .key .k-deg { font-size: 44px; }
+.key-hero .key .k-syll { font-size: 11px; }
+.key-hero .key .k-raw  { font-size: 9px; }
+.key-hero .key .k-deg sub { font-size: 15px; }
 
-/* ── Shared grammar (specimen-card-grammar) ───────────────────────── */
+/* ── SPECIMEN GRAMMAR ─────────────────────────────────────────────── */
 .section-head {
   font-family: var(--font-mono);
   font-weight: 600;
@@ -236,192 +298,314 @@
 .variants-full {
   display: grid;
   gap: 12px;
-  /* set grid-template-columns: repeat(N, 1fr) per card based on variant count */
 }
 
-.key-hero {
-  display: grid;
-  place-items: center;
-  min-height: 214px;
+/* ── VARIANT CELL ─────────────────────────────────────────────────── */
+.var-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 6px 9px;
   background: var(--ink);
   border: 1px solid var(--hairline);
-  box-shadow: var(--ring);
 }
-.key-hero .tile {
-  width: 172px;
-  height: 172px;
-  padding: 16px 16px 18px;
-  transform: rotate(-0.2deg);
+.var-cell .lbl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ivory);
 }
-.key-hero .tile .syll { font-size: 52px; }
-.key-hero .tile .pitch { font-size: 25px; }
-.key-hero .tile .pitch sub { font-size: 14px; }
-.key-hero .tile .corner { right: 13px; top: 12px; font-size: 10px; }
+.var-cell code {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .14em;
+  color: var(--ivory-3);
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.4;
+}
 
-.variants-full .state {
-  padding: 8px 6px 9px;
+/* ── FORMAT TOGGLE ROW — wider cells to fit the key face ──────────── */
+.fmt-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
-.variants-full .tile {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1;
-}
-.variants-full .k {
-  min-width: 0;
-  height: 88px;
+
+/* ── REDUCED MOTION ──────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .key { transition: none; }
 }
 </style></head><body>
 <div class="card">
-  <div class="label">KEYS · PRIMITIVE · TWO CUT STYLES</div>
+  <div class="label">Keys · Primitive</div>
 
+  <!-- ═══════════════════════════════════════════════════════════
+       ANATOMY — one canonical key (degree-centered by default)
+       Lifted from v2 .note-card: flex column · space-between
+       top=syllable · center=degree-large · bottom=raw-note
+       ════════════════════════════════════════════════════════ -->
   <div class="section-head">Anatomy</div>
   <div class="anatomy-wrap">
     <div class="key-hero">
-      <div class="tile" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
-        <span class="corner">E5</span>
-        <span class="syll">Do</span>
-        <span class="pitch">E<sub>4</sub></span>
+      <div class="key" style="--key-bg: var(--note-do);">
+        <span class="k-syll">Do</span>
+        <span class="k-deg">I</span>
+        <span class="k-raw">C4</span>
       </div>
     </div>
     <div class="anatomy">
-      <div class="row"><b>Geometry</b><span>110sq wide tile · 88h tall strip · clipped paper edge</span></div>
-      <div class="row"><b>Fill</b><span>chromatic note hue · one key owns one color</span></div>
-      <div class="row"><b>Type</b><span>Jazz syllable + pitch · JBM corner cap</span></div>
-      <div class="row"><b>Grain</b><span>radial sheen · bottom ink wash · inset shadow</span></div>
-      <div class="row"><b>Cut</b><span>wide-angular tile · tall-long diatonic clip</span></div>
-      <div class="row"><b>States</b><span>rest · hover · active · played · disabled</span></div>
+      <div class="row"><b>Face</b><span>--note-* fill · one note = one hue · music feedback only</span></div>
+      <div class="row"><b>k-syll</b><span>Top · Lets Jazz · solfege syllable · meta opacity at rest</span></div>
+      <div class="row"><b>k-deg</b><span>Center · Lets Jazz 32px · roman numeral · hero by default</span></div>
+      <div class="row"><b>k-raw</b><span>Bottom · JBM mono · raw pitch string · meta opacity at rest</span></div>
+      <div class="row"><b>Chrome</b><span>border-radius var(--r-sm) · clip-path polygon · ink/ivory only</span></div>
+      <div class="row"><b>Depth</b><span>--shadow-key inset · sheen via ::after overlay · mix-blend overlay</span></div>
+      <div class="row"><b>States</b><span>rest · pressed (--shadow-pressed · brightness .88 · 1px drop)</span></div>
     </div>
   </div>
 
-  <div class="section-head">States</div>
-  <div class="variants-full" style="grid-template-columns: repeat(5, 1fr)">
-    <div class="state">
-      <div class="tile" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
-        <span class="corner">E5</span>
-        <span class="syll">Do</span>
-        <span class="pitch">E<sub>4</sub></span>
+  <!-- ═══════════════════════════════════════════════════════════
+       VARIANTS — 1. Center-format toggle
+       Same Do key shown three ways; which label is the large
+       center-stage hero is toggled by .fmt-syll / (default) / .fmt-raw
+       ════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants · Center-format toggle</div>
+  <div class="fmt-row">
+
+    <!-- Syllable-centered -->
+    <div class="var-cell">
+      <div class="key fmt-syll" style="--key-bg: var(--note-do); width:80px; height:130px; clip-path:polygon(3% 1%,98% 2%,100% 98%,1% 99%);">
+        <span class="k-syll">Do</span>
+        <span class="k-deg">I</span>
+        <span class="k-raw">C4</span>
+      </div>
+      <div class="lbl">Syllable</div>
+      <code>solfege hero<br>deg + raw meta</code>
+    </div>
+
+    <!-- Degree-centered (DEFAULT) -->
+    <div class="var-cell">
+      <div class="key fmt-deg" style="--key-bg: var(--note-do); width:80px; height:130px; clip-path:polygon(3% 1%,98% 2%,100% 98%,1% 99%);">
+        <span class="k-syll">Do</span>
+        <span class="k-deg">I</span>
+        <span class="k-raw">C4</span>
+      </div>
+      <div class="lbl">Degree</div>
+      <code>arabic + roman sub<br>default hero</code>
+    </div>
+
+    <!-- Raw-centered -->
+    <div class="var-cell">
+      <div class="key fmt-raw" style="--key-bg: var(--note-do); width:80px; height:130px; clip-path:polygon(3% 1%,98% 2%,100% 98%,1% 99%);">
+        <span class="k-syll">Do</span>
+        <span class="k-deg">I</span>
+        <span class="k-raw">C4</span>
+      </div>
+      <div class="lbl">Raw</div>
+      <code>pitch string hero<br>syll + deg meta</code>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       VARIANTS — 2. Full chromatic scale (degree-centered)
+       All 7 diatonic syllables displayed
+       ════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants · Chromatic palette (degree mode)</div>
+  <div class="variants-full" style="grid-template-columns: repeat(7, 1fr)">
+
+    <div class="var-cell" style="padding:6px 3px 7px;">
+      <div class="key" style="--key-bg: var(--note-do);">
+        <span class="k-syll">Do</span>
+        <span class="k-deg">I</span>
+        <span class="k-raw">C4</span>
+      </div>
+    </div>
+
+    <div class="var-cell" style="padding:6px 3px 7px;">
+      <div class="key" style="--key-bg: var(--note-re);">
+        <span class="k-syll">Ra</span>
+        <span class="k-deg">&#x266D;II</span>
+        <span class="k-raw">C&#x266F;4</span>
+      </div>
+    </div>
+
+    <div class="var-cell" style="padding:6px 3px 7px;">
+      <div class="key" style="--key-bg: var(--note-mi);">
+        <span class="k-syll">Me</span>
+        <span class="k-deg">III</span>
+        <span class="k-raw">E4</span>
+      </div>
+    </div>
+
+    <div class="var-cell" style="padding:6px 3px 7px;">
+      <div class="key" style="--key-bg: var(--note-fa);">
+        <span class="k-syll">Fa</span>
+        <span class="k-deg">IV</span>
+        <span class="k-raw">F4</span>
+      </div>
+    </div>
+
+    <div class="var-cell" style="padding:6px 3px 7px;">
+      <div class="key" style="--key-bg: var(--note-sol);">
+        <span class="k-syll">Se</span>
+        <span class="k-deg">V</span>
+        <span class="k-raw">G4</span>
+      </div>
+    </div>
+
+    <div class="var-cell" style="padding:6px 3px 7px;">
+      <div class="key" style="--key-bg: var(--note-la);">
+        <span class="k-syll">Le</span>
+        <span class="k-deg">VI</span>
+        <span class="k-raw">A&#x266D;4</span>
+      </div>
+    </div>
+
+    <div class="var-cell" style="padding:6px 3px 7px;">
+      <div class="key" style="--key-bg: var(--note-ti);">
+        <span class="k-syll">Te</span>
+        <span class="k-deg">VII</span>
+        <span class="k-raw">B&#x266D;4</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       VARIANTS — 4. States — rest / pressed / disabled
+       ════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants · States</div>
+  <div class="variants-full" style="grid-template-columns: repeat(3, 1fr)">
+
+    <div class="var-cell">
+      <div class="key" style="--key-bg: var(--note-sol);">
+        <span class="k-syll">Se</span>
+        <span class="k-deg">V</span>
+        <span class="k-raw">G4</span>
       </div>
       <div class="lbl">Rest</div>
-      <code>ink syllable</code>
+      <code>--shadow-key<br>base state</code>
     </div>
-    <div class="state">
-      <div class="tile hover" style="background: hsl(78 72% 52%); color: hsl(78 72% 52%);">
-        <span class="corner">G5</span>
-        <span class="syll">Re</span>
-        <span class="pitch">G<sub>4</sub></span>
+
+    <div class="var-cell">
+      <div class="key pressed" style="--key-bg: var(--note-mi);">
+        <span class="k-syll">Me</span>
+        <span class="k-deg">III</span>
+        <span class="k-raw">E4</span>
       </div>
-      <div class="lbl">Hover</div>
-      <code>brightness +12%</code>
+      <div class="lbl">Pressed</div>
+      <code>--shadow-pressed<br>brightness .88<br>translateY(1px)</code>
     </div>
-    <div class="state">
-      <div class="tile active" style="background: hsl(178 68% 50%); color: hsl(178 68% 50%);">
-        <span class="corner">B5</span>
-        <span class="syll">Fa</span>
-        <span class="pitch">B<sub>4</sub></span>
-      </div>
-      <div class="lbl">Active</div>
-      <code>2px inset ivory</code>
-    </div>
-    <div class="state">
-      <div class="tile dark played" style="background: hsl(252 72% 60%); color: hsl(252 72% 60%);">
-        <span class="corner">D♭6</span>
-        <span class="syll">Sol</span>
-        <span class="pitch">D♭<sub>5</sub></span>
-      </div>
-      <div class="lbl">Played</div>
-      <code>lift · self-hue glow</code>
-    </div>
-    <div class="state">
-      <div class="tile disabled" style="background: hsl(312 76% 58%); color: hsl(312 76% 58%);">
-        <span class="corner">F6</span>
-        <span class="syll">La</span>
-        <span class="pitch">F<sub>5</sub></span>
+
+    <div class="var-cell">
+      <div class="key disabled" style="--key-bg: var(--note-la);">
+        <span class="k-syll">Le</span>
+        <span class="k-deg">VI</span>
+        <span class="k-raw">A&#x266D;4</span>
       </div>
       <div class="lbl">Disabled</div>
-      <code>desaturate · slash</code>
+      <code>saturate(.12)<br>brightness(.45)</code>
     </div>
+
   </div>
 
-  <div class="section-head">Cuts</div>
-  <div class="variants-full" style="grid-template-columns: repeat(7, 1fr)">
-    <div class="k" style="background:hsl(18 85% 56%)">DO<small>C4</small></div>
-    <div class="k" style="background:hsl(78 72% 52%)">RE<small>D4</small></div>
-    <div class="k" style="background:hsl(138 60% 46%)">MI<small>E4</small></div>
-    <div class="k" style="background:hsl(178 68% 50%)">FA<small>F4</small></div>
-    <div class="k" style="background:hsl(252 72% 60%)">SOL<small>G4</small></div>
-    <div class="k" style="background:hsl(312 76% 58%)">LA<small>A4</small></div>
-    <div class="k" style="background:hsl(2 86% 58%)">TI<small>B4</small></div>
+  <!-- ═══════════════════════════════════════════════════════════
+       VARIANTS — 5. Cuts — clip-path geometry
+       ════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants · Cuts</div>
+  <div class="variants-full" style="grid-template-columns: repeat(4, 1fr)">
+
+    <div class="var-cell">
+      <div class="key" style="--key-bg: var(--note-re);">
+        <span class="k-syll">Ra</span>
+        <span class="k-deg">&#x266D;II</span>
+        <span class="k-raw">D&#x266D;4</span>
+      </div>
+      <div class="lbl">Strip</div>
+      <!-- TODO: decompose into tokens-geometry (Wave 5)
+           Proposed token: --clip-key-strip
+           polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%) -->
+      <code>polygon 4-pt<br>slight skew</code>
+    </div>
+
+    <div class="var-cell">
+      <div class="key cut-tile" style="--key-bg: var(--note-fa);">
+        <span class="k-syll">Fa</span>
+        <span class="k-deg">IV</span>
+        <span class="k-raw">F4</span>
+      </div>
+      <div class="lbl">Tile</div>
+      <code>--clip-tile<br>square face</code>
+    </div>
+
+    <div class="var-cell">
+      <div class="key cut-offcut" style="--key-bg: var(--note-ti);">
+        <span class="k-syll">Te</span>
+        <span class="k-deg">VII</span>
+        <span class="k-raw">B&#x266D;4</span>
+      </div>
+      <div class="lbl">Off-Cut</div>
+      <code>--clip-offcut<br>hex off-cut</code>
+    </div>
+
+    <div class="var-cell">
+      <div class="key cut-pill" style="--key-bg: var(--note-te);">
+        <span class="k-syll">Te</span>
+        <span class="k-deg">VII</span>
+        <span class="k-raw">A&#x266F;4</span>
+      </div>
+      <div class="lbl">Pill</div>
+      <!-- TODO: decompose into tokens-geometry (Wave 5)
+           Proposed token: --clip-key-pill (border-radius: 44px override) -->
+      <code>full radius<br>soft variant</code>
+    </div>
+
   </div>
 
-  <div class="section-head">Treatments</div>
-  <div class="variants-full" style="grid-template-columns: repeat(7, 1fr)">
-    <div class="treatment">
-      <div class="tile" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
-        <span class="corner">C4</span>
-        <span class="syll">Do</span>
-        <span class="pitch">C<sub>4</sub></span>
+  <!-- ═══════════════════════════════════════════════════════════
+       VARIANTS — 6. Shapes — tall / wide / squary
+       ════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants · Shapes</div>
+  <div class="variants-full" style="grid-template-columns: repeat(3, 1fr)">
+
+    <div class="var-cell">
+      <div class="key shape-tall" style="--key-bg: var(--note-do);">
+        <span class="k-syll">Do</span>
+        <span class="k-deg">I</span>
+        <span class="k-raw">C4</span>
       </div>
-      <div class="lbl">Chromatic</div>
-      <code>note hue fill</code>
+      <div class="lbl">Tall</div>
+      <code>40 x 116px<br>diatonic row thin</code>
     </div>
-    <div class="treatment">
-      <div class="tile brass-lit">
-        <span class="corner">C4</span>
-        <span class="syll">Do</span>
-        <span class="pitch">C<sub>4</sub></span>
+
+    <div class="var-cell">
+      <div class="key shape-squary" style="--key-bg: var(--note-mi);">
+        <span class="k-syll">Me</span>
+        <span class="k-deg">III</span>
+        <span class="k-raw">E4</span>
       </div>
-      <div class="lbl">Brass-Lit</div>
-      <code>brass fill · capture</code>
+      <div class="lbl">Squary</div>
+      <code>72 x 72px<br>near-square grid</code>
     </div>
-    <div class="treatment">
-      <div class="tile ink-fill">
-        <span class="corner">C4</span>
-        <span class="syll">Do</span>
-        <span class="pitch">C<sub>4</sub></span>
+
+    <div class="var-cell">
+      <div class="key shape-wide" style="--key-bg: var(--note-sol);">
+        <span class="k-syll">Se</span>
+        <span class="k-deg">V</span>
+        <span class="k-raw">G4</span>
       </div>
-      <div class="lbl">Ink</div>
-      <code>ink-3 · muted off</code>
+      <div class="lbl">Wide</div>
+      <code>120 x 56px<br>panoramic row</code>
     </div>
-    <div class="treatment">
-      <div class="tile ivory-fill">
-        <span class="corner">C4</span>
-        <span class="syll">Do</span>
-        <span class="pitch">C<sub>4</sub></span>
-      </div>
-      <div class="lbl">Ivory</div>
-      <code>ivory fill · inverse</code>
-    </div>
-    <div class="treatment">
-      <div class="tile bone-fill">
-        <span class="corner">C4</span>
-        <span class="syll">Do</span>
-        <span class="pitch">C<sub>4</sub></span>
-      </div>
-      <div class="lbl">Bone</div>
-      <code>bone · warm light</code>
-    </div>
-    <div class="treatment">
-      <div class="tile wire">
-        <span class="corner">C4</span>
-        <span class="syll">Do</span>
-        <span class="pitch">C<sub>4</sub></span>
-      </div>
-      <div class="lbl">Wire</div>
-      <code>transparent · empty</code>
-    </div>
-    <div class="treatment">
-      <div class="tile tomato-accent" style="background: hsl(18 85% 56%); color: hsl(18 85% 56%);">
-        <span class="corner">C4</span>
-        <span class="syll">Do</span>
-        <span class="pitch">C<sub>4</sub></span>
-      </div>
-      <div class="lbl">Alert</div>
-      <code>tomato ring · sharp</code>
-    </div>
+
   </div>
 
-  <div class="caption" style="margin-top:14px;color:var(--ivory-3);line-height:1.55">
-    One key primitive, two cuts. Wide-angular tiles carry playable chromatic states;
-    tall-long clips carry the diatonic keyboard row. Color belongs to music feedback only.
+  <div class="caption" style="margin-top: 14px; color: var(--ivory-3); line-height: 1.55">
+    One key primitive. Face = --note-* music color only. Chrome = ink/ivory. Every key shows all three labels stacked (solfege syllable top, degree center, raw pitch bottom) lifted from v2 .note-card layout. Format toggle promotes one label to hero size; the others drop to meta opacity. Cuts apply clip-path geometry tokens to the same structure. Shape variants change proportions only.
   </div>
 </div></body></html>

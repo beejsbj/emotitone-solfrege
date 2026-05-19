@@ -39,33 +39,48 @@
     text-transform: uppercase;
   }
 
-  /* brass plate showcase */
+  /* brass variants grid showcase */
   .brass-block {
     display: grid;
-    grid-template-columns: 200px 1fr;
-    gap: 18px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
     padding: 12px;
     background: var(--ink-2);
     border: 1px solid var(--hairline);
   }
-  .brass-plate {
-    height: 120px;
+  .brass-swatch {
+    height: 100px;
     display: flex;
     align-items: flex-end;
     padding: 10px 12px;
+    position: relative;
+    border: 1px solid rgba(0,0,0,.35);
   }
-  .brass-plate .stamp {
+  .brass-swatch .stamp {
     font: var(--t-label);
     letter-spacing: var(--tracking-label);
     color: var(--brass-edge);
     font-size: 10px;
     font-weight: 700;
+    position: relative;
+    z-index: 3;
+  }
+  .brass-swatch-label {
+    font: var(--t-mono);
+    font-size: 9px;
+    color: var(--ivory-3);
+    text-transform: uppercase;
+    margin-top: 6px;
+    letter-spacing: 0.1em;
   }
   .brass-legend {
     font: var(--t-mono);
     font-size: 11px;
     line-height: 1.55;
     color: var(--ivory-3);
+    margin-top: 12px;
+    padding: 12px;
+    border-top: 1px solid var(--hairline);
   }
   .brass-legend b { color: var(--ivory); font-weight: 600; }
 
@@ -141,12 +156,27 @@
   <div class="section">
     <div class="stitle">The lone lit signal</div>
     <div class="brass-block">
-      <div class="brass brass-plate"><span class="stamp">#E0A93A</span></div>
-      <div class="brass-legend">
-        <b>One signal per panel.</b> Apply via the <code>.brass</code> utility (gradient + sheen) &mdash; never as a flat fill.
-        <div style="margin-top:6px">Reserve for: active record, captured value, the lit beat on the metronome, the brand wordmark on a hero.</div>
-        <div style="margin-top:6px">Never on borders. Never on text smaller than 12px. Never as a chrome background.</div>
+      <div class="brass-swatch" style="background:var(--brass);">
+        <span class="stamp">#E0A93A</span>
+        <span class="brass-swatch-label" style="position:absolute;left:12px;top:10px">flat</span>
       </div>
+      <div class="brass brass-swatch">
+        <span class="stamp">#E0A93A</span>
+        <span class="brass-swatch-label" style="position:absolute;left:12px;top:10px">sheen</span>
+      </div>
+      <div class="brass-swatch" style="background:var(--brass);box-shadow:var(--shadow-glow-brass);">
+        <span class="stamp">#E0A93A</span>
+        <span class="brass-swatch-label" style="position:absolute;left:12px;top:10px">glow</span>
+      </div>
+      <div class="brass brass-swatch" style="box-shadow:var(--shadow-glow-brass);">
+        <span class="stamp">#E0A93A</span>
+        <span class="brass-swatch-label" style="position:absolute;left:12px;top:10px">sheen + glow</span>
+      </div>
+    </div>
+    <div class="brass-legend">
+      <b>One signal per panel.</b> Apply via the <code>.brass</code> utility (gradient + sheen) &mdash; never as a flat fill.
+      <div style="margin-top:6px">Reserve for: active record, captured value, the lit beat on the metronome, the brand wordmark on a hero.</div>
+      <div style="margin-top:6px">Never on borders. Never on text smaller than 12px. Never as a chrome background. Glow = <code>--shadow-glow-brass</code>, lifted from the digital knob.</div>
     </div>
     <div class="uses">
       <span class="uselabel">APPLIED:</span>

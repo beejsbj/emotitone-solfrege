@@ -2,10 +2,11 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="_card.css">
 <style>
-/* ─── BADGE PRIMITIVE ─────────────────────────────────────────────────
-   Lets-Jazz CAPS wordmark in a thin wire box.
-   Sharp corners. Butt strokes. Ivory by default.
-   ───────────────────────────────────────────────────────────────────── */
+/* ─── BADGE / STICKER PRIMITIVE ──────────────────────────────────────────
+   Lets-Jazz CAPS wordmark in a wire box.
+   Decoration family — brand colors allowed.
+   Sharp corners. Butt strokes. Geometry treatments as variants.
+   ──────────────────────────────────────────────────────────────────────── */
 
 .badge {
   display: inline-flex;
@@ -23,7 +24,7 @@
   border-radius: 0;
 }
 
-/* ── Shared grammar (specimen-card-grammar) ───────────────────────── */
+/* ── Shared grammar (specimen-card-grammar) ─────────────────────────── */
 .section-head {
   font-family: var(--font-mono);
   font-weight: 600;
@@ -69,13 +70,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
+  min-height: 130px;
 }
 
-/* ── variants grid ────────────────────────────────────────────────
-   9 variants → 3 columns × 3 rows.
-   Each cell: a small stage + the badge centred + a mono caption.
-   ────────────────────────────────────────────────────────────── */
+/* ── variants grid — 3 columns ────────────────────────────────── */
 .variants-full {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -97,18 +95,13 @@
   padding: 20px 12px;
   border: 1px solid var(--hairline);
   background: var(--ink);
+  min-height: 80px;
+  box-sizing: border-box;
 }
 
-/* Bone stage needs a lighter border so it doesn't disappear */
-.v-stage.stage-bone {
-  background: var(--ink-3);
-  border-color: var(--ink-5);
-}
-
-/* Ink fill stage — slightly elevated panel */
-.v-stage.stage-ink2 {
-  background: var(--ink-2);
-}
+.v-stage.stage-ink2 { background: var(--ink-2); }
+.v-stage.stage-ink3 { background: var(--ink-3); }
+.v-stage.stage-bone { background: var(--ink-3); border-color: var(--ink-5); }
 
 .v-caption {
   font-family: var(--font-mono);
@@ -119,33 +112,20 @@
   text-align: center;
 }
 
-/* ── per-variant badge overrides ──────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════
+   BADGE VARIANTS
+   ══════════════════════════════════════════════════════════════════════ */
 
-/* 1. Default: ivory wire on ink (already the .badge default) */
+/* 1. Default: ivory wire on ink — defined by .badge base */
 
-/* 2. Dark inverse — ink-3 fill, ivory wire at 2px, deep well */
-.badge-dark-inverse {
-  background: var(--ink-3);
-  border: 2px solid var(--ivory);
-  color: var(--ivory);
-}
-
-/* 3. Bone inverse — bone fill, ink wordmark, ink wire */
-.badge-bone-inverse {
-  background: var(--bone);
-  border: 1px solid var(--ink-5);
-  color: var(--ink);
-}
-
-/* 4. Brass wire — ivory wordmark, brass-coloured border */
+/* 2. Brass wire: ivory text, brass-coloured border */
 .badge-brass-wire {
   color: var(--ivory);
   border: 1px solid var(--brass);
 }
 
-/* 5. Brass filled — uses .brass utility class; text inherits brass-edge */
+/* 3. Brass filled: .brass utility + badge geometry override */
 .badge-brass-filled {
-  /* .brass applied in markup; override geometry to match badge */
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 14px;
@@ -154,41 +134,205 @@
   text-transform: uppercase;
   padding: 5px 10px 4px;
   border-radius: 0;
-  border: none; /* .brass supplies its own shadow border */
+  border: none;
 }
 
-/* 6. Brass text — ivory wire, brass-clipped wordmark (span.brass-text inside) */
-.badge-brass-text {
-  color: transparent; /* text rendered by inner span */
+/* 4. Tomato accent: tomato wire, ivory text */
+.badge-tomato  { color: var(--ivory); border: 1px solid var(--tomato); }
+
+/* 5. Plum accent: plum wire, ivory text */
+.badge-plum    { color: var(--ivory); border: 1px solid var(--plum); }
+
+/* 6. Pine accent: pine wire, ivory text */
+.badge-pine    { color: var(--ivory); border: 1px solid var(--pine); }
+
+/* 7. Mustard accent: mustard wire, ivory text */
+.badge-mustard { color: var(--ivory); border: 1px solid var(--mustard); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   VARIANT SHAPES / GEOMETRY TREATMENTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── A. Kicker badge — filled brand square + Lets Jazz uppercase label.
+   Sticker-style tile: hairline frame on the ink stage, square anchor on
+   the left, display label running right. ─────────────────────────────── */
+.badge-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 8px;
+  background: var(--ink-2);
+  border: 1px solid var(--hairline);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.badge-kicker .kicker-dot {
+  width: 11px; height: 11px;
+  flex: 0 0 11px;
+  background: var(--tomato);
+}
+
+.badge-kicker.tomato .kicker-dot   { background: var(--tomato); }
+.badge-kicker.pine .kicker-dot     { background: var(--pine); }
+.badge-kicker.plum .kicker-dot     { background: var(--plum); }
+.badge-kicker.mustard .kicker-dot  { background: var(--mustard); }
+
+/* ── B. Piano sticker — hard corners + sticker tilt ────────────────── */
+.badge-sticker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  border: 1px solid var(--hairline);
+  padding: 7px 13px 6px;
+  border-radius: 0;
+  /* hard offset lift — cut-paper pinned-to-stage */
+  box-shadow: var(--shadow-cut);
+  /* --rot-sticker: -2.2deg */
+  transform: rotate(-2.2deg);
+}
+
+/* brand-fill sticker variants */
+.badge-sticker.tomato  { background: var(--tomato);  color: var(--ivory);  border-color: transparent; box-shadow: 4px 4px 0 rgba(0,0,0,.5); }
+.badge-sticker.plum    { background: var(--plum);    color: var(--ivory);  border-color: transparent; box-shadow: 4px 4px 0 rgba(0,0,0,.5); }
+.badge-sticker.mustard { background: var(--mustard); color: var(--ink);    border-color: transparent; box-shadow: 4px 4px 0 rgba(0,0,0,.5); }
+.badge-sticker.pine    { background: var(--pine);    color: var(--ivory);  border-color: transparent; box-shadow: 4px 4px 0 rgba(0,0,0,.5); }
+
+/* sticker with --rot-sticker-lg: -3deg + translateY */
+.badge-sticker.lg {
+  font-size: 17px;
+  padding: 9px 16px 8px;
+  transform: rotate(-3deg) translateY(-3px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,.6);
+}
+
+/* sticker with positive tilt — --rot-mark: +2deg */
+.badge-sticker.mark {
+  transform: rotate(2deg);
+  box-shadow: var(--shadow-cut);
+}
+
+/* ── D. Off-cut badge — --clip-offcut Persona-5 shape ──────────────── */
+.badge-offcut {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  background: var(--ink-4);
+  padding: 8px 14px 7px;
+  border-radius: 0;
+  clip-path: polygon(4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%);
+}
+
+/* ── E. Paper-rip badge — torn right edge ──────────────────────────── */
+.badge-rip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  background: var(--ink-3);
+  padding: 8px 20px 7px 12px;
+  border-radius: 0;
+  box-shadow: var(--ring);
+  clip-path: polygon(0 0, 100% 0, 100% 4%, 88% 20%, 100% 40%, 78% 56%, 100% 78%, 100% 100%, 0 100%);
+}
+
+/* ── F. Bone inverse — brand background, ink text ──────────────────── */
+.badge-bone-inverse {
+  background: var(--bone);
   border: 1px solid var(--ink-5);
+  color: var(--ink);
 }
 
-/* 7. Tomato accent — tomato wire, ivory wordmark */
-.badge-tomato {
+/* ── G. Dark inverse — elevated fill, 2px ivory wire ───────────────── */
+.badge-dark-inverse {
+  background: var(--ink-3);
+  border: 2px solid var(--ivory);
   color: var(--ivory);
-  border: 1px solid var(--tomato);
 }
 
-/* 8. Plum accent — plum wire, ivory wordmark */
-.badge-plum {
-  color: var(--ivory);
-  border: 1px solid var(--plum);
+/* ── C. Brass badge — ink background, brass shimmer top edge + text ─── */
+.badge-brass-shim {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: transparent;
+  background: var(--ink-2);
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  overflow: hidden;
+  position: relative;
 }
 
-/* 9. Pine accent — pine wire, ivory wordmark */
-.badge-pine {
-  color: var(--ivory);
-  border: 1px solid var(--pine);
+.badge-brass-shim .brass-edge-bar {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--brass-fill);
+  animation: brass-sheen 3.6s linear infinite;
+  background-size: 200% 100%;
+}
+
+.badge-brass-shim .brass-text-label {
+  display: block;
+  padding: 7px 12px 6px;
+  background: var(--brass-fill);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: brass-sheen 3.6s linear infinite;
+  background-size: 200% 100%;
+}
+
+.badge-brass-shim.lg {
+  font-size: 16px;
+}
+
+.badge-brass-shim.lg .brass-text-label {
+  padding: 9px 14px 8px;
 }
 
 /* reduced-motion: kill the brass sheen sweep */
 @media (prefers-reduced-motion: reduce) {
   .brass::after { animation: none; }
+  .badge-brass-shim .brass-edge-bar,
+  .badge-brass-shim .brass-text-label { animation: none; }
 }
 </style></head><body>
 <div class="card">
-  <div class="label">BADGE · INSTRUMENT WORDMARK PRIMITIVE</div>
+  <div class="label">Badge &middot; Sticker &middot; Decoration Primitive</div>
 
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <div class="section-head">Anatomy</div>
   <div class="anatomy-wrap">
     <div class="hero-stage">
@@ -198,14 +342,18 @@
       <div class="row"><b>Wordmark</b><span>Jazz 14 · 700 · uppercase · ivory</span></div>
       <div class="row"><b>Box</b><span>1px ink-5 wire · transparent fill · radius 0</span></div>
       <div class="row"><b>Padding</b><span>5px 10px 4px · baseline-compensated bottom</span></div>
-      <div class="row"><b>Size</b><span>inline-flex · line-height 1 · letter-spacing .04em</span></div>
+      <div class="row"><b>Color</b><span>decoration family — brand colors allowed on wire or fill</span></div>
+      <div class="row"><b>Geometry</b><span>clip-path / tilt / shadow-cut for sticker variants</span></div>
+      <div class="row"><b>Tilt</b><span>--rot-sticker -2.2deg · --rot-mark +2deg · --rot-sticker-lg -3deg</span></div>
     </div>
   </div>
 
-  <div class="section-head">Variants — toolbox</div>
+  <!-- ═══════════════════════════════════════════════════════════════════
+       WIRE TREATMENTS — color of the border, fill stays transparent
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants — Wire</div>
   <div class="variants-full">
 
-    <!-- 1. Default: ivory wire on ink -->
     <div class="v-cell">
       <div class="v-stage">
         <span class="badge">Flute</span>
@@ -213,23 +361,6 @@
       <div class="v-caption">Ivory wire</div>
     </div>
 
-    <!-- 2. Dark inverse: ink fill, 2px ivory wire -->
-    <div class="v-cell">
-      <div class="v-stage stage-ink2">
-        <span class="badge badge-dark-inverse">Flute</span>
-      </div>
-      <div class="v-caption">Dark inverse</div>
-    </div>
-
-    <!-- 3. Bone inverse: bone fill, ink wordmark + ink wire -->
-    <div class="v-cell">
-      <div class="v-stage stage-bone">
-        <span class="badge badge-bone-inverse">Flute</span>
-      </div>
-      <div class="v-caption">Bone inverse</div>
-    </div>
-
-    <!-- 4. Brass wire: ivory text, brass-coloured border -->
     <div class="v-cell">
       <div class="v-stage">
         <span class="badge badge-brass-wire">Flute</span>
@@ -237,7 +368,42 @@
       <div class="v-caption">Brass wire</div>
     </div>
 
-    <!-- 5. Brass filled: .brass utility, ink edge text -->
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-tomato">Flute</span>
+      </div>
+      <div class="v-caption">Tomato wire</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-plum">Flute</span>
+      </div>
+      <div class="v-caption">Plum wire</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-pine">Flute</span>
+      </div>
+      <div class="v-caption">Pine wire</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge badge-mustard">Flute</span>
+      </div>
+      <div class="v-caption">Mustard wire</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       FILL TREATMENTS — brass, inverse, bone
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants — Fill</div>
+  <div class="variants-full">
+
     <div class="v-cell">
       <div class="v-stage">
         <span class="badge-brass-filled brass">Flute</span>
@@ -245,43 +411,187 @@
       <div class="v-caption">Brass filled</div>
     </div>
 
-    <!-- 6. Brass text: ivory wire, brass-clipped wordmark -->
     <div class="v-cell">
-      <div class="v-stage">
-        <span class="badge badge-brass-text"><span class="brass-text">Flute</span></span>
+      <div class="v-stage stage-ink2">
+        <span class="badge badge-dark-inverse">Flute</span>
       </div>
-      <div class="v-caption">Brass text</div>
+      <div class="v-caption">Dark inverse</div>
     </div>
 
-    <!-- 7. Tomato accent: tomato wire, ivory text -->
     <div class="v-cell">
-      <div class="v-stage">
-        <span class="badge badge-tomato">Flute</span>
+      <div class="v-stage stage-bone">
+        <span class="badge badge-bone-inverse">Flute</span>
       </div>
-      <div class="v-caption">Tomato accent</div>
+      <div class="v-caption">Bone inverse</div>
     </div>
 
-    <!-- 8. Plum accent: plum wire, ivory text -->
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       KICKER BADGE — sticker tile · filled brand square + Lets Jazz label
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants — Kicker Badge · sticker tile</div>
+  <div class="variants-full">
+
     <div class="v-cell">
       <div class="v-stage">
-        <span class="badge badge-plum">Flute</span>
+        <span class="badge-kicker tomato">
+          <span class="kicker-dot"></span><span class="kicker-text">Solf&egrave;ge &middot; V0.1</span>
+        </span>
       </div>
-      <div class="v-caption">Plum accent</div>
+      <div class="v-caption">Tomato &middot; build tag</div>
     </div>
 
-    <!-- 9. Pine accent: pine wire, ivory text -->
     <div class="v-cell">
       <div class="v-stage">
-        <span class="badge badge-pine">Flute</span>
+        <span class="badge-kicker pine">
+          <span class="kicker-dot"></span><span class="kicker-text">Patterns &middot; 12</span>
+        </span>
       </div>
-      <div class="v-caption">Pine accent</div>
+      <div class="v-caption">Pine &middot; counter tag</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-kicker mustard">
+          <span class="kicker-dot"></span><span class="kicker-text">Live &middot; REC</span>
+        </span>
+      </div>
+      <div class="v-caption">Mustard &middot; status tag</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       BRASS BADGE — ink background, brass shimmer on edge + text
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants — Brass Badge · shimmer edge + text</div>
+  <div class="variants-full">
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-brass-shim">
+          <span class="brass-edge-bar"></span><span class="brass-text-label">Signal</span>
+        </span>
+      </div>
+      <div class="v-caption">Brass edge · brass text · 14px</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-brass-shim lg">
+          <span class="brass-edge-bar"></span><span class="brass-text-label">Alert</span>
+        </span>
+      </div>
+      <div class="v-caption">Brass edge · brass text · 18px</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PIANO STICKER — hard corners + shadow-cut + tilt
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants — Piano Sticker · shadow-cut + tilt</div>
+  <div class="variants-full">
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-sticker">Piano</span>
+      </div>
+      <div class="v-caption">Default · -2.2deg · shadow-cut</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-sticker mark">Bass</span>
+      </div>
+      <div class="v-caption">Mark tilt · +2deg</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-sticker lg tomato">Alto</span>
+      </div>
+      <div class="v-caption">Large · tomato · -3deg</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-sticker plum">Tenor</span>
+      </div>
+      <div class="v-caption">Plum fill</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-sticker mustard">Sax</span>
+      </div>
+      <div class="v-caption">Mustard · ink text</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-sticker pine">Keys</span>
+      </div>
+      <div class="v-caption">Pine fill</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       CLIP-PATH GEOMETRY TREATMENTS
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="section-head">Variants — Geometry · off-cut + paper-rip clip-paths</div>
+  <div class="variants-full">
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-offcut">Off-Cut</span>
+      </div>
+      <div class="v-caption">clip-offcut · polygon 6pt</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-offcut" style="background:var(--tomato);">Tomato</span>
+      </div>
+      <div class="v-caption">clip-offcut · tomato fill</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-rip">Rip</span>
+      </div>
+      <div class="v-caption">clip-paper-rip · torn right edge</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-rip" style="background:var(--plum);">Rip</span>
+      </div>
+      <div class="v-caption">clip-paper-rip · plum fill</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge" style="font-size:14px;padding:6px 12px 5px;background:var(--ink-3);border:1px solid var(--hairline);clip-path:polygon(2% 0,100% 4%,98% 100%,0 96%);">Tab</span>
+      </div>
+      <div class="v-caption">clip-tab · tab-slide shape</div>
+    </div>
+
+    <div class="v-cell">
+      <div class="v-stage">
+        <span class="badge-sticker" style="clip-path:polygon(3% 1%,98% 2%,100% 98%,1% 99%);transform:rotate(0.3deg);">Tile</span>
+      </div>
+      <div class="v-caption">clip-tile · subtle 4-point cut</div>
     </div>
 
   </div>
 
   <div class="caption" style="margin-top:16px">
-    Ivory-on-ink in a 1px wire box is the default. Brass filled is the loudest one lit signal &mdash;
-    never stack it with a brass wire or brass text badge. Brand accents (tomato / plum / pine) mark
-    the wire only; the wordmark stays ivory. Bone inverse is the only light-stage variant.
+    Ivory wire is the default. Brand colors (tomato / plum / pine / mustard / bone) are allowed on decoration
+    badges &mdash; never on functional UI chrome. Stickers use shadow-cut + tilt (--rot-sticker: -2.2deg).
+    Kicker badges pair a brand-color dot with mono label. Brass badges animate a shimmer across both the top edge and text.
+    Geometry treatments show clip-path techniques: off-cut, paper-rip, tab-slide, and tile cuts.
   </div>
 </div></body></html>

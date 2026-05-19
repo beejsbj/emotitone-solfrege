@@ -7,19 +7,26 @@ const PROJECT = join(import.meta.dir, 'project')
 const PREVIEW = join(PROJECT, 'preview')
 const UNIFICATION_DATA = join(import.meta.dir, '.planning', 'unification-data.json')
 
-const LAYER_ORDER = ['TOKEN', 'PRIMITIVE', 'PART', 'SURFACE', 'COMPOSITION']
+const LAYER_ORDER = ['TOKEN', 'PRIMITIVE', 'COMPOUND', 'UNIQUE', 'COMPOSITION']
 const LAYER_LABELS = {
   TOKEN: 'Tokens',
   PRIMITIVE: 'Primitives',
-  PART: 'Parts',
-  SURFACE: 'Surfaces',
+  COMPOUND: 'Compounds',
+  UNIQUE: 'Unique Specimens',
   COMPOSITION: 'Compositions',
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
+// Files on disk but intentionally excluded from the sink (Wave 5 will decide their fate).
+const SINK_EXCLUDE = new Set([
+  'composition-app-reference-index.html',
+])
+
 function cards() {
-  return readdirSync(PREVIEW).filter(f => f.endsWith('.html') && f !== 'index.html').sort()
+  return readdirSync(PREVIEW)
+    .filter(f => f.endsWith('.html') && f !== 'index.html' && !SINK_EXCLUDE.has(f))
+    .sort()
 }
 
 function scopeStyles(css, id) {
@@ -93,7 +100,7 @@ function escapeHtml(value) {
 
 function buildPage() {
   const data = loadUnification()
-  const allCards = new Set(readdirSync(PREVIEW).filter(f => f.endsWith('.html') && f !== 'index.html'))
+  const allCards = new Set(readdirSync(PREVIEW).filter(f => f.endsWith('.html') && f !== 'index.html' && !SINK_EXCLUDE.has(f)))
   const groups = [...data.groups].sort((a, b) => {
     const layerDelta = LAYER_ORDER.indexOf(a.layer) - LAYER_ORDER.indexOf(b.layer)
     if (layerDelta !== 0) return layerDelta
@@ -107,10 +114,8 @@ function buildPage() {
   const layerStats = Object.fromEntries(LAYER_ORDER.map(layer => [layer, 0]))
   for (const g of groups) layerStats[g.layer] += g.cards.length
 
-  // Sidebar: layer → family, plus reference + any unmatched preview files.
+  // Sidebar: layer → family, plus any unmatched preview files.
   const navHtml = [
-    `<div class="ng">Reference</div>
-     <a href="#assets">Assets</a>`,
     ...LAYER_ORDER.map(layer => {
       const layerGroups = groups.filter(g => g.layer === layer)
       if (!layerGroups.length) return ''
@@ -202,14 +207,6 @@ function buildPage() {
     </section>`
 
   const cardSections = layerSections + ungroupedSection
-
-  const assetFiles = readdirSync(join(PROJECT, 'assets')).filter(f => /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(f))
-  const assetGrid = assetFiles.map(f =>
-    `<div class="asset-card">
-       <img src="/assets/${f}" alt="${f}">
-       <div class="asset-name">${f}</div>
-     </div>`
-  ).join('\n')
 
   return /* html */`<!doctype html>
 <html lang="en">
@@ -494,10 +491,6 @@ function buildPage() {
     .stat { background: var(--ink-3); color: var(--ivory-3); }
 
     /* assets */
-    .assets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-    .asset-card { background: var(--ink-3); border-radius: var(--r-sm); box-shadow: var(--ring); overflow: hidden; }
-    .asset-card img { width: 100%; height: 150px; object-fit: cover; display: block; }
-    .asset-name { font: var(--t-caption); color: var(--fg-3); padding: 7px 10px; }
   </style>
 </head>
 <body>
@@ -519,12 +512,6 @@ function buildPage() {
 
   <!-- CARD SECTIONS ──────────────────────── -->
   ${cardSections}
-
-  <!-- ASSETS ─────────────────────────────── -->
-  <section class="group" id="assets">
-    <h2 class="group-header">Reference Assets</h2>
-    <div class="assets-grid">${assetGrid}</div>
-  </section>
 
 </main>
 

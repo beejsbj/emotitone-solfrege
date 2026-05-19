@@ -74,6 +74,35 @@
   background: var(--kicker-color, var(--tomato));
 }
 
+/* rectangle variants */
+.kicker.rect-vert .dot {
+  width: 4px; height: 16px;
+  flex: 0 0 4px;
+}
+.kicker.rect-horiz .dot {
+  width: 16px; height: 4px;
+  flex: 0 0 16px;
+}
+
+/* tilt — hand-cut feel */
+.variant-cell:nth-child(1) .kicker  { transform: rotate(-2.3deg); }
+.variant-cell:nth-child(2) .kicker  { transform: rotate(1.8deg); }
+.variant-cell:nth-child(3) .kicker  { transform: rotate(-1.1deg); }
+.variant-cell:nth-child(4) .kicker  { transform: rotate(2.7deg); }
+.variant-cell:nth-child(5) .kicker  { transform: rotate(-0.5deg); }
+.variant-cell:nth-child(6) .kicker  { transform: rotate(1.4deg); }
+.variant-cell:nth-child(7) .kicker  { transform: rotate(-2.2deg); }
+.variant-cell:nth-child(8) .kicker  { transform: rotate(0.9deg); }
+.variant-cell:nth-child(9) .kicker  { transform: rotate(-1.6deg); }
+.variant-cell:nth-child(10) .kicker { transform: rotate(2.1deg); }
+.variant-cell:nth-child(11) .kicker { transform: rotate(-0.8deg); }
+.variant-cell:nth-child(12) .kicker { transform: rotate(1.3deg); }
+.variant-cell:nth-child(13) .kicker { transform: rotate(-2.5deg); }
+.variant-cell:nth-child(14) .kicker { transform: rotate(1.2deg); }
+.variant-cell:nth-child(15) .kicker { transform: rotate(-1.9deg); }
+.variant-cell:nth-child(16) .kicker { transform: rotate(2.4deg); }
+.hero-stage .kicker { transform: rotate(0.7deg); }
+
 .section-head {
   font-family: var(--font-mono);
   font-weight: 600;
@@ -260,7 +289,7 @@
       <span class="cell-name">Dot 12px</span>
     </div>
     <div class="variant-cell">
-      <span class="kicker mark-tomato dot-micro"><span class="dot"></span><span class="kicker-label">Micro &middot; 05</span></span>
+      <span class="kicker mark-tomato dot-micro"><span class="dot"></span><span class="kicker-label">Micro</span></span>
       <span class="cell-name">Dot 5px</span>
     </div>
     <div class="variant-cell">
@@ -273,19 +302,40 @@
     </div>
   </div>
 
+  <!-- ─────────────────── RECTANGLES ─────────────────── -->
+  <div class="section-head">Rectangle Variants</div>
+  <div class="variants-full axis-row">
+    <div class="variant-cell">
+      <span class="kicker mark-tomato rect-vert"><span class="dot"></span><span class="kicker-label">Vert &middot; 01</span></span>
+      <span class="cell-name">Vertical Bar</span>
+    </div>
+    <div class="variant-cell">
+      <span class="kicker mark-pine rect-vert"><span class="dot"></span><span class="kicker-label">Vert &middot; 02</span></span>
+      <span class="cell-name">Pine</span>
+    </div>
+    <div class="variant-cell">
+      <span class="kicker mark-tomato rect-horiz"><span class="dot"></span><span class="kicker-label">Horz &middot; 03</span></span>
+      <span class="cell-name">Horizontal Bar</span>
+    </div>
+    <div class="variant-cell">
+      <span class="kicker mark-plum rect-horiz"><span class="dot"></span><span class="kicker-label">Horz &middot; 04</span></span>
+      <span class="cell-name">Plum</span>
+    </div>
+  </div>
+
   <!-- ─────────────────── DENSITY + INVERSE ─────────────────── -->
   <div class="section-head">Density &amp; Inverse</div>
   <div class="variants-full axis-row">
     <div class="variant-cell">
-      <span class="kicker mark-mustard dense"><span class="dot"></span><span class="kicker-label">Tight&middot;01</span></span>
+      <span class="kicker mark-mustard dense"><span class="dot"></span><span class="kicker-label">Tight</span></span>
       <span class="cell-name">Dense Track</span>
     </div>
     <div class="variant-cell">
-      <span class="kicker mark-mustard"><span class="dot"></span><span class="kicker-label">Default &middot; 02</span></span>
+      <span class="kicker mark-mustard"><span class="dot"></span><span class="kicker-label">Default</span></span>
       <span class="cell-name">Default Track</span>
     </div>
     <div class="variant-cell">
-      <span class="kicker mark-mustard airy"><span class="dot"></span><span class="kicker-label">Wide &middot; 03</span></span>
+      <span class="kicker mark-mustard airy"><span class="dot"></span><span class="kicker-label">Wide</span></span>
       <span class="cell-name">Airy Track</span>
     </div>
     <div class="variant-cell on-bone">

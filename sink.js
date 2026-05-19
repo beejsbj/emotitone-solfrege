@@ -50,9 +50,11 @@ function extract(filename) {
   const raw = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)]
     .map(m => m[1])
     .map(s => s
-      .replace(/\bhtml\s*,\s*body\s*\{[^}]*\}/gi, '')
-      .replace(/\bhtml\s*\{[^}]*\}/gi, '')
-      .replace(/\bbody\s*\{[^}]*\}/gi, ''))
+      // Strip page-level resets only. Anchor at line start or after `}` so
+      // class selectors ending in `body` or `html` (e.g. `.s-body`) survive.
+      .replace(/(?:^|(?<=[}\n]))\s*html\s*,\s*body\s*\{[^}]*\}/gi, '')
+      .replace(/(?:^|(?<=[}\n]))\s*html\s*\{[^}]*\}/gi, '')
+      .replace(/(?:^|(?<=[}\n]))\s*body\s*\{[^}]*\}/gi, ''))
     .join('\n')
   const body = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? ''
   return { raw, body }

@@ -188,4 +188,77 @@
     Mixing brand colors inside one spine card reads as gift-wrap, not jazz. One color per card &mdash;
     use the spine and the kicker dot together, never separately.
   </div>
+
+  <div class="section-head">Preset row · with apply button</div>
+  <div class="variants-full" style="grid-template-columns: 1fr">
+    <div class="spine-card mark-tomato preset-row">
+      <span class="kicker"><span class="dot"></span>Soft Glass</span>
+      <div class="stamp" style="flex: 1">Soft Glass.</div>
+      <button class="apply-btn">Apply</button>
+    </div>
+    <div class="spine-card mark-pine preset-row">
+      <span class="kicker"><span class="dot"></span>Live &middot; preset</span>
+      <div class="stamp" style="flex: 1">Classroom.</div>
+      <button class="apply-btn">Apply</button>
+    </div>
+    <div class="spine-card mark-plum preset-row preset-row-applied">
+      <span class="kicker"><span class="dot"></span>Ambient &middot; bloom</span>
+      <div class="stamp" style="flex: 1">Ambient.</div>
+      <span style="font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ivory-3); margin: 0 8px;">Applied</span>
+    </div>
+    <div class="spine-card mark-mustard preset-row preset-row-expiring">
+      <span class="kicker"><span class="dot"></span>Hot &middot; take</span>
+      <div class="stamp" style="flex: 1">Pulse Lab.</div>
+      <span style="font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ivory-3); margin: 0 8px;">2:14 left</span>
+    </div>
+  </div>
+
+  <style>
+  /* Preset-row variant — spine-card with horizontal flex layout + right-side button */
+  .spine-card.preset-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    min-height: auto;
+  }
+  .spine-card.preset-row .stamp {
+    flex: 1;
+    font-size: 16px;
+    margin: 0;
+  }
+  .spine-card.preset-row .kicker {
+    flex-shrink: 0;
+  }
+  .spine-card.preset-row .what {
+    display: none;
+  }
+  .apply-btn {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--hairline);
+    background: transparent;
+    color: var(--ivory-3);
+    font: 700 10px var(--font-display);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color var(--dur-tap) var(--ease-brush),
+                border-color var(--dur-tap) var(--ease-brush);
+  }
+  .apply-btn:hover {
+    color: var(--ivory);
+    border-color: var(--hairline);
+  }
+  .preset-row-applied .apply-btn {
+    display: none;
+  }
+  .preset-row-expiring .apply-btn {
+    display: none;
+  }
+  </style>
+
+  <div class="caption" style="margin-top:14px">
+    Preset row · spine-card variant with apply action. Same brand-spine-one-color-per-row rule applies. Meta text (Applied, expiring countdown) sits right of name.
+  </div>
 </div></body></html>

@@ -2,7 +2,7 @@
   "_meta": {
     "version": 4,
     "updated": "2026-05-19",
-    "schema": "v4 user-directed restructure",
+    "schema": "v4 user-directed restructure (Wave 3: strips + drawer promoted to PRIMITIVE; preset/panel-header/hardware-bar purged)",
     "source_files": [
       ".planning/atoms.json",
       "project/preview"
@@ -244,25 +244,32 @@
       ]
     },
     {
-      "layer": "COMPOUND",
+      "layer": "PRIMITIVE",
       "family": "strips",
-      "title": "Compounds \u00b7 Strips",
+      "title": "Primitives \u00b7 Strips",
       "cards": [
         {
           "file": "preview/components-bar-tape.html",
           "name": "Bar Tape",
-          "blurb": "Chromatic 7-segment tape.",
-          "consumes": []
-        },
-        {
-          "file": "preview/components-code-strip.html",
-          "name": "Code Strip",
-          "blurb": "Strudel notation row with transport.",
+          "blurb": "Chromatic 7-segment tape \u2014 music-feedback strip.",
           "consumes": [
-            "code-strip-notation",
-            "button-icon",
-            "music-glyph",
-            "meta-anno-row"
+            "tokens-music-colors"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "PRIMITIVE",
+      "family": "drawer",
+      "title": "Primitives \u00b7 Drawer",
+      "cards": [
+        {
+          "file": "preview/components-drawer.html",
+          "name": "Drawer",
+          "blurb": "Sliding panel primitive \u2014 top / bottom anchored, closed / peek / open states.",
+          "consumes": [
+            "tokens-motion",
+            "tokens-ui-colors"
           ]
         }
       ]
@@ -275,23 +282,13 @@
         {
           "file": "preview/components-pattern-card.html",
           "name": "Pattern Card",
-          "blurb": "Pattern row chip with stateful interactions.",
+          "blurb": "Two shapes \u2014 sleek (collapsed) and expanded (active); built from bar-tape, code-strip, and icon buttons.",
           "consumes": [
-            "pattern-card",
-            "preset-spine",
-            "labelled-state-frame",
-            "hover-lift"
-          ]
-        },
-        {
-          "file": "preview/components-pattern-reel.html",
-          "name": "Pattern Reel Chrome",
-          "blurb": "Empty stacked reel surface with inactive placeholders and active slot.",
-          "consumes": [
-            "pattern-reel-stack",
-            "pattern-card",
-            "panel-floating-label",
-            "hover-lift"
+            "components-bar-tape",
+            "components-code-strip",
+            "components-buttons",
+            "components-kicker",
+            "components-card"
           ]
         },
         {
@@ -299,65 +296,9 @@
           "name": "Pattern Reel",
           "blurb": "Stacked deck with click-to-promote active pattern interaction.",
           "consumes": [
-            "pattern-reel-stack",
-            "pattern-card",
-            "preset-spine",
-            "button-icon",
-            "button-paper-pill",
-            "play-toggle",
-            "panel-floating-label",
-            "hover-lift"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOUND",
-      "family": "preset-card",
-      "title": "Compounds \u00b7 Preset Card",
-      "cards": [
-        {
-          "file": "preview/components-preset-card.html",
-          "name": "Preset Row",
-          "blurb": "Visual preset row with spine, name, and ghost apply action.",
-          "consumes": [
-            "preset-row",
-            "preset-spine",
-            "button-paper-pill"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOUND",
-      "family": "panel-header",
-      "title": "Compounds \u00b7 Panel Header",
-      "cards": [
-        {
-          "file": "preview/components-panel-header.html",
-          "name": "Panel Header",
-          "blurb": "Hardware panel header with chromatic tape.",
-          "consumes": [
-            "panel-header-with-tape",
-            "meta-anno-row",
-            "button-icon",
-            "brass-sheen"
-          ]
-        }
-      ]
-    },
-    {
-      "layer": "COMPOUND",
-      "family": "hardware-bar",
-      "title": "Compounds \u00b7 Hardware Bar",
-      "cards": [
-        {
-          "file": "preview/components-chip.html",
-          "name": "Hardware Bar",
-          "blurb": "Hardware status bar \u2014 transport, meters, indicators.",
-          "consumes": [
-            "transport-row",
-            "meta-anno-row"
+            "components-pattern-card",
+            "components-buttons",
+            "panel-floating-label"
           ]
         }
       ]
@@ -437,6 +378,22 @@
             "filemark-stamp",
             "decorative-scatter",
             "meta-anno-row"
+          ]
+        }
+      ]
+    },
+    {
+      "layer": "UNIQUE",
+      "family": "code-strip",
+      "title": "Unique Specimens \u00b7 Code Strip",
+      "cards": [
+        {
+          "file": "preview/components-code-strip.html",
+          "name": "Code Strip",
+          "blurb": "Strudel notation row \u2014 solfege / degree / raw-note glyphs with duration encoding. One-of-a-kind specimen.",
+          "consumes": [
+            "tokens-music-colors",
+            "tokens-typography"
           ]
         }
       ]

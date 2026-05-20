@@ -4,7 +4,7 @@
 <style>
 /* =====================================================================
    PATTERN CARD — COMPOUND · TWO SHAPES
-   Decomposed from composition-pattern-reel.html.
+   Decomposed from compound-pattern-reel.html.
    Sleek: content row (spine + num + name/sub + timestamp) + bar-tape footer.
    Expanded: head row + code-strip + transport foot. No bar-tape footer.
    Active card always sits at bottom of the reel; sleek cards stack above.
@@ -15,7 +15,7 @@
 .pc-demo { color: var(--ivory); }
 
 /* ── SHAPE 1: SLEEK (stack-card) ────────────────────────────────────── */
-/* Lifted verbatim from composition-pattern-reel.html .stack-card */
+/* Lifted verbatim from compound-pattern-reel.html .stack-card */
 .stack-card {
   appearance: none;
   position: relative;
@@ -108,7 +108,7 @@
 }
 
 /* ── SHAPE 2: EXPANDED (active-card) ─────────────────────────────────── */
-/* Lifted verbatim from composition-pattern-reel.html .active-card */
+/* Lifted verbatim from compound-pattern-reel.html .active-card */
 .active-card {
   position: relative;
   border: 1px solid var(--ivory-3);
@@ -177,7 +177,7 @@
   color: var(--ivory-3);
 }
 
-/* ── icon-only buttons — lifted verbatim from components-buttons.html ── */
+/* ── icon-only buttons — lifted verbatim from primitive-buttons.html ── */
 .icon-row {
   display: flex;
   gap: var(--s-3);
@@ -248,7 +248,7 @@
   background: var(--brass-edge);
 }
 
-/* ── BAR TAPE — lifted verbatim from components-bar-tape.html ───────── */
+/* ── BAR TAPE — lifted verbatim from primitive-bar-tape.html ───────── */
 .bar-tape {
   height: 8px;
   display: flex;
@@ -313,7 +313,7 @@
   margin-top: 0;
 }
 
-/* ── CODE STRIP — lifted verbatim from components-code-strip.html ───── */
+/* ── CODE STRIP — lifted verbatim from unique-code-strip.html ───── */
 .cs {
   display: flex;
   align-items: center;
@@ -572,11 +572,11 @@
 
     <!-- Right column: PRIMITIVES USED contract (COMPOUND layer) -->
     <div class="anatomy">
-      <div class="row"><b>Bar-tape</b><span>components-bar-tape.html &mdash; strip footer in the sleek shape only</span></div>
-      <div class="row"><b>Code-strip</b><span>components-code-strip.html &mdash; strudel notation row in expanded shape only</span></div>
-      <div class="row"><b>Buttons</b><span>components-buttons.html &mdash; icon-only geo-sharp 32px sm in transport rail</span></div>
-      <div class="row"><b>Kicker</b><span>components-kicker.html &mdash; pattern num badge; typographic ordinal</span></div>
-      <div class="row"><b>Card</b><span>components-card.html &mdash; ink-4 base panel; active shape adds ivory-3 border + drop shadow</span></div>
+      <div class="row"><b>Bar-tape</b><span>primitive-bar-tape.html &mdash; strip footer in the sleek shape only</span></div>
+      <div class="row"><b>Code-strip</b><span>unique-code-strip.html &mdash; strudel notation row in expanded shape only</span></div>
+      <div class="row"><b>Buttons</b><span>primitive-buttons.html &mdash; icon-only geo-sharp 32px sm in transport rail</span></div>
+      <div class="row"><b>Kicker</b><span>primitive-kicker.html &mdash; pattern num badge; typographic ordinal</span></div>
+      <div class="row"><b>Card</b><span>primitive-card.html &mdash; ink-4 base panel; active shape adds ivory-3 border + drop shadow</span></div>
     </div>
   </div>
 

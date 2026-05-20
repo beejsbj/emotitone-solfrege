@@ -17,76 +17,78 @@ const LAYER_LABELS = {
   COMPOSITION: 'Compositions',
 }
 
+// Filename convention: <tier>-<name>.html — the tier prefix IS the source of truth.
+// Renaming a card to a new tier means moving it in this list AND on disk.
 const GROUPS = [
   { layer: 'TOKEN', family: 'color', title: 'Tokens · Color', cards: [
-    { file: 'tokens-ui-colors.html',    name: 'UI Colors',    blurb: 'Chrome token set — neutrals + the one lit signal.' },
-    { file: 'tokens-brand-colors.html', name: 'Brand Colors', blurb: 'Five flat fills for poster, sticker, and brand use only.' },
-    { file: 'tokens-music-colors.html', name: 'Music Colors', blurb: 'Interactive OKLCH music color recipe for chromatic feedback.' },
+    { file: 'token-ui-colors.html',    name: 'UI Colors',    blurb: 'Chrome token set — neutrals + the one lit signal.' },
+    { file: 'token-brand-colors.html', name: 'Brand Colors', blurb: 'Five flat fills for poster, sticker, and brand use only.' },
+    { file: 'token-music-colors.html', name: 'Music Colors', blurb: 'Interactive OKLCH music color recipe for chromatic feedback.' },
   ]},
   { layer: 'TOKEN', family: 'typography', title: 'Tokens · Typography', cards: [
-    { file: 'tokens-typography.html', name: 'Typography', blurb: 'Typeface samples, type ramp, tracking, and usage rules.' },
+    { file: 'token-typography.html', name: 'Typography', blurb: 'Typeface samples, type ramp, tracking, and usage rules.' },
   ]},
   { layer: 'TOKEN', family: 'geometry', title: 'Tokens · Geometry', cards: [
-    { file: 'spacing-scale.html',    name: 'Spacing Scale',   blurb: 'Eleven-step spacing scale from 2px to 64px.' },
-    { file: 'spacing-radius.html',   name: 'Radii',           blurb: 'Radius tokens from XS through XL plus pill.' },
-    { file: 'tokens-geometry.html',  name: 'Geometry Tokens', blurb: 'Clip-paths, transforms, shadows, and stroke caps as named recipes.' },
+    { file: 'token-spacing-scale.html',  name: 'Spacing Scale',   blurb: 'Eleven-step spacing scale from 2px to 64px.' },
+    { file: 'token-spacing-radius.html', name: 'Radii',           blurb: 'Radius tokens from XS through XL plus pill.' },
+    { file: 'token-geometry.html',       name: 'Geometry Tokens', blurb: 'Clip-paths, transforms, shadows, and stroke caps as named recipes.' },
   ]},
   { layer: 'TOKEN', family: 'motion', title: 'Tokens · Motion', cards: [
-    { file: 'tokens-motion.html', name: 'Motion', blurb: 'Beat, durations, easings, and named keyframes in one card.' },
+    { file: 'token-motion.html', name: 'Motion', blurb: 'Beat, durations, easings, and named keyframes in one card.' },
   ]},
 
   { layer: 'PRIMITIVE', family: 'decoration', title: 'Primitives · Decoration', cards: [
-    { file: 'components-kicker.html', name: 'Kicker', blurb: 'Colored square plus mono all-caps scope label.' },
-    { file: 'components-marks.html',  name: 'Marks',  blurb: 'Two mark families — structural and notational.' },
-    { file: 'components-badge.html',  name: 'Badge',  blurb: 'Lets Jazz wordmark in a sharp wire box.' },
+    { file: 'primitive-kicker.html', name: 'Kicker', blurb: 'Colored square plus mono all-caps scope label.' },
+    { file: 'primitive-marks.html',  name: 'Marks',  blurb: 'Two mark families — structural and notational.' },
+    { file: 'primitive-badge.html',  name: 'Badge',  blurb: 'Lets Jazz wordmark in a sharp wire box.' },
   ]},
   { layer: 'PRIMITIVE', family: 'keys', title: 'Primitives · Keys', cards: [
-    { file: 'components-keys.html', name: 'Keyboard Keys', blurb: 'Diatonic cut-paper key clips for the main octave.' },
+    { file: 'primitive-keys.html', name: 'Keyboard Keys', blurb: 'Diatonic cut-paper key clips for the main octave.' },
   ]},
   { layer: 'PRIMITIVE', family: 'buttons', title: 'Primitives · Buttons', cards: [
-    { file: 'components-buttons.html', name: 'Icon Buttons', blurb: 'Icon button system — roles and sizes.' },
+    { file: 'primitive-buttons.html', name: 'Icon Buttons', blurb: 'Icon button system — roles and sizes.' },
   ]},
   { layer: 'PRIMITIVE', family: 'knobs', title: 'Primitives · Knobs', cards: [
-    { file: 'components-knobs-digital.html', name: 'Knobs · Digital', blurb: 'Arc / flat indicators — range, boolean, options, button. UI tokens only.' },
-    { file: 'components-knobs-analog.html',  name: 'Knobs · Analog',  blurb: 'Seated ring indicators with conic sweep — range, boolean, options, button.' },
+    { file: 'primitive-knobs-digital.html', name: 'Knobs · Digital', blurb: 'Arc / flat indicators — range, boolean, options, button. UI tokens only.' },
+    { file: 'primitive-knobs-analog.html',  name: 'Knobs · Analog',  blurb: 'Seated ring indicators with conic sweep — range, boolean, options, button.' },
   ]},
   { layer: 'PRIMITIVE', family: 'tabs', title: 'Primitives · Tabs', cards: [
-    { file: 'components-tabs.html', name: 'Off-cut Tabs', blurb: 'Skewed ivory active tab with hard paper geometry.' },
+    { file: 'primitive-tabs.html', name: 'Off-cut Tabs', blurb: 'Skewed ivory active tab with hard paper geometry.' },
   ]},
   { layer: 'PRIMITIVE', family: 'card-shell', title: 'Primitives · Card Shell', cards: [
-    { file: 'components-card.html',       name: 'Card',       blurb: 'Fundamental card shell — panel, floating label, decoration-mark slot, title, body.' },
-    { file: 'components-spine-card.html', name: 'Spine Card', blurb: 'Brand-marked card shell — ink-2 panel, colored spine, dot kicker, jazz stamp. Preset-row variant included.' },
+    { file: 'primitive-card.html',       name: 'Card',       blurb: 'Fundamental card shell — panel, floating label, decoration-mark slot, title, body.' },
+    { file: 'primitive-spine-card.html', name: 'Spine Card', blurb: 'Brand-marked card shell — ink-2 panel, colored spine, dot kicker, jazz stamp. Preset-row variant included.' },
   ]},
   { layer: 'PRIMITIVE', family: 'beat-indicator', title: 'Primitives · Beat Indicator', cards: [
-    { file: 'components-beat-indicator.html', name: 'Beat Indicator', blurb: 'N-cell row that ticks the bar; downbeat strobes brass.' },
+    { file: 'primitive-beat-indicator.html', name: 'Beat Indicator', blurb: 'N-cell row that ticks the bar; downbeat strobes brass.' },
   ]},
   { layer: 'PRIMITIVE', family: 'strips', title: 'Primitives · Strips', cards: [
-    { file: 'components-bar-tape.html', name: 'Bar Tape', blurb: 'Chromatic 7-segment tape — music-feedback strip.' },
+    { file: 'primitive-bar-tape.html', name: 'Bar Tape', blurb: 'Chromatic 7-segment tape — music-feedback strip.' },
   ]},
 
   { layer: 'COMPOUND', family: 'pattern-card', title: 'Compounds · Pattern Card', cards: [
-    { file: 'components-pattern-card.html',  name: 'Pattern Card', blurb: 'Two shapes — sleek (collapsed, bar-tape footer) and expanded (code-strip, no bar-tape).' },
-    { file: 'composition-pattern-reel.html', name: 'Pattern Reel', blurb: 'Stacked deck with click-to-promote active pattern interaction.' },
+    { file: 'compound-pattern-card.html', name: 'Pattern Card', blurb: 'Two shapes — sleek (collapsed, bar-tape footer) and expanded (code-strip, no bar-tape).' },
+    { file: 'compound-pattern-reel.html', name: 'Pattern Reel', blurb: 'Stacked deck with click-to-promote active pattern interaction.' },
   ]},
 
   { layer: 'UNIQUE', family: 'brand', title: 'Unique Specimens · Brand', cards: [
-    { file: 'brand-logo.html', name: 'Brand Logo', blurb: 'Emotitone wordmark with solfège subtitle and note glyphs.' },
+    { file: 'unique-brand-logo.html', name: 'Brand Logo', blurb: 'Emotitone wordmark with solfège subtitle and note glyphs.' },
   ]},
   { layer: 'UNIQUE', family: 'hero', title: 'Unique Specimens · Hero', cards: [
-    { file: 'composition-brand-cover.html', name: 'Brand Cover', blurb: 'Brand hero composition.' },
+    { file: 'unique-brand-cover.html', name: 'Brand Cover', blurb: 'Brand hero composition.' },
   ]},
   { layer: 'UNIQUE', family: 'code-strip', title: 'Unique Specimens · Code Strip', cards: [
-    { file: 'components-code-strip.html', name: 'Code Strip', blurb: 'Strudel notation row — solfege / degree / raw-note glyphs with duration encoding.' },
+    { file: 'unique-code-strip.html', name: 'Code Strip', blurb: 'Strudel notation row — solfege / degree / raw-note glyphs with duration encoding.' },
   ]},
   { layer: 'UNIQUE', family: 'drawer', title: 'Unique Specimens · Drawer', cards: [
-    { file: 'components-drawer.html', name: 'Drawer', blurb: 'Sliding panel — top and bottom anchors, drag-to-resize handle, snap to closed / designed / full.' },
+    { file: 'unique-drawer.html', name: 'Drawer', blurb: 'Sliding panel — top and bottom anchors, drag-to-resize handle, snap to closed / designed / full.' },
   ]},
 
   { layer: 'COMPOSITION', family: 'loading-screen', title: 'Compositions · Loading Screen', cards: [
-    { file: 'brand-loading-screen.html', name: 'Loading Screen', blurb: 'App loading screen.' },
+    { file: 'composition-loading-screen.html', name: 'Loading Screen', blurb: 'App loading screen.' },
   ]},
   { layer: 'COMPOSITION', family: 'top-drawer', title: 'Compositions · Top Drawer', cards: [
-    { file: 'composition-drawer.html', name: 'Top Drawer', blurb: 'Top drawer — three modes, one ceiling. Instrument picker + visual config.' },
+    { file: 'composition-top-drawer.html', name: 'Top Drawer', blurb: 'Top drawer — three modes, one ceiling. Instrument picker + visual config.' },
   ]},
 ]
 

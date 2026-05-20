@@ -57,7 +57,7 @@
 .pattern-merge .panel {
   box-shadow: var(--ring);
   padding: 28px 24px 22px;
-  margin-top: 0;       /* outer container — no margin needed */
+  margin-top: 0;
 }
 
 .pattern-merge .reel-head {
@@ -91,19 +91,16 @@
   gap: 8px;
 }
 
+/* ── SHAPE 1: SLEEK (stack-card) — lifted verbatim from components-pattern-card.html ── */
 .pattern-merge .stack-card {
   appearance: none;
   position: relative;
   width: 100%;
-  height: 58px;
   border: 1px solid var(--hairline);
   background: var(--ink-2);
   color: var(--ivory);
-  display: grid;
-  grid-template-columns: 4px 56px minmax(0, 1fr) 156px 74px;
-  align-items: center;
-  gap: var(--s-5);
-  padding: 0 14px 0 0;
+  display: flex;
+  flex-direction: column;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -139,12 +136,22 @@
   outline: none;
 }
 
-.pattern-merge .spine {
+/* content row inside sleek card */
+.pattern-merge .stack-card .sc-row {
+  display: grid;
+  grid-template-columns: 4px 56px minmax(0, 1fr) 74px;
+  align-items: center;
+  gap: var(--s-5);
+  padding: 0 14px 0 0;
+  height: 50px;
+}
+
+.pattern-merge .stack-card .spine {
   align-self: stretch;
   display: block;
 }
 
-.pattern-merge .num {
+.pattern-merge .stack-card .num {
   font: var(--t-display-m);
   line-height: 0.9;
   color: var(--ivory-4);
@@ -152,9 +159,12 @@
   text-transform: uppercase;
 }
 
-.pattern-merge .name {
-  display: block;
+.pattern-merge .stack-card .nm {
   min-width: 0;
+}
+
+.pattern-merge .stack-card .name {
+  display: block;
   font: var(--t-h2);
   line-height: 1;
   letter-spacing: var(--tracking-display);
@@ -165,7 +175,7 @@
   white-space: nowrap;
 }
 
-.pattern-merge .sub {
+.pattern-merge .stack-card .sub {
   display: block;
   margin-top: 3px;
   font: var(--t-mono);
@@ -179,28 +189,7 @@
   white-space: nowrap;
 }
 
-.pattern-merge .mini-roll,
-.pattern-merge .big-roll {
-  display: flex;
-  align-items: flex-end;
-  border-left: 1px solid var(--hairline);
-  border-right: 1px solid var(--hairline);
-}
-
-.pattern-merge .mini-roll {
-  height: 28px;
-  gap: 2px;
-  padding: 0 var(--s-2);
-}
-
-.pattern-merge .mini-roll i,
-.pattern-merge .big-roll i {
-  display: block;
-  flex: 1;
-  min-width: 4px;
-}
-
-.pattern-merge .when {
+.pattern-merge .stack-card .when {
   font: var(--t-mono);
   font-size: 9px;
   letter-spacing: 0.14em;
@@ -209,32 +198,14 @@
   text-align: right;
 }
 
-.pattern-merge .restline {
-  display: flex;
-  align-items: center;
-  gap: var(--s-5);
-  margin: var(--s-5) 0;
-  font: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ivory-3);
-}
-
-.pattern-merge .restline::before,
-.pattern-merge .restline::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--hairline);
-}
-
+/* ── SHAPE 2: EXPANDED (active-card) — lifted verbatim from components-pattern-card.html ── */
 .pattern-merge .active-card {
   position: relative;
   border: 1px solid var(--ivory-3);
   background: var(--ink-4);
   box-shadow: var(--ring), 0 8px 0 var(--ink);
-  padding: 18px 18px 16px 22px;
+  display: flex;
+  flex-direction: column;
   animation: active-rise var(--dur-panel) var(--ease-swing);
 }
 
@@ -244,6 +215,15 @@
   top: 0;
   bottom: 0;
   width: 4px;
+  display: block;
+}
+
+/* inner content area (spine excluded) */
+.pattern-merge .active-inner {
+  padding: 18px 18px 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
 }
 
 .pattern-merge .active-head {
@@ -256,6 +236,7 @@
   font: var(--t-display-l);
   line-height: 0.9;
   color: var(--ivory-3);
+  text-transform: uppercase;
 }
 
 .pattern-merge .active-copy {
@@ -264,68 +245,65 @@
 }
 
 .pattern-merge .active-card .name {
+  display: block;
   font: var(--t-display-m);
+  line-height: 1;
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--ivory);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.pattern-merge .active-card .sub {
+  display: block;
+  margin-top: 3px;
+  font: var(--t-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+}
+
+/* ── icon-only buttons — lifted verbatim from components-buttons.html ── */
 .pattern-merge .icon-row {
   display: flex;
   gap: var(--s-3);
 }
 
-.pattern-merge .icon-btn {
-  width: 28px;
-  height: 28px;
+.pattern-merge .ico {
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--hairline);
-  border-radius: 0;
-  background: transparent;
-  color: var(--ivory-2);
-  cursor: pointer;
-}
-
-.pattern-merge .icon-btn:hover,
-.pattern-merge .icon-btn:focus-visible {
-  border-color: var(--ivory-3);
+  background: var(--ink-3);
+  box-shadow: var(--ring);
+  border-radius: var(--r-sm);
+  border: 0;
   color: var(--ivory);
-  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--dur-tap) var(--ease-stab),
+    box-shadow var(--dur-tap) var(--ease-stab),
+    transform var(--dur-tap) var(--ease-stab),
+    opacity var(--dur-tap) var(--ease-stab);
 }
+.pattern-merge .ico:hover { background: var(--ink-4); }
+.pattern-merge .ico:active { transform: scale(.96); }
+.pattern-merge .ico.sm { width: 32px; height: 32px; border-radius: var(--r-xs); }
+.pattern-merge .ico.geo-sharp { border-radius: 0; }
+.pattern-merge .ico svg { display: block; }
 
-.pattern-merge .icon-btn svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-}
-
-.pattern-merge .big-roll {
-  height: 84px;
-  gap: 3px;
-  padding: 0 var(--s-2);
-  margin: var(--s-6) 0 var(--s-5);
-}
-
+/* transport foot */
 .pattern-merge .active-foot {
   display: flex;
   align-items: center;
   gap: var(--s-5);
   border-top: 1px solid var(--hairline);
   padding-top: var(--s-5);
-}
-
-.pattern-merge .play {
-  border: 1px solid var(--ivory-3);
-  border-radius: 0;
-  background: var(--ivory);
-  color: var(--ink);
-  padding: 8px 14px;
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  cursor: pointer;
 }
 
 .pattern-merge .position {
@@ -336,7 +314,7 @@
   color: var(--ivory-3);
 }
 
-.pattern-merge .rec {
+.pattern-merge .rec-tag {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -349,11 +327,169 @@
   border-radius: 0;
 }
 
-.pattern-merge .rec::before {
+.pattern-merge .rec-tag::before {
   content: "";
   width: 8px;
   height: 8px;
   background: var(--brass-edge);
+}
+
+/* ── BAR TAPE — lifted verbatim from components-bar-tape.html ── */
+.pattern-merge .bar-tape {
+  height: 8px;
+  display: flex;
+  border: 1px solid var(--hairline);
+  background: var(--ink);
+  overflow: hidden;
+}
+.pattern-merge .bar-tape span {
+  display: block;
+  height: 100%;
+  flex: 1;
+}
+.pattern-merge .bar-tape .do  { background: var(--note-do); }
+.pattern-merge .bar-tape .re  { background: var(--note-re); }
+.pattern-merge .bar-tape .mi  { background: var(--note-mi); }
+.pattern-merge .bar-tape .fa  { background: var(--note-fa); }
+.pattern-merge .bar-tape .sol { background: var(--note-sol); }
+.pattern-merge .bar-tape .la  { background: var(--note-la); }
+.pattern-merge .bar-tape .ti  { background: var(--note-ti); }
+
+/* major scale proportions (2-2-1-2-2-2-1) */
+.pattern-merge .bar-tape.major .do  { flex: 16; }
+.pattern-merge .bar-tape.major .re  { flex: 16; }
+.pattern-merge .bar-tape.major .mi  { flex: 16; }
+.pattern-merge .bar-tape.major .fa  { flex: 8;  }
+.pattern-merge .bar-tape.major .sol { flex: 16; }
+.pattern-merge .bar-tape.major .la  { flex: 16; }
+.pattern-merge .bar-tape.major .ti  { flex: 8;  }
+
+.pattern-merge .bar-tape.equal span { flex: 1; }
+.pattern-merge .bar-tape span.dim { opacity: 0.18; }
+
+.pattern-merge .bar-tape.live { position: relative; }
+.pattern-merge .bar-tape .ph {
+  position: absolute; top: -3px; bottom: -3px;
+  width: 2px;
+  background: var(--ivory);
+  box-shadow: 0 0 6px rgba(244,239,230,.6);
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+/* bar-tape as footer strip on sleek card — flush, no extra border-top */
+.pattern-merge .stack-card .bar-tape {
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  height: 8px;
+}
+
+/* bar-tape as footer strip on expanded card — flush bottom, no top gap */
+.pattern-merge .active-card > .bar-tape {
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  height: 8px;
+  margin-top: 0;
+}
+
+/* ── CODE STRIP — lifted verbatim from components-code-strip.html ── */
+.pattern-merge .cs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink-2);
+  border: 1px solid var(--hairline);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  min-height: 36px;
+}
+
+.pattern-merge .cs .chev {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ivory-4);
+  flex: 0 0 auto;
+  letter-spacing: 0;
+}
+
+.pattern-merge .cs .seq {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+}
+
+.pattern-merge .cs .seq .rest {
+  color: var(--ivory-4);
+  font-size: 11px;
+}
+
+.pattern-merge .cs .seq .br {
+  color: var(--ivory-4);
+  font-size: 11px;
+}
+
+.pattern-merge .cs .seq .sep {
+  color: var(--ivory-4);
+  font-size: 10px;
+}
+
+.pattern-merge .cs .seq .dur {
+  color: var(--ivory-3);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  margin-left: -4px;
+}
+
+.pattern-merge .cs .seq .acc {
+  color: var(--ivory-3);
+  font-size: 9px;
+  margin-left: -4px;
+}
+
+.pattern-merge .cs .seq .syl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.pattern-merge .cs .seq .syl.do  { color: var(--note-do); }
+.pattern-merge .cs .seq .syl.re  { color: var(--note-re); }
+.pattern-merge .cs .seq .syl.mi  { color: var(--note-mi); }
+.pattern-merge .cs .seq .syl.fa  { color: var(--note-fa); }
+.pattern-merge .cs .seq .syl.sol { color: var(--note-sol); }
+.pattern-merge .cs .seq .syl.la  { color: var(--note-la); }
+.pattern-merge .cs .seq .syl.ti  { color: var(--note-ti); }
+
+.pattern-merge .cs .seq .syl.lit {
+  text-shadow: 0 0 14px currentColor;
+}
+.pattern-merge .cs .seq .syl.lit::after {
+  content: "";
+  display: inline-block;
+  width: 5px; height: 5px;
+  background: currentColor;
+  margin-left: 3px;
+  vertical-align: 3px;
+}
+
+/* code-strip inside expanded card: flush to inner padding edges */
+.pattern-merge .active-inner > .cs {
+  border-left: 0;
+  border-right: 0;
+  margin-left: -22px;
+  margin-right: -18px;
+  padding-left: 22px;
+  padding-right: 18px;
 }
 
 .pattern-merge .caption {
@@ -377,7 +513,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pattern-merge .stack-card,
-  .pattern-merge .active-card {
+  .pattern-merge .active-card,
+  .pattern-merge .ico {
     transition-duration: 0ms;
     animation: none;
   }
@@ -409,6 +546,8 @@
 
 <script>
 (function () {
+  // Each pattern carries a bar-tape note sequence (note class name, dim flag)
+  // and a code-strip sequence for the expanded shape.
   const patterns = {
     glass: {
       num: "2I",
@@ -416,15 +555,19 @@
       sub: "F# DORIAN / 96 BPM / 8 BARS",
       when: "2d ago",
       spine: "var(--tomato)",
-      roll: [
-        ["40%", "var(--note-re)"],
-        ["70%", "var(--note-mi)"],
-        ["30%", "var(--note-do)"],
-        ["80%", "var(--note-fa)"],
-        ["50%", "var(--note-re)"],
-        ["60%", "var(--note-la)"],
-        ["35%", "var(--note-mi)"],
-        ["75%", "var(--note-ti)"]
+      barTape: [
+        { note: "re" }, { note: "mi" }, { note: "do" }, { note: "fa" },
+        { note: "re" }, { note: "la" }, { note: "mi" }, { note: "ti" }
+      ],
+      barTapeMode: "equal",
+      codeSeq: [
+        { type: "syl", cls: "re", text: "Re" }, { type: "dur", text: "@0.250" },
+        { type: "rest" },
+        { type: "syl", cls: "mi", text: "Mi" }, { type: "dur", text: "@0.125" },
+        { type: "rest" },
+        { type: "syl", cls: "do lit", text: "Do" }, { type: "dur", text: "@0.375" },
+        { type: "rest" },
+        { type: "syl", cls: "fa", text: "Fa" }
       ]
     },
     tram: {
@@ -433,15 +576,19 @@
       sub: "A MINOR / 72 BPM / 16 BARS",
       when: "5h ago",
       spine: "var(--tomato)",
-      roll: [
-        ["30%", "var(--note-sol)"],
-        ["60%", "var(--note-la)"],
-        ["80%", "var(--note-ti)"],
-        ["40%", "var(--note-sol)"],
-        ["70%", "var(--note-la)"],
-        ["25%", "var(--note-do)"],
-        ["55%", "var(--note-re)"],
-        ["65%", "var(--note-mi)"]
+      barTape: [
+        { note: "sol" }, { note: "la" }, { note: "ti" }, { note: "sol" },
+        { note: "la" }, { note: "do" }, { note: "re" }, { note: "mi" }
+      ],
+      barTapeMode: "equal",
+      codeSeq: [
+        { type: "syl", cls: "sol", text: "Sol" }, { type: "dur", text: "@0.167" },
+        { type: "rest" },
+        { type: "syl", cls: "la lit", text: "La" }, { type: "dur", text: "@0.333" },
+        { type: "rest" },
+        { type: "syl", cls: "ti", text: "Ti" }, { type: "dur", text: "@0.090" },
+        { type: "rest" },
+        { type: "syl", cls: "do", text: "Do" }
       ]
     },
     hilbert: {
@@ -450,15 +597,19 @@
       sub: "D# LYDIAN / 132 BPM / 4 BARS",
       when: "just now",
       spine: "var(--plum)",
-      roll: [
-        ["70%", "var(--note-fa)"],
-        ["50%", "var(--note-mi)"],
-        ["90%", "var(--note-re)"],
-        ["30%", "var(--note-do)"],
-        ["60%", "var(--note-fa)"],
-        ["75%", "var(--note-la)"],
-        ["45%", "var(--note-ti)"],
-        ["80%", "var(--note-re)"]
+      barTape: [
+        { note: "fa" }, { note: "mi" }, { note: "re" }, { note: "do" },
+        { note: "fa" }, { note: "la" }, { note: "ti" }
+      ],
+      barTapeMode: "major",
+      codeSeq: [
+        { type: "syl", cls: "fa", text: "Fa" }, { type: "dur", text: "@0.0398" },
+        { type: "rest" },
+        { type: "syl", cls: "mi", text: "Mi" }, { type: "dur", text: "@0.09" },
+        { type: "rest" },
+        { type: "syl", cls: "re lit", text: "Re" }, { type: "dur", text: "@0.3289" },
+        { type: "rest" },
+        { type: "syl", cls: "do", text: "Do" }
       ]
     },
     brass: {
@@ -467,23 +618,19 @@
       sub: "E LOCRIAN / 120 BPM / 8 BARS / PIANO",
       when: "active",
       spine: "var(--tomato)",
-      roll: [
-        ["55%", "var(--note-do)"],
-        ["80%", "var(--note-re)"],
-        ["30%", "var(--note-mi)"],
-        ["70%", "var(--note-fa)"],
-        ["90%", "var(--note-sol)"],
-        ["40%", "var(--note-la)"],
-        ["65%", "var(--note-ti)"],
-        ["50%", "var(--note-do)"],
-        ["75%", "var(--note-re)"],
-        ["35%", "var(--note-mi)"],
-        ["60%", "var(--note-fa)"],
-        ["85%", "var(--note-sol)"],
-        ["45%", "var(--note-la)"],
-        ["70%", "var(--note-ti)"],
-        ["55%", "var(--note-do)"],
-        ["80%", "var(--note-re)"]
+      barTape: [
+        { note: "mi" }, { note: "sol" }, { note: "la" }, { note: "ti" },
+        { note: "do" }, { note: "re" }, { note: "mi" }
+      ],
+      barTapeMode: "major",
+      codeSeq: [
+        { type: "syl", cls: "mi", text: "Mi" }, { type: "dur", text: "@0.282" },
+        { type: "rest" },
+        { type: "syl", cls: "sol", text: "Sol" }, { type: "dur", text: "@0.128" },
+        { type: "rest" },
+        { type: "syl", cls: "la lit", text: "La" }, { type: "dur", text: "@0.2031" },
+        { type: "rest" },
+        { type: "syl", cls: "ti", text: "Ti" }, { type: "dur", text: "@0.09" }
       ]
     }
   };
@@ -491,69 +638,94 @@
   let stackOrder = ["glass", "tram", "hilbert"];
   let activeId = "brass";
 
-  const stack = document.getElementById("patternStack");
+  const stackEl = document.getElementById("patternStack");
   const activeMount = document.getElementById("activeMount");
 
-  function rollMarkup(pattern, isBig) {
-    const bars = isBig ? pattern.roll.concat(pattern.roll).slice(0, 16) : pattern.roll;
-    return bars.map(([height, color]) => (
-      '<i style="height:' + height + ';background:' + color + '"></i>'
-    )).join("");
+  function barTapeMarkup(pattern) {
+    return pattern.barTape.map(function(b) {
+      return '<span class="' + b.note + (b.dim ? ' dim' : '') + '"></span>';
+    }).join("");
   }
 
+  function codeSeqMarkup(pattern) {
+    return pattern.codeSeq.map(function(tok) {
+      if (tok.type === "rest") return '<span class="rest">~</span>';
+      if (tok.type === "dur")  return '<span class="dur">' + tok.text + '</span>';
+      if (tok.type === "syl")  return '<span class="syl ' + tok.cls + '">' + tok.text + '</span>';
+      return "";
+    }).join("");
+  }
+
+  // Icon SVGs — geo-sharp 32px sm, butt caps
+  var SVG_PLAY = '<svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>';
+  var SVG_REC  = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><circle cx="8" cy="8" r="4"></circle></svg>';
+  var SVG_DUP  = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M3 5H11V13H3Z"></path><path d="M5 3H13V11"></path></svg>';
+  var SVG_DOWN = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M8 2V12"></path><path d="M4 8L8 12L12 8"></path></svg>';
+
   function stackCard(id, index) {
-    const pattern = patterns[id];
-    const distance = stackOrder.length - 1 - index;
-    const depth = distance === 0 ? "s-1" : distance === 1 ? "s-2" : "s-3";
-    return '' +
+    var pattern = patterns[id];
+    var distance = stackOrder.length - 1 - index;
+    var depth = distance === 0 ? "s-1" : distance === 1 ? "s-2" : "s-3";
+    return (
       '<button class="stack-card ' + depth + '" type="button" data-id="' + id + '">' +
-        '<span class="spine" style="background:' + pattern.spine + '"></span>' +
-        '<span class="num">' + pattern.num + '</span>' +
-        '<span>' +
-          '<span class="name">' + pattern.name + '</span>' +
-          '<span class="sub">' + pattern.sub + '</span>' +
-        '</span>' +
-        '<span class="mini-roll" aria-hidden="true">' + rollMarkup(pattern, false) + '</span>' +
-        '<span class="when">' + pattern.when + '</span>' +
-      '</button>';
+        '<div class="sc-row">' +
+          '<span class="spine" style="background:' + pattern.spine + '"></span>' +
+          '<span class="num">' + pattern.num + '</span>' +
+          '<span class="nm">' +
+            '<span class="name">' + pattern.name + '</span>' +
+            '<span class="sub">' + pattern.sub + '</span>' +
+          '</span>' +
+          '<span class="when">' + pattern.when + '</span>' +
+        '</div>' +
+        '<div class="bar-tape ' + pattern.barTapeMode + '" aria-hidden="true">' +
+          barTapeMarkup(pattern) +
+        '</div>' +
+      '</button>'
+    );
   }
 
   function activeCard(id) {
-    const pattern = patterns[id];
-    return '' +
+    var pattern = patterns[id];
+    return (
       '<article class="active-card">' +
         '<span class="spine" style="background:' + pattern.spine + '"></span>' +
-        '<div class="active-head">' +
-          '<span class="num">' + pattern.num + '</span>' +
-          '<div class="active-copy">' +
-            '<div class="name">' + pattern.name + '</div>' +
-            '<div class="sub">' + pattern.sub + '</div>' +
+        '<div class="active-inner">' +
+          '<div class="active-head">' +
+            '<span class="num">' + pattern.num + '</span>' +
+            '<div class="active-copy">' +
+              '<div class="name">' + pattern.name + '</div>' +
+              '<div class="sub">' + pattern.sub + '</div>' +
+            '</div>' +
+            '<div class="icon-row" aria-label="Pattern controls">' +
+              '<button class="ico sm geo-sharp" type="button" title="Play" aria-label="Play">' + SVG_PLAY + '</button>' +
+              '<button class="ico sm geo-sharp" type="button" title="Arm take" aria-label="Arm take">' + SVG_REC + '</button>' +
+              '<button class="ico sm geo-sharp" type="button" title="Duplicate" aria-label="Duplicate">' + SVG_DUP + '</button>' +
+              '<button class="ico sm geo-sharp" type="button" title="Send down" aria-label="Send down">' + SVG_DOWN + '</button>' +
+            '</div>' +
           '</div>' +
-          '<div class="icon-row" aria-label="Pattern controls">' +
-            '<button class="icon-btn" type="button" title="Arm take" aria-label="Arm take"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4"></circle></svg></button>' +
-            '<button class="icon-btn" type="button" title="Duplicate" aria-label="Duplicate"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5H11V13H3Z"></path><path d="M5 3H13V11"></path></svg></button>' +
-            '<button class="icon-btn" type="button" title="Send down" aria-label="Send down"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2V12"></path><path d="M4 8L8 12L12 8"></path></svg></button>' +
+          '<div class="cs" aria-label="Pattern notation">' +
+            '<span class="chev">&lt;</span>' +
+            '<div class="seq">' + codeSeqMarkup(pattern) + '</div>' +
+          '</div>' +
+          '<div class="active-foot">' +
+            '<span class="position">Bar 03 / 08 &middot; Steps 16/16</span>' +
+            '<span class="rec-tag brass">Rec armed</span>' +
           '</div>' +
         '</div>' +
-        '<div class="big-roll" aria-hidden="true">' + rollMarkup(pattern, true) + '</div>' +
-        '<div class="active-foot">' +
-          '<button class="play" type="button">Play</button>' +
-          '<span class="position">Bar 03 / 08 · Steps 16/16</span>' +
-          '<span class="rec brass">Rec armed</span>' +
-        '</div>' +
-      '</article>';
+      '</article>'
+    );
   }
 
   function render() {
-    stack.innerHTML = stackOrder.map(stackCard).join("");
+    stackEl.innerHTML = stackOrder.map(stackCard).join("");
     activeMount.innerHTML = activeCard(activeId);
   }
 
-  stack.addEventListener("click", function (event) {
-    const card = event.target.closest(".stack-card");
+  stackEl.addEventListener("click", function (event) {
+    var card = event.target.closest(".stack-card");
     if (!card) return;
-    const nextActiveId = card.dataset.id;
-    stackOrder = stackOrder.filter((id) => id !== nextActiveId);
+    var nextActiveId = card.dataset.id;
+    stackOrder = stackOrder.filter(function(id) { return id !== nextActiveId; });
     stackOrder.push(activeId);
     activeId = nextActiveId;
     render();

@@ -36,7 +36,7 @@
 .cs .seq {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
   flex-wrap: nowrap;
@@ -49,10 +49,13 @@
   font-size: 11px;
 }
 
-/* bracket / group punctuation */
+/* bracket / group punctuation — prominent brace treatment */
 .cs .seq .br {
-  color: var(--ivory-4);
-  font-size: 11px;
+  color: var(--ivory);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* comma separator */
@@ -93,13 +96,13 @@
 .cs .seq .syl.la  { color: var(--note-la); }
 .cs .seq .syl.ti  { color: var(--note-ti); }
 
-/* degree display — small superscript style */
+/* degree display — Lets Jazz style */
 .cs .seq .deg {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 .cs .seq .deg.do  { color: var(--note-do); }
 .cs .seq .deg.re  { color: var(--note-re); }
@@ -109,13 +112,13 @@
 .cs .seq .deg.la  { color: var(--note-la); }
 .cs .seq .deg.ti  { color: var(--note-ti); }
 
-/* raw note letter display */
+/* raw note letter display — Lets Jazz style */
 .cs .seq .raw {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 .cs .seq .raw.do  { color: var(--note-do); }
@@ -357,9 +360,44 @@
       <div class="var-sub">Bar width proportional to @duration · no numeric stamp</div>
     </div>
 
+    <!-- Duration: stacked note-over-duration -->
+    <div class="var-cell">
+      <div class="var-name">05 · Duration: Stacked note-over-duration</div>
+      <div class="cs" style="padding: 10px 12px;">
+        <span class="chev">&lt;</span>
+        <div class="seq" style="align-items: flex-start;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <span class="syl do">Do</span>
+            <div style="font-size:9px;color:var(--ivory-3);border-top:1px solid var(--hairline);width:20px;text-align:center;padding-top:2px">@0.25</div>
+          </div>
+          <span class="rest">~</span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <span class="syl re">Re</span>
+            <div style="font-size:9px;color:var(--ivory-3);border-top:1px solid var(--hairline);width:20px;text-align:center;padding-top:2px">@0.125</div>
+          </div>
+          <span class="rest">~</span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <span class="syl mi">Mi</span>
+            <div style="font-size:9px;color:var(--ivory-3);border-top:1px solid var(--hairline);width:20px;text-align:center;padding-top:2px">@0.375</div>
+          </div>
+          <span class="rest">~</span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <span class="syl fa">Fa</span>
+            <div style="font-size:9px;color:var(--ivory-3);border-top:1px solid var(--hairline);width:20px;text-align:center;padding-top:2px">@0.0625</div>
+          </div>
+          <span class="rest">~</span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <span class="syl sol">Sol</span>
+            <div style="font-size:9px;color:var(--ivory-3);border-top:1px solid var(--hairline);width:20px;text-align:center;padding-top:2px">@0.5</div>
+          </div>
+        </div>
+      </div>
+      <div class="var-sub">Solfège glyph · decimal duration below · hairline divider</div>
+    </div>
+
     <!-- Duration: no duration, sparse -->
     <div class="var-cell">
-      <div class="var-name">05 · Duration: None (sparse input mode)</div>
+      <div class="var-name">06 · Duration: None (sparse input mode)</div>
       <div class="cs">
         <span class="chev">&lt;</span>
         <div class="seq spaced" style="gap:14px">
@@ -379,7 +417,7 @@
 
     <!-- Rest-heavy row -->
     <div class="var-cell">
-      <div class="var-name">06 · Rest-heavy · syncopated rhythm</div>
+      <div class="var-name">07 · Rest-heavy · syncopated rhythm</div>
       <div class="cs">
         <span class="chev">&lt;</span>
         <div class="seq">
@@ -397,7 +435,7 @@
 
     <!-- Grouped chords with brackets -->
     <div class="var-cell">
-      <div class="var-name">07 · Chord groups · bracket notation</div>
+      <div class="var-name">08 · Chord groups · bracket notation</div>
       <div class="cs">
         <span class="chev">&lt;</span>
         <div class="seq">
@@ -415,32 +453,6 @@
         </div>
       </div>
       <div class="var-sub">{ } groups simultaneous notes · , separates voices</div>
-    </div>
-
-    <!-- Wrapped two-row layout -->
-    <div class="var-cell">
-      <div class="var-name">08 · Layout: Wrapped two-row</div>
-      <div class="cs wrapped">
-        <span class="chev">&lt;</span>
-        <div class="seq">
-          <span class="syl do">Do</span><span class="dur">@0.282</span>
-          <span class="rest">~</span>
-          <span class="syl re">Re</span>
-          <span class="rest">~</span>
-          <span class="syl mi">Mi</span><span class="dur">@0.1225</span>
-          <span class="rest">~</span>
-          <span class="syl fa">Fa</span><span class="dur">@0.0675</span>
-          <span class="rest">~</span>
-          <span class="syl sol">Sol</span>
-          <span class="rest">~</span>
-          <span class="syl la">La</span><span class="dur">@0.3289</span>
-          <span class="rest">~</span>
-          <span class="syl ti">Ti</span><span class="dur">@0.128</span>
-          <span class="rest">~</span>
-          <span class="syl do">Do</span><span class="dur">@0.25</span>
-        </div>
-      </div>
-      <div class="var-sub">flex-wrap on sequence · 4px row-gap · long pattern display</div>
     </div>
 
     <!-- Dense layout -->

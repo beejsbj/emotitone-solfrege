@@ -46,7 +46,6 @@ mean something — every hue you see is a scale degree you've heard.
 | `fonts/`                       | `Lets Jazz` woff2                                        |
 | `assets/`                      | Mood board, screenshots, play states                     |
 | `preview/`                     | Cards rendered into the Design System review tab         |
-| `ui_kits/app/`                 | High-fi recreation of the core mobile app surface        |
 | `SKILL.md`                     | Agent-skill manifest (compatible with Claude Code skills)|
 
 ---
@@ -236,15 +235,6 @@ separate file (Lucide is imported as a tree-shaken Vue package), so we link
 Lucide via CDN. **Flag for the user:** if you want a curated subset baked into
 the project (just the icons used by the app), let me know which surfaces and
 I'll cherry-pick them out of `lucide-vue-next` into `assets/icons/`.
-
----
-
-## What's in `ui_kits/`
-
-- `ui_kits/app/` — recreates the core mobile app: solfège keyboard drawer,
-  pattern reel, top live-strip, instrument-picker top drawer, visual-config
-  presets drawer, splash. Built with React + the design tokens. Open
-  `ui_kits/app/index.html` for a click-through.
 
 ---
 

@@ -1,0 +1,77 @@
+html, body {
+  margin: 0; padding: 0;
+  background: var(--ink);
+  color: var(--fg);
+  font: var(--t-body);
+  -webkit-font-smoothing: antialiased;
+}
+.card {
+  width: 700px;
+  padding: 22px 24px;
+  background: var(--ink-2);
+  box-shadow: var(--ring);
+  border-radius: var(--r-md);
+  box-sizing: border-box;
+}
+.row { display: flex; align-items: center; gap: 14px; }
+.label { font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--fg-3); }
+.swatch { width: 56px; height: 56px; border-radius: var(--r-sm); box-shadow: var(--ring); flex-shrink: 0; }
+.spec { display:flex; flex-direction:column; gap: 2px; min-width: 0; }
+.spec b { font: var(--t-h2); color: var(--fg); letter-spacing: var(--tracking-display); text-transform: uppercase; }
+.spec code { font: var(--t-mono); color: var(--fg-3); }
+.grid { display: grid; gap: 10px; }
+
+/* CANONICAL PANEL · floating-label container ────────────────────────
+   A dark-on-dark panel with a tiny uppercase mono label tabbed
+   into the top border (label background = --ink so it clips through
+   the 1px border like a folder tab). Used by 6+ specimens that
+   previously diverged as .pillar / .specimen-panel / .demo-card.
+   Use explicit <span class="panel-label"> child for flexibility
+   (numbered ordinals, multi-line, etc.) — not data-label pseudo. */
+.panel {
+  position: relative;
+  background: var(--ink-3);
+  border: 1px solid var(--ink-5);
+  margin-top: 14px;
+  padding: 22px 16px 14px;
+}
+.panel-label {
+  position: absolute;
+  top: -10px;
+  left: 14px;
+  background: var(--ink);
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+  pointer-events: none;
+}
+
+/* CANONICAL STATE-FRAME · labelled state cell ───────────────────────
+   A thin-bordered cell that holds a STATE specimen (rest/hover/
+   active/disabled/etc.) with a tiny corner pin naming the state.
+   Used by primitive cards that show all states of one element side
+   by side. Previously diverged as .frame / .state / .group / .anchor. */
+.state-frame {
+  position: relative;
+  border: 1px solid var(--hairline);
+  background: #0a0908;
+  padding: 24px 16px 14px;
+}
+.state-pin {
+  position: absolute;
+  top: 6px;
+  left: 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ivory-4);
+}
+
+/* .brass / .brass-text utilities + @keyframes brass-sheen
+   live in colors_and_type.css (imported above). Don't duplicate here. */

@@ -1,72 +1,7 @@
 <template>
-  <div id="app" class="min-h-screen">
-    <!-- Loading Splash Screen -->
-    <LoadingSplash />
-
-    <!-- Vue Sonner Toast Notifications -->
-    <!-- <Toaster position="top-right" :duration="4000" theme="dark" richColors /> -->
-
-    <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
-    <div class="relative isolate" v-if="!isLoading">
-      <UnifiedVisualEffects class="z-0" />
-      <FloatingPopup class="z-2" />
-    </div>
-
-    <!-- Visual Effects Configuration Panel -->
-    <ConfigPanel v-if="!isLoading" />
-    <InstrumentSelector v-if="!isLoading" :compact="true" :floating="true" />
-
-    <!-- Main Content -->
-    <div v-if="!isLoading" class="relative z-50 min-h-screen flex flex-col">
-      <DrawerKeyboard class="fixed bottom-0 w-full" />
-    </div>
-
-    <!-- Global Tooltip Renderer -->
-    <TooltipRenderer
-      :tooltip-state="globalTooltip.tooltipState.value"
-      :rotation="globalTooltip.rotation.value"
-      :translation="globalTooltip.translation.value"
-    />
-  </div>
+  <StyleGuide />
 </template>
 
 <script setup lang="ts">
-import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
-import { useAppLoading } from "@/composables/useAppLoading";
-import { useMidiControls } from "@/composables/useMidiControls";
-import LoadingSplash from "@/components/LoadingSplash.vue";
-import FloatingPopup from "@/components/FloatingPopup.vue";
-import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
-import ConfigPanel from "@/components/ConfigPanel.vue";
-import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import TooltipRenderer from "@/components/TooltipRenderer.vue";
-import { globalTooltip } from "@/directives/tooltip";
-import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
-
-// Stores and composables
-const musicStore = useMusicStore();
-const patternsStore = usePatternsStore(); // Initialize patterns store
-const { isLoading } = useAppLoading();
-useMidiControls();
-
-const handleScroll = (direction: number) => {
-  const container = document.querySelector(".sticky");
-  if (container) {
-    container.scrollLeft += window.innerWidth * direction;
-  }
-};
+import StyleGuide from "./style-guide/StyleGuide.vue";
 </script>
-
-<style scoped>
-/* Hide the scroller */
-/* Hide scrollbars */
-.scrollbar-hide {
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
-  scrollbar-width: none; /* Firefox */
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
-}
-</style>

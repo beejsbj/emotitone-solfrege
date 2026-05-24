@@ -134,7 +134,7 @@ Date: 2026-05-24
 
 | Decision | Gate | Owner | Date | Unblock Condition |
 |---|---|---|---|---|
-| Confirm first primitive extraction slice as `BarTape` | Taxonomy Gate / Promotion Gate | user | 2026-05-24 | User accepts or chooses another primitive |
+| Confirm first primitive extraction slice as `BarTape` | Taxonomy Gate / Promotion Gate | user + agent | 2026-05-24 | Proceeded under continuation objective; source-first extraction completed |
 | Decide whether token doctrine conflicts require an Intent/Doctrine Gate | Intent Gate / Doctrine Gate | user + agent | 2026-05-24 | Contradiction survives recovery audit |
 | Decide whether `Sticker` badge remains a variant or becomes another primitive | Promotion Gate | user | 2026-05-24 | Sticker follow-up extraction or shared badge evidence |
 | Decide whether `CodeStrip` is unique, primitive, compound part, or pattern-card-private slot | Taxonomy Gate | user | 2026-05-24 | Pattern-card/code-strip extraction planning |

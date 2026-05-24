@@ -26,6 +26,15 @@ Initial scaffold only. Residue is not cleared.
 - Primitive layer cannot close until every primitive specimen is extracted, pruned, or explicitly kept local behind a named gate.
 - Compound layer cannot close while it copies lower-layer internals instead of composing source components.
 
+## Slice Proof: BarTape
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| Specimen defines bar tape internals | `PrimitiveBarTape.vue` owned `.bar-tape`, segment classes, sizes, dim, downbeat, and playhead CSS | `PrimitiveBarTape.vue` imports `src/components/primatives/BarTape.vue` and keeps only panel/tick staging | pass for primitive specimen |
+| Source component exists | none | `src/components/primatives/BarTape.vue` | pass |
+| Compound copies | Pattern card/reel copy `.bar-tape` CSS | unchanged this slice | residue remains for compound cleanup |
+| Music color migration | Legacy `--note-*` aliases in specimen/compounds | `BarTape.vue` preserves legacy aliases | gate-parked behind music color model decision |
+
 ## Next Proof Step
 
 - After Repository Conventions Gate, run command-based residue scans and attach concrete counts.

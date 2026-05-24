@@ -12,9 +12,11 @@ Date: 2026-05-24
 ## Primitives
 
 - Source of truth path: `src/components/primatives/`.
-- Extracted source components: `src/components/primatives/Sticker.vue`.
+- Extracted source components:
+  - `src/components/primatives/Sticker.vue`
+  - `src/components/primatives/BarTape.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: only Sticker follows the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
+- Status: Sticker and BarTape follow the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
 
 ## Compounds
 
@@ -63,7 +65,8 @@ Date: 2026-05-24
 | `src/style-guide/tokens/*.vue` | token specimen | no | keep local | Documentation surfaces for token groups. |
 | `src/components/primatives/Sticker.vue` | primitive | yes | promote | Model extracted primitive. |
 | `src/style-guide/primatives/PrimitiveSticker.vue` | primitive specimen | no | keep local | Imports and inspects `Sticker.vue`; badge decision remains. |
-| `src/style-guide/primatives/PrimitiveBarTape.vue` | primitive candidate/specimen | no | unresolved | Recommended first extraction slice. |
+| `src/components/primatives/BarTape.vue` | primitive | yes | promote | Owns segment color, major/equal proportions, size, dim/downbeat/playhead, and boxed/flush frame. |
+| `src/style-guide/primatives/PrimitiveBarTape.vue` | primitive specimen | no | keep local | Imports and inspects `BarTape.vue`; panel/tick staging remains specimen-only. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | primitive candidate/specimen | no | unresolved | Needs extraction and beat keyframe decision. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | primitive candidate/specimen | no | unresolved | Needs icon-button/control primitive boundary. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | primitive candidate/specimen | no | unresolved | Needs card shell primitive boundary. |

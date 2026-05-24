@@ -31,7 +31,7 @@ Date: 2026-05-24
 | Music hue model | Music tokens, keys, bar tape, code strip | Legacy `--note-*` versus `.note` recipe | candidate token/data recipe | decide | Doctrine/Promotion Gate |
 | Note/solfege maps | Music token preview, keys, code strip | Preview maps and aliases diverge | candidate data recipe | promote to shared TS constants | Promotion Gate |
 | Beat indicator cells | `PrimitiveBeatIndicator.vue` | Beat/downbeat/even/static/tempo grammar local to specimen | candidate primitive | promote | Primitive Extraction |
-| Bar tape strip | Primitive + compound files | Segment fills, proportions, dim state, playhead, downbeat, footer-flush usage | candidate primitive | promote first | Primitive Extraction |
+| Bar tape strip | Primitive + compound files | Segment fills, proportions, dim state, playhead, downbeat, footer-flush usage | primitive | promoted | Promotion Gate 2026-05-24 |
 | Icon button/control family | Primitive + compound files | Size, state, geometry, paired-button, sharp icon behavior | candidate primitive | promote | Primitive Extraction |
 | Card shell | `PrimitiveCard.vue` | Panel-card body, mark slot, heading/body, labels | candidate primitive | promote | Primitive Extraction |
 | Key face family | `PrimitiveKeys.vue` | Syllable/degree/raw stack, states, cut/shape variants | candidate primitive | promote after decisions | Promotion Gate |
@@ -74,6 +74,12 @@ Date: 2026-05-24
 - Legacy `--note-*` aliases in primitive/compound candidates despite `.note` recipe direction.
 - Mono-heavy guide/spec labels conflicting with typography doctrine unless named as guide/spec exception.
 - `UniqueCodeStrip` reused as if it were not unique.
+
+## Extracted Recipes
+
+| Recipe | Source of truth | Promotion decision | Remaining residue |
+|---|---|---|---|
+| Bar tape strip | `src/components/primatives/BarTape.vue` | Promoted strip, segment colors, major/equal proportions, size variants, dim/downbeat states, live playhead, and boxed/flush frame. Corrected major ratio to `2-2-1-2-2-2-1` with `mi` and `ti` narrow. | Compound pattern files still copy old `.bar-tape` CSS and need a later cleanup slice to compose `BarTape`. |
 
 ## Ready For Extraction
 

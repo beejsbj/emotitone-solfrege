@@ -20,7 +20,8 @@ Date: 2026-05-24
 | `src/style-guide/tokens/*.vue` | Token specimens | tokens | no | keep local | Token documentation; unresolved rules tracked separately. |
 | `src/components/primatives/Sticker.vue` | Extracted primitive | primitives | yes | promote | Source-first pattern exists. |
 | `src/style-guide/primatives/PrimitiveSticker.vue` | Primitive specimen | primitives | no | keep local | Imports `Sticker.vue`; badge/color decisions remain. |
-| `src/style-guide/primatives/PrimitiveBarTape.vue` | Raw primitive specimen | primitives | no | unresolved | Recommended first extraction; duplicated in compounds. |
+| `src/components/primatives/BarTape.vue` | Extracted primitive | primitives | yes | promote | Source-first component for strip, segments, proportions, size, dim/downbeat/playhead, and frame. |
+| `src/style-guide/primatives/PrimitiveBarTape.vue` | Primitive specimen | primitives | no | keep local | Imports `BarTape.vue`; keeps panel/tick staging local. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | Raw primitive specimen | primitives | no | unresolved | Needs beat primitive extraction. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Raw primitive specimen | primitives | no | unresolved | Duplicated in compounds; overlaps app `IconButton`. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | Raw primitive specimen | primitives | no | unresolved | Needs card shell extraction. |
@@ -42,7 +43,7 @@ Date: 2026-05-24
 
 ## Coverage Gaps
 
-- No source components yet for most primitive specimens.
+- No source components yet for most primitive specimens; Sticker and BarTape are extracted.
 - No reusable source locations established yet for compounds or uniques.
 - No layer has closure proof yet.
 - Promotion decisions exist in prose in `TOKEN_PROMOTION_AUDIT.md`, but need normalized decision rows in `PROMOTION_AUDIT.md`.

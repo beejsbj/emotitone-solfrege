@@ -85,6 +85,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
 - `src/emotitone-design-system.css` now contains the promoted geometry clip and rotation custom properties.
 - `src/utils/randomGeometry.ts` uses token references for clip, transform, and shadow selection.
 - `Sticker.vue` consumes `getRandomGeometry("sticker")`; sticker geometry is randomized from token-backed values.
+- `BarTape.vue` now owns the bar-tape primitive API and CSS; `PrimitiveBarTape.vue` imports it as a specimen. The promoted component corrected the documented major proportion recipe to `2-2-1-2-2-2-1` by making `mi` and `ti` narrow. Compound pattern files still copy older bar-tape CSS and remain residue for a later cleanup.
 
 ## Primitive Vue Audit
 
@@ -96,8 +97,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   Section heads, anatomy grids, anatomy rows, variant grids, and variant cells are duplicated across nearly all primitive files, including `PrimitiveBarTape.vue:233`, `PrimitiveBeatIndicator.vue:89`, `PrimitiveButtons.vue:392`, `PrimitiveCard.vue:145`, `PrimitiveKeys.vue:533`, `PrimitiveKicker.vue:235`, `PrimitiveKnobsAnalog.vue:119`, `PrimitiveKnobsDigital.vue:202`, `PrimitiveMarks.vue:337`, `PrimitiveSpineCard.vue:164`, and `PrimitiveTabs.vue:263`.
   The branch already has `AnatomyDisplay.vue`, `VariantGrid.vue`, and `VariantCell.vue`; the specimens should compose those instead of carrying duplicate scoped CSS.
 
-- `.bar-tape` is a real primitive candidate.
-  `PrimitiveBarTape.vue:176-230` contains the base strip, height variants, diatonic segment fills, major/equal proportions, dim state, playhead, and downbeat signal. This should become a reusable primitive component or shared primitive class recipe.
+- `.bar-tape` has been promoted to a real primitive.
+  `src/components/primatives/BarTape.vue` contains the base strip, height variants, diatonic segment fills, major/equal proportions, dim state, playhead, downbeat signal, and boxed/flush frame. `PrimitiveBarTape.vue` is now a specimen that imports it.
 
 - `.beats` / beat indicator is a real primitive candidate.
   `PrimitiveBeatIndicator.vue:152-215` defines cell sizing, beat/downbeat animation names, meter counts, static/even states, tempo variants, and reduced-motion behavior. It already depends on global `beat-*` keyframes in `src/emotitone-design-system.css`.
@@ -139,10 +140,10 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Needs Decision
 
 - Music color source for `bar-tape` and `key`.
-  `PrimitiveBarTape.vue:188-194` and `PrimitiveKeys.vue:82-167` still use legacy `--note-*` aliases. The shared CSS says those aliases are temporary and points toward `.note + --note-degree/-octave`. Decide whether these primitives stay alias-based for fidelity or become recipe-driven now.
+  `BarTape.vue` and `PrimitiveKeys.vue:82-167` still use legacy `--note-*` aliases. The shared CSS says those aliases are temporary and points toward `.note + --note-degree/-octave`. BarTape intentionally stayed alias-based for this slice to preserve branch fidelity; decide whether future primitives become recipe-driven.
 
-- `bar-tape` major proportions conflict.
-  `PrimitiveBarTape.vue:36` describes `2-2-1-2-2-2-1`, but `PrimitiveBarTape.vue:201-207` assigns `mi` wide and `fa` narrow, producing `2-2-2-1-2-2-1`. The correct interval/proportion grammar needs a call before promotion.
+- `bar-tape` major proportions conflict is resolved in the source component.
+  The earlier specimen described `2-2-1-2-2-2-1` but assigned `mi` wide and `fa` narrow. `BarTape.vue` now makes `mi` and `ti` narrow, matching the documented major interval recipe. Compound copies still contain the old ratio until they compose `BarTape`.
 
 - Brass button grammar is not settled.
   Global `.brass` is the canonical brass finish, but `PrimitiveButtons.vue:207`, `PrimitiveButtons.vue:249-275`, and `PrimitiveButtons.vue:562-580` split brass into `brass-signal`, fill, wire, and glow treatments, some inline. Decide whether these become button variants, separate brass treatment utilities, or specimen-only demonstrations.

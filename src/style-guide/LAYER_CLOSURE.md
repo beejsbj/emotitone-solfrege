@@ -31,7 +31,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
 | raw recipes resolved or gate-parked | fail | Raw inventory exists, but many decisions pending | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
 | source of truth named | partial | Tokens/primitives/specimens named; compounds/uniques deferred | `REPOSITORY_CONVENTIONS.md` |
-| specimens demonstrate, not define | fail | Sticker passes; most primitive specimens still define component internals | `COVERAGE_AUDIT.md` |
+| specimens demonstrate, not define | fail | Sticker and BarTape pass; most primitive specimens still define component internals | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
 
 ## Per-Layer Closure Proof
@@ -51,11 +51,11 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| primitive families have anatomy | fail | Sticker has anatomy; others are raw specimens | `PrimitiveSticker.vue`, `COVERAGE_AUDIT.md` |
-| APIs, states, and variants are named | fail | Most APIs live only in specimen markup/CSS | `PROMOTION_AUDIT.md` |
+| primitive families have anatomy | fail | Sticker and BarTape have anatomy; others are raw specimens | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `COVERAGE_AUDIT.md` |
+| APIs, states, and variants are named | fail | BarTape API is named; most other APIs live only in specimen markup/CSS | `PROMOTION_AUDIT.md` |
 | token dependencies are named | partial | Audit names several dependencies | `TOKEN_PROMOTION_AUDIT.md` |
-| primitives consume tokens or approved lower-level constants | partial | Sticker does; others unproven | `Sticker.vue` |
-| specimens import/demonstrate primitive source files | fail | Sticker does; others do not yet | `PrimitiveSticker.vue` |
+| primitives consume tokens or approved lower-level constants | partial | Sticker and BarTape do; others unproven | `Sticker.vue`, `BarTape.vue` |
+| specimens import/demonstrate primitive source files | fail | Sticker and BarTape do; others do not yet | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue` |
 
 ### Compound Closure
 
@@ -89,6 +89,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Style-guide sink page | keep local | Documentation entry surface | Repository Conventions Gate |
 | Guide helpers | keep local | Inspection helpers, not taxonomy layer | Repository Conventions Gate |
 | Sticker primitive | promote | Existing source-first pattern | Primitive Closure |
+| BarTape primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Other primitive specimens | gate-parked | Need extraction or explicit keep-local decisions | Promotion Gate |
 | Code strip | gate-parked | Reused despite unique classification | Taxonomy Gate |
 | Compound pattern artifacts | gate-parked | Depend on lower-layer closure | Taxonomy Gate |
@@ -99,6 +100,5 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Decision | Gate | Owner | Date | Unblock Condition | May Advance? |
 |---|---|---|---|---|---:|
 | Full style-guide scope acceptance | Scope Gate | user | 2026-05-24 | User accepts/redirects packet | yes, recovery docs only |
-| First primitive extraction slice | Taxonomy Gate / Promotion Gate | user | 2026-05-24 | User accepts `BarTape` or chooses another | no for extraction beyond docs |
 | Primitive layer closure | Promotion Gate | agent + user | 2026-05-24 | Every primitive is extracted/pruned/kept-local | no |
 | Token doctrine conflicts | Doctrine Gate if needed | user + agent | 2026-05-24 | Contradictions resolved or localized | no for affected families |

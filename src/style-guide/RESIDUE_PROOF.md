@@ -16,7 +16,7 @@ Initial scaffold only. Residue is not cleared.
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, and IconButton pass; other primitive specimens still define behavior | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, IconButton, and CodeStrip pass; other primitive specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
@@ -47,6 +47,23 @@ Initial scaffold only. Residue is not cleared.
 | `CompoundPatternCard.vue` bar tape | Inline `.bar-tape` markup and copied CSS | Imports and renders `BarTape` with specimen data arrays | pass |
 | `CompoundPatternReel.vue` bar tape | `innerHTML` string assembly emitted copied `.bar-tape` markup and relied on copied CSS | Vue template/state renders `BarTape` components | pass |
 | Compound primitive residue | BarTape, icon button, code strip, stack/active card, and reel choreography copied | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel removed from copied-residue list | pass for pattern compound family |
+
+## Slice Proof: BeatIndicator
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveBeatIndicator.vue` source behavior | Specimen owned `.beats`, `<b>` cells, meter classes, size classes, tempo classes, static/even states, and reduced-motion CSS | Specimen imports `BeatIndicator` and keeps only stage labels plus variant captions | pass for primitive specimen |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/BeatIndicator.vue` | pass |
+| Hardcoded dark stage | Beat specimen used local `#0a0908` stage/variant backgrounds | Specimen composes guide helpers backed by `var(--ink)` | pass for this specimen |
+| Beat keyframe naming | `beat-cell` / `beat-down` consumed locally while `bar-*` names also exist globally | Source component consumes current `beat-*` names | token doctrine naming gate remains |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-beat-indicator.html` renders 13 `.beat-indicator` nodes and 51 `.beat-indicator__cell` nodes.
+- Meter variants render 4, 3, 2, and 6 cells from the source component.
+- State variants render 12 downbeat cells, 1 `.beat-indicator--even`, and 1 `.beat-indicator--static`.
+- Old local `.beats` and `.beats b` nodes both render 0 nodes.
+- First cell animation computes to `beat-down`; static first cell animation computes to `none`.
 
 ## Slice Proof: PatternCard
 

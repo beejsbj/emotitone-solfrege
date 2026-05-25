@@ -96,14 +96,14 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Clear Promote
 
 - Shared guide chrome should stop living in every specimen.
-  Section heads, anatomy grids, anatomy rows, variant grids, and variant cells are duplicated across nearly all primitive files, including `PrimitiveBarTape.vue:233`, `PrimitiveBeatIndicator.vue:89`, `PrimitiveButtons.vue:392`, `PrimitiveCard.vue:145`, `PrimitiveKeys.vue:533`, `PrimitiveKicker.vue:235`, `PrimitiveKnobsAnalog.vue:119`, `PrimitiveKnobsDigital.vue:202`, `PrimitiveMarks.vue:337`, `PrimitiveSpineCard.vue:164`, and `PrimitiveTabs.vue:263`.
+  Section heads, anatomy grids, anatomy rows, variant grids, and variant cells are duplicated across many unresolved primitive files, including `PrimitiveCard.vue`, `PrimitiveKeys.vue`, `PrimitiveKicker.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveMarks.vue`, `PrimitiveSpineCard.vue`, and `PrimitiveTabs.vue`.
   The branch already has `AnatomyDisplay.vue`, `VariantGrid.vue`, and `VariantCell.vue`; the specimens should compose those instead of carrying duplicate scoped CSS.
 
 - `.bar-tape` has been promoted to a real primitive.
   `src/components/primatives/BarTape.vue` contains the base strip, height variants, diatonic segment fills, major/equal proportions, dim state, playhead, downbeat signal, and boxed/flush frame. `PrimitiveBarTape.vue` is now a specimen that imports it.
 
-- `.beats` / beat indicator is a real primitive candidate.
-  `PrimitiveBeatIndicator.vue:152-215` defines cell sizing, beat/downbeat animation names, meter counts, static/even states, tempo variants, and reduced-motion behavior. It already depends on global `beat-*` keyframes in `src/emotitone-design-system.css`.
+- `.beats` / beat indicator has been promoted to a real primitive.
+  `src/components/primatives/BeatIndicator.vue` owns cell sizing, beat/downbeat animation names, meter counts, static/even states, tempo variants, and reduced-motion behavior. `PrimitiveBeatIndicator.vue` now imports it and keeps only specimen staging.
 
 - `.ico` has been promoted to the icon button/control primitive family.
   `src/components/primatives/IconButton.vue` now owns base size, sm/lg sizing, hover/active/disabled states, geometry variants, wire/solid/toggle/brass variants, and clip-token use. `PrimitiveButtons.vue` imports the source component. The paired shell remains a specimen-local wrapper until a real non-documentation consumer appears.
@@ -186,7 +186,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Specimen-Only
 
 - Hero/stage wrappers should stay guide-only.
-  Examples include `PrimitiveBarTape.vue:277`, `PrimitiveBeatIndicator.vue:132`, `PrimitiveButtons.vue:435`, `PrimitiveKeys.vue:513-531`, `PrimitiveKicker.vue:278-339`, `PrimitiveKnobsAnalog.vue:163-195`, `PrimitiveKnobsDigital.vue:246-278`, `PrimitiveMarks.vue:274-434`, and `PrimitiveTabs.vue:121-211`.
+  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKicker.vue:278-339`, `PrimitiveKnobsAnalog.vue:163-195`, `PrimitiveKnobsDigital.vue:246-278`, `PrimitiveMarks.vue:274-434`, and `PrimitiveTabs.vue:121-211`. `PrimitiveBeatIndicator.vue` has already been rewritten to keep only a small guide-local hero label around the source component.
 
 - Variant-card chrome and demo tilts are display scaffolding unless routed through the shared random geometry utility.
   Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, `PrimitiveKicker.vue:216-233`, `PrimitiveKnobsAnalog.vue:197-201`, `PrimitiveKnobsDigital.vue:280-284`, `PrimitiveMarks.vue:312-319`, `PrimitiveMarks.vue:404-408`, and `PrimitiveMarks.vue:431-434`.
@@ -210,13 +210,13 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   This does not mean all key geometry is promoted; the key-specific strip/pill/proportion recipes above are still missing from the shared grammar.
 
 - Hardcoded ink appears where `var(--ink)` exists.
-  `PrimitiveBeatIndicator.vue:134`, `PrimitiveBeatIndicator.vue:193`, and `PrimitiveTabs.vue:342-345` use `#0a0908`.
+  `PrimitiveTabs.vue:342-345` still uses `#0a0908`. `PrimitiveBeatIndicator.vue` was resolved by composing guide helpers backed by `var(--ink)`.
 
 - `PrimitiveCard.vue` uses undefined `--font-body`.
   `PrimitiveCard.vue:67` and `PrimitiveCard.vue:73` reference `var(--font-body)`, but the shared CSS defines `--font-text`, `--font-mono`, and type shorthands such as `--t-body`.
 
 - Beat keyframe naming is split.
-  Shared CSS contains both `bar-cell`/`bar-down` and `beat-cell`/`beat-down`, while `PrimitiveBeatIndicator.vue:161` consumes only `beat-*`. Decide whether both sets are intentional or whether one is stale.
+  Shared CSS contains both `bar-cell`/`bar-down` and `beat-cell`/`beat-down`, while `BeatIndicator.vue` consumes only `beat-*`. Decide whether both sets are intentional or whether one is stale.
 
 - `.live` repeats inline positioning already handled by CSS.
   `PrimitiveBarTape.vue:14` repeats `position:relative`, while `.bar-tape.live` already sets `position: relative` at `PrimitiveBarTape.vue:216`.

@@ -32,7 +32,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
 | raw recipes resolved or gate-parked | fail | Raw inventory exists, but many decisions pending | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
 | source of truth named | partial | Tokens/primitives/PatternCard compound/specimens named; uniques deferred | `REPOSITORY_CONVENTIONS.md` |
-| specimens demonstrate, not define | fail | Sticker and BarTape pass; most primitive specimens still define component internals | `COVERAGE_AUDIT.md` |
+| specimens demonstrate, not define | fail | Sticker, BarTape, BeatIndicator, IconButton, CodeStrip, PatternCard, and PatternReel pass; other primitive specimens still define component internals | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
 
 ## Per-Layer Closure Proof
@@ -46,17 +46,17 @@ current recovery state across token, primitive, compound, unique, and compositio
 | naming rules documented | partial | CSS comments document groups; unresolved music/brass/type/brand semantics | `TOKEN_PROMOTION_AUDIT.md` |
 | allowed raw-value exceptions documented | fail | Not normalized yet | `RESIDUE_PROOF.md` |
 | token candidates from raw recipe inventory resolved | fail | Several token candidates pending | `RAW_RECIPE_INVENTORY.md` |
-| next layer has enough token vocabulary | partial | Enough for Sticker, BarTape, IconButton, and CodeStrip; not enough for key/tab/knob/pattern closure | `PROMOTION_AUDIT.md` |
+| next layer has enough token vocabulary | partial | Enough for Sticker, BarTape, BeatIndicator, IconButton, and CodeStrip; not enough for key/tab/knob/pattern closure | `PROMOTION_AUDIT.md` |
 
 ### Primitive Closure
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| primitive families have anatomy | fail | Sticker, BarTape, IconButton, and CodeStrip have anatomy; others are raw specimens | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `UniqueCodeStrip.vue`, `COVERAGE_AUDIT.md` |
-| APIs, states, and variants are named | fail | BarTape, IconButton, and CodeStrip APIs are named; most other APIs live only in specimen markup/CSS | `PROMOTION_AUDIT.md` |
+| primitive families have anatomy | fail | Sticker, BarTape, BeatIndicator, IconButton, and CodeStrip have anatomy; others are raw specimens | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveButtons.vue`, `UniqueCodeStrip.vue`, `COVERAGE_AUDIT.md` |
+| APIs, states, and variants are named | fail | BarTape, BeatIndicator, IconButton, and CodeStrip APIs are named; most other APIs live only in specimen markup/CSS | `PROMOTION_AUDIT.md` |
 | token dependencies are named | partial | Audit names several dependencies | `TOKEN_PROMOTION_AUDIT.md` |
-| primitives consume tokens or approved lower-level constants | partial | Sticker, BarTape, IconButton, and CodeStrip do; others unproven | `Sticker.vue`, `BarTape.vue`, `IconButton.vue`, `CodeStrip.vue` |
-| specimens import/demonstrate primitive source files | fail | Sticker, BarTape, IconButton, and CodeStrip do; others do not yet | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `UniqueCodeStrip.vue` |
+| primitives consume tokens or approved lower-level constants | partial | Sticker, BarTape, BeatIndicator, IconButton, and CodeStrip do; others unproven | `Sticker.vue`, `BarTape.vue`, `BeatIndicator.vue`, `IconButton.vue`, `CodeStrip.vue` |
+| specimens import/demonstrate primitive source files | fail | Sticker, BarTape, BeatIndicator, IconButton, and CodeStrip do; others do not yet | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveButtons.vue`, `UniqueCodeStrip.vue` |
 
 ### Compound Closure
 
@@ -91,6 +91,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Guide helpers | keep local | Inspection helpers, not taxonomy layer | Repository Conventions Gate |
 | Sticker primitive | promote | Existing source-first pattern | Primitive Closure |
 | BarTape primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
+| BeatIndicator primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Other primitive specimens | gate-parked | Need extraction or explicit keep-local decisions | Promotion Gate |
 | Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |

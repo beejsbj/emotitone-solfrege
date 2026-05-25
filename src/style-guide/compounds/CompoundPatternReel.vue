@@ -48,20 +48,20 @@
                 <div class="sub">{{ activePattern.sub }}</div>
               </div>
               <div class="icon-row" aria-label="Pattern controls">
-                <button class="ico sm geo-sharp" type="button" title="Play" aria-label="Play">
+                <IconButton size="sm" geometry="sharp" title="Play" aria-label="Play">
                   <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
                     <path d="M3 1.5v11l9-5.5z" fill="currentColor"/>
                   </svg>
-                </button>
-                <button class="ico sm geo-sharp" type="button" title="Arm take" aria-label="Arm take">
+                </IconButton>
+                <IconButton size="sm" geometry="sharp" title="Arm take" aria-label="Arm take">
                   <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><circle cx="8" cy="8" r="4"></circle></svg>
-                </button>
-                <button class="ico sm geo-sharp" type="button" title="Duplicate" aria-label="Duplicate">
+                </IconButton>
+                <IconButton size="sm" geometry="sharp" title="Duplicate" aria-label="Duplicate">
                   <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M3 5H11V13H3Z"></path><path d="M5 3H13V11"></path></svg>
-                </button>
-                <button class="ico sm geo-sharp" type="button" title="Send down" aria-label="Send down">
+                </IconButton>
+                <IconButton size="sm" geometry="sharp" title="Send down" aria-label="Send down">
                   <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M8 2V12"></path><path d="M4 8L8 12L12 8"></path></svg>
-                </button>
+                </IconButton>
               </div>
             </div>
             <div class="cs" aria-label="Pattern notation">
@@ -90,6 +90,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import BarTape from "../../components/primatives/BarTape.vue";
+import IconButton from "../../components/primatives/IconButton.vue";
 import type { BarTapeMode, BarTapeSegment } from "../../components/primatives/BarTape.vue";
 
 type PatternId = "glass" | "tram" | "hilbert" | "brass";
@@ -490,35 +491,11 @@ const promotePattern = (nextActiveId: PatternId) => {
   color: var(--ivory-3);
 }
 
-/* ── icon-only buttons — lifted verbatim from primitive-buttons.html ── */
+/* ── icon-only transport rail ───────────────────────────────────────── */
 .pattern-merge .icon-row {
   display: flex;
   gap: var(--s-3);
 }
-
-.pattern-merge .ico {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  background: var(--ink-3);
-  box-shadow: var(--ring);
-  border-radius: var(--r-sm);
-  border: 0;
-  color: var(--ivory);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition:
-    background var(--dur-tap) var(--ease-stab),
-    box-shadow var(--dur-tap) var(--ease-stab),
-    transform var(--dur-tap) var(--ease-stab),
-    opacity var(--dur-tap) var(--ease-stab);
-}
-.pattern-merge .ico:hover { background: var(--ink-4); }
-.pattern-merge .ico:active { transform: scale(.96); }
-.pattern-merge .ico.sm { width: 32px; height: 32px; border-radius: var(--r-xs); }
-.pattern-merge .ico.geo-sharp { border-radius: 0; }
-.pattern-merge .ico svg { display: block; }
 
 /* transport foot */
 .pattern-merge .active-foot {
@@ -676,8 +653,7 @@ const promotePattern = (nextActiveId: PatternId) => {
 
 @media (prefers-reduced-motion: reduce) {
   .pattern-merge .stack-card,
-  .pattern-merge .active-card,
-  .pattern-merge .ico {
+  .pattern-merge .active-card {
     transition-duration: 0ms;
     animation: none;
   }

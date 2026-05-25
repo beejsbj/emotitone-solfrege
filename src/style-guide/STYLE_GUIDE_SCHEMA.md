@@ -15,15 +15,16 @@ Date: 2026-05-24
 - Extracted source components:
   - `src/components/primatives/Sticker.vue`
   - `src/components/primatives/BarTape.vue`
+  - `src/components/primatives/IconButton.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker and BarTape follow the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
+- Status: Sticker, BarTape, and IconButton follow the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
 
 ## Compounds
 
 - Current specimens:
   - `src/style-guide/compounds/CompoundPatternCard.vue`
   - `src/style-guide/compounds/CompoundPatternReel.vue`
-- Status: preview/specimen layer only. They now compose `BarTape`, but still copy stack-card, active-card, icon-button, and code-strip grammar instead of composing named lower layers.
+- Status: preview/specimen layer only. They now compose `BarTape` and `IconButton`, but still copy stack-card, active-card, and code-strip grammar instead of composing named lower layers.
 
 ## Uniques
 
@@ -67,8 +68,9 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveSticker.vue` | primitive specimen | no | keep local | Imports and inspects `Sticker.vue`; badge decision remains. |
 | `src/components/primatives/BarTape.vue` | primitive | yes | promote | Owns segment color, major/equal proportions, size, dim/downbeat/playhead, and boxed/flush frame. |
 | `src/style-guide/primatives/PrimitiveBarTape.vue` | primitive specimen | no | keep local | Imports and inspects `BarTape.vue`; panel/tick staging remains specimen-only. |
+| `src/components/primatives/IconButton.vue` | primitive | yes | promote | Owns icon-only control size, geometry, tone, simulated states, disabled, pressed, and brass treatments. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | primitive candidate/specimen | no | unresolved | Needs extraction and beat keyframe decision. |
-| `src/style-guide/primatives/PrimitiveButtons.vue` | primitive candidate/specimen | no | unresolved | Needs icon-button/control primitive boundary. |
+| `src/style-guide/primatives/PrimitiveButtons.vue` | primitive specimen | no | keep local | Imports and inspects `IconButton.vue`; paired-control wrappers remain specimen-only. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | primitive candidate/specimen | no | unresolved | Needs card shell primitive boundary. |
 | `src/style-guide/primatives/PrimitiveKeys.vue` | primitive candidate/specimen | no | unresolved | Dense Promotion Gate: geometry, mapping, formats. |
 | `src/style-guide/primatives/PrimitiveKicker.vue` | primitive candidate/specimen | no | unresolved | Needs role/typography boundary. |
@@ -77,8 +79,8 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveMarks.vue` | primitive candidate/specimen | no | unresolved | Needs mark API before extraction. |
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive/compound candidate specimen | no | unresolved | `preset-row` may be compound. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | primitive candidate/specimen | no | unresolved | Needs timing and variant cleanup. |
-| `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | unresolved | Composes BarTape; still depends on IconButton/CodeStrip/pattern-card boundary decisions. |
-| `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | unresolved | Adds stack/promote behavior; depends on PatternCard boundary. |
+| `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | unresolved | Composes BarTape and IconButton; still depends on CodeStrip/pattern-card boundary decisions. |
+| `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | unresolved | Composes BarTape and IconButton; adds stack/promote behavior; depends on PatternCard boundary. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | unique? | no | unresolved | Reused enough to require Taxonomy Gate. |
 | `src/style-guide/uniques/*.vue` | unique specimen | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/compositions/*.vue` | composition specimen | no | unresolved | Needs lower-layer residue proof. |

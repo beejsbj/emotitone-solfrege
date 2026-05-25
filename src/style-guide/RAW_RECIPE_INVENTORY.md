@@ -32,7 +32,7 @@ Date: 2026-05-24
 | Note/solfege maps | Music token preview, keys, code strip | Preview maps and aliases diverge | candidate data recipe | promote to shared TS constants | Promotion Gate |
 | Beat indicator cells | `PrimitiveBeatIndicator.vue` | Beat/downbeat/even/static/tempo grammar local to specimen | candidate primitive | promote | Primitive Extraction |
 | Bar tape strip | Primitive + compound files | Segment fills, proportions, dim state, playhead, downbeat, footer-flush usage | primitive | promoted | Promotion Gate 2026-05-24 |
-| Icon button/control family | Primitive + compound files | Size, state, geometry, paired-button, sharp icon behavior | candidate primitive | promote | Primitive Extraction |
+| Icon button/control family | Primitive + compound files | Size, state, geometry, paired-button, sharp icon behavior | primitive | promoted | Promotion Gate 2026-05-25 |
 | Card shell | `PrimitiveCard.vue` | Panel-card body, mark slot, heading/body, labels | candidate primitive | promote | Primitive Extraction |
 | Key face family | `PrimitiveKeys.vue` | Syllable/degree/raw stack, states, cut/shape variants | candidate primitive | promote after decisions | Promotion Gate |
 | Kicker marker | `PrimitiveKicker.vue` | Dot + label, colors, density, inverse, alignment | candidate primitive | promote after boundary decision | Promotion Gate |
@@ -80,6 +80,7 @@ Date: 2026-05-24
 | Recipe | Source of truth | Promotion decision | Remaining residue |
 |---|---|---|---|
 | Bar tape strip | `src/components/primatives/BarTape.vue` | Promoted strip, segment colors, major/equal proportions, size variants, dim/downbeat states, live playhead, and boxed/flush frame. Corrected major ratio to `2-2-1-2-2-2-1` with `mi` and `ti` narrow. | Primitive specimen and pattern compound specimens now compose `BarTape`; music color model remains gate-parked. |
+| Icon button/control family | `src/components/primatives/IconButton.vue` | Promoted size, geometry, tone, simulated state, disabled, pressed/toggle, and brass signal/fill/wire/glow treatments. Pruned offcut/tile polygons to existing `--clip-offcut` and `--clip-tile` tokens. | `PrimitiveButtons.vue` and pattern compound specimens now compose `IconButton`; paired-control shell remains specimen-local until another component needs it. |
 
 ## Ready For Extraction
 

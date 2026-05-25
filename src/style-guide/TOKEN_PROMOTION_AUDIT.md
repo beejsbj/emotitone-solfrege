@@ -86,6 +86,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
 - `src/utils/randomGeometry.ts` uses token references for clip, transform, and shadow selection.
 - `Sticker.vue` consumes `getRandomGeometry("sticker")`; sticker geometry is randomized from token-backed values.
 - `BarTape.vue` now owns the bar-tape primitive API and CSS; `PrimitiveBarTape.vue` imports it as a specimen. The promoted component corrected the documented major proportion recipe to `2-2-1-2-2-2-1` by making `mi` and `ti` narrow. Pattern compound specimens now compose `BarTape` instead of copying older bar-tape CSS.
+- `IconButton.vue` now owns icon-only control size, geometry, tone, state, pressed, disabled, and brass treatment grammar; `PrimitiveButtons.vue` imports it as a specimen. Pattern compound specimens now compose `IconButton` instead of copying older `.ico` CSS.
 
 ## Primitive Vue Audit
 
@@ -103,8 +104,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - `.beats` / beat indicator is a real primitive candidate.
   `PrimitiveBeatIndicator.vue:152-215` defines cell sizing, beat/downbeat animation names, meter counts, static/even states, tempo variants, and reduced-motion behavior. It already depends on global `beat-*` keyframes in `src/emotitone-design-system.css`.
 
-- `.ico` and `.ico-pair` are ready to promote as the icon button/control primitive family.
-  `PrimitiveButtons.vue:464-596` defines base size, sm/lg sizing, hover/active/disabled states, geometry variants, wire/solid/toggle/brass variants, and paired-button behavior. It already leans on `--ring`, `--dur-tap`, `--ease-stab`, radius tokens, and clip tokens.
+- `.ico` has been promoted to the icon button/control primitive family.
+  `src/components/primatives/IconButton.vue` now owns base size, sm/lg sizing, hover/active/disabled states, geometry variants, wire/solid/toggle/brass variants, and clip-token use. `PrimitiveButtons.vue` imports the source component. The paired shell remains a specimen-local wrapper until a real non-documentation consumer appears.
 
 - Card shell should become a reusable container primitive.
   `PrimitiveCard.vue:96-152` defines the panel-card body, mark slot, ordinal/glyph/stamp mark treatments, heading/body typography, and panel label. It sits on top of the existing `.panel` and `.panel-label` preview-card grammar, but the card anatomy itself is component-worthy.

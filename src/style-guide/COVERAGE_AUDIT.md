@@ -22,8 +22,9 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveSticker.vue` | Primitive specimen | primitives | no | keep local | Imports `Sticker.vue`; badge/color decisions remain. |
 | `src/components/primatives/BarTape.vue` | Extracted primitive | primitives | yes | promote | Source-first component for strip, segments, proportions, size, dim/downbeat/playhead, and frame. |
 | `src/style-guide/primatives/PrimitiveBarTape.vue` | Primitive specimen | primitives | no | keep local | Imports `BarTape.vue`; keeps panel/tick staging local. |
+| `src/components/primatives/IconButton.vue` | Extracted primitive | primitives | yes | promote | Source-first component for icon-only controls, geometry, tone, state, pressed, disabled, and brass treatments. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | Raw primitive specimen | primitives | no | unresolved | Needs beat primitive extraction. |
-| `src/style-guide/primatives/PrimitiveButtons.vue` | Raw primitive specimen | primitives | no | unresolved | Duplicated in compounds; overlaps app `IconButton`. |
+| `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | Raw primitive specimen | primitives | no | unresolved | Needs card shell extraction. |
 | `src/style-guide/primatives/PrimitiveKeys.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mapping/geometry/format gates. |
 | `src/style-guide/primatives/PrimitiveKicker.vue` | Raw primitive specimen | primitives | no | unresolved | Needs role and typography gate. |
@@ -32,8 +33,8 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveMarks.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mark component API. |
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | Raw primitive/compound specimen | primitives/compounds | no | unresolved | Needs spine-card versus preset-row split. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | Raw primitive specimen | primitives | no | unresolved | Needs chip-slide tab extraction. |
-| `src/style-guide/compounds/CompoundPatternCard.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape; still copies stack/active cards, icon buttons, and code strip. |
-| `src/style-guide/compounds/CompoundPatternReel.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape and uses Vue state; still copies pattern-card, icon-button, and code-strip grammar. |
+| `src/style-guide/compounds/CompoundPatternCard.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape and IconButton; still copies stack/active cards and code strip. |
+| `src/style-guide/compounds/CompoundPatternReel.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape/IconButton and uses Vue state; still copies pattern-card and code-strip grammar. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | Unique? specimen | unique/primitive/compound part | no | unresolved | Reused in compounds; taxonomy suspect. |
@@ -43,7 +44,7 @@ Date: 2026-05-24
 
 ## Coverage Gaps
 
-- No source components yet for most primitive specimens; Sticker and BarTape are extracted.
+- No source components yet for most primitive specimens; Sticker, BarTape, and IconButton are extracted.
 - No reusable source locations established yet for compounds or uniques.
 - No layer has closure proof yet.
 - Promotion decisions exist in prose in `TOKEN_PROMOTION_AUDIT.md`, but need normalized decision rows in `PROMOTION_AUDIT.md`.

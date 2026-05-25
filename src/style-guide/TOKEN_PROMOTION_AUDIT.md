@@ -136,8 +136,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Sticker color vocabulary should be shared as a TS constant/map.
   `PrimitiveSticker.vue:51-64` repeats the color list that `Sticker.vue` also carries as a prop union and CSS modifier set. This should become a single exported color vocabulary when more primitives use the same color prop.
 
-- Marks need a primitive/component boundary.
-  `PrimitiveMarks.vue:25-30` states the mark role and scale rules, while `PrimitiveMarks.vue:37-153` contains the raw SVG families. The treatment grammar in `PrimitiveMarks.vue:156-239` and stroke behavior should be promoted into a reusable mark primitive once the API is named.
+- Marks now have a primitive/component boundary.
+  `src/components/primatives/Mark.vue` owns the raw SVG paths, named glyph API, tone, size, fill/wire treatment, and stroke behavior. `PrimitiveMarks.vue` keeps family panels and legends local.
 
 ## Primitive Needs Decision
 
@@ -174,8 +174,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - `preset-row` is gate-parked as a compound/control row.
   `PrimitiveSpineCard.vue` keeps local preset-row demos for apply/applied/expiring states, but `SpineCard.vue` does not absorb them into the primitive API.
 
-- Marks need an API before promotion.
-  Current marks are raw SVG snippets. A likely component API is some combination of `family`, `name`, `size`, `tone`, and `treatment`, but that decision should be explicit before extracting.
+- Mark API is resolved for this branch.
+  Runtime API is `name`, `size`, `tone`, and `treatment`. `family` remains specimen taxonomy because it groups marks for inspection rather than changing render behavior.
 
 - Tabs timing needs a token decision.
   `PrimitiveTabs.vue:69-82` describes `320ms` chip motion and `220ms` smear, the JS removes smear after `220`, and `PrimitiveTabs.vue:387-390` uses `320ms`. Global durations are `--dur-ui: 220ms` and `--dur-panel: 360ms`. Decide whether tabs need a new `--dur-chip` or should snap to an existing duration.
@@ -186,10 +186,10 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Specimen-Only
 
 - Hero/stage wrappers should stay guide-only.
-  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKnobsAnalog.vue:163-195`, `PrimitiveKnobsDigital.vue:246-278`, `PrimitiveMarks.vue:274-434`, and `PrimitiveTabs.vue:121-211`. `PrimitiveBeatIndicator.vue` and `PrimitiveKicker.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
+  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKnobsAnalog.vue:163-195`, `PrimitiveKnobsDigital.vue:246-278`, and `PrimitiveTabs.vue:121-211`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, and `PrimitiveMarks.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
 
 - Variant-card chrome and demo tilts are display scaffolding unless routed through the shared random geometry utility.
-  Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, `PrimitiveKnobsAnalog.vue:197-201`, `PrimitiveKnobsDigital.vue:280-284`, `PrimitiveMarks.vue:312-319`, `PrimitiveMarks.vue:404-408`, and `PrimitiveMarks.vue:431-434`.
+  Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, `PrimitiveKnobsAnalog.vue:197-201`, `PrimitiveKnobsDigital.vue:280-284`, and unresolved tab/knob/mark-adjacent specimens.
 
 - Inline demo sizing/padding should stay local unless promoted into named variants.
   `PrimitiveKeys.vue` has many specimen-only inline dimensions and demo paddings around lines `41`, `52`, `63`, `79-81`, `143`, `181`, `234`, and `268`.
@@ -197,8 +197,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Card inverted examples are specimen-only.
   `PrimitiveCard.vue` keeps a light inversion example in specimen-local CSS. The light inversion in particular should not be promoted unless the app needs a light card primitive.
 
-- Marks exhibition scaffolding should stay local.
-  `.family`, `.family-head`, `.shape-row`, `.legend`, `.treatments-grid`, and `.scales-row` in `PrimitiveMarks.vue:274-434` are display machinery around glyphs, not the reusable primitive itself.
+- Marks exhibition scaffolding stays local.
+  Family headings, legends, treatment grids, and scale grids in `PrimitiveMarks.vue` are display machinery around `Mark`, not source component behavior.
 
 - Tabs state specimens are documentation, not the tab primitive.
   `PrimitiveTabs.vue:88-117` and `PrimitiveTabs.vue:527-558` show state-button examples. They should not be mixed into the chip-slide tab component.
@@ -245,5 +245,5 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Brand danger semantics remain split.
   Shared CSS says brand colors are decorative-only, but also aliases `--danger` to tomato. `SpineCard.vue` preserves the tomato example content through the specimen, but the semantic decision still needs doctrine work rather than another token alias.
 
-- Marks scale text and proof do not exactly agree.
-  `PrimitiveMarks.vue:29` says `14px inline`, `18-22px header`, `56-96px hero`; `PrimitiveMarks.vue:271` forces hero SVGs to `92px`, and `PrimitiveMarks.vue:207-239` demonstrates `14`, `28`, `56`, and `96`.
+- Marks scale text and proof are reconciled through the source size prop.
+  `Mark.vue` accepts a numeric/string `size`; `PrimitiveMarks.vue` demonstrates 14, 28, 56, 92 hero, and 96 hero cases without hardcoded source CSS.

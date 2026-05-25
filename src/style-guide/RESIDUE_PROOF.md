@@ -72,7 +72,7 @@ Browser DOM proof, 2026-05-25:
 | `PrimitiveCard.vue` source behavior | Specimen owned `.panel-card`, label, mark slot, title/body, compact grid sizing, borderless shell, and inline inversion examples | Specimen imports `CardShell` and keeps only demo mark drawings plus the light inversion example | pass for primitive specimen |
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/CardShell.vue` | pass |
 | Undefined body font token | Specimen used `var(--font-body)` in inline examples | Source and specimen use `--t-body-s` | pass |
-| Mark drawings | Ordinal/glyph/stamp treatments lived inside the card specimen | Kept local until `PrimitiveMarks.vue` extraction resolves mark API | gate-parked behind Mark Promotion Gate |
+| Mark drawings | Ordinal/glyph/stamp treatments lived inside the card specimen | Kept local to the card specimen until real card mark slots consume `Mark` | Card specimen-local |
 | Light inversion | Specimen showed a light card shell | Kept local because no real app need is proven | Taste Gate parked |
 
 Browser DOM proof, 2026-05-25:
@@ -119,6 +119,22 @@ Browser DOM proof, 2026-05-25:
 - Tone variants render for tomato, pine, plum, bone, and mustard; bone computes to the raised ink-3 surface.
 - Old local `.mark-tomato`, `.apply-btn`, and `.what` nodes render 0 nodes.
 - Three `.preset-row-demo` nodes remain as explicitly parked compound demos.
+
+## Slice Proof: Mark
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveMarks.vue` source behavior | Specimen owned raw SVG path data, mark families, tone classes, scale demos, and wire stroke treatment | Specimen imports `Mark`; source owns named glyph paths, tone axis, size, fill/wire treatment, and stroke behavior | pass for primitive specimen |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/Mark.vue` | pass |
+| Family staging | Family panels, local legends, and scale comparison wrappers lived beside glyph internals | Specimen keeps only family/legend/staging data around source `Mark` nodes | accepted keep-local |
+| Card mark drawings | Card specimen had ordinal/glyph/stamp demo drawings | Kept local to `PrimitiveCard.vue` until a real card-shell mark API is proven | Card specimen-local |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-marks.html` renders 31 `.mark` nodes from the source component.
+- Tone variants render for brass, tomato, pine, plum, and mustard; first brass mark computes to `rgb(224, 169, 58)`.
+- Exactly 1 `.mark--wire` node renders; its path uses `fill="none"`, `stroke="currentColor"`, `stroke-width="2.5"`, `stroke-linecap="butt"`, and `stroke-linejoin="miter"`.
+- Old local `.mark-hero`, `.family`, `.family-head`, `.shape-row`, `.treatments-grid`, `.scales-row`, `.treat-cell`, and `.scale-cell` nodes all render 0 nodes.
 
 ## Slice Proof: PatternCard
 

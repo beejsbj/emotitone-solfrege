@@ -24,14 +24,14 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Mark primitive | `PrimitiveMarks.vue` | `src/components/primatives/Mark.vue` | Stable flat SVG mark library with tone/size/treatment API | promoted 2026-05-25 |
 | Chip-slide tabs | `PrimitiveTabs.vue` | `src/components/primatives/ChipTabs.vue` | Stable rail/chip/streak mechanic with geometry/density/tone axes | promoted 2026-05-25 |
 | Shared knob anatomy | Analog/digital knob specimens | `src/components/primatives/Knob.vue` | Stable visual knob grammar shared by ring and arc specimens | promoted 2026-05-25 |
-| Key primitive family | `PrimitiveKeys.vue` | source component | Core music UI primitive | pending decisions |
+| Key primitive family | `PrimitiveKeys.vue` | `src/components/primatives/Key.vue` | Core music UI primitive with stable face/label/shape/state grammar | promoted 2026-05-25 |
 
 ## Prune / Replace With Existing
 
 | Item | Source | Replace with | Reason | Status |
 |---|---|---|---|---|
 | Duplicate specimen anatomy/variant chrome | Primitive/compound specimens | `AnatomyDisplay`, `VariantGrid`, `VariantCell` | Guide helpers already exist | pending per specimen |
-| Duplicate clip polygons | Buttons, keys, tabs | Existing `--clip-*` tokens where exact match | Avoid parallel geometry recipes | resolved for IconButton and ChipTabs; pending keys |
+| Duplicate clip polygons | Buttons, keys, tabs | Existing `--clip-*` tokens where exact match | Avoid parallel geometry recipes | resolved for IconButton, ChipTabs, and Key |
 | Local brass finish duplicates | Tabs/buttons/knobs where overlapping | Global brass grammar / brass tokens | Preserve one brass language | resolved for ChipTabs and Knob; token preview remains unaudited |
 | Lifted verbatim lower-layer CSS in compounds | Pattern card/reel | Source components | Doctrine says Vue should compose, not paraphrase | pending extraction |
 | Hardcoded `#0a0908` | Beat indicator, tabs | `var(--ink)` | Token exists | resolved for BeatIndicator and ChipTabs specimens; token demos not audited |
@@ -52,6 +52,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | SpineCard preset-row demo | `PrimitiveSpineCard.vue` | Parked compound/control-row specimen until the compound layer decides API | gate-parked |
 | ChipTabs explanatory grouping | `PrimitiveTabs.vue` | Anatomy, geometry, and density groupings document source behavior without owning it | accepted |
 | Knob specimen role groupings | `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue` | Role/treatment grids document source variants without owning knob internals | accepted |
+| Key specimen groupings | `PrimitiveKeys.vue` | Format, chromatic, state, cut, and proportion groupings document source variants without owning key internals | accepted |
 
 ## Needs User Decision
 
@@ -65,7 +66,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Code-strip boundary | Unique + compound files | Primitive, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: primitive |
 | Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | resolved: PatternCard owns shapes; PatternReel owns choreography |
 | Drawer primitives | `CompositionTopDrawer.vue` | Which controls are reusable versus drawer-private | Taxonomy Gate | pending |
-| Key geometry recipes | `PrimitiveKeys.vue` | Semantic aliases versus generic clip reuse; pill/tall/wide/squary names | Promotion Gate | pending |
+| Key geometry recipes | `PrimitiveKeys.vue` | Reuse generic clip tokens where exact; promote pill/tall/wide/squary as component variants | Promotion Gate | resolved |
 | Mark API | `PrimitiveMarks.vue` | `name`, `size`, `tone`, `treatment`; family remains specimen taxonomy | Promotion Gate | resolved |
 | Tabs timing and variants | `PrimitiveTabs.vue` | Reuse `--dur-ui`; source variant set is tab/offcut/tile/sharp/pill/rip plus ivory/brass tone | Promotion Gate | resolved |
 | Production knob alignment | `src/components/knobs/*` | Whether app controls should adopt the design-lab visual primitive | App Integration Gate | pending |
@@ -84,7 +85,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `UniqueCodeStrip.vue` / compounds | Music tokens exist, but code-strip token grammar was reused without a real layer | resolved for style-guide: `CodeStrip` source component owns notation row grammar and pattern compounds compose it. |
 | `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copied lower-layer internals | resolved: PatternCard and PatternReel source components own reusable compound grammar. |
 | `CompositionTopDrawer.vue` | Composition contains many local control primitives | Taxonomy audit after primitive closure. |
-| `PrimitiveKeys.vue` | Generic clips exist, but key-specific recipes are local | Promotion Gate before extraction. |
+| `PrimitiveKeys.vue` | Generic clips existed, but key-specific recipes were local | resolved for style-guide: `Key` source component owns face, label stack, format, cuts, proportions, pressed/disabled states, and sheen. |
 | `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing were local | resolved for style-guide: `ChipTabs` source component owns rail/chip/streak grammar, active chip measurement, geometry, density, tone, and selected/disabled state. |
 | `PrimitiveKnobsAnalog.vue` / `PrimitiveKnobsDigital.vue` | Generic tokens existed, but knob visual anatomy, label/footer frame, role variants, disabled/lit/played states, brass/ivory axis, spin motion, and SVG stroke grammar were duplicated locally | resolved for style-guide: `Knob` source component owns shared visual grammar for ring and arc variants. |
 
@@ -131,6 +132,10 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Knob SVG stroke grammar | promote into Knob | Digital arc stroke widths, butt caps, miter joins, and active value stroke now live in the source primitive | Promotion Gate 2026-05-25 |
 | Knob spin motion | promote once | Analog ring and digital arc button motion now share one source keyframe and reduced-motion rule | Promotion Gate 2026-05-25 |
 | Production knob controls | gate-park | Existing app controls under `src/components/knobs/` are behavior-heavy production inputs and were not rewritten in this style-guide slice | App Integration Gate parked |
+| Key source component | promote | Music key face has stable primitive anatomy and removed the final raw primitive specimen blocker | Promotion Gate 2026-05-25 |
+| Key clip geometry | prune/promote split | Strip/tile/squary/tall/wide reuse `--clip-tile`; offcut/tab reuse existing clip tokens; pill remains key-specific no-clip rounded variant | Promotion Gate 2026-05-25 |
+| Key chromatic aliases | prune stale specimen mapping | Ra/Me/Se/Le now map to `--note-ra`, `--note-me`, `--note-se`, and `--note-le`; legacy alias model stays parked behind music-color doctrine | Promotion Gate 2026-05-25 |
+| Key degree format | prune inaccurate doc claim | Source treats `degree` as supplied label text; old arabic+roman sub claim was removed from specimen copy | Promotion Gate 2026-05-25 |
 | IconButton source component | promote | `.ico`/`.ico-pair` grammar had stable source identity and was copied into pattern compounds | Promotion Gate 2026-05-25 |
 | IconButton offcut/tile polygons | prune to tokens | Source component uses existing `--clip-offcut` and `--clip-tile` instead of repeating polygons | Promotion Gate 2026-05-25 |
 | Pattern compound IconButton copies | prune | Pattern card/reel now compose `IconButton`; copied `.ico` CSS/markup classes removed | Promotion Gate 2026-05-25 |

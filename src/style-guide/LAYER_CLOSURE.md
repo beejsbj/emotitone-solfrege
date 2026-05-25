@@ -32,7 +32,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
 | raw recipes resolved or gate-parked | fail | Raw inventory exists, but many decisions pending | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
 | source of truth named | partial | Tokens/primitives/PatternCard compound/specimens named; uniques deferred | `REPOSITORY_CONVENTIONS.md` |
-| specimens demonstrate, not define | fail | Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, PatternCard, and PatternReel pass; key specimens still define component internals | `COVERAGE_AUDIT.md` |
+| specimens demonstrate, not define | partial | Current primitive specimens now import source components; uniques/compositions still need lower-layer audits | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
 
 ## Per-Layer Closure Proof
@@ -46,17 +46,17 @@ current recovery state across token, primitive, compound, unique, and compositio
 | naming rules documented | partial | CSS comments document groups; unresolved music/brass/type/brand semantics | `TOKEN_PROMOTION_AUDIT.md` |
 | allowed raw-value exceptions documented | fail | Not normalized yet | `RESIDUE_PROOF.md` |
 | token candidates from raw recipe inventory resolved | fail | Several token candidates pending | `RAW_RECIPE_INVENTORY.md` |
-| next layer has enough token vocabulary | partial | Enough for Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob; not enough for key closure | `PROMOTION_AUDIT.md` |
+| next layer has enough token vocabulary | partial | Enough for current primitive source components; wider token doctrine conflicts remain for music colors/type/brand semantics | `PROMOTION_AUDIT.md` |
 
 ### Primitive Closure
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| primitive families have anatomy | fail | Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob have anatomy; keys are raw specimens | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveCard.vue`, `PrimitiveButtons.vue`, `PrimitiveKicker.vue`, `PrimitiveSpineCard.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `UniqueCodeStrip.vue`, `COVERAGE_AUDIT.md` |
-| APIs, states, and variants are named | fail | BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob APIs are named; key APIs live only in specimen markup/CSS | `PROMOTION_AUDIT.md` |
+| primitive families have anatomy | partial | Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, and Key have anatomy; Sticker badge remains a variant/taxonomy decision | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveCard.vue`, `PrimitiveButtons.vue`, `PrimitiveKicker.vue`, `PrimitiveSpineCard.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveKeys.vue`, `UniqueCodeStrip.vue`, `COVERAGE_AUDIT.md` |
+| APIs, states, and variants are named | partial | Current primitive APIs are named; Sticker badge and wider token doctrine gates remain | `PROMOTION_AUDIT.md` |
 | token dependencies are named | partial | Audit names several dependencies | `TOKEN_PROMOTION_AUDIT.md` |
-| primitives consume tokens or approved lower-level constants | partial | Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob do; keys unproven | `Sticker.vue`, `BarTape.vue`, `BeatIndicator.vue`, `CardShell.vue`, `IconButton.vue`, `CodeStrip.vue`, `Kicker.vue`, `SpineCard.vue`, `Mark.vue`, `ChipTabs.vue`, `Knob.vue` |
-| specimens import/demonstrate primitive source files | fail | Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob do; keys do not yet | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveCard.vue`, `PrimitiveButtons.vue`, `PrimitiveKicker.vue`, `PrimitiveSpineCard.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `UniqueCodeStrip.vue` |
+| primitives consume tokens or approved lower-level constants | partial | Current source primitives do; music-color and doctrine gates remain for affected families | `Sticker.vue`, `BarTape.vue`, `BeatIndicator.vue`, `CardShell.vue`, `IconButton.vue`, `CodeStrip.vue`, `Kicker.vue`, `SpineCard.vue`, `Mark.vue`, `ChipTabs.vue`, `Knob.vue`, `Key.vue` |
+| specimens import/demonstrate primitive source files | pass | Current primitive specimens import source components; `UniqueCodeStrip.vue` is a legacy primitive specimen path that also imports source | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveCard.vue`, `PrimitiveButtons.vue`, `PrimitiveKicker.vue`, `PrimitiveSpineCard.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveKeys.vue`, `UniqueCodeStrip.vue` |
 
 ### Compound Closure
 
@@ -98,7 +98,8 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Mark primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | ChipTabs primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Knob primitive | promote | Source-first component extracted and analog/digital specimens import it | Promotion Gate |
-| Other primitive specimens | gate-parked | Need extraction or explicit keep-local decisions | Promotion Gate |
+| Key primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
+| Sticker badge | gate-parked | Existing source-first Sticker component contains unresolved badge variant/taxonomy | Promotion Gate |
 | Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
 | PatternReel compound | promote | Source-first component extracted and specimen imports it | Taxonomy + Promotion Gate |

@@ -111,9 +111,9 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Card shell has been promoted to a reusable container primitive.
   `src/components/primatives/CardShell.vue` owns the dark panel body, floating label, mark slot placement, heading/body typography, compact sizing, and border toggle. Demo ordinal/glyph/stamp drawings remain in `PrimitiveCard.vue` until the mark primitive is extracted.
 
-- `.key` should become a shared music-key primitive family.
-  `PrimitiveKeys.vue:297-511` defines the key face, syllable/degree/raw label stack, format modifiers, pressed/disabled states, and shape/cut variants. It already uses design-system tokens like `--shadow-key`, `--shadow-pressed`, `--dur-tap`, and `--ease-stab`.
-  Important correction: the key-specific geometry grammar is not fully promoted. Generic cuts such as tile/offcut/tab overlap existing clip tokens, but the key strip default, pill form, and tall/wide/squary proportion set still live in `PrimitiveKeys.vue`.
+- `.key` has become a shared music-key primitive family.
+  `src/components/primatives/Key.vue` owns the key face, syllable/degree/raw label stack, format modifiers, pressed/disabled states, sheen, and shape/cut variants. It uses design-system tokens like `--shadow-key`, `--shadow-pressed`, `--dur-tap`, and `--ease-stab`.
+  Generic cuts such as tile/offcut/tab use existing clip tokens. Key-specific pill/tall/wide/squary proportion recipes are promoted as component variants, not token aliases.
 
 - `.kicker` has been promoted to a real primitive.
   `src/components/primatives/Kicker.vue` owns dot + label anatomy, color/tone modifiers, density, dot-only/label-only forms, inverse treatment, and rectangular dot marks. The unused center/right alignment helpers were pruned.
@@ -142,7 +142,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Needs Decision
 
 - Music color source for `bar-tape` and `key`.
-  `BarTape.vue` and `PrimitiveKeys.vue:82-167` still use legacy `--note-*` aliases. The shared CSS says those aliases are temporary and points toward `.note + --note-degree/-octave`. BarTape intentionally stayed alias-based for this slice to preserve branch fidelity; decide whether future primitives become recipe-driven.
+  `BarTape.vue` and `Key.vue` still use legacy `--note-*` aliases. The shared CSS says those aliases are temporary and points toward `.note + --note-degree/-octave`. Both primitives intentionally stay alias-based for this branch while the computed `.note` migration remains a doctrine decision.
 
 - `bar-tape` major proportions conflict is resolved in the source component and pattern compounds.
   The earlier specimen described `2-2-1-2-2-2-1` but assigned `mi` wide and `fa` narrow. `BarTape.vue` now makes `mi` and `ti` narrow, matching the documented major interval recipe, and pattern compounds compose that source component.
@@ -153,11 +153,11 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Guide/spec typography is mono-heavy.
   The primitives use mono for anatomy labels/spec tables throughout, while `src/emotitone-design-system.css` says labels are Jazz and mono is the exception. Either bless guide/spec tables as a named mono exception or rename them away from label grammar.
 
-- `--clip-key-strip` versus `--clip-tile`.
-  `PrimitiveKeys.vue:190-192` proposes `--clip-key-strip`, while `PrimitiveKeys.vue:439-441` uses the same geometry as the existing `--clip-tile`. Decide whether semantic aliases are useful, or whether primitives should reuse the base clip token names directly.
+- `--clip-key-strip` versus `--clip-tile` is resolved for this branch.
+  `Key.vue` reuses `--clip-tile` for strip/default forms instead of adding a semantic alias.
 
-- Key geometry has more visual variety than the promoted generic clip tokens cover.
-  `PrimitiveKeys.vue:178-227` shows cut variants, while `PrimitiveKeys.vue:481-511` adds squary, wide, and tall shape variants. The promoted token layer has generic clip paths, but it does not yet name key-specific geometry recipes such as strip, pill, tall, wide, squary, or their paired label-size adjustments.
+- Key geometry has component-specific variants beyond generic clip tokens.
+  `Key.vue` promotes pill, tall, wide, and squary as source component variants with paired label-size adjustments. They are not new global clip tokens.
 
 - Kicker role boundary is resolved for this branch as a general marker.
   `Kicker.vue` supports brand tones plus brass, ivory, and open treatments. It is not limited to brand-color section dots.
@@ -186,13 +186,13 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Specimen-Only
 
 - Hero/stage wrappers should stay guide-only.
-  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, and `PrimitiveKeys.vue:513-531`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, and `PrimitiveKnobsDigital.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
+  Examples include `PrimitiveBarTape.vue` and `PrimitiveButtons.vue`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, and `PrimitiveKeys.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
 
 - Variant-card chrome and demo tilts are display scaffolding unless routed through the shared random geometry utility.
   Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, and unresolved key/mark-adjacent specimens. Knob specimen tile/tilt chrome was pruned into guide helpers plus `Knob` source frame anatomy.
 
 - Inline demo sizing/padding should stay local unless promoted into named variants.
-  `PrimitiveKeys.vue` has many specimen-only inline dimensions and demo paddings around lines `41`, `52`, `63`, `79-81`, `143`, `181`, `234`, and `268`.
+  `PrimitiveKeys.vue` no longer uses inline key dimensions or demo key paddings; key sizing now lives behind source `shape` variants.
 
 - Card inverted examples are specimen-only.
   `PrimitiveCard.vue` keeps a light inversion example in specimen-local CSS. The light inversion in particular should not be promoted unless the app needs a light card primitive.
@@ -205,9 +205,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 
 ## Primitive Inconsistencies
 
-- Button, key, and tab clip variants re-hardcode some polygons already tokenized.
-  `PrimitiveButtons.vue:522-528`, the generic key cuts in `PrimitiveKeys.vue:441-467`, and old tab chip CSS should use `--clip-offcut`, `--clip-tile`, `--clip-tab`, and `--clip-paper-rip` where those exact shapes match. `ChipTabs.vue` now does this for tabs.
-  This does not mean all key geometry is promoted; the key-specific strip/pill/proportion recipes above are still missing from the shared grammar.
+- Button, key, and tab clip variants reuse tokens where exact.
+  `ChipTabs.vue` and `Key.vue` now use existing clip tokens for exact matches; `IconButton.vue` already does this for offcut/tile. Key-specific pill/proportion recipes stay component-local.
 
 - Hardcoded ink appears where `var(--ink)` exists.
   `PrimitiveTabs.vue` now composes guide helpers and `ChipTabs`; its hardcoded `#0a0908` stage was removed. `PrimitiveBeatIndicator.vue` was resolved by composing guide helpers backed by `var(--ink)`.
@@ -221,14 +220,14 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - `.live` repeats inline positioning already handled by CSS.
   `PrimitiveBarTape.vue:14` repeats `position:relative`, while `.bar-tape.live` already sets `position: relative` at `PrimitiveBarTape.vue:216`.
 
-- Keys note mapping appears wrong.
-  `PrimitiveKeys.vue:74-79` says chromatic palette while comments mention seven diatonic seats, and `PrimitiveKeys.vue:89-133` maps several chromatic labels to the wrong base aliases: `Ra` uses `--note-re`, `Me` uses `--note-mi`, `Se` uses `--note-sol`, and `Le` uses `--note-la`.
+- Keys note mapping is corrected in the specimen data.
+  `PrimitiveKeys.vue` now demonstrates the full legacy chromatic alias set and maps Ra/Me/Se/Le to `--note-ra`, `--note-me`, `--note-se`, and `--note-le` through the `Key` source API.
 
-- Keys degree-format text does not match the implementation.
-  `PrimitiveKeys.vue:52-58` says arabic + roman sub, but `PrimitiveKeys.vue:352-359` renders roman-only values and `PrimitiveKeys.vue:419-421` leaves degree numeral toggles unimplemented.
+- Keys degree-format text now matches the implementation.
+  `Key.vue` treats `degree` as supplied label text and the specimen no longer claims an arabic+roman sub-rendering that does not exist.
 
-- Disabled naming and filters still diverge between keys and source knobs.
-  Keys use `.disabled` with `saturate(.12) brightness(.45)` at `PrimitiveKeys.vue:429-431`; `Knob.vue` uses `disabled` prop and `.knob-primitive--disabled` with `saturate(.1) brightness(.55)`.
+- Disabled naming and filters are source-owned per primitive.
+  `Key.vue` uses a `disabled` prop and `.key-face--disabled`; `Knob.vue` uses a `disabled` prop and `.knob-primitive--disabled`. Filter values remain component-specific visual recipes.
 
 - Digital knob played selector is fixed in source.
   `Knob.vue` uses same-element `.knob-primitive--arc.knob-primitive--played` selectors, so the old descendant mismatch is removed.

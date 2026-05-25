@@ -39,10 +39,11 @@ Date: 2026-05-24
 | `src/components/primatives/Knob.vue` | Extracted primitive | primitives | yes | promote | Source-first component for analog ring and digital arc visuals, role variants, label/footer frame, brass/ivory tone, disabled/played/lit states, SVG stroke grammar, and button motion. |
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | Primitive specimen | primitives | no | keep local | Imports `Knob.vue` with ring visual; keeps role/treatment grouping local. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | Primitive specimen | primitives | no | keep local | Imports `Knob.vue` with arc visual; keeps role/treatment grouping local. |
+| `src/components/primatives/Key.vue` | Extracted primitive | primitives | yes | promote | Source-first component for music key face, legacy note alias fill, label stack, format axis, cuts, proportions, pressed/disabled states, and sheen. |
+| `src/style-guide/primatives/PrimitiveKeys.vue` | Primitive specimen | primitives | no | keep local | Imports `Key.vue`; keeps chromatic, format, state, cut, and proportion grouping local. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
-| `src/style-guide/primatives/PrimitiveKeys.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mapping/geometry/format gates. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | Compound specimen | compounds | no | keep local | Imports `PatternCard.vue`; specimen staging only. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | Compound specimen | compounds | no | keep local | Imports `PatternReel.vue`; specimen data and variant staging only. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
@@ -54,7 +55,7 @@ Date: 2026-05-24
 
 ## Coverage Gaps
 
-- No source component yet for key primitive specimens; Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob are extracted.
+- Primitive source components are extracted for current style-guide primitive specimens; higher unique/composition audits remain.
 - Reusable compound source location is established for `PatternCard`; no reusable unique source location is established yet.
 - Compound source path is now established for `PatternCard`; unique source path remains deferred.
 - No layer has closure proof yet.

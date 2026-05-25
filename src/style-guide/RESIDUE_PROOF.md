@@ -13,10 +13,10 @@ Initial scaffold only. Residue is not cleared.
 | Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/emotitone-design-system.css` | not yet run for closure | pending |
 | Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
 | Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/key conflicts; tabs and knobs resolved in source slices | Promotion Gate |
-| Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
+| Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton, ChipTabs, and Key use existing tokens for exact matches | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob pass; key specimens still define behavior | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | current primitive specimens import source components | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
@@ -172,6 +172,25 @@ Browser DOM proof, 2026-05-25:
 - Old local `.knob`, `.ring`, `.trk`, `.knob-tile`, `.knob-label`, `.knob-foot`, and `.seg-rotate` families render 0 nodes in both frames.
 - Digital value tracks compute to `stroke-width: 8px`, `stroke-linecap: butt`, and `stroke-linejoin: miter`.
 - Analog hero ring computes the brass conic sweep from source CSS; digital button motion computes to the source `knob-spin360` keyframe.
+
+## Slice Proof: Key
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveKeys.vue` source behavior | Specimen owned `.key`, label stack, format modifiers, pressed/disabled states, cut/shape variants, clip polygons, and sheen | Specimen imports `Key`; source owns face, note alias fill, label stack, format axis, states, cuts, proportions, and sheen | pass for primitive specimen |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/Key.vue` | pass |
+| Clip polygons | Key specimen repeated tile/offcut/tab polygons and proposed `--clip-key-strip` alias | Source reuses `--clip-tile`, `--clip-offcut`, and `--clip-tab`; pill remains no-clip radius variant | pass |
+| Chromatic mapping | Specimen mapped Ra/Me/Se/Le to stale base aliases | Specimen data uses corrected legacy aliases through `Key` note prop | pass for branch; computed `.note` migration parked |
+| Degree format claim | Specimen claimed arabic + roman sub while rendering roman-only values | Source treats degree as supplied label text; inaccurate claim removed | pass |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-keys.html` renders 28 `.key-face` nodes from the source component, each with source syllable, degree, and raw label nodes.
+- Format variants render 1 syllable-hero, 1 raw-hero, and 26 degree-hero keys.
+- Shape variants render strip, tile, offcut, tab, pill, tall, squary, wide, and hero source classes.
+- Old local `.key`, `.k-syll`, `.k-deg`, `.k-raw`, `.fmt-row`, `.var-cell`, and `.section-head` families all render 0 nodes.
+- Corrected Ra, Me, Se, and Le aliases compute to distinct legacy note colors instead of stale base-note aliases.
+- Offcut and tab keys compute to existing token clip polygons; pressed computes to `translateY(1px)` and disabled computes to `saturate(0.12) brightness(0.45)`.
 
 ## Slice Proof: PatternCard
 

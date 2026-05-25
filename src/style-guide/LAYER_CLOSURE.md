@@ -63,9 +63,9 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
 | child primitive dependencies are explicit | partial | PatternCard names BarTape, IconButton, and CodeStrip; other compounds not closed | `PatternCard.vue`, `COVERAGE_AUDIT.md` |
-| slot contracts are explicit | partial | PatternCard prop contract exists; PatternReel reusable contract not extracted | `PatternCard.vue`, `CompoundPatternReel.vue` |
-| compounds compose children instead of duplicating internals | fail | PatternCard composes children and PatternReel composes PatternCard; PatternReel choreography remains local | `RESIDUE_PROOF.md` |
-| repeated child patterns are promoted or gate-parked | partial | PatternCard promoted; PatternReel choreography gate-parked | `PROMOTION_AUDIT.md` |
+| slot contracts are explicit | partial | PatternCard and PatternReel prop contracts exist; other compounds not audited | `PatternCard.vue`, `PatternReel.vue` |
+| compounds compose children instead of duplicating internals | partial | PatternCard composes children and PatternReel composes PatternCard; other compounds not audited | `RESIDUE_PROOF.md` |
+| repeated child patterns are promoted or gate-parked | partial | PatternCard and PatternReel promoted | `PROMOTION_AUDIT.md` |
 
 ### Unique Closure
 
@@ -94,7 +94,8 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Other primitive specimens | gate-parked | Need extraction or explicit keep-local decisions | Promotion Gate |
 | Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
-| Compound pattern artifacts | gate-parked | PatternCard dependency resolved; PatternReel choreography still depends on reusable-boundary decision | Taxonomy Gate |
+| PatternReel compound | promote | Source-first component extracted and specimen imports it | Taxonomy + Promotion Gate |
+| Compound pattern artifacts | promote | PatternCard and PatternReel boundaries resolved for current pattern family | Taxonomy Gate |
 | Composition artifacts | gate-parked | Depend on lower-layer closure and residue proof | Composition Gate |
 
 ## Gate-Parked Decisions

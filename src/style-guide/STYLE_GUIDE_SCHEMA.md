@@ -25,10 +25,11 @@ Date: 2026-05-24
 - Source of truth path: `src/components/compounds/`.
 - Extracted source components:
   - `src/components/compounds/PatternCard.vue`
+  - `src/components/compounds/PatternReel.vue`
 - Current specimens:
   - `src/style-guide/compounds/CompoundPatternCard.vue`
   - `src/style-guide/compounds/CompoundPatternReel.vue`
-- Status: `PatternCard` is source-first and composes `BarTape`, `IconButton`, and `CodeStrip`. `CompoundPatternReel.vue` composes `PatternCard` and keeps reel-only stack depth / click-promotion choreography local until a later gate decides whether `PatternReel` needs its own source component.
+- Status: `PatternCard` and `PatternReel` are source-first. `PatternCard` composes `BarTape`, `IconButton`, and `CodeStrip`; `PatternReel` composes `PatternCard` and owns stack depth / click-promotion choreography.
 
 ## Uniques
 
@@ -75,6 +76,7 @@ Date: 2026-05-24
 | `src/components/primatives/IconButton.vue` | primitive | yes | promote | Owns icon-only control size, geometry, tone, simulated states, disabled, pressed, and brass treatments. |
 | `src/components/primatives/CodeStrip.vue` | primitive | yes | promote | Owns notation row, note glyph modes, rests, durations, grouping, lit state, density, and wrapping. |
 | `src/components/compounds/PatternCard.vue` | compound | yes | promote | Owns sleek/active pattern card anatomy and composes BarTape, IconButton, and CodeStrip. |
+| `src/components/compounds/PatternReel.vue` | compound | yes | promote | Owns stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | primitive candidate/specimen | no | unresolved | Needs extraction and beat keyframe decision. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | primitive specimen | no | keep local | Imports and inspects `IconButton.vue`; paired-control wrappers remain specimen-only. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | primitive candidate/specimen | no | unresolved | Needs card shell primitive boundary. |
@@ -86,7 +88,7 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive/compound candidate specimen | no | unresolved | `preset-row` may be compound. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | primitive candidate/specimen | no | unresolved | Needs timing and variant cleanup. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | keep local | Imports and inspects `PatternCard.vue`. |
-| `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | unresolved | Composes `PatternCard`; reel stack/promotion choreography remains local pending PatternReel boundary gate. |
+| `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | keep local | Imports and inspects `PatternReel.vue`. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | legacy primitive specimen path | no | keep local | Imports and inspects `CodeStrip.vue`; file location/name remains a later organization gate. |
 | `src/style-guide/uniques/*.vue` | unique specimen | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/compositions/*.vue` | composition specimen | no | unresolved | Needs lower-layer residue proof. |

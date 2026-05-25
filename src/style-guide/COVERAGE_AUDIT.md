@@ -25,6 +25,7 @@ Date: 2026-05-24
 | `src/components/primatives/IconButton.vue` | Extracted primitive | primitives | yes | promote | Source-first component for icon-only controls, geometry, tone, state, pressed, disabled, and brass treatments. |
 | `src/components/primatives/CodeStrip.vue` | Extracted primitive | primitives | yes | promote | Source-first component for notation row, glyph modes, durations, rests, grouping, lit state, density, and wrapping. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
+| `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | Raw primitive specimen | primitives | no | unresolved | Needs beat primitive extraction. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | Raw primitive specimen | primitives | no | unresolved | Needs card shell extraction. |
@@ -36,7 +37,7 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | Raw primitive/compound specimen | primitives/compounds | no | unresolved | Needs spine-card versus preset-row split. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | Raw primitive specimen | primitives | no | unresolved | Needs chip-slide tab extraction. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | Compound specimen | compounds | no | keep local | Imports `PatternCard.vue`; specimen staging only. |
-| `src/style-guide/compounds/CompoundPatternReel.vue` | Raw compound specimen | compounds | no | unresolved | Composes `PatternCard` and uses Vue state; reel stack/promotion behavior still local. |
+| `src/style-guide/compounds/CompoundPatternReel.vue` | Compound specimen | compounds | no | keep local | Imports `PatternReel.vue`; specimen data and variant staging only. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | Legacy primitive specimen path | primitives/specimen | no | keep local | Imports `CodeStrip.vue`; path remains under uniques until navigation/file organization gate. |

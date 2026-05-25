@@ -34,13 +34,14 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | Primitive specimen plus parked compound demo | primitives/compounds | no | keep local / gate-park | Imports `SpineCard.vue`; preset-row demo is parked as compound candidate. |
 | `src/components/primatives/Mark.vue` | Extracted primitive | primitives | yes | promote | Source-first component for flat SVG mark paths, named glyph API, tone, size, and fill/wire treatment. |
 | `src/style-guide/primatives/PrimitiveMarks.vue` | Primitive specimen | primitives | no | keep local | Imports `Mark.vue`; family panels, legends, and scale/treatment staging remain local. |
+| `src/components/primatives/ChipTabs.vue` | Extracted primitive | primitives | yes | promote | Source-first component for chip-slide rail, streak, active chip, selected/disabled state, geometry, density, and ivory/brass tone. |
+| `src/style-guide/primatives/PrimitiveTabs.vue` | Primitive specimen | primitives | no | keep local | Imports `ChipTabs.vue`; keeps anatomy/variant/density explanation local. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
 | `src/style-guide/primatives/PrimitiveKeys.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mapping/geometry/format gates. |
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | Raw primitive specimen | primitives | no | unresolved | Needs shared knob anatomy. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | Raw primitive specimen | primitives | no | unresolved | Needs shared knob/stroke/glow decisions. |
-| `src/style-guide/primatives/PrimitiveTabs.vue` | Raw primitive specimen | primitives | no | unresolved | Needs chip-slide tab extraction. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | Compound specimen | compounds | no | keep local | Imports `PatternCard.vue`; specimen staging only. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | Compound specimen | compounds | no | keep local | Imports `PatternReel.vue`; specimen data and variant staging only. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
@@ -52,7 +53,7 @@ Date: 2026-05-24
 
 ## Coverage Gaps
 
-- No source components yet for most primitive specimens; Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, and Mark are extracted.
+- No source components yet for key and knob primitive specimens; Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, and ChipTabs are extracted.
 - Reusable compound source location is established for `PatternCard`; no reusable unique source location is established yet.
 - Compound source path is now established for `PatternCard`; unique source path remains deferred.
 - No layer has closure proof yet.

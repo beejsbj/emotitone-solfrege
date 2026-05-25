@@ -16,7 +16,7 @@ Initial scaffold only. Residue is not cleared.
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, and SpineCard pass; other primitive specimens still define behavior | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, and ChipTabs pass; key/knob specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
@@ -135,6 +135,24 @@ Browser DOM proof, 2026-05-25:
 - Tone variants render for brass, tomato, pine, plum, and mustard; first brass mark computes to `rgb(224, 169, 58)`.
 - Exactly 1 `.mark--wire` node renders; its path uses `fill="none"`, `stroke="currentColor"`, `stroke-width="2.5"`, `stroke-linecap="butt"`, and `stroke-linejoin="miter"`.
 - Old local `.mark-hero`, `.family`, `.family-head`, `.shape-row`, `.treatments-grid`, `.scales-row`, `.treat-cell`, and `.scale-cell` nodes all render 0 nodes.
+
+## Slice Proof: ChipTabs
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveTabs.vue` source behavior | Specimen owned `.p5-tabs`, `.active-chip`, `.streak`, JS measurement, selected state, density, chip geometry, and brass chip CSS | Specimen imports `ChipTabs`; source owns rail/chip/streak, measurement, selected/disabled state, geometry, density, and tone | pass for primitive specimen |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/ChipTabs.vue` | pass |
+| Duplicate clip polygons | Tab specimen repeated tab/offcut/tile/rip polygons | Source uses `--clip-tab`, `--clip-offcut`, `--clip-tile`, and `--clip-paper-rip` | pass for tabs; keys still pending |
+| Timing recipe | Tab specimen used local 320ms chip motion and 220ms smear | Source uses `--dur-ui` with `--ease-swing`; smear uses the same UI-duration window | pass |
+| App tabs provider overlap | Existing `src/components/ui/Tabs*` are generic app tab providers | `ChipTabs` is intentionally a visual/mechanical primitive, not a provider replacement | app alignment remains separate |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-tabs.html` renders 10 `.chip-tabs` nodes, 10 `.chip-tabs__chip` nodes, 10 `.chip-tabs__streak` nodes, and 34 `.chip-tabs__button` nodes from the source component.
+- Density and tone variants render 1 compact rail, 1 brass rail, and 1 disabled source button.
+- The old local `.p5-tabs`, `.active-chip`, `.js-chip-tabs`, `.state-tab`, `.section-head`, and `.vt-cell` families all render 0 nodes.
+- Computed chip clips come from token polygons for tab, offcut, and paper-rip variants; the brass chip computes to the global brass gradient.
+- The hero chip moved from `left: 6.82942px` to `left: 80.7292px` after clicking the second tab, and that tab's `aria-selected` changed to `true`.
 
 ## Slice Proof: PatternCard
 

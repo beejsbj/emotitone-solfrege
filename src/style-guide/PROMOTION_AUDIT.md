@@ -22,20 +22,19 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Kicker marker primitive | `PrimitiveKicker.vue` | `src/components/primatives/Kicker.vue` | Stable dot+label marker with tone/form axes | promoted 2026-05-25 |
 | Spine card primitive | `PrimitiveSpineCard.vue` | `src/components/primatives/SpineCard.vue` | Stable brand spine panel using Kicker child | promoted 2026-05-25 |
 | Mark primitive | `PrimitiveMarks.vue` | `src/components/primatives/Mark.vue` | Stable flat SVG mark library with tone/size/treatment API | promoted 2026-05-25 |
+| Chip-slide tabs | `PrimitiveTabs.vue` | `src/components/primatives/ChipTabs.vue` | Stable rail/chip/streak mechanic with geometry/density/tone axes | promoted 2026-05-25 |
 | Key primitive family | `PrimitiveKeys.vue` | source component | Core music UI primitive | pending decisions |
 | Shared knob anatomy | Analog/digital knob specimens | source component family | Repeated label/tile/role/state grammar | pending decisions |
-| Mark primitive | `PrimitiveMarks.vue` | `src/components/primatives/Mark.vue` | Repeated SVG/treatment/scale grammar | promoted 2026-05-25 |
-| Chip-slide tabs | `PrimitiveTabs.vue` | source component or app `Tabs*` alignment | Stable tab rail/chip motion grammar | pending decisions |
 
 ## Prune / Replace With Existing
 
 | Item | Source | Replace with | Reason | Status |
 |---|---|---|---|---|
 | Duplicate specimen anatomy/variant chrome | Primitive/compound specimens | `AnatomyDisplay`, `VariantGrid`, `VariantCell` | Guide helpers already exist | pending per specimen |
-| Duplicate clip polygons | Buttons, keys, tabs | Existing `--clip-*` tokens where exact match | Avoid parallel geometry recipes | resolved for IconButton offcut/tile; pending elsewhere |
-| Local brass finish duplicates | Tabs/buttons/knobs where overlapping | Global brass grammar / brass tokens | Preserve one brass language | pending Promotion Gate |
+| Duplicate clip polygons | Buttons, keys, tabs | Existing `--clip-*` tokens where exact match | Avoid parallel geometry recipes | resolved for IconButton and ChipTabs; pending keys |
+| Local brass finish duplicates | Tabs/buttons/knobs where overlapping | Global brass grammar / brass tokens | Preserve one brass language | resolved for ChipTabs active chip; pending knobs |
 | Lifted verbatim lower-layer CSS in compounds | Pattern card/reel | Source components | Doctrine says Vue should compose, not paraphrase | pending extraction |
-| Hardcoded `#0a0908` | Beat indicator, tabs | `var(--ink)` | Token exists | resolved for BeatIndicator specimen; pending tabs/token demos |
+| Hardcoded `#0a0908` | Beat indicator, tabs | `var(--ink)` | Token exists | resolved for BeatIndicator and ChipTabs specimens; token demos not audited |
 | Undefined `--font-body` | `PrimitiveCard.vue` | `--t-body-s` | Current token does not exist | resolved for CardShell specimen |
 
 ## Keep Local
@@ -51,6 +50,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Drawer fake app content | `CompositionTopDrawer.vue` | Proof context, not automatically primitive grammar | pending composition audit |
 | Kicker specimen grid/staging | `PrimitiveKicker.vue` | Guide-only inspection layout | accepted |
 | SpineCard preset-row demo | `PrimitiveSpineCard.vue` | Parked compound/control-row specimen until the compound layer decides API | gate-parked |
+| ChipTabs explanatory grouping | `PrimitiveTabs.vue` | Anatomy, geometry, and density groupings document source behavior without owning it | accepted |
 
 ## Needs User Decision
 
@@ -66,7 +66,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Drawer primitives | `CompositionTopDrawer.vue` | Which controls are reusable versus drawer-private | Taxonomy Gate | pending |
 | Key geometry recipes | `PrimitiveKeys.vue` | Semantic aliases versus generic clip reuse; pill/tall/wide/squary names | Promotion Gate | pending |
 | Mark API | `PrimitiveMarks.vue` | `name`, `size`, `tone`, `treatment`; family remains specimen taxonomy | Promotion Gate | resolved |
-| Tabs timing and variants | `PrimitiveTabs.vue` | Add `--dur-chip` or reuse existing duration; final variant set | Promotion Gate | pending |
+| Tabs timing and variants | `PrimitiveTabs.vue` | Reuse `--dur-ui`; source variant set is tab/offcut/tile/sharp/pill/rip plus ivory/brass tone | Promotion Gate | resolved |
 
 ## Recipe Gaps
 
@@ -83,7 +83,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copied lower-layer internals | resolved: PatternCard and PatternReel source components own reusable compound grammar. |
 | `CompositionTopDrawer.vue` | Composition contains many local control primitives | Taxonomy audit after primitive closure. |
 | `PrimitiveKeys.vue` | Generic clips exist, but key-specific recipes are local | Promotion Gate before extraction. |
-| `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing are local | Promotion Gate before extraction. |
+| `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing were local | resolved for style-guide: `ChipTabs` source component owns rail/chip/streak grammar, active chip measurement, geometry, density, tone, and selected/disabled state. |
 
 ## Gate-Parked Decisions
 
@@ -119,6 +119,10 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Mark API | promote `name`/`tone`/`size`/`treatment` | `family` is documentation grouping, while runtime usage needs glyph name plus visual treatment | Promotion Gate 2026-05-25 |
 | Mark family panels and legends | keep local | Inspection grouping/staging, not source component behavior | Promotion Gate 2026-05-25 |
 | Mark wire stroke grammar | promote | Source wire treatment uses butt caps, miter joins, and token color via `currentColor` | Promotion Gate 2026-05-25 |
+| ChipTabs source component | promote | Chip-slide has stable primitive anatomy independent of the specimen page and separate from generic app tabs providers | Promotion Gate 2026-05-25 |
+| ChipTabs timing | prune to existing token | Source uses `--dur-ui` for chip selection instead of adding a one-off `--dur-chip`; transient smear keeps the existing 220ms UI timing | Promotion Gate 2026-05-25 |
+| ChipTabs geometry polygons | prune to tokens | Source uses `--clip-tab`, `--clip-offcut`, `--clip-tile`, and `--clip-paper-rip`; sharp/pill are named no-clip variants | Promotion Gate 2026-05-25 |
+| ChipTabs brass treatment | promote as component tone | Source uses the global brass utility/tokens for the active chip, preserving brass as the one lit signal | Promotion Gate 2026-05-25 |
 | IconButton source component | promote | `.ico`/`.ico-pair` grammar had stable source identity and was copied into pattern compounds | Promotion Gate 2026-05-25 |
 | IconButton offcut/tile polygons | prune to tokens | Source component uses existing `--clip-offcut` and `--clip-tile` instead of repeating polygons | Promotion Gate 2026-05-25 |
 | Pattern compound IconButton copies | prune | Pattern card/reel now compose `IconButton`; copied `.ico` CSS/markup classes removed | Promotion Gate 2026-05-25 |

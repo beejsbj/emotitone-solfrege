@@ -130,8 +130,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - `spine-card` has been promoted to a real primitive.
   `src/components/primatives/SpineCard.vue` owns the shell, colored spine, matching Kicker child, stamp, body copy, compact mode, and brand-color modifiers. This directly matches the brand-token rule that brand color appears as decorative artifact rather than whole-surface replacement.
 
-- `p5-tabs` / chip-slide tabs should become a token-backed tabs primitive.
-  `PrimitiveTabs.vue:352-479` defines rail, streak, chip, tab buttons, density, chip geometry, and brass chip finish. The mechanics already map to global clip, motion, and brass tokens, but are still trapped in the specimen.
+- `p5-tabs` / chip-slide tabs have become a token-backed tabs primitive.
+  `src/components/primatives/ChipTabs.vue` now owns rail, streak, active chip measurement, tab buttons, density, chip geometry, selected/disabled state, and brass chip tone. The source uses global clip, motion, and brass tokens instead of keeping the recipe trapped in `PrimitiveTabs.vue`.
 
 - Sticker color vocabulary should be shared as a TS constant/map.
   `PrimitiveSticker.vue:51-64` repeats the color list that `Sticker.vue` also carries as a prop union and CSS modifier set. This should become a single exported color vocabulary when more primitives use the same color prop.
@@ -178,15 +178,15 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   Runtime API is `name`, `size`, `tone`, and `treatment`. `family` remains specimen taxonomy because it groups marks for inspection rather than changing render behavior.
 
 - Tabs timing needs a token decision.
-  `PrimitiveTabs.vue:69-82` describes `320ms` chip motion and `220ms` smear, the JS removes smear after `220`, and `PrimitiveTabs.vue:387-390` uses `320ms`. Global durations are `--dur-ui: 220ms` and `--dur-panel: 360ms`. Decide whether tabs need a new `--dur-chip` or should snap to an existing duration.
+  `ChipTabs.vue` resolves this slice by using `--dur-ui` with `--ease-swing` for chip selection and the same 220ms window for transient smear. No `--dur-chip` token was added.
 
 - Tab variant naming needs cleanup.
-  Template variants are tab/offcut/tile/sharp/rip/brass in `PrimitiveTabs.vue:123-205`, while CSS also defines unused `.chip-pill` at `PrimitiveTabs.vue:421-426`. Decide the actual variant set before extracting `Tabs`.
+  Source variants are `tab`, `offcut`, `tile`, `sharp`, `pill`, and `rip`, with brass handled as a tone axis rather than a geometry. The specimen demonstrates the active set through `ChipTabs`.
 
 ## Primitive Specimen-Only
 
 - Hero/stage wrappers should stay guide-only.
-  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKnobsAnalog.vue:163-195`, `PrimitiveKnobsDigital.vue:246-278`, and `PrimitiveTabs.vue:121-211`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, and `PrimitiveMarks.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
+  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKnobsAnalog.vue:163-195`, and `PrimitiveKnobsDigital.vue:246-278`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, `PrimitiveMarks.vue`, and `PrimitiveTabs.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
 
 - Variant-card chrome and demo tilts are display scaffolding unless routed through the shared random geometry utility.
   Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, `PrimitiveKnobsAnalog.vue:197-201`, `PrimitiveKnobsDigital.vue:280-284`, and unresolved tab/knob/mark-adjacent specimens.
@@ -201,16 +201,16 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   Family headings, legends, treatment grids, and scale grids in `PrimitiveMarks.vue` are display machinery around `Mark`, not source component behavior.
 
 - Tabs state specimens are documentation, not the tab primitive.
-  `PrimitiveTabs.vue:88-117` and `PrimitiveTabs.vue:527-558` show state-button examples. They should not be mixed into the chip-slide tab component.
+  Previous state-button examples were pruned from the specimen. `ChipTabs.vue` owns real selected and disabled tab states; standalone face-state cards are no longer a separate local recipe.
 
 ## Primitive Inconsistencies
 
 - Button, key, and tab clip variants re-hardcode some polygons already tokenized.
-  `PrimitiveButtons.vue:522-528`, the generic key cuts in `PrimitiveKeys.vue:441-467`, and `PrimitiveTabs.vue:386-436` should use `--clip-offcut`, `--clip-tile`, `--clip-tab`, and `--clip-paper-rip` where those exact shapes match.
+  `PrimitiveButtons.vue:522-528`, the generic key cuts in `PrimitiveKeys.vue:441-467`, and old tab chip CSS should use `--clip-offcut`, `--clip-tile`, `--clip-tab`, and `--clip-paper-rip` where those exact shapes match. `ChipTabs.vue` now does this for tabs.
   This does not mean all key geometry is promoted; the key-specific strip/pill/proportion recipes above are still missing from the shared grammar.
 
 - Hardcoded ink appears where `var(--ink)` exists.
-  `PrimitiveTabs.vue:342-345` still uses `#0a0908`. `PrimitiveBeatIndicator.vue` was resolved by composing guide helpers backed by `var(--ink)`.
+  `PrimitiveTabs.vue` now composes guide helpers and `ChipTabs`; its hardcoded `#0a0908` stage was removed. `PrimitiveBeatIndicator.vue` was resolved by composing guide helpers backed by `var(--ink)`.
 
 - Card shell no longer uses undefined `--font-body`.
   `CardShell.vue` and the remaining specimen-local inversion use `--t-body-s`; the old `var(--font-body)` references were pruned.
@@ -240,7 +240,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   `Kicker.vue` does not carry center/right alignment helpers because the specimen did not use them.
 
 - Tabs duplicate brass finish instead of using the global `.brass` grammar.
-  `PrimitiveTabs.vue:433-457` locally recreates brass fill, sheen, shadow, and animation that overlaps global `.brass` in `src/emotitone-design-system.css`.
+  `ChipTabs.vue` uses the global `.brass` utility on the active chip and brass tokens for the component-specific active surface shadow. Knob brass remains unaudited.
 
 - Brand danger semantics remain split.
   Shared CSS says brand colors are decorative-only, but also aliases `--danger` to tomato. `SpineCard.vue` preserves the tomato example content through the specimen, but the semantic decision still needs doctrine work rather than another token alias.

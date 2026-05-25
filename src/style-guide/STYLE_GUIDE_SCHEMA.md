@@ -23,7 +23,7 @@ Date: 2026-05-24
 - Current specimens:
   - `src/style-guide/compounds/CompoundPatternCard.vue`
   - `src/style-guide/compounds/CompoundPatternReel.vue`
-- Status: preview/specimen layer only. They currently copy stack-card, active-card, icon-button, bar-tape, and code-strip grammar instead of composing lower layers.
+- Status: preview/specimen layer only. They now compose `BarTape`, but still copy stack-card, active-card, icon-button, and code-strip grammar instead of composing named lower layers.
 
 ## Uniques
 
@@ -77,7 +77,7 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveMarks.vue` | primitive candidate/specimen | no | unresolved | Needs mark API before extraction. |
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive/compound candidate specimen | no | unresolved | `preset-row` may be compound. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | primitive candidate/specimen | no | unresolved | Needs timing and variant cleanup. |
-| `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | unresolved | Copies lower-layer grammar; depends on BarTape/IconButton/CodeStrip decisions. |
+| `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | unresolved | Composes BarTape; still depends on IconButton/CodeStrip/pattern-card boundary decisions. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | unresolved | Adds stack/promote behavior; depends on PatternCard boundary. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | unique? | no | unresolved | Reused enough to require Taxonomy Gate. |
 | `src/style-guide/uniques/*.vue` | unique specimen | no | unresolved | Needs singular-role justification. |

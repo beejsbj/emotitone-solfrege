@@ -1,8 +1,8 @@
 <template>
   <div :class="barTapeClasses" :aria-label="ariaLabel">
     <span
-      v-for="segment in renderedSegments"
-      :key="segment.note"
+      v-for="(segment, segmentIndex) in renderedSegments"
+      :key="`${segment.note}-${segmentIndex}`"
       :class="segmentClasses(segment)"
       :style="segmentStyle(segment)"
       aria-hidden="true"

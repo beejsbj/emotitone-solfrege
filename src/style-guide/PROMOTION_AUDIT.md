@@ -64,7 +64,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 
 | Artifact | Gap | Resolution Path |
 |---|---|---|
-| `PrimitiveBarTape.vue` / compounds | Generic music colors exist, but segment/proportion/playhead/downbeat grammar was local and duplicated | Source primitive extracted; compounds still need to compose it. |
+| `PrimitiveBarTape.vue` / compounds | Generic music colors exist, but segment/proportion/playhead/downbeat grammar was local and duplicated | resolved for BarTape: primitive specimen and pattern compounds compose source component. |
 | `PrimitiveButtons.vue` / compounds | Clip/duration tokens exist, but button geometry/state/brass grammar is local and copied | Align with app `IconButton` or extract new primitive. |
 | `UniqueCodeStrip.vue` / compounds | Music tokens exist, but code-strip token grammar is reused without a real layer | Taxonomy Gate, then extract or keep pattern-local. |
 | `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copies lower-layer internals | Extract lower primitives first, then pattern-card/reel. |
@@ -86,3 +86,4 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | BarTape major proportions | promote corrected ratio | Documented ratio is `2-2-1-2-2-2-1`; source component makes `mi` and `ti` narrow | Promotion Gate 2026-05-24 |
 | BarTape music colors | keep current legacy aliases for now | Preserves branch fidelity while `.note` migration remains a wider doctrine decision | Promotion Gate 2026-05-24 |
 | BarTape specimen panel/ticks | keep local | Contextual inspection staging, not reusable strip grammar | Promotion Gate 2026-05-24 |
+| Pattern compound BarTape copies | prune | Compound specimens now compose `BarTape`; copied `.bar-tape` CSS/markup removed | Promotion Gate 2026-05-25 |

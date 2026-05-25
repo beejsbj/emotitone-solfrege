@@ -21,16 +21,7 @@
               <span class="when">2d ago</span>
             </div>
             <!-- bar-tape as footer strip, under the content row -->
-            <div class="bar-tape equal" aria-hidden="true">
-              <span class="re"></span>
-              <span class="mi"></span>
-              <span class="do"></span>
-              <span class="fa"></span>
-              <span class="re"></span>
-              <span class="la"></span>
-              <span class="mi"></span>
-              <span class="ti"></span>
-            </div>
+            <BarTape mode="equal" frame="flush" :segments="glassBellTape" />
           </button>
 
           <!-- Shape 2: Expanded / active -->
@@ -111,16 +102,7 @@
               </span>
               <span class="when">5h ago</span>
             </div>
-            <div class="bar-tape equal" aria-hidden="true">
-              <span class="sol"></span>
-              <span class="la"></span>
-              <span class="ti"></span>
-              <span class="sol"></span>
-              <span class="la"></span>
-              <span class="do"></span>
-              <span class="re"></span>
-              <span class="mi"></span>
-            </div>
+            <BarTape mode="equal" frame="flush" :segments="lateNightTape" />
           </button>
           <div class="shape-label">Sleek &middot; inactive</div>
         </div>
@@ -182,6 +164,33 @@
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+import BarTape from "../../components/primatives/BarTape.vue";
+import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
+
+const glassBellTape: BarTapeSegment[] = [
+  { note: "re" },
+  { note: "mi" },
+  { note: "do" },
+  { note: "fa" },
+  { note: "re" },
+  { note: "la" },
+  { note: "mi" },
+  { note: "ti" },
+];
+
+const lateNightTape: BarTapeSegment[] = [
+  { note: "sol" },
+  { note: "la" },
+  { note: "ti" },
+  { note: "sol" },
+  { note: "la" },
+  { note: "do" },
+  { note: "re" },
+  { note: "mi" },
+];
+</script>
 
 <style scoped>
 .preview-port {
@@ -431,71 +440,6 @@
   width: 8px;
   height: 8px;
   background: var(--brass-edge);
-}
-
-/* ── BAR TAPE — lifted verbatim from primitive-bar-tape.html ───────── */
-.bar-tape {
-  height: 8px;
-  display: flex;
-  border: 1px solid var(--hairline);
-  background: var(--ink);
-  overflow: hidden;
-}
-.bar-tape span {
-  display: block;
-  height: 100%;
-  flex: 1;
-}
-.bar-tape .do  { background: var(--note-do); }
-.bar-tape .re  { background: var(--note-re); }
-.bar-tape .mi  { background: var(--note-mi); }
-.bar-tape .fa  { background: var(--note-fa); }
-.bar-tape .sol { background: var(--note-sol); }
-.bar-tape .la  { background: var(--note-la); }
-.bar-tape .ti  { background: var(--note-ti); }
-
-/* major scale proportions (2-2-1-2-2-2-1) */
-.bar-tape.major .do  { flex: 16; }
-.bar-tape.major .re  { flex: 16; }
-.bar-tape.major .mi  { flex: 16; }
-.bar-tape.major .fa  { flex: 8;  }
-.bar-tape.major .sol { flex: 16; }
-.bar-tape.major .la  { flex: 16; }
-.bar-tape.major .ti  { flex: 8;  }
-
-.bar-tape.equal span { flex: 1; }
-.bar-tape span.dim { opacity: 0.18; }
-
-.bar-tape.live { position: relative; }
-.bar-tape .ph {
-  position: absolute; top: -3px; bottom: -3px;
-  width: 2px;
-  background: var(--ivory);
-  box-shadow: 0 0 6px rgba(244,239,230,.6);
-  flex: 0 0 auto;
-  pointer-events: none;
-}
-
-.bar-tape span.downbeat {
-  background: var(--brass);
-  box-shadow: var(--shadow-glow-brass);
-}
-
-/* bar-tape used as footer strip on sleek card — flush, no extra border-top */
-.stack-card .bar-tape {
-  border-left: 0;
-  border-right: 0;
-  border-bottom: 0;
-  height: 8px;
-}
-
-/* bar-tape used as footer strip on expanded card — flush bottom, no top gap */
-.active-card > .bar-tape {
-  border-left: 0;
-  border-right: 0;
-  border-bottom: 0;
-  height: 8px;
-  margin-top: 0;
 }
 
 /* ── CODE STRIP — lifted verbatim from unique-code-strip.html ───── */

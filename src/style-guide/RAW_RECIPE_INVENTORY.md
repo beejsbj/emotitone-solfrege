@@ -79,7 +79,7 @@ Date: 2026-05-24
 
 | Recipe | Source of truth | Promotion decision | Remaining residue |
 |---|---|---|---|
-| Bar tape strip | `src/components/primatives/BarTape.vue` | Promoted strip, segment colors, major/equal proportions, size variants, dim/downbeat states, live playhead, and boxed/flush frame. Corrected major ratio to `2-2-1-2-2-2-1` with `mi` and `ti` narrow. | Compound pattern files still copy old `.bar-tape` CSS and need a later cleanup slice to compose `BarTape`. |
+| Bar tape strip | `src/components/primatives/BarTape.vue` | Promoted strip, segment colors, major/equal proportions, size variants, dim/downbeat states, live playhead, and boxed/flush frame. Corrected major ratio to `2-2-1-2-2-2-1` with `mi` and `ti` narrow. | Primitive specimen and pattern compound specimens now compose `BarTape`; music color model remains gate-parked. |
 
 ## Ready For Extraction
 

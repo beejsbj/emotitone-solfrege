@@ -63,7 +63,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 |---|---|---|---|
 | child primitive dependencies are explicit | fail | Lower primitive sources mostly missing | `COVERAGE_AUDIT.md` |
 | slot contracts are explicit | fail | Not audited yet | `CompoundPatternCard.vue`, `CompoundPatternReel.vue` |
-| compounds compose children instead of duplicating internals | fail | BarTape/IconButton/CodeStrip CSS is copied | `RESIDUE_PROOF.md` |
+| compounds compose children instead of duplicating internals | fail | BarTape is composed; IconButton/CodeStrip/pattern-card internals are still copied | `RESIDUE_PROOF.md` |
 | repeated child patterns are promoted or gate-parked | fail | Pending | `PROMOTION_AUDIT.md` |
 
 ### Unique Closure
@@ -92,7 +92,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | BarTape primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Other primitive specimens | gate-parked | Need extraction or explicit keep-local decisions | Promotion Gate |
 | Code strip | gate-parked | Reused despite unique classification | Taxonomy Gate |
-| Compound pattern artifacts | gate-parked | Depend on lower-layer closure | Taxonomy Gate |
+| Compound pattern artifacts | gate-parked | BarTape dependency resolved; IconButton/CodeStrip/pattern-card boundaries still depend on lower-layer closure | Taxonomy Gate |
 | Composition artifacts | gate-parked | Depend on lower-layer closure and residue proof | Composition Gate |
 
 ## Gate-Parked Decisions

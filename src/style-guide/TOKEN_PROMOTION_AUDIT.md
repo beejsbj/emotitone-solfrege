@@ -85,7 +85,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
 - `src/emotitone-design-system.css` now contains the promoted geometry clip and rotation custom properties.
 - `src/utils/randomGeometry.ts` uses token references for clip, transform, and shadow selection.
 - `Sticker.vue` consumes `getRandomGeometry("sticker")`; sticker geometry is randomized from token-backed values.
-- `BarTape.vue` now owns the bar-tape primitive API and CSS; `PrimitiveBarTape.vue` imports it as a specimen. The promoted component corrected the documented major proportion recipe to `2-2-1-2-2-2-1` by making `mi` and `ti` narrow. Compound pattern files still copy older bar-tape CSS and remain residue for a later cleanup.
+- `BarTape.vue` now owns the bar-tape primitive API and CSS; `PrimitiveBarTape.vue` imports it as a specimen. The promoted component corrected the documented major proportion recipe to `2-2-1-2-2-2-1` by making `mi` and `ti` narrow. Pattern compound specimens now compose `BarTape` instead of copying older bar-tape CSS.
 
 ## Primitive Vue Audit
 
@@ -142,8 +142,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Music color source for `bar-tape` and `key`.
   `BarTape.vue` and `PrimitiveKeys.vue:82-167` still use legacy `--note-*` aliases. The shared CSS says those aliases are temporary and points toward `.note + --note-degree/-octave`. BarTape intentionally stayed alias-based for this slice to preserve branch fidelity; decide whether future primitives become recipe-driven.
 
-- `bar-tape` major proportions conflict is resolved in the source component.
-  The earlier specimen described `2-2-1-2-2-2-1` but assigned `mi` wide and `fa` narrow. `BarTape.vue` now makes `mi` and `ti` narrow, matching the documented major interval recipe. Compound copies still contain the old ratio until they compose `BarTape`.
+- `bar-tape` major proportions conflict is resolved in the source component and pattern compounds.
+  The earlier specimen described `2-2-1-2-2-2-1` but assigned `mi` wide and `fa` narrow. `BarTape.vue` now makes `mi` and `ti` narrow, matching the documented major interval recipe, and pattern compounds compose that source component.
 
 - Brass button grammar is not settled.
   Global `.brass` is the canonical brass finish, but `PrimitiveButtons.vue:207`, `PrimitiveButtons.vue:249-275`, and `PrimitiveButtons.vue:562-580` split brass into `brass-signal`, fill, wire, and glow treatments, some inline. Decide whether these become button variants, separate brass treatment utilities, or specimen-only demonstrations.

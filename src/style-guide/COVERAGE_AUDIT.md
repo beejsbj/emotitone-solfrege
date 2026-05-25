@@ -32,8 +32,8 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveMarks.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mark component API. |
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | Raw primitive/compound specimen | primitives/compounds | no | unresolved | Needs spine-card versus preset-row split. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | Raw primitive specimen | primitives | no | unresolved | Needs chip-slide tab extraction. |
-| `src/style-guide/compounds/CompoundPatternCard.vue` | Raw compound specimen | compounds | no | unresolved | Copies stack/active cards, icon buttons, bar tape, code strip. |
-| `src/style-guide/compounds/CompoundPatternReel.vue` | Raw compound specimen | compounds | no | unresolved | Adds reel stack/promotion behavior around copied pattern-card grammar. |
+| `src/style-guide/compounds/CompoundPatternCard.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape; still copies stack/active cards, icon buttons, and code strip. |
+| `src/style-guide/compounds/CompoundPatternReel.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape and uses Vue state; still copies pattern-card, icon-button, and code-strip grammar. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | Unique? specimen | unique/primitive/compound part | no | unresolved | Reused in compounds; taxonomy suspect. |

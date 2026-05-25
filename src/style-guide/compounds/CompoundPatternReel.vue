@@ -14,11 +14,72 @@
 
         <div class="reel-head">
           <span class="reel-title">Patterns</span>
-          <span class="reel-count" id="reelCount">3 stacked · 1 active</span>
+          <span class="reel-count">3 stacked · 1 active</span>
         </div>
 
-        <div class="stack" id="patternStack"></div>
-        <div id="activeMount"></div>
+        <div class="stack">
+          <button
+            v-for="(pattern, index) in stackPatterns"
+            :key="pattern.id"
+            :class="['stack-card', depthClass(index)]"
+            type="button"
+            @click="promotePattern(pattern.id)"
+          >
+            <div class="sc-row">
+              <span class="spine" :style="{ background: pattern.spine }"></span>
+              <span class="num">{{ pattern.num }}</span>
+              <span class="nm">
+                <span class="name">{{ pattern.name }}</span>
+                <span class="sub">{{ pattern.sub }}</span>
+              </span>
+              <span class="when">{{ pattern.when }}</span>
+            </div>
+            <BarTape :mode="pattern.barTapeMode" frame="flush" :segments="pattern.barTape" />
+          </button>
+        </div>
+
+        <article class="active-card">
+          <span class="spine" :style="{ background: activePattern.spine }"></span>
+          <div class="active-inner">
+            <div class="active-head">
+              <span class="num">{{ activePattern.num }}</span>
+              <div class="active-copy">
+                <div class="name">{{ activePattern.name }}</div>
+                <div class="sub">{{ activePattern.sub }}</div>
+              </div>
+              <div class="icon-row" aria-label="Pattern controls">
+                <button class="ico sm geo-sharp" type="button" title="Play" aria-label="Play">
+                  <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+                    <path d="M3 1.5v11l9-5.5z" fill="currentColor"/>
+                  </svg>
+                </button>
+                <button class="ico sm geo-sharp" type="button" title="Arm take" aria-label="Arm take">
+                  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><circle cx="8" cy="8" r="4"></circle></svg>
+                </button>
+                <button class="ico sm geo-sharp" type="button" title="Duplicate" aria-label="Duplicate">
+                  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M3 5H11V13H3Z"></path><path d="M5 3H13V11"></path></svg>
+                </button>
+                <button class="ico sm geo-sharp" type="button" title="Send down" aria-label="Send down">
+                  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M8 2V12"></path><path d="M4 8L8 12L12 8"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="cs" aria-label="Pattern notation">
+              <span class="chev">&lt;</span>
+              <div class="seq">
+                <template v-for="(token, tokenIndex) in activePattern.codeSeq" :key="`${token.type}-${tokenIndex}`">
+                  <span v-if="token.type === 'rest'" class="rest">~</span>
+                  <span v-else-if="token.type === 'dur'" class="dur">{{ token.text }}</span>
+                  <span v-else :class="['syl', ...token.classes]">{{ token.text }}</span>
+                </template>
+              </div>
+            </div>
+            <div class="active-foot">
+              <span class="position">Bar 03 / 08 &middot; Steps 16/16</span>
+              <span class="rec-tag brass">Rec armed</span>
+            </div>
+          </div>
+        </article>
       </section>
 
       <div class="caption">Click a stacked card to promote it. The previous active card demotes into the stack.</div>
@@ -27,211 +88,136 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
-import { onMounted } from "vue";
+import { computed, ref } from "vue";
+import BarTape from "../../components/primatives/BarTape.vue";
+import type { BarTapeMode, BarTapeSegment } from "../../components/primatives/BarTape.vue";
 
-onMounted(() => {
-  const root = document.querySelector(".preview-port--compound-pattern-reel");
-  const scopeAttr = Array.from(root?.attributes ?? []).find(function (attr) {
-    return attr.name.indexOf("data-v-") === 0;
-  })?.name;
+type PatternId = "glass" | "tram" | "hilbert" | "brass";
 
-  function applyScopeAttrs(target) {
-    if (!scopeAttr || !target) return;
-    target.querySelectorAll("*").forEach(function (el) {
-      el.setAttribute(scopeAttr, "");
-    });
-  }
+type CodeToken =
+  | { type: "rest" }
+  | { type: "dur"; text: string }
+  | { type: "syl"; classes: string[]; text: string };
 
-  // Each pattern carries a bar-tape note sequence (note class name, dim flag)
-    // and a code-strip sequence for the expanded shape.
-    const patterns = {
-      glass: {
-        num: "2I",
-        name: "Glass Bell",
-        sub: "F# DORIAN / 96 BPM / 8 BARS",
-        when: "2d ago",
-        spine: "var(--tomato)",
-        barTape: [
-          { note: "re" }, { note: "mi" }, { note: "do" }, { note: "fa" },
-          { note: "re" }, { note: "la" }, { note: "mi" }, { note: "ti" }
-        ],
-        barTapeMode: "equal",
-        codeSeq: [
-          { type: "syl", cls: "re", text: "Re" }, { type: "dur", text: "@0.250" },
-          { type: "rest" },
-          { type: "syl", cls: "mi", text: "Mi" }, { type: "dur", text: "@0.125" },
-          { type: "rest" },
-          { type: "syl", cls: "do lit", text: "Do" }, { type: "dur", text: "@0.375" },
-          { type: "rest" },
-          { type: "syl", cls: "fa", text: "Fa" }
-        ]
-      },
-      tram: {
-        num: "I2",
-        name: "Late Night Tram",
-        sub: "A MINOR / 72 BPM / 16 BARS",
-        when: "5h ago",
-        spine: "var(--tomato)",
-        barTape: [
-          { note: "sol" }, { note: "la" }, { note: "ti" }, { note: "sol" },
-          { note: "la" }, { note: "do" }, { note: "re" }, { note: "mi" }
-        ],
-        barTapeMode: "equal",
-        codeSeq: [
-          { type: "syl", cls: "sol", text: "Sol" }, { type: "dur", text: "@0.167" },
-          { type: "rest" },
-          { type: "syl", cls: "la lit", text: "La" }, { type: "dur", text: "@0.333" },
-          { type: "rest" },
-          { type: "syl", cls: "ti", text: "Ti" }, { type: "dur", text: "@0.090" },
-          { type: "rest" },
-          { type: "syl", cls: "do", text: "Do" }
-        ]
-      },
-      hilbert: {
-        num: "II",
-        name: "Hilbert Tape",
-        sub: "D# LYDIAN / 132 BPM / 4 BARS",
-        when: "just now",
-        spine: "var(--plum)",
-        barTape: [
-          { note: "fa" }, { note: "mi" }, { note: "re" }, { note: "do" },
-          { note: "fa" }, { note: "la" }, { note: "ti" }
-        ],
-        barTapeMode: "major",
-        codeSeq: [
-          { type: "syl", cls: "fa", text: "Fa" }, { type: "dur", text: "@0.0398" },
-          { type: "rest" },
-          { type: "syl", cls: "mi", text: "Mi" }, { type: "dur", text: "@0.09" },
-          { type: "rest" },
-          { type: "syl", cls: "re lit", text: "Re" }, { type: "dur", text: "@0.3289" },
-          { type: "rest" },
-          { type: "syl", cls: "do", text: "Do" }
-        ]
-      },
-      brass: {
-        num: "I0",
-        name: "Brass Whistle",
-        sub: "E LOCRIAN / 120 BPM / 8 BARS / PIANO",
-        when: "active",
-        spine: "var(--tomato)",
-        barTape: [
-          { note: "mi" }, { note: "sol" }, { note: "la" }, { note: "ti" },
-          { note: "do" }, { note: "re" }, { note: "mi" }
-        ],
-        barTapeMode: "major",
-        codeSeq: [
-          { type: "syl", cls: "mi", text: "Mi" }, { type: "dur", text: "@0.282" },
-          { type: "rest" },
-          { type: "syl", cls: "sol", text: "Sol" }, { type: "dur", text: "@0.128" },
-          { type: "rest" },
-          { type: "syl", cls: "la lit", text: "La" }, { type: "dur", text: "@0.2031" },
-          { type: "rest" },
-          { type: "syl", cls: "ti", text: "Ti" }, { type: "dur", text: "@0.09" }
-        ]
-      }
-    };
+interface PatternReelItem {
+  id: PatternId;
+  num: string;
+  name: string;
+  sub: string;
+  when: string;
+  spine: string;
+  barTape: BarTapeSegment[];
+  barTapeMode: BarTapeMode;
+  codeSeq: CodeToken[];
+}
 
-    let stackOrder = ["glass", "tram", "hilbert"];
-    let activeId = "brass";
+const patterns: Record<PatternId, PatternReelItem> = {
+  glass: {
+    id: "glass",
+    num: "2I",
+    name: "Glass Bell",
+    sub: "F# DORIAN / 96 BPM / 8 BARS",
+    when: "2d ago",
+    spine: "var(--tomato)",
+    barTape: [
+      { note: "re" }, { note: "mi" }, { note: "do" }, { note: "fa" },
+      { note: "re" }, { note: "la" }, { note: "mi" }, { note: "ti" },
+    ],
+    barTapeMode: "equal",
+    codeSeq: [
+      { type: "syl", classes: ["re"], text: "Re" }, { type: "dur", text: "@0.250" },
+      { type: "rest" },
+      { type: "syl", classes: ["mi"], text: "Mi" }, { type: "dur", text: "@0.125" },
+      { type: "rest" },
+      { type: "syl", classes: ["do", "lit"], text: "Do" }, { type: "dur", text: "@0.375" },
+      { type: "rest" },
+      { type: "syl", classes: ["fa"], text: "Fa" },
+    ],
+  },
+  tram: {
+    id: "tram",
+    num: "I2",
+    name: "Late Night Tram",
+    sub: "A MINOR / 72 BPM / 16 BARS",
+    when: "5h ago",
+    spine: "var(--tomato)",
+    barTape: [
+      { note: "sol" }, { note: "la" }, { note: "ti" }, { note: "sol" },
+      { note: "la" }, { note: "do" }, { note: "re" }, { note: "mi" },
+    ],
+    barTapeMode: "equal",
+    codeSeq: [
+      { type: "syl", classes: ["sol"], text: "Sol" }, { type: "dur", text: "@0.167" },
+      { type: "rest" },
+      { type: "syl", classes: ["la", "lit"], text: "La" }, { type: "dur", text: "@0.333" },
+      { type: "rest" },
+      { type: "syl", classes: ["ti"], text: "Ti" }, { type: "dur", text: "@0.090" },
+      { type: "rest" },
+      { type: "syl", classes: ["do"], text: "Do" },
+    ],
+  },
+  hilbert: {
+    id: "hilbert",
+    num: "II",
+    name: "Hilbert Tape",
+    sub: "D# LYDIAN / 132 BPM / 4 BARS",
+    when: "just now",
+    spine: "var(--plum)",
+    barTape: [
+      { note: "fa" }, { note: "mi" }, { note: "re" }, { note: "do" },
+      { note: "fa" }, { note: "la" }, { note: "ti" },
+    ],
+    barTapeMode: "major",
+    codeSeq: [
+      { type: "syl", classes: ["fa"], text: "Fa" }, { type: "dur", text: "@0.0398" },
+      { type: "rest" },
+      { type: "syl", classes: ["mi"], text: "Mi" }, { type: "dur", text: "@0.09" },
+      { type: "rest" },
+      { type: "syl", classes: ["re", "lit"], text: "Re" }, { type: "dur", text: "@0.3289" },
+      { type: "rest" },
+      { type: "syl", classes: ["do"], text: "Do" },
+    ],
+  },
+  brass: {
+    id: "brass",
+    num: "I0",
+    name: "Brass Whistle",
+    sub: "E LOCRIAN / 120 BPM / 8 BARS / PIANO",
+    when: "active",
+    spine: "var(--tomato)",
+    barTape: [
+      { note: "mi" }, { note: "sol" }, { note: "la" }, { note: "ti" },
+      { note: "do" }, { note: "re" }, { note: "mi" },
+    ],
+    barTapeMode: "major",
+    codeSeq: [
+      { type: "syl", classes: ["mi"], text: "Mi" }, { type: "dur", text: "@0.282" },
+      { type: "rest" },
+      { type: "syl", classes: ["sol"], text: "Sol" }, { type: "dur", text: "@0.128" },
+      { type: "rest" },
+      { type: "syl", classes: ["la", "lit"], text: "La" }, { type: "dur", text: "@0.2031" },
+      { type: "rest" },
+      { type: "syl", classes: ["ti"], text: "Ti" }, { type: "dur", text: "@0.09" },
+    ],
+  },
+};
 
-    const stackEl = document.getElementById("patternStack");
-    const activeMount = document.getElementById("activeMount");
+const stackOrder = ref<PatternId[]>(["glass", "tram", "hilbert"]);
+const activeId = ref<PatternId>("brass");
 
-    function barTapeMarkup(pattern) {
-      return pattern.barTape.map(function(b) {
-        return '<span class="' + b.note + (b.dim ? ' dim' : '') + '"></span>';
-      }).join("");
-    }
+const stackPatterns = computed(() => stackOrder.value.map((id) => patterns[id]));
+const activePattern = computed(() => patterns[activeId.value]);
 
-    function codeSeqMarkup(pattern) {
-      return pattern.codeSeq.map(function(tok) {
-        if (tok.type === "rest") return '<span class="rest">~</span>';
-        if (tok.type === "dur")  return '<span class="dur">' + tok.text + '</span>';
-        if (tok.type === "syl")  return '<span class="syl ' + tok.cls + '">' + tok.text + '</span>';
-        return "";
-      }).join("");
-    }
+const depthClass = (index: number) => {
+  const distance = stackOrder.value.length - 1 - index;
+  return distance === 0 ? "s-1" : distance === 1 ? "s-2" : "s-3";
+};
 
-    // Icon SVGs — geo-sharp 32px sm, butt caps
-    var SVG_PLAY = '<svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>';
-    var SVG_REC  = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><circle cx="8" cy="8" r="4"></circle></svg>';
-    var SVG_DUP  = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M3 5H11V13H3Z"></path><path d="M5 3H13V11"></path></svg>';
-    var SVG_DOWN = '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M8 2V12"></path><path d="M4 8L8 12L12 8"></path></svg>';
-
-    function stackCard(id, index) {
-      var pattern = patterns[id];
-      var distance = stackOrder.length - 1 - index;
-      var depth = distance === 0 ? "s-1" : distance === 1 ? "s-2" : "s-3";
-      return (
-        '<button class="stack-card ' + depth + '" type="button" data-id="' + id + '">' +
-          '<div class="sc-row">' +
-            '<span class="spine" style="background:' + pattern.spine + '"></span>' +
-            '<span class="num">' + pattern.num + '</span>' +
-            '<span class="nm">' +
-              '<span class="name">' + pattern.name + '</span>' +
-              '<span class="sub">' + pattern.sub + '</span>' +
-            '</span>' +
-            '<span class="when">' + pattern.when + '</span>' +
-          '</div>' +
-          '<div class="bar-tape ' + pattern.barTapeMode + '" aria-hidden="true">' +
-            barTapeMarkup(pattern) +
-          '</div>' +
-        '</button>'
-      );
-    }
-
-    function activeCard(id) {
-      var pattern = patterns[id];
-      return (
-        '<article class="active-card">' +
-          '<span class="spine" style="background:' + pattern.spine + '"></span>' +
-          '<div class="active-inner">' +
-            '<div class="active-head">' +
-              '<span class="num">' + pattern.num + '</span>' +
-              '<div class="active-copy">' +
-                '<div class="name">' + pattern.name + '</div>' +
-                '<div class="sub">' + pattern.sub + '</div>' +
-              '</div>' +
-              '<div class="icon-row" aria-label="Pattern controls">' +
-                '<button class="ico sm geo-sharp" type="button" title="Play" aria-label="Play">' + SVG_PLAY + '</button>' +
-                '<button class="ico sm geo-sharp" type="button" title="Arm take" aria-label="Arm take">' + SVG_REC + '</button>' +
-                '<button class="ico sm geo-sharp" type="button" title="Duplicate" aria-label="Duplicate">' + SVG_DUP + '</button>' +
-                '<button class="ico sm geo-sharp" type="button" title="Send down" aria-label="Send down">' + SVG_DOWN + '</button>' +
-              '</div>' +
-            '</div>' +
-            '<div class="cs" aria-label="Pattern notation">' +
-              '<span class="chev">&lt;</span>' +
-              '<div class="seq">' + codeSeqMarkup(pattern) + '</div>' +
-            '</div>' +
-            '<div class="active-foot">' +
-              '<span class="position">Bar 03 / 08 &middot; Steps 16/16</span>' +
-              '<span class="rec-tag brass">Rec armed</span>' +
-            '</div>' +
-          '</div>' +
-        '</article>'
-      );
-    }
-
-  function render() {
-    stackEl.innerHTML = stackOrder.map(stackCard).join("");
-    activeMount.innerHTML = activeCard(activeId);
-    applyScopeAttrs(stackEl);
-    applyScopeAttrs(activeMount);
-  }
-
-    stackEl.addEventListener("click", function (event) {
-      var card = event.target.closest(".stack-card");
-      if (!card) return;
-      var nextActiveId = card.dataset.id;
-      stackOrder = stackOrder.filter(function(id) { return id !== nextActiveId; });
-      stackOrder.push(activeId);
-      activeId = nextActiveId;
-      render();
-    });
-
-    render();
-});
+const promotePattern = (nextActiveId: PatternId) => {
+  stackOrder.value = stackOrder.value.filter((id) => id !== nextActiveId);
+  stackOrder.value.push(activeId.value);
+  activeId.value = nextActiveId;
+};
 </script>
 
 <style scoped>
@@ -569,66 +555,6 @@ onMounted(() => {
   width: 8px;
   height: 8px;
   background: var(--brass-edge);
-}
-
-/* ── BAR TAPE — lifted verbatim from primitive-bar-tape.html ── */
-.pattern-merge .bar-tape {
-  height: 8px;
-  display: flex;
-  border: 1px solid var(--hairline);
-  background: var(--ink);
-  overflow: hidden;
-}
-.pattern-merge .bar-tape span {
-  display: block;
-  height: 100%;
-  flex: 1;
-}
-.pattern-merge .bar-tape .do  { background: var(--note-do); }
-.pattern-merge .bar-tape .re  { background: var(--note-re); }
-.pattern-merge .bar-tape .mi  { background: var(--note-mi); }
-.pattern-merge .bar-tape .fa  { background: var(--note-fa); }
-.pattern-merge .bar-tape .sol { background: var(--note-sol); }
-.pattern-merge .bar-tape .la  { background: var(--note-la); }
-.pattern-merge .bar-tape .ti  { background: var(--note-ti); }
-
-/* major scale proportions (2-2-1-2-2-2-1) */
-.pattern-merge .bar-tape.major .do  { flex: 16; }
-.pattern-merge .bar-tape.major .re  { flex: 16; }
-.pattern-merge .bar-tape.major .mi  { flex: 16; }
-.pattern-merge .bar-tape.major .fa  { flex: 8;  }
-.pattern-merge .bar-tape.major .sol { flex: 16; }
-.pattern-merge .bar-tape.major .la  { flex: 16; }
-.pattern-merge .bar-tape.major .ti  { flex: 8;  }
-
-.pattern-merge .bar-tape.equal span { flex: 1; }
-.pattern-merge .bar-tape span.dim { opacity: 0.18; }
-
-.pattern-merge .bar-tape.live { position: relative; }
-.pattern-merge .bar-tape .ph {
-  position: absolute; top: -3px; bottom: -3px;
-  width: 2px;
-  background: var(--ivory);
-  box-shadow: 0 0 6px rgba(244,239,230,.6);
-  flex: 0 0 auto;
-  pointer-events: none;
-}
-
-/* bar-tape as footer strip on sleek card — flush, no extra border-top */
-.pattern-merge .stack-card .bar-tape {
-  border-left: 0;
-  border-right: 0;
-  border-bottom: 0;
-  height: 8px;
-}
-
-/* bar-tape as footer strip on expanded card — flush bottom, no top gap */
-.pattern-merge .active-card > .bar-tape {
-  border-left: 0;
-  border-right: 0;
-  border-bottom: 0;
-  height: 8px;
-  margin-top: 0;
 }
 
 /* ── CODE STRIP — lifted verbatim from unique-code-strip.html ── */

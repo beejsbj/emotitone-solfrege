@@ -1,30 +1,30 @@
 # Residue Proof
 
-Date: 2026-05-24
+Date: 2026-05-25
 
 ## Status
 
-Initial scaffold only. Residue is not cleared.
+Primitive extraction residue is cleared for the current primitive specimen set. Overall design-lab residue is not cleared because unique/composition surfaces and token doctrine gates remain.
 
 ## Pattern Checks
 
 | Pattern | Check Method | Current Result | Resolution |
 |---|---|---|---|
-| Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/emotitone-design-system.css` | not yet run for closure | pending |
+| Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/emotitone-design-system.css` | run 2026-05-25; no hits in `src/components/primatives`; remaining hits are token definitions/docs, guide chrome, and unique/composition surfaces | token/unique/composition gates |
 | Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
 | Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/key conflicts; tabs and knobs resolved in source slices | Promotion Gate |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton, ChipTabs, and Key use existing tokens for exact matches | prune to tokens where exact |
-| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
+| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds; unresolved hits are unique/composition surfaces | unique/composition Taxonomy Gate |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | current primitive specimens import source components | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | all 12 current primitive specimens import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass for primitive layer |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
 
-- Residue remains unresolved.
+- Residue remains unresolved for the full design lab.
 - The run cannot be called complete.
-- Primitive layer cannot close until every primitive specimen is extracted, pruned, or explicitly kept local behind a named gate.
-- Compound layer cannot close while it copies lower-layer internals instead of composing source components.
+- Primitive extraction layer may close for current scope: every current primitive specimen is source-first, old raw primitive class families have been pruned from primitive/compound specimens, and remaining primitive-adjacent decisions are gate-parked.
+- Compound pattern family residue is cleared for `PatternCard` and `PatternReel`; remaining compound/composition closure depends on the next taxonomy audit.
 
 ## Slice Proof: BarTape
 
@@ -37,8 +37,8 @@ Initial scaffold only. Residue is not cleared.
 
 ## Next Proof Step
 
-- After Repository Conventions Gate, run command-based residue scans and attach concrete counts.
-- For each extraction slice, update this file with before/after residue evidence.
+- Run unique/composition taxonomy and residue scans, beginning with `UniqueBrandCover.vue`, `UniqueBrandLogo.vue`, `UniqueDrawer.vue`, `CompositionLoadingScreen.vue`, and `CompositionTopDrawer.vue`.
+- Decide whether repeated drawer/control recipes become compounds/primitives or stay composition-local.
 
 ## Slice Proof: Pattern Compounds Compose BarTape
 
@@ -142,7 +142,7 @@ Browser DOM proof, 2026-05-25:
 |---|---|---|---|
 | `PrimitiveTabs.vue` source behavior | Specimen owned `.p5-tabs`, `.active-chip`, `.streak`, JS measurement, selected state, density, chip geometry, and brass chip CSS | Specimen imports `ChipTabs`; source owns rail/chip/streak, measurement, selected/disabled state, geometry, density, and tone | pass for primitive specimen |
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/ChipTabs.vue` | pass |
-| Duplicate clip polygons | Tab specimen repeated tab/offcut/tile/rip polygons | Source uses `--clip-tab`, `--clip-offcut`, `--clip-tile`, and `--clip-paper-rip` | pass for tabs; keys still pending |
+| Duplicate clip polygons | Tab specimen repeated tab/offcut/tile/rip polygons | Source uses `--clip-tab`, `--clip-offcut`, `--clip-tile`, and `--clip-paper-rip`; Key later reused the same clip-token strategy | pass |
 | Timing recipe | Tab specimen used local 320ms chip motion and 220ms smear | Source uses `--dur-ui` with `--ease-swing`; smear uses the same UI-duration window | pass |
 | App tabs provider overlap | Existing `src/components/ui/Tabs*` are generic app tab providers | `ChipTabs` is intentionally a visual/mechanical primitive, not a provider replacement | app alignment remains separate |
 
@@ -253,3 +253,19 @@ Browser DOM proof, 2026-05-25:
 - `primitive-buttons.html` frame renders 32 `.icon-button` nodes and 0 `.ico` nodes.
 - `CompoundPatternCard` renders 8 `.icon-button` nodes and 0 `.ico` nodes.
 - `CompoundPatternReel` renders 4 `.icon-button` nodes and 0 `.ico` nodes.
+
+## Slice Proof: Primitive Closure
+
+| Pattern | Evidence | Result |
+|---|---|---|
+| Primitive specimens import source components | `find src/style-guide/primatives -name '*.vue' -maxdepth 1 -print | sort | while read f; do rg -c "../../components/primatives" "$f"; done` | all 12 current primitive specimens import from `src/components/primatives` |
+| Old raw primitive class families in primitive/compound specimens | `rg "class=\"(bar-tape|beats|panel-card|ico|cs|kicker|spine-card|mark|p5-tabs|knob|key)\\b|\\.bar-tape\\b|\\.beats\\b|\\.panel-card\\b|\\.ico\\b|\\.cs\\b|\\.kicker\\b|\\.spine-card\\b|\\.mark\\b|\\.p5-tabs\\b|\\.knob\\b|\\.key\\b" src/style-guide/primatives src/style-guide/uniques src/style-guide/compounds` | no old primitive-defining class families remain in primitive/compound specimens; remaining hits are `PrimitiveMarks.vue` styling source `Mark` via `:deep(.mark)` and unique/composition artifacts |
+| Raw primitive source hex leakage | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/emotitone-design-system.css` | no hits in `src/components/primatives`; remaining hits belong to token docs, guide chrome, and unique/composition surfaces |
+| Per-slice render evidence | Browser DOM proofs above | each extracted primitive slice rendered source classes and rendered 0 old local raw classes for its former family |
+| Full style-guide route render | Browser proof at `http://127.0.0.1:5175/style-guide` | 5 sink sections, 28 sink frames, 12 primitive frames, source primitive families rendered, and scoped old primitive local families rendered 0 nodes |
+
+Primitive closure decision, 2026-05-25:
+
+- The primitive extraction layer can advance to unique/composition taxonomy.
+- The full design lab cannot close yet.
+- Gate-parked primitive-adjacent decisions remain recorded in `LAYER_CLOSURE.md` and `PROMOTION_AUDIT.md`.

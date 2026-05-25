@@ -1,6 +1,6 @@
 # Style Guide Schema
 
-Date: 2026-05-24
+Date: 2026-05-25
 
 ## Tokens
 
@@ -26,7 +26,7 @@ Date: 2026-05-24
   - `src/components/primatives/Knob.vue`
   - `src/components/primatives/Key.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, and Key follow the intended source-first pattern.
+- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, and Key follow the intended source-first pattern. Primitive extraction is closed for the current style-guide scope; remaining primitive-adjacent decisions are gate-parked in `LAYER_CLOSURE.md` and `PROMOTION_AUDIT.md`.
 
 ## Compounds
 

@@ -1,6 +1,6 @@
 # Coverage Audit
 
-Date: 2026-05-24
+Date: 2026-05-25
 
 ## Scope
 
@@ -55,14 +55,14 @@ Date: 2026-05-24
 
 ## Coverage Gaps
 
-- Primitive source components are extracted for current style-guide primitive specimens; higher unique/composition audits remain.
-- Reusable compound source location is established for `PatternCard`; no reusable unique source location is established yet.
-- Compound source path is now established for `PatternCard`; unique source path remains deferred.
-- No layer has closure proof yet.
-- Promotion decisions exist in prose in `TOKEN_PROMOTION_AUDIT.md`, but need normalized decision rows in `PROMOTION_AUDIT.md`.
-- Residue proof has not yet been run.
+- Primitive source components are extracted for current style-guide primitive specimens and the primitive closure proof is recorded in `LAYER_CLOSURE.md` / `RESIDUE_PROOF.md`.
+- Reusable compound source location is established for `PatternCard` and `PatternReel`; no reusable unique source location is established yet.
+- Unique source path remains deferred until singular-role audits prove one is needed.
+- Token closure, unique closure, composition closure, and Finish Gate residue remain incomplete.
+- Promotion decisions exist in `PROMOTION_AUDIT.md`; token-doctrine decisions remain open for final token closure.
+- Residue proof has run for primitive extraction and pattern compounds, but not for unique/composition closure.
 
 ## Current Coverage Verdict
 
-- Coverage map exists, but completion is not proven.
-- Primitive extraction should not advance past one slice at a time until promotion decisions are tracked and layer closure is updated.
+- Coverage map exists, but full completion is not proven.
+- Primitive extraction can advance to the unique/composition Taxonomy Gate because source-first proof and gate-parked decisions are now recorded.

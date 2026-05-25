@@ -30,10 +30,10 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 
 | Item | Source | Replace with | Reason | Status |
 |---|---|---|---|---|
-| Duplicate specimen anatomy/variant chrome | Primitive/compound specimens | `AnatomyDisplay`, `VariantGrid`, `VariantCell` | Guide helpers already exist | pending per specimen |
+| Duplicate specimen anatomy/variant chrome | Primitive/compound specimens | `AnatomyDisplay`, `VariantGrid`, `VariantCell` | Guide helpers already exist | accepted keep-local / opportunistic cleanup; not a primitive closure blocker |
 | Duplicate clip polygons | Buttons, keys, tabs | Existing `--clip-*` tokens where exact match | Avoid parallel geometry recipes | resolved for IconButton, ChipTabs, and Key |
 | Local brass finish duplicates | Tabs/buttons/knobs where overlapping | Global brass grammar / brass tokens | Preserve one brass language | resolved for ChipTabs and Knob; token preview remains unaudited |
-| Lifted verbatim lower-layer CSS in compounds | Pattern card/reel | Source components | Doctrine says Vue should compose, not paraphrase | pending extraction |
+| Lifted verbatim lower-layer CSS in compounds | Pattern card/reel | Source components | Doctrine says Vue should compose, not paraphrase | resolved for PatternCard/PatternReel |
 | Hardcoded `#0a0908` | Beat indicator, tabs | `var(--ink)` | Token exists | resolved for BeatIndicator and ChipTabs specimens; token demos not audited |
 | Undefined `--font-body` | `PrimitiveCard.vue` | `--t-body-s` | Current token does not exist | resolved for CardShell specimen |
 
@@ -77,7 +77,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 |---|---|---|
 | `PrimitiveBarTape.vue` / compounds | Generic music colors exist, but segment/proportion/playhead/downbeat grammar was local and duplicated | resolved for BarTape: primitive specimen and pattern compounds compose source component. |
 | `PrimitiveBeatIndicator.vue` | Beat motion tokens/keyframes exist, but cell count, stagger, downbeat/even/static states, and size grammar were local | resolved for style-guide: `BeatIndicator` source component owns primitive row/cell grammar and consumes current global keyframes. |
-| `PrimitiveCard.vue` | Panel tokens existed, but card label, mark slot, title/body rhythm, compact sizing, and border toggle were local | resolved for style-guide: `CardShell` source component owns shell grammar; demo mark drawings stay local pending Mark extraction. |
+| `PrimitiveCard.vue` | Panel tokens existed, but card label, mark slot, title/body rhythm, compact sizing, and border toggle were local | resolved for style-guide: `CardShell` source component owns shell grammar; demo mark drawings stay local as specimen-only examples now that `Mark` is extracted. |
 | `PrimitiveKicker.vue` | Kicker tokens existed as loose color/typography values, but dot+label anatomy, tone, form, density, and dot geometry were local | resolved for style-guide: `Kicker` source component owns marker grammar. |
 | `PrimitiveSpineCard.vue` | Brand color tokens and Kicker existed, but spine panel, matching Kicker, stamp/body layout, and compact sizing were local | resolved for base primitive: `SpineCard` source component owns the brand-marked shell; preset rows remain gate-parked. |
 | `PrimitiveMarks.vue` | SVG paths, treatment ladder, scale proof, wire stroke behavior, and family grouping were local | resolved for source primitive: `Mark` owns glyph paths, tone, size, fill/wire treatment, and stroke grammar; family panels remain specimen-local. |
@@ -88,6 +88,15 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `PrimitiveKeys.vue` | Generic clips existed, but key-specific recipes were local | resolved for style-guide: `Key` source component owns face, label stack, format, cuts, proportions, pressed/disabled states, and sheen. |
 | `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing were local | resolved for style-guide: `ChipTabs` source component owns rail/chip/streak grammar, active chip measurement, geometry, density, tone, and selected/disabled state. |
 | `PrimitiveKnobsAnalog.vue` / `PrimitiveKnobsDigital.vue` | Generic tokens existed, but knob visual anatomy, label/footer frame, role variants, disabled/lit/played states, brass/ivory axis, spin motion, and SVG stroke grammar were duplicated locally | resolved for style-guide: `Knob` source component owns shared visual grammar for ring and arc variants. |
+
+## Primitive Closure Gate
+
+| Check | Decision | Evidence | Status |
+|---|---|---|---|
+| All current primitive specimens source-first | advance | 12 primitive specimen files import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass |
+| Old raw primitive class families | prune complete for primitive/compound specimens | Search found no old `.bar-tape`, `.beats`, `.panel-card`, `.ico`, `.cs`, `.kicker`, `.spine-card`, `.p5-tabs`, `.knob`, or `.key` definitions in primitive/compound specimens; expected source hooks and unique/composition artifacts remain | pass |
+| Primitive-adjacent unresolved items | gate-park | Sticker badge, music-color model, brass timing, marker typography, brand/danger semantics, preset row, and production knob alignment have named gates | may advance |
+| Next layer | start taxonomy audit | Unique and composition surfaces still contain raw recipes and singular-role questions | pending |
 
 ## Gate-Parked Decisions
 

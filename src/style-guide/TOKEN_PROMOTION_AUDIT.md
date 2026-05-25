@@ -96,7 +96,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Clear Promote
 
 - Shared guide chrome should stop living in every specimen.
-  Section heads, anatomy grids, anatomy rows, variant grids, and variant cells are duplicated across many unresolved primitive files, including `PrimitiveCard.vue`, `PrimitiveKeys.vue`, `PrimitiveKicker.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveMarks.vue`, `PrimitiveSpineCard.vue`, and `PrimitiveTabs.vue`.
+  Section heads, anatomy grids, anatomy rows, variant grids, and variant cells are duplicated across many unresolved primitive files, including `PrimitiveKeys.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveMarks.vue`, `PrimitiveSpineCard.vue`, and `PrimitiveTabs.vue`.
   The branch already has `AnatomyDisplay.vue`, `VariantGrid.vue`, and `VariantCell.vue`; the specimens should compose those instead of carrying duplicate scoped CSS.
 
 - `.bar-tape` has been promoted to a real primitive.
@@ -115,8 +115,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   `PrimitiveKeys.vue:297-511` defines the key face, syllable/degree/raw label stack, format modifiers, pressed/disabled states, and shape/cut variants. It already uses design-system tokens like `--shadow-key`, `--shadow-pressed`, `--dur-tap`, and `--ease-stab`.
   Important correction: the key-specific geometry grammar is not fully promoted. Generic cuts such as tile/offcut/tab overlap existing clip tokens, but the key strip default, pill form, and tall/wide/squary proportion set still live in `PrimitiveKeys.vue`.
 
-- `.kicker` is a real primitive candidate.
-  `PrimitiveKicker.vue:140-214` defines dot + label anatomy, color modifiers, density, dot-only/label-only forms, inverse treatment, alignment, and rectangular dot marks. This should not remain only as specimen CSS if kicker is part of the grammar.
+- `.kicker` has been promoted to a real primitive.
+  `src/components/primatives/Kicker.vue` owns dot + label anatomy, color/tone modifiers, density, dot-only/label-only forms, inverse treatment, and rectangular dot marks. The unused center/right alignment helpers were pruned.
 
 - Analog and digital knobs share enough structure to promote a knob primitive layer.
   `PrimitiveKnobsAnalog.vue:163-380` and `PrimitiveKnobsDigital.vue:246-448` both define `knob`, `knob-label`, `knob-foot`, `knob-tile`, hero sizing, role modifiers, disabled state, lit/played states, and button motion. The shared anatomy should move into a real component or common primitive CSS before the analog/digital differences are split.
@@ -159,11 +159,11 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Key geometry has more visual variety than the promoted generic clip tokens cover.
   `PrimitiveKeys.vue:178-227` shows cut variants, while `PrimitiveKeys.vue:481-511` adds squary, wide, and tall shape variants. The promoted token layer has generic clip paths, but it does not yet name key-specific geometry recipes such as strip, pill, tall, wide, squary, or their paired label-size adjustments.
 
-- Kicker role needs a boundary.
-  `PrimitiveKicker.vue:17` presents kicker as a brand-color axis, but `PrimitiveKicker.vue:166-177` adds brass, ivory, and open treatments. Decide whether kicker is a brand marker only, or a general inline status marker that can carry functional brass.
+- Kicker role boundary is resolved for this branch as a general marker.
+  `Kicker.vue` supports brand tones plus brass, ivory, and open treatments. It is not limited to brand-color section dots.
 
-- Kicker typography may be a named exception.
-  `PrimitiveKicker.vue:140-149` uses mono labels, while base typography says labels are Jazz. If that is intentional, it should be named as kicker/spec-marker typography rather than accidental drift.
+- Kicker typography is kept as a named mono exception.
+  `Kicker.vue` uses mono labels at 9px as section/spec-marker grammar, while the wider guide/spec label contradiction remains parked.
 
 - Brass glow/drop-shadow needs a token decision.
   Knobs hardcode brass glows in places like `PrimitiveKnobsAnalog.vue:285`, `PrimitiveKnobsAnalog.vue:321-324`, `PrimitiveKnobsDigital.vue:386`, `PrimitiveKnobsDigital.vue:418`, and `PrimitiveKnobsDigital.vue:431`, even though `--shadow-glow-brass` exists. Decide whether drop-shadow glow becomes its own token or all uses collapse to `--shadow-glow-brass`.
@@ -186,10 +186,10 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Specimen-Only
 
 - Hero/stage wrappers should stay guide-only.
-  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKicker.vue:278-339`, `PrimitiveKnobsAnalog.vue:163-195`, `PrimitiveKnobsDigital.vue:246-278`, `PrimitiveMarks.vue:274-434`, and `PrimitiveTabs.vue:121-211`. `PrimitiveBeatIndicator.vue` has already been rewritten to keep only a small guide-local hero label around the source component.
+  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKnobsAnalog.vue:163-195`, `PrimitiveKnobsDigital.vue:246-278`, `PrimitiveMarks.vue:274-434`, and `PrimitiveTabs.vue:121-211`. `PrimitiveBeatIndicator.vue` and `PrimitiveKicker.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
 
 - Variant-card chrome and demo tilts are display scaffolding unless routed through the shared random geometry utility.
-  Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, `PrimitiveKicker.vue:216-233`, `PrimitiveKnobsAnalog.vue:197-201`, `PrimitiveKnobsDigital.vue:280-284`, `PrimitiveMarks.vue:312-319`, `PrimitiveMarks.vue:404-408`, and `PrimitiveMarks.vue:431-434`.
+  Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, `PrimitiveKnobsAnalog.vue:197-201`, `PrimitiveKnobsDigital.vue:280-284`, `PrimitiveMarks.vue:312-319`, `PrimitiveMarks.vue:404-408`, and `PrimitiveMarks.vue:431-434`.
 
 - Inline demo sizing/padding should stay local unless promoted into named variants.
   `PrimitiveKeys.vue` has many specimen-only inline dimensions and demo paddings around lines `41`, `52`, `63`, `79-81`, `143`, `181`, `234`, and `268`.
@@ -236,8 +236,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Non-brass knob grammar differs between analog and digital.
   Analog uses knob-level `.is-nobrass` in `PrimitiveKnobsAnalog.vue:327-355`; digital uses per-track `.ivory-only` in `PrimitiveKnobsDigital.vue:389-392`. Same variant axis, different anatomy.
 
-- Kicker has unused alignment-demo CSS.
-  `PrimitiveKicker.vue:194-196` defines center/right alignment classes and `PrimitiveKicker.vue:347-355` defines alignment demo CSS, but the current specimen does not appear to use that path.
+- Kicker unused alignment-demo CSS was pruned.
+  `Kicker.vue` does not carry center/right alignment helpers because the specimen did not use them.
 
 - Tabs duplicate brass finish instead of using the global `.brass` grammar.
   `PrimitiveTabs.vue:433-457` locally recreates brass fill, sheen, shadow, and animation that overlaps global `.brass` in `src/emotitone-design-system.css`.

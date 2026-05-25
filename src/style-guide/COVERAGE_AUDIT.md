@@ -28,11 +28,12 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveCard.vue` | Primitive specimen | primitives | no | keep local | Imports `CardShell.vue`; keeps demo marks and light inversion local. |
 | `src/components/primatives/IconButton.vue` | Extracted primitive | primitives | yes | promote | Source-first component for icon-only controls, geometry, tone, state, pressed, disabled, and brass treatments. |
 | `src/components/primatives/CodeStrip.vue` | Extracted primitive | primitives | yes | promote | Source-first component for notation row, glyph modes, durations, rests, grouping, lit state, density, and wrapping. |
+| `src/components/primatives/Kicker.vue` | Extracted primitive | primitives | yes | promote | Source-first component for dot+label marker anatomy, tone, dot geometry, density, inverse, and form variants. |
+| `src/style-guide/primatives/PrimitiveKicker.vue` | Primitive specimen | primitives | no | keep local | Imports `Kicker.vue`; keeps guide staging and captions local. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
 | `src/style-guide/primatives/PrimitiveKeys.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mapping/geometry/format gates. |
-| `src/style-guide/primatives/PrimitiveKicker.vue` | Raw primitive specimen | primitives | no | unresolved | Needs role and typography gate. |
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | Raw primitive specimen | primitives | no | unresolved | Needs shared knob anatomy. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | Raw primitive specimen | primitives | no | unresolved | Needs shared knob/stroke/glow decisions. |
 | `src/style-guide/primatives/PrimitiveMarks.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mark component API. |
@@ -49,7 +50,7 @@ Date: 2026-05-24
 
 ## Coverage Gaps
 
-- No source components yet for most primitive specimens; Sticker, BarTape, BeatIndicator, CardShell, IconButton, and CodeStrip are extracted.
+- No source components yet for most primitive specimens; Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, and Kicker are extracted.
 - Reusable compound source location is established for `PatternCard`; no reusable unique source location is established yet.
 - Compound source path is now established for `PatternCard`; unique source path remains deferred.
 - No layer has closure proof yet.

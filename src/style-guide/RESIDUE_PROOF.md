@@ -16,7 +16,7 @@ Initial scaffold only. Residue is not cleared.
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, and CodeStrip pass; other primitive specimens still define behavior | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, and Kicker pass; other primitive specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
@@ -82,6 +82,25 @@ Browser DOM proof, 2026-05-25:
 - Old local `.panel-card` and `.panel-label` nodes both render 0 nodes.
 - The borderless shell computes to `0px` border width.
 - One `.spec-inversion` node remains as specimen-local proof, not source grammar.
+
+## Slice Proof: Kicker
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveKicker.vue` source behavior | Specimen owned `.kicker`, `.dot`, color classes, dot geometry, density, inverse, form variants, and unused alignment helpers | Specimen imports `Kicker` and keeps guide variant staging only | pass for primitive specimen |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/Kicker.vue` | pass |
+| Brass dot glow | Specimen hardcoded `rgba(224,169,58,.45)` glow | Source uses `--shadow-glow-brass` | pass |
+| Role boundary | Specimen mixed brand-color section dots and brass/ivory/open treatments | Source promotes Kicker as a general marker with tone axis | pass |
+| Typography exception | Kicker used mono labels while token doctrine is split | Kept as named kicker/spec-marker exception | Doctrine Gate remains for wider guide/spec typography |
+| Alignment helpers | Center/right helper CSS existed without active specimen use | Pruned from source and specimen | pass |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-kicker.html` renders 18 `.kicker` nodes from the source component.
+- Source markup renders 17 `.kicker__dot` nodes and 17 `.kicker__label` nodes; dot-only and label-only each omit the opposite child.
+- Brand tones, brass, ivory, open, micro dot, inverse, dot-only, and label-only variants all render from source classes.
+- Old local `.dot`, `.kicker-label`, and `.mark-tomato` nodes render 0 nodes.
+- Brass dot shadow computes from the shared brass glow token and micro dot width computes to `5px`.
 
 ## Slice Proof: PatternCard
 

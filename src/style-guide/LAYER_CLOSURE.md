@@ -21,6 +21,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 - Tokens: `src/emotitone-design-system.css`.
 - Primitives: `src/components/primatives/`.
+- Compounds: `src/components/compounds/`.
 - Specimens: `src/style-guide/**`.
 - Specimen helpers: `src/style-guide/guide/**`.
 
@@ -30,7 +31,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 |---|---|---|---|
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
 | raw recipes resolved or gate-parked | fail | Raw inventory exists, but many decisions pending | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
-| source of truth named | partial | Tokens/primitives/specimens named; compounds/uniques deferred | `REPOSITORY_CONVENTIONS.md` |
+| source of truth named | partial | Tokens/primitives/PatternCard compound/specimens named; uniques deferred | `REPOSITORY_CONVENTIONS.md` |
 | specimens demonstrate, not define | fail | Sticker and BarTape pass; most primitive specimens still define component internals | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
 
@@ -61,10 +62,10 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| child primitive dependencies are explicit | fail | Lower primitive sources mostly missing | `COVERAGE_AUDIT.md` |
-| slot contracts are explicit | fail | Not audited yet | `CompoundPatternCard.vue`, `CompoundPatternReel.vue` |
-| compounds compose children instead of duplicating internals | fail | BarTape, IconButton, and CodeStrip are composed; pattern-card internals are still copied | `RESIDUE_PROOF.md` |
-| repeated child patterns are promoted or gate-parked | fail | Pending | `PROMOTION_AUDIT.md` |
+| child primitive dependencies are explicit | partial | PatternCard names BarTape, IconButton, and CodeStrip; other compounds not closed | `PatternCard.vue`, `COVERAGE_AUDIT.md` |
+| slot contracts are explicit | partial | PatternCard prop contract exists; PatternReel reusable contract not extracted | `PatternCard.vue`, `CompoundPatternReel.vue` |
+| compounds compose children instead of duplicating internals | fail | PatternCard composes children and PatternReel composes PatternCard; PatternReel choreography remains local | `RESIDUE_PROOF.md` |
+| repeated child patterns are promoted or gate-parked | partial | PatternCard promoted; PatternReel choreography gate-parked | `PROMOTION_AUDIT.md` |
 
 ### Unique Closure
 
@@ -91,8 +92,9 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Sticker primitive | promote | Existing source-first pattern | Primitive Closure |
 | BarTape primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Other primitive specimens | gate-parked | Need extraction or explicit keep-local decisions | Promotion Gate |
-| Code strip | gate-parked | Reused despite unique classification | Taxonomy Gate |
-| Compound pattern artifacts | gate-parked | BarTape/IconButton/CodeStrip dependencies resolved; pattern-card boundaries still depend on lower-layer closure | Taxonomy Gate |
+| Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
+| PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
+| Compound pattern artifacts | gate-parked | PatternCard dependency resolved; PatternReel choreography still depends on reusable-boundary decision | Taxonomy Gate |
 | Composition artifacts | gate-parked | Depend on lower-layer closure and residue proof | Composition Gate |
 
 ## Gate-Parked Decisions

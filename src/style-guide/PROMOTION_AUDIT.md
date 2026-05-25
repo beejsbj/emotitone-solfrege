@@ -15,7 +15,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Bar tape primitive | Primitive and compound files | `src/components/primatives/BarTape.vue` | Stable anatomy; copied into compounds | promoted 2026-05-24 |
 | Icon button/control primitive | Primitive and compound files | `src/components/primatives/IconButton.vue` | Stable control grammar copied upward | promoted 2026-05-25 |
 | Code strip grammar | Unique and compound files | `src/components/primatives/CodeStrip.vue` | Reused, not unique as-is | promoted 2026-05-25 |
-| Pattern card stack/active shapes | Compound files | compound source after lower primitives | Stable two-shape pattern-card grammar | pending primitive closure |
+| Pattern card stack/active shapes | Compound files | `src/components/compounds/PatternCard.vue` | Stable two-shape pattern-card grammar | promoted 2026-05-25 |
 | Beat indicator primitive | `PrimitiveBeatIndicator.vue` | source component | Stable beat cell anatomy | pending |
 | Key primitive family | `PrimitiveKeys.vue` | source component | Core music UI primitive | pending decisions |
 | Shared knob anatomy | Analog/digital knob specimens | source component family | Repeated label/tile/role/state grammar | pending decisions |
@@ -55,7 +55,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Label typography exceptions | Token typography, kicker/spec tables | Guide/spec/kicker mono exception or prune to Jazz labels | Doctrine/Promotion Gate | pending |
 | `Sticker` badge taxonomy | Sticker source/specimen | Variant, separate primitive, or unique | Promotion Gate | pending |
 | Code-strip boundary | Unique + compound files | Primitive, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: primitive |
-| Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | pending |
+| Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | resolved for now: PatternCard owns shapes; reel owns choreography |
 | Drawer primitives | `CompositionTopDrawer.vue` | Which controls are reusable versus drawer-private | Taxonomy Gate | pending |
 | Key geometry recipes | `PrimitiveKeys.vue` | Semantic aliases versus generic clip reuse; pill/tall/wide/squary names | Promotion Gate | pending |
 | Mark API | `PrimitiveMarks.vue` | `family`, `name`, `size`, `tone`, `treatment`, etc. | Promotion Gate | pending |
@@ -68,7 +68,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `PrimitiveBarTape.vue` / compounds | Generic music colors exist, but segment/proportion/playhead/downbeat grammar was local and duplicated | resolved for BarTape: primitive specimen and pattern compounds compose source component. |
 | `PrimitiveButtons.vue` / compounds | Clip/duration tokens exist, but button geometry/state/brass grammar was local and copied | resolved for style-guide: `IconButton` source component owns the grammar and pattern compounds compose it. App `components/ui/IconButton.vue` remains a separate app-system alignment question. |
 | `UniqueCodeStrip.vue` / compounds | Music tokens exist, but code-strip token grammar was reused without a real layer | resolved for style-guide: `CodeStrip` source component owns notation row grammar and pattern compounds compose it. |
-| `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copies lower-layer internals | Extract lower primitives first, then pattern-card/reel. |
+| `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copied lower-layer internals | resolved for PatternCard: source component owns sleek/active card anatomy; PatternReel choreography remains local pending reusable-source need. |
 | `CompositionTopDrawer.vue` | Composition contains many local control primitives | Taxonomy audit after primitive closure. |
 | `PrimitiveKeys.vue` | Generic clips exist, but key-specific recipes are local | Promotion Gate before extraction. |
 | `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing are local | Promotion Gate before extraction. |
@@ -93,3 +93,6 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Pattern compound IconButton copies | prune | Pattern card/reel now compose `IconButton`; copied `.ico` CSS/markup classes removed | Promotion Gate 2026-05-25 |
 | CodeStrip taxonomy | promote as primitive | It renders independently, has stable notation-row anatomy, and is reused in pattern compounds | Taxonomy Gate 2026-05-25 |
 | Pattern compound CodeStrip copies | prune | Pattern card/reel now compose `CodeStrip`; copied `.cs`/`.seq`/`.syl` CSS/markup removed | Promotion Gate 2026-05-25 |
+| Compound source path | promote | `src/components/compounds/` is needed once lower child primitives are source-first | Repository Conventions Gate 2026-05-25 |
+| PatternCard source component | promote | Sleek/active card shapes have stable anatomy and are reused by PatternCard and PatternReel specimens | Promotion Gate 2026-05-25 |
+| PatternReel choreography | keep local for now | Stack depth, click promotion, and active-rise are reel orchestration; no non-specimen consumer yet | Taxonomy Gate 2026-05-25 |

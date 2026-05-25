@@ -22,9 +22,11 @@ Date: 2026-05-24
 
 ## Compound / Unique Component Location
 
-- No reusable compound/unique source directory has been established for this design-lab branch yet.
-- Current compound/unique artifacts live as specimens under `src/style-guide/compounds/` and `src/style-guide/uniques/`.
-- Recommendation: do not create reusable compound/unique locations until primitive closure proves the lower-layer grammar.
+- Reusable compound source directory: `src/components/compounds/`.
+- Current extracted compound model: `src/components/compounds/PatternCard.vue`.
+- Current compound specimens remain under `src/style-guide/compounds/`.
+- Unique source location remains unestablished; unique artifacts still live as specimens under `src/style-guide/uniques/` until singular-role audits prove a need for a reusable source path.
+- Compound source creation is allowed only after lower child primitives for that compound are extracted or explicitly gate-parked.
 
 ## Specimen / Style-Guide Location
 
@@ -54,6 +56,7 @@ Date: 2026-05-24
 - Vue files use `<script setup lang="ts">` when they need script logic.
 - Style-guide specimen files use layer prefixes: `Token*`, `Primitive*`, `Compound*`, `Unique*`, `Composition*`.
 - Extracted primitive files should use concise component names without the specimen prefix, for example `Sticker.vue`.
+- Extracted compound files should use concise component names without the specimen prefix, for example `PatternCard.vue`.
 - Scoped CSS is acceptable inside extracted components, but reusable grammar discovered during extraction must resolve through promote/prune/keep-local.
 
 ## Evidence
@@ -75,18 +78,19 @@ Date: 2026-05-24
 - Moving primitives into `src/components/primitives/`: rejected by user constraint.
 - Treating `src/style-guide/primatives/` as implementation source: rejected by workflow and design-lab doctrine.
 - Adding route infrastructure for the style guide: rejected by branch intent and current `App.vue` shell.
-- Creating compound/unique implementation folders now: deferred until lower-layer closure.
+- Creating a unique implementation folder now: deferred until singular-role audits prove one is needed.
 
 ## Unresolved Risk
 
 - Shared TS constants do not yet have a design-system-specific location.
 - Existing `src/components/ui` contains app UI components that may overlap with future primitives but do not yet follow the new token grammar.
-- Compounds and uniques may eventually need reusable source locations, but creating them before primitive closure would invite drift.
+- Unique source location is still unresolved.
+- Existing app-specific folders such as `src/components/patterns/` can overlap by domain name; do not treat them as design-lab source unless an integration gate explicitly aligns the runtime component with the design-system component.
 
 ## Decision Needed
 
 - Repository Conventions Gate recommendation: continue using the current branch conventions above for the next extraction slice.
-- Any new directory category for constants or compound sources requires a later gate.
+- Any new directory category for constants or unique sources requires a later gate.
 
 ## Unblocks
 
@@ -95,4 +99,4 @@ Date: 2026-05-24
 
 ## Gate Decision
 
-continue under existing branch conventions; no file moves approved beyond documented primitive extraction pattern
+continue under existing branch conventions; primitive sources live in `src/components/primatives/`; compound sources may now live in `src/components/compounds/` after their child primitive dependencies are source-first

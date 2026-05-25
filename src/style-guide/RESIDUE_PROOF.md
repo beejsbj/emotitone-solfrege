@@ -14,7 +14,7 @@ Initial scaffold only. Residue is not cleared.
 | Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
 | Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/tabs/knobs conflicts | Promotion Gate |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
-| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | stack/active cards remain copied; BarTape, IconButton, and CodeStrip copies are pruned from pattern compounds | extract or gate-park |
+| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | PatternReel stack choreography remains local; BarTape, IconButton, CodeStrip, and PatternCard copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
 | Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, and IconButton pass; other primitive specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
@@ -46,7 +46,23 @@ Initial scaffold only. Residue is not cleared.
 |---|---|---|---|
 | `CompoundPatternCard.vue` bar tape | Inline `.bar-tape` markup and copied CSS | Imports and renders `BarTape` with specimen data arrays | pass |
 | `CompoundPatternReel.vue` bar tape | `innerHTML` string assembly emitted copied `.bar-tape` markup and relied on copied CSS | Vue template/state renders `BarTape` components | pass |
-| Compound primitive residue | BarTape, icon button, code strip, stack/active card grammar copied | BarTape, IconButton, and CodeStrip removed from copied-residue list | PatternCard/Reel boundaries remain |
+| Compound primitive residue | BarTape, icon button, code strip, stack/active card grammar copied | BarTape, IconButton, CodeStrip, and PatternCard removed from copied-residue list | PatternReel choreography remains |
+
+## Slice Proof: PatternCard
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| Compound source path | none | `src/components/compounds/PatternCard.vue` established by Repository Conventions Gate | pass for PatternCard |
+| `CompoundPatternCard.vue` source behavior | Specimen owned `.stack-card`, `.active-card`, card metadata, child layout, footer, and status CSS | Specimen imports `PatternCard` and keeps only demo staging/data | pass |
+| `CompoundPatternReel.vue` card copies | Reel copied PatternCard stack/active internals and only varied stack depth/promotion | Reel composes `PatternCard`; keeps only stack depth and promotion choreography | pass for card anatomy |
+| Child dependencies | BarTape, IconButton, CodeStrip previously copied in stages | PatternCard composes all three source components | pass |
+| Reel choreography | Active-rise, stack depth, click promotion | Kept local to reel specimen pending reusable `PatternReel` source need | gate-parked |
+
+Browser DOM proof, 2026-05-25:
+
+- `compound-pattern-card.html` frame renders 5 `.pattern-card` nodes: 2 sleek and 3 active.
+- `CompoundPatternReel` renders 4 `.pattern-card` nodes: 3 sleek and 1 active.
+- Both checked surfaces render 0 old `.sc-row`, `.active-inner`, `.active-head`, or `.active-copy` nodes.
 
 ## Slice Proof: CodeStrip
 

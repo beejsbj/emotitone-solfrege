@@ -108,8 +108,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - `.ico` has been promoted to the icon button/control primitive family.
   `src/components/primatives/IconButton.vue` now owns base size, sm/lg sizing, hover/active/disabled states, geometry variants, wire/solid/toggle/brass variants, and clip-token use. `PrimitiveButtons.vue` imports the source component. The paired shell remains a specimen-local wrapper until a real non-documentation consumer appears.
 
-- Card shell should become a reusable container primitive.
-  `PrimitiveCard.vue:96-152` defines the panel-card body, mark slot, ordinal/glyph/stamp mark treatments, heading/body typography, and panel label. It sits on top of the existing `.panel` and `.panel-label` preview-card grammar, but the card anatomy itself is component-worthy.
+- Card shell has been promoted to a reusable container primitive.
+  `src/components/primatives/CardShell.vue` owns the dark panel body, floating label, mark slot placement, heading/body typography, compact sizing, and border toggle. Demo ordinal/glyph/stamp drawings remain in `PrimitiveCard.vue` until the mark primitive is extracted.
 
 - `.key` should become a shared music-key primitive family.
   `PrimitiveKeys.vue:297-511` defines the key face, syllable/degree/raw label stack, format modifiers, pressed/disabled states, and shape/cut variants. It already uses design-system tokens like `--shadow-key`, `--shadow-pressed`, `--dur-tap`, and `--ease-stab`.
@@ -195,7 +195,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   `PrimitiveKeys.vue` has many specimen-only inline dimensions and demo paddings around lines `41`, `52`, `63`, `79-81`, `143`, `181`, `234`, and `268`.
 
 - Card inverted examples are specimen-only.
-  `PrimitiveCard.vue:61-73` explicitly shows dark/light inversion examples for the guide. The light inversion in particular should not be promoted unless the app needs a light card primitive.
+  `PrimitiveCard.vue` keeps a light inversion example in specimen-local CSS. The light inversion in particular should not be promoted unless the app needs a light card primitive.
 
 - Marks exhibition scaffolding should stay local.
   `.family`, `.family-head`, `.shape-row`, `.legend`, `.treatments-grid`, and `.scales-row` in `PrimitiveMarks.vue:274-434` are display machinery around glyphs, not the reusable primitive itself.
@@ -212,8 +212,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Hardcoded ink appears where `var(--ink)` exists.
   `PrimitiveTabs.vue:342-345` still uses `#0a0908`. `PrimitiveBeatIndicator.vue` was resolved by composing guide helpers backed by `var(--ink)`.
 
-- `PrimitiveCard.vue` uses undefined `--font-body`.
-  `PrimitiveCard.vue:67` and `PrimitiveCard.vue:73` reference `var(--font-body)`, but the shared CSS defines `--font-text`, `--font-mono`, and type shorthands such as `--t-body`.
+- Card shell no longer uses undefined `--font-body`.
+  `CardShell.vue` and the remaining specimen-local inversion use `--t-body-s`; the old `var(--font-body)` references were pruned.
 
 - Beat keyframe naming is split.
   Shared CSS contains both `bar-cell`/`bar-down` and `beat-cell`/`beat-down`, while `BeatIndicator.vue` consumes only `beat-*`. Decide whether both sets are intentional or whether one is stale.

@@ -16,7 +16,7 @@ Initial scaffold only. Residue is not cleared.
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, IconButton, and CodeStrip pass; other primitive specimens still define behavior | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, and CodeStrip pass; other primitive specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
@@ -64,6 +64,24 @@ Browser DOM proof, 2026-05-25:
 - State variants render 12 downbeat cells, 1 `.beat-indicator--even`, and 1 `.beat-indicator--static`.
 - Old local `.beats` and `.beats b` nodes both render 0 nodes.
 - First cell animation computes to `beat-down`; static first cell animation computes to `none`.
+
+## Slice Proof: CardShell
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveCard.vue` source behavior | Specimen owned `.panel-card`, label, mark slot, title/body, compact grid sizing, borderless shell, and inline inversion examples | Specimen imports `CardShell` and keeps only demo mark drawings plus the light inversion example | pass for primitive specimen |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/CardShell.vue` | pass |
+| Undefined body font token | Specimen used `var(--font-body)` in inline examples | Source and specimen use `--t-body-s` | pass |
+| Mark drawings | Ordinal/glyph/stamp treatments lived inside the card specimen | Kept local until `PrimitiveMarks.vue` extraction resolves mark API | gate-parked behind Mark Promotion Gate |
+| Light inversion | Specimen showed a light card shell | Kept local because no real app need is proven | Taste Gate parked |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-card.html` renders 6 `.card-shell` nodes, including 5 compact shells and 1 borderless shell.
+- The card shell renders 6 labels, 5 mark slots, 6 titles, and 6 bodies from source classes.
+- Old local `.panel-card` and `.panel-label` nodes both render 0 nodes.
+- The borderless shell computes to `0px` border width.
+- One `.spec-inversion` node remains as specimen-local proof, not source grammar.
 
 ## Slice Proof: PatternCard
 

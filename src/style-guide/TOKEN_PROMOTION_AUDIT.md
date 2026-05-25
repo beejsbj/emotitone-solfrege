@@ -87,6 +87,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
 - `Sticker.vue` consumes `getRandomGeometry("sticker")`; sticker geometry is randomized from token-backed values.
 - `BarTape.vue` now owns the bar-tape primitive API and CSS; `PrimitiveBarTape.vue` imports it as a specimen. The promoted component corrected the documented major proportion recipe to `2-2-1-2-2-2-1` by making `mi` and `ti` narrow. Pattern compound specimens now compose `BarTape` instead of copying older bar-tape CSS.
 - `IconButton.vue` now owns icon-only control size, geometry, tone, state, pressed, disabled, and brass treatment grammar; `PrimitiveButtons.vue` imports it as a specimen. Pattern compound specimens now compose `IconButton` instead of copying older `.ico` CSS.
+- `CodeStrip.vue` now owns notation row chrome, note glyph modes, rests, durations, grouping, lit state, density, wrapping, and duration bars. Pattern compound specimens now compose `CodeStrip` instead of copying older `.cs` CSS, while `UniqueCodeStrip.vue` remains only a legacy specimen path.
 
 ## Primitive Vue Audit
 

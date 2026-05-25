@@ -23,6 +23,7 @@ Date: 2026-05-24
 | `src/components/primatives/BarTape.vue` | Extracted primitive | primitives | yes | promote | Source-first component for strip, segments, proportions, size, dim/downbeat/playhead, and frame. |
 | `src/style-guide/primatives/PrimitiveBarTape.vue` | Primitive specimen | primitives | no | keep local | Imports `BarTape.vue`; keeps panel/tick staging local. |
 | `src/components/primatives/IconButton.vue` | Extracted primitive | primitives | yes | promote | Source-first component for icon-only controls, geometry, tone, state, pressed, disabled, and brass treatments. |
+| `src/components/primatives/CodeStrip.vue` | Extracted primitive | primitives | yes | promote | Source-first component for notation row, glyph modes, durations, rests, grouping, lit state, density, and wrapping. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | Raw primitive specimen | primitives | no | unresolved | Needs beat primitive extraction. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | Raw primitive specimen | primitives | no | unresolved | Needs card shell extraction. |
@@ -33,18 +34,18 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveMarks.vue` | Raw primitive specimen | primitives | no | unresolved | Needs mark component API. |
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | Raw primitive/compound specimen | primitives/compounds | no | unresolved | Needs spine-card versus preset-row split. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | Raw primitive specimen | primitives | no | unresolved | Needs chip-slide tab extraction. |
-| `src/style-guide/compounds/CompoundPatternCard.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape and IconButton; still copies stack/active cards and code strip. |
-| `src/style-guide/compounds/CompoundPatternReel.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape/IconButton and uses Vue state; still copies pattern-card and code-strip grammar. |
+| `src/style-guide/compounds/CompoundPatternCard.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape, IconButton, and CodeStrip; still copies stack/active cards. |
+| `src/style-guide/compounds/CompoundPatternReel.vue` | Raw compound specimen | compounds | no | unresolved | Composes BarTape/IconButton/CodeStrip and uses Vue state; still copies pattern-card grammar. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
-| `src/style-guide/uniques/UniqueCodeStrip.vue` | Unique? specimen | unique/primitive/compound part | no | unresolved | Reused in compounds; taxonomy suspect. |
+| `src/style-guide/uniques/UniqueCodeStrip.vue` | Legacy primitive specimen path | primitives/specimen | no | keep local | Imports `CodeStrip.vue`; path remains under uniques until navigation/file organization gate. |
 | `src/style-guide/uniques/UniqueDrawer.vue` | Unique specimen | uniques/composition | no | unresolved | Needs unique versus composition decision. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | unresolved | Needs lower-layer dependency audit. |
 | `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | unresolved | Contains drawer/control recipes that need taxonomy. |
 
 ## Coverage Gaps
 
-- No source components yet for most primitive specimens; Sticker, BarTape, and IconButton are extracted.
+- No source components yet for most primitive specimens; Sticker, BarTape, IconButton, and CodeStrip are extracted.
 - No reusable source locations established yet for compounds or uniques.
 - No layer has closure proof yet.
 - Promotion decisions exist in prose in `TOKEN_PROMOTION_AUDIT.md`, but need normalized decision rows in `PROMOTION_AUDIT.md`.

@@ -55,18 +55,7 @@
               </div>
 
               <!-- code-strip in expanded shape only -->
-              <div class="cs" aria-label="Pattern notation">
-                <span class="chev">&lt;</span>
-                <div class="seq">
-                  <span class="syl mi">Mi</span><span class="dur">@0.282</span>
-                  <span class="rest">~</span>
-                  <span class="syl sol">Sol</span><span class="dur">@0.128</span>
-                  <span class="rest">~</span>
-                  <span class="syl la lit">La</span><span class="dur">@0.2031</span>
-                  <span class="rest">~</span>
-                  <span class="syl ti">Ti</span><span class="dur">@0.09</span>
-                </div>
-              </div>
+              <CodeStrip class="active-code-strip" :tokens="brassWhistleCode" />
 
               <!-- transport foot -->
               <div class="active-foot">
@@ -136,18 +125,7 @@
                 </div>
               </div>
 
-              <div class="cs" aria-label="Pattern notation">
-                <span class="chev">&lt;</span>
-                <div class="seq">
-                  <span class="syl fa">Fa</span><span class="dur">@0.0398</span>
-                  <span class="rest">~</span>
-                  <span class="syl mi">Mi</span><span class="dur">@0.09</span>
-                  <span class="rest">~</span>
-                  <span class="syl re lit">Re</span><span class="dur">@0.3289</span>
-                  <span class="rest">~</span>
-                  <span class="syl do">Do</span>
-                </div>
-              </div>
+              <CodeStrip class="active-code-strip" :tokens="hilbertTapeCode" />
 
               <div class="active-foot">
                 <span class="position">Bar 01 / 04 &middot; Steps 16/16</span>
@@ -167,8 +145,10 @@
 
 <script setup lang="ts">
 import BarTape from "../../components/primatives/BarTape.vue";
+import CodeStrip from "../../components/primatives/CodeStrip.vue";
 import IconButton from "../../components/primatives/IconButton.vue";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
+import type { CodeStripToken } from "../../components/primatives/CodeStrip.vue";
 
 const glassBellTape: BarTapeSegment[] = [
   { note: "re" },
@@ -190,6 +170,26 @@ const lateNightTape: BarTapeSegment[] = [
   { note: "do" },
   { note: "re" },
   { note: "mi" },
+];
+
+const brassWhistleCode: CodeStripToken[] = [
+  { type: "note", note: "mi", text: "Mi", duration: "@0.282" },
+  { type: "rest" },
+  { type: "note", note: "sol", text: "Sol", duration: "@0.128" },
+  { type: "rest" },
+  { type: "note", note: "la", text: "La", lit: true, duration: "@0.2031" },
+  { type: "rest" },
+  { type: "note", note: "ti", text: "Ti", duration: "@0.09" },
+];
+
+const hilbertTapeCode: CodeStripToken[] = [
+  { type: "note", note: "fa", text: "Fa", duration: "@0.0398" },
+  { type: "rest" },
+  { type: "note", note: "mi", text: "Mi", duration: "@0.09" },
+  { type: "rest" },
+  { type: "note", note: "re", text: "Re", lit: true, duration: "@0.3289" },
+  { type: "rest" },
+  { type: "note", note: "do", text: "Do" },
 ];
 </script>
 
@@ -415,96 +415,8 @@ const lateNightTape: BarTapeSegment[] = [
   background: var(--brass-edge);
 }
 
-/* ── CODE STRIP — lifted verbatim from unique-code-strip.html ───── */
-.cs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--ink-2);
-  border: 1px solid var(--hairline);
-  padding: 8px 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  overflow: hidden;
-  min-height: 36px;
-}
-
-.cs .chev {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ivory-4);
-  flex: 0 0 auto;
-  letter-spacing: 0;
-}
-
-.cs .seq {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  flex-wrap: nowrap;
-  overflow-x: hidden;
-}
-
-.cs .seq .rest {
-  color: var(--ivory-4);
-  font-size: 11px;
-}
-
-.cs .seq .br {
-  color: var(--ivory-4);
-  font-size: 11px;
-}
-
-.cs .seq .sep {
-  color: var(--ivory-4);
-  font-size: 10px;
-}
-
-.cs .seq .dur {
-  color: var(--ivory-3);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  margin-left: -4px;
-}
-
-.cs .seq .acc {
-  color: var(--ivory-3);
-  font-size: 9px;
-  margin-left: -4px;
-}
-
-.cs .seq .syl {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-.cs .seq .syl.do  { color: var(--note-do); }
-.cs .seq .syl.re  { color: var(--note-re); }
-.cs .seq .syl.mi  { color: var(--note-mi); }
-.cs .seq .syl.fa  { color: var(--note-fa); }
-.cs .seq .syl.sol { color: var(--note-sol); }
-.cs .seq .syl.la  { color: var(--note-la); }
-.cs .seq .syl.ti  { color: var(--note-ti); }
-
-.cs .seq .syl.lit {
-  text-shadow: 0 0 14px currentColor;
-}
-.cs .seq .syl.lit::after {
-  content: "";
-  display: inline-block;
-  width: 5px; height: 5px;
-  background: currentColor;
-  margin-left: 3px;
-  vertical-align: 3px;
-}
-
 /* code-strip inside expanded card: flush to inner padding edges */
-.active-inner > .cs {
+.active-code-strip {
   border-left: 0;
   border-right: 0;
   margin-left: -22px;

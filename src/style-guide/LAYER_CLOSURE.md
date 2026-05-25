@@ -45,17 +45,17 @@ current recovery state across token, primitive, compound, unique, and compositio
 | naming rules documented | partial | CSS comments document groups; unresolved music/brass/type/brand semantics | `TOKEN_PROMOTION_AUDIT.md` |
 | allowed raw-value exceptions documented | fail | Not normalized yet | `RESIDUE_PROOF.md` |
 | token candidates from raw recipe inventory resolved | fail | Several token candidates pending | `RAW_RECIPE_INVENTORY.md` |
-| next layer has enough token vocabulary | partial | Enough for Sticker, BarTape, and IconButton; not enough for key/tab/knob/pattern closure | `PROMOTION_AUDIT.md` |
+| next layer has enough token vocabulary | partial | Enough for Sticker, BarTape, IconButton, and CodeStrip; not enough for key/tab/knob/pattern closure | `PROMOTION_AUDIT.md` |
 
 ### Primitive Closure
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| primitive families have anatomy | fail | Sticker, BarTape, and IconButton have anatomy; others are raw specimens | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `COVERAGE_AUDIT.md` |
-| APIs, states, and variants are named | fail | BarTape and IconButton APIs are named; most other APIs live only in specimen markup/CSS | `PROMOTION_AUDIT.md` |
+| primitive families have anatomy | fail | Sticker, BarTape, IconButton, and CodeStrip have anatomy; others are raw specimens | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `UniqueCodeStrip.vue`, `COVERAGE_AUDIT.md` |
+| APIs, states, and variants are named | fail | BarTape, IconButton, and CodeStrip APIs are named; most other APIs live only in specimen markup/CSS | `PROMOTION_AUDIT.md` |
 | token dependencies are named | partial | Audit names several dependencies | `TOKEN_PROMOTION_AUDIT.md` |
-| primitives consume tokens or approved lower-level constants | partial | Sticker, BarTape, and IconButton do; others unproven | `Sticker.vue`, `BarTape.vue`, `IconButton.vue` |
-| specimens import/demonstrate primitive source files | fail | Sticker, BarTape, and IconButton do; others do not yet | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveButtons.vue` |
+| primitives consume tokens or approved lower-level constants | partial | Sticker, BarTape, IconButton, and CodeStrip do; others unproven | `Sticker.vue`, `BarTape.vue`, `IconButton.vue`, `CodeStrip.vue` |
+| specimens import/demonstrate primitive source files | fail | Sticker, BarTape, IconButton, and CodeStrip do; others do not yet | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `UniqueCodeStrip.vue` |
 
 ### Compound Closure
 
@@ -63,7 +63,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 |---|---|---|---|
 | child primitive dependencies are explicit | fail | Lower primitive sources mostly missing | `COVERAGE_AUDIT.md` |
 | slot contracts are explicit | fail | Not audited yet | `CompoundPatternCard.vue`, `CompoundPatternReel.vue` |
-| compounds compose children instead of duplicating internals | fail | BarTape and IconButton are composed; CodeStrip/pattern-card internals are still copied | `RESIDUE_PROOF.md` |
+| compounds compose children instead of duplicating internals | fail | BarTape, IconButton, and CodeStrip are composed; pattern-card internals are still copied | `RESIDUE_PROOF.md` |
 | repeated child patterns are promoted or gate-parked | fail | Pending | `PROMOTION_AUDIT.md` |
 
 ### Unique Closure
@@ -71,7 +71,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
 | singular-role justification exists | fail | Not written yet | `src/style-guide/uniques/*.vue` |
-| reusable material inside unique is resolved downward | fail | `UniqueCodeStrip` is reused in compounds | `RESIDUE_PROOF.md` |
+| reusable material inside unique is resolved downward | fail | `UniqueCodeStrip` is resolved downward to `CodeStrip`; other uniques remain unaudited | `RESIDUE_PROOF.md` |
 | unique is marked to prevent accidental generalization | fail | Not audited yet | `STYLE_GUIDE_SCHEMA.md` |
 
 ### Composition Closure
@@ -92,7 +92,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | BarTape primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Other primitive specimens | gate-parked | Need extraction or explicit keep-local decisions | Promotion Gate |
 | Code strip | gate-parked | Reused despite unique classification | Taxonomy Gate |
-| Compound pattern artifacts | gate-parked | BarTape/IconButton dependencies resolved; CodeStrip/pattern-card boundaries still depend on lower-layer closure | Taxonomy Gate |
+| Compound pattern artifacts | gate-parked | BarTape/IconButton/CodeStrip dependencies resolved; pattern-card boundaries still depend on lower-layer closure | Taxonomy Gate |
 | Composition artifacts | gate-parked | Depend on lower-layer closure and residue proof | Composition Gate |
 
 ## Gate-Parked Decisions

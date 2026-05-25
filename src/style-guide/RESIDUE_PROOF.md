@@ -14,8 +14,8 @@ Initial scaffold only. Residue is not cleared.
 | Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
 | Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/tabs/knobs conflicts | Promotion Gate |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
-| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | code strip and stack/active cards remain copied; BarTape and IconButton copies are pruned from pattern compounds | extract or gate-park |
-| One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` is suspect because reused in compounds | Taxonomy Gate |
+| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | stack/active cards remain copied; BarTape, IconButton, and CodeStrip copies are pruned from pattern compounds | extract or gate-park |
+| One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
 | Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, and IconButton pass; other primitive specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
@@ -46,7 +46,22 @@ Initial scaffold only. Residue is not cleared.
 |---|---|---|---|
 | `CompoundPatternCard.vue` bar tape | Inline `.bar-tape` markup and copied CSS | Imports and renders `BarTape` with specimen data arrays | pass |
 | `CompoundPatternReel.vue` bar tape | `innerHTML` string assembly emitted copied `.bar-tape` markup and relied on copied CSS | Vue template/state renders `BarTape` components | pass |
-| Compound primitive residue | BarTape, icon button, code strip, stack/active card grammar copied | BarTape and IconButton removed from copied-residue list | CodeStrip and PatternCard/Reel boundaries remain |
+| Compound primitive residue | BarTape, icon button, code strip, stack/active card grammar copied | BarTape, IconButton, and CodeStrip removed from copied-residue list | PatternCard/Reel boundaries remain |
+
+## Slice Proof: CodeStrip
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| Unique specimen owns code-strip behavior | `UniqueCodeStrip.vue` owned `.cs`, `.seq`, glyph, duration, rest, lit, dense, wrapped, and bar CSS | Specimen imports `CodeStrip` and keeps only documentation data | pass for legacy specimen path |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/CodeStrip.vue` | pass |
+| Compound copies | Pattern card/reel copied `.cs` CSS and notation markup | Pattern card/reel compose `CodeStrip` with token arrays | pass for pattern compounds |
+| Unique taxonomy conflict | Code-strip was under uniques while reused in compounds | Taxonomy Gate reclassifies it as primitive; file path remains legacy specimen path | naming/navigation gate remains |
+
+Browser DOM proof, 2026-05-25:
+
+- `unique-code-strip.html` frame renders 10 `.code-strip` nodes and 0 `.cs` nodes.
+- `CompoundPatternCard` renders 2 `.code-strip` nodes and 0 `.cs` nodes.
+- `CompoundPatternReel` renders 1 `.code-strip` node and 0 `.cs` nodes.
 
 ## Slice Proof: IconButton
 

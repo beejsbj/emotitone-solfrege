@@ -45,7 +45,7 @@ Date: 2026-05-24
 | Sticker badge | `Sticker.vue`, `PrimitiveSticker.vue` | Badge ignores color and random geometry | candidate primitive/variant/unique | decide | Promotion Gate |
 | Pattern card stack/active shapes | Compound pattern files | Sleek row, active card, spine, ordinal, footer, active rise | candidate compound | promote after lower primitives | Compound Gate |
 | Pattern reel stack/promotion behavior | `CompoundPatternReel.vue` | Stack depth transforms, click promotion, active-rise | candidate compound/composition behavior | decide boundary | Taxonomy Gate |
-| Code strip | Unique + compound files | Rest/duration/accent/syllable tokens, lit syllable glow/dot | primitive/compound part | decide taxonomy | Taxonomy Gate |
+| Code strip | Unique + compound files | Rest/duration/accent/syllable tokens, lit syllable glow/dot | primitive | promoted | Taxonomy + Promotion Gate 2026-05-25 |
 | Top drawer recipe | `CompositionTopDrawer.vue` | Drawer frame, app push-down, scrim, top panel, handle, pane switching | composition/product recipe | keep local or productize | Composition Gate |
 | Guide anatomy/variant chrome | Many specimens | Duplicate specimen CSS despite guide helpers | specimen helper | prune into helpers/keep local | Primitive Cleanup |
 | Hero/stage wrappers | Primitive/composition specimens | Demo stages and display wrappers | specimen-only | keep local | Layer Closure |
@@ -81,6 +81,7 @@ Date: 2026-05-24
 |---|---|---|---|
 | Bar tape strip | `src/components/primatives/BarTape.vue` | Promoted strip, segment colors, major/equal proportions, size variants, dim/downbeat states, live playhead, and boxed/flush frame. Corrected major ratio to `2-2-1-2-2-2-1` with `mi` and `ti` narrow. | Primitive specimen and pattern compound specimens now compose `BarTape`; music color model remains gate-parked. |
 | Icon button/control family | `src/components/primatives/IconButton.vue` | Promoted size, geometry, tone, simulated state, disabled, pressed/toggle, and brass signal/fill/wire/glow treatments. Pruned offcut/tile polygons to existing `--clip-offcut` and `--clip-tile` tokens. | `PrimitiveButtons.vue` and pattern compound specimens now compose `IconButton`; paired-control shell remains specimen-local until another component needs it. |
+| Code strip | `src/components/primatives/CodeStrip.vue` | Promoted notation row, note glyph modes, durations, rests, brackets/separators, lit glyph marker, density, wrapping, stacked duration, and duration-bar grammar. | Pattern compound specimens now compose `CodeStrip`; `UniqueCodeStrip.vue` remains a legacy specimen path until a naming/navigation gate. |
 
 ## Ready For Extraction
 

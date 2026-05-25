@@ -16,15 +16,16 @@ Date: 2026-05-24
   - `src/components/primatives/Sticker.vue`
   - `src/components/primatives/BarTape.vue`
   - `src/components/primatives/IconButton.vue`
+  - `src/components/primatives/CodeStrip.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker, BarTape, and IconButton follow the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
+- Status: Sticker, BarTape, IconButton, and CodeStrip follow the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
 
 ## Compounds
 
 - Current specimens:
   - `src/style-guide/compounds/CompoundPatternCard.vue`
   - `src/style-guide/compounds/CompoundPatternReel.vue`
-- Status: preview/specimen layer only. They now compose `BarTape` and `IconButton`, but still copy stack-card, active-card, and code-strip grammar instead of composing named lower layers.
+- Status: preview/specimen layer only. They now compose `BarTape`, `IconButton`, and `CodeStrip`, but still copy stack-card and active-card grammar instead of composing named lower layers.
 
 ## Uniques
 
@@ -33,7 +34,7 @@ Date: 2026-05-24
   - `src/style-guide/uniques/UniqueBrandLogo.vue`
   - `src/style-guide/uniques/UniqueCodeStrip.vue`
   - `src/style-guide/uniques/UniqueDrawer.vue`
-- Status: preview/specimen layer only. `UniqueCodeStrip` is suspicious because code-strip grammar appears in pattern compounds and may not be unique.
+- Status: preview/specimen layer only. `UniqueCodeStrip` is now a legacy specimen path for the promoted `CodeStrip` primitive and should be renamed/moved only after a navigation/file-organization gate.
 
 ## Compositions
 
@@ -69,6 +70,7 @@ Date: 2026-05-24
 | `src/components/primatives/BarTape.vue` | primitive | yes | promote | Owns segment color, major/equal proportions, size, dim/downbeat/playhead, and boxed/flush frame. |
 | `src/style-guide/primatives/PrimitiveBarTape.vue` | primitive specimen | no | keep local | Imports and inspects `BarTape.vue`; panel/tick staging remains specimen-only. |
 | `src/components/primatives/IconButton.vue` | primitive | yes | promote | Owns icon-only control size, geometry, tone, simulated states, disabled, pressed, and brass treatments. |
+| `src/components/primatives/CodeStrip.vue` | primitive | yes | promote | Owns notation row, note glyph modes, rests, durations, grouping, lit state, density, and wrapping. |
 | `src/style-guide/primatives/PrimitiveBeatIndicator.vue` | primitive candidate/specimen | no | unresolved | Needs extraction and beat keyframe decision. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | primitive specimen | no | keep local | Imports and inspects `IconButton.vue`; paired-control wrappers remain specimen-only. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | primitive candidate/specimen | no | unresolved | Needs card shell primitive boundary. |
@@ -79,9 +81,9 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveMarks.vue` | primitive candidate/specimen | no | unresolved | Needs mark API before extraction. |
 | `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive/compound candidate specimen | no | unresolved | `preset-row` may be compound. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | primitive candidate/specimen | no | unresolved | Needs timing and variant cleanup. |
-| `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | unresolved | Composes BarTape and IconButton; still depends on CodeStrip/pattern-card boundary decisions. |
-| `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | unresolved | Composes BarTape and IconButton; adds stack/promote behavior; depends on PatternCard boundary. |
-| `src/style-guide/uniques/UniqueCodeStrip.vue` | unique? | no | unresolved | Reused enough to require Taxonomy Gate. |
+| `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | unresolved | Composes BarTape, IconButton, and CodeStrip; still depends on pattern-card boundary decisions. |
+| `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | unresolved | Composes BarTape, IconButton, and CodeStrip; adds stack/promote behavior; depends on PatternCard boundary. |
+| `src/style-guide/uniques/UniqueCodeStrip.vue` | legacy primitive specimen path | no | keep local | Imports and inspects `CodeStrip.vue`; file location/name remains a later organization gate. |
 | `src/style-guide/uniques/*.vue` | unique specimen | no | unresolved | Needs singular-role justification. |
 | `src/style-guide/compositions/*.vue` | composition specimen | no | unresolved | Needs lower-layer residue proof. |
 | `src/style-guide/guide/*.vue` | specimen helper | yes, for inspection UI only | keep local | Not a taxonomy layer. |

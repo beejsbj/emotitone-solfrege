@@ -118,14 +118,14 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - `.kicker` has been promoted to a real primitive.
   `src/components/primatives/Kicker.vue` owns dot + label anatomy, color/tone modifiers, density, dot-only/label-only forms, inverse treatment, and rectangular dot marks. The unused center/right alignment helpers were pruned.
 
-- Analog and digital knobs share enough structure to promote a knob primitive layer.
-  `PrimitiveKnobsAnalog.vue:163-380` and `PrimitiveKnobsDigital.vue:246-448` both define `knob`, `knob-label`, `knob-foot`, `knob-tile`, hero sizing, role modifiers, disabled state, lit/played states, and button motion. The shared anatomy should move into a real component or common primitive CSS before the analog/digital differences are split.
+- Analog and digital knobs share a promoted source primitive.
+  `src/components/primatives/Knob.vue` now owns `knob-primitive`, label/footer frame, hero sizing, role modifiers, disabled state, lit/played states, tone axis, and button motion. `PrimitiveKnobsAnalog.vue` and `PrimitiveKnobsDigital.vue` import it with `visual="ring"` or `visual="arc"`.
 
-- `spin360` is duplicated.
-  `PrimitiveKnobsAnalog.vue:312-317` and `PrimitiveKnobsDigital.vue:441-448` both define the same beat-based rotation animation for knob button motion. Promote once if this is a real primitive motion, or leave local only if it is just specimen theatre.
+- Knob spin motion is promoted once.
+  `Knob.vue` owns one `knob-spin360` keyframe for ring and arc button motion with one reduced-motion rule.
 
-- Digital knob SVG track grammar should become a reusable stroke recipe.
-  `PrimitiveKnobsDigital.vue:369-392` repeats butt caps, miter joins, `2px` background stroke, `8px` value stroke, and brass glow/drop-shadow behavior. This reinforces the earlier SVG stroke grammar finding from the token audit.
+- Digital knob SVG track grammar is source-owned for this primitive.
+  `Knob.vue` owns butt caps, miter joins, `2px` background stroke, `8px` value stroke, and brass glow/drop-shadow behavior for arc knobs.
 
 - `spine-card` has been promoted to a real primitive.
   `src/components/primatives/SpineCard.vue` owns the shell, colored spine, matching Kicker child, stamp, body copy, compact mode, and brand-color modifiers. This directly matches the brand-token rule that brand color appears as decorative artifact rather than whole-surface replacement.
@@ -165,8 +165,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Kicker typography is kept as a named mono exception.
   `Kicker.vue` uses mono labels at 9px as section/spec-marker grammar, while the wider guide/spec label contradiction remains parked.
 
-- Brass glow/drop-shadow needs a token decision.
-  Knobs hardcode brass glows in places like `PrimitiveKnobsAnalog.vue:285`, `PrimitiveKnobsAnalog.vue:321-324`, `PrimitiveKnobsDigital.vue:386`, `PrimitiveKnobsDigital.vue:418`, and `PrimitiveKnobsDigital.vue:431`, even though `--shadow-glow-brass` exists. Decide whether drop-shadow glow becomes its own token or all uses collapse to `--shadow-glow-brass`.
+- Brass glow/drop-shadow is normalized for Knob.
+  `Knob.vue` uses `--shadow-glow-brass` for played glow and brass ball states; SVG value strokes keep local `drop-shadow()` filters because they apply to stroke rendering rather than box shadow.
 
 - Sticker `badge` may not belong as a `Sticker` variant.
   `PrimitiveSticker.vue:31-40` and `Sticker.vue:187-222` make badge ignore color and random geometry. That might be correct as a unique brass sticker variant, but it may also be a separate brass badge primitive.
@@ -186,10 +186,10 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 ## Primitive Specimen-Only
 
 - Hero/stage wrappers should stay guide-only.
-  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, `PrimitiveKeys.vue:513-531`, `PrimitiveKnobsAnalog.vue:163-195`, and `PrimitiveKnobsDigital.vue:246-278`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, `PrimitiveMarks.vue`, and `PrimitiveTabs.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
+  Examples include `PrimitiveBarTape.vue`, `PrimitiveButtons.vue`, and `PrimitiveKeys.vue:513-531`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, and `PrimitiveKnobsDigital.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
 
 - Variant-card chrome and demo tilts are display scaffolding unless routed through the shared random geometry utility.
-  Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, `PrimitiveKnobsAnalog.vue:197-201`, `PrimitiveKnobsDigital.vue:280-284`, and unresolved tab/knob/mark-adjacent specimens.
+  Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, and unresolved key/mark-adjacent specimens. Knob specimen tile/tilt chrome was pruned into guide helpers plus `Knob` source frame anatomy.
 
 - Inline demo sizing/padding should stay local unless promoted into named variants.
   `PrimitiveKeys.vue` has many specimen-only inline dimensions and demo paddings around lines `41`, `52`, `63`, `79-81`, `143`, `181`, `234`, and `268`.
@@ -227,20 +227,20 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Keys degree-format text does not match the implementation.
   `PrimitiveKeys.vue:52-58` says arabic + roman sub, but `PrimitiveKeys.vue:352-359` renders roman-only values and `PrimitiveKeys.vue:419-421` leaves degree numeral toggles unimplemented.
 
-- Disabled naming and filters diverge.
-  Keys use `.disabled` with `saturate(.12) brightness(.45)` at `PrimitiveKeys.vue:429-431`; knobs use `.is-disabled` with `saturate(0.1) brightness(0.55)` at `PrimitiveKnobsAnalog.vue:357-360` and `PrimitiveKnobsDigital.vue:434-437`.
+- Disabled naming and filters still diverge between keys and source knobs.
+  Keys use `.disabled` with `saturate(.12) brightness(.45)` at `PrimitiveKeys.vue:429-431`; `Knob.vue` uses `disabled` prop and `.knob-primitive--disabled` with `saturate(.1) brightness(.55)`.
 
-- Digital knob played selector appears structurally wrong.
-  `PrimitiveKnobsDigital.vue:426-431` targets `.knob.is-played .knob--arc` as a descendant, but `knob--arc` lives on the same element in the template. Analog uses same-element selector grammar at `PrimitiveKnobsAnalog.vue:320-324`.
+- Digital knob played selector is fixed in source.
+  `Knob.vue` uses same-element `.knob-primitive--arc.knob-primitive--played` selectors, so the old descendant mismatch is removed.
 
-- Non-brass knob grammar differs between analog and digital.
-  Analog uses knob-level `.is-nobrass` in `PrimitiveKnobsAnalog.vue:327-355`; digital uses per-track `.ivory-only` in `PrimitiveKnobsDigital.vue:389-392`. Same variant axis, different anatomy.
+- Non-brass knob grammar is normalized.
+  `Knob.vue` uses the `tone="ivory"` axis for ring and arc visuals instead of separate analog `.is-nobrass` and digital `.ivory-only` recipes.
 
 - Kicker unused alignment-demo CSS was pruned.
   `Kicker.vue` does not carry center/right alignment helpers because the specimen did not use them.
 
-- Tabs duplicate brass finish instead of using the global `.brass` grammar.
-  `ChipTabs.vue` uses the global `.brass` utility on the active chip and brass tokens for the component-specific active surface shadow. Knob brass remains unaudited.
+- Tabs and knobs use source-owned brass grammar.
+  `ChipTabs.vue` uses the global `.brass` utility on the active chip and brass tokens for the component-specific active surface shadow. `Knob.vue` owns brass value marks and shared glow usage for visual knob primitives.
 
 - Brand danger semantics remain split.
   Shared CSS says brand colors are decorative-only, but also aliases `--danger` to tomato. `SpineCard.vue` preserves the tomato example content through the specimen, but the semantic decision still needs doctrine work rather than another token alias.

@@ -12,11 +12,11 @@ Initial scaffold only. Residue is not cleared.
 |---|---|---|---|
 | Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/emotitone-design-system.css` | not yet run for closure | pending |
 | Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
-| Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/tabs/knobs conflicts | Promotion Gate |
+| Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/key conflicts; tabs and knobs resolved in source slices | Promotion Gate |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, and ChipTabs pass; key/knob specimens still define behavior | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, and Knob pass; key specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
@@ -153,6 +153,25 @@ Browser DOM proof, 2026-05-25:
 - The old local `.p5-tabs`, `.active-chip`, `.js-chip-tabs`, `.state-tab`, `.section-head`, and `.vt-cell` families all render 0 nodes.
 - Computed chip clips come from token polygons for tab, offcut, and paper-rip variants; the brass chip computes to the global brass gradient.
 - The hero chip moved from `left: 6.82942px` to `left: 80.7292px` after clicking the second tab, and that tab's `aria-selected` changed to `true`.
+
+## Slice Proof: Knob
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveKnobsAnalog.vue` source behavior | Specimen owned `.knob`, `.ring`, label/footer/tile frame, role classes, brass/ivory treatment, disabled state, played glow, and spin keyframe | Specimen imports `Knob` with `visual="ring"` and keeps only role/treatment grouping | pass for analog specimen |
+| `PrimitiveKnobsDigital.vue` source behavior | Specimen owned `.knob`, SVG track paths/classes, label/footer/tile frame, role classes, brass/ivory treatment, disabled state, played glow, and spin keyframe | Specimen imports `Knob` with `visual="arc"` and keeps only role/treatment grouping | pass for digital specimen |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/Knob.vue` | pass |
+| SVG stroke grammar | Digital specimen repeated butt caps, miter joins, 2px background strokes, and 8px value strokes | Source arc visual owns stroke grammar | pass |
+| Production knob overlap | App controls exist under `src/components/knobs/` | Production behavior remains untouched and gate-parked for app integration | App Integration Gate parked |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-knobs-analog.html` renders 9 `.knob-primitive` nodes, all ring visuals; 8 framed variants render source labels and footers.
+- `primitive-knobs-digital.html` renders 9 `.knob-primitive` nodes, all arc visuals; 8 framed variants render source labels and footers.
+- Both knob specimens render 5 brass-tone and 4 ivory-tone source knobs.
+- Old local `.knob`, `.ring`, `.trk`, `.knob-tile`, `.knob-label`, `.knob-foot`, and `.seg-rotate` families render 0 nodes in both frames.
+- Digital value tracks compute to `stroke-width: 8px`, `stroke-linecap: butt`, and `stroke-linejoin: miter`.
+- Analog hero ring computes the brass conic sweep from source CSS; digital button motion computes to the source `knob-spin360` keyframe.
 
 ## Slice Proof: PatternCard
 

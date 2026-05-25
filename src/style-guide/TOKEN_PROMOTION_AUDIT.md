@@ -127,8 +127,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Digital knob SVG track grammar should become a reusable stroke recipe.
   `PrimitiveKnobsDigital.vue:369-392` repeats butt caps, miter joins, `2px` background stroke, `8px` value stroke, and brass glow/drop-shadow behavior. This reinforces the earlier SVG stroke grammar finding from the token audit.
 
-- `spine-card` is a real primitive candidate.
-  `PrimitiveSpineCard.vue:101-161` defines the shell, colored spine, kicker row, dot, stamp, body copy, and brand-color modifiers. This directly matches the brand-token rule that brand color appears as decorative artifact rather than whole-surface replacement.
+- `spine-card` has been promoted to a real primitive.
+  `src/components/primatives/SpineCard.vue` owns the shell, colored spine, matching Kicker child, stamp, body copy, compact mode, and brand-color modifiers. This directly matches the brand-token rule that brand color appears as decorative artifact rather than whole-surface replacement.
 
 - `p5-tabs` / chip-slide tabs should become a token-backed tabs primitive.
   `PrimitiveTabs.vue:352-479` defines rail, streak, chip, tab buttons, density, chip geometry, and brass chip finish. The mechanics already map to global clip, motion, and brass tokens, but are still trapped in the specimen.
@@ -171,8 +171,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Sticker `badge` may not belong as a `Sticker` variant.
   `PrimitiveSticker.vue:31-40` and `Sticker.vue:187-222` make badge ignore color and random geometry. That might be correct as a unique brass sticker variant, but it may also be a separate brass badge primitive.
 
-- `preset-row` stretches spine-card toward a compound.
-  `PrimitiveSpineCard.vue:57-84` and `PrimitiveSpineCard.vue:227-268` turn the spine-card into an interactive row with status text and buttons. Decide whether this is a spine-card variant or a compound/control row.
+- `preset-row` is gate-parked as a compound/control row.
+  `PrimitiveSpineCard.vue` keeps local preset-row demos for apply/applied/expiring states, but `SpineCard.vue` does not absorb them into the primitive API.
 
 - Marks need an API before promotion.
   Current marks are raw SVG snippets. A likely component API is some combination of `family`, `name`, `size`, `tone`, and `treatment`, but that decision should be explicit before extracting.
@@ -243,7 +243,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   `PrimitiveTabs.vue:433-457` locally recreates brass fill, sheen, shadow, and animation that overlaps global `.brass` in `src/emotitone-design-system.css`.
 
 - Brand danger semantics remain split.
-  Shared CSS says brand colors are decorative-only, but also aliases `--danger` to tomato. `PrimitiveSpineCard.vue:8-28` uses danger language for tomato spine-card examples. This needs a semantic decision rather than another token alias.
+  Shared CSS says brand colors are decorative-only, but also aliases `--danger` to tomato. `SpineCard.vue` preserves the tomato example content through the specimen, but the semantic decision still needs doctrine work rather than another token alias.
 
 - Marks scale text and proof do not exactly agree.
   `PrimitiveMarks.vue:29` says `14px inline`, `18-22px header`, `56-96px hero`; `PrimitiveMarks.vue:271` forces hero SVGs to `92px`, and `PrimitiveMarks.vue:207-239` demonstrates `14`, `28`, `56`, and `96`.

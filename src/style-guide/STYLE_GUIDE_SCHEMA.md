@@ -20,8 +20,9 @@ Date: 2026-05-24
   - `src/components/primatives/IconButton.vue`
   - `src/components/primatives/CodeStrip.vue`
   - `src/components/primatives/Kicker.vue`
+  - `src/components/primatives/SpineCard.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, and Kicker follow the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
+- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, and SpineCard follow the intended source-first pattern. Other primitive specimens remain raw recipe sources until extracted or explicitly kept local.
 
 ## Compounds
 
@@ -84,6 +85,8 @@ Date: 2026-05-24
 | `src/components/primatives/CodeStrip.vue` | primitive | yes | promote | Owns notation row, note glyph modes, rests, durations, grouping, lit state, density, and wrapping. |
 | `src/components/primatives/Kicker.vue` | primitive | yes | promote | Owns dot+label marker anatomy, tone, dot geometry, density, inverse, and form variants. |
 | `src/style-guide/primatives/PrimitiveKicker.vue` | primitive specimen | no | keep local | Imports and inspects `Kicker.vue`; grid staging remains specimen-local. |
+| `src/components/primatives/SpineCard.vue` | primitive | yes | promote | Owns brand spine panel, matching Kicker child, stamped headline, body copy, compact mode, and one-color rule. |
+| `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive specimen plus parked compound specimen | no | keep local / gate-park | Imports and inspects `SpineCard.vue`; preset-row demo remains parked behind a compound Taxonomy Gate. |
 | `src/components/compounds/PatternCard.vue` | compound | yes | promote | Owns sleek/active pattern card anatomy and composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | compound | yes | promote | Owns stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | primitive specimen | no | keep local | Imports and inspects `IconButton.vue`; paired-control wrappers remain specimen-only. |
@@ -91,7 +94,6 @@ Date: 2026-05-24
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | primitive candidate/specimen | no | unresolved | Needs shared knob anatomy decision. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | primitive candidate/specimen | no | unresolved | Needs shared knob/stroke/glow decisions. |
 | `src/style-guide/primatives/PrimitiveMarks.vue` | primitive candidate/specimen | no | unresolved | Needs mark API before extraction. |
-| `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive/compound candidate specimen | no | unresolved | `preset-row` may be compound. |
 | `src/style-guide/primatives/PrimitiveTabs.vue` | primitive candidate/specimen | no | unresolved | Needs timing and variant cleanup. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | keep local | Imports and inspects `PatternCard.vue`. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | keep local | Imports and inspects `PatternReel.vue`. |

@@ -20,6 +20,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Beat indicator primitive | `PrimitiveBeatIndicator.vue` | `src/components/primatives/BeatIndicator.vue` | Stable beat cell anatomy | promoted 2026-05-25 |
 | Card shell primitive | `PrimitiveCard.vue` | `src/components/primatives/CardShell.vue` | Stable dark panel, label, mark slot, title/body shell | promoted 2026-05-25 |
 | Kicker marker primitive | `PrimitiveKicker.vue` | `src/components/primatives/Kicker.vue` | Stable dot+label marker with tone/form axes | promoted 2026-05-25 |
+| Spine card primitive | `PrimitiveSpineCard.vue` | `src/components/primatives/SpineCard.vue` | Stable brand spine panel using Kicker child | promoted 2026-05-25 |
 | Key primitive family | `PrimitiveKeys.vue` | source component | Core music UI primitive | pending decisions |
 | Shared knob anatomy | Analog/digital knob specimens | source component family | Repeated label/tile/role/state grammar | pending decisions |
 | Mark primitive | `PrimitiveMarks.vue` | source component | Repeated SVG/treatment/scale grammar | pending API |
@@ -48,6 +49,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | IconButton paired-control shell | `PrimitiveButtons.vue` | Specimen-only grouping wrapper until pair behavior appears outside documentation | accepted |
 | Drawer fake app content | `CompositionTopDrawer.vue` | Proof context, not automatically primitive grammar | pending composition audit |
 | Kicker specimen grid/staging | `PrimitiveKicker.vue` | Guide-only inspection layout | accepted |
+| SpineCard preset-row demo | `PrimitiveSpineCard.vue` | Parked compound/control-row specimen until the compound layer decides API | gate-parked |
 
 ## Needs User Decision
 
@@ -73,6 +75,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `PrimitiveBeatIndicator.vue` | Beat motion tokens/keyframes exist, but cell count, stagger, downbeat/even/static states, and size grammar were local | resolved for style-guide: `BeatIndicator` source component owns primitive row/cell grammar and consumes current global keyframes. |
 | `PrimitiveCard.vue` | Panel tokens existed, but card label, mark slot, title/body rhythm, compact sizing, and border toggle were local | resolved for style-guide: `CardShell` source component owns shell grammar; demo mark drawings stay local pending Mark extraction. |
 | `PrimitiveKicker.vue` | Kicker tokens existed as loose color/typography values, but dot+label anatomy, tone, form, density, and dot geometry were local | resolved for style-guide: `Kicker` source component owns marker grammar. |
+| `PrimitiveSpineCard.vue` | Brand color tokens and Kicker existed, but spine panel, matching Kicker, stamp/body layout, and compact sizing were local | resolved for base primitive: `SpineCard` source component owns the brand-marked shell; preset rows remain gate-parked. |
 | `PrimitiveButtons.vue` / compounds | Clip/duration tokens exist, but button geometry/state/brass grammar was local and copied | resolved for style-guide: `IconButton` source component owns the grammar and pattern compounds compose it. App `components/ui/IconButton.vue` remains a separate app-system alignment question. |
 | `UniqueCodeStrip.vue` / compounds | Music tokens exist, but code-strip token grammar was reused without a real layer | resolved for style-guide: `CodeStrip` source component owns notation row grammar and pattern compounds compose it. |
 | `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copied lower-layer internals | resolved: PatternCard and PatternReel source components own reusable compound grammar. |
@@ -106,6 +109,10 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Kicker role boundary | promote as general marker | Specimen used brand tones plus brass/ivory/open treatments; source supports both brand and status marker tones | Promotion Gate 2026-05-25 |
 | Kicker mono typography | keep as named exception | Kicker/spec marker labels intentionally use mono at 9px; wider guide/spec typography remains pending | Doctrine Gate parked |
 | Kicker unused alignment demo | prune | Center/right alignment CSS existed without current specimen use | Promotion Gate 2026-05-25 |
+| SpineCard source component | promote | Base spine-card shell has stable primitive anatomy and composes Kicker | Promotion Gate 2026-05-25 |
+| SpineCard one-color rule | promote | Source uses one brand tone per card for spine and Kicker child | Promotion Gate 2026-05-25 |
+| SpineCard preset row | gate-park | Horizontal action/status rows coordinate buttons/meta and should be compound/control-row work | Taxonomy Gate 2026-05-25 |
+| SpineCard danger wording | keep as content pending doctrine | Tomato example still says Danger; brand/danger semantics are a wider token-doctrine decision already parked | Doctrine Gate parked |
 | IconButton source component | promote | `.ico`/`.ico-pair` grammar had stable source identity and was copied into pattern compounds | Promotion Gate 2026-05-25 |
 | IconButton offcut/tile polygons | prune to tokens | Source component uses existing `--clip-offcut` and `--clip-tile` instead of repeating polygons | Promotion Gate 2026-05-25 |
 | Pattern compound IconButton copies | prune | Pattern card/reel now compose `IconButton`; copied `.ico` CSS/markup classes removed | Promotion Gate 2026-05-25 |

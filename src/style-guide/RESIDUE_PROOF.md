@@ -16,7 +16,7 @@ Initial scaffold only. Residue is not cleared.
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton offcut/tile now use existing tokens; known duplicates remain in keys/tabs | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds | extract or gate-park |
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
-| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, and Kicker pass; other primitive specimens still define behavior | extract or keep-local decision |
+| Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | known: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, and SpineCard pass; other primitive specimens still define behavior | extract or keep-local decision |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 
 ## Current Residue Verdict
@@ -101,6 +101,24 @@ Browser DOM proof, 2026-05-25:
 - Brand tones, brass, ivory, open, micro dot, inverse, dot-only, and label-only variants all render from source classes.
 - Old local `.dot`, `.kicker-label`, and `.mark-tomato` nodes render 0 nodes.
 - Brass dot shadow computes from the shared brass glow token and micro dot width computes to `5px`.
+
+## Slice Proof: SpineCard
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| `PrimitiveSpineCard.vue` base behavior | Specimen owned `.spine-card`, brand spine, copied kicker anatomy, stamp, body, compact grid sizing, and bone surface | Specimen imports `SpineCard`; source composes `Kicker` and owns the base brand-marked shell | pass for base primitive |
+| Source component exists | none under `src/components/primatives/` | `src/components/primatives/SpineCard.vue` | pass |
+| Kicker copy | Spine card copied `.kicker` and `.dot` internals | Source composes `Kicker` | pass |
+| Preset row | Horizontal action/status row lived inside primitive specimen | Kept local as `.preset-row-demo` and gate-parked as compound/control-row candidate | Taxonomy Gate parked |
+| Brand danger semantics | Tomato example used danger wording while brand tokens are semantically split | Preserved as content, parked behind existing brand/danger doctrine gate | Doctrine Gate remains |
+
+Browser DOM proof, 2026-05-25:
+
+- `primitive-spine-card.html` renders 6 `.spine-card` nodes, including 5 compact variants.
+- Each source SpineCard renders one Kicker child, one `.spine-card__stamp`, and one `.spine-card__body`.
+- Tone variants render for tomato, pine, plum, bone, and mustard; bone computes to the raised ink-3 surface.
+- Old local `.mark-tomato`, `.apply-btn`, and `.what` nodes render 0 nodes.
+- Three `.preset-row-demo` nodes remain as explicitly parked compound demos.
 
 ## Slice Proof: PatternCard
 

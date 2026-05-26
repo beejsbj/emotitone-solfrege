@@ -25,6 +25,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Chip-slide tabs | `PrimitiveTabs.vue` | `src/components/primatives/ChipTabs.vue` | Stable rail/chip/streak mechanic with geometry/density/tone axes | promoted 2026-05-25 |
 | Shared knob anatomy | Analog/digital knob specimens | `src/components/primatives/Knob.vue` | Stable visual knob grammar shared by ring and arc specimens | promoted 2026-05-25 |
 | Key primitive family | `PrimitiveKeys.vue` | `src/components/primatives/Key.vue` | Core music UI primitive with stable face/label/shape/state grammar | promoted 2026-05-25 |
+| Drawer shell primitive | `UniqueDrawer.vue`, `CompositionTopDrawer.vue` | `src/components/primatives/DrawerShell.vue` | Reusable bounded drawer shell, torn handle, scrim, anchors, close behavior, and optional resize snaps | promoted 2026-05-26 |
 
 ## Prune / Replace With Existing
 
@@ -47,7 +48,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Variant demo captions and shape labels | Specimens | Documentation scaffolding | accepted |
 | BarTape hero panel and tick row | `PrimitiveBarTape.vue` | Specimen staging around the source primitive | accepted |
 | IconButton paired-control shell | `PrimitiveButtons.vue` | Specimen-only grouping wrapper until pair behavior appears outside documentation | accepted |
-| Drawer fake app content | `CompositionTopDrawer.vue` | Product/context proof around the drawer shell, not automatically reusable component grammar | accepted as composition-local pending drawer-shell promotion |
+| Drawer fake app content | `CompositionTopDrawer.vue` | Product/context proof around the drawer shell, not automatically reusable component grammar | accepted as composition-local; `DrawerShell` promoted |
 | Brand cover fixed artwork/copy | `UniqueBrandCover.vue` | Singular brand artifact; preserve as unique rather than generic component grammar | accepted pending unique extraction |
 | Brand logo lockup variants | `UniqueBrandLogo.vue` | Singular brand identity system; variants belong to brand usage, not generic UI | accepted pending unique extraction |
 | Kicker specimen grid/staging | `PrimitiveKicker.vue` | Guide-only inspection layout | accepted |
@@ -67,7 +68,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `Sticker` badge taxonomy | Sticker source/specimen | Variant, separate primitive, or unique | Promotion Gate | pending |
 | Code-strip boundary | Unique + compound files | Primitive, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: primitive |
 | Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | resolved: PatternCard owns shapes; PatternReel owns choreography |
-| Drawer shell | `UniqueDrawer.vue`, `CompositionTopDrawer.vue`, `src/components/TopDrawer.vue` | Promote visual drawer shell, align existing `TopDrawer.vue`, or create a compound wrapper without changing app behavior | Promotion/App Integration Gate | pending |
+| App top-drawer alignment | `src/components/TopDrawer.vue`, `src/components/primatives/DrawerShell.vue` | Whether production `TopDrawer.vue` should adopt, wrap, or remain separate from the promoted style-guide `DrawerShell` | App Integration Gate | pending |
 | Loading splash alignment | `CompositionLoadingScreen.vue`, `src/components/LoadingSplash.vue` | Whether to map the style-guide composition into the behavior-heavy app loading source | App Integration Gate | pending |
 | Unique source location | `UniqueBrandCover.vue`, `UniqueBrandLogo.vue` | Whether to establish `src/components/uniques/` or keep singular artifacts style-guide-local | Repository Conventions/Unique Extraction Gate | pending |
 | Key geometry recipes | `PrimitiveKeys.vue` | Reuse generic clip tokens where exact; promote pill/tall/wide/squary as component variants | Promotion Gate | resolved |
@@ -90,9 +91,9 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copied lower-layer internals | resolved: PatternCard and PatternReel source components own reusable compound grammar. |
 | `UniqueBrandCover.vue` | Fixed brand cover uses raw SVG fills/transforms, local stamp, and cover layout | classified as true unique; keep local until unique source extraction decides file location and token pruning. |
 | `UniqueBrandLogo.vue` | Wordmark/monogram/tagline/note-mark lockups use local variant tiles and inline note marks | classified as true unique; keep local until unique source extraction decides file location and prunes inline styles. |
-| `UniqueDrawer.vue` / `CompositionTopDrawer.vue` / `src/components/TopDrawer.vue` | Drawer shell behavior repeats across style-guide specimens and overlaps current app source | gate-parked: promote/align drawer shell before composition closure. |
+| `UniqueDrawer.vue` / `CompositionTopDrawer.vue` / `src/components/TopDrawer.vue` | Drawer shell behavior repeats across style-guide specimens and overlaps current app source | resolved for style-guide: `DrawerShell` source component promoted; app alignment remains parked. |
 | `CompositionLoadingScreen.vue` / `src/components/LoadingSplash.vue` | Loading visual composition and app behavior source diverge | gate-parked: app integration must preserve loading/audio/MIDI/error states while applying approved design grammar. |
-| `CompositionTopDrawer.vue` | Composition contains local drawer controls, instrument/preset/settings content, and app keyboard context | keep composition-local unless controls repeat; drawer shell itself must go through Promotion Gate. |
+| `CompositionTopDrawer.vue` | Composition contains local drawer controls, instrument/preset/settings content, and app keyboard context | keep composition-local unless controls repeat; drawer shell now composes `DrawerShell`. |
 | `PrimitiveKeys.vue` | Generic clips existed, but key-specific recipes were local | resolved for style-guide: `Key` source component owns face, label stack, format, cuts, proportions, pressed/disabled states, and sheen. |
 | `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing were local | resolved for style-guide: `ChipTabs` source component owns rail/chip/streak grammar, active chip measurement, geometry, density, tone, and selected/disabled state. |
 | `PrimitiveKnobsAnalog.vue` / `PrimitiveKnobsDigital.vue` | Generic tokens existed, but knob visual anatomy, label/footer frame, role variants, disabled/lit/played states, brass/ivory axis, spin motion, and SVG stroke grammar were duplicated locally | resolved for style-guide: `Knob` source component owns shared visual grammar for ring and arc variants. |
@@ -113,9 +114,9 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Brand cover classification | true unique | Fixed cover copy, meta row, stamp, and SVG collage form one singular brand artifact | keep local / extract source later |
 | Brand logo classification | true unique | Wordmark, monogram, tagline, brass signal, inverted, and note-mark lockups are brand identity variants | keep local / extract source later |
 | CodeStrip legacy path | primitive specimen | `UniqueCodeStrip.vue` already imports `CodeStrip.vue` and is not a unique | naming/navigation gate |
-| Drawer classification | not unique | Drawer shell repeats in `UniqueDrawer.vue` and `CompositionTopDrawer.vue`, and overlaps app `TopDrawer.vue` | Promotion/App Integration Gate |
+| Drawer classification | not unique | Drawer shell repeats in `UniqueDrawer.vue` and `CompositionTopDrawer.vue`, and overlaps app `TopDrawer.vue` | promoted for style-guide; app alignment parked |
 | Loading screen classification | composition | Style-guide loading screen proves visual state; `LoadingSplash.vue` owns current app behavior | App Integration Gate |
-| Top drawer composition | composition with lower-layer debt | Product panes/content are composition-local, while drawer shell should be promoted/pruned | Promotion Gate before closure |
+| Top drawer composition | composition with app-alignment debt | Product panes/content are composition-local; drawer shell now composes `DrawerShell`; app `TopDrawer.vue` remains separate | App Integration Gate before production alignment |
 
 ## Gate-Parked Decisions
 
@@ -172,3 +173,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Compound source path | promote | `src/components/compounds/` is needed once lower child primitives are source-first | Repository Conventions Gate 2026-05-25 |
 | PatternCard source component | promote | Sleek/active card shapes have stable anatomy and are reused by PatternCard and PatternReel specimens | Promotion Gate 2026-05-25 |
 | PatternReel source component | promote | Stack depth, click promotion, and active-rise are reusable reel orchestration above PatternCard | Taxonomy Gate 2026-05-25 |
+| DrawerShell source component | promote | Drawer shell behavior repeats across unique and composition specimens and can stand apart from product panes | Promotion Gate 2026-05-26 |
+| UniqueDrawer drawer shell | prune to source import | Legacy drawer specimen now imports `DrawerShell` instead of owning shell/controller behavior | Promotion Gate 2026-05-26 |
+| CompositionTopDrawer drawer shell | prune to source import | Top-drawer composition now composes `DrawerShell`; panes and controls remain composition-local | Promotion Gate 2026-05-26 |
+| App TopDrawer alignment | gate-park | Existing app `TopDrawer.vue` is behavior-heavy and should be reconciled through app integration rather than this style-guide promotion slice | App Integration Gate parked |

@@ -24,9 +24,9 @@ Artifacts inspected:
 | Brand cover | `UniqueBrandCover.vue` | unique | Keep as singular brand-cover artifact; not a reusable primitive/compound | Unique Extraction Gate |
 | Brand logo / wordmark | `UniqueBrandLogo.vue` | unique | Keep as singular brand identity system; not a generic component family | Unique Extraction Gate |
 | Code strip | `UniqueCodeStrip.vue` | primitive specimen | Already reclassified; keep as legacy specimen path only | Naming/Navigation Gate |
-| Drawer anatomy | `UniqueDrawer.vue` | primitive/compound candidate, not unique | Reclassify as drawer-shell promotion evidence; it is a specimen/prototype for reusable drawer behavior | Promotion Gate |
+| Drawer anatomy | `UniqueDrawer.vue` | primitive, not unique | Promoted to `DrawerShell`; `UniqueDrawer.vue` is now a legacy specimen/prototype path | App Integration Gate for production `TopDrawer.vue` |
 | Loading screen preview | `CompositionLoadingScreen.vue` | composition | Keep as composition proof/design target; reconcile against app `LoadingSplash.vue` later | App Integration Gate |
-| Top drawer preview | `CompositionTopDrawer.vue` | composition | Keep as composition proof; drawer shell and local controls must be promoted/pruned before composition closure | Promotion Gate |
+| Top drawer preview | `CompositionTopDrawer.vue` | composition | Keep as composition proof; compose promoted `DrawerShell`; local controls remain composition-local until reuse is proven | App Integration Gate |
 | Current app top drawer | `src/components/TopDrawer.vue` | app source | Existing behavior source, visually simpler than style-guide drawer grammar | App Integration Gate |
 | Current app loading splash | `src/components/LoadingSplash.vue` | app source | Existing behavior source, visually divergent from style-guide composition | App Integration Gate |
 
@@ -95,7 +95,7 @@ Unblocks:
 
 ## Taxonomy Gate: Drawer
 
-Candidate layer: primitive/compound promotion candidate, not unique
+Candidate layer: primitive, not unique
 
 Evidence:
 
@@ -118,13 +118,15 @@ Alternatives rejected:
 - Keeping `UniqueDrawer.vue` as a unique: rejected because drawer behavior is reusable UI infrastructure.
 - Rewriting `src/components/TopDrawer.vue` immediately: rejected because that is app integration and could change unrelated app behavior.
 
-Unresolved risk:
+Promotion result:
 
-- The next implementation slice must decide whether to promote a visual `DrawerShell` primitive under `src/components/primatives/`, align existing `TopDrawer.vue`, or create a compound that wraps current app behavior.
+- `DrawerShell` is promoted under `src/components/primatives/`.
+- `UniqueDrawer.vue` and `CompositionTopDrawer.vue` compose `DrawerShell` for style-guide surfaces.
+- Existing app `TopDrawer.vue` remains untouched for a later App Integration Gate.
 
 Unblocks:
 
-- Promotion Gate for drawer shell extraction/alignment.
+- App Integration Gate for production top-drawer alignment.
 
 ## Taxonomy Gate: Loading Screen
 
@@ -165,7 +167,7 @@ Candidate layer: composition with lower-layer promotion debt
 Evidence:
 
 - `CompositionTopDrawer.vue` proves a meaningful app region: triggers, drawer panes, product settings, app content behind the drawer, chromatic keyboard row, and dismiss behavior.
-- It repeats drawer shell grammar and includes local controls (`seg`, search bar, instrument buttons, preset rows, settings rows, icon buttons, parameter tiles).
+- It composes promoted drawer shell grammar and includes local controls (`seg`, search bar, instrument buttons, preset rows, settings rows, icon buttons, parameter tiles).
 
 Why not lower:
 
@@ -179,12 +181,12 @@ Why not higher:
 Alternatives rejected:
 
 - Treating every local control as reusable now: rejected until repetition outside this composition is proven.
-- Keeping drawer shell local: rejected because drawer shell mechanics repeat in `UniqueDrawer.vue` and overlap `TopDrawer.vue`.
+- Keeping drawer shell local: rejected because drawer shell mechanics repeat in `UniqueDrawer.vue` and overlap `TopDrawer.vue`; resolved for style-guide surfaces by `DrawerShell`.
 
 Unresolved risk:
 
-- Composition closure cannot pass until drawer shell is promoted/pruned and composition-only content is separated from component grammar.
+- Composition closure cannot pass until production app alignment and composition-only control boundaries are decided.
 
 Unblocks:
 
-- Drawer-shell Promotion Gate, then composition closure proof.
+- App top-drawer alignment, then composition closure proof.

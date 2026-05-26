@@ -25,8 +25,9 @@ Date: 2026-05-26
   - `src/components/primatives/ChipTabs.vue`
   - `src/components/primatives/Knob.vue`
   - `src/components/primatives/Key.vue`
+  - `src/components/primatives/DrawerShell.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, and Key follow the intended source-first pattern. Primitive extraction is closed for the current style-guide scope; remaining primitive-adjacent decisions are gate-parked in `LAYER_CLOSURE.md` and `PROMOTION_AUDIT.md`.
+- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, and DrawerShell follow the intended source-first pattern. DrawerShell is demonstrated from the legacy `UniqueDrawer.vue` path and composed by `CompositionTopDrawer.vue`; app `TopDrawer.vue` alignment remains parked.
 
 ## Compounds
 
@@ -46,7 +47,7 @@ Date: 2026-05-26
   - `src/style-guide/uniques/UniqueBrandLogo.vue`
   - `src/style-guide/uniques/UniqueCodeStrip.vue`
   - `src/style-guide/uniques/UniqueDrawer.vue`
-- Status: taxonomy audited, not source-extracted. `UniqueBrandCover.vue` and `UniqueBrandLogo.vue` are true singular brand artifacts. `UniqueCodeStrip.vue` is a legacy specimen path for the promoted `CodeStrip` primitive and should be renamed/moved only after a navigation/file-organization gate. `UniqueDrawer.vue` is not unique; it is drawer-shell promotion evidence.
+- Status: taxonomy audited, not source-extracted. `UniqueBrandCover.vue` and `UniqueBrandLogo.vue` are true singular brand artifacts. `UniqueCodeStrip.vue` is a legacy specimen path for the promoted `CodeStrip` primitive and should be renamed/moved only after a navigation/file-organization gate. `UniqueDrawer.vue` is now a legacy drawer-shell specimen path that imports `DrawerShell.vue`.
 
 ## Compositions
 
@@ -56,7 +57,7 @@ Date: 2026-05-26
 - Related app sources:
   - `src/components/LoadingSplash.vue`
   - `src/components/TopDrawer.vue`
-- Status: taxonomy audited, not closed. `CompositionLoadingScreen.vue` is a composition proof/design target that must reconcile with app `LoadingSplash.vue`; `CompositionTopDrawer.vue` is a composition proof with drawer-shell promotion debt and app `TopDrawer.vue` alignment debt.
+- Status: taxonomy audited, not closed. `CompositionLoadingScreen.vue` is a composition proof/design target that must reconcile with app `LoadingSplash.vue`; `CompositionTopDrawer.vue` now composes `DrawerShell.vue`, but app `TopDrawer.vue` alignment and local composition controls remain open.
 
 ## Specimen Helpers (Inspection Only, Not A Layer)
 
@@ -103,6 +104,7 @@ Date: 2026-05-26
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | primitive specimen | no | keep local | Imports and inspects `Knob.vue` with `visual="arc"`; arc role/treatment groupings remain specimen-local. |
 | `src/components/primatives/Key.vue` | primitive | yes | promote | Owns music key face, legacy note alias fill, syllable/degree/raw stack, format axis, shape/cut variants, pressed/disabled states, and sheen. |
 | `src/style-guide/primatives/PrimitiveKeys.vue` | primitive specimen | no | keep local | Imports and inspects `Key.vue`; chromatic, format, state, cut, and proportion groupings remain specimen-local. |
+| `src/components/primatives/DrawerShell.vue` | primitive | yes | promote | Owns bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced-motion behavior. |
 | `src/components/compounds/PatternCard.vue` | compound | yes | promote | Owns sleek/active pattern card anatomy and composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | compound | yes | promote | Owns stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | primitive specimen | no | keep local | Imports and inspects `IconButton.vue`; paired-control wrappers remain specimen-only. |
@@ -111,10 +113,10 @@ Date: 2026-05-26
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | legacy primitive specimen path | no | keep local | Imports and inspects `CodeStrip.vue`; file location/name remains a later organization gate. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | unique specimen | no | keep local / extract source later | Singular brand cover; needs unique source path/extraction gate before unique closure. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | unique specimen | no | keep local / extract source later | Singular brand identity system; needs unique source path/extraction gate before unique closure. |
-| `src/style-guide/uniques/UniqueDrawer.vue` | drawer-shell specimen/prototype | no | reclassify / gate-park | Not unique; repeated drawer shell behavior must go through Promotion Gate. |
+| `src/style-guide/uniques/UniqueDrawer.vue` | legacy drawer-shell specimen path | no | keep local | Imports and inspects `DrawerShell.vue`; file location/name remains a later organization gate. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | composition specimen | no | keep local / app integration gate | Composition proof and visual target; app behavior source is `LoadingSplash.vue`. |
 | `src/components/LoadingSplash.vue` | app source | yes, for current app behavior | app integration gate | Behavior-heavy current loading splash; visually divergent from style-guide composition. |
-| `src/style-guide/compositions/CompositionTopDrawer.vue` | composition specimen | no | keep local / promotion gate | Composition proof with local controls and drawer-shell promotion debt. |
+| `src/style-guide/compositions/CompositionTopDrawer.vue` | composition specimen | no | keep local / app integration gate | Composition proof; composes `DrawerShell.vue` while keeping local product panes/controls as composition content. |
 | `src/components/TopDrawer.vue` | app source | yes, for current app drawer behavior | app integration gate | Current behavior source; style-guide drawer grammar is not yet integrated. |
 | `src/style-guide/guide/*.vue` | specimen helper | yes, for inspection UI only | keep local | Not a taxonomy layer. |
 | `src/style-guide/preview-card.css` | specimen helper CSS | yes, for guide chrome only | keep local | Do not promote as component grammar without a gate. |

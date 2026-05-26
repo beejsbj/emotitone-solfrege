@@ -42,6 +42,7 @@ Date: 2026-05-26
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | Primitive specimen | primitives | no | keep local | Imports `Knob.vue` with arc visual; keeps role/treatment grouping local. |
 | `src/components/primatives/Key.vue` | Extracted primitive | primitives | yes | promote | Source-first component for music key face, legacy note alias fill, label stack, format axis, cuts, proportions, pressed/disabled states, and sheen. |
 | `src/style-guide/primatives/PrimitiveKeys.vue` | Primitive specimen | primitives | no | keep local | Imports `Key.vue`; keeps chromatic, format, state, cut, and proportion grouping local. |
+| `src/components/primatives/DrawerShell.vue` | Extracted primitive | primitives | yes | promote | Source-first component for bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced motion. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
@@ -50,11 +51,11 @@ Date: 2026-05-26
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | keep local / extract source later | Singular brand cover; taxonomy gate accepted unique role, source path still gated. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | keep local / extract source later | Singular brand identity system; taxonomy gate accepted unique role, source path still gated. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | Legacy primitive specimen path | primitives/specimen | no | keep local | Imports `CodeStrip.vue`; path remains under uniques until navigation/file organization gate. |
-| `src/style-guide/uniques/UniqueDrawer.vue` | Drawer specimen/prototype | primitive/compound candidate | no | reclassify / gate-park | Not unique; drawer shell behavior repeats and needs Promotion Gate. |
+| `src/style-guide/uniques/UniqueDrawer.vue` | Legacy drawer-shell specimen path | primitives/specimen | no | keep local | Imports `DrawerShell.vue`; no longer defines drawer shell behavior locally. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | keep local / app integration gate | Full loading-state proof; app source `LoadingSplash.vue` owns current behavior. |
 | `src/components/LoadingSplash.vue` | App loading source | compositions/app source | yes, for current app | app integration gate | Behavior-heavy current loading screen; visually divergent from style-guide composition. |
-| `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | keep local / promotion gate | Product drawer proof; drawer shell and local controls need promote/prune decisions before closure. |
-| `src/components/TopDrawer.vue` | App drawer source | primitive/app source | yes, for current app | app integration gate | Current drawer behavior source; style-guide torn/scrim/push grammar is not integrated. |
+| `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | keep local / app integration gate | Product drawer proof; composes `DrawerShell.vue`; local controls remain composition-local until repeated elsewhere. |
+| `src/components/TopDrawer.vue` | App drawer source | app source | yes, for current app | app integration gate | Current drawer behavior source; not rewritten in the DrawerShell promotion slice. |
 
 ## Coverage Gaps
 
@@ -69,4 +70,4 @@ Date: 2026-05-26
 ## Current Coverage Verdict
 
 - Coverage map exists, but full completion is not proven.
-- Unique/composition Taxonomy Gate is recorded; next movement should be drawer-shell Promotion Gate or unique source extraction.
+- DrawerShell promotion is recorded; next movement should be app `TopDrawer.vue` alignment, unique source extraction, or loading composition integration.

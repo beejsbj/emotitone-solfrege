@@ -127,6 +127,11 @@
   /* ===============================================================
      4. GEOMETRY — spacing, radii, shadow, ring
      =============================================================== */
+  /* Spacing role names:
+     --s-1 hairline gap, --s-2 icon nudge, --s-3 tight gap,
+     --s-4 chip padding, --s-5 control gap, --s-6 panel inset,
+     --s-7 card rhythm, --s-8 card padding, --s-9 section gap,
+     --s-10 page gutter, --s-11 poster/hero gap. */
   --s-1: 2px;  --s-2: 4px;  --s-3: 6px;  --s-4: 8px;
   --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px;
   --s-9: 32px; --s-10: 48px; --s-11: 64px;
@@ -232,7 +237,8 @@
           - Captions are mono.
           - Code, timestamps, file paths are mono.
           - Body text past ~5 words switches to mono for readability.
-          - Labels are Jazz, NOT mono.
+          - Product labels are Jazz, NOT mono.
+          - Guide/spec inspection labels may use mono as a named exception.
           - One Lets Jazz size per scope — don't stack display on display.
 
         Display always UPPERCASE with tracking-display.
@@ -259,6 +265,8 @@
   --t-body-s:     450 12px/1.50 var(--font-display);  /* short body-s; >5 words override to --font-mono */
   --t-caption:    450 11px/1.40 var(--font-mono);     /* captions stay mono */
   --t-mono:       500 12px/1.40 var(--font-mono);     /* explicit mono */
+  --t-body-mono:  450 14px/1.55 var(--font-mono);     /* long body */
+  --t-body-s-mono:450 12px/1.50 var(--font-mono);     /* long small body */
 
   --tracking-display: 0.01em;
   --tracking-label:   0.14em;
@@ -303,6 +311,8 @@ h4, .h2          { font: var(--t-h2);        letter-spacing: var(--tracking-disp
 .mono, code, pre { font: var(--t-mono); }
 .body  { font: var(--t-body); }
 .body-s{ font: var(--t-body-s); color: var(--fg-2); }
+.body-mono { font: var(--t-body-mono); color: var(--fg-2); }
+.body-s-mono { font: var(--t-body-s-mono); color: var(--fg-3); }
 .caption { font: var(--t-caption); color: var(--fg-3); }
 
 /* The signature off-cut tab clip — like Persona 5 */

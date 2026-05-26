@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { onMounted } from "vue";
+import { CHROMATIC_NOTES, MOVABLE_DO_SOLFEGE_NOTES, SOLFEGE_NOTES } from "@/data";
 
 onMounted(() => {
   (function () {
-    const NOTE_LETTERS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    const SOL_7        = ['Do','Re','Mi','Fa','Sol','La','Ti'];
-    // Chromatic solfege from root position
-    const SOL_CHROM    = ['Do','Ra','Re','Me','Mi','Fa','Fi','Sol','Le','La','Te','Ti'];
+    const NOTE_LETTERS = CHROMATIC_NOTES;
+    const SOL_7        = SOLFEGE_NOTES;
+    const SOL_CHROM    = MOVABLE_DO_SOLFEGE_NOTES;
   
     // State
     let movableMode = false;
@@ -283,13 +283,14 @@ onMounted(() => {
           <div class="row"><b>--note-degree</b><div>0–11 · semitones from C (fixed) or from root (movable)</div></div>
           <div class="row"><b>--note-octave</b><div>0–8 · drives lightness</div></div>
           <div class="row"><b>--note-l</b><div>20% + octave × 7.5% · range 20–80%</div></div>
-          <div class="row"><b>--note-hue</b><div>(degree + --music-rotate) × 30deg</div></div>
+          <div class="row"><b>--note-hue</b><div>(degree + --music-rotate) × (360 / --music-count)</div></div>
           <div class="row"><b>--music-c</b><div>OKLCH chroma · default 0.18 · range 0–0.4</div></div>
-          <div class="row"><b>--music-rotate</b><div>0 = fixed · −root×30 = movable hue mode</div></div>
+          <div class="row"><b>--music-rotate</b><div>0 = fixed · root-degree offset for movable hue mode</div></div>
           <div class="recipe"><span class="k">.note</span> {
       <span class="c">/* degree + rotate → final hue */</span>
       --note-hue: calc(
-        (var(--note-degree) + var(--music-rotate)) * <span class="k">30deg</span>
+        (var(--note-degree) + var(--music-rotate)) *
+        (360 / var(--music-count))
       );
       --note-l: calc(<span class="k">20%</span> + var(--note-octave) * <span class="k">7.5%</span>);
       background: oklch(

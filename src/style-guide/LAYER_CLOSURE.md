@@ -34,7 +34,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
-| raw recipes resolved or gate-parked | partial | Primitive extraction, DrawerShell promotion, and brand unique extraction recipes are resolved or gate-parked; token doctrine and app integration decisions remain | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
+| raw recipes resolved or gate-parked | partial | Token doctrine, primitive extraction, DrawerShell promotion, and brand unique extraction recipes are resolved or gate-parked; app integration decisions remain | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
 | source of truth named | partial | Tokens/primitives/PatternCard compound/brand uniques/specimens named; compositions still include app integration gates | `REPOSITORY_CONVENTIONS.md` |
 | specimens demonstrate, not define | partial | Current primitive and brand unique specimens now import source components; compositions still need app integration audits | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
@@ -45,12 +45,12 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| token groups documented | partial | Token groups exist in CSS and specimens | `src/emotitone-design-system.css`, `STYLE_GUIDE_SCHEMA.md` |
-| semantic aliases documented | partial | Some aliases documented; conflicts remain | `PROMOTION_AUDIT.md` |
-| naming rules documented | partial | CSS comments document groups; unresolved music/brass/type/brand semantics | `TOKEN_PROMOTION_AUDIT.md` |
-| allowed raw-value exceptions documented | fail | Not normalized yet | `RESIDUE_PROOF.md` |
-| token candidates from raw recipe inventory resolved | fail | Several token candidates pending | `RAW_RECIPE_INVENTORY.md` |
-| next layer has enough token vocabulary | partial | Enough for current primitive source components; wider token doctrine conflicts remain for music colors/type/brand semantics | `PROMOTION_AUDIT.md` |
+| token groups documented | pass | CSS names UI, brand, music, geometry, motion, semantic, and typography groups; specimens render those groups | `src/emotitone-design-system.css`, `STYLE_GUIDE_SCHEMA.md` |
+| semantic aliases documented | pass | Semantic `--danger` may alias tomato while brand colors remain decorative; music `.note` is source recipe while legacy aliases are parked | `PROMOTION_AUDIT.md` |
+| naming rules documented | pass | CSS comments and token specimens document spacing roles, typography exceptions, music hue math, brass timing, and geometry recipes | `TOKEN_PROMOTION_AUDIT.md`, `PROMOTION_AUDIT.md` |
+| allowed raw-value exceptions documented | pass | Guide/spec inspection labels, specimen-only skew recipes, legacy note aliases, and Sticker badge timing are named exceptions or gates | `RESIDUE_PROOF.md` |
+| token candidates from raw recipe inventory resolved | pass | Clip/rotation/stroke/brass/brand/music/note-map candidates are promoted, pruned, or parked behind app/component gates | `RAW_RECIPE_INVENTORY.md` |
+| next layer has enough token vocabulary | pass | Current source primitives, compounds, and brand uniques consume named token source or documented parked legacy aliases | `PROMOTION_AUDIT.md` |
 
 ### Primitive Closure
 
@@ -122,12 +122,12 @@ current recovery state across token, primitive, compound, unique, and compositio
 |---|---|---|---|---|---:|
 | Full style-guide scope acceptance | Scope Gate | user | 2026-05-24 | User accepts/redirects packet | yes, recovery docs only |
 | Primitive layer closure | Promotion Gate | agent + user | 2026-05-25 | Every current primitive specimen imports source components; old raw primitive class families are gone from primitive/compound specimens; unresolved primitive-adjacent items are parked below | yes, advance to unique/composition audits |
-| Token doctrine conflicts | Doctrine Gate if needed | user + agent | 2026-05-24 | Contradictions resolved or localized | yes for unique/composition archaeology; no for token final closure |
+| Token doctrine conflicts | Doctrine Gate | agent + user | 2026-05-26 | Contradictions resolved/localized; app/component migrations are parked separately | yes |
 | Sticker badge taxonomy | Promotion Gate | user + agent | 2026-05-25 | Decide variant versus separate primitive/unique when badge work becomes active | yes |
-| Music color computed `.note` migration | Doctrine/Promotion Gate | user + agent | 2026-05-25 | Decide whether to replace legacy `--note-*` aliases with computed note recipes | yes |
-| Brass timing model | Promotion Gate | user + agent | 2026-05-25 | Decide one shared duration/easing versus component-specific timings | yes |
-| Kicker/spec marker typography exception | Doctrine Gate | user + agent | 2026-05-25 | Decide whether mono marker labels remain a named exception | yes |
-| Brand/danger semantics | Doctrine Gate | user + agent | 2026-05-25 | Decide whether brand colors may carry functional status meaning | yes |
+| Music color computed `.note` migration | Doctrine/Promotion Gate | user + agent | 2026-05-26 | `.note` computed recipe is token source; legacy `--note-*` aliases remain parked for app/component migration | yes |
+| Brass timing model | Promotion Gate | agent + user | 2026-05-26 | Global brass timing resolved; Sticker badge timing parked under badge taxonomy | yes |
+| Kicker/spec marker typography exception | Doctrine Gate | agent + user | 2026-05-26 | Product labels are Jazz; guide/spec inspection labels may be mono | yes |
+| Brand/danger semantics | Doctrine Gate | agent + user | 2026-05-26 | Brand colors decorative; semantic status aliases may map to brand values | yes |
 | SpineCard preset row | Taxonomy Gate | user + agent | 2026-05-25 | Decide whether the action/status row becomes a compound/control-row source component | yes |
 | Production knob alignment | App Integration Gate | user + agent | 2026-05-25 | Decide whether behavior-heavy app knobs adopt the visual primitive | yes |
 | App top-drawer alignment | App Integration Gate | user + agent | 2026-05-26 | Decide whether production `TopDrawer.vue` adopts, wraps, or remains separate from promoted `DrawerShell` | no for app closure |
@@ -149,7 +149,7 @@ Recommendation:
 - Treat `UniqueCodeStrip.vue` as a legacy primitive specimen path.
 - Reclassify drawer as lower-layer source plus app-alignment debt, not a unique.
 - Keep loading/top-drawer previews as compositions, with app integration gates before production alignment.
-- Make app top-drawer alignment, loading integration, or token closure the next implementation slice.
+- Make app top-drawer alignment or loading integration the next implementation slice.
 
 Alternatives rejected:
 
@@ -164,7 +164,7 @@ Unresolved risk:
 
 Unblocks:
 
-- App top-drawer alignment, loading integration, token closure, and composition closure work.
+- App top-drawer alignment, loading integration, and composition closure work.
 
 ## Unique Extraction Decision Packet
 
@@ -242,7 +242,7 @@ Alternatives rejected:
 
 Unresolved risk:
 
-- Token doctrine gates can still affect final token closure, but they no longer hide raw primitive implementation inside specimens.
+- Token doctrine is closed for current style-guide scope; remaining risk is app/component migration, not hidden primitive implementation inside specimens.
 
 Unblocks:
 

@@ -372,7 +372,7 @@
                 </div>
               </div>
               <div class="kf-name">brass-sheen · shimmer</div>
-              <div class="kf-role">Gradient sweep across brass fills. 4 s, cubic. One signal max</div>
+              <div class="kf-role">Gradient sweep across brass fills. 6.5 s, cubic. One signal max</div>
             </div>
     
           </div>
@@ -894,7 +894,7 @@
   background-repeat: no-repeat;
   pointer-events: none;
   mix-blend-mode: screen;
-  animation: brass-sheen 4s cubic-bezier(.55,.05,.45,.95) infinite;
+  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
 }
 
 /* ─── Reduced motion ─────────────────────────────────────────────

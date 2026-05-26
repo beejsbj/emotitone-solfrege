@@ -4,7 +4,7 @@ Date: 2026-05-26
 
 ## Status
 
-Primitive extraction residue is cleared for the current primitive specimen set. Brand unique extraction and DrawerShell promotion are cleared for style-guide surfaces. Overall design-lab residue is not cleared because app integration, loading alignment, and token doctrine gates remain.
+Token doctrine, primitive extraction, brand unique extraction, and DrawerShell promotion are cleared for style-guide surfaces. Overall design-lab residue is not cleared because app integration and loading alignment gates remain.
 
 ## Pattern Checks
 
@@ -12,22 +12,41 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 |---|---|---|---|
 | Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/components/uniques src/emotitone-design-system.css` | brand unique SVG fills were pruned to tokens; remaining hits require current search proof before Finish Gate | token/composition gates |
 | Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
-| Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/key conflicts; tabs and knobs resolved in source slices | Promotion Gate |
+| Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | global brass timing normalized to 6.5s; component-specific badge timing remains parked behind Sticker badge taxonomy | Promotion Gate / Sticker Badge Gate |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton, ChipTabs, and Key use existing tokens for exact matches | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds; unresolved hits are unique/composition surfaces | unique/composition Taxonomy Gate |
 | One-offs not marked unique | inspect unique and composition specimens | `BrandCover` and `BrandLogo` now live in `src/components/uniques`; `UniqueCodeStrip` and `UniqueDrawer` are legacy specimen paths for lower layers | pass for current unique surfaces |
 | Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | all 12 current primitive specimens import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass for primitive layer |
-| Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
+| Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | remaining guide/spec chrome is accepted as inspection surface, not implementation source | keep local |
 | Unique/composition taxonomy drift | inspect `src/style-guide/uniques`, `src/style-guide/compositions`, and matching app sources | run 2026-05-26; brand cover/logo are true uniques, drawer shell is promoted to `DrawerShell`, loading/top drawer retain app-integration debt | `TAXONOMY_GATE.md`, `PROMOTION_AUDIT.md` |
 
 ## Current Residue Verdict
 
 - Residue remains unresolved for the full design lab.
 - The run cannot be called complete.
+- Token layer may close for current style-guide scope: token source owns groups, aliases, music recipe, type utilities, spacing roles, and documented exceptions; app/component migrations remain parked.
 - Primitive extraction layer may close for current scope: every current primitive specimen is source-first, old raw primitive class families have been pruned from primitive/compound specimens, and remaining primitive-adjacent decisions are gate-parked.
 - Compound pattern family residue is cleared for `PatternCard` and `PatternReel`; remaining compound/composition closure depends on the next taxonomy audit.
 - Unique/composition taxonomy is now classified; brand unique implementation is source-first, but composition implementation is not closed.
 - `UniqueDrawer.vue` no longer defines shell behavior; app `TopDrawer.vue` alignment remains residue.
+
+## Slice Proof: Token Closure
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| Music hue model | Token specimen described fixed `30deg` math and kept private note/solfege arrays | Specimen matches `.note` source math `(degree + rotate) * (360 / count)` and imports note/solfege constants from `src/data` | legacy `--note-*` consumers parked for app/component migration |
+| Long-body mono utilities | Typography specimen showed mono body recipes without source utilities | `--t-body-mono`, `--t-body-s-mono`, `.body-mono`, and `.body-s-mono` exist in token source | pass |
+| Guide/spec typography | Mono labels conflicted with product-label doctrine | Product labels remain Lets Jazz; guide/spec inspection labels are named mono exception | pass |
+| Brass timing | Motion specimen showed 4s shimmer while global `.brass` used 6.5s | Token motion specimen now matches global 6.5s brass sweep | Sticker badge timing parked behind badge taxonomy |
+| Skew token drift | Geometry specimen labeled unpromoted skew transforms as `--skew-*` tokens | Skews are documented as specimen recipes, not token custom properties | pass |
+| Brand/danger semantics | Brand colors were decorative, but `--danger` aliases tomato | Brand colors stay decorative; semantic aliases may map to brand values for functional status | pass |
+
+Browser DOM proof, 2026-05-26:
+
+- `/style-guide` renders at `http://127.0.0.1:5175/style-guide` with 117 token/specimen-related sections and no browser console errors.
+- Rendered markup contains `--t-body-mono`, the `360 / var(--music-count)` music formula, `skew tab recipe`, and `--shadow-glow-brass`.
+- Rendered markup no longer contains stale `--shadow-brass-ring` or `--skew-tab` labels.
+- Computed root variables include `--t-body-mono`, `--t-body-s-mono`, and `--music-count: 12`.
 
 ## Slice Proof: BarTape
 
@@ -40,7 +59,7 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 
 ## Next Proof Step
 
-- Run app `TopDrawer.vue` alignment, loading composition integration, or token closure work.
+- Run app `TopDrawer.vue` alignment or loading composition integration.
 
 ## Slice Proof: Pattern Compounds Compose BarTape
 
@@ -57,7 +76,7 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 | `PrimitiveBeatIndicator.vue` source behavior | Specimen owned `.beats`, `<b>` cells, meter classes, size classes, tempo classes, static/even states, and reduced-motion CSS | Specimen imports `BeatIndicator` and keeps only stage labels plus variant captions | pass for primitive specimen |
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/BeatIndicator.vue` | pass |
 | Hardcoded dark stage | Beat specimen used local `#0a0908` stage/variant backgrounds | Specimen composes guide helpers backed by `var(--ink)` | pass for this specimen |
-| Beat keyframe naming | `beat-cell` / `beat-down` consumed locally while `bar-*` names also exist globally | Source component consumes current `beat-*` names | token doctrine naming gate remains |
+| Beat keyframe naming | `beat-cell` / `beat-down` consumed locally while `bar-*` names also exist globally | Source component consumes current `beat-*` names | parked as future motion cleanup, not token closure blocker |
 
 Browser DOM proof, 2026-05-25:
 
@@ -93,7 +112,7 @@ Browser DOM proof, 2026-05-25:
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/Kicker.vue` | pass |
 | Brass dot glow | Specimen hardcoded `rgba(224,169,58,.45)` glow | Source uses `--shadow-glow-brass` | pass |
 | Role boundary | Specimen mixed brand-color section dots and brass/ivory/open treatments | Source promotes Kicker as a general marker with tone axis | pass |
-| Typography exception | Kicker used mono labels while token doctrine is split | Kept as named kicker/spec-marker exception | Doctrine Gate remains for wider guide/spec typography |
+| Typography exception | Kicker used mono labels while token doctrine is split | Kept as named kicker/spec-marker exception; guide/spec inspection labels may use mono | pass for token closure |
 | Alignment helpers | Center/right helper CSS existed without active specimen use | Pruned from source and specimen | pass |
 
 Browser DOM proof, 2026-05-25:

@@ -15,7 +15,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
   These have already been added to `src/emotitone-design-system.css`, but the upstream source `project/colors_and_type.css` does not have them yet.
 
 - SVG stroke grammar from `token-geometry`: butt caps, miter joins, no round caps.
-  Stroke recipes shown in the preview include `1px` hairline, `2px` structural rule, `8px` knob track, dash `4 3`, and dot `1 4`. This is currently only documented inside the geometry preview/specimen.
+  Stroke recipes shown in the preview include `1px` hairline, `2px` structural rule, `8px` knob track, dash `4 3`, and dot `1 4`. The reusable pieces now live in source primitives such as `Mark.vue` and `Knob.vue`; the geometry specimen documents the doctrine.
 
 - Spacing semantic labels from `token-spacing-scale`: `--s-1` through `--s-11` have role names such as hairline gap, icon nudge, chip padding, panel inset, card padding, and page gutter.
   The shared CSS currently carries raw values, but not these usage semantics.
@@ -27,40 +27,38 @@ The important question was not whether `colors_and_type.css` matched the copied 
   The preview also states that brand color sits on ink, never replaces it; use one brand color per card; and the canonical brand composition is represented by `primitive-spine-card.html`.
 
 - Mono body utilities from `token-typography`: the preview has long-body mono recipes equivalent to `.body-mono` and `.body-s-mono`.
-  Shared CSS documents the rule that longer prose should switch to mono, but it only ships `.body` and `.body-s` utilities.
+  Shared CSS now ships `--t-body-mono`, `--t-body-s-mono`, `.body-mono`, and `.body-s-mono`.
 
 ## Needs Decision
 
-- Skew transform tokens are inconsistent.
-  Preview comments name `--skew-offcut`, `--skew-rip`, and `--skew-mode-out`; rendered labels name `--skew-tab`, `--skew-smear`, and `--skew-rip-out`.
-  Some values are pure skew transforms, while others are composite transform plus opacity recipes. These need naming decisions before promotion.
+- Skew transform labels were pruned as token candidates.
+  The geometry specimen now names them as specimen recipes, not promoted `--skew-*` tokens. Pure skew transforms and composite transform-plus-opacity recipes stay local until a real component source needs them.
 
-- `--shadow-brass-ring` appears as a preview label, while shared CSS has `--shadow-glow-brass`.
-  Decide whether `--shadow-brass-ring` is a stale label for `--shadow-glow-brass`, or a separate brass element shadow token.
+- `--shadow-brass-ring` was a stale preview label.
+  The geometry specimen now points at the shared `--shadow-glow-brass` token.
 
-- Music hue model conflict.
-  The preview keeps a fixed 12-slot chromatic wheel and says scale-count drops cells. Shared CSS currently divides hue by `--music-count`, which stretches hue spacing when count changes.
+- Music hue model conflict is resolved for token closure.
+  The shared `.note` recipe is token source and computes hue from `(degree + --music-rotate) * (360 / --music-count)`. Legacy `--note-*` alias consumers stay parked for app/component migration.
 
-- `--music-rotate` semantics conflict.
-  The preview treats movable root as a 30-degree chromatic offset. Shared CSS treats `--music-rotate` as an additive degree index in the computed hue formula.
+- `--music-rotate` semantics are resolved as a root-degree offset in the computed `.note` formula.
 
-- Solfege and note-label maps live only in preview JavaScript.
-  `NOTE_LETTERS`, `SOL_7`, and chromatic solfege mappings may belong in shared JS constants or composables, not CSS.
+- Solfege and note-label maps no longer live as private specimen arrays.
+  The token music specimen imports `CHROMATIC_NOTES`, `SOLFEGE_NOTES`, and `MOVABLE_DO_SOLFEGE_NOTES` from `src/data`.
 
 - Hue sweep is generated only inside the music preview.
   The preview creates `hue-sweep-seg-*` keyframes, uses `0.18` chroma, `+-15deg` sweep, negative stagger, and its own reduced-motion behavior. Promote only if hue sweep becomes a product primitive.
 
 - `beat-cell` name collision.
-  Token motion preview defines a local `@keyframes beat-cell` as a transform/scaleY pulse. Shared CSS defines global `beat-cell` as background/border lighting. Same name, different behavior.
+  Token motion preview defines a local `@keyframes beat-cell` as a transform/scaleY pulse. Shared CSS defines global `beat-cell` as background/border lighting. `BeatIndicator.vue` consumes the current global `beat-*` names, so any `bar-*`/`beat-*` cleanup is future motion naming cleanup rather than a token closure blocker.
 
-- Brass sheen timing differs.
-  The motion preview presents brass shimmer as `4s`; global `.brass::after` uses `6.5s`.
+- Brass sheen timing is resolved for the shared utility.
+  Global `.brass::after` and the token motion specimen both use 6.5s. Sticker badge timing remains parked under the badge taxonomy decision.
 
-- Typography contradiction.
-  The typography preview says mono face is for code, captions, and labels, while other token text and CSS say labels use Lets Jazz. The preview also has a mono face sample that appears to use `var(--t-body)`, not `--font-mono`.
+- Typography contradiction is localized.
+  Product labels are Lets Jazz; guide/spec inspection labels may use mono. Long-body mono utilities now use `--font-mono`.
 
-- Brand color semantics have some tension.
-  Preview copy uses tomato for warning/danger roles, while shared CSS says brand colors are decorative-only, even though `--danger` aliases tomato.
+- Brand color semantics are resolved for token closure.
+  Brand colors remain decorative in product composition, while semantic status aliases such as `--danger` may map to brand values.
 
 ## Specimen-Only
 
@@ -88,6 +86,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
 - `BarTape.vue` now owns the bar-tape primitive API and CSS; `PrimitiveBarTape.vue` imports it as a specimen. The promoted component corrected the documented major proportion recipe to `2-2-1-2-2-2-1` by making `mi` and `ti` narrow. Pattern compound specimens now compose `BarTape` instead of copying older bar-tape CSS.
 - `IconButton.vue` now owns icon-only control size, geometry, tone, state, pressed, disabled, and brass treatment grammar; `PrimitiveButtons.vue` imports it as a specimen. Pattern compound specimens now compose `IconButton` instead of copying older `.ico` CSS.
 - `CodeStrip.vue` now owns notation row chrome, note glyph modes, rests, durations, grouping, lit state, density, wrapping, and duration bars. Pattern compound specimens now compose `CodeStrip` instead of copying older `.cs` CSS, while `UniqueCodeStrip.vue` remains only a legacy specimen path.
+- Token doctrine is closed for current style-guide scope: spacing roles are documented, mono body utilities are shipped, music data constants are imported from `src/data`, stale skew/shadow labels are pruned, brass shimmer timing is normalized, and app/component migrations are parked separately.
 
 ## Primitive Vue Audit
 

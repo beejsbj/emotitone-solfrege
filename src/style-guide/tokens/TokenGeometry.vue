@@ -87,7 +87,7 @@
           <div class="skew-cell">
             <div class="skew-sample skew-offcut">Tab</div>
             <div class="clip-token">
-              --skew-tab
+              skew tab recipe
               <em>skewX(-2deg)</em>
               <em style="color:var(--ivory-4);font-size:7px">Active off-cut tab</em>
             </div>
@@ -95,7 +95,7 @@
           <div class="skew-cell">
             <div class="skew-sample skew-rip">Smear</div>
             <div class="clip-token">
-              --skew-smear
+              smear recipe
               <em>scaleX(1.08) skewX(-12deg)</em>
               <em style="color:var(--ivory-4);font-size:7px">Smear exit / cut-slide</em>
             </div>
@@ -103,7 +103,7 @@
           <div class="skew-cell">
             <div class="skew-sample skew-mode-out">Rip out</div>
             <div class="clip-token">
-              --skew-rip-out
+              rip-out recipe
               <em>skewX(-14deg) translateY(-8px)</em>
               <em style="color:var(--ivory-4);font-size:7px">Mode-rip knob exit</em>
             </div>
@@ -165,7 +165,7 @@
           <div class="shadow-cell">
             <div class="shadow-sample shadow-brass">Brass Ring</div>
             <div class="shadow-token">
-              --shadow-brass-ring
+              --shadow-glow-brass
               <em>inset hi/lo + 0 0 14px<br>rgba(224,169,58,.22)</em>
               <em style="color:var(--ivory-4);font-size:7px">Lit brass element</em>
             </div>
@@ -463,11 +463,11 @@
   font-size: 10px;
   color: var(--ivory-2);
 }
-/* --skew-offcut: skewX(-2deg) — active tab slides with this cut */
+/* specimen recipe: active tab slides with this cut */
 .skew-offcut { transform: skewX(-2deg); }
-/* --skew-rip: skewX(-12deg) scaleX(1.08) — smear exit motion */
+/* specimen recipe: smear exit motion */
 .skew-rip { transform: scaleX(1.08) skewX(-12deg); }
-/* --skew-mode-out: skewX(-14deg) — mode-rip knob label exit */
+/* specimen recipe: mode-rip knob label exit */
 .skew-mode-out { transform: translateY(-8px) skewX(-14deg); opacity: 0.3; }
 
 /* Sticker rotation */

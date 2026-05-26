@@ -23,13 +23,13 @@ Date: 2026-05-26
 
 | Raw recipe | Found in | Evidence | Candidate layer | Proposed resolution | Gate |
 |---|---|---|---|---|---|
-| Cut-paper clip set | Token geometry, buttons, keys, tabs | `--clip-*`; duplicate polygons | candidate token | promote/prune duplicates | Promotion Gate |
-| Cut-paper rotations | Token geometry, sticker/random geometry | `--rot-*`; randomized geometry | candidate token | promote | Token Closure |
-| SVG stroke grammar | Token geometry, marks, digital knobs | Butt caps, miter joins, hairline/track/value strokes | candidate token | promote | Promotion Gate |
-| Brass usage law | Doctrine, token UI, Sticker, tabs, knobs, buttons | One brass-lit signal; local brass recipes vary | candidate token/pattern | decide/promote/prune | Promotion Gate |
-| Brand color roles | Doctrine, brand tokens, spine card, sticker | Decorative poster colors versus functional danger conflict | candidate token/pattern | decide | Doctrine/Promotion Gate |
-| Music hue model | Music tokens, keys, bar tape, code strip | Legacy `--note-*` versus `.note` recipe | candidate token/data recipe | decide | Doctrine/Promotion Gate |
-| Note/solfege maps | Music token preview, keys, code strip | Preview maps and aliases diverge | candidate data recipe | promote to shared TS constants | Promotion Gate |
+| Cut-paper clip set | Token geometry, buttons, keys, tabs | `--clip-*`; duplicate polygons | token | promoted/pruned for current primitives | Promotion Gate 2026-05-26 |
+| Cut-paper rotations | Token geometry, sticker/random geometry | `--rot-*`; randomized geometry | token | promoted | Token Closure 2026-05-26 |
+| SVG stroke grammar | Token geometry, marks, digital knobs | Butt caps, miter joins, hairline/track/value strokes | token doctrine / primitive recipes | promoted into Mark/Knob and documented in geometry | Promotion Gate 2026-05-26 |
+| Brass usage law | Doctrine, token UI, Sticker, tabs, knobs, buttons | One brass-lit signal; local brass recipes vary | token/pattern | promoted as global `.brass` law; component badge timing parked | Promotion Gate 2026-05-26 |
+| Brand color roles | Doctrine, brand tokens, spine card, sticker | Decorative poster colors versus functional danger conflict | token/pattern | resolved: brand decorative, semantic status aliases functional | Doctrine/Promotion Gate 2026-05-26 |
+| Music hue model | Music tokens, keys, bar tape, code strip | Legacy `--note-*` versus `.note` recipe | token/data recipe | resolved: `.note` is source, aliases parked for migration | Doctrine/Promotion Gate 2026-05-26 |
+| Note/solfege maps | Music token preview, keys, code strip | Preview maps and aliases diverge | data recipe | pruned to existing `src/data` music constants | Promotion Gate 2026-05-26 |
 | Beat indicator cells | `PrimitiveBeatIndicator.vue` | Beat/downbeat/even/static/tempo grammar local to specimen | primitive | promoted | Promotion Gate 2026-05-25 |
 | Bar tape strip | Primitive + compound files | Segment fills, proportions, dim state, playhead, downbeat, footer-flush usage | primitive | promoted | Promotion Gate 2026-05-24 |
 | Icon button/control family | Primitive + compound files | Size, state, geometry, paired-button, sharp icon behavior | primitive | promoted | Promotion Gate 2026-05-25 |
@@ -76,8 +76,8 @@ Date: 2026-05-26
 
 - Generic token overlap mistaken for component recipe completion.
 - Local brass finishes duplicating global brass grammar.
-- Legacy `--note-*` aliases in primitive/compound candidates despite `.note` recipe direction.
-- Mono-heavy guide/spec labels conflicting with typography doctrine unless named as guide/spec exception.
+- Legacy `--note-*` aliases in primitive/compound candidates despite `.note` recipe direction; now parked as app/component migration residue.
+- Mono-heavy guide/spec labels are allowed only as a named guide/spec inspection exception.
 - `UniqueCodeStrip` reused as if it were not unique.
 
 ## Extracted Recipes

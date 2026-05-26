@@ -13,7 +13,7 @@
           <div class="face-sample-mono">.note {
       --note-degree: 2;
     }</div>
-          <div class="face-meta">Mono &middot; JetBrains Mono &middot; code, captions, labels</div>
+          <div class="face-meta">Mono &middot; JetBrains Mono &middot; code, captions, long body, guide specs</div>
         </div>
       </div>
     
@@ -48,7 +48,7 @@
         </div>
         <div class="ramp-row">
           <span class="s-body-mono">The quick brown fox jumps over the lazy dog</span>
-          <span class="ramp-spec">--t-body &middot; 450 14px/1.55 &middot; mono &middot; &gt;5 words</span>
+          <span class="ramp-spec">--t-body-mono &middot; 450 14px/1.55 &middot; mono &middot; &gt;5 words</span>
         </div>
         <div class="ramp-row">
           <span class="s-body-s">Quiet meta inline.</span>
@@ -56,7 +56,7 @@
         </div>
         <div class="ramp-row">
           <span class="s-body-s-mono">The quick brown fox jumps over the lazy dog</span>
-          <span class="ramp-spec">--t-body-s &middot; 450 12px/1.50 &middot; mono &middot; &gt;5 words</span>
+          <span class="ramp-spec">--t-body-s-mono &middot; 450 12px/1.50 &middot; mono &middot; &gt;5 words</span>
         </div>
         <div class="ramp-row">
           <span class="s-caption">Chrome metadata &middot; debug readouts &middot; file paths</span>
@@ -88,7 +88,7 @@
       <div class="rules">
         <div class="rule-line">Lets Jazz is the primary font — use it everywhere by default</div>
         <div class="rule-line">Mono is the exception — captions, and body over 5 words</div>
-        <div class="rule-line">Labels are Lets Jazz, not mono</div>
+        <div class="rule-line">Product labels are Lets Jazz; guide/spec inspection labels may be mono</div>
         <div class="rule-line">Display is always uppercase, period-terminated</div>
         <div class="rule-line">One Lets Jazz size per scope — don't stack display on display</div>
       </div>
@@ -191,9 +191,9 @@
 .s-h1         { font: var(--t-h1);         letter-spacing: var(--tracking-display); text-transform: uppercase; color: var(--ivory); }
 .s-h2         { font: var(--t-h2);         letter-spacing: var(--tracking-display); text-transform: uppercase; color: var(--ivory); }
 .s-body-jazz      { font-weight: 450; font-size: 14px; line-height: 1.55; font-family: var(--font-display); color: var(--ivory-2); }
-.s-body-mono  { font-weight: 450; font-size: 14px; line-height: 1.55; font-family: var(--font-mono);    color: var(--ivory-2); }
+.s-body-mono  { font: var(--t-body-mono); color: var(--ivory-2); }
 .s-body-s     { font-weight: 450; font-size: 12px; line-height: 1.50; font-family: var(--font-display); color: var(--ivory-3); }
-.s-body-s-mono{ font-weight: 450; font-size: 12px; line-height: 1.50; font-family: var(--font-mono);    color: var(--ivory-3); }
+.s-body-s-mono{ font: var(--t-body-s-mono); color: var(--ivory-3); }
 .s-caption    { font: var(--t-caption);    color: var(--ivory-3); }
 .s-label      { font: var(--t-label);      letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--ivory-3); }
 .s-label-jazz { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--ivory-3); }

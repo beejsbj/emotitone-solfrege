@@ -10,8 +10,8 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 
 | Item | Source | Target | Reason | Status |
 |---|---|---|---|---|
-| Cut-paper clip tokens | Token geometry and duplicated primitive CSS | `src/emotitone-design-system.css` and component usage | Repeated across buttons, keys, tabs, stickers | partially done; prune duplicate polygons during extraction |
-| SVG stroke grammar | Token geometry, marks, digital knobs | token or shared primitive recipe | Repeated stroke widths/caps/joins | resolved for Mark and Knob; token preview remains unaudited |
+| Cut-paper clip tokens | Token geometry and duplicated primitive CSS | `src/emotitone-design-system.css` and component usage | Repeated across buttons, keys, tabs, stickers | promoted/pruned for current primitives |
+| SVG stroke grammar | Token geometry, marks, digital knobs | token doctrine and primitive source recipes | Repeated stroke widths/caps/joins | resolved as geometry doctrine plus Mark/Knob source ownership |
 | Bar tape primitive | Primitive and compound files | `src/components/primatives/BarTape.vue` | Stable anatomy; copied into compounds | promoted 2026-05-24 |
 | Icon button/control primitive | Primitive and compound files | `src/components/primatives/IconButton.vue` | Stable control grammar copied upward | promoted 2026-05-25 |
 | Code strip grammar | Unique and compound files | `src/components/primatives/CodeStrip.vue` | Reused, not unique as-is | promoted 2026-05-25 |
@@ -63,10 +63,10 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 
 | Item | Source | Decision Needed | Gate | Status |
 |---|---|---|---|---|
-| Music color model | Music tokens, keys, bar tape, code strip | Legacy solfege classes versus computed `.note` recipe | Doctrine/Promotion Gate | pending |
-| Brand colors and danger semantics | Brand tokens, spine card, CSS `--danger` | Decorative-only or functional status allowed | Doctrine/Promotion Gate | pending |
-| Brass timing | Motion tokens, global brass, Sticker badge | One duration/easing or component-specific timings | Promotion Gate | pending |
-| Label typography exceptions | Token typography, guide/spec tables | Guide/spec mono exception or prune to Jazz labels | Doctrine/Promotion Gate | pending |
+| Music color model | Music tokens, keys, bar tape, code strip | Legacy solfege classes versus computed `.note` recipe | Doctrine/Promotion Gate | resolved: `.note` is token source; legacy aliases parked for app migration |
+| Brand colors and danger semantics | Brand tokens, spine card, CSS `--danger` | Decorative-only or functional status allowed | Doctrine/Promotion Gate | resolved: brand colors decorative; semantic `--danger` may alias tomato for status |
+| Brass timing | Motion tokens, global brass, Sticker badge | One duration/easing or component-specific timings | Promotion Gate | resolved: global `.brass` sheen is 6.5s; Sticker badge remains component gate |
+| Label typography exceptions | Token typography, guide/spec tables | Guide/spec mono exception or prune to Jazz labels | Doctrine/Promotion Gate | resolved: product labels Jazz; guide/spec inspection labels may be mono |
 | `Sticker` badge taxonomy | Sticker source/specimen | Variant, separate primitive, or unique | Promotion Gate | pending |
 | Code-strip boundary | Unique + compound files | Primitive, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: primitive |
 | Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | resolved: PatternCard owns shapes; PatternReel owns choreography |
@@ -99,6 +99,9 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `PrimitiveKeys.vue` | Generic clips existed, but key-specific recipes were local | resolved for style-guide: `Key` source component owns face, label stack, format, cuts, proportions, pressed/disabled states, and sheen. |
 | `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing were local | resolved for style-guide: `ChipTabs` source component owns rail/chip/streak grammar, active chip measurement, geometry, density, tone, and selected/disabled state. |
 | `PrimitiveKnobsAnalog.vue` / `PrimitiveKnobsDigital.vue` | Generic tokens existed, but knob visual anatomy, label/footer frame, role variants, disabled/lit/played states, brass/ivory axis, spin motion, and SVG stroke grammar were duplicated locally | resolved for style-guide: `Knob` source component owns shared visual grammar for ring and arc variants. |
+| Token music specimen | Preview-only note/solfege maps lived inside token specimen script | resolved for token docs: specimen imports `CHROMATIC_NOTES`, `SOLFEGE_NOTES`, and `MOVABLE_DO_SOLFEGE_NOTES` from `src/data`. |
+| Token geometry skew labels | Skew transform examples were labeled like custom properties without source tokens | resolved: kept as specimen recipes, not promoted tokens. |
+| Token typography long body | Long-body mono recipes existed only in specimen examples | resolved: `--t-body-mono`, `--t-body-s-mono`, `.body-mono`, and `.body-s-mono` added to token source. |
 
 ## Primitive Closure Gate
 
@@ -124,7 +127,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 
 | Decision | Gate | Owner | Date | Unblock Condition | May Advance? |
 |---|---|---|---|---|---:|
-| Token doctrine contradictions | Intent/Doctrine Gate | user + agent | 2026-05-24 | Contradiction affects extraction outcome | no for affected token family |
+| Token doctrine contradictions | Doctrine Gate | agent + user | 2026-05-26 | Resolved/localized in token closure slice; remaining app migrations are parked separately | yes |
 
 ## Resolved Decisions
 
@@ -144,7 +147,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Card undefined font body | prune to token | Removed `--font-body` references and used existing `--t-body-s` | Promotion Gate 2026-05-25 |
 | Kicker source component | promote | Dot+label marker has stable primitive anatomy and is reused by spine/brand specimens | Promotion Gate 2026-05-25 |
 | Kicker role boundary | promote as general marker | Specimen used brand tones plus brass/ivory/open treatments; source supports both brand and status marker tones | Promotion Gate 2026-05-25 |
-| Kicker mono typography | keep as named exception | Kicker/spec marker labels intentionally use mono at 9px; wider guide/spec typography remains pending | Doctrine Gate parked |
+| Kicker mono typography | keep as named exception | Kicker/spec marker labels intentionally use mono at 9px; wider guide/spec inspection labels are now a named mono exception | Doctrine Gate 2026-05-26 |
 | Kicker unused alignment demo | prune | Center/right alignment CSS existed without current specimen use | Promotion Gate 2026-05-25 |
 | SpineCard source component | promote | Base spine-card shell has stable primitive anatomy and composes Kicker | Promotion Gate 2026-05-25 |
 | SpineCard one-color rule | promote | Source uses one brand tone per card for spine and Kicker child | Promotion Gate 2026-05-25 |
@@ -165,7 +168,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Production knob controls | gate-park | Existing app controls under `src/components/knobs/` are behavior-heavy production inputs and were not rewritten in this style-guide slice | App Integration Gate parked |
 | Key source component | promote | Music key face has stable primitive anatomy and removed the final raw primitive specimen blocker | Promotion Gate 2026-05-25 |
 | Key clip geometry | prune/promote split | Strip/tile/squary/tall/wide reuse `--clip-tile`; offcut/tab reuse existing clip tokens; pill remains key-specific no-clip rounded variant | Promotion Gate 2026-05-25 |
-| Key chromatic aliases | prune stale specimen mapping | Ra/Me/Se/Le now map to `--note-ra`, `--note-me`, `--note-se`, and `--note-le`; legacy alias model stays parked behind music-color doctrine | Promotion Gate 2026-05-25 |
+| Key chromatic aliases | prune stale specimen mapping | Ra/Me/Se/Le now map to `--note-ra`, `--note-me`, `--note-se`, and `--note-le`; legacy alias consumers stay parked for app/component migration | Promotion Gate 2026-05-25 |
 | Key degree format | prune inaccurate doc claim | Source treats `degree` as supplied label text; old arabic+roman sub claim was removed from specimen copy | Promotion Gate 2026-05-25 |
 | IconButton source component | promote | `.ico`/`.ico-pair` grammar had stable source identity and was copied into pattern compounds | Promotion Gate 2026-05-25 |
 | IconButton offcut/tile polygons | prune to tokens | Source component uses existing `--clip-offcut` and `--clip-tile` instead of repeating polygons | Promotion Gate 2026-05-25 |
@@ -184,3 +187,9 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | BrandLogo source component | promote | The identity lockups are singular brand system artifacts, not generic primitive/compound UI | Unique Extraction Gate 2026-05-26 |
 | Brand cover SVG fills | prune to tokens | Source component uses brand token classes instead of raw SVG hex fills | Unique Extraction Gate 2026-05-26 |
 | Brand logo note marks | prune to source classes | Note-mark variant no longer uses inline specimen styles | Unique Extraction Gate 2026-05-26 |
+| Music color model | promote `.note`; park legacy aliases | `.note` with `--note-degree`, `--note-octave`, `--music-count`, and `--music-rotate` is the token source; `--note-*` aliases stay for branch consumers until app migration | Doctrine/Promotion Gate 2026-05-26 |
+| Note/solfege maps | prune specimen-private arrays | Token specimen now reads existing `src/data` music constants instead of owning duplicate maps | Promotion Gate 2026-05-26 |
+| Brand/danger semantics | resolve as semantic alias | Brand colors remain decorative poster colors; functional status must use semantic aliases such as `--danger` rather than direct brand-color chrome | Doctrine Gate 2026-05-26 |
+| Brass timing | promote global utility timing | `.brass` / `brass-sheen` uses the 6.5s global sweep; component-specific badge animation stays parked behind Sticker badge taxonomy | Promotion Gate 2026-05-26 |
+| Typography exception | localize guide/spec mono | Product labels use Lets Jazz; guide/spec inspection labels are a named mono exception | Doctrine Gate 2026-05-26 |
+| Skew transform labels | keep specimen-local | Skew examples describe motion recipes but do not become global `--skew-*` tokens until repeated outside specimens | Token Closure 2026-05-26 |

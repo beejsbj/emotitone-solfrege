@@ -15,11 +15,11 @@ Date: 2026-05-26
 
 | Artifact | Current role | Target layer | Source of truth? | Resolution | Proof / Next |
 |---|---|---|---:|---|---|
-| `src/emotitone-design-system.css` | Token file | tokens | yes | promote | Token source; unresolved token decisions in promotion audit. |
+| `src/emotitone-design-system.css` | Token file | tokens | yes | promote | Token source; token doctrine closed for current style-guide scope. |
 | `src/style-guide/StyleGuide.vue` | Sink page | specimen helper | yes, for guide entry | keep local | Renders all current layer specimens. |
 | `src/style-guide/preview-card.css` | Shared preview chrome | specimen helper | yes, for guide chrome | keep local | Guide-only staging CSS. |
 | `src/style-guide/guide/*.vue` | Anatomy/variant helpers | specimen helper | yes, for inspection | keep local | Used by `PrimitiveSticker.vue`; should replace duplicate guide chrome. |
-| `src/style-guide/tokens/*.vue` | Token specimens | tokens | no | keep local | Token documentation; unresolved rules tracked separately. |
+| `src/style-guide/tokens/*.vue` | Token specimens | tokens | no | keep local | Token documentation; specimen-only rules and app migrations are tracked separately. |
 | `src/components/primatives/Sticker.vue` | Extracted primitive | primitives | yes | promote | Source-first pattern exists. |
 | `src/style-guide/primatives/PrimitiveSticker.vue` | Primitive specimen | primitives | no | keep local | Imports `Sticker.vue`; badge/color decisions remain. |
 | `src/components/primatives/BarTape.vue` | Extracted primitive | primitives | yes | promote | Source-first component for strip, segments, proportions, size, dim/downbeat/playhead, and frame. |
@@ -65,12 +65,12 @@ Date: 2026-05-26
 - Primitive source components are extracted for current style-guide primitive specimens and the primitive closure proof is recorded in `LAYER_CLOSURE.md` / `RESIDUE_PROOF.md`.
 - Reusable compound source location is established for `PatternCard` and `PatternReel`.
 - Unique source location is established for singular brand artifacts under `src/components/uniques/`.
-- Token closure, unique closure, composition closure, and Finish Gate residue remain incomplete.
-- Promotion decisions exist in `PROMOTION_AUDIT.md`; token-doctrine decisions remain open for final token closure.
+- Token closure is recorded for current style-guide scope; unique closure, composition closure, and Finish Gate residue remain incomplete.
+- Promotion decisions exist in `PROMOTION_AUDIT.md`; remaining token-adjacent work is parked as app/component migration rather than open token doctrine.
 - Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`; brand unique source extraction is complete, while app integration remains.
 - Residue proof has run for primitive extraction and pattern compounds, and taxonomy residue has been classified for remaining unique/composition surfaces; it has not closed unique/composition implementation.
 
 ## Current Coverage Verdict
 
 - Coverage map exists, but full completion is not proven.
-- Brand unique extraction and DrawerShell promotion are recorded; next movement should be app `TopDrawer.vue` alignment, loading composition integration, or token closure work.
+- Brand unique extraction, DrawerShell promotion, and token closure are recorded; next movement should be app `TopDrawer.vue` alignment or loading composition integration.

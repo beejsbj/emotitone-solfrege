@@ -17,10 +17,9 @@ Date: 2026-05-24
 
 ### Current Layer
 
-- The branch is between raw recipe inventory and primitive extraction.
-- Tokens have been ported into `src/emotitone-design-system.css` and token specimens, but token closure is not proven because music color, brass timing, typography, and brand/danger semantics remain unresolved.
-- Primitives are mostly raw specimen ports. `Sticker.vue` is the model extracted primitive.
-- Compounds, uniques, and compositions are present as preview specimens, but not trustworthy closed layers because lower-layer residue is copied upward.
+- Historical starting point: the branch entered this run between raw recipe inventory and primitive extraction.
+- Current note, 2026-05-26: token doctrine, primitive extraction, PatternCard/PatternReel compounds, DrawerShell, and brand uniques have since been recorded in closure artifacts.
+- Remaining unclosed layers are app-aligned compositions, especially `TopDrawer.vue` and `LoadingSplash.vue`.
 
 ### Trustworthy Existing Artifacts
 

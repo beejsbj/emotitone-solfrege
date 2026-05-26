@@ -7,7 +7,7 @@ Date: 2026-05-26
 - Source of truth: `src/emotitone-design-system.css`.
 - Doctrine reference: `/Users/burooj/Projects/emotitone-design-system/project/design-doctrine.md`.
 - Specimens: `src/style-guide/tokens/*.vue`.
-- Status: ported, not closed. Token promotion decisions from `TOKEN_PROMOTION_AUDIT.md` still need normalization into `PROMOTION_AUDIT.md`.
+- Status: closed for current style-guide scope. Token promotion decisions from `TOKEN_PROMOTION_AUDIT.md` have been normalized into `PROMOTION_AUDIT.md`; app/component migrations such as legacy `--note-*` consumers remain parked behind named integration gates.
 
 ## Primitives
 
@@ -83,8 +83,8 @@ Date: 2026-05-26
 
 | Source artifact | Layer | Source of truth | Resolution | Notes |
 |---|---|---|---|---|
-| `src/emotitone-design-system.css` | token | yes | promote | Branch-local token source; open decisions remain. |
-| `src/style-guide/tokens/*.vue` | token specimen | no | keep local | Documentation surfaces for token groups. |
+| `src/emotitone-design-system.css` | token | yes | promote | Branch-local token source; doctrine closed for current style-guide scope. |
+| `src/style-guide/tokens/*.vue` | token specimen | no | keep local | Documentation surfaces for token groups; specimen-only recipes remain marked local. |
 | `src/components/primatives/Sticker.vue` | primitive | yes | promote | Model extracted primitive. |
 | `src/style-guide/primatives/PrimitiveSticker.vue` | primitive specimen | no | keep local | Imports and inspects `Sticker.vue`; badge decision remains. |
 | `src/components/primatives/BarTape.vue` | primitive | yes | promote | Owns segment color, major/equal proportions, size, dim/downbeat/playhead, and boxed/flush frame. |

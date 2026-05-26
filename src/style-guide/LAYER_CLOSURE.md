@@ -11,6 +11,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 - `src/emotitone-design-system.css`
 - `src/style-guide/tokens/*.vue`
 - `src/components/primatives/Sticker.vue`
+- `src/components/uniques/*.vue`
 - `src/style-guide/primatives/*.vue`
 - `src/style-guide/compounds/*.vue`
 - `src/style-guide/uniques/*.vue`
@@ -24,6 +25,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 - Tokens: `src/emotitone-design-system.css`.
 - Primitives: `src/components/primatives/`.
 - Compounds: `src/components/compounds/`.
+- Uniques: `src/components/uniques/`.
 - Specimens: `src/style-guide/**`.
 - Specimen helpers: `src/style-guide/guide/**`.
 
@@ -32,9 +34,9 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
-| raw recipes resolved or gate-parked | partial | Primitive extraction and DrawerShell promotion recipes are resolved or gate-parked; token doctrine, unique extraction, and app integration decisions remain | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
-| source of truth named | partial | Tokens/primitives/PatternCard compound/specimens named; uniques deferred | `REPOSITORY_CONVENTIONS.md` |
-| specimens demonstrate, not define | partial | Current primitive specimens now import source components; uniques/compositions still need lower-layer audits | `COVERAGE_AUDIT.md` |
+| raw recipes resolved or gate-parked | partial | Primitive extraction, DrawerShell promotion, and brand unique extraction recipes are resolved or gate-parked; token doctrine and app integration decisions remain | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
+| source of truth named | partial | Tokens/primitives/PatternCard compound/brand uniques/specimens named; compositions still include app integration gates | `REPOSITORY_CONVENTIONS.md` |
+| specimens demonstrate, not define | partial | Current primitive and brand unique specimens now import source components; compositions still need app integration audits | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
 
 ## Per-Layer Closure Proof
@@ -73,9 +75,9 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| singular-role justification exists | partial | Brand cover and brand logo are justified as true uniques; CodeStrip is reclassified as primitive specimen; drawer is reclassified as promotion debt | `TAXONOMY_GATE.md`, `STYLE_GUIDE_SCHEMA.md` |
-| reusable material inside unique is resolved downward | partial | `UniqueCodeStrip` is resolved downward to `CodeStrip`; `UniqueDrawer` now imports `DrawerShell`; brand unique source extraction remains | `RESIDUE_PROOF.md`, `PROMOTION_AUDIT.md` |
-| unique is marked to prevent accidental generalization | partial | Brand cover/logo are marked unique; drawer is marked not-unique; unique source extraction remains | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
+| singular-role justification exists | pass | Brand cover and brand logo are justified and extracted as source uniques; CodeStrip is reclassified as primitive specimen; drawer is reclassified as primitive specimen | `TAXONOMY_GATE.md`, `STYLE_GUIDE_SCHEMA.md` |
+| reusable material inside unique is resolved downward | pass | `UniqueCodeStrip` imports `CodeStrip`; `UniqueDrawer` imports `DrawerShell`; brand specimens import `BrandCover` and `BrandLogo` | `RESIDUE_PROOF.md`, `PROMOTION_AUDIT.md` |
+| unique is marked to prevent accidental generalization | pass | Brand cover/logo live in `src/components/uniques/`; CodeStrip and Drawer remain legacy specimen paths for lower layers | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
 
 ### Composition Closure
 
@@ -104,8 +106,8 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Drawer shell | promote | Source-first component extracted; unique and composition specimens import it | Promotion Gate |
 | Sticker badge | gate-parked | Existing source-first Sticker component contains unresolved badge variant/taxonomy | Promotion Gate |
 | Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
-| Brand cover | keep local / extract later | Singular brand artifact, not reusable component grammar | Taxonomy Gate |
-| Brand logo | keep local / extract later | Singular brand identity system | Taxonomy Gate |
+| Brand cover | promote as unique source | Singular brand artifact, not reusable component grammar | Unique Extraction Gate |
+| Brand logo | promote as unique source | Singular brand identity system | Unique Extraction Gate |
 | App top-drawer alignment | gate-parked | Reusable drawer behavior is promoted for style-guide surfaces, but production `TopDrawer.vue` remains behavior-heavy and unchanged | App Integration Gate |
 | Loading screen composition | gate-parked | Style-guide visual proof diverges from app `LoadingSplash.vue` behavior source | App Integration Gate |
 | Top drawer composition | gate-parked | Composition proof composes `DrawerShell`; local controls and production app alignment remain open | App Integration Gate |
@@ -128,7 +130,6 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Brand/danger semantics | Doctrine Gate | user + agent | 2026-05-25 | Decide whether brand colors may carry functional status meaning | yes |
 | SpineCard preset row | Taxonomy Gate | user + agent | 2026-05-25 | Decide whether the action/status row becomes a compound/control-row source component | yes |
 | Production knob alignment | App Integration Gate | user + agent | 2026-05-25 | Decide whether behavior-heavy app knobs adopt the visual primitive | yes |
-| Unique source location | Repository Conventions/Unique Extraction Gate | user + agent | 2026-05-26 | Decide whether singular brand artifacts get `src/components/uniques/` sources or remain style-guide-local | no for unique closure |
 | App top-drawer alignment | App Integration Gate | user + agent | 2026-05-26 | Decide whether production `TopDrawer.vue` adopts, wraps, or remains separate from promoted `DrawerShell` | no for app closure |
 | Loading splash alignment | App Integration Gate | user + agent | 2026-05-26 | Map style-guide loading composition onto `LoadingSplash.vue` without losing loading/audio/MIDI/error behavior | no for composition closure |
 
@@ -148,7 +149,7 @@ Recommendation:
 - Treat `UniqueCodeStrip.vue` as a legacy primitive specimen path.
 - Reclassify drawer as lower-layer source plus app-alignment debt, not a unique.
 - Keep loading/top-drawer previews as compositions, with app integration gates before production alignment.
-- Make app top-drawer alignment, loading integration, or true unique extraction the next implementation slice.
+- Make app top-drawer alignment, loading integration, or token closure the next implementation slice.
 
 Alternatives rejected:
 
@@ -158,12 +159,39 @@ Alternatives rejected:
 
 Unresolved risk:
 
-- Unique source location is still unestablished.
+- Unique source extraction may still need visual proof against the original specimen surfaces.
 - App `TopDrawer.vue` alignment may require adapting or wrapping `DrawerShell` without losing current production behavior.
 
 Unblocks:
 
-- App top-drawer alignment, true unique extraction, and composition closure work.
+- App top-drawer alignment, loading integration, token closure, and composition closure work.
+
+## Unique Extraction Decision Packet
+
+Evidence:
+
+- `UniqueBrandCover.vue` and `UniqueBrandLogo.vue` were accepted as true uniques, but their implementation still lived in specimen files.
+- Unique closure requires singular artifacts to be marked so future work does not accidentally generalize them.
+- The repo already has source-first locations for primitives and compounds; brand uniques needed the same source/specimen separation without becoming reusable families.
+
+Recommendation:
+
+- Establish `src/components/uniques/` for true unique source artifacts after taxonomy accepts singular role.
+- Promote `BrandCover.vue` and `BrandLogo.vue` as source uniques.
+- Keep `UniqueBrandCover.vue` and `UniqueBrandLogo.vue` as inspection specimens that import the source uniques.
+
+Alternatives rejected:
+
+- Leave brand uniques style-guide-local: rejected because specimens would remain the implementation source of truth.
+- Promote brand cover/logo to primitives or compounds: rejected because their identity is singular and brand-specific.
+
+Unresolved risk:
+
+- App usage for these brand uniques is not established; this slice only closes style-guide unique source ownership.
+
+Unblocks:
+
+- Unique closure can now treat brand cover/logo as source-first and focus remaining residue on app integration, loading, and token doctrine.
 
 ## DrawerShell Promotion Decision Packet
 

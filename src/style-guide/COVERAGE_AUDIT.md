@@ -7,6 +7,7 @@ Date: 2026-05-26
 - Current branch style-guide artifacts under `src/style-guide/`.
 - Branch-local token file `src/emotitone-design-system.css`.
 - Reusable primitive source folder `src/components/primatives/`.
+- Reusable unique source folder `src/components/uniques/`.
 - Existing app sources that correspond to remaining composition proofs.
 - Upstream doctrine and preview tier names as reference evidence.
 
@@ -45,11 +46,13 @@ Date: 2026-05-26
 | `src/components/primatives/DrawerShell.vue` | Extracted primitive | primitives | yes | promote | Source-first component for bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced motion. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
+| `src/components/uniques/BrandCover.vue` | Extracted unique | uniques | yes | promote | Source-first singular cover artifact for cover copy, meta grid, stamp, and fixed cut-paper collage. |
+| `src/components/uniques/BrandLogo.vue` | Extracted unique | uniques | yes | promote | Source-first singular identity system for wordmark, monogram, tagline, brass, inverted, and note-mark lockups. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | Compound specimen | compounds | no | keep local | Imports `PatternCard.vue`; specimen staging only. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | Compound specimen | compounds | no | keep local | Imports `PatternReel.vue`; specimen data and variant staging only. |
-| `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | keep local / extract source later | Singular brand cover; taxonomy gate accepted unique role, source path still gated. |
-| `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | keep local / extract source later | Singular brand identity system; taxonomy gate accepted unique role, source path still gated. |
+| `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | keep local | Imports `BrandCover.vue`; specimen keeps inspection labels/anatomy only. |
+| `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | keep local | Imports `BrandLogo.vue`; specimen keeps anatomy and variant grid only. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | Legacy primitive specimen path | primitives/specimen | no | keep local | Imports `CodeStrip.vue`; path remains under uniques until navigation/file organization gate. |
 | `src/style-guide/uniques/UniqueDrawer.vue` | Legacy drawer-shell specimen path | primitives/specimen | no | keep local | Imports `DrawerShell.vue`; no longer defines drawer shell behavior locally. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | keep local / app integration gate | Full loading-state proof; app source `LoadingSplash.vue` owns current behavior. |
@@ -60,14 +63,14 @@ Date: 2026-05-26
 ## Coverage Gaps
 
 - Primitive source components are extracted for current style-guide primitive specimens and the primitive closure proof is recorded in `LAYER_CLOSURE.md` / `RESIDUE_PROOF.md`.
-- Reusable compound source location is established for `PatternCard` and `PatternReel`; no reusable unique source location is established yet.
-- Unique source location still waits on the Unique Extraction Gate: either establish `src/components/uniques/` or keep singular brand artifacts style-guide-local with explicit proof.
+- Reusable compound source location is established for `PatternCard` and `PatternReel`.
+- Unique source location is established for singular brand artifacts under `src/components/uniques/`.
 - Token closure, unique closure, composition closure, and Finish Gate residue remain incomplete.
 - Promotion decisions exist in `PROMOTION_AUDIT.md`; token-doctrine decisions remain open for final token closure.
-- Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`, but source extraction/app integration remains.
+- Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`; brand unique source extraction is complete, while app integration remains.
 - Residue proof has run for primitive extraction and pattern compounds, and taxonomy residue has been classified for remaining unique/composition surfaces; it has not closed unique/composition implementation.
 
 ## Current Coverage Verdict
 
 - Coverage map exists, but full completion is not proven.
-- DrawerShell promotion is recorded; next movement should be app `TopDrawer.vue` alignment, unique source extraction, or loading composition integration.
+- Brand unique extraction and DrawerShell promotion are recorded; next movement should be app `TopDrawer.vue` alignment, loading composition integration, or token closure work.

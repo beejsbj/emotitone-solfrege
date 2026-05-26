@@ -4,18 +4,18 @@ Date: 2026-05-26
 
 ## Status
 
-Primitive extraction residue is cleared for the current primitive specimen set. DrawerShell promotion is cleared for style-guide unique/composition surfaces. Overall design-lab residue is not cleared because unique source extraction, app integration, loading alignment, and token doctrine gates remain.
+Primitive extraction residue is cleared for the current primitive specimen set. Brand unique extraction and DrawerShell promotion are cleared for style-guide surfaces. Overall design-lab residue is not cleared because app integration, loading alignment, and token doctrine gates remain.
 
 ## Pattern Checks
 
 | Pattern | Check Method | Current Result | Resolution |
 |---|---|---|---|
-| Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/emotitone-design-system.css` | run 2026-05-25; no hits in `src/components/primatives`; remaining hits are token definitions/docs, guide chrome, and unique/composition surfaces | token/unique/composition gates |
+| Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/components/uniques src/emotitone-design-system.css` | brand unique SVG fills were pruned to tokens; remaining hits require current search proof before Finish Gate | token/composition gates |
 | Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
 | Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | known brass/key conflicts; tabs and knobs resolved in source slices | Promotion Gate |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton, ChipTabs, and Key use existing tokens for exact matches | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds; unresolved hits are unique/composition surfaces | unique/composition Taxonomy Gate |
-| One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
+| One-offs not marked unique | inspect unique and composition specimens | `BrandCover` and `BrandLogo` now live in `src/components/uniques`; `UniqueCodeStrip` and `UniqueDrawer` are legacy specimen paths for lower layers | pass for current unique surfaces |
 | Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | all 12 current primitive specimens import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass for primitive layer |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
 | Unique/composition taxonomy drift | inspect `src/style-guide/uniques`, `src/style-guide/compositions`, and matching app sources | run 2026-05-26; brand cover/logo are true uniques, drawer shell is promoted to `DrawerShell`, loading/top drawer retain app-integration debt | `TAXONOMY_GATE.md`, `PROMOTION_AUDIT.md` |
@@ -26,7 +26,7 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 - The run cannot be called complete.
 - Primitive extraction layer may close for current scope: every current primitive specimen is source-first, old raw primitive class families have been pruned from primitive/compound specimens, and remaining primitive-adjacent decisions are gate-parked.
 - Compound pattern family residue is cleared for `PatternCard` and `PatternReel`; remaining compound/composition closure depends on the next taxonomy audit.
-- Unique/composition taxonomy is now classified, but unique/composition implementation is not closed.
+- Unique/composition taxonomy is now classified; brand unique implementation is source-first, but composition implementation is not closed.
 - `UniqueDrawer.vue` no longer defines shell behavior; app `TopDrawer.vue` alignment remains residue.
 
 ## Slice Proof: BarTape
@@ -40,7 +40,7 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 
 ## Next Proof Step
 
-- Run app `TopDrawer.vue` alignment, true unique extraction, or loading composition integration.
+- Run app `TopDrawer.vue` alignment, loading composition integration, or token closure work.
 
 ## Slice Proof: Pattern Compounds Compose BarTape
 
@@ -276,7 +276,7 @@ Primitive closure decision, 2026-05-25:
 
 | Pattern | Evidence | Result |
 |---|---|---|
-| Singular brand artifacts | `UniqueBrandCover.vue` has fixed cover copy/meta/collage; `UniqueBrandLogo.vue` has brand lockup variants | classify as true uniques; source extraction still pending |
+| Singular brand artifacts | `UniqueBrandCover.vue` has fixed cover copy/meta/collage; `UniqueBrandLogo.vue` has brand lockup variants | classified as true uniques and extracted to `BrandCover.vue` / `BrandLogo.vue` |
 | Misclassified drawer unique | `UniqueDrawer.vue` demonstrates reusable drawer anatomy; `CompositionTopDrawer.vue` repeats drawer shell; app `TopDrawer.vue` exists | reclassified and promoted as `DrawerShell`; app alignment debt remains |
 | Loading screen source split | `CompositionLoadingScreen.vue` is visual proof; `src/components/LoadingSplash.vue` owns loading/audio/MIDI/error behavior | classify as composition plus App Integration Gate |
 | Top drawer composition | `CompositionTopDrawer.vue` owns product panes/content and app-region context | keep as composition proof; drawer shell cannot stay hidden inside it |
@@ -285,7 +285,24 @@ Primitive closure decision, 2026-05-25:
 Taxonomy decision, 2026-05-26:
 
 - The next implementation slice should not start with brand polish.
-- Drawer-shell Promotion Gate is resolved for style-guide surfaces; the next blockers are app `TopDrawer.vue` alignment, true unique extraction, and loading composition integration.
+- Brand unique extraction and DrawerShell Promotion Gate are resolved for style-guide surfaces; the next blockers are app `TopDrawer.vue` alignment, loading composition integration, and token doctrine.
+
+## Slice Proof: Brand Uniques
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| Unique source location | none | `src/components/uniques/` established in repository conventions | pass for brand uniques |
+| Brand cover source behavior | `UniqueBrandCover.vue` owned fixed copy, meta grid, stamp, collage SVG, and raw SVG fills | `BrandCover.vue` owns singular cover artifact; specimen imports it and keeps inspection labels/anatomy | pass for unique source extraction |
+| Brand logo source behavior | `UniqueBrandLogo.vue` owned wordmark, monogram, tagline, brass/inverted/note variants, and inline note styles | `BrandLogo.vue` owns identity lockups; specimen imports it through anatomy/variant helpers | pass for unique source extraction |
+| Raw brand SVG colors | Cover SVG used raw hex fills | Source uses brand token classes for brass, tomato, plum, ink, and bone fills/strokes | pass |
+| Unique generalization risk | Brand artifacts were classified but still style-guide-local | Source files live under `src/components/uniques/`, preserving singular role without making generic primitives | pass |
+
+Browser DOM proof, 2026-05-26:
+
+- `style-guide` renders 1 `.brand-cover` node and 7 `.brand-logo` nodes from source unique components.
+- `BrandLogo` renders 5 source note-mark nodes and 5 source wordmark nodes across hero/variants.
+- Old local brand cover classes `.cover-wrap`, `.shapes-panel`, and `.meta-grid` render 0 nodes.
+- Old local brand logo classes `.logo-hero`, `.var-tile`, `.var-glyph`, and `.var-tagline` render 0 nodes.
 
 ## Slice Proof: DrawerShell
 

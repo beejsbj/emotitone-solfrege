@@ -21,8 +21,8 @@ Artifacts inspected:
 
 | Artifact | Current path | Candidate layer | Decision | Next gate |
 |---|---|---|---|---|
-| Brand cover | `UniqueBrandCover.vue` | unique | Keep as singular brand-cover artifact; not a reusable primitive/compound | Unique Extraction Gate |
-| Brand logo / wordmark | `UniqueBrandLogo.vue` | unique | Keep as singular brand identity system; not a generic component family | Unique Extraction Gate |
+| Brand cover | `UniqueBrandCover.vue` | unique | Source-extracted as singular `BrandCover.vue`; not a reusable primitive/compound | closed for unique source extraction |
+| Brand logo / wordmark | `UniqueBrandLogo.vue` | unique | Source-extracted as singular `BrandLogo.vue`; not a generic component family | closed for unique source extraction |
 | Code strip | `UniqueCodeStrip.vue` | primitive specimen | Already reclassified; keep as legacy specimen path only | Naming/Navigation Gate |
 | Drawer anatomy | `UniqueDrawer.vue` | primitive, not unique | Promoted to `DrawerShell`; `UniqueDrawer.vue` is now a legacy specimen/prototype path | App Integration Gate for production `TopDrawer.vue` |
 | Loading screen preview | `CompositionLoadingScreen.vue` | composition | Keep as composition proof/design target; reconcile against app `LoadingSplash.vue` later | App Integration Gate |
@@ -54,9 +54,10 @@ Alternatives rejected:
 - Promoting the cover layout into a compound: rejected because no second use proves the layout travels.
 - Treating the collage as a generic mark primitive: rejected because `Mark.vue` already owns reusable mark grammar and this collage is fixed art.
 
-Unresolved risk:
+Promotion result:
 
-- If the brand cover must ship in the app, it will need a source location such as `src/components/uniques/BrandCover.vue`; that source path is not established yet.
+- `BrandCover` is promoted under `src/components/uniques/`.
+- `UniqueBrandCover.vue` imports `BrandCover` and keeps only specimen inspection labels/anatomy.
 
 Unblocks:
 
@@ -85,9 +86,11 @@ Alternatives rejected:
 - Promoting wordmark tiles into generic cards: rejected because `CardShell` and guide helpers already cover generic shells.
 - Treating note-mark lockup as a new music primitive: rejected until the music-color model gate decides computed `.note` versus legacy aliases.
 
-Unresolved risk:
+Promotion result:
 
-- Inline note-mark styles and image usage should be pruned or justified during unique extraction.
+- `BrandLogo` is promoted under `src/components/uniques/`.
+- Inline note-mark styling moved from the specimen into source classes.
+- `UniqueBrandLogo.vue` imports `BrandLogo` and keeps only specimen anatomy/variant staging.
 
 Unblocks:
 

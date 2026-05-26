@@ -42,12 +42,16 @@ Date: 2026-05-26
 
 ## Uniques
 
+- Source of truth path: `src/components/uniques/`.
+- Extracted source components:
+  - `src/components/uniques/BrandCover.vue`
+  - `src/components/uniques/BrandLogo.vue`
 - Current specimens:
   - `src/style-guide/uniques/UniqueBrandCover.vue`
   - `src/style-guide/uniques/UniqueBrandLogo.vue`
   - `src/style-guide/uniques/UniqueCodeStrip.vue`
   - `src/style-guide/uniques/UniqueDrawer.vue`
-- Status: taxonomy audited, not source-extracted. `UniqueBrandCover.vue` and `UniqueBrandLogo.vue` are true singular brand artifacts. `UniqueCodeStrip.vue` is a legacy specimen path for the promoted `CodeStrip` primitive and should be renamed/moved only after a navigation/file-organization gate. `UniqueDrawer.vue` is now a legacy drawer-shell specimen path that imports `DrawerShell.vue`.
+- Status: `BrandCover` and `BrandLogo` are source-first true unique artifacts. `UniqueBrandCover.vue` and `UniqueBrandLogo.vue` import those sources as inspection specimens. `UniqueCodeStrip.vue` is a legacy specimen path for the promoted `CodeStrip` primitive and should be renamed/moved only after a navigation/file-organization gate. `UniqueDrawer.vue` is now a legacy drawer-shell specimen path that imports `DrawerShell.vue`.
 
 ## Compositions
 
@@ -107,12 +111,14 @@ Date: 2026-05-26
 | `src/components/primatives/DrawerShell.vue` | primitive | yes | promote | Owns bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced-motion behavior. |
 | `src/components/compounds/PatternCard.vue` | compound | yes | promote | Owns sleek/active pattern card anatomy and composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | compound | yes | promote | Owns stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
+| `src/components/uniques/BrandCover.vue` | unique | yes | promote | Owns singular cover copy, meta grid, stamp, and fixed cut-paper collage. |
+| `src/components/uniques/BrandLogo.vue` | unique | yes | promote | Owns singular Emotitone identity lockups: wordmark, monogram, tagline, brass, inverted, and note marks. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | primitive specimen | no | keep local | Imports and inspects `IconButton.vue`; paired-control wrappers remain specimen-only. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | keep local | Imports and inspects `PatternCard.vue`. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | keep local | Imports and inspects `PatternReel.vue`. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | legacy primitive specimen path | no | keep local | Imports and inspects `CodeStrip.vue`; file location/name remains a later organization gate. |
-| `src/style-guide/uniques/UniqueBrandCover.vue` | unique specimen | no | keep local / extract source later | Singular brand cover; needs unique source path/extraction gate before unique closure. |
-| `src/style-guide/uniques/UniqueBrandLogo.vue` | unique specimen | no | keep local / extract source later | Singular brand identity system; needs unique source path/extraction gate before unique closure. |
+| `src/style-guide/uniques/UniqueBrandCover.vue` | unique specimen | no | keep local | Imports and inspects `BrandCover.vue`; specimen labels/anatomy remain local. |
+| `src/style-guide/uniques/UniqueBrandLogo.vue` | unique specimen | no | keep local | Imports and inspects `BrandLogo.vue`; variant grid/anatomy remain local. |
 | `src/style-guide/uniques/UniqueDrawer.vue` | legacy drawer-shell specimen path | no | keep local | Imports and inspects `DrawerShell.vue`; file location/name remains a later organization gate. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | composition specimen | no | keep local / app integration gate | Composition proof and visual target; app behavior source is `LoadingSplash.vue`. |
 | `src/components/LoadingSplash.vue` | app source | yes, for current app behavior | app integration gate | Behavior-heavy current loading splash; visually divergent from style-guide composition. |

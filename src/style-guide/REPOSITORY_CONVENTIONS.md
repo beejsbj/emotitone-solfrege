@@ -25,7 +25,9 @@ Date: 2026-05-24
 - Reusable compound source directory: `src/components/compounds/`.
 - Current extracted compound model: `src/components/compounds/PatternCard.vue`.
 - Current compound specimens remain under `src/style-guide/compounds/`.
-- Unique source location remains unestablished; unique artifacts still live as specimens under `src/style-guide/uniques/` until singular-role audits prove a need for a reusable source path.
+- Unique source directory: `src/components/uniques/`.
+- Current extracted unique models: `src/components/uniques/BrandCover.vue` and `src/components/uniques/BrandLogo.vue`.
+- Unique specimens remain under `src/style-guide/uniques/` and import source uniques for inspection.
 - Compound source creation is allowed only after lower child primitives for that compound are extracted or explicitly gate-parked.
 
 ## Specimen / Style-Guide Location
@@ -78,19 +80,19 @@ Date: 2026-05-24
 - Moving primitives into `src/components/primitives/`: rejected by user constraint.
 - Treating `src/style-guide/primatives/` as implementation source: rejected by workflow and design-lab doctrine.
 - Adding route infrastructure for the style guide: rejected by branch intent and current `App.vue` shell.
-- Creating a unique implementation folder now: deferred until singular-role audits prove one is needed.
+- Keeping brand uniques style-guide-local after singular-role audit: rejected because unique closure needs source-first artifacts without turning specimens into source of truth.
 
 ## Unresolved Risk
 
 - Shared TS constants do not yet have a design-system-specific location.
 - Existing `src/components/ui` contains app UI components that may overlap with future primitives but do not yet follow the new token grammar.
-- Unique source location is still unresolved.
+- Unique source location is established for brand artifacts; future uniques should use it only after singular-role taxonomy is recorded.
 - Existing app-specific folders such as `src/components/patterns/` can overlap by domain name; do not treat them as design-lab source unless an integration gate explicitly aligns the runtime component with the design-system component.
 
 ## Decision Needed
 
 - Repository Conventions Gate recommendation: continue using the current branch conventions above for the next extraction slice.
-- Any new directory category for constants or unique sources requires a later gate.
+- Any new directory category for constants requires a later gate; unique sources now use `src/components/uniques/`.
 
 ## Unblocks
 
@@ -99,4 +101,4 @@ Date: 2026-05-24
 
 ## Gate Decision
 
-continue under existing branch conventions; primitive sources live in `src/components/primatives/`; compound sources may now live in `src/components/compounds/` after their child primitive dependencies are source-first
+continue under existing branch conventions; primitive sources live in `src/components/primatives/`; compound sources may live in `src/components/compounds/` after their child primitive dependencies are source-first; true singular unique sources live in `src/components/uniques/` after taxonomy accepts their one-off role

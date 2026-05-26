@@ -1,10 +1,10 @@
 # Residue Proof
 
-Date: 2026-05-25
+Date: 2026-05-26
 
 ## Status
 
-Primitive extraction residue is cleared for the current primitive specimen set. Overall design-lab residue is not cleared because unique/composition surfaces and token doctrine gates remain.
+Primitive extraction residue is cleared for the current primitive specimen set. Unique/composition taxonomy residue is classified, but overall design-lab residue is not cleared because unique source extraction, drawer-shell promotion, app integration, and token doctrine gates remain.
 
 ## Pattern Checks
 
@@ -18,6 +18,7 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 | One-offs not marked unique | inspect unique and composition specimens | `UniqueCodeStrip` legacy path now imports primitive source; remaining uniques still need singular-role audit | Taxonomy Gate |
 | Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | all 12 current primitive specimens import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass for primitive layer |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | known duplicates | prune into helpers during specimen cleanup |
+| Unique/composition taxonomy drift | inspect `src/style-guide/uniques`, `src/style-guide/compositions`, and matching app sources | run 2026-05-26; brand cover/logo are true uniques, drawer is not unique, loading/top drawer are compositions with app-integration debt | `TAXONOMY_GATE.md` |
 
 ## Current Residue Verdict
 
@@ -25,6 +26,8 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 - The run cannot be called complete.
 - Primitive extraction layer may close for current scope: every current primitive specimen is source-first, old raw primitive class families have been pruned from primitive/compound specimens, and remaining primitive-adjacent decisions are gate-parked.
 - Compound pattern family residue is cleared for `PatternCard` and `PatternReel`; remaining compound/composition closure depends on the next taxonomy audit.
+- Unique/composition taxonomy is now classified, but unique/composition implementation is not closed.
+- `UniqueDrawer.vue` remains residue until drawer-shell promotion/app alignment is decided.
 
 ## Slice Proof: BarTape
 
@@ -37,8 +40,8 @@ Primitive extraction residue is cleared for the current primitive specimen set. 
 
 ## Next Proof Step
 
-- Run unique/composition taxonomy and residue scans, beginning with `UniqueBrandCover.vue`, `UniqueBrandLogo.vue`, `UniqueDrawer.vue`, `CompositionLoadingScreen.vue`, and `CompositionTopDrawer.vue`.
-- Decide whether repeated drawer/control recipes become compounds/primitives or stay composition-local.
+- Run drawer-shell Promotion Gate against `UniqueDrawer.vue`, `CompositionTopDrawer.vue`, and `src/components/TopDrawer.vue`.
+- Then extract true unique sources or align composition app sources.
 
 ## Slice Proof: Pattern Compounds Compose BarTape
 
@@ -269,3 +272,18 @@ Primitive closure decision, 2026-05-25:
 - The primitive extraction layer can advance to unique/composition taxonomy.
 - The full design lab cannot close yet.
 - Gate-parked primitive-adjacent decisions remain recorded in `LAYER_CLOSURE.md` and `PROMOTION_AUDIT.md`.
+
+## Slice Proof: Unique / Composition Taxonomy
+
+| Pattern | Evidence | Result |
+|---|---|---|
+| Singular brand artifacts | `UniqueBrandCover.vue` has fixed cover copy/meta/collage; `UniqueBrandLogo.vue` has brand lockup variants | classify as true uniques; source extraction still pending |
+| Misclassified drawer unique | `UniqueDrawer.vue` demonstrates reusable drawer anatomy; `CompositionTopDrawer.vue` repeats drawer shell; app `TopDrawer.vue` exists | reclassify as drawer-shell promotion/app-alignment debt |
+| Loading screen source split | `CompositionLoadingScreen.vue` is visual proof; `src/components/LoadingSplash.vue` owns loading/audio/MIDI/error behavior | classify as composition plus App Integration Gate |
+| Top drawer composition | `CompositionTopDrawer.vue` owns product panes/content and app-region context | keep as composition proof; drawer shell cannot stay hidden inside it |
+| Raw higher-layer residue | Searches find raw SVG fills, inline styles, raw HSL tiles, and local drawer/control classes in unique/composition files | justified as unique/composition-local or gate-parked; not cleared for Finish Gate |
+
+Taxonomy decision, 2026-05-26:
+
+- The next implementation slice should not start with brand polish.
+- The highest-leverage blocker is drawer-shell Promotion Gate because it affects both `UniqueDrawer.vue` and `CompositionTopDrawer.vue`, and it must respect existing app `TopDrawer.vue`.

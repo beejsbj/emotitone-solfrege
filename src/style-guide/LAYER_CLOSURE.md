@@ -1,6 +1,6 @@
 # Layer Closure
 
-Date: 2026-05-25
+Date: 2026-05-26
 
 ## Layer
 
@@ -16,6 +16,8 @@ current recovery state across token, primitive, compound, unique, and compositio
 - `src/style-guide/uniques/*.vue`
 - `src/style-guide/compositions/*.vue`
 - `src/style-guide/guide/*.vue`
+- `src/components/TopDrawer.vue`
+- `src/components/LoadingSplash.vue`
 
 ## Source Of Truth
 
@@ -71,16 +73,16 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| singular-role justification exists | fail | Not written yet | `src/style-guide/uniques/*.vue` |
-| reusable material inside unique is resolved downward | fail | `UniqueCodeStrip` is resolved downward to `CodeStrip`; other uniques remain unaudited | `RESIDUE_PROOF.md` |
-| unique is marked to prevent accidental generalization | fail | Not audited yet | `STYLE_GUIDE_SCHEMA.md` |
+| singular-role justification exists | partial | Brand cover and brand logo are justified as true uniques; CodeStrip is reclassified as primitive specimen; drawer is reclassified as promotion debt | `TAXONOMY_GATE.md`, `STYLE_GUIDE_SCHEMA.md` |
+| reusable material inside unique is resolved downward | partial | `UniqueCodeStrip` is resolved downward to `CodeStrip`; drawer shell is identified but not extracted/aligned | `RESIDUE_PROOF.md`, `PROMOTION_AUDIT.md` |
+| unique is marked to prevent accidental generalization | partial | Brand cover/logo are marked unique; drawer is marked not-unique; unique source extraction remains | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
 
 ### Composition Closure
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| compositions use approved lower layers | fail | Primitive layer is closed for extraction, but unique/composition lower-layer dependency audits have not run | `src/style-guide/compositions/*.vue` |
-| composition-only content/orchestration/app state is separated from component grammar | fail | Top drawer contains local control recipes | `RESIDUE_PROOF.md` |
+| compositions use approved lower layers | fail | Loading/top-drawer compositions are classified, but app-source alignment and drawer-shell promotion have not run | `src/style-guide/compositions/*.vue`, `src/components/LoadingSplash.vue`, `src/components/TopDrawer.vue` |
+| composition-only content/orchestration/app state is separated from component grammar | fail | Top drawer contains local controls and reusable drawer-shell behavior; loading visual target is divergent from app behavior source | `RESIDUE_PROOF.md`, `TAXONOMY_GATE.md` |
 | residue proof has no unresolved cross-cutting grammar | fail | Residue remains | `RESIDUE_PROOF.md` |
 
 ## Promote / Prune / Keep-Local Decisions
@@ -101,6 +103,11 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Key primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Sticker badge | gate-parked | Existing source-first Sticker component contains unresolved badge variant/taxonomy | Promotion Gate |
 | Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
+| Brand cover | keep local / extract later | Singular brand artifact, not reusable component grammar | Taxonomy Gate |
+| Brand logo | keep local / extract later | Singular brand identity system | Taxonomy Gate |
+| Drawer shell | gate-parked | Reusable drawer behavior is not unique and overlaps app `TopDrawer.vue` | Promotion/App Integration Gate |
+| Loading screen composition | gate-parked | Style-guide visual proof diverges from app `LoadingSplash.vue` behavior source | App Integration Gate |
+| Top drawer composition | gate-parked | Composition proof contains drawer-shell promotion debt and local controls | Promotion Gate |
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
 | PatternReel compound | promote | Source-first component extracted and specimen imports it | Taxonomy + Promotion Gate |
 | Compound pattern artifacts | promote | PatternCard and PatternReel boundaries resolved for current pattern family | Taxonomy Gate |
@@ -120,6 +127,42 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Brand/danger semantics | Doctrine Gate | user + agent | 2026-05-25 | Decide whether brand colors may carry functional status meaning | yes |
 | SpineCard preset row | Taxonomy Gate | user + agent | 2026-05-25 | Decide whether the action/status row becomes a compound/control-row source component | yes |
 | Production knob alignment | App Integration Gate | user + agent | 2026-05-25 | Decide whether behavior-heavy app knobs adopt the visual primitive | yes |
+| Unique source location | Repository Conventions/Unique Extraction Gate | user + agent | 2026-05-26 | Decide whether singular brand artifacts get `src/components/uniques/` sources or remain style-guide-local | no for unique closure |
+| Drawer shell promotion | Promotion/App Integration Gate | user + agent | 2026-05-26 | Decide whether to extract `DrawerShell`, align `TopDrawer.vue`, or wrap app behavior without visual rewrite | no for composition closure |
+| Loading splash alignment | App Integration Gate | user + agent | 2026-05-26 | Map style-guide loading composition onto `LoadingSplash.vue` without losing loading/audio/MIDI/error behavior | no for composition closure |
+
+## Unique / Composition Taxonomy Decision Packet
+
+Evidence:
+
+- `UniqueBrandCover.vue` is fixed brand cover art/copy/meta, not reusable shell grammar.
+- `UniqueBrandLogo.vue` is the Emotitone identity lockup system, not a generic logo component family.
+- `UniqueDrawer.vue` demonstrates drawer shell behavior also present in `CompositionTopDrawer.vue`, and overlaps existing app `src/components/TopDrawer.vue`.
+- `CompositionLoadingScreen.vue` is a visual composition proof, while app `src/components/LoadingSplash.vue` owns current loading/audio/MIDI/error behavior.
+- `CompositionTopDrawer.vue` is a product region proof with drawer panes, app context, local controls, and reusable drawer-shell behavior still trapped inside it.
+
+Recommendation:
+
+- Treat brand cover and brand logo as true uniques.
+- Treat `UniqueCodeStrip.vue` as a legacy primitive specimen path.
+- Reclassify drawer as lower-layer promotion/app-alignment debt, not a unique.
+- Keep loading/top-drawer previews as compositions, with app integration gates before production alignment.
+- Make drawer-shell Promotion Gate the next implementation slice.
+
+Alternatives rejected:
+
+- Promote brand cover/logo to generic compounds: rejected because their identity is singular and brand-specific.
+- Close composition layer now: rejected because drawer shell is repeated and unresolved, and loading/top-drawer app sources are not aligned.
+- Rewrite app `TopDrawer.vue` or `LoadingSplash.vue` during taxonomy: rejected because taxonomy is the naming gate, not app integration.
+
+Unresolved risk:
+
+- Unique source location is still unestablished.
+- Drawer shell extraction may reopen a primitive-level source component, but it is now explicit gate debt rather than hidden residue.
+
+Unblocks:
+
+- Drawer-shell Promotion Gate and, after that, unique extraction / composition closure work.
 
 ## Primitive Closure Decision Packet
 

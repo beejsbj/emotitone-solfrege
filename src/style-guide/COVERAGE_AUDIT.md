@@ -1,12 +1,13 @@
 # Coverage Audit
 
-Date: 2026-05-25
+Date: 2026-05-26
 
 ## Scope
 
 - Current branch style-guide artifacts under `src/style-guide/`.
 - Branch-local token file `src/emotitone-design-system.css`.
 - Reusable primitive source folder `src/components/primatives/`.
+- Existing app sources that correspond to remaining composition proofs.
 - Upstream doctrine and preview tier names as reference evidence.
 
 ## Coverage Table
@@ -46,23 +47,26 @@ Date: 2026-05-25
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | Compound specimen | compounds | no | keep local | Imports `PatternCard.vue`; specimen staging only. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | Compound specimen | compounds | no | keep local | Imports `PatternReel.vue`; specimen data and variant staging only. |
-| `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
-| `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | unresolved | Needs singular-role justification. |
+| `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | keep local / extract source later | Singular brand cover; taxonomy gate accepted unique role, source path still gated. |
+| `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | keep local / extract source later | Singular brand identity system; taxonomy gate accepted unique role, source path still gated. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | Legacy primitive specimen path | primitives/specimen | no | keep local | Imports `CodeStrip.vue`; path remains under uniques until navigation/file organization gate. |
-| `src/style-guide/uniques/UniqueDrawer.vue` | Unique specimen | uniques/composition | no | unresolved | Needs unique versus composition decision. |
-| `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | unresolved | Needs lower-layer dependency audit. |
-| `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | unresolved | Contains drawer/control recipes that need taxonomy. |
+| `src/style-guide/uniques/UniqueDrawer.vue` | Drawer specimen/prototype | primitive/compound candidate | no | reclassify / gate-park | Not unique; drawer shell behavior repeats and needs Promotion Gate. |
+| `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | keep local / app integration gate | Full loading-state proof; app source `LoadingSplash.vue` owns current behavior. |
+| `src/components/LoadingSplash.vue` | App loading source | compositions/app source | yes, for current app | app integration gate | Behavior-heavy current loading screen; visually divergent from style-guide composition. |
+| `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | keep local / promotion gate | Product drawer proof; drawer shell and local controls need promote/prune decisions before closure. |
+| `src/components/TopDrawer.vue` | App drawer source | primitive/app source | yes, for current app | app integration gate | Current drawer behavior source; style-guide torn/scrim/push grammar is not integrated. |
 
 ## Coverage Gaps
 
 - Primitive source components are extracted for current style-guide primitive specimens and the primitive closure proof is recorded in `LAYER_CLOSURE.md` / `RESIDUE_PROOF.md`.
 - Reusable compound source location is established for `PatternCard` and `PatternReel`; no reusable unique source location is established yet.
-- Unique source path remains deferred until singular-role audits prove one is needed.
+- Unique source location still waits on the Unique Extraction Gate: either establish `src/components/uniques/` or keep singular brand artifacts style-guide-local with explicit proof.
 - Token closure, unique closure, composition closure, and Finish Gate residue remain incomplete.
 - Promotion decisions exist in `PROMOTION_AUDIT.md`; token-doctrine decisions remain open for final token closure.
-- Residue proof has run for primitive extraction and pattern compounds, but not for unique/composition closure.
+- Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`, but source extraction/app integration remains.
+- Residue proof has run for primitive extraction and pattern compounds, and taxonomy residue has been classified for remaining unique/composition surfaces; it has not closed unique/composition implementation.
 
 ## Current Coverage Verdict
 
 - Coverage map exists, but full completion is not proven.
-- Primitive extraction can advance to the unique/composition Taxonomy Gate because source-first proof and gate-parked decisions are now recorded.
+- Unique/composition Taxonomy Gate is recorded; next movement should be drawer-shell Promotion Gate or unique source extraction.

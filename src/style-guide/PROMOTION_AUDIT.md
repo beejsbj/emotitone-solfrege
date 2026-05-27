@@ -65,9 +65,9 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 |---|---|---|---|---|
 | Music color model | Music tokens, keys, bar tape, code strip | Legacy solfege classes versus computed `.note` recipe | Doctrine/Promotion Gate | resolved: `.note` is token source; legacy aliases parked for app migration |
 | Brand colors and danger semantics | Brand tokens, spine card, CSS `--danger` | Decorative-only or functional status allowed | Doctrine/Promotion Gate | resolved: brand colors decorative; semantic `--danger` may alias tomato for status |
-| Brass timing | Motion tokens, global brass, Sticker badge | One duration/easing or component-specific timings | Promotion Gate | resolved: global `.brass` sheen is 6.5s; Sticker badge remains component gate |
+| Brass timing | Motion tokens, global brass, Sticker badge | One duration/easing or component-specific timings | Promotion Gate | resolved: global `.brass` sheen and Sticker badge shimmer use 6.5s |
 | Label typography exceptions | Token typography, guide/spec tables | Guide/spec mono exception or prune to Jazz labels | Doctrine/Promotion Gate | resolved: product labels Jazz; guide/spec inspection labels may be mono |
-| `Sticker` badge taxonomy | Sticker source/specimen | Variant, separate primitive, or unique | Promotion Gate | pending |
+| `Sticker` badge taxonomy | Sticker source/specimen | Variant, separate primitive, or unique | Promotion Gate | resolved: fixed-geometry Sticker variant |
 | Code-strip boundary | Unique + compound files | Primitive, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: primitive |
 | Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | resolved: PatternCard owns shapes; PatternReel owns choreography |
 | App top-drawer alignment | `src/components/TopDrawer.vue`, `src/components/primatives/DrawerShell.vue` | Whether production `TopDrawer.vue` should adopt, wrap, or remain separate from the promoted style-guide `DrawerShell` | App Integration Gate | resolved: production wrapper composes `DrawerShell` and preserves existing slot API |
@@ -109,7 +109,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 |---|---|---|---|
 | All current primitive specimens source-first | advance | 12 primitive specimen files import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass |
 | Old raw primitive class families | prune complete for primitive/compound specimens | Search found no old `.bar-tape`, `.beats`, `.panel-card`, `.ico`, `.cs`, `.kicker`, `.spine-card`, `.p5-tabs`, `.knob`, or `.key` definitions in primitive/compound specimens; expected source hooks and unique/composition artifacts remain | pass |
-| Primitive-adjacent unresolved items | gate-park | Sticker badge, music-color model, brass timing, marker typography, brand/danger semantics, preset row, and production knob alignment have named gates | may advance |
+| Primitive-adjacent unresolved items | gate-park | Music-color model, marker typography, brand/danger semantics, preset row, and production knob alignment have named gates; Sticker badge and brass timing are resolved | may advance |
 | Next layer | start taxonomy audit | Unique and composition surfaces still contain raw recipes and singular-role questions | pending |
 
 ## Unique / Composition Taxonomy Gate
@@ -191,6 +191,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Music color model | promote `.note`; park legacy aliases | `.note` with `--note-degree`, `--note-octave`, `--music-count`, and `--music-rotate` is the token source; `--note-*` aliases stay for branch consumers until app migration | Doctrine/Promotion Gate 2026-05-26 |
 | Note/solfege maps | prune specimen-private arrays | Token specimen now reads existing `src/data` music constants instead of owning duplicate maps | Promotion Gate 2026-05-26 |
 | Brand/danger semantics | resolve as semantic alias | Brand colors remain decorative poster colors; functional status must use semantic aliases such as `--danger` rather than direct brand-color chrome | Doctrine Gate 2026-05-26 |
-| Brass timing | promote global utility timing | `.brass` / `brass-sheen` uses the 6.5s global sweep; component-specific badge animation stays parked behind Sticker badge taxonomy | Promotion Gate 2026-05-26 |
+| Brass timing | promote global utility timing | `.brass` / `brass-sheen` uses the 6.5s global sweep; Sticker badge edge/text now use the same timing and easing | Promotion Gate 2026-05-27 |
+| Sticker badge taxonomy | keep as variant | Badge is not a separate primitive or unique; it is the fixed-geometry Sticker variant with shared color vocabulary applied to edge and text | Promotion Gate 2026-05-27 |
 | Typography exception | localize guide/spec mono | Product labels use Lets Jazz; guide/spec inspection labels are a named mono exception | Doctrine Gate 2026-05-26 |
 | Skew transform labels | keep specimen-local | Skew examples describe motion recipes but do not become global `--skew-*` tokens until repeated outside specimens | Token Closure 2026-05-26 |

@@ -26,7 +26,7 @@ Date: 2026-05-26
 | Cut-paper clip set | Token geometry, buttons, keys, tabs | `--clip-*`; duplicate polygons | token | promoted/pruned for current primitives | Promotion Gate 2026-05-26 |
 | Cut-paper rotations | Token geometry, sticker/random geometry | `--rot-*`; randomized geometry | token | promoted | Token Closure 2026-05-26 |
 | SVG stroke grammar | Token geometry, marks, digital knobs | Butt caps, miter joins, hairline/track/value strokes | token doctrine / primitive recipes | promoted into Mark/Knob and documented in geometry | Promotion Gate 2026-05-26 |
-| Brass usage law | Doctrine, token UI, Sticker, tabs, knobs, buttons | One brass-lit signal; local brass recipes vary | token/pattern | promoted as global `.brass` law; component badge timing parked | Promotion Gate 2026-05-26 |
+| Brass usage law | Doctrine, token UI, Sticker, tabs, knobs, buttons | One brass-lit signal; local brass recipes vary | token/pattern | promoted as global `.brass` law; Sticker badge timing normalized | Promotion Gate 2026-05-27 |
 | Brand color roles | Doctrine, brand tokens, spine card, sticker | Decorative poster colors versus functional danger conflict | token/pattern | resolved: brand decorative, semantic status aliases functional | Doctrine/Promotion Gate 2026-05-26 |
 | Music hue model | Music tokens, keys, bar tape, code strip | Legacy `--note-*` versus `.note` recipe | token/data recipe | resolved: `.note` is source, aliases parked for migration | Doctrine/Promotion Gate 2026-05-26 |
 | Note/solfege maps | Music token preview, keys, code strip | Preview maps and aliases diverge | data recipe | pruned to existing `src/data` music constants | Promotion Gate 2026-05-26 |
@@ -42,7 +42,7 @@ Date: 2026-05-26
 | Preset row | `PrimitiveSpineCard.vue` | Interactive row with status and buttons | candidate compound | gate-parked | Taxonomy Gate 2026-05-25 |
 | Chip-slide tabs | `PrimitiveTabs.vue` | Rail, streak, chip, density, clip variants, timing | primitive | promoted | Promotion Gate 2026-05-25 |
 | Sticker color vocabulary | `Sticker.vue`, `PrimitiveSticker.vue` | Prop union and specimen list duplicate colors | candidate data recipe | promote shared constant if reused | Promotion Gate |
-| Sticker badge | `Sticker.vue`, `PrimitiveSticker.vue` | Badge ignores color and random geometry | candidate primitive/variant/unique | decide | Promotion Gate |
+| Sticker badge | `Sticker.vue`, `PrimitiveSticker.vue` | Badge fixed geometry diverged from outline/fill color vocabulary and brass timing | primitive variant | resolved as fixed-geometry Sticker variant; color controls edge/text | Promotion Gate 2026-05-27 |
 | Pattern card stack/active shapes | Compound pattern files | Sleek row, active card, spine, ordinal, footer, active card child contract | compound | promoted | Repository Conventions + Promotion Gate 2026-05-25 |
 | Pattern reel stack/promotion behavior | `CompoundPatternReel.vue` | Stack depth transforms, click promotion, active-rise | compound | promoted | Taxonomy + Promotion Gate 2026-05-25 |
 | Code strip | Unique + compound files | Rest/duration/accent/syllable tokens, lit syllable glow/dot | primitive | promoted | Taxonomy + Promotion Gate 2026-05-25 |
@@ -70,7 +70,7 @@ Date: 2026-05-26
 - Brand logo.
 - Drawer artifact, now promoted as a source primitive for style-guide surfaces and wrapped by app `TopDrawer.vue`.
 - Loading screen, classified as composition proof with app integration debt.
-- Sticker badge, pending whether it is a variant or separate primitive.
+- Sticker badge, resolved as a fixed-geometry Sticker variant.
 
 ## Drift
 

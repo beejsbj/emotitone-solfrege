@@ -22,7 +22,7 @@ Date: 2026-05-26
 | `src/style-guide/guide/*.vue` | Anatomy/variant helpers | specimen helper | yes, for inspection | keep local | Used by `PrimitiveSticker.vue`; should replace duplicate guide chrome. |
 | `src/style-guide/tokens/*.vue` | Token specimens | tokens | no | keep local | Token documentation; specimen-only rules and app migrations are tracked separately. |
 | `src/components/primatives/Sticker.vue` | Extracted primitive | primitives | yes | promote | Source-first pattern exists. |
-| `src/style-guide/primatives/PrimitiveSticker.vue` | Primitive specimen | primitives | no | keep local | Imports `Sticker.vue`; badge/color decisions remain. |
+| `src/style-guide/primatives/PrimitiveSticker.vue` | Primitive specimen | primitives | no | keep local | Imports `Sticker.vue`; badge is resolved as the fixed-geometry Sticker variant with shared color vocabulary. |
 | `src/components/primatives/BarTape.vue` | Extracted primitive | primitives | yes | promote | Source-first component for strip, segments, proportions, size, dim/downbeat/playhead, and frame. |
 | `src/style-guide/primatives/PrimitiveBarTape.vue` | Primitive specimen | primitives | no | keep local | Imports `BarTape.vue`; keeps panel/tick staging local. |
 | `src/components/primatives/BeatIndicator.vue` | Extracted primitive | primitives | yes | promote | Source-first component for beat cells, meter count, size, loop duration, downbeat/even/static states, and reduced motion. |

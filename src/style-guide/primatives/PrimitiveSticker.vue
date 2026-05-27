@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Sticker &middot; Decoration Primitive"
     :features="features"
-    caption="Outline and fill share the same color vocabulary. The color applies to the wire for outline and to the surface for fill. Outline and fill stickers receive randomized cut-paper geometry per instance; badge is a fixed brass shimmer-edge sticker and ignores color."
+    caption="Outline, fill, and badge share the same color vocabulary. Outline and fill receive randomized cut-paper geometry per instance; badge keeps fixed geometry and applies color to the edge and text."
   >
     <template #hero>
       <Sticker variant="outline" color="ivory">Piano</Sticker>
@@ -29,13 +29,13 @@
     </VariantGrid>
 
     <VariantGrid title="Variants &mdash; Badge">
-      <VariantCell caption="Brass edge &middot; brass text">
-        <Sticker variant="badge">Signal</Sticker>
+      <VariantCell caption="Brass sheen edge &middot; brass sheen text">
+        <Sticker variant="badge" color="brass-sheen">Signal</Sticker>
       </VariantCell>
-      <VariantCell caption="Badge ignores color">
+      <VariantCell caption="Tomato edge &middot; tomato text">
         <Sticker variant="badge" color="tomato">Alert</Sticker>
       </VariantCell>
-      <VariantCell caption="Fixed geometry">
+      <VariantCell caption="Pine edge &middot; pine text">
         <Sticker variant="badge" color="pine">Live</Sticker>
       </VariantCell>
     </VariantGrid>
@@ -68,7 +68,7 @@ const features = [
   { label: "Color", value: "applies to outline wire or fill surface" },
   { label: "Outline", value: "transparent fill · 1px color wire · ivory wordmark" },
   { label: "Fill", value: "color surface · no outline / border" },
-  { label: "Badge", value: "fixed brass shimmer edge · ignores color" },
+  { label: "Badge", value: "fixed geometry · color controls edge and text" },
   { label: "Geometry", value: "randomized transform / clip-path / shadow for outline + fill only" },
 ];
 </script>

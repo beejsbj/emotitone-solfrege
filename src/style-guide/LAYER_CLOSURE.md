@@ -48,7 +48,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | token groups documented | pass | CSS names UI, brand, music, geometry, motion, semantic, and typography groups; specimens render those groups | `src/emotitone-design-system.css`, `STYLE_GUIDE_SCHEMA.md` |
 | semantic aliases documented | pass | Semantic `--danger` may alias tomato while brand colors remain decorative; music `.note` is source recipe while legacy aliases are parked | `PROMOTION_AUDIT.md` |
 | naming rules documented | pass | CSS comments and token specimens document spacing roles, typography exceptions, music hue math, brass timing, and geometry recipes | `TOKEN_PROMOTION_AUDIT.md`, `PROMOTION_AUDIT.md` |
-| allowed raw-value exceptions documented | pass | Guide/spec inspection labels, specimen-only skew recipes, legacy note aliases, and Sticker badge timing are named exceptions or gates | `RESIDUE_PROOF.md` |
+| allowed raw-value exceptions documented | pass | Guide/spec inspection labels, specimen-only skew recipes, and legacy note aliases are named exceptions or gates; Sticker badge timing is resolved | `RESIDUE_PROOF.md` |
 | token candidates from raw recipe inventory resolved | pass | Clip/rotation/stroke/brass/brand/music/note-map candidates are promoted, pruned, or parked behind app/component gates | `RAW_RECIPE_INVENTORY.md` |
 | next layer has enough token vocabulary | pass | Current source primitives, compounds, and brand uniques consume named token source or documented parked legacy aliases | `PROMOTION_AUDIT.md` |
 
@@ -56,10 +56,10 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| primitive families have anatomy | pass | Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, and DrawerShell have anatomy; Sticker badge is explicitly gate-parked | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveCard.vue`, `PrimitiveButtons.vue`, `PrimitiveKicker.vue`, `PrimitiveSpineCard.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveKeys.vue`, `UniqueCodeStrip.vue`, `UniqueDrawer.vue`, `COVERAGE_AUDIT.md` |
+| primitive families have anatomy | pass | Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, and DrawerShell have anatomy; Sticker badge is resolved as a fixed-geometry Sticker variant | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveCard.vue`, `PrimitiveButtons.vue`, `PrimitiveKicker.vue`, `PrimitiveSpineCard.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveKeys.vue`, `UniqueCodeStrip.vue`, `UniqueDrawer.vue`, `COVERAGE_AUDIT.md` |
 | APIs, states, and variants are named | pass | Current primitive APIs are named; unresolved variant/doctrine choices are parked behind named gates | `PROMOTION_AUDIT.md` |
 | token dependencies are named | pass | Primitive slice audits name dependencies; wider token doctrine conflicts are not hidden inside primitive source | `TOKEN_PROMOTION_AUDIT.md`, `PROMOTION_AUDIT.md` |
-| primitives consume tokens or approved lower-level constants | pass | Current source primitives consume tokens/current lower-level constants; music-color, brass timing, typography, and app-alignment questions are gate-parked | `Sticker.vue`, `BarTape.vue`, `BeatIndicator.vue`, `CardShell.vue`, `IconButton.vue`, `CodeStrip.vue`, `Kicker.vue`, `SpineCard.vue`, `Mark.vue`, `ChipTabs.vue`, `Knob.vue`, `Key.vue`, `DrawerShell.vue` |
+| primitives consume tokens or approved lower-level constants | pass | Current source primitives consume tokens/current lower-level constants; music-color, typography, and app-alignment questions are gate-parked | `Sticker.vue`, `BarTape.vue`, `BeatIndicator.vue`, `CardShell.vue`, `IconButton.vue`, `CodeStrip.vue`, `Kicker.vue`, `SpineCard.vue`, `Mark.vue`, `ChipTabs.vue`, `Knob.vue`, `Key.vue`, `DrawerShell.vue` |
 | specimens import/demonstrate primitive source files | pass | Current primitive specimens import source components; `UniqueCodeStrip.vue` is a legacy primitive specimen path that also imports source | `PrimitiveSticker.vue`, `PrimitiveBarTape.vue`, `PrimitiveBeatIndicator.vue`, `PrimitiveCard.vue`, `PrimitiveButtons.vue`, `PrimitiveKicker.vue`, `PrimitiveSpineCard.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveKeys.vue`, `UniqueCodeStrip.vue` |
 
 ### Compound Closure
@@ -104,7 +104,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Knob primitive | promote | Source-first component extracted and analog/digital specimens import it | Promotion Gate |
 | Key primitive | promote | Source-first component extracted and specimen imports it | Promotion Gate |
 | Drawer shell | promote | Source-first component extracted; unique and composition specimens import it | Promotion Gate |
-| Sticker badge | gate-parked | Existing source-first Sticker component contains unresolved badge variant/taxonomy | Promotion Gate |
+| Sticker badge | keep as variant | Fixed-geometry Sticker variant; color controls edge/text and timing follows global brass sweep | Promotion Gate 2026-05-27 |
 | Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
 | Brand cover | promote as unique source | Singular brand artifact, not reusable component grammar | Unique Extraction Gate |
 | Brand logo | promote as unique source | Singular brand identity system | Unique Extraction Gate |
@@ -123,9 +123,9 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Full style-guide scope acceptance | Scope Gate | user | 2026-05-24 | User accepts/redirects packet | yes, recovery docs only |
 | Primitive layer closure | Promotion Gate | agent + user | 2026-05-25 | Every current primitive specimen imports source components; old raw primitive class families are gone from primitive/compound specimens; unresolved primitive-adjacent items are parked below | yes, advance to unique/composition audits |
 | Token doctrine conflicts | Doctrine Gate | agent + user | 2026-05-26 | Contradictions resolved/localized; app/component migrations are parked separately | yes |
-| Sticker badge taxonomy | Promotion Gate | user + agent | 2026-05-25 | Decide variant versus separate primitive/unique when badge work becomes active | yes |
+| Sticker badge taxonomy | Promotion Gate | agent + user | 2026-05-27 | Resolved as fixed-geometry Sticker variant with shared color vocabulary and global brass timing | yes |
 | Music color computed `.note` migration | Doctrine/Promotion Gate | user + agent | 2026-05-26 | `.note` computed recipe is token source; legacy `--note-*` aliases remain parked for app/component migration | yes |
-| Brass timing model | Promotion Gate | agent + user | 2026-05-26 | Global brass timing resolved; Sticker badge timing parked under badge taxonomy | yes |
+| Brass timing model | Promotion Gate | agent + user | 2026-05-27 | Global brass timing resolved; Sticker badge timing now matches the global 6.5s sweep | yes |
 | Kicker/spec marker typography exception | Doctrine Gate | agent + user | 2026-05-26 | Product labels are Jazz; guide/spec inspection labels may be mono | yes |
 | Brand/danger semantics | Doctrine Gate | agent + user | 2026-05-26 | Brand colors decorative; semantic status aliases may map to brand values | yes |
 | SpineCard preset row | Taxonomy Gate | user + agent | 2026-05-25 | Decide whether the action/status row becomes a compound/control-row source component | yes |

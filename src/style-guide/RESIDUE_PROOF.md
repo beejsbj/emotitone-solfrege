@@ -12,7 +12,7 @@ Token doctrine, primitive extraction, compound pattern extraction, brand unique 
 |---|---|---|---|
 | Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/components/compounds src/components/uniques src/components/compositions src/emotitone-design-system.css` | remaining hits are token source values, token swatch labels, and historical audit text; no component/source/specimen styling hex remains outside token docs | pass |
 | Raw px values in higher layers | inspect extracted components and specimens per slice | many component dimensions remain intentionally component-local anatomy; no repeated px recipe was found crossing unresolved layers in the Finish Gate sweep | keep local/promote/prune per slice |
-| Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | global brass timing normalized to 6.5s; component-specific badge timing remains parked behind Sticker badge taxonomy | Promotion Gate / Sticker Badge Gate |
+| Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | global brass timing normalized to 6.5s; Sticker badge edge/text now use the same 6.5s timing and easing | pass for brass timing |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton, ChipTabs, and Key use existing tokens for exact matches | prune to tokens where exact |
 | Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, PatternReel, DrawerShell, and LoadingScreen copies are pruned from current higher layers | pass |
 | One-offs not marked unique | inspect unique and composition specimens | `BrandCover` and `BrandLogo` now live in `src/components/uniques`; `UniqueCodeStrip` and `UniqueDrawer` are legacy specimen paths for lower layers | pass for current unique surfaces |
@@ -47,7 +47,7 @@ Finish Gate packet:
 
 - Evidence: layer source paths are named, coverage rows are resolved, current compound/composition scope is source-first, raw higher-layer color residue is pruned, and verification commands below pass.
 - Recommendation: accept the current decomposed style-guide scope as complete, with named future work remaining parked behind explicit gates.
-- Alternatives rejected: expand scope into production knob migration, Sticker badge taxonomy, or SpineCard preset-row promotion now; those are already named future gates and are not hidden residue in the current style-guide decomposition.
+- Alternatives rejected: expand scope into production knob migration or SpineCard preset-row promotion now; those are already named future gates and are not hidden residue in the current style-guide decomposition.
 - Unresolved risk: the user has not yet made the required Finish Gate decision.
 - Unblocks: if the user accepts, the active design-lab goal can be marked complete.
 
@@ -65,6 +65,25 @@ Command proof, 2026-05-27:
 - `bun run test:run src/__tests__/components/ui/TopDrawer.test.ts src/__tests__/components/ui/LoadingScreen.test.ts` passes 3 tests.
 - `git diff --check` passes.
 
+## Slice Proof: Sticker Badge Taxonomy
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| Badge taxonomy | Badge was parked as variant vs primitive vs unique | Resolved as a fixed-geometry `Sticker` variant | pass |
+| Badge color vocabulary | Badge ignored the `color` prop while outline/fill used it | Badge carries `sticker--color-*` and applies `--sticker-fill` to edge/text | pass |
+| Badge brass timing | Badge used separate 3.6s linear shimmer | Badge edge/text use the global 6.5s brass-sheen timing/easing | pass |
+
+Browser DOM proof, 2026-05-27:
+
+- `/style-guide` renders 28 `.sticker` nodes and 3 `.sticker--badge` nodes with no Chrome runtime log or exception events.
+- Badge examples render `sticker--color-brass-sheen`, `sticker--color-tomato`, and `sticker--color-pine`.
+- Tomato badge edge and text compute to `rgb(216, 54, 42)`.
+- Tomato badge edge/text animation duration computes to `6.5s`.
+
+Unit proof, 2026-05-27:
+
+- `Sticker.test.ts` verifies badge variants receive the shared color class, render edge/text anatomy, and do not receive randomized geometry style.
+
 ## Slice Proof: Token Closure
 
 | Pattern | Before | After | Remaining |
@@ -72,7 +91,7 @@ Command proof, 2026-05-27:
 | Music hue model | Token specimen described fixed `30deg` math and kept private note/solfege arrays | Specimen matches `.note` source math `(degree + rotate) * (360 / count)` and imports note/solfege constants from `src/data` | legacy `--note-*` consumers parked for app/component migration |
 | Long-body mono utilities | Typography specimen showed mono body recipes without source utilities | `--t-body-mono`, `--t-body-s-mono`, `.body-mono`, and `.body-s-mono` exist in token source | pass |
 | Guide/spec typography | Mono labels conflicted with product-label doctrine | Product labels remain Lets Jazz; guide/spec inspection labels are named mono exception | pass |
-| Brass timing | Motion specimen showed 4s shimmer while global `.brass` used 6.5s | Token motion specimen now matches global 6.5s brass sweep | Sticker badge timing parked behind badge taxonomy |
+| Brass timing | Motion specimen showed 4s shimmer while global `.brass` used 6.5s; Sticker badge used a separate 3.6s shimmer | Token motion specimen and Sticker badge now match the global 6.5s brass sweep | pass |
 | Skew token drift | Geometry specimen labeled unpromoted skew transforms as `--skew-*` tokens | Skews are documented as specimen recipes, not token custom properties | pass |
 | Brand/danger semantics | Brand colors were decorative, but `--danger` aliases tomato | Brand colors stay decorative; semantic aliases may map to brand values for functional status | pass |
 

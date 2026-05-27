@@ -89,7 +89,7 @@ Date: 2026-05-26
 | `src/emotitone-design-system.css` | token | yes | promote | Branch-local token source; doctrine closed for current style-guide scope. |
 | `src/style-guide/tokens/*.vue` | token specimen | no | keep local | Documentation surfaces for token groups; specimen-only recipes remain marked local. |
 | `src/components/primatives/Sticker.vue` | primitive | yes | promote | Model extracted primitive. |
-| `src/style-guide/primatives/PrimitiveSticker.vue` | primitive specimen | no | keep local | Imports and inspects `Sticker.vue`; badge decision remains. |
+| `src/style-guide/primatives/PrimitiveSticker.vue` | primitive specimen | no | keep local | Imports and inspects `Sticker.vue`; badge is a fixed-geometry Sticker variant. |
 | `src/components/primatives/BarTape.vue` | primitive | yes | promote | Owns segment color, major/equal proportions, size, dim/downbeat/playhead, and boxed/flush frame. |
 | `src/style-guide/primatives/PrimitiveBarTape.vue` | primitive specimen | no | keep local | Imports and inspects `BarTape.vue`; panel/tick staging remains specimen-only. |
 | `src/components/primatives/BeatIndicator.vue` | primitive | yes | promote | Owns beat cell count, size, loop duration, downbeat/even/static states, and reduced-motion behavior. |

@@ -52,7 +52,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
   Token motion preview defines a local `@keyframes beat-cell` as a transform/scaleY pulse. Shared CSS defines global `beat-cell` as background/border lighting. `BeatIndicator.vue` consumes the current global `beat-*` names, so any `bar-*`/`beat-*` cleanup is future motion naming cleanup rather than a token closure blocker.
 
 - Brass sheen timing is resolved for the shared utility.
-  Global `.brass::after` and the token motion specimen both use 6.5s. Sticker badge timing remains parked under the badge taxonomy decision.
+  Global `.brass::after`, the token motion specimen, and Sticker badge shimmer all use 6.5s.
 
 - Typography contradiction is localized.
   Product labels are Lets Jazz; guide/spec inspection labels may use mono. Long-body mono utilities now use `--font-mono`.

@@ -46,7 +46,7 @@ const geometryStyle = ref<CSSProperties>(getRandomGeometry("sticker"));
 const stickerClasses = computed(() => [
   "sticker",
   `sticker--${props.variant}`,
-  props.variant !== "badge" ? `sticker--color-${props.color}` : null,
+  `sticker--color-${props.color}`,
 ]);
 
 const stickerStyle = computed<CSSProperties>(() =>
@@ -205,19 +205,19 @@ const stickerStyle = computed<CSSProperties>(() =>
   display: block;
   height: 2px;
   width: 100%;
-  background: var(--brass-fill);
-  animation: brass-sheen 3.6s linear infinite;
+  background: var(--sticker-fill);
+  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
   background-size: 200% 100%;
 }
 
 .sticker__badge-text {
   display: block;
   padding: 7px 12px 6px;
-  background: var(--brass-fill);
+  background: var(--sticker-fill);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  animation: brass-sheen 3.6s linear infinite;
+  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
   background-size: 200% 100%;
 }
 

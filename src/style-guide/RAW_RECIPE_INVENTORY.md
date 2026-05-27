@@ -113,6 +113,6 @@ Date: 2026-05-26
 | Loading screen | `CompositionLoadingScreen.vue`, `src/components/LoadingSplash.vue` | Composition proof plus current app source; visual target now lives in `LoadingScreen.vue`, and app behavior feeds it. | closed for app integration |
 | Top drawer app region | `CompositionTopDrawer.vue` | Composition proof composes `DrawerShell`; product panes/controls stay local until repetition proves lower-layer value. | composition-local controls remain keep-local |
 
-## Ready For Extraction
+## Extraction Status
 
-yes, but only after Repository Conventions Gate is recorded and each extraction slice writes promotion decisions before component changes
+Complete for the current style-guide scope. Repository Conventions Gate is recorded, extraction slices wrote promotion decisions, and remaining work is either composition-local, specimen-local, or parked behind named future migration gates.

@@ -2,15 +2,17 @@
 
 Date: 2026-05-24
 
+Current status, 2026-05-27: this packet records the original Scope Gate and the midstream recovery map that started the run. The extraction sequence it recommended has since been completed for the current style-guide scope. The current completion evidence lives in `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md`, `PROMOTION_AUDIT.md`, `RAW_RECIPE_INVENTORY.md`, `LAYER_CLOSURE.md`, and `RESIDUE_PROOF.md`; the remaining required decision is the user Finish Gate accept/continue/pause choice.
+
 ## Evidence
 
 - `src/style-guide/WORKFLOW.md` says this branch ports source preview HTML into the app's local styleguide, then turns useful pieces into reusable Vue components.
 - `WORKFLOW.md` names `src/components/primatives/` as the reusable primitive home and explicitly preserves the `primatives` spelling.
 - `src/style-guide/StyleGuide.vue` already renders token collections, primitives, compounds, uniques, and compositions as one local sink surface.
-- `src/components/primatives/Sticker.vue` is the only extracted reusable primitive currently present under `src/components/primatives/`.
+- `src/components/primatives/Sticker.vue` was the only extracted reusable primitive at recovery start; the current primitive source set is recorded in `STYLE_GUIDE_SCHEMA.md`.
 - `src/style-guide/primatives/PrimitiveSticker.vue` imports `Sticker.vue` and guide helpers, making it the trustworthy extraction pattern.
-- `src/style-guide/TOKEN_PROMOTION_AUDIT.md` records unresolved token and primitive recipe gaps; many primitive recipes still live only in specimen files.
-- Read-only subagent audits found that higher layers already copy `BarTape`, icon-button, code-strip, stack-card, and active-card grammar, so residue is not limited to primitive specimens.
+- `src/style-guide/TOKEN_PROMOTION_AUDIT.md` recorded the initial token and primitive recipe gaps; its current header now marks it as historical audit context with resolutions folded into `PROMOTION_AUDIT.md`.
+- Read-only subagent audits found that higher layers copied `BarTape`, icon-button, code-strip, stack-card, and active-card grammar; those copied recipes have since been promoted or pruned through source-first components.
 - Upstream doctrine in `/Users/burooj/Projects/emotitone-design-system/project/design-doctrine.md` defines the five-tier model, two-layer palette law, one brass-lit signal rule, and "lifted, not paraphrased" component composition rule.
 
 ## Shortest Midstream Recovery Map
@@ -18,8 +20,8 @@ Date: 2026-05-24
 ### Current Layer
 
 - Historical starting point: the branch entered this run between raw recipe inventory and primitive extraction.
-- Current note, 2026-05-26: token doctrine, primitive extraction, PatternCard/PatternReel compounds, DrawerShell, and brand uniques have since been recorded in closure artifacts.
-- Remaining unclosed work is the final all-layer Finish Gate audit after top-drawer and loading composition integration.
+- Current note, 2026-05-27: token doctrine, primitive extraction, compounds, brand uniques, DrawerShell, top-drawer app alignment, loading composition integration, sticker badge taxonomy, preset-row compound promotion, production knob migration parking, and final residue sweeps have all been recorded in closure artifacts.
+- Remaining unclosed work is the user Finish Gate decision: accept the current decomposed scope as complete, continue into a named future migration gate, or pause.
 
 ### Trustworthy Existing Artifacts
 
@@ -32,25 +34,24 @@ Date: 2026-05-24
 - `src/style-guide/primatives/PrimitiveSticker.vue`: specimen-imports-source pattern.
 - `src/style-guide/guide/AnatomyDisplay.vue`, `VariantGrid.vue`, `VariantCell.vue`: specimen helpers, not layer source of truth.
 
-### Suspected Drift
+### Initial Suspected Drift, Now Resolved Or Parked
 
-- Most `src/style-guide/primatives/Primitive*.vue` files still define real component internals inside specimens.
-- Compounds copy lower-level CSS for `.ico`, `.bar-tape`, `.cs`, `.stack-card`, and `.active-card`.
-- `UniqueCodeStrip` is likely misclassified or at least reusable inside pattern compounds.
-- Generic clip and motion tokens exist, but key/button/tab/knob/bar/pattern component-specific recipes are not named consistently.
-- Some repo docs still describe older Tailwind-era app conventions; the design-lab branch conventions are more authoritative for this run.
+- Primitive specimens now import source components from `src/components/primatives/`; specimen staging remains inspection chrome.
+- Pattern compounds now compose source components instead of copying lower-level CSS.
+- `UniqueCodeStrip.vue` is recorded as a legacy primitive specimen path for `CodeStrip`.
+- Key/button/tab/knob/bar/pattern recipes are named in source components or explicitly kept local/parked in the promotion ledger.
+- Older repo/app conventions remain reference material; branch-local design-lab conventions are recorded in `REPOSITORY_CONVENTIONS.md`.
 
-### Next Gate
+### Current Gate
 
-- Repository Conventions Gate is required before extraction changes component locations, shared constants, token files, or routes.
-- Taxonomy Gate follows once the schema and coverage audit classify all current artifacts.
-- Promotion Gate is expected during the first primitive extraction slice because several recipe gaps require decisions.
+- Repository Conventions, Taxonomy, Doctrine/Token Closure, Promotion, App Integration, and residue sweeps are recorded in `DESIGN_LOG.md`.
+- Finish Gate is the current gate.
 
-### Recommended First Extraction / Audit Slice
+### Completed First Extraction / Audit Slice
 
-- First finish durable recovery artifacts: schema, repository conventions, coverage audit, raw recipe inventory, promotion audit, residue proof scaffold, layer closure scaffold, and design log.
-- Recommended first extraction slice: `BarTape`, because primitive, compound card, and compound reel all duplicate it, and it unlocks pattern-card cleanup.
-- Treat `IconButton`, `CodeStrip`, `PatternCard`, and `PatternReel` as near-following slices. `Keys` remains important but should not be first because it carries denser music-map, geometry, and format decisions.
+- Durable recovery artifacts were created and updated under `src/style-guide/`.
+- `BarTape` was extracted first, then copied compound residue was pruned.
+- IconButton, CodeStrip, PatternCard, PatternReel, BeatIndicator, CardShell, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, DrawerShell, BrandCover, BrandLogo, LoadingScreen, Sticker badge, and PresetRow decisions have been recorded in the durable ledgers.
 
 ## Included
 
@@ -73,10 +74,10 @@ Date: 2026-05-24
 ## Source Of Truth
 
 - Reusable primitives: `src/components/primatives/`.
-- Tokens: `src/emotitone-design-system.css`, with unresolved token decisions tracked before promotion.
+- Tokens: `src/emotitone-design-system.css`, with remaining app/component migrations parked behind named gates rather than hidden inside current style-guide decomposition.
 - Specimens/documentation: `src/style-guide/**`.
 - Specimen helpers: `src/style-guide/guide/**`; these inspect and present components but are not taxonomy layers.
-- Reference-only material: ported preview specimens until each is extracted into a real component or explicitly kept local/unique.
+- Reference-only material: ported preview specimens after each source/keep-local/unique decision is recorded.
 
 ## Target Layer Depth
 
@@ -97,11 +98,9 @@ Date: 2026-05-24
 
 ## Recommendation
 
-- Continue from midstream recovery and do not reopen a broad Intent Gate unless existing doctrine conflicts with implemented taste.
-- Establish Repository Conventions Gate before component extraction.
-- Treat current primitive, compound, unique, and composition specimens as raw recipe sources, not implementation sources.
-- Use `Sticker.vue` / `PrimitiveSticker.vue` as the extraction pattern.
-- Start extraction with `BarTape` unless the user redirects at Taxonomy or Promotion Gate.
+- Treat the original scope as fully decomposed for current style-guide surfaces, subject to the required user Finish Gate decision.
+- Do not reopen a broad Intent Gate unless future work changes doctrine or taste direction.
+- Treat production knob visual adoption, legacy note alias migration, and file/navigation cleanup as future named migration gates rather than hidden completion blockers.
 
 ## Alternatives Rejected
 
@@ -113,15 +112,12 @@ Date: 2026-05-24
 
 ## Unresolved Risk
 
-- Token doctrine conflicts may force an Intent or Doctrine Gate later.
-- Existing `TOKEN_PROMOTION_AUDIT.md` is useful but not yet fully normalized into design-lab artifact tables.
-- The style-guide page may build while still containing taxonomy residue; build success is necessary but not sufficient.
+- Future app migrations may still need Intent/Doctrine/Taste gates if they change product behavior or doctrine.
+- Build success remains necessary but not sufficient; current finish proof also includes residue, coverage, layer closure, and render/test evidence.
 
 ## Requires User Decision
 
-- Accept full style-guide completion as the run scope, with layer-gated extraction.
-- Confirm or redirect the recommended first extraction slice: `BarTape` first.
-- Decide later Promotion Gate items when extraction exposes system-level grammar choices.
+- Finish Gate: accept current decomposed style-guide scope as complete, continue into a named future migration gate, or pause with current proof preserved.
 
 ## Allowed Autonomy
 
@@ -129,18 +125,16 @@ Date: 2026-05-24
 - Agent may implement: reversible extraction that follows repo conventions and preserves visual intent.
 - User decides: taxonomy ambiguity, taste direction, promotions that change shared grammar, pruning that discards visual material, and doctrine changes.
 
-## Pending Scope Decisions
+## Scope Decisions
 
 | Decision | Gate | Owner | Date | Unblock Condition |
 |---|---|---|---|---|
-| Confirm first primitive extraction slice as `BarTape` | Taxonomy Gate / Promotion Gate | user + agent | 2026-05-24 | Proceeded under continuation objective; source-first extraction completed |
-| Decide whether token doctrine conflicts require an Intent/Doctrine Gate | Intent Gate / Doctrine Gate | user + agent | 2026-05-24 | Contradiction survives recovery audit |
-| Decide whether `Sticker` badge remains a variant or becomes another primitive | Promotion Gate | user | 2026-05-24 | Sticker follow-up extraction or shared badge evidence |
-| Decide whether `CodeStrip` is unique, primitive, compound part, or pattern-card-private slot | Taxonomy Gate | user | 2026-05-24 | Pattern-card/code-strip extraction planning |
+| Confirm first primitive extraction slice as `BarTape` | Taxonomy Gate / Promotion Gate | user + agent | 2026-05-24 | Resolved; source-first extraction completed |
+| Decide whether token doctrine conflicts require an Intent/Doctrine Gate | Intent Gate / Doctrine Gate | user + agent | 2026-05-26 | Resolved/localized; token doctrine closed for current style-guide scope |
+| Decide whether `Sticker` badge remains a variant or becomes another primitive | Promotion Gate | user + agent | 2026-05-27 | Resolved as fixed-geometry `Sticker` variant |
+| Decide whether `CodeStrip` is unique, primitive, compound part, or pattern-card-private slot | Taxonomy Gate | user + agent | 2026-05-25 | Resolved as primitive; `UniqueCodeStrip.vue` remains a legacy specimen path |
+| Decide whether to call the current decomposed scope complete | Finish Gate | user | 2026-05-27 | User accepts, continues into a named future gate, or pauses |
 
 ## Unblocks
 
-- Repository Conventions Gate.
-- Schema and coverage audit creation.
-- Raw recipe inventory normalization.
-- First primitive extraction plan.
+- Finish Gate user decision.

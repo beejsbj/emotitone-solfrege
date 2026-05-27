@@ -227,7 +227,7 @@ Evidence:
 
 - All 12 current primitive specimen files under `src/style-guide/primatives/` import from `src/components/primatives/`.
 - `UniqueCodeStrip.vue` remains a legacy specimen path, but it imports `CodeStrip.vue` and no longer defines the reusable code-strip grammar.
-- Residue search for old raw primitive class families in primitive/compound specimens now returns only expected source-component styling hooks (`:deep(.mark)`), source component usage, and unresolved unique/composition surfaces.
+- Residue search for old raw primitive class families in primitive/compound specimens now returns only expected source-component styling hooks (`:deep(.mark)`) and source component usage; unique/composition surfaces have since been classified and aligned or kept local.
 - Prior browser DOM proofs in `RESIDUE_PROOF.md` show old local primitive class families rendering 0 nodes for each extracted primitive slice.
 
 Recommendation:

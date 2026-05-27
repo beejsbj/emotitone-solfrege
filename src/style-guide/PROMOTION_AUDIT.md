@@ -37,7 +37,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Duplicate clip polygons | Buttons, keys, tabs | Existing `--clip-*` tokens where exact match | Avoid parallel geometry recipes | resolved for IconButton, ChipTabs, and Key |
 | Local brass finish duplicates | Tabs/buttons/knobs where overlapping | Global brass grammar / brass tokens | Preserve one brass language | resolved for ChipTabs and Knob; token preview remains unaudited |
 | Lifted verbatim lower-layer CSS in compounds | Pattern card/reel | Source components | Doctrine says Vue should compose, not paraphrase | resolved for PatternCard/PatternReel |
-| Hardcoded `#0a0908` | Beat indicator, tabs | `var(--ink)` | Token exists | resolved for BeatIndicator and ChipTabs specimens; token demos not audited |
+| Hardcoded `#0a0908` | Beat indicator, tabs | `var(--ink)` | Token exists | resolved for BeatIndicator and ChipTabs specimens; remaining dark swatches live in token/specimen documentation rather than component styling |
 | Undefined `--font-body` | `PrimitiveCard.vue` | `--t-body-s` | Current token does not exist | resolved for CardShell specimen |
 
 ## Keep Local
@@ -76,7 +76,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Key geometry recipes | `PrimitiveKeys.vue` | Reuse generic clip tokens where exact; promote pill/tall/wide/squary as component variants | Promotion Gate | resolved |
 | Mark API | `PrimitiveMarks.vue` | `name`, `size`, `tone`, `treatment`; family remains specimen taxonomy | Promotion Gate | resolved |
 | Tabs timing and variants | `PrimitiveTabs.vue` | Reuse `--dur-ui`; source variant set is tab/offcut/tile/sharp/pill/rip plus ivory/brass tone | Promotion Gate | resolved |
-| Production knob alignment | `src/components/knobs/*` | Whether app controls should adopt the design-lab visual primitive | App Integration Gate | pending |
+| Production knob alignment | `src/components/knobs/*` | Whether app controls should adopt the design-lab visual primitive | App Integration Gate | parked as future production migration; not hidden style-guide residue |
 
 ## Recipe Gaps
 
@@ -110,7 +110,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | All current primitive specimens source-first | advance | 12 primitive specimen files import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass |
 | Old raw primitive class families | prune complete for primitive/compound specimens | Search found no old `.bar-tape`, `.beats`, `.panel-card`, `.ico`, `.cs`, `.kicker`, `.spine-card`, `.p5-tabs`, `.knob`, or `.key` definitions in primitive/compound specimens; expected source hooks and unique/composition artifacts remain | pass |
 | Primitive-adjacent unresolved items | gate-park | Music-color model, marker typography, brand/danger semantics, and production knob alignment have named gates; Sticker badge, brass timing, and preset row are resolved | may advance |
-| Next layer | start taxonomy audit | Unique and composition surfaces still contain raw recipes and singular-role questions | pending |
+| Next layer | start taxonomy audit | Unique and composition surfaces contained raw recipes and singular-role questions | advanced; unique/composition taxonomy and app integration are recorded |
 
 ## Unique / Composition Taxonomy Gate
 
@@ -152,7 +152,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | SpineCard source component | promote | Base spine-card shell has stable primitive anatomy and composes Kicker | Promotion Gate 2026-05-25 |
 | SpineCard one-color rule | promote | Source uses one brand tone per card for spine and Kicker child | Promotion Gate 2026-05-25 |
 | SpineCard preset row | promote as compound | Horizontal action/status rows coordinate Kicker, preset name, action button, and status meta; source now lives in `PresetRow.vue` | Taxonomy/Promotion Gate 2026-05-27 |
-| SpineCard danger wording | keep as content pending doctrine | Tomato example still says Danger; brand/danger semantics are a wider token-doctrine decision already parked | Doctrine Gate parked |
+| SpineCard danger wording | keep as content under resolved doctrine | Tomato example can use danger wording as content while functional status styling goes through semantic aliases | Doctrine Gate 2026-05-26 |
 | Mark source component | promote | Flat SVG marks have stable primitive anatomy and recurring use as decorative slots | Promotion Gate 2026-05-25 |
 | Mark API | promote `name`/`tone`/`size`/`treatment` | `family` is documentation grouping, while runtime usage needs glyph name plus visual treatment | Promotion Gate 2026-05-25 |
 | Mark family panels and legends | keep local | Inspection grouping/staging, not source component behavior | Promotion Gate 2026-05-25 |
@@ -165,7 +165,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Knob ring and arc visuals | promote as visual axis | Ring and arc differ by rendering technique but share roles, frame, state, and tone contracts | Promotion Gate 2026-05-25 |
 | Knob SVG stroke grammar | promote into Knob | Digital arc stroke widths, butt caps, miter joins, and active value stroke now live in the source primitive | Promotion Gate 2026-05-25 |
 | Knob spin motion | promote once | Analog ring and digital arc button motion now share one source keyframe and reduced-motion rule | Promotion Gate 2026-05-25 |
-| Production knob controls | gate-park | Existing app controls under `src/components/knobs/` are behavior-heavy production inputs and were not rewritten in this style-guide slice | App Integration Gate parked |
+| Production knob controls | gate-park | Existing app controls under `src/components/knobs/` own drag/tap gestures, GSAP arc animation, haptic feedback, display mode, option cycling, and app compatibility events; adopting the visual primitive would be a behavior migration rather than current style-guide decomposition | App Integration Gate future migration |
 | Key source component | promote | Music key face has stable primitive anatomy and removed the final raw primitive specimen blocker | Promotion Gate 2026-05-25 |
 | Key clip geometry | prune/promote split | Strip/tile/squary/tall/wide reuse `--clip-tile`; offcut/tab reuse existing clip tokens; pill remains key-specific no-clip rounded variant | Promotion Gate 2026-05-25 |
 | Key chromatic aliases | prune stale specimen mapping | Ra/Me/Se/Le now map to `--note-ra`, `--note-me`, `--note-se`, and `--note-le`; legacy alias consumers stay parked for app/component migration | Promotion Gate 2026-05-25 |

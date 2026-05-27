@@ -130,7 +130,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Kicker/spec marker typography exception | Doctrine Gate | agent + user | 2026-05-26 | Product labels are Jazz; guide/spec inspection labels may be mono | yes |
 | Brand/danger semantics | Doctrine Gate | agent + user | 2026-05-26 | Brand colors decorative; semantic status aliases may map to brand values | yes |
 | SpineCard preset row | Taxonomy/Promotion Gate | agent + user | 2026-05-27 | Promoted as `PresetRow` compound and composed by `PrimitiveSpineCard.vue` | yes |
-| Production knob alignment | App Integration Gate | user + agent | 2026-05-25 | Decide whether behavior-heavy app knobs adopt the visual primitive | yes |
+| Production knob alignment | App Integration Gate | user + agent | 2026-05-27 | Production `src/components/knobs/*` controls are behavior-heavy inputs with gestures, haptics, GSAP arc animation, display mode, and compatibility events; adoption of the visual primitive is parked as a future production migration, not current style-guide residue | yes |
 | App top-drawer alignment | App Integration Gate | agent + user | 2026-05-27 | Production `TopDrawer.vue` wraps promoted `DrawerShell` without changing consumer slot contracts | yes |
 | Loading splash alignment | App Integration Gate | agent + user | 2026-05-27 | `LoadingScreen.vue` promoted; `LoadingSplash.vue` keeps loading/audio/MIDI/error behavior as adapter | yes |
 

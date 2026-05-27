@@ -28,6 +28,7 @@ Token doctrine, primitive extraction, compound pattern extraction, brand unique 
 - Unique/composition taxonomy is classified; brand unique and current composition implementation are source-first for current scope.
 - `UniqueDrawer.vue`, `CompositionTopDrawer.vue`, and app `TopDrawer.vue` share `DrawerShell` as the drawer shell source.
 - `CompositionLoadingScreen.vue` and app `LoadingSplash.vue` share `LoadingScreen` as the loading visual source.
+- Production knob alignment has been inspected and remains parked as a future production migration because `src/components/knobs/*` owns behavior-heavy input contracts; it is not hidden residue in the current style-guide decomposition.
 - The only remaining completion requirement is the user Finish Gate decision: accept, continue, or pause.
 
 ## Finish Gate Audit, 2026-05-27
@@ -339,7 +340,7 @@ Browser DOM proof, 2026-05-25:
 | `PrimitiveButtons.vue` source behavior | Specimen owned `.ico`, `.ico-pair`, geometry, state, tone, brass, and toggle CSS | Specimen imports `IconButton` and guide helpers; source component owns button grammar | pass for primitive specimen |
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/IconButton.vue` | pass |
 | Compound copies | Pattern card/reel copied `.ico` CSS and button classes | Pattern card/reel compose `IconButton` and keep only transport rail layout | pass for pattern compounds |
-| Clip polygon duplicates | Button specimen repeated offcut/tile polygons | Source component uses `--clip-offcut` and `--clip-tile` | pass for IconButton; keys/tabs still pending |
+| Clip polygon duplicates | Button specimen repeated offcut/tile polygons | Source component uses `--clip-offcut` and `--clip-tile` | pass for IconButton; Key and ChipTabs later resolved exact clip reuse |
 | Paired controls | `.ico-pair` existed only in the button specimen | Kept as specimen-local wrapper around `IconButton` until reused elsewhere | accepted keep-local |
 
 Browser DOM proof, 2026-05-25:

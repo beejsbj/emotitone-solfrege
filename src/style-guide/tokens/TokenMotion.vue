@@ -459,22 +459,6 @@
   line-height: 1.35;
 }
 
-/* TODO tile — for keyframes not yet defined */
-.stage.todo {
-  border-style: dashed;
-  border-color: var(--ivory-4);
-}
-.stage.todo::after {
-  content: "TODO";
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.22em;
-  color: var(--ivory-4);
-  position: absolute;
-  top: 4px;
-  right: 5px;
-}
-
 /* ════════════════════════════════════════════════════════════════
    BLOCK 1 — RHYTHM · BEAT
    Four-cell beat indicator pulsing at different tempos.
@@ -716,21 +700,6 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-}
-
-.kf-stage.todo {
-  border-style: dashed;
-  border-color: var(--ivory-4);
-}
-.kf-stage.todo::after {
-  content: "TODO";
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.22em;
-  color: var(--ivory-4);
-  position: absolute;
-  top: 4px;
-  right: 5px;
 }
 
 .kf-kf .kf-name { color: var(--ivory-2); }

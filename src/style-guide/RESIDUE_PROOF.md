@@ -42,7 +42,16 @@ Token doctrine, primitive extraction, compound pattern extraction, brand unique 
 | Raw higher-layer hex in source/specimen styling | `rg "background: \"hsl|background:\s*#[0-9a-fA-F]|#[0-9a-fA-F]{3,8}" src/style-guide/compositions src/style-guide/compounds src/style-guide/uniques src/style-guide/primatives src/components/compositions src/components/compounds src/components/uniques src/components/primatives` | no hits |
 | Clip-path duplication | `rg "clip-path|polygon\(" src/style-guide src/components/primatives src/components/compounds src/components/uniques src/components/compositions src/emotitone-design-system.css` | reusable components consume clip tokens; remaining polygons are token definitions/specimen token demonstrations |
 | Old primitive class copies | `rg "class=\"(bar-tape|beats|panel-card|ico|cs|kicker|spine-card|mark|p5-tabs|knob|key)\b|\.(bar-tape|beats|panel-card|ico|cs|kicker|spine-card|mark|p5-tabs|knob|key)\b" src/style-guide/primatives src/style-guide/compounds src/style-guide/uniques src/style-guide/compositions` | only expected `PrimitiveMarks.vue :deep(.mark)` styling and key text references remain; no old primitive-defining copies in specimens |
+| Placeholder/TODO residue | `rg "TODO|placeholder|not implemented|stub" src/style-guide src/components/primatives src/components/compounds src/components/uniques src/components/compositions src/emotitone-design-system.css` | motion token TODO tile CSS and music-color animation placeholder string pruned; remaining hits are composition specimen fake-content class names and visible search-placeholder copy |
 | Open closure wording | `rg "not audited|app integration decisions remain|Composition artifacts \| gate-parked|remaining compound/composition closure|Finish Gate still needs|cannot be called complete|Residue remains unresolved" src/style-guide/LAYER_CLOSURE.md src/style-guide/RESIDUE_PROOF.md src/style-guide/COVERAGE_AUDIT.md \| rg -v "Open closure wording"` | stale blocker wording removed or replaced with user Finish Gate decision requirement |
+
+Final token-specimen residue sweep proof, 2026-05-27:
+
+- `rg "TODO|placeholder|not implemented|stub" src/style-guide src/components/primatives src/components/compounds src/components/uniques src/components/compositions src/emotitone-design-system.css` now reports only this proof row, `CompositionTopDrawer` search-placeholder copy, and `UniqueDrawer` fake-content `*-stub` classes.
+- `bun run type-check` passes.
+- `bun run build` passes; Vite builds 228 modules. Existing stale Browserslist/caniuse-lite warning only.
+- `bun run test:run src/__tests__/components/ui/Sticker.test.ts src/__tests__/components/ui/PresetRow.test.ts src/__tests__/components/ui/TopDrawer.test.ts src/__tests__/components/ui/LoadingScreen.test.ts` passes 6 tests across 4 files. Existing stale Browserslist/caniuse-lite warning only.
+- `git diff --check` passes.
 
 Finish Gate packet:
 

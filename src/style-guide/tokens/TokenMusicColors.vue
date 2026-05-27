@@ -50,7 +50,7 @@ onMounted(() => {
       const hue = movableMode
         ? degreeOffset * 30
         : ((root + degreeOffset) % 12) * 30;
-      if (isSweeping) return `oklch(${l}% 0.18 0) /* placeholder for anim */`;
+      if (isSweeping) return `oklch(${l}% 0.18 ${hue})`;
       return `oklch(${l}% 0.18 ${hue})`;
     }
   

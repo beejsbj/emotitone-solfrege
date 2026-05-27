@@ -60,6 +60,7 @@ Finish Gate packet:
 - Alternatives rejected: expand scope into production knob migration now; it is already a named future gate and not hidden residue in the current style-guide decomposition.
 - Unresolved risk: the user has not yet made the required Finish Gate decision.
 - Unblocks: if the user accepts, the active design-lab goal can be marked complete.
+- Durable decision packet: `FINISH_GATE.md`.
 
 Browser DOM proof, 2026-05-27:
 

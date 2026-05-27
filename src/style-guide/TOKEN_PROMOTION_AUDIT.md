@@ -2,6 +2,8 @@
 
 This note started with a read-through audit of `emotitone-design-system/project/preview/token-*.html` and the ported `src/style-guide/tokens/*.vue` files against the shared token CSS in `src/emotitone-design-system.css`.
 
+Current status, 2026-05-27: this file is now a historical token/primitive audit with current resolutions folded in. The authoritative current promotion ledger is `PROMOTION_AUDIT.md`; the authoritative closure verdict is `LAYER_CLOSURE.md` and `RESIDUE_PROOF.md`.
+
 Scope correction: the preview files from `/Users/burooj/Projects/emotitone-design-system` have now been ported into this branch. Future promotion audits should read the ported Vue files in this repo, not repeat the source HTML/CSS comparison. The primitive audit below reads `src/style-guide/primatives/*.vue` as the source of truth for what still lives only in specimens.
 
 The important question was not whether `colors_and_type.css` matched the copied app CSS. It mostly does. The useful question was whether the token preview files contain token-like rules, recipes, conventions, or constants that have not been promoted into the shared token layer.
@@ -29,7 +31,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
 - Mono body utilities from `token-typography`: the preview has long-body mono recipes equivalent to `.body-mono` and `.body-s-mono`.
   Shared CSS now ships `--t-body-mono`, `--t-body-s-mono`, `.body-mono`, and `.body-s-mono`.
 
-## Needs Decision
+## Resolved Or Parked Decisions
 
 - Skew transform labels were pruned as token candidates.
   The geometry specimen now names them as specimen recipes, not promoted `--skew-*` tokens. Pure skew transforms and composite transform-plus-opacity recipes stay local until a real component source needs them.
@@ -94,9 +96,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 
 ## Primitive Clear Promote
 
-- Shared guide chrome should stop living in every specimen.
-  Section heads, anatomy grids, anatomy rows, variant grids, and variant cells are duplicated across many unresolved primitive files, including `PrimitiveKeys.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, `PrimitiveMarks.vue`, `PrimitiveSpineCard.vue`, and `PrimitiveTabs.vue`.
-  The branch already has `AnatomyDisplay.vue`, `VariantGrid.vue`, and `VariantCell.vue`; the specimens should compose those instead of carrying duplicate scoped CSS.
+- Shared guide chrome was promoted to helper vocabulary.
+  Section heads, anatomy grids, anatomy rows, variant grids, and variant cells were duplicated across many primitive files. The branch now has `AnatomyDisplay.vue`, `VariantGrid.vue`, and `VariantCell.vue` as the guide helper vocabulary, and remaining guide staging is treated as inspection chrome rather than implementation source.
 
 - `.bar-tape` has been promoted to a real primitive.
   `src/components/primatives/BarTape.vue` contains the base strip, height variants, diatonic segment fills, major/equal proportions, dim state, playhead, downbeat signal, and boxed/flush frame. `PrimitiveBarTape.vue` is now a specimen that imports it.
@@ -132,25 +133,25 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - `p5-tabs` / chip-slide tabs have become a token-backed tabs primitive.
   `src/components/primatives/ChipTabs.vue` now owns rail, streak, active chip measurement, tab buttons, density, chip geometry, selected/disabled state, and brass chip tone. The source uses global clip, motion, and brass tokens instead of keeping the recipe trapped in `PrimitiveTabs.vue`.
 
-- Sticker color vocabulary should be shared as a TS constant/map.
-  `PrimitiveSticker.vue:51-64` repeats the color list that `Sticker.vue` also carries as a prop union and CSS modifier set. This should become a single exported color vocabulary when more primitives use the same color prop.
+- Sticker color vocabulary can become a TS constant/map later.
+  `PrimitiveSticker.vue` repeats the color list that `Sticker.vue` also carries as a prop union and CSS modifier set. This remains future cleanup only if more primitives need the same exported color vocabulary; it is not current style-guide residue.
 
 - Marks now have a primitive/component boundary.
   `src/components/primatives/Mark.vue` owns the raw SVG paths, named glyph API, tone, size, fill/wire treatment, and stroke behavior. `PrimitiveMarks.vue` keeps family panels and legends local.
 
-## Primitive Needs Decision
+## Primitive Resolved Or Parked Decisions
 
 - Music color source for `bar-tape` and `key`.
-  `BarTape.vue` and `Key.vue` still use legacy `--note-*` aliases. The shared CSS says those aliases are temporary and points toward `.note + --note-degree/-octave`. Both primitives intentionally stay alias-based for this branch while the computed `.note` migration remains a doctrine decision.
+  `BarTape.vue` and `Key.vue` still use legacy `--note-*` aliases. The shared CSS says those aliases are temporary and points toward `.note + --note-degree/-octave`. Both primitives intentionally stay alias-based for this branch while the computed `.note` migration is parked as app/component migration.
 
 - `bar-tape` major proportions conflict is resolved in the source component and pattern compounds.
   The earlier specimen described `2-2-1-2-2-2-1` but assigned `mi` wide and `fa` narrow. `BarTape.vue` now makes `mi` and `ti` narrow, matching the documented major interval recipe, and pattern compounds compose that source component.
 
-- Brass button grammar is not settled.
-  Global `.brass` is the canonical brass finish, but `PrimitiveButtons.vue:207`, `PrimitiveButtons.vue:249-275`, and `PrimitiveButtons.vue:562-580` split brass into `brass-signal`, fill, wire, and glow treatments, some inline. Decide whether these become button variants, separate brass treatment utilities, or specimen-only demonstrations.
+- Brass button grammar is resolved for current scope.
+  `IconButton.vue` owns button variants and brass treatments, while global `.brass` remains the shared finish utility. No separate brass utility was promoted from the old button specimen.
 
-- Guide/spec typography is mono-heavy.
-  The primitives use mono for anatomy labels/spec tables throughout, while `src/emotitone-design-system.css` says labels are Jazz and mono is the exception. Either bless guide/spec tables as a named mono exception or rename them away from label grammar.
+- Guide/spec typography is localized.
+  Product labels use Lets Jazz; guide/spec inspection labels and kicker/spec-marker labels may use mono as named exceptions.
 
 - `--clip-key-strip` versus `--clip-tile` is resolved for this branch.
   `Key.vue` reuses `--clip-tile` for strip/default forms instead of adding a semantic alias.
@@ -162,13 +163,13 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   `Kicker.vue` supports brand tones plus brass, ivory, and open treatments. It is not limited to brand-color section dots.
 
 - Kicker typography is kept as a named mono exception.
-  `Kicker.vue` uses mono labels at 9px as section/spec-marker grammar, while the wider guide/spec label contradiction remains parked.
+  `Kicker.vue` uses mono labels at 9px as section/spec-marker grammar; the wider guide/spec label exception is recorded in token closure.
 
 - Brass glow/drop-shadow is normalized for Knob.
   `Knob.vue` uses `--shadow-glow-brass` for played glow and brass ball states; SVG value strokes keep local `drop-shadow()` filters because they apply to stroke rendering rather than box shadow.
 
-- Sticker `badge` may not belong as a `Sticker` variant.
-  `PrimitiveSticker.vue:31-40` and `Sticker.vue:187-222` make badge ignore color and random geometry. That might be correct as a unique brass sticker variant, but it may also be a separate brass badge primitive.
+- Sticker `badge` belongs as a fixed-geometry `Sticker` variant.
+  Badge color and brass timing now use the shared Sticker color vocabulary and global brass sweep.
 
 - `PresetRow` is resolved as a compound/control row.
   `PrimitiveSpineCard.vue` and `CompositionTopDrawer.vue` compose `PresetRow` for apply/applied/expiring states; `SpineCard.vue` does not absorb them into the primitive API.
@@ -176,10 +177,10 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Mark API is resolved for this branch.
   Runtime API is `name`, `size`, `tone`, and `treatment`. `family` remains specimen taxonomy because it groups marks for inspection rather than changing render behavior.
 
-- Tabs timing needs a token decision.
+- Tabs timing is resolved for current scope.
   `ChipTabs.vue` resolves this slice by using `--dur-ui` with `--ease-swing` for chip selection and the same 220ms window for transient smear. No `--dur-chip` token was added.
 
-- Tab variant naming needs cleanup.
+- Tab variant naming is resolved for current scope.
   Source variants are `tab`, `offcut`, `tile`, `sharp`, `pill`, and `rip`, with brass handled as a tone axis rather than a geometry. The specimen demonstrates the active set through `ChipTabs`.
 
 ## Primitive Specimen-Only
@@ -188,7 +189,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   Examples include `PrimitiveBarTape.vue` and `PrimitiveButtons.vue`. `PrimitiveBeatIndicator.vue`, `PrimitiveKicker.vue`, `PrimitiveMarks.vue`, `PrimitiveTabs.vue`, `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue`, and `PrimitiveKeys.vue` have already been rewritten to keep source behavior in components and guide staging in specimens.
 
 - Variant-card chrome and demo tilts are display scaffolding unless routed through the shared random geometry utility.
-  Examples include `PrimitiveBarTape.vue:319`, `PrimitiveButtons.vue:599-623`, and unresolved key/mark-adjacent specimens. Knob specimen tile/tilt chrome was pruned into guide helpers plus `Knob` source frame anatomy.
+  Examples include historical `PrimitiveBarTape.vue` and `PrimitiveButtons.vue` staging. Key, mark, tab, and knob behavior now lives in source components; remaining specimen wrappers are inspection chrome.
 
 - Inline demo sizing/padding should stay local unless promoted into named variants.
   `PrimitiveKeys.vue` no longer uses inline key dimensions or demo key paddings; key sizing now lives behind source `shape` variants.
@@ -214,10 +215,10 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   `CardShell.vue` and the remaining specimen-local inversion use `--t-body-s`; the old `var(--font-body)` references were pruned.
 
 - Beat keyframe naming is split.
-  Shared CSS contains both `bar-cell`/`bar-down` and `beat-cell`/`beat-down`, while `BeatIndicator.vue` consumes only `beat-*`. Decide whether both sets are intentional or whether one is stale.
+  Shared CSS contains both `bar-cell`/`bar-down` and `beat-cell`/`beat-down`, while `BeatIndicator.vue` consumes only `beat-*`. Any naming consolidation is future motion cleanup and not a token closure blocker.
 
-- `.live` repeats inline positioning already handled by CSS.
-  `PrimitiveBarTape.vue:14` repeats `position:relative`, while `.bar-tape.live` already sets `position: relative` at `PrimitiveBarTape.vue:216`.
+- BarTape live positioning is source-owned.
+  `BarTape.vue` owns the relative positioning needed for the live playhead; the old specimen-level inline positioning is gone.
 
 - Keys note mapping is corrected in the specimen data.
   `PrimitiveKeys.vue` now demonstrates the full legacy chromatic alias set and maps Ra/Me/Se/Le to `--note-ra`, `--note-me`, `--note-se`, and `--note-le` through the `Key` source API.
@@ -240,8 +241,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Tabs and knobs use source-owned brass grammar.
   `ChipTabs.vue` uses the global `.brass` utility on the active chip and brass tokens for the component-specific active surface shadow. `Knob.vue` owns brass value marks and shared glow usage for visual knob primitives.
 
-- Brand danger semantics remain split.
-  Shared CSS says brand colors are decorative-only, but also aliases `--danger` to tomato. `SpineCard.vue` preserves the tomato example content through the specimen, but the semantic decision still needs doctrine work rather than another token alias.
+- Brand danger semantics are localized.
+  Brand colors remain decorative-only, while semantic aliases such as `--danger` may map to brand values for functional status. `SpineCard.vue` preserves the tomato example as content rather than functional chrome.
 
 - Marks scale text and proof are reconciled through the source size prop.
   `Mark.vue` accepts a numeric/string `size`; `PrimitiveMarks.vue` demonstrates 14, 28, 56, 92 hero, and 96 hero cases without hardcoded source CSS.

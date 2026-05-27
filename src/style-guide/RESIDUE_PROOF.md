@@ -62,9 +62,17 @@ Browser DOM proof, 2026-05-27:
 Command proof, 2026-05-27:
 
 - `bun run type-check` passes.
-- `bun run build` passes; Vite builds 226 modules. The only note is the existing stale Browserslist/caniuse-lite warning.
-- `bun run test:run src/__tests__/components/ui/TopDrawer.test.ts src/__tests__/components/ui/LoadingScreen.test.ts` passes 3 tests.
+- `bun run build` passes; Vite builds 228 modules. The only note is the existing stale Browserslist/caniuse-lite warning.
+- `bun run test:run src/__tests__/components/ui/Sticker.test.ts src/__tests__/components/ui/PresetRow.test.ts src/__tests__/components/ui/TopDrawer.test.ts src/__tests__/components/ui/LoadingScreen.test.ts` passes 6 tests across 4 files. The only note is the existing stale Browserslist/caniuse-lite warning.
 - `git diff --check` passes.
+
+Current verification refresh, 2026-05-27:
+
+- `bun run type-check` passes.
+- `bun run build` passes; Vite builds 228 modules. Existing stale Browserslist/caniuse-lite warning only.
+- `bun run test:run src/__tests__/components/ui/Sticker.test.ts src/__tests__/components/ui/PresetRow.test.ts src/__tests__/components/ui/TopDrawer.test.ts src/__tests__/components/ui/LoadingScreen.test.ts` passes 6 tests across 4 files. Existing stale Browserslist/caniuse-lite warning only.
+- `git diff --check` passes.
+- Render proof: `bun run dev --host 127.0.0.1` served the style guide on `http://127.0.0.1:5176/` because 5175 was already in use. Chrome headless wrote `/tmp/emotitone-style-guide.png` at 1440x1200 and the screenshot shows the style-guide sink rendering token collections. Chrome exited under a 25s alarm after writing the screenshot because Google updater logging kept the process alive.
 
 ## Slice Proof: Sticker Badge Taxonomy
 
@@ -186,7 +194,7 @@ Browser DOM proof, 2026-05-25:
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/SpineCard.vue` | pass |
 | Kicker copy | Spine card copied `.kicker` and `.dot` internals | Source composes `Kicker` | pass |
 | Preset row | Horizontal action/status row lived inside primitive specimen | Promoted to `src/components/compounds/PresetRow.vue`; specimen composes source rows | pass |
-| Brand danger semantics | Tomato example used danger wording while brand tokens are semantically split | Preserved as content, parked behind existing brand/danger doctrine gate | Doctrine Gate remains |
+| Brand danger semantics | Tomato example used danger wording while brand tokens are semantically split | Preserved as content; functional status styling goes through semantic aliases | pass under Doctrine Gate 2026-05-26 |
 
 Browser DOM proof, 2026-05-25:
 
@@ -257,7 +265,7 @@ Browser DOM proof, 2026-05-25:
 | `PrimitiveKnobsDigital.vue` source behavior | Specimen owned `.knob`, SVG track paths/classes, label/footer/tile frame, role classes, brass/ivory treatment, disabled state, played glow, and spin keyframe | Specimen imports `Knob` with `visual="arc"` and keeps only role/treatment grouping | pass for digital specimen |
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/Knob.vue` | pass |
 | SVG stroke grammar | Digital specimen repeated butt caps, miter joins, 2px background strokes, and 8px value strokes | Source arc visual owns stroke grammar | pass |
-| Production knob overlap | App controls exist under `src/components/knobs/` | Production behavior remains untouched and gate-parked for app integration | App Integration Gate parked |
+| Production knob overlap | App controls exist under `src/components/knobs/` | Inspected as behavior-heavy controls with drag/tap gestures, haptics, GSAP arc animation, display mode, option cycling, and compatibility events | future production migration; not current style-guide residue |
 
 Browser DOM proof, 2026-05-25:
 

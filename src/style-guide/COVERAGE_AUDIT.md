@@ -57,8 +57,8 @@ Date: 2026-05-26
 | `src/style-guide/uniques/UniqueDrawer.vue` | Legacy drawer-shell specimen path | primitives/specimen | no | keep local | Imports `DrawerShell.vue`; no longer defines drawer shell behavior locally. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | keep local / app integration gate | Full loading-state proof; app source `LoadingSplash.vue` owns current behavior. |
 | `src/components/LoadingSplash.vue` | App loading source | compositions/app source | yes, for current app | app integration gate | Behavior-heavy current loading screen; visually divergent from style-guide composition. |
-| `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | keep local / app integration gate | Product drawer proof; composes `DrawerShell.vue`; local controls remain composition-local until repeated elsewhere. |
-| `src/components/TopDrawer.vue` | App drawer source | app source | yes, for current app | app integration gate | Current drawer behavior source; not rewritten in the DrawerShell promotion slice. |
+| `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | keep local | Product drawer proof; composes `DrawerShell.vue`; local controls remain composition-local until repeated elsewhere. |
+| `src/components/TopDrawer.vue` | App drawer source | app source | yes, for current app | app integration resolved | Production wrapper now composes `DrawerShell.vue` while preserving trigger/panel slots, Teleport, public methods, and consumer offsets. |
 
 ## Coverage Gaps
 
@@ -67,10 +67,10 @@ Date: 2026-05-26
 - Unique source location is established for singular brand artifacts under `src/components/uniques/`.
 - Token closure is recorded for current style-guide scope; unique closure, composition closure, and Finish Gate residue remain incomplete.
 - Promotion decisions exist in `PROMOTION_AUDIT.md`; remaining token-adjacent work is parked as app/component migration rather than open token doctrine.
-- Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`; brand unique source extraction is complete, while app integration remains.
+- Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`; brand unique source extraction and top-drawer app integration are complete, while loading app integration remains.
 - Residue proof has run for primitive extraction and pattern compounds, and taxonomy residue has been classified for remaining unique/composition surfaces; it has not closed unique/composition implementation.
 
 ## Current Coverage Verdict
 
 - Coverage map exists, but full completion is not proven.
-- Brand unique extraction, DrawerShell promotion, and token closure are recorded; next movement should be app `TopDrawer.vue` alignment or loading composition integration.
+- Brand unique extraction, DrawerShell promotion, token closure, and app `TopDrawer.vue` alignment are recorded; next movement should be loading composition integration.

@@ -27,7 +27,7 @@ Date: 2026-05-26
   - `src/components/primatives/Key.vue`
   - `src/components/primatives/DrawerShell.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, and DrawerShell follow the intended source-first pattern. DrawerShell is demonstrated from the legacy `UniqueDrawer.vue` path and composed by `CompositionTopDrawer.vue`; app `TopDrawer.vue` alignment remains parked.
+- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, CodeStrip, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, and DrawerShell follow the intended source-first pattern. DrawerShell is demonstrated from the legacy `UniqueDrawer.vue` path, composed by `CompositionTopDrawer.vue`, and wrapped by production `TopDrawer.vue`.
 
 ## Compounds
 
@@ -61,7 +61,7 @@ Date: 2026-05-26
 - Related app sources:
   - `src/components/LoadingSplash.vue`
   - `src/components/TopDrawer.vue`
-- Status: taxonomy audited, not closed. `CompositionLoadingScreen.vue` is a composition proof/design target that must reconcile with app `LoadingSplash.vue`; `CompositionTopDrawer.vue` now composes `DrawerShell.vue`, but app `TopDrawer.vue` alignment and local composition controls remain open.
+- Status: taxonomy audited, not closed. `CompositionLoadingScreen.vue` is a composition proof/design target that must reconcile with app `LoadingSplash.vue`; `CompositionTopDrawer.vue` composes `DrawerShell.vue`, and app `TopDrawer.vue` now wraps that same source shell while preserving production slot behavior. Top-drawer local controls remain composition-local unless reuse is proven.
 
 ## Specimen Helpers (Inspection Only, Not A Layer)
 
@@ -122,7 +122,7 @@ Date: 2026-05-26
 | `src/style-guide/uniques/UniqueDrawer.vue` | legacy drawer-shell specimen path | no | keep local | Imports and inspects `DrawerShell.vue`; file location/name remains a later organization gate. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | composition specimen | no | keep local / app integration gate | Composition proof and visual target; app behavior source is `LoadingSplash.vue`. |
 | `src/components/LoadingSplash.vue` | app source | yes, for current app behavior | app integration gate | Behavior-heavy current loading splash; visually divergent from style-guide composition. |
-| `src/style-guide/compositions/CompositionTopDrawer.vue` | composition specimen | no | keep local / app integration gate | Composition proof; composes `DrawerShell.vue` while keeping local product panes/controls as composition content. |
-| `src/components/TopDrawer.vue` | app source | yes, for current app drawer behavior | app integration gate | Current behavior source; style-guide drawer grammar is not yet integrated. |
+| `src/style-guide/compositions/CompositionTopDrawer.vue` | composition specimen | no | keep local | Composition proof; composes `DrawerShell.vue` while keeping local product panes/controls as composition content. |
+| `src/components/TopDrawer.vue` | app source | yes, for current app drawer behavior | app integration resolved | Production wrapper composes `DrawerShell.vue` while preserving trigger/panel slots, Teleport, offsets, and exposed open/close/toggle methods. |
 | `src/style-guide/guide/*.vue` | specimen helper | yes, for inspection UI only | keep local | Not a taxonomy layer. |
 | `src/style-guide/preview-card.css` | specimen helper CSS | yes, for guide chrome only | keep local | Do not promote as component grammar without a gate. |

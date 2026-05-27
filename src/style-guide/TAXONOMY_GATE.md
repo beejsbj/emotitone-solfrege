@@ -104,7 +104,7 @@ Evidence:
 
 - `UniqueDrawer.vue` demonstrates top/bottom anchors, scrim, torn handle, drag-to-resize, click close, Escape close, snap points, and reduced-motion behavior.
 - `CompositionTopDrawer.vue` repeats top drawer mechanics and adds pane switching plus product-specific content.
-- `src/components/TopDrawer.vue` already owns app drawer behavior with slots and Teleport, but it does not yet express the style-guide torn-edge/scrim/push-down grammar.
+- `src/components/TopDrawer.vue` already owned app drawer behavior with slots and Teleport; as of the App Integration Gate on 2026-05-27 it wraps `DrawerShell` for torn-edge/scrim/push-down grammar.
 
 Why not lower:
 
@@ -125,7 +125,7 @@ Promotion result:
 
 - `DrawerShell` is promoted under `src/components/primatives/`.
 - `UniqueDrawer.vue` and `CompositionTopDrawer.vue` compose `DrawerShell` for style-guide surfaces.
-- Existing app `TopDrawer.vue` remains untouched for a later App Integration Gate.
+- Existing app `TopDrawer.vue` was left untouched during taxonomy and was aligned in the later App Integration Gate on 2026-05-27.
 
 Unblocks:
 

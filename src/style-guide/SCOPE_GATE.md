@@ -19,7 +19,7 @@ Date: 2026-05-24
 
 - Historical starting point: the branch entered this run between raw recipe inventory and primitive extraction.
 - Current note, 2026-05-26: token doctrine, primitive extraction, PatternCard/PatternReel compounds, DrawerShell, and brand uniques have since been recorded in closure artifacts.
-- Remaining unclosed layers are app-aligned compositions, especially `TopDrawer.vue` and `LoadingSplash.vue`.
+- Remaining unclosed layer work is app-aligned composition integration, now primarily `LoadingSplash.vue` after `TopDrawer.vue` alignment.
 
 ### Trustworthy Existing Artifacts
 

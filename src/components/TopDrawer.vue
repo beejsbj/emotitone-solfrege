@@ -1,21 +1,35 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
+import DrawerShell from "./primatives/DrawerShell.vue";
 
 interface Props {
   anchor?: "top-left" | "top-right";
   offsetTop?: string;
   offsetSide?: string;
+  frameHeight?: string;
+  designedHeightRatio?: number;
+  appShift?: string;
+  handleLabel?: string;
+  ariaLabel?: string;
+  maxWidth?: string;
+  bodyPadding?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   anchor: "top-right",
   offsetTop: "1rem",
   offsetSide: "1rem",
+  frameHeight: "100vh",
+  designedHeightRatio: 0.56,
+  appShift: "16px",
+  handleLabel: "ESC",
+  ariaLabel: "toggle top drawer",
+  maxWidth: "min(56rem, calc(100vw - 1.5rem))",
+  bodyPadding: "12px",
 });
 
 const showPanel = ref(false);
 const triggerRef = ref<HTMLElement | null>(null);
-const panelRef = ref<HTMLElement | null>(null);
 
 const togglePanel = () => {
   showPanel.value = !showPanel.value;
@@ -29,40 +43,19 @@ const closePanel = () => {
   showPanel.value = false;
 };
 
-const panelStyle = computed(() => ({
+const frameStyle = computed(() => ({
   paddingTop: props.offsetTop,
   paddingLeft: props.offsetSide,
   paddingRight: props.offsetSide,
+  "--top-drawer-max-width": props.maxWidth,
+  "--top-drawer-body-padding": props.bodyPadding,
 }));
 
-const handlePointerDown = (event: MouseEvent) => {
-  if (!showPanel.value) return;
-
-  const target = event.target as Node;
-  const clickedTrigger =
-    triggerRef.value && triggerRef.value.contains(target);
-  const clickedPanel = panelRef.value && panelRef.value.contains(target);
-
-  if (!clickedTrigger && !clickedPanel) {
-    closePanel();
-  }
-};
-
-const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === "Escape") {
-    closePanel();
-  }
-};
-
-onMounted(() => {
-  document.addEventListener("mousedown", handlePointerDown);
-  document.addEventListener("keydown", handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener("mousedown", handlePointerDown);
-  document.removeEventListener("keydown", handleKeydown);
-});
+const shellClass = computed(() => (
+  props.anchor === "top-left"
+    ? "top-drawer__shell--left"
+    : "top-drawer__shell--right"
+));
 
 defineExpose({
   showPanel,
@@ -95,22 +88,33 @@ defineExpose({
         <div
           v-if="showPanel"
           class="top-drawer__panel-frame"
-          :style="panelStyle"
+          :style="frameStyle"
         >
-          <div
-            ref="panelRef"
-            data-testid="top-drawer-panel"
-            class="top-drawer__panel"
+          <DrawerShell
+            v-model="showPanel"
+            class="top-drawer__shell"
+            :class="shellClass"
+            :frame-height="frameHeight"
+            :designed-height-ratio="designedHeightRatio"
+            :app-shift="appShift"
+            :handle-label="handleLabel"
+            :aria-label="ariaLabel"
+            :close-on-scrim="true"
           >
-            <slot
-              name="panel"
-              :toggle="togglePanel"
-              :open="openPanel"
-              :close="closePanel"
-              :is-open="showPanel"
-              :anchor="anchor"
-            />
-          </div>
+            <div
+              data-testid="top-drawer-panel"
+              class="top-drawer__panel"
+            >
+              <slot
+                name="panel"
+                :toggle="togglePanel"
+                :open="openPanel"
+                :close="closePanel"
+                :is-open="showPanel"
+                :anchor="anchor"
+              />
+            </div>
+          </DrawerShell>
         </div>
       </Transition>
     </Teleport>
@@ -142,13 +146,30 @@ defineExpose({
   inset: 0;
   z-index: 9999;
   display: flex;
-  justify-content: center;
   align-items: flex-start;
   pointer-events: none;
 }
 
-.top-drawer__panel {
+.top-drawer__shell {
+  width: 100%;
+  max-width: var(--top-drawer-max-width);
   pointer-events: auto;
+}
+
+.top-drawer__shell--left {
+  margin-right: auto;
+}
+
+.top-drawer__shell--right {
+  margin-left: auto;
+}
+
+.top-drawer__panel {
+  min-width: 0;
+}
+
+.top-drawer__shell :deep(.drawer-shell__body) {
+  padding: var(--top-drawer-body-padding);
 }
 
 .top-drawer-slide-enter-active,

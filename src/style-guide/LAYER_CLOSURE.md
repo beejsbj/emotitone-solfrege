@@ -83,8 +83,8 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| compositions use approved lower layers | partial | Top-drawer composition now composes `DrawerShell`; loading app-source alignment and production `TopDrawer.vue` alignment have not run | `src/style-guide/compositions/*.vue`, `src/components/LoadingSplash.vue`, `src/components/TopDrawer.vue` |
-| composition-only content/orchestration/app state is separated from component grammar | partial | Top drawer product panes/controls are local while drawer shell is sourced; loading visual target is still divergent from app behavior source | `RESIDUE_PROOF.md`, `TAXONOMY_GATE.md` |
+| compositions use approved lower layers | partial | Top-drawer composition and production `TopDrawer.vue` now compose/wrap `DrawerShell`; loading app-source alignment has not run | `src/style-guide/compositions/*.vue`, `src/components/LoadingSplash.vue`, `src/components/TopDrawer.vue` |
+| composition-only content/orchestration/app state is separated from component grammar | partial | Top drawer product panes/controls are local while drawer shell is sourced in style-guide and app; loading visual target is still divergent from app behavior source | `RESIDUE_PROOF.md`, `TAXONOMY_GATE.md` |
 | residue proof has no unresolved cross-cutting grammar | fail | Residue remains | `RESIDUE_PROOF.md` |
 
 ## Promote / Prune / Keep-Local Decisions
@@ -108,9 +108,9 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Code strip | promote | Reused code-strip grammar now lives in `CodeStrip.vue` | Taxonomy Gate |
 | Brand cover | promote as unique source | Singular brand artifact, not reusable component grammar | Unique Extraction Gate |
 | Brand logo | promote as unique source | Singular brand identity system | Unique Extraction Gate |
-| App top-drawer alignment | gate-parked | Reusable drawer behavior is promoted for style-guide surfaces, but production `TopDrawer.vue` remains behavior-heavy and unchanged | App Integration Gate |
+| App top-drawer alignment | promote wrapper adoption | Production `TopDrawer.vue` wraps `DrawerShell` while preserving Teleport, trigger/panel slots, offsets, and public methods | App Integration Gate |
 | Loading screen composition | gate-parked | Style-guide visual proof diverges from app `LoadingSplash.vue` behavior source | App Integration Gate |
-| Top drawer composition | gate-parked | Composition proof composes `DrawerShell`; local controls and production app alignment remain open | App Integration Gate |
+| Top drawer composition | keep local / app integrated | Composition proof composes `DrawerShell`; local controls remain composition-local and production `TopDrawer.vue` wraps the shell | App Integration Gate 2026-05-27 |
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
 | PatternReel compound | promote | Source-first component extracted and specimen imports it | Taxonomy + Promotion Gate |
 | Compound pattern artifacts | promote | PatternCard and PatternReel boundaries resolved for current pattern family | Taxonomy Gate |
@@ -130,7 +130,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Brand/danger semantics | Doctrine Gate | agent + user | 2026-05-26 | Brand colors decorative; semantic status aliases may map to brand values | yes |
 | SpineCard preset row | Taxonomy Gate | user + agent | 2026-05-25 | Decide whether the action/status row becomes a compound/control-row source component | yes |
 | Production knob alignment | App Integration Gate | user + agent | 2026-05-25 | Decide whether behavior-heavy app knobs adopt the visual primitive | yes |
-| App top-drawer alignment | App Integration Gate | user + agent | 2026-05-26 | Decide whether production `TopDrawer.vue` adopts, wraps, or remains separate from promoted `DrawerShell` | no for app closure |
+| App top-drawer alignment | App Integration Gate | agent + user | 2026-05-27 | Production `TopDrawer.vue` wraps promoted `DrawerShell` without changing consumer slot contracts | yes |
 | Loading splash alignment | App Integration Gate | user + agent | 2026-05-26 | Map style-guide loading composition onto `LoadingSplash.vue` without losing loading/audio/MIDI/error behavior | no for composition closure |
 
 ## Unique / Composition Taxonomy Decision Packet
@@ -149,7 +149,7 @@ Recommendation:
 - Treat `UniqueCodeStrip.vue` as a legacy primitive specimen path.
 - Reclassify drawer as lower-layer source plus app-alignment debt, not a unique.
 - Keep loading/top-drawer previews as compositions, with app integration gates before production alignment.
-- Make app top-drawer alignment or loading integration the next implementation slice.
+- Make loading integration the next implementation slice.
 
 Alternatives rejected:
 
@@ -164,7 +164,7 @@ Unresolved risk:
 
 Unblocks:
 
-- App top-drawer alignment, loading integration, and composition closure work.
+- Loading integration and composition closure work.
 
 ## Unique Extraction Decision Packet
 
@@ -191,7 +191,7 @@ Unresolved risk:
 
 Unblocks:
 
-- Unique closure can now treat brand cover/logo as source-first and focus remaining residue on app integration, loading, and token doctrine.
+- Unique closure can now treat brand cover/logo as source-first and focus remaining residue on loading integration.
 
 ## DrawerShell Promotion Decision Packet
 
@@ -199,14 +199,14 @@ Evidence:
 
 - `UniqueDrawer.vue` and `CompositionTopDrawer.vue` both needed the same bounded drawer frame, scrim, torn handle, anchor axis, close behavior, and resize/snap language.
 - Product panes, triggers, and settings content belong to the top-drawer composition, not to the reusable shell.
-- Existing `src/components/TopDrawer.vue` is production behavior source and should not be rewritten during a style-guide promotion slice.
+- Existing `src/components/TopDrawer.vue` was production behavior source and needed a later app-integration slice to adopt the promoted shell safely.
 
 Recommendation:
 
 - Promote `DrawerShell` under `src/components/primatives/`.
 - Make `UniqueDrawer.vue` a legacy specimen path that inspects `DrawerShell`.
 - Make `CompositionTopDrawer.vue` compose `DrawerShell` while keeping product panes/controls local.
-- Park production `TopDrawer.vue` alignment behind App Integration Gate.
+- Parked production `TopDrawer.vue` alignment behind App Integration Gate; resolved 2026-05-27 by wrapping `DrawerShell` inside the production component.
 
 Alternatives rejected:
 
@@ -215,7 +215,7 @@ Alternatives rejected:
 
 Unresolved risk:
 
-- Production top-drawer behavior may need an adapter or wrapper rather than a direct primitive swap.
+- Production top-drawer behavior uses an adapter/wrapper rather than a direct primitive swap.
 
 Unblocks:
 

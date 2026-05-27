@@ -66,10 +66,10 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| child primitive dependencies are explicit | pass | Current compound scope contains `PatternCard` and `PatternReel`; PatternCard names BarTape, IconButton, and CodeStrip, and PatternReel composes PatternCard | `PatternCard.vue`, `PatternReel.vue`, `COVERAGE_AUDIT.md` |
-| slot contracts are explicit | pass | PatternCard and PatternReel prop contracts exist for the current compound scope | `PatternCard.vue`, `PatternReel.vue` |
-| compounds compose children instead of duplicating internals | pass | PatternCard composes primitive children and PatternReel composes PatternCard; old pattern-card/reel primitive copies are pruned | `RESIDUE_PROOF.md` |
-| repeated child patterns are promoted or gate-parked | pass | PatternCard and PatternReel are promoted; the separate SpineCard preset-row candidate remains gate-parked as future compound/control-row work | `PROMOTION_AUDIT.md` |
+| child primitive dependencies are explicit | pass | Current compound scope contains `PatternCard`, `PatternReel`, and `PresetRow`; PatternCard names BarTape/IconButton/CodeStrip, PatternReel composes PatternCard, and PresetRow composes Kicker | `PatternCard.vue`, `PatternReel.vue`, `PresetRow.vue`, `COVERAGE_AUDIT.md` |
+| slot contracts are explicit | pass | PatternCard, PatternReel, and PresetRow prop/event contracts exist for the current compound scope | `PatternCard.vue`, `PatternReel.vue`, `PresetRow.vue` |
+| compounds compose children instead of duplicating internals | pass | PatternCard composes primitive children, PatternReel composes PatternCard, and PresetRow composes Kicker; old pattern-card/reel/preset-row copies are pruned | `RESIDUE_PROOF.md` |
+| repeated child patterns are promoted or gate-parked | pass | PatternCard, PatternReel, and PresetRow are promoted for current compound scope | `PROMOTION_AUDIT.md` |
 
 ### Unique Closure
 
@@ -113,6 +113,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Top drawer composition | keep local / app integrated | Composition proof composes `DrawerShell`; local controls remain composition-local and production `TopDrawer.vue` wraps the shell | App Integration Gate 2026-05-27 |
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
 | PatternReel compound | promote | Source-first component extracted and specimen imports it | Taxonomy + Promotion Gate |
+| PresetRow compound | promote | Source-first action/status row extracted from SpineCard specimen and composes Kicker | Taxonomy + Promotion Gate 2026-05-27 |
 | Compound pattern artifacts | promote | PatternCard and PatternReel boundaries resolved for current pattern family | Taxonomy Gate |
 | Composition artifacts | keep local / source aligned | `CompositionTopDrawer` composes `DrawerShell`; `CompositionLoadingScreen` imports `LoadingScreen`; production app wrappers are aligned | Composition Gate + App Integration Gate |
 
@@ -128,7 +129,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Brass timing model | Promotion Gate | agent + user | 2026-05-27 | Global brass timing resolved; Sticker badge timing now matches the global 6.5s sweep | yes |
 | Kicker/spec marker typography exception | Doctrine Gate | agent + user | 2026-05-26 | Product labels are Jazz; guide/spec inspection labels may be mono | yes |
 | Brand/danger semantics | Doctrine Gate | agent + user | 2026-05-26 | Brand colors decorative; semantic status aliases may map to brand values | yes |
-| SpineCard preset row | Taxonomy Gate | user + agent | 2026-05-25 | Decide whether the action/status row becomes a compound/control-row source component | yes |
+| SpineCard preset row | Taxonomy/Promotion Gate | agent + user | 2026-05-27 | Promoted as `PresetRow` compound and composed by `PrimitiveSpineCard.vue` | yes |
 | Production knob alignment | App Integration Gate | user + agent | 2026-05-25 | Decide whether behavior-heavy app knobs adopt the visual primitive | yes |
 | App top-drawer alignment | App Integration Gate | agent + user | 2026-05-27 | Production `TopDrawer.vue` wraps promoted `DrawerShell` without changing consumer slot contracts | yes |
 | Loading splash alignment | App Integration Gate | agent + user | 2026-05-27 | `LoadingScreen.vue` promoted; `LoadingSplash.vue` keeps loading/audio/MIDI/error behavior as adapter | yes |

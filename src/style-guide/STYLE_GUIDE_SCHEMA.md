@@ -35,10 +35,11 @@ Date: 2026-05-26
 - Extracted source components:
   - `src/components/compounds/PatternCard.vue`
   - `src/components/compounds/PatternReel.vue`
+  - `src/components/compounds/PresetRow.vue`
 - Current specimens:
   - `src/style-guide/compounds/CompoundPatternCard.vue`
   - `src/style-guide/compounds/CompoundPatternReel.vue`
-- Status: `PatternCard` and `PatternReel` are source-first. `PatternCard` composes `BarTape`, `IconButton`, and `CodeStrip`; `PatternReel` composes `PatternCard` and owns stack depth / click-promotion choreography.
+- Status: `PatternCard`, `PatternReel`, and `PresetRow` are source-first. `PatternCard` composes `BarTape`, `IconButton`, and `CodeStrip`; `PatternReel` composes `PatternCard` and owns stack depth / click-promotion choreography; `PresetRow` composes `Kicker` and owns preset action/status row grammar.
 
 ## Uniques
 
@@ -101,7 +102,8 @@ Date: 2026-05-26
 | `src/components/primatives/Kicker.vue` | primitive | yes | promote | Owns dot+label marker anatomy, tone, dot geometry, density, inverse, and form variants. |
 | `src/style-guide/primatives/PrimitiveKicker.vue` | primitive specimen | no | keep local | Imports and inspects `Kicker.vue`; grid staging remains specimen-local. |
 | `src/components/primatives/SpineCard.vue` | primitive | yes | promote | Owns brand spine panel, matching Kicker child, stamped headline, body copy, compact mode, and one-color rule. |
-| `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive specimen plus parked compound specimen | no | keep local / gate-park | Imports and inspects `SpineCard.vue`; preset-row demo remains parked behind a compound Taxonomy Gate. |
+| `src/style-guide/primatives/PrimitiveSpineCard.vue` | primitive specimen plus compound specimen | no | keep local | Imports and inspects `SpineCard.vue`; composes `PresetRow.vue` for the promoted preset-row examples. |
+| `src/components/compounds/PresetRow.vue` | compound | yes | promote | Owns preset action/status row grammar, composes `Kicker`, and supports action or meta states. |
 | `src/components/primatives/Mark.vue` | primitive | yes | promote | Owns flat SVG mark paths, named glyph API, tone, size, and fill/wire treatment. |
 | `src/style-guide/primatives/PrimitiveMarks.vue` | primitive specimen | no | keep local | Imports and inspects `Mark.vue`; family panels, legends, and scale/treatment staging remain specimen-local. |
 | `src/components/primatives/ChipTabs.vue` | primitive | yes | promote | Owns chip-slide rail, active chip measurement, streak, selected/disabled tab state, geometry, density, and ivory/brass tone. |

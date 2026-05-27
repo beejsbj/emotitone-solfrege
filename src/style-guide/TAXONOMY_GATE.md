@@ -109,7 +109,7 @@ Evidence:
 Why not lower:
 
 - Drawer shell renders and owns behavior, so it is not a token.
-- The product panes, triggers, instrument grid, preset rows, and app keyboard content are not drawer-shell primitive anatomy.
+- The product panes, triggers, instrument grid, and app keyboard content are not drawer-shell primitive anatomy; preset rows are now promoted separately as `PresetRow`.
 
 Why not higher:
 
@@ -170,7 +170,7 @@ Candidate layer: composition with lower-layer promotion debt
 Evidence:
 
 - `CompositionTopDrawer.vue` proves a meaningful app region: triggers, drawer panes, product settings, app content behind the drawer, chromatic keyboard row, and dismiss behavior.
-- It composes promoted drawer shell grammar and includes local controls (`seg`, search bar, instrument buttons, preset rows, settings rows, icon buttons, parameter tiles).
+- It composes promoted drawer shell grammar and `PresetRow`, while keeping local controls (`seg`, search bar, instrument buttons, settings rows, icon buttons, parameter tiles).
 
 Why not lower:
 

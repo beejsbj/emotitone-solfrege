@@ -24,6 +24,7 @@ Date: 2026-05-24
 
 - Reusable compound source directory: `src/components/compounds/`.
 - Current extracted compound model: `src/components/compounds/PatternCard.vue`.
+- Current extracted control-row compound model: `src/components/compounds/PresetRow.vue`.
 - Current compound specimens remain under `src/style-guide/compounds/`.
 - Composition source directory: `src/components/compositions/`.
 - Current extracted composition model: `src/components/compositions/LoadingScreen.vue`.

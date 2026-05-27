@@ -47,14 +47,14 @@ Finish Gate packet:
 
 - Evidence: layer source paths are named, coverage rows are resolved, current compound/composition scope is source-first, raw higher-layer color residue is pruned, and verification commands below pass.
 - Recommendation: accept the current decomposed style-guide scope as complete, with named future work remaining parked behind explicit gates.
-- Alternatives rejected: expand scope into production knob migration or SpineCard preset-row promotion now; those are already named future gates and are not hidden residue in the current style-guide decomposition.
+- Alternatives rejected: expand scope into production knob migration now; it is already a named future gate and not hidden residue in the current style-guide decomposition.
 - Unresolved risk: the user has not yet made the required Finish Gate decision.
 - Unblocks: if the user accepts, the active design-lab goal can be marked complete.
 
 Browser DOM proof, 2026-05-27:
 
 - `/style-guide` renders with 5 sink sections and no Chrome runtime log or exception events.
-- Source families render in the page: BarTape 22, BeatIndicator 13, CardShell 6, IconButton 56, CodeStrip 17, Kicker 27, SpineCard 6, Mark 31, ChipTabs 10, Knob 18, Key 28, DrawerShell 4, PatternCard 19, PatternReel 4, BrandCover 1, BrandLogo 7, and LoadingScreen 1.
+- Source families render in the page: BarTape 22, BeatIndicator 13, CardShell 6, IconButton 56, CodeStrip 17, Kicker 27, SpineCard 6, Mark 31, ChipTabs 10, Knob 18, Key 28, DrawerShell 4, PatternCard 19, PatternReel 4, BrandCover 1, BrandLogo 7, and LoadingScreen 1. PresetRow proof was added in the later preset-row slice.
 - The top-drawer composition's first note tile computes to `rgb(238, 105, 47)` from `--note-do: hsl( 18  85% 56%)`.
 - The shared guide `.state-frame` background computes to `rgb(10, 9, 8)` after replacing hardcoded stage hex with `var(--ink)`.
 
@@ -184,7 +184,7 @@ Browser DOM proof, 2026-05-25:
 | `PrimitiveSpineCard.vue` base behavior | Specimen owned `.spine-card`, brand spine, copied kicker anatomy, stamp, body, compact grid sizing, and bone surface | Specimen imports `SpineCard`; source composes `Kicker` and owns the base brand-marked shell | pass for base primitive |
 | Source component exists | none under `src/components/primatives/` | `src/components/primatives/SpineCard.vue` | pass |
 | Kicker copy | Spine card copied `.kicker` and `.dot` internals | Source composes `Kicker` | pass |
-| Preset row | Horizontal action/status row lived inside primitive specimen | Kept local as `.preset-row-demo` and gate-parked as compound/control-row candidate | Taxonomy Gate parked |
+| Preset row | Horizontal action/status row lived inside primitive specimen | Promoted to `src/components/compounds/PresetRow.vue`; specimen composes source rows | pass |
 | Brand danger semantics | Tomato example used danger wording while brand tokens are semantically split | Preserved as content, parked behind existing brand/danger doctrine gate | Doctrine Gate remains |
 
 Browser DOM proof, 2026-05-25:
@@ -193,7 +193,26 @@ Browser DOM proof, 2026-05-25:
 - Each source SpineCard renders one Kicker child, one `.spine-card__stamp`, and one `.spine-card__body`.
 - Tone variants render for tomato, pine, plum, bone, and mustard; bone computes to the raised ink-3 surface.
 - Old local `.mark-tomato`, `.apply-btn`, and `.what` nodes render 0 nodes.
-- Three `.preset-row-demo` nodes remain as explicitly parked compound demos.
+- Three `.preset-row` nodes render from the promoted `PresetRow` compound; `.preset-row-demo` renders 0 nodes.
+
+## Slice Proof: PresetRow
+
+| Pattern | Before | After | Remaining |
+|---|---|---|---|
+| Source component | Preset-row action/status grammar lived inside `PrimitiveSpineCard.vue` and was repeated in `CompositionTopDrawer.vue` | `src/components/compounds/PresetRow.vue` owns row spine, Kicker child, preset name, action button, meta state, tone variants, disabled state, and action emit | pass |
+| SpineCard specimen | `PrimitiveSpineCard.vue` owned `.preset-row-demo` markup/CSS | Specimen imports and renders `PresetRow` examples | pass |
+| Top drawer composition | `CompositionTopDrawer.vue` owned local `.preset-row`, spine, name, and apply button CSS | Composition imports and renders `PresetRow` for visual presets | pass |
+
+Browser DOM proof, 2026-05-27:
+
+- `/style-guide` renders 7 `.preset-row` nodes from source `PresetRow`: 3 in the SpineCard specimen and 4 in the TopDrawer composition.
+- Old `.preset-row-demo` renders 0 nodes.
+- PresetRow renders 5 action buttons and 2 meta labels across the page.
+- The first row renders Kicker text `Soft Glass` and name `Soft Glass.` with no Chrome runtime log or exception events.
+
+Unit proof, 2026-05-27:
+
+- `PresetRow.test.ts` verifies Kicker/name/action composition, action emit, and meta-only state.
 
 ## Slice Proof: Mark
 

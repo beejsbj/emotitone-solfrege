@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import DrawerShell from "../../components/primatives/DrawerShell.vue";
+import PresetRow from "../../components/compounds/PresetRow.vue";
 
 type PaneName = "instrument" | "presets" | "settings";
 
@@ -17,11 +18,11 @@ const instruments = ["clavisynth", "fmpiano", "celesta", "piano", "steinway", "h
 const soundTabs = ["Sound", "All Sounds"];
 const synthTabs = ["Mall", "Strin", "Orga", "Winds", "Synth"];
 const presetRows = [
-  { name: "Soft Glass", color: "var(--tomato)" },
-  { name: "Pulse Lab", color: "var(--tomato)" },
-  { name: "Ambient Bloom", color: "var(--plum)" },
-  { name: "Classroom", color: "var(--pine)" },
-];
+  { name: "Soft Glass", tone: "tomato", kicker: "Visual" },
+  { name: "Pulse Lab", tone: "tomato", kicker: "Motion" },
+  { name: "Ambient Bloom", tone: "plum", kicker: "Ambient" },
+  { name: "Classroom", tone: "pine", kicker: "Lesson" },
+] as const;
 const presetTabs = ["Anim", "Freq", "Color", "Popup", "Scope"];
 const settings = [
   { name: "MIDI Input", value: "2 DEVICES · ROLI · BLOCKS" },
@@ -156,11 +157,15 @@ const openPane = (pane: PaneName) => {
           <div class="drawer-head">
             <div class="title">Visual presets</div>
           </div>
-          <div v-for="preset in presetRows" :key="preset.name" class="preset-row">
-            <span class="preset-spine" :style="{ background: preset.color }"></span>
-            <span class="preset-name">{{ preset.name }}</span>
-            <button class="preset-apply" type="button">Apply</button>
-          </div>
+          <PresetRow
+            v-for="preset in presetRows"
+            :key="preset.name"
+            class="composition-preset-row"
+            :tone="preset.tone"
+            :kicker="preset.kicker"
+            :name="preset.name"
+            action-label="Apply"
+          />
           <div class="seg seg--spaced">
             <button
               v-for="tab in presetTabs"
@@ -347,38 +352,8 @@ const openPane = (pane: PaneName) => {
   color: var(--ivory);
 }
 
-.preset-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.composition-preset-row {
   margin-bottom: 8px;
-  border: 1px solid var(--ink-5);
-  padding: 10px 12px;
-}
-
-.preset-spine {
-  width: 4px;
-  align-self: stretch;
-  flex-shrink: 0;
-}
-
-.preset-name {
-  flex: 1;
-  color: var(--ivory);
-  font: 400 18px/1 var(--font-display);
-  letter-spacing: .03em;
-  text-transform: uppercase;
-}
-
-.preset-apply {
-  border: 1px solid var(--ink-5);
-  background: transparent;
-  color: var(--ivory-3);
-  cursor: pointer;
-  font: 700 11px/1 var(--font-display);
-  letter-spacing: .14em;
-  padding: 4px 10px;
-  text-transform: uppercase;
 }
 
 .setting-item {

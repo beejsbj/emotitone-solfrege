@@ -34,7 +34,8 @@ Date: 2026-05-26
 | `src/components/primatives/Kicker.vue` | Extracted primitive | primitives | yes | promote | Source-first component for dot+label marker anatomy, tone, dot geometry, density, inverse, and form variants. |
 | `src/style-guide/primatives/PrimitiveKicker.vue` | Primitive specimen | primitives | no | keep local | Imports `Kicker.vue`; keeps guide staging and captions local. |
 | `src/components/primatives/SpineCard.vue` | Extracted primitive | primitives | yes | promote | Source-first component for brand spine panel, matching Kicker child, stamped headline, body copy, compact mode, and one-color rule. |
-| `src/style-guide/primatives/PrimitiveSpineCard.vue` | Primitive specimen plus parked compound demo | primitives/compounds | no | keep local / gate-park | Imports `SpineCard.vue`; preset-row demo is parked as compound candidate. |
+| `src/style-guide/primatives/PrimitiveSpineCard.vue` | Primitive specimen plus compound demo | primitives/compounds | no | keep local | Imports `SpineCard.vue`; preset-row demos compose `PresetRow.vue`. |
+| `src/components/compounds/PresetRow.vue` | Extracted compound | compounds | yes | promote | Source-first component for preset action/status row grammar; composes `Kicker` and owns row spine, name, action, and meta states. |
 | `src/components/primatives/Mark.vue` | Extracted primitive | primitives | yes | promote | Source-first component for flat SVG mark paths, named glyph API, tone, size, and fill/wire treatment. |
 | `src/style-guide/primatives/PrimitiveMarks.vue` | Primitive specimen | primitives | no | keep local | Imports `Mark.vue`; family panels, legends, and scale/treatment staging remain local. |
 | `src/components/primatives/ChipTabs.vue` | Extracted primitive | primitives | yes | promote | Source-first component for chip-slide rail, streak, active chip, selected/disabled state, geometry, density, and ivory/brass tone. |

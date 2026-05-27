@@ -170,8 +170,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Sticker `badge` may not belong as a `Sticker` variant.
   `PrimitiveSticker.vue:31-40` and `Sticker.vue:187-222` make badge ignore color and random geometry. That might be correct as a unique brass sticker variant, but it may also be a separate brass badge primitive.
 
-- `preset-row` is gate-parked as a compound/control row.
-  `PrimitiveSpineCard.vue` keeps local preset-row demos for apply/applied/expiring states, but `SpineCard.vue` does not absorb them into the primitive API.
+- `PresetRow` is resolved as a compound/control row.
+  `PrimitiveSpineCard.vue` and `CompositionTopDrawer.vue` compose `PresetRow` for apply/applied/expiring states; `SpineCard.vue` does not absorb them into the primitive API.
 
 - Mark API is resolved for this branch.
   Runtime API is `name`, `size`, `tone`, and `treatment`. `family` remains specimen taxonomy because it groups marks for inspection rather than changing render behavior.

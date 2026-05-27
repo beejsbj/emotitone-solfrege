@@ -37,13 +37,13 @@ const params = [
   { value: "3", label: "Rows" },
 ];
 const tiles = [
-  { key: "E5", syllable: "Do", pitch: "E4", background: "hsl(18 85% 56%)" },
-  { key: "F5", syllable: "Ra", pitch: "F4", background: "hsl(78 72% 52%)" },
-  { key: "G5", syllable: "Me", pitch: "G4", background: "hsl(108 62% 48%)" },
-  { key: "A5", syllable: "Fa", pitch: "A4", background: "hsl(178 68% 50%)" },
-  { key: "A#5", syllable: "Se", pitch: "A#4", background: "hsl(228 78% 58%)", dark: true },
-  { key: "C6", syllable: "Le", pitch: "C5", background: "hsl(282 66% 60%)", dark: true },
-  { key: "D6", syllable: "Te", pitch: "D5", background: "hsl(342 80% 56%)", dark: true },
+  { key: "E5", syllable: "Do", pitch: "E4", note: "do" },
+  { key: "F5", syllable: "Ra", pitch: "F4", note: "ra" },
+  { key: "G5", syllable: "Me", pitch: "G4", note: "me" },
+  { key: "A5", syllable: "Fa", pitch: "A4", note: "fa" },
+  { key: "A#5", syllable: "Se", pitch: "A#4", note: "se", dark: true },
+  { key: "C6", syllable: "Le", pitch: "C5", note: "le", dark: true },
+  { key: "D6", syllable: "Te", pitch: "D5", note: "te", dark: true },
 ];
 
 const openPane = (pane: PaneName) => {
@@ -98,7 +98,7 @@ const openPane = (pane: PaneName) => {
                 :key="tile.key"
                 class="tile"
                 :class="{ dark: tile.dark }"
-                :style="{ background: tile.background }"
+                :style="{ background: `var(--note-${tile.note})` }"
               >
                 <span class="corner">{{ tile.key }}</span>
                 <span class="syll">{{ tile.syllable }}</span>

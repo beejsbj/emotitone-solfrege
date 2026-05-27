@@ -34,7 +34,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
-| raw recipes resolved or gate-parked | partial | Token doctrine, primitive extraction, DrawerShell promotion, and brand unique extraction recipes are resolved or gate-parked; app integration decisions remain | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
+| raw recipes resolved or gate-parked | pass | Token doctrine, primitive extraction, DrawerShell promotion, brand unique extraction, top-drawer app alignment, and loading composition integration are resolved or gate-parked for current scope | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
 | source of truth named | pass | Tokens, primitives, PatternCard/PatternReel compounds, brand uniques, and current compositions have source paths or explicit keep-local status | `REPOSITORY_CONVENTIONS.md` |
 | specimens demonstrate, not define | pass | Current primitive, brand unique, and loading composition specimens import source components; top-drawer composition composes DrawerShell | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
@@ -66,10 +66,10 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| child primitive dependencies are explicit | partial | PatternCard names BarTape, IconButton, and CodeStrip; other compounds not closed | `PatternCard.vue`, `COVERAGE_AUDIT.md` |
-| slot contracts are explicit | partial | PatternCard and PatternReel prop contracts exist; other compounds not audited | `PatternCard.vue`, `PatternReel.vue` |
-| compounds compose children instead of duplicating internals | partial | PatternCard composes children and PatternReel composes PatternCard; other compounds not audited | `RESIDUE_PROOF.md` |
-| repeated child patterns are promoted or gate-parked | partial | PatternCard and PatternReel promoted | `PROMOTION_AUDIT.md` |
+| child primitive dependencies are explicit | pass | Current compound scope contains `PatternCard` and `PatternReel`; PatternCard names BarTape, IconButton, and CodeStrip, and PatternReel composes PatternCard | `PatternCard.vue`, `PatternReel.vue`, `COVERAGE_AUDIT.md` |
+| slot contracts are explicit | pass | PatternCard and PatternReel prop contracts exist for the current compound scope | `PatternCard.vue`, `PatternReel.vue` |
+| compounds compose children instead of duplicating internals | pass | PatternCard composes primitive children and PatternReel composes PatternCard; old pattern-card/reel primitive copies are pruned | `RESIDUE_PROOF.md` |
+| repeated child patterns are promoted or gate-parked | pass | PatternCard and PatternReel are promoted; the separate SpineCard preset-row candidate remains gate-parked as future compound/control-row work | `PROMOTION_AUDIT.md` |
 
 ### Unique Closure
 
@@ -85,7 +85,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 |---|---|---|---|
 | compositions use approved lower layers | pass | Top-drawer composition and production `TopDrawer.vue` compose/wrap `DrawerShell`; loading specimen and app adapter share `LoadingScreen` | `src/style-guide/compositions/*.vue`, `src/components/LoadingSplash.vue`, `src/components/TopDrawer.vue` |
 | composition-only content/orchestration/app state is separated from component grammar | pass | Top drawer product panes/controls stay local; loading app orchestration remains in `LoadingSplash.vue`; visual loading grammar lives in `LoadingScreen.vue` | `RESIDUE_PROOF.md`, `TAXONOMY_GATE.md` |
-| residue proof has no unresolved cross-cutting grammar | partial | Current composition residue is resolved; Finish Gate still needs all-layer audit | `RESIDUE_PROOF.md` |
+| residue proof has no unresolved cross-cutting grammar | pass | Finish Gate audit pruned remaining guide-stage hex and top-drawer raw HSL note colors; remaining decisions are named parked gates, not hidden residue | `RESIDUE_PROOF.md` |
 
 ## Promote / Prune / Keep-Local Decisions
 
@@ -114,7 +114,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
 | PatternReel compound | promote | Source-first component extracted and specimen imports it | Taxonomy + Promotion Gate |
 | Compound pattern artifacts | promote | PatternCard and PatternReel boundaries resolved for current pattern family | Taxonomy Gate |
-| Composition artifacts | gate-parked | Depend on lower-layer closure and residue proof | Composition Gate |
+| Composition artifacts | keep local / source aligned | `CompositionTopDrawer` composes `DrawerShell`; `CompositionLoadingScreen` imports `LoadingScreen`; production app wrappers are aligned | Composition Gate + App Integration Gate |
 
 ## Gate-Parked Decisions
 
@@ -148,23 +148,22 @@ Recommendation:
 - Treat brand cover and brand logo as true uniques.
 - Treat `UniqueCodeStrip.vue` as a legacy primitive specimen path.
 - Reclassify drawer as lower-layer source plus app-alignment debt, not a unique.
-- Keep loading/top-drawer previews as compositions, with app integration gates before production alignment.
-- Make Finish Gate residue audit the next implementation slice.
+- Keep loading/top-drawer previews as compositions; app integration gates have since aligned production wrappers.
+- Present the Finish Gate packet for user accept/continue/pause after current verification.
 
 Alternatives rejected:
 
 - Promote brand cover/logo to generic compounds: rejected because their identity is singular and brand-specific.
-- Close composition layer now: rejected because loading/top-drawer app sources are not aligned and composition-local controls are not audited for reuse.
+- Promote top-drawer panes/controls into compounds now: rejected because they remain composition-local and are not repeated outside this product-region proof.
 - Rewrite app `TopDrawer.vue` or `LoadingSplash.vue` during taxonomy: rejected because taxonomy is the naming gate, not app integration.
 
 Unresolved risk:
 
-- Unique source extraction may still need visual proof against the original specimen surfaces.
-- App `TopDrawer.vue` alignment may require adapting or wrapping `DrawerShell` without losing current production behavior.
+- User must still accept, continue, or pause at the Finish Gate before the design-lab run is called complete.
 
 Unblocks:
 
-- Finish Gate residue audit and any remaining gate cleanup.
+- Finish Gate user decision.
 
 ## Unique Extraction Decision Packet
 

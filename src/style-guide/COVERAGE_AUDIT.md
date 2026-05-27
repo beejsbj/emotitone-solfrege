@@ -67,12 +67,12 @@ Date: 2026-05-26
 - Primitive source components are extracted for current style-guide primitive specimens and the primitive closure proof is recorded in `LAYER_CLOSURE.md` / `RESIDUE_PROOF.md`.
 - Reusable compound source location is established for `PatternCard` and `PatternReel`.
 - Unique source location is established for singular brand artifacts under `src/components/uniques/`.
-- Token closure, unique closure, and composition app integration are recorded for current style-guide scope; Finish Gate residue remains incomplete.
+- Token closure, primitive closure, compound closure, unique closure, and composition app integration are recorded for current style-guide scope.
 - Promotion decisions exist in `PROMOTION_AUDIT.md`; remaining token-adjacent work is parked as app/component migration rather than open token doctrine.
 - Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`; brand unique source extraction, top-drawer app integration, and loading app integration are complete.
-- Residue proof has run for primitive extraction, pattern compounds, brand uniques, and current compositions; Finish Gate proof still needs a final all-layer audit.
+- Residue proof has run for primitive extraction, pattern compounds, brand uniques, current compositions, and the final all-layer Finish Gate audit.
 
 ## Current Coverage Verdict
 
-- Coverage map exists, but full completion is not proven.
-- Brand unique extraction, DrawerShell promotion, token closure, app `TopDrawer.vue` alignment, and loading composition integration are recorded; next movement should be Finish Gate residue audit.
+- Coverage map is current for the design-lab scope and every listed row has a resolution.
+- Brand unique extraction, DrawerShell promotion, token closure, app `TopDrawer.vue` alignment, loading composition integration, and Finish Gate residue audit are recorded; user Finish Gate acceptance is still required before calling the run complete.

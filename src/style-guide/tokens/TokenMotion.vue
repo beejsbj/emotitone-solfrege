@@ -433,7 +433,7 @@
 .kf:nth-child(7) { transform: rotate(-0.3deg); }
 
 .stage {
-  background: #0a0908;
+  background: var(--ink);
   border: 1px solid var(--ink-5);
   box-sizing: border-box;
   position: relative;
@@ -708,7 +708,7 @@
 .kf-stage {
   width: 100px;
   height: 70px;
-  background: #0a0908;
+  background: var(--ink);
   border: 1px solid var(--ink-5);
   box-sizing: border-box;
   position: relative;

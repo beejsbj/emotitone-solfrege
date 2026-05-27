@@ -4,31 +4,66 @@ Date: 2026-05-26
 
 ## Status
 
-Token doctrine, primitive extraction, brand unique extraction, DrawerShell promotion, production top-drawer alignment, and loading composition integration are cleared for current surfaces. Overall design-lab residue still needs a final Finish Gate audit.
+Token doctrine, primitive extraction, compound pattern extraction, brand unique extraction, DrawerShell promotion, production top-drawer alignment, loading composition integration, and final all-layer residue audit are cleared for current surfaces. User Finish Gate acceptance is still required before calling the design-lab run complete.
 
 ## Pattern Checks
 
 | Pattern | Check Method | Current Result | Resolution |
 |---|---|---|---|
-| Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/components/uniques src/emotitone-design-system.css` | brand unique SVG fills were pruned to tokens; remaining hits require current search proof before Finish Gate | token/composition gates |
-| Raw px values in higher layers | inspect extracted components and specimens per slice | known many in specimens | keep local/promote/prune per slice |
+| Raw hex colors in specimens/components | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/components/compounds src/components/uniques src/components/compositions src/emotitone-design-system.css` | remaining hits are token source values, token swatch labels, and historical audit text; no component/source/specimen styling hex remains outside token docs | pass |
+| Raw px values in higher layers | inspect extracted components and specimens per slice | many component dimensions remain intentionally component-local anatomy; no repeated px recipe was found crossing unresolved layers in the Finish Gate sweep | keep local/promote/prune per slice |
 | Raw durations/easings | inspect CSS for `ms`, `s`, `cubic-bezier` outside tokens | global brass timing normalized to 6.5s; component-specific badge timing remains parked behind Sticker badge taxonomy | Promotion Gate / Sticker Badge Gate |
 | Repeated clip-path polygons | inspect `clip-path` in primitives | IconButton, ChipTabs, and Key use existing tokens for exact matches | prune to tokens where exact |
-| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, and PatternReel copies are pruned from pattern compounds; unresolved hits are unique/composition surfaces | unique/composition Taxonomy Gate |
+| Duplicated primitive internals in compounds/compositions | inspect compounds/compositions after primitive extraction | BarTape, IconButton, CodeStrip, PatternCard, PatternReel, DrawerShell, and LoadingScreen copies are pruned from current higher layers | pass |
 | One-offs not marked unique | inspect unique and composition specimens | `BrandCover` and `BrandLogo` now live in `src/components/uniques`; `UniqueCodeStrip` and `UniqueDrawer` are legacy specimen paths for lower layers | pass for current unique surfaces |
 | Specimens defining source behavior | compare `src/style-guide/primatives` to `src/components/primatives` | all 12 current primitive specimens import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass for primitive layer |
 | Guide helpers copied instead of composed | inspect primitive specimens for anatomy/variant chrome | remaining guide/spec chrome is accepted as inspection surface, not implementation source | keep local |
-| Unique/composition taxonomy drift | inspect `src/style-guide/uniques`, `src/style-guide/compositions`, and matching app sources | run 2026-05-27; brand cover/logo are true uniques, drawer shell is promoted to `DrawerShell`, top drawer app wrapper is aligned, and loading source composition is shared by app/specimen | `TAXONOMY_GATE.md`, `PROMOTION_AUDIT.md` |
+| Unique/composition taxonomy drift | inspect `src/style-guide/uniques`, `src/style-guide/compositions`, and matching app sources | run 2026-05-27; brand cover/logo are true uniques, drawer shell is promoted to `DrawerShell`, top drawer app wrapper is aligned, and loading source composition is shared by app/specimen | pass |
 
 ## Current Residue Verdict
 
-- Residue remains unresolved for the full design lab.
-- The run cannot be called complete.
-- Token layer may close for current style-guide scope: token source owns groups, aliases, music recipe, type utilities, spacing roles, and documented exceptions; app/component migrations remain parked.
-- Primitive extraction layer may close for current scope: every current primitive specimen is source-first, old raw primitive class families have been pruned from primitive/compound specimens, and remaining primitive-adjacent decisions are gate-parked.
-- Compound pattern family residue is cleared for `PatternCard` and `PatternReel`; remaining compound/composition closure depends on the next taxonomy audit.
-- Unique/composition taxonomy is now classified; brand unique and current composition implementation are source-first for current scope.
-- `UniqueDrawer.vue`, `CompositionTopDrawer.vue`, and app `TopDrawer.vue` now share `DrawerShell` as the drawer shell source.
+- Token layer closes for current style-guide scope: token source owns groups, aliases, music recipe, type utilities, spacing roles, and documented exceptions; app/component migrations remain parked.
+- Primitive extraction layer closes for current scope: every current primitive specimen is source-first, old raw primitive class families have been pruned from primitive/compound specimens, and remaining primitive-adjacent decisions are gate-parked.
+- Compound layer closes for current scope: current compound artifacts are `PatternCard` and `PatternReel`, both source-first and composed.
+- Unique/composition taxonomy is classified; brand unique and current composition implementation are source-first for current scope.
+- `UniqueDrawer.vue`, `CompositionTopDrawer.vue`, and app `TopDrawer.vue` share `DrawerShell` as the drawer shell source.
+- `CompositionLoadingScreen.vue` and app `LoadingSplash.vue` share `LoadingScreen` as the loading visual source.
+- The only remaining completion requirement is the user Finish Gate decision: accept, continue, or pause.
+
+## Finish Gate Audit, 2026-05-27
+
+| Requirement | Evidence | Result |
+|---|---|---|
+| Coverage rows resolved | `rg "\|\s*\|" src/style-guide/COVERAGE_AUDIT.md src/style-guide/STYLE_GUIDE_SCHEMA.md src/style-guide/PROMOTION_AUDIT.md src/style-guide/RAW_RECIPE_INVENTORY.md src/style-guide/LAYER_CLOSURE.md` | no empty table cells found |
+| Current source/specimen inventory known | `find src/style-guide ...` and `find src/components/primatives src/components/compounds src/components/uniques src/components/compositions ...` | current scope contains 12 primitive specimens, 2 compound specimens, 4 unique specimens, 2 composition specimens, 14 primitive sources, 2 compound sources, 2 unique sources, and 1 composition source |
+| Raw styling hex outside token docs | `rg "#[0-9a-fA-F]{3,8}" src/style-guide src/components/primatives src/components/compounds src/components/uniques src/components/compositions src/emotitone-design-system.css` | remaining hits are token source values, token swatch labels, and historical audit text; guide-stage `#0a0908` uses were pruned to `var(--ink)` |
+| Raw HSL in higher layers | `rg "hsla?\(" src/style-guide/compositions src/components/compositions src/components/compounds src/components/uniques src/components/primatives src/style-guide/compounds src/style-guide/uniques src/style-guide/primatives` | no hits after top-drawer demo tiles moved to `var(--note-*)` tokens |
+| Raw higher-layer hex in source/specimen styling | `rg "background: \"hsl|background:\s*#[0-9a-fA-F]|#[0-9a-fA-F]{3,8}" src/style-guide/compositions src/style-guide/compounds src/style-guide/uniques src/style-guide/primatives src/components/compositions src/components/compounds src/components/uniques src/components/primatives` | no hits |
+| Clip-path duplication | `rg "clip-path|polygon\(" src/style-guide src/components/primatives src/components/compounds src/components/uniques src/components/compositions src/emotitone-design-system.css` | reusable components consume clip tokens; remaining polygons are token definitions/specimen token demonstrations |
+| Old primitive class copies | `rg "class=\"(bar-tape|beats|panel-card|ico|cs|kicker|spine-card|mark|p5-tabs|knob|key)\b|\.(bar-tape|beats|panel-card|ico|cs|kicker|spine-card|mark|p5-tabs|knob|key)\b" src/style-guide/primatives src/style-guide/compounds src/style-guide/uniques src/style-guide/compositions` | only expected `PrimitiveMarks.vue :deep(.mark)` styling and key text references remain; no old primitive-defining copies in specimens |
+| Open closure wording | `rg "not audited|app integration decisions remain|Composition artifacts \| gate-parked|remaining compound/composition closure|Finish Gate still needs|cannot be called complete|Residue remains unresolved" src/style-guide/LAYER_CLOSURE.md src/style-guide/RESIDUE_PROOF.md src/style-guide/COVERAGE_AUDIT.md \| rg -v "Open closure wording"` | stale blocker wording removed or replaced with user Finish Gate decision requirement |
+
+Finish Gate packet:
+
+- Evidence: layer source paths are named, coverage rows are resolved, current compound/composition scope is source-first, raw higher-layer color residue is pruned, and verification commands below pass.
+- Recommendation: accept the current decomposed style-guide scope as complete, with named future work remaining parked behind explicit gates.
+- Alternatives rejected: expand scope into production knob migration, Sticker badge taxonomy, or SpineCard preset-row promotion now; those are already named future gates and are not hidden residue in the current style-guide decomposition.
+- Unresolved risk: the user has not yet made the required Finish Gate decision.
+- Unblocks: if the user accepts, the active design-lab goal can be marked complete.
+
+Browser DOM proof, 2026-05-27:
+
+- `/style-guide` renders with 5 sink sections and no Chrome runtime log or exception events.
+- Source families render in the page: BarTape 22, BeatIndicator 13, CardShell 6, IconButton 56, CodeStrip 17, Kicker 27, SpineCard 6, Mark 31, ChipTabs 10, Knob 18, Key 28, DrawerShell 4, PatternCard 19, PatternReel 4, BrandCover 1, BrandLogo 7, and LoadingScreen 1.
+- The top-drawer composition's first note tile computes to `rgb(238, 105, 47)` from `--note-do: hsl( 18  85% 56%)`.
+- The shared guide `.state-frame` background computes to `rgb(10, 9, 8)` after replacing hardcoded stage hex with `var(--ink)`.
+
+Command proof, 2026-05-27:
+
+- `bun run type-check` passes.
+- `bun run build` passes; Vite builds 226 modules. The only note is the existing stale Browserslist/caniuse-lite warning.
+- `bun run test:run src/__tests__/components/ui/TopDrawer.test.ts src/__tests__/components/ui/LoadingScreen.test.ts` passes 3 tests.
+- `git diff --check` passes.
 
 ## Slice Proof: Token Closure
 
@@ -59,7 +94,7 @@ Browser DOM proof, 2026-05-26:
 
 ## Next Proof Step
 
-- Run Finish Gate residue audit.
+- Present the Finish Gate packet to the user for accept/continue/pause.
 
 ## Slice Proof: Pattern Compounds Compose BarTape
 
@@ -299,12 +334,12 @@ Primitive closure decision, 2026-05-25:
 | Misclassified drawer unique | `UniqueDrawer.vue` demonstrates reusable drawer anatomy; `CompositionTopDrawer.vue` repeats drawer shell; app `TopDrawer.vue` exists | reclassified and promoted as `DrawerShell`; app wrapper now composes it |
 | Loading screen source split | `CompositionLoadingScreen.vue` was visual proof; `src/components/LoadingSplash.vue` owns loading/audio/MIDI/error behavior | `LoadingScreen.vue` promoted as source composition; `LoadingSplash.vue` remains behavior adapter |
 | Top drawer composition | `CompositionTopDrawer.vue` owns product panes/content and app-region context | keep as composition proof; drawer shell cannot stay hidden inside it |
-| Raw higher-layer residue | Earlier searches found raw SVG fills, inline styles, raw HSL tiles, and local drawer/control classes in unique/composition files | current composition sources are aligned; final raw-value sweep remains for Finish Gate |
+| Raw higher-layer residue | Earlier searches found raw SVG fills, inline styles, raw HSL tiles, and local drawer/control classes in unique/composition files | current composition sources are aligned; Finish Gate sweep pruned remaining raw guide-stage hex and top-drawer HSL tile residue |
 
 Taxonomy decision, 2026-05-26:
 
 - The next implementation slice should not start with brand polish.
-- Brand unique extraction, DrawerShell Promotion Gate, app `TopDrawer.vue` alignment, loading composition integration, and token doctrine are resolved; the next blocker is Finish Gate residue audit.
+- Brand unique extraction, DrawerShell Promotion Gate, app `TopDrawer.vue` alignment, loading composition integration, token doctrine, and Finish Gate residue audit are resolved; the next blocker is the user Finish Gate decision.
 
 ## Slice Proof: Loading Composition Integration
 

@@ -59,7 +59,7 @@ html, body {
 .state-frame {
   position: relative;
   border: 1px solid var(--hairline);
-  background: #0a0908;
+  background: var(--ink);
   padding: 24px 16px 14px;
 }
 .state-pin {

@@ -25,10 +25,13 @@ Date: 2026-05-24
 - Reusable compound source directory: `src/components/compounds/`.
 - Current extracted compound model: `src/components/compounds/PatternCard.vue`.
 - Current compound specimens remain under `src/style-guide/compounds/`.
+- Composition source directory: `src/components/compositions/`.
+- Current extracted composition model: `src/components/compositions/LoadingScreen.vue`.
 - Unique source directory: `src/components/uniques/`.
 - Current extracted unique models: `src/components/uniques/BrandCover.vue` and `src/components/uniques/BrandLogo.vue`.
 - Unique specimens remain under `src/style-guide/uniques/` and import source uniques for inspection.
 - Compound source creation is allowed only after lower child primitives for that compound are extracted or explicitly gate-parked.
+- Composition source creation is allowed after taxonomy confirms app-state scope and app integration can preserve behavior.
 
 ## Specimen / Style-Guide Location
 
@@ -101,4 +104,4 @@ Date: 2026-05-24
 
 ## Gate Decision
 
-continue under existing branch conventions; primitive sources live in `src/components/primatives/`; compound sources may live in `src/components/compounds/` after their child primitive dependencies are source-first; true singular unique sources live in `src/components/uniques/` after taxonomy accepts their one-off role
+continue under existing branch conventions; primitive sources live in `src/components/primatives/`; compound sources may live in `src/components/compounds/` after their child primitive dependencies are source-first; composition sources may live in `src/components/compositions/` after taxonomy and app-integration gates preserve app behavior; true singular unique sources live in `src/components/uniques/` after taxonomy accepts their one-off role

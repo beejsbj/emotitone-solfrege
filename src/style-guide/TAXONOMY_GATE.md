@@ -25,10 +25,10 @@ Artifacts inspected:
 | Brand logo / wordmark | `UniqueBrandLogo.vue` | unique | Source-extracted as singular `BrandLogo.vue`; not a generic component family | closed for unique source extraction |
 | Code strip | `UniqueCodeStrip.vue` | primitive specimen | Already reclassified; keep as legacy specimen path only | Naming/Navigation Gate |
 | Drawer anatomy | `UniqueDrawer.vue` | primitive, not unique | Promoted to `DrawerShell`; `UniqueDrawer.vue` is now a legacy specimen/prototype path | App Integration Gate for production `TopDrawer.vue` |
-| Loading screen preview | `CompositionLoadingScreen.vue` | composition | Keep as composition proof/design target; reconcile against app `LoadingSplash.vue` later | App Integration Gate |
+| Loading screen preview | `CompositionLoadingScreen.vue` | composition specimen | Imports `LoadingScreen.vue` as the loading composition inspection surface | App Integration Gate resolved 2026-05-27 |
 | Top drawer preview | `CompositionTopDrawer.vue` | composition | Keep as composition proof; compose promoted `DrawerShell`; local controls remain composition-local until reuse is proven | App Integration Gate |
 | Current app top drawer | `src/components/TopDrawer.vue` | app source | Existing behavior source, visually simpler than style-guide drawer grammar | App Integration Gate |
-| Current app loading splash | `src/components/LoadingSplash.vue` | app source | Existing behavior source, visually divergent from style-guide composition | App Integration Gate |
+| Current app loading splash | `src/components/LoadingSplash.vue` | app source | Behavior source now feeds state/actions into `LoadingScreen.vue` | App Integration Gate resolved 2026-05-27 |
 
 ## Taxonomy Gate: Brand Cover
 
@@ -137,9 +137,9 @@ Candidate layer: composition
 
 Evidence:
 
-- `CompositionLoadingScreen.vue` is a full app-state proof: fixed stage, file mark, scatter, brand headline, sticker, progress row, chromatic tape, and loading copy.
+- `CompositionLoadingScreen.vue` began as a full app-state proof: fixed stage, file mark, scatter, brand headline, sticker, progress row, chromatic tape, and loading copy.
 - `src/components/LoadingSplash.vue` is the current app source and owns loading state, audio/MIDI decisions, progress, errors, ready state, and dev skip behavior.
-- The two artifacts are visually divergent: the app source is monochrome/staff/waveform-based, while the style-guide composition is cut-paper jazz with chromatic progress.
+- App Integration Gate 2026-05-27 resolved the visual split by promoting `src/components/compositions/LoadingScreen.vue`; the style-guide specimen imports it and app `LoadingSplash.vue` feeds state/actions into it.
 
 Why not lower:
 
@@ -155,13 +155,13 @@ Alternatives rejected:
 - Calling the style-guide loading screen the source of truth: rejected because current app behavior lives in `LoadingSplash.vue`.
 - Rewriting `LoadingSplash.vue` in this taxonomy slice: rejected because app integration must preserve behavior and verify states.
 
-Unresolved risk:
+Resolved risk:
 
-- App integration must map loading states onto approved lower layers without losing audio/MIDI/error behavior.
+- App integration maps loading states onto `LoadingScreen.vue` without moving audio/MIDI/error behavior out of `LoadingSplash.vue`.
 
 Unblocks:
 
-- Composition/App Integration Gate for loading splash alignment.
+- Finish Gate residue audit.
 
 ## Taxonomy Gate: Top Drawer Composition
 

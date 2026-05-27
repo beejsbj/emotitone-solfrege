@@ -71,7 +71,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Code-strip boundary | Unique + compound files | Primitive, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: primitive |
 | Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | resolved: PatternCard owns shapes; PatternReel owns choreography |
 | App top-drawer alignment | `src/components/TopDrawer.vue`, `src/components/primatives/DrawerShell.vue` | Whether production `TopDrawer.vue` should adopt, wrap, or remain separate from the promoted style-guide `DrawerShell` | App Integration Gate | resolved: production wrapper composes `DrawerShell` and preserves existing slot API |
-| Loading splash alignment | `CompositionLoadingScreen.vue`, `src/components/LoadingSplash.vue` | Whether to map the style-guide composition into the behavior-heavy app loading source | App Integration Gate | pending |
+| Loading splash alignment | `CompositionLoadingScreen.vue`, `src/components/LoadingSplash.vue` | Whether to map the style-guide composition into the behavior-heavy app loading source | App Integration Gate | resolved: `LoadingScreen` source composition; `LoadingSplash` behavior adapter |
 | Unique source location | `UniqueBrandCover.vue`, `UniqueBrandLogo.vue` | Whether to establish `src/components/uniques/` or keep singular artifacts style-guide-local | Repository Conventions/Unique Extraction Gate | resolved: `src/components/uniques/` |
 | Key geometry recipes | `PrimitiveKeys.vue` | Reuse generic clip tokens where exact; promote pill/tall/wide/squary as component variants | Promotion Gate | resolved |
 | Mark API | `PrimitiveMarks.vue` | `name`, `size`, `tone`, `treatment`; family remains specimen taxonomy | Promotion Gate | resolved |
@@ -94,7 +94,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `UniqueBrandCover.vue` | Fixed brand cover uses raw SVG fills/transforms, local stamp, and cover layout | resolved for unique source: `BrandCover` owns fixed artifact; SVG fills now consume brand tokens. |
 | `UniqueBrandLogo.vue` | Wordmark/monogram/tagline/note-mark lockups use local variant tiles and inline note marks | resolved for unique source: `BrandLogo` owns lockups; inline note-mark styles moved to source classes. |
 | `UniqueDrawer.vue` / `CompositionTopDrawer.vue` / `src/components/TopDrawer.vue` | Drawer shell behavior repeats across style-guide specimens and overlaps current app source | resolved: `DrawerShell` source component promoted and production `TopDrawer.vue` wraps it. |
-| `CompositionLoadingScreen.vue` / `src/components/LoadingSplash.vue` | Loading visual composition and app behavior source diverge | gate-parked: app integration must preserve loading/audio/MIDI/error states while applying approved design grammar. |
+| `CompositionLoadingScreen.vue` / `src/components/LoadingSplash.vue` | Loading visual composition and app behavior source diverged | resolved: `LoadingScreen` owns visual grammar and app `LoadingSplash` preserves loading/audio/MIDI/error behavior as adapter. |
 | `CompositionTopDrawer.vue` | Composition contains local drawer controls, instrument/preset/settings content, and app keyboard context | keep composition-local unless controls repeat; drawer shell now composes `DrawerShell`. |
 | `PrimitiveKeys.vue` | Generic clips existed, but key-specific recipes were local | resolved for style-guide: `Key` source component owns face, label stack, format, cuts, proportions, pressed/disabled states, and sheen. |
 | `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing were local | resolved for style-guide: `ChipTabs` source component owns rail/chip/streak grammar, active chip measurement, geometry, density, tone, and selected/disabled state. |
@@ -120,8 +120,8 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Brand logo classification | true unique | Wordmark, monogram, tagline, brass signal, inverted, and note-mark lockups are brand identity variants | source extracted |
 | CodeStrip legacy path | primitive specimen | `UniqueCodeStrip.vue` already imports `CodeStrip.vue` and is not a unique | naming/navigation gate |
 | Drawer classification | not unique | Drawer shell repeats in `UniqueDrawer.vue` and `CompositionTopDrawer.vue`, and overlaps app `TopDrawer.vue` | promoted for style-guide and app wrapper alignment |
-| Loading screen classification | composition | Style-guide loading screen proves visual state; `LoadingSplash.vue` owns current app behavior | App Integration Gate |
-| Top drawer composition | composition with app-alignment resolved | Product panes/content are composition-local; drawer shell composes `DrawerShell`; app `TopDrawer.vue` wraps the same shell | loading alignment remains before composition closure |
+| Loading screen classification | composition | Style-guide loading screen proves visual state; `LoadingSplash.vue` owns current app behavior | App Integration Gate resolved 2026-05-27 |
+| Top drawer composition | composition with app-alignment resolved | Product panes/content are composition-local; drawer shell composes `DrawerShell`; app `TopDrawer.vue` wraps the same shell | pass for current composition scope |
 
 ## Gate-Parked Decisions
 
@@ -182,6 +182,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | UniqueDrawer drawer shell | prune to source import | Legacy drawer specimen now imports `DrawerShell` instead of owning shell/controller behavior | Promotion Gate 2026-05-26 |
 | CompositionTopDrawer drawer shell | prune to source import | Top-drawer composition now composes `DrawerShell`; panes and controls remain composition-local | Promotion Gate 2026-05-26 |
 | App TopDrawer alignment | promote wrapper adoption | Existing app `TopDrawer.vue` now composes `DrawerShell` while keeping Teleport, trigger/panel slots, offsets, and public open/close/toggle controls | App Integration Gate 2026-05-27 |
+| LoadingScreen source composition | promote | Loading screen is a concrete app state with brand composition, progress, ready, error, audio, MIDI, and dev-skip states | App Integration Gate 2026-05-27 |
 | Unique source path | promote | `src/components/uniques/` gives true uniques source-first ownership without treating specimens as implementation | Repository Conventions/Unique Extraction Gate 2026-05-26 |
 | BrandCover source component | promote | The cover is singular but still deserves a source artifact separate from inspection markup | Unique Extraction Gate 2026-05-26 |
 | BrandLogo source component | promote | The identity lockups are singular brand system artifacts, not generic primitive/compound UI | Unique Extraction Gate 2026-05-26 |

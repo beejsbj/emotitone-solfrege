@@ -7,6 +7,7 @@ Date: 2026-05-26
 - Current branch style-guide artifacts under `src/style-guide/`.
 - Branch-local token file `src/emotitone-design-system.css`.
 - Reusable primitive source folder `src/components/primatives/`.
+- Reusable composition source folder `src/components/compositions/`.
 - Reusable unique source folder `src/components/uniques/`.
 - Existing app sources that correspond to remaining composition proofs.
 - Upstream doctrine and preview tier names as reference evidence.
@@ -55,8 +56,9 @@ Date: 2026-05-26
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | keep local | Imports `BrandLogo.vue`; specimen keeps anatomy and variant grid only. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | Legacy primitive specimen path | primitives/specimen | no | keep local | Imports `CodeStrip.vue`; path remains under uniques until navigation/file organization gate. |
 | `src/style-guide/uniques/UniqueDrawer.vue` | Legacy drawer-shell specimen path | primitives/specimen | no | keep local | Imports `DrawerShell.vue`; no longer defines drawer shell behavior locally. |
-| `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | keep local / app integration gate | Full loading-state proof; app source `LoadingSplash.vue` owns current behavior. |
-| `src/components/LoadingSplash.vue` | App loading source | compositions/app source | yes, for current app | app integration gate | Behavior-heavy current loading screen; visually divergent from style-guide composition. |
+| `src/components/compositions/LoadingScreen.vue` | Composition source | compositions | yes | promote | Source loading-screen visual grammar and state display API. |
+| `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | keep local | Imports `LoadingScreen.vue`; caption stays specimen-local. |
+| `src/components/LoadingSplash.vue` | App loading source | compositions/app source | yes, for current app | app integration resolved | Behavior adapter preserves loading/audio/MIDI/error/dev-skip behavior while feeding `LoadingScreen.vue`. |
 | `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | keep local | Product drawer proof; composes `DrawerShell.vue`; local controls remain composition-local until repeated elsewhere. |
 | `src/components/TopDrawer.vue` | App drawer source | app source | yes, for current app | app integration resolved | Production wrapper now composes `DrawerShell.vue` while preserving trigger/panel slots, Teleport, public methods, and consumer offsets. |
 
@@ -65,12 +67,12 @@ Date: 2026-05-26
 - Primitive source components are extracted for current style-guide primitive specimens and the primitive closure proof is recorded in `LAYER_CLOSURE.md` / `RESIDUE_PROOF.md`.
 - Reusable compound source location is established for `PatternCard` and `PatternReel`.
 - Unique source location is established for singular brand artifacts under `src/components/uniques/`.
-- Token closure is recorded for current style-guide scope; unique closure, composition closure, and Finish Gate residue remain incomplete.
+- Token closure, unique closure, and composition app integration are recorded for current style-guide scope; Finish Gate residue remains incomplete.
 - Promotion decisions exist in `PROMOTION_AUDIT.md`; remaining token-adjacent work is parked as app/component migration rather than open token doctrine.
-- Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`; brand unique source extraction and top-drawer app integration are complete, while loading app integration remains.
-- Residue proof has run for primitive extraction and pattern compounds, and taxonomy residue has been classified for remaining unique/composition surfaces; it has not closed unique/composition implementation.
+- Unique/composition taxonomy is recorded in `TAXONOMY_GATE.md`; brand unique source extraction, top-drawer app integration, and loading app integration are complete.
+- Residue proof has run for primitive extraction, pattern compounds, brand uniques, and current compositions; Finish Gate proof still needs a final all-layer audit.
 
 ## Current Coverage Verdict
 
 - Coverage map exists, but full completion is not proven.
-- Brand unique extraction, DrawerShell promotion, token closure, and app `TopDrawer.vue` alignment are recorded; next movement should be loading composition integration.
+- Brand unique extraction, DrawerShell promotion, token closure, app `TopDrawer.vue` alignment, and loading composition integration are recorded; next movement should be Finish Gate residue audit.

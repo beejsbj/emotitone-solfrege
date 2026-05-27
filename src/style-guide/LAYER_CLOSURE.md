@@ -35,8 +35,8 @@ current recovery state across token, primitive, compound, unique, and compositio
 |---|---|---|---|
 | source artifacts listed | pass | Schema and coverage audit list current artifacts | `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md` |
 | raw recipes resolved or gate-parked | partial | Token doctrine, primitive extraction, DrawerShell promotion, and brand unique extraction recipes are resolved or gate-parked; app integration decisions remain | `RAW_RECIPE_INVENTORY.md`, `PROMOTION_AUDIT.md` |
-| source of truth named | partial | Tokens/primitives/PatternCard compound/brand uniques/specimens named; compositions still include app integration gates | `REPOSITORY_CONVENTIONS.md` |
-| specimens demonstrate, not define | partial | Current primitive and brand unique specimens now import source components; compositions still need app integration audits | `COVERAGE_AUDIT.md` |
+| source of truth named | pass | Tokens, primitives, PatternCard/PatternReel compounds, brand uniques, and current compositions have source paths or explicit keep-local status | `REPOSITORY_CONVENTIONS.md` |
+| specimens demonstrate, not define | pass | Current primitive, brand unique, and loading composition specimens import source components; top-drawer composition composes DrawerShell | `COVERAGE_AUDIT.md` |
 | coverage rows have Resolution | pass | Initial coverage rows include non-empty resolution state | `COVERAGE_AUDIT.md` |
 
 ## Per-Layer Closure Proof
@@ -83,9 +83,9 @@ current recovery state across token, primitive, compound, unique, and compositio
 
 | Check | Status | Proof | Linked Artifacts |
 |---|---|---|---|
-| compositions use approved lower layers | partial | Top-drawer composition and production `TopDrawer.vue` now compose/wrap `DrawerShell`; loading app-source alignment has not run | `src/style-guide/compositions/*.vue`, `src/components/LoadingSplash.vue`, `src/components/TopDrawer.vue` |
-| composition-only content/orchestration/app state is separated from component grammar | partial | Top drawer product panes/controls are local while drawer shell is sourced in style-guide and app; loading visual target is still divergent from app behavior source | `RESIDUE_PROOF.md`, `TAXONOMY_GATE.md` |
-| residue proof has no unresolved cross-cutting grammar | fail | Residue remains | `RESIDUE_PROOF.md` |
+| compositions use approved lower layers | pass | Top-drawer composition and production `TopDrawer.vue` compose/wrap `DrawerShell`; loading specimen and app adapter share `LoadingScreen` | `src/style-guide/compositions/*.vue`, `src/components/LoadingSplash.vue`, `src/components/TopDrawer.vue` |
+| composition-only content/orchestration/app state is separated from component grammar | pass | Top drawer product panes/controls stay local; loading app orchestration remains in `LoadingSplash.vue`; visual loading grammar lives in `LoadingScreen.vue` | `RESIDUE_PROOF.md`, `TAXONOMY_GATE.md` |
+| residue proof has no unresolved cross-cutting grammar | partial | Current composition residue is resolved; Finish Gate still needs all-layer audit | `RESIDUE_PROOF.md` |
 
 ## Promote / Prune / Keep-Local Decisions
 
@@ -109,7 +109,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | Brand cover | promote as unique source | Singular brand artifact, not reusable component grammar | Unique Extraction Gate |
 | Brand logo | promote as unique source | Singular brand identity system | Unique Extraction Gate |
 | App top-drawer alignment | promote wrapper adoption | Production `TopDrawer.vue` wraps `DrawerShell` while preserving Teleport, trigger/panel slots, offsets, and public methods | App Integration Gate |
-| Loading screen composition | gate-parked | Style-guide visual proof diverges from app `LoadingSplash.vue` behavior source | App Integration Gate |
+| Loading screen composition | promote source composition | `LoadingScreen.vue` owns visual grammar; app `LoadingSplash.vue` preserves behavior and feeds state/actions | App Integration Gate |
 | Top drawer composition | keep local / app integrated | Composition proof composes `DrawerShell`; local controls remain composition-local and production `TopDrawer.vue` wraps the shell | App Integration Gate 2026-05-27 |
 | PatternCard compound | promote | Source-first component extracted and specimens import it | Repository Conventions + Promotion Gate |
 | PatternReel compound | promote | Source-first component extracted and specimen imports it | Taxonomy + Promotion Gate |
@@ -131,7 +131,7 @@ current recovery state across token, primitive, compound, unique, and compositio
 | SpineCard preset row | Taxonomy Gate | user + agent | 2026-05-25 | Decide whether the action/status row becomes a compound/control-row source component | yes |
 | Production knob alignment | App Integration Gate | user + agent | 2026-05-25 | Decide whether behavior-heavy app knobs adopt the visual primitive | yes |
 | App top-drawer alignment | App Integration Gate | agent + user | 2026-05-27 | Production `TopDrawer.vue` wraps promoted `DrawerShell` without changing consumer slot contracts | yes |
-| Loading splash alignment | App Integration Gate | user + agent | 2026-05-26 | Map style-guide loading composition onto `LoadingSplash.vue` without losing loading/audio/MIDI/error behavior | no for composition closure |
+| Loading splash alignment | App Integration Gate | agent + user | 2026-05-27 | `LoadingScreen.vue` promoted; `LoadingSplash.vue` keeps loading/audio/MIDI/error behavior as adapter | yes |
 
 ## Unique / Composition Taxonomy Decision Packet
 
@@ -140,7 +140,7 @@ Evidence:
 - `UniqueBrandCover.vue` is fixed brand cover art/copy/meta, not reusable shell grammar.
 - `UniqueBrandLogo.vue` is the Emotitone identity lockup system, not a generic logo component family.
 - `UniqueDrawer.vue` demonstrates drawer shell behavior now promoted to `DrawerShell`; the promoted source still overlaps existing app `src/components/TopDrawer.vue`.
-- `CompositionLoadingScreen.vue` is a visual composition proof, while app `src/components/LoadingSplash.vue` owns current loading/audio/MIDI/error behavior.
+- `CompositionLoadingScreen.vue` is now an inspection specimen for `LoadingScreen.vue`, while app `src/components/LoadingSplash.vue` owns current loading/audio/MIDI/error behavior and feeds the source composition.
 - `CompositionTopDrawer.vue` is a product region proof with drawer panes, app context, and local controls; its reusable shell now comes from `DrawerShell`.
 
 Recommendation:
@@ -149,7 +149,7 @@ Recommendation:
 - Treat `UniqueCodeStrip.vue` as a legacy primitive specimen path.
 - Reclassify drawer as lower-layer source plus app-alignment debt, not a unique.
 - Keep loading/top-drawer previews as compositions, with app integration gates before production alignment.
-- Make loading integration the next implementation slice.
+- Make Finish Gate residue audit the next implementation slice.
 
 Alternatives rejected:
 
@@ -164,7 +164,7 @@ Unresolved risk:
 
 Unblocks:
 
-- Loading integration and composition closure work.
+- Finish Gate residue audit and any remaining gate cleanup.
 
 ## Unique Extraction Decision Packet
 

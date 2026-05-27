@@ -55,13 +55,16 @@ Date: 2026-05-26
 
 ## Compositions
 
+- Source of truth path: `src/components/compositions/`.
+- Extracted source components:
+  - `src/components/compositions/LoadingScreen.vue`
 - Current specimens:
   - `src/style-guide/compositions/CompositionLoadingScreen.vue`
   - `src/style-guide/compositions/CompositionTopDrawer.vue`
 - Related app sources:
   - `src/components/LoadingSplash.vue`
   - `src/components/TopDrawer.vue`
-- Status: taxonomy audited, not closed. `CompositionLoadingScreen.vue` is a composition proof/design target that must reconcile with app `LoadingSplash.vue`; `CompositionTopDrawer.vue` composes `DrawerShell.vue`, and app `TopDrawer.vue` now wraps that same source shell while preserving production slot behavior. Top-drawer local controls remain composition-local unless reuse is proven.
+- Status: closed for current style-guide scope. `LoadingScreen.vue` owns the loading visual composition, `CompositionLoadingScreen.vue` imports it as an inspection specimen, and app `LoadingSplash.vue` preserves loading/audio/MIDI/error behavior while feeding state/actions into it. `CompositionTopDrawer.vue` composes `DrawerShell.vue`, and app `TopDrawer.vue` wraps that same source shell while preserving production slot behavior. Top-drawer local controls remain composition-local unless reuse is proven.
 
 ## Specimen Helpers (Inspection Only, Not A Layer)
 
@@ -120,8 +123,9 @@ Date: 2026-05-26
 | `src/style-guide/uniques/UniqueBrandCover.vue` | unique specimen | no | keep local | Imports and inspects `BrandCover.vue`; specimen labels/anatomy remain local. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | unique specimen | no | keep local | Imports and inspects `BrandLogo.vue`; variant grid/anatomy remain local. |
 | `src/style-guide/uniques/UniqueDrawer.vue` | legacy drawer-shell specimen path | no | keep local | Imports and inspects `DrawerShell.vue`; file location/name remains a later organization gate. |
-| `src/style-guide/compositions/CompositionLoadingScreen.vue` | composition specimen | no | keep local / app integration gate | Composition proof and visual target; app behavior source is `LoadingSplash.vue`. |
-| `src/components/LoadingSplash.vue` | app source | yes, for current app behavior | app integration gate | Behavior-heavy current loading splash; visually divergent from style-guide composition. |
+| `src/components/compositions/LoadingScreen.vue` | composition source | yes | promote | Owns loading-screen visual grammar, chromatic progress tape, ready/error/audio states, and source composition layout. |
+| `src/style-guide/compositions/CompositionLoadingScreen.vue` | composition specimen | no | keep local | Imports and inspects `LoadingScreen.vue`; caption remains specimen-local. |
+| `src/components/LoadingSplash.vue` | app source | yes, for current app behavior | app integration resolved | Behavior adapter for loading/audio/MIDI/error state; feeds source `LoadingScreen.vue`. |
 | `src/style-guide/compositions/CompositionTopDrawer.vue` | composition specimen | no | keep local | Composition proof; composes `DrawerShell.vue` while keeping local product panes/controls as composition content. |
 | `src/components/TopDrawer.vue` | app source | yes, for current app drawer behavior | app integration resolved | Production wrapper composes `DrawerShell.vue` while preserving trigger/panel slots, Teleport, offsets, and exposed open/close/toggle methods. |
 | `src/style-guide/guide/*.vue` | specimen helper | yes, for inspection UI only | keep local | Not a taxonomy layer. |

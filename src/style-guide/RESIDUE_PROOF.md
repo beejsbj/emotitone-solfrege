@@ -4,7 +4,7 @@ Date: 2026-05-26
 
 ## Status
 
-Token doctrine, primitive extraction, compound pattern extraction, brand unique extraction, DrawerShell promotion, production top-drawer alignment, loading composition integration, and final all-layer residue audit are cleared for current surfaces. User Finish Gate acceptance is still required before calling the design-lab run complete.
+Token doctrine, primitive extraction, compound pattern extraction, brand unique extraction, DrawerShell promotion, production top-drawer alignment, loading composition integration, final all-layer residue audit, and user Finish Gate acceptance are complete for current surfaces.
 
 ## Pattern Checks
 
@@ -29,7 +29,7 @@ Token doctrine, primitive extraction, compound pattern extraction, brand unique 
 - `UniqueDrawer.vue`, `CompositionTopDrawer.vue`, and app `TopDrawer.vue` share `DrawerShell` as the drawer shell source.
 - `CompositionLoadingScreen.vue` and app `LoadingSplash.vue` share `LoadingScreen` as the loading visual source.
 - Production knob alignment has been inspected and remains parked as a future production migration because `src/components/knobs/*` owns behavior-heavy input contracts; it is not hidden residue in the current style-guide decomposition.
-- The only remaining completion requirement is the user Finish Gate decision: accept, continue, or pause.
+- The current decomposed style-guide scope is accepted complete; future work remains parked behind named gates.
 
 ## Finish Gate Audit, 2026-05-27
 
@@ -58,8 +58,8 @@ Finish Gate packet:
 - Evidence: layer source paths are named, coverage rows are resolved, current compound/composition scope is source-first, raw higher-layer color residue is pruned, and verification commands below pass.
 - Recommendation: accept the current decomposed style-guide scope as complete, with named future work remaining parked behind explicit gates.
 - Alternatives rejected: expand scope into production knob migration now; it is already a named future gate and not hidden residue in the current style-guide decomposition.
-- Unresolved risk: the user has not yet made the required Finish Gate decision.
-- Unblocks: if the user accepts, the active design-lab goal can be marked complete.
+- Unresolved risk: future migrations may still need their own gates if they change app behavior or doctrine.
+- Unblocks: the active design-lab goal can be marked complete for this scope.
 - Durable decision packet: `FINISH_GATE.md`.
 
 Browser DOM proof, 2026-05-27:
@@ -132,7 +132,7 @@ Browser DOM proof, 2026-05-26:
 
 ## Next Proof Step
 
-- Present the Finish Gate packet to the user for accept/continue/pause.
+- Finish Gate accepted; open PR for secure review.
 
 ## Slice Proof: Pattern Compounds Compose BarTape
 
@@ -396,7 +396,7 @@ Primitive closure decision, 2026-05-25:
 Taxonomy decision, 2026-05-26:
 
 - The next implementation slice should not start with brand polish.
-- Brand unique extraction, DrawerShell Promotion Gate, app `TopDrawer.vue` alignment, loading composition integration, token doctrine, and Finish Gate residue audit are resolved; the next blocker is the user Finish Gate decision.
+- Brand unique extraction, DrawerShell Promotion Gate, app `TopDrawer.vue` alignment, loading composition integration, token doctrine, Finish Gate residue audit, and Finish Gate acceptance are resolved for current scope.
 
 ## Slice Proof: Loading Composition Integration
 

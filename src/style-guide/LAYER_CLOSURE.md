@@ -150,7 +150,7 @@ Recommendation:
 - Treat `UniqueCodeStrip.vue` as a legacy primitive specimen path.
 - Reclassify drawer as lower-layer source plus app-alignment debt, not a unique.
 - Keep loading/top-drawer previews as compositions; app integration gates have since aligned production wrappers.
-- Present the Finish Gate packet for user accept/continue/pause after current verification.
+- Finish Gate accepted; current style-guide scope is complete.
 
 Alternatives rejected:
 
@@ -160,11 +160,11 @@ Alternatives rejected:
 
 Unresolved risk:
 
-- User must still accept, continue, or pause at the Finish Gate before the design-lab run is called complete.
+- User accepted the Finish Gate on 2026-05-27; the design-lab run is complete for current scope.
 
 Unblocks:
 
-- Finish Gate user decision.
+- PR creation for secure review, then a separately named future gate for any next-stage migration.
 
 ## Unique Extraction Decision Packet
 

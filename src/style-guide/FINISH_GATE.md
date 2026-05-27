@@ -4,7 +4,7 @@ Date: 2026-05-27
 
 ## Status
 
-The current Emotitone design-lab scope is decomposed and verified. The remaining required action is a user Finish Gate decision: accept, continue, or pause.
+The current Emotitone design-lab scope is decomposed, verified, and accepted by the user on 2026-05-27. Future migration work remains parked behind named gates rather than hidden in this scope.
 
 ## Evidence
 
@@ -30,8 +30,8 @@ The current Emotitone design-lab scope is decomposed and verified. The remaining
 - Legacy `--note-*` alias migration: future app/component migration behind the music-color doctrine gate.
 - Legacy specimen path cleanup for `UniqueCodeStrip.vue` and `UniqueDrawer.vue`: future navigation/file-organization gate.
 
-## Decision Requested
+## Decision Recorded
 
-- Accept: call the current decomposed style-guide scope complete.
-- Continue: open a named future migration gate instead of extending this finish scope silently.
-- Pause: preserve the current proof without calling the design-lab run complete.
+- Accepted: call the current decomposed style-guide scope complete.
+- Continue later only through a named future migration gate.
+- Parked gates remain visible for the next review stage.

@@ -2,7 +2,7 @@
 
 Date: 2026-05-24
 
-Current status, 2026-05-27: this packet records the original Scope Gate and the midstream recovery map that started the run. The extraction sequence it recommended has since been completed for the current style-guide scope. The current completion evidence lives in `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md`, `PROMOTION_AUDIT.md`, `RAW_RECIPE_INVENTORY.md`, `LAYER_CLOSURE.md`, and `RESIDUE_PROOF.md`; the remaining required decision is the user Finish Gate accept/continue/pause choice.
+Current status, 2026-05-27: this packet records the original Scope Gate and the midstream recovery map that started the run. The extraction sequence it recommended has since been completed for the current style-guide scope. The current completion evidence lives in `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md`, `PROMOTION_AUDIT.md`, `RAW_RECIPE_INVENTORY.md`, `LAYER_CLOSURE.md`, and `RESIDUE_PROOF.md`; the user accepted the Finish Gate for this scope on 2026-05-27.
 
 ## Evidence
 
@@ -21,7 +21,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 
 - Historical starting point: the branch entered this run between raw recipe inventory and primitive extraction.
 - Current note, 2026-05-27: token doctrine, primitive extraction, compounds, brand uniques, DrawerShell, top-drawer app alignment, loading composition integration, sticker badge taxonomy, preset-row compound promotion, production knob migration parking, and final residue sweeps have all been recorded in closure artifacts.
-- Remaining unclosed work is the user Finish Gate decision: accept the current decomposed scope as complete, continue into a named future migration gate, or pause.
+- The user accepted the current decomposed scope as complete; future work should continue through a named migration gate.
 
 ### Trustworthy Existing Artifacts
 
@@ -45,7 +45,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 ### Current Gate
 
 - Repository Conventions, Taxonomy, Doctrine/Token Closure, Promotion, App Integration, and residue sweeps are recorded in `DESIGN_LOG.md`.
-- Finish Gate is the current gate.
+- Finish Gate is accepted for current scope.
 
 ### Completed First Extraction / Audit Slice
 
@@ -98,7 +98,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 
 ## Recommendation
 
-- Treat the original scope as fully decomposed for current style-guide surfaces, subject to the required user Finish Gate decision.
+- Treat the original scope as fully decomposed for current style-guide surfaces.
 - Do not reopen a broad Intent Gate unless future work changes doctrine or taste direction.
 - Treat production knob visual adoption, legacy note alias migration, and file/navigation cleanup as future named migration gates rather than hidden completion blockers.
 
@@ -117,7 +117,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 
 ## Requires User Decision
 
-- Finish Gate: accept current decomposed style-guide scope as complete, continue into a named future migration gate, or pause with current proof preserved.
+- No remaining user decision for the current scope. Future work should name a new migration gate before expanding the scope.
 
 ## Allowed Autonomy
 
@@ -133,8 +133,8 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 | Decide whether token doctrine conflicts require an Intent/Doctrine Gate | Intent Gate / Doctrine Gate | user + agent | 2026-05-26 | Resolved/localized; token doctrine closed for current style-guide scope |
 | Decide whether `Sticker` badge remains a variant or becomes another primitive | Promotion Gate | user + agent | 2026-05-27 | Resolved as fixed-geometry `Sticker` variant |
 | Decide whether `CodeStrip` is unique, primitive, compound part, or pattern-card-private slot | Taxonomy Gate | user + agent | 2026-05-25 | Resolved as primitive; `UniqueCodeStrip.vue` remains a legacy specimen path |
-| Decide whether to call the current decomposed scope complete | Finish Gate | user | 2026-05-27 | User accepts, continues into a named future gate, or pauses |
+| Decide whether to call the current decomposed scope complete | Finish Gate | user | 2026-05-27 | Resolved; user accepted current scope complete |
 
 ## Unblocks
 
-- Finish Gate user decision.
+- PR creation for secure review.

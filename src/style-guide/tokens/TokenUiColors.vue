@@ -27,7 +27,7 @@
       </div>
     
       <div class="section">
-        <div class="stitle">The lone lit signal</div>
+        <div class="stitle">Brass with ink and ivory</div>
         <div class="brass-block">
           <div class="brass-swatch" style="background:var(--brass);">
             <span class="stamp">#E0A93A</span>

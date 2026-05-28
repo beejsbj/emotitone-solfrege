@@ -2,6 +2,8 @@
 
 Date: 2026-05-26
 
+Current status, 2026-05-27: this file is historical closure proof from the first finish pass. User review reopened design-system doctrine corrections before main-app implementation. Current corrections live in `DESIGN_LOG.md`, `PROMOTION_AUDIT.md`, `STYLE_GUIDE_SCHEMA.md`, and `RAW_RECIPE_INVENTORY.md`.
+
 ## Layer
 
 current recovery state across token, primitive, compound, unique, and composition layers

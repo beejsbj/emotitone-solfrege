@@ -8,7 +8,7 @@
      3. MUSIC      chromatic — recipe (oklch) + legacy --note-* aliases
      4. GEOMETRY   spacing, radii, shadows, ring
      5. MOTION     beat, durations, easings, keyframes
-     6. SEMANTIC   bg/fg/border/danger roles backed by the above
+     6. LEGACY     old bg/fg/status aliases kept for compatibility only
      7. TYPOGRAPHY display/text/mono stacks + scale + tracking
    ========================================================================== */
 
@@ -44,8 +44,9 @@
   --ivory-3:    #8E867A;     /* meta / muted */
   --ivory-4:    #514B42;     /* disabled / decorative */
 
-  /* Brass — the lone lit signal. Apply via the .brass utility
-     (gradient + sheen). Reserve for ONE signal at a time. */
+  /* Brass — instrument metal, always coupled with ink and ivory.
+     It is not part of the funk/poster brand palette. Apply via the
+     .brass utility when the surface should feel like a brass object. */
   --brass:      #e0a93a;     /* base — vivid trumpet gold */
   --brass-hi:   #f5d278;     /* warm highlight */
   --brass-lo:   #c89230;     /* deep recess */
@@ -94,8 +95,8 @@
         Mode switching:
           - FIXED (chromatic): --music-count: 12  -> each degree
             owns a 30° slice (C is always 0–30°).
-          - ROOTED (scale):    --music-count: N   -> N = scale
-            length, --music-rotate: <root-degree> to set tonic = hue 0.
+          - MOVABLE (scale):  --music-count: N   -> N = scale
+            length, --music-rotate: <root-degree> to rotate tonic.
 
         Octave drives lightness 20%..80% across 8 octaves.
      =============================================================== */
@@ -103,9 +104,8 @@
   --music-rotate: 0;           /* root-degree offset, 0..count-1 */
   --music-c:      0.18;        /* chroma in oklch */
 
-  /* Legacy named tokens (C major rotation, HSL). Kept while
-     individual cards migrate to the .note recipe. Phase 3 sweep
-     will replace these consumers with .note + --note-degree/-octave. */
+  /* Legacy named tokens (C major rotation, HSL). Kept while a future
+     Note primitive and app migration absorb named solfege styling. */
   --note-do:    hsl( 18  85% 56%);  /* C  — orange (root, home) */
   --note-ra:    hsl( 48  90% 56%);  /* C# — gold */
   --note-re:    hsl( 78  72% 52%);  /* D  — lime */
@@ -210,7 +210,10 @@
   --dur-bloom:  var(--dur-scene);
 
   /* ===============================================================
-     6. SEMANTIC — role aliases over the above
+     6. LEGACY ROLE ALIASES — compatibility only, not design doctrine.
+        Brand colors are decorative; future design-system work should
+        avoid expanding semantic color aliases and eventually remove
+        functional status color roles.
      =============================================================== */
   --bg:           var(--ink);
   --bg-elevated:  var(--ink-2);
@@ -224,7 +227,7 @@
   --border:       var(--hairline);
   --border-strong:var(--ink-5);
 
-  --accent:       var(--brass);     /* the one lit signal */
+  --accent:       var(--brass);     /* legacy: brass object accent */
   --danger:       var(--tomato);
   --success:      var(--note-mi);
   --info:         var(--note-fi);

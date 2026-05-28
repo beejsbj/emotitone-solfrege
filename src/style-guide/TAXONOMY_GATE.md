@@ -2,6 +2,8 @@
 
 Date: 2026-05-26
 
+Current status, 2026-05-27: this file is historical taxonomy proof from the first finish pass. User review corrected several taxonomy calls: CodeStrip is unique, PresetRow is not a compound, and the top-drawer composition has been removed from the style guide.
+
 ## Scope
 
 Classify the remaining style-guide unique and composition artifacts after primitive extraction closure.

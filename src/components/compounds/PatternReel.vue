@@ -32,7 +32,7 @@
 import { computed, ref } from "vue";
 import PatternCard from "./PatternCard.vue";
 import type { BarTapeMode, BarTapeSegment } from "../primatives/BarTape.vue";
-import type { CodeStripToken } from "../primatives/CodeStrip.vue";
+import type { CodeStripToken } from "../uniques/CodeStrip.vue";
 
 export interface PatternReelItem {
   id: string;

@@ -45,7 +45,7 @@ const variants: Array<{ value: BrandLogoVariant; caption: string }> = [
   { value: "wordmark", caption: "Canonical wordmark" },
   { value: "monogram", caption: "Initial mark" },
   { value: "tagline", caption: "Logo plus tagline art" },
-  { value: "brass", caption: "One lit signal" },
+  { value: "brass", caption: "Brass with ink and ivory" },
   { value: "inverted", caption: "Bone surface" },
   { value: "notes", caption: "With note marks" },
 ];

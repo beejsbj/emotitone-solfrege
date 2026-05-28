@@ -60,7 +60,7 @@ The important question was not whether `colors_and_type.css` matched the copied 
   Product labels are Lets Jazz; guide/spec inspection labels may use mono. Long-body mono utilities now use `--font-mono`.
 
 - Brand color semantics are resolved for token closure.
-  Brand colors remain decorative in product composition, while semantic status aliases such as `--danger` may map to brand values.
+  Brand colors remain decorative in product composition. Semantic status aliases such as `--danger` are legacy compatibility, not doctrine, and should be removed in a future token cleanup.
 
 ## Specimen-Only
 
@@ -171,8 +171,8 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
 - Sticker `badge` belongs as a fixed-geometry `Sticker` variant.
   Badge color and brass timing now use the shared Sticker color vocabulary and global brass sweep.
 
-- `PresetRow` is resolved as a compound/control row.
-  `PrimitiveSpineCard.vue` and `CompositionTopDrawer.vue` compose `PresetRow` for apply/applied/expiring states; `SpineCard.vue` does not absorb them into the primitive API.
+- `PresetRow` was pruned as over-extraction.
+  The preset/action examples are now represented as ordinary `SpineCard` usage with a filled button/content slot.
 
 - Mark API is resolved for this branch.
   Runtime API is `name`, `size`, `tone`, and `treatment`. `family` remains specimen taxonomy because it groups marks for inspection rather than changing render behavior.
@@ -242,7 +242,7 @@ This pass read the ported primitive Vue specimens directly: `src/style-guide/pri
   `ChipTabs.vue` uses the global `.brass` utility on the active chip and brass tokens for the component-specific active surface shadow. `Knob.vue` owns brass value marks and shared glow usage for visual knob primitives.
 
 - Brand danger semantics are localized.
-  Brand colors remain decorative-only, while semantic aliases such as `--danger` may map to brand values for functional status. `SpineCard.vue` preserves the tomato example as content rather than functional chrome.
+  Brand colors remain decorative-only. Semantic aliases such as `--danger` are legacy cleanup targets, and `SpineCard.vue` uses tomato as brand/decor copy rather than functional danger language.
 
 - Marks scale text and proof are reconciled through the source size prop.
   `Mark.vue` accepts a numeric/string `size`; `PrimitiveMarks.vue` demonstrates 14, 28, 56, 92 hero, and 96 hero cases without hardcoded source CSS.

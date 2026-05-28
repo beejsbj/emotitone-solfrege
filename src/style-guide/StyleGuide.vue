@@ -3,7 +3,7 @@
     <header class="sink-header">
       <div class="label">Emotitone Design System Sink Port</div>
       <h1>Preview Components</h1>
-      <p>One Vue component per source preview file. Token collections, primitives, compounds, uniques, then compositions.</p>
+      <p>One Vue component per source preview file. Token collections, primatives, uniques, compounds, then compositions.</p>
     </header>
 
     <section class="sink-section" aria-labelledby="tokens-heading">
@@ -98,20 +98,6 @@
       </div>
     </section>
 
-    <section class="sink-section" aria-labelledby="compounds-heading">
-      <h2 id="compounds-heading">Compounds</h2>
-      <div class="sink-stack">
-        <article class="sink-frame">
-          <div class="sink-frame__source">compound-pattern-card.html</div>
-          <CompoundPatternCard />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">compound-pattern-reel.html</div>
-          <CompoundPatternReel />
-        </article>
-      </div>
-    </section>
-
     <section class="sink-section" aria-labelledby="uniques-heading">
       <h2 id="uniques-heading">Uniques</h2>
       <div class="sink-stack">
@@ -134,16 +120,26 @@
       </div>
     </section>
 
+    <section class="sink-section" aria-labelledby="compounds-heading">
+      <h2 id="compounds-heading">Compounds</h2>
+      <div class="sink-stack">
+        <article class="sink-frame">
+          <div class="sink-frame__source">compound-pattern-card.html</div>
+          <CompoundPatternCard />
+        </article>
+        <article class="sink-frame">
+          <div class="sink-frame__source">compound-pattern-reel.html</div>
+          <CompoundPatternReel />
+        </article>
+      </div>
+    </section>
+
     <section class="sink-section" aria-labelledby="compositions-heading">
       <h2 id="compositions-heading">Compositions</h2>
       <div class="sink-stack">
         <article class="sink-frame">
           <div class="sink-frame__source">composition-loading-screen.html</div>
           <CompositionLoadingScreen />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">composition-top-drawer.html</div>
-          <CompositionTopDrawer />
         </article>
       </div>
     </section>
@@ -175,7 +171,6 @@ import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundPatternCard from "./compounds/CompoundPatternCard.vue";
 import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
 import CompositionLoadingScreen from "./compositions/CompositionLoadingScreen.vue";
-import CompositionTopDrawer from "./compositions/CompositionTopDrawer.vue";
 import UniqueBrandCover from "./uniques/UniqueBrandCover.vue";
 import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";
 import UniqueCodeStrip from "./uniques/UniqueCodeStrip.vue";

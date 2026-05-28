@@ -2,7 +2,7 @@
 
 Date: 2026-05-24
 
-Current status, 2026-05-27: this packet records the original Scope Gate and the midstream recovery map that started the run. The extraction sequence it recommended has since been completed for the current style-guide scope. The current completion evidence lives in `STYLE_GUIDE_SCHEMA.md`, `COVERAGE_AUDIT.md`, `PROMOTION_AUDIT.md`, `RAW_RECIPE_INVENTORY.md`, `LAYER_CLOSURE.md`, and `RESIDUE_PROOF.md`; the user accepted the Finish Gate for this scope on 2026-05-27.
+Current status, 2026-05-27: this packet records the original Scope Gate and the midstream recovery map that started the run. After user review, the design-system scope remains open for a further doctrine-correction pass before main-app implementation. The current corrections are recorded in `DESIGN_LOG.md`, `PROMOTION_AUDIT.md`, `STYLE_GUIDE_SCHEMA.md`, and `RAW_RECIPE_INVENTORY.md`.
 
 ## Evidence
 
@@ -38,7 +38,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 
 - Primitive specimens now import source components from `src/components/primatives/`; specimen staging remains inspection chrome.
 - Pattern compounds now compose source components instead of copying lower-level CSS.
-- `UniqueCodeStrip.vue` is recorded as a legacy primitive specimen path for `CodeStrip`.
+- `UniqueCodeStrip.vue` now inspects the source unique `CodeStrip`.
 - Key/button/tab/knob/bar/pattern recipes are named in source components or explicitly kept local/parked in the promotion ledger.
 - Older repo/app conventions remain reference material; branch-local design-lab conventions are recorded in `REPOSITORY_CONVENTIONS.md`.
 
@@ -51,7 +51,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 
 - Durable recovery artifacts were created and updated under `src/style-guide/`.
 - `BarTape` was extracted first, then copied compound residue was pruned.
-- IconButton, CodeStrip, PatternCard, PatternReel, BeatIndicator, CardShell, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, DrawerShell, BrandCover, BrandLogo, LoadingScreen, Sticker badge, and PresetRow decisions have been recorded in the durable ledgers.
+- IconButton, CodeStrip, PatternCard, PatternReel, BeatIndicator, CardShell, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, DrawerShell, BrandCover, BrandLogo, LoadingScreen, and Sticker badge decisions have been recorded in the durable ledgers; PresetRow has been pruned as over-extraction.
 
 ## Included
 
@@ -59,7 +59,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 - Style-guide surface: `src/style-guide/`.
 - Token source: `src/emotitone-design-system.css` plus token specimens.
 - Reusable primitive source path: `src/components/primatives/`.
-- Current style-guide layers: tokens, primitives, compounds, uniques, compositions, and specimen helpers.
+- Current style-guide order: tokens, primatives, uniques, compounds, compositions, and specimen helpers.
 - Durable design-lab artifacts under `src/style-guide/`.
 - Verification through the repo's closest style-guide commands.
 
@@ -81,7 +81,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 
 ## Target Layer Depth
 
-- Full style-guide completion for this branch: tokens, primitives, compounds, uniques, compositions, and specimen helpers.
+- Full style-guide completion for this branch: tokens, primatives, uniques, compounds, compositions, and specimen helpers.
 - Advancement must be layer-gated: each layer needs closure proof before the next layer is treated as complete.
 
 ## Completion Proof
@@ -132,7 +132,7 @@ Current status, 2026-05-27: this packet records the original Scope Gate and the 
 | Confirm first primitive extraction slice as `BarTape` | Taxonomy Gate / Promotion Gate | user + agent | 2026-05-24 | Resolved; source-first extraction completed |
 | Decide whether token doctrine conflicts require an Intent/Doctrine Gate | Intent Gate / Doctrine Gate | user + agent | 2026-05-26 | Resolved/localized; token doctrine closed for current style-guide scope |
 | Decide whether `Sticker` badge remains a variant or becomes another primitive | Promotion Gate | user + agent | 2026-05-27 | Resolved as fixed-geometry `Sticker` variant |
-| Decide whether `CodeStrip` is unique, primitive, compound part, or pattern-card-private slot | Taxonomy Gate | user + agent | 2026-05-25 | Resolved as primitive; `UniqueCodeStrip.vue` remains a legacy specimen path |
+| Decide whether `CodeStrip` is unique, primitive, compound part, or pattern-card-private slot | Taxonomy Gate | user + agent | 2026-05-27 | Resolved as unique; compounds may compose uniques plus primitives |
 | Decide whether to call the current decomposed scope complete | Finish Gate | user | 2026-05-27 | Resolved; user accepted current scope complete |
 
 ## Unblocks

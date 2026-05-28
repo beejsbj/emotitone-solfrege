@@ -113,7 +113,7 @@ const features = [
   { label: "Chip", value: "sliding active surface measured from the selected tab" },
   { label: "Motion", value: "var(--dur-ui) with ease-swing; smear is transient" },
   { label: "Geometry", value: "tab, offcut, tile, sharp, pill, or paper-rip chip" },
-  { label: "Tone", value: "ivory by default; brass is the one lit signal" },
+  { label: "Tone", value: "ivory by default; brass is an ink-and-ivory instrument-metal treatment" },
   { label: "Density", value: "comfortable or compact label rhythm" },
   { label: "State", value: "selected and disabled are source-owned tab states" },
   { label: "Boundary", value: "not the generic app Tabs provider family" },

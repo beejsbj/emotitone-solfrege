@@ -2,6 +2,8 @@
 
 Date: 2026-05-26
 
+Current status, 2026-05-27: this file is historical proof from the first finish pass. User review reopened doctrine corrections: top-drawer composition was deleted, CodeStrip is unique, PresetRow was pruned, and semantic color aliases are legacy cleanup. Current correction evidence lives in `DESIGN_LOG.md` and `PROMOTION_AUDIT.md`.
+
 ## Status
 
 Token doctrine, primitive extraction, compound pattern extraction, brand unique extraction, DrawerShell promotion, production top-drawer alignment, loading composition integration, final all-layer residue audit, and user Finish Gate acceptance are complete for current surfaces.

@@ -14,7 +14,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | SVG stroke grammar | Token geometry, marks, digital knobs | token doctrine and primitive source recipes | Repeated stroke widths/caps/joins | resolved as geometry doctrine plus Mark/Knob source ownership |
 | Bar tape primitive | Primitive and compound files | `src/components/primatives/BarTape.vue` | Stable anatomy; copied into compounds | promoted 2026-05-24 |
 | Icon button/control primitive | Primitive and compound files | `src/components/primatives/IconButton.vue` | Stable control grammar copied upward | promoted 2026-05-25 |
-| Code strip grammar | Unique and compound files | `src/components/primatives/CodeStrip.vue` | Reused, not unique as-is | promoted 2026-05-25 |
+| Code strip grammar | Unique and compound files | `src/components/uniques/CodeStrip.vue` | Singular notation-strip artifact; compounds may compose uniques plus primitives | reclassified as unique 2026-05-27 |
 | Pattern card stack/active shapes | Compound files | `src/components/compounds/PatternCard.vue` | Stable two-shape pattern-card grammar | promoted 2026-05-25 |
 | Pattern reel choreography | Compound files | `src/components/compounds/PatternReel.vue` | Stack/promotion behavior is reusable compound grammar | promoted 2026-05-25 |
 | Beat indicator primitive | `PrimitiveBeatIndicator.vue` | `src/components/primatives/BeatIndicator.vue` | Stable beat cell anatomy | promoted 2026-05-25 |
@@ -35,7 +35,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 |---|---|---|---|---|
 | Duplicate specimen anatomy/variant chrome | Primitive/compound specimens | `AnatomyDisplay`, `VariantGrid`, `VariantCell` | Guide helpers already exist | accepted keep-local / opportunistic cleanup; not a primitive closure blocker |
 | Duplicate clip polygons | Buttons, keys, tabs | Existing `--clip-*` tokens where exact match | Avoid parallel geometry recipes | resolved for IconButton, ChipTabs, and Key |
-| Local brass finish duplicates | Tabs/buttons/knobs where overlapping | Global brass grammar / brass tokens | Preserve one brass language | resolved for ChipTabs and Knob; token preview remains unaudited |
+| Local brass finish duplicates | Tabs/buttons/knobs where overlapping | Global brass grammar / brass tokens | Preserve brass as instrument metal coupled with ink and ivory, separate from brand colors | resolved for ChipTabs and Knob; token preview remains unaudited |
 | Lifted verbatim lower-layer CSS in compounds | Pattern card/reel | Source components | Doctrine says Vue should compose, not paraphrase | resolved for PatternCard/PatternReel |
 | Hardcoded `#0a0908` | Beat indicator, tabs | `var(--ink)` | Token exists | resolved for BeatIndicator and ChipTabs specimens; remaining dark swatches live in token/specimen documentation rather than component styling |
 | Undefined `--font-body` | `PrimitiveCard.vue` | `--t-body-s` | Current token does not exist | resolved for CardShell specimen |
@@ -50,11 +50,11 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Variant demo captions and shape labels | Specimens | Documentation scaffolding | accepted |
 | BarTape hero panel and tick row | `PrimitiveBarTape.vue` | Specimen staging around the source primitive | accepted |
 | IconButton paired-control shell | `PrimitiveButtons.vue` | Specimen-only grouping wrapper until pair behavior appears outside documentation | accepted |
-| Drawer fake app content | `CompositionTopDrawer.vue` | Product/context proof around the drawer shell, not automatically reusable component grammar | accepted as composition-local; `DrawerShell` promoted |
+| Drawer fake app content | `CompositionTopDrawer.vue` | Product/context proof around the drawer shell, not automatically reusable component grammar | pruned; top-drawer composition removed from style guide |
 | Brand cover specimen inspection | `UniqueBrandCover.vue` | Singular source lives in `BrandCover.vue`; specimen labels/anatomy are guide-only | accepted |
 | Brand logo specimen inspection | `UniqueBrandLogo.vue` | Singular source lives in `BrandLogo.vue`; specimen grid/anatomy are guide-only | accepted |
 | Kicker specimen grid/staging | `PrimitiveKicker.vue` | Guide-only inspection layout | accepted |
-| SpineCard preset-row demo | `PrimitiveSpineCard.vue` | Promoted into `src/components/compounds/PresetRow.vue` with Kicker child, action, and meta states | resolved |
+| SpineCard preset-row demo | `PrimitiveSpineCard.vue` | Pruned as over-extraction; represented as SpineCard usage with a filled button | resolved |
 | ChipTabs explanatory grouping | `PrimitiveTabs.vue` | Anatomy, geometry, and density groupings document source behavior without owning it | accepted |
 | Knob specimen role groupings | `PrimitiveKnobsAnalog.vue`, `PrimitiveKnobsDigital.vue` | Role/treatment grids document source variants without owning knob internals | accepted |
 | Key specimen groupings | `PrimitiveKeys.vue` | Format, chromatic, state, cut, and proportion groupings document source variants without owning key internals | accepted |
@@ -64,11 +64,11 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Item | Source | Decision Needed | Gate | Status |
 |---|---|---|---|---|
 | Music color model | Music tokens, keys, bar tape, code strip | Legacy solfege classes versus computed `.note` recipe | Doctrine/Promotion Gate | resolved: `.note` is token source; legacy aliases parked for app migration |
-| Brand colors and danger semantics | Brand tokens, spine card, CSS `--danger` | Decorative-only or functional status allowed | Doctrine/Promotion Gate | resolved: brand colors decorative; semantic `--danger` may alias tomato for status |
+| Brand colors and danger semantics | Brand tokens, spine card, CSS `--danger` | Decorative-only or functional status allowed | Doctrine/Promotion Gate | resolved: brand colors decorative only; semantic color aliases are legacy cleanup, not doctrine |
 | Brass timing | Motion tokens, global brass, Sticker badge | One duration/easing or component-specific timings | Promotion Gate | resolved: global `.brass` sheen and Sticker badge shimmer use 6.5s |
 | Label typography exceptions | Token typography, guide/spec tables | Guide/spec mono exception or prune to Jazz labels | Doctrine/Promotion Gate | resolved: product labels Jazz; guide/spec inspection labels may be mono |
 | `Sticker` badge taxonomy | Sticker source/specimen | Variant, separate primitive, or unique | Promotion Gate | resolved: fixed-geometry Sticker variant |
-| Code-strip boundary | Unique + compound files | Primitive, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: primitive |
+| Code-strip boundary | Unique + compound files | Primitive, unique, compound part, or pattern-card-private slot | Taxonomy Gate | resolved: unique |
 | Active-card/reel boundary | Compound files | Promotion behavior belongs to reel or pattern-card state | Taxonomy Gate | resolved: PatternCard owns shapes; PatternReel owns choreography |
 | App top-drawer alignment | `src/components/TopDrawer.vue`, `src/components/primatives/DrawerShell.vue` | Whether production `TopDrawer.vue` should adopt, wrap, or remain separate from the promoted style-guide `DrawerShell` | App Integration Gate | resolved: production wrapper composes `DrawerShell` and preserves existing slot API |
 | Loading splash alignment | `CompositionLoadingScreen.vue`, `src/components/LoadingSplash.vue` | Whether to map the style-guide composition into the behavior-heavy app loading source | App Integration Gate | resolved: `LoadingScreen` source composition; `LoadingSplash` behavior adapter |
@@ -86,16 +86,16 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | `PrimitiveBeatIndicator.vue` | Beat motion tokens/keyframes exist, but cell count, stagger, downbeat/even/static states, and size grammar were local | resolved for style-guide: `BeatIndicator` source component owns primitive row/cell grammar and consumes current global keyframes. |
 | `PrimitiveCard.vue` | Panel tokens existed, but card label, mark slot, title/body rhythm, compact sizing, and border toggle were local | resolved for style-guide: `CardShell` source component owns shell grammar; demo mark drawings stay local as specimen-only examples now that `Mark` is extracted. |
 | `PrimitiveKicker.vue` | Kicker tokens existed as loose color/typography values, but dot+label anatomy, tone, form, density, and dot geometry were local | resolved for style-guide: `Kicker` source component owns marker grammar. |
-| `PrimitiveSpineCard.vue` | Brand color tokens and Kicker existed, but spine panel, matching Kicker, stamp/body layout, compact sizing, and preset-row layout were local | resolved: `SpineCard` owns the brand-marked shell; `PresetRow` owns the preset action/status row. |
+| `PrimitiveSpineCard.vue` | Brand color tokens and Kicker existed, but spine panel, matching Kicker, stamp/body layout, compact sizing, and preset-row layout were local | resolved: `SpineCard` owns the brand-marked shell; action/status examples are ordinary SpineCard usage, not a separate row component. |
 | `PrimitiveMarks.vue` | SVG paths, treatment ladder, scale proof, wire stroke behavior, and family grouping were local | resolved for source primitive: `Mark` owns glyph paths, tone, size, fill/wire treatment, and stroke grammar; family panels remain specimen-local. |
 | `PrimitiveButtons.vue` / compounds | Clip/duration tokens exist, but button geometry/state/brass grammar was local and copied | resolved for style-guide: `IconButton` source component owns the grammar and pattern compounds compose it. App `components/ui/IconButton.vue` remains a separate app-system alignment question. |
-| `UniqueCodeStrip.vue` / compounds | Music tokens exist, but code-strip token grammar was reused without a real layer | resolved for style-guide: `CodeStrip` source component owns notation row grammar and pattern compounds compose it. |
+| `UniqueCodeStrip.vue` / compounds | Music tokens exist, but code-strip token grammar was reused without a clear layer | resolved for style-guide: `CodeStrip` is a source unique and pattern compounds may compose it alongside primitives. |
 | `CompoundPatternCard.vue` / `CompoundPatternReel.vue` | Compound grammar copied lower-layer internals | resolved: PatternCard and PatternReel source components own reusable compound grammar. |
 | `UniqueBrandCover.vue` | Fixed brand cover uses raw SVG fills/transforms, local stamp, and cover layout | resolved for unique source: `BrandCover` owns fixed artifact; SVG fills now consume brand tokens. |
 | `UniqueBrandLogo.vue` | Wordmark/monogram/tagline/note-mark lockups use local variant tiles and inline note marks | resolved for unique source: `BrandLogo` owns lockups; inline note-mark styles moved to source classes. |
 | `UniqueDrawer.vue` / `CompositionTopDrawer.vue` / `src/components/TopDrawer.vue` | Drawer shell behavior repeats across style-guide specimens and overlaps current app source | resolved: `DrawerShell` source component promoted and production `TopDrawer.vue` wraps it. |
 | `CompositionLoadingScreen.vue` / `src/components/LoadingSplash.vue` | Loading visual composition and app behavior source diverged | resolved: `LoadingScreen` owns visual grammar and app `LoadingSplash` preserves loading/audio/MIDI/error behavior as adapter. |
-| `CompositionTopDrawer.vue` | Composition contains local drawer controls, instrument/settings content, and app keyboard context; preset row controls repeated with SpineCard specimen | keep product-only content local; compose `DrawerShell` and `PresetRow` for promoted shared grammar. |
+| `CompositionTopDrawer.vue` | Composition contained local drawer controls, instrument/settings content, and app keyboard context | pruned from the style guide; product top drawer belongs to main-app implementation after the design system is done. |
 | `PrimitiveKeys.vue` | Generic clips existed, but key-specific recipes were local | resolved for style-guide: `Key` source component owns face, label stack, format, cuts, proportions, pressed/disabled states, and sheen. |
 | `PrimitiveTabs.vue` | Clip/motion/brass tokens exist, but chip-slide tab grammar and timing were local | resolved for style-guide: `ChipTabs` source component owns rail/chip/streak grammar, active chip measurement, geometry, density, tone, and selected/disabled state. |
 | `PrimitiveKnobsAnalog.vue` / `PrimitiveKnobsDigital.vue` | Generic tokens existed, but knob visual anatomy, label/footer frame, role variants, disabled/lit/played states, brass/ivory axis, spin motion, and SVG stroke grammar were duplicated locally | resolved for style-guide: `Knob` source component owns shared visual grammar for ring and arc variants. |
@@ -107,9 +107,9 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 
 | Check | Decision | Evidence | Status |
 |---|---|---|---|
-| All current primitive specimens source-first | advance | 12 primitive specimen files import from `src/components/primatives`; `UniqueCodeStrip.vue` imports `CodeStrip.vue` from its legacy path | pass |
+| All current primitive specimens source-first | advance | 12 primitive specimen files import from `src/components/primatives`; `CodeStrip` is now classified under uniques | pass |
 | Old raw primitive class families | prune complete for primitive/compound specimens | Search found no old `.bar-tape`, `.beats`, `.panel-card`, `.ico`, `.cs`, `.kicker`, `.spine-card`, `.p5-tabs`, `.knob`, or `.key` definitions in primitive/compound specimens; expected source hooks and unique/composition artifacts remain | pass |
-| Primitive-adjacent unresolved items | gate-park | Music-color model, marker typography, brand/danger semantics, and production knob alignment have named gates; Sticker badge, brass timing, and preset row are resolved | may advance |
+| Primitive-adjacent unresolved items | gate-park | Note primitive, music-color display modes, semantic color cleanup, and production knob alignment have named gates; Sticker badge and brass timing are resolved | may advance |
 | Next layer | start taxonomy audit | Unique and composition surfaces contained raw recipes and singular-role questions | advanced; unique/composition taxonomy and app integration are recorded |
 
 ## Unique / Composition Taxonomy Gate
@@ -118,10 +118,10 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 |---|---|---|---|
 | Brand cover classification | true unique | Fixed cover copy, meta row, stamp, and SVG collage form one singular brand artifact | source extracted |
 | Brand logo classification | true unique | Wordmark, monogram, tagline, brass signal, inverted, and note-mark lockups are brand identity variants | source extracted |
-| CodeStrip legacy path | primitive specimen | `UniqueCodeStrip.vue` already imports `CodeStrip.vue` and is not a unique | naming/navigation gate |
+| CodeStrip classification | unique | `UniqueCodeStrip.vue` imports source `CodeStrip.vue`, now under `src/components/uniques/` | resolved by user review |
 | Drawer classification | not unique | Drawer shell repeats in `UniqueDrawer.vue` and `CompositionTopDrawer.vue`, and overlaps app `TopDrawer.vue` | promoted for style-guide and app wrapper alignment |
 | Loading screen classification | composition | Style-guide loading screen proves visual state; `LoadingSplash.vue` owns current app behavior | App Integration Gate resolved 2026-05-27 |
-| Top drawer composition | composition with app-alignment resolved | Product panes/content are composition-local; drawer shell composes `DrawerShell`; app `TopDrawer.vue` wraps the same shell | pass for current composition scope |
+| Top drawer composition | delete | User rejected this composition as premature app implementation | resolved by removal |
 
 ## Gate-Parked Decisions
 
@@ -151,8 +151,8 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Kicker unused alignment demo | prune | Center/right alignment CSS existed without current specimen use | Promotion Gate 2026-05-25 |
 | SpineCard source component | promote | Base spine-card shell has stable primitive anatomy and composes Kicker | Promotion Gate 2026-05-25 |
 | SpineCard one-color rule | promote | Source uses one brand tone per card for spine and Kicker child | Promotion Gate 2026-05-25 |
-| SpineCard preset row | promote as compound | Horizontal action/status rows coordinate Kicker, preset name, action button, and status meta; source now lives in `PresetRow.vue` | Taxonomy/Promotion Gate 2026-05-27 |
-| SpineCard danger wording | keep as content under resolved doctrine | Tomato example can use danger wording as content while functional status styling goes through semantic aliases | Doctrine Gate 2026-05-26 |
+| SpineCard preset row | prune over-extraction | It is just a SpineCard with a filled button/content, not a separate compound | Taxonomy/Promotion Gate 2026-05-27 |
+| SpineCard tomato wording | prune semantic drift | Tomato example is brand/decor content, not danger/status language | Doctrine Gate 2026-05-27 |
 | Mark source component | promote | Flat SVG marks have stable primitive anatomy and recurring use as decorative slots | Promotion Gate 2026-05-25 |
 | Mark API | promote `name`/`tone`/`size`/`treatment` | `family` is documentation grouping, while runtime usage needs glyph name plus visual treatment | Promotion Gate 2026-05-25 |
 | Mark family panels and legends | keep local | Inspection grouping/staging, not source component behavior | Promotion Gate 2026-05-25 |
@@ -160,7 +160,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | ChipTabs source component | promote | Chip-slide has stable primitive anatomy independent of the specimen page and separate from generic app tabs providers | Promotion Gate 2026-05-25 |
 | ChipTabs timing | prune to existing token | Source uses `--dur-ui` for chip selection instead of adding a one-off `--dur-chip`; transient smear keeps the existing 220ms UI timing | Promotion Gate 2026-05-25 |
 | ChipTabs geometry polygons | prune to tokens | Source uses `--clip-tab`, `--clip-offcut`, `--clip-tile`, and `--clip-paper-rip`; sharp/pill are named no-clip variants | Promotion Gate 2026-05-25 |
-| ChipTabs brass treatment | promote as component tone | Source uses the global brass utility/tokens for the active chip, preserving brass as the one lit signal | Promotion Gate 2026-05-25 |
+| ChipTabs brass treatment | promote as component tone | Source uses the global brass utility/tokens for an instrument-metal treatment coupled with ink/ivory | Promotion Gate 2026-05-25 |
 | Knob source component | promote | Analog and digital specimens shared a stable knob frame, roles, tone axis, state grammar, and motion recipe | Promotion Gate 2026-05-25 |
 | Knob ring and arc visuals | promote as visual axis | Ring and arc differ by rendering technique but share roles, frame, state, and tone contracts | Promotion Gate 2026-05-25 |
 | Knob SVG stroke grammar | promote into Knob | Digital arc stroke widths, butt caps, miter joins, and active value stroke now live in the source primitive | Promotion Gate 2026-05-25 |
@@ -173,14 +173,14 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | IconButton source component | promote | `.ico`/`.ico-pair` grammar had stable source identity and was copied into pattern compounds | Promotion Gate 2026-05-25 |
 | IconButton offcut/tile polygons | prune to tokens | Source component uses existing `--clip-offcut` and `--clip-tile` instead of repeating polygons | Promotion Gate 2026-05-25 |
 | Pattern compound IconButton copies | prune | Pattern card/reel now compose `IconButton`; copied `.ico` CSS/markup classes removed | Promotion Gate 2026-05-25 |
-| CodeStrip taxonomy | promote as primitive | It renders independently, has stable notation-row anatomy, and is reused in pattern compounds | Taxonomy Gate 2026-05-25 |
+| CodeStrip taxonomy | promote as unique | It is a singular notation-strip artifact; compounds may still compose it with primitives | Taxonomy Gate 2026-05-27 |
 | Pattern compound CodeStrip copies | prune | Pattern card/reel now compose `CodeStrip`; copied `.cs`/`.seq`/`.syl` CSS/markup removed | Promotion Gate 2026-05-25 |
 | Compound source path | promote | `src/components/compounds/` is needed once lower child primitives are source-first | Repository Conventions Gate 2026-05-25 |
 | PatternCard source component | promote | Sleek/active card shapes have stable anatomy and are reused by PatternCard and PatternReel specimens | Promotion Gate 2026-05-25 |
 | PatternReel source component | promote | Stack depth, click promotion, and active-rise are reusable reel orchestration above PatternCard | Taxonomy Gate 2026-05-25 |
 | DrawerShell source component | promote | Drawer shell behavior repeats across unique and composition specimens and can stand apart from product panes | Promotion Gate 2026-05-26 |
 | UniqueDrawer drawer shell | prune to source import | Legacy drawer specimen now imports `DrawerShell` instead of owning shell/controller behavior | Promotion Gate 2026-05-26 |
-| CompositionTopDrawer drawer shell | prune to source import | Top-drawer composition now composes `DrawerShell`; panes and controls remain composition-local | Promotion Gate 2026-05-26 |
+| CompositionTopDrawer | prune specimen | Style guide should not carry this app-region composition before main-app implementation work | Taxonomy Gate 2026-05-27 |
 | App TopDrawer alignment | promote wrapper adoption | Existing app `TopDrawer.vue` now composes `DrawerShell` while keeping Teleport, trigger/panel slots, offsets, and public open/close/toggle controls | App Integration Gate 2026-05-27 |
 | LoadingScreen source composition | promote | Loading screen is a concrete app state with brand composition, progress, ready, error, audio, MIDI, and dev-skip states | App Integration Gate 2026-05-27 |
 | Unique source path | promote | `src/components/uniques/` gives true uniques source-first ownership without treating specimens as implementation | Repository Conventions/Unique Extraction Gate 2026-05-26 |
@@ -190,7 +190,7 @@ Track every raw/new design decision as `promote`, `prune`, `keep local`, or `nee
 | Brand logo note marks | prune to source classes | Note-mark variant no longer uses inline specimen styles | Unique Extraction Gate 2026-05-26 |
 | Music color model | promote `.note`; park legacy aliases | `.note` with `--note-degree`, `--note-octave`, `--music-count`, and `--music-rotate` is the token source; `--note-*` aliases stay for branch consumers until app migration | Doctrine/Promotion Gate 2026-05-26 |
 | Note/solfege maps | prune specimen-private arrays | Token specimen now reads existing `src/data` music constants instead of owning duplicate maps | Promotion Gate 2026-05-26 |
-| Brand/danger semantics | resolve as semantic alias | Brand colors remain decorative poster colors; functional status must use semantic aliases such as `--danger` rather than direct brand-color chrome | Doctrine Gate 2026-05-26 |
+| Brand/danger semantics | resolve as no semantic color doctrine | Brand colors are decorative poster colors only; `--danger` and similar aliases are legacy compatibility to remove later | Doctrine Gate 2026-05-27 |
 | Brass timing | promote global utility timing | `.brass` / `brass-sheen` uses the 6.5s global sweep; Sticker badge edge/text now use the same timing and easing | Promotion Gate 2026-05-27 |
 | Sticker badge taxonomy | keep as variant | Badge is not a separate primitive or unique; it is the fixed-geometry Sticker variant with shared color vocabulary applied to edge and text | Promotion Gate 2026-05-27 |
 | Typography exception | localize guide/spec mono | Product labels use Lets Jazz; guide/spec inspection labels are a named mono exception | Doctrine Gate 2026-05-26 |

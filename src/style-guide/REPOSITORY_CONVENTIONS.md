@@ -20,16 +20,15 @@ Date: 2026-05-24
 - Preserve the existing `primatives` spelling.
 - Current extracted model: `src/components/primatives/Sticker.vue`.
 
-## Compound / Unique Component Location
+## Unique / Compound Component Location
 
 - Reusable compound source directory: `src/components/compounds/`.
 - Current extracted compound model: `src/components/compounds/PatternCard.vue`.
-- Current extracted control-row compound model: `src/components/compounds/PresetRow.vue`.
 - Current compound specimens remain under `src/style-guide/compounds/`.
 - Composition source directory: `src/components/compositions/`.
 - Current extracted composition model: `src/components/compositions/LoadingScreen.vue`.
 - Unique source directory: `src/components/uniques/`.
-- Current extracted unique models: `src/components/uniques/BrandCover.vue` and `src/components/uniques/BrandLogo.vue`.
+- Current extracted unique models: `src/components/uniques/BrandCover.vue`, `src/components/uniques/BrandLogo.vue`, and `src/components/uniques/CodeStrip.vue`.
 - Unique specimens remain under `src/style-guide/uniques/` and import source uniques for inspection.
 - Compound source creation is allowed only after lower child primitives for that compound are extracted or explicitly gate-parked.
 - Composition source creation is allowed after taxonomy confirms app-state scope and app integration can preserve behavior.

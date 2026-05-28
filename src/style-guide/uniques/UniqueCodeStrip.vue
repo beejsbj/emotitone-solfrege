@@ -1,8 +1,8 @@
 <template>
   <AnatomyDisplay
-    title="Code Strip &middot; Notation Primitive"
+    title="Code Strip &middot; Notation Unique"
     :features="features"
-    caption="CodeStrip is no longer treated as unique: pattern compounds reuse it, and the source component owns notation row chrome, note glyph treatments, durations, rests, punctuation, lit state, density, wrapping, and duration bars. This legacy specimen path remains an inspection surface until the style-guide navigation is renamed."
+    caption="CodeStrip is a singular notation artifact that compounds may compose alongside primitives. It owns notation row chrome, note glyph treatments, durations, rests, punctuation, lit state, density, wrapping, and duration bars."
   >
     <template #hero>
       <CodeStrip :tokens="heroTokens" />
@@ -47,8 +47,8 @@
 </template>
 
 <script setup lang="ts">
-import CodeStrip from "../../components/primatives/CodeStrip.vue";
-import type { CodeStripToken } from "../../components/primatives/CodeStrip.vue";
+import CodeStrip from "../../components/uniques/CodeStrip.vue";
+import type { CodeStripToken } from "../../components/uniques/CodeStrip.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -203,6 +203,6 @@ const features = [
   { label: "Grouping", value: "brackets and separators for chord notation" },
   { label: "State", value: "lit note glow plus 5px square marker" },
   { label: "Density", value: "default, dense, spaced, and wrapped sequence modes" },
-  { label: "Source", value: "components/primatives/CodeStrip.vue" },
+  { label: "Source", value: "components/uniques/CodeStrip.vue" },
 ];
 </script>

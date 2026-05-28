@@ -2,14 +2,14 @@
   <AnatomyDisplay
     title="Spine Card &middot; Brand-Marked Shell"
     :features="features"
-    caption="SpineCard is the brand-color card shell: one colored spine, one matching Kicker, one stamped headline, and one bottom body. PresetRow is the promoted compound for the action/status row that used to live here."
+    caption="SpineCard is the brand-color card shell: one colored spine, one matching Kicker, one stamped headline, and one bottom body. Action rows stay as SpineCard usage, not a separate compound."
   >
     <template #hero>
       <SpineCard
         tone="tomato"
         kicker="Section &middot; 03"
-        stamp="Danger."
-        body="Kicker dot, danger badge, brand splash on hero."
+        stamp="Tomato."
+        body="Kicker dot, poster color, brand splash on hero."
       />
     </template>
 
@@ -23,30 +23,34 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Compound &mdash; Preset row">
-      <VariantCell caption="PresetRow compound &middot; apply action" stage="ink3">
-        <PresetRow
+    <VariantGrid title="Variants &mdash; Action slot">
+      <VariantCell caption="SpineCard with filled action" stage="ink3">
+        <SpineCard
           tone="tomato"
           kicker="Soft Glass"
-          name="Soft Glass."
-          action-label="Apply"
-        />
+          stamp="Soft Glass."
+        >
+          <span class="spine-card-demo__copy">Preset card with a filled action, not a new row component.</span>
+          <button class="spine-card-demo__button" type="button">Apply</button>
+        </SpineCard>
       </VariantCell>
-      <VariantCell caption="PresetRow compound &middot; applied state" stage="ink3">
-        <PresetRow
+      <VariantCell caption="SpineCard status copy" stage="ink3">
+        <SpineCard
           tone="plum"
           kicker="Ambient &middot; bloom"
-          name="Ambient."
-          meta="Applied"
-        />
+          stamp="Ambient."
+        >
+          <span class="spine-card-demo__copy">Applied. Keep the structure card-shaped unless repetition proves a compound.</span>
+        </SpineCard>
       </VariantCell>
-      <VariantCell caption="PresetRow compound &middot; expiring state" stage="ink3">
-        <PresetRow
+      <VariantCell caption="SpineCard timed copy" stage="ink3">
+        <SpineCard
           tone="mustard"
           kicker="Hot &middot; take"
-          name="Pulse Lab."
-          meta="2:14 left"
-        />
+          stamp="Pulse Lab."
+        >
+          <span class="spine-card-demo__copy">2:14 left. This is content inside the card, not a separate preset-row grammar.</span>
+        </SpineCard>
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -55,7 +59,6 @@
 <script setup lang="ts">
 import SpineCard from "../../components/primatives/SpineCard.vue";
 import type { SpineCardTone } from "../../components/primatives/SpineCard.vue";
-import PresetRow from "../../components/compounds/PresetRow.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -71,8 +74,8 @@ const brandCards: SpineCardExample[] = [
   {
     tone: "tomato",
     kicker: "Section &middot; 03",
-    stamp: "Danger.",
-    body: "Kicker dot, danger badge, brand splash on hero.",
+    stamp: "Tomato.",
+    body: "Kicker dot, poster color, brand splash on hero.",
   },
   {
     tone: "pine",
@@ -107,7 +110,32 @@ const features = [
   { label: "Stamp", value: "Jazz display · 32px · period-terminated" },
   { label: "Body", value: "mono 11px · ivory-3 · pinned to bottom" },
   { label: "Compact", value: "144px minimum · 22px stamp · grid specimen mode" },
-  { label: "Boundary", value: "preset rows are promoted to the PresetRow compound" },
+  { label: "Boundary", value: "preset/action rows stay SpineCard usage until repetition proves a compound" },
   { label: "Rule", value: "one brand color per card" },
 ];
 </script>
+
+<style scoped>
+.spine-card-demo__copy {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.spine-card-demo__button {
+  appearance: none;
+  border: 0;
+  background: var(--ivory);
+  color: var(--ink);
+  cursor: pointer;
+  font: var(--t-label);
+  letter-spacing: var(--tracking-label);
+  padding: 7px 12px;
+  text-transform: uppercase;
+}
+
+.spine-card-demo__button:hover,
+.spine-card-demo__button:focus-visible {
+  background: var(--bone);
+  outline: none;
+}
+</style>

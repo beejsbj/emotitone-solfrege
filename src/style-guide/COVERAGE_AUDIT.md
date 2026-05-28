@@ -30,12 +30,11 @@ Date: 2026-05-26
 | `src/components/primatives/CardShell.vue` | Extracted primitive | primitives | yes | promote | Source-first component for dark card panel, floating label, mark slot placement, title/body rhythm, compact mode, and border toggle. |
 | `src/style-guide/primatives/PrimitiveCard.vue` | Primitive specimen | primitives | no | keep local | Imports `CardShell.vue`; keeps demo marks and light inversion local. |
 | `src/components/primatives/IconButton.vue` | Extracted primitive | primitives | yes | promote | Source-first component for icon-only controls, geometry, tone, state, pressed, disabled, and brass treatments. |
-| `src/components/primatives/CodeStrip.vue` | Extracted primitive | primitives | yes | promote | Source-first component for notation row, glyph modes, durations, rests, grouping, lit state, density, and wrapping. |
+| `src/components/uniques/CodeStrip.vue` | Extracted unique | uniques | yes | promote | Source-first singular notation-strip artifact for glyph modes, durations, rests, grouping, lit state, density, and wrapping. |
 | `src/components/primatives/Kicker.vue` | Extracted primitive | primitives | yes | promote | Source-first component for dot+label marker anatomy, tone, dot geometry, density, inverse, and form variants. |
 | `src/style-guide/primatives/PrimitiveKicker.vue` | Primitive specimen | primitives | no | keep local | Imports `Kicker.vue`; keeps guide staging and captions local. |
 | `src/components/primatives/SpineCard.vue` | Extracted primitive | primitives | yes | promote | Source-first component for brand spine panel, matching Kicker child, stamped headline, body copy, compact mode, and one-color rule. |
-| `src/style-guide/primatives/PrimitiveSpineCard.vue` | Primitive specimen plus compound demo | primitives/compounds | no | keep local | Imports `SpineCard.vue`; preset-row demos compose `PresetRow.vue`. |
-| `src/components/compounds/PresetRow.vue` | Extracted compound | compounds | yes | promote | Source-first component for preset action/status row grammar; composes `Kicker` and owns row spine, name, action, and meta states. |
+| `src/style-guide/primatives/PrimitiveSpineCard.vue` | Primitive specimen | primitives | no | keep local | Imports `SpineCard.vue`; action/status examples stay ordinary SpineCard usage. |
 | `src/components/primatives/Mark.vue` | Extracted primitive | primitives | yes | promote | Source-first component for flat SVG mark paths, named glyph API, tone, size, and fill/wire treatment. |
 | `src/style-guide/primatives/PrimitiveMarks.vue` | Primitive specimen | primitives | no | keep local | Imports `Mark.vue`; family panels, legends, and scale/treatment staging remain local. |
 | `src/components/primatives/ChipTabs.vue` | Extracted primitive | primitives | yes | promote | Source-first component for chip-slide rail, streak, active chip, selected/disabled state, geometry, density, and ivory/brass tone. |
@@ -55,12 +54,11 @@ Date: 2026-05-26
 | `src/style-guide/compounds/CompoundPatternReel.vue` | Compound specimen | compounds | no | keep local | Imports `PatternReel.vue`; specimen data and variant staging only. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | Unique specimen | uniques | no | keep local | Imports `BrandCover.vue`; specimen keeps inspection labels/anatomy only. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | Unique specimen | uniques | no | keep local | Imports `BrandLogo.vue`; specimen keeps anatomy and variant grid only. |
-| `src/style-guide/uniques/UniqueCodeStrip.vue` | Legacy primitive specimen path | primitives/specimen | no | keep local | Imports `CodeStrip.vue`; path remains under uniques until navigation/file organization gate. |
+| `src/style-guide/uniques/UniqueCodeStrip.vue` | Unique specimen | uniques/specimen | no | keep local | Imports and inspects the source unique `CodeStrip.vue`. |
 | `src/style-guide/uniques/UniqueDrawer.vue` | Legacy drawer-shell specimen path | primitives/specimen | no | keep local | Imports `DrawerShell.vue`; no longer defines drawer shell behavior locally. |
 | `src/components/compositions/LoadingScreen.vue` | Composition source | compositions | yes | promote | Source loading-screen visual grammar and state display API. |
 | `src/style-guide/compositions/CompositionLoadingScreen.vue` | Composition specimen | compositions | no | keep local | Imports `LoadingScreen.vue`; caption stays specimen-local. |
 | `src/components/LoadingSplash.vue` | App loading source | compositions/app source | yes, for current app | app integration resolved | Behavior adapter preserves loading/audio/MIDI/error/dev-skip behavior while feeding `LoadingScreen.vue`. |
-| `src/style-guide/compositions/CompositionTopDrawer.vue` | Composition specimen | compositions | no | keep local | Product drawer proof; composes `DrawerShell.vue`; local controls remain composition-local until repeated elsewhere. |
 | `src/components/TopDrawer.vue` | App drawer source | app source | yes, for current app | app integration resolved | Production wrapper now composes `DrawerShell.vue` while preserving trigger/panel slots, Teleport, public methods, and consumer offsets. |
 
 ## Coverage Gaps

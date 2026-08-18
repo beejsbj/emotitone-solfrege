@@ -1,6 +1,6 @@
 # Next Gates
 
-Date: 2026-05-27
+Date: 2026-08-18
 
 ## Current Doctrine Corrections
 
@@ -14,20 +14,19 @@ Date: 2026-05-27
 - Sticker badge is a Sticker variant and should only be brass.
 - Use filled surfaces where possible and minimize borders.
 
-## Note Primitive Gate
+## Note / Key / Keyboard Gate — Accepted and Implemented
 
-The next design-system gate should define a `Note` primitive before migrating app note-color usage.
+Accepted boundary:
 
-Open decisions:
-
-- API: should `Note` accept pitch names, scale degree, solfege identity, or a normalized note model?
-- Display modes: degree, solfege, and raw note should probably be variants of the same primitive.
-- Color modes: fixed hue and movable hue both exist in the app; the primitive must not collapse them into one model.
-- Color source: decide how the primitive bridges current CSS `.note` custom-property recipe, legacy `--note-*` aliases, and runtime `useColorSystem` / `musicColor.ts`.
-- Scope: start as design-system primitive first; migrate app components only after the primitive doctrine is accepted.
+- `Note` is a controlled, noninteractive primitive for musical identity and presentation: syllable, degree, raw pitch with accidental/octave, color, geometry, clipping, depth, label hierarchy, and externally supplied musical states.
+- `Key` is a compound that wraps Note with physical interaction semantics and feedback. Pressed and sounding remain distinct inputs.
+- `Keyboard` is a compound that owns the octave grid and app adapter. Global QWERTY is installed once there; MIDI remains centrally routed.
+- `DrawerKeyboard` remains the app composition around patterns, live strip, action bar, and Keyboard.
+- CodeStrip composes Note glyphs while retaining rests, duration, grouping, density, wrapping, and lit behavior.
+- The Music Color Recipe specimen calls the same runtime `musicColor.ts` resolver as Note; movable remains the default and fixed remains supported.
 
 ## Deferred App Gates
 
 - Production knobs can eventually adopt the design-system visual knob, but not until the design system is complete.
-- Legacy `--note-*` aliases should not be swept until the Note primitive exists.
-- Main app implementation starts after design-system gates close.
+- Legacy `--note-*` aliases remain for unmigrated specimens/components; prune them only after a consumer audit.
+- Cross-key pointer drag routing is a future Keyboard behavior and was intentionally not introduced in this visual migration.

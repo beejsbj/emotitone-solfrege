@@ -68,8 +68,8 @@
           <PrimitiveCard />
         </article>
         <article class="sink-frame">
-          <div class="sink-frame__source">primitive-keys.html</div>
-          <PrimitiveKeys />
+          <div class="sink-frame__source">primitive-note</div>
+          <PrimitiveNote />
         </article>
         <article class="sink-frame">
           <div class="sink-frame__source">primitive-kicker.html</div>
@@ -124,6 +124,14 @@
       <h2 id="compounds-heading">Compounds</h2>
       <div class="sink-stack">
         <article class="sink-frame">
+          <div class="sink-frame__source">compound-key</div>
+          <CompoundKey />
+        </article>
+        <article class="sink-frame">
+          <div class="sink-frame__source">compound-keyboard</div>
+          <CompoundKeyboard />
+        </article>
+        <article class="sink-frame">
           <div class="sink-frame__source">compound-pattern-card.html</div>
           <CompoundPatternCard />
         </article>
@@ -161,7 +169,7 @@ import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
 import PrimitiveBeatIndicator from "./primatives/PrimitiveBeatIndicator.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
 import PrimitiveCard from "./primatives/PrimitiveCard.vue";
-import PrimitiveKeys from "./primatives/PrimitiveKeys.vue";
+import PrimitiveNote from "./primatives/PrimitiveNote.vue";
 import PrimitiveKicker from "./primatives/PrimitiveKicker.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
 import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
@@ -170,6 +178,8 @@ import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundPatternCard from "./compounds/CompoundPatternCard.vue";
 import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
+import CompoundKey from "./compounds/CompoundKey.vue";
+import CompoundKeyboard from "./compounds/CompoundKeyboard.vue";
 import CompositionLoadingScreen from "./compositions/CompositionLoadingScreen.vue";
 import UniqueBrandCover from "./uniques/UniqueBrandCover.vue";
 import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";

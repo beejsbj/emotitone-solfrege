@@ -1,560 +1,210 @@
-<script setup lang="ts">
-// @ts-nocheck
-import { onMounted } from "vue";
-import { CHROMATIC_NOTES, MOVABLE_DO_SOLFEGE_NOTES, SOLFEGE_NOTES } from "@/data";
-
-onMounted(() => {
-  (function () {
-    const NOTE_LETTERS = CHROMATIC_NOTES;
-    const SOL_7        = SOLFEGE_NOTES;
-    const SOL_CHROM    = MOVABLE_DO_SOLFEGE_NOTES;
-  
-    // State
-    let movableMode = false;
-    let root        = 0;
-    let octave      = 4;
-    let count       = 12;
-    let sweepOn     = false;
-    let sweepDur    = 5;
-  
-    // Elements
-    const wheelSeg   = document.getElementById('wheel-segments');
-    const wheelLbls  = document.getElementById('wheel-labels');
-    const hueTrack   = document.getElementById('hue-track');
-    const sweepTrack = document.getElementById('sweep-track');
-    const lblFixed   = document.getElementById('lbl-fixed');
-    const lblMovable = document.getElementById('lbl-movable');
-    const lblSweepOff = document.getElementById('lbl-sweep-off');
-    const lblSweepOn  = document.getElementById('lbl-sweep-on');
-    const rngRoot    = document.getElementById('rng-root');
-    const rngOctave  = document.getElementById('rng-octave');
-    const rngCount   = document.getElementById('rng-count');
-    const rngDur     = document.getElementById('rng-dur');
-    const valRoot    = document.getElementById('val-root');
-    const valOctave  = document.getElementById('val-octave');
-    const valCount   = document.getElementById('val-count');
-    const valDur     = document.getElementById('val-dur');
-    const ctrlRoot   = document.getElementById('ctrl-root');
-    const ctrlDur    = document.getElementById('ctrl-dur');
-    const sweepStyles = document.createElement('style');
-    sweepStyles.id = 'sweep-styles';
-    document.head.appendChild(sweepStyles);
-  
-    const TAU = Math.PI * 2;
-  
-    // Returns OKLCH color string given a degree-offset from root (0..11) and octave
-    function noteColor(degreeOffset, oct, isSweeping, idx) {
-      const l = 20 + oct * 7.5;
-      // In fixed mode: hue = absolute semitone × 30
-      // In movable mode: hue = offset from root × 30 (root lands at 0°)
-      const hue = movableMode
-        ? degreeOffset * 30
-        : ((root + degreeOffset) % 12) * 30;
-      if (isSweeping) return `oklch(${l}% 0.18 ${hue})`;
-      return `oklch(${l}% 0.18 ${hue})`;
-    }
-  
-    // Build a single SVG donut arc path from startAngle to endAngle (radians)
-    // outerR and innerR define the donut band
-    function arcPath(startAngle, endAngle, outerR, innerR) {
-      const gap = 0.025; // radians gap between segments
-      const s = startAngle + gap / 2;
-      const e = endAngle   - gap / 2;
-      const cos = Math.cos, sin = Math.sin;
-      const x1 = cos(s) * outerR, y1 = sin(s) * outerR;
-      const x2 = cos(e) * outerR, y2 = sin(e) * outerR;
-      const x3 = cos(e) * innerR, y3 = sin(e) * innerR;
-      const x4 = cos(s) * innerR, y4 = sin(s) * innerR;
-      const large = (e - s) > Math.PI ? 1 : 0;
-      return [
-        `M ${x1} ${y1}`,
-        `A ${outerR} ${outerR} 0 ${large} 1 ${x2} ${y2}`,
-        `L ${x3} ${y3}`,
-        `A ${innerR} ${innerR} 0 ${large} 0 ${x4} ${y4}`,
-        'Z'
-      ].join(' ');
-    }
-  
-    function renderWheel() {
-      wheelSeg.innerHTML = '';
-      wheelLbls.innerHTML = '';
-  
-      // Collect which cells to show — always up to count cells evenly from root
-      // When count < 12: drop cells (don't stretch)
-      const cells = [];
-      for (let deg = 0; deg < count; deg++) {
-        const chromaticOffset = Math.round(deg * 12 / count);
-        cells.push({ deg, chromaticOffset });
-      }
-  
-      const outerR = 100;
-      const innerR = 44;
-      const labelR = 75; // midpoint radius for label placement
-  
-      // Wheel layout is fixed: C at 12 o'clock, clockwise through B.
-      // Only the color (hue) mapping shifts when root changes in movable mode.
-      cells.forEach(({ deg, chromaticOffset }) => {
-        const slotIdx = (root + chromaticOffset) % 12;
-  
-        const baseAngle   = -TAU / 4; // start at 12 o'clock
-        const sliceAngle  = TAU / 12;
-        const startAngle  = baseAngle + slotIdx * sliceAngle;
-        const endAngle    = startAngle + sliceAngle;
-  
-        const l   = 20 + octave * 7.5;
-        const hue = movableMode
-          ? chromaticOffset * 30
-          : slotIdx * 30;
-        const fill = `oklch(${l}% 0.18 ${hue})`;
-  
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', arcPath(startAngle, endAngle, outerR, innerR));
-        path.setAttribute('fill', fill);
-        path.setAttribute('stroke', 'var(--ink)');
-        path.setAttribute('stroke-width', '0.5');
-        path.dataset.segIdx = slotIdx;
-  
-        // Root highlight
-        if (deg === 0) {
-          path.setAttribute('stroke', 'rgba(255,255,255,.5)');
-          path.setAttribute('stroke-width', '1.5');
-        }
-  
-        // Sweep animation
-        if (sweepOn) {
-          const kfName = `hue-sweep-seg-${slotIdx}`;
-          const halfSlice = 15; // half of 30° slice
-          const stagger = -(slotIdx / 12) * sweepDur;
-          path.style.animation = `${kfName} ${sweepDur}s ease-in-out ${stagger}s infinite`;
-        }
-  
-        wheelSeg.appendChild(path);
-  
-        // Label at segment centre
-        const midAngle = (startAngle + endAngle) / 2;
-        const lx = Math.cos(midAngle) * labelR;
-        const ly = Math.sin(midAngle) * labelR;
-  
-        const pitch = slotIdx;
-  
-        let labelText;
-        if (movableMode && count <= 7) {
-          labelText = SOL_7[deg] || SOL_CHROM[chromaticOffset];
-        } else if (movableMode && count > 7) {
-          labelText = NOTE_LETTERS[pitch];
-        } else {
-          labelText = NOTE_LETTERS[pitch];
-        }
-  
-        const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        txt.setAttribute('x', lx.toFixed(1));
-        txt.setAttribute('y', ly.toFixed(1));
-        txt.setAttribute('text-anchor', 'middle');
-        txt.setAttribute('dominant-baseline', 'central');
-        txt.setAttribute('font-family', 'var(--font-mono)');
-        txt.setAttribute('font-size', '11');
-        txt.setAttribute('font-weight', '600');
-        txt.setAttribute('fill', 'rgba(0,0,0,.72)');
-        txt.setAttribute('letter-spacing', '0');
-        txt.textContent = labelText;
-        wheelLbls.appendChild(txt);
-      });
-  
-      // Build sweep keyframes
-      if (sweepOn) {
-        let kfCss = '';
-        for (let i = 0; i < 12; i++) {
-          const l    = 20 + octave * 7.5;
-          const baseHue = movableMode ? i * 30 : i * 30;
-          kfCss += `@keyframes hue-sweep-seg-${i} {
-    0%   { fill: oklch(${l}% 0.18 ${baseHue - 15}); }
-    50%  { fill: oklch(${l}% 0.18 ${baseHue + 15}); }
-    100% { fill: oklch(${l}% 0.18 ${baseHue - 15}); }
-  }\n`;
-        }
-        // reduced-motion: opacity-only oscillation
-        kfCss += `@media (prefers-reduced-motion: reduce) {
-    [data-seg-idx] { animation: none !important; }
-  }\n`;
-        sweepStyles.textContent = kfCss;
-      } else {
-        sweepStyles.textContent = '';
-      }
-    }
-  
-    // Hue mode toggle
-    function setHueMode(movable) {
-      movableMode = movable;
-      hueTrack.classList.toggle('on', movable);
-      hueTrack.setAttribute('aria-checked', String(movable));
-      lblFixed.classList.toggle('lit', !movable);
-      lblFixed.classList.toggle('dim', movable);
-      lblMovable.classList.toggle('lit', movable);
-      lblMovable.classList.toggle('dim', !movable);
-      // Root slider only meaningful in movable
-      rngRoot.disabled = !movable;
-      ctrlRoot.style.opacity = movable ? '1' : '0.4';
-      renderWheel();
-    }
-  
-    hueTrack.addEventListener('click', () => setHueMode(!movableMode));
-    hueTrack.addEventListener('keydown', e => {
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setHueMode(!movableMode); }
-    });
-  
-    // Sweep toggle
-    function setSweep(on) {
-      sweepOn = on;
-      sweepTrack.classList.toggle('on', on);
-      sweepTrack.setAttribute('aria-checked', String(on));
-      lblSweepOff.classList.toggle('dim', on);
-      lblSweepOff.classList.toggle('lit', !on);
-      lblSweepOn.classList.toggle('lit', on);
-      lblSweepOn.classList.toggle('dim', !on);
-      ctrlDur.classList.toggle('visible', on);
-      renderWheel();
-    }
-  
-    sweepTrack.addEventListener('click', () => setSweep(!sweepOn));
-    sweepTrack.addEventListener('keydown', e => {
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setSweep(!sweepOn); }
-    });
-  
-    // Root slider
-    rngRoot.addEventListener('input', () => {
-      root = parseInt(rngRoot.value, 10);
-      valRoot.textContent = NOTE_LETTERS[root];
-      renderWheel();
-    });
-  
-    // Octave slider
-    rngOctave.addEventListener('input', () => {
-      octave = parseInt(rngOctave.value, 10);
-      valOctave.textContent = octave;
-      renderWheel();
-    });
-  
-    // Scale count slider
-    rngCount.addEventListener('input', () => {
-      count = parseInt(rngCount.value, 10);
-      valCount.textContent = count;
-      renderWheel();
-    });
-  
-    // Sweep duration slider
-    rngDur.addEventListener('input', () => {
-      sweepDur = parseInt(rngDur.value, 10);
-      valDur.textContent = sweepDur;
-      if (sweepOn) renderWheel();
-    });
-  
-    // Init
-    setHueMode(false);
-    renderWheel();
-  })();
-});
-</script>
-
 <template>
-  <section class="preview-port preview-port--token-music-colors">
-    <div class="card">
-      <div class="label">Music Color Recipe</div>
-    
-      <div class="section-head">Anatomy</div>
-      <div class="anatomy-wrap">
-    
-        <!-- Hero: segmented wheel -->
-        <div class="wheel-hero">
-          <div class="wheel-wrap">
-            <svg id="wheel-svg" viewBox="-110 -110 220 220" aria-label="Chromatic color wheel — 12 segments">
-              <g id="wheel-segments"></g>
-              <circle r="42" fill="var(--ink)" stroke="var(--ink-5)" stroke-width="1"/>
-              <g id="wheel-labels"></g>
-              <!-- root notch at 12 o'clock -->
-              <line id="root-notch" x1="0" y1="-43" x2="0" y2="-55"
-                    stroke="var(--ivory)" stroke-width="1.5"
-                    stroke-linecap="butt"/>
-            </svg>
-          </div>
-        </div>
-    
-        <!-- Spec table -->
-        <div class="anatomy">
-          <div class="row"><b>--note-degree</b><div>0–11 · semitones from C (fixed) or from root (movable)</div></div>
-          <div class="row"><b>--note-octave</b><div>0–8 · drives lightness</div></div>
-          <div class="row"><b>--note-l</b><div>20% + octave × 7.5% · range 20–80%</div></div>
-          <div class="row"><b>--note-hue</b><div>(degree + --music-rotate) × (360 / --music-count)</div></div>
-          <div class="row"><b>--music-c</b><div>OKLCH chroma · default 0.18 · range 0–0.4</div></div>
-          <div class="row"><b>--music-rotate</b><div>0 = fixed · root-degree offset for movable hue mode</div></div>
-          <div class="recipe"><span class="k">.note</span> {
-      <span class="c">/* degree + rotate → final hue */</span>
-      --note-hue: calc(
-        (var(--note-degree) + var(--music-rotate)) *
-        (360 / var(--music-count))
-      );
-      --note-l: calc(<span class="k">20%</span> + var(--note-octave) * <span class="k">7.5%</span>);
-      background: oklch(
-        var(--note-l) var(--music-c) var(--note-hue)
-      );
-    }</div>
-        </div>
+  <section class="music-recipe">
+    <header class="music-recipe__header">
+      <div>
+        <div class="music-recipe__eyebrow">Music color recipe · runtime authority</div>
+        <h3>Fixed pitch or movable degree</h3>
+        <p>
+          This specimen calls the same <code>musicColor.ts</code> resolver as Note and the live keyboard.
+          Octave changes lightness; the global mode decides whether hue follows pitch class or scale degree.
+        </p>
       </div>
-    
-      <!-- ── Controls ──────────────────────────────────────────────── -->
-      <div class="section-head">Controls</div>
-      <div class="controls-block">
-    
-        <!-- Hue mode toggle (full width) -->
-        <div class="ctrl-toggle" id="hue-mode-toggle">
-          <div class="toggle-track" id="hue-track" role="switch" aria-checked="false" tabindex="0"></div>
-          <span class="toggle-label">
-            <span class="mode-a lit" id="lbl-fixed">Fixed hue</span>
-            <span class="ctrl-sep">/</span>
-            <span class="mode-b dim" id="lbl-movable">Movable hue</span>
-          </span>
-        </div>
-    
-        <!-- Root (only meaningful in Movable) -->
-        <div class="ctrl" id="ctrl-root">
-          <label>Root <span class="val" id="val-root">C</span></label>
-          <input type="range" id="rng-root" min="0" max="11" step="1" value="0" disabled>
-        </div>
-    
-        <!-- Octave -->
-        <div class="ctrl">
-          <label>Octave <span class="val" id="val-octave">4</span></label>
-          <input type="range" id="rng-octave" min="0" max="8" step="1" value="4">
-        </div>
-    
-        <!-- Scale count -->
-        <div class="ctrl">
-          <label>Scale count <span class="val" id="val-count">12</span></label>
-          <input type="range" id="rng-count" min="5" max="12" step="1" value="12">
-        </div>
-    
-        <!-- Sweep toggle (full width) -->
-        <div class="ctrl-toggle" id="sweep-mode-toggle">
-          <div class="toggle-track" id="sweep-track" role="switch" aria-checked="false" tabindex="0"></div>
-          <span class="toggle-label">
-            <span class="mode-a lit" id="lbl-sweep-off">Animate hue sweep</span>
-            <span class="ctrl-sep">·</span>
-            <span class="mode-b dim" id="lbl-sweep-on">on</span>
-          </span>
-        </div>
-    
-        <!-- Sweep duration (hidden until sweep on) -->
-        <div class="ctrl" id="ctrl-dur">
-          <label>Sweep duration <span class="val" id="val-dur">5</span>s</label>
-          <input type="range" id="rng-dur" min="2" max="12" step="1" value="5">
-        </div>
-    
+      <div class="music-recipe__mode" role="group" aria-label="Music color mode">
+        <button :class="{ active: config.musicColorMode === 'fixed' }" @click="config.musicColorMode = 'fixed'">Fixed</button>
+        <button :class="{ active: config.musicColorMode === 'movable' }" @click="config.musicColorMode = 'movable'">Movable</button>
       </div>
-    
-      <div class="caption">OKLCH recipe: lightness from octave, hue from degree, chroma from music-c. Fixed hue nails C to 0°; movable rotates root to 0°. Scale-count drops cells.</div>
+    </header>
+
+    <div class="music-recipe__controls">
+      <label>
+        Key
+        <select v-model="musicKey">
+          <option v-for="note in CHROMATIC_NOTES" :key="note" :value="note">{{ note }}</option>
+        </select>
+      </label>
+      <label>
+        Mode
+        <select v-model="mode">
+          <option v-for="option in MODE_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+      <label>
+        Octave <output>{{ octave }}</output>
+        <input v-model.number="octave" type="range" min="2" max="8" step="1" />
+      </label>
+      <label class="music-recipe__sweep">
+        <input v-model="sweep" type="checkbox" />
+        Preview hue motion
+      </label>
     </div>
+
+    <div class="music-recipe__swatches" :style="{ '--degree-count': scale.degreeCount }">
+      <div
+        v-for="(solfege, index) in scale.solfege"
+        :key="`${mode}-${index}`"
+        class="music-recipe__swatch"
+        :style="{ '--swatch': colorFor(index) }"
+      >
+        <strong>{{ solfege.name }}</strong>
+        <span>{{ pitchFor(index) }}{{ octave }}</span>
+        <small>{{ index + 1 }} / {{ scale.degreeCount }}</small>
+      </div>
+    </div>
+
+    <dl class="music-recipe__facts">
+      <div><dt>Mode</dt><dd>{{ config.musicColorMode }}</dd></div>
+      <div><dt>Hue slots</dt><dd>{{ config.musicColorMode === 'fixed' ? 12 : scale.degreeCount }}</dd></div>
+      <div><dt>Color space</dt><dd>runtime HSLA relationships</dd></div>
+      <div><dt>Default</dt><dd>movable</dd></div>
+    </dl>
   </section>
 </template>
 
-<style scoped>
-.preview-port {
-  display: block;
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { CHROMATIC_NOTES, MODE_OPTIONS, getScaleForMode } from "@/data";
+import {
+  getChromaticNoteForScaleIndex,
+  resolveMusicColorsByScaleIndex,
+} from "@/services/musicColor";
+import type { ChromaticNote, DynamicColorConfig, MusicalMode } from "@/types";
+
+const musicKey = ref<ChromaticNote>("C");
+const mode = ref<MusicalMode>("major");
+const octave = ref(4);
+const sweep = ref(false);
+const time = ref(0);
+let animationFrame: number | null = null;
+
+const config = ref<DynamicColorConfig>({
+  isEnabled: true,
+  musicColorMode: "movable",
+  saturation: 0.8,
+  baseLightness: 0.5,
+  lightnessRange: 0.7,
+  hueAnimationAmplitude: 15,
+  animationSpeed: 1,
+});
+
+const scale = computed(() => getScaleForMode(mode.value));
+const pitchFor = (index: number) =>
+  getChromaticNoteForScaleIndex(index, mode.value, musicKey.value) ?? musicKey.value;
+const colorFor = (index: number) =>
+  resolveMusicColorsByScaleIndex(
+    index,
+    mode.value,
+    musicKey.value,
+    octave.value,
+    config.value,
+    sweep.value ? time.value : undefined,
+  )?.primary ?? "transparent";
+
+function animate() {
+  time.value = Date.now();
+  animationFrame = requestAnimationFrame(animate);
 }
-/* ── Grammar CSS (verbatim from specimen-card-grammar) ─────── */
-  .section-head {
-    font-family: var(--font-mono);
-    font-weight: 600;
-    font-size: 9px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--ivory-4);
-    margin: 24px 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--ink-5);
-  }
-  .section-head:first-child { margin-top: 6px; }
 
-  .anatomy-wrap {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 16px;
-    margin-top: 8px;
+watch(sweep, (enabled) => {
+  if (enabled && animationFrame === null) animate();
+  if (!enabled && animationFrame !== null) {
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
   }
-  .anatomy {
-    display: grid;
-    align-content: start;
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ivory-3);
-  }
-  .anatomy .row {
-    display: grid;
-    grid-template-columns: 78px 1fr;
-    gap: 10px;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--ink-5);
-  }
-  .anatomy .row:last-child { border-bottom: 0; }
-  .anatomy .row b { color: var(--ivory); font-weight: 700; }
+});
 
-  /* ── Wheel hero ─────────────────────────────────────────────── */
-  .wheel-hero {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px 0 8px;
-  }
+onBeforeUnmount(() => {
+  if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+});
+</script>
 
-  .wheel-wrap {
-    position: relative;
-    width: 220px;
-    height: 220px;
-  }
+<style scoped>
+.music-recipe {
+  padding: 28px;
+  border: 1px solid var(--hairline);
+  background: var(--ink-2);
+  color: var(--ivory);
+}
 
-  #wheel-svg {
-    width: 220px;
-    height: 220px;
-    overflow: visible;
-  }
+.music-recipe__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
 
-  /* segment labels (pitch/solfege) */
-  .wheel-wrap .seg-label {
-    position: absolute;
-    font-family: var(--font-mono);
-    font-size: 8px;
-    font-weight: 600;
-    color: rgba(0,0,0,.7);
-    pointer-events: none;
-    text-anchor: middle;
-    dominant-baseline: central;
-    transform: translate(-50%, -50%);
-    line-height: 1;
-    letter-spacing: 0;
-    white-space: nowrap;
-  }
+.music-recipe__eyebrow,
+.music-recipe label,
+.music-recipe small,
+.music-recipe dt,
+.music-recipe dd {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
 
-  /* ── Recipe block ───────────────────────────────────────────── */
-  .recipe {
-    background: var(--ink-2);
-    border: 1px solid var(--ink-5);
-    padding: 8px 10px;
-    font-family: var(--font-mono);
-    font-size: 9px;
-    line-height: 1.55;
-    color: var(--ivory-2);
-    white-space: pre;
-    overflow-x: auto;
-    margin-top: 10px;
-    letter-spacing: 0.04em;
-  }
-  .recipe .k { color: var(--brass); }
-  .recipe .c { color: var(--ivory-4); }
+.music-recipe h3 { margin: 6px 0; font-family: var(--font-display); font-size: 28px; }
+.music-recipe p { max-width: 700px; margin: 0; color: var(--ivory-3); font-size: 13px; }
 
-  /* ── Controls block ─────────────────────────────────────────── */
-  .controls-block {
-    background: var(--ink-3);
-    border: 1px solid var(--ink-5);
-    padding: 12px 14px;
-    margin-top: 16px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 20px;
-  }
-  .ctrl {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .ctrl label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--ivory-3);
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
-  .ctrl label .val {
-    color: var(--ivory);
-    font-size: 10px;
-    letter-spacing: 0;
-  }
-  .ctrl input[type=range] {
-    width: 100%;
-    accent-color: var(--brass);
-    cursor: pointer;
-  }
-  .ctrl input[type=range]:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
+.music-recipe__mode { display: flex; align-self: flex-start; border: 1px solid var(--hairline); }
+.music-recipe__mode button {
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ivory-3);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+.music-recipe__mode button.active { background: var(--ivory); color: var(--ink); }
 
-  /* Toggle row */
-  .ctrl-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    grid-column: 1 / -1;
-  }
-  .ctrl-toggle .toggle-track {
-    position: relative;
-    width: 36px;
-    height: 18px;
-    background: var(--ink-5);
-    border: 1px solid var(--hairline);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .ctrl-toggle .toggle-track::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 12px;
-    height: 12px;
-    background: var(--ivory-3);
-    transition: left var(--dur-tap) var(--ease-swing),
-                background var(--dur-tap) var(--ease-swing);
-  }
-  .ctrl-toggle .toggle-track.on::after {
-    left: 20px;
-    background: var(--brass);
-  }
-  .ctrl-toggle .toggle-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--ivory-3);
-    cursor: pointer;
-  }
-  .ctrl-toggle .toggle-label .mode-a,
-  .ctrl-toggle .toggle-label .mode-b {
-    transition: color var(--dur-tap);
-  }
-  .ctrl-toggle .toggle-label .mode-a.dim,
-  .ctrl-toggle .toggle-label .mode-b.dim {
-    color: var(--ivory-4);
-  }
-  .ctrl-toggle .toggle-label .mode-a.lit,
-  .ctrl-toggle .toggle-label .mode-b.lit {
-    color: var(--ivory);
-  }
-  .ctrl-sep {
-    color: var(--ivory-4);
-    margin: 0 4px;
-  }
+.music-recipe__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 18px;
+  margin: 24px 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+}
+.music-recipe__controls label { display: grid; gap: 6px; color: var(--ivory-3); }
+.music-recipe select,
+.music-recipe input[type="range"] { min-width: 140px; }
+.music-recipe__sweep { display: flex !important; grid-template-columns: auto 1fr; align-items: center; }
 
-  /* Sweep duration ctrl — hidden until sweep is on */
-  #ctrl-dur { display: none; }
-  #ctrl-dur.visible { display: flex; }
+.music-recipe__swatches {
+  display: grid;
+  grid-template-columns: repeat(var(--degree-count), minmax(64px, 1fr));
+  gap: 3px;
+}
 
-  @media (prefers-reduced-motion: reduce) {
-    .toggle-track::after { transition: none; }
-  }
+.music-recipe__swatch {
+  display: flex;
+  min-height: 132px;
+  flex-direction: column;
+  justify-content: end;
+  padding: 10px;
+  overflow: hidden;
+  background: var(--swatch);
+  box-shadow: var(--shadow-key);
+  clip-path: var(--clip-tile);
+  color: rgba(0, 0, 0, .78);
+}
+.music-recipe__swatch strong { font-family: var(--font-display); font-size: 22px; }
+.music-recipe__swatch span { font-family: var(--font-mono); font-size: 10px; }
+.music-recipe__swatch small { margin-top: 18px; }
 
-  /* inject sweep keyframes here */
-  #sweep-styles {}
+.music-recipe__facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 18px 0 0;
+}
+.music-recipe__facts div { padding-top: 10px; border-top: 1px solid var(--hairline); }
+.music-recipe__facts dt { color: var(--ivory-4); }
+.music-recipe__facts dd { margin: 4px 0 0; color: var(--ivory); }
+
+@media (max-width: 800px) {
+  .music-recipe__header { flex-direction: column; }
+  .music-recipe__swatches { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
+  .music-recipe__facts { grid-template-columns: repeat(2, 1fr); }
+}
 </style>

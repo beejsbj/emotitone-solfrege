@@ -7,7 +7,7 @@ Date: 2026-05-26
 - Source of truth: `src/emotitone-design-system.css`.
 - Doctrine reference: `/Users/burooj/Projects/emotitone-design-system/project/design-doctrine.md`.
 - Specimens: `src/style-guide/tokens/*.vue`.
-- Status: open for next design-system refinement. Token promotion decisions from `TOKEN_PROMOTION_AUDIT.md` have been normalized into `PROMOTION_AUDIT.md`; a future Note primitive should own solfege/degree/raw display and clarify fixed versus movable hue behavior before app/component migrations continue.
+- Status: `Note.vue` now owns solfege/degree/raw identity presentation and consumes the runtime music-color resolver. Fixed and movable remain global modes with movable as the default; the Music Color Recipe specimen demonstrates that same authority.
 
 ## Primitives
 
@@ -23,10 +23,10 @@ Date: 2026-05-26
   - `src/components/primatives/Mark.vue`
   - `src/components/primatives/ChipTabs.vue`
   - `src/components/primatives/Knob.vue`
-  - `src/components/primatives/Key.vue`
+  - `src/components/primatives/Note.vue`
   - `src/components/primatives/DrawerShell.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, and DrawerShell follow the intended source-first pattern. DrawerShell is demonstrated from the legacy `UniqueDrawer.vue` path and wrapped by production `TopDrawer.vue`; the style-guide top-drawer composition has been removed.
+- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, Kicker, SpineCard, Mark, ChipTabs, Knob, Note, and DrawerShell follow the intended source-first pattern. Note is controlled and noninteractive; musical activity is supplied from outside. DrawerShell is demonstrated from the legacy `UniqueDrawer.vue` path and wrapped by production `TopDrawer.vue`; the style-guide top-drawer composition has been removed.
 
 ## Uniques
 
@@ -48,10 +48,14 @@ Date: 2026-05-26
 - Extracted source components:
   - `src/components/compounds/PatternCard.vue`
   - `src/components/compounds/PatternReel.vue`
+  - `src/components/compounds/Key.vue`
+  - `src/components/compounds/Keyboard.vue`
 - Current specimens:
   - `src/style-guide/compounds/CompoundPatternCard.vue`
   - `src/style-guide/compounds/CompoundPatternReel.vue`
-- Status: `PatternCard` and `PatternReel` are source-first. `PatternCard` composes `BarTape`, `IconButton`, and the `CodeStrip` unique; `PatternReel` composes `PatternCard` and owns stack depth / click-promotion choreography. `PresetRow` was removed after user review because it was just SpineCard usage with a button.
+  - `src/style-guide/compounds/CompoundKey.vue`
+  - `src/style-guide/compounds/CompoundKeyboard.vue`
+- Status: `Key` composes `Note` with local interaction semantics; `Keyboard` owns the octave grid and app integration. `DrawerKeyboard` remains the drawer/composition shell. `PatternCard` and `PatternReel` remain source-first; `PresetRow` was removed after user review because it was just SpineCard usage with a button.
 
 ## Compositions
 
@@ -108,16 +112,20 @@ Date: 2026-05-26
 | `src/components/primatives/Knob.vue` | primitive | yes | promote | Owns analog ring and digital arc visual grammar, source frame/label/footer anatomy, roles, tone, disabled/played/lit states, SVG stroke grammar, and beat-timed button motion. |
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | primitive specimen | no | keep local | Imports and inspects `Knob.vue` with `visual="ring"`; ring role/treatment groupings remain specimen-local. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | primitive specimen | no | keep local | Imports and inspects `Knob.vue` with `visual="arc"`; arc role/treatment groupings remain specimen-local. |
-| `src/components/primatives/Key.vue` | primitive | yes | promote | Owns music key face, legacy note alias fill, syllable/degree/raw stack, format axis, shape/cut variants, pressed/disabled states, and sheen. |
-| `src/style-guide/primatives/PrimitiveKeys.vue` | primitive specimen | no | keep local | Imports and inspects `Key.vue`; chromatic, format, state, cut, and proportion groupings remain specimen-local. |
+| `src/components/primatives/Note.vue` | primitive | yes | promote | Owns controlled music identity/presentation, runtime color, label hierarchy, octave value, geometry, and musical visual states. |
+| `src/style-guide/primatives/PrimitiveNote.vue` | primitive specimen | no | keep local | Imports and inspects `Note.vue`; identity, state, octave, and geometry groupings remain specimen-local. |
 | `src/components/primatives/DrawerShell.vue` | primitive | yes | promote | Owns bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced-motion behavior. |
 | `src/components/compounds/PatternCard.vue` | compound | yes | promote | Owns sleek/active pattern card anatomy and composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | compound | yes | promote | Owns stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
+| `src/components/compounds/Key.vue` | compound | yes | promote | Composes Note with native button semantics, local input events, cleanup, focus, lock, and physical press feedback. |
+| `src/components/compounds/Keyboard.vue` | compound | yes | promote | Owns octave-grid layout, app state/audio/haptic adaptation, and one global QWERTY controller. |
 | `src/components/uniques/BrandCover.vue` | unique | yes | promote | Owns singular cover copy, meta grid, stamp, and fixed cut-paper collage. |
 | `src/components/uniques/BrandLogo.vue` | unique | yes | promote | Owns singular Emotitone identity lockups: wordmark, monogram, tagline, brass, inverted, and note marks. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | primitive specimen | no | keep local | Imports and inspects `IconButton.vue`; paired-control wrappers remain specimen-only. |
 | `src/style-guide/compounds/CompoundPatternCard.vue` | compound specimen | no | keep local | Imports and inspects `PatternCard.vue`. |
 | `src/style-guide/compounds/CompoundPatternReel.vue` | compound specimen | no | keep local | Imports and inspects `PatternReel.vue`. |
+| `src/style-guide/compounds/CompoundKey.vue` | compound specimen | no | keep local | Imports and inspects `Key.vue`; live interaction staging remains specimen-local. |
+| `src/style-guide/compounds/CompoundKeyboard.vue` | compound specimen | no | keep local | Imports and inspects the production `Keyboard.vue`. |
 | `src/style-guide/uniques/UniqueCodeStrip.vue` | unique specimen | no | keep local | Imports and inspects the source unique `CodeStrip.vue`. |
 | `src/style-guide/uniques/UniqueBrandCover.vue` | unique specimen | no | keep local | Imports and inspects `BrandCover.vue`; specimen labels/anatomy remain local. |
 | `src/style-guide/uniques/UniqueBrandLogo.vue` | unique specimen | no | keep local | Imports and inspects `BrandLogo.vue`; variant grid/anatomy remain local. |

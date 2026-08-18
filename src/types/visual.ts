@@ -435,6 +435,8 @@ export interface KeyboardConfig {
   /** Whether palette gradient effects are enabled */
   isEnabled: boolean;
 
+  /** Which note identity becomes the primary label */
+  primaryLabel: "syllable" | "degree" | "raw";
   /** Key gap style */
   keyGaps: "none" | "small" | "medium";
   /** Key border radius in pixels */

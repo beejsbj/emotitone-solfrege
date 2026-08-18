@@ -5,13 +5,15 @@
       <template v-for="(token, tokenIndex) in tokens" :key="`${token.type}-${tokenIndex}`">
         <template v-if="token.type === 'note'">
           <span v-if="token.stackedDuration" class="code-strip__stack">
-            <span :class="noteClasses(token)">
-              {{ token.text }}
+            <span class="code-strip__note" :class="{ 'code-strip__note--lit': token.lit }">
+              <Note v-bind="noteProps(token)" />
             </span>
             <span class="code-strip__stack-duration">{{ token.stackedDuration }}</span>
           </span>
           <template v-else>
-            <span :class="noteClasses(token)">{{ token.text }}</span>
+            <span class="code-strip__note" :class="{ 'code-strip__note--lit': token.lit }">
+              <Note v-bind="noteProps(token)" />
+            </span>
             <span v-if="token.accidental" class="code-strip__accidental">{{ token.accidental }}</span>
             <span v-if="token.duration" class="code-strip__duration">{{ token.duration }}</span>
             <span
@@ -34,6 +36,8 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import Note from "@/components/primatives/Note.vue";
+import type { NoteLabel } from "@/components/primatives/Note.vue";
 
 export type CodeStripNote = "do" | "re" | "mi" | "fa" | "sol" | "la" | "ti";
 export type CodeStripGlyph = "syl" | "deg" | "raw";
@@ -50,6 +54,11 @@ export type CodeStripToken =
       duration?: string;
       durationBarWidth?: number;
       stackedDuration?: string;
+      syllable?: string;
+      degree?: string;
+      rawPitch?: string;
+      scaleIndex?: number;
+      octave?: number;
     }
   | { type: "rest"; duration?: string }
   | { type: "bracket"; text: "{" | "}" }
@@ -79,14 +88,24 @@ const stripClasses = computed(() => [
   },
 ]);
 
-const noteClasses = (token: Extract<CodeStripToken, { type: "note" }>) => [
-  "code-strip__note",
-  `code-strip__note--${token.glyph ?? "syl"}`,
-  `code-strip__note--${token.note}`,
-  {
-    "code-strip__note--lit": token.lit,
-  },
-];
+const noteOrder: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
+const noteProps = (token: Extract<CodeStripToken, { type: "note" }>) => {
+  const glyph = token.glyph ?? "syl";
+  const primary: NoteLabel = glyph === "deg" ? "degree" : glyph === "raw" ? "raw" : "syllable";
+  return {
+    shape: "glyph" as const,
+    primary,
+    visibleLabels: [primary],
+    syllable: token.syllable ?? (primary === "syllable" ? token.text : titleCase(token.note)),
+    degree: token.degree ?? (primary === "degree" ? token.text : String(noteOrder.indexOf(token.note) + 1)),
+    rawPitch: token.rawPitch ?? (primary === "raw" ? token.text : ""),
+    scaleIndex: token.scaleIndex ?? noteOrder.indexOf(token.note),
+    octave: token.octave ?? 4,
+    sounding: token.lit,
+  };
+};
+
+const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 </script>
 
 <style scoped>
@@ -153,39 +172,12 @@ const noteClasses = (token: Extract<CodeStripToken, { type: "note" }>) => [
 }
 
 .code-strip__note {
-  color: currentColor;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: .02em;
-  line-height: 1;
+  position: relative;
+  display: inline-flex;
 }
-
-.code-strip__note--syl,
-.code-strip__note--raw {
-  text-transform: uppercase;
-}
-
-.code-strip__note--do { color: var(--note-do); }
-.code-strip__note--re { color: var(--note-re); }
-.code-strip__note--mi { color: var(--note-mi); }
-.code-strip__note--fa { color: var(--note-fa); }
-.code-strip__note--sol { color: var(--note-sol); }
-.code-strip__note--la { color: var(--note-la); }
-.code-strip__note--ti { color: var(--note-ti); }
 
 .code-strip__note--lit {
   text-shadow: 0 0 14px currentColor;
-}
-
-.code-strip__note--lit::after {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 3px;
-  vertical-align: 3px;
-  background: currentColor;
-  content: "";
 }
 
 .code-strip__duration-bar {

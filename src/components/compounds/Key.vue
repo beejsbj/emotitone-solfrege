@@ -77,7 +77,7 @@ const props = withDefaults(
     visibleLabels: () => ["syllable", "degree", "raw"],
     shape: "strip",
     scaleIndex: 0,
-    pitchClassIndex: 0,
+    pitchClassIndex: undefined,
     octave: 4,
     mode: "major",
     musicKey: "C",
@@ -232,6 +232,10 @@ defineExpose({
 .key--pressed :deep(.note) {
   box-shadow: var(--shadow-pressed);
   filter: brightness(.88);
+}
+
+.key:not(:disabled):not(.key--pressed):hover :deep(.note) {
+  filter: brightness(1.05);
 }
 
 .key:focus-visible {

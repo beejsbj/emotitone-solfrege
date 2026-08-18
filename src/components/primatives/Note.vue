@@ -69,7 +69,7 @@ const props = withDefaults(
     visibleLabels: () => ["syllable", "degree", "raw"],
     shape: "strip",
     scaleIndex: 0,
-    pitchClassIndex: 0,
+    pitchClassIndex: undefined,
     octave: 4,
     mode: "major",
     musicKey: "C",

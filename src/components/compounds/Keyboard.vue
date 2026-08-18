@@ -18,6 +18,7 @@
         :visible-labels="visibleLabels(octave)"
         shape="tile"
         :scale-index="index"
+        :pitch-class-index="pitchClassIndex(index)"
         :octave="octave"
         :mode="musicStore.currentMode"
         :music-key="currentMusicKey"
@@ -47,6 +48,8 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { triggerNoteHaptic } from "@/utils/hapticFeedback";
 import type { ChromaticNote } from "@/types/music";
+import { CHROMATIC_NOTES } from "@/data";
+import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
 
 const props = withDefaults(defineProps<{ primaryLabel?: NoteLabel }>(), {
   primaryLabel: "syllable",
@@ -65,6 +68,14 @@ const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(numbe
 const noteKey = (scaleIndex: number, octave: number) => `${scaleIndex}_${octave}`;
 const noteName = (scaleIndex: number, octave: number) =>
   musicStore.getNoteName(scaleIndex, octave);
+const pitchClassIndex = (scaleIndex: number) => {
+  const pitch = getChromaticNoteForScaleIndex(
+    scaleIndex,
+    musicStore.currentMode,
+    currentMusicKey.value,
+  );
+  return pitch ? CHROMATIC_NOTES.indexOf(pitch) : undefined;
+};
 
 const visibleLabels = (octave: number): NoteLabel[] => {
   if (!config.value.showLabels) return [];

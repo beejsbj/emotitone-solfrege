@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Note &middot; Music Primitive"
     :features="features"
-    caption="Note is the controlled, noninteractive musical presentation unit. It owns color, octave value, centered-primary identity, playing-card auxiliary labels, and the combined geometry/proportion surface. Draft activity states remain visible only as capability hooks here, not as accepted final styling."
+    caption="Note is the controlled, noninteractive musical presentation unit. It owns color, octave value, centered-primary identity, playing-card auxiliary labels, and independent geometry and proportion axes. Draft activity states remain visible only as capability hooks here, not as accepted final styling."
   >
     <template #hero>
       <Note proportion="hero" syllable="Do" degree="I" raw-pitch="C4" />

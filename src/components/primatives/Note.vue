@@ -243,6 +243,7 @@ const ariaLabel = computed(() => {
   --note-aux-degree-size: 11px;
   --note-aux-raw-size: 7px;
   --note-aux-tracking: .14em;
+  --note-tilt: none;
   position: relative;
   display: block;
   box-sizing: border-box;
@@ -259,6 +260,7 @@ const ariaLabel = computed(() => {
     var(--note-shadow),
     inset 0 0 0 1px var(--note-inner-border);
   clip-path: var(--note-clip);
+  transform: var(--note-tilt);
   user-select: none;
   backdrop-filter: var(--note-backdrop);
   -webkit-backdrop-filter: var(--note-backdrop);
@@ -388,8 +390,7 @@ const ariaLabel = computed(() => {
 }
 
 .note--proportion-standard {
-  --note-width: 56px;
-  --note-height: 88px;
+  /* Standard uses the base strip dimensions so geometry can still own width/height. */
 }
 
 .note--proportion-tall {
@@ -434,6 +435,7 @@ const ariaLabel = computed(() => {
   --note-aux-display-size: 11px;
   --note-aux-degree-size: 13px;
   --note-aux-raw-size: 9px;
+  --note-tilt: rotate(-.2deg);
 }
 
 .note--surface-monochrome::after {

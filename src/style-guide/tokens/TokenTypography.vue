@@ -10,9 +10,11 @@
           <div class="face-meta">Display &middot; Lets Jazz &middot; uppercase voice</div>
         </div>
         <div class="face-tile">
-          <div class="face-sample-mono">.note {
-      --note-degree: 2;
-    }</div>
+          <div class="face-sample-mono">&lt;Note
+      syllable="Mi"
+      degree="III"
+      raw-pitch="E4"
+    /&gt;</div>
           <div class="face-meta">Mono &middot; JetBrains Mono &middot; code, captions, long body, guide specs</div>
         </div>
       </div>

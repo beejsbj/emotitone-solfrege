@@ -21,7 +21,7 @@ Current-truth map for design-unit review and integration. File existence does no
 | Keyboard | Compound | Taxonomy agreed; not fully interviewed or defined | Current source is provisional, not accepted or formalized | Current specimen is provisional | Existing production keyboard behavior must be preserved during later definition | Verify relevant keyboard settings against the store | Global keyboard/MIDI routing, note activity, audio trigger, music color | Future composition; hosts Key | Complete its definition interview before further formalization |
 | Drawer | Unique | Not defined | `DrawerKeyboard` is a legacy production host, not an accepted composition | Current unique display is reference material, not acceptance | Legacy host remains in production | Unknown until definition | Unknown until definition | May later combine with Keyboard in a composition | Interview and accept Drawer independently |
 | CodeStrip | Unique | Not defined | Current Note integration is premature and should be parked or reverted | Existing display is reference material, not acceptance | Do not mark Note integration complete | Unknown until definition | Existing music/composable behavior must be audited during definition | May later consume Note | Define CodeStrip before migrating it to Note |
-| Music Color Recipe | Token/visual concern | Under review | Runtime JavaScript resolver consolidation is useful; authority and preserved visuals still require correction | Specimen must use the accepted recipe and preserve approved visuals | Verify actual production consumption before marking complete | Confirm persisted movable/fixed mode reaches production | Runtime resolver, key/scale context, CSS token presentation | Note and other musical visuals | Settle one authoritative recipe and verify config-to-production flow |
+| Music Color Recipe | Token/visual concern | Under review | Runtime JavaScript resolver consolidation is useful; authority and preserved visuals still require correction | Specimen must use the accepted recipe and preserve approved visuals | Persisted `musicColorMode` reaches production through Note -> `useColorSystem` -> `useVisualConfig` -> `visualConfigStore` | Movable/fixed persistence and production wiring are verified | Runtime resolver, key/scale context, CSS token presentation | Note and other musical visuals | Settle one authoritative recipe and correct specimen/preserved visuals |
 | Future Keyboard + Drawer composition | Composition | Pending both unit definitions | No source interface accepted; do not pre-name the final interface | None accepted | Not integrated | Pending component definitions | Pending component definitions | Product-level keyboard/drawer experience | Define Keyboard and Drawer first |
 
 ## Dependency map
@@ -36,11 +36,10 @@ Keyboard + Drawer -> future composition (after both definitions)
 ## Current config and state gaps
 
 - Primary identity is not persisted or wired.
-- Geometry x proportion is not configurable; tall, stocky/squary, and wide are viewport proportions that combine with cuts/geometries.
+- Geometry x proportion is not configurable; tall, stocky/squary, and wide are viewport proportions that combine with cuts/geometries. Persisted `keyboard.keyShape` is wired as border radius, not as the cut/geometry axis.
 - Production currently supplies only `sounding`.
 - `sustained`, `played-recently`, `selected`, and `ghosted` are props/specimen-only proposals.
 - Natural/accidental text semantics need restoration: note text follows piano-key white/black semantics for naturals/accidentals.
-- Verify actual production consumption of persisted movable/fixed music-color mode before marking it complete.
 
 ## Design-unit PR checklist
 

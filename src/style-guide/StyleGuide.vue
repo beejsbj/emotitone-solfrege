@@ -68,8 +68,8 @@
           <PrimitiveCard />
         </article>
         <article class="sink-frame">
-          <div class="sink-frame__source">primitive-keys.html</div>
-          <PrimitiveKeys />
+          <div class="sink-frame__source">primitive-note.html</div>
+          <PrimitiveNote />
         </article>
         <article class="sink-frame">
           <div class="sink-frame__source">primitive-kicker.html</div>
@@ -161,7 +161,7 @@ import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
 import PrimitiveBeatIndicator from "./primatives/PrimitiveBeatIndicator.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
 import PrimitiveCard from "./primatives/PrimitiveCard.vue";
-import PrimitiveKeys from "./primatives/PrimitiveKeys.vue";
+import PrimitiveNote from "./primatives/PrimitiveNote.vue";
 import PrimitiveKicker from "./primatives/PrimitiveKicker.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
 import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";

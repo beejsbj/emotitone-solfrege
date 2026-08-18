@@ -42,8 +42,8 @@ Date: 2026-05-26
 | `src/components/primatives/Knob.vue` | Extracted primitive | primitives | yes | promote | Source-first component for analog ring and digital arc visuals, role variants, label/footer frame, brass/ivory tone, disabled/played/lit states, SVG stroke grammar, and button motion. |
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | Primitive specimen | primitives | no | keep local | Imports `Knob.vue` with ring visual; keeps role/treatment grouping local. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | Primitive specimen | primitives | no | keep local | Imports `Knob.vue` with arc visual; keeps role/treatment grouping local. |
-| `src/components/primatives/Key.vue` | Extracted primitive | primitives | yes | promote | Source-first component for music key face, legacy note alias fill, label stack, format axis, cuts, proportions, pressed/disabled states, and sheen. |
-| `src/style-guide/primatives/PrimitiveKeys.vue` | Primitive specimen | primitives | no | keep local | Imports `Key.vue`; keeps chromatic, format, state, cut, and proportion grouping local. |
+| `src/components/primatives/Note.vue` | Extracted primitive | primitives | yes | promote | Source-first controlled Note primitive for runtime music color, centered-primary playing-card labels, natural/accidental text semantics, octave value, geometry, proportion, and draft state hooks. |
+| `src/style-guide/primatives/PrimitiveNote.vue` | Primitive specimen | primitives | no | keep local | Imports `Note.vue`; keeps chromatic, subset, geometry, proportion, surface, and draft state grouping local. |
 | `src/components/primatives/DrawerShell.vue` | Extracted primitive | primitives | yes | promote | Source-first component for bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced motion. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
@@ -73,5 +73,5 @@ Date: 2026-05-26
 
 ## Current Coverage Verdict
 
-- Coverage map is current for the design-lab scope and every listed row has a resolution.
+- Coverage map is current for the active Note-restoration scope and every listed row has a resolution.
 - Brand unique extraction, DrawerShell promotion, token closure, app `TopDrawer.vue` alignment, loading composition integration, and Finish Gate residue audit are recorded; user Finish Gate acceptance is still required before calling the run complete.

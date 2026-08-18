@@ -7,7 +7,7 @@ Date: 2026-05-26
 - Source of truth: `src/emotitone-design-system.css`.
 - Doctrine reference: `/Users/burooj/Projects/emotitone-design-system/project/design-doctrine.md`.
 - Specimens: `src/style-guide/tokens/*.vue`.
-- Status: open for next design-system refinement. Token promotion decisions from `TOKEN_PROMOTION_AUDIT.md` have been normalized into `PROMOTION_AUDIT.md`; a future Note primitive should own solfege/degree/raw display and clarify fixed versus movable hue behavior before app/component migrations continue.
+- Status: open for next design-system refinement. The restored `Note.vue` now owns solfege/degree/raw display and uses the shared runtime color resolver while respecting persisted fixed versus movable hue mode; downstream Key/Keyboard adoption remains a later gate.
 
 ## Primitives
 
@@ -23,10 +23,10 @@ Date: 2026-05-26
   - `src/components/primatives/Mark.vue`
   - `src/components/primatives/ChipTabs.vue`
   - `src/components/primatives/Knob.vue`
-  - `src/components/primatives/Key.vue`
+  - `src/components/primatives/Note.vue`
   - `src/components/primatives/DrawerShell.vue`
 - Primitive specimens: `src/style-guide/primatives/*.vue`.
-- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, Kicker, SpineCard, Mark, ChipTabs, Knob, Key, and DrawerShell follow the intended source-first pattern. DrawerShell is demonstrated from the legacy `UniqueDrawer.vue` path and wrapped by production `TopDrawer.vue`; the style-guide top-drawer composition has been removed.
+- Status: Sticker, BarTape, BeatIndicator, CardShell, IconButton, Kicker, SpineCard, Mark, ChipTabs, Knob, Note, and DrawerShell follow the intended source-first pattern. Note owns controlled musical identity and presentation only; final musical-state visuals and any Key/Keyboard promotion remain later gates. DrawerShell is demonstrated from the legacy `UniqueDrawer.vue` path and wrapped by production `TopDrawer.vue`; the style-guide top-drawer composition has been removed.
 
 ## Uniques
 
@@ -108,8 +108,8 @@ Date: 2026-05-26
 | `src/components/primatives/Knob.vue` | primitive | yes | promote | Owns analog ring and digital arc visual grammar, source frame/label/footer anatomy, roles, tone, disabled/played/lit states, SVG stroke grammar, and beat-timed button motion. |
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | primitive specimen | no | keep local | Imports and inspects `Knob.vue` with `visual="ring"`; ring role/treatment groupings remain specimen-local. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | primitive specimen | no | keep local | Imports and inspects `Knob.vue` with `visual="arc"`; arc role/treatment groupings remain specimen-local. |
-| `src/components/primatives/Key.vue` | primitive | yes | promote | Owns music key face, legacy note alias fill, syllable/degree/raw stack, format axis, shape/cut variants, pressed/disabled states, and sheen. |
-| `src/style-guide/primatives/PrimitiveKeys.vue` | primitive specimen | no | keep local | Imports and inspects `Key.vue`; chromatic, format, state, cut, and proportion groupings remain specimen-local. |
+| `src/components/primatives/Note.vue` | primitive | yes | promote | Owns controlled musical identity/presentation, centered-primary playing-card labels, runtime color, natural/accidental text semantics, octave value, geometry, proportion, and draft state hooks. |
+| `src/style-guide/primatives/PrimitiveNote.vue` | primitive specimen | no | keep local | Imports and inspects `Note.vue`; chromatic, subset, geometry, proportion, surface, and draft state groupings remain specimen-local. |
 | `src/components/primatives/DrawerShell.vue` | primitive | yes | promote | Owns bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced-motion behavior. |
 | `src/components/compounds/PatternCard.vue` | compound | yes | promote | Owns sleek/active pattern card anatomy and composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | compound | yes | promote | Owns stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |

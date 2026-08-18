@@ -16,18 +16,16 @@ Date: 2026-05-27
 
 ## Note Primitive Gate
 
-The next design-system gate should define a `Note` primitive before migrating app note-color usage.
+`Note.vue` is now the accepted design-system primitive for controlled musical identity and presentation.
 
-Open decisions:
+Remaining decisions:
 
-- API: should `Note` accept pitch names, scale degree, solfege identity, or a normalized note model?
-- Display modes: degree, solfege, and raw note should probably be variants of the same primitive.
-- Color modes: fixed hue and movable hue both exist in the app; the primitive must not collapse them into one model.
-- Color source: decide how the primitive bridges current CSS `.note` custom-property recipe, legacy `--note-*` aliases, and runtime `useColorSystem` / `musicColor.ts`.
-- Scope: start as design-system primitive first; migrate app components only after the primitive doctrine is accepted.
+- Finalize the visual language and precedence for `sounding`, `sustained`, `playedRecently`, `selected`, and `ghosted`.
+- Decide how Key and Keyboard should consume `Note` without altering existing production interaction or audio behavior.
+- Keep geometry x proportion as a design-system axis for now; do not promote it to a production keyboard setting until Keyboard is defined.
 
 ## Deferred App Gates
 
 - Production knobs can eventually adopt the design-system visual knob, but not until the design system is complete.
-- Legacy `--note-*` aliases should not be swept until the Note primitive exists.
+- Legacy `--note-*` aliases should not be swept from production until Key and Keyboard are redefined around the accepted Note primitive.
 - Main app implementation starts after design-system gates close.

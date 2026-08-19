@@ -225,6 +225,7 @@ const ariaLabel = computed(() => {
   width: var(--note-width);
   height: var(--note-height);
   overflow: visible;
+  background: transparent;
   user-select: none;
 }
 

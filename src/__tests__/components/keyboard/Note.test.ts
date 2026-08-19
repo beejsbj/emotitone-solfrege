@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import Note from "@/components/primatives/Note.vue";
+import noteSource from "@/components/primatives/Note.vue?raw";
 
 const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
@@ -28,6 +29,9 @@ describe("Note", () => {
     );
     expect(wrapper.attributes("data-geometry")).toBe("standard");
     expect(wrapper.attributes("data-proportion")).toBe("medium");
+    expect(noteSource).toMatch(
+      /\.note\s*\{[^}]*background:\s*transparent;/,
+    );
   });
 
   it("renders a noninteractive surface with a centered primary and playing-card auxiliaries", () => {

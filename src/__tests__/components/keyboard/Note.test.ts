@@ -53,7 +53,7 @@ describe("Note", () => {
     expect(wrapper.attributes("tabindex")).toBeUndefined();
     expect(wrapper.attributes("role")).toBeUndefined();
     expect(wrapper.find(".note__label--rank-primary.note__label--raw").text()).toBe(
-      "Db4",
+      "D♭4",
     );
     expect(wrapper.find(".note__label--syllable").attributes("data-slot")).toBe(
       "top-left",
@@ -74,6 +74,50 @@ describe("Note", () => {
       expect(primaryLabel.classes()).toContain(`note__label--${primary}`);
       expect(wrapper.findAll(".note__label--rank-aux")).toHaveLength(2);
     }
+  });
+
+  it("preserves supplied solfege title casing", () => {
+    for (const syllable of ["Do", "Re", "Sol"]) {
+      const wrapper = mount(Note, {
+        props: { syllable, visibleLabels: ["syllable"] },
+      });
+
+      expect(wrapper.find(".note__label--syllable").text()).toBe(syllable);
+    }
+    expect(noteSource).not.toMatch(/\.note__label--syllable[^}]*text-transform/);
+  });
+
+  it("presents accidental glyphs without mutating source identity", () => {
+    const examples: Array<{
+      primary: "raw" | "degree";
+      rawPitch?: string;
+      degree?: string;
+      expected: string;
+      source: string;
+    }> = [
+      { primary: "raw", rawPitch: "Db4", expected: "D♭4", source: "Db4" },
+      { primary: "raw", rawPitch: "F#4", expected: "F♯4", source: "F#4" },
+      { primary: "degree", degree: "bII", expected: "♭II", source: "bII" },
+      { primary: "degree", degree: "#IV", expected: "♯IV", source: "#IV" },
+    ];
+
+    for (const example of examples) {
+      const wrapper = mount(Note, {
+        props: {
+          primary: example.primary,
+          rawPitch: example.rawPitch,
+          degree: example.degree,
+          visibleLabels: [example.primary],
+        },
+      });
+
+      expect(wrapper.find(".note__label--rank-primary").text()).toBe(
+        example.expected,
+      );
+      expect(wrapper.attributes("aria-label")).toContain(example.source);
+    }
+
+    expect(noteSource).not.toMatch(/\.note__label--raw[^}]*text-transform/);
   });
 
   it("supports arbitrary visible label subsets without changing raw pitch rank", () => {

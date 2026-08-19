@@ -124,6 +124,14 @@ const labelValues = computed<Record<NoteLabel, string>>(() => ({
 
 const labelOrder: NoteLabel[] = ["syllable", "degree", "raw"];
 
+function formatVisibleLabel(kind: NoteLabel, value: string) {
+  if (kind === "syllable") {
+    return value;
+  }
+
+  return value.replace(/b/g, "♭").replace(/#/g, "♯");
+}
+
 const visibleLabelKinds = computed(() =>
   labelOrder.filter(
     (kind) => props.visibleLabels.includes(kind) && Boolean(labelValues.value[kind]),
@@ -137,7 +145,7 @@ const primaryLabel = computed<NoteDisplayLabel | null>(() => {
 
   return {
     kind: props.primary,
-    value: labelValues.value[props.primary],
+    value: formatVisibleLabel(props.primary, labelValues.value[props.primary]),
     slot: "center",
   };
 });
@@ -150,7 +158,7 @@ const auxiliaryLabels = computed<NoteDisplayLabel[]>(() => {
 
   return visibleAuxiliaryKinds.map((kind, index) => ({
     kind,
-    value: labelValues.value[kind],
+    value: formatVisibleLabel(kind, labelValues.value[kind]),
     slot: slots[index] ?? "bottom-right",
   }));
 });
@@ -334,11 +342,6 @@ const ariaLabel = computed(() => {
 .note__label--raw {
   font-family: var(--font-display);
   font-weight: 700;
-}
-
-.note__label--syllable,
-.note__label--raw {
-  text-transform: uppercase;
 }
 
 .note__label--rank-primary {

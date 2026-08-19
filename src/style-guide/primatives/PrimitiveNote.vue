@@ -19,6 +19,17 @@
       </VariantCell>
     </VariantGrid>
 
+    <VariantGrid title="Anchored accidental notation">
+      <VariantCell
+        v-for="example in notationLayouts"
+        :key="example.caption"
+        :caption="example.caption"
+        stage="ink3"
+      >
+        <Note v-bind="example.note" />
+      </VariantCell>
+    </VariantGrid>
+
     <VariantGrid title="Chromatic aliases">
       <VariantCell
         v-for="example in chromaticNotes"
@@ -193,6 +204,55 @@ const primaryIdentities = labels.map((primary) => ({
   degree: "I",
   rawPitch: "C4",
 }));
+
+const notationLayouts = [
+  {
+    caption: "Tall · degree ♭VII",
+    note: {
+      primary: "degree" as const,
+      visibleLabels: ["degree"] as NoteLabel[],
+      degree: "bVII",
+      rawPitch: "Bb2",
+      octave: 2,
+      scaleIndex: 10,
+      proportion: "tall" as const,
+    },
+  },
+  {
+    caption: "Medium · raw C♯2",
+    note: {
+      primary: "raw" as const,
+      visibleLabels: ["raw"] as NoteLabel[],
+      rawPitch: "C#2",
+      octave: 2,
+      scaleIndex: 1,
+      proportion: "medium" as const,
+    },
+  },
+  {
+    caption: "Pill · degree ♭VII",
+    note: {
+      primary: "degree" as const,
+      visibleLabels: ["degree"] as NoteLabel[],
+      degree: "bVII",
+      rawPitch: "Bb4",
+      scaleIndex: 10,
+      geometry: "pill" as const,
+      proportion: "stocky" as const,
+    },
+  },
+  {
+    caption: "Wide · raw C♯2",
+    note: {
+      primary: "raw" as const,
+      visibleLabels: ["raw"] as NoteLabel[],
+      rawPitch: "C#2",
+      octave: 2,
+      scaleIndex: 1,
+      proportion: "wide" as const,
+    },
+  },
+];
 
 const chromaticNotes = [
   { syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0 },

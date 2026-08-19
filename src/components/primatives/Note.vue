@@ -15,10 +15,27 @@
       <span
         v-if="primaryLabel"
         class="note__label note__label--rank-primary"
-        :class="`note__label--${primaryLabel.kind}`"
+        :class="[
+          `note__label--${primaryLabel.kind}`,
+          'note__label--core-centered',
+          { 'note__label--structured': primaryLabel.kind !== 'syllable' },
+        ]"
         :data-slot="primaryLabel.slot"
+        data-center-anchor="identity-core"
       >
-        {{ primaryLabel.value }}
+        <span
+          v-if="primaryLabel.kind === 'degree' && primaryLabel.presentation.accidental"
+          class="note__identity-satellite note__identity-accidental note__identity-accidental--degree"
+        >{{ primaryLabel.presentation.accidental }}</span>
+        <span class="note__identity-core">{{ primaryLabel.presentation.core }}</span>
+        <span
+          v-if="primaryLabel.kind === 'raw' && primaryLabel.presentation.accidental"
+          class="note__identity-satellite note__identity-accidental note__identity-accidental--raw"
+        >{{ primaryLabel.presentation.accidental }}</span>
+        <span
+          v-if="primaryLabel.kind === 'raw' && primaryLabel.presentation.octave"
+          class="note__identity-satellite note__identity-octave"
+        >{{ primaryLabel.presentation.octave }}</span>
       </span>
 
       <span
@@ -28,7 +45,7 @@
         :class="[`note__label--${label.kind}`, `note__label--slot-${label.slot}`]"
         :data-slot="label.slot"
       >
-        {{ label.value }}
+        <span class="note__identity-inline">{{ label.presentation.inline }}</span>
       </span>
     </span>
   </span>
@@ -46,8 +63,15 @@ export type NoteSurfaceStyle = "colored" | "monochrome";
 
 interface NoteDisplayLabel {
   kind: NoteLabel;
-  value: string;
+  presentation: NotePresentation;
   slot: "center" | "top-left" | "bottom-right";
+}
+
+interface NotePresentation {
+  inline: string;
+  core: string;
+  accidental: string;
+  octave: string;
 }
 
 const props = withDefaults(
@@ -124,12 +148,43 @@ const labelValues = computed<Record<NoteLabel, string>>(() => ({
 
 const labelOrder: NoteLabel[] = ["syllable", "degree", "raw"];
 
-function formatVisibleLabel(kind: NoteLabel, value: string) {
+function formatAccidentals(value: string) {
+  return value.replace(/b/g, "♭").replace(/#/g, "♯");
+}
+
+function parsePresentation(kind: NoteLabel, value: string): NotePresentation {
   if (kind === "syllable") {
-    return value;
+    return { inline: value, core: value, accidental: "", octave: "" };
   }
 
-  return value.replace(/b/g, "♭").replace(/#/g, "♯");
+  if (kind === "degree") {
+    const [, accidental = "", core = value] =
+      value.match(/^([b#♭♯]*)(.*)$/) ?? [];
+    const visibleAccidental = formatAccidentals(accidental);
+
+    return {
+      inline: `${visibleAccidental}${core}`,
+      core,
+      accidental: visibleAccidental,
+      octave: "",
+    };
+  }
+
+  const rawMatch = value.match(/^([A-Ga-g])([b#♭♯]*)(-?\d+)$/);
+  if (!rawMatch) {
+    const inline = formatAccidentals(value);
+    return { inline, core: inline, accidental: "", octave: "" };
+  }
+
+  const [, core, accidental, octave] = rawMatch;
+  const visibleAccidental = formatAccidentals(accidental);
+
+  return {
+    inline: `${core}${visibleAccidental}${octave}`,
+    core,
+    accidental: visibleAccidental,
+    octave,
+  };
 }
 
 const visibleLabelKinds = computed(() =>
@@ -145,7 +200,10 @@ const primaryLabel = computed<NoteDisplayLabel | null>(() => {
 
   return {
     kind: props.primary,
-    value: formatVisibleLabel(props.primary, labelValues.value[props.primary]),
+    presentation: parsePresentation(
+      props.primary,
+      labelValues.value[props.primary],
+    ),
     slot: "center",
   };
 });
@@ -158,7 +216,7 @@ const auxiliaryLabels = computed<NoteDisplayLabel[]>(() => {
 
   return visibleAuxiliaryKinds.map((kind, index) => ({
     kind,
-    value: formatVisibleLabel(kind, labelValues.value[kind]),
+    presentation: parsePresentation(kind, labelValues.value[kind]),
     slot: slots[index] ?? "bottom-right",
   }));
 });
@@ -227,6 +285,11 @@ const ariaLabel = computed(() => {
   --note-aux-size: 9px;
   --note-aux-tracking: .14em;
   --note-primary-safe-inline: 9px;
+  --note-primary-accidental-size: .48em;
+  --note-primary-octave-size: .42em;
+  --note-primary-satellite-overlap: .08em;
+  --note-primary-satellite-raise: -.12em;
+  --note-primary-satellite-drop: -.12em;
   position: relative;
   display: block;
   box-sizing: border-box;
@@ -317,6 +380,43 @@ const ariaLabel = computed(() => {
   transform: translate(-50%, -50%);
   color: var(--note-label-main);
   text-align: center;
+}
+
+.note__identity-core {
+  display: inline-block;
+}
+
+.note__identity-inline {
+  display: inline;
+}
+
+.note__identity-satellite {
+  position: absolute;
+  display: block;
+  line-height: 1;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.note__identity-accidental {
+  font-size: var(--note-primary-accidental-size);
+}
+
+.note__identity-accidental--degree {
+  top: var(--note-primary-satellite-raise);
+  right: calc(100% - var(--note-primary-satellite-overlap));
+}
+
+.note__identity-accidental--raw {
+  top: var(--note-primary-satellite-raise);
+  left: calc(100% - var(--note-primary-satellite-overlap));
+}
+
+.note__identity-octave {
+  right: auto;
+  bottom: var(--note-primary-satellite-drop);
+  left: calc(100% - var(--note-primary-satellite-overlap));
+  font-size: var(--note-primary-octave-size);
 }
 
 .note__label--rank-aux {

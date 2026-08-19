@@ -120,6 +120,68 @@ describe("Note", () => {
     expect(noteSource).not.toMatch(/\.note__label--raw[^}]*text-transform/);
   });
 
+  it("centers structured primary notation on its identity core", () => {
+    const degreeWrapper = mount(Note, {
+      props: {
+        primary: "degree",
+        degree: "bVII",
+        visibleLabels: ["degree"],
+      },
+    });
+    const degreePrimary = degreeWrapper.get(".note__label--rank-primary");
+
+    expect(degreePrimary.classes()).toEqual(
+      expect.arrayContaining([
+        "note__label--structured",
+        "note__label--core-centered",
+      ]),
+    );
+    expect(degreePrimary.attributes("data-center-anchor")).toBe("identity-core");
+    expect(degreePrimary.get(".note__identity-core").text()).toBe("VII");
+    expect(
+      degreePrimary.get(".note__identity-accidental--degree").text(),
+    ).toBe("♭");
+    expect(degreePrimary.text()).toBe("♭VII");
+
+    const rawWrapper = mount(Note, {
+      props: {
+        primary: "raw",
+        rawPitch: "C#2",
+        visibleLabels: ["raw"],
+      },
+    });
+    const rawPrimary = rawWrapper.get(".note__label--rank-primary");
+
+    expect(rawPrimary.attributes("data-center-anchor")).toBe("identity-core");
+    expect(rawPrimary.get(".note__identity-core").text()).toBe("C");
+    expect(rawPrimary.get(".note__identity-accidental--raw").text()).toBe("♯");
+    expect(rawPrimary.get(".note__identity-octave").text()).toBe("2");
+    expect(rawPrimary.text()).toBe("C♯2");
+    expect(noteSource).toMatch(
+      /\.note__identity-satellite\s*\{[^}]*position:\s*absolute;/,
+    );
+  });
+
+  it("keeps auxiliary degree and raw notation compact and inline", () => {
+    const wrapper = mount(Note, {
+      props: {
+        syllable: "Do",
+        degree: "bVII",
+        rawPitch: "C#2",
+        primary: "syllable",
+      },
+    });
+    const degreeAux = wrapper.get(
+      ".note__label--rank-aux.note__label--degree",
+    );
+    const rawAux = wrapper.get(".note__label--rank-aux.note__label--raw");
+
+    expect(degreeAux.get(".note__identity-inline").text()).toBe("♭VII");
+    expect(rawAux.get(".note__identity-inline").text()).toBe("C♯2");
+    expect(degreeAux.find(".note__identity-satellite").exists()).toBe(false);
+    expect(rawAux.find(".note__identity-satellite").exists()).toBe(false);
+  });
+
   it("supports arbitrary visible label subsets without changing raw pitch rank", () => {
     const wrapper = mount(Note, {
       props: {

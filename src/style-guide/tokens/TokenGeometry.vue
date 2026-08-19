@@ -14,7 +14,7 @@
             <div class="clip-sample clip-offcut">Off-Cut</div>
             <div class="clip-token">
               --clip-offcut
-              <em>polygon(4% 0%, 98% 6%,<br>100% 90%, 96% 100%,<br>2% 94%, 0% 8%)</em>
+              <em>polygon(2% 6%, 96% 0%,<br>100% 8%, 98% 94%,<br>4% 100%, 0% 90%)</em>
             </div>
             <div class="clip-token" style="color:var(--ivory-4);font-size:8px">Badge, tab active</div>
           </div>
@@ -362,9 +362,9 @@
   color: var(--ivory-2);
 }
 
-/* --clip-offcut: polygon(4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%) */
+/* --clip-offcut: polygon(2% 6%, 96% 0%, 100% 8%, 98% 94%, 4% 100%, 0% 90%) */
 .clip-offcut {
-  clip-path: polygon(4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%);
+  clip-path: var(--clip-offcut);
 }
 
 /* --clip-tile: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%) */

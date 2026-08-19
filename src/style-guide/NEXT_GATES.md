@@ -27,16 +27,31 @@ Date: 2026-08-19
 
 The Note gate is closed. `sustained`, `playedRecently`, `selected`, and `ghosted` remain undefined tracker candidates, not Note props.
 
+## Key Compound Gate
+
+`Key.vue` is accepted and formalized as the native, momentary button compound around the complete Note face.
+
+- Final rest state: no permanent bezel or housing; only Note is visible.
+- Final physical response: a fine-pointer 1px hover lift, then a shared 2px-down / 3%-compressed press with neutral inset depth and a local 90ms no-bounce transform transition.
+- Final focus: a static 2px high-contrast neutral outline with a 2px gap; focus is independent from lift and press.
+- Final state model: controlled physical `pressed` and forwarded musical `sounding` are independent. `aria-pressed` reports physical state only.
+- Final local input: idempotent `mouse` and `touch:<identifier>` activations emit typed `press`/`release` payloads and clean up on end, departure, cancellation, window blur, hidden document, and unmount.
+- Final accessibility: native button semantics, a caller-supplied or concise derived musical label, 44px minimum target, fine-pointer-only hover, and a static Reduce Motion press treatment.
+- Final boundary: no disabled/lock state, store, audio, haptic, MIDI, QWERTY, global routing, config, or imperative trigger API. Cross-key drag/glissando remains Keyboard work.
+
+The Key gate is closed. Production `KeyboardKey.vue` and `DrawerKeyboard.vue` were not changed or migrated.
+
 ## Next Independent Gate
 
-- Formalize Key as a compound around Note while preserving current production keyboard, pointer, touch, drag, literal-keyboard, and audio-trigger behavior.
-- Keep Note's musical sounding presentation separate from Key's physical press, focus, hover, and input presentation.
-- Do not migrate Keyboard, Drawer, or CodeStrip during the Key gate.
+- Complete the Keyboard definition interview before extracting or migrating production keyboard behavior.
+- Define one owner for layout, cross-key drag/glissando, literal-keyboard/MIDI routing, audio/haptics, store/config integration, and lock policy; those concerns do not belong in Key.
+- Keep the accepted Note and Key APIs intact while production `KeyboardKey.vue` and `DrawerKeyboard.vue` remain legacy sources.
 - Keep geometry x proportion as a design-system axis; do not promote it to a production keyboard setting until Keyboard is defined.
+- Do not migrate Drawer or CodeStrip during the Keyboard definition gate.
 - Purge glassmorphism across the wider app in a separately scoped gate; Note no longer exposes it.
 
 ## Deferred App Gates
 
 - Production knobs can eventually adopt the design-system visual knob, but not until the design system is complete.
-- Legacy `--note-*` aliases should not be swept from production until Key and Keyboard are redefined around the accepted Note primitive.
+- Legacy `--note-*` aliases should not be swept from production until the defined Keyboard adopts accepted Note and Key.
 - Main app implementation starts after design-system gates close.

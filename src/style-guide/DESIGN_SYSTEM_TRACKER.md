@@ -19,14 +19,14 @@ Use this file to resume the workflow without reconstructing it from chat:
 - Production adoption is the goal, piece by piece. Normally integrate into an already-defined consumer. If an accepted unit must pass through an undefined consumer, name that code a **provisional adapter**, preserve existing behavior, record every bridge decision, and keep the consumer's definition unaccepted.
 - End every session with the exact branch/worktree state, verification evidence, unresolved gate, and next frontier reflected here. A spoken "done" is not a handoff.
 
-## Recovery checkpoint — 2026-08-19
+## Current checkpoint — 2026-08-19
 
 - **Closed and authoritative:** Sticker, Note, and Key definitions. Their source components and real specimens are formalized.
-- **Trusted refs:** `implementing-design-system` is at `2bd72bd`, seven local commits ahead of draft PR #27 / `origin/implementing-design-system` at `85c63fd`. The accepted Key stack tip being merged is `1df13bc`.
-- **In flight, not closed:** the branch is still inside that merge. The accepted Note/Key merge result is staged; the provisional production Keyboard adapter, its test, and related current-truth documents still include unstaged/untracked work. There is no merge commit or final handoff yet. Tests/build and a live app inspection ran during the interrupted session, but they were never closed out as a final verified artifact.
-- **Do not infer acceptance from the working tree:** the mounted and production-integrated Keyboard is still **Taxonomy only**. Its current geometry mappings, row proportions, routing boundaries, and legacy surface fallbacks are evidence for its interview, not settled design.
-- **Recovery gate:** conclude and verify the existing coalescence before beginning another design unit or claiming the production adoption complete.
-- **Next definition frontier:** from the clean implementation branch, grill Keyboard; then grill Drawer; then define the Keyboard + Drawer composition. Do not re-grill Note or Key. CodeStrip and the Music Color Recipe retain their own independent gates.
+- **Coalescence complete:** `57bc6dd` merges the accepted Key stack at `1df13bc` into `implementing-design-system`. The legacy `KeyboardKey.vue` is removed, the production Keyboard renders the accepted Note through the accepted Key, and `DrawerKeyboard.vue` remains its thin current host.
+- **Trusted refs:** `implementing-design-system` is 29 local commits ahead of draft PR #27 / `origin/implementing-design-system` at `85c63fd`. The branch is out of the merge and has no design-system work in progress; `.claude-continue.sh` has an unrelated pre-existing modification.
+- **Definition boundary:** production adoption did not accept Keyboard or Drawer. The mounted and production-integrated Keyboard remains **Taxonomy only**. Its current geometry mappings, row proportions and heights, cross-key interaction, routing boundaries, `angledStyle` offcut mapping, and glass surface fallback are evidence for its interview, not settled design.
+- **Active gate:** grill the current production `Keyboard.vue` reference from `implementing-design-system` before any further Keyboard refactor. Define ownership of layout, cross-key drag/glissando, literal-keyboard routing, audio/haptics, store/config, and the relationship to centralized MIDI while keeping the accepted Note and Key APIs intact.
+- **Following frontier:** grill Drawer separately, then define the Keyboard + Drawer composition. Do not re-grill Note or Key. Do not migrate CodeStrip through this work. CodeStrip and the Music Color Recipe retain independent gates.
 
 ## Status legend
 

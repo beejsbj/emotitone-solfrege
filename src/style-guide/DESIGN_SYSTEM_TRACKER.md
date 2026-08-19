@@ -16,7 +16,7 @@ Current-truth map for design-unit review and integration. File existence does no
 | Unit | Layer | Definition status | Formalized/source-component status | Style-guide specimen status | Production integration status | Config/store work | Music/composable dependencies | Feeds/consumers | Next gate |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Sticker | Primitive | Accepted | Real primitive is authoritative | Real specimen imports the primitive | Integrated where accepted | None currently identified | None currently identified | Accepted consumers | Maintain parity |
-| Note | Primitive | Identity/presentation definition accepted; musical-state visual language is draft and unaccepted | Real primitive now owns centered-primary playing-card anatomy, natural/accidental text semantics, runtime color, geometry x proportion axes, and draft state hooks | Real specimen imports the primitive and proves label subsets, chromatic aliases, surfaces, and geometry x proportion combinations | Production integration remains deferred until Key/Keyboard are defined on their own branch | Primary identity is now persisted as `keyboard.primaryLabel`; geometry x proportion remains intentionally not a production config surface yet | Receives externally supplied note identity, music color, and activity state | Future Key; may feed future CodeStrip only after CodeStrip is defined | Accept final musical-state visuals, then define Key around this Note |
+| Note | Primitive | Accepted | Real primitive owns centered-primary playing-card anatomy, natural/accidental text semantics, runtime color, final geometry x proportion axes, two surface treatments, and the accepted `sounding` state | Real specimen imports the primitive and proves identity ranks, chromatic aliases, label subsets, contrast, all five geometries, all four proportions, the complete 5 x 4 matrix, surfaces, and rest/sounding motion | Production Key/Keyboard adoption remains deferred until those units pass their own gates | Primary identity is persisted as `keyboard.primaryLabel`; geometry x proportion remains intentionally responsive presentation rather than a production config surface | Receives externally supplied note identity, music color, and `sounding`; owns no input, timer, store, or audio engine | Future Key; may feed future CodeStrip only after CodeStrip is defined | Define and formalize Key independently around this accepted Note |
 | Key | Compound | Accepted in interview only | Not formalized in this branch; interaction must remain outside Note | No real compound specimen on this branch yet | Production keyboard remains unchanged in this Note slice | Preserve existing input/config behavior for later work | Keyboard/input and audio-trigger adapters; Note handles presentation | Keyboard | Formalize separately after Note acceptance |
 | Keyboard | Compound | Taxonomy agreed; not fully interviewed or defined | Current source is provisional, not accepted or formalized | Current specimen is provisional | Existing production keyboard behavior must be preserved during later definition | Verify relevant keyboard settings against the store | Global keyboard/MIDI routing, note activity, audio trigger, music color | Future composition; hosts Key | Complete its definition interview before further formalization |
 | Drawer | Unique | Not defined | `DrawerKeyboard` is a legacy production host, not an accepted composition | Current unique display is reference material, not acceptance | Legacy host remains in production | Unknown until definition | Unknown until definition | May later combine with Keyboard in a composition | Interview and accept Drawer independently |
@@ -35,18 +35,18 @@ Keyboard + Drawer -> future composition (after both definitions)
 
 ## Current config and state gaps
 
-- Geometry x proportion is not configurable; tall, stocky/squary, and wide are viewport proportions that combine with cuts/geometries. Persisted `keyboard.keyShape` is wired as border radius, not as the cut/geometry axis.
-- Production currently supplies only `sounding`; this Note slice keeps the remaining state hooks draft-only.
-- `sustained`, `played-recently`, `selected`, and `ghosted` are props/specimen-only proposals.
-- Natural/accidental text semantics are restored: note text now follows piano-key white/black semantics for naturals/accidentals.
+- Geometry x proportion is not configurable: `tall`, `medium`, `stocky`, and `wide` are responsive proportions that combine with `standard`, `tile`, `offcut`, `tab`, and `pill`. Persisted `keyboard.keyShape` is wired as border radius, not as this geometry axis.
+- `sounding` is Note's sole accepted musical activity prop. `sustained`, `playedRecently`, `selected`, and `ghosted` are tracker candidates only and are not in the component API or specimen.
+- Natural/accidental text follows piano-key white/black semantics. Syllable, degree, and raw pitch share the same display typography at each primary or auxiliary rank.
+- Note supports only `colored` and `monochrome`. The broad app-wide glassmorphism purge is deferred beyond this Note slice.
 
 ## Design-unit PR checklist
 
-- [ ] Definition accepted.
-- [ ] Source unit is authoritative.
-- [ ] Style-guide specimen imports the real source unit.
-- [ ] No unaccepted downstream consumer was migrated.
-- [ ] Visual config/store metadata is wired.
-- [ ] Relevant music/composable adapters are verified.
-- [ ] Relevant tests and live views are checked.
-- [ ] This tracker is updated to current truth.
+- [x] Definition accepted.
+- [x] Source unit is authoritative.
+- [x] Style-guide specimen imports the real source unit.
+- [x] No unaccepted downstream consumer was migrated.
+- [x] Visual config/store metadata is wired.
+- [x] Relevant music/composable adapters are verified.
+- [x] Relevant tests are checked; final browser screenshot review is handed to the parent after preview automation timed out.
+- [x] This tracker is updated to current truth.

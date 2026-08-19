@@ -1,6 +1,6 @@
 # Next Gates
 
-Date: 2026-05-27
+Date: 2026-08-19
 
 ## Current Doctrine Corrections
 
@@ -16,13 +16,24 @@ Date: 2026-05-27
 
 ## Note Primitive Gate
 
-`Note.vue` is now the accepted design-system primitive for controlled musical identity and presentation.
+`Note.vue` is accepted and formalized as the controlled, noninteractive musical identity and presentation primitive.
 
-Remaining decisions:
+- Final geometry: `standard`, `tile`, mirrored `offcut`, `tab`, and `pill`.
+- Final responsive proportions: `tall`, `medium`, `stocky`, and `wide`; `medium` is default.
+- Final surfaces: `colored` and `monochrome`.
+- Final identity: syllable, scale degree, and raw pitch use one rank-based display typography system; raw pitch includes accidental and octave.
+- Final activity API: externally controlled `sounding` only. Onset ring, held rim/halo, brushed release, and the static Reduce Motion treatment are accepted.
+- Persisted `keyboard.primaryLabel` remains wired. Note owns no input, timer, store, or audio engine.
 
-- Finalize the visual language and precedence for `sounding`, `sustained`, `playedRecently`, `selected`, and `ghosted`.
-- Decide how Key and Keyboard should consume `Note` without altering existing production interaction or audio behavior.
-- Keep geometry x proportion as a design-system axis for now; do not promote it to a production keyboard setting until Keyboard is defined.
+The Note gate is closed. `sustained`, `playedRecently`, `selected`, and `ghosted` remain undefined tracker candidates, not Note props.
+
+## Next Independent Gate
+
+- Formalize Key as a compound around Note while preserving current production keyboard, pointer, touch, drag, literal-keyboard, and audio-trigger behavior.
+- Keep Note's musical sounding presentation separate from Key's physical press, focus, hover, and input presentation.
+- Do not migrate Keyboard, Drawer, or CodeStrip during the Key gate.
+- Keep geometry x proportion as a design-system axis; do not promote it to a production keyboard setting until Keyboard is defined.
+- Purge glassmorphism across the wider app in a separately scoped gate; Note no longer exposes it.
 
 ## Deferred App Gates
 

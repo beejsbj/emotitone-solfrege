@@ -291,7 +291,7 @@ const ariaLabel = computed(() => {
   --note-aux-size: 9px;
   --note-aux-tracking: .14em;
   --note-primary-safe-inline: 9px;
-  --note-primary-accidental-size: .58em;
+  --note-primary-accidental-size: .70em;
   --note-primary-degree-accidental-overlap: .08em;
   --note-primary-raw-accidental-gap: .34em;
   --note-primary-satellite-raise: -.12em;

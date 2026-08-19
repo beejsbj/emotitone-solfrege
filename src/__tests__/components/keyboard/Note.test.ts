@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import Note from "@/components/primatives/Note.vue";
 
@@ -7,17 +7,30 @@ const getKeyBackground = vi.fn(() => ({
   primaryColor: "hsla(10, 80%, 50%, 1)",
 }));
 
-const createGlassmorphShadow = vi.fn(() => "shadow(glass)");
-
 vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
-    createGlassmorphShadow,
-    getKeyBackground,
-  }),
+  useColorSystem: () => ({ getKeyBackground }),
 }));
 
 describe("Note", () => {
-  it("renders a centered primary label with fixed playing-card auxiliary slots", () => {
+  beforeEach(() => {
+    getKeyBackground.mockClear();
+  });
+
+  it("defaults to the standard geometry, medium proportion, and colored surface", () => {
+    const wrapper = mount(Note);
+
+    expect(wrapper.classes()).toEqual(
+      expect.arrayContaining([
+        "note--geometry-standard",
+        "note--proportion-medium",
+        "note--surface-colored",
+      ]),
+    );
+    expect(wrapper.attributes("data-geometry")).toBe("standard");
+    expect(wrapper.attributes("data-proportion")).toBe("medium");
+  });
+
+  it("renders a noninteractive surface with a centered primary and playing-card auxiliaries", () => {
     const wrapper = mount(Note, {
       props: {
         syllable: "Ra",
@@ -31,59 +44,35 @@ describe("Note", () => {
     });
 
     expect(wrapper.element.tagName).toBe("SPAN");
+    expect(wrapper.find(".note__surface").exists()).toBe(true);
     expect(wrapper.find("button").exists()).toBe(false);
-    expect(wrapper.find('.note__label--primary.note__label--raw').text()).toBe("Db4");
-    expect(wrapper.find('.note__label--syllable').attributes("data-slot")).toBe("top-left");
-    expect(wrapper.find('.note__label--degree').attributes("data-slot")).toBe("bottom-right");
+    expect(wrapper.attributes("tabindex")).toBeUndefined();
+    expect(wrapper.attributes("role")).toBeUndefined();
+    expect(wrapper.find(".note__label--rank-primary.note__label--raw").text()).toBe(
+      "Db4",
+    );
+    expect(wrapper.find(".note__label--syllable").attributes("data-slot")).toBe(
+      "top-left",
+    );
+    expect(wrapper.find(".note__label--degree").attributes("data-slot")).toBe(
+      "bottom-right",
+    );
     expect(wrapper.attributes("data-pitch-class-index")).toBe("1");
     expect(wrapper.attributes("data-primary")).toBe("raw");
+    expect(wrapper.attributes("aria-label")).toBe("Ra, bII, Db4");
   });
 
-  it("derives accidental semantics from raw pitch when accidental is not supplied", () => {
-    mount(Note, {
-      props: {
-        rawPitch: "Db4",
-        scaleIndex: 1,
-      },
-    });
+  it("uses rank classes equally for syllable, degree, and raw typography", () => {
+    for (const primary of ["syllable", "degree", "raw"] as const) {
+      const wrapper = mount(Note, { props: { primary } });
+      const primaryLabel = wrapper.find(".note__label--rank-primary");
 
-    expect(getKeyBackground).toHaveBeenLastCalledWith(
-      1,
-      "major",
-      "C",
-      4,
-      "colored",
-      true,
-      expect.any(Object),
-    );
-
-    const naturalWrapper = mount(Note, {
-      props: {
-        rawPitch: "C4",
-        scaleIndex: 0,
-      },
-    });
-
-    expect(naturalWrapper.classes()).toContain("note--natural");
-    expect(naturalWrapper.classes()).not.toContain("note--accidental");
+      expect(primaryLabel.classes()).toContain(`note__label--${primary}`);
+      expect(wrapper.findAll(".note__label--rank-aux")).toHaveLength(2);
+    }
   });
 
-  it("lets geometry and proportion coexist as separate axes", () => {
-    const wrapper = mount(Note, {
-      props: {
-        geometry: "offcut",
-        proportion: "wide",
-      },
-    });
-
-    expect(wrapper.classes()).toEqual(
-      expect.arrayContaining(["note--geometry-offcut", "note--proportion-wide"]),
-    );
-    expect(wrapper.attributes("data-geometry")).toBe("offcut");
-    expect(wrapper.attributes("data-proportion")).toBe("wide");
-  });
-
-  it("supports arbitrary visible label subsets while keeping raw mono identity", () => {
+  it("supports arbitrary visible label subsets without changing raw pitch rank", () => {
     const wrapper = mount(Note, {
       props: {
         degree: "V",
@@ -97,42 +86,93 @@ describe("Note", () => {
       "G4",
       "V",
     ]);
-    expect(wrapper.find(".note__label--primary.note__label--raw").exists()).toBe(true);
+    expect(wrapper.find(".note__label--rank-primary.note__label--raw").exists()).toBe(
+      true,
+    );
     expect(wrapper.find(".note__label--syllable").exists()).toBe(false);
   });
 
-  it("keeps state hooks as classes and data attributes without asserting final draft styling", () => {
-    const wrapper = mount(Note, {
-      props: {
-        sounding: true,
-        sustained: true,
-        playedRecently: true,
-        selected: true,
-        ghosted: true,
-      },
+  it("derives accidental semantics and piano-key text variables from raw pitch", () => {
+    const accidentalWrapper = mount(Note, {
+      props: { rawPitch: "Db4", scaleIndex: 1 },
     });
 
-    expect(wrapper.classes()).toEqual(
-      expect.arrayContaining([
-        "note--sounding",
-        "note--sustained",
-        "note--played-recently",
-        "note--selected",
-        "note--ghosted",
-      ]),
+    expect(getKeyBackground).toHaveBeenLastCalledWith(
+      1,
+      "major",
+      "C",
+      4,
+      "colored",
+      true,
+      { keyBrightness: 1, keySaturation: 1 },
     );
-    expect(wrapper.attributes("data-sounding")).toBe("true");
-    expect(wrapper.attributes("data-selected")).toBe("true");
+    expect(accidentalWrapper.classes()).toContain("note--accidental");
+    expect(accidentalWrapper.attributes("style")).toContain(
+      "--note-label-main: rgba(0, 0, 0, .88)",
+    );
+
+    const naturalWrapper = mount(Note, {
+      props: { rawPitch: "C4", scaleIndex: 0 },
+    });
+
+    expect(naturalWrapper.classes()).toContain("note--natural");
+    expect(naturalWrapper.classes()).not.toContain("note--accidental");
+    expect(naturalWrapper.attributes("style")).toContain(
+      "--note-label-main: rgba(255, 255, 255, .94)",
+    );
   });
 
-  it("uses the shared glass treatment when requested", () => {
-    const wrapper = mount(Note, {
-      props: {
-        surfaceStyle: "glassmorphism",
-      },
-    });
+  it("keeps all five geometries independent from all four proportions", () => {
+    const geometries = ["standard", "tile", "offcut", "tab", "pill"] as const;
+    const proportions = ["tall", "medium", "stocky", "wide"] as const;
 
-    expect(createGlassmorphShadow).toHaveBeenCalled();
-    expect(wrapper.attributes("style")).toContain("--note-backdrop: blur(18px) saturate(135%)");
+    for (const geometry of geometries) {
+      for (const proportion of proportions) {
+        const wrapper = mount(Note, { props: { geometry, proportion } });
+        expect(wrapper.classes()).toEqual(
+          expect.arrayContaining([
+            `note--geometry-${geometry}`,
+            `note--proportion-${proportion}`,
+          ]),
+        );
+      }
+    }
+  });
+
+  it("supports only colored and monochrome surface treatments", () => {
+    const colored = mount(Note, { props: { surfaceStyle: "colored" } });
+    const monochrome = mount(Note, { props: { surfaceStyle: "monochrome" } });
+
+    expect(colored.classes()).toContain("note--surface-colored");
+    expect(monochrome.classes()).toContain("note--surface-monochrome");
+    expect(getKeyBackground).toHaveBeenLastCalledWith(
+      0,
+      "major",
+      "C",
+      4,
+      "monochrome",
+      false,
+      { keyBrightness: 1, keySaturation: 1 },
+    );
+  });
+
+  it("exposes sounding as its sole musical activity state", () => {
+    const wrapper = mount(Note, { props: { sounding: true } });
+    const propNames = Object.keys(
+      (Note as unknown as { props: Record<string, unknown> }).props,
+    );
+
+    expect(wrapper.classes()).toContain("note--sounding");
+    expect(wrapper.attributes("data-sounding")).toBe("true");
+    expect(propNames).toContain("sounding");
+    expect(propNames).not.toEqual(
+      expect.arrayContaining([
+        "sustained",
+        "playedRecently",
+        "selected",
+        "ghosted",
+        "glassmorphOpacity",
+      ]),
+    );
   });
 });

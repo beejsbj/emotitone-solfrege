@@ -10,28 +10,26 @@
     :data-geometry="geometry"
     :data-proportion="proportion"
     :data-sounding="sounding || undefined"
-    :data-sustained="sustained || undefined"
-    :data-played-recently="playedRecently || undefined"
-    :data-selected="selected || undefined"
-    :data-ghosted="ghosted || undefined"
   >
-    <span
-      v-if="primaryLabel"
-      class="note__label note__label--primary"
-      :class="`note__label--${primaryLabel.kind}`"
-      :data-slot="primaryLabel.slot"
-    >
-      {{ primaryLabel.value }}
-    </span>
+    <span class="note__surface">
+      <span
+        v-if="primaryLabel"
+        class="note__label note__label--rank-primary"
+        :class="`note__label--${primaryLabel.kind}`"
+        :data-slot="primaryLabel.slot"
+      >
+        {{ primaryLabel.value }}
+      </span>
 
-    <span
-      v-for="label in auxiliaryLabels"
-      :key="label.kind"
-      class="note__label note__label--aux"
-      :class="[`note__label--${label.kind}`, `note__label--slot-${label.slot}`]"
-      :data-slot="label.slot"
-    >
-      {{ label.value }}
+      <span
+        v-for="label in auxiliaryLabels"
+        :key="label.kind"
+        class="note__label note__label--rank-aux"
+        :class="[`note__label--${label.kind}`, `note__label--slot-${label.slot}`]"
+        :data-slot="label.slot"
+      >
+        {{ label.value }}
+      </span>
     </span>
   </span>
 </template>
@@ -42,9 +40,9 @@ import { useColorSystem } from "@/composables/useColorSystem";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type NoteLabel = "syllable" | "degree" | "raw";
-export type NoteGeometry = "strip" | "tile" | "offcut" | "tab" | "pill";
-export type NoteProportion = "standard" | "tall" | "squary" | "wide" | "hero";
-export type NoteSurfaceStyle = "colored" | "monochrome" | "glassmorphism";
+export type NoteGeometry = "standard" | "tile" | "offcut" | "tab" | "pill";
+export type NoteProportion = "tall" | "medium" | "stocky" | "wide";
+export type NoteSurfaceStyle = "colored" | "monochrome";
 
 interface NoteDisplayLabel {
   kind: NoteLabel;
@@ -70,12 +68,7 @@ const props = withDefaults(
     accidental?: boolean | null;
     keyBrightness?: number;
     keySaturation?: number;
-    glassmorphOpacity?: number;
     sounding?: boolean;
-    sustained?: boolean;
-    playedRecently?: boolean;
-    selected?: boolean;
-    ghosted?: boolean;
   }>(),
   {
     syllable: "Do",
@@ -83,8 +76,8 @@ const props = withDefaults(
     rawPitch: "C4",
     primary: "syllable",
     visibleLabels: () => ["syllable", "degree", "raw"],
-    geometry: "strip",
-    proportion: "standard",
+    geometry: "standard",
+    proportion: "medium",
     scaleIndex: 0,
     pitchClassIndex: undefined,
     octave: 4,
@@ -94,16 +87,11 @@ const props = withDefaults(
     accidental: null,
     keyBrightness: 1,
     keySaturation: 1,
-    glassmorphOpacity: 0.4,
     sounding: false,
-    sustained: false,
-    playedRecently: false,
-    selected: false,
-    ghosted: false,
   },
 );
 
-const { createGlassmorphShadow, getKeyBackground } = useColorSystem();
+const { getKeyBackground } = useColorSystem();
 
 const inferredAccidental = computed(() => {
   if (typeof props.accidental === "boolean") {
@@ -124,7 +112,6 @@ const color = computed(() =>
     {
       keyBrightness: props.keyBrightness,
       keySaturation: props.keySaturation,
-      glassmorphOpacity: props.glassmorphOpacity,
     },
   ),
 );
@@ -175,10 +162,6 @@ const noteClasses = computed(() => [
   `note--surface-${props.surfaceStyle}`,
   {
     "note--sounding": props.sounding,
-    "note--sustained": props.sustained,
-    "note--played-recently": props.playedRecently,
-    "note--selected": props.selected,
-    "note--ghosted": props.ghosted,
     "note--accidental": inferredAccidental.value,
     "note--natural": !inferredAccidental.value,
   },
@@ -203,12 +186,7 @@ const noteStyles = computed(() => {
     "--note-label-soft": labelSoft,
     "--note-label-muted": labelMuted,
     "--note-inner-border": innerBorder,
-    "--note-shadow":
-      props.surfaceStyle === "glassmorphism"
-        ? createGlassmorphShadow(color.value.primaryColor)
-        : "var(--shadow-key)",
-    "--note-backdrop":
-      props.surfaceStyle === "glassmorphism" ? "blur(18px) saturate(135%)" : "none",
+    "--note-shadow": "var(--shadow-key)",
   };
 });
 
@@ -236,19 +214,25 @@ const ariaLabel = computed(() => {
   --note-corner-left: 8px;
   --note-corner-right: 8px;
   --note-corner-bottom: 10px;
-  --note-primary-display-size: 32px;
-  --note-primary-raw-size: 18px;
-  --note-primary-display-tracking: .04em;
-  --note-aux-display-size: 9px;
-  --note-aux-degree-size: 11px;
-  --note-aux-raw-size: 7px;
+  --note-primary-size: 32px;
+  --note-primary-tracking: .04em;
+  --note-aux-size: 9px;
   --note-aux-tracking: .14em;
-  --note-tilt: none;
+  --note-primary-safe-inline: 9px;
   position: relative;
   display: block;
   box-sizing: border-box;
   width: var(--note-width);
   height: var(--note-height);
+  overflow: visible;
+  user-select: none;
+}
+
+.note__surface {
+  position: absolute;
+  inset: 0;
+  display: block;
+  box-sizing: border-box;
   padding:
     var(--note-padding-top)
     var(--note-padding-inline)
@@ -260,13 +244,9 @@ const ariaLabel = computed(() => {
     var(--note-shadow),
     inset 0 0 0 1px var(--note-inner-border);
   clip-path: var(--note-clip);
-  transform: var(--note-tilt);
-  user-select: none;
-  backdrop-filter: var(--note-backdrop);
-  -webkit-backdrop-filter: var(--note-backdrop);
 }
 
-.note::after {
+.note__surface::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -277,6 +257,39 @@ const ariaLabel = computed(() => {
   mix-blend-mode: overlay;
 }
 
+.note::before,
+.note::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border-radius: var(--note-radius);
+  clip-path: var(--note-clip);
+  pointer-events: none;
+}
+
+.note::before {
+  z-index: 0;
+  border: 2px solid var(--note-primary-color);
+  opacity: 0;
+}
+
+.note::after {
+  z-index: 3;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .72);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--note-primary-color) 42%, transparent));
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease-brush);
+}
+
+.note--sounding::before {
+  animation: flash-ring var(--dur-ui) var(--ease-stab) both;
+}
+
+.note--sounding::after {
+  opacity: 1;
+}
+
 .note__label {
   position: absolute;
   z-index: 1;
@@ -284,16 +297,16 @@ const ariaLabel = computed(() => {
   white-space: nowrap;
 }
 
-.note__label--primary {
+.note__label--rank-primary {
   top: 50%;
   left: 50%;
-  max-width: calc(100% - 18px);
+  max-width: calc(100% - (var(--note-primary-safe-inline) * 2));
   transform: translate(-50%, -50%);
   color: var(--note-label-main);
   text-align: center;
 }
 
-.note__label--aux {
+.note__label--rank-aux {
   color: var(--note-label-soft);
 }
 
@@ -311,86 +324,61 @@ const ariaLabel = computed(() => {
   text-align: right;
 }
 
-.note__label--syllable {
-  font-family: var(--font-display);
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.note__label--degree {
-  font-family: var(--font-display);
-  font-weight: 700;
-}
-
+.note__label--syllable,
+.note__label--degree,
 .note__label--raw {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.note__label--syllable,
+.note__label--raw {
   text-transform: uppercase;
 }
 
-.note__label--primary.note__label--syllable,
-.note__label--primary.note__label--degree {
-  font-size: var(--note-primary-display-size);
-  letter-spacing: var(--note-primary-display-tracking);
+.note__label--rank-primary {
+  font-size: var(--note-primary-size);
+  letter-spacing: var(--note-primary-tracking);
 }
 
-.note__label--primary.note__label--raw {
-  font-size: var(--note-primary-raw-size);
-  letter-spacing: .04em;
-}
-
-.note__label--aux.note__label--syllable {
-  font-size: var(--note-aux-display-size);
+.note__label--rank-aux {
+  font-size: var(--note-aux-size);
   letter-spacing: var(--note-aux-tracking);
 }
 
-.note__label--aux.note__label--degree {
-  font-size: var(--note-aux-degree-size);
-  letter-spacing: .04em;
-}
-
-.note__label--aux.note__label--raw {
-  font-size: var(--note-aux-raw-size);
-  letter-spacing: var(--note-aux-tracking);
+.note__label--rank-aux.note__label--raw {
   color: var(--note-label-muted);
 }
 
-.note--geometry-strip {
-  --note-width: 56px;
-  --note-height: 88px;
+.note--geometry-standard {
+  --note-radius: var(--r-sm);
   --note-clip: var(--clip-tile);
+  --note-shadow: var(--shadow-key);
 }
 
 .note--geometry-tile {
-  --note-width: 88px;
-  --note-height: 88px;
   --note-radius: 0px;
   --note-clip: var(--clip-tile);
-  --note-primary-display-size: 44px;
 }
 
 .note--geometry-offcut {
-  --note-width: 88px;
-  --note-height: 88px;
   --note-radius: 0px;
   --note-clip: var(--clip-offcut);
-  --note-primary-display-size: 40px;
 }
 
 .note--geometry-tab {
-  --note-width: 88px;
-  --note-height: 88px;
   --note-radius: 0px;
   --note-clip: var(--clip-tab);
-  --note-primary-display-size: 40px;
 }
 
 .note--geometry-pill {
   --note-clip: none;
   --note-radius: 999px;
-}
-
-.note--proportion-standard {
-  /* Standard uses the base strip dimensions so geometry can still own width/height. */
+  --note-corner-top: clamp(8px, 12%, 12px);
+  --note-corner-left: clamp(8px, 16%, 18px);
+  --note-corner-right: clamp(8px, 16%, 18px);
+  --note-corner-bottom: clamp(8px, 12%, 12px);
+  --note-primary-safe-inline: clamp(12px, 20%, 22px);
 }
 
 .note--proportion-tall {
@@ -399,18 +387,19 @@ const ariaLabel = computed(() => {
   --note-padding-top: 8px;
   --note-padding-inline: 5px;
   --note-padding-bottom: 9px;
-  --note-primary-display-size: 20px;
-  --note-primary-raw-size: 13px;
-  --note-aux-display-size: 7px;
-  --note-aux-degree-size: 9px;
-  --note-aux-raw-size: 6px;
+  --note-primary-size: 20px;
+  --note-aux-size: 7px;
 }
 
-.note--proportion-squary {
+.note--proportion-medium {
+  --note-width: 56px;
+  --note-height: 88px;
+}
+
+.note--proportion-stocky {
   --note-width: 72px;
   --note-height: 72px;
-  --note-primary-display-size: 28px;
-  --note-primary-raw-size: 16px;
+  --note-primary-size: 28px;
 }
 
 .note--proportion-wide {
@@ -423,29 +412,23 @@ const ariaLabel = computed(() => {
   --note-corner-left: 12px;
   --note-corner-right: 12px;
   --note-corner-bottom: 8px;
-  --note-primary-display-size: 24px;
-  --note-primary-raw-size: 15px;
+  --note-primary-size: 24px;
+  --note-aux-size: 8px;
 }
 
-.note--proportion-hero {
-  --note-width: 80px;
-  --note-height: 130px;
-  --note-primary-display-size: 44px;
-  --note-primary-raw-size: 26px;
-  --note-aux-display-size: 11px;
-  --note-aux-degree-size: 13px;
-  --note-aux-raw-size: 9px;
-  --note-tilt: rotate(-.2deg);
-}
-
-.note--surface-monochrome::after {
+.note--surface-monochrome .note__surface::after {
   background:
     radial-gradient(110% 60% at 50% 0%, rgba(255, 255, 255, .12), transparent 55%),
     linear-gradient(180deg, transparent 65%, rgba(0, 0, 0, .1) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .note {
+  .note::before {
+    animation: none;
+    opacity: 0;
+  }
+
+  .note::after {
     transition: none;
   }
 }

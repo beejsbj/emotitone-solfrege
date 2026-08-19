@@ -151,15 +151,39 @@ describe("Note", () => {
       },
     });
     const rawPrimary = rawWrapper.get(".note__label--rank-primary");
+    const rawCore = rawPrimary.get(".note__identity-core--raw");
+    const pitchPart = rawCore.get(".note__identity-core-part--pitch");
+    const octavePart = rawCore.get(".note__identity-core-part--octave");
 
     expect(rawPrimary.attributes("data-center-anchor")).toBe("identity-core");
-    expect(rawPrimary.get(".note__identity-core").text()).toBe("C");
-    expect(rawPrimary.get(".note__identity-accidental--raw").text()).toBe("♯");
-    expect(rawPrimary.get(".note__identity-octave").text()).toBe("2");
+    expect(rawCore.classes()).toContain("note__identity-core--has-accidental");
+    expect(pitchPart.text()).toBe("C");
+    expect(rawCore.get(".note__identity-accidental--raw").text()).toBe("♯");
+    expect(octavePart.text()).toBe("2");
+    expect(pitchPart.classes()).toContain("note__identity-core-part");
+    expect(octavePart.classes()).toContain("note__identity-core-part");
+    expect(rawCore.findAll(".note__identity-satellite")).toHaveLength(1);
+    expect(rawPrimary.find(".note__identity-octave").exists()).toBe(false);
     expect(rawPrimary.text()).toBe("C♯2");
     expect(noteSource).toMatch(
       /\.note__identity-satellite\s*\{[^}]*position:\s*absolute;/,
     );
+    expect(noteSource).not.toContain("--note-primary-octave-size");
+    expect(noteSource).not.toContain("--note-primary-satellite-drop");
+    expect(noteSource).toMatch(
+      /\.note__identity-core-part\s*\{[^}]*font:\s*inherit;/,
+    );
+
+    const naturalWrapper = mount(Note, {
+      props: { primary: "raw", rawPitch: "C4", visibleLabels: ["raw"] },
+    });
+    const naturalCore = naturalWrapper.get(".note__identity-core--raw");
+
+    expect(naturalCore.classes()).not.toContain(
+      "note__identity-core--has-accidental",
+    );
+    expect(naturalCore.find(".note__identity-satellite").exists()).toBe(false);
+    expect(naturalCore.text()).toBe("C4");
   });
 
   it("keeps auxiliary degree and raw notation compact and inline", () => {

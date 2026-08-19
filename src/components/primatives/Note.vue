@@ -27,15 +27,21 @@
           v-if="primaryLabel.kind === 'degree' && primaryLabel.presentation.accidental"
           class="note__identity-satellite note__identity-accidental note__identity-accidental--degree"
         >{{ primaryLabel.presentation.accidental }}</span>
-        <span class="note__identity-core">{{ primaryLabel.presentation.core }}</span>
         <span
-          v-if="primaryLabel.kind === 'raw' && primaryLabel.presentation.accidental"
-          class="note__identity-satellite note__identity-accidental note__identity-accidental--raw"
-        >{{ primaryLabel.presentation.accidental }}</span>
-        <span
-          v-if="primaryLabel.kind === 'raw' && primaryLabel.presentation.octave"
-          class="note__identity-satellite note__identity-octave"
-        >{{ primaryLabel.presentation.octave }}</span>
+          v-if="primaryLabel.kind === 'raw'"
+          class="note__identity-core note__identity-core--raw"
+          :class="{
+            'note__identity-core--has-accidental': primaryLabel.presentation.accidental,
+          }"
+        >
+          <span class="note__identity-core-part note__identity-core-part--pitch">{{ primaryLabel.presentation.core }}</span>
+          <span
+            v-if="primaryLabel.presentation.accidental"
+            class="note__identity-satellite note__identity-accidental note__identity-accidental--raw"
+          >{{ primaryLabel.presentation.accidental }}</span>
+          <span class="note__identity-core-part note__identity-core-part--octave">{{ primaryLabel.presentation.octave }}</span>
+        </span>
+        <span v-else class="note__identity-core">{{ primaryLabel.presentation.core }}</span>
       </span>
 
       <span
@@ -286,10 +292,9 @@ const ariaLabel = computed(() => {
   --note-aux-tracking: .14em;
   --note-primary-safe-inline: 9px;
   --note-primary-accidental-size: .48em;
-  --note-primary-octave-size: .42em;
-  --note-primary-satellite-overlap: .08em;
+  --note-primary-degree-accidental-overlap: .08em;
+  --note-primary-raw-accidental-gap: .34em;
   --note-primary-satellite-raise: -.12em;
-  --note-primary-satellite-drop: -.12em;
   position: relative;
   display: block;
   box-sizing: border-box;
@@ -382,8 +387,28 @@ const ariaLabel = computed(() => {
   text-align: center;
 }
 
+.note__label--structured {
+  max-width: none;
+}
+
 .note__identity-core {
   display: inline-block;
+}
+
+.note__identity-core--raw {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.note__identity-core--has-accidental {
+  gap: var(--note-primary-raw-accidental-gap);
+}
+
+.note__identity-core-part {
+  display: block;
+  font: inherit;
 }
 
 .note__identity-inline {
@@ -404,19 +429,13 @@ const ariaLabel = computed(() => {
 
 .note__identity-accidental--degree {
   top: var(--note-primary-satellite-raise);
-  right: calc(100% - var(--note-primary-satellite-overlap));
+  right: calc(100% - var(--note-primary-degree-accidental-overlap));
 }
 
 .note__identity-accidental--raw {
   top: var(--note-primary-satellite-raise);
-  left: calc(100% - var(--note-primary-satellite-overlap));
-}
-
-.note__identity-octave {
-  right: auto;
-  bottom: var(--note-primary-satellite-drop);
-  left: calc(100% - var(--note-primary-satellite-overlap));
-  font-size: var(--note-primary-octave-size);
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .note__label--rank-aux {

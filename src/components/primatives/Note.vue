@@ -238,6 +238,8 @@ const ariaLabel = computed(() => {
     var(--note-padding-inline)
     var(--note-padding-bottom);
   overflow: hidden;
+  contain: paint;
+  isolation: isolate;
   border-radius: var(--note-radius);
   background: var(--note-surface);
   box-shadow:
@@ -250,6 +252,8 @@ const ariaLabel = computed(() => {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  clip-path: inherit;
   pointer-events: none;
   background:
     radial-gradient(110% 60% at 50% 0%, rgba(255, 255, 255, .18), transparent 55%),

@@ -168,6 +168,7 @@ describe("Note", () => {
     expect(noteSource).toMatch(
       /\.note__identity-satellite\s*\{[^}]*position:\s*absolute;/,
     );
+    expect(noteSource).toContain("--note-primary-accidental-size: .58em;");
     expect(noteSource).not.toContain("--note-primary-octave-size");
     expect(noteSource).not.toContain("--note-primary-satellite-drop");
     expect(noteSource).toMatch(

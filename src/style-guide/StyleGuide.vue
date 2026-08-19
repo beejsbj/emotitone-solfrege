@@ -124,6 +124,10 @@
       <h2 id="compounds-heading">Compounds</h2>
       <div class="sink-stack">
         <article class="sink-frame">
+          <div class="sink-frame__source">compound-key</div>
+          <CompoundKey />
+        </article>
+        <article class="sink-frame">
           <div class="sink-frame__source">compound-pattern-card.html</div>
           <CompoundPatternCard />
         </article>
@@ -168,6 +172,7 @@ import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
 import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
+import CompoundKey from "./compounds/CompoundKey.vue";
 import CompoundPatternCard from "./compounds/CompoundPatternCard.vue";
 import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
 import CompositionLoadingScreen from "./compositions/CompositionLoadingScreen.vue";

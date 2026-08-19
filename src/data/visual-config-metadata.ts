@@ -766,6 +766,11 @@ export const UNIFIED_CONFIG = {
       value: true,
       label: "Enable Keyboard",
     },
+    primaryLabel: {
+      value: "syllable",
+      options: ["syllable", "degree", "raw"],
+      label: "Primary Label",
+    },
     keyGaps: {
       value: "small",
       options: ["none", "small", "medium"],

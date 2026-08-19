@@ -14,20 +14,20 @@
         :syllable="solfege.name"
         :degree="degreeLabel(solfege.number)"
         :raw-pitch="noteName(index, octave)"
-        :primary="primaryLabel"
+        :primary="primaryLabel(octave)"
         :visible-labels="visibleLabels(octave)"
-        shape="tile"
+        :geometry="geometry"
+        :proportion="proportion(octave)"
         :scale-index="index"
         :pitch-class-index="pitchClassIndex(index)"
         :octave="octave"
         :mode="musicStore.currentMode"
         :music-key="currentMusicKey"
-        :surface-style="config.surfaceStyle"
-        :accidental="noteName(index, octave).includes('#')"
+        :surface-style="surfaceStyle"
+        :accidental="isAccidental(index, octave)"
         :key-brightness="config.keyBrightness"
         :key-saturation="config.keySaturation"
-        :glassmorph-opacity="config.glassmorphOpacity"
-        :sounding="store.isKeyVisuallyActive(noteKey(index, octave))"
+        :sounding="isSounding(index, octave)"
         :pressed="store.isKeyPressed(noteKey(index, octave))"
         :aria-label="keyAriaLabel(solfege.name, index, octave)"
         @press="handlePress($event, index, octave)"
@@ -41,7 +41,12 @@
 import { computed, onBeforeUnmount } from "vue";
 import Key from "@/components/compounds/Key.vue";
 import type { KeyInputEvent } from "@/components/compounds/Key.vue";
-import type { NoteLabel } from "@/components/primatives/Note.vue";
+import type {
+  NoteGeometry,
+  NoteLabel,
+  NoteProportion,
+  NoteSurfaceStyle,
+} from "@/components/primatives/Note.vue";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
@@ -51,14 +56,16 @@ import type { ChromaticNote } from "@/types/music";
 import { CHROMATIC_NOTES } from "@/data";
 import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
 
-const props = withDefaults(defineProps<{ primaryLabel?: NoteLabel }>(), {
-  primaryLabel: "syllable",
-});
-
 const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const config = computed(() => store.keyboardConfig);
 const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
+const geometry = computed<NoteGeometry>(() =>
+  config.value.angledStyle ? "offcut" : "standard",
+);
+const surfaceStyle = computed<NoteSurfaceStyle>(() =>
+  config.value.surfaceStyle === "monochrome" ? "monochrome" : "colored",
+);
 const { attackNoteWithOctave, releaseNoteByButtonKey } = useSolfegeInteraction();
 
 useKeyboardControls(computed(() => config.value.mainOctave));
@@ -68,6 +75,8 @@ const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(numbe
 const noteKey = (scaleIndex: number, octave: number) => `${scaleIndex}_${octave}`;
 const noteName = (scaleIndex: number, octave: number) =>
   musicStore.getNoteName(scaleIndex, octave);
+const isAccidental = (scaleIndex: number, octave: number) =>
+  /[#b♯♭]/.test(noteName(scaleIndex, octave));
 const pitchClassIndex = (scaleIndex: number) => {
   const pitch = getChromaticNoteForScaleIndex(
     scaleIndex,
@@ -77,6 +86,25 @@ const pitchClassIndex = (scaleIndex: number) => {
   return pitch ? CHROMATIC_NOTES.indexOf(pitch) : undefined;
 };
 
+const soundingNoteKeys = computed(() =>
+  new Set(
+    musicStore
+      .getActiveNotes()
+      .map((note) => `${note.solfegeIndex}_${note.octave}`),
+  ),
+);
+
+const isSounding = (scaleIndex: number, octave: number) => {
+  const key = noteKey(scaleIndex, octave);
+  return store.isVisualNoteActive(key) || soundingNoteKeys.value.has(key);
+};
+
+const primaryLabel = (octave: number): NoteLabel =>
+  octave === config.value.mainOctave ? config.value.primaryLabel : "raw";
+
+const proportion = (octave: number): NoteProportion =>
+  octave === config.value.mainOctave ? "medium" : "wide";
+
 const visibleLabels = (octave: number): NoteLabel[] => {
   if (!config.value.showLabels) return [];
   return octave === config.value.mainOctave
@@ -85,17 +113,10 @@ const visibleLabels = (octave: number): NoteLabel[] => {
 };
 
 const keyStyle = (octave: number) => {
-  const baseHeight = octave === config.value.mainOctave ? 3.5 : 2.75;
+  const baseHeight = octave === config.value.mainOctave ? 88 : 56;
   return {
-    height: `${Math.max(baseHeight * config.value.keySize, 2.75)}rem`,
-    borderRadius: `${config.value.keyShape}px`,
-    clipPath: config.value.angledStyle ? angledClip(octave) : undefined,
+    "--keyboard-note-height": `${Math.max(baseHeight * config.value.keySize, 44)}px`,
   };
-};
-
-const angledClip = (octave: number) => {
-  const skew = ((octave * 7) % 9) + 1;
-  return `polygon(${skew}% 1%, ${100 - skew}% 1%, ${98 - skew / 2}% 99%, ${skew / 2}% 99%)`;
 };
 
 const inputPressId = (inputId: string, scaleIndex: number, octave: number) =>
@@ -137,7 +158,7 @@ onBeforeUnmount(() => store.clearAllTouches());
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden auto;
+  overflow: auto;
   scroll-behavior: smooth;
 }
 
@@ -155,15 +176,17 @@ onBeforeUnmount(() => store.clearAllTouches());
 .keyboard__row--gap-medium { gap: .25rem; }
 
 .keyboard__key {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
+  flex: 1 0 44px;
+  overflow: visible;
+}
+
+.keyboard__key :deep(.key__face) {
+  width: 100%;
 }
 
 .keyboard__key :deep(.note) {
   width: 100%;
-  height: 100%;
-  border-radius: inherit;
+  height: var(--keyboard-note-height);
 }
 
 @media (prefers-reduced-motion: reduce) {

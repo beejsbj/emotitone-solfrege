@@ -4,16 +4,55 @@
     :class="noteClasses"
     :style="noteStyles"
     :aria-label="ariaLabel"
-    :data-pitch-class-index="pitchClassIndex"
+    :data-pitch-class-index="pitchClassIndex ?? undefined"
     :data-octave="octave"
+    :data-primary="primary"
+    :data-geometry="geometry"
+    :data-proportion="proportion"
+    :data-sounding="sounding || undefined"
   >
-    <span
-      v-for="label in orderedLabels"
-      :key="label.kind"
-      class="note__label"
-      :class="`note__label--${label.kind}`"
-    >
-      {{ label.value }}
+    <span class="note__surface">
+      <span
+        v-if="primaryLabel"
+        class="note__label note__label--rank-primary"
+        :class="[
+          `note__label--${primaryLabel.kind}`,
+          'note__label--core-centered',
+          { 'note__label--structured': primaryLabel.kind !== 'syllable' },
+        ]"
+        :data-slot="primaryLabel.slot"
+        data-center-anchor="identity-core"
+      >
+        <span
+          v-if="primaryLabel.kind === 'degree' && primaryLabel.presentation.accidental"
+          class="note__identity-satellite note__identity-accidental note__identity-accidental--degree"
+        >{{ primaryLabel.presentation.accidental }}</span>
+        <span
+          v-if="primaryLabel.kind === 'raw'"
+          class="note__identity-core note__identity-core--raw"
+          :class="{
+            'note__identity-core--has-accidental': primaryLabel.presentation.accidental,
+          }"
+        >
+          <span class="note__identity-core-part note__identity-core-part--pitch">{{ primaryLabel.presentation.core }}</span>
+          <span
+            v-if="primaryLabel.presentation.accidental"
+            class="note__identity-satellite note__identity-accidental note__identity-accidental--raw"
+          >{{ primaryLabel.presentation.accidental }}</span>
+          <span class="note__identity-core-part note__identity-core-part--octave">{{ primaryLabel.presentation.octave }}</span>
+        </span>
+        <span v-else class="note__identity-core">{{ primaryLabel.presentation.core }}</span>
+      </span>
+
+      <span
+        v-for="label in auxiliaryLabels"
+        :key="label.kind"
+        class="note__label note__label--rank-aux"
+        :class="[`note__label--${label.kind}`, `note__label--slot-${label.slot}`]"
+        :data-slot="label.slot"
+      >
+        <span class="note__identity-inline">{{ label.presentation.inline }}</span>
+      </span>
     </span>
   </span>
 </template>
@@ -24,18 +63,22 @@ import { useColorSystem } from "@/composables/useColorSystem";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type NoteLabel = "syllable" | "degree" | "raw";
-export type NoteShape =
-  | "strip"
-  | "tile"
-  | "offcut"
-  | "tab"
-  | "pill"
-  | "tall"
-  | "squary"
-  | "wide"
-  | "hero"
-  | "glyph";
-export type NoteSurfaceStyle = "colored" | "monochrome" | "glassmorphism";
+export type NoteGeometry = "standard" | "tile" | "offcut" | "tab" | "pill";
+export type NoteProportion = "tall" | "medium" | "stocky" | "wide";
+export type NoteSurfaceStyle = "colored" | "monochrome";
+
+interface NoteDisplayLabel {
+  kind: NoteLabel;
+  presentation: NotePresentation;
+  slot: "center" | "top-left" | "bottom-right";
+}
+
+interface NotePresentation {
+  inline: string;
+  core: string;
+  accidental: string;
+  octave: string;
+}
 
 const props = withDefaults(
   defineProps<{
@@ -44,22 +87,18 @@ const props = withDefaults(
     rawPitch?: string;
     primary?: NoteLabel;
     visibleLabels?: NoteLabel[];
-    shape?: NoteShape;
+    geometry?: NoteGeometry;
+    proportion?: NoteProportion;
     scaleIndex?: number;
     pitchClassIndex?: number;
     octave?: number;
     mode?: MusicalMode;
     musicKey?: ChromaticNote;
     surfaceStyle?: NoteSurfaceStyle;
-    accidental?: boolean;
+    accidental?: boolean | null;
     keyBrightness?: number;
     keySaturation?: number;
-    glassmorphOpacity?: number;
     sounding?: boolean;
-    sustained?: boolean;
-    playedRecently?: boolean;
-    selected?: boolean;
-    ghosted?: boolean;
   }>(),
   {
     syllable: "Do",
@@ -67,26 +106,30 @@ const props = withDefaults(
     rawPitch: "C4",
     primary: "syllable",
     visibleLabels: () => ["syllable", "degree", "raw"],
-    shape: "strip",
+    geometry: "standard",
+    proportion: "medium",
     scaleIndex: 0,
     pitchClassIndex: undefined,
     octave: 4,
     mode: "major",
     musicKey: "C",
     surfaceStyle: "colored",
-    accidental: false,
+    accidental: null,
     keyBrightness: 1,
     keySaturation: 1,
-    glassmorphOpacity: 0.4,
     sounding: false,
-    sustained: false,
-    playedRecently: false,
-    selected: false,
-    ghosted: false,
   },
 );
 
 const { getKeyBackground } = useColorSystem();
+
+const inferredAccidental = computed(() => {
+  if (typeof props.accidental === "boolean") {
+    return props.accidental;
+  }
+
+  return /[#b♯♭]/.test(props.rawPitch);
+});
 
 const color = computed(() =>
   getKeyBackground(
@@ -95,11 +138,10 @@ const color = computed(() =>
     props.musicKey,
     props.octave,
     props.surfaceStyle,
-    props.accidental,
+    inferredAccidental.value,
     {
       keyBrightness: props.keyBrightness,
       keySaturation: props.keySaturation,
-      glassmorphOpacity: props.glassmorphOpacity,
     },
   ),
 );
@@ -110,73 +152,185 @@ const labelValues = computed<Record<NoteLabel, string>>(() => ({
   raw: props.rawPitch,
 }));
 
-const orderedLabels = computed(() => {
-  const visible = new Set(props.visibleLabels);
-  const order: NoteLabel[] = [
-    props.primary,
-    ...(["syllable", "degree", "raw"] as NoteLabel[]).filter(
-      (label) => label !== props.primary,
-    ),
-  ];
+const labelOrder: NoteLabel[] = ["syllable", "degree", "raw"];
 
-  return order
-    .filter((kind) => visible.has(kind) && labelValues.value[kind])
-    .map((kind) => ({ kind, value: labelValues.value[kind] }));
+function formatAccidentals(value: string) {
+  return value.replace(/b/g, "♭").replace(/#/g, "♯");
+}
+
+function parsePresentation(kind: NoteLabel, value: string): NotePresentation {
+  if (kind === "syllable") {
+    return { inline: value, core: value, accidental: "", octave: "" };
+  }
+
+  if (kind === "degree") {
+    const [, accidental = "", core = value] =
+      value.match(/^([b#♭♯]*)(.*)$/) ?? [];
+    const visibleAccidental = formatAccidentals(accidental);
+
+    return {
+      inline: `${visibleAccidental}${core}`,
+      core,
+      accidental: visibleAccidental,
+      octave: "",
+    };
+  }
+
+  const rawMatch = value.match(/^([A-Ga-g])([b#♭♯]*)(-?\d+)$/);
+  if (!rawMatch) {
+    const inline = formatAccidentals(value);
+    return { inline, core: inline, accidental: "", octave: "" };
+  }
+
+  const [, core, accidental, octave] = rawMatch;
+  const visibleAccidental = formatAccidentals(accidental);
+
+  return {
+    inline: `${core}${visibleAccidental}${octave}`,
+    core,
+    accidental: visibleAccidental,
+    octave,
+  };
+}
+
+const visibleLabelKinds = computed(() =>
+  labelOrder.filter(
+    (kind) => props.visibleLabels.includes(kind) && Boolean(labelValues.value[kind]),
+  ),
+);
+
+const primaryLabel = computed<NoteDisplayLabel | null>(() => {
+  if (!visibleLabelKinds.value.includes(props.primary)) {
+    return null;
+  }
+
+  return {
+    kind: props.primary,
+    presentation: parsePresentation(
+      props.primary,
+      labelValues.value[props.primary],
+    ),
+    slot: "center",
+  };
+});
+
+const auxiliaryLabels = computed<NoteDisplayLabel[]>(() => {
+  const visibleAuxiliaryKinds = visibleLabelKinds.value.filter(
+    (kind) => kind !== props.primary,
+  );
+  const slots: Array<"top-left" | "bottom-right"> = ["top-left", "bottom-right"];
+
+  return visibleAuxiliaryKinds.map((kind, index) => ({
+    kind,
+    presentation: parsePresentation(kind, labelValues.value[kind]),
+    slot: slots[index] ?? "bottom-right",
+  }));
 });
 
 const noteClasses = computed(() => [
-  `note--shape-${props.shape}`,
   `note--primary-${props.primary}`,
+  `note--geometry-${props.geometry}`,
+  `note--proportion-${props.proportion}`,
   `note--surface-${props.surfaceStyle}`,
   {
     "note--sounding": props.sounding,
-    "note--sustained": props.sustained,
-    "note--played-recently": props.playedRecently,
-    "note--selected": props.selected,
-    "note--ghosted": props.ghosted,
+    "note--accidental": inferredAccidental.value,
+    "note--natural": !inferredAccidental.value,
   },
 ]);
 
-const noteStyles = computed(() => ({
-  "--note-surface": color.value.background,
-  "--note-primary-color": color.value.primaryColor,
-}));
+const noteStyles = computed(() => {
+  const isAccidental = inferredAccidental.value;
+  const labelMain = isAccidental ? "rgba(0, 0, 0, .88)" : "rgba(255, 255, 255, .94)";
+  const labelSoft = isAccidental ? "rgba(0, 0, 0, .62)" : "rgba(255, 255, 255, .74)";
+  const labelMuted = isAccidental ? "rgba(0, 0, 0, .5)" : "rgba(255, 255, 255, .58)";
+  const innerBorder =
+    props.surfaceStyle === "monochrome"
+      ? isAccidental
+        ? "rgba(0, 0, 0, .14)"
+        : "rgba(255, 255, 255, .2)"
+      : "rgba(255, 255, 255, .08)";
 
-const ariaLabel = computed(() =>
-  [props.syllable, props.degree, props.rawPitch].filter(Boolean).join(", "),
-);
+  return {
+    "--note-surface": color.value.background,
+    "--note-primary-color": color.value.primaryColor,
+    "--note-label-main": labelMain,
+    "--note-label-soft": labelSoft,
+    "--note-label-muted": labelMuted,
+    "--note-inner-border": innerBorder,
+    "--note-shadow": "var(--shadow-key)",
+  };
+});
+
+const ariaLabel = computed(() => {
+  const ordered = [
+    labelValues.value.syllable,
+    labelValues.value.degree,
+    labelValues.value.raw,
+  ].filter(Boolean);
+
+  return ordered.join(", ");
+});
 </script>
 
 <style scoped>
 .note {
+  --note-width: 56px;
+  --note-height: 88px;
+  --note-padding-top: 9px;
+  --note-padding-inline: 8px;
+  --note-padding-bottom: 10px;
+  --note-radius: var(--r-sm);
+  --note-clip: var(--clip-tile);
+  --note-corner-top: 9px;
+  --note-corner-left: 8px;
+  --note-corner-right: 8px;
+  --note-corner-bottom: 10px;
+  --note-primary-size: 32px;
+  --note-primary-tracking: .04em;
+  --note-aux-size: 9px;
+  --note-aux-tracking: .14em;
+  --note-primary-safe-inline: 9px;
+  --note-primary-accidental-size: .70em;
+  --note-primary-degree-accidental-overlap: .08em;
+  --note-primary-raw-accidental-gap: .34em;
+  --note-primary-satellite-raise: -.12em;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  display: block;
   box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  gap: 3px;
-  overflow: hidden;
-  border-radius: var(--r-sm);
-  background: var(--note-surface);
-  box-shadow: var(--shadow-key);
-  clip-path: var(--clip-tile);
-  color: rgba(0, 0, 0, .86);
+  width: var(--note-width);
+  height: var(--note-height);
+  overflow: visible;
+  background: transparent;
   user-select: none;
-  transition:
-    box-shadow var(--dur-tap) var(--ease-stab),
-    filter var(--dur-tap) var(--ease-stab),
-    opacity var(--dur-tap) var(--ease-stab);
 }
 
-.note::after {
+.note__surface {
+  position: absolute;
+  inset: 0;
+  display: block;
+  box-sizing: border-box;
+  padding:
+    var(--note-padding-top)
+    var(--note-padding-inline)
+    var(--note-padding-bottom);
+  overflow: hidden;
+  contain: paint;
+  isolation: isolate;
+  border-radius: var(--note-radius);
+  background: var(--note-surface);
+  box-shadow:
+    var(--note-shadow),
+    inset 0 0 0 1px var(--note-inner-border);
+  clip-path: var(--note-clip);
+}
+
+.note__surface::after {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  clip-path: inherit;
   pointer-events: none;
   background:
     radial-gradient(110% 60% at 50% 0%, rgba(255, 255, 255, .18), transparent 55%),
@@ -184,169 +338,225 @@ const ariaLabel = computed(() =>
   mix-blend-mode: overlay;
 }
 
-.note__label {
-  position: relative;
-  z-index: 1;
-  max-width: 100%;
-  overflow: hidden;
-  color: rgba(0, 0, 0, .58);
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.note__label--raw {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.note--primary-syllable .note__label--syllable,
-.note--primary-degree .note__label--degree,
-.note--primary-raw .note__label--raw {
-  order: -1;
-  color: rgba(0, 0, 0, .88);
-  font-family: var(--font-display);
-  font-size: 24px;
-  letter-spacing: .01em;
-  line-height: .88;
-  text-transform: none;
-}
-
-.note--surface-monochrome {
-  color: var(--ivory);
-}
-
-.note--surface-monochrome .note__label {
-  color: currentColor;
-}
-
-.note--sounding {
-  box-shadow:
-    var(--shadow-key),
-    0 0 18px color-mix(in srgb, var(--note-primary-color) 70%, transparent);
-  filter: brightness(1.12) saturate(1.08);
-}
-
-.note--sustained::before {
+.note::before,
+.note::after {
   content: "";
   position: absolute;
-  z-index: 1;
-  inset: 4px;
-  border: 1px solid rgba(255, 255, 255, .62);
-  border-radius: inherit;
+  inset: 0;
+  box-sizing: border-box;
+  border-radius: var(--note-radius);
+  clip-path: var(--note-clip);
   pointer-events: none;
 }
 
-.note--played-recently {
-  box-shadow:
-    var(--shadow-key),
-    0 0 10px color-mix(in srgb, var(--note-primary-color) 38%, transparent);
+.note::before {
+  z-index: 0;
+  border: 2px solid var(--note-primary-color);
+  opacity: 0;
 }
 
-.note--selected {
-  outline: 2px solid var(--ivory);
-  outline-offset: -3px;
+.note::after {
+  z-index: 3;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .72);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--note-primary-color) 42%, transparent));
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease-brush);
 }
 
-.note--ghosted {
-  filter: saturate(.2);
-  opacity: .38;
+.note--sounding::before {
+  animation: flash-ring var(--dur-ui) var(--ease-stab) both;
 }
 
-.note--shape-hero {
-  width: 80px;
-  height: 130px;
-  padding: 10px 8px;
-  transform: rotate(-.2deg);
+.note--sounding::after {
+  opacity: 1;
 }
 
-.note--shape-strip {
-  width: 56px;
-  height: 88px;
-  padding: 9px 8px 10px;
-}
-
-.note--shape-tile,
-.note--shape-offcut,
-.note--shape-tab {
-  width: 88px;
-  height: 88px;
-  border-radius: 0;
-  padding: 9px 8px;
-}
-
-.note--shape-offcut { clip-path: var(--clip-offcut); }
-.note--shape-tab { clip-path: var(--clip-tab); }
-
-.note--shape-pill {
-  width: 56px;
-  height: 88px;
-  border-radius: 44px;
-  clip-path: none;
-}
-
-.note--shape-tall {
-  width: 56px;
-  height: 110px;
-}
-
-.note--shape-squary {
-  width: 72px;
-  height: 72px;
-}
-
-.note--shape-wide {
-  width: 120px;
-  height: 56px;
-  flex-direction: row;
-  padding: 6px 12px 8px;
-}
-
-.note--shape-glyph {
-  display: inline-flex;
-  width: auto;
-  height: auto;
-  min-width: 0;
-  overflow: visible;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  clip-path: none;
-  color: var(--note-primary-color);
-}
-
-.note--shape-glyph::after { display: none; }
-.note--shape-glyph .note__label {
-  color: currentColor;
-  font-family: var(--font-display);
-  font-size: 16px;
-  letter-spacing: .02em;
+.note__label {
+  position: absolute;
+  z-index: 1;
   line-height: 1;
+  white-space: nowrap;
 }
 
-.note--shape-glyph.note--sounding {
-  filter: none;
-  text-shadow: 0 0 14px currentColor;
+.note__label--rank-primary {
+  top: 50%;
+  left: 50%;
+  max-width: calc(100% - (var(--note-primary-safe-inline) * 2));
+  transform: translate(-50%, -50%);
+  color: var(--note-label-main);
+  text-align: center;
 }
 
-.note--shape-glyph.note--sounding::after {
-  position: static;
+.note__label--structured {
+  max-width: none;
+}
+
+.note__identity-core {
   display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 3px;
-  background: currentColor;
-  content: "";
-  mix-blend-mode: normal;
+}
+
+.note__identity-core--raw {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.note__identity-core--has-accidental {
+  gap: var(--note-primary-raw-accidental-gap);
+}
+
+.note__identity-core-part {
+  display: block;
+  font: inherit;
+}
+
+.note__identity-inline {
+  display: inline;
+}
+
+.note__identity-satellite {
+  position: absolute;
+  display: block;
+  line-height: 1;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.note__identity-accidental {
+  font-size: var(--note-primary-accidental-size);
+}
+
+.note__identity-accidental--degree {
+  top: var(--note-primary-satellite-raise);
+  right: calc(100% - var(--note-primary-degree-accidental-overlap));
+}
+
+.note__identity-accidental--raw {
+  top: var(--note-primary-satellite-raise);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.note__label--rank-aux {
+  color: var(--note-label-soft);
+}
+
+.note__label--slot-top-left {
+  top: var(--note-corner-top);
+  left: var(--note-corner-left);
+  max-width: calc(100% - 16px);
+  text-align: left;
+}
+
+.note__label--slot-bottom-right {
+  right: var(--note-corner-right);
+  bottom: var(--note-corner-bottom);
+  max-width: calc(100% - 16px);
+  text-align: right;
+}
+
+.note__label--syllable,
+.note__label--degree,
+.note__label--raw {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.note__label--rank-primary {
+  font-size: var(--note-primary-size);
+  letter-spacing: var(--note-primary-tracking);
+}
+
+.note__label--rank-aux {
+  font-size: var(--note-aux-size);
+  letter-spacing: var(--note-aux-tracking);
+}
+
+.note__label--rank-aux.note__label--raw {
+  color: var(--note-label-muted);
+}
+
+.note--geometry-standard {
+  --note-radius: var(--r-sm);
+  --note-clip: var(--clip-tile);
+  --note-shadow: var(--shadow-key);
+}
+
+.note--geometry-tile {
+  --note-radius: 0px;
+  --note-clip: var(--clip-tile);
+}
+
+.note--geometry-offcut {
+  --note-radius: 0px;
+  --note-clip: var(--clip-offcut);
+}
+
+.note--geometry-tab {
+  --note-radius: 0px;
+  --note-clip: var(--clip-tab);
+}
+
+.note--geometry-pill {
+  --note-clip: none;
+  --note-radius: 999px;
+  --note-corner-top: clamp(8px, 12%, 12px);
+  --note-corner-left: clamp(8px, 16%, 18px);
+  --note-corner-right: clamp(8px, 16%, 18px);
+  --note-corner-bottom: clamp(8px, 12%, 12px);
+  --note-primary-safe-inline: clamp(12px, 20%, 22px);
+}
+
+.note--proportion-tall {
+  --note-width: 40px;
+  --note-height: 116px;
+  --note-padding-top: 8px;
+  --note-padding-inline: 5px;
+  --note-padding-bottom: 9px;
+  --note-primary-size: 20px;
+  --note-aux-size: 7px;
+}
+
+.note--proportion-medium {
+  --note-width: 56px;
+  --note-height: 88px;
+}
+
+.note--proportion-stocky {
+  --note-width: 72px;
+  --note-height: 72px;
+  --note-primary-size: 28px;
+}
+
+.note--proportion-wide {
+  --note-width: 120px;
+  --note-height: 56px;
+  --note-padding-top: 6px;
+  --note-padding-inline: 12px;
+  --note-padding-bottom: 8px;
+  --note-corner-top: 6px;
+  --note-corner-left: 12px;
+  --note-corner-right: 12px;
+  --note-corner-bottom: 8px;
+  --note-primary-size: 24px;
+  --note-aux-size: 8px;
+}
+
+.note--surface-monochrome .note__surface::after {
+  background:
+    radial-gradient(110% 60% at 50% 0%, rgba(255, 255, 255, .12), transparent 55%),
+    linear-gradient(180deg, transparent 65%, rgba(0, 0, 0, .1) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .note { transition: none; }
+  .note::before {
+    animation: none;
+    opacity: 0;
+  }
+
+  .note::after {
+    transition: none;
+  }
 }
 </style>

@@ -1,53 +1,149 @@
 # Design System Tracker
 
-Current-truth map for design-unit review and integration. File existence does not imply definition or implementation acceptance.
+Current-truth map for design-unit review and integration. A mounted specimen or a source file is reference material until its definition is explicitly accepted.
 
-## Layers
+## Why this exists
 
-- **Tokens:** shared visual values and recipes consumed by source units.
-- **Primitives:** reusable, non-interactive presentation units with one focused visual responsibility.
-- **Compounds:** reusable assemblies that coordinate primitives, behavior, or interaction.
-- **Uniques:** app-specific reusable or singular modules reviewed as their own design units.
-- **Specimens:** style-guide displays of real source units; a specimen is not a product taxonomy layer.
-- **Compositions:** product-level arrangements of defined units into a complete experience or region.
+This is the cross-session handhold for the design interview. It exists to stop context-heavy grilling and implementation sessions from blurring four different claims: **defined**, **formalized as a source component**, **shown through a real specimen**, and **adopted in production**. None implies the next.
 
-## Unit status
+The style guide is an **interview checklist**, not an accepted design system. `/Users/burooj/BJsWorkspace/Projects/emotitone-design-system` is reference-only inspiration used to recover omissions; it is not automatic extraction authority. An agent recommendation is not a decision until Burooj explicitly accepts it.
 
-| Unit | Layer | Definition status | Formalized/source-component status | Style-guide specimen status | Production integration status | Config/store work | Music/composable dependencies | Feeds/consumers | Next gate |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Sticker | Primitive | Accepted | Real primitive is authoritative | Real specimen imports the primitive | Integrated where accepted | None currently identified | None currently identified | Accepted consumers | Maintain parity |
-| Note | Primitive | Identity/presentation definition accepted; musical-state visual language is draft and unaccepted | Restorative correction required: approved playing-card text layout, natural/accidental text semantics, geometry x proportion variants, and other lost variants must return | Existing specimen requires the same restoration; state specimens remain proposals | Current downstream use is not proof of acceptance | Primary identity is not persisted/wired; geometry x proportion is not configurable | Receives externally supplied note identity, music color, and activity state | Key; may feed future CodeStrip only after CodeStrip is defined | Restore accepted visuals and variants, then separately accept state language |
-| Key | Compound | Accepted: physical interaction around Note | Depends on repaired Note; interaction must remain outside Note | Compound specimen should demonstrate real interaction and feedback | Production migration is provisional until Note is repaired | Preserve existing input/config behavior | Keyboard/input and audio-trigger adapters; Note handles presentation | Keyboard | Repair against authoritative Note and verify interaction parity |
-| Keyboard | Compound | Taxonomy agreed; not fully interviewed or defined | Current source is provisional, not accepted or formalized | Current specimen is provisional | Existing production keyboard behavior must be preserved during later definition | Verify relevant keyboard settings against the store | Global keyboard/MIDI routing, note activity, audio trigger, music color | Future composition; hosts Key | Complete its definition interview before further formalization |
-| Drawer | Unique | Not defined | `DrawerKeyboard` is a legacy production host, not an accepted composition | Current unique display is reference material, not acceptance | Legacy host remains in production | Unknown until definition | Unknown until definition | May later combine with Keyboard in a composition | Interview and accept Drawer independently |
-| CodeStrip | Unique | Not defined | Current Note integration is premature and should be parked or reverted | Existing display is reference material, not acceptance | Do not mark Note integration complete | Unknown until definition | Existing music/composable behavior must be audited during definition | May later consume Note | Define CodeStrip before migrating it to Note |
-| Music Color Recipe | Token/visual concern | Under review | Runtime JavaScript resolver consolidation is useful; authority and preserved visuals still require correction | Specimen must use the accepted recipe and preserve approved visuals | Persisted `musicColorMode` reaches production through Note -> `useColorSystem` -> `useVisualConfig` -> `visualConfigStore` | Movable/fixed persistence and production wiring are verified | Runtime resolver, key/scale context, CSS token presentation | Note and other musical visuals | Settle one authoritative recipe and correct specimen/preserved visuals |
-| Future Keyboard + Drawer composition | Composition | Pending both unit definitions | No source interface accepted; do not pre-name the final interface | None accepted | Not integrated | Pending component definitions | Pending component definitions | Product-level keyboard/drawer experience | Define Keyboard and Drawer first |
+Truth has three distinct homes: Linear `BJS-35` holds workflow/next-actor state and receipts; this file holds current per-unit design truth; `DESIGN_LOG.md` holds chronological decision evidence. Reconcile them when they disagree rather than picking whichever one is most convenient.
+
+Use this file to resume the workflow without reconstructing it from chat:
+
+- Read the current checkpoint, active unit row, dependencies, and next gate before asking questions or editing.
+- Inspect the current app behavior before inventing states, props, or architectural needs for Burooj to judge.
+- Grill only the unresolved visual/interaction definition of the active unit. Do not reopen accepted upstream units unless a defect or an explicit new decision requires it.
+- Record explicit acceptance before formalization, with an exact receipt pointer in this file or `DESIGN_LOG.md` (session/turn, Linear comment, or commit). Keep implementation as a separate, focused slice, then update source/specimen/integration truth independently.
+- Production adoption is the goal, piece by piece. Normally integrate into an already-defined consumer. If an accepted unit must pass through an undefined consumer, name that code a **provisional adapter**, preserve existing behavior, record every bridge decision, and keep the consumer's definition unaccepted.
+- End every session with the exact branch/worktree state, verification evidence, unresolved gate, and next frontier reflected here. A spoken "done" is not a handoff.
+
+## Recovery checkpoint — 2026-08-19
+
+- **Closed and authoritative:** Sticker, Note, and Key definitions. Their source components and real specimens are formalized.
+- **Trusted refs:** `implementing-design-system` is at `2bd72bd`, seven local commits ahead of draft PR #27 / `origin/implementing-design-system` at `85c63fd`. The accepted Key stack tip being merged is `1df13bc`.
+- **In flight, not closed:** the branch is still inside that merge. The accepted Note/Key merge result is staged; the provisional production Keyboard adapter, its test, and related current-truth documents still include unstaged/untracked work. There is no merge commit or final handoff yet. Tests/build and a live app inspection ran during the interrupted session, but they were never closed out as a final verified artifact.
+- **Do not infer acceptance from the working tree:** the mounted and production-integrated Keyboard is still **Taxonomy only**. Its current geometry mappings, row proportions, routing boundaries, and legacy surface fallbacks are evidence for its interview, not settled design.
+- **Recovery gate:** conclude and verify the existing coalescence before beginning another design unit or claiming the production adoption complete.
+- **Next definition frontier:** from the clean implementation branch, grill Keyboard; then grill Drawer; then define the Keyboard + Drawer composition. Do not re-grill Note or Key. CodeStrip and the Music Color Recipe retain their own independent gates.
+
+## Status legend
+
+- **Accepted:** the interview definition is settled.
+- **Under review:** the interview is active and the definition is not settled.
+- **Taxonomy only:** its architectural layer/relationship is agreed, but its definition is not.
+- **Reference source:** code exists so the style guide can show the idea; it is not yet authoritative.
+- **Authoritative source:** the accepted component owns the design and the style-guide specimen imports it.
+- **Production use (pre-acceptance):** current app code uses the source, but that does not make its design accepted.
+
+## Mechanical summary
+
+| Scope | Tokens | Primitives | Uniques | Compounds | Compositions | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Mounted by `StyleGuide.vue` | 8 | 12 | 4 | 4 | 1 | **29** |
+| Accepted definitions among mounted units | 0 | 2 | 0 | 1 | 0 | **3** |
+| Authoritative source + real specimen | 0 | 2 | 0 | 1 | 0 | **3** |
+| Mounted reference/pending units | 8 | 10 | 4 | 3 | 1 | **26** |
+
+One additional architecture unit is tracked but not mounted: **Keyboard + Drawer composition**. Across all 30 tracked units, 3 definitions are accepted and formalized (`Sticker`, `Note`, and `Key`), and 27 still need a definition gate. The mounted Keyboard is a production-integrated reference, not an accepted definition. `Music Color Recipe` is the one active token review.
+
+## Mounted inventory
+
+### Token collections
+
+All eight specimens are mounted references over the globally loaded `emotitone-design-system.css`. Global availability is not collection acceptance.
+
+| Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
+| --- | --- | --- | --- | --- |
+| UI Colors | Not reviewed | Mounted token reference | Variables are globally active; the app-wide glassmorphism purge remains separate work | Define the surviving UI palette and glass purge boundary |
+| Brand Colors | Not reviewed | Mounted token reference | Variables are globally active | Review against accepted brand units |
+| Music Color Recipe | **Under review** | Mounted specimen still contains its own JavaScript/CSS demonstration; no single authority is accepted | Production color is currently calculated through `useColorSystem`/`services/musicColor`; feeds Note, current keys, live strip, and visual renderers | Reconcile CSS recipe, runtime resolver, movable/fixed semantics, and preserved visuals |
+| Spacing + Radius | Not reviewed | Mounted token reference | Variables are globally active | Define scale and radius contract |
+| Spacing Scale | Not reviewed | Mounted token reference | Variables are globally active | Define scale contract |
+| Typography | Not reviewed | Mounted token reference | Variables are globally active; accepted Note typography constrains its consumer, not this whole collection | Review the collection without regressing Note identity ranks |
+| Motion | Not reviewed | Mounted token reference | Variables are globally active; accepted Note `sounding` motion consumes them. Known review defect: Reduce Motion replaces distinct demos with `opacity-blink`; disabling macOS Reduce Motion only masked that fallback | Define collection/consumer semantics and replace the misleading blinking fallback with a static or explicit preview treatment |
+| Geometry | Not reviewed | Mounted token reference | Variables are globally active; the mirrored offcut token is an accepted Note-level correction, not acceptance of the whole collection | Review the complete geometry vocabulary |
+
+### Primitives
+
+| Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
+| --- | --- | --- | --- | --- |
+| Sticker | **Accepted** | `components/primatives/Sticker.vue` is authoritative; mounted specimen imports it | No production consumer found outside the guide/tests | Maintain parity; integrate only through a defined consumer |
+| Bar Tape | Not reviewed | Reference source exists; mounted specimen imports it | Feeds reference `PatternCard`; no production consumer found | Interview before formalization/integration |
+| Beat Indicator | Not reviewed | Reference source exists; mounted specimen imports it | No production consumer found | Interview |
+| Buttons (`IconButton`) | Not reviewed | Reference source exists; mounted specimen imports it | Feeds reference `PatternCard`; production uses a separate `components/ui/IconButton.vue` | Interview and reconcile the parallel button sources |
+| Card | Not reviewed | Reference `CardShell` source exists; mounted specimen imports it | No production consumer found | Interview |
+| Note | **Accepted** | `components/primatives/Note.vue` is authoritative; mounted specimen imports it | Consumed by accepted Key and now used by the production Keyboard through that Key; later CodeStrip use remains undefined | Maintain parity through the provisional Keyboard adapter; define other consumers separately |
+| Kicker | Not reviewed | Reference source exists; mounted specimen imports it | Feeds reference `SpineCard`; no production consumer found | Interview |
+| Knob — Analog | Not reviewed | Reference source exists; mounted specimen imports shared primitive `Knob.vue` | Production uses the separate `components/knobs` family | Interview and reconcile ownership |
+| Knob — Digital | Not reviewed | Reference source exists; mounted specimen imports shared primitive `Knob.vue` | Production uses the separate `components/knobs` family | Interview and reconcile ownership |
+| Marks | Not reviewed | Reference source exists; mounted specimen imports it | No production consumer found | Interview |
+| Spine Card | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Kicker; no production consumer found | Define after or with Kicker |
+| Tabs (`ChipTabs`) | Not reviewed | Reference source exists; mounted specimen imports it | Production uses a separate `components/ui/Tabs*` family | Interview and reconcile the parallel tab sources |
+
+### Uniques
+
+| Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
+| --- | --- | --- | --- | --- |
+| Brand Cover | Not reviewed | Reference source exists; mounted specimen imports it | No production consumer found | Interview |
+| Brand Logo | Not reviewed | Reference source exists; mounted specimen imports it | No production consumer found | Interview |
+| CodeStrip | **Undefined** | Reference source exists; mounted display is not acceptance | Feeds reference `PatternCard`; no production Note migration is authorized | Interview before consuming Note or changing production strips |
+| Drawer | **Undefined** | Mounted reference currently demonstrates `DrawerShell`, not an accepted Drawer definition | `DrawerShell` is used by production `TopDrawer`; current `DrawerKeyboard` hosts Keyboard, pattern/live content, action bar, chrome, and motion without an accepted Drawer contract | Interview Drawer after Keyboard; preserve behavior while settling the boundary |
+
+### Compounds
+
+| Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
+| --- | --- | --- | --- | --- |
+| Key | **Accepted** | `components/compounds/Key.vue` is authoritative; mounted `CompoundKey.vue` imports it | Composes Note and replaces the removed legacy `KeyboardKey` inside production Keyboard; Keyboard keeps routing/config/audio concerns | Maintain parity while the Keyboard reference is grilled and defined |
+| Keyboard | **Taxonomy only** | `components/compounds/Keyboard.vue` is a production-integrated reference; mounted `CompoundKeyboard.vue` imports it but does not confer acceptance | Hosts accepted Keys across configured octave rows and preserves current store, QWERTY, audio, haptic, and activity adapters; geometry and legacy surface mappings are provisional | Grill Keyboard from the implementation branch, then formalize its definition without reopening Note or Key |
+| Pattern Card | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Bar Tape, IconButton, and CodeStrip; production has a separate `components/patterns/PatternCard.vue` | Interview and reconcile the parallel component |
+| Pattern Reel | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Pattern Card; no production consumer found | Define after Pattern Card |
+
+### Compositions
+
+| Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
+| --- | --- | --- | --- | --- |
+| Loading Screen | Not reviewed | Reference source exists; mounted specimen imports it | Production `LoadingSplash` already consumes it; this pre-acceptance use is not formalization | Interview against the live loading flow |
+
+## Anticipated architecture not mounted by the guide
+
+| Unit | Layer | Definition | Source/specimen truth | Current production/dependencies | Next gate |
+| --- | --- | --- | --- | --- | --- |
+| Keyboard + Drawer | Composition | Relationship accepted; definition pending | No source or specimen accepted | Will arrange the defined Keyboard and Drawer; must replace the current mixed responsibility rather than coexist with another `DrawerKeyboard` concept | Define Keyboard and Drawer first |
 
 ## Dependency map
 
 ```text
-Tokens / Music Color -> Note -> Key -> Keyboard
-                         `-> future CodeStrip (after definition)
+Global tokens / Music Color Recipe
+                `-> Note -> Key -> Keyboard
+                       `-> CodeStrip (only after CodeStrip is defined)
 
-Keyboard + Drawer -> future composition (after both definitions)
+Keyboard + Drawer -> future Keyboard + Drawer composition
+
+Reference-only chains:
+Kicker -> Spine Card
+Bar Tape + IconButton + CodeStrip -> Pattern Card -> Pattern Reel
+DrawerShell -> Drawer specimen and production TopDrawer
+Loading Screen -> production LoadingSplash
 ```
 
-## Current config and state gaps
+## Config, state, and behavior handholds
 
-- Primary identity is not persisted or wired.
-- Geometry x proportion is not configurable; tall, stocky/squary, and wide are viewport proportions that combine with cuts/geometries. Persisted `keyboard.keyShape` is wired as border radius, not as the cut/geometry axis.
-- Production currently supplies only `sounding`.
-- `sustained`, `played-recently`, `selected`, and `ghosted` are props/specimen-only proposals.
-- Natural/accidental text semantics need restoration: note text follows piano-key white/black semantics for naturals/accidentals.
+- `keyboard.primaryLabel` (`syllable | degree | raw`) exists in visual config metadata/store and production Keyboard now feeds it through Key to the main-octave Note; outer rows retain raw pitch as their single identity.
+- Note geometry (`standard | tile | offcut | tab | pill`) and responsive proportion (`tall | medium | stocky | wide`) are independent axes, not a persisted config surface. Existing `keyboard.keyShape` is only border radius.
+- Note owns reusable musical presentation and its externally supplied `sounding` state. Key owns only its native button, focus, momentary mouse/touch press lifecycle, and externally supplied physical `pressed`; it emits local input identity without owning sound or routing.
+- Key's physical `pressed` and Note's musical `sounding` are independent. Keyboard currently owns physical-keyboard routing, stores, audio, haptics, and configuration; its future cross-key drag/glissando boundary and relationship to centrally owned MIDI remain Keyboard interview questions.
+- Note supports `colored` and `monochrome`. Production Keyboard currently maps legacy glassmorphism to `colored`; remove the obsolete persisted/config option only through its own reviewed migration.
+- Movable/fixed music-color config is already persisted and used by production JavaScript. Do not replace that behavior until the Music Color Recipe review establishes one authority.
 
-## Design-unit PR checklist
+## Current gate order
 
-- [ ] Definition accepted.
-- [ ] Source unit is authoritative.
-- [ ] Style-guide specimen imports the real source unit.
-- [ ] No unaccepted downstream consumer was migrated.
-- [ ] Visual config/store metadata is wired.
-- [ ] Relevant music/composable adapters are verified.
-- [ ] Relevant tests and live views are checked.
-- [ ] This tracker is updated to current truth.
+1. Maintain the closed Note and Key gates through their production adoption in the provisional Keyboard adapter.
+2. From the implementation branch, grill Keyboard and define how the compound owns layout, cross-key input routing, and its current app adapters.
+3. Then grill Drawer as its own unique, followed by the Keyboard + Drawer composition.
+4. Interview CodeStrip before migrating it to Note.
+5. Settle Music Color Recipe before changing the production color calculation.
+6. Continue the remaining mounted reference units one accepted definition at a time.
+
+For every unit, the normal gate is: **accept definition -> formalize source -> make the specimen import that source -> integrate into a defined consumer (or explicitly recorded provisional adapter) -> verify config/music dependencies and live app/guide behavior -> update this checkpoint -> commit and PR as a focused slice**.

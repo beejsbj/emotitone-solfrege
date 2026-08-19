@@ -1,12 +1,13 @@
 # Coverage Audit
 
-Date: 2026-05-26
+Date: 2026-08-19
 
 ## Scope
 
 - Current branch style-guide artifacts under `src/style-guide/`.
 - Branch-local token file `src/emotitone-design-system.css`.
 - Reusable primitive source folder `src/components/primatives/`.
+- Reusable compound source folder `src/components/compounds/`.
 - Reusable composition source folder `src/components/compositions/`.
 - Reusable unique source folder `src/components/uniques/`.
 - Existing app sources that correspond to remaining composition proofs.
@@ -42,13 +43,15 @@ Date: 2026-05-26
 | `src/components/primatives/Knob.vue` | Extracted primitive | primitives | yes | promote | Source-first component for analog ring and digital arc visuals, role variants, label/footer frame, brass/ivory tone, disabled/played/lit states, SVG stroke grammar, and button motion. |
 | `src/style-guide/primatives/PrimitiveKnobsAnalog.vue` | Primitive specimen | primitives | no | keep local | Imports `Knob.vue` with ring visual; keeps role/treatment grouping local. |
 | `src/style-guide/primatives/PrimitiveKnobsDigital.vue` | Primitive specimen | primitives | no | keep local | Imports `Knob.vue` with arc visual; keeps role/treatment grouping local. |
-| `src/components/primatives/Note.vue` | Extracted primitive | primitives | yes | promote | Source-first controlled musical identity/presentation with runtime color, label hierarchy, octave value, geometry, and visual activity states. |
-| `src/style-guide/primatives/PrimitiveNote.vue` | Primitive specimen | primitives | no | keep local | Imports `Note.vue`; keeps identity, state, octave, and geometry grouping local. |
+| `src/components/primatives/Note.vue` | Accepted primitive | primitives | yes | promote | Source-first controlled Note primitive for runtime music color, centered-primary playing-card labels, equal rank typography, natural/accidental text semantics, octave value, token-driven geometry, responsive proportion, colored/monochrome surfaces, and sole `sounding` activity. |
+| `src/style-guide/primatives/PrimitiveNote.vue` | Accepted primitive specimen | primitives | no | keep local | Imports `Note.vue`; proves identity ranks, chromatic/subset/contrast, every geometry, every proportion, the complete 5 x 4 matrix, surfaces, rest/sounding, and reduced-motion behavior while keeping replay/release controls local. |
+| `src/components/compounds/Key.vue` | Accepted compound | compounds | yes | promote | Source-first native momentary Key around Note; forwards Note intact, separates physical `pressed` from musical `sounding`, emits id-tracked local press/release events, and owns focus/press/reduced-motion feedback without stores or routing. |
+| `src/style-guide/compounds/CompoundKey.vue` | Accepted compound specimen | compounds | no | keep local | Imports `Key.vue`; proves live local input, press/sounding independence, native focus access, and non-default Note prop forwarding while keeping readout and explanatory copy local. |
+| `src/components/compounds/Keyboard.vue` | Production-integrated compound reference | compounds | yes, for current app | provisional adoption | Replaces the legacy KeyboardKey grid with accepted Key and Note while preserving current layout, store, QWERTY, audio, haptic, and activity adapters. Its definition and bridge mappings remain pending the Keyboard interview. |
+| `src/style-guide/compounds/CompoundKeyboard.vue` | Production reference specimen | compounds | no | keep local | Imports the live Keyboard as the starting surface for its next grilling session; mounting does not confer acceptance. |
 | `src/components/primatives/DrawerShell.vue` | Extracted primitive | primitives | yes | promote | Source-first component for bounded drawer frame, top/bottom anchors, scrim, torn handle, open/close, optional resize snaps, and reduced motion. |
 | `src/components/compounds/PatternCard.vue` | Extracted compound | compounds | yes | promote | Source-first component for sleek/active pattern-card shapes; composes BarTape, IconButton, and CodeStrip. |
 | `src/components/compounds/PatternReel.vue` | Extracted compound | compounds | yes | promote | Source-first component for pattern stack order, active id, promotion interaction, stack depth, and active-rise motion; composes PatternCard. |
-| `src/components/compounds/Key.vue` | Extracted compound | compounds | yes | promote | Wraps Note with native button semantics, local input events, focus/lock, cleanup, and physical press feedback. |
-| `src/components/compounds/Keyboard.vue` | Extracted compound | compounds | yes | promote | Owns octave-grid layout, current app integration, and the single global QWERTY controller. |
 | `src/components/uniques/BrandCover.vue` | Extracted unique | uniques | yes | promote | Source-first singular cover artifact for cover copy, meta grid, stamp, and fixed cut-paper collage. |
 | `src/components/uniques/BrandLogo.vue` | Extracted unique | uniques | yes | promote | Source-first singular identity system for wordmark, monogram, tagline, brass, inverted, and note-mark lockups. |
 | `src/style-guide/primatives/PrimitiveButtons.vue` | Primitive specimen | primitives | no | keep local | Imports `IconButton.vue`; paired-control wrapper and demo icons stay specimen-local. |
@@ -67,6 +70,7 @@ Date: 2026-05-26
 
 - Primitive source components are extracted for current style-guide primitive specimens and the primitive closure proof is recorded in `LAYER_CLOSURE.md` / `RESIDUE_PROOF.md`.
 - Reusable compound source location is established for `PatternCard` and `PatternReel`.
+- Accepted Key is formalized in the compound source location with a real mounted specimen; Note and Key production adoption is complete through the provisional Keyboard reference, while Keyboard definition remains pending.
 - Unique source location is established for singular brand artifacts under `src/components/uniques/`.
 - Token closure, primitive closure, compound closure, unique closure, and composition app integration are recorded for current style-guide scope.
 - Promotion decisions exist in `PROMOTION_AUDIT.md`; remaining token-adjacent work is parked as app/component migration rather than open token doctrine.
@@ -75,5 +79,6 @@ Date: 2026-05-26
 
 ## Current Coverage Verdict
 
-- Coverage map is current for the design-lab scope and every listed row has a resolution.
-- Brand unique extraction, DrawerShell promotion, token closure, app `TopDrawer.vue` alignment, loading composition integration, and Finish Gate residue audit are recorded; user Finish Gate acceptance is still required before calling the run complete.
+- Coverage map is current for the accepted Note and Key definition scope and every listed row has a resolution.
+- Note and Key are formalized and adopted by production Keyboard without declaring Keyboard, Drawer, or CodeStrip accepted; Keyboard definition is the next independent gate, followed by Drawer.
+- Brand unique extraction, DrawerShell promotion, token closure, app `TopDrawer.vue` alignment, loading composition integration, and the earlier Finish Gate acceptance remain recorded; the new Keyboard and Drawer definition sequence is open separately.

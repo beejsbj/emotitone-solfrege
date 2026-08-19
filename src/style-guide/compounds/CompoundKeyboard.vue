@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Keyboard · Playable Compound"
     :features="features"
-    caption="The production Keyboard builds the visible octave grid from Notes and Keys, adapts current app state to them, and installs global QWERTY routing once. DrawerKeyboard remains the surrounding composition."
+    caption="Current production reference, not an accepted Keyboard definition. It builds the live octave grid from accepted Keys and Notes while preserving the existing app adapters. Use this specimen as the starting surface for the next Keyboard grilling session."
   >
     <template #hero>
       <div class="keyboard-stage"><Keyboard /></div>
@@ -18,8 +18,9 @@ const features = [
   { label: "Children", value: "Key → Note across configured octave rows" },
   { label: "Integration", value: "music identity, audio attack/release, haptics, and visual activity" },
   { label: "Routing", value: "one global QWERTY controller; MIDI remains centrally owned" },
-  { label: "Configuration", value: "rows, main octave, labels, gaps, size, shape, and surface" },
+  { label: "Configuration", value: "rows, main octave, primary label, gaps, size, surface, and provisional geometry mapping" },
   { label: "Boundary", value: "no drawer chrome, pattern list, live card, or action bar" },
+  { label: "Status", value: "production-integrated reference awaiting its own definition interview" },
 ];
 </script>
 

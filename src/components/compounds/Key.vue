@@ -1,37 +1,50 @@
 <template>
   <button
     ref="keyRef"
-    type="button"
     class="key"
-    :class="keyClasses"
-    :disabled="disabled || inputLocked"
-    :aria-label="ariaLabel"
-    :aria-pressed="pressed || sounding"
-    @touchstart.prevent="handleTouchStart"
-    @touchmove.prevent="handleTouchMove"
-    @touchend.prevent="handleTouchEnd"
-    @touchcancel.prevent="handleTouchEnd"
+    :class="{ 'key--pressed': isPhysicallyPressed }"
+    type="button"
+    :aria-label="resolvedAriaLabel"
+    :aria-pressed="isPhysicallyPressed"
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
     @mouseleave="handleMouseLeave"
+    @touchstart.prevent="handleTouchStart"
+    @touchmove.prevent="handleTouchMove"
+    @touchend.prevent="handleTouchEnd"
+    @touchcancel.prevent="handleTouchCancel"
   >
-    <Note
-      v-bind="noteProps"
-      :sounding="sounding"
-      :sustained="sustained"
-      :played-recently="playedRecently"
-      :selected="selected"
-      :ghosted="ghosted || disabled || inputLocked"
-    />
+    <span class="key__face" aria-hidden="true">
+      <Note
+        :syllable="syllable"
+        :degree="degree"
+        :raw-pitch="rawPitch"
+        :primary="primary"
+        :visible-labels="visibleLabels"
+        :geometry="geometry"
+        :proportion="proportion"
+        :scale-index="scaleIndex"
+        :pitch-class-index="pitchClassIndex"
+        :octave="octave"
+        :mode="mode"
+        :music-key="musicKey"
+        :surface-style="surfaceStyle"
+        :accidental="accidental"
+        :key-brightness="keyBrightness"
+        :key-saturation="keySaturation"
+        :sounding="sounding"
+      />
+    </span>
   </button>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import Note from "@/components/primatives/Note.vue";
 import type {
+  NoteGeometry,
   NoteLabel,
-  NoteShape,
+  NoteProportion,
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -48,25 +61,19 @@ const props = withDefaults(
     rawPitch?: string;
     primary?: NoteLabel;
     visibleLabels?: NoteLabel[];
-    shape?: NoteShape;
+    geometry?: NoteGeometry;
+    proportion?: NoteProportion;
     scaleIndex?: number;
     pitchClassIndex?: number;
     octave?: number;
     mode?: MusicalMode;
     musicKey?: ChromaticNote;
     surfaceStyle?: NoteSurfaceStyle;
-    accidental?: boolean;
+    accidental?: boolean | null;
     keyBrightness?: number;
     keySaturation?: number;
-    glassmorphOpacity?: number;
     sounding?: boolean;
-    sustained?: boolean;
-    playedRecently?: boolean;
-    selected?: boolean;
-    ghosted?: boolean;
     pressed?: boolean;
-    disabled?: boolean;
-    inputLocked?: boolean;
     ariaLabel?: string;
   }>(),
   {
@@ -75,25 +82,19 @@ const props = withDefaults(
     rawPitch: "C4",
     primary: "syllable",
     visibleLabels: () => ["syllable", "degree", "raw"],
-    shape: "strip",
+    geometry: "standard",
+    proportion: "medium",
     scaleIndex: 0,
     pitchClassIndex: undefined,
     octave: 4,
     mode: "major",
     musicKey: "C",
     surfaceStyle: "colored",
-    accidental: false,
+    accidental: null,
     keyBrightness: 1,
     keySaturation: 1,
-    glassmorphOpacity: 0.4,
     sounding: false,
-    sustained: false,
-    playedRecently: false,
-    selected: false,
-    ghosted: false,
     pressed: false,
-    disabled: false,
-    inputLocked: false,
     ariaLabel: undefined,
   },
 );
@@ -104,154 +105,189 @@ const emit = defineEmits<{
 }>();
 
 const keyRef = ref<HTMLButtonElement | null>(null);
-const activeInputs = ref(new Set<string>());
+const activeInputIds = reactive(new Set<string>());
 const mouseInputId = "mouse";
 const touchInputId = (identifier: number) => `touch:${identifier}`;
 
-const noteProps = computed(() => ({
-  syllable: props.syllable,
-  degree: props.degree,
-  rawPitch: props.rawPitch,
-  primary: props.primary,
-  visibleLabels: props.visibleLabels,
-  shape: props.shape,
-  scaleIndex: props.scaleIndex,
-  pitchClassIndex: props.pitchClassIndex,
-  octave: props.octave,
-  mode: props.mode,
-  musicKey: props.musicKey,
-  surfaceStyle: props.surfaceStyle,
-  accidental: props.accidental,
-  keyBrightness: props.keyBrightness,
-  keySaturation: props.keySaturation,
-  glassmorphOpacity: props.glassmorphOpacity,
-}));
-
-const keyClasses = computed(() => ({
-  "key--pressed": props.pressed || activeInputs.value.size > 0,
-  "key--locked": props.inputLocked,
-}));
-
-const ariaLabel = computed(
-  () => props.ariaLabel || `${props.syllable} (${props.rawPitch})`,
+const isPhysicallyPressed = computed(
+  () => props.pressed || activeInputIds.size > 0,
 );
 
-function begin(inputId: string, event: Event) {
-  if (props.disabled || props.inputLocked || activeInputs.value.has(inputId)) return;
-  activeInputs.value.add(inputId);
+const resolvedAriaLabel = computed(() => {
+  if (props.ariaLabel) return props.ariaLabel;
+
+  const hasSyllable = props.visibleLabels.includes("syllable") && props.syllable;
+  const hasRawPitch = props.visibleLabels.includes("raw") && props.rawPitch;
+
+  if (hasSyllable && hasRawPitch) return `${props.syllable} (${props.rawPitch})`;
+  if (hasRawPitch) return props.rawPitch;
+  if (hasSyllable) return props.syllable;
+  if (props.visibleLabels.includes("degree") && props.degree) return props.degree;
+  return props.rawPitch;
+});
+
+function beginInput(inputId: string, event: Event) {
+  if (activeInputIds.has(inputId)) return;
+
+  activeInputIds.add(inputId);
   emit("press", { inputId, event });
 }
 
-function end(inputId: string, event: Event) {
-  if (!activeInputs.value.has(inputId)) return;
-  activeInputs.value.delete(inputId);
+function endInput(inputId: string, event: Event) {
+  if (!activeInputIds.delete(inputId)) return;
+
   emit("release", { inputId, event });
 }
 
-function handleMouseDown(event: MouseEvent) { begin(mouseInputId, event); }
-function handleMouseUp(event: MouseEvent) { end(mouseInputId, event); }
-function handleMouseLeave(event: MouseEvent) { end(mouseInputId, event); }
+function releaseAllInputs(event: Event) {
+  for (const inputId of Array.from(activeInputIds)) {
+    endInput(inputId, event);
+  }
+}
+
+function handleMouseDown(event: MouseEvent) {
+  if (event.button !== 0) return;
+  beginInput(mouseInputId, event);
+}
+
+function handleMouseUp(event: MouseEvent) {
+  endInput(mouseInputId, event);
+}
+
+function handleMouseLeave(event: MouseEvent) {
+  endInput(mouseInputId, event);
+}
+
+function isTouchWithinKey(touch: Touch, tolerance = 0) {
+  const element = keyRef.value;
+  if (!element) return false;
+
+  const rect = element.getBoundingClientRect();
+  return (
+    touch.clientX >= rect.left - tolerance &&
+    touch.clientX <= rect.right + tolerance &&
+    touch.clientY >= rect.top - tolerance &&
+    touch.clientY <= rect.bottom + tolerance
+  );
+}
 
 function handleTouchStart(event: TouchEvent) {
-  const rect = keyRef.value?.getBoundingClientRect();
-  if (!rect) return;
-
   for (const touch of Array.from(event.changedTouches)) {
-    if (
-      touch.clientX >= rect.left && touch.clientX <= rect.right
-      && touch.clientY >= rect.top && touch.clientY <= rect.bottom
-    ) {
-      begin(touchInputId(touch.identifier), event);
+    if (isTouchWithinKey(touch)) {
+      beginInput(touchInputId(touch.identifier), event);
     }
   }
 }
 
 function handleTouchMove(event: TouchEvent) {
-  const rect = keyRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  const tolerance = 5;
-
   for (const touch of Array.from(event.touches)) {
     const inputId = touchInputId(touch.identifier);
-    if (!activeInputs.value.has(inputId)) continue;
-    const inBounds =
-      touch.clientX >= rect.left - tolerance
-      && touch.clientX <= rect.right + tolerance
-      && touch.clientY >= rect.top - tolerance
-      && touch.clientY <= rect.bottom + tolerance;
-    if (!inBounds) end(inputId, event);
+    if (activeInputIds.has(inputId) && !isTouchWithinKey(touch, 5)) {
+      endInput(inputId, event);
+    }
   }
 }
 
 function handleTouchEnd(event: TouchEvent) {
   for (const touch of Array.from(event.changedTouches)) {
-    end(touchInputId(touch.identifier), event);
+    endInput(touchInputId(touch.identifier), event);
   }
 }
 
-function releaseAll(event: Event) {
-  for (const inputId of [...activeInputs.value]) end(inputId, event);
+function handleTouchCancel(event: TouchEvent) {
+  handleTouchEnd(event);
+}
+
+function handleWindowBlur(event: Event) {
+  releaseAllInputs(event);
+}
+
+function handleVisibilityChange(event: Event) {
+  if (document.visibilityState === "hidden") {
+    releaseAllInputs(event);
+  }
 }
 
 onMounted(() => {
-  document.addEventListener("visibilitychange", releaseAll);
-  window.addEventListener("blur", releaseAll);
+  window.addEventListener("blur", handleWindowBlur);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 });
 
 onBeforeUnmount(() => {
-  releaseAll(new Event("unmount"));
-  document.removeEventListener("visibilitychange", releaseAll);
-  window.removeEventListener("blur", releaseAll);
-});
-
-defineExpose({
-  triggerPress: () => begin(mouseInputId, new MouseEvent("mousedown")),
-  triggerRelease: () => end(mouseInputId, new MouseEvent("mouseup")),
+  window.removeEventListener("blur", handleWindowBlur);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  releaseAllInputs(new Event("unmount"));
 });
 </script>
 
 <style scoped>
 .key {
-  display: block;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
+  display: inline-grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  margin: 0;
   padding: 0;
   border: 0;
+  outline: none;
   background: transparent;
-  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  appearance: none;
   touch-action: manipulation;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  transition: transform var(--dur-tap) var(--ease-stab);
-}
-
-.key--pressed {
-  transform: translateY(1px) scale(.95);
-}
-
-.key--pressed :deep(.note) {
-  box-shadow: var(--shadow-pressed);
-  filter: brightness(.88);
-}
-
-.key:not(:disabled):not(.key--pressed):hover :deep(.note) {
-  filter: brightness(1.05);
 }
 
 .key:focus-visible {
-  outline: 2px solid rgba(96, 165, 250, .55);
+  outline: 2px solid var(--ivory, currentColor);
   outline-offset: 2px;
 }
 
-.key:disabled {
-  cursor: not-allowed;
+.key__face {
+  display: block;
+  pointer-events: none;
+  transform: translateY(0) scale(1);
+  transition: transform 90ms ease-in-out;
+  will-change: transform;
 }
 
-@media (hover: none) and (pointer: coarse) {
-  .key:not(.key--pressed):active { transform: none; }
+.key--pressed .key__face {
+  transform: translateY(2px) scale(.97);
+}
+
+.key--pressed .key__face :deep(.note__surface) {
+  box-shadow:
+    var(--note-shadow),
+    inset 0 2px 4px rgba(0, 0, 0, .42),
+    inset 0 0 0 1px var(--note-inner-border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .key:not(.key--pressed):hover .key__face {
+    transform: translateY(-1px) scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .key { transition: none; }
+  .key__face,
+  .key--pressed .key__face {
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .key:not(.key--pressed):hover .key__face {
+      transform: none;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .key:focus-visible {
+    outline-color: CanvasText;
+  }
 }
 </style>

@@ -68,7 +68,7 @@
           <PrimitiveCard />
         </article>
         <article class="sink-frame">
-          <div class="sink-frame__source">primitive-note</div>
+          <div class="sink-frame__source">primitive-note.html</div>
           <PrimitiveNote />
         </article>
         <article class="sink-frame">
@@ -127,8 +127,8 @@
           <div class="sink-frame__source">compound-key</div>
           <CompoundKey />
         </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">compound-keyboard</div>
+        <article id="compound-keyboard" class="sink-frame">
+          <div class="sink-frame__source">compound-keyboard · production reference</div>
           <CompoundKeyboard />
         </article>
         <article class="sink-frame">
@@ -176,10 +176,10 @@ import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
 import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
-import CompoundPatternCard from "./compounds/CompoundPatternCard.vue";
-import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
 import CompoundKey from "./compounds/CompoundKey.vue";
 import CompoundKeyboard from "./compounds/CompoundKeyboard.vue";
+import CompoundPatternCard from "./compounds/CompoundPatternCard.vue";
+import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
 import CompositionLoadingScreen from "./compositions/CompositionLoadingScreen.vue";
 import UniqueBrandCover from "./uniques/UniqueBrandCover.vue";
 import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";

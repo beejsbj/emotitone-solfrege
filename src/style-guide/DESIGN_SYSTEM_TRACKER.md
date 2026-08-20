@@ -19,7 +19,7 @@ Use this file to resume the workflow without reconstructing it from chat:
 - Production adoption is the goal, piece by piece. Normally integrate into an already-defined consumer. If an accepted unit must pass through an undefined consumer, name that code a **provisional adapter**, preserve existing behavior, record every bridge decision, and keep the consumer's definition unaccepted.
 - End every session with the exact branch/worktree state, verification evidence, unresolved gate, and next frontier reflected here. A spoken "done" is not a handoff.
 
-## Current checkpoint — 2026-08-20
+## Current checkpoint — 2026-08-21
 
 - **Closed and authoritative:** Sticker, Note, and Key definitions. Their source components and real specimens are formalized.
 - **Coalescence complete:** `57bc6dd` merges the accepted Key stack at `1df13bc` into `implementing-design-system`. The legacy `KeyboardKey.vue` is removed, the production Keyboard renders the accepted Note through the accepted Key, and `DrawerKeyboard.vue` remains its thin current host.
@@ -137,9 +137,37 @@ Loading Screen -> production LoadingSplash
 - Note geometry (`standard | tile | offcut | tab | pill`) and responsive proportion (`tall | medium | stocky | wide`) are independent axes, not a persisted config surface. Existing `keyboard.keyShape` is only border radius.
 - The five accepted Note/Key geometry variants must become coherent named token recipes covering their clip, radius, and shadow relationship. The user's local calendar date selects one shared family for the whole Keyboard from a deterministic shuffled five-day deck: every family appears once per block, adjacent block boundaries cannot repeat a family, and an open Keyboard never changes at midnight. Each full page load generates fresh, coherent per-Key combinations of family-specific cut-contour tokens and subtle rotation and shadow-offset tokens within that day's family. The visible non-interactive paper faces may overlap their gaps or neighbouring cells slightly, while their separate rectangular hitboxes retain the provisional 44px minimum and an otherwise stable grid across families and reloads. Resting faces receive a page-load-stable shuffled layer order; a physically pressed Key rises above resting neighbours, while sounding alone does not change its layer. The randomizer must not mix families within a load, independently mix Sticker geometry pools, or invent runtime polygons.
 - Note owns reusable musical presentation and its externally supplied `sounding` state. Key owns only its native button, focus, momentary mouse/touch press lifecycle, and externally supplied physical `pressed`; it emits local input identity without owning sound or routing.
-- Key's physical `pressed` and Note's musical `sounding` are independent. Keyboard currently owns physical-keyboard routing, stores, audio, haptics, and configuration; its future cross-key drag/glissando boundary and relationship to centrally owned MIDI remain Keyboard interview questions.
+- Key's physical `pressed` and Note's musical `sounding` are independent. Keyboard coordinates source-aware cross-key input and app adapters without moving those responsibilities into Key or Note; the exact haptic preference and centralized MIDI adapter boundaries remain on the active Keyboard frontier below.
 - Note supports `colored` and `monochrome`. Production Keyboard currently maps legacy glassmorphism to `colored`, but the cross-app decision rejects glassmorphism entirely; purge the obsolete persisted/config option rather than treating that bridge as accepted behavior.
 - Movable/fixed music-color config is already persisted and used by production JavaScript. Do not replace that behavior until the Music Color Recipe review establishes one authority.
+
+## Active Keyboard interview — current truth
+
+Keyboard remains **Under review**, not accepted or authorized for implementation. Explicit answers through Q36 are recorded in the `BJS-35` Cockpit Thread; this section is the cross-session orientation spine, not a second chronological transcript.
+
+### Accepted intent through Q36
+
+- **Boundary and layout:** Keyboard is the bare instrument grid; its parent owns shell, section framing, and resizing. The main octave retains the strongest hierarchy, additional octave rows remain odd in count and centered around it, and responsive proportions retain a provisional 44px minimum target. Daily visual editions never move the underlying target grid.
+- **Geometry:** the five accepted Note/Key families become coherent named token recipes. Local date selects one family through the deterministic shuffled five-day deck; each page load creates bounded per-Key cut, rotation, shadow, and layer variation inside that family. Slight face overlap is visual only; physically pressed Keys rise above the edition-stable resting order.
+- **Pointer and source behavior:** cross-key drag is seamless glissando; concurrent pointers remain independent; all input sources use one source-aware press lifecycle. Pointer, QWERTY, and MIDI produce both `pressed` and `sounding`; sequencer playback produces `sounding` only.
+- **Literal keyboard:** routing is active only while the Keyboard/Drawer surface is active and follows visible octave rows. Three visible rows use the central three QWERTY rows; a single visible row uses the home row. Physical Backspace invokes the same app-level undo as the visual Backspace control, which belongs in the action toolbar to the right of CodeStrip rather than in Keyboard.
+- **Labels and color:** `showLabels` remains a user preference and never removes accessible names. The accepted main/outer label hierarchy applies when labels are visible. Music color and labels remain deterministic; Keyboard consumes the separately gated Music Color Recipe rather than owning brightness, saturation, or gradient controls.
+- **Rejected configuration:** purge glassmorphism across the app and remove the obsolete `angledStyle`, `keyShape`, `keyGaps`, height-only `keySize`, `isEnabled`, `keyBrightness`, `keySaturation`, and unused `gradientDirection` Keyboard controls. Exact stable spacing is chosen during the complete specimen pass rather than exposed as a preference.
+
+### Current evidence that must not be mistaken for accepted behavior
+
+- Production is not presently resizable; its old `keySize` changes height only. Drawer/composition resizing is a later gate, while Keyboard must merely respond to the space it receives.
+- The generic config can request even `rowCount` values although rendering coerces them to odd, and current QWERTY routing still targets main octave plus/minus one even when those rows are hidden. Both contradict accepted intent.
+- Current centered horizontal overflow can strand leading Keys on narrow viewports. Native Tab visits every Key, but Space/Enter does not invoke the musical press/release contract. These remain unresolved below.
+- Visual pressed state is partly source-aware, but audio ownership is not; pending attacks can outlive release or teardown, and current cross-Key touch glissando is absent. These are correctness debts under the accepted single source-aware lifecycle, not new design options.
+
+### Active frontier — write answers here before advancing
+
+- **Q37 — constrained width:** decide whether a sub-44px viewport scrolls the complete pitch row, reduces the visible pitch range, or permits smaller targets. A scrolling answer opens a separate touch-scroll-versus-glissando decision.
+- **Q38 — focus model:** decide between every Key in ordinary Tab order or one roving Keyboard focus stop with spatial navigation and native Space/Enter performance.
+- **Q39 — haptics:** decide whether haptics remain a preference and which human input sources may trigger them. Sequencer playback is not a candidate.
+
+Do not open downstream questions about scrolling gestures or spatial-navigation keys until their prerequisite answer above is settled. Replace resolved frontier entries with the accepted truth and add the newly unblocked frontier in the same edit; do not leave the working interview only in chat or Linear.
 
 ## Current gate order
 

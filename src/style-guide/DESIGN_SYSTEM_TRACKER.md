@@ -19,12 +19,13 @@ Use this file to resume the workflow without reconstructing it from chat:
 - Production adoption is the goal, piece by piece. Normally integrate into an already-defined consumer. If an accepted unit must pass through an undefined consumer, name that code a **provisional adapter**, preserve existing behavior, record every bridge decision, and keep the consumer's definition unaccepted.
 - End every session with the exact branch/worktree state, verification evidence, unresolved gate, and next frontier reflected here. A spoken "done" is not a handoff.
 
-## Current checkpoint — 2026-08-19
+## Current checkpoint — 2026-08-20
 
 - **Closed and authoritative:** Sticker, Note, and Key definitions. Their source components and real specimens are formalized.
 - **Coalescence complete:** `57bc6dd` merges the accepted Key stack at `1df13bc` into `implementing-design-system`. The legacy `KeyboardKey.vue` is removed, the production Keyboard renders the accepted Note through the accepted Key, and `DrawerKeyboard.vue` remains its thin current host.
-- **Trusted refs:** `implementing-design-system` is 29 local commits ahead of draft PR #27 / `origin/implementing-design-system` at `85c63fd`. The branch is out of the merge and has no design-system work in progress; `.claude-continue.sh` has an unrelated pre-existing modification.
-- **Definition boundary:** production adoption did not accept Keyboard or Drawer. The mounted and production-integrated Keyboard remains **Taxonomy only**. Its current geometry mappings, row proportions and heights, cross-key interaction, routing boundaries, `angledStyle` offcut mapping, and glass surface fallback are evidence for its interview, not settled design.
+- **Trusted refs:** `implementing-design-system` is 30 local commits ahead of draft PR #27 / `origin/implementing-design-system` at `85c63fd`. The branch is out of the merge and has no design-system work in progress; `.claude-continue.sh` has an unrelated pre-existing modification.
+- **Definition boundary:** production adoption did not accept Keyboard or Drawer. The mounted and production-integrated Keyboard remains **Taxonomy only**. Its current geometry mappings, row proportions and heights, cross-key interaction, routing boundaries, and `angledStyle` offcut mapping are evidence for its interview, not settled design.
+- **Accepted cross-app constraint:** glassmorphism is discarded and must be purged across the app. It is not a live Keyboard or Drawer option, an acceptable fallback, or an open design question. The current persisted setting and its silent mapping to `colored` are obsolete implementation debt.
 - **Active gate:** grill the current production `Keyboard.vue` reference from `implementing-design-system` before any further Keyboard refactor. Define ownership of layout, cross-key drag/glissando, literal-keyboard routing, audio/haptics, store/config, and the relationship to centralized MIDI while keeping the accepted Note and Key APIs intact.
 - **Following frontier:** grill Drawer separately, then define the Keyboard + Drawer composition. Do not re-grill Note or Key. Do not migrate CodeStrip through this work. CodeStrip and the Music Color Recipe retain independent gates.
 
@@ -56,7 +57,7 @@ All eight specimens are mounted references over the globally loaded `emotitone-d
 
 | Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
 | --- | --- | --- | --- | --- |
-| UI Colors | Not reviewed | Mounted token reference | Variables are globally active; the app-wide glassmorphism purge remains separate work | Define the surviving UI palette and glass purge boundary |
+| UI Colors | Glass rejected; remaining palette not reviewed | Mounted token reference | Variables are globally active; glassmorphism is an explicitly discarded cross-app treatment awaiting purge | Define the surviving UI palette without reopening glass; schedule the purge as scoped implementation work |
 | Brand Colors | Not reviewed | Mounted token reference | Variables are globally active | Review against accepted brand units |
 | Music Color Recipe | **Under review** | Mounted specimen still contains its own JavaScript/CSS demonstration; no single authority is accepted | Production color is currently calculated through `useColorSystem`/`services/musicColor`; feeds Note, current keys, live strip, and visual renderers | Reconcile CSS recipe, runtime resolver, movable/fixed semantics, and preserved visuals |
 | Spacing + Radius | Not reviewed | Mounted token reference | Variables are globally active | Define scale and radius contract |
@@ -96,7 +97,7 @@ All eight specimens are mounted references over the globally loaded `emotitone-d
 | Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
 | --- | --- | --- | --- | --- |
 | Key | **Accepted** | `components/compounds/Key.vue` is authoritative; mounted `CompoundKey.vue` imports it | Composes Note and replaces the removed legacy `KeyboardKey` inside production Keyboard; Keyboard keeps routing/config/audio concerns | Maintain parity while the Keyboard reference is grilled and defined |
-| Keyboard | **Taxonomy only** | `components/compounds/Keyboard.vue` is a production-integrated reference; mounted `CompoundKeyboard.vue` imports it but does not confer acceptance | Hosts accepted Keys across configured octave rows and preserves current store, QWERTY, audio, haptic, and activity adapters; geometry and legacy surface mappings are provisional | Grill Keyboard from the implementation branch, then formalize its definition without reopening Note or Key |
+| Keyboard | **Taxonomy only** | `components/compounds/Keyboard.vue` is a production-integrated reference; mounted `CompoundKeyboard.vue` imports it but does not confer acceptance | Hosts accepted Keys across configured octave rows and preserves current store, QWERTY, audio, haptic, and activity adapters; geometry remains provisional; the legacy glass mapping is rejected debt, not design evidence | Grill Keyboard from the implementation branch, then formalize its definition without reopening Note or Key |
 | Pattern Card | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Bar Tape, IconButton, and CodeStrip; production has a separate `components/patterns/PatternCard.vue` | Interview and reconcile the parallel component |
 | Pattern Reel | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Pattern Card; no production consumer found | Define after Pattern Card |
 
@@ -134,7 +135,7 @@ Loading Screen -> production LoadingSplash
 - Note geometry (`standard | tile | offcut | tab | pill`) and responsive proportion (`tall | medium | stocky | wide`) are independent axes, not a persisted config surface. Existing `keyboard.keyShape` is only border radius.
 - Note owns reusable musical presentation and its externally supplied `sounding` state. Key owns only its native button, focus, momentary mouse/touch press lifecycle, and externally supplied physical `pressed`; it emits local input identity without owning sound or routing.
 - Key's physical `pressed` and Note's musical `sounding` are independent. Keyboard currently owns physical-keyboard routing, stores, audio, haptics, and configuration; its future cross-key drag/glissando boundary and relationship to centrally owned MIDI remain Keyboard interview questions.
-- Note supports `colored` and `monochrome`. Production Keyboard currently maps legacy glassmorphism to `colored`; remove the obsolete persisted/config option only through its own reviewed migration.
+- Note supports `colored` and `monochrome`. Production Keyboard currently maps legacy glassmorphism to `colored`, but the cross-app decision rejects glassmorphism entirely; purge the obsolete persisted/config option rather than treating that bridge as accepted behavior.
 - Movable/fixed music-color config is already persisted and used by production JavaScript. Do not replace that behavior until the Music Color Recipe review establishes one authority.
 
 ## Current gate order

@@ -1,10 +1,9 @@
 import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import ProductionKeyboard from "@/components/keyboard/ProductionKeyboard.vue";
+import Keyboard from "@/components/compounds/Keyboard.vue";
 import drawerKeyboardSource from "@/components/DrawerKeyboard.vue?raw";
 import keyboardSource from "@/components/compounds/Keyboard.vue?raw";
-import productionKeyboardSource from "@/components/keyboard/ProductionKeyboard.vue?raw";
 
 const mocks = vi.hoisted(() => {
   const keyboardStore = {
@@ -110,14 +109,14 @@ const KeyStub = defineComponent({
 });
 
 function mountKeyboard() {
-  return mount(ProductionKeyboard, {
+  return mount(Keyboard, {
     global: {
       stubs: { Key: KeyStub },
     },
   });
 }
 
-describe("Keyboard production adapter", () => {
+describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -194,17 +193,15 @@ describe("Keyboard production adapter", () => {
 
   it("keeps DrawerKeyboard thin and leaves removed legacy Key APIs behind", () => {
     expect(drawerKeyboardSource).toContain(
-      'import ProductionKeyboard from "@/components/keyboard/ProductionKeyboard.vue"',
-    );
-    expect(drawerKeyboardSource).toContain("<ProductionKeyboard");
-    expect(drawerKeyboardSource).not.toContain("KeyboardKey");
-    expect(drawerKeyboardSource).not.toContain("useKeyboardControls");
-
-    expect(productionKeyboardSource).toContain(
       'import Keyboard from "@/components/compounds/Keyboard.vue"',
     );
-    expect(productionKeyboardSource).toContain("useKeyboardControls");
-    expect(keyboardSource).not.toMatch(/@\/stores|useSolfegeInteraction|triggerNoteHaptic/);
+    expect(drawerKeyboardSource).toContain("<Keyboard");
+    expect(drawerKeyboardSource).not.toContain("KeyboardKey");
+    expect(drawerKeyboardSource).not.toContain("ProductionKeyboard");
+    expect(drawerKeyboardSource).not.toContain("useKeyboardControls");
+
+    expect(keyboardSource).toContain("useKeyboardControls");
+    expect(keyboardSource).toContain('props.usage === "production"');
     expect(keyboardSource).not.toContain("KeyboardKey.vue");
     expect(keyboardSource).not.toContain("isKeyVisuallyActive");
     expect(keyboardSource).not.toContain("glassmorph-opacity");

@@ -9,6 +9,7 @@ describe("Keyboard style-guide specimen", () => {
     expect(specimenSource).not.toMatch(
       /@\/stores|useSolfegeInteraction|attackNote|releaseNote|triggerNoteHaptic|localStorage/,
     );
+    expect(specimenSource.match(/usage="controlled"/g)).toHaveLength(2);
     expect(specimenSource).toContain("inert · no input yet");
   });
 

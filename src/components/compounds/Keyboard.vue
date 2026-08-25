@@ -2,18 +2,18 @@
   <div
     ref="keyboardRef"
     class="keyboard"
-    :class="[`keyboard--motion-${motion}`, `keyboard--contrast-${contrast}`]"
-    :style="{ '--keyboard-gap': `${Math.max(gap, 0)}px` }"
+    :class="[`keyboard--motion-${resolvedMotion}`, `keyboard--contrast-${resolvedContrast}`]"
+    :style="{ '--keyboard-gap': `${Math.max(resolvedGap, 0)}px` }"
     role="group"
     aria-label="Solfège keyboard"
     :data-geometry-family="resolvedFamily"
     :data-edition-seed="resolvedEditionSeed"
   >
     <div
-      v-for="(row, rowIndex) in rows"
+      v-for="(row, rowIndex) in renderRows"
       :key="`octave-${row.octave}`"
       class="keyboard__row"
-      :class="{ 'keyboard__row--main': row.octave === mainOctave }"
+      :class="{ 'keyboard__row--main': row.octave === resolvedMainOctave }"
       role="group"
       :aria-label="rowAriaLabel(row.octave)"
       :data-octave="row.octave"
@@ -41,7 +41,7 @@
         :octave="row.octave"
         :mode="key.mode"
         :music-key="key.musicKey"
-        :surface-style="surfaceStyle"
+        :surface-style="resolvedSurfaceStyle"
         :accidental="key.accidental"
         :key-brightness="key.keyBrightness"
         :key-saturation="key.keySaturation"
@@ -80,6 +80,13 @@ import type {
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
+import { CHROMATIC_NOTES } from "@/data";
+import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
+import { useKeyboardControls } from "@/composables/useKeyboardControls";
+import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useMusicStore } from "@/stores/music";
+import { triggerNoteHaptic } from "@/utils/hapticFeedback";
 import {
   KEYBOARD_PAGE_EDITION_SEED,
   keyboardEditionVariation,
@@ -124,7 +131,8 @@ export interface KeyboardIntent extends KeyInputEvent {
 
 const props = withDefaults(
   defineProps<{
-    rows: KeyboardRowView[];
+    usage?: "production" | "controlled";
+    rows?: KeyboardRowView[];
     mainOctave?: number;
     primaryLabel?: NoteLabel;
     showLabels?: boolean;
@@ -140,6 +148,8 @@ const props = withDefaults(
     contrast?: "system" | "forced";
   }>(),
   {
+    usage: "production",
+    rows: () => [],
     mainOctave: 4,
     primaryLabel: "syllable",
     showLabels: true,
@@ -162,6 +172,125 @@ const emit = defineEmits<{
   focusChange: [keyId: string];
 }>();
 
+function createProductionWiring() {
+  const store = useKeyboardDrawerStore();
+  const musicStore = useMusicStore();
+  const config = computed(() => store.keyboardConfig);
+  const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
+  const surfaceStyle = computed<NoteSurfaceStyle>(() =>
+    config.value.surfaceStyle === "monochrome" ? "monochrome" : "colored",
+  );
+  const gap = computed(() => ({
+    none: 0,
+    small: 2,
+    medium: 4,
+  })[config.value.keyGaps] ?? 2);
+  const { attackNoteWithOctave, releaseNoteByButtonKey } = useSolfegeInteraction();
+
+  useKeyboardControls(computed(() => config.value.mainOctave));
+
+  const romanDegrees = [
+    "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",
+  ];
+  const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(number);
+  const noteKey = (scaleIndex: number, octave: number) => `${scaleIndex}_${octave}`;
+  const noteName = (scaleIndex: number, octave: number) =>
+    musicStore.getNoteName(scaleIndex, octave);
+  const isAccidental = (scaleIndex: number, octave: number) =>
+    /[#b♯♭]/.test(noteName(scaleIndex, octave));
+  const pitchClassIndex = (scaleIndex: number) => {
+    const pitch = getChromaticNoteForScaleIndex(
+      scaleIndex,
+      musicStore.currentMode,
+      currentMusicKey.value,
+    );
+    return pitch ? CHROMATIC_NOTES.indexOf(pitch) : undefined;
+  };
+  const soundingNoteKeys = computed(() => new Set(
+    musicStore
+      .getActiveNotes()
+      .map((note) => `${note.solfegeIndex}_${note.octave}`),
+  ));
+  const rows = computed<KeyboardRowView[]>(() =>
+    store.visibleOctaves.map((octave) => ({
+      octave,
+      keys: store.solfegeData.map((solfege, scaleIndex) => {
+        const id = noteKey(scaleIndex, octave);
+        return {
+          id,
+          syllable: solfege.name,
+          degree: degreeLabel(solfege.number),
+          rawPitch: noteName(scaleIndex, octave),
+          scaleIndex,
+          pitchClassIndex: pitchClassIndex(scaleIndex),
+          mode: musicStore.currentMode,
+          musicKey: currentMusicKey.value,
+          accidental: isAccidental(scaleIndex, octave),
+          keyBrightness: config.value.keyBrightness,
+          keySaturation: config.value.keySaturation,
+          sounding: store.isVisualNoteActive(id) || soundingNoteKeys.value.has(id),
+          pressed: store.isKeyPressed(id),
+        };
+      }),
+    })),
+  );
+
+  const inputPressId = (intent: KeyboardIntent) =>
+    `${intent.inputId}:${intent.keyId}`;
+
+  async function press(intent: KeyboardIntent) {
+    store.addTouch(inputPressId(intent), intent.keyId);
+    if (intent.source === "pointer" && config.value.hapticFeedback) {
+      triggerNoteHaptic();
+    }
+    await attackNoteWithOctave(intent.scaleIndex, intent.octave, intent.event);
+  }
+
+  function release(intent: KeyboardIntent) {
+    store.removeTouch(inputPressId(intent));
+    releaseNoteByButtonKey(intent.keyId, intent.event);
+  }
+
+  return {
+    config,
+    rows,
+    surfaceStyle,
+    gap,
+    press,
+    release,
+    clear: store.clearAllTouches,
+  };
+}
+
+const isProductionUsage = props.usage === "production";
+const productionWiring = isProductionUsage ? createProductionWiring() : null;
+const renderRows = computed(() => productionWiring?.rows.value ?? props.rows);
+const resolvedMainOctave = computed(
+  () => productionWiring?.config.value.mainOctave ?? props.mainOctave,
+);
+const resolvedPrimaryLabel = computed(
+  () => productionWiring?.config.value.primaryLabel ?? props.primaryLabel,
+);
+const resolvedShowLabels = computed(
+  () => productionWiring?.config.value.showLabels ?? props.showLabels,
+);
+const resolvedSurfaceStyle = computed(
+  () => productionWiring?.surfaceStyle.value ?? props.surfaceStyle,
+);
+const resolvedGap = computed(() => productionWiring?.gap.value ?? props.gap);
+const resolvedMainRowHeight = computed(() => productionWiring
+  ? Math.max(88 * productionWiring.config.value.keySize, 44)
+  : props.mainRowHeight);
+const resolvedOuterRowHeight = computed(() => productionWiring
+  ? Math.max(56 * productionWiring.config.value.keySize, 44)
+  : props.outerRowHeight);
+const resolvedOuterInset = computed(() => isProductionUsage ? 0 : props.outerInset);
+const resolvedVariationAmplitude = computed(
+  () => isProductionUsage ? 1 : props.variationAmplitude,
+);
+const resolvedMotion = computed(() => isProductionUsage ? "system" : props.motion);
+const resolvedContrast = computed(() => isProductionUsage ? "system" : props.contrast);
+
 const mountFamily = keyboardFamilyForDate(new Date());
 const resolvedFamily = computed(() => props.geometryFamily ?? mountFamily);
 const resolvedEditionSeed = computed(
@@ -172,20 +301,20 @@ const keyElements = new Map<string, HTMLButtonElement>();
 const rememberedFocusId = ref("");
 const activeFocusInputs = new Map<string, KeyboardIntent>();
 
-const allKeys = computed(() => props.rows.flatMap((row) => row.keys));
+const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
 const defaultFocusId = computed(
   () =>
-    props.rows.find((row) => row.octave === props.mainOctave)?.keys[0]?.id
-    ?? props.rows[0]?.keys[0]?.id
+    renderRows.value.find((row) => row.octave === resolvedMainOctave.value)?.keys[0]?.id
+    ?? renderRows.value[0]?.keys[0]?.id
     ?? "",
 );
 const rowSignature = computed(() =>
-  props.rows
+  renderRows.value
     .map((row) => `${row.octave}:${row.keys.map((key) => key.id).join(",")}`)
     .join("|"),
 );
 const editionVariations = computed(() => new Map(
-  props.rows.flatMap((row) =>
+  renderRows.value.flatMap((row) =>
     keyboardEditionRowVariations(
       resolvedFamily.value,
       resolvedEditionSeed.value,
@@ -230,9 +359,9 @@ function variationFor(keyId: string) {
 
 function keyStyle(key: KeyboardKeyView, octave: number) {
   const variation = variationFor(key.id);
-  const height = octave === props.mainOctave
-    ? props.mainRowHeight
-    : props.outerRowHeight;
+  const height = octave === resolvedMainOctave.value
+    ? resolvedMainRowHeight.value
+    : resolvedOuterRowHeight.value;
 
   return {
     "--keyboard-note-height": `${Math.max(height, 44)}px`,
@@ -246,39 +375,39 @@ function keyStyle(key: KeyboardKeyView, octave: number) {
 
 function rowStyle(octave: number) {
   return {
-    "--keyboard-outer-inset": octave === props.mainOctave
+    "--keyboard-outer-inset": octave === resolvedMainOctave.value
       ? "0px"
-      : `${Math.max(props.outerInset, 0)}px`,
+      : `${Math.max(resolvedOuterInset.value, 0)}px`,
     "--keyboard-user-variation-amplitude": Math.max(
       0,
-      props.variationAmplitude,
+      resolvedVariationAmplitude.value,
     ),
   };
 }
 
 function rowAriaLabel(octave: number) {
-  return octave === props.mainOctave
+  return octave === resolvedMainOctave.value
     ? `Main octave ${octave}`
     : `Octave ${octave}`;
 }
 
 function primaryLabelFor(octave: number): NoteLabel {
-  return octave === props.mainOctave ? props.primaryLabel : "raw";
+  return octave === resolvedMainOctave.value ? resolvedPrimaryLabel.value : "raw";
 }
 
 function proportionFor(octave: number): NoteProportion {
-  return octave === props.mainOctave ? "medium" : "wide";
+  return octave === resolvedMainOctave.value ? "medium" : "wide";
 }
 
 function visibleLabelsFor(octave: number): NoteLabel[] {
-  if (!props.showLabels) return [];
-  return octave === props.mainOctave
+  if (!resolvedShowLabels.value) return [];
+  return octave === resolvedMainOctave.value
     ? ["syllable", "degree", "raw"]
     : ["raw"];
 }
 
 function keyAriaLabel(key: KeyboardKeyView, octave: number) {
-  const context = octave === props.mainOctave
+  const context = octave === resolvedMainOctave.value
     ? "main octave"
     : `octave ${octave}`;
   const sounding = key.sounding && key.id === rememberedFocusId.value
@@ -293,7 +422,7 @@ function rememberFocus(keyId: string) {
 }
 
 function focusKey(rowIndex: number, keyIndex: number) {
-  const key = props.rows[rowIndex]?.keys[keyIndex];
+  const key = renderRows.value[rowIndex]?.keys[keyIndex];
   if (!key) return;
   rememberFocus(key.id);
   void nextTick(() => keyElements.get(key.id)?.focus());
@@ -304,15 +433,15 @@ function moveFocus(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
   if (event.key === "ArrowRight") {
     return focusKey(
       rowIndex,
-      Math.min(props.rows[rowIndex].keys.length - 1, keyIndex + 1),
+      Math.min(renderRows.value[rowIndex].keys.length - 1, keyIndex + 1),
     );
   }
   if (event.key === "ArrowUp") return focusKey(Math.max(0, rowIndex - 1), keyIndex);
   if (event.key === "ArrowDown") {
-    return focusKey(Math.min(props.rows.length - 1, rowIndex + 1), keyIndex);
+    return focusKey(Math.min(renderRows.value.length - 1, rowIndex + 1), keyIndex);
   }
   if (event.key === "Home") return focusKey(rowIndex, 0);
-  if (event.key === "End") return focusKey(rowIndex, props.rows[rowIndex].keys.length - 1);
+  if (event.key === "End") return focusKey(rowIndex, renderRows.value[rowIndex].keys.length - 1);
 }
 
 function emitIntent(
@@ -328,8 +457,17 @@ function emitIntent(
     octave,
     source: payload.inputId.startsWith("focus:") ? "focus" : "pointer",
   };
-  if (kind === "press") emit("press", intent);
-  else emit("release", intent);
+  dispatchIntent(kind, intent);
+}
+
+function dispatchIntent(kind: "press" | "release", intent: KeyboardIntent) {
+  if (kind === "press") {
+    if (productionWiring) void productionWiring.press(intent);
+    emit("press", intent);
+    return;
+  }
+  productionWiring?.release(intent);
+  emit("release", intent);
 }
 
 function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
@@ -340,7 +478,7 @@ function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number)
   }
 
   if (![" ", "Enter"].includes(event.key) || event.repeat) return;
-  const key = props.rows[rowIndex]?.keys[keyIndex];
+  const key = renderRows.value[rowIndex]?.keys[keyIndex];
   if (!key) return;
 
   const inputId = `focus:${event.code}`;
@@ -352,11 +490,11 @@ function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number)
     event,
     keyId: key.id,
     scaleIndex: key.scaleIndex,
-    octave: props.rows[rowIndex].octave,
+    octave: renderRows.value[rowIndex].octave,
     source: "focus",
   };
   activeFocusInputs.set(inputId, intent);
-  emit("press", intent);
+  dispatchIntent("press", intent);
 }
 
 function handleKeyUp(event: KeyboardEvent, key: KeyboardKeyView) {
@@ -366,12 +504,12 @@ function handleKeyUp(event: KeyboardEvent, key: KeyboardKeyView) {
   if (!intent || intent.keyId !== key.id) return;
   event.preventDefault();
   activeFocusInputs.delete(inputId);
-  emit("release", { ...intent, event });
+  dispatchIntent("release", { ...intent, event });
 }
 
 function releaseFocusedInputs(event: Event) {
   for (const intent of activeFocusInputs.values()) {
-    emit("release", { ...intent, event });
+    dispatchIntent("release", { ...intent, event });
   }
   activeFocusInputs.clear();
 }
@@ -389,6 +527,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("blur", releaseFocusedInputs);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   releaseFocusedInputs(new Event("unmount"));
+  productionWiring?.clear();
   keyElements.clear();
 });
 </script>

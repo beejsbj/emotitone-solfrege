@@ -13,6 +13,7 @@
         </div>
         <div class="keyboard-specimen__mini" :style="{ width: `${Math.min(width, 390)}px` }">
           <Keyboard
+            usage="controlled"
             :rows="rows"
             :main-octave="mainOctave"
             :primary-label="primaryLabel"
@@ -160,6 +161,7 @@
       <div class="keyboard-specimen__viewport">
         <div class="keyboard-specimen__stage" :style="{ width: `${width}px` }">
           <Keyboard
+            usage="controlled"
             :rows="rows"
             :main-octave="mainOctave"
             :primary-label="primaryLabel"

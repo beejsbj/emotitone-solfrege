@@ -37,6 +37,7 @@ function rows(): KeyboardRowView[] {
 function mountKeyboard() {
   return mount(Keyboard, {
     props: {
+      usage: "controlled",
       rows: rows(),
       mainOctave: 4,
       geometryFamily: "offcut",

@@ -177,7 +177,7 @@ Keyboard's exact visual definition remains **Under review**, not accepted; `Keyb
 - Production is not presently resizable; its old `keySize` changes height only. Drawer/composition resizing is a later gate, while Keyboard must merely respond to the space it receives.
 - The generic config can request even `rowCount` values although the accepted control values are exactly 1, 3, 5, and 7. Near octave 1 or 8, current rendering filters unavailable candidates and returns fewer rows, which is accepted behavior. Current QWERTY routing still targets main octave plus/minus one even when those rows are hidden, contradicting accepted visible-row routing.
 - Current centered horizontal overflow can strand leading Keys on narrow viewports, contradicting the accepted always-fit row. Native Tab visits every Key, Space/Enter does not invoke the musical press/release contract, modified mapped keys still play, and held Backspace repeats Undo; all contradict accepted literal-keyboard behavior.
-- Visual pressed state is partly source-aware, but current code still owns audio through parallel note-ID maps; pending attacks can outlive release or teardown, and current cross-Key touch glissando is absent. These are correctness debts under the accepted centralized, source-aware lifecycle, not new design options.
+- Visual pressed state is partly source-aware, but current code still owns audio through parallel note-ID maps; pending attacks can outlive release or teardown, and cross-Key glissando is absent for both mouse/pointer and touch. These are correctness debts under the accepted centralized, source-aware lifecycle, not new design options.
 
 ### Active frontier — write answers here before advancing
 
@@ -194,8 +194,14 @@ Keyboard's exact visual definition remains **Under review**, not accepted; `Keyb
 ### Correctness obligations — not user questions
 
 - Momentary Key interaction must not claim toggle-button semantics through `aria-pressed`; correct that accepted-Key defect without reopening its visual or ownership definition.
-- Implement the already-accepted roving focus, literal-keyboard routing, source-aware coordinator, glissando interpolation, remap cancellation, teardown, and pending-attack cancellation as one coherent lifecycle rather than parallel local/global note maps. The reported non-working glissando is a separate behavior defect: diagnose and fix it outside the visual formalization slice, with a red-capable reproduction and regression receipt.
+- Implement the already-accepted roving focus, literal-keyboard routing, source-aware coordinator, glissando interpolation, remap cancellation, teardown, and pending-attack cancellation as one coherent lifecycle rather than parallel local/global note maps. The confirmed non-working glissando is a separate behavior defect: fix it outside the visual formalization slice under `BJS-371`, with regression evidence against the production path.
 - Purge rejected Keyboard configuration and migrations, including remaining glass opacity and Keyboard-owned padding/framing. A controllable style-guide specimen must not mutate persisted app state or produce real audio.
+
+#### Glissando diagnosis receipt — 2026-08-25
+
+- A production drag from main-octave Do across Re failed twice with the deterministic result `expected attacks [Do, Re], observed [Do]`. Directly clicking Re produced `[Re]`, ruling out Re's hitbox, audio path, and recording path.
+- This is longstanding missing behavior, not a visual regression: `Key.vue` starts and ends only local mouse/touch contacts, while `Keyboard.vue` forwards those local events without pointer ownership, cross-Key hit-testing, or interpolation. Leaving Do releases it; entering Re during the same held contact never attacks Re.
+- The correct repair seam is Keyboard-level source/pointer coordination, with Key remaining the local interactive face. Regression coverage belongs at the real Keyboard compound seam and must prove ordered `press A -> release A -> press B -> release B`, fast movement across intermediate Keys, concurrent pointers, leave/re-entry, cancellation, and teardown. Keep an end-to-end production drag smoke because shallow event emission cannot prove native targeting/capture behavior.
 
 ### Explicitly deferred from Keyboard
 

@@ -158,13 +158,31 @@ Keyboard remains **Under review**, not accepted or authorized for implementation
 ### Current evidence that must not be mistaken for accepted behavior
 
 - Production is not presently resizable; its old `keySize` changes height only. Drawer/composition resizing is a later gate, while Keyboard must merely respond to the space it receives.
-- The generic config can request even `rowCount` values although rendering coerces them to odd; the accepted control values remain on the frontier below. Near octave 1 or 8, current rendering filters unavailable candidates and returns fewer rows, which is accepted behavior. Current QWERTY routing still targets main octave plus/minus one even when those rows are hidden, contradicting accepted visible-row routing.
+- The generic config can request even `rowCount` values although the accepted control values are exactly 1, 3, 5, and 7. Near octave 1 or 8, current rendering filters unavailable candidates and returns fewer rows, which is accepted behavior. Current QWERTY routing still targets main octave plus/minus one even when those rows are hidden, contradicting accepted visible-row routing.
 - Current centered horizontal overflow can strand leading Keys on narrow viewports, contradicting the accepted always-fit row. Native Tab visits every Key, Space/Enter does not invoke the musical press/release contract, modified mapped keys still play, and held Backspace repeats Undo; all contradict accepted literal-keyboard behavior.
 - Visual pressed state is partly source-aware, but current code still owns audio through parallel note-ID maps; pending attacks can outlive release or teardown, and current cross-Key touch glissando is absent. These are correctness debts under the accepted centralized, source-aware lifecycle, not new design options.
 
 ### Active frontier — write answers here before advancing
 
-- **Final-frontier audit in progress:** verify whether any user-facing accessibility, lifecycle, configuration, or specimen decision remains after Q60. Do not turn obvious correctness obligations or deferred Drawer/CodeStrip/Music Color questions into Keyboard grilling.
+- **Q61 — collection semantics:** decide whether assistive technology receives one named `Solfège keyboard` group with nested named octave-row groups, avoiding `grid`, `toolbar`, or `application` semantics.
+- **Q62 — focus announcement:** decide whether every Key's accessible name exposes syllable, scale degree, raw pitch, and relevant octave context independent of visible-label preferences, while QWERTY shortcuts remain separate shortcut metadata.
+- **Q63 — sounding announcement:** decide whether musical `sounding` is exposed only for the currently focused Key without a Keyboard-wide live region, so MIDI/sequencer activity cannot create announcement chatter.
+- **Q64 — disappearing focus target:** decide whether an in-Keyboard focus target removed by row/octave remapping immediately falls back to the new main-octave tonic, while an outside focus leaves only roving-focus memory reset.
+- **Q65 — surviving surface treatment:** decide whether `colored | monochrome` remains a Keyboard presentation preference or becomes an external app-level presentation input.
+- **Q66 — dense-grid support bound:** decide whether 320 CSS px is the narrowest supported Keyboard content specimen, yielding at least roughly 24px-wide targets while preserving the accepted 44px minimum height and all twelve pitches.
+- **Q67 — visual density gate:** decide whether final acceptance waits for a controllable specimen matrix that compares exact gap, main/outer heights and proportions, outer inset, typography, overlap, and variation amplitude across supported widths, rows, families, states, labels, Reduced Motion, and forced colors.
+
+### Correctness obligations — not user questions
+
+- Momentary Key interaction must not claim toggle-button semantics through `aria-pressed`; correct that accepted-Key defect without reopening its visual or ownership definition.
+- Implement the already-accepted roving focus, literal-keyboard routing, source-aware coordinator, glissando interpolation, remap cancellation, teardown, and pending-attack cancellation as one coherent lifecycle rather than parallel local/global note maps.
+- Purge rejected Keyboard configuration and migrations, including remaining glass opacity and Keyboard-owned padding/framing. A controllable style-guide specimen must not mutate persisted app state or produce real audio.
+
+### Explicitly deferred from Keyboard
+
+- Drawer chrome, resize controls, focus return to its opener, and the host condition that makes Keyboard active.
+- CodeStrip migration and the visual Backspace control's composition; Keyboard owns only the accepted shared undo intent.
+- Music Color Recipe internals, the app-wide haptic settings surface, and execution of the wider glassmorphism purge.
 
 Replace resolved frontier entries with the accepted truth and add the newly unblocked frontier in the same edit; do not leave the working interview only in chat or Linear.
 

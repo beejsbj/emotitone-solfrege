@@ -10,6 +10,20 @@ The style guide is an **interview checklist**, not an accepted design system. `/
 
 Truth has three distinct homes: Linear `BJS-35` holds workflow/next-actor state and receipts; this file holds current per-unit design truth; `DESIGN_LOG.md` holds chronological decision evidence. Reconcile them when they disagree rather than picking whichever one is most convenient.
 
+### Mission: production visual migration with lineage
+
+The style-guide material began as design exploration produced through other design tools. It is reference input, not a parallel application and not automatic authority. The purpose of this work is for Burooj to update the production application's visual design by reviewing that material, accepting or correcting it, formalizing the accepted design in reusable source components, and then migrating production consumers onto those visuals.
+
+Work one unit at a time so visual lineage remains inspectable:
+
+```text
+tokens -> primitives -> compounds + uniques -> compositions -> production surfaces
+```
+
+Each downstream unit must consume accepted upstream sources rather than copy their appearance. A production migration is complete only when the accepted source owns the visual treatment, the style guide imports that source, the production consumer uses it, and the lineage and verification receipt are recorded here.
+
+This is a **visual-system migration**, with existing product behavior treated as a preservation constraint. Formalization may reshape component ownership only as needed to establish the visual lineage; it does not silently redesign interaction, audio, routing, state, or other functionality. When a behavior defect or functional change appears, diagnose and implement it as a separately scoped slice with its own reproduction, regression evidence, and receipt. Then resume the visual gate without making the functionality work part of the component's visual acceptance.
+
 Use this file to resume the workflow without reconstructing it from chat:
 
 - Read the current checkpoint, active unit row, dependencies, and next gate before asking questions or editing.
@@ -28,13 +42,14 @@ Use this file to resume the workflow without reconstructing it from chat:
 - **Accepted cross-app constraint:** glassmorphism is discarded and must be purged across the app. It is not a live Keyboard or Drawer option, an acceptable fallback, or an open design question. The current persisted setting and its silent mapping to `colored` are obsolete implementation debt.
 - **Accepted tokenization follow-up:** promote all five accepted Note/Key geometry variants (`standard`, `tile`, `offcut`, `tab`, `pill`) into coherent named token recipes before Keyboard randomization consumes them. This formalizes already-accepted geometry; it does not reopen the variants or authorize new cuts.
 - **Active gate:** Burooj visually inspects the Keyboard workbench at the agreed matrix and settles exact spacing, row proportions, inset, narrow typography, overlap, and variation amplitude. Keep Keyboard **Under review** until that acceptance; then reconcile the tracker before the separate production correctness/config slice.
-- **Following frontier:** begin a fresh session with the visual grilling of CodeStrip, including the boundary and visual relationship of its action buttons/bar. Grill Drawer separately afterward. Only once CodeStrip + action bar, Keyboard, and Drawer are each defined should the current `DrawerKeyboard.vue` be reworked as their composition. Do not re-grill Note or Key. Music Color retains an independent later gate.
+- **Following frontier:** formalize the Knob component family next, reconciling the analog/digital style-guide specimens and shared Knob primitive with the separate production knob family. After acceptance, update production knobs to consume the new visual styles while preserving their existing value, input, focus, and control behavior. Then begin a fresh CodeStrip visual grilling session, including its boundary and visual relationship with the action buttons/bar. Grill Drawer separately afterward. Only once CodeStrip + action bar, Keyboard, and Drawer are each defined should the current `DrawerKeyboard.vue` be reworked as their composition. Do not re-grill Note or Key. Music Color retains an independent later gate.
 - **Recovered Music Color drift:** the original mounted specimen was a segmented chromatic wheel with fixed/movable, root, octave 0–8, scale-count, and hue-sweep controls. During the unrelated Note/Key migration on 2026-08-18, commit `b140654` replaced it wholesale with the current linear swatch specimen so the guide would call the production `services/musicColor` resolver instead of maintaining duplicate demonstration logic. Consolidating the calculation authority did not constitute acceptance of the new visual presentation; Burooj was not grilled on removing the wheel or narrowing the displayed octave range. Treat the swatch-strip replacement as unaccepted drift. The octave model was not removed: the current specimen exposes octaves 2–8 and passes octave into the runtime lightness calculation.
 
 ## Status legend
 
 - **Accepted:** the interview definition is settled.
 - **Under review:** the interview is active and the definition is not settled.
+- **Next:** the next unit selected for interview/formalization; its definition remains unsettled.
 - **Taxonomy only:** its architectural layer/relationship is agreed, but its definition is not.
 - **Reference source:** code exists so the style guide can show the idea; it is not yet authoritative.
 - **Authoritative source:** the accepted component owns the design and the style-guide specimen imports it.
@@ -79,8 +94,8 @@ All eight specimens are mounted references over the globally loaded `emotitone-d
 | Card | Not reviewed | Reference `CardShell` source exists; mounted specimen imports it | No production consumer found | Interview |
 | Note | **Accepted** | `components/primatives/Note.vue` is authoritative; mounted specimen imports it | Consumed by accepted Key and now used by production Keyboard; its five accepted geometry recipes are only partly tokenized; later CodeStrip use remains undefined | Promote the five accepted geometry recipes into coherent named tokens, maintain parity through Keyboard, and define other consumers separately |
 | Kicker | Not reviewed | Reference source exists; mounted specimen imports it | Feeds reference `SpineCard`; no production consumer found | Interview |
-| Knob — Analog | Not reviewed | Reference source exists; mounted specimen imports shared primitive `Knob.vue` | Production uses the separate `components/knobs` family | Interview and reconcile ownership |
-| Knob — Digital | Not reviewed | Reference source exists; mounted specimen imports shared primitive `Knob.vue` | Production uses the separate `components/knobs` family | Interview and reconcile ownership |
+| Knob — Analog | **Next** | Reference source exists; mounted specimen imports shared primitive `Knob.vue` | Production uses the separate `components/knobs` family whose behavior must be preserved | Formalize the shared Knob visual contract with the Digital specimen, then migrate the accepted visual source into production without mixing in functional redesign |
+| Knob — Digital | **Next** | Reference source exists; mounted specimen imports shared primitive `Knob.vue` | Production uses the separate `components/knobs` family whose behavior must be preserved | Formalize the shared Knob visual contract with the Analog specimen, then migrate the accepted visual source into production without mixing in functional redesign |
 | Marks | Not reviewed | Reference source exists; mounted specimen imports it | No production consumer found | Interview |
 | Spine Card | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Kicker; no production consumer found | Define after or with Kicker |
 | Tabs (`ChipTabs`) | Not reviewed | Reference source exists; mounted specimen imports it | Production uses a separate `components/ui/Tabs*` family | Interview and reconcile the parallel tab sources |
@@ -179,7 +194,7 @@ Keyboard's exact visual definition remains **Under review**, not accepted; `Keyb
 ### Correctness obligations — not user questions
 
 - Momentary Key interaction must not claim toggle-button semantics through `aria-pressed`; correct that accepted-Key defect without reopening its visual or ownership definition.
-- Implement the already-accepted roving focus, literal-keyboard routing, source-aware coordinator, glissando interpolation, remap cancellation, teardown, and pending-attack cancellation as one coherent lifecycle rather than parallel local/global note maps.
+- Implement the already-accepted roving focus, literal-keyboard routing, source-aware coordinator, glissando interpolation, remap cancellation, teardown, and pending-attack cancellation as one coherent lifecycle rather than parallel local/global note maps. The reported non-working glissando is a separate behavior defect: diagnose and fix it outside the visual formalization slice, with a red-capable reproduction and regression receipt.
 - Purge rejected Keyboard configuration and migrations, including remaining glass opacity and Keyboard-owned padding/framing. A controllable style-guide specimen must not mutate persisted app state or produce real audio.
 
 ### Explicitly deferred from Keyboard
@@ -192,11 +207,12 @@ Replace resolved frontier entries with the accepted truth and add the newly unbl
 
 ## Current gate order
 
-1. Maintain the closed Note and Key gates through the single production `Keyboard.vue`; keep Keyboard Under review until its visual matrix is explicitly accepted.
-2. In a fresh session, visually grill CodeStrip and settle the component boundary and relationship of CodeStrip + action buttons/bar before migrating either surface.
-3. Grill Drawer as its own unique.
-4. Rework `DrawerKeyboard.vue` as the composition of the defined CodeStrip + action bar, production Keyboard, and defined Drawer.
-5. At the independent Music Color gate, recover the original wheel/octave visual intent while keeping the production runtime resolver as the calculation source; settle the recipe before changing production color behavior.
-6. Continue the remaining mounted reference units one accepted definition at a time.
+1. Maintain the closed Note and Key gates through the single production `Keyboard.vue`; keep Keyboard Under review until its visual matrix is explicitly accepted. Diagnose and fix glissando as separate functionality work rather than folding it into visual acceptance.
+2. Formalize the Analog/Digital Knob family and its shared primitive, then migrate the accepted visual treatment into the existing production knob family while preserving its behavior.
+3. In a fresh session, visually grill CodeStrip and settle the component boundary and relationship of CodeStrip + action buttons/bar before migrating either surface.
+4. Grill Drawer as its own unique.
+5. Rework `DrawerKeyboard.vue` as the composition of the defined CodeStrip + action bar, production Keyboard, and defined Drawer.
+6. At the independent Music Color gate, recover the original wheel/octave visual intent while keeping the production runtime resolver as the calculation source; settle the recipe before changing production color behavior.
+7. Continue the remaining mounted reference units one accepted definition at a time.
 
 For every unit, the normal gate is: **accept definition -> formalize source -> make the specimen import that source -> integrate into a defined consumer (or explicitly recorded provisional adapter) -> verify config/music dependencies and live app/guide behavior -> update this checkpoint -> commit and PR as a focused slice**.

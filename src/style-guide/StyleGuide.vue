@@ -128,7 +128,7 @@
           <CompoundKey />
         </article>
         <article id="compound-keyboard" class="sink-frame">
-          <div class="sink-frame__source">compound-keyboard · production reference</div>
+          <div class="sink-frame__source">compound-keyboard · formalization candidate</div>
           <CompoundKeyboard />
         </article>
         <article class="sink-frame">

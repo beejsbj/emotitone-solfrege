@@ -17,6 +17,7 @@
       role="group"
       :aria-label="rowAriaLabel(row.octave)"
       :data-octave="row.octave"
+      :style="rowStyle(row.octave)"
     >
       <Key
         v-for="(key, keyIndex) in row.keys"
@@ -128,6 +129,8 @@ const props = withDefaults(
     gap?: number;
     mainRowHeight?: number;
     outerRowHeight?: number;
+    outerInset?: number;
+    variationAmplitude?: number;
     motion?: "system" | "reduced";
     contrast?: "system" | "forced";
   }>(),
@@ -141,6 +144,8 @@ const props = withDefaults(
     gap: 2,
     mainRowHeight: 88,
     outerRowHeight: 56,
+    outerInset: 0,
+    variationAmplitude: 1,
     motion: "system",
     contrast: "system",
   },
@@ -222,6 +227,18 @@ function keyStyle(key: KeyboardKeyView, octave: number) {
     "--note-geometry-override-clip": variation.cut,
     "--note-geometry-override-shadow": variation.shadow,
     zIndex: key.pressed ? 10_001 : variation.layer,
+  };
+}
+
+function rowStyle(octave: number) {
+  return {
+    "--keyboard-outer-inset": octave === props.mainOctave
+      ? "0px"
+      : `${Math.max(props.outerInset, 0)}px`,
+    "--keyboard-user-variation-amplitude": Math.max(
+      0,
+      props.variationAmplitude,
+    ),
   };
 }
 
@@ -374,11 +391,14 @@ onBeforeUnmount(() => {
 }
 
 .keyboard__row {
+  --keyboard-variation-amplitude: var(--keyboard-user-variation-amplitude, 1);
   display: flex;
+  box-sizing: border-box;
   min-width: 0;
   flex-shrink: 0;
   align-items: stretch;
   gap: var(--keyboard-gap, 2px);
+  padding-inline: var(--keyboard-outer-inset, 0px);
 }
 
 .keyboard__key {
@@ -407,7 +427,7 @@ onBeforeUnmount(() => {
 
 @container (max-width: 390px) {
   .keyboard__row {
-    --keyboard-variation-amplitude: .45;
+    --keyboard-variation-amplitude: calc(var(--keyboard-user-variation-amplitude, 1) * .45);
   }
 
   .keyboard__key :deep(.note) {

@@ -24,10 +24,10 @@ Use this file to resume the workflow without reconstructing it from chat:
 - **Closed and authoritative:** Sticker, Note, and Key definitions. Their source components and real specimens are formalized.
 - **Coalescence complete:** `57bc6dd` merges the accepted Key stack at `1df13bc` into `implementing-design-system`. The legacy `KeyboardKey.vue` is removed, the production Keyboard renders the accepted Note through the accepted Key, and `DrawerKeyboard.vue` remains its thin current host.
 - **Trusted refs:** draft PR #27 / `origin/implementing-design-system` remains at `85c63fd`; the local `implementing-design-system` branch is ahead and out of the merge. Recompute the live ahead count at handoff instead of trusting a number embedded in this committed file. `.claude-continue.sh` has an unrelated pre-existing modification.
-- **Definition boundary:** production adoption did not accept Keyboard or Drawer. The mounted and production-integrated Keyboard remains **Taxonomy only**. Its current geometry mappings, row proportions and heights, cross-key interaction, routing boundaries, and `angledStyle` offcut mapping are evidence for its interview, not settled design.
+- **Definition boundary:** Keyboard grilling is concluded and its shared intent is accepted, but its exact visual density is not. Commits `3e4690d`, `ebb0014`, and `8038665` implement a reusable store-free compound, thin `ProductionKeyboard` compatibility adapter, deterministic daily editions, and the controllable style-guide workbench as a **formalization candidate**. This does not accept the candidate's baseline values or authorize the deferred production correctness/config migration. Drawer remains undefined.
 - **Accepted cross-app constraint:** glassmorphism is discarded and must be purged across the app. It is not a live Keyboard or Drawer option, an acceptable fallback, or an open design question. The current persisted setting and its silent mapping to `colored` are obsolete implementation debt.
 - **Accepted tokenization follow-up:** promote all five accepted Note/Key geometry variants (`standard`, `tile`, `offcut`, `tab`, `pill`) into coherent named token recipes before Keyboard randomization consumes them. This formalizes already-accepted geometry; it does not reopen the variants or authorize new cuts.
-- **Active gate:** grill the current production `Keyboard.vue` reference from `implementing-design-system` before any further Keyboard refactor. Define ownership of layout, cross-key drag/glissando, literal-keyboard routing, audio/haptics, store/config, and the relationship to centralized MIDI while keeping the accepted Note and Key APIs intact.
+- **Active gate:** Burooj visually inspects the Keyboard workbench at the agreed matrix and settles exact spacing, row proportions, inset, narrow typography, overlap, and variation amplitude. Keep Keyboard **Under review** until that acceptance; then reconcile the tracker before the separate production correctness/config slice.
 - **Following frontier:** grill Drawer separately, then define the Keyboard + Drawer composition. Do not re-grill Note or Key. Do not migrate CodeStrip through this work. CodeStrip and the Music Color Recipe retain independent gates.
 
 ## Status legend
@@ -98,7 +98,7 @@ All eight specimens are mounted references over the globally loaded `emotitone-d
 | Unit | Definition | Source/specimen truth | Current production/dependencies | Next gate |
 | --- | --- | --- | --- | --- |
 | Key | **Accepted** | `components/compounds/Key.vue` is authoritative; mounted `CompoundKey.vue` imports it | Composes Note and replaces the removed legacy `KeyboardKey` inside production Keyboard; Keyboard keeps routing/config/audio concerns and will assign whole tokenized Note geometry variants | Maintain parity while the five geometry recipes are tokenized and Keyboard is grilled |
-| Keyboard | **Taxonomy only** | `components/compounds/Keyboard.vue` is a production-integrated reference; mounted `CompoundKeyboard.vue` imports it but does not confer acceptance | Hosts accepted Keys across configured octave rows and preserves current store, QWERTY, audio, haptic, and activity adapters; geometry remains provisional; the legacy glass mapping is rejected debt, not design evidence | Grill Keyboard from the implementation branch, then formalize its definition without reopening Note or Key |
+| Keyboard | **Under review** | `components/compounds/Keyboard.vue` is the store-free formalization candidate; mounted `CompoundKeyboard.vue` imports it through a controllable inert workbench; production uses thin `components/keyboard/ProductionKeyboard.vue` compatibility adapter | Composes accepted Keys, authored daily-edition tokens, grouped accessibility and roving focus while preserving current production routing through the adapter; exact visual density and deferred production lifecycle/config debt remain unaccepted | Burooj inspects the matrix; accept or adjust exact values before production correctness integration |
 | Pattern Card | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Bar Tape, IconButton, and CodeStrip; production has a separate `components/patterns/PatternCard.vue` | Interview and reconcile the parallel component |
 | Pattern Reel | Not reviewed | Reference source exists; mounted specimen imports it | Consumes reference Pattern Card; no production consumer found | Define after Pattern Card |
 
@@ -143,7 +143,7 @@ Loading Screen -> production LoadingSplash
 
 ## Active Keyboard interview — current truth
 
-Keyboard remains **Under review**, not accepted or authorized for implementation. Explicit answers through Q67 are recorded in the `BJS-35` Cockpit Thread; this section is the cross-session orientation spine, not a second chronological transcript.
+Keyboard remains **Under review**, not accepted. Explicit answers through Q67 are recorded in the `BJS-35` Cockpit Thread, and the authorized formalization/specimen candidate is implemented at `3e4690d`, `ebb0014`, and `8038665`; this section is the cross-session orientation spine, not a second chronological transcript.
 
 ### Accepted intent through the current frontier
 
@@ -169,10 +169,10 @@ Keyboard remains **Under review**, not accepted or authorized for implementation
 
 ### Next Keyboard gate — visual specimen acceptance
 
-- Once code changes are explicitly authorized, implement this controllable production-baseline specimen as the first focused slice; it is the next work, not an indefinite planning hold.
-- Start the controllable matrix from production's current spacing, 88px/56px row heights, proportions, and inset as a **baseline**, not automatic authority.
+- The controllable production-baseline candidate is implemented and mounted in the style guide. It starts from current spacing, 88px/56px row heights, proportions, and inset as a **baseline**, not automatic authority.
 - Compare content widths 320, 390, 768, and 960px; requested rows 1/3/5/7 including `mainOctave` 1/8 clipping; all five daily geometry families; labels on/off and every primary label; colored/monochrome; resting, focused, pressed, sounding, and combined states; Reduced Motion; and forced colors.
 - Use that inspection to choose the exact stable gap, main/outer row proportions, outer inset, narrow typography, overlap, and responsive variation amplitudes. The specimen must be controllable without mutating persisted app state or producing real audio.
+- Verification receipt: typecheck passes; the six affected test files pass 26/26; production build passes with existing bundle/dynamic-import warnings. The repository-wide Vitest run has 13 failures in untouched utility/integration areas and no failure in the affected Keyboard/Key/Note/specimen files. Browser DOM checks proved 12-column containment at 320/960px and state previews, but T3 screenshot capture failed; no pixel artifact or visual acceptance is claimed.
 - Keyboard remains **Under review** until Burooj visually accepts this matrix. Only then mark the definition Accepted and authorize a separate focused production-integration/correctness slice.
 
 ### Correctness obligations — not user questions

@@ -5,7 +5,6 @@
     :class="{ 'key--pressed': isPhysicallyPressed }"
     type="button"
     :aria-label="resolvedAriaLabel"
-    :aria-pressed="isPhysicallyPressed"
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
     @mouseleave="handleMouseLeave"
@@ -246,15 +245,22 @@ onBeforeUnmount(() => {
 }
 
 .key__face {
+  --key-face-press-y: 0px;
+  --key-face-press-scale: 1;
+  --key-face-hover-y: 0px;
   display: block;
   pointer-events: none;
-  transform: translateY(0) scale(1);
+  transform:
+    translateY(calc(var(--key-face-hover-y) + var(--key-face-press-y)))
+    rotate(var(--key-face-rotation, 0deg))
+    scale(var(--key-face-press-scale));
   transition: transform 90ms ease-in-out;
   will-change: transform;
 }
 
 .key--pressed .key__face {
-  transform: translateY(2px) scale(.97);
+  --key-face-press-y: 2px;
+  --key-face-press-scale: .97;
 }
 
 .key--pressed .key__face :deep(.note__surface) {
@@ -266,21 +272,23 @@ onBeforeUnmount(() => {
 
 @media (hover: hover) and (pointer: fine) {
   .key:not(.key--pressed):hover .key__face {
-    transform: translateY(-1px) scale(1);
+    --key-face-hover-y: -1px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .key__face,
   .key--pressed .key__face {
-    transform: none;
+    --key-face-press-y: 0px;
+    --key-face-press-scale: 1;
+    --key-face-hover-y: 0px;
     transition: none;
     will-change: auto;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .key:not(.key--pressed):hover .key__face {
-      transform: none;
+      --key-face-hover-y: 0px;
     }
   }
 }

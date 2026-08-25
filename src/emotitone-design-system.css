@@ -167,6 +167,56 @@
   --clip-tab: polygon(2% 0, 100% 4%, 98% 100%, 0 96%);
   --clip-paper-rip: polygon(0 0, 100% 0, 100% 4%, 88% 20%, 100% 40%, 78% 56%, 100% 78%, 100% 100%, 0 100%);
 
+  /* Note / Key family recipes. Keyboard editions choose only among the
+     authored cuts inside one family; they never synthesize runtime polygons. */
+  --keyboard-standard-cut-1: polygon(2% 1%, 98% 1%, 99% 98%, 1% 99%);
+  --keyboard-standard-cut-2: polygon(1% 2%, 99% 1%, 98% 99%, 2% 98%);
+  --keyboard-standard-cut-3: polygon(2% 0%, 98% 2%, 99% 99%, 1% 98%);
+  --keyboard-tile-cut-1: var(--clip-tile);
+  --keyboard-tile-cut-2: polygon(2% 2%, 99% 1%, 98% 98%, 1% 100%);
+  --keyboard-tile-cut-3: polygon(1% 0%, 98% 2%, 100% 99%, 2% 98%);
+  --keyboard-offcut-cut-1: var(--clip-offcut);
+  --keyboard-offcut-cut-2: polygon(1% 7%, 97% 1%, 100% 10%, 97% 95%, 5% 99%, 0% 88%);
+  --keyboard-offcut-cut-3: polygon(3% 4%, 95% 0%, 100% 7%, 99% 92%, 3% 100%, 1% 91%);
+  --keyboard-tab-cut-1: var(--clip-tab);
+  --keyboard-tab-cut-2: polygon(1% 1%, 99% 3%, 97% 99%, 0% 97%);
+  --keyboard-tab-cut-3: polygon(3% 0%, 100% 5%, 99% 100%, 1% 95%);
+  --keyboard-pill-cut-1: inset(0 round var(--r-pill));
+  --keyboard-pill-cut-2: inset(1% 0 0 1% round var(--r-pill));
+  --keyboard-pill-cut-3: inset(0 1% 1% 0 round var(--r-pill));
+
+  --keyboard-standard-rotation-1: var(--rot-tile-4);
+  --keyboard-standard-rotation-2: 0deg;
+  --keyboard-standard-rotation-3: var(--rot-tile-1);
+  --keyboard-tile-rotation-1: var(--rot-tile-2);
+  --keyboard-tile-rotation-2: var(--rot-tile-1);
+  --keyboard-tile-rotation-3: var(--rot-tile-3);
+  --keyboard-offcut-rotation-1: var(--rot-tile-2);
+  --keyboard-offcut-rotation-2: var(--rot-tile-3);
+  --keyboard-offcut-rotation-3: var(--rot-tile-4);
+  --keyboard-tab-rotation-1: var(--rot-tile-4);
+  --keyboard-tab-rotation-2: var(--rot-tile-1);
+  --keyboard-tab-rotation-3: var(--rot-tile-5);
+  --keyboard-pill-rotation-1: var(--rot-tile-4);
+  --keyboard-pill-rotation-2: 0deg;
+  --keyboard-pill-rotation-3: var(--rot-tile-1);
+
+  --keyboard-standard-shadow-1: var(--shadow-key);
+  --keyboard-standard-shadow-2: inset 1px -2px 0 rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.18);
+  --keyboard-standard-shadow-3: inset -1px -2px 0 rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.18);
+  --keyboard-tile-shadow-1: var(--shadow-key);
+  --keyboard-tile-shadow-2: inset 1px -2px 0 rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.16);
+  --keyboard-tile-shadow-3: inset -1px -2px 0 rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.2);
+  --keyboard-offcut-shadow-1: var(--shadow-key);
+  --keyboard-offcut-shadow-2: inset 1px -3px 0 rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.18);
+  --keyboard-offcut-shadow-3: inset -1px -2px 0 rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.16);
+  --keyboard-tab-shadow-1: var(--shadow-key);
+  --keyboard-tab-shadow-2: inset 1px -2px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.2);
+  --keyboard-tab-shadow-3: inset -1px -2px 0 rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.18);
+  --keyboard-pill-shadow-1: var(--shadow-key);
+  --keyboard-pill-shadow-2: inset 1px -2px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18);
+  --keyboard-pill-shadow-3: inset -1px -2px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18);
+
   /* Cut-paper tilt tokens — mirrored from token-geometry.html. */
   --rot-tile-1: 0.2deg;
   --rot-tile-2: -0.3deg;

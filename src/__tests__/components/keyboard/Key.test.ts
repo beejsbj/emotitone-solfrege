@@ -70,7 +70,7 @@ describe("Key", () => {
     expect(wrapper.element).toBe(button.element);
     expect(button.attributes("type")).toBe("button");
     expect(button.attributes("aria-label")).toBe("Do (C4)");
-    expect(button.attributes("aria-pressed")).toBe("false");
+    expect(button.attributes("aria-pressed")).toBeUndefined();
     expect(wrapper.findComponent(Note).exists()).toBe(true);
     expect(wrapper.get(".key__face").attributes("aria-hidden")).toBe("true");
   });
@@ -129,13 +129,13 @@ describe("Key", () => {
     const wrapper = mount(Key, { props: { sounding: true } });
 
     expect(wrapper.classes()).not.toContain("key--pressed");
-    expect(wrapper.attributes("aria-pressed")).toBe("false");
+    expect(wrapper.attributes("aria-pressed")).toBeUndefined();
     expect(wrapper.getComponent(Note).props("sounding")).toBe(true);
 
     await wrapper.setProps({ sounding: false, pressed: true });
 
     expect(wrapper.classes()).toContain("key--pressed");
-    expect(wrapper.attributes("aria-pressed")).toBe("true");
+    expect(wrapper.attributes("aria-pressed")).toBeUndefined();
     expect(wrapper.getComponent(Note).props("sounding")).toBe(false);
   });
 
@@ -146,12 +146,12 @@ describe("Key", () => {
     await button.trigger("mousedown", { button: 0 });
     await button.trigger("mousedown", { button: 0 });
     expect(eventIds(wrapper, "press")).toEqual(["mouse"]);
-    expect(wrapper.attributes("aria-pressed")).toBe("true");
+    expect(wrapper.classes()).toContain("key--pressed");
 
     await button.trigger("mouseleave");
     await button.trigger("mouseup");
     expect(eventIds(wrapper, "release")).toEqual(["mouse"]);
-    expect(wrapper.attributes("aria-pressed")).toBe("false");
+    expect(wrapper.classes()).not.toContain("key--pressed");
   });
 
   it("stays pressed until both controlled and local sources are clear", async () => {
@@ -189,7 +189,7 @@ describe("Key", () => {
     }));
     await wrapper.vm.$nextTick();
     expect(eventIds(wrapper, "release")).toEqual(["touch:8"]);
-    expect(wrapper.attributes("aria-pressed")).toBe("true");
+    expect(wrapper.classes()).toContain("key--pressed");
 
     button.element.dispatchEvent(touchEvent("touchend", {
       touches: [],
@@ -197,7 +197,7 @@ describe("Key", () => {
     }));
     await wrapper.vm.$nextTick();
     expect(eventIds(wrapper, "release")).toEqual(["touch:8", "touch:7"]);
-    expect(wrapper.attributes("aria-pressed")).toBe("false");
+    expect(wrapper.classes()).not.toContain("key--pressed");
   });
 
   it("releases cancellation exactly once", async () => {
@@ -236,7 +236,7 @@ describe("Key", () => {
     button.element.dispatchEvent(touchEvent("touchstart", {
       changedTouches: [touch],
     }));
-    expect(wrapper.attributes("aria-pressed")).toBe("true");
+    expect(wrapper.classes()).toContain("key--pressed");
     blurListener(new window.Event("blur"));
     blurListener(new window.Event("blur"));
     await wrapper.vm.$nextTick();
@@ -259,7 +259,7 @@ describe("Key", () => {
     )?.[1] as EventListener;
 
     await button.trigger("mousedown", { button: 0 });
-    expect(wrapper.attributes("aria-pressed")).toBe("true");
+    expect(wrapper.classes()).toContain("key--pressed");
     visibilityState.mockReturnValue("visible");
     visibilityListener(new window.Event("visibilitychange"));
     expect(eventIds(wrapper, "release")).toEqual([]);
@@ -293,14 +293,15 @@ describe("Key", () => {
     expect(keySource).toMatch(/\.key:focus-visible\s*{[^}]*outline:\s*2px/);
     expect(keySource).toContain("outline-offset: 2px");
     expect(keySource).toContain("@media (hover: hover) and (pointer: fine)");
-    expect(keySource).toContain("transform: translateY(-1px) scale(1)");
-    expect(keySource).toContain("transform: translateY(2px) scale(.97)");
+    expect(keySource).toContain("--key-face-hover-y: -1px");
+    expect(keySource).toContain("--key-face-press-y: 2px");
+    expect(keySource).toContain("rotate(var(--key-face-rotation, 0deg))");
     expect(keySource).toContain("transition: transform 90ms");
     expect(keySource).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition:\s*none/,
     );
     expect(keySource).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*transform:\s*none/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*--key-face-press-scale:\s*1/,
     );
   });
 });

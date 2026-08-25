@@ -7,7 +7,7 @@
       <KeyboardActionBar />
     </div>
 
-    <Keyboard class="relative flex-1" />
+    <ProductionKeyboard class="relative flex-1" />
   </div>
 </template>
 
@@ -18,7 +18,7 @@ import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
 import LiveCard from "@/components/patterns/LiveCard.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
-import Keyboard from "@/components/compounds/Keyboard.vue";
+import ProductionKeyboard from "@/components/keyboard/ProductionKeyboard.vue";
 
 // Component refs
 const drawerRef = ref<HTMLElement | null>(null);

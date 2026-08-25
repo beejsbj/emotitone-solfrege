@@ -1,195 +1,470 @@
 <template>
-  <div class="keyboard" :class="{ 'keyboard--padded': config.keyboardPadding }">
+  <div
+    ref="keyboardRef"
+    class="keyboard"
+    :class="[`keyboard--motion-${motion}`, `keyboard--contrast-${contrast}`]"
+    :style="{ '--keyboard-gap': `${Math.max(gap, 0)}px` }"
+    role="group"
+    aria-label="Solfège keyboard"
+    :data-geometry-family="resolvedFamily"
+    :data-edition-seed="resolvedEditionSeed"
+  >
     <div
-      v-for="octave in store.visibleOctaves"
-      :key="`octave-${octave}`"
+      v-for="(row, rowIndex) in rows"
+      :key="`octave-${row.octave}`"
       class="keyboard__row"
-      :class="`keyboard__row--gap-${config.keyGaps}`"
+      :class="{ 'keyboard__row--main': row.octave === mainOctave }"
+      role="group"
+      :aria-label="rowAriaLabel(row.octave)"
+      :data-octave="row.octave"
     >
       <Key
-        v-for="(solfege, index) in store.solfegeData"
-        :key="`${solfege.intervalName ?? solfege.name}-${index}-${octave}`"
+        v-for="(key, keyIndex) in row.keys"
+        :key="key.id"
+        :ref="(instance) => setKeyRef(key.id, instance)"
         class="keyboard__key"
-        :style="keyStyle(octave)"
-        :syllable="solfege.name"
-        :degree="degreeLabel(solfege.number)"
-        :raw-pitch="noteName(index, octave)"
-        :primary="primaryLabel(octave)"
-        :visible-labels="visibleLabels(octave)"
-        :geometry="geometry"
-        :proportion="proportion(octave)"
-        :scale-index="index"
-        :pitch-class-index="pitchClassIndex(index)"
-        :octave="octave"
-        :mode="musicStore.currentMode"
-        :music-key="currentMusicKey"
+        :class="{
+          'keyboard__key--focus-preview': key.focusVisible,
+          'keyboard__key--pressed': key.pressed,
+        }"
+        :style="keyStyle(key, row.octave)"
+        :syllable="key.syllable"
+        :degree="key.degree"
+        :raw-pitch="key.rawPitch"
+        :primary="primaryLabelFor(row.octave)"
+        :visible-labels="visibleLabelsFor(row.octave)"
+        :geometry="resolvedFamily"
+        :proportion="proportionFor(row.octave)"
+        :scale-index="key.scaleIndex"
+        :pitch-class-index="key.pitchClassIndex"
+        :octave="row.octave"
+        :mode="key.mode"
+        :music-key="key.musicKey"
         :surface-style="surfaceStyle"
-        :accidental="isAccidental(index, octave)"
-        :key-brightness="config.keyBrightness"
-        :key-saturation="config.keySaturation"
-        :sounding="isSounding(index, octave)"
-        :pressed="store.isKeyPressed(noteKey(index, octave))"
-        :aria-label="keyAriaLabel(solfege.name, index, octave)"
-        @press="handlePress($event, index, octave)"
-        @release="handleRelease($event, index, octave)"
+        :accidental="key.accidental"
+        :key-brightness="key.keyBrightness"
+        :key-saturation="key.keySaturation"
+        :sounding="key.sounding"
+        :pressed="key.pressed"
+        :aria-label="keyAriaLabel(key, row.octave)"
+        :aria-keyshortcuts="key.shortcut || undefined"
+        :tabindex="key.id === rememberedFocusId ? 0 : -1"
+        :data-key-id="key.id"
+        :data-edition-variant="variationFor(key.id).variant"
+        @focus="rememberFocus(key.id)"
+        @keydown="handleKeyDown($event, rowIndex, keyIndex)"
+        @keyup="handleKeyUp($event, key)"
+        @press="emitIntent('press', $event, key, row.octave)"
+        @release="emitIntent('release', $event, key, row.octave)"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  type ComponentPublicInstance,
+} from "vue";
 import Key from "@/components/compounds/Key.vue";
 import type { KeyInputEvent } from "@/components/compounds/Key.vue";
 import type {
-  NoteGeometry,
   NoteLabel,
   NoteProportion,
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
-import { useKeyboardControls } from "@/composables/useKeyboardControls";
-import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
-import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { useMusicStore } from "@/stores/music";
-import { triggerNoteHaptic } from "@/utils/hapticFeedback";
-import type { ChromaticNote } from "@/types/music";
-import { CHROMATIC_NOTES } from "@/data";
-import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
+import type { ChromaticNote, MusicalMode } from "@/types/music";
+import {
+  KEYBOARD_PAGE_EDITION_SEED,
+  keyboardEditionVariation,
+  keyboardFamilyForDate,
+  type KeyboardGeometryFamily,
+} from "./keyboardEdition";
 
-const store = useKeyboardDrawerStore();
-const musicStore = useMusicStore();
-const config = computed(() => store.keyboardConfig);
-const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
-const geometry = computed<NoteGeometry>(() =>
-  config.value.angledStyle ? "offcut" : "standard",
+export interface KeyboardKeyView {
+  id: string;
+  syllable: string;
+  degree: string;
+  rawPitch: string;
+  scaleIndex: number;
+  pitchClassIndex?: number;
+  mode?: MusicalMode;
+  musicKey?: ChromaticNote;
+  accidental?: boolean | null;
+  keyBrightness?: number;
+  keySaturation?: number;
+  sounding?: boolean;
+  pressed?: boolean;
+  focusVisible?: boolean;
+  shortcut?: string;
+}
+
+export interface KeyboardRowView {
+  octave: number;
+  keys: KeyboardKeyView[];
+}
+
+export interface KeyboardIntent extends KeyInputEvent {
+  keyId: string;
+  scaleIndex: number;
+  octave: number;
+  source: "pointer" | "focus";
+}
+
+const props = withDefaults(
+  defineProps<{
+    rows: KeyboardRowView[];
+    mainOctave?: number;
+    primaryLabel?: NoteLabel;
+    showLabels?: boolean;
+    surfaceStyle?: NoteSurfaceStyle;
+    geometryFamily?: KeyboardGeometryFamily;
+    editionSeed?: string;
+    gap?: number;
+    mainRowHeight?: number;
+    outerRowHeight?: number;
+    motion?: "system" | "reduced";
+    contrast?: "system" | "forced";
+  }>(),
+  {
+    mainOctave: 4,
+    primaryLabel: "syllable",
+    showLabels: true,
+    surfaceStyle: "colored",
+    geometryFamily: undefined,
+    editionSeed: undefined,
+    gap: 2,
+    mainRowHeight: 88,
+    outerRowHeight: 56,
+    motion: "system",
+    contrast: "system",
+  },
 );
-const surfaceStyle = computed<NoteSurfaceStyle>(() =>
-  config.value.surfaceStyle === "monochrome" ? "monochrome" : "colored",
+
+const emit = defineEmits<{
+  press: [intent: KeyboardIntent];
+  release: [intent: KeyboardIntent];
+  focusChange: [keyId: string];
+}>();
+
+const mountFamily = keyboardFamilyForDate(new Date());
+const resolvedFamily = computed(() => props.geometryFamily ?? mountFamily);
+const resolvedEditionSeed = computed(
+  () => props.editionSeed ?? KEYBOARD_PAGE_EDITION_SEED,
 );
-const { attackNoteWithOctave, releaseNoteByButtonKey } = useSolfegeInteraction();
+const keyboardRef = ref<HTMLElement | null>(null);
+const keyElements = new Map<string, HTMLButtonElement>();
+const rememberedFocusId = ref("");
+const activeFocusInputs = new Map<string, KeyboardIntent>();
 
-useKeyboardControls(computed(() => config.value.mainOctave));
+const allKeys = computed(() => props.rows.flatMap((row) => row.keys));
+const defaultFocusId = computed(
+  () =>
+    props.rows.find((row) => row.octave === props.mainOctave)?.keys[0]?.id
+    ?? props.rows[0]?.keys[0]?.id
+    ?? "",
+);
+const rowSignature = computed(() =>
+  props.rows
+    .map((row) => `${row.octave}:${row.keys.map((key) => key.id).join(",")}`)
+    .join("|"),
+);
 
-const romanDegrees = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(number);
-const noteKey = (scaleIndex: number, octave: number) => `${scaleIndex}_${octave}`;
-const noteName = (scaleIndex: number, octave: number) =>
-  musicStore.getNoteName(scaleIndex, octave);
-const isAccidental = (scaleIndex: number, octave: number) =>
-  /[#b♯♭]/.test(noteName(scaleIndex, octave));
-const pitchClassIndex = (scaleIndex: number) => {
-  const pitch = getChromaticNoteForScaleIndex(
-    scaleIndex,
-    musicStore.currentMode,
-    currentMusicKey.value,
+watch(
+  rowSignature,
+  () => {
+    releaseFocusedInputs(new Event("keyboard-remap"));
+    if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
+      rememberedFocusId.value = defaultFocusId.value;
+    }
+  },
+  { immediate: true },
+);
+
+function setKeyRef(
+  keyId: string,
+  instance: Element | ComponentPublicInstance | null,
+) {
+  if (!instance) {
+    keyElements.delete(keyId);
+    return;
+  }
+
+  const element = instance instanceof Element
+    ? instance
+    : (instance.$el as HTMLButtonElement | undefined);
+  if (element instanceof HTMLButtonElement) keyElements.set(keyId, element);
+}
+
+function variationFor(keyId: string) {
+  return keyboardEditionVariation(
+    resolvedFamily.value,
+    resolvedEditionSeed.value,
+    keyId,
   );
-  return pitch ? CHROMATIC_NOTES.indexOf(pitch) : undefined;
-};
+}
 
-const soundingNoteKeys = computed(() =>
-  new Set(
-    musicStore
-      .getActiveNotes()
-      .map((note) => `${note.solfegeIndex}_${note.octave}`),
-  ),
-);
+function keyStyle(key: KeyboardKeyView, octave: number) {
+  const variation = variationFor(key.id);
+  const height = octave === props.mainOctave
+    ? props.mainRowHeight
+    : props.outerRowHeight;
 
-const isSounding = (scaleIndex: number, octave: number) => {
-  const key = noteKey(scaleIndex, octave);
-  return store.isVisualNoteActive(key) || soundingNoteKeys.value.has(key);
-};
+  return {
+    "--keyboard-note-height": `${Math.max(height, 44)}px`,
+    "--keyboard-edition-rotation": variation.rotation,
+    "--key-face-rotation": "calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))",
+    "--note-geometry-override-clip": variation.cut,
+    "--note-geometry-override-shadow": variation.shadow,
+    zIndex: key.pressed ? 10_001 : variation.layer,
+  };
+}
 
-const primaryLabel = (octave: number): NoteLabel =>
-  octave === config.value.mainOctave ? config.value.primaryLabel : "raw";
+function rowAriaLabel(octave: number) {
+  return octave === props.mainOctave
+    ? `Main octave ${octave}`
+    : `Octave ${octave}`;
+}
 
-const proportion = (octave: number): NoteProportion =>
-  octave === config.value.mainOctave ? "medium" : "wide";
+function primaryLabelFor(octave: number): NoteLabel {
+  return octave === props.mainOctave ? props.primaryLabel : "raw";
+}
 
-const visibleLabels = (octave: number): NoteLabel[] => {
-  if (!config.value.showLabels) return [];
-  return octave === config.value.mainOctave
+function proportionFor(octave: number): NoteProportion {
+  return octave === props.mainOctave ? "medium" : "wide";
+}
+
+function visibleLabelsFor(octave: number): NoteLabel[] {
+  if (!props.showLabels) return [];
+  return octave === props.mainOctave
     ? ["syllable", "degree", "raw"]
     : ["raw"];
-};
+}
 
-const keyStyle = (octave: number) => {
-  const baseHeight = octave === config.value.mainOctave ? 88 : 56;
-  return {
-    "--keyboard-note-height": `${Math.max(baseHeight * config.value.keySize, 44)}px`,
+function keyAriaLabel(key: KeyboardKeyView, octave: number) {
+  const context = octave === props.mainOctave
+    ? "main octave"
+    : `octave ${octave}`;
+  const sounding = key.sounding && key.id === rememberedFocusId.value
+    ? ", sounding"
+    : "";
+  return `${key.syllable}, scale degree ${key.degree}, ${key.rawPitch}, ${context}${sounding}`;
+}
+
+function rememberFocus(keyId: string) {
+  rememberedFocusId.value = keyId;
+  emit("focusChange", keyId);
+}
+
+function focusKey(rowIndex: number, keyIndex: number) {
+  const key = props.rows[rowIndex]?.keys[keyIndex];
+  if (!key) return;
+  rememberFocus(key.id);
+  void nextTick(() => keyElements.get(key.id)?.focus());
+}
+
+function moveFocus(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
+  if (event.key === "ArrowLeft") return focusKey(rowIndex, Math.max(0, keyIndex - 1));
+  if (event.key === "ArrowRight") {
+    return focusKey(
+      rowIndex,
+      Math.min(props.rows[rowIndex].keys.length - 1, keyIndex + 1),
+    );
+  }
+  if (event.key === "ArrowUp") return focusKey(Math.max(0, rowIndex - 1), keyIndex);
+  if (event.key === "ArrowDown") {
+    return focusKey(Math.min(props.rows.length - 1, rowIndex + 1), keyIndex);
+  }
+  if (event.key === "Home") return focusKey(rowIndex, 0);
+  if (event.key === "End") return focusKey(rowIndex, props.rows[rowIndex].keys.length - 1);
+}
+
+function emitIntent(
+  kind: "press" | "release",
+  payload: KeyInputEvent,
+  key: KeyboardKeyView,
+  octave: number,
+) {
+  const intent: KeyboardIntent = {
+    ...payload,
+    keyId: key.id,
+    scaleIndex: key.scaleIndex,
+    octave,
+    source: payload.inputId.startsWith("focus:") ? "focus" : "pointer",
   };
-};
-
-const inputPressId = (inputId: string, scaleIndex: number, octave: number) =>
-  `${inputId}:${scaleIndex}_${octave}`;
-
-async function handlePress(
-  payload: KeyInputEvent,
-  scaleIndex: number,
-  octave: number,
-) {
-  const pressId = inputPressId(payload.inputId, scaleIndex, octave);
-  store.addTouch(pressId, noteKey(scaleIndex, octave));
-  if (config.value.hapticFeedback) triggerNoteHaptic();
-  await attackNoteWithOctave(scaleIndex, octave, payload.event);
+  if (kind === "press") emit("press", intent);
+  else emit("release", intent);
 }
 
-function handleRelease(
-  payload: KeyInputEvent,
-  scaleIndex: number,
-  octave: number,
-) {
-  store.removeTouch(inputPressId(payload.inputId, scaleIndex, octave));
-  releaseNoteByButtonKey(noteKey(scaleIndex, octave), payload.event);
+function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+    event.preventDefault();
+    moveFocus(event, rowIndex, keyIndex);
+    return;
+  }
+
+  if (![" ", "Enter"].includes(event.key) || event.repeat) return;
+  const key = props.rows[rowIndex]?.keys[keyIndex];
+  if (!key) return;
+
+  const inputId = `focus:${event.code}`;
+  if (activeFocusInputs.has(inputId)) return;
+  event.preventDefault();
+
+  const intent: KeyboardIntent = {
+    inputId,
+    event,
+    keyId: key.id,
+    scaleIndex: key.scaleIndex,
+    octave: props.rows[rowIndex].octave,
+    source: "focus",
+  };
+  activeFocusInputs.set(inputId, intent);
+  emit("press", intent);
 }
 
-const keyAriaLabel = (syllable: string, scaleIndex: number, octave: number) => {
-  const rawPitch = noteName(scaleIndex, octave);
-  return octave === config.value.mainOctave
-    ? `${syllable} (${rawPitch}), main octave`
-    : rawPitch;
-};
+function handleKeyUp(event: KeyboardEvent, key: KeyboardKeyView) {
+  if (![" ", "Enter"].includes(event.key)) return;
+  const inputId = `focus:${event.code}`;
+  const intent = activeFocusInputs.get(inputId);
+  if (!intent || intent.keyId !== key.id) return;
+  event.preventDefault();
+  activeFocusInputs.delete(inputId);
+  emit("release", { ...intent, event });
+}
 
-onBeforeUnmount(() => store.clearAllTouches());
+function releaseFocusedInputs(event: Event) {
+  for (const intent of activeFocusInputs.values()) {
+    emit("release", { ...intent, event });
+  }
+  activeFocusInputs.clear();
+}
+
+function handleVisibilityChange(event: Event) {
+  if (document.visibilityState === "hidden") releaseFocusedInputs(event);
+}
+
+onMounted(() => {
+  window.addEventListener("blur", releaseFocusedInputs);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("blur", releaseFocusedInputs);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  releaseFocusedInputs(new Event("unmount"));
+  keyElements.clear();
+});
 </script>
 
 <style scoped>
 .keyboard {
+  --keyboard-variation-amplitude: 1;
   display: flex;
-  flex: 1;
-  flex-direction: column;
   min-width: 0;
-  overflow: auto;
-  scroll-behavior: smooth;
+  overflow: visible;
+  flex-direction: column;
+  isolation: isolate;
+  container-type: inline-size;
 }
-
-.keyboard--padded { padding: .25rem; }
 
 .keyboard__row {
   display: flex;
+  min-width: 0;
   flex-shrink: 0;
   align-items: stretch;
-  justify-content: center;
+  gap: var(--keyboard-gap, 2px);
 }
 
-.keyboard__row--gap-none { gap: 0; }
-.keyboard__row--gap-small { gap: .125rem; }
-.keyboard__row--gap-medium { gap: .25rem; }
-
 .keyboard__key {
-  flex: 1 0 44px;
+  min-width: 0 !important;
+  flex: 1 1 0;
   overflow: visible;
 }
 
-.keyboard__key :deep(.key__face) {
+.keyboard__key :deep(.key__face),
+.keyboard__key :deep(.note) {
   width: 100%;
 }
 
 .keyboard__key :deep(.note) {
-  width: 100%;
   height: var(--keyboard-note-height);
 }
 
+.keyboard__key--focus-preview {
+  outline: 2px solid var(--ivory, currentColor);
+  outline-offset: 2px;
+}
+
+.keyboard__key--pressed {
+  z-index: 10001 !important;
+}
+
+@container (max-width: 390px) {
+  .keyboard__row {
+    --keyboard-variation-amplitude: .45;
+  }
+
+  .keyboard__key :deep(.note) {
+    --note-primary-size: 20px;
+    --note-aux-size: 7px;
+    --note-padding-inline: 4px;
+    --note-primary-safe-inline: 4px;
+  }
+}
+
+.keyboard--motion-reduced :deep(.key__face) {
+  --key-face-hover-y: 0px;
+  --key-face-press-y: 0px;
+  --key-face-press-scale: 1;
+  transition: none;
+}
+
+.keyboard--motion-reduced :deep(.note)::before {
+  animation: none;
+}
+
+.keyboard--motion-reduced :deep(.note)::after {
+  transition: none;
+}
+
+.keyboard--contrast-forced :deep(.key:focus-visible),
+.keyboard--contrast-forced .keyboard__key--focus-preview {
+  outline-color: CanvasText;
+}
+
+.keyboard--contrast-forced :deep(.note__surface) {
+  border: 1px solid CanvasText;
+  background: Canvas !important;
+  box-shadow: none;
+  color: CanvasText;
+  forced-color-adjust: none;
+}
+
+.keyboard--contrast-forced :deep(.note__label) {
+  color: CanvasText;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .keyboard { scroll-behavior: auto; }
+  .keyboard :deep(.key__face) {
+    --key-face-hover-y: 0px;
+    --key-face-press-y: 0px;
+    --key-face-press-scale: 1;
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .keyboard :deep(.note__surface) {
+    border: 1px solid CanvasText;
+    background: Canvas !important;
+    box-shadow: none;
+    forced-color-adjust: none;
+  }
 }
 </style>

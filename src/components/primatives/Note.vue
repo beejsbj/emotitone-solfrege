@@ -479,27 +479,31 @@ const ariaLabel = computed(() => {
 
 .note--geometry-standard {
   --note-radius: var(--r-sm);
-  --note-clip: var(--clip-tile);
-  --note-shadow: var(--shadow-key);
+  --note-clip: var(--note-geometry-override-clip, var(--clip-tile));
+  --note-shadow: var(--note-geometry-override-shadow, var(--shadow-key));
 }
 
 .note--geometry-tile {
   --note-radius: 0px;
-  --note-clip: var(--clip-tile);
+  --note-clip: var(--note-geometry-override-clip, var(--clip-tile));
+  --note-shadow: var(--note-geometry-override-shadow, var(--shadow-key));
 }
 
 .note--geometry-offcut {
   --note-radius: 0px;
-  --note-clip: var(--clip-offcut);
+  --note-clip: var(--note-geometry-override-clip, var(--clip-offcut));
+  --note-shadow: var(--note-geometry-override-shadow, var(--shadow-key));
 }
 
 .note--geometry-tab {
   --note-radius: 0px;
-  --note-clip: var(--clip-tab);
+  --note-clip: var(--note-geometry-override-clip, var(--clip-tab));
+  --note-shadow: var(--note-geometry-override-shadow, var(--shadow-key));
 }
 
 .note--geometry-pill {
-  --note-clip: none;
+  --note-clip: var(--note-geometry-override-clip, none);
+  --note-shadow: var(--note-geometry-override-shadow, var(--shadow-key));
   --note-radius: 999px;
   --note-corner-top: clamp(8px, 12%, 12px);
   --note-corner-left: clamp(8px, 16%, 18px);

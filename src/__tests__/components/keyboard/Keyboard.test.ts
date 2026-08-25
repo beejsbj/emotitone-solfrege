@@ -1,9 +1,10 @@
 import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import Keyboard from "@/components/compounds/Keyboard.vue";
+import ProductionKeyboard from "@/components/keyboard/ProductionKeyboard.vue";
 import drawerKeyboardSource from "@/components/DrawerKeyboard.vue?raw";
 import keyboardSource from "@/components/compounds/Keyboard.vue?raw";
+import productionKeyboardSource from "@/components/keyboard/ProductionKeyboard.vue?raw";
 
 const mocks = vi.hoisted(() => {
   const keyboardStore = {
@@ -109,7 +110,7 @@ const KeyStub = defineComponent({
 });
 
 function mountKeyboard() {
-  return mount(Keyboard, {
+  return mount(ProductionKeyboard, {
     global: {
       stubs: { Key: KeyStub },
     },
@@ -133,7 +134,6 @@ describe("Keyboard production adapter", () => {
       rawPitch: "C5",
       primary: "raw",
       visibleLabels: ["raw"],
-      geometry: "offcut",
       proportion: "wide",
       surfaceStyle: "colored",
       sounding: false,
@@ -194,18 +194,23 @@ describe("Keyboard production adapter", () => {
 
   it("keeps DrawerKeyboard thin and leaves removed legacy Key APIs behind", () => {
     expect(drawerKeyboardSource).toContain(
-      'import Keyboard from "@/components/compounds/Keyboard.vue"',
+      'import ProductionKeyboard from "@/components/keyboard/ProductionKeyboard.vue"',
     );
-    expect(drawerKeyboardSource).toContain("<Keyboard");
+    expect(drawerKeyboardSource).toContain("<ProductionKeyboard");
     expect(drawerKeyboardSource).not.toContain("KeyboardKey");
     expect(drawerKeyboardSource).not.toContain("useKeyboardControls");
 
-    expect(keyboardSource).not.toContain("KeyboardKey");
+    expect(productionKeyboardSource).toContain(
+      'import Keyboard from "@/components/compounds/Keyboard.vue"',
+    );
+    expect(productionKeyboardSource).toContain("useKeyboardControls");
+    expect(keyboardSource).not.toMatch(/@\/stores|useSolfegeInteraction|triggerNoteHaptic/);
+    expect(keyboardSource).not.toContain("KeyboardKey.vue");
     expect(keyboardSource).not.toContain("isKeyVisuallyActive");
     expect(keyboardSource).not.toContain("glassmorph-opacity");
     expect(keyboardSource).not.toContain('shape="');
     expect(keyboardSource).toMatch(
-      /\.keyboard__key\s+:deep\(\.key__face\)\s*\{[^}]*width:\s*100%;/,
+      /\.keyboard__key\s+:deep\(\.key__face\),[\s\S]*width:\s*100%;/,
     );
   });
 });

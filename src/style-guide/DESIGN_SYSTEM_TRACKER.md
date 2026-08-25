@@ -19,7 +19,7 @@ Use this file to resume the workflow without reconstructing it from chat:
 - Production adoption is the goal, piece by piece. Normally integrate into an already-defined consumer. If an accepted unit must pass through an undefined consumer, name that code a **provisional adapter**, preserve existing behavior, record every bridge decision, and keep the consumer's definition unaccepted.
 - End every session with the exact branch/worktree state, verification evidence, unresolved gate, and next frontier reflected here. A spoken "done" is not a handoff.
 
-## Current checkpoint — 2026-08-21
+## Current checkpoint — 2026-08-25
 
 - **Closed and authoritative:** Sticker, Note, and Key definitions. Their source components and real specimens are formalized.
 - **Coalescence complete:** `57bc6dd` merges the accepted Key stack at `1df13bc` into `implementing-design-system`. The legacy `KeyboardKey.vue` is removed, the production Keyboard renders the accepted Note through the accepted Key, and `DrawerKeyboard.vue` remains its thin current host.
@@ -143,13 +143,13 @@ Loading Screen -> production LoadingSplash
 
 ## Active Keyboard interview — current truth
 
-Keyboard remains **Under review**, not accepted or authorized for implementation. Explicit answers through Q36 are recorded in the `BJS-35` Cockpit Thread; this section is the cross-session orientation spine, not a second chronological transcript.
+Keyboard remains **Under review**, not accepted or authorized for implementation. Explicit answers through Q43, except still-open Q41, are recorded in the `BJS-35` Cockpit Thread; this section is the cross-session orientation spine, not a second chronological transcript.
 
-### Accepted intent through Q36
+### Accepted intent through the current frontier
 
-- **Boundary and layout:** Keyboard is the bare instrument grid; its parent owns shell, section framing, and resizing. The main octave retains the strongest hierarchy, additional octave rows remain odd in count and centered around it, and every 12-pitch row divides the available width without scrolling, pitch removal, or a fixed minimum width. Daily visual editions never move the underlying target grid. Whether 44px remains a minimum height is unresolved.
-- **Geometry:** the five accepted Note/Key families become coherent named token recipes. Local date selects one family through the deterministic shuffled five-day deck; each page load creates bounded per-Key cut, rotation, shadow, and layer variation inside that family. Slight face overlap is visual only; physically pressed Keys rise above the edition-stable resting order.
-- **Pointer and source behavior:** cross-key drag is seamless glissando; concurrent pointers remain independent; all input sources use one source-aware press lifecycle. Pointer, QWERTY, and MIDI produce both `pressed` and `sounding`; sequencer playback produces `sounding` only. Optional haptics fire only for direct on-screen pointer/touch presses.
+- **Boundary and layout:** Keyboard is the bare instrument grid; its parent owns shell, section framing, and resizing. The main octave retains the strongest hierarchy, additional octave rows remain odd in count and centered around it, and every 12-pitch row divides the available width without scrolling, pitch removal, or a fixed minimum width. Key height retains a provisional 44px minimum. Daily visual editions never move the underlying target grid.
+- **Geometry:** the five accepted Note/Key families become coherent named token recipes. Local date selects one family through the deterministic shuffled five-day deck; each page load creates bounded per-Key cut, rotation, shadow, and layer variation inside that family. Cut, rotation, shadow, and overlap amplitudes scale down with Key width so narrow Keys retain legible, trustworthy boundaries. Slight face overlap is visual only; physically pressed Keys rise above the edition-stable resting order.
+- **Pointer and source behavior:** cross-key drag is seamless glissando; concurrent pointers remain independent; all input sources use one source-aware press lifecycle. Pointer, QWERTY, and MIDI produce both `pressed` and `sounding`; sequencer playback produces `sounding` only. Optional haptics fire only for direct on-screen pointer/touch presses; the preference belongs to app-wide interaction/accessibility settings and Keyboard only consumes it.
 - **Literal keyboard:** routing is active only while the Keyboard/Drawer surface is active and follows visible octave rows. Three visible rows use the central three QWERTY rows; a single visible row uses the home row. Keyboard exposes one roving focus stop, and Space/Enter perform the focused Key; the spatial-navigation mapping remains open. Physical Backspace invokes the same app-level undo as the visual Backspace control, which belongs in the action toolbar to the right of CodeStrip rather than in Keyboard.
 - **Labels and color:** `showLabels` remains a user preference and never removes accessible names. The accepted main/outer label hierarchy applies when labels are visible. Music color and labels remain deterministic; Keyboard consumes the separately gated Music Color Recipe rather than owning brightness, saturation, or gradient controls.
 - **Rejected configuration:** purge glassmorphism across the app and remove the obsolete `angledStyle`, `keyShape`, `keyGaps`, height-only `keySize`, `isEnabled`, `keyBrightness`, `keySaturation`, and unused `gradientDirection` Keyboard controls. Exact stable spacing is chosen during the complete specimen pass rather than exposed as a preference.
@@ -163,12 +163,12 @@ Keyboard remains **Under review**, not accepted or authorized for implementation
 
 ### Active frontier — write answers here before advancing
 
-- **Q40 — minimum height:** decide whether 44px remains the minimum Key height while width divides freely, or whether compact vertical layouts may also go below 44px.
-- **Q41 — spatial focus navigation:** decide how Left/Right and Up/Down move the roving focus across pitch and octave rows.
-- **Q42 — haptic setting ownership:** decide whether the retained direct-touch haptic preference belongs to app-wide interaction/accessibility settings or remains scoped to Keyboard.
-- **Q43 — narrow-width variation:** decide whether cut, rotation, shadow, and overlap amplitude scale down with Key width or retain the same physical magnitude at every width.
+- **Q41 — physical-arrow focus navigation:** after Tab enters Keyboard, decide whether physical Left/Right arrows move the visible focus to adjacent semitones and Up/Down move it to the same pitch class in adjacent visible octave rows. Arrow movement does not sound a note; Space/Enter performs the focused Key.
+- **Q44 — narrow labels:** decide whether visible labels retain their accepted content and scale down with narrow Keys, or whether compact widths may suppress or abbreviate them automatically.
+- **Q45 — modified QWERTY:** decide whether Ctrl/Alt/Meta plus a mapped musical key must bypass Keyboard routing while Shift plus a mapped letter remains playable.
+- **Q46 — held undo:** decide whether physical Backspace invokes exactly one undo per physical press or repeats while held.
 
-Do not open the narrow-label treatment until the minimum-height answer is settled. Replace resolved frontier entries with the accepted truth and add the newly unblocked frontier in the same edit; do not leave the working interview only in chat or Linear.
+Do not open focus-entry and edge behavior until Q41 is settled. Replace resolved frontier entries with the accepted truth and add the newly unblocked frontier in the same edit; do not leave the working interview only in chat or Linear.
 
 ## Current gate order
 

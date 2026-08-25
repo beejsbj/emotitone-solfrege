@@ -165,14 +165,15 @@ Keyboard remains **Under review**, not accepted or authorized for implementation
 
 ### Active frontier — write answers here before advancing
 
-- **Question frontier empty:** the audited Keyboard interview has no remaining user decision. Before moving the issue out of Grilling, obtain Burooj's explicit confirmation that the current-truth summary represents the shared understanding.
+- **Grilling concluded:** the audited Keyboard interview has no remaining user decision, and Burooj explicitly confirmed this current-truth summary as the shared understanding on 2026-08-25. The original session authority allowed edits only to this tracker, so no component or specimen implementation was authorized.
 
 ### Next Keyboard gate — visual specimen acceptance
 
+- Once code changes are explicitly authorized, implement this controllable production-baseline specimen as the first focused slice; it is the next work, not an indefinite planning hold.
 - Start the controllable matrix from production's current spacing, 88px/56px row heights, proportions, and inset as a **baseline**, not automatic authority.
 - Compare content widths 320, 390, 768, and 960px; requested rows 1/3/5/7 including `mainOctave` 1/8 clipping; all five daily geometry families; labels on/off and every primary label; colored/monochrome; resting, focused, pressed, sounding, and combined states; Reduced Motion; and forced colors.
 - Use that inspection to choose the exact stable gap, main/outer row proportions, outer inset, narrow typography, overlap, and responsive variation amplitudes. The specimen must be controllable without mutating persisted app state or producing real audio.
-- Keyboard remains **Under review** until Burooj visually accepts this matrix. Only then mark the definition Accepted and authorize a separate focused formalization/integration slice.
+- Keyboard remains **Under review** until Burooj visually accepts this matrix. Only then mark the definition Accepted and authorize a separate focused production-integration/correctness slice.
 
 ### Correctness obligations — not user questions
 

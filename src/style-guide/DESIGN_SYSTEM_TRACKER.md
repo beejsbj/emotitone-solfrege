@@ -28,7 +28,8 @@ Use this file to resume the workflow without reconstructing it from chat:
 - **Accepted cross-app constraint:** glassmorphism is discarded and must be purged across the app. It is not a live Keyboard or Drawer option, an acceptable fallback, or an open design question. The current persisted setting and its silent mapping to `colored` are obsolete implementation debt.
 - **Accepted tokenization follow-up:** promote all five accepted Note/Key geometry variants (`standard`, `tile`, `offcut`, `tab`, `pill`) into coherent named token recipes before Keyboard randomization consumes them. This formalizes already-accepted geometry; it does not reopen the variants or authorize new cuts.
 - **Active gate:** Burooj visually inspects the Keyboard workbench at the agreed matrix and settles exact spacing, row proportions, inset, narrow typography, overlap, and variation amplitude. Keep Keyboard **Under review** until that acceptance; then reconcile the tracker before the separate production correctness/config slice.
-- **Following frontier:** grill Drawer separately, then define the Keyboard + Drawer composition. Do not re-grill Note or Key. Do not migrate CodeStrip through this work. CodeStrip and the Music Color Recipe retain independent gates.
+- **Following frontier:** begin a fresh session with the visual grilling of CodeStrip, including the boundary and visual relationship of its action buttons/bar. Grill Drawer separately afterward. Only once CodeStrip + action bar, Keyboard, and Drawer are each defined should the current `DrawerKeyboard.vue` be reworked as their composition. Do not re-grill Note or Key. Music Color retains an independent later gate.
+- **Recovered Music Color drift:** the original mounted specimen was a segmented chromatic wheel with fixed/movable, root, octave, scale-count, and hue-sweep controls. During the unrelated Note/Key migration on 2026-08-18, commit `b140654` replaced it wholesale with the current linear swatch specimen so the guide would call the production `services/musicColor` resolver instead of maintaining duplicate demonstration logic. Consolidating the calculation authority did not constitute acceptance of the new visual presentation; Burooj was not grilled on removing the wheel. Treat the swatch-strip replacement as unaccepted drift. The octave model was not removed: the current specimen still exposes octaves 2–8 and passes octave into the runtime lightness calculation.
 
 ## Status legend
 
@@ -48,7 +49,7 @@ Use this file to resume the workflow without reconstructing it from chat:
 | Authoritative source + real specimen | 0 | 2 | 0 | 1 | 0 | **3** |
 | Mounted reference/pending units | 8 | 10 | 4 | 3 | 1 | **26** |
 
-One additional architecture unit is tracked but not mounted: **Keyboard + Drawer composition**. Across all 30 tracked units, 3 definitions are accepted and formalized (`Sticker`, `Note`, and `Key`), and 27 still need a definition gate. The mounted Keyboard is a production-integrated reference, not an accepted definition. `Music Color Recipe` is the one active token review.
+One additional architecture unit is tracked but not mounted: the future **DrawerKeyboard composition** of CodeStrip + action bar, Keyboard, and Drawer. Across all 30 tracked units, 3 definitions are accepted and formalized (`Sticker`, `Note`, and `Key`), and 27 still need a definition gate. The mounted Keyboard is a production-integrated reference, not an accepted definition. `Music Color Recipe` is a separately flagged token review, not authority to interrupt the current unit order.
 
 ## Mounted inventory
 
@@ -60,7 +61,7 @@ All eight specimens are mounted references over the globally loaded `emotitone-d
 | --- | --- | --- | --- | --- |
 | UI Colors | Glass rejected; remaining palette not reviewed | Mounted token reference | Variables are globally active; glassmorphism is an explicitly discarded cross-app treatment awaiting purge | Define the surviving UI palette without reopening glass; schedule the purge as scoped implementation work |
 | Brand Colors | Not reviewed | Mounted token reference | Variables are globally active | Review against accepted brand units |
-| Music Color Recipe | **Under review** | Mounted specimen still contains its own JavaScript/CSS demonstration; no single authority is accepted | Production color is currently calculated through `useColorSystem`/`services/musicColor`; feeds Note, current keys, live strip, and visual renderers | Reconcile CSS recipe, runtime resolver, movable/fixed semantics, and preserved visuals |
+| Music Color Recipe | **Under review** | The current mounted specimen calls `services/musicColor`, but its linear swatch presentation is not accepted. Commit `b140654` silently replaced the original segmented wheel during Note/Key work; that visual change is recorded as drift, not a decision | Production color is currently calculated through `useColorSystem`/`services/musicColor`; octave still affects lightness and the result feeds Note, current keys, live strip, and visual renderers | At the later Music Color gate, start from the original wheel/octave presentation as preserved visual intent while reconciling it with the runtime resolver, CSS recipe, and movable/fixed semantics; do not restore duplicate color logic |
 | Spacing + Radius | Not reviewed | Mounted token reference | Variables are globally active | Define scale and radius contract |
 | Spacing Scale | Not reviewed | Mounted token reference | Variables are globally active | Define scale contract |
 | Typography | Not reviewed | Mounted token reference | Variables are globally active; accepted Note typography constrains its consumer, not this whole collection | Review the collection without regressing Note identity ranks |
@@ -90,8 +91,8 @@ All eight specimens are mounted references over the globally loaded `emotitone-d
 | --- | --- | --- | --- | --- |
 | Brand Cover | Not reviewed | Reference source exists; mounted specimen imports it | No production consumer found | Interview |
 | Brand Logo | Not reviewed | Reference source exists; mounted specimen imports it | No production consumer found | Interview |
-| CodeStrip | **Undefined** | Reference source exists; mounted display is not acceptance | Feeds reference `PatternCard`; no production Note migration is authorized | Interview before consuming Note or changing production strips |
-| Drawer | **Undefined** | Mounted reference currently demonstrates `DrawerShell`, not an accepted Drawer definition | `DrawerShell` is used by production `TopDrawer`; current `DrawerKeyboard` hosts Keyboard, pattern/live content, action bar, chrome, and motion without an accepted Drawer contract | Interview Drawer after Keyboard; preserve behavior while settling the boundary |
+| CodeStrip | **Undefined** | Reference source exists; mounted display is not acceptance | Feeds reference `PatternCard`; the current production strip and its action buttons/bar have not been assigned their final component boundary | Begin the next fresh grilling session here: define the CodeStrip visually and settle its relationship to the action buttons/bar before composition work |
+| Drawer | **Undefined** | Mounted reference currently demonstrates `DrawerShell`, not an accepted Drawer definition | `DrawerShell` is used by production `TopDrawer`; current `DrawerKeyboard` hosts Keyboard, pattern/live content, action bar, chrome, and motion without an accepted Drawer contract | Interview Drawer after CodeStrip + action bar; preserve behavior while settling the boundary |
 
 ### Compounds
 
@@ -112,7 +113,7 @@ All eight specimens are mounted references over the globally loaded `emotitone-d
 
 | Unit | Layer | Definition | Source/specimen truth | Current production/dependencies | Next gate |
 | --- | --- | --- | --- | --- | --- |
-| Keyboard + Drawer | Composition | Relationship accepted; definition pending | No source or specimen accepted | Will arrange the defined Keyboard and Drawer; must replace the current mixed responsibility rather than coexist with another `DrawerKeyboard` concept | Define Keyboard and Drawer first |
+| DrawerKeyboard | Composition | Relationship accepted; definition pending | No composition source or specimen accepted; the current production file is mixed-responsibility implementation evidence only | Will arrange the defined CodeStrip + action bar, production Keyboard, and defined Drawer; the later rework must turn `DrawerKeyboard.vue` into that composition rather than create parallel production components | Define CodeStrip + action bar and Drawer first; keep Keyboard as the one production Keyboard component |
 
 ## Dependency map
 
@@ -121,7 +122,7 @@ Global tokens / Music Color Recipe
                 `-> Note -> Key -> Keyboard
                        `-> CodeStrip (only after CodeStrip is defined)
 
-Keyboard + Drawer -> future Keyboard + Drawer composition
+CodeStrip + action bar + Keyboard + Drawer -> future DrawerKeyboard composition
 
 Reference-only chains:
 Kicker -> Spine Card
@@ -184,18 +185,18 @@ Keyboard's exact visual definition remains **Under review**, not accepted; `Keyb
 ### Explicitly deferred from Keyboard
 
 - Drawer chrome, resize controls, focus return to its opener, and the host condition that makes Keyboard active.
-- CodeStrip migration and the visual Backspace control's composition; Keyboard owns only the accepted shared undo intent.
+- CodeStrip migration, its action buttons/bar, and the visual Backspace control's composition; Keyboard owns only the accepted shared undo intent. These are grilled next in a fresh CodeStrip session before Drawer and the final DrawerKeyboard composition.
 - Music Color Recipe internals, the app-wide haptic settings surface, and execution of the wider glassmorphism purge.
 
 Replace resolved frontier entries with the accepted truth and add the newly unblocked frontier in the same edit; do not leave the working interview only in chat or Linear.
 
 ## Current gate order
 
-1. Maintain the closed Note and Key gates through their production adoption in the provisional Keyboard adapter.
-2. From the implementation branch, grill Keyboard and define how the compound owns layout, cross-key input routing, and its current app adapters.
-3. Then grill Drawer as its own unique, followed by the Keyboard + Drawer composition.
-4. Interview CodeStrip before migrating it to Note.
-5. Settle Music Color Recipe before changing the production color calculation.
+1. Maintain the closed Note and Key gates through the single production `Keyboard.vue`; keep Keyboard Under review until its visual matrix is explicitly accepted.
+2. In a fresh session, visually grill CodeStrip and settle the component boundary and relationship of CodeStrip + action buttons/bar before migrating either surface.
+3. Grill Drawer as its own unique.
+4. Rework `DrawerKeyboard.vue` as the composition of the defined CodeStrip + action bar, production Keyboard, and defined Drawer.
+5. At the independent Music Color gate, recover the original wheel/octave visual intent while keeping the production runtime resolver as the calculation source; settle the recipe before changing production color behavior.
 6. Continue the remaining mounted reference units one accepted definition at a time.
 
 For every unit, the normal gate is: **accept definition -> formalize source -> make the specimen import that source -> integrate into a defined consumer (or explicitly recorded provisional adapter) -> verify config/music dependencies and live app/guide behavior -> update this checkpoint -> commit and PR as a focused slice**.

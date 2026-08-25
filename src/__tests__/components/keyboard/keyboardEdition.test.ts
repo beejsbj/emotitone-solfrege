@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   keyboardEditionVariation,
+  keyboardEditionRowVariations,
   keyboardFamilyForDate,
   visibleKeyboardOctaves,
 } from "@/components/compounds/keyboardEdition";
@@ -26,6 +27,27 @@ describe("keyboard daily editions", () => {
     expect(first.cut).toMatch(/^var\(--keyboard-tab-cut-[1-3]\)$/);
     expect(first.rotation).toMatch(/^var\(--keyboard-tab-rotation-[1-3]\)$/);
     expect(first.shadow).toMatch(/^var\(--keyboard-tab-shadow-[1-3]\)$/);
+  });
+
+  it("never assigns the same authored cut to adjacent Keys in a row", () => {
+    const keyIds = Array.from({ length: 12 }, (_, index) => `${index}_4`);
+    const families = ["standard", "tile", "offcut", "tab", "pill"] as const;
+
+    for (const family of families) {
+      for (const seed of ["load-a", "load-b", "2026-08-25:37"]) {
+        const first = keyboardEditionRowVariations(family, seed, keyIds);
+        const again = keyboardEditionRowVariations(family, seed, keyIds);
+        expect(again).toEqual(first);
+
+        const variants = first.map(([, variation]) => variation.variant);
+        for (let index = 1; index < variants.length; index += 1) {
+          expect(variants[index]).not.toBe(variants[index - 1]);
+        }
+        expect(first.every(([, variation]) =>
+          variation.cut.startsWith(`var(--keyboard-${family}-cut-`),
+        )).toBe(true);
+      }
+    }
   });
 
   it("clips unavailable octave rows while preserving odd requested controls", () => {

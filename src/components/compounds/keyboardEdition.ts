@@ -137,6 +137,24 @@ export function keyboardEditionVariation(
   };
 }
 
+export function keyboardEditionRowVariations(
+  family: KeyboardGeometryFamily,
+  editionSeed: string,
+  keyIds: readonly string[],
+) {
+  let previousVariant: number | undefined;
+
+  return keyIds.map((keyId) => {
+    const variation = keyboardEditionVariation(family, editionSeed, keyId);
+    if (variation.variant === previousVariant) {
+      variation.variant = (variation.variant % 3) + 1;
+      variation.cut = `var(--keyboard-${family}-cut-${variation.variant})`;
+    }
+    previousVariant = variation.variant;
+    return [keyId, variation] as const;
+  });
+}
+
 export function visibleKeyboardOctaves(mainOctave: number, rowCount: number) {
   const requestedRows = [1, 3, 5, 7].includes(rowCount) ? rowCount : 3;
   const halfRows = Math.floor(requestedRows / 2);

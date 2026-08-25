@@ -64,7 +64,7 @@ describe("Keyboard compound", () => {
     expect(buttons.filter((button) => button.attributes("tabindex") === "0"))
       .toHaveLength(1);
     expect(buttons[12].text())
-      .toContain("Do, scale degree 1, C4, main octave");
+      .toContain("Do, scale degree one, C four, main octave");
   });
 
   it("applies one stable authored family with per-key edition recipes", () => {

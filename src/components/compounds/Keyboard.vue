@@ -83,9 +83,14 @@ import type { ChromaticNote, MusicalMode } from "@/types/music";
 import {
   KEYBOARD_PAGE_EDITION_SEED,
   keyboardEditionVariation,
+  keyboardEditionRowVariations,
   keyboardFamilyForDate,
   type KeyboardGeometryFamily,
 } from "./keyboardEdition";
+import {
+  accessiblePitch,
+  accessibleScaleDegree,
+} from "./keyboardAccessibility";
 
 export interface KeyboardKeyView {
   id: string;
@@ -179,6 +184,15 @@ const rowSignature = computed(() =>
     .map((row) => `${row.octave}:${row.keys.map((key) => key.id).join(",")}`)
     .join("|"),
 );
+const editionVariations = computed(() => new Map(
+  props.rows.flatMap((row) =>
+    keyboardEditionRowVariations(
+      resolvedFamily.value,
+      resolvedEditionSeed.value,
+      row.keys.map((key) => key.id),
+    ),
+  ),
+));
 
 watch(
   rowSignature,
@@ -207,7 +221,7 @@ function setKeyRef(
 }
 
 function variationFor(keyId: string) {
-  return keyboardEditionVariation(
+  return editionVariations.value.get(keyId) ?? keyboardEditionVariation(
     resolvedFamily.value,
     resolvedEditionSeed.value,
     keyId,
@@ -270,7 +284,7 @@ function keyAriaLabel(key: KeyboardKeyView, octave: number) {
   const sounding = key.sounding && key.id === rememberedFocusId.value
     ? ", sounding"
     : "";
-  return `${key.syllable}, scale degree ${key.degree}, ${key.rawPitch}, ${context}${sounding}`;
+  return `${key.syllable}, scale degree ${accessibleScaleDegree(key.scaleIndex)}, ${accessiblePitch(key.rawPitch)}, ${context}${sounding}`;
 }
 
 function rememberFocus(keyId: string) {

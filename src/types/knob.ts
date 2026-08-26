@@ -19,6 +19,10 @@ export interface BaseKnobProps {
   valueLabelTrue?: string | Component;
   valueLabelFalse?: string | Component;
   themeColor?: string;
+  /** Visual material treatment. Does not alter interaction behavior. */
+  visual?: KnobVisual;
+  /** Semantic material color used when no explicit theme color is supplied. */
+  tone?: KnobTone;
   label?: string;
 }
 
@@ -80,3 +84,5 @@ export interface KnobEmits {
 }
 
 export type KnobType = "range" | "boolean" | "options" | "button";
+export type KnobVisual = "ring" | "arc";
+export type KnobTone = "brass" | "ivory";

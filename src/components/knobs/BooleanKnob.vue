@@ -3,6 +3,8 @@
     type="boolean"
     :is-active="modelValue"
     :color="activeStrokeColor"
+    :visual="visual"
+    :tone="tone"
   />
 
   <!-- Animated ball -->
@@ -36,6 +38,8 @@ interface Props extends BooleanKnobProps {
 const props = withDefaults(defineProps<Props>(), {
   isDisabled: false,
   themeColor: "hsla(0, 0%, 82%, 1)",
+  visual: "arc",
+  tone: "ivory",
 });
 
 const ballRef = ref<HTMLElement | null>(null);

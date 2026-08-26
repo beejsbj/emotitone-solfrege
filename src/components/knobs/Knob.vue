@@ -23,6 +23,8 @@
         :is-disabled="isDisabled"
         :show-progress="true"
         :theme-color="themeColor || defaultThemeColor"
+        :visual="visual"
+        :tone="tone"
         @update:modelValue="handleValueUpdate"
       />
 
@@ -32,6 +34,8 @@
         :model-value="actualValue as boolean"
         :is-disabled="isDisabled"
         :theme-color="themeColor || defaultThemeColor"
+        :visual="visual"
+        :tone="tone"
         :value-label-true="valueLabelTrue"
         :value-label-false="valueLabelFalse"
         @update:modelValue="handleValueUpdate"
@@ -44,6 +48,8 @@
         :options="options!"
         :is-disabled="isDisabled"
         :theme-color="themeColor || defaultThemeColor"
+        :visual="visual"
+        :tone="tone"
         @update:modelValue="handleValueUpdate"
       />
 
@@ -53,11 +59,13 @@
         :is-disabled="isDisabled"
         :button-text="buttonText"
         :is-loading="isLoading"
-        :ready-color="readyColor"
-        :active-color="activeColor"
-        :loading-color="loadingColor"
+        :ready-color="readyColor || defaultReadyColor"
+        :active-color="activeColor || defaultActiveColor"
+        :loading-color="loadingColor || defaultLoadingColor"
         :icon="icon"
         :is-active="isActive"
+        :visual="visual"
+        :tone="tone"
         v-bind="$attrs"
         @click="handleButtonClick"
       />
@@ -83,7 +91,7 @@ import {
   OptionsKnob,
   ButtonKnob,
 } from "@/components/knobs";
-import type { KnobType } from "@/types/knob";
+import type { KnobTone, KnobType, KnobVisual } from "@/types/knob";
 
 // Props - keeping the original API for backwards compatibility
 const props = defineProps({
@@ -138,6 +146,14 @@ const props = defineProps({
     type: String,
     default: undefined,
   },
+  visual: {
+    type: String as () => KnobVisual,
+    default: "arc",
+  },
+  tone: {
+    type: String as () => KnobTone,
+    default: "ivory",
+  },
   sensitivity: {
     type: Number,
     default: 0.05,
@@ -164,15 +180,15 @@ const props = defineProps({
   },
   readyColor: {
     type: String,
-    default: "hsla(0, 0%, 72%, 1)",
+    default: undefined,
   },
   activeColor: {
     type: String,
-    default: "hsla(0, 0%, 96%, 1)",
+    default: undefined,
   },
   loadingColor: {
     type: String,
-    default: "hsla(0, 0%, 58%, 1)",
+    default: undefined,
   },
   icon: {
     type: [String, Object],
@@ -282,7 +298,18 @@ const actualLabel = computed(() => {
 });
 
 // Default theme color
-const defaultThemeColor = "hsla(0, 0%, 82%, 1)";
+const defaultThemeColor = computed(() =>
+  props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 82%, 1)"
+);
+const defaultReadyColor = computed(() =>
+  props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 72%, 1)"
+);
+const defaultActiveColor = computed(() =>
+  props.tone === "brass" ? "var(--brass-hi, #f2c66d)" : "hsla(0, 0%, 96%, 1)"
+);
+const defaultLoadingColor = computed(() =>
+  props.tone === "brass" ? "var(--brass-lo, #9a6d1d)" : "hsla(0, 0%, 58%, 1)"
+);
 
 // Enhanced gesture detection and interaction
 const handleStart = (e: MouseEvent | TouchEvent) => {

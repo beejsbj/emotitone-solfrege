@@ -4,6 +4,8 @@
     :total-segments="normalizedOptions.length"
     :active-segment="currentIndex"
     :color="activeStrokeColor"
+    :visual="visual"
+    :tone="tone"
   />
 
   <!-- Value text -->
@@ -23,6 +25,8 @@ import type { OptionsKnobProps, KnobOption } from "@/types/knob";
 const props = withDefaults(defineProps<OptionsKnobProps>(), {
   isDisabled: false,
   themeColor: "hsla(0, 0%, 82%, 1)",
+  visual: "arc",
+  tone: "ivory",
 });
 
 // Option normalization

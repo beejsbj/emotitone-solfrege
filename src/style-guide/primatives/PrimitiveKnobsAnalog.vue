@@ -2,49 +2,105 @@
   <AnatomyDisplay
     title="Knobs &middot; Analog Ring Primitive"
     :features="features"
-    caption="Analog knobs use the shared Knob primitive with the ring visual. The source owns the knob frame, label/footer anatomy, role states, brass/ivory treatment, disabled treatment, played glow, and beat-timed button motion. The specimen only groups ring examples."
+    caption="The mounted examples are the production Knob family driven by live values and states. The gallery supplies only the surrounding specimen cells; compact anatomy, labels, roles, gestures, and motion come from production."
   >
     <template #hero>
-      <Knob visual="ring" role="range" value-label="64" size="hero" lit />
+      <Knob
+        v-model="rangeValue"
+        visual="ring"
+        tone="brass"
+        type="range"
+        label="Volume"
+        :min="0"
+        :max="100"
+      />
     </template>
 
-    <VariantGrid title="Functional Role &mdash; With Brass">
-      <VariantCell
-        v-for="knob in roleKnobs"
-        :key="knob.role"
-        :caption="knob.caption"
-        stage="ink3"
-      >
+    <VariantGrid title="Functional Role &mdash; Brass Treatment">
+      <VariantCell caption="Range / drag" stage="ink3">
+        <Knob
+          v-model="rangeValue"
+          visual="ring"
+          tone="brass"
+          type="range"
+          label="Volume"
+          :min="0"
+          :max="100"
+        />
+      </VariantCell>
+      <VariantCell caption="Boolean / tap" stage="ink3">
+        <Knob
+          v-model="booleanValue"
+          visual="ring"
+          tone="brass"
+          type="boolean"
+          label="Sync"
+        />
+      </VariantCell>
+      <VariantCell caption="Options / real four-position state" stage="ink3">
+        <Knob
+          v-model="optionValue"
+          visual="ring"
+          tone="brass"
+          type="options"
+          label="Wave"
+          :options="options"
+        />
+      </VariantCell>
+      <VariantCell caption="Button / active state" stage="ink3">
         <Knob
           visual="ring"
-          :role="knob.role"
-          :label="knob.label"
-          :sublabel="knob.sublabel"
-          :foot="knob.foot"
-          :value-label="knob.valueLabel"
-          :lit="knob.lit"
-          framed
+          tone="brass"
+          type="button"
+          label="Live"
+          button-text="REC"
+          :is-active="buttonActive"
+          @click="buttonActive = !buttonActive"
         />
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Treatment &mdash; Ivory Only">
-      <VariantCell
-        v-for="knob in roleKnobs"
-        :key="`ivory-${knob.role}`"
-        :caption="`${knob.caption} / ivory`"
-        stage="ink3"
-      >
+    <VariantGrid title="Semantic Treatment &mdash; Ivory">
+      <VariantCell caption="Range / same behavior" stage="ink3">
+        <Knob
+          v-model="ivoryRangeValue"
+          visual="ring"
+          tone="ivory"
+          type="range"
+          label="Release"
+          :min="0"
+          :max="10"
+          :step="0.1"
+          :format-value="(value) => `${value.toFixed(1)}s`"
+        />
+      </VariantCell>
+      <VariantCell caption="Boolean / off" stage="ink3">
+        <Knob
+          v-model="ivoryBooleanValue"
+          visual="ring"
+          tone="ivory"
+          type="boolean"
+          label="Latch"
+        />
+      </VariantCell>
+      <VariantCell caption="Options / real three-position state" stage="ink3">
+        <Knob
+          v-model="ivoryOptionValue"
+          visual="ring"
+          tone="ivory"
+          type="options"
+          label="Shape"
+          :options="ivoryOptions"
+        />
+      </VariantCell>
+      <VariantCell caption="Button / loading state" stage="ink3">
         <Knob
           visual="ring"
-          :role="knob.role"
           tone="ivory"
-          :label="knob.label"
-          :sublabel="`${knob.sublabel} / ivory`"
-          :foot="knob.foot"
-          :value-label="knob.valueLabel"
-          :lit="knob.lit"
-          framed
+          type="button"
+          label="Render"
+          button-text="GO"
+          is-loading
         />
       </VariantCell>
     </VariantGrid>
@@ -52,37 +108,31 @@
 </template>
 
 <script setup lang="ts">
-import Knob from "../../components/primatives/Knob.vue";
-import type { KnobRole } from "../../components/primatives/Knob.vue";
+import { ref } from "vue";
+import { Knob } from "../../components/knobs";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 
-interface KnobExample {
-  role: KnobRole;
-  label: string;
-  sublabel: string;
-  foot: string;
-  valueLabel: string;
-  caption: string;
-  lit?: boolean;
-}
+const rangeValue = ref(64);
+const booleanValue = ref(true);
+const optionValue = ref("SQ");
+const buttonActive = ref(true);
+const ivoryRangeValue = ref(3.5);
+const ivoryBooleanValue = ref(false);
+const ivoryOptionValue = ref("TRI");
 
-const roleKnobs: KnobExample[] = [
-  { role: "range", label: "Ring", sublabel: "Range", foot: "Volume", valueLabel: "64", caption: "Range", lit: true },
-  { role: "boolean", label: "Ring", sublabel: "Boolean", foot: "Sync", valueLabel: "ON", caption: "Boolean", lit: true },
-  { role: "options", label: "Ring", sublabel: "Options", foot: "Wave", valueLabel: "SQ", caption: "Options" },
-  { role: "button", label: "Ring", sublabel: "Button", foot: "Live", valueLabel: "REC", caption: "Button", lit: true },
-];
+const options = ["SIN", "TRI", "SQ", "SAW"];
+const ivoryOptions = ["SIN", "TRI", "SAW"];
 
 const features = [
-  { label: "Visual", value: "ring; radial-gradient dome body with conic sweep" },
-  { label: "Body", value: "ink-4 to ink-2 dome with ink-5 border" },
-  { label: "Role", value: "range, boolean, options, or button" },
-  { label: "Tone", value: "brass marks lit value; ivory-only removes brass signal" },
-  { label: "Motion", value: "button sweep spins at beat x5; reduced motion stops it" },
-  { label: "State", value: "lit, played glow, and disabled treatment live in source" },
-  { label: "Frame", value: "optional source-owned label and foot anatomy" },
-  { label: "Boundary", value: "style-guide visual primitive, not production knob control" },
+  { label: "Treatment", value: "ring; seated dome with a tactile rounded meter" },
+  { label: "Authority", value: "production Knob owns behavior, density, label, and motion" },
+  { label: "Range", value: "live 270 degree normalized sweep" },
+  { label: "Boolean", value: "full-circle track with production elastic center ball" },
+  { label: "Options", value: "real option count, index, center label, and wrap rotation" },
+  { label: "Button", value: "full-circle track with active/loading-driven presentation" },
+  { label: "Tone", value: "brass or ivory is assigned per Knob; explicit colors remain compatible" },
+  { label: "Frame", value: "specimen scaffolding only; not part of production anatomy" },
 ];
 </script>

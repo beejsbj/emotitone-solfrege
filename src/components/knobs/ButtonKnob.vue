@@ -3,6 +3,8 @@
     type="button"
     :is-active="isActive && !isLoading"
     :color="currentStrokeColor"
+    :visual="visual"
+    :tone="tone"
   />
 
   <!-- Text/Icon -->
@@ -13,7 +15,7 @@
     <component v-if="icon && !isLoading" :is="icon" :size="16" />
     <span
       v-else-if="buttonText && !isLoading"
-      class="text-[9px] font-bold text-white"
+      class="text-[9px] font-bold"
       >{{ buttonText }}</span
     >
   </div>
@@ -30,6 +32,8 @@ const props = withDefaults(defineProps<ButtonKnobProps>(), {
   isLoading: false,
   isActive: false,
   themeColor: "hsla(0, 0%, 82%, 1)",
+  visual: "arc",
+  tone: "ivory",
   readyColor: "hsla(0, 0%, 72%, 1)",
   activeColor: "hsla(0, 0%, 96%, 1)",
   loadingColor: "hsla(0, 0%, 58%, 1)",

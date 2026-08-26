@@ -8,6 +8,8 @@ export { default as KnobCircles } from "./KnobCircles.vue";
 // Re-export types for convenience
 export type {
   KnobType,
+  KnobVisual,
+  KnobTone,
   BaseKnobProps,
   RangeKnobProps,
   BooleanKnobProps,

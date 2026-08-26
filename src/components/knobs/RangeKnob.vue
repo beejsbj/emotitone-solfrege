@@ -3,6 +3,8 @@
     type="range"
     :value="showProgress ? normalizedValue : 0"
     :color="themeColor"
+    :visual="visual"
+    :tone="tone"
     :range-mode="mode"
     :is-display="isDisplay"
   />
@@ -41,6 +43,8 @@ const props = withDefaults(defineProps<Props>(), {
   mode: "interactive",
   showProgress: true,
   themeColor: "hsla(0, 0%, 82%, 1)",
+  visual: "arc",
+  tone: "ivory",
   formatValue: (value: number) => value.toString(),
 });
 

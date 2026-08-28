@@ -119,7 +119,7 @@ const bottomContentRows = ["75%", "50%", "65%"];
       </div>
 
       <div class="caption">
-        DrawerShell is the promoted source primitive for bounded drawer behavior. App `TopDrawer.vue` remains a separate integration gate because it owns Teleport, fixed positioning, and production slots.
+        DrawerShell is the shared source primitive for bounded drawer behavior. App `TopDrawer.vue` already imports it while retaining Teleport, fixed positioning, and production slots; the remaining gate is visual definition, not source integration.
       </div>
     </div>
   </section>

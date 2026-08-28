@@ -309,12 +309,9 @@ function keepPattern() {
 }
 
 .keep-knob {
+  --knob-size: 1.35rem;
   width: 1.35rem;
   min-width: 1.35rem;
-}
-
-.keep-knob:deep(.knob-wrapper) {
-  max-width: 1.35rem;
   margin: 0;
 }
 

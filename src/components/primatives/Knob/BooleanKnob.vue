@@ -10,9 +10,10 @@
   <!-- Animated ball -->
   <div
     ref="ballRef"
-    class="w-5 h-5 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+    class="knob-boolean__ball"
     :style="{
       backgroundColor: activeStrokeColor,
+      color: activeStrokeColor,
     }"
   />
 
@@ -20,7 +21,7 @@
   <component
     v-if="displayValue && typeof displayValue !== 'string'"
     :is="displayValue"
-    class="w-4 h-4 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+    class="knob-boolean__icon"
     :style="{ color: props.modelValue ? 'black' : activeStrokeColor }"
   />
 </template>
@@ -80,3 +81,26 @@ useGSAP(({ gsap }) => {
   );
 });
 </script>
+
+<style scoped>
+.knob-boolean__ball,
+.knob-boolean__icon {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.knob-boolean__ball {
+  inline-size: 38cqi;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: 0 0 9cqi color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.knob-boolean__icon {
+  inline-size: 25cqi;
+  block-size: 25cqi;
+}
+</style>

@@ -278,7 +278,7 @@ useGSAP(({ gsap }) => {
 .knob-face {
   position: relative;
   display: block;
-  width: 100%;
+  inline-size: 100%;
   aspect-ratio: 1;
   color: var(--knob-color);
   isolation: isolate;
@@ -288,15 +288,16 @@ useGSAP(({ gsap }) => {
   position: absolute;
   inset: 8%;
   z-index: -1;
-  border: 1px solid color-mix(in srgb, currentColor 24%, #080808);
+  border: clamp(1px, 1.5cqi, 2px) solid
+    color-mix(in srgb, currentColor 24%, #080808);
   border-radius: 50%;
   background:
     radial-gradient(circle at 42% 34%, rgb(255 255 255 / 10%), transparent 28%),
     radial-gradient(circle at 50% 42%, #252525 0%, #111 61%, #070707 100%);
   box-shadow:
-    inset 0 1px 1px rgb(255 255 255 / 8%),
-    inset 0 -3px 5px rgb(0 0 0 / 65%),
-    0 2px 5px rgb(0 0 0 / 55%);
+    inset 0 1.5cqi 1.5cqi rgb(255 255 255 / 8%),
+    inset 0 -4.5cqi 7.5cqi rgb(0 0 0 / 65%),
+    0 3cqi 7.5cqi rgb(0 0 0 / 55%);
 }
 
 .knob-face__meter {
@@ -309,7 +310,6 @@ useGSAP(({ gsap }) => {
 
 .knob-face__track,
 .knob-face__value {
-  vector-effect: non-scaling-stroke;
   transform-origin: 50% 50%;
 }
 
@@ -328,7 +328,9 @@ useGSAP(({ gsap }) => {
 }
 
 .knob-face__value {
-  filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 55%, transparent));
+  filter: drop-shadow(
+    0 0 6cqi color-mix(in srgb, currentColor 55%, transparent)
+  );
 }
 
 .knob-face--boolean:not(.knob-face--active) .knob-face__value,
@@ -343,8 +345,8 @@ useGSAP(({ gsap }) => {
 
 .knob-face--ring .knob-face__value {
   filter:
-    drop-shadow(0 1px 0 rgb(255 255 255 / 14%))
-    drop-shadow(0 0 4px color-mix(in srgb, currentColor 42%, transparent));
+    drop-shadow(0 1.5cqi 0 rgb(255 255 255 / 14%))
+    drop-shadow(0 0 6cqi color-mix(in srgb, currentColor 42%, transparent));
 }
 
 .knob-face__center {

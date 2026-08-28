@@ -34,12 +34,13 @@ describe("Knob public interface", () => {
     document.body.innerHTML = "";
   });
 
-  it("keeps one compact production anatomy with a bottom label", () => {
+  it("keeps one responsive production anatomy with a bottom label", () => {
     const wrapper = render({ modelValue: 42, label: "Volume" });
 
-    expect(wrapper.classes()).toEqual(
-      expect.arrayContaining(["knob-wrapper", "max-w-12"]),
-    );
+    expect(wrapper.classes()).toContain("knob-wrapper");
+    expect(wrapper.classes()).not.toContain("max-w-12");
+    expect(wrapper.find(".knob-wrapper__face").exists()).toBe(true);
+    expect(wrapper.get("label").classes()).toContain("knob-wrapper__label");
     expect(wrapper.get("label").text()).toBe("Volume");
     expect(wrapper.find(".knob-face").exists()).toBe(true);
     expect(wrapper.find(".knob-primitive__label").exists()).toBe(false);
@@ -101,7 +102,7 @@ describe("Knob public interface", () => {
 
     const boolean = render({ modelValue: true, type: "boolean" });
     expect(boolean.get(".knob-face").classes()).toContain("knob-face--active");
-    expect(boolean.find(".rounded-full").exists()).toBe(true);
+    expect(boolean.find(".knob-boolean__ball").exists()).toBe(true);
     expect(boolean.findAll(".knob-face circle")).toHaveLength(2);
 
     const options = render({

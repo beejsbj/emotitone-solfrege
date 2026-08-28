@@ -1,7 +1,7 @@
 <template>
   <div
     ref="wrapperRef"
-    class="knob-wrapper max-w-12 mx-auto select-none"
+    class="knob-wrapper"
     :class="{
       'cursor-not-allowed opacity-50 pointer-events-none': isDisabled,
       'cursor-not-allowed pointer-events-none saturate-50': isDisplayMode,
@@ -10,7 +10,7 @@
     @touchstart="handleStart"
     @click="handleClick"
   >
-    <div class="relative">
+    <div class="knob-wrapper__face">
       <!-- Range Knob -->
       <RangeKnob
         v-if="knobType === 'range'"
@@ -73,7 +73,7 @@
 
     <!-- Label -->
     <label
-      class="block text-xs font-medium opacity-80 whitespace-nowrap text-center"
+      class="knob-wrapper__label"
       :class="{ 'opacity-50': isDisabled }"
     >
       {{ actualLabel }}
@@ -703,7 +703,36 @@ useGSAP(({ gsap }: { gsap: any }) => {
 
 <style scoped>
 .knob-wrapper {
+  --knob-size: clamp(3rem, 12vw, 4.5rem);
+
+  display: grid;
+  justify-items: center;
+  inline-size: min(100%, var(--knob-size));
+  max-inline-size: 100%;
+  margin-inline: auto;
+  container-type: inline-size;
   user-select: none;
   touch-action: none;
+}
+
+.knob-wrapper__face {
+  position: relative;
+  inline-size: 100%;
+  aspect-ratio: 1;
+}
+
+.knob-wrapper__label {
+  display: block;
+  max-inline-size: 100%;
+  margin-block-start: 3cqi;
+  overflow: hidden;
+  color: currentColor;
+  font-size: clamp(0.625rem, 18cqi, 0.75rem);
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
 }
 </style>

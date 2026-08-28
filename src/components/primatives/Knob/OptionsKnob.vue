@@ -10,7 +10,7 @@
 
   <!-- Value text -->
   <span
-    class="text-[8px] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none"
+    class="knob-options__value"
     :style="{ color: activeStrokeColor }"
   >
     {{ displayValue }}
@@ -55,3 +55,21 @@ const activeStrokeColor = computed(
   () => currentOption.value?.color || props.themeColor
 );
 </script>
+
+<style scoped>
+.knob-options__value {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  max-inline-size: 58cqi;
+  overflow: hidden;
+  font-size: clamp(0.625rem, 26cqi, 1.125rem);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+</style>

@@ -10,15 +10,15 @@
   />
 
   <!-- Value Display -->
-  <div :style="{ color: themeColor }">
+  <div class="knob-range-value" :style="{ color: themeColor }">
     <span
-      class="text-sm font-medium leading-tight absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none flex flex-col items-center pb-1"
+      class="knob-range-value__number"
     >
       {{ numericPart }}
     </span>
     <span
       v-if="unitPart"
-      class="text-xs opacity-70 leading-none absolute bottom-1 left-1/2 -translate-x-1/2 text-center pointer-events-none flex flex-col items-center"
+      class="knob-range-value__unit"
     >
       {{ unitPart }}
     </span>
@@ -76,3 +76,31 @@ const normalizedValue = computed(
   () => (props.modelValue - props.min) / (props.max - props.min)
 );
 </script>
+
+<style scoped>
+.knob-range-value__number,
+.knob-range-value__unit {
+  position: absolute;
+  inset-inline-start: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.knob-range-value__number {
+  inset-block-start: 50%;
+  padding-block-end: 5cqi;
+  font-size: clamp(0.75rem, 28cqi, 1.25rem);
+  font-weight: 700;
+}
+
+.knob-range-value__unit {
+  inset-block-start: 78%;
+  font-size: clamp(0.5rem, 14cqi, 0.6875rem);
+  opacity: 0.7;
+}
+</style>

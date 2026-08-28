@@ -127,7 +127,8 @@ const ivoryOptions = ["SIN", "TRI", "SAW"];
 
 const features = [
   { label: "Treatment", value: "arc; flat SVG meter with butt-ended strokes" },
-  { label: "Authority", value: "production Knob owns behavior, density, label, and motion" },
+  { label: "Authority", value: "production Knob owns behavior, responsive scale, label, and motion" },
+  { label: "Scale", value: "the face yields to its container while stroke, center, glow, and type stay proportional" },
   { label: "Range", value: "live 270 degree normalized sweep" },
   { label: "Boolean", value: "full-circle track with production elastic center ball" },
   { label: "Options", value: "real option count, index, center label, and wrap rotation" },

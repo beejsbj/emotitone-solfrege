@@ -9,13 +9,18 @@
 
   <!-- Text/Icon -->
   <div
-    class="absolute inset-0 flex items-center justify-center pointer-events-none"
+    class="knob-button__content"
     :style="{ color: currentStrokeColor }"
   >
-    <component v-if="icon && !isLoading" :is="icon" :size="16" />
+    <component
+      v-if="icon && !isLoading"
+      :is="icon"
+      :size="20"
+      class="knob-button__icon"
+    />
     <span
       v-else-if="buttonText && !isLoading"
-      class="text-[9px] font-bold"
+      class="knob-button__text"
       >{{ buttonText }}</span
     >
   </div>
@@ -99,5 +104,29 @@ useGSAP(({ gsap }) => {
   user-select: none;
   touch-action: none;
   cursor: pointer;
+}
+
+.knob-button__content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.knob-button__icon {
+  inline-size: 31cqi;
+  block-size: 31cqi;
+}
+
+.knob-button__text {
+  max-inline-size: 58cqi;
+  overflow: hidden;
+  font-size: clamp(0.625rem, 22cqi, 1rem);
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

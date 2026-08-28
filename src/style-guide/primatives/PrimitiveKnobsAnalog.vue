@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Knobs &middot; Analog Ring Primitive"
     :features="features"
-    caption="The mounted examples are the production Knob family driven by live values and states. The gallery supplies only the surrounding specimen cells; compact anatomy, labels, roles, gestures, and motion come from production."
+    caption="The mounted examples are the production Knob family driven by live values and states. The gallery supplies only the surrounding specimen cells; responsive anatomy, labels, roles, gestures, and motion come from production."
   >
     <template #hero>
       <Knob
@@ -127,7 +127,8 @@ const ivoryOptions = ["SIN", "TRI", "SAW"];
 
 const features = [
   { label: "Treatment", value: "ring; seated dome with a tactile rounded meter" },
-  { label: "Authority", value: "production Knob owns behavior, density, label, and motion" },
+  { label: "Authority", value: "production Knob owns behavior, responsive scale, label, and motion" },
+  { label: "Scale", value: "the face yields to its container while stroke, center, glow, and type stay proportional" },
   { label: "Range", value: "live 270 degree normalized sweep" },
   { label: "Boolean", value: "full-circle track with production elastic center ball" },
   { label: "Options", value: "real option count, index, center label, and wrap rotation" },

@@ -35,7 +35,8 @@ None implies the next. A file existing or already being used in production does 
 ## Current checkpoint — 2026-08-28
 
 - Branch: `implementing-design-system`; recompute dirty/ahead/push state live.
-- Accepted and authoritative: Note, Key, and the Analog Ring + Digital Arc Knob family.
+- Accepted and authoritative: Note, Key, and the Analog Ring + Digital Arc Knob family outside its former Button role.
+- Button is one icon-only primitive. It will absorb the current Knob Button's momentary action role; Boolean remains a Knob. Its exact circular hardware treatment is under definition.
 - Sticker's non-badge definition is accepted. Badge's brass-only identity is accepted, while whether it remains a Sticker variant or becomes its own primitive is open.
 - Keyboard is the single production compound and is mounted in the guide, but its exact visual density remains **Under review**.
 - CodeStrip + action bar is the next fresh definition session.
@@ -51,6 +52,8 @@ Two unit sessions are ready and may proceed independently:
 - visually inspect and accept the Keyboard density matrix in its existing workbench;
 - define, formalize, adopt, and verify CodeStrip + action bar.
 
+An independent Button definition session is also active. It may settle the lower primitive before CodeStrip + action bar closes, but any shared action-bar adoption must be coordinated with that unit.
+
 Drawer follows CodeStrip + action bar. `DrawerKeyboard.vue` becomes the production composition only after CodeStrip + action bar, Keyboard, and Drawer are defined. Then resume the remaining queue one unit per session and finish with a fresh lineage audit across the completed pass.
 
 Adjacent sessions are allowed when their files and lineage do not overlap. Shared token or primitive promotion must be coordinated before dependent sessions close.
@@ -63,7 +66,8 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 | Badge | Candidate primitive; currently a Sticker variant | **Brass-only identity accepted; taxonomy under review** | Current `Sticker.vue` exposes Badge through the shared color API and the specimen shows tomato/pine examples; this is implementation drift, not accepted Badge identity | Visually compare Badge as its own identity; choose extraction or retained variant before formalizing |
 | Note | Primitive | **Accepted** | `components/primatives/Note.vue` is authoritative; real specimen and production Keyboard consume it through Key | Finish five geometry token recipes; define new consumers separately |
 | Key | Compound | **Accepted** | `components/compounds/Key.vue` is authoritative; real specimen and production Keyboard consume it | Maintain Note/Key ownership boundary |
-| Knob — Ring + Arc | Primitive deep module | **Accepted** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2`; responsive proportions were repaired at `7ed0127` | Maintain the one public seam, proportional scale contract, and per-consumer treatment assignment |
+| Knob — Ring + Arc | Primitive deep module | **Accepted outside former Button role** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2`; responsive proportions were repaired at `7ed0127`; Button remains inside temporarily pending its accepted move | Maintain the one public seam and proportional scale contract for Range, Boolean, and Options; remove Button only through the Button unit |
+| Button | Primitive | **Under definition** | The guide imports `components/primatives/IconButton.vue`; production `ConfigPanel.vue` and `InstrumentSelector.vue` use duplicated `components/ui/IconButton.vue`; Undo and Send still use Knob Button in `KeyboardActionBar.vue` | Define one icon-only circular hardware family, including the absorbed momentary action's active/loading/label needs, then accept before implementation |
 | Keyboard | Compound | **Under review** | `components/compounds/Keyboard.vue` is the single production source; guide drives it with `usage="controlled"` | Burooj accepts or adjusts the visual-density matrix |
 | CodeStrip + action bar | Unique + related controls | **Next** | CodeStrip has a source and real specimen; the production action bar has no separate specimen and the final coupled-unit boundary is unsettled | Inventory each artifact, declare the session boundary, then run a compact visual definition |
 | Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts are evidence, not accepted Drawer doctrine | Define after CodeStrip + action bar |
@@ -73,7 +77,7 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 Remaining queue, not current authority:
 
 - **Tokens:** UI Colors, Brand Colors, Spacing + Radius, Spacing Scale, Typography, Motion, Geometry.
-- **Primitives:** Bar Tape, Beat Indicator, IconButton, Card, Kicker, Marks, Spine Card, Tabs.
+- **Primitives:** Bar Tape, Beat Indicator, Card, Kicker, Marks, Spine Card, Tabs.
 - **Uniques:** Brand Cover, Brand Logo.
 - **Compounds:** Pattern Card, Pattern Reel.
 - **Compositions:** Loading Screen.
@@ -100,12 +104,18 @@ Remaining queue, not current authority:
 
 - `components/primatives/Knob/index.vue` is the only public interface. Its adjacent role, face, and type files are private implementation.
 - Ring and Arc are visual treatments of one production-led family. Brass and Ivory are semantic per-consumer treatments, not active/inactive states.
-- Preserve responsive bottom-label anatomy, Range/Boolean/Options/Button grammar, values, gestures, haptics, compatibility events, disabled/display behavior, arbitrary and per-option colors, and tactile production motion.
+- Preserve responsive bottom-label anatomy, Range/Boolean/Options grammar, values, gestures, haptics, compatibility events, disabled/display behavior, arbitrary and per-option colors, and tactile production motion.
 - The public wrapper owns a container-bounded responsive face size through `--knob-size`; consumers may override that variable for a real local density need. SVG strokes, dome depth, center content, glow, and type scale from the wrapper container, with legibility floors for small labels and values. Gallery hero sizing is not part of the production contract.
-- Range uses the accepted 270-degree sweep. Boolean and Button are full-circle. Options use real count/current-position geometry. The old layered/perpetually moving Digital Button specimen remains rejected.
+- Range uses the accepted 270-degree sweep. Boolean is full-circle. Options use real count/current-position geometry. The former Button role is being reassigned to the Button primitive; its old layered/perpetually moving Digital specimen remains rejected reference evidence.
 - Gallery cells, top captions, dividers, and footers are specimen scaffolding.
 - Behavior and public-seam verification at `5da92b2` / `a6c55ed`: 17/17 focused public-consumer tests, type-check, and production build pass. Active Button transforms changed across a 350ms sample. In a forced-overflow production row, a horizontal BPM gesture moved `scrollLeft` from 100 to about 69.83 while BPM remained 120. Happy DOM cannot deliver that positive native document-event handoff, so the public regression test keeps an observable setter, asserts no value/haptic emission, and records the browser evidence boundary.
 - Responsive visual correction at `7ed0127`: 17/17 focused public-consumer tests, type-check, and production build pass. Live Chrome inspected production and both real specimens at 1624, 390, and 320 CSS px: faces resolved to 63, about 46.8, and 42px; range-number proportion remained about 28% of the face while label type held a legibility floor. Narrow production controls remained exactly centered in their host cells. The PatternCard keep control deliberately overrides `--knob-size` to 1.35rem. A fresh bounded lineage audit passed after verifying that no gallery anatomy or behavior change entered production.
+
+### Button
+
+- There is one Button primitive and it is icon-only. Text buttons, tabs, drawer handles, and Boolean Knob remain outside this unit.
+- Button absorbs the former Knob Button's momentary action role; preserve its icon content (currently supplied by either a component or a glyph), active/loading/disabled presentation, label relationship, haptic, click, and press-motion behavior during formalization. Whether the accepted API normalizes those glyphs into icon components remains open.
+- The everyday production language should align with the product while carrying an intentional brass/hardware twinge. A more rounded, circular relationship to Knob is direction truth; exact face, rim, depth, fill, and state treatment remain unaccepted.
 
 ## Cross-cutting truth and lineage watchlist
 
@@ -117,7 +127,7 @@ Remaining queue, not current authority:
 - Motion token specimens must not turn Reduce Motion into an `opacity-blink` fallback. Resolve that during the Motion unit.
 - Glissando is absent and tracked separately as `BJS-371`; it is not a visual regression or acceptance condition.
 - QWERTY remapping, roving focus, Space/Enter lifecycle, source coordination, remap cancellation, sounding announcements, and revised haptics are product/accessibility ideas outside this visual pass.
-- Reconcile style-guide `primatives/IconButton.vue` with production `ui/IconButton.vue`, `ChipTabs.vue` with production `ui/Tabs*`, and `compounds/PatternCard.vue` with production `patterns/PatternCard.vue` in their own units.
+- Reconcile style-guide `primatives/IconButton.vue`, production `ui/IconButton.vue`, and the former Knob Button behind the one accepted Button source. Reconcile `ChipTabs.vue` with production `ui/Tabs*`, and `compounds/PatternCard.vue` with production `patterns/PatternCard.vue` in their own units.
 - LoadingScreen reached production before visual acceptance. Preserve Kicker -> SpineCard and PatternCard -> PatternReel as dependency chains rather than copying their lower-level grammar.
 - The Drawer specimen uses `DrawerShell`, and production `TopDrawer.vue` already imports it; Drawer definition remains open, not source integration.
 

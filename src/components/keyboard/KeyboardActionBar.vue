@@ -113,7 +113,7 @@ import { usePatternsStore } from "@/stores/patterns";
 import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
-import { Knob } from "@/components/knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 import { Play, Square } from "lucide-vue-next";
 
 const store = useKeyboardDrawerStore();

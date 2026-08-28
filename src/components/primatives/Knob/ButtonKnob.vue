@@ -1,6 +1,6 @@
 <template>
-  <KnobCircles
-    type="button"
+  <KnobFace
+    role="button"
     :is-active="isActive && !isLoading"
     :color="currentStrokeColor"
     :visual="visual"
@@ -23,9 +23,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import KnobCircles from "./KnobCircles.vue";
+import KnobFace from "./KnobFace.vue";
 import useGSAP from "@/composables/useGSAP";
-import type { ButtonKnobProps } from "@/types/knob";
+import type { ButtonKnobProps } from "./types";
 
 const props = withDefaults(defineProps<ButtonKnobProps>(), {
   isDisabled: false,

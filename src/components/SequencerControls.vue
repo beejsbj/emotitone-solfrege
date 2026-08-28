@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { Knob } from "./knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 import { Play } from "lucide-vue-next";
 
 // Inert local state only

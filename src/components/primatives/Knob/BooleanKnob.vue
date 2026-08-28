@@ -1,6 +1,6 @@
 <template>
-  <KnobCircles
-    type="boolean"
+  <KnobFace
+    role="boolean"
     :is-active="modelValue"
     :color="activeStrokeColor"
     :visual="visual"
@@ -27,8 +27,8 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import KnobCircles from "./KnobCircles.vue";
-import type { BooleanKnobProps } from "@/types/knob";
+import KnobFace from "./KnobFace.vue";
+import type { BooleanKnobProps } from "./types";
 import useGSAP from "@/composables/useGSAP";
 
 interface Props extends BooleanKnobProps {

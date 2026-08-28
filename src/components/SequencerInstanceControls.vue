@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
-import { Knob } from "@/components/knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 
 interface Props {
   sequencerId?: string;

@@ -109,7 +109,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { Knob } from "../../components/knobs";
+import Knob from "../../components/primatives/Knob/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";

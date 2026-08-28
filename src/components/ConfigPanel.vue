@@ -450,7 +450,7 @@ import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
 import type { ChromaticNote } from "@/types";
 import type { VisualEffectsConfig } from "@/types/visual";
 import { TabsContent, IconButton } from "@/components/ui";
-import { Knob } from "./knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 import MidiPermissionIcon from "./MidiPermissionIcon.vue";
 import TabbedOverlayPanel from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";

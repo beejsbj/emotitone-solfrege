@@ -6,7 +6,7 @@ import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { getModeDefinition } from "@/data";
-import { Knob } from "@/components/knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();

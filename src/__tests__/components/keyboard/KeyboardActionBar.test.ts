@@ -65,8 +65,8 @@ vi.mock("@/composables/useLiveStrudelMirror", () => ({
   useLiveStrudelMirror: () => mockMirror,
 }));
 
-vi.mock("@/components/knobs", () => ({
-  Knob: {
+vi.mock("@/components/primatives/Knob/index.vue", () => ({
+  default: {
     name: "Knob",
     props: [
       "modelValue",

@@ -85,13 +85,11 @@
 import { computed, ref, watch, type PropType } from "vue";
 import useGSAP from "@/composables/useGSAP";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
-import {
-  RangeKnob,
-  BooleanKnob,
-  OptionsKnob,
-  ButtonKnob,
-} from "@/components/knobs";
-import type { KnobTone, KnobType, KnobVisual } from "@/types/knob";
+import RangeKnob from "./RangeKnob.vue";
+import BooleanKnob from "./BooleanKnob.vue";
+import OptionsKnob from "./OptionsKnob.vue";
+import ButtonKnob from "./ButtonKnob.vue";
+import type { KnobTone, KnobType, KnobVisual } from "./types";
 
 // Props - keeping the original API for backwards compatibility
 const props = defineProps({

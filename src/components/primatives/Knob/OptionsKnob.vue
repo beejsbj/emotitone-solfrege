@@ -1,6 +1,6 @@
 <template>
-  <KnobCircles
-    type="options"
+  <KnobFace
+    role="options"
     :total-segments="normalizedOptions.length"
     :active-segment="currentIndex"
     :color="activeStrokeColor"
@@ -19,8 +19,8 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import KnobCircles from "./KnobCircles.vue";
-import type { OptionsKnobProps, KnobOption } from "@/types/knob";
+import KnobFace from "./KnobFace.vue";
+import type { OptionsKnobProps, KnobOption } from "./types";
 
 const props = withDefaults(defineProps<OptionsKnobProps>(), {
   isDisabled: false,

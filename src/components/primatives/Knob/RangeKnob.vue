@@ -1,6 +1,6 @@
 <template>
-  <KnobCircles
-    type="range"
+  <KnobFace
+    role="range"
     :value="showProgress ? normalizedValue : 0"
     :color="themeColor"
     :visual="visual"
@@ -27,8 +27,8 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import KnobCircles from "./KnobCircles.vue";
-import type { RangeKnobProps } from "@/types/knob";
+import KnobFace from "./KnobFace.vue";
+import type { RangeKnobProps } from "./types";
 
 interface Props extends RangeKnobProps {
   modelValue: number;

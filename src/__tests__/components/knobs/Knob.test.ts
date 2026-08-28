@@ -184,7 +184,15 @@ describe("Knob public interface", () => {
     wrappers.push(host);
     const scrollHost = host.get(".action-scroll").element as HTMLElement;
     const knob = host.getComponent(Knob);
-    scrollHost.scrollLeft = 40;
+    let scrollLeft = 40;
+    const setScrollLeft = vi.fn((value: number) => {
+      scrollLeft = value;
+    });
+    Object.defineProperty(scrollHost, "scrollLeft", {
+      configurable: true,
+      get: () => scrollLeft,
+      set: setScrollLeft,
+    });
 
     const mouseAt = (type: string, clientX: number, clientY: number) => {
       const event = new MouseEvent(type, { bubbles: true, cancelable: true });
@@ -195,13 +203,17 @@ describe("Knob public interface", () => {
       return event;
     };
 
-    knob.element.dispatchEvent(mouseAt("mousedown", 100, 100));
+    await knob.trigger("mousedown", { clientX: 100, clientY: 100 });
     document.dispatchEvent(mouseAt("mousemove", 130, 102));
     document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
 
     // happy-dom does not deliver this component-attached mousedown into the
-    // native document listener path; live browser QA covers scrollLeft handoff.
+    // native document listener path. Keep the setter observable so the gap is
+    // explicit; live-browser QA owns the positive scrollLeft handoff proof.
+    expect(setScrollLeft).not.toHaveBeenCalled();
+    expect(scrollLeft).toBe(40);
     expect(knob.emitted("update:modelValue")).toBeUndefined();
+    expect(triggerUIHaptic).not.toHaveBeenCalled();
   });
 
   it("keeps disabled and display modes pointer-inert", async () => {

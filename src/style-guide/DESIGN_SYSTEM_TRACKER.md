@@ -102,6 +102,7 @@ Remaining queue, not current authority:
 - Preserve compact bottom-label anatomy, Range/Boolean/Options/Button grammar, values, gestures, haptics, compatibility events, disabled/display behavior, arbitrary and per-option colors, and tactile production motion.
 - Range uses the accepted 270-degree sweep. Boolean and Button are full-circle. Options use real count/current-position geometry. The old layered/perpetually moving Digital Button specimen remains rejected.
 - Gallery cells, top captions, dividers, and footers are specimen scaffolding.
+- Verification at `5da92b2` / `a6c55ed`: 17/17 focused public-consumer tests, type-check, and production build pass. Live Chrome captures show nine 42px production action-row Knobs plus 18 42px specimens split evenly across Ring and Arc; all four roles and Brass/Ivory active/off/loading states are present. Active Button transforms changed across a 350ms sample. In a forced-overflow production row, a horizontal BPM gesture moved `scrollLeft` from 100 to about 69.83 while BPM remained 120. Happy DOM cannot deliver that positive native document-event handoff, so the public regression test keeps an observable setter, asserts no value/haptic emission, and records the browser evidence boundary.
 
 ## Cross-cutting truth and lineage watchlist
 

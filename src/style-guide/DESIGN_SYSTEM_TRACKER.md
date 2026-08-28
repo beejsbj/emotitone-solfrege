@@ -36,7 +36,7 @@ None implies the next. A file existing or already being used in production does 
 
 - Branch: `implementing-design-system`; recompute dirty/ahead/push state live.
 - Accepted and authoritative: Note, Key, and the Analog Ring + Digital Arc Knob family outside its former Button role.
-- Button is one icon-only primitive. It will absorb the current Knob Button's momentary action role; Boolean remains a Knob. Its exact circular hardware treatment is under definition.
+- Button is one icon-only primitive. It will absorb the current Knob Button's momentary action role; Boolean remains a Knob. Its accepted silhouette is a circular hardware control, explicitly not the off-cut poster shape; material and state treatment remain under definition.
 - Sticker's non-badge definition is accepted. Badge's brass-only identity is accepted, while whether it remains a Sticker variant or becomes its own primitive is open.
 - Keyboard is the single production compound and is mounted in the guide, but its exact visual density remains **Under review**.
 - CodeStrip + action bar is the next fresh definition session.
@@ -67,7 +67,7 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 | Note | Primitive | **Accepted** | `components/primatives/Note.vue` is authoritative; real specimen and production Keyboard consume it through Key | Finish five geometry token recipes; define new consumers separately |
 | Key | Compound | **Accepted** | `components/compounds/Key.vue` is authoritative; real specimen and production Keyboard consume it | Maintain Note/Key ownership boundary |
 | Knob — Ring + Arc | Primitive deep module | **Accepted outside former Button role** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2`; responsive proportions were repaired at `7ed0127`; Button remains inside temporarily pending its accepted move | Maintain the one public seam and proportional scale contract for Range, Boolean, and Options; remove Button only through the Button unit |
-| Button | Primitive | **Under definition** | The guide imports `components/primatives/IconButton.vue`; production `ConfigPanel.vue` and `InstrumentSelector.vue` use duplicated `components/ui/IconButton.vue`; Undo and Send still use Knob Button in `KeyboardActionBar.vue` | Define one icon-only circular hardware family, including the absorbed momentary action's active/loading/label needs, then accept before implementation |
+| Button | Primitive | **Under definition; silhouette settled** | The guide imports `components/primatives/IconButton.vue`; production `ConfigPanel.vue` and `InstrumentSelector.vue` use duplicated `components/ui/IconButton.vue`; Undo and Send still use Knob Button in `KeyboardActionBar.vue` | Settle the circular face's material and state treatment, including the absorbed momentary action's active/loading/label needs, then accept before implementation |
 | Keyboard | Compound | **Under review** | `components/compounds/Keyboard.vue` is the single production source; guide drives it with `usage="controlled"` | Burooj accepts or adjusts the visual-density matrix |
 | CodeStrip + action bar | Unique + related controls | **Next** | CodeStrip has a source and real specimen; the production action bar has no separate specimen and the final coupled-unit boundary is unsettled | Inventory each artifact, declare the session boundary, then run a compact visual definition |
 | Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts are evidence, not accepted Drawer doctrine | Define after CodeStrip + action bar |
@@ -115,7 +115,8 @@ Remaining queue, not current authority:
 
 - There is one Button primitive and it is icon-only. Text buttons, tabs, drawer handles, and Boolean Knob remain outside this unit.
 - Button absorbs the former Knob Button's momentary action role; preserve its icon content (currently supplied by either a component or a glyph), active/loading/disabled presentation, label relationship, haptic, click, and press-motion behavior during formalization. Whether the accepted API normalizes those glyphs into icon components remains open.
-- The everyday production language should align with the product while carrying an intentional brass/hardware twinge. A more rounded, circular relationship to Knob is direction truth; exact face, rim, depth, fill, and state treatment remain unaccepted.
+- Button is circular hardware, not the off-cut poster shape. It should share Knob's rounded instrument-world character without inheriting value tracks, sweeps, ticks, or other knob geometry.
+- The everyday production language should align with the product while carrying an intentional brass/hardware twinge. Exact face, rim, depth, fill, and state treatment remain unaccepted.
 
 ## Cross-cutting truth and lineage watchlist
 

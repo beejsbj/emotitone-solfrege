@@ -36,7 +36,7 @@ None implies the next. A file existing or already being used in production does 
 
 - Branch: `implementing-design-system`; recompute dirty/ahead/push state live.
 - Accepted and authoritative: Note, Key, and the Analog Ring + Digital Arc Knob family.
-- Sticker's definition is accepted, but its source/specimen still contradict the brass-only badge rule and need a bounded correction.
+- Sticker's non-badge definition is accepted. Badge's brass-only identity is accepted, while whether it remains a Sticker variant or becomes its own primitive is open.
 - Keyboard is the single production compound and is mounted in the guide, but its exact visual density remains **Under review**.
 - CodeStrip + action bar is the next fresh definition session.
 - Drawer follows as its own definition session.
@@ -59,7 +59,8 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 
 | Unit | Layer | Definition | Source / specimen / production truth | Next gate |
 | --- | --- | --- | --- | --- |
-| Sticker | Primitive | **Accepted definition; correction open** | `components/primatives/Sticker.vue` is the source and its real specimen imports it, but both still allow non-brass badges; no production consumer exists | Make badge brass-only in source and specimen; preserve other Sticker color variants |
+| Sticker | Primitive | **Accepted outside Badge boundary** | `components/primatives/Sticker.vue` is the source and its real specimen imports it; no production consumer exists | Preserve outline/fill identity while Badge taxonomy is settled |
+| Badge | Candidate primitive; currently a Sticker variant | **Brass-only identity accepted; taxonomy under review** | Current `Sticker.vue` exposes Badge through the shared color API and the specimen shows tomato/pine examples; this is implementation drift, not accepted Badge identity | Visually compare Badge as its own identity; choose extraction or retained variant before formalizing |
 | Note | Primitive | **Accepted** | `components/primatives/Note.vue` is authoritative; real specimen and production Keyboard consume it through Key | Finish five geometry token recipes; define new consumers separately |
 | Key | Compound | **Accepted** | `components/compounds/Key.vue` is authoritative; real specimen and production Keyboard consume it | Maintain Note/Key ownership boundary |
 | Knob — Ring + Arc | Primitive deep module | **Accepted** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2` | Maintain the one public seam; treatment assignment remains per consumer |
@@ -106,7 +107,7 @@ Remaining queue, not current authority:
 
 ## Cross-cutting truth and lineage watchlist
 
-- Sticker badge is a brass-only Sticker variant. Tomato, pine, and other brand colors remain valid for non-badge Sticker variants, not badges.
+- Badge is brass-only. Tomato, pine, and other brand colors remain valid for non-badge Stickers. Its current implementation as a colorable Sticker variant is evidence to replace or constrain after deciding whether Badge deserves its own primitive.
 - Brand colors are decorative. Semantic color aliases such as `--danger` are legacy cleanup, not design doctrine.
 - Prefer filled surfaces where possible and minimize borders; treat an outline as intentional visual grammar, not default structure.
 - Glassmorphism is rejected across the app. Purge the obsolete persisted/config surface in a separately scoped cleanup; do not present glass as a Keyboard or Drawer option.

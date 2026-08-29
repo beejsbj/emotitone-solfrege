@@ -44,9 +44,8 @@
             v-for="action in defaultActions"
             :key="action.label"
             size="sm"
-            geometry="sharp"
             :title="action.label"
-            :aria-label="action.label"
+            :accessible-name="action.label"
           >
             <component :is="action.icon" />
           </Button>

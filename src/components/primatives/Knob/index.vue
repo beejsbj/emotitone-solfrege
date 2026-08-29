@@ -61,12 +61,12 @@
     </div>
 
     <!-- Label -->
-    <label
+    <span
       class="knob-wrapper__label"
       :class="{ 'opacity-50': isDisabled }"
     >
       {{ actualLabel }}
-    </label>
+    </span>
   </component>
 </template>
 

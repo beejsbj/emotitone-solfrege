@@ -4,7 +4,7 @@
     class="paper-button"
     :class="[`paper-button--${size}`, `paper-button--${tone}`, { 'paper-button--loading': loading }]"
     :disabled="disabled"
-    :aria-label="ariaLabel"
+    :aria-label="accessibleName"
     :aria-busy="loading || undefined"
     :title="title"
     @click="handleClick"
@@ -28,7 +28,7 @@ const props = withDefaults(
     disabled?: boolean;
     haptic?: boolean;
     type?: "button" | "submit" | "reset";
-    ariaLabel?: string;
+    accessibleName: string;
     title?: string;
   }>(),
   {
@@ -38,7 +38,6 @@ const props = withDefaults(
     disabled: false,
     haptic: false,
     type: "button",
-    ariaLabel: undefined,
     title: undefined,
   },
 );
@@ -83,9 +82,9 @@ function handleClick(event: MouseEvent) {
     opacity var(--dur-tap) var(--ease-stab);
 }
 
-.paper-button:hover { background: var(--button-face-hover); }
+.paper-button:not(:disabled):hover { background: var(--button-face-hover); }
 
-.paper-button:active {
+.paper-button:not(:disabled):active {
   transform: translateY(var(--button-paper-offset)) scale(.96);
   box-shadow: var(--ring);
 }
@@ -96,10 +95,15 @@ function handleClick(event: MouseEvent) {
 }
 
 .paper-button:disabled {
+  background: var(--button-face);
   cursor: not-allowed;
   opacity: .35;
   transform: none;
+  transition: none;
 }
+
+.paper-button:disabled .paper-button__content { transition: none; }
+.paper-button:disabled .paper-button__loader { animation: none; }
 
 .paper-button--sm { --button-size: 32px; }
 .paper-button--md { --button-size: 40px; }

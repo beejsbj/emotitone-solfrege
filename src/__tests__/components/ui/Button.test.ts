@@ -11,7 +11,7 @@ describe("Button", () => {
 
   it("is one native icon-only momentary control", () => {
     const wrapper = mount(Button, {
-      props: { ariaLabel: "Undo" },
+      props: { accessibleName: "Undo" },
       slots: { default: '<svg data-testid="icon" />' },
     });
 
@@ -26,7 +26,7 @@ describe("Button", () => {
   });
 
   it("exposes accepted paper materials and named sizes", () => {
-    const wrapper = mount(Button, { props: { tone: "brass", size: "lg", ariaLabel: "Send" } });
+    const wrapper = mount(Button, { props: { tone: "brass", size: "lg", accessibleName: "Send" } });
     expect(wrapper.classes()).toEqual(
       expect.arrayContaining(["paper-button--brass", "paper-button--lg"]),
     );
@@ -34,7 +34,7 @@ describe("Button", () => {
 
   it("renders real loading and disabled states without toggle state", () => {
     const wrapper = mount(Button, {
-      props: { loading: true, disabled: true, ariaLabel: "Rendering" },
+      props: { loading: true, disabled: true, accessibleName: "Rendering" },
     });
     expect(wrapper.attributes("aria-busy")).toBe("true");
     expect(wrapper.attributes("disabled")).toBeDefined();
@@ -42,7 +42,7 @@ describe("Button", () => {
   });
 
   it("preserves opt-in haptics for absorbed Knob Button actions", async () => {
-    const wrapper = mount(Button, { props: { haptic: true, ariaLabel: "Undo" } });
+    const wrapper = mount(Button, { props: { haptic: true, accessibleName: "Undo" } });
     await wrapper.trigger("click");
     expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
     expect(wrapper.emitted("click")).toHaveLength(1);

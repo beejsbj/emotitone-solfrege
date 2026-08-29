@@ -40,7 +40,7 @@ const selectInstrument = (instrumentId: string) => {
     <!-- Control Sections (inert placeholders) -->
     <div class="flex gap-3 items-center">
       <div class="grid justify-items-center gap-1">
-        <Button disabled aria-label="Play" title="Play"><Play :size="16" /></Button>
+        <Button disabled accessible-name="Play" title="Play"><Play :size="16" /></Button>
         <span class="text-[10px] text-white/60">Play</span>
       </div>
       <Knob type="range" :model-value="120" label="Vol" :min="0" :max="1" :step="0.1" />

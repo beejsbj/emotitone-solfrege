@@ -76,7 +76,7 @@
                 v-if="activeSectionName"
                 :data-testid="`section-reset-${activeSectionName}`"
                 :title="`Reset ${activeTabMeta.label}`"
-                :aria-label="`Reset ${activeTabMeta.label}`"
+                :accessible-name="`Reset ${activeTabMeta.label}`"
                 @click="resetSectionToDefaults(activeSectionName)"
               >
                 <RotateCcw :size="14" />
@@ -96,7 +96,7 @@
               <Button
                 data-testid="config-reset-all"
                 title="Reset all settings"
-                aria-label="Reset all settings"
+                accessible-name="Reset all settings"
                 @click="resetToDefaults"
               >
                 <RefreshCw :size="14" />
@@ -105,7 +105,7 @@
               <Button
                 data-testid="config-export"
                 title="Export configuration"
-                aria-label="Export configuration"
+                accessible-name="Export configuration"
                 @click="exportConfig"
               >
                 <Download :size="14" />
@@ -114,7 +114,7 @@
               <Button
                 data-testid="config-save-as"
                 title="Save configuration"
-                aria-label="Save configuration"
+                accessible-name="Save configuration"
                 @click="promptSaveConfig"
               >
                 <Save :size="14" />
@@ -122,7 +122,7 @@
 
               <Button
                 title="Close settings"
-                aria-label="Close settings"
+                accessible-name="Close settings"
                 @click="close"
               >
                 <X :size="14" />

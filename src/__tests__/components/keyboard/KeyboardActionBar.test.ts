@@ -80,7 +80,6 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
       "themeColor",
       "valueLabelTrue",
       "valueLabelFalse",
-      "buttonText",
     ],
     template: '<div data-testid="mock-knob" :data-label="label" :data-type="type"></div>',
   },

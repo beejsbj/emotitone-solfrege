@@ -76,7 +76,7 @@
           <Button
             size="lg"
             haptic
-            aria-label="Undo"
+            accessible-name="Undo"
             title="Undo"
             @click="patternsStore.removeLastFromCurrentSketch()"
           >
@@ -102,7 +102,7 @@
             size="lg"
             tone="brass"
             haptic
-            aria-label="Send"
+            accessible-name="Send"
             title="Send"
             @click="patternsStore.sendCurrentPattern()"
           >

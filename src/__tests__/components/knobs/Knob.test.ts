@@ -40,8 +40,8 @@ describe("Knob public interface", () => {
     expect(wrapper.classes()).toContain("knob-wrapper");
     expect(wrapper.classes()).not.toContain("max-w-12");
     expect(wrapper.find(".knob-wrapper__face").exists()).toBe(true);
-    expect(wrapper.get("label").classes()).toContain("knob-wrapper__label");
-    expect(wrapper.get("label").text()).toBe("Volume");
+    expect(wrapper.get(".knob-wrapper__label").element.tagName).toBe("SPAN");
+    expect(wrapper.get(".knob-wrapper__label").text()).toBe("Volume");
     expect(wrapper.find(".knob-face").exists()).toBe(true);
     expect(wrapper.find(".knob-primitive__label").exists()).toBe(false);
   });

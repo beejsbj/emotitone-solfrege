@@ -4,7 +4,7 @@
       <!-- Left: Master Play Button Knob (inert) -->
       <div class="flex items-center gap-2">
         <div class="grid justify-items-center gap-1">
-          <Button disabled aria-label="Master" title="Master"><Play :size="18" /></Button>
+          <Button disabled accessible-name="Master" title="Master"><Play :size="18" /></Button>
           <span class="text-[10px] text-white/60">Master</span>
         </div>
       </div>

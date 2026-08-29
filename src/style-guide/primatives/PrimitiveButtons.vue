@@ -6,50 +6,50 @@
   >
     <template #hero>
       <div class="button-specimen__hero">
-        <Button aria-label="Play" title="Play"><Play :size="18" /></Button>
-        <Button tone="ivory" aria-label="Undo" title="Undo"><Undo2 :size="18" /></Button>
-        <Button tone="brass" aria-label="Send" title="Send"><CornerDownLeft :size="18" /></Button>
+        <Button accessible-name="Play" title="Play"><Play :size="18" /></Button>
+        <Button tone="ivory" accessible-name="Undo" title="Undo"><Undo2 :size="18" /></Button>
+        <Button tone="brass" accessible-name="Send" title="Send"><CornerDownLeft :size="18" /></Button>
       </div>
     </template>
 
     <VariantGrid title="Materials">
       <VariantCell caption="Ink paper &middot; everyday default">
-        <Button aria-label="Ink paper" title="Ink paper"><Circle :size="16" /></Button>
+        <Button accessible-name="Ink paper" title="Ink paper"><Circle :size="16" /></Button>
       </VariantCell>
       <VariantCell caption="Ivory paper &middot; high contrast">
-        <Button tone="ivory" aria-label="Ivory paper" title="Ivory paper"><Plus :size="16" /></Button>
+        <Button tone="ivory" accessible-name="Ivory paper" title="Ivory paper"><Plus :size="16" /></Button>
       </VariantCell>
       <VariantCell caption="Brass paper &middot; intentional material">
-        <Button tone="brass" aria-label="Brass paper" title="Brass paper"><Asterisk :size="16" /></Button>
+        <Button tone="brass" accessible-name="Brass paper" title="Brass paper"><Asterisk :size="16" /></Button>
       </VariantCell>
     </VariantGrid>
 
     <VariantGrid title="Sizes and real states">
       <VariantCell caption="SM / MD / LG &middot; 32 / 40 / 48px">
         <div class="button-specimen__row">
-          <Button size="sm" aria-label="Small" title="Small"><Play :size="13" /></Button>
-          <Button aria-label="Medium" title="Medium"><Play :size="16" /></Button>
-          <Button size="lg" aria-label="Large" title="Large"><Play :size="19" /></Button>
+          <Button size="sm" accessible-name="Small" title="Small"><Play :size="13" /></Button>
+          <Button accessible-name="Medium" title="Medium"><Play :size="16" /></Button>
+          <Button size="lg" accessible-name="Large" title="Large"><Play :size="19" /></Button>
         </div>
       </VariantCell>
       <VariantCell caption="Loading &middot; tone-matched perimeter">
-        <Button loading aria-label="Loading" title="Loading"><RefreshCw :size="16" /></Button>
+        <Button loading accessible-name="Loading" title="Loading"><RefreshCw :size="16" /></Button>
       </VariantCell>
       <VariantCell caption="Disabled &middot; dim and still">
-        <Button disabled aria-label="Disabled" title="Disabled"><X :size="16" /></Button>
+        <Button disabled accessible-name="Disabled" title="Disabled"><X :size="16" /></Button>
       </VariantCell>
     </VariantGrid>
 
     <VariantGrid title="Production relationships">
       <VariantCell caption="Momentary action &middot; consumer label">
         <div class="button-specimen__control">
-          <Button size="lg" haptic aria-label="Undo" title="Undo"><Undo2 :size="20" /></Button>
+          <Button size="lg" haptic accessible-name="Undo" title="Undo"><Undo2 :size="20" /></Button>
           <span>Undo</span>
         </div>
       </VariantCell>
       <VariantCell caption="Momentary action &middot; brass material">
         <div class="button-specimen__control">
-          <Button size="lg" tone="brass" haptic aria-label="Send" title="Send"><CornerDownLeft :size="20" /></Button>
+          <Button size="lg" tone="brass" haptic accessible-name="Send" title="Send"><CornerDownLeft :size="20" /></Button>
           <span>Send</span>
         </div>
       </VariantCell>

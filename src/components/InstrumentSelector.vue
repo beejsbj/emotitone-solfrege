@@ -522,7 +522,7 @@ function selectInstrument(name: string, close: () => void) {
 
               <Button
                 title="Close sounds"
-                aria-label="Close sounds"
+                accessible-name="Close sounds"
                 @click="close"
               >
                 <X :size="14" />

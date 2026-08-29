@@ -28,9 +28,19 @@ describe("Button", () => {
   it("exposes accepted paper materials and named sizes", () => {
     const wrapper = mount(Button, { props: { tone: "brass", size: "lg", accessibleName: "Send" } });
     expect(wrapper.classes()).toEqual(
-      expect.arrayContaining(["paper-button--brass", "paper-button--lg"]),
+      expect.arrayContaining(["paper-button--brass", "paper-button--brass-sheen-glow", "paper-button--lg"]),
     );
   });
+
+  it.each(["flat", "sheen", "glow", "sheen-glow"] as const)(
+    "exposes the %s brass finish",
+    (brassFinish) => {
+      const wrapper = mount(Button, {
+        props: { tone: "brass", brassFinish, accessibleName: `${brassFinish} brass` },
+      });
+      expect(wrapper.classes()).toContain(`paper-button--brass-${brassFinish}`);
+    },
+  );
 
   it("renders real loading and disabled states without toggle state", () => {
     const wrapper = mount(Button, {

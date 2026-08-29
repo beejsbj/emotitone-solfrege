@@ -40,7 +40,7 @@
           class="pattern-card__icon-row"
           aria-label="Pattern controls"
         >
-          <IconButton
+          <Button
             v-for="action in defaultActions"
             :key="action.label"
             size="sm"
@@ -49,7 +49,7 @@
             :aria-label="action.label"
           >
             <component :is="action.icon" />
-          </IconButton>
+          </Button>
         </div>
       </div>
 
@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h } from "vue";
 import BarTape from "../primatives/BarTape.vue";
-import IconButton from "../primatives/IconButton.vue";
+import Button from "../primatives/Button.vue";
 import CodeStrip from "../uniques/CodeStrip.vue";
 import type { BarTapeMode, BarTapeSegment } from "../primatives/BarTape.vue";
 import type { CodeStripToken } from "../uniques/CodeStrip.vue";

@@ -21,11 +21,6 @@ vi.mock('@/services/superdoughAudio', () => ({
 }))
 
 vi.mock('@/components/ui', () => ({
-  IconButton: {
-    props: ['title', 'ariaLabel', 'tone'],
-    emits: ['click'],
-    template: '<button data-testid="icon-button" @click="$emit(\'click\')"><slot /></button>',
-  },
   Tabs: {
     props: ['value'],
     emits: ['update:value'],

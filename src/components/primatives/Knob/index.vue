@@ -1,7 +1,12 @@
 <template>
-  <div
+  <component
+    :is="knobTag"
     ref="wrapperRef"
     class="knob-wrapper"
+    :type="knobType === 'boolean' ? 'button' : undefined"
+    :disabled="knobType === 'boolean' ? isDisabled : undefined"
+    :aria-pressed="knobType === 'boolean' ? Boolean(actualValue) : undefined"
+    :aria-label="knobType === 'boolean' ? actualLabel : undefined"
     :class="{
       'cursor-not-allowed opacity-50 pointer-events-none': isDisabled,
       'cursor-not-allowed pointer-events-none saturate-50': isDisplayMode,
@@ -53,22 +58,6 @@
         @update:modelValue="handleValueUpdate"
       />
 
-      <!-- Button Knob -->
-      <ButtonKnob
-        v-else-if="knobType === 'button'"
-        :is-disabled="isDisabled"
-        :button-text="buttonText"
-        :is-loading="isLoading"
-        :ready-color="readyColor || defaultReadyColor"
-        :active-color="activeColor || defaultActiveColor"
-        :loading-color="loadingColor || defaultLoadingColor"
-        :icon="icon"
-        :is-active="isActive"
-        :visual="visual"
-        :tone="tone"
-        v-bind="$attrs"
-        @click="handleButtonClick"
-      />
     </div>
 
     <!-- Label -->
@@ -78,7 +67,7 @@
     >
       {{ actualLabel }}
     </label>
-  </div>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -88,7 +77,6 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
-import ButtonKnob from "./ButtonKnob.vue";
 import type { KnobTone, KnobType, KnobVisual } from "./types";
 
 // Props - keeping the original API for backwards compatibility
@@ -164,38 +152,6 @@ const props = defineProps({
     type: Number,
     default: 200,
   },
-  buttonText: {
-    type: String,
-    default: undefined,
-  },
-  activeText: {
-    type: String,
-    default: undefined,
-  },
-  isLoading: {
-    type: Boolean,
-    default: false,
-  },
-  readyColor: {
-    type: String,
-    default: undefined,
-  },
-  activeColor: {
-    type: String,
-    default: undefined,
-  },
-  loadingColor: {
-    type: String,
-    default: undefined,
-  },
-  icon: {
-    type: [String, Object],
-    default: undefined,
-  },
-  isActive: {
-    type: Boolean,
-    default: false,
-  },
   valueLabelTrue: {
     type: [String, Object],
     default: undefined,
@@ -210,7 +166,6 @@ const props = defineProps({
 const emit = defineEmits<{
   "update:modelValue": [value: string | number | boolean];
   "update:value": [value: string | number | boolean];
-  click: [event?: MouseEvent | TouchEvent];
 }>();
 
 // Refs
@@ -290,6 +245,8 @@ const knobType = computed((): KnobType => {
   return "range";
 });
 
+const knobTag = computed(() => (knobType.value === "boolean" ? "button" : "div"));
+
 // Get the actual label (prioritize label, fallback to paramName for backwards compatibility)
 const actualLabel = computed(() => {
   return props.label || "Knob";
@@ -298,15 +255,6 @@ const actualLabel = computed(() => {
 // Default theme color
 const defaultThemeColor = computed(() =>
   props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 82%, 1)"
-);
-const defaultReadyColor = computed(() =>
-  props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 72%, 1)"
-);
-const defaultActiveColor = computed(() =>
-  props.tone === "brass" ? "var(--brass-hi, #f2c66d)" : "hsla(0, 0%, 96%, 1)"
-);
-const defaultLoadingColor = computed(() =>
-  props.tone === "brass" ? "var(--brass-lo, #9a6d1d)" : "hsla(0, 0%, 58%, 1)"
 );
 
 // Enhanced gesture detection and interaction
@@ -632,9 +580,6 @@ const handleTap = () => {
     const newValue = !(actualValue.value as boolean);
     handleValueUpdate(newValue);
     triggerUIHaptic();
-  } else if (knobType.value === "button") {
-    emit("click");
-    triggerUIHaptic();
   } else if (knobType.value === "options" && props.options) {
     const currentIndex = getCurrentOptionIndex();
     const nextIndex = (currentIndex + 1) % props.options.length;
@@ -644,11 +589,6 @@ const handleTap = () => {
     handleValueUpdate(nextValue);
     triggerUIHaptic();
   }
-};
-
-const handleButtonClick = (event: MouseEvent | TouchEvent) => {
-  emit("click", event);
-  triggerUIHaptic();
 };
 
 const getCurrentOptionIndex = (): number => {
@@ -713,6 +653,11 @@ useGSAP(({ gsap }: { gsap: any }) => {
   container-type: inline-size;
   user-select: none;
   touch-action: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
 }
 
 .knob-wrapper__face {

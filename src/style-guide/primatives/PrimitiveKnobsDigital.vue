@@ -47,17 +47,6 @@
           :options="options"
         />
       </VariantCell>
-      <VariantCell caption="Button / production active state" stage="ink3">
-        <Knob
-          visual="arc"
-          tone="brass"
-          type="button"
-          label="Live"
-          button-text="REC"
-          :is-active="buttonActive"
-          @click="buttonActive = !buttonActive"
-        />
-      </VariantCell>
     </VariantGrid>
 
     <VariantGrid title="Semantic Treatment &mdash; Ivory">
@@ -93,16 +82,6 @@
           :options="ivoryOptions"
         />
       </VariantCell>
-      <VariantCell caption="Button / loading state" stage="ink3">
-        <Knob
-          visual="arc"
-          tone="ivory"
-          type="button"
-          label="Render"
-          button-text="GO"
-          is-loading
-        />
-      </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
 </template>
@@ -117,7 +96,6 @@ import VariantGrid from "../guide/VariantGrid.vue";
 const rangeValue = ref(64);
 const booleanValue = ref(true);
 const optionValue = ref("SQ");
-const buttonActive = ref(true);
 const ivoryRangeValue = ref(3.5);
 const ivoryBooleanValue = ref(false);
 const ivoryOptionValue = ref("TRI");
@@ -132,7 +110,6 @@ const features = [
   { label: "Range", value: "live 270 degree normalized sweep" },
   { label: "Boolean", value: "full-circle track with production elastic center ball" },
   { label: "Options", value: "real option count, index, center label, and wrap rotation" },
-  { label: "Button", value: "full-circle track; no layered half-rings or decorative idle motion" },
   { label: "Tone", value: "brass or ivory is assigned per Knob; explicit colors remain compatible" },
   { label: "Frame", value: "specimen scaffolding only; not part of production anatomy" },
 ];

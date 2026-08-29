@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Pattern Card &middot; Compound"
     :features="features"
-    caption="PatternCard owns the two pattern shapes: sleek stacked rows and expanded active cards. It composes BarTape, IconButton, and CodeStrip instead of carrying their internals. Specimen-only staging keeps the two shapes visible together."
+    caption="PatternCard owns the two pattern shapes: sleek stacked rows and expanded active cards. It composes BarTape, Button, and CodeStrip instead of carrying their internals. Specimen-only staging keeps the two shapes visible together."
   >
     <template #hero>
       <div class="hero-stack">
@@ -143,7 +143,7 @@ const readonlyCard: PatternCardExample = {
 
 const features = [
   { label: "Shape", value: "sleek stack row · expanded active performer" },
-  { label: "Children", value: "BarTape in sleek footer · CodeStrip in active body · IconButton rail" },
+  { label: "Children", value: "BarTape in sleek footer · CodeStrip in active body · Button rail" },
   { label: "Spine", value: "4px brand-color vertical accent" },
   { label: "Header", value: "ordinal badge, pattern name, mode/BPM metadata" },
   { label: "Footer", value: "active transport status and optional brass status tag" },

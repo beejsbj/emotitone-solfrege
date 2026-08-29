@@ -51,7 +51,7 @@ describe("Knob public interface", () => {
     expect(render({ modelValue: 7, value: 42 }).text()).toContain("7");
   });
 
-  it("infers range, boolean, and options while keeping explicit button", () => {
+  it("infers the accepted range, boolean, and options roles", () => {
     expect(render({ modelValue: 50 }).get(".knob-face").classes()).toContain(
       "knob-face--range",
     );
@@ -68,9 +68,6 @@ describe("Knob public interface", () => {
         .get(".knob-face")
         .classes(),
     ).toContain("knob-face--options");
-    expect(render({ type: "button" }).get(".knob-face").classes()).toContain(
-      "knob-face--button",
-    );
   });
 
   it("exposes Ring and Arc with semantic Brass and Ivory treatments", () => {
@@ -118,18 +115,15 @@ describe("Knob public interface", () => {
     expect(options.findAll(".knob-face circle")).toHaveLength(3);
     expect(options.get(".knob-face").attributes("style")).toContain("tomato");
 
-    const button = render({
-      type: "button",
-      buttonText: "REC",
-      isActive: true,
-    });
-    expect(button.get(".knob-face").classes()).toContain("knob-face--active");
-    expect(button.text()).toContain("REC");
-    expect(button.findAll(".knob-face circle")).toHaveLength(2);
+  });
 
-    const loading = render({ type: "button", buttonText: "GO", isLoading: true });
-    expect(loading.get(".knob-face").classes()).not.toContain("knob-face--active");
-    expect(loading.text()).not.toContain("GO");
+  it("keeps Boolean Knob keyboard-operable for persistent state consumers", () => {
+    const boolean = render({ modelValue: true, type: "boolean", label: "Visuals" });
+
+    expect(boolean.element.tagName).toBe("BUTTON");
+    expect(boolean.attributes("type")).toBe("button");
+    expect(boolean.attributes("aria-pressed")).toBe("true");
+    expect(boolean.attributes("aria-label")).toBe("Visuals");
   });
 
   it("keeps explicit theme and per-option colors ahead of semantic tone", () => {

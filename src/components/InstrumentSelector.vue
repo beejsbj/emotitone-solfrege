@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
-import { IconButton } from "@/components/ui";
+import Button from "@/components/primatives/Button.vue";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
   type TabbedOverlayTone,
@@ -520,14 +520,13 @@ function selectInstrument(name: string, close: () => void) {
                 {{ visibleSoundCount }}
               </span>
 
-              <IconButton
+              <Button
                 title="Close sounds"
                 aria-label="Close sounds"
-                tone="red"
                 @click="close"
               >
                 <X :size="14" />
-              </IconButton>
+              </Button>
             </div>
           </div>
         </template>

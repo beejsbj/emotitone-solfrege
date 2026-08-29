@@ -147,4 +147,16 @@ describe("KeyboardActionBar.vue", () => {
 
     expect(mockMusicStore.setMode).toHaveBeenCalledWith("dorian");
   });
+
+  it("routes Undo and Send through real momentary Buttons", async () => {
+    wrapper = createTestWrapper(KeyboardActionBar);
+
+    await wrapper.get('button[aria-label="Undo"]').trigger("click");
+    await wrapper.get('button[aria-label="Send"]').trigger("click");
+
+    expect(mockPatternsStore.removeLastFromCurrentSketch).toHaveBeenCalledTimes(1);
+    expect(mockPatternsStore.sendCurrentPattern).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('[aria-pressed][aria-label="Undo"]').exists()).toBe(false);
+    expect(wrapper.find('[aria-pressed][aria-label="Send"]').exists()).toBe(false);
+  });
 });

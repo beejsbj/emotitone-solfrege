@@ -55,18 +55,6 @@ export interface BooleanKnobProps extends BaseKnobProps {
   valueLabelFalse?: string | Component;
 }
 
-// Simplified button props - no onClick needed since we use @click
-export interface ButtonKnobProps
-  extends Omit<BaseKnobProps, "modelValue" | "label" | "paramName"> {
-  buttonText?: string;
-  icon?: Component | string;
-  isLoading?: boolean;
-  isActive?: boolean; // For visual feedback only
-  readyColor?: string;
-  activeColor?: string;
-  loadingColor?: string;
-}
-
 export interface KnobOption {
   label: string;
   value: string | number;
@@ -83,6 +71,6 @@ export interface KnobEmits {
   "update:modelValue": [value: string | number | boolean];
 }
 
-export type KnobType = "range" | "boolean" | "options" | "button";
+export type KnobType = "range" | "boolean" | "options";
 export type KnobVisual = "ring" | "arc";
 export type KnobTone = "brass" | "ivory";

@@ -72,13 +72,17 @@
           />
         </div>
 
-        <div class="control-group">
-          <Knob
-            type="button"
-            button-text="⌫"
-            label="Undo"
+        <div class="control-group control-group--button">
+          <Button
+            size="lg"
+            haptic
+            aria-label="Undo"
+            title="Undo"
             @click="patternsStore.removeLastFromCurrentSketch()"
-          />
+          >
+            <Undo2 :size="20" />
+          </Button>
+          <span class="button-control__label">Undo</span>
         </div>
 
         <div class="control-group">
@@ -93,13 +97,18 @@
           />
         </div>
 
-        <div class="control-group">
-          <Knob
-            type="button"
-            button-text="⏎"
-            label="Send"
+        <div class="control-group control-group--button">
+          <Button
+            size="lg"
+            tone="brass"
+            haptic
+            aria-label="Send"
+            title="Send"
             @click="patternsStore.sendCurrentPattern()"
-          />
+          >
+            <CornerDownLeft :size="20" />
+          </Button>
+          <span class="button-control__label">Send</span>
         </div>
       </div>
     </div>
@@ -114,7 +123,8 @@ import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import Knob from "@/components/primatives/Knob/index.vue";
-import { Play, Square } from "lucide-vue-next";
+import Button from "@/components/primatives/Button.vue";
+import { CornerDownLeft, Play, Square, Undo2 } from "lucide-vue-next";
 
 const store = useKeyboardDrawerStore();
 const visualConfigStore = useVisualConfigStore();
@@ -179,6 +189,31 @@ async function toggleSketchPlayback() {
   min-width: 0;
   width: 4.7rem;
   max-width: 4.7rem;
+}
+
+.control-group--button {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+}
+
+.control-group--button :deep(.paper-button) {
+  --button-size: clamp(3rem, 12vw, 4.5rem);
+}
+
+.button-control__label {
+  display: block;
+  max-width: 100%;
+  margin-top: .18rem;
+  overflow: hidden;
+  color: currentColor;
+  font-size: clamp(.625rem, 2vw, .75rem);
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: .8;
 }
 
 .action-row:deep(.knob-wrapper) {

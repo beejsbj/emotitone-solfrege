@@ -51,6 +51,16 @@ describe("Button", () => {
     expect(wrapper.find(".paper-button__loader").exists()).toBe(true);
   });
 
+  it("keeps disabled production brass in the native still-state contract", () => {
+    const wrapper = mount(Button, {
+      props: { tone: "brass", disabled: true, accessibleName: "Unavailable send" },
+    });
+    expect(wrapper.attributes("disabled")).toBeDefined();
+    expect(wrapper.classes()).toEqual(
+      expect.arrayContaining(["paper-button--brass", "paper-button--brass-sheen-glow"]),
+    );
+  });
+
   it("preserves opt-in haptics for absorbed Knob Button actions", async () => {
     const wrapper = mount(Button, { props: { haptic: true, accessibleName: "Undo" } });
     await wrapper.trigger("click");

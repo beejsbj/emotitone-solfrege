@@ -119,6 +119,7 @@ function handleClick(event: MouseEvent) {
 }
 
 .paper-button:disabled .paper-button__content { transition: none; }
+.paper-button:disabled::after { animation: none; }
 .paper-button:disabled .paper-button__loader { animation: none; }
 
 .paper-button--sm { --button-size: 32px; }

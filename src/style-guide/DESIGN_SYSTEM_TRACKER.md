@@ -67,7 +67,7 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 | Note | Primitive | **Accepted** | `components/primatives/Note.vue` is authoritative; real specimen and production Keyboard consume it through Key | Finish five geometry token recipes; define new consumers separately |
 | Key | Compound | **Accepted** | `components/compounds/Key.vue` is authoritative; real specimen and production Keyboard consume it | Maintain Note/Key ownership boundary |
 | Knob — Ring + Arc | Primitive deep module | **Accepted outside former Button role** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2`; responsive proportions were repaired at `7ed0127`; Button remains inside temporarily pending its accepted move | Maintain the one public seam and proportional scale contract for Range, Boolean, and Options; remove Button only through the Button unit |
-| Button | Primitive | **Under definition; silhouette and material roles settled** | The guide imports `components/primatives/IconButton.vue`; production `ConfigPanel.vue` and `InstrumentSelector.vue` use duplicated `components/ui/IconButton.vue`; Undo and Send still use Knob Button in `KeyboardActionBar.vue` | Settle face depth and rest/hover/pressed/persistent/loading/disabled presentation, then accept before implementation |
+| Button | Primitive | **Under definition; role, silhouette, and material settled** | The guide imports `components/primatives/IconButton.vue`; production `ConfigPanel.vue` and `InstrumentSelector.vue` use duplicated `components/ui/IconButton.vue`; Undo and Send still use Knob Button in `KeyboardActionBar.vue` | Accept the proposed face depth and rest/hover/pressed/loading/disabled presentation before implementation |
 | Keyboard | Compound | **Under review** | `components/compounds/Keyboard.vue` is the single production source; guide drives it with `usage="controlled"` | Burooj accepts or adjusts the visual-density matrix |
 | CodeStrip + action bar | Unique + related controls | **Next** | CodeStrip has a source and real specimen; the production action bar has no separate specimen and the final coupled-unit boundary is unsettled | Inventory each artifact, declare the session boundary, then run a compact visual definition |
 | Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts are evidence, not accepted Drawer doctrine | Define after CodeStrip + action bar |
@@ -114,10 +114,11 @@ Remaining queue, not current authority:
 ### Button
 
 - There is one Button primitive and it is icon-only. Text buttons, tabs, drawer handles, and Boolean Knob remain outside this unit.
-- Button absorbs the former Knob Button's momentary action role; preserve its icon content (currently supplied by either a component or a glyph), active/loading/disabled presentation, label relationship, haptic, click, and press-motion behavior during formalization. Whether the accepted API normalizes those glyphs into icon components remains open.
+- Button is momentary only. Persistent on/off state belongs to Boolean Knob; Button has no selected, latched, toggle, or persistent `pressed` presentation.
+- Button absorbs the former Knob Button's momentary action role; preserve its icon content (currently supplied by either a component or a glyph), transient active/loading/disabled presentation, label relationship, haptic, click, and press-motion behavior during formalization. Whether the accepted API normalizes those glyphs into icon components remains open.
 - Button is circular hardware, not the off-cut poster shape. It should share Knob's rounded instrument-world character without inheriting value tracks, sweeps, ticks, or other knob geometry.
 - Everyday Button material is ink/ivory hardware. Brass is an intentional per-consumer material treatment, parallel to Knob's Brass/Ivory assignment; it never means active, on, success, danger, or another state by itself.
-- Exact face depth and rest, hover, pressed, persistent, loading, and disabled treatment remain unaccepted.
+- Proposed but unaccepted state treatment: a shallow domed cap inside a circular bezel; hover catches a slight highlight; press travels inward and rebounds; loading uses tone-matched perimeter motion rather than automatic brass; disabled dims and removes motion.
 
 ## Cross-cutting truth and lineage watchlist
 

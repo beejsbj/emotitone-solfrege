@@ -16,6 +16,9 @@
       <VariantCell caption="Ink paper &middot; everyday default">
         <Button accessible-name="Ink paper" title="Ink paper"><Circle :size="16" /></Button>
       </VariantCell>
+      <VariantCell caption="Ink paper &middot; brass icon study">
+        <Button class="button-icon--brass" accessible-name="Ink paper with brass icon" title="Ink paper with brass icon"><Asterisk /></Button>
+      </VariantCell>
       <VariantCell caption="Ivory paper &middot; high contrast">
         <Button tone="ivory" accessible-name="Ivory paper" title="Ivory paper"><Plus :size="16" /></Button>
       </VariantCell>
@@ -52,20 +55,20 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Geometry token studies &middot; exploratory specimen only">
-      <VariantCell caption="Tile &middot; clip-tile + rot-tile-1 + shadow-key">
+    <VariantGrid title="Geometry motion + depth studies &middot; round face preserved">
+      <VariantCell caption="Tile &middot; rot-tile-1 + shadow-key">
         <Button class="button-geometry--tile" size="lg" tone="ivory" accessible-name="Tile geometry study" title="Tile geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Offcut &middot; clip-offcut + rot-tile-3 + shadow-1">
+      <VariantCell caption="Offcut &middot; rot-tile-3 + shadow-1">
         <Button class="button-geometry--offcut" size="lg" tone="ivory" accessible-name="Offcut geometry study" title="Offcut geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Tab &middot; clip-tab + rot-tile-4 + shadow-key">
+      <VariantCell caption="Tab &middot; rot-tile-4 + shadow-key">
         <Button class="button-geometry--tab" size="lg" tone="ivory" accessible-name="Tab geometry study" title="Tab geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Paper rip &middot; clip-paper-rip + rot-sticker + shadow-2">
+      <VariantCell caption="Paper rip &middot; rot-sticker + shadow-2">
         <Button class="button-geometry--rip" size="lg" tone="ivory" accessible-name="Paper rip geometry study" title="Paper rip geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Rounded stock &middot; r-xl + rot-tile-5 + shadow-1">
+      <VariantCell caption="Rounded stock &middot; rot-tile-5 + shadow-1">
         <Button class="button-geometry--rounded" size="lg" tone="ivory" accessible-name="Rounded stock geometry study" title="Rounded stock geometry study"><Plus /></Button>
       </VariantCell>
     </VariantGrid>
@@ -103,7 +106,7 @@ const features = [
   { label: "Shape", value: "perfect circle · no off-cut, dome, bezel, track, or ticks" },
   { label: "Depth", value: "2px hard paper offset · no faux ring · collapses on press" },
   { label: "Material", value: "ink / ivory everyday · four canonical brass finishes" },
-  { label: "Icon", value: "60% of face · exact centered SVG box" },
+  { label: "Icon", value: "50% of face · exact centered SVG box" },
   { label: "Sizes", value: "32 / 40 / 48px · contextual --button-size override" },
   { label: "States", value: "hover contrast · press/rebound · loading perimeter · disabled stillness" },
   { label: "Source", value: "components/primatives/Button.vue" },
@@ -135,36 +138,31 @@ const features = [
   text-transform: uppercase;
 }
 
+.button-icon--brass {
+  --button-ink: var(--brass);
+}
+
 .button-geometry--tile {
-  --button-clip: var(--clip-tile);
-  --button-radius: 0;
   --button-rest-rotation: var(--rot-tile-1);
   --button-rest-shadow: var(--shadow-key);
 }
 
 .button-geometry--offcut {
-  --button-clip: var(--clip-offcut);
-  --button-radius: 0;
   --button-rest-rotation: var(--rot-tile-3);
   --button-rest-shadow: var(--shadow-1);
 }
 
 .button-geometry--tab {
-  --button-clip: var(--clip-tab);
-  --button-radius: 0;
   --button-rest-rotation: var(--rot-tile-4);
   --button-rest-shadow: var(--shadow-key);
 }
 
 .button-geometry--rip {
-  --button-clip: var(--clip-paper-rip);
-  --button-radius: 0;
   --button-rest-rotation: var(--rot-sticker);
   --button-rest-shadow: var(--shadow-2);
 }
 
 .button-geometry--rounded {
-  --button-radius: var(--r-xl);
   --button-rest-rotation: var(--rot-tile-5);
   --button-rest-shadow: var(--shadow-1);
 }

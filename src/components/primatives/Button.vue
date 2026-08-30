@@ -184,8 +184,8 @@ function handleClick(event: MouseEvent) {
 
 .paper-button__content :deep(svg) {
   display: block;
-  inline-size: 60%;
-  block-size: 60%;
+  inline-size: 50%;
+  block-size: 50%;
   max-inline-size: none;
   max-block-size: none;
 }

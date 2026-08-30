@@ -55,20 +55,20 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Geometry motion + depth studies &middot; round face preserved">
-      <VariantCell caption="Tile &middot; rot-tile-1 + shadow-key">
+    <VariantGrid title="Circle-native geometry tokens &middot; outer silhouette">
+      <VariantCell caption="Tile disc &middot; clip-disc-tile + rot-tile-1">
         <Button class="button-geometry--tile" size="lg" tone="ivory" accessible-name="Tile geometry study" title="Tile geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Offcut &middot; rot-tile-3 + shadow-1">
+      <VariantCell caption="Offcut disc &middot; clip-disc-offcut + rot-tile-3">
         <Button class="button-geometry--offcut" size="lg" tone="ivory" accessible-name="Offcut geometry study" title="Offcut geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Tab &middot; rot-tile-4 + shadow-key">
+      <VariantCell caption="Tab disc &middot; clip-disc-tab + rot-tile-4">
         <Button class="button-geometry--tab" size="lg" tone="ivory" accessible-name="Tab geometry study" title="Tab geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Paper rip &middot; rot-sticker + shadow-2">
+      <VariantCell caption="Paper-rip disc &middot; clip-disc-paper-rip + rot-sticker">
         <Button class="button-geometry--rip" size="lg" tone="ivory" accessible-name="Paper rip geometry study" title="Paper rip geometry study"><Plus /></Button>
       </VariantCell>
-      <VariantCell caption="Rounded stock &middot; rot-tile-5 + shadow-1">
+      <VariantCell caption="Rounded-stock disc &middot; clip-disc-rounded-stock + rot-tile-5">
         <Button class="button-geometry--rounded" size="lg" tone="ivory" accessible-name="Rounded stock geometry study" title="Rounded stock geometry study"><Plus /></Button>
       </VariantCell>
     </VariantGrid>
@@ -103,7 +103,7 @@ import VariantGrid from "../guide/VariantGrid.vue";
 const features = [
   { label: "Metaphor", value: "punched-out circular paper chad · filled, not an aperture" },
   { label: "Role", value: "icon-only momentary action · never persistent state" },
-  { label: "Shape", value: "perfect circle · no off-cut, dome, bezel, track, or ticks" },
+  { label: "Shape", value: "circular default · foundational disc clips can shape the outer silhouette" },
   { label: "Depth", value: "2px hard paper offset · no faux ring · collapses on press" },
   { label: "Material", value: "ink / ivory everyday · four canonical brass finishes" },
   { label: "Icon", value: "50% of face · exact centered SVG box" },
@@ -143,27 +143,32 @@ const features = [
 }
 
 .button-geometry--tile {
+  --button-radius: 0;
+  --button-clip: var(--clip-disc-tile);
   --button-rest-rotation: var(--rot-tile-1);
-  --button-rest-shadow: var(--shadow-key);
 }
 
 .button-geometry--offcut {
+  --button-radius: 0;
+  --button-clip: var(--clip-disc-offcut);
   --button-rest-rotation: var(--rot-tile-3);
-  --button-rest-shadow: var(--shadow-1);
 }
 
 .button-geometry--tab {
+  --button-radius: 0;
+  --button-clip: var(--clip-disc-tab);
   --button-rest-rotation: var(--rot-tile-4);
-  --button-rest-shadow: var(--shadow-key);
 }
 
 .button-geometry--rip {
+  --button-radius: 0;
+  --button-clip: var(--clip-disc-paper-rip);
   --button-rest-rotation: var(--rot-sticker);
-  --button-rest-shadow: var(--shadow-2);
 }
 
 .button-geometry--rounded {
+  --button-radius: 0;
+  --button-clip: var(--clip-disc-rounded-stock);
   --button-rest-rotation: var(--rot-tile-5);
-  --button-rest-shadow: var(--shadow-1);
 }
 </style>

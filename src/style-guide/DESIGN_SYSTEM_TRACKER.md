@@ -32,11 +32,12 @@ Each unit advances through four independent claims:
 
 None implies the next. A file existing or already being used in production does not make its design accepted.
 
-## Current checkpoint — 2026-08-29
+## Current checkpoint — 2026-08-30
 
 - Branch: `implementing-design-system`; recompute dirty/ahead/push state live.
 - Accepted and authoritative: Note, Key, the Analog Ring + Digital Arc Knob family, and Button.
-- Button is accepted, formalized, mounted as a real specimen, and adopted in production. Its corrected finish has no faux inset outline, uses centered icons at 50% of the face, defaults production brass to canonical sheen + glow, and keeps rotation/depth geometry studies explicitly specimen-only without reshaping the circular face.
+- Geometry's circle-native cut-paper family is accepted and authoritative at the token layer: five `--clip-disc-*` silhouettes live in `emotitone-design-system.css`, render directly in the Geometry token guide, and are consumed by real Button instances in its style-guide specimen. No production Button is assigned one yet.
+- Button is accepted, formalized, mounted as a real specimen, and adopted in production. Its corrected finish has no faux inset outline, uses centered icons at 50% of the face, and defaults production brass to canonical sheen + glow. Button also exposed a new foundational Geometry idea: reusable circle-native cut-paper silhouettes belong to tokens, while Button is only their first primitive specimen consumer.
 - Sticker's non-badge definition is accepted. Badge's brass-only identity is accepted, while whether it remains a Sticker variant or becomes its own primitive is open.
 - Keyboard is the single production compound and is mounted in the guide, but its exact visual density remains **Under review**.
 - CodeStrip + action bar is the next fresh definition session.
@@ -62,12 +63,13 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 
 | Unit | Layer | Definition | Source / specimen / production truth | Next gate |
 | --- | --- | --- | --- | --- |
+| Circle-native cut paper | Geometry tokens | **Accepted** | Five `--clip-disc-*` silhouettes are authoritative in `emotitone-design-system.css`; `TokenGeometry.vue` renders them directly and real Buttons employ them in `PrimitiveButtons.vue`. Production Buttons retain their default perfect circle | Judge the family in the guide; assign tokens to production consumers only through a separately accepted adoption choice |
 | Sticker | Primitive | **Accepted outside Badge boundary** | `components/primatives/Sticker.vue` is the source and its real specimen imports it; no production consumer exists | Preserve outline/fill identity while Badge taxonomy is settled |
 | Badge | Candidate primitive; currently a Sticker variant | **Brass-only identity accepted; taxonomy under review** | Current `Sticker.vue` exposes Badge through the shared color API and the specimen shows tomato/pine examples; this is implementation drift, not accepted Badge identity | Visually compare Badge as its own identity; choose extraction or retained variant before formalizing |
 | Note | Primitive | **Accepted** | `components/primatives/Note.vue` is authoritative; real specimen and production Keyboard consume it through Key | Finish five geometry token recipes; define new consumers separately |
 | Key | Compound | **Accepted** | `components/compounds/Key.vue` is authoritative; real specimen and production Keyboard consume it | Maintain Note/Key ownership boundary |
 | Knob — Ring + Arc | Primitive deep module | **Accepted** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2`; responsive proportions were repaired at `7ed0127`; its public roles are Range, Boolean, and Options | Maintain the one public seam, proportional scale contract, and Boolean ownership of persistent on/off state |
-| Button | Primitive | **Accepted** | `components/primatives/Button.vue` is authoritative; the real specimen imports it and displays all four brass finishes plus complete specimen-only geometry recipes; production Config, Instrument Selector, Keyboard action bar, Pattern Card, and inactive sequencer placeholders consume it. Former IconButton and Knob Button sources are removed | Preserve momentary circular production ownership, required accessible names, corrected icon scale, borderless chrome, and canonical brass tokens |
+| Button | Primitive | **Accepted** | `components/primatives/Button.vue` is authoritative; the real specimen imports it and displays all four brass finishes plus the foundational disc-clip tokens through Button's existing styling seam; production Config, Instrument Selector, Keyboard action bar, Pattern Card, and inactive sequencer placeholders consume the default circular Button. Former IconButton and Knob Button sources are removed | Preserve momentary circular production ownership, required accessible names, corrected icon scale, borderless chrome, and canonical brass tokens; decide production use of disc geometry separately |
 | Keyboard | Compound | **Under review** | `components/compounds/Keyboard.vue` is the single production source; guide drives it with `usage="controlled"` | Burooj accepts or adjusts the visual-density matrix |
 | CodeStrip + action bar | Unique + related controls | **Next** | CodeStrip has a source and real specimen; the production action bar has no separate specimen and the final coupled-unit boundary is unsettled | Inventory each artifact, declare the session boundary, then run a compact visual definition |
 | Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts are evidence, not accepted Drawer doctrine | Define after CodeStrip + action bar |
@@ -76,7 +78,7 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 
 Remaining queue, not current authority:
 
-- **Tokens:** UI Colors, Brand Colors, Spacing + Radius, Spacing Scale, Typography, Motion, Geometry.
+- **Tokens:** UI Colors, Brand Colors, Spacing + Radius, Spacing Scale, Typography, Motion. Other Geometry families remain queued; the circle-native cut-paper family above is independently accepted and authoritative.
 - **Primitives:** Bar Tape, Beat Indicator, Card, Kicker, Marks, Spine Card, Tabs.
 - **Uniques:** Brand Cover, Brand Logo.
 - **Compounds:** Pattern Card, Pattern Reel.
@@ -121,7 +123,7 @@ Remaining queue, not current authority:
 - Everyday Button material is ink/ivory paper. Brass is an intentional per-consumer material treatment, parallel to Knob's Brass/Ivory assignment; it never means active, on, success, danger, or another state by itself. Production brass uses the canonical sheen + glow finish; the specimen shows flat, sheen, glow, and sheen + glow for comparison.
 - Accepted state treatment: hover changes paper contrast; press collapses the hard offset and rebounds; loading uses tone-matched perimeter motion rather than automatic brass; disabled dims and removes motion. Accepted named sizes are 32/40/48px with contextual size override where a Button must align beside responsive Knobs. Button owns icon and accessible name; consumers own visible labels.
 - Resting and pressed Buttons have no border or faux inset ring. Keyboard focus and forced-colors outlines remain accessibility exceptions. Button owns an icon scale of 50% of the face and true centered SVG boxes; reassess individual optical imbalance only after the corrected scale is visible.
-- The style guide may apply rotation and depth/shadow geometry tokens to real Button instances as explicitly exploratory specimen evidence, but the Button face remains circular with no clip-path or radius mutation. These studies do not add geometry variants to the public API.
+- The default Button remains a perfect circle. Foundational `--clip-disc-*` geometry tokens may replace that default outer silhouette through Button's existing styling seam; they belong to Geometry rather than Button and do not add geometry variants to the public Button API. Their first real specimen consumer is Button, while production instances remain on the default circle until separately assigned.
 - Formalization and verification at `5532155` / `62399ae`: the duplicated IconButton sources and Knob Button role were removed; 29/29 focused tests and type-check pass; production build passes with existing dependency/chunk warnings. Live `/style-guide/` inspection confirmed real 32/40/48 circles, all three materials, loading, and disabled specimens. Live `/` inspection confirmed momentary Undo/Send have no `aria-pressed` and resolve to the same roughly 63px square as neighboring Knobs at the inspected desktop viewport. A fresh lineage audit found and then verified repairs for disabled stillness, native Boolean markup, stale props, and required names across all 24 Button consumers. Responsive preview resize was unavailable, so no live narrow-width claim is made.
 - Visual correction and verification at `90b13f3` / `c1b7ab2` established the borderless finish, brass variants, and disabled stillness; its 60% icon scale and face-reshaping geometry studies were superseded by Burooj's 2026-08-30 feedback. At `84585e9`, the current source resolves icons to 50% of the face. Live guide evidence confirmed the ink-paper/brass-icon study and all five rotation/depth geometry studies at `border-radius: 50%` with `clip-path: none`; focused tests, type-check, build, and a fresh lineage audit pass. Screenshot capture failed and is not claimed.
 

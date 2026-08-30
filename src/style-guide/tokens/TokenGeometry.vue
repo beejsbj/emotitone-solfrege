@@ -48,6 +48,31 @@
     
         </div>
         <div class="caption" style="margin-top:10px">All polygon coords are percentage-based so clips scale with element size.</div>
+
+        <p class="section-subhead">Circle-native cut paper</p>
+        <div class="disc-row">
+          <div class="disc-cell">
+            <div class="disc-sample clip-disc-tile">Tile</div>
+            <div class="clip-token">--clip-disc-tile</div>
+          </div>
+          <div class="disc-cell">
+            <div class="disc-sample clip-disc-offcut">Off-Cut</div>
+            <div class="clip-token">--clip-disc-offcut</div>
+          </div>
+          <div class="disc-cell">
+            <div class="disc-sample clip-disc-tab">Tab</div>
+            <div class="clip-token">--clip-disc-tab</div>
+          </div>
+          <div class="disc-cell">
+            <div class="disc-sample clip-disc-paper-rip">Rip</div>
+            <div class="clip-token">--clip-disc-paper-rip</div>
+          </div>
+          <div class="disc-cell">
+            <div class="disc-sample clip-disc-rounded-stock">Stock</div>
+            <div class="clip-token">--clip-disc-rounded-stock</div>
+          </div>
+        </div>
+        <div class="caption" style="margin-top:10px">Complete silhouettes, not a rectangular clip stacked inside a circle. Any square consumer can employ them.</div>
       </div>
     
       <!-- ═══════════════════════════════════════════════════════════════
@@ -310,10 +335,8 @@
 /* =====================================================================
    GEOMETRY TOKEN CARD
    Catalogs recurring clip-path, transform, box-shadow, and stroke-cap
-   patterns as named recipes ready for promotion to colors_and_type.css.
-
-   Proposed custom property names are annotated as comments above each
-   value — DO NOT add these to colors_and_type.css without a separate PR.
+   patterns. Authoritative shared values live in
+   emotitone-design-system.css; this component renders direct specimens.
    ===================================================================== */
 
 /* ── Section layout ─────────────────────────────────────────────── */
@@ -333,6 +356,15 @@
   margin: 0 0 10px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--ink-5);
+}
+
+.section-subhead {
+  margin: 18px 0 10px;
+  color: var(--ivory-3);
+  font: var(--t-mono);
+  font-size: 8px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
 }
 
 /* ── Clip-path tiles ─────────────────────────────────────────────── */
@@ -381,6 +413,38 @@
 .clip-paper-rip {
   clip-path: polygon(0 0, 100% 0, 100% 4%, 88% 20%, 100% 40%, 78% 56%, 100% 78%, 100% 100%, 0 100%);
 }
+
+.disc-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.disc-cell {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.disc-sample {
+  display: grid;
+  inline-size: 72px;
+  block-size: 72px;
+  place-items: center;
+  background: var(--ivory);
+  color: var(--ink);
+  filter: drop-shadow(0 3px 0 var(--ink));
+  font: var(--t-mono);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.clip-disc-tile { clip-path: var(--clip-disc-tile); }
+.clip-disc-offcut { clip-path: var(--clip-disc-offcut); }
+.clip-disc-tab { clip-path: var(--clip-disc-tab); }
+.clip-disc-paper-rip { clip-path: var(--clip-disc-paper-rip); }
+.clip-disc-rounded-stock { clip-path: var(--clip-disc-rounded-stock); }
 
 .clip-token {
   font-family: var(--font-mono);

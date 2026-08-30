@@ -167,6 +167,14 @@
   --clip-tab: polygon(2% 0, 100% 4%, 98% 100%, 0 96%);
   --clip-paper-rip: polygon(0 0, 100% 0, 100% 4%, 88% 20%, 100% 40%, 78% 56%, 100% 78%, 100% 100%, 0 100%);
 
+  /* Circle-native cut-paper clips. These are foundational geometry tokens:
+     consumers supply a square box; the clip supplies the complete disc silhouette. */
+  --clip-disc-tile: polygon(38% 2%, 62% 2%, 75% 7%, 86% 16%, 93% 27%, 98% 40%, 98% 62%, 93% 75%, 84% 87%, 72% 94%, 60% 98%, 39% 98%, 26% 94%, 14% 86%, 7% 74%, 2% 61%, 2% 39%, 7% 26%, 16% 14%, 28% 7%);
+  --clip-disc-offcut: polygon(32% 5%, 62% 1%, 76% 6%, 87% 15%, 95% 28%, 99% 43%, 98% 59%, 92% 74%, 82% 86%, 69% 94%, 53% 99%, 38% 97%, 24% 92%, 12% 83%, 5% 70%, 1% 55%, 3% 39%, 10% 25%, 20% 14%);
+  --clip-disc-tab: polygon(38% 2%, 62% 2%, 76% 7%, 87% 17%, 94% 30%, 96% 40%, 100% 42%, 100% 58%, 95% 60%, 92% 74%, 83% 86%, 70% 94%, 54% 99%, 38% 97%, 24% 92%, 12% 83%, 5% 70%, 1% 55%, 3% 39%, 9% 25%, 20% 13%);
+  --clip-disc-paper-rip: polygon(38% 2%, 62% 2%, 76% 7%, 87% 17%, 95% 30%, 91% 38%, 97% 44%, 90% 50%, 97% 57%, 90% 64%, 93% 74%, 83% 86%, 70% 94%, 54% 99%, 38% 97%, 24% 92%, 12% 83%, 5% 70%, 1% 55%, 3% 39%, 9% 25%, 20% 13%);
+  --clip-disc-rounded-stock: polygon(35% 1%, 65% 1%, 80% 6%, 92% 18%, 99% 35%, 99% 65%, 93% 81%, 81% 93%, 65% 99%, 35% 99%, 19% 93%, 7% 81%, 1% 65%, 1% 35%, 7% 18%, 19% 7%);
+
   /* Note / Key family recipes. Keyboard editions choose only among the
      authored cuts inside one family; they never synthesize runtime polygons. */
   --keyboard-standard-cut-1: polygon(2% 1%, 98% 1%, 99% 98%, 1% 99%);

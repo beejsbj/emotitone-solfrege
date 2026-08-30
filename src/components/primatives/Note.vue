@@ -64,7 +64,7 @@ import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type NoteLabel = "syllable" | "degree" | "raw";
 export type NoteGeometry = "standard" | "tile" | "offcut" | "tab" | "pill";
-export type NoteProportion = "tall" | "medium" | "stocky" | "wide";
+export type NoteProportion = "glyph" | "tall" | "medium" | "stocky" | "wide";
 export type NoteSurfaceStyle = "colored" | "monochrome";
 
 interface NoteDisplayLabel {
@@ -520,6 +520,18 @@ const ariaLabel = computed(() => {
   --note-padding-bottom: 9px;
   --note-primary-size: 20px;
   --note-aux-size: 7px;
+}
+
+.note--proportion-glyph {
+  --note-glyph-block-size: var(--note-host-block-size, 33.6px);
+  --note-width: calc(var(--note-glyph-block-size) * .75);
+  --note-height: var(--note-glyph-block-size);
+  --note-padding-top: calc(var(--note-glyph-block-size) * .09);
+  --note-padding-inline: calc(var(--note-glyph-block-size) * .09);
+  --note-padding-bottom: calc(var(--note-glyph-block-size) * .09);
+  --note-primary-size: calc(var(--note-glyph-block-size) * .42);
+  --note-aux-size: calc(var(--note-glyph-block-size) * .17);
+  --note-primary-safe-inline: calc(var(--note-glyph-block-size) * .07);
 }
 
 .note--proportion-medium {

@@ -155,6 +155,7 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onBeforeUnmount, onMounted } from "vue";
 import "./preview-card.css";
 import TokenUiColors from "./tokens/TokenUiColors.vue";
 import TokenBrandColors from "./tokens/TokenBrandColors.vue";
@@ -185,6 +186,21 @@ import UniqueBrandCover from "./uniques/UniqueBrandCover.vue";
 import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";
 import UniqueCodeStrip from "./uniques/UniqueCodeStrip.vue";
 import UniqueDrawer from "./uniques/UniqueDrawer.vue";
+
+const scrollToHash = async () => {
+  const id = decodeURIComponent(window.location.hash.slice(1));
+  if (!id) return;
+
+  await nextTick();
+  window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView());
+};
+
+onMounted(() => {
+  void scrollToHash();
+  window.addEventListener("hashchange", scrollToHash);
+});
+
+onBeforeUnmount(() => window.removeEventListener("hashchange", scrollToHash));
 </script>
 
 <style scoped>

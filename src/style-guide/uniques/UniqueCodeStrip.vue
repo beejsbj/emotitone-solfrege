@@ -8,21 +8,15 @@
       <CodeStrip :tokens="heroTokens" />
     </template>
 
-    <VariantGrid id="code-strip-glyph-proportions" title="Definition workbench &mdash; Glyph proportion">
-      <VariantCell caption="3:4 &middot; narrow surfaced glyph" stage="ink3">
-        <div class="glyph-study glyph-study--three-four">
-          <CodeStrip :tokens="ratioTokens" />
-        </div>
+    <VariantGrid id="code-strip-glyph-proportions" title="Accepted glyph &mdash; 3:4 proportion &middot; 20% reduced">
+      <VariantCell caption="Solfège &middot; compact surfaced Note" stage="ink3">
+        <CodeStrip :tokens="ratioTokens" />
       </VariantCell>
-      <VariantCell caption="1:1 &middot; square surfaced glyph" stage="ink3">
-        <div class="glyph-study glyph-study--square">
-          <CodeStrip :tokens="ratioTokens" />
-        </div>
+      <VariantCell caption="Scale degree &middot; compact surfaced Note" stage="ink3">
+        <CodeStrip :tokens="ratioDegreeTokens" />
       </VariantCell>
-      <VariantCell caption="6:5 &middot; broad surfaced glyph" stage="ink3">
-        <div class="glyph-study glyph-study--six-five">
-          <CodeStrip :tokens="ratioTokens" />
-        </div>
+      <VariantCell caption="Raw pitch &middot; compact surfaced Note" stage="ink3">
+        <CodeStrip :tokens="ratioRawTokens" />
       </VariantCell>
     </VariantGrid>
 
@@ -87,6 +81,22 @@ const ratioTokens: CodeStripToken[] = [
   { type: "note", note: "la", text: "La", lit: true, duration: "@0.2031" },
   { type: "rest" },
   { type: "note", note: "sol", text: "Sol", duration: "@0.09" },
+];
+
+const ratioDegreeTokens: CodeStripToken[] = [
+  { type: "note", note: "fa", glyph: "deg", text: "4", duration: "@0.0398" },
+  { type: "rest" },
+  { type: "note", note: "la", glyph: "deg", text: "6", lit: true, duration: "@0.2031" },
+  { type: "rest" },
+  { type: "note", note: "sol", glyph: "deg", text: "5", duration: "@0.09" },
+];
+
+const ratioRawTokens: CodeStripToken[] = [
+  { type: "note", note: "fa", glyph: "raw", text: "F", duration: "@0.0398" },
+  { type: "rest" },
+  { type: "note", note: "la", glyph: "raw", text: "A", lit: true, duration: "@0.2031" },
+  { type: "rest" },
+  { type: "note", note: "sol", glyph: "raw", text: "G", duration: "@0.09" },
 ];
 
 const solfegeTokens: CodeStripToken[] = [
@@ -234,37 +244,7 @@ const features = [
 </script>
 
 <style scoped>
-/* Definition-only staging: compare the glyph ratio at one responsive host scale. */
-.glyph-study {
-  width: 100%;
-  min-width: 0;
-  container-type: inline-size;
-}
-
 #code-strip-glyph-proportions {
   scroll-margin-top: 16px;
-}
-
-.glyph-study :deep(.note) {
-  --glyph-block-size: clamp(34px, 10cqi, 42px);
-  --note-height: var(--glyph-block-size);
-  --note-padding-top: clamp(3px, 1cqi, 5px);
-  --note-padding-inline: clamp(3px, 1cqi, 5px);
-  --note-padding-bottom: clamp(3px, 1cqi, 5px);
-  --note-primary-size: clamp(14px, 4cqi, 18px);
-  --note-aux-size: 7px;
-  --note-primary-safe-inline: 3px;
-}
-
-.glyph-study--three-four :deep(.note) {
-  --note-width: calc(var(--glyph-block-size) * .75);
-}
-
-.glyph-study--square :deep(.note) {
-  --note-width: var(--glyph-block-size);
-}
-
-.glyph-study--six-five :deep(.note) {
-  --note-width: calc(var(--glyph-block-size) * 1.2);
 }
 </style>

@@ -257,9 +257,9 @@ describe("Note", () => {
     );
   });
 
-  it("keeps all five geometries independent from all four proportions", () => {
+  it("keeps all five geometries independent from all five proportions", () => {
     const geometries = ["standard", "tile", "offcut", "tab", "pill"] as const;
-    const proportions = ["tall", "medium", "stocky", "wide"] as const;
+    const proportions = ["glyph", "tall", "medium", "stocky", "wide"] as const;
 
     for (const geometry of geometries) {
       for (const proportion of proportions) {

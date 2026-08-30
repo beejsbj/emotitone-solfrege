@@ -93,7 +93,7 @@ const noteProps = (token: Extract<CodeStripToken, { type: "note" }>) => {
   const glyph = token.glyph ?? "syl";
   const primary: NoteLabel = glyph === "deg" ? "degree" : glyph === "raw" ? "raw" : "syllable";
   return {
-    shape: "glyph" as const,
+    proportion: "glyph" as const,
     primary,
     visibleLabels: [primary],
     syllable: token.syllable ?? (primary === "syllable" ? token.text : titleCase(token.note)),
@@ -110,9 +110,12 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 
 <style scoped>
 .code-strip {
+  --note-host-block-size: clamp(27.2px, 8cqi, 33.6px);
   display: flex;
   align-items: center;
   gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
   min-height: 36px;
   overflow: hidden;
   border: 1px solid var(--hairline);
@@ -120,6 +123,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   padding: 8px 12px;
   font-family: var(--font-mono);
   font-size: 12px;
+  container-type: inline-size;
 }
 
 .code-strip__chevron {

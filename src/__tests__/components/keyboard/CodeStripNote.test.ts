@@ -26,9 +26,11 @@ describe("CodeStrip Note composition", () => {
     expect(notes[0].props()).toMatchObject({
       primary: "degree",
       visibleLabels: ["degree"],
+      proportion: "glyph",
       sounding: true,
       scaleIndex: 2,
     });
+    expect(notes[0].attributes("shape")).toBeUndefined();
     expect(wrapper.find(".code-strip__rest").text()).toBe("~");
     expect(wrapper.find(".code-strip__accidental").text()).toBe("#");
   });

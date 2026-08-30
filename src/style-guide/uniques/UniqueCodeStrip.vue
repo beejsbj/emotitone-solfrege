@@ -8,6 +8,24 @@
       <CodeStrip :tokens="heroTokens" />
     </template>
 
+    <VariantGrid title="Definition workbench &mdash; Glyph proportion">
+      <VariantCell caption="3:4 &middot; narrow surfaced glyph" stage="ink3">
+        <div class="glyph-study glyph-study--three-four">
+          <CodeStrip :tokens="ratioTokens" />
+        </div>
+      </VariantCell>
+      <VariantCell caption="1:1 &middot; square surfaced glyph" stage="ink3">
+        <div class="glyph-study glyph-study--square">
+          <CodeStrip :tokens="ratioTokens" />
+        </div>
+      </VariantCell>
+      <VariantCell caption="6:5 &middot; broad surfaced glyph" stage="ink3">
+        <div class="glyph-study glyph-study--six-five">
+          <CodeStrip :tokens="ratioTokens" />
+        </div>
+      </VariantCell>
+    </VariantGrid>
+
     <VariantGrid title="Variants &mdash; Display mode">
       <VariantCell caption="Solfège &middot; Do Re Mi" stage="ink3">
         <CodeStrip :tokens="solfegeTokens" />
@@ -57,6 +75,14 @@ const heroTokens: CodeStripToken[] = [
   { type: "note", note: "fa", text: "Fa", duration: "@0.0398" },
   { type: "rest" },
   { type: "note", note: "fa", text: "Fa", duration: "@0.028" },
+  { type: "rest" },
+  { type: "note", note: "la", text: "La", lit: true, duration: "@0.2031" },
+  { type: "rest" },
+  { type: "note", note: "sol", text: "Sol", duration: "@0.09" },
+];
+
+const ratioTokens: CodeStripToken[] = [
+  { type: "note", note: "fa", text: "Fa", duration: "@0.0398" },
   { type: "rest" },
   { type: "note", note: "la", text: "La", lit: true, duration: "@0.2031" },
   { type: "rest" },
@@ -206,3 +232,33 @@ const features = [
   { label: "Source", value: "components/uniques/CodeStrip.vue" },
 ];
 </script>
+
+<style scoped>
+/* Definition-only staging: compare the glyph ratio at one responsive host scale. */
+.glyph-study {
+  container-type: inline-size;
+}
+
+.glyph-study :deep(.note) {
+  --glyph-block-size: clamp(34px, 10cqi, 42px);
+  --note-height: var(--glyph-block-size);
+  --note-padding-top: clamp(3px, 1cqi, 5px);
+  --note-padding-inline: clamp(3px, 1cqi, 5px);
+  --note-padding-bottom: clamp(3px, 1cqi, 5px);
+  --note-primary-size: clamp(14px, 4cqi, 18px);
+  --note-aux-size: 7px;
+  --note-primary-safe-inline: 3px;
+}
+
+.glyph-study--three-four :deep(.note) {
+  --note-width: calc(var(--glyph-block-size) * .75);
+}
+
+.glyph-study--square :deep(.note) {
+  --note-width: var(--glyph-block-size);
+}
+
+.glyph-study--six-five :deep(.note) {
+  --note-width: calc(var(--glyph-block-size) * 1.2);
+}
+</style>

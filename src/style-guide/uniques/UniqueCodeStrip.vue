@@ -8,7 +8,7 @@
       <CodeStrip :tokens="heroTokens" />
     </template>
 
-    <VariantGrid title="Definition workbench &mdash; Glyph proportion">
+    <VariantGrid id="code-strip-glyph-proportions" title="Definition workbench &mdash; Glyph proportion">
       <VariantCell caption="3:4 &middot; narrow surfaced glyph" stage="ink3">
         <div class="glyph-study glyph-study--three-four">
           <CodeStrip :tokens="ratioTokens" />
@@ -236,7 +236,13 @@ const features = [
 <style scoped>
 /* Definition-only staging: compare the glyph ratio at one responsive host scale. */
 .glyph-study {
+  width: 100%;
+  min-width: 0;
   container-type: inline-size;
+}
+
+#code-strip-glyph-proportions {
+  scroll-margin-top: 16px;
 }
 
 .glyph-study :deep(.note) {

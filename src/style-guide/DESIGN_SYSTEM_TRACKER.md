@@ -42,7 +42,7 @@ None implies the next. A file existing or already being used in production does 
 - Button is accepted, formalized, mounted as a real specimen, and adopted in production. Its corrected finish has no faux inset outline, uses centered icons at 50% of the face, and defaults production brass to canonical sheen + glow. Button also exposed a new foundational Geometry idea: reusable circle-native cut-paper silhouettes belong to tokens, while Button is only their first primitive specimen consumer.
 - Sticker's non-badge definition is accepted. Badge's brass-only identity is accepted, while whether it remains a Sticker variant or becomes its own primitive is open.
 - Keyboard is the single production compound and is mounted in the guide, but its exact visual density remains **Under review**.
-- CodeStrip is the next fresh definition session. It is the unique production successor to LiveStrip, not one half of an action-bar unit.
+- CodeStrip's surfaced `glyph` proportion is accepted and formalized at 3:4 with a CodeStrip-owned responsive block scale 20% below the comparison candidate. CodeStrip remains the unique production successor to LiveStrip, not one half of an action-bar unit; row density, temporal states, and production adoption remain open.
 - After CodeStrip closes, define a separate compound that composes the upgraded CodeStrip with a small set of adjacent Buttons. Backspace/Undo, Play, and Send are current candidates; their final membership and arrangement remain open.
 - The current production action bar's many horizontally scrolling Knobs are evidence to replace, not accepted compound anatomy. Drawer does not need to remain a Knob and its trigger belongs to the later Drawer definition.
 - `DrawerKeyboard.vue` becomes the composition only after CodeStrip, its action compound, Keyboard, and Drawer are defined.
@@ -54,7 +54,7 @@ None implies the next. A file existing or already being used in production does 
 Two unit sessions are ready and may proceed independently:
 
 - visually inspect and accept the Keyboard density matrix in its existing workbench;
-- define, formalize, adopt, and verify CodeStrip as the unique successor to production LiveStrip.
+- finish CodeStrip's row density and temporal-state definition, then adopt and verify it as the unique successor to production LiveStrip.
 
 Button is closed as a lower primitive. The later CodeStrip action compound may build on its accepted momentary-action ownership without reopening Button.
 
@@ -74,7 +74,7 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 | Knob — Ring + Arc | Primitive deep module | **Accepted** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2`; responsive proportions were repaired at `7ed0127`; its public roles are Range, Boolean, and Options | Maintain the one public seam, proportional scale contract, and Boolean ownership of persistent on/off state |
 | Button | Primitive | **Accepted** | `components/primatives/Button.vue` is authoritative; the real specimen imports it and displays all four brass finishes plus the foundational disc-clip tokens through Button's existing styling seam; production Config, Instrument Selector, Keyboard action bar, Pattern Card, and inactive sequencer placeholders consume the default circular Button. Former IconButton and Knob Button sources are removed | Preserve momentary circular production ownership, required accessible names, corrected icon scale, borderless chrome, and canonical brass tokens; decide production use of disc geometry separately |
 | Keyboard | Compound | **Under review** | `components/compounds/Keyboard.vue` is the single production source; guide drives it with `usage="controlled"` | Burooj accepts or adjusts the visual-density matrix |
-| CodeStrip | Unique | **Under review; ownership accepted** | `components/uniques/CodeStrip.vue` and its real specimen hold the proposed visual grammar; production `LiveStrip.vue` holds the functionality CodeStrip succeeds and currently duplicates notation presentation. Burooj accepted `glyph` as a responsive Note proportion with full Note styling, host-controlled scale, and CodeStrip-owned playback sequencing; no public intermediate compound | Compare glyph ratio and row density live, then settle CodeStrip's remaining states before formalization |
+| CodeStrip | Unique | **Under review; glyph accepted and formalized** | `components/uniques/CodeStrip.vue` now consumes authoritative `Note proportion="glyph"`; the real specimen drives that source at the accepted 3:4 ratio and 20%-reduced responsive host scale. Production `LiveStrip.vue` still holds the functionality CodeStrip succeeds and currently duplicates notation presentation; no public intermediate compound exists | Settle row density and temporal states, then adopt into production without losing LiveStrip behavior |
 | CodeStrip action cluster | Compound | Relationship accepted; definition pending | The current production `KeyboardActionBar.vue` is horizontally scrolling evidence to replace. Accepted Button is available below it; Backspace/Undo, Play, and Send are candidate children, not yet final anatomy | Define membership and arrangement only after CodeStrip closes |
 | Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts and the current Drawer Knob are evidence, not accepted Drawer doctrine | Define after the CodeStrip action compound; Drawer does not need to remain a Knob |
 | DrawerKeyboard | Composition | Relationship accepted; definition pending | Current file is mixed production evidence, not the final composition | Compose only after CodeStrip, its action compound, Keyboard, and Drawer are defined |
@@ -93,7 +93,7 @@ Remaining queue, not current authority:
 ### Note and Key
 
 - Note owns noninteractive musical identity and presentation; Key owns the native momentary physical wrapper.
-- Accepted Note geometry families: `standard`, `tile`, `offcut`, `tab`, `pill`; proportions: `tall`, `medium`, `stocky`, `wide`; surfaces: `colored`, `monochrome`.
+- Accepted Note geometry families: `standard`, `tile`, `offcut`, `tab`, `pill`; proportions: `glyph`, `tall`, `medium`, `stocky`, `wide`; surfaces: `colored`, `monochrome`.
 - Physical `pressed` and musical `sounding` remain independent.
 - Promote all five geometry families into coherent named token recipes before dependent randomization closes. This does not reopen their visual acceptance.
 
@@ -137,11 +137,11 @@ Remaining queue, not current authority:
 - Using the common Note primitive was the right lineage decision. The regression is that CodeStrip now receives Note's full-size geometry instead of the compact surfaced `glyph` variant the obsolete `shape="glyph"` call intended.
 - `glyph` joins Note's existing `tall | medium | stocky | wide` proportion family. It is not a bare-text escape or a separate presentation axis: it retains Note's material styling, chromatic surface, geometry character, shadow/depth, typography, and sounding treatment.
 - A Note proportion describes relational shape, not an immutable pixel size. `Note.vue` currently supplies fixed intrinsic fallbacks, while production Keyboard already overrides Notes to `width: 100%` and a host-controlled row height. Formalization must make that responsive contract explicit without changing accepted Keyboard output.
-- CodeStrip owns the compact host scale for `proportion="glyph"`; the proportion recipe owns its aspect, padding, and type relationships. The exact glyph ratio and CodeStrip density remain visual decisions.
+- CodeStrip owns the compact host scale for `proportion="glyph"`; the proportion recipe owns its aspect, padding, and type relationships. The accepted ratio is 3:4. Its responsive block scale is `clamp(27.2px, 8cqi, 33.6px)`, exactly 20% below the 34–42px comparison candidate. CodeStrip density remains a visual decision.
 - Recover the earlier CodeStrip density and rhythm through compact surfaced Notes, with muted duration, rest, punctuation, and grouping chrome. Do not retain the current oversized tile row.
 - Preserve LiveStrip's existing progressive playback feedback: each note token fills as playback advances. The fill belongs to CodeStrip's temporal token choreography; Note continues to own musical identity, typography, color, accidentals, and accessible naming.
 - The accepted ownership seam is `proportion="glyph"` on Note plus a CodeStrip-local token wrapper. Do not create a public compound unless a second real consumer needs the combined Note + duration + progress anatomy.
-- Burooj explicitly accepted this ownership and responsive-proportion contract on 2026-08-30. Exact glyph ratio, row density, and state presentation remain under review; source implementation is still gated on their acceptance.
+- Burooj explicitly accepted this ownership and responsive-proportion contract on 2026-08-30, then chose 3:4 and requested the comparison candidate be made 20% smaller. `f6fc21a` formalized that choice in Note and CodeStrip, removed the obsolete `shape="glyph"` seam, made the row fill its host, and converted the guide workbench into a real-source specimen. Row density, state presentation, LiveStrip migration, and production verification remain open.
 
 ## Cross-cutting truth and lineage watchlist
 
@@ -150,7 +150,7 @@ Remaining queue, not current authority:
 - Prefer filled surfaces where possible and minimize borders; treat an outline as intentional visual grammar, not default structure.
 - Glassmorphism is rejected across the app. Purge the obsolete persisted/config surface in a separately scoped cleanup; do not present glass as a Keyboard or Drawer option.
 - CodeStrip is the unique successor to production LiveStrip. Preserve LiveStrip's working editing, playback, highlighting, follow-scroll, configuration, and Strudel integration while replacing duplicated visual presentation through the authoritative CodeStrip seam.
-- CodeStrip's intended compact note treatment currently crosses a broken public seam: it passes an obsolete `shape="glyph"` attribute to Note, but accepted Note has no `shape` prop and therefore renders its medium fallback geometry. Repair that seam by adding `glyph` to `NoteProportion`, with scale owned by the host; do not replace it with bare text or manufacture a public CodeStrip-note compound.
+- CodeStrip's compact note treatment now crosses the repaired public seam: `glyph` is authoritative in `NoteProportion`, while CodeStrip supplies the responsive host scale. Preserve that division; do not replace it with bare text or manufacture a public CodeStrip-note compound.
 - Do not optimize the current horizontally scrolling action-bar Knob row. Replace its visual hierarchy later with a compound that composes CodeStrip and a deliberately small Button set. Keep its exact actions and layout unaccepted until CodeStrip closes.
 - The Drawer trigger is part of the Drawer unit and does not need to remain a Knob.
 - Music Color's original mounted intent was a segmented chromatic wheel with fixed/movable, root, octave 0–8, scale-count, and hue-sweep controls. `b140654` replaced it with linear swatches and octave 2–8 while consolidating calculation authority. The resolver consolidation is useful; the visual replacement was never accepted.

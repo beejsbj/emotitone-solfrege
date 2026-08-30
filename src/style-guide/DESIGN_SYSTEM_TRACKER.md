@@ -136,6 +136,7 @@ Remaining queue, not current authority:
 - CodeStrip remains a unique and the production successor to LiveStrip. Its later action cluster is a separate compound.
 - Using the common Note primitive was the right lineage decision. The regression is that CodeStrip now receives Note's full-size geometry instead of the compact surfaced `glyph` variant the obsolete `shape="glyph"` call intended.
 - `glyph` is a Note variant, not a bare-text escape from Note. It retains Note's material styling, chromatic surface, geometry character, shadow/depth, typography, and sounding treatment at notation scale.
+- Note's accepted proportion contract uses fixed width and height rather than content-fit sizing. The compact `glyph` variant follows that same fixed-geometry rule; only its exact notation-scale dimensions remain to be chosen visually.
 - Recover the earlier CodeStrip density and rhythm through compact surfaced Notes, with muted duration, rest, punctuation, and grouping chrome. Do not retain the current oversized tile row.
 - Preserve LiveStrip's existing progressive playback feedback: each note token fills as playback advances. The fill belongs to CodeStrip's temporal token choreography; Note continues to own musical identity, typography, color, accidentals, and accessible naming.
 - The accepted ownership seam is a real compact `glyph` variant on Note plus a CodeStrip-local token wrapper. Do not create a public compound unless a second real consumer needs the combined Note + duration + progress anatomy.

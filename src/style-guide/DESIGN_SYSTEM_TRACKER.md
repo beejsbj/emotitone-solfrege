@@ -42,9 +42,10 @@ None implies the next. A file existing or already being used in production does 
 - Button is accepted, formalized, mounted as a real specimen, and adopted in production. Its corrected finish has no faux inset outline, uses centered icons at 50% of the face, and defaults production brass to canonical sheen + glow. Button also exposed a new foundational Geometry idea: reusable circle-native cut-paper silhouettes belong to tokens, while Button is only their first primitive specimen consumer.
 - Sticker's non-badge definition is accepted. Badge's brass-only identity is accepted, while whether it remains a Sticker variant or becomes its own primitive is open.
 - Keyboard is the single production compound and is mounted in the guide, but its exact visual density remains **Under review**.
-- CodeStrip + action bar is the next fresh definition session.
-- Drawer follows as its own definition session.
-- `DrawerKeyboard.vue` becomes the composition only after CodeStrip + action bar, Keyboard, and Drawer are defined.
+- CodeStrip is the next fresh definition session. It is the unique production successor to LiveStrip, not one half of an action-bar unit.
+- After CodeStrip closes, define a separate compound that composes the upgraded CodeStrip with a small set of adjacent Buttons. Backspace/Undo, Play, and Send are current candidates; their final membership and arrangement remain open.
+- The current production action bar's many horizontally scrolling Knobs are evidence to replace, not accepted compound anatomy. Drawer does not need to remain a Knob and its trigger belongs to the later Drawer definition.
+- `DrawerKeyboard.vue` becomes the composition only after CodeStrip, its action compound, Keyboard, and Drawer are defined.
 - Music Color remains an independent later visual gate.
 - Do not re-grill Note, Key, or Knob without a concrete contradiction or explicit request.
 
@@ -53,11 +54,11 @@ None implies the next. A file existing or already being used in production does 
 Two unit sessions are ready and may proceed independently:
 
 - visually inspect and accept the Keyboard density matrix in its existing workbench;
-- define, formalize, adopt, and verify CodeStrip + action bar.
+- define, formalize, adopt, and verify CodeStrip as the unique successor to production LiveStrip.
 
-Button is closed as a lower primitive. CodeStrip + action bar may now build on its accepted momentary-action ownership without reopening Button.
+Button is closed as a lower primitive. The later CodeStrip action compound may build on its accepted momentary-action ownership without reopening Button.
 
-Drawer follows CodeStrip + action bar. `DrawerKeyboard.vue` becomes the production composition only after CodeStrip + action bar, Keyboard, and Drawer are defined. Then resume the remaining queue one unit per session and finish with a fresh lineage audit across the completed pass.
+The action compound follows CodeStrip. Drawer follows as its own unit. `DrawerKeyboard.vue` becomes the production composition only after CodeStrip, its action compound, Keyboard, and Drawer are defined. Then resume the remaining queue one unit per session and finish with a fresh lineage audit across the completed pass.
 
 Adjacent sessions are allowed when their files and lineage do not overlap. Shared token or primitive promotion must be coordinated before dependent sessions close.
 
@@ -73,9 +74,10 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 | Knob — Ring + Arc | Primitive deep module | **Accepted** | `components/primatives/Knob/index.vue` is the sole public production/specimen interface after `5da92b2`; responsive proportions were repaired at `7ed0127`; its public roles are Range, Boolean, and Options | Maintain the one public seam, proportional scale contract, and Boolean ownership of persistent on/off state |
 | Button | Primitive | **Accepted** | `components/primatives/Button.vue` is authoritative; the real specimen imports it and displays all four brass finishes plus the foundational disc-clip tokens through Button's existing styling seam; production Config, Instrument Selector, Keyboard action bar, Pattern Card, and inactive sequencer placeholders consume the default circular Button. Former IconButton and Knob Button sources are removed | Preserve momentary circular production ownership, required accessible names, corrected icon scale, borderless chrome, and canonical brass tokens; decide production use of disc geometry separately |
 | Keyboard | Compound | **Under review** | `components/compounds/Keyboard.vue` is the single production source; guide drives it with `usage="controlled"` | Burooj accepts or adjusts the visual-density matrix |
-| CodeStrip + action bar | Unique + related controls | **Next** | CodeStrip has a source and real specimen; the production action bar has no separate specimen and the final coupled-unit boundary is unsettled | Inventory each artifact, declare the session boundary, then run a compact visual definition |
-| Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts are evidence, not accepted Drawer doctrine | Define after CodeStrip + action bar |
-| DrawerKeyboard | Composition | Relationship accepted; definition pending | Current file is mixed production evidence, not the final composition | Compose only after its three inputs are defined |
+| CodeStrip | Unique | **Under review; next** | `components/uniques/CodeStrip.vue` and its real specimen hold the proposed visual grammar; production `LiveStrip.vue` holds the functionality CodeStrip succeeds and currently duplicates notation presentation | Define CodeStrip itself first, then formalize one source that preserves LiveStrip behavior and reaches production |
+| CodeStrip action cluster | Compound | Relationship accepted; definition pending | The current production `KeyboardActionBar.vue` is horizontally scrolling evidence to replace. Accepted Button is available below it; Backspace/Undo, Play, and Send are candidate children, not yet final anatomy | Define membership and arrangement only after CodeStrip closes |
+| Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts and the current Drawer Knob are evidence, not accepted Drawer doctrine | Define after the CodeStrip action compound; Drawer does not need to remain a Knob |
+| DrawerKeyboard | Composition | Relationship accepted; definition pending | Current file is mixed production evidence, not the final composition | Compose only after CodeStrip, its action compound, Keyboard, and Drawer are defined |
 | Music Color Recipe | Token recipe | **Under review; later** | Runtime resolver is calculation authority; current swatch presentation is unaccepted drift | Reconcile the original wheel intent with one runtime recipe |
 
 Remaining queue, not current authority:
@@ -135,6 +137,9 @@ Remaining queue, not current authority:
 - Brand colors are decorative. Semantic color aliases such as `--danger` are legacy cleanup, not design doctrine.
 - Prefer filled surfaces where possible and minimize borders; treat an outline as intentional visual grammar, not default structure.
 - Glassmorphism is rejected across the app. Purge the obsolete persisted/config surface in a separately scoped cleanup; do not present glass as a Keyboard or Drawer option.
+- CodeStrip is the unique successor to production LiveStrip. Preserve LiveStrip's working editing, playback, highlighting, follow-scroll, configuration, and Strudel integration while replacing duplicated visual presentation through the authoritative CodeStrip seam.
+- Do not optimize the current horizontally scrolling action-bar Knob row. Replace its visual hierarchy later with a compound that composes CodeStrip and a deliberately small Button set. Keep its exact actions and layout unaccepted until CodeStrip closes.
+- The Drawer trigger is part of the Drawer unit and does not need to remain a Knob.
 - Music Color's original mounted intent was a segmented chromatic wheel with fixed/movable, root, octave 0–8, scale-count, and hue-sweep controls. `b140654` replaced it with linear swatches and octave 2–8 while consolidating calculation authority. The resolver consolidation is useful; the visual replacement was never accepted.
 - Motion token specimens must not turn Reduce Motion into an `opacity-blink` fallback. Resolve that during the Motion unit.
 - Glissando is absent and tracked separately as `BJS-371`; it is not a visual regression or acceptance condition.

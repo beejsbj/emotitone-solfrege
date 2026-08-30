@@ -109,7 +109,7 @@
           <div class="sink-frame__source">unique-brand-logo.html</div>
           <UniqueBrandLogo />
         </article>
-        <article class="sink-frame">
+        <article id="unique-code-strip" class="sink-frame">
           <div class="sink-frame__source">unique-code-strip.html</div>
           <UniqueCodeStrip />
         </article>
@@ -238,6 +238,7 @@ import UniqueDrawer from "./uniques/UniqueDrawer.vue";
 .sink-frame {
   display: grid;
   gap: 8px;
+  scroll-margin-top: 16px;
 }
 
 .sink-frame__source {

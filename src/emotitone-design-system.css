@@ -167,13 +167,13 @@
   --clip-tab: polygon(2% 0, 100% 4%, 98% 100%, 0 96%);
   --clip-paper-rip: polygon(0 0, 100% 0, 100% 4%, 88% 20%, 100% 40%, 78% 56%, 100% 78%, 100% 100%, 0 100%);
 
-  /* Circle-native cut-paper clips. These are foundational geometry tokens:
-     consumers supply a square box; the clip supplies the complete disc silhouette. */
-  --clip-disc-tile: polygon(38% 2%, 62% 2%, 75% 7%, 86% 16%, 93% 27%, 98% 40%, 98% 62%, 93% 75%, 84% 87%, 72% 94%, 60% 98%, 39% 98%, 26% 94%, 14% 86%, 7% 74%, 2% 61%, 2% 39%, 7% 26%, 16% 14%, 28% 7%);
-  --clip-disc-offcut: polygon(32% 5%, 62% 1%, 76% 6%, 87% 15%, 95% 28%, 99% 43%, 98% 59%, 92% 74%, 82% 86%, 69% 94%, 53% 99%, 38% 97%, 24% 92%, 12% 83%, 5% 70%, 1% 55%, 3% 39%, 10% 25%, 20% 14%);
-  --clip-disc-tab: polygon(38% 2%, 62% 2%, 76% 7%, 87% 17%, 94% 30%, 96% 40%, 100% 42%, 100% 58%, 95% 60%, 92% 74%, 83% 86%, 70% 94%, 54% 99%, 38% 97%, 24% 92%, 12% 83%, 5% 70%, 1% 55%, 3% 39%, 9% 25%, 20% 13%);
-  --clip-disc-paper-rip: polygon(38% 2%, 62% 2%, 76% 7%, 87% 17%, 95% 30%, 91% 38%, 97% 44%, 90% 50%, 97% 57%, 90% 64%, 93% 74%, 83% 86%, 70% 94%, 54% 99%, 38% 97%, 24% 92%, 12% 83%, 5% 70%, 1% 55%, 3% 39%, 9% 25%, 20% 13%);
-  --clip-disc-rounded-stock: polygon(35% 1%, 65% 1%, 80% 6%, 92% 18%, 99% 35%, 99% 65%, 93% 81%, 81% 93%, 65% 99%, 35% 99%, 19% 93%, 7% 81%, 1% 65%, 1% 35%, 7% 18%, 19% 7%);
+  /* Circle-native cut-paper clips. Shape-capable browsers receive the
+     authored curves below; older clients retain a clean circular fallback. */
+  --clip-disc-tile: circle(50%);
+  --clip-disc-offcut: circle(50%);
+  --clip-disc-tab: circle(50%);
+  --clip-disc-paper-rip: circle(50%);
+  --clip-disc-rounded-stock: circle(50%);
 
   /* Note / Key family recipes. Keyboard editions choose only among the
      authored cuts inside one family; they never synthesize runtime polygons. */
@@ -331,6 +331,80 @@
 
   --tracking-display: 0.01em;
   --tracking-label:   0.14em;
+}
+
+/* Responsive curves avoid the low-poly edge produced by polygon clips while
+   keeping every silhouette reusable at any square size. */
+@supports (clip-path: shape(from 50% 0%, curve to 100% 50% with 78% 0% / 100% 22%, close)) {
+  :root {
+    --clip-disc-tile: shape(
+      from 37% 2%,
+      curve to 63% 2% with 44% 1% / 56% 1%,
+      curve to 86% 15% with 74% 3% / 82% 8%,
+      curve to 98% 38% with 93% 21% / 97% 29%,
+      curve to 98% 62% with 99% 44% / 99% 56%,
+      curve to 85% 86% with 97% 71% / 92% 80%,
+      curve to 61% 98% with 79% 92% / 70% 97%,
+      curve to 38% 98% with 55% 99% / 45% 99%,
+      curve to 14% 85% with 29% 97% / 20% 92%,
+      curve to 2% 61% with 8% 79% / 3% 70%,
+      curve to 2% 38% with 1% 55% / 1% 45%,
+      curve to 15% 14% with 3% 29% / 8% 20%,
+      curve to 37% 2% with 20% 8% / 29% 3%,
+      close
+    );
+    --clip-disc-offcut: shape(
+      from 50% 0%,
+      curve to 100% 50% with 77.614% 0% / 100% 22.386%,
+      curve to 50% 100% with 100% 77.614% / 77.614% 100%,
+      curve to 0% 50% with 22.386% 100% / 0% 77.614%,
+      curve to 14% 14% with 0% 31% / 6% 20%,
+      line to 31% 4%,
+      curve to 50% 0% with 37% 1% / 43% 0%,
+      close
+    );
+    --clip-disc-tab: shape(
+      from 50% 0%,
+      curve to 93% 25% with 75% 0% / 87% 12%,
+      curve to 95% 36% with 95% 29% / 96% 33%,
+      curve to 100% 43% with 96% 39% / 99% 40%,
+      curve to 100% 57% with 101% 47% / 101% 53%,
+      curve to 93% 75% with 99% 60% / 95% 70%,
+      curve to 50% 100% with 87% 88% / 75% 100%,
+      curve to 0% 50% with 22.386% 100% / 0% 77.614%,
+      curve to 50% 0% with 0% 22.386% / 22.386% 0%,
+      close
+    );
+    --clip-disc-paper-rip: shape(
+      from 50% 0%,
+      curve to 93% 25% with 75% 0% / 87% 12%,
+      curve to 95% 30% with 94% 27% / 95% 28%,
+      curve to 94% 36% with 96% 33% / 94% 34%,
+      curve to 97% 40% with 95% 38% / 97% 38%,
+      curve to 83% 51% with 98% 44% / 83% 45%,
+      curve to 96% 57% with 84% 54% / 97% 52%,
+      curve to 90% 65% with 95% 60% / 90% 61%,
+      curve to 93% 75% with 91% 69% / 93% 72%,
+      curve to 50% 100% with 87% 88% / 75% 100%,
+      curve to 0% 50% with 22.386% 100% / 0% 77.614%,
+      curve to 50% 0% with 0% 22.386% / 22.386% 0%,
+      close
+    );
+    --clip-disc-rounded-stock: shape(
+      from 47% 1%,
+      curve to 72% 5% with 58% -1% / 66% 1%,
+      curve to 94% 27% with 84% 10% / 91% 18%,
+      curve to 97% 55% with 100% 36% / 99% 46%,
+      curve to 86% 82% with 94% 66% / 91% 75%,
+      curve to 58% 98% with 79% 91% / 69% 97%,
+      curve to 30% 94% with 47% 100% / 38% 98%,
+      curve to 7% 72% with 19% 89% / 11% 82%,
+      curve to 3% 43% with 1% 61% / 1% 51%,
+      curve to 17% 17% with 5% 34% / 10% 24%,
+      curve to 47% 1% with 25% 9% / 36% 2%,
+      close
+    );
+  }
 }
 
 /* =================================================================

@@ -72,7 +72,7 @@
             <div class="clip-token">--clip-disc-rounded-stock</div>
           </div>
         </div>
-        <div class="caption" style="margin-top:10px">Complete silhouettes, not a rectangular clip stacked inside a circle. Any square consumer can employ them.</div>
+        <div class="caption" style="margin-top:10px">Responsive curved silhouettes with a clean-circle fallback. Any square consumer can employ them.</div>
       </div>
     
       <!-- ═══════════════════════════════════════════════════════════════

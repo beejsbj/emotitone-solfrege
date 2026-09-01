@@ -68,6 +68,7 @@ export interface ChordMember {
 
 const props = withDefaults(
   defineProps<{
+    /** Preserved as supplied for band and clustered-Note order; onset timing lives independently in each member's progress. */
     members: ChordMember[];
     display?: ChordDisplay;
     symbol?: string;

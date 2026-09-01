@@ -6,27 +6,29 @@
         <span
           v-if="token.type === 'note'"
           class="code-strip__event code-strip__event--note"
-          :style="eventStyle(token)"
         >
           <span class="code-strip__event-line">
             <span class="code-strip__note" :style="progressStyle(token.progress)">
               <Note v-bind="noteProps(token)" />
             </span>
             <span v-if="token.accidental" class="code-strip__accidental">{{ token.accidental }}</span>
-            <span v-if="durationMode === 'inline' && token.duration" class="code-strip__duration">
-              {{ token.duration }}
-            </span>
-            <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-bar"></span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
+          </span>
+          <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-marks" aria-hidden="true">
+            <span
+              v-for="markIndex in durationMarks(token.duration)"
+              :key="markIndex"
+              class="code-strip__duration-mark"
+              :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+            ></span>
           </span>
         </span>
 
         <span
           v-else-if="token.type === 'chord'"
           class="code-strip__event code-strip__event--chord"
-          :style="eventStyle(token)"
         >
           <span class="code-strip__event-line">
             <Chord
@@ -37,24 +39,35 @@
               :geometry="token.geometry ?? 'offcut'"
               :accessible-name="token.accessibleName"
             />
-            <span v-if="durationMode === 'inline' && token.duration" class="code-strip__duration">
-              {{ token.duration }}
-            </span>
-            <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-bar"></span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
+          </span>
+          <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-marks" aria-hidden="true">
+            <span
+              v-for="markIndex in durationMarks(token.duration)"
+              :key="markIndex"
+              class="code-strip__duration-mark"
+              :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+            ></span>
           </span>
         </span>
 
         <span
           v-else-if="token.type === 'rest'"
           class="code-strip__event code-strip__event--rest"
-          :style="eventStyle(token)"
         >
           <span class="code-strip__rest" :style="progressStyle(token.progress)" role="img" aria-label="Rest">
             <span class="code-strip__rest-fill" aria-hidden="true"></span>
             <span class="code-strip__rest-mark" aria-hidden="true">~</span>
+          </span>
+          <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-marks" aria-hidden="true">
+            <span
+              v-for="markIndex in durationMarks(token.duration)"
+              :key="markIndex"
+              class="code-strip__duration-mark"
+              :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+            ></span>
           </span>
         </span>
 
@@ -75,7 +88,7 @@ import type { NoteGeometry, NoteLabel } from "@/components/primatives/Note.vue";
 export type CodeStripNote = "do" | "re" | "mi" | "fa" | "sol" | "la" | "ti";
 export type CodeStripGlyph = "syl" | "deg" | "raw";
 export type CodeStripDensity = "dense" | "default" | "spaced";
-export type CodeStripDurationMode = "inline" | "stacked" | "distance" | "bar" | "hidden";
+export type CodeStripDurationMode = "stacked" | "bar" | "hidden";
 
 export interface CodeStripNoteToken {
   type: "note";
@@ -116,13 +129,15 @@ const props = withDefaults(
     tokens: CodeStripToken[];
     density?: CodeStripDensity;
     durationMode?: CodeStripDurationMode;
+    timeSignature?: string;
     wrapped?: boolean;
     showChevron?: boolean;
     ariaLabel?: string;
   }>(),
   {
     density: "default",
-    durationMode: "inline",
+    durationMode: "stacked",
+    timeSignature: "4/4",
     wrapped: false,
     showChevron: true,
     ariaLabel: "Pattern notation",
@@ -150,9 +165,25 @@ const progressStyle = (progress: number | undefined) => ({
   "--code-strip-progress": clampProgress(progress),
 });
 
-const eventStyle = (token: CodeStripNoteToken | CodeStripChordToken | Extract<CodeStripToken, { type: "rest" }>) => ({
-  "--code-strip-duration": durationAmount(token.duration),
+const meter = computed(() => {
+  const [rawNumerator, rawDenominator] = props.timeSignature.split("/").map(Number);
+  const numerator = Number.isFinite(rawNumerator) && rawNumerator > 0 ? rawNumerator : 4;
+  const denominator = Number.isFinite(rawDenominator) && rawDenominator > 0 ? rawDenominator : 4;
+  const marksPerBeat = Math.max(1, Math.round(16 / denominator));
+
+  return {
+    marksPerBeat,
+    marksPerBar: Math.max(1, numerator * marksPerBeat),
+  };
 });
+
+const durationMarks = (duration: string | undefined) => {
+  const amount = durationAmount(duration);
+  return amount > 0 ? Math.max(1, Math.round(amount * meter.value.marksPerBar)) : 0;
+};
+
+const isBeatBoundary = (markIndex: number) =>
+  (markIndex - 1) % meter.value.marksPerBeat === 0;
 
 const chordMembers = (token: CodeStripChordToken) =>
   token.members.map((member) => ({
@@ -295,20 +326,11 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   mix-blend-mode: difference;
 }
 
-.code-strip__duration,
 .code-strip__accidental {
   color: var(--ivory-3);
   font-size: 9px;
   letter-spacing: .025em;
   line-height: 1;
-}
-
-.code-strip__duration-bar {
-  width: calc(6px + (var(--code-strip-duration) * 34px));
-  height: 3px;
-  margin-bottom: 2px;
-  background: var(--ivory-3);
-  opacity: .7;
 }
 
 .code-strip__stack-duration {
@@ -321,8 +343,25 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   text-align: center;
 }
 
-.code-strip--duration-distance .code-strip__event {
-  margin-inline-end: calc(2px + (var(--code-strip-duration) * 34px));
+.code-strip__duration-marks {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  min-height: 5px;
+}
+
+.code-strip__duration-mark {
+  width: 2px;
+  height: 3px;
+  background: var(--ivory-4);
+  opacity: .72;
+}
+
+.code-strip__duration-mark--beat {
+  height: 5px;
+  background: var(--ivory-2);
+  opacity: .92;
 }
 
 .code-strip__bracket {

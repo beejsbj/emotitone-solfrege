@@ -53,13 +53,12 @@ describe("CodeStrip composition", () => {
   it("keeps Rest local, durationless, and controlled from Ink to Ivory", () => {
     const wrapper = mount(CodeStrip, {
       props: {
-        durationMode: "inline",
+        durationMode: "stacked",
         tokens: [{ type: "rest", duration: "@0.5", progress: 1.4 }],
       },
     });
 
     expect(wrapper.find(".code-strip__rest-mark").text()).toBe("~");
-    expect(wrapper.find(".code-strip__duration").exists()).toBe(false);
     expect(wrapper.find(".code-strip__stack-duration").exists()).toBe(false);
     expect(wrapper.find(".code-strip__rest").attributes("style")).toContain("--code-strip-progress: 1");
     expect(wrapper.find(".code-strip__rest-fill").exists()).toBe(true);
@@ -68,28 +67,37 @@ describe("CodeStrip composition", () => {
   it("treats duration presentation as a strip-level comparison", async () => {
     const wrapper = mount(CodeStrip, {
       props: {
-        durationMode: "inline",
+        durationMode: "stacked",
         tokens: [{ type: "note", note: "do", text: "Do", duration: "@0.5" }],
       },
     });
 
-    expect(wrapper.find(".code-strip__duration").text()).toBe("@0.5");
-
-    await wrapper.setProps({ durationMode: "stacked" });
-    expect(wrapper.find(".code-strip__duration").exists()).toBe(false);
     expect(wrapper.find(".code-strip__stack-duration").text()).toBe("@0.5");
 
     await wrapper.setProps({ durationMode: "bar" });
-    expect(wrapper.find(".code-strip__duration-bar").exists()).toBe(true);
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(8);
+    expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(2);
 
-    await wrapper.setProps({ durationMode: "distance" });
-    expect(wrapper.classes()).toContain("code-strip--duration-distance");
-    expect(wrapper.find(".code-strip__event").attributes("style")).toContain("--code-strip-duration: 0.5");
+    await wrapper.setProps({ timeSignature: "3/4" });
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(6);
 
     await wrapper.setProps({ durationMode: "hidden" });
-    expect(wrapper.find(".code-strip__duration").exists()).toBe(false);
     expect(wrapper.find(".code-strip__stack-duration").exists()).toBe(false);
-    expect(wrapper.find(".code-strip__duration-bar").exists()).toBe(false);
+    expect(wrapper.find(".code-strip__duration-marks").exists()).toBe(false);
+  });
+
+  it("shows meter-aware duration marks for Rest without printing its duration", () => {
+    const wrapper = mount(CodeStrip, {
+      props: {
+        durationMode: "bar",
+        timeSignature: "4/4",
+        tokens: [{ type: "rest", duration: "@0.25", progress: .4 }],
+      },
+    });
+
+    expect(wrapper.find(".code-strip__stack-duration").exists()).toBe(false);
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(4);
+    expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(1);
   });
 
   it("exposes density without changing notation anatomy", async () => {

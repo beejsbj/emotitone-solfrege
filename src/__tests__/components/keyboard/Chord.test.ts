@@ -160,6 +160,29 @@ describe("Chord compound", () => {
     expect(chordSource).not.toContain("color-mix");
   });
 
+  it("preserves supplied voicing order while each member progresses independently", () => {
+    const voicing = [
+      { ...triad[2], progress: .15 },
+      { ...triad[0], progress: .9 },
+      { ...triad[1], progress: .45 },
+    ];
+    const wrapper = mount(Chord, {
+      props: { members: voicing, display: "notes", symbol: "C/G" },
+    });
+
+    expect(wrapper.findAllComponents(Note).map((note) => note.props("rawPitch"))).toEqual([
+      "G4",
+      "C4",
+      "E4",
+    ]);
+    expect(wrapper.findAll(".chord__cluster-member").map((member) => member.attributes("style")))
+      .toEqual([
+        "--chord-member-surface: member-surface-4; --chord-member-progress: 0.15;",
+        "--chord-member-surface: member-surface-0; --chord-member-progress: 0.9;",
+        "--chord-member-surface: member-surface-2; --chord-member-progress: 0.45;",
+      ]);
+  });
+
   it("consumes one shared paper material recipe without changing Note styling", () => {
     expect(noteSource).toContain("background: var(--paper-surface-sheen)");
     expect(chordSource).toContain("background: var(--paper-surface-sheen)");

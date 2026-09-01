@@ -20,18 +20,15 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid id="code-strip-duration" title="Duration &mdash; Same events, five treatments">
-      <VariantCell caption="Inline &middot; textual" stage="ink3">
-        <CodeStrip duration-mode="inline" :tokens="durationSequence" />
-      </VariantCell>
+    <VariantGrid id="code-strip-duration" title="Duration &mdash; Text, meter marks, or hidden">
       <VariantCell caption="Stacked &middot; textual" stage="ink3">
         <CodeStrip duration-mode="stacked" :tokens="durationSequence" />
       </VariantCell>
-      <VariantCell caption="Distance &middot; proportional space" stage="ink3">
-        <CodeStrip duration-mode="distance" :tokens="durationSequence" />
+      <VariantCell caption="Bar &middot; 4/4 meter marks &middot; Rest included" stage="ink3">
+        <CodeStrip duration-mode="bar" time-signature="4/4" :tokens="durationSequence" />
       </VariantCell>
-      <VariantCell caption="Bar &middot; proportional mark" stage="ink3">
-        <CodeStrip duration-mode="bar" :tokens="durationSequence" />
+      <VariantCell caption="Bar &middot; 3/4 meter marks &middot; Rest included" stage="ink3">
+        <CodeStrip duration-mode="bar" time-signature="3/4" :tokens="durationSequence" />
       </VariantCell>
       <VariantCell caption="Hidden &middot; rhythm unstamped" stage="ink3">
         <CodeStrip duration-mode="hidden" :tokens="durationSequence" />
@@ -202,7 +199,7 @@ const features = [
   { label: "Chord", value: "symbol → fused · notes → clustered" },
   { label: "Rest", value: "Ink paper surface · Ivory bottom-to-top fill · no duration tag" },
   { label: "Progress", value: "Ink reveals unchanged music color · controlled 0–1 · 72ms linear response" },
-  { label: "Duration", value: "inline, stacked, distance, bar, or hidden" },
+  { label: "Duration", value: "stacked text, time-signature marks, or hidden" },
   { label: "Density", value: "dense, default, or spaced" },
   { label: "Boundary", value: "no clock, editing, audio, store, follow-scroll, or Strudel ownership" },
   { label: "Source", value: "components/uniques/CodeStrip.vue" },

@@ -864,13 +864,13 @@ export const UNIFIED_CONFIG = {
 
   liveStrip: {
     _meta: {
-      label: "Live Strip",
+      label: "Code Strip",
       icon: "🎼",
-      description: "Workspace sketch strip display settings",
+      description: "Workspace CodeStrip and editable Strudel-line settings",
     },
     enabled: {
       value: true,
-      label: "Enable Live Strip",
+      label: "Enable Code Strip",
     },
     opacity: {
       value: 1,
@@ -898,7 +898,7 @@ export const UNIFIED_CONFIG = {
       label: "Show Rests",
     },
     showStrudelLine: {
-      value: true,
+      value: false,
       label: "Show Code Line",
     },
   },

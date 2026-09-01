@@ -486,7 +486,7 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   beatingShapes: "Beat",
   patterns: "Notes",
   keyboard: "Keys",
-  liveStrip: "Strip",
+  liveStrip: "Code Strip",
 };
 
 const SECTION_TONES: PosterTone[] = [

@@ -6,6 +6,7 @@
         <span
           v-if="token.type === 'note'"
           class="code-strip__event code-strip__event--note"
+          :data-code-strip-index="tokenIndex"
         >
           <span
             class="code-strip__event-line"
@@ -37,6 +38,7 @@
         <span
           v-else-if="token.type === 'chord'"
           class="code-strip__event code-strip__event--chord"
+          :data-code-strip-index="tokenIndex"
         >
           <span
             class="code-strip__event-line"
@@ -72,6 +74,7 @@
         <span
           v-else-if="token.type === 'rest'"
           class="code-strip__event code-strip__event--rest"
+          :data-code-strip-index="tokenIndex"
         >
           <span
             class="code-strip__event-line"
@@ -109,7 +112,12 @@ import { computed } from "vue";
 import Chord from "@/components/compounds/Chord.vue";
 import type { ChordDisplay, ChordMember } from "@/components/compounds/Chord.vue";
 import Note from "@/components/primatives/Note.vue";
-import type { NoteGeometry, NoteLabel } from "@/components/primatives/Note.vue";
+import type {
+  NoteGeometry,
+  NoteLabel,
+  NoteSurfaceStyle,
+} from "@/components/primatives/Note.vue";
+import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type CodeStripNote = "do" | "re" | "mi" | "fa" | "sol" | "la" | "ti";
 export type CodeStripGlyph = "syl" | "deg" | "raw";
@@ -130,6 +138,12 @@ export interface CodeStripNoteToken {
   rawPitch?: string;
   scaleIndex?: number;
   octave?: number;
+  mode?: MusicalMode;
+  musicKey?: ChromaticNote;
+  surfaceStyle?: NoteSurfaceStyle;
+  isAccidental?: boolean | null;
+  keyBrightness?: number;
+  keySaturation?: number;
 }
 
 export interface CodeStripChordToken {
@@ -157,6 +171,7 @@ const props = withDefaults(
     durationMode?: CodeStripDurationMode;
     timeSignature?: string;
     wrapped?: boolean;
+    scrollable?: boolean;
     showChevron?: boolean;
     ariaLabel?: string;
   }>(),
@@ -165,6 +180,7 @@ const props = withDefaults(
     durationMode: "stacked",
     timeSignature: "4/4",
     wrapped: false,
+    scrollable: false,
     showChevron: true,
     ariaLabel: "Pattern notation",
   },
@@ -175,6 +191,7 @@ const stripClasses = computed(() => [
   `code-strip--${props.density}`,
   `code-strip--duration-${props.durationMode}`,
   { "code-strip--wrapped": props.wrapped },
+  { "code-strip--scrollable": props.scrollable },
 ]);
 
 const clampProgress = (progress: number | undefined) => {
@@ -237,6 +254,12 @@ const noteProps = (token: CodeStripNoteToken) => {
     rawPitch: token.rawPitch ?? (primary === "raw" ? token.text : ""),
     scaleIndex: token.scaleIndex ?? noteOrder.indexOf(token.note),
     octave: token.octave ?? 4,
+    mode: token.mode,
+    musicKey: token.musicKey,
+    surfaceStyle: token.surfaceStyle,
+    accidental: token.isAccidental,
+    keyBrightness: token.keyBrightness,
+    keySaturation: token.keySaturation,
     sounding: token.lit,
   };
 };
@@ -421,6 +444,16 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 .code-strip--wrapped .code-strip__sequence {
   flex-wrap: wrap;
   row-gap: 5px;
+}
+
+.code-strip--scrollable .code-strip__sequence {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.code-strip--scrollable .code-strip__sequence::-webkit-scrollbar {
+  display: none;
 }
 
 .code-strip--dense {

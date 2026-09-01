@@ -24,7 +24,20 @@ describe("CodeStrip composition", () => {
     const wrapper = mount(CodeStrip, {
       props: {
         tokens: [
-          { type: "note", note: "mi", text: "3̂", glyph: "deg", lit: true, progress: .7 },
+          {
+            type: "note",
+            note: "mi",
+            text: "3̂",
+            glyph: "deg",
+            lit: true,
+            progress: .7,
+            mode: "dorian",
+            musicKey: "D",
+            surfaceStyle: "monochrome",
+            isAccidental: true,
+            keyBrightness: .8,
+            keySaturation: .7,
+          },
           { type: "rest", duration: "@0.25", progress: .4 },
           { type: "chord", symbol: "C", members: chordMembers, display: "notes" },
           { type: "note", note: "sol", text: "G", glyph: "raw", accidental: "#" },
@@ -40,6 +53,12 @@ describe("CodeStrip composition", () => {
       proportion: "glyph",
       sounding: true,
       scaleIndex: 2,
+      mode: "dorian",
+      musicKey: "D",
+      surfaceStyle: "monochrome",
+      accidental: true,
+      keyBrightness: .8,
+      keySaturation: .7,
     });
     expect(notes[0].attributes("shape")).toBeUndefined();
     expect(wrapper.findComponent(Chord).props()).toMatchObject({
@@ -48,6 +67,8 @@ describe("CodeStrip composition", () => {
       proportion: "compact",
     });
     expect(wrapper.find(".code-strip__accidental").text()).toBe("#");
+    expect(wrapper.findAll("[data-code-strip-index]").map((event) => event.attributes("data-code-strip-index")))
+      .toEqual(["0", "1", "2", "3"]);
   });
 
   it("keeps Rest local, durationless, and controlled from Ink to Ivory", () => {
@@ -119,5 +140,20 @@ describe("CodeStrip composition", () => {
     await wrapper.setProps({ density: "spaced" });
     expect(wrapper.classes()).toContain("code-strip--spaced");
     expect(wrapper.findAllComponents(Note)).toHaveLength(1);
+  });
+
+  it("exposes a production scroll surface without changing the default specimen", () => {
+    const clipped = mount(CodeStrip, {
+      props: { tokens: [{ type: "note", note: "do", text: "Do" }] },
+    });
+    const scrollable = mount(CodeStrip, {
+      props: {
+        scrollable: true,
+        tokens: [{ type: "note", note: "do", text: "Do" }],
+      },
+    });
+
+    expect(clipped.classes()).not.toContain("code-strip--scrollable");
+    expect(scrollable.classes()).toContain("code-strip--scrollable");
   });
 });

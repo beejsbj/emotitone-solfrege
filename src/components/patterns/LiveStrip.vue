@@ -8,6 +8,7 @@ import * as StrudelMini from "@strudel/mini";
 import * as StrudelTonal from "@strudel/tonal";
 import * as StrudelWebAudio from "@strudel/webaudio";
 import { transpiler } from "@strudel/transpiler";
+import CodeStrip from "@/components/uniques/CodeStrip.vue";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { usePatternsStore } from "@/stores/patterns";
@@ -29,6 +30,7 @@ import {
 import type { KeyboardConfig } from "@/types/visual";
 import type { LogNote, PatternNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
+import { buildLiveCodeStripFrame } from "./liveCodeStripAdapter";
 
 interface StrudelMirrorInstance {
   setCode: (code: string) => void;
@@ -40,12 +42,6 @@ interface StrudelMirrorInstance {
   editor?: unknown;
   view?: unknown;
 }
-
-type Token = {
-  text: string;
-  color: string | null;
-  isRest: boolean;
-};
 
 const EMPTY_EDITOR_CODE = "// Play or load a pattern to see it in Strudel.";
 
@@ -63,6 +59,7 @@ const notationRef = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
 const isBooting = ref(true);
 const mirror = ref<StrudelMirrorInstance | null>(null);
+const playbackPhase = ref<number | null>(null);
 let followLoopFrame: number | null = null;
 let followTargetScrollLeft = 0;
 let followPlaybackActive = false;
@@ -91,6 +88,20 @@ const highlightOptions = computed(() => ({
   noteSkins: noteSkins.value,
 }));
 const barMs = computed(() => (60000 / patternsStore.currentSketchMeta.bpm) * 4);
+const codeStripFrame = computed(() =>
+  buildLiveCodeStripFrame({
+    notes: patternsStore.isStripCleared ? [] : patternsStore.currentSketchNotes,
+    mode: patternsStore.currentSketchMeta.mode,
+    musicKey: patternsStore.currentSketchMeta.key,
+    notation: liveStripConfig.value.notation,
+    showRests: liveStripConfig.value.showRests,
+    barMs: barMs.value,
+    playbackPhase: playbackPhase.value,
+    surfaceStyle: keyboardConfig.value.surfaceStyle,
+    keyBrightness: keyboardConfig.value.keyBrightness,
+    keySaturation: keyboardConfig.value.keySaturation,
+  })
+);
 
 const generatedCode = computed(() => {
   if (patternsStore.isStripCleared) {
@@ -115,24 +126,6 @@ const generatedCode = computed(() => {
 
 function solfegeName(scaleIndex: number, mode: string): string {
   return getSolfegeNameForMode(mode as MusicalMode, scaleIndex);
-}
-
-function tokenText(note: PatternNote): string {
-  const notation = liveStripConfig.value.notation;
-  if (notation === "note") {
-    return note.note;
-  }
-
-  if (notation === "degree") {
-    return String(
-      normalizeScaleIndex(
-        patternsStore.currentSketchMeta.mode as MusicalMode,
-        note.scaleIndex
-      ) + 1
-    );
-  }
-
-  return solfegeName(note.scaleIndex, patternsStore.currentSketchMeta.mode);
 }
 
 function keyTextColorValue(
@@ -206,60 +199,6 @@ function buildNoteSkin(
   };
 }
 
-const displayTokens = computed((): Token[] => {
-  if (patternsStore.isStripCleared) {
-    return [];
-  }
-
-  const notes = patternsStore.currentSketchNotes;
-  if (!notes.length) {
-    return [];
-  }
-
-  const origin = notes[0].pressTime;
-  const tokens: Token[] = [];
-  let cursor = 0;
-
-  for (const note of notes) {
-    const start = note.pressTime - origin;
-    const duration = Math.max(1, note.duration);
-    const gap = start - cursor;
-
-    if (gap > 50) {
-      const restRatio = parseFloat((gap / barMs.value).toFixed(4));
-      tokens.push({
-        text: `~@${restRatio}`,
-        color: null,
-        isRest: true,
-      });
-    }
-
-    const durationRatio = parseFloat((duration / barMs.value).toFixed(4));
-    const durationSuffix = durationRatio === 1 ? "" : `@${durationRatio}`;
-    const tokenLabel = tokenText(note);
-    const color = getStaticPrimaryColorByScaleIndex(
-      note.scaleIndex,
-      patternsStore.currentSketchMeta.mode,
-      patternsStore.currentSketchMeta.key,
-      note.octave
-    );
-
-    tokens.push({
-      text: `${tokenLabel}${durationSuffix}`,
-      color,
-      isRest: false,
-    });
-
-    cursor = start + duration;
-  }
-
-  if (!liveStripConfig.value.showRests) {
-    return tokens.filter((token) => !token.isRest);
-  }
-
-  return tokens;
-});
-
 function getMirrorView(instance: StrudelMirrorInstance | null): EditorView | undefined {
   return (instance?.editor ?? instance?.view) as EditorView | undefined;
 }
@@ -293,25 +232,9 @@ function syncMirrorCode(code: string) {
 }
 
 function followActivePlayback() {
-  const view = getMirrorView(mirror.value);
-  const root = editorRoot.value;
-  if (!view || !root || view.hasFocus) {
-    return;
-  }
-
-  const scroller = root.querySelector<HTMLElement>(".cm-scroller");
-  const activeTokens = Array.from(
-    root.querySelectorAll<HTMLElement>(".cm-live-strip-token--active[data-follow-rank]")
-  );
-  const activeToken = activeTokens.reduce<HTMLElement | null>((latest, token) => {
-    if (!latest) {
-      return token;
-    }
-
-    const latestRank = Number(latest.dataset.followRank ?? Number.NEGATIVE_INFINITY);
-    const tokenRank = Number(token.dataset.followRank ?? Number.NEGATIVE_INFINITY);
-    return tokenRank >= latestRank ? token : latest;
-  }, null);
+  const surface = getFollowSurface();
+  const scroller = surface?.scroller;
+  const activeToken = surface?.activeToken;
   if (!scroller || !activeToken) {
     return;
   }
@@ -332,13 +255,11 @@ function followActivePlayback() {
   const step = () => {
     followLoopFrame = null;
 
-    const followView = getMirrorView(mirror.value);
-    const followRoot = editorRoot.value;
-    if (!followPlaybackActive || !followView || !followRoot || followView.hasFocus) {
+    if (!followPlaybackActive) {
       return;
     }
 
-    const followScroller = followRoot.querySelector<HTMLElement>(".cm-scroller");
+    const followScroller = getFollowSurface()?.scroller;
     if (!followScroller) {
       return;
     }
@@ -353,6 +274,44 @@ function followActivePlayback() {
   };
 
   followLoopFrame = requestAnimationFrame(step);
+}
+
+function getFollowSurface() {
+  if (!liveStripConfig.value.showStrudelLine) {
+    const root = notationRef.value;
+    const tokenIndex = codeStripFrame.value.activeTokenIndex;
+    if (!root || tokenIndex == null) return null;
+
+    return {
+      scroller: root.querySelector<HTMLElement>(".code-strip__sequence"),
+      activeToken: root.querySelector<HTMLElement>(
+        `[data-code-strip-index="${tokenIndex}"]`
+      ),
+    };
+  }
+
+  const view = getMirrorView(mirror.value);
+  const root = editorRoot.value;
+  if (!view || !root || view.hasFocus) return null;
+
+  const activeTokens = Array.from(
+    root.querySelectorAll<HTMLElement>(".cm-live-strip-token--active[data-follow-rank]")
+  );
+  const activeToken = activeTokens.reduce<HTMLElement | null>((latest, token) => {
+    if (!latest) return token;
+    const latestRank = Number(latest.dataset.followRank ?? Number.NEGATIVE_INFINITY);
+    const tokenRank = Number(token.dataset.followRank ?? Number.NEGATIVE_INFINITY);
+    return tokenRank >= latestRank ? token : latest;
+  }, null);
+
+  return {
+    scroller: root.querySelector<HTMLElement>(".cm-scroller"),
+    activeToken,
+  };
+}
+
+function codeStripScroller() {
+  return notationRef.value?.querySelector<HTMLElement>(".code-strip__sequence") ?? null;
 }
 
 onMounted(async () => {
@@ -381,17 +340,19 @@ onMounted(async () => {
       },
       onDraw: (haps: Array<{ isActive?: (time: unknown) => boolean }>, time: number) => {
         const activeHaps = haps.filter((hap) => hap?.isActive?.(time));
+        playbackPhase.value = Number(time.valueOf());
         const view = getMirrorView(mirror.value);
         if (view) {
           highlightPlaybackLocations(view, time, activeHaps as never[]);
         }
-        followActivePlayback();
+        void nextTick(followActivePlayback);
       },
       onToggle: (started: boolean) => {
         setPlaying(started);
         followPlaybackActive = started;
 
         if (!started) {
+          playbackPhase.value = null;
           resetPlaybackFollow();
           if (followLoopFrame != null) {
             cancelAnimationFrame(followLoopFrame);
@@ -464,6 +425,7 @@ onMounted(async () => {
 
 watch(generatedCode, (nextCode) => {
   resetPlaybackFollow();
+  playbackPhase.value = null;
   syncMirrorCode(nextCode);
 });
 
@@ -496,8 +458,9 @@ watch(
   () => patternsStore.currentWorkingNotes.length,
   async () => {
     await nextTick();
-    if (notationRef.value) {
-      notationRef.value.scrollLeft = notationRef.value.scrollWidth;
+    const scroller = codeStripScroller();
+    if (scroller) {
+      scroller.scrollLeft = scroller.scrollWidth;
     }
   }
 );
@@ -506,8 +469,9 @@ watch(
   () => patternsStore.loadedBaseNotes.length,
   async () => {
     await nextTick();
-    if (notationRef.value) {
-      notationRef.value.scrollLeft = 0;
+    const scroller = codeStripScroller();
+    if (scroller) {
+      scroller.scrollLeft = 0;
     }
   }
 );
@@ -548,18 +512,13 @@ onBeforeUnmount(() => {
       class="live-strip__supplement"
       :style="{ opacity: liveStripConfig.opacity }"
     >
-      <div v-if="displayTokens.length" ref="notationRef" class="notation-bar">
-        <div class="notation-tokens">
-          <span
-            v-for="(token, index) in displayTokens"
-            :key="index"
-            class="token"
-            :class="token.isRest ? 'token--rest' : 'token--note'"
-            :style="token.color ? { backgroundColor: token.color } : {}"
-          >
-            {{ token.text }}
-          </span>
-        </div>
+      <div v-if="codeStripFrame.tokens.length" ref="notationRef" class="live-strip__code-strip">
+        <CodeStrip
+          :tokens="codeStripFrame.tokens"
+          duration-mode="stacked"
+          time-signature="4/4"
+          scrollable
+        />
       </div>
       <div v-else class="empty-hint">play something…</div>
 
@@ -591,52 +550,12 @@ onBeforeUnmount(() => {
 }
 
 .live-strip__supplement {
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(180deg, hsla(0, 0%, 7%, 0.96), hsla(0, 0%, 4%, 0.98));
-  border: 1px solid hsla(0, 0%, 100%, 0.06);
-  border-radius: 6px;
+  min-width: 0;
   overflow: hidden;
 }
 
-.notation-bar {
-  overflow-x: auto;
+.live-strip__code-strip {
   min-width: 0;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.notation-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.notation-tokens {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.35rem 0.5rem;
-  width: max-content;
-  align-items: center;
-}
-
-.token {
-  display: inline-flex;
-  align-items: center;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
-  padding: 0.2rem 0.35rem;
-  border-radius: 3px;
-}
-
-.token--note {
-  color: hsla(0, 0%, 100%, 0.92);
-}
-
-.token--rest {
-  color: hsla(0, 0%, 100%, 0.2);
-  background-color: hsla(0, 0%, 100%, 0.05);
-  font-weight: 400;
 }
 
 .empty-hint {

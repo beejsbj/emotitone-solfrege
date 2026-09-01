@@ -2,45 +2,65 @@
   <AnatomyDisplay
     title="Chord &middot; Musical Compound"
     :features="features"
-    caption="Chord is a noninteractive musical group. Fused keeps one continuous surface while independent member bands expose articulation; clustered composes the accepted Note primitive at zero gap."
+    caption="Chord has two coherent displays: one paper-cut fused surface for a chord symbol, or a zero-gap cluster of complete Note primitives. Both reveal their unchanged music colors upward from Ink."
   >
     <template #hero>
       <Chord
         :members="heroMembers"
-        structure="fused"
-        identity="symbol"
+        display="symbol"
         symbol="Cmaj7"
         accessible-name="C major seventh chord, rolled attack"
         proportion="wide"
+        geometry="offcut"
       />
     </template>
 
-    <VariantGrid title="Structure × identity">
-      <VariantCell caption="Fused · symbol · C major seventh" stage="ink3">
+    <VariantGrid title="Display">
+      <VariantCell caption="Symbol · fused paper surface" stage="ink3">
         <Chord
           :members="progress(cMajorSeven, [.86, .86, .86, .86])"
-          structure="fused"
-          identity="symbol"
+          display="symbol"
           symbol="Cmaj7"
           accessible-name="C major seventh chord"
         />
       </VariantCell>
-      <VariantCell caption="Fused · members · C major triad" stage="ink3">
-        <Chord
-          :members="progress(cMajor, [.2, .58, .92])"
-          structure="fused"
-          identity="members"
-          symbol="C"
-          accessible-name="C major chord, C E G"
-        />
-      </VariantCell>
-      <VariantCell caption="Clustered · members · D minor triad" stage="ink3">
+      <VariantCell caption="Notes · zero-gap cluster" stage="ink3">
         <Chord
           :members="progress(dMinor, [.72, .38, .94])"
-          structure="clustered"
-          identity="members"
+          display="notes"
           symbol="Dm"
           accessible-name="D minor chord, D F A"
+        />
+      </VariantCell>
+    </VariantGrid>
+
+    <VariantGrid title="Whole-surface geometry">
+      <VariantCell caption="Tile · shared geometry token" stage="ink3">
+        <Chord
+          :members="progress(cMajorSeven, [.76, .76, .76, .76])"
+          symbol="Cmaj7"
+          geometry="tile"
+        />
+      </VariantCell>
+      <VariantCell caption="Offcut · default paper chord" stage="ink3">
+        <Chord
+          :members="progress(gDominantSeven, [.76, .76, .76, .76])"
+          symbol="G7"
+          geometry="offcut"
+        />
+      </VariantCell>
+      <VariantCell caption="Tab · directional cut" stage="ink3">
+        <Chord
+          :members="progress(dMinor, [.76, .76, .76])"
+          symbol="Dm"
+          geometry="tab"
+        />
+      </VariantCell>
+      <VariantCell caption="Pill · rounded Note-family edge" stage="ink3">
+        <Chord
+          :members="progress(eMinor, [.76, .76, .76])"
+          symbol="Em"
+          geometry="pill"
         />
       </VariantCell>
     </VariantGrid>
@@ -49,7 +69,6 @@
       <VariantCell caption="Compact · G dominant seventh" stage="ink3">
         <Chord
           :members="progress(gDominantSeven, [.76, .76, .76, .76])"
-          identity="symbol"
           symbol="G7"
           accessible-name="G dominant seventh chord"
           proportion="compact"
@@ -58,7 +77,6 @@
       <VariantCell caption="Balanced · G dominant seventh" stage="ink3">
         <Chord
           :members="progress(gDominantSeven, [.76, .76, .76, .76])"
-          identity="symbol"
           symbol="G7"
           accessible-name="G dominant seventh chord"
           proportion="balanced"
@@ -67,7 +85,6 @@
       <VariantCell caption="Wide · G dominant seventh" stage="ink3">
         <Chord
           :members="progress(gDominantSeven, [.76, .76, .76, .76])"
-          identity="symbol"
           symbol="G7"
           accessible-name="G dominant seventh chord"
           proportion="wide"
@@ -76,48 +93,43 @@
     </VariantGrid>
 
     <VariantGrid title="Articulation choreography">
-      <VariantCell caption="Simultaneous attack · Em triad" stage="ink3">
+      <VariantCell caption="Simultaneous attack · fused Em" stage="ink3">
         <Chord
           :members="progress(eMinor, [.68, .68, .68])"
-          identity="members"
           symbol="Em"
           accessible-name="E minor chord, simultaneous attack"
         />
       </VariantCell>
-      <VariantCell caption="Rolled attack · Cmaj7" stage="ink3">
+      <VariantCell caption="Rolled attack · fused Cmaj7" stage="ink3">
         <Chord
           :members="progress(cMajorSeven, [1, .72, .42, .16])"
-          identity="members"
           symbol="Cmaj7"
           accessible-name="C major seventh chord, rolled attack"
         />
       </VariantCell>
-      <VariantCell caption="Staggered release · Dm" stage="ink3">
+      <VariantCell caption="Staggered release · clustered Dm" stage="ink3">
         <Chord
           :members="progress(dMinor, [.12, .44, .84])"
-          structure="clustered"
-          identity="members"
+          display="notes"
           symbol="Dm"
           accessible-name="D minor chord, staggered release"
         />
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Distinct partial progress">
-      <VariantCell caption="Fused · 18 / 43 / 71 / 100%" stage="ink3">
+    <VariantGrid title="Ink → music-color progress">
+      <VariantCell caption="Fused symbol · 18 / 43 / 71 / 100%" stage="ink3">
         <Chord
           :members="progress(gDominantSeven, [.18, .43, .71, 1])"
-          identity="members"
           symbol="G7"
           accessible-name="G dominant seventh chord, distinct partial progress"
           proportion="wide"
         />
       </VariantCell>
-      <VariantCell caption="Clustered · 18 / 43 / 71 / 100%" stage="ink3">
+      <VariantCell caption="Clustered Notes · 18 / 43 / 71 / 100%" stage="ink3">
         <Chord
           :members="progress(gDominantSeven, [.18, .43, .71, 1])"
-          structure="clustered"
-          identity="members"
+          display="notes"
           symbol="G7"
           accessible-name="G dominant seventh chord, distinct partial progress"
           proportion="wide"
@@ -225,12 +237,12 @@ onBeforeUnmount(() => {
 });
 
 const features = [
-  { label: "Structure", value: "fused continuous bands or zero-gap clustered Notes" },
-  { label: "Identity", value: "one chord symbol or the individual member labels" },
-  { label: "Color", value: "one runtime music-color band per member note" },
-  { label: "Progress", value: "controlled 0–1 per member, bottom to top, 72ms linear" },
-  { label: "Scale", value: "compact, balanced, and wide responsive CSS proportions" },
-  { label: "Semantics", value: "named group; inert visual descendants; no controls" },
+  { label: "Display", value: "symbol means one fused surface; notes means a zero-gap Note cluster" },
+  { label: "Material", value: "shared Note paper sheen, cut geometry, and key-depth shadow" },
+  { label: "Geometry", value: "standard, tile, offcut, tab, or pill on the whole chord family" },
+  { label: "Color", value: "runtime music color remains unchanged for octave meaning" },
+  { label: "Progress", value: "Ink reveals music color bottom-to-top, controlled 0–1 per member" },
+  { label: "Motion", value: "72ms linear transform response; Reduced Motion freezes the guide loop" },
   { label: "Boundary", value: "no store, interaction, audio, haptics, or playback clock" },
 ];
 </script>

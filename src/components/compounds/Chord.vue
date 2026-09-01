@@ -4,11 +4,11 @@
     :class="chordClasses"
     role="group"
     :aria-label="resolvedAccessibleName"
-    :data-structure="structure"
-    :data-identity="identity"
+    :data-display="display"
     :data-proportion="proportion"
+    :data-geometry="geometry"
   >
-    <span v-if="structure === 'fused'" class="chord__fused" aria-hidden="true">
+    <span v-if="display === 'symbol'" class="chord__fused" aria-hidden="true">
       <span
         v-for="(member, index) in resolvedMembers"
         :key="memberKey(member, index)"
@@ -16,11 +16,8 @@
         :style="member.style"
       >
         <span class="chord__fused-progress"></span>
-        <span v-if="identity === 'members'" class="chord__member-label">
-          {{ member.label }}
-        </span>
       </span>
-      <span v-if="identity === 'symbol'" class="chord__symbol">{{ symbol }}</span>
+      <span class="chord__symbol">{{ symbol }}</span>
     </span>
 
     <span v-else class="chord__cluster" aria-hidden="true">
@@ -32,9 +29,6 @@
       >
         <Note v-bind="noteProps(member.source)" />
       </span>
-      <span v-if="identity === 'symbol'" class="chord__symbol chord__symbol--clustered">
-        {{ symbol }}
-      </span>
     </span>
   </span>
 </template>
@@ -43,14 +37,14 @@
 import { computed } from "vue";
 import Note from "@/components/primatives/Note.vue";
 import type {
+  NoteGeometry,
   NoteLabel,
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
-export type ChordStructure = "fused" | "clustered";
-export type ChordIdentity = "symbol" | "members";
+export type ChordDisplay = "symbol" | "notes";
 export type ChordProportion = "compact" | "balanced" | "wide";
 
 export interface ChordMember {
@@ -75,17 +69,17 @@ export interface ChordMember {
 const props = withDefaults(
   defineProps<{
     members: ChordMember[];
-    structure?: ChordStructure;
-    identity?: ChordIdentity;
+    display?: ChordDisplay;
     symbol?: string;
     proportion?: ChordProportion;
+    geometry?: NoteGeometry;
     accessibleName?: string;
   }>(),
   {
-    structure: "fused",
-    identity: "members",
+    display: "symbol",
     symbol: "Chord",
     proportion: "balanced",
+    geometry: "offcut",
     accessibleName: undefined,
   },
 );
@@ -93,9 +87,9 @@ const props = withDefaults(
 const { getKeyBackground } = useColorSystem();
 
 const chordClasses = computed(() => [
-  `chord--${props.structure}`,
-  `chord--identity-${props.identity}`,
+  `chord--display-${props.display}`,
   `chord--proportion-${props.proportion}`,
+  `chord--geometry-${props.geometry}`,
 ]);
 
 const clampProgress = (progress: number | undefined) => {
@@ -107,13 +101,6 @@ const isAccidental = (member: ChordMember) =>
   typeof member.accidental === "boolean"
     ? member.accidental
     : /[#b♯♭]/.test(member.rawPitch ?? "");
-
-const displayLabel = (member: ChordMember) => {
-  const primary = member.primary ?? "syllable";
-  if (primary === "degree") return member.degree ?? "";
-  if (primary === "raw") return member.rawPitch ?? "";
-  return member.syllable ?? "";
-};
 
 const resolvedMembers = computed(() =>
   props.members.map((source) => {
@@ -132,11 +119,9 @@ const resolvedMembers = computed(() =>
 
     return {
       source,
-      label: displayLabel(source),
       style: {
         "--chord-member-surface": colors.background,
-        "--chord-member-primary": colors.primaryColor,
-        "--chord-member-progress": `${clampProgress(source.progress) * 100}%`,
+        "--chord-member-progress": clampProgress(source.progress),
       },
     };
   }),
@@ -149,10 +134,8 @@ const noteProps = (member: ChordMember) => {
     degree: member.degree,
     rawPitch: member.rawPitch,
     primary,
-    visibleLabels:
-      props.identity === "members"
-        ? (member.visibleLabels ?? [primary])
-        : [],
+    visibleLabels: member.visibleLabels ?? [primary],
+    geometry: props.geometry,
     proportion: "glyph" as const,
     scaleIndex: member.scaleIndex,
     pitchClassIndex: member.pitchClassIndex,
@@ -185,6 +168,8 @@ const resolvedAccessibleName = computed(() => {
 .chord {
   --chord-block-size: clamp(36px, 10cqi, 44px);
   --chord-member-inline-size: calc(var(--chord-block-size) * .75);
+  --chord-clip: var(--clip-offcut);
+  --chord-radius: 0;
   position: relative;
   display: inline-flex;
   box-sizing: border-box;
@@ -204,6 +189,31 @@ const resolvedAccessibleName = computed(() => {
   --chord-block-size: clamp(44px, 12cqi, 54px);
 }
 
+.chord--geometry-standard {
+  --chord-clip: var(--clip-tile);
+  --chord-radius: var(--r-sm);
+}
+
+.chord--geometry-tile {
+  --chord-clip: var(--clip-tile);
+  --chord-radius: 0;
+}
+
+.chord--geometry-offcut {
+  --chord-clip: var(--clip-offcut);
+  --chord-radius: 0;
+}
+
+.chord--geometry-tab {
+  --chord-clip: var(--clip-tab);
+  --chord-radius: 0;
+}
+
+.chord--geometry-pill {
+  --chord-clip: none;
+  --chord-radius: var(--r-pill);
+}
+
 .chord__fused,
 .chord__cluster {
   position: relative;
@@ -216,8 +226,21 @@ const resolvedAccessibleName = computed(() => {
   min-height: var(--chord-block-size);
   overflow: hidden;
   isolation: isolate;
-  border-radius: var(--r-xs);
-  box-shadow: var(--shadow-key), inset 0 0 0 1px var(--hairline);
+  border-radius: var(--chord-radius);
+  background: var(--ink);
+  box-shadow: var(--shadow-key);
+  clip-path: var(--chord-clip);
+}
+
+.chord__fused::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--paper-surface-sheen);
+  mix-blend-mode: overlay;
+  pointer-events: none;
 }
 
 .chord__fused-member {
@@ -228,41 +251,36 @@ const resolvedAccessibleName = computed(() => {
   width: var(--chord-member-inline-size);
   min-width: 0;
   overflow: hidden;
-  background: color-mix(in srgb, var(--chord-member-surface) 42%, var(--ink));
+  background: var(--ink);
 }
 
 .chord__fused-progress {
   position: absolute;
   z-index: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: var(--chord-member-progress);
+  inset: 0;
   background: var(--chord-member-surface);
-  transition: height 72ms linear;
-}
-
-.chord__member-label,
-.chord__symbol {
-  position: relative;
-  z-index: 2;
-  color: var(--ivory);
-  font-family: var(--font-display);
-  font-size: calc(var(--chord-block-size) * .36);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: .02em;
-  text-align: center;
-  text-shadow: 0 1px 1px var(--ink);
-  white-space: nowrap;
+  transform: scaleY(var(--chord-member-progress));
+  transform-origin: bottom center;
+  transition: transform 72ms linear;
+  will-change: transform;
 }
 
 .chord__symbol {
   position: absolute;
+  z-index: 2;
   inset: 0;
   display: grid;
   place-items: center;
-  padding-inline: calc(var(--chord-block-size) * .18);
+  padding-inline: calc(var(--chord-block-size) * .16);
+  color: var(--ivory);
+  font-family: var(--font-display);
+  font-size: clamp(17px, calc(var(--chord-block-size) * .56), 30px);
+  font-weight: 700;
+  line-height: .92;
+  letter-spacing: .01em;
+  text-align: center;
+  text-shadow: 0 1px 1px var(--ink);
+  white-space: nowrap;
 }
 
 .chord__cluster-member {
@@ -271,27 +289,22 @@ const resolvedAccessibleName = computed(() => {
   --note-host-block-size: var(--chord-block-size);
 }
 
-.chord__cluster-member :deep(.note__surface) {
-  background-image:
-    linear-gradient(
-      to top,
-      color-mix(in srgb, var(--chord-member-primary) 72%, var(--ivory)),
-      color-mix(in srgb, var(--chord-member-primary) 72%, var(--ivory))
-    ),
-    linear-gradient(var(--note-surface), var(--note-surface));
-  background-position: bottom, center;
-  background-repeat: no-repeat;
-  background-size: 100% var(--chord-member-progress), 100% 100%;
-  transition: background-size 72ms linear;
-}
-
-.chord__symbol--clustered {
+.chord__cluster-member :deep(.note__surface::before) {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: var(--ink);
+  transform: scaleY(calc(1 - var(--chord-member-progress)));
+  transform-origin: top center;
+  transition: transform 72ms linear;
+  will-change: transform;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .chord__fused-progress,
-  .chord__cluster-member :deep(.note__surface) {
+  .chord__cluster-member :deep(.note__surface::before) {
     transition: none;
   }
 }
@@ -310,7 +323,6 @@ const resolvedAccessibleName = computed(() => {
     background: Highlight;
   }
 
-  .chord__member-label,
   .chord__symbol {
     color: CanvasText;
     text-shadow: none;

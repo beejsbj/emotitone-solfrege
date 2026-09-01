@@ -4,6 +4,7 @@ import Chord from "@/components/compounds/Chord.vue";
 import type { ChordMember } from "@/components/compounds/Chord.vue";
 import Note from "@/components/primatives/Note.vue";
 import chordSource from "@/components/compounds/Chord.vue?raw";
+import noteSource from "@/components/primatives/Note.vue?raw";
 import specimenSource from "@/style-guide/compounds/CompoundChord.vue?raw";
 import styleGuideSource from "@/style-guide/StyleGuide.vue?raw";
 
@@ -61,53 +62,59 @@ describe("Chord compound", () => {
     mocks.getKeyBackground.mockClear();
   });
 
-  it("surfaces the structure, identity, and responsive proportion axes", () => {
-    const combinations = [
-      ["fused", "symbol", "compact"],
-      ["fused", "members", "balanced"],
-      ["clustered", "symbol", "wide"],
-      ["clustered", "members", "compact"],
-    ] as const;
+  it("couples chord symbols to fused surfaces and note identities to clusters", () => {
+    const symbol = mount(Chord, {
+      props: { members: triad, display: "symbol", symbol: "C" },
+    });
+    const notes = mount(Chord, {
+      props: { members: triad, display: "notes", symbol: "C" },
+    });
 
-    for (const [structure, identity, proportion] of combinations) {
-      const wrapper = mount(Chord, {
-        props: { members: triad, structure, identity, proportion, symbol: "C" },
-      });
+    expect(symbol.attributes("data-display")).toBe("symbol");
+    expect(symbol.find(".chord__fused").exists()).toBe(true);
+    expect(symbol.findAllComponents(Note)).toHaveLength(0);
+    expect(symbol.get(".chord__symbol").text()).toBe("C");
 
-      expect(wrapper.attributes()).toMatchObject({
-        "data-structure": structure,
-        "data-identity": identity,
-        "data-proportion": proportion,
-      });
-      expect(wrapper.classes()).toContain(`chord--${structure}`);
-      expect(wrapper.classes()).toContain(`chord--identity-${identity}`);
-      expect(wrapper.classes()).toContain(`chord--proportion-${proportion}`);
-    }
+    expect(notes.attributes("data-display")).toBe("notes");
+    expect(notes.find(".chord__fused").exists()).toBe(false);
+    expect(notes.find(".chord__symbol").exists()).toBe(false);
+    expect(notes.findAllComponents(Note)).toHaveLength(3);
 
-    expect(chordSource).toContain("--chord-block-size");
-    expect(chordSource).toContain("--chord-member-inline-size");
+    expect(chordSource).not.toContain("ChordStructure");
+    expect(chordSource).not.toContain("ChordIdentity");
+    expect(chordSource).not.toContain("chord__member-label");
   });
 
-  it("composes real zero-gap Note instances for clustered structure", () => {
+  it("composes zero-gap glyph Notes and shares the Note geometry family", () => {
     const wrapper = mount(Chord, {
       props: {
         members: triad,
-        structure: "clustered",
-        identity: "members",
+        display: "notes",
         symbol: "C",
+        geometry: "tab",
+        proportion: "compact",
       },
     });
     const notes = wrapper.findAllComponents(Note);
 
+    expect(wrapper.attributes()).toMatchObject({
+      "data-display": "notes",
+      "data-proportion": "compact",
+      "data-geometry": "tab",
+    });
+    expect(wrapper.classes()).toContain("chord--geometry-tab");
     expect(notes).toHaveLength(3);
     expect(notes.map((note) => note.props("proportion"))).toEqual([
       "glyph",
       "glyph",
       "glyph",
     ]);
+    expect(notes.map((note) => note.props("geometry"))).toEqual([
+      "tab",
+      "tab",
+      "tab",
+    ]);
     expect(notes[1].props()).toMatchObject({
-      syllable: "Mi",
-      degree: "III",
       rawPitch: "E4",
       primary: "raw",
       visibleLabels: ["raw"],
@@ -119,43 +126,53 @@ describe("Chord compound", () => {
     expect(chordSource).not.toContain("note__label note__label");
   });
 
-  it("derives independent member colors and clamps controlled progress to 0–1", () => {
+  it("reveals unchanged music color upward from Ink with clamped progress", () => {
     const members: ChordMember[] = [
       { ...triad[0], progress: -.25 },
       { ...triad[1], progress: .375 },
       { ...triad[2], progress: 1.4 },
       { ...triad[0], id: "not-a-number", progress: Number.NaN },
     ];
-    const wrapper = mount(Chord, {
-      props: { members, structure: "fused", identity: "members", symbol: "C7" },
+    const fused = mount(Chord, {
+      props: { members, display: "symbol", symbol: "C7" },
     });
-    const memberStyles = wrapper
+    const memberStyles = fused
       .findAll(".chord__fused-member")
       .map((member) => member.attributes("style"));
 
-    expect(memberStyles[0]).toContain("--chord-member-progress: 0%");
-    expect(memberStyles[1]).toContain("--chord-member-progress: 37.5%");
-    expect(memberStyles[2]).toContain("--chord-member-progress: 100%");
-    expect(memberStyles[3]).toContain("--chord-member-progress: 0%");
+    expect(memberStyles[0]).toContain("--chord-member-progress: 0");
+    expect(memberStyles[1]).toContain("--chord-member-progress: 0.375");
+    expect(memberStyles[2]).toContain("--chord-member-progress: 1");
+    expect(memberStyles[3]).toContain("--chord-member-progress: 0");
     expect(memberStyles[1]).toContain("--chord-member-surface: member-surface-2");
-    expect(memberStyles[2]).toContain("--chord-member-primary: member-primary-4");
     expect(mocks.getKeyBackground).toHaveBeenCalledTimes(4);
 
     const clustered = mount(Chord, {
-      props: { members, structure: "clustered", identity: "members", symbol: "C7" },
+      props: { members, display: "notes", symbol: "C7" },
     });
     expect(clustered.findAll(".chord__cluster-member")[1].attributes("style"))
-      .toContain("--chord-member-progress: 37.5%");
-    expect(chordSource).toContain("transition: height 72ms linear");
-    expect(chordSource).toContain("transition: background-size 72ms linear");
+      .toContain("--chord-member-progress: 0.375");
+
+    expect(chordSource).toContain("background: var(--ink)");
+    expect(chordSource).toContain("transform: scaleY(var(--chord-member-progress))");
+    expect(chordSource).toContain("transform: scaleY(calc(1 - var(--chord-member-progress)))");
+    expect(chordSource).toContain("transition: transform 72ms linear");
+    expect(chordSource).not.toContain("color-mix");
+  });
+
+  it("consumes one shared paper material recipe without changing Note styling", () => {
+    expect(noteSource).toContain("background: var(--paper-surface-sheen)");
+    expect(chordSource).toContain("background: var(--paper-surface-sheen)");
+    expect(chordSource).toContain("clip-path: var(--chord-clip)");
+    expect(chordSource).toContain("box-shadow: var(--shadow-key)");
+    expect(chordSource).toContain("font-size: clamp(17px");
   });
 
   it("is a named noninteractive group with inert visual descendants", () => {
     const wrapper = mount(Chord, {
       props: {
         members: triad,
-        structure: "clustered",
-        identity: "symbol",
+        display: "notes",
         symbol: "C",
         accessibleName: "C major chord",
       },
@@ -169,16 +186,17 @@ describe("Chord compound", () => {
     expect(wrapper.emitted()).toEqual({});
   });
 
-  it("mounts a real-source specimen with the full accepted matrix", () => {
+  it("mounts a real-source specimen with the corrected display and motion matrix", () => {
     expect(styleGuideSource).toContain('id="compound-chord"');
     expect(styleGuideSource).toContain('import CompoundChord from "./compounds/CompoundChord.vue"');
     expect(specimenSource).toContain('import Chord from "@/components/compounds/Chord.vue"');
-    expect(specimenSource).toContain("Structure × identity");
-    expect(specimenSource).toContain("Responsive proportion");
+    expect(specimenSource).toContain("Whole-surface geometry");
+    expect(specimenSource).toContain("Ink → music-color progress");
     expect(specimenSource).toContain("Simultaneous attack");
     expect(specimenSource).toContain("Rolled attack");
     expect(specimenSource).toContain("Staggered release");
-    expect(specimenSource).toContain("Distinct partial progress");
+    expect(specimenSource).not.toContain('identity="members"');
+    expect(specimenSource).not.toContain('structure="fused"');
     expect(specimenSource).toContain("window.requestAnimationFrame");
     expect(specimenSource).toContain("window.cancelAnimationFrame");
     expect(specimenSource).toContain('window.matchMedia("(prefers-reduced-motion: reduce)")');

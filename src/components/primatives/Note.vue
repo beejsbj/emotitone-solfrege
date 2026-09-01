@@ -332,9 +332,7 @@ const ariaLabel = computed(() => {
   border-radius: inherit;
   clip-path: inherit;
   pointer-events: none;
-  background:
-    radial-gradient(110% 60% at 50% 0%, rgba(255, 255, 255, .18), transparent 55%),
-    linear-gradient(180deg, transparent 65%, rgba(0, 0, 0, .22) 100%);
+  background: var(--paper-surface-sheen);
   mix-blend-mode: overlay;
 }
 
@@ -560,9 +558,7 @@ const ariaLabel = computed(() => {
 }
 
 .note--surface-monochrome .note__surface::after {
-  background:
-    radial-gradient(110% 60% at 50% 0%, rgba(255, 255, 255, .12), transparent 55%),
-    linear-gradient(180deg, transparent 65%, rgba(0, 0, 0, .1) 100%);
+  background: var(--paper-surface-sheen-monochrome);
 }
 
 @media (prefers-reduced-motion: reduce) {

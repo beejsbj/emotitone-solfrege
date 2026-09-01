@@ -106,5 +106,10 @@ describe("codeStripMirrorPresentation", () => {
 
     expect(host.querySelector(".cm-code-strip-widget")).toBeNull();
     expect(view.state.doc.toString()).toContain("C#4@0.25");
+
+    view.contentDOM.dispatchEvent(new FocusEvent("blur"));
+    await Promise.resolve();
+
+    expect(host.querySelector(".cm-code-strip-widget .code-strip")).not.toBeNull();
   });
 });

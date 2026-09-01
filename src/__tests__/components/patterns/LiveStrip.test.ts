@@ -132,7 +132,6 @@ beforeEach(() => {
         bpm: 120,
         notation: "solfege",
         showRests: true,
-        showStrudelLine: false,
       },
       keyboard: {
         mainOctave: 4,
@@ -180,12 +179,6 @@ describe("LiveStrip CodeStrip production seam", () => {
         tokens: [expect.objectContaining({ type: "note", rawPitch: "C4" })],
       }),
     );
-
-    mocks.visualConfigStore.config.liveStrip.showStrudelLine = true;
-    await nextTick();
-
-    expect(wrapper.get(".live-strip__editor").attributes("style") ?? "").not.toContain("display: none");
-    expect(wrapper.find(".live-strip__supplement").exists()).toBe(false);
 
     wrapper.unmount();
     expect(mocks.detachEditor).toHaveBeenCalledOnce();

@@ -160,26 +160,35 @@ describe("Chord compound", () => {
     expect(chordSource).not.toContain("color-mix");
   });
 
-  it("preserves supplied voicing order while each member progresses independently", () => {
+  it("uses voicing order for fused bands and press order for clustered Notes", () => {
     const voicing = [
-      { ...triad[2], progress: .15 },
-      { ...triad[0], progress: .9 },
-      { ...triad[1], progress: .45 },
+      { ...triad[0], voicingOrder: 0, pressOrder: 2, progress: .15 },
+      { ...triad[1], voicingOrder: 1, pressOrder: 0, progress: .9 },
+      { ...triad[2], voicingOrder: 2, pressOrder: 1, progress: .45 },
     ];
-    const wrapper = mount(Chord, {
+    const fused = mount(Chord, {
+      props: { members: voicing, display: "symbol", symbol: "C" },
+    });
+    const clustered = mount(Chord, {
       props: { members: voicing, display: "notes", symbol: "C/G" },
     });
 
-    expect(wrapper.findAllComponents(Note).map((note) => note.props("rawPitch"))).toEqual([
+    expect(fused.findAll(".chord__fused-member").map((member) => member.attributes("style")))
+      .toEqual([
+        "--chord-member-surface: member-surface-0; --chord-member-progress: 0.15;",
+        "--chord-member-surface: member-surface-2; --chord-member-progress: 0.9;",
+        "--chord-member-surface: member-surface-4; --chord-member-progress: 0.45;",
+      ]);
+    expect(clustered.findAllComponents(Note).map((note) => note.props("rawPitch"))).toEqual([
+      "E4",
       "G4",
       "C4",
-      "E4",
     ]);
-    expect(wrapper.findAll(".chord__cluster-member").map((member) => member.attributes("style")))
+    expect(clustered.findAll(".chord__cluster-member").map((member) => member.attributes("style")))
       .toEqual([
-        "--chord-member-surface: member-surface-4; --chord-member-progress: 0.15;",
-        "--chord-member-surface: member-surface-0; --chord-member-progress: 0.9;",
-        "--chord-member-surface: member-surface-2; --chord-member-progress: 0.45;",
+        "--chord-member-surface: member-surface-2; --chord-member-progress: 0.9;",
+        "--chord-member-surface: member-surface-4; --chord-member-progress: 0.45;",
+        "--chord-member-surface: member-surface-0; --chord-member-progress: 0.15;",
       ]);
   });
 

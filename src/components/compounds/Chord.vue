@@ -63,12 +63,16 @@ export interface ChordMember {
   accidental?: boolean | null;
   keyBrightness?: number;
   keySaturation?: number;
+  /** Low-to-high visual rank for the fused-symbol display. */
+  voicingOrder?: number;
+  /** Chronological visual rank for the clustered-notes display. */
+  pressOrder?: number;
   progress?: number;
 }
 
 const props = withDefaults(
   defineProps<{
-    /** Preserved as supplied for band and clustered-Note order; onset timing lives independently in each member's progress. */
+    /** Input order is the stable fallback when a display-specific order is absent. */
     members: ChordMember[];
     display?: ChordDisplay;
     symbol?: string;
@@ -103,8 +107,25 @@ const isAccidental = (member: ChordMember) =>
     ? member.accidental
     : /[#b♯♭]/.test(member.rawPitch ?? "");
 
+const orderedMembers = computed(() =>
+  props.members
+    .map((source, inputOrder) => ({ source, inputOrder }))
+    .sort((left, right) => {
+      const leftOrder = props.display === "symbol"
+        ? left.source.voicingOrder
+        : left.source.pressOrder;
+      const rightOrder = props.display === "symbol"
+        ? right.source.voicingOrder
+        : right.source.pressOrder;
+
+      return (leftOrder ?? left.inputOrder) - (rightOrder ?? right.inputOrder) ||
+        left.inputOrder - right.inputOrder;
+    })
+    .map(({ source }) => source),
+);
+
 const resolvedMembers = computed(() =>
-  props.members.map((source) => {
+  orderedMembers.value.map((source) => {
     const colors = getKeyBackground(
       source.scaleIndex ?? 0,
       source.mode ?? "major",
@@ -156,7 +177,7 @@ const memberKey = (member: (typeof resolvedMembers.value)[number], index: number
 const resolvedAccessibleName = computed(() => {
   if (props.accessibleName) return props.accessibleName;
 
-  const memberNames = props.members
+  const memberNames = orderedMembers.value
     .map((member) => member.rawPitch || member.syllable || member.degree)
     .filter(Boolean)
     .join(", ");

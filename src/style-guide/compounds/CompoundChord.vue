@@ -117,6 +117,25 @@
       </VariantCell>
     </VariantGrid>
 
+    <VariantGrid title="Order &mdash; Voicing and press chronology">
+      <VariantCell caption="Fused · bands remain low-to-high voicing" stage="ink3">
+        <Chord
+          :members="orderedCmaj7"
+          display="symbol"
+          symbol="Cmaj7"
+          accessible-name="C major seventh chord, voicing order"
+        />
+      </VariantCell>
+      <VariantCell caption="Clustered · Notes follow press order" stage="ink3">
+        <Chord
+          :members="orderedCmaj7"
+          display="notes"
+          symbol="Cmaj7"
+          accessible-name="C major seventh chord, press order"
+        />
+      </VariantCell>
+    </VariantGrid>
+
     <VariantGrid title="Ink → music-color progress">
       <VariantCell caption="Fused symbol · 18 / 43 / 71 / 100%" stage="ink3">
         <Chord
@@ -182,6 +201,13 @@ const gDominantSeven: ChordNote[] = [
 const progress = (members: ChordNote[], values: number[]): ChordMember[] =>
   members.map((member, index) => ({ ...member, progress: values[index] ?? 0 }));
 
+const orderedCmaj7: ChordMember[] = cMajorSeven.map((member, voicingOrder) => ({
+  ...member,
+  voicingOrder,
+  pressOrder: [2, 0, 3, 1][voicingOrder],
+  progress: [.42, 1, .18, .74][voicingOrder],
+}));
+
 const heroStaticProgress = [1, .78, .52, .24];
 const heroMembers = ref(progress(cMajorSeven, heroStaticProgress));
 const heroPhaseOffsets = [0, .12, .24, .36];
@@ -242,6 +268,7 @@ const features = [
   { label: "Geometry", value: "standard, tile, offcut, tab, or pill on the whole chord family" },
   { label: "Color", value: "runtime music color remains unchanged for octave meaning" },
   { label: "Progress", value: "Ink reveals music color bottom-to-top, controlled 0–1 per member" },
+  { label: "Order", value: "fused bands use voicing order; clustered Notes use press order" },
   { label: "Motion", value: "72ms linear transform response; Reduced Motion freezes the guide loop" },
   { label: "Boundary", value: "no store, interaction, audio, haptics, or playback clock" },
 ];

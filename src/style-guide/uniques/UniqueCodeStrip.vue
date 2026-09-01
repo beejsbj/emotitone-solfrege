@@ -2,249 +2,236 @@
   <AnatomyDisplay
     title="Code Strip &middot; Notation Unique"
     :features="features"
-    caption="CodeStrip is a singular notation artifact that compounds may compose alongside primitives. It owns notation row chrome, note glyph treatments, durations, rests, punctuation, lit state, density, wrapping, and duration bars."
+    caption="CodeStrip is LiveStrip's successor notation surface. It composes Note and Chord, owns Rest, duration presentation, density, punctuation, and controlled temporal fill; playback and editing remain outside this workbench."
   >
     <template #hero>
-      <CodeStrip :tokens="heroTokens" />
+      <CodeStrip :tokens="animatedTokens" />
     </template>
 
-    <VariantGrid id="code-strip-glyph-proportions" title="Accepted glyph &mdash; 3:4 proportion &middot; 20% reduced">
-      <VariantCell caption="Solfège &middot; compact surfaced Note" stage="ink3">
-        <CodeStrip :tokens="ratioTokens" />
+    <VariantGrid id="code-strip-complete-anatomy" title="Anatomy &mdash; Note, Chord, Rest">
+      <VariantCell caption="Fused chord symbol" stage="ink3">
+        <CodeStrip :tokens="fusedSequence" />
       </VariantCell>
-      <VariantCell caption="Scale degree &middot; compact surfaced Note" stage="ink3">
-        <CodeStrip :tokens="ratioDegreeTokens" />
+      <VariantCell caption="Clustered chord notes" stage="ink3">
+        <CodeStrip :tokens="clusteredSequence" />
       </VariantCell>
-      <VariantCell caption="Raw pitch &middot; compact surfaced Note" stage="ink3">
-        <CodeStrip :tokens="ratioRawTokens" />
-      </VariantCell>
-    </VariantGrid>
-
-    <VariantGrid title="Variants &mdash; Display mode">
-      <VariantCell caption="Solfège &middot; Do Re Mi" stage="ink3">
-        <CodeStrip :tokens="solfegeTokens" />
-      </VariantCell>
-      <VariantCell caption="Scale degree &middot; Jazz numerals" stage="ink3">
-        <CodeStrip :tokens="degreeTokens" />
-      </VariantCell>
-      <VariantCell caption="Raw notes &middot; pitch letters" stage="ink3">
-        <CodeStrip :tokens="rawTokens" />
+      <VariantCell caption="Mixed notation sequence" stage="ink3">
+        <CodeStrip :tokens="mixedSequence" />
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Variants &mdash; Duration">
-      <VariantCell caption="Width bars &middot; proportional" stage="ink3">
-        <CodeStrip :tokens="durationBarTokens" />
+    <VariantGrid id="code-strip-duration" title="Duration &mdash; Same events, five treatments">
+      <VariantCell caption="Inline &middot; textual" stage="ink3">
+        <CodeStrip duration-mode="inline" :tokens="durationSequence" />
       </VariantCell>
-      <VariantCell caption="Stacked &middot; note over duration" stage="ink3">
-        <CodeStrip :tokens="stackedTokens" />
+      <VariantCell caption="Stacked &middot; textual" stage="ink3">
+        <CodeStrip duration-mode="stacked" :tokens="durationSequence" />
       </VariantCell>
-      <VariantCell caption="Sparse &middot; no duration stamps" stage="ink3">
-        <CodeStrip density="spaced" :tokens="sparseTokens" />
+      <VariantCell caption="Distance &middot; proportional space" stage="ink3">
+        <CodeStrip duration-mode="distance" :tokens="durationSequence" />
+      </VariantCell>
+      <VariantCell caption="Bar &middot; proportional mark" stage="ink3">
+        <CodeStrip duration-mode="bar" :tokens="durationSequence" />
+      </VariantCell>
+      <VariantCell caption="Hidden &middot; rhythm unstamped" stage="ink3">
+        <CodeStrip duration-mode="hidden" :tokens="durationSequence" />
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Variants &mdash; Rhythm and grouping">
-      <VariantCell caption="Rest-heavy &middot; syncopated" stage="ink3">
-        <CodeStrip :tokens="restHeavyTokens" />
+    <VariantGrid id="code-strip-rest" title="Rest &mdash; Ink to Ivory, no duration tag">
+      <VariantCell caption="Empty &middot; 0%" stage="ink3">
+        <CodeStrip :show-chevron="false" :tokens="restTokens(0)" />
       </VariantCell>
-      <VariantCell caption="Chord group &middot; bracket notation" stage="ink3">
-        <CodeStrip :tokens="chordTokens" />
+      <VariantCell caption="Entering &middot; 28%" stage="ink3">
+        <CodeStrip :show-chevron="false" :tokens="restTokens(.28)" />
       </VariantCell>
-      <VariantCell caption="Dense &middot; compact glyph size" stage="ink3">
-        <CodeStrip density="dense" :tokens="denseTokens" />
+      <VariantCell caption="Passing &middot; 66%" stage="ink3">
+        <CodeStrip :show-chevron="false" :tokens="restTokens(.66)" />
+      </VariantCell>
+      <VariantCell caption="Complete &middot; 100%" stage="ink3">
+        <CodeStrip :show-chevron="false" :tokens="restTokens(1)" />
+      </VariantCell>
+    </VariantGrid>
+
+    <VariantGrid id="code-strip-density" title="Density &mdash; Same notation">
+      <VariantCell caption="Dense" stage="ink3">
+        <CodeStrip density="dense" duration-mode="hidden" :tokens="densitySequence" />
+      </VariantCell>
+      <VariantCell caption="Default" stage="ink3">
+        <CodeStrip density="default" duration-mode="hidden" :tokens="densitySequence" />
+      </VariantCell>
+      <VariantCell caption="Spaced" stage="ink3">
+        <CodeStrip density="spaced" duration-mode="hidden" :tokens="densitySequence" />
+      </VariantCell>
+    </VariantGrid>
+
+    <VariantGrid id="code-strip-glyph-proportions" title="Accepted glyph &mdash; Note owns display">
+      <VariantCell caption="Solfège" stage="ink3">
+        <CodeStrip duration-mode="hidden" :tokens="solfegeSequence" />
+      </VariantCell>
+      <VariantCell caption="Scale degree" stage="ink3">
+        <CodeStrip duration-mode="hidden" :tokens="degreeSequence" />
+      </VariantCell>
+      <VariantCell caption="Raw pitch" stage="ink3">
+        <CodeStrip duration-mode="hidden" :tokens="rawSequence" />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
 </template>
 
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import type { ChordMember } from "../../components/compounds/Chord.vue";
 import CodeStrip from "../../components/uniques/CodeStrip.vue";
 import type { CodeStripToken } from "../../components/uniques/CodeStrip.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 
-const heroTokens: CodeStripToken[] = [
-  { type: "note", note: "fa", text: "Fa", duration: "@0.0398" },
-  { type: "rest" },
-  { type: "note", note: "fa", text: "Fa", duration: "@0.028" },
-  { type: "rest" },
-  { type: "note", note: "la", text: "La", lit: true, duration: "@0.2031" },
-  { type: "rest" },
-  { type: "note", note: "sol", text: "Sol", duration: "@0.09" },
+const chordMembers = (progress: number | number[] = 1): ChordMember[] => {
+  const values = Array.isArray(progress) ? progress : [progress, progress, progress, progress];
+  return [
+    { id: "c", syllable: "Do", rawPitch: "C4", scaleIndex: 0, progress: values[0] },
+    { id: "e", syllable: "Mi", rawPitch: "E4", scaleIndex: 2, progress: values[1] },
+    { id: "g", syllable: "Sol", rawPitch: "G4", scaleIndex: 4, progress: values[2] },
+    { id: "b", syllable: "Ti", rawPitch: "B4", scaleIndex: 6, progress: values[3] },
+  ];
+};
+
+const fusedSequence: CodeStripToken[] = [
+  { type: "note", note: "fa", text: "Fa", duration: "@0.125", progress: 1 },
+  { type: "rest", duration: "@0.0625", progress: .7 },
+  { type: "chord", symbol: "Cmaj7", members: chordMembers([1, .76, .52, .3]), duration: "@0.5" },
+  { type: "rest", duration: "@0.125", progress: .15 },
+  { type: "note", note: "la", text: "La", duration: "@0.25", progress: 0 },
 ];
 
-const ratioTokens: CodeStripToken[] = [
-  { type: "note", note: "fa", text: "Fa", duration: "@0.0398" },
-  { type: "rest" },
-  { type: "note", note: "la", text: "La", lit: true, duration: "@0.2031" },
-  { type: "rest" },
-  { type: "note", note: "sol", text: "Sol", duration: "@0.09" },
+const clusteredSequence: CodeStripToken[] = [
+  { type: "note", note: "fa", text: "Fa", duration: "@0.125", progress: 1 },
+  { type: "rest", duration: "@0.0625", progress: .7 },
+  { type: "chord", symbol: "Cmaj7", display: "notes", members: chordMembers([1, .76, .52, .3]), duration: "@0.5" },
+  { type: "rest", duration: "@0.125", progress: .15 },
+  { type: "note", note: "la", text: "La", duration: "@0.25", progress: 0 },
 ];
 
-const ratioDegreeTokens: CodeStripToken[] = [
-  { type: "note", note: "fa", glyph: "deg", text: "4", duration: "@0.0398" },
-  { type: "rest" },
-  { type: "note", note: "la", glyph: "deg", text: "6", lit: true, duration: "@0.2031" },
-  { type: "rest" },
-  { type: "note", note: "sol", glyph: "deg", text: "5", duration: "@0.09" },
+const mixedSequence: CodeStripToken[] = [
+  { type: "note", note: "do", text: "Do", duration: "@0.125", progress: 1 },
+  { type: "note", note: "re", text: "Re", duration: "@0.125", progress: .9 },
+  { type: "rest", duration: "@0.0625", progress: .64 },
+  { type: "chord", symbol: "Em", members: chordMembers([.56, .38, .2, .08]).slice(1), duration: "@0.25" },
+  { type: "separator", text: "/" },
+  { type: "note", note: "sol", text: "Sol", duration: "@0.5", progress: 0 },
 ];
 
-const ratioRawTokens: CodeStripToken[] = [
-  { type: "note", note: "fa", glyph: "raw", text: "F", duration: "@0.0398" },
-  { type: "rest" },
-  { type: "note", note: "la", glyph: "raw", text: "A", lit: true, duration: "@0.2031" },
-  { type: "rest" },
-  { type: "note", note: "sol", glyph: "raw", text: "G", duration: "@0.09" },
+const durationSequence: CodeStripToken[] = [
+  { type: "note", note: "do", text: "Do", duration: "@0.125", progress: 1 },
+  { type: "rest", duration: "@0.0625", progress: .72 },
+  { type: "chord", symbol: "Cmaj7", members: chordMembers(.48), duration: "@0.5" },
+  { type: "note", note: "la", text: "La", duration: "@0.25", progress: 0 },
 ];
 
-const solfegeTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do", duration: "@0.282" },
-  { type: "rest" },
-  { type: "note", note: "re", text: "Re", duration: "@0.128" },
-  { type: "rest" },
-  { type: "note", note: "mi", text: "Mi", duration: "@0.1225" },
-  { type: "rest" },
-  { type: "note", note: "fa", text: "Fa" },
-  { type: "rest" },
-  { type: "note", note: "sol", text: "Sol", duration: "@0.25" },
-  { type: "rest" },
-  { type: "note", note: "la", text: "La" },
-  { type: "rest" },
-  { type: "note", note: "ti", text: "Ti", duration: "@0.0675" },
+const restTokens = (progress: number): CodeStripToken[] => [
+  { type: "rest", duration: "@0.5", progress },
 ];
 
-const degreeTokens: CodeStripToken[] = [
-  { type: "note", note: "do", glyph: "deg", text: "1̂", duration: "@0.282" },
-  { type: "rest" },
-  { type: "note", note: "re", glyph: "deg", text: "2̂", duration: "@0.128" },
-  { type: "rest" },
-  { type: "note", note: "mi", glyph: "deg", text: "3̂", duration: "@0.1225" },
-  { type: "rest" },
-  { type: "note", note: "fa", glyph: "deg", text: "4̂" },
-  { type: "rest" },
-  { type: "note", note: "sol", glyph: "deg", text: "5̂", duration: "@0.25" },
-  { type: "rest" },
-  { type: "note", note: "la", glyph: "deg", text: "6̂" },
-  { type: "rest" },
-  { type: "note", note: "ti", glyph: "deg", text: "7̂", duration: "@0.0675" },
+const densitySequence: CodeStripToken[] = [
+  { type: "note", note: "do", text: "Do", progress: 1 },
+  { type: "note", note: "re", text: "Re", progress: 1 },
+  { type: "rest", progress: .7 },
+  { type: "chord", symbol: "Em", members: chordMembers(.45).slice(1) },
+  { type: "note", note: "fa", text: "Fa", progress: 0 },
+  { type: "rest", progress: 0 },
+  { type: "note", note: "sol", text: "Sol", progress: 0 },
 ];
 
-const rawTokens: CodeStripToken[] = [
-  { type: "note", note: "do", glyph: "raw", text: "C", duration: "@0.282" },
-  { type: "rest" },
-  { type: "note", note: "re", glyph: "raw", text: "D", duration: "@0.128" },
-  { type: "rest" },
-  { type: "note", note: "mi", glyph: "raw", text: "E", duration: "@0.1225" },
-  { type: "rest" },
-  { type: "note", note: "fa", glyph: "raw", text: "F" },
-  { type: "rest" },
-  { type: "note", note: "sol", glyph: "raw", text: "G", duration: "@0.25" },
-  { type: "rest" },
-  { type: "note", note: "la", glyph: "raw", text: "A" },
-  { type: "rest" },
-  { type: "note", note: "ti", glyph: "raw", text: "B", duration: "@0.0675" },
+const displaySequence = (glyph: "syl" | "deg" | "raw"): CodeStripToken[] => [
+  { type: "note", note: "fa", glyph, text: glyph === "syl" ? "Fa" : glyph === "deg" ? "4" : "F4", progress: 1 },
+  { type: "rest", progress: .55 },
+  { type: "note", note: "la", glyph, text: glyph === "syl" ? "La" : glyph === "deg" ? "6" : "A4", progress: .3 },
+  { type: "rest", progress: 0 },
+  { type: "note", note: "sol", glyph, text: glyph === "syl" ? "Sol" : glyph === "deg" ? "5" : "G4", progress: 0 },
 ];
 
-const durationBarTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do", durationBarWidth: 28 },
-  { type: "rest" },
-  { type: "note", note: "re", text: "Re", durationBarWidth: 14 },
-  { type: "rest" },
-  { type: "note", note: "mi", text: "Mi", lit: true, durationBarWidth: 22 },
-  { type: "rest" },
-  { type: "note", note: "fa", text: "Fa", durationBarWidth: 8 },
-  { type: "rest" },
-  { type: "note", note: "sol", text: "Sol", durationBarWidth: 36 },
-];
+const solfegeSequence = displaySequence("syl");
+const degreeSequence = displaySequence("deg");
+const rawSequence = displaySequence("raw");
 
-const stackedTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do", stackedDuration: "@0.25" },
-  { type: "rest" },
-  { type: "note", note: "re", text: "Re", stackedDuration: "@0.125" },
-  { type: "rest" },
-  { type: "note", note: "mi", text: "Mi", stackedDuration: "@0.375" },
-  { type: "rest" },
-  { type: "note", note: "fa", text: "Fa", stackedDuration: "@0.0625" },
-  { type: "rest" },
-  { type: "note", note: "sol", text: "Sol", stackedDuration: "@0.5" },
-];
+const phase = ref(.46);
+let animationFrame: number | null = null;
+let animationStart = 0;
+let reduceMotion: MediaQueryList | null = null;
 
-const sparseTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do" },
-  { type: "rest" },
-  { type: "note", note: "mi", text: "Mi" },
-  { type: "rest" },
-  { type: "note", note: "sol", text: "Sol" },
-  { type: "rest" },
-  { type: "note", note: "mi", text: "Mi" },
-  { type: "rest" },
-  { type: "note", note: "do", text: "Do" },
-];
+const eventProgress = (position: number) => Math.min(1, Math.max(0, (phase.value - position) * 5));
 
-const restHeavyTokens: CodeStripToken[] = [
-  { type: "rest", duration: "@0.0415" },
-  { type: "note", note: "fa", text: "Fa", duration: "@0.0398" },
-  { type: "rest", duration: "@0.3289" },
-  { type: "note", note: "la", text: "La", duration: "@0.2031" },
-  { type: "rest", duration: "@0.09" },
-  { type: "rest", duration: "@0.0413" },
-  { type: "note", note: "la", text: "La", duration: "@0.0813" },
-];
+const animatedTokens = computed<CodeStripToken[]>(() => [
+  { type: "note", note: "fa", text: "Fa", duration: "@0.125", progress: eventProgress(0) },
+  { type: "rest", duration: "@0.0625", progress: eventProgress(.2) },
+  {
+    type: "chord",
+    symbol: "Cmaj7",
+    duration: "@0.5",
+    members: chordMembers([
+      eventProgress(.38),
+      eventProgress(.43),
+      eventProgress(.48),
+      eventProgress(.53),
+    ]),
+  },
+  { type: "rest", duration: "@0.125", progress: eventProgress(.72) },
+  { type: "note", note: "la", text: "La", duration: "@0.25", progress: eventProgress(.86) },
+]);
 
-const chordTokens: CodeStripToken[] = [
-  { type: "bracket", text: "{" },
-  { type: "note", note: "do", text: "Do" },
-  { type: "separator" },
-  { type: "note", note: "mi", text: "Mi", accidental: "♭" },
-  { type: "separator" },
-  { type: "note", note: "sol", text: "Sol" },
-  { type: "bracket", text: "}" },
-  { type: "rest" },
-  { type: "note", note: "la", text: "La", duration: "@0.5" },
-  { type: "rest" },
-  { type: "note", note: "ti", text: "Ti" },
-];
+const tick = (time: number) => {
+  if (!animationStart) animationStart = time;
+  phase.value = ((time - animationStart) % 5200) / 5200;
+  animationFrame = requestAnimationFrame(tick);
+};
 
-const denseTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do", duration: "@.28" },
-  { type: "rest" },
-  { type: "note", note: "re", text: "Re" },
-  { type: "rest" },
-  { type: "note", note: "mi", text: "Mi", duration: "@.12" },
-  { type: "rest" },
-  { type: "note", note: "fa", text: "Fa" },
-  { type: "rest" },
-  { type: "note", note: "sol", text: "Sol", duration: "@.25" },
-  { type: "rest" },
-  { type: "note", note: "la", text: "La", duration: "@.09" },
-  { type: "rest" },
-  { type: "note", note: "ti", text: "Ti" },
-  { type: "rest" },
-  { type: "note", note: "do", text: "Do", duration: "@.14" },
-  { type: "rest" },
-  { type: "note", note: "re", text: "Re" },
-  { type: "rest" },
-  { type: "note", note: "mi", text: "Mi" },
-];
+onMounted(() => {
+  reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (!reduceMotion.matches) animationFrame = requestAnimationFrame(tick);
+});
+
+onBeforeUnmount(() => {
+  if (animationFrame != null) cancelAnimationFrame(animationFrame);
+});
 
 const features = [
-  { label: "Row", value: "ink-2 bg · 1px hairline · 36px min-height" },
-  { label: "Chevron", value: "optional leading mono glyph" },
-  { label: "Glyphs", value: "solfège, scale degree, or raw note text" },
-  { label: "Color", value: "--note-* on note glyphs only; chrome remains ivory" },
-  { label: "Duration", value: "mono stamps, proportional bars, or stacked values" },
-  { label: "Rest", value: "~ token with optional duration" },
-  { label: "Grouping", value: "brackets and separators for chord notation" },
-  { label: "State", value: "lit note glow plus 5px square marker" },
-  { label: "Density", value: "default, dense, spaced, and wrapped sequence modes" },
+  { label: "Composition", value: "Note primitive + accepted Chord compound + CodeStrip-local Rest" },
+  { label: "Glyph", value: "3:4 Note proportion · 27.2–33.6px host scale" },
+  { label: "Chord", value: "symbol → fused · notes → clustered" },
+  { label: "Rest", value: "Ink paper surface · Ivory bottom-to-top fill · no duration tag" },
+  { label: "Progress", value: "Ink reveals unchanged music color · controlled 0–1 · 72ms linear response" },
+  { label: "Duration", value: "inline, stacked, distance, bar, or hidden" },
+  { label: "Density", value: "dense, default, or spaced" },
+  { label: "Boundary", value: "no clock, editing, audio, store, follow-scroll, or Strudel ownership" },
   { label: "Source", value: "components/uniques/CodeStrip.vue" },
 ];
 </script>
 
 <style scoped>
+#code-strip-complete-anatomy,
+#code-strip-duration,
+#code-strip-rest,
+#code-strip-density,
 #code-strip-glyph-proportions {
   scroll-margin-top: 16px;
+}
+
+#code-strip-complete-anatomy :deep(.variant-grid__items),
+#code-strip-duration :deep(.variant-grid__items),
+#code-strip-density :deep(.variant-grid__items),
+#code-strip-glyph-proportions :deep(.variant-grid__items) {
+  grid-template-columns: 1fr;
+}
+
+#code-strip-rest :deep(.variant-grid__items) {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 560px) {
+  #code-strip-rest :deep(.variant-grid__items) {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

@@ -20,14 +20,14 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid id="code-strip-duration" title="Duration &mdash; Text, meter marks, or hidden">
+    <VariantGrid id="code-strip-duration" title="Duration &mdash; Text, split meter bars, or hidden">
       <VariantCell caption="Stacked &middot; textual" stage="ink3">
         <CodeStrip duration-mode="stacked" :tokens="durationSequence" />
       </VariantCell>
-      <VariantCell caption="Bar &middot; 4/4 meter marks &middot; Rest included" stage="ink3">
+      <VariantCell caption="Bar &middot; 4/4 split proportional bar &middot; Rest included" stage="ink3">
         <CodeStrip duration-mode="bar" time-signature="4/4" :tokens="durationSequence" />
       </VariantCell>
-      <VariantCell caption="Bar &middot; 3/4 meter marks &middot; Rest included" stage="ink3">
+      <VariantCell caption="Bar &middot; 3/4 split proportional bar &middot; Rest included" stage="ink3">
         <CodeStrip duration-mode="bar" time-signature="3/4" :tokens="durationSequence" />
       </VariantCell>
       <VariantCell caption="Hidden &middot; rhythm unstamped" stage="ink3">
@@ -88,10 +88,10 @@ import VariantGrid from "../guide/VariantGrid.vue";
 const chordMembers = (progress: number | number[] = 1): ChordMember[] => {
   const values = Array.isArray(progress) ? progress : [progress, progress, progress, progress];
   return [
-    { id: "c", syllable: "Do", rawPitch: "C4", scaleIndex: 0, progress: values[0] },
-    { id: "e", syllable: "Mi", rawPitch: "E4", scaleIndex: 2, progress: values[1] },
-    { id: "g", syllable: "Sol", rawPitch: "G4", scaleIndex: 4, progress: values[2] },
-    { id: "b", syllable: "Ti", rawPitch: "B4", scaleIndex: 6, progress: values[3] },
+    { id: "c", syllable: "Do", rawPitch: "C4", scaleIndex: 0, progress: values[0], voicingOrder: 0, pressOrder: 1 },
+    { id: "e", syllable: "Mi", rawPitch: "E4", scaleIndex: 2, progress: values[1], voicingOrder: 1, pressOrder: 2 },
+    { id: "g", syllable: "Sol", rawPitch: "G4", scaleIndex: 4, progress: values[2], voicingOrder: 2, pressOrder: 3 },
+    { id: "b", syllable: "Ti", rawPitch: "B4", scaleIndex: 6, progress: values[3], voicingOrder: 3, pressOrder: 0 },
   ];
 };
 
@@ -199,7 +199,7 @@ const features = [
   { label: "Chord", value: "symbol → fused · notes → clustered" },
   { label: "Rest", value: "Ink paper surface · Ivory bottom-to-top fill · no duration tag" },
   { label: "Progress", value: "Ink reveals unchanged music color · controlled 0–1 · 72ms linear response" },
-  { label: "Duration", value: "stacked text, time-signature marks, or hidden" },
+  { label: "Duration", value: "stacked text, split proportional meter bars, or hidden" },
   { label: "Density", value: "dense, default, or spaced" },
   { label: "Boundary", value: "no clock, editing, audio, store, follow-scroll, or Strudel ownership" },
   { label: "Source", value: "components/uniques/CodeStrip.vue" },

@@ -75,6 +75,9 @@ describe("CodeStrip composition", () => {
     expect(wrapper.find(".code-strip__stack-duration").text()).toBe("@0.5");
 
     await wrapper.setProps({ durationMode: "bar" });
+    const bar = wrapper.get(".code-strip__duration-bar");
+    expect(bar.element.parentElement?.classList.contains("code-strip__event-line")).toBe(true);
+    expect(bar.attributes("style")).toContain("--code-strip-duration-ratio: 0.5");
     expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(8);
     expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(2);
 
@@ -96,6 +99,8 @@ describe("CodeStrip composition", () => {
     });
 
     expect(wrapper.find(".code-strip__stack-duration").exists()).toBe(false);
+    expect(wrapper.get(".code-strip__duration-bar").element.parentElement?.classList.contains("code-strip__event-line")).toBe(true);
+    expect(wrapper.get(".code-strip__duration-bar").attributes("style")).toContain("--code-strip-duration-ratio: 0.25");
     expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(4);
     expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(1);
   });

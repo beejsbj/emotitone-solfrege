@@ -7,22 +7,30 @@
           v-if="token.type === 'note'"
           class="code-strip__event code-strip__event--note"
         >
-          <span class="code-strip__event-line">
+          <span
+            class="code-strip__event-line"
+            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' && token.duration }"
+          >
             <span class="code-strip__note" :style="progressStyle(token.progress)">
               <Note v-bind="noteProps(token)" />
             </span>
             <span v-if="token.accidental" class="code-strip__accidental">{{ token.accidental }}</span>
+            <span
+              v-if="durationMode === 'bar' && token.duration"
+              class="code-strip__duration-bar"
+              :style="durationBarStyle(token.duration)"
+              aria-hidden="true"
+            >
+              <span
+                v-for="markIndex in durationMarks(token.duration)"
+                :key="markIndex"
+                class="code-strip__duration-mark"
+                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+              ></span>
+            </span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
-          </span>
-          <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-marks" aria-hidden="true">
-            <span
-              v-for="markIndex in durationMarks(token.duration)"
-              :key="markIndex"
-              class="code-strip__duration-mark"
-              :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
-            ></span>
           </span>
         </span>
 
@@ -30,7 +38,10 @@
           v-else-if="token.type === 'chord'"
           class="code-strip__event code-strip__event--chord"
         >
-          <span class="code-strip__event-line">
+          <span
+            class="code-strip__event-line"
+            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' && token.duration }"
+          >
             <Chord
               :members="chordMembers(token)"
               :display="token.display ?? 'symbol'"
@@ -39,17 +50,22 @@
               :geometry="token.geometry ?? 'offcut'"
               :accessible-name="token.accessibleName"
             />
+            <span
+              v-if="durationMode === 'bar' && token.duration"
+              class="code-strip__duration-bar"
+              :style="durationBarStyle(token.duration)"
+              aria-hidden="true"
+            >
+              <span
+                v-for="markIndex in durationMarks(token.duration)"
+                :key="markIndex"
+                class="code-strip__duration-mark"
+                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+              ></span>
+            </span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
-          </span>
-          <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-marks" aria-hidden="true">
-            <span
-              v-for="markIndex in durationMarks(token.duration)"
-              :key="markIndex"
-              class="code-strip__duration-mark"
-              :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
-            ></span>
           </span>
         </span>
 
@@ -57,17 +73,27 @@
           v-else-if="token.type === 'rest'"
           class="code-strip__event code-strip__event--rest"
         >
-          <span class="code-strip__rest" :style="progressStyle(token.progress)" role="img" aria-label="Rest">
-            <span class="code-strip__rest-fill" aria-hidden="true"></span>
-            <span class="code-strip__rest-mark" aria-hidden="true">~</span>
-          </span>
-          <span v-if="durationMode === 'bar' && token.duration" class="code-strip__duration-marks" aria-hidden="true">
+          <span
+            class="code-strip__event-line"
+            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' && token.duration }"
+          >
+            <span class="code-strip__rest" :style="progressStyle(token.progress)" role="img" aria-label="Rest">
+              <span class="code-strip__rest-fill" aria-hidden="true"></span>
+              <span class="code-strip__rest-mark" aria-hidden="true">~</span>
+            </span>
             <span
-              v-for="markIndex in durationMarks(token.duration)"
-              :key="markIndex"
-              class="code-strip__duration-mark"
-              :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
-            ></span>
+              v-if="durationMode === 'bar' && token.duration"
+              class="code-strip__duration-bar"
+              :style="durationBarStyle(token.duration)"
+              aria-hidden="true"
+            >
+              <span
+                v-for="markIndex in durationMarks(token.duration)"
+                :key="markIndex"
+                class="code-strip__duration-mark"
+                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+              ></span>
+            </span>
           </span>
         </span>
 
@@ -163,6 +189,10 @@ const durationAmount = (duration: string | undefined) => {
 
 const progressStyle = (progress: number | undefined) => ({
   "--code-strip-progress": clampProgress(progress),
+});
+
+const durationBarStyle = (duration: string | undefined) => ({
+  "--code-strip-duration-ratio": durationAmount(duration),
 });
 
 const meter = computed(() => {
@@ -262,6 +292,10 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   gap: 2px;
 }
 
+.code-strip__event-line--bar {
+  gap: 4px;
+}
+
 .code-strip__note {
   position: relative;
   display: inline-flex;
@@ -343,25 +377,32 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   text-align: center;
 }
 
-.code-strip__duration-marks {
-  display: inline-flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 2px;
+.code-strip__duration-bar {
+  --code-strip-bar-cycle-span: calc(var(--note-host-block-size) * 2.4);
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(1px, 1fr);
+  align-items: end;
+  column-gap: 1px;
+  flex: 0 0 auto;
+  width: max(5px, calc(var(--code-strip-duration-ratio) * var(--code-strip-bar-cycle-span)));
   min-height: 5px;
+  padding-bottom: 2px;
 }
 
 .code-strip__duration-mark {
-  width: 2px;
-  height: 3px;
+  width: auto;
+  min-width: 1px;
+  height: 2px;
+  border-radius: 999px;
   background: var(--ivory-4);
-  opacity: .72;
+  opacity: .78;
 }
 
 .code-strip__duration-mark--beat {
-  height: 5px;
+  height: 4px;
   background: var(--ivory-2);
-  opacity: .92;
+  opacity: .95;
 }
 
 .code-strip__bracket {

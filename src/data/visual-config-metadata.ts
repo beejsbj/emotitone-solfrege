@@ -897,10 +897,6 @@ export const UNIFIED_CONFIG = {
       value: true,
       label: "Show Rests",
     },
-    showStrudelLine: {
-      value: false,
-      label: "Show Code Line",
-    },
   },
 };
 

@@ -472,9 +472,9 @@ export interface KeyboardConfig {
  * Live strip presentation configuration
  */
 export interface LiveStripConfig {
-  /** Whether the token strip/code line is enabled */
+  /** Whether the CodeStrip-backed Strudel mirror is enabled */
   enabled: boolean;
-  /** Supplemental strip opacity */
+  /** Mirror presentation opacity */
   opacity: number;
   /** Playback tempo in beats per minute */
   bpm: number;
@@ -482,8 +482,6 @@ export interface LiveStripConfig {
   notation: "solfege" | "note" | "degree";
   /** Whether to show rest tokens */
   showRests: boolean;
-  /** Whether to show the compact code line */
-  showStrudelLine: boolean;
 }
 
 /**

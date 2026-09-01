@@ -250,7 +250,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         enabled: true,
         notation: "solfege",
         showRests: true,
-        showStrudelLine: false,
       },
     }
   ),

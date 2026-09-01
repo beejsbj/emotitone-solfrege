@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  getCurrentInstance,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { StrudelMirror } from "@strudel/codemirror";
@@ -8,13 +16,10 @@ import * as StrudelMini from "@strudel/mini";
 import * as StrudelTonal from "@strudel/tonal";
 import * as StrudelWebAudio from "@strudel/webaudio";
 import { transpiler } from "@strudel/transpiler";
-import CodeStrip from "@/components/uniques/CodeStrip.vue";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
 import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { useColorSystem } from "@/composables/useColorSystem";
-import { getSolfegeNameForMode, normalizeScaleIndex } from "@/data";
 import {
   initSuperdoughAudio,
   getAudioContext,
@@ -23,13 +28,10 @@ import {
 } from "@/services/superdoughAudio";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import {
-  strudelPlaybackHighlightExtension,
-  highlightPlaybackLocations,
-  updatePlaybackHighlightOptions,
-} from "./strudelPlaybackHighlight";
-import type { KeyboardConfig } from "@/types/visual";
-import type { LogNote, PatternNote } from "@/types/patterns";
-import type { MusicalMode } from "@/types/music";
+  codeStripMirrorPresentationExtension,
+  updateCodeStripPresentation,
+} from "./codeStripMirrorPresentation";
+import type { LogNote } from "@/types/patterns";
 import { buildLiveCodeStripFrame } from "./liveCodeStripAdapter";
 
 interface StrudelMirrorInstance {
@@ -47,15 +49,11 @@ const EMPTY_EDITOR_CODE = "// Play or load a pattern to see it in Strudel.";
 
 const patternsStore = usePatternsStore();
 const visualConfigStore = useVisualConfigStore();
-const {
-  getKeyBackground,
-  getStaticPrimaryColorByScaleIndex,
-} = useColorSystem();
+const appContext = getCurrentInstance()?.appContext;
 const { attachEditor, detachEditor, syncCode, setPlaying, setError, isPlaying } =
   useLiveStrudelMirror();
 
 const editorRoot = ref<HTMLElement | null>(null);
-const notationRef = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
 const isBooting = ref(true);
 const mirror = ref<StrudelMirrorInstance | null>(null);
@@ -66,27 +64,6 @@ let followPlaybackActive = false;
 
 const liveStripConfig = computed(() => visualConfigStore.config.liveStrip);
 const keyboardConfig = computed(() => visualConfigStore.config.keyboard);
-const noteSkins = computed(() =>
-  patternsStore.currentSketchNotes.map((note, index) =>
-    buildNoteSkin(
-      note,
-      index,
-      keyboardConfig.value,
-      liveStripConfig.value.notation,
-      patternsStore.currentSketchMeta.mode
-    )
-  )
-);
-const highlightOptions = computed(() => ({
-  isNoteColoringEnabled: true,
-  isProgressiveFillEnabled: true,
-  isPatternTextColoringEnabled: true,
-  musicColorMode: visualConfigStore.config.dynamicColors.musicColorMode,
-  notationMode: liveStripConfig.value.notation,
-  scaleKey: patternsStore.currentSketchMeta.key,
-  scaleMode: patternsStore.currentSketchMeta.mode,
-  noteSkins: noteSkins.value,
-}));
 const barMs = computed(() => (60000 / patternsStore.currentSketchMeta.bpm) * 4);
 const codeStripFrame = computed(() =>
   buildLiveCodeStripFrame({
@@ -124,81 +101,6 @@ const generatedCode = computed(() => {
   }).replace(/\s+/g, " ").trim();
 });
 
-function solfegeName(scaleIndex: number, mode: string): string {
-  return getSolfegeNameForMode(mode as MusicalMode, scaleIndex);
-}
-
-function keyTextColorValue(
-  surfaceStyle: KeyboardConfig["surfaceStyle"],
-  isAccidental: boolean
-): string {
-  if (surfaceStyle === "monochrome") {
-    return isAccidental ? "hsla(0, 0%, 0%, 0.94)" : "hsla(0, 0%, 100%, 0.96)";
-  }
-
-  return isAccidental ? "hsla(0, 0%, 0%, 0.9)" : "hsla(0, 0%, 100%, 0.96)";
-}
-
-function buildStripClipPath(index: number, config: KeyboardConfig) {
-  if (!config.angledStyle) {
-    return undefined;
-  }
-
-  const topLeft = (index * 7) % 11;
-  const topRight = 90 + ((index * 5 + 3) % 11);
-  const bottomRight = 90 + ((index * 11 + 5) % 11);
-  const bottomLeft = (index * 13 + 2) % 11;
-
-  return `polygon(${topLeft}% 1%, ${topRight}% 1%, ${bottomRight}% 99%, ${bottomLeft}% 99%)`;
-}
-
-function buildNoteSkin(
-  note: PatternNote,
-  index: number,
-  config: KeyboardConfig,
-  notation: "solfege" | "note" | "degree",
-  mode: string
-) {
-  const label =
-    notation === "note"
-      ? note.note
-      : notation === "degree"
-        ? String(normalizeScaleIndex(mode as MusicalMode, note.scaleIndex) + 1)
-        : solfegeName(note.scaleIndex, mode);
-  const isAccidental = note.note.includes("#");
-  const { background, primaryColor } = getKeyBackground(
-    note.scaleIndex,
-    mode as MusicalMode,
-    patternsStore.currentSketchMeta.key,
-    note.octave,
-    config.surfaceStyle,
-    isAccidental,
-    {
-      keyBrightness: config.keyBrightness,
-      keySaturation: config.keySaturation,
-      glassmorphOpacity: config.glassmorphOpacity,
-    }
-  );
-  const passiveColor =
-    getStaticPrimaryColorByScaleIndex(
-      note.scaleIndex,
-      mode as MusicalMode,
-      patternsStore.currentSketchMeta.key,
-      note.octave
-    ) || primaryColor;
-  const activeTextColor = keyTextColorValue(config.surfaceStyle, isAccidental);
-
-  return {
-    label,
-    color: passiveColor,
-    activeTextColor,
-    fillBackground: background,
-    fillColor: primaryColor,
-    shapeRadius: `${config.keyShape}px`,
-    clipPath: buildStripClipPath(index, config),
-  };
-}
-
 function getMirrorView(instance: StrudelMirrorInstance | null): EditorView | undefined {
   return (instance?.editor ?? instance?.view) as EditorView | undefined;
 }
@@ -229,6 +131,20 @@ function syncMirrorCode(code: string) {
 
   instance.setCode(code);
   syncCode(code);
+}
+
+function syncCodeStripPresentation() {
+  const view = getMirrorView(mirror.value);
+  if (!view) {
+    return;
+  }
+
+  updateCodeStripPresentation(view, {
+    tokens: codeStripFrame.value.tokens,
+    activeTokenIndex: codeStripFrame.value.activeTokenIndex,
+    durationMode: "stacked",
+    appContext,
+  });
 }
 
 function followActivePlayback() {
@@ -277,41 +193,24 @@ function followActivePlayback() {
 }
 
 function getFollowSurface() {
-  if (!liveStripConfig.value.showStrudelLine) {
-    const root = notationRef.value;
-    const tokenIndex = codeStripFrame.value.activeTokenIndex;
-    if (!root || tokenIndex == null) return null;
-
-    return {
-      scroller: root.querySelector<HTMLElement>(".code-strip__sequence"),
-      activeToken: root.querySelector<HTMLElement>(
-        `[data-code-strip-index="${tokenIndex}"]`
-      ),
-    };
-  }
-
   const view = getMirrorView(mirror.value);
   const root = editorRoot.value;
   if (!view || !root || view.hasFocus) return null;
 
-  const activeTokens = Array.from(
-    root.querySelectorAll<HTMLElement>(".cm-live-strip-token--active[data-follow-rank]")
-  );
-  const activeToken = activeTokens.reduce<HTMLElement | null>((latest, token) => {
-    if (!latest) return token;
-    const latestRank = Number(latest.dataset.followRank ?? Number.NEGATIVE_INFINITY);
-    const tokenRank = Number(token.dataset.followRank ?? Number.NEGATIVE_INFINITY);
-    return tokenRank >= latestRank ? token : latest;
-  }, null);
+  const widget = root.querySelector<HTMLElement>(".cm-code-strip-widget");
+  const tokenIndex = widget?.dataset.activeTokenIndex;
+  if (!widget || tokenIndex == null) return null;
 
   return {
-    scroller: root.querySelector<HTMLElement>(".cm-scroller"),
-    activeToken,
+    scroller: widget.querySelector<HTMLElement>(".code-strip__sequence"),
+    activeToken: widget.querySelector<HTMLElement>(
+      `[data-code-strip-index="${tokenIndex}"]`
+    ),
   };
 }
 
 function codeStripScroller() {
-  return notationRef.value?.querySelector<HTMLElement>(".code-strip__sequence") ?? null;
+  return editorRoot.value?.querySelector<HTMLElement>(".code-strip__sequence") ?? null;
 }
 
 onMounted(async () => {
@@ -338,13 +237,8 @@ onMounted(async () => {
           ),
         ]);
       },
-      onDraw: (haps: Array<{ isActive?: (time: unknown) => boolean }>, time: number) => {
-        const activeHaps = haps.filter((hap) => hap?.isActive?.(time));
+      onDraw: (_haps: Array<{ isActive?: (time: unknown) => boolean }>, time: number) => {
         playbackPhase.value = Number(time.valueOf());
-        const view = getMirrorView(mirror.value);
-        if (view) {
-          highlightPlaybackLocations(view, time, activeHaps as never[]);
-        }
         void nextTick(followActivePlayback);
       },
       onToggle: (started: boolean) => {
@@ -359,10 +253,6 @@ onMounted(async () => {
             followLoopFrame = null;
           }
           stopStrudelVisuals();
-          const view = getMirrorView(mirror.value);
-          if (view) {
-            highlightPlaybackLocations(view, 0, []);
-          }
         }
       },
     }) as StrudelMirrorInstance;
@@ -395,13 +285,10 @@ onMounted(async () => {
               syncCode(update.state.doc.toString());
             }
           }),
-          strudelPlaybackHighlightExtension,
+          codeStripMirrorPresentationExtension,
         ]),
       });
-
-      updatePlaybackHighlightOptions(view, {
-        ...highlightOptions.value,
-      });
+      syncCodeStripPresentation();
     }
 
     attachEditor(
@@ -430,6 +317,14 @@ watch(generatedCode, (nextCode) => {
 });
 
 watch(
+  codeStripFrame,
+  () => {
+    syncCodeStripPresentation();
+  },
+  { deep: true }
+);
+
+watch(
   [() => patternsStore.currentSketchMeta.bpm, () => liveStripConfig.value.bpm],
   async () => {
     if (!mirror.value || !isPlaying.value) {
@@ -439,19 +334,6 @@ watch(
     syncMirrorCode(generatedCode.value);
     await mirror.value.evaluate();
   }
-);
-
-watch(
-  highlightOptions,
-  (nextOptions) => {
-    const view = getMirrorView(mirror.value);
-    if (!view) {
-      return;
-    }
-
-    updatePlaybackHighlightOptions(view, nextOptions);
-  },
-  { deep: true }
 );
 
 watch(
@@ -508,27 +390,11 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-if="liveStripConfig.enabled && !liveStripConfig.showStrudelLine"
-      class="live-strip__supplement"
-      :style="{ opacity: liveStripConfig.opacity }"
-    >
-      <div v-if="codeStripFrame.tokens.length" ref="notationRef" class="live-strip__code-strip">
-        <CodeStrip
-          :tokens="codeStripFrame.tokens"
-          duration-mode="stacked"
-          time-signature="4/4"
-          scrollable
-        />
-      </div>
-      <div v-else class="empty-hint">play something…</div>
-
-    </div>
-
-    <div
-      v-show="liveStripConfig.enabled && liveStripConfig.showStrudelLine"
+      v-show="liveStripConfig.enabled"
       ref="editorRoot"
       class="live-strip__editor"
       :class="{ 'live-strip__editor--booting': isBooting }"
+      :style="{ opacity: liveStripConfig.opacity }"
     />
   </div>
 </template>
@@ -547,22 +413,6 @@ onBeforeUnmount(() => {
   padding: 0 0.35rem;
   font-size: 0.72rem;
   color: hsla(0, 100%, 80%, 0.92);
-}
-
-.live-strip__supplement {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.live-strip__code-strip {
-  min-width: 0;
-}
-
-.empty-hint {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.65rem;
-  color: hsla(0, 0%, 100%, 0.25);
-  font-style: italic;
 }
 
 .live-strip__editor {
@@ -617,201 +467,6 @@ onBeforeUnmount(() => {
   background-color: transparent !important;
 }
 
-.live-strip__editor:deep(.cm-live-strip-token) {
-  position: relative;
-  display: inline-grid;
-  grid-template-rows: auto auto;
-  justify-items: center;
-  align-items: end;
-  min-width: 1.18rem;
-  margin: 0 0.07rem 0 0;
-  padding: 0.06rem 0.14rem 0.08rem;
-  border-radius: var(--live-strip-radius, 4px);
-  clip-path: var(--live-strip-clip-path, none);
-  white-space: nowrap;
-  overflow: hidden;
-  background-color: transparent;
-  isolation: isolate;
-  box-shadow: var(--live-strip-shadow, none);
-  transition:
-    clip-path 120ms ease,
-    border-radius 120ms ease,
-    box-shadow 100ms linear,
-    color 100ms linear,
-    transform 100ms linear,
-    opacity 100ms linear;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token)::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: var(--live-strip-fill-surface, var(--live-strip-fill-color, transparent));
-  transform-origin: bottom center;
-  transform: scaleY(var(--live-strip-fill-scale, 0));
-  transition: transform 72ms linear, opacity 100ms linear;
-  pointer-events: none;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token__label) {
-  position: relative;
-  z-index: 1;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-weight: 600;
-  letter-spacing: 0;
-  font-size: 0.74rem;
-  line-height: 0.88;
-  color: var(--live-strip-label-color, var(--strudel-note-color));
-  transition: color 90ms linear;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token__duration) {
-  position: relative;
-  z-index: 1;
-  margin-top: 0.05rem;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 0.45rem;
-  line-height: 0.82;
-  letter-spacing: 0.01em;
-  color: color-mix(
-    in srgb,
-    var(--live-strip-label-color, var(--strudel-note-color)) 62%,
-    transparent
-  );
-  transition: color 90ms linear;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token--group) {
-  min-width: 0;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token__group) {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 0.02rem;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token__brace) {
-  color: hsla(90, 38%, 67%, 0.72);
-  font-size: 0.78rem;
-  line-height: 0.96;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token--group.cm-live-strip-token--active .cm-live-strip-token__brace) {
-  color: hsla(0, 0%, 100%, 0.9);
-}
-
-.live-strip__editor:deep(.cm-live-strip-token__group-inner) {
-  display: inline-flex;
-  align-items: flex-end;
-  min-width: 0;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token__group-inner--cluster) {
-  gap: 0;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token__group-inner--literal) {
-  gap: 0.03rem;
-}
-
-.live-strip__editor:deep(.cm-live-strip-part) {
-  position: relative;
-  white-space: pre;
-}
-
-.live-strip__editor:deep(.cm-live-strip-part--note) {
-  position: relative;
-  display: inline-flex;
-  align-items: flex-end;
-  padding: 0.06rem 0.14rem 0.08rem;
-  border-radius: var(--live-strip-radius, 4px);
-  clip-path: var(--live-strip-clip-path, none);
-  overflow: hidden;
-  isolation: isolate;
-  background-color: transparent;
-  box-shadow: var(--live-strip-shadow, none);
-}
-
-.live-strip__editor:deep(.cm-live-strip-part--note::before) {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: var(--live-strip-fill-surface, var(--live-strip-fill-color, transparent));
-  transform-origin: bottom center;
-  transform: scaleY(var(--live-strip-fill-scale, 0));
-  transition: transform 72ms linear, opacity 100ms linear;
-  pointer-events: none;
-}
-
-.live-strip__editor:deep(.cm-live-strip-part__label) {
-  position: relative;
-  z-index: 1;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-weight: 600;
-  font-size: 0.74rem;
-  line-height: 0.88;
-  color: var(--live-strip-label-color, var(--strudel-note-color));
-  transition: color 90ms linear;
-}
-
-.live-strip__editor:deep(.cm-live-strip-part__meta) {
-  position: relative;
-  z-index: 1;
-  margin-left: 0.05rem;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 0.45rem;
-  line-height: 0.82;
-  letter-spacing: 0.01em;
-  color: color-mix(
-    in srgb,
-    var(--live-strip-label-color, var(--strudel-note-color)) 62%,
-    transparent
-  );
-  transition: color 90ms linear;
-}
-
-.live-strip__editor:deep(.cm-live-strip-part--rest) {
-  display: inline-flex;
-  align-items: flex-end;
-  color: hsla(0, 0%, 100%, 0.46);
-}
-
-.live-strip__editor:deep(.cm-live-strip-part__rest-label) {
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 0.72rem;
-  line-height: 0.9;
-}
-
-.live-strip__editor:deep(.cm-live-strip-part--rest .cm-live-strip-part__meta) {
-  color: hsla(0, 0%, 100%, 0.28);
-}
-
-.live-strip__editor:deep(.cm-live-strip-part--punct) {
-  color: hsla(90, 16%, 66%, 0.54);
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 0.68rem;
-  line-height: 0.92;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token--rest) {
-  min-width: 0.85rem;
-  background-image: none;
-  box-shadow: none;
-}
-
-.live-strip__editor:deep(.cm-live-strip-token--rest .cm-live-strip-token__label) {
-  color: hsla(0, 0%, 100%, 0.42);
-}
-
-.live-strip__editor:deep(.cm-live-strip-token--rest .cm-live-strip-token__duration) {
-  color: hsla(0, 0%, 100%, 0.24);
-}
-
 .live-strip__editor:deep(.cm-inline-meta) {
   opacity: 0.76;
   font-size: 0.55em;
@@ -835,14 +490,6 @@ onBeforeUnmount(() => {
   background: hsla(152, 100%, 50%, 0.08);
   border-radius: 3px;
   padding: 0 0.08rem;
-}
-
-.live-strip__editor:deep([data-strudel-note-color]) {
-  color: var(--strudel-note-color) !important;
-}
-
-.live-strip__editor:deep([data-strudel-note-color] *) {
-  color: inherit !important;
 }
 
 .live-strip__editor:deep(.cm-activeLine) {
@@ -869,7 +516,4 @@ onBeforeUnmount(() => {
   border-left-color: hsla(152, 100%, 72%, 0.95);
 }
 
-.live-strip__editor:deep(.cm-live-strip-token--active) {
-  transform: translateY(-0.5px);
-}
 </style>

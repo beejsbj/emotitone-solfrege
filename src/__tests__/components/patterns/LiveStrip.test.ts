@@ -13,8 +13,7 @@ const mocks = vi.hoisted(() => ({
   syncCode: vi.fn(),
   setPlaying: vi.fn(),
   setError: vi.fn(),
-  highlightPlaybackLocations: vi.fn(),
-  updatePlaybackHighlightOptions: vi.fn(),
+  updateCodeStripPresentation: vi.fn(),
   rafCallbacks: [] as FrameRequestCallback[],
 }));
 
@@ -62,10 +61,9 @@ vi.mock("@/services/superdoughAudio", () => ({
   stopStrudelVisuals: vi.fn(),
 }));
 
-vi.mock("@/components/patterns/strudelPlaybackHighlight", () => ({
-  strudelPlaybackHighlightExtension: [],
-  highlightPlaybackLocations: mocks.highlightPlaybackLocations,
-  updatePlaybackHighlightOptions: mocks.updatePlaybackHighlightOptions,
+vi.mock("@/components/patterns/codeStripMirrorPresentation", () => ({
+  codeStripMirrorPresentationExtension: [],
+  updateCodeStripPresentation: mocks.updateCodeStripPresentation,
 }));
 
 vi.mock("@strudel/codemirror", () => ({
@@ -164,22 +162,30 @@ afterEach(() => {
 });
 
 describe("LiveStrip CodeStrip production seam", () => {
-  it("mounts CodeStrip by default while preserving the editable Strudel branch", async () => {
+  it("keeps one editable Strudel mirror and supplies it with the authoritative CodeStrip presentation", async () => {
     const wrapper = mount(LiveStrip);
     await flushPromises();
 
-    expect(wrapper.find(".code-strip").exists()).toBe(true);
-    expect(wrapper.get(".live-strip__editor").attributes("style")).toContain("display: none");
+    expect(wrapper.find(".live-strip__supplement").exists()).toBe(false);
+    expect(wrapper.get(".live-strip__editor").attributes("style") ?? "")
+      .not.toContain("display: none");
     expect(mocks.mirrorInitialCode).toContain("C4@0.25");
     expect(mocks.attachEditor).toHaveBeenCalledOnce();
     expect(mocks.attachEditor.mock.calls[0][1]).toContain("C4@0.25");
+    expect(mocks.updateCodeStripPresentation).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        activeTokenIndex: null,
+        durationMode: "stacked",
+        tokens: [expect.objectContaining({ type: "note", rawPitch: "C4" })],
+      }),
+    );
 
     mocks.visualConfigStore.config.liveStrip.showStrudelLine = true;
     await nextTick();
 
-    expect(wrapper.find(".code-strip").exists()).toBe(false);
     expect(wrapper.get(".live-strip__editor").attributes("style") ?? "").not.toContain("display: none");
-    expect(mocks.updatePlaybackHighlightOptions).toHaveBeenCalled();
+    expect(wrapper.find(".live-strip__supplement").exists()).toBe(false);
 
     wrapper.unmount();
     expect(mocks.detachEditor).toHaveBeenCalledOnce();
@@ -189,8 +195,16 @@ describe("LiveStrip CodeStrip production seam", () => {
     const wrapper = mount(LiveStrip);
     await flushPromises();
 
-    const scroller = wrapper.get(".code-strip__sequence").element as HTMLElement;
-    const token = wrapper.get('[data-code-strip-index="0"]').element as HTMLElement;
+    const editor = wrapper.get(".live-strip__editor").element as HTMLElement;
+    editor.innerHTML = `
+      <div class="cm-code-strip-widget" data-active-token-index="0">
+        <div class="code-strip__sequence">
+          <span data-code-strip-index="0"></span>
+        </div>
+      </div>
+    `;
+    const scroller = editor.querySelector<HTMLElement>(".code-strip__sequence")!;
+    const token = editor.querySelector<HTMLElement>('[data-code-strip-index="0"]')!;
     Object.defineProperties(scroller, {
       clientWidth: { configurable: true, value: 100 },
       scrollWidth: { configurable: true, value: 500 },
@@ -205,12 +219,12 @@ describe("LiveStrip CodeStrip production seam", () => {
     mocks.mirrorOptions.onDraw([], .5);
     await flushPromises();
 
-    expect(wrapper.get(".code-strip__note").attributes("style"))
-      .toContain("--code-strip-progress: 0.5");
-    expect(mocks.highlightPlaybackLocations).toHaveBeenCalledWith(
+    expect(mocks.updateCodeStripPresentation).toHaveBeenLastCalledWith(
       expect.anything(),
-      .5,
-      [],
+      expect.objectContaining({
+        activeTokenIndex: 0,
+        tokens: [expect.objectContaining({ progress: 0.5 })],
+      }),
     );
     expect(mocks.rafCallbacks.length).toBeGreaterThan(0);
 
@@ -221,7 +235,12 @@ describe("LiveStrip CodeStrip production seam", () => {
 
     mocks.mirrorOptions.onToggle(false);
     await nextTick();
-    expect(wrapper.get(".code-strip__note").attributes("style"))
-      .toContain("--code-strip-progress: 0");
+    expect(mocks.updateCodeStripPresentation).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        activeTokenIndex: null,
+        tokens: [expect.objectContaining({ progress: 0 })],
+      }),
+    );
   });
 });

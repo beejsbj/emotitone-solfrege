@@ -198,10 +198,11 @@ const features = [
   { label: "Glyph", value: "3:4 Note proportion · 27.2–33.6px host scale" },
   { label: "Chord", value: "symbol → fused · notes → clustered" },
   { label: "Rest", value: "Ink paper surface · Ivory bottom-to-top fill · no duration tag" },
-  { label: "Progress", value: "Ink reveals unchanged music color · controlled 0–1 · 72ms linear response" },
+  { label: "Progress", value: "native Strudel source locations · Play resets to Ink · highlight reveals color/Ivory" },
   { label: "Duration", value: "stacked text, split proportional meter bars, or hidden" },
   { label: "Density", value: "dense, default, or spaced" },
-  { label: "Boundary", value: "no clock, editing, audio, store, follow-scroll, or Strudel ownership" },
+  { label: "Document", value: "one CodeMirror · styled mini-notation ranges · focus reveals the same raw source" },
+  { label: "Boundary", value: "no parallel renderer · no independent playback clock · no hidden Strudel line" },
   { label: "Source", value: "components/uniques/CodeStrip/index.vue" },
 ];
 </script>

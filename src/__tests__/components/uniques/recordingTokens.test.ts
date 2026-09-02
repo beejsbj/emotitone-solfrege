@@ -29,6 +29,7 @@ const tokens = (
   musicKey: "C",
   notation,
   barMs: 2000,
+  sourceBpm: 120,
   surfaceStyle: "colored",
   keyBrightness: 1,
   keySaturation: 1,
@@ -60,6 +61,16 @@ describe("CodeStrip recorded-token metadata", () => {
       },
     ]);
     expect(result.every((token) => !("progress" in token))).toBe(true);
+  });
+
+  it("uses the same rapid-tap coalescing rule as the playable source", () => {
+    expect(tokens([
+      note("c", "C4", 0, 4, 1000, 80),
+      note("d", "D4", 1, 4, 1160, 80),
+    ])).toMatchObject([
+      { type: "note", duration: "@0.08" },
+      { type: "note", duration: "@0.04" },
+    ]);
   });
 
   it.each([

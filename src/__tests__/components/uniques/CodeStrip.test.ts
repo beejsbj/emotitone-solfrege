@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
-import { reactive } from "vue";
+import { nextTick, reactive } from "vue";
 import type { PatternNote } from "@/types/patterns";
 
 const mocks = vi.hoisted(() => ({
@@ -16,6 +16,10 @@ const mocks = vi.hoisted(() => ({
   setError: vi.fn(),
   updatePresentation: vi.fn(),
   setCodeStripPlaying: vi.fn(),
+  mirrorInstance: null as any,
+  mirrorScroller: null as HTMLElement | null,
+  latestEvent: null as HTMLElement | null,
+  lastScrollEffect: null as any,
 }));
 
 vi.mock("@/stores/patterns", () => ({
@@ -53,6 +57,10 @@ vi.mock("@/components/uniques/CodeStrip/strudelExtension", () => ({
   updateCodeStripPresentation: mocks.updatePresentation,
   setCodeStripPlaying: mocks.setCodeStripPlaying,
   applySpecimenPlayback: vi.fn(),
+  parseCodeStripEvents: (doc: { toString: () => string }) => {
+    const patternEnd = doc.toString().indexOf(">");
+    return patternEnd > 0 ? [{ to: patternEnd }] : [];
+  },
   serializeCodeStripTokens: vi.fn(() => "`< C4@0.25 >`"),
 }));
 
@@ -61,7 +69,8 @@ vi.mock("@/composables/useStrudel", () => ({
 }));
 
 vi.mock("@/services/StrudelNotation", () => ({
-  logNotesToStrudel: () => "`< C4@0.25 >`.as(\"note\").sound(\"sine\").cpm(120 / 4)",
+  logNotesToStrudel: (notes: PatternNote[]) =>
+    `\`< ${notes.map((note) => `${note.note}@0.25`).join(" ")} >\`.as(\"note\").sound(\"sine\").cpm(120 / 4)`,
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -75,24 +84,74 @@ vi.mock("@strudel/codemirror", () => ({
   StrudelMirror: class {
     code: string;
     editor: any;
-    evaluate = mocks.mirrorEvaluate;
     stop = vi.fn().mockResolvedValue(undefined);
     clear = vi.fn();
     updateSettings = vi.fn();
 
     constructor(options: any) {
+      const makeDoc = (value: string) => ({
+        length: value.length,
+        toString: () => value,
+      });
+      const scroller = document.createElement("div");
+      scroller.className = "cm-scroller";
+      Object.defineProperties(scroller, {
+        clientWidth: { configurable: true, value: 300 },
+        scrollWidth: { configurable: true, value: 1000 },
+      });
+      const latestEvent = document.createElement("span");
+      latestEvent.className = "cm-code-strip-event";
+      Object.defineProperties(latestEvent, {
+        offsetLeft: { configurable: true, value: 420 },
+        offsetWidth: { configurable: true, value: 80 },
+      });
+      scroller.appendChild(latestEvent);
+      options.root.appendChild(scroller);
+
+      const rawEditor = {
+        hasFocus: false,
+        state: { doc: makeDoc(options.initialCode) },
+        dispatch(this: any, transaction: any) {
+          if (transaction.changes) {
+            const nextCode = transaction.changes.insert;
+            this.state.doc = makeDoc(nextCode);
+            // Match the installed StrudelMirror behavior: setCode changes the
+            // EditorView document, but its public runtime code can remain stale.
+          }
+          const scrollEffect = transaction.effects?.value;
+          if (scrollEffect?.x === "end") {
+            mocks.lastScrollEffect = scrollEffect;
+          }
+          const latestSemanticPosition = this.state.doc.toString().indexOf(">");
+          if (
+            scrollEffect?.x === "end" &&
+            scrollEffect.range?.from === latestSemanticPosition
+          ) {
+            scroller.scrollLeft = Math.max(
+              0,
+              latestEvent.offsetLeft + latestEvent.offsetWidth - scroller.clientWidth + 12,
+            );
+          }
+        },
+      };
+
       mocks.mirrorOptions = options;
       mocks.mirrorInitialCode = options.initialCode;
       this.code = options.initialCode;
-      this.editor = {
-        hasFocus: false,
-        state: { doc: { toString: () => this.code, length: this.code.length } },
-        dispatch: vi.fn(),
-      };
+      this.editor = rawEditor;
+      mocks.mirrorInstance = this;
+      mocks.mirrorScroller = scroller;
+      mocks.latestEvent = latestEvent;
     }
 
     setCode(code: string) {
-      this.code = code;
+      this.editor.dispatch({
+        changes: { from: 0, to: this.editor.state.doc.length, insert: code },
+      });
+    }
+
+    async evaluate() {
+      await mocks.mirrorEvaluate(this.code);
     }
   },
 }));
@@ -148,6 +207,10 @@ beforeEach(() => {
   });
   mocks.mirrorOptions = null;
   mocks.mirrorInitialCode = "";
+  mocks.mirrorInstance = null;
+  mocks.mirrorScroller = null;
+  mocks.latestEvent = null;
+  mocks.lastScrollEffect = null;
   vi.clearAllMocks();
 });
 
@@ -194,6 +257,97 @@ describe("CodeStrip production Strudel document", () => {
 
     mocks.mirrorOptions.onToggle(false);
     expect(mocks.setCodeStripPlaying).toHaveBeenLastCalledWith(expect.anything(), false);
+    wrapper.unmount();
+  });
+
+  it("evaluates the current visible recording instead of stale runtime source", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    const nextNote: PatternNote = {
+      ...recordedNote,
+      id: "d",
+      note: "D4",
+      scaleDegree: 2,
+      scaleIndex: 1,
+    };
+    mocks.patternsStore.currentSketchNotes = [nextNote];
+    mocks.patternsStore.currentWorkingNotes = [nextNote];
+    await nextTick();
+    await flushPromises();
+
+    const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
+    expect(visibleSource).toContain("D4@0.25");
+    expect(mocks.mirrorInstance.code).not.toBe(visibleSource);
+
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    await controller.evaluate();
+    expect(mocks.mirrorInstance.code).toBe(visibleSource);
+    expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(visibleSource);
+    wrapper.unmount();
+  });
+
+  it("repairs a stale runtime source from the visible document before Play", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
+    mocks.mirrorInstance.code = "`< stale@1 >`";
+
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    await controller.evaluate();
+
+    expect(mocks.mirrorInstance.code).toBe(visibleSource);
+    expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(visibleSource);
+    wrapper.unmount();
+  });
+
+  it("reveals the latest semantic event without jumping into the raw source tail", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    expect(mocks.mirrorScroller).not.toBeNull();
+
+    mocks.mirrorScroller!.scrollLeft = 0;
+    const nextNote: PatternNote = {
+      ...recordedNote,
+      id: "d",
+      note: "D4",
+      scaleDegree: 2,
+      scaleIndex: 1,
+    };
+    mocks.patternsStore.currentSketchNotes = [recordedNote, nextNote];
+    mocks.patternsStore.currentWorkingNotes = [recordedNote, nextNote];
+    await nextTick();
+    await flushPromises();
+
+    const eventRight = mocks.latestEvent!.offsetLeft + mocks.latestEvent!.offsetWidth;
+    const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
+    expect(mocks.lastScrollEffect.range.from).toBe(visibleSource.indexOf(">"));
+    expect(mocks.mirrorScroller!.scrollLeft + mocks.mirrorScroller!.clientWidth)
+      .toBeGreaterThanOrEqual(eventRight);
+    expect(mocks.mirrorScroller!.scrollLeft)
+      .toBeLessThan(mocks.mirrorScroller!.scrollWidth - mocks.mirrorScroller!.clientWidth);
+    wrapper.unmount();
+  });
+
+  it("reveals a replacement event even when the recording length is unchanged", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    mocks.mirrorScroller!.scrollLeft = 0;
+
+    const replacement: PatternNote = {
+      ...recordedNote,
+      id: "replacement",
+      note: "E4",
+      scaleDegree: 3,
+      scaleIndex: 2,
+    };
+    mocks.patternsStore.currentSketchNotes = [replacement];
+    mocks.patternsStore.currentWorkingNotes = [replacement];
+    await nextTick();
+    await flushPromises();
+
+    expect(mocks.lastScrollEffect).not.toBeNull();
+    expect(mocks.mirrorScroller!.scrollLeft).toBeGreaterThan(0);
     wrapper.unmount();
   });
 });

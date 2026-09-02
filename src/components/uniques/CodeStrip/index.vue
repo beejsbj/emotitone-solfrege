@@ -22,10 +22,12 @@ import { transpiler } from "@strudel/transpiler";
 import {
   computed,
   getCurrentInstance,
+  markRaw,
   nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   watch,
 } from "vue";
 import { toStrudelSound } from "@/composables/useStrudel";
@@ -44,6 +46,7 @@ import { buildRecordedCodeStripTokens } from "./recordingTokens";
 import {
   applySpecimenPlayback,
   codeStripStrudelExtension,
+  parseCodeStripEvents,
   serializeCodeStripTokens,
   setCodeStripPlaying,
   updateCodeStripPresentation,
@@ -107,7 +110,10 @@ const {
 const editorRoot = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
 const isBooting = ref(true);
-const mirror = ref<StrudelMirrorInstance | null>(null);
+// Stateful third-party editor classes must retain their own object identity.
+// StrudelMirror also keeps a separate runtime code cache, reconciled from the
+// visible EditorView document immediately before evaluation below.
+const mirror = shallowRef<StrudelMirrorInstance | null>(null);
 let controlledView: EditorView | null = null;
 let attachedController: Parameters<typeof detachEditor>[0] | undefined;
 let followLoopFrame: number | null = null;
@@ -123,6 +129,7 @@ const recordedTokens = computed(() => buildRecordedCodeStripTokens({
   musicKey: patternsStore.currentSketchMeta.key,
   notation: codeStripConfig.value.notation,
   barMs: barMs.value,
+  sourceBpm: patternsStore.currentSketchMeta.bpm,
   surfaceStyle: keyboardConfig.value.surfaceStyle,
   keyBrightness: keyboardConfig.value.keyBrightness,
   keySaturation: keyboardConfig.value.keySaturation,
@@ -182,6 +189,35 @@ function syncMirrorCode(code: string) {
   if (!instance) return;
   if (getMirrorCode(instance) !== code) instance.setCode(code);
   syncCode(code);
+}
+
+function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
+  const visibleCode = getMirrorCode(instance);
+  if (instance.code !== visibleCode) instance.code = visibleCode;
+  syncCode(visibleCode);
+}
+
+async function evaluateMirror(instance: StrudelMirrorInstance) {
+  reconcileMirrorRuntimeCode(instance);
+  const editor = getMirrorView(instance);
+  if (editor) setCodeStripPlaying(editor, true);
+  try {
+    await instance.evaluate();
+  } catch (error) {
+    if (editor) setCodeStripPlaying(editor, false);
+    throw error;
+  }
+}
+
+function revealLatestRecordedEvent() {
+  const view = getMirrorView(mirror.value);
+  if (!view) return;
+  const events = parseCodeStripEvents(view.state.doc);
+  const latest = events[events.length - 1];
+  if (!latest) return;
+  view.dispatch({
+    effects: EditorView.scrollIntoView(latest.to, { x: "end", xMargin: 12 }),
+  });
 }
 
 function syncPresentation() {
@@ -268,7 +304,7 @@ function initializeControlledView() {
 async function initializeStrudelMirror() {
   if (!editorRoot.value) return;
 
-  const instance = new StrudelMirror({
+  const instance = markRaw(new StrudelMirror({
     root: editorRoot.value,
     initialCode: generatedCode.value,
     transpiler,
@@ -299,7 +335,7 @@ async function initializeStrudelMirror() {
         stopStrudelVisuals();
       }
     },
-  }) as StrudelMirrorInstance;
+  }) as StrudelMirrorInstance);
   mirror.value = instance;
 
   instance.updateSettings?.({
@@ -335,16 +371,7 @@ async function initializeStrudelMirror() {
   attachedController = {
     getCode: () => getMirrorCode(instance),
     setCode: (code: string) => instance.setCode(code),
-    evaluate: async () => {
-      const editor = getMirrorView(instance);
-      if (editor) setCodeStripPlaying(editor, true);
-      try {
-        await instance.evaluate();
-      } catch (error) {
-        if (editor) setCodeStripPlaying(editor, false);
-        throw error;
-      }
-    },
+    evaluate: () => evaluateMirror(instance),
     stop: () => {
       const editor = getMirrorView(instance);
       if (editor) setCodeStripPlaying(editor, false);
@@ -396,17 +423,19 @@ watch(
   async () => {
     if (isControlled.value || !mirror.value || !isPlaying.value) return;
     syncMirrorCode(generatedCode.value);
-    await mirror.value.evaluate();
+    await evaluateMirror(mirror.value);
   },
 );
 
 watch(
-  () => patternsStore.currentWorkingNotes.length,
+  () => {
+    const notes = patternsStore.currentWorkingNotes;
+    return notes[notes.length - 1]?.id;
+  },
   async () => {
     if (isControlled.value) return;
     await nextTick();
-    const scroller = editorRoot.value?.querySelector<HTMLElement>(".cm-scroller");
-    if (scroller) scroller.scrollLeft = scroller.scrollWidth;
+    revealLatestRecordedEvent();
   },
 );
 

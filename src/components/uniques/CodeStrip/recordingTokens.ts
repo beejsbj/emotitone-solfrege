@@ -4,9 +4,9 @@ import type { NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { PatternNote } from "@/types/patterns";
 import type { KeyboardConfig, CodeStripConfig } from "@/types/visual";
+import { getRestGapThresholdMs } from "@/services/StrudelNotation";
 import type { CodeStripNote, CodeStripToken } from "./types";
 
-const REST_GAP_THRESHOLD_MS = 50;
 const OVERLAP_EPSILON_MS = 1;
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
 
@@ -49,6 +49,7 @@ export interface RecordedCodeStripInput {
   musicKey: ChromaticNote;
   notation: CodeStripConfig["notation"];
   barMs: number;
+  sourceBpm: number;
   surfaceStyle: KeyboardConfig["surfaceStyle"];
   keyBrightness: number;
   keySaturation: number;
@@ -59,7 +60,10 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     return [];
   }
 
-  const schedule = buildSchedule(input.notes);
+  const schedule = buildSchedule(
+    input.notes,
+    getRestGapThresholdMs(input.sourceBpm),
+  );
   const tokens: CodeStripToken[] = [];
 
   for (const event of schedule) {
@@ -127,7 +131,7 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
   return tokens;
 }
 
-function buildSchedule(notes: PatternNote[]): ScheduledEvent[] {
+function buildSchedule(notes: PatternNote[], restGapThresholdMs: number): ScheduledEvent[] {
   const sorted: IndexedNote[] = notes
     .map((note, inputOrder) => ({ note, inputOrder }))
     .sort(
@@ -157,12 +161,19 @@ function buildSchedule(notes: PatternNote[]): ScheduledEvent[] {
     }
 
     const gap = blockStart - timelineCursor;
-    if (gap > REST_GAP_THRESHOLD_MS) {
+    if (gap > OVERLAP_EPSILON_MS) {
       schedule.push({ kind: "rest", start: weightCursor, end: weightCursor + gap });
       weightCursor += gap;
     }
 
-    const blockDuration = Math.max(1, blockEnd - blockStart);
+    const nextBlockStart = sorted[nextIndex]?.note.pressTime;
+    const followingGap = nextBlockStart == null ? 0 : nextBlockStart - blockEnd;
+    const coalescedGap = block.length === 1 &&
+      followingGap > OVERLAP_EPSILON_MS &&
+      followingGap <= restGapThresholdMs
+      ? followingGap
+      : 0;
+    const blockDuration = Math.max(1, blockEnd - blockStart + coalescedGap);
     const spans = block.map((indexed): NoteSpan => ({
       indexed,
       start: weightCursor + Math.max(0, indexed.note.pressTime - blockStart),
@@ -185,7 +196,7 @@ function buildSchedule(notes: PatternNote[]): ScheduledEvent[] {
       });
     }
 
-    timelineCursor = blockEnd;
+    timelineCursor = blockEnd + coalescedGap;
     weightCursor += blockDuration;
     index = nextIndex;
   }

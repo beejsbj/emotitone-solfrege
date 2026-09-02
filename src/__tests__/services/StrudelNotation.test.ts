@@ -93,6 +93,52 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.cpm(90 / 4)')
   })
 
+  it('coalesces rapid human taps instead of inserting a rest between each note', () => {
+    const notes = [
+      makeNote('c', 'C4', 0, 4, 1000, 80),
+      makeNote('d', 'D4', 1, 4, 1160, 80),
+      makeNote('e', 'E4', 2, 4, 1320, 80),
+    ]
+
+    const result = logNotesToStrudel(notes, { sourceBpm: 120 })
+
+    expect(result).toContain('C4@0.08 D4@0.08 E4@0.04')
+    expect(result).not.toContain('~')
+  })
+
+  it('keeps the human tap floor at fast source tempos', () => {
+    const notes = [
+      makeNote('c', 'C4', 0, 4, 1000, 80),
+      makeNote('d', 'D4', 1, 4, 1160, 80),
+    ]
+
+    const result = logNotesToStrudel(notes, { sourceBpm: 240 })
+
+    expect(result).not.toContain('~')
+  })
+
+  it('preserves quick rolled attacks inside an overlapping chord', () => {
+    const notes = [
+      makeNote('c', 'C4', 0, 4, 1000, 500),
+      makeNote('e', 'E4', 2, 4, 1080, 420),
+    ]
+
+    const result = logNotesToStrudel(notes, { sourceBpm: 120 })
+
+    expect(result).toContain('{C4, ~@0.04 E4@0.21}@0.25')
+  })
+
+  it('preserves an intentional pause after the rapid-tap coalescing window', () => {
+    const notes = [
+      makeNote('c', 'C4', 0, 4, 1000, 80),
+      makeNote('d', 'D4', 1, 4, 1330, 80),
+    ]
+
+    const result = logNotesToStrudel(notes, { sourceBpm: 120 })
+
+    expect(result).toContain('C4@0.04 ~@0.125 D4@0.04')
+  })
+
   it("normalizes wrapped relative scale indices for sparse modes", () => {
     const notes = [
       {

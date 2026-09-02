@@ -10,7 +10,8 @@
 
 import type { LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
-import { normalizeScaleIndex } from "@/data";
+import { Note as TonalNote } from "@tonaljs/tonal";
+import { getScaleForMode, normalizeScaleIndex } from "@/data";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -83,6 +84,7 @@ function toAt(ms: number, barMs: number, precision: number): string {
 export class StrudelNotation {
   private notes: LogNote[];
   private config: StrudelConfig;
+  private renderRelative = false;
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
     this.notes = [...notes].sort(
@@ -98,6 +100,8 @@ export class StrudelNotation {
   toString(): string {
     if (this.notes.length === 0) return "";
 
+    this.renderRelative = this.config.notationType === "relative" &&
+      this.notes.every((note) => this.relativeNoteValue(note) != null);
     const barMs = barLengthMs(this.config);
     const origin = this.notes[0].pressTime;
     const tokens: string[] = [];
@@ -149,10 +153,10 @@ export class StrudelNotation {
       index = nextIndex;
     }
 
-    const inner = tokens.join(" ");
+    const inner = `[ ${tokens.join(" ")} ]`;
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
 
-    if (this.config.notationType === "relative") {
+    if (this.renderRelative) {
       const first = this.notes[0];
       const scaleOctave =
         this.config.scaleOctave ??
@@ -265,14 +269,31 @@ export class StrudelNotation {
   }
 
   private noteValue(note: LogNote) {
-    return this.config.notationType === "relative"
-      ? String(
-          normalizeScaleIndex(
-            (this.config.scaleMode ?? note.mode ?? "major") as MusicalMode,
-            note.scaleIndex
-          )
-        )
-      : note.note;
+    if (!this.renderRelative) return note.note;
+    return String(this.relativeNoteValue(note));
+  }
+
+  private relativeNoteValue(note: LogNote) {
+    const mode = (this.config.scaleMode ?? note.mode ?? "major") as MusicalMode;
+    const scale = getScaleForMode(mode);
+    const degree = normalizeScaleIndex(mode, note.scaleIndex);
+    const scaleOctave = this.config.scaleOctave ?? this.notes[0]?.octave ?? 4;
+    const scaleKey = this.config.scaleKey ?? this.notes[0]?.key ?? "C";
+    const rootMidi = TonalNote.midi(`${scaleKey}${scaleOctave}`);
+    const noteMidi = TonalNote.midi(note.note);
+    const degreeSemitones = scale.intervals[degree];
+
+    if (rootMidi == null || noteMidi == null || degreeSemitones == null) {
+      return null;
+    }
+
+    const octaveCycles = (noteMidi - (rootMidi + degreeSemitones)) / 12;
+    const roundedCycles = Math.round(octaveCycles);
+    if (Math.abs(octaveCycles - roundedCycles) > Number.EPSILON * 16) {
+      return null;
+    }
+
+    return degree + roundedCycles * scale.degreeCount;
   }
 
   private noteDuration(note: LogNote) {

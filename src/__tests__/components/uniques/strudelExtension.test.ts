@@ -26,7 +26,8 @@ vi.mock("@/data", () => ({
   CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
   getSolfegeNameForMode: (_mode: string, scaleIndex: number) =>
     ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"][scaleIndex] ?? "Do",
-  normalizeScaleIndex: (_mode: string, scaleIndex: number) => scaleIndex,
+  normalizeScaleIndex: (_mode: string, scaleIndex: number) =>
+    ((scaleIndex % 7) + 7) % 7,
 }));
 
 vi.mock("@/services/musicColor", () => ({
@@ -43,7 +44,7 @@ vi.mock("@/composables/useColorSystem", () => ({
   }),
 }));
 
-const source = "`< C4@0.25 ~@0.25 {E4, G4}@0.5 >`.as(\"note\").sound(\"sine\")";
+const source = "`< [ C4@0.25 ~@0.25 {E4, G4}@0.5 ] >`.as(\"note\").sound(\"sine\")";
 const tokens: CodeStripToken[] = [
   {
     type: "note",
@@ -71,6 +72,17 @@ const progress = (host: HTMLElement, selector: string) =>
   host.querySelector<HTMLElement>(selector)?.style.getPropertyValue("--code-strip-progress");
 
 describe("CodeStrip Strudel source decorations", () => {
+  it("parses negative relative degrees as notes rather than rest aliases", () => {
+    const doc = EditorState.create({
+      doc: "`< [ -7@0.06 0@0.06 ] >`.as(\"n\").scale(\"C4:major\")",
+    }).doc;
+
+    expect(parseCodeStripEvents(doc)).toMatchObject([
+      { kind: "note", notes: [{ text: "-7", isRelative: true }] },
+      { kind: "note", notes: [{ text: "0", isRelative: true }] },
+    ]);
+  });
+
   const mountedViews: EditorView[] = [];
 
   afterEach(() => {
@@ -96,11 +108,35 @@ describe("CodeStrip Strudel source decorations", () => {
 
     expect(view.state.doc.toString()).toBe(source);
     expect(host.querySelectorAll(".cm-code-strip-event")).toHaveLength(3);
+    expect(host.querySelectorAll(".cm-code-strip-structure")).toHaveLength(2);
+    expect(host.querySelector(".cm-line")?.textContent).not.toContain("[");
     expect(host.querySelector(".cm-code-strip-widget")).toBeNull();
     expect(host.querySelector(".note__identity-core")?.textContent).toBe("Do");
     expect(progress(host, ".code-strip__note")).toBe("1");
     expect(host.querySelector<HTMLElement>(".code-strip__rest")?.style
       .getPropertyValue("--code-strip-progress")).toBe("1");
+  });
+
+  it("keeps an octave-shifted relative source attached to its supplied token", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const relativeSource = "`< [ 28@0.25 ] >`.as(\"n\").scale(\"C4:major\")";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: relativeSource,
+        extensions: [codeStripStrudelExtension],
+      }),
+      parent: host,
+    });
+    mountedViews.push(view);
+    updateCodeStripPresentation(view, {
+      tokens: [{ ...tokens[0], rawPitch: "C8", octave: 8 }],
+      durationMode: "stacked",
+    });
+    await Promise.resolve();
+
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("Do");
+    expect(host.querySelector(".note__identity-core")?.textContent).not.toBe("1");
   });
 
   it("turns Ink on at Play and consumes Strudel's native location highlight", async () => {

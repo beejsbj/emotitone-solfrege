@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   mirrorInstance: null as any,
   mirrorScroller: null as HTMLElement | null,
   latestEvent: null as HTMLElement | null,
-  lastScrollEffect: null as any,
+  rafCallbacks: [] as FrameRequestCallback[],
 }));
 
 vi.mock("@/stores/patterns", () => ({
@@ -110,27 +110,18 @@ vi.mock("@strudel/codemirror", () => ({
 
       const rawEditor = {
         hasFocus: false,
+        scrollDOM: scroller,
         state: { doc: makeDoc(options.initialCode) },
+        coordsAtPos: () => ({ left: 420, right: 420, top: 0, bottom: 20 }),
+        requestMeasure(request: any) {
+          request.write(request.read(this), this);
+        },
         dispatch(this: any, transaction: any) {
           if (transaction.changes) {
             const nextCode = transaction.changes.insert;
             this.state.doc = makeDoc(nextCode);
             // Match the installed StrudelMirror behavior: setCode changes the
             // EditorView document, but its public runtime code can remain stale.
-          }
-          const scrollEffect = transaction.effects?.value;
-          if (scrollEffect?.x === "end") {
-            mocks.lastScrollEffect = scrollEffect;
-          }
-          const latestSemanticPosition = this.state.doc.toString().indexOf(">");
-          if (
-            scrollEffect?.x === "end" &&
-            scrollEffect.range?.from === latestSemanticPosition
-          ) {
-            scroller.scrollLeft = Math.max(
-              0,
-              latestEvent.offsetLeft + latestEvent.offsetWidth - scroller.clientWidth + 12,
-            );
           }
         },
       };
@@ -210,7 +201,12 @@ beforeEach(() => {
   mocks.mirrorInstance = null;
   mocks.mirrorScroller = null;
   mocks.latestEvent = null;
-  mocks.lastScrollEffect = null;
+  mocks.rafCallbacks = [];
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    mocks.rafCallbacks.push(callback);
+    return mocks.rafCallbacks.length;
+  });
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
   vi.clearAllMocks();
 });
 
@@ -301,7 +297,7 @@ describe("CodeStrip production Strudel document", () => {
     wrapper.unmount();
   });
 
-  it("reveals the latest semantic event without jumping into the raw source tail", async () => {
+  it("smoothly follows the latest semantic event without jumping into the raw source tail", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
     expect(mocks.mirrorScroller).not.toBeNull();
@@ -319,13 +315,25 @@ describe("CodeStrip production Strudel document", () => {
     await nextTick();
     await flushPromises();
 
-    const eventRight = mocks.latestEvent!.offsetLeft + mocks.latestEvent!.offsetWidth;
-    const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
-    expect(mocks.lastScrollEffect.range.from).toBe(visibleSource.indexOf(">"));
-    expect(mocks.mirrorScroller!.scrollLeft + mocks.mirrorScroller!.clientWidth)
-      .toBeGreaterThanOrEqual(eventRight);
-    expect(mocks.mirrorScroller!.scrollLeft)
-      .toBeLessThan(mocks.mirrorScroller!.scrollWidth - mocks.mirrorScroller!.clientWidth);
+    expect(mocks.mirrorScroller!.scrollLeft).toBe(0);
+    expect(mocks.rafCallbacks.length).toBeGreaterThan(0);
+
+    const samples: number[] = [];
+    for (let frame = 1; frame <= 12; frame++) {
+      const callback = mocks.rafCallbacks.shift();
+      if (!callback) break;
+      callback(frame * 16);
+      samples.push(mocks.mirrorScroller!.scrollLeft);
+    }
+
+    expect(samples.length).toBeGreaterThan(2);
+    expect(samples.every((sample, index) => index === 0 || sample >= samples[index - 1]))
+      .toBe(true);
+    expect(samples[0]).toBeGreaterThan(0);
+    expect(samples[0]).toBeLessThan(samples.at(-1)!);
+    expect(samples.at(-1)!).toBeLessThan(
+      mocks.mirrorScroller!.scrollWidth - mocks.mirrorScroller!.clientWidth,
+    );
     wrapper.unmount();
   });
 
@@ -346,7 +354,8 @@ describe("CodeStrip production Strudel document", () => {
     await nextTick();
     await flushPromises();
 
-    expect(mocks.lastScrollEffect).not.toBeNull();
+    expect(mocks.rafCallbacks.length).toBeGreaterThan(0);
+    mocks.rafCallbacks.shift()?.(16);
     expect(mocks.mirrorScroller!.scrollLeft).toBeGreaterThan(0);
     wrapper.unmount();
   });

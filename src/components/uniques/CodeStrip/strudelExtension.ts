@@ -86,7 +86,7 @@ type InlineMetaToken = { from: number; to: number };
 
 const INLINE_META_REGEX = /(?:@(?:\d+(?:\.\d+)?)|:(?:\d+(?:\.\d+)?))/g;
 const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?-?\d+\b/g;
-const RELATIVE_NOTE_REGEX = /(?<![@.\w])\d{1,2}(?=@|\b)/g;
+const RELATIVE_NOTE_REGEX = /(?<![@.\w])-?\d{1,3}(?=@|\b)/g;
 const REST_CHARACTERS = new Set(["~", "-"]);
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
 
@@ -248,6 +248,15 @@ const codeStripEventDecorations = EditorView.decorations.compute(
     const events = parseCodeStripEvents(state.doc);
     const semanticTokens = presentation.tokens.filter(isSemanticEvent);
     const builder = new RangeSetBuilder<Decoration>();
+    const structure = getSequentialPatternBrackets(state.doc.toString());
+
+    if (structure) {
+      builder.add(
+        structure.open,
+        structure.open + 1,
+        Decoration.replace({ widget: new HiddenCodeStripStructureWidget() }),
+      );
+    }
 
     events.forEach((event, index) => {
       if (event.kind === "rest" && presentation.showRests === false) {
@@ -281,6 +290,14 @@ const codeStripEventDecorations = EditorView.decorations.compute(
         }),
       );
     });
+
+    if (structure) {
+      builder.add(
+        structure.close,
+        structure.close + 1,
+        Decoration.replace({ widget: new HiddenCodeStripStructureWidget() }),
+      );
+    }
 
     return builder.finish();
   },
@@ -364,6 +381,15 @@ class HiddenCodeStripEventWidget extends WidgetType {
   }
 }
 
+class HiddenCodeStripStructureWidget extends WidgetType {
+  toDOM() {
+    const root = document.createElement("span");
+    root.className = "cm-code-strip-structure";
+    root.setAttribute("aria-hidden", "true");
+    return root;
+  }
+}
+
 export function parseCodeStripEvents(doc: Text): ParsedCodeStripEvent[] {
   const content = doc.toString();
   const bounds = getPatternBounds(content);
@@ -413,10 +439,10 @@ export function parseCodeStripEvents(doc: Text): ParsedCodeStripEvent[] {
 
     const duration = raw.match(/@(?:\d+(?:\.\d+)?)/)?.[0];
     const notes = extractNotes(content, from, cursor);
-    const kind = REST_CHARACTERS.has(raw[0])
-      ? "rest"
-      : notes.length
-        ? "note"
+    const kind = notes.length
+      ? "note"
+      : REST_CHARACTERS.has(raw[0])
+        ? "rest"
         : null;
     if (!kind) continue;
 
@@ -451,7 +477,7 @@ export function serializeCodeStripTokens(tokens: CodeStripToken[]) {
     return token.text ?? ",";
   }).join(" ");
 
-  return `\`< ${body} >\``;
+  return `\`< [ ${body} ] >\``;
 }
 
 export function applySpecimenPlayback(view: EditorView, tokens: CodeStripToken[]) {
@@ -674,20 +700,33 @@ function compatibleToken(
 
 function sourceNoteMatchesToken(note: ParsedNote | undefined, token: CodeStripNoteToken) {
   if (!note) return false;
-  return sourceNoteMatchesIdentity(note, token.rawPitch, token.scaleIndex);
+  return sourceNoteMatchesIdentity(
+    note,
+    token.rawPitch,
+    token.scaleIndex,
+    token.mode ?? "major",
+  );
 }
 
 function sourceNoteMatchesMember(note: ParsedNote, member: ChordMember) {
-  return sourceNoteMatchesIdentity(note, member.rawPitch, member.scaleIndex);
+  return sourceNoteMatchesIdentity(
+    note,
+    member.rawPitch,
+    member.scaleIndex,
+    member.mode ?? "major",
+  );
 }
 
 function sourceNoteMatchesIdentity(
   note: ParsedNote,
   rawPitch: string | undefined,
   scaleIndex: number | undefined,
+  mode: MusicalMode = "major",
 ) {
   if (note.isRelative) {
-    return Number.isFinite(scaleIndex) && Number(note.text) === scaleIndex;
+    if (!Number.isFinite(scaleIndex)) return false;
+    return normalizeScaleIndex(mode, Number(note.text)) ===
+      normalizeScaleIndex(mode, Number(scaleIndex));
   }
   return Boolean(rawPitch) && note.text.toLowerCase() === rawPitch?.toLowerCase();
 }
@@ -848,7 +887,9 @@ function takeMatchingSourceNote(notes: ParsedNote[], member: ChordMember) {
     if (!note.isRelative && member.rawPitch) {
       return note.text.toLowerCase() === member.rawPitch.toLowerCase();
     }
-    return note.isRelative && Number(note.text) === member.scaleIndex;
+    return note.isRelative && Number.isFinite(member.scaleIndex) &&
+      normalizeScaleIndex(member.mode ?? "major", Number(note.text)) ===
+        normalizeScaleIndex(member.mode ?? "major", Number(member.scaleIndex));
   });
   if (index < 0) index = 0;
   return notes.splice(index, 1)[0];
@@ -859,6 +900,20 @@ function getPatternBounds(content: string) {
   if (start < 0) return null;
   const end = content.indexOf(">", start + 1);
   return end < 0 ? null : { start, end };
+}
+
+function getSequentialPatternBrackets(content: string) {
+  const bounds = getPatternBounds(content);
+  if (!bounds) return null;
+
+  let open = bounds.start + 1;
+  while (open < bounds.end && /\s/.test(content[open])) open++;
+  let close = bounds.end - 1;
+  while (close > open && /\s/.test(content[close])) close--;
+
+  return content[open] === "[" && content[close] === "]"
+    ? { open, close }
+    : null;
 }
 
 function extractTrailingDuration(content: string, start: number) {

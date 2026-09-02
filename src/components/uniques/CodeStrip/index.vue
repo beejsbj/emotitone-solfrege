@@ -118,7 +118,12 @@ let controlledView: EditorView | null = null;
 let attachedController: Parameters<typeof detachEditor>[0] | undefined;
 let followLoopFrame: number | null = null;
 let followTargetScrollLeft = 0;
+let followScroller: HTMLElement | null = null;
+let followLastFrameTime: number | null = null;
 let followPlaybackActive = false;
+
+const FOLLOW_TIME_CONSTANT_MS = 150;
+const RECORDING_FOLLOW_ANCHOR = 0.75;
 
 const codeStripConfig = computed(() => visualConfigStore.config.codeStrip);
 const keyboardConfig = computed(() => visualConfigStore.config.keyboard);
@@ -215,8 +220,23 @@ function revealLatestRecordedEvent() {
   const events = parseCodeStripEvents(view.state.doc);
   const latest = events[events.length - 1];
   if (!latest) return;
-  view.dispatch({
-    effects: EditorView.scrollIntoView(latest.to, { x: "end", xMargin: 12 }),
+
+  view.requestMeasure({
+    read(measuredView) {
+      const scroller = measuredView.scrollDOM;
+      const coordinates = measuredView.coordsAtPos(latest.to);
+      if (!coordinates) return null;
+      const scrollerRect = scroller.getBoundingClientRect();
+      const eventRight = scroller.scrollLeft + coordinates.right - scrollerRect.left;
+      return {
+        scroller,
+        target: eventRight - scroller.clientWidth * RECORDING_FOLLOW_ANCHOR,
+      };
+    },
+    write(measurement) {
+      if (!measurement) return;
+      startFollowScroll(measurement.scroller, measurement.target);
+    },
   });
 }
 
@@ -247,8 +267,44 @@ function syncPresentation() {
 function stopFollow() {
   followPlaybackActive = false;
   followTargetScrollLeft = 0;
+  followScroller = null;
+  followLastFrameTime = null;
   if (followLoopFrame != null) cancelAnimationFrame(followLoopFrame);
   followLoopFrame = null;
+}
+
+function startFollowScroll(scroller: HTMLElement, target: number) {
+  followScroller = scroller;
+  followTargetScrollLeft = Math.max(
+    0,
+    Math.min(scroller.scrollWidth - scroller.clientWidth, target),
+  );
+  if (Math.abs(followTargetScrollLeft - scroller.scrollLeft) < 0.5) return;
+  if (followLoopFrame != null) return;
+
+  const step = (timestamp: number) => {
+    followLoopFrame = null;
+    const nextScroller = followScroller;
+    if (!nextScroller) return;
+
+    const delta = followTargetScrollLeft - nextScroller.scrollLeft;
+    if (Math.abs(delta) < 0.5) {
+      nextScroller.scrollLeft = followTargetScrollLeft;
+      followLastFrameTime = null;
+      return;
+    }
+
+    const elapsed = followLastFrameTime == null
+      ? 1000 / 60
+      : Math.max(0, timestamp - followLastFrameTime);
+    followLastFrameTime = timestamp;
+    const blend = 1 - Math.exp(-elapsed / FOLLOW_TIME_CONSTANT_MS);
+    nextScroller.scrollLeft += delta * blend;
+    followLoopFrame = requestAnimationFrame(step);
+  };
+
+  followLastFrameTime = null;
+  followLoopFrame = requestAnimationFrame(step);
 }
 
 function followActivePlayback() {
@@ -270,19 +326,7 @@ function followActivePlayback() {
       targetCenter - scroller.clientWidth * 0.42,
     ),
   );
-
-  if (followLoopFrame != null) return;
-  const step = () => {
-    followLoopFrame = null;
-    if (!followPlaybackActive) return;
-    const nextScroller = editorRoot.value?.querySelector<HTMLElement>(".cm-scroller");
-    if (!nextScroller) return;
-    const delta = followTargetScrollLeft - nextScroller.scrollLeft;
-    if (Math.abs(delta) < 0.5) return;
-    nextScroller.scrollLeft += delta * 0.14;
-    followLoopFrame = requestAnimationFrame(step);
-  };
-  followLoopFrame = requestAnimationFrame(step);
+  startFollowScroll(scroller, followTargetScrollLeft);
 }
 
 function initializeControlledView() {

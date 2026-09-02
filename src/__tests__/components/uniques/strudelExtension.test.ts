@@ -161,4 +161,30 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
     expect(host.querySelectorAll(".cm-code-strip-event")).toHaveLength(3);
   });
+
+  it("re-derives presentation and native highlight ranges after a source edit", async () => {
+    const { host, view } = createView();
+    const from = view.state.doc.toString().indexOf("C4");
+
+    view.dispatch({ changes: { from, to: from + 2, insert: "D4" } });
+    await Promise.resolve();
+
+    expect(view.state.doc.toString()).toContain("D4@0.25");
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("Re");
+
+    setCodeStripPlaying(view, true);
+    const editedNote = parseCodeStripEvents(view.state.doc)[0].notes[0];
+    view.dispatch({
+      effects: showMiniLocations.of({
+        atTime: .125,
+        haps: [{
+          context: { locations: [{ start: editedNote.from, end: editedNote.to }] },
+          whole: { begin: 0, duration: .25 },
+        }],
+      }),
+    });
+    await Promise.resolve();
+
+    expect(progress(host, ".code-strip__note")).toBe("0.5");
+  });
 });

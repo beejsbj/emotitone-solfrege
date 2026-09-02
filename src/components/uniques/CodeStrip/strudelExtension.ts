@@ -655,9 +655,41 @@ function compatibleToken(
   token: CodeStripToken | undefined,
 ): token is CodeStripToken {
   if (!token) return false;
-  return (event.kind === "note" && token.type === "note") ||
-    (event.kind === "rest" && token.type === "rest") ||
-    (event.kind === "group" && token.type === "chord");
+  if (event.kind === "rest") return token.type === "rest";
+  if (event.kind === "note") {
+    return token.type === "note" && sourceNoteMatchesToken(event.notes[0], token);
+  }
+  if (token.type !== "chord" || event.notes.length !== token.members.length) {
+    return false;
+  }
+
+  const remaining = [...token.members];
+  return event.notes.every((note) => {
+    const memberIndex = remaining.findIndex((member) => sourceNoteMatchesMember(note, member));
+    if (memberIndex < 0) return false;
+    remaining.splice(memberIndex, 1);
+    return true;
+  });
+}
+
+function sourceNoteMatchesToken(note: ParsedNote | undefined, token: CodeStripNoteToken) {
+  if (!note) return false;
+  return sourceNoteMatchesIdentity(note, token.rawPitch, token.scaleIndex);
+}
+
+function sourceNoteMatchesMember(note: ParsedNote, member: ChordMember) {
+  return sourceNoteMatchesIdentity(note, member.rawPitch, member.scaleIndex);
+}
+
+function sourceNoteMatchesIdentity(
+  note: ParsedNote,
+  rawPitch: string | undefined,
+  scaleIndex: number | undefined,
+) {
+  if (note.isRelative) {
+    return Number.isFinite(scaleIndex) && Number(note.text) === scaleIndex;
+  }
+  return Boolean(rawPitch) && note.text.toLowerCase() === rawPitch?.toLowerCase();
 }
 
 function isSemanticEvent(

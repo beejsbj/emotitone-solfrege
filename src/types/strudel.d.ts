@@ -1,6 +1,15 @@
 // Ambient declarations for @strudel/* packages that ship no TypeScript types.
 // These modules are all runtime-only — we use `any` intentionally.
 declare module "@strudel/codemirror" {
+  import type { StateEffectType } from "@codemirror/state";
+
+  export const setMiniLocations: StateEffectType<Array<[number, number]>>;
+  export const showMiniLocations: StateEffectType<{
+    atTime: number | { valueOf(): number };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    haps: any[];
+  }>;
+
   export class StrudelMirror {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     constructor(opts: any);

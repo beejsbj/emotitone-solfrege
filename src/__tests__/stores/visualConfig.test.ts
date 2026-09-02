@@ -92,6 +92,31 @@ describe('Visual Config Store', () => {
       expect(newStore.config.keyboard.surfaceStyle).toBe('glassmorphism')
     })
 
+    it('should migrate the legacy liveStrip section into CodeStrip', () => {
+      const storedConfig = {
+        config: {
+          liveStrip: { bpm: 144, notation: 'degree', showRests: false }
+        }
+      }
+
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'emotitone-visual-config') {
+          return JSON.stringify(storedConfig)
+        }
+        return null
+      })
+
+      const newStore = createFreshStore()
+
+      expect(newStore.config.codeStrip).toMatchObject({
+        bpm: 144,
+        notation: 'degree',
+        showRests: false
+      })
+      expect('liveStrip' in newStore.config).toBe(false)
+    })
+
     it('should drop removed Hilbert keys and default new Hilbert controls', () => {
       const storedConfig = {
         config: {

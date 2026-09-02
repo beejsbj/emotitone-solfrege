@@ -24,7 +24,7 @@
 
         <div class="control-group">
           <Knob
-            :model-value="visualConfigStore.config.liveStrip.bpm"
+            :model-value="visualConfigStore.config.codeStrip.bpm"
             type="range"
             label="BPM"
             :min="40"
@@ -32,7 +32,7 @@
             :step="1"
             @update:modelValue="
               (value) =>
-                visualConfigStore.updateConfig('liveStrip', { bpm: Number(value) })
+                visualConfigStore.updateConfig('codeStrip', { bpm: Number(value) })
             "
           />
         </div>
@@ -119,7 +119,7 @@
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { usePatternsStore } from "@/stores/patterns";
-import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import Knob from "@/components/primatives/Knob/index.vue";
@@ -130,7 +130,7 @@ const store = useKeyboardDrawerStore();
 const visualConfigStore = useVisualConfigStore();
 const musicStore = useMusicStore();
 const patternsStore = usePatternsStore();
-const { toggle, isPlaying, hasPlayableCode } = useLiveStrudelMirror();
+const { toggle, isPlaying, hasPlayableCode } = useCodeStripStrudel();
 
 async function toggleSketchPlayback() {
   if (!hasPlayableCode.value) {

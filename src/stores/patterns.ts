@@ -43,7 +43,7 @@ export const usePatternsStore = defineStore(
     // Pattern variables
     const savedPatterns = ref<Pattern[]>([]);
 
-    // Focused pattern (used by LiveStrip + ActionBar)
+    // Focused pattern (used by CodeStrip + ActionBar)
     const focusedPatternId = ref<string | null>(null);
 
     // Working buffer — base notes loaded from a tapped pattern
@@ -83,7 +83,7 @@ export const usePatternsStore = defineStore(
       mode: musicStore.currentMode as MusicalMode,
       key: musicStore.currentKey as ChromaticNote,
       instrument: instrumentStore.currentInstrument,
-      bpm: resolveBpm(visualConfigStore.config.liveStrip.bpm),
+      bpm: resolveBpm(visualConfigStore.config.codeStrip.bpm),
     }));
 
     const currentSketchMeta = computed(() => {
@@ -419,7 +419,7 @@ export const usePatternsStore = defineStore(
       musicStore.setKey(pattern.key);
       musicStore.setMode(pattern.mode as MusicalMode);
       instrumentStore.setInstrument(pattern.instrument);
-      visualConfigStore.updateConfig("liveStrip", {
+      visualConfigStore.updateConfig("codeStrip", {
         bpm: resolveBpm(pattern.bpm),
       });
 
@@ -532,7 +532,7 @@ export const usePatternsStore = defineStore(
         octave,
         frequency,
         instrument: instrumentStore.currentInstrument,
-        bpm: resolveBpm(visualConfigStore.config.liveStrip.bpm),
+        bpm: resolveBpm(visualConfigStore.config.codeStrip.bpm),
         pressTime: Date.now(),
         sessionId: currentSessionId.value,
       };

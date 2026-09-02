@@ -70,9 +70,9 @@
 import { computed, defineComponent, h } from "vue";
 import BarTape from "../primatives/BarTape.vue";
 import Button from "../primatives/Button.vue";
-import CodeStrip from "../uniques/CodeStrip.vue";
+import CodeStrip from "../uniques/CodeStrip/index.vue";
 import type { BarTapeMode, BarTapeSegment } from "../primatives/BarTape.vue";
-import type { CodeStripToken } from "../uniques/CodeStrip.vue";
+import type { CodeStripToken } from "../uniques/CodeStrip/index.vue";
 
 export type PatternCardShape = "sleek" | "active";
 

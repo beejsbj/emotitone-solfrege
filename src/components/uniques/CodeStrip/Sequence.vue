@@ -1,7 +1,7 @@
 <template>
-  <div :class="stripClasses" :aria-label="ariaLabel" role="group">
+  <component :is="embedded ? 'span' : 'div'" :class="stripClasses" :aria-label="ariaLabel" role="group">
     <span v-if="showChevron" class="code-strip__chevron" aria-hidden="true">&lt;</span>
-    <div class="code-strip__sequence">
+    <span class="code-strip__sequence">
       <template v-for="(token, tokenIndex) in tokens" :key="tokenKey(token, tokenIndex)">
         <span
           v-if="token.type === 'note'"
@@ -103,66 +103,24 @@
         <span v-else-if="token.type === 'bracket'" class="code-strip__bracket">{{ token.text }}</span>
         <span v-else class="code-strip__separator">{{ token.text ?? ',' }}</span>
       </template>
-    </div>
-  </div>
+    </span>
+  </component>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
 import Chord from "@/components/compounds/Chord.vue";
-import type { ChordDisplay, ChordMember } from "@/components/compounds/Chord.vue";
+import type { ChordMember } from "@/components/compounds/Chord.vue";
 import Note from "@/components/primatives/Note.vue";
+import type { NoteLabel } from "@/components/primatives/Note.vue";
 import type {
-  NoteGeometry,
-  NoteLabel,
-  NoteSurfaceStyle,
-} from "@/components/primatives/Note.vue";
-import type { ChromaticNote, MusicalMode } from "@/types/music";
-
-export type CodeStripNote = "do" | "re" | "mi" | "fa" | "sol" | "la" | "ti";
-export type CodeStripGlyph = "syl" | "deg" | "raw";
-export type CodeStripDensity = "dense" | "default" | "spaced";
-export type CodeStripDurationMode = "stacked" | "bar" | "hidden";
-
-export interface CodeStripNoteToken {
-  type: "note";
-  note: CodeStripNote;
-  text: string;
-  glyph?: CodeStripGlyph;
-  lit?: boolean;
-  accidental?: string;
-  duration?: string;
-  progress?: number;
-  syllable?: string;
-  degree?: string;
-  rawPitch?: string;
-  scaleIndex?: number;
-  octave?: number;
-  mode?: MusicalMode;
-  musicKey?: ChromaticNote;
-  surfaceStyle?: NoteSurfaceStyle;
-  isAccidental?: boolean | null;
-  keyBrightness?: number;
-  keySaturation?: number;
-}
-
-export interface CodeStripChordToken {
-  type: "chord";
-  symbol: string;
-  members: ChordMember[];
-  display?: ChordDisplay;
-  geometry?: NoteGeometry;
-  duration?: string;
-  progress?: number;
-  accessibleName?: string;
-}
-
-export type CodeStripToken =
-  | CodeStripNoteToken
-  | CodeStripChordToken
-  | { type: "rest"; duration?: string; progress?: number }
-  | { type: "bracket"; text: "{" | "}" }
-  | { type: "separator"; text?: "," | "/" };
+  CodeStripChordToken,
+  CodeStripDensity,
+  CodeStripDurationMode,
+  CodeStripNote,
+  CodeStripNoteToken,
+  CodeStripToken,
+} from "./types";
 
 const props = withDefaults(
   defineProps<{
@@ -174,6 +132,7 @@ const props = withDefaults(
     scrollable?: boolean;
     showChevron?: boolean;
     ariaLabel?: string;
+    embedded?: boolean;
   }>(),
   {
     density: "default",
@@ -183,15 +142,17 @@ const props = withDefaults(
     scrollable: false,
     showChevron: true,
     ariaLabel: "Pattern notation",
+    embedded: false,
   },
 );
 
 const stripClasses = computed(() => [
-  "code-strip",
-  `code-strip--${props.density}`,
-  `code-strip--duration-${props.durationMode}`,
-  { "code-strip--wrapped": props.wrapped },
-  { "code-strip--scrollable": props.scrollable },
+  "code-strip-sequence",
+  `code-strip-sequence--${props.density}`,
+  `code-strip-sequence--duration-${props.durationMode}`,
+  { "code-strip-sequence--wrapped": props.wrapped },
+  { "code-strip-sequence--scrollable": props.scrollable },
+  { "code-strip-sequence--embedded": props.embedded },
 ]);
 
 const clampProgress = (progress: number | undefined) => {
@@ -268,7 +229,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 </script>
 
 <style scoped>
-.code-strip {
+.code-strip-sequence {
   --note-host-block-size: clamp(27.2px, 8cqi, 33.6px);
   display: flex;
   align-items: center;
@@ -441,38 +402,56 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   font-size: 10px;
 }
 
-.code-strip--wrapped .code-strip__sequence {
+.code-strip-sequence--wrapped .code-strip__sequence {
   flex-wrap: wrap;
   row-gap: 5px;
 }
 
-.code-strip--scrollable .code-strip__sequence {
+.code-strip-sequence--scrollable .code-strip__sequence {
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.code-strip--scrollable .code-strip__sequence::-webkit-scrollbar {
+.code-strip-sequence--scrollable .code-strip__sequence::-webkit-scrollbar {
   display: none;
 }
 
-.code-strip--dense {
+.code-strip-sequence--dense {
   --note-host-block-size: clamp(24px, 7cqi, 29px);
   min-height: 42px;
   padding-block: 5px;
 }
 
-.code-strip--dense .code-strip__sequence {
+.code-strip-sequence--dense .code-strip__sequence {
   gap: 3px;
 }
 
-.code-strip--spaced {
+.code-strip-sequence--spaced {
   min-height: 54px;
   padding-block: 10px;
 }
 
-.code-strip--spaced .code-strip__sequence {
+.code-strip-sequence--spaced .code-strip__sequence {
   gap: 10px;
+}
+
+.code-strip-sequence--embedded {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: max-content;
+  min-height: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  container-type: normal;
+}
+
+.code-strip-sequence--embedded .code-strip__sequence {
+  flex: 0 0 auto;
+  width: max-content;
+  overflow: visible;
 }
 
 @media (prefers-reduced-motion: reduce) {

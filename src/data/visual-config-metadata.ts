@@ -862,7 +862,7 @@ export const UNIFIED_CONFIG = {
     },
   },
 
-  liveStrip: {
+  codeStrip: {
     _meta: {
       label: "Code Strip",
       icon: "🎼",

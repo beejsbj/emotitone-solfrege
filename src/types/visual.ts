@@ -469,9 +469,9 @@ export interface KeyboardConfig {
 }
 
 /**
- * Live strip presentation configuration
+ * CodeStrip presentation configuration
  */
-export interface LiveStripConfig {
+export interface CodeStripConfig {
   /** Whether the CodeStrip-backed Strudel mirror is enabled */
   enabled: boolean;
   /** Mirror presentation opacity */
@@ -541,6 +541,6 @@ export interface VisualEffectsConfig {
   patterns: PatternConfig;
   /** Keyboard styling configuration */
   keyboard: KeyboardConfig;
-  /** Live strip presentation configuration */
-  liveStrip: LiveStripConfig;
+  /** CodeStrip presentation configuration */
+  codeStrip: CodeStripConfig;
 }

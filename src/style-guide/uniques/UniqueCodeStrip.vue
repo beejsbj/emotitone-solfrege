@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Code Strip &middot; Notation Unique"
     :features="features"
-    caption="CodeStrip is LiveStrip's successor notation surface. It composes Note and Chord, owns Rest, duration presentation, density, punctuation, and controlled temporal fill; playback and editing remain outside this workbench."
+    caption="CodeStrip is the styled Strudel CodeMirror document itself. It composes Note and Chord, owns Rest, duration presentation, density, punctuation, and uses Strudel's source-location highlight for temporal fill."
   >
     <template #hero>
       <CodeStrip :tokens="animatedTokens" />
@@ -79,8 +79,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import type { ChordMember } from "../../components/compounds/Chord.vue";
-import CodeStrip from "../../components/uniques/CodeStrip.vue";
-import type { CodeStripToken } from "../../components/uniques/CodeStrip.vue";
+import CodeStrip from "../../components/uniques/CodeStrip/index.vue";
+import type { CodeStripToken } from "../../components/uniques/CodeStrip/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -202,7 +202,7 @@ const features = [
   { label: "Duration", value: "stacked text, split proportional meter bars, or hidden" },
   { label: "Density", value: "dense, default, or spaced" },
   { label: "Boundary", value: "no clock, editing, audio, store, follow-scroll, or Strudel ownership" },
-  { label: "Source", value: "components/uniques/CodeStrip.vue" },
+  { label: "Source", value: "components/uniques/CodeStrip/index.vue" },
 ];
 </script>
 

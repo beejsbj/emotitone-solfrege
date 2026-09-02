@@ -486,7 +486,7 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   beatingShapes: "Beat",
   patterns: "Notes",
   keyboard: "Keys",
-  liveStrip: "Code Strip",
+  codeStrip: "Code Strip",
 };
 
 const SECTION_TONES: PosterTone[] = [
@@ -540,7 +540,7 @@ const SECTION_ORDER: ConfigSectionKey[] = [
   "beatingShapes",
   "patterns",
   "keyboard",
-  "liveStrip",
+  "codeStrip",
 ];
 
 const visualConfigStore = useVisualConfigStore();

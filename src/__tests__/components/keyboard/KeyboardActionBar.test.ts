@@ -32,7 +32,7 @@ const mockPatternsStore = {
 
 const mockVisualConfigStore = {
   config: {
-    liveStrip: {
+    codeStrip: {
       bpm: 120,
     },
   },
@@ -61,8 +61,8 @@ vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: () => mockVisualConfigStore,
 }));
 
-vi.mock("@/composables/useLiveStrudelMirror", () => ({
-  useLiveStrudelMirror: () => mockMirror,
+vi.mock("@/composables/useCodeStripStrudel", () => ({
+  useCodeStripStrudel: () => mockMirror,
 }));
 
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
@@ -95,7 +95,7 @@ describe("KeyboardActionBar.vue", () => {
     mockKeyboardDrawerStore.keyboardConfig.mainOctave = 4;
     mockKeyboardDrawerStore.keyboardConfig.rowCount = 3;
     mockKeyboardDrawerStore.drawer.isOpen = false;
-    mockVisualConfigStore.config.liveStrip.bpm = 120;
+    mockVisualConfigStore.config.codeStrip.bpm = 120;
     mockMirror.isPlaying.value = false;
     mockMirror.hasPlayableCode.value = true;
   });

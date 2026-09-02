@@ -1,10 +1,10 @@
 import { getSolfegeNameForMode, normalizeScaleIndex } from "@/data";
 import type { ChordMember } from "@/components/compounds/Chord.vue";
-import type { CodeStripNote, CodeStripToken } from "@/components/uniques/CodeStrip.vue";
 import type { NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { PatternNote } from "@/types/patterns";
-import type { KeyboardConfig, LiveStripConfig } from "@/types/visual";
+import type { KeyboardConfig, CodeStripConfig } from "@/types/visual";
+import type { CodeStripNote, CodeStripToken } from "./types";
 
 const REST_GAP_THRESHOLD_MS = 50;
 const OVERLAP_EPSILON_MS = 1;
@@ -26,7 +26,6 @@ interface ScheduledNote {
   note: NoteSpan;
   start: number;
   end: number;
-  displayIndex?: number;
 }
 
 interface ScheduledChord {
@@ -34,65 +33,48 @@ interface ScheduledChord {
   notes: NoteSpan[];
   start: number;
   end: number;
-  displayIndex?: number;
 }
 
 interface ScheduledRest {
   kind: "rest";
   start: number;
   end: number;
-  displayIndex?: number;
 }
 
 type ScheduledEvent = ScheduledNote | ScheduledChord | ScheduledRest;
 
-export interface LiveCodeStripFrame {
-  tokens: CodeStripToken[];
-  activeTokenIndex: number | null;
-}
-
-export interface LiveCodeStripInput {
+export interface RecordedCodeStripInput {
   notes: PatternNote[];
   mode: MusicalMode;
   musicKey: ChromaticNote;
-  notation: LiveStripConfig["notation"];
-  showRests: boolean;
+  notation: CodeStripConfig["notation"];
   barMs: number;
-  playbackPhase: number | null;
   surfaceStyle: KeyboardConfig["surfaceStyle"];
   keyBrightness: number;
   keySaturation: number;
 }
 
-export function buildLiveCodeStripFrame(input: LiveCodeStripInput): LiveCodeStripFrame {
+export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): CodeStripToken[] {
   if (!input.notes.length) {
-    return { tokens: [], activeTokenIndex: null };
+    return [];
   }
 
   const schedule = buildSchedule(input.notes);
-  const totalDuration = schedule[schedule.length - 1]?.end ?? 0;
-  const position = playbackPosition(input.playbackPhase, totalDuration);
   const tokens: CodeStripToken[] = [];
 
   for (const event of schedule) {
-    if (event.kind === "rest" && !input.showRests) {
-      continue;
-    }
-
-    event.displayIndex = tokens.length;
     const duration = formatDuration(event.end - event.start, input.barMs);
 
     if (event.kind === "rest") {
       tokens.push({
         type: "rest",
         duration,
-        progress: progressAt(position, event.start, event.end),
       });
       continue;
     }
 
     if (event.kind === "note") {
-      tokens.push(noteToken(event.note, duration, progressAt(position, event.start, event.end), input));
+      tokens.push(noteToken(event.note, duration, input));
       continue;
     }
 
@@ -128,7 +110,6 @@ export function buildLiveCodeStripFrame(input: LiveCodeStripInput): LiveCodeStri
       keySaturation: input.keySaturation,
       voicingOrder: voicingRanks.get(span.indexed.note.id),
       pressOrder: pressRanks.get(span.indexed.note.id),
-      progress: progressAt(position, span.start, span.end),
     }));
 
     tokens.push({
@@ -143,14 +124,7 @@ export function buildLiveCodeStripFrame(input: LiveCodeStripInput): LiveCodeStri
     });
   }
 
-  const activeEvent = position == null
-    ? undefined
-    : schedule.find((event) => position >= event.start && position < event.end);
-
-  return {
-    tokens,
-    activeTokenIndex: activeEvent?.displayIndex ?? null,
-  };
+  return tokens;
 }
 
 function buildSchedule(notes: PatternNote[]): ScheduledEvent[] {
@@ -222,8 +196,7 @@ function buildSchedule(notes: PatternNote[]): ScheduledEvent[] {
 function noteToken(
   span: NoteSpan,
   duration: string,
-  progress: number,
-  input: LiveCodeStripInput,
+  input: RecordedCodeStripInput,
 ): CodeStripToken {
   const note = span.indexed.note;
   const normalizedIndex = normalizeScaleIndex(input.mode, note.scaleIndex);
@@ -239,7 +212,6 @@ function noteToken(
     text,
     glyph,
     duration,
-    progress,
     syllable,
     degree,
     rawPitch: note.note,
@@ -266,20 +238,6 @@ function formatDuration(durationMs: number, barMs: number) {
   const safeBarMs = Number.isFinite(barMs) && barMs > 0 ? barMs : 2000;
   const ratio = Number.parseFloat((Math.max(1, durationMs) / safeBarMs).toFixed(4));
   return `@${ratio}`;
-}
-
-function playbackPosition(phase: number | null, totalDuration: number) {
-  if (phase == null || !Number.isFinite(phase) || totalDuration <= 0) {
-    return null;
-  }
-
-  return positiveModulo(phase, 1) * totalDuration;
-}
-
-function progressAt(position: number | null, start: number, end: number) {
-  if (position == null || position <= start) return 0;
-  if (position >= end) return 1;
-  return (position - start) / Math.max(1, end - start);
 }
 
 function noteEnd(note: PatternNote) {

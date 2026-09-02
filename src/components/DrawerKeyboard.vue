@@ -3,7 +3,7 @@
     <!-- Action bar with controls -->
     <div class="absolute top-0 -translate-y-full left-0 right-0 grid min-w-0">
       <PatternList />
-      <LiveCard />
+      <CodeStrip />
       <KeyboardActionBar />
     </div>
 
@@ -16,7 +16,7 @@ import { ref, computed, onMounted } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
-import LiveCard from "@/components/patterns/LiveCard.vue";
+import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 

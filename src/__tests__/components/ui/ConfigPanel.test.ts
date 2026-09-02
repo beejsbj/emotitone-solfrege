@@ -24,7 +24,7 @@ const visualConfigStore = reactive({
       mainOctave: 4,
       rowCount: 3,
     },
-    liveStrip: {
+    codeStrip: {
       bpm: 120,
     },
   },

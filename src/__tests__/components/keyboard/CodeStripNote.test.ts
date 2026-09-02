@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import Chord from "@/components/compounds/Chord.vue";
-import CodeStrip from "@/components/uniques/CodeStrip.vue";
+import CodeStripSequence from "@/components/uniques/CodeStrip/Sequence.vue";
 import Note from "@/components/primatives/Note.vue";
 
 vi.mock("@/composables/useColorSystem", () => ({
@@ -19,9 +19,9 @@ const chordMembers = [
   { syllable: "Sol", rawPitch: "G4", scaleIndex: 4, progress: .2 },
 ];
 
-describe("CodeStrip composition", () => {
+describe("CodeStrip event rendering", () => {
   it("composes Note and Chord through their public sources", () => {
-    const wrapper = mount(CodeStrip, {
+    const wrapper = mount(CodeStripSequence, {
       props: {
         tokens: [
           {
@@ -72,7 +72,7 @@ describe("CodeStrip composition", () => {
   });
 
   it("keeps Rest local, durationless, and controlled from Ink to Ivory", () => {
-    const wrapper = mount(CodeStrip, {
+    const wrapper = mount(CodeStripSequence, {
       props: {
         durationMode: "stacked",
         tokens: [{ type: "rest", duration: "@0.5", progress: 1.4 }],
@@ -86,7 +86,7 @@ describe("CodeStrip composition", () => {
   });
 
   it("treats duration presentation as a strip-level comparison", async () => {
-    const wrapper = mount(CodeStrip, {
+    const wrapper = mount(CodeStripSequence, {
       props: {
         durationMode: "stacked",
         tokens: [{ type: "note", note: "do", text: "Do", duration: "@0.5" }],
@@ -111,7 +111,7 @@ describe("CodeStrip composition", () => {
   });
 
   it("shows meter-aware duration marks for Rest without printing its duration", () => {
-    const wrapper = mount(CodeStrip, {
+    const wrapper = mount(CodeStripSequence, {
       props: {
         durationMode: "bar",
         timeSignature: "4/4",
@@ -127,33 +127,33 @@ describe("CodeStrip composition", () => {
   });
 
   it("exposes density without changing notation anatomy", async () => {
-    const wrapper = mount(CodeStrip, {
+    const wrapper = mount(CodeStripSequence, {
       props: {
         density: "dense",
         tokens: [{ type: "note", note: "do", text: "Do" }],
       },
     });
 
-    expect(wrapper.classes()).toContain("code-strip--dense");
+    expect(wrapper.classes()).toContain("code-strip-sequence--dense");
     expect(wrapper.findAllComponents(Note)).toHaveLength(1);
 
     await wrapper.setProps({ density: "spaced" });
-    expect(wrapper.classes()).toContain("code-strip--spaced");
+    expect(wrapper.classes()).toContain("code-strip-sequence--spaced");
     expect(wrapper.findAllComponents(Note)).toHaveLength(1);
   });
 
   it("exposes a production scroll surface without changing the default specimen", () => {
-    const clipped = mount(CodeStrip, {
+    const clipped = mount(CodeStripSequence, {
       props: { tokens: [{ type: "note", note: "do", text: "Do" }] },
     });
-    const scrollable = mount(CodeStrip, {
+    const scrollable = mount(CodeStripSequence, {
       props: {
         scrollable: true,
         tokens: [{ type: "note", note: "do", text: "Do" }],
       },
     });
 
-    expect(clipped.classes()).not.toContain("code-strip--scrollable");
-    expect(scrollable.classes()).toContain("code-strip--scrollable");
+    expect(clipped.classes()).not.toContain("code-strip-sequence--scrollable");
+    expect(scrollable.classes()).toContain("code-strip-sequence--scrollable");
   });
 });

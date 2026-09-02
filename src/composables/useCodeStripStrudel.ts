@@ -1,13 +1,13 @@
 import { computed, readonly, ref } from "vue";
 
-export interface LiveStrudelMirrorController {
+export interface CodeStripStrudelController {
   getCode: () => string;
   setCode: (code: string) => void;
   evaluate: () => Promise<void>;
   stop: () => Promise<void> | void;
 }
 
-const controller = ref<LiveStrudelMirrorController | null>(null);
+const controller = ref<CodeStripStrudelController | null>(null);
 const currentCode = ref("");
 const isPlaying = ref(false);
 const isReady = ref(false);
@@ -18,15 +18,15 @@ function hasPlayableContent(code: string): boolean {
   return Boolean(trimmed) && !trimmed.startsWith("//");
 }
 
-export function useLiveStrudelMirror() {
-  function attachEditor(nextController: LiveStrudelMirrorController, initialCode = "") {
+export function useCodeStripStrudel() {
+  function attachEditor(nextController: CodeStripStrudelController, initialCode = "") {
     controller.value = nextController;
     currentCode.value = initialCode || nextController.getCode();
     isReady.value = true;
     lastError.value = null;
   }
 
-  function detachEditor(nextController?: LiveStrudelMirrorController) {
+  function detachEditor(nextController?: CodeStripStrudelController) {
     if (nextController && controller.value !== nextController) {
       return;
     }

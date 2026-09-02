@@ -29,7 +29,7 @@
 import PatternCard from "../../components/compounds/PatternCard.vue";
 import type { PatternCardShape } from "../../components/compounds/PatternCard.vue";
 import type { BarTapeMode, BarTapeSegment } from "../../components/primatives/BarTape.vue";
-import type { CodeStripToken } from "../../components/uniques/CodeStrip.vue";
+import type { CodeStripToken } from "../../components/uniques/CodeStrip/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";

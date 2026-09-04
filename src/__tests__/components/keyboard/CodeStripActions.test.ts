@@ -34,12 +34,12 @@ describe("CodeStripActions.vue", () => {
     expect(wrapper.text()).toBe("");
   });
 
-  it("uses the minimally inset dense CodeStrip treatment by default", () => {
+  it("uses the flush dense CodeStrip treatment by default", () => {
     wrapper = render();
 
     expect(wrapper.getComponent({ name: "CodeStrip" }).props("density")).toBe("dense");
     expect(codeStripSource).toMatch(
-      /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*2px 4px;/,
+      /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*0;/,
     );
   });
 

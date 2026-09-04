@@ -595,7 +595,7 @@ onBeforeUnmount(() => {
 }
 
 .code-strip--dense .code-strip__editor:deep(.cm-content) {
-  padding: 2px 4px;
+  padding: 0;
 }
 
 .code-strip--spaced .code-strip__editor:deep(.cm-content) {

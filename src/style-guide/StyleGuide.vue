@@ -123,6 +123,10 @@
     <section class="sink-section" aria-labelledby="compounds-heading">
       <h2 id="compounds-heading">Compounds</h2>
       <div class="sink-stack">
+        <article id="compound-code-strip-actions" class="sink-frame">
+          <div class="sink-frame__source">compound-code-strip-actions</div>
+          <CompoundCodeStripActions />
+        </article>
         <article id="compound-chord" class="sink-frame">
           <div class="sink-frame__source">compound-chord</div>
           <CompoundChord />
@@ -181,6 +185,7 @@ import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
 import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
+import CompoundCodeStripActions from "./compounds/CompoundCodeStripActions.vue";
 import CompoundChord from "./compounds/CompoundChord.vue";
 import CompoundKey from "./compounds/CompoundKey.vue";
 import CompoundKeyboard from "./compounds/CompoundKeyboard.vue";

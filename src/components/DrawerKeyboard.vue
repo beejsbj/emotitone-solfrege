@@ -3,8 +3,14 @@
     <!-- Action bar with controls -->
     <div class="absolute top-0 -translate-y-full left-0 right-0 grid min-w-0">
       <PatternList />
-      <CodeStrip />
-      <KeyboardActionBar />
+      <CodeStripActions
+        :is-playing="isPlaying"
+        :play-disabled="!hasPlayableCode"
+        haptic
+        @toggle-playback="toggleSketchPlayback"
+        @backspace="patternsStore.removeLastFromCurrentSketch()"
+        @return="patternsStore.sendCurrentPattern()"
+      />
     </div>
 
     <Keyboard class="relative flex-1" />
@@ -14,9 +20,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
-import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
-import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import CodeStripActions from "@/components/compounds/CodeStripActions.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 
@@ -25,6 +32,13 @@ const drawerRef = ref<HTMLElement | null>(null);
 
 // Store
 const store = useKeyboardDrawerStore();
+const patternsStore = usePatternsStore();
+const { toggle, isPlaying, hasPlayableCode } = useCodeStripStrudel();
+
+async function toggleSketchPlayback() {
+  if (!hasPlayableCode.value) return;
+  await toggle();
+}
 
 // Drawer behavior composable
 const { animateDrawer } = useKeyboardDrawer(drawerRef) as any;

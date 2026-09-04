@@ -1,12 +1,12 @@
 <template>
   <AnatomyDisplay
-    title="Code Strip Actions &middot; Instrument Compound"
+    title="CodeStrip Bar &middot; Instrument Compound"
     :features="features"
-    caption="One compact line with no outer or dense-content padding: brass Play or Stop leads the flexible CodeStrip; ink Backspace and ivory Return finish it. The icons have no visible labels."
+    caption="One continuous Ink rail: brass Play or Stop, an unframed dense CodeStrip, ink Backspace, and ivory Return. The actions remain icon-only."
   >
     <template #hero>
-      <div class="code-strip-actions-specimen">
-        <CodeStripActions
+      <div class="code-strip-bar-specimen">
+        <CodeStripBar
           :tokens="tokens"
           :is-playing="isPlaying"
           @toggle-playback="isPlaying = !isPlaying"
@@ -17,14 +17,14 @@
       </div>
     </template>
 
-    <VariantGrid title="Responsive row">
+    <VariantGrid title="Responsive bar">
       <VariantCell caption="320px host &middot; stopped" stage="ink3">
-        <div class="code-strip-actions-specimen__narrow">
-          <CodeStripActions :tokens="shortTokens" />
+        <div class="code-strip-bar-specimen__narrow">
+          <CodeStripBar :tokens="shortTokens" />
         </div>
       </VariantCell>
       <VariantCell caption="Playing &middot; Play becomes Stop" stage="ink3">
-        <CodeStripActions :tokens="tokens" is-playing />
+        <CodeStripBar :tokens="tokens" is-playing />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import CodeStripActions from "@/components/compounds/CodeStripActions.vue";
+import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
@@ -52,9 +52,10 @@ const shortTokens = tokens.slice(0, 3);
 
 const features = [
   { label: "Order", value: "Play/Stop → flexible CodeStrip → Backspace → Return" },
+  { label: "Unity", value: "one continuous Ink-2 rail with no outline, outer padding, or exposed gaps" },
+  { label: "CodeStrip", value: "dense, zero-inset, unframed, and transparent inside this bar only" },
   { label: "Actions", value: "40px icon-only Button primitives; accessible names remain" },
   { label: "Material", value: "brass Play/Stop; ink Backspace; ivory Return with Ink icon" },
-  { label: "Density", value: "dense CodeStrip by default; zero editable-content inset" },
   { label: "Backspace", value: "removes the last recorded event; never presented as editor Undo" },
   { label: "Return", value: "typewriter carriage return for commit-and-clear; never presented as Send" },
   { label: "Boundary", value: "arrangement only; stores, playback, editing, audio, and persistence stay outside" },
@@ -62,20 +63,20 @@ const features = [
 </script>
 
 <style scoped>
-.code-strip-actions-specimen {
+.code-strip-bar-specimen {
   display: grid;
   gap: 10px;
   width: min(100%, 760px);
 }
 
-.code-strip-actions-specimen output {
+.code-strip-bar-specimen output {
   color: var(--ivory-3);
   font-family: var(--font-mono);
   font-size: 9px;
   text-align: center;
 }
 
-.code-strip-actions-specimen__narrow {
+.code-strip-bar-specimen__narrow {
   width: min(320px, 100%);
 }
 </style>

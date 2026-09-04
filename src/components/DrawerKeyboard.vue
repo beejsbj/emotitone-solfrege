@@ -3,7 +3,7 @@
     <!-- Action bar with controls -->
     <div class="absolute top-0 -translate-y-full left-0 right-0 grid min-w-0">
       <PatternList />
-      <CodeStripActions
+      <CodeStripBar
         :is-playing="isPlaying"
         :play-disabled="!hasPlayableCode"
         haptic
@@ -39,7 +39,7 @@ import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
-import CodeStripActions from "@/components/compounds/CodeStripActions.vue";
+import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";

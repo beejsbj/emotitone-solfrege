@@ -78,6 +78,7 @@ const props = withDefaults(
     wrapped?: boolean;
     scrollable?: boolean;
     showChevron?: boolean;
+    framed?: boolean;
     ariaLabel?: string;
   }>(),
   {
@@ -89,6 +90,7 @@ const props = withDefaults(
     wrapped: false,
     scrollable: true,
     showChevron: true,
+    framed: true,
     ariaLabel: "Editable Strudel pattern",
   },
 );
@@ -167,6 +169,7 @@ const hostClasses = computed(() => [
   `code-strip--${props.density}`,
   { "code-strip--wrapped": props.wrapped },
   { "code-strip--scrollable": props.scrollable },
+  { "code-strip--unframed": !props.framed },
   { "code-strip--playing": isPlaying.value },
 ]);
 
@@ -547,6 +550,12 @@ onBeforeUnmount(() => {
 .code-strip--playing {
   border-color: hsla(152, 100%, 50%, 0.24);
   box-shadow: 0 0 14px hsla(152, 100%, 50%, 0.04);
+}
+
+.code-strip--unframed {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .code-strip__error {

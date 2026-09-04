@@ -1,7 +1,7 @@
 <template>
-  <section class="code-strip-actions" aria-label="Pattern controls">
+  <section class="code-strip-bar" aria-label="Pattern controls">
     <Button
-      class="code-strip-actions__play"
+      class="code-strip-bar__play"
       size="md"
       tone="brass"
       :haptic="haptic"
@@ -14,7 +14,7 @@
       <Play v-else />
     </Button>
 
-    <div class="code-strip-actions__strip">
+    <div class="code-strip-bar__strip">
       <CodeStrip
         :tokens="tokens"
         :source="source"
@@ -22,10 +22,11 @@
         :duration-mode="durationMode"
         :time-signature="timeSignature"
         :aria-label="ariaLabel"
+        :framed="false"
       />
     </div>
 
-    <div class="code-strip-actions__right">
+    <div class="code-strip-bar__right">
       <Button
         size="md"
         tone="ink"
@@ -94,24 +95,28 @@ const emit = defineEmits<{
 </script>
 
 <style scoped>
-.code-strip-actions {
+.code-strip-bar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: clamp(6px, 1.5vw, 8px);
   width: 100%;
   min-width: 0;
+  min-height: 40px;
   box-sizing: border-box;
   padding: 0;
+  border: 0;
+  background: var(--ink-2);
 }
 
-.code-strip-actions__strip {
+.code-strip-bar__strip {
+  display: flex;
+  align-self: stretch;
   min-width: 0;
 }
 
-.code-strip-actions__right {
+.code-strip-bar__right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
 }
 </style>

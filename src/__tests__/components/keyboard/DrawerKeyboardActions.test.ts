@@ -66,11 +66,11 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
   }),
 }));
 
-vi.mock("@/components/compounds/CodeStripActions.vue", () => ({
+vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
-    name: "CodeStripActions",
+    name: "CodeStripBar",
     emits: ["togglePlayback", "backspace", "return"],
-    template: '<div data-testid="code-strip-actions" />',
+    template: '<div data-testid="code-strip-bar" />',
   },
 }));
 
@@ -97,7 +97,7 @@ vi.mock("@/components/compounds/ControlBar.vue", () => ({
   },
 }));
 
-describe("DrawerKeyboard CodeStrip actions", () => {
+describe("DrawerKeyboard CodeStrip Bar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
@@ -110,11 +110,11 @@ describe("DrawerKeyboard CodeStrip actions", () => {
         stubs: {
           PatternList: true,
           Keyboard: true,
-          CodeStripActions: true,
+          CodeStripBar: true,
         },
       },
     });
-    const actions = wrapper.getComponent({ name: "CodeStripActions" });
+    const actions = wrapper.getComponent({ name: "CodeStripBar" });
 
     actions.vm.$emit("togglePlayback");
     actions.vm.$emit("backspace");
@@ -134,12 +134,12 @@ describe("DrawerKeyboard CodeStrip actions", () => {
         stubs: {
           PatternList: true,
           Keyboard: true,
-          CodeStripActions: true,
+          CodeStripBar: true,
         },
       },
     });
 
-    wrapper.getComponent({ name: "CodeStripActions" }).vm.$emit("togglePlayback");
+    wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
     await wrapper.vm.$nextTick();
 
     expect(mocks.toggle).not.toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe("DrawerKeyboard CodeStrip actions", () => {
         stubs: {
           PatternList: true,
           Keyboard: true,
-          CodeStripActions: true,
+          CodeStripBar: true,
         },
       },
     });

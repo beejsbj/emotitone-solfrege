@@ -1,23 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTestWrapper } from "../../helpers/test-utils";
-import CodeStripActions from "@/components/compounds/CodeStripActions.vue";
+import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
+import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
 
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: {
     name: "CodeStrip",
-    props: ["density"],
+    props: ["density", "framed"],
     template: '<div data-testid="code-strip" />',
   },
 }));
 
 function render(props: Record<string, unknown> = {}) {
-  return createTestWrapper(CodeStripActions, {
-    props,
-  });
+  return createTestWrapper(CodeStripBar, { props });
 }
 
-describe("CodeStripActions.vue", () => {
+describe("CodeStripBar.vue", () => {
   let wrapper: ReturnType<typeof render> | undefined;
 
   afterEach(() => {
@@ -34,13 +33,20 @@ describe("CodeStripActions.vue", () => {
     expect(wrapper.text()).toBe("");
   });
 
-  it("uses the flush dense CodeStrip treatment by default", () => {
+  it("integrates a flush, unframed dense CodeStrip into one rail", () => {
     wrapper = render();
+    const strip = wrapper.getComponent({ name: "CodeStrip" });
 
-    expect(wrapper.getComponent({ name: "CodeStrip" }).props("density")).toBe("dense");
+    expect(strip.props("density")).toBe("dense");
+    expect(strip.props("framed")).toBe(false);
     expect(codeStripSource).toMatch(
       /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*0;/,
     );
+    expect(codeStripSource).toMatch(
+      /\.code-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
+    );
+    expect(codeStripBarSource).toMatch(/\.code-strip-bar\s*{[^}]*background:\s*var\(--ink-2\);/);
+    expect(codeStripBarSource).not.toMatch(/\.code-strip-bar\s*{[^}]*\bgap:/);
   });
 
   it("uses brass for Play, ink for Backspace, and ivory for Return", () => {

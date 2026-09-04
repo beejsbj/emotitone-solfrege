@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripActions from "@/components/compounds/CodeStripActions.vue";
+import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
 
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: {
     name: "CodeStrip",
+    props: ["density"],
     template: '<div data-testid="code-strip" />',
   },
 }));
@@ -30,6 +32,15 @@ describe("CodeStripActions.vue", () => {
     expect(labels).toEqual(["Play", "Delete last event", "Return"]);
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
     expect(wrapper.text()).toBe("");
+  });
+
+  it("uses the minimally inset dense CodeStrip treatment by default", () => {
+    wrapper = render();
+
+    expect(wrapper.getComponent({ name: "CodeStrip" }).props("density")).toBe("dense");
+    expect(codeStripSource).toMatch(
+      /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*2px 4px;/,
+    );
   });
 
   it("uses brass for Play, ink for Backspace, and ivory for Return", () => {

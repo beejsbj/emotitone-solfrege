@@ -79,7 +79,7 @@ withDefaults(
     haptic: false,
     tokens: undefined,
     source: undefined,
-    density: "default",
+    density: "dense",
     durationMode: "stacked",
     timeSignature: "4/4",
     ariaLabel: "Editable Strudel pattern",

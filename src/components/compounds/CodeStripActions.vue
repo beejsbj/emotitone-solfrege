@@ -103,7 +103,6 @@ const emit = defineEmits<{
   min-width: 0;
   box-sizing: border-box;
   padding: 6px;
-  user-select: none;
 }
 
 .code-strip-actions__strip {

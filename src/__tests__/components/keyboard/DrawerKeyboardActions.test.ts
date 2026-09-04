@@ -56,6 +56,13 @@ vi.mock("@/components/patterns/PatternList.vue", () => ({
   default: { name: "PatternList", template: '<div data-testid="pattern-list" />' },
 }));
 
+vi.mock("@/components/keyboard/LegacyKeyboardControls.vue", () => ({
+  default: {
+    name: "LegacyKeyboardControls",
+    template: '<div data-testid="legacy-keyboard-controls" />',
+  },
+}));
+
 describe("DrawerKeyboard CodeStrip actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();

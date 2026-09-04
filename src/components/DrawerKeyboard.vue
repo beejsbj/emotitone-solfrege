@@ -11,6 +11,7 @@
         @backspace="patternsStore.removeLastFromCurrentSketch()"
         @return="patternsStore.sendCurrentPattern()"
       />
+      <LegacyKeyboardControls />
     </div>
 
     <Keyboard class="relative flex-1" />
@@ -24,6 +25,7 @@ import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import CodeStripActions from "@/components/compounds/CodeStripActions.vue";
+import LegacyKeyboardControls from "@/components/keyboard/LegacyKeyboardControls.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 

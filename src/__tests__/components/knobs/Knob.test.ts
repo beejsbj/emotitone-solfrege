@@ -4,6 +4,7 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
+import { MODE_OPTIONS } from "@/data/musicData";
 
 const { triggerUIHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
@@ -120,22 +121,22 @@ describe("Knob public interface", () => {
   });
 
   it("keeps option labels whole and gives long mode names a compact treatment", () => {
-    const options = render({
-      modelValue: "major pentatonic",
-      type: "options",
-      options: [
-        { label: "Major Pentatonic", value: "major pentatonic" },
-        { label: "Phrygian", value: "phrygian" },
-      ],
-    });
+    for (const option of MODE_OPTIONS) {
+      const options = render({
+        modelValue: option.value,
+        type: "options",
+        options: MODE_OPTIONS,
+      });
+      const value = options.get(".knob-options__value");
 
-    expect(options.get(".knob-options__value").text()).toBe("Major Pentatonic");
-    expect(options.get(".knob-options__value").classes()).toEqual(
-      expect.arrayContaining([
-        "knob-options__value--long",
-        "knob-options__value--multiline",
-      ]),
-    );
+      expect(value.text()).toBe(option.label);
+      if (option.label.replace(/\s/g, "").length > 7) {
+        expect(value.classes()).toContain("knob-options__value--long");
+      }
+      if (option.label.includes(" ")) {
+        expect(value.classes()).toContain("knob-options__value--multiline");
+      }
+    }
     expect(optionsKnobSource).toContain("inline-size: 84cqi");
     expect(optionsKnobSource).not.toContain("text-overflow: ellipsis");
     expect(optionsKnobSource).not.toContain("max-inline-size: 58cqi");
@@ -155,10 +156,12 @@ describe("Knob public interface", () => {
 
     expect(options.get(".knob-options__value").text()).toBe("Phrygian");
     expect(optionsKnobSource).toContain('<Transition name="knob-rip-mode">');
+    expect(optionsKnobSource).toContain("`${typeof value}:${String(value)}`");
     expect(optionsKnobSource).toContain("animation: rip-mode-in var(--dur-rip-mode) var(--ease-rip-mode) both");
     expect(optionsKnobSource).toContain("animation: rip-mode-out var(--dur-rip-mode) var(--ease-rip-mode) both");
     expect(motionGuideSource).toContain("animation-name: rip-mode-out");
     expect(motionGuideSource).toContain("animation-name: rip-mode-in");
+    expect(motionGuideSource).toContain("animation-duration: var(--dur-rip-mode)");
     expect(motionGuideSource).not.toContain("animation: cross-fade-rip");
   });
 

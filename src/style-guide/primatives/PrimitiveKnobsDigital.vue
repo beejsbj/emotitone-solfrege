@@ -37,14 +37,14 @@
           label="Sync"
         />
       </VariantCell>
-      <VariantCell caption="Options / real four-position state" stage="ink3">
+      <VariantCell caption="Options / real Mode data" stage="ink3">
         <Knob
           v-model="optionValue"
           visual="arc"
           tone="brass"
           type="options"
-          label="Wave"
-          :options="options"
+          label="Mode"
+          :options="MODE_OPTIONS"
         />
       </VariantCell>
     </VariantGrid>
@@ -88,6 +88,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import { MODE_OPTIONS } from "@/data/musicData";
 import Knob from "../../components/primatives/Knob/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
@@ -95,12 +96,11 @@ import VariantGrid from "../guide/VariantGrid.vue";
 
 const rangeValue = ref(64);
 const booleanValue = ref(true);
-const optionValue = ref("SQ");
+const optionValue = ref("phrygian");
 const ivoryRangeValue = ref(3.5);
 const ivoryBooleanValue = ref(false);
 const ivoryOptionValue = ref("TRI");
 
-const options = ["SIN", "TRI", "SQ", "SAW"];
 const ivoryOptions = ["SIN", "TRI", "SAW"];
 
 const features = [

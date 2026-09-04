@@ -12,7 +12,7 @@
   <span class="knob-options__viewport">
     <Transition name="knob-rip-mode">
       <span
-        :key="String(currentOption?.value ?? modelValue)"
+        :key="optionTransitionKey"
         class="knob-options__value"
         :class="{
           'knob-options__value--long': compactDisplayLength > 7,
@@ -61,6 +61,10 @@ const displayValue = computed(
 const compactDisplayLength = computed(
   () => displayValue.value.replace(/\s/g, "").length
 );
+const optionTransitionKey = computed(() => {
+  const value = currentOption.value?.value ?? props.modelValue;
+  return `${typeof value}:${String(value)}`;
+});
 
 // Stroke color (can adapt if option has color)
 const activeStrokeColor = computed(

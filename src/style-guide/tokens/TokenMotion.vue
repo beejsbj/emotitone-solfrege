@@ -755,7 +755,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ivory);
-  animation-duration: 2.8s;
+  animation-duration: var(--dur-rip-mode);
   animation-timing-function: var(--ease-rip-mode);
   animation-iteration-count: infinite;
   animation-direction: alternate;

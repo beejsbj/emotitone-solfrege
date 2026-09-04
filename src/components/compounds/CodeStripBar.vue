@@ -105,7 +105,9 @@ const emit = defineEmits<{
   box-sizing: border-box;
   padding: 0;
   border: 0;
-  background: var(--ink-2);
+  background-color: var(--instrument-bar-surface);
+  -webkit-backdrop-filter: var(--instrument-bar-backdrop);
+  backdrop-filter: var(--instrument-bar-backdrop);
 }
 
 .code-strip-bar__strip {

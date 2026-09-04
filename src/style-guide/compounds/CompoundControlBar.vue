@@ -62,6 +62,7 @@ const features = [
   { label: "Order", value: "Key · Mode · BPM · Octave · Rows · Drawer" },
   { label: "Layout", value: "six equal-width slots across the full host; no horizontal scroller" },
   { label: "Density", value: "no horizontal padding; minimal block space protects Knob anatomy" },
+  { label: "Surface", value: "shared translucent instrument-bar plane; stage remains visible behind it" },
   { label: "Source", value: "real controlled Knob primitives; no production stores in the compound" },
   { label: "Boundary", value: "arrangement only; callers retain state and mutations" },
   { label: "Drawer", value: "current Boolean Knob preserved provisionally until Drawer is defined" },

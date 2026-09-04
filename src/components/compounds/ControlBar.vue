@@ -110,10 +110,10 @@ const emit = defineEmits<{
   box-sizing: border-box;
   padding: 3px 0 4px;
   overflow: hidden;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: var(--instrument-bar-surface);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: var(--instrument-bar-backdrop);
+  backdrop-filter: var(--instrument-bar-backdrop);
   contain: layout style;
   user-select: none;
 }

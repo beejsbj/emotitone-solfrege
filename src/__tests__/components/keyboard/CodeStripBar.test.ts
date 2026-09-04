@@ -1,8 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
 import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
+import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
+
+const designSystemSource = readFileSync(
+  resolve(process.cwd(), "src/emotitone-design-system.css"),
+  "utf8",
+);
 
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: {
@@ -33,7 +41,7 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.text()).toBe("");
   });
 
-  it("integrates a flush, unframed dense CodeStrip into one rail", () => {
+  it("integrates a flush, unframed dense CodeStrip into one shared instrument rail", () => {
     wrapper = render();
     const strip = wrapper.getComponent({ name: "CodeStrip" });
 
@@ -45,7 +53,19 @@ describe("CodeStripBar.vue", () => {
     expect(codeStripSource).toMatch(
       /\.code-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
     );
-    expect(codeStripBarSource).toMatch(/\.code-strip-bar\s*{[^}]*background:\s*var\(--ink-2\);/);
+    expect(designSystemSource).toMatch(/--instrument-bar-surface:\s*rgba\(0, 0, 0, 0\.80\);/);
+    expect(codeStripBarSource).toMatch(
+      /\.code-strip-bar\s*{[^}]*background-color:\s*var\(--instrument-bar-surface\);/,
+    );
+    expect(controlBarSource).toMatch(
+      /\.control-bar\s*{[^}]*background-color:\s*var\(--instrument-bar-surface\);/,
+    );
+    expect(codeStripBarSource).toContain(
+      "backdrop-filter: var(--instrument-bar-backdrop)",
+    );
+    expect(controlBarSource).toContain(
+      "backdrop-filter: var(--instrument-bar-backdrop)",
+    );
     expect(codeStripBarSource).not.toMatch(/\.code-strip-bar\s*{[^}]*\bgap:/);
   });
 

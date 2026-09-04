@@ -77,6 +77,11 @@
   --glass:      rgba(20, 20, 20, 0.72);     /* drawer / popup */
   --glass-2:    rgba(255, 255, 255, 0.04);  /* on-glass tint */
 
+  /* Instrument bars stay on the dark stage instead of rising into an
+     opaque panel. CodeStrip Bar and Control Bar share this exact plane. */
+  --instrument-bar-surface: rgba(0, 0, 0, 0.80);
+  --instrument-bar-backdrop: blur(16px);
+
   /* ===============================================================
      2. BRAND — decorative-only poster colors. Cut-paper marks,
         kicker dots, sticker spines, brand artifacts. Never on

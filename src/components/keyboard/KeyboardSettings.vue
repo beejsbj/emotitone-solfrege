@@ -179,7 +179,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { Knob } from "@/components/knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 
 const store = useKeyboardDrawerStore();
 const keyboardConfig = computed(() => store.keyboardConfig);

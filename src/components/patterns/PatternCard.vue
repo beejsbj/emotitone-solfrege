@@ -6,7 +6,7 @@ import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { getModeDefinition } from "@/data";
-import { Knob } from "@/components/knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
@@ -309,12 +309,9 @@ function keepPattern() {
 }
 
 .keep-knob {
+  --knob-size: 1.35rem;
   width: 1.35rem;
   min-width: 1.35rem;
-}
-
-.keep-knob:deep(.knob-wrapper) {
-  max-width: 1.35rem;
   margin: 0;
 }
 

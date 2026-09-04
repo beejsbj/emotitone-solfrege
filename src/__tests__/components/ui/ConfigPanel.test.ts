@@ -24,7 +24,7 @@ const visualConfigStore = reactive({
       mainOctave: 4,
       rowCount: 3,
     },
-    liveStrip: {
+    codeStrip: {
       bpm: 120,
     },
   },
@@ -74,8 +74,8 @@ vi.mock("@/components/TopDrawer.vue", () => ({
   },
 }));
 
-vi.mock("../../../components/knobs", () => ({
-  Knob: {
+vi.mock("@/components/primatives/Knob/index.vue", () => ({
+  default: {
     template: '<div data-testid="mock-knob"></div>',
   },
 }));

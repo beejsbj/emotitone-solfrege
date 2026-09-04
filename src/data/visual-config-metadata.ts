@@ -766,6 +766,11 @@ export const UNIFIED_CONFIG = {
       value: true,
       label: "Enable Keyboard",
     },
+    primaryLabel: {
+      value: "syllable",
+      options: ["syllable", "degree", "raw"],
+      label: "Primary Label",
+    },
     keyGaps: {
       value: "small",
       options: ["none", "small", "medium"],
@@ -857,15 +862,15 @@ export const UNIFIED_CONFIG = {
     },
   },
 
-  liveStrip: {
+  codeStrip: {
     _meta: {
-      label: "Live Strip",
+      label: "Code Strip",
       icon: "🎼",
-      description: "Workspace sketch strip display settings",
+      description: "Workspace CodeStrip and editable Strudel-line settings",
     },
     enabled: {
       value: true,
-      label: "Enable Live Strip",
+      label: "Enable Code Strip",
     },
     opacity: {
       value: 1,
@@ -891,10 +896,6 @@ export const UNIFIED_CONFIG = {
     showRests: {
       value: true,
       label: "Show Rests",
-    },
-    showStrudelLine: {
-      value: true,
-      label: "Show Code Line",
     },
   },
 };

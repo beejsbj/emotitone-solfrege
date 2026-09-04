@@ -52,8 +52,12 @@
             </div>
 
             <div class="ml-auto flex shrink-0 items-center gap-1">
-              <IconButton
+              <Knob
                 v-if="activeSectionName && activeSectionHasToggle"
+                type="boolean"
+                :model-value="activeSectionEnabled"
+                label="Section"
+                class="config-panel__boolean-knob"
                 :data-testid="`section-toggle-${activeSectionName}`"
                 :title="
                   activeSectionEnabled
@@ -65,72 +69,64 @@
                     ? `Disable ${activeTabMeta.label}`
                     : `Enable ${activeTabMeta.label}`
                 "
-                @click="toggleSectionEnabled(activeSectionName)"
-                :tone="activeSectionEnabled ? 'green' : 'neutral'"
-              >
-                <ToggleRight v-if="activeSectionEnabled" :size="14" />
-                <ToggleLeft v-else :size="14" />
-              </IconButton>
+                @update:modelValue="toggleSectionEnabled(activeSectionName)"
+              />
 
-              <IconButton
+              <Button
                 v-if="activeSectionName"
                 :data-testid="`section-reset-${activeSectionName}`"
                 :title="`Reset ${activeTabMeta.label}`"
-                :aria-label="`Reset ${activeTabMeta.label}`"
+                :accessible-name="`Reset ${activeTabMeta.label}`"
                 @click="resetSectionToDefaults(activeSectionName)"
-                tone="amber"
               >
                 <RotateCcw :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Knob
                 data-testid="config-panel-global-toggle"
+                type="boolean"
+                :model-value="visualsEnabled"
+                label="Visuals"
+                class="config-panel__boolean-knob"
                 :title="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
                 :aria-label="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
-                @click="setVisualsEnabled(!visualsEnabled)"
-                :tone="visualsEnabled ? 'green' : 'red'"
-              >
-                <Power :size="14" />
-              </IconButton>
+                @update:modelValue="setVisualsEnabled(Boolean($event))"
+              />
 
-              <IconButton
+              <Button
                 data-testid="config-reset-all"
                 title="Reset all settings"
-                aria-label="Reset all settings"
+                accessible-name="Reset all settings"
                 @click="resetToDefaults"
-                tone="cream"
               >
                 <RefreshCw :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Button
                 data-testid="config-export"
                 title="Export configuration"
-                aria-label="Export configuration"
+                accessible-name="Export configuration"
                 @click="exportConfig"
-                tone="neutral"
               >
                 <Download :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Button
                 data-testid="config-save-as"
                 title="Save configuration"
-                aria-label="Save configuration"
+                accessible-name="Save configuration"
                 @click="promptSaveConfig"
-                tone="violet"
               >
                 <Save :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Button
                 title="Close settings"
-                aria-label="Close settings"
+                accessible-name="Close settings"
                 @click="close"
-                tone="red"
               >
                 <X :size="14" />
-              </IconButton>
+              </Button>
             </div>
           </div>
         </template>
@@ -449,8 +445,9 @@ import { CONFIG_SECTIONS, UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
 import type { ChromaticNote } from "@/types";
 import type { VisualEffectsConfig } from "@/types/visual";
-import { TabsContent, IconButton } from "@/components/ui";
-import { Knob } from "./knobs";
+import { TabsContent } from "@/components/ui";
+import Button from "@/components/primatives/Button.vue";
+import Knob from "@/components/primatives/Knob/index.vue";
 import MidiPermissionIcon from "./MidiPermissionIcon.vue";
 import TabbedOverlayPanel from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
@@ -461,9 +458,6 @@ import {
   RefreshCw,
   Download,
   Save,
-  Power,
-  ToggleLeft,
-  ToggleRight,
 } from "lucide-vue-next";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
 import {
@@ -492,7 +486,7 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   beatingShapes: "Beat",
   patterns: "Notes",
   keyboard: "Keys",
-  liveStrip: "Strip",
+  codeStrip: "Code Strip",
 };
 
 const SECTION_TONES: PosterTone[] = [
@@ -546,7 +540,7 @@ const SECTION_ORDER: ConfigSectionKey[] = [
   "beatingShapes",
   "patterns",
   "keyboard",
-  "liveStrip",
+  "codeStrip",
 ];
 
 const visualConfigStore = useVisualConfigStore();
@@ -1038,6 +1032,10 @@ const formatTimestamp = (timestamp: string) => {
 </script>
 
 <style scoped>
+.config-panel__boolean-knob {
+  --knob-size: 2rem;
+}
+
 .config-midi-chip-enter-active,
 .config-midi-chip-leave-active {
   transition:

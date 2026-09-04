@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
+import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
+import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 
 const { triggerUIHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
@@ -115,6 +117,49 @@ describe("Knob public interface", () => {
     expect(options.findAll(".knob-face circle")).toHaveLength(3);
     expect(options.get(".knob-face").attributes("style")).toContain("tomato");
 
+  });
+
+  it("keeps option labels whole and gives long mode names a compact treatment", () => {
+    const options = render({
+      modelValue: "major pentatonic",
+      type: "options",
+      options: [
+        { label: "Major Pentatonic", value: "major pentatonic" },
+        { label: "Phrygian", value: "phrygian" },
+      ],
+    });
+
+    expect(options.get(".knob-options__value").text()).toBe("Major Pentatonic");
+    expect(options.get(".knob-options__value").classes()).toEqual(
+      expect.arrayContaining([
+        "knob-options__value--long",
+        "knob-options__value--multiline",
+      ]),
+    );
+    expect(optionsKnobSource).toContain("inline-size: 84cqi");
+    expect(optionsKnobSource).not.toContain("text-overflow: ellipsis");
+    expect(optionsKnobSource).not.toContain("max-inline-size: 58cqi");
+  });
+
+  it("uses the shared rip-mode recipe for keyed option-label changes", async () => {
+    const options = render({
+      modelValue: "major",
+      type: "options",
+      options: [
+        { label: "Major", value: "major" },
+        { label: "Phrygian", value: "phrygian" },
+      ],
+    });
+
+    await options.setProps({ modelValue: "phrygian" });
+
+    expect(options.get(".knob-options__value").text()).toBe("Phrygian");
+    expect(optionsKnobSource).toContain('<Transition name="knob-rip-mode">');
+    expect(optionsKnobSource).toContain("animation: rip-mode-in var(--dur-rip-mode) var(--ease-rip-mode) both");
+    expect(optionsKnobSource).toContain("animation: rip-mode-out var(--dur-rip-mode) var(--ease-rip-mode) both");
+    expect(motionGuideSource).toContain("animation-name: rip-mode-out");
+    expect(motionGuideSource).toContain("animation-name: rip-mode-in");
+    expect(motionGuideSource).not.toContain("animation: cross-fade-rip");
   });
 
   it("keeps Boolean Knob keyboard-operable for persistent state consumers", () => {

@@ -234,14 +234,12 @@
             </div>
     
             <div class="kf-kf">
-              <div class="kf-stage demo-cross-fade-rip">
-                <span class="cf-label">Lydian</span>
-                <span class="cf-label">Locrian</span>
-                <span class="cf-label">Dorian</span>
-                <span class="cf-label">Aeolian</span>
+              <div class="kf-stage demo-rip-mode">
+                <span class="cf-label cf-label--out">Lydian</span>
+                <span class="cf-label cf-label--in">Phrygian</span>
               </div>
               <div class="kf-name">rip-mode</div>
-              <div class="kf-role">Cross-fade-rip: old tears up, new slides in. Ease-bend</div>
+              <div class="kf-role">Mode change: old tears up, new slides in. --dur-rip-mode · --ease-rip-mode</div>
             </div>
     
             <div class="kf-kf">
@@ -379,7 +377,7 @@
         </div>
     
         <div class="caption" style="margin-top:20px;color:var(--fg-3);line-height:1.55">
-          All keyframes now defined globally in <code>colors_and_type.css</code>: rhythm (<code>beat</code>, <code>pulse</code>, <code>bob</code>, <code>strobe</code>, <code>beat-cell</code>, <code>beat-down</code>), transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode</code>, <code>smear</code>, <code>cross-fade-rip</code>, <code>lift</code>), feedback (<code>ring</code>, <code>ring-flash</code>, <code>flash</code>, <code>flash-ring</code>), brand (<code>brass-sheen</code>). <code>paper-rip-flash</code> is a composition of <code>lift</code> + <code>flash</code> + <code>flash-ring</code>, not its own keyframe. <code>glow</code> is promoted to a static shadow token (<code>--shadow-glow</code>) — see Geometry tokens.
+          All keyframes now defined globally in <code>colors_and_type.css</code>: rhythm (<code>beat</code>, <code>pulse</code>, <code>bob</code>, <code>strobe</code>, <code>beat-cell</code>, <code>beat-down</code>), transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode-out</code>, <code>rip-mode-in</code>, <code>smear</code>, <code>lift</code>), feedback (<code>ring</code>, <code>ring-flash</code>, <code>flash</code>, <code>flash-ring</code>), brand (<code>brass-sheen</code>). <code>paper-rip-flash</code> is a composition of <code>lift</code> + <code>flash</code> + <code>flash-ring</code>, not its own keyframe. <code>glow</code> is promoted to a static shadow token (<code>--shadow-glow</code>) — see Geometry tokens.
           The five "gesture eases" (swing / stab / brush / sustain / bend) are easing curves, not keyframes — shown here on the shared <code>ease-run</code> track for comparison.
         </div>
     
@@ -744,12 +742,12 @@
   clip-path: polygon(0 0, 100% 0, 100% 4%, 88% 20%, 100% 40%, 78% 56%, 100% 78%, 100% 100%, 0 100%);
   animation: rip 1.8s var(--ease-stab) infinite;
 }
-.demo-cross-fade-rip {
+.demo-rip-mode {
   overflow: hidden;
   flex-direction: column;
   gap: 0;
 }
-.demo-cross-fade-rip .cf-label {
+.demo-rip-mode .cf-label {
   position: absolute;
   font-family: var(--font-display);
   font-weight: 700;
@@ -757,11 +755,14 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ivory);
-  animation: cross-fade-rip 2.8s var(--ease-bend) infinite;
+  animation-duration: 2.8s;
+  animation-timing-function: var(--ease-rip-mode);
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-fill-mode: both;
 }
-.demo-cross-fade-rip .cf-label:nth-child(2) { animation-delay: 700ms; }
-.demo-cross-fade-rip .cf-label:nth-child(3) { animation-delay: 1400ms; }
-.demo-cross-fade-rip .cf-label:nth-child(4) { animation-delay: 2100ms; }
+.demo-rip-mode .cf-label--out { animation-name: rip-mode-out; }
+.demo-rip-mode .cf-label--in  { animation-name: rip-mode-in; }
 .demo-lift .dot   { animation: lift 1.6s var(--ease-stab) infinite; }
 
 /* smear — horizontal stretch-snap (lifted from v2 .p5-active.smearing) */
@@ -893,7 +894,8 @@
   }
   .demo-strobe .wire  { animation: opacity-blink 2s steps(1) infinite !important; }
   .demo-rip .rip-corner { animation: opacity-blink 1.8s steps(1) infinite !important; }
-  .demo-cross-fade-rip .cf-label { animation: opacity-blink 2.8s steps(1) infinite !important; }
+  .demo-rip-mode .cf-label { animation: none; }
+  .demo-rip-mode .cf-label--out { display: none; }
   .demo-ring .ring-el  { animation: opacity-blink 2s steps(1) infinite !important; }
   .demo-flash .ring-el { animation: opacity-blink 2s steps(1) infinite !important; }
   .kf-ease-track .e-dot { animation: opacity-blink 2s steps(1) infinite !important; }

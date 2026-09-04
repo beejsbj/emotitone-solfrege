@@ -8,12 +8,21 @@
     :tone="tone"
   />
 
-  <!-- Value text -->
-  <span
-    class="knob-options__value"
-    :style="{ color: activeStrokeColor }"
-  >
-    {{ displayValue }}
+  <!-- The viewport owns centering/clipping; keyed labels own the rip transition. -->
+  <span class="knob-options__viewport">
+    <Transition name="knob-rip-mode">
+      <span
+        :key="String(currentOption?.value ?? modelValue)"
+        class="knob-options__value"
+        :class="{
+          'knob-options__value--long': compactDisplayLength > 7,
+          'knob-options__value--multiline': displayValue.includes(' '),
+        }"
+        :style="{ color: activeStrokeColor }"
+      >
+        {{ displayValue }}
+      </span>
+    </Transition>
   </span>
 </template>
 
@@ -49,6 +58,9 @@ const currentOption = computed(
 const displayValue = computed(
   () => currentOption.value?.label || String(props.modelValue)
 );
+const compactDisplayLength = computed(
+  () => displayValue.value.replace(/\s/g, "").length
+);
 
 // Stroke color (can adapt if option has color)
 const activeStrokeColor = computed(
@@ -57,19 +69,51 @@ const activeStrokeColor = computed(
 </script>
 
 <style scoped>
-.knob-options__value {
+.knob-options__viewport {
   position: absolute;
   inset-block-start: 50%;
   inset-inline-start: 50%;
-  max-inline-size: 58cqi;
+  display: grid;
+  place-items: center;
+  inline-size: 84cqi;
+  min-block-size: 44cqi;
+  padding-block: 4cqi;
+  box-sizing: border-box;
   overflow: hidden;
-  font-size: clamp(0.625rem, 26cqi, 1.125rem);
-  font-weight: 700;
-  line-height: 1;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   pointer-events: none;
   transform: translate(-50%, -50%);
+}
+
+.knob-options__value {
+  grid-area: 1 / 1;
+  max-inline-size: 100%;
+  font-size: clamp(0.625rem, 26cqi, 1.125rem);
+  font-weight: 700;
+  line-height: 1.12;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.knob-options__value--long {
+  font-size: clamp(0.5rem, 20cqi, 0.875rem);
+}
+
+.knob-options__value--multiline {
+  white-space: normal;
+}
+
+.knob-rip-mode-enter-active {
+  animation: rip-mode-in var(--dur-rip-mode) var(--ease-rip-mode) both;
+}
+
+.knob-rip-mode-leave-active {
+  animation: rip-mode-out var(--dur-rip-mode) var(--ease-rip-mode) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knob-rip-mode-enter-active,
+  .knob-rip-mode-leave-active {
+    animation: none;
+  }
 }
 </style>

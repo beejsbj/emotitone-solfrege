@@ -270,6 +270,8 @@
   --dur-ui:    220ms;     /* tab swap, chip select */
   --dur-panel: 360ms;     /* drawer in/out, mode change */
   --dur-scene: 600ms;     /* visual fx fade */
+  --dur-rip-mode: var(--dur-panel);
+  --ease-rip-mode: var(--ease-bend);
   /* Legacy aliases. */
   --dur-flick:  var(--dur-tap);
   --dur-snap:   var(--dur-ui);
@@ -574,14 +576,17 @@ h4, .h2          { font: var(--t-h2);        letter-spacing: var(--tracking-disp
     100%     { transform: scale(1.45); opacity: 0; }
   }
 
-/* rip-mode — old label tears off, new slides up (from mot-primitives-mode-rip.html) */
-@keyframes rip-mode {
-    0%, 14%  { opacity: 0; transform: translateY(18px) skew(8deg); }
-    18%      { opacity: 1; transform: translateY(0) skew(0); }
-    22%      { opacity: 1; transform: translateY(0) skew(0); }
-    25%      { opacity: 1; transform: translateY(-14px) skew(-10deg); }
-    28%, 100%{ opacity: 0; transform: translateY(-22px) skew(-14deg); }
-  }
+/* rip-mode — the v2 Mode Knob's old label tears up while the next slides in. */
+@keyframes rip-mode-out {
+  0%       { opacity: 1; transform: translateY(0) skew(0deg); }
+  45%, 100%{ opacity: 0; transform: translateY(-12px) skew(-10deg); }
+}
+
+@keyframes rip-mode-in {
+  0%, 45% { opacity: 0; transform: translateY(12px) skew(8deg); }
+  46%     { opacity: 0; transform: translateY(12px) skew(8deg); }
+  100%    { opacity: 1; transform: translateY(0) skew(0deg); }
+}
 
 /* strobe — panel wire heats on the downbeat (from mot-primitives-downbeat-strobe.html) */
 @keyframes strobe {
@@ -650,12 +655,4 @@ h4, .h2          { font: var(--t-h2);        letter-spacing: var(--tracking-disp
 @keyframes flash-ring {
   0%   { transform: scale(1);    opacity: 0.6; }
   100% { transform: scale(1.18); opacity: 0; }
-}
-
-/* cross-fade-rip — label tears off and slides back (v2 @keyframes labelRip) */
-@keyframes cross-fade-rip {
-  0%   { transform: translateY(0)    skew(0deg);  opacity: 1; }
-  45%  { transform: translateY(-12px) skew(-10deg); opacity: 0; }
-  46%  { transform: translateY(12px)  skew(8deg);   opacity: 0; }
-  100% { transform: translateY(0)    skew(0deg);  opacity: 1; }
 }

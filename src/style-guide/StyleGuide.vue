@@ -127,6 +127,10 @@
           <div class="sink-frame__source">compound-code-strip-actions</div>
           <CompoundCodeStripActions />
         </article>
+        <article id="compound-control-bar" class="sink-frame">
+          <div class="sink-frame__source">compound-control-bar</div>
+          <CompoundControlBar />
+        </article>
         <article id="compound-chord" class="sink-frame">
           <div class="sink-frame__source">compound-chord</div>
           <CompoundChord />
@@ -186,6 +190,7 @@ import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
 import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundCodeStripActions from "./compounds/CompoundCodeStripActions.vue";
+import CompoundControlBar from "./compounds/CompoundControlBar.vue";
 import CompoundChord from "./compounds/CompoundChord.vue";
 import CompoundKey from "./compounds/CompoundKey.vue";
 import CompoundKeyboard from "./compounds/CompoundKeyboard.vue";

@@ -39,7 +39,7 @@
 
       <Button
         size="md"
-        tone="ink"
+        tone="ivory"
         :haptic="haptic"
         accessible-name="Return"
         title="Return"
@@ -102,7 +102,7 @@ const emit = defineEmits<{
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 6px;
+  padding: 0;
 }
 
 .code-strip-actions__strip {

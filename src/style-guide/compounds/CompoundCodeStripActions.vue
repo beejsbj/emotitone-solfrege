@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Code Strip Actions &middot; Instrument Compound"
     :features="features"
-    caption="One compact line: brass Play or Stop leads the flexible CodeStrip; ink Backspace and Return finish it. The icons have no visible labels."
+    caption="One compact line with no outer padding: brass Play or Stop leads the flexible CodeStrip; ink Backspace and ivory Return finish it. The icons have no visible labels."
   >
     <template #hero>
       <div class="code-strip-actions-specimen">
@@ -53,7 +53,8 @@ const shortTokens = tokens.slice(0, 3);
 const features = [
   { label: "Order", value: "Play/Stop → flexible CodeStrip → Backspace → Return" },
   { label: "Actions", value: "40px icon-only Button primitives; accessible names remain" },
-  { label: "Material", value: "brass Play/Stop; ink Backspace and Return" },
+  { label: "Material", value: "brass Play/Stop; ink Backspace; ivory Return with Ink icon" },
+  { label: "Density", value: "no compound outer padding; CodeStrip keeps editable-content spacing" },
   { label: "Backspace", value: "removes the last recorded event; never presented as editor Undo" },
   { label: "Return", value: "typewriter carriage return for commit-and-clear; never presented as Send" },
   { label: "Boundary", value: "arrangement only; stores, playback, editing, audio, and persistence stay outside" },

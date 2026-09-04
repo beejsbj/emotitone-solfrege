@@ -32,12 +32,12 @@ describe("CodeStripActions.vue", () => {
     expect(wrapper.text()).toBe("");
   });
 
-  it("uses brass only for Play and ink for the two right-side actions", () => {
+  it("uses brass for Play, ink for Backspace, and ivory for Return", () => {
     wrapper = render();
 
     expect(wrapper.get('button[aria-label="Play"]').classes()).toContain("paper-button--brass");
     expect(wrapper.get('button[aria-label="Delete last event"]').classes()).toContain("paper-button--ink");
-    expect(wrapper.get('button[aria-label="Return"]').classes()).toContain("paper-button--ink");
+    expect(wrapper.get('button[aria-label="Return"]').classes()).toContain("paper-button--ivory");
   });
 
   it("presents Stop as a momentary action without toggle semantics", () => {

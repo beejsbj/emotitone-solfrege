@@ -99,11 +99,13 @@ const emit = defineEmits<{
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
+  column-gap: var(--s-4);
   width: 100%;
   min-width: 0;
   min-height: 40px;
   box-sizing: border-box;
-  padding: 0;
+  /* Reserve room for Button's paper offset, focus ring, and brass glow. */
+  padding: var(--s-4) var(--s-5);
   border: 0;
   background-color: var(--instrument-bar-surface);
   -webkit-backdrop-filter: var(--instrument-bar-backdrop);
@@ -119,6 +121,6 @@ const emit = defineEmits<{
 .code-strip-bar__right {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: var(--s-3);
 }
 </style>

@@ -62,6 +62,7 @@ describe("useKeyboardControls", () => {
     mockMusicStore.attackNoteWithOctave.mockResolvedValue("mock-note-id");
     addEventListenerSpy.mockClear();
     removeEventListenerSpy.mockClear();
+    vi.mocked(window.dispatchEvent).mockClear();
   });
 
   afterEach(() => {
@@ -148,11 +149,17 @@ describe("useKeyboardControls", () => {
 
     second.resolve("current-note");
     await flushPromises();
-    expect(controls.keyboardNoteIds.value.get("keyboard:KeyQ")).toBe("current-note");
+    expect(controls.keyboardNoteIds.value.get("KeyQ")).toBe("current-note");
 
     getWindowListener("blur")(new Event("blur"));
     expect(mockMusicStore.releaseNote).toHaveBeenCalledWith("current-note");
     expect(controls.pressedKeys.value.has("KeyQ")).toBe(false);
+    const releasedEventIndex = vi.mocked(window.dispatchEvent).mock.calls
+      .findLastIndex(([event]) => event.type === "keyboard-note-released");
+    expect(releasedEventIndex).toBeGreaterThanOrEqual(0);
+    expect(mockMusicStore.releaseNote.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      vi.mocked(window.dispatchEvent).mock.invocationCallOrder[releasedEventIndex]
+    );
   });
 
   it("cleans up a failed attack and accepts the next keydown", async () => {

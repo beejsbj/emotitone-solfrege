@@ -15,6 +15,7 @@ export interface HeldNotesOptions<Press extends HeldNotePress> {
   onPressed?: (press: Press) => void;
   onUnpressed?: (press: Press) => void;
   beforeNoteRelease?: (noteId: string, press: Press) => void;
+  afterNoteRelease?: (noteId: string, press: Press) => void;
   onAttackFailure?: (press: Press, error?: unknown) => void;
 }
 
@@ -53,6 +54,7 @@ export function createHeldNotes<Press extends HeldNotePress>(
   ) => {
     options.beforeNoteRelease?.(noteId, entry.press);
     options.release(noteId, entry.press);
+    options.afterNoteRelease?.(noteId, entry.press);
     if (activeNoteIds.get(entry.press.pressId) === noteId) {
       activeNoteIds.delete(entry.press.pressId);
     }

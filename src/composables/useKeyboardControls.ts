@@ -107,7 +107,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       pressedKeys.value.delete(key);
       keyboardDrawerStore.removeTouch(pressId);
     },
-    beforeNoteRelease: (_noteId, { label }) => {
+    afterNoteRelease: (_noteId, { label }) => {
       window.dispatchEvent(
         new CustomEvent("keyboard-note-released", { detail: { key: label } })
       );
@@ -253,7 +253,12 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   return {
     pressedKeys: computed(() => pressedKeys.value),
-    keyboardNoteIds: computed(() => heldNotes.getActiveNoteIds()),
+    keyboardNoteIds: computed(() => new Map(
+      Array.from(heldNotes.getActiveNoteIds(), ([pressId, noteId]) => [
+        pressId.slice("keyboard:".length),
+        noteId,
+      ])
+    )),
     getKeyboardMapping,
     getKeyboardLetterForNote,
     setupKeyboardListeners,

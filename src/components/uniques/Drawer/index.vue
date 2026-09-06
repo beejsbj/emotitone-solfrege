@@ -37,6 +37,7 @@ const emit = defineEmits<{
 const root = ref<HTMLElement | null>(null);
 const persistent = ref<HTMLElement | null>(null);
 const clip = ref<HTMLElement | null>(null);
+const content = ref<HTMLElement | null>(null);
 const persistentHeight = ref(0);
 const frameHeight = ref(typeof window === "undefined" ? 800 : window.innerHeight);
 const currentHeight = ref(0);
@@ -49,18 +50,23 @@ let visibilityObserver: IntersectionObserver | undefined;
 let contentObserver: MutationObserver | undefined;
 const observedControls = new Map<HTMLElement, boolean>();
 
-function observePersistentControls() {
-  if (!visibilityObserver || !persistent.value) return;
+function observeClippedControls() {
+  if (!visibilityObserver) return;
+  const selector = 'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]';
+  const controls = new Set(persistent.value?.querySelectorAll<HTMLElement>(selector));
+  // Minimum-sized content can extend beyond the clip (Keyboard). Top panels
+  // have no content floor and retain their normal scroll-to-focused-item behavior.
+  if (!props.scroll && props.minContentHeight > 0) {
+    content.value?.querySelectorAll<HTMLElement>(selector).forEach(element => controls.add(element));
+  }
   for (const [element, originallyInert] of observedControls) {
-    if (!persistent.value.contains(element)) {
+    if (!controls.has(element)) {
       visibilityObserver.unobserve(element);
       element.inert = originallyInert;
       observedControls.delete(element);
     }
   }
-  for (const element of persistent.value.querySelectorAll<HTMLElement>(
-    'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]',
-  )) {
+  for (const element of controls) {
     if (observedControls.has(element)) continue;
     observedControls.set(element, Boolean(element.inert));
     visibilityObserver.observe(element);
@@ -183,10 +189,10 @@ onMounted(async () => {
     if (persistent.value) observer.observe(persistent.value);
     if (!props.fixed && root.value?.parentElement) observer.observe(root.value.parentElement);
   }
-  // A partly collapsed persistent stack must not retain invisible tab stops.
+  // A partly collapsed stack must not retain invisible tab stops.
   // Observe focus targets rather than whole bars: labels can remain visible after
   // their button faces have left the clip. Consumer-owned inert state is retained.
-  if (persistent.value && clip.value && typeof IntersectionObserver !== "undefined") {
+  if (root.value && clip.value && typeof IntersectionObserver !== "undefined") {
     visibilityObserver = new IntersectionObserver(entries => {
       for (const entry of entries) {
         const element = entry.target as HTMLElement;
@@ -196,9 +202,9 @@ onMounted(async () => {
           || entry.intersectionRect.height <= 0 || entry.intersectionRect.width <= 0;
       }
     }, { root: clip.value, threshold: 0 });
-    observePersistentControls();
-    contentObserver = new MutationObserver(observePersistentControls);
-    contentObserver.observe(persistent.value, { childList: true, subtree: true });
+    observeClippedControls();
+    contentObserver = new MutationObserver(observeClippedControls);
+    contentObserver.observe(root.value, { childList: true, subtree: true });
   }
   window.addEventListener("resize", measure);
   document.addEventListener("keydown", keydown);
@@ -250,6 +256,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
         <slot name="persistent" />
       </div>
       <div
+        ref="content"
         class="drawer__content"
         :class="{ 'drawer__content--scroll': scroll }"
         :style="{ height: `${contentHeight}px` }"

@@ -116,7 +116,7 @@ describe("Drawer continuous height contract", () => {
     expect(height(w)).toBe(0);
     expect(w.get('button').exists()).toBe(true);
   });
-  it("removes clipped persistent controls from focus and restores them when visible", async () => {
+  it("removes clipped controls and keys from focus and restores them when visible", async () => {
     let notify: IntersectionObserverCallback = () => {};
     const observe = vi.fn();
     const disconnect = vi.fn();
@@ -127,19 +127,22 @@ describe("Drawer continuous height contract", () => {
       disconnect = disconnect;
     });
     const w = mount(Drawer, {
-      props: { accessibleName: 'Keyboard', defaultOpen: true },
-      slots: { persistent: '<button data-control>Control</button><button inert data-inert>Unavailable</button>' },
+      props: { accessibleName: 'Keyboard', defaultOpen: true, scroll: false, minContentHeight: 100 },
+      slots: { persistent: '<button data-control>Control</button><button inert data-inert>Unavailable</button>', default: '<button data-key tabindex="0">Do</button>' },
     });
     mounted.push(w);
     await flushPromises();
     const control = w.get('[data-control]').element as HTMLElement;
     const unavailable = w.get('[data-inert]').element as HTMLElement;
+    const key = w.get('[data-key]').element as HTMLElement;
     expect(observe).toHaveBeenCalledWith(control);
+    expect(observe).toHaveBeenCalledWith(key);
     const entry = (target: HTMLElement, visible: boolean) => ({ target, isIntersecting: visible,
       intersectionRect: { height: visible ? 20 : 0, width: visible ? 40 : 0 },
     }) as IntersectionObserverEntry;
-    notify([entry(control, false)], {} as IntersectionObserver);
+    notify([entry(control, false), entry(key, false)], {} as IntersectionObserver);
     expect(control.inert).toBe(true);
+    expect(key.inert).toBe(true);
     notify([entry(control, true), entry(unavailable, true)], {} as IntersectionObserver);
     expect(control.inert).toBe(false);
     expect(unavailable.inert).toBe(true);

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { AudioLines, Keyboard as KeyboardIcon, Settings } from "lucide-vue-next";
+import { AudioLines, Keyboard as KeyboardIcon } from "lucide-vue-next";
+import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
@@ -13,6 +14,8 @@ const top = ref<"instrument" | "config" | null>(null);
 const keyboardOpen = ref(true);
 const rowCount = ref(3);
 const width = ref("100%");
+const midiState = ref<"idle" | "connecting" | "connected" | "error">("connected");
+const instrumentName = ref("Piano");
 const lastAction = ref("Drag any handle. Tap Keyboard to hide only its keys.");
 const rows = computed(() => Array.from({ length: rowCount.value }, (_, index) => {
   const octave = 4 + Math.floor(rowCount.value / 2) - index;
@@ -38,12 +41,18 @@ const tokens: CodeStripToken[] = [
         <option value="768px">768px</option><option value="100%">Available width</option>
       </select>
     </label>
+    <label>Instrument label <input v-model="instrumentName" /></label>
+    <label>MIDI status
+      <select v-model="midiState">
+        <option>idle</option><option>connecting</option><option>connected</option><option>error</option>
+      </select>
+    </label>
     <div class="drawer-specimen__viewport">
       <div class="drawer-specimen__stage" :style="{ width }">
         <button class="drawer-specimen__canvas-action" @click="lastAction = 'Canvas stays interactive'">Play with the canvas</button>
         <Drawer
           :model-value="top === 'instrument'" anchor="top" handle-align="left"
-          accessible-name="Instrument specimen" handle-label="Piano"
+          accessible-name="Instrument specimen" :handle-label="instrumentName"
           :initial-content-height="240" class="drawer-specimen__top"
           :class="{ 'drawer-specimen__top--open': top === 'instrument' }"
           close-on-escape fit-content-on-open close-on-outside
@@ -63,9 +72,9 @@ const tokens: CodeStripToken[] = [
           close-on-escape fit-content-on-open close-on-outside
           @update:model-value="top = $event ? 'config' : top === 'config' ? null : top"
         >
-          <template #icon><Settings /></template>
+          <template #icon><MidiSettingsIcon :state="midiState" /></template>
           <div class="drawer-specimen__panel">
-            <h4>Config</h4><p>MIDI connected · keyboard height belongs to its drawer.</p>
+            <h4>Config</h4><p>MIDI {{ midiState }} · keyboard height belongs to its drawer.</p>
             <label>Keyboard rows <select v-model.number="rowCount"><option :value="1">1</option><option :value="3">3</option><option :value="5">5</option></select></label>
           </div>
         </Drawer>
@@ -95,9 +104,10 @@ const tokens: CodeStripToken[] = [
 .drawer-specimen { display: grid; gap: 16px; width: min(960px, calc(100vw - 32px)); min-width: 0; }
 .drawer-specimen p, .drawer-specimen output { font: var(--t-label); color: var(--ivory-3); }
 .drawer-specimen label { display: flex; gap: 12px; align-items: center; }
-.drawer-specimen select, .drawer-specimen__panel button, .drawer-specimen__canvas-action {
+.drawer-specimen select, .drawer-specimen input, .drawer-specimen__panel button, .drawer-specimen__canvas-action {
   padding: 8px; background: var(--ink-4); color: var(--ivory); border: 1px solid var(--ink-5);
 }
+.drawer-specimen input { min-width: 0; width: 160px; }
 .drawer-specimen__viewport { overflow-x: auto; min-width: 0; }
 .drawer-specimen__stage {
   position: relative; height: 640px; min-width: 320px;

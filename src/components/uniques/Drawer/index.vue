@@ -316,10 +316,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       @pointercancel="pointerEnd"
       @lostpointercapture="pointerEnd"
     >
+      <span class="drawer__grip" aria-hidden="true" />
       <span class="drawer__icon" aria-hidden="true"><slot name="icon" /></span>
       <span v-if="handleLabel" class="drawer__label">{{ handleLabel }}</span>
       <span class="drawer__grip" aria-hidden="true" />
-      <slot name="status" />
     </button>
     <div ref="clip" class="drawer__clip" :inert="height <= 0 ? true : undefined">
       <div v-if="$slots.persistent" ref="persistent" class="drawer__persistent">
@@ -366,10 +366,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   max-width: min(240px, 65%);
   min-height: var(--drawer-handle-height);
-  padding: 4px 6px;
+  padding: 4px;
   border: 0;
   border-radius: 0;
   background: var(--ink-3);
@@ -388,8 +388,17 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer__handle:focus-visible { outline: 2px solid var(--ivory); outline-offset: -2px; }
 .drawer__icon { display: flex; flex: 0 0 14px; }
 .drawer__icon :deep(svg) { width: 14px; height: 14px; }
-.drawer__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--t-label); }
-.drawer__grip { flex: 0 0 14px; height: 6px; border-block: 2px solid var(--ivory-4); }
+.drawer__label {
+  min-width: 0;
+  padding-inline: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--t-label);
+  /* Jazz glyphs extend below the label token's tight line box. */
+  line-height: 20px;
+}
+.drawer__grip { flex: 0 0 8px; height: 2px; background: var(--ivory-4); }
 @media (hover: hover) and (pointer: fine) {
   .drawer__handle:hover { color: var(--ivory-2); }
 }
@@ -399,7 +408,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 @media (forced-colors: active) {
   .drawer { background: Canvas; color: CanvasText; }
   .drawer__handle { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
-  .drawer__grip { border-color: ButtonText; }
+  .drawer__grip { background: ButtonText; }
   .drawer__handle:focus-visible { outline-color: Highlight; }
 }
 </style>

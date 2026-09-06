@@ -5,10 +5,7 @@
     :aria-label="midiTriggerLabel"
     handle-test-id="config-panel-trigger"
   >
-    <template #icon><Settings /></template>
-    <template #status>
-      <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="midiLedToneClass" :title="midiTriggerLabel" />
-    </template>
+    <template #icon><MidiSettingsIcon :state="midiStatusState" /></template>
 
     <template #panel="{ close }">
       <TabbedOverlayPanel
@@ -423,6 +420,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import { storeToRefs } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -438,7 +436,6 @@ import MidiPermissionIcon from "./MidiPermissionIcon.vue";
 import TabbedOverlayPanel from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
 import {
-  Settings,
   X,
   RotateCcw,
   RefreshCw,
@@ -813,18 +810,6 @@ const midiTriggerLabel = computed(() => {
 
   return `Open settings. ${midiStatusHeadline.value}.`;
 });
-
-const midiLedToneClass = computed(
-  () =>
-    (
-      {
-        connected: "bg-[#d7d7d7] shadow-[0_0_10px_rgba(215,215,215,0.45)]",
-        connecting: "bg-[#bdbdbd] shadow-[0_0_10px_rgba(189,189,189,0.55)] animate-pulse",
-        error: "bg-[#8a8a8a] shadow-[0_0_10px_rgba(138,138,138,0.45)]",
-        idle: "bg-[#5e5e5e]",
-      } as const
-    )[midiStatusState.value]
-);
 
 const midiStatusBadgeClass = computed(
   () =>

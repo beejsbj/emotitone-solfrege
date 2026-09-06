@@ -538,3 +538,75 @@ export interface VisualEffectsConfig {
   /** CodeStrip presentation configuration */
   codeStrip: CodeStripConfig;
 }
+
+export type VisualConfigValue = string | number | boolean;
+export type VisualConfigSectionKey = keyof VisualEffectsConfig;
+
+export type VisualConfigFieldMetadata = {
+  value: VisualConfigValue;
+  label?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: readonly string[];
+  format?: (value: number) => string;
+};
+
+export type VisualConfigSectionMetadata = {
+  _meta: ConfigSectionMeta;
+} & Record<string, VisualConfigFieldMetadata | ConfigSectionMeta>;
+
+interface BaseVisualConfigFieldDescription {
+  key: string;
+  label: string;
+  defaultValue: VisualConfigValue;
+}
+
+export interface BooleanFieldDescription
+  extends BaseVisualConfigFieldDescription {
+  control: "boolean";
+  value: boolean;
+  defaultValue: boolean;
+}
+
+export interface NumberFieldDescription extends BaseVisualConfigFieldDescription {
+  control: "range";
+  value: number;
+  defaultValue: number;
+  min: number;
+  max: number;
+  step: number;
+  formatValue: (value: number) => string;
+}
+
+export interface OptionsFieldDescription
+  extends BaseVisualConfigFieldDescription {
+  control: "options";
+  value: string;
+  defaultValue: string;
+  options: string[];
+}
+
+export type VisualConfigFieldDescription =
+  | BooleanFieldDescription
+  | NumberFieldDescription
+  | OptionsFieldDescription;
+
+export interface VisualConfigSectionDescription {
+  name: VisualConfigSectionKey;
+  label: string;
+  icon: string;
+  description?: string;
+  enableField: BooleanFieldDescription | null;
+  fields: VisualConfigFieldDescription[];
+}
+
+export type LegacyVisualEffectsConfig = Partial<VisualEffectsConfig> & {
+  dynamicColors?: Partial<VisualEffectsConfig["dynamicColors"]> & {
+    chromaticMapping?: boolean;
+  };
+  keyboard?: Partial<VisualEffectsConfig["keyboard"]> & {
+    colorMode?: VisualEffectsConfig["keyboard"]["surfaceStyle"];
+  };
+  liveStrip?: Partial<VisualEffectsConfig["codeStrip"]>;
+};

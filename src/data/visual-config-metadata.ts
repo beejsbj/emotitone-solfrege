@@ -4,9 +4,17 @@
  */
 
 import type {
+  BooleanFieldDescription,
   ConfigField,
   ExtractConfigValues,
+  LegacyVisualEffectsConfig,
   VisualEffectsConfig,
+  VisualConfigFieldDescription,
+  VisualConfigFieldMetadata,
+  VisualConfigSectionDescription,
+  VisualConfigSectionKey,
+  VisualConfigSectionMetadata,
+  VisualConfigValue,
 } from "@/types/visual";
 
 /**
@@ -909,82 +917,6 @@ export const DEFAULT_CONFIG: VisualEffectsConfig = extractConfigValues(
   UNIFIED_CONFIG
 ) as VisualEffectsConfig;
 
-type VisualConfigValue = string | number | boolean;
-type ConfigSectionKey = keyof VisualEffectsConfig;
-
-type FieldMetadata = {
-  value: VisualConfigValue;
-  label?: string;
-  min?: number;
-  max?: number;
-  step?: number;
-  options?: readonly string[];
-  format?: (value: number) => string;
-};
-
-type SectionMeta = {
-  label: string;
-  icon: string;
-  description?: string;
-};
-
-type SectionMetadata = {
-  _meta: SectionMeta;
-} & Record<string, FieldMetadata | SectionMeta>;
-
-interface BaseFieldDescription {
-  key: string;
-  label: string;
-  defaultValue: VisualConfigValue;
-}
-
-export interface BooleanFieldDescription extends BaseFieldDescription {
-  control: "boolean";
-  value: boolean;
-  defaultValue: boolean;
-}
-
-export interface NumberFieldDescription extends BaseFieldDescription {
-  control: "range";
-  value: number;
-  defaultValue: number;
-  min: number;
-  max: number;
-  step: number;
-  formatValue: (value: number) => string;
-}
-
-export interface OptionsFieldDescription extends BaseFieldDescription {
-  control: "options";
-  value: string;
-  defaultValue: string;
-  options: string[];
-}
-
-export type VisualConfigFieldDescription =
-  | BooleanFieldDescription
-  | NumberFieldDescription
-  | OptionsFieldDescription;
-
-export interface VisualConfigSectionDescription {
-  name: ConfigSectionKey;
-  label: string;
-  icon: string;
-  description?: string;
-  enableField: BooleanFieldDescription | null;
-  fields: VisualConfigFieldDescription[];
-}
-
-type LegacyVisualEffectsConfig = Partial<VisualEffectsConfig> & {
-  dynamicColors?: Partial<VisualEffectsConfig["dynamicColors"]> & {
-    chromaticMapping?: boolean;
-  };
-  keyboard?: Partial<VisualEffectsConfig["keyboard"]> & {
-    colorMode?: VisualEffectsConfig["keyboard"]["surfaceStyle"];
-  };
-  liveStrip?: Partial<VisualEffectsConfig["codeStrip"]>;
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -993,25 +925,30 @@ function cloneDefaultConfig(): VisualEffectsConfig {
   return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as VisualEffectsConfig;
 }
 
-function getSectionMetadata(sectionName: ConfigSectionKey): SectionMetadata {
-  return UNIFIED_CONFIG[sectionName] as SectionMetadata;
+function getSectionMetadata(
+  sectionName: VisualConfigSectionKey
+): VisualConfigSectionMetadata {
+  return UNIFIED_CONFIG[sectionName] as VisualConfigSectionMetadata;
 }
 
 function getFieldMetadata(
-  sectionName: ConfigSectionKey,
+  sectionName: VisualConfigSectionKey,
   fieldName: string
-): FieldMetadata | null {
+): VisualConfigFieldMetadata | null {
   const section = getSectionMetadata(sectionName);
   const field = section[fieldName];
 
   return fieldName !== "_meta" && isFieldMetadata(field) ? field : null;
 }
 
-function isFieldMetadata(value: unknown): value is FieldMetadata {
+function isFieldMetadata(value: unknown): value is VisualConfigFieldMetadata {
   return isRecord(value) && "value" in value;
 }
 
-function isValidFieldValue(metadata: FieldMetadata, value: unknown): boolean {
+function isValidFieldValue(
+  metadata: VisualConfigFieldMetadata,
+  value: unknown
+): boolean {
   if (typeof metadata.value === "number") {
     return typeof value === "number" && Number.isFinite(value);
   }
@@ -1034,7 +971,7 @@ function defaultLabel(key: string): string {
 
 function describeField(
   key: string,
-  metadata: FieldMetadata,
+  metadata: VisualConfigFieldMetadata,
   currentValue: unknown
 ): VisualConfigFieldDescription {
   const value = isValidFieldValue(metadata, currentValue)
@@ -1087,7 +1024,7 @@ function describeField(
 }
 
 function migrateLegacySection(
-  sectionName: ConfigSectionKey,
+  sectionName: VisualConfigSectionKey,
   incomingSection: Record<string, unknown>
 ): Record<string, unknown> {
   const migratedSection = { ...incomingSection };
@@ -1137,7 +1074,7 @@ export function resolveVisualConfig(rawConfig: unknown): VisualEffectsConfig {
 
   for (const sectionName of Object.keys(
     DEFAULT_CONFIG
-  ) as ConfigSectionKey[]) {
+  ) as VisualConfigSectionKey[]) {
     const rawSection =
       sectionName === "codeStrip"
         ? rawConfig.codeStrip ?? legacyConfig.liveStrip
@@ -1178,7 +1115,7 @@ export function replaceVisualConfig(
 
   for (const sectionName of Object.keys(
     resolvedConfig
-  ) as ConfigSectionKey[]) {
+  ) as VisualConfigSectionKey[]) {
     const targetSection = target[sectionName] as unknown;
     const resolvedSection = resolvedConfig[sectionName] as unknown as Record<
       string,
@@ -1210,7 +1147,7 @@ export function updateVisualConfigValue(
     return false;
   }
 
-  const typedSectionName = sectionName as ConfigSectionKey;
+  const typedSectionName = sectionName as VisualConfigSectionKey;
   const metadata = getFieldMetadata(typedSectionName, fieldName);
   const targetSection = target[typedSectionName] as unknown;
 
@@ -1223,7 +1160,7 @@ export function updateVisualConfigValue(
 }
 
 /** Apply all valid known fields from a live section edit, leaving rejected fields unchanged. */
-export function updateVisualConfigSection<K extends ConfigSectionKey>(
+export function updateVisualConfigSection<K extends VisualConfigSectionKey>(
   target: VisualEffectsConfig,
   sectionName: K,
   updates: Partial<VisualEffectsConfig[K]>
@@ -1243,7 +1180,7 @@ export function updateVisualConfigSection<K extends ConfigSectionKey>(
  */
 export function describeVisualConfigSection(
   config: VisualEffectsConfig,
-  sectionName: ConfigSectionKey
+  sectionName: VisualConfigSectionKey
 ): VisualConfigSectionDescription {
   const metadata = getSectionMetadata(sectionName);
   const configSection = config[sectionName] as unknown;

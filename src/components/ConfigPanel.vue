@@ -423,10 +423,12 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { describeVisualConfigSection } from "@/data/visual-config-metadata";
-import type { VisualConfigSectionDescription } from "@/data/visual-config-metadata";
 import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
 import type { ChromaticNote } from "@/types";
-import type { VisualEffectsConfig } from "@/types/visual";
+import type {
+  VisualConfigSectionDescription,
+  VisualEffectsConfig,
+} from "@/types/visual";
 import { TabsContent } from "@/components/ui";
 import Button from "@/components/primatives/Button.vue";
 import Knob from "@/components/primatives/Knob/index.vue";

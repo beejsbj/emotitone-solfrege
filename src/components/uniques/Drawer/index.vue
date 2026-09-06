@@ -36,6 +36,7 @@ const emit = defineEmits<{
 }>();
 const root = ref<HTMLElement | null>(null);
 const persistent = ref<HTMLElement | null>(null);
+const clip = ref<HTMLElement | null>(null);
 const persistentHeight = ref(0);
 const frameHeight = ref(typeof window === "undefined" ? 800 : window.innerHeight);
 const currentHeight = ref(0);
@@ -44,6 +45,27 @@ const preferredContentHeight = ref(props.initialContentHeight);
 const dragging = ref(false);
 const ready = ref(false);
 let observer: ResizeObserver | undefined;
+let visibilityObserver: IntersectionObserver | undefined;
+let contentObserver: MutationObserver | undefined;
+const observedControls = new Map<HTMLElement, boolean>();
+
+function observePersistentControls() {
+  if (!visibilityObserver || !persistent.value) return;
+  for (const [element, originallyInert] of observedControls) {
+    if (!persistent.value.contains(element)) {
+      visibilityObserver.unobserve(element);
+      element.inert = originallyInert;
+      observedControls.delete(element);
+    }
+  }
+  for (const element of persistent.value.querySelectorAll<HTMLElement>(
+    'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]',
+  )) {
+    if (observedControls.has(element)) continue;
+    observedControls.set(element, Boolean(element.inert));
+    visibilityObserver.observe(element);
+  }
+}
 let gesture: { id: number; y: number; height: number; moved: boolean } | undefined;
 let suppressClick = false;
 let clickReset: ReturnType<typeof setTimeout> | undefined;
@@ -161,11 +183,32 @@ onMounted(async () => {
     if (persistent.value) observer.observe(persistent.value);
     if (!props.fixed && root.value?.parentElement) observer.observe(root.value.parentElement);
   }
+  // A partly collapsed persistent stack must not retain invisible tab stops.
+  // Observe focus targets rather than whole bars: labels can remain visible after
+  // their button faces have left the clip. Consumer-owned inert state is retained.
+  if (persistent.value && clip.value && typeof IntersectionObserver !== "undefined") {
+    visibilityObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        const element = entry.target as HTMLElement;
+        const originallyInert = observedControls.get(element);
+        if (originallyInert === undefined) continue;
+        element.inert = originallyInert || !entry.isIntersecting
+          || entry.intersectionRect.height <= 0 || entry.intersectionRect.width <= 0;
+      }
+    }, { root: clip.value, threshold: 0 });
+    observePersistentControls();
+    contentObserver = new MutationObserver(observePersistentControls);
+    contentObserver.observe(persistent.value, { childList: true, subtree: true });
+  }
   window.addEventListener("resize", measure);
   document.addEventListener("keydown", keydown);
 });
 onBeforeUnmount(() => {
   observer?.disconnect();
+  visibilityObserver?.disconnect();
+  contentObserver?.disconnect();
+  for (const [element, originallyInert] of observedControls) element.inert = originallyInert;
+  observedControls.clear();
   clearTimeout(clickReset);
   window.removeEventListener("resize", measure);
   document.removeEventListener("keydown", keydown);
@@ -202,7 +245,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       <span class="drawer__grip" aria-hidden="true" />
       <slot name="status" />
     </button>
-    <div class="drawer__clip" :inert="height <= 0 ? true : undefined">
+    <div ref="clip" class="drawer__clip" :inert="height <= 0 ? true : undefined">
       <div v-if="$slots.persistent" ref="persistent" class="drawer__persistent">
         <slot name="persistent" />
       </div>
@@ -233,7 +276,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer--bottom { bottom: 0; }
 .drawer--ready { transition: height 220ms cubic-bezier(.215, .61, .355, 1); }
 .drawer--dragging { transition: none; }
-.drawer__clip { height: 100%; overflow: hidden; }
+.drawer__clip { height: 100%; overflow: clip; }
 .drawer__persistent { display: flow-root; }
 .drawer__content { min-width: 0; overflow: hidden; }
 .drawer--top .drawer__content {

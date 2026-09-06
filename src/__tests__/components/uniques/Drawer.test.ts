@@ -116,4 +116,35 @@ describe("Drawer continuous height contract", () => {
     expect(height(w)).toBe(0);
     expect(w.get('button').exists()).toBe(true);
   });
+  it("removes clipped persistent controls from focus and restores them when visible", async () => {
+    let notify: IntersectionObserverCallback = () => {};
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) { notify = callback; }
+      observe = observe;
+      unobserve = vi.fn();
+      disconnect = disconnect;
+    });
+    const w = mount(Drawer, {
+      props: { accessibleName: 'Keyboard', defaultOpen: true },
+      slots: { persistent: '<button data-control>Control</button><button inert data-inert>Unavailable</button>' },
+    });
+    mounted.push(w);
+    await flushPromises();
+    const control = w.get('[data-control]').element as HTMLElement;
+    const unavailable = w.get('[data-inert]').element as HTMLElement;
+    expect(observe).toHaveBeenCalledWith(control);
+    const entry = (target: HTMLElement, visible: boolean) => ({ target, isIntersecting: visible,
+      intersectionRect: { height: visible ? 20 : 0, width: visible ? 40 : 0 },
+    }) as IntersectionObserverEntry;
+    notify([entry(control, false)], {} as IntersectionObserver);
+    expect(control.inert).toBe(true);
+    notify([entry(control, true), entry(unavailable, true)], {} as IntersectionObserver);
+    expect(control.inert).toBe(false);
+    expect(unavailable.inert).toBe(true);
+    w.unmount();
+    expect(disconnect).toHaveBeenCalled();
+  });
+
 });

@@ -87,8 +87,11 @@ describe("useHarmonicAnalysis", () => {
     vi.useRealTimers();
   });
 
-  it("defaults harmonic geometry to outline mode", () => {
+  it("defaults harmonic geometry to outline mode with labels hidden", () => {
     expect(DEFAULT_CONFIG.floatingPopup.geometryMode).toBe("outline");
+    expect(DEFAULT_CONFIG.floatingPopup.showChord).toBe(false);
+    expect(DEFAULT_CONFIG.floatingPopup.showIntervals).toBe(false);
+    expect(DEFAULT_CONFIG.floatingPopup.showEmotionalDescription).toBe(false);
   });
 
   it("keeps event-driven harmonic history visible until its timing window expires", async () => {
@@ -119,6 +122,27 @@ describe("useHarmonicAnalysis", () => {
     await nextTick();
     expect(snapshot.value.isVisible).toBe(false);
     expect(snapshot.value.displayedNotes).toEqual([]);
+  });
+
+  it("starts a fresh harmonic gesture when the same notes are replayed", () => {
+    const { snapshot, notePlayed, noteReleased } = createAnalysis();
+    const firstC = createActiveNote("first-c4", "C4", "Do");
+    const firstE = createActiveNote("first-e4", "E4", "Mi");
+
+    notePlayed(firstC);
+    notePlayed(firstE);
+    noteReleased(firstC.noteId);
+    noteReleased(firstE.noteId);
+
+    notePlayed(createActiveNote("second-c4", "C4", "Do"));
+    notePlayed(createActiveNote("second-e4", "E4", "Mi"));
+
+    expect(snapshot.value.displayedNotes.map((note) => note.noteId)).toEqual([
+      "second-c4",
+      "second-e4",
+    ]);
+    expect(snapshot.value.intervalEdges).toHaveLength(1);
+    expect(snapshot.value.isVisible).toBe(true);
   });
 
   it("keeps harmonic relationships available when interval labels are hidden", async () => {

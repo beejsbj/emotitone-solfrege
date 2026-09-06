@@ -159,6 +159,16 @@ export function useHarmonicAnalysis() {
       return;
     }
 
+    const repeatsReleasedPitch =
+      activeNoteIds.size === 0 &&
+      displayedNotes.value.some(
+        (displayedNote) => displayedNote.noteName === note.noteName
+      );
+
+    if (repeatsReleasedPitch) {
+      reset();
+    }
+
     activeNoteIds.add(note.noteId);
     accumulatedNotes.value.set(note.noteId, note);
     if (!displayOrder.value.includes(note.noteId)) {

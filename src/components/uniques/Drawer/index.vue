@@ -91,6 +91,12 @@ const maxHeight = computed(() => Math.max(0, Math.min(
 )));
 const height = computed(() => Math.min(currentHeight.value, maxHeight.value));
 const expanded = computed(() => height.value > persistentHeight.value + 0.5);
+const usableOpenThreshold = computed(() => Math.min(
+  maxHeight.value,
+  persistentHeight.value + Math.max(props.minContentHeight, 1),
+));
+const usableOpen = computed(() => expanded.value
+  && height.value >= usableOpenThreshold.value - 0.5);
 const contentHeight = computed(() => Math.max(props.minContentHeight, height.value > 0
   ? height.value - persistentHeight.value : closingContentHeight.value));
 const visibleContentHeight = computed(() => Math.max(0, height.value - persistentHeight.value));
@@ -157,7 +163,7 @@ function close() {
   });
 }
 function toggle() {
-  if (expanded.value) close();
+  if (usableOpen.value) close();
   else open();
 }
 function click() {

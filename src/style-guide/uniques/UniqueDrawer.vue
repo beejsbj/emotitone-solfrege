@@ -1,264 +1,112 @@
 <script setup lang="ts">
-import DrawerShell from "../../components/primatives/DrawerShell.vue";
+import { computed, ref } from "vue";
+import { AudioLines, Keyboard as KeyboardIcon, Settings } from "lucide-vue-next";
+import Drawer from "@/components/uniques/Drawer/index.vue";
+import Keyboard from "@/components/compounds/Keyboard.vue";
+import ControlBar from "@/components/compounds/ControlBar.vue";
+import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import { minimumKeyboardHeight } from "@/components/compounds/keyboardSizing";
+import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
+import { CHROMATIC_NOTES } from "@/data";
 
-const stageRows = ["60%", "90%", "75%"];
-const topStageRows = ["100%", "75%", "55%", "85%"];
-const bottomStageRows = ["100%", "80%", "65%", "90%"];
-const heroContentRows = ["80%", "55%", "70%"];
-const topContentRows = ["80%", "60%", "70%"];
-const bottomContentRows = ["75%", "50%", "65%"];
+const top = ref<"instrument" | "config" | null>(null);
+const keyboardOpen = ref(true);
+const rowCount = ref(3);
+const width = ref("100%");
+const lastAction = ref("Drag any handle. Tap Keyboard to hide only its keys.");
+const rows = computed(() => Array.from({ length: rowCount.value }, (_, index) => {
+  const octave = 4 + Math.floor(rowCount.value / 2) - index;
+  return { octave, keys: CHROMATIC_NOTES.map((pitch, degree) => ({
+    id: `${pitch}${octave}`, rawPitch: `${pitch}${octave}`, syllable: ["Do", "Ra", "Re", "Me", "Mi", "Fa", "Se", "Sol", "Le", "La", "Te", "Ti"][degree],
+    degree: String(degree + 1), scaleIndex: degree, pitchClassIndex: degree,
+  })) };
+}));
+const tokens: CodeStripToken[] = [
+  { type: "note" as const, note: "do", text: "Do", duration: "@0.125", progress: 1 },
+  { type: "note" as const, note: "mi", text: "Mi", duration: "@0.125", progress: 1 },
+  { type: "note" as const, note: "sol", text: "Sol", duration: "@0.25", progress: 1 },
+];
 </script>
 
 <template>
-  <section class="preview-port preview-port--unique-drawer">
-    <div class="card">
-      <div class="label">DRAWER · SLIDING PANEL</div>
-
-      <div class="section-head">Anatomy</div>
-      <div class="anatomy-wrap">
-        <DrawerShell
-          class="drawer-hero"
-          default-open
-          frame-height="260px"
-          handle-label="Tap · ESC"
-          aria-label="toggle hero drawer"
+  <section class="drawer-specimen">
+    <h3>Drawer · one source, both edges</h3>
+    <p>Ink surface, exposed icon/grip handle, continuous resize. No scrim, snap points, or torn edge.</p>
+    <label>Host width
+      <select v-model="width">
+        <option value="320px">320px</option><option value="390px">390px</option>
+        <option value="768px">768px</option><option value="100%">Available width</option>
+      </select>
+    </label>
+    <div class="drawer-specimen__viewport">
+      <div class="drawer-specimen__stage" :style="{ width }">
+        <button class="drawer-specimen__canvas-action" @click="lastAction = 'Canvas stays interactive'">Play with the canvas</button>
+        <Drawer
+          :model-value="top === 'instrument'" anchor="top" handle-align="left"
+          accessible-name="Instrument specimen" handle-label="Piano"
+          :initial-content-height="240" class="drawer-specimen__top"
+          :class="{ 'drawer-specimen__top--open': top === 'instrument' }"
+          close-on-escape
+          @update:model-value="top = $event ? 'instrument' : top === 'instrument' ? null : top"
         >
-          <template #stage>
-            <div class="app-stub app-stub--hero">
-              <div
-                v-for="width in stageRows"
-                :key="width"
-                class="app-stub__row app-stub__row--hero"
-                :style="{ width }"
-              />
-            </div>
+          <template #icon><AudioLines /></template>
+          <div class="drawer-specimen__panel">
+            <h4>Instrument</h4>
+            <p>Content scrolls as the available height shrinks.</p>
+            <button v-for="name in ['Piano', 'Celesta', 'Vibraphone', 'Marimba', 'Organ', 'Strings', 'Synth', 'Bass']" :key="name" @click="lastAction = name; top = null">{{ name }}</button>
+          </div>
+        </Drawer>
+        <Drawer
+          :model-value="top === 'config'" anchor="top" handle-align="right"
+          accessible-name="Config specimen" :initial-content-height="240"
+          class="drawer-specimen__top" :class="{ 'drawer-specimen__top--open': top === 'config' }"
+          close-on-escape
+          @update:model-value="top = $event ? 'config' : top === 'config' ? null : top"
+        >
+          <template #icon><Settings /></template>
+          <div class="drawer-specimen__panel">
+            <h4>Config</h4><p>MIDI connected · keyboard height belongs to its drawer.</p>
+            <label>Keyboard rows <select v-model.number="rowCount"><option :value="1">1</option><option :value="3">3</option><option :value="5">5</option></select></label>
+          </div>
+        </Drawer>
+        <Drawer
+          v-model="keyboardOpen" anchor="bottom" handle-align="center"
+          accessible-name="Keyboard specimen" :initial-content-height="200"
+          :min-content-height="minimumKeyboardHeight(rows.length)" :scroll="false"
+        >
+          <template #icon><KeyboardIcon /></template>
+          <template #persistent>
+            <div class="drawer-specimen__pattern">Piano · C major · saved pattern</div>
+            <CodeStripBar :tokens="tokens" @backspace="lastAction = 'Backspace'" @return="lastAction = 'Return'" @toggle-playback="lastAction = 'Play (inert specimen)'" />
+            <ControlBar :rows="rowCount" @update:rows="rowCount = $event" />
           </template>
-
-          <div
-            v-for="width in heroContentRows"
-            :key="width"
-            class="content-stub content-stub--hero"
-            :style="{ width }"
-          />
-        </DrawerShell>
-
-        <div class="anatomy">
-          <div class="row"><b>Panel</b><div>ink-3 bg &middot; slides over stage &middot; z-index 3</div></div>
-          <div class="row"><b>Handle</b><div>28px bar &middot; torn SVG edge &middot; 2&times; grip bars</div></div>
-          <div class="row"><b>Anchor</b><div>top-edge or bottom-edge &middot; full container width</div></div>
-          <div class="row"><b>Slide</b><div>translateY(&minus;100%&rarr;0) &middot; ease-swing &middot; dur-panel</div></div>
-          <div class="row"><b>Scrim</b><div>opacity 0&rarr;1 &middot; ease-brush &middot; var(--scrim) overlay</div></div>
-          <div class="row"><b>Resize</b><div>optional drag handle &middot; closed / designed (72%) / full snap points</div></div>
-        </div>
-      </div>
-
-      <div class="section-head">Anchors</div>
-      <div class="variants-full">
-        <div class="variant-column">
-          <DrawerShell
-            class="drawer-variant"
-            default-open
-            resizable
-            show-snap-badge
-            frame-height="200px"
-            aria-label="toggle top drawer"
-          >
-            <template #stage>
-              <span class="var-pin">Top &middot; Open</span>
-              <div class="app-stub app-stub--variant">
-                <div
-                  v-for="width in topStageRows"
-                  :key="width"
-                  class="app-stub__row app-stub__row--variant"
-                  :style="{ width }"
-                />
-              </div>
-            </template>
-
-            <div
-              v-for="width in topContentRows"
-              :key="width"
-              class="content-stub content-stub--variant"
-              :style="{ width }"
-            />
-          </DrawerShell>
-          <div class="var-caption">Top anchor &middot; drag handle to resize &middot; tap scrim to close</div>
-        </div>
-
-        <div class="variant-column">
-          <DrawerShell
-            class="drawer-variant"
-            default-open
-            resizable
-            show-snap-badge
-            anchor="bottom"
-            frame-height="200px"
-            aria-label="toggle bottom drawer"
-          >
-            <template #stage>
-              <span class="var-pin">Bottom &middot; Open</span>
-              <div class="app-stub app-stub--variant">
-                <div
-                  v-for="width in bottomStageRows"
-                  :key="width"
-                  class="app-stub__row app-stub__row--variant"
-                  :style="{ width }"
-                />
-              </div>
-            </template>
-
-            <div
-              v-for="width in bottomContentRows"
-              :key="width"
-              class="content-stub content-stub--variant"
-              :style="{ width }"
-            />
-          </DrawerShell>
-          <div class="var-caption">Bottom anchor &middot; drag handle to resize &middot; tap scrim to close</div>
-        </div>
-      </div>
-
-      <div class="caption">
-        DrawerShell is the shared source primitive for bounded drawer behavior. App `TopDrawer.vue` already imports it while retaining Teleport, fixed positioning, and production slots; the remaining gate is visual definition, not source integration.
+          <template #default="{ height }">
+            <Keyboard usage="controlled" :rows="rows" :available-height="height" />
+          </template>
+        </Drawer>
       </div>
     </div>
+    <output>{{ lastAction }}</output>
+    <p>Real Drawer, Keyboard, Control Bar, and CodeStrip Bar sources. The canvas, panel choices, and saved-pattern label are specimen scaffolding; no audio or production stores are driven here. Production drawers persist independent preferred heights.</p>
   </section>
 </template>
 
 <style scoped>
-.preview-port {
-  display: block;
+.drawer-specimen { display: grid; gap: 16px; width: min(960px, calc(100vw - 32px)); min-width: 0; }
+.drawer-specimen p, .drawer-specimen output { font: var(--t-label); color: var(--ivory-3); }
+.drawer-specimen label { display: flex; gap: 12px; align-items: center; }
+.drawer-specimen select, .drawer-specimen__panel button, .drawer-specimen__canvas-action {
+  padding: 8px; background: var(--ink-4); color: var(--ivory); border: 1px solid var(--ink-5);
 }
-
-.section-head {
-  margin: 24px 0 10px;
-  border-bottom: 1px solid var(--ink-5);
-  color: var(--ivory-4);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  padding-bottom: 6px;
-  text-transform: uppercase;
+.drawer-specimen__viewport { overflow-x: auto; min-width: 0; }
+.drawer-specimen__stage {
+  position: relative; height: 640px; min-width: 320px;
+  background: radial-gradient(ellipse at 50% 30%, var(--pine), var(--ink) 70%);
+  isolation: isolate;
 }
-
-.section-head:first-child {
-  margin-top: 6px;
-}
-
-.anatomy-wrap {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 16px;
-  margin-top: 8px;
-}
-
-.anatomy {
-  display: grid;
-  align-content: start;
-  color: var(--ivory-3);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.anatomy .row {
-  display: grid;
-  grid-template-columns: 78px 1fr;
-  gap: 10px;
-  border-bottom: 1px solid var(--ink-5);
-  padding: 6px 0;
-}
-
-.anatomy .row:last-child {
-  border-bottom: 0;
-}
-
-.anatomy .row b {
-  color: var(--ivory);
-  font-weight: 700;
-}
-
-.variants-full {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.variant-column {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.app-stub {
-  position: absolute;
-  inset: 0;
-}
-
-.app-stub--hero {
-  padding: 14px;
-}
-
-.app-stub--variant {
-  padding: 22px 10px 10px;
-}
-
-.app-stub__row {
-  border: 1px solid var(--ink-5);
-  background: var(--ink-3);
-}
-
-.app-stub__row--hero {
-  height: 28px;
-  margin-bottom: 8px;
-  opacity: 0.5;
-}
-
-.app-stub__row--variant {
-  height: 12px;
-  margin-bottom: 6px;
-  opacity: 0.45;
-}
-
-.content-stub {
-  border: 1px solid var(--ink-5);
-  background: var(--ink-4);
-}
-
-.content-stub--hero {
-  height: 20px;
-  margin-bottom: 10px;
-  opacity: 0.6;
-}
-
-.content-stub--variant {
-  height: 8px;
-  margin-bottom: 6px;
-  opacity: 0.65;
-}
-
-.var-pin {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  z-index: 10;
-  color: var(--ivory-4);
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.2em;
-  pointer-events: none;
-  text-transform: uppercase;
-}
-
-.var-caption {
-  color: var(--ivory-4);
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  padding-top: 3px;
-  text-align: center;
-  text-transform: uppercase;
-}
+.drawer-specimen__canvas-action { position: absolute; top: 90px; left: 24px; }
+.drawer-specimen__top { z-index: 3; }
+.drawer-specimen__top--open { z-index: 2; }
+.drawer-specimen__panel { display: grid; gap: 12px; padding: 20px; }
+.drawer-specimen__pattern { padding: 10px; font: var(--t-label); }
 </style>

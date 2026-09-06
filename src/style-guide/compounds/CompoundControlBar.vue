@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Control Bar · Instrument Compound"
     :features="features"
-    caption="Six controlled settings spread across equal-width slots. Drawer remains provisional here until the Drawer unit defines its final trigger and home."
+    caption="Five controlled musical settings spread across equal-width slots. The Drawer owns its separate handle."
   >
     <template #hero>
       <div class="control-bar-specimen">
@@ -12,13 +12,12 @@
           v-model:bpm="bpm"
           v-model:octave="octave"
           v-model:rows="rows"
-          v-model:drawer-open="drawerOpen"
         />
       </div>
     </template>
 
     <VariantGrid title="Mobile-first spread">
-      <VariantCell caption="320px host · all six controls" stage="ink3">
+      <VariantCell caption="320px host · all five controls" stage="ink3">
         <div class="control-bar-specimen control-bar-specimen--narrow">
           <ControlBar
             :key-value="keyValue"
@@ -26,7 +25,6 @@
             :bpm="bpm"
             :octave="octave"
             :rows="rows"
-            :drawer-open="drawerOpen"
           />
         </div>
       </VariantCell>
@@ -37,7 +35,6 @@
           :bpm="96"
           :octave="5"
           :rows="5"
-          drawer-open
         />
       </VariantCell>
     </VariantGrid>
@@ -56,16 +53,14 @@ const modeValue = ref("major");
 const bpm = ref(120);
 const octave = ref(4);
 const rows = ref(3);
-const drawerOpen = ref(false);
 
 const features = [
-  { label: "Order", value: "Key · Mode · BPM · Octave · Rows · Drawer" },
-  { label: "Layout", value: "six equal-width slots across the full host; no horizontal scroller" },
+  { label: "Order", value: "Key · Mode · BPM · Octave · Rows" },
+  { label: "Layout", value: "five equal-width slots across the full host; no horizontal scroller" },
   { label: "Density", value: "no horizontal padding; minimal block space protects Knob anatomy" },
   { label: "Surface", value: "shared translucent instrument-bar plane; stage remains visible behind it" },
   { label: "Source", value: "real controlled Knob primitives; no production stores in the compound" },
   { label: "Boundary", value: "arrangement only; callers retain state and mutations" },
-  { label: "Drawer", value: "current Boolean Knob preserved provisionally until Drawer is defined" },
 ];
 </script>
 

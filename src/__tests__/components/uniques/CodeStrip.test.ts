@@ -41,17 +41,6 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
   }),
 }));
 
-vi.mock("@/components/uniques/CodeStrip/recordingTokens", () => ({
-  buildRecordedCodeStripTokens: () => [{
-    type: "note",
-    note: "do",
-    text: "Do",
-    rawPitch: "C4",
-    scaleIndex: 0,
-    duration: "@0.25",
-  }],
-}));
-
 vi.mock("@/components/uniques/CodeStrip/strudelExtension", () => ({
   codeStripStrudelExtension: [],
   updateCodeStripPresentation: mocks.updatePresentation,
@@ -66,11 +55,6 @@ vi.mock("@/components/uniques/CodeStrip/strudelExtension", () => ({
 
 vi.mock("@/composables/useStrudel", () => ({
   toStrudelSound: () => "sine",
-}));
-
-vi.mock("@/services/StrudelNotation", () => ({
-  logNotesToStrudel: (notes: PatternNote[]) =>
-    `\`< ${notes.map((note) => `${note.note}@0.25`).join(" ")} >\`.as(\"note\").sound(\"sine\").cpm(120 / 4)`,
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -225,7 +209,7 @@ describe("CodeStrip production Strudel document", () => {
     expect(wrapper.classes()).not.toContain("code-strip--empty");
     expect(wrapper.get(".code-strip__editor").attributes("style") ?? "")
       .not.toContain("display: none");
-    expect(mocks.mirrorInitialCode).toContain("C4@0.25");
+    expect(mocks.mirrorInitialCode).toContain("[ 0@0.25 ]");
     expect(mocks.mirrorOptions.bgFill).toBe(false);
     expect(mocks.attachEditor).toHaveBeenCalledOnce();
     expect(mocks.updatePresentation).toHaveBeenCalledWith(
@@ -306,7 +290,7 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
 
     const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
-    expect(visibleSource).toContain("D4@0.25");
+    expect(visibleSource).toContain("[ 1@0.25 ]");
     expect(mocks.mirrorInstance.code).not.toBe(visibleSource);
 
     const controller = mocks.attachEditor.mock.calls[0][0];

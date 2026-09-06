@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { logNotesToStrudel } from '@/services/StrudelNotation'
+import { convertRecordedPattern } from '@/services/RecordedPatternConversion'
 import type { LogNote } from '@/types/patterns'
 
 function makeNote(
@@ -34,13 +34,18 @@ function makeNote(
   }
 }
 
-describe('StrudelNotation', () => {
+describe('recorded source conversion', () => {
+  const sourceFor = (
+    notes: LogNote[],
+    source?: Parameters<typeof convertRecordedPattern>[0]['source'],
+  ) => convertRecordedPattern({ notes, source }).source
+
   it('keeps @ durations tied to source BPM rather than playback BPM', () => {
     const notes = [
       makeNote('c', 'C4', 0, 4, 1000, 500),
     ]
 
-    const result = logNotesToStrudel(notes, {
+    const result = sourceFor(notes, {
       bpm: 60,
       sourceBpm: 120,
     })
@@ -56,13 +61,13 @@ describe('StrudelNotation', () => {
       makeNote('d', 'D4', 1, 4, 1200, 120),
     ]
 
-    const result = logNotesToStrudel(notes)
+    const result = sourceFor(notes)
 
     expect(result).toContain('<\n[ C4@0.06 ~@0.04 D4@0.06 ]\n>')
   })
 
   it('preserves octave displacement in relative scale degrees', () => {
-    const high = logNotesToStrudel([
+    const high = sourceFor([
       makeNote('c8', 'C8', 0, 8, 1000, 120),
     ], {
       notationType: 'relative',
@@ -70,7 +75,7 @@ describe('StrudelNotation', () => {
       scaleMode: 'major',
       scaleOctave: 4,
     })
-    const low = logNotesToStrudel([
+    const low = sourceFor([
       makeNote('c3', 'C3', 0, 3, 1000, 120),
     ], {
       notationType: 'relative',
@@ -84,7 +89,7 @@ describe('StrudelNotation', () => {
   })
 
   it('uses the active scale length for octave displacement in sparse modes', () => {
-    const result = logNotesToStrudel([
+    const result = sourceFor([
       {
         ...makeNote('c8', 'C8', 0, 8, 1000, 120),
         mode: 'major pentatonic' as const,
@@ -100,7 +105,7 @@ describe('StrudelNotation', () => {
   })
 
   it('falls back to absolute notation when a pitch is outside the active scale', () => {
-    const result = logNotesToStrudel([
+    const result = sourceFor([
       makeNote('f-sharp', 'F#4', 3, 4, 1000, 120),
     ], {
       notationType: 'relative',
@@ -122,7 +127,7 @@ describe('StrudelNotation', () => {
       makeNote('d', 'D4', 1, 4, 1500, 500),
     ]
 
-    const result = logNotesToStrudel(notes)
+    const result = sourceFor(notes)
 
     expect(result).toContain('{C4, E4, G4}@0.25 D4@0.25')
   })
@@ -133,7 +138,7 @@ describe('StrudelNotation', () => {
       makeNote('e', 'E4', 2, 4, 1500, 1000),
     ]
 
-    const result = logNotesToStrudel(notes)
+    const result = sourceFor(notes)
 
     expect(result).toContain('{C4@0.5 ~@0.25, ~@0.25 E4@0.5}@0.75')
   })
@@ -144,7 +149,7 @@ describe('StrudelNotation', () => {
       makeNote('mi', 'E4', 2, 4, 1000, 500),
     ]
 
-    const result = logNotesToStrudel(notes, {
+    const result = sourceFor(notes, {
       bpm: 90,
       notationType: 'relative',
       scaleKey: 'C',
@@ -164,7 +169,7 @@ describe('StrudelNotation', () => {
       makeNote('e', 'E4', 2, 4, 1320, 80),
     ]
 
-    const result = logNotesToStrudel(notes, { sourceBpm: 120 })
+    const result = sourceFor(notes, { sourceBpm: 120 })
 
     expect(result).toContain('C4@0.04 ~@0.04 D4@0.04 ~@0.04 E4@0.04')
   })
@@ -175,7 +180,7 @@ describe('StrudelNotation', () => {
       makeNote('d', 'D4', 1, 4, 1160, 80),
     ]
 
-    const result = logNotesToStrudel(notes, { sourceBpm: 240 })
+    const result = sourceFor(notes, { sourceBpm: 240 })
 
     expect(result).toContain('C4@0.08 ~@0.08 D4@0.08')
   })
@@ -186,7 +191,7 @@ describe('StrudelNotation', () => {
       makeNote('e', 'E4', 2, 4, 1080, 420),
     ]
 
-    const result = logNotesToStrudel(notes, { sourceBpm: 120 })
+    const result = sourceFor(notes, { sourceBpm: 120 })
 
     expect(result).toContain('{C4, ~@0.04 E4@0.21}@0.25')
   })
@@ -197,7 +202,7 @@ describe('StrudelNotation', () => {
       makeNote('d', 'D4', 1, 4, 1330, 80),
     ]
 
-    const result = logNotesToStrudel(notes, { sourceBpm: 120 })
+    const result = sourceFor(notes, { sourceBpm: 120 })
 
     expect(result).toContain('C4@0.04 ~@0.125 D4@0.04')
   })
@@ -211,7 +216,7 @@ describe('StrudelNotation', () => {
       },
     ]
 
-    const result = logNotesToStrudel(notes, {
+    const result = sourceFor(notes, {
       notationType: "relative",
       scaleKey: "C",
       scaleMode: "major pentatonic",

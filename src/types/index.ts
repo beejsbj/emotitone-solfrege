@@ -82,5 +82,15 @@ export type {
 // Pattern Logging Types
 export type { LogNote, PatternsStoreState, PatternConfig } from "./patterns";
 
+// Recorded Pattern Conversion Types
+export type {
+  RecordedCodeStripConfig,
+  RecordedPatternCodeStripInput,
+  RecordedPatternSource,
+  RecordedPatternSourceInput,
+  RecordedPatternWithCodeStrip,
+  RecordedSourceConfig,
+} from "./recording";
+
 // Re-export commonly used Vue types for convenience
 export type { Ref, ComputedRef, WritableComputedRef } from "vue";

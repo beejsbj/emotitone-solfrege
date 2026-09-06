@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRecordedCodeStripTokens } from "@/components/uniques/CodeStrip/recordingTokens";
+import { convertRecordedPattern } from "@/services/RecordedPatternConversion";
 import type { PatternNote } from "@/types/patterns";
 
 const note = (
@@ -23,19 +23,34 @@ const note = (
 const tokens = (
   notes: PatternNote[],
   notation: "solfege" | "note" | "degree" = "solfege",
-) => buildRecordedCodeStripTokens({
+) => convertRecordedPattern({
   notes,
-  mode: "major",
-  musicKey: "C",
-  notation,
-  barMs: 2000,
-  sourceBpm: 120,
-  surfaceStyle: "colored",
-  keyBrightness: 1,
-  keySaturation: 1,
-});
+  source: { sourceBpm: 120 },
+  codeStrip: {
+    mode: "major",
+    musicKey: "C",
+    notation,
+    surfaceStyle: "colored",
+    keyBrightness: 1,
+    keySaturation: 1,
+  },
+}).tokens;
 
-describe("CodeStrip recorded-token metadata", () => {
+const conversion = (notes: PatternNote[], sourceBpm = 120, bpm = 120) =>
+  convertRecordedPattern({
+    notes,
+    source: { sourceBpm, bpm },
+    codeStrip: {
+      mode: "major",
+      musicKey: "C",
+      notation: "note",
+      surfaceStyle: "colored",
+      keyBrightness: 1,
+      keySaturation: 1,
+    },
+  });
+
+describe("recorded-pattern conversion", () => {
   it("maps sequential notes and silence without inventing playback state", () => {
     const result = tokens([
       note("c", "C4", 0, 4, 1000, 500),
@@ -64,10 +79,13 @@ describe("CodeStrip recorded-token metadata", () => {
   });
 
   it("preserves measured gaps in rapid taps", () => {
-    expect(tokens([
+    const result = conversion([
       note("c", "C4", 0, 4, 1000, 80),
       note("d", "D4", 1, 4, 1160, 80),
-    ])).toMatchObject([
+    ]);
+
+    expect(result.source).toContain("C4@0.04 ~@0.04 D4@0.04");
+    expect(result.tokens).toMatchObject([
       { type: "note", duration: "@0.04" },
       { type: "rest", duration: "@0.04" },
       { type: "note", duration: "@0.04" },
@@ -84,12 +102,14 @@ describe("CodeStrip recorded-token metadata", () => {
   });
 
   it("clusters overlaps in press order and preserves independent voicing order", () => {
-    const chord = tokens([
+    const result = conversion([
       note("g", "G4", 4, 4, 1000, 1000),
       note("c", "C4", 0, 4, 1000, 1000),
       note("e", "E4", 2, 4, 1500, 500),
-    ])[0];
+    ]);
+    const chord = result.tokens[0];
 
+    expect(result.source).toContain("{C4, G4, ~@0.25 E4@0.25}@0.5");
     expect(chord).toMatchObject({
       type: "chord",
       display: "notes",
@@ -101,6 +121,141 @@ describe("CodeStrip recorded-token metadata", () => {
     expect(chord.members.map((member) => member.pressOrder)).toEqual([0, 1, 2]);
     expect(chord.members.map((member) => member.voicingOrder)).toEqual([2, 0, 1]);
     expect(chord.members.every((member) => member.progress == null)).toBe(true);
+  });
+
+  it.each([
+    {
+      order: "minimum note first",
+      notes: [
+        note("g", "G4", 4, 4, 1000, 1),
+        note("c", "C4", 0, 4, 1000, 500),
+      ],
+      pressOrder: ["G4", "C4"],
+      voicingOrder: [1, 0],
+      source: "[ {C4, G4@0.0005 ~@0.2495}@0.25 ]",
+      duration: "@0.25",
+    },
+    {
+      order: "minimum note second",
+      notes: [
+        note("c", "C4", 0, 4, 1000, 500),
+        note("g", "G4", 4, 4, 1000, 1),
+      ],
+      pressOrder: ["C4", "G4"],
+      voicingOrder: [0, 1],
+      source: "[ {C4, G4@0.0005 ~@0.2495}@0.25 ]",
+      duration: "@0.25",
+    },
+    {
+      order: "lower minimum note first",
+      notes: [
+        note("c", "C4", 0, 4, 1000, 1),
+        note("g", "G4", 4, 4, 1000, 500),
+      ],
+      pressOrder: ["C4", "G4"],
+      voicingOrder: [0, 1],
+      source: "[ {C4@0.0005 ~@0.2495, G4}@0.25 ]",
+      duration: "@0.25",
+    },
+    {
+      order: "lower minimum note second",
+      notes: [
+        note("g", "G4", 4, 4, 1000, 500),
+        note("c", "C4", 0, 4, 1000, 1),
+      ],
+      pressOrder: ["G4", "C4"],
+      voicingOrder: [1, 0],
+      source: "[ {C4@0.0005 ~@0.2495, G4}@0.25 ]",
+      duration: "@0.25",
+    },
+    {
+      order: "both minimum notes in descending pitch order",
+      notes: [
+        note("g", "G4", 4, 4, 1000, 1),
+        note("c", "C4", 0, 4, 1000, 1),
+      ],
+      pressOrder: ["G4", "C4"],
+      voicingOrder: [1, 0],
+      source: "[ {C4, G4}@0.0005 ]",
+      duration: "@0.0005",
+    },
+    {
+      order: "both minimum notes in ascending pitch order",
+      notes: [
+        note("c", "C4", 0, 4, 1000, 1),
+        note("g", "G4", 4, 4, 1000, 1),
+      ],
+      pressOrder: ["C4", "G4"],
+      voicingOrder: [0, 1],
+      source: "[ {C4, G4}@0.0005 ]",
+      duration: "@0.0005",
+    },
+  ])(
+    "keeps simultaneous notes grouped with $order",
+    ({ notes, pressOrder, voicingOrder, source, duration }) => {
+      const result = conversion(notes);
+      const chord = result.tokens[0];
+
+      expect(result.source).toContain(source);
+      expect(result.tokens).toHaveLength(1);
+      expect(chord).toMatchObject({ type: "chord", duration });
+      if (chord.type !== "chord") throw new Error("Expected chord token");
+      expect(chord.members.map((member) => member.rawPitch)).toEqual(pressOrder);
+      expect(chord.members.map((member) => member.pressOrder)).toEqual([0, 1]);
+      expect(chord.members.map((member) => member.voicingOrder)).toEqual(voicingOrder);
+    },
+  );
+
+  it("keeps one chained overlap block in both representations", () => {
+    const result = conversion([
+      note("c", "C4", 0, 4, 1000, 400),
+      note("g", "G4", 4, 4, 1300, 400),
+      note("e", "E4", 2, 4, 1600, 400),
+    ]);
+
+    expect(result.source).toContain(
+      "{C4@0.2 ~@0.1 E4@0.2, ~@0.15 G4@0.2 ~@0.15}@0.5",
+    );
+    expect(result.tokens).toHaveLength(1);
+    expect(result.tokens[0]).toMatchObject({ type: "chord", duration: "@0.5" });
+  });
+
+  it("uses capture tempo for both durations and playback tempo only for cpm", () => {
+    const result = conversion([note("c", "C4", 0, 4, 1000, 500)], 120, 60);
+
+    expect(result.source).toContain("C4@0.25");
+    expect(result.source).toContain(".cpm(60 / 4)");
+    expect(result.tokens[0]).toMatchObject({ type: "note", duration: "@0.25" });
+  });
+
+  it("preserves pitch context independently in source and identity metadata", () => {
+    const result = convertRecordedPattern({
+      notes: [note("a", "A4", 4, 4, 1000, 500)],
+      source: {
+        notationType: "relative",
+        scaleKey: "C",
+        scaleMode: "major pentatonic",
+        scaleOctave: 4,
+      },
+      codeStrip: {
+        mode: "major pentatonic",
+        musicKey: "C",
+        notation: "solfege",
+        surfaceStyle: "colored",
+        keyBrightness: 1,
+        keySaturation: 1,
+      },
+    });
+
+    expect(result.source).toContain("[ 4@0.25 ]");
+    expect(result.source).toContain('.scale("C4:major pentatonic")');
+    expect(result.tokens[0]).toMatchObject({
+      type: "note",
+      rawPitch: "A4",
+      scaleIndex: 4,
+      mode: "major pentatonic",
+      musicKey: "C",
+    });
   });
 
   it("always preserves Rest semantics for the CodeMirror source map", () => {

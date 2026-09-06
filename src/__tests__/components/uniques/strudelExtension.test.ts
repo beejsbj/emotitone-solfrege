@@ -322,6 +322,37 @@ describe("CodeStrip Strudel source decorations", () => {
     expect(await renderRelative("C4:chromatic", "12")).toBe("C5");
   });
 
+  it("keeps enharmonic root octave semantics when checking supplied metadata", async () => {
+    const renderWithToken = async (scale: string, suppliedPitch: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ 0@0.25 ] >\`.as("n").scale("${scale}")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, {
+        tokens: [{
+          ...tokens[0],
+          glyph: "raw",
+          text: suppliedPitch,
+          rawPitch: suppliedPitch,
+          duration: "@0.25",
+        }],
+        notation: "note",
+        durationMode: "stacked",
+      });
+      await Promise.resolve();
+      return host.querySelector(".note__identity-core")?.textContent;
+    };
+
+    expect(await renderWithToken("Cb4:major", "B4")).toBe("C♭4");
+    expect(await renderWithToken("B#4:major", "C4")).toBe("B♯4");
+  });
+
   it("marks only pitched accidentals as accidental", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);

@@ -877,9 +877,9 @@ function relativeDegreeFromAbsolutePitch(
 ) {
   const match = rawPitch.match(/^([A-Ga-g])([#bsf]*)(-?\d+)$/);
   if (!match) return null;
-  const pitchClass = normalizePitchClass(match[1], match[2]);
-  const noteMidi = pitchToMidi(pitchClass, Number(match[3]));
-  const rootMidi = pitchToMidi(scaleContext.key, scaleContext.octave);
+  const noteMidi = TonalNote.midi(normalizeAbsolutePitch(rawPitch));
+  const rootMidi = TonalNote.midi(`${scaleContext.root}${scaleContext.octave}`);
+  if (noteMidi == null || rootMidi == null) return null;
   const delta = noteMidi - rootMidi;
   const scale = getScaleForMode(scaleContext.mode);
 
@@ -891,12 +891,12 @@ function relativeDegreeFromAbsolutePitch(
   return null;
 }
 
-function isAbsolutePitch(value: string) {
-  return /^[A-Ga-g][#bsf]*-?\d+$/.test(value);
+function normalizeAbsolutePitch(value: string) {
+  return value.replace(/f/g, "b").replace(/s/g, "#");
 }
 
-function pitchToMidi(pitchClass: ChromaticNote, octave: number) {
-  return (octave + 1) * 12 + CHROMATIC_NOTES.indexOf(pitchClass);
+function isAbsolutePitch(value: string) {
+  return /^[A-Ga-g][#bsf]*-?\d+$/.test(value);
 }
 
 function withSourceDuration(

@@ -31,10 +31,6 @@ vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
   default: { template: '<div data-testid="unified-visual-effects">Visual Effects</div>' },
 }))
 
-vi.mock('@/components/FloatingPopup.vue', () => ({
-  default: { template: '<div data-testid="floating-popup">Popup</div>' },
-}))
-
 vi.mock('@/components/ConfigPanel.vue', () => ({
   default: { template: '<div data-testid="config-panel">Config</div>' },
 }))
@@ -91,7 +87,6 @@ describe('App.vue', () => {
 
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="floating-popup"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(true)
@@ -108,7 +103,6 @@ describe('App.vue', () => {
 
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="floating-popup"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(false)

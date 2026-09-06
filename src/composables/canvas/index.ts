@@ -7,5 +7,6 @@ export { useBlobRenderer } from "./useBlobRenderer";
 export { useParticleSystem } from "./useParticleSystem";
 export { useStringRenderer } from "./useStringRenderer";
 export { useAmbientRenderer } from "./useAmbientRenderer";
+export { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 export { useUnifiedCanvas } from "./useUnifiedCanvas";
 // Palette renderer moved to composables/palette module

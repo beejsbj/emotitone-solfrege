@@ -487,7 +487,7 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   animation: "Anim",
   frequencyMapping: "Freq",
   dynamicColors: "Color",
-  floatingPopup: "Popup",
+  floatingPopup: "Harmony",
   hilbertScope: "Scope",
   beatingShapes: "Beat",
   patterns: "Notes",

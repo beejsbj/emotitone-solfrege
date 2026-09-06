@@ -9,7 +9,6 @@
     <!-- Unified Visual Effects (replaces DynamicBackground and VibratingStrings) -->
     <div class="relative isolate" v-if="!isLoading">
       <UnifiedVisualEffects class="z-0" />
-      <FloatingPopup class="z-2" />
     </div>
 
     <!-- Visual Effects Configuration Panel -->
@@ -36,7 +35,6 @@ import { usePatternsStore } from "@/stores/patterns";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useMidiControls } from "@/composables/useMidiControls";
 import LoadingSplash from "@/components/LoadingSplash.vue";
-import FloatingPopup from "@/components/FloatingPopup.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";

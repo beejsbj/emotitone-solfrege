@@ -401,97 +401,11 @@ vi.mock('@/services/superdoughAudio', () => ({
   stopStrudelPlayback: vi.fn(),
 }))
 
-// Mock visual config composable
-vi.mock('@/composables/useVisualConfig', () => ({
-  DEFAULT_CONFIG: {
-    blobs: {
-      isEnabled: true,
-      baseSizeRatio: 0.15,
-      minSize: 50,
-      maxSize: 300,
-      opacity: 0.3,
-      blurRadius: 20,
-      oscillationAmplitude: 0.1,
-      fadeOutDuration: 2,
-      scaleInDuration: 0.5,
-      scaleOutDuration: 1,
-      driftSpeed: 30,
-      vibrationFrequencyDivisor: 4,
-      edgeSegments: 12,
-      vibrationAmplitude: 0.05,
-      glowEnabled: true,
-      glowIntensity: 15
-    },
-    ambient: {
-      isEnabled: true,
-      opacityMajor: 0.2,
-      opacityMinor: 0.15,
-      brightnessMajor: 1.2,
-      brightnessMinor: 0.8,
-      saturationMajor: 0.7,
-      saturationMinor: 0.5
-    },
-    particles: {
-      isEnabled: true,
-      count: 20,
-      sizeMin: 2,
-      sizeMax: 8,
-      lifetimeMin: 1000,
-      lifetimeMax: 3000,
-      speed: 100,
-      gravity: 0.5,
-      airResistance: 0.1
-    },
-    strings: {
-      isEnabled: true,
-      count: 7,
-      baseOpacity: 0.1,
-      activeOpacity: 0.8,
-      maxAmplitude: 20,
-      dampingFactor: 0.95,
-      interpolationSpeed: 0.1,
-      opacityInterpolationSpeed: 0.05
-    },
-    animation: {
-      visualFrequencyDivisor: 10,
-      frameRate: 60,
-      smoothingFactor: 0.1
-    },
-    frequencyMapping: {
-      minFreq: 100,
-      maxFreq: 2000,
-      minValue: 0,
-      maxValue: 1
-    },
-    dynamicColors: {
-      isEnabled: false,
-      chromaticMapping: false,
-      hueAnimationAmplitude: 30,
-      animationSpeed: 1,
-      saturation: 0.7,
-      baseLightness: 0.5,
-      lightnessRange: 0.3
-    },
-    palette: {
-      isEnabled: true,
-      gradientDirection: 45,
-      useGlassmorphism: true,
-      glassmorphOpacity: 0.2
-    },
-    floatingPopup: {
-      isEnabled: true,
-      accumulationWindow: 100,
-      hideDelay: 2000,
-      maxNotes: 5,
-      showChord: true,
-      showIntervals: true,
-      showEmotionalDescription: true,
-      backdropBlur: 10,
-      glassmorphOpacity: 0.15,
-      animationDuration: 300
-    }
-  }
-}))
+vi.mock('@/composables/useVisualConfig', async () => {
+  return await vi.importActual<typeof import('@/composables/useVisualConfig')>(
+    '@/composables/useVisualConfig'
+  )
+})
 
 // Mock localStorage
 const mockLocalStorage = {

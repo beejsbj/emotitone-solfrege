@@ -476,13 +476,13 @@ export const UNIFIED_CONFIG = {
 
   floatingPopup: {
     _meta: {
-      label: "Floating Popup",
-      icon: "💬",
-      description: "Note information popup",
+      label: "Harmonic Geometry",
+      icon: "△",
+      description: "Blob-led harmonic overlays and labels",
     },
     isEnabled: {
       value: false,
-      label: "Enable Floating Popup",
+      label: "Enable Harmonic Geometry",
     },
     accumulationWindow: {
       value: 500,
@@ -509,15 +509,20 @@ export const UNIFIED_CONFIG = {
     },
     showChord: {
       value: true,
-      label: "Show Chord",
+      label: "Show Chord Label",
     },
     showIntervals: {
       value: true,
-      label: "Show Intervals",
+      label: "Show Interval Labels",
     },
     showEmotionalDescription: {
       value: true,
-      label: "Show Emotions",
+      label: "Show Emotion Label",
+    },
+    geometryMode: {
+      value: "outline",
+      options: ["outline", "web", "center-only"],
+      label: "Large Chord Geometry",
     },
     backdropBlur: {
       value: 1,

@@ -60,6 +60,8 @@ export interface DynamicColorConfig {
 /**
  * Floating popup configuration
  */
+export type HarmonicGeometryMode = "outline" | "web" | "center-only";
+
 export interface FloatingPopupConfig {
   /** Whether floating popup is enabled */
   isEnabled: boolean;
@@ -75,6 +77,8 @@ export interface FloatingPopupConfig {
   showIntervals: boolean;
   /** Whether to show emotional descriptions */
   showEmotionalDescription: boolean;
+  /** How larger harmonic geometries should be interpreted */
+  geometryMode: HarmonicGeometryMode;
   /** Backdrop blur intensity in pixels */
   backdropBlur: number;
   /** Glassmorphism effect opacity (0-1) */

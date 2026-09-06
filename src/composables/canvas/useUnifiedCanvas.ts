@@ -1,12 +1,14 @@
 import { ref, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import { useBlobRenderer } from "./useBlobRenderer";
 import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
 import { useAmbientRenderer } from "./useAmbientRenderer";
+import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 
@@ -24,8 +26,10 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     particleConfig,
     stringConfig,
     animationConfig,
+    floatingPopupConfig,
     hilbertScopeConfig,
   } = useVisualConfig();
+  const { snapshot: harmonicAnalysisSnapshot } = useHarmonicAnalysis();
 
   // Canvas state (merged from useCanvasCore)
   const canvasWidth = ref(window.innerWidth);
@@ -42,6 +46,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     ambient: ambientConfig.value,
     particle: particleConfig.value,
     string: stringConfig.value,
+    harmonic: floatingPopupConfig.value,
     hilbertScope: hilbertScopeConfig.value,
   };
 
@@ -50,6 +55,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   const particleSystem = useParticleSystem();
   const stringRenderer = useStringRenderer();
   const ambientRenderer = useAmbientRenderer();
+  const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
 
   /**
@@ -61,6 +67,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       ambient: ambientConfig.value,
       particle: particleConfig.value,
       string: stringConfig.value,
+      harmonic: floatingPopupConfig.value,
       hilbertScope: hilbertScopeConfig.value,
     };
   };
@@ -194,6 +201,19 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       blobRenderer.renderBlobs(ctx, elapsed, cachedConfigs.blob, musicStore);
     }
 
+    const harmonicScene = harmonicGeometryRenderer.buildScene(
+      harmonicAnalysisSnapshot.value,
+      blobRenderer.activeBlobs,
+      cachedConfigs.harmonic,
+      canvasWidth.value,
+      canvasHeight.value
+    );
+    harmonicGeometryRenderer.renderGeometry(
+      ctx,
+      harmonicScene,
+      cachedConfigs.harmonic
+    );
+
     if (cachedConfigs.particle.isEnabled) {
       particleSystem.renderParticles(ctx, elapsed, cachedConfigs.particle);
     }
@@ -206,6 +226,12 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       );
       stringRenderer.renderStrings(ctx, elapsed, canvasHeight.value);
     }
+
+    harmonicGeometryRenderer.renderLabels(
+      ctx,
+      harmonicScene,
+      cachedConfigs.harmonic
+    );
   };
 
   // Setup animation with performance monitoring

@@ -265,6 +265,10 @@ export const useMusicStore = defineStore(
       input: number | ChromaticNoteWithOctave,
       octave: number = 4
     ): Promise<string | null> {
+      if (instrumentStore.isInteractionLocked) {
+        return null;
+      }
+
       let solfegeIndex: number;
       let finalOctave: number;
 

@@ -4,6 +4,7 @@
  */
 
 import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
@@ -77,6 +78,7 @@ const KEY_ROWS = [
  * Composable for handling keyboard controls for solfege notes
  */
 export function useKeyboardControls(mainOctave: Ref<number>) {
+  const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
   const patternsStore = usePatternsStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
@@ -169,6 +171,11 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     // Get current keyboard mapping
     const keyboardMapping = getKeyboardMapping();
     if (key in keyboardMapping) {
+      if (instrumentStore.isInteractionLocked) {
+        event.preventDefault();
+        return;
+      }
+
       event.preventDefault();
       pressedKeys.value.add(key);
 

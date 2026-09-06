@@ -13,6 +13,10 @@ vi.mock("vue", async () => {
 import { reactive, ref } from "vue";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 
+const mockInstrumentStore = reactive({
+  isInteractionLocked: false,
+});
+
 const mockMusicStore = reactive({
   currentScale: reactive({ degreeCount: 12 }),
   attackNoteWithOctave: vi.fn().mockResolvedValue("mock-note-id"),
@@ -32,6 +36,10 @@ vi.mock("@/stores/music", () => ({
   useMusicStore: () => mockMusicStore,
 }));
 
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => mockInstrumentStore,
+}));
+
 vi.mock("@/stores/patterns", () => ({
   usePatternsStore: () => mockPatternsStore,
 }));
@@ -42,6 +50,7 @@ vi.mock("@/stores/keyboardDrawer", () => ({
 
 describe("useKeyboardControls", () => {
   beforeEach(() => {
+    mockInstrumentStore.isInteractionLocked = false;
     mockMusicStore.currentScale.degreeCount = 12;
     mockMusicStore.attackNoteWithOctave.mockClear();
     mockMusicStore.releaseNote.mockClear();
@@ -90,5 +99,23 @@ describe("useKeyboardControls", () => {
 
     expect(controls.getKeyboardLetterForNote(11, 3)).toBe("\\");
     expect(controls.getKeyboardLetterForNote(0, 4)).toBe("Q");
+  });
+
+  it("ignores hardware key presses while instrument samples are warming", async () => {
+    mockInstrumentStore.isInteractionLocked = true;
+    const controls = useKeyboardControls(ref(4));
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        code: "KeyQ",
+        key: "q",
+      })
+    );
+    await Promise.resolve();
+
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+    expect(mockKeyboardDrawerStore.addTouch).not.toHaveBeenCalled();
+
+    controls.cleanupKeyboardListeners();
   });
 });

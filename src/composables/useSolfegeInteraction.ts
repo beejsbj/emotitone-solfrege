@@ -5,7 +5,6 @@
 
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { MusicalMode, ChromaticNote } from "@/types/music";
@@ -15,7 +14,6 @@ import type { MusicalMode, ChromaticNote } from "@/types/music";
  */
 export function useSolfegeInteraction() {
   const musicStore = useMusicStore();
-  const patternsStore = usePatternsStore();
   const instrumentStore = useInstrumentStore();
   const { getGradient, isDynamicColorsEnabled } = useColorSystem();
 
@@ -72,6 +70,10 @@ export function useSolfegeInteraction() {
     octave: number,
     event?: Event
   ) => {
+    if (instrumentStore.isInteractionLocked) {
+      return;
+    }
+
     // Prevent context menu and other unwanted behaviors
     if (event) {
       event.preventDefault();

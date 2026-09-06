@@ -1,6 +1,7 @@
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import type { ChromaticNote } from "@/types";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfig } from "@/composables/useVisualConfig";
@@ -248,6 +249,7 @@ export function resolveMirroredMidiNoteNumber(
 }
 
 export function useMidiControls() {
+  const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const { dynamicColorConfig } = useVisualConfig();
@@ -344,6 +346,10 @@ export function useMidiControls() {
     const isRoliInput = roliInputIds.value.has(inputId);
 
     if (messageType === MIDI_NOTE_ON && velocity > 0) {
+      if (instrumentStore.isInteractionLocked) {
+        return;
+      }
+
       if (
         activeMidiNotes.value.has(pressId)
         || pendingMidiPresses.value.has(pressId)

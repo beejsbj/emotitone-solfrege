@@ -10,6 +10,8 @@
     :style="{ '--keyboard-gap': `${Math.max(resolvedGap, 0)}px` }"
     role="group"
     aria-label="Solfège keyboard"
+    :aria-busy="isInteractionLocked || undefined"
+    :aria-disabled="isInteractionLocked || undefined"
     :data-geometry-family="resolvedFamily"
     :data-edition-seed="resolvedEditionSeed"
   >
@@ -51,6 +53,7 @@
         :key-saturation="key.keySaturation"
         :sounding="key.sounding"
         :pressed="key.pressed"
+        :disabled="isInteractionLocked"
         :aria-label="keyAriaLabel(key, row.octave)"
         :aria-keyshortcuts="key.shortcut || undefined"
         :tabindex="key.id === rememberedFocusId ? 0 : -1"
@@ -90,6 +93,7 @@ import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { triggerNoteHaptic } from "@/utils/hapticFeedback";
 import {
@@ -182,6 +186,7 @@ const emit = defineEmits<{
 
 function createProductionWiring() {
   const store = useKeyboardDrawerStore();
+  const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
   const config = computed(() => store.keyboardConfig);
   const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
@@ -247,6 +252,8 @@ function createProductionWiring() {
     `${intent.inputId}:${intent.keyId}`;
 
   async function press(intent: KeyboardIntent) {
+    if (instrumentStore.isInteractionLocked) return;
+
     store.addTouch(inputPressId(intent), intent.keyId);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
@@ -264,6 +271,7 @@ function createProductionWiring() {
     rows,
     surfaceStyle,
     gap,
+    isInteractionLocked: computed(() => instrumentStore.isInteractionLocked),
     press,
     release,
     clear: store.clearAllTouches,
@@ -288,6 +296,9 @@ const resolvedSurfaceStyle = computed(
 const resolvedGap = computed(() => productionWiring?.gap.value ?? props.gap);
 const resolvedKeyboardPadding = computed(
   () => productionWiring?.config.value.keyboardPadding ?? props.keyboardPadding,
+);
+const isInteractionLocked = computed(
+  () => productionWiring?.isInteractionLocked.value ?? false
 );
 // Host allocation changes only row geometry, never row count or note/input ownership.
 const fittedRows = computed(() => props.availableHeight === undefined ? null
@@ -475,6 +486,8 @@ function emitIntent(
 
 function dispatchIntent(kind: "press" | "release", intent: KeyboardIntent) {
   if (kind === "press") {
+    if (isInteractionLocked.value) return;
+
     if (productionWiring) void productionWiring.press(intent);
     emit("press", intent);
     return;

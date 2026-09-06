@@ -5,6 +5,7 @@ vi.unmock("@/services/music");
 vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
+import { useInstrumentStore } from "@/stores/instrument";
 
 const superdoughMocks = vi.hoisted(() => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
@@ -149,6 +150,18 @@ describe("music store", () => {
     expect(noteReleasedEvent.detail.mode).toBe("chromatic");
     expect(noteReleasedEvent.detail.key).toBe("F#");
     dispatchEventSpy.mockRestore();
+  });
+
+  it("refuses live note attacks while instrument samples are warming", async () => {
+    const instrumentStore = useInstrumentStore();
+    const musicStore = useMusicStore();
+    instrumentStore.warmingInstrument = "gm_vibraphone";
+
+    const noteId = await musicStore.attackNote(0, 4);
+
+    expect(noteId).toBeNull();
+    expect(superdoughMocks.attackNote).not.toHaveBeenCalled();
+    expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
   it("dispatches duration playback with the resolved note for the current mode", async () => {

@@ -877,7 +877,9 @@ function relativeDegreeFromAbsolutePitch(
 ) {
   const match = rawPitch.match(/^([A-Ga-g])([#bsf]*)(-?\d+)$/);
   if (!match) return null;
-  const noteMidi = TonalNote.midi(normalizeAbsolutePitch(rawPitch));
+  const noteMidi = TonalNote.midi(
+    normalizeAbsolutePitch(match[1], match[2], match[3]),
+  );
   const rootMidi = TonalNote.midi(`${scaleContext.root}${scaleContext.octave}`);
   if (noteMidi == null || rootMidi == null) return null;
   const delta = noteMidi - rootMidi;
@@ -891,8 +893,9 @@ function relativeDegreeFromAbsolutePitch(
   return null;
 }
 
-function normalizeAbsolutePitch(value: string) {
-  return value.replace(/f/g, "b").replace(/s/g, "#");
+function normalizeAbsolutePitch(letter: string, accidental: string, octave: string) {
+  const normalizedAccidental = accidental.replace(/f/g, "b").replace(/s/g, "#");
+  return `${letter.toUpperCase()}${normalizedAccidental}${octave}`;
 }
 
 function isAbsolutePitch(value: string) {

@@ -353,6 +353,45 @@ describe("CodeStrip Strudel source decorations", () => {
     expect(await renderWithToken("B#4:major", "C4")).toBe("B♯4");
   });
 
+  it("normalizes only accidental suffixes in absolute metadata aliases", async () => {
+    const renderWithToken = async (source: string, suppliedPitch: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: source,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, {
+        tokens: [{
+          ...tokens[0],
+          glyph: "raw",
+          text: suppliedPitch,
+          rawPitch: suppliedPitch,
+          surfaceStyle: "monochrome",
+        }],
+        notation: "note",
+        durationMode: "stacked",
+      });
+      await Promise.resolve();
+      return host.querySelector(".note");
+    };
+
+    const naturalF = await renderWithToken(
+      "`< [ 3@0.25 ] >`.as(\"n\").scale(\"C4:major\")",
+      "f4",
+    );
+    const flatAlias = await renderWithToken(
+      "`< [ 5@0.25 ] >`.as(\"n\").scale(\"C4:minor\")",
+      "af4",
+    );
+    expect(naturalF?.classList).toContain("note--surface-monochrome");
+    expect(flatAlias?.classList).toContain("note--surface-monochrome");
+  });
+
   it("marks only pitched accidentals as accidental", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);

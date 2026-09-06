@@ -40,8 +40,9 @@ describe("instrument store warmup", () => {
   it("selects ready instruments without entering warmup", async () => {
     const store = useInstrumentStore();
 
-    await store.setInstrument("piano");
+    const result = await store.setInstrument("piano");
 
+    expect(result).toEqual({ status: "ready", instrument: "piano" });
     expect(store.currentInstrument).toBe("piano");
     expect(store.warmingInstrument).toBeNull();
     expect(store.isInteractionLocked).toBe(false);
@@ -73,8 +74,13 @@ describe("instrument store warmup", () => {
       new Error("Network down")
     );
 
-    await store.setInstrument("gm_vibraphone");
+    const result = await store.setInstrument("gm_vibraphone");
 
+    expect(result).toEqual({
+      status: "failed",
+      instrument: "gm_vibraphone",
+      fallback: "piano",
+    });
     expect(store.currentInstrument).toBe("piano");
     expect(store.warmingInstrument).toBeNull();
     expect(store.lastWarmupErrorInstrument).toBe("gm_vibraphone");
@@ -92,8 +98,12 @@ describe("instrument store warmup", () => {
     expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledTimes(1);
 
     deferred.resolve();
-    await Promise.all([first, second]);
+    const results = await Promise.all([first, second]);
 
+    expect(results).toEqual([
+      { status: "superseded", instrument: "gm_vibraphone" },
+      { status: "ready", instrument: "gm_vibraphone" },
+    ]);
     expect(store.currentInstrument).toBe("gm_vibraphone");
     expect(store.isInstrumentReady("gm_vibraphone")).toBe(true);
   });
@@ -106,5 +116,53 @@ describe("instrument store warmup", () => {
 
     expect(store.isInstrumentReady("gm_vibraphone")).toBe(true);
     expect(store.readyInstruments.has("gm_vibraphone")).toBe(true);
+  });
+
+  it("restores the most recent playable selection across an A/B/A race", async () => {
+    const store = useInstrumentStore();
+    const deferred = createDeferred<void>();
+    audioMocks.getReadySounds.mockReturnValue(["piano", "gm_marimba"]);
+    audioMocks.prewarmSoundSamples.mockReturnValue(deferred.promise);
+    await store.initializeInstruments();
+
+    const firstA = store.setInstrument("gm_vibraphone");
+    const selectionB = await store.setInstrument("gm_marimba");
+    const secondA = store.setInstrument("gm_vibraphone");
+
+    deferred.reject(new Error("Network down"));
+    const [firstResult, secondResult] = await Promise.all([firstA, secondA]);
+
+    expect(selectionB).toEqual({
+      status: "ready",
+      instrument: "gm_marimba",
+    });
+    expect(firstResult).toEqual({
+      status: "superseded",
+      instrument: "gm_vibraphone",
+    });
+    expect(secondResult).toEqual({
+      status: "failed",
+      instrument: "gm_vibraphone",
+      fallback: "gm_marimba",
+    });
+    expect(store.currentInstrument).toBe("gm_marimba");
+  });
+
+  it("propagates initialization failure and restores a verified synth fallback", async () => {
+    const store = useInstrumentStore();
+    const error = new Error("Sample registry unavailable");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    audioMocks.initSuperdoughAudio.mockRejectedValue(error);
+    audioMocks.getReadySounds.mockReturnValue(["triangle"]);
+    audioMocks.isPrewarmed.mockImplementation(
+      (instrumentName: string) => instrumentName === "triangle"
+    );
+
+    await expect(store.initializeInstruments()).rejects.toBe(error);
+
+    expect(store.currentInstrument).toBe("triangle");
+    expect(store.isInstrumentReady("piano")).toBe(false);
+    expect(store.isInstrumentReady("triangle")).toBe(true);
+    consoleError.mockRestore();
   });
 });

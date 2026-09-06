@@ -358,6 +358,12 @@ watch(
   { immediate: true },
 );
 
+watch(isInteractionLocked, (locked) => {
+  if (!locked) return;
+  releaseFocusedInputs(new Event("instrument-warmup"));
+  productionWiring?.clear();
+});
+
 function setKeyRef(
   keyId: string,
   instance: Element | ComponentPublicInstance | null,

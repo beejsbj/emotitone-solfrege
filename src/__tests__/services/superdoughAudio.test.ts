@@ -160,6 +160,17 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("custom-oscillator")).toBe(true);
   });
 
+  it("does not report unregistered or unknown sounds as ready", async () => {
+    hoisted.mockGetSound.mockImplementation(() => undefined as never);
+    const audio = await import("@/services/superdoughAudio");
+
+    expect(audio.isPrewarmed("triangle")).toBe(false);
+    await expect(audio.prewarmSoundSamples("not-a-sound")).rejects.toThrow(
+      "Unknown sound: not-a-sound"
+    );
+    expect(audio.isPrewarmed("not-a-sound")).toBe(false);
+  });
+
   it("surfaces explicit warmup failures and leaves the sound cold", async () => {
     hoisted.mockGetSound.mockReturnValue({
       data: { samples: ["https://example.test/sample.wav"] },

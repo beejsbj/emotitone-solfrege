@@ -104,18 +104,50 @@ describe("useKeyboardControls", () => {
   it("ignores hardware key presses while instrument samples are warming", async () => {
     mockInstrumentStore.isInteractionLocked = true;
     const controls = useKeyboardControls(ref(4));
+    const keyDown = new KeyboardEvent("keydown", {
+      code: "KeyQ",
+      key: "q",
+    });
 
-    window.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        code: "KeyQ",
-        key: "q",
-      })
-    );
+    await controls.handleKeyDown(keyDown);
     await Promise.resolve();
 
     expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
     expect(mockKeyboardDrawerStore.addTouch).not.toHaveBeenCalled();
 
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("requires keyup before a blocked key can attack after unlock", async () => {
+    mockInstrumentStore.isInteractionLocked = true;
+    const controls = useKeyboardControls(ref(4));
+
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })
+    );
+    mockInstrumentStore.isInteractionLocked = false;
+    await Promise.resolve();
+
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", {
+        code: "KeyQ",
+        key: "q",
+        repeat: true,
+      })
+    );
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyQ", key: "q" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })
+    );
+
+    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenCalledOnce();
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyQ", key: "q" })
+    );
     controls.cleanupKeyboardListeners();
   });
 });

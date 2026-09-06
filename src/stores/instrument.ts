@@ -8,6 +8,11 @@ import {
   prewarmSoundSamples,
 } from "@/services/superdoughAudio";
 
+export type InstrumentSelectionResult =
+  | { status: "ready"; instrument: string }
+  | { status: "failed"; instrument: string; fallback: string | null }
+  | { status: "superseded"; instrument: string };
+
 /**
  * Instrument Store
  * Manages instrument selection and delegates audio to superdough.
@@ -17,14 +22,15 @@ import {
 export const useInstrumentStore = defineStore("instrument", () => {
   // State
   const currentInstrument = ref<string>(DEFAULT_INSTRUMENT);
-  const lastReadyInstrument = ref<string>(DEFAULT_INSTRUMENT);
-  const readyInstruments = ref<Set<string>>(new Set([DEFAULT_INSTRUMENT]));
+  const lastReadyInstrument = ref<string | null>(null);
+  const readyInstruments = ref<Set<string>>(new Set());
   const warmingInstrument = ref<string | null>(null);
   const warmupMessage = ref("");
   const lastWarmupError = ref<string | null>(null);
   const lastWarmupErrorInstrument = ref<string | null>(null);
   const isInitializing = ref(false);
   const warmupPromises = new Map<string, Promise<void>>();
+  let selectionGeneration = 0;
 
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(
@@ -45,21 +51,40 @@ export const useInstrumentStore = defineStore("instrument", () => {
     readyInstruments.value.add(instrumentName);
   };
 
+  const isInstrumentReady = (instrumentName: string) =>
+    readyInstruments.value.has(instrumentName) || isPrewarmed(instrumentName);
+
+  const findReadyFallback = (preferred: Array<string | null> = []) => {
+    const candidates = [
+      ...preferred,
+      lastReadyInstrument.value,
+      DEFAULT_INSTRUMENT,
+      "triangle",
+      ...readyInstruments.value,
+    ];
+
+    return (
+      candidates.find(
+        (candidate, index) =>
+          candidate !== null &&
+          candidates.indexOf(candidate) === index &&
+          isInstrumentReady(candidate)
+      ) ?? null
+    );
+  };
+
   const syncReadyInstrumentsFromAudio = () => {
     readyInstruments.value = new Set(getReadySounds());
 
-    if (isPrewarmed(currentInstrument.value)) {
-      markInstrumentReady(currentInstrument.value);
-      lastReadyInstrument.value = currentInstrument.value;
-    }
-
-    if (isPrewarmed(lastReadyInstrument.value)) {
-      markInstrumentReady(lastReadyInstrument.value);
+    const fallback = findReadyFallback([currentInstrument.value]);
+    if (fallback) {
+      markInstrumentReady(fallback);
+      currentInstrument.value = fallback;
+      lastReadyInstrument.value = fallback;
+    } else {
+      lastReadyInstrument.value = null;
     }
   };
-
-  const isInstrumentReady = (instrumentName: string) =>
-    readyInstruments.value.has(instrumentName) || isPrewarmed(instrumentName);
 
   const isInstrumentWarming = (instrumentName: string) =>
     warmingInstrument.value === instrumentName;
@@ -77,6 +102,10 @@ export const useInstrumentStore = defineStore("instrument", () => {
       progressCallback?.(100, "Audio engine ready");
     } catch (error) {
       console.error("Error initializing superdough:", error);
+      // Synth registration can succeed before a sample pack fails. Reconcile
+      // that partial success so the app falls back to something truly playable.
+      syncReadyInstrumentsFromAudio();
+      throw error;
     } finally {
       isInitializing.value = false;
     }
@@ -84,8 +113,14 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
   // Set current instrument — any registered superdough sound name is valid.
   // Awaits pre-warming for cold instruments so the first keypress is never dropped.
-  const setInstrument = async (instrumentName: string) => {
-    const previousReadyInstrument = lastReadyInstrument.value;
+  const setInstrument = async (
+    instrumentName: string
+  ): Promise<InstrumentSelectionResult> => {
+    const selection = ++selectionGeneration;
+    const previousReadyInstrument = findReadyFallback([
+      currentInstrument.value,
+      lastReadyInstrument.value,
+    ]);
     currentInstrument.value = instrumentName;
     clearWarmupError();
 
@@ -93,7 +128,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
       markInstrumentReady(instrumentName);
       lastReadyInstrument.value = instrumentName;
       clearWarmupState();
-      return;
+      return { status: "ready", instrument: instrumentName };
     }
 
     warmingInstrument.value = instrumentName;
@@ -110,26 +145,31 @@ export const useInstrumentStore = defineStore("instrument", () => {
     try {
       await warmupPromise;
 
-      if (
-        currentInstrument.value === instrumentName &&
-        warmingInstrument.value === instrumentName
-      ) {
-        lastReadyInstrument.value = instrumentName;
-        clearWarmupState();
+      if (selection !== selectionGeneration) {
+        return { status: "superseded", instrument: instrumentName };
       }
+
+      currentInstrument.value = instrumentName;
+      lastReadyInstrument.value = instrumentName;
+      clearWarmupState();
+      return { status: "ready", instrument: instrumentName };
     } catch (error) {
-      if (
-        currentInstrument.value === instrumentName &&
-        warmingInstrument.value === instrumentName
-      ) {
-        currentInstrument.value = previousReadyInstrument;
-        lastWarmupError.value =
-          error instanceof Error && error.message
-            ? error.message
-            : "Could not download samples for this instrument.";
-        lastWarmupErrorInstrument.value = instrumentName;
-        clearWarmupState();
+      if (selection !== selectionGeneration) {
+        return { status: "superseded", instrument: instrumentName };
       }
+
+      const fallback = findReadyFallback([previousReadyInstrument]);
+      if (fallback) {
+        currentInstrument.value = fallback;
+        lastReadyInstrument.value = fallback;
+      }
+      lastWarmupError.value =
+        error instanceof Error && error.message
+          ? error.message
+          : "Could not download samples for this instrument.";
+      lastWarmupErrorInstrument.value = instrumentName;
+      clearWarmupState();
+      return { status: "failed", instrument: instrumentName, fallback };
     }
   };
 

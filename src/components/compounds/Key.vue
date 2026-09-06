@@ -4,6 +4,7 @@
     class="key"
     :class="{ 'key--pressed': isPhysicallyPressed }"
     type="button"
+    :disabled="disabled"
     :aria-label="resolvedAriaLabel"
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
@@ -38,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import Note from "@/components/primatives/Note.vue";
 import type {
   NoteGeometry,
@@ -73,6 +74,7 @@ const props = withDefaults(
     keySaturation?: number;
     sounding?: boolean;
     pressed?: boolean;
+    disabled?: boolean;
     ariaLabel?: string;
   }>(),
   {
@@ -94,6 +96,7 @@ const props = withDefaults(
     keySaturation: 1,
     sounding: false,
     pressed: false,
+    disabled: false,
     ariaLabel: undefined,
   },
 );
@@ -126,7 +129,7 @@ const resolvedAriaLabel = computed(() => {
 });
 
 function beginInput(inputId: string, event: Event) {
-  if (activeInputIds.has(inputId)) return;
+  if (props.disabled || activeInputIds.has(inputId)) return;
 
   activeInputIds.add(inputId);
   emit("press", { inputId, event });
@@ -206,6 +209,13 @@ function handleVisibilityChange(event: Event) {
     releaseAllInputs(event);
   }
 }
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) releaseAllInputs(new Event("disabled"));
+  },
+);
 
 onMounted(() => {
   window.addEventListener("blur", handleWindowBlur);

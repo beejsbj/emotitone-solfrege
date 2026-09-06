@@ -88,14 +88,23 @@ async function _prewarmSoundCore(
   tolerateBufferFailures = false
 ): Promise<void> {
   const resolved = LEGACY_ALIASES[soundName] ?? soundName;
-  if (SYNTH_SOUNDS.has(resolved)) {
-    _prewarmedSounds.add(resolved);
-    return; // oscillators have no sample bank
+  let sound;
+  try {
+    // Resolve the registered sound before treating synth names as ready. This
+    // prevents pre-init callers and typos from being reported as playable.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sound = (getSound as any)(resolved);
+  } catch (error) {
+    if (tolerateBufferFailures) return;
+    throw error;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sound = (getSound as any)(resolved);
-  if (!sound?.data?.samples) {
+  if (!sound) {
+    if (tolerateBufferFailures) return;
+    throw new Error(`Unknown sound: ${soundName}`);
+  }
+
+  if (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples) {
     _prewarmedSounds.add(resolved); // no samples needed → already "ready"
     return;
   }
@@ -144,14 +153,16 @@ export async function prewarmSoundSamples(soundName: string): Promise<void> {
  */
 export function isPrewarmed(soundName: string): boolean {
   const resolved = LEGACY_ALIASES[soundName] ?? soundName;
-  if (_prewarmedSounds.has(resolved) || SYNTH_SOUNDS.has(resolved)) {
+  if (_prewarmedSounds.has(resolved)) {
     return true;
   }
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sound = (getSound as any)(resolved);
-    return Boolean(sound && !sound?.data?.samples);
+    return Boolean(
+      sound && (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples)
+    );
   } catch {
     return false;
   }

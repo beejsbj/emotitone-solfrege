@@ -55,7 +55,7 @@ None implies the next. A file existing or already being used in production does 
 Two unit sessions are ready and may proceed independently:
 
 - visually inspect and accept the Keyboard density matrix in its existing workbench;
-- define Drawer against its existing source/specimen/production evidence, including the final home of its trigger.
+- formalize the accepted Drawer definition below and migrate its three production consumers plus real guide specimen.
 
 Button is closed as a lower primitive. CodeStrip Bar builds on its accepted momentary-action ownership without reopening Button.
 
@@ -79,7 +79,7 @@ Adjacent sessions are allowed when their files and lineage do not overlap. Share
 | CodeStrip | Unique | **Accepted and production-adopted** | `components/uniques/CodeStrip/index.vue` is the sole public source and the actual production Strudel CodeMirror host. Its private `strudelExtension.ts` transforms only mini-notation event ranges, consumes native `showMiniLocations` for playback progress, and reveals the unchanged raw document on focus. Private `Sequence.vue` composes accepted Note and Chord and owns surfaced Rest plus duration/density presentation. The real `style-guide/uniques/UniqueCodeStrip.vue` specimen mounts this same CodeMirror path. No LiveStrip or whole-document visual layer remains | Preserve the CodeStrip Bar consumer plus source-range, mirror-focus, native-highlight, idle/Play, and behavior tests |
 | CodeStrip Bar | Compound | **Accepted and closed** | `components/compounds/CodeStripBar.vue` is authoritative and is shared by production `DrawerKeyboard.vue` and real `style-guide/compounds/CompoundCodeStripBar.vue`. It composes accepted Buttons and an authoritative CodeStrip through its public unframed seam, including the compact empty state, and consumes the shared instrument-bar surface tokens also used by Control Bar | Preserve the shared translucent surface, zero gaps/frame/inset, compact empty state, component name, other CodeStrip contexts, and action behavior |
 | Control Bar | Compound | **Accepted and closed pending Drawer reassignment** | `components/compounds/ControlBar.vue` is the controlled authoritative source; `style-guide/compounds/CompoundControlBar.vue` drives that source and `DrawerKeyboard.vue` binds the same seam to existing stores. It consumes the same shared instrument-bar surface tokens as CodeStrip Bar. The retired `LegacyKeyboardControls.vue` has no remaining source references | Preserve the shared translucent surface, six equal-width non-scrolling slots, and existing mutations; reconsider only the provisional Drawer control during the Drawer unit |
-| Drawer | Unique | **Undefined** | Current DrawerShell/specimen/production hosts and the current Drawer Knob are evidence, not accepted Drawer doctrine | Define after CodeStrip Bar; Drawer does not need to remain a Knob |
+| Drawer | Unique | **Accepted 2026-09-06; implementation in progress** | Shared top/bottom Drawer definition accepted after grilling. Existing DrawerShell and production hosts are migration inputs; new authoritative source, specimen, and adoption remain open | Implement accepted shell, continuous resize, handles, persistence, and three production consumers |
 | DrawerKeyboard | Composition | Relationship accepted; definition pending | Current file is mixed production evidence, not the final composition | Compose only after CodeStrip, CodeStrip Bar, Keyboard, and Drawer are defined |
 | Music Color Recipe | Token recipe | **Under review; later** | Runtime resolver is calculation authority; current swatch presentation is unaccepted drift | Reconcile the original wheel intent with one runtime recipe |
 
@@ -92,6 +92,17 @@ Remaining queue, not current authority:
 - **Compositions:** Loading Screen.
 
 ## Accepted visual contracts
+
+### Drawer — accepted definition, 2026-09-06
+
+- Burooj explicitly accepted the complete shared-understanding summary after the Drawer grilling. This unit includes the expressly authorized UX/behavior changes below, not just presentation. The supplied v2 HTML is secondary reference; the guide and production are distinct surfaces to reconcile.
+- One full-width unique owns top/bottom anchoring, opaque Ink surface, continuous height, clipping, scrolling, and a clean exposed-edge handle tab with grip and icon. Handle alignment is left for Instrument, right for Config, center for Keyboard. Instrument retains its current name; Config retains MIDI status and moves its conditional MIDI shortcut inside.
+- The bottom Drawer contains Pattern List, CodeStrip Bar, Control Bar, and Keyboard in that order. Drag changes the Drawer height continuously; Keyboard fills remaining space, preserving row count and main/outer hierarchy. Keys shrink to their existing usable minimum, then clip progressively; further collapse hides Control Bar, CodeStrip Bar, then Pattern List, leaving only the handle. Bars retain natural height. No snapping.
+- Tapping the normally open bottom handle hides only keys and leaves all three upper members visible. Tapping from any deeper collapse restores all members and the last usable keyboard height. The handle sits above the entire bottom stack, and below top-panel content.
+- Each drawer remembers its preferred open height across reloads, clamped to the available viewport with some canvas remaining. Keyboard defaults open, top panels closed. Existing keyboard open-state persistence remains. Only one top panel opens at once, independently of Keyboard; top panels may cover Keyboard and do not resize it or each other.
+- Top content retains its size and scrolls. Exposed canvas remains interactive; no scrim or outside-tap dismissal. Top panels retain Escape and explicit close/selection dismissal. Handles retain native activation; arrow-key resizing is explicitly declined.
+- Drawer resizing retires the separate Key Size control. Row count, musical controls, audio, CodeStrip editing/actions, pattern operations, MIDI actions/status, and existing key input ownership remain intact. Keyboard density acceptance remains a separate unit; this unit adds only host-driven sizing with existing proportions/minima.
+- Completion requires one real Drawer public source consumed by production and the guide, removal of the Drawer Knob/floating trigger recipes and obsolete shell, focused interaction tests, responsive production/guide evidence, type-check/build, and a fresh bounded lineage audit. Current source/specimen/adoption claims remain open until verified.
 
 ### Note and Key
 

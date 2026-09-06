@@ -3,15 +3,10 @@
     <div class="bg-gray-900/95 backdrop-blur-sm border-t border-white/20 overflow-hidden flex items-center justify-between gap-1 p-2">
       <!-- Left: Master Play Button Knob (inert) -->
       <div class="flex items-center gap-2">
-        <Knob
-          type="button"
-          label="Master"
-          :icon="Play"
-          :ready-color="'hsla(0, 0%, 40%, 1)'"
-          :active-color="'hsla(0, 0%, 94%, 1)'"
-          :is-disabled="true"
-          :is-active="false"
-        />
+        <div class="grid justify-items-center gap-1">
+          <Button disabled accessible-name="Master" title="Master"><Play :size="18" /></Button>
+          <span class="text-[10px] text-white/60">Master</span>
+        </div>
       </div>
 
       <!-- Center: Tempo (inert) -->
@@ -47,7 +42,8 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { Knob } from "./knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
+import Button from "@/components/primatives/Button.vue";
 import { Play } from "lucide-vue-next";
 
 // Inert local state only

@@ -21,11 +21,6 @@ vi.mock('@/services/superdoughAudio', () => ({
 }))
 
 vi.mock('@/components/ui', () => ({
-  IconButton: {
-    props: ['title', 'ariaLabel', 'tone'],
-    emits: ['click'],
-    template: '<button data-testid="icon-button" @click="$emit(\'click\')"><slot /></button>',
-  },
   Tabs: {
     props: ['value'],
     emits: ['update:value'],
@@ -70,11 +65,11 @@ vi.mock('@/components/OverlayPanelShell.vue', () => ({
 
 vi.mock('@/components/TopDrawer.vue', () => ({
   default: {
-    props: ['anchor', 'offsetTop', 'offsetSide'],
+    props: ['anchor', 'handleLabel', 'handleTestId', 'ariaLabel'],
     template: `
       <div data-testid="top-drawer">
         <div data-testid="top-drawer-trigger">
-          <slot name="trigger" :open="open" :close="close" :toggle="open" :is-open="true" />
+          <button :data-testid="handleTestId" :aria-label="ariaLabel"><slot name="icon" />{{ handleLabel }}</button>
         </div>
         <div data-testid="top-drawer-panel">
           <slot name="panel" :close="close" :open="open" :toggle="open" :is-open="true" />
@@ -91,7 +86,9 @@ vi.mock('@/components/TopDrawer.vue', () => ({
 }))
 
 vi.mock('lucide-vue-next', () => ({
-  ChevronDown: { template: '<svg data-testid="chevron-down-icon"></svg>' },
+  Piano: { template: '<svg data-testid="piano-icon"></svg>' },
+  Guitar: { template: '<svg data-testid="guitar-icon"></svg>' },
+  Drum: { template: '<svg data-testid="drum-icon"></svg>' },
   Search: { template: '<svg data-testid="search-icon"></svg>' },
   X: { template: '<svg data-testid="close-icon"></svg>' },
 }))
@@ -116,6 +113,28 @@ describe('InstrumentSelector.vue', () => {
   afterEach(() => {
     wrapper?.unmount()
     wrapper = null
+  })
+
+  it('updates handle identity with selection and falls back to the name for unsupported sounds', async () => {
+    wrapper = await mountSelector({ currentInstrument: 'piano' })
+    const handle = () => wrapper!.get('[data-testid="instrument-selector-trigger"]')
+    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
+
+    await wrapper.setProps({ currentInstrument: 'gm_acoustic_guitar_nylon' })
+    expect(handle().find('[data-testid="guitar-icon"]').exists()).toBe(true)
+    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(false)
+
+    await wrapper.setProps({ currentInstrument: 'gm_taiko_drum' })
+    expect(handle().find('[data-testid="drum-icon"]').exists()).toBe(true)
+
+    for (const instrument of ['gm_violin', 'gm_bassoon', 'gm_synth_bass_1', 'triangle', 'custom_sample']) {
+      await wrapper.setProps({ currentInstrument: instrument })
+      expect(handle().find('svg').exists()).toBe(false)
+      expect(handle().text()).toBe(instrument.replace(/^gm_/, ''))
+    }
+
+    await wrapper.setProps({ currentInstrument: 'gm_epiano1' })
+    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
   })
 
   it('loads registered sounds and renders grouped sound banks', async () => {
@@ -178,7 +197,7 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.emitted('close')).toEqual([[]])
   })
 
-  it('applies compact trigger styling and highlights the selected sound', async () => {
+  it('preserves instrument identity on the handle and highlights the selected sound', async () => {
     wrapper = await mountSelector({
       compact: true,
       currentInstrument: 'triangle',
@@ -187,7 +206,7 @@ describe('InstrumentSelector.vue', () => {
     const trigger = wrapper.find('[data-testid="instrument-selector-trigger"]')
     const selected = wrapper.find('[data-testid="instrument-option-triangle"]')
 
-    expect(trigger.classes()).toContain('max-w-[144px]')
+    expect(trigger.attributes('aria-label')).toBe('Instrument')
     expect(trigger.text()).toContain('triangle')
     expect(selected.classes()).toContain('border-[#8b8b8b]')
     expect(selected.classes()).toContain('bg-[#242424]')

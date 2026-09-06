@@ -435,14 +435,14 @@ export interface KeyboardConfig {
   /** Whether palette gradient effects are enabled */
   isEnabled: boolean;
 
+  /** Which note identity becomes the primary label */
+  primaryLabel: "syllable" | "degree" | "raw";
   /** Key gap style */
   keyGaps: "none" | "small" | "medium";
   /** Key border radius in pixels */
   keyShape: number;
   /** Presentation style for keys */
   surfaceStyle: "colored" | "monochrome" | "glassmorphism";
-  /** Key size multiplier */
-  keySize: number;
   /** Number of visible octave rows */
   rowCount: number;
   /** Main octave number */
@@ -467,12 +467,12 @@ export interface KeyboardConfig {
 }
 
 /**
- * Live strip presentation configuration
+ * CodeStrip presentation configuration
  */
-export interface LiveStripConfig {
-  /** Whether the token strip/code line is enabled */
+export interface CodeStripConfig {
+  /** Whether the CodeStrip-backed Strudel mirror is enabled */
   enabled: boolean;
-  /** Supplemental strip opacity */
+  /** Mirror presentation opacity */
   opacity: number;
   /** Playback tempo in beats per minute */
   bpm: number;
@@ -480,8 +480,6 @@ export interface LiveStripConfig {
   notation: "solfege" | "note" | "degree";
   /** Whether to show rest tokens */
   showRests: boolean;
-  /** Whether to show the compact code line */
-  showStrudelLine: boolean;
 }
 
 /**
@@ -541,6 +539,6 @@ export interface VisualEffectsConfig {
   patterns: PatternConfig;
   /** Keyboard styling configuration */
   keyboard: KeyboardConfig;
-  /** Live strip presentation configuration */
-  liveStrip: LiveStripConfig;
+  /** CodeStrip presentation configuration */
+  codeStrip: CodeStripConfig;
 }

@@ -19,6 +19,7 @@ export interface TabbedOverlayTab {
 }
 
 interface Props {
+  embedded?: boolean;
   modelValue: string;
   tabs: TabbedOverlayTab[];
   width?: string;
@@ -42,6 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   "update:modelValue": [value: string];
+  contentHeight: [height: number];
 }>();
 
 const activeValue = computed({
@@ -67,8 +69,10 @@ const tabTriggerToneClass = (tone: TabbedOverlayTone) =>
 </script>
 
 <template>
-  <Tabs :value="activeValue" @update:value="activeValue = $event">
+  <Tabs :class="{ 'h-full min-h-0': embedded }" :value="activeValue" @update:value="activeValue = $event">
     <OverlayPanelShell
+      :embedded="embedded"
+      @content-height="emit('contentHeight', $event)"
       :width="width"
       :height="height"
       :max-height="maxHeight"

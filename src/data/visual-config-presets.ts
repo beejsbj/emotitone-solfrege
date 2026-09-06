@@ -246,11 +246,10 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         rowCount: 2,
         keyboardPadding: true,
       },
-      liveStrip: {
+      codeStrip: {
         enabled: true,
         notation: "solfege",
         showRests: true,
-        showStrudelLine: false,
       },
     }
   ),

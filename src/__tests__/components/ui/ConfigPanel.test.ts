@@ -24,7 +24,7 @@ const visualConfigStore = reactive({
       mainOctave: 4,
       rowCount: 3,
     },
-    liveStrip: {
+    codeStrip: {
       bpm: 120,
     },
   },
@@ -62,8 +62,9 @@ vi.mock("@/stores/music", () => ({
 
 vi.mock("@/components/TopDrawer.vue", () => ({
   default: {
-    template:
-      '<div data-testid="top-drawer"><slot name="trigger" :open="open" :close="close" :is-open="isOpen" /></div>',
+    props: ['handleTestId', 'ariaLabel'],
+    template: '<div data-testid="top-drawer"><button :data-testid="handleTestId" :aria-label="ariaLabel"><slot name="icon" /><slot name="status" /></button><section data-testid="panel"><slot name="panel" :close="close" /></section></div>',
+
     setup() {
       return {
         isOpen: false,
@@ -74,8 +75,16 @@ vi.mock("@/components/TopDrawer.vue", () => ({
   },
 }));
 
-vi.mock("../../../components/knobs", () => ({
-  Knob: {
+
+vi.mock("@/components/TabbedOverlayPanel.vue", () => ({
+  default: {
+    props: ["modelValue"],
+    template: '<div :data-tab="modelValue"><slot name="header" /></div>',
+  },
+}));
+
+vi.mock("@/components/primatives/Knob/index.vue", () => ({
+  default: {
     template: '<div data-testid="mock-knob"></div>',
   },
 }));
@@ -151,7 +160,9 @@ describe("ConfigPanel.vue", () => {
     const trigger = wrapper.find('[data-testid="config-midi-trigger"]');
 
     expect(trigger.exists()).toBe(true);
-    expect(trigger.text().trim()).toBe("");
+    expect(wrapper.get('[data-testid="panel"]').find('[data-testid="config-midi-trigger"]').exists()).toBe(true);
+    await trigger.trigger("click");
+    expect(wrapper.find("[data-tab]").attributes("data-tab")).toBe("midi");
     expect(trigger.attributes("aria-label")).toContain(
       "Open MIDI and ROLI controls"
     );

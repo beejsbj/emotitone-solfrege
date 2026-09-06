@@ -1,140 +1,91 @@
 <template>
-  <div ref="drawerRef" :class="drawerClasses" :style="drawerStyles">
-    <!-- Action bar with controls -->
-    <div class="absolute top-0 -translate-y-full left-0 right-0 grid min-w-0">
+  <Drawer
+    :model-value="store.drawer.isOpen"
+    fixed
+    anchor="bottom"
+    handle-align="center"
+    accessible-name="Keyboard"
+    handle-test-id="keyboard-drawer-handle"
+    storage-key="keyboard"
+    :initial-content-height="initialKeyboardHeight"
+    :min-content-height="minimumHeight"
+    :scroll="false"
+    @update:model-value="updateDrawerOpen"
+  >
+    <template #icon><KeyboardIcon /></template>
+    <template #persistent>
       <PatternList />
-      <LiveCard />
-      <KeyboardActionBar />
-    </div>
-
-    <!-- Keyboard grid -->
-    <div :class="keyboardGridClasses" :style="keyboardGridStyles">
-      <!-- Inner wrapper for padding -->
-      <div :class="keyboardWrapperClasses">
-        <!-- Solfège keys organized in octave rows -->
-        <div
-          v-for="octave in store.visibleOctaves"
-          :key="`octave-${octave}`"
-          :class="octaveRowClasses(octave)"
-        >
-          <template
-            v-for="(solfege, index) in store.solfegeData"
-            :key="`${solfege.intervalName ?? solfege.name}-${index}-${octave}`"
-          >
-            <KeyboardKey
-              :solfege="solfege"
-              :octave="octave"
-              :solfege-index="index"
-              :is-main-octave="octave === store.keyboardConfig.mainOctave"
-              class="flex-1 min-w-0"
-            />
-          </template>
-        </div>
-      </div>
-    </div>
-  </div>
+      <CodeStripBar
+        :is-playing="isPlaying"
+        :play-disabled="!hasPlayableCode"
+        haptic
+        @toggle-playback="toggleSketchPlayback"
+        @backspace="patternsStore.removeLastFromCurrentSketch()"
+        @return="patternsStore.sendCurrentPattern()"
+      />
+      <ControlBar
+        :key-value="musicStore.currentKey"
+        :mode-value="musicStore.currentMode"
+        :bpm="visualConfigStore.config.codeStrip.bpm"
+        :octave="store.keyboardConfig.mainOctave"
+        :rows="store.keyboardConfig.rowCount"
+        @update:key-value="musicStore.setKey"
+        @update:mode-value="updateMode"
+        @update:bpm="updateBpm"
+        @update:octave="store.setMainOctave"
+        @update:rows="store.setRowCount"
+      />
+    </template>
+    <template #default="{ height }">
+      <Keyboard :available-height="height" />
+    </template>
+  </Drawer>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { computed } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { useKeyboardDrawer } from "@/composables/useKeyboardDrawer";
-import { useKeyboardControls } from "@/composables/useKeyboardControls";
-import KeyboardActionBar from "./keyboard/KeyboardActionBar.vue";
-import LiveCard from "@/components/patterns/LiveCard.vue";
+import { useMusicStore } from "@/stores/music";
+import { usePatternsStore } from "@/stores/patterns";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import Drawer from "@/components/uniques/Drawer/index.vue";
+import { Keyboard as KeyboardIcon } from "lucide-vue-next";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import ControlBar from "@/components/compounds/ControlBar.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
-import KeyboardKey from "./keyboard/KeyboardKey.vue";
-
-// Component refs
-const drawerRef = ref<HTMLElement | null>(null);
+import Keyboard from "@/components/compounds/Keyboard.vue";
+import { minimumKeyboardHeight, defaultKeyboardHeight } from "@/components/compounds/keyboardSizing";
+import type { MusicalMode } from "@/types/music";
 
 // Store
 const store = useKeyboardDrawerStore();
+const musicStore = useMusicStore();
+const patternsStore = usePatternsStore();
+const visualConfigStore = useVisualConfigStore();
+const { toggle, isPlaying, hasPlayableCode } = useCodeStripStrudel();
 
-// Drawer behavior composable
-const { animateDrawer } = useKeyboardDrawer(drawerRef) as any;
+async function toggleSketchPlayback() {
+  if (!hasPlayableCode.value) return;
+  await toggle();
+}
 
-// Physical keyboard controls integration
-useKeyboardControls(computed(() => store.keyboardConfig.mainOctave));
+function updateMode(mode: string) {
+  musicStore.setMode(mode as MusicalMode);
+}
 
-// Styling computations
-const drawerClasses = computed(() => {
-  const baseClasses = [
-    // Visual styling
-    "bg-black/90 backdrop-blur-xl",
-    "border-t border-white/10 shadow-2xl",
-    // Performance optimizations
-    "contain-layout will-change-transform",
-  ];
+function updateBpm(bpm: number) {
+  visualConfigStore.updateConfig("codeStrip", { bpm });
+}
 
-  const stateClasses = [];
-  if (store.drawer.isOpen) {
-    // GSAP will handle the actual animation
-    stateClasses.push("drawer-open");
-  }
+function updateDrawerOpen(isOpen: boolean) {
+  if (isOpen) store.openDrawer();
+  else store.closeDrawer();
+}
 
-  return [...baseClasses, ...stateClasses];
-});
-
-const drawerStyles = computed(() => ({
-  // Height is natural based on keys/rows; we still expose key-size var
-  "--key-size": store.keyboardConfig.keySize,
-}));
-
-const keyboardGridClasses = computed(() => [
-  // Layout
-  "flex flex-col flex-1",
-  // Position so we can slide the whole keys section
-  "relative",
-  // Overflow
-  "overflow-y-auto overflow-x-hidden",
-  // Scroll behavior
-  "scroll-smooth",
-]);
-
-const keyboardWrapperClasses = computed(() => [
-  // Layout
-  "flex flex-col flex-1",
-  // Padding if enabled
-  store.keyboardConfig.keyboardPadding ? "p-1" : "",
-]);
-
-const keyboardGridStyles = computed(() => {
-  const config = store.keyboardConfig;
-  const gapMap = {
-    none: "0",
-    small: "0.125rem",
-    medium: "0.25rem",
-  };
-
-  return {
-    gap: gapMap[config.keyGaps] || "0.125rem",
-  };
-});
-
-const octaveRowClasses = (octave: number) => {
-  const baseClasses = [
-    // Layout
-    "flex justify-center items-stretch",
-    // Sizing
-    "flex-shrink-0",
-  ];
-
-  const gapClasses =
-    {
-      none: "gap-0",
-      small: "gap-0.5",
-      medium: "gap-1",
-    }[store.keyboardConfig.keyGaps] || "gap-0.5";
-
-  return [...baseClasses, gapClasses];
-};
-
-// Initialize drawer with default state on mount
-onMounted(() => {
-  // Ensure the drawer reflects current store state immediately
-  animateDrawer && animateDrawer(true);
-});
+const rowCount = computed(() => store.visibleOctaves?.length ?? store.keyboardConfig.rowCount);
+const minimumHeight = computed(() => minimumKeyboardHeight(rowCount.value));
+const initialKeyboardHeight = computed(() => defaultKeyboardHeight(rowCount.value));
 
 // Expose methods for external control if needed
 defineExpose({
@@ -144,57 +95,3 @@ defineExpose({
   store,
 });
 </script>
-
-<style scoped>
-/* Vendor-specific optimizations */
-
-/* Touch optimizations */
-div[ref="drawerRef"] {
-  touch-action: manipulation;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* The handle is visual only now */
-div[ref="drawerRef"] > div:first-child {
-  touch-action: manipulation;
-}
-
-/* Webkit-specific scrolling optimization */
-.overflow-y-auto {
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Responsive adjustments */
-@media (max-width: 480px) {
-  div[ref="drawerRef"] {
-    max-height: 85vh !important;
-  }
-}
-
-@media (orientation: landscape) and (max-height: 500px) {
-  div[ref="drawerRef"] {
-    max-height: 90vh !important;
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  .scroll-smooth {
-    scroll-behavior: auto !important;
-  }
-}
-
-/* Focus visible improvements for accessibility */
-div[ref="drawerRef"]:focus-within {
-  outline: 2px solid rgba(96, 165, 250, 0.3);
-  outline-offset: 2px;
-}
-
-/* Print styles */
-@media print {
-  div[ref="drawerRef"] {
-    display: none !important;
-  }
-}
-</style>

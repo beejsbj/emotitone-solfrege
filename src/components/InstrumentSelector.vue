@@ -2,13 +2,16 @@
 import { computed, onMounted, ref } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
-import { IconButton } from "@/components/ui";
+import Button from "@/components/primatives/Button.vue";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
   type TabbedOverlayTone,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
-import { ChevronDown, Search, X } from "lucide-vue-next";
+import { Search, X } from "lucide-vue-next";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
+
+const drawerContentHeight = ref<number>();
 
 interface Props {
   currentInstrument?: string;
@@ -32,6 +35,7 @@ const instrumentStore = useInstrumentStore();
 const currentInstrumentId = computed(
   () => props.currentInstrument || instrumentStore.currentInstrument
 );
+const instrumentIcon = computed(() => instrumentIconFor(currentInstrumentId.value));
 
 const allSounds = ref<string[]>([]);
 const query = ref("");
@@ -320,8 +324,6 @@ function groupSounds(sounds: string[]) {
   return map;
 }
 
-const panelWidth = "min(46rem, calc(100vw - 1.5rem))";
-const panelHeight = "min(62vh, 36rem)";
 
 type PanelTone = Extract<TabbedOverlayTone, "amber" | "red" | "violet" | "cream">;
 type PanelTab = "all" | Category;
@@ -452,47 +454,23 @@ function selectInstrument(name: string, close: () => void) {
 <template>
   <TopDrawer
     anchor="top-left"
-    offset-top="0.75rem"
-    offset-side="0.75rem"
+    :content-height="drawerContentHeight"
+    aria-label="Instrument"
+    :handle-label="displayName(currentInstrumentId)"
+    handle-test-id="instrument-selector-trigger"
   >
-    <template #trigger="{ open }">
-      <button
-        data-testid="instrument-selector-trigger"
-        @click="open"
-        :class="[
-          'group flex items-center gap-2 border border-[#4a4a4a]/80 bg-[#090909]/88 text-[#d2d2d2] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]',
-          compact ? 'max-w-[144px] px-[9px] py-1.5 text-[9px]' : 'max-w-[208px] px-[11px] py-[7px] text-[10px]',
-        ]"
-      >
-        <span
-          class="relative flex h-5 w-6 shrink-0 items-center justify-center border border-[#444444] bg-[#121212]/85 text-[#d2d2d2] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]"
-        >
-          <span class="absolute inset-y-[4px] left-[6px] w-px bg-current/90" />
-          <span class="absolute inset-y-[2px] left-[10px] w-px bg-current/90" />
-          <span class="absolute inset-y-[4px] left-[14px] w-px bg-current/90" />
-        </span>
-
-        <span
-          class="truncate font-mono leading-none text-[#e5e5e5] transition-colors duration-200 group-hover:text-white"
-          :class="compact ? 'max-w-[82px]' : 'max-w-[126px]'"
-        >
-          {{ displayName(currentInstrumentId) }}
-        </span>
-        <ChevronDown
-          :size="compact ? 12 : 14"
-          class="shrink-0 text-[#a8a8a8] transition-transform duration-200 group-hover:translate-y-[1px] group-hover:text-white"
-        />
-      </button>
-    </template>
+    <template v-if="instrumentIcon" #icon><component :is="instrumentIcon" /></template>
 
     <template #panel="{ close }">
       <TabbedOverlayPanel
+        @content-height="drawerContentHeight = $event"
         v-model="activeTab"
         :tabs="allTabs"
         tab-test-id-prefix="instrument-tab"
-        :width="panelWidth"
-        :height="panelHeight"
-        :max-height="panelHeight"
+        embedded
+        width="100%"
+        height="100%"
+        max-height="100%"
         body-class="px-3 py-3"
       >
         <template #header>
@@ -520,14 +498,13 @@ function selectInstrument(name: string, close: () => void) {
                 {{ visibleSoundCount }}
               </span>
 
-              <IconButton
+              <Button
                 title="Close sounds"
-                aria-label="Close sounds"
-                tone="red"
+                accessible-name="Close sounds"
                 @click="close"
               >
                 <X :size="14" />
-              </IconButton>
+              </Button>
             </div>
           </div>
         </template>

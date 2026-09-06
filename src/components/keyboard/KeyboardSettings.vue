@@ -34,20 +34,6 @@
           />
         </div>
 
-        <!-- Key Size -->
-        <div class="control-group">
-          <Knob
-            :model-value="keyboardConfig.keySize"
-            type="range"
-            label="Key Size"
-            :min="0.6"
-            :max="1.8"
-            :step="0.1"
-            :format="(v: number) => `${v}x`"
-            @update:modelValue="updateConfig('keySize', $event)"
-          />
-        </div>
-
         <!-- Key Gaps -->
         <div class="control-group">
           <Knob
@@ -179,7 +165,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { Knob } from "@/components/knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 
 const store = useKeyboardDrawerStore();
 const keyboardConfig = computed(() => store.keyboardConfig);

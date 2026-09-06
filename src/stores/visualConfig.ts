@@ -25,6 +25,7 @@ type LegacyKeyboardConfig = Partial<VisualEffectsConfig["keyboard"]> & {
 type LegacyVisualEffectsConfig = Partial<VisualEffectsConfig> & {
   dynamicColors?: LegacyDynamicColors;
   keyboard?: LegacyKeyboardConfig;
+  liveStrip?: Partial<VisualEffectsConfig["codeStrip"]>;
 };
 
 function cloneDefaultConfig(): VisualEffectsConfig {
@@ -73,10 +74,14 @@ function migrateVisualConfig(
     return migratedConfig;
   }
 
+  const legacyConfig = rawConfig as LegacyVisualEffectsConfig;
+
   for (const sectionName of Object.keys(
     migratedConfig
   ) as Array<keyof VisualEffectsConfig>) {
-    const incomingSection = rawConfig[sectionName];
+    const incomingSection = sectionName === "codeStrip"
+      ? rawConfig.codeStrip ?? legacyConfig.liveStrip
+      : rawConfig[sectionName];
     const defaultSection = migratedConfig[sectionName];
 
     if (!isRecord(incomingSection) || !isRecord(defaultSection)) {

@@ -139,7 +139,7 @@ describe("Patterns Store", () => {
     setActivePinia(createTestPinia());
     visualConfigStore = useVisualConfigStore();
     patternsStore = usePatternsStore();
-    visualConfigStore.updateConfig("liveStrip", { bpm: 120 });
+    visualConfigStore.updateConfig("codeStrip", { bpm: 120 });
     patternsStore.clearAllNotes();
     patternsStore.savedPatterns = [];
   });
@@ -335,7 +335,7 @@ describe("Patterns Store", () => {
     ]);
 
     dispatchLoggedNote(patternsStore, "note-a", "C4", 0);
-    visualConfigStore.updateConfig("liveStrip", { bpm: 90 });
+    visualConfigStore.updateConfig("codeStrip", { bpm: 90 });
     dispatchLoggedNote(patternsStore, "note-b", "D4", 1);
 
     expect(patternsStore.loggedNotes[0]?.bpm).toBe(120);
@@ -374,7 +374,7 @@ describe("Patterns Store", () => {
     patternsStore.savedPatterns.push(pattern);
     patternsStore.loadPatternAsBase(pattern.id);
 
-    visualConfigStore.updateConfig("liveStrip", { bpm: 90 });
+    visualConfigStore.updateConfig("codeStrip", { bpm: 90 });
 
     sequenceDateNow(dateNowSpy, [
       1000,

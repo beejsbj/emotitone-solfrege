@@ -1,46 +1,24 @@
 <template>
-  <TopDrawer anchor="top-right" offset-top="0.75rem" offset-side="0.75rem">
-    <template #trigger="{ open }">
-      <div class="flex flex-col items-end gap-1.5">
-        <button
-          data-testid="config-panel-trigger"
-          @click="openSettingsPanel(open)"
-          class="group relative flex h-10 w-10 items-center justify-center border border-[#4a4a4a]/80 bg-[#090909]/88 text-[#d2d2d2] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]"
-          :aria-label="midiTriggerLabel"
-          :title="midiTriggerLabel"
-        >
-          <span
-            class="absolute right-[5px] top-[5px] h-2.5 w-2.5 rounded-full border border-[#050504]/80 transition-all duration-200"
-            :class="midiLedToneClass"
-          />
-          <Settings :size="15" class="shrink-0 transition-transform duration-200 group-hover:rotate-[10deg]" />
-        </button>
-
-        <Transition name="config-midi-chip">
-          <button
-            v-if="showMidiShortcut"
-            data-testid="config-midi-trigger"
-            @click.stop="openMidiPanel(open)"
-            class="group flex h-7 w-7 items-center justify-center self-end overflow-hidden border border-[#444444]/85 bg-[#090909]/88 text-[#cfcfcf] shadow-[0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_7px,7px_0,calc(100%-7px)_0,100%_7px,100%_100%,0_100%)]"
-            :aria-label="midiTriggerLabel"
-            :title="midiTriggerLabel"
-          >
-            <MidiPermissionIcon
-              class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:translate-y-[-1px]"
-            />
-          </button>
-        </Transition>
-      </div>
+  <TopDrawer
+    anchor="top-right"
+    :content-height="drawerContentHeight"
+    :aria-label="midiTriggerLabel"
+    handle-test-id="config-panel-trigger"
+  >
+    <template #icon>
+      <span class="flex" :title="midiTriggerLabel"><MidiSettingsIcon :state="midiStatusState" /></span>
     </template>
 
     <template #panel="{ close }">
       <TabbedOverlayPanel
+        @content-height="drawerContentHeight = $event"
         v-model="activeTab"
         :tabs="allTabs"
         tab-test-id-prefix="config-tab"
-        width="min(46rem, calc(100vw - 1.5rem))"
-        height="min(54vh, 34rem)"
-        max-height="min(54vh, 34rem)"
+        embedded
+        width="100%"
+        height="100%"
+        max-height="100%"
         body-class="px-3 py-3"
         inactive-tab-width-class="min-w-[3.6rem] max-w-[3.6rem]"
       >
@@ -52,8 +30,19 @@
             </div>
 
             <div class="ml-auto flex shrink-0 items-center gap-1">
-              <IconButton
+              <Button
+                v-if="showMidiShortcut"
+                data-testid="config-midi-trigger"
+                :accessible-name="midiTriggerLabel"
+                :title="midiTriggerLabel"
+                @click="activeTab = MIDI_TAB.value"
+              ><MidiPermissionIcon /></Button>
+              <Knob
                 v-if="activeSectionName && activeSectionHasToggle"
+                type="boolean"
+                :model-value="activeSectionEnabled"
+                label="Section"
+                class="config-panel__boolean-knob"
                 :data-testid="`section-toggle-${activeSectionName}`"
                 :title="
                   activeSectionEnabled
@@ -65,72 +54,64 @@
                     ? `Disable ${activeTabMeta.label}`
                     : `Enable ${activeTabMeta.label}`
                 "
-                @click="toggleSectionEnabled(activeSectionName)"
-                :tone="activeSectionEnabled ? 'green' : 'neutral'"
-              >
-                <ToggleRight v-if="activeSectionEnabled" :size="14" />
-                <ToggleLeft v-else :size="14" />
-              </IconButton>
+                @update:modelValue="toggleSectionEnabled(activeSectionName)"
+              />
 
-              <IconButton
+              <Button
                 v-if="activeSectionName"
                 :data-testid="`section-reset-${activeSectionName}`"
                 :title="`Reset ${activeTabMeta.label}`"
-                :aria-label="`Reset ${activeTabMeta.label}`"
+                :accessible-name="`Reset ${activeTabMeta.label}`"
                 @click="resetSectionToDefaults(activeSectionName)"
-                tone="amber"
               >
                 <RotateCcw :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Knob
                 data-testid="config-panel-global-toggle"
+                type="boolean"
+                :model-value="visualsEnabled"
+                label="Visuals"
+                class="config-panel__boolean-knob"
                 :title="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
                 :aria-label="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
-                @click="setVisualsEnabled(!visualsEnabled)"
-                :tone="visualsEnabled ? 'green' : 'red'"
-              >
-                <Power :size="14" />
-              </IconButton>
+                @update:modelValue="setVisualsEnabled(Boolean($event))"
+              />
 
-              <IconButton
+              <Button
                 data-testid="config-reset-all"
                 title="Reset all settings"
-                aria-label="Reset all settings"
+                accessible-name="Reset all settings"
                 @click="resetToDefaults"
-                tone="cream"
               >
                 <RefreshCw :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Button
                 data-testid="config-export"
                 title="Export configuration"
-                aria-label="Export configuration"
+                accessible-name="Export configuration"
                 @click="exportConfig"
-                tone="neutral"
               >
                 <Download :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Button
                 data-testid="config-save-as"
                 title="Save configuration"
-                aria-label="Save configuration"
+                accessible-name="Save configuration"
                 @click="promptSaveConfig"
-                tone="violet"
               >
                 <Save :size="14" />
-              </IconButton>
+              </Button>
 
-              <IconButton
+              <Button
                 title="Close settings"
-                aria-label="Close settings"
+                accessible-name="Close settings"
                 @click="close"
-                tone="red"
               >
                 <X :size="14" />
-              </IconButton>
+              </Button>
             </div>
           </div>
         </template>
@@ -441,6 +422,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import { storeToRefs } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -449,27 +431,26 @@ import { CONFIG_SECTIONS, UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
 import type { ChromaticNote } from "@/types";
 import type { VisualEffectsConfig } from "@/types/visual";
-import { TabsContent, IconButton } from "@/components/ui";
-import { Knob } from "./knobs";
+import { TabsContent } from "@/components/ui";
+import Button from "@/components/primatives/Button.vue";
+import Knob from "@/components/primatives/Knob/index.vue";
 import MidiPermissionIcon from "./MidiPermissionIcon.vue";
 import TabbedOverlayPanel from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
 import {
-  Settings,
   X,
   RotateCcw,
   RefreshCw,
   Download,
   Save,
-  Power,
-  ToggleLeft,
-  ToggleRight,
 } from "lucide-vue-next";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
 import {
   isRoliMidiPortName,
   isVirtualMidiPortName,
 } from "@/services/roliLiveSync";
+
+const drawerContentHeight = ref<number>();
 
 type ConfigSectionKey = keyof VisualEffectsConfig;
 type PosterTone = "amber" | "red" | "violet" | "cream" | "green";
@@ -492,7 +473,7 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   beatingShapes: "Beat",
   patterns: "Notes",
   keyboard: "Keys",
-  liveStrip: "Strip",
+  codeStrip: "Code Strip",
 };
 
 const SECTION_TONES: PosterTone[] = [
@@ -546,7 +527,7 @@ const SECTION_ORDER: ConfigSectionKey[] = [
   "beatingShapes",
   "patterns",
   "keyboard",
-  "liveStrip",
+  "codeStrip",
 ];
 
 const visualConfigStore = useVisualConfigStore();
@@ -832,18 +813,6 @@ const midiTriggerLabel = computed(() => {
   return `Open settings. ${midiStatusHeadline.value}.`;
 });
 
-const midiLedToneClass = computed(
-  () =>
-    (
-      {
-        connected: "bg-[#d7d7d7] shadow-[0_0_10px_rgba(215,215,215,0.45)]",
-        connecting: "bg-[#bdbdbd] shadow-[0_0_10px_rgba(189,189,189,0.55)] animate-pulse",
-        error: "bg-[#8a8a8a] shadow-[0_0_10px_rgba(138,138,138,0.45)]",
-        idle: "bg-[#5e5e5e]",
-      } as const
-    )[midiStatusState.value]
-);
-
 const midiStatusBadgeClass = computed(
   () =>
     (
@@ -873,15 +842,6 @@ const roliSyncMessage = computed(() => {
 
   return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
 });
-
-const openSettingsPanel = (open: () => void) => {
-  open();
-};
-
-const openMidiPanel = (open: () => void) => {
-  activeTab.value = MIDI_TAB.value;
-  open();
-};
 
 const getFieldMetadata = (sectionName: ConfigSectionKey, fieldName: string) => {
   const section = UNIFIED_CONFIG[sectionName];
@@ -1038,6 +998,10 @@ const formatTimestamp = (timestamp: string) => {
 </script>
 
 <style scoped>
+.config-panel__boolean-knob {
+  --knob-size: 2rem;
+}
+
 .config-midi-chip-enter-active,
 .config-midi-chip-leave-active {
   transition:

@@ -8,7 +8,7 @@ import TabbedOverlayPanel, {
   type TabbedOverlayTone,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
-import { AudioLines, Search, X } from "lucide-vue-next";
+import { Piano, Search, X } from "lucide-vue-next";
 
 const drawerContentHeight = ref<number>();
 
@@ -457,7 +457,7 @@ function selectInstrument(name: string, close: () => void) {
     :handle-label="displayName(currentInstrumentId)"
     handle-test-id="instrument-selector-trigger"
   >
-    <template #icon><AudioLines /></template>
+    <template #icon><Piano /></template>
 
     <template #panel="{ close }">
       <TabbedOverlayPanel

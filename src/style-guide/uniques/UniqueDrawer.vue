@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { AudioLines, Keyboard as KeyboardIcon } from "lucide-vue-next";
+import { Piano, Keyboard as KeyboardIcon } from "lucide-vue-next";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
@@ -58,7 +58,7 @@ const tokens: CodeStripToken[] = [
           close-on-escape fit-content-on-open close-on-outside
           @update:model-value="top = $event ? 'instrument' : top === 'instrument' ? null : top"
         >
-          <template #icon><AudioLines /></template>
+          <template #icon><Piano /></template>
           <div class="drawer-specimen__panel">
             <h4>Instrument</h4>
             <p>Content scrolls as the available height shrinks.</p>

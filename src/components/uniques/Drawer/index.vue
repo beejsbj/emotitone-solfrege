@@ -397,6 +397,8 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   font: var(--t-label);
   /* Jazz glyphs extend below the label token's tight line box. */
   line-height: 20px;
+  /* Center Jazz’s visible strokes, rather than its asymmetric font box. */
+  transform: translateY(-2px);
 }
 .drawer__grip { flex: 0 0 8px; height: 2px; background: var(--ivory-4); }
 @media (hover: hover) and (pointer: fine) {

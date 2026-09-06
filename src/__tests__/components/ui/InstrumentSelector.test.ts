@@ -86,7 +86,7 @@ vi.mock('@/components/TopDrawer.vue', () => ({
 }))
 
 vi.mock('lucide-vue-next', () => ({
-  AudioLines: { template: '<svg data-testid="chevron-down-icon"></svg>' },
+  Piano: { template: '<svg data-testid="piano-icon"></svg>' },
   Search: { template: '<svg data-testid="search-icon"></svg>' },
   X: { template: '<svg data-testid="close-icon"></svg>' },
 }))

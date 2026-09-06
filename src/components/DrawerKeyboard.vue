@@ -18,8 +18,16 @@
       <CodeStripBar
         :is-playing="isPlaying"
         :play-disabled="!hasPlayableCode"
+        :humming-status="hummingStatus"
+        :humming-error="hummingError"
+        :humming-status-message="hummingStatusMessage"
+        :humming-take-count="hummingTakeCount"
+        :selected-humming-take="selectedHummingTake"
         haptic
         @toggle-playback="toggleSketchPlayback"
+        @toggle-humming="toggleHummingCapture"
+        @cancel-humming="cancelHummingCapture"
+        @select-humming-take="selectHummingTake"
         @backspace="patternsStore.removeLastFromCurrentSketch()"
         @return="patternsStore.sendCurrentPattern()"
       />
@@ -51,6 +59,7 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import { Keyboard as KeyboardIcon } from "lucide-vue-next";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import { useHummingCapture } from "@/composables/useHummingCapture";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
@@ -63,11 +72,37 @@ const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const patternsStore = usePatternsStore();
 const visualConfigStore = useVisualConfigStore();
-const { toggle, isPlaying, hasPlayableCode } = useCodeStripStrudel();
+const {
+  toggle,
+  stop: stopSketchPlayback,
+  isPlaying,
+  hasPlayableCode,
+} = useCodeStripStrudel();
+const {
+  status: hummingStatus,
+  error: hummingError,
+  statusMessage: hummingStatusMessage,
+  takeCount: hummingTakeCount,
+  selectedTakeIndex: selectedHummingTake,
+  toggle: toggleHumming,
+  cancel: cancelHumming,
+  selectTake: selectHummingTake,
+} = useHummingCapture();
 
 async function toggleSketchPlayback() {
   if (!hasPlayableCode.value) return;
   await toggle();
+}
+
+async function toggleHummingCapture() {
+  if (isPlaying.value && hummingStatus.value !== "recording") {
+    await stopSketchPlayback();
+  }
+  await toggleHumming();
+}
+
+async function cancelHummingCapture() {
+  await cancelHumming();
 }
 
 function updateMode(mode: string) {

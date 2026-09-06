@@ -32,13 +32,20 @@ describe("CodeStripBar.vue", () => {
     wrapper = undefined;
   });
 
-  it("composes icon-only Play, CodeStrip, Backspace, and Return in accepted order", () => {
+  it("composes Play, humming, CodeStrip, Backspace, and Return in accepted order", () => {
     wrapper = render();
 
     const labels = wrapper.findAll("button").map((button) => button.attributes("aria-label"));
-    expect(labels).toEqual(["Play", "Delete last event", "Return"]);
+    expect(labels).toEqual([
+      "Play",
+      "Start humming capture",
+      "Delete last event",
+      "Return",
+    ]);
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
-    expect(wrapper.text()).toBe("");
+    expect(wrapper.get('[role="status"]').text()).toBe(
+      "Ready to capture a hummed pattern",
+    );
   });
 
   it("integrates a flush, unframed dense CodeStrip into one shared instrument rail", () => {
@@ -81,10 +88,11 @@ describe("CodeStripBar.vue", () => {
     );
   });
 
-  it("uses brass for Play, ink for Backspace, and ivory for Return", () => {
+  it("uses brass for Play, ink for idle humming and Backspace, and ivory for Return", () => {
     wrapper = render();
 
     expect(wrapper.get('button[aria-label="Play"]').classes()).toContain("paper-button--brass");
+    expect(wrapper.get('button[aria-label="Start humming capture"]').classes()).toContain("paper-button--ink");
     expect(wrapper.get('button[aria-label="Delete last event"]').classes()).toContain("paper-button--ink");
     expect(wrapper.get('button[aria-label="Return"]').classes()).toContain("paper-button--ivory");
   });
@@ -97,15 +105,57 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
   });
 
-  it("emits the three existing action boundaries", async () => {
+  it("presents recording and analysis as accessible humming states", () => {
+    wrapper = render({
+      hummingStatus: "recording",
+      hummingStatusMessage: "Listening to your humming",
+    });
+
+    const stop = wrapper.get('button[aria-label="Stop humming capture"]');
+    expect(stop.attributes("aria-pressed")).toBeUndefined();
+    expect(stop.classes()).toContain("paper-button--brass");
+    expect(
+      wrapper.get('button[aria-label="Cancel humming capture"]').exists(),
+    ).toBe(true);
+    expect(wrapper.get('[role="status"]').text()).toBe("Listening to your humming");
+
+    wrapper.unmount();
+    wrapper = render({
+      hummingStatus: "analyzing",
+      hummingStatusMessage: "Melograph is analyzing the phrase",
+    });
+    const analyzing = wrapper.get('button[aria-label="Analyzing humming"]');
+    expect(analyzing.attributes("disabled")).toBeDefined();
+    expect(analyzing.attributes("aria-busy")).toBe("true");
+  });
+
+  it("selects between separate finalized humming takes", async () => {
+    wrapper = render({ hummingTakeCount: 3, selectedHummingTake: 0 });
+
+    await wrapper.get('select[aria-label="Hummed take"]').setValue("2");
+
+    expect(wrapper.emitted("selectHummingTake")).toEqual([[2]]);
+  });
+
+  it("emits the existing actions and the humming boundary", async () => {
     wrapper = render();
 
     await wrapper.get('button[aria-label="Play"]').trigger("click");
+    await wrapper.get('button[aria-label="Start humming capture"]').trigger("click");
     await wrapper.get('button[aria-label="Delete last event"]').trigger("click");
     await wrapper.get('button[aria-label="Return"]').trigger("click");
 
     expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
+    expect(wrapper.emitted("toggleHumming")).toHaveLength(1);
     expect(wrapper.emitted("backspace")).toHaveLength(1);
     expect(wrapper.emitted("return")).toHaveLength(1);
+  });
+
+  it("emits an explicit cancel boundary while humming is active", async () => {
+    wrapper = render({ hummingStatus: "recording" });
+
+    await wrapper.get('button[aria-label="Cancel humming capture"]').trigger("click");
+
+    expect(wrapper.emitted("cancelHumming")).toHaveLength(1);
   });
 });

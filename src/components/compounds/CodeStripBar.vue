@@ -1,18 +1,48 @@
 <template>
   <section class="code-strip-bar" aria-label="Pattern controls">
-    <Button
-      class="code-strip-bar__play"
-      size="sm"
-      tone="brass"
-      :haptic="haptic"
-      :disabled="playDisabled"
-      :accessible-name="isPlaying ? 'Stop' : 'Play'"
-      :title="isPlaying ? 'Stop' : 'Play'"
-      @click="emit('togglePlayback')"
-    >
-      <Square v-if="isPlaying" />
-      <Play v-else />
-    </Button>
+    <div class="code-strip-bar__left">
+      <Button
+        class="code-strip-bar__play"
+        size="sm"
+        tone="brass"
+        :haptic="haptic"
+        :disabled="playDisabled"
+        :accessible-name="isPlaying ? 'Stop' : 'Play'"
+        :title="isPlaying ? 'Stop' : 'Play'"
+        @click="emit('togglePlayback')"
+      >
+        <Square v-if="isPlaying" />
+        <Play v-else />
+      </Button>
+
+      <Button
+        class="code-strip-bar__humming"
+        size="sm"
+        :tone="hummingStatus === 'recording' ? 'brass' : 'ink'"
+        :haptic="haptic"
+        :loading="hummingLoading"
+        :disabled="hummingLoading"
+        :accessible-name="hummingButtonLabel"
+        :title="hummingButtonTitle"
+        @click="emit('toggleHumming')"
+      >
+        <Square v-if="hummingStatus === 'recording'" />
+        <Mic v-else />
+      </Button>
+
+      <Button
+        v-if="hummingCanCancel"
+        class="code-strip-bar__humming-cancel"
+        size="sm"
+        tone="ink"
+        :haptic="haptic"
+        accessible-name="Cancel humming capture"
+        title="Cancel humming capture"
+        @click="emit('cancelHumming')"
+      >
+        <X />
+      </Button>
+    </div>
 
     <div class="code-strip-bar__strip">
       <CodeStrip
@@ -27,6 +57,22 @@
     </div>
 
     <div class="code-strip-bar__right">
+      <select
+        v-if="hummingTakeCount > 1"
+        class="code-strip-bar__take-select"
+        aria-label="Hummed take"
+        :value="selectedHummingTake"
+        @change="handleTakeSelection"
+      >
+        <option
+          v-for="takeIndex in hummingTakeCount"
+          :key="takeIndex - 1"
+          :value="takeIndex - 1"
+        >
+          Take {{ takeIndex }}
+        </option>
+      </select>
+
       <Button
         size="sm"
         tone="ink"
@@ -49,20 +95,37 @@
         <CornerDownLeft />
       </Button>
     </div>
+
+    <output
+      class="code-strip-bar__status"
+      :role="hummingStatus === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      {{ hummingStatusMessage }}
+    </output>
   </section>
 </template>
 
 <script setup lang="ts">
-import { CornerDownLeft, Delete as BackspaceIcon, Play, Square } from "lucide-vue-next";
+import { computed } from "vue";
+import {
+  CornerDownLeft,
+  Delete as BackspaceIcon,
+  Mic,
+  Play,
+  Square,
+  X,
+} from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
+import type { HummingCaptureStatus } from "@/composables/useHummingCapture";
 import type {
   CodeStripDensity,
   CodeStripDurationMode,
   CodeStripToken,
 } from "@/components/uniques/CodeStrip/index.vue";
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     isPlaying?: boolean;
     playDisabled?: boolean;
@@ -73,6 +136,11 @@ withDefaults(
     durationMode?: CodeStripDurationMode;
     timeSignature?: string;
     ariaLabel?: string;
+    hummingStatus?: HummingCaptureStatus;
+    hummingError?: string | null;
+    hummingStatusMessage?: string;
+    hummingTakeCount?: number;
+    selectedHummingTake?: number;
   }>(),
   {
     isPlaying: false,
@@ -84,14 +152,52 @@ withDefaults(
     durationMode: "stacked",
     timeSignature: "4/4",
     ariaLabel: "Editable Strudel pattern",
+    hummingStatus: "idle",
+    hummingError: null,
+    hummingStatusMessage: "Ready to capture a hummed pattern",
+    hummingTakeCount: 0,
+    selectedHummingTake: 0,
   },
+);
+
+const hummingLoading = computed(() =>
+  ["requesting", "preparing", "analyzing"].includes(props.hummingStatus),
+);
+const hummingCanCancel = computed(() =>
+  ["requesting", "recording", "preparing", "analyzing"].includes(
+    props.hummingStatus,
+  ),
+);
+
+const hummingButtonLabel = computed(() => {
+  if (props.hummingStatus === "recording") return "Stop humming capture";
+  if (props.hummingStatus === "error") return "Retry humming capture";
+  if (props.hummingStatus === "requesting") return "Requesting microphone";
+  if (["preparing", "analyzing"].includes(props.hummingStatus)) {
+    return "Analyzing humming";
+  }
+  return "Start humming capture";
+});
+
+const hummingButtonTitle = computed(() =>
+  props.hummingError ?? hummingButtonLabel.value,
 );
 
 const emit = defineEmits<{
   togglePlayback: [];
+  toggleHumming: [];
+  cancelHumming: [];
+  selectHummingTake: [index: number];
   backspace: [];
   return: [];
 }>();
+
+function handleTakeSelection(event: Event) {
+  emit(
+    "selectHummingTake",
+    Number((event.target as HTMLSelectElement).value),
+  );
+}
 </script>
 
 <style scoped>
@@ -118,9 +224,39 @@ const emit = defineEmits<{
   min-width: 0;
 }
 
+.code-strip-bar__left,
 .code-strip-bar__right {
   display: flex;
   align-items: center;
   gap: var(--s-3);
+}
+
+.code-strip-bar__right {
+  min-width: 0;
+}
+
+.code-strip-bar__take-select {
+  min-width: 0;
+  max-width: 72px;
+  height: 24px;
+  padding: 0 var(--s-3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  background: var(--ink-3);
+  color: var(--ivory-2);
+  font: inherit;
+  font-size: 9px;
+}
+
+.code-strip-bar__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

@@ -6,8 +6,17 @@ const mocks = vi.hoisted(() => ({
   removeLastFromCurrentSketch: vi.fn(),
   sendCurrentPattern: vi.fn(),
   toggle: vi.fn(),
+  stop: vi.fn(),
+  toggleHumming: vi.fn(),
+  cancelHumming: vi.fn(),
+  selectHummingTake: vi.fn(),
   isPlaying: { value: false, __v_isRef: true },
   hasPlayableCode: { value: true, __v_isRef: true },
+  hummingStatus: { value: "idle", __v_isRef: true },
+  hummingError: { value: null, __v_isRef: true },
+  hummingStatusMessage: { value: "Ready", __v_isRef: true },
+  hummingTakeCount: { value: 0, __v_isRef: true },
+  selectedHummingTake: { value: 0, __v_isRef: true },
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
   setMode: vi.fn(),
@@ -57,15 +66,43 @@ vi.mock("@/stores/patterns", () => ({
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: () => ({
     toggle: mocks.toggle,
+    stop: mocks.stop,
     isPlaying: mocks.isPlaying,
     hasPlayableCode: mocks.hasPlayableCode,
+  }),
+}));
+
+vi.mock("@/composables/useHummingCapture", () => ({
+  useHummingCapture: () => ({
+    status: mocks.hummingStatus,
+    error: mocks.hummingError,
+    statusMessage: mocks.hummingStatusMessage,
+    takeCount: mocks.hummingTakeCount,
+    selectedTakeIndex: mocks.selectedHummingTake,
+    toggle: mocks.toggleHumming,
+    cancel: mocks.cancelHumming,
+    selectTake: mocks.selectHummingTake,
   }),
 }));
 
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
-    emits: ["togglePlayback", "backspace", "return"],
+    props: [
+      "hummingStatus",
+      "hummingError",
+      "hummingStatusMessage",
+      "hummingTakeCount",
+      "selectedHummingTake",
+    ],
+    emits: [
+      "togglePlayback",
+      "toggleHumming",
+      "cancelHumming",
+      "selectHummingTake",
+      "backspace",
+      "return",
+    ],
     template: '<div data-testid="code-strip-bar" />',
   },
 }));
@@ -98,6 +135,35 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
     mocks.hasPlayableCode.value = true;
+    mocks.hummingStatus.value = "idle";
+  });
+
+  it("stops Strudel before starting humming and wires take selection", async () => {
+    mocks.isPlaying.value = true;
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const actions = wrapper.getComponent({ name: "CodeStripBar" });
+
+    actions.vm.$emit("toggleHumming");
+    actions.vm.$emit("cancelHumming");
+    actions.vm.$emit("selectHummingTake", 1);
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.stop).toHaveBeenCalledTimes(1);
+    expect(mocks.toggleHumming).toHaveBeenCalledTimes(1);
+    expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
+    expect(mocks.stop.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.toggleHumming.mock.invocationCallOrder[0],
+    );
+    expect(mocks.selectHummingTake).toHaveBeenCalledWith(1);
+    wrapper.unmount();
   });
 
   it("preserves playback, remove-last, and commit-and-clear behavior", async () => {

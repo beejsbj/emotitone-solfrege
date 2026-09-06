@@ -39,6 +39,7 @@ import {
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { useInstrumentStore } from "@/stores/instrument";
 import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote } from "@/types/patterns";
@@ -97,6 +98,7 @@ const props = withDefaults(
 
 const EMPTY_EDITOR_CODE = "// Record a pattern";
 const isControlled = computed(() => props.tokens !== undefined || props.source !== undefined);
+const instrumentStore = useInstrumentStore();
 const patternsStore = usePatternsStore();
 const visualConfigStore = useVisualConfigStore();
 const appContext = getCurrentInstance()?.appContext;
@@ -220,6 +222,7 @@ function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
 }
 
 async function evaluateMirror(instance: StrudelMirrorInstance) {
+  if (instrumentStore.isInteractionLocked) return;
   reconcileMirrorRuntimeCode(instance);
   const editor = getMirrorView(instance);
   if (editor) setCodeStripPlaying(editor, true);
@@ -298,6 +301,19 @@ function stopFollow() {
   followLastFrameTime = null;
   if (followLoopFrame != null) cancelAnimationFrame(followLoopFrame);
   followLoopFrame = null;
+}
+
+async function stopMirrorForWarmup(instance: StrudelMirrorInstance) {
+  const editor = getMirrorView(instance);
+  if (editor) setCodeStripPlaying(editor, false);
+
+  try {
+    await instance.stop();
+  } finally {
+    setPlaying(false);
+    stopFollow();
+    stopStrudelVisuals();
+  }
 }
 
 function startFollowScroll(scroller: HTMLElement, target: number) {
@@ -400,6 +416,10 @@ async function initializeStrudelMirror() {
       void nextTick(followActivePlayback);
     },
     onToggle: (started: boolean) => {
+      if (started && instrumentStore.isInteractionLocked) {
+        void stopMirrorForWarmup(instance);
+        return;
+      }
       setPlaying(started);
       followPlaybackActive = started;
       const view = getMirrorView(instance);
@@ -411,6 +431,18 @@ async function initializeStrudelMirror() {
     },
   }) as StrudelMirrorInstance);
   mirror.value = instance;
+
+  // StrudelMirror owns editor shortcuts as well as the public controller.
+  // Guard its evaluation method so every playback entry point respects sample
+  // warmup, including evaluations already pending when the lock begins.
+  const evaluate = instance.evaluate.bind(instance);
+  instance.evaluate = async () => {
+    if (instrumentStore.isInteractionLocked) return;
+    await evaluate();
+    if (instrumentStore.isInteractionLocked) {
+      await stopMirrorForWarmup(instance);
+    }
+  };
 
   instance.updateSettings?.({
     fontSize: 13,
@@ -457,6 +489,16 @@ async function initializeStrudelMirror() {
   };
   attachEditor(attachedController, generatedCode.value);
 }
+
+watch(
+  () => instrumentStore.isInteractionLocked,
+  (isLocked) => {
+    if (isLocked && mirror.value) {
+      void stopMirrorForWarmup(mirror.value);
+    }
+  },
+  { flush: "sync" },
+);
 
 onMounted(async () => {
   try {

@@ -845,6 +845,16 @@ export function useMidiControls() {
     }
   );
 
+  watch(
+    () => instrumentStore.isInteractionLocked,
+    (isLocked) => {
+      if (isLocked) {
+        releaseMidiNotes();
+      }
+    },
+    { flush: "sync" }
+  );
+
   onMounted(() => {
     installDevMidiSimulator();
     keyboardDrawerStore.refreshMidiSupport();

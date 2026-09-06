@@ -74,6 +74,7 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
+    props: ["isPlaying", "playDisabled"],
     emits: ["togglePlayback", "backspace", "return"],
     template: '<div data-testid="code-strip-bar" />',
   },
@@ -148,6 +149,27 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     });
 
     wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.toggle).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("disables and ignores pattern playback while samples are warming", async () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const actions = wrapper.getComponent({ name: "CodeStripBar" });
+
+    expect(actions.props("playDisabled")).toBe(true);
+    actions.vm.$emit("togglePlayback");
     await wrapper.vm.$nextTick();
 
     expect(mocks.toggle).not.toHaveBeenCalled();

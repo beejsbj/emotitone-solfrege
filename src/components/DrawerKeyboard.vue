@@ -17,7 +17,7 @@
       <PatternList />
       <CodeStripBar
         :is-playing="isPlaying"
-        :play-disabled="!hasPlayableCode"
+        :play-disabled="!hasPlayableCode || (instrumentStore.isInteractionLocked && !isPlaying)"
         haptic
         @toggle-playback="toggleSketchPlayback"
         @backspace="patternsStore.removeLastFromCurrentSketch()"
@@ -94,7 +94,11 @@ const visualConfigStore = useVisualConfigStore();
 const { toggle, isPlaying, hasPlayableCode } = useCodeStripStrudel();
 
 async function toggleSketchPlayback() {
-  if (!hasPlayableCode.value) return;
+  if (isPlaying.value) {
+    await toggle();
+    return;
+  }
+  if (!hasPlayableCode.value || instrumentStore.isInteractionLocked) return;
   await toggle();
 }
 

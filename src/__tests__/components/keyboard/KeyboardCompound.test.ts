@@ -104,4 +104,31 @@ describe("Keyboard compound", () => {
       source: "focus",
     });
   });
+
+  it.each([" ", "Enter"])(
+    "releases a held %s input after focus moves to another key",
+    async (activationKey) => {
+      const wrapper = mountKeyboard();
+      const buttons = wrapper.findAll("button");
+      const original = buttons[12];
+      const next = buttons[13];
+      const code = activationKey === " " ? "Space" : "Enter";
+
+      await original.trigger("focus");
+      await original.trigger("keydown", { key: activationKey, code });
+      await original.trigger("keydown", { key: "ArrowRight", code: "ArrowRight" });
+      await nextTick();
+      await next.trigger("keyup", { key: activationKey, code });
+
+      expect(wrapper.emitted("release")?.[0][0]).toMatchObject({
+        keyId: "0_4",
+        inputId: `focus:${code}`,
+      });
+
+      await next.trigger("keydown", { key: activationKey, code });
+      await next.trigger("keyup", { key: activationKey, code });
+      expect(wrapper.emitted("press")).toHaveLength(2);
+      expect(wrapper.emitted("release")).toHaveLength(2);
+    },
+  );
 });

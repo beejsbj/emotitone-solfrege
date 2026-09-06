@@ -119,6 +119,7 @@ function mountKeyboard() {
 describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
   });
 
   it("builds configured octave rows from the accepted Key contract", () => {
@@ -156,6 +157,13 @@ describe("Keyboard production usage", () => {
     );
 
     expect(keys[4].props("sounding")).toBe(true);
+  });
+
+  it("restores the production keyboard padding setting at the keyboard seam", () => {
+    mocks.keyboardStore.keyboardConfig.keyboardPadding = true;
+    const wrapper = mountKeyboard();
+
+    expect(wrapper.classes()).toContain("keyboard--padded");
   });
 
   it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {

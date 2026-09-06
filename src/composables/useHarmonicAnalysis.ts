@@ -159,14 +159,22 @@ export function useHarmonicAnalysis() {
       return;
     }
 
-    const repeatsReleasedPitch =
-      activeNoteIds.size === 0 &&
-      displayedNotes.value.some(
-        (displayedNote) => displayedNote.noteName === note.noteName
-      );
+    const releasedMatchingNoteIds = displayedNotes.value
+      .filter(
+        (displayedNote) =>
+          displayedNote.noteName === note.noteName &&
+          !activeNoteIds.has(displayedNote.noteId)
+      )
+      .map((displayedNote) => displayedNote.noteId);
 
-    if (repeatsReleasedPitch) {
-      reset();
+    if (releasedMatchingNoteIds.length > 0) {
+      const releasedMatchingNoteIdSet = new Set(releasedMatchingNoteIds);
+      releasedMatchingNoteIds.forEach((noteId) => {
+        accumulatedNotes.value.delete(noteId);
+      });
+      displayOrder.value = displayOrder.value.filter(
+        (noteId) => !releasedMatchingNoteIdSet.has(noteId)
+      );
     }
 
     activeNoteIds.add(note.noteId);

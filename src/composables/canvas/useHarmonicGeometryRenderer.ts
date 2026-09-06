@@ -78,6 +78,23 @@ function getArcMidpoint(
 export function useHarmonicGeometryRenderer() {
   const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
 
+  const getBlobVisibility = (blob: ActiveBlob) => {
+    if (blob.opacity <= 0) {
+      return 0;
+    }
+
+    const opacityVisibility = Math.max(
+      0,
+      Math.min(1, (blob.renderOpacity ?? blob.opacity) / blob.opacity)
+    );
+    const scaleVisibility = Math.max(
+      0,
+      Math.min(1, blob.renderScale ?? blob.scale)
+    );
+
+    return Math.min(opacityVisibility, scaleVisibility);
+  };
+
   const resolvePoints = (
     snapshot: HarmonicAnalysisSnapshot,
     activeBlobs: Map<string, ActiveBlob>,
@@ -253,22 +270,171 @@ export function useHarmonicGeometryRenderer() {
     };
   };
 
-  const drawGradientStroke = (
+  const createConnectionGradient = (
     ctx: CanvasRenderingContext2D,
     from: HarmonicGeometryPoint,
     to: HarmonicGeometryPoint,
-    opacity: number,
-    width = 2.25
+    opacity: number
   ) => {
     const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
     gradient.addColorStop(0, withAlpha(from.primaryColor, opacity));
     gradient.addColorStop(0.5, withAlpha(from.accentColor, opacity * 0.72));
     gradient.addColorStop(1, withAlpha(to.primaryColor, opacity));
 
-    ctx.strokeStyle = gradient;
-    ctx.lineWidth = width;
+    return gradient;
+  };
+
+  const drawSoftConnection = (
+    ctx: CanvasRenderingContext2D,
+    from: HarmonicGeometryPoint,
+    to: HarmonicGeometryPoint,
+    opacity: number,
+    tracePath: () => void,
+    width = 1.4,
+    softness = 0
+  ) => {
+    const visibleOpacity =
+      opacity *
+      Math.min(getBlobVisibility(from.blob), getBlobVisibility(to.blob));
+
+    if (visibleOpacity <= 0) {
+      return;
+    }
+
+    const softnessBoost = Math.min(3, softness * 0.06);
+    const passes = [
+      {
+        opacity: visibleOpacity * 0.22,
+        width: width * (4.8 + softnessBoost),
+        blur: width * 4.5 + softness * 0.35,
+      },
+      {
+        opacity: visibleOpacity * 0.62,
+        width,
+        blur: width * 1.8 + softness * 0.12,
+      },
+    ];
+
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+
+    passes.forEach((pass) => {
+      ctx.beginPath();
+      tracePath();
+      ctx.strokeStyle = createConnectionGradient(
+        ctx,
+        from,
+        to,
+        pass.opacity
+      );
+      ctx.lineWidth = pass.width;
+      ctx.shadowBlur = pass.blur;
+      ctx.shadowColor = withAlpha(from.primaryColor, pass.opacity * 0.8);
+      ctx.stroke();
+    });
+
+    ctx.restore();
+  };
+
+  const drawMergeBridge = (
+    ctx: CanvasRenderingContext2D,
+    from: HarmonicGeometryPoint,
+    to: HarmonicGeometryPoint,
+    opacity: number,
+    softness: number
+  ) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.hypot(dx, dy);
+    const fromRadius =
+      from.blob.baseRadius *
+      Math.max(0, from.blob.renderScale ?? from.blob.scale);
+    const toRadius =
+      to.blob.baseRadius * Math.max(0, to.blob.renderScale ?? to.blob.scale);
+
+    if (distance < 1 || fromRadius < 4 || toRadius < 4) {
+      return;
+    }
+
+    const directionX = dx / distance;
+    const directionY = dy / distance;
+    const normalX = -directionY;
+    const normalY = directionX;
+    const smallerRadius = Math.min(fromRadius, toRadius);
+    const distanceRatio = distance / Math.max(1, fromRadius + toRadius);
+    const neckRatio = Math.max(0.14, Math.min(0.4, 0.5 - distanceRatio * 0.1));
+    const neckWidth = smallerRadius * neckRatio;
+    const fromWidth = Math.min(fromRadius * 0.68, distance * 0.32);
+    const toWidth = Math.min(toRadius * 0.68, distance * 0.32);
+    const controlDistance = distance * 0.38;
+    const visibleOpacity =
+      opacity *
+      Math.min(getBlobVisibility(from.blob), getBlobVisibility(to.blob));
+
+    if (visibleOpacity <= 0) {
+      return;
+    }
+
+    const fromTop = {
+      x: from.x + normalX * fromWidth,
+      y: from.y + normalY * fromWidth,
+    };
+    const fromBottom = {
+      x: from.x - normalX * fromWidth,
+      y: from.y - normalY * fromWidth,
+    };
+    const toTop = {
+      x: to.x + normalX * toWidth,
+      y: to.y + normalY * toWidth,
+    };
+    const toBottom = {
+      x: to.x - normalX * toWidth,
+      y: to.y - normalY * toWidth,
+    };
+
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.fillStyle = createConnectionGradient(ctx, from, to, visibleOpacity);
+    ctx.shadowBlur = Math.min(
+      28,
+      Math.max(6, smallerRadius * 0.24 + softness * 0.28)
+    );
+    ctx.shadowColor = withAlpha(from.primaryColor, visibleOpacity * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(fromTop.x, fromTop.y);
+    ctx.bezierCurveTo(
+      from.x + directionX * controlDistance + normalX * neckWidth,
+      from.y + directionY * controlDistance + normalY * neckWidth,
+      to.x - directionX * controlDistance + normalX * neckWidth,
+      to.y - directionY * controlDistance + normalY * neckWidth,
+      toTop.x,
+      toTop.y
+    );
+    ctx.lineTo(toBottom.x, toBottom.y);
+    ctx.bezierCurveTo(
+      to.x - directionX * controlDistance - normalX * neckWidth,
+      to.y - directionY * controlDistance - normalY * neckWidth,
+      from.x + directionX * controlDistance - normalX * neckWidth,
+      from.y + directionY * controlDistance - normalY * neckWidth,
+      fromBottom.x,
+      fromBottom.y
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const getBoundaryPointPairs = (scene: HarmonicGeometryScene) => {
+    if (scene.orderedPoints.length === 2) {
+      return [[scene.orderedPoints[0], scene.orderedPoints[1]]] as const;
+    }
+
+    return scene.orderedPoints.map((point, index) => [
+      point,
+      scene.orderedPoints[(index + 1) % scene.orderedPoints.length],
+    ] as const);
   };
 
   const drawBackdropFill = (
@@ -277,6 +443,13 @@ export function useHarmonicGeometryRenderer() {
     config: HarmonicGeometryConfig
   ) => {
     if (scene.orderedPoints.length < 3) {
+      return;
+    }
+
+    const sceneVisibility = Math.min(
+      ...scene.orderedPoints.map((point) => getBlobVisibility(point.blob))
+    );
+    if (sceneVisibility <= 0) {
       return;
     }
 
@@ -298,7 +471,7 @@ export function useHarmonicGeometryRenderer() {
         stop * 0.72,
         withAlpha(
           point.primaryColor,
-          config.glassmorphOpacity * config.opacity * 0.32
+          config.glassmorphOpacity * config.opacity * sceneVisibility * 0.32
         )
       );
     });
@@ -319,24 +492,6 @@ export function useHarmonicGeometryRenderer() {
     ctx.restore();
   };
 
-  const drawPolygon = (
-    ctx: CanvasRenderingContext2D,
-    points: HarmonicGeometryPoint[],
-    opacity: number
-  ) => {
-    ctx.beginPath();
-    points.forEach((point, index) => {
-      if (index === 0) {
-        ctx.moveTo(point.x, point.y);
-      } else {
-        ctx.lineTo(point.x, point.y);
-      }
-    });
-    ctx.closePath();
-    ctx.strokeStyle = withAlpha(points[0]?.primaryColor ?? "white", opacity);
-    ctx.stroke();
-  };
-
   const renderGeometry = (
     ctx: CanvasRenderingContext2D,
     scene: HarmonicGeometryScene | null,
@@ -346,48 +501,68 @@ export function useHarmonicGeometryRenderer() {
       return;
     }
 
-    const geometryOpacity = config.opacity * 0.65;
-    const glowBlur = Math.max(0, config.backdropBlur * 1.1);
+    const geometryOpacity = config.opacity * 0.5;
 
-    ctx.save();
-    ctx.shadowBlur = glowBlur;
-    ctx.shadowColor = withAlpha(
-      scene.orderedPoints[0]?.primaryColor ?? "hsla(0, 0%, 100%, 1)",
-      Math.min(0.4, config.glassmorphOpacity * config.opacity * 0.6)
-    );
+    if (config.geometryMode === "merge") {
+      drawBackdropFill(ctx, scene, config);
+      const mergeOpacity =
+        config.opacity * (0.38 + config.glassmorphOpacity * 0.52);
+      getBoundaryPointPairs(scene).forEach(([fromPoint, toPoint]) => {
+        drawMergeBridge(
+          ctx,
+          fromPoint,
+          toPoint,
+          mergeOpacity,
+          config.backdropBlur
+        );
+      });
+      return;
+    }
 
-    if (scene.orderedPoints.length === 2) {
+    if (
+      scene.orderedPoints.length === 2 &&
+      config.geometryMode !== "center-only"
+    ) {
       const [fromPoint, toPoint] = scene.orderedPoints;
       const arcMidpoint = getArcMidpoint(fromPoint, toPoint);
 
-      ctx.beginPath();
-      ctx.moveTo(fromPoint.x, fromPoint.y);
-      ctx.quadraticCurveTo(
-        arcMidpoint.controlX,
-        arcMidpoint.controlY,
-        toPoint.x,
-        toPoint.y
+      drawSoftConnection(
+        ctx,
+        fromPoint,
+        toPoint,
+        geometryOpacity,
+        () => {
+          ctx.moveTo(fromPoint.x, fromPoint.y);
+          ctx.quadraticCurveTo(
+            arcMidpoint.controlX,
+            arcMidpoint.controlY,
+            toPoint.x,
+            toPoint.y
+          );
+        },
+        1.5,
+        config.backdropBlur
       );
-      drawGradientStroke(ctx, fromPoint, toPoint, geometryOpacity, 2.5);
-      ctx.stroke();
-      ctx.restore();
       return;
     }
 
     drawBackdropFill(ctx, scene, config);
 
     if (config.geometryMode !== "center-only") {
-      scene.orderedPoints.forEach((point, index) => {
-        const nextPoint = scene.orderedPoints[(index + 1) % scene.orderedPoints.length];
-        ctx.beginPath();
-        ctx.moveTo(point.x, point.y);
-        ctx.lineTo(nextPoint.x, nextPoint.y);
-        drawGradientStroke(ctx, point, nextPoint, geometryOpacity);
-        ctx.stroke();
+      getBoundaryPointPairs(scene).forEach(([point, nextPoint]) => {
+        drawSoftConnection(
+          ctx,
+          point,
+          nextPoint,
+          geometryOpacity,
+          () => {
+            ctx.moveTo(point.x, point.y);
+            ctx.lineTo(nextPoint.x, nextPoint.y);
+          },
+          1.4,
+          config.backdropBlur
+        );
       });
-    } else {
-      ctx.lineWidth = 1.5;
-      drawPolygon(ctx, scene.orderedPoints, geometryOpacity * 0.45);
     }
 
     if (config.geometryMode === "web") {
@@ -403,15 +578,20 @@ export function useHarmonicGeometryRenderer() {
           return;
         }
 
-        ctx.beginPath();
-        ctx.moveTo(fromPoint.x, fromPoint.y);
-        ctx.lineTo(toPoint.x, toPoint.y);
-        drawGradientStroke(ctx, fromPoint, toPoint, geometryOpacity * 0.58, 1.2);
-        ctx.stroke();
+        drawSoftConnection(
+          ctx,
+          fromPoint,
+          toPoint,
+          geometryOpacity * 0.48,
+          () => {
+            ctx.moveTo(fromPoint.x, fromPoint.y);
+            ctx.lineTo(toPoint.x, toPoint.y);
+          },
+          0.9,
+          config.backdropBlur
+        );
       });
     }
-
-    ctx.restore();
   };
 
   const drawKnockoutText = (

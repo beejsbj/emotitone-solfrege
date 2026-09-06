@@ -41,6 +41,10 @@ export interface ActiveBlob {
   vibrationPhase: number;
   /** Current scale multiplier for grow/shrink animations */
   scale: number;
+  /** Last rendered scale, exposed to dependent canvas effects */
+  renderScale?: number;
+  /** Last rendered opacity, exposed to dependent canvas effects */
+  renderOpacity?: number;
   /** Harmonic context snapshot used for stable color rendering */
   mode: MusicalMode;
   /** Key snapshot used for stable color rendering */

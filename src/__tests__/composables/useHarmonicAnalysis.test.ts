@@ -145,6 +145,28 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.isVisible).toBe(true);
   });
 
+  it("replaces released pitch history after a new leading pitch starts", () => {
+    const { snapshot, notePlayed, noteReleased } = createAnalysis();
+    const firstC = createActiveNote("first-c4", "C4", "Do");
+    const firstE = createActiveNote("first-e4", "E4", "Mi");
+
+    notePlayed(firstC);
+    notePlayed(firstE);
+    noteReleased(firstC.noteId);
+    noteReleased(firstE.noteId);
+
+    notePlayed(createActiveNote("second-g4", "G4", "Sol"));
+    notePlayed(createActiveNote("second-c4", "C4", "Do"));
+    notePlayed(createActiveNote("second-e4", "E4", "Mi"));
+
+    expect(snapshot.value.displayedNotes.map((note) => note.noteId)).toEqual([
+      "second-g4",
+      "second-c4",
+      "second-e4",
+    ]);
+    expect(snapshot.value.intervalEdges).toHaveLength(3);
+  });
+
   it("keeps harmonic relationships available when interval labels are hidden", async () => {
     harmonicTestState.floatingPopupConfig!.value = {
       ...harmonicTestState.floatingPopupConfig!.value,

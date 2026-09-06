@@ -35,6 +35,7 @@ export const mockCanvasContext = {
   moveTo: vi.fn(),
   lineTo: vi.fn(),
   quadraticCurveTo: vi.fn(),
+  bezierCurveTo: vi.fn(),
   closePath: vi.fn(),
   stroke: vi.fn(),
   fill: vi.fn(),

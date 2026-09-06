@@ -12,8 +12,19 @@ import { createVisualFrequency } from "@/utils/visualEffects";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 
+interface BlobRenderState {
+  blobElapsed: number;
+  currentScale: number;
+  bounceScale: number;
+  currentOpacity: number;
+  glowIntensity: number;
+  scaledRadius: number;
+  vibrationAmplitude: number;
+  visualFrequency: number;
+}
+
 export function useBlobRenderer() {
-  const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
+  const { getPrimaryColor, withAlpha } = useColorSystem();
   const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Circle of Fifths progression (starting from C at position 0)
@@ -133,6 +144,7 @@ export function useBlobRenderer() {
 
   // Blob state - now supports both note names and noteIds for polyphonic tracking
   const activeBlobs = new Map<string, ActiveBlob>();
+  const blobRenderStates = new Map<string, BlobRenderState>();
 
   // Maximum blob lifetime in milliseconds (10 seconds as safety)
   const MAX_BLOB_LIFETIME = 10000;
@@ -148,6 +160,7 @@ export function useBlobRenderer() {
       // Remove blobs that have existed longer than MAX_BLOB_LIFETIME
       if (now - blob.startTime > MAX_BLOB_LIFETIME) {
         activeBlobs.delete(key);
+        blobRenderStates.delete(key);
       }
       // Remove fully faded blobs that somehow weren't cleaned
       if (
@@ -156,6 +169,7 @@ export function useBlobRenderer() {
         now - blob.fadeOutStartTime > fadeOutDuration * 1000 + 100
       ) {
         activeBlobs.delete(key);
+        blobRenderStates.delete(key);
       }
     });
   };
@@ -250,6 +264,8 @@ export function useBlobRenderer() {
       driftVy: (Math.random() - 0.5) * blobConfig.driftSpeed * 0.3, // 30% of normal drift
       vibrationPhase: Math.random() * Math.PI * 2,
       scale: 0, // Start at zero scale for grow-in animation
+      renderScale: 0,
+      renderOpacity: blobConfig.opacity,
       mode: (currentMode || "major") as MusicalMode,
       key: (currentKey || "C") as ChromaticNote,
       octave: currentOctave,
@@ -264,6 +280,7 @@ export function useBlobRenderer() {
    */
   const removeBlob = (key: string) => {
     activeBlobs.delete(key);
+    blobRenderStates.delete(key);
   };
 
   /**
@@ -289,34 +306,30 @@ export function useBlobRenderer() {
   };
 
   /**
-   * Render blobs with fluid vibrating edges, fade-out, and drifting movement
+   * Advance blob lifecycle state before any canvas layer paints this frame.
    */
-  const renderBlobs = (
+  const prepareBlobs = (
     ctx: CanvasRenderingContext2D,
-    _elapsed: number,
-    blobConfig: BlobConfig,
-    musicStore: any
+    blobConfig: BlobConfig
   ) => {
     if (!ctx) return;
 
-    // Run safety cleanup before rendering
     cleanupStaleBlobs(blobConfig);
+    blobRenderStates.clear();
 
     const blobsToRemove: string[] = [];
 
-    activeBlobs.forEach((blob, noteName) => {
-      const blobElapsed = (Date.now() - blob.startTime) / 1000; // Time since blob creation in seconds
+    activeBlobs.forEach((blob, blobKey) => {
+      const blobElapsed = (Date.now() - blob.startTime) / 1000;
 
-      // Update blob position with drifting movement (frame rate independent)
-      blob.x += blob.driftVx * (1 / 60); // Assuming 60fps for smooth movement
+      blob.x += blob.driftVx * (1 / 60);
       blob.y += blob.driftVy * (1 / 60);
 
-      // Keep blobs within canvas bounds with gentle bouncing
       if (
         blob.x < blob.baseRadius ||
         blob.x > ctx.canvas.width - blob.baseRadius
       ) {
-        blob.driftVx *= -0.8; // Gentle bounce with some energy loss
+        blob.driftVx *= -0.8;
         blob.x = Math.max(
           blob.baseRadius,
           Math.min(ctx.canvas.width - blob.baseRadius, blob.x)
@@ -326,41 +339,37 @@ export function useBlobRenderer() {
         blob.y < blob.baseRadius ||
         blob.y > ctx.canvas.height - blob.baseRadius
       ) {
-        blob.driftVy *= -0.8; // Gentle bounce with some energy loss
+        blob.driftVy *= -0.8;
         blob.y = Math.max(
           blob.baseRadius,
           Math.min(ctx.canvas.height - blob.baseRadius, blob.y)
         );
       }
 
-      // Handle scale-in animation with bounce
       const scaleInElapsed = blobElapsed;
       let currentScale = blob.scale;
-      let bounceScale = 1; // Default scale multiplier
+      let bounceScale = 1;
 
       if (scaleInElapsed < blobConfig.scaleInDuration) {
-        // Scale-in animation using easeOutBack for bounce effect
         const progress = Math.min(
           scaleInElapsed / blobConfig.scaleInDuration,
           1
         );
-        const c1 = 1.70158; // Controls bounce size
+        const c1 = 1.70158;
         const c3 = c1 + 1;
 
         currentScale =
           1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
         blob.scale = currentScale;
       } else if (!blob.isFadingOut) {
-        // Add subtle continuous scale oscillation after initial bounce
-        const oscillation = Math.sin(blobElapsed * 3) * 0.02; // Subtle size oscillation
+        const oscillation = Math.sin(blobElapsed * 3) * 0.02;
         bounceScale = 1 + oscillation;
         currentScale = bounceScale;
       }
 
-      // Handle fade-out animation
       let currentOpacity = blob.opacity;
-      let vibrationIntensity = 1.0;
-      let glowIntensity = blobConfig.glowIntensity || 0;
+      let vibrationIntensity = 1;
+      const glowIntensity = blobConfig.glowIntensity || 0;
 
       if (blob.isFadingOut && blob.fadeOutStartTime) {
         const fadeElapsed = (Date.now() - blob.fadeOutStartTime) / 1000;
@@ -368,203 +377,212 @@ export function useBlobRenderer() {
           fadeElapsed / blobConfig.fadeOutDuration,
           1
         );
-
-        // Scale-out animation during fade-out
         const scaleOutProgress = Math.min(
           fadeElapsed / blobConfig.scaleOutDuration,
           1
         );
-        const scaleOutEase = 1 - Math.pow(scaleOutProgress, 2); // Ease-in quad for smooth shrink
-        currentScale = scaleOutEase;
 
-        // Smooth fade-out curve
+        currentScale = 1 - Math.pow(scaleOutProgress, 2);
         const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
         currentOpacity = blob.opacity * fadeMultiplier;
-        vibrationIntensity = fadeMultiplier; // Reduce vibration during fade-out
+        vibrationIntensity = fadeMultiplier;
 
-        // Mark for removal when fade-out is complete
         if (fadeProgress >= 1) {
-          blobsToRemove.push(noteName);
+          blobsToRemove.push(blobKey);
           return;
         }
       }
 
-      // Create more fluid vibration parameters with scale
-      const visualFreq = createVisualFrequency(
+      const visualFrequency = createVisualFrequency(
         blob.frequency,
         blobConfig.vibrationFrequencyDivisor
       );
-      const scaledRadius = blob.baseRadius * currentScale * bounceScale; // Apply bounce scale
+      const scaledRadius = blob.baseRadius * currentScale * bounceScale;
       const vibrationAmplitude =
         blobConfig.vibrationAmplitude *
         scaledRadius *
         0.01 *
         vibrationIntensity;
 
-      // Validate values before creating gradient
+      blob.renderScale = scaledRadius / blob.baseRadius;
+      blob.renderOpacity = currentOpacity;
+
       if (
         !isFinite(blob.x) ||
         !isFinite(blob.y) ||
         !isFinite(scaledRadius) ||
         currentOpacity <= 0 ||
-        currentScale < 0
+        currentScale < 0.01
       ) {
         return;
       }
 
-      // Skip rendering if scale is effectively 0
-      if (currentScale < 0.01) {
-        return;
-      }
-
-      // Create gradient at current position
-      const gradient = ctx.createRadialGradient(
-        blob.x,
-        blob.y,
-        0,
-        blob.x,
-        blob.y,
-        scaledRadius + vibrationAmplitude
-      );
-
-      // Use current opacity for colors
-      const primaryColor = getPrimaryColor(
-        blob.note.name,
-        blob.mode,
-        blob.octave,
-        blob.key
-      );
-      const accentColor = getAccentColor(
-        blob.note.name,
-        blob.mode,
-        blob.octave,
-        blob.key
-      );
-
-      // Apply opacity to colors using withAlpha from color system
-      const primaryWithOpacity = withAlpha(primaryColor, currentOpacity);
-      const primary2WithOpacity = withAlpha(primaryColor, currentOpacity - 1);
-      const accentWithOpacity = withAlpha(accentColor, currentOpacity);
-
-      gradient.addColorStop(0, primaryWithOpacity);
-      gradient.addColorStop(0.9, primary2WithOpacity);
-      gradient.addColorStop(1, "transparent");
-
-      // Apply blur effect if configured
-      if (blobConfig.blurRadius > 0) {
-        ctx.filter = `blur(${blobConfig.blurRadius}px)`;
-      }
-
-      // Apply glow effect with bounce
-      if (blobConfig.glowEnabled && blobConfig.glowIntensity > 0) {
-        // Increase glow during initial bounce
-        const bounceGlow =
-          scaleInElapsed < blobConfig.scaleInDuration
-            ? glowIntensity * (1 + (1 - currentScale) * 0.5) // Stronger glow during expansion
-            : glowIntensity * bounceScale; // Subtle glow oscillation after
-
-        ctx.shadowColor = primaryWithOpacity;
-        ctx.shadowBlur = bounceGlow;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-      }
-
-      // Draw the blob with fluid vibrating edges
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-
-      // Create more organic vibrating circular path
-      const segments = blobConfig.edgeSegments;
-
-      for (let i = 0; i <= segments; i++) {
-        const angle = (i / segments) * Math.PI * 2;
-
-        // Create more dramatic vibration with irregular patterns
-        const primaryVibration =
-          Math.sin(
-            blobElapsed * visualFreq * 2 * Math.PI +
-              angle * 4 +
-              blob.vibrationPhase
-          ) *
-          vibrationAmplitude *
-          0.7;
-        const secondaryVibration =
-          Math.sin(
-            blobElapsed * visualFreq * 3.7 * Math.PI +
-              angle * 7 +
-              blob.vibrationPhase * 1.6
-          ) *
-          vibrationAmplitude *
-          0.4;
-        const tertiaryVibration =
-          Math.sin(
-            blobElapsed * visualFreq * 1.3 * Math.PI +
-              angle * 2.3 +
-              blob.vibrationPhase * 0.8
-          ) *
-          vibrationAmplitude *
-          0.2;
-
-        // Add irregular, chaotic vibration for more organic feel
-        const chaoticVibration =
-          Math.sin(
-            blobElapsed * visualFreq * 5.1 * Math.PI +
-              angle * 11 +
-              blob.vibrationPhase * 2.1
-          ) *
-          vibrationAmplitude *
-          0.15;
-
-        // Combine vibrations for dramatic, non-circular movement
-        const totalVibration =
-          primaryVibration +
-          secondaryVibration +
-          tertiaryVibration +
-          chaoticVibration;
-
-        // Apply more varied damping for irregular shape
-        const dampingFactor =
-          0.6 +
-          0.4 *
-            Math.sin(angle * 3.7 + blob.vibrationPhase) *
-            Math.cos(angle * 1.9 + blob.vibrationPhase * 0.5);
-        const dampedVibration = totalVibration * dampingFactor;
-
-        // Calculate the vibrating radius for this point
-        const vibratingRadius = scaledRadius + dampedVibration;
-
-        // Calculate x, y coordinates
-        const x = blob.x + Math.cos(angle) * vibratingRadius;
-        const y = blob.y + Math.sin(angle) * vibratingRadius;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
-
-      ctx.closePath();
-      ctx.fill();
-
-      // Reset effects after drawing
-      if (blobConfig.blurRadius > 0) {
-        ctx.filter = "none";
-      }
-      if (blobConfig.glowEnabled && blobConfig.glowIntensity > 0) {
-        ctx.shadowColor = "transparent";
-        ctx.shadowBlur = 0;
-      }
+      blobRenderStates.set(blobKey, {
+        blobElapsed,
+        currentScale,
+        bounceScale,
+        currentOpacity,
+        glowIntensity,
+        scaledRadius,
+        vibrationAmplitude,
+        visualFrequency,
+      });
     });
 
-    // Remove faded-out blobs
-    blobsToRemove.forEach((noteName) => {
-      activeBlobs.delete(noteName);
+    blobsToRemove.forEach((blobKey) => {
+      activeBlobs.delete(blobKey);
+      blobRenderStates.delete(blobKey);
     });
+  };
 
-    if (activeBlobs.size > 20) {
-      // high blob count, performance may degrade
+  const drawPreparedBlob = (
+    ctx: CanvasRenderingContext2D,
+    blob: ActiveBlob,
+    blobConfig: BlobConfig,
+    state: BlobRenderState
+  ) => {
+    const {
+      blobElapsed,
+      currentScale,
+      bounceScale,
+      currentOpacity,
+      glowIntensity,
+      scaledRadius,
+      vibrationAmplitude,
+      visualFrequency,
+    } = state;
+    const gradient = ctx.createRadialGradient(
+      blob.x,
+      blob.y,
+      0,
+      blob.x,
+      blob.y,
+      scaledRadius + vibrationAmplitude
+    );
+    const primaryColor = getPrimaryColor(
+      blob.note.name,
+      blob.mode,
+      blob.octave,
+      blob.key
+    );
+    const primaryWithOpacity = withAlpha(primaryColor, currentOpacity);
+    const primary2WithOpacity = withAlpha(primaryColor, currentOpacity - 1);
+
+    gradient.addColorStop(0, primaryWithOpacity);
+    gradient.addColorStop(0.9, primary2WithOpacity);
+    gradient.addColorStop(1, "transparent");
+
+    if (blobConfig.blurRadius > 0) {
+      ctx.filter = `blur(${blobConfig.blurRadius}px)`;
     }
+
+    if (blobConfig.glowEnabled && blobConfig.glowIntensity > 0) {
+      const bounceGlow =
+        blobElapsed < blobConfig.scaleInDuration
+          ? glowIntensity * (1 + (1 - currentScale) * 0.5)
+          : glowIntensity * bounceScale;
+
+      ctx.shadowColor = primaryWithOpacity;
+      ctx.shadowBlur = bounceGlow;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    }
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+
+    const segments = blobConfig.edgeSegments;
+
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const primaryVibration =
+        Math.sin(
+          blobElapsed * visualFrequency * 2 * Math.PI +
+            angle * 4 +
+            blob.vibrationPhase
+        ) *
+        vibrationAmplitude *
+        0.7;
+      const secondaryVibration =
+        Math.sin(
+          blobElapsed * visualFrequency * 3.7 * Math.PI +
+            angle * 7 +
+            blob.vibrationPhase * 1.6
+        ) *
+        vibrationAmplitude *
+        0.4;
+      const tertiaryVibration =
+        Math.sin(
+          blobElapsed * visualFrequency * 1.3 * Math.PI +
+            angle * 2.3 +
+            blob.vibrationPhase * 0.8
+        ) *
+        vibrationAmplitude *
+        0.2;
+      const chaoticVibration =
+        Math.sin(
+          blobElapsed * visualFrequency * 5.1 * Math.PI +
+            angle * 11 +
+            blob.vibrationPhase * 2.1
+        ) *
+        vibrationAmplitude *
+        0.15;
+      const totalVibration =
+        primaryVibration +
+        secondaryVibration +
+        tertiaryVibration +
+        chaoticVibration;
+      const dampingFactor =
+        0.6 +
+        0.4 *
+          Math.sin(angle * 3.7 + blob.vibrationPhase) *
+          Math.cos(angle * 1.9 + blob.vibrationPhase * 0.5);
+      const vibratingRadius =
+        scaledRadius + totalVibration * dampingFactor;
+      const x = blob.x + Math.cos(angle) * vibratingRadius;
+      const y = blob.y + Math.sin(angle) * vibratingRadius;
+
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+
+    ctx.closePath();
+    ctx.fill();
+
+    if (blobConfig.blurRadius > 0) {
+      ctx.filter = "none";
+    }
+    if (blobConfig.glowEnabled && blobConfig.glowIntensity > 0) {
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
+  };
+
+  /**
+   * Paint blobs from the state prepared for this frame.
+   */
+  const renderBlobs = (
+    ctx: CanvasRenderingContext2D,
+    _elapsed: number,
+    blobConfig: BlobConfig,
+    _musicStore: any,
+    framePrepared = false
+  ) => {
+    if (!ctx) return;
+
+    if (!framePrepared) {
+      prepareBlobs(ctx, blobConfig);
+    }
+
+    activeBlobs.forEach((blob, blobKey) => {
+      const state = blobRenderStates.get(blobKey);
+      if (state) {
+        drawPreparedBlob(ctx, blob, blobConfig, state);
+      }
+    });
   };
 
   /**
@@ -577,6 +595,7 @@ export function useBlobRenderer() {
    */
   const clearAllBlobs = () => {
     activeBlobs.clear();
+    blobRenderStates.clear();
   };
 
   return {
@@ -588,6 +607,7 @@ export function useBlobRenderer() {
     removeBlob,
     startBlobFadeOut,
     startBlobFadeOutById,
+    prepareBlobs,
     renderBlobs,
     getActiveBlobCount,
     clearAllBlobs,

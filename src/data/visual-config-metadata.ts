@@ -509,28 +509,28 @@ export const UNIFIED_CONFIG = {
       label: "Max Notes",
     },
     showChord: {
-      value: true,
+      value: false,
       label: "Show Chord Label",
     },
     showIntervals: {
-      value: true,
+      value: false,
       label: "Show Interval Labels",
     },
     showEmotionalDescription: {
-      value: true,
+      value: false,
       label: "Show Emotion Label",
     },
     geometryMode: {
       value: "outline",
-      options: ["outline", "web", "center-only"],
-      label: "Large Chord Geometry",
+      options: ["outline", "web", "merge", "center-only"],
+      label: "Connection Style",
     },
     backdropBlur: {
-      value: 1,
+      value: 12,
       min: 0,
       max: 50,
       step: 2,
-      label: "Backdrop Blur",
+      label: "Connection Softness",
       format: (v: number) => `${v}px`,
     },
     glassmorphOpacity: {
@@ -538,7 +538,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Geometry Fill",
+      label: "Fusion Strength",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     animationDuration: {

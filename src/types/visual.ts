@@ -61,7 +61,11 @@ export interface DynamicColorConfig {
 }
 
 /** Blob-led harmonic analysis presentation configuration. */
-export type HarmonicGeometryMode = "outline" | "web" | "center-only";
+export type HarmonicGeometryMode =
+  | "outline"
+  | "web"
+  | "merge"
+  | "center-only";
 
 export interface HarmonicGeometryConfig {
   /** Whether harmonic geometry is enabled */
@@ -80,9 +84,9 @@ export interface HarmonicGeometryConfig {
   showEmotionalDescription: boolean;
   /** How larger harmonic geometries should be interpreted */
   geometryMode: HarmonicGeometryMode;
-  /** Backdrop blur intensity in pixels */
+  /** Connection softness in pixels */
   backdropBlur: number;
-  /** Glassmorphism effect opacity (0-1) */
+  /** Connection or fusion strength (0-1) */
   glassmorphOpacity: number;
   /** Animation duration for show/hide transitions in milliseconds */
   animationDuration: number;

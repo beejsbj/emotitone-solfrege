@@ -203,7 +203,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     }
 
     if (cachedConfigs.blob.isEnabled) {
-      blobRenderer.renderBlobs(ctx, elapsed, cachedConfigs.blob, musicStore);
+      blobRenderer.prepareBlobs(ctx, cachedConfigs.blob);
     }
 
     const harmonicScene = harmonicGeometryRenderer.buildScene(
@@ -218,6 +218,16 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       harmonicScene,
       cachedConfigs.harmonic
     );
+
+    if (cachedConfigs.blob.isEnabled) {
+      blobRenderer.renderBlobs(
+        ctx,
+        elapsed,
+        cachedConfigs.blob,
+        musicStore,
+        true
+      );
+    }
 
     if (cachedConfigs.particle.isEnabled) {
       particleSystem.renderParticles(ctx, elapsed, cachedConfigs.particle);

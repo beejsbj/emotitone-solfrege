@@ -123,6 +123,41 @@ describe("recorded-pattern conversion", () => {
     expect(chord.members.every((member) => member.progress == null)).toBe(true);
   });
 
+  it.each([
+    {
+      order: "minimum note first",
+      notes: [
+        note("g", "G4", 4, 4, 1000, 1),
+        note("c", "C4", 0, 4, 1000, 500),
+      ],
+      pressOrder: ["G4", "C4"],
+      voicingOrder: [1, 0],
+    },
+    {
+      order: "minimum note second",
+      notes: [
+        note("c", "C4", 0, 4, 1000, 500),
+        note("g", "G4", 4, 4, 1000, 1),
+      ],
+      pressOrder: ["C4", "G4"],
+      voicingOrder: [0, 1],
+    },
+  ])(
+    "keeps simultaneous notes grouped with $order",
+    ({ notes, pressOrder, voicingOrder }) => {
+      const result = conversion(notes);
+      const chord = result.tokens[0];
+
+      expect(result.source).toContain("[ {C4, G4@0.0005 ~@0.2495}@0.25 ]");
+      expect(result.tokens).toHaveLength(1);
+      expect(chord).toMatchObject({ type: "chord", duration: "@0.25" });
+      if (chord.type !== "chord") throw new Error("Expected chord token");
+      expect(chord.members.map((member) => member.rawPitch)).toEqual(pressOrder);
+      expect(chord.members.map((member) => member.pressOrder)).toEqual([0, 1]);
+      expect(chord.members.map((member) => member.voicingOrder)).toEqual(voicingOrder);
+    },
+  );
+
   it("keeps one chained overlap block in both representations", () => {
     const result = conversion([
       note("c", "C4", 0, 4, 1000, 400),

@@ -3,78 +3,30 @@ import type { ChordMember } from "@/components/compounds/Chord.vue";
 import type { NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { CodeStripNote, CodeStripToken } from "@/components/uniques/CodeStrip/types";
 import { getScaleForMode, getSolfegeNameForMode, normalizeScaleIndex } from "@/data";
-import type { ChromaticNote, MusicalMode } from "@/types/music";
+import type { MusicalMode } from "@/types/music";
 import type { LogNote, PatternNote } from "@/types/patterns";
-import type { CodeStripConfig, KeyboardConfig } from "@/types/visual";
+import type {
+  IndexedRecordedNote,
+  RecordedCodeStripConfig,
+  RecordedNoteSpan,
+  RecordedPatternCodeStripInput,
+  RecordedPatternSource,
+  RecordedPatternSourceInput,
+  RecordedPatternWithCodeStrip,
+  RecordedSourceConfig,
+  ScheduledRecordedEvent,
+  ScheduledRecordedSound,
+} from "@/types/recording";
+import type { KeyboardConfig } from "@/types/visual";
 
-export interface RecordedSourceConfig {
-  /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. */
-  bpm: number;
-  /** Capture tempo used to convert milliseconds into Strudel cycle fractions. */
-  sourceBpm: number;
-  beatsPerBar: number;
-  notationType: "absolute" | "relative";
-  precision: number;
-  sound: string;
-  scaleKey?: string;
-  scaleMode?: MusicalMode;
-  scaleOctave?: number;
-}
-
-export interface RecordedCodeStripConfig {
-  mode: MusicalMode;
-  musicKey: ChromaticNote;
-  notation: CodeStripConfig["notation"];
-  surfaceStyle: KeyboardConfig["surfaceStyle"];
-  keyBrightness: number;
-  keySaturation: number;
-}
-
-interface RecordedPatternConversionBase {
-  notes: PatternNote[];
-  source?: Partial<RecordedSourceConfig>;
-}
-
-export interface RecordedPatternSourceInput extends RecordedPatternConversionBase {
-  codeStrip?: undefined;
-}
-
-export interface RecordedPatternCodeStripInput extends RecordedPatternConversionBase {
-  codeStrip: RecordedCodeStripConfig;
-}
-
-export interface RecordedPatternSource {
-  source: string;
-}
-
-export interface RecordedPatternWithCodeStrip extends RecordedPatternSource {
-  tokens: CodeStripToken[];
-}
-
-interface IndexedNote {
-  note: PatternNote;
-  inputOrder: number;
-}
-
-interface NoteSpan extends IndexedNote {
-  start: number;
-  end: number;
-}
-
-interface ScheduledRest {
-  kind: "rest";
-  start: number;
-  end: number;
-}
-
-interface ScheduledSound {
-  kind: "sound";
-  notes: NoteSpan[];
-  start: number;
-  end: number;
-}
-
-type ScheduledEvent = ScheduledRest | ScheduledSound;
+export type {
+  RecordedCodeStripConfig,
+  RecordedPatternCodeStripInput,
+  RecordedPatternSource,
+  RecordedPatternSourceInput,
+  RecordedPatternWithCodeStrip,
+  RecordedSourceConfig,
+} from "@/types/recording";
 
 const DEFAULT_SOURCE_CONFIG: RecordedSourceConfig = {
   bpm: 120,
@@ -118,16 +70,16 @@ export function convertRecordedPattern(
   };
 }
 
-function scheduleRecording(notes: PatternNote[]): ScheduledEvent[] {
+function scheduleRecording(notes: PatternNote[]): ScheduledRecordedEvent[] {
   if (!notes.length) return [];
 
   const sorted = notes
-    .map((note, inputOrder): IndexedNote => ({ note, inputOrder }))
+    .map((note, inputOrder): IndexedRecordedNote => ({ note, inputOrder }))
     .sort(
       (left, right) =>
         left.note.pressTime - right.note.pressTime || left.inputOrder - right.inputOrder,
     );
-  const schedule: ScheduledEvent[] = [];
+  const schedule: ScheduledRecordedEvent[] = [];
   let timelineCursor = sorted[0].note.pressTime;
   let scheduleCursor = 0;
   let index = 0;
@@ -140,7 +92,10 @@ function scheduleRecording(notes: PatternNote[]): ScheduledEvent[] {
 
     while (nextIndex < sorted.length) {
       const next = sorted[nextIndex];
-      if (next.note.pressTime >= blockEnd - OVERLAP_EPSILON_MS) break;
+      const startsWithBlock = next.note.pressTime === blockStart;
+      if (!startsWithBlock && next.note.pressTime >= blockEnd - OVERLAP_EPSILON_MS) {
+        break;
+      }
 
       block.push(next);
       blockEnd = Math.max(blockEnd, noteEnd(next.note));
@@ -174,7 +129,7 @@ function scheduleRecording(notes: PatternNote[]): ScheduledEvent[] {
   return schedule;
 }
 
-function renderSource(schedule: ScheduledEvent[], config: RecordedSourceConfig) {
+function renderSource(schedule: ScheduledRecordedEvent[], config: RecordedSourceConfig) {
   if (!schedule.length) return "";
 
   const notes = schedule
@@ -214,8 +169,8 @@ function renderSource(schedule: ScheduledEvent[], config: RecordedSourceConfig) 
 }
 
 function renderOverlapSource(
-  event: ScheduledSound,
-  allNotes: NoteSpan[],
+  event: ScheduledRecordedSound,
+  allNotes: RecordedNoteSpan[],
   config: RecordedSourceConfig,
   relative: boolean,
   barMs: number,
@@ -259,8 +214,8 @@ function renderOverlapSource(
   )}`;
 }
 
-function buildLanes(notes: NoteSpan[]) {
-  const lanes: NoteSpan[][] = [];
+function buildLanes(notes: RecordedNoteSpan[]) {
+  const lanes: RecordedNoteSpan[][] = [];
   for (const note of notes) {
     const lane = lanes.find((candidate) =>
       candidate[candidate.length - 1].end <= note.start + OVERLAP_EPSILON_MS
@@ -272,7 +227,7 @@ function buildLanes(notes: NoteSpan[]) {
 }
 
 function renderCodeStripTokens(
-  schedule: ScheduledEvent[],
+  schedule: ScheduledRecordedEvent[],
   sourceConfig: RecordedSourceConfig,
   config: RecordedCodeStripConfig,
 ) {
@@ -325,7 +280,7 @@ function renderCodeStripTokens(
 }
 
 function noteToken(
-  span: NoteSpan,
+  span: RecordedNoteSpan,
   duration: string,
   config: RecordedCodeStripConfig,
 ): CodeStripToken {
@@ -358,7 +313,7 @@ function noteToken(
 
 function sourceNoteValue(
   note: PatternNote,
-  allNotes: NoteSpan[],
+  allNotes: RecordedNoteSpan[],
   config: RecordedSourceConfig,
   relative: boolean,
 ) {
@@ -367,7 +322,7 @@ function sourceNoteValue(
 
 function relativeNoteValue(
   note: PatternNote,
-  allNotes: NoteSpan[],
+  allNotes: RecordedNoteSpan[],
   config: RecordedSourceConfig,
 ) {
   const contextual = note as PatternNote & Partial<Pick<LogNote, "key" | "mode">>;
@@ -391,7 +346,7 @@ function relativeNoteValue(
     : degree + roundedCycles * scale.degreeCount;
 }
 
-function sourceNoteOrder(left: NoteSpan, right: NoteSpan) {
+function sourceNoteOrder(left: RecordedNoteSpan, right: RecordedNoteSpan) {
   return left.note.pressTime - right.note.pressTime ||
     left.note.octave - right.note.octave ||
     left.note.scaleIndex - right.note.scaleIndex ||

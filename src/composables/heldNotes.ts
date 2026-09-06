@@ -19,7 +19,6 @@ export interface HeldNotesOptions<Press extends HeldNotePress> {
 }
 
 interface HeldNoteGeneration<Press extends HeldNotePress> {
-  generation: number;
   press: Press;
   released: boolean;
   noteId?: string;
@@ -38,7 +37,6 @@ export function createHeldNotes<Press extends HeldNotePress>(
 ) {
   const currentGenerations = new Map<string, HeldNoteGeneration<Press>>();
   const activeNoteIds = reactive(new Map<string, string>());
-  let nextGeneration = 0;
 
   const unpress = (entry: HeldNoteGeneration<Press>) => {
     if (entry.released) {
@@ -55,7 +53,9 @@ export function createHeldNotes<Press extends HeldNotePress>(
   ) => {
     options.beforeNoteRelease?.(noteId, entry.press);
     options.release(noteId, entry.press);
-    activeNoteIds.delete(entry.press.pressId);
+    if (activeNoteIds.get(entry.press.pressId) === noteId) {
+      activeNoteIds.delete(entry.press.pressId);
+    }
   };
 
   const settleFailure = (
@@ -78,7 +78,6 @@ export function createHeldNotes<Press extends HeldNotePress>(
     }
 
     const entry: HeldNoteGeneration<Press> = {
-      generation: ++nextGeneration,
       press: value,
       released: false,
       completion: Promise.resolve({ status: "failed" }),

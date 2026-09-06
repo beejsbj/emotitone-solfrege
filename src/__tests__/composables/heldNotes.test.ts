@@ -67,6 +67,8 @@ describe("held note ownership", () => {
     harness.heldNotes.release("keyboard:Q");
     const second = harness.heldNotes.press({ pressId: "keyboard:Q", pitch: "C4" });
 
+    harness.attacks[1].resolve("current-note");
+    await expect(second).resolves.toEqual({ status: "active", noteId: "current-note" });
     harness.attacks[0].resolve("stale-note");
     await first;
     expect(harness.release).toHaveBeenCalledWith(
@@ -74,9 +76,6 @@ describe("held note ownership", () => {
       expect.objectContaining({ pressId: "keyboard:Q" })
     );
     expect(harness.heldNotes.isHeld("keyboard:Q")).toBe(true);
-
-    harness.attacks[1].resolve("current-note");
-    await expect(second).resolves.toEqual({ status: "active", noteId: "current-note" });
     expect(harness.heldNotes.getActiveNoteIds().get("keyboard:Q")).toBe("current-note");
   });
 

@@ -316,6 +316,32 @@ describe("CodeStrip production Strudel document", () => {
     wrapper.unmount();
   });
 
+  it("coalesces presentation updates and applies the latest metadata after a source edit", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    mocks.updatePresentation.mockClear();
+
+    const nextNote: PatternNote = {
+      ...recordedNote,
+      id: "d",
+      note: "D4",
+      scaleDegree: 2,
+      scaleIndex: 1,
+    };
+    mocks.patternsStore.currentSketchNotes = [nextNote];
+    mocks.patternsStore.currentWorkingNotes = [nextNote];
+    await wrapper.setProps({ durationMode: "bar" });
+    await nextTick();
+    await flushPromises();
+
+    expect(mocks.updatePresentation).toHaveBeenCalledOnce();
+    expect(mocks.updatePresentation).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ durationMode: "bar" }),
+    );
+    wrapper.unmount();
+  });
+
   it("repairs a stale runtime source from the visible document before Play", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();

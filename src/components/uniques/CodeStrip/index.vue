@@ -124,6 +124,8 @@ let followTargetScrollLeft = 0;
 let followScroller: HTMLElement | null = null;
 let followLastFrameTime: number | null = null;
 let followPlaybackActive = false;
+let presentationSyncQueued = false;
+let presentationSyncCancelled = false;
 
 const FOLLOW_TIME_CONSTANT_MS = 150;
 const RECORDING_FOLLOW_ANCHOR = 0.75;
@@ -255,7 +257,7 @@ function revealLatestRecordedEvent() {
   });
 }
 
-function syncPresentation() {
+function applyPresentation() {
   const view = activeView();
   if (!view) return;
 
@@ -277,6 +279,16 @@ function syncPresentation() {
   });
 
   if (isControlled.value) applySpecimenPlayback(view, presentationTokens.value);
+}
+
+function syncPresentation() {
+  if (presentationSyncCancelled || presentationSyncQueued) return;
+  presentationSyncQueued = true;
+  queueMicrotask(() => {
+    presentationSyncQueued = false;
+    if (presentationSyncCancelled) return;
+    applyPresentation();
+  });
 }
 
 function stopFollow() {
@@ -515,6 +527,8 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  presentationSyncCancelled = true;
+  presentationSyncQueued = false;
   stopFollow();
   controlledView?.destroy();
   controlledView = null;

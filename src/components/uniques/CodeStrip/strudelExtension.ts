@@ -270,7 +270,7 @@ const codeStripEventDecorations = EditorView.decorations.compute(
 
       const supplied = semanticTokens[index];
       const baseToken = compatibleToken(event, supplied)
-        ? supplied
+        ? withSourceDuration(supplied, event)
         : fallbackToken(event, presentation);
       const rendered = applyPlayback(baseToken, event, events, playing, playback);
       const active = isEventActive(event, events, playing, playback);
@@ -639,10 +639,14 @@ function fallbackNoteToken(
     mode,
     musicKey,
     surfaceStyle: presentation.surfaceStyle,
-    isAccidental: /[#bsf]/i.test(note.text),
+    isAccidental: isAccidentalPitch(note.text),
     keyBrightness: presentation.keyBrightness,
     keySaturation: presentation.keySaturation,
   };
+}
+
+function isAccidentalPitch(value: string) {
+  return Boolean(value.match(/^[A-Ga-g]([#bsf]+)-?\d+$/)?.[1]);
 }
 
 function parseSourceNote(note: ParsedNote, mode: MusicalMode, key: ChromaticNote) {
@@ -725,8 +729,8 @@ function sourceNoteMatchesIdentity(
 ) {
   if (note.isRelative) {
     if (!Number.isFinite(scaleIndex)) return false;
-    return normalizeScaleIndex(mode, Number(note.text)) ===
-      normalizeScaleIndex(mode, Number(scaleIndex));
+    const sourceDegree = Number(note.text);
+    return Number.isFinite(sourceDegree) && sourceDegree === Number(scaleIndex);
   }
   return Boolean(rawPitch) && note.text.toLowerCase() === rawPitch?.toLowerCase();
 }
@@ -740,12 +744,16 @@ function isSemanticEvent(
 function extractNotes(content: string, from: number, to: number) {
   const notes: ParsedNote[] = [];
   const slice = content.slice(from, to);
+  const absoluteRanges: SourceRange[] = [];
 
   for (const match of slice.matchAll(ABSOLUTE_NOTE_REGEX)) {
     if (match.index == null) continue;
+    const absoluteFrom = from + match.index;
+    const absoluteTo = absoluteFrom + match[0].length;
+    absoluteRanges.push({ start: absoluteFrom, end: absoluteTo });
     notes.push({
-      from: from + match.index,
-      to: from + match.index + match[0].length,
+      from: absoluteFrom,
+      to: absoluteTo,
       text: match[0],
       isRelative: false,
     });
@@ -753,15 +761,28 @@ function extractNotes(content: string, from: number, to: number) {
 
   for (const match of slice.matchAll(RELATIVE_NOTE_REGEX)) {
     if (match.index == null) continue;
+    const relativeFrom = from + match.index;
+    const relativeTo = relativeFrom + match[0].length;
+    if (absoluteRanges.some((range) => relativeFrom < range.end && relativeTo > range.start)) {
+      continue;
+    }
     notes.push({
-      from: from + match.index,
-      to: from + match.index + match[0].length,
+      from: relativeFrom,
+      to: relativeTo,
       text: match[0],
       isRelative: true,
     });
   }
 
   return notes.sort((left, right) => left.from - right.from);
+}
+
+function withSourceDuration(
+  token: CodeStripToken,
+  event: ParsedCodeStripEvent,
+): CodeStripToken {
+  if (!isSemanticEvent(token)) return token;
+  return { ...token, duration: event.duration };
 }
 
 function extractInlineMetaTokens(doc: Text): InlineMetaToken[] {

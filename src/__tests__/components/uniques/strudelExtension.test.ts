@@ -83,6 +83,17 @@ describe("CodeStrip Strudel source decorations", () => {
     ]);
   });
 
+  it("does not parse absolute-note octaves as relative notes", () => {
+    const doc = EditorState.create({
+      doc: "`< [ {C#4, E4} ] >`.as(\"note\")",
+    }).doc;
+
+    expect(parseCodeStripEvents(doc)[0].notes.map((note) => note.text)).toEqual([
+      "C#4",
+      "E4",
+    ]);
+  });
+
   const mountedViews: EditorView[] = [];
 
   afterEach(() => {
@@ -137,6 +148,57 @@ describe("CodeStrip Strudel source decorations", () => {
 
     expect(host.querySelector(".note__identity-core")?.textContent).toBe("Do");
     expect(host.querySelector(".note__identity-core")?.textContent).not.toBe("1");
+  });
+
+  it("invalidates supplied metadata when a relative degree crosses an octave", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const relativeSource = "`< [ 7@0.25 ] >`.as(\"n\").scale(\"C4:major\")";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: relativeSource,
+        extensions: [codeStripStrudelExtension],
+      }),
+      parent: host,
+    });
+    mountedViews.push(view);
+    updateCodeStripPresentation(view, {
+      tokens: [{
+        ...tokens[0],
+        glyph: "raw",
+        text: "C4",
+        rawPitch: "C4",
+        scaleIndex: 0,
+        octave: 4,
+      }],
+      notation: "note",
+      durationMode: "stacked",
+    });
+    await Promise.resolve();
+
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("7");
+  });
+
+  it("marks only pitched accidentals as accidental", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const naturalSource = "`< [ F4@0.25 B4@0.25 F#4@0.25 ] >`.as(\"note\")";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: naturalSource,
+        extensions: [codeStripStrudelExtension],
+      }),
+      parent: host,
+    });
+    mountedViews.push(view);
+    updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+    await Promise.resolve();
+
+    const notes = [...host.querySelectorAll<HTMLElement>(".note")];
+    expect(notes).toHaveLength(3);
+    expect(notes[0].classList).toContain("note--natural");
+    expect(notes[1].classList).toContain("note--natural");
+    expect(notes[2].classList).toContain("note--accidental");
   });
 
   it("turns Ink on at Play and consumes Strudel's native location highlight", async () => {
@@ -222,5 +284,16 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
 
     expect(progress(host, ".code-strip__note")).toBe("0.5");
+  });
+
+  it("takes edited event duration from the source instead of stale metadata", async () => {
+    const { host, view } = createView();
+    const sourceText = view.state.doc.toString();
+    const from = sourceText.indexOf("@0.25");
+
+    view.dispatch({ changes: { from, to: from + "@0.25".length, insert: "@0.5" } });
+    await Promise.resolve();
+
+    expect(host.querySelector(".code-strip__stack-duration")?.textContent).toBe("@0.5");
   });
 });

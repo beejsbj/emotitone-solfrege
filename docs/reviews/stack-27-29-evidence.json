@@ -92,10 +92,10 @@
   "limits": [
     "No real MIDI hardware, audio-output, or physical touch-device verification."
   ],
-  "verificationCommit": "6f7af53",
+  "verificationCommit": "1f1aa0b",
   "tests": {
     "suites": 29,
-    "passed": 224,
+    "passed": 226,
     "excludedBaseline": "KeySelector.test.ts missing component import"
   },
   "build": "Passed, including vue-tsc and PWA generation",

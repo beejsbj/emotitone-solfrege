@@ -54,7 +54,7 @@ defineExpose({ showPanel, closePanel, openPanel, togglePanel });
       :scroll="false"
       close-on-escape
     >
-      <template #icon><slot name="icon" /></template>
+      <template v-if="$slots.icon" #icon><slot name="icon" /></template>
       <template #default="{ height }">
         <div v-if="renderPanel" data-testid="top-drawer-panel" class="top-drawer__panel">
           <slot name="panel" :height="height" :open="openPanel" :close="closePanel" :toggle="togglePanel" :is-open="showPanel" :anchor="anchor" />

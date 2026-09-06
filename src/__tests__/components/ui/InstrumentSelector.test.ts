@@ -87,6 +87,8 @@ vi.mock('@/components/TopDrawer.vue', () => ({
 
 vi.mock('lucide-vue-next', () => ({
   Piano: { template: '<svg data-testid="piano-icon"></svg>' },
+  Guitar: { template: '<svg data-testid="guitar-icon"></svg>' },
+  Drum: { template: '<svg data-testid="drum-icon"></svg>' },
   Search: { template: '<svg data-testid="search-icon"></svg>' },
   X: { template: '<svg data-testid="close-icon"></svg>' },
 }))
@@ -111,6 +113,28 @@ describe('InstrumentSelector.vue', () => {
   afterEach(() => {
     wrapper?.unmount()
     wrapper = null
+  })
+
+  it('updates handle identity with selection and falls back to the name for unsupported sounds', async () => {
+    wrapper = await mountSelector({ currentInstrument: 'piano' })
+    const handle = () => wrapper!.get('[data-testid="instrument-selector-trigger"]')
+    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
+
+    await wrapper.setProps({ currentInstrument: 'gm_acoustic_guitar_nylon' })
+    expect(handle().find('[data-testid="guitar-icon"]').exists()).toBe(true)
+    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(false)
+
+    await wrapper.setProps({ currentInstrument: 'gm_taiko_drum' })
+    expect(handle().find('[data-testid="drum-icon"]').exists()).toBe(true)
+
+    for (const instrument of ['gm_violin', 'gm_bassoon', 'gm_synth_bass_1', 'triangle', 'custom_sample']) {
+      await wrapper.setProps({ currentInstrument: instrument })
+      expect(handle().find('svg').exists()).toBe(false)
+      expect(handle().text()).toBe(instrument.replace(/^gm_/, ''))
+    }
+
+    await wrapper.setProps({ currentInstrument: 'gm_epiano1' })
+    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
   })
 
   it('loads registered sounds and renders grouped sound banks', async () => {

@@ -317,7 +317,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       @lostpointercapture="pointerEnd"
     >
       <span class="drawer__grip" aria-hidden="true" />
-      <span class="drawer__icon" aria-hidden="true"><slot name="icon" /></span>
+      <span v-if="$slots.icon" class="drawer__icon" aria-hidden="true"><slot name="icon" /></span>
       <span v-if="handleLabel" class="drawer__label">{{ handleLabel }}</span>
       <span class="drawer__grip" aria-hidden="true" />
     </button>

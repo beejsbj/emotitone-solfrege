@@ -8,9 +8,61 @@ diff --git a/node_modules/@strudel/soundfonts/.bun-tag-e67090e4dea9f04e b/.bun-t
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/index.mjs b/dist/index.mjs
-index f973c758dbb690aae35bb570b91e90d68f24f505..72777644e42de7d1ec2c5fc25534014d85e0eee5 100644
+index f973c758dbb690aae35bb570b91e90d68f24f505..8674703215581d105c55cfc82ad52f6fe5b95724 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
+@@ -157,8 +157,8 @@ const gm = {
+   ],
+   gm_vibraphone: [
+     // Vibraphone: Chromatic Percussion
+-    "0110_JCLive_sf2_file",
+     "0110_Aspirin_sf2_file",
++    "0110_JCLive_sf2_file",
+     "0110_Chaos_sf2_file",
+     "0110_FluidR3_GM_sf2_file",
+     "0110_GeneralUserGS_sf2_file",
+@@ -470,8 +470,8 @@ const gm = {
+   ],
+   gm_acoustic_bass: [
+     // Acoustic Bass: Bass
+-    "0320_JCLive_sf2_file",
+     "0320_FluidR3_GM_sf2_file",
++    "0320_JCLive_sf2_file",
+     "0320_Aspirin_sf2_file",
+     "0320_Chaos_sf2_file"
+     // 0320_GeneralUserGS_sf2_file // missing notes
+@@ -517,8 +517,8 @@ const gm = {
+   ],
+   gm_slap_bass_1: [
+     // Slap Bass 1: Bass
+-    "0360_Aspirin_sf2_file",
+     "0360_JCLive_sf2_file",
++    "0360_Aspirin_sf2_file",
+     "0360_FluidR3_GM_sf2_file",
+     "0360_Chaos_sf2_file"
+     //0360_GeneralUserGS_sf2_file // _1 oct
+@@ -816,8 +816,8 @@ const gm = {
+   ],
+   gm_tuba: [
+     // Tuba: Brass
+-    "0580_FluidR3_GM_sf2_file",
+     "0580_Aspirin_sf2_file",
++    "0580_FluidR3_GM_sf2_file",
+     "0580_Chaos_sf2_file",
+     "0580_GeneralUserGS_sf2_file"
+     //0580_JCLive_sf2_file // _1oct
+@@ -965,10 +965,10 @@ const gm = {
+   ],
+   gm_bassoon: [
+     // Bassoon: Reed
+-    "0700_JCLive_sf2_file",
+     //0700_Aspirin_sf2_file // detune + gain diffs
+     // 0700_Chaos_sf2_file // detune + crackles
+     "0700_FluidR3_GM_sf2_file",
++    "0700_JCLive_sf2_file",
+     "0700_GeneralUserGS_sf2_file",
+     //0700_SBLive_sf2
+     //0700_SoundBlasterOld_sf2
 @@ -1821,9 +1821,12 @@ async function loadFont(name) {
    const load = async () => {
      const url = `${soundfontUrl}/${name}.js`, preset = await fetch(url).then((e) => e.text());
@@ -180,6 +232,62 @@ index b4ae59828244ce7f832e89467f4c412e2aa32695..ecc6846aac21ad0700d455b3e39ebd4a
      }
    }
  }
+diff --git a/gm.mjs b/gm.mjs
+index d8b7687d7523d161a204d812f0f1b6fc53dc3cf3..df2eea6ad307c9c59975779b8d4b837c5c459b56 100644
+--- a/gm.mjs
++++ b/gm.mjs
+@@ -153,8 +153,8 @@ export default {
+   ],
+   gm_vibraphone: [
+     // Vibraphone: Chromatic Percussion
+-    '0110_JCLive_sf2_file',
+     '0110_Aspirin_sf2_file',
++    '0110_JCLive_sf2_file',
+     '0110_Chaos_sf2_file',
+     '0110_FluidR3_GM_sf2_file',
+     '0110_GeneralUserGS_sf2_file',
+@@ -466,8 +466,8 @@ export default {
+   ],
+   gm_acoustic_bass: [
+     // Acoustic Bass: Bass
+-    '0320_JCLive_sf2_file',
+     '0320_FluidR3_GM_sf2_file',
++    '0320_JCLive_sf2_file',
+     '0320_Aspirin_sf2_file',
+     '0320_Chaos_sf2_file',
+     // 0320_GeneralUserGS_sf2_file // missing notes
+@@ -513,8 +513,8 @@ export default {
+   ],
+   gm_slap_bass_1: [
+     // Slap Bass 1: Bass
+-    '0360_Aspirin_sf2_file',
+     '0360_JCLive_sf2_file',
++    '0360_Aspirin_sf2_file',
+     '0360_FluidR3_GM_sf2_file',
+     '0360_Chaos_sf2_file',
+     //0360_GeneralUserGS_sf2_file // _1 oct
+@@ -812,8 +812,8 @@ export default {
+   ],
+   gm_tuba: [
+     // Tuba: Brass
+-    '0580_FluidR3_GM_sf2_file',
+     '0580_Aspirin_sf2_file',
++    '0580_FluidR3_GM_sf2_file',
+     '0580_Chaos_sf2_file',
+     '0580_GeneralUserGS_sf2_file',
+     //0580_JCLive_sf2_file // _1oct
+@@ -961,10 +961,10 @@ export default {
+   ],
+   gm_bassoon: [
+     // Bassoon: Reed
+-    '0700_JCLive_sf2_file',
+     //0700_Aspirin_sf2_file // detune + gain diffs
+     // 0700_Chaos_sf2_file // detune + crackles
+     '0700_FluidR3_GM_sf2_file',
++    '0700_JCLive_sf2_file',
+     '0700_GeneralUserGS_sf2_file',
+     //0700_SBLive_sf2
+     //0700_SoundBlasterOld_sf2
 diff --git a/index.mjs b/index.mjs
 index 31792603cf4b2c1659d73dac0ab66fb954a30f3a..bae95fd9a5b29ca46ade71c9b6be32faf3cebca7 100644
 --- a/index.mjs

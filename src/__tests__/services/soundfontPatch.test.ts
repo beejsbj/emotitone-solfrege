@@ -117,4 +117,32 @@ describe("patched Strudel soundfont loading", () => {
 
     expect(decodeAudioData).toHaveBeenCalledTimes(2);
   });
+
+  it("registers audited GM defaults that decode across the default keyboard", async () => {
+    const { registerSoundfonts } = await import("@strudel/soundfonts");
+    const webaudio = await import("@strudel/webaudio");
+    const registerSound = vi.mocked(webaudio.registerSound);
+    registerSound.mockClear();
+
+    registerSoundfonts();
+
+    const expectedDefaults: Record<string, string> = {
+      gm_vibraphone: "0110_Aspirin_sf2_file",
+      gm_acoustic_bass: "0320_FluidR3_GM_sf2_file",
+      gm_slap_bass_1: "0360_JCLive_sf2_file",
+      gm_tuba: "0580_Aspirin_sf2_file",
+      gm_bassoon: "0700_FluidR3_GM_sf2_file",
+    };
+
+    for (const [name, expectedFont] of Object.entries(expectedDefaults)) {
+      const registration = registerSound.mock.calls.find(
+        ([registeredName]) => registeredName === name
+      );
+      expect(registration, `${name} should be registered`).toBeDefined();
+      expect(
+        (registration?.[2] as { fonts: string[] }).fonts[0],
+        `${name} should use its audited default preset`
+      ).toBe(expectedFont);
+    }
+  });
 });

@@ -217,9 +217,11 @@ function renderOverlapSource(
 function buildLanes(notes: RecordedNoteSpan[]) {
   const lanes: RecordedNoteSpan[][] = [];
   for (const note of notes) {
-    const lane = lanes.find((candidate) =>
-      candidate[candidate.length - 1].end <= note.start + OVERLAP_EPSILON_MS
-    );
+    const lane = lanes.find((candidate) => {
+      const previous = candidate[candidate.length - 1];
+      return previous.start !== note.start &&
+        previous.end <= note.start + OVERLAP_EPSILON_MS;
+    });
     if (lane) lane.push(note);
     else lanes.push([note]);
   }

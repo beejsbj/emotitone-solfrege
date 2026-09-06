@@ -132,6 +132,8 @@ describe("recorded-pattern conversion", () => {
       ],
       pressOrder: ["G4", "C4"],
       voicingOrder: [1, 0],
+      source: "[ {C4, G4@0.0005 ~@0.2495}@0.25 ]",
+      duration: "@0.25",
     },
     {
       order: "minimum note second",
@@ -141,16 +143,62 @@ describe("recorded-pattern conversion", () => {
       ],
       pressOrder: ["C4", "G4"],
       voicingOrder: [0, 1],
+      source: "[ {C4, G4@0.0005 ~@0.2495}@0.25 ]",
+      duration: "@0.25",
+    },
+    {
+      order: "lower minimum note first",
+      notes: [
+        note("c", "C4", 0, 4, 1000, 1),
+        note("g", "G4", 4, 4, 1000, 500),
+      ],
+      pressOrder: ["C4", "G4"],
+      voicingOrder: [0, 1],
+      source: "[ {C4@0.0005 ~@0.2495, G4}@0.25 ]",
+      duration: "@0.25",
+    },
+    {
+      order: "lower minimum note second",
+      notes: [
+        note("g", "G4", 4, 4, 1000, 500),
+        note("c", "C4", 0, 4, 1000, 1),
+      ],
+      pressOrder: ["G4", "C4"],
+      voicingOrder: [1, 0],
+      source: "[ {C4@0.0005 ~@0.2495, G4}@0.25 ]",
+      duration: "@0.25",
+    },
+    {
+      order: "both minimum notes in descending pitch order",
+      notes: [
+        note("g", "G4", 4, 4, 1000, 1),
+        note("c", "C4", 0, 4, 1000, 1),
+      ],
+      pressOrder: ["G4", "C4"],
+      voicingOrder: [1, 0],
+      source: "[ {C4, G4}@0.0005 ]",
+      duration: "@0.0005",
+    },
+    {
+      order: "both minimum notes in ascending pitch order",
+      notes: [
+        note("c", "C4", 0, 4, 1000, 1),
+        note("g", "G4", 4, 4, 1000, 1),
+      ],
+      pressOrder: ["C4", "G4"],
+      voicingOrder: [0, 1],
+      source: "[ {C4, G4}@0.0005 ]",
+      duration: "@0.0005",
     },
   ])(
     "keeps simultaneous notes grouped with $order",
-    ({ notes, pressOrder, voicingOrder }) => {
+    ({ notes, pressOrder, voicingOrder, source, duration }) => {
       const result = conversion(notes);
       const chord = result.tokens[0];
 
-      expect(result.source).toContain("[ {C4, G4@0.0005 ~@0.2495}@0.25 ]");
+      expect(result.source).toContain(source);
       expect(result.tokens).toHaveLength(1);
-      expect(chord).toMatchObject({ type: "chord", duration: "@0.25" });
+      expect(chord).toMatchObject({ type: "chord", duration });
       if (chord.type !== "chord") throw new Error("Expected chord token");
       expect(chord.members.map((member) => member.rawPitch)).toEqual(pressOrder);
       expect(chord.members.map((member) => member.pressOrder)).toEqual([0, 1]);

@@ -46,8 +46,9 @@ const mocks = vi.hoisted(() => {
     keyboardStore,
     musicStore,
     useKeyboardControls: vi.fn(),
-    attackNoteWithOctave: vi.fn(async () => undefined),
-    releaseNoteByButtonKey: vi.fn(),
+    attackNoteForPress: vi.fn(async () => undefined),
+    releaseNoteForPress: vi.fn(),
+    releaseActiveNote: vi.fn(),
     triggerNoteHaptic: vi.fn(),
   };
 });
@@ -66,8 +67,9 @@ vi.mock("@/composables/useKeyboardControls", () => ({
 
 vi.mock("@/composables/useSolfegeInteraction", () => ({
   useSolfegeInteraction: () => ({
-    attackNoteWithOctave: mocks.attackNoteWithOctave,
-    releaseNoteByButtonKey: mocks.releaseNoteByButtonKey,
+    attackNoteForPress: mocks.attackNoteForPress,
+    releaseNoteForPress: mocks.releaseNoteForPress,
+    releaseActiveNote: mocks.releaseActiveNote,
   }),
 }));
 
@@ -200,18 +202,18 @@ describe("Keyboard production usage", () => {
     key.vm.$emit("press", { inputId: "mouse", event });
     await nextTick();
 
-    expect(mocks.keyboardStore.addTouch).toHaveBeenCalledWith(
+    expect(mocks.attackNoteForPress).toHaveBeenCalledWith(
       "mouse:0_4",
-      "0_4",
+      0,
+      4,
+      event,
     );
     expect(mocks.triggerNoteHaptic).toHaveBeenCalledOnce();
-    expect(mocks.attackNoteWithOctave).toHaveBeenCalledWith(0, 4, event);
 
     key.vm.$emit("release", { inputId: "mouse", event });
     await nextTick();
 
-    expect(mocks.keyboardStore.removeTouch).toHaveBeenCalledWith("mouse:0_4");
-    expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledWith("0_4", event);
+    expect(mocks.releaseNoteForPress).toHaveBeenCalledWith("mouse:0_4", event);
   });
 
   it("installs one global QWERTY route and clears held pointers on teardown", () => {
@@ -222,7 +224,7 @@ describe("Keyboard production usage", () => {
 
     wrapper.unmount();
 
-    expect(mocks.keyboardStore.clearAllTouches).toHaveBeenCalledOnce();
+    expect(mocks.releaseActiveNote).toHaveBeenCalledOnce();
   });
 
   it("keeps DrawerKeyboard thin and leaves removed legacy Key APIs behind", () => {

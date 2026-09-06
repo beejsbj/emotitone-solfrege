@@ -193,7 +193,11 @@ function createProductionWiring() {
     small: 2,
     medium: 4,
   })[config.value.keyGaps] ?? 2);
-  const { attackNoteWithOctave, releaseNoteByButtonKey } = useSolfegeInteraction();
+  const {
+    attackNoteForPress,
+    releaseNoteForPress,
+    releaseActiveNote,
+  } = useSolfegeInteraction();
 
   useKeyboardControls(computed(() => config.value.mainOctave));
 
@@ -247,16 +251,19 @@ function createProductionWiring() {
     `${intent.inputId}:${intent.keyId}`;
 
   async function press(intent: KeyboardIntent) {
-    store.addTouch(inputPressId(intent), intent.keyId);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
     }
-    await attackNoteWithOctave(intent.scaleIndex, intent.octave, intent.event);
+    await attackNoteForPress(
+      inputPressId(intent),
+      intent.scaleIndex,
+      intent.octave,
+      intent.event,
+    );
   }
 
   function release(intent: KeyboardIntent) {
-    store.removeTouch(inputPressId(intent));
-    releaseNoteByButtonKey(intent.keyId, intent.event);
+    releaseNoteForPress(inputPressId(intent), intent.event);
   }
 
   return {
@@ -266,7 +273,7 @@ function createProductionWiring() {
     gap,
     press,
     release,
-    clear: store.clearAllTouches,
+    clear: releaseActiveNote,
   };
 }
 

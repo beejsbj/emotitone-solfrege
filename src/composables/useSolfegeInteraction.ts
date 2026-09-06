@@ -5,9 +5,10 @@
 
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
-import { useInstrumentStore } from "@/stores/instrument";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useColorSystem } from "@/composables/useColorSystem";
+import { createHeldNotes } from "@/composables/heldNotes";
+import type { SolfegeHeldPress } from "@/types/heldNotes";
 import type { MusicalMode, ChromaticNote } from "@/types/music";
 
 /**
@@ -15,12 +16,22 @@ import type { MusicalMode, ChromaticNote } from "@/types/music";
  */
 export function useSolfegeInteraction() {
   const musicStore = useMusicStore();
-  const patternsStore = usePatternsStore();
-  const instrumentStore = useInstrumentStore();
+  const keyboardDrawerStore = useKeyboardDrawerStore();
   const { getGradient, isDynamicColorsEnabled } = useColorSystem();
 
-  // Track active note IDs for each button press
-  const activeNoteIds = ref<Map<string, string>>(new Map());
+  const heldNotes = createHeldNotes<SolfegeHeldPress>({
+    attack: ({ solfegeIndex, octave }) =>
+      musicStore.attackNoteWithOctave(solfegeIndex, octave),
+    release: (noteId) => {
+      void musicStore.releaseNote(noteId);
+    },
+    onPressed: ({ pressId, noteKey }) => {
+      keyboardDrawerStore.addTouch(pressId, noteKey);
+    },
+    onUnpressed: ({ pressId }) => {
+      keyboardDrawerStore.removeTouch(pressId);
+    },
+  });
 
   // Create a reactive animation frame counter to trigger re-renders for dynamic colors
   const animationFrame = ref(0);
@@ -66,8 +77,8 @@ export function useSolfegeInteraction() {
   // Watch for dynamic colors being enabled/disabled
   const shouldAnimate = computed(() => isDynamicColorsEnabled.value);
 
-  // Function for attacking notes with octave support
-  const attackNoteWithOctave = async (
+  const attackNoteForPress = (
+    pressId: string,
     solfegeIndex: number,
     octave: number,
     event?: Event
@@ -78,25 +89,21 @@ export function useSolfegeInteraction() {
       event.stopPropagation();
     }
 
-    const buttonKey = `${solfegeIndex}_${octave}`;
-
-    // Don't attack if this button is already pressed
-    if (activeNoteIds.value.has(buttonKey)) {
-      return;
-    }
-
-    const noteId = await musicStore.attackNoteWithOctave(solfegeIndex, octave);
-    if (noteId) {
-      activeNoteIds.value.set(buttonKey, noteId);
-      
-      // Record this note in the patterns history
-      const noteData = musicStore.getActiveNotes().find(n => n.noteId === noteId);
-      if (noteData) {
-        // Recording is handled centrally by usePatternRecording via note-played/note-released events
-        // We intentionally avoid duplicating entries here.
-      }
-    }
+    return heldNotes.press({
+      pressId,
+      noteKey: `${solfegeIndex}_${octave}`,
+      solfegeIndex,
+      octave,
+    });
   };
+
+  // Legacy pitch-owned activation. Production input adapters pass distinct IDs
+  // through attackNoteForPress so same-pitch presses remain independent.
+  const attackNoteWithOctave = (
+    solfegeIndex: number,
+    octave: number,
+    event?: Event
+  ) => attackNoteForPress(`${solfegeIndex}_${octave}`, solfegeIndex, octave, event);
 
   // Function for releasing the currently active note from this button
   const releaseActiveNote = (event?: Event) => {
@@ -106,14 +113,16 @@ export function useSolfegeInteraction() {
       event.stopPropagation();
     }
 
-    // Find the button that triggered this release and release its note
-    const target = event?.target as HTMLElement;
-    if (target) {
-      // Get the button's data attributes or find the note ID another way
-      // For now, we'll release all notes (can be refined later)
-      musicStore.releaseAllNotes();
-      activeNoteIds.value.clear();
+    heldNotes.releaseAll();
+  };
+
+  const releaseNoteForPress = (pressId: string, event?: Event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
     }
+
+    heldNotes.release(pressId);
   };
 
   // Function for releasing a specific note by button key
@@ -124,11 +133,7 @@ export function useSolfegeInteraction() {
       event.stopPropagation();
     }
 
-    const noteId = activeNoteIds.value.get(buttonKey);
-    if (noteId) {
-      musicStore.releaseNote(noteId);
-      activeNoteIds.value.delete(buttonKey);
-    }
+    heldNotes.releaseWhere((press) => press.noteKey === buttonKey);
   };
 
   // Check if any note is active for a given solfege name
@@ -160,6 +165,7 @@ export function useSolfegeInteraction() {
 
   onUnmounted(() => {
     stopAnimation();
+    heldNotes.releaseAll();
   });
 
   // Watch for changes in dynamic colors setting
@@ -172,10 +178,12 @@ export function useSolfegeInteraction() {
   });
 
   return {
-    activeNoteIds: computed(() => activeNoteIds.value),
+    activeNoteIds: computed(() => heldNotes.getActiveNoteIds()),
     getReactiveGradient,
+    attackNoteForPress,
     attackNoteWithOctave,
     releaseActiveNote,
+    releaseNoteForPress,
     releaseNoteByButtonKey,
     isNoteActiveForSolfege,
     attackNote,

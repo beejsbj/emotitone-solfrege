@@ -529,13 +529,19 @@ const handleEnd = (e: Event) => {
   const now = Date.now();
   const touchDuration = now - interaction.start.value.time;
 
-  // Handle tap gesture if we never entered drag state
+  const isTouchEvent = "touches" in event || "changedTouches" in event;
+
+  // Mouse taps are completed by the native click that follows mouseup. Touch
+  // browsers may synthesize that click later, so handle touch taps here and
+  // consume the synthesized click in handleClick.
   if (
+    isTouchEvent &&
     interaction.gestureState.value === "potential_tap" &&
     touchDuration < props.tapDuration &&
     interaction.current.value.totalMovement <= props.tapThreshold
   ) {
     handleTap();
+    interaction.suppressClick.value = true;
   }
 
   // Clean up state

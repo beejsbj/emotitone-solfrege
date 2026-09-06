@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, ref } from "vue";
+import { defineComponent, nextTick, ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
@@ -200,6 +200,22 @@ describe("Knob public interface", () => {
     expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
   });
 
+  it("activates a boolean mouse tap once across mouseup and click", async () => {
+    const wrapper = render({ modelValue: false, type: "boolean" });
+
+    await wrapper.trigger("mousedown", { clientX: 20, clientY: 20 });
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    await nextTick();
+
+    // Mouseup closes the gesture; the native click is the single activation.
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+
+    await wrapper.trigger("click");
+
+    expect(wrapper.emitted("update:modelValue")).toEqual([[true]]);
+    expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
+  });
+
   it("advances and wraps real string options on tap", async () => {
     const wrapper = render({
       modelValue: "SAW",
@@ -211,6 +227,33 @@ describe("Knob public interface", () => {
 
     expect(wrapper.emitted("update:modelValue")).toEqual([["SIN"]]);
     expect(wrapper.emitted("update:value")).toEqual([["SIN"]]);
+  });
+
+  it("keeps the newest option label visible during rapid cycling", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1000);
+      const wrapper = render({
+        modelValue: "major",
+        type: "options",
+        options: [
+          { label: "Major", value: "major" },
+          { label: "Phrygian", value: "phrygian" },
+          { label: "Dorian", value: "dorian" },
+        ],
+      });
+
+      await wrapper.setProps({ modelValue: "phrygian" });
+      const firstChangedLabel = wrapper.get(".knob-options__value").element;
+
+      vi.setSystemTime(1100);
+      await wrapper.setProps({ modelValue: "dorian" });
+
+      expect(wrapper.get(".knob-options__value").element).toBe(firstChangedLabel);
+      expect(wrapper.get(".knob-options__value").text()).toBe("Dorian");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not turn horizontal action-row movement into a value change", async () => {

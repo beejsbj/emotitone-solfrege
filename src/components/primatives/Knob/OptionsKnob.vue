@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import KnobFace from "./KnobFace.vue";
 import type { OptionsKnobProps, KnobOption } from "./types";
 
@@ -61,10 +61,32 @@ const displayValue = computed(
 const compactDisplayLength = computed(
   () => displayValue.value.replace(/\s/g, "").length
 );
-const optionTransitionKey = computed(() => {
-  const value = currentOption.value?.value ?? props.modelValue;
-  return `${typeof value}:${String(value)}`;
-});
+const optionKeyFor = (value: string | number) =>
+  `${typeof value}:${String(value)}`;
+
+// Continuous knob drags can produce a new option roughly every 100ms. Keep
+// one keyed span during that burst so its text updates in place; a deliberate
+// pause still gets the full rip transition.
+const RAPID_CHANGE_WINDOW = 240;
+const initialValue = currentOption.value?.value ?? props.modelValue;
+const optionTransitionKey = ref(optionKeyFor(initialValue));
+let lastChangeAt: number | null = null;
+
+watch(
+  () => props.modelValue,
+  (value, previousValue) => {
+    if (value === previousValue) return;
+
+    const now = Date.now();
+    const isRapidChange =
+      lastChangeAt !== null && now - lastChangeAt < RAPID_CHANGE_WINDOW;
+    lastChangeAt = now;
+
+    if (!isRapidChange) {
+      optionTransitionKey.value = optionKeyFor(value);
+    }
+  },
+);
 
 // Stroke color (can adapt if option has color)
 const activeStrokeColor = computed(

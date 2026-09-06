@@ -108,10 +108,10 @@ index b4ae59828244ce7f832e89467f4c412e2aa32695..ecc6846aac21ad0700d455b3e39ebd4a
 +  });
    return loadCache[name];
  }
- 
+
 @@ -71,6 +75,40 @@ export async function getFontBufferSource(name, value, ac) {
  }
- 
+
  let bufferCache = {};
 +const zoneBufferCache = new WeakMap();
 +
@@ -168,7 +168,7 @@ index b4ae59828244ce7f832e89467f4c412e2aa32695..ecc6846aac21ad0700d455b3e39ebd4a
 +  }); // dont await here to cache promise immediately!
    return bufferCache[key];
  }
- 
+
 @@ -136,7 +177,9 @@ async function getBuffer(zone, audioContext) {
          b = decoded.charCodeAt(i);
          view[i] = b;
@@ -190,6 +190,6 @@ index 31792603cf4b2c1659d73dac0ab66fb954a30f3a..bae95fd9a5b29ca46ade71c9b6be32fa
  import * as soundfontList from './list.mjs';
  import { startPresetNote } from 'sfumato';
  import { loadSoundfont } from './sfumato.mjs';
- 
+
 -export { loadSoundfont, startPresetNote, getFontBufferSource, soundfontList, registerSoundfonts, setSoundfontUrl };
 +export { loadSoundfont, startPresetNote, getFontBufferSource, prewarmSoundfont, soundfontList, registerSoundfonts, setSoundfontUrl };

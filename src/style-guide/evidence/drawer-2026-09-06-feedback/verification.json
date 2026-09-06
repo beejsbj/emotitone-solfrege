@@ -1,0 +1,247 @@
+{
+  "widths": [
+    {
+      "width": 320,
+      "handles": [
+        {
+          "width": 46,
+          "height": 28,
+          "padding": "4px 6px"
+        },
+        {
+          "width": 60.75,
+          "height": 28,
+          "padding": "4px 6px"
+        },
+        {
+          "width": 70.375,
+          "height": 28,
+          "padding": "4px 6px"
+        }
+      ],
+      "configFull": 339,
+      "configDragged": 219,
+      "configBody": {
+        "height": 196,
+        "scroll": 196
+      },
+      "instrumentFull": 717.390625,
+      "outsideEvent": {
+        "reached": true,
+        "prevented": false
+      }
+    },
+    {
+      "width": 390,
+      "handles": [
+        {
+          "width": 46,
+          "height": 28,
+          "padding": "4px 6px"
+        },
+        {
+          "width": 60.75,
+          "height": 28,
+          "padding": "4px 6px"
+        },
+        {
+          "width": 70.375,
+          "height": 28,
+          "padding": "4px 6px"
+        }
+      ],
+      "configFull": 339,
+      "configDragged": 219,
+      "configBody": {
+        "height": 196,
+        "scroll": 196
+      },
+      "instrumentFull": 717.390625,
+      "outsideEvent": {
+        "reached": true,
+        "prevented": false
+      }
+    },
+    {
+      "width": 960,
+      "handles": [
+        {
+          "width": 46,
+          "height": 28,
+          "padding": "4px 6px"
+        },
+        {
+          "width": 60.75,
+          "height": 28,
+          "padding": "4px 6px"
+        },
+        {
+          "width": 70.375,
+          "height": 28,
+          "padding": "4px 6px"
+        }
+      ],
+      "configFull": 281,
+      "configDragged": 161,
+      "configBody": {
+        "height": 138,
+        "scroll": 138
+      },
+      "instrumentFull": 717.390625,
+      "outsideEvent": {
+        "reached": true,
+        "prevented": false
+      }
+    }
+  ],
+  "errors": [
+    "Calls to EditorView.update are not allowed while an update is in progress"
+  ],
+  "motion": {
+    "open": {
+      "samples": [
+        {
+          "ms": 33.29999999701977,
+          "height": 0
+        },
+        {
+          "ms": 48.29999999701977,
+          "height": 0
+        },
+        {
+          "ms": 62,
+          "height": 0
+        },
+        {
+          "ms": 76.3999999910593,
+          "height": 0
+        },
+        {
+          "ms": 90,
+          "height": 0
+        },
+        {
+          "ms": 107.8999999910593,
+          "height": 8.375
+        },
+        {
+          "ms": 123.70000000298023,
+          "height": 21.890625
+        },
+        {
+          "ms": 138.59999999403954,
+          "height": 42.796875
+        },
+        {
+          "ms": 156.70000000298023,
+          "height": 74.34375
+        },
+        {
+          "ms": 175.79999999701977,
+          "height": 121.453125
+        },
+        {
+          "ms": 193.09999999403954,
+          "height": 182.265625
+        },
+        {
+          "ms": 209.3999999910593,
+          "height": 238.5
+        },
+        {
+          "ms": 225.5,
+          "height": 278.953125
+        },
+        {
+          "ms": 242.5,
+          "height": 305.78125
+        },
+        {
+          "ms": 259.3999999910593,
+          "height": 323.359375
+        },
+        {
+          "ms": 276.29999999701977,
+          "height": 334.578125
+        },
+        {
+          "ms": 293.59999999403954,
+          "height": 341.34375
+        },
+        {
+          "ms": 310.5,
+          "height": 344.796875
+        },
+        {
+          "ms": 326.79999999701977,
+          "height": 345.625
+        },
+        {
+          "ms": 344.20000000298023,
+          "height": 344.375
+        },
+        {
+          "ms": 369.70000000298023,
+          "height": 341.453125
+        },
+        {
+          "ms": 387,
+          "height": 339
+        },
+        {
+          "ms": 404.09999999403954,
+          "height": 339
+        },
+        {
+          "ms": 419.70000000298023,
+          "height": 339
+        },
+        {
+          "ms": 436.09999999403954,
+          "height": 339
+        },
+        {
+          "ms": 451.29999999701977,
+          "height": 339
+        },
+        {
+          "ms": 467.29999999701977,
+          "height": 339
+        },
+        {
+          "ms": 485.09999999403954,
+          "height": 339
+        },
+        {
+          "ms": 500.79999999701977,
+          "height": 339
+        }
+      ],
+      "target": 339,
+      "transition": "height 0.36s cubic-bezier(0.7, -0.2, 0.3, 1.2)"
+    },
+    "close": {
+      "mid": {
+        "height": 330.734375,
+        "panelMounted": true,
+        "content": 339
+      },
+      "finalHeight": 0,
+      "panelMounted": false
+    }
+  },
+  "implementationCommit": "d6c5c60",
+  "method": "Local Chromium mouse/keyboard interactions via Playwright; mobile/desktop viewports; frame-by-frame Swing height sampling. Collaborative preview navigation failed.",
+  "baselineError": {
+    "commit": "cf55997",
+    "reproduction": "Fresh page, Skip loading screen, click first keyboard key; reproduces with Config either closed or open on baseline and refinement.",
+    "first": "Calls to EditorView.update are not allowed while an update is in progress; updateCodeStripPresentation -> syncPresentation -> Vue watcher.",
+    "second": "A second key can trigger TilePointer.advance: Cannot destructure property tile of parents.pop(...) as it is undefined.",
+    "scope": "Pre-existing CodeStrip functional bug; parked outside Drawer refinement."
+  },
+  "audit": {
+    "verdict": "pass, no actionable regression findings",
+    "independentBrowser": "All 16 Config tabs at 960x844: natural heights277\u2013480px, aligned footers, no unintended body clipping and no page/resize-loop errors.",
+    "unconfirmedObservation": "At390px the first Config footer tab was offscreen left; alignment recipe unchanged, baseline not confirmed. Not changed in Drawer refinement."
+  }
+}

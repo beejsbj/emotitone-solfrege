@@ -60,6 +60,10 @@ function migrateLegacySectionKeys(
     ) {
       mergedSection.surfaceStyle = incomingSection.colorMode;
     }
+    // Daily geometry owns key shape; legacy glass settings now use colored paper.
+    if (mergedSection.surfaceStyle === "glassmorphism") {
+      mergedSection.surfaceStyle = "colored";
+    }
     delete mergedSection.colorMode;
   }
 }

@@ -776,17 +776,9 @@ export const UNIFIED_CONFIG = {
       options: ["none", "small", "medium"],
       label: "Key Gaps",
     },
-    keyShape: {
-      value: 8,
-      min: 0,
-      max: 50,
-      step: 1,
-      label: "Border Radius",
-      format: (v: number) => `${v}px`,
-    },
     surfaceStyle: {
       value: "colored",
-      options: ["colored", "monochrome", "glassmorphism"],
+      options: ["colored", "monochrome"],
       label: "Surface Style",
     },
     rowCount: {
@@ -836,21 +828,9 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${v}°`,
     },
 
-    glassmorphOpacity: {
-      value: 0.4,
-      min: 0,
-      max: 1,
-      step: 0.05,
-      label: "Glass Opacity",
-      format: (v: number) => `${(v * 100).toFixed(0)}%`,
-    },
     keyboardPadding: {
       value: false,
       label: "Keyboard Padding",
-    },
-    angledStyle: {
-      value: false,
-      label: "Angled Style",
     },
   },
 

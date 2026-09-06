@@ -79,8 +79,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         opacity: 0.9,
       },
       keyboard: {
-        surfaceStyle: "glassmorphism",
-        glassmorphOpacity: 0.56,
+        surfaceStyle: "colored",
         keyBrightness: 0.85,
         keySaturation: 0.8,
       },
@@ -145,7 +144,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         surfaceStyle: "colored",
         keyBrightness: 1.2,
         keySaturation: 1.15,
-        angledStyle: true,
       },
     }
   ),

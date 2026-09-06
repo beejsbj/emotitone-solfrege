@@ -166,6 +166,18 @@ describe("Keyboard production usage", () => {
     expect(wrapper.classes()).toContain("keyboard--padded");
   });
 
+  it("reserves the production padding before fitting rows into Drawer space", async () => {
+    mocks.keyboardStore.keyboardConfig.keyboardPadding = true;
+    const wrapper = mountKeyboard();
+    await wrapper.setProps({ availableHeight: 400 });
+    const keys = wrapper.findAllComponents(KeyStub);
+
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(109.76, 1);
+    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(172.48, 1);
+  });
+
   it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {
     const wrapper = mountKeyboard();
     const identities = wrapper.findAllComponents(KeyStub).map(key => key.props("rawPitch"));

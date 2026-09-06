@@ -289,7 +289,10 @@ const resolvedKeyboardPadding = computed(
 );
 // Host allocation changes only row geometry, never row count or note/input ownership.
 const fittedRows = computed(() => props.availableHeight === undefined ? null
-  : fitKeyboardRows(props.availableHeight, renderRows.value.length));
+  : fitKeyboardRows(
+    Math.max(0, props.availableHeight - (resolvedKeyboardPadding.value ? 8 : 0)),
+    renderRows.value.length,
+  ));
 const resolvedMainRowHeight = computed(() => fittedRows.value?.main ?? props.mainRowHeight);
 const resolvedOuterRowHeight = computed(() => fittedRows.value?.outer ?? props.outerRowHeight);
 const resolvedOuterInset = computed(() => isProductionUsage ? 0 : props.outerInset);

@@ -14,6 +14,7 @@ import {
 } from "@codemirror/view";
 import { showMiniLocations } from "@strudel/codemirror";
 import { h, render, type AppContext } from "vue";
+import { Note as TonalNote } from "@tonaljs/tonal";
 import {
   CHROMATIC_NOTES,
   getScaleForMode,
@@ -57,6 +58,7 @@ type ParsedNote = {
 
 type RelativeScaleContext = {
   key: ChromaticNote;
+  root: string;
   mode: MusicalMode;
   octave: number;
 };
@@ -100,7 +102,6 @@ const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?-?\d+\b/g;
 const RELATIVE_NOTE_REGEX = /(?<![@.\w])-?\d{1,3}(?=@|\b)/g;
 const REST_CHARACTERS = new Set(["~", "-"]);
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
-const SCALE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 
 const setEditorFocus = StateEffect.define<boolean>();
 const setPresentation = StateEffect.define<CodeStripPresentation>();
@@ -835,7 +836,7 @@ function getRelativeScaleContext(
     /\.scale\(\s*["']([A-Ga-g])([#b]?)(-?\d+):([^"']+)["']\s*\)/,
   );
   if (!scaleMatch) {
-    return { key: fallbackKey, mode: fallbackMode, octave: 4 };
+    return { key: fallbackKey, root: fallbackKey, mode: fallbackMode, octave: 4 };
   }
 
   const [, letter, accidental, rawOctave, rawMode] = scaleMatch;
@@ -844,6 +845,7 @@ function getRelativeScaleContext(
     : fallbackMode;
   return {
     key: normalizePitchClass(letter, accidental),
+    root: `${letter}${accidental.replace("f", "b").replace("s", "#")}`,
     mode,
     octave: Number(rawOctave),
   };
@@ -857,15 +859,16 @@ function relativePitchFromDegree(
   const scale = getScaleForMode(scaleContext.mode);
   const normalized = normalizeScaleIndex(scaleContext.mode, degree);
   const interval = scale.intervals[normalized];
-  if (interval == null) return null;
+  const intervalName = scale.intervalNames[normalized];
+  if (interval == null || !intervalName) return null;
 
   const octaveOffset = Math.floor(degree / scale.degreeCount);
-  const rootMidi = pitchToMidi(scaleContext.key, scaleContext.octave);
-  return midiToScalePitch(
-    rootMidi + interval + octaveOffset * 12,
-    scaleContext,
-    normalized,
-  );
+  const root = `${scaleContext.root}${scaleContext.octave}`;
+  const transposed = TonalNote.transpose(root, intervalName);
+  const pitched = TonalNote.transposeOctaves(transposed, octaveOffset);
+  const octave = TonalNote.octave(pitched);
+  if (octave == null) return null;
+  return { rawPitch: pitched, octave };
 }
 
 function relativeDegreeFromAbsolutePitch(
@@ -894,32 +897,6 @@ function isAbsolutePitch(value: string) {
 
 function pitchToMidi(pitchClass: ChromaticNote, octave: number) {
   return (octave + 1) * 12 + CHROMATIC_NOTES.indexOf(pitchClass);
-}
-
-function midiToScalePitch(
-  midi: number,
-  scaleContext: RelativeScaleContext,
-  degree: number,
-) {
-  const rootLetter = scaleContext.key[0];
-  const rootLetterIndex = SCALE_LETTERS.indexOf(rootLetter);
-  const letter = SCALE_LETTERS[positiveModulo(rootLetterIndex + degree, SCALE_LETTERS.length)];
-  let octave = Math.floor(midi / 12) - 1;
-  let accidentalOffset = midi - pitchToMidi(letter as ChromaticNote, octave);
-  if (accidentalOffset > 6) {
-    octave++;
-    accidentalOffset = midi - pitchToMidi(letter as ChromaticNote, octave);
-  } else if (accidentalOffset < -6) {
-    octave--;
-    accidentalOffset = midi - pitchToMidi(letter as ChromaticNote, octave);
-  }
-  const accidental = accidentalOffset > 0
-    ? "#".repeat(accidentalOffset)
-    : "b".repeat(-accidentalOffset);
-  return {
-    rawPitch: `${letter}${accidental}${octave}`,
-    octave,
-  };
 }
 
 function withSourceDuration(

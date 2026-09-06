@@ -24,15 +24,42 @@ vi.mock("@strudel/core", () => ({
 
 vi.mock("@/data", () => ({
   CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-  getScaleForMode: (mode: string) => ({
-    mode,
-    degreeCount: 7,
-    intervals: mode === "minor" ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11],
-  }),
+  ...(() => {
+    const scaleData: Record<string, { intervalNames: string[]; intervals: number[] }> = {
+      major: {
+        intervalNames: ["1P", "2M", "3M", "4P", "5P", "6M", "7M"],
+        intervals: [0, 2, 4, 5, 7, 9, 11],
+      },
+      minor: {
+        intervalNames: ["1P", "2M", "3m", "4P", "5P", "6m", "7m"],
+        intervals: [0, 2, 3, 5, 7, 8, 10],
+      },
+      "major pentatonic": {
+        intervalNames: ["1P", "2M", "3M", "5P", "6M"],
+        intervals: [0, 2, 4, 7, 9],
+      },
+      "major blues": {
+        intervalNames: ["1P", "2M", "3m", "3M", "5P", "6M"],
+        intervals: [0, 2, 3, 4, 7, 9],
+      },
+      chromatic: {
+        intervalNames: ["1P", "2m", "2M", "3m", "3M", "4P", "5d", "5P", "6m", "6M", "7m", "7M"],
+        intervals: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      },
+    };
+    return {
+      getScaleForMode: (mode: string) => {
+        const selected = scaleData[mode] ?? scaleData.major;
+        return { mode, degreeCount: selected.intervals.length, ...selected };
+      },
+      normalizeScaleIndex: (mode: string, scaleIndex: number) => {
+        const degreeCount = scaleData[mode]?.intervals.length ?? scaleData.major.intervals.length;
+        return ((scaleIndex % degreeCount) + degreeCount) % degreeCount;
+      },
+    };
+  })(),
   getSolfegeNameForMode: (_mode: string, scaleIndex: number) =>
     ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"][scaleIndex] ?? "Do",
-  normalizeScaleIndex: (_mode: string, scaleIndex: number) =>
-    ((scaleIndex % 7) + 7) % 7,
 }));
 
 vi.mock("@/services/musicColor", () => ({
@@ -270,6 +297,29 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
 
     expect(host.querySelector(".note__identity-core")?.textContent).toBe("E♭4");
+  });
+
+  it("uses Tonal scale spellings for flat roots and sparse scale octave steps", async () => {
+    const renderRelative = async (scale: string, degree: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ ${degree}@0.25 ] >\`.as("n").scale("${scale}")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+      await Promise.resolve();
+      return host.querySelector(".note__identity-core")?.textContent;
+    };
+
+    expect(await renderRelative("Bb4:major", "1")).toBe("C5");
+    expect(await renderRelative("C4:major pentatonic", "3")).toBe("G4");
+    expect(await renderRelative("C4:major blues", "6")).toBe("C5");
+    expect(await renderRelative("C4:chromatic", "12")).toBe("C5");
   });
 
   it("marks only pitched accidentals as accidental", async () => {

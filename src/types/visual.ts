@@ -443,8 +443,6 @@ export interface KeyboardConfig {
   keyShape: number;
   /** Presentation style for keys */
   surfaceStyle: "colored" | "monochrome" | "glassmorphism";
-  /** Key size multiplier */
-  keySize: number;
   /** Number of visible octave rows */
   rowCount: number;
   /** Main octave number */

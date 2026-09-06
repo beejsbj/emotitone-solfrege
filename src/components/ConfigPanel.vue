@@ -1,36 +1,13 @@
 <template>
-  <TopDrawer anchor="top-right" offset-top="0.75rem" offset-side="0.75rem">
-    <template #trigger="{ open }">
-      <div class="flex flex-col items-end gap-1.5">
-        <button
-          data-testid="config-panel-trigger"
-          @click="openSettingsPanel(open)"
-          class="group relative flex h-10 w-10 items-center justify-center border border-[#4a4a4a]/80 bg-[#090909]/88 text-[#d2d2d2] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_8px,8px_0,calc(100%-8px)_0,100%_8px,100%_100%,0_100%)]"
-          :aria-label="midiTriggerLabel"
-          :title="midiTriggerLabel"
-        >
-          <span
-            class="absolute right-[5px] top-[5px] h-2.5 w-2.5 rounded-full border border-[#050504]/80 transition-all duration-200"
-            :class="midiLedToneClass"
-          />
-          <Settings :size="15" class="shrink-0 transition-transform duration-200 group-hover:rotate-[10deg]" />
-        </button>
-
-        <Transition name="config-midi-chip">
-          <button
-            v-if="showMidiShortcut"
-            data-testid="config-midi-trigger"
-            @click.stop="openMidiPanel(open)"
-            class="group flex h-7 w-7 items-center justify-center self-end overflow-hidden border border-[#444444]/85 bg-[#090909]/88 text-[#cfcfcf] shadow-[0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-md transition-all duration-200 hover:border-[#8b8b8b] hover:text-white [clip-path:polygon(0_7px,7px_0,calc(100%-7px)_0,100%_7px,100%_100%,0_100%)]"
-            :aria-label="midiTriggerLabel"
-            :title="midiTriggerLabel"
-          >
-            <MidiPermissionIcon
-              class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:translate-y-[-1px]"
-            />
-          </button>
-        </Transition>
-      </div>
+  <TopDrawer
+    anchor="top-right"
+    storage-key="config"
+    :aria-label="midiTriggerLabel"
+    handle-test-id="config-panel-trigger"
+  >
+    <template #icon><Settings /></template>
+    <template #status>
+      <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="midiLedToneClass" :title="midiTriggerLabel" />
     </template>
 
     <template #panel="{ close }">
@@ -38,9 +15,10 @@
         v-model="activeTab"
         :tabs="allTabs"
         tab-test-id-prefix="config-tab"
-        width="min(46rem, calc(100vw - 1.5rem))"
-        height="min(54vh, 34rem)"
-        max-height="min(54vh, 34rem)"
+        embedded
+        width="100%"
+        height="100%"
+        max-height="100%"
         body-class="px-3 py-3"
         inactive-tab-width-class="min-w-[3.6rem] max-w-[3.6rem]"
       >
@@ -52,6 +30,13 @@
             </div>
 
             <div class="ml-auto flex shrink-0 items-center gap-1">
+              <Button
+                v-if="showMidiShortcut"
+                data-testid="config-midi-trigger"
+                :accessible-name="midiTriggerLabel"
+                :title="midiTriggerLabel"
+                @click="activeTab = MIDI_TAB.value"
+              ><MidiPermissionIcon /></Button>
               <Knob
                 v-if="activeSectionName && activeSectionHasToggle"
                 type="boolean"
@@ -867,15 +852,6 @@ const roliSyncMessage = computed(() => {
 
   return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
 });
-
-const openSettingsPanel = (open: () => void) => {
-  open();
-};
-
-const openMidiPanel = (open: () => void) => {
-  activeTab.value = MIDI_TAB.value;
-  open();
-};
 
 const getFieldMetadata = (sectionName: ConfigSectionKey, fieldName: string) => {
   const section = UNIFIED_CONFIG[sectionName];

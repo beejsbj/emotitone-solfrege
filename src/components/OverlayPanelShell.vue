@@ -1,5 +1,6 @@
 <script setup lang="ts">
 interface Props {
+  embedded?: boolean;
   width?: string;
   height?: string;
   maxHeight?: string;
@@ -17,24 +18,25 @@ withDefaults(defineProps<Props>(), {
 <template>
   <section
     data-testid="overlay-panel-shell"
-    class="relative overflow-hidden border border-[#464646]/85 bg-[#090909]/97 text-white shadow-[0_18px_44px_rgba(0,0,0,0.45)] backdrop-blur-md [clip-path:polygon(0_16px,16px_0,calc(100%-16px)_0,100%_16px,100%_calc(100%-16px),calc(100%-16px)_100%,16px_100%,0_calc(100%-16px))]"
+    class="relative min-h-0 overflow-hidden text-white"
+    :class="embedded ? 'bg-transparent' : 'border border-[#464646]/85 bg-[#090909]/97 shadow-[0_18px_44px_rgba(0,0,0,0.45)] backdrop-blur-md [clip-path:polygon(0_16px,16px_0,calc(100%-16px)_0,100%_16px,100%_calc(100%-16px),calc(100%-16px)_100%,16px_100%,0_calc(100%-16px))]'"
     :style="{ width, height: height || undefined, maxHeight }"
   >
-    <div
+    <div v-if="!embedded"
       class="pointer-events-none absolute inset-[1px] border border-[#1d1d1d]/75 [clip-path:polygon(0_15px,15px_0,calc(100%-15px)_0,100%_15px,100%_calc(100%-15px),calc(100%-15px)_100%,15px_100%,0_calc(100%-15px))]"
     />
-    <div
+    <div v-if="!embedded"
       class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent_22%),linear-gradient(90deg,rgba(255,255,255,0.05),transparent_16%,transparent_84%,rgba(255,255,255,0.04))]"
     />
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/16" />
-    <div class="pointer-events-none absolute left-4 top-3 flex gap-1">
+    <div v-if="!embedded" class="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/16" />
+    <div v-if="!embedded" class="pointer-events-none absolute left-4 top-3 flex gap-1">
       <span class="h-2 w-7 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] bg-[#d4d4d4]" />
       <span class="h-2 w-5 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] bg-[#9d9d9d]" />
       <span class="h-2 w-6 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] bg-[#6d6d6d]" />
     </div>
-    <div class="pointer-events-none absolute right-4 top-3 h-px w-10 bg-white/12" />
+    <div v-if="!embedded" class="pointer-events-none absolute right-4 top-3 h-px w-10 bg-white/12" />
 
-    <div
+    <div v-if="!embedded"
       class="pointer-events-none absolute inset-y-0 right-0 w-px bg-[linear-gradient(180deg,transparent,rgba(255,255,255,0.08),transparent)]"
     />
 

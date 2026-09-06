@@ -72,6 +72,7 @@ import {
   watch,
   type ComponentPublicInstance,
 } from "vue";
+import { fitKeyboardRows } from "./keyboardSizing";
 import Key from "@/components/compounds/Key.vue";
 import type { KeyInputEvent } from "@/components/compounds/Key.vue";
 import type {
@@ -140,6 +141,7 @@ const props = withDefaults(
     geometryFamily?: KeyboardGeometryFamily;
     editionSeed?: string;
     gap?: number;
+    availableHeight?: number;
     mainRowHeight?: number;
     outerRowHeight?: number;
     outerInset?: number;
@@ -278,12 +280,11 @@ const resolvedSurfaceStyle = computed(
   () => productionWiring?.surfaceStyle.value ?? props.surfaceStyle,
 );
 const resolvedGap = computed(() => productionWiring?.gap.value ?? props.gap);
-const resolvedMainRowHeight = computed(() => productionWiring
-  ? Math.max(88 * productionWiring.config.value.keySize, 44)
-  : props.mainRowHeight);
-const resolvedOuterRowHeight = computed(() => productionWiring
-  ? Math.max(56 * productionWiring.config.value.keySize, 44)
-  : props.outerRowHeight);
+// Host allocation changes only row geometry, never row count or note/input ownership.
+const fittedRows = computed(() => props.availableHeight === undefined ? null
+  : fitKeyboardRows(props.availableHeight, renderRows.value.length));
+const resolvedMainRowHeight = computed(() => fittedRows.value?.main ?? props.mainRowHeight);
+const resolvedOuterRowHeight = computed(() => fittedRows.value?.outer ?? props.outerRowHeight);
 const resolvedOuterInset = computed(() => isProductionUsage ? 0 : props.outerInset);
 const resolvedVariationAmplitude = computed(
   () => isProductionUsage ? 1 : props.variationAmplitude,

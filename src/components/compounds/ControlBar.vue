@@ -56,14 +56,6 @@
       />
     </div>
 
-    <div class="control-bar__item">
-      <Knob
-        :model-value="drawerOpen"
-        type="boolean"
-        label="Drawer"
-        @update:modelValue="(value) => emit('update:drawerOpen', Boolean(value))"
-      />
-    </div>
   </section>
 </template>
 
@@ -78,7 +70,6 @@ withDefaults(
     bpm?: number;
     octave?: number;
     rows?: number;
-    drawerOpen?: boolean;
   }>(),
   {
     keyValue: "C",
@@ -86,7 +77,6 @@ withDefaults(
     bpm: 120,
     octave: 4,
     rows: 3,
-    drawerOpen: false,
   },
 );
 
@@ -96,14 +86,13 @@ const emit = defineEmits<{
   "update:bpm": [value: number];
   "update:octave": [value: number];
   "update:rows": [value: number];
-  "update:drawerOpen": [value: boolean];
 }>();
 </script>
 
 <style scoped>
 .control-bar {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: start;
   width: 100%;
   min-width: 0;

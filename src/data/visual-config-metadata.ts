@@ -789,14 +789,6 @@ export const UNIFIED_CONFIG = {
       options: ["colored", "monochrome", "glassmorphism"],
       label: "Surface Style",
     },
-    keySize: {
-      value: 1.0,
-      min: 0.6,
-      max: 1.8,
-      step: 0.1,
-      label: "Key Size",
-      format: (v: number) => `${v}x`,
-    },
     rowCount: {
       value: 3,
       min: 1,

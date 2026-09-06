@@ -54,10 +54,6 @@ vi.mock("@/stores/patterns", () => ({
   }),
 }));
 
-vi.mock("@/composables/useKeyboardDrawer", () => ({
-  useKeyboardDrawer: () => ({ animateDrawer: mocks.animateDrawer }),
-}));
-
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: () => ({
     toggle: mocks.toggle,
@@ -146,7 +142,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("preserves all six Control Bar mutations in the production composition", async () => {
+  it("preserves all five Control Bar mutations in the production composition", async () => {
     const wrapper = mount(DrawerKeyboard, {
       global: {
         stubs: {
@@ -163,8 +159,6 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     controls.vm.$emit("update:bpm", 96);
     controls.vm.$emit("update:octave", 5);
     controls.vm.$emit("update:rows", 7);
-    controls.vm.$emit("update:drawerOpen", true);
-    controls.vm.$emit("update:drawerOpen", false);
     await wrapper.vm.$nextTick();
 
     expect(mocks.setKey).toHaveBeenCalledWith("D");
@@ -172,8 +166,6 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
     expect(mocks.setRowCount).toHaveBeenCalledWith(7);
-    expect(mocks.openDrawer).toHaveBeenCalledTimes(1);
-    expect(mocks.closeDrawer).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 });

@@ -10,8 +10,8 @@
     <ConfigPanel v-if="!isLoading" />
     <InstrumentSelector v-if="!isLoading" :compact="true" :floating="true" />
 
-    <div v-if="!isLoading" class="relative z-50 min-h-screen flex flex-col">
-      <DrawerKeyboard class="fixed bottom-0 w-full" />
+    <div v-if="!isLoading" class="pointer-events-none relative z-50 min-h-screen flex flex-col">
+      <DrawerKeyboard />
     </div>
 
     <TooltipRenderer

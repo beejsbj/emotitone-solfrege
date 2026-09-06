@@ -1,54 +1,59 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { flushPromises, mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import TopDrawer from "@/components/TopDrawer.vue";
 
-describe("TopDrawer", () => {
-  afterEach(() => {
-    document.body.innerHTML = "";
+beforeEach(() => {
+  vi.spyOn(document, 'addEventListener').mockImplementation(EventTarget.prototype.addEventListener.bind(document));
+  vi.spyOn(document, 'removeEventListener').mockImplementation(EventTarget.prototype.removeEventListener.bind(document));
+  vi.spyOn(document, 'dispatchEvent').mockImplementation(EventTarget.prototype.dispatchEvent.bind(document));
+  const windowEvents = new EventTarget();
+  vi.spyOn(window, 'addEventListener').mockImplementation(windowEvents.addEventListener.bind(windowEvents));
+  vi.spyOn(window, 'removeEventListener').mockImplementation(windowEvents.removeEventListener.bind(windowEvents));
+  vi.spyOn(window, 'dispatchEvent').mockImplementation(windowEvents.dispatchEvent.bind(windowEvents));
+});
+const mounted: ReturnType<typeof mount>[] = [];
+afterEach(() => { mounted.splice(0).forEach(w => w.unmount()); document.body.innerHTML = ""; vi.restoreAllMocks(); });
+function create(anchor: "top-left" | "top-right", name: string) {
+  const wrapper = mount(TopDrawer, {
+    attachTo: document.body,
+    props: { anchor, ariaLabel: name, handleTestId: name },
+    slots: { panel: '<template #panel="{ close, anchor }"><div :data-panel="anchor"><button @click="close">Done</button></div></template>' },
   });
+  mounted.push(wrapper);
+  return wrapper;
+}
+function handle(name: string) { return document.querySelector(`[data-testid="${name}"]`) as HTMLButtonElement; }
 
-  it("wraps panel content in DrawerShell while preserving the slot API", async () => {
-    const wrapper = mount(TopDrawer, {
-      attachTo: document.body,
-      props: {
-        anchor: "top-left",
-        offsetTop: "12px",
-        offsetSide: "10px",
-        handleLabel: "Tap / ESC",
-      },
-      slots: {
-        trigger: `
-          <template #trigger="{ open, isOpen }">
-            <button data-testid="trigger" @click="open">{{ isOpen ? "open" : "closed" }}</button>
-          </template>
-        `,
-        panel: `
-          <template #panel="{ close, isOpen, anchor }">
-            <section data-testid="panel-content">
-              <span data-testid="state">{{ isOpen ? "open" : "closed" }}</span>
-              <span data-testid="anchor">{{ anchor }}</span>
-              <button data-testid="close" @click="close">close</button>
-            </section>
-          </template>
-        `,
-      },
-    });
-
-    expect(document.body.querySelector(".drawer-shell")).toBeNull();
-    expect(wrapper.get('[data-testid="trigger"]').text()).toBe("closed");
-
-    await wrapper.get('[data-testid="trigger"]').trigger("click");
-
-    expect(document.body.querySelector(".drawer-shell")).not.toBeNull();
-    expect(document.body.querySelector('[data-testid="top-drawer-panel"]')).not.toBeNull();
-    expect(document.body.querySelector('[data-testid="panel-content"]')).not.toBeNull();
-    expect(document.body.querySelector('[data-testid="state"]')?.textContent).toBe("open");
-    expect(document.body.querySelector('[data-testid="anchor"]')?.textContent).toBe("top-left");
-    expect(document.body.querySelector(".drawer-shell__handle-label")?.textContent).toBe("Tap / ESC");
-
-    (document.body.querySelector('[data-testid="close"]') as HTMLButtonElement).click();
-    await wrapper.vm.$nextTick();
-
-    expect(document.body.querySelector(".drawer-shell")).toBeNull();
+describe("TopDrawer production host", () => {
+  it("uses the real Drawer handle and keeps it mounted after slot dismissal", async () => {
+    create("top-left", "Instrument");
+    await flushPromises();
+    expect(document.querySelector('.drawer')).not.toBeNull();
+    expect(document.querySelector('[data-panel]')).toBeNull();
+    handle("Instrument").click();
+    await nextTick();
+    expect(document.querySelector('[data-panel="top-left"]')).not.toBeNull();
+    (document.querySelector('[data-panel] button') as HTMLButtonElement).click();
+    await nextTick();
+    expect(document.querySelector('[data-panel]')).toBeNull();
+    expect(handle("Instrument").getAttribute("aria-expanded")).toBe("false");
+  });
+  it("switches top panels without a scrim and retains Escape dismissal", async () => {
+    create("top-left", "Instrument");
+    create("top-right", "Config");
+    await flushPromises();
+    handle("Instrument").click();
+    await nextTick();
+    handle("Config").click();
+    await nextTick();
+    expect(handle("Instrument").getAttribute("aria-expanded")).toBe("false");
+    expect(handle("Config").getAttribute("aria-expanded")).toBe("true");
+    expect(document.querySelector('[data-panel="top-left"]')).toBeNull();
+    expect(document.querySelector('[data-panel="top-right"]')).not.toBeNull();
+    expect(document.querySelector('[class*="scrim"]')).toBeNull();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await nextTick();
+    expect(handle("Config").getAttribute("aria-expanded")).toBe("false");
   });
 });

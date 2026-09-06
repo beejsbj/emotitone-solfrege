@@ -14,7 +14,7 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
 }));
 
 describe("ControlBar.vue", () => {
-  it("composes the six current controls with their existing ranges", () => {
+  it("composes the five musical controls with their existing ranges", () => {
     const wrapper = mount(ControlBar);
     const knobs = wrapper.findAllComponents({ name: "Knob" });
 
@@ -24,7 +24,6 @@ describe("ControlBar.vue", () => {
       "BPM",
       "Octave",
       "Rows",
-      "Drawer",
     ]);
     expect(knobs[0].props("options")).toEqual(CHROMATIC_NOTES);
     expect(knobs[1].props("options")).toEqual(MODE_OPTIONS);
@@ -43,19 +42,17 @@ describe("ControlBar.vue", () => {
     knobs[2].vm.$emit("update:modelValue", 96);
     knobs[3].vm.$emit("update:modelValue", 5);
     knobs[4].vm.$emit("update:modelValue", 7);
-    knobs[5].vm.$emit("update:modelValue", true);
 
     expect(wrapper.emitted("update:keyValue")?.[0]).toEqual(["D"]);
     expect(wrapper.emitted("update:modeValue")?.[0]).toEqual(["dorian"]);
     expect(wrapper.emitted("update:bpm")?.[0]).toEqual([96]);
     expect(wrapper.emitted("update:octave")?.[0]).toEqual([5]);
     expect(wrapper.emitted("update:rows")?.[0]).toEqual([7]);
-    expect(wrapper.emitted("update:drawerOpen")?.[0]).toEqual([true]);
     wrapper.unmount();
   });
 
   it("spreads equal-width controls without a horizontal scroller", () => {
-    expect(controlBarSource).toContain("grid-template-columns: repeat(6, minmax(0, 1fr))");
+    expect(controlBarSource).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
     expect(controlBarSource).toContain("padding: 3px 0 4px");
     expect(controlBarSource).not.toContain("overflow-x: auto");
     expect(controlBarSource).not.toContain("width: max-content");

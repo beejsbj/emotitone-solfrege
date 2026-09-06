@@ -65,11 +65,11 @@ vi.mock('@/components/OverlayPanelShell.vue', () => ({
 
 vi.mock('@/components/TopDrawer.vue', () => ({
   default: {
-    props: ['anchor', 'offsetTop', 'offsetSide'],
+    props: ['anchor', 'handleLabel', 'handleTestId', 'ariaLabel'],
     template: `
       <div data-testid="top-drawer">
         <div data-testid="top-drawer-trigger">
-          <slot name="trigger" :open="open" :close="close" :toggle="open" :is-open="true" />
+          <button :data-testid="handleTestId" :aria-label="ariaLabel"><slot name="icon" />{{ handleLabel }}</button>
         </div>
         <div data-testid="top-drawer-panel">
           <slot name="panel" :close="close" :open="open" :toggle="open" :is-open="true" />
@@ -86,7 +86,7 @@ vi.mock('@/components/TopDrawer.vue', () => ({
 }))
 
 vi.mock('lucide-vue-next', () => ({
-  ChevronDown: { template: '<svg data-testid="chevron-down-icon"></svg>' },
+  AudioLines: { template: '<svg data-testid="chevron-down-icon"></svg>' },
   Search: { template: '<svg data-testid="search-icon"></svg>' },
   X: { template: '<svg data-testid="close-icon"></svg>' },
 }))
@@ -173,7 +173,7 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.emitted('close')).toEqual([[]])
   })
 
-  it('applies compact trigger styling and highlights the selected sound', async () => {
+  it('preserves instrument identity on the handle and highlights the selected sound', async () => {
     wrapper = await mountSelector({
       compact: true,
       currentInstrument: 'triangle',
@@ -182,7 +182,7 @@ describe('InstrumentSelector.vue', () => {
     const trigger = wrapper.find('[data-testid="instrument-selector-trigger"]')
     const selected = wrapper.find('[data-testid="instrument-option-triangle"]')
 
-    expect(trigger.classes()).toContain('max-w-[144px]')
+    expect(trigger.attributes('aria-label')).toBe('Instrument')
     expect(trigger.text()).toContain('triangle')
     expect(selected.classes()).toContain('border-[#8b8b8b]')
     expect(selected.classes()).toContain('bg-[#242424]')

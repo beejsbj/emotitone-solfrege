@@ -158,6 +158,20 @@ describe("Keyboard production usage", () => {
     expect(keys[4].props("sounding")).toBe(true);
   });
 
+  it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {
+    const wrapper = mountKeyboard();
+    const identities = wrapper.findAllComponents(KeyStub).map(key => key.props("rawPitch"));
+    await wrapper.setProps({ availableHeight: 400 });
+    let keys = wrapper.findAllComponents(KeyStub);
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(112);
+    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(176);
+    await wrapper.setProps({ availableHeight: 20 });
+    keys = wrapper.findAllComponents(KeyStub);
+    expect(keys[0].attributes("style")).toContain("--keyboard-note-height: 44px");
+    expect(keys.map(key => key.props("rawPitch"))).toEqual(identities);
+    wrapper.unmount();
+  });
+
   it("routes Key-local input identity through the existing app adapters", async () => {
     const wrapper = mountKeyboard();
     const key = wrapper.findAllComponents(KeyStub)[2];

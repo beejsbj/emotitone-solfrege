@@ -93,6 +93,7 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockAudioContext.currentTime = 12;
     hoisted.mockHasVoice.mockReturnValue(false);
     hoisted.mockGetSound.mockReturnValue({ data: {} });
+    hoisted.mockLoadBuffer.mockResolvedValue(undefined);
   });
 
   it("attacks a live note as a held voice with voice ownership", async () => {
@@ -150,5 +151,25 @@ describe("superdoughAudio live note handling", () => {
       0.5,
       1,
     );
+  });
+
+  it("treats synths and registered no-sample sounds as immediately ready", async () => {
+    const audio = await import("@/services/superdoughAudio");
+
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(audio.isPrewarmed("custom-oscillator")).toBe(true);
+  });
+
+  it("surfaces explicit warmup failures and leaves the sound cold", async () => {
+    hoisted.mockGetSound.mockReturnValue({
+      data: { samples: ["https://example.test/sample.wav"] },
+    });
+    hoisted.mockLoadBuffer.mockRejectedValue(new Error("Network down"));
+    const audio = await import("@/services/superdoughAudio");
+
+    await expect(audio.prewarmSoundSamples("cold-bank")).rejects.toThrow(
+      "Network down"
+    );
+    expect(audio.isPrewarmed("cold-bank")).toBe(false);
   });
 });

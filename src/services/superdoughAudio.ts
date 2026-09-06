@@ -83,7 +83,10 @@ const SAMPLE_PACKS = [
  * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
  * from inside the init flow (e.g. _prewarmPianoSamples called by initSuperdoughAudio).
  */
-async function _prewarmSoundCore(soundName: string): Promise<void> {
+async function _prewarmSoundCore(
+  soundName: string,
+  tolerateBufferFailures = false
+): Promise<void> {
   const resolved = LEGACY_ALIASES[soundName] ?? soundName;
   if (SYNTH_SOUNDS.has(resolved)) {
     _prewarmedSounds.add(resolved);
@@ -104,7 +107,20 @@ async function _prewarmSoundCore(soundName: string): Promise<void> {
     : (Object.values(bank) as string[][]).flat();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await Promise.allSettled(audioUrls.map((url) => (loadBuffer as any)(url, ac)));
+  const results = await Promise.allSettled(
+    audioUrls.map((url) => (loadBuffer as any)(url, ac))
+  );
+  const failedBuffer = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected"
+  );
+
+  if (failedBuffer) {
+    if (!tolerateBufferFailures) {
+      throw failedBuffer.reason;
+    }
+    return;
+  }
+
   _prewarmedSounds.add(resolved);
 }
 
@@ -118,21 +134,34 @@ async function _prewarmSoundCore(soundName: string): Promise<void> {
  * so the first keypress is never silently dropped.
  */
 export async function prewarmSoundSamples(soundName: string): Promise<void> {
+  await initSuperdoughAudio(); // no-op if already initialised; safe for external callers
+  await _prewarmSoundCore(soundName);
+}
+
+/**
+ * Returns true when a sound can play immediately. Sample banks must already be
+ * in the buffer cache; oscillator and other no-sample sounds are always ready.
+ */
+export function isPrewarmed(soundName: string): boolean {
+  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
+  if (_prewarmedSounds.has(resolved) || SYNTH_SOUNDS.has(resolved)) {
+    return true;
+  }
+
   try {
-    await initSuperdoughAudio(); // no-op if already initialised; safe for external callers
-    await _prewarmSoundCore(soundName);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sound = (getSound as any)(resolved);
+    return Boolean(sound && !sound?.data?.samples);
   } catch {
-    // Non-fatal — worst case the first note may be silently dropped once.
+    return false;
   }
 }
 
 /**
- * Returns true if the given sound's buffers are already loaded into the cache.
- * Used by setInstrument to decide whether to await pre-warming.
+ * Returns all registered sounds that can currently play without a warmup.
  */
-export function isPrewarmed(soundName: string): boolean {
-  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
-  return _prewarmedSounds.has(resolved);
+export function getReadySounds(): string[] {
+  return getRegisteredSounds().filter((soundName) => isPrewarmed(soundName));
 }
 
 /**
@@ -153,7 +182,9 @@ export async function prewarmSoundList(
   const total = sounds.length;
   for (let i = 0; i < total; i++) {
     const name = sounds[i];
-    await _prewarmSoundCore(name);
+    // Initial loading is best-effort: one unavailable buffer must not prevent
+    // the app from opening, but that sound remains cold so selection can retry.
+    await _prewarmSoundCore(name, true);
     const pct = Math.round(progressStart + ((i + 1) / total) * (progressEnd - progressStart));
     progressCallback?.(pct, `Warming ${name} (${i + 1}/${total})`);
   }
@@ -161,7 +192,7 @@ export async function prewarmSoundList(
 
 async function _prewarmPianoSamples(): Promise<void> {
   // Called from within initSuperdoughAudio — skip the init guard to avoid deadlock.
-  return _prewarmSoundCore("piano");
+  return _prewarmSoundCore("piano", true);
 }
 
 async function initSharedStrudelRuntime(): Promise<void> {

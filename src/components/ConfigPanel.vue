@@ -5,7 +5,9 @@
     :aria-label="midiTriggerLabel"
     handle-test-id="config-panel-trigger"
   >
-    <template #icon><MidiSettingsIcon :state="midiStatusState" /></template>
+    <template #icon>
+      <span class="flex" :title="midiTriggerLabel"><MidiSettingsIcon :state="midiStatusState" /></span>
+    </template>
 
     <template #panel="{ close }">
       <TabbedOverlayPanel

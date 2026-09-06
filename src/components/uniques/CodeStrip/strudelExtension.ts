@@ -14,7 +14,13 @@ import {
 } from "@codemirror/view";
 import { showMiniLocations } from "@strudel/codemirror";
 import { h, render, type AppContext } from "vue";
-import { CHROMATIC_NOTES, getSolfegeNameForMode, normalizeScaleIndex } from "@/data";
+import { Note as TonalNote } from "@tonaljs/tonal";
+import {
+  CHROMATIC_NOTES,
+  getScaleForMode,
+  getSolfegeNameForMode,
+  normalizeScaleIndex,
+} from "@/data";
 import { getScaleDegreeIndexForPitchClass } from "@/services/musicColor";
 import type { ChordMember } from "@/components/compounds/Chord.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -48,6 +54,13 @@ type ParsedNote = {
   to: number;
   text: string;
   isRelative: boolean;
+};
+
+type RelativeScaleContext = {
+  key: ChromaticNote;
+  root: string;
+  mode: MusicalMode;
+  octave: number;
 };
 
 export type ParsedCodeStripEvent = {
@@ -243,6 +256,7 @@ const codeStripEventDecorations = EditorView.decorations.compute(
     if (state.field(editorFocus) || !state.doc.length) return Decoration.none;
 
     const presentation = state.field(presentationState);
+    const relativeScale = getRelativeScaleContext(state.doc.toString(), presentation);
     const playing = state.field(transportPlaying);
     const playback = state.field(playbackState);
     const events = parseCodeStripEvents(state.doc);
@@ -269,9 +283,9 @@ const codeStripEventDecorations = EditorView.decorations.compute(
       }
 
       const supplied = semanticTokens[index];
-      const baseToken = compatibleToken(event, supplied)
-        ? supplied
-        : fallbackToken(event, presentation);
+      const baseToken = compatibleToken(event, supplied, relativeScale)
+        ? withSourceDuration(supplied, event)
+        : fallbackToken(event, presentation, relativeScale);
       const rendered = applyPlayback(baseToken, event, events, playing, playback);
       const active = isEventActive(event, events, playing, playback);
       const followRank = active ? activeFollowRank(event, playback) : undefined;
@@ -570,6 +584,7 @@ function applyPlayback(
 function fallbackToken(
   event: ParsedCodeStripEvent,
   presentation: CodeStripPresentation,
+  relativeScale: RelativeScaleContext,
 ): CodeStripToken {
   if (event.kind === "rest") {
     return { type: "rest", duration: event.duration };
@@ -577,7 +592,7 @@ function fallbackToken(
 
   if (event.kind === "group") {
     const members = event.notes.map((note, index): ChordMember => {
-      const token = fallbackNoteToken(note, event.duration, presentation);
+      const token = fallbackNoteToken(note, event.duration, presentation, relativeScale);
       return {
         id: `${note.from}:${note.to}`,
         syllable: token.syllable,
@@ -605,17 +620,18 @@ function fallbackToken(
     };
   }
 
-  return fallbackNoteToken(event.notes[0], event.duration, presentation);
+  return fallbackNoteToken(event.notes[0], event.duration, presentation, relativeScale);
 }
 
 function fallbackNoteToken(
   note: ParsedNote,
   duration: string | undefined,
   presentation: CodeStripPresentation,
+  relativeScale: RelativeScaleContext,
 ): CodeStripNoteToken {
-  const mode = presentation.mode ?? "major";
-  const musicKey = presentation.musicKey ?? "C";
-  const parsed = parseSourceNote(note, mode, musicKey);
+  const mode = note.isRelative ? relativeScale.mode : presentation.mode ?? "major";
+  const musicKey = note.isRelative ? relativeScale.key : presentation.musicKey ?? "C";
+  const parsed = parseSourceNote(note, mode, musicKey, relativeScale);
   const normalized = normalizeScaleIndex(mode, parsed.scaleIndex);
   const syllable = getSolfegeNameForMode(mode, normalized);
   const degree = String(normalized + 1);
@@ -639,19 +655,29 @@ function fallbackNoteToken(
     mode,
     musicKey,
     surfaceStyle: presentation.surfaceStyle,
-    isAccidental: /[#bsf]/i.test(note.text),
+    isAccidental: isAccidentalPitch(parsed.rawPitch),
     keyBrightness: presentation.keyBrightness,
     keySaturation: presentation.keySaturation,
   };
 }
 
-function parseSourceNote(note: ParsedNote, mode: MusicalMode, key: ChromaticNote) {
+function isAccidentalPitch(value: string) {
+  return Boolean(value.match(/^[A-Ga-g]([#bsf]+)-?\d+$/)?.[1]);
+}
+
+function parseSourceNote(
+  note: ParsedNote,
+  mode: MusicalMode,
+  key: ChromaticNote,
+  relativeScale: RelativeScaleContext,
+) {
   if (note.isRelative) {
     const scaleIndex = Number(note.text);
+    const pitch = relativePitchFromDegree(scaleIndex, relativeScale);
     return {
-      rawPitch: note.text,
+      rawPitch: pitch?.rawPitch ?? note.text,
       scaleIndex: Number.isFinite(scaleIndex) ? scaleIndex : 0,
-      octave: 4,
+      octave: pitch?.octave ?? relativeScale.octave,
     };
   }
 
@@ -679,11 +705,12 @@ function normalizePitchClass(letter: string, accidental: string): ChromaticNote 
 function compatibleToken(
   event: ParsedCodeStripEvent,
   token: CodeStripToken | undefined,
+  relativeScale: RelativeScaleContext,
 ): token is CodeStripToken {
   if (!token) return false;
   if (event.kind === "rest") return token.type === "rest";
   if (event.kind === "note") {
-    return token.type === "note" && sourceNoteMatchesToken(event.notes[0], token);
+    return token.type === "note" && sourceNoteMatchesToken(event.notes[0], token, relativeScale);
   }
   if (token.type !== "chord" || event.notes.length !== token.members.length) {
     return false;
@@ -691,29 +718,42 @@ function compatibleToken(
 
   const remaining = [...token.members];
   return event.notes.every((note) => {
-    const memberIndex = remaining.findIndex((member) => sourceNoteMatchesMember(note, member));
+    const memberIndex = remaining.findIndex((member) =>
+      sourceNoteMatchesMember(note, member, relativeScale));
     if (memberIndex < 0) return false;
     remaining.splice(memberIndex, 1);
     return true;
   });
 }
 
-function sourceNoteMatchesToken(note: ParsedNote | undefined, token: CodeStripNoteToken) {
+function sourceNoteMatchesToken(
+  note: ParsedNote | undefined,
+  token: CodeStripNoteToken,
+  relativeScale: RelativeScaleContext,
+) {
   if (!note) return false;
   return sourceNoteMatchesIdentity(
     note,
     token.rawPitch,
     token.scaleIndex,
+    token.octave,
     token.mode ?? "major",
+    relativeScale,
   );
 }
 
-function sourceNoteMatchesMember(note: ParsedNote, member: ChordMember) {
+function sourceNoteMatchesMember(
+  note: ParsedNote,
+  member: ChordMember,
+  relativeScale: RelativeScaleContext,
+) {
   return sourceNoteMatchesIdentity(
     note,
     member.rawPitch,
     member.scaleIndex,
+    member.octave,
     member.mode ?? "major",
+    relativeScale,
   );
 }
 
@@ -721,12 +761,25 @@ function sourceNoteMatchesIdentity(
   note: ParsedNote,
   rawPitch: string | undefined,
   scaleIndex: number | undefined,
+  tokenOctave: number | undefined,
   mode: MusicalMode = "major",
+  relativeScale: RelativeScaleContext,
 ) {
   if (note.isRelative) {
+    const sourceDegree = Number(note.text);
+    if (!Number.isFinite(sourceDegree)) return false;
+
+    if (rawPitch && isAbsolutePitch(rawPitch)) {
+      const tokenDegree = relativeDegreeFromAbsolutePitch(rawPitch, relativeScale);
+      return tokenDegree != null && tokenDegree === sourceDegree;
+    }
     if (!Number.isFinite(scaleIndex)) return false;
-    return normalizeScaleIndex(mode, Number(note.text)) ===
-      normalizeScaleIndex(mode, Number(scaleIndex));
+
+    const scale = getScaleForMode(mode);
+    const octave = Number.isFinite(tokenOctave) ? Number(tokenOctave) : relativeScale.octave;
+    return Number(scaleIndex) +
+      (octave - relativeScale.octave) * scale.degreeCount ===
+      sourceDegree;
   }
   return Boolean(rawPitch) && note.text.toLowerCase() === rawPitch?.toLowerCase();
 }
@@ -740,12 +793,16 @@ function isSemanticEvent(
 function extractNotes(content: string, from: number, to: number) {
   const notes: ParsedNote[] = [];
   const slice = content.slice(from, to);
+  const absoluteRanges: SourceRange[] = [];
 
   for (const match of slice.matchAll(ABSOLUTE_NOTE_REGEX)) {
     if (match.index == null) continue;
+    const absoluteFrom = from + match.index;
+    const absoluteTo = absoluteFrom + match[0].length;
+    absoluteRanges.push({ start: absoluteFrom, end: absoluteTo });
     notes.push({
-      from: from + match.index,
-      to: from + match.index + match[0].length,
+      from: absoluteFrom,
+      to: absoluteTo,
       text: match[0],
       isRelative: false,
     });
@@ -753,15 +810,104 @@ function extractNotes(content: string, from: number, to: number) {
 
   for (const match of slice.matchAll(RELATIVE_NOTE_REGEX)) {
     if (match.index == null) continue;
+    const relativeFrom = from + match.index;
+    const relativeTo = relativeFrom + match[0].length;
+    if (absoluteRanges.some((range) => relativeFrom < range.end && relativeTo > range.start)) {
+      continue;
+    }
     notes.push({
-      from: from + match.index,
-      to: from + match.index + match[0].length,
+      from: relativeFrom,
+      to: relativeTo,
       text: match[0],
       isRelative: true,
     });
   }
 
   return notes.sort((left, right) => left.from - right.from);
+}
+
+function getRelativeScaleContext(
+  content: string,
+  presentation: CodeStripPresentation,
+): RelativeScaleContext {
+  const fallbackMode = presentation.mode ?? "major";
+  const fallbackKey = presentation.musicKey ?? "C";
+  const scaleMatch = content.match(
+    /\.scale\(\s*["']([A-Ga-g])([#b]?)(-?\d+):([^"']+)["']\s*\)/,
+  );
+  if (!scaleMatch) {
+    return { key: fallbackKey, root: fallbackKey, mode: fallbackMode, octave: 4 };
+  }
+
+  const [, letter, accidental, rawOctave, rawMode] = scaleMatch;
+  const mode = getScaleForMode(rawMode as MusicalMode).mode === rawMode
+    ? rawMode as MusicalMode
+    : fallbackMode;
+  return {
+    key: normalizePitchClass(letter, accidental),
+    root: `${letter}${accidental.replace("f", "b").replace("s", "#")}`,
+    mode,
+    octave: Number(rawOctave),
+  };
+}
+
+function relativePitchFromDegree(
+  degree: number,
+  scaleContext: RelativeScaleContext,
+) {
+  if (!Number.isFinite(degree)) return null;
+  const scale = getScaleForMode(scaleContext.mode);
+  const normalized = normalizeScaleIndex(scaleContext.mode, degree);
+  const interval = scale.intervals[normalized];
+  const intervalName = scale.intervalNames[normalized];
+  if (interval == null || !intervalName) return null;
+
+  const octaveOffset = Math.floor(degree / scale.degreeCount);
+  const root = `${scaleContext.root}${scaleContext.octave}`;
+  const transposed = TonalNote.transpose(root, intervalName);
+  const pitched = TonalNote.transposeOctaves(transposed, octaveOffset);
+  const octave = TonalNote.octave(pitched);
+  if (octave == null) return null;
+  return { rawPitch: pitched, octave };
+}
+
+function relativeDegreeFromAbsolutePitch(
+  rawPitch: string,
+  scaleContext: RelativeScaleContext,
+) {
+  const match = rawPitch.match(/^([A-Ga-g])([#bsf]*)(-?\d+)$/);
+  if (!match) return null;
+  const noteMidi = TonalNote.midi(
+    normalizeAbsolutePitch(match[1], match[2], match[3]),
+  );
+  const rootMidi = TonalNote.midi(`${scaleContext.root}${scaleContext.octave}`);
+  if (noteMidi == null || rootMidi == null) return null;
+  const delta = noteMidi - rootMidi;
+  const scale = getScaleForMode(scaleContext.mode);
+
+  for (let degree = 0; degree < scale.degreeCount; degree++) {
+    const cycles = (delta - (scale.intervals[degree] ?? 0)) / 12;
+    if (Number.isInteger(cycles)) return degree + cycles * scale.degreeCount;
+  }
+
+  return null;
+}
+
+function normalizeAbsolutePitch(letter: string, accidental: string, octave: string) {
+  const normalizedAccidental = accidental.replace(/f/g, "b").replace(/s/g, "#");
+  return `${letter.toUpperCase()}${normalizedAccidental}${octave}`;
+}
+
+function isAbsolutePitch(value: string) {
+  return /^[A-Ga-g][#bsf]*-?\d+$/.test(value);
+}
+
+function withSourceDuration(
+  token: CodeStripToken,
+  event: ParsedCodeStripEvent,
+): CodeStripToken {
+  if (!isSemanticEvent(token)) return token;
+  return { ...token, duration: event.duration };
 }
 
 function extractInlineMetaTokens(doc: Text): InlineMetaToken[] {

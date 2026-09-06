@@ -1,0 +1,107 @@
+{
+  "date": "2026-09-06",
+  "recording": {
+    "reproduction": "Load production through Skip, then click the first three keyboard keys.",
+    "before": {
+      "errors": [
+        "Calls to EditorView.update are not allowed while an update is in progress",
+        "Cannot destructure property 'tile' of 'parents.pop(...)' as it is undefined.",
+        "Cannot destructure property 'tile' of 'parents.pop(...)' as it is undefined."
+      ],
+      "visuals": 1,
+      "editor": "// \ne\nDo\n@0.0405\na\ntern"
+    },
+    "after": {
+      "errors": [],
+      "visuals": 3,
+      "editor": [
+        "`< \n \nDo\n@0.01\n \n~\n \nRe\n@0.0065\n \n~\n \nMi\n@0.007\n \n >`\n.\nas\n(\n\"n\"\n)\n.\nscale\n(\n\"C4:major\"\n)\n.\nsound\n(\n\"piano\"\n)\n.\ncpm\n(\n120\n/\n4\n)"
+      ]
+    }
+  },
+  "configHeader": {
+    "viewport": {
+      "width": 320,
+      "height": 720
+    },
+    "midi": "Injected connected input name; no hardware claim.",
+    "sectionToggle": "One real mouse click changed aria-pressed from true to false.",
+    "actions": [
+      {
+        "name": "config-midi-trigger",
+        "left": 14,
+        "right": 54,
+        "top": 57.46875,
+        "bottom": 97.46875,
+        "width": 40,
+        "hit": true,
+        "contained": true
+      },
+      {
+        "name": "section-toggle-keyboard",
+        "left": 58.825599670410156,
+        "right": 91.17440032958984,
+        "top": 55.765907287597656,
+        "bottom": 99.18721771240234,
+        "width": 32.34880065917969,
+        "hit": true,
+        "contained": true
+      },
+      {
+        "name": "config-reset-all",
+        "left": 178,
+        "right": 218,
+        "top": 57.46875,
+        "bottom": 97.46875,
+        "width": 40,
+        "hit": true,
+        "contained": true
+      },
+      {
+        "name": "config-export",
+        "left": 222,
+        "right": 262,
+        "top": 57.46875,
+        "bottom": 97.46875,
+        "width": 40,
+        "hit": true,
+        "contained": true
+      },
+      {
+        "name": "config-save-as",
+        "left": 266,
+        "right": 306,
+        "top": 57.46875,
+        "bottom": 97.46875,
+        "width": 40,
+        "hit": true,
+        "contained": true
+      },
+      {
+        "name": "Close settings",
+        "left": 266,
+        "right": 306,
+        "top": 102.953125,
+        "bottom": 142.953125,
+        "width": 40,
+        "hit": true,
+        "contained": true
+      }
+    ]
+  },
+  "limits": [
+    "No real MIDI hardware, audio-output, or physical touch-device verification."
+  ],
+  "verificationCommit": "1f1aa0b",
+  "tests": {
+    "suites": 29,
+    "passed": 226,
+    "excludedBaseline": "KeySelector.test.ts missing component import"
+  },
+  "build": "Passed, including vue-tsc and PWA generation",
+  "loadingSplash": {
+    "production": "Restored previous LoadingSplash; new LoadingScreen remains in the guide pending acceptance.",
+    "tests": "Identity and status, ready/audio entry, and retry pass.",
+    "browser": "Skip enters the production app and three key clicks record three semantic notes without page errors."
+  }
+}

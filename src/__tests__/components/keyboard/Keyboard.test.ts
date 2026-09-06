@@ -119,6 +119,7 @@ function mountKeyboard() {
 describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
   });
 
   it("builds configured octave rows from the accepted Key contract", () => {
@@ -156,6 +157,25 @@ describe("Keyboard production usage", () => {
     );
 
     expect(keys[4].props("sounding")).toBe(true);
+  });
+
+  it("restores the production keyboard padding setting at the keyboard seam", () => {
+    mocks.keyboardStore.keyboardConfig.keyboardPadding = true;
+    const wrapper = mountKeyboard();
+
+    expect(wrapper.classes()).toContain("keyboard--padded");
+  });
+
+  it("reserves the production padding before fitting rows into Drawer space", async () => {
+    mocks.keyboardStore.keyboardConfig.keyboardPadding = true;
+    const wrapper = mountKeyboard();
+    await wrapper.setProps({ availableHeight: 400 });
+    const keys = wrapper.findAllComponents(KeyStub);
+
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(109.76, 1);
+    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(172.48, 1);
   });
 
   it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {

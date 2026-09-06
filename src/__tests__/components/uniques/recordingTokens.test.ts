@@ -63,12 +63,13 @@ describe("CodeStrip recorded-token metadata", () => {
     expect(result.every((token) => !("progress" in token))).toBe(true);
   });
 
-  it("uses the same rapid-tap coalescing rule as the playable source", () => {
+  it("preserves measured gaps in rapid taps", () => {
     expect(tokens([
       note("c", "C4", 0, 4, 1000, 80),
       note("d", "D4", 1, 4, 1160, 80),
     ])).toMatchObject([
-      { type: "note", duration: "@0.08" },
+      { type: "note", duration: "@0.04" },
+      { type: "rest", duration: "@0.04" },
       { type: "note", duration: "@0.04" },
     ]);
   });

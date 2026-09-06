@@ -257,6 +257,24 @@ const defaultThemeColor = computed(() =>
   props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 82%, 1)"
 );
 
+let suppressClickTimeout: ReturnType<typeof setTimeout> | undefined;
+
+const clearSuppressedClick = () => {
+  interaction.suppressClick.value = false;
+  if (suppressClickTimeout) {
+    clearTimeout(suppressClickTimeout);
+    suppressClickTimeout = undefined;
+  }
+};
+
+const armSuppressedClick = () => {
+  clearSuppressedClick();
+  interaction.suppressClick.value = true;
+  // Touchstart.preventDefault usually prevents a compatibility click, but
+  // expire the guard so a later real pointer click cannot be lost forever.
+  suppressClickTimeout = setTimeout(clearSuppressedClick, 500);
+};
+
 // Enhanced gesture detection and interaction
 const handleStart = (e: MouseEvent | TouchEvent) => {
   if (props.isDisabled) return;
@@ -272,7 +290,7 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
   interaction.gestureState.value = "potential_tap";
   interaction.isDragging.value = false;
   interaction.isHeld.value = true;
-  interaction.suppressClick.value = false;
+  clearSuppressedClick();
   interaction.valueAccumulator.value = 0;
   interaction.optionAccumulator.value = 0; // Reset options accumulator
   interaction.lastOptionChange.value = 0; // Reset options debounce
@@ -529,13 +547,19 @@ const handleEnd = (e: Event) => {
   const now = Date.now();
   const touchDuration = now - interaction.start.value.time;
 
-  // Handle tap gesture if we never entered drag state
+  const isTouchEvent = "touches" in event || "changedTouches" in event;
+
+  // Mouse taps are completed by the native click that follows mouseup. Touch
+  // browsers may synthesize that click later, so handle touch taps here and
+  // consume the synthesized click in handleClick.
   if (
+    isTouchEvent &&
     interaction.gestureState.value === "potential_tap" &&
     touchDuration < props.tapDuration &&
     interaction.current.value.totalMovement <= props.tapThreshold
   ) {
     handleTap();
+    armSuppressedClick();
   }
 
   // Clean up state
@@ -565,11 +589,19 @@ const handleEnd = (e: Event) => {
 const handleClick = (e: MouseEvent | TouchEvent) => {
   // Skip click handling for touch events (handled in handleEnd)
   if ("touches" in e) return;
-  if (props.isDisabled || interaction.isDragging.value || interaction.suppressClick.value) {
-    interaction.suppressClick.value = false;
+  // Keyboard activation dispatches a click with detail 0. It must remain
+  // independent from a pending pointer-click guard after a touch gesture.
+  const isKeyboardClick = e.detail === 0;
+  if (
+    props.isDisabled ||
+    interaction.isDragging.value ||
+    (interaction.suppressClick.value && !isKeyboardClick)
+  ) {
+    clearSuppressedClick();
     return;
   }
 
+  clearSuppressedClick();
   e.preventDefault();
   e.stopPropagation();
   handleTap();

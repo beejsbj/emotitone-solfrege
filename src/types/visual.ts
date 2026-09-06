@@ -439,10 +439,8 @@ export interface KeyboardConfig {
   primaryLabel: "syllable" | "degree" | "raw";
   /** Key gap style */
   keyGaps: "none" | "small" | "medium";
-  /** Key border radius in pixels */
-  keyShape: number;
   /** Presentation style for keys */
-  surfaceStyle: "colored" | "monochrome" | "glassmorphism";
+  surfaceStyle: "colored" | "monochrome";
   /** Number of visible octave rows */
   rowCount: number;
   /** Main octave number */
@@ -458,12 +456,8 @@ export interface KeyboardConfig {
 
   /** Gradient direction in degrees (0-360) */
   gradientDirection: number;
-  /** Glassmorphism effect opacity for palette keys (0-1) */
-  glassmorphOpacity: number;
   /** Whether to add padding around the keyboard */
   keyboardPadding: boolean;
-  /** Whether to apply randomized angled clip-path to keys */
-  angledStyle: boolean;
 }
 
 /**

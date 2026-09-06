@@ -2,7 +2,11 @@
   <div
     ref="keyboardRef"
     class="keyboard"
-    :class="[`keyboard--motion-${resolvedMotion}`, `keyboard--contrast-${resolvedContrast}`]"
+    :class="[
+      `keyboard--motion-${resolvedMotion}`,
+      `keyboard--contrast-${resolvedContrast}`,
+      { 'keyboard--padded': resolvedKeyboardPadding },
+    ]"
     :style="{ '--keyboard-gap': `${Math.max(resolvedGap, 0)}px` }"
     role="group"
     aria-label="Solfège keyboard"
@@ -54,7 +58,7 @@
         :data-edition-variant="variationFor(key.id).variant"
         @focus="rememberFocus(key.id)"
         @keydown="handleKeyDown($event, rowIndex, keyIndex)"
-        @keyup="handleKeyUp($event, key)"
+        @keyup="handleKeyUp($event)"
         @press="emitIntent('press', $event, key, row.octave)"
         @release="emitIntent('release', $event, key, row.octave)"
       />
@@ -137,6 +141,7 @@ const props = withDefaults(
     mainOctave?: number;
     primaryLabel?: NoteLabel;
     showLabels?: boolean;
+    keyboardPadding?: boolean;
     surfaceStyle?: NoteSurfaceStyle;
     geometryFamily?: KeyboardGeometryFamily;
     editionSeed?: string;
@@ -155,6 +160,7 @@ const props = withDefaults(
     mainOctave: 4,
     primaryLabel: "syllable",
     showLabels: true,
+    keyboardPadding: false,
     surfaceStyle: "colored",
     geometryFamily: undefined,
     editionSeed: undefined,
@@ -280,9 +286,15 @@ const resolvedSurfaceStyle = computed(
   () => productionWiring?.surfaceStyle.value ?? props.surfaceStyle,
 );
 const resolvedGap = computed(() => productionWiring?.gap.value ?? props.gap);
+const resolvedKeyboardPadding = computed(
+  () => productionWiring?.config.value.keyboardPadding ?? props.keyboardPadding,
+);
 // Host allocation changes only row geometry, never row count or note/input ownership.
 const fittedRows = computed(() => props.availableHeight === undefined ? null
-  : fitKeyboardRows(props.availableHeight, renderRows.value.length));
+  : fitKeyboardRows(
+    Math.max(0, props.availableHeight - (resolvedKeyboardPadding.value ? 8 : 0)),
+    renderRows.value.length,
+  ));
 const resolvedMainRowHeight = computed(() => fittedRows.value?.main ?? props.mainRowHeight);
 const resolvedOuterRowHeight = computed(() => fittedRows.value?.outer ?? props.outerRowHeight);
 const resolvedOuterInset = computed(() => isProductionUsage ? 0 : props.outerInset);
@@ -498,11 +510,11 @@ function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number)
   dispatchIntent("press", intent);
 }
 
-function handleKeyUp(event: KeyboardEvent, key: KeyboardKeyView) {
+function handleKeyUp(event: KeyboardEvent) {
   if (![" ", "Enter"].includes(event.key)) return;
   const inputId = `focus:${event.code}`;
   const intent = activeFocusInputs.get(inputId);
-  if (!intent || intent.keyId !== key.id) return;
+  if (!intent) return;
   event.preventDefault();
   activeFocusInputs.delete(inputId);
   dispatchIntent("release", { ...intent, event });
@@ -543,6 +555,8 @@ onBeforeUnmount(() => {
   isolation: isolate;
   container-type: inline-size;
 }
+
+.keyboard--padded { padding: 4px; }
 
 .keyboard__row {
   --keyboard-variation-amplitude: var(--keyboard-user-variation-amplitude, 1);

@@ -89,7 +89,31 @@ describe('Visual Config Store', () => {
       const newStore = createFreshStore()
 
       expect(newStore.config.dynamicColors.musicColorMode).toBe('fixed')
-      expect(newStore.config.keyboard.surfaceStyle).toBe('glassmorphism')
+      expect(newStore.config.keyboard.surfaceStyle).toBe('colored')
+    })
+
+    it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
+      const legacyKeyboard = {
+        surfaceStyle: 'glassmorphism', glassmorphOpacity: 0.6,
+        keyShape: 14, angledStyle: false, keyboardPadding: true,
+      }
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({ config: { keyboard: legacyKeyboard } }))
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([
+        { id: 'legacy', name: 'Legacy', config: { keyboard: legacyKeyboard } }
+      ]))
+      const store = createFreshStore()
+      const assertMigrated = (keyboard: Record<string, unknown>) => {
+        expect(keyboard.surfaceStyle).toBe('colored')
+        expect(keyboard.keyboardPadding).toBe(true)
+        expect(keyboard).not.toHaveProperty('glassmorphOpacity')
+        expect(keyboard).not.toHaveProperty('keyShape')
+        expect(keyboard).not.toHaveProperty('angledStyle')
+      }
+      assertMigrated(store.config.keyboard as unknown as Record<string, unknown>)
+      assertMigrated(store.savedConfigs[0].config.keyboard as unknown as Record<string, unknown>)
+      expect(store.importConfig(JSON.stringify({ config: { keyboard: legacyKeyboard } }))).toBe(true)
+      assertMigrated(store.config.keyboard as unknown as Record<string, unknown>)
+      expect(JSON.parse(store.exportConfig()).config.keyboard).not.toHaveProperty('keyShape')
     })
 
     it('should migrate the legacy liveStrip section into CodeStrip', () => {
@@ -353,7 +377,7 @@ describe('Visual Config Store', () => {
 
       expect(success).toBe(true)
       expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe('fixed')
-      expect(visualConfigStore.config.keyboard.surfaceStyle).toBe('glassmorphism')
+      expect(visualConfigStore.config.keyboard.surfaceStyle).toBe('colored')
       expect(visualConfigStore.visualsEnabled).toBe(false)
     })
 

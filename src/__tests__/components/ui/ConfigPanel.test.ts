@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick, reactive } from "vue";
+import { nextTick, reactive, toRefs } from "vue";
 import { createTestWrapper } from "../../helpers/test-utils";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 
@@ -21,6 +21,7 @@ const keyboardDrawerStore = reactive({
 const visualConfigStore = reactive({
   config: {
     keyboard: {
+      isEnabled: true,
       mainOctave: 4,
       rowCount: 3,
     },
@@ -47,6 +48,11 @@ const musicStore = reactive({
   setKey: vi.fn(),
   setMode: vi.fn(),
 });
+
+vi.mock("pinia", async (importOriginal) => ({
+  ...await importOriginal<typeof import("pinia")>(),
+  storeToRefs: (store: object) => toRefs(store),
+}));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => keyboardDrawerStore,
@@ -78,6 +84,7 @@ vi.mock("@/components/TopDrawer.vue", () => ({
 
 vi.mock("@/components/TabbedOverlayPanel.vue", () => ({
   default: {
+    name: "TabbedOverlayPanel",
     props: ["modelValue"],
     template: '<div :data-tab="modelValue"><slot name="header" /></div>',
   },
@@ -127,6 +134,25 @@ describe("ConfigPanel.vue", () => {
   afterEach(() => {
     wrapper?.unmount();
     wrapper = null;
+  });
+
+  it("assigns repeated section-toggle emissions without inverting twice", async () => {
+    visualConfigStore.config.keyboard.isEnabled = true;
+    visualConfigStore.updateValue.mockImplementation((section, key, value) => {
+      if (section === "keyboard" && key === "isEnabled") {
+        visualConfigStore.config.keyboard.isEnabled = value;
+      }
+    });
+    wrapper = createTestWrapper(ConfigPanel);
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "keyboard");
+    await nextTick();
+    const section = wrapper.findComponent('[data-testid="section-toggle-keyboard"]');
+    section.vm.$emit("update:modelValue", false);
+    await nextTick();
+    section.vm.$emit("update:modelValue", false);
+    await nextTick();
+    expect(visualConfigStore.config.keyboard.isEnabled).toBe(false);
+    expect(visualConfigStore.updateValue).toHaveBeenLastCalledWith("keyboard", "isEnabled", false);
   });
 
   it("hides the MIDI shortcut when only generic outputs are present", async () => {

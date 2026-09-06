@@ -68,6 +68,13 @@ describe("Drawer continuous height contract", () => {
     await w.get('button').trigger('click');
     expect(height(w)).toBe(257); // Last usable content height, not a partly clipped state.
   });
+  it("restores the preferred open height from below the usable minimum", async () => {
+    const w = await create();
+    await drag(w, 143);
+    expect(height(w)).toBe(177);
+    await w.get('button').trigger('click');
+    expect(height(w)).toBe(320);
+  });
   it("persists only completed usable resizes and restores them across mounts", async () => {
     const w = await create({ storageKey: 'keyboard-test' });
     await drag(w, -73);
@@ -81,6 +88,14 @@ describe("Drawer continuous height contract", () => {
     const w = await create({ storageKey: 'keyboard-test' });
     expect(height(w)).toBeLessThan(window.innerHeight);
     expect(JSON.parse(localStorage.getItem('emotitone.drawer.keyboard-test')!).contentHeight).toBe(3000);
+  });
+  it("closes once from a viewport-clamped open state below the content floor", async () => {
+    const w = await create({ initialContentHeight: 500, minContentHeight: 500, maxHeightRatio: 0.25 });
+    expect(height(w)).toBeGreaterThan(120);
+    expect(height(w)).toBeLessThan(120 + 500);
+
+    await w.get('button').trigger('click');
+    expect(height(w)).toBe(120);
   });
   it("preserves keyboard space when the persistent Pattern List expands", async () => {
     const w = await create();

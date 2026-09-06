@@ -24,10 +24,42 @@ vi.mock("@strudel/core", () => ({
 
 vi.mock("@/data", () => ({
   CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
+  ...(() => {
+    const scaleData: Record<string, { intervalNames: string[]; intervals: number[] }> = {
+      major: {
+        intervalNames: ["1P", "2M", "3M", "4P", "5P", "6M", "7M"],
+        intervals: [0, 2, 4, 5, 7, 9, 11],
+      },
+      minor: {
+        intervalNames: ["1P", "2M", "3m", "4P", "5P", "6m", "7m"],
+        intervals: [0, 2, 3, 5, 7, 8, 10],
+      },
+      "major pentatonic": {
+        intervalNames: ["1P", "2M", "3M", "5P", "6M"],
+        intervals: [0, 2, 4, 7, 9],
+      },
+      "major blues": {
+        intervalNames: ["1P", "2M", "3m", "3M", "5P", "6M"],
+        intervals: [0, 2, 3, 4, 7, 9],
+      },
+      chromatic: {
+        intervalNames: ["1P", "2m", "2M", "3m", "3M", "4P", "5d", "5P", "6m", "6M", "7m", "7M"],
+        intervals: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      },
+    };
+    return {
+      getScaleForMode: (mode: string) => {
+        const selected = scaleData[mode] ?? scaleData.major;
+        return { mode, degreeCount: selected.intervals.length, ...selected };
+      },
+      normalizeScaleIndex: (mode: string, scaleIndex: number) => {
+        const degreeCount = scaleData[mode]?.intervals.length ?? scaleData.major.intervals.length;
+        return ((scaleIndex % degreeCount) + degreeCount) % degreeCount;
+      },
+    };
+  })(),
   getSolfegeNameForMode: (_mode: string, scaleIndex: number) =>
     ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"][scaleIndex] ?? "Do",
-  normalizeScaleIndex: (_mode: string, scaleIndex: number) =>
-    ((scaleIndex % 7) + 7) % 7,
 }));
 
 vi.mock("@/services/musicColor", () => ({
@@ -83,6 +115,17 @@ describe("CodeStrip Strudel source decorations", () => {
     ]);
   });
 
+  it("does not parse absolute-note octaves as relative notes", () => {
+    const doc = EditorState.create({
+      doc: "`< [ {C#4, E4} ] >`.as(\"note\")",
+    }).doc;
+
+    expect(parseCodeStripEvents(doc)[0].notes.map((note) => note.text)).toEqual([
+      "C#4",
+      "E4",
+    ]);
+  });
+
   const mountedViews: EditorView[] = [];
 
   afterEach(() => {
@@ -130,13 +173,245 @@ describe("CodeStrip Strudel source decorations", () => {
     });
     mountedViews.push(view);
     updateCodeStripPresentation(view, {
-      tokens: [{ ...tokens[0], rawPitch: "C8", octave: 8 }],
+      tokens: [{
+        ...tokens[0],
+        glyph: "raw",
+        text: "C8",
+        rawPitch: "C8",
+        octave: 8,
+        surfaceStyle: "monochrome",
+      }],
+      notation: "note",
       durationMode: "stacked",
     });
     await Promise.resolve();
 
-    expect(host.querySelector(".note__identity-core")?.textContent).toBe("Do");
-    expect(host.querySelector(".note__identity-core")?.textContent).not.toBe("1");
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("C8");
+    expect(host.querySelector(".note")?.classList).toContain("note--surface-monochrome");
+  });
+
+  it("invalidates supplied metadata when a relative degree crosses an octave", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const relativeSource = "`< [ 7@0.25 ] >`.as(\"n\").scale(\"C4:major\")";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: relativeSource,
+        extensions: [codeStripStrudelExtension],
+      }),
+      parent: host,
+    });
+    mountedViews.push(view);
+    updateCodeStripPresentation(view, {
+      tokens: [{
+        ...tokens[0],
+        glyph: "raw",
+        text: "C4",
+        rawPitch: "C4",
+        scaleIndex: 0,
+        octave: 4,
+      }],
+      notation: "note",
+      durationMode: "stacked",
+    });
+    await Promise.resolve();
+
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("C5");
+    expect(host.querySelector(".note")?.getAttribute("data-octave")).toBe("5");
+  });
+
+  it("resolves relative degrees against the source scale root octave", async () => {
+    const renderRelative = async (degree: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ ${degree}@0.25 ] >\`.as("n").scale("C4:major")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+      await Promise.resolve();
+      return host.querySelector(".note");
+    };
+
+    const high = await renderRelative("7");
+    const low = await renderRelative("-7");
+    expect(high?.querySelector(".note__identity-core")?.textContent).toBe("C5");
+    expect(high?.getAttribute("data-octave")).toBe("5");
+    expect(low?.querySelector(".note__identity-core")?.textContent).toBe("C3");
+    expect(low?.getAttribute("data-octave")).toBe("3");
+  });
+
+  it("derives relative accidentals and root-crossing octaves from the source scale", async () => {
+    const renderRelative = async (scale: string, degree: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ ${degree}@0.25 ] >\`.as("n").scale("${scale}")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+      await Promise.resolve();
+      return host.querySelector(".note");
+    };
+
+    const sharp = await renderRelative("D4:major", "2");
+    const crossing = await renderRelative("B4:major", "1");
+    expect(sharp?.querySelector(".note__identity-core")?.textContent).toBe("F♯4");
+    expect(sharp?.classList).toContain("note--accidental");
+    expect(crossing?.querySelector(".note__identity-core")?.textContent).toBe("C♯5");
+    expect(crossing?.getAttribute("data-octave")).toBe("5");
+    expect(crossing?.classList).toContain("note--accidental");
+  });
+
+  it("does not reuse an absolute token outside the edited source scale", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: "`< [ 2@0.25 ] >`.as(\"n\").scale(\"C4:minor\")",
+        extensions: [codeStripStrudelExtension],
+      }),
+      parent: host,
+    });
+    mountedViews.push(view);
+    updateCodeStripPresentation(view, {
+      tokens: [{
+        ...tokens[0],
+        glyph: "raw",
+        text: "E4",
+        rawPitch: "E4",
+        scaleIndex: 2,
+        octave: 4,
+      }],
+      notation: "note",
+      durationMode: "stacked",
+    });
+    await Promise.resolve();
+
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("E♭4");
+  });
+
+  it("uses Tonal scale spellings for flat roots and sparse scale octave steps", async () => {
+    const renderRelative = async (scale: string, degree: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ ${degree}@0.25 ] >\`.as("n").scale("${scale}")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+      await Promise.resolve();
+      return host.querySelector(".note__identity-core")?.textContent;
+    };
+
+    expect(await renderRelative("Bb4:major", "1")).toBe("C5");
+    expect(await renderRelative("C4:major pentatonic", "3")).toBe("G4");
+    expect(await renderRelative("C4:major blues", "6")).toBe("C5");
+    expect(await renderRelative("C4:chromatic", "12")).toBe("C5");
+  });
+
+  it("keeps enharmonic root octave semantics when checking supplied metadata", async () => {
+    const renderWithToken = async (scale: string, suppliedPitch: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ 0@0.25 ] >\`.as("n").scale("${scale}")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, {
+        tokens: [{
+          ...tokens[0],
+          glyph: "raw",
+          text: suppliedPitch,
+          rawPitch: suppliedPitch,
+          duration: "@0.25",
+        }],
+        notation: "note",
+        durationMode: "stacked",
+      });
+      await Promise.resolve();
+      return host.querySelector(".note__identity-core")?.textContent;
+    };
+
+    expect(await renderWithToken("Cb4:major", "B4")).toBe("C♭4");
+    expect(await renderWithToken("B#4:major", "C4")).toBe("B♯4");
+  });
+
+  it("normalizes only accidental suffixes in absolute metadata aliases", async () => {
+    const renderWithToken = async (source: string, suppliedPitch: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: source,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, {
+        tokens: [{
+          ...tokens[0],
+          glyph: "raw",
+          text: suppliedPitch,
+          rawPitch: suppliedPitch,
+          surfaceStyle: "monochrome",
+        }],
+        notation: "note",
+        durationMode: "stacked",
+      });
+      await Promise.resolve();
+      return host.querySelector(".note");
+    };
+
+    const naturalF = await renderWithToken(
+      "`< [ 3@0.25 ] >`.as(\"n\").scale(\"C4:major\")",
+      "f4",
+    );
+    const flatAlias = await renderWithToken(
+      "`< [ 5@0.25 ] >`.as(\"n\").scale(\"C4:minor\")",
+      "af4",
+    );
+    expect(naturalF?.classList).toContain("note--surface-monochrome");
+    expect(flatAlias?.classList).toContain("note--surface-monochrome");
+  });
+
+  it("marks only pitched accidentals as accidental", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const naturalSource = "`< [ F4@0.25 B4@0.25 F#4@0.25 ] >`.as(\"note\")";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: naturalSource,
+        extensions: [codeStripStrudelExtension],
+      }),
+      parent: host,
+    });
+    mountedViews.push(view);
+    updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+    await Promise.resolve();
+
+    const notes = [...host.querySelectorAll<HTMLElement>(".note")];
+    expect(notes).toHaveLength(3);
+    expect(notes[0].classList).toContain("note--natural");
+    expect(notes[1].classList).toContain("note--natural");
+    expect(notes[2].classList).toContain("note--accidental");
   });
 
   it("turns Ink on at Play and consumes Strudel's native location highlight", async () => {
@@ -222,5 +497,16 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
 
     expect(progress(host, ".code-strip__note")).toBe("0.5");
+  });
+
+  it("takes edited event duration from the source instead of stale metadata", async () => {
+    const { host, view } = createView();
+    const sourceText = view.state.doc.toString();
+    const from = sourceText.indexOf("@0.25");
+
+    view.dispatch({ changes: { from, to: from + "@0.25".length, insert: "@0.5" } });
+    await Promise.resolve();
+
+    expect(host.querySelector(".code-strip__stack-duration")?.textContent).toBe("@0.5");
   });
 });

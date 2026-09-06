@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createTestWrapper } from '../../helpers/test-utils'
 import App from '@/App.vue'
+import appSource from '@/App.vue?raw'
 
 const appLoadingState = vi.hoisted(() => ({
   isLoading: false,
@@ -125,5 +126,14 @@ describe('App.vue', () => {
       rotation: tooltipState.rotation.value,
       translation: tooltipState.translation.value,
     })
+  })
+
+  it('keeps the style guide out of the production entry graph', () => {
+    expect(appSource).toContain('defineAsyncComponent')
+    expect(appSource).toContain('import("./style-guide/StyleGuide.vue")')
+    expect(appSource).toContain('import("./style-guide/guide-defaults.css")')
+    expect(appSource).not.toContain(
+      'import StyleGuide from "./style-guide/StyleGuide.vue"',
+    )
   })
 })

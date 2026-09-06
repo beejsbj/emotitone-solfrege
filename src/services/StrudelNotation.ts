@@ -45,23 +45,7 @@ const DEFAULT_CONFIG: StrudelConfig = {
 
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
-const HUMAN_TAP_FLOOR_MS = 100;
-const REST_GRID_SUBDIVISIONS_PER_BEAT = 4;
-const REST_GRID_ROUNDING_FRACTION = 0.5;
-const MAX_RAPID_TAP_GAP_MS = 150;
 const OVERLAP_EPSILON_MS = 1;
-
-export function getRestGapThresholdMs(sourceBpm: number) {
-  const safeSourceBpm = Number.isFinite(sourceBpm) && sourceBpm > 0
-    ? sourceBpm
-    : DEFAULT_SOURCE_BPM;
-  const beatMs = 60000 / safeSourceBpm;
-  const gridMs = beatMs / REST_GRID_SUBDIVISIONS_PER_BEAT;
-  return Math.min(
-    MAX_RAPID_TAP_GAP_MS,
-    Math.max(HUMAN_TAP_FLOOR_MS, gridMs * REST_GRID_ROUNDING_FRACTION),
-  );
-}
 
 /** Length of one bar in milliseconds. */
 function barLengthMs(config: StrudelConfig): number {
@@ -77,8 +61,8 @@ function toAt(ms: number, barMs: number, precision: number): string {
 /**
  * Converts an array of LogNotes into a Strudel mini-notation string.
  *
- * Notes are rendered sequentially. Deliberate gaps produce ~ rests; small
- * release/re-press gaps extend the preceding standalone event.
+ * Notes are rendered sequentially. Deliberate gaps produce ~ rests and retain
+ * their measured duration in the source timeline.
  * The first note's pressTime is treated as t=0.
  */
 export class StrudelNotation {
@@ -130,26 +114,13 @@ export class StrudelNotation {
         tokens.push(`~${toAt(gap, barMs, this.config.precision)}`);
       }
 
-      // A quick release/re-press is captured as one continuous gesture: give
-      // its small inter-key gap to the preceding standalone note. This removes
-      // the distracting rest without shortening the recorded attack timeline.
-      const nextStart = nextIndex < this.notes.length
-        ? this.noteStart(this.notes[nextIndex], origin)
-        : null;
-      const followingGap = nextStart == null ? 0 : nextStart - blockEnd;
-      const coalescedGap = block.length === 1 &&
-        followingGap > OVERLAP_EPSILON_MS &&
-        followingGap <= this.restGapThresholdMs()
-        ? followingGap
-        : 0;
-
       tokens.push(
         block.length === 1
-          ? this.renderStandaloneNote(block[0], barMs, coalescedGap)
+          ? this.renderStandaloneNote(block[0], barMs)
           : this.renderOverlapBlock(block, origin, blockStart, blockEnd, barMs)
       );
 
-      cursor = blockEnd + coalescedGap;
+      cursor = blockEnd;
       index = nextIndex;
     }
 
@@ -168,9 +139,9 @@ export class StrudelNotation {
     return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(${cpmExpression})`;
   }
 
-  private renderStandaloneNote(note: LogNote, barMs: number, coalescedGap = 0) {
+  private renderStandaloneNote(note: LogNote, barMs: number) {
     return `${this.noteValue(note)}${toAt(
-      this.noteDuration(note) + coalescedGap,
+      this.noteDuration(note),
       barMs,
       this.config.precision,
     )}`;
@@ -306,10 +277,6 @@ export class StrudelNotation {
 
   private noteEnd(note: LogNote, origin: number) {
     return this.noteStart(note, origin) + this.noteDuration(note);
-  }
-
-  private restGapThresholdMs() {
-    return getRestGapThresholdMs(this.config.sourceBpm);
   }
 }
 

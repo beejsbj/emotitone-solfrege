@@ -4,7 +4,6 @@ import type { NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { PatternNote } from "@/types/patterns";
 import type { KeyboardConfig, CodeStripConfig } from "@/types/visual";
-import { getRestGapThresholdMs } from "@/services/StrudelNotation";
 import type { CodeStripNote, CodeStripToken } from "./types";
 
 const OVERLAP_EPSILON_MS = 1;
@@ -60,10 +59,7 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     return [];
   }
 
-  const schedule = buildSchedule(
-    input.notes,
-    getRestGapThresholdMs(input.sourceBpm),
-  );
+  const schedule = buildSchedule(input.notes);
   const tokens: CodeStripToken[] = [];
 
   for (const event of schedule) {
@@ -131,7 +127,7 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
   return tokens;
 }
 
-function buildSchedule(notes: PatternNote[], restGapThresholdMs: number): ScheduledEvent[] {
+function buildSchedule(notes: PatternNote[]): ScheduledEvent[] {
   const sorted: IndexedNote[] = notes
     .map((note, inputOrder) => ({ note, inputOrder }))
     .sort(
@@ -166,14 +162,7 @@ function buildSchedule(notes: PatternNote[], restGapThresholdMs: number): Schedu
       weightCursor += gap;
     }
 
-    const nextBlockStart = sorted[nextIndex]?.note.pressTime;
-    const followingGap = nextBlockStart == null ? 0 : nextBlockStart - blockEnd;
-    const coalescedGap = block.length === 1 &&
-      followingGap > OVERLAP_EPSILON_MS &&
-      followingGap <= restGapThresholdMs
-      ? followingGap
-      : 0;
-    const blockDuration = Math.max(1, blockEnd - blockStart + coalescedGap);
+    const blockDuration = Math.max(1, blockEnd - blockStart);
     const spans = block.map((indexed): NoteSpan => ({
       indexed,
       start: weightCursor + Math.max(0, indexed.note.pressTime - blockStart),
@@ -196,7 +185,7 @@ function buildSchedule(notes: PatternNote[], restGapThresholdMs: number): Schedu
       });
     }
 
-    timelineCursor = blockEnd + coalescedGap;
+    timelineCursor = blockEnd;
     weightCursor += blockDuration;
     index = nextIndex;
   }

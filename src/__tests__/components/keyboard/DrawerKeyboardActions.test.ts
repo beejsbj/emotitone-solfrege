@@ -17,6 +17,11 @@ const mocks = vi.hoisted(() => ({
   openDrawer: vi.fn(),
   closeDrawer: vi.fn(),
   toggleDrawer: vi.fn(),
+  instrumentStore: {
+    isInteractionLocked: false,
+    warmingInstrument: null as string | null,
+    warmupMessage: "",
+  },
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
@@ -38,6 +43,10 @@ vi.mock("@/stores/music", () => ({
     setKey: mocks.setKey,
     setMode: mocks.setMode,
   }),
+}));
+
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => mocks.instrumentStore,
 }));
 
 vi.mock("@/stores/visualConfig", () => ({
@@ -98,6 +107,9 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
     mocks.hasPlayableCode.value = true;
+    mocks.instrumentStore.isInteractionLocked = false;
+    mocks.instrumentStore.warmingInstrument = null;
+    mocks.instrumentStore.warmupMessage = "";
   });
 
   it("preserves playback, remove-last, and commit-and-clear behavior", async () => {
@@ -166,6 +178,29 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
     expect(mocks.setRowCount).toHaveBeenCalledWith(7);
+    wrapper.unmount();
+  });
+
+  it("covers and names the keyboard while instrument samples are warming", () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    mocks.instrumentStore.warmingInstrument = "gm_vibraphone";
+    mocks.instrumentStore.warmupMessage = "Samples being downloaded...";
+
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+
+    const overlay = wrapper.get('[data-testid="keyboard-warmup-overlay"]');
+    expect(overlay.attributes("role")).toBe("status");
+    expect(overlay.text()).toContain("Samples being downloaded...");
+    expect(overlay.text()).toContain("vibraphone");
+    expect(wrapper.get("keyboard-stub").classes()).toContain("pointer-events-none");
     wrapper.unmount();
   });
 });

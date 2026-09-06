@@ -15,6 +15,8 @@ export interface ConfigField<T> {
   max?: number;
   /** Step increment (for numeric fields) */
   step?: number;
+  /** Accepted values (for enumerated fields) */
+  options?: readonly T[];
   /** Display label for the field */
   label?: string;
   /** Optional formatter function for display */

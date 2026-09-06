@@ -134,8 +134,9 @@ export function useBlobRenderer() {
   // Blob state - now supports both note names and noteIds for polyphonic tracking
   const activeBlobs = new Map<string, ActiveBlob>();
 
-  // Maximum blob lifetime in milliseconds (10 seconds as safety)
-  const MAX_BLOB_LIFETIME = 10000;
+  // Keep lifecycle-driven notes visible through the 45-second humming limit,
+  // while retaining a safety ceiling for events whose release is lost.
+  const MAX_BLOB_LIFETIME = 60_000;
 
   /**
    * Safety cleanup for old blobs

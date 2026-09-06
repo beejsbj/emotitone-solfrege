@@ -40,11 +40,12 @@ export function useStringRenderer() {
     new Map<
       string,
       {
+        solfegeIndex: number;
         frequency: number;
         octave: number;
         mode: MusicalMode;
         key: ChromaticNote;
-        endTime: number;
+        endTime: number | null;
       }
     >()
   );
@@ -156,6 +157,7 @@ export function useStringRenderer() {
       octave,
       duration,
       durationMs: eventDurationMs,
+      noteId,
       mode,
       key,
     } = event.detail;
@@ -179,10 +181,14 @@ export function useStringRenderer() {
         durationMs = durationMap[duration] || 500;
       }
 
-      const endTime = Date.now() + durationMs;
+      const hasExplicitDuration = typeof eventDurationMs === "number" || Boolean(duration);
+      const endTime = noteId && !hasExplicitDuration
+        ? null
+        : Date.now() + durationMs;
 
       // Add to event-activated strings
-      eventActivatedStrings.value.set(getStringActivationKey(solfegeIndex, octave), {
+      eventActivatedStrings.value.set(noteId ?? getStringActivationKey(solfegeIndex, octave), {
+        solfegeIndex,
         frequency,
         octave,
         mode: (mode ?? musicStore.currentMode) as MusicalMode,
@@ -190,6 +196,11 @@ export function useStringRenderer() {
         endTime,
       });
     }
+  };
+
+  const handleNoteReleased = (event: CustomEvent) => {
+    const noteId = event.detail?.noteId;
+    if (noteId) eventActivatedStrings.value.delete(noteId);
   };
 
   /**
@@ -201,7 +212,7 @@ export function useStringRenderer() {
       activationKey,
       activation,
     ] of eventActivatedStrings.value.entries()) {
-      if (now > activation.endTime) {
+      if (activation.endTime !== null && now > activation.endTime) {
         eventActivatedStrings.value.delete(activationKey);
       }
     }
@@ -232,12 +243,14 @@ export function useStringRenderer() {
       const isStringActiveFromInput = Boolean(matchingActiveNote);
 
       // Check if this string is activated by sequencer events (for the specific octave)
-      const eventActivation = eventActivatedStrings.value.get(
-        getStringActivationKey(string.noteIndex, string.octave)
+      const eventActivation = Array.from(eventActivatedStrings.value.values()).find(
+        (activation) =>
+          activation.solfegeIndex === string.noteIndex
+          && activation.octave === string.octave,
       );
       const isStringActiveFromEvent =
         eventActivation &&
-        Date.now() <= eventActivation.endTime &&
+        (eventActivation.endTime === null || Date.now() <= eventActivation.endTime) &&
         eventActivation.octave === string.octave;
 
       const isStringActive = isStringActiveFromInput || isStringActiveFromEvent;
@@ -394,6 +407,7 @@ export function useStringRenderer() {
    */
   const addEventListeners = () => {
     window.addEventListener("note-played", handleNotePlayed as EventListener);
+    window.addEventListener("note-released", handleNoteReleased as EventListener);
   };
 
   /**
@@ -403,6 +417,10 @@ export function useStringRenderer() {
     window.removeEventListener(
       "note-played",
       handleNotePlayed as EventListener
+    );
+    window.removeEventListener(
+      "note-released",
+      handleNoteReleased as EventListener
     );
   };
 
@@ -421,5 +439,6 @@ export function useStringRenderer() {
     addEventListeners,
     removeEventListeners,
     handleNotePlayed,
+    handleNoteReleased,
   };
 }

@@ -105,6 +105,23 @@ describe("Keyboard compound", () => {
     });
   });
 
+  it("exposes controlled keyboard padding and reserves it in allocated height", async () => {
+    const wrapper = mountKeyboard();
+    await wrapper.setProps({ availableHeight: 400, keyboardPadding: true });
+    let keys = wrapper.findAllComponents(KeyStub);
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(109.76, 1);
+    expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(172.48, 1);
+
+    await wrapper.setProps({ keyboardPadding: false });
+    keys = wrapper.findAllComponents(KeyStub);
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(112, 1);
+    expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
+      .toBeCloseTo(176, 1);
+  });
+
   it.each([" ", "Enter"])(
     "releases a held %s input after focus moves to another key",
     async (activationKey) => {

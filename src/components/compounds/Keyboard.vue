@@ -141,6 +141,7 @@ const props = withDefaults(
     mainOctave?: number;
     primaryLabel?: NoteLabel;
     showLabels?: boolean;
+    keyboardPadding?: boolean;
     surfaceStyle?: NoteSurfaceStyle;
     geometryFamily?: KeyboardGeometryFamily;
     editionSeed?: string;
@@ -159,6 +160,7 @@ const props = withDefaults(
     mainOctave: 4,
     primaryLabel: "syllable",
     showLabels: true,
+    keyboardPadding: false,
     surfaceStyle: "colored",
     geometryFamily: undefined,
     editionSeed: undefined,
@@ -285,7 +287,7 @@ const resolvedSurfaceStyle = computed(
 );
 const resolvedGap = computed(() => productionWiring?.gap.value ?? props.gap);
 const resolvedKeyboardPadding = computed(
-  () => productionWiring?.config.value.keyboardPadding ?? false,
+  () => productionWiring?.config.value.keyboardPadding ?? props.keyboardPadding,
 );
 // Host allocation changes only row geometry, never row count or note/input ownership.
 const fittedRows = computed(() => props.availableHeight === undefined ? null

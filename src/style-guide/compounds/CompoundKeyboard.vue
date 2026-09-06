@@ -18,6 +18,7 @@
             :main-octave="mainOctave"
             :primary-label="primaryLabel"
             :show-labels="showLabels"
+            :keyboard-padding="keyboardPadding"
             :surface-style="surfaceStyle"
             :geometry-family="family"
             :edition-seed="editionSeed"
@@ -120,6 +121,11 @@
           <span>Show labels</span>
         </label>
 
+        <label class="keyboard-specimen__check">
+          <input v-model="keyboardPadding" type="checkbox">
+          <span>Keyboard padding</span>
+        </label>
+
         <button class="keyboard-specimen__reload" type="button" @click="editionNumber += 1">
           New load variation
         </button>
@@ -166,6 +172,7 @@
             :main-octave="mainOctave"
             :primary-label="primaryLabel"
             :show-labels="showLabels"
+            :keyboard-padding="keyboardPadding"
             :surface-style="surfaceStyle"
             :geometry-family="family"
             :edition-seed="editionSeed"
@@ -224,6 +231,7 @@ const primaryLabel = ref<NoteLabel>("syllable");
 const surfaceStyle = ref<NoteSurfaceStyle>("colored");
 const state = ref<SpecimenState>("resting");
 const showLabels = ref(true);
+const keyboardPadding = ref(false);
 const motion = ref<"system" | "reduced">("system");
 const contrast = ref<"system" | "forced">("system");
 const gap = ref(2);

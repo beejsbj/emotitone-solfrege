@@ -1,0 +1,101 @@
+{
+  "production": [
+    {
+      "id": "gm_piano",
+      "icon": "piano",
+      "width": 70.375,
+      "height": 28,
+      "children": [
+        "drawer__grip",
+        "drawer__icon",
+        "drawer__label",
+        "drawer__grip"
+      ]
+    },
+    {
+      "id": "gm_acoustic_guitar_nylon",
+      "icon": "guitar",
+      "width": 134.75,
+      "height": 28,
+      "children": [
+        "drawer__grip",
+        "drawer__icon",
+        "drawer__label",
+        "drawer__grip"
+      ]
+    },
+    {
+      "id": "gm_taiko_drum",
+      "icon": "drum",
+      "width": 94.890625,
+      "height": 28,
+      "children": [
+        "drawer__grip",
+        "drawer__icon",
+        "drawer__label",
+        "drawer__grip"
+      ]
+    },
+    {
+      "id": "gm_violin",
+      "icon": null,
+      "width": 52.015625,
+      "height": 28,
+      "children": [
+        "drawer__grip",
+        "drawer__label",
+        "drawer__grip"
+      ]
+    },
+    {
+      "id": "sine",
+      "icon": null,
+      "width": 48.1875,
+      "height": 28,
+      "children": [
+        "drawer__grip",
+        "drawer__label",
+        "drawer__grip"
+      ]
+    },
+    {
+      "id": "piano",
+      "icon": "piano",
+      "width": 70.375,
+      "height": 28,
+      "children": [
+        "drawer__grip",
+        "drawer__icon",
+        "drawer__label",
+        "drawer__grip"
+      ]
+    }
+  ],
+  "guide": [
+    {
+      "name": "Guitar",
+      "icon": "guitar"
+    },
+    {
+      "name": "Drums",
+      "icon": "drum"
+    },
+    {
+      "name": "Violin",
+      "icon": null
+    },
+    {
+      "name": "Flute",
+      "icon": null
+    },
+    {
+      "name": "Synth",
+      "icon": null
+    },
+    {
+      "name": "Piano",
+      "icon": "piano"
+    }
+  ],
+  "errors": []
+}

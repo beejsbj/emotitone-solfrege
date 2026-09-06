@@ -8,7 +8,8 @@ import TabbedOverlayPanel, {
   type TabbedOverlayTone,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
-import { Piano, Search, X } from "lucide-vue-next";
+import { Search, X } from "lucide-vue-next";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 
 const drawerContentHeight = ref<number>();
 
@@ -34,6 +35,7 @@ const instrumentStore = useInstrumentStore();
 const currentInstrumentId = computed(
   () => props.currentInstrument || instrumentStore.currentInstrument
 );
+const instrumentIcon = computed(() => instrumentIconFor(currentInstrumentId.value));
 
 const allSounds = ref<string[]>([]);
 const query = ref("");
@@ -457,7 +459,7 @@ function selectInstrument(name: string, close: () => void) {
     :handle-label="displayName(currentInstrumentId)"
     handle-test-id="instrument-selector-trigger"
   >
-    <template #icon><Piano /></template>
+    <template v-if="instrumentIcon" #icon><component :is="instrumentIcon" /></template>
 
     <template #panel="{ close }">
       <TabbedOverlayPanel

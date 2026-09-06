@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { Piano, Keyboard as KeyboardIcon } from "lucide-vue-next";
+import { Keyboard as KeyboardIcon } from "lucide-vue-next";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
@@ -16,6 +17,7 @@ const rowCount = ref(3);
 const width = ref("100%");
 const midiState = ref<"idle" | "connecting" | "connected" | "error">("connected");
 const instrumentName = ref("Piano");
+const instrumentIcon = computed(() => instrumentIconFor(instrumentName.value));
 const lastAction = ref("Drag any handle. Tap Keyboard to hide only its keys.");
 const rows = computed(() => Array.from({ length: rowCount.value }, (_, index) => {
   const octave = 4 + Math.floor(rowCount.value / 2) - index;
@@ -58,11 +60,11 @@ const tokens: CodeStripToken[] = [
           close-on-escape fit-content-on-open close-on-outside
           @update:model-value="top = $event ? 'instrument' : top === 'instrument' ? null : top"
         >
-          <template #icon><Piano /></template>
+          <template v-if="instrumentIcon" #icon><component :is="instrumentIcon" /></template>
           <div class="drawer-specimen__panel">
             <h4>Instrument</h4>
             <p>Content scrolls as the available height shrinks.</p>
-            <button v-for="name in ['Piano', 'Celesta', 'Vibraphone', 'Marimba', 'Organ', 'Strings', 'Synth', 'Bass']" :key="name" @click="lastAction = name; top = null">{{ name }}</button>
+            <button v-for="name in ['Piano', 'Guitar', 'Drums', 'Violin', 'Flute', 'Marimba', 'Organ', 'Synth']" :key="name" @click="instrumentName = name; lastAction = name; top = null">{{ name }}</button>
           </div>
         </Drawer>
         <Drawer

@@ -14,7 +14,9 @@
     "after": {
       "errors": [],
       "visuals": 3,
-      "editor": "`< \n \nDo\n@0.011\n \n~\n \nRe\n@0.033\n \n~\n \nMi\n@0.014\n \n >`\n.\nas\n(\n\"n\"\n)\n.\nscale\n(\n\"C4:major\"\n)\n.\nsound\n(\n\"piano\"\n)\n.\ncpm\n(\n120\n/\n4\n)"
+      "editor": [
+        "`< \n \nDo\n@0.01\n \n~\n \nRe\n@0.0065\n \n~\n \nMi\n@0.007\n \n >`\n.\nas\n(\n\"n\"\n)\n.\nscale\n(\n\"C4:major\"\n)\n.\nsound\n(\n\"piano\"\n)\n.\ncpm\n(\n120\n/\n4\n)"
+      ]
     }
   },
   "configHeader": {
@@ -90,11 +92,16 @@
   "limits": [
     "No real MIDI hardware, audio-output, or physical touch-device verification."
   ],
-  "verificationCommit": "b197ce2",
+  "verificationCommit": "6f7af53",
   "tests": {
-    "suites": 28,
-    "passed": 219,
+    "suites": 29,
+    "passed": 224,
     "excludedBaseline": "KeySelector.test.ts missing component import"
   },
-  "build": "Passed, including vue-tsc and PWA generation"
+  "build": "Passed, including vue-tsc and PWA generation",
+  "loadingSplash": {
+    "production": "Restored previous LoadingSplash; new LoadingScreen remains in the guide pending acceptance.",
+    "tests": "Identity and status, ready/audio entry, and retry pass.",
+    "browser": "Skip enters the production app and three key clicks record three semantic notes without page errors."
+  }
 }

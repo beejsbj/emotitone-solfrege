@@ -231,7 +231,7 @@ Remaining queue, not current authority:
 - QWERTY remapping, roving focus, Space/Enter lifecycle, source coordination, remap cancellation, sounding announcements, and revised haptics are product/accessibility ideas outside this visual pass.
 - Production CodeStrip's recorded-note metadata supplies low-to-high `voicingOrder` and chronological `pressOrder` for overlapping notes, using the clustered display without attempting chord recognition. Independent member progress comes from Strudel source locations, not that metadata mapper. `FloatingPopup` still sends accumulated press order to Tonal and Tonal treats its first note as the inversion bass; `BJS-406` owns that separate bug. Chord naming remains a functional concern, not Chord visual-component ownership.
 - Button source reconciliation is complete. Reconcile `ChipTabs.vue` with production `ui/Tabs*`, and `compounds/PatternCard.vue` with production `patterns/PatternCard.vue` in their own units.
-- LoadingScreen reached production before visual acceptance. Preserve Kicker -> SpineCard and PatternCard -> PatternReel as dependency chains rather than copying their lower-level grammar.
+- LoadingScreen was removed from production during the merged-stack review follow-up; the earlier LoadingSplash is restored, and the new composition remains guide-only pending visual acceptance. Preserve Kicker -> SpineCard and PatternCard -> PatternReel as dependency chains rather than copying their lower-level grammar.
 - Drawer source/specimen/production integration is complete. `DrawerShell.vue` and `useKeyboardDrawer.ts` are retired; the shared unique owns all three consumers. Top-panel interiors retain their existing content design through the explicit embedded seam.
 
 ## Session handoff

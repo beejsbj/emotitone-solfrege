@@ -38,11 +38,9 @@ import {
   initSuperdoughAudio,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
-import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { convertRecordedPattern } from "@/services/RecordedPatternConversion";
 import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import type { LogNote } from "@/types/patterns";
-import { buildRecordedCodeStripTokens } from "./recordingTokens";
 import {
   applySpecimenPlayback,
   codeStripStrudelExtension,
@@ -132,18 +130,27 @@ const RECORDING_FOLLOW_ANCHOR = 0.75;
 
 const codeStripConfig = computed(() => visualConfigStore.config.codeStrip);
 const keyboardConfig = computed(() => visualConfigStore.config.keyboard);
-const barMs = computed(() => (60000 / patternsStore.currentSketchMeta.bpm) * 4);
-const recordedTokens = computed(() => buildRecordedCodeStripTokens({
+const recordedPattern = computed(() => convertRecordedPattern({
   notes: patternsStore.isStripCleared ? [] : patternsStore.currentSketchNotes,
-  mode: patternsStore.currentSketchMeta.mode,
-  musicKey: patternsStore.currentSketchMeta.key,
-  notation: codeStripConfig.value.notation,
-  barMs: barMs.value,
-  sourceBpm: patternsStore.currentSketchMeta.bpm,
-  surfaceStyle: keyboardConfig.value.surfaceStyle,
-  keyBrightness: keyboardConfig.value.keyBrightness,
-  keySaturation: keyboardConfig.value.keySaturation,
+  source: {
+    bpm: codeStripConfig.value.bpm,
+    sourceBpm: patternsStore.currentSketchMeta.bpm,
+    notationType: codeStripConfig.value.notation === "note" ? "absolute" : "relative",
+    scaleKey: patternsStore.currentSketchMeta.key,
+    scaleMode: patternsStore.currentSketchMeta.mode,
+    scaleOctave: keyboardConfig.value.mainOctave,
+    sound: toStrudelSound(patternsStore.currentSketchMeta.instrument ?? "sine"),
+  },
+  codeStrip: {
+    mode: patternsStore.currentSketchMeta.mode,
+    musicKey: patternsStore.currentSketchMeta.key,
+    notation: codeStripConfig.value.notation,
+    surfaceStyle: keyboardConfig.value.surfaceStyle,
+    keyBrightness: keyboardConfig.value.keyBrightness,
+    keySaturation: keyboardConfig.value.keySaturation,
+  },
 }));
+const recordedTokens = computed(() => recordedPattern.value.tokens);
 const presentationTokens = computed(() => props.tokens ?? recordedTokens.value);
 
 const generatedCode = computed(() => {
@@ -160,15 +167,7 @@ const generatedCode = computed(() => {
     return EMPTY_EDITOR_CODE;
   }
 
-  return logNotesToStrudel(patternsStore.currentSketchNotes as LogNote[], {
-    bpm: codeStripConfig.value.bpm,
-    sourceBpm: patternsStore.currentSketchMeta.bpm,
-    notationType: codeStripConfig.value.notation === "note" ? "absolute" : "relative",
-    scaleKey: patternsStore.currentSketchMeta.key,
-    scaleMode: patternsStore.currentSketchMeta.mode,
-    scaleOctave: keyboardConfig.value.mainOctave,
-    sound: toStrudelSound(patternsStore.currentSketchMeta.instrument ?? "sine"),
-  }).replace(/\s+/g, " ").trim();
+  return recordedPattern.value.source.replace(/\s+/g, " ").trim();
 });
 const isEmptyDocument = computed(
   () => (visibleCode.value || generatedCode.value).trim() === EMPTY_EDITOR_CODE,

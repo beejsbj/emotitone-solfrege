@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
+import {
+  DEFAULT_SOURCE_BPM,
+  convertRecordedPattern,
+} from "@/services/RecordedPatternConversion";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { getModeDefinition } from "@/data";
 import Knob from "@/components/primatives/Knob/index.vue";
-import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
+import type { Pattern, PatternNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
@@ -40,15 +43,18 @@ const sourceBpm = computed(() => {
 
 // ── notation for copy ──────────────────────────────────────────────────────
 const notation = computed(() =>
-  logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
-    bpm: sourceBpm.value,
-    sourceBpm: sourceBpm.value,
-    notationType: "relative",
-    scaleKey: props.pattern.key,
-    scaleMode: props.pattern.mode,
-    scaleOctave: keyboardStore.keyboardConfig.mainOctave,
-    sound: toStrudelSound(props.pattern.instrument ?? "sine"),
-  })
+  convertRecordedPattern({
+    notes: props.pattern.notes,
+    source: {
+      bpm: sourceBpm.value,
+      sourceBpm: sourceBpm.value,
+      notationType: "relative",
+      scaleKey: props.pattern.key,
+      scaleMode: props.pattern.mode,
+      scaleOctave: keyboardStore.keyboardConfig.mainOctave,
+      sound: toStrudelSound(props.pattern.instrument ?? "sine"),
+    },
+  }).source
 );
 
 const isPurgeEligible = computed(

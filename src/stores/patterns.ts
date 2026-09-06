@@ -4,7 +4,7 @@ import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { defaultPatterns } from "@/data/patterns";
-import { DEFAULT_SOURCE_BPM } from "@/services/StrudelNotation";
+import { DEFAULT_SOURCE_BPM } from "@/services/RecordedPatternConversion";
 import type {
   LogNote,
   PatternConfig,

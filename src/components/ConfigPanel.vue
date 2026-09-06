@@ -23,13 +23,13 @@
         inactive-tab-width-class="min-w-[3.6rem] max-w-[3.6rem]"
       >
         <template #header>
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex shrink-0 items-center gap-1">
               <span class="h-2.5 w-7 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#d4d4d4]" />
               <span class="h-2.5 w-5 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#8a8a8a]" />
             </div>
 
-            <div class="ml-auto flex shrink-0 items-center gap-1">
+            <div class="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1">
               <Button
                 v-if="showMidiShortcut"
                 data-testid="config-midi-trigger"
@@ -54,7 +54,7 @@
                     ? `Disable ${activeTabMeta.label}`
                     : `Enable ${activeTabMeta.label}`
                 "
-                @update:modelValue="toggleSectionEnabled(activeSectionName)"
+                @update:modelValue="setSectionEnabled(activeSectionName, Boolean($event))"
               />
 
               <Button
@@ -661,11 +661,11 @@ const isSectionInteractable = (sectionName: ConfigSectionKey) => {
   return Boolean(getSectionConfig(sectionName)[enableKey]);
 };
 
-const toggleSectionEnabled = (sectionName: ConfigSectionKey) => {
+const setSectionEnabled = (sectionName: ConfigSectionKey, enabled: boolean) => {
   const enableKey = getSectionEnableKey(sectionName);
   if (!enableKey) return;
 
-  updateValue(sectionName, enableKey, !isSectionEnabled(sectionName));
+  updateValue(sectionName, enableKey, enabled);
 };
 
 const getRenderableFields = (sectionName: ConfigSectionKey): SectionField[] => {
@@ -1000,6 +1000,8 @@ const formatTimestamp = (timestamp: string) => {
 <style scoped>
 .config-panel__boolean-knob {
   --knob-size: 2rem;
+  flex: 0 0 var(--knob-size);
+  inline-size: var(--knob-size);
 }
 
 .config-midi-chip-enter-active,

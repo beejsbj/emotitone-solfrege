@@ -3,7 +3,13 @@
  * Type definitions for canvas rendering, particles, and animation systems
  */
 
-import type { ChromaticNote, MusicalMode, SolfegeData } from "./music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  HarmonicIntervalEdge,
+  MusicalMode,
+  SolfegeData,
+} from "./music";
 
 /**
  * Active blob state for canvas rendering
@@ -41,6 +47,34 @@ export interface ActiveBlob {
   key: ChromaticNote;
   /** Octave snapshot used for scale-relative lightness */
   octave: number;
+}
+
+export interface HarmonicGeometryPoint {
+  note: ActiveNote;
+  blob: ActiveBlob;
+  x: number;
+  y: number;
+  primaryColor: string;
+  accentColor: string;
+  angle: number;
+}
+
+export interface HarmonicGeometryLabel {
+  x: number;
+  y: number;
+  lines: string[];
+  size: "sm" | "md" | "lg";
+}
+
+export interface HarmonicGeometryScene {
+  points: HarmonicGeometryPoint[];
+  orderedPoints: HarmonicGeometryPoint[];
+  centroid: { x: number; y: number };
+  radius: number;
+  boundaryEdges: HarmonicIntervalEdge[];
+  interiorEdges: HarmonicIntervalEdge[];
+  primaryLabel: HarmonicGeometryLabel | null;
+  auxiliaryLabels: HarmonicGeometryLabel[];
 }
 
 /**

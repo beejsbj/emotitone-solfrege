@@ -29,7 +29,12 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     floatingPopupConfig,
     hilbertScopeConfig,
   } = useVisualConfig();
-  const { snapshot: harmonicAnalysisSnapshot } = useHarmonicAnalysis();
+  const {
+    snapshot: harmonicAnalysisSnapshot,
+    notePlayed: recordHarmonicNote,
+    noteReleased: releaseHarmonicNote,
+    reset: resetHarmonicAnalysis,
+  } = useHarmonicAnalysis();
 
   // Canvas state (merged from useCanvasCore)
   const canvasWidth = ref(window.innerWidth);
@@ -288,6 +293,29 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       octave // Pass octave for vertical offset positioning
     );
 
+    const activeNote = noteId
+      ? musicStore
+          .getActiveNotes()
+          .find((candidate) => candidate.noteId === noteId)
+      : null;
+    const resolvedNoteName = _noteName;
+    const resolvedOctave = octave;
+
+    if (activeNote) {
+      recordHarmonicNote(activeNote);
+    } else if (resolvedNoteName && resolvedOctave !== undefined) {
+      recordHarmonicNote({
+        solfegeIndex: Math.max(0, note.number - 1),
+        solfege: note,
+        frequency,
+        octave: resolvedOctave,
+        noteId: noteId ?? `legacy:${resolvedNoteName}`,
+        noteName: resolvedNoteName,
+        mode: noteMode,
+        key: noteKey,
+      });
+    }
+
     // Create particles with reduced count for polyphonic scenarios
     const activeNoteCount = musicStore.getActiveNotes().length;
     const particleCount = Math.max(
@@ -310,6 +338,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
    * Handle note released event - enhanced for polyphonic support
    */
   const handleNoteReleased = (noteName: string, noteId?: string) => {
+    releaseHarmonicNote(noteId ?? `legacy:${noteName}`);
+
     if (noteId) {
       // Use noteId for precise blob removal in polyphonic scenarios
       blobRenderer.startBlobFadeOutById(noteId);
@@ -344,6 +374,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     stringRenderer.clearAllStrings();
     stringRenderer.removeEventListeners(); // Clean up string event listeners
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
+    resetHarmonicAnalysis();
     clearCaches();
     window.removeEventListener("resize", handleResize);
     performanceMonitor.reset();

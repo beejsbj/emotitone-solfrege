@@ -1,39 +1,15 @@
-import type { ActiveBlob } from "@/types/canvas";
+import type {
+  ActiveBlob,
+  HarmonicGeometryLabel,
+  HarmonicGeometryPoint,
+  HarmonicGeometryScene,
+} from "@/types/canvas";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type {
-  ActiveNote,
-  FloatingPopupConfig,
+  HarmonicGeometryConfig,
   HarmonicAnalysisSnapshot,
   HarmonicIntervalEdge,
 } from "@/types";
-
-interface HarmonicGeometryPoint {
-  note: ActiveNote;
-  blob: ActiveBlob;
-  x: number;
-  y: number;
-  primaryColor: string;
-  accentColor: string;
-  angle: number;
-}
-
-interface HarmonicGeometryLabel {
-  x: number;
-  y: number;
-  lines: string[];
-  size: "sm" | "md" | "lg";
-}
-
-interface HarmonicGeometryScene {
-  points: HarmonicGeometryPoint[];
-  orderedPoints: HarmonicGeometryPoint[];
-  centroid: { x: number; y: number };
-  radius: number;
-  boundaryEdges: HarmonicIntervalEdge[];
-  interiorEdges: HarmonicIntervalEdge[];
-  primaryLabel: HarmonicGeometryLabel | null;
-  auxiliaryLabels: HarmonicGeometryLabel[];
-}
 
 function averagePoint(points: Array<{ x: number; y: number }>) {
   const totals = points.reduce(
@@ -146,7 +122,7 @@ export function useHarmonicGeometryRenderer() {
   const buildScene = (
     snapshot: HarmonicAnalysisSnapshot,
     activeBlobs: Map<string, ActiveBlob>,
-    config: FloatingPopupConfig,
+    config: HarmonicGeometryConfig,
     canvasWidth: number,
     canvasHeight: number
   ): HarmonicGeometryScene | null => {
@@ -155,7 +131,10 @@ export function useHarmonicGeometryRenderer() {
     }
 
     const points = resolvePoints(snapshot, activeBlobs, canvasWidth, canvasHeight);
-    if (points.length < 2) {
+    if (
+      points.length < 2 ||
+      points.length !== snapshot.displayedNotes.length
+    ) {
       return null;
     }
 
@@ -191,23 +170,39 @@ export function useHarmonicGeometryRenderer() {
     const auxiliaryLabels: HarmonicGeometryLabel[] = [];
     let primaryLabel: HarmonicGeometryLabel | null = null;
 
-    if (orderedPoints.length === 2 && snapshot.intervalEdges[0]) {
+    const dyadEdge =
+      orderedPoints.length === 2
+        ? findIntervalEdge(
+            snapshot.intervalEdges,
+            orderedPoints[0].note.noteId,
+            orderedPoints[1].note.noteId
+          )
+        : null;
+
+    if (orderedPoints.length === 2 && dyadEdge) {
       const arcMidpoint = getArcMidpoint(orderedPoints[0], orderedPoints[1]);
       auxiliaryLabels.push({
         x: arcMidpoint.labelX,
         y: arcMidpoint.labelY,
-        lines: [snapshot.intervalEdges[0].interval],
+        lines: [dyadEdge.interval],
         size: "md",
       });
     }
 
-    if (orderedPoints.length >= 3 && snapshot.chordLabel) {
+    const primaryLabelLines = [
+      ...(config.showChord && snapshot.chordLabel
+        ? [snapshot.chordLabel]
+        : []),
+      ...(config.showEmotionalDescription && snapshot.emotionalDescription
+        ? [snapshot.emotionalDescription]
+        : []),
+    ];
+
+    if (primaryLabelLines.length > 0) {
       primaryLabel = {
         x: centroid.x,
         y: centroid.y,
-        lines: snapshot.emotionalDescription
-          ? [snapshot.chordLabel, snapshot.emotionalDescription]
-          : [snapshot.chordLabel],
+        lines: primaryLabelLines,
         size: orderedPoints.length >= 4 ? "lg" : "md",
       };
     }
@@ -279,7 +274,7 @@ export function useHarmonicGeometryRenderer() {
   const drawBackdropFill = (
     ctx: CanvasRenderingContext2D,
     scene: HarmonicGeometryScene,
-    config: FloatingPopupConfig
+    config: HarmonicGeometryConfig
   ) => {
     if (scene.orderedPoints.length < 3) {
       return;
@@ -301,7 +296,10 @@ export function useHarmonicGeometryRenderer() {
           : index / Math.max(1, scene.orderedPoints.length - 1);
       gradient.addColorStop(
         stop * 0.72,
-        withAlpha(point.primaryColor, config.glassmorphOpacity * 0.32)
+        withAlpha(
+          point.primaryColor,
+          config.glassmorphOpacity * config.opacity * 0.32
+        )
       );
     });
     gradient.addColorStop(1, "transparent");
@@ -342,20 +340,20 @@ export function useHarmonicGeometryRenderer() {
   const renderGeometry = (
     ctx: CanvasRenderingContext2D,
     scene: HarmonicGeometryScene | null,
-    config: FloatingPopupConfig
+    config: HarmonicGeometryConfig
   ) => {
-    if (!scene) {
+    if (!scene || config.opacity <= 0) {
       return;
     }
 
-    const geometryOpacity = Math.max(0.18, config.opacity * 0.65);
-    const glowBlur = Math.max(10, config.backdropBlur * 1.1);
+    const geometryOpacity = config.opacity * 0.65;
+    const glowBlur = Math.max(0, config.backdropBlur * 1.1);
 
     ctx.save();
     ctx.shadowBlur = glowBlur;
     ctx.shadowColor = withAlpha(
       scene.orderedPoints[0]?.primaryColor ?? "hsla(0, 0%, 100%, 1)",
-      Math.min(0.4, config.glassmorphOpacity * 0.6)
+      Math.min(0.4, config.glassmorphOpacity * config.opacity * 0.6)
     );
 
     if (scene.orderedPoints.length === 2) {
@@ -388,10 +386,8 @@ export function useHarmonicGeometryRenderer() {
         ctx.stroke();
       });
     } else {
-      ctx.globalAlpha = geometryOpacity * 0.6;
       ctx.lineWidth = 1.5;
       drawPolygon(ctx, scene.orderedPoints, geometryOpacity * 0.45);
-      ctx.globalAlpha = 1;
     }
 
     if (config.geometryMode === "web") {
@@ -420,7 +416,8 @@ export function useHarmonicGeometryRenderer() {
 
   const drawKnockoutText = (
     ctx: CanvasRenderingContext2D,
-    label: HarmonicGeometryLabel
+    label: HarmonicGeometryLabel,
+    opacity: number
   ) => {
     const sizeMap = {
       sm: {
@@ -450,8 +447,8 @@ export function useHarmonicGeometryRenderer() {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.78)";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.96)";
+    ctx.strokeStyle = `hsla(0, 0%, 0%, ${0.78 * opacity})`;
+    ctx.fillStyle = `hsla(0, 0%, 100%, ${0.96 * opacity})`;
 
     label.lines.forEach((line, index) => {
       ctx.font = index === 0 ? sizeMap.primaryFont : sizeMap.secondaryFont;
@@ -467,19 +464,20 @@ export function useHarmonicGeometryRenderer() {
   const renderLabels = (
     ctx: CanvasRenderingContext2D,
     scene: HarmonicGeometryScene | null,
-    config: FloatingPopupConfig
+    config: HarmonicGeometryConfig
   ) => {
-    if (!scene) {
+    if (!scene || config.opacity <= 0) {
       return;
     }
 
     if (scene.orderedPoints.length === 2 && config.showIntervals) {
-      scene.auxiliaryLabels.forEach((label) => drawKnockoutText(ctx, label));
-      return;
+      scene.auxiliaryLabels.forEach((label) =>
+        drawKnockoutText(ctx, label, config.opacity)
+      );
     }
 
-    if (scene.primaryLabel && config.showChord) {
-      drawKnockoutText(ctx, scene.primaryLabel);
+    if (scene.primaryLabel) {
+      drawKnockoutText(ctx, scene.primaryLabel, config.opacity);
     }
 
     if (
@@ -487,7 +485,9 @@ export function useHarmonicGeometryRenderer() {
       config.geometryMode !== "center-only" &&
       scene.orderedPoints.length >= 4
     ) {
-      scene.auxiliaryLabels.forEach((label) => drawKnockoutText(ctx, label));
+      scene.auxiliaryLabels.forEach((label) =>
+        drawKnockoutText(ctx, label, config.opacity)
+      );
     }
   };
 

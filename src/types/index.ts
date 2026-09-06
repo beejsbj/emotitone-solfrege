@@ -33,6 +33,7 @@ export type {
   NoteColorRelationships,
   DynamicColorConfig,
   MusicColorMode,
+  HarmonicGeometryConfig,
   FloatingPopupConfig,
   HarmonicGeometryMode,
 } from "./visual";
@@ -40,6 +41,9 @@ export type {
 // Canvas and Animation Types
 export type {
   ActiveBlob,
+  HarmonicGeometryPoint,
+  HarmonicGeometryLabel,
+  HarmonicGeometryScene,
   Particle,
   CanvasProperties,
   AnimationFrame,

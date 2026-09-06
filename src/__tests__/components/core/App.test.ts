@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { createTestWrapper } from '../../helpers/test-utils'
 import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
+import mainAppSource from '@/MainApp.vue?raw'
 
 const appLoadingState = vi.hoisted(() => ({
   isLoading: false,
@@ -129,5 +130,10 @@ describe('App.vue', () => {
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )
+  })
+
+  it('replaces the production popup mount with canvas-owned harmonic geometry', () => {
+    expect(mainAppSource).not.toContain('FloatingPopup')
+    expect(mainAppSource).toContain('UnifiedVisualEffects')
   })
 })

@@ -58,7 +58,7 @@ function onNotePlayed(event: CustomEvent) {
 
 // Handle note released event - enhanced for polyphonic support
 function onNoteReleased(event: CustomEvent) {
-  const noteName: string = event.detail.note;
+  const noteName: string = event.detail.noteName ?? event.detail.note;
   const noteId: string | undefined = event.detail.noteId;
 
   if (noteName) {

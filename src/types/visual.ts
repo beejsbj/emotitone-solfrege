@@ -60,13 +60,11 @@ export interface DynamicColorConfig {
   animationSpeed: number;
 }
 
-/**
- * Floating popup configuration
- */
+/** Blob-led harmonic analysis presentation configuration. */
 export type HarmonicGeometryMode = "outline" | "web" | "center-only";
 
-export interface FloatingPopupConfig {
-  /** Whether floating popup is enabled */
+export interface HarmonicGeometryConfig {
+  /** Whether harmonic geometry is enabled */
   isEnabled: boolean;
   /** Accumulation window for notes in milliseconds */
   accumulationWindow: number;
@@ -88,9 +86,12 @@ export interface FloatingPopupConfig {
   glassmorphOpacity: number;
   /** Animation duration for show/hide transitions in milliseconds */
   animationDuration: number;
-  /** Popup opacity when visible (0-1) */
+  /** Harmonic layer opacity when visible (0-1) */
   opacity: number;
 }
+
+/** @deprecated Use HarmonicGeometryConfig. The persisted section key remains floatingPopup. */
+export type FloatingPopupConfig = HarmonicGeometryConfig;
 
 /**
  * Frequency to value mapping configuration
@@ -527,8 +528,8 @@ export interface VisualEffectsConfig {
   frequencyMapping: FrequencyMappingConfig;
   /** Dynamic color system configuration */
   dynamicColors: DynamicColorConfig;
-  /** Floating popup configuration */
-  floatingPopup: FloatingPopupConfig;
+  /** Harmonic geometry configuration under the legacy persisted key */
+  floatingPopup: HarmonicGeometryConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
   /** Beating Shapes configuration */

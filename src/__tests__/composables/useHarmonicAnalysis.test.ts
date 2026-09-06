@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
-import type { ActiveNote, FloatingPopupConfig } from "@/types";
-import {
-  resetHarmonicAnalysisState,
-  useHarmonicAnalysis,
-} from "@/composables/useHarmonicAnalysis";
+import { effectScope, nextTick, type EffectScope } from "vue";
+import type { ActiveNote, HarmonicGeometryConfig } from "@/types";
+import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 
 const harmonicTestState = vi.hoisted(() => ({
@@ -21,24 +18,11 @@ const harmonicTestState = vi.hoisted(() => ({
     glassmorphOpacity: 0.4,
     animationDuration: 300,
     opacity: 0.5,
-  } satisfies FloatingPopupConfig,
-  activeNotes: null as { value: ActiveNote[] } | null,
+  } satisfies HarmonicGeometryConfig,
   floatingPopupConfig: null as {
-    value: FloatingPopupConfig;
+    value: HarmonicGeometryConfig;
   } | null,
 }));
-
-vi.mock("@/stores/music", async () => {
-  const { ref } = await vi.importActual<typeof import("vue")>("vue");
-  const activeNotes = ref<ActiveNote[]>([]);
-  harmonicTestState.activeNotes = activeNotes;
-
-  return {
-    useMusicStore: () => ({
-      getActiveNotes: () => activeNotes.value,
-    }),
-  };
-});
 
 vi.mock("@/composables/useVisualConfig", async () => {
   const { ref } = await vi.importActual<typeof import("vue")>("vue");
@@ -84,17 +68,22 @@ function createActiveNote(
 }
 
 describe("useHarmonicAnalysis", () => {
+  let scope: EffectScope;
+
+  const createAnalysis = () => {
+    scope = effectScope();
+    return scope.run(() => useHarmonicAnalysis())!;
+  };
+
   beforeEach(() => {
     vi.useFakeTimers();
-    resetHarmonicAnalysisState();
-    harmonicTestState.activeNotes!.value = [];
     harmonicTestState.floatingPopupConfig!.value = {
       ...harmonicTestState.baseConfig,
     };
   });
 
   afterEach(() => {
-    resetHarmonicAnalysisState();
+    scope?.stop();
     vi.useRealTimers();
   });
 
@@ -102,25 +91,26 @@ describe("useHarmonicAnalysis", () => {
     expect(DEFAULT_CONFIG.floatingPopup.geometryMode).toBe("outline");
   });
 
-  it("keeps a shared harmonic snapshot visible until the configured timing window expires", async () => {
-    const { snapshot } = useHarmonicAnalysis();
+  it("keeps event-driven harmonic history visible until its timing window expires", async () => {
+    const { snapshot, notePlayed, noteReleased } = createAnalysis();
+    const c4 = createActiveNote("note-c4", "C4", "Do", "Grounded");
+    const e4 = createActiveNote("note-e4", "E4", "Mi", "Radiant");
 
-    harmonicTestState.activeNotes!.value = [
-      createActiveNote("note-c4", "C4", "Do", "Grounded"),
-      createActiveNote("note-e4", "E4", "Mi", "Radiant"),
-    ];
-    await nextTick();
+    notePlayed(c4);
+    notePlayed(e4);
 
     expect(snapshot.value.isVisible).toBe(true);
     expect(snapshot.value.displayedNotes).toHaveLength(2);
     expect(snapshot.value.intervalEdges).toHaveLength(1);
+    expect(snapshot.value.intervalEdges[0].interval).toBe("3M");
     expect(snapshot.value.emotionalDescription).toBe("Grounded & Radiant");
 
-    harmonicTestState.activeNotes!.value = [];
+    noteReleased(c4.noteId);
+    vi.advanceTimersByTime(360);
     await nextTick();
-
     expect(snapshot.value.isVisible).toBe(true);
 
+    noteReleased(e4.noteId);
     vi.advanceTimersByTime(359);
     await nextTick();
     expect(snapshot.value.isVisible).toBe(true);
@@ -131,7 +121,7 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.displayedNotes).toEqual([]);
   });
 
-  it("caps displayed notes and respects label toggles", async () => {
+  it("keeps harmonic relationships available when interval labels are hidden", async () => {
     harmonicTestState.floatingPopupConfig!.value = {
       ...harmonicTestState.floatingPopupConfig!.value,
       maxNotes: 2,
@@ -140,21 +130,18 @@ describe("useHarmonicAnalysis", () => {
       showEmotionalDescription: false,
     };
 
-    const { snapshot } = useHarmonicAnalysis();
+    const { snapshot, notePlayed } = createAnalysis();
 
-    harmonicTestState.activeNotes!.value = [
-      createActiveNote("note-c4", "C4", "Do"),
-      createActiveNote("note-e4", "E4", "Mi"),
-      createActiveNote("note-g4", "G4", "So"),
-    ];
+    notePlayed(createActiveNote("note-c4", "C4", "Do"));
+    notePlayed(createActiveNote("note-e4", "E4", "Mi"));
+    notePlayed(createActiveNote("note-g4", "G4", "So"));
     await nextTick();
 
-    expect(snapshot.value.displayedNotes).toHaveLength(2);
     expect(snapshot.value.displayedNotes.map((note) => note.noteName)).toEqual([
       "E4",
       "G4",
     ]);
-    expect(snapshot.value.intervalEdges).toEqual([]);
+    expect(snapshot.value.intervalEdges).toHaveLength(1);
     expect(snapshot.value.chordLabel).toBe(null);
     expect(snapshot.value.emotionalDescription).toBe("");
   });

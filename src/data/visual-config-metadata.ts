@@ -538,7 +538,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.05,
-      label: "Glass Opacity",
+      label: "Geometry Fill",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     animationDuration: {
@@ -554,7 +554,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.1,
-      label: "Popup Opacity",
+      label: "Geometry Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
   },

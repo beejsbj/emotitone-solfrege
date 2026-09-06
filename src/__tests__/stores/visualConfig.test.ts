@@ -92,6 +92,29 @@ describe('Visual Config Store', () => {
       expect(newStore.config.keyboard.surfaceStyle).toBe('colored')
     })
 
+    it('defaults harmonic geometry mode in older persisted popup settings', () => {
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'emotitone-visual-config') {
+          return JSON.stringify({
+            config: {
+              floatingPopup: {
+                isEnabled: true,
+                opacity: 0.35,
+              },
+            },
+          })
+        }
+        return null
+      })
+
+      const newStore = createFreshStore()
+
+      expect(newStore.config.floatingPopup.isEnabled).toBe(true)
+      expect(newStore.config.floatingPopup.opacity).toBe(0.35)
+      expect(newStore.config.floatingPopup.geometryMode).toBe('outline')
+    })
+
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
       const legacyKeyboard = {
         surfaceStyle: 'glassmorphism', glassmorphOpacity: 0.6,

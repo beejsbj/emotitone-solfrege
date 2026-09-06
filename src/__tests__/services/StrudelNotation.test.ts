@@ -58,7 +58,7 @@ describe('StrudelNotation', () => {
 
     const result = logNotesToStrudel(notes)
 
-    expect(result).toContain('<\n[ C4@0.1 D4@0.06 ]\n>')
+    expect(result).toContain('<\n[ C4@0.06 ~@0.04 D4@0.06 ]\n>')
   })
 
   it('preserves octave displacement in relative scale degrees', () => {
@@ -157,7 +157,7 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.cpm(90 / 4)')
   })
 
-  it('coalesces rapid human taps instead of inserting a rest between each note', () => {
+  it('preserves measured gaps between rapid human taps', () => {
     const notes = [
       makeNote('c', 'C4', 0, 4, 1000, 80),
       makeNote('d', 'D4', 1, 4, 1160, 80),
@@ -166,8 +166,7 @@ describe('StrudelNotation', () => {
 
     const result = logNotesToStrudel(notes, { sourceBpm: 120 })
 
-    expect(result).toContain('C4@0.08 D4@0.08 E4@0.04')
-    expect(result).not.toContain('~')
+    expect(result).toContain('C4@0.04 ~@0.04 D4@0.04 ~@0.04 E4@0.04')
   })
 
   it('keeps the human tap floor at fast source tempos', () => {
@@ -178,7 +177,7 @@ describe('StrudelNotation', () => {
 
     const result = logNotesToStrudel(notes, { sourceBpm: 240 })
 
-    expect(result).not.toContain('~')
+    expect(result).toContain('C4@0.08 ~@0.08 D4@0.08')
   })
 
   it('preserves quick rolled attacks inside an overlapping chord', () => {

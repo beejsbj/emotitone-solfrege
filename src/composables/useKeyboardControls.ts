@@ -7,6 +7,7 @@ import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { createHeldNotes, type HeldNotePress } from "@/composables/heldNotes";
 
 /**
  * Keyboard mapping interface
@@ -17,6 +18,14 @@ interface KeyboardMapping {
     octave: number;
     label: string;
   };
+}
+
+interface KeyboardHeldPress extends HeldNotePress {
+  key: string;
+  label: string;
+  solfegeIndex: number;
+  octave: number;
+  noteKey: string;
 }
 
 const KEY_ROWS = [
@@ -84,8 +93,26 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
 
-  // Track keyboard-triggered notes separately from mouse-triggered notes
-  const keyboardNoteIds = ref<Map<string, string>>(new Map());
+  const heldNotes = createHeldNotes<KeyboardHeldPress>({
+    attack: ({ solfegeIndex, octave }) =>
+      musicStore.attackNoteWithOctave(solfegeIndex, octave),
+    release: (noteId) => {
+      void musicStore.releaseNote(noteId);
+    },
+    onPressed: ({ key, pressId, noteKey }) => {
+      pressedKeys.value.add(key);
+      keyboardDrawerStore.addTouch(pressId, noteKey);
+    },
+    onUnpressed: ({ key, pressId }) => {
+      pressedKeys.value.delete(key);
+      keyboardDrawerStore.removeTouch(pressId);
+    },
+    beforeNoteRelease: (_noteId, { label }) => {
+      window.dispatchEvent(
+        new CustomEvent("keyboard-note-released", { detail: { key: label } })
+      );
+    },
+  });
 
   const getKeyboardMapping = (): KeyboardMapping => {
     const degreeCount = musicStore.currentScale.degreeCount;
@@ -170,30 +197,24 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     const keyboardMapping = getKeyboardMapping();
     if (key in keyboardMapping) {
       event.preventDefault();
-      pressedKeys.value.add(key);
-
       const { solfegeIndex, octave, label } =
         keyboardMapping[key as keyof typeof keyboardMapping];
 
-      const noteId = await musicStore.attackNoteWithOctave(
+      const result = await heldNotes.press({
+        pressId: getKeyboardPressId(key),
+        key,
+        label,
         solfegeIndex,
-        octave
-      );
-      if (noteId) {
-        keyboardNoteIds.value.set(key, noteId);
-        keyboardDrawerStore.addTouch(
-          getKeyboardPressId(key),
-          getNoteKey(solfegeIndex, octave)
-        );
-
+        octave,
+        noteKey: getNoteKey(solfegeIndex, octave),
+      });
+      if (result.status === "active") {
         // Dispatch custom event for visual feedback
         window.dispatchEvent(
           new CustomEvent("keyboard-note-pressed", {
             detail: { solfegeIndex, octave, key: label },
           })
         );
-      } else {
-        pressedKeys.value.delete(key);
       }
     }
   };
@@ -202,41 +223,13 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     const key = event.code;
 
     if (pressedKeys.value.has(key)) {
-      pressedKeys.value.delete(key);
-
-      // Release the specific note associated with this key
-      const noteId = keyboardNoteIds.value.get(key);
-      if (noteId) {
-        musicStore.releaseNote(noteId);
-        keyboardNoteIds.value.delete(key);
-
-        // Dispatch custom event for visual feedback
-        window.dispatchEvent(
-          new CustomEvent("keyboard-note-released", {
-            detail: { key: keyboardMappingLabel(key) },
-          })
-        );
-      }
-
-      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
+      heldNotes.release(getKeyboardPressId(key));
     }
-  };
-
-  const keyboardMappingLabel = (code: string): string => {
-    return getKeyboardMapping()[code]?.label ?? code;
   };
 
   // Handle window blur to release all keyboard notes (safety mechanism)
   const handleWindowBlur = () => {
-    // Release all keyboard-triggered notes when window loses focus
-    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
-      musicStore.releaseNote(noteId);
-      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
-    }
-
-    // Clear tracking maps
-    pressedKeys.value.clear();
-    keyboardNoteIds.value.clear();
+    heldNotes.releaseAll();
   };
 
   // Setup and cleanup
@@ -251,15 +244,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     window.removeEventListener("keyup", handleKeyUp);
     window.removeEventListener("blur", handleWindowBlur);
 
-    // Release any keyboard-triggered notes that are still active
-    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
-      musicStore.releaseNote(noteId);
-      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
-    }
-
-    // Clear tracking maps
-    pressedKeys.value.clear();
-    keyboardNoteIds.value.clear();
+    heldNotes.releaseAll();
   };
 
   // Auto-setup when used in a component
@@ -268,7 +253,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   return {
     pressedKeys: computed(() => pressedKeys.value),
-    keyboardNoteIds: computed(() => keyboardNoteIds.value),
+    keyboardNoteIds: computed(() => heldNotes.getActiveNoteIds()),
     getKeyboardMapping,
     getKeyboardLetterForNote,
     setupKeyboardListeners,

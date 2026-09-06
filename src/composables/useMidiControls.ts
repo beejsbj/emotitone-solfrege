@@ -4,6 +4,7 @@ import type { ChromaticNote } from "@/types";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import { createHeldNotes, type HeldNotePress } from "@/composables/heldNotes";
 import {
   buildRoliAllNotesOffMessages,
   buildRoliMainOctaveMessage,
@@ -72,14 +73,12 @@ function shouldExposeDevMidiSimulator() {
   );
 }
 
-interface ActiveMidiNote {
-  noteId: string;
+interface MidiHeldPress extends HeldNotePress {
   pressId: string;
-  isRoliInput: boolean;
-}
-
-interface PendingMidiPress {
+  inputId: string;
   noteName: string;
+  solfegeIndex: number;
+  octave: number;
   isRoliInput: boolean;
 }
 
@@ -255,14 +254,38 @@ export function useMidiControls() {
   const midiAccess = ref<MIDIAccess | null>(null);
   const selectedRoliOutput = ref<MIDIOutput | null>(null);
   const roliInputIds = ref<Set<string>>(new Set());
-  const activeMidiNotes = ref<Map<string, ActiveMidiNote>>(new Map());
-  const pendingMidiPresses = ref<Map<string, PendingMidiPress>>(new Map());
-  const pendingReleasedPressIds = ref<Set<string>>(new Set());
   const pendingInputNoteOns = ref<Map<string, number>>(new Map());
   const pendingInputNoteOffs = ref<Set<string>>(new Set());
   const mirroredNoteTimeouts = ref<Map<string, number>>(new Map());
   const mirroredEventNotes = ref<Map<string, number>>(new Map());
   const visualNoteTimeouts = ref<Map<string, number>>(new Map());
+
+  const heldNotes = createHeldNotes<MidiHeldPress>({
+    attack: ({ solfegeIndex, octave }) =>
+      musicStore.attackNoteWithOctave(solfegeIndex, octave),
+    release: (noteId) => {
+      void musicStore.releaseNote(noteId);
+    },
+    onPressed: ({ pressId, noteName, solfegeIndex, octave, isRoliInput }) => {
+      keyboardDrawerStore.addTouch(pressId, `${solfegeIndex}_${octave}`);
+      if (isRoliInput) {
+        incrementPendingNoteCount(pendingInputNoteOns.value, noteName);
+      }
+    },
+    onUnpressed: ({ pressId }) => {
+      keyboardDrawerStore.removeTouch(pressId);
+    },
+    beforeNoteRelease: (noteId, { isRoliInput }) => {
+      if (isRoliInput) {
+        pendingInputNoteOffs.value.add(noteId);
+      }
+    },
+    onAttackFailure: ({ noteName, isRoliInput }) => {
+      if (isRoliInput) {
+        consumePendingNoteCount(pendingInputNoteOns.value, noteName);
+      }
+    },
+  });
 
   const parseMidiNoteNumber = (note: number | string): number | null => {
     if (typeof note === "number") {
@@ -345,8 +368,7 @@ export function useMidiControls() {
 
     if (messageType === MIDI_NOTE_ON && velocity > 0) {
       if (
-        activeMidiNotes.value.has(pressId)
-        || pendingMidiPresses.value.has(pressId)
+        heldNotes.isHeld(pressId)
         || hasActiveTouchPress(keyboardDrawerStore.touch.activeTouches, pressId)
       ) {
         return;
@@ -357,53 +379,14 @@ export function useMidiControls() {
         return;
       }
 
-      keyboardDrawerStore.addTouch(
+      void heldNotes.press({
         pressId,
-        `${parsed.solfegeIndex}_${parsed.octave}`
-      );
-      pendingMidiPresses.value.set(pressId, { noteName, isRoliInput });
-      if (isRoliInput) {
-        incrementPendingNoteCount(pendingInputNoteOns.value, noteName);
-      }
-
-      void musicStore
-        .attackNoteWithOctave(parsed.solfegeIndex, parsed.octave)
-        .then((noteId) => {
-          const pendingPress = pendingMidiPresses.value.get(pressId);
-          pendingMidiPresses.value.delete(pressId);
-
-          if (!noteId) {
-            if (pendingPress?.isRoliInput) {
-              consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
-            }
-            pendingReleasedPressIds.value.delete(pressId);
-            keyboardDrawerStore.removeTouch(pressId);
-            return;
-          }
-
-          if (pendingReleasedPressIds.value.has(pressId)) {
-            pendingReleasedPressIds.value.delete(pressId);
-            if (pendingPress?.isRoliInput) {
-              pendingInputNoteOffs.value.add(noteId);
-            }
-            musicStore.releaseNote(noteId);
-            keyboardDrawerStore.removeTouch(pressId);
-            return;
-          }
-
-          activeMidiNotes.value.set(pressId, { noteId, pressId, isRoliInput });
-        })
-        .catch(() => {
-          const pendingPress = pendingMidiPresses.value.get(pressId);
-          pendingMidiPresses.value.delete(pressId);
-
-          if (pendingPress?.isRoliInput) {
-            consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
-          }
-
-          pendingReleasedPressIds.value.delete(pressId);
-          keyboardDrawerStore.removeTouch(pressId);
-        });
+        inputId,
+        noteName,
+        solfegeIndex: parsed.solfegeIndex,
+        octave: parsed.octave,
+        isRoliInput,
+      });
       return;
     }
 
@@ -411,22 +394,7 @@ export function useMidiControls() {
       messageType === MIDI_NOTE_OFF
       || (messageType === MIDI_NOTE_ON && velocity === 0)
     ) {
-      const activeNote = activeMidiNotes.value.get(pressId);
-      if (!activeNote) {
-        if (pendingMidiPresses.value.has(pressId)) {
-          pendingReleasedPressIds.value.add(pressId);
-          keyboardDrawerStore.removeTouch(pressId);
-        }
-        return;
-      }
-
-      if (activeNote.isRoliInput) {
-        pendingInputNoteOffs.value.add(activeNote.noteId);
-      }
-      musicStore.releaseNote(activeNote.noteId);
-      keyboardDrawerStore.removeTouch(activeNote.pressId);
-      activeMidiNotes.value.delete(pressId);
-      pendingReleasedPressIds.value.delete(pressId);
+      heldNotes.release(pressId);
     }
   };
 
@@ -573,23 +541,7 @@ export function useMidiControls() {
   };
 
   const releaseMidiNotes = (inputId?: string) => {
-    for (const [pressId, activeNote] of activeMidiNotes.value.entries()) {
-      if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
-        if (activeNote.isRoliInput) {
-          pendingInputNoteOffs.value.add(activeNote.noteId);
-        }
-        musicStore.releaseNote(activeNote.noteId);
-        keyboardDrawerStore.removeTouch(activeNote.pressId);
-        activeMidiNotes.value.delete(pressId);
-      }
-    }
-
-    for (const [pressId] of pendingMidiPresses.value.entries()) {
-      if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
-        pendingReleasedPressIds.value.add(pressId);
-        keyboardDrawerStore.removeTouch(pressId);
-      }
-    }
+    heldNotes.releaseWhere((press) => !inputId || press.inputId === inputId);
   };
 
   const syncInputs = () => {
@@ -748,9 +700,6 @@ export function useMidiControls() {
 
   const disconnectMidi = () => {
     releaseMidiNotes();
-    pendingReleasedPressIds.value.clear();
-    pendingInputNoteOns.value.clear();
-    pendingInputNoteOffs.value.clear();
     flushRoliOutput();
 
     if (midiAccess.value) {

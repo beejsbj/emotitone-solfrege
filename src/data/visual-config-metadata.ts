@@ -428,9 +428,10 @@ export const UNIFIED_CONFIG = {
       value: true,
       label: "Enable Dynamic Colors",
     },
-    chromaticMapping: {
-      value: false,
-      label: "Static Chromatic Colors",
+    musicColorMode: {
+      value: "movable",
+      options: ["fixed", "movable"],
+      label: "Music Color Mode",
     },
     hueAnimationAmplitude: {
       value: 15,
@@ -570,27 +571,11 @@ export const UNIFIED_CONFIG = {
     },
     sizeRatio: {
       value: 0.6,
-      min: 0.1,
-      max: 1,
+      min: 0,
+      max: 1.5,
       step: 0.05,
-      label: "Size Ratio",
+      label: "Size",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
-    },
-    minSize: {
-      value: 600,
-      min: 500,
-      max: 800,
-      step: 25,
-      label: "Min Size",
-      format: (v: number) => `${v}px`,
-    },
-    maxSize: {
-      value: 800,
-      min: 600,
-      max: 1600,
-      step: 50,
-      label: "Max Size",
-      format: (v: number) => `${v}px`,
     },
     opacity: {
       value: 0.7,
@@ -635,20 +620,28 @@ export const UNIFIED_CONFIG = {
       step: 5,
       label: "Glow Intensity",
     },
+    smear: {
+      value: 0,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Smear",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
     history: {
-      value: 0.85,
+      value: 0.2,
       min: 0,
       max: 0.95,
       step: 0.05,
-      label: "Trail Strength",
+      label: "History",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
-    lineWidth: {
-      value: 3,
-      min: 1,
+    thickness: {
+      value: 1.5,
+      min: 0.01,
       max: 10,
-      step: 0.5,
-      label: "Line Width",
+      step: 0.01,
+      label: "Thickness",
       format: (v: number) => `${v}px`,
     },
   },
@@ -778,31 +771,20 @@ export const UNIFIED_CONFIG = {
       value: true,
       label: "Enable Keyboard",
     },
+    primaryLabel: {
+      value: "syllable",
+      options: ["syllable", "degree", "raw"],
+      label: "Primary Label",
+    },
     keyGaps: {
       value: "small",
       options: ["none", "small", "medium"],
       label: "Key Gaps",
     },
-    keyShape: {
-      value: 8,
-      min: 0,
-      max: 50,
-      step: 1,
-      label: "Border Radius",
-      format: (v: number) => `${v}px`,
-    },
-    colorMode: {
+    surfaceStyle: {
       value: "colored",
-      options: ["colored", "monochrome", "glassmorphism"],
-      label: "Color Mode",
-    },
-    keySize: {
-      value: 1.0,
-      min: 0.6,
-      max: 1.8,
-      step: 0.1,
-      label: "Key Size",
-      format: (v: number) => `${v}x`,
+      options: ["colored", "monochrome"],
+      label: "Surface Style",
     },
     rowCount: {
       value: 3,
@@ -851,33 +833,21 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${v}°`,
     },
 
-    glassmorphOpacity: {
-      value: 0.4,
-      min: 0,
-      max: 1,
-      step: 0.05,
-      label: "Glass Opacity",
-      format: (v: number) => `${(v * 100).toFixed(0)}%`,
-    },
     keyboardPadding: {
       value: false,
       label: "Keyboard Padding",
     },
-    angledStyle: {
-      value: false,
-      label: "Angled Style",
-    },
   },
 
-  liveStrip: {
+  codeStrip: {
     _meta: {
-      label: "Live Strip",
+      label: "Code Strip",
       icon: "🎼",
-      description: "Workspace sketch strip display settings",
+      description: "Workspace CodeStrip and editable Strudel-line settings",
     },
     enabled: {
       value: true,
-      label: "Enable Live Strip",
+      label: "Enable Code Strip",
     },
     opacity: {
       value: 1,
@@ -903,10 +873,6 @@ export const UNIFIED_CONFIG = {
     showRests: {
       value: true,
       label: "Show Rests",
-    },
-    showStrudelLine: {
-      value: true,
-      label: "Show Code Line",
     },
   },
 };

@@ -88,7 +88,7 @@ onMounted(async () => {
 }
 
 .enable-audio-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4a4a4a 0%, #1e1e1e 100%);
   border: none;
   border-radius: 8px;
   color: white;
@@ -102,7 +102,7 @@ onMounted(async () => {
 
 .enable-audio-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.14);
 }
 
 .enable-audio-btn:disabled {

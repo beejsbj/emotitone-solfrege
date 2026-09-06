@@ -1,10 +1,13 @@
-import { CHROMATIC_NOTES, MAJOR_SCALE, MINOR_SCALE } from "@/data";
 import type {
   ChromaticNote,
   DynamicColorConfig,
   MusicalMode,
 } from "@/types";
-import { generateDynamicNoteColors } from "@/services/colorGeneration";
+import {
+  resolveMusicColorsByPitchClass,
+} from "@/services/musicColor";
+
+export { getScaleDegreeIndexForPitchClass } from "@/services/musicColor";
 
 export const ROLI_CHROMATIC_NOTES = [
   "C",
@@ -212,35 +215,6 @@ export function cssColorToLittleFootHex(color: string): string {
   return `0x${toHex(parsed.a)}${toHex(parsed.r)}${toHex(parsed.g)}${toHex(parsed.b)}`;
 }
 
-function getScaleIntervals(mode: MusicalMode) {
-  const scale = mode === "minor" ? MINOR_SCALE : MAJOR_SCALE;
-  return scale.intervals.slice(0, 7);
-}
-
-function getPitchClassIndex(noteName: ChromaticNote) {
-  return CHROMATIC_NOTES.indexOf(noteName);
-}
-
-export function getScaleDegreeIndexForPitchClass(
-  noteName: ChromaticNote,
-  currentKey: ChromaticNote,
-  currentMode: MusicalMode
-): number | null {
-  const noteIndex = getPitchClassIndex(noteName);
-  const keyIndex = getPitchClassIndex(currentKey);
-
-  if (noteIndex === -1 || keyIndex === -1) {
-    return null;
-  }
-
-  const relativePitchClass = (noteIndex - keyIndex + 12) % 12;
-  const scaleDegreeIndex = getScaleIntervals(currentMode).indexOf(
-    relativePitchClass
-  );
-
-  return scaleDegreeIndex === -1 ? null : scaleDegreeIndex;
-}
-
 export function buildRoliPianoPalette({
   dynamicColorConfig,
   currentKey,
@@ -248,29 +222,20 @@ export function buildRoliPianoPalette({
   octave = 4,
   activeColor = "0xffffffff",
 }: BuildRoliPianoPaletteOptions): RoliPianoPalette {
-  const tonalConfig: DynamicColorConfig = {
-    ...dynamicColorConfig,
-    chromaticMapping: false,
-  };
-
   const palette = ROLI_CHROMATIC_NOTES.reduce((acc, noteName) => {
     const variableName = ROLI_VARIABLE_NAMES[noteName];
-    const scaleDegreeIndex = getScaleDegreeIndexForPitchClass(
+    const colors = resolveMusicColorsByPitchClass(
       noteName,
+      currentMode,
       currentKey,
-      currentMode
+      octave,
+      dynamicColorConfig
     );
 
     acc[variableName as keyof Omit<RoliPianoPalette, "activeColour">] =
-      scaleDegreeIndex === null
+      colors === null
         ? ROLI_OFF_COLOUR
-        : cssColorToLittleFootHex(
-            generateDynamicNoteColors(
-              scaleDegreeIndex,
-              octave,
-              tonalConfig
-            ).primary
-          );
+        : cssColorToLittleFootHex(colors.primary);
 
     return acc;
   }, {} as Omit<RoliPianoPalette, "activeColour">);

@@ -1,0 +1,62 @@
+/*
+ * Typography defaults for the style-guide route only. The design-system token
+ * file is imported by every production entry, so native elements stay
+ * unstyled there until a production unit explicitly opts into a recipe.
+ */
+html.style-guide-route,
+body.style-guide-route {
+  background: var(--bg);
+  color: var(--fg);
+  font: var(--t-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.style-guide-route h1,
+.style-guide-route .h-display-l {
+  font: var(--t-display-l);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.style-guide-route h2,
+.style-guide-route .h-display-m {
+  font: var(--t-display-m);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.style-guide-route h3,
+.style-guide-route .h1 {
+  font: var(--t-h1);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.style-guide-route h4,
+.style-guide-route .h2 {
+  font: var(--t-h2);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.style-guide-route .label,
+.style-guide-route .ds-label {
+  font: var(--t-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.style-guide-route code,
+.style-guide-route pre {
+  font: var(--t-mono);
+}
+
+.style-guide-route .caption {
+  font: var(--t-caption);
+  color: var(--fg-3);
+}
+
+.style-guide-route .mono {
+  font: var(--t-mono);
+}

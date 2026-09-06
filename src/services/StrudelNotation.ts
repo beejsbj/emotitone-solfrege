@@ -10,7 +10,8 @@
 
 import type { LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
-import { normalizeScaleIndex } from "@/data";
+import { Note as TonalNote } from "@tonaljs/tonal";
+import { getScaleForMode, normalizeScaleIndex } from "@/data";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -44,7 +45,6 @@ const DEFAULT_CONFIG: StrudelConfig = {
 
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
-const REST_GAP_THRESHOLD_MS = 50;
 const OVERLAP_EPSILON_MS = 1;
 
 /** Length of one bar in milliseconds. */
@@ -61,12 +61,14 @@ function toAt(ms: number, barMs: number, precision: number): string {
 /**
  * Converts an array of LogNotes into a Strudel mini-notation string.
  *
- * Notes are rendered sequentially. Gaps between notes produce ~ rests.
+ * Notes are rendered sequentially. Deliberate gaps produce ~ rests and retain
+ * their measured duration in the source timeline.
  * The first note's pressTime is treated as t=0.
  */
 export class StrudelNotation {
   private notes: LogNote[];
   private config: StrudelConfig;
+  private renderRelative = false;
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
     this.notes = [...notes].sort(
@@ -82,6 +84,8 @@ export class StrudelNotation {
   toString(): string {
     if (this.notes.length === 0) return "";
 
+    this.renderRelative = this.config.notationType === "relative" &&
+      this.notes.every((note) => this.relativeNoteValue(note) != null);
     const barMs = barLengthMs(this.config);
     const origin = this.notes[0].pressTime;
     const tokens: string[] = [];
@@ -106,7 +110,7 @@ export class StrudelNotation {
       }
 
       const gap = blockStart - cursor;
-      if (gap > REST_GAP_THRESHOLD_MS) {
+      if (gap > OVERLAP_EPSILON_MS) {
         tokens.push(`~${toAt(gap, barMs, this.config.precision)}`);
       }
 
@@ -120,10 +124,10 @@ export class StrudelNotation {
       index = nextIndex;
     }
 
-    const inner = tokens.join(" ");
+    const inner = `[ ${tokens.join(" ")} ]`;
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
 
-    if (this.config.notationType === "relative") {
+    if (this.renderRelative) {
       const first = this.notes[0];
       const scaleOctave =
         this.config.scaleOctave ??
@@ -136,7 +140,11 @@ export class StrudelNotation {
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {
-    return `${this.noteValue(note)}${toAt(this.noteDuration(note), barMs, this.config.precision)}`;
+    return `${this.noteValue(note)}${toAt(
+      this.noteDuration(note),
+      barMs,
+      this.config.precision,
+    )}`;
   }
 
   private renderOverlapBlock(
@@ -192,9 +200,9 @@ export class StrudelNotation {
     if (lane.length === 1) {
       const note = lane[0];
       const startsWithBlock =
-        this.noteStart(note, origin) - blockStart <= REST_GAP_THRESHOLD_MS;
+        this.noteStart(note, origin) - blockStart <= OVERLAP_EPSILON_MS;
       const endsWithBlock =
-        blockEnd - this.noteEnd(note, origin) <= REST_GAP_THRESHOLD_MS;
+        blockEnd - this.noteEnd(note, origin) <= OVERLAP_EPSILON_MS;
 
       if (startsWithBlock && endsWithBlock) {
         return this.noteValue(note);
@@ -209,7 +217,7 @@ export class StrudelNotation {
       const end = this.noteEnd(note, origin);
       const gap = start - cursor;
 
-      if (gap > REST_GAP_THRESHOLD_MS) {
+      if (gap > OVERLAP_EPSILON_MS) {
         tokens.push(`~${toAt(gap, barMs, this.config.precision)}`);
       }
 
@@ -224,7 +232,7 @@ export class StrudelNotation {
     }
 
     const trailingGap = blockEnd - cursor;
-    if (trailingGap > REST_GAP_THRESHOLD_MS) {
+    if (trailingGap > OVERLAP_EPSILON_MS) {
       tokens.push(`~${toAt(trailingGap, barMs, this.config.precision)}`);
     }
 
@@ -232,14 +240,31 @@ export class StrudelNotation {
   }
 
   private noteValue(note: LogNote) {
-    return this.config.notationType === "relative"
-      ? String(
-          normalizeScaleIndex(
-            (this.config.scaleMode ?? note.mode ?? "major") as MusicalMode,
-            note.scaleIndex
-          )
-        )
-      : note.note;
+    if (!this.renderRelative) return note.note;
+    return String(this.relativeNoteValue(note));
+  }
+
+  private relativeNoteValue(note: LogNote) {
+    const mode = (this.config.scaleMode ?? note.mode ?? "major") as MusicalMode;
+    const scale = getScaleForMode(mode);
+    const degree = normalizeScaleIndex(mode, note.scaleIndex);
+    const scaleOctave = this.config.scaleOctave ?? this.notes[0]?.octave ?? 4;
+    const scaleKey = this.config.scaleKey ?? this.notes[0]?.key ?? "C";
+    const rootMidi = TonalNote.midi(`${scaleKey}${scaleOctave}`);
+    const noteMidi = TonalNote.midi(note.note);
+    const degreeSemitones = scale.intervals[degree];
+
+    if (rootMidi == null || noteMidi == null || degreeSemitones == null) {
+      return null;
+    }
+
+    const octaveCycles = (noteMidi - (rootMidi + degreeSemitones)) / 12;
+    const roundedCycles = Math.round(octaveCycles);
+    if (Math.abs(octaveCycles - roundedCycles) > Number.EPSILON * 16) {
+      return null;
+    }
+
+    return degree + roundedCycles * scale.degreeCount;
   }
 
   private noteDuration(note: LogNote) {

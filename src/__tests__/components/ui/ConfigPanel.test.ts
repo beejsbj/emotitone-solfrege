@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick, reactive } from "vue";
+import { nextTick, reactive, toRefs } from "vue";
 import { createTestWrapper } from "../../helpers/test-utils";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 
@@ -21,10 +21,11 @@ const keyboardDrawerStore = reactive({
 const visualConfigStore = reactive({
   config: {
     keyboard: {
+      isEnabled: true,
       mainOctave: 4,
       rowCount: 3,
     },
-    liveStrip: {
+    codeStrip: {
       bpm: 120,
     },
   },
@@ -48,6 +49,11 @@ const musicStore = reactive({
   setMode: vi.fn(),
 });
 
+vi.mock("pinia", async (importOriginal) => ({
+  ...await importOriginal<typeof import("pinia")>(),
+  storeToRefs: (store: object) => toRefs(store),
+}));
+
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => keyboardDrawerStore,
 }));
@@ -62,8 +68,9 @@ vi.mock("@/stores/music", () => ({
 
 vi.mock("@/components/TopDrawer.vue", () => ({
   default: {
-    template:
-      '<div data-testid="top-drawer"><slot name="trigger" :open="open" :close="close" :is-open="isOpen" /></div>',
+    props: ['handleTestId', 'ariaLabel'],
+    template: '<div data-testid="top-drawer"><button :data-testid="handleTestId" :aria-label="ariaLabel"><slot name="icon" /><slot name="status" /></button><section data-testid="panel"><slot name="panel" :close="close" /></section></div>',
+
     setup() {
       return {
         isOpen: false,
@@ -74,8 +81,17 @@ vi.mock("@/components/TopDrawer.vue", () => ({
   },
 }));
 
-vi.mock("../../../components/knobs", () => ({
-  Knob: {
+
+vi.mock("@/components/TabbedOverlayPanel.vue", () => ({
+  default: {
+    name: "TabbedOverlayPanel",
+    props: ["modelValue"],
+    template: '<div :data-tab="modelValue"><slot name="header" /></div>',
+  },
+}));
+
+vi.mock("@/components/primatives/Knob/index.vue", () => ({
+  default: {
     template: '<div data-testid="mock-knob"></div>',
   },
 }));
@@ -120,6 +136,25 @@ describe("ConfigPanel.vue", () => {
     wrapper = null;
   });
 
+  it("assigns repeated section-toggle emissions without inverting twice", async () => {
+    visualConfigStore.config.keyboard.isEnabled = true;
+    visualConfigStore.updateValue.mockImplementation((section, key, value) => {
+      if (section === "keyboard" && key === "isEnabled") {
+        visualConfigStore.config.keyboard.isEnabled = value;
+      }
+    });
+    wrapper = createTestWrapper(ConfigPanel);
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "keyboard");
+    await nextTick();
+    const section = wrapper.findComponent('[data-testid="section-toggle-keyboard"]');
+    section.vm.$emit("update:modelValue", false);
+    await nextTick();
+    section.vm.$emit("update:modelValue", false);
+    await nextTick();
+    expect(visualConfigStore.config.keyboard.isEnabled).toBe(false);
+    expect(visualConfigStore.updateValue).toHaveBeenLastCalledWith("keyboard", "isEnabled", false);
+  });
+
   it("hides the MIDI shortcut when only generic outputs are present", async () => {
     keyboardDrawerStore.midi.connectedOutputs = ["Scarlett 2i2 MIDI"];
 
@@ -151,7 +186,9 @@ describe("ConfigPanel.vue", () => {
     const trigger = wrapper.find('[data-testid="config-midi-trigger"]');
 
     expect(trigger.exists()).toBe(true);
-    expect(trigger.text().trim()).toBe("");
+    expect(wrapper.get('[data-testid="panel"]').find('[data-testid="config-midi-trigger"]').exists()).toBe(true);
+    await trigger.trigger("click");
+    expect(wrapper.find("[data-tab]").attributes("data-tab")).toBe("midi");
     expect(trigger.attributes("aria-label")).toContain(
       "Open MIDI and ROLI controls"
     );

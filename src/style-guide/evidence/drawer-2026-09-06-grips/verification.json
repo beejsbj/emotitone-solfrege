@@ -1,0 +1,243 @@
+{
+  "production": [
+    {
+      "width": 320,
+      "handles": [
+        {
+          "name": "Keyboard",
+          "width": 46,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": null
+        },
+        {
+          "name": "Open settings. MIDI permission blocked.",
+          "width": 46,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": null
+        },
+        {
+          "name": "Instrument",
+          "width": 70.375,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": {
+            "text": "piano",
+            "height": 20,
+            "width": 20,
+            "scrollWidth": 20,
+            "lineHeight": "20px"
+          }
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "handles": [
+        {
+          "name": "Keyboard",
+          "width": 46,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": null
+        },
+        {
+          "name": "Open settings. MIDI permission blocked.",
+          "width": 46,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": null
+        },
+        {
+          "name": "Instrument",
+          "width": 70.375,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": {
+            "text": "piano",
+            "height": 20,
+            "width": 20,
+            "scrollWidth": 20,
+            "lineHeight": "20px"
+          }
+        }
+      ]
+    },
+    {
+      "width": 960,
+      "handles": [
+        {
+          "name": "Keyboard",
+          "width": 46,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": null
+        },
+        {
+          "name": "Open settings. MIDI permission blocked.",
+          "width": 46,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": null
+        },
+        {
+          "name": "Instrument",
+          "width": 70.375,
+          "height": 28,
+          "grips": [
+            {
+              "width": 8,
+              "height": 2
+            },
+            {
+              "width": 8,
+              "height": 2
+            }
+          ],
+          "label": {
+            "text": "piano",
+            "height": 20,
+            "width": 20,
+            "scrollWidth": 20,
+            "lineHeight": "20px"
+          }
+        }
+      ]
+    }
+  ],
+  "guide": [
+    {
+      "state": "idle",
+      "filter": "none",
+      "fill": "rgb(94, 94, 94)",
+      "animation": "none",
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "state": "connecting",
+      "filter": "drop-shadow(rgba(189, 189, 189, 0.55) 0px 0px 5px)",
+      "fill": "rgb(189, 189, 189)",
+      "animation": "pulse",
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "state": "connected",
+      "filter": "drop-shadow(rgba(215, 215, 215, 0.45) 0px 0px 5px)",
+      "fill": "rgb(215, 215, 215)",
+      "animation": "none",
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "state": "error",
+      "filter": "drop-shadow(rgba(138, 138, 138, 0.45) 0px 0px 5px)",
+      "fill": "rgb(138, 138, 138)",
+      "animation": "none",
+      "dx": 0,
+      "dy": 0
+    }
+  ],
+  "errors": [],
+  "longLabel": {
+    "name": "Instrument specimen",
+    "width": 208,
+    "height": 28,
+    "grips": [
+      {
+        "width": 8,
+        "height": 2
+      },
+      {
+        "width": 8,
+        "height": 2
+      }
+    ],
+    "label": {
+      "text": "Very long instrument name with descenders gypq",
+      "height": 20,
+      "width": 158,
+      "scrollWidth": 185,
+      "lineHeight": "20px"
+    }
+  },
+  "forcedColors": {
+    "filter": "none",
+    "fill": "rgb(0, 0, 0)"
+  },
+  "statusTooltip": "Open settings. MIDI permission blocked."
+}

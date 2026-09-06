@@ -20,11 +20,11 @@
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useVisualConfig } from "@/composables/useVisualConfig";
-import { useLiveStrudelMirror } from "@/composables/useLiveStrudelMirror";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 
 const { createGlassmorphBackground } = useColorSystem();
-const { beatingShapesConfig, liveStripConfig } = useVisualConfig();
-const { isPlaying: isStrudelPlaying } = useLiveStrudelMirror();
+const { beatingShapesConfig, codeStripConfig } = useVisualConfig();
+const { isPlaying: isStrudelPlaying } = useCodeStripStrudel();
 
 const currentBpm = ref(100);
 const isAnimating = ref(false);
@@ -58,7 +58,7 @@ const shouldAnimate = computed(() => {
 });
 
 const effectiveBpm = computed(() => {
-  const bpm = liveStripConfig.value.bpm;
+  const bpm = codeStripConfig.value.bpm;
   return typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0
     ? bpm
     : currentBpm.value;

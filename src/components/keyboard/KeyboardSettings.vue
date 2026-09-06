@@ -8,43 +8,14 @@
         <!-- Color Mode -->
         <div class="control-group">
           <Knob
-            :model-value="keyboardConfig.colorMode"
+            :model-value="keyboardConfig.surfaceStyle"
             type="options"
             :options="[
               { label: 'Colored', value: 'colored' },
-              { label: 'Monochrome', value: 'monochrome' },
-              { label: 'Glass', value: 'glassmorphism' }
+              { label: 'Monochrome', value: 'monochrome' }
             ]"
-            label="Color Mode"
-            @update:modelValue="updateConfig('colorMode', $event)"
-          />
-        </div>
-
-        <!-- Border Radius -->
-        <div class="control-group">
-          <Knob
-            :model-value="keyboardConfig.keyShape"
-            type="range"
-            label="Roundness"
-            :min="0"
-            :max="20"
-            :step="1"
-            :format="(v: number) => `${v}px`"
-            @update:modelValue="updateConfig('keyShape', $event)"
-          />
-        </div>
-
-        <!-- Key Size -->
-        <div class="control-group">
-          <Knob
-            :model-value="keyboardConfig.keySize"
-            type="range"
-            label="Key Size"
-            :min="0.6"
-            :max="1.8"
-            :step="0.1"
-            :format="(v: number) => `${v}x`"
-            @update:modelValue="updateConfig('keySize', $event)"
+            label="Surface Style"
+            @update:modelValue="updateConfig('surfaceStyle', $event)"
           />
         </div>
 
@@ -86,7 +57,7 @@
     </div>
 
     <!-- Color Adjustments Section (for colored/monochrome modes) -->
-    <div v-if="keyboardConfig.colorMode !== 'glassmorphism'" class="settings-section">
+    <div class="settings-section">
       <h3 class="section-title">Color Adjustments</h3>
       
       <div class="controls-grid">
@@ -115,27 +86,6 @@
             :step="0.1"
             :format="(v: number) => `${(v * 100).toFixed(0)}%`"
             @update:modelValue="updateConfig('keySaturation', $event)"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Glassmorphism Settings (for glassmorphism mode) -->
-    <div v-if="keyboardConfig.colorMode === 'glassmorphism'" class="settings-section">
-      <h3 class="section-title">Glass Effect</h3>
-      
-      <div class="controls-grid">
-        <!-- Glass Opacity -->
-        <div class="control-group">
-          <Knob
-            :model-value="keyboardConfig.glassmorphOpacity"
-            type="range"
-            label="Opacity"
-            :min="0"
-            :max="1"
-            :step="0.05"
-            :format="(v: number) => `${(v * 100).toFixed(0)}%`"
-            @update:modelValue="updateConfig('glassmorphOpacity', $event)"
           />
         </div>
       </div>
@@ -179,7 +129,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { Knob } from "@/components/knobs";
+import Knob from "@/components/primatives/Knob/index.vue";
 
 const store = useKeyboardDrawerStore();
 const keyboardConfig = computed(() => store.keyboardConfig);

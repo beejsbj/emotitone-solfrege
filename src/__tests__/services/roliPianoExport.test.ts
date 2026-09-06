@@ -25,7 +25,8 @@ describe("roliPianoExport", () => {
   it("maps only in-scale pitch classes for the current key and mode", () => {
     const palette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        chromaticMapping: false,
+        isEnabled: true,
+        musicColorMode: "movable",
         saturation: 0.8,
         baseLightness: 0.5,
         lightnessRange: 0.3,
@@ -46,10 +47,29 @@ describe("roliPianoExport", () => {
     expect(palette.activeColour).toBe("0xffffff00");
   });
 
-  it("remaps the lit pitch classes when the key or mode changes", () => {
+  it("colors all 12 pitch classes in fixed mode", () => {
     const dMinorPalette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        chromaticMapping: true,
+        isEnabled: true,
+        musicColorMode: "fixed",
+        saturation: 0.8,
+        baseLightness: 0.5,
+        lightnessRange: 0.3,
+        hueAnimationAmplitude: 0,
+        animationSpeed: 1,
+      },
+      currentKey: "D",
+      currentMode: "minor",
+    });
+
+    expect(Object.values(dMinorPalette).slice(0, 12)).not.toContain(ROLI_OFF_COLOUR);
+  });
+
+  it("turns off out-of-scale pitch classes in movable mode", () => {
+    const dMinorPalette = buildRoliPianoPalette({
+      dynamicColorConfig: {
+        isEnabled: true,
+        musicColorMode: "movable",
         saturation: 0.8,
         baseLightness: 0.5,
         lightnessRange: 0.3,
@@ -78,7 +98,8 @@ describe("roliPianoExport", () => {
   it("generates a LittleFoot script with the expected metadata and key count", () => {
     const script = generateRoliPianoScript({
       dynamicColorConfig: {
-        chromaticMapping: true,
+        isEnabled: true,
+        musicColorMode: "fixed",
         saturation: 0.8,
         baseLightness: 0.5,
         lightnessRange: 0.3,

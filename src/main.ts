@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./style.css";
+import "./emotitone-design-system.css";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { tooltipPlugin } from "./directives/tooltip";
 import { registerSW } from 'virtual:pwa-register';

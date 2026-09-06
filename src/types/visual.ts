@@ -45,11 +45,14 @@ export interface NoteColorRelationships {
   tertiary: string;
 }
 
+export type MusicColorMode = "fixed" | "movable";
+
 /**
  * Dynamic color configuration
  */
 export interface DynamicColorConfig {
-  chromaticMapping: boolean;
+  isEnabled: boolean;
+  musicColorMode: MusicColorMode;
   saturation: number;
   baseLightness: number;
   lightnessRange: number;
@@ -297,8 +300,8 @@ export interface FrequencyMappingConfig {
 export interface DynamicColorConfig {
   /** Whether dynamic colors are enabled (alternative to predefined colors) */
   isEnabled: boolean;
-  /** Whether to use chromatic mapping (12 notes) instead of solfege (7 notes) */
-  chromaticMapping: boolean;
+  /** Whether music colors are fixed to pitch class or movable with the scale */
+  musicColorMode: MusicColorMode;
   /** Hue animation amplitude in degrees (±) */
   hueAnimationAmplitude: number;
   /** Animation speed multiplier for hue changes */
@@ -365,12 +368,8 @@ export interface OctaveConfig {
 export interface HilbertScopeConfig {
   /** Whether Hilbert Scope is enabled */
   isEnabled: boolean;
-  /** Base size as ratio of screen (0-1) */
+  /** Scope size as a percentage of the viewport's smaller dimension */
   sizeRatio: number;
-  /** Minimum size in pixels */
-  minSize: number;
-  /** Maximum size in pixels */
-  maxSize: number;
   /** Base opacity (0-1) */
   opacity: number;
   /** Scale in animation duration in seconds */
@@ -383,10 +382,12 @@ export interface HilbertScopeConfig {
   glowEnabled: boolean;
   /** Glow blur intensity */
   glowIntensity: number;
+  /** Additional screen smear/persistence amount (0-1) */
+  smear: number;
   /** Trail effect strength (0-1) */
   history: number;
-  /** Base line width */
-  lineWidth: number;
+  /** Base line thickness */
+  thickness: number;
 }
 
 /**
@@ -438,14 +439,12 @@ export interface KeyboardConfig {
   /** Whether palette gradient effects are enabled */
   isEnabled: boolean;
 
+  /** Which note identity becomes the primary label */
+  primaryLabel: "syllable" | "degree" | "raw";
   /** Key gap style */
   keyGaps: "none" | "small" | "medium";
-  /** Key border radius in pixels */
-  keyShape: number;
-  /** Color mode for keys */
-  colorMode: "colored" | "monochrome" | "glassmorphism";
-  /** Key size multiplier */
-  keySize: number;
+  /** Presentation style for keys */
+  surfaceStyle: "colored" | "monochrome";
   /** Number of visible octave rows */
   rowCount: number;
   /** Main octave number */
@@ -461,21 +460,17 @@ export interface KeyboardConfig {
 
   /** Gradient direction in degrees (0-360) */
   gradientDirection: number;
-  /** Glassmorphism effect opacity for palette keys (0-1) */
-  glassmorphOpacity: number;
   /** Whether to add padding around the keyboard */
   keyboardPadding: boolean;
-  /** Whether to apply randomized angled clip-path to keys */
-  angledStyle: boolean;
 }
 
 /**
- * Live strip presentation configuration
+ * CodeStrip presentation configuration
  */
-export interface LiveStripConfig {
-  /** Whether the token strip/code line is enabled */
+export interface CodeStripConfig {
+  /** Whether the CodeStrip-backed Strudel mirror is enabled */
   enabled: boolean;
-  /** Supplemental strip opacity */
+  /** Mirror presentation opacity */
   opacity: number;
   /** Playback tempo in beats per minute */
   bpm: number;
@@ -483,8 +478,6 @@ export interface LiveStripConfig {
   notation: "solfege" | "note" | "degree";
   /** Whether to show rest tokens */
   showRests: boolean;
-  /** Whether to show the compact code line */
-  showStrudelLine: boolean;
 }
 
 /**
@@ -544,6 +537,6 @@ export interface VisualEffectsConfig {
   patterns: PatternConfig;
   /** Keyboard styling configuration */
   keyboard: KeyboardConfig;
-  /** Live strip presentation configuration */
-  liveStrip: LiveStripConfig;
+  /** CodeStrip presentation configuration */
+  codeStrip: CodeStripConfig;
 }

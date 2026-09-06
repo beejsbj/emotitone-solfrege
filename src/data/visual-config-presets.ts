@@ -79,8 +79,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         opacity: 0.9,
       },
       keyboard: {
-        colorMode: "glassmorphism",
-        glassmorphOpacity: 0.56,
+        surfaceStyle: "colored",
         keyBrightness: 0.85,
         keySaturation: 0.8,
       },
@@ -119,7 +118,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       dynamicColors: {
         isEnabled: true,
-        chromaticMapping: true,
+        musicColorMode: "fixed",
         hueAnimationAmplitude: 42,
         animationSpeed: 1.4,
         saturation: 0.95,
@@ -133,7 +132,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         isEnabled: true,
         glowIntensity: 14,
         history: 0.62,
-        lineWidth: 4.5,
+        thickness: 4.5,
       },
       beatingShapes: {
         isEnabled: true,
@@ -142,10 +141,9 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         shapeCount: 9,
       },
       keyboard: {
-        colorMode: "colored",
+        surfaceStyle: "colored",
         keyBrightness: 1.2,
         keySaturation: 1.15,
-        angledStyle: true,
       },
     }
   ),
@@ -241,16 +239,15 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       keyboard: {
         isEnabled: true,
-        colorMode: "monochrome",
+        surfaceStyle: "monochrome",
         showLabels: true,
         rowCount: 2,
         keyboardPadding: true,
       },
-      liveStrip: {
+      codeStrip: {
         enabled: true,
         notation: "solfege",
         showRests: true,
-        showStrudelLine: false,
       },
     }
   ),
@@ -276,7 +273,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       dynamicColors: {
         isEnabled: true,
-        chromaticMapping: true,
+        musicColorMode: "fixed",
         hueAnimationAmplitude: 60,
         animationSpeed: 1.8,
         saturation: 1,
@@ -294,7 +291,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         glowEnabled: true,
         glowIntensity: 30,
         history: 0.82,
-        lineWidth: 5,
+        thickness: 5,
       },
       beatingShapes: {
         isEnabled: true,
@@ -303,9 +300,27 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         saturation: 100,
       },
       keyboard: {
-        colorMode: "colored",
+        surfaceStyle: "colored",
         keyBrightness: 1.3,
         keySaturation: 1.25,
+      },
+    }
+  ),
+  createPreset(
+    "hilbert-trace",
+    "Hilbert Trace",
+    "Thin luminous Hilbert lines with light history, soft glow, and a pushed size.",
+    {
+      hilbertScope: {
+        isEnabled: true,
+        thickness: 0.01,
+        opacity: 0.3,
+        history: 0.1,
+        driftSpeed: 4,
+        glowEnabled: true,
+        glowIntensity: 5,
+        smear: 1,
+        sizeRatio: 1.5,
       },
     }
   ),

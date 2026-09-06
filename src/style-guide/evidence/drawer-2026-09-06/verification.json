@@ -1,0 +1,331 @@
+{
+  "production": [
+    {
+      "width": 320,
+      "height": 320.5,
+      "prefix": 120.5,
+      "content": 200,
+      "rowHeights": [
+        56,
+        88,
+        56
+      ],
+      "pitches": [
+        7,
+        7,
+        7
+      ],
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "height": 325.4375,
+      "prefix": 125.4375,
+      "content": 200,
+      "rowHeights": [
+        56,
+        88,
+        56
+      ],
+      "pitches": [
+        7,
+        7,
+        7
+      ],
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "height": 343.875,
+      "prefix": 143.875,
+      "content": 200,
+      "rowHeights": [
+        56,
+        88,
+        56
+      ],
+      "pitches": [
+        7,
+        7,
+        7
+      ],
+      "overflow": false
+    },
+    {
+      "width": 960,
+      "height": 343.875,
+      "prefix": 143.875,
+      "content": 200,
+      "rowHeights": [
+        56,
+        88,
+        56
+      ],
+      "pitches": [
+        7,
+        7,
+        7
+      ],
+      "overflow": false
+    }
+  ],
+  "guide": [
+    {
+      "width": 320,
+      "height": 337.03125,
+      "pitches": [
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "width": 390,
+      "height": 341.34375,
+      "pitches": [
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "width": 768,
+      "height": 358.46875,
+      "pitches": [
+        12,
+        12,
+        12
+      ]
+    }
+  ],
+  "interaction": [
+    {
+      "resize": {
+        "initial": {
+          "height": 325.4375,
+          "width": 390,
+          "prefix": 125.4375,
+          "content": 200,
+          "rowHeights": [
+            56,
+            88,
+            56
+          ],
+          "pitches": [
+            7,
+            7,
+            7
+          ],
+          "overflow": false
+        },
+        "enlarged": {
+          "height": 415.4375,
+          "width": 390,
+          "prefix": 125.4375,
+          "content": 290,
+          "rowHeights": [
+            81.1875,
+            127.59375,
+            81.1875
+          ],
+          "pitches": [
+            7,
+            7,
+            7
+          ],
+          "overflow": false
+        },
+        "saved": {
+          "contentHeight": 290
+        }
+      }
+    },
+    {
+      "partial": {
+        "height": 235.4375,
+        "width": 390,
+        "prefix": 125.4375,
+        "content": 157.140625,
+        "rowHeights": [
+          44,
+          69.140625,
+          44
+        ],
+        "pitches": [
+          7,
+          7,
+          7
+        ],
+        "overflow": false
+      }
+    }
+  ],
+  "errors": [],
+  "implementationCommit": "8216e7b",
+  "captureMethod": "Local headless Chromium 1234 via Playwright against Vite at localhost:5175; normal Skip loading action. Collaborative preview unavailable.",
+  "checks": {
+    "focusedAndAdjacentTests": 85,
+    "postRepairDrawerAndTopDrawerTests": 10,
+    "typeCheck": "pass",
+    "build": "pass; existing Browserslist, soundfont eval, mixed import, bundle-size warnings",
+    "lineageAudit": "pass after persistent-control and clipped-key focus repairs"
+  },
+  "focusRepair": {
+    "results": [
+      {
+        "label": "Do, scale degree one, C five, octave 5",
+        "top": 814,
+        "hidden": false,
+        "inert": false,
+        "focusBlocked": true
+      },
+      {
+        "label": "Re, scale degree two, D five, octave 5",
+        "top": 814,
+        "hidden": false,
+        "inert": false,
+        "focusBlocked": true
+      },
+      {
+        "label": "Mi, scale degree three, E five, octave 5",
+        "top": 814,
+        "hidden": false,
+        "inert": false,
+        "focusBlocked": true
+      },
+      {
+        "label": "Fa, scale degree four, F five, octave 5",
+        "top": 814,
+        "hidden": false,
+        "inert": false,
+        "focusBlocked": true
+      },
+      {
+        "label": "Sol, scale degree five, G five, octave 5",
+        "top": 814,
+        "hidden": false,
+        "inert": false,
+        "focusBlocked": true
+      },
+      {
+        "label": "La, scale degree six, A five, octave 5",
+        "top": 814,
+        "hidden": false,
+        "inert": false,
+        "focusBlocked": true
+      },
+      {
+        "label": "Ti, scale degree seven, B five, octave 5",
+        "top": 814,
+        "hidden": false,
+        "inert": false,
+        "focusBlocked": true
+      },
+      {
+        "label": "Do, scale degree one, C four, main octave",
+        "top": 858,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Re, scale degree two, D four, main octave",
+        "top": 858,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Mi, scale degree three, E four, main octave",
+        "top": 858,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Fa, scale degree four, F four, main octave",
+        "top": 858,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Sol, scale degree five, G four, main octave",
+        "top": 858,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "La, scale degree six, A four, main octave",
+        "top": 858,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Ti, scale degree seven, B four, main octave",
+        "top": 858,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Do, scale degree one, C three, octave 3",
+        "top": 927.140625,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Re, scale degree two, D three, octave 3",
+        "top": 927.140625,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Mi, scale degree three, E three, octave 3",
+        "top": 927.140625,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Fa, scale degree four, F three, octave 3",
+        "top": 927.140625,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Sol, scale degree five, G three, octave 3",
+        "top": 927.140625,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "La, scale degree six, A three, octave 3",
+        "top": 927.140625,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      },
+      {
+        "label": "Ti, scale degree seven, B three, octave 3",
+        "top": 927.140625,
+        "hidden": true,
+        "inert": true,
+        "focusBlocked": true
+      }
+    ],
+    "reopened": true,
+    "topScrollingPreserved": true
+  },
+  "limits": [
+    "No real touch-hardware or audio-output verification.",
+    "Production C-major seven-pitch configuration is unchanged; guide controlled rows show twelve pitches.",
+    "Keyboard density and final DrawerKeyboard composition remain separate acceptance gates."
+  ]
+}

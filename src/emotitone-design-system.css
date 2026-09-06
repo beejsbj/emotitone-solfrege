@@ -438,33 +438,18 @@
 }
 
 /* =================================================================
-   ELEMENT DEFAULTS
+   EXPLICIT TYPOGRAPHY UTILITIES
+
+   Element defaults belong to the style guide and are loaded by its route.
+   These named classes remain opt-in so production components can use the
+   accepted token recipes without changing native element semantics.
    ================================================================= */
-html, body {
-  background: var(--bg);
-  color: var(--fg);
-  font: var(--t-body);
-  -webkit-font-smoothing: antialiased;
-}
-
-h1, .h-display-l { font: var(--t-display-l); letter-spacing: var(--tracking-display); text-transform: uppercase; }
-h2, .h-display-m { font: var(--t-display-m); letter-spacing: var(--tracking-display); text-transform: uppercase; }
-h3, .h1          { font: var(--t-h1);        letter-spacing: var(--tracking-display); text-transform: uppercase; }
-h4, .h2          { font: var(--t-h2);        letter-spacing: var(--tracking-display); text-transform: uppercase; }
-
-.label, .ds-label {
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-
-.mono, code, pre { font: var(--t-mono); }
+.mono { font: var(--t-mono); }
 .body  { font: var(--t-body); }
 .body-s{ font: var(--t-body-s); color: var(--fg-2); }
 .body-mono { font: var(--t-body-mono); color: var(--fg-2); }
 .body-s-mono { font: var(--t-body-s-mono); color: var(--fg-3); }
-.caption { font: var(--t-caption); color: var(--fg-3); }
+.ds-label { font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--fg-3); }
 
 /* The signature off-cut tab clip — like Persona 5 */
 .cut-tab {

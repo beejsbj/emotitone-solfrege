@@ -7,7 +7,8 @@ import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { createHeldNotes, type HeldNotePress } from "@/composables/heldNotes";
+import { createHeldNotes } from "@/composables/heldNotes";
+import type { KeyboardHeldPress } from "@/types/heldNotes";
 
 /**
  * Keyboard mapping interface
@@ -18,14 +19,6 @@ interface KeyboardMapping {
     octave: number;
     label: string;
   };
-}
-
-interface KeyboardHeldPress extends HeldNotePress {
-  key: string;
-  label: string;
-  solfegeIndex: number;
-  octave: number;
-  noteKey: string;
 }
 
 const KEY_ROWS = [

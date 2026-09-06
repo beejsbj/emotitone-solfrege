@@ -4,7 +4,8 @@ import type { ChromaticNote } from "@/types";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfig } from "@/composables/useVisualConfig";
-import { createHeldNotes, type HeldNotePress } from "@/composables/heldNotes";
+import { createHeldNotes } from "@/composables/heldNotes";
+import type { MidiHeldPress } from "@/types/heldNotes";
 import {
   buildRoliAllNotesOffMessages,
   buildRoliMainOctaveMessage,
@@ -71,15 +72,6 @@ function shouldExposeDevMidiSimulator() {
     || window.location.hostname === "127.0.0.1"
     || window.location.hostname === "localhost"
   );
-}
-
-interface MidiHeldPress extends HeldNotePress {
-  pressId: string;
-  inputId: string;
-  noteName: string;
-  solfegeIndex: number;
-  octave: number;
-  isRoliInput: boolean;
 }
 
 interface MidiNoteResolver {

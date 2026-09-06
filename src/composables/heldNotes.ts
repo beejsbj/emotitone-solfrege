@@ -1,30 +1,10 @@
 import { reactive } from "vue";
-
-export interface HeldNotePress {
-  pressId: string;
-}
-
-export type HeldNoteResolution =
-  | { status: "active"; noteId: string }
-  | { status: "released"; noteId: string }
-  | { status: "failed"; error?: unknown };
-
-export interface HeldNotesOptions<Press extends HeldNotePress> {
-  attack: (press: Press) => Promise<string | null>;
-  release: (noteId: string, press: Press) => void;
-  onPressed?: (press: Press) => void;
-  onUnpressed?: (press: Press) => void;
-  beforeNoteRelease?: (noteId: string, press: Press) => void;
-  afterNoteRelease?: (noteId: string, press: Press) => void;
-  onAttackFailure?: (press: Press, error?: unknown) => void;
-}
-
-interface HeldNoteGeneration<Press extends HeldNotePress> {
-  press: Press;
-  released: boolean;
-  noteId?: string;
-  completion: Promise<HeldNoteResolution>;
-}
+import type {
+  HeldNoteGeneration,
+  HeldNotePress,
+  HeldNoteResolution,
+  HeldNotesOptions,
+} from "@/types/heldNotes";
 
 /**
  * Owns the asynchronous lifetime of notes keyed by physical input identity.

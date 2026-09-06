@@ -82,5 +82,16 @@ export type {
 // Pattern Logging Types
 export type { LogNote, PatternsStoreState, PatternConfig } from "./patterns";
 
+// Held Note Ownership Types
+export type {
+  HeldNotePress,
+  HeldNoteResolution,
+  HeldNotesOptions,
+  HeldNoteGeneration,
+  KeyboardHeldPress,
+  SolfegeHeldPress,
+  MidiHeldPress,
+} from "./heldNotes";
+
 // Re-export commonly used Vue types for convenience
 export type { Ref, ComputedRef, WritableComputedRef } from "vue";

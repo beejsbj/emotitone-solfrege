@@ -7,14 +7,9 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { createHeldNotes, type HeldNotePress } from "@/composables/heldNotes";
+import { createHeldNotes } from "@/composables/heldNotes";
+import type { SolfegeHeldPress } from "@/types/heldNotes";
 import type { MusicalMode, ChromaticNote } from "@/types/music";
-
-interface SolfegeHeldPress extends HeldNotePress {
-  noteKey: string;
-  solfegeIndex: number;
-  octave: number;
-}
 
 /**
  * Composable for handling solfege note interactions

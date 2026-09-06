@@ -511,6 +511,34 @@ describe('Visual Config Store', () => {
       expect(newStore.savedConfigs[0].config.dynamicColors.musicColorMode).toBe('fixed')
       expect(newStore.savedConfigs[0].config.keyboard.surfaceStyle).toBe('monochrome')
     })
+
+    it('should sanitize saved configs and preserve references when loading them', () => {
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([
+        {
+          id: 'invalid-saved',
+          name: 'Partially valid',
+          config: {
+            blobs: { opacity: 'opaque', maxSize: 1800 },
+            keyboard: { surfaceStyle: 'monochrome' },
+          },
+          createdAt: '2026-09-06T00:00:00.000Z',
+          updatedAt: '2026-09-06T00:00:00.000Z',
+        },
+      ]))
+
+      const newStore = createFreshStore()
+      const blobsRef = newStore.config.blobs
+
+      expect(newStore.savedConfigs[0].config.blobs.opacity).toBe(DEFAULT_CONFIG.blobs.opacity)
+      expect(newStore.savedConfigs[0].config.blobs.maxSize).toBe(1800)
+
+      newStore.loadSavedConfig('invalid-saved')
+
+      expect(newStore.config.blobs).toBe(blobsRef)
+      expect(newStore.config.blobs.opacity).toBe(DEFAULT_CONFIG.blobs.opacity)
+      expect(newStore.config.blobs.maxSize).toBe(1800)
+      expect(newStore.config.keyboard.surfaceStyle).toBe('monochrome')
+    })
   })
 
   describe('Reactivity', () => {
@@ -554,15 +582,81 @@ describe('Visual Config Store', () => {
       expect(newStore.config.particles.isEnabled).toBe(true) // Should use defaults
     })
 
-    it('should preserve type safety in configuration updates', () => {
-      // Should not allow invalid types
+    it('should sanitize invalid stored fields without discarding valid siblings', () => {
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'emotitone-visual-config') {
+          return JSON.stringify({
+            config: {
+              blobs: { opacity: 'opaque', maxSize: 1800 },
+              dynamicColors: { musicColorMode: 'random' },
+              keyboard: { isEnabled: false },
+            },
+            visualsEnabled: 'yes',
+          })
+        }
+        return null
+      })
+
+      const newStore = createFreshStore()
+
+      expect(newStore.config.blobs.opacity).toBe(DEFAULT_CONFIG.blobs.opacity)
+      expect(newStore.config.blobs.maxSize).toBe(1800)
+      expect(newStore.config.dynamicColors.musicColorMode).toBe(DEFAULT_CONFIG.dynamicColors.musicColorMode)
+      expect(newStore.config.keyboard.isEnabled).toBe(false)
+      expect(newStore.visualsEnabled).toBe(true)
+    })
+
+    it('should reject invalid live updates without rejecting valid fields beside them', () => {
+      const blobsRef = visualConfigStore.config.blobs
+
       visualConfigStore.updateConfig('blobs', {
         isEnabled: false,
-        opacity: 0.5
-      })
+        opacity: Number.NaN,
+      } as any)
+      visualConfigStore.updateValue('dynamicColors', 'musicColorMode', 'random')
+      visualConfigStore.updateValue('blobs', 'maxSize', 2400)
       
-      expect(typeof visualConfigStore.config.blobs.isEnabled).toBe('boolean')
-      expect(typeof visualConfigStore.config.blobs.opacity).toBe('number')
+      expect(visualConfigStore.config.blobs).toBe(blobsRef)
+      expect(visualConfigStore.config.blobs.isEnabled).toBe(false)
+      expect(visualConfigStore.config.blobs.opacity).toBe(DEFAULT_CONFIG.blobs.opacity)
+      expect(visualConfigStore.config.blobs.maxSize).toBe(2400)
+      expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe(DEFAULT_CONFIG.dynamicColors.musicColorMode)
+    })
+
+    it('should preserve section references while sanitizing partial imports and snapshots', () => {
+      const blobsRef = visualConfigStore.config.blobs
+
+      expect(visualConfigStore.importConfig(JSON.stringify({
+        config: { blobs: { opacity: 0.35, minSize: 'tiny' } },
+      }))).toBe(true)
+
+      expect(visualConfigStore.config.blobs).toBe(blobsRef)
+      expect(visualConfigStore.config.blobs.opacity).toBe(0.35)
+      expect(visualConfigStore.config.blobs.minSize).toBe(DEFAULT_CONFIG.blobs.minSize)
+
+      visualConfigStore.loadConfigSnapshot({
+        blobs: { opacity: Number.POSITIVE_INFINITY },
+      } as any)
+
+      expect(visualConfigStore.config.blobs).toBe(blobsRef)
+      expect(visualConfigStore.config.blobs.opacity).toBe(DEFAULT_CONFIG.blobs.opacity)
+    })
+
+    it('should persist and snapshot only normalized configuration values', () => {
+      ;(visualConfigStore.config.blobs as any).opacity = Number.NaN
+      ;(visualConfigStore.config.keyboard as any).surfaceStyle = 'glass'
+
+      const snapshot = visualConfigStore.getConfigSnapshot()
+      visualConfigStore.saveToStorage()
+      const stored = JSON.parse(
+        (window as any).localStorage.setItem.mock.calls.at(-1)[1]
+      )
+
+      expect(snapshot.blobs.opacity).toBe(DEFAULT_CONFIG.blobs.opacity)
+      expect(snapshot.keyboard.surfaceStyle).toBe(DEFAULT_CONFIG.keyboard.surfaceStyle)
+      expect(stored.config.blobs.opacity).toBe(DEFAULT_CONFIG.blobs.opacity)
+      expect(stored.config.keyboard.surfaceStyle).toBe(DEFAULT_CONFIG.keyboard.surfaceStyle)
     })
   })
 

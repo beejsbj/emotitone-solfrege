@@ -173,10 +173,10 @@
                   :key="`${tab.name}-${field.key}`"
                 >
                   <Knob
-                    v-if="typeof field.value === 'boolean'"
+                    v-if="field.control === 'boolean'"
                     :model-value="field.value"
                     type="boolean"
-                    :label="formatLabel(tab.name, field.key)"
+                    :label="field.label"
                     :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
                     @update:modelValue="
                       (newValue) => updateValue(tab.name, field.key, newValue)
@@ -184,14 +184,11 @@
                   />
 
                   <Knob
-                    v-else-if="
-                      typeof field.value === 'string' &&
-                      hasOptions(tab.name, field.key)
-                    "
+                    v-else-if="field.control === 'options'"
                     :model-value="field.value"
                     type="options"
-                    :options="getFieldOptions(tab.name, field.key)"
-                    :label="formatLabel(tab.name, field.key)"
+                    :options="field.options"
+                    :label="field.label"
                     :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
                     @update:modelValue="
                       (newValue) => updateValue(tab.name, field.key, newValue)
@@ -199,16 +196,14 @@
                   />
 
                   <Knob
-                    v-else-if="typeof field.value === 'number'"
+                    v-else
                     :model-value="field.value"
                     type="range"
-                    :min="getNumberMin(tab.name, field.key)"
-                    :max="getNumberMax(tab.name, field.key)"
-                    :step="getNumberStep(tab.name, field.key)"
-                    :label="formatLabel(tab.name, field.key)"
-                    :format-value="
-                      (val: number) => formatValue(tab.name, field.key, val)
-                    "
+                    :min="field.min"
+                    :max="field.max"
+                    :step="field.step"
+                    :label="field.label"
+                    :format-value="field.formatValue"
                     :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
                     @update:modelValue="
                       (newValue) => updateValue(tab.name, field.key, newValue)
@@ -427,7 +422,8 @@ import { storeToRefs } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { CONFIG_SECTIONS, UNIFIED_CONFIG } from "@/data/visual-config-metadata";
+import { describeVisualConfigSection } from "@/data/visual-config-metadata";
+import type { VisualConfigSectionDescription } from "@/data/visual-config-metadata";
 import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
 import type { ChromaticNote } from "@/types";
 import type { VisualEffectsConfig } from "@/types/visual";
@@ -455,10 +451,6 @@ const drawerContentHeight = ref<number>();
 type ConfigSectionKey = keyof VisualEffectsConfig;
 type PosterTone = "amber" | "red" | "violet" | "cream" | "green";
 type ActionTone = PosterTone | "neutral";
-type SectionField = {
-  key: string;
-  value: string | number | boolean;
-};
 
 const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   blobs: "Blobs",
@@ -551,13 +543,26 @@ const {
 
 const builtInPresets = BUILT_IN_VISUAL_PRESETS;
 
+const sectionDescriptions = computed<Record<ConfigSectionKey, VisualConfigSectionDescription>>(
+  () =>
+    Object.fromEntries(
+      SECTION_ORDER.map((sectionName) => [
+        sectionName,
+        describeVisualConfigSection(config.value, sectionName),
+      ])
+    ) as Record<ConfigSectionKey, VisualConfigSectionDescription>
+);
+
+const getSectionDescription = (sectionName: ConfigSectionKey) =>
+  sectionDescriptions.value[sectionName];
+
 const sectionTabs = computed(() =>
   SECTION_ORDER.map((sectionName, index) => {
-    const meta = CONFIG_SECTIONS[sectionName];
+    const description = getSectionDescription(sectionName);
 
     return {
       name: sectionName,
-      label: meta?.label ?? sectionName,
+      label: description.label,
       shortLabel: SECTION_SHORT_LABELS[sectionName],
       tone: SECTION_TONES[index % SECTION_TONES.length],
     };
@@ -588,14 +593,18 @@ const activeSectionName = computed(() => {
   return null;
 });
 
-const activeSectionHasToggle = computed(() =>
+const activeSectionDescription = computed(() =>
   activeSectionName.value
-    ? getSectionEnableKey(activeSectionName.value) !== null
-    : false
+    ? getSectionDescription(activeSectionName.value)
+    : null
+);
+
+const activeSectionHasToggle = computed(() =>
+  Boolean(activeSectionDescription.value?.enableField)
 );
 
 const activeSectionEnabled = computed(() =>
-  activeSectionName.value ? isSectionEnabled(activeSectionName.value) : false
+  activeSectionDescription.value?.enableField?.value ?? false
 );
 
 const actionToneClass = (tone: ActionTone) =>
@@ -630,55 +639,19 @@ const toneBarClass = (tone: PosterTone) =>
 const sceneTone = (index: number): PosterTone =>
   SECTION_TONES[index % SECTION_TONES.length];
 
-const getSectionConfig = (sectionName: ConfigSectionKey) =>
-  config.value[sectionName] as Record<string, string | number | boolean>;
-
-const getSectionEnableKey = (sectionName: ConfigSectionKey) => {
-  const section = getSectionConfig(sectionName);
-
-  if ("isEnabled" in section) {
-    return "isEnabled";
-  }
-
-  if ("enabled" in section) {
-    return "enabled";
-  }
-
-  return null;
-};
-
-const isSectionEnabled = (sectionName: ConfigSectionKey) => {
-  const enableKey = getSectionEnableKey(sectionName);
-  if (!enableKey) return true;
-
-  return Boolean(getSectionConfig(sectionName)[enableKey]);
-};
-
 const isSectionInteractable = (sectionName: ConfigSectionKey) => {
-  const enableKey = getSectionEnableKey(sectionName);
-  if (!enableKey) return true;
-
-  return Boolean(getSectionConfig(sectionName)[enableKey]);
+  return getSectionDescription(sectionName).enableField?.value ?? true;
 };
 
 const setSectionEnabled = (sectionName: ConfigSectionKey, enabled: boolean) => {
-  const enableKey = getSectionEnableKey(sectionName);
-  if (!enableKey) return;
+  const enableField = getSectionDescription(sectionName).enableField;
+  if (!enableField) return;
 
-  updateValue(sectionName, enableKey, enabled);
+  updateValue(sectionName, enableField.key, enabled);
 };
 
-const getRenderableFields = (sectionName: ConfigSectionKey): SectionField[] => {
-  const section = getSectionConfig(sectionName);
-  const enableKey = getSectionEnableKey(sectionName);
-
-  return Object.entries(section)
-    .filter(([key]) => key !== enableKey)
-    .map(([key, value]) => ({
-      key,
-      value,
-    }));
-};
+const getRenderableFields = (sectionName: ConfigSectionKey) =>
+  getSectionDescription(sectionName).fields;
 
 const resetSectionToDefaults = (sectionName: ConfigSectionKey) => {
   resetSection(sectionName);
@@ -842,71 +815,6 @@ const roliSyncMessage = computed(() => {
 
   return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
 });
-
-const getFieldMetadata = (sectionName: ConfigSectionKey, fieldName: string) => {
-  const section = UNIFIED_CONFIG[sectionName];
-  if (
-    section &&
-    typeof section === "object" &&
-    fieldName in section &&
-    fieldName !== "_meta"
-  ) {
-    return (section as Record<string, any>)[fieldName];
-  }
-
-  return null;
-};
-
-const formatLabel = (sectionName: ConfigSectionKey, key: string) => {
-  const metadata = getFieldMetadata(sectionName, key);
-  if (metadata?.label) {
-    return metadata.label;
-  }
-
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/^./, (value) => value.toUpperCase());
-};
-
-const formatValue = (
-  sectionName: ConfigSectionKey,
-  key: string,
-  value: number
-) => {
-  const metadata = getFieldMetadata(sectionName, key);
-
-  if (metadata?.format && typeof metadata.format === "function") {
-    try {
-      return metadata.format(value);
-    } catch (error) {
-      console.error(`Error formatting ${sectionName}.${key}:`, error);
-    }
-  }
-
-  return value.toString();
-};
-
-const getNumberMin = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.min ?? 0;
-
-const getNumberMax = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.max ?? 100;
-
-const getNumberStep = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.step ?? 0.1;
-
-const hasOptions = (sectionName: ConfigSectionKey, key: string) => {
-  const metadata = getFieldMetadata(sectionName, key);
-
-  return (
-    metadata?.options &&
-    Array.isArray(metadata.options) &&
-    metadata.options.length > 0
-  );
-};
-
-const getFieldOptions = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.options || [];
 
 const applyBuiltInPreset = (presetId: string) => {
   const preset = builtInPresets.find((item) => item.id === presetId);

@@ -24,6 +24,7 @@ vi.mock("@strudel/core", () => ({
 
 vi.mock("@/data", () => ({
   CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
+  getScaleForMode: () => ({ degreeCount: 7, intervals: [0, 2, 4, 5, 7, 9, 11] }),
   getSolfegeNameForMode: (_mode: string, scaleIndex: number) =>
     ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"][scaleIndex] ?? "Do",
   normalizeScaleIndex: (_mode: string, scaleIndex: number) =>
@@ -141,13 +142,21 @@ describe("CodeStrip Strudel source decorations", () => {
     });
     mountedViews.push(view);
     updateCodeStripPresentation(view, {
-      tokens: [{ ...tokens[0], rawPitch: "C8", octave: 8 }],
+      tokens: [{
+        ...tokens[0],
+        glyph: "raw",
+        text: "C8",
+        rawPitch: "C8",
+        octave: 8,
+        surfaceStyle: "monochrome",
+      }],
+      notation: "note",
       durationMode: "stacked",
     });
     await Promise.resolve();
 
-    expect(host.querySelector(".note__identity-core")?.textContent).toBe("Do");
-    expect(host.querySelector(".note__identity-core")?.textContent).not.toBe("1");
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("C8");
+    expect(host.querySelector(".note")?.classList).toContain("note--surface-monochrome");
   });
 
   it("invalidates supplied metadata when a relative degree crosses an octave", async () => {
@@ -176,7 +185,59 @@ describe("CodeStrip Strudel source decorations", () => {
     });
     await Promise.resolve();
 
-    expect(host.querySelector(".note__identity-core")?.textContent).toBe("7");
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("C5");
+    expect(host.querySelector(".note")?.getAttribute("data-octave")).toBe("5");
+  });
+
+  it("resolves relative degrees against the source scale root octave", async () => {
+    const renderRelative = async (degree: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ ${degree}@0.25 ] >\`.as("n").scale("C4:major")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+      await Promise.resolve();
+      return host.querySelector(".note");
+    };
+
+    const high = await renderRelative("7");
+    const low = await renderRelative("-7");
+    expect(high?.querySelector(".note__identity-core")?.textContent).toBe("C5");
+    expect(high?.getAttribute("data-octave")).toBe("5");
+    expect(low?.querySelector(".note__identity-core")?.textContent).toBe("C3");
+    expect(low?.getAttribute("data-octave")).toBe("3");
+  });
+
+  it("derives relative accidentals and root-crossing octaves from the source scale", async () => {
+    const renderRelative = async (scale: string, degree: string) => {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: `\`< [ ${degree}@0.25 ] >\`.as("n").scale("${scale}")`,
+          extensions: [codeStripStrudelExtension],
+        }),
+        parent: host,
+      });
+      mountedViews.push(view);
+      updateCodeStripPresentation(view, { notation: "note", durationMode: "stacked" });
+      await Promise.resolve();
+      return host.querySelector(".note");
+    };
+
+    const sharp = await renderRelative("D4:major", "2");
+    const crossing = await renderRelative("B4:major", "1");
+    expect(sharp?.querySelector(".note__identity-core")?.textContent).toBe("F♯4");
+    expect(sharp?.classList).toContain("note--accidental");
+    expect(crossing?.querySelector(".note__identity-core")?.textContent).toBe("C♯5");
+    expect(crossing?.getAttribute("data-octave")).toBe("5");
+    expect(crossing?.classList).toContain("note--accidental");
   });
 
   it("marks only pitched accidentals as accidental", async () => {

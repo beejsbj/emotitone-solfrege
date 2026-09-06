@@ -1,0 +1,599 @@
+{
+  "production": [
+    {
+      "state": "empty",
+      "viewport": 320,
+      "width": 320,
+      "height": 56,
+      "left": 0,
+      "right": 320,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 276,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 238,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 276,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 178,
+      "stripScrollWidth": 178,
+      "scrollLeft": 0
+    },
+    {
+      "state": "empty",
+      "viewport": 390,
+      "width": 390,
+      "height": 56,
+      "left": 0,
+      "right": 390,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 346,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 308,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 346,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 248,
+      "stripScrollWidth": 248,
+      "scrollLeft": 0
+    },
+    {
+      "state": "empty",
+      "viewport": 550,
+      "width": 550,
+      "height": 56,
+      "left": 0,
+      "right": 550,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 506,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 468,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 506,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 408,
+      "stripScrollWidth": 408,
+      "scrollLeft": 0
+    },
+    {
+      "state": "empty",
+      "viewport": 960,
+      "width": 960,
+      "height": 56,
+      "left": 0,
+      "right": 960,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 916,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 878,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 916,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 818,
+      "stripScrollWidth": 818,
+      "scrollLeft": 0
+    },
+    {
+      "state": "recorded",
+      "viewport": 320,
+      "width": 320,
+      "height": 56,
+      "left": 0,
+      "right": 320,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 276,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 238,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 276,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 178,
+      "stripScrollWidth": 760,
+      "scrollLeft": 0
+    },
+    {
+      "state": "recorded",
+      "viewport": 390,
+      "width": 390,
+      "height": 56,
+      "left": 0,
+      "right": 390,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 346,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 308,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 346,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 248,
+      "stripScrollWidth": 760,
+      "scrollLeft": 0
+    },
+    {
+      "state": "recorded",
+      "viewport": 550,
+      "width": 550,
+      "height": 58.546875,
+      "left": 0,
+      "right": 550,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 506,
+          "topInset": 13.265625,
+          "bottomInset": 13.28125
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 468,
+          "rightInset": 50,
+          "topInset": 13.265625,
+          "bottomInset": 13.28125
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 506,
+          "rightInset": 12,
+          "topInset": 13.265625,
+          "bottomInset": 13.28125
+        }
+      ],
+      "stripWidth": 408,
+      "stripScrollWidth": 784,
+      "scrollLeft": 0
+    },
+    {
+      "state": "recorded",
+      "viewport": 960,
+      "width": 960,
+      "height": 59,
+      "left": 0,
+      "right": 960,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 916,
+          "topInset": 13.5,
+          "bottomInset": 13.5
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 878,
+          "rightInset": 50,
+          "topInset": 13.5,
+          "bottomInset": 13.5
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 916,
+          "rightInset": 12,
+          "topInset": 13.5,
+          "bottomInset": 13.5
+        }
+      ],
+      "stripWidth": 818,
+      "stripScrollWidth": 818,
+      "scrollLeft": 0
+    }
+  ],
+  "guide": [
+    {
+      "viewport": 320,
+      "width": 344.90625,
+      "height": 56,
+      "left": 0,
+      "right": 344.90625,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 300.90625,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 262.90625,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 300.90625,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 203,
+      "stripScrollWidth": 203,
+      "scrollLeft": 0
+    },
+    {
+      "viewport": 320,
+      "width": 183.328125,
+      "height": 56,
+      "left": 12,
+      "right": 195.328125,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 139.328125,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 101.328125,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 139.328125,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 41,
+      "stripScrollWidth": 151,
+      "scrollLeft": 0
+    },
+    {
+      "viewport": 390,
+      "width": 344.90625,
+      "height": 56,
+      "left": 0,
+      "right": 344.90625,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 300.90625,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 262.90625,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 300.90625,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 203,
+      "stripScrollWidth": 203,
+      "scrollLeft": 0
+    },
+    {
+      "viewport": 390,
+      "width": 183.328125,
+      "height": 56,
+      "left": 12,
+      "right": 195.328125,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 139.328125,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 101.328125,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 139.328125,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 41,
+      "stripScrollWidth": 151,
+      "scrollLeft": 0
+    },
+    {
+      "viewport": 960,
+      "width": 344.90625,
+      "height": 56,
+      "left": 57,
+      "right": 401.90625,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 300.90625,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 262.90625,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 300.90625,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 203,
+      "stripScrollWidth": 203,
+      "scrollLeft": 0
+    },
+    {
+      "viewport": 960,
+      "width": 183.328125,
+      "height": 56,
+      "left": 69,
+      "right": 252.328125,
+      "buttons": [
+        {
+          "label": "Play",
+          "width": 32,
+          "height": 32,
+          "leftInset": 12,
+          "rightInset": 139.328125,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Delete last event",
+          "width": 32,
+          "height": 32,
+          "leftInset": 101.328125,
+          "rightInset": 50,
+          "topInset": 12,
+          "bottomInset": 12
+        },
+        {
+          "label": "Return",
+          "width": 32,
+          "height": 32,
+          "leftInset": 139.328125,
+          "rightInset": 12,
+          "topInset": 12,
+          "bottomInset": 12
+        }
+      ],
+      "stripWidth": 41,
+      "stripScrollWidth": 151,
+      "scrollLeft": 0
+    }
+  ],
+  "errors": [],
+  "scroll": {
+    "width": 390,
+    "height": 56,
+    "left": 0,
+    "right": 390,
+    "buttons": [
+      {
+        "label": "Play",
+        "width": 32,
+        "height": 32,
+        "leftInset": 12,
+        "rightInset": 346,
+        "topInset": 12,
+        "bottomInset": 12
+      },
+      {
+        "label": "Delete last event",
+        "width": 32,
+        "height": 32,
+        "leftInset": 308,
+        "rightInset": 50,
+        "topInset": 12,
+        "bottomInset": 12
+      },
+      {
+        "label": "Return",
+        "width": 32,
+        "height": 32,
+        "leftInset": 346,
+        "rightInset": 12,
+        "topInset": 12,
+        "bottomInset": 12
+      }
+    ],
+    "stripWidth": 248,
+    "stripScrollWidth": 784,
+    "scrollLeft": 536
+  }
+}

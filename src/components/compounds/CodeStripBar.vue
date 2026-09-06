@@ -2,7 +2,7 @@
   <section class="code-strip-bar" aria-label="Pattern controls">
     <Button
       class="code-strip-bar__play"
-      size="md"
+      size="sm"
       tone="brass"
       :haptic="haptic"
       :disabled="playDisabled"
@@ -28,7 +28,7 @@
 
     <div class="code-strip-bar__right">
       <Button
-        size="md"
+        size="sm"
         tone="ink"
         :haptic="haptic"
         accessible-name="Delete last event"
@@ -39,7 +39,7 @@
       </Button>
 
       <Button
-        size="md"
+        size="sm"
         tone="ivory"
         :haptic="haptic"
         accessible-name="Return"

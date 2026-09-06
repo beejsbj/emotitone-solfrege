@@ -100,6 +100,7 @@ const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?-?\d+\b/g;
 const RELATIVE_NOTE_REGEX = /(?<![@.\w])-?\d{1,3}(?=@|\b)/g;
 const REST_CHARACTERS = new Set(["~", "-"]);
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
+const SCALE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 
 const setEditorFocus = StateEffect.define<boolean>();
 const setPresentation = StateEffect.define<CodeStripPresentation>();
@@ -767,10 +768,10 @@ function sourceNoteMatchesIdentity(
     const sourceDegree = Number(note.text);
     if (!Number.isFinite(sourceDegree)) return false;
 
-    const tokenDegree = rawPitch
-      ? relativeDegreeFromAbsolutePitch(rawPitch, relativeScale)
-      : null;
-    if (tokenDegree != null) return tokenDegree === sourceDegree;
+    if (rawPitch && isAbsolutePitch(rawPitch)) {
+      const tokenDegree = relativeDegreeFromAbsolutePitch(rawPitch, relativeScale);
+      return tokenDegree != null && tokenDegree === sourceDegree;
+    }
     if (!Number.isFinite(scaleIndex)) return false;
 
     const scale = getScaleForMode(mode);
@@ -860,14 +861,18 @@ function relativePitchFromDegree(
 
   const octaveOffset = Math.floor(degree / scale.degreeCount);
   const rootMidi = pitchToMidi(scaleContext.key, scaleContext.octave);
-  return midiToPitch(rootMidi + interval + octaveOffset * 12);
+  return midiToScalePitch(
+    rootMidi + interval + octaveOffset * 12,
+    scaleContext,
+    normalized,
+  );
 }
 
 function relativeDegreeFromAbsolutePitch(
   rawPitch: string,
   scaleContext: RelativeScaleContext,
 ) {
-  const match = rawPitch.match(/^([A-Ga-g])([#bs]*)(-?\d+)$/);
+  const match = rawPitch.match(/^([A-Ga-g])([#bsf]*)(-?\d+)$/);
   if (!match) return null;
   const pitchClass = normalizePitchClass(match[1], match[2]);
   const noteMidi = pitchToMidi(pitchClass, Number(match[3]));
@@ -883,15 +888,37 @@ function relativeDegreeFromAbsolutePitch(
   return null;
 }
 
+function isAbsolutePitch(value: string) {
+  return /^[A-Ga-g][#bsf]*-?\d+$/.test(value);
+}
+
 function pitchToMidi(pitchClass: ChromaticNote, octave: number) {
   return (octave + 1) * 12 + CHROMATIC_NOTES.indexOf(pitchClass);
 }
 
-function midiToPitch(midi: number) {
-  const pitchClass = CHROMATIC_NOTES[positiveModulo(midi, CHROMATIC_NOTES.length)];
+function midiToScalePitch(
+  midi: number,
+  scaleContext: RelativeScaleContext,
+  degree: number,
+) {
+  const rootLetter = scaleContext.key[0];
+  const rootLetterIndex = SCALE_LETTERS.indexOf(rootLetter);
+  const letter = SCALE_LETTERS[positiveModulo(rootLetterIndex + degree, SCALE_LETTERS.length)];
+  let octave = Math.floor(midi / 12) - 1;
+  let accidentalOffset = midi - pitchToMidi(letter as ChromaticNote, octave);
+  if (accidentalOffset > 6) {
+    octave++;
+    accidentalOffset = midi - pitchToMidi(letter as ChromaticNote, octave);
+  } else if (accidentalOffset < -6) {
+    octave--;
+    accidentalOffset = midi - pitchToMidi(letter as ChromaticNote, octave);
+  }
+  const accidental = accidentalOffset > 0
+    ? "#".repeat(accidentalOffset)
+    : "b".repeat(-accidentalOffset);
   return {
-    rawPitch: `${pitchClass}${Math.floor(midi / 12) - 1}`,
-    octave: Math.floor(midi / 12) - 1,
+    rawPitch: `${letter}${accidental}${octave}`,
+    octave,
   };
 }
 

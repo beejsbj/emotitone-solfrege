@@ -24,7 +24,11 @@ vi.mock("@strudel/core", () => ({
 
 vi.mock("@/data", () => ({
   CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-  getScaleForMode: () => ({ degreeCount: 7, intervals: [0, 2, 4, 5, 7, 9, 11] }),
+  getScaleForMode: (mode: string) => ({
+    mode,
+    degreeCount: 7,
+    intervals: mode === "minor" ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11],
+  }),
   getSolfegeNameForMode: (_mode: string, scaleIndex: number) =>
     ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"][scaleIndex] ?? "Do",
   normalizeScaleIndex: (_mode: string, scaleIndex: number) =>
@@ -238,6 +242,34 @@ describe("CodeStrip Strudel source decorations", () => {
     expect(crossing?.querySelector(".note__identity-core")?.textContent).toBe("C♯5");
     expect(crossing?.getAttribute("data-octave")).toBe("5");
     expect(crossing?.classList).toContain("note--accidental");
+  });
+
+  it("does not reuse an absolute token outside the edited source scale", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: "`< [ 2@0.25 ] >`.as(\"n\").scale(\"C4:minor\")",
+        extensions: [codeStripStrudelExtension],
+      }),
+      parent: host,
+    });
+    mountedViews.push(view);
+    updateCodeStripPresentation(view, {
+      tokens: [{
+        ...tokens[0],
+        glyph: "raw",
+        text: "E4",
+        rawPitch: "E4",
+        scaleIndex: 2,
+        octave: 4,
+      }],
+      notation: "note",
+      durationMode: "stacked",
+    });
+    await Promise.resolve();
+
+    expect(host.querySelector(".note__identity-core")?.textContent).toBe("E♭4");
   });
 
   it("marks only pitched accidentals as accidental", async () => {

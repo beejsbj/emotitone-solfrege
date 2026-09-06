@@ -195,6 +195,15 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
         solfegeIndex,
         octave
       );
+      if (
+        !pressedKeys.value.has(key) ||
+        blockedKeys.value.has(key) ||
+        instrumentStore.isInteractionLocked
+      ) {
+        if (noteId) musicStore.releaseNote(noteId);
+        return;
+      }
+
       if (noteId) {
         keyboardNoteIds.value.set(key, noteId);
         keyboardDrawerStore.addTouch(

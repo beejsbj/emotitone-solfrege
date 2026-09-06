@@ -10,7 +10,7 @@ import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as
 import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
-import { registerSoundfonts } from "@strudel/soundfonts";
+import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type { ChromaticNote, SolfegeData } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
@@ -104,6 +104,22 @@ async function _prewarmSoundCore(
     throw new Error(`Unknown sound: ${soundName}`);
   }
 
+  if (sound.data?.type === "soundfont") {
+    const font = Array.isArray(sound.data.fonts) ? sound.data.fonts[0] : null;
+    if (!font) {
+      if (tolerateBufferFailures) return;
+      throw new Error(`Soundfont has no preset: ${soundName}`);
+    }
+
+    try {
+      await prewarmSoundfont(font, getAudioContext());
+      _prewarmedSounds.add(resolved);
+    } catch (error) {
+      if (!tolerateBufferFailures) throw error;
+    }
+    return;
+  }
+
   if (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples) {
     _prewarmedSounds.add(resolved); // no samples needed → already "ready"
     return;
@@ -160,6 +176,7 @@ export function isPrewarmed(soundName: string): boolean {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sound = (getSound as any)(resolved);
+    if (sound?.data?.type === "soundfont") return false;
     return Boolean(
       sound && (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples)
     );

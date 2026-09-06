@@ -30,7 +30,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const lastWarmupErrorInstrument = ref<string | null>(null);
   const isInitializing = ref(false);
   const warmupPromises = new Map<string, Promise<void>>();
-  let selectionGeneration = 0;
+  const selectionEpoch = ref(0);
 
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(
@@ -116,7 +116,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const setInstrument = async (
     instrumentName: string
   ): Promise<InstrumentSelectionResult> => {
-    const selection = ++selectionGeneration;
+    const selection = ++selectionEpoch.value;
     const previousReadyInstrument = findReadyFallback([
       currentInstrument.value,
       lastReadyInstrument.value,
@@ -145,7 +145,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     try {
       await warmupPromise;
 
-      if (selection !== selectionGeneration) {
+      if (selection !== selectionEpoch.value) {
         return { status: "superseded", instrument: instrumentName };
       }
 
@@ -154,7 +154,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
       clearWarmupState();
       return { status: "ready", instrument: instrumentName };
     } catch (error) {
-      if (selection !== selectionGeneration) {
+      if (selection !== selectionEpoch.value) {
         return { status: "superseded", instrument: instrumentName };
       }
 
@@ -181,6 +181,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     warmupMessage,
     lastWarmupError,
     lastWarmupErrorInstrument,
+    selectionEpoch,
     isLoading,
     isInteractionLocked,
 

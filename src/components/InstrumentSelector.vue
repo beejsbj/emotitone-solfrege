@@ -738,8 +738,7 @@ async function selectInstrument(name: string, close: () => void) {
                     :class="{
                       'text-white': getSoundState(sound) === 'selected',
                       'text-neutral-300': getSoundState(sound) === 'warming',
-                      'text-neutral-400': getSoundState(sound) === 'ready',
-                      'text-neutral-600': getSoundState(sound) === 'cold',
+                      'text-neutral-400': ['ready', 'cold'].includes(getSoundState(sound)),
                     }"
                   >
                     {{ soundStateLabel(sound) }}

@@ -29,6 +29,7 @@ const hoisted = vi.hoisted(() => {
     mockHushStrudel: vi.fn(),
     mockWebaudioOutput: vi.fn().mockResolvedValue(undefined),
     mockRegisterSoundfonts: vi.fn().mockResolvedValue(undefined),
+    mockPrewarmSoundfont: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -62,6 +63,7 @@ vi.mock("@strudel/webaudio", () => ({
 
 vi.mock("@strudel/soundfonts", () => ({
   registerSoundfonts: hoisted.mockRegisterSoundfonts,
+  prewarmSoundfont: hoisted.mockPrewarmSoundfont,
 }));
 
 vi.mock("@/services/music", () => ({
@@ -94,6 +96,7 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockHasVoice.mockReturnValue(false);
     hoisted.mockGetSound.mockReturnValue({ data: {} });
     hoisted.mockLoadBuffer.mockResolvedValue(undefined);
+    hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
   });
 
   it("attacks a live note as a held voice with voice ownership", async () => {
@@ -169,6 +172,38 @@ describe("superdoughAudio live note handling", () => {
       "Unknown sound: not-a-sound"
     );
     expect(audio.isPrewarmed("not-a-sound")).toBe(false);
+  });
+
+  it("warms real soundfont metadata before reporting a GM instrument ready", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockPrewarmSoundfont.mockClear();
+    hoisted.mockGetSound.mockReturnValue({
+      data: { type: "soundfont", fonts: ["0080_JCLive_sf2_file"] },
+    });
+
+    expect(audio.isPrewarmed("gm_celesta")).toBe(false);
+    await audio.prewarmSoundSamples("gm_celesta");
+
+    expect(hoisted.mockPrewarmSoundfont).toHaveBeenCalledWith(
+      "0080_JCLive_sf2_file",
+      hoisted.mockAudioContext
+    );
+    expect(audio.isPrewarmed("gm_celesta")).toBe(true);
+  });
+
+  it("leaves a soundfont cold when its preset fails to warm", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockGetSound.mockReturnValue({
+      data: { type: "soundfont", fonts: ["0080_JCLive_sf2_file"] },
+    });
+    hoisted.mockPrewarmSoundfont.mockRejectedValue(new Error("Font unavailable"));
+
+    await expect(audio.prewarmSoundSamples("gm_celesta")).rejects.toThrow(
+      "Font unavailable"
+    );
+    expect(audio.isPrewarmed("gm_celesta")).toBe(false);
   });
 
   it("surfaces explicit warmup failures and leaves the sound cold", async () => {

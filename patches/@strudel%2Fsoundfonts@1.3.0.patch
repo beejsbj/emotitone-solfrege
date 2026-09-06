@@ -1,0 +1,195 @@
+diff --git a/node_modules/@strudel/soundfonts/.bun-tag-376ea3805287d359 b/.bun-tag-376ea3805287d359
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/@strudel/soundfonts/.bun-tag-7da40aad672f2df4 b/.bun-tag-7da40aad672f2df4
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/@strudel/soundfonts/.bun-tag-e67090e4dea9f04e b/.bun-tag-e67090e4dea9f04e
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/dist/index.mjs b/dist/index.mjs
+index f973c758dbb690aae35bb570b91e90d68f24f505..72777644e42de7d1ec2c5fc25534014d85e0eee5 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1821,9 +1821,12 @@ async function loadFont(name) {
+   const load = async () => {
+     const url = `${soundfontUrl}/${name}.js`, preset = await fetch(url).then((e) => e.text());
+     let [_, data] = preset.split("={");
+-    return eval("{" + data);
++    const presetData = eval("({" + data.trim().replace(/;$/, "") + ")");
++    return presetData.zones ?? presetData;
+   };
+-  return loadCache[name] = load(), loadCache[name];
++  return loadCache[name] = load().catch((e) => {
++    throw delete loadCache[name], e;
++  }), loadCache[name];
+ }
+ async function getFontBufferSource(e, l, s) {
+   let { note: f = "c3", freq: a } = l, r;
+@@ -1841,6 +1844,28 @@ async function getFontBufferSource(e, l, s) {
+   return G.playbackRate.value = o, i.loopStart > 1 && i.loopStart < i.loopEnd && (G.loop = !0, G.loopStart = i.loopStart / i.sampleRate, G.loopEnd = i.loopEnd / i.sampleRate), G;
+ }
+ let bufferCache = {};
++const zoneBufferCache = /* @__PURE__ */ new WeakMap();
++async function loadZoneBuffer(e, l) {
++  let s = zoneBufferCache.get(e);
++  s || (s = /* @__PURE__ */ new WeakMap(), zoneBufferCache.set(e, s));
++  if (!s.get(l)) {
++    const f = getBuffer(e, l).then((a) => a || e.buffer).then((a) => {
++      if (!a)
++        throw new Error("no soundfont buffer decoded");
++      return a;
++    }).catch((a) => {
++      throw s.delete(l), a;
++    });
++    s.set(l, f);
++  }
++  return s.get(l);
++}
++async function prewarmSoundfont(e, l) {
++  const s = await loadFont(e);
++  if (!Array.isArray(s))
++    throw new Error(`Could not load soundfont ${e}`);
++  await Promise.all(s.map((f) => loadZoneBuffer(f, l)));
++}
+ async function getFontPitch(e, l, s) {
+   const f = `${e}:::${l}`;
+   if (bufferCache[f])
+@@ -1852,12 +1877,14 @@ async function getFontPitch(e, l, s) {
+     const n = findZone(r, l);
+     if (!n)
+       throw new Error("no soundfont zone found for preset ", e, "pitch", l);
+-    const i = await getBuffer(n, s);
++    const i = await loadZoneBuffer(n, s);
+     if (!i)
+       throw new Error(`no soundfont buffer found for preset ${e}, pitch: ${l}`);
+     return { buffer: i, zone: n };
+   };
+-  return bufferCache[f] = a(), bufferCache[f];
++  return bufferCache[f] = a().catch((e) => {
++    throw delete bufferCache[f], e;
++  }), bufferCache[f];
+ }
+ function findZone(e, l) {
+   return e.find((s) => s.keyRangeLow <= l && s.keyRangeHigh + 1 >= l);
+@@ -1876,7 +1903,7 @@ async function getBuffer(e, l) {
+     let i;
+     for (let G = 0; G < n.length; G++)
+       i = n.charCodeAt(G), r[G] = i;
+-    return new Promise((G) => l.decodeAudioData(a, G));
++    return new Promise((G, u) => l.decodeAudioData(a, G, u));
+   }
+ }
+ function registerSoundfonts() {
+@@ -3950,6 +3977,7 @@ function loadSoundfont(e) {
+ export {
+   getFontBufferSource,
+   loadSoundfont,
++  prewarmSoundfont,
+   registerSoundfonts,
+   setSoundfontUrl,
+   list as soundfontList,
+diff --git a/fontloader.mjs b/fontloader.mjs
+index b4ae59828244ce7f832e89467f4c412e2aa32695..ecc6846aac21ad0700d455b3e39ebd4a397fb1fd 100644
+--- a/fontloader.mjs
++++ b/fontloader.mjs
+@@ -28,9 +28,13 @@ async function loadFont(name) {
+     const url = `${soundfontUrl}/${name}.js`;
+     const preset = await fetch(url).then((res) => res.text());
+     let [_, data] = preset.split('={');
+-    return eval('{' + data);
++    const parsedPreset = eval('({' + data.trim().replace(/;$/, '') + ')');
++    return parsedPreset.zones ?? parsedPreset;
+   };
+-  loadCache[name] = load();
++  loadCache[name] = load().catch((error) => {
++    delete loadCache[name];
++    throw error;
++  });
+   return loadCache[name];
+ }
+ 
+@@ -71,6 +75,40 @@ export async function getFontBufferSource(name, value, ac) {
+ }
+ 
+ let bufferCache = {};
++const zoneBufferCache = new WeakMap();
++
++async function loadZoneBuffer(zone, ac) {
++  let contextCache = zoneBufferCache.get(zone);
++  if (!contextCache) {
++    contextCache = new WeakMap();
++    zoneBufferCache.set(zone, contextCache);
++  }
++
++  if (!contextCache.get(ac)) {
++    const load = getBuffer(zone, ac)
++      .then((buffer) => buffer || zone.buffer)
++      .then((buffer) => {
++        if (!buffer) throw new Error('no soundfont buffer decoded');
++        return buffer;
++      })
++      .catch((error) => {
++        contextCache.delete(ac);
++        throw error;
++      });
++    contextCache.set(ac, load);
++  }
++
++  return contextCache.get(ac);
++}
++
++export async function prewarmSoundfont(name, ac) {
++  const preset = await loadFont(name);
++  if (!Array.isArray(preset)) {
++    throw new Error(`Could not load soundfont ${name}`);
++  }
++  await Promise.all(preset.map((zone) => loadZoneBuffer(zone, ac)));
++}
++
+ export async function getFontPitch(name, pitch, ac) {
+   const key = `${name}:::${pitch}`;
+   if (bufferCache[key]) {
+@@ -86,13 +124,16 @@ export async function getFontPitch(name, pitch, ac) {
+     if (!zone) {
+       throw new Error('no soundfont zone found for preset ', name, 'pitch', pitch);
+     }
+-    const buffer = await getBuffer(zone, ac);
++    const buffer = await loadZoneBuffer(zone, ac);
+     if (!buffer) {
+       throw new Error(`no soundfont buffer found for preset ${name}, pitch: ${pitch}`);
+     }
+     return { buffer, zone };
+   };
+-  bufferCache[key] = load(); // dont await here to cache promise immediately!
++  bufferCache[key] = load().catch((error) => {
++    delete bufferCache[key];
++    throw error;
++  }); // dont await here to cache promise immediately!
+   return bufferCache[key];
+ }
+ 
+@@ -136,7 +177,9 @@ async function getBuffer(zone, audioContext) {
+         b = decoded.charCodeAt(i);
+         view[i] = b;
+       }
+-      return new Promise((resolve) => audioContext.decodeAudioData(arraybuffer, resolve));
++      return new Promise((resolve, reject) =>
++        audioContext.decodeAudioData(arraybuffer, resolve, reject)
++      );
+     }
+   }
+ }
+diff --git a/index.mjs b/index.mjs
+index 31792603cf4b2c1659d73dac0ab66fb954a30f3a..bae95fd9a5b29ca46ade71c9b6be32faf3cebca7 100644
+--- a/index.mjs
++++ b/index.mjs
+@@ -1,6 +1,6 @@
+-import { getFontBufferSource, registerSoundfonts, setSoundfontUrl } from './fontloader.mjs';
++import { getFontBufferSource, prewarmSoundfont, registerSoundfonts, setSoundfontUrl } from './fontloader.mjs';
+ import * as soundfontList from './list.mjs';
+ import { startPresetNote } from 'sfumato';
+ import { loadSoundfont } from './sfumato.mjs';
+ 
+-export { loadSoundfont, startPresetNote, getFontBufferSource, soundfontList, registerSoundfonts, setSoundfontUrl };
++export { loadSoundfont, startPresetNote, getFontBufferSource, prewarmSoundfont, soundfontList, registerSoundfonts, setSoundfontUrl };

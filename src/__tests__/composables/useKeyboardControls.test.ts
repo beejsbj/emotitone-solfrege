@@ -32,6 +32,14 @@ const mockKeyboardDrawerStore = {
   removeTouch: vi.fn(),
 };
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 vi.mock("@/stores/music", () => ({
   useMusicStore: () => mockMusicStore,
 }));
@@ -148,6 +156,28 @@ describe("useKeyboardControls", () => {
     controls.handleKeyUp(
       new KeyboardEvent("keyup", { code: "KeyQ", key: "q" })
     );
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("releases an asynchronous attack that finishes after warmup starts", async () => {
+    const deferred = createDeferred<string | null>();
+    mockMusicStore.attackNoteWithOctave.mockReturnValueOnce(deferred.promise);
+    const controls = useKeyboardControls(ref(4));
+
+    const pendingAttack = controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })
+    );
+    mockInstrumentStore.isInteractionLocked = true;
+    await Promise.resolve();
+    deferred.resolve("late-note-id");
+    await pendingAttack;
+
+    expect(mockMusicStore.releaseNote).toHaveBeenCalledWith("late-note-id");
+    expect(mockKeyboardDrawerStore.addTouch).not.toHaveBeenCalled();
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyQ", key: "q" })
+    );
+    expect(mockMusicStore.releaseNote).toHaveBeenCalledTimes(1);
     controls.cleanupKeyboardListeners();
   });
 });

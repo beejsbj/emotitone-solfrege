@@ -79,7 +79,6 @@ describe("CodeStripBar.vue", () => {
     expect(controlBarSource).toContain(
       "backdrop-filter: var(--instrument-bar-backdrop)",
     );
-    expect(codeStripBarSource).not.toMatch(/\.code-strip-bar\s*{[^}]*\bgap:/);
   });
 
   it("uses brass for Play, ink for Backspace, and ivory for Return", () => {

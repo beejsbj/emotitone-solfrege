@@ -192,32 +192,6 @@ export function getReadySounds(): string[] {
   return getRegisteredSounds().filter((soundName) => isPrewarmed(soundName));
 }
 
-/**
- * Pre-warms a list of sounds sequentially, reporting progress via callback.
- * Intended for use during the loading splash screen.
- *
- * @param sounds           List of sound names to pre-warm.
- * @param progressCallback Optional callback receiving (0-100, message).
- * @param progressStart    Progress % at start of this batch.
- * @param progressEnd      Progress % at end of this batch.
- */
-export async function prewarmSoundList(
-  sounds: string[],
-  progressCallback?: (progress: number, message: string) => void,
-  progressStart = 82,
-  progressEnd = 98
-): Promise<void> {
-  const total = sounds.length;
-  for (let i = 0; i < total; i++) {
-    const name = sounds[i];
-    // Initial loading is best-effort: one unavailable buffer must not prevent
-    // the app from opening, but that sound remains cold so selection can retry.
-    await _prewarmSoundCore(name, true);
-    const pct = Math.round(progressStart + ((i + 1) / total) * (progressEnd - progressStart));
-    progressCallback?.(pct, `Warming ${name} (${i + 1}/${total})`);
-  }
-}
-
 async function _prewarmPianoSamples(): Promise<void> {
   // Called from within initSuperdoughAudio — skip the init guard to avoid deadlock.
   return _prewarmSoundCore("piano", true);
@@ -289,14 +263,11 @@ export async function initSuperdoughAudio(
       progressCallback?.(79, "Starting audio context…");
       await initAudio();
 
-      // Pre-warm piano first (always the default)
+      // Only the default instrument is decoded eagerly. Other registered
+      // instruments warm on selection so startup stays bounded on mobile.
       progressCallback?.(80, "Warming up piano…");
       await _prewarmPianoSamples();
-
-      // Pre-warm 3 sounds per category so most instruments are ready on first tap
-      const { PRELOAD_SOUNDS } = await import("@/data/instrumentCategories");
-      const remaining = PRELOAD_SOUNDS.filter((s) => s !== "piano");
-      await prewarmSoundList(remaining, progressCallback, 82, 98);
+      progressCallback?.(98, "Piano ready");
 
       progressCallback?.(100, "Audio engine ready");
       _initialized = true;

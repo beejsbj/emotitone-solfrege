@@ -192,6 +192,29 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("gm_celesta")).toBe(true);
   });
 
+  it("decodes only the default piano during startup", async () => {
+    hoisted.mockGetSound.mockImplementation((name: string) =>
+      name === "piano"
+        ? { data: { samples: ["https://example.test/piano.wav"] } }
+        : {
+            data: {
+              type: "soundfont",
+              fonts: [`${name}_font`],
+            },
+          }
+    );
+    const audio = await import("@/services/superdoughAudio");
+
+    await audio.initSuperdoughAudio();
+
+    expect(hoisted.mockLoadBuffer).toHaveBeenCalledTimes(1);
+    expect(hoisted.mockLoadBuffer).toHaveBeenCalledWith(
+      "https://example.test/piano.wav",
+      hoisted.mockAudioContext
+    );
+    expect(hoisted.mockPrewarmSoundfont).not.toHaveBeenCalled();
+  });
+
   it("leaves a soundfont cold when its preset fails to warm", async () => {
     const audio = await import("@/services/superdoughAudio");
     await audio.initSuperdoughAudio();

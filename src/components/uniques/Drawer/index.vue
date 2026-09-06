@@ -16,6 +16,9 @@ const props = withDefaults(defineProps<{
   maxHeightRatio?: number;
   scroll?: boolean;
   closeOnEscape?: boolean;
+  closeOnOutside?: boolean;
+  fitContentOnOpen?: boolean;
+  naturalContentHeight?: number;
 }>(), {
   modelValue: undefined,
   defaultOpen: false,
@@ -29,10 +32,13 @@ const props = withDefaults(defineProps<{
   maxHeightRatio: 0.85,
   scroll: true,
   closeOnEscape: false,
+  closeOnOutside: false,
+  fitContentOnOpen: false,
 });
 const emit = defineEmits<{
   "update:modelValue": [open: boolean];
   resize: [height: number];
+  closed: [];
 }>();
 const root = ref<HTMLElement | null>(null);
 const persistent = ref<HTMLElement | null>(null);
@@ -45,6 +51,7 @@ const currentHeight = ref(0);
 const preferredContentHeight = ref(props.initialContentHeight);
 const dragging = ref(false);
 const ready = ref(false);
+const closingContentHeight = ref(0);
 let observer: ResizeObserver | undefined;
 let visibilityObserver: IntersectionObserver | undefined;
 let contentObserver: MutationObserver | undefined;
@@ -74,6 +81,9 @@ function observeClippedControls() {
 }
 let gesture: { id: number; y: number; height: number; moved: boolean } | undefined;
 let suppressClick = false;
+let opening = false;
+let fitContent = false;
+let openRequest = 0;
 let clickReset: ReturnType<typeof setTimeout> | undefined;
 const maxHeight = computed(() => Math.max(0, Math.min(
   frameHeight.value * props.maxHeightRatio,
@@ -81,11 +91,12 @@ const maxHeight = computed(() => Math.max(0, Math.min(
 )));
 const height = computed(() => Math.min(currentHeight.value, maxHeight.value));
 const expanded = computed(() => height.value > persistentHeight.value + 0.5);
-const contentHeight = computed(() => Math.max(props.minContentHeight, height.value - persistentHeight.value));
+const contentHeight = computed(() => Math.max(props.minContentHeight, height.value > 0
+  ? height.value - persistentHeight.value : closingContentHeight.value));
 const visibleContentHeight = computed(() => Math.max(0, height.value - persistentHeight.value));
 
 function remember() {
-  if (!props.storageKey) return;
+  if (!props.storageKey || props.fitContentOnOpen) return;
   try {
     localStorage.setItem(`emotitone.drawer.${props.storageKey}`, JSON.stringify({
       contentHeight: preferredContentHeight.value,
@@ -100,11 +111,50 @@ function setHeight(value: number) {
   currentHeight.value = Math.max(0, Math.min(value, maxHeight.value));
   publish();
 }
-function open() {
-  setHeight(persistentHeight.value + Math.max(props.minContentHeight, preferredContentHeight.value));
+function fittedHeight() {
+  const inset = content.value ? parseFloat(getComputedStyle(content.value).paddingTop) || 0 : 0;
+  return props.naturalContentHeight !== undefined
+    ? props.naturalContentHeight + inset
+    : content.value?.scrollHeight || props.initialContentHeight;
+}
+async function open() {
+  if (!props.fitContentOnOpen) {
+    setHeight(persistentHeight.value + Math.max(props.minContentHeight, preferredContentHeight.value));
+    return;
+  }
+  if (opening) return;
+  opening = true;
+  fitContent = true;
+  const request = ++openRequest;
+  // Let the host mount/measure real content before choosing the open target.
+  emit("update:modelValue", true);
+  await nextTick();
+  await nextTick();
+  if (request !== openRequest || !root.value) return;
+  opening = false;
+  setHeight(fittedHeight());
+}
+function finishClose() {
+  if (height.value === 0) {
+    closingContentHeight.value = 0;
+    emit("closed");
+  }
+}
+function transitionEnd(event: TransitionEvent) {
+  if (event.target === root.value && event.propertyName === "height") finishClose();
 }
 function close() {
+  closingContentHeight.value = contentHeight.value;
+  openRequest++;
+  opening = false;
+  fitContent = false;
   setHeight(persistentHeight.value);
+  void nextTick(() => {
+    if (!root.value) return;
+    const noMotion = getComputedStyle(root.value).transitionDuration.split(',')
+      .every(duration => !parseFloat(duration));
+    if (noMotion || root.value.getBoundingClientRect().height === 0) finishClose();
+  });
 }
 function toggle() {
   if (expanded.value) close();
@@ -121,7 +171,12 @@ function pointerDown(event: PointerEvent) {
   if (event.button !== 0 || gesture) return;
   clearTimeout(clickReset);
   suppressClick = false;
-  gesture = { id: event.pointerId, y: event.clientY, height: height.value, moved: false };
+  const renderedHeight = root.value?.getBoundingClientRect().height ?? height.value;
+  gesture = { id: event.pointerId, y: event.clientY, height: renderedHeight, moved: false };
+  if (ready.value) {
+    currentHeight.value = renderedHeight;
+    dragging.value = true;
+  }
   (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 }
 function pointerMove(event: PointerEvent) {
@@ -129,6 +184,7 @@ function pointerMove(event: PointerEvent) {
   const distance = event.clientY - gesture.y;
   if (!gesture.moved && Math.abs(distance) < 4) return;
   gesture.moved = true;
+  fitContent = false;
   dragging.value = true;
   setHeight(gesture.height + (props.anchor === "top" ? distance : -distance));
   event.preventDefault();
@@ -142,6 +198,7 @@ function pointerEnd(event: PointerEvent) {
   }
   gesture = undefined;
   dragging.value = false;
+  if (height.value === 0) finishClose();
   // A drag's synthetic click is suppressed; the next independent activation is not.
   clickReset = setTimeout(() => { suppressClick = false; }, 0);
 }
@@ -157,13 +214,22 @@ function measure() {
     currentHeight.value = Math.max(0, currentHeight.value + nextPersistent - previous);
   }
 }
+function outsidePointer(event: PointerEvent) {
+  if (props.closeOnOutside && (expanded.value || opening) && event.target instanceof Node
+    && !root.value?.contains(event.target)) close();
+}
 function keydown(event: KeyboardEvent) {
   if (props.closeOnEscape && event.key === "Escape" && expanded.value) close();
 }
 watch(() => props.modelValue, value => {
-  if (!ready.value || value === undefined || value === expanded.value) return;
+  if (!ready.value || value === undefined) return;
+  if (value === false && opening) { close(); return; }
+  if (value === expanded.value) return;
   if (value) open();
   else close();
+});
+watch(() => props.naturalContentHeight, () => {
+  if (fitContent && expanded.value && !opening && !dragging.value) setHeight(fittedHeight());
 });
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {
@@ -173,7 +239,7 @@ watch(() => props.minContentHeight, () => {
 onMounted(async () => {
   await nextTick();
   measure();
-  if (props.storageKey) {
+  if (props.storageKey && !props.fitContentOnOpen) {
     try {
       const stored = JSON.parse(localStorage.getItem(`emotitone.drawer.${props.storageKey}`) || "null");
       if (Number.isFinite(stored?.contentHeight) && stored.contentHeight > 0) {
@@ -208,8 +274,10 @@ onMounted(async () => {
   }
   window.addEventListener("resize", measure);
   document.addEventListener("keydown", keydown);
+  document.addEventListener("pointerdown", outsidePointer, true);
 });
 onBeforeUnmount(() => {
+  openRequest++;
   observer?.disconnect();
   visibilityObserver?.disconnect();
   contentObserver?.disconnect();
@@ -218,6 +286,7 @@ onBeforeUnmount(() => {
   clearTimeout(clickReset);
   window.removeEventListener("resize", measure);
   document.removeEventListener("keydown", keydown);
+  document.removeEventListener("pointerdown", outsidePointer, true);
 });
 defineExpose({ open, close, toggle, height, preferredContentHeight });
 </script>
@@ -232,6 +301,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     :style="{ height: `${height}px` }"
     :aria-label="accessibleName"
     :data-expanded="expanded"
+    @transitionend="transitionEnd"
   >
     <button
       type="button"
@@ -270,7 +340,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 
 <style scoped>
 .drawer {
-  --drawer-handle-height: 36px;
+  --drawer-handle-height: 28px;
   position: absolute;
   inset-inline: 0;
   min-width: 0;
@@ -281,7 +351,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer--fixed { position: fixed; }
 .drawer--top { top: 0; }
 .drawer--bottom { bottom: 0; }
-.drawer--ready { transition: height 220ms cubic-bezier(.215, .61, .355, 1); }
+.drawer--ready { transition: height var(--dur-panel) var(--ease-swing); }
 .drawer--dragging { transition: none; }
 .drawer__clip { height: 100%; overflow: clip; }
 .drawer__persistent { display: flow-root; }
@@ -296,10 +366,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   max-width: min(240px, 65%);
   min-height: var(--drawer-handle-height);
-  padding: 6px 12px;
+  padding: 4px 6px;
   border: 0;
   border-radius: 0;
   background: var(--ink-3);
@@ -309,16 +379,17 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   user-select: none;
   -webkit-user-select: none;
 }
+.drawer__handle::before { content: ""; position: absolute; inset: -6px 0; }
 .drawer--top .drawer__handle { top: 100%; }
 .drawer--bottom .drawer__handle { bottom: 100%; }
 .drawer--handle-left .drawer__handle { left: 0; }
 .drawer--handle-right .drawer__handle { right: 0; }
 .drawer--handle-center .drawer__handle { left: 50%; transform: translateX(-50%); }
 .drawer__handle:focus-visible { outline: 2px solid var(--ivory); outline-offset: -2px; }
-.drawer__icon { display: flex; flex: 0 0 16px; }
-.drawer__icon :deep(svg) { width: 16px; height: 16px; }
+.drawer__icon { display: flex; flex: 0 0 14px; }
+.drawer__icon :deep(svg) { width: 14px; height: 14px; }
 .drawer__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--t-label); }
-.drawer__grip { flex: 0 0 20px; height: 6px; border-block: 2px solid var(--ivory-4); }
+.drawer__grip { flex: 0 0 14px; height: 6px; border-block: 2px solid var(--ivory-4); }
 @media (hover: hover) and (pointer: fine) {
   .drawer__handle:hover { color: var(--ivory-2); }
 }

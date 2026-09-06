@@ -31,7 +31,7 @@ const tokens: CodeStripToken[] = [
 <template>
   <section class="drawer-specimen">
     <h3>Drawer · one source, both edges</h3>
-    <p>Ink surface, exposed icon/grip handle, continuous resize. No scrim, snap points, or torn edge.</p>
+    <p>Ink surface, exposed icon/grip handle, continuous resize. Swing opening/closing, direct drag, and no scrim.</p>
     <label>Host width
       <select v-model="width">
         <option value="320px">320px</option><option value="390px">390px</option>
@@ -46,7 +46,7 @@ const tokens: CodeStripToken[] = [
           accessible-name="Instrument specimen" handle-label="Piano"
           :initial-content-height="240" class="drawer-specimen__top"
           :class="{ 'drawer-specimen__top--open': top === 'instrument' }"
-          close-on-escape
+          close-on-escape fit-content-on-open close-on-outside
           @update:model-value="top = $event ? 'instrument' : top === 'instrument' ? null : top"
         >
           <template #icon><AudioLines /></template>
@@ -60,7 +60,7 @@ const tokens: CodeStripToken[] = [
           :model-value="top === 'config'" anchor="top" handle-align="right"
           accessible-name="Config specimen" :initial-content-height="240"
           class="drawer-specimen__top" :class="{ 'drawer-specimen__top--open': top === 'config' }"
-          close-on-escape
+          close-on-escape fit-content-on-open close-on-outside
           @update:model-value="top = $event ? 'config' : top === 'config' ? null : top"
         >
           <template #icon><Settings /></template>
@@ -87,7 +87,7 @@ const tokens: CodeStripToken[] = [
       </div>
     </div>
     <output>{{ lastAction }}</output>
-    <p>Real Drawer, Keyboard, Control Bar, and CodeStrip Bar sources. The canvas, panel choices, and saved-pattern label are specimen scaffolding; no audio or production stores are driven here. Production drawers persist independent preferred heights.</p>
+    <p>Real Drawer, Keyboard, Control Bar, and CodeStrip Bar sources. The canvas, panel choices, and saved-pattern label are specimen scaffolding; no audio or production stores are driven here. Keyboard retains its preferred height; top drawers reopen to fit their content and dismiss when touching outside.</p>
   </section>
 </template>
 

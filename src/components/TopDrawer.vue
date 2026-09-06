@@ -5,7 +5,7 @@ import { activeTopDrawer } from "./uniques/Drawer/topDrawerGroup";
 
 const props = withDefaults(defineProps<{
   anchor?: "top-left" | "top-right";
-  storageKey?: string;
+  contentHeight?: number;
   handleLabel?: string;
   ariaLabel?: string;
   handleTestId?: string;
@@ -16,10 +16,11 @@ const props = withDefaults(defineProps<{
 });
 const identity = Symbol("top-drawer");
 const showPanel = ref(false);
+const renderPanel = ref(false);
 const drawer = ref<InstanceType<typeof Drawer> | null>(null);
 const isActive = computed(() => activeTopDrawer.value === identity);
 watch(showPanel, open => {
-  if (open) activeTopDrawer.value = identity;
+  if (open) { renderPanel.value = true; activeTopDrawer.value = identity; }
   else if (isActive.value) activeTopDrawer.value = null;
 }, { flush: "sync" });
 watch(activeTopDrawer, active => {
@@ -37,12 +38,15 @@ defineExpose({ showPanel, closePanel, openPanel, togglePanel });
     <Drawer
       ref="drawer"
       v-model="showPanel"
+      @closed="renderPanel = showPanel"
       class="top-drawer"
-      :class="{ 'top-drawer--active': isActive }"
+      :class="{ 'top-drawer--active': isActive, 'top-drawer--closing': !isActive && renderPanel }"
       fixed
       anchor="top"
       :handle-align="anchor === 'top-left' ? 'left' : 'right'"
-      :storage-key="storageKey"
+      fit-content-on-open
+      :natural-content-height="contentHeight"
+      close-on-outside
       :handle-label="handleLabel"
       :accessible-name="ariaLabel"
       :handle-test-id="handleTestId"
@@ -53,7 +57,7 @@ defineExpose({ showPanel, closePanel, openPanel, togglePanel });
       <template #icon><slot name="icon" /></template>
       <template #status><slot name="status" /></template>
       <template #default="{ height }">
-        <div v-if="showPanel" data-testid="top-drawer-panel" class="top-drawer__panel">
+        <div v-if="renderPanel" data-testid="top-drawer-panel" class="top-drawer__panel">
           <slot name="panel" :height="height" :open="openPanel" :close="closePanel" :toggle="togglePanel" :is-open="showPanel" :anchor="anchor" />
         </div>
       </template>
@@ -64,5 +68,6 @@ defineExpose({ showPanel, closePanel, openPanel, togglePanel });
 <style scoped>
 .top-drawer { z-index: 102; }
 .top-drawer--active { z-index: 101; }
+.top-drawer--closing { z-index: 100; }
 .top-drawer__panel { height: 100%; min-height: 0; }
 </style>

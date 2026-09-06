@@ -43,6 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   "update:modelValue": [value: string];
+  contentHeight: [height: number];
 }>();
 
 const activeValue = computed({
@@ -71,6 +72,7 @@ const tabTriggerToneClass = (tone: TabbedOverlayTone) =>
   <Tabs :class="{ 'h-full min-h-0': embedded }" :value="activeValue" @update:value="activeValue = $event">
     <OverlayPanelShell
       :embedded="embedded"
+      @content-height="emit('contentHeight', $event)"
       :width="width"
       :height="height"
       :max-height="maxHeight"

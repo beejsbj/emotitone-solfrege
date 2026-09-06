@@ -1,7 +1,7 @@
 <template>
   <TopDrawer
     anchor="top-right"
-    storage-key="config"
+    :content-height="drawerContentHeight"
     :aria-label="midiTriggerLabel"
     handle-test-id="config-panel-trigger"
   >
@@ -12,6 +12,7 @@
 
     <template #panel="{ close }">
       <TabbedOverlayPanel
+        @content-height="drawerContentHeight = $event"
         v-model="activeTab"
         :tabs="allTabs"
         tab-test-id-prefix="config-tab"
@@ -449,6 +450,8 @@ import {
   isRoliMidiPortName,
   isVirtualMidiPortName,
 } from "@/services/roliLiveSync";
+
+const drawerContentHeight = ref<number>();
 
 type ConfigSectionKey = keyof VisualEffectsConfig;
 type PosterTone = "amber" | "red" | "violet" | "cream" | "green";

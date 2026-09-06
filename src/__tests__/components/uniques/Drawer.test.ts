@@ -19,7 +19,7 @@ beforeEach(() => {
   vi.spyOn(window, 'removeEventListener').mockImplementation(windowEvents.removeEventListener.bind(windowEvents));
   vi.spyOn(window, 'dispatchEvent').mockImplementation(windowEvents.dispatchEvent.bind(windowEvents));
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
-    return { height: this.classList.contains("drawer__persistent") ? prefixHeight : 0 } as DOMRect;
+    return { height: this.classList.contains("drawer__persistent") ? prefixHeight : parseFloat(this.style.height) || 0 } as DOMRect;
   });
 });
 afterEach(() => { mounted.splice(0).forEach(w => w.unmount()); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -148,6 +148,45 @@ describe("Drawer continuous height contract", () => {
     expect(unavailable.inert).toBe(true);
     w.unmount();
     expect(disconnect).toHaveBeenCalled();
+  });
+
+  it("top drawers reopen to content size rather than remembered or dragged height", async () => {
+    localStorage.setItem('emotitone.drawer.config-test', JSON.stringify({ contentHeight: 120 }));
+    const w = mount(Drawer, { props: { accessibleName: 'Config', anchor: 'top',
+      fitContentOnOpen: true, naturalContentHeight: 420, storageKey: 'config-test',
+    } });
+    mounted.push(w);
+    await flushPromises();
+    await w.get('button').trigger('click');
+    await flushPromises();
+    expect(height(w)).toBe(420);
+    await drag(w, -200);
+    expect(height(w)).toBe(220);
+    await w.get('button').trigger('click');
+    await w.get('button').trigger('click');
+    await flushPromises();
+    expect(height(w)).toBe(420);
+    await w.setProps({ naturalContentHeight: 3000 });
+    expect(height(w)).toBeLessThan(window.innerHeight);
+    expect(JSON.parse(localStorage.getItem('emotitone.drawer.config-test')!).contentHeight).toBe(120);
+  });
+  it("outside pointer dismisses top panels without consuming stage or keyboard input", async () => {
+    const w = mount(Drawer, { attachTo: document.body, props: { accessibleName: 'Config', defaultOpen: true, closeOnOutside: true }, slots: { default: '<button data-inside>Inside</button>' } });
+    mounted.push(w);
+    await flushPromises();
+    await w.get('[data-inside]').trigger('pointerdown');
+    expect(height(w)).toBeGreaterThan(0);
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    const press = vi.fn();
+    outside.addEventListener('pointerdown', press);
+    const event = new Event('pointerdown', { bubbles: true, cancelable: true });
+    outside.dispatchEvent(event);
+    await flushPromises();
+    expect(height(w)).toBe(0);
+    expect(press).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(false);
+    outside.remove();
   });
 
 });

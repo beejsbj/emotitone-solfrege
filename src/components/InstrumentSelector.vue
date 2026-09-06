@@ -10,6 +10,8 @@ import TabbedOverlayPanel, {
 import TopDrawer from "./TopDrawer.vue";
 import { AudioLines, Search, X } from "lucide-vue-next";
 
+const drawerContentHeight = ref<number>();
+
 interface Props {
   currentInstrument?: string;
   onSelectInstrument?: (instrumentId: string) => void;
@@ -450,7 +452,7 @@ function selectInstrument(name: string, close: () => void) {
 <template>
   <TopDrawer
     anchor="top-left"
-    storage-key="instrument"
+    :content-height="drawerContentHeight"
     aria-label="Instrument"
     :handle-label="displayName(currentInstrumentId)"
     handle-test-id="instrument-selector-trigger"
@@ -459,6 +461,7 @@ function selectInstrument(name: string, close: () => void) {
 
     <template #panel="{ close }">
       <TabbedOverlayPanel
+        @content-height="drawerContentHeight = $event"
         v-model="activeTab"
         :tabs="allTabs"
         tab-test-id-prefix="instrument-tab"

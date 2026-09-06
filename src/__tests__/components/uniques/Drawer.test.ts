@@ -89,6 +89,14 @@ describe("Drawer continuous height contract", () => {
     expect(height(w)).toBeLessThan(window.innerHeight);
     expect(JSON.parse(localStorage.getItem('emotitone.drawer.keyboard-test')!).contentHeight).toBe(3000);
   });
+  it("closes once from a viewport-clamped open state below the content floor", async () => {
+    const w = await create({ initialContentHeight: 500, minContentHeight: 500, maxHeightRatio: 0.25 });
+    expect(height(w)).toBeGreaterThan(120);
+    expect(height(w)).toBeLessThan(120 + 500);
+
+    await w.get('button').trigger('click');
+    expect(height(w)).toBe(120);
+  });
   it("preserves keyboard space when the persistent Pattern List expands", async () => {
     const w = await create();
     prefixHeight = 180;

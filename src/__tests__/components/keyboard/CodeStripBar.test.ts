@@ -53,6 +53,19 @@ describe("CodeStripBar.vue", () => {
     expect(codeStripSource).toMatch(
       /\.code-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
     );
+    expect(codeStripSource).toContain("bgFill: false");
+    expect(codeStripSource).toMatch(
+      /\.code-strip--unframed[\s\S]*?\.cm-activeLine\)[\s\S]*?background-color:\s*transparent\s*!important;/,
+    );
+    expect(codeStripSource).toMatch(
+      /\.code-strip--unframed[\s\S]*?\.cm-line:only-child\)[\s\S]*?min-height:\s*40px;[\s\S]*?align-items:\s*center;/,
+    );
+    expect(codeStripSource).toMatch(
+      /\.code-strip--empty[\s\S]*?\.cm-line:only-child\)[\s\S]*?justify-content:\s*center;[\s\S]*?font-size:\s*11px;/,
+    );
+    expect(codeStripSource).toMatch(
+      /\.code-strip\s*{[\s\S]*?background:\s*var\(--ink-2\);/,
+    );
     expect(designSystemSource).toMatch(/--instrument-bar-surface:\s*rgba\(0, 0, 0, 0\.80\);/);
     expect(codeStripBarSource).toMatch(
       /\.code-strip-bar\s*{[^}]*background-color:\s*var\(--instrument-bar-surface\);/,

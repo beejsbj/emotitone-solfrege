@@ -221,9 +221,12 @@ describe("CodeStrip production Strudel document", () => {
 
     expect(wrapper.findAll(".code-strip")).toHaveLength(1);
     expect(wrapper.find(".live-strip").exists()).toBe(false);
+    expect(wrapper.classes()).not.toContain("code-strip--unframed");
+    expect(wrapper.classes()).not.toContain("code-strip--empty");
     expect(wrapper.get(".code-strip__editor").attributes("style") ?? "")
       .not.toContain("display: none");
     expect(mocks.mirrorInitialCode).toContain("C4@0.25");
+    expect(mocks.mirrorOptions.bgFill).toBe(false);
     expect(mocks.attachEditor).toHaveBeenCalledOnce();
     expect(mocks.updatePresentation).toHaveBeenCalledWith(
       expect.anything(),
@@ -235,6 +238,36 @@ describe("CodeStrip production Strudel document", () => {
 
     wrapper.unmount();
     expect(mocks.detachEditor).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the empty production editor compact and free of third-party fill", async () => {
+    mocks.patternsStore.currentSketchNotes = [];
+    mocks.patternsStore.currentWorkingNotes = [];
+    mocks.patternsStore.isStripCleared = true;
+
+    const wrapper = mount(CodeStrip, { props: { framed: false } });
+    await flushPromises();
+
+    expect(mocks.mirrorInitialCode).toBe("// Record a pattern");
+    expect(mocks.mirrorOptions.bgFill).toBe(false);
+    expect(wrapper.classes()).toContain("code-strip--unframed");
+    expect(wrapper.classes()).toContain("code-strip--empty");
+
+    wrapper.unmount();
+  });
+
+  it("preserves the default frame around an empty standalone CodeStrip", async () => {
+    mocks.patternsStore.currentSketchNotes = [];
+    mocks.patternsStore.currentWorkingNotes = [];
+    mocks.patternsStore.isStripCleared = true;
+
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    expect(wrapper.classes()).toContain("code-strip--empty");
+    expect(wrapper.classes()).not.toContain("code-strip--unframed");
+
+    wrapper.unmount();
   });
 
   it("turns the source decorations to Ink as soon as play is requested", async () => {

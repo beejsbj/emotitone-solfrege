@@ -95,7 +95,7 @@ const props = withDefaults(
   },
 );
 
-const EMPTY_EDITOR_CODE = "// Play or record a pattern to see it in CodeStrip.";
+const EMPTY_EDITOR_CODE = "// Record a pattern";
 const isControlled = computed(() => props.tokens !== undefined || props.source !== undefined);
 const patternsStore = usePatternsStore();
 const visualConfigStore = useVisualConfigStore();
@@ -112,6 +112,7 @@ const {
 const editorRoot = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
 const isBooting = ref(true);
+const visibleCode = ref("");
 // Stateful third-party editor classes must retain their own object identity.
 // StrudelMirror also keeps a separate runtime code cache, reconciled from the
 // visible EditorView document immediately before evaluation below.
@@ -145,8 +146,12 @@ const presentationTokens = computed(() => props.tokens ?? recordedTokens.value);
 
 const generatedCode = computed(() => {
   if (isControlled.value) {
-    if (props.source) return props.source;
-    return serializeCodeStripTokens(props.tokens ?? []);
+    if (props.source !== undefined) {
+      return props.source.trim() ? props.source : EMPTY_EDITOR_CODE;
+    }
+    return props.tokens?.length
+      ? serializeCodeStripTokens(props.tokens)
+      : EMPTY_EDITOR_CODE;
   }
 
   if (patternsStore.isStripCleared || !patternsStore.currentSketchNotes.length) {
@@ -163,6 +168,9 @@ const generatedCode = computed(() => {
     sound: toStrudelSound(patternsStore.currentSketchMeta.instrument ?? "sine"),
   }).replace(/\s+/g, " ").trim();
 });
+const isEmptyDocument = computed(
+  () => (visibleCode.value || generatedCode.value).trim() === EMPTY_EDITOR_CODE,
+);
 
 const hostClasses = computed(() => [
   "code-strip",
@@ -170,6 +178,7 @@ const hostClasses = computed(() => [
   { "code-strip--wrapped": props.wrapped },
   { "code-strip--scrollable": props.scrollable },
   { "code-strip--unframed": !props.framed },
+  { "code-strip--empty": isEmptyDocument.value },
   { "code-strip--playing": isPlaying.value },
 ]);
 
@@ -186,6 +195,7 @@ function getMirrorCode(instance: StrudelMirrorInstance | null) {
 }
 
 function replaceControlledCode(code: string) {
+  visibleCode.value = code;
   if (!controlledView || controlledView.state.doc.toString() === code) return;
   controlledView.dispatch({
     changes: { from: 0, to: controlledView.state.doc.length, insert: code },
@@ -193,6 +203,7 @@ function replaceControlledCode(code: string) {
 }
 
 function syncMirrorCode(code: string) {
+  visibleCode.value = code;
   const instance = mirror.value;
   if (!instance) return;
   if (getMirrorCode(instance) !== code) instance.setCode(code);
@@ -200,9 +211,10 @@ function syncMirrorCode(code: string) {
 }
 
 function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
-  const visibleCode = getMirrorCode(instance);
-  if (instance.code !== visibleCode) instance.code = visibleCode;
-  syncCode(visibleCode);
+  const code = getMirrorCode(instance);
+  visibleCode.value = code;
+  if (instance.code !== code) instance.code = code;
+  syncCode(code);
 }
 
 async function evaluateMirror(instance: StrudelMirrorInstance) {
@@ -334,6 +346,7 @@ function followActivePlayback() {
 
 function initializeControlledView() {
   if (!editorRoot.value) return;
+  visibleCode.value = generatedCode.value;
   controlledView = new EditorView({
     state: EditorState.create({
       doc: generatedCode.value,
@@ -350,10 +363,12 @@ function initializeControlledView() {
 
 async function initializeStrudelMirror() {
   if (!editorRoot.value) return;
+  visibleCode.value = generatedCode.value;
 
   const instance = markRaw(new StrudelMirror({
     root: editorRoot.value,
     initialCode: generatedCode.value,
+    bgFill: false,
     transpiler,
     defaultOutput: emotitoneStrudelOutput,
     getTime: () => getAudioContext().currentTime,
@@ -407,7 +422,10 @@ async function initializeStrudelMirror() {
     view.dispatch({
       effects: StateEffect.appendConfig.of([
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) syncCode(update.state.doc.toString());
+          if (update.docChanged) {
+            visibleCode.value = update.state.doc.toString();
+            syncCode(visibleCode.value);
+          }
         }),
         codeStripStrudelExtension,
       ]),
@@ -556,6 +574,25 @@ onBeforeUnmount(() => {
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.code-strip--unframed .code-strip__editor:deep(.cm-activeLine) {
+  background-color: transparent !important;
+}
+
+.code-strip--unframed .code-strip__editor:deep(.cm-line:only-child) {
+  box-sizing: border-box;
+  min-width: 100%;
+  min-height: 40px;
+  align-items: center;
+}
+
+.code-strip--empty .code-strip__editor:deep(.cm-line:only-child) {
+  justify-content: center;
+  padding-inline: 6px;
+  font-size: 11px;
+  letter-spacing: .02em;
+  opacity: .68;
 }
 
 .code-strip__error {

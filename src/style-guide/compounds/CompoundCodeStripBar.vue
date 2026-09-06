@@ -26,6 +26,9 @@
       <VariantCell caption="Playing &middot; Play becomes Stop" stage="ink3">
         <CodeStripBar :tokens="tokens" is-playing />
       </VariantCell>
+      <VariantCell caption="Empty &middot; recording prompt" stage="ink3">
+        <CodeStripBar :tokens="[]" />
+      </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
 </template>
@@ -53,7 +56,7 @@ const shortTokens = tokens.slice(0, 3);
 const features = [
   { label: "Order", value: "Play/Stop → flexible CodeStrip → Backspace → Return" },
   { label: "Unity", value: "one shared translucent instrument-bar plane with no outline, outer padding, or exposed gaps" },
-  { label: "CodeStrip", value: "dense, zero-inset, unframed, and transparent inside this bar only" },
+  { label: "CodeStrip", value: "dense, zero-inset, unframed, and transparent inside this bar only; empty state stays compact" },
   { label: "Actions", value: "40px icon-only Button primitives; accessible names remain" },
   { label: "Material", value: "brass Play/Stop; ink Backspace; ivory Return with Ink icon" },
   { label: "Backspace", value: "removes the last recorded event; never presented as editor Undo" },

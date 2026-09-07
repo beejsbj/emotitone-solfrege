@@ -173,6 +173,28 @@ export function createMidiSession(
     });
   };
 
+  const initializeOutput = (output: MidiOutputPortAdapter) => {
+    const messages = buildRoliPaletteUpdateMessages(
+      syncSettings.dynamicColorConfig,
+      syncSettings.currentKey,
+      syncSettings.currentMode
+    );
+    const now = typeof performance === "undefined"
+      ? Date.now()
+      : performance.now();
+
+    // Initial synchronization establishes whether this output is actually
+    // usable. Let failures reach connect's failure/retry transition; cleanup
+    // sends remain best-effort because a port can disappear at any moment.
+    messages.forEach((message, index) => {
+      output.send(message, now + index);
+    });
+    output.send(
+      buildRoliMainOctaveMessage(syncSettings.mainOctave),
+      undefined
+    );
+  };
+
   const sendMainOctave = () => {
     if (!selectedRoliOutput) {
       return;
@@ -238,8 +260,7 @@ export function createMidiSession(
       selectedRoliOutput = nextRoliOutput;
 
       if (selectedRoliOutput) {
-        sendPalette();
-        sendMainOctave();
+        initializeOutput(selectedRoliOutput);
       }
     }
 
@@ -276,6 +297,20 @@ export function createMidiSession(
 
     flushOutput(selectedRoliOutput);
     selectedRoliOutput = null;
+  };
+
+  const failConnection = (error: unknown) => {
+    cleanupConnection();
+    publishState({
+      isConnecting: false,
+      isListening: false,
+      connectedInputs: [],
+      connectedOutputs: [],
+      syncedOutput: null,
+      lastError: error instanceof Error
+        ? error.message
+        : "MIDI access was not granted.",
+    });
   };
 
   const connect = async () => {
@@ -321,7 +356,11 @@ export function createMidiSession(
             && generation === connectionGeneration
             && midiAccess === access
           ) {
-            reconcilePorts();
+            try {
+              reconcilePorts();
+            } catch (error: unknown) {
+              failConnection(error);
+            }
           }
         });
         reconcilePorts({
@@ -335,17 +374,7 @@ export function createMidiSession(
           return;
         }
 
-        cleanupConnection();
-        publishState({
-          isConnecting: false,
-          isListening: false,
-          connectedInputs: [],
-          connectedOutputs: [],
-          syncedOutput: null,
-          lastError: error instanceof Error
-            ? error.message
-            : "MIDI access was not granted.",
-        });
+        failConnection(error);
       })
       .finally(() => {
         if (pendingConnection === connection) {

@@ -139,6 +139,41 @@ describe("MIDI session", () => {
     });
   });
 
+  it("publishes output initialization failure atomically and can retry", async () => {
+    const unavailableOutput = new FakeMidiOutput("broken", "LUMI Keys Block");
+    unavailableOutput.throwOnSend = true;
+    const unavailableAccess = new FakeMidiAccess([], [unavailableOutput]);
+    const availableOutput = new FakeMidiOutput("working", "LUMI Keys Block");
+    const availableAccess = new FakeMidiAccess([], [availableOutput]);
+    const requestAccess = vi
+      .fn<() => Promise<MidiAccessAdapter>>()
+      .mockResolvedValueOnce(unavailableAccess)
+      .mockResolvedValueOnce(availableAccess);
+    const harness = createHarness({ requestAccess });
+
+    await harness.session.connect();
+    expect(harness.session.getState()).toEqual({
+      isSupported: true,
+      isConnecting: false,
+      isListening: false,
+      connectedInputs: [],
+      connectedOutputs: [],
+      syncedOutput: null,
+      lastError: "The port is unavailable",
+    });
+    expect(unavailableAccess.stateChangeHandler).toBeNull();
+
+    await harness.session.connect();
+    expect(harness.session.getState()).toMatchObject({
+      isConnecting: false,
+      isListening: true,
+      connectedOutputs: ["LUMI Keys Block"],
+      syncedOutput: "LUMI Keys Block",
+      lastError: null,
+    });
+    expect(requestAccess).toHaveBeenCalledTimes(2);
+  });
+
   it("owns input hotplug, replacement, removal, and held-note cleanup", async () => {
     const original = new FakeMidiInput("keys", "Original keys");
     const access = new FakeMidiAccess([original]);
@@ -534,8 +569,12 @@ class FakeMidiInput implements MidiInputPortAdapter {
 }
 
 class FakeMidiOutput implements MidiOutputPortAdapter {
+  throwOnSend = false;
   throwWhenDisconnected = false;
   send = vi.fn<(message: number[], timestamp?: number) => void>(() => {
+    if (this.throwOnSend) {
+      throw new DOMException("The port is unavailable", "InvalidStateError");
+    }
     if (this.throwWhenDisconnected && this.state === "disconnected") {
       throw new DOMException("The port is disconnected", "InvalidStateError");
     }

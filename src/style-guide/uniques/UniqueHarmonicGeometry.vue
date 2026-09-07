@@ -34,7 +34,7 @@
         />
         <figcaption>
           <strong>Merge</strong>
-          <span>Nearby bodies blur and threshold into one liquid silhouette.</span>
+          <span>Every body stays joined; distance tapers the shared neck.</span>
         </figcaption>
       </figure>
     </div>
@@ -132,12 +132,23 @@ const snapshot: HarmonicAnalysisSnapshot = {
   emotionalDescription: "Home · brightness · strength",
 };
 
-const createBlobs = (width: number, height: number) => {
-  const positions = [
-    { x: width * 0.34, y: height * 0.54 },
-    { x: width * 0.56, y: height * 0.58 },
-    { x: width * 0.68, y: height * 0.34 },
-  ];
+const createBlobs = (
+  width: number,
+  height: number,
+  mode: Extract<HarmonicGeometryMode, "outline" | "merge">
+) => {
+  const positions =
+    mode === "merge"
+      ? [
+          { x: width * 0.18, y: height * 0.66 },
+          { x: width * 0.5, y: height * 0.26 },
+          { x: width * 0.82, y: height * 0.62 },
+        ]
+      : [
+          { x: width * 0.34, y: height * 0.54 },
+          { x: width * 0.56, y: height * 0.58 },
+          { x: width * 0.68, y: height * 0.34 },
+        ];
   const radii = [0.23, 0.17, 0.15].map(
     (ratio) => Math.min(width, height) * ratio
   );
@@ -186,7 +197,7 @@ const drawSpecimen = (
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
 
-  const blobs = createBlobs(width, height);
+  const blobs = createBlobs(width, height, mode);
   const config: HarmonicGeometryConfig = {
     ...DEFAULT_CONFIG.floatingPopup,
     isEnabled: true,

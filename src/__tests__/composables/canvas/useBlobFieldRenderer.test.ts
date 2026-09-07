@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   BLOB_FIELD_PIXEL_BUDGET,
   blurFieldChannel,
+  getBlobFieldConnections,
+  getBlobFieldConnectionWidth,
   getBlobFieldBounds,
   getBlobFieldResolution,
   orderBlobFramesForVisibility,
@@ -41,6 +43,18 @@ function createFrame(
     glowIntensity: 0,
     elapsed: 1,
   };
+}
+
+function createFrameAt(key: string, x: number, y: number) {
+  const frame = createFrame(key, [
+    { x: x - 40, y },
+    { x, y: y - 40 },
+    { x: x + 40, y },
+    { x, y: y + 40 },
+  ]);
+  frame.blob.x = x;
+  frame.blob.y = y;
+  return frame;
 }
 
 describe("useBlobFieldRenderer", () => {
@@ -102,6 +116,42 @@ describe("useBlobFieldRenderer", () => {
       "sustained",
     ]);
     expect(forward.at(-1)?.opacity).toBe(1);
+  });
+
+  it("keeps every merge body connected without drawing a complete graph", () => {
+    const first = createFrameAt("first", 80, 100);
+    const second = createFrameAt("second", 900, 100);
+    const third = createFrameAt("third", 860, 180);
+
+    const connections = getBlobFieldConnections([first, second, third]);
+
+    expect(connections).toHaveLength(2);
+    expect(connections[0]).toMatchObject({ from: first, to: second, gap: 740 });
+    expect(connections[1]).toMatchObject({ from: second, to: third });
+  });
+
+  it("keeps a threshold-safe filament while thinning with distance", () => {
+    const first = createFrameAt("first", 80, 100);
+    const near = createFrameAt("near", 180, 100);
+    const far = createFrameAt("far", 900, 100);
+    const nearConnection = getBlobFieldConnections([first, near])[0];
+    const farConnection = getBlobFieldConnections([first, far])[0];
+
+    const nearWidth = getBlobFieldConnectionWidth(
+      nearConnection,
+      12,
+      0.5,
+      0.4
+    );
+    const farWidth = getBlobFieldConnectionWidth(
+      farConnection,
+      12,
+      0.5,
+      0.4
+    );
+
+    expect(nearWidth).toBeGreaterThan(farWidth);
+    expect(farWidth).toBeGreaterThanOrEqual(16.2);
   });
 
   it("keeps large viewports inside the hard pixel budget", () => {

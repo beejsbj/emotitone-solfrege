@@ -14,6 +14,13 @@ export interface FieldBounds {
   height: number;
 }
 
+export interface BlobFieldConnection {
+  from: PreparedBlobFrame;
+  to: PreparedBlobFrame;
+  distance: number;
+  gap: number;
+}
+
 interface FieldSurfaces {
   source: HTMLCanvasElement;
   visibility: HTMLCanvasElement;
@@ -179,6 +186,122 @@ function traceFrame(
   context.closePath();
 }
 
+function getContourPointTowards(
+  frame: PreparedBlobFrame,
+  target: { x: number; y: number }
+) {
+  const directionX = target.x - frame.blob.x;
+  const directionY = target.y - frame.blob.y;
+
+  return frame.contour.reduce((best, point) => {
+    const score =
+      (point.x - frame.blob.x) * directionX +
+      (point.y - frame.blob.y) * directionY;
+    const bestScore =
+      (best.x - frame.blob.x) * directionX +
+      (best.y - frame.blob.y) * directionY;
+    return score > bestScore ? point : best;
+  }, frame.contour[0]);
+}
+
+function getConnectionPath(connection: BlobFieldConnection) {
+  const start = getContourPointTowards(connection.from, connection.to.blob);
+  const end = getContourPointTowards(connection.to, connection.from.blob);
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  const length = Math.hypot(deltaX, deltaY) || 1;
+  const pairKey = [connection.from.key, connection.to.key].sort().join("::");
+  const bendDirection =
+    [...pairKey].reduce((total, character) => total + character.charCodeAt(0), 0) %
+      2 ===
+    0
+      ? 1
+      : -1;
+  const bend =
+    Math.min(12, connection.gap * 0.035) * bendDirection;
+
+  return {
+    start,
+    end,
+    control: {
+      x: (start.x + end.x) / 2 + (-deltaY / length) * bend,
+      y: (start.y + end.y) / 2 + (deltaX / length) * bend,
+    },
+  };
+}
+
+function traceConnection(
+  context: CanvasRenderingContext2D,
+  connection: BlobFieldConnection,
+  waistWidth: number
+) {
+  const path = getConnectionPath(connection);
+  const pointAt = (progress: number) => {
+    const inverse = 1 - progress;
+    return {
+      x:
+        inverse * inverse * path.start.x +
+        2 * inverse * progress * path.control.x +
+        progress * progress * path.end.x,
+      y:
+        inverse * inverse * path.start.y +
+        2 * inverse * progress * path.control.y +
+        progress * progress * path.end.y,
+    };
+  };
+  const tangentAt = (progress: number) => ({
+    x:
+      2 * (1 - progress) * (path.control.x - path.start.x) +
+      2 * progress * (path.end.x - path.control.x),
+    y:
+      2 * (1 - progress) * (path.control.y - path.start.y) +
+      2 * progress * (path.end.y - path.control.y),
+  });
+  const endpointWidths = {
+    from: Math.min(
+      connection.from.scaledRadius * 0.86,
+      waistWidth * 2.1
+    ),
+    to: Math.min(connection.to.scaledRadius * 0.86, waistWidth * 2.1),
+  };
+  const left: Array<{ x: number; y: number }> = [];
+  const right: Array<{ x: number; y: number }> = [];
+  const segments = 16;
+
+  for (let index = 0; index <= segments; index += 1) {
+    const progress = index / segments;
+    const point = pointAt(progress);
+    const tangent = tangentAt(progress);
+    const tangentLength = Math.hypot(tangent.x, tangent.y) || 1;
+    const normal = {
+      x: -tangent.y / tangentLength,
+      y: tangent.x / tangentLength,
+    };
+    const endpointWidth =
+      endpointWidths.from * (1 - progress) + endpointWidths.to * progress;
+    const edgeWeight = Math.pow(Math.abs(progress * 2 - 1), 1.7);
+    const width = waistWidth + (endpointWidth - waistWidth) * edgeWeight;
+    const halfWidth = width / 2;
+
+    left.push({
+      x: point.x + normal.x * halfWidth,
+      y: point.y + normal.y * halfWidth,
+    });
+    right.push({
+      x: point.x - normal.x * halfWidth,
+      y: point.y - normal.y * halfWidth,
+    });
+  }
+
+  context.beginPath();
+  context.moveTo(left[0].x, left[0].y);
+  left.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+  [...right]
+    .reverse()
+    .forEach((point) => context.lineTo(point.x, point.y));
+  context.closePath();
+}
+
 function resizeSurface(canvas: HTMLCanvasElement, width: number, height: number) {
   if (canvas.width !== width) canvas.width = width;
   if (canvas.height !== height) canvas.height = height;
@@ -192,6 +315,65 @@ export function orderBlobFramesForVisibility(
   frames: readonly PreparedBlobFrame[]
 ) {
   return [...frames].sort((left, right) => left.opacity - right.opacity);
+}
+
+/**
+ * Connect each subsequently created body to its nearest existing body. The
+ * insertion-order rule keeps the topology stable while blobs drift, while the
+ * nearest-parent choice avoids a complete graph of visible filaments.
+ */
+export function getBlobFieldConnections(
+  frames: readonly PreparedBlobFrame[]
+): BlobFieldConnection[] {
+  return frames.slice(1).map((frame, index) => {
+    const previousFrames = frames.slice(0, index + 1);
+    const parent = previousFrames.reduce((nearest, candidate) => {
+      const nearestDistance = Math.hypot(
+        frame.blob.x - nearest.blob.x,
+        frame.blob.y - nearest.blob.y
+      );
+      const candidateDistance = Math.hypot(
+        frame.blob.x - candidate.blob.x,
+        frame.blob.y - candidate.blob.y
+      );
+      return candidateDistance < nearestDistance ? candidate : nearest;
+    }, previousFrames[0]);
+    const distance = Math.hypot(
+      frame.blob.x - parent.blob.x,
+      frame.blob.y - parent.blob.y
+    );
+
+    return {
+      from: parent,
+      to: frame,
+      distance,
+      gap: Math.max(
+        0,
+        distance - parent.scaledRadius - frame.scaledRadius
+      ),
+    };
+  });
+}
+
+export function getBlobFieldConnectionWidth(
+  connection: BlobFieldConnection,
+  blur: number,
+  fieldScale: number,
+  fusionStrength: number
+) {
+  const smallerRadius = Math.min(
+    connection.from.scaledRadius,
+    connection.to.scaledRadius
+  );
+  const falloffDistance = Math.max(120, smallerRadius * 4);
+  const distanceFalloff = 1 / (1 + connection.gap / falloffDistance);
+  const organicWidth =
+    smallerRadius * (0.72 + fusionStrength * 0.28) * distanceFalloff;
+
+  // Two box-blur passes need a few occupied field pixels to survive the alpha
+  // threshold. This floor guarantees a continuous but slender distant neck.
+  const continuityFloor = Math.max(blur * 1.35, 3 / fieldScale);
+  return Math.max(continuityFloor, organicWidth);
 }
 
 export function getBlobFieldResolution(bounds: FieldBounds) {
@@ -283,6 +465,9 @@ export function useBlobFieldRenderer() {
     }
 
     const { scale, width, height } = getBlobFieldResolution(bounds);
+    const connections =
+      mode === "merge" ? getBlobFieldConnections(frames) : [];
+    const contributionDivisor = frames.length + connections.length;
     const field = getSurfaces(width, height);
     const sourceContext = field.source.getContext("2d", {
       willReadFrequently: true,
@@ -324,9 +509,36 @@ export function useBlobFieldRenderer() {
 
     frames.forEach((frame) => {
       sourceContext.globalAlpha =
-        Math.max(0, Math.min(1, frame.opacity)) / frames.length;
+        Math.max(0, Math.min(1, frame.opacity)) / contributionDivisor;
       traceFrame(sourceContext, frame);
       sourceContext.fillStyle = frame.primaryColor;
+      sourceContext.fill();
+    });
+
+    connections.forEach((connection) => {
+      const opacity = Math.min(
+        Math.max(0, Math.min(1, connection.from.opacity)),
+        Math.max(0, Math.min(1, connection.to.opacity))
+      );
+      const path = getConnectionPath(connection);
+      const gradient = sourceContext.createLinearGradient(
+        path.start.x,
+        path.start.y,
+        path.end.x,
+        path.end.y
+      );
+      gradient.addColorStop(0, connection.from.primaryColor);
+      gradient.addColorStop(1, connection.to.primaryColor);
+
+      sourceContext.globalAlpha = opacity / contributionDivisor;
+      sourceContext.fillStyle = gradient;
+      const connectionWidth = getBlobFieldConnectionWidth(
+        connection,
+        blur,
+        scale,
+        config.glassmorphOpacity
+      );
+      traceConnection(sourceContext, connection, connectionWidth);
       sourceContext.fill();
     });
 
@@ -334,12 +546,36 @@ export function useBlobFieldRenderer() {
     // low opacity first and high opacity last gives the union its maximum local
     // visibility instead of allowing a fading body to punch a hole in it.
     visibilityContext.globalCompositeOperation = "source-over";
-    orderBlobFramesForVisibility(frames).forEach((frame) => {
-      const opacity = Math.max(0, Math.min(1, frame.opacity));
-      const level = Math.round(opacity * 255);
-      traceFrame(visibilityContext, frame);
+    const visibilityLayers = [
+      ...frames.map((frame) => ({
+        opacity: Math.max(0, Math.min(1, frame.opacity)),
+        paint: () => {
+          traceFrame(visibilityContext, frame);
+          visibilityContext.fill();
+        },
+      })),
+      ...connections.map((connection) => ({
+        opacity: Math.min(
+          Math.max(0, Math.min(1, connection.from.opacity)),
+          Math.max(0, Math.min(1, connection.to.opacity))
+        ),
+        paint: () => {
+          const connectionWidth = getBlobFieldConnectionWidth(
+            connection,
+            blur,
+            scale,
+            config.glassmorphOpacity
+          );
+          traceConnection(visibilityContext, connection, connectionWidth);
+          visibilityContext.fill();
+        },
+      })),
+    ].sort((left, right) => left.opacity - right.opacity);
+
+    visibilityLayers.forEach((layer) => {
+      const level = Math.round(layer.opacity * 255);
       visibilityContext.fillStyle = `rgb(${level}, ${level}, ${level})`;
-      visibilityContext.fill();
+      layer.paint();
     });
 
     sourceContext.globalAlpha = 1;
@@ -368,7 +604,7 @@ export function useBlobFieldRenderer() {
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
       const accumulatedColorWeight =
-        (sourceImage.data[offset + 3] / 255) * frames.length;
+        (sourceImage.data[offset + 3] / 255) * contributionDivisor;
       const visibilityCoverage = visibilityImage.data[offset + 3] / 255;
       weight[pixel] = accumulatedColorWeight;
       alpha[pixel] = visibilityCoverage;

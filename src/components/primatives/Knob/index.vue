@@ -60,6 +60,13 @@
 
     </div>
 
+    <DragValue
+      v-if="showDragValue"
+      :x="interaction.current.value.x"
+      :y="interaction.current.value.y"
+      :value="dragValue"
+    />
+
     <!-- Label -->
     <span
       class="knob-wrapper__label"
@@ -71,9 +78,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, type PropType } from "vue";
+import { computed, onBeforeUnmount, ref, watch, type PropType } from "vue";
 import useGSAP from "@/composables/useGSAP";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
+import DragValue from "./DragValue.vue";
 import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
@@ -252,6 +260,20 @@ const actualLabel = computed(() => {
   return props.label || "Knob";
 });
 
+// The follower observes the gesture; value/sensitivity ownership stays here.
+const showDragValue = computed(() =>
+  interaction.isHeld.value && !props.isDisabled && !props.isDisplay &&
+  knobType.value !== "boolean" &&
+  interaction.gestureState.value !== "horizontal_scroll"
+);
+const dragValue = computed(() => {
+  if (knobType.value === "range") return String(props.formatValue(actualValue.value as number));
+  const option = props.options?.find((option) =>
+    (typeof option === "string" ? option : option.value) === actualValue.value
+  );
+  return typeof option === "string" ? option : option?.label ?? String(actualValue.value);
+});
+
 // Default theme color
 const defaultThemeColor = computed(() =>
   props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 82%, 1)"
@@ -277,7 +299,8 @@ const armSuppressedClick = () => {
 
 // Enhanced gesture detection and interaction
 const handleStart = (e: MouseEvent | TouchEvent) => {
-  if (props.isDisabled) return;
+  if (props.isDisabled || props.isDisplay) return;
+  if ("button" in e && e.button !== 0) return;
 
   e.preventDefault();
   e.stopPropagation();
@@ -320,6 +343,7 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
   };
 
   // Add global event listeners
+  window.addEventListener("blur", cancelGesture);
   if ("touches" in e) {
     document.addEventListener("touchmove", handleMove, { passive: false });
     document.addEventListener("touchend", handleEnd);
@@ -535,8 +559,35 @@ const handleOptionsMovement = (deltaY: number, timeDelta: number) => {
   }
 };
 
+const removeGestureListeners = () => {
+  document.removeEventListener("touchmove", handleMove);
+  document.removeEventListener("touchend", handleEnd);
+  document.removeEventListener("touchcancel", handleEnd);
+  document.removeEventListener("mousemove", handleMove);
+  document.removeEventListener("mouseup", handleEnd);
+  window.removeEventListener("blur", cancelGesture);
+};
+
+const cancelGesture = () => {
+  interaction.isHeld.value = false;
+  interaction.isDragging.value = false;
+  interaction.gestureState.value = "idle";
+  removeGestureListeners();
+};
+
+onBeforeUnmount(() => {
+  cancelGesture();
+  clearSuppressedClick();
+});
+watch(() => props.isDisabled || props.isDisplay, (inert) => {
+  if (inert) cancelGesture();
+});
+
 const handleEnd = (e: Event) => {
-  if (props.isDisabled) return;
+  if (e.type === "touchcancel") {
+    cancelGesture();
+    return;
+  }
 
   const event = e as MouseEvent | TouchEvent;
   if (interaction.gestureState.value !== "potential_tap") {
@@ -570,20 +621,8 @@ const handleEnd = (e: Event) => {
   interaction.optionAccumulator.value = 0;
   interaction.movementBuffer.value = [];
 
-  // Remove global event listeners
-  if ("touches" in event || "changedTouches" in event) {
-    document.removeEventListener("touchmove", handleMove);
-    document.removeEventListener("touchend", handleEnd);
-    document.removeEventListener("touchcancel", handleEnd);
-  } else {
-    document.removeEventListener("mousemove", handleMove);
-    document.removeEventListener("mouseup", handleEnd);
-  }
-
-  // Reset to idle after a brief delay
-  setTimeout(() => {
-    interaction.gestureState.value = "idle";
-  }, 50);
+  removeGestureListeners();
+  interaction.gestureState.value = "idle";
 };
 
 const handleClick = (e: MouseEvent | TouchEvent) => {
@@ -593,7 +632,7 @@ const handleClick = (e: MouseEvent | TouchEvent) => {
   // independent from a pending pointer-click guard after a touch gesture.
   const isKeyboardClick = e.detail === 0;
   if (
-    props.isDisabled ||
+    props.isDisabled || props.isDisplay ||
     interaction.isDragging.value ||
     (interaction.suppressClick.value && !isKeyboardClick)
   ) {

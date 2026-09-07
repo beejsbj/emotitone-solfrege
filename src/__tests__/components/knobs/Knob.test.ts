@@ -37,6 +37,60 @@ describe("Knob public interface", () => {
     document.body.innerHTML = "";
   });
 
+  // Global setup mocks document events. Exercise the actual registered handlers.
+  const documentEvent = async (type: string, event: Event) => {
+    const registration = vi.mocked(document.addEventListener).mock.calls
+      .filter(([name]) => name === type).at(-1);
+    expect(registration).toBeDefined();
+    (registration![1] as EventListener)(event);
+    await nextTick();
+  };
+
+  it("shows formatted values above contact, updates immediately, and removes on release", async () => {
+    const wrapper = render({ modelValue: -4.84, type: "range", formatValue: (v: number) => `${v} dB` });
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    const follower = document.querySelector(".knob-drag-value")!;
+    expect(follower.textContent).toContain("-4.84 dB");
+    expect(follower.querySelector(".sticker--fill")).not.toBeNull();
+    await wrapper.setProps({ modelValue: -3.2 });
+    expect(follower.textContent).toContain("-3.2 dB");
+    await documentEvent("mouseup", new MouseEvent("mouseup"));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+  });
+
+  it("shows full option labels and dismisses for a horizontal gesture", async () => {
+    const wrapper = render({ modelValue: "minor", options: [{ label: "Harmonic minor", value: "minor" }] });
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("Harmonic minor");
+    await documentEvent("mousemove", new MouseEvent("mousemove", { clientX: 190, clientY: 302 }));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it("cancels touch without tapping and cleans up a held follower on unmount", async () => {
+    const wrapper = render({ modelValue: "a", options: ["a", "b"] });
+    await wrapper.trigger("touchstart", { touches: [{ clientX: 150, clientY: 300 }] });
+    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+    await documentEvent("touchcancel", new Event("touchcancel"));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    wrapper.unmount();
+    wrappers = wrappers.filter((entry) => entry !== wrapper);
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.removeEventListener).toHaveBeenCalledWith("mousemove", expect.any(Function));
+  });
+
+  it("removes a follower when made inert and keeps display-only activation inert", async () => {
+    const wrapper = render({ modelValue: "a", options: ["a", "b"] });
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    await wrapper.setProps({ isDisplay: true });
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
   it("keeps one responsive production anatomy with a bottom label", () => {
     const wrapper = render({ modelValue: 42, label: "Volume" });
 

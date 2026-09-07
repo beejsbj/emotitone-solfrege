@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Marks &middot; Decoration Primitive"
     :features="features"
-    caption="Marks are flat poster primitives. Structural anchors organize cut-paper surfaces; notation glyphs name musical context. The source owns SVG paths, tone, size, and fill/wire treatment. The specimen owns family panels, legends, and scale/treatment staging."
+    caption="Mark is one flat poster family. Structural silhouettes and musical glyphs are equal members of the same renderer-neutral geometry registry; context decides whether a Mark is displayed, beaten, or released as a particle."
   >
     <template #hero>
       <div class="hero-pair">
@@ -11,25 +11,14 @@
       </div>
     </template>
 
-    <VariantGrid title="Families &mdash; Structural anchors">
+    <VariantGrid title="Family &mdash; all Marks">
       <VariantCell
-        v-for="mark in structuralMarks"
+        v-for="mark in allMarks"
         :key="mark.name"
         :caption="mark.label"
         stage="ink3"
       >
         <Mark :name="mark.name" :tone="mark.tone" :size="mark.size" />
-      </VariantCell>
-    </VariantGrid>
-
-    <VariantGrid title="Families &mdash; Notation glyphs">
-      <VariantCell
-        v-for="mark in notationMarks"
-        :key="mark.name"
-        :caption="mark.label"
-        stage="ink3"
-      >
-        <Mark :name="mark.name" tone="ivory" size="38" />
       </VariantCell>
     </VariantGrid>
 
@@ -77,7 +66,7 @@ interface TreatmentExample {
   label: string;
 }
 
-const structuralMarks: MarkExample[] = [
+const allMarks: MarkExample[] = [
   { name: "triangle", label: "Triangle", tone: "brass", size: 44 },
   { name: "disk", label: "Disk", tone: "tomato", size: 44 },
   { name: "zigzag", label: "Zigzag", tone: "brass", size: 58 },
@@ -86,20 +75,18 @@ const structuralMarks: MarkExample[] = [
   { name: "bar", label: "Bar", tone: "ivory-2", size: 56 },
   { name: "diamond", label: "Diamond", tone: "mustard", size: 44 },
   { name: "half-circle", label: "Half-circle", tone: "pine", size: 44 },
-];
-
-const notationMarks: MarkExample[] = [
-  { name: "eighth", label: "8th", tone: "ivory" },
-  { name: "beam", label: "Beam", tone: "ivory" },
-  { name: "sharp", label: "Sharp", tone: "ivory" },
-  { name: "flat", label: "Flat", tone: "ivory" },
-  { name: "accent", label: "Accent", tone: "ivory" },
-  { name: "trill", label: "Trill", tone: "ivory" },
-  { name: "slur", label: "Slur", tone: "ivory" },
-  { name: "fermata", label: "Fermata", tone: "ivory" },
-  { name: "staccato", label: "Staccato", tone: "ivory" },
-  { name: "grace", label: "Grace", tone: "ivory" },
-  { name: "clef", label: "Clef", tone: "ivory" },
+  { name: "star", label: "Star", tone: "tomato", size: 44 },
+  { name: "eighth", label: "Eighth", tone: "ivory", size: 44 },
+  { name: "beam", label: "Beam", tone: "brass", size: 44 },
+  { name: "sharp", label: "Sharp", tone: "tomato", size: 44 },
+  { name: "flat", label: "Flat", tone: "pine", size: 44 },
+  { name: "accent", label: "Accent", tone: "mustard", size: 44 },
+  { name: "trill", label: "Trill", tone: "plum", size: 44 },
+  { name: "slur", label: "Slur", tone: "ivory-2", size: 44 },
+  { name: "fermata", label: "Fermata", tone: "brass", size: 44 },
+  { name: "staccato", label: "Staccato", tone: "tomato", size: 44 },
+  { name: "grace", label: "Grace", tone: "pine", size: 44 },
+  { name: "clef", label: "Clef", tone: "mustard", size: 44 },
 ];
 
 const treatmentMarks: TreatmentExample[] = [
@@ -115,10 +102,10 @@ const scaleSizes = [14, 28, 56, 96];
 
 const features = [
   { label: "Role", value: "decorative mark; never active control" },
-  { label: "Families", value: "structural anchors and notation glyphs" },
+  { label: "Family", value: "structural and musical Marks together" },
   { label: "Name", value: "one named glyph per source path set" },
   { label: "Tone", value: "ivory, brass, and brand poster colors" },
-  { label: "Build", value: "flat SVG paths; no gradients, shadows, or hex fills" },
+  { label: "Build", value: "one path registry feeds SVG and canvas renderers" },
   { label: "Treatment", value: "fill or wire; wire uses butt caps and miter joins" },
   { label: "Scale", value: "size prop covers inline through hero usage" },
   { label: "Rule", value: "one mark per slot" },

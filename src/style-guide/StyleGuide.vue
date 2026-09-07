@@ -56,10 +56,6 @@
           <PrimitiveBarTape />
         </article>
         <article class="sink-frame">
-          <div class="sink-frame__source">primitive-beat-indicator.html</div>
-          <PrimitiveBeatIndicator />
-        </article>
-        <article class="sink-frame">
           <div class="sink-frame__source">primitive-buttons.html</div>
           <PrimitiveButtons />
         </article>
@@ -123,6 +119,10 @@
     <section class="sink-section" aria-labelledby="compounds-heading">
       <h2 id="compounds-heading">Compounds</h2>
       <div class="sink-stack">
+        <article class="sink-frame">
+          <div class="sink-frame__source">compound-beat-indicator</div>
+          <CompoundBeatIndicator />
+        </article>
         <article id="compound-code-strip-bar" class="sink-frame">
           <div class="sink-frame__source">compound-code-strip-bar</div>
           <CompoundCodeStripBar />
@@ -179,7 +179,6 @@ import TokenMotion from "./tokens/TokenMotion.vue";
 import TokenGeometry from "./tokens/TokenGeometry.vue";
 import PrimitiveSticker from "./primatives/PrimitiveSticker.vue";
 import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
-import PrimitiveBeatIndicator from "./primatives/PrimitiveBeatIndicator.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
 import PrimitiveCard from "./primatives/PrimitiveCard.vue";
 import PrimitiveNote from "./primatives/PrimitiveNote.vue";
@@ -190,6 +189,7 @@ import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
 import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundCodeStripBar from "./compounds/CompoundCodeStripBar.vue";
+import CompoundBeatIndicator from "./compounds/CompoundBeatIndicator.vue";
 import CompoundControlBar from "./compounds/CompoundControlBar.vue";
 import CompoundChord from "./compounds/CompoundChord.vue";
 import CompoundKey from "./compounds/CompoundKey.vue";

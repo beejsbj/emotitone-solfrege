@@ -3,6 +3,8 @@
  * Centralized type definitions for all music-related data structures
  */
 
+import type { MarkName } from "@/components/primatives/marks";
+
 /**
  * Musical mode families used for UI grouping and keyboard behavior
  */
@@ -25,8 +27,8 @@ export interface SolfegeData {
   emotion: string;
   /** Detailed description of the note's character */
   description: string;
-  /** Shape of visual flecks */
-  fleckShape: "circle" | "star" | "diamond" | "sparkle" | "mist";
+  /** Stable Mark identity used by visual consumers such as Stage particles */
+  mark: MarkName;
   /** Textural description for visual effects */
   texture: string;
   /** Tonal interval name from the tonic (for example 3m or 5P) */

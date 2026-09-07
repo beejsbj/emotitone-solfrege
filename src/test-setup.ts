@@ -238,13 +238,13 @@ vi.mock('@/services/music', () => ({
       name: 'Major',
       intervals: [0, 2, 4, 5, 7, 9, 11],
       solfege: [
-        { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
-        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' },
-        { name: 'Mi', number: 3, emotion: 'hopeful', description: 'bright', fleckShape: 'diamond', texture: 'crystalline' },
-        { name: 'Fa', number: 4, emotion: 'restless', description: 'pull', fleckShape: 'sparkle', texture: 'jagged' },
-        { name: 'Sol', number: 5, emotion: 'confident', description: 'dominant', fleckShape: 'circle', texture: 'smooth' },
-        { name: 'La', number: 6, emotion: 'yearning', description: 'melancholy', fleckShape: 'star', texture: 'flowing' },
-        { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', fleckShape: 'diamond', texture: 'sharp' }
+        { name: 'Do', number: 1, emotion: 'stable', description: 'home', mark: 'disk', texture: 'smooth' },
+        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', mark: 'wave', texture: 'rough' },
+        { name: 'Mi', number: 3, emotion: 'hopeful', description: 'bright', mark: 'star', texture: 'crystalline' },
+        { name: 'Fa', number: 4, emotion: 'restless', description: 'pull', mark: 'half-circle', texture: 'jagged' },
+        { name: 'Sol', number: 5, emotion: 'confident', description: 'dominant', mark: 'triangle', texture: 'smooth' },
+        { name: 'La', number: 6, emotion: 'yearning', description: 'melancholy', mark: 'eighth', texture: 'flowing' },
+        { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', mark: 'accent', texture: 'sharp' }
       ]
     })),
     getCurrentScaleNotes: vi.fn(() => ['C', 'D', 'E', 'F', 'G', 'A', 'B']),
@@ -272,37 +272,37 @@ vi.mock('@/data', async (importOriginal) => {
     SEQUENCER_ICONS: ['music', 'piano', 'guitar', 'violin', 'drums', 'trumpet', 'microphone'],
     CHROMATIC_NOTES: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
     MAJOR_SOLFEGE: [
-      { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
-      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
+      { name: 'Do', number: 1, emotion: 'stable', description: 'home', mark: 'disk', texture: 'smooth' },
+      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', mark: 'wave', texture: 'rough' }
     ],
     MINOR_SOLFEGE: [
-      { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
-      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' }
+      { name: 'Do', number: 1, emotion: 'stable', description: 'home', mark: 'disk', texture: 'smooth' },
+      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', mark: 'wave', texture: 'rough' }
     ],
     MAJOR_SCALE: {
       name: 'Major',
       intervals: [0, 2, 4, 5, 7, 9, 11, 12],
       solfege: [
-        { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
-        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' },
-        { name: 'Mi', number: 3, emotion: 'bright', description: 'clarity', fleckShape: 'diamond', texture: 'clear' },
-        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', fleckShape: 'mist', texture: 'soft' },
-        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', fleckShape: 'star', texture: 'firm' },
-        { name: 'La', number: 6, emotion: 'warm', description: 'yearning', fleckShape: 'sparkle', texture: 'glowing' },
-        { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', fleckShape: 'diamond', texture: 'tense' },
+        { name: 'Do', number: 1, emotion: 'stable', description: 'home', mark: 'disk', texture: 'smooth' },
+        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', mark: 'wave', texture: 'rough' },
+        { name: 'Mi', number: 3, emotion: 'bright', description: 'clarity', mark: 'star', texture: 'clear' },
+        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', mark: 'half-circle', texture: 'soft' },
+        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', mark: 'triangle', texture: 'firm' },
+        { name: 'La', number: 6, emotion: 'warm', description: 'yearning', mark: 'eighth', texture: 'glowing' },
+        { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', mark: 'accent', texture: 'tense' },
       ],
     },
     MINOR_SCALE: {
       name: 'Minor',
       intervals: [0, 2, 3, 5, 7, 8, 10, 12],
       solfege: [
-        { name: 'Do', number: 1, emotion: 'stable', description: 'home', fleckShape: 'circle', texture: 'smooth' },
-        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', fleckShape: 'star', texture: 'rough' },
-        { name: 'Me', number: 3, emotion: 'wistful', description: 'shade', fleckShape: 'diamond', texture: 'velvet' },
-        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', fleckShape: 'mist', texture: 'soft' },
-        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', fleckShape: 'star', texture: 'firm' },
-        { name: 'Le', number: 6, emotion: 'dark', description: 'falling', fleckShape: 'sparkle', texture: 'glowing' },
-        { name: 'Te', number: 7, emotion: 'haunting', description: 'pull', fleckShape: 'diamond', texture: 'tense' },
+        { name: 'Do', number: 1, emotion: 'stable', description: 'home', mark: 'disk', texture: 'smooth' },
+        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', mark: 'wave', texture: 'rough' },
+        { name: 'Me', number: 3, emotion: 'wistful', description: 'shade', mark: 'flat', texture: 'velvet' },
+        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', mark: 'half-circle', texture: 'soft' },
+        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', mark: 'triangle', texture: 'firm' },
+        { name: 'Le', number: 6, emotion: 'dark', description: 'falling', mark: 'slur', texture: 'glowing' },
+        { name: 'Te', number: 7, emotion: 'haunting', description: 'pull', mark: 'grace', texture: 'tense' },
       ],
     },
     getAllMelodicPatterns: vi.fn(() => [])

@@ -4,6 +4,7 @@
  */
 
 import type { ChromaticNote, MusicalMode, SolfegeData } from "./music";
+import type { MarkName } from "@/components/primatives/marks";
 
 /**
  * Active blob state for canvas rendering
@@ -57,8 +58,8 @@ export interface Particle {
   vy: number;
   /** Particle color */
   color: string;
-  /** Particle shape identifier */
-  shape: string;
+  /** Mark rendered by this particle */
+  mark: MarkName;
   /** Particle size */
   size: number;
   /** Current life remaining */

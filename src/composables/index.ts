@@ -9,6 +9,7 @@ export { useMidiControls } from "./useMidiControls";
 export { useSolfegeInteraction } from "./useSolfegeInteraction";
 export { useAppLoading } from "./useAppLoading";
 export { useTooltip } from "./useTooltip";
+export { useHarmonicAnalysis } from "./useHarmonicAnalysis";
 
 // Canvas modules
 export * from "./canvas";

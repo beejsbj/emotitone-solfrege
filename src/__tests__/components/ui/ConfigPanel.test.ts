@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, reactive, toRefs } from "vue";
 import { createTestWrapper } from "../../helpers/test-utils";
 import ConfigPanel from "@/components/ConfigPanel.vue";
+import {
+  CONFIG_SECTIONS,
+  UNIFIED_CONFIG,
+} from "@/data/visual-config-metadata";
 
 const keyboardDrawerStore = reactive({
   midi: {
@@ -85,7 +89,7 @@ vi.mock("@/components/TopDrawer.vue", () => ({
 vi.mock("@/components/TabbedOverlayPanel.vue", () => ({
   default: {
     name: "TabbedOverlayPanel",
-    props: ["modelValue"],
+    props: ["modelValue", "tabs"],
     template: '<div :data-tab="modelValue"><slot name="header" /></div>',
   },
 }));
@@ -153,6 +157,24 @@ describe("ConfigPanel.vue", () => {
     await nextTick();
     expect(visualConfigStore.config.keyboard.isEnabled).toBe(false);
     expect(visualConfigStore.updateValue).toHaveBeenLastCalledWith("keyboard", "isEnabled", false);
+  });
+
+  it("keeps relationships and labels inside the grouped Blobs section", () => {
+    wrapper = createTestWrapper(ConfigPanel);
+    const tabs = wrapper
+      .getComponent({ name: "TabbedOverlayPanel" })
+      .props("tabs") as Array<{ value: string }>;
+
+    expect(tabs.map((tab) => tab.value)).toContain("blobs");
+    expect(tabs.map((tab) => tab.value)).not.toContain("floatingPopup");
+    expect(CONFIG_SECTIONS).not.toHaveProperty("floatingPopup");
+    expect(UNIFIED_CONFIG.blobs.connectionMode.group).toBe("Relationships");
+    expect(UNIFIED_CONFIG.blobs.analysisHoldTime.group).toBe("Analysis");
+    expect(UNIFIED_CONFIG.blobs.showChordLabel.group).toBe("Labels");
+    expect(UNIFIED_CONFIG.blobs.webOpacity.visibleWhen).toEqual({
+      field: "connectionMode",
+      values: ["web"],
+    });
   });
 
   it("hides the MIDI shortcut when only generic outputs are present", async () => {

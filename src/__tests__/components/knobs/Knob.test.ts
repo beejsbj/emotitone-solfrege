@@ -37,6 +37,174 @@ describe("Knob public interface", () => {
     document.body.innerHTML = "";
   });
 
+  // Global setup mocks document events. Exercise the actual registered handlers.
+  const documentEvent = async (type: string, event: Event) => {
+    const registration = vi.mocked(document.addEventListener).mock.calls
+      .filter(([name]) => name === type).at(-1);
+    expect(registration).toBeDefined();
+    (registration![1] as EventListener)(event);
+    await nextTick();
+  };
+
+  const touchEvent = (
+    type: string,
+    touches: Array<{ identifier: number; clientX: number; clientY: number }>,
+    changedTouches = touches,
+  ) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      touches: { value: touches },
+      changedTouches: { value: changedTouches },
+    });
+    return event;
+  };
+
+  it("shows formatted values above contact, updates immediately, and removes on release", async () => {
+    const wrapper = render({ modelValue: -4.84, type: "range", formatValue: (v: number) => `${v} dB` });
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    const follower = document.querySelector(".knob-drag-value")!;
+    expect(follower.textContent).toContain("-4.84 dB");
+    expect(follower.querySelector(".sticker--fill")).not.toBeNull();
+    expect(follower.querySelector(".sticker--color-ivory")).not.toBeNull();
+    await wrapper.setProps({ modelValue: -3.2 });
+    expect(follower.textContent).toContain("-3.2 dB");
+    await documentEvent("mouseup", new MouseEvent("mouseup"));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+  });
+
+  it("uses the brass Badge treatment for a brass Knob follower", async () => {
+    const wrapper = render({ modelValue: 64, type: "range", tone: "brass" });
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    const follower = document.querySelector(".knob-drag-value")!;
+    expect(follower.querySelector(".sticker--badge")).not.toBeNull();
+    expect(follower.querySelector(".sticker--color-brass-sheen")).not.toBeNull();
+    expect(follower.querySelector(".sticker--fill")).toBeNull();
+    await documentEvent("mouseup", new MouseEvent("mouseup"));
+  });
+
+  it("scales a complete wrapped value when the visual viewport is too short", async () => {
+    const viewportDescriptor = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    const widthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+    const heightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: { width: 80, height: 64, offsetLeft: 0, offsetTop: 0 },
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+      configurable: true,
+      get() {
+        return this.classList.contains("knob-drag-value")
+          ? 48
+          : widthDescriptor?.get?.call(this) ?? 0;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get() {
+        return this.classList.contains("knob-drag-value")
+          ? 160
+          : heightDescriptor?.get?.call(this) ?? 0;
+      },
+    });
+
+    try {
+      const wrapper = render({
+        modelValue: "major pentatonic",
+        options: [{ label: "Major Pentatonic", value: "major pentatonic" }],
+      });
+      await wrapper.trigger("mousedown", { clientX: 40, clientY: 32 });
+      const follower = document.querySelector<HTMLElement>(".knob-drag-value")!;
+      expect(follower.textContent).toContain("Major Pentatonic");
+      expect(follower.style.maxInlineSize).toBe("48px");
+      expect(follower.style.transform).toContain("scale(0.2)");
+      await documentEvent("mouseup", new MouseEvent("mouseup"));
+    } finally {
+      if (viewportDescriptor) {
+        Object.defineProperty(window, "visualViewport", viewportDescriptor);
+      } else {
+        Reflect.deleteProperty(window, "visualViewport");
+      }
+      if (widthDescriptor) Object.defineProperty(HTMLElement.prototype, "offsetWidth", widthDescriptor);
+      if (heightDescriptor) Object.defineProperty(HTMLElement.prototype, "offsetHeight", heightDescriptor);
+    }
+  });
+
+  it("shows full option labels and dismisses for a horizontal gesture", async () => {
+    const wrapper = render({ modelValue: "minor", options: [{ label: "Harmonic minor", value: "minor" }] });
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("Harmonic minor");
+    await documentEvent("mousemove", new MouseEvent("mousemove", { clientX: 190, clientY: 302 }));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it("cancels touch without tapping and cleans up a held follower on unmount", async () => {
+    const wrapper = render({ modelValue: "a", options: ["a", "b"] });
+    const contact = { identifier: 4, clientX: 150, clientY: 300 };
+    wrapper.element.dispatchEvent(touchEvent("touchstart", [contact]));
+    await nextTick();
+    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+    await documentEvent("touchcancel", touchEvent("touchcancel", [], [contact]));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    wrapper.unmount();
+    wrappers = wrappers.filter((entry) => entry !== wrapper);
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.removeEventListener).toHaveBeenCalledWith("mousemove", expect.any(Function));
+  });
+
+  it("keeps a multi-touch drag bound to its initiating finger", async () => {
+    const wrapper = render({ modelValue: "a", options: ["a", "b"] });
+    const heldKey = { identifier: 3, clientX: 30, clientY: 700 };
+    const knobFinger = { identifier: 8, clientX: 150, clientY: 300 };
+    wrapper.element.dispatchEvent(touchEvent(
+      "touchstart",
+      [heldKey, knobFinger],
+      [knobFinger],
+    ));
+    await nextTick();
+
+    const secondKnobFinger = { identifier: 12, clientX: 160, clientY: 310 };
+    wrapper.element.dispatchEvent(touchEvent(
+      "touchstart",
+      [heldKey, knobFinger, secondKnobFinger],
+      [secondKnobFinger],
+    ));
+    await nextTick();
+
+    await documentEvent("touchmove", touchEvent("touchmove", [
+      { ...heldKey, clientY: 620 },
+      knobFinger,
+      { ...secondKnobFinger, clientY: 230 },
+    ]));
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+
+    await documentEvent("touchend", touchEvent(
+      "touchend",
+      [knobFinger],
+      [heldKey, secondKnobFinger],
+    ));
+    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+
+    const movedKnobFinger = { ...knobFinger, clientY: 250 };
+    await documentEvent("touchmove", touchEvent("touchmove", [movedKnobFinger]));
+    expect(wrapper.emitted("update:modelValue")).toEqual([["b"]]);
+
+    await documentEvent("touchend", touchEvent("touchend", [], [movedKnobFinger]));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+  });
+
+  it("removes a follower when made inert and keeps display-only activation inert", async () => {
+    const wrapper = render({ modelValue: "a", options: ["a", "b"] });
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    await wrapper.setProps({ isDisplay: true });
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
   it("keeps one responsive production anatomy with a bottom label", () => {
     const wrapper = render({ modelValue: 42, label: "Volume" });
 

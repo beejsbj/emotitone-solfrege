@@ -51,8 +51,8 @@
       </div>
       <p class="definition-note">
         Card owns the Ink-3 fill, Ink-5 hairline, square slab, 4px Ink spine,
-        positioning, and containment. Label, mark, typography, padding, controls,
-        state, and motion belong to the consumer.
+        positioning, and optional floating-label/top-right-mark anchors. Consumers
+        supply the content and own internal layout, controls, state, and motion.
       </p>
     </section>
 

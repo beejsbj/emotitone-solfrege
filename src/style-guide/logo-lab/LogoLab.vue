@@ -22,13 +22,13 @@ const lightStage = ref(false);
 
     <header class="logo-lab__header">
       <div>
-        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 03</p>
-        <h1>A, cut clean.<br><span>Six distinct tones.</span></h1>
+        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 04</p>
+        <h1>A, with Cobalt.<br><span>Six cuts. Six colours.</span></h1>
       </div>
       <div class="logo-lab__intro">
         <p>
-          Tight Weave survives. Its six pieces now have six distinct assignments: the five Brand
-          colours plus Ink. On an Ink field, that final cut uses the explicit Ivory inverse.
+          Tight Weave survives. Cobalt completes the Brand palette and takes the T stem, giving all
+          six paper pieces a distinct Brand colour that holds on both Bone and Ink.
         </p>
         <button type="button" @click="lightStage = !lightStage">
           {{ lightStage ? "View on ink" : "View on bone" }}
@@ -47,7 +47,7 @@ const lightStage = ref(false);
         <li class="anatomy__piece anatomy__piece--e-middle"><i />E middle tooth</li>
         <li class="anatomy__piece anatomy__piece--e-bottom"><i />E bottom tooth</li>
         <li class="anatomy__piece anatomy__piece--t-cap"><i />T cap</li>
-        <li class="anatomy__piece anatomy__piece--t-stem"><i />T stem · Ink / Ivory</li>
+        <li class="anatomy__piece anatomy__piece--t-stem"><i />T stem · Cobalt</li>
       </ol>
     </section>
 
@@ -86,24 +86,24 @@ const lightStage = ref(false);
           </div>
         </div>
 
-        <p class="concept__question">Five Brand colours, one Ink neutral, and no repeated assignment.</p>
+        <p class="concept__question">Six Brand colours and no repeated assignment.</p>
       </article>
     </section>
 
     <section class="context-pair" aria-label="Tight Weave background inversions">
       <article class="context-proof context-proof--bone">
-        <span>On Bone · T stem is Ink</span>
+        <span>On Bone · Cobalt holds</span>
         <div class="context-proof__lockup">
-          <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark on Bone with Ink T stem">
+          <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark on Bone with Cobalt T stem">
             <use href="#mark-tight-weave" />
           </svg>
           <strong>EMOTITONE</strong>
         </div>
       </article>
       <article class="context-proof context-proof--ink">
-        <span>On Ink · T stem is Ivory</span>
+        <span>On Ink · Cobalt holds</span>
         <div class="context-proof__lockup">
-          <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark on Ink with Ivory T stem">
+          <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark on Ink with Cobalt T stem">
             <use href="#mark-tight-weave" />
           </svg>
           <strong>EMOTITONE</strong>
@@ -112,8 +112,8 @@ const lightStage = ref(false);
     </section>
 
     <footer class="logo-lab__footer">
-      <strong>One colour question remains.</strong>
-      <span>Is Ink right on the T stem, or should it trade places with another cut?</span>
+      <strong>Cobalt is now in the system.</strong>
+      <span>Does this finish the colour assignment, or should Cobalt trade places with another cut?</span>
     </footer>
   </main>
 </template>
@@ -272,7 +272,7 @@ const lightStage = ref(false);
 .anatomy__piece--e-bottom { --piece-colour: var(--bone); }
 .anatomy__piece--e-bottom i { box-shadow: inset 0 0 0 1px var(--lab-wire); }
 .anatomy__piece--t-cap { --piece-colour: var(--plum); }
-.anatomy__piece--t-stem { --piece-colour: linear-gradient(90deg, var(--ink) 0 50%, var(--ivory) 50%); }
+.anatomy__piece--t-stem { --piece-colour: var(--cobalt); }
 .anatomy__piece--t-stem i { box-shadow: inset 0 0 0 1px var(--lab-muted); }
 
 .logo-lab__grid {
@@ -287,14 +287,12 @@ const lightStage = ref(false);
   --e-middle: var(--tomato);
   --e-bottom: var(--bone);
   --t-cap: var(--plum);
-  --t-stem: var(--ink);
+  --t-stem: var(--cobalt);
   display: grid;
   grid-template-rows: auto minmax(420px, 1fr) auto auto;
   min-width: 0;
   background: var(--lab-panel);
 }
-
-.logo-lab:not(.logo-lab--light) .concept { --t-stem: var(--ivory); }
 
 .concept__header {
   display: flex;
@@ -442,13 +440,13 @@ const lightStage = ref(false);
 }
 
 .context-proof--bone {
-  --t-stem: var(--ink);
+  --t-stem: var(--cobalt);
   background: var(--bone);
   color: var(--ink);
 }
 
 .context-proof--ink {
-  --t-stem: var(--ivory);
+  --t-stem: var(--cobalt);
   background: var(--ink);
   color: var(--ivory);
 }

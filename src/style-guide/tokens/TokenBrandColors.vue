@@ -35,10 +35,17 @@
           <div class="iv">#F0B137</div>
           <div class="role">poster yellow &middot; sticker spine, hot kicker, scrap accent</div>
         </div>
+        <div>
+          <div class="sw" style="background:var(--cobalt)"></div>
+          <div class="nm">--cobalt</div>
+          <div class="iv">#2F67B2</div>
+          <div class="role">cool blue &middot; Brand Logo cutout, poster counterweight</div>
+        </div>
       </div>
     
       <p class="caption" style="margin-top:14px">
-        Brand sits on top of ink, never replaces it. Use one brand color per card &mdash; mixing reads as gift-wrap, not jazz.
+        Brand sits on top of ink, never replaces it. Use one brand color per reusable card &mdash; mixing reads as gift-wrap, not jazz.
+        The singular Brand Logo is the explicit full-palette exception.
         Applied form: see <code>primitive-spine-card.html</code> for the canonical brand-marked shell.
       </p>
     </div>
@@ -51,7 +58,7 @@
 }
 .grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
     gap: 12px;
   }
   .sw {

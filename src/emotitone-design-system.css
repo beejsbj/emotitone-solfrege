@@ -85,13 +85,14 @@
   /* ===============================================================
      2. BRAND — decorative-only poster colors. Cut-paper marks,
         kicker dots, sticker spines, brand artifacts. Never on
-        functional UI chrome. Five colors, that's the set.
+        functional UI chrome. Six colors, that's the set.
      =============================================================== */
   --tomato:     #d8362a;     /* poster red */
   --pine:       #1f4d3f;     /* deep green */
   --plum:       #6b3fa0;     /* lifted purple */
   --bone:       #efe6d0;     /* warm off-white (brand backgrounds) */
   --mustard:    #f0b137;     /* poster yellow */
+  --cobalt:     #2f67b2;     /* cool poster blue */
 
   /* ===============================================================
      3. MUSIC — chromatic, computed. Every key / tile / note glyph

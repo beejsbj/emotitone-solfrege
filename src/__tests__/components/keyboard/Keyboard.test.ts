@@ -144,6 +144,13 @@ describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
+    mocks.keyboardStore.isKeyPressed.mockImplementation(
+      (noteKey: string) => noteKey === "0_4",
+    );
+    mocks.musicStore.getNoteName.mockImplementation(
+      (scaleIndex: number, octave: number) =>
+        `${scaleIndex === 0 ? "C" : "D#"}${octave}`,
+    );
     mocks.musicStore.currentKey = "C";
     mocks.musicStore.currentMode = "major";
     mocks.instrumentStore.isInteractionLocked = false;
@@ -282,21 +289,53 @@ describe("Keyboard production usage", () => {
   });
 
   it("depresses corresponding note keys for the lifetime of a chord owner", async () => {
+    mocks.keyboardStore.isKeyPressed.mockReturnValue(false);
     const wrapper = mountKeyboard();
-    const secondChord = wrapper.findAllComponents(ChordKeyStub)[1];
-    const d4Key = () => wrapper.findAllComponents(KeyStub)[3];
+    const firstChord = wrapper.findAllComponents(ChordKeyStub)[0];
+    const c4Key = () => wrapper.findAllComponents(KeyStub)[2];
     const event = new MouseEvent("mousedown");
 
-    expect(d4Key().props("pressed")).toBe(false);
-    secondChord.vm.$emit("press", { inputId: "pointer:pressed", event });
+    expect(c4Key().props("pressed")).toBe(false);
+    firstChord.vm.$emit("press", { inputId: "pointer:pressed", event });
     await nextTick();
 
-    expect(d4Key().props("pressed")).toBe(true);
+    expect(c4Key().props("pressed")).toBe(true);
 
-    secondChord.vm.$emit("release", { inputId: "pointer:pressed", event });
+    firstChord.vm.$emit("release", { inputId: "pointer:pressed", event });
     await nextTick();
 
-    expect(d4Key().props("pressed")).toBe(false);
+    expect(c4Key().props("pressed")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("matches held chord depression to exact pitches after the key changes", async () => {
+    mocks.keyboardStore.isKeyPressed.mockReturnValue(false);
+    mocks.musicStore.getNoteName.mockImplementation(
+      (scaleIndex: number, octave: number) => {
+        const pitches = mocks.musicStore.currentKey === "D"
+          ? ["D", "E"]
+          : ["C", "D#"];
+        return `${pitches[scaleIndex]}${octave}`;
+      },
+    );
+    const wrapper = mountKeyboard();
+    const chords = wrapper.findAllComponents(ChordKeyStub);
+    const heldChord = chords[0];
+    const refreshChord = chords[1];
+    const event = new MouseEvent("mousedown");
+
+    heldChord.vm.$emit("press", { inputId: "pointer:held-pitches", event });
+    await nextTick();
+    mocks.musicStore.currentKey = "D";
+    refreshChord.vm.$emit("press", { inputId: "pointer:refresh", event });
+    refreshChord.vm.$emit("release", { inputId: "pointer:refresh", event });
+    await nextTick();
+
+    const mainRowKeys = wrapper.findAllComponents(KeyStub).slice(2, 4);
+    expect(mainRowKeys.map((key) => [key.props("rawPitch"), key.props("pressed")]))
+      .toEqual([["D4", false], ["E4", true]]);
+
+    heldChord.vm.$emit("release", { inputId: "pointer:held-pitches", event });
     wrapper.unmount();
   });
 

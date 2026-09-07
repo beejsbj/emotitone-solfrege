@@ -549,9 +549,14 @@ export function useColorSystem() {
       };
     }
 
-    return {
-      background: adjustColorHSL(primaryColor, keyBrightness, keySaturation),
+    const adjustedColor = adjustColorHSL(
       primaryColor,
+      keyBrightness,
+      keySaturation,
+    );
+    return {
+      background: adjustedColor,
+      primaryColor: adjustedColor,
     };
   };
 

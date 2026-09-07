@@ -194,7 +194,7 @@ interface ActiveChordSnapshot {
   harmony: HarmonyChord;
   mode: MusicalMode;
   key: ChromaticNote;
-  noteKeys: string[];
+  notePitches: string[];
 }
 
 const props = withDefaults(
@@ -321,19 +321,20 @@ function createProductionWiring() {
       .getActiveNotes()
       .map((note) => `${note.solfegeIndex}_${note.keyboardOctave ?? note.octave}`),
   ));
-  const chordPressedNoteKeys = computed(() => new Set(
-    Array.from(activeChordSnapshots.values()).flatMap((snapshot) => snapshot.noteKeys),
+  const chordPressedPitches = computed(() => new Set(
+    Array.from(activeChordSnapshots.values()).flatMap((snapshot) => snapshot.notePitches),
   ));
   const rows = computed<KeyboardRowView[]>(() =>
     store.visibleOctaves.map((octave) => ({
       octave,
       keys: store.solfegeData.map((solfege, scaleIndex) => {
         const id = noteKey(scaleIndex, octave);
+        const rawPitch = noteName(scaleIndex, octave);
         return {
           id,
           syllable: solfege.name,
           degree: degreeLabel(solfege.number),
-          rawPitch: noteName(scaleIndex, octave),
+          rawPitch,
           scaleIndex,
           pitchClassIndex: pitchClassIndex(scaleIndex),
           mode: musicStore.currentMode,
@@ -342,7 +343,7 @@ function createProductionWiring() {
           keyBrightness: config.value.keyBrightness,
           keySaturation: config.value.keySaturation,
           sounding: store.isVisualNoteActive(id) || soundingNoteKeys.value.has(id),
-          pressed: store.isKeyPressed(id) || chordPressedNoteKeys.value.has(id),
+          pressed: store.isKeyPressed(id) || chordPressedPitches.value.has(rawPitch),
         };
       }),
     })),
@@ -430,10 +431,7 @@ function createProductionWiring() {
       harmony: intent.chord,
       mode: musicStore.currentMode,
       key: currentMusicKey.value,
-      noteKeys: intent.chord.voicing.pitches.flatMap((pitch) => {
-        const parsed = musicStore.parseNoteInput(pitch.name);
-        return parsed ? [noteKey(parsed.solfegeIndex, parsed.octave)] : [];
-      }),
+      notePitches: intent.chord.voicing.pitches.map((pitch) => pitch.name),
     });
     store.addTouch(ownerId, `chord:${intent.chordId}`);
     if (intent.source === "pointer" && config.value.hapticFeedback) {

@@ -259,6 +259,33 @@ describe("music store", () => {
     expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
+  it("releases an exact attack that finishes after instrument selection changes", async () => {
+    const instrumentStore = useInstrumentStore();
+    const musicStore = useMusicStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+    let finishAttack!: () => void;
+    superdoughMocks.attackNote.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishAttack = resolve;
+      })
+    );
+
+    const pendingAttack = musicStore.attackExactPitch("D#4");
+    instrumentStore.selectionEpoch += 1;
+    instrumentStore.currentInstrument = "gm_vibraphone";
+    finishAttack();
+    const noteId = await pendingAttack;
+
+    expect(noteId).toBeNull();
+    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+      expect.stringMatching(/^exact_D#4_/)
+    );
+    expect(musicStore.getActiveNotes()).toHaveLength(0);
+    expect(dispatchEventSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "note-played" }),
+    );
+  });
+
   it("dispatches duration playback with the resolved note for the current mode", async () => {
     const musicStore = useMusicStore();
 

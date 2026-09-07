@@ -113,6 +113,23 @@ describe("useColorSystem", () => {
       .not.toBe("hsla(0, 0%, 16%, 1)");
   });
 
+  it("applies key adjustments to exact-pitch primary colors", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
+    const colorSystem = useColorSystem();
+
+    const adjusted = colorSystem.getKeyBackgroundByPitchClass(
+      0,
+      "major",
+      "C",
+      4,
+      "colored",
+      false,
+      { keyBrightness: 0.5, keySaturation: 0.5 },
+    );
+
+    expect(adjusted.primaryColor).toBe(adjusted.background);
+  });
+
   it("resolves altered syllables without falling back to the default error color", () => {
     dynamicColorConfig.value.musicColorMode = "movable";
     const colorSystem = useColorSystem();

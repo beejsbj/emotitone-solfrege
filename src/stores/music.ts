@@ -379,6 +379,8 @@ export const useMusicStore = defineStore(
      * to the preceding scale degree.
      */
     async function attackExactPitch(note: string): Promise<string | null> {
+      if (instrumentStore.isInteractionLocked) return null;
+
       const parsed = parseNoteWithOctave(note);
       if (!parsed) return null;
 
@@ -398,6 +400,8 @@ export const useMusicStore = defineStore(
       if (!solfege) return null;
 
       const noteContext = getCurrentNoteContext();
+      const instrumentSelectionEpoch = instrumentStore.selectionEpoch;
+      const attackInstrument = instrumentStore.currentInstrument;
       const cleanNoteId = [
         "exact",
         exactNoteName,
@@ -408,8 +412,17 @@ export const useMusicStore = defineStore(
       await superdoughAudio.attackNote(
         cleanNoteId,
         exactNoteName,
-        instrumentStore.currentInstrument,
+        attackInstrument,
       );
+
+      if (
+        instrumentStore.isInteractionLocked
+        || instrumentStore.selectionEpoch !== instrumentSelectionEpoch
+        || instrumentStore.currentInstrument !== attackInstrument
+      ) {
+        superdoughAudio.releaseNote(cleanNoteId);
+        return null;
+      }
 
       const activeNote: ActiveNote = {
         solfegeIndex,
@@ -438,7 +451,7 @@ export const useMusicStore = defineStore(
           noteId: cleanNoteId,
           noteName: exactNoteName,
           ...noteContext,
-          instrument: instrumentStore.currentInstrument,
+          instrument: attackInstrument,
           instrumentConfig: null,
         },
       }));

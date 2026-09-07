@@ -20,12 +20,17 @@ function createEmptySnapshot(): HarmonicAnalysisSnapshot {
 export function useHarmonicAnalysis(
   getActiveNotes: () => readonly ActiveNote[] = () => []
 ) {
-  const { floatingPopupConfig } = useVisualConfig();
+  const { blobConfig } = useVisualConfig();
   const snapshot = ref<HarmonicAnalysisSnapshot>(createEmptySnapshot());
   const accumulatedNotes = ref<Map<string, ActiveNote>>(new Map());
   const displayOrder = ref<string[]>([]);
   const activeNoteIds = reactive(new Set<string>());
   const isVisible = ref(false);
+  const relationshipsEnabled = computed(
+    () =>
+      blobConfig.value.isEnabled &&
+      blobConfig.value.connectionMode !== "off"
+  );
   let hideTimer: number | null = null;
 
   const clearHideTimer = () => {
@@ -36,7 +41,7 @@ export function useHarmonicAnalysis(
   };
 
   const displayedNoteIds = computed(() => {
-    const maximum = Math.max(1, floatingPopupConfig.value.maxNotes);
+    const maximum = Math.max(1, blobConfig.value.analysisNoteLimit);
     const activeIds = displayOrder.value.filter(
       (noteId) =>
         activeNoteIds.has(noteId) && accumulatedNotes.value.has(noteId)
@@ -96,7 +101,7 @@ export function useHarmonicAnalysis(
   });
 
   const chordLabel = computed(() => {
-    if (!floatingPopupConfig.value.showChord) {
+    if (!blobConfig.value.showChordLabel) {
       return null;
     }
 
@@ -110,7 +115,7 @@ export function useHarmonicAnalysis(
   });
 
   const emotionalDescription = computed(() => {
-    if (!floatingPopupConfig.value.showEmotionalDescription) {
+    if (!blobConfig.value.showEmotionLabel) {
       return "";
     }
 
@@ -137,7 +142,7 @@ export function useHarmonicAnalysis(
   const publishSnapshot = () => {
     snapshot.value = {
       isVisible:
-        floatingPopupConfig.value.isEnabled &&
+        relationshipsEnabled.value &&
         isVisible.value &&
         displayedNotes.value.length > 0,
       displayedNotes: [...displayedNotes.value],
@@ -153,7 +158,7 @@ export function useHarmonicAnalysis(
     );
     const excessReleasedIds = releasedIds.slice(
       0,
-      Math.max(0, releasedIds.length - floatingPopupConfig.value.maxNotes)
+      Math.max(0, releasedIds.length - blobConfig.value.analysisNoteLimit)
     );
 
     if (excessReleasedIds.length === 0) return;
@@ -184,11 +189,11 @@ export function useHarmonicAnalysis(
 
     hideTimer = window.setTimeout(() => {
       reset();
-    }, floatingPopupConfig.value.accumulationWindow + floatingPopupConfig.value.hideDelay);
+    }, blobConfig.value.analysisHoldTime);
   };
 
   const notePlayed = (note: ActiveNote) => {
-    if (!floatingPopupConfig.value.isEnabled) {
+    if (!relationshipsEnabled.value) {
       reset();
       return;
     }
@@ -225,7 +230,7 @@ export function useHarmonicAnalysis(
   const noteReleased = (noteId: string) => {
     activeNoteIds.delete(noteId);
 
-    if (!floatingPopupConfig.value.isEnabled) {
+    if (!relationshipsEnabled.value) {
       reset();
       return;
     }
@@ -261,7 +266,7 @@ export function useHarmonicAnalysis(
   };
 
   watch(
-    () => floatingPopupConfig.value.isEnabled,
+    relationshipsEnabled,
     (enabled) => {
       if (!enabled) {
         reset();
@@ -275,9 +280,9 @@ export function useHarmonicAnalysis(
 
   watch(
     () => [
-      floatingPopupConfig.value.maxNotes,
-      floatingPopupConfig.value.showChord,
-      floatingPopupConfig.value.showEmotionalDescription,
+      blobConfig.value.analysisNoteLimit,
+      blobConfig.value.showChordLabel,
+      blobConfig.value.showEmotionLabel,
     ],
     () => {
       trimDisplayedNotes();

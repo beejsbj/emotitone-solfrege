@@ -8,22 +8,16 @@ const mocks = vi.hoisted(() => {
     value: {
       isEnabled: true,
       fadeOutDuration: 1,
-    },
-  };
-  const harmonicConfig = {
-    value: {
-      isEnabled: true,
-      showChord: true,
-      showIntervals: true,
-      showEmotionalDescription: true,
-      geometryMode: "web",
-      opacity: 0.5,
+      connectionMode: "web",
+      showChordLabel: true,
+      showIntervalLabels: true,
+      showEmotionLabel: true,
+      labelOpacity: 0.5,
     },
   };
 
   return {
     blobConfig,
-    harmonicConfig,
     musicStore: {
       currentMode: "major",
       currentKey: "C",
@@ -52,7 +46,6 @@ vi.mock("@/stores/music", () => ({
 vi.mock("@/composables/useVisualConfig", () => ({
   useVisualConfig: () => ({
     blobConfig: mocks.blobConfig,
-    floatingPopupConfig: mocks.harmonicConfig,
     ambientConfig: { value: { isEnabled: false } },
     particleConfig: { value: { isEnabled: false, count: 0 } },
     stringConfig: { value: { isEnabled: false } },
@@ -193,8 +186,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     mocks.blobConfig.value.isEnabled = true;
-    mocks.harmonicConfig.value.isEnabled = true;
-    mocks.harmonicConfig.value.geometryMode = "web";
+    mocks.blobConfig.value.connectionMode = "web";
     mocks.musicStore.getActiveNotes.mockReturnValue([]);
   });
 
@@ -292,10 +284,8 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.renderBlobField).toHaveBeenCalledWith(
       mockCanvasContext,
       [],
-      "web",
-      mocks.harmonicConfig.value,
-      scene,
-      mocks.blobConfig.value
+      mocks.blobConfig.value,
+      scene
     );
   });
 
@@ -308,10 +298,8 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.renderBlobField).toHaveBeenCalledWith(
       mockCanvasContext,
       [],
-      "web",
-      mocks.harmonicConfig.value,
-      null,
-      mocks.blobConfig.value
+      mocks.blobConfig.value,
+      null
     );
   });
 

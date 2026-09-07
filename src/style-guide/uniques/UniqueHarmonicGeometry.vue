@@ -57,8 +57,8 @@ import { useHarmonicGeometryRenderer } from "@/composables/canvas/useHarmonicGeo
 import type {
   ActiveBlob,
   ActiveNote,
+  BlobConfig,
   HarmonicAnalysisSnapshot,
-  HarmonicGeometryConfig,
   HarmonicGeometryMode,
 } from "@/types";
 
@@ -231,16 +231,16 @@ const drawSpecimen = (
   context.clearRect(0, 0, width, height);
 
   const blobs = createBlobs(width, height, mode);
-  const config: HarmonicGeometryConfig = {
-    ...DEFAULT_CONFIG.floatingPopup,
-    isEnabled: true,
-    geometryMode: mode,
-    showChord: showLabels.value,
-    showIntervals: showLabels.value,
-    showEmotionalDescription: showLabels.value,
-    backdropBlur: 18,
-    glassmorphOpacity: mode === "merge" ? 0.86 : 0.68,
-    opacity: mode === "merge" ? 0.82 : 0.9,
+  const config: BlobConfig = {
+    ...DEFAULT_CONFIG.blobs,
+    connectionMode: mode,
+    showChordLabel: showLabels.value,
+    showIntervalLabels: showLabels.value,
+    showEmotionLabel: showLabels.value,
+    fieldSoftness: 18,
+    fusionStrength: mode === "merge" ? 0.86 : 0.68,
+    webOpacity: 0.9,
+    labelOpacity: mode === "merge" ? 0.82 : 0.9,
   };
   const scene = renderer.buildScene(snapshot, blobs, config, width, height);
   const frames = notes.flatMap((note, index) => {
@@ -250,7 +250,7 @@ const drawSpecimen = (
           blobRenderer.createFixtureFrame(
             note.noteId,
             blob,
-            DEFAULT_CONFIG.blobs,
+            config,
             1.15 + index * 0.17
           ),
         ]
@@ -260,10 +260,8 @@ const drawSpecimen = (
   blobFieldRenderer.renderBlobField(
     context,
     frames,
-    mode,
     config,
-    scene,
-    DEFAULT_CONFIG.blobs
+    scene
   );
   renderer.renderLabels(context, scene, config);
 };

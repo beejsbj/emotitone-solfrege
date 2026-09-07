@@ -1,38 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope, nextTick, type EffectScope } from "vue";
-import type { ActiveNote, HarmonicGeometryConfig } from "@/types";
+import type {
+  ActiveNote,
+  BlobConfig,
+  BlobRelationshipConfig,
+} from "@/types";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
+
+type TestBlobConfig = BlobRelationshipConfig & Pick<BlobConfig, "isEnabled">;
 
 const harmonicTestState = vi.hoisted(() => ({
   baseConfig: {
     isEnabled: true,
-    accumulationWindow: 120,
-    hideDelay: 240,
-    maxNotes: 7,
-    showChord: true,
-    showIntervals: true,
-    showEmotionalDescription: true,
-    geometryMode: "merge",
-    backdropBlur: 1,
-    glassmorphOpacity: 0.4,
-    opacity: 0.5,
-  } satisfies HarmonicGeometryConfig,
-  floatingPopupConfig: null as {
-    value: HarmonicGeometryConfig;
+    connectionMode: "merge",
+    analysisHoldTime: 360,
+    analysisNoteLimit: 7,
+    showChordLabel: true,
+    showIntervalLabels: true,
+    showEmotionLabel: true,
+    fieldSoftness: 1,
+    fusionStrength: 0.4,
+    webOpacity: 0.5,
+    labelOpacity: 0.5,
+  } satisfies TestBlobConfig,
+  blobConfig: null as {
+    value: TestBlobConfig;
   } | null,
 }));
 
 vi.mock("@/composables/useVisualConfig", async () => {
   const { ref } = await vi.importActual<typeof import("vue")>("vue");
-  const floatingPopupConfig = ref({
+  const blobConfig = ref({
     ...harmonicTestState.baseConfig,
   });
-  harmonicTestState.floatingPopupConfig = floatingPopupConfig;
+  harmonicTestState.blobConfig = blobConfig;
 
   return {
     useVisualConfig: () => ({
-      floatingPopupConfig,
+      blobConfig,
     }),
   };
 });
@@ -78,7 +84,7 @@ describe("useHarmonicAnalysis", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    harmonicTestState.floatingPopupConfig!.value = {
+    harmonicTestState.blobConfig!.value = {
       ...harmonicTestState.baseConfig,
     };
   });
@@ -88,11 +94,11 @@ describe("useHarmonicAnalysis", () => {
     vi.useRealTimers();
   });
 
-  it("defaults harmonic geometry to merge mode with labels hidden", () => {
-    expect(DEFAULT_CONFIG.floatingPopup.geometryMode).toBe("merge");
-    expect(DEFAULT_CONFIG.floatingPopup.showChord).toBe(false);
-    expect(DEFAULT_CONFIG.floatingPopup.showIntervals).toBe(false);
-    expect(DEFAULT_CONFIG.floatingPopup.showEmotionalDescription).toBe(false);
+  it("defaults blob relationships off with labels hidden", () => {
+    expect(DEFAULT_CONFIG.blobs.connectionMode).toBe("off");
+    expect(DEFAULT_CONFIG.blobs.showChordLabel).toBe(false);
+    expect(DEFAULT_CONFIG.blobs.showIntervalLabels).toBe(false);
+    expect(DEFAULT_CONFIG.blobs.showEmotionLabel).toBe(false);
   });
 
   it("keeps event-driven harmonic history visible until its timing window expires", async () => {
@@ -169,12 +175,12 @@ describe("useHarmonicAnalysis", () => {
   });
 
   it("keeps harmonic relationships available when interval labels are hidden", async () => {
-    harmonicTestState.floatingPopupConfig!.value = {
-      ...harmonicTestState.floatingPopupConfig!.value,
-      maxNotes: 2,
-      showChord: false,
-      showIntervals: false,
-      showEmotionalDescription: false,
+    harmonicTestState.blobConfig!.value = {
+      ...harmonicTestState.blobConfig!.value,
+      analysisNoteLimit: 2,
+      showChordLabel: false,
+      showIntervalLabels: false,
+      showEmotionLabel: false,
     };
 
     const { snapshot, notePlayed } = createAnalysis();
@@ -196,17 +202,17 @@ describe("useHarmonicAnalysis", () => {
   it("hydrates notes that are already held when harmonic geometry is enabled", async () => {
     const c4 = createActiveNote("note-c4", "C4", "Do");
     const e4 = createActiveNote("note-e4", "E4", "Mi");
-    harmonicTestState.floatingPopupConfig!.value = {
-      ...harmonicTestState.floatingPopupConfig!.value,
-      isEnabled: false,
+    harmonicTestState.blobConfig!.value = {
+      ...harmonicTestState.blobConfig!.value,
+      connectionMode: "off",
     };
     const { snapshot } = createAnalysis(() => [c4, e4]);
 
     expect(snapshot.value.displayedNotes).toEqual([]);
 
-    harmonicTestState.floatingPopupConfig!.value = {
-      ...harmonicTestState.floatingPopupConfig!.value,
-      isEnabled: true,
+    harmonicTestState.blobConfig!.value = {
+      ...harmonicTestState.blobConfig!.value,
+      connectionMode: "merge",
     };
     await nextTick();
 
@@ -218,9 +224,9 @@ describe("useHarmonicAnalysis", () => {
   });
 
   it("keeps trimmed held notes active until their real release", () => {
-    harmonicTestState.floatingPopupConfig!.value = {
-      ...harmonicTestState.floatingPopupConfig!.value,
-      maxNotes: 2,
+    harmonicTestState.blobConfig!.value = {
+      ...harmonicTestState.blobConfig!.value,
+      analysisNoteLimit: 2,
     };
     const { snapshot, notePlayed, noteReleased } = createAnalysis();
     const a = createActiveNote("a", "C4", "Do");

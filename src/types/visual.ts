@@ -21,6 +21,13 @@ export interface ConfigField<T> {
   format?: (value: T) => string;
   /** Optional icon for the field */
   icon?: string;
+  /** Optional subgroup label inside a configuration section */
+  group?: string;
+  /** Optional visibility rule keyed to another field in the same section */
+  visibleWhen?: {
+    field: string;
+    values: Array<string | number | boolean>;
+  };
 }
 
 /**
@@ -60,36 +67,32 @@ export interface DynamicColorConfig {
   animationSpeed: number;
 }
 
-/** Blob-led harmonic analysis presentation configuration. */
+/** Blob relationship presentations. */
 export type HarmonicGeometryMode = "merge" | "web";
+export type BlobConnectionMode = "off" | HarmonicGeometryMode;
 
-export interface HarmonicGeometryConfig {
-  /** Whether harmonic geometry is enabled */
-  isEnabled: boolean;
-  /** Accumulation window for notes in milliseconds */
-  accumulationWindow: number;
-  /** Hide delay after last note stops in milliseconds */
-  hideDelay: number;
-  /** Maximum number of notes to display simultaneously */
-  maxNotes: number;
-  /** Whether to show chord information */
-  showChord: boolean;
-  /** Whether to show interval information */
-  showIntervals: boolean;
-  /** Whether to show emotional descriptions */
-  showEmotionalDescription: boolean;
-  /** How larger harmonic geometries should be interpreted */
-  geometryMode: HarmonicGeometryMode;
-  /** Connection softness in pixels */
-  backdropBlur: number;
+export interface BlobRelationshipConfig {
+  /** Whether relationships are absent, merged, or shown as a harmonic web */
+  connectionMode: BlobConnectionMode;
+  /** How long released analysis remains available, in milliseconds */
+  analysisHoldTime: number;
+  /** Maximum number of notes included in relationship analysis */
+  analysisNoteLimit: number;
+  /** Whether to show a chord label */
+  showChordLabel: boolean;
+  /** Whether to show interval labels */
+  showIntervalLabels: boolean;
+  /** Whether to show an emotional-description label */
+  showEmotionLabel: boolean;
+  /** Shared-field relationship softness in pixels */
+  fieldSoftness: number;
   /** Connection or fusion strength (0-1) */
-  glassmorphOpacity: number;
-  /** Graph and analysis-label opacity when visible (0-1) */
-  opacity: number;
+  fusionStrength: number;
+  /** Web filament opacity (0-1) */
+  webOpacity: number;
+  /** Analysis-label opacity (0-1) */
+  labelOpacity: number;
 }
-
-/** @deprecated Use HarmonicGeometryConfig. The persisted section key remains floatingPopup. */
-export type FloatingPopupConfig = HarmonicGeometryConfig;
 
 /**
  * Frequency to value mapping configuration
@@ -162,7 +165,7 @@ export interface VisualEffectConfig {
 /**
  * Blob visual effect configuration
  */
-export interface BlobConfig {
+export interface BlobConfig extends BlobRelationshipConfig {
   /** Whether blob effects are enabled */
   isEnabled: boolean;
   /** Base size ratio relative to screen size */
@@ -499,6 +502,17 @@ export type EnhancedBlobConfig = {
   vibrationAmplitude: ConfigField<number>;
   glowEnabled: ConfigField<boolean>;
   glowIntensity: ConfigField<number>;
+  circleTopMargin: ConfigField<number>;
+  connectionMode: ConfigField<BlobConnectionMode>;
+  fieldSoftness: ConfigField<number>;
+  fusionStrength: ConfigField<number>;
+  webOpacity: ConfigField<number>;
+  analysisHoldTime: ConfigField<number>;
+  analysisNoteLimit: ConfigField<number>;
+  showChordLabel: ConfigField<boolean>;
+  showIntervalLabels: ConfigField<boolean>;
+  showEmotionLabel: ConfigField<boolean>;
+  labelOpacity: ConfigField<number>;
 };
 
 /**
@@ -526,8 +540,6 @@ export interface VisualEffectsConfig {
   frequencyMapping: FrequencyMappingConfig;
   /** Dynamic color system configuration */
   dynamicColors: DynamicColorConfig;
-  /** Harmonic geometry configuration under the legacy persisted key */
-  floatingPopup: HarmonicGeometryConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
   /** Beating Shapes configuration */

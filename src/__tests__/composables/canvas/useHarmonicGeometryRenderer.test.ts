@@ -4,8 +4,8 @@ import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 import type {
   ActiveBlob,
   ActiveNote,
+  BlobRelationshipConfig,
   HarmonicAnalysisSnapshot,
-  HarmonicGeometryConfig,
   HarmonicIntervalEdge,
 } from "@/types";
 
@@ -19,18 +19,17 @@ vi.mock("@/composables/useColorSystem", () => ({
   }),
 }));
 
-const baseConfig: HarmonicGeometryConfig = {
-  isEnabled: true,
-  accumulationWindow: 120,
-  hideDelay: 240,
-  maxNotes: 7,
-  showChord: true,
-  showIntervals: true,
-  showEmotionalDescription: true,
-    geometryMode: "merge",
-  backdropBlur: 1,
-  glassmorphOpacity: 0.4,
-  opacity: 0.5,
+const baseConfig: BlobRelationshipConfig = {
+  connectionMode: "merge",
+  analysisHoldTime: 360,
+  analysisNoteLimit: 7,
+  showChordLabel: true,
+  showIntervalLabels: true,
+  showEmotionLabel: true,
+  fieldSoftness: 1,
+  fusionStrength: 0.4,
+  webOpacity: 0.5,
+  labelOpacity: 0.5,
 };
 
 function createNote(noteId: string, noteName: string): ActiveNote {
@@ -154,7 +153,7 @@ describe("useHarmonicGeometryRenderer", () => {
     const scene = buildScene(
       createSnapshot(notes),
       blobs,
-      { ...baseConfig, showChord: false },
+      { ...baseConfig, showChordLabel: false },
       400,
       400
     );
@@ -180,7 +179,11 @@ describe("useHarmonicGeometryRenderer", () => {
     const scene = buildScene(
       createSnapshot(notes),
       blobs,
-      { ...baseConfig, geometryMode: "web", showIntervals: false },
+      {
+        ...baseConfig,
+        connectionMode: "web",
+        showIntervalLabels: false,
+      },
       400,
       400
     );
@@ -226,7 +229,7 @@ describe("useHarmonicGeometryRenderer", () => {
       ["g4", createBlob(notes[2], 200, 320)],
     ]);
     const renderer = useHarmonicGeometryRenderer();
-    const config = { ...baseConfig, geometryMode: "web" as const };
+    const config = { ...baseConfig, connectionMode: "web" as const };
     const scene = renderer.buildScene(
       createSnapshot(notes),
       blobs,
@@ -279,7 +282,7 @@ describe("useHarmonicGeometryRenderer", () => {
       [notes[1].noteId, createBlob(notes[1], 300, 100)],
     ]);
     const renderer = useHarmonicGeometryRenderer();
-    const config = { ...baseConfig, opacity: 0 };
+    const config = { ...baseConfig, labelOpacity: 0 };
     const scene = renderer.buildScene(
       createSnapshot(notes),
       blobs,

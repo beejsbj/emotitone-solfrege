@@ -27,7 +27,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     particleConfig,
     stringConfig,
     animationConfig,
-    floatingPopupConfig,
     hilbertScopeConfig,
   } = useVisualConfig();
   const {
@@ -53,7 +52,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     ambient: ambientConfig.value,
     particle: particleConfig.value,
     string: stringConfig.value,
-    harmonic: floatingPopupConfig.value,
     hilbertScope: hilbertScopeConfig.value,
   };
 
@@ -71,11 +69,11 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
 
   const harmonicAccessibleText = computed(() => {
     const snapshot = harmonicAnalysisSnapshot.value;
-    const config = floatingPopupConfig.value;
+    const config = blobConfig.value;
 
     if (
       !blobConfig.value.isEnabled ||
-      !config.isEnabled ||
+      config.connectionMode === "off" ||
       !snapshot.isVisible ||
       snapshot.displayedNotes.length < 2
     ) {
@@ -87,11 +85,11 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     );
     const announcements: string[] = [];
 
-    if (config.showChord && snapshot.chordLabel) {
+    if (config.showChordLabel && snapshot.chordLabel) {
       announcements.push(`Chord: ${snapshot.chordLabel}`);
     }
 
-    if (config.showIntervals) {
+    if (config.showIntervalLabels) {
       snapshot.intervalEdges.forEach((edge) => {
         const from = notesById.get(edge.fromNoteId);
         const to = notesById.get(edge.toNoteId);
@@ -103,7 +101,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       });
     }
 
-    if (config.showEmotionalDescription && snapshot.emotionalDescription) {
+    if (config.showEmotionLabel && snapshot.emotionalDescription) {
       announcements.push(`Emotion: ${snapshot.emotionalDescription}`);
     }
 
@@ -119,7 +117,6 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       ambient: ambientConfig.value,
       particle: particleConfig.value,
       string: stringConfig.value,
-      harmonic: floatingPopupConfig.value,
       hilbertScope: hilbertScopeConfig.value,
     };
   };
@@ -282,22 +279,19 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       ? harmonicGeometryRenderer.buildScene(
           harmonicAnalysisSnapshot.value,
           blobRenderer.activeBlobs,
-          cachedConfigs.harmonic,
+          cachedConfigs.blob,
           canvasWidth.value,
           canvasHeight.value
         )
       : null;
-    const fieldMode = cachedConfigs.harmonic.geometryMode;
     const renderedBlobField =
       cachedConfigs.blob.isEnabled &&
-      cachedConfigs.harmonic.isEnabled &&
+      cachedConfigs.blob.connectionMode !== "off" &&
       blobFieldRenderer.renderBlobField(
         ctx,
         blobRenderer.getPreparedBlobFrames(),
-        fieldMode,
-        cachedConfigs.harmonic,
-        harmonicScene,
-        cachedConfigs.blob
+        cachedConfigs.blob,
+        harmonicScene
       );
 
     if (cachedConfigs.blob.isEnabled && !renderedBlobField) {
@@ -326,7 +320,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     harmonicGeometryRenderer.renderLabels(
       ctx,
       harmonicScene,
-      cachedConfigs.harmonic
+      cachedConfigs.blob
     );
   };
 

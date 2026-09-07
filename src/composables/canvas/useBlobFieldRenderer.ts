@@ -4,8 +4,6 @@ import type {
 } from "@/types/canvas";
 import type {
   BlobConfig,
-  HarmonicGeometryConfig,
-  HarmonicGeometryMode,
 } from "@/types/visual";
 
 export const BLOB_FIELD_PIXEL_BUDGET = 30_000;
@@ -808,12 +806,11 @@ export function useBlobFieldRenderer() {
   const renderBlobField = (
     target: CanvasRenderingContext2D,
     frames: readonly PreparedBlobFrame[],
-    mode: HarmonicGeometryMode,
-    config: HarmonicGeometryConfig,
-    scene: HarmonicGeometryScene | null,
-    blobConfig: BlobConfig
+    config: BlobConfig,
+    scene: HarmonicGeometryScene | null
   ) => {
-    if (frames.length === 0) {
+    const mode = config.connectionMode;
+    if (frames.length === 0 || mode === "off") {
       return false;
     }
 
@@ -821,19 +818,19 @@ export function useBlobFieldRenderer() {
       mode === "web"
         ? Math.max(
             5,
-            config.backdropBlur * (0.65 + config.glassmorphOpacity * 0.4)
+            config.fieldSoftness * (0.65 + config.fusionStrength * 0.4)
           )
         : Math.max(
             6,
-            config.backdropBlur * (0.82 + config.glassmorphOpacity * 0.72)
+            config.fieldSoftness * (0.82 + config.fusionStrength * 0.72)
           );
     const bounds = getBlobFieldBounds(
       frames,
       target.canvas.width,
       target.canvas.height,
       blur * 3 +
-        blobConfig.blurRadius +
-        (blobConfig.glowEnabled ? blobConfig.glowIntensity : 0)
+        config.blurRadius +
+        (config.glowEnabled ? config.glowIntensity : 0)
     );
     if (!bounds) {
       return false;
@@ -851,13 +848,13 @@ export function useBlobFieldRenderer() {
             connection,
             blur,
             scale,
-            config.glassmorphOpacity
+            config.fusionStrength
           )
         : getBlobWebConnectionWidth(
             connection,
             blur,
             scale,
-            config.glassmorphOpacity
+            config.fusionStrength
           );
 
       return {
@@ -903,7 +900,7 @@ export function useBlobFieldRenderer() {
       return connection.role === "merge"
         ? bodyOpacity
         : bodyOpacity *
-            config.opacity *
+            config.webOpacity *
             (connection.role === "boundary" ? 0.92 : 0.46);
     };
 
@@ -1060,8 +1057,8 @@ export function useBlobFieldRenderer() {
 
     const threshold =
       mode === "web"
-        ? 0.48 - config.glassmorphOpacity * 0.28
-        : 0.54 - config.glassmorphOpacity * 0.24;
+        ? 0.48 - config.fusionStrength * 0.28
+        : 0.54 - config.fusionStrength * 0.24;
     const output = frameBuffers.output;
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
@@ -1098,7 +1095,7 @@ export function useBlobFieldRenderer() {
     }
 
     outputContext.putImageData(output, 0, 0);
-    getBlobFieldMaterialPasses(blobConfig).forEach((pass) => {
+    getBlobFieldMaterialPasses(config).forEach((pass) => {
       target.save();
       target.imageSmoothingEnabled = true;
       target.imageSmoothingQuality = "high";

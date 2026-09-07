@@ -420,7 +420,18 @@ vi.mock('@/composables/useVisualConfig', () => ({
       edgeSegments: 12,
       vibrationAmplitude: 0.05,
       glowEnabled: true,
-      glowIntensity: 15
+      glowIntensity: 15,
+      circleTopMargin: 30,
+      connectionMode: 'merge',
+      analysisHoldTime: 2100,
+      analysisNoteLimit: 5,
+      showChordLabel: true,
+      showIntervalLabels: true,
+      showEmotionLabel: true,
+      fieldSoftness: 10,
+      fusionStrength: 0.15,
+      webOpacity: 0.5,
+      labelOpacity: 0.5
     },
     ambient: {
       isEnabled: true,
@@ -477,17 +488,6 @@ vi.mock('@/composables/useVisualConfig', () => ({
       gradientDirection: 45,
       useGlassmorphism: true,
       glassmorphOpacity: 0.2
-    },
-    floatingPopup: {
-      isEnabled: true,
-      accumulationWindow: 100,
-      hideDelay: 2000,
-      maxNotes: 5,
-      showChord: true,
-      showIntervals: true,
-      showEmotionalDescription: true,
-      backdropBlur: 10,
-      glassmorphOpacity: 0.15,
     }
   }
 }))

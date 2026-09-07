@@ -5,7 +5,7 @@ import type {
   HarmonicGeometryScene,
 } from "@/types/canvas";
 import type {
-  HarmonicGeometryConfig,
+  BlobRelationshipConfig,
   HarmonicAnalysisSnapshot,
   HarmonicIntervalEdge,
 } from "@/types";
@@ -102,11 +102,15 @@ export function useHarmonicGeometryRenderer() {
   const buildScene = (
     snapshot: HarmonicAnalysisSnapshot,
     activeBlobs: Map<string, ActiveBlob>,
-    config: HarmonicGeometryConfig,
+    config: BlobRelationshipConfig,
     canvasWidth: number,
     canvasHeight: number
   ): HarmonicGeometryScene | null => {
-    if (!config.isEnabled || !snapshot.isVisible || snapshot.displayedNotes.length < 2) {
+    if (
+      config.connectionMode === "off" ||
+      !snapshot.isVisible ||
+      snapshot.displayedNotes.length < 2
+    ) {
       return null;
     }
 
@@ -173,10 +177,10 @@ export function useHarmonicGeometryRenderer() {
     }
 
     const primaryLabelLines = [
-      ...(config.showChord && snapshot.chordLabel
+      ...(config.showChordLabel && snapshot.chordLabel
         ? [snapshot.chordLabel]
         : []),
-      ...(config.showEmotionalDescription && snapshot.emotionalDescription
+      ...(config.showEmotionLabel && snapshot.emotionalDescription
         ? [snapshot.emotionalDescription]
         : []),
     ];
@@ -192,7 +196,7 @@ export function useHarmonicGeometryRenderer() {
 
     if (
       orderedPoints.length >= 3 &&
-      config.showIntervals
+      config.showIntervalLabels
     ) {
       orderedPoints.forEach((point, index) => {
         const nextPoint = orderedPoints[(index + 1) % orderedPoints.length];
@@ -300,28 +304,28 @@ export function useHarmonicGeometryRenderer() {
   const renderLabels = (
     ctx: CanvasRenderingContext2D,
     scene: HarmonicGeometryScene | null,
-    config: HarmonicGeometryConfig
+    config: BlobRelationshipConfig
   ) => {
-    if (!scene || config.opacity <= 0) {
+    if (!scene || config.labelOpacity <= 0) {
       return;
     }
 
-    if (scene.orderedPoints.length === 2 && config.showIntervals) {
+    if (scene.orderedPoints.length === 2 && config.showIntervalLabels) {
       scene.auxiliaryLabels.forEach((label) =>
-        drawKnockoutText(ctx, label, config.opacity)
+        drawKnockoutText(ctx, label, config.labelOpacity)
       );
     }
 
     if (scene.primaryLabel) {
-      drawKnockoutText(ctx, scene.primaryLabel, config.opacity);
+      drawKnockoutText(ctx, scene.primaryLabel, config.labelOpacity);
     }
 
     if (
-      config.showIntervals &&
+      config.showIntervalLabels &&
       scene.orderedPoints.length >= 3
     ) {
       scene.auxiliaryLabels.forEach((label) =>
-        drawKnockoutText(ctx, label, config.opacity)
+        drawKnockoutText(ctx, label, config.labelOpacity)
       );
     }
   };

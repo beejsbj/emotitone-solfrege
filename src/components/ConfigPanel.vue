@@ -165,56 +165,70 @@
                   !visualsEnabled || !isSectionInteractable(tab.name),
               }"
             >
-              <div
-                class="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-3 gap-y-7 sm:grid-cols-[repeat(auto-fill,minmax(96px,1fr))]"
-              >
-                <template
-                  v-for="field in getRenderableFields(tab.name)"
-                  :key="`${tab.name}-${field.key}`"
+              <div class="space-y-7">
+                <div
+                  v-for="group in getRenderableFieldGroups(tab.name)"
+                  :key="`${tab.name}-${group.label || 'settings'}`"
                 >
-                  <Knob
-                    v-if="typeof field.value === 'boolean'"
-                    :model-value="field.value"
-                    type="boolean"
-                    :label="formatLabel(tab.name, field.key)"
-                    :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
-                    @update:modelValue="
-                      (newValue) => updateValue(tab.name, field.key, newValue)
-                    "
-                  />
+                  <p
+                    v-if="group.label"
+                    class="mb-4 border-b border-[#292929] pb-2 text-[9px] uppercase tracking-[0.22em] text-neutral-500"
+                  >
+                    {{ group.label }}
+                  </p>
 
-                  <Knob
-                    v-else-if="
-                      typeof field.value === 'string' &&
-                      hasOptions(tab.name, field.key)
-                    "
-                    :model-value="field.value"
-                    type="options"
-                    :options="getFieldOptions(tab.name, field.key)"
-                    :label="formatLabel(tab.name, field.key)"
-                    :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
-                    @update:modelValue="
-                      (newValue) => updateValue(tab.name, field.key, newValue)
-                    "
-                  />
+                  <div
+                    class="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-3 gap-y-7 sm:grid-cols-[repeat(auto-fill,minmax(96px,1fr))]"
+                  >
+                    <template
+                      v-for="field in group.fields"
+                      :key="`${tab.name}-${field.key}`"
+                    >
+                      <Knob
+                        v-if="typeof field.value === 'boolean'"
+                        :model-value="field.value"
+                        type="boolean"
+                        :label="formatLabel(tab.name, field.key)"
+                        :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
+                        @update:modelValue="
+                          (newValue) => updateValue(tab.name, field.key, newValue)
+                        "
+                      />
 
-                  <Knob
-                    v-else-if="typeof field.value === 'number'"
-                    :model-value="field.value"
-                    type="range"
-                    :min="getNumberMin(tab.name, field.key)"
-                    :max="getNumberMax(tab.name, field.key)"
-                    :step="getNumberStep(tab.name, field.key)"
-                    :label="formatLabel(tab.name, field.key)"
-                    :format-value="
-                      (val: number) => formatValue(tab.name, field.key, val)
-                    "
-                    :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
-                    @update:modelValue="
-                      (newValue) => updateValue(tab.name, field.key, newValue)
-                    "
-                  />
-                </template>
+                      <Knob
+                        v-else-if="
+                          typeof field.value === 'string' &&
+                          hasOptions(tab.name, field.key)
+                        "
+                        :model-value="field.value"
+                        type="options"
+                        :options="getFieldOptions(tab.name, field.key)"
+                        :label="formatLabel(tab.name, field.key)"
+                        :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
+                        @update:modelValue="
+                          (newValue) => updateValue(tab.name, field.key, newValue)
+                        "
+                      />
+
+                      <Knob
+                        v-else-if="typeof field.value === 'number'"
+                        :model-value="field.value"
+                        type="range"
+                        :min="getNumberMin(tab.name, field.key)"
+                        :max="getNumberMax(tab.name, field.key)"
+                        :step="getNumberStep(tab.name, field.key)"
+                        :label="formatLabel(tab.name, field.key)"
+                        :format-value="
+                          (val: number) => formatValue(tab.name, field.key, val)
+                        "
+                        :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
+                        @update:modelValue="
+                          (newValue) => updateValue(tab.name, field.key, newValue)
+                        "
+                      />
+                    </template>
+                  </div>
+                </div>
               </div>
             </section>
           </TabsContent>
@@ -458,6 +472,7 @@ type ActionTone = PosterTone | "neutral";
 type SectionField = {
   key: string;
   value: string | number | boolean;
+  group: string;
 };
 
 const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
@@ -468,7 +483,6 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   animation: "Anim",
   frequencyMapping: "Freq",
   dynamicColors: "Color",
-  floatingPopup: "Harmony",
   hilbertScope: "Scope",
   beatingShapes: "Beat",
   patterns: "Notes",
@@ -522,7 +536,6 @@ const SECTION_ORDER: ConfigSectionKey[] = [
   "animation",
   "frequencyMapping",
   "dynamicColors",
-  "floatingPopup",
   "hilbertScope",
   "beatingShapes",
   "patterns",
@@ -673,11 +686,31 @@ const getRenderableFields = (sectionName: ConfigSectionKey): SectionField[] => {
   const enableKey = getSectionEnableKey(sectionName);
 
   return Object.entries(section)
-    .filter(([key]) => key !== enableKey)
+    .filter(([key]) => {
+      if (key === enableKey) return false;
+
+      const metadata = (UNIFIED_CONFIG[sectionName] as Record<string, any>)[key];
+      const visibility = metadata?.visibleWhen;
+      return !visibility || visibility.values.includes(section[visibility.field]);
+    })
     .map(([key, value]) => ({
       key,
       value,
+      group:
+        (UNIFIED_CONFIG[sectionName] as Record<string, any>)[key]?.group ?? "",
     }));
+};
+
+const getRenderableFieldGroups = (sectionName: ConfigSectionKey) => {
+  const groups = new Map<string, SectionField[]>();
+
+  getRenderableFields(sectionName).forEach((field) => {
+    const fields = groups.get(field.group) ?? [];
+    fields.push(field);
+    groups.set(field.group, fields);
+  });
+
+  return [...groups].map(([label, fields]) => ({ label, fields }));
 };
 
 const resetSectionToDefaults = (sectionName: ConfigSectionKey) => {

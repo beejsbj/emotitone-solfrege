@@ -33,8 +33,8 @@ export type {
   NoteColorRelationships,
   DynamicColorConfig,
   MusicColorMode,
-  HarmonicGeometryConfig,
-  FloatingPopupConfig,
+  BlobRelationshipConfig,
+  BlobConnectionMode,
   HarmonicGeometryMode,
 } from "./visual";
 

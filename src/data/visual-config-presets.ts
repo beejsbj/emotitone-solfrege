@@ -48,6 +48,10 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         blurRadius: 24,
         glowIntensity: 10,
         driftSpeed: 6,
+        fusionStrength: 0.32,
+        fieldSoftness: 16,
+        webOpacity: 0.9,
+        labelOpacity: 0.9,
       },
       ambient: {
         opacityMajor: 0.5,
@@ -72,11 +76,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         lightnessRange: 0.24,
         hueAnimationAmplitude: 12,
         animationSpeed: 0.5,
-      },
-      floatingPopup: {
-        glassmorphOpacity: 0.32,
-        backdropBlur: 16,
-        opacity: 0.9,
       },
       keyboard: {
         surfaceStyle: "colored",
@@ -103,6 +102,8 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         opacity: 0.58,
         vibrationAmplitude: 18,
         glowIntensity: 20,
+        analysisNoteLimit: 7,
+        fusionStrength: 0.2,
       },
       particles: {
         count: 22,
@@ -122,11 +123,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         hueAnimationAmplitude: 42,
         animationSpeed: 1.4,
         saturation: 0.95,
-      },
-      floatingPopup: {
-        maxNotes: 7,
-        animationDuration: 320,
-        glassmorphOpacity: 0.2,
       },
       hilbertScope: {
         isEnabled: true,
@@ -157,6 +153,8 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         blurRadius: 32,
         fadeOutDuration: 2.8,
         driftSpeed: 4,
+        analysisHoldTime: 2880,
+        fieldSoftness: 18,
       },
       ambient: {
         opacityMajor: 0.72,
@@ -180,11 +178,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         baseLightness: 0.58,
         lightnessRange: 0.2,
       },
-      floatingPopup: {
-        accumulationWindow: 280,
-        hideDelay: 2600,
-        backdropBlur: 18,
-      },
       hilbertScope: {
         opacity: 0.25,
         history: 0.12,
@@ -203,6 +196,11 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       blobs: {
         opacity: 0.22,
         glowEnabled: false,
+        connectionMode: "merge",
+        showChordLabel: true,
+        showIntervalLabels: true,
+        showEmotionLabel: true,
+        fusionStrength: 0.16,
       },
       ambient: {
         opacityMajor: 0.28,
@@ -219,13 +217,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       dynamicColors: {
         isEnabled: false,
-      },
-      floatingPopup: {
-        isEnabled: true,
-        showChord: true,
-        showIntervals: true,
-        showEmotionalDescription: true,
-        glassmorphOpacity: 0.16,
       },
       hilbertScope: {
         isEnabled: false,
@@ -260,6 +251,10 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         opacity: 0.46,
         glowEnabled: true,
         glowIntensity: 28,
+        fieldSoftness: 22,
+        fusionStrength: 0.28,
+        webOpacity: 0.95,
+        labelOpacity: 0.95,
       },
       ambient: {
         opacityMajor: 0.44,
@@ -279,11 +274,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         saturation: 1,
         baseLightness: 0.5,
         lightnessRange: 0.38,
-      },
-      floatingPopup: {
-        backdropBlur: 22,
-        glassmorphOpacity: 0.28,
-        opacity: 0.95,
       },
       hilbertScope: {
         isEnabled: true,

@@ -4,7 +4,6 @@
 
     <div v-if="!isLoading" class="relative isolate">
       <UnifiedVisualEffects class="z-0" />
-      <FloatingPopup class="z-2" />
     </div>
 
     <ConfigPanel v-if="!isLoading" />
@@ -27,7 +26,6 @@ import { useAppLoading } from "@/composables/useAppLoading";
 import { useMidiControls } from "@/composables/useMidiControls";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
-import FloatingPopup from "@/components/FloatingPopup.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";

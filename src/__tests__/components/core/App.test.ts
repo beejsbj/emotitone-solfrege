@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { createTestWrapper } from '../../helpers/test-utils'
 import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
+import mainAppSource from '@/MainApp.vue?raw'
 
 const appLoadingState = vi.hoisted(() => ({
   isLoading: false,
@@ -30,10 +31,6 @@ vi.mock('@/components/LoadingSplash.vue', () => ({
 
 vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
   default: { template: '<div data-testid="unified-visual-effects">Visual Effects</div>' },
-}))
-
-vi.mock('@/components/FloatingPopup.vue', () => ({
-  default: { template: '<div data-testid="floating-popup">Popup</div>' },
 }))
 
 vi.mock('@/components/ConfigPanel.vue', () => ({
@@ -92,7 +89,6 @@ describe('App.vue', () => {
 
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="floating-popup"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(true)
@@ -109,7 +105,6 @@ describe('App.vue', () => {
 
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="floating-popup"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(false)
@@ -135,5 +130,10 @@ describe('App.vue', () => {
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )
+  })
+
+  it('replaces the production popup mount with canvas-owned harmonic geometry', () => {
+    expect(mainAppSource).not.toContain('FloatingPopup')
+    expect(mainAppSource).toContain('UnifiedVisualEffects')
   })
 })

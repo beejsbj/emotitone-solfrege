@@ -34,15 +34,24 @@ export const mockCanvasContext = {
   beginPath: vi.fn(),
   moveTo: vi.fn(),
   lineTo: vi.fn(),
+  quadraticCurveTo: vi.fn(),
+  bezierCurveTo: vi.fn(),
   closePath: vi.fn(),
   stroke: vi.fn(),
   fill: vi.fn(),
   arc: vi.fn(),
+  createLinearGradient: vi.fn(() => ({
+    addColorStop: vi.fn(),
+  })),
+  createRadialGradient: vi.fn(() => ({
+    addColorStop: vi.fn(),
+  })),
   scale: vi.fn(),
   rotate: vi.fn(),
   translate: vi.fn(),
   clip: vi.fn(),
   fillText: vi.fn(),
+  strokeText: vi.fn(),
   measureText: vi.fn(() => ({ width: 0 })),
 }
 

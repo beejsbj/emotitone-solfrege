@@ -52,8 +52,18 @@ function onNotePlayed(event: CustomEvent) {
   const noteName: string | undefined = event.detail.noteName;
   const mode: MusicalMode | undefined = event.detail.mode;
   const key: ChromaticNote | undefined = event.detail.key;
+  const pitchClassIndex: number | undefined = event.detail.pitchClassIndex;
 
-  handleNotePlayed(note, frequency, noteId, octave, noteName, mode, key);
+  handleNotePlayed(
+    note,
+    frequency,
+    noteId,
+    octave,
+    noteName,
+    mode,
+    key,
+    pitchClassIndex,
+  );
 }
 
 // Handle note released event - enhanced for polyphonic support

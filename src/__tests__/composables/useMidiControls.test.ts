@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createMidiNoteReferenceCounter,
   hasActiveTouchPress,
   midiNoteNumberToName,
   resolveMirroredEventDurationMs,
@@ -17,6 +18,23 @@ vi.mock("@/services/superdoughAudio", () => ({
 }));
 
 describe("useMidiControls helpers", () => {
+  it("keeps a mirrored unison sounding until its final owner releases", () => {
+    const noteOn = vi.fn();
+    const noteOff = vi.fn();
+    const notes = createMidiNoteReferenceCounter(noteOn, noteOff);
+
+    notes.acquire(60);
+    notes.acquire(60);
+    notes.release(60);
+
+    expect(noteOn).toHaveBeenCalledOnce();
+    expect(noteOff).not.toHaveBeenCalled();
+
+    notes.release(60);
+    expect(noteOff).toHaveBeenCalledOnce();
+    expect(noteOff).toHaveBeenCalledWith(60);
+  });
+
   it("detects active touches from both hydrated maps and plain persisted objects", () => {
     expect(
       hasActiveTouchPress(
@@ -74,7 +92,7 @@ describe("useMidiControls helpers", () => {
 
     expect(
       resolveVisualNoteKey(
-        { solfegeIndex: 1, octave: 4, noteName: "D4" },
+        { solfegeIndex: 1, octave: 5, keyboardOctave: 4, noteName: "D5" },
         noteResolver
       )
     ).toBe("1_4");
@@ -139,6 +157,26 @@ describe("useMidiControls helpers", () => {
         noteResolver,
       ),
     ).toBe(63);
+    expect(noteResolver.getNoteName).not.toHaveBeenCalled();
+  });
+
+  it("mirrors exact in-scale notes from scientific pitch identity", () => {
+    const noteResolver = {
+      parseNoteInput: vi.fn(),
+      getNoteName: vi.fn().mockReturnValue("B4"),
+    };
+
+    expect(
+      resolveMirroredMidiNoteNumber(
+        {
+          solfegeIndex: 3,
+          octave: 5,
+          keyboardOctave: 4,
+          noteName: "C5",
+        },
+        noteResolver,
+      ),
+    ).toBe(72);
     expect(noteResolver.getNoteName).not.toHaveBeenCalled();
   });
 

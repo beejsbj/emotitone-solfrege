@@ -160,7 +160,7 @@ describe("music store", () => {
     patternsStore.removeEventListeners();
   });
 
-  it("keeps exact in-scale pitches in the keyboard's octave coordinate", async () => {
+  it("keeps scientific and keyboard octave coordinates separate for exact pitches", async () => {
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
@@ -172,7 +172,8 @@ describe("music store", () => {
       noteName: "C5",
       solfegeIndex: 3,
       pitchClassIndex: 0,
-      octave: 4,
+      octave: 5,
+      keyboardOctave: 4,
     });
     const playedEvent = dispatchEventSpy.mock.calls
       .map(([event]) => event)
@@ -180,7 +181,8 @@ describe("music store", () => {
     expect(playedEvent.detail).toMatchObject({
       noteName: "C5",
       solfegeIndex: 3,
-      octave: 4,
+      octave: 5,
+      keyboardOctave: 4,
     });
 
     await musicStore.releaseNote(noteId ?? undefined);

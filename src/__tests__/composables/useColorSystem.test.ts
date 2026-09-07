@@ -105,6 +105,14 @@ describe("useColorSystem", () => {
     );
   });
 
+  it("gives exact borrowed pitch classes a chromatic fallback color", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
+    const colorSystem = useColorSystem();
+
+    expect(colorSystem.getStaticPrimaryColorByPitchClass(3, "major", "C", 4))
+      .not.toBe("hsla(0, 0%, 16%, 1)");
+  });
+
   it("resolves altered syllables without falling back to the default error color", () => {
     dynamicColorConfig.value.musicColorMode = "movable";
     const colorSystem = useColorSystem();

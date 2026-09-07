@@ -141,8 +141,10 @@ export interface ActiveNote {
   solfege: SolfegeData;
   /** Frequency of the note in Hz */
   frequency: number;
-  /** Octave number */
+  /** Scientific octave encoded in noteName. */
   octave: number;
+  /** Keyboard-row coordinate used to highlight the originating Key. */
+  keyboardOctave: number;
   /** Unique identifier for the note */
   noteId: string;
   /** Note name with octave (e.g., "C4", "E5") */

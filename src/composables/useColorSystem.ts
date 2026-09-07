@@ -76,6 +76,28 @@ export function useColorSystem() {
     );
   };
 
+  const getNoteColorsByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3,
+    animated: boolean = true
+  ): NoteColorRelationships => {
+    const normalizedIndex = (
+      (pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length
+    ) % CHROMATIC_NOTES.length;
+    return (
+      resolveExactMusicColorsByPitchClass(
+        CHROMATIC_NOTES[normalizedIndex],
+        mode,
+        key,
+        octave,
+        dynamicColorConfig.value,
+        animated ? animationTime.value : undefined,
+      ) ?? FALLBACK_NOTE_COLORS
+    );
+  };
+
   const getNoteColors = (
     noteName: string,
     mode: MusicalMode = "major",
@@ -109,6 +131,14 @@ export function useColorSystem() {
     octave: number = 3
   ): string =>
     getNoteColorsByScaleIndex(scaleIndex, mode, key, octave, false).primary;
+
+  const getStaticPrimaryColorByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3
+  ): string =>
+    getNoteColorsByPitchClass(pitchClassIndex, mode, key, octave, false).primary;
 
   const getPrimaryColor = (
     noteName: string,
@@ -168,6 +198,13 @@ export function useColorSystem() {
 
   const getStringColor = getAccentColor;
   const getFleckColor = getAccentColor;
+  const getFleckColorByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3
+  ): string =>
+    getNoteColorsByPitchClass(pitchClassIndex, mode, key, octave, true).accent;
   const getHighlightColor = getAccentColor;
 
   const getGradient = (
@@ -532,6 +569,7 @@ export function useColorSystem() {
   return {
     getNoteColors,
     getNoteColorsByScaleIndex,
+    getNoteColorsByPitchClass,
     getPrimaryColor,
     getPrimaryColorByScaleIndex,
     getAccentColor,
@@ -539,11 +577,13 @@ export function useColorSystem() {
     getTertiaryColor,
     getStaticPrimaryColor,
     getStaticPrimaryColorByScaleIndex,
+    getStaticPrimaryColorByPitchClass,
     getStaticAccentColor,
     getStaticSecondaryColor,
     getStaticTertiaryColor,
     getStringColor,
     getFleckColor,
+    getFleckColorByPitchClass,
     getHighlightColor,
     getGradient,
     getConicGradient,

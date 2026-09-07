@@ -98,8 +98,41 @@ interface MirroredNoteEventDetail {
   noteId?: string;
   noteName?: string;
   octave?: number;
+  keyboardOctave?: number;
   solfegeIndex?: number;
   isBorrowed?: boolean;
+}
+
+export function createMidiNoteReferenceCounter(
+  noteOn: (midiNote: number) => void,
+  noteOff: (midiNote: number) => void,
+) {
+  const ownerCounts = new Map<number, number>();
+
+  return {
+    acquire(midiNote: number) {
+      const count = ownerCounts.get(midiNote) ?? 0;
+      ownerCounts.set(midiNote, count + 1);
+      if (count === 0) {
+        noteOn(midiNote);
+      }
+    },
+    release(midiNote: number) {
+      const count = ownerCounts.get(midiNote) ?? 0;
+      if (count <= 0) {
+        return;
+      }
+      if (count === 1) {
+        ownerCounts.delete(midiNote);
+        noteOff(midiNote);
+        return;
+      }
+      ownerCounts.set(midiNote, count - 1);
+    },
+    clear() {
+      ownerCounts.clear();
+    },
+  };
 }
 
 export function shouldMirrorNoteEvent(
@@ -217,8 +250,9 @@ export function resolveVisualNoteKey(
   noteResolver: MidiNoteResolver
 ): string | null {
   if (typeof detail?.solfegeIndex === "number") {
-    return detail.solfegeIndex >= 0 && typeof detail.octave === "number"
-      ? `${detail.solfegeIndex}_${detail.octave}`
+    const keyboardOctave = detail.keyboardOctave ?? detail.octave;
+    return detail.solfegeIndex >= 0 && typeof keyboardOctave === "number"
+      ? `${detail.solfegeIndex}_${keyboardOctave}`
       : null;
   }
 
@@ -247,6 +281,13 @@ export function resolveMirroredMidiNoteNumber(
       ? midiNote
       : null;
   };
+
+  if (
+    detail?.noteName
+    && typeof detail.keyboardOctave === "number"
+  ) {
+    return exactMidiNote(detail.noteName);
+  }
 
   if (
     detail?.noteName
@@ -535,6 +576,10 @@ export function useMidiControls() {
   const sendToRoliOutput = (message: number[]) => {
     selectedRoliOutput.value?.send(message);
   };
+  const mirroredMidiNotes = createMidiNoteReferenceCounter(
+    (midiNote) => sendToRoliOutput(buildRoliNoteOnMessage(midiNote)),
+    (midiNote) => sendToRoliOutput(buildRoliNoteOffMessage(midiNote)),
+  );
 
   const syncRoliPalette = () => {
     if (!selectedRoliOutput.value) {
@@ -579,6 +624,7 @@ export function useMidiControls() {
 
   const clearMirroredEventNotes = () => {
     mirroredEventNotes.value.clear();
+    mirroredMidiNotes.clear();
   };
 
   const flushRoliOutput = () => {
@@ -702,6 +748,9 @@ export function useMidiControls() {
     }
 
     if (detail?.noteId) {
+      if (mirroredEventNotes.value.has(detail.noteId)) {
+        return;
+      }
       mirroredEventNotes.value.set(detail.noteId, midiNote);
     }
 
@@ -712,7 +761,7 @@ export function useMidiControls() {
       octave: detail?.octave ?? null,
       midiNote,
     });
-    sendToRoliOutput(buildRoliNoteOnMessage(midiNote));
+    mirroredMidiNotes.acquire(midiNote);
 
     if (detail?.noteId) {
       return;
@@ -721,7 +770,7 @@ export function useMidiControls() {
     const durationMs = resolveMirroredEventDurationMs(detail);
     const timeoutKey = `${midiNote}:${Date.now()}:${Math.random()}`;
     const timeoutId = window.setTimeout(() => {
-      sendToRoliOutput(buildRoliNoteOffMessage(midiNote));
+      mirroredMidiNotes.release(midiNote);
       mirroredNoteTimeouts.value.delete(timeoutKey);
     }, durationMs);
 
@@ -741,8 +790,13 @@ export function useMidiControls() {
       return;
     }
 
-    const midiNote =
-      (detail?.noteId ? mirroredEventNotes.value.get(detail.noteId) : null)
+    const storedMidiNote = detail?.noteId
+      ? mirroredEventNotes.value.get(detail.noteId)
+      : undefined;
+    if (detail?.noteId && storedMidiNote === undefined) {
+      return;
+    }
+    const midiNote = storedMidiNote
       ?? resolveMirroredMidiNoteNumber(detail, musicStore);
     if (midiNote === null) {
       return;
@@ -757,7 +811,7 @@ export function useMidiControls() {
       noteName: detail?.noteName || null,
       midiNote,
     });
-    sendToRoliOutput(buildRoliNoteOffMessage(midiNote));
+    mirroredMidiNotes.release(midiNote);
   };
 
   const handleNotePlayed = (event: Event) => {

@@ -54,3 +54,5 @@ The chord object is captured when its key is attacked. Joystick changes affect l
 Every input contact owns an independent voice group. Chord/chord, chord/melody, QWERTY, focus, mouse, and touch owners do not coalesce shared or unison pitches. Releasing one owner therefore cannot silence another. A released owner also releases voices that resolve after an asynchronous attack, and blur/unmount release every resolved or pending group.
 
 Borrowed chord members use `musicStore.attackExactPitch()` so their scientific pitch reaches the audio engine without the legacy string path's out-of-scale flooring.
+
+Generated voicings preserve their pitch classes and interval shape while shifting by whole octaves when necessary to remain inside MIDI notes 0–127. The displayed member pitches and attacked pitches share that normalized voicing, so extreme Keyboard octave settings cannot render silent chord members.

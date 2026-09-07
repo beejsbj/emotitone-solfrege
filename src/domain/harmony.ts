@@ -164,13 +164,30 @@ function isMajorQuality(quality: HarmonyChordQuality) {
   return ["major", "major6", "major7", "major9", "augmented"].includes(quality);
 }
 
-function pitchesForIntervals(
+function voicingForIntervals(
   rootMidi: number,
   intervals: readonly number[],
   scale: Scale,
   tonic: ChromaticNote,
 ) {
-  return intervals.map((interval) => pitchFromMidi(rootMidi + interval, scale, tonic));
+  let playableRootMidi = rootMidi;
+  const lowestInterval = Math.min(...intervals);
+  const highestInterval = Math.max(...intervals);
+
+  while (playableRootMidi + highestInterval > 127) {
+    playableRootMidi -= 12;
+  }
+  while (playableRootMidi + lowestInterval < 0) {
+    playableRootMidi += 12;
+  }
+
+  return {
+    kind: "close-position" as const,
+    rootMidi: playableRootMidi,
+    pitches: intervals.map((interval) =>
+      pitchFromMidi(playableRootMidi + interval, scale, tonic)
+    ),
+  };
 }
 
 function chordFromTemplate(
@@ -194,11 +211,7 @@ function chordFromTemplate(
     quality: template.quality,
     policy,
     alteration,
-    voicing: {
-      kind: "close-position",
-      rootMidi,
-      pitches: pitchesForIntervals(rootMidi, template.intervals, scale, tonic),
-    },
+    voicing: voicingForIntervals(rootMidi, template.intervals, scale, tonic),
   };
 }
 
@@ -280,11 +293,7 @@ function scaleContainedChord(
       quality: "dyad",
       policy: "scale-contained-ranked",
       alteration: "auto",
-      voicing: {
-        kind: "close-position",
-        rootMidi,
-        pitches: pitchesForIntervals(rootMidi, [0, dyadInterval], scale, tonic),
-      },
+      voicing: voicingForIntervals(rootMidi, [0, dyadInterval], scale, tonic),
     };
   }
 
@@ -297,11 +306,7 @@ function scaleContainedChord(
     quality: "octave",
     policy: "scale-contained-ranked",
     alteration: "auto",
-    voicing: {
-      kind: "close-position",
-      rootMidi,
-      pitches: pitchesForIntervals(rootMidi, [0, 12], scale, tonic),
-    },
+    voicing: voicingForIntervals(rootMidi, [0, 12], scale, tonic),
   };
 }
 

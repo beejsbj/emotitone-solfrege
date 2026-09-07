@@ -243,6 +243,7 @@ export const useMusicStore = defineStore(
           finalOctave
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
+        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
 
         await superdoughAudio.attackNote(
           `play_${noteName}_${Date.now()}`,
@@ -256,7 +257,8 @@ export const useMusicStore = defineStore(
             frequency,
             noteName,
             solfegeIndex,
-            octave: finalOctave,
+            octave: scientificOctave,
+            keyboardOctave: finalOctave,
             ...noteContext,
             instrument: instrumentStore.currentInstrument,
             instrumentConfig: null,
@@ -299,6 +301,7 @@ export const useMusicStore = defineStore(
           finalOctave
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
+        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
 
         const cleanNoteId = [
           noteName,
@@ -322,7 +325,8 @@ export const useMusicStore = defineStore(
             solfegeIndex,
             solfege,
             frequency,
-            octave: finalOctave,
+            octave: scientificOctave,
+            keyboardOctave: finalOctave,
             noteId,
             noteName,
             ...noteContext,
@@ -337,7 +341,8 @@ export const useMusicStore = defineStore(
               note: solfege,
               frequency,
               solfegeIndex,
-              octave: finalOctave,
+              octave: scientificOctave,
+              keyboardOctave: finalOctave,
               noteId,
               noteName,
               ...noteContext,
@@ -396,7 +401,8 @@ export const useMusicStore = defineStore(
         pitchClassIndex,
         solfege,
         frequency: tonalNote.freq,
-        octave: keyboardOctave,
+        octave,
+        keyboardOctave,
         noteId: cleanNoteId,
         noteName: exactNoteName,
         ...noteContext,
@@ -412,7 +418,8 @@ export const useMusicStore = defineStore(
           solfegeIndex,
           pitchClassIndex,
           isBorrowed: solfegeIndex === -1,
-          octave: keyboardOctave,
+          octave,
+          keyboardOctave,
           noteId: cleanNoteId,
           noteName: exactNoteName,
           ...noteContext,
@@ -464,6 +471,7 @@ export const useMusicStore = defineStore(
           solfegeIndex,
           finalOctave
         );
+        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
 
         // Convert Tone.js duration notation to milliseconds for superdough
         const durationMs = toneNotationToMs(duration);
@@ -483,7 +491,8 @@ export const useMusicStore = defineStore(
             frequency,
             noteName,
             solfegeIndex,
-            octave: finalOctave,
+            octave: scientificOctave,
+            keyboardOctave: finalOctave,
             duration,
             time,
             ...noteContext,
@@ -566,6 +575,10 @@ export const useMusicStore = defineStore(
               noteName: activeNote.noteName,
               frequency: activeNote.frequency,
               octave: activeNote.octave,
+              keyboardOctave: activeNote.keyboardOctave,
+              solfegeIndex: activeNote.solfegeIndex,
+              pitchClassIndex: activeNote.pitchClassIndex,
+              isBorrowed: activeNote.solfegeIndex === -1,
               mode: activeNote.mode,
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
@@ -599,6 +612,10 @@ export const useMusicStore = defineStore(
               noteName: activeNote.noteName,
               frequency: activeNote.frequency,
               octave: activeNote.octave,
+              keyboardOctave: activeNote.keyboardOctave,
+              solfegeIndex: activeNote.solfegeIndex,
+              pitchClassIndex: activeNote.pitchClassIndex,
+              isBorrowed: activeNote.solfegeIndex === -1,
               mode: activeNote.mode,
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,

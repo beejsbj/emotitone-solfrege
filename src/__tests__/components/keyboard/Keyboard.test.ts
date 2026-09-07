@@ -248,19 +248,19 @@ describe("Keyboard production usage", () => {
     )).toEqual(["C4", "E4", "G4"]);
     expect(firstChord.props("symbol")).toBe("C");
 
+    firstChord.vm.$emit("press", { inputId: "pointer:8", event });
+    await nextTick();
+    expect(mocks.musicStore.attackExactPitch.mock.calls.slice(3).map(([pitch]) => pitch))
+      .toEqual(["C4", "D#4", "G4"]);
+
     firstChord.vm.$emit("release", { inputId: "pointer:7", event });
     await nextTick();
     await Promise.resolve();
     expect(mocks.musicStore.releaseNote.mock.calls.map(([noteId]) => noteId))
       .toEqual(["exact-C4", "exact-E4", "exact-G4"]);
 
-    wrapper.findAllComponents(ChordKeyStub)[0].vm.$emit(
-      "press",
-      { inputId: "pointer:8", event },
-    );
+    firstChord.vm.$emit("release", { inputId: "pointer:8", event });
     await nextTick();
-    expect(mocks.musicStore.attackExactPitch.mock.calls.slice(3).map(([pitch]) => pitch))
-      .toEqual(["C4", "D#4", "G4"]);
     wrapper.unmount();
   });
 

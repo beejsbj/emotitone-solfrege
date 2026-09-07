@@ -36,8 +36,8 @@
         @focus="rememberChordFocus(chord.harmony.id)"
         @keydown="handleChordKeyDown($event, chordIndex)"
         @keyup="handleChordKeyUp($event)"
-        @press="emitChordIntent('press', $event, chord.harmony)"
-        @release="emitChordIntent('release', $event, chord.harmony)"
+        @press="emitChordIntent('press', $event, chord.attackHarmony)"
+        @release="emitChordIntent('release', $event, chord.attackHarmony)"
       />
     </div>
 
@@ -177,6 +177,9 @@ export interface KeyboardChordIntent extends KeyInputEvent {
 }
 
 interface KeyboardChordView {
+  /** Live settings used by a new owner attacking this degree. */
+  attackHarmony: HarmonyChord;
+  /** Snapshot shown while any existing owner holds this degree. */
   harmony: HarmonyChord;
   members: ChordMember[];
   pressed: boolean;
@@ -303,7 +306,7 @@ function createProductionWiring() {
   const soundingNoteKeys = computed(() => new Set(
     musicStore
       .getActiveNotes()
-      .map((note) => `${note.solfegeIndex}_${note.octave}`),
+      .map((note) => `${note.solfegeIndex}_${note.keyboardOctave ?? note.octave}`),
   ));
   const rows = computed<KeyboardRowView[]>(() =>
     store.visibleOctaves.map((octave) => ({
@@ -342,6 +345,7 @@ function createProductionWiring() {
         .find((candidate) => candidate.id === harmony.id);
       const displayedHarmony = snapshot ?? harmony;
       return {
+        attackHarmony: harmony,
         harmony: displayedHarmony,
         members: chordMembers(
           displayedHarmony,
@@ -361,6 +365,7 @@ function createProductionWiring() {
     );
 
     return rendered.concat(orphanSnapshots.map((harmony) => ({
+      attackHarmony: harmony,
       harmony,
       members: chordMembers(
         harmony,
@@ -492,6 +497,7 @@ const renderChords = computed<KeyboardChordView[]>(() =>
     octave: resolvedMainOctave.value,
     alteration: props.harmonyAlteration,
   }).map((harmony) => ({
+    attackHarmony: harmony,
     harmony,
     members: chordMembers(
       harmony,

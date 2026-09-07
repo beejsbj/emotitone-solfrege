@@ -238,7 +238,7 @@ export function useStringRenderer() {
       const matchingActiveNote = activeNotes.find(
         (activeNote: any) =>
           activeNote.solfegeIndex === string.noteIndex &&
-          activeNote.octave === string.octave
+          (activeNote.keyboardOctave ?? activeNote.octave) === string.octave
       );
       const isStringActiveFromInput = Boolean(matchingActiveNote);
 

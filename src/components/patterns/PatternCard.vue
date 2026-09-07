@@ -11,7 +11,10 @@ import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
-const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+const {
+  getStaticPrimaryColorByScaleIndex,
+  getStaticPrimaryColorByPitchClass,
+} = useColorSystem();
 
 const props = defineProps<{
   pattern: Pattern;
@@ -89,6 +92,18 @@ async function copyNotation() {
 
 // ── color strip helpers ───────────────────────────────────────────────────
 function colorFor(note: PatternNote, pattern: Pattern): string {
+  if (
+    typeof note.pitchClassIndex === "number"
+    && Number.isInteger(note.pitchClassIndex)
+  ) {
+    return getStaticPrimaryColorByPitchClass(
+      note.pitchClassIndex,
+      pattern.mode,
+      pattern.key,
+      note.octave,
+    );
+  }
+
   return getStaticPrimaryColorByScaleIndex(
     note.scaleIndex,
     pattern.mode,

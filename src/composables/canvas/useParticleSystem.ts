@@ -9,7 +9,7 @@ import type { ParticleConfig } from "@/types/visual";
 import { useColorSystem } from "../useColorSystem";
 
 export function useParticleSystem() {
-  const { getFleckColor } = useColorSystem();
+  const { getFleckColor, getFleckColorByPitchClass } = useColorSystem();
 
   // Particle state
   const particles: Particle[] = [];
@@ -59,7 +59,8 @@ export function useParticleSystem() {
     canvasHeight: number,
     mode: MusicalMode,
     key: ChromaticNote,
-    count?: number
+    count?: number,
+    pitch?: { pitchClassIndex?: number; octave?: number },
   ) => {
     if (!particleConfig.isEnabled) return;
 
@@ -73,12 +74,15 @@ export function useParticleSystem() {
       particle.y = Math.random() * canvasHeight;
       particle.vx = (Math.random() - 0.5) * particleConfig.speed;
       particle.vy = (Math.random() - 0.5) * particleConfig.speed;
-      particle.color = getFleckColor(
-        note.name,
-        mode,
-        3,
-        key
-      );
+      particle.color = typeof pitch?.pitchClassIndex === "number"
+        && Number.isInteger(pitch.pitchClassIndex)
+        ? getFleckColorByPitchClass(
+            pitch.pitchClassIndex,
+            mode,
+            key,
+            pitch?.octave ?? 3,
+          )
+        : getFleckColor(note.name, mode, pitch?.octave ?? 3, key);
       particle.shape = note.fleckShape || "circle";
       particle.size =
         particleConfig.sizeMin +

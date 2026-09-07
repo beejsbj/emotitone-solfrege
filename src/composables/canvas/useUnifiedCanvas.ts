@@ -241,7 +241,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     octave?: number,
     noteName?: string,
     mode?: MusicalMode,
-    key?: ChromaticNote
+    key?: ChromaticNote,
+    pitchClassIndex?: number,
   ) => {
     const noteMode = mode ?? musicStore.currentMode;
     const noteKey = key ?? (musicStore.currentKey as ChromaticNote);
@@ -277,7 +278,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       canvasHeight.value,
       noteMode,
       noteKey,
-      particleCount
+      particleCount,
+      { pitchClassIndex, octave },
     );
   };
 

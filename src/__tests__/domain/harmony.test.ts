@@ -98,4 +98,20 @@ describe("harmony domain", () => {
       })[0].quality).toBe(quality);
     }
   });
+
+  it("revoices extended chords into MIDI's playable range", () => {
+    const chords = buildHarmony({
+      tonic: "C",
+      scaleType: "major",
+      octave: 8,
+      alteration: "lush9",
+    });
+
+    expect(chords.flatMap((chord) => chord.voicing.pitches).every(
+      (pitch) => pitch.midi >= 0 && pitch.midi <= 127,
+    )).toBe(true);
+    expect(chords[6].voicing.pitches.map((pitch) => pitch.name)).toEqual([
+      "B7", "D8", "F#8", "A8", "C#9",
+    ]);
+  });
 });

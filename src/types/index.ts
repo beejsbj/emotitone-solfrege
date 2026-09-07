@@ -68,6 +68,11 @@ export type {
   OscillatorConfig,
   InstrumentEvent,
   AudioContextInfo,
+  InstrumentCategoryId,
+  InstrumentIconId,
+  InstrumentIdentity,
+  InstrumentCatalogGroup,
+  InstrumentCatalog,
 } from "./instrument";
 
 // App Loading and Initialization Types

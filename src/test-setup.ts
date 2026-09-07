@@ -310,9 +310,8 @@ vi.mock('@/data', async (importOriginal) => {
 })
 
 // Mock instrument configurations
-vi.mock('@/data/instruments', () => ({
-  displayInstrumentName: (instrument: string) =>
-    instrument.startsWith('gm_') ? instrument.slice(3) : instrument,
+vi.mock('@/data/instruments', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/data/instruments')>(),
   AVAILABLE_INSTRUMENTS: {
     'piano': {
       id: 'piano',

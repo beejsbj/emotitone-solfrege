@@ -15,6 +15,41 @@ export interface InstrumentStoreState {
   instruments: Map<string, any>;
 }
 
+export type InstrumentCategoryId =
+  | "synths"
+  | "keyboards"
+  | "mallets"
+  | "strings"
+  | "organs"
+  | "winds"
+  | "drums"
+  | "gm"
+  | "other";
+
+export type InstrumentIconId = "piano" | "guitar" | "drum";
+
+export interface InstrumentIdentity {
+  /** Exact identifier supplied by the caller; the catalog never rewrites it. */
+  id: string;
+  /** Presentation label; only the General MIDI prefix is omitted. */
+  displayName: string;
+  category: InstrumentCategoryId;
+  /** Optional presentation identity for the framework-specific icon adapter. */
+  icon?: InstrumentIconId;
+}
+
+export interface InstrumentCatalogGroup {
+  id: InstrumentCategoryId;
+  label: string;
+  shortLabel: string;
+  instruments: InstrumentIdentity[];
+}
+
+export interface InstrumentCatalog {
+  describe(instrumentId: string): InstrumentIdentity;
+  groupRegistered(instrumentIds: readonly string[]): InstrumentCatalogGroup[];
+}
+
 /**
  * Instrument initialization options
  */

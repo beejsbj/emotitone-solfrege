@@ -272,7 +272,7 @@ const lightStage = ref(false);
 .anatomy__piece--e-bottom { --piece-colour: var(--bone); }
 .anatomy__piece--e-bottom i { box-shadow: inset 0 0 0 1px var(--lab-wire); }
 .anatomy__piece--t-cap { --piece-colour: var(--plum); }
-.anatomy__piece--t-stem { --piece-colour: var(--ink); }
+.anatomy__piece--t-stem { --piece-colour: linear-gradient(90deg, var(--ink) 0 50%, var(--ivory) 50%); }
 .anatomy__piece--t-stem i { box-shadow: inset 0 0 0 1px var(--lab-muted); }
 
 .logo-lab__grid {

@@ -406,19 +406,32 @@ export const usePatternsStore = defineStore(
       if (!pattern) return;
 
       loadedBaseNotes.value = [...pattern.notes];
-      loadedBaseMeta.value = {
+      const patternMeta = {
         mode: pattern.mode,
         key: pattern.key,
         instrument: pattern.instrument,
         bpm: resolveBpm(pattern.bpm),
       };
+      loadedBaseMeta.value = patternMeta;
       isStripCleared.value = false;
       focusedPatternId.value = patternId;
 
       // Sync the desk to the pattern's musical context
       musicStore.setKey(pattern.key);
       musicStore.setMode(pattern.mode as MusicalMode);
-      instrumentStore.setInstrument(pattern.instrument);
+      void instrumentStore.setInstrument(pattern.instrument).then((result) => {
+        if (
+          result.status === "failed" &&
+          result.fallback &&
+          focusedPatternId.value === patternId &&
+          loadedBaseMeta.value?.instrument === result.instrument
+        ) {
+          loadedBaseMeta.value = {
+            ...patternMeta,
+            instrument: result.fallback,
+          };
+        }
+      });
       visualConfigStore.updateConfig("codeStrip", {
         bpm: resolveBpm(pattern.bpm),
       });

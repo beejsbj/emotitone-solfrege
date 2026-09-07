@@ -391,6 +391,29 @@ describe("Keyboard production usage", () => {
     wrapper.unmount();
   });
 
+  it("keeps overlapping click pulses owned by their individual chord keys", async () => {
+    const wrapper = mountKeyboard();
+    const [firstChord, secondChord] = wrapper.findAllComponents(ChordKeyStub);
+    const event = new MouseEvent("click");
+
+    firstChord.vm.$emit("press", { inputId: "click", event });
+    secondChord.vm.$emit("press", { inputId: "click", event });
+    await nextTick();
+
+    firstChord.vm.$emit("release", { inputId: "click", event });
+    secondChord.vm.$emit("release", { inputId: "click", event });
+    await nextTick();
+    await Promise.resolve();
+
+    expect(wrapper.emitted("chordRelease")?.map(([intent]) => (
+      intent as { chordId: string }
+    ).chordId)).toEqual(["degree-1", "degree-2"]);
+    expect(mocks.keyboardStore.removeTouch.mock.calls.map(([ownerId]) => ownerId))
+      .toEqual(["chord:click:degree-1", "chord:click:degree-2"]);
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(6);
+    wrapper.unmount();
+  });
+
   it("keeps a held degree rendered until release when a smaller scale removes it", async () => {
     const wrapper = mountKeyboard();
     const seventhChord = wrapper.findAllComponents(ChordKeyStub)[6];

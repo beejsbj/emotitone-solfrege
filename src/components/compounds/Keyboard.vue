@@ -555,6 +555,8 @@ const rememberedChordFocusId = ref("");
 const activeFocusInputs = new Map<string, KeyboardIntent>();
 const activeChordPointerInputs = new Map<string, KeyboardChordIntent>();
 const activeChordFocusInputs = new Map<string, KeyboardChordIntent>();
+const chordPointerSnapshotId = (inputId: string, chordId: string) =>
+  `${inputId}:${chordId}`;
 
 const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
 const defaultFocusId = computed(
@@ -790,13 +792,17 @@ function emitChordIntent(
     source: payload.inputId.startsWith("focus:") ? "focus" : "pointer",
   };
   if (kind === "press") {
-    activeChordPointerInputs.set(payload.inputId, currentIntent);
+    activeChordPointerInputs.set(
+      chordPointerSnapshotId(payload.inputId, chord.id),
+      currentIntent,
+    );
     dispatchChordIntent(kind, currentIntent);
     return;
   }
 
-  const pressedIntent = activeChordPointerInputs.get(payload.inputId);
-  activeChordPointerInputs.delete(payload.inputId);
+  const snapshotId = chordPointerSnapshotId(payload.inputId, chord.id);
+  const pressedIntent = activeChordPointerInputs.get(snapshotId);
+  activeChordPointerInputs.delete(snapshotId);
   dispatchChordIntent(kind, pressedIntent
     ? { ...pressedIntent, event: payload.event }
     : currentIntent);

@@ -9,9 +9,13 @@ const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
   primaryColor: "hsla(10, 80%, 50%, 1)",
 }));
+const getKeyBackgroundByPitchClass = vi.fn(() => ({
+  background: "hsla(10, 80%, 50%, 1)",
+  primaryColor: "hsla(10, 80%, 50%, 1)",
+}));
 
 vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({ getKeyBackground }),
+  useColorSystem: () => ({ getKeyBackground, getKeyBackgroundByPitchClass }),
 }));
 
 interface MockTouch {
@@ -58,6 +62,7 @@ function setBounds(wrapper: VueWrapper) {
 describe("Key", () => {
   beforeEach(() => {
     getKeyBackground.mockClear();
+    getKeyBackgroundByPitchClass.mockClear();
   });
 
   afterEach(() => {

@@ -11,7 +11,7 @@
       <button v-for="option in JOYSTICK_OPTIONS" :key="option.value"
         :ref="(element) => setOptionRef(option.value, element)" class="joystick__option sr-only"
         type="button" role="radio" :aria-checked="effectiveValue === option.value"
-        :aria-label="`${option.label}: ${option.description}`" :tabindex="modelValue === option.value ? 0 : -1"
+        :aria-label="`${option.label}: ${option.description}`" :tabindex="rovingValue === option.value ? 0 : -1"
         @click.stop="selectKeyboard($event, option.value)" @keydown="handleKeydown($event, option.value)">
         {{ option.label }}
       </button>
@@ -57,6 +57,7 @@ const pointerPosition = ref({ x: 0, y: 0 });
 const held = ref(false);
 const dragging = ref(false);
 const pointerId = ref<number | null>(null);
+const rovingValue = ref<HarmonyAlteration>(props.modelValue);
 const optionElements = new Map<HarmonyAlteration, HTMLButtonElement>();
 let startVector = { x: 0, y: 0 };
 let start = { x: 0, y: 0 };
@@ -80,7 +81,10 @@ function announce(value: HarmonyAlteration, haptic = false) {
   emit("effectiveChange", value);
   if (haptic) triggerUIHaptic();
 }
-watch(() => props.modelValue, value => { if (pointerId.value === null) announce(value); });
+watch(() => props.modelValue, value => {
+  rovingValue.value = value;
+  if (pointerId.value === null) announce(value);
+});
 function setOptionRef(value: HarmonyAlteration, element: Element | ComponentPublicInstance | null) {
   if (element instanceof HTMLButtonElement) optionElements.set(value, element);
   else optionElements.delete(value);
@@ -158,7 +162,11 @@ function cancelPointer(event: PointerEvent) {
 function selectKeyboard(event: MouseEvent, value: HarmonyAlteration) {
   // Pointer compatibility clicks are always inert; native keyboard clicks have detail 0.
   if (event.detail !== 0) return;
+  selectKeyboardValue(value);
+}
+function selectKeyboardValue(value: HarmonyAlteration) {
   cancelActivePointer();
+  rovingValue.value = value;
   emit("update:modelValue", value);
   announce(value, true);
 }
@@ -174,7 +182,9 @@ function handleKeydown(event: KeyboardEvent, value: HarmonyAlteration) {
   else if (event.key === "Home") next = 4;
   else return;
   event.preventDefault();
-  optionElements.get(JOYSTICK_OPTIONS[next].value)?.focus({ preventScroll: true });
+  const nextValue = JOYSTICK_OPTIONS[next].value;
+  selectKeyboardValue(nextValue);
+  optionElements.get(nextValue)?.focus({ preventScroll: true });
 }
 function visibilityChange() { if (document.visibilityState === "hidden") cancelActivePointer(); }
 onMounted(() => {

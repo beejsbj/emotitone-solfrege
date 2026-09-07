@@ -156,8 +156,15 @@ describe("Joystick unique", () => {
     expect(buttons.map(button => button.attributes("aria-label"))).toEqual(JOYSTICK_OPTIONS.map(option => `${option.label}: ${option.description}`));
     await buttons[4].trigger("keydown", { key: "ArrowUp" });
     expect(document.activeElement).toBe(buttons[1].element);
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["flip"]);
+    expect(buttons[1].attributes("tabindex")).toBe("0");
+    expect(buttons[4].attributes("tabindex")).toBe("-1");
+    await wrapper.setProps({ modelValue: "flip" });
+    expect(buttons[1].attributes("aria-checked")).toBe("true");
     await buttons[1].trigger("keydown", { key: "Home" });
     expect(document.activeElement).toBe(buttons[4].element);
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["auto"]);
+    expect(buttons[4].attributes("tabindex")).toBe("0");
     await buttons[3].trigger("keydown", { key: "ArrowLeft" });
     expect(document.activeElement).toBe(buttons[3].element);
   });

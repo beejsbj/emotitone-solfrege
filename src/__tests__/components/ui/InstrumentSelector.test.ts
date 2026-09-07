@@ -226,6 +226,9 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.get('[data-testid="instrument-warmup-banner"]').text()).toContain('Samples being downloaded...')
     expect(warmingInstrument.attributes('data-state')).toBe('warming')
     expect(warmingInstrument.attributes('disabled')).toBeDefined()
+    expect(warmingInstrument.get('.sticker').classes()).toContain('sticker--fill')
+    expect(warmingInstrument.get('.sticker').classes()).toContain('sticker--color-brass-sheen')
+    expect(warmingInstrument.get('.sticker').classes()).not.toContain('sticker--badge')
     expect(wrapper.emitted('close')).toBeUndefined()
   })
 
@@ -329,8 +332,9 @@ describe('InstrumentSelector.vue', () => {
     expect(trigger.attributes('aria-label')).toBe('Instrument')
     expect(trigger.text()).toContain('triangle')
     expect(selected.attributes('data-state')).toBe('selected')
-    expect(selected.classes()).toContain('border-[#8b8b8b]')
-    expect(selected.classes()).toContain('bg-[#242424]')
+    expect(selected.attributes('aria-pressed')).toBe('true')
+    expect(selected.get('.sticker').classes()).toContain('sticker--fill')
+    expect(selected.get('.sticker').classes()).toContain('sticker--color-ivory')
   })
 
   it('renders footer bank tabs with the shared panel aesthetic structure', async () => {

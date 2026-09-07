@@ -93,7 +93,7 @@
         <div><dt>Available</dt><dd>Ivory outline Sticker; the default library texture.</dd></div>
         <div><dt>Cold</dt><dd>The same outline Sticker dimmed, without inventing another surface.</dd></div>
         <div><dt>Current</dt><dd>Filled Ivory Sticker; selection is the strongest stable event.</dd></div>
-        <div><dt>Warming</dt><dd>Brass Badge; a temporary loading signal using its accepted brass-only role.</dd></div>
+        <div><dt>Warming</dt><dd>Filled brass Sticker; a temporary loading signal without introducing Badge.</dd></div>
         <div><dt>Button</dt><dd>Invisible native semantics only; Sticker owns all visible geometry and material.</dd></div>
       </dl>
     </section>
@@ -180,10 +180,10 @@ function choiceState(sound: Sound) {
   return selection.value === sound.id ? "current" : sound.state;
 }
 
-function stickerVariant(sound: Sound): "outline" | "fill" | "badge" {
+function stickerVariant(sound: Sound): "outline" | "fill" {
   const state = choiceState(sound);
   if (state === "current") return "fill";
-  if (state === "warming") return "badge";
+  if (state === "warming") return "fill";
   return "outline";
 }
 

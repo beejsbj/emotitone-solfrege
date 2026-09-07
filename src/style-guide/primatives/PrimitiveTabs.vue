@@ -6,7 +6,7 @@
   >
     <template #hero>
       <div class="hero-stage">
-        <Tabs v-model="heroValue" :tabs="tabs" aria-label="Hero chip tabs" />
+        <Tabs v-model="heroValue" :tabs="tabs" aria-label="Hero tabs" />
       </div>
     </template>
 
@@ -22,7 +22,7 @@
           :default-value="shortTabs[0].value"
           :geometry="variant.geometry"
           :tone="variant.tone"
-          :aria-label="`${variant.label} chip tabs`"
+          :aria-label="`${variant.label} tabs`"
         />
       </VariantCell>
     </VariantGrid>
@@ -32,7 +32,7 @@
         <Tabs
           :tabs="tabs"
           default-value="anim"
-          aria-label="Comfortable chip tabs"
+          aria-label="Comfortable tabs"
         />
       </VariantCell>
       <VariantCell caption="Compact / 5 tabs" stage="ink3">
@@ -40,7 +40,7 @@
           :tabs="denseTabs"
           default-value="anim"
           density="compact"
-          aria-label="Compact chip tabs"
+          aria-label="Compact tabs"
         />
       </VariantCell>
       <VariantCell caption="Disabled tab" stage="ink3">
@@ -48,7 +48,7 @@
           :tabs="disabledTabs"
           default-value="anim"
           geometry="offcut"
-          aria-label="Disabled chip tabs"
+          aria-label="Disabled tabs"
         />
       </VariantCell>
     </VariantGrid>

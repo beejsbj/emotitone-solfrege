@@ -21,9 +21,9 @@
 
         <div class="tabs-lab__stage tabs-lab__stage--chip">
           <Tabs
-            v-model="chipValue"
-            :tabs="chipTabs"
-            aria-label="Current guide chip tabs"
+            v-model="sourceValue"
+            :tabs="sourceTabs"
+            aria-label="Current guide tabs"
           />
         </div>
 
@@ -115,11 +115,11 @@ import { computed, ref } from "vue";
 import Tabs, { type TabItem } from "../components/primatives/Tabs.vue";
 import TabbedOverlayPanel, { type TabbedOverlayTab } from "../components/TabbedOverlayPanel.vue";
 
-const chipValue = ref("instrument");
+const sourceValue = ref("instrument");
 const instrumentValue = ref("all");
 const configValue = ref("home");
 
-const chipTabs: TabItem[] = [
+const sourceTabs: TabItem[] = [
   { label: "Anim", value: "instrument" },
   { label: "Freq", value: "config" },
   { label: "Color", value: "pattern" },

@@ -84,7 +84,7 @@ const props = withDefaults(
     defaultValue: undefined,
     density: "comfortable",
     layout: "equal",
-    ariaLabel: "Chip tabs",
+    ariaLabel: "Tabs",
   },
 );
 

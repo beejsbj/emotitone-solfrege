@@ -260,9 +260,9 @@ const lightStage = ref(false);
 }
 
 .logo-lab__header h1 {
-  max-width: 12ch;
+  max-width: 13ch;
   margin: 0;
-  font: 700 clamp(48px, 8vw, 104px)/.84 var(--font-display);
+  font: 700 clamp(48px, 7vw, 96px)/1 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
@@ -426,16 +426,18 @@ const lightStage = ref(false);
   align-items: center;
 }
 
-.bell-lockup { gap: clamp(18px, 3vw, 36px); }
-.bell-lockup svg { width: clamp(112px, 14vw, 180px); color: var(--brass); transform: rotate(-3deg); }
+.bell-lockup { gap: clamp(16px, 2vw, 24px); }
+.bell-lockup svg { width: clamp(104px, 10vw, 140px); color: var(--brass); transform: rotate(-3deg); }
 .bell-lockup > div { display: grid; gap: 10px; }
 .bell-lockup strong,
 .duet-lockup strong,
 .resonance-lockup strong {
   color: var(--lab-primary);
-  font: 700 clamp(52px, 7vw, 94px)/.84 var(--font-display);
+  font: 700 clamp(52px, 7vw, 94px)/1 var(--font-display);
   letter-spacing: .01em;
 }
+
+.bell-lockup strong { font-size: clamp(46px, 4.6vw, 64px); }
 
 .bell-lockup span {
   color: var(--lab-muted);
@@ -523,7 +525,7 @@ const lightStage = ref(false);
 
 @media (max-width: 520px) {
   .logo-lab { padding: 18px 12px 32px; }
-  .logo-lab__header h1 { font-size: 48px; }
+  .logo-lab__header h1 { font-size: 44px; }
   .concept__hero { min-height: 280px; padding-inline: 16px; }
   .offbeat-lockup { font-size: 68px; }
   .bell-lockup { flex-direction: column; text-align: center; }

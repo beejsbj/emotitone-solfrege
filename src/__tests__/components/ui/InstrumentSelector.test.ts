@@ -211,8 +211,16 @@ describe('InstrumentSelector.vue', () => {
   it('distinguishes cold instruments from ready instruments', async () => {
     wrapper = await mountSelector()
 
-    expect(wrapper.get('[data-testid="instrument-option-vibraphone"]').attributes('data-state')).toBe('cold')
-    expect(wrapper.get('[data-testid="instrument-option-triangle"]').attributes('data-state')).toBe('ready')
+    const coldInstrument = wrapper.get('[data-testid="instrument-option-vibraphone"]')
+    const readyInstrument = wrapper.get('[data-testid="instrument-option-triangle"]')
+
+    expect(coldInstrument.attributes('data-state')).toBe('cold')
+    expect(coldInstrument.get('.sticker').classes()).toContain('sticker--outline')
+    expect(coldInstrument.get('.sticker').classes()).toContain('sticker--color-ivory')
+    expect(readyInstrument.attributes('data-state')).toBe('ready')
+    expect(readyInstrument.get('.sticker').classes()).toContain('sticker--outline')
+    expect(readyInstrument.get('.sticker').classes()).toContain('sticker--color-ivory')
+    expect(wrapper.findAll('[data-testid^="instrument-option-"] .sticker--badge')).toHaveLength(0)
   })
 
   it('shows warmup progress without closing the panel early', async () => {

@@ -1,12 +1,15 @@
 <template>
-  <InstrumentSelector />
+  <InstrumentSelector
+    :current-instrument="currentInstrument"
+    :on-select-instrument="selectInstrument"
+  />
 
   <main class="picker-lab">
     <header class="picker-lab__header">
       <p class="picker-lab__eyebrow">EmotiTone · focused design lab</p>
       <h1>Instrument Picker.</h1>
       <p class="picker-lab__intro">
-        This page mounts the real production picker in isolation. Open the Sound handle in the
+        This page mounts the real production picker in isolation. Open the Instrument handle in the
         top-left corner to inspect its live library, search, banks, and selection states.
       </p>
     </header>
@@ -25,7 +28,7 @@
         <div>
           <p class="picker-lab__stage-label">Live specimen</p>
           <p>
-            The fixed Sound handle and its drawer come directly from
+            The fixed Instrument handle and its drawer come directly from
             <code>InstrumentSelector</code>. No gallery copy sits between this page and the
             production composition.
           </p>
@@ -53,7 +56,14 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
 import InstrumentSelector from "../components/InstrumentSelector.vue";
+
+const currentInstrument = ref("piano");
+
+function selectInstrument(instrumentId: string) {
+  currentInstrument.value = instrumentId;
+}
 </script>
 
 <style scoped>

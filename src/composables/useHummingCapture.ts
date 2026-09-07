@@ -41,6 +41,7 @@ export function useHummingCapture() {
   let timeoutId: number | null = null;
   let requestController: AbortController | null = null;
   let generation = 0;
+  let loggedNoteIdsAtCaptureStart = new Set<string>();
   let captureContext: {
     key: ChromaticNote;
     mode: MusicalMode;
@@ -72,6 +73,9 @@ export function useHummingCapture() {
     error.value = null;
     importedNoteCount.value = 0;
     status.value = "requesting";
+    loggedNoteIdsAtCaptureStart = new Set(
+      patternsStore.loggedNotes.map((note) => note.id),
+    );
     captureContext = {
       key: musicStore.currentKey as ChromaticNote,
       mode: musicStore.currentMode as MusicalMode,
@@ -81,9 +85,14 @@ export function useHummingCapture() {
     stageBridge = createHummingStageBridge(captureContext);
 
     try {
-      const nextSession = await startMicrophoneCapture((frame) => {
-        if (generation === activeGeneration) stageBridge?.push(frame);
-      });
+      const nextSession = await startMicrophoneCapture(
+        (frame) => {
+          if (generation === activeGeneration) stageBridge?.push(frame);
+        },
+        (caught) => {
+          if (generation === activeGeneration) fail(caught);
+        },
+      );
       if (generation !== activeGeneration) {
         await nextSession.cancel();
         return;
@@ -131,6 +140,11 @@ export function useHummingCapture() {
       const importedIds = patternsStore.importPatternCandidates(
         candidates,
         activeContext,
+        {
+          workingNotes: patternsStore.loggedNotes.filter(
+            (note) => !loggedNoteIdsAtCaptureStart.has(note.id),
+          ),
+        },
       );
       takePatternIds.value = importedIds;
       selectedTakeIndex.value = 0;
@@ -159,7 +173,7 @@ export function useHummingCapture() {
     const patternId = takePatternIds.value[index];
     if (!patternId) return;
     selectedTakeIndex.value = index;
-    patternsStore.loadPatternAsBase(patternId);
+    patternsStore.loadPatternAsBase(patternId, { discardWorkingNotes: true });
   }
 
   async function cancel() {

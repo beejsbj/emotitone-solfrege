@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   toCandidates: vi.fn(),
   importPatternCandidates: vi.fn(),
   loadPatternAsBase: vi.fn(),
+  loggedNotes: [] as Array<{ id: string }>,
 }));
 
 vi.mock("@/services/hummingStage", () => ({
@@ -47,6 +48,7 @@ vi.mock("@/stores/visualConfig", () => ({
 
 vi.mock("@/stores/patterns", () => ({
   usePatternsStore: () => ({
+    loggedNotes: mocks.loggedNotes,
     importPatternCandidates: mocks.importPatternCandidates,
     loadPatternAsBase: mocks.loadPatternAsBase,
   }),
@@ -67,6 +69,7 @@ describe("useHummingCapture", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.loggedNotes.splice(0);
     mocks.startMicrophoneCapture.mockResolvedValue({
       stop: mocks.sessionStop,
       cancel: mocks.sessionCancel,
@@ -101,7 +104,11 @@ describe("useHummingCapture", () => {
       { product: "Melograph" },
       { key: "D", mode: "dorian", instrument: "piano", bpm: 96 },
     );
-    expect(mocks.importPatternCandidates).toHaveBeenCalledTimes(1);
+    expect(mocks.importPatternCandidates).toHaveBeenCalledWith(
+      expect.any(Array),
+      { key: "D", mode: "dorian", instrument: "piano", bpm: 96 },
+      { workingNotes: [] },
+    );
     expect(capture.takeCount.value).toBe(2);
     expect(capture.statusMessage.value).toBe("3 notes added from 2 takes");
     wrapper.unmount();
@@ -114,7 +121,10 @@ describe("useHummingCapture", () => {
 
     capture.selectTake(1);
 
-    expect(mocks.loadPatternAsBase).toHaveBeenCalledWith("pattern-2");
+    expect(mocks.loadPatternAsBase).toHaveBeenCalledWith(
+      "pattern-2",
+      { discardWorkingNotes: true },
+    );
     expect(capture.selectedTakeIndex.value).toBe(1);
     wrapper.unmount();
   });
@@ -131,6 +141,35 @@ describe("useHummingCapture", () => {
     expect(capture.error.value).toBe("Microphone permission was not granted.");
     expect(mocks.bridgeStop).toHaveBeenCalled();
     expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("surfaces recorder failure immediately", async () => {
+    const wrapper = mountCapture();
+    await capture.start();
+
+    const onError = mocks.startMicrophoneCapture.mock.calls[0][1];
+    onError(new Error("The microphone recording failed."));
+
+    expect(capture.status.value).toBe("error");
+    expect(capture.error.value).toBe("The microphone recording failed.");
+    expect(mocks.bridgeStop).toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("preserves notes recorded while Melograph analysis is pending", async () => {
+    mocks.loggedNotes.push({ id: "before-capture" });
+    const wrapper = mountCapture();
+    await capture.start();
+    mocks.loggedNotes.push({ id: "during-analysis" });
+
+    await capture.stop();
+
+    expect(mocks.importPatternCandidates).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(Object),
+      { workingNotes: [{ id: "during-analysis" }] },
+    );
     wrapper.unmount();
   });
 

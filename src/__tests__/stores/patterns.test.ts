@@ -278,7 +278,16 @@ describe("Patterns Store", () => {
 
   it("lets Return save a one-note hummed Pattern", () => {
     const [patternId] = patternsStore.importPatternCandidates(
-      [{ name: "Hummed pattern", notes: [createPatternNote()] }],
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
       { key: "C", mode: "major", instrument: "piano", bpm: 120 },
     );
     const previousCount = patternsStore.savedPatterns.length;
@@ -289,6 +298,18 @@ describe("Patterns Store", () => {
     expect(
       patternsStore.savedPatterns.find((pattern) => pattern.id === patternId),
     ).toEqual(expect.objectContaining({ isSaved: true, noteCount: 1 }));
+    expect(patternsStore.currentSketchNotes).toEqual([]);
+  });
+
+  it("does not save an ordinary keyboard sketch shorter than three notes", () => {
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "short-a" }),
+      createLogNote({ id: "short-b", isStartingNewPattern: false }),
+    ];
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns).toEqual([]);
     expect(patternsStore.currentSketchNotes).toEqual([]);
   });
 
@@ -320,6 +341,78 @@ describe("Patterns Store", () => {
       noteCount: 1,
       source: expect.objectContaining({ kind: "melograph", takeNumber: 1 }),
     }));
+  });
+
+  it("derives edited-take provenance from the loaded pattern, not focus", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [
+          createPatternNote({ id: "source-a" }),
+          createPatternNote({ id: "source-b", note: "D4", scaleIndex: 1 }),
+        ],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 4,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    patternsStore.savedPatterns.push(createPattern({ id: "other-pattern" }));
+    patternsStore.setFocusedPattern("other-pattern");
+    patternsStore.removeLastFromCurrentSketch();
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns.at(-1)?.source).toEqual(
+      expect.objectContaining({ kind: "melograph", takeNumber: 4 }),
+    );
+  });
+
+  it("discards edits from the previous take when explicitly switching takes", () => {
+    const ids = patternsStore.importPatternCandidates(
+      [
+        {
+          name: "Take 1",
+          notes: [createPatternNote({ id: "take-one" })],
+          source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
+        },
+        {
+          name: "Take 2",
+          notes: [createPatternNote({ id: "take-two", note: "E4", scaleIndex: 2 })],
+          source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 2 },
+        },
+      ],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    patternsStore.loggedNotes.push(createLogNote({ id: "take-one-edit" }));
+
+    patternsStore.loadPatternAsBase(ids[1], { discardWorkingNotes: true });
+
+    expect(patternsStore.loggedNotes).toEqual([]);
+    expect(patternsStore.currentSketchNotes.map((note) => note.id)).toEqual(["take-two"]);
+  });
+
+  it("keeps live notes supplied by an in-flight import", () => {
+    const liveNote = createLogNote({ id: "during-analysis" });
+
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote({ id: "hummed-note" })],
+        source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+      { workingNotes: [liveNote] },
+    );
+
+    expect(patternsStore.loggedNotes.map((note) => note.id)).toEqual(["during-analysis"]);
+    expect(patternsStore.currentSketchNotes.map((note) => note.id)).toEqual([
+      "hummed-note",
+      "during-analysis",
+    ]);
   });
 
   it("removes live notes before loaded base notes when undoing the current sketch", () => {

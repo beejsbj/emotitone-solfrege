@@ -115,6 +115,7 @@ export async function startMelographLiveMonitor(
 
 export async function startMicrophoneCapture(
   onFrame: (frame: MelographLivePitchFrame) => void,
+  onError: (error: Error) => void = () => undefined,
 ): Promise<MicrophoneCapture> {
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
     throw new Error("This browser does not support microphone capture.");
@@ -142,6 +143,7 @@ export async function startMicrophoneCapture(
       resolveCompletion = resolve;
       rejectCompletion = reject;
     });
+    void completion.catch(() => undefined);
 
     const cleanup = async () => {
       await monitor?.stop().catch(() => undefined);
@@ -154,9 +156,14 @@ export async function startMicrophoneCapture(
     recorder.onerror = () => {
       if (settled) return;
       settled = true;
-      void cleanup().then(() => {
-        rejectCompletion(new Error("The microphone recording failed."));
-      });
+      const error = new Error("The microphone recording failed.");
+      try {
+        onError(error);
+      } finally {
+        void cleanup().then(() => {
+          rejectCompletion(error);
+        });
+      }
     };
     recorder.onstop = () => {
       if (settled) return;

@@ -34,6 +34,14 @@ export interface ImportedPatternCandidate {
   source?: PatternSource;
 }
 
+interface ImportPatternCandidatesOptions {
+  workingNotes?: LogNote[];
+}
+
+interface LoadPatternAsBaseOptions {
+  discardWorkingNotes?: boolean;
+}
+
 export const usePatternsStore = defineStore(
   "patterns",
   () => {
@@ -59,6 +67,7 @@ export const usePatternsStore = defineStore(
 
     // Working buffer — base notes loaded from a tapped pattern
     const loadedBaseNotes = ref<PatternNote[]>([]);
+    const loadedBasePatternId = ref<string | null>(null);
     const loadedBaseMeta = ref<{
       mode: MusicalMode;
       key: ChromaticNote;
@@ -423,6 +432,7 @@ export const usePatternsStore = defineStore(
     function importPatternCandidates(
       candidates: ImportedPatternCandidate[],
       meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
+      options: ImportPatternCandidatesOptions = {},
     ): string[] {
       const imported = candidates
         .filter((candidate) => candidate.notes.length > 0)
@@ -444,23 +454,36 @@ export const usePatternsStore = defineStore(
 
       savedPatterns.value.push(...imported);
       loadedBaseNotes.value = [];
+      loadedBasePatternId.value = null;
       loadedBaseMeta.value = null;
-      loggedNotes.value = [];
-      pendingNotes.value.clear();
+      loggedNotes.value = (options.workingNotes ?? []).map((note, index) => ({
+        ...note,
+        isStartingNewPattern: index === 0 ? true : note.isStartingNewPattern,
+      }));
       forceNextPatternStart.value = false;
       isStripCleared.value = false;
       purgeOldPatterns();
       loadPatternAsBase(imported[0].id);
+      if (loggedNotes.value.length > 0) forceNextPatternStart.value = false;
 
       return imported.map((pattern) => pattern.id);
     }
 
     // Load a saved pattern as the working base (typewriter desk model)
-    function loadPatternAsBase(patternId: string): void {
+    function loadPatternAsBase(
+      patternId: string,
+      options: LoadPatternAsBaseOptions = {},
+    ): void {
       const pattern = patterns.value.find((p) => p.id === patternId);
       if (!pattern) return;
 
+      if (options.discardWorkingNotes) {
+        loggedNotes.value = [];
+        pendingNotes.value.clear();
+      }
+
       loadedBaseNotes.value = [...pattern.notes];
+      loadedBasePatternId.value = patternId;
       loadedBaseMeta.value = {
         mode: pattern.mode,
         key: pattern.key,
@@ -485,32 +508,35 @@ export const usePatternsStore = defineStore(
     // Send the current working buffer as a new saved pattern, then clear the desk
     function sendCurrentPattern(): void {
       const allNotes = currentSketchNotes.value;
+      const loadedPattern = loadedBasePatternId.value
+        ? patterns.value.find((pattern) => pattern.id === loadedBasePatternId.value)
+        : undefined;
+      const isLoadedImportedPattern = loadedPattern?.source?.kind === "melograph";
 
-      if (allNotes.length > 0) {
-        const focused = focusedPattern.value;
+      if (allNotes.length > 2 || isLoadedImportedPattern) {
         const isUnchangedLoadedCandidate = Boolean(
-          focused
-          && !focused.isDefault
-          && !focused.isSaved
+          loadedPattern
+          && !loadedPattern.isDefault
+          && !loadedPattern.isSaved
           && loadedBaseNotes.value.length > 0
           && currentWorkingNotes.value.length === 0
-          && loadedBaseNotes.value.length === focused.notes.length
+          && loadedBaseNotes.value.length === loadedPattern.notes.length
           && loadedBaseNotes.value.every((note, index) => {
-            const original = focused.notes[index];
+            const original = loadedPattern.notes[index];
             return original?.id === note.id
               && original.pressTime === note.pressTime
               && original.releaseTime === note.releaseTime;
           }),
         );
 
-        if (focused && isUnchangedLoadedCandidate) {
-          focused.isSaved = true;
-          focusedPatternId.value = focused.id;
+        if (loadedPattern && isUnchangedLoadedCandidate) {
+          loadedPattern.isSaved = true;
+          focusedPatternId.value = loadedPattern.id;
         } else {
           const newPattern = createPatternFromNoteSet(
             allNotes,
             currentSketchMeta.value,
-            { source: focused?.source },
+            { source: loadedPattern?.source },
           );
           savedPatterns.value.push(newPattern);
           focusedPatternId.value = newPattern.id;
@@ -518,6 +544,7 @@ export const usePatternsStore = defineStore(
       }
 
       loadedBaseNotes.value = [];
+      loadedBasePatternId.value = null;
       loadedBaseMeta.value = null;
       isStripCleared.value = true;
       // Clear logged notes so dynamicPatterns doesn't duplicate saved content
@@ -761,6 +788,7 @@ export const usePatternsStore = defineStore(
 
       // Working buffer state
       loadedBaseNotes,
+      loadedBasePatternId,
       loadedBaseMeta,
       isStripCleared,
 

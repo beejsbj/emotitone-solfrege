@@ -21,6 +21,21 @@ export interface BlobFieldConnection {
   gap: number;
 }
 
+interface FieldPoint {
+  x: number;
+  y: number;
+}
+
+export interface BlobFieldConnectionGeometry {
+  startAttachment: FieldPoint;
+  endAttachment: FieldPoint;
+  centerline: FieldPoint[];
+  widths: number[];
+  leftEdge: FieldPoint[];
+  rightEdge: FieldPoint[];
+  bend: number;
+}
+
 interface FieldSurfaces {
   source: HTMLCanvasElement;
   visibility: HTMLCanvasElement;
@@ -48,6 +63,11 @@ function smoothstep(edge0: number, edge1: number, value: number) {
     Math.min(1, (value - edge0) / Math.max(0.0001, edge1 - edge0))
   );
   return progress * progress * (3 - 2 * progress);
+}
+
+function smootherstep(value: number) {
+  const progress = Math.max(0, Math.min(1, value));
+  return progress * progress * progress * (progress * (progress * 6 - 15) + 10);
 }
 
 export function getBlobFieldBounds(
@@ -186,10 +206,7 @@ function traceFrame(
   context.closePath();
 }
 
-function getContourPointTowards(
-  frame: PreparedBlobFrame,
-  target: { x: number; y: number }
-) {
+function getContourPointTowards(frame: PreparedBlobFrame, target: FieldPoint) {
   const directionX = target.x - frame.blob.x;
   const directionY = target.y - frame.blob.y;
 
@@ -204,101 +221,180 @@ function getContourPointTowards(
   }, frame.contour[0]);
 }
 
-function getConnectionPath(connection: BlobFieldConnection) {
-  const start = getContourPointTowards(connection.from, connection.to.blob);
-  const end = getContourPointTowards(connection.to, connection.from.blob);
-  const deltaX = end.x - start.x;
-  const deltaY = end.y - start.y;
-  const length = Math.hypot(deltaX, deltaY) || 1;
+function getConnectionBendDirection(connection: BlobFieldConnection) {
   const pairKey = [connection.from.key, connection.to.key].sort().join("::");
-  const bendDirection =
-    [...pairKey].reduce((total, character) => total + character.charCodeAt(0), 0) %
-      2 ===
+  return [...pairKey].reduce(
+    (total, character) => total + character.charCodeAt(0),
     0
-      ? 1
-      : -1;
-  const bend =
-    Math.min(12, connection.gap * 0.035) * bendDirection;
-
-  return {
-    start,
-    end,
-    control: {
-      x: (start.x + end.x) / 2 + (-deltaY / length) * bend,
-      y: (start.y + end.y) / 2 + (deltaX / length) * bend,
-    },
-  };
+  ) %
+    2 ===
+    0
+    ? 1
+    : -1;
 }
 
-function traceConnection(
-  context: CanvasRenderingContext2D,
+/**
+ * Build one smooth material ribbon. Its broad endpoints sit inside the two
+ * prepared bodies, so the field owns a rounded shoulder instead of exposing a
+ * hard cross-section at either contour. A quartic bump curves the centerline
+ * while retaining contour-normal endpoint tangents, and a quintic taper makes
+ * the width derivative settle to zero at both bodies and at the waist.
+ */
+export function getBlobFieldConnectionGeometry(
   connection: BlobFieldConnection,
-  waistWidth: number
-) {
-  const path = getConnectionPath(connection);
+  waistWidth: number,
+  fieldScale: number
+): BlobFieldConnectionGeometry {
+  const startAttachment = getContourPointTowards(
+    connection.from,
+    connection.to.blob
+  );
+  const endAttachment = getContourPointTowards(
+    connection.to,
+    connection.from.blob
+  );
+  const centerDeltaX = connection.to.blob.x - connection.from.blob.x;
+  const centerDeltaY = connection.to.blob.y - connection.from.blob.y;
+  const centerDistance = Math.hypot(centerDeltaX, centerDeltaY) || 1;
+  const direction = {
+    x: centerDeltaX / centerDistance,
+    y: centerDeltaY / centerDistance,
+  };
+  const normal = { x: -direction.y, y: direction.x };
+  const shoulderWidths = {
+    from: Math.max(waistWidth, connection.from.scaledRadius * 1.05),
+    to: Math.max(waistWidth, connection.to.scaledRadius * 1.05),
+  };
+  const start = {
+    x: startAttachment.x - direction.x * connection.from.scaledRadius * 0.22,
+    y: startAttachment.y - direction.y * connection.from.scaledRadius * 0.22,
+  };
+  const end = {
+    x: endAttachment.x + direction.x * connection.to.scaledRadius * 0.22,
+    y: endAttachment.y + direction.y * connection.to.scaledRadius * 0.22,
+  };
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  const smallerRadius = Math.min(
+    connection.from.scaledRadius,
+    connection.to.scaledRadius
+  );
+  const bendLimit = Math.min(72, Math.max(24, smallerRadius * 0.62));
+  const bendActivation = smoothstep(
+    0,
+    Math.max(1, smallerRadius * 1.5),
+    connection.gap
+  );
+  const bend =
+    Math.min(connection.gap * 0.095, bendLimit) *
+    bendActivation *
+    getConnectionBendDirection(connection);
+  const estimatedLength = Math.hypot(deltaX, deltaY) + Math.abs(bend) * 1.5;
+  const segments = Math.max(
+    24,
+    Math.min(192, Math.ceil((estimatedLength * Math.max(0.01, fieldScale)) / 2))
+  );
   const pointAt = (progress: number) => {
     const inverse = 1 - progress;
+    const curve = 16 * progress * progress * inverse * inverse;
     return {
-      x:
-        inverse * inverse * path.start.x +
-        2 * inverse * progress * path.control.x +
-        progress * progress * path.end.x,
-      y:
-        inverse * inverse * path.start.y +
-        2 * inverse * progress * path.control.y +
-        progress * progress * path.end.y,
+      x: start.x + deltaX * progress + normal.x * bend * curve,
+      y: start.y + deltaY * progress + normal.y * bend * curve,
     };
   };
-  const tangentAt = (progress: number) => ({
-    x:
-      2 * (1 - progress) * (path.control.x - path.start.x) +
-      2 * progress * (path.end.x - path.control.x),
-    y:
-      2 * (1 - progress) * (path.control.y - path.start.y) +
-      2 * progress * (path.end.y - path.control.y),
-  });
-  const endpointWidths = {
-    from: Math.min(
-      connection.from.scaledRadius * 0.86,
-      waistWidth * 2.1
-    ),
-    to: Math.min(connection.to.scaledRadius * 0.86, waistWidth * 2.1),
+  const tangentAt = (progress: number) => {
+    const curveSlope = 32 * progress * (1 - progress) * (1 - progress * 2);
+    return {
+      x: deltaX + normal.x * bend * curveSlope,
+      y: deltaY + normal.y * bend * curveSlope,
+    };
   };
-  const left: Array<{ x: number; y: number }> = [];
-  const right: Array<{ x: number; y: number }> = [];
-  const segments = 16;
+  const widthAt = (progress: number) =>
+    progress <= 0.5
+      ? shoulderWidths.from +
+        (waistWidth - shoulderWidths.from) * smootherstep(progress * 2)
+      : waistWidth +
+        (shoulderWidths.to - waistWidth) * smootherstep((progress - 0.5) * 2);
+  const centerline: FieldPoint[] = [];
+  const widths: number[] = [];
+  const leftEdge: FieldPoint[] = [];
+  const rightEdge: FieldPoint[] = [];
 
   for (let index = 0; index <= segments; index += 1) {
     const progress = index / segments;
     const point = pointAt(progress);
     const tangent = tangentAt(progress);
     const tangentLength = Math.hypot(tangent.x, tangent.y) || 1;
-    const normal = {
+    const edgeNormal = {
       x: -tangent.y / tangentLength,
       y: tangent.x / tangentLength,
     };
-    const endpointWidth =
-      endpointWidths.from * (1 - progress) + endpointWidths.to * progress;
-    const edgeWeight = Math.pow(Math.abs(progress * 2 - 1), 1.7);
-    const width = waistWidth + (endpointWidth - waistWidth) * edgeWeight;
+    const width = widthAt(progress);
     const halfWidth = width / 2;
 
-    left.push({
-      x: point.x + normal.x * halfWidth,
-      y: point.y + normal.y * halfWidth,
+    centerline.push(point);
+    widths.push(width);
+    leftEdge.push({
+      x: point.x + edgeNormal.x * halfWidth,
+      y: point.y + edgeNormal.y * halfWidth,
     });
-    right.push({
-      x: point.x - normal.x * halfWidth,
-      y: point.y - normal.y * halfWidth,
+    rightEdge.push({
+      x: point.x - edgeNormal.x * halfWidth,
+      y: point.y - edgeNormal.y * halfWidth,
     });
   }
 
+  return {
+    startAttachment,
+    endAttachment,
+    centerline,
+    widths,
+    leftEdge,
+    rightEdge,
+    bend,
+  };
+}
+
+function traceSmoothEdge(
+  context: CanvasRenderingContext2D,
+  points: readonly FieldPoint[],
+  moveToStart: boolean,
+  reverse = false
+) {
+  const pointAt = (index: number) =>
+    points[reverse ? points.length - 1 - index : index];
+  const first = pointAt(0);
+
+  if (moveToStart) {
+    context.moveTo(first.x, first.y);
+  } else {
+    context.lineTo(first.x, first.y);
+  }
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const point = pointAt(index);
+    const next = pointAt(index + 1);
+    context.quadraticCurveTo(
+      point.x,
+      point.y,
+      (point.x + next.x) / 2,
+      (point.y + next.y) / 2
+    );
+  }
+
+  const last = pointAt(points.length - 1);
+  if (last) {
+    context.lineTo(last.x, last.y);
+  }
+}
+
+function traceConnection(
+  context: CanvasRenderingContext2D,
+  geometry: BlobFieldConnectionGeometry
+) {
   context.beginPath();
-  context.moveTo(left[0].x, left[0].y);
-  left.slice(1).forEach((point) => context.lineTo(point.x, point.y));
-  [...right]
-    .reverse()
-    .forEach((point) => context.lineTo(point.x, point.y));
+  traceSmoothEdge(context, geometry.leftEdge, true);
+  traceSmoothEdge(context, geometry.rightEdge, false, true);
   context.closePath();
 }
 
@@ -467,7 +563,24 @@ export function useBlobFieldRenderer() {
     const { scale, width, height } = getBlobFieldResolution(bounds);
     const connections =
       mode === "merge" ? getBlobFieldConnections(frames) : [];
-    const contributionDivisor = frames.length + connections.length;
+    const connectionLayers = connections.map((connection) => {
+      const connectionWidth = getBlobFieldConnectionWidth(
+        connection,
+        blur,
+        scale,
+        config.glassmorphOpacity
+      );
+
+      return {
+        connection,
+        geometry: getBlobFieldConnectionGeometry(
+          connection,
+          connectionWidth,
+          scale
+        ),
+      };
+    });
+    const contributionDivisor = frames.length + connectionLayers.length;
     const field = getSurfaces(width, height);
     const sourceContext = field.source.getContext("2d", {
       willReadFrequently: true,
@@ -515,30 +628,25 @@ export function useBlobFieldRenderer() {
       sourceContext.fill();
     });
 
-    connections.forEach((connection) => {
+    connectionLayers.forEach(({ connection, geometry }) => {
       const opacity = Math.min(
         Math.max(0, Math.min(1, connection.from.opacity)),
         Math.max(0, Math.min(1, connection.to.opacity))
       );
-      const path = getConnectionPath(connection);
+      const start = geometry.centerline[0];
+      const end = geometry.centerline[geometry.centerline.length - 1] ?? start;
       const gradient = sourceContext.createLinearGradient(
-        path.start.x,
-        path.start.y,
-        path.end.x,
-        path.end.y
+        start.x,
+        start.y,
+        end.x,
+        end.y
       );
       gradient.addColorStop(0, connection.from.primaryColor);
       gradient.addColorStop(1, connection.to.primaryColor);
 
       sourceContext.globalAlpha = opacity / contributionDivisor;
       sourceContext.fillStyle = gradient;
-      const connectionWidth = getBlobFieldConnectionWidth(
-        connection,
-        blur,
-        scale,
-        config.glassmorphOpacity
-      );
-      traceConnection(sourceContext, connection, connectionWidth);
+      traceConnection(sourceContext, geometry);
       sourceContext.fill();
     });
 
@@ -554,19 +662,13 @@ export function useBlobFieldRenderer() {
           visibilityContext.fill();
         },
       })),
-      ...connections.map((connection) => ({
+      ...connectionLayers.map(({ connection, geometry }) => ({
         opacity: Math.min(
           Math.max(0, Math.min(1, connection.from.opacity)),
           Math.max(0, Math.min(1, connection.to.opacity))
         ),
         paint: () => {
-          const connectionWidth = getBlobFieldConnectionWidth(
-            connection,
-            blur,
-            scale,
-            config.glassmorphOpacity
-          );
-          traceConnection(visibilityContext, connection, connectionWidth);
+          traceConnection(visibilityContext, geometry);
           visibilityContext.fill();
         },
       })),

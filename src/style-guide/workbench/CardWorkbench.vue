@@ -35,6 +35,7 @@
           class="spine-variant"
           :spine="`var(--${card.tone})`"
         >
+          <template #label>{{ card.index }} — Spine / {{ card.tone }}</template>
           <Kicker :tone="card.tone">{{ card.kicker }}</Kicker>
           <h3 class="spine-variant__title">{{ card.title }}</h3>
           <p class="spine-variant__body">{{ card.body }}</p>
@@ -51,6 +52,7 @@
       <div class="pattern-stack">
         <p class="surface-label">List density</p>
         <CardCandidate class="pattern-candidate" flush>
+          <template #label>Pattern 01 — Piano / C Major</template>
           <div class="pattern-row">
             <span class="pattern-number">01</span>
             <span class="pattern-copy">
@@ -160,14 +162,15 @@ const timeline: BarTapeSegment[] = productionPattern.notes.map((note) => ({
 }));
 
 const spineCards: Array<{
+  index: string;
   tone: SpineCardTone;
   kicker: string;
   title: string;
   body: string;
 }> = [
-  { tone: "tomato", kicker: "Preset", title: "Warm-up", body: "A bright entry into the exercise." },
-  { tone: "pine", kicker: "Live", title: "Listening", body: "Quiet status on the same underlying Card." },
-  { tone: "mustard", kicker: "Lesson", title: "Call & response", body: "Brand changes the edition, not the shell." },
+  { index: "01", tone: "tomato", kicker: "Preset", title: "Warm-up", body: "A bright entry into the exercise." },
+  { index: "02", tone: "pine", kicker: "Live", title: "Listening", body: "Quiet status on the same underlying Card." },
+  { index: "03", tone: "mustard", kicker: "Lesson", title: "Call & response", body: "Brand changes the edition, not the shell." },
 ];
 </script>
 

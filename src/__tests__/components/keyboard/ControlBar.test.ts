@@ -57,4 +57,11 @@ describe("ControlBar.vue", () => {
     expect(controlBarSource).not.toContain("overflow-x: auto");
     expect(controlBarSource).not.toContain("width: max-content");
   });
+
+  it("provides its real element as the explicit knob scroll context", () => {
+    expect(controlBarSource).toContain("provide(knobScrollContextKey");
+    expect(controlBarSource).toContain("controlBarRef.value?.scrollLeft");
+    expect(controlBarSource).toContain("controlBarRef.value.scrollLeft = left");
+    expect(controlBarSource).not.toContain("action-scroll");
+  });
 });

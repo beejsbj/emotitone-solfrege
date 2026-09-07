@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick, ref } from "vue";
+import { nextTick } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
+import { knobScrollContextKey } from "@/components/primatives/Knob/interaction";
 
 const { triggerUIHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
@@ -89,6 +90,30 @@ describe("Knob public interface", () => {
     expect(document.querySelector(".knob-drag-value")).toBeNull();
     await wrapper.trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it("routes window blur to cancellation and leaves later document input inert", async () => {
+    const addWindowListener = vi.spyOn(window, "addEventListener");
+    try {
+      const wrapper = render({ modelValue: 50, type: "range" });
+      await wrapper.trigger("mousedown", { clientX: 100, clientY: 100 });
+      const blurRegistration = addWindowListener.mock.calls
+        .filter(([name]) => name === "blur")
+        .at(-1);
+      expect(blurRegistration).toBeDefined();
+
+      (blurRegistration![1] as EventListener)(new Event("blur"));
+      await nextTick();
+      await documentEvent(
+        "mousemove",
+        new MouseEvent("mousemove", { clientX: 100, clientY: 40 }),
+      );
+
+      expect(document.querySelector(".knob-drag-value")).toBeNull();
+      expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    } finally {
+      addWindowListener.mockRestore();
+    }
   });
 
   it("keeps one responsive production anatomy with a bottom label", () => {
@@ -254,12 +279,24 @@ describe("Knob public interface", () => {
     expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
   });
 
+  it("applies vertical drag effects through both public update events", async () => {
+    const wrapper = render({ modelValue: 50, type: "range" });
+    await wrapper.trigger("mousedown", { clientX: 100, clientY: 100 });
+    await documentEvent(
+      "mousemove",
+      new MouseEvent("mousemove", { clientX: 102, clientY: 60 }),
+    );
+
+    expect(wrapper.emitted("update:modelValue")).toEqual([[70]]);
+    expect(wrapper.emitted("update:value")).toEqual([[70]]);
+    expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
+  });
+
   it("activates a boolean mouse tap once across mouseup and click", async () => {
     const wrapper = render({ modelValue: false, type: "boolean" });
 
     await wrapper.trigger("mousedown", { clientX: 20, clientY: 20 });
-    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-    await nextTick();
+    await documentEvent("mouseup", new MouseEvent("mouseup", { bubbles: true }));
 
     // Mouseup closes the gesture; the native click is the single activation.
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
@@ -310,29 +347,24 @@ describe("Knob public interface", () => {
     }
   });
 
-  it("does not turn horizontal action-row movement into a value change", async () => {
-    const Host = defineComponent({
-      components: { Knob },
-      setup: () => ({ value: ref(50) }),
-      template: `
-        <div class="action-scroll">
-          <Knob v-model="value" type="range" />
-        </div>
-      `,
-    });
-    const host = mount(Host, { attachTo: document.body });
-    wrappers.push(host);
-    const scrollHost = host.get(".action-scroll").element as HTMLElement;
-    const knob = host.getComponent(Knob);
+  it("routes horizontal movement through the explicit scroll adapter", async () => {
     let scrollLeft = 40;
-    const setScrollLeft = vi.fn((value: number) => {
+    const writeScrollLeft = vi.fn((value: number) => {
       scrollLeft = value;
     });
-    Object.defineProperty(scrollHost, "scrollLeft", {
-      configurable: true,
-      get: () => scrollLeft,
-      set: setScrollLeft,
+    const knob = mount(Knob, {
+      props: { modelValue: 50, type: "range" },
+      attachTo: document.body,
+      global: {
+        provide: {
+          [knobScrollContextKey as symbol]: {
+            read: () => scrollLeft,
+            write: writeScrollLeft,
+          },
+        },
+      },
     });
+    wrappers.push(knob);
 
     const mouseAt = (type: string, clientX: number, clientY: number) => {
       const event = new MouseEvent(type, { bubbles: true, cancelable: true });
@@ -344,14 +376,11 @@ describe("Knob public interface", () => {
     };
 
     await knob.trigger("mousedown", { clientX: 100, clientY: 100 });
-    document.dispatchEvent(mouseAt("mousemove", 130, 102));
-    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    await documentEvent("mousemove", mouseAt("mousemove", 130, 102));
+    await documentEvent("mouseup", new MouseEvent("mouseup", { bubbles: true }));
 
-    // happy-dom does not deliver this component-attached mousedown into the
-    // native document listener path. Keep the setter observable so the gap is
-    // explicit; live-browser QA owns the positive scrollLeft handoff proof.
-    expect(setScrollLeft).not.toHaveBeenCalled();
-    expect(scrollLeft).toBe(40);
+    expect(writeScrollLeft).toHaveBeenCalledWith(10);
+    expect(scrollLeft).toBe(10);
     expect(knob.emitted("update:modelValue")).toBeUndefined();
     expect(triggerUIHaptic).not.toHaveBeenCalled();
   });

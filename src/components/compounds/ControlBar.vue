@@ -1,5 +1,5 @@
 <template>
-  <section class="control-bar" aria-label="Keyboard controls">
+  <section ref="controlBarRef" class="control-bar" aria-label="Keyboard controls">
     <div class="control-bar__item">
       <Knob
         :model-value="keyValue"
@@ -60,8 +60,19 @@
 </template>
 
 <script setup lang="ts">
+import { provide, ref } from "vue";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import Knob from "@/components/primatives/Knob/index.vue";
+import { knobScrollContextKey } from "@/components/primatives/Knob/interaction";
+
+const controlBarRef = ref<HTMLElement | null>(null);
+
+provide(knobScrollContextKey, {
+  read: () => controlBarRef.value?.scrollLeft ?? 0,
+  write: (left) => {
+    if (controlBarRef.value) controlBarRef.value.scrollLeft = left;
+  },
+});
 
 withDefaults(
   defineProps<{

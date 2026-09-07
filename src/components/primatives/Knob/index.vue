@@ -30,7 +30,6 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="visual"
         :tone="tone"
-        @update:modelValue="handleValueUpdate"
       />
 
       <!-- Boolean Knob -->
@@ -43,7 +42,6 @@
         :tone="tone"
         :value-label-true="valueLabelTrue"
         :value-label-false="valueLabelFalse"
-        @update:modelValue="handleValueUpdate"
       />
 
       <!-- Options Knob -->
@@ -55,15 +53,14 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="visual"
         :tone="tone"
-        @update:modelValue="handleValueUpdate"
       />
 
     </div>
 
     <DragValue
       v-if="showDragValue"
-      :x="interaction.current.value.x"
-      :y="interaction.current.value.y"
+      :x="interactionView.point.x"
+      :y="interactionView.point.y"
       :value="dragValue"
     />
 
@@ -78,14 +75,27 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch, type PropType } from "vue";
+import {
+  computed,
+  inject,
+  onBeforeUnmount,
+  ref,
+  shallowRef,
+  watch,
+  type PropType,
+} from "vue";
 import useGSAP from "@/composables/useGSAP";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
+import { createKnobInteraction, knobScrollContextKey } from "./interaction";
 import DragValue from "./DragValue.vue";
 import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
 import type { KnobTone, KnobType, KnobVisual } from "./types";
+import type {
+  KnobInteractionOutcome,
+  KnobPointerKind,
+} from "@/types/knobInteraction";
 
 // Props - keeping the original API for backwards compatibility
 const props = defineProps({
@@ -179,46 +189,6 @@ const emit = defineEmits<{
 // Refs
 const wrapperRef = ref<HTMLElement>();
 
-// Enhanced interaction state with better gesture recognition
-const interaction = {
-  isDragging: ref(false),
-  isHeld: ref(false),
-  gestureState: ref<
-    | "idle"
-    | "potential_tap"
-    | "horizontal_scroll"
-    | "confirmed_drag"
-    | "gesture_ended"
-  >("idle"),
-  suppressClick: ref(false),
-
-  start: ref({
-    y: 0,
-    x: 0,
-    value: 0,
-    time: 0,
-    optionIndex: 0,
-    scrollLeft: 0,
-  }),
-
-  current: ref({
-    y: 0,
-    x: 0,
-    totalMovement: 0,
-    velocity: 0,
-    lastMoveTime: 0,
-  }),
-
-  // Accumulator for smooth value changes
-  valueAccumulator: ref(0),
-  optionAccumulator: ref(0), // Accumulator for options movement
-  lastHapticTrigger: ref(0),
-  lastOptionChange: ref(0), // Separate tracker for options debouncing
-
-  // Movement buffer for velocity calculation
-  movementBuffer: ref<Array<{ y: number; time: number }>>([]),
-};
-
 // Get the actual value (prioritize modelValue, fallback to value for backwards compatibility)
 const actualValue = computed(() => {
   if (props.modelValue !== undefined) return props.modelValue;
@@ -260,11 +230,30 @@ const actualLabel = computed(() => {
   return props.label || "Knob";
 });
 
-// The follower observes the gesture; value/sensitivity ownership stays here.
+const scrollContext = inject(knobScrollContextKey, null);
+const interaction = createKnobInteraction(() => ({
+  value: actualValue.value,
+  kind: knobType.value,
+  inert: props.isDisabled || props.isDisplay,
+  min: props.min,
+  max: props.max,
+  step: props.step,
+  sensitivity: props.sensitivity,
+  tapThreshold: props.tapThreshold,
+  tapDuration: props.tapDuration,
+  options: (props.options ?? []).map((option) => ({
+    value: typeof option === "string" ? option : option.value,
+  })),
+}));
+const interactionView = shallowRef(
+  interaction.dispatch({ type: "cancel" }).view,
+);
+const hapticPulse = ref(0);
+
 const showDragValue = computed(() =>
-  interaction.isHeld.value && !props.isDisabled && !props.isDisplay &&
+  interactionView.value.held && !props.isDisabled && !props.isDisplay &&
   knobType.value !== "boolean" &&
-  interaction.gestureState.value !== "horizontal_scroll"
+  interactionView.value.gesture !== "horizontal_scroll"
 );
 const dragValue = computed(() => {
   if (knobType.value === "range") return String(props.formatValue(actualValue.value as number));
@@ -279,286 +268,6 @@ const defaultThemeColor = computed(() =>
   props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 82%, 1)"
 );
 
-let suppressClickTimeout: ReturnType<typeof setTimeout> | undefined;
-
-const clearSuppressedClick = () => {
-  interaction.suppressClick.value = false;
-  if (suppressClickTimeout) {
-    clearTimeout(suppressClickTimeout);
-    suppressClickTimeout = undefined;
-  }
-};
-
-const armSuppressedClick = () => {
-  clearSuppressedClick();
-  interaction.suppressClick.value = true;
-  // Touchstart.preventDefault usually prevents a compatibility click, but
-  // expire the guard so a later real pointer click cannot be lost forever.
-  suppressClickTimeout = setTimeout(clearSuppressedClick, 500);
-};
-
-// Enhanced gesture detection and interaction
-const handleStart = (e: MouseEvent | TouchEvent) => {
-  if (props.isDisabled || props.isDisplay) return;
-  if ("button" in e && e.button !== 0) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-  const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-  const now = Date.now();
-
-  // Reset interaction state
-  interaction.gestureState.value = "potential_tap";
-  interaction.isDragging.value = false;
-  interaction.isHeld.value = true;
-  clearSuppressedClick();
-  interaction.valueAccumulator.value = 0;
-  interaction.optionAccumulator.value = 0; // Reset options accumulator
-  interaction.lastOptionChange.value = 0; // Reset options debounce
-  interaction.movementBuffer.value = [];
-
-  const scrollHost =
-    wrapperRef.value?.closest(".action-scroll") instanceof HTMLElement
-      ? (wrapperRef.value?.closest(".action-scroll") as HTMLElement)
-      : null;
-
-  // Store initial state
-  interaction.start.value = {
-    y: clientY,
-    x: clientX,
-    value: actualValue.value as number,
-    time: now,
-    optionIndex: getCurrentOptionIndex(),
-    scrollLeft: scrollHost?.scrollLeft ?? 0,
-  };
-
-  interaction.current.value = {
-    y: clientY,
-    x: clientX,
-    totalMovement: 0,
-    velocity: 0,
-    lastMoveTime: now,
-  };
-
-  // Add global event listeners
-  window.addEventListener("blur", cancelGesture);
-  if ("touches" in e) {
-    document.addEventListener("touchmove", handleMove, { passive: false });
-    document.addEventListener("touchend", handleEnd);
-    document.addEventListener("touchcancel", handleEnd);
-  } else {
-    document.addEventListener("mousemove", handleMove);
-    document.addEventListener("mouseup", handleEnd);
-  }
-
-};
-
-const handleMove = (e: Event) => {
-  if (!interaction.isHeld.value || props.isDisabled) return;
-
-  const event = e as MouseEvent | TouchEvent;
-  const clientY = "touches" in event ? event.touches[0].clientY : event.clientY;
-  const clientX = "touches" in event ? event.touches[0].clientX : event.clientX;
-  const now = Date.now();
-  const deltaFromStartX = clientX - interaction.start.value.x;
-  const deltaFromStartY = clientY - interaction.start.value.y;
-
-  // Update current position
-  const deltaY = interaction.current.value.y - clientY;
-  interaction.current.value.y = clientY;
-  interaction.current.value.x = clientX;
-
-  // Calculate total movement from start
-  const totalMovement = Math.sqrt(
-    Math.pow(clientY - interaction.start.value.y, 2) +
-      Math.pow(clientX - interaction.start.value.x, 2)
-  );
-  interaction.current.value.totalMovement = totalMovement;
-
-  // Update movement buffer for velocity calculation
-  interaction.movementBuffer.value.push({ y: clientY, time: now });
-  if (interaction.movementBuffer.value.length > 5) {
-    interaction.movementBuffer.value.shift();
-  }
-
-  // Calculate velocity
-  if (interaction.movementBuffer.value.length >= 2) {
-    const recent =
-      interaction.movementBuffer.value[
-        interaction.movementBuffer.value.length - 1
-      ];
-    const previous =
-      interaction.movementBuffer.value[
-        interaction.movementBuffer.value.length - 2
-      ];
-    const timeDelta = recent.time - previous.time;
-    if (timeDelta > 0) {
-      interaction.current.value.velocity = (previous.y - recent.y) / timeDelta;
-    }
-  }
-
-  // Gesture state machine
-  if (
-    interaction.gestureState.value === "potential_tap" &&
-    totalMovement > props.tapThreshold
-  ) {
-    const absX = Math.abs(deltaFromStartX);
-    const absY = Math.abs(deltaFromStartY);
-
-    if (absX > absY * 1.15) {
-      interaction.gestureState.value = "horizontal_scroll";
-      interaction.isDragging.value = true;
-      interaction.suppressClick.value = true;
-    } else if (absY > absX * 1.05) {
-      interaction.gestureState.value = "confirmed_drag";
-      interaction.isDragging.value = true;
-      interaction.suppressClick.value = true;
-    } else {
-      return;
-    }
-  }
-
-  if (interaction.gestureState.value === "horizontal_scroll") {
-    const scrollHost =
-      wrapperRef.value?.closest(".action-scroll") instanceof HTMLElement
-        ? (wrapperRef.value?.closest(".action-scroll") as HTMLElement)
-        : null;
-
-    if (scrollHost) {
-      scrollHost.scrollLeft = interaction.start.value.scrollLeft - deltaFromStartX;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    return;
-  }
-
-  // Only process movement if we're in confirmed drag state
-  if (interaction.gestureState.value !== "confirmed_drag") return;
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  // Apply movement based on knob type with enhanced algorithms
-  const timeDelta = now - interaction.current.value.lastMoveTime;
-  interaction.current.value.lastMoveTime = now;
-
-  if (knobType.value === "range") {
-    handleRangeMovement(deltaY, timeDelta);
-  } else if (knobType.value === "boolean") {
-    handleBooleanMovement(deltaY);
-  } else if (knobType.value === "options" && props.options?.length) {
-    handleOptionsMovement(deltaY, timeDelta);
-  }
-};
-
-const handleRangeMovement = (deltaY: number, timeDelta: number) => {
-  // Enhanced range movement with controlled sensitivity
-  const range = props.max - props.min;
-
-  // Much more conservative base sensitivity
-  let sensitivity = props.sensitivity * 0.25; // Reduce base sensitivity significantly
-
-  // More conservative dynamic scaling based on range
-  if (range < 1) sensitivity *= 0.4; // Even more precise for small ranges
-  else if (range > 100) sensitivity *= 1.2; // Less aggressive for large ranges
-
-  // Reduced velocity-based acceleration (optional and subtle)
-  const velocityFactor = Math.min(
-    Math.abs(interaction.current.value.velocity) * 0.02,
-    0.3
-  );
-  const finalSensitivity = sensitivity * (1 + velocityFactor);
-
-  // Calculate raw change with reduced multiplier
-  const rawChange = deltaY * finalSensitivity * range * 0.4; // Additional reduction
-
-  // Add to accumulator for smoother transitions
-  interaction.valueAccumulator.value += rawChange;
-
-  // Higher threshold for changes to require more deliberate movement
-  const changeThreshold = props.step * 0.6; // Increased from 0.3
-  if (Math.abs(interaction.valueAccumulator.value) >= changeThreshold) {
-    let newValue =
-      (actualValue.value as number) + interaction.valueAccumulator.value;
-
-    // Clamp to bounds
-    newValue = Math.max(props.min, Math.min(props.max, newValue));
-
-    // Apply step quantization - ensure we land on valid step values
-    if (props.step > 0) {
-      const stepsFromMin = Math.round((newValue - props.min) / props.step);
-      newValue = props.min + (stepsFromMin * props.step);
-      // Ensure we stay within bounds after step adjustment
-      newValue = Math.max(props.min, Math.min(props.max, newValue));
-    }
-
-    // Only update if value actually changed
-    if (newValue !== actualValue.value) {
-      handleValueUpdate(newValue);
-      triggerSmartHaptic();
-      interaction.valueAccumulator.value = 0; // Reset accumulator
-    }
-  }
-};
-
-const handleBooleanMovement = (deltaY: number) => {
-  // Enhanced boolean toggle with higher threshold for deliberate action
-  const TOGGLE_THRESHOLD = 15; // Increased from 8 to require more intentional movement
-
-  if (Math.abs(deltaY) >= TOGGLE_THRESHOLD) {
-    const newValue = deltaY > 0; // Down = true, up = false
-
-    if (newValue !== actualValue.value) {
-      handleValueUpdate(newValue);
-      triggerSmartHaptic();
-    }
-  }
-};
-
-const handleOptionsMovement = (deltaY: number, timeDelta: number) => {
-  // Enhanced options cycling with cumulative movement and smooth debouncing
-  const CYCLE_THRESHOLD = 15; // Threshold for one option change
-  const MIN_CYCLE_INTERVAL = 100; // Minimum time between option changes
-
-  // Add movement to accumulator
-  interaction.optionAccumulator.value += deltaY;
-
-  // Check if we've accumulated enough movement for a change
-  if (Math.abs(interaction.optionAccumulator.value) >= CYCLE_THRESHOLD) {
-    const now = Date.now();
-    if (now - interaction.lastOptionChange.value < MIN_CYCLE_INTERVAL) {
-      return; // Debounce rapid cycling
-    }
-
-    const currentIndex = getCurrentOptionIndex();
-    const direction = interaction.optionAccumulator.value > 0 ? 1 : -1;
-
-    // Calculate how many steps we should take based on accumulated movement
-    const steps = Math.floor(
-      Math.abs(interaction.optionAccumulator.value) / CYCLE_THRESHOLD
-    );
-
-    const nextIndex =
-      (currentIndex + direction * steps + props.options!.length) %
-      props.options!.length;
-    const nextOption = props.options![nextIndex];
-    const nextValue =
-      typeof nextOption === "string" ? nextOption : nextOption.value;
-
-    if (nextValue !== actualValue.value) {
-      handleValueUpdate(nextValue);
-      triggerSmartHaptic();
-      interaction.lastOptionChange.value = now;
-
-      // Reset accumulator after successful change
-      interaction.optionAccumulator.value = 0;
-    }
-  }
-};
-
 const removeGestureListeners = () => {
   document.removeEventListener("touchmove", handleMove);
   document.removeEventListener("touchend", handleEnd);
@@ -568,129 +277,109 @@ const removeGestureListeners = () => {
   window.removeEventListener("blur", cancelGesture);
 };
 
-const cancelGesture = () => {
-  interaction.isHeld.value = false;
-  interaction.isDragging.value = false;
-  interaction.gestureState.value = "idle";
+const captureGesture = (pointer: KnobPointerKind) => {
   removeGestureListeners();
+  window.addEventListener("blur", cancelGesture);
+  if (pointer === "touch") {
+    document.addEventListener("touchmove", handleMove, { passive: false });
+    document.addEventListener("touchend", handleEnd);
+    document.addEventListener("touchcancel", handleEnd);
+  } else {
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleEnd);
+  }
 };
 
-onBeforeUnmount(() => {
-  cancelGesture();
-  clearSuppressedClick();
-});
-watch(() => props.isDisabled || props.isDisplay, (inert) => {
-  if (inert) cancelGesture();
-});
-
-const handleEnd = (e: Event) => {
-  if (e.type === "touchcancel") {
-    cancelGesture();
-    return;
-  }
-
-  const event = e as MouseEvent | TouchEvent;
-  if (interaction.gestureState.value !== "potential_tap") {
+const applyOutcome = (result: KnobInteractionOutcome, event?: Event) => {
+  interactionView.value = result.view;
+  if (result.consume && event) {
     event.preventDefault();
     event.stopPropagation();
   }
 
-  const now = Date.now();
-  const touchDuration = now - interaction.start.value.time;
-
-  const isTouchEvent = "touches" in event || "changedTouches" in event;
-
-  // Mouse taps are completed by the native click that follows mouseup. Touch
-  // browsers may synthesize that click later, so handle touch taps here and
-  // consume the synthesized click in handleClick.
-  if (
-    isTouchEvent &&
-    interaction.gestureState.value === "potential_tap" &&
-    touchDuration < props.tapDuration &&
-    interaction.current.value.totalMovement <= props.tapThreshold
-  ) {
-    handleTap();
-    armSuppressedClick();
+  for (const effect of result.effects) {
+    if (effect.type === "capture") captureGesture(effect.pointer);
+    else if (effect.type === "release") removeGestureListeners();
+    else if (effect.type === "scroll") scrollContext?.write(effect.left);
+    else if (effect.type === "value") {
+      emit("update:modelValue", effect.value);
+      emit("update:value", effect.value);
+    } else {
+      triggerUIHaptic();
+      if (effect.pulse === "step") hapticPulse.value += 1;
+    }
   }
-
-  // Clean up state
-  interaction.gestureState.value = "gesture_ended";
-  interaction.isDragging.value = false;
-  interaction.isHeld.value = false;
-  interaction.valueAccumulator.value = 0;
-  interaction.optionAccumulator.value = 0;
-  interaction.movementBuffer.value = [];
-
-  removeGestureListeners();
-  interaction.gestureState.value = "idle";
 };
 
-const handleClick = (e: MouseEvent | TouchEvent) => {
-  // Skip click handling for touch events (handled in handleEnd)
-  if ("touches" in e) return;
-  // Keyboard activation dispatches a click with detail 0. It must remain
-  // independent from a pending pointer-click guard after a touch gesture.
-  const isKeyboardClick = e.detail === 0;
-  if (
-    props.isDisabled || props.isDisplay ||
-    interaction.isDragging.value ||
-    (interaction.suppressClick.value && !isKeyboardClick)
-  ) {
-    clearSuppressedClick();
+const pointFrom = (event: MouseEvent | TouchEvent) => {
+  if ("touches" in event) {
+    const touch = event.touches[0];
+    return touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+  return { x: event.clientX, y: event.clientY };
+};
+
+const handleStart = (event: MouseEvent | TouchEvent) => {
+  const point = pointFrom(event);
+  if (!point) return;
+  const pointer: KnobPointerKind = "touches" in event ? "touch" : "mouse";
+  applyOutcome(
+    interaction.dispatch({
+      type: "start",
+      pointer,
+      point,
+      button: "button" in event ? event.button : undefined,
+      scrollLeft: scrollContext?.read() ?? null,
+    }),
+    event,
+  );
+};
+
+const handleMove = (event: Event) => {
+  const pointerEvent = event as MouseEvent | TouchEvent;
+  const point = pointFrom(pointerEvent);
+  if (!point) return;
+  applyOutcome(interaction.dispatch({ type: "move", point }), event);
+};
+
+const handleEnd = (event: Event) => {
+  if (event.type === "touchcancel") {
+    applyOutcome(interaction.dispatch({ type: "cancel" }), event);
     return;
   }
-
-  clearSuppressedClick();
-  e.preventDefault();
-  e.stopPropagation();
-  handleTap();
+  const pointer: KnobPointerKind = event.type.startsWith("touch")
+    ? "touch"
+    : "mouse";
+  applyOutcome(interaction.dispatch({ type: "end", pointer }), event);
 };
 
-const handleTap = () => {
-  if (knobType.value === "boolean") {
-    const newValue = !(actualValue.value as boolean);
-    handleValueUpdate(newValue);
-    triggerUIHaptic();
-  } else if (knobType.value === "options" && props.options) {
-    const currentIndex = getCurrentOptionIndex();
-    const nextIndex = (currentIndex + 1) % props.options.length;
-    const nextOption = props.options[nextIndex];
-    const nextValue =
-      typeof nextOption === "string" ? nextOption : nextOption.value;
-    handleValueUpdate(nextValue);
-    triggerUIHaptic();
-  }
+const handleClick = (event: MouseEvent | TouchEvent) => {
+  if ("touches" in event) return;
+  applyOutcome(
+    interaction.dispatch({ type: "click", keyboard: event.detail === 0 }),
+    event,
+  );
 };
 
-const getCurrentOptionIndex = (): number => {
-  if (!props.options) return 0;
-  const currentValue = actualValue.value;
-  return props.options.findIndex((option) => {
-    const optionValue = typeof option === "string" ? option : option.value;
-    return optionValue === currentValue;
-  });
+const cancelGesture = () => {
+  applyOutcome(interaction.dispatch({ type: "cancel" }));
 };
 
-// Smart haptic feedback with throttling
-const triggerSmartHaptic = () => {
-  const now = Date.now();
-  const MIN_HAPTIC_INTERVAL = 50; // Minimum time between haptic triggers
+watch(
+  () => props.isDisabled || props.isDisplay,
+  (inert) => {
+    if (inert) cancelGesture();
+  },
+);
 
-  if (now - interaction.lastHapticTrigger.value >= MIN_HAPTIC_INTERVAL) {
-    triggerUIHaptic();
-    interaction.lastHapticTrigger.value = now;
-  }
-};
-
-// Emit handler that emits both events for backwards compatibility
-const handleValueUpdate = (newValue: string | number | boolean) => {
-  emit("update:modelValue", newValue);
-  emit("update:value", newValue); // Backwards compatibility
-};
+onBeforeUnmount(() => {
+  applyOutcome(interaction.dispose());
+  removeGestureListeners();
+});
 
 // GSAP animation for wrapper scale with enhanced timing
 useGSAP(({ gsap }: { gsap: any }) => {
-  watch(interaction.isHeld, (held) => {
+  watch(() => interactionView.value.held, (held) => {
     if (!wrapperRef.value) return;
     gsap.to(wrapperRef.value, {
       scale: held ? 1.15 : 1,
@@ -699,7 +388,7 @@ useGSAP(({ gsap }: { gsap: any }) => {
     });
   });
 
-  watch(interaction.lastHapticTrigger, () => {
+  watch(hapticPulse, () => {
     if (!wrapperRef.value) return;
     gsap.to(wrapperRef.value, {
       scale: 1,

@@ -19,6 +19,7 @@ import type {
   MidiOutputPortAdapter,
   MidiSession,
   MidiSessionState,
+  MidiTimeoutHandle,
 } from "@/types/midi";
 
 const MIDI_NOTE_NAMES = [
@@ -41,8 +42,6 @@ const MIDI_NOTE_OFF = 0x80;
 const MIDI_STATUS_MASK = 0xf0;
 const MIDI_CHANNEL_MASK = 0x0f;
 const DEFAULT_MIRROR_DURATION_MS = 500;
-
-type TimeoutHandle = ReturnType<typeof globalThis.setTimeout>;
 
 export function createMidiSession(
   options: CreateMidiSessionOptions
@@ -70,9 +69,9 @@ export function createMidiSession(
 
   const pendingInputNoteOns = new Map<string, number>();
   const pendingInputNoteOffs = new Set<string>();
-  const mirroredNoteTimeouts = new Set<TimeoutHandle>();
+  const mirroredNoteTimeouts = new Set<MidiTimeoutHandle>();
   const mirroredEventNotes = new Map<string, number>();
-  const visualNoteTimeouts = new Map<string, TimeoutHandle>();
+  const visualNoteTimeouts = new Map<string, MidiTimeoutHandle>();
 
   const heldNotes = createHeldNotes<MidiHeldPress>({
     attack: ({ solfegeIndex, octave }) =>

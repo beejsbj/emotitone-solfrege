@@ -98,6 +98,7 @@ export type {
   MidiSessionState,
   MidiMessageHandler,
   MidiPortStateChangeHandler,
+  MidiTimeoutHandle,
   MidiInputPortAdapter,
   MidiOutputPortAdapter,
   MidiAccessAdapter,

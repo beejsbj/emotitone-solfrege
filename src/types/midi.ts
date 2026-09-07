@@ -13,6 +13,7 @@ export interface MidiSessionState {
 
 export type MidiMessageHandler = (data: ArrayLike<number>) => void;
 export type MidiPortStateChangeHandler = () => void;
+export type MidiTimeoutHandle = ReturnType<typeof globalThis.setTimeout>;
 
 export interface MidiInputPortAdapter {
   readonly id: string;

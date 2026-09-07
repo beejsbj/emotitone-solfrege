@@ -18,18 +18,21 @@
       <CodeStripBar
         :is-playing="isPlaying"
         :play-disabled="!hasPlayableCode"
-        :humming-status="hummingStatus"
-        :humming-error="hummingError"
-        :humming-status-message="hummingStatusMessage"
-        :humming-take-count="hummingTakeCount"
-        :selected-humming-take="selectedHummingTake"
         haptic
         @toggle-playback="toggleSketchPlayback"
-        @toggle-humming="toggleHummingCapture"
-        @cancel-humming="cancelHummingCapture"
-        @select-humming-take="selectHummingTake"
         @backspace="patternsStore.removeLastFromCurrentSketch()"
         @return="patternsStore.sendCurrentPattern()"
+      />
+      <HummingCaptureTransport
+        :status="hummingStatus"
+        :error="hummingError"
+        :status-message="hummingStatusMessage"
+        :take-count="hummingTakeCount"
+        :selected-take-index="selectedHummingTake"
+        haptic
+        @toggle="toggleHummingCapture"
+        @cancel="cancelHummingCapture"
+        @select-take="selectHummingTake"
       />
       <ControlBar
         :key-value="musicStore.currentKey"
@@ -61,6 +64,7 @@ import { Keyboard as KeyboardIcon } from "lucide-vue-next";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { useHummingCapture } from "@/composables/useHummingCapture";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
@@ -91,6 +95,9 @@ const {
 
 async function toggleSketchPlayback() {
   if (!hasPlayableCode.value) return;
+  if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
+    await cancelHumming();
+  }
   await toggle();
 }
 

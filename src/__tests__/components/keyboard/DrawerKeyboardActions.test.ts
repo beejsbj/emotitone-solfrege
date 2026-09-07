@@ -88,22 +88,17 @@ vi.mock("@/composables/useHummingCapture", () => ({
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
-    props: [
-      "hummingStatus",
-      "hummingError",
-      "hummingStatusMessage",
-      "hummingTakeCount",
-      "selectedHummingTake",
-    ],
-    emits: [
-      "togglePlayback",
-      "toggleHumming",
-      "cancelHumming",
-      "selectHummingTake",
-      "backspace",
-      "return",
-    ],
+    emits: ["togglePlayback", "backspace", "return"],
     template: '<div data-testid="code-strip-bar" />',
+  },
+}));
+
+vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
+  default: {
+    name: "HummingCaptureTransport",
+    props: ["status", "error", "statusMessage", "takeCount", "selectedTakeIndex"],
+    emits: ["toggle", "cancel", "selectTake"],
+    template: '<div data-testid="humming-capture-transport" />',
   },
 }));
 
@@ -149,11 +144,11 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
         },
       },
     });
-    const actions = wrapper.getComponent({ name: "CodeStripBar" });
+    const actions = wrapper.getComponent({ name: "HummingCaptureTransport" });
 
-    actions.vm.$emit("toggleHumming");
-    actions.vm.$emit("cancelHumming");
-    actions.vm.$emit("selectHummingTake", 1);
+    actions.vm.$emit("toggle");
+    actions.vm.$emit("cancel");
+    actions.vm.$emit("selectTake", 1);
     await wrapper.vm.$nextTick();
 
     expect(mocks.stop).toHaveBeenCalledTimes(1);
@@ -163,6 +158,29 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
       mocks.toggleHumming.mock.invocationCallOrder[0],
     );
     expect(mocks.selectHummingTake).toHaveBeenCalledWith(1);
+    wrapper.unmount();
+  });
+
+  it("cancels active humming before starting Strudel playback", async () => {
+    mocks.hummingStatus.value = "recording";
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+          HummingCaptureTransport: true,
+        },
+      },
+    });
+
+    wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
+    await vi.waitFor(() => expect(mocks.toggle).toHaveBeenCalledTimes(1));
+
+    expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
+    expect(mocks.cancelHumming.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.toggle.mock.invocationCallOrder[0],
+    );
     wrapper.unmount();
   });
 

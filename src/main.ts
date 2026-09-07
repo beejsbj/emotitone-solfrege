@@ -26,7 +26,7 @@ const app = createApp(App);
 const pinia = createPinia();
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-if (pathname !== "/style-guide") {
+if (!["/style-guide", "/logo-lab"].includes(pathname)) {
   beginKnobPageEdition();
 }
 

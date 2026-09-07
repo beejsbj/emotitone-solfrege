@@ -89,7 +89,11 @@ const tokens: CodeStripToken[] = [
           <template #persistent>
             <div class="drawer-specimen__pattern">Piano · C major · saved pattern</div>
             <CodeStripBar :tokens="tokens" @backspace="lastAction = 'Backspace'" @return="lastAction = 'Return'" @toggle-playback="lastAction = 'Play (inert specimen)'" />
-            <ControlBar :rows="rowCount" @update:rows="rowCount = $event" />
+            <ControlBar
+              :rows="rowCount"
+              joystick-visual="analog"
+              @update:rows="rowCount = $event"
+            />
           </template>
           <template #default="{ height }">
             <Keyboard usage="controlled" :rows="rows" :available-height="height" />

@@ -60,7 +60,7 @@
       <Joystick
         :model-value="harmonyValue"
         label="Harmony"
-        visual="analog"
+        :visual="joystickVisual"
         @update:model-value="(value) => emit('update:harmonyValue', value)"
         @effective-change="(value) => emit('harmonyEffective', value)"
       />
@@ -74,6 +74,7 @@ import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
+import type { JoystickVisual } from "@/components/uniques/Joystick/index.vue";
 
 withDefaults(
   defineProps<{
@@ -83,6 +84,7 @@ withDefaults(
     octave?: number;
     rows?: number;
     harmonyValue?: HarmonyAlteration;
+    joystickVisual?: JoystickVisual;
   }>(),
   {
     keyValue: "C",

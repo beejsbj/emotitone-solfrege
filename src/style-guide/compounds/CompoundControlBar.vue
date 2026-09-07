@@ -13,6 +13,7 @@
           v-model:octave="octave"
           v-model:rows="rows"
           v-model:harmony-value="harmonyValue"
+          joystick-visual="analog"
           @harmony-effective="harmonyEffective = $event"
         />
       </div>
@@ -28,6 +29,7 @@
             :octave="octave"
             :rows="rows"
             :harmony-value="harmonyValue"
+            joystick-visual="analog"
           />
         </div>
       </VariantCell>
@@ -39,6 +41,7 @@
           :octave="5"
           :rows="5"
           harmony-value="jazzy7"
+          joystick-visual="digital"
         />
       </VariantCell>
     </VariantGrid>

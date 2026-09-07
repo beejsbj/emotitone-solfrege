@@ -1,5 +1,5 @@
 <template>
-  <div class="joystick" :class="`joystick--${visual}`" role="group" :aria-label="label"
+  <div class="joystick" :class="`joystick--${resolvedVisual}`" role="group" :aria-label="label"
     :data-latched="modelValue" :data-effective="effectiveValue" :data-momentary="held || undefined"
     :data-dragging="dragging || undefined" :data-active="pointerId !== null || undefined">
     <div ref="plate" class="joystick__plate" role="radiogroup" :aria-label="`${label} chord character`"
@@ -26,18 +26,22 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicI
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import { JOYSTICK_OPTIONS, directionFromVector, vectorFromDirection } from "./joystickOptions";
+import { currentJoystickPageVisual, type JoystickVisual } from "./edition";
+
+export type { JoystickVisual } from "./edition";
 
 const props = withDefaults(defineProps<{
   modelValue?: HarmonyAlteration;
   label?: string;
-  visual?: "analog" | "digital";
+  visual?: JoystickVisual;
   holdThreshold?: number;
-}>(), { modelValue: "auto", label: "Harmony", visual: "analog", holdThreshold: 260 });
+}>(), { modelValue: "auto", label: "Harmony", holdThreshold: 260 });
 const emit = defineEmits<{
   "update:modelValue": [value: HarmonyAlteration];
   effectiveChange: [value: HarmonyAlteration];
 }>();
 const plate = ref<HTMLElement | null>(null);
+const resolvedVisual = computed(() => props.visual ?? currentJoystickPageVisual());
 const pointerValue = ref<HarmonyAlteration | null>(null);
 const pointerVector = ref({ x: 0, y: 0 });
 const held = ref(false);

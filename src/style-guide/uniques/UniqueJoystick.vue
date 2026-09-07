@@ -9,6 +9,7 @@
         <Joystick
           v-model="latched"
           label="Harmony"
+          visual="analog"
           @effective-change="effective = $event"
         />
         <div class="joystick-specimen__readout" aria-live="polite">
@@ -27,14 +28,14 @@
         <Joystick v-model="digital" visual="digital" />
       </VariantCell>
       <VariantCell caption="Center · automatic" stage="ink3">
-        <Joystick model-value="auto" label="Harmony" />
+        <Joystick model-value="auto" label="Harmony" visual="analog" />
       </VariantCell>
       <VariantCell caption="Right · jazzy seventh" stage="ink3">
-        <Joystick model-value="jazzy7" label="Harmony" />
+        <Joystick model-value="jazzy7" label="Harmony" visual="digital" />
       </VariantCell>
       <VariantCell caption="320px production-sized slot" stage="ink3">
         <div class="joystick-specimen__slot">
-          <Joystick model-value="sus4" label="Harmony" />
+          <Joystick model-value="sus4" label="Harmony" visual="analog" />
         </div>
       </VariantCell>
     </VariantGrid>

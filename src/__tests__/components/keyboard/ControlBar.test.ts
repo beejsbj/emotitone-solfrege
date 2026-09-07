@@ -16,7 +16,7 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
 vi.mock("@/components/uniques/Joystick/index.vue", () => ({
   default: {
     name: "Joystick",
-    props: ["modelValue", "label"],
+    props: ["modelValue", "label", "visual"],
     emits: ["update:modelValue", "effectiveChange"],
     template: '<div data-testid="joystick" :data-label="label" />',
   },
@@ -42,6 +42,7 @@ describe("ControlBar.vue", () => {
     expect(wrapper.getComponent({ name: "Joystick" }).props()).toMatchObject({
       label: "Harmony",
       modelValue: "auto",
+      visual: undefined,
     });
     wrapper.unmount();
   });

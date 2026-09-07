@@ -6,22 +6,13 @@ import type {
   CodeStripEditorAdapter,
   CodeStripEditorListener,
   CodeStripEvaluationResult,
+  CodeStripStrudelMirrorRuntime,
+  CodeStripStrudelRuntimeOwnership,
   CodeStripStopRequest,
   CodeStripTransportCommands,
   CodeStripTransportOperation,
   StrudelMirrorAdapterOptions,
 } from "@/types/codeStripTransport";
-
-type OwnedStrudelMirror = StrudelMirror & {
-  editor: EditorView;
-  root: HTMLElement;
-  solo: boolean;
-  drawer?: { stop?: () => void };
-  repl?: {
-    scheduler?: { onToggle?: (started: boolean) => void };
-    setCode?: (code: string) => void;
-  };
-};
 
 export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   private readonly listeners = new Set<CodeStripEditorListener>();
@@ -29,18 +20,15 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   private readonly onRelease: () => void;
   private mirrorInstance!: StrudelMirror;
   private liveView: EditorView | null = null;
-  private rawEvaluate!: () => Promise<void>;
-  private rawStop!: () => Promise<void>;
   private evaluationOperation: CodeStripTransportOperation | null = null;
   private stopOperation: CodeStripTransportOperation | null = null;
   private cancelEvaluation: (() => void) | null = null;
   private runtimeGeneration = 0;
   private activeRuntime = 0;
-  private readonly revokedRuntimes = new Set<number>();
-  private readonly settledRuntimes = new Set<number>();
-  private readonly clearedRuntimes = new Set<number>();
-  private readonly runtimeMirrors = new Map<number, StrudelMirror>();
-  private readonly quarantineViews = new Map<number, EditorView>();
+  private readonly runtimeOwnership = new Map<
+    number,
+    CodeStripStrudelRuntimeOwnership
+  >();
   private readonly destroyedViews = new WeakSet<EditorView>();
   private renewBeforeEvaluation = false;
   private destroyed = false;
@@ -67,7 +55,11 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   }
 
   replaceSource(source: string) {
-    if (this.getSource() !== source) this.mirror.setCode(source);
+    const view = this.liveView;
+    if (!view || view.state.doc.toString() === source) return;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: source },
+    });
   }
 
   async evaluate(
@@ -77,10 +69,10 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     if (this.destroyed) throw new Error("CodeStrip editor adapter is destroyed");
     if (this.renewBeforeEvaluation) this.renewRuntime(source);
 
-    const runtime = this.activeRuntime;
-    const rawEvaluate = this.rawEvaluate;
-    const rawStop = this.rawStop;
-    this.settledRuntimes.delete(runtime);
+    const ownership = this.activeOwnership();
+    const runtime = ownership.generation;
+    const { rawEvaluate, rawStop } = ownership;
+    ownership.settled = false;
     this.evaluationOperation = operation;
     // StrudelMirror maintains a runtime cache separately from EditorView. The
     // transport chooses the visible source; the adapter reconciles that source
@@ -102,17 +94,17 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     }
     const lateCleanup = rawWork.then(
       async () => {
-        this.settledRuntimes.add(runtime);
-        if (this.revokedRuntimes.has(runtime)) {
+        ownership.settled = true;
+        if (ownership.revoked) {
           await rawStop().catch(() => undefined);
         }
-        this.disposeQuarantine(runtime);
-        this.releaseRetiredRuntime(runtime);
+        this.disposeQuarantine(ownership);
+        this.releaseRetiredRuntime(ownership);
       },
       () => {
-        this.settledRuntimes.add(runtime);
-        this.disposeQuarantine(runtime);
-        this.releaseRetiredRuntime(runtime);
+        ownership.settled = true;
+        this.disposeQuarantine(ownership);
+        this.releaseRetiredRuntime(ownership);
       },
     );
 
@@ -122,7 +114,7 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
         cancellation,
       ]);
       if (outcome === "cancelled") void lateCleanup;
-      return this.revokedRuntimes.has(runtime) ? "cancelled" : outcome;
+      return ownership.revoked ? "cancelled" : outcome;
     } finally {
       if (this.cancelEvaluation === cancelEvaluation) this.cancelEvaluation = null;
       if (this.evaluationOperation === operation) this.evaluationOperation = null;
@@ -130,14 +122,28 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   }
 
   async stop(request: CodeStripStopRequest) {
-    const rawStop = this.rawStop;
+    const ownership = this.activeOwnership();
+    const { rawStop } = ownership;
     this.stopOperation = request.operation;
-    if (request.retire) this.revokeRuntime(false);
-    else if (request.cancelEvaluation && this.cancelEvaluation) {
-      this.revokeRuntime(true);
+    const shouldCancel = request.cancelEvaluation && this.cancelEvaluation !== null;
+    const shouldRevoke = request.retire || shouldCancel;
+    if (shouldRevoke) this.invalidateRuntime(ownership);
+
+    let stopWork: Promise<void>;
+    try {
+      // Installed Strudel stops its scheduler synchronously. Let this one safe,
+      // pre-handoff callback perform the intended visual cleanup, then sever
+      // the callback before a late evaluation can restart the old scheduler.
+      stopWork = rawStop();
+    } catch (error) {
+      stopWork = Promise.reject(error);
+    } finally {
+      if (shouldRevoke) {
+        this.containRuntime(ownership, !request.retire && shouldCancel);
+      }
     }
     try {
-      await rawStop();
+      await stopWork;
     } finally {
       if (request.releaseShared) this.onRelease();
       if (this.stopOperation === request.operation) this.stopOperation = null;
@@ -167,9 +173,10 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
 
   async disposeUnattached() {
     if (this.destroyed) return;
-    this.revokeRuntime(false, true);
+    const ownership = this.activeOwnership();
+    this.revokeRuntime(false);
     try {
-      await this.rawStop();
+      await ownership.rawStop();
     } finally {
       this.destroy();
     }
@@ -177,17 +184,16 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
 
   destroy() {
     if (this.destroyed) return;
-    this.revokeRuntime(false, true);
+    this.revokeRuntime(false);
     this.destroyed = true;
     this.listeners.clear();
-    for (const [runtime, mirror] of this.runtimeMirrors) {
-      this.clearRuntime(runtime, mirror);
+    for (const ownership of this.runtimeOwnership.values()) {
+      this.clearRuntime(ownership);
+      this.disposeQuarantine(ownership);
     }
-    for (const view of this.quarantineViews.values()) this.destroyView(view);
     if (this.liveView) this.destroyView(this.liveView);
     this.liveView = null;
-    this.quarantineViews.clear();
-    this.runtimeMirrors.clear();
+    this.runtimeOwnership.clear();
   }
 
   private createRuntime(root: HTMLElement, initialSource: string) {
@@ -229,12 +235,20 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     }));
 
     this.mirrorInstance = instance;
-    this.runtimeMirrors.set(runtime, instance);
-    this.rawEvaluate = instance.evaluate.bind(instance);
+    const rawEvaluate = instance.evaluate.bind(instance);
     const rawStop = instance.stop.bind(instance);
-    this.rawStop = async () => {
-      await rawStop();
-    };
+    this.runtimeOwnership.set(runtime, {
+      generation: runtime,
+      mirror: instance as CodeStripStrudelMirrorRuntime,
+      rawEvaluate,
+      rawStop: async () => {
+        await rawStop();
+      },
+      revoked: false,
+      settled: false,
+      cleared: false,
+      quarantineView: null,
+    });
   }
 
   private installSourceSynchronization() {
@@ -256,24 +270,22 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   }
 
   private renewRuntime(source: string) {
-    const oldRuntime = this.activeRuntime;
-    const oldMirror = this.mirror;
+    const oldOwnership = this.activeOwnership();
+    const oldMirror = oldOwnership.mirror;
     const liveView = this.liveView;
-    if (!this.settledRuntimes.has(oldRuntime)) {
-      this.parkRuntime(oldRuntime, oldMirror);
-    }
+    if (!oldOwnership.settled) this.parkRuntime(oldOwnership);
     const quarantineRoot = document.createElement("div");
 
     this.createRuntime(quarantineRoot, source);
     const newMirror = this.mirror;
     const replacementView = this.runtimeView(newMirror);
     if (liveView) {
-      (newMirror as OwnedStrudelMirror).editor = liveView;
-      (newMirror as OwnedStrudelMirror).root = this.options.root;
+      (newMirror as CodeStripStrudelMirrorRuntime).editor = liveView;
+      (newMirror as CodeStripStrudelMirrorRuntime).root = this.options.root;
     }
     if (replacementView && replacementView !== liveView) this.destroyView(replacementView);
-    this.clearRuntime(oldRuntime, oldMirror);
-    if (this.settledRuntimes.has(oldRuntime)) this.releaseRetiredRuntime(oldRuntime);
+    this.clearRuntime(oldOwnership);
+    if (oldOwnership.settled) this.releaseRetiredRuntime(oldOwnership);
     this.renewBeforeEvaluation = false;
     if (this.commands) {
       newMirror.evaluate = this.commands.play;
@@ -282,58 +294,65 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     this.options.onRuntimeRenewed?.();
   }
 
-  private revokeRuntime(renew: boolean, localOnly = false) {
-    const runtime = this.activeRuntime;
-    const mirror = this.runtimeMirrors.get(runtime) ?? this.mirror;
-    this.revokedRuntimes.add(runtime);
-    const ownedMirror = mirror as OwnedStrudelMirror;
-    ownedMirror.solo = false;
-    if (this.cancelEvaluation || localOnly) {
-      // StrudelMirror's outer onToggle performs global cleanupDraw even when
-      // the adapter ignores the callback. Cyclist/NeoCyclist read this property
-      // at call time, so revoke it before either stop or a late start.
-      const scheduler = ownedMirror.repl?.scheduler;
-      if (scheduler) scheduler.onToggle = () => undefined;
-      ownedMirror.drawer?.stop?.();
-      if (this.cancelEvaluation) this.parkRuntime(runtime, mirror);
-    }
-    this.clearRuntime(runtime, mirror);
+  private revokeRuntime(renew: boolean) {
+    const ownership = this.activeOwnership();
+    this.invalidateRuntime(ownership);
+    this.containRuntime(ownership, renew);
+  }
+
+  private invalidateRuntime(ownership: CodeStripStrudelRuntimeOwnership) {
+    ownership.revoked = true;
+    ownership.mirror.solo = false;
+  }
+
+  private containRuntime(
+    ownership: CodeStripStrudelRuntimeOwnership,
+    renew: boolean,
+  ) {
+    const { mirror } = ownership;
+    // StrudelMirror's outer onToggle performs global cleanupDraw even when the
+    // adapter ignores the callback. Cyclist/NeoCyclist read this property at
+    // call time, so revoke it after the intended stop but before a late start.
+    const scheduler = mirror.repl?.scheduler;
+    if (scheduler) scheduler.onToggle = () => undefined;
+    mirror.drawer?.stop?.();
+    if (this.cancelEvaluation) this.parkRuntime(ownership);
+    this.clearRuntime(ownership);
     this.cancelEvaluation?.();
     this.renewBeforeEvaluation = renew && !this.destroyed;
   }
 
   private ownsRuntime(runtime: number) {
+    const ownership = this.runtimeOwnership.get(runtime);
     return !this.destroyed
       && this.activeRuntime === runtime
-      && !this.revokedRuntimes.has(runtime);
+      && Boolean(ownership)
+      && !ownership?.revoked;
   }
 
-  private disposeQuarantine(runtime: number) {
-    const view = this.quarantineViews.get(runtime);
+  private disposeQuarantine(ownership: CodeStripStrudelRuntimeOwnership) {
+    const view = ownership.quarantineView;
     if (!view) return;
-    this.quarantineViews.delete(runtime);
+    ownership.quarantineView = null;
     this.destroyView(view);
   }
 
-  private parkRuntime(runtime: number, mirror: StrudelMirror) {
-    if (this.quarantineViews.has(runtime) || !this.liveView) return;
+  private parkRuntime(ownership: CodeStripStrudelRuntimeOwnership) {
+    if (ownership.quarantineView || !this.liveView) return;
     const quarantineRoot = document.createElement("div");
     const quarantineView = new EditorView({
       state: this.liveView.state,
       parent: quarantineRoot,
     });
-    (mirror as OwnedStrudelMirror).editor = quarantineView;
-    (mirror as OwnedStrudelMirror).root = quarantineRoot;
-    this.quarantineViews.set(runtime, quarantineView);
+    ownership.mirror.editor = quarantineView;
+    ownership.mirror.root = quarantineRoot;
+    ownership.quarantineView = quarantineView;
   }
 
-  private releaseRetiredRuntime(runtime: number) {
-    if (runtime === this.activeRuntime) return;
-    const mirror = this.runtimeMirrors.get(runtime);
-    if (mirror) this.clearRuntime(runtime, mirror);
-    this.runtimeMirrors.delete(runtime);
-    this.revokedRuntimes.delete(runtime);
-    this.settledRuntimes.delete(runtime);
+  private releaseRetiredRuntime(ownership: CodeStripStrudelRuntimeOwnership) {
+    if (ownership.generation === this.activeRuntime && !this.destroyed) return;
+    this.clearRuntime(ownership);
+    this.runtimeOwnership.delete(ownership.generation);
   }
 
   private runtimeView(mirror: StrudelMirror) {
@@ -344,10 +363,16 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     return runtimeMirror.editor ?? runtimeMirror.view;
   }
 
-  private clearRuntime(runtime: number, mirror: StrudelMirror) {
-    if (this.clearedRuntimes.has(runtime)) return;
-    this.clearedRuntimes.add(runtime);
-    mirror.clear();
+  private activeOwnership() {
+    const ownership = this.runtimeOwnership.get(this.activeRuntime);
+    if (!ownership) throw new Error("CodeStrip Strudel runtime is unavailable");
+    return ownership;
+  }
+
+  private clearRuntime(ownership: CodeStripStrudelRuntimeOwnership) {
+    if (ownership.cleared) return;
+    ownership.cleared = true;
+    ownership.mirror.clear();
   }
 
   private destroyView(view: EditorView) {

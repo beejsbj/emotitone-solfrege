@@ -1,3 +1,6 @@
+import type { EditorView } from "@codemirror/view";
+import type { StrudelMirror } from "@strudel/codemirror";
+
 export type CodeStripTransportOperation = number;
 export type CodeStripEvaluationResult = "completed" | "cancelled";
 
@@ -75,4 +78,26 @@ export interface StrudelMirrorAdapterOptions {
   onDraw: () => void;
   onRelease: () => void;
   onRuntimeRenewed?: () => void;
+}
+
+export type CodeStripStrudelMirrorRuntime = StrudelMirror & {
+  editor: EditorView;
+  root: HTMLElement;
+  solo: boolean;
+  drawer?: { stop?: () => void };
+  repl?: {
+    scheduler?: { onToggle?: (started: boolean) => void };
+    setCode?: (code: string) => void;
+  };
+};
+
+export interface CodeStripStrudelRuntimeOwnership {
+  generation: number;
+  mirror: CodeStripStrudelMirrorRuntime;
+  rawEvaluate: () => Promise<void>;
+  rawStop: () => Promise<void>;
+  revoked: boolean;
+  settled: boolean;
+  cleared: boolean;
+  quarantineView: EditorView | null;
 }

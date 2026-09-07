@@ -216,7 +216,7 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     expect(mocks.mirrors[1].rawStop).not.toHaveBeenCalled();
     expect(mocks.sharedVisualOwner).toBe("sound('new')");
     expect(mocks.sharedCanvasOwner).toBe("sound('new')");
-    expect(mocks.canvasCleanups).toBe(0);
+    expect(mocks.canvasCleanups).toBe(1);
     expect(releaseShared).toHaveBeenCalledOnce();
 
     // A callback arriving after retirement is disconnected from transport and
@@ -248,6 +248,7 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     expect(mocks.mirrors[0].schedulerActive).toBe(true);
     expect(mocks.sharedVisualOwner).toBe("sound('active')");
     expect(mocks.sharedCanvasOwner).toBe("sound('active')");
+    expect(mocks.canvasCleanups).toBe(0);
     expect(releaseShared).not.toHaveBeenCalled();
   });
 
@@ -270,17 +271,21 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     expect(quarantineView).not.toBe(liveView);
     expect(mocks.mirrors[0].drawer.stop).toHaveBeenCalledOnce();
     expect(mocks.mirrors[0].clear).toHaveBeenCalledOnce();
+    adapter.replaceSource("sound('after stop')");
+    expect(liveView.state.doc.toString()).toBe("sound('after stop')");
+    expect(quarantineView.state.doc.toString()).toBe("sound('edited')");
+    expect(transport.currentCode.value).toBe("sound('after stop')");
 
     mocks.mirrors[0].complete();
     await vi.waitFor(() => expect(mocks.mirrors[0].rawStop).toHaveBeenCalledTimes(2));
 
     expect(quarantineView.destroyed).toBe(true);
     expect(adapter.view).toBe(liveView);
-    expect(liveView.state.doc.toString()).toBe("sound('edited')");
+    expect(liveView.state.doc.toString()).toBe("sound('after stop')");
     expect(liveView.state.field(mockWidgetField)).toBeNull();
     expect(mocks.audioOutputs).toEqual([]);
     expect(mocks.draws).toEqual([]);
-    expect(mocks.canvasCleanups).toBe(0);
+    expect(mocks.canvasCleanups).toBe(1);
     expect(releaseShared).toHaveBeenCalledOnce();
 
     root.remove();

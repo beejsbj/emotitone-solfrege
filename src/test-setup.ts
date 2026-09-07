@@ -488,7 +488,6 @@ vi.mock('@/composables/useVisualConfig', () => ({
       showEmotionalDescription: true,
       backdropBlur: 10,
       glassmorphOpacity: 0.15,
-      animationDuration: 300
     }
   }
 }))

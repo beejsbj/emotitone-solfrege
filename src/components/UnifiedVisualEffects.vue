@@ -10,7 +10,12 @@
       :width="canvasWidth"
       :height="canvasHeight"
       class="unified-canvas"
+      aria-hidden="true"
     />
+
+    <p class="sr-only" aria-live="polite" aria-atomic="true">
+      {{ harmonicAccessibleText }}
+    </p>
   </div>
 </template>
 
@@ -33,6 +38,7 @@ const { visualsEnabled } = visualConfigStore;
 const {
   canvasWidth,
   canvasHeight,
+  harmonicAccessibleText,
   initializeCanvas,
   handleResize,
   handleNotePlayed,
@@ -52,17 +58,28 @@ function onNotePlayed(event: CustomEvent) {
   const noteName: string | undefined = event.detail.noteName;
   const mode: MusicalMode | undefined = event.detail.mode;
   const key: ChromaticNote | undefined = event.detail.key;
+  const durationMs: number | undefined = event.detail.durationMs;
 
-  handleNotePlayed(note, frequency, noteId, octave, noteName, mode, key);
+  handleNotePlayed(
+    note,
+    frequency,
+    noteId,
+    octave,
+    noteName,
+    mode,
+    key,
+    durationMs
+  );
 }
 
 // Handle note released event - enhanced for polyphonic support
 function onNoteReleased(event: CustomEvent) {
-  const noteName: string = event.detail.noteName ?? event.detail.note;
+  const blobKey: string = event.detail.note ?? event.detail.noteName;
+  const noteName: string = event.detail.noteName ?? blobKey;
   const noteId: string | undefined = event.detail.noteId;
 
-  if (noteName) {
-    handleNoteReleased(noteName, noteId);
+  if (blobKey) {
+    handleNoteReleased(blobKey, noteId, noteName);
   }
 }
 

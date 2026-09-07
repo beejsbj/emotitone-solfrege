@@ -541,14 +541,6 @@ export const UNIFIED_CONFIG = {
       label: "Fusion Strength",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
-    animationDuration: {
-      value: 300,
-      min: 100,
-      max: 1000,
-      step: 50,
-      label: "Animation Duration",
-      format: (v: number) => `${v}ms`,
-    },
     opacity: {
       value: 0.5,
       min: 0,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BLOB_FIELD_PIXEL_BUDGET,
   blurFieldChannel,
+  createBlobFieldConnectionPlanner,
   getBlobFieldConnections,
   getBlobFieldConnectionGeometry,
   getBlobFieldConnectionWidth,
@@ -133,6 +134,50 @@ describe("useBlobFieldRenderer", () => {
     expect(connections).toHaveLength(2);
     expect(connections[0]).toMatchObject({ from: first, to: second, gap: 740 });
     expect(connections[1]).toMatchObject({ from: second, to: third });
+  });
+
+  it("keeps merge parents stable while bodies drift", () => {
+    const first = createFrameAt("first", 80, 100);
+    const second = createFrameAt("second", 300, 100);
+    const third = createFrameAt("third", 290, 180);
+    const planner = createBlobFieldConnectionPlanner();
+
+    expect(planner.getConnections([first, second, third])[1].from.key).toBe(
+      "second"
+    );
+
+    third.blob.x = 90;
+    third.blob.y = 120;
+
+    expect(planner.getConnections([first, second, third])[1].from.key).toBe(
+      "second"
+    );
+  });
+
+  it("reconnects held bodies before attaching a releasing intermediate", () => {
+    const first = createFrameAt("first", 80, 100);
+    const intermediate = createFrameAt("intermediate", 300, 100);
+    const third = createFrameAt("third", 520, 100);
+    const planner = createBlobFieldConnectionPlanner();
+
+    planner.getConnections([first, intermediate, third]);
+    intermediate.blob.isFadingOut = true;
+    intermediate.opacity = 0.1;
+
+    const connections = planner.getConnections([first, intermediate, third]);
+    const heldConnection = connections.find(
+      (connection) =>
+        connection.from.key === "first" && connection.to.key === "third"
+    );
+    const releasingConnection = connections.find(
+      (connection) => connection.to.key === "intermediate"
+    );
+
+    expect(heldConnection).toBeDefined();
+    expect(heldConnection?.from.opacity).toBe(1);
+    expect(heldConnection?.to.opacity).toBe(1);
+    expect(releasingConnection).toBeDefined();
+    expect(connections).toHaveLength(2);
   });
 
   it("keeps a threshold-safe filament while thinning with distance", () => {

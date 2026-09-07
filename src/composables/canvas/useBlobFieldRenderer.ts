@@ -413,42 +413,107 @@ export function orderBlobFramesForVisibility(
   return [...frames].sort((left, right) => left.opacity - right.opacity);
 }
 
-/**
- * Connect each subsequently created body to its nearest existing body. The
- * insertion-order rule keeps the topology stable while blobs drift, while the
- * nearest-parent choice avoids a complete graph of visible filaments.
- */
-export function getBlobFieldConnections(
-  frames: readonly PreparedBlobFrame[]
-): BlobFieldConnection[] {
+function createConnection(
+  parent: PreparedBlobFrame,
+  frame: PreparedBlobFrame
+): BlobFieldConnection {
+  const distance = Math.hypot(
+    frame.blob.x - parent.blob.x,
+    frame.blob.y - parent.blob.y
+  );
+
+  return {
+    from: parent,
+    to: frame,
+    distance,
+    gap: Math.max(0, distance - parent.scaledRadius - frame.scaledRadius),
+  };
+}
+
+function findNearestFrame(
+  frame: PreparedBlobFrame,
+  candidates: readonly PreparedBlobFrame[]
+) {
+  return candidates.reduce((nearest, candidate) => {
+    const nearestDistance = Math.hypot(
+      frame.blob.x - nearest.blob.x,
+      frame.blob.y - nearest.blob.y
+    );
+    const candidateDistance = Math.hypot(
+      frame.blob.x - candidate.blob.x,
+      frame.blob.y - candidate.blob.y
+    );
+    return candidateDistance < nearestDistance ? candidate : nearest;
+  }, candidates[0]);
+}
+
+function connectInInsertionOrder(
+  frames: readonly PreparedBlobFrame[],
+  parentKeys: Map<string, string>
+) {
   return frames.slice(1).map((frame, index) => {
     const previousFrames = frames.slice(0, index + 1);
-    const parent = previousFrames.reduce((nearest, candidate) => {
-      const nearestDistance = Math.hypot(
-        frame.blob.x - nearest.blob.x,
-        frame.blob.y - nearest.blob.y
-      );
-      const candidateDistance = Math.hypot(
-        frame.blob.x - candidate.blob.x,
-        frame.blob.y - candidate.blob.y
-      );
-      return candidateDistance < nearestDistance ? candidate : nearest;
-    }, previousFrames[0]);
-    const distance = Math.hypot(
-      frame.blob.x - parent.blob.x,
-      frame.blob.y - parent.blob.y
+    const cachedParent = previousFrames.find(
+      (candidate) => candidate.key === parentKeys.get(frame.key)
     );
-
-    return {
-      from: parent,
-      to: frame,
-      distance,
-      gap: Math.max(
-        0,
-        distance - parent.scaledRadius - frame.scaledRadius
-      ),
-    };
+    const parent = cachedParent ?? findNearestFrame(frame, previousFrames);
+    parentKeys.set(frame.key, parent.key);
+    return createConnection(parent, frame);
   });
+}
+
+/**
+ * Keep held bodies connected independently from bodies that are releasing.
+ * Parent keys are cached by the caller for the lifetime of one membership set,
+ * so normal drift can update geometry without snapping the sparse topology.
+ */
+export function getBlobFieldConnections(
+  frames: readonly PreparedBlobFrame[],
+  parentKeys = new Map<string, string>()
+): BlobFieldConnection[] {
+  const heldFrames = frames.filter((frame) => !frame.blob.isFadingOut);
+  const releasingFrames = frames.filter((frame) => frame.blob.isFadingOut);
+
+  if (heldFrames.length === 0) {
+    return connectInInsertionOrder(frames, parentKeys);
+  }
+
+  const heldConnections = connectInInsertionOrder(heldFrames, parentKeys);
+  const releaseConnections = releasingFrames.map((frame) => {
+    const cachedParent = heldFrames.find(
+      (candidate) => candidate.key === parentKeys.get(frame.key)
+    );
+    const parent = cachedParent ?? findNearestFrame(frame, heldFrames);
+    parentKeys.set(frame.key, parent.key);
+    return createConnection(parent, frame);
+  });
+
+  return [...heldConnections, ...releaseConnections];
+}
+
+export function createBlobFieldConnectionPlanner() {
+  let membershipSignature = "";
+  const parentKeys = new Map<string, string>();
+
+  const getConnections = (frames: readonly PreparedBlobFrame[]) => {
+    const nextSignature = frames
+      .map((frame) => `${frame.key}:${frame.blob.isFadingOut ? "release" : "held"}`)
+      .join("|");
+
+    if (nextSignature !== membershipSignature) {
+      membershipSignature = nextSignature;
+      parentKeys.clear();
+    }
+
+    return getBlobFieldConnections(frames, parentKeys);
+  };
+
+  const clear = () => {
+    membershipSignature = "";
+    parentKeys.clear();
+  };
+
+  return { getConnections, clear };
 }
 
 export function getBlobFieldConnectionWidth(
@@ -489,6 +554,7 @@ export function getBlobFieldResolution(bounds: FieldBounds) {
 export function useBlobFieldRenderer() {
   let surfaces: FieldSurfaces | null = null;
   let buffers: FieldBuffers | null = null;
+  const connectionPlanner = createBlobFieldConnectionPlanner();
 
   const getSurfaces = (width: number, height: number) => {
     if (!surfaces) {
@@ -562,7 +628,7 @@ export function useBlobFieldRenderer() {
 
     const { scale, width, height } = getBlobFieldResolution(bounds);
     const connections =
-      mode === "merge" ? getBlobFieldConnections(frames) : [];
+      mode === "merge" ? connectionPlanner.getConnections(frames) : [];
     const connectionLayers = connections.map((connection) => {
       const connectionWidth = getBlobFieldConnectionWidth(
         connection,
@@ -803,6 +869,7 @@ export function useBlobFieldRenderer() {
   const dispose = () => {
     surfaces = null;
     buffers = null;
+    connectionPlanner.clear();
   };
 
   return {

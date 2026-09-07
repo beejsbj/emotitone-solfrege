@@ -88,8 +88,6 @@ export interface HarmonicGeometryConfig {
   backdropBlur: number;
   /** Connection or fusion strength (0-1) */
   glassmorphOpacity: number;
-  /** Animation duration for show/hide transitions in milliseconds */
-  animationDuration: number;
   /** Graph and analysis-label opacity when visible (0-1) */
   opacity: number;
 }

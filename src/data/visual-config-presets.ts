@@ -125,7 +125,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       },
       floatingPopup: {
         maxNotes: 7,
-        animationDuration: 320,
         glassmorphOpacity: 0.2,
       },
       hilbertScope: {

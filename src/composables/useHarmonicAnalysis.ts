@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, readonly, ref, watch } from "vue";
+import { computed, onScopeDispose, reactive, readonly, ref, watch } from "vue";
 import { Chord, Interval } from "@tonaljs/tonal";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import type {
@@ -17,12 +17,14 @@ function createEmptySnapshot(): HarmonicAnalysisSnapshot {
   };
 }
 
-export function useHarmonicAnalysis() {
+export function useHarmonicAnalysis(
+  getActiveNotes: () => readonly ActiveNote[] = () => []
+) {
   const { floatingPopupConfig } = useVisualConfig();
   const snapshot = ref<HarmonicAnalysisSnapshot>(createEmptySnapshot());
   const accumulatedNotes = ref<Map<string, ActiveNote>>(new Map());
   const displayOrder = ref<string[]>([]);
-  const activeNoteIds = new Set<string>();
+  const activeNoteIds = reactive(new Set<string>());
   const isVisible = ref(false);
   let hideTimer: number | null = null;
 
@@ -33,8 +35,32 @@ export function useHarmonicAnalysis() {
     }
   };
 
+  const displayedNoteIds = computed(() => {
+    const maximum = Math.max(1, floatingPopupConfig.value.maxNotes);
+    const activeIds = displayOrder.value.filter(
+      (noteId) =>
+        activeNoteIds.has(noteId) && accumulatedNotes.value.has(noteId)
+    );
+    const selectedActiveIds = activeIds.slice(-maximum);
+    const remainingSlots = maximum - selectedActiveIds.length;
+    const selectedReleasedIds = remainingSlots > 0
+      ? displayOrder.value
+          .filter(
+            (noteId) =>
+              !activeNoteIds.has(noteId) && accumulatedNotes.value.has(noteId)
+          )
+          .slice(-remainingSlots)
+      : [];
+    const selectedIds = new Set([
+      ...selectedActiveIds,
+      ...selectedReleasedIds,
+    ]);
+
+    return displayOrder.value.filter((noteId) => selectedIds.has(noteId));
+  });
+
   const displayedNotes = computed<ActiveNote[]>(() =>
-    displayOrder.value
+    displayedNoteIds.value
       .map((noteId) => accumulatedNotes.value.get(noteId))
       .filter((note): note is ActiveNote => Boolean(note))
   );
@@ -122,13 +148,21 @@ export function useHarmonicAnalysis() {
   };
 
   const trimDisplayedNotes = () => {
-    while (displayOrder.value.length > floatingPopupConfig.value.maxNotes) {
-      const oldestNoteId = displayOrder.value.shift();
-      if (oldestNoteId) {
-        accumulatedNotes.value.delete(oldestNoteId);
-        activeNoteIds.delete(oldestNoteId);
-      }
-    }
+    const releasedIds = displayOrder.value.filter(
+      (noteId) => !activeNoteIds.has(noteId)
+    );
+    const excessReleasedIds = releasedIds.slice(
+      0,
+      Math.max(0, releasedIds.length - floatingPopupConfig.value.maxNotes)
+    );
+
+    if (excessReleasedIds.length === 0) return;
+
+    const excessReleasedIdSet = new Set(excessReleasedIds);
+    excessReleasedIds.forEach((noteId) => accumulatedNotes.value.delete(noteId));
+    displayOrder.value = displayOrder.value.filter(
+      (noteId) => !excessReleasedIdSet.has(noteId)
+    );
   };
 
   const reset = () => {
@@ -159,13 +193,12 @@ export function useHarmonicAnalysis() {
       return;
     }
 
-    const releasedMatchingNoteIds = displayedNotes.value
-      .filter(
-        (displayedNote) =>
-          displayedNote.noteName === note.noteName &&
-          !activeNoteIds.has(displayedNote.noteId)
-      )
-      .map((displayedNote) => displayedNote.noteId);
+    const releasedMatchingNoteIds = displayOrder.value.filter((noteId) => {
+      const displayedNote = accumulatedNotes.value.get(noteId);
+      return (
+        displayedNote?.noteName === note.noteName && !activeNoteIds.has(noteId)
+      );
+    });
 
     if (releasedMatchingNoteIds.length > 0) {
       const releasedMatchingNoteIdSet = new Set(releasedMatchingNoteIds);
@@ -197,11 +230,34 @@ export function useHarmonicAnalysis() {
       return;
     }
 
+    trimDisplayedNotes();
+
     if (activeNoteIds.size === 0) {
       scheduleHide();
     }
 
     publishSnapshot();
+  };
+
+  const noteExpired = (noteId: string) => {
+    if (activeNoteIds.has(noteId)) {
+      return;
+    }
+
+    accumulatedNotes.value.delete(noteId);
+    displayOrder.value = displayOrder.value.filter(
+      (displayedNoteId) => displayedNoteId !== noteId
+    );
+
+    if (displayedNotes.value.length === 0) {
+      isVisible.value = false;
+    }
+
+    publishSnapshot();
+  };
+
+  const hydrateActiveNotes = () => {
+    getActiveNotes().forEach((note) => notePlayed(note));
   };
 
   watch(
@@ -210,6 +266,7 @@ export function useHarmonicAnalysis() {
       if (!enabled) {
         reset();
       } else {
+        hydrateActiveNotes();
         publishSnapshot();
       }
     },
@@ -234,6 +291,7 @@ export function useHarmonicAnalysis() {
     snapshot: readonly(snapshot),
     notePlayed,
     noteReleased,
+    noteExpired,
     reset,
   };
 }

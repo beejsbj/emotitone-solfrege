@@ -97,13 +97,8 @@ export function useHarmonicGeometryRenderer() {
 
   const resolvePoints = (
     snapshot: HarmonicAnalysisSnapshot,
-    activeBlobs: Map<string, ActiveBlob>,
-    canvasWidth: number,
-    canvasHeight: number
+    activeBlobs: Map<string, ActiveBlob>
   ) => {
-    const centerX = canvasWidth / 2;
-    const centerY = canvasHeight / 2;
-
     return snapshot.displayedNotes
       .map((note) => {
         const blob =
@@ -130,7 +125,7 @@ export function useHarmonicGeometryRenderer() {
             note.octave,
             note.key
           ),
-          angle: Math.atan2(blob.y - centerY, blob.x - centerX),
+          angle: 0,
         } satisfies HarmonicGeometryPoint;
       })
       .filter((point): point is HarmonicGeometryPoint => Boolean(point));
@@ -147,16 +142,19 @@ export function useHarmonicGeometryRenderer() {
       return null;
     }
 
-    const points = resolvePoints(snapshot, activeBlobs, canvasWidth, canvasHeight);
-    if (
-      points.length < 2 ||
-      points.length !== snapshot.displayedNotes.length
-    ) {
+    const resolvedPoints = resolvePoints(snapshot, activeBlobs);
+    if (resolvedPoints.length < 2) {
       return null;
     }
 
-    const orderedPoints = [...points].sort((left, right) => left.angle - right.angle);
-    const centroid = averagePoint(points);
+    const centroid = averagePoint(resolvedPoints);
+    const points = resolvedPoints.map((point) => ({
+      ...point,
+      angle: Math.atan2(point.y - centroid.y, point.x - centroid.x),
+    }));
+    const orderedPoints = [...points].sort(
+      (left, right) => left.angle - right.angle
+    );
     const radius = averageRadius(points, centroid);
 
     const boundaryEdges =
@@ -225,7 +223,7 @@ export function useHarmonicGeometryRenderer() {
     }
 
     if (
-      orderedPoints.length >= 4 &&
+      orderedPoints.length >= 3 &&
       config.showIntervals &&
       config.geometryMode !== "center-only"
     ) {
@@ -528,6 +526,21 @@ export function useHarmonicGeometryRenderer() {
 
     const totalHeight = (label.lines.length - 1) * sizeMap.lineHeight;
     const startY = label.y - totalHeight / 2;
+    const horizontalPadding = 12;
+    const canvasWidth = ctx.canvas?.width ?? 1024;
+    const safeInset = Math.min(canvasWidth / 2, 48);
+    const labelX = Math.max(
+      safeInset,
+      Math.min(canvasWidth - safeInset, label.x)
+    );
+    const maxWidth = Math.max(
+      1,
+      Math.min(
+        canvasWidth - horizontalPadding * 2,
+        (labelX - horizontalPadding) * 2,
+        (canvasWidth - horizontalPadding - labelX) * 2
+      )
+    );
 
     ctx.save();
     ctx.textAlign = "center";
@@ -540,8 +553,8 @@ export function useHarmonicGeometryRenderer() {
       ctx.font = index === 0 ? sizeMap.primaryFont : sizeMap.secondaryFont;
       ctx.lineWidth = sizeMap.strokeWidth;
       const lineY = startY + index * sizeMap.lineHeight;
-      ctx.strokeText(line, label.x, lineY);
-      ctx.fillText(line, label.x, lineY);
+      ctx.strokeText(line, labelX, lineY, maxWidth);
+      ctx.fillText(line, labelX, lineY, maxWidth);
     });
 
     ctx.restore();
@@ -569,7 +582,7 @@ export function useHarmonicGeometryRenderer() {
     if (
       config.showIntervals &&
       config.geometryMode !== "center-only" &&
-      scene.orderedPoints.length >= 4
+      scene.orderedPoints.length >= 3
     ) {
       scene.auxiliaryLabels.forEach((label) =>
         drawKnockoutText(ctx, label, config.opacity)

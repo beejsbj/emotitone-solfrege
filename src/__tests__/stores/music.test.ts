@@ -153,6 +153,7 @@ describe("music store", () => {
 
   it("dispatches duration playback with the resolved note for the current mode", async () => {
     const musicStore = useMusicStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
     musicStore.setMode("minor blues");
     const noteId = await musicStore.playNoteWithDuration(3, 4, "8n");
@@ -163,5 +164,24 @@ describe("music store", () => {
       250,
       "piano"
     );
+    const notePlayedEvent = dispatchEventSpy.mock.calls.find(
+      ([event]) => event.type === "note-played"
+    )?.[0] as CustomEvent;
+    expect(notePlayedEvent.detail.durationMs).toBe(250);
+    dispatchEventSpy.mockRestore();
+  });
+
+  it("marks id-less convenience playback as a finite one-shot", async () => {
+    const musicStore = useMusicStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+
+    await musicStore.playNote(0);
+
+    const notePlayedEvent = dispatchEventSpy.mock.calls.find(
+      ([event]) => event.type === "note-played"
+    )?.[0] as CustomEvent;
+    expect(notePlayedEvent.detail.noteId).toBeUndefined();
+    expect(notePlayedEvent.detail.durationMs).toBe(2000);
+    dispatchEventSpy.mockRestore();
   });
 });

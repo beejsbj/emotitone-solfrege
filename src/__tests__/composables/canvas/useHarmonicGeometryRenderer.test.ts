@@ -30,7 +30,6 @@ const baseConfig: HarmonicGeometryConfig = {
   geometryMode: "outline",
   backdropBlur: 1,
   glassmorphOpacity: 0.4,
-  animationDuration: 300,
   opacity: 0.5,
 };
 
@@ -119,6 +118,26 @@ describe("useHarmonicGeometryRenderer", () => {
     );
   });
 
+  it("keeps the remaining geometry when one stale analyzed blob disappears", () => {
+    const notes = [
+      createNote("c4", "C4"),
+      createNote("e4", "E4"),
+      createNote("g4", "G4"),
+    ];
+    const blobs = new Map<string, ActiveBlob>([
+      [notes[0].noteId, createBlob(notes[0], 100, 100)],
+      [notes[2].noteId, createBlob(notes[2], 300, 100)],
+    ]);
+    const { buildScene } = useHarmonicGeometryRenderer();
+
+    const scene = buildScene(createSnapshot(notes), blobs, baseConfig, 400, 400);
+
+    expect(scene?.points.map((point) => point.note.noteId)).toEqual([
+      "c4",
+      "g4",
+    ]);
+  });
+
   it("keeps emotion labels independent from chord-label visibility", () => {
     const notes = [
       createNote("c4", "C4"),
@@ -169,6 +188,88 @@ describe("useHarmonicGeometryRenderer", () => {
     expect(scene?.boundaryEdges).toHaveLength(4);
     expect(scene?.interiorEdges).toHaveLength(2);
     expect(scene?.auxiliaryLabels).toEqual([]);
+  });
+
+  it("sorts boundary points around their own centroid", () => {
+    const notes = [
+      createNote("a", "C4"),
+      createNote("b", "D4"),
+      createNote("c", "E4"),
+      createNote("d", "F4"),
+    ];
+    const blobs = new Map<string, ActiveBlob>([
+      ["a", createBlob(notes[0], 100, 80)],
+      ["b", createBlob(notes[1], 310, 120)],
+      ["c", createBlob(notes[2], 270, 280)],
+      ["d", createBlob(notes[3], 80, 240)],
+    ]);
+    const { buildScene } = useHarmonicGeometryRenderer();
+
+    const scene = buildScene(createSnapshot(notes), blobs, baseConfig, 400, 1000)!;
+
+    scene.points.forEach((point) => {
+      expect(point.angle).toBeCloseTo(
+        Math.atan2(point.y - scene.centroid.y, point.x - scene.centroid.x)
+      );
+    });
+  });
+
+  it("creates and renders interval labels for triads", () => {
+    const notes = [
+      createNote("c4", "C4"),
+      createNote("e4", "E4"),
+      createNote("g4", "G4"),
+    ];
+    const blobs = new Map<string, ActiveBlob>([
+      ["c4", createBlob(notes[0], 80, 80)],
+      ["e4", createBlob(notes[1], 320, 80)],
+      ["g4", createBlob(notes[2], 200, 320)],
+    ]);
+    const renderer = useHarmonicGeometryRenderer();
+    const config = { ...baseConfig, geometryMode: "web" as const };
+    const scene = renderer.buildScene(
+      createSnapshot(notes),
+      blobs,
+      config,
+      400,
+      400
+    );
+
+    expect(scene?.auxiliaryLabels).toHaveLength(3);
+    renderer.renderLabels(
+      mockCanvasContext as unknown as CanvasRenderingContext2D,
+      scene,
+      config
+    );
+    expect(mockCanvasContext.fillText).toHaveBeenCalledTimes(5);
+  });
+
+  it("constrains long labels to the canvas width", () => {
+    const notes = [createNote("c4", "C4"), createNote("e4", "E4")];
+    const blobs = new Map<string, ActiveBlob>([
+      ["c4", createBlob(notes[0], 80, 100)],
+      ["e4", createBlob(notes[1], 240, 100)],
+    ]);
+    const renderer = useHarmonicGeometryRenderer();
+    const snapshot = {
+      ...createSnapshot(notes),
+      emotionalDescription:
+        "Strength, confidence, dominance & Forward motion, stepping up",
+    };
+    const scene = renderer.buildScene(snapshot, blobs, baseConfig, 320, 400);
+    const context = {
+      ...mockCanvasContext,
+      canvas: { width: 320 },
+    } as unknown as CanvasRenderingContext2D;
+
+    renderer.renderLabels(context, scene, baseConfig);
+
+    expect(mockCanvasContext.fillText).toHaveBeenCalledWith(
+      snapshot.emotionalDescription,
+      expect.any(Number),
+      expect.any(Number),
+      296
+    );
   });
 
   it("does not paint an overlay for blob-field merge mode", () => {

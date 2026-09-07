@@ -101,6 +101,7 @@ describe('Visual Config Store', () => {
               floatingPopup: {
                 isEnabled: true,
                 opacity: 0.35,
+                animationDuration: 999,
               },
             },
           })
@@ -113,6 +114,7 @@ describe('Visual Config Store', () => {
       expect(newStore.config.floatingPopup.isEnabled).toBe(true)
       expect(newStore.config.floatingPopup.opacity).toBe(0.35)
       expect(newStore.config.floatingPopup.geometryMode).toBe('outline')
+      expect(newStore.config.floatingPopup).not.toHaveProperty('animationDuration')
     })
 
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {

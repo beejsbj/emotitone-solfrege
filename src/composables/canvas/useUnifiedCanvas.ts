@@ -1,4 +1,4 @@
-import { ref, type Ref } from "vue";
+import { computed, ref, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
@@ -34,8 +34,9 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     snapshot: harmonicAnalysisSnapshot,
     notePlayed: recordHarmonicNote,
     noteReleased: releaseHarmonicNote,
+    noteExpired: expireHarmonicNote,
     reset: resetHarmonicAnalysis,
-  } = useHarmonicAnalysis();
+  } = useHarmonicAnalysis(() => musicStore.getActiveNotes());
 
   // Canvas state (merged from useCanvasCore)
   const canvasWidth = ref(window.innerWidth);
@@ -64,6 +65,50 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
+  const oneShotReleaseTimers = new Map<string, number>();
+  const harmonicExpiryTimers = new Map<string, number>();
+  let oneShotSequence = 0;
+
+  const harmonicAccessibleText = computed(() => {
+    const snapshot = harmonicAnalysisSnapshot.value;
+    const config = floatingPopupConfig.value;
+
+    if (
+      !blobConfig.value.isEnabled ||
+      !config.isEnabled ||
+      !snapshot.isVisible ||
+      snapshot.displayedNotes.length < 2
+    ) {
+      return "";
+    }
+
+    const notesById = new Map(
+      snapshot.displayedNotes.map((note) => [note.noteId, note])
+    );
+    const announcements: string[] = [];
+
+    if (config.showChord && snapshot.chordLabel) {
+      announcements.push(`Chord: ${snapshot.chordLabel}`);
+    }
+
+    if (config.showIntervals) {
+      snapshot.intervalEdges.forEach((edge) => {
+        const from = notesById.get(edge.fromNoteId);
+        const to = notesById.get(edge.toNoteId);
+        if (from && to) {
+          announcements.push(
+            `Interval ${from.noteName} to ${to.noteName}: ${edge.interval}`
+          );
+        }
+      });
+    }
+
+    if (config.showEmotionalDescription && snapshot.emotionalDescription) {
+      announcements.push(`Emotion: ${snapshot.emotionalDescription}`);
+    }
+
+    return announcements.join(". ");
+  });
 
   /**
    * Update cached configurations for performance
@@ -146,6 +191,31 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     // Update cached configurations
     updateCachedConfigs();
 
+    // The canvas can mount after MIDI input has already populated the music
+    // store (for example, while the loading gate is visible). Recreate only
+    // missing visual anchors; do not replay audio or one-shot effects.
+    if (blobConfig.value.isEnabled) {
+      musicStore.getActiveNotes().forEach((activeNote) => {
+        if (blobRenderer.activeBlobs.has(activeNote.noteId)) {
+          return;
+        }
+
+        blobRenderer.createBlob(
+          activeNote.solfege,
+          activeNote.frequency,
+          0,
+          0,
+          canvasWidth.value,
+          canvasHeight.value,
+          blobConfig.value,
+          activeNote.noteId,
+          activeNote.key,
+          activeNote.mode,
+          activeNote.octave
+        );
+      });
+    }
+
     // Initialize strings
     stringRenderer.initializeStrings(
       stringConfig.value,
@@ -208,13 +278,15 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       blobRenderer.prepareBlobs(ctx, cachedConfigs.blob);
     }
 
-    const harmonicScene = harmonicGeometryRenderer.buildScene(
-      harmonicAnalysisSnapshot.value,
-      blobRenderer.activeBlobs,
-      cachedConfigs.harmonic,
-      canvasWidth.value,
-      canvasHeight.value
-    );
+    const harmonicScene = cachedConfigs.blob.isEnabled
+      ? harmonicGeometryRenderer.buildScene(
+          harmonicAnalysisSnapshot.value,
+          blobRenderer.activeBlobs,
+          cachedConfigs.harmonic,
+          canvasWidth.value,
+          canvasHeight.value
+        )
+      : null;
     const fieldMode =
       cachedConfigs.harmonic.geometryMode === "merge" ||
       cachedConfigs.harmonic.geometryMode === "outline"
@@ -300,12 +372,30 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     frequency: number,
     noteId?: string,
     octave?: number,
-    _noteName?: string,
+    noteName?: string,
     mode?: MusicalMode,
-    key?: ChromaticNote
+    key?: ChromaticNote,
+    durationMs?: number
   ) => {
     const noteMode = mode ?? musicStore.currentMode;
     const noteKey = key ?? (musicStore.currentKey as ChromaticNote);
+    const isOneShot = !noteId && durationMs !== undefined;
+    const harmonicNoteId = noteId ?? (
+      isOneShot && noteName
+        ? `one-shot:${noteName}:${++oneShotSequence}`
+        : noteName
+          ? `legacy:${noteName}`
+          : undefined
+    );
+
+    if (harmonicNoteId) {
+      const pendingRelease = oneShotReleaseTimers.get(harmonicNoteId);
+      const pendingExpiry = harmonicExpiryTimers.get(harmonicNoteId);
+      if (pendingRelease !== undefined) window.clearTimeout(pendingRelease);
+      if (pendingExpiry !== undefined) window.clearTimeout(pendingExpiry);
+      oneShotReleaseTimers.delete(harmonicNoteId);
+      harmonicExpiryTimers.delete(harmonicNoteId);
+    }
 
     // Create blob using Circle of Fifths positioning
     // No longer need to calculate x,y - the blob renderer handles positioning
@@ -317,7 +407,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       canvasWidth.value,
       canvasHeight.value,
       blobConfig.value,
-      noteId, // Pass noteId for tracking
+      isOneShot ? harmonicNoteId : noteId, // Give synthetic one-shots a stable lifecycle key
       noteKey, // Pass event key snapshot for circle positioning
       noteMode, // Pass event mode snapshot for scale positioning
       octave // Pass octave for vertical offset positioning
@@ -328,7 +418,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
           .getActiveNotes()
           .find((candidate) => candidate.noteId === noteId)
       : null;
-    const resolvedNoteName = _noteName;
+    const resolvedNoteName = noteName;
     const resolvedOctave = octave;
 
     if (activeNote) {
@@ -339,11 +429,21 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
         solfege: note,
         frequency,
         octave: resolvedOctave,
-        noteId: noteId ?? `legacy:${resolvedNoteName}`,
+        noteId: harmonicNoteId ?? `legacy:${resolvedNoteName}`,
         noteName: resolvedNoteName,
         mode: noteMode,
         key: noteKey,
       });
+    }
+
+    if (isOneShot && harmonicNoteId) {
+      const releaseTimer = window.setTimeout(() => {
+        oneShotReleaseTimers.delete(harmonicNoteId);
+        releaseHarmonicNote(harmonicNoteId);
+        blobRenderer.startBlobFadeOutById(harmonicNoteId);
+        scheduleHarmonicExpiry(harmonicNoteId);
+      }, Math.max(0, durationMs));
+      oneShotReleaseTimers.set(harmonicNoteId, releaseTimer);
     }
 
     // Create particles with reduced count for polyphonic scenarios
@@ -367,16 +467,40 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   /**
    * Handle note released event - enhanced for polyphonic support
    */
-  const handleNoteReleased = (noteName: string, noteId?: string) => {
-    releaseHarmonicNote(noteId ?? `legacy:${noteName}`);
+  const scheduleHarmonicExpiry = (noteId: string) => {
+    const pendingExpiry = harmonicExpiryTimers.get(noteId);
+    if (pendingExpiry !== undefined) window.clearTimeout(pendingExpiry);
+
+    const expiryTimer = window.setTimeout(() => {
+      harmonicExpiryTimers.delete(noteId);
+      expireHarmonicNote(noteId);
+    }, Math.max(0, blobConfig.value.fadeOutDuration * 1000 + 16));
+    harmonicExpiryTimers.set(noteId, expiryTimer);
+  };
+
+  const handleNoteReleased = (
+    blobKey: string,
+    noteId?: string,
+    harmonicNoteName = blobKey
+  ) => {
+    const harmonicNoteId = noteId ?? `legacy:${harmonicNoteName}`;
+    const pendingRelease = oneShotReleaseTimers.get(harmonicNoteId);
+    if (pendingRelease !== undefined) {
+      window.clearTimeout(pendingRelease);
+      oneShotReleaseTimers.delete(harmonicNoteId);
+    }
+
+    releaseHarmonicNote(harmonicNoteId);
 
     if (noteId) {
       // Use noteId for precise blob removal in polyphonic scenarios
       blobRenderer.startBlobFadeOutById(noteId);
     } else {
       // Fallback to name-based removal for backward compatibility
-      blobRenderer.startBlobFadeOut(noteName);
+      blobRenderer.startBlobFadeOut(blobKey);
     }
+
+    scheduleHarmonicExpiry(harmonicNoteId);
   };
 
   /**
@@ -406,6 +530,10 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
     blobFieldRenderer.dispose();
     resetHarmonicAnalysis();
+    oneShotReleaseTimers.forEach((timer) => window.clearTimeout(timer));
+    harmonicExpiryTimers.forEach((timer) => window.clearTimeout(timer));
+    oneShotReleaseTimers.clear();
+    harmonicExpiryTimers.clear();
     clearCaches();
     window.removeEventListener("resize", handleResize);
     performanceMonitor.reset();
@@ -416,6 +544,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     // Canvas state
     canvasWidth,
     canvasHeight,
+    harmonicAccessibleText,
 
     // Methods
     initializeCanvas,

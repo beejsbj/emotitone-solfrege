@@ -16,7 +16,6 @@ const harmonicTestState = vi.hoisted(() => ({
     geometryMode: "outline",
     backdropBlur: 1,
     glassmorphOpacity: 0.4,
-    animationDuration: 300,
     opacity: 0.5,
   } satisfies HarmonicGeometryConfig,
   floatingPopupConfig: null as {
@@ -70,9 +69,11 @@ function createActiveNote(
 describe("useHarmonicAnalysis", () => {
   let scope: EffectScope;
 
-  const createAnalysis = () => {
+  const createAnalysis = (
+    getActiveNotes: () => readonly ActiveNote[] = () => []
+  ) => {
     scope = effectScope();
-    return scope.run(() => useHarmonicAnalysis())!;
+    return scope.run(() => useHarmonicAnalysis(getActiveNotes))!;
   };
 
   beforeEach(() => {
@@ -190,5 +191,79 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.intervalEdges).toHaveLength(1);
     expect(snapshot.value.chordLabel).toBe(null);
     expect(snapshot.value.emotionalDescription).toBe("");
+  });
+
+  it("hydrates notes that are already held when harmonic geometry is enabled", async () => {
+    const c4 = createActiveNote("note-c4", "C4", "Do");
+    const e4 = createActiveNote("note-e4", "E4", "Mi");
+    harmonicTestState.floatingPopupConfig!.value = {
+      ...harmonicTestState.floatingPopupConfig!.value,
+      isEnabled: false,
+    };
+    const { snapshot } = createAnalysis(() => [c4, e4]);
+
+    expect(snapshot.value.displayedNotes).toEqual([]);
+
+    harmonicTestState.floatingPopupConfig!.value = {
+      ...harmonicTestState.floatingPopupConfig!.value,
+      isEnabled: true,
+    };
+    await nextTick();
+
+    expect(snapshot.value.displayedNotes.map((note) => note.noteId)).toEqual([
+      "note-c4",
+      "note-e4",
+    ]);
+    expect(snapshot.value.isVisible).toBe(true);
+  });
+
+  it("keeps trimmed held notes active until their real release", () => {
+    harmonicTestState.floatingPopupConfig!.value = {
+      ...harmonicTestState.floatingPopupConfig!.value,
+      maxNotes: 2,
+    };
+    const { snapshot, notePlayed, noteReleased } = createAnalysis();
+    const a = createActiveNote("a", "C4", "Do");
+    const b = createActiveNote("b", "E4", "Mi");
+    const c = createActiveNote("c", "G4", "Sol");
+    const d = createActiveNote("d", "B4", "Ti");
+
+    notePlayed(a);
+    notePlayed(b);
+    notePlayed(c);
+    expect(snapshot.value.displayedNotes.map((note) => note.noteId)).toEqual([
+      "b",
+      "c",
+    ]);
+
+    noteReleased("b");
+    noteReleased("c");
+    notePlayed(d);
+
+    expect(snapshot.value.displayedNotes.map((note) => note.noteId)).toEqual([
+      "a",
+      "d",
+    ]);
+    expect(snapshot.value.intervalEdges).toHaveLength(1);
+  });
+
+  it("forgets released analysis anchors after their blobs expire", () => {
+    const { snapshot, notePlayed, noteReleased, noteExpired } = createAnalysis();
+    const c4 = createActiveNote("note-c4", "C4", "Do");
+    const e4 = createActiveNote("note-e4", "E4", "Mi");
+    const g4 = createActiveNote("note-g4", "G4", "Sol");
+
+    notePlayed(c4);
+    notePlayed(e4);
+    notePlayed(g4);
+    noteReleased(e4.noteId);
+    noteExpired(e4.noteId);
+
+    expect(snapshot.value.displayedNotes.map((note) => note.noteId)).toEqual([
+      "note-c4",
+      "note-g4",
+    ]);
+    expect(snapshot.value.intervalEdges).toHaveLength(1);
+    expect(snapshot.value.isVisible).toBe(true);
   });
 });

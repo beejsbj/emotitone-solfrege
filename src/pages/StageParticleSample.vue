@@ -2,7 +2,7 @@
   <div class="particle-sample">
     <canvas ref="canvasRef" aria-hidden="true"></canvas>
     <button type="button" @click="releaseBurst">
-      Release flecks
+      Release Marks
     </button>
   </div>
 </template>
@@ -27,9 +27,7 @@ const props = withDefaults(
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const particleSystem = useParticleSystem();
-const particleNotes = getScaleForMode("major").solfege.filter((note) =>
-  ["circle", "star", "diamond", "sparkle", "mist"].includes(note.fleckShape),
-);
+const particleNotes = getScaleForMode("major").solfege;
 const particleConfig: ParticleConfig = {
   ...DEFAULT_CONFIG.particles,
   sizeMin: DEFAULT_CONFIG.particles.sizeMin * props.scale,

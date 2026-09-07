@@ -128,7 +128,7 @@ function pointerEvent(
   type: string,
   options: {
     pointerId: number;
-    pointerType: "mouse" | "touch";
+    pointerType: "mouse" | "pen" | "touch";
     clientX: number;
     clientY?: number;
     button?: number;
@@ -187,6 +187,10 @@ describe("Keyboard production usage", () => {
     vi.clearAllMocks();
     mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
     mocks.instrumentStore.isInteractionLocked = false;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("builds configured octave rows from the accepted Key contract", () => {
@@ -279,6 +283,47 @@ describe("Keyboard production usage", () => {
 
     expect(mocks.keyboardStore.removeTouch).toHaveBeenCalledWith("mouse:0_4");
     expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledWith("0_4", event);
+  });
+
+  it("keeps a shared key sounding until every pointer leaves", async () => {
+    const wrapper = mountKeyboard();
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const key = wrapper.get<HTMLButtonElement>('[data-key-id="0_4"]');
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(key.element);
+
+    key.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 21,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    key.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 22,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await nextTick();
+
+    expect(mocks.attackNoteWithOctave).toHaveBeenCalledOnce();
+
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 21,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await nextTick();
+    expect(mocks.releaseNoteByButtonKey).not.toHaveBeenCalled();
+
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 22,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await nextTick();
+    expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledOnce();
+    expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledWith(
+      "0_4",
+      expect.any(Event),
+    );
   });
 
   it("disables keys and ignores presses while instrument samples are warming", async () => {
@@ -399,6 +444,26 @@ describe("Keyboard pointer gestures", () => {
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
   });
 
+  it("ignores non-contact pen button presses", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const [first] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(first.element);
+
+    first.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 8,
+      pointerType: "pen",
+      button: 2,
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")).toBeUndefined();
+    expect(first.classes()).not.toContain("keyboard__key--pressed");
+  });
+
   it("plays every crossed key when a fast pointer move skips event samples", async () => {
     const wrapper = mount(Keyboard, {
       props: { usage: "controlled", rows: glissandoRows() },
@@ -483,6 +548,43 @@ describe("Keyboard pointer gestures", () => {
       (intent as { keyId: string }).keyId)).toEqual(expectedPath);
     expect(wrapper.emitted("release")?.map(([intent]) =>
       (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+  });
+
+  it("does not synthesize adjacent notes along a shared key edge", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[1].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 100,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 100,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 120,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 120,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["key-1"]);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["key-1"]);
   });
 
   it("samples the final path segment when a fast swipe ends before another move", async () => {

@@ -257,20 +257,40 @@ function createProductionWiring() {
 
   const inputPressId = (intent: KeyboardIntent) =>
     `${intent.inputId}:${intent.keyId}`;
+  const heldInputsByKey = new Map<string, Set<string>>();
 
   async function press(intent: KeyboardIntent) {
     if (instrumentStore.isInteractionLocked) return;
 
-    store.addTouch(inputPressId(intent), intent.keyId);
+    const pressId = inputPressId(intent);
+    const heldInputs = heldInputsByKey.get(intent.keyId) ?? new Set<string>();
+    if (heldInputs.has(pressId)) return;
+
+    const shouldAttack = heldInputs.size === 0;
+    heldInputs.add(pressId);
+    heldInputsByKey.set(intent.keyId, heldInputs);
+    store.addTouch(pressId, intent.keyId);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
     }
+    if (!shouldAttack) return;
+
     await attackNoteWithOctave(intent.scaleIndex, intent.octave, intent.event);
   }
 
   function release(intent: KeyboardIntent) {
-    store.removeTouch(inputPressId(intent));
+    const pressId = inputPressId(intent);
+    store.removeTouch(pressId);
+    const heldInputs = heldInputsByKey.get(intent.keyId);
+    if (!heldInputs?.delete(pressId) || heldInputs.size > 0) return;
+
+    heldInputsByKey.delete(intent.keyId);
     releaseNoteByButtonKey(intent.keyId, intent.event);
+  }
+
+  function clear() {
+    heldInputsByKey.clear();
+    store.clearAllTouches();
   }
 
   return {
@@ -281,7 +301,7 @@ function createProductionWiring() {
     isInteractionLocked: computed(() => instrumentStore.isInteractionLocked),
     press,
     release,
-    clear: store.clearAllTouches,
+    clear,
   };
 }
 
@@ -583,7 +603,16 @@ function segmentEntryTime(
   const deltaY = end.y - start.y;
   if (!clipAxis(start.x, deltaX, rect.left, rect.right)) return null;
   if (!clipAxis(start.y, deltaY, rect.top, rect.bottom)) return null;
-  return entry >= 0 && entry <= 1 ? entry : null;
+
+  if (entry >= exit) return null;
+  const midpoint = entry + ((exit - entry) / 2);
+  const midpointX = start.x + (deltaX * midpoint);
+  const midpointY = start.y + (deltaY * midpoint);
+  const crossesInterior = midpointX > rect.left
+    && midpointX < rect.right
+    && midpointY > rect.top
+    && midpointY < rect.bottom;
+  return crossesInterior && entry >= 0 && entry <= 1 ? entry : null;
 }
 
 function movePointerAlongSegment(
@@ -592,6 +621,12 @@ function movePointerAlongSegment(
   event: PointerEvent,
 ) {
   const end = { x: event.clientX, y: event.clientY };
+  if (start.x === end.x && start.y === end.y) {
+    movePointerInput(pointerId, keyIntentAtPoint(event), event);
+    pointerPositions.set(pointerId, end);
+    return;
+  }
+
   const currentKeyId = activePointerInputs.get(pointerId)?.keyId;
   const crossings = Array.from(keyElements.entries())
     .map(([keyId, element]) => ({
@@ -647,7 +682,7 @@ function movePointerInput(pointerId: number, next: KeyboardIntent | null, event:
 function handlePointerDown(event: PointerEvent) {
   if (isInteractionLocked.value) return;
   if (event.isPrimary === false && event.pointerType === "mouse") return;
-  if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (["mouse", "pen"].includes(event.pointerType) && event.button !== 0) return;
   if (activePointerInputs.has(event.pointerId)) return;
 
   const intent = keyIntentAtPoint(event);

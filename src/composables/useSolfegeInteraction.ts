@@ -5,7 +5,6 @@
 
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useColorSystem } from "@/composables/useColorSystem";
 import type { MusicalMode, ChromaticNote } from "@/types/music";
@@ -15,12 +14,12 @@ import type { MusicalMode, ChromaticNote } from "@/types/music";
  */
 export function useSolfegeInteraction() {
   const musicStore = useMusicStore();
-  const patternsStore = usePatternsStore();
   const instrumentStore = useInstrumentStore();
   const { getGradient, isDynamicColorsEnabled } = useColorSystem();
 
   // Track active note IDs for each button press
   const activeNoteIds = ref<Map<string, string>>(new Map());
+  const pendingNoteAttacks = new Map<string, symbol>();
 
   // Create a reactive animation frame counter to trigger re-renders for dynamic colors
   const animationFrame = ref(0);
@@ -72,6 +71,10 @@ export function useSolfegeInteraction() {
     octave: number,
     event?: Event
   ) => {
+    if (instrumentStore.isInteractionLocked) {
+      return;
+    }
+
     // Prevent context menu and other unwanted behaviors
     if (event) {
       event.preventDefault();
@@ -81,11 +84,28 @@ export function useSolfegeInteraction() {
     const buttonKey = `${solfegeIndex}_${octave}`;
 
     // Don't attack if this button is already pressed
-    if (activeNoteIds.value.has(buttonKey)) {
+    if (
+      activeNoteIds.value.has(buttonKey) ||
+      pendingNoteAttacks.has(buttonKey)
+    ) {
       return;
     }
 
+    const attackToken = Symbol(buttonKey);
+    pendingNoteAttacks.set(buttonKey, attackToken);
     const noteId = await musicStore.attackNoteWithOctave(solfegeIndex, octave);
+    if (
+      pendingNoteAttacks.get(buttonKey) !== attackToken ||
+      instrumentStore.isInteractionLocked
+    ) {
+      if (pendingNoteAttacks.get(buttonKey) === attackToken) {
+        pendingNoteAttacks.delete(buttonKey);
+      }
+      if (noteId) musicStore.releaseNote(noteId);
+      return;
+    }
+
+    pendingNoteAttacks.delete(buttonKey);
     if (noteId) {
       activeNoteIds.value.set(buttonKey, noteId);
       
@@ -106,6 +126,8 @@ export function useSolfegeInteraction() {
       event.stopPropagation();
     }
 
+    pendingNoteAttacks.clear();
+
     // Find the button that triggered this release and release its note
     const target = event?.target as HTMLElement;
     if (target) {
@@ -125,6 +147,7 @@ export function useSolfegeInteraction() {
     }
 
     const noteId = activeNoteIds.value.get(buttonKey);
+    pendingNoteAttacks.delete(buttonKey);
     if (noteId) {
       musicStore.releaseNote(noteId);
       activeNoteIds.value.delete(buttonKey);
@@ -141,6 +164,19 @@ export function useSolfegeInteraction() {
       (note) => note.solfege.name === solfegeName && note.octave === octave
     );
   };
+
+  watch(
+    () => instrumentStore.isInteractionLocked,
+    (locked) => {
+      if (!locked) return;
+
+      pendingNoteAttacks.clear();
+      for (const noteId of activeNoteIds.value.values()) {
+        musicStore.releaseNote(noteId);
+      }
+      activeNoteIds.value.clear();
+    }
+  );
 
   // Legacy functions for backward compatibility
   const attackNote = (solfegeIndex: number, event?: Event) => {
@@ -159,6 +195,7 @@ export function useSolfegeInteraction() {
   });
 
   onUnmounted(() => {
+    pendingNoteAttacks.clear();
     stopAnimation();
   });
 

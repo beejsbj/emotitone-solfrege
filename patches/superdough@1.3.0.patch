@@ -1106,6 +1106,8 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +      B(`[sampler] load ${s}... done! loaded ${l} in ${d}ms`, "loaded-sample", { url: e });
 +      const i = await t.decodeAudioData(a);
 +      return xt[e] = i, i;
++    }).catch((a) => {
++      throw delete rt[e], a;
      });
    }
 -  return tt[e];

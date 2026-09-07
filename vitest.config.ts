@@ -8,6 +8,11 @@ export default defineConfig({
     environment: 'happy-dom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    server: {
+      deps: {
+        inline: ['@strudel/soundfonts'],
+      },
+    },
   },
   resolve: {
     alias: {

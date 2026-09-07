@@ -2,7 +2,9 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -133,6 +135,8 @@ describe("Patterns Store", () => {
   let dateNowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    vi.mocked(isPrewarmed).mockReturnValue(true);
+    vi.mocked(prewarmSoundSamples).mockResolvedValue(undefined);
     dateNowSpy = vi
       .spyOn(Date, "now")
       .mockReturnValue(new Date("2026-03-16T12:00:00Z").getTime());
@@ -166,6 +170,26 @@ describe("Patterns Store", () => {
     ]);
     expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
     expect(patternsStore.currentSketchMeta.bpm).toBe(120);
+  });
+
+  it("uses the ready fallback in loaded metadata when pattern warmup fails", async () => {
+    const instrumentStore = useInstrumentStore();
+    instrumentStore.currentInstrument = "piano";
+    instrumentStore.readyInstruments.add("piano");
+    vi.mocked(isPrewarmed).mockReturnValue(false);
+    vi.mocked(prewarmSoundSamples).mockRejectedValueOnce(
+      new Error("preset unavailable")
+    );
+    const pattern = createPattern({ instrument: "gm_flute" });
+    patternsStore.savedPatterns.push(pattern);
+
+    patternsStore.loadPatternAsBase(pattern.id);
+    await vi.waitFor(() => {
+      expect(instrumentStore.lastWarmupErrorInstrument).toBe("gm_flute");
+    });
+
+    expect(instrumentStore.currentInstrument).toBe("piano");
+    expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
   });
 
   it("saves the combined sketch when sending a continued pattern", () => {

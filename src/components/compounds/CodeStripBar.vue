@@ -4,7 +4,7 @@
       <Button
         class="code-strip-bar__play"
         size="sm"
-        tone="brass"
+        :tone="isPlaying ? 'ink' : 'ivory'"
         :haptic="haptic"
         :disabled="playDisabled"
         :accessible-name="isPlaying ? 'Stop' : 'Play'"
@@ -18,7 +18,7 @@
       <Button
         class="code-strip-bar__humming"
         size="sm"
-        :tone="hummingStatus === 'recording' ? 'brass' : 'ink'"
+        :tone="hummingStatus === 'recording' ? 'ivory' : 'brass'"
         :haptic="haptic"
         :loading="hummingLoading"
         :disabled="hummingLoading"
@@ -26,7 +26,7 @@
         :title="hummingButtonTitle"
         @click="emit('toggleHumming')"
       >
-        <Square v-if="hummingStatus === 'recording'" />
+        <Check v-if="hummingStatus === 'recording'" />
         <Mic v-else />
       </Button>
 
@@ -109,6 +109,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import {
+  Check,
   CornerDownLeft,
   Delete as BackspaceIcon,
   Mic,
@@ -170,7 +171,7 @@ const hummingCanCancel = computed(() =>
 );
 
 const hummingButtonLabel = computed(() => {
-  if (props.hummingStatus === "recording") return "Stop humming capture";
+  if (props.hummingStatus === "recording") return "Accept humming capture";
   if (props.hummingStatus === "error") return "Retry humming capture";
   if (props.hummingStatus === "requesting") return "Requesting microphone";
   if (["preparing", "analyzing"].includes(props.hummingStatus)) {

@@ -88,11 +88,11 @@ describe("CodeStripBar.vue", () => {
     );
   });
 
-  it("uses brass for Play, ink for idle humming and Backspace, and ivory for Return", () => {
+  it("uses ivory for Play, brass for Record, ink for Backspace, and ivory for Return", () => {
     wrapper = render();
 
-    expect(wrapper.get('button[aria-label="Play"]').classes()).toContain("paper-button--brass");
-    expect(wrapper.get('button[aria-label="Start humming capture"]').classes()).toContain("paper-button--ink");
+    expect(wrapper.get('button[aria-label="Play"]').classes()).toContain("paper-button--ivory");
+    expect(wrapper.get('button[aria-label="Start humming capture"]').classes()).toContain("paper-button--brass");
     expect(wrapper.get('button[aria-label="Delete last event"]').classes()).toContain("paper-button--ink");
     expect(wrapper.get('button[aria-label="Return"]').classes()).toContain("paper-button--ivory");
   });
@@ -102,6 +102,7 @@ describe("CodeStripBar.vue", () => {
 
     const stop = wrapper.get('button[aria-label="Stop"]');
     expect(stop.attributes("aria-pressed")).toBeUndefined();
+    expect(stop.classes()).toContain("paper-button--ink");
     expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
   });
 
@@ -111,9 +112,10 @@ describe("CodeStripBar.vue", () => {
       hummingStatusMessage: "Listening to your humming",
     });
 
-    const stop = wrapper.get('button[aria-label="Stop humming capture"]');
-    expect(stop.attributes("aria-pressed")).toBeUndefined();
-    expect(stop.classes()).toContain("paper-button--brass");
+    const accept = wrapper.get('button[aria-label="Accept humming capture"]');
+    expect(accept.attributes("aria-pressed")).toBeUndefined();
+    expect(accept.classes()).toContain("paper-button--ivory");
+    expect(accept.find("svg.lucide-check").exists()).toBe(true);
     expect(
       wrapper.get('button[aria-label="Cancel humming capture"]').exists(),
     ).toBe(true);

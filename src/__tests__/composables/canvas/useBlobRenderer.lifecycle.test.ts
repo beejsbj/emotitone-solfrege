@@ -87,6 +87,18 @@ describe("useBlobRenderer lifecycle", () => {
     expect(renderer.activeBlobs.has("c4")).toBe(false);
   });
 
+  it("retains a sounding blob beyond the former safety lifetime", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    vi.mocked(Date.now).mockReturnValue(31_000);
+
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs);
+
+    expect(renderer.activeBlobs.has("c4")).toBe(true);
+    expect(renderer.getPreparedBlobFrames()).toHaveLength(1);
+  });
+
   it("uses the Blob breathing control without doubling its scale", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     const renderer = useBlobRenderer();

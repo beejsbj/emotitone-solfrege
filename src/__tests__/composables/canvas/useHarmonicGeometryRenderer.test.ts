@@ -135,6 +135,8 @@ describe("useHarmonicGeometryRenderer", () => {
       "c4",
       "g4",
     ]);
+    expect(scene?.primaryLabel).toBeNull();
+    expect(scene?.auxiliaryLabels[0]?.lines).toEqual(["0-2"]);
   });
 
   it("keeps emotion labels independent from chord-label visibility", () => {
@@ -247,7 +249,7 @@ describe("useHarmonicGeometryRenderer", () => {
     expect(mockCanvasContext.fillText).toHaveBeenCalledTimes(5);
   });
 
-  it("constrains long labels to the canvas width", () => {
+  it("wraps long labels within the canvas width without compressing glyphs", () => {
     const notes = [createNote("c4", "C4"), createNote("e4", "E4")];
     const blobs = new Map<string, ActiveBlob>([
       ["c4", createBlob(notes[0], 80, 100)],
@@ -264,14 +266,24 @@ describe("useHarmonicGeometryRenderer", () => {
       ...mockCanvasContext,
       canvas: { width: 320 },
     } as unknown as CanvasRenderingContext2D;
+    vi.mocked(mockCanvasContext.measureText).mockImplementation((text) => ({
+      width: String(text).length * 8,
+    }) as TextMetrics);
 
     renderer.renderLabels(context, scene, baseConfig);
 
-    expect(mockCanvasContext.fillText).toHaveBeenCalledWith(
-      snapshot.emotionalDescription,
+    const emotionLines = vi.mocked(mockCanvasContext.fillText).mock.calls
+      .map(([line]) => String(line))
+      .filter((line) => line !== "Cmaj7" && line !== "0-1");
+    expect(emotionLines).toEqual([
+      "Strength, confidence, dominance &",
+      "Forward motion, stepping up",
+    ]);
+    expect(mockCanvasContext.fillText).not.toHaveBeenCalledWith(
+      expect.any(String),
       expect.any(Number),
       expect.any(Number),
-      296
+      expect.any(Number)
     );
   });
 

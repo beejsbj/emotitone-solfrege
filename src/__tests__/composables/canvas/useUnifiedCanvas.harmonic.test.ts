@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     value: {
       isEnabled: true,
       fadeOutDuration: 1,
+      scaleOutDuration: 0.4,
       connectionMode: "web",
       showChordLabel: true,
       showIntervalLabels: true,
@@ -218,7 +219,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.releaseHarmonicNote).toHaveBeenCalledWith(syntheticId);
     expect(mocks.startBlobFadeOutById).toHaveBeenCalledWith(syntheticId);
 
-    vi.advanceTimersByTime(1016);
+    vi.advanceTimersByTime(416);
     expect(mocks.expireHarmonicNote).toHaveBeenCalledWith(syntheticId);
   });
 

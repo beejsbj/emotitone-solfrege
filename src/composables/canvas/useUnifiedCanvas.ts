@@ -454,10 +454,14 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     const pendingExpiry = harmonicExpiryTimers.get(noteId);
     if (pendingExpiry !== undefined) window.clearTimeout(pendingExpiry);
 
+    const visibleExitDuration = Math.min(
+      blobConfig.value.fadeOutDuration,
+      blobConfig.value.scaleOutDuration
+    );
     const expiryTimer = window.setTimeout(() => {
       harmonicExpiryTimers.delete(noteId);
       expireHarmonicNote(noteId);
-    }, Math.max(0, blobConfig.value.fadeOutDuration * 1000 + 16));
+    }, Math.max(0, visibleExitDuration * 1000 + 16));
     harmonicExpiryTimers.set(noteId, expiryTimer);
   };
 

@@ -147,23 +147,16 @@ export function useBlobRenderer() {
   const blobRenderStates = new Map<string, BlobRenderState>();
   const preparedBlobFrames = new Map<string, PreparedBlobFrame>();
 
-  // Maximum blob lifetime in milliseconds (10 seconds as safety)
-  const MAX_BLOB_LIFETIME = 10000;
-
   /**
-   * Safety cleanup for old blobs
+   * Remove blobs only after their release animation completes. A sounding note
+   * may be held indefinitely, so age alone cannot distinguish stale state from
+   * a legitimate sustained blob.
    */
   const cleanupStaleBlobs = (blobConfig?: BlobConfig) => {
     const now = Date.now();
     const fadeOutDuration = blobConfig?.fadeOutDuration || 1;
 
     activeBlobs.forEach((blob, key) => {
-      // Remove blobs that have existed longer than MAX_BLOB_LIFETIME
-      if (now - blob.startTime > MAX_BLOB_LIFETIME) {
-        activeBlobs.delete(key);
-        blobRenderStates.delete(key);
-      }
-      // Remove fully faded blobs that somehow weren't cleaned
       if (
         blob.isFadingOut &&
         blob.fadeOutStartTime &&

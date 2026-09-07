@@ -74,6 +74,69 @@ function getArcMidpoint(
   };
 }
 
+function truncateCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+) {
+  if (ctx.measureText(text).width <= maxWidth) {
+    return text;
+  }
+
+  const ellipsis = "…";
+  let end = text.length;
+  while (
+    end > 0 &&
+    ctx.measureText(`${text.slice(0, end).trimEnd()}${ellipsis}`).width >
+      maxWidth
+  ) {
+    end -= 1;
+  }
+
+  return end > 0 ? `${text.slice(0, end).trimEnd()}${ellipsis}` : ellipsis;
+}
+
+function wrapCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines = 3
+) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return [""];
+  }
+
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (let index = 0; index < words.length; index += 1) {
+    const candidate = currentLine
+      ? `${currentLine} ${words[index]}`
+      : words[index];
+
+    if (!currentLine || ctx.measureText(candidate).width <= maxWidth) {
+      currentLine = candidate;
+      continue;
+    }
+
+    lines.push(truncateCanvasText(ctx, currentLine, maxWidth));
+    currentLine = words[index];
+
+    if (lines.length === maxLines - 1) {
+      const remainder = [currentLine, ...words.slice(index + 1)].join(" ");
+      lines.push(truncateCanvasText(ctx, remainder, maxWidth));
+      return lines;
+    }
+  }
+
+  if (currentLine) {
+    lines.push(truncateCanvasText(ctx, currentLine, maxWidth));
+  }
+
+  return lines;
+}
+
 export function useHarmonicGeometryRenderer() {
   const resolvePoints = (
     snapshot: HarmonicAnalysisSnapshot,
@@ -118,6 +181,8 @@ export function useHarmonicGeometryRenderer() {
     if (resolvedPoints.length < 2) {
       return null;
     }
+    const hasCompleteAnalysis =
+      resolvedPoints.length === snapshot.displayedNotes.length;
 
     const centroid = averagePoint(resolvedPoints);
     const points = resolvedPoints.map((point) => ({
@@ -176,14 +241,16 @@ export function useHarmonicGeometryRenderer() {
       });
     }
 
-    const primaryLabelLines = [
-      ...(config.showChordLabel && snapshot.chordLabel
-        ? [snapshot.chordLabel]
-        : []),
-      ...(config.showEmotionLabel && snapshot.emotionalDescription
-        ? [snapshot.emotionalDescription]
-        : []),
-    ];
+    const primaryLabelLines = hasCompleteAnalysis
+      ? [
+          ...(config.showChordLabel && snapshot.chordLabel
+            ? [snapshot.chordLabel]
+            : []),
+          ...(config.showEmotionLabel && snapshot.emotionalDescription
+            ? [snapshot.emotionalDescription]
+            : []),
+        ]
+      : [];
 
     if (primaryLabelLines.length > 0) {
       primaryLabel = {
@@ -265,8 +332,6 @@ export function useHarmonicGeometryRenderer() {
       },
     }[label.size];
 
-    const totalHeight = (label.lines.length - 1) * sizeMap.lineHeight;
-    const startY = label.y - totalHeight / 2;
     const horizontalPadding = 12;
     const canvasWidth = ctx.canvas?.width ?? 1024;
     const safeInset = Math.min(canvasWidth / 2, 48);
@@ -290,12 +355,23 @@ export function useHarmonicGeometryRenderer() {
     ctx.strokeStyle = `hsla(0, 0%, 0%, ${0.78 * opacity})`;
     ctx.fillStyle = `hsla(0, 0%, 100%, ${0.96 * opacity})`;
 
-    label.lines.forEach((line, index) => {
-      ctx.font = index === 0 ? sizeMap.primaryFont : sizeMap.secondaryFont;
+    const drawableLines = label.lines.flatMap((line, index) => {
+      const font = index === 0 ? sizeMap.primaryFont : sizeMap.secondaryFont;
+      ctx.font = font;
+      return wrapCanvasText(ctx, line, maxWidth).map((text) => ({
+        text,
+        font,
+      }));
+    });
+    const totalHeight = (drawableLines.length - 1) * sizeMap.lineHeight;
+    const startY = label.y - totalHeight / 2;
+
+    drawableLines.forEach(({ text, font }, index) => {
+      ctx.font = font;
       ctx.lineWidth = sizeMap.strokeWidth;
       const lineY = startY + index * sizeMap.lineHeight;
-      ctx.strokeText(line, labelX, lineY, maxWidth);
-      ctx.fillText(line, labelX, lineY, maxWidth);
+      ctx.strokeText(text, labelX, lineY);
+      ctx.fillText(text, labelX, lineY);
     });
 
     ctx.restore();

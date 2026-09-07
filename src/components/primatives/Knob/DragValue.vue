@@ -19,20 +19,40 @@ let previousTime = 0;
 let x = props.x;
 let y = props.y;
 let tilt = 0;
+let velocityX = 0;
+let velocityY = 0;
+let tiltVelocity = 0;
 
 onMounted(() => {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const draw = (time: number) => {
     const element = follower.value;
     if (!element) return;
-    const dt = previousTime ? Math.min(time - previousTime, 64) : 16;
+    const elapsed = previousTime ? Math.min(time - previousTime, 64) / 1000 : 1 / 60;
     previousTime = time;
-    // A short, frame-rate-independent tail. Never delay the actual value.
-    const follow = reducedMotion.matches ? 1 : 1 - Math.exp(-dt / 45);
-    const targetTilt = reducedMotion.matches ? 0 : Math.max(-4, Math.min(4, (props.x - x) * 0.12));
-    x += (props.x - x) * follow;
-    y += (props.y - y) * follow;
-    tilt += (targetTilt - tilt) * follow;
+    if (reducedMotion.matches) {
+      x = props.x;
+      y = props.y;
+      tilt = velocityX = velocityY = tiltVelocity = 0;
+    } else {
+      // Preserve momentum through reversals. Small physics steps keep the
+      // paper's spring stable on both high-refresh screens and missed frames.
+      const steps = Math.ceil(elapsed / (1 / 120));
+      const dt = elapsed / steps;
+      for (let i = 0; i < steps; i++) {
+        // Vertical drag is the primary gesture: it must make the paper lean,
+        // too. A softer rotational spring lets it rebound after position settles.
+        const targetTilt = Math.max(-12, Math.min(12,
+          (props.x - x) * 0.3 + (props.y - y) * 0.45,
+        ));
+        velocityX += ((props.x - x) * 300 - velocityX * 22) * dt;
+        velocityY += ((props.y - y) * 300 - velocityY * 22) * dt;
+        tiltVelocity += ((targetTilt - tilt) * 180 - tiltVelocity * 14) * dt;
+        x += velocityX * dt;
+        y += velocityY * dt;
+        tilt += tiltVelocity * dt;
+      }
+    }
 
     // Leave room for both the fingertip and the paper's rotated corners.
     // Cap upward lag so a fast upward drag cannot catch the readout.
@@ -49,7 +69,7 @@ onMounted(() => {
       ? props.x + (props.x < left + width / 2 ? 1 : -1) * (halfWidth + 48)
       : x;
     const px = Math.max(left + halfWidth + 16, Math.min(left + width - halfWidth - 16, targetX));
-    const targetY = beside ? props.y + paperHeight / 2 : Math.min(y - 64, props.y - 48);
+    const targetY = beside ? props.y + paperHeight / 2 : Math.min(y - 80, props.y - 48);
     const py = Math.max(top + paperHeight + 16, Math.min(top + height - 16, targetY));
     element.style.transform = `translate3d(${px}px, ${py}px, 0) translate(-50%, -100%) rotate(${tilt}deg)`;
     element.style.visibility = "visible";

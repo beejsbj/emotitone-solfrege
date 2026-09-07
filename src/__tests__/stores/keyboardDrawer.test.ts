@@ -86,4 +86,28 @@ describe("keyboardDrawer store", () => {
 
     expect(keyboardDrawerStore.isKeyVisuallyActive("0_4")).toBe(false);
   });
+
+  it("applies a complete MIDI session transition atomically", () => {
+    const keyboardDrawerStore = useKeyboardDrawerStore();
+
+    keyboardDrawerStore.setMidiSessionState({
+      isSupported: true,
+      isConnecting: false,
+      isListening: true,
+      connectedInputs: ["Controller"],
+      connectedOutputs: ["LUMI Keys Block"],
+      syncedOutput: "LUMI Keys Block",
+      lastError: null,
+    });
+
+    expect(keyboardDrawerStore.midi).toEqual({
+      isSupported: true,
+      isConnecting: false,
+      isListening: true,
+      connectedInputs: ["Controller"],
+      connectedOutputs: ["LUMI Keys Block"],
+      syncedOutput: "LUMI Keys Block",
+      lastError: null,
+    });
+  });
 });

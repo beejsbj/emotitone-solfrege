@@ -1,66 +1,31 @@
-import { onMounted, onUnmounted, ref, watch } from "vue";
 import { Note as TonalNote } from "@tonaljs/tonal";
-import type { ChromaticNote } from "@/types";
-import { useMusicStore } from "@/stores/music";
-import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { onMounted, onUnmounted, watch } from "vue";
 import { useVisualConfig } from "@/composables/useVisualConfig";
-import { createHeldNotes } from "@/composables/heldNotes";
-import type { MidiHeldPress } from "@/types/heldNotes";
-import {
-  buildRoliAllNotesOffMessages,
-  buildRoliMainOctaveMessage,
-  buildRoliNoteOffMessage,
-  buildRoliNoteOnMessage,
-  buildRoliPaletteUpdateMessages,
-  isRoliMidiPortName,
-  pickPreferredRoliOutput,
-  ROLI_SYNC_CONTROL_CHANNEL,
-} from "@/services/roliLiveSync";
-
-const MIDI_NOTE_NAMES = [
-  "C",
-  "C#",
-  "D",
-  "D#",
-  "E",
-  "F",
-  "F#",
-  "G",
-  "G#",
-  "A",
-  "A#",
-  "B",
-] as const;
+import { createMidiSession } from "@/services/midiSession";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useMusicStore } from "@/stores/music";
+import type { ChromaticNote } from "@/types/music";
+import type {
+  DevMidiWindow,
+  MidiAccessAdapter,
+  MidiInputPortAdapter,
+  MidiMessageHandler,
+  MidiNoteEventDetail,
+  MidiOutputPortAdapter,
+  MidiPortStateChangeHandler,
+} from "@/types/midi";
 
 const MIDI_NOTE_ON = 0x90;
 const MIDI_NOTE_OFF = 0x80;
-const MIDI_CONTROL_CHANGE = 0xb0;
-const MIDI_STATUS_MASK = 0xf0;
 const MIDI_CHANNEL_MASK = 0x0f;
 const DEV_MIDI_INPUT_ID = "__dev_virtual_input__";
-const DEFAULT_MIRROR_DURATION_MS = 500;
 
-interface DevMidiSimulator {
-  noteOn: (note: number | string, velocity?: number, channel?: number) => void;
-  noteOff: (note: number | string, channel?: number) => void;
-  tap: (
-    note: number | string,
-    durationMs?: number,
-    velocity?: number,
-    channel?: number
-  ) => void;
-  chord: (
-    notes: Array<number | string>,
-    durationMs?: number,
-    velocity?: number,
-    channel?: number
-  ) => void;
-  help: string;
+function canRequestMidiAccess() {
+  return (
+    typeof navigator !== "undefined"
+    && typeof navigator.requestMIDIAccess === "function"
+  );
 }
-
-type DevMidiWindow = Window & typeof globalThis & {
-  __emotitoneMidiSim?: DevMidiSimulator;
-};
 
 function shouldExposeDevMidiSimulator() {
   if (typeof window === "undefined") {
@@ -74,212 +39,122 @@ function shouldExposeDevMidiSimulator() {
   );
 }
 
-interface MidiNoteResolver {
-  parseNoteInput: (
-    note: string
-  ) => { solfegeIndex: number; octave: number } | null;
-  getNoteName: (solfegeIndex: number, octave: number) => string;
-}
+function createBrowserMidiAccessAdapter(access: MIDIAccess): MidiAccessAdapter {
+  const inputAdapters = new WeakMap<MIDIInput, MidiInputPortAdapter>();
+  const outputAdapters = new WeakMap<MIDIOutput, MidiOutputPortAdapter>();
 
-interface MirroredNoteEventDetail {
-  source?: string;
-  duration?: string;
-  durationMs?: number;
-  noteId?: string;
-  noteName?: string;
-  octave?: number;
-  solfegeIndex?: number;
-}
+  const adaptInput = (input: MIDIInput) => {
+    const existing = inputAdapters.get(input);
+    if (existing) {
+      return existing;
+    }
 
-function buildMidiPressId(inputId: string, channel: number, noteNumber: number) {
-  return `midi:${inputId}:${channel}:${noteNumber}`;
-}
+    const adapter: MidiInputPortAdapter = {
+      get id() {
+        return input.id;
+      },
+      get name() {
+        return input.name;
+      },
+      get state() {
+        return input.state;
+      },
+      setMessageHandler(handler: MidiMessageHandler | null) {
+        input.onmidimessage = handler
+          ? (event) => handler((event as MIDIMessageEvent).data)
+          : null;
+      },
+    };
+    inputAdapters.set(input, adapter);
+    return adapter;
+  };
 
-function incrementPendingNoteCount(map: Map<string, number>, noteName: string) {
-  map.set(noteName, (map.get(noteName) || 0) + 1);
-}
+  const adaptOutput = (output: MIDIOutput) => {
+    const existing = outputAdapters.get(output);
+    if (existing) {
+      return existing;
+    }
 
-function consumePendingNoteCount(map: Map<string, number>, noteName: string) {
-  const count = map.get(noteName);
+    const adapter: MidiOutputPortAdapter = {
+      get id() {
+        return output.id;
+      },
+      get name() {
+        return output.name;
+      },
+      get state() {
+        return output.state;
+      },
+      send(message, timestamp) {
+        output.send(message, timestamp);
+      },
+    };
+    outputAdapters.set(output, adapter);
+    return adapter;
+  };
 
-  if (!count) {
-    return false;
-  }
-
-  if (count === 1) {
-    map.delete(noteName);
-  } else {
-    map.set(noteName, count - 1);
-  }
-
-  return true;
-}
-
-function toneNotationToMs(notation: string, bpm: number = 120) {
-  const match = notation.match(/^(\d+)n$/);
-
-  if (!match) {
-    return DEFAULT_MIRROR_DURATION_MS;
-  }
-
-  const noteValue = Number.parseInt(match[1], 10);
-  const wholeNoteMs = ((60 / bpm) * 4) * 1000;
-
-  return wholeNoteMs / noteValue;
-}
-
-function shouldDebugRoliSync() {
-  return import.meta.env.DEV;
-}
-
-function debugRoliSync(message: string, payload?: Record<string, unknown>) {
-  if (!shouldDebugRoliSync()) {
-    return;
-  }
-
-  if (payload) {
-    console.debug(`[ROLI sync] ${message}`, payload);
-    return;
-  }
-
-  console.debug(`[ROLI sync] ${message}`);
-}
-
-export function hasActiveTouchPress(
-  activeTouches: unknown,
-  pressId: string
-): boolean {
-  if (activeTouches instanceof Map) {
-    return activeTouches.has(pressId);
-  }
-
-  if (activeTouches && typeof activeTouches === "object") {
-    return Object.prototype.hasOwnProperty.call(activeTouches, pressId);
-  }
-
-  return false;
-}
-
-export function midiNoteNumberToName(noteNumber: number) {
-  const noteName = MIDI_NOTE_NAMES[noteNumber % 12];
-  const octave = Math.floor(noteNumber / 12) - 1;
-  return `${noteName}${octave}`;
-}
-
-export function resolvePlayableMidiNote(
-  noteNumber: number,
-  noteResolver: MidiNoteResolver
-) {
-  const chromaticNote = midiNoteNumberToName(noteNumber);
-  const parsed = noteResolver.parseNoteInput(chromaticNote);
-
-  if (!parsed) {
-    return null;
-  }
-
-  // Only accept notes that round-trip exactly into the current scale.
-  if (noteResolver.getNoteName(parsed.solfegeIndex, parsed.octave) !== chromaticNote) {
-    return null;
-  }
-
-  return parsed;
-}
-
-export function resolveMirroredEventDurationMs(
-  detail?: MirroredNoteEventDetail
-) {
-  return typeof detail?.durationMs === "number"
-    ? detail.durationMs
-    : typeof detail?.duration === "string"
-      ? toneNotationToMs(detail.duration)
-      : DEFAULT_MIRROR_DURATION_MS;
-}
-
-export function resolveVisualNoteKey(
-  detail: MirroredNoteEventDetail | undefined,
-  noteResolver: MidiNoteResolver
-): string | null {
-  if (
-    typeof detail?.solfegeIndex === "number"
-    && typeof detail.octave === "number"
-  ) {
-    return `${detail.solfegeIndex}_${detail.octave}`;
-  }
-
-  if (!detail?.noteName) {
-    return null;
-  }
-
-  const parsed = noteResolver.parseNoteInput(detail.noteName);
-  if (!parsed) {
-    return null;
-  }
-
-  return `${parsed.solfegeIndex}_${parsed.octave}`;
-}
-
-export function resolveMirroredMidiNoteNumber(
-  detail: MirroredNoteEventDetail | undefined,
-  noteResolver: MidiNoteResolver
-): number | null {
-  if (
-    typeof detail?.solfegeIndex === "number"
-    && typeof detail.octave === "number"
-  ) {
-    return TonalNote.get(
-      noteResolver.getNoteName(detail.solfegeIndex, detail.octave)
-    ).midi ?? null;
-  }
-
-  if (!detail?.noteName) {
-    return null;
-  }
-
-  return TonalNote.get(detail.noteName).midi ?? null;
+  return {
+    getInputs: () => Array.from(access.inputs.values(), adaptInput),
+    getOutputs: () => Array.from(access.outputs.values(), adaptOutput),
+    setStateChangeHandler(handler: MidiPortStateChangeHandler | null) {
+      access.onstatechange = handler ? () => handler() : null;
+    },
+  };
 }
 
 export function useMidiControls() {
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const { dynamicColorConfig } = useVisualConfig();
+  const devSimulatorTimeouts = new Set<number>();
 
-  const midiAccess = ref<MIDIAccess | null>(null);
-  const selectedRoliOutput = ref<MIDIOutput | null>(null);
-  const roliInputIds = ref<Set<string>>(new Set());
-  const pendingInputNoteOns = ref<Map<string, number>>(new Map());
-  const pendingInputNoteOffs = ref<Set<string>>(new Set());
-  const mirroredNoteTimeouts = ref<Map<string, number>>(new Map());
-  const mirroredEventNotes = ref<Map<string, number>>(new Map());
-  const visualNoteTimeouts = ref<Map<string, number>>(new Map());
+  const requestAccess = canRequestMidiAccess()
+    ? async () => createBrowserMidiAccessAdapter(
+        await navigator.requestMIDIAccess()
+      )
+    : undefined;
 
-  const heldNotes = createHeldNotes<MidiHeldPress>({
-    attack: ({ solfegeIndex, octave }) =>
-      musicStore.attackNoteWithOctave(solfegeIndex, octave),
-    release: (noteId) => {
-      void musicStore.releaseNote(noteId);
+  const session = createMidiSession({
+    requestAccess,
+    effects: {
+      attackNote: (solfegeIndex, octave) =>
+        musicStore.attackNoteWithOctave(solfegeIndex, octave),
+      releaseNote: (noteId) => {
+        void musicStore.releaseNote(noteId);
+      },
+      parseNoteInput: (note) => musicStore.parseNoteInput(note),
+      getNoteName: (solfegeIndex, octave) =>
+        musicStore.getNoteName(solfegeIndex, octave),
+      isPressActive: (pressId) =>
+        keyboardDrawerStore.hasActiveTouch(pressId),
+      pressKey: (pressId, noteKey) => {
+        keyboardDrawerStore.addTouch(pressId, noteKey);
+      },
+      releaseKey: (pressId) => {
+        keyboardDrawerStore.removeTouch(pressId);
+      },
+      activateVisualNote: (activationId, noteKey) => {
+        keyboardDrawerStore.activateVisualNote(activationId, noteKey);
+      },
+      releaseVisualNote: (activationId) => {
+        keyboardDrawerStore.releaseVisualNote(activationId);
+      },
+      clearVisualNotes: () => {
+        keyboardDrawerStore.clearVisualNotes();
+      },
+      stateChanged: (state) => {
+        keyboardDrawerStore.setMidiSessionState(state);
+      },
     },
-    onPressed: ({ pressId, noteName, solfegeIndex, octave, isRoliInput }) => {
-      keyboardDrawerStore.addTouch(pressId, `${solfegeIndex}_${octave}`);
-      if (isRoliInput) {
-        incrementPendingNoteCount(pendingInputNoteOns.value, noteName);
-      }
-    },
-    onUnpressed: ({ pressId }) => {
-      keyboardDrawerStore.removeTouch(pressId);
-    },
-    beforeNoteRelease: (noteId, { isRoliInput }) => {
-      if (isRoliInput) {
-        pendingInputNoteOffs.value.add(noteId);
-      }
-    },
-    onAttackFailure: ({ noteName, isRoliInput }) => {
-      if (isRoliInput) {
-        consumePendingNoteCount(pendingInputNoteOns.value, noteName);
-      }
+    sync: {
+      dynamicColorConfig: dynamicColorConfig.value,
+      currentKey: musicStore.currentKey as ChromaticNote,
+      currentMode: musicStore.currentMode,
+      mainOctave: keyboardDrawerStore.keyboardConfig.mainOctave,
     },
   });
 
-  const parseMidiNoteNumber = (note: number | string): number | null => {
+  const parseMidiNoteNumber = (note: number | string) => {
     if (typeof note === "number") {
       return Number.isInteger(note) && note >= 0 && note <= 127 ? note : null;
     }
@@ -288,106 +163,31 @@ export function useMidiControls() {
     return typeof midi === "number" && midi >= 0 && midi <= 127 ? midi : null;
   };
 
-  const setPlaybackVisualTimeout = (activationId: string, durationMs: number) => {
-    const existingTimeoutId = visualNoteTimeouts.value.get(activationId);
-    if (existingTimeoutId) {
-      window.clearTimeout(existingTimeoutId);
+  const sendDevPacket = (
+    messageType: number,
+    note: number | string,
+    velocity: number,
+    channel: number
+  ) => {
+    const midiNote = parseMidiNoteNumber(note);
+    if (midiNote === null) {
+      console.warn("[emotitoneMidiSim] Invalid note:", note);
+      return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      keyboardDrawerStore.releaseVisualNote(activationId);
-      visualNoteTimeouts.value.delete(activationId);
+    session.receivePacket(DEV_MIDI_INPUT_ID, [
+      messageType | clamp(channel - 1, 0, MIDI_CHANNEL_MASK),
+      midiNote,
+      clamp(velocity, 0, 127),
+    ]);
+  };
+
+  const setDevSimulatorTimeout = (callback: () => void, durationMs: number) => {
+    const timeout = window.setTimeout(() => {
+      devSimulatorTimeouts.delete(timeout);
+      callback();
     }, durationMs);
-
-    visualNoteTimeouts.value.set(activationId, timeoutId);
-  };
-
-  const clearVisualNoteTimeouts = () => {
-    visualNoteTimeouts.value.forEach((timeoutId) => {
-      window.clearTimeout(timeoutId);
-    });
-    visualNoteTimeouts.value.clear();
-  };
-
-  const activateVisualNoteFromEvent = (
-    detail: MirroredNoteEventDetail | undefined
-  ) => {
-    const noteKey = resolveVisualNoteKey(detail, musicStore);
-    if (!noteKey) {
-      return;
-    }
-
-    const activationId =
-      detail?.noteId || `playback:${noteKey}:${Date.now()}:${Math.random()}`;
-    keyboardDrawerStore.activateVisualNote(activationId, noteKey);
-
-    if (!detail?.noteId) {
-      setPlaybackVisualTimeout(
-        activationId,
-        resolveMirroredEventDurationMs(detail)
-      );
-    }
-  };
-
-  const releaseVisualNoteFromEvent = (
-    detail: MirroredNoteEventDetail | undefined
-  ) => {
-    if (!detail?.noteId) {
-      return;
-    }
-
-    const timeoutId = visualNoteTimeouts.value.get(detail.noteId);
-    if (timeoutId) {
-      window.clearTimeout(timeoutId);
-      visualNoteTimeouts.value.delete(detail.noteId);
-    }
-
-    keyboardDrawerStore.releaseVisualNote(detail.noteId);
-  };
-
-  const handleMidiPacket = (inputId: string, rawData: ArrayLike<number>) => {
-    const data = Array.from(rawData).slice(0, 3);
-    if (data.length < 2) {
-      return;
-    }
-
-    const [status, noteNumber, velocity = 0] = data;
-    const messageType = status & MIDI_STATUS_MASK;
-    const channel = (status & MIDI_CHANNEL_MASK) + 1;
-    const pressId = buildMidiPressId(inputId, channel, noteNumber);
-    const noteName = midiNoteNumberToName(noteNumber);
-    const isRoliInput = roliInputIds.value.has(inputId);
-
-    if (messageType === MIDI_NOTE_ON && velocity > 0) {
-      if (
-        heldNotes.isHeld(pressId)
-        || hasActiveTouchPress(keyboardDrawerStore.touch.activeTouches, pressId)
-      ) {
-        return;
-      }
-
-      const parsed = resolvePlayableMidiNote(noteNumber, musicStore);
-      if (!parsed) {
-        return;
-      }
-
-      void heldNotes.press({
-        pressId,
-        inputId,
-        noteName,
-        solfegeIndex: parsed.solfegeIndex,
-        octave: parsed.octave,
-        isRoliInput,
-      });
-      return;
-    }
-
-    if (
-      messageType === MIDI_NOTE_OFF
-      || (messageType === MIDI_NOTE_ON && velocity === 0)
-    ) {
-      heldNotes.release(pressId);
-    }
+    devSimulatorTimeouts.add(timeout);
   };
 
   const installDevMidiSimulator = () => {
@@ -398,49 +198,22 @@ export function useMidiControls() {
     const devWindow = window as DevMidiWindow;
     devWindow.__emotitoneMidiSim = {
       noteOn: (note, velocity = 100, channel = 1) => {
-        const midiNote = parseMidiNoteNumber(note);
-        if (midiNote === null) {
-          console.warn("[emotitoneMidiSim] Invalid note:", note);
-          return;
-        }
-
-        handleMidiPacket(DEV_MIDI_INPUT_ID, [
-          MIDI_NOTE_ON | Math.max(0, Math.min(15, channel - 1)),
-          midiNote,
-          Math.max(0, Math.min(127, velocity)),
-        ]);
+        sendDevPacket(MIDI_NOTE_ON, note, velocity, channel);
       },
       noteOff: (note, channel = 1) => {
-        const midiNote = parseMidiNoteNumber(note);
-        if (midiNote === null) {
-          console.warn("[emotitoneMidiSim] Invalid note:", note);
-          return;
-        }
-
-        handleMidiPacket(DEV_MIDI_INPUT_ID, [
-          MIDI_NOTE_OFF | Math.max(0, Math.min(15, channel - 1)),
-          midiNote,
-          0,
-        ]);
+        sendDevPacket(MIDI_NOTE_OFF, note, 0, channel);
       },
       tap: (note, durationMs = 250, velocity = 100, channel = 1) => {
-        const midiNote = parseMidiNoteNumber(note);
-        if (midiNote === null) {
-          console.warn("[emotitoneMidiSim] Invalid note:", note);
-          return;
-        }
-
-        devWindow.__emotitoneMidiSim?.noteOn(midiNote, velocity, channel);
-        window.setTimeout(() => {
-          devWindow.__emotitoneMidiSim?.noteOff(midiNote, channel);
+        devWindow.__emotitoneMidiSim?.noteOn(note, velocity, channel);
+        setDevSimulatorTimeout(() => {
+          devWindow.__emotitoneMidiSim?.noteOff(note, channel);
         }, durationMs);
       },
       chord: (notes, durationMs = 350, velocity = 100, channel = 1) => {
         notes.forEach((note) => {
           devWindow.__emotitoneMidiSim?.noteOn(note, velocity, channel);
         });
-
-        window.setTimeout(() => {
+        setDevSimulatorTimeout(() => {
           notes.forEach((note) => {
             devWindow.__emotitoneMidiSim?.noteOff(note, channel);
           });
@@ -457,336 +230,53 @@ export function useMidiControls() {
   };
 
   const uninstallDevMidiSimulator = () => {
-    if (!shouldExposeDevMidiSimulator()) {
-      return;
+    devSimulatorTimeouts.forEach((timeout) => window.clearTimeout(timeout));
+    devSimulatorTimeouts.clear();
+
+    if (shouldExposeDevMidiSimulator()) {
+      delete (window as DevMidiWindow).__emotitoneMidiSim;
     }
-
-    delete (window as DevMidiWindow).__emotitoneMidiSim;
-  };
-
-  // Expose the simulator as soon as the composable is created so console
-  // testing works even before the component mount cycle finishes.
-  installDevMidiSimulator();
-
-  const sendToRoliOutput = (message: number[]) => {
-    selectedRoliOutput.value?.send(message);
-  };
-
-  const syncRoliPalette = () => {
-    if (!selectedRoliOutput.value) {
-      return;
-    }
-
-    debugRoliSync("syncing palette", {
-      output: selectedRoliOutput.value.name || selectedRoliOutput.value.id,
-      currentKey: musicStore.currentKey,
-      currentMode: musicStore.currentMode,
-    });
-    const messages = buildRoliPaletteUpdateMessages(
-      dynamicColorConfig.value,
-      musicStore.currentKey as ChromaticNote,
-      musicStore.currentMode
-    );
-    messages.forEach((message, index) => {
-      selectedRoliOutput.value?.send(message, window.performance.now() + index);
-    });
-  };
-
-  const syncRoliMainOctave = () => {
-    if (!selectedRoliOutput.value) {
-      return;
-    }
-
-    debugRoliSync("sending main octave to ROLI", {
-      output: selectedRoliOutput.value.name || selectedRoliOutput.value.id,
-      mainOctave: keyboardDrawerStore.keyboardConfig.mainOctave,
-    });
-    sendToRoliOutput(
-      buildRoliMainOctaveMessage(keyboardDrawerStore.keyboardConfig.mainOctave)
-    );
-  };
-
-  const clearMirroredTimeouts = () => {
-    mirroredNoteTimeouts.value.forEach((timeoutId) => {
-      window.clearTimeout(timeoutId);
-    });
-    mirroredNoteTimeouts.value.clear();
-  };
-
-  const clearMirroredEventNotes = () => {
-    mirroredEventNotes.value.clear();
-  };
-
-  const flushRoliOutput = () => {
-    if (!selectedRoliOutput.value) {
-      clearMirroredTimeouts();
-      clearMirroredEventNotes();
-      return;
-    }
-
-    buildRoliAllNotesOffMessages(ROLI_SYNC_CONTROL_CHANNEL).forEach((message) => {
-      sendToRoliOutput(message);
-    });
-
-    clearMirroredTimeouts();
-    clearMirroredEventNotes();
-  };
-
-  const releaseMidiNotes = (inputId?: string) => {
-    heldNotes.releaseWhere((press) => !inputId || press.inputId === inputId);
-  };
-
-  const syncInputs = () => {
-    if (!midiAccess.value) {
-      roliInputIds.value = new Set();
-      keyboardDrawerStore.setMidiInputs([]);
-      return;
-    }
-
-    const inputNames: string[] = [];
-    const nextRoliInputIds = new Set<string>();
-
-    for (const input of midiAccess.value.inputs.values()) {
-      input.onmidimessage = null;
-
-      if (input.state !== "connected") {
-        continue;
-      }
-
-      inputNames.push(input.name || "MIDI input");
-      if (isRoliMidiPortName(input.name)) {
-        nextRoliInputIds.add(input.id);
-      }
-      input.onmidimessage = (event) => {
-        const midiEvent = event as MIDIMessageEvent;
-        handleMidiPacket(input.id, midiEvent.data);
-      };
-    }
-
-    roliInputIds.value = nextRoliInputIds;
-    keyboardDrawerStore.setMidiInputs(inputNames);
-  };
-
-  const syncOutputs = () => {
-    if (!midiAccess.value) {
-      selectedRoliOutput.value = null;
-      keyboardDrawerStore.setMidiOutputs([]);
-      keyboardDrawerStore.setMidiSyncedOutput(null);
-      return;
-    }
-
-    const outputs = Array.from(midiAccess.value.outputs.values()).filter(
-      (output) => output.state === "connected"
-    );
-    const previousOutputId = selectedRoliOutput.value?.id;
-    const preferredOutput = pickPreferredRoliOutput(outputs);
-
-    keyboardDrawerStore.setMidiOutputs(
-      outputs.map((output) => output.name || "MIDI output")
-    );
-
-    if (selectedRoliOutput.value && previousOutputId !== preferredOutput?.id) {
-      flushRoliOutput();
-    }
-
-    selectedRoliOutput.value = preferredOutput;
-    keyboardDrawerStore.setMidiSyncedOutput(
-      preferredOutput?.name || null
-    );
-
-    if (preferredOutput && previousOutputId !== preferredOutput.id) {
-      debugRoliSync("selected ROLI output", {
-        output: preferredOutput.name || preferredOutput.id,
-      });
-      syncRoliPalette();
-      syncRoliMainOctave();
-    }
-  };
-
-  const mirrorNotePlayed = (event: Event) => {
-    const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
-    const noteName = detail?.noteName;
-
-    if (noteName && consumePendingNoteCount(pendingInputNoteOns.value, noteName)) {
-      return;
-    }
-
-    if (!selectedRoliOutput.value) {
-      return;
-    }
-
-    const midiNote = resolveMirroredMidiNoteNumber(detail, musicStore);
-    if (midiNote === null) {
-      return;
-    }
-
-    if (detail?.noteId) {
-      mirroredEventNotes.value.set(detail.noteId, midiNote);
-    }
-
-    debugRoliSync("mirroring note to ROLI", {
-      source: detail?.source || "app",
-      noteName: noteName || null,
-      solfegeIndex: detail?.solfegeIndex ?? null,
-      octave: detail?.octave ?? null,
-      midiNote,
-    });
-    sendToRoliOutput(buildRoliNoteOnMessage(midiNote));
-
-    if (detail?.noteId) {
-      return;
-    }
-
-    const durationMs = resolveMirroredEventDurationMs(detail);
-    const timeoutKey = `${midiNote}:${Date.now()}:${Math.random()}`;
-    const timeoutId = window.setTimeout(() => {
-      sendToRoliOutput(buildRoliNoteOffMessage(midiNote));
-      mirroredNoteTimeouts.value.delete(timeoutKey);
-    }, durationMs);
-
-    mirroredNoteTimeouts.value.set(timeoutKey, timeoutId);
-  };
-
-  const mirrorNoteReleased = (event: Event) => {
-    const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
-
-    if (detail?.noteId && pendingInputNoteOffs.value.has(detail.noteId)) {
-      pendingInputNoteOffs.value.delete(detail.noteId);
-      return;
-    }
-
-    if (!selectedRoliOutput.value) {
-      return;
-    }
-
-    const midiNote =
-      (detail?.noteId ? mirroredEventNotes.value.get(detail.noteId) : null)
-      ?? resolveMirroredMidiNoteNumber(detail, musicStore);
-    if (midiNote === null) {
-      return;
-    }
-
-    if (detail?.noteId) {
-      mirroredEventNotes.value.delete(detail.noteId);
-    }
-
-    debugRoliSync("releasing mirrored note from ROLI", {
-      source: detail?.source || "app",
-      noteName: detail?.noteName || null,
-      midiNote,
-    });
-    sendToRoliOutput(buildRoliNoteOffMessage(midiNote));
   };
 
   const handleNotePlayed = (event: Event) => {
-    const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
-    activateVisualNoteFromEvent(detail);
-    mirrorNotePlayed(event);
+    session.notePlayed((event as CustomEvent<MidiNoteEventDetail>).detail);
   };
 
   const handleNoteReleased = (event: Event) => {
-    const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
-    releaseVisualNoteFromEvent(detail);
-    mirrorNoteReleased(event);
+    session.noteReleased((event as CustomEvent<MidiNoteEventDetail>).detail);
   };
 
-  const disconnectMidi = () => {
-    releaseMidiNotes();
-    flushRoliOutput();
-
-    if (midiAccess.value) {
-      for (const input of midiAccess.value.inputs.values()) {
-        input.onmidimessage = null;
-      }
-
-      midiAccess.value.onstatechange = null;
-    }
-
-    midiAccess.value = null;
-    selectedRoliOutput.value = null;
-    roliInputIds.value = new Set();
-    keyboardDrawerStore.setMidiConnecting(false);
-    keyboardDrawerStore.setMidiListening(false);
-    keyboardDrawerStore.setMidiOutputs([]);
-    keyboardDrawerStore.setMidiSyncedOutput(null);
-  };
-
-  const connectMidi = async () => {
-    keyboardDrawerStore.refreshMidiSupport();
-
-    if (!keyboardDrawerStore.midi.isSupported) {
-      return;
-    }
-
-    if (midiAccess.value) {
-      keyboardDrawerStore.setMidiListening(true);
-      syncInputs();
-      syncOutputs();
-      return;
-    }
-
-    keyboardDrawerStore.setMidiConnecting(true);
-    keyboardDrawerStore.setMidiError(null);
-
-    try {
-      const access = await navigator.requestMIDIAccess();
-      midiAccess.value = access;
-      keyboardDrawerStore.setMidiListening(true);
-
-      access.onstatechange = (event) => {
-        const midiConnectionEvent = event as MIDIConnectionEvent;
-
-        if (
-          midiConnectionEvent.port.type === "input"
-          && midiConnectionEvent.port.state === "disconnected"
-        ) {
-          releaseMidiNotes(midiConnectionEvent.port.id);
-        }
-
-        syncInputs();
-        syncOutputs();
-      };
-
-      syncInputs();
-      syncOutputs();
-    } catch (error) {
-      keyboardDrawerStore.setMidiListening(false);
-      keyboardDrawerStore.setMidiError(
-        error instanceof Error
-          ? error.message
-          : "MIDI access was not granted."
-      );
-    } finally {
-      keyboardDrawerStore.setMidiConnecting(false);
-    }
-  };
+  // Keep the console adapter available as soon as setup creates the composable.
+  installDevMidiSimulator();
 
   watch(
     () => [
       dynamicColorConfig.value,
       musicStore.currentKey,
       musicStore.currentMode,
-    ],
-    () => {
-      syncRoliPalette();
+    ] as const,
+    ([colors, currentKey, currentMode]) => {
+      session.syncPalette(
+        colors,
+        currentKey as ChromaticNote,
+        currentMode
+      );
     },
     { deep: true }
   );
 
   watch(
     () => keyboardDrawerStore.keyboardConfig.mainOctave,
-    () => {
-      syncRoliMainOctave();
+    (mainOctave) => {
+      session.syncMainOctave(mainOctave);
     }
   );
 
   onMounted(() => {
-    installDevMidiSimulator();
-    keyboardDrawerStore.refreshMidiSupport();
     window.addEventListener("note-played", handleNotePlayed as EventListener);
     window.addEventListener("note-released", handleNoteReleased as EventListener);
-    if (keyboardDrawerStore.midi.isSupported) {
-      void connectMidi();
+    if (session.getState().isSupported) {
+      void session.connect();
     }
   });
 
@@ -794,8 +284,12 @@ export function useMidiControls() {
     window.removeEventListener("note-played", handleNotePlayed as EventListener);
     window.removeEventListener("note-released", handleNoteReleased as EventListener);
     uninstallDevMidiSimulator();
-    clearVisualNoteTimeouts();
-    keyboardDrawerStore.clearVisualNotes();
-    disconnectMidi();
+    session.dispose();
   });
+
+  return session;
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.max(minimum, Math.min(maximum, Math.round(value)));
 }

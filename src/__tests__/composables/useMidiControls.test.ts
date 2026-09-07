@@ -1,32 +1,44 @@
 import { defineComponent, nextTick, ref } from "vue";
-import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mount, type VueWrapper } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useMidiControls } from "@/composables/useMidiControls";
+import type { DevMidiWindow, MidiSessionState } from "@/types/midi";
 
-const windowAddEventListenerSpy = vi.spyOn(window, "addEventListener");
+const mocks = vi.hoisted(() => {
+  const activeTouches = new Map<string, string>();
+  const midi = {
+    isSupported: true,
+    isConnecting: false,
+    isListening: false,
+    connectedInputs: [] as string[],
+    connectedOutputs: [] as string[],
+    syncedOutput: null as string | null,
+    lastError: null as string | null,
+  };
 
-const mocks = vi.hoisted(() => ({
-  attack: vi.fn(),
-  release: vi.fn(),
-  addTouch: vi.fn(),
-  removeTouch: vi.fn(),
-  drawer: {
-    touch: { activeTouches: new Map<string, string>() },
-    midi: { isSupported: true },
-    keyboardConfig: { mainOctave: 4 },
-    refreshMidiSupport: vi.fn(),
-    addTouch: vi.fn(),
-    removeTouch: vi.fn(),
-    activateVisualNote: vi.fn(),
-    releaseVisualNote: vi.fn(),
-    clearVisualNotes: vi.fn(),
-    setMidiInputs: vi.fn(),
-    setMidiOutputs: vi.fn(),
-    setMidiSyncedOutput: vi.fn(),
-    setMidiConnecting: vi.fn(),
-    setMidiListening: vi.fn(),
-    setMidiError: vi.fn(),
-  },
-}));
+  return {
+    attack: vi.fn(),
+    release: vi.fn(),
+    drawer: {
+      touch: { activeTouches },
+      midi,
+      keyboardConfig: { mainOctave: 4 },
+      hasActiveTouch: vi.fn((pressId: string) => activeTouches.has(pressId)),
+      addTouch: vi.fn((pressId: string, noteKey: string) => {
+        activeTouches.set(pressId, noteKey);
+      }),
+      removeTouch: vi.fn((pressId: string) => {
+        activeTouches.delete(pressId);
+      }),
+      activateVisualNote: vi.fn(),
+      releaseVisualNote: vi.fn(),
+      clearVisualNotes: vi.fn(),
+      setMidiSessionState: vi.fn((state: MidiSessionState) => {
+        Object.assign(midi, state);
+      }),
+    },
+  };
+});
 
 vi.mock("@/stores/music", () => ({
   useMusicStore: () => ({
@@ -55,233 +67,146 @@ vi.mock("@/composables/useVisualConfig", async (importOriginal) => {
     }),
   };
 });
-import {
-  hasActiveTouchPress,
-  midiNoteNumberToName,
-  resolveMirroredEventDurationMs,
-  resolveMirroredMidiNoteNumber,
-  resolvePlayableMidiNote,
-  resolveVisualNoteKey,
-  useMidiControls,
-} from "@/composables/useMidiControls";
 
-vi.mock("@/services/superdoughAudio", () => ({
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-}));
+describe("useMidiControls adapters", () => {
+  let wrapper: VueWrapper | null;
+  let midi: ReturnType<typeof createBrowserMidiAccess>;
+  let addEventListener: ReturnType<typeof vi.spyOn>;
+  let removeEventListener: ReturnType<typeof vi.spyOn>;
 
-describe("useMidiControls helpers", () => {
-  it("detects active touches from both hydrated maps and plain persisted objects", () => {
-    expect(
-      hasActiveTouchPress(
-        new Map([
-          ["midi:test:1:60", "0_4"],
-        ]),
-        "midi:test:1:60"
-      )
-    ).toBe(true);
-
-    expect(
-      hasActiveTouchPress(
-        { "midi:test:1:61": "1_4" },
-        "midi:test:1:61"
-      )
-    ).toBe(true);
-
-    expect(hasActiveTouchPress(null, "midi:test:1:62")).toBe(false);
-  });
-
-  it("converts MIDI note numbers into chromatic note names", () => {
-    expect(midiNoteNumberToName(21)).toBe("A0");
-    expect(midiNoteNumberToName(60)).toBe("C4");
-    expect(midiNoteNumberToName(73)).toBe("C#5");
-  });
-
-  it("accepts MIDI notes that round-trip exactly into the current scale", () => {
-    const noteResolver = {
-      parseNoteInput: vi.fn().mockReturnValue({ solfegeIndex: 0, octave: 4 }),
-      getNoteName: vi.fn().mockReturnValue("C4"),
-    };
-
-    expect(resolvePlayableMidiNote(60, noteResolver)).toEqual({
-      solfegeIndex: 0,
-      octave: 4,
-    });
-    expect(noteResolver.parseNoteInput).toHaveBeenCalledWith("C4");
-  });
-
-  it("rejects MIDI notes that would be quantized to a different scale tone", () => {
-    const noteResolver = {
-      parseNoteInput: vi.fn().mockReturnValue({ solfegeIndex: 0, octave: 4 }),
-      getNoteName: vi.fn().mockReturnValue("C4"),
-    };
-
-    expect(resolvePlayableMidiNote(61, noteResolver)).toBeNull();
-    expect(noteResolver.parseNoteInput).toHaveBeenCalledWith("C#4");
-  });
-
-  it("resolves visual note keys from explicit solfege data or chromatic note names", () => {
-    const noteResolver = {
-      parseNoteInput: vi.fn().mockReturnValue({ solfegeIndex: 2, octave: 5 }),
-      getNoteName: vi.fn(),
-    };
-
-    expect(
-      resolveVisualNoteKey(
-        { solfegeIndex: 1, octave: 4, noteName: "D4" },
-        noteResolver
-      )
-    ).toBe("1_4");
-
-    expect(
-      resolveVisualNoteKey(
-        { noteName: "E5" },
-        noteResolver
-      )
-    ).toBe("2_5");
-    expect(noteResolver.parseNoteInput).toHaveBeenCalledWith("E5");
-  });
-
-  it("derives mirrored durations from durationMs, notation, or fallback defaults", () => {
-    expect(resolveMirroredEventDurationMs({ durationMs: 240 })).toBe(240);
-    expect(resolveMirroredEventDurationMs({ duration: "8n" })).toBe(250);
-    expect(resolveMirroredEventDurationMs({})).toBe(500);
-  });
-
-  it("resolves mirrored MIDI notes from solfege data before falling back to note names", () => {
-    const noteResolver = {
-      parseNoteInput: vi.fn(),
-      getNoteName: vi.fn().mockReturnValue("F#4"),
-    };
-
-    expect(
-      resolveMirroredMidiNoteNumber(
-        { solfegeIndex: 3, octave: 4, noteName: "ignored" },
-        noteResolver
-      )
-    ).toBe(66);
-
-    expect(
-      resolveMirroredMidiNoteNumber(
-        { noteName: "Bb3" },
-        noteResolver
-      )
-    ).toBe(58);
-  });
-});
-
-describe("useMidiControls held note lifecycle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.attack.mockReset();
-    mocks.release.mockReset();
-    windowAddEventListenerSpy.mockClear();
     mocks.drawer.touch.activeTouches.clear();
-    mocks.drawer.midi.isSupported = true;
-    mocks.drawer.addTouch.mockImplementation((pressId: string, noteKey: string) => {
-      mocks.drawer.touch.activeTouches.set(pressId, noteKey);
+    Object.assign(mocks.drawer.midi, {
+      isSupported: true,
+      isConnecting: false,
+      isListening: false,
+      connectedInputs: [],
+      connectedOutputs: [],
+      syncedOutput: null,
+      lastError: null,
     });
-    mocks.drawer.removeTouch.mockImplementation((pressId: string) => {
-      mocks.drawer.touch.activeTouches.delete(pressId);
+    let noteSequence = 0;
+    mocks.attack.mockImplementation(async () => `note-${++noteSequence}`);
+    midi = createBrowserMidiAccess();
+    installMidiAccess(midi.access);
+    addEventListener = vi.spyOn(window, "addEventListener");
+    removeEventListener = vi.spyOn(window, "removeEventListener");
+    wrapper = null;
+  });
+
+  afterEach(() => {
+    wrapper?.unmount();
+    addEventListener.mockRestore();
+    removeEventListener.mockRestore();
+    delete (window as DevMidiWindow).__emotitoneMidiSim;
+    vi.useRealTimers();
+  });
+
+  it("wires browser MIDI and window events on mount, then removes them", async () => {
+    wrapper = mountMidiControls();
+    await flushPromises();
+
+    expect(navigator.requestMIDIAccess).toHaveBeenCalledOnce();
+    expect(midi.input.onmidimessage).toEqual(expect.any(Function));
+    expect(midi.access.onstatechange).toEqual(expect.any(Function));
+    expect(addEventListener).toHaveBeenCalledWith(
+      "note-played",
+      expect.any(Function)
+    );
+    expect(addEventListener).toHaveBeenCalledWith(
+      "note-released",
+      expect.any(Function)
+    );
+    expect(mocks.drawer.midi).toMatchObject({
+      isListening: true,
+      connectedInputs: ["LUMI Keys Block"],
+      connectedOutputs: ["LUMI Keys Block"],
+      syncedOutput: "LUMI Keys Block",
+    });
+
+    midi.output.send.mockClear();
+    dispatchWindowEvent(addEventListener, new CustomEvent("note-played", {
+      detail: { noteId: "window-note", noteName: "C4" },
+    }));
+    dispatchWindowEvent(addEventListener, new CustomEvent("note-released", {
+      detail: { noteId: "window-note", noteName: "C4" },
+    }));
+    expect(midi.output.send).toHaveBeenCalledWith([0x90, 60, 100], undefined);
+    expect(midi.output.send).toHaveBeenCalledWith([0x80, 60, 0], undefined);
+    expect(mocks.drawer.activateVisualNote).toHaveBeenCalledWith(
+      "window-note",
+      "0_4"
+    );
+    expect(mocks.drawer.releaseVisualNote).toHaveBeenCalledWith("window-note");
+
+    wrapper.unmount();
+    wrapper = null;
+    expect(midi.input.onmidimessage).toBeNull();
+    expect(midi.access.onstatechange).toBeNull();
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "note-played",
+      expect.any(Function)
+    );
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "note-released",
+      expect.any(Function)
+    );
+    expect(mocks.drawer.clearVisualNotes).toHaveBeenCalledOnce();
+    expect(mocks.drawer.midi).toMatchObject({
+      isConnecting: false,
+      isListening: false,
+      connectedInputs: [],
+      connectedOutputs: [],
+      syncedOutput: null,
     });
   });
 
-  it("cancels a pending ROLI press without echoing its music events", async () => {
-    const attack = deferred<string | null>();
-    const eventOrder: string[] = [];
-    mocks.attack.mockImplementationOnce(async () => {
-      const noteId = await attack.promise;
-      if (noteId) {
-        eventOrder.push("note-played");
-        dispatchWindowEvent(new CustomEvent("note-played", {
-          detail: { noteId, noteName: "C4", solfegeIndex: 0, octave: 4 },
-        }));
-      }
-      return noteId;
-    });
-    mocks.release.mockImplementation((noteId: string) => {
-      eventOrder.push("note-released");
-      dispatchWindowEvent(new CustomEvent("note-released", {
-        detail: { noteId, noteName: "C4", solfegeIndex: 0, octave: 4 },
-      }));
-    });
-    const midi = createMidiAccess();
-    installMidiAccess(midi.access);
-    const wrapper = mountMidiControls();
-    await flushPromises();
-    midi.send.mockClear();
-
-    midi.message([0x90, 60, 100]);
-    expect(mocks.drawer.addTouch).toHaveBeenCalledWith("midi:roli-in:1:60", "0_4");
-    midi.message([0x80, 60, 0]);
-    expect(mocks.drawer.removeTouch).toHaveBeenCalledWith("midi:roli-in:1:60");
-
-    attack.resolve("midi-note");
+  it("adapts browser hotplug snapshots without moving lifecycle rules into Vue", async () => {
+    wrapper = mountMidiControls();
     await flushPromises();
 
-    expect(mocks.release).toHaveBeenCalledWith("midi-note");
-    expect(eventOrder).toEqual(["note-played", "note-released"]);
-    expect(midi.send).not.toHaveBeenCalledWith([0x90, 60, 100]);
-    expect(midi.send).not.toHaveBeenCalledWith([0x80, 60, 0]);
-    wrapper.unmount();
+    const originalInput = midi.input;
+    const replacement = createInput("input", "Replacement controller");
+    midi.access.inputs = new Map([[replacement.id, replacement]]) as MIDIAccess["inputs"];
+    midi.access.onstatechange?.({ port: replacement } as MIDIConnectionEvent);
+
+    expect(originalInput.onmidimessage).toBeNull();
+    expect(replacement.onmidimessage).toEqual(expect.any(Function));
+    expect(mocks.drawer.midi.connectedInputs).toEqual([
+      "Replacement controller",
+    ]);
   });
 
-  it("cancels pending attacks from a disconnected MIDI input", async () => {
-    const attack = deferred<string | null>();
-    mocks.attack.mockReturnValueOnce(attack.promise);
-    const midi = createMidiAccess();
-    installMidiAccess(midi.access);
-    const wrapper = mountMidiControls();
+  it("feeds the development simulator through the same session and clears timers", async () => {
+    vi.useFakeTimers();
+    wrapper = mountMidiControls();
+    await flushPromises();
+    const devWindow = window as DevMidiWindow;
+
+    expect(devWindow.__emotitoneMidiSim).toBeDefined();
+    devWindow.__emotitoneMidiSim?.noteOn("C4", 90, 2);
+    await flushPromises();
+    expect(mocks.attack).toHaveBeenCalledWith(0, 4);
+    expect(mocks.drawer.addTouch).toHaveBeenCalledWith(
+      "midi:__dev_virtual_input__:2:60",
+      "0_4"
+    );
+
+    devWindow.__emotitoneMidiSim?.noteOff("C4", 2);
+    expect(mocks.release).toHaveBeenCalledWith("note-1");
+    devWindow.__emotitoneMidiSim?.tap("C4", 50);
     await flushPromises();
 
-    midi.message([0x90, 60, 100]);
-    midi.input.state = "disconnected";
-    midi.access.onstatechange?.({ port: midi.input } as MIDIConnectionEvent);
-    attack.resolve("disconnected-note");
-    await flushPromises();
-
-    expect(mocks.release).toHaveBeenCalledWith("disconnected-note");
-    expect(mocks.drawer.touch.activeTouches).toHaveLength(0);
     wrapper.unmount();
-  });
+    wrapper = null;
+    const releasesAfterUnmount = mocks.release.mock.calls.length;
+    expect(devWindow.__emotitoneMidiSim).toBeUndefined();
 
-  it("cleans a failed MIDI attack so the same physical key can retry", async () => {
-    const failed = deferred<string | null>();
-    mocks.attack
-      .mockReturnValueOnce(failed.promise)
-      .mockResolvedValueOnce("retried-note");
-    const midi = createMidiAccess("Generic MIDI Controller");
-    installMidiAccess(midi.access);
-    const wrapper = mountMidiControls();
-    await flushPromises();
-
-    midi.message([0x90, 60, 100]);
-    failed.reject(new Error("audio unavailable"));
-    await flushPromises();
-    expect(mocks.drawer.touch.activeTouches).toHaveLength(0);
-
-    midi.message([0x90, 60, 100]);
-    await flushPromises();
-    expect(mocks.attack).toHaveBeenCalledTimes(2);
-    expect(mocks.drawer.touch.activeTouches.has("midi:roli-in:1:60")).toBe(true);
-
-    midi.message([0x80, 60, 0]);
-    expect(mocks.release).toHaveBeenCalledWith("retried-note");
-    wrapper.unmount();
+    vi.advanceTimersByTime(50);
+    expect(mocks.release).toHaveBeenCalledTimes(releasesAfterUnmount);
   });
 });
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, resolve, reject };
-}
 
 function mountMidiControls() {
   const Host = defineComponent({
@@ -293,55 +218,53 @@ function mountMidiControls() {
   return mount(Host);
 }
 
-function createMidiAccess(inputName = "LUMI Keys Block") {
-  const send = vi.fn();
-  const input = {
-    id: "roli-in",
-    name: inputName,
+function createBrowserMidiAccess() {
+  const input = createInput("input", "LUMI Keys Block");
+  const output = {
+    id: "output",
+    name: "LUMI Keys Block",
+    state: "connected" as MIDIPortDeviceState,
+    type: "output" as MIDIPortType,
+    send: vi.fn(),
+  };
+  const access = {
+    inputs: new Map([[input.id, input]]) as MIDIAccess["inputs"],
+    outputs: new Map([[output.id, output]]) as MIDIAccess["outputs"],
+    onstatechange: null as ((event: MIDIConnectionEvent) => void) | null,
+  };
+  return { access, input, output };
+}
+
+function createInput(id: string, name: string) {
+  return {
+    id,
+    name,
     state: "connected" as MIDIPortDeviceState,
     type: "input" as MIDIPortType,
     onmidimessage: null as ((event: MIDIMessageEvent) => void) | null,
   };
-  const output = {
-    id: "roli-out",
-    name: "LUMI Keys Block",
-    state: "connected" as MIDIPortDeviceState,
-    type: "output" as MIDIPortType,
-    send,
-  };
-  const access = {
-    inputs: new Map([[input.id, input]]),
-    outputs: new Map([[output.id, output]]),
-    onstatechange: null as ((event: MIDIConnectionEvent) => void) | null,
-  };
-
-  return {
-    access,
-    input,
-    send,
-    message(data: number[]) {
-      input.onmidimessage?.({ data: new Uint8Array(data) } as MIDIMessageEvent);
-    },
-  };
 }
 
-function installMidiAccess(access: ReturnType<typeof createMidiAccess>["access"]) {
+function installMidiAccess(access: ReturnType<typeof createBrowserMidiAccess>["access"]) {
   Object.defineProperty(navigator, "requestMIDIAccess", {
     configurable: true,
     value: vi.fn().mockResolvedValue(access),
   });
 }
 
-function dispatchWindowEvent(event: Event) {
-  for (const [type, listener] of windowAddEventListenerSpy.mock.calls) {
-    if (type === event.type && typeof listener === "function") {
-      listener(event);
-    }
-  }
-}
-
 async function flushPromises() {
   await Promise.resolve();
   await nextTick();
   await Promise.resolve();
+}
+
+function dispatchWindowEvent(
+  listenerSpy: ReturnType<typeof vi.spyOn>,
+  event: Event
+) {
+  for (const [type, listener] of listenerSpy.mock.calls) {
+    if (type === event.type && typeof listener === "function") {
+      listener(event);
+    }
+  }
 }

@@ -75,10 +75,6 @@
           <div class="sink-frame__source">primitive-kicker.html</div>
           <PrimitiveKicker />
         </article>
-        <article id="primitive-joystick" class="sink-frame">
-          <div class="sink-frame__source">primitive-joystick</div>
-          <PrimitiveJoystick />
-        </article>
         <article class="sink-frame">
           <div class="sink-frame__source">primitive-knobs-analog.html</div>
           <PrimitiveKnobsAnalog />
@@ -116,6 +112,10 @@
         <article id="unique-code-strip" class="sink-frame">
           <div class="sink-frame__source">unique-code-strip.html</div>
           <UniqueCodeStrip />
+        </article>
+        <article id="unique-joystick" class="sink-frame">
+          <div class="sink-frame__source">unique-joystick</div>
+          <UniqueJoystick />
         </article>
         <article id="unique-drawer" class="sink-frame">
           <div class="sink-frame__source">unique-drawer.html</div>
@@ -188,7 +188,7 @@ import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
 import PrimitiveCard from "./primatives/PrimitiveCard.vue";
 import PrimitiveNote from "./primatives/PrimitiveNote.vue";
 import PrimitiveKicker from "./primatives/PrimitiveKicker.vue";
-import PrimitiveJoystick from "./primatives/PrimitiveJoystick.vue";
+import UniqueJoystick from "./uniques/UniqueJoystick.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
 import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";

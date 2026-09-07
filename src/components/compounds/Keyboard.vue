@@ -239,7 +239,6 @@ function chordMembers(
   mode: MusicalMode,
   key: ChromaticNote,
   surfaceStyle: NoteSurfaceStyle,
-  activeNoteNames: ReadonlySet<string>,
   keyBrightness = 1,
   keySaturation = 1,
 ): ChordMember[] {
@@ -258,7 +257,8 @@ function chordMembers(
     keyBrightness,
     keySaturation,
     voicingOrder,
-    progress: activeNoteNames.has(pitch.name) ? 1 : 0,
+    // Playable keys retain musical identity at rest; CodeStrip owns temporal progress.
+    progress: 1,
   }));
 }
 
@@ -326,9 +326,6 @@ function createProductionWiring() {
     })),
   );
 
-  const activeNoteNames = computed(() => new Set(
-    musicStore.getActiveNotes().map((note) => note.noteName),
-  ));
   const chords = computed<KeyboardChordView[]>(() =>
     buildHarmony({
       tonic: currentMusicKey.value,
@@ -342,7 +339,6 @@ function createProductionWiring() {
         musicStore.currentMode,
         currentMusicKey.value,
         surfaceStyle.value,
-        activeNoteNames.value,
         config.value.keyBrightness,
         config.value.keySaturation,
       ),
@@ -459,7 +455,6 @@ const resolvedVariationAmplitude = computed(
 );
 const resolvedMotion = computed(() => isProductionUsage ? "system" : props.motion);
 const resolvedContrast = computed(() => isProductionUsage ? "system" : props.contrast);
-const controlledActiveNames = new Set<string>();
 const renderChords = computed<KeyboardChordView[]>(() =>
   productionWiring?.chords.value ?? buildHarmony({
     tonic: resolvedTonic.value,
@@ -473,7 +468,6 @@ const renderChords = computed<KeyboardChordView[]>(() =>
       resolvedScaleType.value,
       resolvedTonic.value,
       resolvedSurfaceStyle.value,
-      controlledActiveNames,
     ),
     pressed: false,
   })),

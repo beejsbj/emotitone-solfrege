@@ -66,7 +66,7 @@ const features = [
   { label: "Layout", value: "five Knobs plus one Joystick across equal-width slots; no horizontal scroller" },
   { label: "Density", value: "no horizontal padding; minimal block space protects Knob anatomy" },
   { label: "Surface", value: "shared translucent instrument-bar plane; stage remains visible behind it" },
-  { label: "Source", value: "real controlled Knob and Joystick primitives; no production stores in the compound" },
+  { label: "Source", value: "real controlled Knob primitives and Joystick unique; no production stores in the compound" },
   { label: "Boundary", value: "arrangement only; callers retain state and mutations" },
 ];
 </script>

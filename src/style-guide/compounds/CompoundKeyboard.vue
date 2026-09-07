@@ -239,7 +239,7 @@ import type {
 } from "@/components/compounds/Keyboard.vue";
 import { getScaleForMode } from "@/data";
 import type { HarmonyAlteration } from "@/domain/harmony";
-import { JOYSTICK_OPTIONS } from "@/components/primatives/joystickOptions";
+import { JOYSTICK_OPTIONS } from "@/components/uniques/Joystick/joystickOptions";
 import {
   KEYBOARD_GEOMETRY_FAMILIES,
   keyboardFamilyForDate,

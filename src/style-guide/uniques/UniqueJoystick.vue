@@ -1,8 +1,8 @@
 <template>
   <AnatomyDisplay
-    title="Joystick · Harmony Primitive"
+    title="Joystick · Harmony Unique"
     :features="features"
-    caption="Tap a direction to latch it. Hold a direction for a momentary override; releasing restores the prior latch. Center returns to automatic scale-derived harmony."
+    caption="Drag anywhere on the brass face. A short gesture latches; holding restores the prior latch on release. Return to center for automatic harmony. Both visual treatments share the same two-axis interaction."
   >
     <template #hero>
       <div class="joystick-specimen__hero">
@@ -19,7 +19,13 @@
       </div>
     </template>
 
-    <VariantGrid title="Controlled states">
+    <VariantGrid title="Brass family · one interaction">
+      <VariantCell caption="Analog · brass hardware" stage="ink3">
+        <Joystick v-model="analog" visual="analog" />
+      </VariantCell>
+      <VariantCell caption="Digital · brass cursor" stage="ink3">
+        <Joystick v-model="digital" visual="digital" />
+      </VariantCell>
       <VariantCell caption="Center · automatic" stage="ink3">
         <Joystick model-value="auto" label="Harmony" />
       </VariantCell>
@@ -37,14 +43,16 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import Joystick from "@/components/primatives/Joystick.vue";
-import { JOYSTICK_OPTIONS } from "@/components/primatives/joystickOptions";
+import Joystick from "@/components/uniques/Joystick/index.vue";
+import { JOYSTICK_OPTIONS } from "@/components/uniques/Joystick/joystickOptions";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 
 const latched = ref<HarmonyAlteration>("auto");
+const analog = ref<HarmonyAlteration>("auto");
+const digital = ref<HarmonyAlteration>("jazzy7");
 const effective = ref<HarmonyAlteration>("auto");
 const effectiveOption = computed(() =>
   JOYSTICK_OPTIONS.find((option) => option.value === effective.value)!,
@@ -53,7 +61,7 @@ const effectiveOption = computed(() =>
 const features = [
   { label: "Center", value: "automatic scale-derived harmony" },
   { label: "Directions", value: "eight explicit HiChord-inspired chord alterations" },
-  { label: "Tap", value: "latches the selected chord character" },
+  { label: "Drag", value: "continuous two-axis stick travel; short release latches a detent" },
   { label: "Hold", value: "momentary override; release restores the prior latch" },
   { label: "Keyboard", value: "roving direction grid; arrows move, Space/Enter select" },
   { label: "Boundary", value: "directional state only; no harmony generation, audio, or Knob anatomy" },
@@ -63,6 +71,7 @@ const features = [
 <style scoped>
 .joystick-specimen__hero {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 20px;

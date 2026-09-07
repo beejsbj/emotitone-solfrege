@@ -13,7 +13,7 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
   },
 }));
 
-vi.mock("@/components/primatives/Joystick.vue", () => ({
+vi.mock("@/components/uniques/Joystick/index.vue", () => ({
   default: {
     name: "Joystick",
     props: ["modelValue", "label"],

@@ -136,6 +136,16 @@ describe("Keyboard compound", () => {
     wrapper.unmount();
   });
 
+  it("keeps idle chord faces fully colored and preserves exact borrowed pitch identities", async () => {
+    const wrapper = mountKeyboard();
+    await wrapper.setProps({ scaleType: "major", harmonyAlteration: "dominant7" });
+    const members = wrapper.findAllComponents(ChordKeyStub)[0].props("members") as Array<{ progress: number; rawPitch: string; pitchClassIndex: number }>;
+    expect(members.every(member => member.progress === 1)).toBe(true);
+    expect(members.map(member => member.pitchClassIndex)).toEqual([0, 4, 7, 10]);
+    expect(members.at(-1)?.rawPitch).toMatch(/^(A#|Bb)4$/);
+    wrapper.unmount();
+  });
+
   it("restores a valid chord-row tab stop when scale cardinality shrinks", async () => {
     const wrapper = mountKeyboard();
     const majorChords = wrapper.findAll(".chord-key-stub");

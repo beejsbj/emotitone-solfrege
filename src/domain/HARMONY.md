@@ -11,6 +11,16 @@ pitch classes + close-position voicing -> exact scientific pitches
 
 `src/domain/harmony.ts` owns this pure policy. `Chord.vue` only presents member data, `ChordKey.vue` only provides Key-like input, and the Joystick only selects an alteration. Alteration and voicing are deliberately separate values so a later inversion or register policy does not become a chord quality.
 
+Harmony policy is an internal generation algorithm. The Joystick is the sole visible Harmony performance control; a separate bank selector would require a future independent choice of algorithms.
+
+## Joystick interaction
+
+The public `components/uniques/Joystick/index.vue` owns both brass Analog and Digital treatments. Control Bar chooses Analog to accompany its existing instrument controls; this consumer choice is reversible. The guide mounts both treatments through this same source.
+
+The complete face accepts pointer input. Continuous screen-space displacement from its center moves the stick within a travel radius; a central dead zone and eight octants select the effective character. A short gesture latches its final character. Holding for 260ms makes it momentary and release restores the prior latch. Pointer capture plus global tracking preserves movement outside the face; cancellation, lost capture, blur, hidden document, and unmount restore the latch. Both axes belong to the joystick, so scrolling starts outside its face. Keyboard users have nine named spatial radio positions with arrows/Home and native Space/Enter activation.
+
+Keyboard chord faces provide full member progress at rest, exposing Chord's low-to-high member-note colors. CodeStrip retains its independent playback-progress policy through the same Chord source.
+
 ## Automatic center
 
 - Seven-note scales use scale-contained stacked thirds: degree `i`, `i + 2`, and `i + 4`, wrapping into the next octave.

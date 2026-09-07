@@ -262,7 +262,7 @@ const lightStage = ref(false);
 .logo-lab__header h1 {
   max-width: 13ch;
   margin: 0;
-  font: 700 clamp(48px, 7vw, 96px)/1 var(--font-display);
+  font: 700 clamp(48px, 7vw, 96px)/1.12 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
@@ -428,7 +428,7 @@ const lightStage = ref(false);
 
 .bell-lockup { gap: clamp(16px, 2vw, 24px); }
 .bell-lockup svg { width: clamp(104px, 10vw, 140px); color: var(--brass); transform: rotate(-3deg); }
-.bell-lockup > div { display: grid; gap: 10px; }
+.bell-lockup > div { display: grid; gap: 20px; }
 .bell-lockup strong,
 .duet-lockup strong,
 .resonance-lockup strong {

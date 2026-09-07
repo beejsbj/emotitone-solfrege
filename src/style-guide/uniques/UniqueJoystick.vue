@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Joystick · Harmony Unique"
     :features="features"
-    caption="Drag anywhere on the brass face. A short gesture latches; holding restores the prior latch on release. Return to center for automatic harmony. Both visual treatments share the same two-axis interaction."
+    caption="Drag from anywhere on the brass face. Pressing alone changes nothing; a short drag latches, while a held drag restores the prior latch on release. Move the stick back to center for automatic harmony. Both treatments share the same two-axis interaction."
   >
     <template #hero>
       <div class="joystick-specimen__hero">

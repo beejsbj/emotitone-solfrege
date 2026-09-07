@@ -63,32 +63,47 @@ describe("Joystick unique", () => {
     await pointer(document, "pointerup", 50, 50);
     expect(release).toHaveBeenCalledWith(1);
     await pointer(plate.element, "lostpointercapture", 50, 50);
-    expect(wrapper.emitted("update:modelValue")).toHaveLength(2);
+    expect(wrapper.emitted("update:modelValue")).toHaveLength(1);
   });
-  it("starts anywhere, allows broad directional taps, and returns to automatic at center", async () => {
-    const { wrapper, plate } = setup();
+  it.each(["analog", "digital"] as const)("keeps an edge press and subthreshold motion inert in %s", async visual => {
+    vi.useFakeTimers();
+    const { wrapper, plate } = setup("dark");
+    await wrapper.setProps({ visual });
+    const restingStyle = wrapper.get(".joystick__stick").attributes("style");
+    await pointer(plate.element, "pointerdown", 95, 25);
+    expect(wrapper.attributes("data-effective")).toBe("dark");
+    expect(wrapper.get(".joystick__stick").attributes("style")).toBe(restingStyle);
+    await pointer(document, "pointermove", 98, 28);
+    expect(wrapper.get(".joystick__stick").attributes("style")).toBe(restingStyle);
+    await pointer(document, "pointerup", 98, 28);
+    await pointer(plate.element, "pointerdown", 5, 75);
+    await vi.advanceTimersByTimeAsync(270);
+    await pointer(document, "pointerup", 5, 75);
+    expect(wrapper.emitted("effectiveChange")).toBeUndefined();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+  it("adds relative drag to the current value from any press location and reaches center", async () => {
+    const { wrapper, plate } = setup("jazzy7");
     expect(wrapper.findAll(".joystick__direction")).toHaveLength(0);
     expect(wrapper.findAll(".joystick__option.sr-only")).toHaveLength(9);
     await pointer(plate.element, "pointerdown", 35, 35);
-    await pointer(document, "pointermove", 50, 75);
-    await pointer(document, "pointerup", 50, 75);
-    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["sus4"]);
-    await pointer(plate.element, "pointerdown", 72, 50);
-    await pointer(document, "pointerup", 72, 50);
-    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["jazzy7"]);
-    await pointer(plate.element, "pointerdown", 50, 50);
-    await pointer(document, "pointerup", 50, 50);
+    await pointer(document, "pointermove", 25, 35);
+    expect(wrapper.attributes("data-effective")).toBe("jazzy7");
+    expect(wrapper.get(".joystick__stick").attributes("style")).toContain("left: 67%");
+    await pointer(document, "pointermove", 8, 35);
+    expect(wrapper.attributes("data-effective")).toBe("auto");
+    await pointer(document, "pointerup", 8, 35);
     expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["auto"]);
   });
   it("exposes a held drag immediately and restores the previous latch", async () => {
     vi.useFakeTimers();
     const { wrapper, plate } = setup("dark");
     await pointer(plate.element, "pointerdown", 50, 50);
-    await pointer(document, "pointermove", 70, 70);
+    await pointer(document, "pointermove", 97, 70);
     expect(wrapper.attributes("data-effective")).toBe("lush9");
     await vi.advanceTimersByTimeAsync(270);
     expect(wrapper.attributes("data-momentary")).toBe("true");
-    await pointer(document, "pointerup", 70, 70);
+    await pointer(document, "pointerup", 97, 70);
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
     expect(wrapper.emitted("effectiveChange")?.at(-1)).toEqual(["dark"]);
   });
@@ -96,6 +111,7 @@ describe("Joystick unique", () => {
     const windowListeners = vi.spyOn(window, "addEventListener");
     const { wrapper, plate } = setup("sweet");
     await pointer(plate.element, "pointerdown", 70, 50);
+    await pointer(document, "pointermove", 120, 20);
     if (kind === "blur") (windowListeners.mock.calls.find(([type]) => type === "blur")?.[1] as EventListener)(new Event("blur"));
     else if (kind === "hidden") {
       vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
@@ -109,6 +125,7 @@ describe("Joystick unique", () => {
   it("keeps keyboard access after cancellation and suppresses pointer clicks", async () => {
     const { wrapper, plate } = setup();
     await pointer(plate.element, "pointerdown", 70, 50);
+    await pointer(document, "pointermove", 90, 50);
     await pointer(document, "pointercancel", 70, 50);
     const buttons = wrapper.findAll("button");
     await buttons[5].trigger("click", { detail: 1 });

@@ -44,7 +44,7 @@ const held = ref(false);
 const dragging = ref(false);
 const pointerId = ref<number | null>(null);
 const optionElements = new Map<HarmonyAlteration, HTMLButtonElement>();
-let origin = { x: 0, y: 0 };
+let startVector = { x: 0, y: 0 };
 let start = { x: 0, y: 0 };
 let radius = 1;
 let holdTimer: ReturnType<typeof setTimeout> | undefined;
@@ -69,8 +69,8 @@ function setOptionRef(value: HarmonyAlteration, element: Element | ComponentPubl
   else optionElements.delete(value);
 }
 function updateVector(event: PointerEvent) {
-  const x = (event.clientX - origin.x) / radius;
-  const y = (event.clientY - origin.y) / radius;
+  const x = startVector.x + (event.clientX - start.x) / radius;
+  const y = startVector.y + (event.clientY - start.y) / radius;
   const length = Math.max(1, Math.hypot(x, y));
   pointerVector.value = { x: x / length, y: y / length };
   pointerValue.value = directionFromVector(x, y);
@@ -81,12 +81,13 @@ function beginPointer(event: PointerEvent) {
   event.preventDefault();
   const bounds = plate.value.getBoundingClientRect();
   radius = Math.max(1, Math.min(bounds.width, bounds.height) * 0.27);
-  origin = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
   start = { x: event.clientX, y: event.clientY };
+  startVector = vectorFromDirection(effectiveValue.value);
+  pointerVector.value = { ...startVector };
+  pointerValue.value = effectiveValue.value;
   pointerId.value = event.pointerId;
   held.value = false;
   dragging.value = false;
-  updateVector(event);
   optionElements.get(props.modelValue)?.focus({ preventScroll: true });
   try { plate.value.setPointerCapture?.(event.pointerId); } catch { /* Global tracking covers unavailable capture. */ }
   document.addEventListener("pointermove", movePointer, { passive: false });
@@ -99,6 +100,7 @@ function movePointer(event: PointerEvent) {
   event.preventDefault();
   // Knob's 5px activation threshold applies radially: both axes belong to the stick.
   if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) dragging.value = true;
+  if (!dragging.value) return;
   updateVector(event);
 }
 function cleanup() {
@@ -117,10 +119,12 @@ function cleanup() {
 function finishPointer(event: PointerEvent) {
   if (event.pointerId !== pointerId.value) return;
   event.preventDefault();
-  updateVector(event);
+  movePointer(event);
   const value = pointerValue.value ?? props.modelValue;
   const restore = held.value;
+  const completedDrag = dragging.value;
   cleanup();
+  if (!completedDrag) return;
   if (restore) announce(props.modelValue);
   else { emit("update:modelValue", value); announce(value); }
 }

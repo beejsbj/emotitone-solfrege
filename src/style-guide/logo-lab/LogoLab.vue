@@ -339,7 +339,7 @@ const lightStage = ref(false);
 .anatomy__piece--e-top { --piece-colour: var(--mustard); }
 .anatomy__piece--e-middle { --piece-colour: var(--tomato); }
 .anatomy__piece--e-bottom { --piece-colour: var(--bone); }
-.logo-lab--light .anatomy__piece--e-bottom { --piece-colour: var(--plum); }
+.anatomy__piece--e-bottom i { box-shadow: inset 0 0 0 1px var(--lab-wire); }
 .anatomy__piece--t-cap { --piece-colour: var(--plum); }
 .anatomy__piece--t-stem { --piece-colour: var(--mustard); }
 
@@ -381,10 +381,6 @@ const lightStage = ref(false);
   --t-cap: var(--plum);
   --t-stem: var(--tomato);
 }
-
-.logo-lab--light .palette--chorus { --e-bottom: var(--plum); }
-.logo-lab--light .palette--warm { --e-middle: var(--mustard); }
-.logo-lab--light .palette--quiet { --e-top: var(--tomato); }
 
 .concept__header {
   display: flex;

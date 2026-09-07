@@ -83,7 +83,7 @@ import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import { minimumKeyboardHeight, defaultKeyboardHeight } from "@/components/compounds/keyboardSizing";
 import type { MusicalMode } from "@/types/music";
-import { displayInstrumentName } from "@/data/instruments";
+import { instrumentCatalog } from "@/data/instruments";
 
 // Store
 const store = useKeyboardDrawerStore();
@@ -120,7 +120,7 @@ const minimumHeight = computed(() => minimumKeyboardHeight(rowCount.value));
 const initialKeyboardHeight = computed(() => defaultKeyboardHeight(rowCount.value));
 const warmingInstrumentName = computed(() =>
   instrumentStore.warmingInstrument
-    ? displayInstrumentName(instrumentStore.warmingInstrument)
+    ? instrumentCatalog.describe(instrumentStore.warmingInstrument).displayName
     : ""
 );
 

@@ -8,6 +8,7 @@ import { useColorSystem } from "@/composables/useColorSystem";
 import { getModeDefinition } from "@/data";
 import Knob from "@/components/primatives/Knob/index.vue";
 import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
+import { instrumentCatalog } from "@/data/instruments";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
@@ -97,10 +98,6 @@ function colorFor(note: PatternNote, pattern: Pattern): string {
   );
 }
 
-function displayInstrumentName(instrument: string): string {
-  return instrument.startsWith("gm_") ? instrument.slice(3) : instrument;
-}
-
 function handleCardClick() {
   patternsStore.loadPatternAsBase(props.pattern.id);
 }
@@ -123,7 +120,9 @@ function keepPattern() {
     <div class="track-row">
       <!-- Label + badges -->
       <div class="track-meta">
-        <span class="track-instrument">{{ displayInstrumentName(pattern.instrument ?? "sine") }}</span>
+        <span class="track-instrument">
+          {{ instrumentCatalog.describe(pattern.instrument ?? "sine").displayName }}
+        </span>
         <span class="track-label">{{ keyModeLabel }}</span>
         <span class="track-badge">{{ noteCount }}</span>
         <span v-if="pattern.isDefault" class="default-pip" />

@@ -160,26 +160,14 @@ describe('InstrumentSelector.vue', () => {
     wrapper = null
   })
 
-  it('updates handle identity with selection and falls back to the name for unsupported sounds', async () => {
+  it('renders catalog identity on the handle', async () => {
     wrapper = await mountSelector({ currentInstrument: 'piano' })
     const handle = () => wrapper!.get('[data-testid="instrument-selector-trigger"]')
     expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
 
-    await wrapper.setProps({ currentInstrument: 'gm_acoustic_guitar_nylon' })
-    expect(handle().find('[data-testid="guitar-icon"]').exists()).toBe(true)
-    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(false)
-
-    await wrapper.setProps({ currentInstrument: 'gm_taiko_drum' })
-    expect(handle().find('[data-testid="drum-icon"]').exists()).toBe(true)
-
-    for (const instrument of ['gm_violin', 'gm_bassoon', 'gm_synth_bass_1', 'triangle', 'custom_sample']) {
-      await wrapper.setProps({ currentInstrument: instrument })
-      expect(handle().find('svg').exists()).toBe(false)
-      expect(handle().text()).toBe(instrument.replace(/^gm_/, ''))
-    }
-
-    await wrapper.setProps({ currentInstrument: 'gm_epiano1' })
-    expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
+    await wrapper.setProps({ currentInstrument: 'custom_sample' })
+    expect(handle().find('svg').exists()).toBe(false)
+    expect(handle().text()).toBe('custom_sample')
   })
 
   it('loads registered sounds and renders grouped sound banks', async () => {

@@ -13,7 +13,7 @@ import type {
 
 export const DEFAULT_INSTRUMENT = "piano";
 
-export function displayInstrumentName(instrument: string): string {
+function displayInstrumentName(instrument: string): string {
   return instrument.startsWith("gm_") ? instrument.slice(3) : instrument;
 }
 

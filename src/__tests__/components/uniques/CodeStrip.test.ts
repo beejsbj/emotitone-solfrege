@@ -10,11 +10,8 @@ const mocks = vi.hoisted(() => ({
   mirrorOptions: null as any,
   mirrorInitialCode: "",
   mirrorEvaluate: vi.fn().mockResolvedValue(undefined),
-  attachEditor: vi.fn(),
-  detachEditor: vi.fn(),
-  syncCode: vi.fn(),
-  setPlaying: vi.fn(),
-  setError: vi.fn(),
+  mirrorRawStop: vi.fn(),
+  stopStrudelVisuals: vi.fn(),
   updatePresentation: vi.fn(),
   setCodeStripPlaying: vi.fn(),
   mirrorInstance: null as any,
@@ -33,17 +30,6 @@ vi.mock("@/stores/instrument", () => ({
 
 vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: () => mocks.visualConfigStore,
-}));
-
-vi.mock("@/composables/useCodeStripStrudel", () => ({
-  useCodeStripStrudel: () => ({
-    attachEditor: mocks.attachEditor,
-    detachEditor: mocks.detachEditor,
-    syncCode: mocks.syncCode,
-    setPlaying: mocks.setPlaying,
-    setError: mocks.setError,
-    isPlaying: { value: false },
-  }),
 }));
 
 vi.mock("@/components/uniques/CodeStrip/recordingTokens", () => ({
@@ -82,18 +68,20 @@ vi.mock("@/services/superdoughAudio", () => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   getAudioContext: () => ({ currentTime: 0 }),
   emotitoneStrudelOutput: vi.fn(),
-  stopStrudelVisuals: vi.fn(),
+  stopStrudelVisuals: mocks.stopStrudelVisuals,
 }));
 
 vi.mock("@strudel/codemirror", () => ({
   StrudelMirror: class {
     code: string;
     editor: any;
-    stop = vi.fn().mockResolvedValue(undefined);
+    stop: ReturnType<typeof vi.fn>;
     clear = vi.fn();
     updateSettings = vi.fn();
+    options: any;
 
     constructor(options: any) {
+      this.options = options;
       const makeDoc = (value: string) => ({
         length: value.length,
         toString: () => value,
@@ -135,6 +123,10 @@ vi.mock("@strudel/codemirror", () => ({
       mocks.mirrorInitialCode = options.initialCode;
       this.code = options.initialCode;
       this.editor = rawEditor;
+      this.stop = vi.fn(async () => {
+        options.onToggle(false);
+      });
+      mocks.mirrorRawStop = this.stop;
       mocks.mirrorInstance = this;
       mocks.mirrorScroller = scroller;
       mocks.latestEvent = latestEvent;
@@ -147,7 +139,12 @@ vi.mock("@strudel/codemirror", () => ({
     }
 
     async evaluate() {
-      await mocks.mirrorEvaluate(this.code);
+      try {
+        await mocks.mirrorEvaluate(this.code);
+        this.options.onToggle(true);
+      } catch (error) {
+        this.options.onEvalError(error);
+      }
     }
   },
 }));
@@ -159,6 +156,7 @@ vi.mock("@strudel/webaudio", () => ({}));
 vi.mock("@strudel/transpiler", () => ({ transpiler: vi.fn() }));
 
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 
 const recordedNote: PatternNote = {
   id: "c",
@@ -171,7 +169,8 @@ const recordedNote: PatternNote = {
   duration: 500,
 };
 
-beforeEach(() => {
+beforeEach(async () => {
+  if (mocks.instrumentStore) await useCodeStripStrudel().detachEditor();
   mocks.patternsStore = reactive({
     currentSketchNotes: [recordedNote],
     currentSketchMeta: {
@@ -184,7 +183,7 @@ beforeEach(() => {
     loadedBaseNotes: [] as PatternNote[],
     isStripCleared: false,
   });
-  mocks.instrumentStore = reactive({ isInteractionLocked: false });
+  mocks.instrumentStore = reactive({ isInteractionLocked: false, selectionEpoch: 0 });
   mocks.visualConfigStore = reactive({
     config: {
       codeStrip: {
@@ -233,7 +232,8 @@ describe("CodeStrip production Strudel document", () => {
       .not.toContain("display: none");
     expect(mocks.mirrorInitialCode).toContain("C4@0.25");
     expect(mocks.mirrorOptions.bgFill).toBe(false);
-    expect(mocks.attachEditor).toHaveBeenCalledOnce();
+    expect(useCodeStripStrudel().isReady.value).toBe(true);
+    expect(useCodeStripStrudel().currentCode.value).toContain("C4@0.25");
     expect(mocks.updatePresentation).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -243,7 +243,9 @@ describe("CodeStrip production Strudel document", () => {
     );
 
     wrapper.unmount();
-    expect(mocks.detachEditor).toHaveBeenCalledOnce();
+    expect(useCodeStripStrudel().isReady.value).toBe(false);
+    expect(mocks.mirrorRawStop).toHaveBeenCalledOnce();
+    expect(mocks.mirrorInstance.clear).toHaveBeenCalledOnce();
   });
 
   it("keeps the empty production editor compact and free of third-party fill", async () => {
@@ -279,9 +281,9 @@ describe("CodeStrip production Strudel document", () => {
   it("turns the source decorations to Ink as soon as play is requested", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
+    const transport = useCodeStripStrudel();
 
-    await controller.evaluate();
+    await transport.play();
     expect(mocks.setCodeStripPlaying).toHaveBeenCalledWith(expect.anything(), true);
     expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
 
@@ -290,7 +292,7 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
     expect(mocks.updatePresentation).toHaveBeenCalledTimes(presentationsBeforeDraw);
 
-    mocks.mirrorOptions.onToggle(false);
+    await transport.stop();
     expect(mocks.setCodeStripPlaying).toHaveBeenLastCalledWith(expect.anything(), false);
     wrapper.unmount();
   });
@@ -317,13 +319,27 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
 
     const evaluation = mocks.mirrorInstance.evaluate();
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce());
     mocks.instrumentStore.isInteractionLocked = true;
     resolveEvaluation();
     await evaluation;
 
-    expect(mocks.mirrorInstance.stop).toHaveBeenCalled();
-    expect(mocks.setPlaying).toHaveBeenCalledWith(false);
+    expect(mocks.mirrorRawStop).toHaveBeenCalled();
+    expect(useCodeStripStrudel().isPlaying.value).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("forwards swallowed Strudel evaluation errors through the real transport", async () => {
+    mocks.mirrorEvaluate.mockRejectedValueOnce(new Error("invalid pattern"));
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    await useCodeStripStrudel().play();
+
+    expect(useCodeStripStrudel().lastError.value).toBe("invalid pattern");
+    expect(useCodeStripStrudel().isPlaying.value).toBe(false);
+    expect(mocks.mirrorRawStop).toHaveBeenCalledOnce();
+    expect(mocks.stopStrudelVisuals).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 
@@ -347,8 +363,7 @@ describe("CodeStrip production Strudel document", () => {
     expect(visibleSource).toContain("D4@0.25");
     expect(mocks.mirrorInstance.code).not.toBe(visibleSource);
 
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
+    await useCodeStripStrudel().play();
     expect(mocks.mirrorInstance.code).toBe(visibleSource);
     expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(visibleSource);
     wrapper.unmount();
@@ -386,8 +401,7 @@ describe("CodeStrip production Strudel document", () => {
     const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
     mocks.mirrorInstance.code = "`< stale@1 >`";
 
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
+    await useCodeStripStrudel().play();
 
     expect(mocks.mirrorInstance.code).toBe(visibleSource);
     expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(visibleSource);

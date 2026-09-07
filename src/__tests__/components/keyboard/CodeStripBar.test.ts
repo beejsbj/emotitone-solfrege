@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
+import mirrorAdapterSource from "@/components/uniques/CodeStrip/strudelMirrorAdapter.ts?raw";
 import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
 
@@ -53,7 +54,7 @@ describe("CodeStripBar.vue", () => {
     expect(codeStripSource).toMatch(
       /\.code-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
     );
-    expect(codeStripSource).toContain("bgFill: false");
+    expect(mirrorAdapterSource).toContain("bgFill: false");
     expect(codeStripSource).toMatch(
       /\.code-strip--unframed[\s\S]*?\.cm-activeLine\)[\s\S]*?background-color:\s*transparent\s*!important;/,
     );

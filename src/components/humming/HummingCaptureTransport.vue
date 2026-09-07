@@ -31,25 +31,25 @@
       </span>
 
       <div
-        v-if="status === 'error' || takeCount > 1"
+        v-if="status === 'error' || takeLabels.length > 1"
         class="humming-capture-transport__feedback"
       >
         <p v-if="status === 'error'" class="humming-capture-transport__error" role="alert">
           {{ statusMessage }}
         </p>
         <select
-          v-if="takeCount > 1"
+          v-if="takeLabels.length > 1"
           class="humming-capture-transport__take-select"
           aria-label="Hummed take"
           :value="selectedTakeIndex"
           @change="handleTakeSelection"
         >
           <option
-            v-for="takeIndex in takeCount"
-            :key="takeIndex - 1"
-            :value="takeIndex - 1"
+            v-for="(takeLabel, takeIndex) in takeLabels"
+            :key="`${takeIndex}-${takeLabel}`"
+            :value="takeIndex"
           >
-            Take {{ takeIndex }}
+            {{ takeLabel }}
           </option>
         </select>
       </div>
@@ -76,14 +76,14 @@ const props = withDefaults(defineProps<{
   status?: HummingCaptureStatus;
   error?: string | null;
   statusMessage?: string;
-  takeCount?: number;
+  takeLabels?: readonly string[];
   selectedTakeIndex?: number;
   haptic?: boolean;
 }>(), {
   status: "idle",
   error: null,
   statusMessage: "Ready to capture a hummed pattern",
-  takeCount: 0,
+  takeLabels: () => [],
   selectedTakeIndex: 0,
   haptic: false,
 });

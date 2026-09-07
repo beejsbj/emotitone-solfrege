@@ -33,6 +33,7 @@ export function useHummingCapture() {
   const status = ref<HummingCaptureStatus>("idle");
   const error = ref<string | null>(null);
   const takePatternIds = ref<string[]>([]);
+  const takeLabels = ref<string[]>([]);
   const selectedTakeIndex = ref(0);
   const importedNoteCount = ref(0);
 
@@ -72,6 +73,9 @@ export function useHummingCapture() {
     const activeGeneration = ++generation;
     error.value = null;
     importedNoteCount.value = 0;
+    takePatternIds.value = [];
+    takeLabels.value = [];
+    selectedTakeIndex.value = 0;
     status.value = "requesting";
     loggedNoteIdsAtCaptureStart = new Set(
       patternsStore.loggedNotes.map((note) => note.id),
@@ -147,6 +151,10 @@ export function useHummingCapture() {
         },
       );
       takePatternIds.value = importedIds;
+      takeLabels.value = candidates.map((candidate) => {
+        const takeNumber = candidate.source?.takeNumber;
+        return takeNumber == null ? candidate.name : `Take ${takeNumber}`;
+      });
       selectedTakeIndex.value = 0;
       importedNoteCount.value = candidates.reduce(
         (total, candidate) => total + candidate.notes.length,
@@ -216,6 +224,7 @@ export function useHummingCapture() {
     canToggle,
     statusMessage,
     takeCount: computed(() => takePatternIds.value.length),
+    takeLabels: readonly(takeLabels),
     selectedTakeIndex: readonly(selectedTakeIndex),
     start,
     stop,

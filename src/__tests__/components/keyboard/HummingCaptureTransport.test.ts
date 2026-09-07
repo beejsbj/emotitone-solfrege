@@ -58,11 +58,19 @@ describe("HummingCaptureTransport.vue", () => {
   });
 
   it("selects finalized takes outside the CodeStrip compound", async () => {
-    wrapper = render({ takeCount: 3, selectedTakeIndex: 0 });
+    wrapper = render({
+      takeLabels: ["Take 1", "Take 3"],
+      selectedTakeIndex: 0,
+    });
 
-    await wrapper.get('select[aria-label="Hummed take"]').setValue("2");
+    const select = wrapper.get('select[aria-label="Hummed take"]');
+    expect(select.findAll("option").map((option) => option.text())).toEqual([
+      "Take 1",
+      "Take 3",
+    ]);
+    await select.setValue("1");
 
-    expect(wrapper.emitted("selectTake")).toEqual([[2]]);
+    expect(wrapper.emitted("selectTake")).toEqual([[1]]);
   });
 
   it("emits toggle and cancel actions", async () => {

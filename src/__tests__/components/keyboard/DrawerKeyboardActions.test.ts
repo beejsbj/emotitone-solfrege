@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   hummingStatus: { value: "idle", __v_isRef: true },
   hummingError: { value: null, __v_isRef: true },
   hummingStatusMessage: { value: "Ready", __v_isRef: true },
-  hummingTakeCount: { value: 0, __v_isRef: true },
+  hummingTakeLabels: { value: [] as string[], __v_isRef: true },
   selectedHummingTake: { value: 0, __v_isRef: true },
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
@@ -77,7 +77,7 @@ vi.mock("@/composables/useHummingCapture", () => ({
     status: mocks.hummingStatus,
     error: mocks.hummingError,
     statusMessage: mocks.hummingStatusMessage,
-    takeCount: mocks.hummingTakeCount,
+    takeLabels: mocks.hummingTakeLabels,
     selectedTakeIndex: mocks.selectedHummingTake,
     toggle: mocks.toggleHumming,
     cancel: mocks.cancelHumming,
@@ -96,7 +96,7 @@ vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
 vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
   default: {
     name: "HummingCaptureTransport",
-    props: ["status", "error", "statusMessage", "takeCount", "selectedTakeIndex"],
+    props: ["status", "error", "statusMessage", "takeLabels", "selectedTakeIndex"],
     emits: ["toggle", "cancel", "selectTake"],
     template: '<div data-testid="humming-capture-transport" />',
   },

@@ -110,7 +110,47 @@ describe("useHummingCapture", () => {
       { workingNotes: [] },
     );
     expect(capture.takeCount.value).toBe(2);
+    expect(capture.takeLabels.value).toEqual([
+      "Hummed take 1",
+      "Hummed take 2",
+    ]);
     expect(capture.statusMessage.value).toBe("3 notes added from 2 takes");
+    wrapper.unmount();
+  });
+
+  it("retires prior take choices when a new capture starts", async () => {
+    const wrapper = mountCapture();
+    await capture.start();
+    await capture.stop();
+    expect(capture.takeCount.value).toBe(2);
+
+    await capture.start();
+
+    expect(capture.takeCount.value).toBe(0);
+    expect(capture.takeLabels.value).toEqual([]);
+    expect(capture.selectedTakeIndex.value).toBe(0);
+    wrapper.unmount();
+  });
+
+  it("keeps Melograph take numbers in selector labels", async () => {
+    mocks.toCandidates.mockReturnValue([
+      {
+        name: "Hummed take 1",
+        notes: [{ note: "D4" }],
+        source: { takeNumber: 1 },
+      },
+      {
+        name: "Hummed take 3",
+        notes: [{ note: "A4" }],
+        source: { takeNumber: 3 },
+      },
+    ]);
+    const wrapper = mountCapture();
+
+    await capture.start();
+    await capture.stop();
+
+    expect(capture.takeLabels.value).toEqual(["Take 1", "Take 3"]);
     wrapper.unmount();
   });
 

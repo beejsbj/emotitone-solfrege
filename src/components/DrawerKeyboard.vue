@@ -27,7 +27,7 @@
         :status="hummingStatus"
         :error="hummingError"
         :status-message="hummingStatusMessage"
-        :take-count="hummingTakeCount"
+        :take-labels="hummingTakeLabels"
         :selected-take-index="selectedHummingTake"
         haptic
         @toggle="toggleHummingCapture"
@@ -86,7 +86,7 @@ const {
   status: hummingStatus,
   error: hummingError,
   statusMessage: hummingStatusMessage,
-  takeCount: hummingTakeCount,
+  takeLabels: hummingTakeLabels,
   selectedTakeIndex: selectedHummingTake,
   toggle: toggleHumming,
   cancel: cancelHumming,

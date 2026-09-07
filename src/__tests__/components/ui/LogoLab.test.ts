@@ -10,16 +10,18 @@ describe("Brand Logo definition lab", () => {
     expect(mainSource).toContain('["/style-guide", "/logo-lab"]');
   });
 
-  it("compares three six-cut Paper Duet refinements without changing the old BrandLogo source", () => {
-    for (const refinement of ["Tight Weave", "Loose Rhythm", "Shared Edge"]) {
-      expect(logoLabSource).toContain(refinement);
-    }
+  it("focuses the selected six-cut Tight Weave without changing the old BrandLogo source", () => {
+    expect(logoLabSource).toContain("Tight Weave");
+    expect(logoLabSource).not.toContain("Loose Rhythm");
+    expect(logoLabSource).not.toContain("Shared Edge");
 
     for (const part of ["e-stem", "e-top", "e-middle", "e-bottom", "t-cap", "t-stem"]) {
-      expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(3);
+      expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(1);
     }
 
-    expect(logoLabSource).toContain("Round 02");
+    expect(logoLabSource).toContain("Round 03");
+    expect(logoLabSource).toContain("On Bone · T stem is Ink");
+    expect(logoLabSource).toContain("On Ink · T stem is Ivory");
     expect(logoLabSource).toContain("Compact");
     expect(logoLabSource).toContain("One colour");
     expect(logoLabSource).not.toContain("@/components/uniques/BrandLogo.vue");

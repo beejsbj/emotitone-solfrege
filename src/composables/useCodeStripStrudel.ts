@@ -84,6 +84,7 @@ function handleEditorEvent(
         void Promise.resolve(attachment.adapter.stop({
           operation: nextOperation(),
           releaseShared: false,
+          retire: false,
         })).catch(() => undefined);
       } catch {
         // The stale adapter is already retired; its failure cannot own state.
@@ -131,6 +132,7 @@ async function stopAdapter(
   command: number,
   settlesState: boolean,
   releaseShared: boolean,
+  retire: boolean,
 ) {
   const operation = nextOperation();
   attachment.operations.set(operation, {
@@ -140,7 +142,7 @@ async function stopAdapter(
   });
 
   try {
-    await attachment.adapter.stop({ operation, releaseShared });
+    await attachment.adapter.stop({ operation, releaseShared, retire });
   } finally {
     attachment.operations.delete(operation);
     if (settlesState && ownsCommand(attachment, command)) clearPlaybackState();
@@ -150,20 +152,19 @@ async function stopAdapter(
 function retireAttachment(attachment: CodeStripTransportAttachment, command: number) {
   attachment.retired = true;
   attachment.unsubscribe();
-  const precedingWork = attachment.work;
-  const stopWork = stopAdapter(attachment, command, false, true).catch(() => undefined);
-  let destroyWork: Promise<void>;
-
-  try {
-    destroyWork = Promise.resolve(attachment.adapter.destroy());
-  } catch {
-    destroyWork = Promise.resolve();
-  }
-
-  const release = Promise.allSettled([stopWork, destroyWork]).then(() => undefined);
-  const settled = Promise.allSettled([precedingWork, release]).then(() => undefined);
-  attachment.work = settled;
-  return { release, settled };
+  const stopWork = stopAdapter(attachment, command, false, true, true)
+    .catch(() => undefined);
+  const teardown = stopWork.then(async () => {
+    try {
+      await attachment.adapter.destroy();
+    } catch {
+      // Retirement has already invalidated the adapter's state ownership.
+    }
+  });
+  const precedingBarrier = sessionBarrier;
+  sessionBarrier = Promise.allSettled([precedingBarrier, teardown]).then(() => undefined);
+  attachment.work = sessionBarrier;
+  return sessionBarrier;
 }
 
 function replaceSource(attachment: CodeStripTransportAttachment, source: string) {
@@ -180,9 +181,7 @@ function detachAttachment(attachment: CodeStripTransportAttachment) {
   isReady.value = false;
   lastError.value = null;
   clearPlaybackState();
-  const retirement = retireAttachment(attachment, commandGeneration);
-  sessionBarrier = retirement.settled;
-  return retirement.settled;
+  return retireAttachment(attachment, commandGeneration);
 }
 
 function attachEditor(
@@ -192,7 +191,7 @@ function attachEditor(
   commandGeneration += 1;
   const replacedAttachment = activeAttachment;
   if (replacedAttachment) {
-    sessionBarrier = retireAttachment(replacedAttachment, commandGeneration).settled;
+    retireAttachment(replacedAttachment, commandGeneration);
   }
 
   const attachment: CodeStripTransportAttachment = {
@@ -274,9 +273,12 @@ async function performStart(
       && instrumentStore?.selectionEpoch === selectionEpoch;
 
     if (!mayOwnPlayback) {
-      // Later starts, including replacement sessions, wait for this work, so
-      // shared release cannot stop a newer operation.
-      await stopAdapter(attachment, command, false, true).catch(() => undefined);
+      // A retired adapter contains its own late raw completion. Its handoff
+      // already released shared state, so it must not release a newer owner.
+      if (!attachment.retired) {
+        await stopAdapter(attachment, command, false, true, false)
+          .catch(() => undefined);
+      }
       if (ownsCommand(attachment, command)) clearPlaybackState();
       if (rejectedError && ownsCommand(attachment, command)) {
         lastError.value = messageFor(rejectedError);
@@ -318,7 +320,7 @@ async function play() {
     // Play/Play means latest request wins. Stop the current attempt now, then
     // wait for its late completion and cleanup before beginning the new one.
     isPlaying.value = false;
-    const cancellation = stopAdapter(attachment, command, false, true)
+    const cancellation = stopAdapter(attachment, command, false, true, false)
       .catch(() => undefined);
     precedingWork = Promise.allSettled([precedingWork, cancellation]).then(() => undefined);
   }
@@ -339,7 +341,7 @@ async function stop() {
   // Stop takes effect immediately even while evaluation is pending. A later
   // Play waits for both this stop and the stale evaluation's final release.
   const precedingWork = attachment.work;
-  const stopWork = stopAdapter(attachment, command, true, true);
+  const stopWork = stopAdapter(attachment, command, true, true, false);
   attachment.work = Promise.allSettled([precedingWork, stopWork]).then(() => undefined);
   try {
     await stopWork;

@@ -10,9 +10,12 @@ const mocks = vi.hoisted(() => ({
     options: any;
     evaluate: ReturnType<typeof vi.fn>;
     rawStop: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+    schedulerActive: boolean;
+    solo: boolean;
     complete: () => void;
   }>,
-  sharedVisualsActive: false,
+  sharedVisualOwner: null as string | null,
 }));
 
 vi.mock("@/stores/instrument", () => ({
@@ -28,17 +31,21 @@ vi.mock("@strudel/codemirror", () => ({
     rawStop: ReturnType<typeof vi.fn>;
     clear = vi.fn();
     updateSettings = vi.fn();
+    schedulerActive = false;
+    solo: boolean;
     private resolveEvaluation: (() => void) | null = null;
 
     constructor(options: any) {
       this.options = options;
       this.code = options.initialCode;
+      this.solo = options.solo;
       this.evaluate = vi.fn(
         () => new Promise<void>((resolve) => {
           this.resolveEvaluation = resolve;
         }),
       );
       this.rawStop = vi.fn(async () => {
+        this.schedulerActive = false;
         options.onToggle(false);
       });
       this.stop = this.rawStop;
@@ -54,8 +61,9 @@ vi.mock("@strudel/codemirror", () => ({
     }
 
     complete() {
-      mocks.sharedVisualsActive = true;
+      this.schedulerActive = true;
       this.options.onToggle(true);
+      this.options.onDraw();
       this.resolveEvaluation?.();
       this.resolveEvaluation = null;
     }
@@ -73,7 +81,9 @@ function createAdapter(source: string, releaseShared: () => void) {
     defaultOutput: vi.fn(),
     getTime: () => 0,
     prebake: async () => undefined,
-    onDraw: vi.fn(),
+    onDraw: () => {
+      mocks.sharedVisualOwner = source;
+    },
     onRelease: releaseShared,
   });
 }
@@ -85,17 +95,17 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
       selectionEpoch: 0,
     });
     mocks.mirrors = [];
-    mocks.sharedVisualsActive = false;
+    mocks.sharedVisualOwner = null;
   });
 
   afterEach(async () => {
     await useCodeStripStrudel().detachEditor();
   });
 
-  it("finishes retired shared cleanup before starting a replacement", async () => {
+  it("contains late retired completion without blocking or clearing a replacement", async () => {
     const transport = useCodeStripStrudel();
     const releaseShared = vi.fn(() => {
-      mocks.sharedVisualsActive = false;
+      mocks.sharedVisualOwner = null;
     });
     const oldAdapter = createAdapter("sound('old')", releaseShared);
     transport.attachEditor(oldAdapter);
@@ -108,29 +118,54 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
 
     expect(mocks.mirrors[0].rawStop).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(releaseShared).toHaveBeenCalledOnce());
-    expect(mocks.mirrors[1].evaluate).not.toHaveBeenCalled();
-
-    mocks.mirrors[0].complete();
-    await oldPlay;
     await vi.waitFor(() => expect(mocks.mirrors[1].evaluate).toHaveBeenCalledOnce());
-
-    expect(mocks.mirrors[0].rawStop).toHaveBeenCalledTimes(2);
-    expect(releaseShared).toHaveBeenCalledTimes(2);
-    expect(mocks.sharedVisualsActive).toBe(false);
+    await oldPlay;
 
     mocks.mirrors[1].complete();
     await newPlay;
 
     expect(transport.currentCode.value).toBe("sound('new')");
     expect(transport.isPlaying.value).toBe(true);
-    expect(mocks.sharedVisualsActive).toBe(true);
-    expect(releaseShared).toHaveBeenCalledTimes(2);
+    expect(mocks.sharedVisualOwner).toBe("sound('new')");
+
+    mocks.mirrors[0].complete();
+    await vi.waitFor(() => expect(mocks.mirrors[0].schedulerActive).toBe(false));
+
+    expect(mocks.mirrors[0].solo).toBe(false);
+    expect(mocks.mirrors[0].rawStop).toHaveBeenCalledTimes(2);
+    expect(mocks.mirrors[1].schedulerActive).toBe(true);
+    expect(mocks.mirrors[1].rawStop).not.toHaveBeenCalled();
+    expect(mocks.sharedVisualOwner).toBe("sound('new')");
+    expect(releaseShared).toHaveBeenCalledOnce();
 
     // A callback arriving after retirement is disconnected from transport and
     // cannot release the replacement's shared visuals.
     mocks.mirrors[0].options.onToggle(true);
     expect(transport.isPlaying.value).toBe(true);
-    expect(mocks.sharedVisualsActive).toBe(true);
-    expect(releaseShared).toHaveBeenCalledTimes(2);
+    expect(mocks.sharedVisualOwner).toBe("sound('new')");
+    expect(releaseShared).toHaveBeenCalledOnce();
+  });
+
+  it("disposes an unattached mirror without releasing active shared visuals", async () => {
+    const transport = useCodeStripStrudel();
+    const releaseShared = vi.fn(() => {
+      mocks.sharedVisualOwner = null;
+    });
+    const activeAdapter = createAdapter("sound('active')", releaseShared);
+    transport.attachEditor(activeAdapter);
+    const activePlay = transport.play();
+    await vi.waitFor(() => expect(mocks.mirrors[0].evaluate).toHaveBeenCalledOnce());
+    mocks.mirrors[0].complete();
+    await activePlay;
+    expect(mocks.sharedVisualOwner).toBe("sound('active')");
+
+    const unattachedAdapter = createAdapter("sound('unattached')", releaseShared);
+    await unattachedAdapter.disposeUnattached();
+
+    expect(mocks.mirrors[1].rawStop).toHaveBeenCalledOnce();
+    expect(mocks.mirrors[1].clear).toHaveBeenCalledOnce();
+    expect(mocks.mirrors[0].schedulerActive).toBe(true);
+    expect(mocks.sharedVisualOwner).toBe("sound('active')");
+    expect(releaseShared).not.toHaveBeenCalled();
   });
 });

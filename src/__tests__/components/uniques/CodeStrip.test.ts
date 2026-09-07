@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   stopStrudelVisuals: vi.fn(),
   updatePresentation: vi.fn(),
   setCodeStripPlaying: vi.fn(),
+  applySpecimenPlayback: vi.fn(),
   mirrorInstance: null as any,
   mirrorScroller: null as HTMLElement | null,
   latestEvent: null as HTMLElement | null,
@@ -48,7 +49,7 @@ vi.mock("@/components/uniques/CodeStrip/strudelExtension", () => ({
   codeStripStrudelExtension: [],
   updateCodeStripPresentation: mocks.updatePresentation,
   setCodeStripPlaying: mocks.setCodeStripPlaying,
-  applySpecimenPlayback: vi.fn(),
+  applySpecimenPlayback: mocks.applySpecimenPlayback,
   parseCodeStripEvents: (doc: { toString: () => string }) => {
     const patternEnd = doc.toString().indexOf(">");
     return patternEnd > 0 ? [{ to: patternEnd }] : [];
@@ -247,6 +248,7 @@ describe("CodeStrip production Strudel document", () => {
     );
 
     wrapper.unmount();
+    await flushPromises();
     expect(useCodeStripStrudel().isReady.value).toBe(false);
     expect(mocks.mirrorRawStop).toHaveBeenCalledOnce();
     expect(mocks.mirrorInstance.clear).toHaveBeenCalledOnce();
@@ -292,7 +294,7 @@ describe("CodeStrip production Strudel document", () => {
     expect(wrapper.get(".code-strip__error").text()).toBe("settings failed");
     expect(useCodeStripStrudel().isReady.value).toBe(false);
     expect(mocks.mirrorRawStop).toHaveBeenCalledOnce();
-    expect(mocks.stopStrudelVisuals).toHaveBeenCalledOnce();
+    expect(mocks.stopStrudelVisuals).not.toHaveBeenCalled();
     expect(mocks.mirrorInstance.clear).toHaveBeenCalledOnce();
 
     wrapper.unmount();
@@ -318,6 +320,33 @@ describe("CodeStrip production Strudel document", () => {
     await transport.stop();
     expect(mocks.setCodeStripPlaying).toHaveBeenLastCalledWith(expect.anything(), false);
     wrapper.unmount();
+  });
+
+  it("keeps a controlled specimen independent from the live editor transport", async () => {
+    const live = mount(CodeStrip);
+    const specimen = mount(CodeStrip, {
+      props: { source: "`< C4@0.25 E4@0.25 >`" },
+    });
+    await flushPromises();
+    const specimenView = mocks.applySpecimenPlayback.mock.calls.at(-1)?.[0];
+    expect(specimenView).toBeDefined();
+    mocks.setCodeStripPlaying.mockClear();
+
+    await useCodeStripStrudel().play();
+    await nextTick();
+
+    expect(live.classes()).toContain("code-strip--playing");
+    expect(specimen.classes()).not.toContain("code-strip--playing");
+    expect(
+      mocks.setCodeStripPlaying.mock.calls.some(([view]) => view === specimenView),
+    ).toBe(false);
+
+    await useCodeStripStrudel().stop();
+    expect(
+      mocks.setCodeStripPlaying.mock.calls.some(([view]) => view === specimenView),
+    ).toBe(false);
+    specimen.unmount();
+    live.unmount();
   });
 
   it("blocks editor-owned playback shortcuts while samples are warming", async () => {
@@ -365,6 +394,7 @@ describe("CodeStrip production Strudel document", () => {
     const evaluation = mocks.mirrorInstance.evaluate();
     await vi.waitFor(() => expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce());
     wrapper.unmount();
+    await flushPromises();
 
     expect(useCodeStripStrudel().isReady.value).toBe(false);
     expect(mocks.mirrorInstance.clear).toHaveBeenCalledOnce();
@@ -372,9 +402,9 @@ describe("CodeStrip production Strudel document", () => {
 
     resolveEvaluation();
     await evaluation;
+    await vi.waitFor(() => expect(mocks.mirrorRawStop).toHaveBeenCalledTimes(2));
 
     expect(useCodeStripStrudel().isPlaying.value).toBe(false);
-    expect(mocks.mirrorRawStop).toHaveBeenCalledTimes(2);
   });
 
   it("forwards swallowed Strudel evaluation errors through the real transport", async () => {

@@ -17,6 +17,8 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   private readonly rawStop: () => Promise<void>;
   private evaluationOperation: CodeStripTransportOperation | null = null;
   private stopOperation: CodeStripTransportOperation | null = null;
+  private cancelEvaluation: (() => void) | null = null;
+  private retired = false;
   private destroyed = false;
   private readonly onRelease: () => void;
 
@@ -33,7 +35,9 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
       getTime: options.getTime,
       solo: true,
       prebake: options.prebake,
-      onDraw: options.onDraw,
+      onDraw: () => {
+        if (!this.retired) options.onDraw();
+      },
       onToggle: (started: boolean) => {
         this.emit({
           type: "playing",
@@ -89,15 +93,34 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
       (this.mirror as StrudelMirror & { code?: string }).code = source;
     }
 
+    let cancelEvaluation!: () => void;
+    const cancellation = new Promise<"retired">((resolve) => {
+      cancelEvaluation = () => resolve("retired");
+    });
+    this.cancelEvaluation = cancelEvaluation;
+    const rawWork = this.rawEvaluate();
+    const lateRetiredCleanup = rawWork.then(
+      async () => {
+        if (this.retired) await this.rawStop().catch(() => undefined);
+      },
+      () => undefined,
+    );
+
     try {
-      await this.rawEvaluate();
+      const outcome = await Promise.race([
+        rawWork.then(() => "settled" as const),
+        cancellation,
+      ]);
+      if (outcome === "retired") void lateRetiredCleanup;
     } finally {
+      if (this.cancelEvaluation === cancelEvaluation) this.cancelEvaluation = null;
       if (this.evaluationOperation === operation) this.evaluationOperation = null;
     }
   }
 
   async stop(request: CodeStripStopRequest) {
     this.stopOperation = request.operation;
+    if (request.retire) this.retireEvaluationOwnership();
     try {
       await this.rawStop();
     } finally {
@@ -122,10 +145,10 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
 
   async disposeUnattached() {
     if (this.destroyed) return;
+    this.retireEvaluationOwnership();
     try {
       await this.rawStop();
     } finally {
-      this.onRelease();
       this.destroy();
     }
   }
@@ -139,5 +162,12 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
 
   private emit(event: Parameters<CodeStripEditorListener>[0]) {
     for (const listener of [...this.listeners]) listener(event);
+  }
+
+  private retireEvaluationOwnership() {
+    if (this.retired) return;
+    this.retired = true;
+    (this.mirror as StrudelMirror & { solo: boolean }).solo = false;
+    this.cancelEvaluation?.();
   }
 }

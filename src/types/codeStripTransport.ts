@@ -18,6 +18,8 @@ export type CodeStripEditorListener = (event: CodeStripEditorEvent) => void;
 export interface CodeStripStopRequest {
   operation: CodeStripTransportOperation;
   releaseShared: boolean;
+  /** Revoke any in-flight evaluation's ability to claim playback before returning. */
+  retire: boolean;
 }
 
 export interface CodeStripEditorAdapter {

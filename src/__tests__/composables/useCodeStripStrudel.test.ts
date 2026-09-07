@@ -25,7 +25,12 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
   source: string;
   audioOwned = false;
   destroyed = false;
+  retired = false;
+  deferStops = false;
+  lifecycle: string[] = [];
   stopOperations: CodeStripTransportOperation[] = [];
+  stopRequests: CodeStripStopRequest[] = [];
+  pendingStops: Array<() => void> = [];
   evaluations: Array<{
     source: string;
     operation: CodeStripTransportOperation;
@@ -36,7 +41,12 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
   private readonly listeners = new Set<CodeStripEditorListener>();
   private readonly subscribedListeners: CodeStripEditorListener[] = [];
 
-  constructor(source = "sound('piano')") {
+  constructor(
+    source = "sound('piano')",
+    private readonly sharedPlayback: {
+      owner: DeferredEditorAdapter | null;
+    } | null = null,
+  ) {
     this.source = source;
   }
 
@@ -56,12 +66,31 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
   }
 
   stop(request: CodeStripStopRequest) {
+    if (request.retire) this.retired = true;
+    this.lifecycle.push("stop requested");
     this.stopOperations.push(request.operation);
-    this.audioOwned = false;
-    this.emit({
-      type: "playing",
-      isPlaying: false,
-      operation: request.operation,
+    this.stopRequests.push(request);
+    const settle = () => {
+      this.audioOwned = false;
+      if (request.releaseShared && this.sharedPlayback) {
+        this.sharedPlayback.owner = null;
+      }
+      this.emit({
+        type: "playing",
+        isPlaying: false,
+        operation: request.operation,
+      });
+      this.lifecycle.push("stop settled");
+    };
+    if (!this.deferStops) {
+      settle();
+      return;
+    }
+    return new Promise<void>((resolve) => {
+      this.pendingStops.push(() => {
+        settle();
+        resolve();
+      });
     });
   }
 
@@ -73,6 +102,7 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
 
   destroy() {
     this.destroyed = true;
+    this.lifecycle.push("destroy");
   }
 
   edit(source: string) {
@@ -82,7 +112,8 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
 
   completeStart(index = 0) {
     const evaluation = this.evaluations[index];
-    this.audioOwned = true;
+    this.audioOwned = !this.retired;
+    if (!this.retired && this.sharedPlayback) this.sharedPlayback.owner = this;
     this.emit({
       type: "playing",
       isPlaying: true,
@@ -103,6 +134,10 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
 
   emitLate(event: CodeStripEditorEvent) {
     for (const listener of this.subscribedListeners) listener(event);
+  }
+
+  settleStop(index = 0) {
+    this.pendingStops[index]?.();
   }
 
   private emit(event: CodeStripEditorEvent) {
@@ -269,22 +304,23 @@ describe("CodeStrip transport session", () => {
 
   it("isolates replacement from stale completion, errors, and toggles", async () => {
     const transport = useCodeStripStrudel();
-    const oldAdapter = new DeferredEditorAdapter("sound('old')");
+    const sharedPlayback: { owner: DeferredEditorAdapter | null } = { owner: null };
+    const oldAdapter = new DeferredEditorAdapter("sound('old')", sharedPlayback);
     transport.attachEditor(oldAdapter);
     const oldPlay = transport.play();
     await evaluationStarted(oldAdapter);
     const oldOperation = oldAdapter.evaluations[0].operation;
 
-    const newAdapter = new DeferredEditorAdapter("sound('new')");
+    const newAdapter = new DeferredEditorAdapter("sound('new')", sharedPlayback);
     transport.attachEditor(newAdapter);
     const newPlay = transport.play();
-    expect(newAdapter.evaluations).toHaveLength(0);
-
-    oldAdapter.completeStart();
-    await oldPlay;
     await evaluationStarted(newAdapter);
     newAdapter.completeStart();
     await newPlay;
+    expect(sharedPlayback.owner).toBe(newAdapter);
+
+    oldAdapter.completeStart();
+    await oldPlay;
     oldAdapter.emitLate({
       type: "error",
       error: new Error("detached error"),
@@ -304,9 +340,52 @@ describe("CodeStrip transport session", () => {
     expect(oldAdapter.destroyed).toBe(true);
     expect(oldAdapter.audioOwned).toBe(false);
     expect(newAdapter.audioOwned).toBe(true);
+    expect(sharedPlayback.owner).toBe(newAdapter);
     expect(transport.currentCode.value).toBe("sound('new')");
     expect(transport.lastError.value).toBeNull();
     expect(transport.isPlaying.value).toBe(true);
+  });
+
+  it("keeps a replacement usable while the retired evaluation remains pending", async () => {
+    const transport = useCodeStripStrudel();
+    const sharedPlayback: { owner: DeferredEditorAdapter | null } = { owner: null };
+    const oldAdapter = new DeferredEditorAdapter("sound('old')", sharedPlayback);
+    transport.attachEditor(oldAdapter);
+    void transport.play();
+    await evaluationStarted(oldAdapter);
+
+    const newAdapter = new DeferredEditorAdapter("sound('new')", sharedPlayback);
+    transport.attachEditor(newAdapter);
+    const newPlay = transport.play();
+    await evaluationStarted(newAdapter);
+    newAdapter.completeStart();
+    await newPlay;
+
+    expect(oldAdapter.evaluations).toHaveLength(1);
+    expect(oldAdapter.audioOwned).toBe(false);
+    expect(newAdapter.audioOwned).toBe(true);
+    expect(sharedPlayback.owner).toBe(newAdapter);
+    expect(transport.isPlaying.value).toBe(true);
+  });
+
+  it("settles a retiring stop before destroying its adapter", async () => {
+    const transport = useCodeStripStrudel();
+    const adapter = new DeferredEditorAdapter();
+    adapter.deferStops = true;
+    const connection = transport.attachEditor(adapter);
+
+    const detaching = connection.detach();
+    const lifecycleBeforeStopSettled = [...adapter.lifecycle];
+    const destroyedBeforeStopSettled = adapter.destroyed;
+
+    adapter.settleStop();
+    await detaching;
+
+    expect(lifecycleBeforeStopSettled).toEqual(["stop requested"]);
+    expect(destroyedBeforeStopSettled).toBe(false);
+    expect(adapter.lifecycle).toEqual(["stop requested", "stop settled", "destroy"]);
+    expect(adapter.destroyed).toBe(true);
+    expect(adapter.stopRequests[0].retire).toBe(true);
   });
 
   it("stops an active session and invalidates pending work across warmup epochs", async () => {

@@ -172,7 +172,7 @@ const hostClasses = computed(() => [
   { "code-strip--scrollable": props.scrollable },
   { "code-strip--unframed": !props.framed },
   { "code-strip--empty": isEmptyDocument.value },
-  { "code-strip--playing": isPlaying.value },
+  { "code-strip--playing": !isControlled.value && isPlaying.value },
 ]);
 
 function getMirrorView(instance: StrudelMirrorCodeStripAdapter | null) {
@@ -427,6 +427,7 @@ watch(currentCode, (code) => {
 watch(
   [isStarting, isPlaying],
   ([starting, playing]) => {
+    if (isControlled.value) return;
     const view = getMirrorView(mirror.value);
     if (view) setCodeStripPlaying(view, starting || playing);
     followPlaybackActive = playing;

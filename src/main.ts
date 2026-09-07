@@ -27,7 +27,11 @@ const app = createApp(App);
 const pinia = createPinia();
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-const isDesignRoute = pathname === "/style-guide" || pathname === "/style-guide/tabs";
+const isDesignRoute = [
+  "/style-guide",
+  "/style-guide/tabs",
+  "/style-guide/instrument-picker",
+].includes(pathname);
 beginTabsPageEdition();
 if (!isDesignRoute) {
   beginKnobPageEdition();

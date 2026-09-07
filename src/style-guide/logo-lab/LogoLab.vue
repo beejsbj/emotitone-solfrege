@@ -8,48 +8,44 @@ const lightStage = ref(false);
   <main class="logo-lab" :class="{ 'logo-lab--light': lightStage }">
     <svg class="logo-lab__symbols" aria-hidden="true">
       <defs>
-        <symbol id="mark-open-bell" viewBox="0 0 120 96">
-          <path
-            fill="currentColor"
-            fill-rule="evenodd"
-            d="M8 40 41 31C60 26 79 18 104 4l8 80C82 72 62 65 41 62L8 57Zm29 4 43-13 2 18-45-2Z"
-            clip-rule="evenodd"
-          />
-          <path fill="currentColor" d="m7 37 31-8 4 36-31-6Z" />
-          <path fill="currentColor" d="m15 59 13 2-5 25H10Z" />
+        <symbol id="mark-tight-weave" viewBox="0 0 140 120">
+          <polygon class="cut cut--e-stem" data-cut="e-stem" points="12,16 31,12 33,104 13,108" />
+          <polygon class="cut cut--t-stem" data-cut="t-stem" points="83,34 106,32 101,111 77,114" />
+          <polygon class="cut cut--e-top" data-cut="e-top" points="36,13 78,9 77,31 36,34" />
+          <polygon class="cut cut--e-middle" data-cut="e-middle" points="36,45 70,42 71,63 36,66" />
+          <polygon class="cut cut--e-bottom" data-cut="e-bottom" points="36,80 77,77 80,100 36,103" />
+          <polygon class="cut cut--t-cap" data-cut="t-cap" points="62,14 130,8 127,33 61,39" />
         </symbol>
 
-        <symbol id="mark-paper-duet" viewBox="0 0 104 104">
-          <path
-            class="paper-duet__e"
-            fill="var(--paper-duet-e, currentColor)"
-            d="M7 10 58 6l2 20-30 2 1 12 24-2 2 19-24 2 1 16 31-3 2 22-55 4Z"
-          />
-          <path
-            class="paper-duet__t"
-            fill="var(--paper-duet-t, currentColor)"
-            d="m42 14 56-8-1 24-16 2 6 62-24 4-6-62-15 2Z"
-          />
+        <symbol id="mark-loose-rhythm" viewBox="0 0 140 120">
+          <polygon class="cut cut--e-stem" data-cut="e-stem" points="9,14 29,11 34,105 14,109" />
+          <polygon class="cut cut--t-stem" data-cut="t-stem" points="91,37 112,34 102,112 80,114" />
+          <polygon class="cut cut--e-top" data-cut="e-top" points="36,10 80,14 77,34 36,31" />
+          <polygon class="cut cut--e-middle" data-cut="e-middle" points="39,45 72,41 75,61 39,66" />
+          <polygon class="cut cut--e-bottom" data-cut="e-bottom" points="40,80 82,76 85,99 39,104" />
+          <polygon class="cut cut--t-cap" data-cut="t-cap" points="64,18 133,9 130,34 64,43" />
         </symbol>
 
-        <symbol id="mark-resonance" viewBox="0 0 128 92">
-          <path fill="var(--resonance-source, currentColor)" d="m7 46 18-18 18 18-18 18Z" />
-          <path fill="currentColor" d="M48 31c11 8 11 22 0 30l7 8c19-13 19-37 0-49Z" />
-          <path fill="currentColor" d="M65 19c19 15 19 39 0 54l8 9c29-21 29-57 0-78Z" />
-          <path fill="currentColor" d="M83 9c26 23 26 51 1 73l8 8c35-29 35-63 0-90Z" />
+        <symbol id="mark-shared-edge" viewBox="0 0 140 120">
+          <polygon class="cut cut--e-stem" data-cut="e-stem" points="13,12 33,13 31,105 11,104" />
+          <polygon class="cut cut--t-stem" data-cut="t-stem" points="75,31 98,32 96,109 73,108" />
+          <polygon class="cut cut--e-top" data-cut="e-top" points="37,13 76,13 76,34 37,33" />
+          <polygon class="cut cut--e-middle" data-cut="e-middle" points="36,45 71,44 71,65 36,65" />
+          <polygon class="cut cut--e-bottom" data-cut="e-bottom" points="35,81 76,80 78,103 35,104" />
+          <polygon class="cut cut--t-cap" data-cut="t-cap" points="59,10 126,12 125,36 59,34" />
         </symbol>
       </defs>
     </svg>
 
     <header class="logo-lab__header">
       <div>
-        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 01</p>
-        <h1>Four new identities.<br><span>Nothing accepted yet.</span></h1>
+        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 02</p>
+        <h1>Six cuts.<br><span>One duet.</span></h1>
       </div>
       <div class="logo-lab__intro">
         <p>
-          Judge the silhouette and the relationship between mark and name. Each direction gets the
-          same large, compact, and one-colour proofs; staging belongs to this lab, not the logo.
+          Direction 03 survives. The rule is now fixed: four independent paper pieces build the E;
+          two build the T. Only their overlap, angle, and colour rhythm change below.
         </p>
         <button type="button" @click="lightStage = !lightStage">
           {{ lightStage ? "View on ink" : "View on bone" }}
@@ -57,91 +53,36 @@ const lightStage = ref(false);
       </div>
     </header>
 
-    <section class="logo-lab__grid" aria-label="Four Brand Logo directions">
-      <article class="concept concept--offbeat">
+    <section class="anatomy" aria-labelledby="anatomy-title">
+      <header>
+        <p>Construction rule</p>
+        <h2 id="anatomy-title">4 × E + 2 × T</h2>
+      </header>
+      <ol>
+        <li class="anatomy__piece anatomy__piece--e-stem"><i />E stem</li>
+        <li class="anatomy__piece anatomy__piece--e-top"><i />E top tooth</li>
+        <li class="anatomy__piece anatomy__piece--e-middle"><i />E middle tooth</li>
+        <li class="anatomy__piece anatomy__piece--e-bottom"><i />E bottom tooth</li>
+        <li class="anatomy__piece anatomy__piece--t-cap"><i />T cap</li>
+        <li class="anatomy__piece anatomy__piece--t-stem"><i />T stem</li>
+      </ol>
+    </section>
+
+    <section class="logo-lab__grid" aria-label="Three six-cut Paper Duet refinements">
+      <article class="concept palette--chorus">
         <header class="concept__header">
-          <span>01</span>
+          <span>A</span>
           <div>
-            <h2>Offbeat</h2>
-            <p>The name becomes a syncopated poster.</p>
+            <h2>Tight Weave</h2>
+            <p>The T passes behind the E teeth.</p>
           </div>
         </header>
 
         <div class="concept__hero">
-          <div class="offbeat-lockup" aria-label="EmotiTone">
-            <span class="offbeat-lockup__top">EMOTI</span>
-            <span class="offbeat-lockup__bottom"><i aria-hidden="true" />TONE</span>
-          </div>
-        </div>
-
-        <div class="concept__proofs">
-          <div>
-            <span class="concept__proof-label">Compact</span>
-            <div class="offbeat-lockup offbeat-lockup--compact" aria-label="EmotiTone">
-              <span class="offbeat-lockup__top">EMOTI</span>
-              <span class="offbeat-lockup__bottom"><i aria-hidden="true" />TONE</span>
-            </div>
-          </div>
-          <div class="concept__mono">
-            <span class="concept__proof-label">One colour</span>
-            <div class="offbeat-lockup offbeat-lockup--mark" aria-label="ET monogram">
-              <span class="offbeat-lockup__top">E</span>
-              <span class="offbeat-lockup__bottom"><i aria-hidden="true" />T</span>
-            </div>
-          </div>
-        </div>
-
-        <p class="concept__question">Does splitting the name feel musical—or merely broken?</p>
-      </article>
-
-      <article class="concept concept--bell">
-        <header class="concept__header">
-          <span>02</span>
-          <div>
-            <h2>Open Bell</h2>
-            <p>An instrument-shaped “e” opens into sound.</p>
-          </div>
-        </header>
-
-        <div class="concept__hero">
-          <div class="bell-lockup">
-            <svg viewBox="0 0 120 96" role="img" aria-label="Open bell mark"><use href="#mark-open-bell" /></svg>
-            <div>
-              <strong>EMOTITONE</strong>
-              <span>PLAY WHAT YOU FEEL</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="concept__proofs">
-          <div>
-            <span class="concept__proof-label">Compact</span>
-            <div class="bell-lockup bell-lockup--compact">
-              <svg viewBox="0 0 120 96" aria-hidden="true"><use href="#mark-open-bell" /></svg>
-              <strong>EMOTITONE</strong>
-            </div>
-          </div>
-          <div class="concept__mono">
-            <span class="concept__proof-label">One colour</span>
-            <svg class="concept__solo-mark" viewBox="0 0 120 96" role="img" aria-label="Open bell mark in one colour"><use href="#mark-open-bell" /></svg>
-          </div>
-        </div>
-
-        <p class="concept__question">Is an instrument mark ownable—or too specific for the whole product?</p>
-      </article>
-
-      <article class="concept concept--duet">
-        <header class="concept__header">
-          <span>03</span>
-          <div>
-            <h2>Paper Duet</h2>
-            <p>Two cut forms make one imperfect ET.</p>
-          </div>
-        </header>
-
-        <div class="concept__hero">
-          <div class="duet-lockup">
-            <svg viewBox="0 0 104 104" role="img" aria-label="Interlocking E and T mark"><use href="#mark-paper-duet" /></svg>
+          <div class="paper-lockup">
+            <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave six-cut ET mark">
+              <use href="#mark-tight-weave" />
+            </svg>
             <strong>EMOTITONE</strong>
           </div>
         </div>
@@ -149,32 +90,36 @@ const lightStage = ref(false);
         <div class="concept__proofs">
           <div>
             <span class="concept__proof-label">Compact</span>
-            <div class="duet-lockup duet-lockup--compact">
-              <svg viewBox="0 0 104 104" aria-hidden="true"><use href="#mark-paper-duet" /></svg>
+            <div class="paper-lockup paper-lockup--compact">
+              <svg viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-tight-weave" /></svg>
               <strong>EMOTITONE</strong>
             </div>
           </div>
           <div class="concept__mono">
             <span class="concept__proof-label">One colour</span>
-            <svg class="concept__solo-mark paper-duet--mono" viewBox="0 0 104 104" role="img" aria-label="ET mark in one colour"><use href="#mark-paper-duet" /></svg>
+            <svg class="paper-mark paper-mark--mono" viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark in one colour">
+              <use href="#mark-tight-weave" />
+            </svg>
           </div>
         </div>
 
-        <p class="concept__question">Does the emblem read as ET before it reads as collage?</p>
+        <p class="concept__question">Dense, layered, and closest to the first Paper Duet.</p>
       </article>
 
-      <article class="concept concept--resonance">
+      <article class="concept palette--warm">
         <header class="concept__header">
-          <span>04</span>
+          <span>B</span>
           <div>
-            <h2>Resonance</h2>
-            <p>Feeling leaves a small source and fills the room.</p>
+            <h2>Loose Rhythm</h2>
+            <p>Every cut gets a little more air.</p>
           </div>
         </header>
 
         <div class="concept__hero">
-          <div class="resonance-lockup">
-            <svg viewBox="0 0 128 92" role="img" aria-label="Expanding resonance mark"><use href="#mark-resonance" /></svg>
+          <div class="paper-lockup">
+            <svg viewBox="0 0 140 120" role="img" aria-label="Loose Rhythm six-cut ET mark">
+              <use href="#mark-loose-rhythm" />
+            </svg>
             <strong>EMOTITONE</strong>
           </div>
         </div>
@@ -182,24 +127,63 @@ const lightStage = ref(false);
         <div class="concept__proofs">
           <div>
             <span class="concept__proof-label">Compact</span>
-            <div class="resonance-lockup resonance-lockup--compact">
-              <svg viewBox="0 0 128 92" aria-hidden="true"><use href="#mark-resonance" /></svg>
+            <div class="paper-lockup paper-lockup--compact">
+              <svg viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-loose-rhythm" /></svg>
               <strong>EMOTITONE</strong>
             </div>
           </div>
           <div class="concept__mono">
             <span class="concept__proof-label">One colour</span>
-            <svg class="concept__solo-mark" viewBox="0 0 128 92" role="img" aria-label="Resonance mark in one colour"><use href="#mark-resonance" /></svg>
+            <svg class="paper-mark paper-mark--mono" viewBox="0 0 140 120" role="img" aria-label="Loose Rhythm mark in one colour">
+              <use href="#mark-loose-rhythm" />
+            </svg>
           </div>
         </div>
 
-        <p class="concept__question">Does the signal feel emotional and musical—or too much like broadcast?</p>
+        <p class="concept__question">The most handmade and visibly assembled.</p>
+      </article>
+
+      <article class="concept palette--quiet">
+        <header class="concept__header">
+          <span>C</span>
+          <div>
+            <h2>Shared Edge</h2>
+            <p>A calmer, squarer ET silhouette.</p>
+          </div>
+        </header>
+
+        <div class="concept__hero">
+          <div class="paper-lockup">
+            <svg viewBox="0 0 140 120" role="img" aria-label="Shared Edge six-cut ET mark">
+              <use href="#mark-shared-edge" />
+            </svg>
+            <strong>EMOTITONE</strong>
+          </div>
+        </div>
+
+        <div class="concept__proofs">
+          <div>
+            <span class="concept__proof-label">Compact</span>
+            <div class="paper-lockup paper-lockup--compact">
+              <svg viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-shared-edge" /></svg>
+              <strong>EMOTITONE</strong>
+            </div>
+          </div>
+          <div class="concept__mono">
+            <span class="concept__proof-label">One colour</span>
+            <svg class="paper-mark paper-mark--mono" viewBox="0 0 140 120" role="img" aria-label="Shared Edge mark in one colour">
+              <use href="#mark-shared-edge" />
+            </svg>
+          </div>
+        </div>
+
+        <p class="concept__question">The quietest shape, with colour doing less work.</p>
       </article>
     </section>
 
     <footer class="logo-lab__footer">
-      <strong>Choose by number.</strong>
-      <span>Tell me what survives, what dies, and what you want crossed between directions.</span>
+      <strong>Choose A, B, or C.</strong>
+      <span>We can keep one construction and remix its six colours independently.</span>
     </footer>
   </main>
 </template>
@@ -237,16 +221,18 @@ const lightStage = ref(false);
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
   gap: clamp(24px, 6vw, 88px);
   width: min(1440px, 100%);
-  margin: 0 auto clamp(32px, 5vw, 72px);
+  margin: 0 auto clamp(28px, 4vw, 56px);
   align-items: end;
 }
 
 .logo-lab__eyebrow,
+.logo-lab__intro p,
+.anatomy p,
+.anatomy li,
 .concept__header > span,
 .concept__header p,
 .concept__proof-label,
 .concept__question,
-.logo-lab__intro p,
 .logo-lab__footer span {
   font-family: var(--font-mono);
 }
@@ -260,9 +246,9 @@ const lightStage = ref(false);
 }
 
 .logo-lab__header h1 {
-  max-width: 13ch;
+  max-width: 11ch;
   margin: 0;
-  font: 700 clamp(48px, 7vw, 96px)/1.12 var(--font-display);
+  font: 700 clamp(56px, 8vw, 112px)/1.08 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
@@ -294,24 +280,116 @@ const lightStage = ref(false);
   text-transform: uppercase;
 }
 
+.anatomy {
+  display: grid;
+  grid-template-columns: minmax(180px, .35fr) minmax(0, 1.65fr);
+  gap: 24px;
+  width: min(1440px, 100%);
+  margin: 0 auto clamp(20px, 2.5vw, 36px);
+  padding: 18px 20px;
+  border-block: 1px solid var(--lab-wire);
+  align-items: center;
+}
+
+.anatomy header {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.anatomy p {
+  margin: 0;
+  color: var(--lab-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.anatomy h2 {
+  margin: 0;
+  font: 700 22px/1 var(--font-display);
+  text-transform: uppercase;
+}
+
+.anatomy ol {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.anatomy li {
+  display: grid;
+  gap: 8px;
+  color: var(--lab-muted);
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.anatomy i {
+  display: block;
+  width: 100%;
+  height: 12px;
+  background: var(--piece-colour);
+  clip-path: polygon(1% 18%, 98% 0, 96% 82%, 3% 100%);
+}
+
+.anatomy__piece--e-stem { --piece-colour: var(--pine); }
+.anatomy__piece--e-top { --piece-colour: var(--mustard); }
+.anatomy__piece--e-middle { --piece-colour: var(--tomato); }
+.anatomy__piece--e-bottom { --piece-colour: var(--bone); }
+.logo-lab--light .anatomy__piece--e-bottom { --piece-colour: var(--plum); }
+.anatomy__piece--t-cap { --piece-colour: var(--plum); }
+.anatomy__piece--t-stem { --piece-colour: var(--mustard); }
+
 .logo-lab__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(16px, 2.5vw, 36px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 28px);
   width: min(1440px, 100%);
   margin: 0 auto;
 }
 
 .concept {
+  --e-stem: var(--pine);
+  --e-top: var(--mustard);
+  --e-middle: var(--tomato);
+  --e-bottom: var(--bone);
+  --t-cap: var(--plum);
+  --t-stem: var(--mustard);
   display: grid;
-  grid-template-rows: auto minmax(340px, 1fr) auto auto;
+  grid-template-rows: auto minmax(360px, 1fr) auto auto;
   min-width: 0;
   background: var(--lab-panel);
 }
 
+.palette--warm {
+  --e-stem: var(--tomato);
+  --e-top: var(--mustard);
+  --e-middle: var(--bone);
+  --e-bottom: var(--pine);
+  --t-cap: var(--plum);
+  --t-stem: var(--tomato);
+}
+
+.palette--quiet {
+  --e-stem: var(--pine);
+  --e-top: var(--bone);
+  --e-middle: var(--mustard);
+  --e-bottom: var(--pine);
+  --t-cap: var(--plum);
+  --t-stem: var(--tomato);
+}
+
+.logo-lab--light .palette--chorus { --e-bottom: var(--plum); }
+.logo-lab--light .palette--warm { --e-middle: var(--mustard); }
+.logo-lab--light .palette--quiet { --e-top: var(--tomato); }
+
 .concept__header {
   display: flex;
-  gap: 16px;
+  gap: 14px;
+  min-height: 76px;
   padding: 18px 20px;
   border-bottom: 1px solid var(--lab-wire);
   align-items: baseline;
@@ -338,9 +416,33 @@ const lightStage = ref(false);
 .concept__hero {
   display: grid;
   min-width: 0;
-  padding: clamp(28px, 5vw, 72px) 24px;
+  padding: clamp(28px, 4vw, 56px) 20px;
   place-items: center;
 }
+
+.paper-lockup {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+}
+
+.paper-lockup svg {
+  width: clamp(180px, 17vw, 250px);
+  overflow: visible;
+}
+
+.paper-lockup strong {
+  color: var(--lab-primary);
+  font: 700 clamp(54px, 5.2vw, 76px)/1 var(--font-display);
+  letter-spacing: .01em;
+}
+
+.cut--e-stem { fill: var(--e-stem); }
+.cut--e-top { fill: var(--e-top); }
+.cut--e-middle { fill: var(--e-middle); }
+.cut--e-bottom { fill: var(--e-bottom); }
+.cut--t-cap { fill: var(--t-cap); }
+.cut--t-stem { fill: var(--t-stem); }
 
 .concept__proofs {
   display: grid;
@@ -367,7 +469,30 @@ const lightStage = ref(false);
   text-transform: uppercase;
 }
 
-.concept__mono { color: var(--lab-primary); }
+.paper-lockup--compact {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.paper-lockup--compact svg { width: 44px; }
+.paper-lockup--compact strong { font-size: 22px; }
+
+.paper-mark {
+  width: 76px;
+  max-height: 70px;
+  overflow: visible;
+}
+
+.paper-mark--mono {
+  --e-stem: currentColor;
+  --e-top: currentColor;
+  --e-middle: currentColor;
+  --e-bottom: currentColor;
+  --t-cap: currentColor;
+  --t-stem: currentColor;
+  color: var(--lab-primary);
+}
 
 .concept__question {
   min-height: 58px;
@@ -378,123 +503,6 @@ const lightStage = ref(false);
   font-size: 10px;
   line-height: 1.5;
 }
-
-.concept__solo-mark {
-  width: 76px;
-  max-height: 70px;
-  color: currentColor;
-}
-
-.offbeat-lockup {
-  display: grid;
-  width: min-content;
-  color: var(--lab-primary);
-  font: 700 clamp(78px, 8vw, 126px)/.67 var(--font-display);
-  letter-spacing: -.015em;
-  text-transform: uppercase;
-}
-
-.offbeat-lockup__bottom {
-  display: flex;
-  gap: .08em;
-  margin-left: .46em;
-  align-items: center;
-}
-
-.offbeat-lockup__bottom i {
-  width: .25em;
-  height: .25em;
-  background: var(--tomato);
-  clip-path: var(--clip-tile);
-  transform: rotate(-7deg);
-}
-
-.offbeat-lockup--compact {
-  font-size: 38px;
-}
-
-.offbeat-lockup--mark {
-  font-size: 48px;
-}
-
-.concept__mono .offbeat-lockup__bottom i { background: currentColor; }
-
-.bell-lockup,
-.duet-lockup,
-.resonance-lockup {
-  display: flex;
-  align-items: center;
-}
-
-.bell-lockup { gap: clamp(16px, 2vw, 24px); }
-.bell-lockup svg { width: clamp(104px, 10vw, 140px); color: var(--brass); transform: rotate(-3deg); }
-.bell-lockup > div { display: grid; gap: 20px; }
-.bell-lockup strong,
-.duet-lockup strong,
-.resonance-lockup strong {
-  color: var(--lab-primary);
-  font: 700 clamp(52px, 7vw, 94px)/1 var(--font-display);
-  letter-spacing: .01em;
-}
-
-.bell-lockup strong { font-size: clamp(46px, 4.6vw, 64px); }
-
-.bell-lockup span {
-  color: var(--lab-muted);
-  font: 600 10px/1 var(--font-mono);
-  letter-spacing: .23em;
-}
-
-.bell-lockup--compact { gap: 10px; }
-.bell-lockup--compact svg { width: 46px; }
-.bell-lockup--compact strong { font-size: 28px; }
-
-.duet-lockup {
-  flex-direction: column;
-  gap: 16px;
-}
-
-.duet-lockup svg { width: clamp(130px, 18vw, 220px); }
-.duet-lockup svg {
-  --paper-duet-e: var(--bone);
-  --paper-duet-t: var(--plum);
-}
-.logo-lab--light .duet-lockup svg { --paper-duet-e: var(--ink); }
-.duet-lockup strong { font-size: clamp(56px, 7vw, 96px); }
-
-.duet-lockup--compact {
-  flex-direction: row;
-  gap: 10px;
-}
-
-.duet-lockup--compact svg { width: 48px; }
-.duet-lockup--compact strong { font-size: 28px; }
-.paper-duet--mono {
-  --paper-duet-e: currentColor;
-  --paper-duet-t: currentColor;
-  color: currentColor;
-}
-
-.resonance-lockup {
-  flex-direction: column;
-  gap: 22px;
-}
-
-.resonance-lockup svg {
-  --resonance-source: var(--mustard);
-  width: clamp(150px, 20vw, 260px);
-  color: var(--lab-primary);
-}
-.resonance-lockup strong { font-size: clamp(64px, 8vw, 108px); }
-
-.resonance-lockup--compact {
-  flex-direction: row;
-  gap: 12px;
-}
-
-.resonance-lockup--compact svg { width: 56px; }
-.resonance-lockup--compact strong { font-size: 28px; }
-.concept__mono .concept__solo-mark { --resonance-source: currentColor; }
 
 .logo-lab__footer {
   display: flex;
@@ -517,24 +525,31 @@ const lightStage = ref(false);
   font-size: 10px;
 }
 
-@media (max-width: 900px) {
-  .logo-lab__header,
+@media (max-width: 1080px) {
   .logo-lab__grid { grid-template-columns: 1fr; }
-  .concept { grid-template-rows: auto minmax(300px, 1fr) auto auto; }
+  .concept { grid-template-rows: auto minmax(320px, 1fr) auto auto; }
+  .paper-lockup svg { width: clamp(180px, 30vw, 260px); }
+  .paper-lockup strong { font-size: clamp(58px, 9vw, 84px); }
+  .paper-lockup--compact svg { width: 44px; }
+  .paper-lockup--compact strong { font-size: 24px; }
+}
+
+@media (max-width: 900px) {
+  .logo-lab__header { grid-template-columns: 1fr; }
+  .anatomy { grid-template-columns: 1fr; }
+  .anatomy ol { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 520px) {
   .logo-lab { padding: 18px 12px 32px; }
-  .logo-lab__header h1 { font-size: 44px; }
-  .concept__hero { min-height: 280px; padding-inline: 16px; }
-  .offbeat-lockup { font-size: 68px; }
-  .bell-lockup { flex-direction: column; text-align: center; }
-  .bell-lockup strong { font-size: 48px; }
-  .duet-lockup strong,
-  .resonance-lockup strong { font-size: 54px; }
-  .bell-lockup--compact strong,
-  .duet-lockup--compact strong,
-  .resonance-lockup--compact strong { font-size: 22px; }
+  .logo-lab__header h1 { font-size: 56px; }
+  .anatomy { padding-inline: 12px; }
+  .anatomy ol { grid-template-columns: repeat(2, 1fr); }
+  .concept__hero { min-height: 300px; padding-inline: 16px; }
+  .paper-lockup svg { width: 190px; }
+  .paper-lockup strong { font-size: 54px; }
+  .paper-lockup--compact svg { width: 40px; }
+  .paper-lockup--compact strong { font-size: 20px; }
   .logo-lab__footer { display: grid; }
 }
 
@@ -548,7 +563,13 @@ const lightStage = ref(false);
     --lab-muted: CanvasText;
   }
 
-  .offbeat-lockup__bottom i,
-  .concept svg { color: CanvasText; background: CanvasText; }
+  .concept {
+    --e-stem: CanvasText;
+    --e-top: CanvasText;
+    --e-middle: CanvasText;
+    --e-bottom: CanvasText;
+    --t-cap: CanvasText;
+    --t-stem: CanvasText;
+  }
 }
 </style>

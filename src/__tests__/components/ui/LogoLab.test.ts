@@ -10,11 +10,16 @@ describe("Brand Logo definition lab", () => {
     expect(mainSource).toContain('["/style-guide", "/logo-lab"]');
   });
 
-  it("compares four new directions without changing the old BrandLogo source", () => {
-    for (const direction of ["Offbeat", "Open Bell", "Paper Duet", "Resonance"]) {
-      expect(logoLabSource).toContain(direction);
+  it("compares three six-cut Paper Duet refinements without changing the old BrandLogo source", () => {
+    for (const refinement of ["Tight Weave", "Loose Rhythm", "Shared Edge"]) {
+      expect(logoLabSource).toContain(refinement);
     }
 
+    for (const part of ["e-stem", "e-top", "e-middle", "e-bottom", "t-cap", "t-stem"]) {
+      expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(3);
+    }
+
+    expect(logoLabSource).toContain("Round 02");
     expect(logoLabSource).toContain("Compact");
     expect(logoLabSource).toContain("One colour");
     expect(logoLabSource).not.toContain("@/components/uniques/BrandLogo.vue");

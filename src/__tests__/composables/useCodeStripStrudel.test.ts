@@ -254,6 +254,33 @@ describe("CodeStrip transport session", () => {
     expect(adapter.audioOwned).toBe(false);
   });
 
+  it("surfaces a rejected start before its shared cleanup settles", async () => {
+    const transport = useCodeStripStrudel();
+    const adapter = new DeferredEditorAdapter();
+    transport.attachEditor(adapter);
+
+    const playing = transport.play();
+    void playing.catch(() => undefined);
+    await evaluationStarted(adapter);
+    adapter.deferStops = true;
+    adapter.rejectStart(new Error("adapter start rejected"));
+    await vi.waitFor(() => expect(adapter.pendingStops).toHaveLength(1));
+    const stateBeforeCleanup = {
+      error: transport.lastError.value,
+      isStarting: transport.isStarting.value,
+      isPlaying: transport.isPlaying.value,
+    };
+
+    adapter.settleStop();
+    adapter.deferStops = false;
+    await expect(playing).rejects.toThrow("adapter start rejected");
+    expect(stateBeforeCleanup).toEqual({
+      error: "adapter start rejected",
+      isStarting: false,
+      isPlaying: false,
+    });
+  });
+
   it("stops playback when source reconciliation removes playable content", async () => {
     const transport = useCodeStripStrudel();
     const adapter = new DeferredEditorAdapter();
@@ -349,6 +376,22 @@ describe("CodeStrip transport session", () => {
     expect(transport.lastError.value).toBeNull();
     expect(adapter.audioOwned).toBe(true);
     expect(adapter.stopOperations).toHaveLength(stopsBeforeLateCallback);
+  });
+
+  it("accepts an operation-less stop from the active runtime", async () => {
+    const transport = useCodeStripStrudel();
+    const adapter = new DeferredEditorAdapter();
+    transport.attachEditor(adapter);
+    const playing = transport.play();
+    await evaluationStarted(adapter);
+    adapter.completeStart();
+    await playing;
+    expect(transport.isPlaying.value).toBe(true);
+
+    adapter.emitLate({ type: "playing", isPlaying: false, operation: null });
+
+    expect(transport.isPlaying.value).toBe(false);
+    expect(transport.isStarting.value).toBe(false);
   });
 
   it("isolates replacement from stale completion, errors, and toggles", async () => {

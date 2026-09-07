@@ -92,21 +92,13 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     } catch (error) {
       rawWork = Promise.reject(error);
     }
-    const lateCleanup = rawWork.then(
-      async () => {
-        ownership.settled = true;
-        if (ownership.revoked) {
-          await rawStop().catch(() => undefined);
-        }
-        this.disposeQuarantine(ownership);
-        this.releaseRetiredRuntime(ownership);
-      },
-      () => {
-        ownership.settled = true;
-        this.disposeQuarantine(ownership);
-        this.releaseRetiredRuntime(ownership);
-      },
-    );
+    const settleRawWork = async () => {
+      ownership.settled = true;
+      if (ownership.revoked) await rawStop().catch(() => undefined);
+      this.disposeQuarantine(ownership);
+      this.releaseRetiredRuntime(ownership);
+    };
+    const lateCleanup = rawWork.then(settleRawWork, settleRawWork);
 
     try {
       const outcome = await Promise.race([

@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => ({
       scheduler: { onToggle: (started: boolean) => void };
     };
     complete: () => void;
+    fail: (error: unknown) => void;
   }>,
   sharedVisualOwner: null as string | null,
   sharedCanvasOwner: null as string | null,
@@ -68,6 +69,7 @@ vi.mock("@strudel/codemirror", () => ({
       scheduler: { onToggle: (started: boolean) => void };
     };
     private resolveEvaluation: (() => void) | null = null;
+    private rejectEvaluation: ((error: unknown) => void) | null = null;
 
     constructor(options: any) {
       this.options = options;
@@ -102,8 +104,9 @@ vi.mock("@strudel/codemirror", () => ({
         parent: options.root,
       });
       this.rawEvaluate = vi.fn(
-        () => new Promise<void>((resolve) => {
+        () => new Promise<void>((resolve, reject) => {
           this.resolveEvaluation = resolve;
+          this.rejectEvaluation = reject;
         }),
       );
       this.evaluate = this.rawEvaluate;
@@ -133,6 +136,16 @@ vi.mock("@strudel/codemirror", () => ({
       this.options.onDraw();
       this.resolveEvaluation?.();
       this.resolveEvaluation = null;
+      this.rejectEvaluation = null;
+    }
+
+    fail(error: unknown) {
+      this.schedulerActive = true;
+      void this.options.defaultOutput(this.code);
+      this.repl.scheduler.onToggle(true);
+      this.rejectEvaluation?.(error);
+      this.resolveEvaluation = null;
+      this.rejectEvaluation = null;
     }
   },
 }));
@@ -376,7 +389,8 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     const transport = useCodeStripStrudel();
     const root = document.createElement("div");
     document.body.appendChild(root);
-    const adapter = createAdapter("sound('pending')", vi.fn(), root);
+    const releaseShared = vi.fn();
+    const adapter = createAdapter("sound('pending')", releaseShared, root);
     transport.attachEditor(adapter);
     adapter.routeCommands({ play: transport.play, stop: transport.stop });
     const liveView = adapter.view!;
@@ -406,6 +420,12 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     expect(mocks.mirrors[0].clear).toHaveBeenCalled();
     expect(mocks.mirrors[1].clear).toHaveBeenCalled();
     expect(adapter.view).toBeUndefined();
+
+    const releasesBeforeLateFailure = releaseShared.mock.calls.length;
+    mocks.mirrors[0].fail(new Error("late afterEval failure"));
+    await vi.waitFor(() => expect(mocks.mirrors[0].schedulerActive).toBe(false));
+    expect(mocks.mirrors[0].rawStop).toHaveBeenCalledTimes(2);
+    expect(releaseShared).toHaveBeenCalledTimes(releasesBeforeLateFailure);
 
     root.remove();
   });

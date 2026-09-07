@@ -100,6 +100,11 @@ function handleEditorEvent(
     return;
   }
 
+  if (event.type === "playing" && !event.isPlaying && event.operation == null) {
+    clearPlaybackState();
+    return;
+  }
+
   if (event.operation == null) return;
   const owner = attachment.operations.get(event.operation);
   if (!owner || owner.command !== commandGeneration) return;
@@ -281,12 +286,14 @@ async function performStart(
     });
 
     let rejectedError: unknown;
+    let evaluationRejected = false;
     let evaluationCancelled = false;
     try {
       evaluationCancelled = await attachment.adapter.evaluate(source, operation)
         === "cancelled";
     } catch (error) {
       rejectedError = error;
+      evaluationRejected = true;
       attachment.failedOperations.add(operation);
     }
 
@@ -301,6 +308,10 @@ async function performStart(
       && instrumentStore?.selectionEpoch === selectionEpoch;
 
     if (!mayOwnPlayback) {
+      if (evaluationRejected && ownsCommand(attachment, command)) {
+        lastError.value = messageFor(rejectedError);
+        clearPlaybackState();
+      }
       // A retired adapter contains its own late raw completion. Its handoff
       // already released shared state, so it must not release a newer owner.
       if (!attachment.retired && !evaluationCancelled) {
@@ -314,10 +325,7 @@ async function performStart(
         await cleanup.catch(() => undefined);
       }
       if (ownsCommand(attachment, command)) clearPlaybackState();
-      if (rejectedError && ownsCommand(attachment, command)) {
-        lastError.value = messageFor(rejectedError);
-        throw rejectedError;
-      }
+      if (evaluationRejected && ownsCommand(attachment, command)) throw rejectedError;
       return;
     }
 

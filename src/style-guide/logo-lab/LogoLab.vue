@@ -532,6 +532,9 @@ const lightStage = ref(false);
   .bell-lockup strong { font-size: 48px; }
   .duet-lockup strong,
   .resonance-lockup strong { font-size: 54px; }
+  .bell-lockup--compact strong,
+  .duet-lockup--compact strong,
+  .resonance-lockup--compact strong { font-size: 22px; }
   .logo-lab__footer { display: grid; }
 }
 

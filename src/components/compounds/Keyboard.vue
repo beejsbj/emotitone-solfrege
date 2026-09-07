@@ -16,9 +16,9 @@
     :data-edition-seed="resolvedEditionSeed"
     @pointerdown="handlePointerDown"
     @pointermove="handlePointerMove"
-    @pointerup="handlePointerEnd"
-    @pointercancel="handlePointerEnd"
-    @lostpointercapture="handlePointerEnd"
+    @pointerup="handlePointerUp"
+    @pointercancel="handlePointerCancel"
+    @lostpointercapture="handlePointerCancel"
   >
     <div
       v-for="(row, rowIndex) in renderRows"
@@ -332,6 +332,7 @@ const keyElements = new Map<string, HTMLButtonElement>();
 const rememberedFocusId = ref("");
 const activeFocusInputs = new Map<string, KeyboardIntent>();
 const activePointerInputs = reactive(new Map<number, KeyboardIntent | null>());
+const pointerPositions = new Map<number, { x: number; y: number }>();
 
 const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
 const defaultFocusId = computed(
@@ -524,18 +525,11 @@ function pointerInputId(event: PointerEvent) {
     : `${event.pointerType || "pointer"}:${event.pointerId}`;
 }
 
-function keyIntentAtPoint(event: PointerEvent): KeyboardIntent | null {
-  const root = keyboardRef.value;
-  if (!root) return null;
-
-  const hit = document.elementFromPoint?.(event.clientX, event.clientY)
-    ?? event.target;
-  const element = hit instanceof Element
-    ? hit.closest<HTMLElement>("[data-key-id]")
-    : null;
-  if (!element || !root.contains(element)) return null;
-
-  const keyId = element.dataset.keyId;
+function keyIntentForId(
+  keyId: string | undefined,
+  event: PointerEvent,
+): KeyboardIntent | null {
+  if (!keyId) return null;
   const row = renderRows.value.find((candidate) =>
     candidate.keys.some((key) => key.id === keyId),
   );
@@ -550,6 +544,95 @@ function keyIntentAtPoint(event: PointerEvent): KeyboardIntent | null {
     octave: row.octave,
     source: "pointer",
   };
+}
+
+function keyIntentAtPoint(event: PointerEvent): KeyboardIntent | null {
+  const root = keyboardRef.value;
+  if (!root) return null;
+
+  const hit = typeof document.elementFromPoint === "function"
+    ? document.elementFromPoint(event.clientX, event.clientY)
+    : event.target;
+  const element = hit instanceof Element
+    ? hit.closest<HTMLElement>("[data-key-id]")
+    : null;
+  if (!element || !root.contains(element)) return null;
+
+  return keyIntentForId(element.dataset.keyId, event);
+}
+
+function segmentEntryTime(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  rect: DOMRect,
+) {
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  let entry = 0;
+  let exit = 1;
+  const clipAxis = (origin: number, delta: number, min: number, max: number) => {
+    if (delta === 0) return origin >= min && origin <= max;
+    const first = (min - origin) / delta;
+    const second = (max - origin) / delta;
+    entry = Math.max(entry, Math.min(first, second));
+    exit = Math.min(exit, Math.max(first, second));
+    return entry <= exit;
+  };
+
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  if (!clipAxis(start.x, deltaX, rect.left, rect.right)) return null;
+  if (!clipAxis(start.y, deltaY, rect.top, rect.bottom)) return null;
+  return entry >= 0 && entry <= 1 ? entry : null;
+}
+
+function movePointerAlongSegment(
+  pointerId: number,
+  start: { x: number; y: number },
+  event: PointerEvent,
+) {
+  const end = { x: event.clientX, y: event.clientY };
+  const currentKeyId = activePointerInputs.get(pointerId)?.keyId;
+  const crossings = Array.from(keyElements.entries())
+    .map(([keyId, element]) => ({
+      keyId,
+      entry: segmentEntryTime(start, end, element.getBoundingClientRect()),
+    }))
+    .filter((crossing): crossing is { keyId: string; entry: number } =>
+      crossing.entry !== null
+      && !(crossing.entry === 0 && crossing.keyId === currentKeyId)
+    )
+    .sort((a, b) => a.entry - b.entry);
+
+  for (const crossing of crossings) {
+    movePointerInput(
+      pointerId,
+      keyIntentForId(crossing.keyId, event),
+      event,
+    );
+  }
+  movePointerInput(pointerId, keyIntentAtPoint(event), event);
+  pointerPositions.set(pointerId, end);
+}
+
+function pointerSamples(event: PointerEvent) {
+  const coalesced = typeof event.getCoalescedEvents === "function"
+    ? event.getCoalescedEvents()
+    : [];
+  const samples = coalesced.filter((sample) => sample.pointerId === event.pointerId);
+  const last = samples[samples.length - 1];
+  if (!last || last.clientX !== event.clientX || last.clientY !== event.clientY) {
+    samples.push(event);
+  }
+  return samples;
+}
+
+function movePointerThroughSamples(event: PointerEvent) {
+  for (const sample of pointerSamples(event)) {
+    const start = pointerPositions.get(event.pointerId)
+      ?? { x: sample.clientX, y: sample.clientY };
+    movePointerAlongSegment(event.pointerId, start, sample);
+  }
 }
 
 function movePointerInput(pointerId: number, next: KeyboardIntent | null, event: Event) {
@@ -573,20 +656,36 @@ function handlePointerDown(event: PointerEvent) {
   if (event.pointerType !== "mouse") event.preventDefault();
   keyboardRef.value?.setPointerCapture?.(event.pointerId);
   activePointerInputs.set(event.pointerId, intent);
+  pointerPositions.set(event.pointerId, {
+    x: event.clientX,
+    y: event.clientY,
+  });
   dispatchIntent("press", intent);
 }
 
 function handlePointerMove(event: PointerEvent) {
   if (!activePointerInputs.has(event.pointerId)) return;
   event.preventDefault();
-  movePointerInput(event.pointerId, keyIntentAtPoint(event), event);
+  movePointerThroughSamples(event);
 }
 
-function handlePointerEnd(event: PointerEvent) {
+function finishPointerInput(event: PointerEvent) {
   if (!activePointerInputs.has(event.pointerId)) return;
   event.preventDefault();
   movePointerInput(event.pointerId, null, event);
   activePointerInputs.delete(event.pointerId);
+  pointerPositions.delete(event.pointerId);
+}
+
+function handlePointerUp(event: PointerEvent) {
+  if (!activePointerInputs.has(event.pointerId)) return;
+  event.preventDefault();
+  movePointerThroughSamples(event);
+  finishPointerInput(event);
+}
+
+function handlePointerCancel(event: PointerEvent) {
+  finishPointerInput(event);
 }
 
 function releasePointerInputs(event: Event) {
@@ -594,6 +693,7 @@ function releasePointerInputs(event: Event) {
     if (intent) dispatchIntent("release", { ...intent, event });
   }
   activePointerInputs.clear();
+  pointerPositions.clear();
 }
 
 function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {

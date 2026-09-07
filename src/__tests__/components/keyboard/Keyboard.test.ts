@@ -156,6 +156,32 @@ function controlledRows() {
   }];
 }
 
+function glissandoRows() {
+  return [{
+    octave: 4,
+    keys: Array.from({ length: 3 }, (_, scaleIndex) => ({
+      id: `key-${scaleIndex}`,
+      syllable: `Note ${scaleIndex}`,
+      degree: `${scaleIndex + 1}`,
+      rawPitch: `N${scaleIndex}`,
+      scaleIndex,
+    })),
+  }];
+}
+
+function mockGlissandoHitTesting(
+  keys: Array<{ element: HTMLButtonElement }>,
+) {
+  keys.forEach((key, index) => {
+    vi.spyOn(key.element, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(index * 100, 0, 100, 40),
+    );
+  });
+  vi.spyOn(document, "elementFromPoint").mockImplementation((x) =>
+    keys[Math.min(keys.length - 1, Math.floor(x / 100))]?.element ?? null
+  );
+}
+
 describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -371,5 +397,152 @@ describe("Keyboard pointer gestures", () => {
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
     expect(wrapper.emitted("release")?.map(([intent]) =>
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
+  });
+
+  it("plays every crossed key when a fast pointer move skips event samples", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[0].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 220,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(
+      glissandoRows()[0].keys.map((key) => key.id),
+    );
+
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 220,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(
+      glissandoRows()[0].keys.map((key) => key.id),
+    );
+  });
+
+  it("preserves erratic reversals reported in one coalesced pointer event", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[0].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 10,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    const coalescedMove = pointerEvent("pointermove", {
+      pointerId: 10,
+      pointerType: "touch",
+      clientX: 20,
+    });
+    Object.defineProperty(coalescedMove, "getCoalescedEvents", {
+      value: () => [
+        pointerEvent("pointermove", {
+          pointerId: 10,
+          pointerType: "touch",
+          clientX: 220,
+        }),
+        pointerEvent("pointermove", {
+          pointerId: 10,
+          pointerType: "touch",
+          clientX: 20,
+        }),
+      ],
+    });
+    root.element.dispatchEvent(coalescedMove);
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 10,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+
+    const expectedPath = ["key-0", "key-1", "key-2", "key-1", "key-0"];
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+  });
+
+  it("samples the final path segment when a fast swipe ends before another move", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[0].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 12,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 12,
+      pointerType: "touch",
+      clientX: 220,
+    }));
+    await wrapper.vm.$nextTick();
+
+    const expectedPath = glissandoRows()[0].keys.map((key) => key.id);
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+  });
+
+  it("releases outside instead of falling back to the captured key target", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const [first] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x) =>
+      x >= 0 ? first.element : null
+    );
+
+    first.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    first.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: -20,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
+    expect(first.classes()).not.toContain("keyboard__key--pressed");
+
+    first.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: -20,
+    }));
   });
 });

@@ -74,4 +74,17 @@ describe("Melograph humming Stage bridge", () => {
     bridge.stop();
     expect(events.at(-1)?.type).toBe("note-released");
   });
+
+  it("does not present an off-scale pitch as the wrong solfege degree", () => {
+    const dispatchEvent = vi.fn().mockReturnValue(true);
+    const bridge = createHummingStageBridge(
+      { key: "C", mode: "major", instrument: "piano" },
+      { dispatchEvent },
+    );
+
+    bridge.push(voiced(61));
+    bridge.push(voiced(61));
+
+    expect(dispatchEvent).not.toHaveBeenCalled();
+  });
 });

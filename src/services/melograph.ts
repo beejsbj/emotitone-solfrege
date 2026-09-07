@@ -223,6 +223,7 @@ function eventToPatternNote(
     pitchClass,
     context,
   );
+  if (scaleIndex < 0) return null;
   const pressTime = Math.max(
     0,
     Math.round((event.start_seconds - phrase.start_seconds) * 1000),
@@ -257,16 +258,7 @@ function scaleIndexForPitchClass(
   const relativeSemitone = (noteIndex - keyIndex + 12) % 12;
   const intervals = getScaleForMode(context.mode).intervals;
 
-  let fallback = 0;
-  for (let index = 0; index < intervals.length; index += 1) {
-    if (intervals[index] === relativeSemitone) {
-      return index;
-    }
-    if (intervals[index] < relativeSemitone) {
-      fallback = index;
-    }
-  }
-  return fallback;
+  return intervals.indexOf(relativeSemitone);
 }
 
 function isMelographAnalysis(value: unknown): value is MelographAnalysis {

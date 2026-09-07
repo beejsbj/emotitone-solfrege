@@ -101,9 +101,9 @@ describe("Melograph service", () => {
                 start_seconds: 0.3,
                 end_seconds: 0.75,
                 duration_seconds: 99,
-                midi: 61.2,
-                note: "C#4",
-                pitch_hz: 278,
+                midi: 62.2,
+                note: "D4",
+                pitch_hz: 294,
                 confidence: 0.75,
               },
             ],
@@ -118,8 +118,8 @@ describe("Melograph service", () => {
               start_seconds: 1.2,
               end_seconds: 1.8,
               duration_seconds: 0.6,
-              midi: 70,
-              note: "A#4",
+              midi: 69,
+              note: "A4",
             }],
           },
         ],
@@ -134,16 +134,40 @@ describe("Melograph service", () => {
     ]);
     expect(candidates[0].notes[0]).toEqual(expect.objectContaining({
       id: "melograph-capture-1-1",
-      note: "C#4",
+      note: "D4",
       octave: 4,
-      scaleIndex: 0,
+      scaleIndex: 1,
       pressTime: 100,
       releaseTime: 550,
       duration: 450,
-      frequency: 278,
+      frequency: 294,
       velocity: 0.75,
     }));
     expect(candidates[1].notes).toHaveLength(1);
     expect(candidates[1].source?.takeNumber).toBe(2);
+  });
+
+  it("rejects analyzed pitches outside the selected scale", () => {
+    const candidates = melographAnalysisToPatternCandidates(
+      analysis({
+        phrases: [{
+          number: 1,
+          start_seconds: 0,
+          end_seconds: 1,
+          duration_seconds: 1,
+          events: [{
+            type: "note",
+            start_seconds: 0,
+            end_seconds: 1,
+            duration_seconds: 1,
+            midi: 61,
+            note: "C#4",
+          }],
+        }],
+      }),
+      { key: "C", mode: "major" },
+    );
+
+    expect(candidates).toEqual([]);
   });
 });

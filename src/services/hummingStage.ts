@@ -105,6 +105,7 @@ export function createHummingStageBridge(
         pitchClass,
         context,
       );
+      if (solfegeIndex < 0) return;
       const note = getScaleForMode(context.mode).solfege[solfegeIndex];
       if (!note) return;
 
@@ -164,10 +165,5 @@ function scaleIndexForPitchClass(
   const relativeSemitone = (noteIndex - keyIndex + 12) % 12;
   const intervals = getScaleForMode(context.mode).intervals;
 
-  let fallback = 0;
-  for (let index = 0; index < intervals.length; index += 1) {
-    if (intervals[index] === relativeSemitone) return index;
-    if (intervals[index] < relativeSemitone) fallback = index;
-  }
-  return fallback;
+  return intervals.indexOf(relativeSemitone);
 }

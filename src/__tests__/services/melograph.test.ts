@@ -147,8 +147,8 @@ describe("Melograph service", () => {
     expect(candidates[1].source?.takeNumber).toBe(2);
   });
 
-  it("rejects analyzed pitches outside the selected scale", () => {
-    const candidates = melographAnalysisToPatternCandidates(
+  it("surfaces analyzed pitches outside the selected scale", () => {
+    expect(() => melographAnalysisToPatternCandidates(
       analysis({
         phrases: [{
           number: 1,
@@ -166,8 +166,6 @@ describe("Melograph service", () => {
         }],
       }),
       { key: "C", mode: "major" },
-    );
-
-    expect(candidates).toEqual([]);
+    )).toThrow("Melograph detected C#4, which is outside C major.");
   });
 });

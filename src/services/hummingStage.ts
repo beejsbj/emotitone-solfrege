@@ -1,5 +1,6 @@
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { MELOGRAPH_LIVE_SOURCE } from "@/services/melographLivePitch";
+import { findScaleIndexForPitchClass } from "@/services/scalePitch";
 import type { MelographLivePitchFrame } from "@/services/melographLivePitch";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 
@@ -101,11 +102,11 @@ export function createHummingStageBridge(
       }
       const noteName = `${pitchClass}${octave}`;
 
-      const solfegeIndex = scaleIndexForPitchClass(
+      const solfegeIndex = findScaleIndexForPitchClass(
         pitchClass,
         context,
       );
-      if (solfegeIndex < 0) return;
+      if (solfegeIndex == null) return;
       const note = getScaleForMode(context.mode).solfege[solfegeIndex];
       if (!note) return;
 
@@ -154,16 +155,4 @@ export function createHummingStageBridge(
     push: (frame: MelographLivePitchFrame) => gate.push(frame),
     stop: () => gate.flush(),
   };
-}
-
-function scaleIndexForPitchClass(
-  pitchClass: ChromaticNote,
-  context: Pick<HummingStageContext, "key" | "mode">,
-) {
-  const keyIndex = CHROMATIC_NOTES.indexOf(context.key);
-  const noteIndex = CHROMATIC_NOTES.indexOf(pitchClass);
-  const relativeSemitone = (noteIndex - keyIndex + 12) % 12;
-  const intervals = getScaleForMode(context.mode).intervals;
-
-  return intervals.indexOf(relativeSemitone);
 }

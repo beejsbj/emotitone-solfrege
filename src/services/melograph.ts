@@ -1,4 +1,5 @@
-import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
+import { CHROMATIC_NOTES } from "@/data";
+import { findScaleIndexForPitchClass } from "@/services/scalePitch";
 import type { ImportedPatternCandidate } from "@/stores/patterns";
 import type { PatternNote } from "@/types/patterns";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -219,11 +220,15 @@ function eventToPatternNote(
   }
   const canonicalName = `${pitchClass}${octave}`;
 
-  const scaleIndex = scaleIndexForPitchClass(
+  const scaleIndex = findScaleIndexForPitchClass(
     pitchClass,
     context,
   );
-  if (scaleIndex < 0) return null;
+  if (scaleIndex == null) {
+    throw new Error(
+      `Melograph detected ${canonicalName}, which is outside ${context.key} ${context.mode}.`,
+    );
+  }
   const pressTime = Math.max(
     0,
     Math.round((event.start_seconds - phrase.start_seconds) * 1000),
@@ -247,18 +252,6 @@ function eventToPatternNote(
     releaseTime,
     duration: releaseTime - pressTime,
   };
-}
-
-function scaleIndexForPitchClass(
-  pitchClass: ChromaticNote,
-  context: MelographPatternContext,
-): number {
-  const keyIndex = CHROMATIC_NOTES.indexOf(context.key);
-  const noteIndex = CHROMATIC_NOTES.indexOf(pitchClass);
-  const relativeSemitone = (noteIndex - keyIndex + 12) % 12;
-  const intervals = getScaleForMode(context.mode).intervals;
-
-  return intervals.indexOf(relativeSemitone);
 }
 
 function isMelographAnalysis(value: unknown): value is MelographAnalysis {

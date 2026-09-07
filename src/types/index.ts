@@ -93,5 +93,22 @@ export type {
   MidiHeldPress,
 } from "./heldNotes";
 
+// MIDI Session Types
+export type {
+  MidiSessionState,
+  MidiMessageHandler,
+  MidiPortStateChangeHandler,
+  MidiInputPortAdapter,
+  MidiOutputPortAdapter,
+  MidiAccessAdapter,
+  MidiNoteEventDetail,
+  MidiSessionSyncSettings,
+  MidiSessionEffects,
+  CreateMidiSessionOptions,
+  MidiSession,
+  DevMidiSimulator,
+  DevMidiWindow,
+} from "./midi";
+
 // Re-export commonly used Vue types for convenience
 export type { Ref, ComputedRef, WritableComputedRef } from "vue";

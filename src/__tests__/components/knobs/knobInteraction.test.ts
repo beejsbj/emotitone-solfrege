@@ -80,6 +80,9 @@ function setup(
     effects,
     timer,
     value: () => value,
+    setValue: (nextValue: KnobInteractionValue) => {
+      value = nextValue;
+    },
   };
 }
 
@@ -122,6 +125,25 @@ describe("knob interaction interface", () => {
     ]);
     expect(subject.value()).toBe(70);
     expect(subject.effects.some((effect) => effect.type === "scroll")).toBe(false);
+  });
+
+  it("continues from an authoritative external value change during a drag", () => {
+    const subject = setup({ value: 50 });
+    subject.dispatch(start());
+    subject.timer.advance(20);
+    expect(
+      subject.dispatch({ type: "move", point: { x: 100, y: 80 } }).effects,
+    ).toContainEqual({ type: "value", value: 60 });
+
+    subject.setValue(20);
+    subject.timer.advance(20);
+    const continued = subject.dispatch({
+      type: "move",
+      point: { x: 100, y: 60 },
+    });
+
+    expect(continued.effects).toContainEqual({ type: "value", value: 30 });
+    expect(continued.effects).not.toContainEqual({ type: "value", value: 70 });
   });
 
   it.each(["cancel", "disable", "blur"])(

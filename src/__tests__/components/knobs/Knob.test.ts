@@ -292,6 +292,31 @@ describe("Knob public interface", () => {
     expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
   });
 
+  it("continues a drag from an authoritative external model update", async () => {
+    const wrapper = render({ modelValue: 50, type: "range" });
+    await wrapper.trigger("mousedown", { clientX: 100, clientY: 100 });
+    await documentEvent(
+      "mousemove",
+      new MouseEvent("mousemove", { clientX: 100, clientY: 80 }),
+    );
+    expect(wrapper.emitted("update:modelValue")).toEqual([[60]]);
+
+    await wrapper.setProps({ modelValue: 20 });
+    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("20");
+    await documentEvent(
+      "mousemove",
+      new MouseEvent("mousemove", { clientX: 100, clientY: 60 }),
+    );
+
+    const modelUpdates = wrapper.emitted("update:modelValue")!;
+    const legacyUpdates = wrapper.emitted("update:value")!;
+    const continuedValue = Number(modelUpdates[1][0]);
+    expect(modelUpdates[0]).toEqual([60]);
+    expect(continuedValue).toBeGreaterThan(20);
+    expect(continuedValue).toBeLessThan(40);
+    expect(legacyUpdates).toEqual(modelUpdates);
+  });
+
   it("activates a boolean mouse tap once across mouseup and click", async () => {
     const wrapper = render({ modelValue: false, type: "boolean" });
 

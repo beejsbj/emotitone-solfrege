@@ -217,7 +217,10 @@ onBeforeUnmount(() => {
 .joystick {
   --joystick-size: clamp(44px, 92cqi, 58px);
   display: grid;
+  inline-size: var(--joystick-size);
   min-width: 0;
+  max-inline-size: 100%;
+  flex: 0 0 var(--joystick-size);
   justify-items: center;
   gap: 1px;
   container-type: inline-size;
@@ -320,9 +323,12 @@ onBeforeUnmount(() => {
   max-width: 100%;
   overflow: hidden;
   color: var(--ivory-3);
-  font: var(--t-micro);
+  font-family: var(--font-display);
+  font-size: clamp(8px, 14cqi, 10px);
+  font-weight: 500;
   letter-spacing: .08em;
   line-height: 1;
+  text-align: center;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;

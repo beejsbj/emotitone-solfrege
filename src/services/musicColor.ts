@@ -248,44 +248,73 @@ export function resolveMusicColorsByPitchClass(
   config: DynamicColorConfig,
   time?: number
 ): NoteColorRelationships | null {
-  if (config.musicColorMode === "fixed") {
-    const pitchClassIndex = CHROMATIC_NOTES.indexOf(noteName);
-    if (pitchClassIndex === -1) {
-      return null;
-    }
-
-    const baseHue = calculateCenteredHue(pitchClassIndex, 12);
-    const hue =
-      time !== undefined
-        ? generateAnimatedHue(
-            baseHue,
-            config.hueAnimationAmplitude,
-            time,
-            config.animationSpeed,
-            12
-          )
-        : baseHue;
-    const lightness = calculateOctaveLightness(
-      octave,
-      config.baseLightness,
-      config.lightnessRange
-    );
-
-    return generateColorRelationships(hue, config.saturation, lightness);
+  const pitchClassIndex = CHROMATIC_NOTES.indexOf(noteName);
+  if (pitchClassIndex === -1) {
+    return null;
   }
 
-  const scaleDegreeIndex = getScaleDegreeIndexForPitchClass(noteName, key, mode);
+  if (config.musicColorMode === "movable") {
+    const scaleDegreeIndex = getScaleDegreeIndexForPitchClass(noteName, key, mode);
+    return scaleDegreeIndex === null
+      ? null
+      : resolveMusicColorsByScaleIndex(
+          scaleDegreeIndex,
+          mode,
+          key,
+          octave,
+          config,
+          time
+        );
+  }
 
-  return scaleDegreeIndex === null
-    ? null
-    : resolveMusicColorsByScaleIndex(
-        scaleDegreeIndex,
-        mode,
-        key,
-        octave,
-        config,
-        time
-      );
+  const baseHue = calculateCenteredHue(pitchClassIndex, 12);
+  const hue =
+    time !== undefined
+      ? generateAnimatedHue(
+          baseHue,
+          config.hueAnimationAmplitude,
+          time,
+          config.animationSpeed,
+          12
+        )
+      : baseHue;
+  const lightness = calculateOctaveLightness(
+    octave,
+    config.baseLightness,
+    config.lightnessRange
+  );
+
+  return generateColorRelationships(hue, config.saturation, lightness);
+}
+
+/**
+ * Exact-pitch visuals cannot disappear when a pitch is borrowed from outside
+ * the movable scale. Preserve movable degree colors where they exist, then
+ * fall back to that pitch's chromatic identity for presentation only.
+ */
+export function resolveExactMusicColorsByPitchClass(
+  noteName: ChromaticNote,
+  mode: MusicalMode,
+  key: ChromaticNote,
+  octave: number,
+  config: DynamicColorConfig,
+  time?: number
+): NoteColorRelationships | null {
+  return resolveMusicColorsByPitchClass(
+    noteName,
+    mode,
+    key,
+    octave,
+    config,
+    time,
+  ) ?? resolveMusicColorsByPitchClass(
+    noteName,
+    mode,
+    key,
+    octave,
+    { ...config, musicColorMode: "fixed" },
+    time,
+  );
 }
 
 export function resolveMusicColorsByNoteName(

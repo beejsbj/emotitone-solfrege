@@ -13,6 +13,7 @@ import type {
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import {
   getChromaticNoteForScaleIndex,
+  resolveExactMusicColorsByPitchClass,
   resolveMusicColorsByNoteName,
   resolveMusicColorsByScaleIndex,
   resolveSolfegeName as resolveMusicSolfegeName,
@@ -495,7 +496,15 @@ export function useColorSystem() {
       ((pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length)
       % CHROMATIC_NOTES.length
     ];
-    const primaryColor = getStaticPrimaryColor(pitchClass, mode, octave, key);
+    const primaryColor = (
+      resolveExactMusicColorsByPitchClass(
+        pitchClass,
+        mode,
+        key,
+        octave,
+        dynamicColorConfig.value,
+      ) ?? FALLBACK_NOTE_COLORS
+    ).primary;
     if (surfaceStyle === "glassmorphism") {
       return {
         background: createGlassmorphBackground(primaryColor, glassmorphOpacity),

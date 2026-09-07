@@ -2,6 +2,7 @@ import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import { JOYSTICK_OPTIONS, directionFromVector } from "@/components/uniques/Joystick/joystickOptions";
+import joystickSource from "@/components/uniques/Joystick/index.vue?raw";
 import specimen from "@/style-guide/uniques/UniqueJoystick.vue?raw";
 import guide from "@/style-guide/StyleGuide.vue?raw";
 vi.mock("@/utils/hapticFeedback", () => ({ triggerUIHaptic: vi.fn() }));
@@ -48,6 +49,26 @@ describe("Joystick unique", () => {
     expect(wrapper.get(".joystick__stick").attributes("style")).toContain("left: 77%");
     await pointer(document, "pointerup", 150, 50);
     expect(wrapper.emitted("update:modelValue")).toEqual([["jazzy7"]]);
+  });
+  it("shares Knob geometry, centered ring detents, brass sheen, and floating drag feedback", async () => {
+    const { wrapper, plate } = setup();
+
+    expect(wrapper.classes()).toContain("instrument-control");
+    expect(plate.classes()).toContain("instrument-control__face");
+    expect(wrapper.get(".joystick__label").classes()).toContain("instrument-control__label");
+    expect(joystickSource).toContain("animation: brass-sheen 6.5s");
+    expect(joystickSource).toContain("point.x * 44");
+    expect(joystickSource).toContain('import DragValue from "@/components/primatives/DragValue.vue"');
+
+    await pointer(plate.element, "pointerdown", 50, 50);
+    await pointer(document, "pointermove", 80, 50);
+
+    const follower = document.querySelector(".knob-drag-value");
+    expect(follower?.textContent).toContain("Jazzy");
+
+    await pointer(document, "pointerup", 80, 50);
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    wrapper.unmount();
   });
   it("tracks globally when capture is unavailable and releases successful capture on completion", async () => {
     const { wrapper, plate, capture } = setup();

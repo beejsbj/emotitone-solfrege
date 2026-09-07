@@ -1,0 +1,34 @@
+:root {
+  --instrument-control-size-default: clamp(3rem, 12vw, 4.5rem);
+}
+
+.instrument-control {
+  --instrument-control-size: var(--instrument-control-size-default);
+
+  display: grid;
+  inline-size: min(100%, var(--instrument-control-size));
+  max-inline-size: 100%;
+  margin-inline: auto;
+  justify-items: center;
+  container-type: inline-size;
+}
+
+.instrument-control__face {
+  inline-size: 100%;
+  aspect-ratio: 1;
+}
+
+.instrument-control__label {
+  display: block;
+  max-inline-size: 100%;
+  margin-block-start: 3cqi;
+  overflow: hidden;
+  color: currentColor;
+  font-size: clamp(0.625rem, 18cqi, 0.75rem);
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}

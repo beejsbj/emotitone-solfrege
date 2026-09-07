@@ -1,10 +1,10 @@
 <template>
   <Teleport to="body">
-    <div ref="follower" class="knob-drag-value" aria-hidden="true">
+    <div ref="follower" class="drag-value knob-drag-value" aria-hidden="true">
       <Sticker
         :variant="tone === 'brass' ? 'badge' : 'fill'"
         :color="tone === 'brass' ? 'brass-sheen' : 'ivory'"
-        class="knob-drag-value__paper"
+        class="drag-value__paper knob-drag-value__paper"
       >
         {{ value }}
       </Sticker>
@@ -14,14 +14,15 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
-import Sticker from "../Sticker.vue";
-import type { KnobTone } from "./types";
+import Sticker from "./Sticker.vue";
+
+export type DragValueTone = "brass" | "ivory";
 
 const props = defineProps<{
   x: number;
   y: number;
   value: string;
-  tone: KnobTone;
+  tone: DragValueTone;
 }>();
 const follower = ref<HTMLElement>();
 let frame = 0;
@@ -124,7 +125,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
 </script>
 
 <style scoped>
-.knob-drag-value {
+.drag-value {
   position: fixed;
   inset: 0 auto auto 0;
   z-index: 1000;
@@ -136,7 +137,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   will-change: transform;
 }
 
-.knob-drag-value__paper {
+.drag-value__paper {
   max-inline-size: 100%;
   box-sizing: border-box;
   font-variant-numeric: tabular-nums;
@@ -145,7 +146,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   text-align: center;
 }
 
-.knob-drag-value__paper.sticker--fill {
+.drag-value__paper.sticker--fill {
   font-size: 20px;
   text-transform: none;
 }

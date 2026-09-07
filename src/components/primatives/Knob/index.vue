@@ -93,6 +93,7 @@ import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
 import type { KnobTone, KnobType, KnobVisual } from "./types";
 import type {
+  KnobInteractionContact,
   KnobInteractionOutcome,
   KnobPointerKind,
 } from "@/types/knobInteraction";
@@ -311,23 +312,40 @@ const applyOutcome = (result: KnobInteractionOutcome, event?: Event) => {
   }
 };
 
-const pointFrom = (event: MouseEvent | TouchEvent) => {
+const startContactFrom = (
+  event: MouseEvent | TouchEvent,
+): KnobInteractionContact | null => {
   if ("touches" in event) {
-    const touch = event.touches[0];
-    return touch ? { x: touch.clientX, y: touch.clientY } : null;
+    const touch =
+      event.changedTouches[0] ?? event.touches[event.touches.length - 1];
+    return touch
+      ? { id: touch.identifier, point: { x: touch.clientX, y: touch.clientY } }
+      : null;
   }
-  return { x: event.clientX, y: event.clientY };
+  return { id: null, point: { x: event.clientX, y: event.clientY } };
+};
+
+const moveContactsFrom = (
+  event: MouseEvent | TouchEvent,
+): KnobInteractionContact[] => {
+  if ("touches" in event) {
+    return Array.from(event.touches, (touch) => ({
+      id: touch.identifier,
+      point: { x: touch.clientX, y: touch.clientY },
+    }));
+  }
+  return [{ id: null, point: { x: event.clientX, y: event.clientY } }];
 };
 
 const handleStart = (event: MouseEvent | TouchEvent) => {
-  const point = pointFrom(event);
-  if (!point) return;
+  const contact = startContactFrom(event);
+  if (!contact) return;
   const pointer: KnobPointerKind = "touches" in event ? "touch" : "mouse";
   applyOutcome(
     interaction.dispatch({
       type: "start",
       pointer,
-      point,
+      contact,
       button: "button" in event ? event.button : undefined,
       scrollLeft: scrollContext?.read() ?? null,
     }),
@@ -337,20 +355,32 @@ const handleStart = (event: MouseEvent | TouchEvent) => {
 
 const handleMove = (event: Event) => {
   const pointerEvent = event as MouseEvent | TouchEvent;
-  const point = pointFrom(pointerEvent);
-  if (!point) return;
-  applyOutcome(interaction.dispatch({ type: "move", point }), event);
+  applyOutcome(
+    interaction.dispatch({
+      type: "move",
+      contacts: moveContactsFrom(pointerEvent),
+    }),
+    event,
+  );
 };
 
 const handleEnd = (event: Event) => {
-  if (event.type === "touchcancel") {
-    applyOutcome(interaction.dispatch({ type: "cancel" }), event);
-    return;
-  }
-  const pointer: KnobPointerKind = event.type.startsWith("touch")
+  const pointerEvent = event as MouseEvent | TouchEvent;
+  const pointer: KnobPointerKind = "changedTouches" in pointerEvent
     ? "touch"
     : "mouse";
-  applyOutcome(interaction.dispatch({ type: "end", pointer }), event);
+  const endedContactIds = "changedTouches" in pointerEvent
+    ? Array.from(pointerEvent.changedTouches, (touch) => touch.identifier)
+    : [];
+  applyOutcome(
+    interaction.dispatch({
+      type: "end",
+      pointer,
+      endedContactIds,
+      cancelled: event.type === "touchcancel",
+    }),
+    event,
+  );
 };
 
 const handleClick = (event: MouseEvent | TouchEvent) => {

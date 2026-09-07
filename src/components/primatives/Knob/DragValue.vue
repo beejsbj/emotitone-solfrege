@@ -61,6 +61,8 @@ onMounted(() => {
     const top = viewport?.offsetTop ?? 0;
     const width = viewport?.width ?? window.innerWidth;
     const height = viewport?.height ?? window.innerHeight;
+    const viewportGutter = 16;
+    element.style.maxInlineSize = `${Math.max(0, width - viewportGutter * 2)}px`;
     const halfWidth = element.offsetWidth / 2;
     const paperHeight = element.offsetHeight;
     // At the top edge there is no room above: step beside the finger.
@@ -68,7 +70,11 @@ onMounted(() => {
     const targetX = beside
       ? props.x + (props.x < left + width / 2 ? 1 : -1) * (halfWidth + 48)
       : x;
-    const px = Math.max(left + halfWidth + 16, Math.min(left + width - halfWidth - 16, targetX));
+    const minX = left + halfWidth + viewportGutter;
+    const maxX = left + width - halfWidth - viewportGutter;
+    const px = minX <= maxX
+      ? Math.max(minX, Math.min(maxX, targetX))
+      : left + width / 2;
     const targetY = beside ? props.y + paperHeight / 2 : Math.min(y - 80, props.y - 48);
     const py = Math.max(top + paperHeight + 16, Math.min(top + height - 16, targetY));
     element.style.transform = `translate3d(${px}px, ${py}px, 0) translate(-50%, -100%) rotate(${tilt}deg)`;

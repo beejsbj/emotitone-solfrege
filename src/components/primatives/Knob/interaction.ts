@@ -3,6 +3,7 @@ import type {
   KnobGestureState,
   KnobInteraction,
   KnobInteractionClock,
+  KnobInteractionContact,
   KnobInteractionConfiguration,
   KnobInteractionEffect,
   KnobInteractionEvent,
@@ -40,6 +41,7 @@ export function createKnobInteraction(
   let dragging = false;
   let gesture: KnobGestureState = "idle";
   let pointer: KnobPointerKind | null = null;
+  let activeContactId: number | null = null;
   let startPoint: KnobInteractionPoint = { x: 0, y: 0 };
   let point: KnobInteractionPoint = { x: 0, y: 0 };
   let startTime = 0;
@@ -91,6 +93,7 @@ export function createKnobInteraction(
     dragging = false;
     gesture = "idle";
     pointer = null;
+    activeContactId = null;
     valueAccumulator = 0;
     optionAccumulator = 0;
     lastOptionChange = undefined;
@@ -266,6 +269,7 @@ export function createKnobInteraction(
     const configuration = readConfiguration();
     if (
       configuration.inert ||
+      held ||
       (event.pointer === "mouse" && event.button !== undefined && event.button !== 0)
     ) {
       return outcome();
@@ -277,8 +281,9 @@ export function createKnobInteraction(
     dragging = false;
     gesture = "potential_tap";
     pointer = event.pointer;
-    startPoint = { ...event.point };
-    point = { ...event.point };
+    activeContactId = event.contact.id;
+    startPoint = { ...event.contact.point };
+    point = { ...event.contact.point };
     startTime = clock.now();
     totalMovement = 0;
     velocity = 0;
@@ -300,12 +305,17 @@ export function createKnobInteraction(
     if (configuration.inert) return cancel();
     reconcileValue(configuration);
 
+    const activeContact = event.contacts.find(
+      (contact: KnobInteractionContact) => contact.id === activeContactId,
+    );
+    if (!activeContact) return outcome();
+
     const now = clock.now();
     const previousY = point.y;
-    const deltaY = previousY - event.point.y;
-    const deltaFromStartX = event.point.x - startPoint.x;
-    const deltaFromStartY = event.point.y - startPoint.y;
-    point = { ...event.point };
+    const deltaY = previousY - activeContact.point.y;
+    const deltaFromStartX = activeContact.point.x - startPoint.x;
+    const deltaFromStartY = activeContact.point.y - startPoint.y;
+    point = { ...activeContact.point };
     totalMovement = Math.hypot(deltaFromStartX, deltaFromStartY);
 
     movementBuffer.push({ y: point.y, time: now });
@@ -354,6 +364,14 @@ export function createKnobInteraction(
 
   const end = (event: Extract<KnobInteractionEvent, { type: "end" }>) => {
     if (!held || pointer !== event.pointer) return outcome();
+    if (
+      event.pointer === "touch" &&
+      (activeContactId === null ||
+        !event.endedContactIds.includes(activeContactId))
+    ) {
+      return outcome();
+    }
+    if (event.cancelled) return cancel();
     const configuration = readConfiguration();
     if (configuration.inert) return cancel();
     reconcileValue(configuration);

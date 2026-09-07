@@ -30,16 +30,26 @@ export interface KnobInteractionPoint {
   y: number;
 }
 
+export interface KnobInteractionContact {
+  id: number | null;
+  point: KnobInteractionPoint;
+}
+
 export type KnobInteractionEvent =
   | {
       type: "start";
       pointer: KnobPointerKind;
-      point: KnobInteractionPoint;
+      contact: KnobInteractionContact;
       button?: number;
       scrollLeft: number | null;
     }
-  | { type: "move"; point: KnobInteractionPoint }
-  | { type: "end"; pointer: KnobPointerKind }
+  | { type: "move"; contacts: readonly KnobInteractionContact[] }
+  | {
+      type: "end";
+      pointer: KnobPointerKind;
+      endedContactIds: readonly number[];
+      cancelled?: boolean;
+    }
   | { type: "click"; keyboard: boolean }
   | { type: "cancel" };
 

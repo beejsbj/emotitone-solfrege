@@ -92,9 +92,27 @@ const start = (
 ): KnobInteractionEvent => ({
   type: "start",
   pointer,
-  point: { x: 100, y: 100 },
+  contact: {
+    id: pointer === "touch" ? 8 : null,
+    point: { x: 100, y: 100 },
+  },
   button: pointer === "mouse" ? 0 : undefined,
   scrollLeft,
+});
+
+const move = (
+  x: number,
+  y: number,
+  pointer: "mouse" | "touch" = "mouse",
+): KnobInteractionEvent => ({
+  type: "move",
+  contacts: [{ id: pointer === "touch" ? 8 : null, point: { x, y } }],
+});
+
+const end = (pointer: "mouse" | "touch"): KnobInteractionEvent => ({
+  type: "end",
+  pointer,
+  endedContactIds: pointer === "touch" ? [8] : [],
 });
 
 describe("knob interaction interface", () => {
@@ -102,7 +120,7 @@ describe("knob interaction interface", () => {
     const subject = setup();
     subject.dispatch(start("touch", 40));
 
-    const result = subject.dispatch({ type: "move", point: { x: 130, y: 102 } });
+    const result = subject.dispatch(move(130, 102, "touch"));
 
     expect(result.consume).toBe(true);
     expect(result.view).toMatchObject({ held: true, dragging: true, gesture: "horizontal_scroll" });
@@ -111,12 +129,58 @@ describe("knob interaction interface", () => {
     expect(subject.effects.some((effect) => effect.type === "haptic")).toBe(false);
   });
 
+  it("keeps a touch gesture bound to its initiating contact", () => {
+    const subject = setup();
+    subject.dispatch(start("touch"));
+
+    const secondStart = subject.dispatch({
+      type: "start",
+      pointer: "touch",
+      contact: { id: 12, point: { x: 140, y: 140 } },
+      scrollLeft: null,
+    });
+    expect(secondStart.effects).toEqual([]);
+    expect(secondStart.view.point).toEqual({ x: 100, y: 100 });
+
+    const unrelatedMove = subject.dispatch({
+      type: "move",
+      contacts: [
+        { id: 3, point: { x: 30, y: 20 } },
+        { id: 8, point: { x: 100, y: 100 } },
+        { id: 12, point: { x: 140, y: 40 } },
+      ],
+    });
+    expect(unrelatedMove.effects).toEqual([]);
+
+    const unrelatedCancel = subject.dispatch({
+      type: "end",
+      pointer: "touch",
+      endedContactIds: [3, 12],
+      cancelled: true,
+    });
+    expect(unrelatedCancel.effects).toEqual([]);
+    expect(unrelatedCancel.view.held).toBe(true);
+
+    expect(subject.dispatch(move(100, 80, "touch")).effects).toContainEqual({
+      type: "value",
+      value: 60,
+    });
+    expect(
+      subject.dispatch({
+        type: "end",
+        pointer: "touch",
+        endedContactIds: [8],
+        cancelled: true,
+      }).effects,
+    ).toEqual([{ type: "release" }]);
+  });
+
   it("gives a vertical gesture value ownership without emitting scroll", () => {
     const subject = setup();
     subject.dispatch(start("touch", 40));
     subject.timer.advance(20);
 
-    const result = subject.dispatch({ type: "move", point: { x: 102, y: 60 } });
+    const result = subject.dispatch(move(102, 60, "touch"));
 
     expect(result.view.gesture).toBe("confirmed_drag");
     expect(result.effects).toEqual([
@@ -132,15 +196,12 @@ describe("knob interaction interface", () => {
     subject.dispatch(start());
     subject.timer.advance(20);
     expect(
-      subject.dispatch({ type: "move", point: { x: 100, y: 80 } }).effects,
+      subject.dispatch(move(100, 80)).effects,
     ).toContainEqual({ type: "value", value: 60 });
 
     subject.setValue(20);
     subject.timer.advance(20);
-    const continued = subject.dispatch({
-      type: "move",
-      point: { x: 100, y: 60 },
-    });
+    const continued = subject.dispatch(move(100, 60));
 
     expect(continued.effects).toContainEqual({ type: "value", value: 30 });
     expect(continued.effects).not.toContainEqual({ type: "value", value: 70 });
@@ -151,12 +212,12 @@ describe("knob interaction interface", () => {
     (reason) => {
       const subject = setup();
       subject.dispatch(start("touch"));
-      subject.dispatch({ type: "move", point: { x: 100, y: 60 } });
+      subject.dispatch(move(100, 60, "touch"));
       if (reason === "disable") subject.configuration.inert = true;
 
       const cancelled = subject.dispatch({ type: "cancel" });
-      const lateMove = subject.dispatch({ type: "move", point: { x: 100, y: 20 } });
-      const lateEnd = subject.dispatch({ type: "end", pointer: "touch" });
+      const lateMove = subject.dispatch(move(100, 20, "touch"));
+      const lateEnd = subject.dispatch(end("touch"));
 
       expect(cancelled.effects).toEqual([{ type: "release" }]);
       expect(cancelled.view).toMatchObject({ held: false, dragging: false, gesture: "idle" });
@@ -169,7 +230,7 @@ describe("knob interaction interface", () => {
     const subject = setup({ value: false, kind: "boolean" });
     subject.dispatch(start("touch"));
     subject.timer.advance(20);
-    subject.dispatch({ type: "end", pointer: "touch" });
+    subject.dispatch(end("touch"));
     expect(subject.timer.pending()).toBe(1);
 
     const disposed = subject.interaction.dispose();
@@ -184,10 +245,10 @@ describe("knob interaction interface", () => {
     const subject = setup({ value: 1, min: 0, max: 1, step: 0.1 });
     subject.dispatch(start());
     subject.timer.advance(20);
-    expect(subject.dispatch({ type: "move", point: { x: 100, y: -100 } }).effects).toEqual([]);
+    expect(subject.dispatch(move(100, -100)).effects).toEqual([]);
 
     subject.timer.advance(20);
-    const reversed = subject.dispatch({ type: "move", point: { x: 100, y: -70 } });
+    const reversed = subject.dispatch(move(100, -70));
 
     expect(reversed.effects).toContainEqual({ type: "value", value: 0.8 });
     expect(subject.value()).toBe(0.8);
@@ -198,19 +259,19 @@ describe("knob interaction interface", () => {
     const forward = setup({ value: "SAW", kind: "options", options });
     forward.dispatch(start());
     forward.timer.advance(20);
-    forward.dispatch({ type: "move", point: { x: 100, y: 80 } });
+    forward.dispatch(move(100, 80));
     expect(forward.value()).toBe("SIN");
 
     forward.timer.advance(50);
-    expect(forward.dispatch({ type: "move", point: { x: 100, y: 60 } }).effects).toEqual([]);
+    expect(forward.dispatch(move(100, 60)).effects).toEqual([]);
     forward.timer.advance(50);
-    forward.dispatch({ type: "move", point: { x: 100, y: 40 } });
+    forward.dispatch(move(100, 40));
     expect(forward.value()).toBe("SAW");
 
     const backward = setup({ value: "SIN", kind: "options", options });
     backward.dispatch(start());
     backward.timer.advance(20);
-    backward.dispatch({ type: "move", point: { x: 100, y: 120 } });
+    backward.dispatch(move(100, 120));
     expect(backward.value()).toBe("SAW");
   });
 
@@ -218,7 +279,7 @@ describe("knob interaction interface", () => {
     const subject = setup({ value: false, kind: "boolean" });
     subject.dispatch(start("touch"));
     subject.timer.advance(20);
-    const touchEnd = subject.dispatch({ type: "end", pointer: "touch" });
+    const touchEnd = subject.dispatch(end("touch"));
     const synthesized = subject.dispatch({ type: "click", keyboard: false });
 
     expect(touchEnd.effects).toEqual([
@@ -235,8 +296,8 @@ describe("knob interaction interface", () => {
   it("does not let a synthesized click bypass touch movement or duration thresholds", () => {
     const moved = setup({ value: false, kind: "boolean" });
     moved.dispatch(start("touch"));
-    moved.dispatch({ type: "move", point: { x: 108, y: 108 } });
-    const movedEnd = moved.dispatch({ type: "end", pointer: "touch" });
+    moved.dispatch(move(108, 108, "touch"));
+    const movedEnd = moved.dispatch(end("touch"));
     const movedClick = moved.dispatch({ type: "click", keyboard: false });
     expect(movedEnd.consume).toBe(true);
     expect(movedEnd.effects).toEqual([{ type: "release" }]);
@@ -246,7 +307,7 @@ describe("knob interaction interface", () => {
     const held = setup({ value: false, kind: "boolean" });
     held.dispatch(start("touch"));
     held.timer.advance(200);
-    held.dispatch({ type: "end", pointer: "touch" });
+    held.dispatch(end("touch"));
     held.dispatch({ type: "click", keyboard: false });
     expect(held.value()).toBe(false);
   });
@@ -254,7 +315,7 @@ describe("knob interaction interface", () => {
   it("suppresses clicks that arrive before an active gesture releases", () => {
     const subject = setup({ value: false, kind: "boolean" });
     subject.dispatch(start());
-    subject.dispatch({ type: "move", point: { x: 100, y: 70 } });
+    subject.dispatch(move(100, 70));
 
     const click = subject.dispatch({ type: "click", keyboard: false });
 
@@ -267,7 +328,7 @@ describe("knob interaction interface", () => {
     const subject = setup({ value: false, kind: "boolean" });
     subject.dispatch(start("touch"));
     subject.timer.advance(20);
-    subject.dispatch({ type: "end", pointer: "touch" });
+    subject.dispatch(end("touch"));
 
     const keyboard = subject.dispatch({ type: "click", keyboard: true });
     const synthesized = subject.dispatch({ type: "click", keyboard: false });
@@ -280,8 +341,8 @@ describe("knob interaction interface", () => {
   it("expires drag click suppression so a later real click is not lost", () => {
     const subject = setup({ value: false, kind: "boolean" });
     subject.dispatch(start());
-    subject.dispatch({ type: "move", point: { x: 130, y: 100 } });
-    subject.dispatch({ type: "end", pointer: "mouse" });
+    subject.dispatch(move(130, 100));
+    subject.dispatch(end("mouse"));
     expect(subject.timer.pending()).toBe(1);
 
     subject.timer.advance(500);

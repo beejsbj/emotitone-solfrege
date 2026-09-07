@@ -47,6 +47,19 @@ describe("Knob public interface", () => {
     await nextTick();
   };
 
+  const touchEvent = (
+    type: string,
+    touches: Array<{ identifier: number; clientX: number; clientY: number }>,
+    changedTouches = touches,
+  ) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      touches: { value: touches },
+      changedTouches: { value: changedTouches },
+    });
+    return event;
+  };
+
   it("shows formatted values above contact, updates immediately, and removes on release", async () => {
     const wrapper = render({ modelValue: -4.84, type: "range", formatValue: (v: number) => `${v} dB` });
     expect(document.querySelector(".knob-drag-value")).toBeNull();
@@ -71,9 +84,11 @@ describe("Knob public interface", () => {
 
   it("cancels touch without tapping and cleans up a held follower on unmount", async () => {
     const wrapper = render({ modelValue: "a", options: ["a", "b"] });
-    await wrapper.trigger("touchstart", { touches: [{ clientX: 150, clientY: 300 }] });
+    const contact = { identifier: 4, clientX: 150, clientY: 300 };
+    wrapper.element.dispatchEvent(touchEvent("touchstart", [contact]));
+    await nextTick();
     expect(document.querySelector(".knob-drag-value")).not.toBeNull();
-    await documentEvent("touchcancel", new Event("touchcancel"));
+    await documentEvent("touchcancel", touchEvent("touchcancel", [], [contact]));
     expect(document.querySelector(".knob-drag-value")).toBeNull();
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
@@ -81,6 +96,47 @@ describe("Knob public interface", () => {
     wrappers = wrappers.filter((entry) => entry !== wrapper);
     expect(document.querySelector(".knob-drag-value")).toBeNull();
     expect(document.removeEventListener).toHaveBeenCalledWith("mousemove", expect.any(Function));
+  });
+
+  it("keeps a multi-touch drag bound to its initiating finger", async () => {
+    const wrapper = render({ modelValue: "a", options: ["a", "b"] });
+    const heldKey = { identifier: 3, clientX: 30, clientY: 700 };
+    const knobFinger = { identifier: 8, clientX: 150, clientY: 300 };
+    wrapper.element.dispatchEvent(touchEvent(
+      "touchstart",
+      [heldKey, knobFinger],
+      [knobFinger],
+    ));
+    await nextTick();
+
+    const secondKnobFinger = { identifier: 12, clientX: 160, clientY: 310 };
+    wrapper.element.dispatchEvent(touchEvent(
+      "touchstart",
+      [heldKey, knobFinger, secondKnobFinger],
+      [secondKnobFinger],
+    ));
+    await nextTick();
+
+    await documentEvent("touchmove", touchEvent("touchmove", [
+      { ...heldKey, clientY: 620 },
+      knobFinger,
+      { ...secondKnobFinger, clientY: 230 },
+    ]));
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+
+    await documentEvent("touchend", touchEvent(
+      "touchend",
+      [knobFinger],
+      [heldKey, secondKnobFinger],
+    ));
+    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+
+    const movedKnobFinger = { ...knobFinger, clientY: 250 };
+    await documentEvent("touchmove", touchEvent("touchmove", [movedKnobFinger]));
+    expect(wrapper.emitted("update:modelValue")).toEqual([["b"]]);
+
+    await documentEvent("touchend", touchEvent("touchend", [], [movedKnobFinger]));
+    expect(document.querySelector(".knob-drag-value")).toBeNull();
   });
 
   it("removes a follower when made inert and keeps display-only activation inert", async () => {

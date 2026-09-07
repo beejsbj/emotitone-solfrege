@@ -10,6 +10,7 @@ const visualConfigStore = vi.hoisted(() => ({
 const unifiedCanvasMocks = vi.hoisted(() => ({
   canvasWidth: 1024,
   canvasHeight: 768,
+  harmonicAccessibleText: 'Chord: C major. Interval C4 to E4: 3M',
   initializeCanvas: vi.fn(),
   handleResize: vi.fn(),
   handleNotePlayed: vi.fn(),
@@ -63,6 +64,8 @@ describe('UnifiedVisualEffects.vue', () => {
     expect(wrapper.find('[data-testid="beating-shapes"]').exists()).toBe(true)
     expect(wrapper.find('.unified-canvas').attributes('width')).toBe('1024')
     expect(wrapper.find('.unified-canvas').attributes('height')).toBe('768')
+    expect(wrapper.find('.unified-canvas').attributes('aria-hidden')).toBe('true')
+    expect(wrapper.find('[aria-live="polite"]').text()).toContain('Chord: C major')
   })
 
   it('does not render the visual layer when visuals are disabled', () => {
@@ -118,6 +121,7 @@ describe('UnifiedVisualEffects.vue', () => {
           pitchClassIndex: 0,
           mode: 'major',
           key: 'C',
+          durationMs: 500,
         },
       })
     )
@@ -139,9 +143,32 @@ describe('UnifiedVisualEffects.vue', () => {
       'C4',
       'major',
       'C',
-      0
+      0,
+      500,
     )
-    expect(unifiedCanvasMocks.handleNoteReleased).toHaveBeenCalledWith('C4', 'note-1')
+    expect(unifiedCanvasMocks.handleNoteReleased).toHaveBeenCalledWith('C4', 'note-1', 'C4')
+  })
+
+  it('uses the solfege blob key for legacy id-less releases', async () => {
+    const listeners = new Map<string, EventListener>()
+    vi.spyOn(window, 'addEventListener').mockImplementation((type, listener) => {
+      listeners.set(type, listener as EventListener)
+    })
+
+    wrapper = createTestWrapper(UnifiedVisualEffects)
+    await nextTick()
+
+    listeners.get('note-released')?.(
+      new CustomEvent('note-released', {
+        detail: { note: 'Do', noteName: 'C4' },
+      })
+    )
+
+    expect(unifiedCanvasMocks.handleNoteReleased).toHaveBeenCalledWith(
+      'Do',
+      undefined,
+      'C4'
+    )
   })
 
   it('stops animation and removes listeners on unmount', async () => {

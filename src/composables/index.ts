@@ -8,6 +8,7 @@ export { useKeyboardControls } from "./useKeyboardControls";
 export { useMidiControls } from "./useMidiControls";
 export { useAppLoading } from "./useAppLoading";
 export { useTooltip } from "./useTooltip";
+export { useHarmonicAnalysis } from "./useHarmonicAnalysis";
 
 // Canvas modules
 export * from "./canvas";

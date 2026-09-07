@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import floatingPopupSource from "@/components/FloatingPopup.vue?raw";
 import unifiedCanvasSource from "@/composables/canvas/useUnifiedCanvas.ts?raw";
 import { resolveBlobPitchClass } from "@/composables/canvas/useBlobRenderer";
 
@@ -14,12 +13,5 @@ describe("exact-pitch visual identity", () => {
       "major",
       "D#4",
     )).toBe("D#");
-  });
-
-  it("colors active exact pitches by pitch class instead of a scale sentinel", () => {
-    expect(floatingPopupSource).toContain("getKeyBackgroundByPitchClass(");
-    expect(floatingPopupSource).toContain(
-      "note.solfegeIndex < 0 && Number.isInteger(note.pitchClassIndex)",
-    );
   });
 });

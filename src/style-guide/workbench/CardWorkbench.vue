@@ -35,15 +35,14 @@
           class="spine-variant"
           :spine="`var(--${card.tone})`"
         >
-          <template #label>{{ card.index }} — Spine / {{ card.tone }}</template>
-          <Kicker :tone="card.tone">{{ card.kicker }}</Kicker>
+          <template #label>{{ card.index }} — {{ card.kicker }} / {{ card.tone }}</template>
           <h3 class="spine-variant__title">{{ card.title }}</h3>
           <p class="spine-variant__body">{{ card.body }}</p>
         </CardCandidate>
       </div>
       <p class="definition-note">
-        The variant adds Brand Color and its Kicker/stamp content recipe. Surface,
-        edge, square geometry, and spine channel still come from Card.
+        The variant moves its kicker metadata into Card's edge label, then adds
+        Brand Color, stamped headline, and body. It needs no second internal label.
       </p>
     </section>
 
@@ -128,7 +127,6 @@
 import { defineComponent, h } from "vue";
 import BarTape from "../../components/primatives/BarTape.vue";
 import CardShell from "../../components/primatives/CardShell.vue";
-import Kicker from "../../components/primatives/Kicker.vue";
 import SpineCard from "../../components/primatives/SpineCard.vue";
 import GuidePatternCard from "../../components/compounds/PatternCard.vue";
 import ProductionPatternCard from "../../components/patterns/PatternCard.vue";
@@ -253,7 +251,7 @@ const spineCards: Array<{
 
 .spine-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .spine-variant { min-height: 168px; }
-.spine-variant :deep(.card-candidate__content) { display: flex; flex-direction: column; gap: 10px; }
+.spine-variant :deep(.card-candidate__content) { display: flex; flex-direction: column; }
 .spine-variant__title { font-size: 28px; line-height: .9; }
 .spine-variant__body { margin: auto 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
 

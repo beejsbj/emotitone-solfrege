@@ -15,6 +15,11 @@ export type CodeStripEditorEvent =
 
 export type CodeStripEditorListener = (event: CodeStripEditorEvent) => void;
 
+export interface CodeStripStopRequest {
+  operation: CodeStripTransportOperation;
+  releaseShared: boolean;
+}
+
 export interface CodeStripEditorAdapter {
   getSource: () => string;
   replaceSource: (source: string) => void;
@@ -22,7 +27,7 @@ export interface CodeStripEditorAdapter {
     source: string,
     operation: CodeStripTransportOperation,
   ) => Promise<void>;
-  stop: (operation: CodeStripTransportOperation) => Promise<void> | void;
+  stop: (request: CodeStripStopRequest) => Promise<void> | void;
   subscribe: (listener: CodeStripEditorListener) => () => void;
   destroy: () => Promise<void> | void;
 }

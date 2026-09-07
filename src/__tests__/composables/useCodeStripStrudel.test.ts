@@ -4,6 +4,7 @@ import type {
   CodeStripEditorAdapter,
   CodeStripEditorEvent,
   CodeStripEditorListener,
+  CodeStripStopRequest,
   CodeStripTransportOperation,
 } from "@/types/codeStripTransport";
 
@@ -54,10 +55,14 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
     });
   }
 
-  stop(operation: CodeStripTransportOperation) {
-    this.stopOperations.push(operation);
+  stop(request: CodeStripStopRequest) {
+    this.stopOperations.push(request.operation);
     this.audioOwned = false;
-    this.emit({ type: "playing", isPlaying: false, operation });
+    this.emit({
+      type: "playing",
+      isPlaying: false,
+      operation: request.operation,
+    });
   }
 
   subscribe(listener: CodeStripEditorListener) {
@@ -273,12 +278,13 @@ describe("CodeStrip transport session", () => {
     const newAdapter = new DeferredEditorAdapter("sound('new')");
     transport.attachEditor(newAdapter);
     const newPlay = transport.play();
-    await evaluationStarted(newAdapter);
-    newAdapter.completeStart();
-    await newPlay;
+    expect(newAdapter.evaluations).toHaveLength(0);
 
     oldAdapter.completeStart();
     await oldPlay;
+    await evaluationStarted(newAdapter);
+    newAdapter.completeStart();
+    await newPlay;
     oldAdapter.emitLate({
       type: "error",
       error: new Error("detached error"),

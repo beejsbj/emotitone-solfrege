@@ -5,6 +5,7 @@ import { markRaw } from "vue";
 import type {
   CodeStripEditorAdapter,
   CodeStripEditorListener,
+  CodeStripStopRequest,
   CodeStripTransportCommands,
   CodeStripTransportOperation,
   StrudelMirrorAdapterOptions,
@@ -95,13 +96,13 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     }
   }
 
-  async stop(operation: CodeStripTransportOperation) {
-    this.stopOperation = operation;
+  async stop(request: CodeStripStopRequest) {
+    this.stopOperation = request.operation;
     try {
       await this.rawStop();
     } finally {
-      this.onRelease();
-      if (this.stopOperation === operation) this.stopOperation = null;
+      if (request.releaseShared) this.onRelease();
+      if (this.stopOperation === request.operation) this.stopOperation = null;
     }
   }
 

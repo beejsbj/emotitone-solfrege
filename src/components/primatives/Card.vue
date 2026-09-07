@@ -1,20 +1,18 @@
 <template>
   <component
     :is="as"
-    :class="['card-candidate', { 'card-candidate--flush': flush }]"
-    :style="{ '--card-candidate-spine': spine }"
+    :class="['system-card', { 'system-card--flush': flush }]"
+    :style="{ '--card-spine': spine }"
   >
-    <span class="card-candidate__spine" aria-hidden="true"></span>
-    <span v-if="$slots.label" class="card-candidate__label">
-      <slot name="label" />
-    </span>
-    <span v-if="$slots.mark" class="card-candidate__mark">
+    <span class="system-card__spine" aria-hidden="true"></span>
+    <span class="system-card__label">{{ label }}</span>
+    <span v-if="$slots.mark" class="system-card__mark">
       <slot name="mark" />
     </span>
-    <div class="card-candidate__content">
+    <div class="system-card__content">
       <slot />
     </div>
-    <div v-if="$slots.footer" class="card-candidate__footer">
+    <div v-if="$slots.footer" class="system-card__footer">
       <slot name="footer" />
     </div>
   </component>
@@ -23,6 +21,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
+    label: string;
     as?: string;
     spine?: string;
     flush?: boolean;
@@ -36,8 +35,8 @@ withDefaults(
 </script>
 
 <style scoped>
-.card-candidate {
-  --card-candidate-spine: var(--ivory);
+.system-card {
+  --card-spine: var(--ivory);
   position: relative;
   display: flex;
   box-sizing: border-box;
@@ -48,18 +47,18 @@ withDefaults(
   color: var(--ivory);
 }
 
-.card-candidate__spine {
+.system-card__spine {
   position: absolute;
   z-index: 1;
   top: 0;
   bottom: 0;
   left: 0;
   width: 4px;
-  background: var(--card-candidate-spine);
+  background: var(--card-spine);
   pointer-events: none;
 }
 
-.card-candidate__label {
+.system-card__label {
   position: absolute;
   z-index: 2;
   top: -10px;
@@ -73,7 +72,7 @@ withDefaults(
   text-transform: uppercase;
 }
 
-.card-candidate__mark {
+.system-card__mark {
   position: absolute;
   z-index: 1;
   top: 8px;
@@ -84,18 +83,18 @@ withDefaults(
   user-select: none;
 }
 
-.card-candidate__content {
+.system-card__content {
   box-sizing: border-box;
   min-width: 0;
   flex: 1;
   padding: 20px 18px 22px 22px;
 }
 
-.card-candidate--flush .card-candidate__content {
+.system-card--flush .system-card__content {
   padding: 0;
 }
 
-.card-candidate__footer {
+.system-card__footer {
   position: relative;
   z-index: 2;
 }

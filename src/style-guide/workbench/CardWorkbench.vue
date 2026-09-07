@@ -1,25 +1,24 @@
 <template>
   <main class="workbench">
     <header class="workbench__header">
-      <p class="workbench__eyebrow">Definition workbench · one shared candidate</p>
+      <p class="workbench__eyebrow">Accepted foundation · one shared source</p>
       <h1>Card.vue</h1>
       <p>
-        The selected first CardShell is the soul. Spine Card and Pattern Card below
-        render through the same workbench-only shell before production formalization.
+        The selected first CardShell recipe is now Card. Colored Cards and Pattern
+        Card below render through the same authoritative source.
       </p>
     </header>
 
     <section class="workbench__section">
       <SectionHead index="01" title="Card soul" note="Selected recipe · Ivory spine folded in" />
-      <CardCandidate class="soul-card">
-        <template #label>01 — Stage / Ivory</template>
+      <Card class="soul-card" label="01 — Stage / Ivory">
         <template #mark><span class="ordinal">01</span></template>
         <h3 class="editorial-title">A dark room. Ivory type.</h3>
         <p class="editorial-body">
           Ink-3 fill, Ink-5 hairline, square slab, floating label, optional mark,
           and a 4px full-height Ivory spine.
         </p>
-      </CardCandidate>
+      </Card>
       <p class="definition-note">
         Card owns this shell and its optional anchors. It does not own a fixed
         height, title/body requirement, controls, state, or motion.
@@ -27,31 +26,30 @@
     </section>
 
     <section class="workbench__section">
-      <SectionHead index="02" title="Spine Card" note="Card variant · brand changes the spine" />
-      <div class="spine-grid">
-        <CardCandidate
-          v-for="card in spineCards"
+      <SectionHead index="02" title="Card color" note="Same Card · only the spine color changes" />
+      <div class="color-grid">
+        <Card
+          v-for="card in coloredCards"
           :key="card.tone"
-          class="spine-variant"
+          class="color-card"
+          :label="`${card.index} — ${card.kicker} / ${card.tone}`"
           :spine="`var(--${card.tone})`"
         >
-          <template #label>{{ card.index }} — {{ card.kicker }} / {{ card.tone }}</template>
-          <h3 class="spine-variant__title">{{ card.title }}</h3>
-          <p class="spine-variant__body">{{ card.body }}</p>
-        </CardCandidate>
+          <h3 class="color-card__title">{{ card.title }}</h3>
+          <p class="color-card__body">{{ card.body }}</p>
+        </Card>
       </div>
       <p class="definition-note">
-        The variant moves its kicker metadata into Card's edge label, then adds
-        Brand Color, stamped headline, and body. It needs no second internal label.
+        These are Cards. The notch owns their metadata and the spine input changes
+        color; neither creates a variant, subtype, or second component.
       </p>
     </section>
 
     <section class="workbench__section">
-      <SectionHead index="03" title="Pattern Card" note="Card variant · Ivory spine + Bar Tape" />
+      <SectionHead index="03" title="Pattern Card" note="Pattern anatomy · Card + Ivory spine + Bar Tape" />
       <div class="pattern-stack">
         <p class="surface-label">List density</p>
-        <CardCandidate class="pattern-candidate" flush>
-          <template #label>Pattern 01 — Piano / C Major</template>
+        <Card class="pattern-candidate" label="Pattern 01 — Piano / C Major" flush>
           <div class="pattern-row">
             <span class="pattern-number">01</span>
             <span class="pattern-copy">
@@ -61,11 +59,13 @@
             <small class="pattern-count">14 notes</small>
           </div>
           <template #footer><BarTape :segments="timeline" /></template>
-        </CardCandidate>
+        </Card>
 
         <p class="surface-label">Focused density</p>
-        <CardCandidate class="pattern-candidate pattern-candidate--focused">
-          <template #label>Pattern 01 — Piano / C Major</template>
+        <Card
+          class="pattern-candidate pattern-candidate--focused"
+          label="Pattern 01 — Piano / C Major"
+        >
           <template #mark><span class="ordinal ordinal--pattern">01</span></template>
           <h3 class="pattern-focus__title">{{ productionPattern.name }}</h3>
           <p class="pattern-focus__meta">14 events · duration weighted</p>
@@ -74,7 +74,7 @@
             <span>Actions remain Pattern Card-owned</span>
           </div>
           <template #footer><BarTape :segments="timeline" /></template>
-        </CardCandidate>
+        </Card>
       </div>
       <p class="definition-note">
         Pattern Card supplies density, identity, actions, selection, and list
@@ -85,27 +85,7 @@
 
     <section class="workbench__section">
       <details class="reference">
-        <summary>Current sources used for comparison</summary>
-        <div class="reference__grid">
-          <div>
-            <p class="surface-label">Extracted CardShell</p>
-            <CardShell
-              label="01 — Stage / Ivory"
-              title="A dark room. Ivory type."
-              body="The selected source recipe before the Ivory spine."
-            >
-              <template #mark><span class="ordinal">01</span></template>
-            </CardShell>
-          </div>
-          <div>
-            <p class="surface-label">Existing separate SpineCard</p>
-            <SpineCard
-              kicker="Preset"
-              stamp="Warm-up"
-              body="Currently duplicates its own surface, edge, and spine shell."
-            />
-          </div>
-        </div>
+        <summary>Current Pattern Card sources used for comparison</summary>
         <div class="reference__patterns">
           <p class="surface-label">Existing guide PatternCard</p>
           <GuidePatternCard
@@ -126,15 +106,12 @@
 <script setup lang="ts">
 import { defineComponent, h } from "vue";
 import BarTape from "../../components/primatives/BarTape.vue";
-import CardShell from "../../components/primatives/CardShell.vue";
-import SpineCard from "../../components/primatives/SpineCard.vue";
+import Card from "../../components/primatives/Card.vue";
 import GuidePatternCard from "../../components/compounds/PatternCard.vue";
 import ProductionPatternCard from "../../components/patterns/PatternCard.vue";
 import { useColorSystem } from "../../composables/useColorSystem";
 import { defaultPatterns } from "../../data/patterns";
-import CardCandidate from "./CardCandidate.vue";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
-import type { SpineCardTone } from "../../components/primatives/SpineCard.vue";
 
 const SectionHead = defineComponent({
   props: { index: String, title: String, note: String },
@@ -159,9 +136,9 @@ const timeline: BarTapeSegment[] = productionPattern.notes.map((note) => ({
   durationMs: note.duration,
 }));
 
-const spineCards: Array<{
+const coloredCards: Array<{
   index: string;
-  tone: SpineCardTone;
+  tone: "tomato" | "pine" | "mustard";
   kicker: string;
   title: string;
   body: string;
@@ -238,7 +215,7 @@ const spineCards: Array<{
 .soul-card { min-height: 190px; }
 .ordinal { font: 400 52px/1 var(--font-display); letter-spacing: var(--tracking-display); }
 .editorial-title,
-.spine-variant__title,
+.color-card__title,
 .pattern-focus__title {
   margin: 0;
   font-family: var(--font-display);
@@ -249,11 +226,11 @@ const spineCards: Array<{
 .editorial-body { max-width: 28ch; margin: 0; color: var(--ivory-3); font: var(--t-body-s); }
 .definition-note { margin: 14px 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
 
-.spine-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.spine-variant { min-height: 168px; }
-.spine-variant :deep(.card-candidate__content) { display: flex; flex-direction: column; }
-.spine-variant__title { font-size: 28px; line-height: .9; }
-.spine-variant__body { margin: auto 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
+.color-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.color-card { min-height: 168px; }
+.color-card :deep(.system-card__content) { display: flex; flex-direction: column; }
+.color-card__title { font-size: 28px; line-height: .9; }
+.color-card__body { margin: auto 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
 
 .pattern-stack { display: grid; gap: 12px; }
 .surface-label { margin-top: 8px; }
@@ -291,16 +268,13 @@ const spineCards: Array<{
 
 .reference { color: var(--ivory-3); }
 .reference summary { cursor: pointer; font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; }
-.reference__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
-.reference__grid > div,
 .reference__patterns { display: grid; gap: 12px; }
 .reference__patterns { margin-top: 20px; }
 
 @media (max-width: 640px) {
   .section-head { align-items: start; flex-direction: column; }
   .section-head > p { text-align: left; }
-  .spine-grid,
-  .reference__grid { grid-template-columns: 1fr; }
+  .color-grid { grid-template-columns: 1fr; }
   .pattern-row { grid-template-columns: 42px minmax(0, 1fr) auto; gap: 8px; padding-right: 10px; padding-left: 12px; }
   .pattern-count { max-width: 6ch; text-align: right; }
   .pattern-focus__state { align-items: start; flex-direction: column; }

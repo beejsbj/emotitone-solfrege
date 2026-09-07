@@ -221,6 +221,57 @@ describe("MIDI session", () => {
     });
   });
 
+  it("finishes output hotplug cleanup when the disconnected output throws", async () => {
+    const output = new FakeMidiOutput("roli", "LUMI Keys Block");
+    const access = new FakeMidiAccess([], [output]);
+    const harness = createHarness({ requestAccess: async () => access });
+    await harness.session.connect();
+    output.send.mockClear();
+    harness.session.notePlayed({ noteName: "C4", durationMs: 50 });
+
+    output.throwWhenDisconnected = true;
+    output.state = "disconnected";
+    expect(() => access.change()).not.toThrow();
+    expect(harness.session.getState()).toMatchObject({
+      isListening: true,
+      connectedOutputs: [],
+      syncedOutput: null,
+    });
+
+    const sendsAfterHotplug = output.send.mock.calls.length;
+    vi.advanceTimersByTime(50);
+    expect(output.send).toHaveBeenCalledTimes(sendsAfterHotplug);
+  });
+
+  it.each(["disconnect", "dispose"] as const)(
+    "finishes %s when the selected output throws",
+    async (action) => {
+      const output = new FakeMidiOutput("roli", "LUMI Keys Block");
+      const harness = createHarness({
+        requestAccess: async () => new FakeMidiAccess([], [output]),
+      });
+      await harness.session.connect();
+      output.send.mockClear();
+      harness.session.notePlayed({ noteName: "C4", durationMs: 50 });
+      output.throwWhenDisconnected = true;
+      output.state = "disconnected";
+
+      expect(() => harness.session[action]()).not.toThrow();
+      expect(harness.session.getState()).toMatchObject({
+        isConnecting: false,
+        isListening: false,
+        connectedInputs: [],
+        connectedOutputs: [],
+        syncedOutput: null,
+        lastError: null,
+      });
+
+      const sendsAfterCleanup = output.send.mock.calls.length;
+      vi.advanceTimersByTime(50);
+      expect(output.send).toHaveBeenCalledTimes(sendsAfterCleanup);
+    }
+  );
+
   it("routes packet and velocity rules through held-note ownership", async () => {
     const harness = createHarness();
     harness.effects.attackNote
@@ -298,6 +349,41 @@ describe("MIDI session", () => {
     expect(output.send).not.toHaveBeenCalledWith([0x90, 60, 100], undefined);
     expect(output.send).not.toHaveBeenCalledWith([0x80, 60, 0], undefined);
     expect(harness.effects.releaseNote).toHaveBeenCalledWith("roli-note");
+  });
+
+  it("consumes ROLI echo tokens before honoring mirror opt-out", async () => {
+    const input = new FakeMidiInput("roli-in", "LUMI Keys Block");
+    const output = new FakeMidiOutput("roli-out", "LUMI Keys Block");
+    const harness = createHarness({
+      requestAccess: async () => new FakeMidiAccess([input], [output]),
+    });
+    harness.effects.attackNote.mockImplementation(async () => {
+      harness.session.notePlayed({
+        mirrorMidi: false,
+        noteId: "roli-note",
+        noteName: "C4",
+      });
+      return "roli-note";
+    });
+    harness.effects.releaseNote.mockImplementation(() => {
+      harness.session.noteReleased({
+        mirrorMidi: false,
+        noteId: "roli-note",
+        noteName: "C4",
+      });
+    });
+    await harness.session.connect();
+    output.send.mockClear();
+
+    input.message([0x90, 60, 100]);
+    await flushPromises();
+    harness.session.notePlayed({ noteId: "app-note", noteName: "C4" });
+    input.message([0x80, 60, 0]);
+    harness.session.noteReleased({ noteId: "app-note", noteName: "C4" });
+
+    expect(output.send).toHaveBeenCalledTimes(2);
+    expect(output.send).toHaveBeenNthCalledWith(1, [0x90, 60, 100], undefined);
+    expect(output.send).toHaveBeenNthCalledWith(2, [0x80, 60, 0], undefined);
   });
 
   it("mirrors owned releases and timeout releases while honoring opt-out", async () => {
@@ -448,7 +534,12 @@ class FakeMidiInput implements MidiInputPortAdapter {
 }
 
 class FakeMidiOutput implements MidiOutputPortAdapter {
-  send = vi.fn<(message: number[], timestamp?: number) => void>();
+  throwWhenDisconnected = false;
+  send = vi.fn<(message: number[], timestamp?: number) => void>(() => {
+    if (this.throwWhenDisconnected && this.state === "disconnected") {
+      throw new DOMException("The port is disconnected", "InvalidStateError");
+    }
+  });
 
   constructor(
     readonly id: string,

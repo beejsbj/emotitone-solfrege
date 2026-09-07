@@ -125,7 +125,12 @@ export function createMidiSession(
     message: number[],
     timestamp?: number
   ) => {
-    output.send(message, timestamp);
+    try {
+      output.send(message, timestamp);
+    } catch {
+      // Device state can change between a port snapshot and a hardware send.
+      // Port reconciliation remains authoritative; output effects are best effort.
+    }
   };
 
   const clearMirroredOutputState = () => {
@@ -137,13 +142,15 @@ export function createMidiSession(
   };
 
   const flushOutput = (output: MidiOutputPortAdapter | null) => {
-    if (output) {
-      buildRoliAllNotesOffMessages(ROLI_SYNC_CONTROL_CHANNEL).forEach(
-        (message) => sendToOutput(output, message)
-      );
+    try {
+      if (output) {
+        buildRoliAllNotesOffMessages(ROLI_SYNC_CONTROL_CHANNEL).forEach(
+          (message) => sendToOutput(output, message)
+        );
+      }
+    } finally {
+      clearMirroredOutputState();
     }
-
-    clearMirroredOutputState();
   };
 
   const sendPalette = () => {
@@ -472,14 +479,11 @@ export function createMidiSession(
     }
 
     activateVisualNote(detail);
-    if (detail?.mirrorMidi === false) {
-      return;
-    }
-
-    if (
+    const isInputEcho = Boolean(
       detail?.noteName
       && consumePendingNoteCount(pendingInputNoteOns, detail.noteName)
-    ) {
+    );
+    if (detail?.mirrorMidi === false || isInputEcho) {
       return;
     }
 
@@ -516,11 +520,10 @@ export function createMidiSession(
     }
 
     releaseVisualNote(detail);
-    if (detail?.mirrorMidi === false) {
-      return;
-    }
-
-    if (detail?.noteId && pendingInputNoteOffs.delete(detail.noteId)) {
+    const isInputEcho = Boolean(
+      detail?.noteId && pendingInputNoteOffs.delete(detail.noteId)
+    );
+    if (detail?.mirrorMidi === false || isInputEcho) {
       return;
     }
 

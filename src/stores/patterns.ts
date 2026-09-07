@@ -332,6 +332,8 @@ export const usePatternsStore = defineStore(
         note: note.note,
         scaleDegree: note.scaleDegree,
         scaleIndex: note.scaleIndex,
+        pitchClassIndex: note.pitchClassIndex,
+        isBorrowed: note.isBorrowed,
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
@@ -363,6 +365,8 @@ export const usePatternsStore = defineStore(
         note: note.note,
         scaleDegree: note.scaleDegree,
         scaleIndex: note.scaleIndex,
+        pitchClassIndex: note.pitchClassIndex,
+        isBorrowed: note.isBorrowed,
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
@@ -510,6 +514,8 @@ export const usePatternsStore = defineStore(
         frequency,
         noteName,
         solfegeIndex,
+        pitchClassIndex,
+        isBorrowed: emittedBorrowed,
         octave,
         noteId,
         instrument,
@@ -521,13 +527,16 @@ export const usePatternsStore = defineStore(
       }
 
       // Create partial log note for this press
+      const isBorrowed = emittedBorrowed === true || solfegeIndex < 0;
       const partialLogNote: Partial<LogNote> = {
         id: generateNoteId(),
         note: noteName,
         key: musicStore.currentKey as ChromaticNote,
         mode: musicStore.currentMode as MusicalMode,
-        scaleDegree: calculateScaleDegree(solfegeIndex),
+        scaleDegree: isBorrowed ? 0 : calculateScaleDegree(solfegeIndex),
         scaleIndex: calculateScaleIndex(solfegeIndex),
+        pitchClassIndex,
+        isBorrowed,
         solfege: note as SolfegeData,
         octave,
         frequency,

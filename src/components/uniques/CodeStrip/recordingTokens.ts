@@ -5,6 +5,7 @@ import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { PatternNote } from "@/types/patterns";
 import type { KeyboardConfig, CodeStripConfig } from "@/types/visual";
 import type { CodeStripNote, CodeStripToken } from "./types";
+import { Note as TonalNote } from "@tonaljs/tonal";
 
 const OVERLAP_EPSILON_MS = 1;
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
@@ -95,22 +96,29 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     const pressRanks = new Map(
       pressOrdered.map((span, pressOrder) => [span.indexed.note.id, pressOrder]),
     );
-    const members = pressOrdered.map((span): ChordMember => ({
-      id: span.indexed.note.id,
-      syllable: solfegeLabel(span.indexed.note, input.mode),
-      degree: degreeLabel(span.indexed.note, input.mode),
-      rawPitch: span.indexed.note.note,
-      scaleIndex: span.indexed.note.scaleIndex,
-      octave: span.indexed.note.octave,
-      mode: input.mode,
-      musicKey: input.musicKey,
-      surfaceStyle: noteSurfaceStyle(input.surfaceStyle),
-      accidental: isAccidental(span.indexed.note.note),
-      keyBrightness: input.keyBrightness,
-      keySaturation: input.keySaturation,
-      voicingOrder: voicingRanks.get(span.indexed.note.id),
-      pressOrder: pressRanks.get(span.indexed.note.id),
-    }));
+    const members = pressOrdered.map((span): ChordMember => {
+      const note = span.indexed.note;
+      const borrowed = isBorrowedNote(note);
+      return {
+        id: note.id,
+        syllable: borrowed ? undefined : solfegeLabel(note, input.mode),
+        degree: borrowed ? undefined : degreeLabel(note, input.mode),
+        rawPitch: note.note,
+        primary: borrowed ? "raw" : undefined,
+        visibleLabels: borrowed ? ["raw"] : undefined,
+        scaleIndex: note.scaleIndex,
+        pitchClassIndex: borrowed ? exactPitchClassIndex(note) : undefined,
+        octave: note.octave,
+        mode: input.mode,
+        musicKey: input.musicKey,
+        surfaceStyle: noteSurfaceStyle(input.surfaceStyle),
+        accidental: isAccidental(note.note),
+        keyBrightness: input.keyBrightness,
+        keySaturation: input.keySaturation,
+        voicingOrder: voicingRanks.get(note.id),
+        pressOrder: pressRanks.get(note.id),
+      };
+    });
 
     tokens.push({
       type: "chord",
@@ -199,12 +207,17 @@ function noteToken(
   input: RecordedCodeStripInput,
 ): CodeStripToken {
   const note = span.indexed.note;
-  const normalizedIndex = normalizeScaleIndex(input.mode, note.scaleIndex);
+  const borrowed = isBorrowedNote(note);
+  const normalizedIndex = borrowed ? 0 : normalizeScaleIndex(input.mode, note.scaleIndex);
   const codeStripNote = NOTE_NAMES[positiveModulo(normalizedIndex, NOTE_NAMES.length)];
-  const syllable = solfegeLabel(note, input.mode);
-  const degree = degreeLabel(note, input.mode);
-  const glyph = input.notation === "note" ? "raw" : input.notation === "degree" ? "deg" : "syl";
-  const text = glyph === "raw" ? note.note : glyph === "deg" ? degree : syllable;
+  const syllable = borrowed ? undefined : solfegeLabel(note, input.mode);
+  const degree = borrowed ? undefined : degreeLabel(note, input.mode);
+  const glyph = borrowed || input.notation === "note"
+    ? "raw"
+    : input.notation === "degree" ? "deg" : "syl";
+  const text = glyph === "raw"
+    ? note.note
+    : glyph === "deg" ? degree ?? note.note : syllable ?? note.note;
 
   return {
     type: "note",
@@ -216,6 +229,7 @@ function noteToken(
     degree,
     rawPitch: note.note,
     scaleIndex: note.scaleIndex,
+    pitchClassIndex: borrowed ? exactPitchClassIndex(note) : undefined,
     octave: note.octave,
     mode: input.mode,
     musicKey: input.musicKey,
@@ -224,6 +238,15 @@ function noteToken(
     keyBrightness: input.keyBrightness,
     keySaturation: input.keySaturation,
   };
+}
+
+function isBorrowedNote(note: PatternNote) {
+  return note.isBorrowed === true || note.scaleIndex < 0;
+}
+
+function exactPitchClassIndex(note: PatternNote) {
+  if (typeof note.pitchClassIndex === "number") return note.pitchClassIndex;
+  return TonalNote.get(note.note).chroma ?? undefined;
 }
 
 function solfegeLabel(note: PatternNote, mode: MusicalMode) {

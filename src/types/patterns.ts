@@ -42,11 +42,17 @@ export interface LogNote {
   /** Current musical scale/mode */
   mode: MusicalMode;
 
-  /** Scale degree root = 1 */
+  /** Scale degree root = 1; 0 marks a borrowed pitch outside the scale. */
   scaleDegree: number;
 
-  /** Scale index in current scale root = 0 */
+  /** Scale index in current scale root = 0; -1 marks a borrowed pitch. */
   scaleIndex: number;
+
+  /** Absolute chromatic identity for exact/borrowed pitches. */
+  pitchClassIndex?: number;
+
+  /** Whether this exact pitch sits outside the captured scale. */
+  isBorrowed?: boolean;
 
   /** Solfège information for this note */
   solfege: SolfegeData;
@@ -92,11 +98,17 @@ export interface PatternNote {
   /** Note name with octave (e.g., "C4", "F#5") */
   note: string;
 
-  /** Scale degree root = 1 */
+  /** Scale degree root = 1; 0 marks a borrowed pitch outside the scale. */
   scaleDegree: number;
 
-  /** Scale index in current scale root = 0 */
+  /** Scale index in current scale root = 0; -1 marks a borrowed pitch. */
   scaleIndex: number;
+
+  /** Absolute chromatic identity for exact/borrowed pitches. */
+  pitchClassIndex?: number;
+
+  /** Whether this exact pitch sits outside the captured scale. */
+  isBorrowed?: boolean;
 
   /** Octave number */
   octave: number;

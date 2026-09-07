@@ -5,6 +5,7 @@ vi.unmock("@/services/music");
 vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
+import { usePatternsStore } from "@/stores/patterns";
 
 const superdoughMocks = vi.hoisted(() => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
@@ -118,6 +119,8 @@ describe("music store", () => {
 
   it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
     const musicStore = useMusicStore();
+    const patternsStore = usePatternsStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
     musicStore.setKey("C");
     musicStore.setMode("major");
@@ -132,8 +135,29 @@ describe("music store", () => {
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "D#4",
       solfegeIndex: -1,
+      pitchClassIndex: 3,
       octave: 4,
     });
+
+    const playedEvent = dispatchEventSpy.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.type === "note-played") as CustomEvent;
+    patternsStore.handleNotePressed(playedEvent);
+
+    await musicStore.releaseNote(noteId ?? undefined);
+    const releasedEvent = dispatchEventSpy.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.type === "note-released") as CustomEvent;
+    patternsStore.handleNoteReleased(releasedEvent);
+    expect(patternsStore.loggedNotes[0]).toMatchObject({
+      note: "D#4",
+      scaleDegree: 0,
+      scaleIndex: -1,
+      pitchClassIndex: 3,
+      isBorrowed: true,
+      solfege: { name: "D#", number: 0 },
+    });
+    patternsStore.removeEventListeners();
   });
 
   it("plays notes using the actual current mode degree count", async () => {

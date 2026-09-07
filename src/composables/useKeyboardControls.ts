@@ -3,7 +3,8 @@
  * Handles keyboard mapping and event handling for solfege note playback
  */
 
-import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, type Ref } from "vue";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
@@ -78,6 +79,7 @@ const KEY_ROWS = [
  * Composable for handling keyboard controls for solfege notes
  */
 export function useKeyboardControls(mainOctave: Ref<number>) {
+  const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
   const patternsStore = usePatternsStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
@@ -85,6 +87,9 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
+  // Keys depressed while input is locked must see a physical keyup before
+  // they may attack. Otherwise OS key-repeat can start a note after unlock.
+  const blockedKeys = ref<Set<string>>(new Set());
 
   // Track keyboard-triggered notes separately from mouse-triggered notes
   const keyboardNoteIds = ref<Map<string, string>>(new Map());
@@ -163,14 +168,25 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       return;
     }
 
-    // Ignore if key is already pressed (prevents key repeat)
-    if (pressedKeys.value.has(key)) {
-      return;
-    }
-
     // Get current keyboard mapping
     const keyboardMapping = getKeyboardMapping();
     if (key in keyboardMapping) {
+      if (blockedKeys.value.has(key)) {
+        event.preventDefault();
+        return;
+      }
+
+      if (instrumentStore.isInteractionLocked) {
+        event.preventDefault();
+        blockedKeys.value.add(key);
+        return;
+      }
+
+      // Ignore if key is already pressed (prevents key repeat)
+      if (pressedKeys.value.has(key)) {
+        return;
+      }
+
       event.preventDefault();
       pressedKeys.value.add(key);
 
@@ -184,11 +200,15 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
           detail: { solfegeIndex, octave, key: label },
         })
       );
-
       void voiceGroups.attack(ownerId, [
         () => musicStore.attackNoteWithOctave(solfegeIndex, octave),
       ]).then(([noteId]) => {
-        if (noteId && pressedKeys.value.has(key)) {
+        if (
+          noteId
+          && pressedKeys.value.has(key)
+          && !blockedKeys.value.has(key)
+          && !instrumentStore.isInteractionLocked
+        ) {
           keyboardNoteIds.value.set(key, noteId);
         }
       });
@@ -197,6 +217,10 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   const handleKeyUp = (event: KeyboardEvent) => {
     const key = event.code;
+
+    if (blockedKeys.value.delete(key)) {
+      return;
+    }
 
     if (pressedKeys.value.has(key)) {
       pressedKeys.value.delete(key);
@@ -228,7 +252,23 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     // Clear tracking maps
     pressedKeys.value.clear();
     keyboardNoteIds.value.clear();
+    blockedKeys.value.clear();
   };
+
+  watch(
+    () => instrumentStore.isInteractionLocked,
+    (locked) => {
+      if (!locked) return;
+
+      for (const key of pressedKeys.value) {
+        blockedKeys.value.add(key);
+        keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
+      }
+      voiceGroups.releaseAll();
+      pressedKeys.value.clear();
+      keyboardNoteIds.value.clear();
+    },
+  );
 
   // Setup and cleanup
   const setupKeyboardListeners = () => {
@@ -251,6 +291,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     // Clear tracking maps
     pressedKeys.value.clear();
     keyboardNoteIds.value.clear();
+    blockedKeys.value.clear();
   };
 
   // Auto-setup when used in a component
@@ -262,6 +303,8 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     keyboardNoteIds: computed(() => keyboardNoteIds.value),
     getKeyboardMapping,
     getKeyboardLetterForNote,
+    handleKeyDown,
+    handleKeyUp,
     setupKeyboardListeners,
     cleanupKeyboardListeners,
   };

@@ -17,6 +17,7 @@ interface PressableKeyCallbacks {
 }
 
 interface PressableKeyOptions {
+  disabled?: () => boolean;
   touchHoldDelayMs?: number;
   touchPanThresholdPx?: number;
   touchTapPulseMs?: number;
@@ -41,7 +42,7 @@ export function usePressableKey(
   const touchInputId = (identifier: number) => `touch:${identifier}`;
 
   function beginInput(inputId: string, event: Event) {
-    if (activeInputIds.has(inputId)) return;
+    if (options.disabled?.() || activeInputIds.has(inputId)) return;
     activeInputIds.add(inputId);
     callbacks.press({ inputId, event });
   }

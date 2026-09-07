@@ -50,10 +50,14 @@ const mocks = vi.hoisted(() => {
     attackExactPitch: vi.fn(async (pitch: string) => `exact-${pitch}`),
     releaseNote: vi.fn(),
   };
+  const instrumentStore = {
+    isInteractionLocked: false,
+  };
 
   return {
     keyboardStore,
     musicStore,
+    instrumentStore,
     useKeyboardControls: vi.fn(),
     triggerNoteHaptic: vi.fn(),
   };
@@ -65,6 +69,10 @@ vi.mock("@/stores/keyboardDrawer", () => ({
 
 vi.mock("@/stores/music", () => ({
   useMusicStore: () => mocks.musicStore,
+}));
+
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => mocks.instrumentStore,
 }));
 
 vi.mock("@/composables/useKeyboardControls", () => ({
@@ -102,6 +110,7 @@ const KeyStub = defineComponent({
     keySaturation: Number,
     sounding: Boolean,
     pressed: Boolean,
+    disabled: Boolean,
     ariaLabel: String,
   },
   emits: ["press", "release"],
@@ -117,6 +126,7 @@ const ChordKeyStub = defineComponent({
     accessibleName: String,
     geometry: String,
     pressed: Boolean,
+    disabled: Boolean,
   },
   emits: ["press", "release"],
   template: '<button class="chord-key-stub" v-bind="$attrs" />',
@@ -136,6 +146,7 @@ describe("Keyboard production usage", () => {
     mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
     mocks.musicStore.currentKey = "C";
     mocks.musicStore.currentMode = "major";
+    mocks.instrumentStore.isInteractionLocked = false;
   });
 
   it("builds configured octave rows from the accepted Key contract", () => {
@@ -365,6 +376,31 @@ describe("Keyboard production usage", () => {
     await Promise.resolve();
     expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(3);
     wrapper.unmount();
+  });
+
+  it("disables keys and chords and ignores presses while samples are warming", async () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    const wrapper = mountKeyboard();
+    const key = wrapper.findAllComponents(KeyStub)[2];
+    const chord = wrapper.findAllComponents(ChordKeyStub)[0];
+
+    expect(wrapper.get('[role="group"]').attributes("aria-busy")).toBe("true");
+    expect(key.props("disabled")).toBe(true);
+    expect(chord.props("disabled")).toBe(true);
+
+    key.vm.$emit("press", {
+      inputId: "mouse",
+      event: new MouseEvent("mousedown"),
+    });
+    chord.vm.$emit("press", {
+      inputId: "mouse",
+      event: new MouseEvent("mousedown"),
+    });
+    await nextTick();
+
+    expect(mocks.keyboardStore.addTouch).not.toHaveBeenCalled();
+    expect(mocks.musicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+    expect(mocks.musicStore.attackExactPitch).not.toHaveBeenCalled();
   });
 
   it("installs one global QWERTY route and clears held pointers on teardown", () => {

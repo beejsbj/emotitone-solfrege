@@ -5,6 +5,7 @@ import type { PatternNote } from "@/types/patterns";
 
 const mocks = vi.hoisted(() => ({
   patternsStore: null as any,
+  instrumentStore: null as any,
   visualConfigStore: null as any,
   mirrorOptions: null as any,
   mirrorInitialCode: "",
@@ -24,6 +25,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/stores/patterns", () => ({
   usePatternsStore: () => mocks.patternsStore,
+}));
+
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => mocks.instrumentStore,
 }));
 
 vi.mock("@/stores/visualConfig", () => ({
@@ -179,6 +184,7 @@ beforeEach(() => {
     loadedBaseNotes: [] as PatternNote[],
     isStripCleared: false,
   });
+  mocks.instrumentStore = reactive({ isInteractionLocked: false });
   mocks.visualConfigStore = reactive({
     config: {
       codeStrip: {
@@ -286,6 +292,38 @@ describe("CodeStrip production Strudel document", () => {
 
     mocks.mirrorOptions.onToggle(false);
     expect(mocks.setCodeStripPlaying).toHaveBeenLastCalledWith(expect.anything(), false);
+    wrapper.unmount();
+  });
+
+  it("blocks editor-owned playback shortcuts while samples are warming", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    mocks.instrumentStore.isInteractionLocked = true;
+
+    await mocks.mirrorInstance.evaluate();
+
+    expect(mocks.mirrorEvaluate).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("stops playback when warmup begins during a pending evaluation", async () => {
+    let resolveEvaluation!: () => void;
+    mocks.mirrorEvaluate.mockImplementationOnce(
+      () => new Promise<void>((resolve) => {
+        resolveEvaluation = resolve;
+      }),
+    );
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    const evaluation = mocks.mirrorInstance.evaluate();
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    mocks.instrumentStore.isInteractionLocked = true;
+    resolveEvaluation();
+    await evaluation;
+
+    expect(mocks.mirrorInstance.stop).toHaveBeenCalled();
+    expect(mocks.setPlaying).toHaveBeenCalledWith(false);
     wrapper.unmount();
   });
 

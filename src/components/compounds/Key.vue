@@ -7,6 +7,7 @@
       'pressable-key--pressed': isPhysicallyPressed,
     }"
     type="button"
+    :disabled="disabled"
     :aria-label="resolvedAriaLabel"
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
@@ -41,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import Note from "@/components/primatives/Note.vue";
 import { usePressableKey, type PressInputEvent } from "@/composables/usePressableKey";
 import "./pressableKey.css";
@@ -75,6 +76,7 @@ const props = withDefaults(
     keySaturation?: number;
     sounding?: boolean;
     pressed?: boolean;
+    disabled?: boolean;
     ariaLabel?: string;
   }>(),
   {
@@ -96,6 +98,7 @@ const props = withDefaults(
     keySaturation: 1,
     sounding: false,
     pressed: false,
+    disabled: false,
     ariaLabel: undefined,
   },
 );
@@ -116,9 +119,12 @@ const {
   handleTouchMove,
   handleTouchEnd,
   handleTouchCancel,
+  releaseAllInputs,
 } = usePressableKey(keyRef, {
   press: (payload) => emit("press", payload),
   release: (payload) => emit("release", payload),
+}, {
+  disabled: () => props.disabled,
 });
 
 const isPhysicallyPressed = computed(
@@ -138,6 +144,12 @@ const resolvedAriaLabel = computed(() => {
   return props.rawPitch;
 });
 
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) releaseAllInputs(new Event("disabled"));
+  },
+);
 </script>
 
 <style scoped>

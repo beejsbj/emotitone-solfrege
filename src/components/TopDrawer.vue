@@ -17,10 +17,15 @@ const props = withDefaults(defineProps<{
 const identity = Symbol("top-drawer");
 const showPanel = ref(false);
 const renderPanel = ref(false);
+const openSession = ref(0);
 const drawer = ref<InstanceType<typeof Drawer> | null>(null);
 const isActive = computed(() => activeTopDrawer.value === identity);
 watch(showPanel, open => {
-  if (open) { renderPanel.value = true; activeTopDrawer.value = identity; }
+  if (open) {
+    openSession.value += 1;
+    renderPanel.value = true;
+    activeTopDrawer.value = identity;
+  }
   else if (isActive.value) activeTopDrawer.value = null;
 }, { flush: "sync" });
 watch(activeTopDrawer, active => {
@@ -30,7 +35,7 @@ const openPanel = () => { showPanel.value = true; };
 const closePanel = () => { showPanel.value = false; };
 const togglePanel = () => { showPanel.value = !showPanel.value; };
 onBeforeUnmount(() => { if (isActive.value) activeTopDrawer.value = null; });
-defineExpose({ showPanel, closePanel, openPanel, togglePanel });
+defineExpose({ showPanel, openSession, closePanel, openPanel, togglePanel });
 </script>
 
 <template>

@@ -55,6 +55,7 @@
     "workbox-window": "^7.3.0"
   },
   "patchedDependencies": {
-    "superdough@1.3.0": "patches/superdough@1.3.0.patch"
+    "superdough@1.3.0": "patches/superdough@1.3.0.patch",
+    "@strudel/soundfonts@1.3.0": "patches/@strudel%2Fsoundfonts@1.3.0.patch"
   }
 }

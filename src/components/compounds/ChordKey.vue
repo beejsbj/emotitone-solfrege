@@ -7,6 +7,7 @@
       'pressable-key--pressed': isPhysicallyPressed,
     }"
     type="button"
+    :disabled="disabled"
     :aria-label="accessibleName"
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
@@ -34,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import Chord from "@/components/compounds/Chord.vue";
 import type {
   ChordMember,
@@ -53,10 +54,12 @@ const props = withDefaults(defineProps<{
   proportion?: ChordProportion;
   geometry?: NoteGeometry;
   pressed?: boolean;
+  disabled?: boolean;
 }>(), {
   proportion: "compact",
   geometry: "offcut",
   pressed: false,
+  disabled: false,
 });
 
 const emit = defineEmits<{
@@ -80,6 +83,7 @@ const {
   handleTouchEnd,
   handleTouchCancel,
   pulseInput,
+  releaseAllInputs,
 } = usePressableKey(keyRef, {
   press: (payload) => emit("press", payload),
   release: (payload) => emit("release", payload),
@@ -87,7 +91,15 @@ const {
   touchHoldDelayMs: TOUCH_HOLD_DELAY_MS,
   touchPanThresholdPx: TOUCH_PAN_THRESHOLD_PX,
   touchTapPulseMs: CLICK_PULSE_MS,
+  disabled: () => props.disabled,
 });
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) releaseAllInputs(new Event("disabled"));
+  },
+);
 
 function isActivationKey(event: KeyboardEvent) {
   return event.key === " " || event.key === "Enter";
@@ -116,7 +128,7 @@ function handleClickOnlyActivation(event: MouseEvent) {
   // Real pointer clicks already ran through mousedown/up. Keyboard clicks are
   // owned by Keyboard's keydown/up handlers. Detail 0 with no keyboard cycle
   // is the bounded path for switch, virtual-cursor, and programmatic clicks.
-  if (event.detail !== 0 || activationKeys.size > 0 || suppressKeyboardClick) return;
+  if (props.disabled || event.detail !== 0 || activationKeys.size > 0 || suppressKeyboardClick) return;
   pulseInput("click", event, CLICK_PULSE_MS);
 }
 

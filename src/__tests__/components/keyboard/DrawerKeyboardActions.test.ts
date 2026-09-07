@@ -26,6 +26,11 @@ const mocks = vi.hoisted(() => ({
   openDrawer: vi.fn(),
   closeDrawer: vi.fn(),
   toggleDrawer: vi.fn(),
+  instrumentStore: {
+    isInteractionLocked: false,
+    warmingInstrument: null as string | null,
+    warmupMessage: "",
+  },
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
@@ -47,6 +52,10 @@ vi.mock("@/stores/music", () => ({
     setKey: mocks.setKey,
     setMode: mocks.setMode,
   }),
+}));
+
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => mocks.instrumentStore,
 }));
 
 vi.mock("@/stores/visualConfig", () => ({
@@ -88,6 +97,7 @@ vi.mock("@/composables/useHummingCapture", () => ({
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
+    props: ["isPlaying", "playDisabled"],
     emits: ["togglePlayback", "backspace", "return"],
     template: '<div data-testid="code-strip-bar" />',
   },
@@ -136,6 +146,9 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
     mocks.hasPlayableCode.value = true;
+    mocks.instrumentStore.isInteractionLocked = false;
+    mocks.instrumentStore.warmingInstrument = null;
+    mocks.instrumentStore.warmupMessage = "";
     mocks.hummingStatus.value = "idle";
   });
 
@@ -232,6 +245,27 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
+  it("disables and ignores pattern playback while samples are warming", async () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const actions = wrapper.getComponent({ name: "CodeStripBar" });
+
+    expect(actions.props("playDisabled")).toBe(true);
+    actions.vm.$emit("togglePlayback");
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.toggle).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it("preserves all six Control Bar mutations in the production composition", async () => {
     const wrapper = mount(DrawerKeyboard, {
       global: {
@@ -260,6 +294,29 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.setRowCount).toHaveBeenCalledWith(7);
     expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
       .toBe("sus4");
+    wrapper.unmount();
+  });
+
+  it("covers and names the keyboard while instrument samples are warming", () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    mocks.instrumentStore.warmingInstrument = "gm_vibraphone";
+    mocks.instrumentStore.warmupMessage = "Samples being downloaded...";
+
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+
+    const overlay = wrapper.get('[data-testid="keyboard-warmup-overlay"]');
+    expect(overlay.attributes("role")).toBe("status");
+    expect(overlay.text()).toContain("Samples being downloaded...");
+    expect(overlay.text()).toContain("vibraphone");
+    expect(wrapper.get("keyboard-stub").classes()).toContain("pointer-events-none");
     wrapper.unmount();
   });
 });

@@ -1,9 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount, type VueWrapper } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import Key from "@/components/compounds/Key.vue";
 import Note from "@/components/primatives/Note.vue";
 import keySource from "@/components/compounds/Key.vue?raw";
 import pressableKeySource from "@/composables/usePressableKey.ts?raw";
+
+const pressableKeyCss = readFileSync(
+  resolve(process.cwd(), "src/components/compounds/pressableKey.css"),
+  "utf8",
+);
 
 const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
@@ -288,16 +295,46 @@ describe("Key", () => {
     expect((releases[0][0] as { event: Event }).event.type).toBe("unmount");
   });
 
+  it("releases active input when it becomes disabled", async () => {
+    const wrapper = mount(Key);
+    await wrapper.get("button").trigger("mousedown", { button: 0 });
+
+    await wrapper.setProps({ disabled: true });
+
+    expect(wrapper.get("button").attributes("disabled")).toBeDefined();
+    expect(eventIds(wrapper, "release")).toEqual(["mouse"]);
+    expect(
+      (wrapper.emitted("release")?.[0]?.[0] as { event: Event }).event.type,
+    ).toBe("disabled");
+    expect(wrapper.classes()).not.toContain("key--pressed");
+  });
+
   it("keeps interaction local and encodes the target, focus, pointer, and motion contracts", () => {
     expect(keySource).not.toMatch(
       /@\/stores|audio|haptic|midi|qwerty|addEventListener\(["']key/i,
     );
-    expect(keySource).not.toContain("disabled");
+    expect(keySource).toContain(':disabled="disabled"');
     expect(keySource).toContain("usePressableKey");
     expect(keySource).toContain("pressable-key__face");
     expect(keySource).toContain('import "./pressableKey.css"');
     expect(pressableKeySource).toContain('window.addEventListener("blur"');
     expect(pressableKeySource).toContain('document.addEventListener("visibilitychange"');
     expect(pressableKeySource).toContain("handleTouchCancel,");
+    expect(pressableKeyCss).toMatch(/min-width:\s*44px/);
+    expect(pressableKeyCss).toMatch(/min-height:\s*44px/);
+    expect(pressableKeyCss).toContain("touch-action: manipulation");
+    expect(pressableKeyCss).toMatch(/\.pressable-key:focus-visible\s*{[^}]*outline:\s*2px/);
+    expect(pressableKeyCss).toContain("outline-offset: 2px");
+    expect(pressableKeyCss).toContain("@media (hover: hover) and (pointer: fine)");
+    expect(pressableKeyCss).toContain("--key-face-hover-y: -1px");
+    expect(pressableKeyCss).toContain("--key-face-press-y: 2px");
+    expect(pressableKeyCss).toContain("rotate(var(--key-face-rotation, 0deg))");
+    expect(pressableKeyCss).toContain("transition: transform 90ms");
+    expect(pressableKeyCss).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition:\s*none/,
+    );
+    expect(pressableKeyCss).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*--key-face-press-scale:\s*1/,
+    );
   });
 });

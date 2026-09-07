@@ -10,8 +10,16 @@ import TabbedOverlayPanel, {
 import TopDrawer from "./TopDrawer.vue";
 import { Search, X } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
+import { displayInstrumentName } from "@/data/instruments";
 
 const drawerContentHeight = ref<number>();
+const topDrawerRef = ref<
+  (InstanceType<typeof TopDrawer> & {
+    showPanel: boolean;
+    openSession: number;
+  }) | null
+>(null);
+let selectionGeneration = 0;
 
 interface Props {
   currentInstrument?: string;
@@ -35,13 +43,19 @@ const instrumentStore = useInstrumentStore();
 const currentInstrumentId = computed(
   () => props.currentInstrument || instrumentStore.currentInstrument
 );
+const useStoreAudioFlow = computed(() => !props.onSelectInstrument);
 const instrumentIcon = computed(() => instrumentIconFor(currentInstrumentId.value));
 
 const allSounds = ref<string[]>([]);
 const query = ref("");
 
 onMounted(async () => {
-  await instrumentStore.initializeInstruments();
+  try {
+    await instrumentStore.initializeInstruments();
+  } catch {
+    // The global loading flow already reports degraded initialization. Keep
+    // the chooser usable for whatever sounds were registered successfully.
+  }
   allSounds.value = getRegisteredSounds().sort();
 });
 
@@ -420,7 +434,84 @@ const bankLabel = computed(() => {
   return activeTabMeta.value.label;
 });
 
-const displayName = (id: string) => (id.startsWith("gm_") ? id.slice(3) : id);
+const warmupStatusMessage = computed(() => {
+  if (
+    !useStoreAudioFlow.value ||
+    !instrumentStore.isInteractionLocked ||
+    !instrumentStore.warmingInstrument
+  ) {
+    return null;
+  }
+
+  return `${instrumentStore.warmupMessage} ${displayInstrumentName(
+    instrumentStore.warmingInstrument
+  )}`;
+});
+
+const warmupErrorMessage = computed(() => {
+  if (
+    !useStoreAudioFlow.value ||
+    !instrumentStore.lastWarmupError ||
+    !instrumentStore.lastWarmupErrorInstrument
+  ) {
+    return null;
+  }
+
+  return `Could not load ${displayInstrumentName(
+    instrumentStore.lastWarmupErrorInstrument
+  )}. ${instrumentStore.lastWarmupError}`;
+});
+
+type SoundState = "selected" | "warming" | "ready" | "cold" | "default";
+
+function getSoundState(sound: string): SoundState {
+  if (!useStoreAudioFlow.value) {
+    return currentInstrumentId.value === sound ? "selected" : "default";
+  }
+
+  if (instrumentStore.isInstrumentWarming(sound)) {
+    return "warming";
+  }
+
+  if (
+    currentInstrumentId.value === sound &&
+    instrumentStore.isInstrumentReady(sound)
+  ) {
+    return "selected";
+  }
+
+  return instrumentStore.isInstrumentReady(sound) ? "ready" : "cold";
+}
+
+function soundStateLabel(sound: string): string {
+  return {
+    selected: "current",
+    warming: "warming",
+    ready: "ready",
+    cold: "cold",
+    default: "available",
+  }[getSoundState(sound)];
+}
+
+function soundButtonClass(sound: string): string {
+  return {
+    selected: "border-[#8b8b8b] bg-[#242424] text-white",
+    warming:
+      "border-[#bdbdbd] bg-[#222222] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.18)]",
+    ready:
+      "border-[#555555] bg-[#191919] text-[#dddddd] hover:border-[#8a8a8a] hover:text-white",
+    cold:
+      "border-[#353535] bg-[#111111] text-neutral-500 hover:border-[#686868] hover:text-neutral-300",
+    default:
+      "border-[#3d3d3d] bg-[#151515] text-neutral-300 hover:border-[#7f7f7f] hover:text-white",
+  }[getSoundState(sound)];
+}
+
+function closeSelector(close: () => void) {
+  close();
+  props.onClose?.();
+  emit("close");
+}
 
 function sceneTone(index: number): PanelTone {
   return ["amber", "red", "violet", "cream"][index % 4] as PanelTone;
@@ -437,26 +528,42 @@ function toneChipClass(tone: PanelTone) {
   )[tone];
 }
 
-function selectInstrument(name: string, close: () => void) {
-  if (props.onSelectInstrument) {
-    props.onSelectInstrument(name);
-  } else {
-    instrumentStore.setInstrument(name);
+async function selectInstrument(name: string, close: () => void) {
+  const selection = ++selectionGeneration;
+  const panelSession = topDrawerRef.value?.openSession;
+  emit("select-instrument", name);
+
+  if (!useStoreAudioFlow.value) {
+    props.onSelectInstrument?.(name);
+    closeSelector(close);
+    return;
   }
 
-  emit("select-instrument", name);
-  close();
-  props.onClose?.();
-  emit("close");
+  const result = await instrumentStore.setInstrument(name);
+  if (selection !== selectionGeneration || result.status !== "ready") {
+    return;
+  }
+
+  const drawer = topDrawerRef.value;
+  if (
+    panelSession !== undefined &&
+    drawer &&
+    (!drawer.showPanel || drawer.openSession !== panelSession)
+  ) {
+    return;
+  }
+
+  closeSelector(close);
 }
 </script>
 
 <template>
   <TopDrawer
+    ref="topDrawerRef"
     anchor="top-left"
     :content-height="drawerContentHeight"
     aria-label="Instrument"
-    :handle-label="displayName(currentInstrumentId)"
+    :handle-label="displayInstrumentName(currentInstrumentId)"
     handle-test-id="instrument-selector-trigger"
   >
     <template v-if="instrumentIcon" #icon><component :is="instrumentIcon" /></template>
@@ -530,12 +637,37 @@ function selectInstrument(name: string, close: () => void) {
             <span
               class="hidden h-8 shrink-0 items-center border border-[#3b3b3b] bg-[#141414] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#dfdfdf] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
             >
-              {{ displayName(currentInstrumentId) }}
+              {{ displayInstrumentName(currentInstrumentId) }}
             </span>
           </div>
         </template>
 
         <div class="space-y-3">
+          <div
+            v-if="warmupStatusMessage"
+            data-testid="instrument-warmup-banner"
+            role="status"
+            aria-live="polite"
+            class="flex items-center justify-between gap-3 border border-[#5d5d5d] bg-[#1b1b1b] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[#e6e6e6] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
+          >
+            <span class="truncate">
+              {{ warmupStatusMessage }}
+            </span>
+            <span class="relative h-3 w-3 shrink-0" aria-hidden="true">
+              <span class="absolute inset-0 rounded-full border border-white/20" />
+              <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-white border-t-neutral-400 motion-reduce:animate-none" />
+            </span>
+          </div>
+
+          <div
+            v-else-if="warmupErrorMessage"
+            data-testid="instrument-error-banner"
+            role="alert"
+            class="border border-[#76544f] bg-[#1d1514] px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-[#e2c2bd] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
+          >
+            {{ warmupErrorMessage }}
+          </div>
+
           <div
             v-if="!allSounds.length"
             class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
@@ -582,17 +714,34 @@ function selectInstrument(name: string, close: () => void) {
                   v-for="sound in group.sounds"
                   :key="sound"
                   :data-testid="`instrument-option-${sound}`"
-                  :title="displayName(sound)"
+                  :data-state="getSoundState(sound)"
+                  :title="displayInstrumentName(sound)"
+                  :disabled="useStoreAudioFlow && instrumentStore.isInstrumentWarming(sound)"
                   @click="selectInstrument(sound, close)"
                   :class="[
-                    'min-w-0 w-full border px-2.5 py-1 font-mono text-[9px] transition-colors [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]',
-                    currentInstrumentId === sound
-                      ? 'border-[#8b8b8b] bg-[#242424] text-white'
-                      : 'border-[#3d3d3d] bg-[#151515] text-neutral-300 hover:border-[#7f7f7f] hover:text-white',
+                    'relative min-w-0 w-full overflow-hidden border px-2.5 py-1.5 font-mono text-[9px] transition-colors disabled:pointer-events-none [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]',
+                    soundButtonClass(sound),
                   ]"
                 >
-                  <span class="block truncate">
-                    {{ displayName(sound) }}
+                  <span
+                    v-if="getSoundState(sound) === 'warming'"
+                    class="pointer-events-none absolute inset-[1px] animate-spin border-2 border-transparent border-r-white border-t-neutral-400 motion-reduce:animate-none [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]"
+                    aria-hidden="true"
+                  />
+
+                  <span class="relative block truncate">
+                    {{ displayInstrumentName(sound) }}
+                  </span>
+                  <span
+                    v-if="useStoreAudioFlow"
+                    class="relative mt-1 block text-[7px] uppercase tracking-[0.16em]"
+                    :class="{
+                      'text-white': getSoundState(sound) === 'selected',
+                      'text-neutral-300': getSoundState(sound) === 'warming',
+                      'text-neutral-400': ['ready', 'cold'].includes(getSoundState(sound)),
+                    }"
+                  >
+                    {{ soundStateLabel(sound) }}
                   </span>
                 </button>
               </div>

@@ -120,6 +120,16 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     this.mirror.updateSettings(settings);
   }
 
+  async disposeUnattached() {
+    if (this.destroyed) return;
+    try {
+      await this.rawStop();
+    } finally {
+      this.onRelease();
+      this.destroy();
+    }
+  }
+
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;

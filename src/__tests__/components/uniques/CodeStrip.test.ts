@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   mirrorOptions: null as any,
   mirrorInitialCode: "",
   mirrorEvaluate: vi.fn().mockResolvedValue(undefined),
+  mirrorUpdateSettingsError: null as Error | null,
   mirrorRawStop: vi.fn(),
   stopStrudelVisuals: vi.fn(),
   updatePresentation: vi.fn(),
@@ -77,7 +78,9 @@ vi.mock("@strudel/codemirror", () => ({
     editor: any;
     stop: ReturnType<typeof vi.fn>;
     clear = vi.fn();
-    updateSettings = vi.fn();
+    updateSettings = vi.fn(() => {
+      if (mocks.mirrorUpdateSettingsError) throw mocks.mirrorUpdateSettingsError;
+    });
     options: any;
 
     constructor(options: any) {
@@ -203,6 +206,7 @@ beforeEach(async () => {
   });
   mocks.mirrorOptions = null;
   mocks.mirrorInitialCode = "";
+  mocks.mirrorUpdateSettingsError = null;
   mocks.mirrorInstance = null;
   mocks.mirrorScroller = null;
   mocks.latestEvent = null;
@@ -276,6 +280,25 @@ describe("CodeStrip production Strudel document", () => {
     expect(wrapper.classes()).not.toContain("code-strip--unframed");
 
     wrapper.unmount();
+  });
+
+  it("disposes a mirror that fails before transport attachment", async () => {
+    mocks.mirrorUpdateSettingsError = new Error("settings failed");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    expect(wrapper.get(".code-strip__error").text()).toBe("settings failed");
+    expect(useCodeStripStrudel().isReady.value).toBe(false);
+    expect(mocks.mirrorRawStop).toHaveBeenCalledOnce();
+    expect(mocks.stopStrudelVisuals).toHaveBeenCalledOnce();
+    expect(mocks.mirrorInstance.clear).toHaveBeenCalledOnce();
+
+    wrapper.unmount();
+    expect(mocks.mirrorRawStop).toHaveBeenCalledOnce();
+    expect(mocks.mirrorInstance.clear).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
   });
 
   it("turns the source decorations to Ink as soon as play is requested", async () => {

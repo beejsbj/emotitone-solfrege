@@ -400,6 +400,11 @@ onMounted(async () => {
     if (isControlled.value) initializeControlledView();
     else await initializeStrudelMirror();
   } catch (error) {
+    const unattachedMirror = mirror.value;
+    if (unattachedMirror && !editorConnection) {
+      mirror.value = null;
+      await unattachedMirror.disposeUnattached().catch(() => undefined);
+    }
     initError.value = error instanceof Error
       ? error.message
       : "CodeStrip failed to initialize.";
@@ -486,7 +491,8 @@ onBeforeUnmount(() => {
 
   const instance = mirror.value;
   if (!instance) return;
-  void editorConnection?.detach();
+  if (editorConnection) void editorConnection.detach();
+  else void instance.disposeUnattached().catch(() => undefined);
   mirror.value = null;
   editorConnection = null;
 });

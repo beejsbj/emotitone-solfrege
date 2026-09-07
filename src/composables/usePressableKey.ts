@@ -22,6 +22,7 @@ export function usePressableKey(
   callbacks: PressableKeyCallbacks,
 ) {
   const activeInputIds = reactive(new Set<string>());
+  const pulseTimeouts = new Map<string, number>();
   const mouseInputId = "mouse";
   const touchInputId = (identifier: number) => `touch:${identifier}`;
 
@@ -32,8 +33,21 @@ export function usePressableKey(
   }
 
   function endInput(inputId: string, event: Event) {
+    const timeoutId = pulseTimeouts.get(inputId);
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+      pulseTimeouts.delete(inputId);
+    }
     if (!activeInputIds.delete(inputId)) return;
     callbacks.release({ inputId, event });
+  }
+
+  function pulseInput(inputId: string, event: Event, durationMs: number) {
+    if (activeInputIds.has(inputId)) return;
+    beginInput(inputId, event);
+    pulseTimeouts.set(inputId, window.setTimeout(() => {
+      endInput(inputId, event);
+    }, durationMs));
   }
 
   function releaseAllInputs(event: Event) {
@@ -114,6 +128,7 @@ export function usePressableKey(
     handleTouchMove,
     handleTouchEnd,
     handleTouchCancel: handleTouchEnd,
+    pulseInput,
     releaseAllInputs,
   };
 }

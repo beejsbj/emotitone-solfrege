@@ -288,6 +288,35 @@ describe("Keyboard production usage", () => {
     wrapper.unmount();
   });
 
+  it("keeps a focus-held chord sounding through a smaller-scale remap until keyup", async () => {
+    const wrapper = mountKeyboard();
+    const seventhChord = wrapper.findAllComponents(ChordKeyStub)[6];
+
+    await seventhChord.trigger("keydown", {
+      key: "Enter",
+      code: "Enter",
+      repeat: false,
+    });
+    await nextTick();
+    expect(mocks.musicStore.attackExactPitch).toHaveBeenCalledTimes(3);
+
+    mocks.musicStore.currentMode = "major pentatonic";
+    await wrapper.setProps({ harmonyAlteration: "dark" });
+    await Promise.resolve();
+
+    const heldChord = wrapper.findAllComponents(ChordKeyStub).find(
+      (chord) => chord.attributes("data-chord-id") === "degree-7",
+    );
+    expect(heldChord?.props("pressed")).toBe(true);
+    expect(mocks.musicStore.releaseNote).not.toHaveBeenCalled();
+
+    await heldChord?.trigger("keyup", { key: "Enter", code: "Enter" });
+    await nextTick();
+    await Promise.resolve();
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(3);
+    wrapper.unmount();
+  });
+
   it("installs one global QWERTY route and clears held pointers on teardown", () => {
     const wrapper = mountKeyboard();
 

@@ -543,12 +543,20 @@ const editionVariations = computed(() => new Map(
 ));
 
 watch(
-  [rowSignature, chordSignature],
+  rowSignature,
   () => {
-    releaseFocusedInputs(new Event("keyboard-remap"));
+    releaseMelodyFocusInputs(new Event("keyboard-remap"));
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
       rememberedFocusId.value = defaultFocusId.value;
     }
+  },
+  { immediate: true },
+);
+
+watch(
+  chordSignature,
+  () => {
+    releaseMissingChordFocusInputs(new Event("chord-remap"));
     if (!renderChords.value.some((chord) =>
       chord.harmony.id === rememberedChordFocusId.value,
     )) {
@@ -820,15 +828,34 @@ function handleKeyUp(event: KeyboardEvent) {
   dispatchIntent("release", { ...intent, event });
 }
 
-function releaseFocusedInputs(event: Event) {
+function releaseMelodyFocusInputs(event: Event) {
   for (const intent of activeFocusInputs.values()) {
     dispatchIntent("release", { ...intent, event });
   }
   activeFocusInputs.clear();
+}
+
+function releaseMissingChordFocusInputs(event: Event) {
+  const renderedIds = new Set(
+    renderChords.value.map((chord) => chord.harmony.id),
+  );
+  for (const [inputId, intent] of activeChordFocusInputs) {
+    if (renderedIds.has(intent.chordId)) continue;
+    activeChordFocusInputs.delete(inputId);
+    dispatchChordIntent("release", { ...intent, event });
+  }
+}
+
+function releaseChordFocusInputs(event: Event) {
   for (const intent of activeChordFocusInputs.values()) {
     dispatchChordIntent("release", { ...intent, event });
   }
   activeChordFocusInputs.clear();
+}
+
+function releaseFocusedInputs(event: Event) {
+  releaseMelodyFocusInputs(event);
+  releaseChordFocusInputs(event);
 }
 
 function handleFocusOut(event: FocusEvent) {

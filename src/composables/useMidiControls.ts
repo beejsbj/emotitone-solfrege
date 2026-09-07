@@ -231,27 +231,34 @@ export function resolveMirroredMidiNoteNumber(
   detail: MirroredNoteEventDetail | undefined,
   noteResolver: MidiNoteResolver
 ): number | null {
+  const exactMidiNote = (noteName: string) => {
+    const midiNote = TonalNote.get(noteName).midi;
+    return Number.isInteger(midiNote) && midiNote >= 0 && midiNote <= 127
+      ? midiNote
+      : null;
+  };
+
   if (
     detail?.noteName
     && (detail.isBorrowed || detail.solfegeIndex === -1)
   ) {
-    return TonalNote.get(detail.noteName).midi ?? null;
+    return exactMidiNote(detail.noteName);
   }
 
   if (
     typeof detail?.solfegeIndex === "number"
     && typeof detail.octave === "number"
   ) {
-    return TonalNote.get(
-      noteResolver.getNoteName(detail.solfegeIndex, detail.octave)
-    ).midi ?? null;
+    return exactMidiNote(
+      noteResolver.getNoteName(detail.solfegeIndex, detail.octave),
+    );
   }
 
   if (!detail?.noteName) {
     return null;
   }
 
-  return TonalNote.get(detail.noteName).midi ?? null;
+  return exactMidiNote(detail.noteName);
 }
 
 export function useMidiControls() {

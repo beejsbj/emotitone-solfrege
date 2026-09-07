@@ -17,7 +17,10 @@ const members = [
 ];
 
 describe("ChordKey", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
 
   it("wraps the accepted fused Chord in the shared native Key interaction shell", () => {
     const wrapper = mount(ChordKey, {
@@ -80,6 +83,54 @@ describe("ChordKey", () => {
     wrapper.element.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("turns click-only activation into one bounded press and release", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(ChordKey, {
+      props: { members, symbol: "C", accessibleName: "C major chord" },
+    });
+
+    wrapper.element.click();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")).toHaveLength(1);
+    expect(wrapper.emitted("press")?.[0]?.[0]).toMatchObject({ inputId: "click" });
+    expect(wrapper.emitted("release")).toBeUndefined();
+
+    vi.advanceTimersByTime(120);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("release")).toHaveLength(1);
+    expect(wrapper.emitted("release")?.[0]?.[0]).toMatchObject({ inputId: "click" });
+
+    wrapper.unmount();
+  });
+
+  it("does not replay pointer or keyboard activation through click", async () => {
+    const wrapper = mount(ChordKey, {
+      props: { members, symbol: "C", accessibleName: "C major chord" },
+    });
+
+    await wrapper.trigger("mousedown", { button: 0 });
+    await wrapper.trigger("mouseup", { button: 0 });
+    wrapper.element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+
+    wrapper.element.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      key: "Enter",
+      code: "Enter",
+    }));
+    wrapper.element.dispatchEvent(new KeyboardEvent("keyup", {
+      bubbles: true,
+      key: "Enter",
+      code: "Enter",
+    }));
+    wrapper.element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")).toHaveLength(1);
+    expect(wrapper.emitted("release")).toHaveLength(1);
     wrapper.unmount();
   });
 });

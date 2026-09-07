@@ -15,6 +15,10 @@
     @touchmove="handleTouchMove"
     @touchend.prevent="handleTouchEnd"
     @touchcancel="handleTouchCancel"
+    @keydown="trackActivationKeyDown"
+    @keyup="trackActivationKeyUp"
+    @blur="clearActivationKeys"
+    @click="handleClickOnlyActivation"
   >
     <span class="chord-key__face pressable-key__face" aria-hidden="true">
       <Chord
@@ -61,6 +65,9 @@ const emit = defineEmits<{
 }>();
 
 const keyRef = ref<HTMLButtonElement | null>(null);
+const CLICK_PULSE_MS = 120;
+const activationKeys = new Set<string>();
+let suppressKeyboardClick = false;
 const {
   isLocallyPressed,
   handleMouseDown,
@@ -70,10 +77,42 @@ const {
   handleTouchMove,
   handleTouchEnd,
   handleTouchCancel,
+  pulseInput,
 } = usePressableKey(keyRef, {
   press: (payload) => emit("press", payload),
   release: (payload) => emit("release", payload),
 });
+
+function isActivationKey(event: KeyboardEvent) {
+  return event.key === " " || event.key === "Enter";
+}
+
+function trackActivationKeyDown(event: KeyboardEvent) {
+  if (isActivationKey(event)) activationKeys.add(event.code);
+}
+
+function trackActivationKeyUp(event: KeyboardEvent) {
+  if (!isActivationKey(event) || !activationKeys.delete(event.code)) return;
+  // A native Space click follows keyup in the same task. Keep that click owned
+  // by Keyboard's existing key lifecycle, then reopen click-only activation.
+  suppressKeyboardClick = true;
+  queueMicrotask(() => {
+    suppressKeyboardClick = false;
+  });
+}
+
+function clearActivationKeys() {
+  activationKeys.clear();
+  suppressKeyboardClick = false;
+}
+
+function handleClickOnlyActivation(event: MouseEvent) {
+  // Real pointer clicks already ran through mousedown/up. Keyboard clicks are
+  // owned by Keyboard's keydown/up handlers. Detail 0 with no keyboard cycle
+  // is the bounded path for switch, virtual-cursor, and programmatic clicks.
+  if (event.detail !== 0 || activationKeys.size > 0 || suppressKeyboardClick) return;
+  pulseInput("click", event, CLICK_PULSE_MS);
+}
 
 const isPhysicallyPressed = computed(() => props.pressed || isLocallyPressed.value);
 </script>

@@ -140,4 +140,23 @@ describe("useMidiControls helpers", () => {
     ).toBe(63);
     expect(noteResolver.getNoteName).not.toHaveBeenCalled();
   });
+
+  it("omits exact harmony pitches outside MIDI's 0-127 note range", () => {
+    const noteResolver = {
+      parseNoteInput: vi.fn(),
+      getNoteName: vi.fn(),
+    };
+
+    expect(
+      resolveMirroredMidiNoteNumber(
+        {
+          solfegeIndex: -1,
+          octave: 10,
+          noteName: "C#10",
+          isBorrowed: true,
+        },
+        noteResolver,
+      ),
+    ).toBeNull();
+  });
 });

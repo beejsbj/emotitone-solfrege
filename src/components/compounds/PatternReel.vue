@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import PatternCard from "./PatternCard.vue";
-import type { BarTapeMode, BarTapeSegment } from "../primatives/BarTape.vue";
+import type { BarTapeSegment } from "../primatives/BarTape.vue";
 import type { CodeStripToken } from "../uniques/CodeStrip/index.vue";
 
 export interface PatternReelItem {
@@ -42,7 +42,6 @@ export interface PatternReelItem {
   spine?: string;
   when?: string;
   barTape?: BarTapeSegment[];
-  barTapeMode?: BarTapeMode;
   codeTokens?: CodeStripToken[];
 }
 

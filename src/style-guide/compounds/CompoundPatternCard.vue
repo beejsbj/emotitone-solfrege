@@ -28,8 +28,10 @@
 <script setup lang="ts">
 import PatternCard from "../../components/compounds/PatternCard.vue";
 import type { PatternCardShape } from "../../components/compounds/PatternCard.vue";
-import type { BarTapeMode, BarTapeSegment } from "../../components/primatives/BarTape.vue";
+import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
 import type { CodeStripToken } from "../../components/uniques/CodeStrip/index.vue";
+import { useColorSystem } from "../../composables/useColorSystem";
+import type { ChromaticNote, MusicalMode } from "../../types";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -42,34 +44,35 @@ interface PatternCardExample {
   spine?: string;
   when?: string;
   barTape?: BarTapeSegment[];
-  barTapeMode?: BarTapeMode;
   codeTokens?: CodeStripToken[];
   footerText?: string;
   statusText?: string;
   showActions?: boolean;
 }
 
-const glassBellTape: BarTapeSegment[] = [
-  { note: "re" },
-  { note: "mi" },
-  { note: "do" },
-  { note: "fa" },
-  { note: "re" },
-  { note: "la" },
-  { note: "mi" },
-  { note: "ti" },
-];
+const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
 
-const lateNightTape: BarTapeSegment[] = [
-  { note: "sol" },
-  { note: "la" },
-  { note: "ti" },
-  { note: "sol" },
-  { note: "la" },
-  { note: "do" },
-  { note: "re" },
-  { note: "mi" },
-];
+const timeline = (
+  events: Array<[scaleIndex: number, durationMs: number]>,
+  mode: MusicalMode,
+  key: ChromaticNote,
+): BarTapeSegment[] =>
+  events.map(([scaleIndex, durationMs]) => ({
+    color: getStaticPrimaryColorByScaleIndex(scaleIndex, mode, key, 4),
+    durationMs,
+  }));
+
+const glassBellTape = timeline(
+  [[1, 250], [2, 125], [0, 375], [3, 250], [1, 125], [5, 250], [2, 125], [6, 500]],
+  "dorian",
+  "F#",
+);
+
+const lateNightTape = timeline(
+  [[4, 500], [5, 250], [6, 250], [4, 750], [5, 250], [0, 500], [1, 250], [2, 1000]],
+  "minor",
+  "A",
+);
 
 const brassWhistleCode: CodeStripToken[] = [
   { type: "note", note: "mi", text: "Mi", duration: "@0.282" },
@@ -98,7 +101,6 @@ const glassBellCard: PatternCardExample = {
   when: "2d ago",
   spine: "var(--tomato)",
   barTape: glassBellTape,
-  barTapeMode: "equal",
 };
 
 const lateNightCard: PatternCardExample = {
@@ -108,7 +110,6 @@ const lateNightCard: PatternCardExample = {
   when: "5h ago",
   spine: "var(--tomato)",
   barTape: lateNightTape,
-  barTapeMode: "equal",
 };
 
 const brassWhistleCard: PatternCardExample = {

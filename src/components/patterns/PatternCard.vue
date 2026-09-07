@@ -7,6 +7,8 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { getModeDefinition } from "@/data";
 import Knob from "@/components/primatives/Knob/index.vue";
+import BarTape from "@/components/primatives/BarTape.vue";
+import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
 import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
@@ -97,6 +99,13 @@ function colorFor(note: PatternNote, pattern: Pattern): string {
   );
 }
 
+const barTapeSegments = computed<BarTapeSegment[]>(() =>
+  props.pattern.notes.map((note) => ({
+    color: colorFor(note, props.pattern),
+    durationMs: note.duration,
+  })),
+);
+
 function displayInstrumentName(instrument: string): string {
   return instrument.startsWith("gm_") ? instrument.slice(3) : instrument;
 }
@@ -158,17 +167,7 @@ function keepPattern() {
     </div>
 
     <!-- Color strip — always visible, proportional to note duration -->
-    <div class="note-color-strip">
-      <span
-        v-for="note in (pattern.notes as PatternNote[])"
-        :key="note.id"
-        class="note-color-segment"
-        :style="{
-          backgroundColor: colorFor(note, pattern),
-          flex: Math.max(note.duration, 50),
-        }"
-      />
-    </div>
+    <BarTape :segments="barTapeSegments" aria-label="Pattern note timeline" />
   </article>
 </template>
 
@@ -329,16 +328,4 @@ function keepPattern() {
   border-color: hsla(0, 0%, 80%, 0.24);
 }
 
-/* ─── Note color strip ─── */
-.note-color-strip {
-  display: flex;
-  height: 4px;
-  overflow: hidden;
-}
-
-.note-color-segment {
-  height: 100%;
-  flex-shrink: 0;
-  min-width: 2px;
-}
 </style>

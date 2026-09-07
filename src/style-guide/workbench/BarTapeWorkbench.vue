@@ -15,26 +15,26 @@
           <p class="workbench__index">01</p>
           <h2>Current primitive</h2>
         </div>
-        <p>Seven scale seats · source-owned states</p>
+        <p>Chronological events · duration-proportional width</p>
       </div>
 
       <div class="primitive-stage">
         <div class="primitive-stage__hero">
-          <span>C major</span>
-          <BarTape mode="major" :playhead-percent="34" />
+          <span>{{ productionPattern.name }}</span>
+          <BarTape :segments="sequenceSegments" />
         </div>
         <div class="primitive-stage__variants">
           <label>
-            Equal · 8px
-            <BarTape mode="equal" />
+            Twinkle · repeated notes and held ending
+            <BarTape :segments="sequenceSegments" />
           </label>
           <label>
-            Timeline-like sequence · 4px
-            <BarTape mode="equal" size="thin" :segments="sequenceSegments" />
+            Mary · varied pitch order
+            <BarTape :segments="marySegments" />
           </label>
           <label>
-            Dim and brass signals · 8px
-            <BarTape :segments="signalSegments" />
+            Hot Cross Buns · short pulses and long notes
+            <BarTape :segments="pulseSegments" />
           </label>
         </div>
       </div>
@@ -52,10 +52,9 @@
       <GuidePatternCard
         num="01"
         name="Twinkle fragment"
-        sub="C major · equal sequence"
-        when="8 notes"
+        sub="C major · duration weighted"
+        when="14 notes"
         :bar-tape="sequenceSegments"
-        bar-tape-mode="equal"
       />
     </section>
 
@@ -77,31 +76,28 @@
 import BarTape from "../../components/primatives/BarTape.vue";
 import GuidePatternCard from "../../components/compounds/PatternCard.vue";
 import ProductionPatternCard from "../../components/patterns/PatternCard.vue";
+import { useColorSystem } from "../../composables/useColorSystem";
 import { defaultPatterns } from "../../data/patterns";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
+import type { Pattern } from "../../types/patterns";
 
 const productionPattern = defaultPatterns[0];
+const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
 
-const sequenceSegments: BarTapeSegment[] = [
-  { note: "do" },
-  { note: "do" },
-  { note: "sol" },
-  { note: "sol" },
-  { note: "la" },
-  { note: "la" },
-  { note: "sol" },
-  { note: "fa" },
-];
+const toTimeline = (pattern: Pattern): BarTapeSegment[] =>
+  pattern.notes.map((note) => ({
+    color: getStaticPrimaryColorByScaleIndex(
+      note.scaleIndex,
+      pattern.mode,
+      pattern.key,
+      note.octave,
+    ),
+    durationMs: note.duration,
+  }));
 
-const signalSegments: BarTapeSegment[] = [
-  { note: "do", downbeat: true },
-  { note: "re", dim: true },
-  { note: "mi" },
-  { note: "fa", dim: true },
-  { note: "sol" },
-  { note: "la", dim: true },
-  { note: "ti", dim: true },
-];
+const sequenceSegments = toTimeline(productionPattern);
+const marySegments = toTimeline(defaultPatterns[1]);
+const pulseSegments = toTimeline(defaultPatterns[2]);
 </script>
 
 <style scoped>

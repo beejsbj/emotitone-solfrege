@@ -14,12 +14,7 @@
       </span>
       <span v-if="when" class="pattern-card__when">{{ when }}</span>
     </div>
-    <BarTape
-      v-if="barTape"
-      :mode="barTapeMode"
-      frame="flush"
-      :segments="barTape"
-    />
+    <BarTape v-if="barTape" :segments="barTape" />
   </button>
 
   <article
@@ -71,7 +66,7 @@ import { computed, defineComponent, h } from "vue";
 import BarTape from "../primatives/BarTape.vue";
 import Button from "../primatives/Button.vue";
 import CodeStrip from "../uniques/CodeStrip/index.vue";
-import type { BarTapeMode, BarTapeSegment } from "../primatives/BarTape.vue";
+import type { BarTapeSegment } from "../primatives/BarTape.vue";
 import type { CodeStripToken } from "../uniques/CodeStrip/index.vue";
 
 export type PatternCardShape = "sleek" | "active";
@@ -85,7 +80,6 @@ const props = withDefaults(
     spine?: string;
     when?: string;
     barTape?: BarTapeSegment[];
-    barTapeMode?: BarTapeMode;
     codeTokens?: CodeStripToken[];
     footerText?: string;
     statusText?: string;
@@ -96,7 +90,6 @@ const props = withDefaults(
     spine: "var(--tomato)",
     when: undefined,
     barTape: undefined,
-    barTapeMode: "equal",
     codeTokens: undefined,
     footerText: undefined,
     statusText: undefined,

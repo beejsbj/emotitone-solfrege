@@ -505,6 +505,9 @@ const rowSignature = computed(() =>
     .map((row) => `${row.octave}:${row.keys.map((key) => key.id).join(",")}`)
     .join("|"),
 );
+const chordSignature = computed(() =>
+  renderChords.value.map((chord) => chord.harmony.id).join(","),
+);
 const editionVariations = computed(() => new Map(
   renderRows.value.flatMap((row) =>
     keyboardEditionRowVariations(
@@ -516,7 +519,7 @@ const editionVariations = computed(() => new Map(
 ));
 
 watch(
-  rowSignature,
+  [rowSignature, chordSignature],
   () => {
     releaseFocusedInputs(new Event("keyboard-remap"));
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {

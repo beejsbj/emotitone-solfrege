@@ -136,6 +136,22 @@ describe("Keyboard compound", () => {
     wrapper.unmount();
   });
 
+  it("restores a valid chord-row tab stop when scale cardinality shrinks", async () => {
+    const wrapper = mountKeyboard();
+    const majorChords = wrapper.findAll(".chord-key-stub");
+    await majorChords[6].trigger("focus");
+
+    await wrapper.setProps({ scaleType: "major pentatonic" });
+    await nextTick();
+
+    const pentatonicChords = wrapper.findAll(".chord-key-stub");
+    expect(pentatonicChords).toHaveLength(5);
+    expect(pentatonicChords.filter((chord) => chord.attributes("tabindex") === "0"))
+      .toHaveLength(1);
+    expect(pentatonicChords[0].attributes("tabindex")).toBe("0");
+    wrapper.unmount();
+  });
+
   it("moves through the chord row and treats Enter as a held chord input", async () => {
     const wrapper = mountKeyboard();
     const chords = wrapper.findAll(".chord-key-stub");

@@ -7,7 +7,7 @@ import {
   getBlobFieldConnections,
   getBlobFieldConnectionGeometry,
   getBlobFieldConnectionWidth,
-  getBlobFieldColorContributionDivisor,
+  getBlobFieldColorBatchSize,
   getBlobFieldBounds,
   getBlobFieldResolution,
   getBlobWebConnections,
@@ -409,12 +409,12 @@ describe("useBlobFieldRenderer", () => {
   });
 
   it("keeps dense Web color contributions above 8-bit quantization", () => {
-    const divisor = getBlobFieldColorContributionDivisor("web", 78);
+    const divisor = getBlobFieldColorBatchSize(78);
     const quietHeldInteriorOpacity = 0.1 * 0.46;
 
     expect(divisor).toBe(8);
     expect((quietHeldInteriorOpacity / divisor) * 255).toBeGreaterThan(1);
-    expect(getBlobFieldColorContributionDivisor("merge", 23)).toBe(23);
+    expect(getBlobFieldColorBatchSize(4)).toBe(4);
   });
 
   it("curves long filaments into smoothly inset, resolution-aware shoulders", () => {

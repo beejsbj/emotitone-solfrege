@@ -684,15 +684,10 @@ export function getBlobWebConnectionWidth(
   return Math.max(continuityFloor, organicWidth);
 }
 
-export function getBlobFieldColorContributionDivisor(
-  mode: HarmonicGeometryMode,
-  layerCount: number
-) {
-  // A twelve-note Web has 78 body/edge layers. Dividing each 8-bit canvas
-  // contribution by that full count can quantize quieter filament colors to
-  // zero even while their independent visibility remains nonzero. Eight still
-  // leaves headroom for the practical overlap count while preserving color.
-  return mode === "web" ? Math.min(8, layerCount) : layerCount;
+export const BLOB_FIELD_COLOR_BATCH_SIZE = 8;
+
+export function getBlobFieldColorBatchSize(layerCount: number) {
+  return Math.min(BLOB_FIELD_COLOR_BATCH_SIZE, layerCount);
 }
 
 export function getBlobFieldResolution(bounds: FieldBounds) {
@@ -827,11 +822,6 @@ export function useBlobFieldRenderer() {
         ),
       };
     });
-    const layerCount = frames.length + connectionLayers.length;
-    const colorContributionDivisor = getBlobFieldColorContributionDivisor(
-      mode,
-      layerCount
-    );
     const field = getSurfaces(width, height);
     const sourceContext = field.source.getContext("2d", {
       willReadFrequently: true,
@@ -844,18 +834,8 @@ export function useBlobFieldRenderer() {
       return false;
     }
 
-    sourceContext.setTransform(1, 0, 0, 1, 0, 0);
     visibilityContext.setTransform(1, 0, 0, 1, 0, 0);
-    sourceContext.clearRect(0, 0, width, height);
     visibilityContext.clearRect(0, 0, width, height);
-    sourceContext.setTransform(
-      scale,
-      0,
-      0,
-      scale,
-      -bounds.x * scale,
-      -bounds.y * scale
-    );
     visibilityContext.setTransform(
       scale,
       0,
@@ -865,47 +845,47 @@ export function useBlobFieldRenderer() {
       -bounds.y * scale
     );
 
-    // Scale every body contribution so additive compositing cannot saturate,
-    // weight it by its current opacity, then reconstruct that color weight
-    // from the pixel alpha below. This makes mixing order-independent while a
-    // releasing body's color leaves the shared material continuously.
-    sourceContext.globalCompositeOperation = "lighter";
-
-    frames.forEach((frame) => {
-      sourceContext.globalAlpha =
-        Math.max(0, Math.min(1, frame.opacity)) / colorContributionDivisor;
-      traceFrame(sourceContext, frame);
-      sourceContext.fillStyle = frame.primaryColor;
-      sourceContext.fill();
-    });
-
-    connectionLayers.forEach(({ connection, geometry }) => {
+    const getConnectionOpacity = (connection: BlobFieldConnection) => {
       const bodyOpacity = Math.min(
         Math.max(0, Math.min(1, connection.from.opacity)),
         Math.max(0, Math.min(1, connection.to.opacity))
       );
-      const opacity =
-        connection.role === "merge"
-          ? bodyOpacity
-          : bodyOpacity *
+      return connection.role === "merge"
+        ? bodyOpacity
+        : bodyOpacity *
             config.opacity *
             (connection.role === "boundary" ? 0.92 : 0.46);
-      const start = geometry.centerline[0];
-      const end = geometry.centerline[geometry.centerline.length - 1] ?? start;
-      const gradient = sourceContext.createLinearGradient(
-        start.x,
-        start.y,
-        end.x,
-        end.y
-      );
-      gradient.addColorStop(0, connection.from.primaryColor);
-      gradient.addColorStop(1, connection.to.primaryColor);
+    };
 
-      sourceContext.globalAlpha = opacity / colorContributionDivisor;
-      sourceContext.fillStyle = gradient;
-      traceConnection(sourceContext, geometry);
-      sourceContext.fill();
-    });
+    const colorLayers = [
+      ...frames.map((frame) => ({
+        opacity: Math.max(0, Math.min(1, frame.opacity)),
+        paint: () => {
+          traceFrame(sourceContext, frame);
+          sourceContext.fillStyle = frame.primaryColor;
+          sourceContext.fill();
+        },
+      })),
+      ...connectionLayers.map(({ connection, geometry }) => ({
+        opacity: getConnectionOpacity(connection),
+        paint: () => {
+          const start = geometry.centerline[0];
+          const end =
+            geometry.centerline[geometry.centerline.length - 1] ?? start;
+          const gradient = sourceContext.createLinearGradient(
+            start.x,
+            start.y,
+            end.x,
+            end.y
+          );
+          gradient.addColorStop(0, connection.from.primaryColor);
+          gradient.addColorStop(1, connection.to.primaryColor);
+          sourceContext.fillStyle = gradient;
+          traceConnection(sourceContext, geometry);
+          sourceContext.fill();
+        },
+      })),
+    ];
 
     // A sustained body must win over a releasing body at an overlap. Painting
     // low opacity first and high opacity last gives the union its maximum local
@@ -920,15 +900,7 @@ export function useBlobFieldRenderer() {
         },
       })),
       ...connectionLayers.map(({ connection, geometry }) => ({
-        opacity:
-          Math.min(
-            Math.max(0, Math.min(1, connection.from.opacity)),
-            Math.max(0, Math.min(1, connection.to.opacity))
-          ) *
-          (connection.role === "merge"
-            ? 1
-            : config.opacity *
-              (connection.role === "boundary" ? 0.92 : 0.46)),
+        opacity: getConnectionOpacity(connection),
         paint: () => {
           traceConnection(visibilityContext, geometry);
           visibilityContext.fill();
@@ -942,10 +914,6 @@ export function useBlobFieldRenderer() {
       layer.paint();
     });
 
-    sourceContext.globalAlpha = 1;
-    sourceContext.globalCompositeOperation = "source-over";
-
-    const sourceImage = sourceContext.getImageData(0, 0, width, height);
     const visibilityImage = visibilityContext.getImageData(
       0,
       0,
@@ -965,19 +933,64 @@ export function useBlobFieldRenderer() {
       vertical,
     } = frameBuffers;
 
+    red.fill(0);
+    green.fill(0);
+    blue.fill(0);
+    weight.fill(0);
+
+    // Accumulate color in small, non-saturating 8-bit canvas batches, then add
+    // those decoded contributions into float buffers. A dense twelve-note Web
+    // therefore keeps the same order-independent color math as a sparse Merge
+    // without dividing quiet filaments below one source-canvas alpha level.
+    for (
+      let batchStart = 0;
+      batchStart < colorLayers.length;
+      batchStart += BLOB_FIELD_COLOR_BATCH_SIZE
+    ) {
+      const batch = colorLayers.slice(
+        batchStart,
+        batchStart + BLOB_FIELD_COLOR_BATCH_SIZE
+      );
+      const batchDivisor = getBlobFieldColorBatchSize(batch.length);
+
+      sourceContext.setTransform(1, 0, 0, 1, 0, 0);
+      sourceContext.clearRect(0, 0, width, height);
+      sourceContext.setTransform(
+        scale,
+        0,
+        0,
+        scale,
+        -bounds.x * scale,
+        -bounds.y * scale
+      );
+      sourceContext.globalCompositeOperation = "lighter";
+      batch.forEach((layer) => {
+        sourceContext.globalAlpha = layer.opacity / batchDivisor;
+        layer.paint();
+      });
+
+      const sourceImage = sourceContext.getImageData(0, 0, width, height);
+      for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+        const offset = pixel * 4;
+        const accumulatedColorWeight =
+          (sourceImage.data[offset + 3] / 255) * batchDivisor;
+        weight[pixel] += accumulatedColorWeight;
+        red[pixel] +=
+          (sourceImage.data[offset] / 255) * accumulatedColorWeight;
+        green[pixel] +=
+          (sourceImage.data[offset + 1] / 255) * accumulatedColorWeight;
+        blue[pixel] +=
+          (sourceImage.data[offset + 2] / 255) * accumulatedColorWeight;
+      }
+    }
+
+    sourceContext.globalAlpha = 1;
+    sourceContext.globalCompositeOperation = "source-over";
+
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
-      const accumulatedColorWeight =
-        (sourceImage.data[offset + 3] / 255) * colorContributionDivisor;
       const visibilityCoverage = visibilityImage.data[offset + 3] / 255;
-      weight[pixel] = accumulatedColorWeight;
       alpha[pixel] = visibilityCoverage;
-      red[pixel] =
-        (sourceImage.data[offset] / 255) * accumulatedColorWeight;
-      green[pixel] =
-        (sourceImage.data[offset + 1] / 255) * accumulatedColorWeight;
-      blue[pixel] =
-        (sourceImage.data[offset + 2] / 255) * accumulatedColorWeight;
       opacity[pixel] =
         (visibilityImage.data[offset] / 255) *
         visibilityCoverage;
@@ -1012,12 +1025,13 @@ export function useBlobFieldRenderer() {
         0,
         Math.min(1, opacity[pixel] / Math.max(0.0001, fieldAlpha))
       );
+      const hasColor = weight[pixel] > 0.0001;
       const colorWeight = Math.max(0.0001, weight[pixel]);
       const normalizedRed = red[pixel] / colorWeight;
       const normalizedGreen = green[pixel] / colorWeight;
       const normalizedBlue = blue[pixel] / colorWeight;
 
-      const finalAlpha = coverage * localOpacity;
+      const finalAlpha = hasColor ? coverage * localOpacity : 0;
 
       output.data[offset] = Math.round(
         Math.max(0, Math.min(1, normalizedRed)) * 255

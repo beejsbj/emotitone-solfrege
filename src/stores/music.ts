@@ -68,6 +68,17 @@ function parseNoteWithOctave(
   return { noteName, octave };
 }
 
+function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
+  return {
+    name: noteName,
+    number: 0,
+    emotion: "Borrowed harmony tone",
+    description: "An explicit chord alteration outside the active scale.",
+    fleckShape: "sparkle",
+    texture: "harmonic",
+  };
+}
+
 export const useMusicStore = defineStore(
   "music",
   () => {
@@ -340,6 +351,70 @@ export const useMusicStore = defineStore(
         }
       }
       return null;
+    }
+
+    /**
+     * Attack scientific pitch notation exactly. Unlike the compatibility
+     * string overload on attackNote(), this never floors an out-of-scale pitch
+     * to the preceding scale degree.
+     */
+    async function attackExactPitch(note: string): Promise<string | null> {
+      const parsed = parseNoteWithOctave(note);
+      if (!parsed) return null;
+
+      const { noteName: pitchClass, octave } = parsed;
+      const exactNoteName = `${pitchClass}${octave}`;
+      const tonalNote = TonalNote.get(exactNoteName);
+      if (!tonalNote.freq) return null;
+
+      const solfegeIndex = currentScaleNotes.value.indexOf(pitchClass);
+      const solfege = solfegeIndex === -1
+        ? borrowedPitchSolfege(pitchClass)
+        : solfegeData.value[solfegeIndex];
+      if (!solfege) return null;
+
+      const noteContext = getCurrentNoteContext();
+      const cleanNoteId = [
+        "exact",
+        exactNoteName,
+        Date.now(),
+        Math.random().toString(36).slice(2, 8),
+      ].join("_");
+
+      await superdoughAudio.attackNote(
+        cleanNoteId,
+        exactNoteName,
+        instrumentStore.currentInstrument,
+      );
+
+      const activeNote: ActiveNote = {
+        solfegeIndex,
+        solfege,
+        frequency: tonalNote.freq,
+        octave,
+        noteId: cleanNoteId,
+        noteName: exactNoteName,
+        ...noteContext,
+      };
+      activeNotes.value.set(cleanNoteId, activeNote);
+      currentNote.value = solfege.name;
+      isPlaying.value = true;
+
+      window.dispatchEvent(new CustomEvent("note-played", {
+        detail: {
+          note: solfege,
+          frequency: tonalNote.freq,
+          solfegeIndex,
+          octave,
+          noteId: cleanNoteId,
+          noteName: exactNoteName,
+          ...noteContext,
+          instrument: instrumentStore.currentInstrument,
+          instrumentConfig: null,
+        },
+      }));
+
+      return cleanNoteId;
     }
 
     // Play note with duration with either format
@@ -616,6 +691,7 @@ export const useMusicStore = defineStore(
       playNote,
       attackNote,
       attackNoteWithOctave,
+      attackExactPitch,
       releaseNote,
       releaseAllNotes,
       addToSequence,

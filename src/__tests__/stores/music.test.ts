@@ -116,6 +116,26 @@ describe("music store", () => {
     });
   });
 
+  it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
+    const musicStore = useMusicStore();
+
+    musicStore.setKey("C");
+    musicStore.setMode("major");
+    const noteId = await musicStore.attackExactPitch("D#4");
+
+    expect(noteId).toMatch(/^exact_D#4_/);
+    expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
+      noteId,
+      "D#4",
+      "piano",
+    );
+    expect(musicStore.getActiveNotes()[0]).toMatchObject({
+      noteName: "D#4",
+      solfegeIndex: -1,
+      octave: 4,
+    });
+  });
+
   it("plays notes using the actual current mode degree count", async () => {
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");

@@ -65,6 +65,7 @@
       :x="interaction.current.value.x"
       :y="interaction.current.value.y"
       :value="dragValue"
+      :tone="tone"
     />
 
     <!-- Label -->

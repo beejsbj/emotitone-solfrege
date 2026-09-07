@@ -66,10 +66,21 @@ describe("Knob public interface", () => {
     const follower = document.querySelector(".knob-drag-value")!;
     expect(follower.textContent).toContain("-4.84 dB");
     expect(follower.querySelector(".sticker--fill")).not.toBeNull();
+    expect(follower.querySelector(".sticker--color-ivory")).not.toBeNull();
     await wrapper.setProps({ modelValue: -3.2 });
     expect(follower.textContent).toContain("-3.2 dB");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
     expect(document.querySelector(".knob-drag-value")).toBeNull();
+  });
+
+  it("uses the brass Badge treatment for a brass Knob follower", async () => {
+    const wrapper = render({ modelValue: 64, type: "range", tone: "brass" });
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    const follower = document.querySelector(".knob-drag-value")!;
+    expect(follower.querySelector(".sticker--badge")).not.toBeNull();
+    expect(follower.querySelector(".sticker--color-brass-sheen")).not.toBeNull();
+    expect(follower.querySelector(".sticker--fill")).toBeNull();
+    await documentEvent("mouseup", new MouseEvent("mouseup"));
   });
 
   it("scales a complete wrapped value when the visual viewport is too short", async () => {

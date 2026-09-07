@@ -1,7 +1,11 @@
 <template>
   <Teleport to="body">
     <div ref="follower" class="knob-drag-value" aria-hidden="true">
-      <Sticker variant="fill" color="ivory" class="knob-drag-value__paper">
+      <Sticker
+        :variant="tone === 'brass' ? 'badge' : 'fill'"
+        :color="tone === 'brass' ? 'brass-sheen' : 'ivory'"
+        class="knob-drag-value__paper"
+      >
         {{ value }}
       </Sticker>
     </div>
@@ -11,8 +15,14 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import Sticker from "../Sticker.vue";
+import type { KnobTone } from "./types";
 
-const props = defineProps<{ x: number; y: number; value: string }>();
+const props = defineProps<{
+  x: number;
+  y: number;
+  value: string;
+  tone: KnobTone;
+}>();
 const follower = ref<HTMLElement>();
 let frame = 0;
 let previousTime = 0;
@@ -129,11 +139,14 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
 .knob-drag-value__paper {
   max-inline-size: 100%;
   box-sizing: border-box;
-  font-size: 20px;
   font-variant-numeric: tabular-nums;
-  text-transform: none;
   white-space: normal;
   overflow-wrap: anywhere;
   text-align: center;
+}
+
+.knob-drag-value__paper.sticker--fill {
+  font-size: 20px;
+  text-transform: none;
 }
 </style>

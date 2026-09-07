@@ -1237,7 +1237,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      // TODO: is this in seconds?
      cut: d,
      loop: l,
-@@ -979,50 +995,50 @@ async function so(e, t, n, o, a) {
+@@ -979,50 +995,54 @@ async function so(e, t, n, o, a) {
    } = t;
    if (r === 0)
      return;
@@ -1255,8 +1255,13 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    }
    if (u.currentTime > e) {
 -    j(`[sampler] loading sound "${c}:${p}" took too long`, "highlight"), Y(y);
-+    B(`[sampler] loading sound "${c}:${p}" took too long`, "highlight"), Y(G);
-     return;
+-    return;
++    if (t.sustainUntilRelease === !0)
++      e = u.currentTime;
++    else {
++      B(`[sampler] loading sound "${c}:${p}" took too long`, "highlight"), Y(G);
++      return;
++    }
    }
 -  const W = Te(y.detune, t, e), S = e + s;
 -  y.start(S, Z);
@@ -3435,6 +3440,24 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  $o as waveformN,
 +  ce as webAudioTimeout
  };
+diff --git a/sampler.mjs b/sampler.mjs
+--- a/sampler.mjs
++++ b/sampler.mjs
+@@ -297,6 +297,10 @@ export async function onTriggerSample(t, value, onended, bank, resolveUrl) {
+   if (ac.currentTime > t) {
+-    logger(`[sampler] loading sound "${s}:${n}" took too long`, 'highlight');
+-    // AudioBufferSourceNode will never be used. discard it
+-    releaseAudioNode(bufferSource);
+-    return;
++    if (value.sustainUntilRelease === true) {
++      t = ac.currentTime;
++    } else {
++      logger(`[sampler] loading sound "${s}:${n}" took too long`, 'highlight');
++      // AudioBufferSourceNode will never be used. discard it
++      releaseAudioNode(bufferSource);
++      return;
++    }
+   }
 diff --git a/superdough.mjs b/superdough.mjs
 index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc772641cf4e 100644
 --- a/superdough.mjs

@@ -134,7 +134,6 @@ export function createKnobInteraction(
     workingValue = configuration.value;
     valueAccumulator = 0;
     optionAccumulator = 0;
-    lastOptionChange = undefined;
   };
 
   const optionIndex = (

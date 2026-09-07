@@ -292,6 +292,24 @@ describe("knob interaction interface", () => {
     expect(backward.value()).toBe("SAW");
   });
 
+  it("keeps option throttling when a parent rejects an emitted option", () => {
+    const options = [{ value: "SIN" }, { value: "TRI" }, { value: "SAW" }];
+    const subject = setup({ value: "SIN", kind: "options", options });
+    subject.dispatch(start());
+    subject.timer.advance(20);
+    expect(subject.dispatch(move(100, 80)).effects).toContainEqual({
+      type: "value",
+      value: "TRI",
+    });
+
+    subject.setValue("SIN");
+    subject.timer.advance(10);
+    const duringCooldown = subject.dispatch(move(100, 60));
+
+    expect(duringCooldown.effects).toEqual([]);
+    expect(subject.value()).toBe("SIN");
+  });
+
   it("produces one logical activation for touch and synthesized click", () => {
     const subject = setup({ value: false, kind: "boolean" });
     subject.dispatch(start("touch"));

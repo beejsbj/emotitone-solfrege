@@ -4,6 +4,10 @@
   "framework": "vue",
   "rewrites": [
     {
+      "source": "/api/melograph/analyze",
+      "destination": "https://melograph-swart.vercel.app/api/analyze"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

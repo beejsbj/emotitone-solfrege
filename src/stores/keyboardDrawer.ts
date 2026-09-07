@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, reactive, computed } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useMusicStore } from "@/stores/music";
+import type { MidiSessionState } from "@/types/midi";
 
 export type KeyboardPressId = string;
 
@@ -32,23 +33,6 @@ export interface VisualActivationState {
   activeActivations: Map<string, string>;
   /** Ref-counted active note keys for event-driven highlights */
   noteKeyCounts: Map<string, number>;
-}
-
-export interface MidiState {
-  /** Whether the browser exposes the Web MIDI API */
-  isSupported: boolean;
-  /** Whether a MIDI connection request is in flight */
-  isConnecting: boolean;
-  /** Whether the app has active MIDI access and is listening for inputs */
-  isListening: boolean;
-  /** Names of currently connected MIDI inputs */
-  connectedInputs: string[];
-  /** Names of currently connected MIDI outputs */
-  connectedOutputs: string[];
-  /** Preferred ROLI/LUMI output currently used for live sync */
-  syncedOutput: string | null;
-  /** Last connection or permission error */
-  lastError: string | null;
 }
 
 function isMidiSupported() {
@@ -86,7 +70,7 @@ export const useKeyboardDrawerStore = defineStore(
       noteKeyCounts: new Map(),
     });
 
-    const midi = reactive<MidiState>({
+    const midi = reactive<MidiSessionState>({
       isSupported: isMidiSupported(),
       isConnecting: false,
       isListening: false,
@@ -334,47 +318,12 @@ export const useKeyboardDrawerStore = defineStore(
       updateKeyboardConfig({ rowCount: clampedCount });
     };
 
-    const refreshMidiSupport = () => {
-      midi.isSupported = isMidiSupported();
-
-      if (!midi.isSupported) {
-        midi.isConnecting = false;
-        midi.isListening = false;
-        midi.connectedInputs = [];
-        midi.connectedOutputs = [];
-        midi.syncedOutput = null;
-        midi.lastError = null;
-      }
-    };
-
-    const setMidiConnecting = (isConnecting: boolean) => {
-      midi.isConnecting = isConnecting;
-    };
-
-    const setMidiListening = (isListening: boolean) => {
-      midi.isListening = isListening;
-
-      if (!isListening) {
-        midi.connectedInputs = [];
-        midi.connectedOutputs = [];
-        midi.syncedOutput = null;
-      }
-    };
-
-    const setMidiInputs = (inputs: string[]) => {
-      midi.connectedInputs = inputs;
-    };
-
-    const setMidiOutputs = (outputs: string[]) => {
-      midi.connectedOutputs = outputs;
-    };
-
-    const setMidiSyncedOutput = (output: string | null) => {
-      midi.syncedOutput = output;
-    };
-
-    const setMidiError = (message: string | null) => {
-      midi.lastError = message;
+    const setMidiSessionState = (state: MidiSessionState) => {
+      Object.assign(midi, {
+        ...state,
+        connectedInputs: [...state.connectedInputs],
+        connectedOutputs: [...state.connectedOutputs],
+      });
     };
 
     return {
@@ -411,13 +360,7 @@ export const useKeyboardDrawerStore = defineStore(
       updateKeyboardConfig,
       setMainOctave,
       setRowCount,
-      refreshMidiSupport,
-      setMidiConnecting,
-      setMidiListening,
-      setMidiInputs,
-      setMidiOutputs,
-      setMidiSyncedOutput,
-      setMidiError,
+      setMidiSessionState,
     };
   },
   {

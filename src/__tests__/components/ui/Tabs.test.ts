@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import { markRaw } from "vue";
-import ChipTabs from "@/components/primatives/ChipTabs.vue";
+import Tabs from "@/components/primatives/Tabs.vue";
 
 const TestIcon = markRaw({ template: "<svg />" });
 
@@ -17,13 +17,13 @@ const tabs = [
   { label: "Unavailable", value: "off", disabled: true },
 ];
 
-describe("ChipTabs", () => {
+describe("Tabs", () => {
   it("emits selection through the authoritative chip surface", async () => {
-    const wrapper = mount(ChipTabs, {
+    const wrapper = mount(Tabs, {
       props: { tabs, modelValue: "all", layout: "scroll" },
     });
 
-    expect(wrapper.classes()).toContain("chip-tabs--layout-scroll");
+    expect(wrapper.classes()).toContain("tabs--layout-scroll");
     expect(wrapper.get('[data-testid="tab-all"]').attributes("tabindex")).toBe("0");
     expect(wrapper.get('[data-testid="tab-keys"]').attributes("tabindex")).toBe("-1");
     expect(wrapper.get('[data-testid="tab-keys"]').attributes("aria-label")).toBe("Keyboards");
@@ -33,12 +33,12 @@ describe("ChipTabs", () => {
   });
 
   it("keeps disabled destinations inert and pins explicit guide variants", async () => {
-    const wrapper = mount(ChipTabs, {
+    const wrapper = mount(Tabs, {
       props: { tabs, defaultValue: "all", geometry: "rip", tone: "brass" },
     });
 
-    expect(wrapper.classes()).toContain("chip-tabs--geometry-rip");
-    expect(wrapper.classes()).toContain("chip-tabs--tone-brass");
+    expect(wrapper.classes()).toContain("tabs--geometry-rip");
+    expect(wrapper.classes()).toContain("tabs--tone-brass");
     await wrapper.get('button:disabled').trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });

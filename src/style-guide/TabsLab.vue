@@ -13,14 +13,14 @@
       <article class="tabs-lab__surface">
         <header class="tabs-lab__surface-heading">
           <div>
-            <p class="tabs-lab__source">Authoritative source · ChipTabs.vue</p>
+            <p class="tabs-lab__source">Authoritative source · Tabs.vue</p>
             <h2>Accepted chip slide.</h2>
           </div>
           <span class="tabs-lab__status">Source</span>
         </header>
 
         <div class="tabs-lab__stage tabs-lab__stage--chip">
-          <ChipTabs
+          <Tabs
             v-model="chipValue"
             :tabs="chipTabs"
             aria-label="Current guide chip tabs"
@@ -112,14 +112,14 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import ChipTabs, { type ChipTabItem } from "../components/primatives/ChipTabs.vue";
+import Tabs, { type TabItem } from "../components/primatives/Tabs.vue";
 import TabbedOverlayPanel, { type TabbedOverlayTab } from "../components/TabbedOverlayPanel.vue";
 
 const chipValue = ref("instrument");
 const instrumentValue = ref("all");
 const configValue = ref("home");
 
-const chipTabs: ChipTabItem[] = [
+const chipTabs: TabItem[] = [
   { label: "Anim", value: "instrument" },
   { label: "Freq", value: "config" },
   { label: "Color", value: "pattern" },

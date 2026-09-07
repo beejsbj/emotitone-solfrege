@@ -33,14 +33,6 @@ vi.mock('@/services/superdoughAudio', () => ({
   getRegisteredSounds,
 }))
 
-vi.mock('@/components/ui', () => ({
-  Tabs: {
-    props: ['value'],
-    emits: ['update:value'],
-    template: '<div data-testid="mock-tabs"><slot /></div>',
-  },
-}))
-
 vi.mock('./../../components/OverlayPanelShell.vue', () => ({
   default: {
     props: ['width', 'height', 'maxHeight', 'bodyClass'],

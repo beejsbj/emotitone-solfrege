@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, type Component } from "vue";
-import { Tabs } from "@/components/ui";
-import ChipTabs, { type ChipTabItem } from "@/components/primatives/ChipTabs.vue";
+import { computed, provide, type Component } from "vue";
+import Tabs, { type TabItem } from "@/components/primatives/Tabs.vue";
 import OverlayPanelShell from "./OverlayPanelShell.vue";
 
 export interface TabbedOverlayTab {
@@ -42,7 +41,7 @@ const activeValue = computed({
   set: (value: string) => emit("update:modelValue", value),
 });
 
-const chipTabs = computed<ChipTabItem[]>(() =>
+const tabItems = computed<TabItem[]>(() =>
   props.tabs.map((tab) => ({
     value: tab.value,
     label: tab.label,
@@ -51,14 +50,12 @@ const chipTabs = computed<ChipTabItem[]>(() =>
     testId: `${props.tabTestIdPrefix}-${tab.value}`,
   })),
 );
+
+provide("tabs-context", { value: activeValue });
 </script>
 
 <template>
-  <Tabs
-    class="min-w-0 w-full"
-    :class="{ 'h-full min-h-0': embedded }"
-    :value="activeValue"
-  >
+  <div class="flex min-w-0 w-full flex-col" :class="{ 'h-full min-h-0': embedded }">
     <OverlayPanelShell
       :embedded="embedded"
       @content-height="emit('contentHeight', $event)"
@@ -78,14 +75,14 @@ const chipTabs = computed<ChipTabItem[]>(() =>
       <slot />
 
       <template v-if="tabs.length > 0" #footer>
-        <ChipTabs
+        <Tabs
           v-model="activeValue"
-          :tabs="chipTabs"
+          :tabs="tabItems"
           density="compact"
           layout="scroll"
           :aria-label="tabsAriaLabel"
         />
       </template>
     </OverlayPanelShell>
-  </Tabs>
+  </div>
 </template>

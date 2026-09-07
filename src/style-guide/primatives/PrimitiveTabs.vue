@@ -6,7 +6,7 @@
   >
     <template #hero>
       <div class="hero-stage">
-        <ChipTabs v-model="heroValue" :tabs="tabs" aria-label="Hero chip tabs" />
+        <Tabs v-model="heroValue" :tabs="tabs" aria-label="Hero chip tabs" />
       </div>
     </template>
 
@@ -17,7 +17,7 @@
         :caption="variant.label"
         stage="ink3"
       >
-        <ChipTabs
+        <Tabs
           :tabs="shortTabs"
           :default-value="shortTabs[0].value"
           :geometry="variant.geometry"
@@ -29,14 +29,14 @@
 
     <VariantGrid title="Density">
       <VariantCell caption="Comfortable / 4 tabs" stage="ink3">
-        <ChipTabs
+        <Tabs
           :tabs="tabs"
           default-value="anim"
           aria-label="Comfortable chip tabs"
         />
       </VariantCell>
       <VariantCell caption="Compact / 5 tabs" stage="ink3">
-        <ChipTabs
+        <Tabs
           :tabs="denseTabs"
           default-value="anim"
           density="compact"
@@ -44,7 +44,7 @@
         />
       </VariantCell>
       <VariantCell caption="Disabled tab" stage="ink3">
-        <ChipTabs
+        <Tabs
           :tabs="disabledTabs"
           default-value="anim"
           geometry="offcut"
@@ -57,43 +57,43 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import ChipTabs from "../../components/primatives/ChipTabs.vue";
+import Tabs from "../../components/primatives/Tabs.vue";
 import type {
-  ChipTabItem,
-  ChipTabsGeometry,
-  ChipTabsTone,
-} from "../../components/primatives/ChipTabs.vue";
+  TabItem,
+  TabsGeometry,
+  TabsTone,
+} from "../../components/primatives/Tabs.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 
 interface GeometryExample {
-  geometry: ChipTabsGeometry;
-  tone?: ChipTabsTone;
+  geometry: TabsGeometry;
+  tone?: TabsTone;
   label: string;
 }
 
 const heroValue = ref("anim");
 
-const tabs: ChipTabItem[] = [
+const tabs: TabItem[] = [
   { label: "Anim", value: "anim" },
   { label: "Freq", value: "freq" },
   { label: "Color", value: "color" },
   { label: "Scope", value: "scope" },
 ];
 
-const shortTabs: ChipTabItem[] = [
+const shortTabs: TabItem[] = [
   { label: "Anim", value: "anim" },
   { label: "Freq", value: "freq" },
   { label: "Color", value: "color" },
 ];
 
-const denseTabs: ChipTabItem[] = [
+const denseTabs: TabItem[] = [
   ...tabs,
   { label: "Keys", value: "keys" },
 ];
 
-const disabledTabs: ChipTabItem[] = [
+const disabledTabs: TabItem[] = [
   { label: "Anim", value: "anim" },
   { label: "Freq", value: "freq" },
   { label: "Color", value: "color", disabled: true },
@@ -118,7 +118,7 @@ const features = [
   { label: "Layout", value: "equal-width or horizontally scrolling without changing the chip mechanic" },
   { label: "Edition", value: "one guide variant shared by every unpinned Tabs instance per page load" },
   { label: "State", value: "selected and disabled are source-owned tab states" },
-  { label: "Boundary", value: "Tabs/TabsContent retain content coordination; ChipTabs owns all presentation" },
+  { label: "Boundary", value: "TabsContent retains content coordination; Tabs owns all presentation" },
 ];
 </script>
 

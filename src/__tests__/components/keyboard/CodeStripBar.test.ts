@@ -41,7 +41,9 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
-    expect(wrapper.get('button[aria-label="Start humming capture"]').text()).toBe("Hum");
+    const humming = wrapper.get('button[aria-label="Start humming capture"]');
+    expect(humming.text()).toBe("");
+    expect(humming.find("svg.lucide-mic").exists()).toBe(true);
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
     expect(codeStripBarSource).toMatch(
       /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*top:[^}]*left:\s*50%;/,

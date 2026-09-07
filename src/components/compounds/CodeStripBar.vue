@@ -92,7 +92,6 @@
       >
         <Check v-if="hummingStatus === 'recording'" />
         <Mic v-else />
-        <span>{{ hummingButtonText }}</span>
       </Button>
 
       <span
@@ -192,15 +191,6 @@ const hummingButtonLabel = computed(() => {
 const hummingButtonTitle = computed(() =>
   props.hummingError ?? hummingButtonLabel.value,
 );
-const hummingButtonText = computed(() => {
-  if (props.hummingStatus === "recording") return "Accept";
-  if (props.hummingStatus === "error") return "Retry";
-  if (props.hummingStatus === "requesting") return "Allow mic";
-  if (["preparing", "analyzing"].includes(props.hummingStatus)) {
-    return "Analyzing";
-  }
-  return "Hum";
-});
 
 const emit = defineEmits<{
   togglePlayback: [];
@@ -287,28 +277,6 @@ function handleTakeSelection(event: Event) {
   display: inline-flex;
   pointer-events: auto;
   transform: translateX(-50%);
-}
-
-.humming-capture-transport__primary {
-  min-inline-size: 92px;
-  padding-inline: var(--s-5);
-  border-radius: 999px;
-}
-
-.humming-capture-transport__primary :deep(.paper-button__content) {
-  grid-auto-flow: column;
-  grid-template-columns: 16px auto;
-  gap: var(--s-3);
-  inline-size: auto;
-  line-height: 1;
-  font: var(--t-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.humming-capture-transport__primary :deep(.paper-button__content svg) {
-  inline-size: 16px;
-  block-size: 16px;
 }
 
 .humming-capture-transport__cancel-slot {

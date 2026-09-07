@@ -166,7 +166,7 @@ function keepPattern() {
       </div>
     </div>
 
-    <!-- Color strip — always visible, proportional to note duration -->
+    <!-- Bar Tape — always visible, chronological, proportional to note duration -->
     <BarTape :segments="barTapeSegments" aria-label="Pattern note timeline" />
   </article>
 </template>

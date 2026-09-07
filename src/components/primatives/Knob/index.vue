@@ -183,6 +183,7 @@ const wrapperRef = ref<HTMLElement>();
 const interaction = {
   isDragging: ref(false),
   isHeld: ref(false),
+  activeTouchId: ref<number | null>(null),
   gestureState: ref<
     | "idle"
     | "potential_tap"
@@ -299,14 +300,19 @@ const armSuppressedClick = () => {
 
 // Enhanced gesture detection and interaction
 const handleStart = (e: MouseEvent | TouchEvent) => {
-  if (props.isDisabled || props.isDisplay) return;
+  if (props.isDisabled || props.isDisplay || interaction.isHeld.value) return;
   if ("button" in e && e.button !== 0) return;
 
   e.preventDefault();
   e.stopPropagation();
 
-  const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-  const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+  const initiatingTouch = "touches" in e
+    ? e.changedTouches[0] ?? e.touches[e.touches.length - 1]
+    : null;
+  if ("touches" in e && !initiatingTouch) return;
+  interaction.activeTouchId.value = initiatingTouch?.identifier ?? null;
+  const clientY = initiatingTouch?.clientY ?? (e as MouseEvent).clientY;
+  const clientX = initiatingTouch?.clientX ?? (e as MouseEvent).clientX;
   const now = Date.now();
 
   // Reset interaction state
@@ -359,8 +365,14 @@ const handleMove = (e: Event) => {
   if (!interaction.isHeld.value || props.isDisabled) return;
 
   const event = e as MouseEvent | TouchEvent;
-  const clientY = "touches" in event ? event.touches[0].clientY : event.clientY;
-  const clientX = "touches" in event ? event.touches[0].clientX : event.clientX;
+  const activeTouch = "touches" in event
+    ? Array.from(event.touches).find(
+        (touch) => touch.identifier === interaction.activeTouchId.value,
+      )
+    : null;
+  if ("touches" in event && !activeTouch) return;
+  const clientY = activeTouch?.clientY ?? (event as MouseEvent).clientY;
+  const clientX = activeTouch?.clientX ?? (event as MouseEvent).clientX;
   const now = Date.now();
   const deltaFromStartX = clientX - interaction.start.value.x;
   const deltaFromStartY = clientY - interaction.start.value.y;
@@ -571,6 +583,7 @@ const removeGestureListeners = () => {
 const cancelGesture = () => {
   interaction.isHeld.value = false;
   interaction.isDragging.value = false;
+  interaction.activeTouchId.value = null;
   interaction.gestureState.value = "idle";
   removeGestureListeners();
 };
@@ -584,12 +597,19 @@ watch(() => props.isDisabled || props.isDisplay, (inert) => {
 });
 
 const handleEnd = (e: Event) => {
-  if (e.type === "touchcancel") {
-    cancelGesture();
-    return;
+  const event = e as MouseEvent | TouchEvent;
+  const isTouchEvent = "changedTouches" in event;
+  if (isTouchEvent) {
+    const endedActiveTouch = Array.from(event.changedTouches).some(
+      (touch) => touch.identifier === interaction.activeTouchId.value,
+    );
+    if (!endedActiveTouch) return;
+    if (e.type === "touchcancel") {
+      cancelGesture();
+      return;
+    }
   }
 
-  const event = e as MouseEvent | TouchEvent;
   if (interaction.gestureState.value !== "potential_tap") {
     event.preventDefault();
     event.stopPropagation();
@@ -597,8 +617,6 @@ const handleEnd = (e: Event) => {
 
   const now = Date.now();
   const touchDuration = now - interaction.start.value.time;
-
-  const isTouchEvent = "touches" in event || "changedTouches" in event;
 
   // Mouse taps are completed by the native click that follows mouseup. Touch
   // browsers may synthesize that click later, so handle touch taps here and
@@ -617,6 +635,7 @@ const handleEnd = (e: Event) => {
   interaction.gestureState.value = "gesture_ended";
   interaction.isDragging.value = false;
   interaction.isHeld.value = false;
+  interaction.activeTouchId.value = null;
   interaction.valueAccumulator.value = 0;
   interaction.optionAccumulator.value = 0;
   interaction.movementBuffer.value = [];

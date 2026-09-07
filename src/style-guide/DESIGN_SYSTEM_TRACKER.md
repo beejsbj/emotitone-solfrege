@@ -52,16 +52,23 @@ Work from a focused branch based on the current mainline, normally the latest `o
 | Circle-native cut paper | Geometry token family | Five curved disc silhouettes are accepted, authoritative, rendered directly in the Geometry guide, and consumed by real Button guide specimens | Production assignment requires an accepted consumer decision; the default production Button remains circular |
 | Note | Primitive | Defined, authoritative, real specimen, production-adopted through Key | Preserve musical identity and the geometry/proportion/surface boundary |
 | Key | Compound | Defined, authoritative, real specimen, production-adopted through Keyboard | Preserve native momentary interaction around a complete Note |
-| Knob | Primitive deep module | Ring/Arc family is defined, authoritative, represented by real specimens, and production-adopted | Keep one public seam and preserve Range/Boolean/Options behavior; accepted rip-mode timing does not close the Motion collection |
+| Knob | Primitive deep module | Ring/Arc family is defined, authoritative, represented by real specimens, and production-adopted. Unpinned production Knobs share one app-load edition that alternates Ring/Arc between loads; explicit guide specimens stay fixed. Interactive Range/Options drag values use an Ivory Sticker in production and the accepted brass Badge treatment where Brass is exercised in the guide | Keep one public seam, page-wide edition consistency, viewport-safe gesture feedback, and Range/Boolean/Options behavior; accepted follower/rip motion does not close the Motion collection |
 | Button | Primitive | Defined, authoritative, real specimen, and production-adopted | Momentary only; production disc-geometry use remains a separate consumer choice |
-| Sticker + Badge | Primitive family; Badge is currently a Sticker variant | Visual definition is closed and Badge is brass-only; the current source API and guide still permit/show non-brass Badges | Reconcile source and specimen with the accepted identity, then choose useful production placements across Config, Instrument, Loading, and Pattern surfaces without reopening the visual design |
+| Sticker + Badge | Primitive family; Badge is currently a Sticker variant | Visual definition is closed and Badge is brass-only. The filled Ivory Sticker is production-adopted by interactive Knob drag feedback; the public Knob source and real specimens exercise its Brass-to-Badge mapping, while current production has no Brass Knob. The generic source API and guide still permit/show non-brass Badges | Remove the non-brass Badge drift while preserving Knob consumption, then choose additional placements across Config, Instrument, Loading, and Pattern surfaces without reopening the visual design |
 | Chord | Compound | Defined, authoritative, and mounted in the guide; clustered Notes are adopted by CodeStrip | Fused-symbol adoption waits for a trustworthy recognition owner and future Keyboard chord-row work |
 | CodeStrip | Unique, compound-scale | Defined, authoritative, real specimen, and production-adopted as the editable Strudel document | Preserve source-range editing, native playback progress, and Note/Chord lineage |
-| CodeStrip Bar | Compound | Defined, authoritative, real specimen, and production-adopted | Preserve the shared instrument-bar surface, unframed editor seam, compact actions, and behavior |
+| CodeStrip Bar | Compound | Defined, authoritative, real specimen, and production-adopted | Preserve one continuous translucent instrument-bar surface; 8px block/12px inline inset, 8px beside CodeStrip, 6px between right actions; unframed zero-inset dense editor; and brass Play/Stop, ink Backspace, ivory Return as accessible icon-only 32px Buttons |
 | Control Bar | Compound | Defined, authoritative, real specimen, and production-adopted | Preserve its five equal slots and existing musical mutations |
 | Drawer | Unique, compound-scale | Defined, authoritative, real specimen, and adopted by bottom Keyboard plus top Instrument/Config hosts | Preserve continuous sizing, progressive clipping/focus, preferred Keyboard height, and natural/capped top-panel reopening |
 
 Do not re-grill closed units without a concrete contradiction or explicit request.
+
+## Governing constraints
+
+- Brand colors are decorative; brass is an instrument material. Semantic aliases such as `--danger` are legacy cleanup, not design doctrine.
+- Prefer filled surfaces and minimize borders. An outline must be intentional visual grammar rather than default structure.
+- Glassmorphism remains rejected. Keyboard Glass/Opacity, Roundness, and Angled Style controls are retired; do not restore them through token cleanup or later compositions.
+- Drawer uses its accepted exposed-edge icon/grip handle. Do not reintroduce the retired floating triggers or Drawer Boolean Knob.
 
 ## Open system work
 
@@ -70,7 +77,7 @@ Do not re-grill closed units without a concrete contradiction or explicit reques
 | Token collections | UI Colors, Brand Colors, Spacing + Radius, Spacing Scale, Typography, Motion, and remaining Geometry have not received a complete ownership/adoption audit | Inventory declarations, aliases, literals, guide specimens, and real consumers; resolve every orphan or duplicate |
 | Music Color | Runtime resolver is calculation authority; the current linear-swatch guide is unaccepted drift from the original segmented chromatic-wheel intent | Define the visual recipe independently, then make guide and runtime consume one authority |
 | UIBeat | Planned system-wide music/motion token and runtime protocol; not a component or composition | Define transport phase, playback start/stop, BPM response, consumer API, Reduced Motion stillness, transform coexistence, performance budget, and migration from BeatingShapes before distributing it |
-| Keyboard | One production compound and controlled guide specimen; Keyboard Padding is exposed through that seam | Accept or adjust the density matrix; this is visual review, not source reconciliation |
+| Keyboard | One production compound and controlled guide specimen; Keyboard Padding is exposed through that seam | Add representative shorter/non-chromatic cardinalities to the controlled specimen, or gather equivalent production-mode evidence, then accept or adjust the density matrix; this is visual review, not source reconciliation |
 | Bar Tape | Source and guide specimen exist; acceptance/adoption unresolved | Define and formalize before Pattern Card closes if its grammar is reused there |
 | Pattern Card | Guide and production have separate sources | Reconcile one authoritative source and preserve production pattern actions/state |
 | Pattern List | Production `PatternList.vue` binds `patternsStore` and loading actions; the guide's PatternReel is reference evidence whose active/stack state is demo-local | Define the list/stack compound and mount a real controlled specimen without replacing production state ownership |
@@ -114,7 +121,7 @@ The shared collision files are the central token stylesheet, `StyleGuide.vue`, t
 
 The queue can start on several independent branches now:
 
-1. **Keyboard visual acceptance:** inspect the controlled matrix at 320, 390, 768, and 960 CSS px across representative row counts, octave edges, geometry families, surfaces, labels, pressed/sounding states, Reduced Motion, and forced colors. Scale cardinality is variable, including a twelve-note chromatic scale. Keyboard explicitly lets keys shrink evenly to fit; the twelve-key guide is a valid maximum-density case, not a production mismatch. Resolve only gap, row-height hierarchy, inset, narrow typography, overlap, and variation amplitude.
+1. **Keyboard visual acceptance:** inspect the controlled matrix at 320, 390, 768, and 960 CSS px across representative row counts, octave edges, geometry families, surfaces, labels, pressed/sounding states, Reduced Motion, and forced colors. Scale cardinality is variable, including a twelve-note chromatic scale. Keyboard explicitly lets keys shrink evenly to fit; the twelve-key guide is a valid maximum-density case, not a production mismatch. Because the current controlled guide hard-codes twelve keys, add representative shorter/non-chromatic cardinalities there or exercise equivalent production modes before acceptance. Resolve only gap, row-height hierarchy, inset, narrow typography, overlap, and variation amplitude.
 2. **Token lineage inventory:** audit every token family, not only Motion. For every declaration, record its source owner and guide/production consumers in the live unit row; remove duplicate aliases/literals and leave only unresolved findings in this Plan.
 3. **Pattern foundation:** begin Bar Tape and the two Pattern Card sources while preserving production actions and store ownership.
 4. **Brand artifacts:** close Brand Cover and Brand Logo as focused, singular units ready for Loading Screen consumption.
@@ -136,4 +143,4 @@ A unit closes only when:
 - this Plan contains only the resulting current truth and `DESIGN_LOG.md` receives one concise receipt;
 - branch, commits, checks, pushed state, residual risk, and next dependent unit are handed off exactly.
 
-After all lanes merge, run the final adoption/orphan scan across token declarations, guide registrations, component imports, the five compositions, and other runtime-mounted surfaces. The pass is complete only when every design-system unit is consumed by a later layer, intentionally remains a direct foundational specimen with a recorded reason, or is removed.
+After all lanes merge, run the final adoption/orphan scan across token declarations, guide registrations, component imports, the five compositions, and other runtime-mounted surfaces. The pass is complete only when every design-system unit is consumed by a later layer, a terminal composition is mounted in production, a direct foundational specimen is intentionally retained with a recorded reason, or the unit is removed.

@@ -23,6 +23,17 @@
         @backspace="patternsStore.removeLastFromCurrentSketch()"
         @return="patternsStore.sendCurrentPattern()"
       />
+      <HummingCaptureTransport
+        :status="hummingStatus"
+        :error="hummingError"
+        :status-message="hummingStatusMessage"
+        :take-labels="hummingTakeLabels"
+        :selected-take-index="selectedHummingTake"
+        haptic
+        @toggle="toggleHummingCapture"
+        @cancel="cancelHummingCapture"
+        @select-take="selectHummingTake"
+      />
       <ControlBar
         :key-value="musicStore.currentKey"
         :mode-value="musicStore.currentMode"
@@ -51,7 +62,9 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import { Keyboard as KeyboardIcon } from "lucide-vue-next";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import { useHummingCapture } from "@/composables/useHummingCapture";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
@@ -63,11 +76,40 @@ const store = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const patternsStore = usePatternsStore();
 const visualConfigStore = useVisualConfigStore();
-const { toggle, isPlaying, hasPlayableCode } = useCodeStripStrudel();
+const {
+  toggle,
+  stop: stopSketchPlayback,
+  isPlaying,
+  hasPlayableCode,
+} = useCodeStripStrudel();
+const {
+  status: hummingStatus,
+  error: hummingError,
+  statusMessage: hummingStatusMessage,
+  takeLabels: hummingTakeLabels,
+  selectedTakeIndex: selectedHummingTake,
+  toggle: toggleHumming,
+  cancel: cancelHumming,
+  selectTake: selectHummingTake,
+} = useHummingCapture();
 
 async function toggleSketchPlayback() {
   if (!hasPlayableCode.value) return;
+  if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
+    await cancelHumming();
+  }
   await toggle();
+}
+
+async function toggleHummingCapture() {
+  if (isPlaying.value && hummingStatus.value !== "recording") {
+    await stopSketchPlayback();
+  }
+  await toggleHumming();
+}
+
+async function cancelHummingCapture() {
+  await cancelHumming();
 }
 
 function updateMode(mode: string) {

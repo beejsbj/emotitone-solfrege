@@ -10,6 +10,7 @@ import type {
   PatternConfig,
   Pattern,
   PatternNote,
+  PatternSource,
 } from "@/types/patterns";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 
@@ -22,6 +23,24 @@ const DEFAULT_CONFIG: PatternConfig = {
 const BEATS_PER_BAR = 4;
 const SILENCE_BOUNDARY_BARS = 1.5;
 const MIN_SILENCE_GAP_MS = 1500;
+const NON_RECORDING_EVENT_SOURCES = new Set([
+  "strudel-playback",
+  "melograph-live",
+]);
+
+export interface ImportedPatternCandidate {
+  name: string;
+  notes: PatternNote[];
+  source?: PatternSource;
+}
+
+interface ImportPatternCandidatesOptions {
+  workingNotes?: LogNote[];
+}
+
+interface LoadPatternAsBaseOptions {
+  discardWorkingNotes?: boolean;
+}
 
 export const usePatternsStore = defineStore(
   "patterns",
@@ -48,6 +67,7 @@ export const usePatternsStore = defineStore(
 
     // Working buffer — base notes loaded from a tapped pattern
     const loadedBaseNotes = ref<PatternNote[]>([]);
+    const loadedBasePatternId = ref<string | null>(null);
     const loadedBaseMeta = ref<{
       mode: MusicalMode;
       key: ChromaticNote;
@@ -375,7 +395,8 @@ export const usePatternsStore = defineStore(
     // Create a Pattern from PatternNote[] + explicit meta
     function createPatternFromNoteSet(
       notes: PatternNote[],
-      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number }
+      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
+      options: { name?: string; source?: PatternSource; isSaved?: boolean } = {},
     ): Pattern {
       if (notes.length === 0) {
         throw new Error("Cannot create pattern from empty notes array");
@@ -386,7 +407,7 @@ export const usePatternsStore = defineStore(
         id: `saved-pattern-${Date.now()}-${Math.random()
           .toString(36)
           .substr(2, 9)}`,
-        name: `Pattern ${new Date().toLocaleDateString()}`,
+        name: options.name ?? `Pattern ${new Date().toLocaleDateString()}`,
         notes,
         duration: lastNote.releaseTime - firstNote.pressTime,
         noteCount: notes.length,
@@ -396,16 +417,73 @@ export const usePatternsStore = defineStore(
         bpm: resolveBpm(meta.bpm),
         createdAt: Date.now(),
         isDefault: false,
-        isSaved: true,
+        isSaved: options.isSaved ?? true,
+        source: options.source,
       };
     }
 
+    /**
+     * Import finalized external takes as distinct Pattern candidates and load
+     * the first one onto the working desk. Return promotes the selected take to
+     * saved state. This deliberately bypasses the live note-event recorder:
+     * short one- and two-note takes are still real Patterns, and multiple takes
+     * remain separate.
+     */
+    function importPatternCandidates(
+      candidates: ImportedPatternCandidate[],
+      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
+      options: ImportPatternCandidatesOptions = {},
+    ): string[] {
+      const imported = candidates
+        .filter((candidate) => candidate.notes.length > 0)
+        .map((candidate) =>
+          createPatternFromNoteSet(
+            candidate.notes.map((note) => ({ ...note })),
+            meta,
+            {
+              name: candidate.name,
+              source: candidate.source,
+              isSaved: false,
+            },
+          ),
+        );
+
+      if (!imported.length) {
+        return [];
+      }
+
+      savedPatterns.value.push(...imported);
+      loadedBaseNotes.value = [];
+      loadedBasePatternId.value = null;
+      loadedBaseMeta.value = null;
+      loggedNotes.value = (options.workingNotes ?? []).map((note, index) => ({
+        ...note,
+        isStartingNewPattern: index === 0 ? true : note.isStartingNewPattern,
+      }));
+      forceNextPatternStart.value = false;
+      isStripCleared.value = false;
+      purgeOldPatterns();
+      loadPatternAsBase(imported[0].id);
+      if (loggedNotes.value.length > 0) forceNextPatternStart.value = false;
+
+      return imported.map((pattern) => pattern.id);
+    }
+
     // Load a saved pattern as the working base (typewriter desk model)
-    function loadPatternAsBase(patternId: string): void {
+    function loadPatternAsBase(
+      patternId: string,
+      options: LoadPatternAsBaseOptions = {},
+    ): void {
       const pattern = patterns.value.find((p) => p.id === patternId);
       if (!pattern) return;
 
+      if (options.discardWorkingNotes) {
+        loggedNotes.value = [];
+        pendingNotes.value.clear();
+      }
+
       loadedBaseNotes.value = [...pattern.notes];
+      loadedBasePatternId.value = patternId;
       loadedBaseMeta.value = {
         mode: pattern.mode,
         key: pattern.key,
@@ -430,14 +508,49 @@ export const usePatternsStore = defineStore(
     // Send the current working buffer as a new saved pattern, then clear the desk
     function sendCurrentPattern(): void {
       const allNotes = currentSketchNotes.value;
+      const loadedPattern = loadedBasePatternId.value
+        ? patterns.value.find((pattern) => pattern.id === loadedBasePatternId.value)
+        : undefined;
+      const loadedBaseContributes = loadedBaseNotes.value.length > 0
+        && (currentWorkingNotes.value.length === 0 || canContinueLoadedBase.value);
+      const contributingLoadedPattern = loadedBaseContributes
+        ? loadedPattern
+        : undefined;
+      const isLoadedImportedPattern =
+        contributingLoadedPattern?.source?.kind === "melograph";
 
-      if (allNotes.length > 2) {
-        const newPattern = createPatternFromNoteSet(allNotes, currentSketchMeta.value);
-        savedPatterns.value.push(newPattern);
-        focusedPatternId.value = newPattern.id;
+      if (allNotes.length > 0 && (allNotes.length > 2 || isLoadedImportedPattern)) {
+        const isUnchangedLoadedCandidate = Boolean(
+          contributingLoadedPattern
+          && !contributingLoadedPattern.isDefault
+          && !contributingLoadedPattern.isSaved
+          && loadedBaseNotes.value.length > 0
+          && currentWorkingNotes.value.length === 0
+          && loadedBaseNotes.value.length === contributingLoadedPattern.notes.length
+          && loadedBaseNotes.value.every((note, index) => {
+            const original = contributingLoadedPattern.notes[index];
+            return original?.id === note.id
+              && original.pressTime === note.pressTime
+              && original.releaseTime === note.releaseTime;
+          }),
+        );
+
+        if (contributingLoadedPattern && isUnchangedLoadedCandidate) {
+          contributingLoadedPattern.isSaved = true;
+          focusedPatternId.value = contributingLoadedPattern.id;
+        } else {
+          const newPattern = createPatternFromNoteSet(
+            allNotes,
+            currentSketchMeta.value,
+            { source: contributingLoadedPattern?.source },
+          );
+          savedPatterns.value.push(newPattern);
+          focusedPatternId.value = newPattern.id;
+        }
       }
 
       loadedBaseNotes.value = [];
+      loadedBasePatternId.value = null;
       loadedBaseMeta.value = null;
       isStripCleared.value = true;
       // Clear logged notes so dynamicPatterns doesn't duplicate saved content
@@ -460,6 +573,7 @@ export const usePatternsStore = defineStore(
     function keepPattern(patternId: string): void {
       const existingSaved = savedPatterns.value.find((pattern) => pattern.id === patternId);
       if (existingSaved) {
+        existingSaved.isSaved = true;
         existingSaved.isKept = true;
         return;
       }
@@ -503,7 +617,8 @@ export const usePatternsStore = defineStore(
     // Event handlers
     function handleNotePressed(event: CustomEvent): void {
       if (!isLoggingEnabled.value) return;
-      if (event.detail?.source === "strudel-playback") return;
+      if (event.detail?.record === false) return;
+      if (NON_RECORDING_EVENT_SOURCES.has(event.detail?.source)) return;
 
       const {
         note,
@@ -543,7 +658,8 @@ export const usePatternsStore = defineStore(
 
     function handleNoteReleased(event: CustomEvent): void {
       if (!isLoggingEnabled.value) return;
-      if (event.detail?.source === "strudel-playback") return;
+      if (event.detail?.record === false) return;
+      if (NON_RECORDING_EVENT_SOURCES.has(event.detail?.source)) return;
 
       const { noteId } = event.detail;
       const releaseTime = Date.now();
@@ -678,6 +794,7 @@ export const usePatternsStore = defineStore(
 
       // Working buffer state
       loadedBaseNotes,
+      loadedBasePatternId,
       loadedBaseMeta,
       isStripCleared,
 
@@ -697,6 +814,7 @@ export const usePatternsStore = defineStore(
 
       // Working buffer actions
       loadPatternAsBase,
+      importPatternCandidates,
       sendCurrentPattern,
       removeLastFromCurrentSketch,
       keepPattern,

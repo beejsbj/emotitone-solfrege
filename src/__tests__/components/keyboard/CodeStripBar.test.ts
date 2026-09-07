@@ -21,7 +21,9 @@ vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
 }));
 
 function render(props: Record<string, unknown> = {}) {
-  return createTestWrapper(CodeStripBar, { props });
+  return createTestWrapper(CodeStripBar, {
+    props,
+  });
 }
 
 describe("CodeStripBar.vue", () => {
@@ -32,13 +34,15 @@ describe("CodeStripBar.vue", () => {
     wrapper = undefined;
   });
 
-  it("composes icon-only Play, CodeStrip, Backspace, and Return in accepted order", () => {
+  it("keeps transport editing in a closed CodeStrip compound", () => {
     wrapper = render();
 
-    const labels = wrapper.findAll("button").map((button) => button.attributes("aria-label"));
-    expect(labels).toEqual(["Play", "Delete last event", "Return"]);
+    expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
+    expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
+    expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
-    expect(wrapper.text()).toBe("");
+    expect(codeStripBarSource).not.toContain("humming-capture-transport");
+    expect(codeStripBarSource).not.toContain("Hummed take");
   });
 
   it("integrates a flush, unframed dense CodeStrip into one shared instrument rail", () => {
@@ -81,10 +85,10 @@ describe("CodeStripBar.vue", () => {
     );
   });
 
-  it("uses brass for Play, ink for Backspace, and ivory for Return", () => {
+  it("uses ivory for Play, ink for Backspace, and ivory for Return", () => {
     wrapper = render();
 
-    expect(wrapper.get('button[aria-label="Play"]').classes()).toContain("paper-button--brass");
+    expect(wrapper.get('button[aria-label="Play"]').classes()).toContain("paper-button--ivory");
     expect(wrapper.get('button[aria-label="Delete last event"]').classes()).toContain("paper-button--ink");
     expect(wrapper.get('button[aria-label="Return"]').classes()).toContain("paper-button--ivory");
   });
@@ -94,10 +98,11 @@ describe("CodeStripBar.vue", () => {
 
     const stop = wrapper.get('button[aria-label="Stop"]');
     expect(stop.attributes("aria-pressed")).toBeUndefined();
+    expect(stop.classes()).toContain("paper-button--ink");
     expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
   });
 
-  it("emits the three existing action boundaries", async () => {
+  it("emits the existing actions", async () => {
     wrapper = render();
 
     await wrapper.get('button[aria-label="Play"]').trigger("click");
@@ -108,4 +113,5 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.emitted("backspace")).toHaveLength(1);
     expect(wrapper.emitted("return")).toHaveLength(1);
   });
+
 });

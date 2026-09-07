@@ -92,12 +92,19 @@ interface MidiNoteResolver {
 
 interface MirroredNoteEventDetail {
   source?: string;
+  mirrorMidi?: boolean;
   duration?: string;
   durationMs?: number;
   noteId?: string;
   noteName?: string;
   octave?: number;
   solfegeIndex?: number;
+}
+
+export function shouldMirrorNoteEvent(
+  detail: Pick<MirroredNoteEventDetail, "mirrorMidi"> | undefined,
+) {
+  return detail?.mirrorMidi !== false;
 }
 
 function buildMidiPressId(inputId: string, channel: number, noteNumber: number) {
@@ -661,6 +668,7 @@ export function useMidiControls() {
 
   const mirrorNotePlayed = (event: Event) => {
     const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
+    if (!shouldMirrorNoteEvent(detail)) return;
     const noteName = detail?.noteName;
 
     if (noteName && consumePendingNoteCount(pendingInputNoteOns.value, noteName)) {
@@ -705,6 +713,7 @@ export function useMidiControls() {
 
   const mirrorNoteReleased = (event: Event) => {
     const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
+    if (!shouldMirrorNoteEvent(detail)) return;
 
     if (detail?.noteId && pendingInputNoteOffs.value.has(detail.noteId)) {
       pendingInputNoteOffs.value.delete(detail.noteId);

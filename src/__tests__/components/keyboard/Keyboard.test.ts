@@ -128,6 +128,8 @@ describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
+    mocks.musicStore.currentKey = "C";
+    mocks.musicStore.currentMode = "major";
   });
 
   it("builds configured octave rows from the accepted Key contract", () => {
@@ -259,6 +261,30 @@ describe("Keyboard production usage", () => {
     await nextTick();
     expect(mocks.musicStore.attackExactPitch.mock.calls.slice(3).map(([pitch]) => pitch))
       .toEqual(["C4", "D#4", "G4"]);
+    wrapper.unmount();
+  });
+
+  it("keeps a held degree rendered until release when a smaller scale removes it", async () => {
+    const wrapper = mountKeyboard();
+    const seventhChord = wrapper.findAllComponents(ChordKeyStub)[6];
+    const event = new MouseEvent("mousedown");
+
+    seventhChord.vm.$emit("press", { inputId: "pointer:9", event });
+    await nextTick();
+    const heldSymbol = seventhChord.props("symbol");
+
+    mocks.musicStore.currentMode = "major pentatonic";
+    await wrapper.setProps({ harmonyAlteration: "dark" });
+
+    const orphan = wrapper.findAllComponents(ChordKeyStub).find(
+      (chord) => chord.attributes("data-chord-id") === "degree-7",
+    );
+    expect(orphan?.props("symbol")).toBe(heldSymbol);
+    expect(orphan?.props("pressed")).toBe(true);
+
+    orphan?.vm.$emit("release", { inputId: "pointer:9", event });
+    await nextTick();
+    expect(wrapper.findAllComponents(ChordKeyStub)).toHaveLength(5);
     wrapper.unmount();
   });
 

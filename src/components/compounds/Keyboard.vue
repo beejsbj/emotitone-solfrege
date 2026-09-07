@@ -329,13 +329,15 @@ function createProductionWiring() {
     })),
   );
 
-  const chords = computed<KeyboardChordView[]>(() =>
-    buildHarmony({
+  const chords = computed<KeyboardChordView[]>(() => {
+    const liveHarmony = buildHarmony({
       tonic: currentMusicKey.value,
       scaleType: musicStore.currentMode,
       octave: config.value.mainOctave,
       alteration: props.harmonyAlteration,
-    }).map((harmony) => {
+    });
+    const snapshots = Array.from(activeChordSnapshots.values());
+    const rendered = liveHarmony.map((harmony) => {
       const snapshot = Array.from(activeChordSnapshots.values())
         .find((candidate) => candidate.id === harmony.id);
       const displayedHarmony = snapshot ?? harmony;
@@ -351,8 +353,26 @@ function createProductionWiring() {
         ),
         pressed: Boolean(snapshot) || store.isKeyPressed(`chord:${harmony.id}`),
       };
-    }),
-  );
+    });
+    const liveIds = new Set(liveHarmony.map((harmony) => harmony.id));
+    const orphanSnapshots = snapshots.filter(
+      (snapshot, index) => !liveIds.has(snapshot.id)
+        && snapshots.findIndex((candidate) => candidate.id === snapshot.id) === index,
+    );
+
+    return rendered.concat(orphanSnapshots.map((harmony) => ({
+      harmony,
+      members: chordMembers(
+        harmony,
+        musicStore.currentMode,
+        currentMusicKey.value,
+        surfaceStyle.value,
+        config.value.keyBrightness,
+        config.value.keySaturation,
+      ),
+      pressed: true,
+    })));
+  });
 
   const inputPressId = (intent: KeyboardIntent) =>
     `melody:${intent.inputId}:${intent.keyId}`;

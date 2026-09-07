@@ -37,4 +37,16 @@ describe("Joystick page edition", () => {
     expect(beginJoystickPageEdition(brokenStorage)).toBe("analog");
     expect(currentJoystickPageVisual()).toBe("analog");
   });
+
+  it("keeps the selected edition when only persistence fails", () => {
+    const storage = {
+      getItem: vi.fn(() => "analog"),
+      setItem: vi.fn(() => {
+        throw new Error("read-only");
+      }),
+    };
+
+    expect(beginJoystickPageEdition(storage)).toBe("digital");
+    expect(currentJoystickPageVisual()).toBe("digital");
+  });
 });

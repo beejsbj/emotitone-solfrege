@@ -28,7 +28,7 @@
         :is-disabled="isDisabled"
         :show-progress="true"
         :theme-color="themeColor || defaultThemeColor"
-        :visual="visual"
+        :visual="resolvedVisual"
         :tone="tone"
         @update:modelValue="handleValueUpdate"
       />
@@ -39,7 +39,7 @@
         :model-value="actualValue as boolean"
         :is-disabled="isDisabled"
         :theme-color="themeColor || defaultThemeColor"
-        :visual="visual"
+        :visual="resolvedVisual"
         :tone="tone"
         :value-label-true="valueLabelTrue"
         :value-label-false="valueLabelFalse"
@@ -53,7 +53,7 @@
         :options="options!"
         :is-disabled="isDisabled"
         :theme-color="themeColor || defaultThemeColor"
-        :visual="visual"
+        :visual="resolvedVisual"
         :tone="tone"
         @update:modelValue="handleValueUpdate"
       />
@@ -86,6 +86,7 @@ import DragValue from "./DragValue.vue";
 import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
+import { currentKnobPageVisual } from "./edition";
 import type { KnobTone, KnobType, KnobVisual } from "./types";
 
 // Props - keeping the original API for backwards compatibility
@@ -143,7 +144,7 @@ const props = defineProps({
   },
   visual: {
     type: String as () => KnobVisual,
-    default: "arc",
+    default: undefined,
   },
   tone: {
     type: String as () => KnobTone,
@@ -229,6 +230,7 @@ const actualValue = computed(() => {
 });
 
 const isDisplayMode = computed(() => props.isDisplay);
+const resolvedVisual = computed(() => props.visual ?? currentKnobPageVisual());
 
 // Auto-detect knob type if not explicitly provided
 const knobType = computed((): KnobType => {

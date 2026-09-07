@@ -12,6 +12,11 @@
     aria-label="Solfège keyboard"
     :data-geometry-family="resolvedFamily"
     :data-edition-seed="resolvedEditionSeed"
+    @pointerdown="handlePointerDown"
+    @pointermove="handlePointerMove"
+    @pointerup="handlePointerEnd"
+    @pointercancel="handlePointerEnd"
+    @lostpointercapture="handlePointerEnd"
   >
     <div
       v-for="(row, rowIndex) in renderRows"
@@ -30,7 +35,7 @@
         class="keyboard__key"
         :class="{
           'keyboard__key--focus-preview': key.focusVisible,
-          'keyboard__key--pressed': key.pressed,
+          'keyboard__key--pressed': isKeyPhysicallyPressed(key),
         }"
         :style="keyStyle(key, row.octave)"
         :syllable="key.syllable"
@@ -50,7 +55,8 @@
         :key-brightness="key.keyBrightness"
         :key-saturation="key.keySaturation"
         :sounding="key.sounding"
-        :pressed="key.pressed"
+        :pressed="isKeyPhysicallyPressed(key)"
+        managed-input
         :aria-label="keyAriaLabel(key, row.octave)"
         :aria-keyshortcuts="key.shortcut || undefined"
         :tabindex="key.id === rememberedFocusId ? 0 : -1"
@@ -72,6 +78,7 @@ import {
   nextTick,
   onBeforeUnmount,
   onMounted,
+  reactive,
   ref,
   watch,
   type ComponentPublicInstance,
@@ -313,6 +320,7 @@ const keyboardRef = ref<HTMLElement | null>(null);
 const keyElements = new Map<string, HTMLButtonElement>();
 const rememberedFocusId = ref("");
 const activeFocusInputs = new Map<string, KeyboardIntent>();
+const activePointerInputs = reactive(new Map<number, KeyboardIntent | null>());
 
 const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
 const defaultFocusId = computed(
@@ -340,6 +348,7 @@ watch(
   rowSignature,
   () => {
     releaseFocusedInputs(new Event("keyboard-remap"));
+    releasePointerInputs(new Event("keyboard-remap"));
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
       rememberedFocusId.value = defaultFocusId.value;
     }
@@ -382,8 +391,14 @@ function keyStyle(key: KeyboardKeyView, octave: number) {
     "--key-face-rotation": "calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))",
     "--note-geometry-override-clip": variation.cut,
     "--note-geometry-override-shadow": variation.shadow,
-    zIndex: key.pressed ? 10_001 : variation.layer,
+    zIndex: isKeyPhysicallyPressed(key) ? 10_001 : variation.layer,
   };
+}
+
+function isKeyPhysicallyPressed(key: KeyboardKeyView) {
+  return Boolean(key.pressed) || Array.from(activePointerInputs.values()).some(
+    (intent) => intent?.keyId === key.id,
+  );
 }
 
 function rowStyle(octave: number) {
@@ -483,6 +498,83 @@ function dispatchIntent(kind: "press" | "release", intent: KeyboardIntent) {
   emit("release", intent);
 }
 
+function pointerInputId(event: PointerEvent) {
+  return event.pointerType === "mouse"
+    ? `mouse:${event.pointerId}`
+    : `${event.pointerType || "pointer"}:${event.pointerId}`;
+}
+
+function keyIntentAtPoint(event: PointerEvent): KeyboardIntent | null {
+  const root = keyboardRef.value;
+  if (!root) return null;
+
+  const hit = document.elementFromPoint?.(event.clientX, event.clientY)
+    ?? event.target;
+  const element = hit instanceof Element
+    ? hit.closest<HTMLElement>("[data-key-id]")
+    : null;
+  if (!element || !root.contains(element)) return null;
+
+  const keyId = element.dataset.keyId;
+  const row = renderRows.value.find((candidate) =>
+    candidate.keys.some((key) => key.id === keyId),
+  );
+  const key = row?.keys.find((candidate) => candidate.id === keyId);
+  if (!row || !key) return null;
+
+  return {
+    inputId: pointerInputId(event),
+    event,
+    keyId: key.id,
+    scaleIndex: key.scaleIndex,
+    octave: row.octave,
+    source: "pointer",
+  };
+}
+
+function movePointerInput(pointerId: number, next: KeyboardIntent | null, event: Event) {
+  const current = activePointerInputs.get(pointerId);
+  if (current?.keyId === next?.keyId) return;
+
+  if (current) dispatchIntent("release", { ...current, event });
+  activePointerInputs.set(pointerId, next);
+  if (next) dispatchIntent("press", next);
+}
+
+function handlePointerDown(event: PointerEvent) {
+  if (event.isPrimary === false && event.pointerType === "mouse") return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (activePointerInputs.has(event.pointerId)) return;
+
+  const intent = keyIntentAtPoint(event);
+  if (!intent) return;
+
+  if (event.pointerType !== "mouse") event.preventDefault();
+  keyboardRef.value?.setPointerCapture?.(event.pointerId);
+  activePointerInputs.set(event.pointerId, intent);
+  dispatchIntent("press", intent);
+}
+
+function handlePointerMove(event: PointerEvent) {
+  if (!activePointerInputs.has(event.pointerId)) return;
+  event.preventDefault();
+  movePointerInput(event.pointerId, keyIntentAtPoint(event), event);
+}
+
+function handlePointerEnd(event: PointerEvent) {
+  if (!activePointerInputs.has(event.pointerId)) return;
+  event.preventDefault();
+  movePointerInput(event.pointerId, null, event);
+  activePointerInputs.delete(event.pointerId);
+}
+
+function releasePointerInputs(event: Event) {
+  for (const intent of activePointerInputs.values()) {
+    if (intent) dispatchIntent("release", { ...intent, event });
+  }
+  activePointerInputs.clear();
+}
+
 function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
     event.preventDefault();
@@ -528,18 +620,27 @@ function releaseFocusedInputs(event: Event) {
 }
 
 function handleVisibilityChange(event: Event) {
-  if (document.visibilityState === "hidden") releaseFocusedInputs(event);
+  if (document.visibilityState === "hidden") {
+    releaseFocusedInputs(event);
+    releasePointerInputs(event);
+  }
+}
+
+function handleWindowBlur(event: Event) {
+  releaseFocusedInputs(event);
+  releasePointerInputs(event);
 }
 
 onMounted(() => {
-  window.addEventListener("blur", releaseFocusedInputs);
+  window.addEventListener("blur", handleWindowBlur);
   document.addEventListener("visibilitychange", handleVisibilityChange);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("blur", releaseFocusedInputs);
+  window.removeEventListener("blur", handleWindowBlur);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   releaseFocusedInputs(new Event("unmount"));
+  releasePointerInputs(new Event("unmount"));
   productionWiring?.clear();
   keyElements.clear();
 });
@@ -554,6 +655,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   isolation: isolate;
   container-type: inline-size;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .keyboard--padded { padding: 4px; }

@@ -1,6 +1,6 @@
 import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import drawerKeyboardSource from "@/components/DrawerKeyboard.vue?raw";
 import keyboardSource from "@/components/compounds/Keyboard.vue?raw";
@@ -114,6 +114,38 @@ function mountKeyboard() {
       stubs: { Key: KeyStub },
     },
   });
+}
+
+function pointerEvent(
+  type: string,
+  options: {
+    pointerId: number;
+    pointerType: "mouse" | "touch";
+    clientX: number;
+    clientY?: number;
+    button?: number;
+  },
+) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    pointerId: { value: options.pointerId },
+    pointerType: { value: options.pointerType },
+    clientX: { value: options.clientX },
+    clientY: { value: options.clientY ?? 20 },
+    button: { value: options.button ?? 0 },
+    isPrimary: { value: true },
+  });
+  return event;
+}
+
+function controlledRows() {
+  return [{
+    octave: 4,
+    keys: [
+      { id: "do-4", syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0 },
+      { id: "re-4", syllable: "Re", degree: "II", rawPitch: "D4", scaleIndex: 1 },
+    ],
+  }];
 }
 
 describe("Keyboard production usage", () => {
@@ -243,5 +275,74 @@ describe("Keyboard production usage", () => {
     expect(keyboardSource).toMatch(
       /\.keyboard__key\s+:deep\(\.key__face\),[\s\S]*width:\s*100%;/,
     );
+  });
+});
+
+describe("Keyboard pointer gestures", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("glissandos a held pointer between keys and releases outside the keyboard", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const [first, second] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x) => {
+      if (x < 100) return first.element;
+      if (x < 200) return second.element;
+      return null;
+    });
+
+    first.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
+    expect(first.classes()).toContain("keyboard__key--pressed");
+
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 120,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4"]);
+    expect(first.classes()).not.toContain("keyboard__key--pressed");
+    expect(second.classes()).toContain("keyboard__key--pressed");
+
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 240,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4"]);
+    expect(second.classes()).not.toContain("keyboard__key--pressed");
+
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
   });
 });

@@ -136,6 +136,10 @@ export function usePressableKey(
       const inputId = touchInputId(touch.identifier);
       const pending = pendingTouches.get(touch.identifier);
       if (pending) {
+        if (!isTouchWithinElement(touch)) {
+          cancelPendingTouch(touch.identifier);
+          continue;
+        }
         const deltaX = Math.abs(touch.clientX - pending.startX);
         const deltaY = Math.abs(touch.clientY - pending.startY);
         if (deltaX >= touchPanThresholdPx && deltaX > deltaY) {

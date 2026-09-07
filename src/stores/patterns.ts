@@ -647,6 +647,8 @@ export const usePatternsStore = defineStore(
         octave,
         noteId,
         instrument,
+        key: emittedKey,
+        mode: emittedMode,
       } = event.detail;
 
       // Use noteId directly as the tracking key
@@ -659,8 +661,8 @@ export const usePatternsStore = defineStore(
       const partialLogNote: Partial<LogNote> = {
         id: generateNoteId(),
         note: noteName,
-        key: musicStore.currentKey as ChromaticNote,
-        mode: musicStore.currentMode as MusicalMode,
+        key: (emittedKey ?? musicStore.currentKey) as ChromaticNote,
+        mode: (emittedMode ?? musicStore.currentMode) as MusicalMode,
         scaleDegree: isBorrowed ? 0 : calculateScaleDegree(solfegeIndex),
         scaleIndex: calculateScaleIndex(solfegeIndex),
         pitchClassIndex,

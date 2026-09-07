@@ -120,6 +120,42 @@ describe("ChordKey", () => {
     wrapper.unmount();
   });
 
+  it("cancels a pending chord when the touch leaves vertically", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(ChordKey, {
+      props: { members, symbol: "C", accessibleName: "C major chord" },
+    });
+    vi.spyOn(wrapper.element, "getBoundingClientRect").mockReturnValue({
+      left: 0, right: 100, top: 0, bottom: 100,
+      width: 100, height: 100, x: 0, y: 0, toJSON: () => ({}),
+    });
+    const start = new Event("touchstart", { bubbles: true, cancelable: true });
+    Object.defineProperties(start, {
+      touches: { value: [{ identifier: 7, clientX: 50, clientY: 50 }] },
+      changedTouches: { value: [{ identifier: 7, clientX: 50, clientY: 50 }] },
+    });
+    wrapper.element.dispatchEvent(start);
+
+    const move = new Event("touchmove", { bubbles: true, cancelable: true });
+    Object.defineProperties(move, {
+      touches: { value: [{ identifier: 7, clientX: 52, clientY: 110 }] },
+      changedTouches: { value: [] },
+    });
+    wrapper.element.dispatchEvent(move);
+    const end = new Event("touchend", { bubbles: true, cancelable: true });
+    Object.defineProperties(end, {
+      touches: { value: [] },
+      changedTouches: { value: [{ identifier: 7, clientX: 52, clientY: 110 }] },
+    });
+    wrapper.element.dispatchEvent(end);
+    vi.advanceTimersByTime(240);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")).toBeUndefined();
+    expect(wrapper.emitted("release")).toBeUndefined();
+    wrapper.unmount();
+  });
+
   it("starts a stationary held thumb after ruling out a pan", async () => {
     vi.useFakeTimers();
     const wrapper = mount(ChordKey, {

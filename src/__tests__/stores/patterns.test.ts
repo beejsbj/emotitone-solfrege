@@ -3,6 +3,7 @@ import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
@@ -170,6 +171,34 @@ describe("Patterns Store", () => {
     ]);
     expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
     expect(patternsStore.currentSketchMeta.bpm).toBe(120);
+  });
+
+  it("records delayed notes with their attack-time key and mode context", () => {
+    const musicStore = useMusicStore();
+    musicStore.setKey("G");
+    musicStore.setMode("minor");
+
+    patternsStore.handleNotePressed({
+      detail: {
+        noteId: "delayed-chord-note",
+        noteName: "E4",
+        solfegeIndex: 2,
+        octave: 4,
+        frequency: 329.63,
+        instrument: "piano",
+        note: createLogNote().solfege,
+        key: "C",
+        mode: "major",
+      },
+    } as CustomEvent);
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "delayed-chord-note" },
+    } as CustomEvent);
+
+    expect(patternsStore.loggedNotes[0]).toMatchObject({
+      key: "C",
+      mode: "major",
+    });
   });
 
   it("uses the ready fallback in loaded metadata when pattern warmup fails", async () => {

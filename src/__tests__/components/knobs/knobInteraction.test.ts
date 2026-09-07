@@ -207,6 +207,23 @@ describe("knob interaction interface", () => {
     expect(continued.effects).not.toContainEqual({ type: "value", value: 70 });
   });
 
+  it("continues from the controlled value when a parent rejects an emitted update", () => {
+    const subject = setup({ value: 50 });
+    subject.dispatch(start());
+    subject.timer.advance(20);
+    expect(subject.dispatch(move(100, 80)).effects).toContainEqual({
+      type: "value",
+      value: 60,
+    });
+
+    subject.setValue(50);
+    subject.timer.advance(20);
+    const continued = subject.dispatch(move(100, 60));
+
+    expect(continued.effects).toContainEqual({ type: "value", value: 60 });
+    expect(continued.effects).not.toContainEqual({ type: "value", value: 70 });
+  });
+
   it.each(["cancel", "disable", "blur"])(
     "%s cancellation releases capture and makes late events inert",
     (reason) => {

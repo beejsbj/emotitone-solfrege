@@ -49,8 +49,6 @@ export function createKnobInteraction(
   let velocity = 0;
   let startScrollLeft: number | null = null;
   let workingValue: KnobInteractionValue = 0;
-  let observedValue: KnobInteractionValue = 0;
-  let lastEmittedValue: KnobInteractionValue | undefined;
   let valueAccumulator = 0;
   let optionAccumulator = 0;
   let lastOptionChange: number | undefined;
@@ -101,7 +99,6 @@ export function createKnobInteraction(
     totalMovement = 0;
     velocity = 0;
     startScrollLeft = null;
-    lastEmittedValue = undefined;
   };
 
   const cancel = () => {
@@ -125,21 +122,15 @@ export function createKnobInteraction(
   ): KnobInteractionEffect[] => {
     if (value === workingValue) return [];
     workingValue = value;
-    lastEmittedValue = value;
     return [{ type: "value", value }, ...hapticEffect(now)];
   };
 
   const reconcileValue = (configuration: KnobInteractionConfiguration) => {
-    if (configuration.value === observedValue) return;
-
-    const acknowledgesOwnEffect = configuration.value === lastEmittedValue;
-    observedValue = configuration.value;
-    lastEmittedValue = undefined;
-    if (acknowledgesOwnEffect) return;
+    if (configuration.value === workingValue) return;
 
     // A caller may replace the model while a gesture is active (automation,
-    // reset, preset, or another input). Continue from that authoritative value
-    // and discard partial movement that belonged to the replaced one.
+    // reset, preset, normalization, or rejection). The controlled value stays
+    // authoritative; equality naturally acknowledges the module's last effect.
     workingValue = configuration.value;
     valueAccumulator = 0;
     optionAccumulator = 0;
@@ -170,7 +161,6 @@ export function createKnobInteraction(
 
     if (nextValue === workingValue) return [];
     workingValue = nextValue;
-    lastEmittedValue = nextValue;
     return [
       { type: "value", value: nextValue },
       { type: "haptic", pulse: "tap" },
@@ -289,8 +279,6 @@ export function createKnobInteraction(
     velocity = 0;
     startScrollLeft = event.scrollLeft;
     workingValue = configuration.value;
-    observedValue = configuration.value;
-    lastEmittedValue = undefined;
     valueAccumulator = 0;
     optionAccumulator = 0;
     lastOptionChange = undefined;

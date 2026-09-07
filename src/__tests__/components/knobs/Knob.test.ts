@@ -373,6 +373,25 @@ describe("Knob public interface", () => {
     expect(legacyUpdates).toEqual(modelUpdates);
   });
 
+  it("continues from the controlled prop when a drag update is rejected", async () => {
+    const wrapper = render({ modelValue: 50, type: "range" });
+    await wrapper.trigger("mousedown", { clientX: 100, clientY: 100 });
+    await documentEvent(
+      "mousemove",
+      new MouseEvent("mousemove", { clientX: 100, clientY: 80 }),
+    );
+    expect(wrapper.emitted("update:modelValue")).toEqual([[60]]);
+
+    await documentEvent(
+      "mousemove",
+      new MouseEvent("mousemove", { clientX: 100, clientY: 60 }),
+    );
+
+    const continuedValue = Number(wrapper.emitted("update:modelValue")![1][0]);
+    expect(continuedValue).toBeGreaterThan(50);
+    expect(continuedValue).toBeLessThan(70);
+  });
+
   it("activates a boolean mouse tap once across mouseup and click", async () => {
     const wrapper = render({ modelValue: false, type: "boolean" });
 

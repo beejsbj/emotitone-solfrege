@@ -150,7 +150,9 @@ describe("Chord compound", () => {
     expect(memberStyles[1]).toContain("--chord-member-progress: 0.375");
     expect(memberStyles[2]).toContain("--chord-member-progress: 1");
     expect(memberStyles[3]).toContain("--chord-member-progress: 0");
-    expect(memberStyles[1]).toContain("--chord-member-surface: member-pitch-surface-4");
+    expect(memberStyles[1]).toContain(
+      "--chord-member-surface: linear-gradient(90deg, color-mix(in srgb, member-pitch-primary-0 50%, member-pitch-primary-4) 0%, member-pitch-primary-4 50%, color-mix(in srgb, member-pitch-primary-4 50%, member-pitch-primary-7) 100%)",
+    );
     expect(mocks.getKeyBackgroundByPitchClass).toHaveBeenCalledTimes(4);
 
     const clustered = mount(Chord, {
@@ -163,7 +165,7 @@ describe("Chord compound", () => {
     expect(chordSource).toContain("transform: scaleY(var(--chord-member-progress))");
     expect(chordSource).toContain("transform: scaleY(calc(1 - var(--chord-member-progress)))");
     expect(chordSource).toContain("transition: transform 72ms linear");
-    expect(chordSource).not.toContain("color-mix");
+    expect(chordSource).toContain("color-mix(in srgb");
   });
 
   it("uses voicing order for fused bands and press order for clustered Notes", () => {
@@ -181,9 +183,9 @@ describe("Chord compound", () => {
 
     expect(fused.findAll(".chord__fused-member").map((member) => member.attributes("style")))
       .toEqual([
-        "--chord-member-surface: member-pitch-surface-0; --chord-member-progress: 0.15;",
-        "--chord-member-surface: member-pitch-surface-4; --chord-member-progress: 0.9;",
-        "--chord-member-surface: member-pitch-surface-7; --chord-member-progress: 0.45;",
+        "--chord-member-surface: linear-gradient(90deg, member-pitch-primary-0 0%, member-pitch-primary-0 50%, color-mix(in srgb, member-pitch-primary-0 50%, member-pitch-primary-4) 100%); --chord-member-progress: 0.15;",
+        "--chord-member-surface: linear-gradient(90deg, color-mix(in srgb, member-pitch-primary-0 50%, member-pitch-primary-4) 0%, member-pitch-primary-4 50%, color-mix(in srgb, member-pitch-primary-4 50%, member-pitch-primary-7) 100%); --chord-member-progress: 0.9;",
+        "--chord-member-surface: linear-gradient(90deg, color-mix(in srgb, member-pitch-primary-4 50%, member-pitch-primary-7) 0%, member-pitch-primary-7 50%, member-pitch-primary-7 100%); --chord-member-progress: 0.45;",
       ]);
     expect(clustered.findAllComponents(Note).map((note) => note.props("rawPitch"))).toEqual([
       "E4",

@@ -40,6 +40,12 @@ const mocks = vi.hoisted(() => {
         `${scaleIndex === 0 ? "C" : "D#"}${octave}`,
     ),
     getActiveNotes: vi.fn(() => [{ solfegeIndex: 0, octave: 3 }]),
+    parseNoteInput: vi.fn((pitch: string) => {
+      const match = pitch.match(/^([A-G])(?:#|b)?(-?\d+)$/);
+      if (!match) return null;
+      const scaleIndex = ({ C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 } as Record<string, number>)[match[1]];
+      return { solfegeIndex: scaleIndex, octave: Number(match[2]) };
+    }),
     attackNoteWithOctave: vi.fn(async () => "melody-note"),
     attackExactPitch: vi.fn(async (pitch: string) => `exact-${pitch}`),
     releaseNote: vi.fn(),
@@ -261,6 +267,25 @@ describe("Keyboard production usage", () => {
 
     firstChord.vm.$emit("release", { inputId: "pointer:8", event });
     await nextTick();
+    wrapper.unmount();
+  });
+
+  it("depresses corresponding note keys for the lifetime of a chord owner", async () => {
+    const wrapper = mountKeyboard();
+    const secondChord = wrapper.findAllComponents(ChordKeyStub)[1];
+    const d4Key = () => wrapper.findAllComponents(KeyStub)[3];
+    const event = new MouseEvent("mousedown");
+
+    expect(d4Key().props("pressed")).toBe(false);
+    secondChord.vm.$emit("press", { inputId: "pointer:pressed", event });
+    await nextTick();
+
+    expect(d4Key().props("pressed")).toBe(true);
+
+    secondChord.vm.$emit("release", { inputId: "pointer:pressed", event });
+    await nextTick();
+
+    expect(d4Key().props("pressed")).toBe(false);
     wrapper.unmount();
   });
 

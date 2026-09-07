@@ -124,7 +124,7 @@ const orderedMembers = computed(() =>
     .map(({ source }) => source),
 );
 
-const resolvedMembers = computed(() =>
+const coloredMembers = computed(() =>
   orderedMembers.value.map((source) => {
     const colorArgs = [
       source.mode ?? "major",
@@ -143,8 +143,29 @@ const resolvedMembers = computed(() =>
 
     return {
       source,
+      colors,
+    };
+  }),
+);
+
+const resolvedMembers = computed(() =>
+  coloredMembers.value.map(({ source, colors }, index, members) => {
+    const previousColor = members[index - 1]?.colors.primaryColor ?? colors.primaryColor;
+    const nextColor = members[index + 1]?.colors.primaryColor ?? colors.primaryColor;
+    const leftEdge = index === 0
+      ? colors.primaryColor
+      : `color-mix(in srgb, ${previousColor} 50%, ${colors.primaryColor})`;
+    const rightEdge = index === members.length - 1
+      ? colors.primaryColor
+      : `color-mix(in srgb, ${colors.primaryColor} 50%, ${nextColor})`;
+    const fusedSurface = `linear-gradient(90deg, ${leftEdge} 0%, ${colors.primaryColor} 50%, ${rightEdge} 100%)`;
+
+    return {
+      source,
       style: {
-        "--chord-member-surface": colors.background,
+        "--chord-member-surface": props.display === "symbol"
+          ? fusedSurface
+          : colors.background,
         "--chord-member-progress": clampProgress(source.progress),
       },
     };

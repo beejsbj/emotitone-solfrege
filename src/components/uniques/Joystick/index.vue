@@ -2,19 +2,21 @@
   <div class="joystick instrument-control" :class="`joystick--${resolvedVisual}`" role="group" :aria-label="label"
     :data-latched="modelValue" :data-effective="effectiveValue" :data-momentary="held || undefined"
     :data-dragging="dragging || undefined" :data-active="pointerId !== null || undefined">
-    <div ref="plate" class="joystick__plate instrument-control__face" role="radiogroup" :aria-label="`${label} chord character`"
+    <div class="joystick__face instrument-control__face" role="radiogroup" :aria-label="`${label} chord character`"
       @pointerdown="beginPointer" @lostpointercapture="cancelPointer" @click.prevent>
-      <span v-for="option in JOYSTICK_OPTIONS.filter(item => item.value !== 'auto')" :key="option.value"
-        class="joystick__detent" :class="{ 'joystick__detent--effective': effectiveValue === option.value }"
-        :style="detentStyle(option.value)" aria-hidden="true"></span>
-      <span class="joystick__stick" :style="stickStyle" aria-hidden="true"></span>
-      <button v-for="option in JOYSTICK_OPTIONS" :key="option.value"
-        :ref="(element) => setOptionRef(option.value, element)" class="joystick__option sr-only"
-        type="button" role="radio" :aria-checked="effectiveValue === option.value"
-        :aria-label="`${option.label}: ${option.description}`" :tabindex="rovingValue === option.value ? 0 : -1"
-        @click.stop="selectKeyboard($event, option.value)" @keydown="handleKeydown($event, option.value)">
-        {{ option.label }}
-      </button>
+      <div ref="plate" class="joystick__plate">
+        <span v-for="option in JOYSTICK_OPTIONS.filter(item => item.value !== 'auto')" :key="option.value"
+          class="joystick__detent" :class="{ 'joystick__detent--effective': effectiveValue === option.value }"
+          :style="detentStyle(option.value)" aria-hidden="true"></span>
+        <span class="joystick__stick" :style="stickStyle" aria-hidden="true"></span>
+        <button v-for="option in JOYSTICK_OPTIONS" :key="option.value"
+          :ref="(element) => setOptionRef(option.value, element)" class="joystick__option sr-only"
+          type="button" role="radio" :aria-checked="effectiveValue === option.value"
+          :aria-label="`${option.label}: ${option.description}`" :tabindex="rovingValue === option.value ? 0 : -1"
+          @click.stop="selectKeyboard($event, option.value)" @keydown="handleKeydown($event, option.value)">
+          {{ option.label }}
+        </button>
+      </div>
     </div>
     <DragValue
       v-if="pointerId !== null"
@@ -205,11 +207,12 @@ onBeforeUnmount(() => {
   color: inherit;
   user-select: none;
 }
-.joystick__plate { position: relative; inline-size: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: 0 2px 0 var(--brass-edge); isolation: isolate; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; }
-.joystick__plate::before { content: ''; position: absolute; z-index: 1; inset: 12%; border-radius: inherit; background: var(--ink); box-shadow: inset 0 2px 6px var(--brass-edge); pointer-events: none; }
+.joystick__face { display: grid; place-items: center; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.joystick__plate { position: relative; inline-size: var(--instrument-control-visible-diameter); aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: 0 2px 0 var(--brass-edge); isolation: isolate; }
+.joystick__plate::before { content: ''; position: absolute; z-index: 1; inset: 12%; border-radius: inherit; background: var(--instrument-control-dark-well); box-shadow: var(--instrument-control-dark-well-shadow); pointer-events: none; }
 .joystick__plate::after { content: ''; position: absolute; z-index: 2; inset: 0; border-radius: inherit; background: var(--brass-sheen); background-position: -60% 0; background-size: 220% 100%; background-repeat: no-repeat; mix-blend-mode: screen; -webkit-mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); pointer-events: none; animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite; }
 .joystick__plate:focus-within { outline: 2px solid var(--ivory); outline-offset: 3px; }
-.joystick[data-dragging] .joystick__plate { cursor: grabbing; }
+.joystick[data-dragging] .joystick__face { cursor: grabbing; }
 .joystick__detent { position: absolute; z-index: 3; inline-size: 4%; aspect-ratio: 1; border-radius: 50%; background: var(--brass-edge); transform: translate(-50%, -50%); pointer-events: none; }
 .joystick__detent--effective { background: var(--ivory); box-shadow: 0 0 4px var(--brass-hi); }
 .joystick__stick { position: absolute; z-index: 4; inline-size: 29%; aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: inset 0 -2px 2px var(--brass-lo), 0 3px 4px var(--brass-edge); transform: translate(-50%, -50%); pointer-events: none; transition: left var(--dur-tap) var(--ease-stab), top var(--dur-tap) var(--ease-stab); }

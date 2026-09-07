@@ -56,6 +56,7 @@ describe("ChordKey", () => {
     wrapper.element.dispatchEvent(event);
     await wrapper.vm.$nextTick();
 
+    expect(event.defaultPrevented).toBe(false);
     expect((wrapper.emitted("press") ?? []).map(([payload]) =>
       (payload as { inputId: string }).inputId,
     )).toEqual(["touch:1", "touch:2"]);
@@ -64,5 +65,21 @@ describe("ChordKey", () => {
     expect((wrapper.emitted("release") ?? []).map(([payload]) =>
       (payload as { inputId: string }).inputId,
     )).toEqual(["touch:1", "touch:2"]);
+  });
+
+  it("does not cancel the browser's horizontal touch-pan gesture", () => {
+    const wrapper = mount(ChordKey, {
+      props: { members, symbol: "C", accessibleName: "C major chord" },
+    });
+    const event = new Event("touchmove", { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      touches: { value: [{ identifier: 1, clientX: 40, clientY: 20 }] },
+      changedTouches: { value: [] },
+    });
+
+    wrapper.element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    wrapper.unmount();
   });
 });

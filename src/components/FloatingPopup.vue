@@ -124,6 +124,7 @@ import type { ChromaticNote } from "@/types/music";
 const musicStore = useMusicStore();
 const {
   getPrimaryColorByScaleIndex,
+  getKeyBackgroundByPitchClass,
   createGlassmorphBackground,
   createGlassmorphShadow,
   createChordGlassmorphBackground,
@@ -226,11 +227,25 @@ const displayedChord = computed(() => {
 
 // Note colors and gradients
 const getNoteColor = (note: any): string => {
+  const mode = note.mode ?? musicStore.currentMode;
+  const key = (note.key ?? musicStore.currentKey) as ChromaticNote;
+  const octave = note.octave ?? 3;
+  if (note.solfegeIndex < 0 && Number.isInteger(note.pitchClassIndex)) {
+    return getKeyBackgroundByPitchClass(
+      note.pitchClassIndex,
+      mode,
+      key,
+      octave,
+      "colored",
+      false,
+    ).primaryColor;
+  }
+
   return getPrimaryColorByScaleIndex(
     note.solfegeIndex,
-    note.mode ?? musicStore.currentMode,
-    (note.key ?? musicStore.currentKey) as ChromaticNote,
-    note.octave || 3
+    mode,
+    key,
+    octave,
   );
 };
 

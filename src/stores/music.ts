@@ -369,6 +369,9 @@ export const useMusicStore = defineStore(
 
       const solfegeIndex = currentScaleNotes.value.indexOf(pitchClass);
       const pitchClassIndex = CHROMATIC_NOTES.indexOf(pitchClass);
+      const keyboardOctave = solfegeIndex === -1
+        ? octave
+        : parseNoteInput(exactNoteName)?.octave ?? octave;
       const solfege = solfegeIndex === -1
         ? borrowedPitchSolfege(pitchClass)
         : solfegeData.value[solfegeIndex];
@@ -393,7 +396,7 @@ export const useMusicStore = defineStore(
         pitchClassIndex,
         solfege,
         frequency: tonalNote.freq,
-        octave,
+        octave: keyboardOctave,
         noteId: cleanNoteId,
         noteName: exactNoteName,
         ...noteContext,
@@ -409,7 +412,7 @@ export const useMusicStore = defineStore(
           solfegeIndex,
           pitchClassIndex,
           isBorrowed: solfegeIndex === -1,
-          octave,
+          octave: keyboardOctave,
           noteId: cleanNoteId,
           noteName: exactNoteName,
           ...noteContext,

@@ -239,7 +239,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     frequency: number,
     noteId?: string,
     octave?: number,
-    _noteName?: string,
+    noteName?: string,
     mode?: MusicalMode,
     key?: ChromaticNote
   ) => {
@@ -259,7 +259,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       noteId, // Pass noteId for tracking
       noteKey, // Pass event key snapshot for circle positioning
       noteMode, // Pass event mode snapshot for scale positioning
-      octave // Pass octave for vertical offset positioning
+      octave, // Pass octave for vertical offset positioning
+      noteName, // Preserve exact pitch identity for borrowed harmony tones
     );
 
     // Create particles with reduced count for polyphonic scenarios

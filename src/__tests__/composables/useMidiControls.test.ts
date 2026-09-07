@@ -85,6 +85,13 @@ describe("useMidiControls helpers", () => {
       )
     ).toBe("2_5");
     expect(noteResolver.parseNoteInput).toHaveBeenCalledWith("E5");
+
+    expect(
+      resolveVisualNoteKey(
+        { solfegeIndex: -1, octave: 4, noteName: "D#4" },
+        noteResolver,
+      ),
+    ).toBeNull();
   });
 
   it("derives mirrored durations from durationMs, notation, or fallback defaults", () => {
@@ -112,5 +119,25 @@ describe("useMidiControls helpers", () => {
         noteResolver
       )
     ).toBe(58);
+  });
+
+  it("mirrors borrowed notes from their exact pitch instead of the scale-degree sentinel", () => {
+    const noteResolver = {
+      parseNoteInput: vi.fn(),
+      getNoteName: vi.fn().mockReturnValue("C4"),
+    };
+
+    expect(
+      resolveMirroredMidiNoteNumber(
+        {
+          solfegeIndex: -1,
+          octave: 4,
+          noteName: "D#4",
+          isBorrowed: true,
+        },
+        noteResolver,
+      ),
+    ).toBe(63);
+    expect(noteResolver.getNoteName).not.toHaveBeenCalled();
   });
 });

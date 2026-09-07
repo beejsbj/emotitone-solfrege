@@ -160,6 +160,32 @@ describe("music store", () => {
     patternsStore.removeEventListeners();
   });
 
+  it("keeps exact in-scale pitches in the keyboard's octave coordinate", async () => {
+    const musicStore = useMusicStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+
+    musicStore.setKey("G");
+    musicStore.setMode("major");
+    const noteId = await musicStore.attackExactPitch("C5");
+
+    expect(musicStore.getActiveNotes()[0]).toMatchObject({
+      noteName: "C5",
+      solfegeIndex: 3,
+      pitchClassIndex: 0,
+      octave: 4,
+    });
+    const playedEvent = dispatchEventSpy.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.type === "note-played") as CustomEvent;
+    expect(playedEvent.detail).toMatchObject({
+      noteName: "C5",
+      solfegeIndex: 3,
+      octave: 4,
+    });
+
+    await musicStore.releaseNote(noteId ?? undefined);
+  });
+
   it("plays notes using the actual current mode degree count", async () => {
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");

@@ -12,6 +12,7 @@
     aria-label="Solfège keyboard"
     :data-geometry-family="resolvedFamily"
     :data-edition-seed="resolvedEditionSeed"
+    @focusout="handleFocusOut"
   >
     <div
       class="keyboard__chord-row"
@@ -99,11 +100,12 @@ import {
   nextTick,
   onBeforeUnmount,
   onMounted,
+  reactive,
   ref,
   watch,
   type ComponentPublicInstance,
 } from "vue";
-import { fitKeyboardRows } from "./keyboardSizing";
+import { fitKeyboardRows, KEYBOARD_CHORD_ROW_HEIGHT } from "./keyboardSizing";
 import Key from "@/components/compounds/Key.vue";
 import type { KeyInputEvent } from "@/components/compounds/Key.vue";
 import ChordKey from "@/components/compounds/ChordKey.vue";
@@ -277,6 +279,7 @@ function createProductionWiring() {
     medium: 4,
   })[config.value.keyGaps] ?? 2);
   const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
+  const activeChordSnapshots = reactive(new Map<string, HarmonyChord>());
 
   useKeyboardControls(computed(() => config.value.mainOctave));
 
@@ -332,18 +335,23 @@ function createProductionWiring() {
       scaleType: musicStore.currentMode,
       octave: config.value.mainOctave,
       alteration: props.harmonyAlteration,
-    }).map((harmony) => ({
-      harmony,
-      members: chordMembers(
-        harmony,
-        musicStore.currentMode,
-        currentMusicKey.value,
-        surfaceStyle.value,
-        config.value.keyBrightness,
-        config.value.keySaturation,
-      ),
-      pressed: store.isKeyPressed(`chord:${harmony.id}`),
-    })),
+    }).map((harmony) => {
+      const snapshot = Array.from(activeChordSnapshots.values())
+        .find((candidate) => candidate.id === harmony.id);
+      const displayedHarmony = snapshot ?? harmony;
+      return {
+        harmony: displayedHarmony,
+        members: chordMembers(
+          displayedHarmony,
+          musicStore.currentMode,
+          currentMusicKey.value,
+          surfaceStyle.value,
+          config.value.keyBrightness,
+          config.value.keySaturation,
+        ),
+        pressed: Boolean(snapshot) || store.isKeyPressed(`chord:${harmony.id}`),
+      };
+    }),
   );
 
   const inputPressId = (intent: KeyboardIntent) =>
@@ -370,6 +378,7 @@ function createProductionWiring() {
 
   function pressChord(intent: KeyboardChordIntent) {
     const ownerId = chordPressId(intent);
+    activeChordSnapshots.set(ownerId, intent.chord);
     store.addTouch(ownerId, `chord:${intent.chordId}`);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
@@ -385,11 +394,13 @@ function createProductionWiring() {
 
   function releaseChord(intent: KeyboardChordIntent) {
     const ownerId = chordPressId(intent);
+    activeChordSnapshots.delete(ownerId);
     store.removeTouch(ownerId);
     voiceGroups.release(ownerId);
   }
 
   function clear() {
+    activeChordSnapshots.clear();
     voiceGroups.releaseAll();
     store.clearAllTouches();
   }
@@ -436,13 +447,12 @@ const resolvedKeyboardPadding = computed(
   () => productionWiring?.config.value.keyboardPadding ?? props.keyboardPadding,
 );
 // Host allocation changes only row geometry, never row count or note/input ownership.
-const CHORD_ROW_RESERVED_HEIGHT = 47;
 const fittedRows = computed(() => props.availableHeight === undefined ? null
   : fitKeyboardRows(
     Math.max(
       0,
       props.availableHeight
-        - CHORD_ROW_RESERVED_HEIGHT
+        - KEYBOARD_CHORD_ROW_HEIGHT
         - (resolvedKeyboardPadding.value ? 8 : 0),
     ),
     renderRows.value.length,
@@ -799,6 +809,17 @@ function releaseFocusedInputs(event: Event) {
     dispatchChordIntent("release", { ...intent, event });
   }
   activeChordFocusInputs.clear();
+}
+
+function handleFocusOut(event: FocusEvent) {
+  const nextTarget = event.relatedTarget;
+  if (
+    nextTarget instanceof Node
+    && keyboardRef.value?.contains(nextTarget)
+  ) {
+    return;
+  }
+  releaseFocusedInputs(event);
 }
 
 function handleVisibilityChange(event: Event) {

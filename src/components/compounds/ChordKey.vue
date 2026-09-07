@@ -11,10 +11,10 @@
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
     @mouseleave="handleMouseLeave"
-    @touchstart.prevent="handleTouchStart"
-    @touchmove.prevent="handleTouchMove"
+    @touchstart="handleTouchStart"
+    @touchmove="handleTouchMove"
     @touchend.prevent="handleTouchEnd"
-    @touchcancel.prevent="handleTouchCancel"
+    @touchcancel="handleTouchCancel"
   >
     <span class="chord-key__face pressable-key__face" aria-hidden="true">
       <Chord
@@ -82,6 +82,7 @@ const isPhysicallyPressed = computed(() => props.pressed || isLocallyPressed.val
 .chord-key {
   width: 100%;
   min-width: 44px;
+  touch-action: pan-x;
 }
 
 .chord-key__face,

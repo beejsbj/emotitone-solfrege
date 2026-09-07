@@ -98,6 +98,7 @@ interface MirroredNoteEventDetail {
   noteName?: string;
   octave?: number;
   solfegeIndex?: number;
+  isBorrowed?: boolean;
 }
 
 function buildMidiPressId(inputId: string, channel: number, noteNumber: number) {
@@ -208,11 +209,10 @@ export function resolveVisualNoteKey(
   detail: MirroredNoteEventDetail | undefined,
   noteResolver: MidiNoteResolver
 ): string | null {
-  if (
-    typeof detail?.solfegeIndex === "number"
-    && typeof detail.octave === "number"
-  ) {
-    return `${detail.solfegeIndex}_${detail.octave}`;
+  if (typeof detail?.solfegeIndex === "number") {
+    return detail.solfegeIndex >= 0 && typeof detail.octave === "number"
+      ? `${detail.solfegeIndex}_${detail.octave}`
+      : null;
   }
 
   if (!detail?.noteName) {
@@ -231,6 +231,13 @@ export function resolveMirroredMidiNoteNumber(
   detail: MirroredNoteEventDetail | undefined,
   noteResolver: MidiNoteResolver
 ): number | null {
+  if (
+    detail?.noteName
+    && (detail.isBorrowed || detail.solfegeIndex === -1)
+  ) {
+    return TonalNote.get(detail.noteName).midi ?? null;
+  }
+
   if (
     typeof detail?.solfegeIndex === "number"
     && typeof detail.octave === "number"

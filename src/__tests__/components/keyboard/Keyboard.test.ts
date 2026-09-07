@@ -241,6 +241,10 @@ describe("Keyboard production usage", () => {
 
     await wrapper.setProps({ harmonyAlteration: "dark" });
     expect(mocks.musicStore.attackExactPitch).toHaveBeenCalledTimes(3);
+    expect((firstChord.props("members") as Array<{ rawPitch: string }>).map(
+      (member) => member.rawPitch,
+    )).toEqual(["C4", "E4", "G4"]);
+    expect(firstChord.props("symbol")).toBe("C");
 
     firstChord.vm.$emit("release", { inputId: "pointer:7", event });
     await nextTick();

@@ -188,6 +188,28 @@ describe("Keyboard compound", () => {
     wrapper.unmount();
   });
 
+  it("releases a held chord when focus leaves the Keyboard", async () => {
+    const wrapper = mountKeyboard();
+    const chord = wrapper.findAll(".chord-key-stub")[0];
+    const outside = document.createElement("button");
+    document.body.append(outside);
+
+    await chord.trigger("focus");
+    await chord.trigger("keydown", { key: "Enter", code: "Enter" });
+    chord.element.dispatchEvent(new FocusEvent("focusout", {
+      bubbles: true,
+      relatedTarget: outside,
+    }));
+    await nextTick();
+
+    expect(wrapper.emitted("chordRelease")?.[0][0]).toMatchObject({
+      chordId: "degree-1",
+      inputId: "focus:Enter:chord",
+    });
+    outside.remove();
+    wrapper.unmount();
+  });
+
   it("exposes controlled keyboard padding and reserves it in allocated height", async () => {
     const wrapper = mountKeyboard();
     await wrapper.setProps({ availableHeight: 400, keyboardPadding: true });

@@ -11,6 +11,27 @@ import { useColorSystem } from "../useColorSystem";
 import { createVisualFrequency } from "@/utils/visualEffects";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { Note as TonalNote } from "@tonaljs/tonal";
+
+export function resolveBlobPitchClass(
+  solfegeData: SolfegeData,
+  currentKey: string,
+  currentMode: string,
+  exactNoteName?: string,
+): string {
+  const exactPitchClass = exactNoteName
+    ? TonalNote.get(exactNoteName).pc
+    : "";
+  if (exactPitchClass) return exactPitchClass;
+
+  const scale = getScaleForMode(currentMode as MusicalMode);
+  const solfegeIndex = (
+    (solfegeData.number - 1) % scale.degreeCount + scale.degreeCount
+  ) % scale.degreeCount;
+  const interval = scale.intervals[solfegeIndex] ?? 0;
+  const keyIndex = CHROMATIC_NOTES.indexOf(currentKey as ChromaticNote);
+  return CHROMATIC_NOTES[(keyIndex + interval + 12) % 12];
+}
 
 export function useBlobRenderer() {
   const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
@@ -116,21 +137,6 @@ export function useBlobRenderer() {
     return { x, y };
   };
 
-  /**
-   * Get chromatic note name from solfege data
-   */
-  const getChromaticNoteFromSolfege = (
-    solfegeData: SolfegeData,
-    currentKey: string,
-    currentMode: string
-  ): string => {
-    const scale = getScaleForMode(currentMode as MusicalMode);
-    const solfegeIndex = ((solfegeData.number - 1) % scale.degreeCount + scale.degreeCount) % scale.degreeCount;
-    const interval = scale.intervals[solfegeIndex] ?? 0;
-    const keyIndex = CHROMATIC_NOTES.indexOf(currentKey as ChromaticNote);
-    return CHROMATIC_NOTES[(keyIndex + interval + 12) % 12];
-  };
-
   // Blob state - now supports both note names and noteIds for polyphonic tracking
   const activeBlobs = new Map<string, ActiveBlob>();
 
@@ -174,7 +180,8 @@ export function useBlobRenderer() {
     noteId?: string,
     currentKey?: string,
     currentMode?: string,
-    octave?: number // Add octave parameter for vertical offset
+    octave?: number, // Add octave parameter for vertical offset
+    exactNoteName?: string,
   ) => {
     if (!blobConfig.isEnabled) return;
 
@@ -190,10 +197,11 @@ export function useBlobRenderer() {
     }
 
     // Get the chromatic note name from solfege data
-    const chromaticNote = getChromaticNoteFromSolfege(
+    const chromaticNote = resolveBlobPitchClass(
       note,
       currentKey || "C",
-      currentMode || "major"
+      currentMode || "major",
+      exactNoteName,
     );
 
     // Calculate blob size first so we can account for it in positioning

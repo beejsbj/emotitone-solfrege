@@ -4,166 +4,119 @@
       <p class="picker-lab__eyebrow">EmotiTone · focused design lab</p>
       <h1>Instrument Picker.</h1>
       <p class="picker-lab__intro">
-        One composition inside the accepted Drawer and Tabs. These definition specimens preserve
-        search, banks, selection, and sound state while testing how much framing 992 sounds need.
+        The accepted Drawer and Tabs frame one sound library. Every visible choice now comes from
+        the Sticker family; the native button beneath it supplies semantics, focus, and selection.
       </p>
     </header>
 
-    <section class="picker-lab__comparison" aria-label="Instrument picker directions">
-      <article class="picker-lab__surface picker-lab__surface--recommended">
-        <header class="picker-lab__surface-heading">
-          <div>
-            <p class="picker-lab__source">Direction A · quiet index</p>
-            <h2>Labels make the shelves.</h2>
-          </div>
-          <span class="picker-lab__status picker-lab__status--recommended">Recommended</span>
-        </header>
-
-        <div class="picker-lab__stage">
-          <TabbedOverlayPanel
-            v-model="indexBank"
-            :tabs="tabs"
-            tab-test-id-prefix="picker-index-tab"
-            tabs-aria-label="Quiet index instrument banks"
-            width="100%"
-            height="34rem"
-            max-height="34rem"
-          >
-            <template #header>
-              <PickerHeader
-                :bank="bankLabel(indexBank, indexQuery)"
-                :count="headlineCount(indexBank, indexQuery, visibleIndexSounds.length)"
-                @close="noop"
-              />
-            </template>
-            <template #toolbar>
-              <PickerSearch v-model="indexQuery" />
-            </template>
-
-            <div class="picker-index">
-              <section v-for="group in indexGroups" :key="group.label" class="picker-index__group">
-                <header class="picker-index__group-heading">
-                  <span>{{ group.label }}</span>
-                  <span>{{ group.sounds.length.toString().padStart(2, '0') }}</span>
-                </header>
-                <div class="picker-index__list">
-                  <button
-                    v-for="sound in group.sounds"
-                    :key="sound.id"
-                    type="button"
-                    class="picker-index__sound"
-                    :class="{ 'picker-index__sound--selected': indexSelection === sound.id }"
-                    @click="indexSelection = sound.id"
-                  >
-                    <span class="picker-index__sound-name">{{ sound.label }}</span>
-                    <span class="picker-index__sound-state">
-                      {{ indexSelection === sound.id ? 'current' : sound.state }}
-                    </span>
-                  </button>
-                </div>
-              </section>
-              <p v-if="!visibleIndexSounds.length" class="picker-lab__empty">
-                no matches for “{{ indexQuery }}”
-              </p>
-            </div>
-          </TabbedOverlayPanel>
+    <section class="picker-lab__surface" aria-labelledby="picker-direction-title">
+      <header class="picker-lab__surface-heading">
+        <div>
+          <p class="picker-lab__source">Definition candidate · Sticker choices</p>
+          <h2 id="picker-direction-title">A loose library of labels.</h2>
         </div>
+        <span class="picker-lab__status">Lineage clean</span>
+      </header>
 
-        <dl class="picker-lab__facts">
-          <div><dt>Hierarchy</dt><dd>One rule per category; no container around every cluster.</dd></div>
-          <div><dt>Choices</dt><dd>Two-column index with hairlines instead of isolated cards.</dd></div>
-          <div><dt>Selected</dt><dd>An ivory slab is the one strong event in the list.</dd></div>
-          <div><dt>Density</dt><dd>Names stay readable while more rows fit in the drawer.</dd></div>
-        </dl>
-      </article>
-
-      <article class="picker-lab__surface">
-        <header class="picker-lab__surface-heading">
-          <div>
-            <p class="picker-lab__source">Direction B · clipped cards</p>
-            <h2>Keep today’s object grid.</h2>
-          </div>
-          <span class="picker-lab__status">Conservative</span>
-        </header>
-
-        <div class="picker-lab__stage">
-          <TabbedOverlayPanel
-            v-model="cardBank"
-            :tabs="tabs"
-            tab-test-id-prefix="picker-cards-tab"
-            tabs-aria-label="Clipped card instrument banks"
-            width="100%"
-            height="34rem"
-            max-height="34rem"
-          >
-            <template #header>
-              <PickerHeader
-                :bank="bankLabel(cardBank, cardQuery)"
-                :count="headlineCount(cardBank, cardQuery, visibleCardSounds.length)"
-                @close="noop"
-              />
-            </template>
-            <template #toolbar>
-              <PickerSearch v-model="cardQuery" />
-            </template>
-
-            <div class="picker-cards">
-              <section v-for="group in cardGroups" :key="group.label" class="picker-cards__group">
-                <header class="picker-cards__group-heading">
-                  <Sticker variant="fill" color="ivory">{{ group.label }}</Sticker>
-                  <span>{{ group.sounds.length.toString().padStart(2, '0') }}</span>
-                </header>
-                <div class="picker-cards__grid">
-                  <button
-                    v-for="sound in group.sounds"
-                    :key="sound.id"
-                    type="button"
-                    class="picker-cards__sound"
-                    :class="{ 'picker-cards__sound--selected': cardSelection === sound.id }"
-                    @click="cardSelection = sound.id"
-                  >
-                    <span class="picker-cards__sound-name">{{ sound.label }}</span>
-                    <span class="picker-cards__sound-state">
-                      {{ cardSelection === sound.id ? 'current' : sound.state }}
-                    </span>
-                  </button>
-                </div>
-              </section>
-              <p v-if="!visibleCardSounds.length" class="picker-lab__empty">
-                no matches for “{{ cardQuery }}”
-              </p>
+      <div class="picker-lab__stage">
+        <TabbedOverlayPanel
+          v-model="activeBank"
+          :tabs="tabs"
+          tab-test-id-prefix="picker-sticker-tab"
+          tabs-aria-label="Sticker instrument banks"
+          width="100%"
+          height="34rem"
+          max-height="34rem"
+        >
+          <template #header>
+            <div class="picker-header">
+              <div class="picker-header__title">
+                <Sticker variant="fill" color="ivory">Sound</Sticker>
+                <span class="picker-header__bank">{{ bankLabel }}</span>
+              </div>
+              <div class="picker-header__actions">
+                <span class="picker-header__count">{{ headlineCount }}</span>
+                <Button title="Close sounds" accessible-name="Close sounds">
+                  <X :size="14" />
+                </Button>
+              </div>
             </div>
-          </TabbedOverlayPanel>
-        </div>
+          </template>
 
-        <dl class="picker-lab__facts">
-          <div><dt>Hierarchy</dt><dd>Sticker headings separate groups without another enclosing box.</dd></div>
-          <div><dt>Choices</dt><dd>Three-column clipped objects preserve the current picker character.</dd></div>
-          <div><dt>Selected</dt><dd>The chosen sound becomes the only filled card.</dd></div>
-          <div><dt>Density</dt><dd>Familiar and compact, but long names still work harder.</dd></div>
-        </dl>
-      </article>
+          <template #toolbar>
+            <label class="picker-search">
+              <Search :size="14" aria-hidden="true" />
+              <input
+                v-model="query"
+                type="search"
+                placeholder="search sounds"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+              />
+            </label>
+          </template>
+
+          <div class="picker-library">
+            <section v-for="group in groups" :key="group.label" class="picker-group">
+              <header class="picker-group__heading">
+                <span>{{ group.label }}</span>
+                <span>{{ group.sounds.length.toString().padStart(2, "0") }}</span>
+              </header>
+
+              <div class="picker-group__choices">
+                <button
+                  v-for="sound in group.sounds"
+                  :key="sound.id"
+                  type="button"
+                  class="picker-choice"
+                  :class="`picker-choice--${choiceState(sound)}`"
+                  :aria-label="`${sound.label}, ${choiceState(sound)}`"
+                  :aria-pressed="selection === sound.id"
+                  @click="selection = sound.id"
+                >
+                  <Sticker :variant="stickerVariant(sound)" :color="stickerColor(sound)">
+                    {{ sound.label }}
+                  </Sticker>
+                </button>
+              </div>
+            </section>
+
+            <p v-if="!visibleSounds.length" class="picker-lab__empty">
+              no matches for “{{ query }}”
+            </p>
+          </div>
+        </TabbedOverlayPanel>
+      </div>
+
+      <dl class="picker-lab__facts">
+        <div><dt>Available</dt><dd>Ivory outline Sticker; the default library texture.</dd></div>
+        <div><dt>Cold</dt><dd>The same outline Sticker dimmed, without inventing another surface.</dd></div>
+        <div><dt>Current</dt><dd>Filled Ivory Sticker; selection is the strongest stable event.</dd></div>
+        <div><dt>Warming</dt><dd>Brass Badge; a temporary loading signal using its accepted brass-only role.</dd></div>
+        <div><dt>Button</dt><dd>Invisible native semantics only; Sticker owns all visible geometry and material.</dd></div>
+      </dl>
     </section>
 
     <aside class="picker-lab__question">
       <p class="picker-lab__eyebrow">Definition gate</p>
-      <h2>Should sounds read as an index or as little objects?</h2>
+      <h2>One existing primitive, four meaningful states.</h2>
       <p>
-        Everything else can follow from that choice. Search remains quiet, Tabs remain the bank
-        control, Sticker is used only where it earns hierarchy, and brass stays out of routine state.
+        The picker owns grouping and state mapping—not another choice component. Accepting this
+        means the production grid becomes a wrapping field of real Stickers with the mapping above.
       </p>
     </aside>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref } from "vue";
+import { computed, ref } from "vue";
 import { Search, X } from "lucide-vue-next";
 import Button from "../components/primatives/Button.vue";
 import Sticker from "../components/primatives/Sticker.vue";
 import TabbedOverlayPanel, { type TabbedOverlayTab } from "../components/TabbedOverlayPanel.vue";
 
-type SoundState = "ready" | "cold" | "available";
+type SoundState = "ready" | "cold" | "available" | "warming";
 type Sound = { id: string; label: string; bank: string; state: SoundState };
 
 const tabs: TabbedOverlayTab[] = [
@@ -182,7 +135,7 @@ const sounds: Sound[] = [
   { id: "gm_epiano1", label: "GM E-Piano 1", bank: "Keyboards", state: "cold" },
   { id: "gm_harpsichord", label: "GM Harpsichord", bank: "Keyboards", state: "cold" },
   { id: "marimba", label: "Marimba", bank: "Mallets", state: "ready" },
-  { id: "vibraphone_bowed", label: "Vibraphone Bowed", bank: "Mallets", state: "cold" },
+  { id: "vibraphone_bowed", label: "Vibraphone Bowed", bank: "Mallets", state: "warming" },
   { id: "kalimba", label: "Kalimba", bank: "Mallets", state: "ready" },
   { id: "glockenspiel", label: "Glockenspiel", bank: "Mallets", state: "cold" },
   { id: "supersaw", label: "Supersaw", bank: "Synths", state: "available" },
@@ -191,87 +144,52 @@ const sounds: Sound[] = [
   { id: "hh", label: "Hi-Hat", bank: "Drums", state: "ready" },
 ];
 
-const indexBank = ref("all");
-const cardBank = ref("all");
-const indexQuery = ref("");
-const cardQuery = ref("");
-const indexSelection = ref("piano");
-const cardSelection = ref("piano");
-const noop = () => {};
+const activeBank = ref("all");
+const query = ref("");
+const selection = ref("piano");
 
-function soundsFor(bank: string, query: string) {
-  const bankLabel = tabs.find((tab) => tab.value === bank)?.label;
-  const needle = query.trim().toLowerCase();
+const visibleSounds = computed(() => {
+  const selectedBank = tabs.find((tab) => tab.value === activeBank.value)?.label;
+  const needle = query.value.trim().toLowerCase();
   return sounds.filter((sound) =>
-    (bank === "all" || sound.bank === bankLabel) &&
+    (activeBank.value === "all" || sound.bank === selectedBank) &&
     (!needle || sound.label.toLowerCase().includes(needle)),
   );
-}
+});
 
-function groupsFor(list: Sound[]) {
-  return [...new Set(list.map((sound) => sound.bank))].map((label) => ({
+const groups = computed(() =>
+  [...new Set(visibleSounds.value.map((sound) => sound.bank))].map((label) => ({
     label,
-    sounds: list.filter((sound) => sound.bank === label),
-  }));
-}
+    sounds: visibleSounds.value.filter((sound) => sound.bank === label),
+  })),
+);
 
-function bankLabel(bank: string, query: string) {
-  if (query.trim()) return "Search";
-  return tabs.find((tab) => tab.value === bank)?.label ?? "All sounds";
-}
-
-function headlineCount(bank: string, query: string, sampleCount: number) {
-  if (query.trim()) return sampleCount;
-  if (bank === "all") return 992;
-  if (bank === "keyboards") return 12;
-  return sampleCount;
-}
-
-const visibleIndexSounds = computed(() => soundsFor(indexBank.value, indexQuery.value));
-const visibleCardSounds = computed(() => soundsFor(cardBank.value, cardQuery.value));
-const indexGroups = computed(() => groupsFor(visibleIndexSounds.value));
-const cardGroups = computed(() => groupsFor(visibleCardSounds.value));
-
-const PickerHeader = defineComponent({
-  props: {
-    bank: { type: String, required: true },
-    count: { type: Number, required: true },
-  },
-  emits: ["close"],
-  setup(props, { emit }) {
-    return () => h("div", { class: "picker-header" }, [
-      h("div", { class: "picker-header__title" }, [
-        h(Sticker, { variant: "fill", color: "ivory" }, () => "Sound"),
-        h("span", { class: "picker-header__bank" }, props.bank),
-      ]),
-      h("div", { class: "picker-header__actions" }, [
-        h("span", { class: "picker-header__count" }, props.count.toString().padStart(3, "0")),
-        h(Button, {
-          title: "Close sounds",
-          accessibleName: "Close sounds",
-          onClick: () => emit("close"),
-        }, () => h(X, { size: 14 })),
-      ]),
-    ]);
-  },
+const bankLabel = computed(() => {
+  if (query.value.trim()) return "Search";
+  return tabs.find((tab) => tab.value === activeBank.value)?.label ?? "All sounds";
 });
 
-const PickerSearch = defineComponent({
-  props: { modelValue: { type: String, required: true } },
-  emits: ["update:modelValue"],
-  setup(props, { emit }) {
-    return () => h("label", { class: "picker-search" }, [
-      h(Search, { size: 14, "aria-hidden": "true" }),
-      h("input", {
-        value: props.modelValue,
-        type: "search",
-        placeholder: "search sounds",
-        autocomplete: "off",
-        onInput: (event: Event) => emit("update:modelValue", (event.target as HTMLInputElement).value),
-      }),
-    ]);
-  },
+const headlineCount = computed(() => {
+  if (query.value.trim()) return visibleSounds.value.length.toString().padStart(3, "0");
+  if (activeBank.value === "all") return "992";
+  if (activeBank.value === "keyboards") return "012";
+  return visibleSounds.value.length.toString().padStart(3, "0");
 });
+
+function choiceState(sound: Sound) {
+  return selection.value === sound.id ? "current" : sound.state;
+}
+
+function stickerVariant(sound: Sound): "outline" | "fill" | "badge" {
+  const state = choiceState(sound);
+  if (state === "current") return "fill";
+  if (state === "warming") return "badge";
+  return "outline";
+}
+
+function stickerColor(sound: Sound) {
+  return choiceState(sound) === "warming" ? "brass-sheen" as const : "ivory" as const;
+}
 </script>
 
 <style scoped>
@@ -283,9 +201,9 @@ const PickerSearch = defineComponent({
 }
 
 .picker-lab__header,
-.picker-lab__comparison,
+.picker-lab__surface,
 .picker-lab__question {
-  width: min(100%, 1180px);
+  width: min(100%, 820px);
   margin-inline: auto;
 }
 
@@ -297,8 +215,7 @@ const PickerSearch = defineComponent({
 .picker-lab__facts,
 .picker-header,
 .picker-search,
-.picker-index,
-.picker-cards {
+.picker-library {
   font-family: var(--font-mono);
 }
 
@@ -323,64 +240,46 @@ const PickerSearch = defineComponent({
   font: var(--t-body-mono);
 }
 
-.picker-lab__comparison {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
 .picker-lab__surface {
-  min-width: 0;
-  border: 1px solid var(--ink-5);
+  border: 1px solid var(--ivory-3);
   background: var(--ink-2);
-  padding: clamp(14px, 2.4vw, 26px);
+  padding: clamp(14px, 3vw, 28px);
 }
-
-.picker-lab__surface--recommended { border-color: var(--ivory-3); }
 
 .picker-lab__surface-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  min-height: 58px;
   margin-bottom: 18px;
 }
 
 .picker-lab__status {
   flex: none;
-  border: 1px solid var(--ink-5);
-  color: var(--ivory-3);
-  padding: 6px 8px;
-}
-
-.picker-lab__status--recommended {
-  border-color: var(--brass-lo);
+  border: 1px solid var(--brass-lo);
   color: var(--brass-hi);
+  padding: 6px 8px;
 }
 
 .picker-lab__stage {
   min-width: 0;
   background: #050505;
-  padding: clamp(8px, 2vw, 22px);
+  padding: clamp(8px, 3vw, 26px);
 }
 
 .picker-header,
+.picker-header__title,
+.picker-header__actions,
 .picker-search {
   display: flex;
   align-items: center;
 }
 
 .picker-header { justify-content: space-between; gap: 12px; }
-.picker-header :deep(.picker-header__title),
-.picker-header :deep(.picker-header__actions) {
-  display: flex;
-  align-items: center;
-}
-.picker-header :deep(.picker-header__title) { min-width: 0; gap: 10px; }
-.picker-header :deep(.picker-header__actions) { flex: none; gap: 7px; }
+.picker-header__title { min-width: 0; gap: 10px; }
+.picker-header__actions { flex: none; gap: 7px; }
 
-.picker-header :deep(.picker-header__bank) {
+.picker-header__bank {
   overflow: hidden;
   color: var(--ivory-2);
   font-size: 9px;
@@ -390,7 +289,7 @@ const PickerSearch = defineComponent({
   white-space: nowrap;
 }
 
-.picker-header :deep(.picker-header__count) {
+.picker-header__count {
   color: var(--ivory-3);
   font-size: 9px;
   letter-spacing: .14em;
@@ -404,7 +303,7 @@ const PickerSearch = defineComponent({
 }
 
 .picker-search:focus-within { border-color: var(--ivory-2); color: var(--ivory); }
-.picker-search :deep(input) {
+.picker-search input {
   width: 100%;
   border: 0;
   outline: 0;
@@ -412,93 +311,56 @@ const PickerSearch = defineComponent({
   color: var(--ivory);
   font: var(--t-caption);
 }
-.picker-search :deep(input::placeholder) { color: var(--ivory-4); }
+.picker-search input::placeholder { color: var(--ivory-4); }
 
-.picker-index,
-.picker-cards { display: grid; gap: 22px; }
+.picker-library { display: grid; gap: 24px; }
 
-.picker-index__group-heading,
-.picker-cards__group-heading {
+.picker-group__heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  border-bottom: 1px solid var(--ivory-4);
   color: var(--ivory-3);
+  padding: 0 2px 8px;
   font-size: 8px;
   letter-spacing: .18em;
   text-transform: uppercase;
 }
 
-.picker-index__group-heading {
-  border-bottom: 1px solid var(--ivory-3);
-  padding: 0 2px 7px;
-}
-
-.picker-index__list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.picker-index__sound {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+.picker-group__choices {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 10px 12px;
+  padding: 14px 2px 2px;
+}
+
+.picker-choice {
   min-width: 0;
   border: 0;
-  border-bottom: 1px solid var(--ink-5);
   background: transparent;
-  color: var(--ivory-2);
-  padding: 10px 8px;
-  text-align: left;
+  padding: 2px;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.picker-index__sound:nth-child(odd) { border-right: 1px solid var(--ink-5); }
-.picker-index__sound:hover { background: var(--ink-3); color: var(--ivory); }
-.picker-index__sound--selected { background: var(--ivory); color: var(--ink); }
-.picker-index__sound--selected:hover { background: var(--ivory); color: var(--ink); }
-
-.picker-index__sound-name,
-.picker-cards__sound-name {
+.picker-choice :deep(.sticker) {
+  max-width: min(15rem, calc(100vw - 8rem));
   overflow: hidden;
-  font-size: 10px;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity var(--dur-tap) var(--ease-stab), transform var(--dur-tap) var(--ease-stab);
 }
 
-.picker-index__sound-state,
-.picker-cards__sound-state {
-  color: var(--ivory-4);
-  font-size: 6px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.picker-index__sound--selected .picker-index__sound-state,
-.picker-cards__sound--selected .picker-cards__sound-state { color: var(--ink-4); }
-
-.picker-cards__group-heading { margin-bottom: 12px; }
-.picker-cards__group-heading :deep(.sticker) { font-size: 10px; }
-
-.picker-cards__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.picker-cards__sound {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--ink-5);
-  background: var(--ink-2);
-  color: var(--ivory-2);
-  padding: 9px 7px 7px;
-  clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);
-}
-
-.picker-cards__sound:hover { border-color: var(--ivory-3); color: var(--ivory); }
-.picker-cards__sound--selected { border-color: var(--ivory); background: var(--ivory); color: var(--ink); }
-.picker-cards__sound-state { display: block; margin-top: 5px; }
+.picker-choice:hover :deep(.sticker) { transform: translateY(-1px) rotate(-1deg); }
+.picker-choice:active :deep(.sticker) { transform: translateY(2px) rotate(0); }
+.picker-choice:focus-visible { outline: 2px solid var(--ivory); outline-offset: 3px; }
+.picker-choice--cold :deep(.sticker) { opacity: .38; }
+.picker-choice--available :deep(.sticker) { opacity: .72; }
+.picker-choice--current :deep(.sticker),
+.picker-choice--warming :deep(.sticker) { opacity: 1; }
 
 .picker-lab__empty {
   border: 1px dashed var(--ink-5);
@@ -511,7 +373,7 @@ const PickerSearch = defineComponent({
 .picker-lab__facts { display: grid; margin-top: 18px; }
 .picker-lab__facts div {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: 88px minmax(0, 1fr);
   gap: 12px;
   border-top: 1px solid var(--ink-5);
   padding: 10px 0;
@@ -526,8 +388,8 @@ const PickerSearch = defineComponent({
   padding: 24px 28px;
 }
 
-@media (max-width: 840px) {
-  .picker-lab__comparison { grid-template-columns: 1fr; }
+@media (prefers-reduced-motion: reduce) {
+  .picker-choice :deep(.sticker) { transition: none; }
 }
 
 @media (max-width: 460px) {
@@ -537,6 +399,7 @@ const PickerSearch = defineComponent({
   .picker-lab__surface-heading { min-height: auto; }
   .picker-lab__status { display: none; }
   .picker-lab__stage { padding: 0; }
-  .picker-cards__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .picker-group__choices { gap: 9px 8px; }
+  .picker-choice :deep(.sticker) { font-size: 12px; }
 }
 </style>

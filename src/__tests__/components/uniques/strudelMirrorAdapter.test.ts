@@ -1,3 +1,6 @@
+import { EditorState, StateField } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { history, undo } from "@codemirror/commands";
 import { reactive } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,13 +12,18 @@ const mocks = vi.hoisted(() => ({
   mirrors: [] as Array<{
     options: any;
     evaluate: ReturnType<typeof vi.fn>;
+    rawEvaluate: ReturnType<typeof vi.fn>;
     rawStop: ReturnType<typeof vi.fn>;
     clear: ReturnType<typeof vi.fn>;
     schedulerActive: boolean;
     solo: boolean;
+    editor: EditorView;
+    repl: { setCode: ReturnType<typeof vi.fn> };
     complete: () => void;
   }>,
   sharedVisualOwner: null as string | null,
+  audioOutputs: [] as string[],
+  draws: [] as string[],
 }));
 
 vi.mock("@/stores/instrument", () => ({
@@ -27,23 +35,43 @@ vi.mock("@strudel/codemirror", () => ({
     code: string;
     options: any;
     evaluate: ReturnType<typeof vi.fn>;
+    rawEvaluate: ReturnType<typeof vi.fn>;
     stop: ReturnType<typeof vi.fn>;
     rawStop: ReturnType<typeof vi.fn>;
     clear = vi.fn();
     updateSettings = vi.fn();
     schedulerActive = false;
     solo: boolean;
+    root: HTMLElement;
+    editor: EditorView;
+    repl = { setCode: vi.fn() };
     private resolveEvaluation: (() => void) | null = null;
 
     constructor(options: any) {
       this.options = options;
       this.code = options.initialCode;
       this.solo = options.solo;
-      this.evaluate = vi.fn(
+      this.root = options.root;
+      this.editor = new EditorView({
+        state: EditorState.create({
+          doc: options.initialCode,
+          extensions: [
+            history(),
+            EditorView.updateListener.of((update) => {
+              if (!update.docChanged) return;
+              this.code = update.state.doc.toString();
+              this.repl.setCode(this.code);
+            }),
+          ],
+        }),
+        parent: options.root,
+      });
+      this.rawEvaluate = vi.fn(
         () => new Promise<void>((resolve) => {
           this.resolveEvaluation = resolve;
         }),
       );
+      this.evaluate = this.rawEvaluate;
       this.rawStop = vi.fn(async () => {
         this.schedulerActive = false;
         options.onToggle(false);
@@ -57,11 +85,14 @@ vi.mock("@strudel/codemirror", () => ({
     }
 
     setCode(source: string) {
-      this.code = source;
+      this.editor.dispatch({
+        changes: { from: 0, to: this.editor.state.doc.length, insert: source },
+      });
     }
 
     complete() {
       this.schedulerActive = true;
+      void this.options.defaultOutput(this.code);
       this.options.onToggle(true);
       this.options.onDraw();
       this.resolveEvaluation?.();
@@ -73,16 +104,23 @@ vi.mock("@strudel/codemirror", () => ({
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { StrudelMirrorCodeStripAdapter } from "@/components/uniques/CodeStrip/strudelMirrorAdapter";
 
-function createAdapter(source: string, releaseShared: () => void) {
+function createAdapter(
+  source: string,
+  releaseShared: () => void,
+  root = document.createElement("div"),
+) {
   return new StrudelMirrorCodeStripAdapter({
-    root: document.createElement("div"),
+    root,
     initialSource: source,
     transpiler: vi.fn(),
-    defaultOutput: vi.fn(),
+    defaultOutput: (code: unknown) => {
+      mocks.audioOutputs.push(String(code));
+    },
     getTime: () => 0,
     prebake: async () => undefined,
     onDraw: () => {
       mocks.sharedVisualOwner = source;
+      mocks.draws.push(source);
     },
     onRelease: releaseShared,
   });
@@ -96,6 +134,8 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     });
     mocks.mirrors = [];
     mocks.sharedVisualOwner = null;
+    mocks.audioOutputs = [];
+    mocks.draws = [];
   });
 
   afterEach(async () => {
@@ -110,7 +150,7 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     const oldAdapter = createAdapter("sound('old')", releaseShared);
     transport.attachEditor(oldAdapter);
     const oldPlay = transport.play();
-    await vi.waitFor(() => expect(mocks.mirrors[0].evaluate).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(mocks.mirrors[0].rawEvaluate).toHaveBeenCalledOnce());
 
     const newAdapter = createAdapter("sound('new')", releaseShared);
     transport.attachEditor(newAdapter);
@@ -118,7 +158,7 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
 
     expect(mocks.mirrors[0].rawStop).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(releaseShared).toHaveBeenCalledOnce());
-    await vi.waitFor(() => expect(mocks.mirrors[1].evaluate).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(mocks.mirrors[1].rawEvaluate).toHaveBeenCalledOnce());
     await oldPlay;
 
     mocks.mirrors[1].complete();
@@ -154,7 +194,7 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     const activeAdapter = createAdapter("sound('active')", releaseShared);
     transport.attachEditor(activeAdapter);
     const activePlay = transport.play();
-    await vi.waitFor(() => expect(mocks.mirrors[0].evaluate).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(mocks.mirrors[0].rawEvaluate).toHaveBeenCalledOnce());
     mocks.mirrors[0].complete();
     await activePlay;
     expect(mocks.sharedVisualOwner).toBe("sound('active')");
@@ -167,5 +207,86 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     expect(mocks.mirrors[0].schedulerActive).toBe(true);
     expect(mocks.sharedVisualOwner).toBe("sound('active')");
     expect(releaseShared).not.toHaveBeenCalled();
+  });
+
+  it("renews a cancelled runtime while preserving the live editor state", async () => {
+    const transport = useCodeStripStrudel();
+    const releaseShared = vi.fn(() => {
+      mocks.sharedVisualOwner = null;
+    });
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const adapter = createAdapter("sound('initial')", releaseShared, root);
+    transport.attachEditor(adapter);
+    adapter.routeCommands({ play: transport.play, stop: transport.stop });
+    const liveView = adapter.view!;
+    const preservedField = StateField.define({
+      create: () => "preserved",
+      update: (value) => value,
+    });
+    adapter.appendConfig(preservedField);
+    adapter.replaceSource("sound('edited')");
+    liveView.dispatch({ selection: { anchor: 5 } });
+    liveView.scrollDOM.scrollLeft = 27;
+    liveView.focus();
+
+    const firstPlay = transport.play();
+    await vi.waitFor(() => expect(mocks.mirrors[0].rawEvaluate).toHaveBeenCalledOnce());
+    await transport.stop();
+    await firstPlay;
+
+    const replay = transport.play();
+    await vi.waitFor(() => expect(mocks.mirrors).toHaveLength(2));
+    await vi.waitFor(() => expect(mocks.mirrors[1].rawEvaluate).toHaveBeenCalledOnce());
+
+    expect(adapter.view).toBe(liveView);
+    expect(liveView.state.doc.toString()).toBe("sound('edited')");
+    expect(liveView.state.selection.main.anchor).toBe(5);
+    expect(liveView.scrollDOM.scrollLeft).toBe(27);
+    expect(liveView.hasFocus).toBe(true);
+    expect(liveView.state.field(preservedField)).toBe("preserved");
+    expect(mocks.mirrors[0].editor).not.toBe(liveView);
+    expect(mocks.mirrors[0].solo).toBe(false);
+    expect(mocks.mirrors[0].evaluate).toBe(transport.play);
+    expect(mocks.mirrors[0].stop).toBe(transport.stop);
+    expect(mocks.mirrors[1].evaluate).toBe(transport.play);
+    expect(mocks.mirrors[1].stop).toBe(transport.stop);
+
+    expect(undo(liveView)).toBe(true);
+    expect(liveView.state.doc.toString()).toBe("sound('initial')");
+    expect(mocks.mirrors[1].code).toBe("sound('initial')");
+    expect(mocks.mirrors[1].repl.setCode).toHaveBeenLastCalledWith("sound('initial')");
+    adapter.replaceSource("sound('latest')");
+    expect(mocks.mirrors[1].code).toBe("sound('latest')");
+    expect(mocks.mirrors[1].repl.setCode).toHaveBeenLastCalledWith("sound('latest')");
+
+    // This order is the inverse of the replacement regression above: the old
+    // raw work completes while the renewed runtime is still evaluating.
+    mocks.mirrors[0].complete();
+    await vi.waitFor(() => expect(mocks.mirrors[0].schedulerActive).toBe(false));
+    expect(mocks.mirrors[0].editor.destroyed).toBe(true);
+    expect(mocks.mirrors[1].schedulerActive).toBe(false);
+    expect(mocks.audioOutputs).toEqual([]);
+    expect(mocks.draws).toEqual([]);
+
+    mocks.mirrors[1].complete();
+    await replay;
+    expect(transport.isPlaying.value).toBe(true);
+    expect(mocks.audioOutputs).toEqual(["sound('latest')"]);
+    expect(mocks.draws).toEqual(["sound('initial')"]);
+    expect(releaseShared).toHaveBeenCalledOnce();
+
+    // Strudel's editor/global shortcuts call the mirror methods directly.
+    // Renewal must keep those methods routed through the transport owner.
+    await mocks.mirrors[0].stop();
+    expect(transport.isPlaying.value).toBe(false);
+    expect(mocks.mirrors[1].rawStop).toHaveBeenCalledOnce();
+    const commandPlay = mocks.mirrors[0].evaluate();
+    await vi.waitFor(() => expect(mocks.mirrors[1].rawEvaluate).toHaveBeenCalledTimes(2));
+    mocks.mirrors[1].complete();
+    await commandPlay;
+    expect(transport.isPlaying.value).toBe(true);
+
+    root.remove();
   });
 });

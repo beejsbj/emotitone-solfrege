@@ -11,7 +11,7 @@ export type {
 </script>
 
 <script setup lang="ts">
-import { EditorState, StateEffect } from "@codemirror/state";
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import * as StrudelCore from "@strudel/core";
 import * as StrudelMini from "@strudel/mini";
@@ -363,6 +363,7 @@ async function initializeStrudelMirror() {
       void nextTick(followActivePlayback);
     },
     onRelease: stopStrudelVisuals,
+    onRuntimeRenewed: syncPresentation,
   });
   mirror.value = instance;
 
@@ -385,9 +386,7 @@ async function initializeStrudelMirror() {
 
   const view = getMirrorView(instance);
   if (view) {
-    view.dispatch({
-      effects: StateEffect.appendConfig.of([codeStripStrudelExtension]),
-    });
+    instance.appendConfig(codeStripStrudelExtension);
     syncPresentation();
   }
 

@@ -1,4 +1,5 @@
 export type CodeStripTransportOperation = number;
+export type CodeStripEvaluationResult = "completed" | "cancelled";
 
 export type CodeStripEditorEvent =
   | { type: "source"; source: string }
@@ -18,6 +19,8 @@ export type CodeStripEditorListener = (event: CodeStripEditorEvent) => void;
 export interface CodeStripStopRequest {
   operation: CodeStripTransportOperation;
   releaseShared: boolean;
+  /** Settle the current evaluate call and contain any eventual raw completion. */
+  cancelEvaluation: boolean;
   /** Revoke any in-flight evaluation's ability to claim playback before returning. */
   retire: boolean;
 }
@@ -28,7 +31,7 @@ export interface CodeStripEditorAdapter {
   evaluate: (
     source: string,
     operation: CodeStripTransportOperation,
-  ) => Promise<void>;
+  ) => Promise<CodeStripEvaluationResult>;
   stop: (request: CodeStripStopRequest) => Promise<void> | void;
   subscribe: (listener: CodeStripEditorListener) => () => void;
   destroy: () => Promise<void> | void;
@@ -55,6 +58,7 @@ export interface CodeStripTransportAttachment {
   adapter: CodeStripEditorAdapter;
   unsubscribe: () => void;
   work: Promise<void>;
+  sharedWork: Promise<void>;
   pendingStarts: number;
   operations: Map<CodeStripTransportOperation, CodeStripTransportOperationOwner>;
   failedOperations: Set<CodeStripTransportOperation>;
@@ -70,4 +74,5 @@ export interface StrudelMirrorAdapterOptions {
   prebake: () => Promise<void>;
   onDraw: () => void;
   onRelease: () => void;
+  onRuntimeRenewed?: () => void;
 }

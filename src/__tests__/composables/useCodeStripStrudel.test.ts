@@ -2,6 +2,7 @@ import { reactive } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   CodeStripEditorAdapter,
+  CodeStripEvaluationResult,
   CodeStripEditorEvent,
   CodeStripEditorListener,
   CodeStripStopRequest,
@@ -27,6 +28,7 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
   destroyed = false;
   retired = false;
   deferStops = false;
+  ignoreCancellation = false;
   lifecycle: string[] = [];
   stopOperations: CodeStripTransportOperation[] = [];
   stopRequests: CodeStripStopRequest[] = [];
@@ -34,8 +36,9 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
   evaluations: Array<{
     source: string;
     operation: CodeStripTransportOperation;
-    resolve: () => void;
+    resolve: (result: CodeStripEvaluationResult) => void;
     reject: (error: unknown) => void;
+    settled: boolean;
   }> = [];
 
   private readonly listeners = new Set<CodeStripEditorListener>();
@@ -60,13 +63,28 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
   }
 
   evaluate(source: string, operation: CodeStripTransportOperation) {
-    return new Promise<void>((resolve, reject) => {
-      this.evaluations.push({ source, operation, resolve, reject });
+    return new Promise<CodeStripEvaluationResult>((resolve, reject) => {
+      this.evaluations.push({
+        source,
+        operation,
+        resolve,
+        reject,
+        settled: false,
+      });
     });
   }
 
   stop(request: CodeStripStopRequest) {
     if (request.retire) this.retired = true;
+    if (request.cancelEvaluation && !this.ignoreCancellation) {
+      const evaluation = [...this.evaluations]
+        .reverse()
+        .find((candidate) => !candidate.settled);
+      if (evaluation) {
+        evaluation.settled = true;
+        evaluation.resolve("cancelled");
+      }
+    }
     this.lifecycle.push("stop requested");
     this.stopOperations.push(request.operation);
     this.stopRequests.push(request);
@@ -112,6 +130,7 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
 
   completeStart(index = 0) {
     const evaluation = this.evaluations[index];
+    if (evaluation.settled) return;
     this.audioOwned = !this.retired;
     if (!this.retired && this.sharedPlayback) this.sharedPlayback.owner = this;
     this.emit({
@@ -119,16 +138,19 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
       isPlaying: true,
       operation: evaluation.operation,
     });
-    evaluation.resolve();
+    evaluation.settled = true;
+    evaluation.resolve("completed");
   }
 
   failStart(error: unknown, index = 0) {
     const evaluation = this.evaluations[index];
     this.emit({ type: "error", error, operation: evaluation.operation });
-    evaluation.resolve();
+    evaluation.settled = true;
+    evaluation.resolve("completed");
   }
 
   rejectStart(error: unknown, index = 0) {
+    this.evaluations[index].settled = true;
     this.evaluations[index].reject(error);
   }
 
@@ -147,6 +169,10 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
 
 async function evaluationStarted(adapter: DeferredEditorAdapter, count = 1) {
   await vi.waitFor(() => expect(adapter.evaluations).toHaveLength(count));
+}
+
+async function flushMicrotasks(count = 12) {
+  for (let index = 0; index < count; index += 1) await Promise.resolve();
 }
 
 describe("CodeStrip transport session", () => {
@@ -262,7 +288,30 @@ describe("CodeStrip transport session", () => {
 
     expect(transport.isPlaying.value).toBe(false);
     expect(adapter.audioOwned).toBe(false);
-    expect(adapter.stopOperations).toHaveLength(2);
+    expect(adapter.stopOperations).toHaveLength(1);
+  });
+
+  it("allows replay without waiting for a stopped evaluation to settle", async () => {
+    const transport = useCodeStripStrudel();
+    const adapter = new DeferredEditorAdapter();
+    transport.attachEditor(adapter);
+
+    const firstPlay = transport.play();
+    await evaluationStarted(adapter);
+    await transport.stop();
+    const replay = transport.play();
+    await flushMicrotasks();
+    const replayStartedBeforeOldSettled = adapter.evaluations.length === 2;
+
+    adapter.completeStart(0);
+    await firstPlay;
+    await evaluationStarted(adapter, 2);
+    adapter.completeStart(1);
+    await replay;
+
+    expect(replayStartedBeforeOldSettled).toBe(true);
+    expect(transport.isPlaying.value).toBe(true);
+    expect(adapter.audioOwned).toBe(true);
   });
 
   it("makes the latest Play win without stale cleanup stopping it", async () => {
@@ -306,6 +355,7 @@ describe("CodeStrip transport session", () => {
     const transport = useCodeStripStrudel();
     const sharedPlayback: { owner: DeferredEditorAdapter | null } = { owner: null };
     const oldAdapter = new DeferredEditorAdapter("sound('old')", sharedPlayback);
+    oldAdapter.ignoreCancellation = true;
     transport.attachEditor(oldAdapter);
     const oldPlay = transport.play();
     await evaluationStarted(oldAdapter);
@@ -350,6 +400,7 @@ describe("CodeStrip transport session", () => {
     const transport = useCodeStripStrudel();
     const sharedPlayback: { owner: DeferredEditorAdapter | null } = { owner: null };
     const oldAdapter = new DeferredEditorAdapter("sound('old')", sharedPlayback);
+    oldAdapter.ignoreCancellation = true;
     transport.attachEditor(oldAdapter);
     void transport.play();
     await evaluationStarted(oldAdapter);
@@ -386,6 +437,46 @@ describe("CodeStrip transport session", () => {
     expect(adapter.lifecycle).toEqual(["stop requested", "stop settled", "destroy"]);
     expect(adapter.destroyed).toBe(true);
     expect(adapter.stopRequests[0].retire).toBe(true);
+  });
+
+  it("waits for every earlier shared release before replacement playback", async () => {
+    const transport = useCodeStripStrudel();
+    const sharedPlayback: { owner: DeferredEditorAdapter | null } = { owner: null };
+    const oldAdapter = new DeferredEditorAdapter("sound('old')", sharedPlayback);
+    transport.attachEditor(oldAdapter);
+    const oldPlay = transport.play();
+    await evaluationStarted(oldAdapter);
+    oldAdapter.completeStart();
+    await oldPlay;
+
+    oldAdapter.deferStops = true;
+    const stopping = transport.stop();
+    const newAdapter = new DeferredEditorAdapter("sound('new')", sharedPlayback);
+    transport.attachEditor(newAdapter);
+    const newPlay = transport.play();
+    expect(oldAdapter.pendingStops).toHaveLength(2);
+
+    oldAdapter.settleStop(1);
+    await flushMicrotasks();
+    const replacementStartedBeforeEarlierStop = newAdapter.evaluations.length === 1;
+    const destroyedBeforeEarlierStop = oldAdapter.destroyed;
+
+    if (replacementStartedBeforeEarlierStop) {
+      newAdapter.completeStart();
+      await newPlay;
+    }
+    oldAdapter.settleStop(0);
+    await stopping;
+    if (!replacementStartedBeforeEarlierStop) {
+      await evaluationStarted(newAdapter);
+      newAdapter.completeStart();
+      await newPlay;
+    }
+
+    expect(replacementStartedBeforeEarlierStop).toBe(false);
+    expect(destroyedBeforeEarlierStop).toBe(false);
+    expect(sharedPlayback.owner).toBe(newAdapter);
+    expect(newAdapter.audioOwned).toBe(true);
   });
 
   it("stops an active session and invalidates pending work across warmup epochs", async () => {

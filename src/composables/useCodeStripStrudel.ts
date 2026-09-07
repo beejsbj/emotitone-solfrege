@@ -4,6 +4,7 @@ import type {
   CodeStripEditorAdapter,
   CodeStripEditorConnection,
   CodeStripEditorEvent,
+  CodeStripStopRequest,
   CodeStripTransportAttachment,
   CodeStripTransportOperation,
 } from "@/types/codeStripTransport";
@@ -84,6 +85,7 @@ function handleEditorEvent(
         void Promise.resolve(attachment.adapter.stop({
           operation: nextOperation(),
           releaseShared: false,
+          cancelEvaluation: false,
           retire: false,
         })).catch(() => undefined);
       } catch {
@@ -130,31 +132,53 @@ function handleEditorEvent(
 async function stopAdapter(
   attachment: CodeStripTransportAttachment,
   command: number,
-  settlesState: boolean,
-  releaseShared: boolean,
-  retire: boolean,
+  options: Omit<CodeStripStopRequest, "operation"> & { settlesState: boolean },
 ) {
   const operation = nextOperation();
   attachment.operations.set(operation, {
     command,
     kind: "stop",
-    settlesState,
+    settlesState: options.settlesState,
   });
 
   try {
-    await attachment.adapter.stop({ operation, releaseShared, retire });
+    await attachment.adapter.stop({
+      operation,
+      releaseShared: options.releaseShared,
+      cancelEvaluation: options.cancelEvaluation,
+      retire: options.retire,
+    });
   } finally {
     attachment.operations.delete(operation);
-    if (settlesState && ownsCommand(attachment, command)) clearPlaybackState();
+    if (options.settlesState && ownsCommand(attachment, command)) {
+      clearPlaybackState();
+    }
   }
+}
+
+function trackSharedRelease(
+  attachment: CodeStripTransportAttachment,
+  work: Promise<void>,
+) {
+  attachment.sharedWork = Promise.allSettled([attachment.sharedWork, work])
+    .then(() => undefined);
+  return work;
 }
 
 function retireAttachment(attachment: CodeStripTransportAttachment, command: number) {
   attachment.retired = true;
   attachment.unsubscribe();
-  const stopWork = stopAdapter(attachment, command, false, true, true)
+  const precedingSharedWork = attachment.sharedWork;
+  const retirementStop = stopAdapter(attachment, command, {
+    settlesState: false,
+    releaseShared: true,
+    cancelEvaluation: true,
+    retire: true,
+  })
     .catch(() => undefined);
-  const teardown = stopWork.then(async () => {
+  attachment.sharedWork = Promise.allSettled([precedingSharedWork, retirementStop])
+    .then(() => undefined);
+  const teardown = attachment.sharedWork.then(async () => {
     try {
       await attachment.adapter.destroy();
     } catch {
@@ -200,6 +224,7 @@ function attachEditor(
     // Strudel adapters have separate schedulers but share output/visual state.
     // Do not let a replacement start until retired work has released it.
     work: sessionBarrier,
+    sharedWork: Promise.resolve(),
     pendingStarts: 0,
     operations: new Map(),
     failedOperations: new Set(),
@@ -256,8 +281,10 @@ async function performStart(
     });
 
     let rejectedError: unknown;
+    let evaluationCancelled = false;
     try {
-      await attachment.adapter.evaluate(source, operation);
+      evaluationCancelled = await attachment.adapter.evaluate(source, operation)
+        === "cancelled";
     } catch (error) {
       rejectedError = error;
       attachment.failedOperations.add(operation);
@@ -269,15 +296,22 @@ async function performStart(
 
     const mayOwnPlayback = ownsCommand(attachment, command)
       && !failed
+      && !evaluationCancelled
       && !instrumentStore?.isInteractionLocked
       && instrumentStore?.selectionEpoch === selectionEpoch;
 
     if (!mayOwnPlayback) {
       // A retired adapter contains its own late raw completion. Its handoff
       // already released shared state, so it must not release a newer owner.
-      if (!attachment.retired) {
-        await stopAdapter(attachment, command, false, true, false)
-          .catch(() => undefined);
+      if (!attachment.retired && !evaluationCancelled) {
+        const cleanup = stopAdapter(attachment, command, {
+          settlesState: false,
+          releaseShared: true,
+          cancelEvaluation: false,
+          retire: false,
+        });
+        trackSharedRelease(attachment, cleanup);
+        await cleanup.catch(() => undefined);
       }
       if (ownsCommand(attachment, command)) clearPlaybackState();
       if (rejectedError && ownsCommand(attachment, command)) {
@@ -320,9 +354,15 @@ async function play() {
     // Play/Play means latest request wins. Stop the current attempt now, then
     // wait for its late completion and cleanup before beginning the new one.
     isPlaying.value = false;
-    const cancellation = stopAdapter(attachment, command, false, true, false)
+    const cancellation = stopAdapter(attachment, command, {
+      settlesState: false,
+      releaseShared: true,
+      cancelEvaluation: true,
+      retire: false,
+    })
       .catch(() => undefined);
-    precedingWork = Promise.allSettled([precedingWork, cancellation]).then(() => undefined);
+    trackSharedRelease(attachment, cancellation);
+    precedingWork = attachment.sharedWork;
   }
 
   attachment.pendingStarts += 1;
@@ -337,12 +377,22 @@ async function stop() {
   const attachment = activeAttachment;
   clearPlaybackState();
   if (!attachment) return;
+  const cancelEvaluation = attachment.pendingStarts > 0;
 
-  // Stop takes effect immediately even while evaluation is pending. A later
-  // Play waits for both this stop and the stale evaluation's final release.
+  // Stop takes effect immediately even while evaluation is pending. The
+  // adapter cancels the transport-facing evaluation while containing any late
+  // raw completion; a later Play waits only for shared release work.
   const precedingWork = attachment.work;
-  const stopWork = stopAdapter(attachment, command, true, true, false);
-  attachment.work = Promise.allSettled([precedingWork, stopWork]).then(() => undefined);
+  const stopWork = stopAdapter(attachment, command, {
+    settlesState: true,
+    releaseShared: true,
+    cancelEvaluation,
+    retire: false,
+  });
+  trackSharedRelease(attachment, stopWork);
+  attachment.work = cancelEvaluation
+    ? attachment.sharedWork
+    : Promise.allSettled([precedingWork, stopWork]).then(() => undefined);
   try {
     await stopWork;
   } catch (error) {

@@ -53,6 +53,26 @@ export interface ActiveBlob {
   octave: number;
 }
 
+/** The exact blob body prepared for one animation frame. */
+export interface PreparedBlobFrame {
+  /** Stable key used by the polyphonic blob lifecycle. */
+  key: string;
+  /** Source state retained for harmonic analysis and lifecycle checks. */
+  blob: ActiveBlob;
+  /** The vibrating production contour, in canvas coordinates. */
+  contour: Array<{ x: number; y: number }>;
+  /** Resolved music color for this frame. */
+  primaryColor: string;
+  /** Current body radius after scale animation. */
+  scaledRadius: number;
+  /** Current body opacity after fade animation. */
+  opacity: number;
+  /** Current glow amount used by the ordinary body renderer. */
+  glowIntensity: number;
+  /** Seconds elapsed since this body appeared. */
+  elapsed: number;
+}
+
 export interface HarmonicGeometryPoint {
   note: ActiveNote;
   blob: ActiveBlob;

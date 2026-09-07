@@ -9,6 +9,7 @@ import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
 import { useAmbientRenderer } from "./useAmbientRenderer";
 import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
+import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 
@@ -61,6 +62,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   const stringRenderer = useStringRenderer();
   const ambientRenderer = useAmbientRenderer();
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
+  const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
 
   /**
@@ -213,13 +215,31 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       canvasWidth.value,
       canvasHeight.value
     );
-    harmonicGeometryRenderer.renderGeometry(
-      ctx,
-      harmonicScene,
-      cachedConfigs.harmonic
-    );
+    const fieldMode =
+      cachedConfigs.harmonic.geometryMode === "merge" ||
+      cachedConfigs.harmonic.geometryMode === "outline"
+        ? cachedConfigs.harmonic.geometryMode
+        : null;
+    const renderedBlobField =
+      cachedConfigs.blob.isEnabled &&
+      cachedConfigs.harmonic.isEnabled &&
+      fieldMode !== null &&
+      blobFieldRenderer.renderBlobField(
+        ctx,
+        blobRenderer.getPreparedBlobFrames(),
+        fieldMode,
+        cachedConfigs.harmonic
+      );
 
-    if (cachedConfigs.blob.isEnabled) {
+    if (!renderedBlobField) {
+      harmonicGeometryRenderer.renderGeometry(
+        ctx,
+        harmonicScene,
+        cachedConfigs.harmonic
+      );
+    }
+
+    if (cachedConfigs.blob.isEnabled && !renderedBlobField) {
       blobRenderer.renderBlobs(
         ctx,
         elapsed,
@@ -384,6 +404,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     stringRenderer.clearAllStrings();
     stringRenderer.removeEventListeners(); // Clean up string event listeners
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
+    blobFieldRenderer.dispose();
     resetHarmonicAnalysis();
     clearCaches();
     window.removeEventListener("resize", handleResize);

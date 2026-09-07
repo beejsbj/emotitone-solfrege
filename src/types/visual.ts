@@ -90,7 +90,7 @@ export interface HarmonicGeometryConfig {
   glassmorphOpacity: number;
   /** Animation duration for show/hide transitions in milliseconds */
   animationDuration: number;
-  /** Harmonic layer opacity when visible (0-1) */
+  /** Graph and analysis-label opacity when visible (0-1) */
   opacity: number;
 }
 

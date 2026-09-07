@@ -554,7 +554,7 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.1,
-      label: "Geometry Opacity",
+      label: "Graph & Label Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
   },

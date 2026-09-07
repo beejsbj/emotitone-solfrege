@@ -171,7 +171,7 @@ describe("useHarmonicGeometryRenderer", () => {
     expect(scene?.auxiliaryLabels).toEqual([]);
   });
 
-  it("renders merge mode as a filled curved bridge instead of a stroke", () => {
+  it("does not paint an overlay for blob-field merge mode", () => {
     const notes = [createNote("c4", "C4"), createNote("e4", "E4")];
     const blobs = new Map<string, ActiveBlob>([
       [notes[0].noteId, createBlob(notes[0], 100, 100)],
@@ -190,23 +190,21 @@ describe("useHarmonicGeometryRenderer", () => {
 
     renderer.renderGeometry(context, scene, config);
 
-    expect(mockCanvasContext.bezierCurveTo).toHaveBeenCalledTimes(2);
-    expect(mockCanvasContext.fill).toHaveBeenCalledTimes(1);
+    expect(mockCanvasContext.bezierCurveTo).not.toHaveBeenCalled();
+    expect(mockCanvasContext.fill).not.toHaveBeenCalled();
     expect(mockCanvasContext.stroke).not.toHaveBeenCalled();
   });
 
-  it("removes merge bridges as their source blobs finish fading", () => {
+  it("does not paint an overlay for blob-field outline mode", () => {
     const notes = [createNote("c4", "C4"), createNote("e4", "E4")];
     const firstBlob = createBlob(notes[0], 100, 100);
     const secondBlob = createBlob(notes[1], 300, 100);
-    firstBlob.renderOpacity = 0;
-    secondBlob.renderOpacity = 0;
     const blobs = new Map<string, ActiveBlob>([
       [notes[0].noteId, firstBlob],
       [notes[1].noteId, secondBlob],
     ]);
     const renderer = useHarmonicGeometryRenderer();
-    const config = { ...baseConfig, geometryMode: "merge" as const };
+    const config = { ...baseConfig, geometryMode: "outline" as const };
     const scene = renderer.buildScene(
       createSnapshot(notes),
       blobs,
@@ -218,8 +216,8 @@ describe("useHarmonicGeometryRenderer", () => {
 
     renderer.renderGeometry(context, scene, config);
 
-    expect(mockCanvasContext.bezierCurveTo).not.toHaveBeenCalled();
     expect(mockCanvasContext.fill).not.toHaveBeenCalled();
+    expect(mockCanvasContext.stroke).not.toHaveBeenCalled();
   });
 
   it("honors zero opacity for geometry and labels", () => {

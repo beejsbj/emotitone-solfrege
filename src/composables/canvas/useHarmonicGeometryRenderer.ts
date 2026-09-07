@@ -338,94 +338,6 @@ export function useHarmonicGeometryRenderer() {
     ctx.restore();
   };
 
-  const drawMergeBridge = (
-    ctx: CanvasRenderingContext2D,
-    from: HarmonicGeometryPoint,
-    to: HarmonicGeometryPoint,
-    opacity: number,
-    softness: number
-  ) => {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const distance = Math.hypot(dx, dy);
-    const fromRadius =
-      from.blob.baseRadius *
-      Math.max(0, from.blob.renderScale ?? from.blob.scale);
-    const toRadius =
-      to.blob.baseRadius * Math.max(0, to.blob.renderScale ?? to.blob.scale);
-
-    if (distance < 1 || fromRadius < 4 || toRadius < 4) {
-      return;
-    }
-
-    const directionX = dx / distance;
-    const directionY = dy / distance;
-    const normalX = -directionY;
-    const normalY = directionX;
-    const smallerRadius = Math.min(fromRadius, toRadius);
-    const distanceRatio = distance / Math.max(1, fromRadius + toRadius);
-    const neckRatio = Math.max(0.14, Math.min(0.4, 0.5 - distanceRatio * 0.1));
-    const neckWidth = smallerRadius * neckRatio;
-    const fromWidth = Math.min(fromRadius * 0.68, distance * 0.32);
-    const toWidth = Math.min(toRadius * 0.68, distance * 0.32);
-    const controlDistance = distance * 0.38;
-    const visibleOpacity =
-      opacity *
-      Math.min(getBlobVisibility(from.blob), getBlobVisibility(to.blob));
-
-    if (visibleOpacity <= 0) {
-      return;
-    }
-
-    const fromTop = {
-      x: from.x + normalX * fromWidth,
-      y: from.y + normalY * fromWidth,
-    };
-    const fromBottom = {
-      x: from.x - normalX * fromWidth,
-      y: from.y - normalY * fromWidth,
-    };
-    const toTop = {
-      x: to.x + normalX * toWidth,
-      y: to.y + normalY * toWidth,
-    };
-    const toBottom = {
-      x: to.x - normalX * toWidth,
-      y: to.y - normalY * toWidth,
-    };
-
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    ctx.fillStyle = createConnectionGradient(ctx, from, to, visibleOpacity);
-    ctx.shadowBlur = Math.min(
-      28,
-      Math.max(6, smallerRadius * 0.24 + softness * 0.28)
-    );
-    ctx.shadowColor = withAlpha(from.primaryColor, visibleOpacity * 0.7);
-    ctx.beginPath();
-    ctx.moveTo(fromTop.x, fromTop.y);
-    ctx.bezierCurveTo(
-      from.x + directionX * controlDistance + normalX * neckWidth,
-      from.y + directionY * controlDistance + normalY * neckWidth,
-      to.x - directionX * controlDistance + normalX * neckWidth,
-      to.y - directionY * controlDistance + normalY * neckWidth,
-      toTop.x,
-      toTop.y
-    );
-    ctx.lineTo(toBottom.x, toBottom.y);
-    ctx.bezierCurveTo(
-      to.x - directionX * controlDistance - normalX * neckWidth,
-      to.y - directionY * controlDistance - normalY * neckWidth,
-      from.x + directionX * controlDistance - normalX * neckWidth,
-      from.y + directionY * controlDistance - normalY * neckWidth,
-      fromBottom.x,
-      fromBottom.y
-    );
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  };
-
   const getBoundaryPointPairs = (scene: HarmonicGeometryScene) => {
     if (scene.orderedPoints.length === 2) {
       return [[scene.orderedPoints[0], scene.orderedPoints[1]]] as const;
@@ -501,23 +413,17 @@ export function useHarmonicGeometryRenderer() {
       return;
     }
 
-    const geometryOpacity = config.opacity * 0.5;
-
-    if (config.geometryMode === "merge") {
-      drawBackdropFill(ctx, scene, config);
-      const mergeOpacity =
-        config.opacity * (0.38 + config.glassmorphOpacity * 0.52);
-      getBoundaryPointPairs(scene).forEach(([fromPoint, toPoint]) => {
-        drawMergeBridge(
-          ctx,
-          fromPoint,
-          toPoint,
-          mergeOpacity,
-          config.backdropBlur
-        );
-      });
+    // Organic modes are complete body treatments owned by the blob field
+    // renderer. Painting graph geometry here would put an underlay back under
+    // the shared silhouette and recreate the rejected visual seam.
+    if (
+      config.geometryMode === "merge" ||
+      config.geometryMode === "outline"
+    ) {
       return;
     }
+
+    const geometryOpacity = config.opacity * 0.5;
 
     if (
       scene.orderedPoints.length === 2 &&

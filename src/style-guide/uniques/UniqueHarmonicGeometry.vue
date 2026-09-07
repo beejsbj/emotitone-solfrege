@@ -4,9 +4,8 @@
       <div>
         <h3>Harmonic Geometry · Canvas Unique</h3>
         <p>
-          The real production renderer, exercised with controlled blob fixtures.
-          Connections sit beneath the blobs; labels are an optional layer and
-          default off.
+          The production blob contours, exercised as one shared material field.
+          Labels remain an optional layer and default off.
         </p>
       </div>
 
@@ -24,7 +23,7 @@
         />
         <figcaption>
           <strong>Outline</strong>
-          <span>Low-contrast color threads emerge from behind each blob.</span>
+          <span>A field-derived perimeter follows the bodies and their necks.</span>
         </figcaption>
       </figure>
 
@@ -35,15 +34,15 @@
         />
         <figcaption>
           <strong>Merge</strong>
-          <span>Filled curved necks make the active blobs read as one body.</span>
+          <span>Nearby bodies blur and threshold into one liquid silhouette.</span>
         </figcaption>
       </figure>
     </div>
 
     <p class="harmonic-specimen__boundary">
-      Blob circles are inert specimen fixtures. Connection geometry, music
-      colors, label placement, and configuration all cross the production
-      renderer seam; no audio or application store is driven here.
+      The specimen freezes real vibrating blob frames. Contours, field fusion,
+      music colors, label placement, and configuration all cross production
+      renderer seams; no audio is driven here.
     </p>
   </section>
 </template>
@@ -52,7 +51,8 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { MAJOR_SOLFEGE } from "@/data";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useBlobRenderer } from "@/composables/canvas/useBlobRenderer";
+import { useBlobFieldRenderer } from "@/composables/canvas/useBlobFieldRenderer";
 import { useHarmonicGeometryRenderer } from "@/composables/canvas/useHarmonicGeometryRenderer";
 import type {
   ActiveBlob,
@@ -66,11 +66,8 @@ const outlineCanvas = ref<HTMLCanvasElement | null>(null);
 const mergeCanvas = ref<HTMLCanvasElement | null>(null);
 const showLabels = ref(false);
 const renderer = useHarmonicGeometryRenderer();
-const {
-  getStaticPrimaryColor,
-  getStaticAccentColor,
-  withAlpha,
-} = useColorSystem();
+const blobRenderer = useBlobRenderer();
+const blobFieldRenderer = useBlobFieldRenderer();
 
 const notes: ActiveNote[] = [
   {
@@ -135,24 +132,15 @@ const snapshot: HarmonicAnalysisSnapshot = {
   emotionalDescription: "Home · brightness · strength",
 };
 
-const createBlobs = (
-  width: number,
-  height: number,
-  mode: HarmonicGeometryMode
-) => {
-  const positions =
-    mode === "merge"
-      ? [
-          { x: width * 0.3, y: height * 0.58 },
-          { x: width * 0.5, y: height * 0.34 },
-          { x: width * 0.7, y: height * 0.58 },
-        ]
-      : [
-          { x: width * 0.2, y: height * 0.66 },
-          { x: width * 0.5, y: height * 0.26 },
-          { x: width * 0.8, y: height * 0.66 },
-        ];
-  const radius = Math.min(width, height) * (mode === "merge" ? 0.2 : 0.17);
+const createBlobs = (width: number, height: number) => {
+  const positions = [
+    { x: width * 0.34, y: height * 0.54 },
+    { x: width * 0.56, y: height * 0.58 },
+    { x: width * 0.68, y: height * 0.34 },
+  ];
+  const radii = [0.23, 0.17, 0.15].map(
+    (ratio) => Math.min(width, height) * ratio
+  );
 
   return new Map<string, ActiveBlob>(
     notes.map((note, index) => [
@@ -163,7 +151,7 @@ const createBlobs = (
         note: note.solfege,
         frequency: note.frequency,
         startTime: 0,
-        baseRadius: radius,
+        baseRadius: radii[index],
         opacity: 0.88,
         isFadingOut: false,
         driftVx: 0,
@@ -180,45 +168,9 @@ const createBlobs = (
   );
 };
 
-const drawFixtureBlob = (
-  context: CanvasRenderingContext2D,
-  note: ActiveNote,
-  blob: ActiveBlob
-) => {
-  const radius = blob.baseRadius * blob.scale;
-  const primary = getStaticPrimaryColor(
-    note.solfege.name,
-    note.mode,
-    note.octave,
-    note.key
-  );
-  const accent = getStaticAccentColor(
-    note.solfege.name,
-    note.mode,
-    note.octave,
-    note.key
-  );
-  const gradient = context.createRadialGradient(
-    blob.x - radius * 0.22,
-    blob.y - radius * 0.24,
-    radius * 0.08,
-    blob.x,
-    blob.y,
-    radius
-  );
-
-  gradient.addColorStop(0, withAlpha(primary, 0.96));
-  gradient.addColorStop(0.72, withAlpha(primary, 0.88));
-  gradient.addColorStop(1, withAlpha(accent, 0.8));
-  context.fillStyle = gradient;
-  context.beginPath();
-  context.arc(blob.x, blob.y, radius, 0, Math.PI * 2);
-  context.fill();
-};
-
 const drawSpecimen = (
   canvas: HTMLCanvasElement | null,
-  mode: HarmonicGeometryMode
+  mode: Extract<HarmonicGeometryMode, "outline" | "merge">
 ) => {
   if (!canvas) return;
 
@@ -234,7 +186,7 @@ const drawSpecimen = (
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
 
-  const blobs = createBlobs(width, height, mode);
+  const blobs = createBlobs(width, height);
   const config: HarmonicGeometryConfig = {
     ...DEFAULT_CONFIG.floatingPopup,
     isEnabled: true,
@@ -242,17 +194,26 @@ const drawSpecimen = (
     showChord: showLabels.value,
     showIntervals: showLabels.value,
     showEmotionalDescription: showLabels.value,
-    backdropBlur: 14,
-    glassmorphOpacity: mode === "merge" ? 0.72 : 0.4,
-    opacity: 0.72,
+    backdropBlur: 18,
+    glassmorphOpacity: mode === "merge" ? 0.86 : 0.72,
+    opacity: 0.82,
   };
   const scene = renderer.buildScene(snapshot, blobs, config, width, height);
-
-  renderer.renderGeometry(context, scene, config);
-  notes.forEach((note) => {
+  const frames = notes.flatMap((note, index) => {
     const blob = blobs.get(note.noteId);
-    if (blob) drawFixtureBlob(context, note, blob);
+    return blob
+      ? [
+          blobRenderer.createFixtureFrame(
+            note.noteId,
+            blob,
+            DEFAULT_CONFIG.blobs,
+            1.15 + index * 0.17
+          ),
+        ]
+      : [];
   });
+
+  blobFieldRenderer.renderBlobField(context, frames, mode, config);
   renderer.renderLabels(context, scene, config);
 };
 
@@ -267,7 +228,10 @@ onMounted(() => {
   void drawAll();
   window.addEventListener("resize", drawAll);
 });
-onBeforeUnmount(() => window.removeEventListener("resize", drawAll));
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", drawAll);
+  blobFieldRenderer.dispose();
+});
 </script>
 
 <style scoped>

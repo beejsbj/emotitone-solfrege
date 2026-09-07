@@ -294,17 +294,25 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       [],
       "web",
       mocks.harmonicConfig.value,
-      scene
+      scene,
+      mocks.blobConfig.value
     );
   });
 
-  it("leaves ordinary blobs untouched when Web has no harmonic scene", () => {
+  it("keeps Web in the same blob field before it has a relationship", () => {
     const canvas = useUnifiedCanvas(createCanvasRef());
     canvas.initializeCanvas();
 
     mocks.animationOptions?.onFrame(1000, 1);
 
-    expect(mocks.renderBlobField).not.toHaveBeenCalled();
+    expect(mocks.renderBlobField).toHaveBeenCalledWith(
+      mockCanvasContext,
+      [],
+      "web",
+      mocks.harmonicConfig.value,
+      null,
+      mocks.blobConfig.value
+    );
   });
 
   it("exposes only enabled harmonic labels as accessible text", () => {

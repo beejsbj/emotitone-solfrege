@@ -9,6 +9,7 @@ import {
   getBlobFieldConnectionWidth,
   getBlobFieldColorBatchSize,
   getBlobFieldBounds,
+  getBlobFieldMaterialPasses,
   getBlobFieldResolution,
   getBlobWebConnections,
   getBlobWebConnectionWidth,
@@ -415,6 +416,64 @@ describe("useBlobFieldRenderer", () => {
     expect(divisor).toBe(8);
     expect((quietHeldInteriorOpacity / divisor) * 255).toBeGreaterThan(1);
     expect(getBlobFieldColorBatchSize(4)).toBe(4);
+  });
+
+  it("keeps Blob blur and glow as the field material", () => {
+    expect(
+      getBlobFieldMaterialPasses({
+        blurRadius: 10,
+        glowEnabled: true,
+        glowIntensity: 5,
+      })
+    ).toEqual([
+      { filter: "blur(15px)", opacity: 0.62 },
+      { filter: "blur(10px)", opacity: 1 },
+    ]);
+    expect(
+      getBlobFieldMaterialPasses({
+        blurRadius: 0,
+        glowEnabled: false,
+        glowIntensity: 50,
+      })
+    ).toEqual([{ filter: "none", opacity: 1 }]);
+  });
+
+  it("keeps Web attachments stable when only the contours vibrate", () => {
+    const first = createFrameAt("first", 80, 100);
+    const far = createFrameAt("far", 900, 100);
+    const connection = getBlobWebConnections(
+      [first, far],
+      createWebScene([first, far], [[0, 1]], [])
+    )[0];
+    const initial = getBlobFieldConnectionGeometry(
+      connection,
+      12,
+      0.5,
+      0.46,
+      0.46,
+      "radius"
+    );
+
+    first.contour = first.contour.map((point, index) => ({
+      x: point.x + (index % 2 === 0 ? 18 : -12),
+      y: point.y + (index % 3 === 0 ? 14 : -9),
+    }));
+    far.contour = far.contour.map((point, index) => ({
+      x: point.x + (index % 2 === 0 ? -16 : 10),
+      y: point.y + (index % 3 === 0 ? -13 : 8),
+    }));
+    const vibrated = getBlobFieldConnectionGeometry(
+      connection,
+      12,
+      0.5,
+      0.46,
+      0.46,
+      "radius"
+    );
+
+    expect(vibrated.startAttachment).toEqual(initial.startAttachment);
+    expect(vibrated.endAttachment).toEqual(initial.endAttachment);
+    expect(vibrated.centerline).toEqual(initial.centerline);
   });
 
   it("curves long filaments into smoothly inset, resolution-aware shoulders", () => {

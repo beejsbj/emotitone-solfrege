@@ -69,7 +69,8 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 1,
       step: 0.02,
-      label: "Oscillation Amplitude",
+      label: "Breathing Amplitude",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     fadeOutDuration: {
       value: 1.5,
@@ -122,8 +123,8 @@ export const UNIFIED_CONFIG = {
       min: 0,
       max: 50,
       step: 1,
-      label: "Vibration Amplitude",
-      format: (v: number) => `${v}px`,
+      label: "Edge Vibration",
+      format: (v: number) => `${v}%`,
     },
     glowEnabled: {
       value: true,

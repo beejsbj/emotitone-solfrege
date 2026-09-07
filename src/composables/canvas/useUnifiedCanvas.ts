@@ -291,13 +291,13 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     const renderedBlobField =
       cachedConfigs.blob.isEnabled &&
       cachedConfigs.harmonic.isEnabled &&
-      (fieldMode === "merge" || harmonicScene !== null) &&
       blobFieldRenderer.renderBlobField(
         ctx,
         blobRenderer.getPreparedBlobFrames(),
         fieldMode,
         cachedConfigs.harmonic,
-        harmonicScene
+        harmonicScene,
+        cachedConfigs.blob
       );
 
     if (cachedConfigs.blob.isEnabled && !renderedBlobField) {

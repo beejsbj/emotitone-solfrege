@@ -364,9 +364,12 @@ export function useBlobRenderer() {
           1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
         blob.scale = currentScale;
       } else if (!blob.isFadingOut) {
-        const oscillation = Math.sin(blobElapsed * 3) * 0.02;
+        const oscillation =
+          Math.sin(blobElapsed * 3) *
+          0.02 *
+          blobConfig.oscillationAmplitude;
         bounceScale = 1 + oscillation;
-        currentScale = bounceScale;
+        currentScale = 1;
       }
 
       let currentOpacity = blob.opacity;

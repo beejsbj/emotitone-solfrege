@@ -175,7 +175,7 @@ export interface BlobConfig {
   opacity: number;
   /** Blur radius in pixels */
   blurRadius: number;
-  /** Vibration amplitude (0-1) - now used for edge vibration */
+  /** Slow breathing amplitude (0-1) */
   oscillationAmplitude: number;
   /** Fade-out duration in seconds */
   fadeOutDuration: number;
@@ -189,7 +189,7 @@ export interface BlobConfig {
   vibrationFrequencyDivisor: number;
   /** Number of segments for blob edge */
   edgeSegments: number;
-  /** Amplitude of edge vibration */
+  /** Amplitude of edge vibration as a percentage of the rendered radius */
   vibrationAmplitude: number;
   /** Enable glow effect */
   glowEnabled: boolean;

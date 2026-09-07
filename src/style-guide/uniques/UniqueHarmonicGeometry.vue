@@ -257,7 +257,14 @@ const drawSpecimen = (
       : [];
   });
 
-  blobFieldRenderer.renderBlobField(context, frames, mode, config, scene);
+  blobFieldRenderer.renderBlobField(
+    context,
+    frames,
+    mode,
+    config,
+    scene,
+    DEFAULT_CONFIG.blobs
+  );
   renderer.renderLabels(context, scene, config);
 };
 

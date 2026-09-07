@@ -3,6 +3,7 @@ import type {
   PreparedBlobFrame,
 } from "@/types/canvas";
 import type {
+  BlobConfig,
   HarmonicGeometryConfig,
   HarmonicGeometryMode,
 } from "@/types/visual";
@@ -38,6 +39,11 @@ export interface BlobFieldConnectionGeometry {
   leftEdge: FieldPoint[];
   rightEdge: FieldPoint[];
   bend: number;
+}
+
+export interface BlobFieldMaterialPass {
+  filter: string;
+  opacity: number;
 }
 
 interface FieldSurfaces {
@@ -225,6 +231,16 @@ function getContourPointTowards(frame: PreparedBlobFrame, target: FieldPoint) {
   }, frame.contour[0]);
 }
 
+function getRadiusPointTowards(
+  frame: PreparedBlobFrame,
+  direction: FieldPoint
+) {
+  return {
+    x: frame.blob.x + direction.x * frame.scaledRadius,
+    y: frame.blob.y + direction.y * frame.scaledRadius,
+  };
+}
+
 function getConnectionBendDirection(connection: BlobFieldConnection) {
   const pairKey = [connection.from.key, connection.to.key].sort().join("::");
   return [...pairKey].reduce(
@@ -242,23 +258,18 @@ function getConnectionBendDirection(connection: BlobFieldConnection) {
  * prepared bodies, so the field owns a rounded shoulder instead of exposing a
  * hard cross-section at either contour. A quartic bump curves the centerline
  * while retaining contour-normal endpoint tangents, and a quintic taper makes
- * the width derivative settle to zero at both bodies and at the waist.
+ * the width derivative settle to zero at both bodies and at the waist. Web can
+ * attach to the stable rendered radius so contour vibration stays in the body
+ * instead of shaking the relationship itself.
  */
 export function getBlobFieldConnectionGeometry(
   connection: BlobFieldConnection,
   waistWidth: number,
   fieldScale: number,
   shoulderScale = 1.05,
-  bendScale = 1
+  bendScale = 1,
+  attachmentMode: "contour" | "radius" = "contour"
 ): BlobFieldConnectionGeometry {
-  const startAttachment = getContourPointTowards(
-    connection.from,
-    connection.to.blob
-  );
-  const endAttachment = getContourPointTowards(
-    connection.to,
-    connection.from.blob
-  );
   const centerDeltaX = connection.to.blob.x - connection.from.blob.x;
   const centerDeltaY = connection.to.blob.y - connection.from.blob.y;
   const centerDistance = Math.hypot(centerDeltaX, centerDeltaY) || 1;
@@ -266,6 +277,17 @@ export function getBlobFieldConnectionGeometry(
     x: centerDeltaX / centerDistance,
     y: centerDeltaY / centerDistance,
   };
+  const startAttachment =
+    attachmentMode === "radius"
+      ? getRadiusPointTowards(connection.from, direction)
+      : getContourPointTowards(connection.from, connection.to.blob);
+  const endAttachment =
+    attachmentMode === "radius"
+      ? getRadiusPointTowards(connection.to, {
+          x: -direction.x,
+          y: -direction.y,
+        })
+      : getContourPointTowards(connection.to, connection.from.blob);
   const normal = { x: -direction.y, y: direction.x };
   const shoulderWidths = {
     from: Math.max(waistWidth, connection.from.scaledRadius * shoulderScale),
@@ -704,6 +726,33 @@ export function getBlobFieldResolution(bounds: FieldBounds) {
   };
 }
 
+/**
+ * The field determines topology, while Blob remains the sole owner of the
+ * rendered material. Drawing the color field itself as the glow preserves each
+ * note's color instead of collapsing a multi-note body into one shadow color.
+ */
+export function getBlobFieldMaterialPasses(
+  blobConfig: Pick<BlobConfig, "blurRadius" | "glowEnabled" | "glowIntensity">
+): BlobFieldMaterialPass[] {
+  const bodyBlur = Math.max(0, blobConfig.blurRadius);
+  const bodyPass = {
+    filter: bodyBlur > 0 ? `blur(${bodyBlur}px)` : "none",
+    opacity: 1,
+  };
+
+  if (!blobConfig.glowEnabled || blobConfig.glowIntensity <= 0) {
+    return [bodyPass];
+  }
+
+  return [
+    {
+      filter: `blur(${bodyBlur + blobConfig.glowIntensity}px)`,
+      opacity: 0.62,
+    },
+    bodyPass,
+  ];
+}
+
 export function useBlobFieldRenderer() {
   let surfaces: FieldSurfaces | null = null;
   let buffers: FieldBuffers | null = null;
@@ -761,9 +810,10 @@ export function useBlobFieldRenderer() {
     frames: readonly PreparedBlobFrame[],
     mode: HarmonicGeometryMode,
     config: HarmonicGeometryConfig,
-    scene: HarmonicGeometryScene | null = null
+    scene: HarmonicGeometryScene | null,
+    blobConfig: BlobConfig
   ) => {
-    if (frames.length === 0 || config.glassmorphOpacity <= 0) {
+    if (frames.length === 0) {
       return false;
     }
 
@@ -781,7 +831,9 @@ export function useBlobFieldRenderer() {
       frames,
       target.canvas.width,
       target.canvas.height,
-      blur * 3
+      blur * 3 +
+        blobConfig.blurRadius +
+        (blobConfig.glowEnabled ? blobConfig.glowIntensity : 0)
     );
     if (!bounds) {
       return false;
@@ -792,9 +844,6 @@ export function useBlobFieldRenderer() {
       mode === "merge"
         ? connectionPlanner.getConnections(frames)
         : webConnectionPlanner.getConnections(frames, scene);
-    if (mode === "web" && connections.length === 0) {
-      return false;
-    }
     const connectionLayers = connections.map((connection) => {
       const isMerge = connection.role === "merge";
       const connectionWidth = isMerge
@@ -818,7 +867,8 @@ export function useBlobFieldRenderer() {
           connectionWidth,
           scale,
           isMerge ? 1.05 : connection.role === "boundary" ? 0.46 : 0.34,
-          isMerge ? 1 : connection.role === "boundary" ? 0.46 : 0.3
+          isMerge ? 1 : connection.role === "boundary" ? 0.46 : 0.3,
+          isMerge ? "contour" : "radius"
         ),
       };
     });
@@ -1048,21 +1098,25 @@ export function useBlobFieldRenderer() {
     }
 
     outputContext.putImageData(output, 0, 0);
-    target.save();
-    target.imageSmoothingEnabled = true;
-    target.imageSmoothingQuality = "high";
-    target.drawImage(
-      field.output,
-      0,
-      0,
-      width,
-      height,
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      bounds.height
-    );
-    target.restore();
+    getBlobFieldMaterialPasses(blobConfig).forEach((pass) => {
+      target.save();
+      target.imageSmoothingEnabled = true;
+      target.imageSmoothingQuality = "high";
+      target.globalAlpha = pass.opacity;
+      target.filter = pass.filter;
+      target.drawImage(
+        field.output,
+        0,
+        0,
+        width,
+        height,
+        bounds.x,
+        bounds.y,
+        bounds.width,
+        bounds.height
+      );
+      target.restore();
+    });
 
     return true;
   };

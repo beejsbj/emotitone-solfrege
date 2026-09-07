@@ -86,4 +86,26 @@ describe("useBlobRenderer lifecycle", () => {
 
     expect(renderer.activeBlobs.has("c4")).toBe(false);
   });
+
+  it("uses the Blob breathing control without doubling its scale", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    vi.mocked(Date.now).mockReturnValue(1_500);
+
+    renderer.prepareBlobs(context, {
+      ...DEFAULT_CONFIG.blobs,
+      oscillationAmplitude: 0,
+    });
+    expect(renderer.activeBlobs.get("c4")?.renderScale).toBeCloseTo(1, 6);
+
+    renderer.prepareBlobs(context, {
+      ...DEFAULT_CONFIG.blobs,
+      oscillationAmplitude: 1,
+    });
+    expect(renderer.activeBlobs.get("c4")?.renderScale).toBeCloseTo(
+      1 + Math.sin(1.5) * 0.02,
+      6
+    );
+  });
 });

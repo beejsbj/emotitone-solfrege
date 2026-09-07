@@ -7,6 +7,7 @@ import {
   getBlobFieldConnections,
   getBlobFieldConnectionGeometry,
   getBlobFieldConnectionWidth,
+  getBlobFieldColorContributionDivisor,
   getBlobFieldBounds,
   getBlobFieldResolution,
   getBlobWebConnections,
@@ -279,6 +280,58 @@ describe("useBlobFieldRenderer", () => {
     expect(roleForPair(drifted, "first", "third")).toBe("interior");
   });
 
+  it("preserves surviving web emphasis when a released body disappears", () => {
+    const frames = [
+      createFrameAt("first", 80, 80),
+      createFrameAt("second", 320, 80),
+      createFrameAt("third", 320, 320),
+      createFrameAt("releasing", 80, 320),
+    ];
+    const fullScene = createWebScene(
+      frames,
+      [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 0],
+      ],
+      [
+        [0, 2],
+        [1, 3],
+      ]
+    );
+    const survivingFrames = frames.slice(0, 3);
+    const reducedScene = createWebScene(
+      survivingFrames,
+      [
+        [0, 1],
+        [1, 2],
+        [2, 0],
+      ],
+      []
+    );
+    const planner = createBlobWebConnectionPlanner();
+
+    expect(
+      planner
+        .getConnections(frames, fullScene)
+        .find(
+          (connection) =>
+            [connection.from.key, connection.to.key].sort().join("::") ===
+            "first::third"
+        )?.role
+    ).toBe("interior");
+    expect(
+      planner
+        .getConnections(survivingFrames, reducedScene)
+        .find(
+          (connection) =>
+            [connection.from.key, connection.to.key].sort().join("::") ===
+            "first::third"
+        )?.role
+    ).toBe("interior");
+  });
+
   it("reconnects held bodies before attaching a releasing intermediate", () => {
     const first = createFrameAt("first", 80, 100);
     const intermediate = createFrameAt("intermediate", 300, 100);
@@ -353,6 +406,15 @@ describe("useBlobFieldRenderer", () => {
 
     expect(boundaryWidth).toBeGreaterThan(interiorWidth);
     expect(interiorWidth).toBeGreaterThanOrEqual(10.2);
+  });
+
+  it("keeps dense Web color contributions above 8-bit quantization", () => {
+    const divisor = getBlobFieldColorContributionDivisor("web", 78);
+    const quietHeldInteriorOpacity = 0.1 * 0.46;
+
+    expect(divisor).toBe(8);
+    expect((quietHeldInteriorOpacity / divisor) * 255).toBeGreaterThan(1);
+    expect(getBlobFieldColorContributionDivisor("merge", 23)).toBe(23);
   });
 
   it("curves long filaments into smoothly inset, resolution-aware shoulders", () => {

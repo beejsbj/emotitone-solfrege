@@ -502,7 +502,7 @@ export function getBlobWebConnections(
 
 /** Keep perimeter/interior emphasis from flickering while the same bodies drift. */
 export function createBlobWebConnectionPlanner() {
-  let membershipSignature = "";
+  let members = new Set<string>();
   const roles = new Map<string, BlobFieldConnection["role"]>();
 
   const getConnections = (
@@ -510,24 +510,30 @@ export function createBlobWebConnectionPlanner() {
     scene: HarmonicGeometryScene | null
   ) => {
     const connections = getBlobWebConnections(frames, scene);
-    const nextSignature = [
-      ...new Set(
-        connections.flatMap((connection) => [
-          connection.from.key,
-          connection.to.key,
-        ])
-      ),
-    ]
-      .sort()
-      .join("|");
+    const nextMembers = new Set(
+      connections.flatMap((connection) => [
+        connection.from.key,
+        connection.to.key,
+      ])
+    );
+    const addedMember = [...nextMembers].some((key) => !members.has(key));
 
-    if (nextSignature !== membershipSignature) {
-      membershipSignature = nextSignature;
+    if (connections.length === 0 || members.size === 0 || addedMember) {
       roles.clear();
       connections.forEach((connection) =>
         roles.set(getConnectionPairKey(connection), connection.role)
       );
+    } else {
+      const activePairs = new Set(connections.map(getConnectionPairKey));
+      [...roles.keys()].forEach((pairKey) => {
+        if (!activePairs.has(pairKey)) roles.delete(pairKey);
+      });
+      connections.forEach((connection) => {
+        const pairKey = getConnectionPairKey(connection);
+        if (!roles.has(pairKey)) roles.set(pairKey, connection.role);
+      });
     }
+    members = nextMembers;
 
     return connections.map((connection) => ({
       ...connection,
@@ -536,7 +542,7 @@ export function createBlobWebConnectionPlanner() {
   };
 
   const clear = () => {
-    membershipSignature = "";
+    members = new Set<string>();
     roles.clear();
   };
 
@@ -678,6 +684,17 @@ export function getBlobWebConnectionWidth(
   return Math.max(continuityFloor, organicWidth);
 }
 
+export function getBlobFieldColorContributionDivisor(
+  mode: HarmonicGeometryMode,
+  layerCount: number
+) {
+  // A twelve-note Web has 78 body/edge layers. Dividing each 8-bit canvas
+  // contribution by that full count can quantize quieter filament colors to
+  // zero even while their independent visibility remains nonzero. Eight still
+  // leaves headroom for the practical overlap count while preserving color.
+  return mode === "web" ? Math.min(8, layerCount) : layerCount;
+}
+
 export function getBlobFieldResolution(bounds: FieldBounds) {
   const area = bounds.width * bounds.height;
   const scale = Math.min(
@@ -810,7 +827,11 @@ export function useBlobFieldRenderer() {
         ),
       };
     });
-    const contributionDivisor = frames.length + connectionLayers.length;
+    const layerCount = frames.length + connectionLayers.length;
+    const colorContributionDivisor = getBlobFieldColorContributionDivisor(
+      mode,
+      layerCount
+    );
     const field = getSurfaces(width, height);
     const sourceContext = field.source.getContext("2d", {
       willReadFrequently: true,
@@ -852,7 +873,7 @@ export function useBlobFieldRenderer() {
 
     frames.forEach((frame) => {
       sourceContext.globalAlpha =
-        Math.max(0, Math.min(1, frame.opacity)) / contributionDivisor;
+        Math.max(0, Math.min(1, frame.opacity)) / colorContributionDivisor;
       traceFrame(sourceContext, frame);
       sourceContext.fillStyle = frame.primaryColor;
       sourceContext.fill();
@@ -880,7 +901,7 @@ export function useBlobFieldRenderer() {
       gradient.addColorStop(0, connection.from.primaryColor);
       gradient.addColorStop(1, connection.to.primaryColor);
 
-      sourceContext.globalAlpha = opacity / contributionDivisor;
+      sourceContext.globalAlpha = opacity / colorContributionDivisor;
       sourceContext.fillStyle = gradient;
       traceConnection(sourceContext, geometry);
       sourceContext.fill();
@@ -947,7 +968,7 @@ export function useBlobFieldRenderer() {
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
       const accumulatedColorWeight =
-        (sourceImage.data[offset + 3] / 255) * contributionDivisor;
+        (sourceImage.data[offset + 3] / 255) * colorContributionDivisor;
       const visibilityCoverage = visibilityImage.data[offset + 3] / 255;
       weight[pixel] = accumulatedColorWeight;
       alpha[pixel] = visibilityCoverage;

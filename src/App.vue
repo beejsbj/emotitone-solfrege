@@ -1,5 +1,6 @@
 <template>
-  <StyleGuide v-if="isStyleGuide" />
+  <MarksBeatParticlesPage v-if="isRoughPage" />
+  <StyleGuide v-else-if="isStyleGuide" />
   <MainApp v-else />
 </template>
 
@@ -9,6 +10,7 @@ import MainApp from "./MainApp.vue";
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isStyleGuide = pathname === "/style-guide";
+const isRoughPage = pathname === "/page";
 
 // The typography element defaults are deliberately loaded only for the guide.
 // Keep the route marker on the document so html/body rules can be scoped too.
@@ -20,5 +22,9 @@ if (isStyleGuide) {
 
 const StyleGuide = defineAsyncComponent(
   () => import("./style-guide/StyleGuide.vue"),
+);
+
+const MarksBeatParticlesPage = defineAsyncComponent(
+  () => import("./pages/MarksBeatParticlesPage.vue"),
 );
 </script>

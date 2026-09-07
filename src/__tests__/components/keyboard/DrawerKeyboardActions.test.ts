@@ -6,8 +6,17 @@ const mocks = vi.hoisted(() => ({
   removeLastFromCurrentSketch: vi.fn(),
   sendCurrentPattern: vi.fn(),
   toggle: vi.fn(),
+  stop: vi.fn(),
+  toggleHumming: vi.fn(),
+  cancelHumming: vi.fn(),
+  selectHummingTake: vi.fn(),
   isPlaying: { value: false, __v_isRef: true },
   hasPlayableCode: { value: true, __v_isRef: true },
+  hummingStatus: { value: "idle", __v_isRef: true },
+  hummingError: { value: null, __v_isRef: true },
+  hummingStatusMessage: { value: "Ready", __v_isRef: true },
+  hummingTakeLabels: { value: [] as string[], __v_isRef: true },
+  selectedHummingTake: { value: 0, __v_isRef: true },
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
   setMode: vi.fn(),
@@ -17,6 +26,11 @@ const mocks = vi.hoisted(() => ({
   openDrawer: vi.fn(),
   closeDrawer: vi.fn(),
   toggleDrawer: vi.fn(),
+  instrumentStore: {
+    isInteractionLocked: false,
+    warmingInstrument: null as string | null,
+    warmupMessage: "",
+  },
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
@@ -40,6 +54,10 @@ vi.mock("@/stores/music", () => ({
   }),
 }));
 
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => mocks.instrumentStore,
+}));
+
 vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: () => ({
     config: { codeStrip: { bpm: 120 } },
@@ -57,16 +75,40 @@ vi.mock("@/stores/patterns", () => ({
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: () => ({
     toggle: mocks.toggle,
+    stop: mocks.stop,
     isPlaying: mocks.isPlaying,
     hasPlayableCode: mocks.hasPlayableCode,
+  }),
+}));
+
+vi.mock("@/composables/useHummingCapture", () => ({
+  useHummingCapture: () => ({
+    status: mocks.hummingStatus,
+    error: mocks.hummingError,
+    statusMessage: mocks.hummingStatusMessage,
+    takeLabels: mocks.hummingTakeLabels,
+    selectedTakeIndex: mocks.selectedHummingTake,
+    toggle: mocks.toggleHumming,
+    cancel: mocks.cancelHumming,
+    selectTake: mocks.selectHummingTake,
   }),
 }));
 
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
+    props: ["isPlaying", "playDisabled"],
     emits: ["togglePlayback", "backspace", "return"],
     template: '<div data-testid="code-strip-bar" />',
+  },
+}));
+
+vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
+  default: {
+    name: "HummingCaptureTransport",
+    props: ["status", "error", "statusMessage", "takeLabels", "selectedTakeIndex"],
+    emits: ["toggle", "cancel", "selectTake"],
+    template: '<div data-testid="humming-capture-transport" />',
   },
 }));
 
@@ -98,6 +140,61 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
     mocks.hasPlayableCode.value = true;
+    mocks.instrumentStore.isInteractionLocked = false;
+    mocks.instrumentStore.warmingInstrument = null;
+    mocks.instrumentStore.warmupMessage = "";
+    mocks.hummingStatus.value = "idle";
+  });
+
+  it("stops Strudel before starting humming and wires take selection", async () => {
+    mocks.isPlaying.value = true;
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const actions = wrapper.getComponent({ name: "HummingCaptureTransport" });
+
+    actions.vm.$emit("toggle");
+    actions.vm.$emit("cancel");
+    actions.vm.$emit("selectTake", 1);
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.stop).toHaveBeenCalledTimes(1);
+    expect(mocks.toggleHumming).toHaveBeenCalledTimes(1);
+    expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
+    expect(mocks.stop.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.toggleHumming.mock.invocationCallOrder[0],
+    );
+    expect(mocks.selectHummingTake).toHaveBeenCalledWith(1);
+    wrapper.unmount();
+  });
+
+  it("cancels active humming before starting Strudel playback", async () => {
+    mocks.hummingStatus.value = "recording";
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+          HummingCaptureTransport: true,
+        },
+      },
+    });
+
+    wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
+    await vi.waitFor(() => expect(mocks.toggle).toHaveBeenCalledTimes(1));
+
+    expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
+    expect(mocks.cancelHumming.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.toggle.mock.invocationCallOrder[0],
+    );
+    wrapper.unmount();
   });
 
   it("preserves playback, remove-last, and commit-and-clear behavior", async () => {
@@ -142,6 +239,27 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
+  it("disables and ignores pattern playback while samples are warming", async () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const actions = wrapper.getComponent({ name: "CodeStripBar" });
+
+    expect(actions.props("playDisabled")).toBe(true);
+    actions.vm.$emit("togglePlayback");
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.toggle).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it("preserves all five Control Bar mutations in the production composition", async () => {
     const wrapper = mount(DrawerKeyboard, {
       global: {
@@ -166,6 +284,29 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
     expect(mocks.setRowCount).toHaveBeenCalledWith(7);
+    wrapper.unmount();
+  });
+
+  it("covers and names the keyboard while instrument samples are warming", () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    mocks.instrumentStore.warmingInstrument = "gm_vibraphone";
+    mocks.instrumentStore.warmupMessage = "Samples being downloaded...";
+
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+
+    const overlay = wrapper.get('[data-testid="keyboard-warmup-overlay"]');
+    expect(overlay.attributes("role")).toBe("status");
+    expect(overlay.text()).toContain("Samples being downloaded...");
+    expect(overlay.text()).toContain("vibraphone");
+    expect(wrapper.get("keyboard-stub").classes()).toContain("pointer-events-none");
     wrapper.unmount();
   });
 });

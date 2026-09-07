@@ -10,7 +10,7 @@ import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as
 import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
-import { registerSoundfonts } from "@strudel/soundfonts";
+import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type { ChromaticNote, SolfegeData } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
@@ -83,16 +83,44 @@ const SAMPLE_PACKS = [
  * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
  * from inside the init flow (e.g. _prewarmPianoSamples called by initSuperdoughAudio).
  */
-async function _prewarmSoundCore(soundName: string): Promise<void> {
+async function _prewarmSoundCore(
+  soundName: string,
+  tolerateBufferFailures = false
+): Promise<void> {
   const resolved = LEGACY_ALIASES[soundName] ?? soundName;
-  if (SYNTH_SOUNDS.has(resolved)) {
-    _prewarmedSounds.add(resolved);
-    return; // oscillators have no sample bank
+  let sound;
+  try {
+    // Resolve the registered sound before treating synth names as ready. This
+    // prevents pre-init callers and typos from being reported as playable.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sound = (getSound as any)(resolved);
+  } catch (error) {
+    if (tolerateBufferFailures) return;
+    throw error;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sound = (getSound as any)(resolved);
-  if (!sound?.data?.samples) {
+  if (!sound) {
+    if (tolerateBufferFailures) return;
+    throw new Error(`Unknown sound: ${soundName}`);
+  }
+
+  if (sound.data?.type === "soundfont") {
+    const font = Array.isArray(sound.data.fonts) ? sound.data.fonts[0] : null;
+    if (!font) {
+      if (tolerateBufferFailures) return;
+      throw new Error(`Soundfont has no preset: ${soundName}`);
+    }
+
+    try {
+      await prewarmSoundfont(font, getAudioContext());
+      _prewarmedSounds.add(resolved);
+    } catch (error) {
+      if (!tolerateBufferFailures) throw error;
+    }
+    return;
+  }
+
+  if (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples) {
     _prewarmedSounds.add(resolved); // no samples needed → already "ready"
     return;
   }
@@ -104,7 +132,20 @@ async function _prewarmSoundCore(soundName: string): Promise<void> {
     : (Object.values(bank) as string[][]).flat();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await Promise.allSettled(audioUrls.map((url) => (loadBuffer as any)(url, ac)));
+  const results = await Promise.allSettled(
+    audioUrls.map((url) => (loadBuffer as any)(url, ac))
+  );
+  const failedBuffer = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected"
+  );
+
+  if (failedBuffer) {
+    if (!tolerateBufferFailures) {
+      throw failedBuffer.reason;
+    }
+    return;
+  }
+
   _prewarmedSounds.add(resolved);
 }
 
@@ -118,50 +159,42 @@ async function _prewarmSoundCore(soundName: string): Promise<void> {
  * so the first keypress is never silently dropped.
  */
 export async function prewarmSoundSamples(soundName: string): Promise<void> {
-  try {
-    await initSuperdoughAudio(); // no-op if already initialised; safe for external callers
-    await _prewarmSoundCore(soundName);
-  } catch {
-    // Non-fatal — worst case the first note may be silently dropped once.
-  }
+  await initSuperdoughAudio(); // no-op if already initialised; safe for external callers
+  await _prewarmSoundCore(soundName);
 }
 
 /**
- * Returns true if the given sound's buffers are already loaded into the cache.
- * Used by setInstrument to decide whether to await pre-warming.
+ * Returns true when a sound can play immediately. Sample banks must already be
+ * in the buffer cache; oscillator and other no-sample sounds are always ready.
  */
 export function isPrewarmed(soundName: string): boolean {
   const resolved = LEGACY_ALIASES[soundName] ?? soundName;
-  return _prewarmedSounds.has(resolved);
+  if (_prewarmedSounds.has(resolved)) {
+    return true;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sound = (getSound as any)(resolved);
+    if (sound?.data?.type === "soundfont") return false;
+    return Boolean(
+      sound && (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples)
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Pre-warms a list of sounds sequentially, reporting progress via callback.
- * Intended for use during the loading splash screen.
- *
- * @param sounds           List of sound names to pre-warm.
- * @param progressCallback Optional callback receiving (0-100, message).
- * @param progressStart    Progress % at start of this batch.
- * @param progressEnd      Progress % at end of this batch.
+ * Returns all registered sounds that can currently play without a warmup.
  */
-export async function prewarmSoundList(
-  sounds: string[],
-  progressCallback?: (progress: number, message: string) => void,
-  progressStart = 82,
-  progressEnd = 98
-): Promise<void> {
-  const total = sounds.length;
-  for (let i = 0; i < total; i++) {
-    const name = sounds[i];
-    await _prewarmSoundCore(name);
-    const pct = Math.round(progressStart + ((i + 1) / total) * (progressEnd - progressStart));
-    progressCallback?.(pct, `Warming ${name} (${i + 1}/${total})`);
-  }
+export function getReadySounds(): string[] {
+  return getRegisteredSounds().filter((soundName) => isPrewarmed(soundName));
 }
 
 async function _prewarmPianoSamples(): Promise<void> {
   // Called from within initSuperdoughAudio — skip the init guard to avoid deadlock.
-  return _prewarmSoundCore("piano");
+  return _prewarmSoundCore("piano", true);
 }
 
 async function initSharedStrudelRuntime(): Promise<void> {
@@ -230,14 +263,11 @@ export async function initSuperdoughAudio(
       progressCallback?.(79, "Starting audio context…");
       await initAudio();
 
-      // Pre-warm piano first (always the default)
+      // Only the default instrument is decoded eagerly. Other registered
+      // instruments warm on selection so startup stays bounded on mobile.
       progressCallback?.(80, "Warming up piano…");
       await _prewarmPianoSamples();
-
-      // Pre-warm 3 sounds per category so most instruments are ready on first tap
-      const { PRELOAD_SOUNDS } = await import("@/data/instrumentCategories");
-      const remaining = PRELOAD_SOUNDS.filter((s) => s !== "piano");
-      await prewarmSoundList(remaining, progressCallback, 82, 98);
+      progressCallback?.(98, "Piano ready");
 
       progressCallback?.(100, "Audio engine ready");
       _initialized = true;

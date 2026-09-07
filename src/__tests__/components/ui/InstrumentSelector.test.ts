@@ -1,14 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { createTestWrapper } from '../../helpers/test-utils'
 import InstrumentSelector from '@/components/InstrumentSelector.vue'
 
-const instrumentStore = vi.hoisted(() => ({
-  currentInstrument: 'piano',
-  initializeInstruments: vi.fn().mockResolvedValue(undefined),
-  setInstrument: vi.fn(),
-}))
+const instrumentStore = vi.hoisted(() => {
+  const readySounds = new Set<string>(['piano', 'triangle'])
+  const store = {
+    readySounds,
+    currentInstrument: 'piano',
+    warmingInstrument: null as string | null,
+    warmupMessage: 'Samples being downloaded...',
+    isInteractionLocked: false,
+    lastWarmupError: null as string | null,
+    lastWarmupErrorInstrument: null as string | null,
+    initializeInstruments: vi.fn().mockResolvedValue(undefined),
+    isInstrumentReady: vi.fn((name: string) => readySounds.has(name)),
+    isInstrumentWarming: vi.fn((name: string) => store.warmingInstrument === name),
+    setInstrument: vi.fn(),
+  }
+
+  return store
+})
 
 const getRegisteredSounds = vi.hoisted(() => vi.fn(() => ['triangle', 'gm_trumpet', 'vibraphone', 'piano']))
 
@@ -76,10 +89,20 @@ vi.mock('@/components/TopDrawer.vue', () => ({
         </div>
       </div>
     `,
-    setup() {
+    setup(_props: unknown, { expose }: { expose: (value: object) => void }) {
+      const showPanel = ref(true)
+      const openSession = ref(1)
+      const open = () => {
+        showPanel.value = true
+        openSession.value += 1
+      }
+      const close = () => {
+        showPanel.value = false
+      }
+      expose({ showPanel, openSession, open, close })
       return {
-        open: () => undefined,
-        close: () => undefined,
+        open,
+        close,
       }
     },
   },
@@ -93,6 +116,15 @@ vi.mock('lucide-vue-next', () => ({
   X: { template: '<svg data-testid="close-icon"></svg>' },
 }))
 
+function createDeferred() {
+  let resolve!: () => void
+  const promise = new Promise<void>((res) => {
+    resolve = res
+  })
+
+  return { promise, resolve }
+}
+
 async function mountSelector(props: Record<string, unknown> = {}) {
   const wrapper = createTestWrapper(InstrumentSelector, { props })
   await flushPromises()
@@ -105,8 +137,21 @@ describe('InstrumentSelector.vue', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    instrumentStore.readySounds.clear()
+    instrumentStore.readySounds.add('piano')
+    instrumentStore.readySounds.add('triangle')
     instrumentStore.currentInstrument = 'piano'
+    instrumentStore.warmingInstrument = null
+    instrumentStore.warmupMessage = 'Samples being downloaded...'
+    instrumentStore.isInteractionLocked = false
+    instrumentStore.lastWarmupError = null
+    instrumentStore.lastWarmupErrorInstrument = null
     instrumentStore.initializeInstruments.mockResolvedValue(undefined)
+    instrumentStore.setInstrument.mockImplementation(async (name: string) => {
+      instrumentStore.currentInstrument = name
+      instrumentStore.readySounds.add(name)
+      return { status: 'ready', instrument: name }
+    })
     getRegisteredSounds.mockReturnValue(['triangle', 'gm_trumpet', 'vibraphone', 'piano'])
   })
 
@@ -178,6 +223,96 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.emitted('close')).toEqual([[]])
   })
 
+  it('distinguishes cold instruments from ready instruments', async () => {
+    wrapper = await mountSelector()
+
+    expect(wrapper.get('[data-testid="instrument-option-vibraphone"]').attributes('data-state')).toBe('cold')
+    expect(wrapper.get('[data-testid="instrument-option-triangle"]').attributes('data-state')).toBe('ready')
+  })
+
+  it('shows warmup progress without closing the panel early', async () => {
+    instrumentStore.currentInstrument = 'vibraphone'
+    instrumentStore.warmingInstrument = 'vibraphone'
+    instrumentStore.isInteractionLocked = true
+    wrapper = await mountSelector()
+
+    const warmingInstrument = wrapper.get('[data-testid="instrument-option-vibraphone"]')
+
+    expect(wrapper.get('[data-testid="instrument-warmup-banner"]').text()).toContain('Samples being downloaded...')
+    expect(warmingInstrument.attributes('data-state')).toBe('warming')
+    expect(warmingInstrument.attributes('disabled')).toBeDefined()
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+
+  it('waits to close until a cold instrument finishes warming', async () => {
+    const deferred = createDeferred()
+    instrumentStore.setInstrument.mockImplementationOnce(async (name: string) => {
+      instrumentStore.currentInstrument = name
+      instrumentStore.warmingInstrument = name
+      instrumentStore.isInteractionLocked = true
+      await deferred.promise
+      instrumentStore.readySounds.add(name)
+      instrumentStore.warmingInstrument = null
+      instrumentStore.isInteractionLocked = false
+      return { status: 'ready', instrument: name }
+    })
+    wrapper = await mountSelector()
+
+    await wrapper.get('[data-testid="instrument-option-vibraphone"]').trigger('click')
+    await nextTick()
+    expect(wrapper.emitted('close')).toBeUndefined()
+
+    deferred.resolve()
+    await flushPromises()
+    expect(wrapper.emitted('close')).toEqual([[]])
+  })
+
+  it('keeps the panel open and reports a failed warmup', async () => {
+    instrumentStore.setInstrument.mockImplementationOnce(async (name: string) => {
+      instrumentStore.currentInstrument = 'piano'
+      instrumentStore.lastWarmupErrorInstrument = name
+      instrumentStore.lastWarmupError = 'Network down'
+      return { status: 'failed', instrument: name, fallback: 'piano' }
+    })
+    wrapper = await mountSelector()
+
+    await wrapper.get('[data-testid="instrument-option-vibraphone"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+
+  it('renders the store warmup error inline', async () => {
+    instrumentStore.lastWarmupErrorInstrument = 'gm_vibraphone'
+    instrumentStore.lastWarmupError = 'Network down'
+    wrapper = await mountSelector()
+
+    expect(wrapper.get('[data-testid="instrument-error-banner"]').text()).toContain('Could not load vibraphone')
+  })
+
+  it('does not close a newly reopened drawer when an old warmup resolves', async () => {
+    const deferred = createDeferred()
+    instrumentStore.setInstrument.mockImplementationOnce(async (name: string) => {
+      await deferred.promise
+      instrumentStore.currentInstrument = name
+      instrumentStore.readySounds.add(name)
+      return { status: 'ready', instrument: name }
+    })
+    wrapper = await mountSelector()
+
+    await wrapper.get('[data-testid="instrument-option-vibraphone"]').trigger('click')
+    const drawer = wrapper.getComponent({ name: 'TopDrawer' }).vm as unknown as {
+      close: () => void
+      open: () => void
+    }
+    drawer.close()
+    drawer.open()
+    deferred.resolve()
+    await flushPromises()
+
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+
   it('uses callback props for per-surface selection flows', async () => {
     const onSelectInstrument = vi.fn()
     const onClose = vi.fn()
@@ -208,6 +343,7 @@ describe('InstrumentSelector.vue', () => {
 
     expect(trigger.attributes('aria-label')).toBe('Instrument')
     expect(trigger.text()).toContain('triangle')
+    expect(selected.attributes('data-state')).toBe('selected')
     expect(selected.classes()).toContain('border-[#8b8b8b]')
     expect(selected.classes()).toContain('bg-[#242424]')
   })

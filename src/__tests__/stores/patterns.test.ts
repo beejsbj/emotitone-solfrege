@@ -2,7 +2,9 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -133,6 +135,8 @@ describe("Patterns Store", () => {
   let dateNowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    vi.mocked(isPrewarmed).mockReturnValue(true);
+    vi.mocked(prewarmSoundSamples).mockResolvedValue(undefined);
     dateNowSpy = vi
       .spyOn(Date, "now")
       .mockReturnValue(new Date("2026-03-16T12:00:00Z").getTime());
@@ -168,6 +172,26 @@ describe("Patterns Store", () => {
     expect(patternsStore.currentSketchMeta.bpm).toBe(120);
   });
 
+  it("uses the ready fallback in loaded metadata when pattern warmup fails", async () => {
+    const instrumentStore = useInstrumentStore();
+    instrumentStore.currentInstrument = "piano";
+    instrumentStore.readyInstruments.add("piano");
+    vi.mocked(isPrewarmed).mockReturnValue(false);
+    vi.mocked(prewarmSoundSamples).mockRejectedValueOnce(
+      new Error("preset unavailable")
+    );
+    const pattern = createPattern({ instrument: "gm_flute" });
+    patternsStore.savedPatterns.push(pattern);
+
+    patternsStore.loadPatternAsBase(pattern.id);
+    await vi.waitFor(() => {
+      expect(instrumentStore.lastWarmupErrorInstrument).toBe("gm_flute");
+    });
+
+    expect(instrumentStore.currentInstrument).toBe("piano");
+    expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
+  });
+
   it("saves the combined sketch when sending a continued pattern", () => {
     const pattern = createPattern();
 
@@ -197,6 +221,301 @@ describe("Patterns Store", () => {
     expect(savedPattern?.instrument).toBe("piano");
     expect(patternsStore.loadedBaseNotes).toEqual([]);
     expect(patternsStore.loggedNotes).toEqual([]);
+  });
+
+  it("imports finalized Melograph takes as separate selectable Patterns", () => {
+    const takeOne = [createPatternNote({ id: "take-1-note", note: "C4" })];
+    const takeTwo = [
+      createPatternNote({ id: "take-2-a", note: "D4", scaleIndex: 1 }),
+      createPatternNote({ id: "take-2-b", note: "E4", scaleIndex: 2 }),
+    ];
+
+    const ids = patternsStore.importPatternCandidates(
+      [
+        {
+          name: "Hummed take 1",
+          notes: takeOne,
+          source: {
+            kind: "melograph",
+            schemaVersion: 1,
+            tracker: "praat-ac",
+            takeNumber: 1,
+          },
+        },
+        {
+          name: "Hummed take 2",
+          notes: takeTwo,
+          source: {
+            kind: "melograph",
+            schemaVersion: 1,
+            tracker: "praat-ac",
+            takeNumber: 2,
+          },
+        },
+      ],
+      { key: "C", mode: "major", instrument: "piano", bpm: 96 },
+    );
+
+    expect(ids).toHaveLength(2);
+    expect(patternsStore.savedPatterns.slice(-2).map((pattern) => pattern.name)).toEqual([
+      "Hummed take 1",
+      "Hummed take 2",
+    ]);
+    expect(patternsStore.savedPatterns.slice(-2).map((pattern) => pattern.isSaved)).toEqual([
+      false,
+      false,
+    ]);
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["C4"]);
+    expect(patternsStore.currentSketchMeta.bpm).toBe(96);
+
+    patternsStore.loadPatternAsBase(ids[1]);
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual([
+      "D4",
+      "E4",
+    ]);
+    expect(patternsStore.focusedPattern?.source).toEqual({
+      kind: "melograph",
+      schemaVersion: 1,
+      tracker: "praat-ac",
+      takeNumber: 2,
+    });
+  });
+
+  it("does not record visual-only Melograph preview events", () => {
+    const eventDetail = {
+      source: "melograph-live",
+      record: false,
+      noteId: "preview-1",
+      noteName: "C4",
+      solfegeIndex: 0,
+      octave: 4,
+      frequency: 261.63,
+      instrument: "piano",
+      note: createLogNote().solfege,
+    };
+
+    patternsStore.handleNotePressed({ detail: eventDetail } as CustomEvent);
+    patternsStore.handleNoteReleased({ detail: eventDetail } as CustomEvent);
+
+    expect(patternsStore.loggedNotes).toEqual([]);
+  });
+
+  it("lets Return save a one-note hummed Pattern", () => {
+    const [patternId] = patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    const previousCount = patternsStore.savedPatterns.length;
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns).toHaveLength(previousCount);
+    expect(
+      patternsStore.savedPatterns.find((pattern) => pattern.id === patternId),
+    ).toEqual(expect.objectContaining({ isSaved: true, noteCount: 1 }));
+    expect(patternsStore.currentSketchNotes).toEqual([]);
+  });
+
+  it("does not save an ordinary keyboard sketch shorter than three notes", () => {
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "short-a" }),
+      createLogNote({ id: "short-b", isStartingNewPattern: false }),
+    ];
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns).toEqual([]);
+    expect(patternsStore.currentSketchNotes).toEqual([]);
+  });
+
+  it("clears safely when every note is removed from a hummed take", () => {
+    const [patternId] = patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    patternsStore.removeLastFromCurrentSketch();
+
+    expect(() => patternsStore.sendCurrentPattern()).not.toThrow();
+    expect(patternsStore.currentSketchNotes).toEqual([]);
+    expect(
+      patternsStore.savedPatterns.find((pattern) => pattern.id === patternId),
+    ).toEqual(expect.objectContaining({ isSaved: false }));
+  });
+
+  it("does not grant the imported short-pattern exception after context changes", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    visualConfigStore.updateConfig("codeStrip", { bpm: 90 });
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "new-context-a", bpm: 90 }),
+      createLogNote({
+        id: "new-context-b",
+        bpm: 90,
+        isStartingNewPattern: false,
+      }),
+    ];
+    const previousCount = patternsStore.savedPatterns.length;
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns).toHaveLength(previousCount);
+  });
+
+  it("does not copy imported provenance onto a new-context keyboard sketch", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    visualConfigStore.updateConfig("codeStrip", { bpm: 90 });
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "new-context-a", bpm: 90 }),
+      createLogNote({ id: "new-context-b", bpm: 90, isStartingNewPattern: false }),
+      createLogNote({ id: "new-context-c", bpm: 90, isStartingNewPattern: false }),
+    ];
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns.at(-1)?.source).toBeUndefined();
+  });
+
+  it("saves an edited hummed take as a separate sourced Pattern", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [
+          createPatternNote({ id: "original-a" }),
+          createPatternNote({ id: "original-b", note: "D4", scaleIndex: 1 }),
+        ],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    const previousCount = patternsStore.savedPatterns.length;
+
+    patternsStore.removeLastFromCurrentSketch();
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns).toHaveLength(previousCount + 1);
+    expect(patternsStore.savedPatterns.at(-1)).toEqual(expect.objectContaining({
+      isSaved: true,
+      noteCount: 1,
+      source: expect.objectContaining({ kind: "melograph", takeNumber: 1 }),
+    }));
+  });
+
+  it("derives edited-take provenance from the loaded pattern, not focus", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [
+          createPatternNote({ id: "source-a" }),
+          createPatternNote({ id: "source-b", note: "D4", scaleIndex: 1 }),
+        ],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 4,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    patternsStore.savedPatterns.push(createPattern({ id: "other-pattern" }));
+    patternsStore.setFocusedPattern("other-pattern");
+    patternsStore.removeLastFromCurrentSketch();
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns.at(-1)?.source).toEqual(
+      expect.objectContaining({ kind: "melograph", takeNumber: 4 }),
+    );
+  });
+
+  it("discards edits from the previous take when explicitly switching takes", () => {
+    const ids = patternsStore.importPatternCandidates(
+      [
+        {
+          name: "Take 1",
+          notes: [createPatternNote({ id: "take-one" })],
+          source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
+        },
+        {
+          name: "Take 2",
+          notes: [createPatternNote({ id: "take-two", note: "E4", scaleIndex: 2 })],
+          source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 2 },
+        },
+      ],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    patternsStore.loggedNotes.push(createLogNote({ id: "take-one-edit" }));
+
+    patternsStore.loadPatternAsBase(ids[1], { discardWorkingNotes: true });
+
+    expect(patternsStore.loggedNotes).toEqual([]);
+    expect(patternsStore.currentSketchNotes.map((note) => note.id)).toEqual(["take-two"]);
+  });
+
+  it("keeps live notes supplied by an in-flight import", () => {
+    const liveNote = createLogNote({ id: "during-analysis" });
+
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote({ id: "hummed-note" })],
+        source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+      { workingNotes: [liveNote] },
+    );
+
+    expect(patternsStore.loggedNotes.map((note) => note.id)).toEqual(["during-analysis"]);
+    expect(patternsStore.currentSketchNotes.map((note) => note.id)).toEqual([
+      "hummed-note",
+      "during-analysis",
+    ]);
   });
 
   it("removes live notes before loaded base notes when undoing the current sketch", () => {

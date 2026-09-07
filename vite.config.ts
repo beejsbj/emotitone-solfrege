@@ -110,6 +110,13 @@ export default defineConfig({
   server: {
     port: 5175,
     host: true,
+    proxy: {
+      "/api/melograph": {
+        target: "https://melograph-swart.vercel.app",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/melograph/, "/api"),
+      },
+    },
   },
   build: {
     target: "esnext",

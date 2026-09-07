@@ -29,6 +29,7 @@ const hoisted = vi.hoisted(() => {
     mockHushStrudel: vi.fn(),
     mockWebaudioOutput: vi.fn().mockResolvedValue(undefined),
     mockRegisterSoundfonts: vi.fn().mockResolvedValue(undefined),
+    mockPrewarmSoundfont: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -62,6 +63,7 @@ vi.mock("@strudel/webaudio", () => ({
 
 vi.mock("@strudel/soundfonts", () => ({
   registerSoundfonts: hoisted.mockRegisterSoundfonts,
+  prewarmSoundfont: hoisted.mockPrewarmSoundfont,
 }));
 
 vi.mock("@/services/music", () => ({
@@ -93,6 +95,8 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockAudioContext.currentTime = 12;
     hoisted.mockHasVoice.mockReturnValue(false);
     hoisted.mockGetSound.mockReturnValue({ data: {} });
+    hoisted.mockLoadBuffer.mockResolvedValue(undefined);
+    hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
   });
 
   it("attacks a live note as a held voice with voice ownership", async () => {
@@ -150,5 +154,91 @@ describe("superdoughAudio live note handling", () => {
       0.5,
       1,
     );
+  });
+
+  it("treats synths and registered no-sample sounds as immediately ready", async () => {
+    const audio = await import("@/services/superdoughAudio");
+
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(audio.isPrewarmed("custom-oscillator")).toBe(true);
+  });
+
+  it("does not report unregistered or unknown sounds as ready", async () => {
+    hoisted.mockGetSound.mockImplementation(() => undefined as never);
+    const audio = await import("@/services/superdoughAudio");
+
+    expect(audio.isPrewarmed("triangle")).toBe(false);
+    await expect(audio.prewarmSoundSamples("not-a-sound")).rejects.toThrow(
+      "Unknown sound: not-a-sound"
+    );
+    expect(audio.isPrewarmed("not-a-sound")).toBe(false);
+  });
+
+  it("warms real soundfont metadata before reporting a GM instrument ready", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockPrewarmSoundfont.mockClear();
+    hoisted.mockGetSound.mockReturnValue({
+      data: { type: "soundfont", fonts: ["0080_JCLive_sf2_file"] },
+    });
+
+    expect(audio.isPrewarmed("gm_celesta")).toBe(false);
+    await audio.prewarmSoundSamples("gm_celesta");
+
+    expect(hoisted.mockPrewarmSoundfont).toHaveBeenCalledWith(
+      "0080_JCLive_sf2_file",
+      hoisted.mockAudioContext
+    );
+    expect(audio.isPrewarmed("gm_celesta")).toBe(true);
+  });
+
+  it("decodes only the default piano during startup", async () => {
+    hoisted.mockGetSound.mockImplementation((name: string) =>
+      name === "piano"
+        ? { data: { samples: ["https://example.test/piano.wav"] } }
+        : {
+            data: {
+              type: "soundfont",
+              fonts: [`${name}_font`],
+            },
+          }
+    );
+    const audio = await import("@/services/superdoughAudio");
+
+    await audio.initSuperdoughAudio();
+
+    expect(hoisted.mockLoadBuffer).toHaveBeenCalledTimes(1);
+    expect(hoisted.mockLoadBuffer).toHaveBeenCalledWith(
+      "https://example.test/piano.wav",
+      hoisted.mockAudioContext
+    );
+    expect(hoisted.mockPrewarmSoundfont).not.toHaveBeenCalled();
+  });
+
+  it("leaves a soundfont cold when its preset fails to warm", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockGetSound.mockReturnValue({
+      data: { type: "soundfont", fonts: ["0080_JCLive_sf2_file"] },
+    });
+    hoisted.mockPrewarmSoundfont.mockRejectedValue(new Error("Font unavailable"));
+
+    await expect(audio.prewarmSoundSamples("gm_celesta")).rejects.toThrow(
+      "Font unavailable"
+    );
+    expect(audio.isPrewarmed("gm_celesta")).toBe(false);
+  });
+
+  it("surfaces explicit warmup failures and leaves the sound cold", async () => {
+    hoisted.mockGetSound.mockReturnValue({
+      data: { samples: ["https://example.test/sample.wav"] },
+    });
+    hoisted.mockLoadBuffer.mockRejectedValue(new Error("Network down"));
+    const audio = await import("@/services/superdoughAudio");
+
+    await expect(audio.prewarmSoundSamples("cold-bank")).rejects.toThrow(
+      "Network down"
+    );
+    expect(audio.isPrewarmed("cold-bank")).toBe(false);
   });
 });

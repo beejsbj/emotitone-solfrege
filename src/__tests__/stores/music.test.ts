@@ -5,6 +5,7 @@ vi.unmock("@/services/music");
 vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
+import { useInstrumentStore } from "@/stores/instrument";
 
 const superdoughMocks = vi.hoisted(() => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
@@ -30,6 +31,7 @@ describe("music store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     superdoughMocks.attackNote.mockClear();
+    superdoughMocks.attackNote.mockResolvedValue(undefined);
     superdoughMocks.releaseNote.mockClear();
     superdoughMocks.releaseAll.mockClear();
     superdoughMocks.playNoteWithDuration.mockClear();
@@ -149,6 +151,40 @@ describe("music store", () => {
     expect(noteReleasedEvent.detail.mode).toBe("chromatic");
     expect(noteReleasedEvent.detail.key).toBe("F#");
     dispatchEventSpy.mockRestore();
+  });
+
+  it("refuses live note attacks while instrument samples are warming", async () => {
+    const instrumentStore = useInstrumentStore();
+    const musicStore = useMusicStore();
+    instrumentStore.warmingInstrument = "gm_vibraphone";
+
+    const noteId = await musicStore.attackNote(0, 4);
+
+    expect(noteId).toBeNull();
+    expect(superdoughMocks.attackNote).not.toHaveBeenCalled();
+    expect(musicStore.getActiveNotes()).toHaveLength(0);
+  });
+
+  it("releases an attack that finishes after instrument selection changes", async () => {
+    const instrumentStore = useInstrumentStore();
+    const musicStore = useMusicStore();
+    let finishAttack!: () => void;
+    superdoughMocks.attackNote.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishAttack = resolve;
+      })
+    );
+
+    const pendingAttack = musicStore.attackNote(0, 4);
+    instrumentStore.selectionEpoch += 1;
+    finishAttack();
+    const noteId = await pendingAttack;
+
+    expect(noteId).toBeNull();
+    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+      expect.stringMatching(/^C4_0_4_/)
+    );
+    expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
   it("dispatches duration playback with the resolved note for the current mode", async () => {

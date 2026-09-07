@@ -264,6 +264,31 @@ describe("Keyboard production usage", () => {
     wrapper.unmount();
   });
 
+  it("keeps a held chord in its attack-time key and mode color context", async () => {
+    const wrapper = mountKeyboard();
+    const firstChord = wrapper.findAllComponents(ChordKeyStub)[0];
+    const event = new MouseEvent("mousedown");
+
+    firstChord.vm.$emit("press", { inputId: "pointer:colors", event });
+    await nextTick();
+
+    mocks.musicStore.currentKey = "G";
+    mocks.musicStore.currentMode = "harmonic minor";
+    await wrapper.setProps({ harmonyAlteration: "dark" });
+
+    const heldChord = wrapper.findAllComponents(ChordKeyStub).find(
+      (chord) => chord.attributes("data-chord-id") === "degree-1",
+    );
+    expect(heldChord?.props("members")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ mode: "major", musicKey: "C" }),
+      ]),
+    );
+
+    heldChord?.vm.$emit("release", { inputId: "pointer:colors", event });
+    wrapper.unmount();
+  });
+
   it("keeps a held degree rendered until release when a smaller scale removes it", async () => {
     const wrapper = mountKeyboard();
     const seventhChord = wrapper.findAllComponents(ChordKeyStub)[6];

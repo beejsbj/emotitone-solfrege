@@ -185,6 +185,12 @@ interface KeyboardChordView {
   pressed: boolean;
 }
 
+interface ActiveChordSnapshot {
+  harmony: HarmonyChord;
+  mode: MusicalMode;
+  key: ChromaticNote;
+}
+
 const props = withDefaults(
   defineProps<{
     usage?: "production" | "controlled";
@@ -282,7 +288,7 @@ function createProductionWiring() {
     medium: 4,
   })[config.value.keyGaps] ?? 2);
   const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
-  const activeChordSnapshots = reactive(new Map<string, HarmonyChord>());
+  const activeChordSnapshots = reactive(new Map<string, ActiveChordSnapshot>());
 
   useKeyboardControls(computed(() => config.value.mainOctave));
 
@@ -341,16 +347,17 @@ function createProductionWiring() {
     });
     const snapshots = Array.from(activeChordSnapshots.values());
     const rendered = liveHarmony.map((harmony) => {
-      const snapshot = Array.from(activeChordSnapshots.values())
-        .find((candidate) => candidate.id === harmony.id);
-      const displayedHarmony = snapshot ?? harmony;
+      const snapshot = snapshots.find(
+        (candidate) => candidate.harmony.id === harmony.id,
+      );
+      const displayedHarmony = snapshot?.harmony ?? harmony;
       return {
         attackHarmony: harmony,
         harmony: displayedHarmony,
         members: chordMembers(
           displayedHarmony,
-          musicStore.currentMode,
-          currentMusicKey.value,
+          snapshot?.mode ?? musicStore.currentMode,
+          snapshot?.key ?? currentMusicKey.value,
           surfaceStyle.value,
           config.value.keyBrightness,
           config.value.keySaturation,
@@ -360,17 +367,19 @@ function createProductionWiring() {
     });
     const liveIds = new Set(liveHarmony.map((harmony) => harmony.id));
     const orphanSnapshots = snapshots.filter(
-      (snapshot, index) => !liveIds.has(snapshot.id)
-        && snapshots.findIndex((candidate) => candidate.id === snapshot.id) === index,
+      (snapshot, index) => !liveIds.has(snapshot.harmony.id)
+        && snapshots.findIndex(
+          (candidate) => candidate.harmony.id === snapshot.harmony.id,
+        ) === index,
     );
 
-    return rendered.concat(orphanSnapshots.map((harmony) => ({
-      attackHarmony: harmony,
-      harmony,
+    return rendered.concat(orphanSnapshots.map((snapshot) => ({
+      attackHarmony: snapshot.harmony,
+      harmony: snapshot.harmony,
       members: chordMembers(
-        harmony,
-        musicStore.currentMode,
-        currentMusicKey.value,
+        snapshot.harmony,
+        snapshot.mode,
+        snapshot.key,
         surfaceStyle.value,
         config.value.keyBrightness,
         config.value.keySaturation,
@@ -403,7 +412,11 @@ function createProductionWiring() {
 
   function pressChord(intent: KeyboardChordIntent) {
     const ownerId = chordPressId(intent);
-    activeChordSnapshots.set(ownerId, intent.chord);
+    activeChordSnapshots.set(ownerId, {
+      harmony: intent.chord,
+      mode: musicStore.currentMode,
+      key: currentMusicKey.value,
+    });
     store.addTouch(ownerId, `chord:${intent.chordId}`);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();

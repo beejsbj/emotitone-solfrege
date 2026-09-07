@@ -364,6 +364,33 @@ describe("Keyboard production usage", () => {
     wrapper.unmount();
   });
 
+  it("emits a pointer chord release with its press-time harmony", async () => {
+    const wrapper = mountKeyboard();
+    const firstChord = wrapper.findAllComponents(ChordKeyStub)[0];
+    const event = new MouseEvent("mousedown");
+
+    firstChord.vm.$emit("press", { inputId: "pointer:event-snapshot", event });
+    await nextTick();
+    const pressedIntent = wrapper.emitted("chordPress")?.[0]?.[0] as {
+      chord: unknown;
+    };
+
+    await wrapper.setProps({ harmonyAlteration: "dark" });
+    const remappedChord = wrapper.findAllComponents(ChordKeyStub).find(
+      (chord) => chord.attributes("data-chord-id") === "degree-1",
+    );
+    remappedChord?.vm.$emit("release", {
+      inputId: "pointer:event-snapshot",
+      event,
+    });
+    await nextTick();
+
+    expect(wrapper.emitted("chordRelease")?.[0]?.[0]).toMatchObject({
+      chord: pressedIntent.chord,
+    });
+    wrapper.unmount();
+  });
+
   it("keeps a held degree rendered until release when a smaller scale removes it", async () => {
     const wrapper = mountKeyboard();
     const seventhChord = wrapper.findAllComponents(ChordKeyStub)[6];

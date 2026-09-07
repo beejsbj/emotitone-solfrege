@@ -130,6 +130,18 @@ describe("useColorSystem", () => {
     expect(adjusted.primaryColor).toBe(adjusted.background);
   });
 
+  it("prefers exact pitch identity when an active note provides it", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
+    const colorSystem = useColorSystem();
+
+    expect(colorSystem.getStaticPrimaryColorForPitch(-1, 3, "major", "C", 4))
+      .toBe(colorSystem.getStaticPrimaryColorByPitchClass(3, "major", "C", 4));
+    expect(colorSystem.getStaticPrimaryColorForPitch(2, undefined, "major", "C", 4))
+      .toBe(colorSystem.getStaticPrimaryColorByScaleIndex(2, "major", "C", 4));
+    expect(colorSystem.getPrimaryColorForPitch(-1, 3, "major", "C", 4))
+      .toBe(colorSystem.getNoteColorsByPitchClass(3, "major", "C", 4).primary);
+  });
+
   it("resolves altered syllables without falling back to the default error color", () => {
     dynamicColorConfig.value.musicColorMode = "movable";
     const colorSystem = useColorSystem();

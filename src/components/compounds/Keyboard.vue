@@ -553,6 +553,7 @@ const chordKeyElements = new Map<string, HTMLButtonElement>();
 const rememberedFocusId = ref("");
 const rememberedChordFocusId = ref("");
 const activeFocusInputs = new Map<string, KeyboardIntent>();
+const activeChordPointerInputs = new Map<string, KeyboardChordIntent>();
 const activeChordFocusInputs = new Map<string, KeyboardChordIntent>();
 
 const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
@@ -780,12 +781,25 @@ function emitChordIntent(
   payload: KeyInputEvent,
   chord: HarmonyChord,
 ) {
-  dispatchChordIntent(kind, {
+  if (kind === "press" && isInteractionLocked.value) return;
+
+  const currentIntent: KeyboardChordIntent = {
     ...payload,
     chordId: chord.id,
     chord,
     source: payload.inputId.startsWith("focus:") ? "focus" : "pointer",
-  });
+  };
+  if (kind === "press") {
+    activeChordPointerInputs.set(payload.inputId, currentIntent);
+    dispatchChordIntent(kind, currentIntent);
+    return;
+  }
+
+  const pressedIntent = activeChordPointerInputs.get(payload.inputId);
+  activeChordPointerInputs.delete(payload.inputId);
+  dispatchChordIntent(kind, pressedIntent
+    ? { ...pressedIntent, event: payload.event }
+    : currentIntent);
 }
 
 function dispatchChordIntent(

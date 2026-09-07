@@ -140,6 +140,26 @@ export function useColorSystem() {
   ): string =>
     getNoteColorsByPitchClass(pitchClassIndex, mode, key, octave, false).primary;
 
+  const getPrimaryColorForPitch = (
+    scaleIndex: number,
+    pitchClassIndex: number | undefined,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3,
+  ): string => typeof pitchClassIndex === "number" && Number.isInteger(pitchClassIndex)
+    ? getNoteColorsByPitchClass(pitchClassIndex, mode, key, octave, true).primary
+    : getPrimaryColorByScaleIndex(scaleIndex, mode, key, octave);
+
+  const getStaticPrimaryColorForPitch = (
+    scaleIndex: number,
+    pitchClassIndex: number | undefined,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3,
+  ): string => typeof pitchClassIndex === "number" && Number.isInteger(pitchClassIndex)
+    ? getStaticPrimaryColorByPitchClass(pitchClassIndex, mode, key, octave)
+    : getStaticPrimaryColorByScaleIndex(scaleIndex, mode, key, octave);
+
   const getPrimaryColor = (
     noteName: string,
     mode: MusicalMode = "major",
@@ -577,12 +597,14 @@ export function useColorSystem() {
     getNoteColorsByPitchClass,
     getPrimaryColor,
     getPrimaryColorByScaleIndex,
+    getPrimaryColorForPitch,
     getAccentColor,
     getSecondaryColor,
     getTertiaryColor,
     getStaticPrimaryColor,
     getStaticPrimaryColorByScaleIndex,
     getStaticPrimaryColorByPitchClass,
+    getStaticPrimaryColorForPitch,
     getStaticAccentColor,
     getStaticSecondaryColor,
     getStaticTertiaryColor,

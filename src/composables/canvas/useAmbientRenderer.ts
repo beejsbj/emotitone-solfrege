@@ -50,11 +50,16 @@ function resolveAmbientContext(musicStore: any) {
     key,
     accentIndex,
     highlightIndex,
+    highlightPitchClassIndex: firstActiveNote?.pitchClassIndex,
+    highlightOctave: firstActiveNote?.octave ?? 4,
   };
 }
 
 export function useAmbientRenderer() {
-  const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+  const {
+    getStaticPrimaryColorByScaleIndex,
+    getStaticPrimaryColorForPitch,
+  } = useColorSystem();
 
   /**
    * Render subtle texture overlay
@@ -117,11 +122,12 @@ export function useAmbientRenderer() {
       context.key,
       4
     );
-    const accentColor = getStaticPrimaryColorByScaleIndex(
+    const accentColor = getStaticPrimaryColorForPitch(
       context.highlightIndex,
+      context.highlightPitchClassIndex,
       context.mode,
       context.key,
-      4
+      context.highlightOctave,
     );
     const supportColor = getStaticPrimaryColorByScaleIndex(
       context.accentIndex,
@@ -135,6 +141,8 @@ export function useAmbientRenderer() {
       context.key,
       context.mode,
       context.highlightIndex,
+      context.highlightPitchClassIndex,
+      context.highlightOctave,
       canvasWidth,
       canvasHeight,
       ambientConfig.opacityMajor,

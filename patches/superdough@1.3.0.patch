@@ -2201,7 +2201,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      return;
 -  if (s.currentTime > t) {
 -    j("[webaudio] skip hap: still loading", s.currentTime - t);
-+  if (a.currentTime > t) {
++  if (a.currentTime > t && !i) {
 +    B("[webaudio] skip hap: still loading", a.currentTime - t);
      return;
    }
@@ -3603,6 +3603,10 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
        nodes.main = { ...nodes.main, ...soundHandle.nodes };
      }
    } else {
+@@ -580,3 +659,3 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+-  if (ac.currentTime > t) {
++  if (ac.currentTime > t && !sustainUntilRelease) {
+     logger('[webaudio] skip hap: still loading', ac.currentTime - t);
 @@ -921,6 +1000,13 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
      chain.connect(releaseNode);
    }

@@ -153,41 +153,40 @@ export function createMidiSession(
     }
   };
 
+  const deliverPalette = (
+    deliver: (message: number[], timestamp: number) => void
+  ) => {
+    const messages = buildRoliPaletteUpdateMessages(
+      syncSettings.dynamicColorConfig,
+      syncSettings.currentKey,
+      syncSettings.currentMode
+    );
+    const now = typeof performance === "undefined"
+      ? Date.now()
+      : performance.now();
+
+    messages.forEach((message, index) => {
+      deliver(message, now + index);
+    });
+  };
+
   const sendPalette = () => {
     const output = selectedRoliOutput;
     if (!output) {
       return;
     }
 
-    const messages = buildRoliPaletteUpdateMessages(
-      syncSettings.dynamicColorConfig,
-      syncSettings.currentKey,
-      syncSettings.currentMode
-    );
-    const now = typeof performance === "undefined"
-      ? Date.now()
-      : performance.now();
-
-    messages.forEach((message, index) => {
-      sendToOutput(output, message, now + index);
+    deliverPalette((message, timestamp) => {
+      sendToOutput(output, message, timestamp);
     });
   };
 
   const initializeOutput = (output: MidiOutputPortAdapter) => {
-    const messages = buildRoliPaletteUpdateMessages(
-      syncSettings.dynamicColorConfig,
-      syncSettings.currentKey,
-      syncSettings.currentMode
-    );
-    const now = typeof performance === "undefined"
-      ? Date.now()
-      : performance.now();
-
     // Initial synchronization establishes whether this output is actually
     // usable. Let failures reach connect's failure/retry transition; cleanup
     // sends remain best-effort because a port can disappear at any moment.
-    messages.forEach((message, index) => {
-      output.send(message, now + index);
+    deliverPalette((message, timestamp) => {
+      output.send(message, timestamp);
     });
     output.send(
       buildRoliMainOctaveMessage(syncSettings.mainOctave),

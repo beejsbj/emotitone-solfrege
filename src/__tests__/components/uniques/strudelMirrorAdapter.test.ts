@@ -1,8 +1,19 @@
-import { EditorState, StateField } from "@codemirror/state";
+import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { history, undo } from "@codemirror/commands";
 import { reactive } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockWidgetEffect = StateEffect.define<string>();
+const mockWidgetField = StateField.define<string | null>({
+  create: () => null,
+  update(value, transaction) {
+    for (const effect of transaction.effects) {
+      if (effect.is(mockWidgetEffect)) value = effect.value;
+    }
+    return value;
+  },
+});
 
 const mocks = vi.hoisted(() => ({
   instrumentStore: null as unknown as {
@@ -12,16 +23,23 @@ const mocks = vi.hoisted(() => ({
   mirrors: [] as Array<{
     options: any;
     evaluate: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
     rawEvaluate: ReturnType<typeof vi.fn>;
     rawStop: ReturnType<typeof vi.fn>;
     clear: ReturnType<typeof vi.fn>;
+    drawer: { stop: ReturnType<typeof vi.fn> };
     schedulerActive: boolean;
     solo: boolean;
     editor: EditorView;
-    repl: { setCode: ReturnType<typeof vi.fn> };
+    repl: {
+      setCode: ReturnType<typeof vi.fn>;
+      scheduler: { onToggle: (started: boolean) => void };
+    };
     complete: () => void;
   }>,
   sharedVisualOwner: null as string | null,
+  sharedCanvasOwner: null as string | null,
+  canvasCleanups: 0,
   audioOutputs: [] as string[],
   draws: [] as string[],
 }));
@@ -44,7 +62,11 @@ vi.mock("@strudel/codemirror", () => ({
     solo: boolean;
     root: HTMLElement;
     editor: EditorView;
-    repl = { setCode: vi.fn() };
+    drawer = { stop: vi.fn() };
+    repl: {
+      setCode: ReturnType<typeof vi.fn>;
+      scheduler: { onToggle: (started: boolean) => void };
+    };
     private resolveEvaluation: (() => void) | null = null;
 
     constructor(options: any) {
@@ -52,11 +74,24 @@ vi.mock("@strudel/codemirror", () => ({
       this.code = options.initialCode;
       this.solo = options.solo;
       this.root = options.root;
+      this.repl = {
+        setCode: vi.fn(),
+        scheduler: {
+          onToggle: (started: boolean) => {
+            options.onToggle(started);
+            if (!started) {
+              mocks.canvasCleanups += 1;
+              mocks.sharedCanvasOwner = null;
+            }
+          },
+        },
+      };
       this.editor = new EditorView({
         state: EditorState.create({
           doc: options.initialCode,
           extensions: [
             history(),
+            mockWidgetField,
             EditorView.updateListener.of((update) => {
               if (!update.docChanged) return;
               this.code = update.state.doc.toString();
@@ -74,7 +109,7 @@ vi.mock("@strudel/codemirror", () => ({
       this.evaluate = this.rawEvaluate;
       this.rawStop = vi.fn(async () => {
         this.schedulerActive = false;
-        options.onToggle(false);
+        this.repl.scheduler.onToggle(false);
       });
       this.stop = this.rawStop;
       mocks.mirrors.push(this);
@@ -93,7 +128,8 @@ vi.mock("@strudel/codemirror", () => ({
     complete() {
       this.schedulerActive = true;
       void this.options.defaultOutput(this.code);
-      this.options.onToggle(true);
+      this.repl.scheduler.onToggle(true);
+      this.editor.dispatch({ effects: mockWidgetEffect.of(this.code) });
       this.options.onDraw();
       this.resolveEvaluation?.();
       this.resolveEvaluation = null;
@@ -120,6 +156,7 @@ function createAdapter(
     prebake: async () => undefined,
     onDraw: () => {
       mocks.sharedVisualOwner = source;
+      mocks.sharedCanvasOwner = source;
       mocks.draws.push(source);
     },
     onRelease: releaseShared,
@@ -134,6 +171,8 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     });
     mocks.mirrors = [];
     mocks.sharedVisualOwner = null;
+    mocks.sharedCanvasOwner = null;
+    mocks.canvasCleanups = 0;
     mocks.audioOutputs = [];
     mocks.draws = [];
   });
@@ -176,6 +215,8 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     expect(mocks.mirrors[1].schedulerActive).toBe(true);
     expect(mocks.mirrors[1].rawStop).not.toHaveBeenCalled();
     expect(mocks.sharedVisualOwner).toBe("sound('new')");
+    expect(mocks.sharedCanvasOwner).toBe("sound('new')");
+    expect(mocks.canvasCleanups).toBe(0);
     expect(releaseShared).toHaveBeenCalledOnce();
 
     // A callback arriving after retirement is disconnected from transport and
@@ -206,7 +247,43 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     expect(mocks.mirrors[1].clear).toHaveBeenCalledOnce();
     expect(mocks.mirrors[0].schedulerActive).toBe(true);
     expect(mocks.sharedVisualOwner).toBe("sound('active')");
+    expect(mocks.sharedCanvasOwner).toBe("sound('active')");
     expect(releaseShared).not.toHaveBeenCalled();
+  });
+
+  it("parks a cancelled runtime before stale afterEval can touch the live view", async () => {
+    const transport = useCodeStripStrudel();
+    const releaseShared = vi.fn();
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const adapter = createAdapter("sound('old')", releaseShared, root);
+    transport.attachEditor(adapter);
+    const liveView = adapter.view!;
+    adapter.replaceSource("sound('edited')");
+
+    const firstPlay = transport.play();
+    await vi.waitFor(() => expect(mocks.mirrors[0].rawEvaluate).toHaveBeenCalledOnce());
+    await transport.stop();
+    await firstPlay;
+
+    const quarantineView = mocks.mirrors[0].editor;
+    expect(quarantineView).not.toBe(liveView);
+    expect(mocks.mirrors[0].drawer.stop).toHaveBeenCalledOnce();
+    expect(mocks.mirrors[0].clear).toHaveBeenCalledOnce();
+
+    mocks.mirrors[0].complete();
+    await vi.waitFor(() => expect(mocks.mirrors[0].rawStop).toHaveBeenCalledTimes(2));
+
+    expect(quarantineView.destroyed).toBe(true);
+    expect(adapter.view).toBe(liveView);
+    expect(liveView.state.doc.toString()).toBe("sound('edited')");
+    expect(liveView.state.field(mockWidgetField)).toBeNull();
+    expect(mocks.audioOutputs).toEqual([]);
+    expect(mocks.draws).toEqual([]);
+    expect(mocks.canvasCleanups).toBe(0);
+    expect(releaseShared).toHaveBeenCalledOnce();
+
+    root.remove();
   });
 
   it("renews a cancelled runtime while preserving the live editor state", async () => {
@@ -286,6 +363,44 @@ describe("StrudelMirror CodeStrip adapter ownership", () => {
     mocks.mirrors[1].complete();
     await commandPlay;
     expect(transport.isPlaying.value).toBe(true);
+
+    root.remove();
+  });
+
+  it("destroys the live and pending quarantine views exactly once", async () => {
+    const transport = useCodeStripStrudel();
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const adapter = createAdapter("sound('pending')", vi.fn(), root);
+    transport.attachEditor(adapter);
+    adapter.routeCommands({ play: transport.play, stop: transport.stop });
+    const liveView = adapter.view!;
+    const destroyLive = vi.spyOn(liveView, "destroy");
+
+    const firstPlay = transport.play();
+    await vi.waitFor(() => expect(mocks.mirrors[0].rawEvaluate).toHaveBeenCalledOnce());
+    await transport.stop();
+    await firstPlay;
+    const firstQuarantine = mocks.mirrors[0].editor;
+    const destroyFirstQuarantine = vi.spyOn(firstQuarantine, "destroy");
+
+    const secondPlay = transport.play();
+    await vi.waitFor(() => expect(mocks.mirrors[1].rawEvaluate).toHaveBeenCalledOnce());
+    await transport.stop();
+    await secondPlay;
+    const secondQuarantine = mocks.mirrors[1].editor;
+    const destroySecondQuarantine = vi.spyOn(secondQuarantine, "destroy");
+
+    expect(firstQuarantine.destroyed).toBe(false);
+    expect(secondQuarantine.destroyed).toBe(false);
+    await transport.detachEditor(adapter);
+
+    expect(destroyLive).toHaveBeenCalledOnce();
+    expect(destroyFirstQuarantine).toHaveBeenCalledOnce();
+    expect(destroySecondQuarantine).toHaveBeenCalledOnce();
+    expect(mocks.mirrors[0].clear).toHaveBeenCalled();
+    expect(mocks.mirrors[1].clear).toHaveBeenCalled();
+    expect(adapter.view).toBeUndefined();
 
     root.remove();
   });

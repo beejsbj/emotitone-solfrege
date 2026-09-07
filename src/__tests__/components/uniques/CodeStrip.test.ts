@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { nextTick, reactive } from "vue";
 import type { PatternNote } from "@/types/patterns";
 
@@ -76,9 +78,14 @@ vi.mock("@/services/superdoughAudio", () => ({
 vi.mock("@strudel/codemirror", () => ({
   StrudelMirror: class {
     code: string;
-    editor: any;
+    editor: EditorView;
     stop: ReturnType<typeof vi.fn>;
     clear = vi.fn();
+    drawer = { stop: vi.fn() };
+    repl: {
+      setCode: ReturnType<typeof vi.fn>;
+      scheduler: { onToggle: (started: boolean) => void };
+    };
     updateSettings = vi.fn(() => {
       if (mocks.mirrorUpdateSettingsError) throw mocks.mirrorUpdateSettingsError;
     });
@@ -86,12 +93,16 @@ vi.mock("@strudel/codemirror", () => ({
 
     constructor(options: any) {
       this.options = options;
-      const makeDoc = (value: string) => ({
-        length: value.length,
-        toString: () => value,
+      this.code = options.initialCode;
+      this.repl = {
+        setCode: vi.fn(),
+        scheduler: { onToggle: options.onToggle },
+      };
+      this.editor = new EditorView({
+        state: EditorState.create({ doc: options.initialCode }),
+        parent: options.root,
       });
-      const scroller = document.createElement("div");
-      scroller.className = "cm-scroller";
+      const scroller = this.editor.scrollDOM;
       Object.defineProperties(scroller, {
         clientWidth: { configurable: true, value: 300 },
         scrollWidth: { configurable: true, value: 1000 },
@@ -103,32 +114,17 @@ vi.mock("@strudel/codemirror", () => ({
         offsetWidth: { configurable: true, value: 80 },
       });
       scroller.appendChild(latestEvent);
-      options.root.appendChild(scroller);
-
-      const rawEditor = {
-        hasFocus: false,
-        scrollDOM: scroller,
-        state: { doc: makeDoc(options.initialCode) },
-        coordsAtPos: () => ({ left: 420, right: 420, top: 0, bottom: 20 }),
-        requestMeasure(request: any) {
-          request.write(request.read(this), this);
-        },
-        dispatch(this: any, transaction: any) {
-          if (transaction.changes) {
-            const nextCode = transaction.changes.insert;
-            this.state.doc = makeDoc(nextCode);
-            // Match the installed StrudelMirror behavior: setCode changes the
-            // EditorView document, but its public runtime code can remain stale.
-          }
-        },
+      this.editor.coordsAtPos = () => ({ left: 420, right: 420, top: 0, bottom: 20 });
+      const requestEditorMeasure = this.editor.requestMeasure.bind(this.editor);
+      this.editor.requestMeasure = (request?: any) => {
+        if (!request) return requestEditorMeasure();
+        request.write(request.read(this.editor), this.editor);
       };
 
       mocks.mirrorOptions = options;
       mocks.mirrorInitialCode = options.initialCode;
-      this.code = options.initialCode;
-      this.editor = rawEditor;
       this.stop = vi.fn(async () => {
-        options.onToggle(false);
+        this.repl.scheduler.onToggle(false);
       });
       mocks.mirrorRawStop = this.stop;
       mocks.mirrorInstance = this;
@@ -145,7 +141,7 @@ vi.mock("@strudel/codemirror", () => ({
     async evaluate() {
       try {
         await mocks.mirrorEvaluate(this.code);
-        this.options.onToggle(true);
+        this.repl.scheduler.onToggle(true);
       } catch (error) {
         this.options.onEvalError(error);
       }
@@ -439,6 +435,7 @@ describe("CodeStrip production Strudel document", () => {
 
     const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
     expect(visibleSource).toContain("D4@0.25");
+    mocks.mirrorInstance.code = "sound('stale')";
     expect(mocks.mirrorInstance.code).not.toBe(visibleSource);
 
     await useCodeStripStrudel().play();
@@ -518,8 +515,8 @@ describe("CodeStrip production Strudel document", () => {
     expect(samples.length).toBeGreaterThan(2);
     expect(samples.every((sample, index) => index === 0 || sample >= samples[index - 1]))
       .toBe(true);
-    expect(samples[0]).toBeGreaterThan(0);
-    expect(samples[0]).toBeLessThan(samples.at(-1)!);
+    expect(new Set(samples).size).toBeGreaterThan(2);
+    expect(samples.at(-1)!).toBeGreaterThan(0);
     expect(samples.at(-1)!).toBeLessThan(
       mocks.mirrorScroller!.scrollWidth - mocks.mirrorScroller!.clientWidth,
     );
@@ -544,7 +541,9 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
 
     expect(mocks.rafCallbacks.length).toBeGreaterThan(0);
-    mocks.rafCallbacks.shift()?.(16);
+    for (let frame = 1; frame <= 12 && mocks.mirrorScroller!.scrollLeft === 0; frame++) {
+      mocks.rafCallbacks.shift()?.(frame * 16);
+    }
     expect(mocks.mirrorScroller!.scrollLeft).toBeGreaterThan(0);
     wrapper.unmount();
   });

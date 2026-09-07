@@ -12,11 +12,23 @@ import type {
   StrudelMirrorAdapterOptions,
 } from "@/types/codeStripTransport";
 
+type OwnedStrudelMirror = StrudelMirror & {
+  editor: EditorView;
+  root: HTMLElement;
+  solo: boolean;
+  drawer?: { stop?: () => void };
+  repl?: {
+    scheduler?: { onToggle?: (started: boolean) => void };
+    setCode?: (code: string) => void;
+  };
+};
+
 export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   private readonly listeners = new Set<CodeStripEditorListener>();
   private readonly options: StrudelMirrorAdapterOptions;
   private readonly onRelease: () => void;
   private mirrorInstance!: StrudelMirror;
+  private liveView: EditorView | null = null;
   private rawEvaluate!: () => Promise<void>;
   private rawStop!: () => Promise<void>;
   private evaluationOperation: CodeStripTransportOperation | null = null;
@@ -26,7 +38,10 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   private activeRuntime = 0;
   private readonly revokedRuntimes = new Set<number>();
   private readonly settledRuntimes = new Set<number>();
+  private readonly clearedRuntimes = new Set<number>();
+  private readonly runtimeMirrors = new Map<number, StrudelMirror>();
   private readonly quarantineViews = new Map<number, EditorView>();
+  private readonly destroyedViews = new WeakSet<EditorView>();
   private renewBeforeEvaluation = false;
   private destroyed = false;
   private commands: CodeStripTransportCommands | null = null;
@@ -35,6 +50,7 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     this.options = options;
     this.onRelease = options.onRelease;
     this.createRuntime(options.root, options.initialSource);
+    this.liveView = this.runtimeView(this.mirror) ?? null;
     this.installSourceSynchronization();
   }
 
@@ -43,7 +59,7 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   }
 
   get view(): EditorView | undefined {
-    return (this.mirror.editor ?? this.mirror.view) as EditorView | undefined;
+    return this.liveView ?? undefined;
   }
 
   getSource() {
@@ -64,6 +80,7 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     const runtime = this.activeRuntime;
     const rawEvaluate = this.rawEvaluate;
     const rawStop = this.rawStop;
+    this.settledRuntimes.delete(runtime);
     this.evaluationOperation = operation;
     // StrudelMirror maintains a runtime cache separately from EditorView. The
     // transport chooses the visible source; the adapter reconciles that source
@@ -90,10 +107,12 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
           await rawStop().catch(() => undefined);
         }
         this.disposeQuarantine(runtime);
+        this.releaseRetiredRuntime(runtime);
       },
       () => {
         this.settledRuntimes.add(runtime);
         this.disposeQuarantine(runtime);
+        this.releaseRetiredRuntime(runtime);
       },
     );
 
@@ -114,7 +133,9 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     const rawStop = this.rawStop;
     this.stopOperation = request.operation;
     if (request.retire) this.revokeRuntime(false);
-    else if (request.cancelEvaluation) this.revokeRuntime(true);
+    else if (request.cancelEvaluation && this.cancelEvaluation) {
+      this.revokeRuntime(true);
+    }
     try {
       await rawStop();
     } finally {
@@ -146,7 +167,7 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
 
   async disposeUnattached() {
     if (this.destroyed) return;
-    this.revokeRuntime(false);
+    this.revokeRuntime(false, true);
     try {
       await this.rawStop();
     } finally {
@@ -156,10 +177,17 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
 
   destroy() {
     if (this.destroyed) return;
-    this.revokeRuntime(false);
+    this.revokeRuntime(false, true);
     this.destroyed = true;
     this.listeners.clear();
-    this.mirror.clear();
+    for (const [runtime, mirror] of this.runtimeMirrors) {
+      this.clearRuntime(runtime, mirror);
+    }
+    for (const view of this.quarantineViews.values()) this.destroyView(view);
+    if (this.liveView) this.destroyView(this.liveView);
+    this.liveView = null;
+    this.quarantineViews.clear();
+    this.runtimeMirrors.clear();
   }
 
   private createRuntime(root: HTMLElement, initialSource: string) {
@@ -201,6 +229,7 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     }));
 
     this.mirrorInstance = instance;
+    this.runtimeMirrors.set(runtime, instance);
     this.rawEvaluate = instance.evaluate.bind(instance);
     const rawStop = instance.stop.bind(instance);
     this.rawStop = async () => {
@@ -229,21 +258,22 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
   private renewRuntime(source: string) {
     const oldRuntime = this.activeRuntime;
     const oldMirror = this.mirror;
-    const liveView = this.view;
+    const liveView = this.liveView;
+    if (!this.settledRuntimes.has(oldRuntime)) {
+      this.parkRuntime(oldRuntime, oldMirror);
+    }
     const quarantineRoot = document.createElement("div");
 
     this.createRuntime(quarantineRoot, source);
     const newMirror = this.mirror;
-    const quarantineView = this.view;
-    if (liveView && quarantineView) {
-      oldMirror.editor = quarantineView;
-      (oldMirror as StrudelMirror & { root: HTMLElement }).root = quarantineRoot;
-      newMirror.editor = liveView;
-      (newMirror as StrudelMirror & { root: HTMLElement }).root = this.options.root;
-      this.quarantineViews.set(oldRuntime, quarantineView);
-      if (this.settledRuntimes.has(oldRuntime)) this.disposeQuarantine(oldRuntime);
+    const replacementView = this.runtimeView(newMirror);
+    if (liveView) {
+      (newMirror as OwnedStrudelMirror).editor = liveView;
+      (newMirror as OwnedStrudelMirror).root = this.options.root;
     }
-    oldMirror.clear();
+    if (replacementView && replacementView !== liveView) this.destroyView(replacementView);
+    this.clearRuntime(oldRuntime, oldMirror);
+    if (this.settledRuntimes.has(oldRuntime)) this.releaseRetiredRuntime(oldRuntime);
     this.renewBeforeEvaluation = false;
     if (this.commands) {
       newMirror.evaluate = this.commands.play;
@@ -252,10 +282,22 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     this.options.onRuntimeRenewed?.();
   }
 
-  private revokeRuntime(renew: boolean) {
+  private revokeRuntime(renew: boolean, localOnly = false) {
     const runtime = this.activeRuntime;
+    const mirror = this.runtimeMirrors.get(runtime) ?? this.mirror;
     this.revokedRuntimes.add(runtime);
-    (this.mirror as StrudelMirror & { solo: boolean }).solo = false;
+    const ownedMirror = mirror as OwnedStrudelMirror;
+    ownedMirror.solo = false;
+    if (this.cancelEvaluation || localOnly) {
+      // StrudelMirror's outer onToggle performs global cleanupDraw even when
+      // the adapter ignores the callback. Cyclist/NeoCyclist read this property
+      // at call time, so revoke it before either stop or a late start.
+      const scheduler = ownedMirror.repl?.scheduler;
+      if (scheduler) scheduler.onToggle = () => undefined;
+      ownedMirror.drawer?.stop?.();
+      if (this.cancelEvaluation) this.parkRuntime(runtime, mirror);
+    }
+    this.clearRuntime(runtime, mirror);
     this.cancelEvaluation?.();
     this.renewBeforeEvaluation = renew && !this.destroyed;
   }
@@ -270,6 +312,47 @@ export class StrudelMirrorCodeStripAdapter implements CodeStripEditorAdapter {
     const view = this.quarantineViews.get(runtime);
     if (!view) return;
     this.quarantineViews.delete(runtime);
+    this.destroyView(view);
+  }
+
+  private parkRuntime(runtime: number, mirror: StrudelMirror) {
+    if (this.quarantineViews.has(runtime) || !this.liveView) return;
+    const quarantineRoot = document.createElement("div");
+    const quarantineView = new EditorView({
+      state: this.liveView.state,
+      parent: quarantineRoot,
+    });
+    (mirror as OwnedStrudelMirror).editor = quarantineView;
+    (mirror as OwnedStrudelMirror).root = quarantineRoot;
+    this.quarantineViews.set(runtime, quarantineView);
+  }
+
+  private releaseRetiredRuntime(runtime: number) {
+    if (runtime === this.activeRuntime) return;
+    const mirror = this.runtimeMirrors.get(runtime);
+    if (mirror) this.clearRuntime(runtime, mirror);
+    this.runtimeMirrors.delete(runtime);
+    this.revokedRuntimes.delete(runtime);
+    this.settledRuntimes.delete(runtime);
+  }
+
+  private runtimeView(mirror: StrudelMirror) {
+    const runtimeMirror = mirror as StrudelMirror & {
+      editor?: EditorView;
+      view?: EditorView;
+    };
+    return runtimeMirror.editor ?? runtimeMirror.view;
+  }
+
+  private clearRuntime(runtime: number, mirror: StrudelMirror) {
+    if (this.clearedRuntimes.has(runtime)) return;
+    this.clearedRuntimes.add(runtime);
+    mirror.clear();
+  }
+
+  private destroyView(view: EditorView) {
+    if (this.destroyedViews.has(view)) return;
+    this.destroyedViews.add(view);
     view.destroy();
   }
 

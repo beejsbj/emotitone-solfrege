@@ -72,6 +72,53 @@ describe("Knob public interface", () => {
     expect(document.querySelector(".knob-drag-value")).toBeNull();
   });
 
+  it("scales a complete wrapped value when the visual viewport is too short", async () => {
+    const viewportDescriptor = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    const widthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+    const heightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: { width: 80, height: 64, offsetLeft: 0, offsetTop: 0 },
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+      configurable: true,
+      get() {
+        return this.classList.contains("knob-drag-value")
+          ? 48
+          : widthDescriptor?.get?.call(this) ?? 0;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get() {
+        return this.classList.contains("knob-drag-value")
+          ? 160
+          : heightDescriptor?.get?.call(this) ?? 0;
+      },
+    });
+
+    try {
+      const wrapper = render({
+        modelValue: "major pentatonic",
+        options: [{ label: "Major Pentatonic", value: "major pentatonic" }],
+      });
+      await wrapper.trigger("mousedown", { clientX: 40, clientY: 32 });
+      const follower = document.querySelector<HTMLElement>(".knob-drag-value")!;
+      expect(follower.textContent).toContain("Major Pentatonic");
+      expect(follower.style.maxInlineSize).toBe("48px");
+      expect(follower.style.transform).toContain("scale(0.2)");
+      await documentEvent("mouseup", new MouseEvent("mouseup"));
+    } finally {
+      if (viewportDescriptor) {
+        Object.defineProperty(window, "visualViewport", viewportDescriptor);
+      } else {
+        Reflect.deleteProperty(window, "visualViewport");
+      }
+      if (widthDescriptor) Object.defineProperty(HTMLElement.prototype, "offsetWidth", widthDescriptor);
+      if (heightDescriptor) Object.defineProperty(HTMLElement.prototype, "offsetHeight", heightDescriptor);
+    }
+  });
+
   it("shows full option labels and dismisses for a horizontal gesture", async () => {
     const wrapper = render({ modelValue: "minor", options: [{ label: "Harmonic minor", value: "minor" }] });
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });

@@ -62,22 +62,48 @@ onMounted(() => {
     const width = viewport?.width ?? window.innerWidth;
     const height = viewport?.height ?? window.innerHeight;
     const viewportGutter = 16;
-    element.style.maxInlineSize = `${Math.max(0, width - viewportGutter * 2)}px`;
-    const halfWidth = element.offsetWidth / 2;
-    const paperHeight = element.offsetHeight;
+    const availableWidth = Math.max(0, width - viewportGutter * 2);
+    const availableHeight = Math.max(0, height - viewportGutter * 2);
+    element.style.maxInlineSize = `${availableWidth}px`;
+
+    // Preserve the full label when zoom makes the wrapped paper taller than
+    // the visual viewport. Scale the complete Sticker rather than clipping it.
+    const naturalWidth = element.offsetWidth;
+    const naturalHeight = element.offsetHeight;
+    const angle = Math.abs(tilt) * Math.PI / 180;
+    const sin = Math.sin(angle);
+    const cos = Math.cos(angle);
+    const horizontalExtent = naturalWidth / 2 * cos + naturalHeight * sin;
+    const topExtent = naturalHeight * cos + naturalWidth / 2 * sin;
+    const bottomExtent = naturalWidth / 2 * sin;
+    const scale = Math.min(
+      1,
+      availableWidth / Math.max(1, horizontalExtent * 2),
+      availableHeight / Math.max(1, topExtent + bottomExtent),
+    );
+    const visibleHorizontalExtent = horizontalExtent * scale;
+    const visibleTopExtent = topExtent * scale;
+    const visibleBottomExtent = bottomExtent * scale;
+
     // At the top edge there is no room above: step beside the finger.
-    const beside = props.y - 48 < top + paperHeight + 16;
+    const beside = props.y - 48 < top + visibleTopExtent + viewportGutter;
     const targetX = beside
-      ? props.x + (props.x < left + width / 2 ? 1 : -1) * (halfWidth + 48)
+      ? props.x + (props.x < left + width / 2 ? 1 : -1) * (visibleHorizontalExtent + 48)
       : x;
-    const minX = left + halfWidth + viewportGutter;
-    const maxX = left + width - halfWidth - viewportGutter;
+    const minX = left + visibleHorizontalExtent + viewportGutter;
+    const maxX = left + width - visibleHorizontalExtent - viewportGutter;
     const px = minX <= maxX
       ? Math.max(minX, Math.min(maxX, targetX))
       : left + width / 2;
-    const targetY = beside ? props.y + paperHeight / 2 : Math.min(y - 80, props.y - 48);
-    const py = Math.max(top + paperHeight + 16, Math.min(top + height - 16, targetY));
-    element.style.transform = `translate3d(${px}px, ${py}px, 0) translate(-50%, -100%) rotate(${tilt}deg)`;
+    const targetY = beside
+      ? props.y + (visibleTopExtent + visibleBottomExtent) / 2
+      : Math.min(y - 80, props.y - 48);
+    const minY = top + visibleTopExtent + viewportGutter;
+    const maxY = top + height - visibleBottomExtent - viewportGutter;
+    const py = minY <= maxY
+      ? Math.max(minY, Math.min(maxY, targetY))
+      : top + height / 2;
+    element.style.transform = `translate3d(${px}px, ${py}px, 0) translate(-50%, -100%) rotate(${tilt}deg) scale(${scale})`;
     element.style.visibility = "visible";
     frame = requestAnimationFrame(draw);
   };
@@ -96,6 +122,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   pointer-events: none;
   user-select: none;
   max-inline-size: calc(100vw - 32px);
+  transform-origin: 50% 100%;
   will-change: transform;
 }
 

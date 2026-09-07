@@ -1,5 +1,6 @@
 <template>
-  <StyleGuide v-if="isStyleGuide" />
+  <TabsLab v-if="isTabsLab" />
+  <StyleGuide v-else-if="isStyleGuide" />
   <MainApp v-else />
 </template>
 
@@ -9,10 +10,12 @@ import MainApp from "./MainApp.vue";
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isStyleGuide = pathname === "/style-guide";
+const isTabsLab = pathname === "/style-guide/tabs";
+const isDesignRoute = isStyleGuide || isTabsLab;
 
 // The typography element defaults are deliberately loaded only for the guide.
 // Keep the route marker on the document so html/body rules can be scoped too.
-if (isStyleGuide) {
+if (isDesignRoute) {
   document.documentElement.classList.add("style-guide-route");
   document.body?.classList.add("style-guide-route");
   void import("./style-guide/guide-defaults.css");
@@ -20,5 +23,9 @@ if (isStyleGuide) {
 
 const StyleGuide = defineAsyncComponent(
   () => import("./style-guide/StyleGuide.vue"),
+);
+
+const TabsLab = defineAsyncComponent(
+  () => import("./style-guide/TabsLab.vue"),
 );
 </script>

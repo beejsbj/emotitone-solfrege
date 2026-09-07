@@ -1,46 +1,72 @@
 <template>
   <div
-    ref="railEl"
+    ref="scrollEl"
     class="chip-tabs"
     :class="classes"
     role="tablist"
     :aria-label="ariaLabel"
   >
-    <span class="chip-tabs__streak" aria-hidden="true" />
-    <span
-      class="chip-tabs__chip"
-      :class="{ 'chip-tabs__chip--smearing': smearing, brass: tone === 'brass' }"
-      :style="chipStyle"
-      aria-hidden="true"
-    />
-    <button
-      v-for="tab in tabs"
-      :key="tab.value"
-      type="button"
-      class="chip-tabs__button"
-      :class="{ 'chip-tabs__button--active': tab.value === activeValue }"
-      :disabled="tab.disabled"
-      role="tab"
-      :aria-selected="tab.value === activeValue"
-      @click="selectTab(tab)"
-    >
-      {{ tab.label }}
-    </button>
+    <div ref="trackEl" class="chip-tabs__track">
+      <span class="chip-tabs__streak" aria-hidden="true" />
+      <span
+        class="chip-tabs__chip"
+        :class="{ 'chip-tabs__chip--smearing': smearing, brass: resolvedTone === 'brass' }"
+        :style="chipStyle"
+        aria-hidden="true"
+      />
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        type="button"
+        class="chip-tabs__button"
+        :class="{ 'chip-tabs__button--active': tab.value === activeValue }"
+        :disabled="tab.disabled"
+        :data-testid="tab.testId"
+        :tabindex="tab.value === activeValue ? 0 : -1"
+        role="tab"
+        :aria-label="tab.icon ? tab.label : undefined"
+        :aria-selected="tab.value === activeValue"
+        @click="selectTab(tab)"
+      >
+        <span v-if="tab.icon" class="chip-tabs__label chip-tabs__label--icon">
+          <component :is="tab.icon" class="chip-tabs__icon" />
+          <span :class="{ 'chip-tabs__label-text--hidden': tab.value !== activeValue }">
+            {{ tab.value === activeValue ? tab.label : tab.shortLabel ?? tab.label }}
+          </span>
+        </span>
+        <span v-else class="chip-tabs__label">
+          {{ tab.value === activeValue ? tab.label : tab.shortLabel ?? tab.label }}
+        </span>
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  type Component,
+} from "vue";
+import { currentChipTabsPageEdition } from "./ChipTabsEdition";
 
 export interface ChipTabItem {
   label: string;
   value: string;
+  shortLabel?: string;
+  icon?: Component;
   disabled?: boolean;
+  testId?: string;
 }
 
-export type ChipTabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "pill" | "rip";
+export type ChipTabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "rip";
 export type ChipTabsDensity = "comfortable" | "compact";
 export type ChipTabsTone = "ivory" | "brass";
+export type ChipTabsLayout = "equal" | "scroll";
 
 const props = withDefaults(
   defineProps<{
@@ -50,14 +76,14 @@ const props = withDefaults(
     geometry?: ChipTabsGeometry;
     density?: ChipTabsDensity;
     tone?: ChipTabsTone;
+    layout?: ChipTabsLayout;
     ariaLabel?: string;
   }>(),
   {
     modelValue: undefined,
     defaultValue: undefined,
-    geometry: "tab",
     density: "comfortable",
-    tone: "ivory",
+    layout: "equal",
     ariaLabel: "Chip tabs",
   },
 );
@@ -66,12 +92,14 @@ const emit = defineEmits<{
   "update:modelValue": [value: string];
 }>();
 
-const railEl = ref<HTMLElement | null>(null);
+const scrollEl = ref<HTMLElement | null>(null);
+const trackEl = ref<HTMLElement | null>(null);
 const internalValue = ref(props.defaultValue ?? props.tabs.find((tab) => !tab.disabled)?.value ?? "");
 const chipLeft = ref(0);
 const chipWidth = ref(0);
 const smearing = ref(false);
 let smearTimer: number | undefined;
+let sizeObserver: ResizeObserver | undefined;
 
 const activeValue = computed({
   get: () => props.modelValue ?? internalValue.value,
@@ -83,10 +111,20 @@ const activeValue = computed({
   },
 });
 
+const pageEdition = currentChipTabsPageEdition();
+const hasPinnedEdition = computed(() => props.geometry !== undefined || props.tone !== undefined);
+const resolvedGeometry = computed(() =>
+  props.geometry ?? (hasPinnedEdition.value ? "tab" : pageEdition.geometry),
+);
+const resolvedTone = computed(() =>
+  props.tone ?? (hasPinnedEdition.value ? "ivory" : pageEdition.tone),
+);
+
 const classes = computed(() => [
-  `chip-tabs--geometry-${props.geometry}`,
+  `chip-tabs--geometry-${resolvedGeometry.value}`,
   `chip-tabs--density-${props.density}`,
-  `chip-tabs--tone-${props.tone}`,
+  `chip-tabs--tone-${resolvedTone.value}`,
+  `chip-tabs--layout-${props.layout}`,
 ]);
 
 const chipStyle = computed(() => ({
@@ -95,20 +133,36 @@ const chipStyle = computed(() => ({
 }));
 
 const measureChip = () => {
-  const rail = railEl.value;
-  if (!rail) return;
+  const track = trackEl.value;
+  if (!track) return;
 
-  const activeButton = rail.querySelector<HTMLElement>(
+  const activeButton = track.querySelector<HTMLElement>(
     `.chip-tabs__button[aria-selected="true"]:not(:disabled)`,
   );
-  const fallbackButton = rail.querySelector<HTMLElement>(".chip-tabs__button:not(:disabled)");
+  const fallbackButton = track.querySelector<HTMLElement>(".chip-tabs__button:not(:disabled)");
   const target = activeButton ?? fallbackButton;
   if (!target) return;
 
-  const railRect = rail.getBoundingClientRect();
+  const trackRect = track.getBoundingClientRect();
   const buttonRect = target.getBoundingClientRect();
-  chipLeft.value = buttonRect.left - railRect.left;
+  chipLeft.value = buttonRect.left - trackRect.left;
   chipWidth.value = buttonRect.width;
+};
+
+const revealActiveTab = (behavior: ScrollBehavior = "smooth") => {
+  if (props.layout !== "scroll") return;
+
+  const scroll = scrollEl.value;
+  const track = trackEl.value;
+  const target = track?.querySelector<HTMLElement>(
+    `.chip-tabs__button[aria-selected="true"]:not(:disabled)`,
+  );
+  if (!scroll || !target) return;
+  if (typeof scroll.scrollTo !== "function") return;
+
+  const left = target.offsetLeft - Math.max(0, (scroll.clientWidth - target.offsetWidth) / 2);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  scroll.scrollTo({ left: Math.max(0, left), behavior: reducedMotion ? "auto" : behavior });
 };
 
 const triggerSmear = () => {
@@ -123,38 +177,75 @@ const selectTab = (tab: ChipTabItem) => {
   if (tab.disabled || tab.value === activeValue.value) return;
   activeValue.value = tab.value;
   triggerSmear();
+  void nextTick(() => {
+    measureChip();
+    revealActiveTab();
+  });
 };
 
 watch(
-  () => [activeValue.value, props.tabs, props.density, props.geometry],
-  () => nextTick(measureChip),
+  () => [activeValue.value, props.tabs, props.density, resolvedGeometry.value, props.layout],
+  () => nextTick(() => {
+    measureChip();
+    revealActiveTab("auto");
+  }),
   { deep: true },
 );
 
 onMounted(() => {
-  nextTick(measureChip);
+  void nextTick(() => {
+    measureChip();
+    revealActiveTab("auto");
+  });
   window.addEventListener("resize", measureChip);
+  if (typeof ResizeObserver !== "undefined" && trackEl.value) {
+    sizeObserver = new ResizeObserver(measureChip);
+    sizeObserver.observe(trackEl.value);
+  }
 });
 
 onBeforeUnmount(() => {
   window.clearTimeout(smearTimer);
   window.removeEventListener("resize", measureChip);
+  sizeObserver?.disconnect();
 });
 </script>
 
 <style scoped>
 .chip-tabs {
   position: relative;
-  display: inline-flex;
   width: 100%;
   border: 1px solid var(--ink-5);
   background: var(--ink-2);
+  overflow: hidden;
+}
+
+.chip-tabs__track {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
   padding: 6px;
   isolation: isolate;
 }
 
-.chip-tabs--density-compact {
+.chip-tabs--density-compact .chip-tabs__track {
   padding: 4px;
+}
+
+.chip-tabs--layout-scroll {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.chip-tabs--layout-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-tabs--layout-scroll .chip-tabs__track {
+  width: max-content;
 }
 
 .chip-tabs__streak {
@@ -204,12 +295,6 @@ onBeforeUnmount(() => {
   border-radius: 0;
 }
 
-.chip-tabs--geometry-pill .chip-tabs__chip {
-  clip-path: none;
-  border-radius: 999px;
-  box-shadow: none;
-}
-
 .chip-tabs--geometry-rip .chip-tabs__chip {
   clip-path: var(--clip-paper-rip);
 }
@@ -228,7 +313,8 @@ onBeforeUnmount(() => {
 .chip-tabs__button {
   position: relative;
   z-index: 2;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   border: 0;
   background: transparent;
   color: var(--ivory);
@@ -239,6 +325,41 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.chip-tabs--layout-scroll .chip-tabs__button {
+  flex: 0 0 auto;
+  min-width: 58px;
+}
+
+.chip-tabs__label,
+.chip-tabs__label--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.chip-tabs__label--icon {
+  gap: 6px;
+}
+
+.chip-tabs__icon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.chip-tabs__label-text--hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .chip-tabs--density-compact .chip-tabs__button {
@@ -262,6 +383,32 @@ onBeforeUnmount(() => {
 
   .chip-tabs__chip.brass {
     animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .chip-tabs {
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  .chip-tabs__streak {
+    background: CanvasText;
+  }
+
+  .chip-tabs__chip,
+  .chip-tabs--tone-brass .chip-tabs__chip {
+    background: Highlight;
+    box-shadow: none;
+  }
+
+  .chip-tabs__button {
+    color: ButtonText;
+    mix-blend-mode: normal;
+  }
+
+  .chip-tabs__button--active {
+    color: HighlightText;
   }
 }
 </style>

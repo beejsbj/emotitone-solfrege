@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Tabs &middot; Chip-Slide Primitive"
     :features="features"
-    caption="Chip-slide is the tab primitive mechanic: a single chip tracks the active label while a dark streak holds the rail together. The source owns the rail, chip, streak, selected state, disabled state, geometry, density, and brass tone. The specimen owns explanatory groupings only."
+    caption="Chip-slide is the sole tab presentation: a single chip tracks the active label while a dark streak holds the rail together. The source owns the rail, chip, streak, selected and disabled states, equal and scrolling layouts, density, and the shared page-load edition. Explicit specimens stay pinned; the specimen owns explanatory groupings only."
   >
     <template #hero>
       <div class="hero-stage">
@@ -13,7 +13,7 @@
     <VariantGrid title="Chip Geometry">
       <VariantCell
         v-for="variant in geometryVariants"
-        :key="variant.geometry"
+        :key="`${variant.geometry}-${variant.tone ?? 'ivory'}`"
         :caption="variant.label"
         stage="ink3"
       >
@@ -112,11 +112,13 @@ const features = [
   { label: "Rail", value: "ink-2 shell with ink streak behind all labels" },
   { label: "Chip", value: "sliding active surface measured from the selected tab" },
   { label: "Motion", value: "var(--dur-ui) with ease-swing; smear is transient" },
-  { label: "Geometry", value: "tab, offcut, tile, sharp, pill, or paper-rip chip" },
+  { label: "Geometry", value: "tab, offcut, tile, sharp, or paper-rip chip" },
   { label: "Tone", value: "ivory by default; brass is an ink-and-ivory instrument-metal treatment" },
   { label: "Density", value: "comfortable or compact label rhythm" },
+  { label: "Layout", value: "equal-width or horizontally scrolling without changing the chip mechanic" },
+  { label: "Edition", value: "one guide variant shared by every unpinned Tabs instance per page load" },
   { label: "State", value: "selected and disabled are source-owned tab states" },
-  { label: "Boundary", value: "not the generic app Tabs provider family" },
+  { label: "Boundary", value: "Tabs/TabsContent retain content coordination; ChipTabs owns all presentation" },
 ];
 </script>
 

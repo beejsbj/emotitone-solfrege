@@ -39,13 +39,6 @@ vi.mock('@/components/ui', () => ({
     emits: ['update:value'],
     template: '<div data-testid="mock-tabs"><slot /></div>',
   },
-  TabsList: {
-    template: '<div data-testid="mock-tabs-list"><slot /></div>',
-  },
-  TabsTrigger: {
-    props: ['value'],
-    template: '<button data-testid="mock-tabs-trigger" :data-value="value"><slot /></button>',
-  },
 }))
 
 vi.mock('./../../components/OverlayPanelShell.vue', () => ({

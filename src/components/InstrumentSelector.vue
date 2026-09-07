@@ -5,7 +5,6 @@ import { getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
-  type TabbedOverlayTone,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
 import { Search, X } from "lucide-vue-next";
@@ -339,7 +338,7 @@ function groupSounds(sounds: string[]) {
 }
 
 
-type PanelTone = Extract<TabbedOverlayTone, "amber" | "red" | "violet" | "cream">;
+type PanelTone = "amber" | "red" | "violet" | "cream";
 type PanelTab = "all" | Category;
 
 const activeTab = ref<PanelTab>("all");
@@ -363,13 +362,11 @@ const allTabs = computed<TabbedOverlayTab[]>(() => [
     value: "all",
     label: "All Sounds",
     shortLabel: "All",
-    tone: "amber",
   },
   ...categoryTabs.value.map((tab) => ({
     value: tab.key,
     label: tab.label,
     shortLabel: tab.shortLabel,
-    tone: tab.tone,
   })),
 ]);
 
@@ -379,7 +376,6 @@ const activeTabMeta = computed(
       value: "all",
       label: "All Sounds",
       shortLabel: "All",
-      tone: "amber" as TabbedOverlayTone,
     }
 );
 
@@ -574,6 +570,7 @@ async function selectInstrument(name: string, close: () => void) {
         v-model="activeTab"
         :tabs="allTabs"
         tab-test-id-prefix="instrument-tab"
+        tabs-aria-label="Instrument banks"
         embedded
         width="100%"
         height="100%"

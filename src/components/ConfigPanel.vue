@@ -15,12 +15,12 @@
         v-model="activeTab"
         :tabs="allTabs"
         tab-test-id-prefix="config-tab"
+        tabs-aria-label="Configuration sections"
         embedded
         width="100%"
         height="100%"
         max-height="100%"
         body-class="px-3 py-3"
-        inactive-tab-width-class="min-w-[3.6rem] max-w-[3.6rem]"
       >
         <template #header>
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -496,21 +496,18 @@ const HOME_TAB = {
   value: "home",
   label: "Scenes",
   shortLabel: "Home",
-  tone: "amber" as PosterTone,
 };
 
 const PRESET_TAB = {
   value: "presets",
   label: "Presets",
   shortLabel: "Presets",
-  tone: "violet" as PosterTone,
 };
 
 const MIDI_TAB = {
   value: "midi",
   label: "MIDI & ROLI",
   shortLabel: "MIDI",
-  tone: "green" as PosterTone,
   icon: MidiPermissionIcon,
 };
 
@@ -552,14 +549,13 @@ const {
 const builtInPresets = BUILT_IN_VISUAL_PRESETS;
 
 const sectionTabs = computed(() =>
-  SECTION_ORDER.map((sectionName, index) => {
+  SECTION_ORDER.map((sectionName) => {
     const meta = CONFIG_SECTIONS[sectionName];
 
     return {
       name: sectionName,
       label: meta?.label ?? sectionName,
       shortLabel: SECTION_SHORT_LABELS[sectionName],
-      tone: SECTION_TONES[index % SECTION_TONES.length],
     };
   })
 );
@@ -570,7 +566,6 @@ const allTabs = computed(() => [
     value: tab.name,
     label: tab.label,
     shortLabel: tab.shortLabel,
-    tone: tab.tone,
   })),
   MIDI_TAB,
   PRESET_TAB,

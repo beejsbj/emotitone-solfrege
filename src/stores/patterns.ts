@@ -511,32 +511,38 @@ export const usePatternsStore = defineStore(
       const loadedPattern = loadedBasePatternId.value
         ? patterns.value.find((pattern) => pattern.id === loadedBasePatternId.value)
         : undefined;
-      const isLoadedImportedPattern = loadedPattern?.source?.kind === "melograph";
+      const loadedBaseContributes = loadedBaseNotes.value.length > 0
+        && (currentWorkingNotes.value.length === 0 || canContinueLoadedBase.value);
+      const contributingLoadedPattern = loadedBaseContributes
+        ? loadedPattern
+        : undefined;
+      const isLoadedImportedPattern =
+        contributingLoadedPattern?.source?.kind === "melograph";
 
-      if (allNotes.length > 2 || isLoadedImportedPattern) {
+      if (allNotes.length > 0 && (allNotes.length > 2 || isLoadedImportedPattern)) {
         const isUnchangedLoadedCandidate = Boolean(
-          loadedPattern
-          && !loadedPattern.isDefault
-          && !loadedPattern.isSaved
+          contributingLoadedPattern
+          && !contributingLoadedPattern.isDefault
+          && !contributingLoadedPattern.isSaved
           && loadedBaseNotes.value.length > 0
           && currentWorkingNotes.value.length === 0
-          && loadedBaseNotes.value.length === loadedPattern.notes.length
+          && loadedBaseNotes.value.length === contributingLoadedPattern.notes.length
           && loadedBaseNotes.value.every((note, index) => {
-            const original = loadedPattern.notes[index];
+            const original = contributingLoadedPattern.notes[index];
             return original?.id === note.id
               && original.pressTime === note.pressTime
               && original.releaseTime === note.releaseTime;
           }),
         );
 
-        if (loadedPattern && isUnchangedLoadedCandidate) {
-          loadedPattern.isSaved = true;
-          focusedPatternId.value = loadedPattern.id;
+        if (contributingLoadedPattern && isUnchangedLoadedCandidate) {
+          contributingLoadedPattern.isSaved = true;
+          focusedPatternId.value = contributingLoadedPattern.id;
         } else {
           const newPattern = createPatternFromNoteSet(
             allNotes,
             currentSketchMeta.value,
-            { source: loadedPattern?.source },
+            { source: contributingLoadedPattern?.source },
           );
           savedPatterns.value.push(newPattern);
           focusedPatternId.value = newPattern.id;

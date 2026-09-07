@@ -313,6 +313,85 @@ describe("Patterns Store", () => {
     expect(patternsStore.currentSketchNotes).toEqual([]);
   });
 
+  it("clears safely when every note is removed from a hummed take", () => {
+    const [patternId] = patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    patternsStore.removeLastFromCurrentSketch();
+
+    expect(() => patternsStore.sendCurrentPattern()).not.toThrow();
+    expect(patternsStore.currentSketchNotes).toEqual([]);
+    expect(
+      patternsStore.savedPatterns.find((pattern) => pattern.id === patternId),
+    ).toEqual(expect.objectContaining({ isSaved: false }));
+  });
+
+  it("does not grant the imported short-pattern exception after context changes", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    visualConfigStore.updateConfig("codeStrip", { bpm: 90 });
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "new-context-a", bpm: 90 }),
+      createLogNote({
+        id: "new-context-b",
+        bpm: 90,
+        isStartingNewPattern: false,
+      }),
+    ];
+    const previousCount = patternsStore.savedPatterns.length;
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns).toHaveLength(previousCount);
+  });
+
+  it("does not copy imported provenance onto a new-context keyboard sketch", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    visualConfigStore.updateConfig("codeStrip", { bpm: 90 });
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "new-context-a", bpm: 90 }),
+      createLogNote({ id: "new-context-b", bpm: 90, isStartingNewPattern: false }),
+      createLogNote({ id: "new-context-c", bpm: 90, isStartingNewPattern: false }),
+    ];
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns.at(-1)?.source).toBeUndefined();
+  });
+
   it("saves an edited hummed take as a separate sourced Pattern", () => {
     patternsStore.importPatternCandidates(
       [{

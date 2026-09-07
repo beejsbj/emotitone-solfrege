@@ -61,11 +61,7 @@ export interface DynamicColorConfig {
 }
 
 /** Blob-led harmonic analysis presentation configuration. */
-export type HarmonicGeometryMode =
-  | "outline"
-  | "web"
-  | "merge"
-  | "center-only";
+export type HarmonicGeometryMode = "merge" | "web";
 
 export interface HarmonicGeometryConfig {
   /** Whether harmonic geometry is enabled */

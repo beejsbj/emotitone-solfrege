@@ -113,8 +113,30 @@ describe('Visual Config Store', () => {
 
       expect(newStore.config.floatingPopup.isEnabled).toBe(true)
       expect(newStore.config.floatingPopup.opacity).toBe(0.35)
-      expect(newStore.config.floatingPopup.geometryMode).toBe('outline')
+      expect(newStore.config.floatingPopup.geometryMode).toBe('merge')
       expect(newStore.config.floatingPopup).not.toHaveProperty('animationDuration')
+    })
+
+    it('maps retired harmonic geometry modes onto the two supported modes', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { floatingPopup: { geometryMode: 'outline' } }
+      }))
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([
+        {
+          id: 'legacy-center',
+          name: 'Legacy Center',
+          config: { floatingPopup: { geometryMode: 'center-only' } }
+        }
+      ]))
+
+      const store = createFreshStore()
+
+      expect(store.config.floatingPopup.geometryMode).toBe('merge')
+      expect(store.savedConfigs[0].config.floatingPopup.geometryMode).toBe('web')
+      expect(store.importConfig(JSON.stringify({
+        config: { floatingPopup: { geometryMode: 'center-only' } }
+      }))).toBe(true)
+      expect(store.config.floatingPopup.geometryMode).toBe('web')
     })
 
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {

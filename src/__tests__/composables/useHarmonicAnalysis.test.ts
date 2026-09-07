@@ -13,7 +13,7 @@ const harmonicTestState = vi.hoisted(() => ({
     showChord: true,
     showIntervals: true,
     showEmotionalDescription: true,
-    geometryMode: "outline",
+    geometryMode: "merge",
     backdropBlur: 1,
     glassmorphOpacity: 0.4,
     opacity: 0.5,
@@ -88,8 +88,8 @@ describe("useHarmonicAnalysis", () => {
     vi.useRealTimers();
   });
 
-  it("defaults harmonic geometry to outline mode with labels hidden", () => {
-    expect(DEFAULT_CONFIG.floatingPopup.geometryMode).toBe("outline");
+  it("defaults harmonic geometry to merge mode with labels hidden", () => {
+    expect(DEFAULT_CONFIG.floatingPopup.geometryMode).toBe("merge");
     expect(DEFAULT_CONFIG.floatingPopup.showChord).toBe(false);
     expect(DEFAULT_CONFIG.floatingPopup.showIntervals).toBe(false);
     expect(DEFAULT_CONFIG.floatingPopup.showEmotionalDescription).toBe(false);

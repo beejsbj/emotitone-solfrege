@@ -4,8 +4,8 @@
       <div>
         <h3>Harmonic Geometry · Canvas Unique</h3>
         <p>
-          The production blob contours, exercised as one shared material field.
-          Labels remain an optional layer and default off.
+          Two relationships, one shared material field. Labels remain an
+          optional layer and default off.
         </p>
       </div>
 
@@ -18,19 +18,19 @@
     <div class="harmonic-specimen__grid">
       <figure>
         <canvas
-          ref="outlineCanvas"
-          aria-label="Soft harmonic connections between three colored blobs"
+          ref="webCanvas"
+          aria-label="Four colored blobs joined by fused harmonic filaments"
         />
         <figcaption>
-          <strong>Outline</strong>
-          <span>A field-derived perimeter follows the bodies and their necks.</span>
+          <strong>Web</strong>
+          <span>Distinct bodies share fused perimeter and interior filaments.</span>
         </figcaption>
       </figure>
 
       <figure>
         <canvas
           ref="mergeCanvas"
-          aria-label="Three colored blobs joined by fluid merging bridges"
+          aria-label="Four colored blobs joined as one fluid body"
         />
         <figcaption>
           <strong>Merge</strong>
@@ -62,7 +62,7 @@ import type {
   HarmonicGeometryMode,
 } from "@/types";
 
-const outlineCanvas = ref<HTMLCanvasElement | null>(null);
+const webCanvas = ref<HTMLCanvasElement | null>(null);
 const mergeCanvas = ref<HTMLCanvasElement | null>(null);
 const showLabels = ref(false);
 const renderer = useHarmonicGeometryRenderer();
@@ -100,6 +100,16 @@ const notes: ActiveNote[] = [
     mode: "major",
     key: "C",
   },
+  {
+    solfegeIndex: 6,
+    solfege: MAJOR_SOLFEGE[6],
+    frequency: 493.88,
+    octave: 4,
+    noteId: "guide-b4",
+    noteName: "B4",
+    mode: "major",
+    key: "C",
+  },
 ];
 
 const snapshot: HarmonicAnalysisSnapshot = {
@@ -127,29 +137,52 @@ const snapshot: HarmonicAnalysisSnapshot = {
       toIndex: 2,
       interval: "5P",
     },
+    {
+      fromNoteId: "guide-c4",
+      toNoteId: "guide-b4",
+      fromIndex: 0,
+      toIndex: 3,
+      interval: "7M",
+    },
+    {
+      fromNoteId: "guide-e4",
+      toNoteId: "guide-b4",
+      fromIndex: 1,
+      toIndex: 3,
+      interval: "5P",
+    },
+    {
+      fromNoteId: "guide-g4",
+      toNoteId: "guide-b4",
+      fromIndex: 2,
+      toIndex: 3,
+      interval: "3M",
+    },
   ],
-  chordLabel: "C",
+  chordLabel: "Cmaj7",
   emotionalDescription: "Home · brightness · strength",
 };
 
 const createBlobs = (
   width: number,
   height: number,
-  mode: Extract<HarmonicGeometryMode, "outline" | "merge">
+  mode: HarmonicGeometryMode
 ) => {
   const positions =
     mode === "merge"
       ? [
-          { x: width * 0.18, y: height * 0.66 },
-          { x: width * 0.5, y: height * 0.26 },
-          { x: width * 0.82, y: height * 0.62 },
+          { x: width * 0.14, y: height * 0.7 },
+          { x: width * 0.38, y: height * 0.25 },
+          { x: width * 0.66, y: height * 0.3 },
+          { x: width * 0.86, y: height * 0.7 },
         ]
       : [
-          { x: width * 0.34, y: height * 0.54 },
-          { x: width * 0.56, y: height * 0.58 },
-          { x: width * 0.68, y: height * 0.34 },
+          { x: width * 0.18, y: height * 0.26 },
+          { x: width * 0.8, y: height * 0.22 },
+          { x: width * 0.82, y: height * 0.76 },
+          { x: width * 0.2, y: height * 0.8 },
         ];
-  const radii = [0.23, 0.17, 0.15].map(
+  const radii = [0.17, 0.14, 0.15, 0.16].map(
     (ratio) => Math.min(width, height) * ratio
   );
 
@@ -181,7 +214,7 @@ const createBlobs = (
 
 const drawSpecimen = (
   canvas: HTMLCanvasElement | null,
-  mode: Extract<HarmonicGeometryMode, "outline" | "merge">
+  mode: HarmonicGeometryMode
 ) => {
   if (!canvas) return;
 
@@ -206,8 +239,8 @@ const drawSpecimen = (
     showIntervals: showLabels.value,
     showEmotionalDescription: showLabels.value,
     backdropBlur: 18,
-    glassmorphOpacity: mode === "merge" ? 0.86 : 0.72,
-    opacity: 0.82,
+    glassmorphOpacity: mode === "merge" ? 0.86 : 0.68,
+    opacity: mode === "merge" ? 0.82 : 0.9,
   };
   const scene = renderer.buildScene(snapshot, blobs, config, width, height);
   const frames = notes.flatMap((note, index) => {
@@ -224,13 +257,13 @@ const drawSpecimen = (
       : [];
   });
 
-  blobFieldRenderer.renderBlobField(context, frames, mode, config);
+  blobFieldRenderer.renderBlobField(context, frames, mode, config, scene);
   renderer.renderLabels(context, scene, config);
 };
 
 const drawAll = async () => {
   await nextTick();
-  drawSpecimen(outlineCanvas.value, "outline");
+  drawSpecimen(webCanvas.value, "web");
   drawSpecimen(mergeCanvas.value, "merge");
 };
 

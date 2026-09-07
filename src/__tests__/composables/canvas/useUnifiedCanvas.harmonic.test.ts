@@ -138,7 +138,6 @@ vi.mock("@/composables/canvas/useAmbientRenderer", () => ({
 vi.mock("@/composables/canvas/useHarmonicGeometryRenderer", () => ({
   useHarmonicGeometryRenderer: () => ({
     buildScene: mocks.buildScene,
-    renderGeometry: vi.fn(),
     renderLabels: vi.fn(),
   }),
 }));
@@ -279,6 +278,32 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.animationOptions?.onFrame(1000, 1);
 
     expect(mocks.buildScene).not.toHaveBeenCalled();
+    expect(mocks.renderBlobField).not.toHaveBeenCalled();
+  });
+
+  it("renders Web through the shared blob field with the analyzed scene", () => {
+    const scene = { points: [{ blob: {} }, { blob: {} }] };
+    mocks.buildScene.mockReturnValueOnce(scene);
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    canvas.initializeCanvas();
+
+    mocks.animationOptions?.onFrame(1000, 1);
+
+    expect(mocks.renderBlobField).toHaveBeenCalledWith(
+      mockCanvasContext,
+      [],
+      "web",
+      mocks.harmonicConfig.value,
+      scene
+    );
+  });
+
+  it("leaves ordinary blobs untouched when Web has no harmonic scene", () => {
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    canvas.initializeCanvas();
+
+    mocks.animationOptions?.onFrame(1000, 1);
+
     expect(mocks.renderBlobField).not.toHaveBeenCalled();
   });
 

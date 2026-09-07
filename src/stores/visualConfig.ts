@@ -66,6 +66,17 @@ function migrateLegacySectionKeys(
     }
     delete mergedSection.colorMode;
   }
+
+  if (sectionName === "floatingPopup") {
+    const geometryMode = incomingSection.geometryMode;
+    if (geometryMode === "outline") {
+      mergedSection.geometryMode = "merge";
+    } else if (geometryMode === "center-only") {
+      mergedSection.geometryMode = "web";
+    } else if (geometryMode !== "merge" && geometryMode !== "web") {
+      mergedSection.geometryMode = "merge";
+    }
+  }
 }
 
 function migrateVisualConfig(

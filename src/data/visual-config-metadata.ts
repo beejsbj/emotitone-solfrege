@@ -479,7 +479,7 @@ export const UNIFIED_CONFIG = {
     _meta: {
       label: "Harmonic Geometry",
       icon: "△",
-      description: "Blob-led harmonic overlays and labels",
+      description: "Blob-led harmonic relationships and labels",
     },
     isEnabled: {
       value: false,
@@ -521,8 +521,8 @@ export const UNIFIED_CONFIG = {
       label: "Show Emotion Label",
     },
     geometryMode: {
-      value: "outline",
-      options: ["outline", "web", "merge", "center-only"],
+      value: "merge",
+      options: ["merge", "web"],
       label: "Connection Style",
     },
     backdropBlur: {

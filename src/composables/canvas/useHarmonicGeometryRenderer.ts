@@ -4,7 +4,6 @@ import type {
   HarmonicGeometryPoint,
   HarmonicGeometryScene,
 } from "@/types/canvas";
-import { useColorSystem } from "@/composables/useColorSystem";
 import type {
   HarmonicGeometryConfig,
   HarmonicAnalysisSnapshot,
@@ -76,25 +75,6 @@ function getArcMidpoint(
 }
 
 export function useHarmonicGeometryRenderer() {
-  const { getPrimaryColor, getAccentColor, withAlpha } = useColorSystem();
-
-  const getBlobVisibility = (blob: ActiveBlob) => {
-    if (blob.opacity <= 0) {
-      return 0;
-    }
-
-    const opacityVisibility = Math.max(
-      0,
-      Math.min(1, (blob.renderOpacity ?? blob.opacity) / blob.opacity)
-    );
-    const scaleVisibility = Math.max(
-      0,
-      Math.min(1, blob.renderScale ?? blob.scale)
-    );
-
-    return Math.min(opacityVisibility, scaleVisibility);
-  };
-
   const resolvePoints = (
     snapshot: HarmonicAnalysisSnapshot,
     activeBlobs: Map<string, ActiveBlob>
@@ -113,18 +93,6 @@ export function useHarmonicGeometryRenderer() {
           blob,
           x: blob.x,
           y: blob.y,
-          primaryColor: getPrimaryColor(
-            note.solfege.name,
-            note.mode,
-            note.octave,
-            note.key
-          ),
-          accentColor: getAccentColor(
-            note.solfege.name,
-            note.mode,
-            note.octave,
-            note.key
-          ),
           angle: 0,
         } satisfies HarmonicGeometryPoint;
       })
@@ -224,8 +192,7 @@ export function useHarmonicGeometryRenderer() {
 
     if (
       orderedPoints.length >= 3 &&
-      config.showIntervals &&
-      config.geometryMode !== "center-only"
+      config.showIntervals
     ) {
       orderedPoints.forEach((point, index) => {
         const nextPoint = orderedPoints[(index + 1) % orderedPoints.length];
@@ -266,236 +233,6 @@ export function useHarmonicGeometryRenderer() {
       primaryLabel,
       auxiliaryLabels,
     };
-  };
-
-  const createConnectionGradient = (
-    ctx: CanvasRenderingContext2D,
-    from: HarmonicGeometryPoint,
-    to: HarmonicGeometryPoint,
-    opacity: number
-  ) => {
-    const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
-    gradient.addColorStop(0, withAlpha(from.primaryColor, opacity));
-    gradient.addColorStop(0.5, withAlpha(from.accentColor, opacity * 0.72));
-    gradient.addColorStop(1, withAlpha(to.primaryColor, opacity));
-
-    return gradient;
-  };
-
-  const drawSoftConnection = (
-    ctx: CanvasRenderingContext2D,
-    from: HarmonicGeometryPoint,
-    to: HarmonicGeometryPoint,
-    opacity: number,
-    tracePath: () => void,
-    width = 1.4,
-    softness = 0
-  ) => {
-    const visibleOpacity =
-      opacity *
-      Math.min(getBlobVisibility(from.blob), getBlobVisibility(to.blob));
-
-    if (visibleOpacity <= 0) {
-      return;
-    }
-
-    const softnessBoost = Math.min(3, softness * 0.06);
-    const passes = [
-      {
-        opacity: visibleOpacity * 0.22,
-        width: width * (4.8 + softnessBoost),
-        blur: width * 4.5 + softness * 0.35,
-      },
-      {
-        opacity: visibleOpacity * 0.62,
-        width,
-        blur: width * 1.8 + softness * 0.12,
-      },
-    ];
-
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    passes.forEach((pass) => {
-      ctx.beginPath();
-      tracePath();
-      ctx.strokeStyle = createConnectionGradient(
-        ctx,
-        from,
-        to,
-        pass.opacity
-      );
-      ctx.lineWidth = pass.width;
-      ctx.shadowBlur = pass.blur;
-      ctx.shadowColor = withAlpha(from.primaryColor, pass.opacity * 0.8);
-      ctx.stroke();
-    });
-
-    ctx.restore();
-  };
-
-  const getBoundaryPointPairs = (scene: HarmonicGeometryScene) => {
-    if (scene.orderedPoints.length === 2) {
-      return [[scene.orderedPoints[0], scene.orderedPoints[1]]] as const;
-    }
-
-    return scene.orderedPoints.map((point, index) => [
-      point,
-      scene.orderedPoints[(index + 1) % scene.orderedPoints.length],
-    ] as const);
-  };
-
-  const drawBackdropFill = (
-    ctx: CanvasRenderingContext2D,
-    scene: HarmonicGeometryScene,
-    config: HarmonicGeometryConfig
-  ) => {
-    if (scene.orderedPoints.length < 3) {
-      return;
-    }
-
-    const sceneVisibility = Math.min(
-      ...scene.orderedPoints.map((point) => getBlobVisibility(point.blob))
-    );
-    if (sceneVisibility <= 0) {
-      return;
-    }
-
-    const gradient = ctx.createRadialGradient(
-      scene.centroid.x,
-      scene.centroid.y,
-      0,
-      scene.centroid.x,
-      scene.centroid.y,
-      scene.radius * 1.35
-    );
-
-    scene.orderedPoints.forEach((point, index) => {
-      const stop =
-        scene.orderedPoints.length === 1
-          ? 0
-          : index / Math.max(1, scene.orderedPoints.length - 1);
-      gradient.addColorStop(
-        stop * 0.72,
-        withAlpha(
-          point.primaryColor,
-          config.glassmorphOpacity * config.opacity * sceneVisibility * 0.32
-        )
-      );
-    });
-    gradient.addColorStop(1, "transparent");
-
-    ctx.save();
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    scene.orderedPoints.forEach((point, index) => {
-      if (index === 0) {
-        ctx.moveTo(point.x, point.y);
-      } else {
-        ctx.lineTo(point.x, point.y);
-      }
-    });
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  };
-
-  const renderGeometry = (
-    ctx: CanvasRenderingContext2D,
-    scene: HarmonicGeometryScene | null,
-    config: HarmonicGeometryConfig
-  ) => {
-    if (!scene || config.opacity <= 0) {
-      return;
-    }
-
-    // Organic modes are complete body treatments owned by the blob field
-    // renderer. Painting graph geometry here would put an underlay back under
-    // the shared silhouette and recreate the rejected visual seam.
-    if (
-      config.geometryMode === "merge" ||
-      config.geometryMode === "outline"
-    ) {
-      return;
-    }
-
-    const geometryOpacity = config.opacity * 0.5;
-
-    if (
-      scene.orderedPoints.length === 2 &&
-      config.geometryMode !== "center-only"
-    ) {
-      const [fromPoint, toPoint] = scene.orderedPoints;
-      const arcMidpoint = getArcMidpoint(fromPoint, toPoint);
-
-      drawSoftConnection(
-        ctx,
-        fromPoint,
-        toPoint,
-        geometryOpacity,
-        () => {
-          ctx.moveTo(fromPoint.x, fromPoint.y);
-          ctx.quadraticCurveTo(
-            arcMidpoint.controlX,
-            arcMidpoint.controlY,
-            toPoint.x,
-            toPoint.y
-          );
-        },
-        1.5,
-        config.backdropBlur
-      );
-      return;
-    }
-
-    drawBackdropFill(ctx, scene, config);
-
-    if (config.geometryMode !== "center-only") {
-      getBoundaryPointPairs(scene).forEach(([point, nextPoint]) => {
-        drawSoftConnection(
-          ctx,
-          point,
-          nextPoint,
-          geometryOpacity,
-          () => {
-            ctx.moveTo(point.x, point.y);
-            ctx.lineTo(nextPoint.x, nextPoint.y);
-          },
-          1.4,
-          config.backdropBlur
-        );
-      });
-    }
-
-    if (config.geometryMode === "web") {
-      scene.interiorEdges.forEach((edge) => {
-        const fromPoint = scene.points.find(
-          (point) => point.note.noteId === edge.fromNoteId
-        );
-        const toPoint = scene.points.find(
-          (point) => point.note.noteId === edge.toNoteId
-        );
-
-        if (!fromPoint || !toPoint) {
-          return;
-        }
-
-        drawSoftConnection(
-          ctx,
-          fromPoint,
-          toPoint,
-          geometryOpacity * 0.48,
-          () => {
-            ctx.moveTo(fromPoint.x, fromPoint.y);
-            ctx.lineTo(toPoint.x, toPoint.y);
-          },
-          0.9,
-          config.backdropBlur
-        );
-      });
-    }
   };
 
   const drawKnockoutText = (
@@ -581,7 +318,6 @@ export function useHarmonicGeometryRenderer() {
 
     if (
       config.showIntervals &&
-      config.geometryMode !== "center-only" &&
       scene.orderedPoints.length >= 3
     ) {
       scene.auxiliaryLabels.forEach((label) =>
@@ -592,7 +328,6 @@ export function useHarmonicGeometryRenderer() {
 
   return {
     buildScene,
-    renderGeometry,
     renderLabels,
   };
 }

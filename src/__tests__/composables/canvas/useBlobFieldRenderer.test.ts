@@ -3,14 +3,21 @@ import {
   BLOB_FIELD_PIXEL_BUDGET,
   blurFieldChannel,
   createBlobFieldConnectionPlanner,
+  createBlobWebConnectionPlanner,
   getBlobFieldConnections,
   getBlobFieldConnectionGeometry,
   getBlobFieldConnectionWidth,
   getBlobFieldBounds,
   getBlobFieldResolution,
+  getBlobWebConnections,
+  getBlobWebConnectionWidth,
   orderBlobFramesForVisibility,
 } from "@/composables/canvas/useBlobFieldRenderer";
-import type { ActiveBlob, PreparedBlobFrame } from "@/types/canvas";
+import type {
+  ActiveBlob,
+  HarmonicGeometryScene,
+  PreparedBlobFrame,
+} from "@/types/canvas";
 import { MAJOR_SOLFEGE } from "@/data";
 
 function createFrame(
@@ -61,6 +68,38 @@ function createFrameAt(key: string, x: number, y: number) {
   frame.blob.x = x;
   frame.blob.y = y;
   return frame;
+}
+
+function createWebScene(
+  frames: readonly PreparedBlobFrame[],
+  boundaryPairs: Array<[number, number]>,
+  interiorPairs: Array<[number, number]>
+) {
+  const points = frames.map((frame, index) => ({
+    note: { noteId: frame.key },
+    blob: frame.blob,
+    x: frame.blob.x,
+    y: frame.blob.y,
+    angle: index,
+  }));
+  const createEdge = ([fromIndex, toIndex]: [number, number]) => ({
+    fromNoteId: frames[fromIndex].key,
+    toNoteId: frames[toIndex].key,
+    fromIndex,
+    toIndex,
+    interval: `${fromIndex}-${toIndex}`,
+  });
+
+  return {
+    points,
+    orderedPoints: points,
+    centroid: { x: 0, y: 0 },
+    radius: 1,
+    boundaryEdges: boundaryPairs.map(createEdge),
+    interiorEdges: interiorPairs.map(createEdge),
+    primaryLabel: null,
+    auxiliaryLabels: [],
+  } as unknown as HarmonicGeometryScene;
 }
 
 describe("useBlobFieldRenderer", () => {
@@ -154,6 +193,92 @@ describe("useBlobFieldRenderer", () => {
     );
   });
 
+  it("turns the analyzed web into perimeter and interior field connections", () => {
+    const frames = [
+      createFrameAt("first", 80, 80),
+      createFrameAt("second", 320, 80),
+      createFrameAt("third", 320, 320),
+      createFrameAt("fourth", 80, 320),
+    ];
+    const scene = createWebScene(
+      frames,
+      [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 0],
+      ],
+      [
+        [0, 2],
+        [1, 3],
+      ]
+    );
+
+    const connections = getBlobWebConnections(frames, scene);
+
+    expect(connections).toHaveLength(6);
+    expect(
+      connections.filter((connection) => connection.role === "boundary")
+    ).toHaveLength(4);
+    expect(
+      connections.filter((connection) => connection.role === "interior")
+    ).toHaveLength(2);
+  });
+
+  it("keeps web emphasis stable while the same graph drifts", () => {
+    const frames = [
+      createFrameAt("first", 80, 80),
+      createFrameAt("second", 320, 80),
+      createFrameAt("third", 320, 320),
+      createFrameAt("fourth", 80, 320),
+    ];
+    const initialScene = createWebScene(
+      frames,
+      [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 0],
+      ],
+      [
+        [0, 2],
+        [1, 3],
+      ]
+    );
+    const driftedScene = createWebScene(
+      frames,
+      [
+        [0, 2],
+        [1, 2],
+        [2, 3],
+        [1, 3],
+      ],
+      [
+        [0, 1],
+        [0, 3],
+      ]
+    );
+    const planner = createBlobWebConnectionPlanner();
+
+    const initial = planner.getConnections(frames, initialScene);
+    const drifted = planner.getConnections(frames, driftedScene);
+    const roleForPair = (
+      connections: typeof initial,
+      first: string,
+      second: string
+    ) =>
+      connections.find(
+        (connection) =>
+          [connection.from.key, connection.to.key].sort().join("::") ===
+          [first, second].sort().join("::")
+      )?.role;
+
+    expect(roleForPair(initial, "first", "second")).toBe("boundary");
+    expect(roleForPair(drifted, "first", "second")).toBe("boundary");
+    expect(roleForPair(initial, "first", "third")).toBe("interior");
+    expect(roleForPair(drifted, "first", "third")).toBe("interior");
+  });
+
   it("reconnects held bodies before attaching a releasing intermediate", () => {
     const first = createFrameAt("first", 80, 100);
     const intermediate = createFrameAt("intermediate", 300, 100);
@@ -202,6 +327,32 @@ describe("useBlobFieldRenderer", () => {
 
     expect(nearWidth).toBeGreaterThan(farWidth);
     expect(farWidth).toBeGreaterThanOrEqual(16.2);
+  });
+
+  it("keeps distant web filaments continuous with quieter interior weight", () => {
+    const first = createFrameAt("first", 80, 100);
+    const far = createFrameAt("far", 900, 100);
+    const boundary = getBlobWebConnections(
+      [first, far],
+      createWebScene([first, far], [[0, 1]], [])
+    )[0];
+    const interior = { ...boundary, role: "interior" as const };
+
+    const boundaryWidth = getBlobWebConnectionWidth(
+      boundary,
+      10,
+      0.5,
+      0.4
+    );
+    const interiorWidth = getBlobWebConnectionWidth(
+      interior,
+      10,
+      0.5,
+      0.4
+    );
+
+    expect(boundaryWidth).toBeGreaterThan(interiorWidth);
+    expect(interiorWidth).toBeGreaterThanOrEqual(10.2);
   });
 
   it("curves long filaments into smoothly inset, resolution-aware shoulders", () => {

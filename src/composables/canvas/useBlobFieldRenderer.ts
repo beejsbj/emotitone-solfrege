@@ -1,4 +1,7 @@
-import type { PreparedBlobFrame } from "@/types/canvas";
+import type {
+  HarmonicGeometryScene,
+  PreparedBlobFrame,
+} from "@/types/canvas";
 import type {
   HarmonicGeometryConfig,
   HarmonicGeometryMode,
@@ -19,6 +22,7 @@ export interface BlobFieldConnection {
   to: PreparedBlobFrame;
   distance: number;
   gap: number;
+  role: "merge" | "boundary" | "interior";
 }
 
 interface FieldPoint {
@@ -243,7 +247,9 @@ function getConnectionBendDirection(connection: BlobFieldConnection) {
 export function getBlobFieldConnectionGeometry(
   connection: BlobFieldConnection,
   waistWidth: number,
-  fieldScale: number
+  fieldScale: number,
+  shoulderScale = 1.05,
+  bendScale = 1
 ): BlobFieldConnectionGeometry {
   const startAttachment = getContourPointTowards(
     connection.from,
@@ -262,8 +268,8 @@ export function getBlobFieldConnectionGeometry(
   };
   const normal = { x: -direction.y, y: direction.x };
   const shoulderWidths = {
-    from: Math.max(waistWidth, connection.from.scaledRadius * 1.05),
-    to: Math.max(waistWidth, connection.to.scaledRadius * 1.05),
+    from: Math.max(waistWidth, connection.from.scaledRadius * shoulderScale),
+    to: Math.max(waistWidth, connection.to.scaledRadius * shoulderScale),
   };
   const start = {
     x: startAttachment.x - direction.x * connection.from.scaledRadius * 0.22,
@@ -288,7 +294,8 @@ export function getBlobFieldConnectionGeometry(
   const bend =
     Math.min(connection.gap * 0.095, bendLimit) *
     bendActivation *
-    getConnectionBendDirection(connection);
+    getConnectionBendDirection(connection) *
+    bendScale;
   const estimatedLength = Math.hypot(deltaX, deltaY) + Math.abs(bend) * 1.5;
   const segments = Math.max(
     24,
@@ -415,7 +422,8 @@ export function orderBlobFramesForVisibility(
 
 function createConnection(
   parent: PreparedBlobFrame,
-  frame: PreparedBlobFrame
+  frame: PreparedBlobFrame,
+  role: BlobFieldConnection["role"] = "merge"
 ): BlobFieldConnection {
   const distance = Math.hypot(
     frame.blob.x - parent.blob.x,
@@ -427,7 +435,112 @@ function createConnection(
     to: frame,
     distance,
     gap: Math.max(0, distance - parent.scaledRadius - frame.scaledRadius),
+    role,
   };
+}
+
+function getConnectionPairKey(connection: BlobFieldConnection) {
+  return [connection.from.key, connection.to.key].sort().join("::");
+}
+
+/** Resolve the already-analyzed graph into exact prepared blob bodies. */
+export function getBlobWebConnections(
+  frames: readonly PreparedBlobFrame[],
+  scene: HarmonicGeometryScene | null
+): BlobFieldConnection[] {
+  if (!scene || scene.orderedPoints.length < 2) {
+    return [];
+  }
+
+  const frameForPoint = (point: HarmonicGeometryScene["points"][number]) =>
+    frames.find((frame) => frame.blob === point.blob);
+  const connections: BlobFieldConnection[] = [];
+  const connectedPairs = new Set<string>();
+
+  const addConnection = (
+    fromPoint: HarmonicGeometryScene["points"][number] | undefined,
+    toPoint: HarmonicGeometryScene["points"][number] | undefined,
+    role: Extract<BlobFieldConnection["role"], "boundary" | "interior">
+  ) => {
+    if (!fromPoint || !toPoint) return;
+    const from = frameForPoint(fromPoint);
+    const to = frameForPoint(toPoint);
+    if (!from || !to || from === to) return;
+
+    const connection = createConnection(from, to, role);
+    const pairKey = getConnectionPairKey(connection);
+    if (connectedPairs.has(pairKey)) return;
+    connectedPairs.add(pairKey);
+    connections.push(connection);
+  };
+
+  if (scene.orderedPoints.length === 2) {
+    addConnection(scene.orderedPoints[0], scene.orderedPoints[1], "boundary");
+    return connections;
+  }
+
+  const pointForNote = (noteId: string) =>
+    scene.points.find((point) => point.note.noteId === noteId);
+
+  scene.boundaryEdges.forEach((edge) =>
+    addConnection(
+      pointForNote(edge.fromNoteId),
+      pointForNote(edge.toNoteId),
+      "boundary"
+    )
+  );
+  scene.interiorEdges.forEach((edge) =>
+    addConnection(
+      pointForNote(edge.fromNoteId),
+      pointForNote(edge.toNoteId),
+      "interior"
+    )
+  );
+
+  return connections;
+}
+
+/** Keep perimeter/interior emphasis from flickering while the same bodies drift. */
+export function createBlobWebConnectionPlanner() {
+  let membershipSignature = "";
+  const roles = new Map<string, BlobFieldConnection["role"]>();
+
+  const getConnections = (
+    frames: readonly PreparedBlobFrame[],
+    scene: HarmonicGeometryScene | null
+  ) => {
+    const connections = getBlobWebConnections(frames, scene);
+    const nextSignature = [
+      ...new Set(
+        connections.flatMap((connection) => [
+          connection.from.key,
+          connection.to.key,
+        ])
+      ),
+    ]
+      .sort()
+      .join("|");
+
+    if (nextSignature !== membershipSignature) {
+      membershipSignature = nextSignature;
+      roles.clear();
+      connections.forEach((connection) =>
+        roles.set(getConnectionPairKey(connection), connection.role)
+      );
+    }
+
+    return connections.map((connection) => ({
+      ...connection,
+      role: roles.get(getConnectionPairKey(connection)) ?? connection.role,
+    }));
+  };
+
+  const clear = () => {
+    membershipSignature = "";
+    roles.clear();
+  };
+
+  return { getConnections, clear };
 }
 
 function findNearestFrame(
@@ -537,6 +650,34 @@ export function getBlobFieldConnectionWidth(
   return Math.max(continuityFloor, organicWidth);
 }
 
+export function getBlobWebConnectionWidth(
+  connection: BlobFieldConnection,
+  blur: number,
+  fieldScale: number,
+  fusionStrength: number
+) {
+  const smallerRadius = Math.min(
+    connection.from.scaledRadius,
+    connection.to.scaledRadius
+  );
+  const isBoundary = connection.role === "boundary";
+  const falloffDistance = Math.max(160, smallerRadius * 6);
+  const distanceFalloff = 1 / (1 + connection.gap / falloffDistance);
+  const organicWidth =
+    smallerRadius *
+    (isBoundary ? 0.24 : 0.15) *
+    (0.72 + fusionStrength * 0.28) *
+    distanceFalloff;
+
+  // Web filaments are materially thinner than Merge but still occupy enough
+  // field pixels to survive the shared blur/threshold pass at long distances.
+  const continuityFloor = Math.max(
+    blur * (isBoundary ? 1.18 : 1.02),
+    (isBoundary ? 3.2 : 2.8) / fieldScale
+  );
+  return Math.max(continuityFloor, organicWidth);
+}
+
 export function getBlobFieldResolution(bounds: FieldBounds) {
   const area = bounds.width * bounds.height;
   const scale = Math.min(
@@ -555,6 +696,7 @@ export function useBlobFieldRenderer() {
   let surfaces: FieldSurfaces | null = null;
   let buffers: FieldBuffers | null = null;
   const connectionPlanner = createBlobFieldConnectionPlanner();
+  const webConnectionPlanner = createBlobWebConnectionPlanner();
 
   const getSurfaces = (width: number, height: number) => {
     if (!surfaces) {
@@ -605,17 +747,24 @@ export function useBlobFieldRenderer() {
   const renderBlobField = (
     target: CanvasRenderingContext2D,
     frames: readonly PreparedBlobFrame[],
-    mode: Extract<HarmonicGeometryMode, "outline" | "merge">,
-    config: HarmonicGeometryConfig
+    mode: HarmonicGeometryMode,
+    config: HarmonicGeometryConfig,
+    scene: HarmonicGeometryScene | null = null
   ) => {
     if (frames.length === 0 || config.glassmorphOpacity <= 0) {
       return false;
     }
 
-    const blur = Math.max(
-      6,
-      config.backdropBlur * (0.82 + config.glassmorphOpacity * 0.72)
-    );
+    const blur =
+      mode === "web"
+        ? Math.max(
+            5,
+            config.backdropBlur * (0.65 + config.glassmorphOpacity * 0.4)
+          )
+        : Math.max(
+            6,
+            config.backdropBlur * (0.82 + config.glassmorphOpacity * 0.72)
+          );
     const bounds = getBlobFieldBounds(
       frames,
       target.canvas.width,
@@ -628,21 +777,36 @@ export function useBlobFieldRenderer() {
 
     const { scale, width, height } = getBlobFieldResolution(bounds);
     const connections =
-      mode === "merge" ? connectionPlanner.getConnections(frames) : [];
+      mode === "merge"
+        ? connectionPlanner.getConnections(frames)
+        : webConnectionPlanner.getConnections(frames, scene);
+    if (mode === "web" && connections.length === 0) {
+      return false;
+    }
     const connectionLayers = connections.map((connection) => {
-      const connectionWidth = getBlobFieldConnectionWidth(
-        connection,
-        blur,
-        scale,
-        config.glassmorphOpacity
-      );
+      const isMerge = connection.role === "merge";
+      const connectionWidth = isMerge
+        ? getBlobFieldConnectionWidth(
+            connection,
+            blur,
+            scale,
+            config.glassmorphOpacity
+          )
+        : getBlobWebConnectionWidth(
+            connection,
+            blur,
+            scale,
+            config.glassmorphOpacity
+          );
 
       return {
         connection,
         geometry: getBlobFieldConnectionGeometry(
           connection,
           connectionWidth,
-          scale
+          scale,
+          isMerge ? 1.05 : connection.role === "boundary" ? 0.46 : 0.34,
+          isMerge ? 1 : connection.role === "boundary" ? 0.46 : 0.3
         ),
       };
     });
@@ -695,10 +859,16 @@ export function useBlobFieldRenderer() {
     });
 
     connectionLayers.forEach(({ connection, geometry }) => {
-      const opacity = Math.min(
+      const bodyOpacity = Math.min(
         Math.max(0, Math.min(1, connection.from.opacity)),
         Math.max(0, Math.min(1, connection.to.opacity))
       );
+      const opacity =
+        connection.role === "merge"
+          ? bodyOpacity
+          : bodyOpacity *
+            config.opacity *
+            (connection.role === "boundary" ? 0.92 : 0.46);
       const start = geometry.centerline[0];
       const end = geometry.centerline[geometry.centerline.length - 1] ?? start;
       const gradient = sourceContext.createLinearGradient(
@@ -729,10 +899,15 @@ export function useBlobFieldRenderer() {
         },
       })),
       ...connectionLayers.map(({ connection, geometry }) => ({
-        opacity: Math.min(
-          Math.max(0, Math.min(1, connection.from.opacity)),
-          Math.max(0, Math.min(1, connection.to.opacity))
-        ),
+        opacity:
+          Math.min(
+            Math.max(0, Math.min(1, connection.from.opacity)),
+            Math.max(0, Math.min(1, connection.to.opacity))
+          ) *
+          (connection.role === "merge"
+            ? 1
+            : config.opacity *
+              (connection.role === "boundary" ? 0.92 : 0.46)),
         paint: () => {
           traceConnection(visibilityContext, geometry);
           visibilityContext.fill();
@@ -799,7 +974,10 @@ export function useBlobFieldRenderer() {
       )
     );
 
-    const threshold = 0.54 - config.glassmorphOpacity * 0.24;
+    const threshold =
+      mode === "web"
+        ? 0.48 - config.glassmorphOpacity * 0.28
+        : 0.54 - config.glassmorphOpacity * 0.24;
     const output = frameBuffers.output;
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
@@ -818,19 +996,7 @@ export function useBlobFieldRenderer() {
       const normalizedGreen = green[pixel] / colorWeight;
       const normalizedBlue = blue[pixel] / colorWeight;
 
-      let finalAlpha = coverage * localOpacity;
-      if (mode === "outline") {
-        const innerCoverage = smoothstep(
-          threshold + 0.13,
-          threshold + 0.23,
-          fieldAlpha
-        );
-        const perimeter = Math.max(0, coverage - innerCoverage);
-        finalAlpha = Math.max(
-          coverage * localOpacity * 0.34,
-          perimeter * localOpacity * config.glassmorphOpacity
-        );
-      }
+      const finalAlpha = coverage * localOpacity;
 
       output.data[offset] = Math.round(
         Math.max(0, Math.min(1, normalizedRed)) * 255
@@ -870,6 +1036,7 @@ export function useBlobFieldRenderer() {
     surfaces = null;
     buffers = null;
     connectionPlanner.clear();
+    webConnectionPlanner.clear();
   };
 
   return {

@@ -27,7 +27,7 @@ const baseConfig: HarmonicGeometryConfig = {
   showChord: true,
   showIntervals: true,
   showEmotionalDescription: true,
-  geometryMode: "outline",
+    geometryMode: "merge",
   backdropBlur: 1,
   glassmorphOpacity: 0.4,
   opacity: 0.5,
@@ -272,56 +272,7 @@ describe("useHarmonicGeometryRenderer", () => {
     );
   });
 
-  it("does not paint an overlay for blob-field merge mode", () => {
-    const notes = [createNote("c4", "C4"), createNote("e4", "E4")];
-    const blobs = new Map<string, ActiveBlob>([
-      [notes[0].noteId, createBlob(notes[0], 100, 100)],
-      [notes[1].noteId, createBlob(notes[1], 300, 100)],
-    ]);
-    const renderer = useHarmonicGeometryRenderer();
-    const config = { ...baseConfig, geometryMode: "merge" as const };
-    const scene = renderer.buildScene(
-      createSnapshot(notes),
-      blobs,
-      config,
-      400,
-      400
-    );
-    const context = mockCanvasContext as unknown as CanvasRenderingContext2D;
-
-    renderer.renderGeometry(context, scene, config);
-
-    expect(mockCanvasContext.bezierCurveTo).not.toHaveBeenCalled();
-    expect(mockCanvasContext.fill).not.toHaveBeenCalled();
-    expect(mockCanvasContext.stroke).not.toHaveBeenCalled();
-  });
-
-  it("does not paint an overlay for blob-field outline mode", () => {
-    const notes = [createNote("c4", "C4"), createNote("e4", "E4")];
-    const firstBlob = createBlob(notes[0], 100, 100);
-    const secondBlob = createBlob(notes[1], 300, 100);
-    const blobs = new Map<string, ActiveBlob>([
-      [notes[0].noteId, firstBlob],
-      [notes[1].noteId, secondBlob],
-    ]);
-    const renderer = useHarmonicGeometryRenderer();
-    const config = { ...baseConfig, geometryMode: "outline" as const };
-    const scene = renderer.buildScene(
-      createSnapshot(notes),
-      blobs,
-      config,
-      400,
-      400
-    );
-    const context = mockCanvasContext as unknown as CanvasRenderingContext2D;
-
-    renderer.renderGeometry(context, scene, config);
-
-    expect(mockCanvasContext.fill).not.toHaveBeenCalled();
-    expect(mockCanvasContext.stroke).not.toHaveBeenCalled();
-  });
-
-  it("honors zero opacity for geometry and labels", () => {
+  it("honors zero opacity for labels", () => {
     const notes = [createNote("c4", "C4"), createNote("e4", "E4")];
     const blobs = new Map<string, ActiveBlob>([
       [notes[0].noteId, createBlob(notes[0], 100, 100)],
@@ -338,11 +289,8 @@ describe("useHarmonicGeometryRenderer", () => {
     );
     const context = mockCanvasContext as unknown as CanvasRenderingContext2D;
 
-    renderer.renderGeometry(context, scene, config);
     renderer.renderLabels(context, scene, config);
 
-    expect(mockCanvasContext.stroke).not.toHaveBeenCalled();
-    expect(mockCanvasContext.fill).not.toHaveBeenCalled();
     expect(mockCanvasContext.fillText).not.toHaveBeenCalled();
     expect(mockCanvasContext.strokeText).not.toHaveBeenCalled();
   });

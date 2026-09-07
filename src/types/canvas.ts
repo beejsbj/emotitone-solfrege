@@ -78,8 +78,6 @@ export interface HarmonicGeometryPoint {
   blob: ActiveBlob;
   x: number;
   y: number;
-  primaryColor: string;
-  accentColor: string;
   angle: number;
 }
 

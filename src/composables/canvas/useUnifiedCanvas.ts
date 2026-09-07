@@ -287,29 +287,18 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
           canvasHeight.value
         )
       : null;
-    const fieldMode =
-      cachedConfigs.harmonic.geometryMode === "merge" ||
-      cachedConfigs.harmonic.geometryMode === "outline"
-        ? cachedConfigs.harmonic.geometryMode
-        : null;
+    const fieldMode = cachedConfigs.harmonic.geometryMode;
     const renderedBlobField =
       cachedConfigs.blob.isEnabled &&
       cachedConfigs.harmonic.isEnabled &&
-      fieldMode !== null &&
+      (fieldMode === "merge" || harmonicScene !== null) &&
       blobFieldRenderer.renderBlobField(
         ctx,
         blobRenderer.getPreparedBlobFrames(),
         fieldMode,
-        cachedConfigs.harmonic
+        cachedConfigs.harmonic,
+        harmonicScene
       );
-
-    if (!renderedBlobField) {
-      harmonicGeometryRenderer.renderGeometry(
-        ctx,
-        harmonicScene,
-        cachedConfigs.harmonic
-      );
-    }
 
     if (cachedConfigs.blob.isEnabled && !renderedBlobField) {
       blobRenderer.renderBlobs(

@@ -279,6 +279,18 @@ function handleTakeSelection(event: Event) {
   transform: translateX(-50%);
 }
 
+.humming-capture-transport .humming-capture-transport__primary {
+  --button-size: 28px;
+  inline-size: 28px;
+  block-size: 28px;
+}
+
+.humming-capture-transport .humming-capture-transport__cancel {
+  --button-size: 22.4px;
+  inline-size: 22.4px;
+  block-size: 22.4px;
+}
+
 .humming-capture-transport__cancel-slot {
   position: absolute;
   top: 50%;

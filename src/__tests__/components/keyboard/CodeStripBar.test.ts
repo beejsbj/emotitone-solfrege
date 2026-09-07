@@ -48,6 +48,12 @@ describe("CodeStripBar.vue", () => {
     expect(codeStripBarSource).toMatch(
       /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*top:[^}]*left:\s*50%;/,
     );
+    expect(codeStripBarSource).toMatch(
+      /\.humming-capture-transport \.humming-capture-transport__primary\s*{[^}]*--button-size:\s*28px;/,
+    );
+    expect(codeStripBarSource).toMatch(
+      /\.humming-capture-transport \.humming-capture-transport__cancel\s*{[^}]*--button-size:\s*22\.4px;/,
+    );
     expect(wrapper.get('[role="status"]').text()).toBe(
       "Ready to capture a hummed pattern",
     );

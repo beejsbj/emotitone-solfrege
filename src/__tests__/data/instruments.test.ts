@@ -40,6 +40,29 @@ describe("instrumentCatalog", () => {
     });
   });
 
+  it("classifies a representative registered ID from every category", () => {
+    const expectedCategories = {
+      piano: "keyboards",
+      gm_vibraphone: "mallets",
+      gm_violin: "strings",
+      organ: "organs",
+      gm_bassoon: "winds",
+      triangle: "synths",
+      gm_taiko_drum: "drums",
+      gm_trumpet: "gm",
+      custom_sample: "other",
+    } as const;
+
+    expect(
+      Object.fromEntries(
+        Object.keys(expectedCategories).map((instrumentId) => [
+          instrumentId,
+          instrumentCatalog.describe(instrumentId).category,
+        ])
+      )
+    ).toEqual(expectedCategories);
+  });
+
   it("returns optional icon identity only for names with an existing icon rule", () => {
     expect(instrumentCatalog.describe("gm_epiano1").icon).toBe("piano");
     expect(instrumentCatalog.describe("gm_taiko_drum").icon).toBe("drum");

@@ -1,104 +1,123 @@
 <template>
   <main class="workbench">
     <header class="workbench__header">
-      <p class="workbench__eyebrow">Definition workbench · current real sources</p>
-      <h1>Card</h1>
+      <p class="workbench__eyebrow">Definition workbench · one shared candidate</p>
+      <h1>Card.vue</h1>
       <p>
-        Is Card an editorial content template, or the reusable structural surface that
-        lets Pattern Card own its own anatomy?
+        The selected first CardShell is the soul. Spine Card and Pattern Card below
+        render through the same workbench-only shell before production formalization.
       </p>
     </header>
 
     <section class="workbench__section">
-      <SectionHead index="01" title="Selected CardShell" note="The one current iteration worth preserving" />
-      <div class="single-card">
-        <CardShell
-          label="01 — Stage / Ivory"
-          title="A dark room. Ivory type."
-          body="Required title, optional label, body, and decorative mark."
-        >
-          <template #mark><span class="ordinal">01</span></template>
-        </CardShell>
-        <p>
-          Compact, borderless, and light-inversion experiments are rejected rather
-          than promoted as Card variants.
+      <SectionHead index="01" title="Card soul" note="Selected recipe · Ivory spine folded in" />
+      <CardCandidate class="soul-card">
+        <template #label>01 — Stage / Ivory</template>
+        <template #mark><span class="ordinal">01</span></template>
+        <h3 class="editorial-title">A dark room. Ivory type.</h3>
+        <p class="editorial-body">
+          Ink-3 fill, Ink-5 hairline, square slab, floating label, optional mark,
+          and a 4px full-height Ivory spine.
         </p>
-      </div>
-    </section>
-
-    <section class="workbench__section">
-      <SectionHead index="02" title="Recommended soul" note="Same Card grammar · flexible content" />
-      <div class="soul-grid">
-        <article class="card-study">
-          <span class="card-study__label">01 — Stage / Ivory</span>
-          <span class="card-study__mark">01</span>
-          <div class="card-study__content">
-            <h3>A dark room. Ivory type.</h3>
-            <p>The selected editorial anatomy, now grounded by a full-height Ink spine.</p>
-          </div>
-        </article>
-        <article class="card-study card-study--pattern">
-          <div class="pattern-study__row">
-            <span class="pattern-study__num">01</span>
-            <span>
-              <strong>Twinkle fragment</strong>
-              <small>C major · arbitrary consumer anatomy</small>
-            </span>
-            <small>14 notes</small>
-          </div>
-          <BarTape :segments="timeline" />
-        </article>
-      </div>
+      </CardCandidate>
       <p class="definition-note">
-        Card owns the Ink-3 fill, Ink-5 hairline, square slab, 4px Ink spine,
-        positioning, and optional floating-label/top-right-mark anchors. Consumers
-        supply the content and own internal layout, controls, state, and motion.
+        Card owns this shell and its optional anchors. It does not own a fixed
+        height, title/body requirement, controls, state, or motion.
       </p>
     </section>
 
     <section class="workbench__section">
-      <SectionHead index="03" title="Pattern Card surfaces" note="Neither source consumes CardShell" />
-      <div class="surface-stack">
-        <div class="surface-label">Guide source · sleek</div>
-        <GuidePatternCard
-          num="01"
-          name="Twinkle fragment"
-          sub="C major · pattern identity"
-          when="14 notes"
-          :bar-tape="timeline"
-        />
-        <div class="surface-label">Guide source · active</div>
-        <GuidePatternCard
-          shape="active"
-          num="01"
-          name="Twinkle fragment"
-          sub="C major · selected pattern"
-          footer-text="1 of 4"
-          status-text="active"
-          :show-actions="false"
-        />
-        <div class="surface-label">Production source · interactive track</div>
-        <ProductionPatternCard :pattern="productionPattern" />
+      <SectionHead index="02" title="Spine Card" note="Card variant · brand changes the spine" />
+      <div class="spine-grid">
+        <CardCandidate
+          v-for="card in spineCards"
+          :key="card.tone"
+          class="spine-variant"
+          :spine="`var(--${card.tone})`"
+        >
+          <Kicker :tone="card.tone">{{ card.kicker }}</Kicker>
+          <h3 class="spine-variant__title">{{ card.title }}</h3>
+          <p class="spine-variant__body">{{ card.body }}</p>
+        </CardCandidate>
       </div>
+      <p class="definition-note">
+        The variant adds Brand Color and its Kicker/stamp content recipe. Surface,
+        edge, square geometry, and spine channel still come from Card.
+      </p>
     </section>
 
     <section class="workbench__section">
-      <SectionHead index="04" title="Adjacent card family" note="Spine Card already owns branded editorial anatomy" />
-      <div class="adjacent-grid">
-        <SpineCard
-          kicker="Preset"
-          stamp="Warm-up"
-          body="Brand-colored spine, Kicker, stamped headline, and body are a separate accepted family."
-        />
-        <div class="boundary-note">
-          <strong>Boundary question</strong>
-          <p>
-            If generic Card keeps its own title/body/mark grammar, it overlaps Spine Card
-            while still failing to host Pattern Card. A structural Card could instead own
-            only the neutral surface, containment, and optional interaction state.
-          </p>
-        </div>
+      <SectionHead index="03" title="Pattern Card" note="Card variant · Ivory spine + Bar Tape" />
+      <div class="pattern-stack">
+        <p class="surface-label">List density</p>
+        <CardCandidate class="pattern-candidate" flush>
+          <div class="pattern-row">
+            <span class="pattern-number">01</span>
+            <span class="pattern-copy">
+              <strong>{{ productionPattern.name }}</strong>
+              <small>Piano · C major</small>
+            </span>
+            <small class="pattern-count">14 notes</small>
+          </div>
+          <template #footer><BarTape :segments="timeline" /></template>
+        </CardCandidate>
+
+        <p class="surface-label">Focused density</p>
+        <CardCandidate class="pattern-candidate pattern-candidate--focused">
+          <template #label>Pattern 01 — Piano / C Major</template>
+          <template #mark><span class="ordinal ordinal--pattern">01</span></template>
+          <h3 class="pattern-focus__title">{{ productionPattern.name }}</h3>
+          <p class="pattern-focus__meta">14 events · duration weighted</p>
+          <div class="pattern-focus__state">
+            <span>1 of 4</span>
+            <span>Actions remain Pattern Card-owned</span>
+          </div>
+          <template #footer><BarTape :segments="timeline" /></template>
+        </CardCandidate>
       </div>
+      <p class="definition-note">
+        Pattern Card supplies density, identity, actions, selection, and list
+        behavior. It inherits the Ivory spine; the musical sequence speaks through
+        Bar Tape instead of a second accent color.
+      </p>
+    </section>
+
+    <section class="workbench__section">
+      <details class="reference">
+        <summary>Current sources used for comparison</summary>
+        <div class="reference__grid">
+          <div>
+            <p class="surface-label">Extracted CardShell</p>
+            <CardShell
+              label="01 — Stage / Ivory"
+              title="A dark room. Ivory type."
+              body="The selected source recipe before the Ivory spine."
+            >
+              <template #mark><span class="ordinal">01</span></template>
+            </CardShell>
+          </div>
+          <div>
+            <p class="surface-label">Existing separate SpineCard</p>
+            <SpineCard
+              kicker="Preset"
+              stamp="Warm-up"
+              body="Currently duplicates its own surface, edge, and spine shell."
+            />
+          </div>
+        </div>
+        <div class="reference__patterns">
+          <p class="surface-label">Existing guide PatternCard</p>
+          <GuidePatternCard
+            num="01"
+            name="Twinkle fragment"
+            sub="C major · current guide"
+            when="14 notes"
+            :bar-tape="timeline"
+          />
+          <p class="surface-label">Existing production PatternCard</p>
+          <ProductionPatternCard :pattern="productionPattern" />
+        </div>
+      </details>
     </section>
   </main>
 </template>
@@ -107,12 +126,15 @@
 import { defineComponent, h } from "vue";
 import BarTape from "../../components/primatives/BarTape.vue";
 import CardShell from "../../components/primatives/CardShell.vue";
+import Kicker from "../../components/primatives/Kicker.vue";
 import SpineCard from "../../components/primatives/SpineCard.vue";
 import GuidePatternCard from "../../components/compounds/PatternCard.vue";
 import ProductionPatternCard from "../../components/patterns/PatternCard.vue";
 import { useColorSystem } from "../../composables/useColorSystem";
 import { defaultPatterns } from "../../data/patterns";
+import CardCandidate from "./CardCandidate.vue";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
+import type { SpineCardTone } from "../../components/primatives/SpineCard.vue";
 
 const SectionHead = defineComponent({
   props: { index: String, title: String, note: String },
@@ -136,6 +158,17 @@ const timeline: BarTapeSegment[] = productionPattern.notes.map((note) => ({
   ),
   durationMs: note.duration,
 }));
+
+const spineCards: Array<{
+  tone: SpineCardTone;
+  kicker: string;
+  title: string;
+  body: string;
+}> = [
+  { tone: "tomato", kicker: "Preset", title: "Warm-up", body: "A bright entry into the exercise." },
+  { tone: "pine", kicker: "Live", title: "Listening", body: "Quiet status on the same underlying Card." },
+  { tone: "mustard", kicker: "Lesson", title: "Call & response", body: "Brand changes the edition, not the shell." },
+];
 </script>
 
 <style scoped>
@@ -190,11 +223,7 @@ const timeline: BarTapeSegment[] = productionPattern.notes.map((note) => ({
   line-height: 1.6;
 }
 
-.workbench__section {
-  padding: 28px 0 34px;
-  border-top: 1px solid var(--hairline);
-}
-
+.workbench__section { padding: 28px 0 34px; border-top: 1px solid var(--hairline); }
 .section-head {
   display: flex;
   align-items: end;
@@ -202,96 +231,77 @@ const timeline: BarTapeSegment[] = productionPattern.notes.map((note) => ({
   gap: 20px;
   margin-bottom: 20px;
 }
-
-.section-head h2 {
-  margin-top: 4px;
-  font-size: clamp(20px, 4vw, 30px);
-}
-
+.section-head h2 { margin-top: 4px; font-size: clamp(20px, 4vw, 30px); }
 .section-head > p { max-width: 280px; text-align: right; }
-.single-card { display: grid; grid-template-columns: minmax(240px, 1fr) 1fr; gap: 18px; align-items: center; }
-.single-card > p,
-.definition-note { margin: 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
-.soul-grid { display: grid; grid-template-columns: 1fr 1.35fr; gap: 14px; align-items: stretch; }
-.card-study {
-  position: relative;
-  box-sizing: border-box;
-  min-height: 190px;
-  background: var(--ink-3);
-  border: 1px solid var(--ink-5);
-  color: var(--ivory);
-}
-.card-study::before {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--ink);
-  content: "";
-}
-.card-study__label {
-  position: absolute;
-  top: -10px;
-  left: 18px;
-  padding: 0 4px;
-  background: var(--ink-3);
-  color: var(--ivory-3);
-  font: var(--t-caption);
-  letter-spacing: .22em;
-  text-transform: uppercase;
-}
-.card-study__mark {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  color: var(--ivory-4);
-  font: 400 52px/1 var(--font-display);
-}
-.card-study__content { padding: 20px 18px 22px 22px; }
-.card-study__content h3 {
-  max-width: 14ch;
-  margin: 0 0 10px;
-  font: 400 19px/1.12 var(--font-display);
+
+.soul-card { min-height: 190px; }
+.ordinal { font: 400 52px/1 var(--font-display); letter-spacing: var(--tracking-display); }
+.editorial-title,
+.spine-variant__title,
+.pattern-focus__title {
+  margin: 0;
+  font-family: var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
-.card-study__content p { max-width: 28ch; margin: 0; color: var(--ivory-3); font: var(--t-body-s); }
-.card-study--pattern { display: flex; min-height: 72px; flex-direction: column; justify-content: space-between; }
-.pattern-study__row {
+.editorial-title { max-width: 14ch; margin-bottom: 10px; padding-right: 64px; font-size: 19px; line-height: 1.12; }
+.editorial-body { max-width: 28ch; margin: 0; color: var(--ivory-3); font: var(--t-body-s); }
+.definition-note { margin: 14px 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
+
+.spine-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.spine-variant { min-height: 168px; }
+.spine-variant :deep(.card-candidate__content) { display: flex; flex-direction: column; gap: 10px; }
+.spine-variant__title { font-size: 28px; line-height: .9; }
+.spine-variant__body { margin: auto 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
+
+.pattern-stack { display: grid; gap: 12px; }
+.surface-label { margin-top: 8px; }
+.pattern-row {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 14px 14px 14px 20px;
+  min-height: 50px;
+  padding: 0 14px 0 20px;
 }
-.pattern-study__num { color: var(--ivory-4); font: var(--t-display-m); }
-.pattern-study__row strong,
-.pattern-study__row small { display: block; text-transform: uppercase; }
-.pattern-study__row strong { overflow: hidden; font: var(--t-h2); text-overflow: ellipsis; white-space: nowrap; }
-.pattern-study__row small { color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; }
-.definition-note { margin-top: 14px; }
-.ordinal { font: 400 52px/1 var(--font-display); }
-.surface-stack { display: grid; gap: 12px; }
-.surface-label { margin-top: 8px; }
-.adjacent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.boundary-note {
-  box-sizing: border-box;
-  min-height: 168px;
-  padding: 18px;
-  background: var(--ink-2);
-  border: 1px dashed var(--ink-5);
-}
-.boundary-note strong {
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
+.pattern-number { color: var(--ivory-4); font: var(--t-display-m); text-align: center; }
+.pattern-copy { min-width: 0; }
+.pattern-copy strong,
+.pattern-copy small,
+.pattern-count { display: block; text-transform: uppercase; }
+.pattern-copy strong { overflow: hidden; font: var(--t-h2); text-overflow: ellipsis; white-space: nowrap; }
+.pattern-copy small,
+.pattern-count { color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; }
+.pattern-candidate--focused { margin-top: 8px; }
+.ordinal--pattern { font-size: 48px; }
+.pattern-focus__title { max-width: calc(100% - 72px); font: var(--t-display-m); }
+.pattern-focus__meta { margin: 4px 0 22px; color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; text-transform: uppercase; }
+.pattern-focus__state {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  color: var(--ivory-3);
+  font: var(--t-caption);
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
-.boundary-note p { margin: 14px 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
+
+.reference { color: var(--ivory-3); }
+.reference summary { cursor: pointer; font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.reference__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
+.reference__grid > div,
+.reference__patterns { display: grid; gap: 12px; }
+.reference__patterns { margin-top: 20px; }
 
 @media (max-width: 640px) {
   .section-head { align-items: start; flex-direction: column; }
   .section-head > p { text-align: left; }
-  .single-card,
-  .soul-grid,
-  .adjacent-grid { grid-template-columns: 1fr; }
+  .spine-grid,
+  .reference__grid { grid-template-columns: 1fr; }
+  .pattern-row { grid-template-columns: 42px minmax(0, 1fr) auto; gap: 8px; padding-right: 10px; padding-left: 12px; }
+  .pattern-count { max-width: 6ch; text-align: right; }
+  .pattern-focus__state { align-items: start; flex-direction: column; }
 }
 </style>

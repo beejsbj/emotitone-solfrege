@@ -70,6 +70,20 @@ describe("Joystick", () => {
     expect(wrapper.emitted("effectiveChange")?.at(-1)).toEqual(["sweet"]);
   });
 
+  it("does not suppress keyboard activation after a pointer override is canceled", async () => {
+    const addEventListener = vi.spyOn(window, "addEventListener");
+    const wrapper = mount(Joystick, { props: { modelValue: "sweet" } });
+    const buttons = wrapper.findAll("button");
+    await buttons[1].trigger("pointerdown", { pointerId: 5, button: 0 });
+
+    const blurListener = addEventListener.mock.calls.find(([type]) => type === "blur")
+      ?.[1] as EventListener;
+    blurListener(new Event("blur"));
+    await buttons[5].trigger("click", { detail: 0 });
+
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["jazzy7"]);
+  });
+
   it("moves focus spatially with arrows and latches through keyboard click", async () => {
     const wrapper = mount(Joystick, {
       props: { modelValue: "auto" },

@@ -157,7 +157,6 @@ function finishPointer(event: PointerEvent, value: HarmonyAlteration) {
 
 function cancelActivePointer() {
   if (activePointerId.value === null) return;
-  suppressNextClick = true;
   resetPointer(true);
 }
 

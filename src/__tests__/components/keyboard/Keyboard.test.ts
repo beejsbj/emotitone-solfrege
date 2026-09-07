@@ -49,8 +49,6 @@ const mocks = vi.hoisted(() => {
     keyboardStore,
     musicStore,
     useKeyboardControls: vi.fn(),
-    attackNoteWithOctave: vi.fn(async () => undefined),
-    releaseNoteByButtonKey: vi.fn(),
     triggerNoteHaptic: vi.fn(),
   };
 });
@@ -65,13 +63,6 @@ vi.mock("@/stores/music", () => ({
 
 vi.mock("@/composables/useKeyboardControls", () => ({
   useKeyboardControls: mocks.useKeyboardControls,
-}));
-
-vi.mock("@/composables/useSolfegeInteraction", () => ({
-  useSolfegeInteraction: () => ({
-    attackNoteWithOctave: mocks.attackNoteWithOctave,
-    releaseNoteByButtonKey: mocks.releaseNoteByButtonKey,
-  }),
 }));
 
 vi.mock("@/utils/hapticFeedback", () => ({

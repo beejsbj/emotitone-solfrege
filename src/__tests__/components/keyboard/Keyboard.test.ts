@@ -41,10 +41,14 @@ const mocks = vi.hoisted(() => {
     ),
     getActiveNotes: vi.fn(() => [{ solfegeIndex: 0, octave: 3 }]),
   };
+  const instrumentStore = {
+    isInteractionLocked: false,
+  };
 
   return {
     keyboardStore,
     musicStore,
+    instrumentStore,
     useKeyboardControls: vi.fn(),
     attackNoteWithOctave: vi.fn(async () => undefined),
     releaseNoteByButtonKey: vi.fn(),
@@ -58,6 +62,10 @@ vi.mock("@/stores/keyboardDrawer", () => ({
 
 vi.mock("@/stores/music", () => ({
   useMusicStore: () => mocks.musicStore,
+}));
+
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => mocks.instrumentStore,
 }));
 
 vi.mock("@/composables/useKeyboardControls", () => ({
@@ -152,6 +160,7 @@ describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
+    mocks.instrumentStore.isInteractionLocked = false;
   });
 
   it("builds configured octave rows from the accepted Key contract", () => {
@@ -244,6 +253,24 @@ describe("Keyboard production usage", () => {
 
     expect(mocks.keyboardStore.removeTouch).toHaveBeenCalledWith("mouse:0_4");
     expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledWith("0_4", event);
+  });
+
+  it("disables keys and ignores presses while instrument samples are warming", async () => {
+    mocks.instrumentStore.isInteractionLocked = true;
+    const wrapper = mountKeyboard();
+    const key = wrapper.findAllComponents(KeyStub)[2];
+
+    expect(wrapper.get('[role="group"]').attributes("aria-busy")).toBe("true");
+    expect(key.attributes("disabled")).toBeDefined();
+
+    key.vm.$emit("press", {
+      inputId: "mouse",
+      event: new MouseEvent("mousedown"),
+    });
+    await nextTick();
+
+    expect(mocks.keyboardStore.addTouch).not.toHaveBeenCalled();
+    expect(mocks.attackNoteWithOctave).not.toHaveBeenCalled();
   });
 
   it("installs one global QWERTY route and clears held pointers on teardown", () => {

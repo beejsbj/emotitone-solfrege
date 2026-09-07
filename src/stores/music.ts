@@ -265,6 +265,10 @@ export const useMusicStore = defineStore(
       input: number | ChromaticNoteWithOctave,
       octave: number = 4
     ): Promise<string | null> {
+      if (instrumentStore.isInteractionLocked) {
+        return null;
+      }
+
       let solfegeIndex: number;
       let finalOctave: number;
 
@@ -296,6 +300,7 @@ export const useMusicStore = defineStore(
           Date.now(),
           Math.random().toString(36).slice(2, 8),
         ].join("_");
+        const instrumentSelectionEpoch = instrumentStore.selectionEpoch;
 
         // Fire-and-forget via superdough — it manages its own voice lifecycle
         await superdoughAudio.attackNote(
@@ -303,6 +308,16 @@ export const useMusicStore = defineStore(
           noteName,
           instrumentStore.currentInstrument
         );
+
+        // A selection can begin warming while the asynchronous audio attack is
+        // still starting. Never publish that stale voice into app state.
+        if (
+          instrumentStore.isInteractionLocked ||
+          instrumentStore.selectionEpoch !== instrumentSelectionEpoch
+        ) {
+          superdoughAudio.releaseNote(cleanNoteId);
+          return null;
+        }
 
         const noteId: string = cleanNoteId;
 

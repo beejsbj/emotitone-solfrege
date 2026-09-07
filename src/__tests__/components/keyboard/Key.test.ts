@@ -298,11 +298,25 @@ describe("Key", () => {
     expect((releases[0][0] as { event: Event }).event.type).toBe("unmount");
   });
 
+  it("releases active input when it becomes disabled", async () => {
+    const wrapper = mount(Key);
+    await wrapper.get("button").trigger("mousedown", { button: 0 });
+
+    await wrapper.setProps({ disabled: true });
+
+    expect(wrapper.get("button").attributes("disabled")).toBeDefined();
+    expect(eventIds(wrapper, "release")).toEqual(["mouse"]);
+    expect(
+      (wrapper.emitted("release")?.[0]?.[0] as { event: Event }).event.type,
+    ).toBe("disabled");
+    expect(wrapper.classes()).not.toContain("key--pressed");
+  });
+
   it("keeps interaction local and encodes the target, focus, pointer, and motion contracts", () => {
     expect(keySource).not.toMatch(
       /@\/stores|audio|haptic|midi|qwerty|addEventListener\(["']key/i,
     );
-    expect(keySource).not.toContain("disabled");
+    expect(keySource).toContain(':disabled="disabled"');
     expect(keySource).toMatch(/min-width:\s*44px/);
     expect(keySource).toMatch(/min-height:\s*44px/);
     expect(keySource).toContain("touch-action: manipulation");

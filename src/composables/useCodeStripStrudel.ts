@@ -1,4 +1,5 @@
 import { computed, readonly, ref } from "vue";
+import { useInstrumentStore } from "@/stores/instrument";
 
 export interface CodeStripStrudelController {
   getCode: () => string;
@@ -19,6 +20,8 @@ function hasPlayableContent(code: string): boolean {
 }
 
 export function useCodeStripStrudel() {
+  const instrumentStore = useInstrumentStore();
+
   function attachEditor(nextController: CodeStripStrudelController, initialCode = "") {
     controller.value = nextController;
     currentCode.value = initialCode || nextController.getCode();
@@ -50,15 +53,28 @@ export function useCodeStripStrudel() {
   }
 
   async function play() {
-    if (!controller.value || !hasPlayableContent(currentCode.value)) {
+    if (
+      !controller.value ||
+      !hasPlayableContent(currentCode.value) ||
+      instrumentStore.isInteractionLocked
+    ) {
       isPlaying.value = false;
       return;
     }
 
     lastError.value = null;
+    const selectionEpoch = instrumentStore.selectionEpoch;
 
     try {
       await controller.value.evaluate();
+      if (
+        instrumentStore.isInteractionLocked ||
+        instrumentStore.selectionEpoch !== selectionEpoch
+      ) {
+        await controller.value.stop();
+        isPlaying.value = false;
+        return;
+      }
       isPlaying.value = true;
     } catch (error) {
       setError(error);

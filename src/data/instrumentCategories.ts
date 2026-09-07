@@ -1,7 +1,7 @@
 export interface InstrumentCategory {
   name: string;
   instruments: string[];
-  preload: string[]; // 3 pre-warmed during loading
+  preload: string[]; // Curated candidates; startup currently warms only piano.
 }
 
 export const INSTRUMENT_CATEGORIES: InstrumentCategory[] = [
@@ -105,7 +105,3 @@ export const INSTRUMENT_CATEGORIES: InstrumentCategory[] = [
     preload: ['gm_taiko_drum', 'gm_melodic_tom', 'gm_orchestra_hit'],
   },
 ];
-
-/** Flat list of all sounds that should be pre-warmed during init. */
-export const PRELOAD_SOUNDS: string[] =
-  INSTRUMENT_CATEGORIES.flatMap((c) => c.preload);

@@ -467,6 +467,33 @@ describe("Keyboard production usage", () => {
     wrapper.unmount();
   });
 
+  it("uses live harmony for a second focus attack while displaying a held snapshot", async () => {
+    const wrapper = mountKeyboard();
+    const firstChord = wrapper.findAllComponents(ChordKeyStub)[0];
+
+    await firstChord.trigger("keydown", {
+      key: " ",
+      code: "Space",
+      repeat: false,
+    });
+    await wrapper.setProps({ harmonyAlteration: "dark" });
+    await firstChord.trigger("keydown", {
+      key: "Enter",
+      code: "Enter",
+      repeat: false,
+    });
+    await nextTick();
+
+    expect(mocks.musicStore.attackExactPitch.mock.calls.slice(0, 3).map(([pitch]) => pitch))
+      .toEqual(["C4", "E4", "G4"]);
+    expect(mocks.musicStore.attackExactPitch.mock.calls.slice(3).map(([pitch]) => pitch))
+      .toEqual(["C4", "D#4", "G4"]);
+
+    await firstChord.trigger("keyup", { key: "Enter", code: "Enter" });
+    await firstChord.trigger("keyup", { key: " ", code: "Space" });
+    wrapper.unmount();
+  });
+
   it("disables keys and chords and ignores presses while samples are warming", async () => {
     mocks.instrumentStore.isInteractionLocked = true;
     const wrapper = mountKeyboard();

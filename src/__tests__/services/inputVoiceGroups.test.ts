@@ -44,9 +44,14 @@ describe("input voice-group lifecycle", () => {
     const pending = deferred<string | null>();
     const release = vi.fn();
     const groups = createVoiceGroupLifecycle(release);
-    const completion = groups.attack("melody:mouse", [() => pending.promise]);
+    let isCancelled = () => false;
+    const completion = groups.attack("melody:mouse", [(cancelled) => {
+      isCancelled = cancelled;
+      return pending.promise;
+    }]);
 
     groups.release("melody:mouse");
+    expect(isCancelled()).toBe(true);
     pending.resolve("late-C4");
     await completion;
 

@@ -1,4 +1,6 @@
-export type VoiceAttack = () => Promise<string | null>;
+export type VoiceAttack = (
+  isCancelled: () => boolean,
+) => Promise<string | null>;
 
 interface VoiceGroup {
   released: boolean;
@@ -46,7 +48,7 @@ export function createVoiceGroupLifecycle(
 
     group.completion = Promise.all(voices.map(async (attackVoice) => {
       try {
-        const voiceId = await attackVoice();
+        const voiceId = await attackVoice(() => group.released);
         if (!voiceId) return null;
 
         if (group.released) {

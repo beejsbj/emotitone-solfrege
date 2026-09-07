@@ -286,6 +286,32 @@ describe("music store", () => {
     );
   });
 
+  it("does not publish an exact attack whose input owner released while pending", async () => {
+    const musicStore = useMusicStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+    let finishAttack!: () => void;
+    let cancelled = false;
+    superdoughMocks.attackNote.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishAttack = resolve;
+      })
+    );
+
+    const pendingAttack = musicStore.attackExactPitch("D#4", () => cancelled);
+    cancelled = true;
+    finishAttack();
+    const noteId = await pendingAttack;
+
+    expect(noteId).toBeNull();
+    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+      expect.stringMatching(/^exact_D#4_/)
+    );
+    expect(musicStore.getActiveNotes()).toHaveLength(0);
+    expect(dispatchEventSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "note-played" }),
+    );
+  });
+
   it("dispatches duration playback with the resolved note for the current mode", async () => {
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");

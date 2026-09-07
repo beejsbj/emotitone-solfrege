@@ -379,8 +379,11 @@ export const useMusicStore = defineStore(
      * string overload on attackNote(), this never floors an out-of-scale pitch
      * to the preceding scale degree.
      */
-    async function attackExactPitch(note: string): Promise<string | null> {
-      if (instrumentStore.isInteractionLocked) return null;
+    async function attackExactPitch(
+      note: string,
+      isCancelled: () => boolean = () => false,
+    ): Promise<string | null> {
+      if (instrumentStore.isInteractionLocked || isCancelled()) return null;
 
       const parsed = parseNoteWithOctave(note);
       if (!parsed) return null;
@@ -417,7 +420,8 @@ export const useMusicStore = defineStore(
       );
 
       if (
-        instrumentStore.isInteractionLocked
+        isCancelled()
+        || instrumentStore.isInteractionLocked
         || instrumentStore.selectionEpoch !== instrumentSelectionEpoch
         || instrumentStore.currentInstrument !== attackInstrument
       ) {

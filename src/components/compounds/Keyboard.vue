@@ -441,7 +441,7 @@ function createProductionWiring() {
     void voiceGroups.attack(
       ownerId,
       intent.chord.voicing.pitches.map((pitch) =>
-        () => musicStore.attackExactPitch(pitch.name),
+        (isCancelled) => musicStore.attackExactPitch(pitch.name, isCancelled),
       ),
     );
   }
@@ -834,7 +834,7 @@ function handleChordKeyDown(event: KeyboardEvent, chordIndex: number) {
     return;
   }
   if (![" ", "Enter"].includes(event.key) || event.repeat) return;
-  const chord = renderChords.value[chordIndex]?.harmony;
+  const chord = renderChords.value[chordIndex]?.attackHarmony;
   if (!chord) return;
   const inputId = `focus:${event.code}:chord`;
   if (activeChordFocusInputs.has(inputId)) return;

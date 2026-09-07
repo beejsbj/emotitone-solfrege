@@ -66,6 +66,8 @@ const emit = defineEmits<{
 
 const keyRef = ref<HTMLButtonElement | null>(null);
 const CLICK_PULSE_MS = 120;
+const TOUCH_HOLD_DELAY_MS = 120;
+const TOUCH_PAN_THRESHOLD_PX = 8;
 const activationKeys = new Set<string>();
 let suppressKeyboardClick = false;
 const {
@@ -81,6 +83,10 @@ const {
 } = usePressableKey(keyRef, {
   press: (payload) => emit("press", payload),
   release: (payload) => emit("release", payload),
+}, {
+  touchHoldDelayMs: TOUCH_HOLD_DELAY_MS,
+  touchPanThresholdPx: TOUCH_PAN_THRESHOLD_PX,
+  touchTapPulseMs: CLICK_PULSE_MS,
 });
 
 function isActivationKey(event: KeyboardEvent) {

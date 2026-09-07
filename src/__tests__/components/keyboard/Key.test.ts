@@ -298,6 +298,6 @@ describe("Key", () => {
     expect(keySource).toContain('import "./pressableKey.css"');
     expect(pressableKeySource).toContain('window.addEventListener("blur"');
     expect(pressableKeySource).toContain('document.addEventListener("visibilitychange"');
-    expect(pressableKeySource).toContain("handleTouchCancel: handleTouchEnd");
+    expect(pressableKeySource).toContain("handleTouchCancel,");
   });
 });

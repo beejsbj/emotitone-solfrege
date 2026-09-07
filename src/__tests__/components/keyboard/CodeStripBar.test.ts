@@ -21,7 +21,10 @@ vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
 }));
 
 function render(props: Record<string, unknown> = {}) {
-  return createTestWrapper(CodeStripBar, { props });
+  return createTestWrapper(CodeStripBar, {
+    props,
+    global: { stubs: { Teleport: true } },
+  });
 }
 
 describe("CodeStripBar.vue", () => {
@@ -32,17 +35,17 @@ describe("CodeStripBar.vue", () => {
     wrapper = undefined;
   });
 
-  it("composes Play, humming, CodeStrip, Backspace, and Return in accepted order", () => {
+  it("keeps transport editing in CodeStrip and exposes humming over the Stage", () => {
     wrapper = render();
 
-    const labels = wrapper.findAll("button").map((button) => button.attributes("aria-label"));
-    expect(labels).toEqual([
-      "Play",
-      "Start humming capture",
-      "Delete last event",
-      "Return",
-    ]);
+    expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
+    expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
+    expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
+    expect(wrapper.get('button[aria-label="Start humming capture"]').text()).toBe("Hum");
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
+    expect(codeStripBarSource).toMatch(
+      /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*top:[^}]*left:\s*50%;/,
+    );
     expect(wrapper.get('[role="status"]').text()).toBe(
       "Ready to capture a hummed pattern",
     );

@@ -14,34 +14,6 @@
         <Square v-if="isPlaying" />
         <Play v-else />
       </Button>
-
-      <Button
-        class="code-strip-bar__humming"
-        size="sm"
-        :tone="hummingStatus === 'recording' ? 'ivory' : 'brass'"
-        :haptic="haptic"
-        :loading="hummingLoading"
-        :disabled="hummingLoading"
-        :accessible-name="hummingButtonLabel"
-        :title="hummingButtonTitle"
-        @click="emit('toggleHumming')"
-      >
-        <Check v-if="hummingStatus === 'recording'" />
-        <Mic v-else />
-      </Button>
-
-      <Button
-        v-if="hummingCanCancel"
-        class="code-strip-bar__humming-cancel"
-        size="sm"
-        tone="ink"
-        :haptic="haptic"
-        accessible-name="Cancel humming capture"
-        title="Cancel humming capture"
-        @click="emit('cancelHumming')"
-      >
-        <X />
-      </Button>
     </div>
 
     <div class="code-strip-bar__strip">
@@ -104,6 +76,43 @@
       {{ hummingStatusMessage }}
     </output>
   </section>
+
+  <Teleport to="body">
+    <div class="humming-capture-transport">
+      <Button
+        class="humming-capture-transport__primary"
+        size="md"
+        :tone="hummingStatus === 'recording' ? 'ivory' : 'brass'"
+        :haptic="haptic"
+        :loading="hummingLoading"
+        :disabled="hummingLoading"
+        :accessible-name="hummingButtonLabel"
+        :title="hummingButtonTitle"
+        @click="emit('toggleHumming')"
+      >
+        <Check v-if="hummingStatus === 'recording'" />
+        <Mic v-else />
+        <span>{{ hummingButtonText }}</span>
+      </Button>
+
+      <span
+        v-if="hummingCanCancel"
+        class="humming-capture-transport__cancel-slot"
+      >
+        <Button
+          class="humming-capture-transport__cancel"
+          size="sm"
+          tone="ink"
+          :haptic="haptic"
+          accessible-name="Cancel humming capture"
+          title="Cancel humming capture"
+          @click="emit('cancelHumming')"
+        >
+          <X />
+        </Button>
+      </span>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -183,6 +192,15 @@ const hummingButtonLabel = computed(() => {
 const hummingButtonTitle = computed(() =>
   props.hummingError ?? hummingButtonLabel.value,
 );
+const hummingButtonText = computed(() => {
+  if (props.hummingStatus === "recording") return "Accept";
+  if (props.hummingStatus === "error") return "Retry";
+  if (props.hummingStatus === "requesting") return "Allow mic";
+  if (["preparing", "analyzing"].includes(props.hummingStatus)) {
+    return "Analyzing";
+  }
+  return "Hum";
+});
 
 const emit = defineEmits<{
   togglePlayback: [];
@@ -259,5 +277,51 @@ function handleTakeSelection(event: Event) {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.humming-capture-transport {
+  position: fixed;
+  z-index: 90;
+  top: calc(env(safe-area-inset-top, 0px) + var(--s-5));
+  left: 50%;
+  display: inline-flex;
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+.humming-capture-transport__primary {
+  min-inline-size: 92px;
+  padding-inline: var(--s-5);
+  border-radius: 999px;
+}
+
+.humming-capture-transport__primary :deep(.paper-button__content) {
+  grid-auto-flow: column;
+  grid-template-columns: 16px auto;
+  gap: var(--s-3);
+  inline-size: auto;
+  line-height: 1;
+  font: var(--t-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.humming-capture-transport__primary :deep(.paper-button__content svg) {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.humming-capture-transport__cancel-slot {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + var(--s-3));
+  display: flex;
+  transform: translateY(-50%);
+}
+
+@media (max-width: 480px) {
+  .humming-capture-transport {
+    top: calc(env(safe-area-inset-top, 0px) + var(--s-4));
+  }
 }
 </style>

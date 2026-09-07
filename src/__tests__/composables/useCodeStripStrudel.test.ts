@@ -522,6 +522,46 @@ describe("CodeStrip transport session", () => {
     expect(newAdapter.audioOwned).toBe(true);
   });
 
+  it("preserves the inherited handoff barrier when a queued start is stopped", async () => {
+    const transport = useCodeStripStrudel();
+    const sharedPlayback: { owner: DeferredEditorAdapter | null } = { owner: null };
+    const oldAdapter = new DeferredEditorAdapter("sound('old')", sharedPlayback);
+    transport.attachEditor(oldAdapter);
+    const oldPlay = transport.play();
+    await evaluationStarted(oldAdapter);
+    oldAdapter.completeStart();
+    await oldPlay;
+
+    oldAdapter.deferStops = true;
+    const newAdapter = new DeferredEditorAdapter("sound('new')", sharedPlayback);
+    transport.attachEditor(newAdapter);
+    const queuedPlay = transport.play();
+    await flushMicrotasks();
+    expect(newAdapter.evaluations).toHaveLength(0);
+
+    await transport.stop();
+    const replay = transport.play();
+    await flushMicrotasks();
+    const replayStartedBeforeHandoff = newAdapter.evaluations.length > 0;
+    if (replayStartedBeforeHandoff) {
+      newAdapter.completeStart();
+      await replay;
+    }
+
+    oldAdapter.settleStop();
+    await queuedPlay;
+    if (!replayStartedBeforeHandoff) {
+      await evaluationStarted(newAdapter);
+      newAdapter.completeStart();
+      await replay;
+    }
+
+    expect(newAdapter.stopRequests[0].cancelEvaluation).toBe(false);
+    expect(replayStartedBeforeHandoff).toBe(false);
+    expect(sharedPlayback.owner).toBe(newAdapter);
+    expect(transport.isPlaying.value).toBe(true);
+  });
+
   it("stops an active session and invalidates pending work across warmup epochs", async () => {
     const transport = useCodeStripStrudel();
     const adapter = new DeferredEditorAdapter();

@@ -37,6 +37,10 @@ function ownsCommand(attachment: CodeStripTransportAttachment, command: number) 
     && commandGeneration === command;
 }
 
+function hasActiveEvaluation(attachment: CodeStripTransportAttachment) {
+  return [...attachment.operations.values()].some((owner) => owner.kind === "start");
+}
+
 function clearPlaybackState() {
   isPlaying.value = false;
   isStarting.value = false;
@@ -359,18 +363,21 @@ async function play() {
   let precedingWork = attachment.work;
 
   if (attachment.pendingStarts > 0) {
-    // Play/Play means latest request wins. Stop the current attempt now, then
-    // wait for its late completion and cleanup before beginning the new one.
+    // Play/Play means latest request wins. A queued attempt still carries its
+    // inherited session barrier; only an evaluation that actually reached the
+    // adapter needs cancellation and runtime renewal.
     isPlaying.value = false;
-    const cancellation = stopAdapter(attachment, command, {
-      settlesState: false,
-      releaseShared: true,
-      cancelEvaluation: true,
-      retire: false,
-    })
-      .catch(() => undefined);
-    trackSharedRelease(attachment, cancellation);
-    precedingWork = attachment.sharedWork;
+    if (hasActiveEvaluation(attachment)) {
+      const cancellation = stopAdapter(attachment, command, {
+        settlesState: false,
+        releaseShared: true,
+        cancelEvaluation: true,
+        retire: false,
+      })
+        .catch(() => undefined);
+      trackSharedRelease(attachment, cancellation);
+      precedingWork = attachment.sharedWork;
+    }
   }
 
   attachment.pendingStarts += 1;
@@ -385,7 +392,7 @@ async function stop() {
   const attachment = activeAttachment;
   clearPlaybackState();
   if (!attachment) return;
-  const cancelEvaluation = attachment.pendingStarts > 0;
+  const cancelEvaluation = hasActiveEvaluation(attachment);
 
   // Stop takes effect immediately even while evaluation is pending. The
   // adapter cancels the transport-facing evaluation while containing any late

@@ -43,7 +43,7 @@ function clearPlaybackState() {
 function acceptSource(source: string) {
   currentCode.value = source;
   if (!hasPlayableContent(source) && (isPlaying.value || isStarting.value)) {
-    void stop();
+    void stop().catch(() => undefined);
   }
 }
 
@@ -55,7 +55,7 @@ function bindInstrumentStore(nextStore: ReturnType<typeof useInstrumentStore>) {
     () => nextStore.isInteractionLocked,
     (isLocked) => {
       if (isLocked && activeAttachment && (isPlaying.value || isStarting.value)) {
-        void stop();
+        void stop().catch(() => undefined);
       }
     },
     { flush: "sync" },
@@ -79,7 +79,11 @@ function handleEditorEvent(
     ) {
       // A detached editor can finish evaluation after replacement. Releasing
       // that old adapter is safe; touching the active adapter would not be.
-      void Promise.resolve(attachment.adapter.stop(nextOperation())).catch(() => undefined);
+      try {
+        void Promise.resolve(attachment.adapter.stop(nextOperation())).catch(() => undefined);
+      } catch {
+        // The stale adapter is already retired; its failure cannot own state.
+      }
     }
     return;
   }
@@ -327,7 +331,12 @@ async function stop() {
   const precedingWork = attachment.work;
   const stopWork = stopAdapter(attachment, command, true);
   attachment.work = Promise.allSettled([precedingWork, stopWork]).then(() => undefined);
-  await stopWork;
+  try {
+    await stopWork;
+  } catch (error) {
+    if (ownsCommand(attachment, command)) lastError.value = messageFor(error);
+    throw error;
+  }
 }
 
 async function toggle() {

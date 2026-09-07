@@ -329,6 +329,31 @@ describe("CodeStrip production Strudel document", () => {
     wrapper.unmount();
   });
 
+  it("detaches and releases a pending editor evaluation on unmount", async () => {
+    let resolveEvaluation!: () => void;
+    mocks.mirrorEvaluate.mockImplementationOnce(
+      () => new Promise<void>((resolve) => {
+        resolveEvaluation = resolve;
+      }),
+    );
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    const evaluation = mocks.mirrorInstance.evaluate();
+    await vi.waitFor(() => expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce());
+    wrapper.unmount();
+
+    expect(useCodeStripStrudel().isReady.value).toBe(false);
+    expect(mocks.mirrorInstance.clear).toHaveBeenCalledOnce();
+    expect(mocks.mirrorRawStop).toHaveBeenCalledOnce();
+
+    resolveEvaluation();
+    await evaluation;
+
+    expect(useCodeStripStrudel().isPlaying.value).toBe(false);
+    expect(mocks.mirrorRawStop).toHaveBeenCalledTimes(2);
+  });
+
   it("forwards swallowed Strudel evaluation errors through the real transport", async () => {
     mocks.mirrorEvaluate.mockRejectedValueOnce(new Error("invalid pattern"));
     const wrapper = mount(CodeStrip);

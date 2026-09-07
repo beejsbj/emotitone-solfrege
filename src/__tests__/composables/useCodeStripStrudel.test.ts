@@ -92,6 +92,10 @@ class DeferredEditorAdapter implements CodeStripEditorAdapter {
     evaluation.resolve();
   }
 
+  rejectStart(error: unknown, index = 0) {
+    this.evaluations[index].reject(error);
+  }
+
   emitLate(event: CodeStripEditorEvent) {
     for (const listener of this.subscribedListeners) listener(event);
   }
@@ -166,6 +170,22 @@ describe("CodeStrip transport session", () => {
     expect(transport.isPlaying.value).toBe(false);
     expect(adapter.audioOwned).toBe(false);
     expect(adapter.stopOperations.length).toBeGreaterThan(0);
+  });
+
+  it("rejects a failed adapter start after recording observable error state", async () => {
+    const transport = useCodeStripStrudel();
+    const adapter = new DeferredEditorAdapter();
+    transport.attachEditor(adapter);
+
+    const playing = transport.play();
+    await evaluationStarted(adapter);
+    const failure = new Error("adapter start rejected");
+    adapter.rejectStart(failure);
+
+    await expect(playing).rejects.toBe(failure);
+    expect(transport.lastError.value).toBe("adapter start rejected");
+    expect(transport.isPlaying.value).toBe(false);
+    expect(adapter.audioOwned).toBe(false);
   });
 
   it("stops playback when source reconciliation removes playable content", async () => {

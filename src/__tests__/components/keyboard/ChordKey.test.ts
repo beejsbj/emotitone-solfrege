@@ -6,6 +6,7 @@ import Chord from "@/components/compounds/Chord.vue";
 vi.mock("@/composables/useColorSystem", () => ({
   useColorSystem: () => ({
     getKeyBackground: () => ({ background: "tomato", primaryColor: "tomato" }),
+    getKeyBackgroundByPitchClass: () => ({ background: "tomato", primaryColor: "tomato" }),
   }),
 }));
 

@@ -207,7 +207,7 @@ function diatonicChord(
   scale: Scale,
   tonic: ChromaticNote,
   baseMidi: number,
-) {
+): HarmonyChord {
   const memberOrdinals = [degreeIndex, degreeIndex + 2, degreeIndex + 4];
   const midi = memberOrdinals.map((ordinal) => {
     const wrappedIndex = ordinal % scale.degreeCount;
@@ -239,7 +239,7 @@ function scaleContainedChord(
   scale: Scale,
   tonic: ChromaticNote,
   baseMidi: number,
-) {
+): HarmonyChord {
   const rootOffset = scale.intervals[degreeIndex];
   const rootMidi = baseMidi + rootOffset;
   const scalePitchClasses = new Set(scale.intervals.map((interval) => modulo(interval, 12)));
@@ -343,7 +343,7 @@ function alterChord(
   alteration: Exclude<HarmonyAlteration, "auto">,
   scale: Scale,
   tonic: ChromaticNote,
-) {
+): HarmonyChord {
   const template = explicitTemplate(alteration, chord.quality);
   return chordFromTemplate(
     chord.degreeIndex,
@@ -364,7 +364,7 @@ export function buildHarmony({
 }: HarmonyRequest): HarmonyChord[] {
   const scale = getScaleForMode(scaleType);
   const baseMidi = tonicMidi(tonic, octave);
-  const baseChords = scale.intervals.map((_, degreeIndex) => {
+  const baseChords: HarmonyChord[] = scale.intervals.map((_, degreeIndex) => {
     if (scale.family === "chromatic") {
       return chordFromTemplate(
         degreeIndex,

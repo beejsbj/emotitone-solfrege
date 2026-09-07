@@ -21,5 +21,11 @@ describe("Keyboard style-guide specimen", () => {
     expect(specimenSource).toContain("Reduced preview");
     expect(specimenSource).toContain("Forced-color preview");
     expect(specimenSource).toContain("Production-baseline tuning");
+    expect(specimenSource).toContain("5 · Major pentatonic");
+    expect(specimenSource).toContain("6 · Major blues");
+    expect(specimenSource).toContain("12 · Chromatic");
+    expect(specimenSource).toContain(':scale-type="harmonyScaleType"');
+    expect(specimenSource).toContain('@chord-press="handleChordPress"');
+    expect(specimenSource).toContain("broader Keyboard density remains");
   });
 });

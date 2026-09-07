@@ -13,8 +13,17 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
   },
 }));
 
+vi.mock("@/components/primatives/Joystick.vue", () => ({
+  default: {
+    name: "Joystick",
+    props: ["modelValue", "label"],
+    emits: ["update:modelValue", "effectiveChange"],
+    template: '<div data-testid="joystick" :data-label="label" />',
+  },
+}));
+
 describe("ControlBar.vue", () => {
-  it("composes the five musical controls with their existing ranges", () => {
+  it("composes five existing musical Knobs plus one Harmony Joystick", () => {
     const wrapper = mount(ControlBar);
     const knobs = wrapper.findAllComponents({ name: "Knob" });
 
@@ -30,6 +39,10 @@ describe("ControlBar.vue", () => {
     expect(knobs[2].props()).toMatchObject({ min: 40, max: 220, step: 1 });
     expect(knobs[3].props()).toMatchObject({ min: 1, max: 8, step: 1 });
     expect(knobs[4].props()).toMatchObject({ min: 1, max: 8, step: 2 });
+    expect(wrapper.getComponent({ name: "Joystick" }).props()).toMatchObject({
+      label: "Harmony",
+      modelValue: "auto",
+    });
     wrapper.unmount();
   });
 
@@ -42,17 +55,22 @@ describe("ControlBar.vue", () => {
     knobs[2].vm.$emit("update:modelValue", 96);
     knobs[3].vm.$emit("update:modelValue", 5);
     knobs[4].vm.$emit("update:modelValue", 7);
+    const joystick = wrapper.getComponent({ name: "Joystick" });
+    joystick.vm.$emit("update:modelValue", "jazzy7");
+    joystick.vm.$emit("effectiveChange", "sus4");
 
     expect(wrapper.emitted("update:keyValue")?.[0]).toEqual(["D"]);
     expect(wrapper.emitted("update:modeValue")?.[0]).toEqual(["dorian"]);
     expect(wrapper.emitted("update:bpm")?.[0]).toEqual([96]);
     expect(wrapper.emitted("update:octave")?.[0]).toEqual([5]);
     expect(wrapper.emitted("update:rows")?.[0]).toEqual([7]);
+    expect(wrapper.emitted("update:harmonyValue")?.[0]).toEqual(["jazzy7"]);
+    expect(wrapper.emitted("harmonyEffective")?.[0]).toEqual(["sus4"]);
     wrapper.unmount();
   });
 
   it("spreads equal-width controls without a horizontal scroller", () => {
-    expect(controlBarSource).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
+    expect(controlBarSource).toContain("grid-template-columns: repeat(6, minmax(0, 1fr))");
     expect(controlBarSource).toContain("padding: 3px 0 4px");
     expect(controlBarSource).not.toContain("overflow-x: auto");
     expect(controlBarSource).not.toContain("width: max-content");

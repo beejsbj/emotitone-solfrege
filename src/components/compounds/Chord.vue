@@ -89,7 +89,7 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground } = useColorSystem();
+const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem();
 
 const chordClasses = computed(() => [
   `chord--display-${props.display}`,
@@ -126,8 +126,7 @@ const orderedMembers = computed(() =>
 
 const resolvedMembers = computed(() =>
   orderedMembers.value.map((source) => {
-    const colors = getKeyBackground(
-      source.scaleIndex ?? 0,
+    const colorArgs = [
       source.mode ?? "major",
       source.musicKey ?? "C",
       source.octave ?? 4,
@@ -137,7 +136,10 @@ const resolvedMembers = computed(() =>
         keyBrightness: source.keyBrightness ?? 1,
         keySaturation: source.keySaturation ?? 1,
       },
-    );
+    ] as const;
+    const colors = typeof source.pitchClassIndex === "number"
+      ? getKeyBackgroundByPitchClass(source.pitchClassIndex, ...colorArgs)
+      : getKeyBackground(source.scaleIndex ?? 0, ...colorArgs);
 
     return {
       source,

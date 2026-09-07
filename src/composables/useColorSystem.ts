@@ -10,7 +10,7 @@ import type {
   MusicalMode,
   NoteColorRelationships,
 } from "@/types";
-import { getScaleForMode } from "@/data";
+import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import {
   getChromaticNoteForScaleIndex,
   resolveMusicColorsByNoteName,
@@ -460,6 +460,55 @@ export function useColorSystem() {
     };
   };
 
+  const getKeyBackgroundByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode,
+    key: ChromaticNote,
+    octave: number,
+    surfaceStyle: "colored" | "monochrome" | "glassmorphism",
+    isAccidental: boolean,
+    config: {
+      keyBrightness?: number;
+      keySaturation?: number;
+      glassmorphOpacity?: number;
+    } = {},
+  ): { background: string; primaryColor: string } => {
+    const {
+      keyBrightness = 1,
+      keySaturation = 1,
+      glassmorphOpacity = 0.4,
+    } = config;
+
+    if (surfaceStyle === "monochrome") {
+      return getKeyBackground(
+        0,
+        mode,
+        key,
+        octave,
+        surfaceStyle,
+        isAccidental,
+        config,
+      );
+    }
+
+    const pitchClass = CHROMATIC_NOTES[
+      ((pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length)
+      % CHROMATIC_NOTES.length
+    ];
+    const primaryColor = getStaticPrimaryColor(pitchClass, mode, octave, key);
+    if (surfaceStyle === "glassmorphism") {
+      return {
+        background: createGlassmorphBackground(primaryColor, glassmorphOpacity),
+        primaryColor,
+      };
+    }
+
+    return {
+      background: adjustColorHSL(primaryColor, keyBrightness, keySaturation),
+      primaryColor,
+    };
+  };
+
   const getKeyTextColor = (
     surfaceStyle: "colored" | "monochrome" | "glassmorphism",
     isAccidental: boolean
@@ -505,6 +554,7 @@ export function useColorSystem() {
     createIntervalConicGlassmorphBackground,
     getColorPreview,
     getKeyBackground,
+    getKeyBackgroundByPitchClass,
     getKeyTextColor,
     isDynamicColorsEnabled,
     isFixedMusicColorMode,

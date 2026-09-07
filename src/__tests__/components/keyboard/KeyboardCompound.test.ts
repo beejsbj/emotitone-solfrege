@@ -19,6 +19,20 @@ const KeyStub = defineComponent({
   template: '<button class="key-stub" v-bind="$attrs">{{ ariaLabel }}</button>',
 });
 
+const ChordKeyStub = defineComponent({
+  name: "ChordKey",
+  inheritAttrs: false,
+  props: {
+    members: Array,
+    symbol: String,
+    accessibleName: String,
+    geometry: String,
+    pressed: Boolean,
+  },
+  emits: ["press", "release"],
+  template: '<button class="chord-key-stub" v-bind="$attrs">{{ symbol }}</button>',
+});
+
 function rows(): KeyboardRowView[] {
   return [5, 4, 3].map((octave) => ({
     octave,
@@ -43,7 +57,7 @@ function mountKeyboard() {
       geometryFamily: "offcut",
       editionSeed: "specimen-seed",
     },
-    global: { stubs: { Key: KeyStub } },
+    global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
     attachTo: document.body,
   });
 }
@@ -57,14 +71,15 @@ describe("Keyboard compound", () => {
     expect(wrapper.attributes("aria-label")).toBe("Solfège keyboard");
     expect(groups.map((group) => group.attributes("aria-label"))).toEqual([
       "Solfège keyboard",
+      "Harmony chords",
       "Octave 5",
       "Main octave 4",
       "Octave 3",
     ]);
-    expect(buttons).toHaveLength(36);
+    expect(buttons).toHaveLength(43);
     expect(buttons.filter((button) => button.attributes("tabindex") === "0"))
-      .toHaveLength(1);
-    expect(buttons[12].text())
+      .toHaveLength(2);
+    expect(wrapper.findAll(".key-stub")[12].text())
       .toContain("Do, scale degree one, C four, main octave");
   });
 
@@ -83,7 +98,7 @@ describe("Keyboard compound", () => {
 
   it("moves focus spatially and treats Space as a held input", async () => {
     const wrapper = mountKeyboard();
-    const buttons = wrapper.findAll("button");
+    const buttons = wrapper.findAll(".key-stub");
     const tonic = buttons[12];
 
     await tonic.trigger("focus");
@@ -105,28 +120,70 @@ describe("Keyboard compound", () => {
     });
   });
 
+  it.each([
+    ["major pentatonic", 5],
+    ["major blues", 6],
+    ["major", 7],
+    ["chromatic", 12],
+  ] as const)("renders one playable chord for every %s scale degree", async (scaleType, count) => {
+    const wrapper = mountKeyboard();
+
+    await wrapper.setProps({ scaleType });
+
+    expect(wrapper.findAllComponents(ChordKeyStub)).toHaveLength(count);
+    expect(wrapper.get('[aria-label="Harmony chords"]').attributes("data-chord-count"))
+      .toBe(String(count));
+    wrapper.unmount();
+  });
+
+  it("moves through the chord row and treats Enter as a held chord input", async () => {
+    const wrapper = mountKeyboard();
+    const chords = wrapper.findAll(".chord-key-stub");
+
+    await chords[0].trigger("focus");
+    await chords[0].trigger("keydown", { key: "ArrowRight", code: "ArrowRight" });
+    await nextTick();
+    expect(document.activeElement).toBe(chords[1].element);
+
+    await chords[1].trigger("keydown", { key: "Enter", code: "Enter" });
+    await chords[1].trigger("keydown", { key: "Enter", code: "Enter", repeat: true });
+    await chords[1].trigger("keyup", { key: "Enter", code: "Enter" });
+
+    expect(wrapper.emitted("chordPress")).toHaveLength(1);
+    expect(wrapper.emitted("chordRelease")).toHaveLength(1);
+    expect(wrapper.emitted("chordPress")?.[0][0]).toMatchObject({
+      chordId: "degree-2",
+      source: "focus",
+      chord: {
+        symbol: "Dm",
+        alteration: "auto",
+      },
+    });
+    wrapper.unmount();
+  });
+
   it("exposes controlled keyboard padding and reserves it in allocated height", async () => {
     const wrapper = mountKeyboard();
     await wrapper.setProps({ availableHeight: 400, keyboardPadding: true });
     let keys = wrapper.findAllComponents(KeyStub);
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(109.76, 1);
+      .toBeCloseTo(96.6, 1);
     expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(172.48, 1);
+      .toBeCloseTo(151.8, 1);
 
     await wrapper.setProps({ keyboardPadding: false });
     keys = wrapper.findAllComponents(KeyStub);
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(112, 1);
+      .toBeCloseTo(98.84, 1);
     expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(176, 1);
+      .toBeCloseTo(155.32, 1);
   });
 
   it.each([" ", "Enter"])(
     "releases a held %s input after focus moves to another key",
     async (activationKey) => {
       const wrapper = mountKeyboard();
-      const buttons = wrapper.findAll("button");
+      const buttons = wrapper.findAll(".key-stub");
       const original = buttons[12];
       const next = buttons[13];
       const code = activationKey === " " ? "Space" : "Enter";

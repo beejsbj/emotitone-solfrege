@@ -10,6 +10,10 @@ vi.mock("@/composables/useColorSystem", () => ({
       background: `color-${scaleIndex}`,
       primaryColor: `color-${scaleIndex}`,
     }),
+    getKeyBackgroundByPitchClass: (pitchClassIndex: number) => ({
+      background: `color-${pitchClassIndex}`,
+      primaryColor: `color-${pitchClassIndex}`,
+    }),
   }),
 }));
 

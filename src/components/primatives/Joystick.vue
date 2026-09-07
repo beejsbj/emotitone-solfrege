@@ -307,7 +307,6 @@ onBeforeUnmount(() => {
   transition: transform 100ms ease-out;
 }
 
-.joystick[data-effective="up-left"] .joystick__stick,
 .joystick[data-effective="augmented"] .joystick__stick { transform: translate(-78%, -78%); }
 .joystick[data-effective="flip"] .joystick__stick { transform: translate(-50%, -88%); }
 .joystick[data-effective="dominant7"] .joystick__stick { transform: translate(-22%, -78%); }

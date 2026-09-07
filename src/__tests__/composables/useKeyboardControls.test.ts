@@ -91,4 +91,25 @@ describe("useKeyboardControls", () => {
     expect(controls.getKeyboardLetterForNote(11, 3)).toBe("\\");
     expect(controls.getKeyboardLetterForNote(0, 4)).toBe("Q");
   });
+
+  it("releases a QWERTY owner even when keyup beats async attack resolution", async () => {
+    const addEventListener = vi.spyOn(window, "addEventListener");
+    let resolveAttack!: (value: string) => void;
+    mockMusicStore.attackNoteWithOctave.mockImplementationOnce(() =>
+      new Promise<string>((resolve) => { resolveAttack = resolve; }),
+    );
+    useKeyboardControls(ref(4));
+    const listeners = addEventListener.mock.calls;
+    const keydown = listeners.find(([type]) => type === "keydown")?.[1] as EventListener;
+    const keyup = listeners.find(([type]) => type === "keyup")?.[1] as EventListener;
+
+    keydown(new KeyboardEvent("keydown", { code: "KeyQ", key: "q" }));
+    keyup(new KeyboardEvent("keyup", { code: "KeyQ", key: "q" }));
+    resolveAttack("late-q");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockMusicStore.releaseNote).toHaveBeenCalledWith("late-q");
+    expect(mockKeyboardDrawerStore.removeTouch).toHaveBeenCalledWith("keyboard:KeyQ");
+  });
 });

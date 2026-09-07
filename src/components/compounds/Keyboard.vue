@@ -14,6 +14,33 @@
     :data-edition-seed="resolvedEditionSeed"
   >
     <div
+      class="keyboard__chord-row"
+      role="group"
+      aria-label="Harmony chords"
+      :data-chord-count="renderChords.length"
+    >
+      <ChordKey
+        v-for="(chord, chordIndex) in renderChords"
+        :key="chord.harmony.id"
+        :ref="(instance) => setChordKeyRef(chord.harmony.id, instance)"
+        class="keyboard__chord-key"
+        :members="chord.members"
+        :symbol="chord.harmony.symbol"
+        :accessible-name="chord.harmony.accessibleName"
+        :geometry="resolvedFamily"
+        :pressed="chord.pressed"
+        :tabindex="chord.harmony.id === rememberedChordFocusId ? 0 : -1"
+        :data-chord-id="chord.harmony.id"
+        :data-alteration="chord.harmony.alteration"
+        @focus="rememberChordFocus(chord.harmony.id)"
+        @keydown="handleChordKeyDown($event, chordIndex)"
+        @keyup="handleChordKeyUp($event)"
+        @press="emitChordIntent('press', $event, chord.harmony)"
+        @release="emitChordIntent('release', $event, chord.harmony)"
+      />
+    </div>
+
+    <div
       v-for="(row, rowIndex) in renderRows"
       :key="`octave-${row.octave}`"
       class="keyboard__row"
@@ -79,6 +106,8 @@ import {
 import { fitKeyboardRows } from "./keyboardSizing";
 import Key from "@/components/compounds/Key.vue";
 import type { KeyInputEvent } from "@/components/compounds/Key.vue";
+import ChordKey from "@/components/compounds/ChordKey.vue";
+import type { ChordMember } from "@/components/compounds/Chord.vue";
 import type {
   NoteLabel,
   NoteProportion,
@@ -88,10 +117,15 @@ import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES } from "@/data";
 import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
-import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { triggerNoteHaptic } from "@/utils/hapticFeedback";
+import {
+  buildHarmony,
+  type HarmonyAlteration,
+  type HarmonyChord,
+} from "@/domain/harmony";
+import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
 import {
   KEYBOARD_PAGE_EDITION_SEED,
   keyboardEditionVariation,
@@ -134,6 +168,18 @@ export interface KeyboardIntent extends KeyInputEvent {
   source: "pointer" | "focus";
 }
 
+export interface KeyboardChordIntent extends KeyInputEvent {
+  chordId: string;
+  chord: HarmonyChord;
+  source: "pointer" | "focus";
+}
+
+interface KeyboardChordView {
+  harmony: HarmonyChord;
+  members: ChordMember[];
+  pressed: boolean;
+}
+
 const props = withDefaults(
   defineProps<{
     usage?: "production" | "controlled";
@@ -153,6 +199,9 @@ const props = withDefaults(
     variationAmplitude?: number;
     motion?: "system" | "reduced";
     contrast?: "system" | "forced";
+    tonic?: ChromaticNote;
+    scaleType?: MusicalMode;
+    harmonyAlteration?: HarmonyAlteration;
   }>(),
   {
     usage: "production",
@@ -171,6 +220,9 @@ const props = withDefaults(
     variationAmplitude: 1,
     motion: "system",
     contrast: "system",
+    tonic: "C",
+    scaleType: "major",
+    harmonyAlteration: "auto",
   },
 );
 
@@ -178,13 +230,44 @@ const emit = defineEmits<{
   press: [intent: KeyboardIntent];
   release: [intent: KeyboardIntent];
   focusChange: [keyId: string];
+  chordPress: [intent: KeyboardChordIntent];
+  chordRelease: [intent: KeyboardChordIntent];
 }>();
+
+function chordMembers(
+  chord: HarmonyChord,
+  mode: MusicalMode,
+  key: ChromaticNote,
+  surfaceStyle: NoteSurfaceStyle,
+  activeNoteNames: ReadonlySet<string>,
+  keyBrightness = 1,
+  keySaturation = 1,
+): ChordMember[] {
+  return chord.voicing.pitches.map((pitch, voicingOrder) => ({
+    id: `${chord.id}:${pitch.name}:${voicingOrder}`,
+    rawPitch: pitch.name,
+    primary: "raw",
+    visibleLabels: ["raw"],
+    scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
+    pitchClassIndex: pitch.pitchClassIndex,
+    octave: pitch.octave,
+    mode,
+    musicKey: key,
+    surfaceStyle,
+    accidental: pitch.pitchClass.includes("#"),
+    keyBrightness,
+    keySaturation,
+    voicingOrder,
+    progress: activeNoteNames.has(pitch.name) ? 1 : 0,
+  }));
+}
 
 function createProductionWiring() {
   const store = useKeyboardDrawerStore();
   const musicStore = useMusicStore();
   const config = computed(() => store.keyboardConfig);
   const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
+  const currentMode = computed(() => musicStore.currentMode);
   const surfaceStyle = computed<NoteSurfaceStyle>(() =>
     config.value.surfaceStyle === "monochrome" ? "monochrome" : "colored",
   );
@@ -193,7 +276,7 @@ function createProductionWiring() {
     small: 2,
     medium: 4,
   })[config.value.keyGaps] ?? 2);
-  const { attackNoteWithOctave, releaseNoteByButtonKey } = useSolfegeInteraction();
+  const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
 
   useKeyboardControls(computed(() => config.value.mainOctave));
 
@@ -243,36 +326,103 @@ function createProductionWiring() {
     })),
   );
 
-  const inputPressId = (intent: KeyboardIntent) =>
-    `${intent.inputId}:${intent.keyId}`;
+  const activeNoteNames = computed(() => new Set(
+    musicStore.getActiveNotes().map((note) => note.noteName),
+  ));
+  const chords = computed<KeyboardChordView[]>(() =>
+    buildHarmony({
+      tonic: currentMusicKey.value,
+      scaleType: musicStore.currentMode,
+      octave: config.value.mainOctave,
+      alteration: props.harmonyAlteration,
+    }).map((harmony) => ({
+      harmony,
+      members: chordMembers(
+        harmony,
+        musicStore.currentMode,
+        currentMusicKey.value,
+        surfaceStyle.value,
+        activeNoteNames.value,
+        config.value.keyBrightness,
+        config.value.keySaturation,
+      ),
+      pressed: store.isKeyPressed(`chord:${harmony.id}`),
+    })),
+  );
 
-  async function press(intent: KeyboardIntent) {
-    store.addTouch(inputPressId(intent), intent.keyId);
+  const inputPressId = (intent: KeyboardIntent) =>
+    `melody:${intent.inputId}:${intent.keyId}`;
+  const chordPressId = (intent: KeyboardChordIntent) =>
+    `chord:${intent.inputId}:${intent.chordId}`;
+
+  function press(intent: KeyboardIntent) {
+    const ownerId = inputPressId(intent);
+    store.addTouch(ownerId, intent.keyId);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
     }
-    await attackNoteWithOctave(intent.scaleIndex, intent.octave, intent.event);
+    void voiceGroups.attack(ownerId, [
+      () => musicStore.attackNoteWithOctave(intent.scaleIndex, intent.octave),
+    ]);
   }
 
   function release(intent: KeyboardIntent) {
-    store.removeTouch(inputPressId(intent));
-    releaseNoteByButtonKey(intent.keyId, intent.event);
+    const ownerId = inputPressId(intent);
+    store.removeTouch(ownerId);
+    voiceGroups.release(ownerId);
+  }
+
+  function pressChord(intent: KeyboardChordIntent) {
+    const ownerId = chordPressId(intent);
+    store.addTouch(ownerId, `chord:${intent.chordId}`);
+    if (intent.source === "pointer" && config.value.hapticFeedback) {
+      triggerNoteHaptic();
+    }
+    // The chord object is the setting snapshot captured at attack time.
+    void voiceGroups.attack(
+      ownerId,
+      intent.chord.voicing.pitches.map((pitch) =>
+        () => musicStore.attackExactPitch(pitch.name),
+      ),
+    );
+  }
+
+  function releaseChord(intent: KeyboardChordIntent) {
+    const ownerId = chordPressId(intent);
+    store.removeTouch(ownerId);
+    voiceGroups.release(ownerId);
+  }
+
+  function clear() {
+    voiceGroups.releaseAll();
+    store.clearAllTouches();
   }
 
   return {
     config,
+    currentMusicKey,
+    currentMode,
     rows,
+    chords,
     surfaceStyle,
     gap,
     press,
     release,
-    clear: store.clearAllTouches,
+    pressChord,
+    releaseChord,
+    clear,
   };
 }
 
 const isProductionUsage = props.usage === "production";
 const productionWiring = isProductionUsage ? createProductionWiring() : null;
 const renderRows = computed(() => productionWiring?.rows.value ?? props.rows);
+const resolvedTonic = computed(() =>
+  productionWiring?.currentMusicKey.value ?? props.tonic,
+);
+const resolvedScaleType = computed(() =>
+  productionWiring?.currentMode.value ?? props.scaleType,
+);
 const resolvedMainOctave = computed(
   () => productionWiring?.config.value.mainOctave ?? props.mainOctave,
 );
@@ -290,9 +440,15 @@ const resolvedKeyboardPadding = computed(
   () => productionWiring?.config.value.keyboardPadding ?? props.keyboardPadding,
 );
 // Host allocation changes only row geometry, never row count or note/input ownership.
+const CHORD_ROW_RESERVED_HEIGHT = 47;
 const fittedRows = computed(() => props.availableHeight === undefined ? null
   : fitKeyboardRows(
-    Math.max(0, props.availableHeight - (resolvedKeyboardPadding.value ? 8 : 0)),
+    Math.max(
+      0,
+      props.availableHeight
+        - CHORD_ROW_RESERVED_HEIGHT
+        - (resolvedKeyboardPadding.value ? 8 : 0),
+    ),
     renderRows.value.length,
   ));
 const resolvedMainRowHeight = computed(() => fittedRows.value?.main ?? props.mainRowHeight);
@@ -303,6 +459,25 @@ const resolvedVariationAmplitude = computed(
 );
 const resolvedMotion = computed(() => isProductionUsage ? "system" : props.motion);
 const resolvedContrast = computed(() => isProductionUsage ? "system" : props.contrast);
+const controlledActiveNames = new Set<string>();
+const renderChords = computed<KeyboardChordView[]>(() =>
+  productionWiring?.chords.value ?? buildHarmony({
+    tonic: resolvedTonic.value,
+    scaleType: resolvedScaleType.value,
+    octave: resolvedMainOctave.value,
+    alteration: props.harmonyAlteration,
+  }).map((harmony) => ({
+    harmony,
+    members: chordMembers(
+      harmony,
+      resolvedScaleType.value,
+      resolvedTonic.value,
+      resolvedSurfaceStyle.value,
+      controlledActiveNames,
+    ),
+    pressed: false,
+  })),
+);
 
 const mountFamily = keyboardFamilyForDate(new Date());
 const resolvedFamily = computed(() => props.geometryFamily ?? mountFamily);
@@ -311,8 +486,11 @@ const resolvedEditionSeed = computed(
 );
 const keyboardRef = ref<HTMLElement | null>(null);
 const keyElements = new Map<string, HTMLButtonElement>();
+const chordKeyElements = new Map<string, HTMLButtonElement>();
 const rememberedFocusId = ref("");
+const rememberedChordFocusId = ref("");
 const activeFocusInputs = new Map<string, KeyboardIntent>();
+const activeChordFocusInputs = new Map<string, KeyboardChordIntent>();
 
 const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
 const defaultFocusId = computed(
@@ -321,6 +499,7 @@ const defaultFocusId = computed(
     ?? renderRows.value[0]?.keys[0]?.id
     ?? "",
 );
+const defaultChordFocusId = computed(() => renderChords.value[0]?.harmony.id ?? "");
 const rowSignature = computed(() =>
   renderRows.value
     .map((row) => `${row.octave}:${row.keys.map((key) => key.id).join(",")}`)
@@ -343,6 +522,11 @@ watch(
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
       rememberedFocusId.value = defaultFocusId.value;
     }
+    if (!renderChords.value.some((chord) =>
+      chord.harmony.id === rememberedChordFocusId.value,
+    )) {
+      rememberedChordFocusId.value = defaultChordFocusId.value;
+    }
   },
   { immediate: true },
 );
@@ -360,6 +544,20 @@ function setKeyRef(
     ? instance
     : (instance.$el as HTMLButtonElement | undefined);
   if (element instanceof HTMLButtonElement) keyElements.set(keyId, element);
+}
+
+function setChordKeyRef(
+  chordId: string,
+  instance: Element | ComponentPublicInstance | null,
+) {
+  if (!instance) {
+    chordKeyElements.delete(chordId);
+    return;
+  }
+  const element = instance instanceof Element
+    ? instance
+    : (instance.$el as HTMLButtonElement | undefined);
+  if (element instanceof HTMLButtonElement) chordKeyElements.set(chordId, element);
 }
 
 function variationFor(keyId: string) {
@@ -434,6 +632,18 @@ function rememberFocus(keyId: string) {
   emit("focusChange", keyId);
 }
 
+function rememberChordFocus(chordId: string) {
+  rememberedChordFocusId.value = chordId;
+  emit("focusChange", `chord:${chordId}`);
+}
+
+function focusChord(chordIndex: number) {
+  const chord = renderChords.value[chordIndex];
+  if (!chord) return;
+  rememberChordFocus(chord.harmony.id);
+  void nextTick(() => chordKeyElements.get(chord.harmony.id)?.focus());
+}
+
 function focusKey(rowIndex: number, keyIndex: number) {
   const key = renderRows.value[rowIndex]?.keys[keyIndex];
   if (!key) return;
@@ -483,6 +693,69 @@ function dispatchIntent(kind: "press" | "release", intent: KeyboardIntent) {
   emit("release", intent);
 }
 
+function emitChordIntent(
+  kind: "press" | "release",
+  payload: KeyInputEvent,
+  chord: HarmonyChord,
+) {
+  dispatchChordIntent(kind, {
+    ...payload,
+    chordId: chord.id,
+    chord,
+    source: payload.inputId.startsWith("focus:") ? "focus" : "pointer",
+  });
+}
+
+function dispatchChordIntent(
+  kind: "press" | "release",
+  intent: KeyboardChordIntent,
+) {
+  if (kind === "press") {
+    productionWiring?.pressChord(intent);
+    emit("chordPress", intent);
+    return;
+  }
+  productionWiring?.releaseChord(intent);
+  emit("chordRelease", intent);
+}
+
+function handleChordKeyDown(event: KeyboardEvent, chordIndex: number) {
+  if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    event.preventDefault();
+    if (event.key === "ArrowLeft") focusChord(Math.max(0, chordIndex - 1));
+    else if (event.key === "ArrowRight") {
+      focusChord(Math.min(renderChords.value.length - 1, chordIndex + 1));
+    } else if (event.key === "Home") focusChord(0);
+    else focusChord(renderChords.value.length - 1);
+    return;
+  }
+  if (![" ", "Enter"].includes(event.key) || event.repeat) return;
+  const chord = renderChords.value[chordIndex]?.harmony;
+  if (!chord) return;
+  const inputId = `focus:${event.code}:chord`;
+  if (activeChordFocusInputs.has(inputId)) return;
+  event.preventDefault();
+  const intent: KeyboardChordIntent = {
+    inputId,
+    event,
+    chordId: chord.id,
+    chord,
+    source: "focus",
+  };
+  activeChordFocusInputs.set(inputId, intent);
+  dispatchChordIntent("press", intent);
+}
+
+function handleChordKeyUp(event: KeyboardEvent) {
+  if (![" ", "Enter"].includes(event.key)) return;
+  const inputId = `focus:${event.code}:chord`;
+  const intent = activeChordFocusInputs.get(inputId);
+  if (!intent) return;
+  event.preventDefault();
+  activeChordFocusInputs.delete(inputId);
+  dispatchChordIntent("release", { ...intent, event });
+}
+
 function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
     event.preventDefault();
@@ -525,6 +798,10 @@ function releaseFocusedInputs(event: Event) {
     dispatchIntent("release", { ...intent, event });
   }
   activeFocusInputs.clear();
+  for (const intent of activeChordFocusInputs.values()) {
+    dispatchChordIntent("release", { ...intent, event });
+  }
+  activeChordFocusInputs.clear();
 }
 
 function handleVisibilityChange(event: Event) {
@@ -542,6 +819,7 @@ onBeforeUnmount(() => {
   releaseFocusedInputs(new Event("unmount"));
   productionWiring?.clear();
   keyElements.clear();
+  chordKeyElements.clear();
 });
 </script>
 
@@ -554,6 +832,26 @@ onBeforeUnmount(() => {
   flex-direction: column;
   isolation: isolate;
   container-type: inline-size;
+}
+
+.keyboard__chord-row {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  grid-auto-columns: minmax(44px, 1fr);
+  grid-auto-flow: column;
+  align-items: stretch;
+  gap: var(--keyboard-gap, 2px);
+  padding-block: 1px 2px;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.keyboard__chord-key {
+  min-width: 44px;
+  overflow: visible;
 }
 
 .keyboard--padded { padding: 4px; }

@@ -40,6 +40,9 @@ const mocks = vi.hoisted(() => {
         `${scaleIndex === 0 ? "C" : "D#"}${octave}`,
     ),
     getActiveNotes: vi.fn(() => [{ solfegeIndex: 0, octave: 3 }]),
+    attackNoteWithOctave: vi.fn(async () => "melody-note"),
+    attackExactPitch: vi.fn(async (pitch: string) => `exact-${pitch}`),
+    releaseNote: vi.fn(),
   };
 
   return {
@@ -108,10 +111,24 @@ const KeyStub = defineComponent({
   template: '<button class="key-stub" v-bind="$attrs" />',
 });
 
+const ChordKeyStub = defineComponent({
+  name: "ChordKey",
+  inheritAttrs: false,
+  props: {
+    members: Array,
+    symbol: String,
+    accessibleName: String,
+    geometry: String,
+    pressed: Boolean,
+  },
+  emits: ["press", "release"],
+  template: '<button class="chord-key-stub" v-bind="$attrs" />',
+});
+
 function mountKeyboard() {
   return mount(Keyboard, {
     global: {
-      stubs: { Key: KeyStub },
+      stubs: { Key: KeyStub, ChordKey: ChordKeyStub },
     },
   });
 }
@@ -125,6 +142,7 @@ describe("Keyboard production usage", () => {
   it("builds configured octave rows from the accepted Key contract", () => {
     const wrapper = mountKeyboard();
     const keys = wrapper.findAllComponents(KeyStub);
+    expect(wrapper.findAllComponents(ChordKeyStub)).toHaveLength(7);
 
     expect(keys).toHaveLength(6);
 
@@ -173,9 +191,9 @@ describe("Keyboard production usage", () => {
     const keys = wrapper.findAllComponents(KeyStub);
 
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(109.76, 1);
+      .toBeCloseTo(96.6, 1);
     expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(172.48, 1);
+      .toBeCloseTo(151.8, 1);
   });
 
   it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {
@@ -183,8 +201,8 @@ describe("Keyboard production usage", () => {
     const identities = wrapper.findAllComponents(KeyStub).map(key => key.props("rawPitch"));
     await wrapper.setProps({ availableHeight: 400 });
     let keys = wrapper.findAllComponents(KeyStub);
-    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(112);
-    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(176);
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(98.84, 1);
+    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(155.32, 1);
     await wrapper.setProps({ availableHeight: 20 });
     keys = wrapper.findAllComponents(KeyStub);
     expect(keys[0].attributes("style")).toContain("--keyboard-note-height: 44px");
@@ -201,17 +219,52 @@ describe("Keyboard production usage", () => {
     await nextTick();
 
     expect(mocks.keyboardStore.addTouch).toHaveBeenCalledWith(
-      "mouse:0_4",
+      "melody:mouse:0_4",
       "0_4",
     );
     expect(mocks.triggerNoteHaptic).toHaveBeenCalledOnce();
-    expect(mocks.attackNoteWithOctave).toHaveBeenCalledWith(0, 4, event);
+    expect(mocks.musicStore.attackNoteWithOctave).toHaveBeenCalledWith(0, 4);
 
     key.vm.$emit("release", { inputId: "mouse", event });
     await nextTick();
 
-    expect(mocks.keyboardStore.removeTouch).toHaveBeenCalledWith("mouse:0_4");
-    expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledWith("0_4", event);
+    expect(mocks.keyboardStore.removeTouch).toHaveBeenCalledWith("melody:mouse:0_4");
+    await Promise.resolve();
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith("melody-note");
+  });
+
+  it("snapshots a chord alteration and attacks every member by exact pitch", async () => {
+    const wrapper = mountKeyboard();
+    const firstChord = wrapper.findAllComponents(ChordKeyStub)[0];
+    const event = new MouseEvent("mousedown");
+
+    firstChord.vm.$emit("press", { inputId: "pointer:7", event });
+    await nextTick();
+
+    expect(mocks.keyboardStore.addTouch).toHaveBeenCalledWith(
+      "chord:pointer:7:degree-1",
+      "chord:degree-1",
+    );
+    expect(mocks.musicStore.attackExactPitch.mock.calls.map(([pitch]) => pitch))
+      .toEqual(["C4", "E4", "G4"]);
+
+    await wrapper.setProps({ harmonyAlteration: "dark" });
+    expect(mocks.musicStore.attackExactPitch).toHaveBeenCalledTimes(3);
+
+    firstChord.vm.$emit("release", { inputId: "pointer:7", event });
+    await nextTick();
+    await Promise.resolve();
+    expect(mocks.musicStore.releaseNote.mock.calls.map(([noteId]) => noteId))
+      .toEqual(["exact-C4", "exact-E4", "exact-G4"]);
+
+    wrapper.findAllComponents(ChordKeyStub)[0].vm.$emit(
+      "press",
+      { inputId: "pointer:8", event },
+    );
+    await nextTick();
+    expect(mocks.musicStore.attackExactPitch.mock.calls.slice(3).map(([pitch]) => pitch))
+      .toEqual(["C4", "D#4", "G4"]);
+    wrapper.unmount();
   });
 
   it("installs one global QWERTY route and clears held pointers on teardown", () => {

@@ -98,6 +98,15 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
   });
 
+  it("presents Stop while playback is still starting", () => {
+    wrapper = render({ isStarting: true });
+
+    expect(wrapper.get('button[aria-label="Stop"]').attributes("title")).toBe(
+      "Stop",
+    );
+    expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
+  });
+
   it("emits the three existing action boundaries", async () => {
     wrapper = render();
 

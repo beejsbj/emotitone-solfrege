@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   sendCurrentPattern: vi.fn(),
   toggle: vi.fn(),
   isPlaying: { value: false, __v_isRef: true },
+  isStarting: { value: false, __v_isRef: true },
   hasPlayableCode: { value: true, __v_isRef: true },
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
@@ -67,6 +68,7 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: () => ({
     toggle: mocks.toggle,
     isPlaying: mocks.isPlaying,
+    isStarting: mocks.isStarting,
     hasPlayableCode: mocks.hasPlayableCode,
   }),
 }));
@@ -74,7 +76,7 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
-    props: ["isPlaying", "playDisabled"],
+    props: ["isPlaying", "isStarting", "playDisabled"],
     emits: ["togglePlayback", "backspace", "return"],
     template: '<div data-testid="code-strip-bar" />',
   },
@@ -107,6 +109,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
+    mocks.isStarting.value = false;
     mocks.hasPlayableCode.value = true;
     mocks.instrumentStore.isInteractionLocked = false;
     mocks.instrumentStore.warmingInstrument = null;
@@ -152,6 +155,30 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     await wrapper.vm.$nextTick();
 
     expect(mocks.toggle).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("presents and preserves Stop while playback is starting", async () => {
+    mocks.isStarting.value = true;
+    mocks.hasPlayableCode.value = false;
+    mocks.instrumentStore.isInteractionLocked = true;
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const actions = wrapper.getComponent({ name: "CodeStripBar" });
+
+    expect(actions.props("isStarting")).toBe(true);
+    expect(actions.props("playDisabled")).toBe(false);
+    actions.vm.$emit("togglePlayback");
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.toggle).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 

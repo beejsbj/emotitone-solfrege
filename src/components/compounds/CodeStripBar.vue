@@ -6,11 +6,11 @@
       tone="brass"
       :haptic="haptic"
       :disabled="playDisabled"
-      :accessible-name="isPlaying ? 'Stop' : 'Play'"
-      :title="isPlaying ? 'Stop' : 'Play'"
+      :accessible-name="isPlaying || isStarting ? 'Stop' : 'Play'"
+      :title="isPlaying || isStarting ? 'Stop' : 'Play'"
       @click="emit('togglePlayback')"
     >
-      <Square v-if="isPlaying" />
+      <Square v-if="isPlaying || isStarting" />
       <Play v-else />
     </Button>
 
@@ -65,6 +65,7 @@ import type {
 withDefaults(
   defineProps<{
     isPlaying?: boolean;
+    isStarting?: boolean;
     playDisabled?: boolean;
     haptic?: boolean;
     tokens?: CodeStripToken[];
@@ -76,6 +77,7 @@ withDefaults(
   }>(),
   {
     isPlaying: false,
+    isStarting: false,
     playDisabled: false,
     haptic: false,
     tokens: undefined,

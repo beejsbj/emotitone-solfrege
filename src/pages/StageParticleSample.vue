@@ -53,6 +53,7 @@ function releaseBurst() {
   const canvas = canvasRef.value;
   const note = particleNotes[noteIndex % particleNotes.length];
   if (!canvas || !note) return;
+  if (particleSystem.getActiveParticleCount() >= props.burstCount * 4) return;
 
   particleSystem.createParticles(
     note,

@@ -14,7 +14,7 @@ vi.mock("@/stores/music", () => ({
       number: i + 1,
       emotion: "happy",
       description: `Note ${i + 1}`,
-      fleckShape: "circle",
+      mark: "disk",
       texture: "smooth",
     })),
     playNote: vi.fn(),

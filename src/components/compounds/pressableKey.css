@@ -1,0 +1,71 @@
+.pressable-key {
+  display: inline-grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  appearance: none;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+.pressable-key:focus-visible {
+  outline: 2px solid var(--ivory, currentColor);
+  outline-offset: 2px;
+}
+
+.pressable-key__face {
+  --key-face-press-y: 0px;
+  --key-face-press-scale: 1;
+  --key-face-hover-y: 0px;
+  display: block;
+  pointer-events: none;
+  transform:
+    translateY(calc(var(--key-face-hover-y) + var(--key-face-press-y)))
+    rotate(var(--key-face-rotation, 0deg))
+    scale(var(--key-face-press-scale));
+  transition: transform 90ms ease-in-out;
+  will-change: transform;
+}
+
+.pressable-key--pressed .pressable-key__face {
+  --key-face-press-y: 2px;
+  --key-face-press-scale: .97;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pressable-key:not(.pressable-key--pressed):hover .pressable-key__face {
+    --key-face-hover-y: -1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pressable-key__face,
+  .pressable-key--pressed .pressable-key__face {
+    --key-face-press-y: 0px;
+    --key-face-press-scale: 1;
+    --key-face-hover-y: 0px;
+    transition: none;
+    will-change: auto;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .pressable-key:not(.pressable-key--pressed):hover .pressable-key__face {
+      --key-face-hover-y: 0px;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .pressable-key:focus-visible {
+    outline-color: CanvasText;
+  }
+}

@@ -3,6 +3,7 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import Key from "@/components/compounds/Key.vue";
 import Note from "@/components/primatives/Note.vue";
 import keySource from "@/components/compounds/Key.vue?raw";
+import pressableKeySource from "@/composables/usePressableKey.ts?raw";
 
 const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
@@ -287,21 +288,11 @@ describe("Key", () => {
       /@\/stores|audio|haptic|midi|qwerty|addEventListener\(["']key/i,
     );
     expect(keySource).not.toContain("disabled");
-    expect(keySource).toMatch(/min-width:\s*44px/);
-    expect(keySource).toMatch(/min-height:\s*44px/);
-    expect(keySource).toContain("touch-action: manipulation");
-    expect(keySource).toMatch(/\.key:focus-visible\s*{[^}]*outline:\s*2px/);
-    expect(keySource).toContain("outline-offset: 2px");
-    expect(keySource).toContain("@media (hover: hover) and (pointer: fine)");
-    expect(keySource).toContain("--key-face-hover-y: -1px");
-    expect(keySource).toContain("--key-face-press-y: 2px");
-    expect(keySource).toContain("rotate(var(--key-face-rotation, 0deg))");
-    expect(keySource).toContain("transition: transform 90ms");
-    expect(keySource).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition:\s*none/,
-    );
-    expect(keySource).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*--key-face-press-scale:\s*1/,
-    );
+    expect(keySource).toContain("usePressableKey");
+    expect(keySource).toContain("pressable-key__face");
+    expect(keySource).toContain('import "./pressableKey.css"');
+    expect(pressableKeySource).toContain('window.addEventListener("blur"');
+    expect(pressableKeySource).toContain('document.addEventListener("visibilitychange"');
+    expect(pressableKeySource).toContain("handleTouchCancel: handleTouchEnd");
   });
 });

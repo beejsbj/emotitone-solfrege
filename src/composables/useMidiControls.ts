@@ -92,6 +92,7 @@ interface MidiNoteResolver {
 
 interface MirroredNoteEventDetail {
   source?: string;
+  mirrorMidi?: boolean;
   duration?: string;
   durationMs?: number;
   noteId?: string;
@@ -99,6 +100,12 @@ interface MirroredNoteEventDetail {
   octave?: number;
   solfegeIndex?: number;
   isBorrowed?: boolean;
+}
+
+export function shouldMirrorNoteEvent(
+  detail: Pick<MirroredNoteEventDetail, "mirrorMidi"> | undefined,
+) {
+  return detail?.mirrorMidi !== false;
 }
 
 function buildMidiPressId(inputId: string, channel: number, noteNumber: number) {
@@ -233,7 +240,10 @@ export function resolveMirroredMidiNoteNumber(
 ): number | null {
   const exactMidiNote = (noteName: string) => {
     const midiNote = TonalNote.get(noteName).midi;
-    return Number.isInteger(midiNote) && midiNote >= 0 && midiNote <= 127
+    return typeof midiNote === "number"
+      && Number.isInteger(midiNote)
+      && midiNote >= 0
+      && midiNote <= 127
       ? midiNote
       : null;
   };
@@ -675,6 +685,7 @@ export function useMidiControls() {
 
   const mirrorNotePlayed = (event: Event) => {
     const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
+    if (!shouldMirrorNoteEvent(detail)) return;
     const noteName = detail?.noteName;
 
     if (noteName && consumePendingNoteCount(pendingInputNoteOns.value, noteName)) {
@@ -719,6 +730,7 @@ export function useMidiControls() {
 
   const mirrorNoteReleased = (event: Event) => {
     const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
+    if (!shouldMirrorNoteEvent(detail)) return;
 
     if (detail?.noteId && pendingInputNoteOffs.value.has(detail.noteId)) {
       pendingInputNoteOffs.value.delete(detail.noteId);

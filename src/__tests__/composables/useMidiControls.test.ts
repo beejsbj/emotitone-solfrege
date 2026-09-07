@@ -6,6 +6,7 @@ import {
   resolveMirroredMidiNoteNumber,
   resolvePlayableMidiNote,
   resolveVisualNoteKey,
+  shouldMirrorNoteEvent,
 } from "@/composables/useMidiControls";
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -158,5 +159,11 @@ describe("useMidiControls helpers", () => {
         noteResolver,
       ),
     ).toBeNull();
+  });
+
+  it("keeps visual-only humming notes off connected MIDI outputs", () => {
+    expect(shouldMirrorNoteEvent({ mirrorMidi: false })).toBe(false);
+    expect(shouldMirrorNoteEvent({})).toBe(true);
+    expect(shouldMirrorNoteEvent(undefined)).toBe(true);
   });
 });

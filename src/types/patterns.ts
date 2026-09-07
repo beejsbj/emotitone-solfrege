@@ -127,6 +127,15 @@ export interface PatternNote {
   duration: number;
 }
 
+export interface MelographPatternSource {
+  kind: "melograph";
+  schemaVersion: number;
+  tracker: string;
+  takeNumber: number;
+}
+
+export type PatternSource = MelographPatternSource;
+
 export interface Pattern {
   //  Unique pattern identifier /
   id: string;
@@ -164,6 +173,9 @@ export interface Pattern {
 
   //  Visual color associated with this pattern (from color system) /
   color?: string;
+
+  // Optional provenance for patterns imported from another musical input.
+  source?: PatternSource;
 
   //  Pattern Metadata /
   //  When this pattern was first detected /

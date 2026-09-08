@@ -21,6 +21,13 @@ export interface ConfigField<T> {
   format?: (value: T) => string;
   /** Optional icon for the field */
   icon?: string;
+  /** Optional subgroup label inside a configuration section */
+  group?: string;
+  /** Optional visibility rule keyed to another field in the same section */
+  visibleWhen?: {
+    field: string;
+    values: Array<string | number | boolean>;
+  };
 }
 
 /**
@@ -60,32 +67,31 @@ export interface DynamicColorConfig {
   animationSpeed: number;
 }
 
-/**
- * Floating popup configuration
- */
-export interface FloatingPopupConfig {
-  /** Whether floating popup is enabled */
-  isEnabled: boolean;
-  /** Accumulation window for notes in milliseconds */
-  accumulationWindow: number;
-  /** Hide delay after last note stops in milliseconds */
-  hideDelay: number;
-  /** Maximum number of notes to display simultaneously */
-  maxNotes: number;
-  /** Whether to show chord information */
-  showChord: boolean;
-  /** Whether to show interval information */
-  showIntervals: boolean;
-  /** Whether to show emotional descriptions */
-  showEmotionalDescription: boolean;
-  /** Backdrop blur intensity in pixels */
-  backdropBlur: number;
-  /** Glassmorphism effect opacity (0-1) */
-  glassmorphOpacity: number;
-  /** Animation duration for show/hide transitions in milliseconds */
-  animationDuration: number;
-  /** Popup opacity when visible (0-1) */
-  opacity: number;
+/** Blob relationship presentations. */
+export type HarmonicGeometryMode = "merge" | "web";
+export type BlobConnectionMode = "off" | HarmonicGeometryMode;
+
+export interface BlobRelationshipConfig {
+  /** Whether relationships are absent, merged, or shown as a harmonic web */
+  connectionMode: BlobConnectionMode;
+  /** How long released analysis remains available, in milliseconds */
+  analysisHoldTime: number;
+  /** Maximum number of notes included in relationship analysis */
+  analysisNoteLimit: number;
+  /** Whether to show a chord label */
+  showChordLabel: boolean;
+  /** Whether to show interval labels */
+  showIntervalLabels: boolean;
+  /** Whether to show an emotional-description label */
+  showEmotionLabel: boolean;
+  /** Shared-field relationship softness in pixels */
+  fieldSoftness: number;
+  /** Connection or fusion strength (0-1) */
+  fusionStrength: number;
+  /** Web filament opacity (0-1) */
+  webOpacity: number;
+  /** Analysis-label opacity (0-1) */
+  labelOpacity: number;
 }
 
 /**
@@ -159,7 +165,7 @@ export interface VisualEffectConfig {
 /**
  * Blob visual effect configuration
  */
-export interface BlobConfig {
+export interface BlobConfig extends BlobRelationshipConfig {
   /** Whether blob effects are enabled */
   isEnabled: boolean;
   /** Base size ratio relative to screen size */
@@ -172,7 +178,7 @@ export interface BlobConfig {
   opacity: number;
   /** Blur radius in pixels */
   blurRadius: number;
-  /** Vibration amplitude (0-1) - now used for edge vibration */
+  /** Slow breathing amplitude (0-1) */
   oscillationAmplitude: number;
   /** Fade-out duration in seconds */
   fadeOutDuration: number;
@@ -186,7 +192,7 @@ export interface BlobConfig {
   vibrationFrequencyDivisor: number;
   /** Number of segments for blob edge */
   edgeSegments: number;
-  /** Amplitude of edge vibration */
+  /** Amplitude of edge vibration as a percentage of the rendered radius */
   vibrationAmplitude: number;
   /** Enable glow effect */
   glowEnabled: boolean;
@@ -496,6 +502,17 @@ export type EnhancedBlobConfig = {
   vibrationAmplitude: ConfigField<number>;
   glowEnabled: ConfigField<boolean>;
   glowIntensity: ConfigField<number>;
+  circleTopMargin: ConfigField<number>;
+  connectionMode: ConfigField<BlobConnectionMode>;
+  fieldSoftness: ConfigField<number>;
+  fusionStrength: ConfigField<number>;
+  webOpacity: ConfigField<number>;
+  analysisHoldTime: ConfigField<number>;
+  analysisNoteLimit: ConfigField<number>;
+  showChordLabel: ConfigField<boolean>;
+  showIntervalLabels: ConfigField<boolean>;
+  showEmotionLabel: ConfigField<boolean>;
+  labelOpacity: ConfigField<number>;
 };
 
 /**
@@ -523,8 +540,6 @@ export interface VisualEffectsConfig {
   frequencyMapping: FrequencyMappingConfig;
   /** Dynamic color system configuration */
   dynamicColors: DynamicColorConfig;
-  /** Floating popup configuration */
-  floatingPopup: FloatingPopupConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
   /** Beating Shapes configuration */

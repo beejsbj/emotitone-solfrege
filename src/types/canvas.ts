@@ -3,7 +3,13 @@
  * Type definitions for canvas rendering, particles, and animation systems
  */
 
-import type { ChromaticNote, MusicalMode, SolfegeData } from "./music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  HarmonicIntervalEdge,
+  MusicalMode,
+  SolfegeData,
+} from "./music";
 
 /**
  * Active blob state for canvas rendering
@@ -35,12 +41,62 @@ export interface ActiveBlob {
   vibrationPhase: number;
   /** Current scale multiplier for grow/shrink animations */
   scale: number;
+  /** Last rendered scale, exposed to dependent canvas effects */
+  renderScale?: number;
+  /** Last rendered opacity, exposed to dependent canvas effects */
+  renderOpacity?: number;
   /** Harmonic context snapshot used for stable color rendering */
   mode: MusicalMode;
   /** Key snapshot used for stable color rendering */
   key: ChromaticNote;
   /** Octave snapshot used for scale-relative lightness */
   octave: number;
+}
+
+/** The exact blob body prepared for one animation frame. */
+export interface PreparedBlobFrame {
+  /** Stable key used by the polyphonic blob lifecycle. */
+  key: string;
+  /** Source state retained for harmonic analysis and lifecycle checks. */
+  blob: ActiveBlob;
+  /** The vibrating production contour, in canvas coordinates. */
+  contour: Array<{ x: number; y: number }>;
+  /** Resolved music color for this frame. */
+  primaryColor: string;
+  /** Current body radius after scale animation. */
+  scaledRadius: number;
+  /** Current body opacity after fade animation. */
+  opacity: number;
+  /** Current glow amount used by the ordinary body renderer. */
+  glowIntensity: number;
+  /** Seconds elapsed since this body appeared. */
+  elapsed: number;
+}
+
+export interface HarmonicGeometryPoint {
+  note: ActiveNote;
+  blob: ActiveBlob;
+  x: number;
+  y: number;
+  angle: number;
+}
+
+export interface HarmonicGeometryLabel {
+  x: number;
+  y: number;
+  lines: string[];
+  size: "sm" | "md" | "lg";
+}
+
+export interface HarmonicGeometryScene {
+  points: HarmonicGeometryPoint[];
+  orderedPoints: HarmonicGeometryPoint[];
+  centroid: { x: number; y: number };
+  radius: number;
+  boundaryEdges: HarmonicIntervalEdge[];
+  interiorEdges: HarmonicIntervalEdge[];
+  primaryLabel: HarmonicGeometryLabel | null;
+  auxiliaryLabels: HarmonicGeometryLabel[];
 }
 
 /**

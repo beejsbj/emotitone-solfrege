@@ -119,6 +119,10 @@
           <div class="sink-frame__source">unique-drawer.html</div>
           <UniqueDrawer />
         </article>
+        <article id="unique-harmonic-geometry" class="sink-frame">
+          <div class="sink-frame__source">unique-harmonic-geometry</div>
+          <UniqueHarmonicGeometry />
+        </article>
       </div>
     </section>
 
@@ -203,6 +207,7 @@ import UniqueBrandCover from "./uniques/UniqueBrandCover.vue";
 import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";
 import UniqueCodeStrip from "./uniques/UniqueCodeStrip.vue";
 import UniqueDrawer from "./uniques/UniqueDrawer.vue";
+import UniqueHarmonicGeometry from "./uniques/UniqueHarmonicGeometry.vue";
 
 defineProps<{
   page?: "tabs" | "instrument-picker";

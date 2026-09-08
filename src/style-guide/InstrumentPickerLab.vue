@@ -39,7 +39,8 @@
         <div><dt>Available</dt><dd>Ivory outline Sticker; the default library texture.</dd></div>
         <div><dt>Cold</dt><dd>The same outline Sticker dimmed, without inventing another surface.</dd></div>
         <div><dt>Current</dt><dd>Filled Ivory Sticker; selection is the strongest stable event.</dd></div>
-        <div><dt>Warming</dt><dd>Filled brass Sticker; a temporary loading signal without introducing Badge.</dd></div>
+        <div><dt>Warming</dt><dd>Filled Ivory Sticker held with the current/ready sounds while the progress banner names the load.</dd></div>
+        <div><dt>Icons</dt><dd>The shared instrument resolver identifies both Drawer handles and choice Stickers.</dd></div>
         <div><dt>Button</dt><dd>Invisible native semantics only; Sticker owns all visible geometry and material.</dd></div>
       </dl>
     </section>
@@ -48,8 +49,8 @@
       <p class="picker-lab__eyebrow">Definition closed</p>
       <h2>Sticker is the choice language.</h2>
       <p>
-        The picker owns grouping and state mapping, not another choice component. Badge has no
-        role in this composition.
+        The picker owns grouping, ready-first ordering, and state mapping, not another choice
+        component. Badge and brass have no role in this composition.
       </p>
     </aside>
   </main>

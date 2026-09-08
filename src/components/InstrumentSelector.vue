@@ -384,7 +384,7 @@ const orderedGroups = computed(() => {
       (category) => ({
         key: category,
         label: CATEGORY_LABELS[category],
-        sounds: grouped.value[category]!,
+        sounds: prioritizeSounds(grouped.value[category]!),
       })
     );
   }
@@ -400,7 +400,7 @@ const orderedGroups = computed(() => {
     {
       key: category,
       label: CATEGORY_LABELS[category],
-      sounds,
+      sounds: prioritizeSounds(sounds),
     },
   ];
 });
@@ -488,8 +488,20 @@ function soundStickerVariant(sound: string): "outline" | "fill" {
   return ["selected", "warming"].includes(getSoundState(sound)) ? "fill" : "outline";
 }
 
-function soundStickerColor(sound: string): "ivory" | "brass-sheen" {
-  return getSoundState(sound) === "warming" ? "brass-sheen" : "ivory";
+function soundPriority(sound: string): number {
+  return {
+    selected: 0,
+    warming: 0,
+    ready: 1,
+    default: 2,
+    cold: 3,
+  }[getSoundState(sound)];
+}
+
+function prioritizeSounds(sounds: string[]): string[] {
+  return [...sounds].sort(
+    (a, b) => soundPriority(a) - soundPriority(b) || a.localeCompare(b)
+  );
 }
 
 function closeSelector(close: () => void) {
@@ -682,9 +694,16 @@ async function selectInstrument(name: string, close: () => void) {
                   <Sticker
                     class="instrument-choice__sticker"
                     :variant="soundStickerVariant(sound)"
-                    :color="soundStickerColor(sound)"
+                    color="ivory"
                   >
-                    {{ displayInstrumentName(sound) }}
+                    <component
+                      :is="instrumentIconFor(sound)"
+                      :size="12"
+                      :stroke-width="1.75"
+                      class="instrument-choice__icon"
+                      aria-hidden="true"
+                    />
+                    <span>{{ displayInstrumentName(sound) }}</span>
                   </Sticker>
                 </button>
               </div>
@@ -741,6 +760,13 @@ async function selectInstrument(name: string, close: () => void) {
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+
+.instrument-choice__icon {
+  width: .9em;
+  height: .9em;
+  flex: none;
+  margin-right: .4em;
 }
 
 .instrument-choice:not(:disabled):hover { transform: translateY(-1px); }

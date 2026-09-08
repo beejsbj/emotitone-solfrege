@@ -1,16 +1,30 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
+import MarkSticker from "@/components/compounds/MarkSticker.vue";
 import Mark from "@/components/primatives/Mark.vue";
 import { MARK_DEFINITIONS, MARK_NAMES, markViewBox } from "@/components/primatives/marks";
 
 describe("Mark lineage", () => {
   it("exposes every structural and musical glyph through one registry", () => {
-    expect(MARK_NAMES).toHaveLength(20);
+    expect(MARK_NAMES).toHaveLength(28);
     expect(MARK_NAMES).toContain("triangle");
     expect(MARK_NAMES).toContain("clef");
+    expect(MARK_NAMES).toContain("natural");
+    expect(MARK_NAMES).toContain("quarter-rest");
+    expect(MARK_NAMES).toContain("bass-clef");
     expect(MARK_NAMES).not.toContain("sparkle");
     expect(MARK_NAMES).not.toContain("mist");
+  });
+
+  it("holds a Mark inside Sticker instead of maintaining a second Kicker geometry", () => {
+    const wrapper = mount(MarkSticker, {
+      props: { mark: "natural", color: "tomato", label: "Natural" },
+    });
+
+    expect(wrapper.find(".sticker").exists()).toBe(true);
+    expect(wrapper.find("svg.mark").attributes("data-mark")).toBe("natural");
+    expect(wrapper.text()).toContain("Natural");
   });
 
   it("renders the SVG primitive from the authoritative path definition", () => {

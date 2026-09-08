@@ -5,6 +5,7 @@
     :width="resolvedSize"
     :height="resolvedSize"
     :viewBox="viewBox"
+    :data-mark="name"
     aria-hidden="true"
   >
     <path
@@ -28,6 +29,7 @@ import { MARK_DEFINITIONS, markViewBox, type MarkName } from "./marks";
 export type { MarkName } from "./marks";
 
 export type MarkTone =
+  | "inherit"
   | "ivory"
   | "ivory-2"
   | "brass"
@@ -64,6 +66,8 @@ const classes = computed(() => [`mark--tone-${props.tone}`, `mark--${props.treat
   display: block;
   color: var(--ivory);
 }
+
+.mark--tone-inherit { color: inherit; }
 
 .mark--tone-ivory { color: var(--ivory); }
 .mark--tone-ivory-2 { color: var(--ivory-2); }

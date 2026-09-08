@@ -68,10 +68,6 @@
           <PrimitiveNote />
         </article>
         <article class="sink-frame">
-          <div class="sink-frame__source">primitive-kicker.html</div>
-          <PrimitiveKicker />
-        </article>
-        <article class="sink-frame">
           <div class="sink-frame__source">primitive-knobs-analog.html</div>
           <PrimitiveKnobsAnalog />
         </article>
@@ -119,6 +115,10 @@
     <section class="sink-section" aria-labelledby="compounds-heading">
       <h2 id="compounds-heading">Compounds</h2>
       <div class="sink-stack">
+        <article class="sink-frame">
+          <div class="sink-frame__source">compound-mark-sticker</div>
+          <CompoundMarkSticker />
+        </article>
         <article class="sink-frame">
           <div class="sink-frame__source">compound-beat-indicator</div>
           <CompoundBeatIndicator />
@@ -182,7 +182,6 @@ import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
 import PrimitiveCard from "./primatives/PrimitiveCard.vue";
 import PrimitiveNote from "./primatives/PrimitiveNote.vue";
-import PrimitiveKicker from "./primatives/PrimitiveKicker.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
 import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
@@ -190,6 +189,7 @@ import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundCodeStripBar from "./compounds/CompoundCodeStripBar.vue";
 import CompoundBeatIndicator from "./compounds/CompoundBeatIndicator.vue";
+import CompoundMarkSticker from "./compounds/CompoundMarkSticker.vue";
 import CompoundControlBar from "./compounds/CompoundControlBar.vue";
 import CompoundChord from "./compounds/CompoundChord.vue";
 import CompoundKey from "./compounds/CompoundKey.vue";

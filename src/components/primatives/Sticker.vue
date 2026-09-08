@@ -15,8 +15,8 @@ import { computed, ref } from "vue";
 import type { CSSProperties } from "vue";
 import { getRandomGeometry } from "../../utils/randomGeometry";
 
-type StickerVariant = "outline" | "fill" | "badge";
-type StickerColor =
+export type StickerVariant = "outline" | "fill" | "badge";
+export type StickerColor =
   | "ink"
   | "ink-5"
   | "ivory"

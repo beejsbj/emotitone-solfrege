@@ -9,8 +9,8 @@
 
   <!-- Animated ball -->
   <div
-    ref="ballRef"
     class="knob-boolean__ball"
+    :class="{ 'knob-boolean__ball--active': modelValue }"
     :style="{
       backgroundColor: activeStrokeColor,
       color: activeStrokeColor,
@@ -27,10 +27,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 import KnobFace from "./KnobFace.vue";
 import type { BooleanKnobProps } from "./types";
-import useGSAP from "@/composables/useGSAP";
 
 interface Props extends BooleanKnobProps {
   modelValue: boolean;
@@ -42,8 +41,6 @@ const props = withDefaults(defineProps<Props>(), {
   visual: "arc",
   tone: "ivory",
 });
-
-const ballRef = ref<HTMLElement | null>(null);
 
 // Display value (icon component)
 const displayValue = computed(() => {
@@ -64,22 +61,6 @@ const activeStrokeColor = computed(
       : "hsla(0, 0%, 38%, 1)"
 );
 
-// GSAP animation for the ball
-useGSAP(({ gsap }) => {
-  watch(
-    () => props.modelValue,
-    (isActive) => {
-      if (!ballRef.value) return;
-
-      gsap.to(ballRef.value, {
-        scale: isActive ? 1.2 : 0.2,
-        duration: 0.6,
-        ease: "elastic.out(1, 0.3)",
-      });
-    },
-    { immediate: true }
-  );
-});
 </script>
 
 <style scoped>
@@ -97,10 +78,20 @@ useGSAP(({ gsap }) => {
   aspect-ratio: 1;
   border-radius: 50%;
   box-shadow: 0 0 9cqi color-mix(in srgb, currentColor 45%, transparent);
+  transform: translate(-50%, -50%) scale(.2);
+  transition: transform var(--dur-bounce) var(--ease-bounce);
+}
+
+.knob-boolean__ball--active {
+  transform: translate(-50%, -50%) scale(1.2);
 }
 
 .knob-boolean__icon {
   inline-size: 25cqi;
   block-size: 25cqi;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knob-boolean__ball { transition: none; }
 }
 </style>

@@ -91,6 +91,16 @@
             <div class="kf-name">--dur-scene</div>
             <div class="kf-role">600ms · visual fx fade · hero swap</div>
           </div>
+
+          <div class="kf dur-cell bounce">
+            <div class="stage">
+              <div class="stage-name">Bounce</div>
+              <div class="stage-ms">600<sup>ms</sup></div>
+              <div class="dur-track"><i></i></div>
+            </div>
+            <div class="kf-name">--dur-bounce</div>
+            <div class="kf-role">600ms · tactile elastic rebound</div>
+          </div>
     
         </div>
       </div>
@@ -160,6 +170,18 @@
             </div>
             <div class="kf-name">--ease-bend</div>
             <div class="kf-role">Pitch mode-change · tears &amp; recovers</div>
+          </div>
+
+          <div class="kf ease-cell">
+            <div class="stage">
+              <div class="ease-name-big">Bounce</div>
+              <svg viewBox="0 -10 100 38" preserveAspectRatio="none">
+                <polyline points="0,28 10,-4 15,-8 25,3 30,5 40,0 45,-1 60,0 100,0" stroke="var(--mustard)" stroke-width="1.5" fill="none" stroke-linecap="butt"/>
+              </svg>
+              <div class="ease-track"><div class="e-dot bounce"></div></div>
+            </div>
+            <div class="kf-name">--ease-bounce</div>
+            <div class="kf-role">Boolean Knob · non-brass Button release</div>
           </div>
     
         </div>
@@ -378,7 +400,7 @@
     
         <div class="caption" style="margin-top:20px;color:var(--fg-3);line-height:1.55">
           All keyframes now defined globally in <code>colors_and_type.css</code>: rhythm (<code>beat</code>, <code>pulse</code>, <code>bob</code>, <code>strobe</code>, <code>beat-cell</code>, <code>beat-down</code>), transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode-out</code>, <code>rip-mode-in</code>, <code>smear</code>, <code>lift</code>), feedback (<code>ring</code>, <code>ring-flash</code>, <code>flash</code>, <code>flash-ring</code>), brand (<code>brass-sheen</code>). <code>paper-rip-flash</code> is a composition of <code>lift</code> + <code>flash</code> + <code>flash-ring</code>, not its own keyframe. <code>glow</code> is promoted to a static shadow token (<code>--shadow-glow</code>) — see Geometry tokens.
-          The five "gesture eases" (swing / stab / brush / sustain / bend) are easing curves, not keyframes — shown here on the shared <code>ease-run</code> track for comparison.
+          The six gesture eases (swing / stab / brush / sustain / bend / bounce) are easing curves, not keyframes — shown here on the shared <code>ease-run</code> track for comparison. Bounce promotes the Boolean Knob's elastic rebound for shared tactile use.
         </div>
     
       </div><!-- .block -->
@@ -588,6 +610,7 @@
 .dur-cell.ui    .dur-track i { animation: dur-fill 1.8s var(--ease-brush)  infinite; }
 .dur-cell.panel .dur-track i { animation: dur-fill 2.4s var(--ease-swing)  infinite; }
 .dur-cell.scene .dur-track i { animation: dur-fill 3.2s var(--ease-bend)   infinite; }
+.dur-cell.bounce .dur-track i { animation: dur-fill 3.2s var(--ease-bounce) infinite; }
 
 /* ════════════════════════════════════════════════════════════════
    BLOCK 3 — GESTURE · EASING
@@ -650,6 +673,7 @@
 .ease-track .e-dot.brush   { animation: ease-run 2.0s var(--ease-brush)   infinite; }
 .ease-track .e-dot.sustain { animation: ease-run 2.4s var(--ease-sustain) infinite; }
 .ease-track .e-dot.bend    { animation: ease-run 2.0s var(--ease-bend)    infinite; }
+.ease-track .e-dot.bounce  { animation: ease-run 2.0s var(--ease-bounce)  infinite; }
 
 /* ════════════════════════════════════════════════════════════════
    BLOCK 4 — KEYFRAMES (lifted verbatim from tokens-motion-keyframes)

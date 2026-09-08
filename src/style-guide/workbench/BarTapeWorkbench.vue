@@ -50,10 +50,10 @@
       </div>
 
       <GuidePatternCard
-        num="01"
+        label="Pattern 01 — Piano / C Major"
+        ordinal="01"
         name="Twinkle fragment"
-        sub="C major · duration weighted"
-        when="14 notes"
+        metadata="14 notes"
         :bar-tape="sequenceSegments"
       />
     </section>

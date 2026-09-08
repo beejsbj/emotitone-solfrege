@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import Button from "@/components/primatives/Button.vue";
+import buttonSource from "@/components/primatives/Button.vue?raw";
+import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 
 const { triggerUIHaptic } = vi.hoisted(() => ({ triggerUIHaptic: vi.fn() }));
 
@@ -66,5 +68,16 @@ describe("Button", () => {
     await wrapper.trigger("click");
     expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
     expect(wrapper.emitted("click")).toHaveLength(1);
+  });
+
+  it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {
+    expect(buttonSource).toContain(
+      ".paper-button:not(.paper-button--brass):not(:disabled)",
+    );
+    expect(buttonSource).toContain("transform var(--dur-bounce) var(--ease-bounce)");
+    expect(booleanKnobSource).toContain(
+      "transition: transform var(--dur-bounce) var(--ease-bounce)",
+    );
+    expect(booleanKnobSource).not.toContain("elastic.out");
   });
 });

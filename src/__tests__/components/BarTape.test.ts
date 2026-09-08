@@ -2,6 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import BarTape from "@/components/primatives/BarTape.vue";
 import barTapeSource from "@/components/primatives/BarTape.vue?raw";
+import patternCardSource from "@/components/compounds/PatternCard.vue?raw";
 import productionPatternCardSource from "@/components/patterns/PatternCard.vue?raw";
 import specimenSource from "@/style-guide/primatives/PrimitiveBarTape.vue?raw";
 
@@ -37,10 +38,14 @@ describe("BarTape", () => {
   });
 
   it("crosses the same source seam in production and the guide", () => {
-    expect(productionPatternCardSource).toContain(
-      'import BarTape from "@/components/primatives/BarTape.vue"',
+    expect(patternCardSource).toContain(
+      'import BarTape from "../primatives/BarTape.vue"',
     );
-    expect(productionPatternCardSource).toContain(':segments="barTapeSegments"');
+    expect(patternCardSource).toContain(':segments="barTape"');
+    expect(productionPatternCardSource).toContain(
+      'import PatternCard from "@/components/compounds/PatternCard.vue"',
+    );
+    expect(productionPatternCardSource).toContain(':bar-tape="barTapeSegments"');
     expect(productionPatternCardSource).not.toContain("note-color-strip");
     expect(specimenSource).toContain(
       'import BarTape from "../../components/primatives/BarTape.vue"',
@@ -49,8 +54,8 @@ describe("BarTape", () => {
   });
 
   it("orders production Pattern Card segments by note onset", () => {
-    expect(productionPatternCardSource).toContain(
-      ".sort((firstNote, secondNote) => firstNote.pressTime - secondNote.pressTime)",
+    expect(productionPatternCardSource).toMatch(
+      /\.sort\(\s*\(firstNote, secondNote\) => firstNote\.pressTime - secondNote\.pressTime,?\s*\)/,
     );
     expect(productionPatternCardSource).toContain("[...props.pattern.notes]");
   });

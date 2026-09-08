@@ -77,6 +77,7 @@ describe("Knob public interface", () => {
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
     const follower = document.querySelector(".knob-drag-value")!;
     expect(follower.textContent).toContain("-4.84 dB");
+    expect((follower as HTMLElement).style.transform).toContain("translate3d(150px, 244px, 0)");
     expect(follower.querySelector(".sticker--fill")).not.toBeNull();
     expect(follower.querySelector(".sticker--color-ivory")).not.toBeNull();
     await wrapper.setProps({ modelValue: -3.2 });

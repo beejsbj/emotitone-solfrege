@@ -3,6 +3,7 @@ import { computed } from "vue";
 import MidiPermissionIcon from "../components/MidiPermissionIcon.vue";
 import BrandLogo from "../components/uniques/BrandLogo.vue";
 import Mark from "../components/primatives/Mark.vue";
+import type { MarkName } from "../components/primatives/Mark.vue";
 import Sticker from "../components/primatives/Sticker.vue";
 import { CHROMATIC_NOTES, getScaleForMode } from "../data";
 import { DEFAULT_CONFIG } from "../data/visual-config-metadata";
@@ -10,6 +11,14 @@ import { resolveExactMusicColorsByPitchClass } from "../services/musicColor";
 import type { DynamicColorConfig } from "../types";
 
 type LoadingStage = { label: string; complete: boolean; active: boolean; icon?: "midi" };
+type FloatingMark = {
+  name: MarkName;
+  x: string;
+  y: string;
+  size: number;
+  color: string;
+  rotation: string;
+};
 
 const props = withDefaults(defineProps<{
   progress?: number;
@@ -37,6 +46,13 @@ const percent = computed(() => (
 
 const bars = [38, 58, 45, 72, 54, 82, 63, 47, 76, 56, 88, 68, 49, 79, 61, 92, 70, 52, 84, 64, 46, 74, 57, 86];
 const tones = ["cobalt", "tomato", "mustard", "plum", "pine"];
+const floatingMarks: FloatingMark[] = [
+  { name: "wave", x: "7%", y: "18%", size: 23, color: "tomato", rotation: "-9deg" },
+  { name: "star", x: "91%", y: "15%", size: 21, color: "cobalt", rotation: "8deg" },
+  { name: "grace", x: "93%", y: "48%", size: 22, color: "mustard", rotation: "11deg" },
+  { name: "whole", x: "54%", y: "72%", size: 20, color: "ivory", rotation: "-7deg" },
+  { name: "sharp", x: "48%", y: "8%", size: 18, color: "plum", rotation: "-4deg" },
+];
 const fixedColorConfig: DynamicColorConfig = {
   ...DEFAULT_CONFIG.dynamicColors,
   musicColorMode: "fixed",
@@ -80,6 +96,17 @@ function laneStyle(lane: typeof lanes[number], index: number) {
     "--lane-play-duration": `${2.4 + (index % 4) * .24}s`,
   };
 }
+
+function floatingMarkStyle(mark: FloatingMark, index: number) {
+  return {
+    left: mark.x,
+    top: mark.y,
+    color: `var(--${mark.color})`,
+    "--floating-mark-rotation": mark.rotation,
+    "--floating-mark-delay": `${index * -430}ms`,
+    "--floating-mark-duration": `${3.5 + (index % 3) * .45}s`,
+  };
+}
 </script>
 
 <template>
@@ -88,6 +115,18 @@ function laneStyle(lane: typeof lanes[number], index: number) {
     :class="{ 'is-ready': percent === 100 }"
     aria-label="EmotiTone loading preview"
   >
+    <div class="converged-loader__floating-marks" aria-hidden="true">
+      <Mark
+        v-for="(mark, index) in floatingMarks"
+        :key="mark.name"
+        class="converged-loader__floating-mark"
+        :name="mark.name"
+        tone="inherit"
+        :size="mark.size"
+        :style="floatingMarkStyle(mark, index)"
+      />
+    </div>
+
     <main class="converged-loader__main">
       <div class="converged-loader__logo" aria-hidden="true">
         <BrandLogo
@@ -215,6 +254,22 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader *,
 .converged-loader *::before,
 .converged-loader *::after { box-sizing: border-box; }
+
+.converged-loader__floating-marks {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.converged-loader__floating-mark {
+  position: absolute;
+  opacity: .58;
+  transform-origin: center;
+  animation: converged-floating-mark var(--floating-mark-duration) cubic-bezier(.45, 0, .55, 1) var(--floating-mark-delay) infinite alternate;
+  will-change: transform;
+}
 
 .converged-loader__main {
   position: relative;
@@ -584,12 +639,6 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   animation: converged-frontier 760ms cubic-bezier(.45, 0, .55, 1) var(--bar-delay) infinite alternate;
 }
 
-.is-ready .converged-loader__logo :deep(.brand-logo__backdrop),
-.is-ready .converged-loader__logo :deep(.brand-logo__cut),
-.is-ready .converged-loader__logo :deep(.brand-logo__sprinkle) {
-  animation-play-state: paused;
-}
-
 @keyframes converged-blob-breathe {
   from { transform: translate(-50%, -50%) scale(.985); }
   to { transform: translate(-50%, -50%) scale(1.025); }
@@ -603,6 +652,11 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 @keyframes converged-mark-drift {
   from { translate: -1px 1px; rotate: -5deg; }
   to { translate: 1px -1px; rotate: 5deg; }
+}
+
+@keyframes converged-floating-mark {
+  from { transform: translate3d(-50%, calc(-50% - 4px), 0) rotate(var(--floating-mark-rotation)); }
+  to { transform: translate3d(-50%, calc(-50% + 5px), 0) rotate(calc(var(--floating-mark-rotation) + 5deg)); }
 }
 
 @keyframes converged-lane-peek {
@@ -695,6 +749,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .converged-loader__floating-mark,
   .converged-loader__logo :deep(.brand-logo__backdrop),
   .converged-loader__logo :deep(.brand-logo__cut),
   .converged-loader__logo :deep(.brand-logo__sprinkle),
@@ -703,6 +758,10 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__completion-action,
   .converged-loader__completion-action::after,
   .converged-loader__bars > span.is-frontier { animation: none; }
+
+  .converged-loader__floating-mark {
+    transform: translate3d(-50%, -50%, 0) rotate(var(--floating-mark-rotation));
+  }
 
   .is-ready .converged-loader__lane-bar,
   .is-ready .converged-loader__lane-peek,

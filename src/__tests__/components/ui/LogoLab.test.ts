@@ -27,12 +27,21 @@ describe("Brand Logo definition lab", () => {
       expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(1);
     }
 
-    expect(logoLabSource).toContain("Round 04");
-    expect(logoLabSource).toContain("On Bone · Cobalt holds");
-    expect(logoLabSource).toContain("On Ink · Cobalt holds");
-    expect(logoLabSource).toContain("Compact");
-    expect(logoLabSource).toContain("One colour");
+    expect(logoLabSource).toContain("Round 05");
+    expect(logoLabSource).toContain("Compact survival");
     expect(logoLabSource).not.toContain("@/components/uniques/BrandLogo.vue");
+  });
+
+  it("compares four controlled treatments built from the real Mark primitive", () => {
+    expect(logoLabSource).toContain('from "../../components/primatives/Mark.vue"');
+
+    for (const treatment of ["Paper Flecks", "Musical Ink", "Little Burst", "One Overprint"]) {
+      expect(logoLabSource).toContain(treatment);
+    }
+
+    for (const mark of ["diamond", "wave", "disk", "eighth", "staccato", "star", "zigzag"]) {
+      expect(logoLabSource).toContain(`name: "${mark}"`);
+    }
   });
 
   it("promotes Cobalt through the Brand token owner and real token specimen", () => {

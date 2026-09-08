@@ -1,7 +1,81 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import Mark from "../../components/primatives/Mark.vue";
+
+type SprinkleTone = "bone" | "mustard" | "pine" | "tomato";
+
+interface Sprinkle {
+  name: "diamond" | "wave" | "disk" | "eighth" | "staccato" | "star" | "zigzag";
+  x: number;
+  y: number;
+  size: number;
+  rotate: number;
+  tone: SprinkleTone;
+}
+
+interface MarkTreatment {
+  id: "A" | "B" | "C" | "D";
+  name: string;
+  description: string;
+  verdict: string;
+  sprinkles: Sprinkle[];
+}
 
 const lightStage = ref(false);
+
+const treatments: MarkTreatment[] = [
+  {
+    id: "A",
+    name: "Paper Flecks",
+    description: "Three abstract Marks printed into three paper cuts.",
+    verdict: "Texture first; the ET silhouette stays in charge.",
+    sprinkles: [
+      { name: "diamond", x: 22, y: 37, size: 10, rotate: -12, tone: "bone" },
+      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone" },
+      { name: "disk", x: 56, y: 90, size: 7, rotate: 0, tone: "tomato" },
+    ],
+  },
+  {
+    id: "B",
+    name: "Musical Ink",
+    description: "A note and dotted rhythm make the musical cue explicit.",
+    verdict: "Most musical; still contained by the cuts.",
+    sprinkles: [
+      { name: "eighth", x: 91, y: 69, size: 18, rotate: 4, tone: "bone" },
+      { name: "staccato", x: 55, y: 90, size: 21, rotate: 0, tone: "pine" },
+    ],
+  },
+  {
+    id: "C",
+    name: "Little Burst",
+    description: "A playful cluster escapes from the right edge of the T.",
+    verdict: "More celebratory; deliberately breaks the silhouette.",
+    sprinkles: [
+      { name: "star", x: 130, y: 49, size: 13, rotate: 12, tone: "mustard" },
+      { name: "diamond", x: 139, y: 65, size: 7, rotate: -14, tone: "tomato" },
+      { name: "disk", x: 121, y: 67, size: 5, rotate: 0, tone: "mustard" },
+    ],
+  },
+  {
+    id: "D",
+    name: "One Overprint",
+    description: "One zigzag crosses the bottom tooth like a screen print.",
+    verdict: "The quietest option, with one assertive gesture.",
+    sprinkles: [
+      { name: "zigzag", x: 62, y: 90, size: 31, rotate: -4, tone: "pine" },
+    ],
+  },
+];
+
+function sprinkleStyle(sprinkle: Sprinkle) {
+  return {
+    left: `${(sprinkle.x / 140) * 100}%`,
+    top: `${(sprinkle.y / 120) * 100}%`,
+    width: `${(sprinkle.size / 140) * 100}%`,
+    color: `var(--${sprinkle.tone})`,
+    transform: `translate(-50%, -50%) rotate(${sprinkle.rotate}deg)`,
+  };
+}
 </script>
 
 <template>
@@ -22,13 +96,13 @@ const lightStage = ref(false);
 
     <header class="logo-lab__header">
       <div>
-        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 04</p>
-        <h1>A, with Cobalt.<br><span>Six cuts. Six colours.</span></h1>
+        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 05</p>
+        <h1>Sprinkle Marks.<br><span>Keep the cutouts.</span></h1>
       </div>
       <div class="logo-lab__intro">
         <p>
-          Tight Weave survives. Cobalt completes the Brand palette and takes the T stem, giving all
-          six paper pieces a distinct Brand colour that holds on both Bone and Ink.
+          The six-cut Tight Weave is fixed. These four treatments add the existing Mark language as
+          small paper prints or a nearby burst; none changes the letter construction or colour assignment.
         </p>
         <button type="button" @click="lightStage = !lightStage">
           {{ lightStage ? "View on ink" : "View on bone" }}
@@ -51,69 +125,69 @@ const lightStage = ref(false);
       </ol>
     </section>
 
-    <section class="logo-lab__grid" aria-label="Selected six-cut Paper Duet direction">
-      <article class="concept">
+    <section class="logo-lab__grid" aria-label="Four Mark treatments on the selected Tight Weave logo">
+      <article v-for="treatment in treatments" :key="treatment.id" class="concept">
         <header class="concept__header">
-          <span>A</span>
+          <span>{{ treatment.id }}</span>
           <div>
-            <h2>Tight Weave</h2>
-            <p>The T passes behind the E teeth.</p>
+            <h2>{{ treatment.name }}</h2>
+            <p>{{ treatment.description }}</p>
           </div>
         </header>
 
         <div class="concept__hero">
           <div class="paper-lockup">
-            <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave six-cut ET mark">
-              <use href="#mark-tight-weave" />
-            </svg>
+            <div class="embellished-mark">
+              <svg viewBox="0 0 140 120" role="img" :aria-label="`Tight Weave with ${treatment.name} treatment`">
+                <use href="#mark-tight-weave" />
+              </svg>
+              <Mark
+                v-for="(sprinkle, index) in treatment.sprinkles"
+                :key="`${treatment.id}-${sprinkle.name}-${index}`"
+                class="embellished-mark__sprinkle"
+                :name="sprinkle.name"
+                tone="ivory"
+                size="100"
+                :style="sprinkleStyle(sprinkle)"
+              />
+            </div>
             <strong>EMOTITONE</strong>
           </div>
         </div>
 
         <div class="concept__proofs">
-          <div>
-            <span class="concept__proof-label">Compact</span>
+          <div class="concept__compact-proof">
+            <span class="concept__proof-label">Compact survival</span>
             <div class="paper-lockup paper-lockup--compact">
-              <svg viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-tight-weave" /></svg>
+              <div class="embellished-mark">
+                <svg viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-tight-weave" /></svg>
+                <Mark
+                  v-for="(sprinkle, index) in treatment.sprinkles"
+                  :key="`compact-${treatment.id}-${sprinkle.name}-${index}`"
+                  class="embellished-mark__sprinkle"
+                  :name="sprinkle.name"
+                  tone="ivory"
+                  size="100"
+                  :style="sprinkleStyle(sprinkle)"
+                  aria-hidden="true"
+                />
+              </div>
               <strong>EMOTITONE</strong>
             </div>
           </div>
-          <div class="concept__mono">
-            <span class="concept__proof-label">One colour</span>
-            <svg class="paper-mark paper-mark--mono" viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark in one colour">
-              <use href="#mark-tight-weave" />
-            </svg>
+          <div class="concept__mark-list">
+            <span class="concept__proof-label">Marks used</span>
+            <span>{{ treatment.sprinkles.map((sprinkle) => sprinkle.name).join(" · ") }}</span>
           </div>
         </div>
 
-        <p class="concept__question">Six Brand colours and no repeated assignment.</p>
-      </article>
-    </section>
-
-    <section class="context-pair" aria-label="Tight Weave background inversions">
-      <article class="context-proof context-proof--bone">
-        <span>On Bone · Cobalt holds</span>
-        <div class="context-proof__lockup">
-          <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark on Bone with Cobalt T stem">
-            <use href="#mark-tight-weave" />
-          </svg>
-          <strong>EMOTITONE</strong>
-        </div>
-      </article>
-      <article class="context-proof context-proof--ink">
-        <span>On Ink · Cobalt holds</span>
-        <div class="context-proof__lockup">
-          <svg viewBox="0 0 140 120" role="img" aria-label="Tight Weave mark on Ink with Cobalt T stem">
-            <use href="#mark-tight-weave" />
-          </svg>
-          <strong>EMOTITONE</strong>
-        </div>
+        <p class="concept__question">{{ treatment.verdict }}</p>
       </article>
     </section>
 
     <footer class="logo-lab__footer">
-      <strong>Cobalt is now in the system.</strong>
-      <span>Does this finish the colour assignment, or should Cobalt trade places with another cut?</span>
+      <strong>A keeps the strongest hierarchy.</strong>
+      <span>Which treatment has the right amount and kind of Mark language?</span>
     </footer>
   </main>
 </template>
@@ -163,7 +237,6 @@ const lightStage = ref(false);
 .concept__header p,
 .concept__proof-label,
 .concept__question,
-.context-proof > span,
 .logo-lab__footer span {
   font-family: var(--font-mono);
 }
@@ -277,6 +350,8 @@ const lightStage = ref(false);
 
 .logo-lab__grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 28px);
   width: min(1440px, 100%);
   margin: 0 auto;
 }
@@ -289,7 +364,7 @@ const lightStage = ref(false);
   --t-cap: var(--plum);
   --t-stem: var(--cobalt);
   display: grid;
-  grid-template-rows: auto minmax(420px, 1fr) auto auto;
+  grid-template-rows: auto minmax(340px, 1fr) auto auto;
   min-width: 0;
   background: var(--lab-panel);
 }
@@ -334,15 +409,34 @@ const lightStage = ref(false);
   justify-items: center;
 }
 
-.paper-lockup svg {
+.paper-lockup > .embellished-mark {
   width: clamp(210px, 22vw, 320px);
-  overflow: visible;
 }
 
 .paper-lockup strong {
   color: var(--lab-primary);
   font: 700 clamp(68px, 7vw, 102px)/1 var(--font-display);
   letter-spacing: .01em;
+}
+
+.embellished-mark {
+  position: relative;
+  aspect-ratio: 140 / 120;
+  isolation: isolate;
+}
+
+.embellished-mark > svg:first-child {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.embellished-mark__sprinkle {
+  position: absolute;
+  z-index: 1;
+  height: auto;
+  pointer-events: none;
 }
 
 .cut--e-stem { fill: var(--e-stem); }
@@ -354,8 +448,8 @@ const lightStage = ref(false);
 
 .concept__proofs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 150px;
+  grid-template-columns: 1.25fr .75fr;
+  min-height: 132px;
   border-top: 1px solid var(--lab-wire);
 }
 
@@ -383,23 +477,27 @@ const lightStage = ref(false);
   align-items: center;
 }
 
-.paper-lockup--compact svg { width: 44px; }
-.paper-lockup--compact strong { font-size: 22px; }
-
-.paper-mark {
-  width: 76px;
-  max-height: 70px;
-  overflow: visible;
+.paper-lockup--compact .embellished-mark {
+  width: 44px;
+  flex: 0 0 auto;
 }
 
-.paper-mark--mono {
-  --e-stem: currentColor;
-  --e-top: currentColor;
-  --e-middle: currentColor;
-  --e-bottom: currentColor;
-  --t-cap: currentColor;
-  --t-stem: currentColor;
+.paper-lockup--compact strong { font-size: 22px; }
+
+.concept__compact-proof {
+  gap: 10px;
+}
+
+.concept__mark-list {
+  align-content: space-between;
+  justify-items: start !important;
+}
+
+.concept__mark-list > span:last-child {
   color: var(--lab-primary);
+  font: 700 11px/1.5 var(--font-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .concept__question {
@@ -410,62 +508,6 @@ const lightStage = ref(false);
   color: var(--lab-muted);
   font-size: 10px;
   line-height: 1.5;
-}
-
-.context-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(16px, 2vw, 28px);
-  width: min(1440px, 100%);
-  margin: clamp(20px, 2.5vw, 36px) auto 0;
-}
-
-.context-proof {
-  --e-stem: var(--pine);
-  --e-top: var(--mustard);
-  --e-middle: var(--tomato);
-  --e-bottom: var(--bone);
-  --t-cap: var(--plum);
-  display: grid;
-  gap: 24px;
-  min-height: 260px;
-  padding: 20px;
-  align-content: space-between;
-}
-
-.context-proof > span {
-  font-size: 9px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.context-proof--bone {
-  --t-stem: var(--cobalt);
-  background: var(--bone);
-  color: var(--ink);
-}
-
-.context-proof--ink {
-  --t-stem: var(--cobalt);
-  background: var(--ink);
-  color: var(--ivory);
-}
-
-.context-proof__lockup {
-  display: flex;
-  gap: clamp(16px, 3vw, 36px);
-  align-items: center;
-  justify-content: center;
-}
-
-.context-proof__lockup svg {
-  width: clamp(110px, 12vw, 170px);
-  overflow: visible;
-}
-
-.context-proof__lockup strong {
-  font: 700 clamp(42px, 5vw, 72px)/1 var(--font-display);
-  letter-spacing: .01em;
 }
 
 .logo-lab__footer {
@@ -491,9 +533,9 @@ const lightStage = ref(false);
 
 @media (max-width: 1080px) {
   .concept { grid-template-rows: auto minmax(320px, 1fr) auto auto; }
-  .paper-lockup svg { width: clamp(180px, 30vw, 260px); }
+  .paper-lockup > .embellished-mark { width: clamp(180px, 30vw, 260px); }
   .paper-lockup strong { font-size: clamp(58px, 9vw, 84px); }
-  .paper-lockup--compact svg { width: 44px; }
+  .paper-lockup--compact .embellished-mark { width: 44px; }
   .paper-lockup--compact strong { font-size: 24px; }
 }
 
@@ -501,7 +543,7 @@ const lightStage = ref(false);
   .logo-lab__header { grid-template-columns: 1fr; }
   .anatomy { grid-template-columns: 1fr; }
   .anatomy ol { grid-template-columns: repeat(3, 1fr); }
-  .context-pair { grid-template-columns: 1fr; }
+  .logo-lab__grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {
@@ -510,13 +552,10 @@ const lightStage = ref(false);
   .anatomy { padding-inline: 12px; }
   .anatomy ol { grid-template-columns: repeat(2, 1fr); }
   .concept__hero { min-height: 300px; padding-inline: 16px; }
-  .paper-lockup svg { width: 190px; }
+  .paper-lockup > .embellished-mark { width: 190px; }
   .paper-lockup strong { font-size: 54px; }
-  .paper-lockup--compact svg { width: 40px; }
+  .paper-lockup--compact .embellished-mark { width: 40px; }
   .paper-lockup--compact strong { font-size: 20px; }
-  .context-proof__lockup { gap: 14px; }
-  .context-proof__lockup svg { width: 96px; }
-  .context-proof__lockup strong { font-size: 38px; }
   .logo-lab__footer { display: grid; }
 }
 
@@ -530,8 +569,7 @@ const lightStage = ref(false);
     --lab-muted: CanvasText;
   }
 
-  .concept,
-  .context-proof {
+  .concept {
     --e-stem: CanvasText;
     --e-top: CanvasText;
     --e-middle: CanvasText;

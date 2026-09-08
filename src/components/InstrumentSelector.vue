@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
@@ -351,6 +351,13 @@ const bankTabs = computed<TabbedOverlayTab[]>(() =>
   })),
 );
 
+function syncActiveTabToInstrument(instrumentId: string) {
+  const preferredCategory = categorise(instrumentId);
+  activeTab.value = allGrouped.value[preferredCategory]?.length
+    ? preferredCategory
+    : categoryTabs.value[0]?.key ?? preferredCategory;
+}
+
 onMounted(async () => {
   try {
     await instrumentStore.initializeInstruments();
@@ -359,11 +366,10 @@ onMounted(async () => {
     // the chooser usable for whatever sounds were registered successfully.
   }
   allSounds.value = getRegisteredSounds().sort();
-  const preferredCategory = categorise(currentInstrumentId.value);
-  activeTab.value = allGrouped.value[preferredCategory]?.length
-    ? preferredCategory
-    : categoryTabs.value[0]?.key ?? preferredCategory;
+  syncActiveTabToInstrument(currentInstrumentId.value);
 });
+
+watch(currentInstrumentId, syncActiveTabToInstrument);
 
 const activeTabMeta = computed(() => ({
   value: activeTab.value,

@@ -227,6 +227,18 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.text()).toContain('trumpet')
   })
 
+  it('moves to the selected instrument bank when that instrument changes externally', async () => {
+    wrapper = await mountSelector({ currentInstrument: 'piano' })
+
+    await wrapper.get('[data-testid="instrument-tab-synths"]').trigger('click')
+    expect(wrapper.get('[data-testid="instrument-tab-synths"]').attributes('aria-selected')).toBe('true')
+
+    await wrapper.setProps({ currentInstrument: 'gm_trumpet' })
+
+    expect(wrapper.get('[data-testid="instrument-tab-gm"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-testid="instrument-option-gm_trumpet"]').exists()).toBe(true)
+  })
+
   it('filters sounds by search query and shows an empty state when nothing matches', async () => {
     wrapper = await mountSelector()
 

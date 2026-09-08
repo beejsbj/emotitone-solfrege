@@ -407,7 +407,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
-import { storeToRefs } from "pinia";
+import { storeToRefs, type Pinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -439,6 +439,10 @@ import {
 } from "@/services/roliLiveSync";
 
 const drawerContentHeight = ref<number>();
+
+const props = defineProps<{
+  visualConfigPinia?: Pinia;
+}>();
 
 type ConfigSectionKey = keyof VisualEffectsConfig;
 type SectionField = {
@@ -496,7 +500,7 @@ const SECTION_ORDER: ConfigSectionKey[] = [
   "codeStrip",
 ];
 
-const visualConfigStore = useVisualConfigStore();
+const visualConfigStore = useVisualConfigStore(props.visualConfigPinia);
 const keyboardDrawerStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const activeTab = ref("home");

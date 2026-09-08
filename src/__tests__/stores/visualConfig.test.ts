@@ -50,6 +50,24 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.lastSaved).toBe(null)
     })
 
+    it('supports an isolated specimen state without writing production storage', () => {
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.setItem.mockClear()
+
+      visualConfigStore.useEphemeralDefaults()
+      visualConfigStore.updateValue('blobs', 'isEnabled', false)
+      visualConfigStore.setVisualsEnabled(false)
+      const saved = visualConfigStore.saveConfigAs('Guide draft')
+      visualConfigStore.deleteSavedConfig(saved.id)
+      visualConfigStore.resetToDefaults()
+      visualConfigStore.saveToStorage()
+
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalled()
+      expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
+      expect(visualConfigStore.visualsEnabled).toBe(true)
+      expect(visualConfigStore.savedConfigs).toEqual([])
+    })
+
     it('should load configuration from localStorage on initialization', () => {
       const storedConfig = {
         config: {

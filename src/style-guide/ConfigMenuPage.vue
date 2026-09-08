@@ -1,5 +1,5 @@
 <template>
-  <ConfigPanel />
+  <ConfigPanel :visual-config-pinia="specimenPinia" />
 
   <main class="config-menu-page">
     <header class="config-menu-page__header">
@@ -22,7 +22,12 @@
 </template>
 
 <script setup lang="ts">
+import { createPinia } from "pinia";
 import ConfigPanel from "../components/ConfigPanel.vue";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+
+const specimenPinia = createPinia();
+useVisualConfigStore(specimenPinia).useEphemeralDefaults();
 </script>
 
 <style scoped>

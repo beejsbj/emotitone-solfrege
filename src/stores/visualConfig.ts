@@ -237,6 +237,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const savedConfigs = ref<SavedConfig[]>([]);
   const isLoading = ref(false);
   const lastSaved = ref<string | null>(null);
+  const persistenceEnabled = ref(true);
 
   // Load configuration from localStorage on initialization
   const loadFromStorage = () => {
@@ -265,6 +266,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Save configuration to localStorage
   const saveToStorage = () => {
+    if (!persistenceEnabled.value) return;
+
     try {
       const dataToStore = {
         config: JSON.parse(JSON.stringify(config)),
@@ -326,6 +329,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
     savedConfigs.value.push(savedConfig);
 
+    if (!persistenceEnabled.value) return savedConfig;
+
     try {
       localStorage.setItem(
         SAVED_CONFIGS_KEY,
@@ -352,6 +357,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const index = savedConfigs.value.findIndex((c) => c.id === configId);
     if (index > -1) {
       savedConfigs.value.splice(index, 1);
+      if (!persistenceEnabled.value) return;
+
       try {
         localStorage.setItem(
           SAVED_CONFIGS_KEY,
@@ -415,6 +422,14 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     return false;
   };
 
+  const useEphemeralDefaults = () => {
+    persistenceEnabled.value = false;
+    Object.assign(config, cloneDefaultConfig());
+    visualsEnabled.value = true;
+    savedConfigs.value = [];
+    lastSaved.value = null;
+  };
+
   // Note: Manual save is no longer needed - auto-save handles all persistence
 
   // Watch for changes and auto-save (debounced)
@@ -462,6 +477,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     loadConfigSnapshot,
     exportConfig,
     importConfig,
+    useEphemeralDefaults,
     saveToStorage,
     loadFromStorage,
   };

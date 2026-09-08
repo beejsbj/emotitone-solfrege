@@ -35,7 +35,11 @@ export const triggerHapticFeedback = (
       heavy: [100],
       string: [20, 10, 20, 10],
     };
-    navigator.vibrate(patterns[intensity]);
+    try {
+      navigator.vibrate(patterns[intensity]);
+    } catch {
+      // Some embedded browsers expose the API but throw when it is invoked.
+    }
   }
 
   // For devices with more advanced haptic feedback (iOS Safari with Haptic Engine)
@@ -43,8 +47,10 @@ export const triggerHapticFeedback = (
   if (win.hapticFeedback) {
     try {
       win.hapticFeedback.impact(intensity);
-    } catch (e) {
-      // Fallback to vibration if haptic feedback fails
+    } catch {
+      console.debug(
+        "Advanced haptic feedback not available, using vibration fallback",
+      );
     }
   }
 };
@@ -68,4 +74,12 @@ export const triggerControlHaptic = (): void => {
  */
 export const triggerUIHaptic = (): void => {
   triggerHapticFeedback("lighter");
+};
+
+/**
+ * Confirms that a continuous control has committed a persistent selection.
+ * This is deliberately firmer than the lighter detent tick used while moving.
+ */
+export const triggerLatchHaptic = (): void => {
+  triggerHapticFeedback("light");
 };

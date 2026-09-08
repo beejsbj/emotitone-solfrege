@@ -1,8 +1,11 @@
 <template>
   <button
     ref="keyRef"
-    class="key"
-    :class="{ 'key--pressed': isPhysicallyPressed }"
+    class="key pressable-key"
+    :class="{
+      'key--pressed': isPhysicallyPressed,
+      'pressable-key--pressed': isPhysicallyPressed,
+    }"
     type="button"
     :disabled="disabled"
     :aria-label="resolvedAriaLabel"
@@ -14,7 +17,7 @@
     @touchend.prevent="handleTouchEnd"
     @touchcancel.prevent="handleTouchCancel"
   >
-    <span class="key__face" aria-hidden="true">
+    <span class="key__face pressable-key__face" aria-hidden="true">
       <Note
         :syllable="syllable"
         :degree="degree"
@@ -39,8 +42,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import Note from "@/components/primatives/Note.vue";
+import { usePressableKey, type PressInputEvent } from "@/composables/usePressableKey";
+import "./pressableKey.css";
 import type {
   NoteGeometry,
   NoteLabel,
@@ -49,10 +54,7 @@ import type {
 } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
-export interface KeyInputEvent {
-  inputId: string;
-  event: Event;
-}
+export type KeyInputEvent = PressInputEvent;
 
 const props = withDefaults(
   defineProps<{
@@ -109,12 +111,27 @@ const emit = defineEmits<{
 }>();
 
 const keyRef = ref<HTMLButtonElement | null>(null);
-const activeInputIds = reactive(new Set<string>());
-const mouseInputId = "mouse";
-const touchInputId = (identifier: number) => `touch:${identifier}`;
+
+const {
+  isLocallyPressed,
+  handleMouseDown,
+  handleMouseUp,
+  handleMouseLeave,
+  handleTouchStart,
+  handleTouchMove,
+  handleTouchEnd,
+  handleTouchCancel,
+  releaseAllInputs,
+} = usePressableKey(keyRef, {
+  press: (payload) => emit("press", payload),
+  release: (payload) => emit("release", payload),
+}, {
+  disabled: () => props.disabled,
+  managedInput: () => props.managedInput,
+});
 
 const isPhysicallyPressed = computed(
-  () => props.pressed || activeInputIds.size > 0,
+  () => props.pressed || isLocallyPressed.value,
 );
 
 const resolvedAriaLabel = computed(() => {
@@ -130,157 +147,15 @@ const resolvedAriaLabel = computed(() => {
   return props.rawPitch;
 });
 
-function beginInput(inputId: string, event: Event) {
-  if (props.disabled || activeInputIds.has(inputId)) return;
-
-  activeInputIds.add(inputId);
-  emit("press", { inputId, event });
-}
-
-function endInput(inputId: string, event: Event) {
-  if (!activeInputIds.delete(inputId)) return;
-
-  emit("release", { inputId, event });
-}
-
-function releaseAllInputs(event: Event) {
-  for (const inputId of Array.from(activeInputIds)) {
-    endInput(inputId, event);
-  }
-}
-
-function handleMouseDown(event: MouseEvent) {
-  if (props.managedInput) return;
-  if (event.button !== 0) return;
-  beginInput(mouseInputId, event);
-}
-
-function handleMouseUp(event: MouseEvent) {
-  if (props.managedInput) return;
-  endInput(mouseInputId, event);
-}
-
-function handleMouseLeave(event: MouseEvent) {
-  if (props.managedInput) return;
-  endInput(mouseInputId, event);
-}
-
-function isTouchWithinKey(touch: Touch, tolerance = 0) {
-  const element = keyRef.value;
-  if (!element) return false;
-
-  const rect = element.getBoundingClientRect();
-  return (
-    touch.clientX >= rect.left - tolerance &&
-    touch.clientX <= rect.right + tolerance &&
-    touch.clientY >= rect.top - tolerance &&
-    touch.clientY <= rect.bottom + tolerance
-  );
-}
-
-function handleTouchStart(event: TouchEvent) {
-  if (props.managedInput) return;
-  for (const touch of Array.from(event.changedTouches)) {
-    if (isTouchWithinKey(touch)) {
-      beginInput(touchInputId(touch.identifier), event);
-    }
-  }
-}
-
-function handleTouchMove(event: TouchEvent) {
-  if (props.managedInput) return;
-  for (const touch of Array.from(event.touches)) {
-    const inputId = touchInputId(touch.identifier);
-    if (activeInputIds.has(inputId) && !isTouchWithinKey(touch, 5)) {
-      endInput(inputId, event);
-    }
-  }
-}
-
-function handleTouchEnd(event: TouchEvent) {
-  if (props.managedInput) return;
-  for (const touch of Array.from(event.changedTouches)) {
-    endInput(touchInputId(touch.identifier), event);
-  }
-}
-
-function handleTouchCancel(event: TouchEvent) {
-  handleTouchEnd(event);
-}
-
-function handleWindowBlur(event: Event) {
-  releaseAllInputs(event);
-}
-
-function handleVisibilityChange(event: Event) {
-  if (document.visibilityState === "hidden") {
-    releaseAllInputs(event);
-  }
-}
-
 watch(
   () => props.disabled,
   (disabled) => {
     if (disabled) releaseAllInputs(new Event("disabled"));
   },
 );
-
-onMounted(() => {
-  window.addEventListener("blur", handleWindowBlur);
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("blur", handleWindowBlur);
-  document.removeEventListener("visibilitychange", handleVisibilityChange);
-  releaseAllInputs(new Event("unmount"));
-});
 </script>
 
 <style scoped>
-.key {
-  display: inline-grid;
-  min-width: 44px;
-  min-height: 44px;
-  place-items: center;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  appearance: none;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-}
-
-.key:focus-visible {
-  outline: 2px solid var(--ivory, currentColor);
-  outline-offset: 2px;
-}
-
-.key__face {
-  --key-face-press-y: 0px;
-  --key-face-press-scale: 1;
-  --key-face-hover-y: 0px;
-  display: block;
-  pointer-events: none;
-  transform:
-    translateY(calc(var(--key-face-hover-y) + var(--key-face-press-y)))
-    rotate(var(--key-face-rotation, 0deg))
-    scale(var(--key-face-press-scale));
-  transition: transform 90ms ease-in-out;
-  will-change: transform;
-}
-
-.key--pressed .key__face {
-  --key-face-press-y: 2px;
-  --key-face-press-scale: .97;
-}
-
 .key--pressed .key__face :deep(.note__surface) {
   box-shadow:
     var(--note-shadow),
@@ -288,32 +163,4 @@ onBeforeUnmount(() => {
     inset 0 0 0 1px var(--note-inner-border);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .key:not(.key--pressed):hover .key__face {
-    --key-face-hover-y: -1px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .key__face,
-  .key--pressed .key__face {
-    --key-face-press-y: 0px;
-    --key-face-press-scale: 1;
-    --key-face-hover-y: 0px;
-    transition: none;
-    will-change: auto;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .key:not(.key--pressed):hover .key__face {
-      --key-face-hover-y: 0px;
-    }
-  }
-}
-
-@media (forced-colors: active) {
-  .key:focus-visible {
-    outline-color: CanvasText;
-  }
-}
 </style>

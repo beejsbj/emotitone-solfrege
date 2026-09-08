@@ -8,6 +8,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
 
 /**
  * Keyboard mapping interface
@@ -82,6 +83,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
   const musicStore = useMusicStore();
   const patternsStore = usePatternsStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
+  const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
 
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
@@ -191,35 +193,29 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       const { solfegeIndex, octave, label } =
         keyboardMapping[key as keyof typeof keyboardMapping];
 
-      const noteId = await musicStore.attackNoteWithOctave(
-        solfegeIndex,
-        octave
+      const ownerId = getKeyboardPressId(key);
+      keyboardDrawerStore.addTouch(ownerId, getNoteKey(solfegeIndex, octave));
+      window.dispatchEvent(
+        new CustomEvent("keyboard-note-pressed", {
+          detail: { solfegeIndex, octave, key: label },
+        })
       );
-      if (
-        !pressedKeys.value.has(key) ||
-        blockedKeys.value.has(key) ||
-        instrumentStore.isInteractionLocked
-      ) {
-        if (noteId) musicStore.releaseNote(noteId);
-        return;
-      }
-
-      if (noteId) {
-        keyboardNoteIds.value.set(key, noteId);
-        keyboardDrawerStore.addTouch(
-          getKeyboardPressId(key),
-          getNoteKey(solfegeIndex, octave)
-        );
-
-        // Dispatch custom event for visual feedback
-        window.dispatchEvent(
-          new CustomEvent("keyboard-note-pressed", {
-            detail: { solfegeIndex, octave, key: label },
-          })
-        );
-      } else {
-        pressedKeys.value.delete(key);
-      }
+      void voiceGroups.attack(ownerId, [
+        (isCancelled) => musicStore.attackNoteWithOctave(
+          solfegeIndex,
+          octave,
+          isCancelled,
+        ),
+      ]).then(([noteId]) => {
+        if (
+          noteId
+          && pressedKeys.value.has(key)
+          && !blockedKeys.value.has(key)
+          && !instrumentStore.isInteractionLocked
+        ) {
+          keyboardNoteIds.value.set(key, noteId);
+        }
+      });
     }
   };
 
@@ -233,21 +229,15 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     if (pressedKeys.value.has(key)) {
       pressedKeys.value.delete(key);
 
-      // Release the specific note associated with this key
-      const noteId = keyboardNoteIds.value.get(key);
-      if (noteId) {
-        musicStore.releaseNote(noteId);
-        keyboardNoteIds.value.delete(key);
-
-        // Dispatch custom event for visual feedback
-        window.dispatchEvent(
-          new CustomEvent("keyboard-note-released", {
-            detail: { key: keyboardMappingLabel(key) },
-          })
-        );
-      }
-
-      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
+      const ownerId = getKeyboardPressId(key);
+      voiceGroups.release(ownerId);
+      keyboardNoteIds.value.delete(key);
+      window.dispatchEvent(
+        new CustomEvent("keyboard-note-released", {
+          detail: { key: keyboardMappingLabel(key) },
+        })
+      );
+      keyboardDrawerStore.removeTouch(ownerId);
     }
   };
 
@@ -258,10 +248,10 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
   // Handle window blur to release all keyboard notes (safety mechanism)
   const handleWindowBlur = () => {
     // Release all keyboard-triggered notes when window loses focus
-    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
-      musicStore.releaseNote(noteId);
+    for (const key of pressedKeys.value) {
       keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
+    voiceGroups.releaseAll();
 
     // Clear tracking maps
     pressedKeys.value.clear();
@@ -274,11 +264,11 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     (locked) => {
       if (!locked) return;
 
-      for (const key of pressedKeys.value) blockedKeys.value.add(key);
-      for (const [key, noteId] of keyboardNoteIds.value.entries()) {
-        musicStore.releaseNote(noteId);
+      for (const key of pressedKeys.value) {
+        blockedKeys.value.add(key);
         keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
       }
+      voiceGroups.releaseAll();
       pressedKeys.value.clear();
       keyboardNoteIds.value.clear();
     },
@@ -297,10 +287,10 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     window.removeEventListener("blur", handleWindowBlur);
 
     // Release any keyboard-triggered notes that are still active
-    for (const [key, noteId] of keyboardNoteIds.value.entries()) {
-      musicStore.releaseNote(noteId);
+    for (const key of pressedKeys.value) {
       keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
     }
+    voiceGroups.releaseAll();
 
     // Clear tracking maps
     pressedKeys.value.clear();

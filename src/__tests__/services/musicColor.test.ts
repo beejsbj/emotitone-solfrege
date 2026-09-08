@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveExactMusicColorsByPitchClass,
   resolveMusicColorsByPitchClass,
   resolveMusicColorsByScaleIndex,
 } from "@/services/musicColor";
+import { buildHarmony, HARMONY_ALTERATIONS } from "@/domain/harmony";
 
 const movableConfig = {
   isEnabled: true,
@@ -58,15 +60,57 @@ describe("musicColor", () => {
     expect(chromaticC?.primary).toBe(dMinorC?.primary);
   });
 
-  it("returns null for out-of-scale pitch classes in movable mode", () => {
-    expect(
-      resolveMusicColorsByPitchClass("C#", "major", "C", 4, movableConfig)
-    ).toBeNull();
+  it("keeps borrowed pitches off the general movable palette", () => {
+    expect(resolveMusicColorsByPitchClass(
+      "C#",
+      "major",
+      "C",
+      4,
+      movableConfig
+    )).toBeNull();
+  });
+
+  it("gives borrowed exact-pitch visuals a chromatic fallback", () => {
+    const borrowed = resolveExactMusicColorsByPitchClass(
+      "C#",
+      "major",
+      "C",
+      4,
+      movableConfig
+    );
+    const fixed = resolveMusicColorsByPitchClass(
+      "C#",
+      "major",
+      "C",
+      4,
+      fixedConfig
+    );
+
+    expect(borrowed).not.toBeNull();
+    expect(borrowed?.primary).toBe(fixed?.primary);
   });
 
   it("still colors all pitch classes in fixed mode", () => {
     expect(
       resolveMusicColorsByPitchClass("C#", "major", "C", 4, fixedConfig)
     ).not.toBeNull();
+  });
+
+  it("keeps every directional C-major chord member colored", () => {
+    const pitches = HARMONY_ALTERATIONS.flatMap((alteration) =>
+      buildHarmony({ tonic: "C", scaleType: "major", octave: 4, alteration })
+        .flatMap((chord) => chord.voicing.pitches),
+    );
+
+    expect(pitches.some((pitch) => pitch.scaleIndex === null)).toBe(true);
+    expect(pitches.every((pitch) =>
+      resolveExactMusicColorsByPitchClass(
+        pitch.pitchClass,
+        "major",
+        "C",
+        pitch.octave,
+        movableConfig,
+      ) !== null,
+    )).toBe(true);
   });
 });

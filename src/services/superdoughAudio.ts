@@ -60,6 +60,9 @@ const _activeStrudelVisuals = new Map<
     noteName: string;
     frequency: number;
     octave: number;
+    keyboardOctave: number;
+    solfegeIndex: number;
+    pitchClassIndex: number;
     mode: string;
     key: ChromaticNote;
     instrument: string;
@@ -302,7 +305,17 @@ function resolveSolfegeIndex(noteName: string): number | null {
     return null;
   }
 
-  return musicTheory.getScaleIndexForChromaticNote(chromaticNote);
+  return musicTheory.getCurrentScaleNotes().indexOf(chromaticNote);
+}
+
+function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
+  return {
+    name: noteName,
+    number: 0,
+    emotion: "Borrowed harmony tone",
+    description: "An explicit chord alteration outside the active scale.",
+    texture: "harmonic",
+  };
 }
 
 function extractHapNoteName(hap: unknown): string | null {
@@ -347,20 +360,38 @@ function buildStrudelVisualPayload(hap: unknown) {
     }
 
     const solfegeIndex = resolveSolfegeIndex(noteValue);
-    if (solfegeIndex === null) {
+    const chromaticNote = normalizeChromaticNote(noteValue);
+    if (solfegeIndex === null || !chromaticNote) {
       return null;
     }
 
-    const note = musicTheory.getCurrentScale().solfege[solfegeIndex];
+    const pitchClassIndex = CHROMATIC_NOTES.indexOf(chromaticNote);
+    if (pitchClassIndex === -1) {
+      return null;
+    }
+
+    const note = solfegeIndex === -1
+      ? borrowedPitchSolfege(chromaticNote)
+      : musicTheory.getCurrentScale().solfege[solfegeIndex];
     if (!note) {
       return null;
     }
 
+    const tonicIndex = CHROMATIC_NOTES.indexOf(
+      musicTheory.getCurrentKey() as ChromaticNote,
+    );
+    const keyboardOctave = solfegeIndex === -1 || tonicIndex === -1
+      ? parsedNote.oct
+      : parsedNote.oct - Number(pitchClassIndex < tonicIndex);
+
     return {
       note,
       solfegeIndex,
+      pitchClassIndex,
+      isBorrowed: solfegeIndex === -1,
       noteName: parsedNote.name,
       octave: parsedNote.oct,
+      keyboardOctave,
       frequency: extractHapFrequency(hap, noteValue),
       mode: musicTheory.getCurrentMode(),
       key: musicTheory.getCurrentKey() as ChromaticNote,
@@ -389,6 +420,10 @@ function releaseStrudelVisual(noteId: string) {
         noteName: active.noteName,
         frequency: active.frequency,
         octave: active.octave,
+        keyboardOctave: active.keyboardOctave,
+        solfegeIndex: active.solfegeIndex,
+        pitchClassIndex: active.pitchClassIndex,
+        isBorrowed: active.solfegeIndex === -1,
         mode: active.mode,
         key: active.key,
         instrument: active.instrument,
@@ -432,6 +467,9 @@ export async function emotitoneStrudelOutput(
       noteName: visualPayload.noteName,
       frequency: visualPayload.frequency,
       octave: visualPayload.octave,
+      keyboardOctave: visualPayload.keyboardOctave,
+      solfegeIndex: visualPayload.solfegeIndex,
+      pitchClassIndex: visualPayload.pitchClassIndex,
       mode: visualPayload.mode,
       key: visualPayload.key,
       instrument: visualPayload.instrument,
@@ -444,7 +482,10 @@ export async function emotitoneStrudelOutput(
           note: visualPayload.note,
           frequency: visualPayload.frequency,
           solfegeIndex: visualPayload.solfegeIndex,
+          pitchClassIndex: visualPayload.pitchClassIndex,
+          isBorrowed: visualPayload.isBorrowed,
           octave: visualPayload.octave,
+          keyboardOctave: visualPayload.keyboardOctave,
           noteId,
           noteName: visualPayload.noteName,
           mode: visualPayload.mode,

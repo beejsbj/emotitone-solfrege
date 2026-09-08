@@ -10,9 +10,10 @@ import type {
   MusicalMode,
   NoteColorRelationships,
 } from "@/types";
-import { getScaleForMode } from "@/data";
+import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import {
   getChromaticNoteForScaleIndex,
+  resolveExactMusicColorsByPitchClass,
   resolveMusicColorsByNoteName,
   resolveMusicColorsByScaleIndex,
   resolveSolfegeName as resolveMusicSolfegeName,
@@ -75,6 +76,28 @@ export function useColorSystem() {
     );
   };
 
+  const getNoteColorsByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3,
+    animated: boolean = true
+  ): NoteColorRelationships => {
+    const normalizedIndex = (
+      (pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length
+    ) % CHROMATIC_NOTES.length;
+    return (
+      resolveExactMusicColorsByPitchClass(
+        CHROMATIC_NOTES[normalizedIndex],
+        mode,
+        key,
+        octave,
+        dynamicColorConfig.value,
+        animated ? animationTime.value : undefined,
+      ) ?? FALLBACK_NOTE_COLORS
+    );
+  };
+
   const getNoteColors = (
     noteName: string,
     mode: MusicalMode = "major",
@@ -108,6 +131,34 @@ export function useColorSystem() {
     octave: number = 3
   ): string =>
     getNoteColorsByScaleIndex(scaleIndex, mode, key, octave, false).primary;
+
+  const getStaticPrimaryColorByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3
+  ): string =>
+    getNoteColorsByPitchClass(pitchClassIndex, mode, key, octave, false).primary;
+
+  const getPrimaryColorForPitch = (
+    scaleIndex: number,
+    pitchClassIndex: number | undefined,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3,
+  ): string => typeof pitchClassIndex === "number" && Number.isInteger(pitchClassIndex)
+    ? getNoteColorsByPitchClass(pitchClassIndex, mode, key, octave, true).primary
+    : getPrimaryColorByScaleIndex(scaleIndex, mode, key, octave);
+
+  const getStaticPrimaryColorForPitch = (
+    scaleIndex: number,
+    pitchClassIndex: number | undefined,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3,
+  ): string => typeof pitchClassIndex === "number" && Number.isInteger(pitchClassIndex)
+    ? getStaticPrimaryColorByPitchClass(pitchClassIndex, mode, key, octave)
+    : getStaticPrimaryColorByScaleIndex(scaleIndex, mode, key, octave);
 
   const getPrimaryColor = (
     noteName: string,
@@ -167,6 +218,13 @@ export function useColorSystem() {
 
   const getStringColor = getAccentColor;
   const getFleckColor = getAccentColor;
+  const getFleckColorByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode = "major",
+    key: ChromaticNote = "C",
+    octave: number = 3
+  ): string =>
+    getNoteColorsByPitchClass(pitchClassIndex, mode, key, octave, true).accent;
   const getHighlightColor = getAccentColor;
 
   const getGradient = (
@@ -460,6 +518,68 @@ export function useColorSystem() {
     };
   };
 
+  const getKeyBackgroundByPitchClass = (
+    pitchClassIndex: number,
+    mode: MusicalMode,
+    key: ChromaticNote,
+    octave: number,
+    surfaceStyle: "colored" | "monochrome" | "glassmorphism",
+    isAccidental: boolean,
+    config: {
+      keyBrightness?: number;
+      keySaturation?: number;
+      glassmorphOpacity?: number;
+    } = {},
+  ): { background: string; primaryColor: string } => {
+    const {
+      keyBrightness = 1,
+      keySaturation = 1,
+      glassmorphOpacity = 0.4,
+    } = config;
+
+    if (surfaceStyle === "monochrome") {
+      return getKeyBackground(
+        0,
+        mode,
+        key,
+        octave,
+        surfaceStyle,
+        isAccidental,
+        config,
+      );
+    }
+
+    const pitchClass = CHROMATIC_NOTES[
+      ((pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length)
+      % CHROMATIC_NOTES.length
+    ];
+    const primaryColor = (
+      resolveExactMusicColorsByPitchClass(
+        pitchClass,
+        mode,
+        key,
+        octave,
+        dynamicColorConfig.value,
+      ) ?? FALLBACK_NOTE_COLORS
+    ).primary;
+    if (surfaceStyle === "glassmorphism") {
+      return {
+        background: createGlassmorphBackground(primaryColor, glassmorphOpacity),
+        primaryColor,
+      };
+    }
+
+    const adjustedColor = adjustColorHSL(
+      primaryColor,
+      keyBrightness,
+      keySaturation,
+    );
+    return {
+      background: adjustedColor,
+      primaryColor: adjustedColor,
+    };
+  };
+
   const getKeyTextColor = (
     surfaceStyle: "colored" | "monochrome" | "glassmorphism",
     isAccidental: boolean
@@ -474,18 +594,23 @@ export function useColorSystem() {
   return {
     getNoteColors,
     getNoteColorsByScaleIndex,
+    getNoteColorsByPitchClass,
     getPrimaryColor,
     getPrimaryColorByScaleIndex,
+    getPrimaryColorForPitch,
     getAccentColor,
     getSecondaryColor,
     getTertiaryColor,
     getStaticPrimaryColor,
     getStaticPrimaryColorByScaleIndex,
+    getStaticPrimaryColorByPitchClass,
+    getStaticPrimaryColorForPitch,
     getStaticAccentColor,
     getStaticSecondaryColor,
     getStaticTertiaryColor,
     getStringColor,
     getFleckColor,
+    getFleckColorByPitchClass,
     getHighlightColor,
     getGradient,
     getConicGradient,
@@ -505,6 +630,7 @@ export function useColorSystem() {
     createIntervalConicGlassmorphBackground,
     getColorPreview,
     getKeyBackground,
+    getKeyBackgroundByPitchClass,
     getKeyTextColor,
     isDynamicColorsEnabled,
     isFixedMusicColorMode,

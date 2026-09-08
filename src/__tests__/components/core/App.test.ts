@@ -130,6 +130,9 @@ describe('App.vue', () => {
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )
+    expect(appSource).toContain('beginJoystickPageEdition()')
+    expect(appSource.indexOf('beginJoystickPageEdition()'))
+      .toBeGreaterThan(appSource.indexOf('} else {'))
     expect(appSource).not.toContain('MarksBeatParticlesPage')
     expect(appSource).not.toContain('isRoughPage')
   })

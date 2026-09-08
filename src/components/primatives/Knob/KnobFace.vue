@@ -291,13 +291,8 @@ useGSAP(({ gsap }) => {
   border: clamp(1px, 1.5cqi, 2px) solid
     color-mix(in srgb, currentColor 24%, #080808);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 42% 34%, rgb(255 255 255 / 10%), transparent 28%),
-    radial-gradient(circle at 50% 42%, #252525 0%, #111 61%, #070707 100%);
-  box-shadow:
-    inset 0 1.5cqi 1.5cqi rgb(255 255 255 / 8%),
-    inset 0 -4.5cqi 7.5cqi rgb(0 0 0 / 65%),
-    0 3cqi 7.5cqi rgb(0 0 0 / 55%);
+  background: var(--instrument-control-dark-well);
+  box-shadow: var(--instrument-control-dark-well-shadow);
 }
 
 .knob-face__meter {

@@ -15,7 +15,10 @@ import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
 const visualConfigStore = useVisualConfigStore();
-const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+const {
+  getStaticPrimaryColorByScaleIndex,
+  getStaticPrimaryColorByPitchClass,
+} = useColorSystem();
 
 const props = defineProps<{
   pattern: Pattern;
@@ -97,6 +100,18 @@ const cardLabel = computed(
 );
 
 function colorFor(note: PatternNote, pattern: Pattern): string {
+  if (
+    typeof note.pitchClassIndex === "number"
+    && Number.isInteger(note.pitchClassIndex)
+  ) {
+    return getStaticPrimaryColorByPitchClass(
+      note.pitchClassIndex,
+      pattern.mode,
+      pattern.key,
+      note.octave,
+    );
+  }
+
   return getStaticPrimaryColorByScaleIndex(
     note.scaleIndex,
     pattern.mode,

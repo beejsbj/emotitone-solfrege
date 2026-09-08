@@ -101,6 +101,10 @@
           <div class="sink-frame__source">unique-code-strip.html</div>
           <UniqueCodeStrip />
         </article>
+        <article id="unique-joystick" class="sink-frame">
+          <div class="sink-frame__source">unique-joystick</div>
+          <UniqueJoystick />
+        </article>
         <article id="unique-drawer" class="sink-frame">
           <div class="sink-frame__source">unique-drawer.html</div>
           <UniqueDrawer />
@@ -178,6 +182,7 @@ import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
 import PrimitiveCard from "./primatives/PrimitiveCard.vue";
 import PrimitiveNote from "./primatives/PrimitiveNote.vue";
+import UniqueJoystick from "./uniques/UniqueJoystick.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
 import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";

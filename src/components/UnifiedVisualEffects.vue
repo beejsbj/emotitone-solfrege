@@ -58,6 +58,7 @@ function onNotePlayed(event: CustomEvent) {
   const noteName: string | undefined = event.detail.noteName;
   const mode: MusicalMode | undefined = event.detail.mode;
   const key: ChromaticNote | undefined = event.detail.key;
+  const pitchClassIndex: number | undefined = event.detail.pitchClassIndex;
   const durationMs: number | undefined = event.detail.durationMs;
 
   handleNotePlayed(
@@ -68,7 +69,8 @@ function onNotePlayed(event: CustomEvent) {
     noteName,
     mode,
     key,
-    durationMs
+    pitchClassIndex,
+    durationMs,
   );
 }
 

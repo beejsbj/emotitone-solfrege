@@ -68,6 +68,16 @@ function parseNoteWithOctave(
   return { noteName, octave };
 }
 
+function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
+  return {
+    name: noteName,
+    number: 0,
+    emotion: "Borrowed harmony tone",
+    description: "An explicit chord alteration outside the active scale.",
+    texture: "harmonic",
+  };
+}
+
 export const useMusicStore = defineStore(
   "music",
   () => {
@@ -232,6 +242,7 @@ export const useMusicStore = defineStore(
           finalOctave
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
+        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
 
         await superdoughAudio.attackNote(
           `play_${noteName}_${Date.now()}`,
@@ -245,7 +256,8 @@ export const useMusicStore = defineStore(
             frequency,
             noteName,
             solfegeIndex,
-            octave: finalOctave,
+            octave: scientificOctave,
+            keyboardOctave: finalOctave,
             durationMs: 2000,
             ...noteContext,
             instrument: instrumentStore.currentInstrument,
@@ -264,9 +276,10 @@ export const useMusicStore = defineStore(
     // Attack note with either format
     async function attackNoteWithFormat(
       input: number | ChromaticNoteWithOctave,
-      octave: number = 4
+      octave: number = 4,
+      isCancelled: () => boolean = () => false,
     ): Promise<string | null> {
-      if (instrumentStore.isInteractionLocked) {
+      if (instrumentStore.isInteractionLocked || isCancelled()) {
         return null;
       }
 
@@ -293,6 +306,7 @@ export const useMusicStore = defineStore(
           finalOctave
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
+        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
 
         const cleanNoteId = [
           noteName,
@@ -302,19 +316,22 @@ export const useMusicStore = defineStore(
           Math.random().toString(36).slice(2, 8),
         ].join("_");
         const instrumentSelectionEpoch = instrumentStore.selectionEpoch;
+        const attackInstrument = instrumentStore.currentInstrument;
 
         // Fire-and-forget via superdough — it manages its own voice lifecycle
         await superdoughAudio.attackNote(
           cleanNoteId,
           noteName,
-          instrumentStore.currentInstrument
+          attackInstrument,
         );
 
         // A selection can begin warming while the asynchronous audio attack is
         // still starting. Never publish that stale voice into app state.
         if (
+          isCancelled() ||
           instrumentStore.isInteractionLocked ||
-          instrumentStore.selectionEpoch !== instrumentSelectionEpoch
+          instrumentStore.selectionEpoch !== instrumentSelectionEpoch ||
+          instrumentStore.currentInstrument !== attackInstrument
         ) {
           superdoughAudio.releaseNote(cleanNoteId);
           return null;
@@ -327,7 +344,8 @@ export const useMusicStore = defineStore(
             solfegeIndex,
             solfege,
             frequency,
-            octave: finalOctave,
+            octave: scientificOctave,
+            keyboardOctave: finalOctave,
             noteId,
             noteName,
             ...noteContext,
@@ -342,7 +360,8 @@ export const useMusicStore = defineStore(
               note: solfege,
               frequency,
               solfegeIndex,
-              octave: finalOctave,
+              octave: scientificOctave,
+              keyboardOctave: finalOctave,
               noteId,
               noteName,
               ...noteContext,
@@ -356,6 +375,96 @@ export const useMusicStore = defineStore(
         }
       }
       return null;
+    }
+
+    /**
+     * Attack scientific pitch notation exactly. Unlike the compatibility
+     * string overload on attackNote(), this never floors an out-of-scale pitch
+     * to the preceding scale degree.
+     */
+    async function attackExactPitch(
+      note: string,
+      isCancelled: () => boolean = () => false,
+    ): Promise<string | null> {
+      if (instrumentStore.isInteractionLocked || isCancelled()) return null;
+
+      const parsed = parseNoteWithOctave(note);
+      if (!parsed) return null;
+
+      const { noteName: pitchClass, octave } = parsed;
+      const exactNoteName = `${pitchClass}${octave}`;
+      const tonalNote = TonalNote.get(exactNoteName);
+      if (!tonalNote.freq) return null;
+
+      const solfegeIndex = currentScaleNotes.value.indexOf(pitchClass);
+      const pitchClassIndex = CHROMATIC_NOTES.indexOf(pitchClass);
+      const keyboardOctave = solfegeIndex === -1
+        ? octave
+        : parseNoteInput(exactNoteName)?.octave ?? octave;
+      const solfege = solfegeIndex === -1
+        ? borrowedPitchSolfege(pitchClass)
+        : solfegeData.value[solfegeIndex];
+      if (!solfege) return null;
+
+      const noteContext = getCurrentNoteContext();
+      const instrumentSelectionEpoch = instrumentStore.selectionEpoch;
+      const attackInstrument = instrumentStore.currentInstrument;
+      const cleanNoteId = [
+        "exact",
+        exactNoteName,
+        Date.now(),
+        Math.random().toString(36).slice(2, 8),
+      ].join("_");
+
+      await superdoughAudio.attackNote(
+        cleanNoteId,
+        exactNoteName,
+        attackInstrument,
+      );
+
+      if (
+        isCancelled()
+        || instrumentStore.isInteractionLocked
+        || instrumentStore.selectionEpoch !== instrumentSelectionEpoch
+        || instrumentStore.currentInstrument !== attackInstrument
+      ) {
+        superdoughAudio.releaseNote(cleanNoteId);
+        return null;
+      }
+
+      const activeNote: ActiveNote = {
+        solfegeIndex,
+        pitchClassIndex,
+        solfege,
+        frequency: tonalNote.freq,
+        octave,
+        keyboardOctave,
+        noteId: cleanNoteId,
+        noteName: exactNoteName,
+        ...noteContext,
+      };
+      activeNotes.value.set(cleanNoteId, activeNote);
+      currentNote.value = solfege.name;
+      isPlaying.value = true;
+
+      window.dispatchEvent(new CustomEvent("note-played", {
+        detail: {
+          note: solfege,
+          frequency: tonalNote.freq,
+          solfegeIndex,
+          pitchClassIndex,
+          isBorrowed: solfegeIndex === -1,
+          octave,
+          keyboardOctave,
+          noteId: cleanNoteId,
+          noteName: exactNoteName,
+          ...noteContext,
+          instrument: attackInstrument,
+          instrumentConfig: null,
+        },
+      }));
+
+      return cleanNoteId;
     }
 
     // Play note with duration with either format
@@ -398,6 +507,7 @@ export const useMusicStore = defineStore(
           solfegeIndex,
           finalOctave
         );
+        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
 
         // Convert Tone.js duration notation to milliseconds for superdough
         const durationMs = toneNotationToMs(duration);
@@ -417,7 +527,8 @@ export const useMusicStore = defineStore(
             frequency,
             noteName,
             solfegeIndex,
-            octave: finalOctave,
+            octave: scientificOctave,
+            keyboardOctave: finalOctave,
             duration,
             durationMs,
             time,
@@ -501,6 +612,10 @@ export const useMusicStore = defineStore(
               noteName: activeNote.noteName,
               frequency: activeNote.frequency,
               octave: activeNote.octave,
+              keyboardOctave: activeNote.keyboardOctave,
+              solfegeIndex: activeNote.solfegeIndex,
+              pitchClassIndex: activeNote.pitchClassIndex,
+              isBorrowed: activeNote.solfegeIndex === -1,
               mode: activeNote.mode,
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
@@ -534,6 +649,10 @@ export const useMusicStore = defineStore(
               noteName: activeNote.noteName,
               frequency: activeNote.frequency,
               octave: activeNote.octave,
+              keyboardOctave: activeNote.keyboardOctave,
+              solfegeIndex: activeNote.solfegeIndex,
+              pitchClassIndex: activeNote.pitchClassIndex,
+              isBorrowed: activeNote.solfegeIndex === -1,
               mode: activeNote.mode,
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
@@ -604,9 +723,10 @@ export const useMusicStore = defineStore(
     // Enhanced attack note with octave support
     async function attackNoteWithOctave(
       solfegeIndex: number,
-      octave: number
+      octave: number,
+      isCancelled: () => boolean = () => false,
     ): Promise<string | null> {
-      return attackNoteWithFormat(solfegeIndex, octave);
+      return attackNoteWithFormat(solfegeIndex, octave, isCancelled);
     }
 
     // Melody management methods removed
@@ -633,6 +753,7 @@ export const useMusicStore = defineStore(
       playNote,
       attackNote,
       attackNoteWithOctave,
+      attackExactPitch,
       releaseNote,
       releaseAllNotes,
       addToSequence,

@@ -40,17 +40,21 @@
         :bpm="visualConfigStore.config.codeStrip.bpm"
         :octave="store.keyboardConfig.mainOctave"
         :rows="store.keyboardConfig.rowCount"
+        :harmony-value="harmonyLatched"
         @update:key-value="musicStore.setKey"
         @update:mode-value="updateMode"
         @update:bpm="updateBpm"
         @update:octave="store.setMainOctave"
         @update:rows="store.setRowCount"
+        @update:harmony-value="updateHarmonyLatch"
+        @harmony-effective="harmonyEffective = $event"
       />
     </template>
     <template #default="{ height }">
       <div class="relative h-full" :aria-busy="instrumentStore.isInteractionLocked || undefined">
         <Keyboard
           :available-height="height"
+          :harmony-alteration="harmonyEffective"
           :class="{ 'pointer-events-none opacity-35 grayscale': instrumentStore.isInteractionLocked }"
         />
         <div
@@ -79,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
@@ -96,6 +100,7 @@ import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import { minimumKeyboardHeight, defaultKeyboardHeight } from "@/components/compounds/keyboardSizing";
 import type { MusicalMode } from "@/types/music";
+import type { HarmonyAlteration } from "@/domain/harmony";
 import { displayInstrumentName } from "@/data/instruments";
 
 // Store
@@ -120,6 +125,8 @@ const {
   cancel: cancelHumming,
   selectTake: selectHummingTake,
 } = useHummingCapture();
+const harmonyLatched = ref<HarmonyAlteration>("auto");
+const harmonyEffective = ref<HarmonyAlteration>("auto");
 
 async function toggleSketchPlayback() {
   if (isPlaying.value) {
@@ -150,6 +157,11 @@ function updateMode(mode: string) {
 
 function updateBpm(bpm: number) {
   visualConfigStore.updateConfig("codeStrip", { bpm });
+}
+
+function updateHarmonyLatch(value: HarmonyAlteration) {
+  harmonyLatched.value = value;
+  harmonyEffective.value = value;
 }
 
 function updateDrawerOpen(isOpen: boolean) {

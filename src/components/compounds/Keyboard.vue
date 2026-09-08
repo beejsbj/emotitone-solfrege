@@ -14,12 +14,41 @@
     :aria-disabled="isInteractionLocked || undefined"
     :data-geometry-family="resolvedFamily"
     :data-edition-seed="resolvedEditionSeed"
+    @focusout="handleFocusOut"
+    @keyup="handleFocusActivationKeyUp"
     @pointerdown="handlePointerDown"
     @pointermove="handlePointerMove"
     @pointerup="handlePointerUp"
     @pointercancel="handlePointerCancel"
     @lostpointercapture="handlePointerCancel"
   >
+    <div
+      class="keyboard__chord-row"
+      role="group"
+      aria-label="Harmony chords"
+      :data-chord-count="renderChords.length"
+    >
+      <ChordKey
+        v-for="(chord, chordIndex) in renderChords"
+        :key="chord.harmony.id"
+        :ref="(instance) => setChordKeyRef(chord.harmony.id, instance)"
+        class="keyboard__chord-key"
+        :members="chord.members"
+        :symbol="chord.harmony.symbol"
+        :accessible-name="chord.harmony.accessibleName"
+        :geometry="resolvedFamily"
+        :pressed="chord.pressed"
+        :disabled="isInteractionLocked"
+        :tabindex="chord.harmony.id === rememberedChordFocusId ? 0 : -1"
+        :data-chord-id="chord.harmony.id"
+        :data-alteration="chord.harmony.alteration"
+        @focus="rememberChordFocus(chord.harmony.id)"
+        @keydown="handleChordKeyDown($event, chordIndex)"
+        @press="emitChordIntent('press', $event, chord.attackHarmony)"
+        @release="emitChordIntent('release', $event, chord.attackHarmony)"
+      />
+    </div>
+
     <div
       v-for="(row, rowIndex) in renderRows"
       :key="`octave-${row.octave}`"
@@ -67,7 +96,6 @@
         :data-edition-variant="variationFor(key.id).variant"
         @focus="rememberFocus(key.id)"
         @keydown="handleKeyDown($event, rowIndex, keyIndex)"
-        @keyup="handleKeyUp($event)"
         @press="emitIntent('press', $event, key, row.octave)"
         @release="emitIntent('release', $event, key, row.octave)"
       />
@@ -86,9 +114,11 @@ import {
   watch,
   type ComponentPublicInstance,
 } from "vue";
-import { fitKeyboardRows } from "./keyboardSizing";
+import { fitKeyboardRows, KEYBOARD_CHORD_ROW_HEIGHT } from "./keyboardSizing";
 import Key from "@/components/compounds/Key.vue";
 import type { KeyInputEvent } from "@/components/compounds/Key.vue";
+import ChordKey from "@/components/compounds/ChordKey.vue";
+import type { ChordMember } from "@/components/compounds/Chord.vue";
 import type {
   NoteLabel,
   NoteProportion,
@@ -98,11 +128,16 @@ import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES } from "@/data";
 import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
-import { useSolfegeInteraction } from "@/composables/useSolfegeInteraction";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { triggerNoteHaptic } from "@/utils/hapticFeedback";
+import {
+  buildHarmony,
+  type HarmonyAlteration,
+  type HarmonyChord,
+} from "@/domain/harmony";
+import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
 import {
   KEYBOARD_PAGE_EDITION_SEED,
   keyboardEditionVariation,
@@ -145,6 +180,30 @@ export interface KeyboardIntent extends KeyInputEvent {
   source: "pointer" | "focus";
 }
 
+export interface KeyboardChordIntent extends KeyInputEvent {
+  chordId: string;
+  chord: HarmonyChord;
+  source: "pointer" | "focus";
+}
+
+interface KeyboardChordView {
+  /** Live settings used by a new owner attacking this degree. */
+  attackHarmony: HarmonyChord;
+  /** Snapshot shown while any existing owner holds this degree. */
+  harmony: HarmonyChord;
+  members: ChordMember[];
+  pressed: boolean;
+  /** Held snapshot whose degree no longer exists in the live harmony. */
+  orphaned: boolean;
+}
+
+interface ActiveChordSnapshot {
+  harmony: HarmonyChord;
+  mode: MusicalMode;
+  key: ChromaticNote;
+  notePitches: string[];
+}
+
 const props = withDefaults(
   defineProps<{
     usage?: "production" | "controlled";
@@ -164,6 +223,9 @@ const props = withDefaults(
     variationAmplitude?: number;
     motion?: "system" | "reduced";
     contrast?: "system" | "forced";
+    tonic?: ChromaticNote;
+    scaleType?: MusicalMode;
+    harmonyAlteration?: HarmonyAlteration;
   }>(),
   {
     usage: "production",
@@ -182,6 +244,9 @@ const props = withDefaults(
     variationAmplitude: 1,
     motion: "system",
     contrast: "system",
+    tonic: "C",
+    scaleType: "major",
+    harmonyAlteration: "auto",
   },
 );
 
@@ -189,7 +254,37 @@ const emit = defineEmits<{
   press: [intent: KeyboardIntent];
   release: [intent: KeyboardIntent];
   focusChange: [keyId: string];
+  chordPress: [intent: KeyboardChordIntent];
+  chordRelease: [intent: KeyboardChordIntent];
 }>();
+
+function chordMembers(
+  chord: HarmonyChord,
+  mode: MusicalMode,
+  key: ChromaticNote,
+  surfaceStyle: NoteSurfaceStyle,
+  keyBrightness = 1,
+  keySaturation = 1,
+): ChordMember[] {
+  return chord.voicing.pitches.map((pitch, voicingOrder) => ({
+    id: `${chord.id}:${pitch.name}:${voicingOrder}`,
+    rawPitch: pitch.name,
+    primary: "raw",
+    visibleLabels: ["raw"],
+    scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
+    pitchClassIndex: pitch.pitchClassIndex,
+    octave: pitch.octave,
+    mode,
+    musicKey: key,
+    surfaceStyle,
+    accidental: pitch.pitchClass.includes("#"),
+    keyBrightness,
+    keySaturation,
+    voicingOrder,
+    // Playable keys retain musical identity at rest; CodeStrip owns temporal progress.
+    progress: 1,
+  }));
+}
 
 function createProductionWiring() {
   const store = useKeyboardDrawerStore();
@@ -197,6 +292,7 @@ function createProductionWiring() {
   const musicStore = useMusicStore();
   const config = computed(() => store.keyboardConfig);
   const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
+  const currentMode = computed(() => musicStore.currentMode);
   const surfaceStyle = computed<NoteSurfaceStyle>(() =>
     config.value.surfaceStyle === "monochrome" ? "monochrome" : "colored",
   );
@@ -205,7 +301,8 @@ function createProductionWiring() {
     small: 2,
     medium: 4,
   })[config.value.keyGaps] ?? 2);
-  const { attackNoteWithOctave, releaseNoteByButtonKey } = useSolfegeInteraction();
+  const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
+  const activeChordSnapshots = reactive(new Map<string, ActiveChordSnapshot>());
 
   useKeyboardControls(computed(() => config.value.mainOctave));
 
@@ -229,18 +326,22 @@ function createProductionWiring() {
   const soundingNoteKeys = computed(() => new Set(
     musicStore
       .getActiveNotes()
-      .map((note) => `${note.solfegeIndex}_${note.octave}`),
+      .map((note) => `${note.solfegeIndex}_${note.keyboardOctave ?? note.octave}`),
+  ));
+  const chordPressedPitches = computed(() => new Set(
+    Array.from(activeChordSnapshots.values()).flatMap((snapshot) => snapshot.notePitches),
   ));
   const rows = computed<KeyboardRowView[]>(() =>
     store.visibleOctaves.map((octave) => ({
       octave,
       keys: store.solfegeData.map((solfege, scaleIndex) => {
         const id = noteKey(scaleIndex, octave);
+        const rawPitch = noteName(scaleIndex, octave);
         return {
           id,
           syllable: solfege.name,
           degree: degreeLabel(solfege.number),
-          rawPitch: noteName(scaleIndex, octave),
+          rawPitch,
           scaleIndex,
           pitchClassIndex: pitchClassIndex(scaleIndex),
           mode: musicStore.currentMode,
@@ -249,17 +350,72 @@ function createProductionWiring() {
           keyBrightness: config.value.keyBrightness,
           keySaturation: config.value.keySaturation,
           sounding: store.isVisualNoteActive(id) || soundingNoteKeys.value.has(id),
-          pressed: store.isKeyPressed(id),
+          pressed: store.isKeyPressed(id) || chordPressedPitches.value.has(rawPitch),
         };
       }),
     })),
   );
 
-  const inputPressId = (intent: KeyboardIntent) =>
-    `${intent.inputId}:${intent.keyId}`;
-  const heldInputsByKey = new Map<string, Set<string>>();
+  const chords = computed<KeyboardChordView[]>(() => {
+    const liveHarmony = buildHarmony({
+      tonic: currentMusicKey.value,
+      scaleType: musicStore.currentMode,
+      octave: config.value.mainOctave,
+      alteration: props.harmonyAlteration,
+    });
+    const snapshots = Array.from(activeChordSnapshots.values());
+    const rendered = liveHarmony.map((harmony) => {
+      const snapshot = snapshots.find(
+        (candidate) => candidate.harmony.id === harmony.id,
+      );
+      const displayedHarmony = snapshot?.harmony ?? harmony;
+      return {
+        attackHarmony: harmony,
+        harmony: displayedHarmony,
+        members: chordMembers(
+          displayedHarmony,
+          snapshot?.mode ?? musicStore.currentMode,
+          snapshot?.key ?? currentMusicKey.value,
+          surfaceStyle.value,
+          config.value.keyBrightness,
+          config.value.keySaturation,
+        ),
+        pressed: Boolean(snapshot) || store.isKeyPressed(`chord:${harmony.id}`),
+        orphaned: false,
+      };
+    });
+    const liveIds = new Set(liveHarmony.map((harmony) => harmony.id));
+    const orphanSnapshots = snapshots.filter(
+      (snapshot, index) => !liveIds.has(snapshot.harmony.id)
+        && snapshots.findIndex(
+          (candidate) => candidate.harmony.id === snapshot.harmony.id,
+        ) === index,
+    );
 
-  async function press(intent: KeyboardIntent) {
+    return rendered.concat(orphanSnapshots.map((snapshot) => ({
+      attackHarmony: snapshot.harmony,
+      harmony: snapshot.harmony,
+      members: chordMembers(
+        snapshot.harmony,
+        snapshot.mode,
+        snapshot.key,
+        surfaceStyle.value,
+        config.value.keyBrightness,
+        config.value.keySaturation,
+      ),
+      pressed: true,
+      orphaned: true,
+    })));
+  });
+
+  const inputPressId = (intent: KeyboardIntent) =>
+    `melody:${intent.inputId}:${intent.keyId}`;
+  const melodyVoiceOwnerId = (keyId: string) => `melody-key:${keyId}`;
+  const heldInputsByKey = new Map<string, Set<string>>();
+  const chordPressId = (intent: KeyboardChordIntent) =>
+    `chord:${intent.inputId}:${intent.chordId}`;
+
+  function press(intent: KeyboardIntent) {
     if (instrumentStore.isInteractionLocked) return;
 
     const pressId = inputPressId(intent);
@@ -275,7 +431,13 @@ function createProductionWiring() {
     }
     if (!shouldAttack) return;
 
-    await attackNoteWithOctave(intent.scaleIndex, intent.octave, intent.event);
+    void voiceGroups.attack(melodyVoiceOwnerId(intent.keyId), [
+      (isCancelled) => musicStore.attackNoteWithOctave(
+        intent.scaleIndex,
+        intent.octave,
+        isCancelled,
+      ),
+    ]);
   }
 
   function release(intent: KeyboardIntent) {
@@ -285,22 +447,59 @@ function createProductionWiring() {
     if (!heldInputs?.delete(pressId) || heldInputs.size > 0) return;
 
     heldInputsByKey.delete(intent.keyId);
-    releaseNoteByButtonKey(intent.keyId, intent.event);
+    voiceGroups.release(melodyVoiceOwnerId(intent.keyId));
+  }
+
+  function pressChord(intent: KeyboardChordIntent) {
+    if (instrumentStore.isInteractionLocked) return;
+
+    const ownerId = chordPressId(intent);
+    activeChordSnapshots.set(ownerId, {
+      harmony: intent.chord,
+      mode: musicStore.currentMode,
+      key: currentMusicKey.value,
+      notePitches: intent.chord.voicing.pitches.map((pitch) => pitch.name),
+    });
+    store.addTouch(ownerId, `chord:${intent.chordId}`);
+    if (intent.source === "pointer" && config.value.hapticFeedback) {
+      triggerNoteHaptic();
+    }
+    // The chord object is the setting snapshot captured at attack time.
+    void voiceGroups.attack(
+      ownerId,
+      intent.chord.voicing.pitches.map((pitch) =>
+        (isCancelled) => musicStore.attackExactPitch(pitch.name, isCancelled),
+      ),
+    );
+  }
+
+  function releaseChord(intent: KeyboardChordIntent) {
+    const ownerId = chordPressId(intent);
+    activeChordSnapshots.delete(ownerId);
+    store.removeTouch(ownerId);
+    voiceGroups.release(ownerId);
   }
 
   function clear() {
     heldInputsByKey.clear();
+    activeChordSnapshots.clear();
+    voiceGroups.releaseAll();
     store.clearAllTouches();
   }
 
   return {
     config,
+    currentMusicKey,
+    currentMode,
     rows,
+    chords,
     surfaceStyle,
     gap,
     isInteractionLocked: computed(() => instrumentStore.isInteractionLocked),
     press,
     release,
+    pressChord,
+    releaseChord,
     clear,
   };
 }
@@ -308,6 +507,12 @@ function createProductionWiring() {
 const isProductionUsage = props.usage === "production";
 const productionWiring = isProductionUsage ? createProductionWiring() : null;
 const renderRows = computed(() => productionWiring?.rows.value ?? props.rows);
+const resolvedTonic = computed(() =>
+  productionWiring?.currentMusicKey.value ?? props.tonic,
+);
+const resolvedScaleType = computed(() =>
+  productionWiring?.currentMode.value ?? props.scaleType,
+);
 const resolvedMainOctave = computed(
   () => productionWiring?.config.value.mainOctave ?? props.mainOctave,
 );
@@ -330,7 +535,12 @@ const isInteractionLocked = computed(
 // Host allocation changes only row geometry, never row count or note/input ownership.
 const fittedRows = computed(() => props.availableHeight === undefined ? null
   : fitKeyboardRows(
-    Math.max(0, props.availableHeight - (resolvedKeyboardPadding.value ? 8 : 0)),
+    Math.max(
+      0,
+      props.availableHeight
+        - KEYBOARD_CHORD_ROW_HEIGHT
+        - (resolvedKeyboardPadding.value ? 8 : 0),
+    ),
     renderRows.value.length,
   ));
 const resolvedMainRowHeight = computed(() => fittedRows.value?.main ?? props.mainRowHeight);
@@ -341,6 +551,25 @@ const resolvedVariationAmplitude = computed(
 );
 const resolvedMotion = computed(() => isProductionUsage ? "system" : props.motion);
 const resolvedContrast = computed(() => isProductionUsage ? "system" : props.contrast);
+const renderChords = computed<KeyboardChordView[]>(() =>
+  productionWiring?.chords.value ?? buildHarmony({
+    tonic: resolvedTonic.value,
+    scaleType: resolvedScaleType.value,
+    octave: resolvedMainOctave.value,
+    alteration: props.harmonyAlteration,
+  }).map((harmony) => ({
+    attackHarmony: harmony,
+    harmony,
+    members: chordMembers(
+      harmony,
+      resolvedScaleType.value,
+      resolvedTonic.value,
+      resolvedSurfaceStyle.value,
+    ),
+    pressed: false,
+    orphaned: false,
+  })),
+);
 
 const mountFamily = keyboardFamilyForDate(new Date());
 const resolvedFamily = computed(() => props.geometryFamily ?? mountFamily);
@@ -349,8 +578,14 @@ const resolvedEditionSeed = computed(
 );
 const keyboardRef = ref<HTMLElement | null>(null);
 const keyElements = new Map<string, HTMLButtonElement>();
+const chordKeyElements = new Map<string, HTMLButtonElement>();
 const rememberedFocusId = ref("");
+const rememberedChordFocusId = ref("");
 const activeFocusInputs = new Map<string, KeyboardIntent>();
+const activeChordPointerInputs = new Map<string, KeyboardChordIntent>();
+const activeChordFocusInputs = new Map<string, KeyboardChordIntent>();
+const chordPointerSnapshotId = (inputId: string, chordId: string) =>
+  `${inputId}:${chordId}`;
 const activePointerInputs = reactive(new Map<number, KeyboardIntent | null>());
 const pointerPositions = new Map<number, { x: number; y: number }>();
 
@@ -361,10 +596,14 @@ const defaultFocusId = computed(
     ?? renderRows.value[0]?.keys[0]?.id
     ?? "",
 );
+const defaultChordFocusId = computed(() => renderChords.value[0]?.harmony.id ?? "");
 const rowSignature = computed(() =>
   renderRows.value
     .map((row) => `${row.octave}:${row.keys.map((key) => key.id).join(",")}`)
     .join("|"),
+);
+const chordSignature = computed(() =>
+  renderChords.value.map((chord) => chord.harmony.id).join(","),
 );
 const editionVariations = computed(() => new Map(
   renderRows.value.flatMap((row) =>
@@ -379,10 +618,23 @@ const editionVariations = computed(() => new Map(
 watch(
   rowSignature,
   () => {
-    releaseFocusedInputs(new Event("keyboard-remap"));
+    releaseMelodyFocusInputs(new Event("keyboard-remap"));
     releasePointerInputs(new Event("keyboard-remap"));
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
       rememberedFocusId.value = defaultFocusId.value;
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  chordSignature,
+  () => {
+    releaseMissingChordFocusInputs(new Event("chord-remap"));
+    if (!renderChords.value.some((chord) =>
+      chord.harmony.id === rememberedChordFocusId.value,
+    )) {
+      rememberedChordFocusId.value = defaultChordFocusId.value;
     }
   },
   { immediate: true },
@@ -408,6 +660,20 @@ function setKeyRef(
     ? instance
     : (instance.$el as HTMLButtonElement | undefined);
   if (element instanceof HTMLButtonElement) keyElements.set(keyId, element);
+}
+
+function setChordKeyRef(
+  chordId: string,
+  instance: Element | ComponentPublicInstance | null,
+) {
+  if (!instance) {
+    chordKeyElements.delete(chordId);
+    return;
+  }
+  const element = instance instanceof Element
+    ? instance
+    : (instance.$el as HTMLButtonElement | undefined);
+  if (element instanceof HTMLButtonElement) chordKeyElements.set(chordId, element);
 }
 
 function variationFor(keyId: string) {
@@ -488,6 +754,42 @@ function rememberFocus(keyId: string) {
   emit("focusChange", keyId);
 }
 
+function rememberChordFocus(chordId: string) {
+  rememberedChordFocusId.value = chordId;
+  emit("focusChange", `chord:${chordId}`);
+}
+
+function focusChord(chordIndex: number) {
+  const chord = renderChords.value[chordIndex];
+  if (!chord) return;
+  rememberChordFocus(chord.harmony.id);
+  void nextTick(() => chordKeyElements.get(chord.harmony.id)?.focus());
+}
+
+function focusSurvivingChordBeforeRelease(chordId: string) {
+  const releasedIndex = renderChords.value.findIndex(
+    (chord) => chord.harmony.id === chordId,
+  );
+  const releasedChord = renderChords.value[releasedIndex];
+  const releasedElement = chordKeyElements.get(chordId);
+  if (
+    !releasedChord?.orphaned
+    || !releasedElement
+    || document.activeElement !== releasedElement
+  ) {
+    return;
+  }
+
+  const survivingChords = renderChords.value.filter((chord) => !chord.orphaned);
+  const replacement = survivingChords[
+    Math.min(Math.max(releasedIndex, 0), survivingChords.length - 1)
+  ];
+  if (!replacement) return;
+
+  rememberChordFocus(replacement.harmony.id);
+  chordKeyElements.get(replacement.harmony.id)?.focus();
+}
+
 function focusKey(rowIndex: number, keyIndex: number) {
   const key = renderRows.value[rowIndex]?.keys[keyIndex];
   if (!key) return;
@@ -537,6 +839,78 @@ function dispatchIntent(kind: "press" | "release", intent: KeyboardIntent) {
   }
   productionWiring?.release(intent);
   emit("release", intent);
+}
+
+function emitChordIntent(
+  kind: "press" | "release",
+  payload: KeyInputEvent,
+  chord: HarmonyChord,
+) {
+  if (kind === "press" && isInteractionLocked.value) return;
+
+  const currentIntent: KeyboardChordIntent = {
+    ...payload,
+    chordId: chord.id,
+    chord,
+    source: payload.inputId.startsWith("focus:") ? "focus" : "pointer",
+  };
+  if (kind === "press") {
+    activeChordPointerInputs.set(
+      chordPointerSnapshotId(payload.inputId, chord.id),
+      currentIntent,
+    );
+    dispatchChordIntent(kind, currentIntent);
+    return;
+  }
+
+  const snapshotId = chordPointerSnapshotId(payload.inputId, chord.id);
+  const pressedIntent = activeChordPointerInputs.get(snapshotId);
+  activeChordPointerInputs.delete(snapshotId);
+  dispatchChordIntent(kind, pressedIntent
+    ? { ...pressedIntent, event: payload.event }
+    : currentIntent);
+}
+
+function dispatchChordIntent(
+  kind: "press" | "release",
+  intent: KeyboardChordIntent,
+) {
+  if (kind === "press") {
+    if (isInteractionLocked.value) return;
+
+    productionWiring?.pressChord(intent);
+    emit("chordPress", intent);
+    return;
+  }
+  productionWiring?.releaseChord(intent);
+  emit("chordRelease", intent);
+}
+
+function handleChordKeyDown(event: KeyboardEvent, chordIndex: number) {
+  if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    event.preventDefault();
+    if (event.key === "ArrowLeft") focusChord(Math.max(0, chordIndex - 1));
+    else if (event.key === "ArrowRight") {
+      focusChord(Math.min(renderChords.value.length - 1, chordIndex + 1));
+    } else if (event.key === "Home") focusChord(0);
+    else focusChord(renderChords.value.length - 1);
+    return;
+  }
+  if (![" ", "Enter"].includes(event.key) || event.repeat) return;
+  const chord = renderChords.value[chordIndex]?.attackHarmony;
+  if (!chord) return;
+  const inputId = `focus:${event.code}:chord`;
+  if (activeChordFocusInputs.has(inputId)) return;
+  event.preventDefault();
+  const intent: KeyboardChordIntent = {
+    inputId,
+    event,
+    chordId: chord.id,
+    chord,
+    source: "focus",
+  };
+  activeChordFocusInputs.set(inputId, intent);
+  dispatchChordIntent("press", intent);
 }
 
 function pointerInputId(event: PointerEvent) {
@@ -758,21 +1132,64 @@ function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number)
   dispatchIntent("press", intent);
 }
 
-function handleKeyUp(event: KeyboardEvent) {
+function handleFocusActivationKeyUp(event: KeyboardEvent) {
   if (![" ", "Enter"].includes(event.key)) return;
-  const inputId = `focus:${event.code}`;
-  const intent = activeFocusInputs.get(inputId);
-  if (!intent) return;
+  const melodyInputId = `focus:${event.code}`;
+  const chordInputId = `focus:${event.code}:chord`;
+  const melodyIntent = activeFocusInputs.get(melodyInputId);
+  const chordIntent = activeChordFocusInputs.get(chordInputId);
+  if (!melodyIntent && !chordIntent) return;
   event.preventDefault();
-  activeFocusInputs.delete(inputId);
-  dispatchIntent("release", { ...intent, event });
+  if (melodyIntent) {
+    activeFocusInputs.delete(melodyInputId);
+    dispatchIntent("release", { ...melodyIntent, event });
+  }
+  if (chordIntent) {
+    focusSurvivingChordBeforeRelease(chordIntent.chordId);
+    activeChordFocusInputs.delete(chordInputId);
+    dispatchChordIntent("release", { ...chordIntent, event });
+  }
 }
 
-function releaseFocusedInputs(event: Event) {
+function releaseMelodyFocusInputs(event: Event) {
   for (const intent of activeFocusInputs.values()) {
     dispatchIntent("release", { ...intent, event });
   }
   activeFocusInputs.clear();
+}
+
+function releaseMissingChordFocusInputs(event: Event) {
+  const renderedIds = new Set(
+    renderChords.value.map((chord) => chord.harmony.id),
+  );
+  for (const [inputId, intent] of activeChordFocusInputs) {
+    if (renderedIds.has(intent.chordId)) continue;
+    activeChordFocusInputs.delete(inputId);
+    dispatchChordIntent("release", { ...intent, event });
+  }
+}
+
+function releaseChordFocusInputs(event: Event) {
+  for (const intent of activeChordFocusInputs.values()) {
+    dispatchChordIntent("release", { ...intent, event });
+  }
+  activeChordFocusInputs.clear();
+}
+
+function releaseFocusedInputs(event: Event) {
+  releaseMelodyFocusInputs(event);
+  releaseChordFocusInputs(event);
+}
+
+function handleFocusOut(event: FocusEvent) {
+  const nextTarget = event.relatedTarget;
+  if (
+    nextTarget instanceof Node
+    && keyboardRef.value?.contains(nextTarget)
+  ) {
+    return;
+  }
+  releaseFocusedInputs(event);
 }
 
 function handleVisibilityChange(event: Event) {
@@ -799,6 +1216,7 @@ onBeforeUnmount(() => {
   releasePointerInputs(new Event("unmount"));
   productionWiring?.clear();
   keyElements.clear();
+  chordKeyElements.clear();
 });
 </script>
 
@@ -811,9 +1229,29 @@ onBeforeUnmount(() => {
   flex-direction: column;
   isolation: isolate;
   container-type: inline-size;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.keyboard__chord-row {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  grid-auto-columns: minmax(44px, 1fr);
+  grid-auto-flow: column;
+  align-items: stretch;
+  gap: var(--keyboard-gap, 2px);
+  padding-block: 1px 2px;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  touch-action: pan-x;
+}
+
+.keyboard__chord-key {
+  min-width: 44px;
+  overflow: visible;
 }
 
 .keyboard--padded { padding: 4px; }
@@ -827,6 +1265,7 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: var(--keyboard-gap, 2px);
   padding-inline: var(--keyboard-outer-inset, 0px);
+  touch-action: none;
 }
 
 .keyboard__key {
@@ -866,11 +1305,17 @@ onBeforeUnmount(() => {
   }
 }
 
-.keyboard--motion-reduced :deep(.key__face) {
+.keyboard--motion-reduced :deep(.key__face),
+.keyboard--motion-reduced :deep(.chord-key__face) {
   --key-face-hover-y: 0px;
   --key-face-press-y: 0px;
   --key-face-press-scale: 1;
   transition: none;
+}
+
+.keyboard--motion-reduced :deep(.chord__fused-progress) {
+  transition: none;
+  will-change: auto;
 }
 
 .keyboard--motion-reduced :deep(.note)::before {
@@ -882,6 +1327,7 @@ onBeforeUnmount(() => {
 }
 
 .keyboard--contrast-forced :deep(.key:focus-visible),
+.keyboard--contrast-forced :deep(.chord-key:focus-visible),
 .keyboard--contrast-forced .keyboard__key--focus-preview {
   outline-color: CanvasText;
 }
@@ -896,6 +1342,30 @@ onBeforeUnmount(() => {
 
 .keyboard--contrast-forced :deep(.note__label) {
   color: CanvasText;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused) {
+  border: 1px solid CanvasText;
+  background: Canvas !important;
+  box-shadow: none;
+  forced-color-adjust: none;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused::after) {
+  display: none;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused-member) {
+  background: Canvas;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused-progress) {
+  background: Highlight !important;
+}
+
+.keyboard--contrast-forced :deep(.chord__symbol) {
+  color: CanvasText;
+  text-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -20,6 +20,7 @@ export interface CodeStripNoteToken {
   degree?: string;
   rawPitch?: string;
   scaleIndex?: number;
+  pitchClassIndex?: number;
   octave?: number;
   mode?: MusicalMode;
   musicKey?: ChromaticNote;
@@ -46,4 +47,3 @@ export type CodeStripToken =
   | { type: "rest"; duration?: string; progress?: number }
   | { type: "bracket"; text: "{" | "}" }
   | { type: "separator"; text?: "," | "/" };
-

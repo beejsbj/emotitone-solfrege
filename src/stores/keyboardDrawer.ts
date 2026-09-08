@@ -304,7 +304,7 @@ export const useKeyboardDrawerStore = defineStore(
 
     const isKeyVisuallyActive = (noteKey: string): boolean => {
       const activeNoteFromStore = musicStore.getActiveNotes().some(
-        (note) => `${note.solfegeIndex}_${note.octave}` === noteKey
+        (note) => `${note.solfegeIndex}_${note.keyboardOctave ?? note.octave}` === noteKey
       );
 
       return (

@@ -254,11 +254,15 @@ export function useAppLoading() {
   };
 
   // Hide the splash screen
-  const hideSplash = () => {
+  const hideSplash = (delayMs = 500) => {
     loadingState.isVisible = false;
+    if (delayMs <= 0) {
+      loadingState.isLoading = false;
+      return;
+    }
     setTimeout(() => {
       loadingState.isLoading = false;
-    }, 500); // Allow for fade-out animation
+    }, delayMs); // Allow for the visual fade-out when motion is enabled.
   };
 
   // Skip loading (for development)

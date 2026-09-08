@@ -159,7 +159,8 @@ async function handleStartApp() {
     // Audio can still be enabled by the first user note.
   }
 
-  hideSplash();
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  hideSplash(reducedMotion ? 0 : 500);
 }
 
 onMounted(startInitialization);

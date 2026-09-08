@@ -68,11 +68,13 @@ describe("production loading splash", () => {
   });
 
   it("enables audio before entering the app when ready", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
     loadingState.progress.overall.isComplete = true;
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
     await wrapper.get(".converged-loader__completion-action").trigger("click");
     expect(enableAudioContext).toHaveBeenCalledOnce();
-    expect(hideSplash).toHaveBeenCalledOnce();
+    expect(hideSplash).toHaveBeenCalledWith(0);
+    vi.unstubAllGlobals();
     wrapper.unmount();
   });
 

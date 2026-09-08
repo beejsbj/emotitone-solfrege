@@ -89,17 +89,17 @@ const resolvedStages = computed<LoadingStage[]>(() => {
 });
 
 const displayedPhase = computed(() => {
-  if (props.hasError && !isReady.value) return "Soundcheck interrupted";
   if (props.needsAudioInteraction && !isReady.value) return "Audio needs a tap";
+  if (props.hasError && !isReady.value) return "Soundcheck interrupted";
   return props.phase;
 });
 
 const displayedMessage = computed(() => {
-  if (props.hasError && !isReady.value) {
-    return props.errorMessage || "An error occurred during initialization.";
-  }
   if (props.needsAudioInteraction && !isReady.value) {
     return "Your browser needs permission before the sound system can continue.";
+  }
+  if (props.hasError && !isReady.value) {
+    return props.errorMessage || "An error occurred during initialization.";
   }
   return props.message;
 });
@@ -1008,8 +1008,10 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
 
     padding-block: 10px 0;
   }
-  .converged-loader__status { min-height: 0; margin: 0; }
-  .converged-loader__status-copy { display: none; }
+  .converged-loader__status { min-height: 18px; margin: 0; }
+  .converged-loader__status-copy { grid-template-columns: auto minmax(0, 1fr); gap: 7px; }
+  .converged-loader__status-copy strong { font-size: 8px; }
+  .converged-loader__status-copy > span { font-size: 7px; }
   .converged-loader__main { gap: 14px; }
   .converged-loader__content { gap: 4px; }
   .converged-loader__copy h1 { font-size: clamp(12px, 2.7vh, 13px); }

@@ -76,9 +76,14 @@ describe("LoadingScreen", () => {
         progress: 20,
         isComplete: false,
         needsAudioInteraction: true,
+        hasError: true,
+        errorMessage: "Raw audio context error",
       },
     });
 
+    expect(audio.text()).toContain("Audio needs a tap");
+    expect(audio.text()).toContain("browser needs permission");
+    expect(audio.text()).not.toContain("Raw audio context error");
     await audio.get(".converged-loader__state-action").trigger("click");
     expect(audio.emitted("enable-audio")).toHaveLength(1);
   });

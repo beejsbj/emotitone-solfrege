@@ -29,9 +29,9 @@ const props = withDefaults(defineProps<{
   stages: () => [
     { label: "Visual stage", complete: true, active: false },
     { label: "Instrument samples", complete: false, active: true },
-    { label: "MIDI input", complete: false, active: false, icon: "midi" },
     { label: "Audio system", complete: false, active: false },
     { label: "Ready to play", complete: false, active: false },
+    { label: "MIDI input", complete: false, active: false, icon: "midi" },
   ],
   phase: "Loading instrument samples",
   message: "Gathering the sounds for your first notes.",
@@ -120,18 +120,6 @@ function laneStyle(lane: typeof lanes[number], index: number) {
             <strong>{{ phase }}</strong>
             <span>{{ message }}</span>
           </div>
-          <div v-if="percent === 100" class="converged-loader__completion-action">
-            <strong>PLAY EMOTITONE</strong>
-            <Button
-              size="lg"
-              tone="brass"
-              accessible-name="Enter EmotiTone"
-              title="Enter EmotiTone"
-              @click="emit('enter')"
-            >
-              <Play :size="18" fill="currentColor" />
-            </Button>
-          </div>
         </div>
 
         <ol class="converged-loader__stages" aria-label="Loading stages">
@@ -179,6 +167,19 @@ function laneStyle(lane: typeof lanes[number], index: number) {
         </div>
       </div>
 
+      <div v-if="percent === 100" class="converged-loader__completion-action">
+        <strong>PLAY EMOTITONE</strong>
+        <Button
+          size="lg"
+          tone="brass"
+          accessible-name="Enter EmotiTone"
+          title="Enter EmotiTone"
+          @click="emit('enter')"
+        >
+          <Play :size="18" fill="currentColor" />
+        </Button>
+      </div>
+
       <div class="converged-loader__lanes" aria-hidden="true">
         <span
           v-for="(lane, index) in lanes"
@@ -204,6 +205,8 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   --foreground: var(--ink);
   --muted: var(--ink-5);
   --quiet: color-mix(in srgb, var(--ink) 12%, transparent);
+  --lane-strip-height: clamp(72px, 13vh, 116px);
+  --entry-action-overlap: 24px;
 
   position: relative;
   display: grid;
@@ -310,7 +313,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 .converged-loader__copy h1 {
   margin: 0;
-  font: 700 clamp(40px, 5vw, 66px)/1.04 var(--font-display);
+  font: 700 clamp(34px, 4.4vw, 56px)/1.06 var(--font-display);
   letter-spacing: -.015em;
   text-transform: uppercase;
   text-align: center;
@@ -319,7 +322,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader__status {
   position: relative;
   display: grid;
-  min-height: 48px;
+  min-height: 36px;
   min-width: 0;
   align-items: center;
   margin-top: 2px;
@@ -347,16 +350,18 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   white-space: nowrap;
 }
 
-.is-ready .converged-loader__status-copy { opacity: 0; }
-
 .converged-loader__completion-action {
   position: absolute;
-  inset: 0;
+  z-index: 4;
+  left: 50%;
+  bottom: calc(var(--lane-strip-height) - var(--entry-action-overlap));
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 13px;
   opacity: 0;
+  translate: -50% 0;
+  white-space: nowrap;
   animation: converged-enter-arrive 240ms cubic-bezier(.215, .61, .355, 1) 120ms both;
 }
 
@@ -468,7 +473,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 .converged-loader__lanes {
   display: grid;
-  height: clamp(72px, 13vh, 116px);
+  height: var(--lane-strip-height);
   overflow: hidden;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: end;
@@ -614,6 +619,8 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 @media (max-width: 720px) {
   .converged-loader {
+    --lane-strip-height: clamp(58px, 10vh, 82px);
+
     gap: 8px;
     padding: 12px 18px 0;
   }
@@ -629,7 +636,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__logo :deep(.brand-logo__wordmark) { font-size: min(42px, 11vw); }
   .converged-loader__content { gap: clamp(9px, 1.4vh, 13px); }
   .converged-loader__copy p { margin-bottom: 3px; font-size: 8px; }
-  .converged-loader__copy h1 { font-size: clamp(34px, 10vw, 43px); line-height: 1.1; }
+  .converged-loader__copy h1 { font-size: clamp(28px, 8.4vw, 36px); line-height: 1.08; }
   .converged-loader__status { margin-top: 4px; }
   .converged-loader__status-copy { grid-template-columns: 1fr; gap: 2px; }
   .converged-loader__status-copy > span { font-size: 9px; }
@@ -637,27 +644,30 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__stages li { font-size: 9px; }
   .converged-loader__bars { height: clamp(32px, 6.5vh, 48px); gap: 2px; }
   .converged-loader__progress-stage { width: 100%; }
-  .converged-loader__lanes { height: clamp(58px, 10vh, 82px); }
   .converged-loader__lane-label { font-size: clamp(12px, 4vw, 16px); }
 }
 
 @media (max-height: 650px) {
-  .converged-loader { padding-block: 10px 0; }
-  .converged-loader__status { min-height: 30px; }
+  .converged-loader {
+    --lane-strip-height: min(52px, 11vh);
+    --entry-action-overlap: 20px;
+
+    padding-block: 10px 0;
+  }
+  .converged-loader__status { min-height: 0; margin: 0; }
   .converged-loader__status-copy { display: none; }
   .converged-loader__completion-action { gap: 8px; }
   .converged-loader__completion-action > strong { font-size: 14px; }
-  .converged-loader__completion-action :deep(.paper-button) { --button-size: 30px; }
-  .converged-loader__main { gap: 6px; }
-  .converged-loader__content { gap: 6px; }
-  .converged-loader__copy h1 { font-size: clamp(30px, 8vh, 42px); }
-  .converged-loader__stages { height: min(96px, 20vh); }
+  .converged-loader__completion-action :deep(.paper-button) { --button-size: 40px; }
+  .converged-loader__main { gap: 14px; }
+  .converged-loader__content { gap: 4px; }
+  .converged-loader__copy h1 { font-size: clamp(24px, 6vh, 30px); }
+  .converged-loader__stages { height: min(78px, 17vh); }
   .converged-loader__bars { height: min(38px, 8vh); }
-  .converged-loader__lanes { height: min(52px, 11vh); }
 }
 
 @media (max-width: 720px) and (max-height: 650px) {
-  .converged-loader { --loading-logo-size: min(98px, 34vmin); }
+  .converged-loader { --loading-logo-size: min(84px, 29vmin); }
 }
 
 @media (prefers-reduced-motion: reduce) {

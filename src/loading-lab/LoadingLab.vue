@@ -37,18 +37,18 @@ const currentVariant = computed(() => (
 
 const phase = computed(() => {
   if (progress.value >= 100) return "Ready to play";
-  if (progress.value >= 96) return "Finishing soundcheck";
-  if (progress.value >= 78) return "Preparing audio";
-  if (progress.value >= 64) return "Checking MIDI input";
+  if (progress.value >= 96) return "Checking MIDI input";
+  if (progress.value >= 90) return "Finishing soundcheck";
+  if (progress.value >= 64) return "Preparing audio";
   if (progress.value >= 18) return "Loading instrument samples";
   return "Waking the visual stage";
 });
 
 const message = computed(() => {
   if (progress.value >= 100) return "Everything is tuned. Your first note is waiting.";
-  if (progress.value >= 96) return "One last breath before the room becomes yours.";
-  if (progress.value >= 78) return "Connecting the sound engine to your instrument.";
-  if (progress.value >= 64) return "Checking browser support; controllers can join anytime.";
+  if (progress.value >= 96) return "Checking browser support; controllers can join anytime.";
+  if (progress.value >= 90) return "One last breath before the room becomes yours.";
+  if (progress.value >= 64) return "Connecting the sound engine to your instrument.";
   if (progress.value >= 18) return "Gathering piano, strings, brass, and the rest of the room.";
   return "Preparing the canvas where sound becomes shape.";
 });
@@ -57,9 +57,9 @@ const stages = computed(() => {
   const definitions = [
     { label: "Visual stage", start: 0, end: 18 },
     { label: "Instrument samples", start: 18, end: 64 },
-    { label: "MIDI input", start: 64, end: 78, icon: "midi" as const },
-    { label: "Audio system", start: 78, end: 96 },
-    { label: "Ready to play", start: 96, end: 100 },
+    { label: "Audio system", start: 64, end: 90 },
+    { label: "Ready to play", start: 90, end: 96 },
+    { label: "MIDI input", start: 96, end: 100, icon: "midi" as const },
   ];
 
   return definitions.map((stage) => ({

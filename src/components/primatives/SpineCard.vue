@@ -1,6 +1,13 @@
 <template>
   <article :class="classes">
-    <Kicker class="spine-card__kicker" :tone="tone">{{ kicker }}</Kicker>
+    <Sticker
+      class="spine-card__section-marker"
+      variant="fill"
+      :color="tone"
+      mark="diamond"
+    >
+      {{ kicker }}
+    </Sticker>
     <div class="spine-card__stamp">{{ stamp }}</div>
     <p v-if="body" class="spine-card__body">{{ body }}</p>
     <div v-else-if="$slots.default" class="spine-card__body">
@@ -11,7 +18,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import Kicker from "./Kicker.vue";
+import Sticker from "./Sticker.vue";
 
 export type SpineCardTone = "tomato" | "pine" | "plum" | "bone" | "mustard";
 
@@ -93,10 +100,6 @@ const classes = computed(() => [
 
 .spine-card--tone-bone .spine-card__stamp {
   color: var(--bone);
-}
-
-.spine-card__kicker {
-  --kicker-color: var(--spine-card-color);
 }
 
 .spine-card__stamp {

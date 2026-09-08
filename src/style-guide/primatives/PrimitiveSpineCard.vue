@@ -2,14 +2,14 @@
   <AnatomyDisplay
     title="Spine Card &middot; Brand-Marked Shell"
     :features="features"
-    caption="SpineCard is the brand-color card shell: one colored spine, one matching Kicker, one stamped headline, and one bottom body. Action rows stay as SpineCard usage, not a separate compound."
+    caption="SpineCard is the brand-color card shell: one colored spine, one matching marked Sticker, one stamped headline, and one bottom body. Action rows stay as SpineCard usage, not a separate compound."
   >
     <template #hero>
       <SpineCard
         tone="tomato"
         kicker="Section &middot; 03"
         stamp="Tomato."
-        body="Kicker dot, poster color, brand splash on hero."
+        body="Marked Sticker, poster color, brand splash on hero."
       />
     </template>
 
@@ -75,7 +75,7 @@ const brandCards: SpineCardExample[] = [
     tone: "tomato",
     kicker: "Section &middot; 03",
     stamp: "Tomato.",
-    body: "Kicker dot, poster color, brand splash on hero.",
+    body: "Marked Sticker, poster color, brand splash on hero.",
   },
   {
     tone: "pine",
@@ -106,7 +106,7 @@ const brandCards: SpineCardExample[] = [
 const features = [
   { label: "Panel", value: "ink-2 · 1px hairline · bone tone lifts to ink-3" },
   { label: "Spine", value: "4px full-height brand strip · one color per card" },
-  { label: "Kicker", value: "composes Kicker with matching tone" },
+  { label: "Marker", value: "composes Sticker with a leading Mark and matching tone" },
   { label: "Stamp", value: "Jazz display · 32px · period-terminated" },
   { label: "Body", value: "mono 11px · ivory-3 · pinned to bottom" },
   { label: "Compact", value: "144px minimum · 22px stamp · grid specimen mode" },

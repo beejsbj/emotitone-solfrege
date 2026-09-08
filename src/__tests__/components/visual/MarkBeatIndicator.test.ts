@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
 import Mark from "@/components/primatives/Mark.vue";
-import Kicker from "@/components/primatives/Kicker.vue";
 import { MARK_DEFINITIONS, MARK_NAMES, markViewBox } from "@/components/primatives/marks";
 
 describe("Mark lineage", () => {
@@ -15,14 +14,6 @@ describe("Mark lineage", () => {
     expect(MARK_NAMES).toContain("bass-clef");
     expect(MARK_NAMES).not.toContain("sparkle");
     expect(MARK_NAMES).not.toContain("mist");
-  });
-
-  it("keeps the temporary dot-only Kicker adapter glyph-only", () => {
-    const wrapper = mount(Kicker, { props: { form: "dot", dot: "large" } });
-
-    expect(wrapper.find(".sticker").attributes("role")).toBe("img");
-    expect(wrapper.find(".kicker-compat__label").exists()).toBe(false);
-    expect(wrapper.find("svg.mark").attributes("data-mark")).toBe("disk");
   });
 
   it("renders the SVG primitive from the authoritative path definition", () => {

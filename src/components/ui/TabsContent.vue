@@ -3,6 +3,7 @@ import { inject, computed } from "vue";
 
 interface Props {
   value: string;
+  activeValue?: string;
 }
 
 const props = defineProps<Props>();
@@ -13,7 +14,9 @@ interface TabsContext {
 
 const tabsContext = inject<TabsContext>("tabs-context");
 
-const isActive = computed(() => tabsContext?.value.value === props.value);
+const isActive = computed(
+  () => (props.activeValue ?? tabsContext?.value.value) === props.value,
+);
 </script>
 
 <template>

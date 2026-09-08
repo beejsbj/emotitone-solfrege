@@ -344,6 +344,13 @@ useGSAP(({ gsap }) => {
     drop-shadow(0 0 6cqi color-mix(in srgb, currentColor 42%, transparent));
 }
 
+.knob-face--brass .knob-face__value {
+  filter:
+    drop-shadow(0 -1.25cqi 0 var(--brass-hi))
+    drop-shadow(0 1.25cqi 0 var(--brass-lo))
+    drop-shadow(0 0 10cqi color-mix(in srgb, var(--brass) 78%, transparent));
+}
+
 .knob-face__center {
   position: absolute;
   inset: 0;

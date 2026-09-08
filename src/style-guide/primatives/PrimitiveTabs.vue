@@ -2,53 +2,53 @@
   <AnatomyDisplay
     title="Tabs &middot; Chip-Slide Primitive"
     :features="features"
-    caption="Chip-slide is the tab primitive mechanic: a single chip tracks the active label while a dark streak holds the rail together. The source owns the rail, chip, streak, selected state, disabled state, geometry, density, and brass tone. The specimen owns explanatory groupings only."
+    caption="Chip-slide is the sole tab presentation: a single chip tracks the active label while a dark streak holds the rail together. The source owns the rail, chip, streak, selected and disabled states, equal and scrolling layouts, density, and the shared page-load edition. Explicit specimens stay pinned; the specimen owns explanatory groupings only."
   >
     <template #hero>
       <div class="hero-stage">
-        <ChipTabs v-model="heroValue" :tabs="tabs" aria-label="Hero chip tabs" />
+        <Tabs v-model="heroValue" :tabs="tabs" aria-label="Hero tabs" />
       </div>
     </template>
 
     <VariantGrid title="Chip Geometry">
       <VariantCell
         v-for="variant in geometryVariants"
-        :key="variant.geometry"
+        :key="`${variant.geometry}-${variant.tone ?? 'ivory'}`"
         :caption="variant.label"
         stage="ink3"
       >
-        <ChipTabs
+        <Tabs
           :tabs="shortTabs"
           :default-value="shortTabs[0].value"
           :geometry="variant.geometry"
           :tone="variant.tone"
-          :aria-label="`${variant.label} chip tabs`"
+          :aria-label="`${variant.label} tabs`"
         />
       </VariantCell>
     </VariantGrid>
 
     <VariantGrid title="Density">
       <VariantCell caption="Comfortable / 4 tabs" stage="ink3">
-        <ChipTabs
+        <Tabs
           :tabs="tabs"
           default-value="anim"
-          aria-label="Comfortable chip tabs"
+          aria-label="Comfortable tabs"
         />
       </VariantCell>
       <VariantCell caption="Compact / 5 tabs" stage="ink3">
-        <ChipTabs
+        <Tabs
           :tabs="denseTabs"
           default-value="anim"
           density="compact"
-          aria-label="Compact chip tabs"
+          aria-label="Compact tabs"
         />
       </VariantCell>
       <VariantCell caption="Disabled tab" stage="ink3">
-        <ChipTabs
+        <Tabs
           :tabs="disabledTabs"
           default-value="anim"
           geometry="offcut"
-          aria-label="Disabled chip tabs"
+          aria-label="Disabled tabs"
         />
       </VariantCell>
     </VariantGrid>
@@ -57,43 +57,43 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import ChipTabs from "../../components/primatives/ChipTabs.vue";
+import Tabs from "../../components/primatives/Tabs.vue";
 import type {
-  ChipTabItem,
-  ChipTabsGeometry,
-  ChipTabsTone,
-} from "../../components/primatives/ChipTabs.vue";
+  TabItem,
+  TabsGeometry,
+  TabsTone,
+} from "../../components/primatives/Tabs.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 
 interface GeometryExample {
-  geometry: ChipTabsGeometry;
-  tone?: ChipTabsTone;
+  geometry: TabsGeometry;
+  tone?: TabsTone;
   label: string;
 }
 
 const heroValue = ref("anim");
 
-const tabs: ChipTabItem[] = [
+const tabs: TabItem[] = [
   { label: "Anim", value: "anim" },
   { label: "Freq", value: "freq" },
   { label: "Color", value: "color" },
   { label: "Scope", value: "scope" },
 ];
 
-const shortTabs: ChipTabItem[] = [
+const shortTabs: TabItem[] = [
   { label: "Anim", value: "anim" },
   { label: "Freq", value: "freq" },
   { label: "Color", value: "color" },
 ];
 
-const denseTabs: ChipTabItem[] = [
+const denseTabs: TabItem[] = [
   ...tabs,
   { label: "Keys", value: "keys" },
 ];
 
-const disabledTabs: ChipTabItem[] = [
+const disabledTabs: TabItem[] = [
   { label: "Anim", value: "anim" },
   { label: "Freq", value: "freq" },
   { label: "Color", value: "color", disabled: true },
@@ -112,11 +112,13 @@ const features = [
   { label: "Rail", value: "ink-2 shell with ink streak behind all labels" },
   { label: "Chip", value: "sliding active surface measured from the selected tab" },
   { label: "Motion", value: "var(--dur-ui) with ease-swing; smear is transient" },
-  { label: "Geometry", value: "tab, offcut, tile, sharp, pill, or paper-rip chip" },
+  { label: "Geometry", value: "tab, offcut, tile, sharp, or paper-rip chip" },
   { label: "Tone", value: "ivory by default; brass is an ink-and-ivory instrument-metal treatment" },
   { label: "Density", value: "comfortable or compact label rhythm" },
+  { label: "Layout", value: "equal-width or horizontally scrolling without changing the chip mechanic" },
+  { label: "Edition", value: "one guide variant shared by every unpinned Tabs instance per page load" },
   { label: "State", value: "selected and disabled are source-owned tab states" },
-  { label: "Boundary", value: "not the generic app Tabs provider family" },
+  { label: "Boundary", value: "TabsContent retains content coordination; Tabs owns all presentation" },
 ];
 </script>
 

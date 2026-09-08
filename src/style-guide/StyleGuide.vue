@@ -1,5 +1,8 @@
 <template>
-  <main class="style-guide-sink-port">
+  <TabsPage v-if="page === 'tabs'" />
+  <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
+  <ConfigMenuPage v-else-if="page === 'config-menu'" />
+  <main v-else class="style-guide-sink-port">
     <header class="sink-header">
       <div class="label">Emotitone Design System Sink Port</div>
       <h1>Preview Components</h1>
@@ -163,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted } from "vue";
+import { defineAsyncComponent, nextTick, onBeforeUnmount, onMounted } from "vue";
 import "./preview-card.css";
 import TokenUiColors from "./tokens/TokenUiColors.vue";
 import TokenBrandColors from "./tokens/TokenBrandColors.vue";
@@ -196,6 +199,18 @@ import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";
 import UniqueCodeStrip from "./uniques/UniqueCodeStrip.vue";
 import UniqueDrawer from "./uniques/UniqueDrawer.vue";
 import UniqueHarmonicGeometry from "./uniques/UniqueHarmonicGeometry.vue";
+
+defineProps<{
+  page?: "tabs" | "instrument-picker" | "config-menu";
+}>();
+
+const TabsPage = defineAsyncComponent(() => import("./TabsPage.vue"));
+const InstrumentPickerPage = defineAsyncComponent(
+  () => import("./InstrumentPickerPage.vue"),
+);
+const ConfigMenuPage = defineAsyncComponent(
+  () => import("./ConfigMenuPage.vue"),
+);
 
 const scrollToHash = async () => {
   const id = decodeURIComponent(window.location.hash.slice(1));

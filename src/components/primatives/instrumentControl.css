@@ -23,6 +23,7 @@
 
 .instrument-control__face {
   inline-size: 100%;
+  min-inline-size: 0;
   aspect-ratio: 1;
 }
 

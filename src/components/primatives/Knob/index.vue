@@ -87,6 +87,7 @@ import DragValue from "../DragValue.vue";
 import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
+import { formatKnobDisplayValue } from "./displayValue";
 import { currentKnobPageVisual } from "./edition";
 import type { KnobTone, KnobType, KnobVisual } from "./types";
 
@@ -272,7 +273,9 @@ const showDragValue = computed(() =>
   interaction.gestureState.value !== "horizontal_scroll"
 );
 const dragValue = computed(() => {
-  if (knobType.value === "range") return String(props.formatValue(actualValue.value as number));
+  if (knobType.value === "range") {
+    return formatKnobDisplayValue(props.formatValue(actualValue.value as number));
+  }
   const option = props.options?.find((option) =>
     (typeof option === "string" ? option : option.value) === actualValue.value
   );
@@ -750,5 +753,13 @@ useGSAP(({ gsap }: { gsap: any }) => {
 
 .knob-wrapper__face {
   position: relative;
+}
+
+.knob-wrapper__label {
+  overflow: visible;
+  line-height: 1.25;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 </style>

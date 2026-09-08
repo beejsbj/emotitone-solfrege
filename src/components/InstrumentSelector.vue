@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
+import Sticker from "@/components/primatives/Sticker.vue";
+import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
-  type TabbedOverlayTone,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
 import { Search, X } from "lucide-vue-next";
@@ -48,16 +49,6 @@ const instrumentIcon = computed(() => instrumentIconFor(currentInstrumentId.valu
 
 const allSounds = ref<string[]>([]);
 const query = ref("");
-
-onMounted(async () => {
-  try {
-    await instrumentStore.initializeInstruments();
-  } catch {
-    // The global loading flow already reports degraded initialization. Keep
-    // the chooser usable for whatever sounds were registered successfully.
-  }
-  allSounds.value = getRegisteredSounds().sort();
-});
 
 type Category =
   | "synths"
@@ -338,65 +329,67 @@ function groupSounds(sounds: string[]) {
   return map;
 }
 
-
-type PanelTone = Extract<TabbedOverlayTone, "amber" | "red" | "violet" | "cream">;
-type PanelTab = "all" | Category;
-
-const activeTab = ref<PanelTab>("all");
+const activeTab = ref<Category>(categorise(currentInstrumentId.value));
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
 
 const categoryTabs = computed(() =>
   CATEGORY_ORDER.filter((category) => allGrouped.value[category]?.length).map(
-    (category, index) => ({
+    (category) => ({
       key: category,
       label: CATEGORY_LABELS[category],
       shortLabel: CATEGORY_SHORT_LABELS[category],
-      tone: sceneTone(index),
     })
   )
 );
 
-const allTabs = computed<TabbedOverlayTab[]>(() => [
-  {
-    value: "all",
-    label: "All Sounds",
-    shortLabel: "All",
-    tone: "amber",
-  },
-  ...categoryTabs.value.map((tab) => ({
+const bankTabs = computed<TabbedOverlayTab[]>(() =>
+  categoryTabs.value.map((tab) => ({
     value: tab.key,
     label: tab.label,
     shortLabel: tab.shortLabel,
-    tone: tab.tone,
   })),
-]);
-
-const activeTabMeta = computed(
-  () =>
-    allTabs.value.find((tab) => tab.value === activeTab.value) ?? {
-      value: "all",
-      label: "All Sounds",
-      shortLabel: "All",
-      tone: "amber" as TabbedOverlayTone,
-    }
 );
 
-const orderedGroups = computed(() => {
-  if (hasSearchQuery.value || activeTab.value === "all") {
+function syncActiveTabToInstrument(instrumentId: string) {
+  const preferredCategory = categorise(instrumentId);
+  activeTab.value = allGrouped.value[preferredCategory]?.length
+    ? preferredCategory
+    : categoryTabs.value[0]?.key ?? preferredCategory;
+}
+
+onMounted(async () => {
+  try {
+    await instrumentStore.initializeInstruments();
+  } catch {
+    // The global loading flow already reports degraded initialization. Keep
+    // the chooser usable for whatever sounds were registered successfully.
+  }
+  allSounds.value = getRegisteredSounds().sort();
+  syncActiveTabToInstrument(currentInstrumentId.value);
+});
+
+watch(currentInstrumentId, syncActiveTabToInstrument);
+
+const activeTabMeta = computed(() => ({
+  value: activeTab.value,
+  label: CATEGORY_LABELS[activeTab.value],
+  shortLabel: CATEGORY_SHORT_LABELS[activeTab.value],
+}));
+
+function orderedGroupsFor(tabValue: string) {
+  if (hasSearchQuery.value) {
     return CATEGORY_ORDER.filter((category) => grouped.value[category]?.length).map(
       (category) => ({
         key: category,
         label: CATEGORY_LABELS[category],
-        sounds: grouped.value[category]!,
-        tone:
-          categoryTabs.value.find((tab) => tab.key === category)?.tone ?? "amber",
+        sounds: prioritizeSounds(grouped.value[category]!),
       })
     );
   }
 
-  const category = activeTab.value as Category;
+  const category = tabValue as Category;
   const sounds = grouped.value[category] ?? [];
 
   if (!sounds.length) {
@@ -407,23 +400,17 @@ const orderedGroups = computed(() => {
     {
       key: category,
       label: CATEGORY_LABELS[category],
-      sounds,
-      tone:
-        categoryTabs.value.find((tab) => tab.key === category)?.tone ?? "amber",
+      sounds: prioritizeSounds(sounds),
     },
   ];
-});
+}
 
 const visibleSoundCount = computed(() => {
   if (hasSearchQuery.value) {
     return filteredSounds.value.length;
   }
 
-  if (activeTab.value === "all") {
-    return allSounds.value.length;
-  }
-
-  return allGrouped.value[activeTab.value as Category]?.length ?? 0;
+  return allGrouped.value[activeTab.value]?.length ?? 0;
 });
 
 const bankLabel = computed(() => {
@@ -493,39 +480,30 @@ function soundStateLabel(sound: string): string {
   }[getSoundState(sound)];
 }
 
-function soundButtonClass(sound: string): string {
+function soundStickerVariant(sound: string): "outline" | "fill" {
+  return ["selected", "warming"].includes(getSoundState(sound)) ? "fill" : "outline";
+}
+
+function soundPriority(sound: string): number {
   return {
-    selected: "border-[#8b8b8b] bg-[#242424] text-white",
-    warming:
-      "border-[#bdbdbd] bg-[#222222] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.18)]",
-    ready:
-      "border-[#555555] bg-[#191919] text-[#dddddd] hover:border-[#8a8a8a] hover:text-white",
-    cold:
-      "border-[#353535] bg-[#111111] text-neutral-500 hover:border-[#686868] hover:text-neutral-300",
-    default:
-      "border-[#3d3d3d] bg-[#151515] text-neutral-300 hover:border-[#7f7f7f] hover:text-white",
+    selected: 0,
+    warming: 0,
+    ready: 1,
+    default: 2,
+    cold: 3,
   }[getSoundState(sound)];
+}
+
+function prioritizeSounds(sounds: string[]): string[] {
+  return [...sounds].sort(
+    (a, b) => soundPriority(a) - soundPriority(b) || a.localeCompare(b)
+  );
 }
 
 function closeSelector(close: () => void) {
   close();
   props.onClose?.();
   emit("close");
-}
-
-function sceneTone(index: number): PanelTone {
-  return ["amber", "red", "violet", "cream"][index % 4] as PanelTone;
-}
-
-function toneChipClass(tone: PanelTone) {
-  return (
-    {
-      amber: "bg-[#d2d2d2] text-[#111111]",
-      red: "bg-[#ababab] text-[#111111]",
-      violet: "bg-[#929292] text-[#111111]",
-      cream: "bg-[#e2e2e2] text-[#111111]",
-    } as const
-  )[tone];
 }
 
 async function selectInstrument(name: string, close: () => void) {
@@ -572,8 +550,9 @@ async function selectInstrument(name: string, close: () => void) {
       <TabbedOverlayPanel
         @content-height="drawerContentHeight = $event"
         v-model="activeTab"
-        :tabs="allTabs"
+        :tabs="bankTabs"
         tab-test-id-prefix="instrument-tab"
+        tabs-aria-label="Instrument banks"
         embedded
         width="100%"
         height="100%"
@@ -581,45 +560,26 @@ async function selectInstrument(name: string, close: () => void) {
         body-class="px-3 py-3"
       >
         <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-1.5">
-              <span
-                class="inline-flex h-6 items-center px-2 text-[7px] font-semibold uppercase tracking-[0.22em] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
-                :class="toneChipClass('amber')"
-              >
-                Sound
-              </span>
-              <span
-                class="inline-flex h-6 max-w-[12rem] items-center border border-[#3b3b3b] bg-[#141414] px-2 text-[7px] font-semibold uppercase tracking-[0.24em] text-[#d3d3d3] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
-              >
-                <span class="truncate">
-                  {{ bankLabel }}
-                </span>
-              </span>
-            </div>
-
-            <div class="flex shrink-0 items-center gap-1.5">
-              <span
-                class="inline-flex h-8 items-center border border-[#3d3d3d] bg-[#151515] px-2 text-[8px] uppercase tracking-[0.18em] text-neutral-400 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
-              >
-                {{ visibleSoundCount }}
-              </span>
-
-              <Button
-                title="Close sounds"
-                accessible-name="Close sounds"
-                @click="close"
-              >
-                <X :size="14" />
-              </Button>
-            </div>
-          </div>
+          <OverlayPanelHeader
+            title="Sounds"
+            :context="bankLabel"
+            :status="visibleSoundCount"
+          >
+            <Button
+              size="sm"
+              title="Close sounds"
+              accessible-name="Close sounds"
+              @click="close"
+            >
+              <X :size="14" />
+            </Button>
+          </OverlayPanelHeader>
         </template>
 
         <template #toolbar>
           <div class="flex items-center gap-2">
             <label
-              class="flex flex-1 items-center gap-2 border border-[#3d3d3d] bg-[#151515] px-2.5 py-1.5 text-neutral-300 transition-colors focus-within:border-[#7d7d7d] focus-within:text-white [clip-path:polygon(2%_0,100%_0,98%_100%,0_100%)]"
+              class="flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
               <Search :size="14" class="text-neutral-500" />
               <input
@@ -642,8 +602,9 @@ async function selectInstrument(name: string, close: () => void) {
           </div>
         </template>
 
-        <div class="space-y-3">
-          <div
+        <template #default="{ activeValue: panelTab }">
+          <div class="space-y-3">
+            <div
             v-if="warmupStatusMessage"
             data-testid="instrument-warmup-banner"
             role="status"
@@ -683,7 +644,7 @@ async function selectInstrument(name: string, close: () => void) {
           </div>
 
           <div
-            v-else-if="!orderedGroups.length"
+            v-else-if="!orderedGroupsFor(panelTab).length"
             class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no sounds in this bank yet.
@@ -691,64 +652,122 @@ async function selectInstrument(name: string, close: () => void) {
 
           <template v-else>
             <section
-              v-for="group in orderedGroups"
+              v-for="group in orderedGroupsFor(panelTab)"
               :key="group.key"
-              class="border border-[#2d2d2d] bg-[#121212] px-3 py-2.5 [clip-path:polygon(0_12px,12px_0,calc(100%-12px)_0,100%_12px,100%_100%,0_100%)]"
+              class="instrument-group"
             >
-              <div class="mb-2 flex items-center justify-between gap-2 px-0.5">
-                <span
-                  class="px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.2em] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
-                  :class="toneChipClass(group.tone)"
-                >
-                  {{ group.label }}
-                </span>
-                <div class="text-[8px] uppercase tracking-[0.18em] text-neutral-600">
+              <div class="instrument-group__heading">
+                <span>{{ group.label }}</span>
+                <div>
                   {{ group.sounds.length }}
                 </div>
               </div>
 
-              <div
-                class="grid grid-cols-[repeat(auto-fill,minmax(6.7rem,1fr))] gap-1.5 sm:grid-cols-[repeat(auto-fill,minmax(7.2rem,1fr))]"
-              >
+              <div class="instrument-group__choices">
                 <button
                   v-for="sound in group.sounds"
                   :key="sound"
                   :data-testid="`instrument-option-${sound}`"
                   :data-state="getSoundState(sound)"
                   :title="displayInstrumentName(sound)"
+                  :aria-label="`${displayInstrumentName(sound)}, ${soundStateLabel(sound)}`"
+                  :aria-pressed="getSoundState(sound) === 'selected'"
                   :disabled="useStoreAudioFlow && instrumentStore.isInstrumentWarming(sound)"
                   @click="selectInstrument(sound, close)"
-                  :class="[
-                    'relative min-w-0 w-full overflow-hidden border px-2.5 py-1.5 font-mono text-[9px] transition-colors disabled:pointer-events-none [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]',
-                    soundButtonClass(sound),
-                  ]"
+                  class="instrument-choice"
                 >
-                  <span
-                    v-if="getSoundState(sound) === 'warming'"
-                    class="pointer-events-none absolute inset-[1px] animate-spin border-2 border-transparent border-r-white border-t-neutral-400 motion-reduce:animate-none [clip-path:polygon(8%_0,100%_0,92%_100%,0_100%)]"
-                    aria-hidden="true"
-                  />
-
-                  <span class="relative block truncate">
-                    {{ displayInstrumentName(sound) }}
-                  </span>
-                  <span
-                    v-if="useStoreAudioFlow"
-                    class="relative mt-1 block text-[7px] uppercase tracking-[0.16em]"
-                    :class="{
-                      'text-white': getSoundState(sound) === 'selected',
-                      'text-neutral-300': getSoundState(sound) === 'warming',
-                      'text-neutral-400': ['ready', 'cold'].includes(getSoundState(sound)),
-                    }"
+                  <Sticker
+                    class="instrument-choice__sticker"
+                    :variant="soundStickerVariant(sound)"
+                    color="ivory"
                   >
-                    {{ soundStateLabel(sound) }}
-                  </span>
+                    <component
+                      :is="instrumentIconFor(sound)"
+                      :size="12"
+                      :stroke-width="1.75"
+                      class="instrument-choice__icon"
+                      aria-hidden="true"
+                    />
+                    <span>{{ displayInstrumentName(sound) }}</span>
+                  </Sticker>
                 </button>
               </div>
             </section>
-          </template>
-        </div>
+            </template>
+          </div>
+        </template>
       </TabbedOverlayPanel>
     </template>
   </TopDrawer>
 </template>
+
+<style scoped>
+.instrument-group + .instrument-group {
+  margin-top: 1.5rem;
+}
+
+.instrument-group__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  border-bottom: 1px solid var(--ivory-4);
+  padding: 0 .125rem .5rem;
+  color: var(--ivory-3);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.instrument-group__choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .625rem .75rem;
+  padding: .875rem .125rem .125rem;
+}
+
+.instrument-choice {
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  padding: .125rem;
+  color: inherit;
+  cursor: pointer;
+  transform: translateY(0);
+  transition: opacity var(--dur-tap) var(--ease-stab), transform var(--dur-tap) var(--ease-stab);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.instrument-choice__sticker {
+  max-width: min(15rem, calc(100vw - 8rem));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.instrument-choice__icon {
+  width: .9em;
+  height: .9em;
+  flex: none;
+  margin-right: .4em;
+}
+
+.instrument-choice:not(:disabled):hover { transform: translateY(-1px); }
+.instrument-choice:not(:disabled):active { transform: translateY(2px); }
+.instrument-choice:focus-visible { outline: 2px solid var(--ivory); outline-offset: 3px; }
+.instrument-choice:disabled { cursor: wait; }
+.instrument-choice[data-state="cold"] { opacity: .38; }
+.instrument-choice[data-state="default"] { opacity: .72; }
+
+@media (prefers-reduced-motion: reduce) {
+  .instrument-choice { transition: none; }
+}
+
+@media (max-width: 460px) {
+  .instrument-group__choices { gap: .5625rem .5rem; }
+  .instrument-choice__sticker { font-size: 12px; }
+}
+</style>

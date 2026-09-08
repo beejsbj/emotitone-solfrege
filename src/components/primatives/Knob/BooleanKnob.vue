@@ -10,7 +10,10 @@
   <!-- Animated ball -->
   <div
     class="knob-boolean__ball"
-    :class="{ 'knob-boolean__ball--active': modelValue }"
+    :class="{
+      brass: tone === 'brass' && modelValue,
+      'knob-boolean__ball--active': modelValue,
+    }"
     :style="{
       backgroundColor: activeStrokeColor,
       color: activeStrokeColor,
@@ -86,6 +89,13 @@ const activeStrokeColor = computed(
   transform: translate(-50%, -50%) scale(1.2);
 }
 
+.knob-boolean__ball.brass {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 55%),
+    inset 0 -1px 0 rgb(0 0 0 / 45%),
+    var(--shadow-glow-brass);
+}
+
 .knob-boolean__icon {
   inline-size: 25cqi;
   block-size: 25cqi;
@@ -93,5 +103,16 @@ const activeStrokeColor = computed(
 
 @media (prefers-reduced-motion: reduce) {
   .knob-boolean__ball { transition: none; }
+  .knob-boolean__ball.brass::after { animation: none; }
+}
+
+@media (forced-colors: active) {
+  .knob-boolean__ball.brass {
+    background: CanvasText;
+    box-shadow: none;
+    color: CanvasText;
+  }
+
+  .knob-boolean__ball.brass::after { display: none; }
 }
 </style>

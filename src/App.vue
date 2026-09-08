@@ -1,5 +1,6 @@
 <template>
-  <StyleGuide v-if="isStyleGuide" />
+  <LoadingLab v-if="isLoadingLab" />
+  <StyleGuide v-else-if="isStyleGuide" />
   <MainApp v-else />
 </template>
 
@@ -10,6 +11,7 @@ import { beginJoystickPageEdition } from "./components/uniques/Joystick/edition"
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isStyleGuide = pathname === "/style-guide";
+const isLoadingLab = pathname === "/page";
 
 // The typography element defaults are deliberately loaded only for the guide.
 // Keep the route marker on the document so html/body rules can be scoped too.
@@ -18,10 +20,13 @@ if (isStyleGuide) {
   document.body?.classList.add("style-guide-route");
   void import("./style-guide/guide-defaults.css");
 } else {
-  beginJoystickPageEdition();
+  if (!isLoadingLab) beginJoystickPageEdition();
 }
 
 const StyleGuide = defineAsyncComponent(
   () => import("./style-guide/StyleGuide.vue"),
+);
+const LoadingLab = defineAsyncComponent(
+  () => import("./loading-lab/LoadingLab.vue"),
 );
 </script>

@@ -27,6 +27,8 @@
       role="group"
       aria-label="Harmony chords"
       :data-chord-count="renderChords.length"
+      :data-geometry-family="resolvedChordFamily"
+      :style="{ '--keyboard-chord-count': Math.max(renderChords.length, 1) }"
     >
       <ChordKey
         v-for="(chord, chordIndex) in renderChords"
@@ -36,7 +38,7 @@
         :members="chord.members"
         :symbol="chord.harmony.symbol"
         :accessible-name="chord.harmony.accessibleName"
-        :geometry="resolvedFamily"
+        :geometry="resolvedChordFamily"
         :pressed="chord.pressed"
         :disabled="isInteractionLocked"
         :tabindex="chord.harmony.id === rememberedChordFocusId ? 0 : -1"
@@ -142,6 +144,7 @@ import {
   KEYBOARD_PAGE_EDITION_SEED,
   keyboardEditionVariation,
   keyboardEditionRowVariations,
+  keyboardChordFamily,
   keyboardFamilyForDate,
   type KeyboardGeometryFamily,
 } from "./keyboardEdition";
@@ -238,7 +241,7 @@ const props = withDefaults(
     geometryFamily: undefined,
     editionSeed: undefined,
     gap: 2,
-    mainRowHeight: 88,
+    mainRowHeight: 76,
     outerRowHeight: 56,
     outerInset: 0,
     variationAmplitude: 1,
@@ -573,6 +576,7 @@ const renderChords = computed<KeyboardChordView[]>(() =>
 
 const mountFamily = keyboardFamilyForDate(new Date());
 const resolvedFamily = computed(() => props.geometryFamily ?? mountFamily);
+const resolvedChordFamily = computed(() => keyboardChordFamily(resolvedFamily.value));
 const resolvedEditionSeed = computed(
   () => props.editionSeed ?? KEYBOARD_PAGE_EDITION_SEED,
 );
@@ -1229,6 +1233,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   isolation: isolate;
   container-type: inline-size;
+  container-name: keyboard;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -1237,21 +1242,18 @@ onBeforeUnmount(() => {
   display: grid;
   min-width: 0;
   min-height: 44px;
-  grid-auto-columns: minmax(44px, 1fr);
-  grid-auto-flow: column;
+  grid-template-columns: repeat(var(--keyboard-chord-count, 1), minmax(0, 1fr));
   align-items: stretch;
   gap: var(--keyboard-gap, 2px);
   padding-block: 1px 2px;
-  overflow-x: auto;
-  overflow-y: visible;
-  overscroll-behavior-inline: contain;
-  scrollbar-width: thin;
-  touch-action: pan-x;
+  overflow: visible;
+  touch-action: none;
 }
 
-.keyboard__chord-key {
-  min-width: 44px;
+.keyboard__chord-row > .keyboard__chord-key {
+  min-width: 0;
   overflow: visible;
+  touch-action: none;
 }
 
 .keyboard--padded { padding: 4px; }
@@ -1272,6 +1274,8 @@ onBeforeUnmount(() => {
   min-width: 0 !important;
   flex: 1 1 0;
   overflow: visible;
+  container-type: inline-size;
+  container-name: keyboard-key;
 }
 
 .keyboard__key :deep(.key__face),
@@ -1283,6 +1287,14 @@ onBeforeUnmount(() => {
   height: var(--keyboard-note-height);
 }
 
+.keyboard__row--main .keyboard__key :deep(.note) {
+  --note-primary-size: clamp(16px, 62cqi, 24px);
+}
+
+.keyboard__row:not(.keyboard__row--main) .keyboard__key :deep(.note) {
+  --note-primary-size: clamp(15px, 47cqi, 18px);
+}
+
 .keyboard__key--focus-preview {
   outline: 2px solid var(--ivory, currentColor);
   outline-offset: 2px;
@@ -1292,13 +1304,12 @@ onBeforeUnmount(() => {
   z-index: 10001 !important;
 }
 
-@container (max-width: 390px) {
+@container keyboard (max-width: 390px) {
   .keyboard__row {
     --keyboard-variation-amplitude: calc(var(--keyboard-user-variation-amplitude, 1) * .45);
   }
 
   .keyboard__key :deep(.note) {
-    --note-primary-size: 20px;
     --note-aux-size: 7px;
     --note-padding-inline: 4px;
     --note-primary-safe-inline: 4px;

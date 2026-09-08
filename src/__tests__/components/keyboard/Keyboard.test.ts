@@ -231,7 +231,10 @@ describe("Keyboard production usage", () => {
       ".keyboard--contrast-forced :deep(.chord__symbol)",
     );
     expect(keyboardSource).toMatch(
-      /\.keyboard__chord-row\s*\{[\s\S]*?touch-action:\s*pan-x/,
+      /\.keyboard__chord-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(var\(--keyboard-chord-count, 1\), minmax\(0, 1fr\)\)/,
+    );
+    expect(keyboardSource).toMatch(
+      /\.keyboard__chord-row\s*\{[\s\S]*?touch-action:\s*none/,
     );
     expect(keyboardSource).toMatch(
       /\.keyboard__row\s*\{[\s\S]*?touch-action:\s*none/,
@@ -274,10 +277,37 @@ describe("Keyboard production usage", () => {
       pressed: true,
     });
     expect(keys[2].attributes("style")).toContain(
-      "--keyboard-note-height: 88px",
+      "--keyboard-note-height: 76px",
     );
 
     expect(keys[4].props("sounding")).toBe(true);
+  });
+
+  it("keeps chord geometry edition-driven but distinct from melody geometry", () => {
+    const wrapper = mount(Keyboard, {
+      props: {
+        usage: "controlled",
+        rows: controlledRows(),
+        geometryFamily: "pill",
+      },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+
+    expect(wrapper.attributes("data-geometry-family")).toBe("pill");
+    expect(wrapper.get(".keyboard__chord-row").attributes("data-geometry-family"))
+      .toBe("tile");
+    expect(wrapper.findAllComponents(ChordKeyStub).every(
+      (chord) => chord.props("geometry") === "tile",
+    )).toBe(true);
+  });
+
+  it("owns fluid primary typography at the Keyboard layer", () => {
+    expect(keyboardSource).toMatch(
+      /\.keyboard__row--main[\s\S]*--note-primary-size:\s*clamp\(16px, 62cqi, 24px\)/,
+    );
+    expect(keyboardSource).toMatch(
+      /\.keyboard__row:not\(\.keyboard__row--main\)[\s\S]*--note-primary-size:\s*clamp\(15px, 47cqi, 18px\)/,
+    );
   });
 
   it("restores the production keyboard padding setting at the keyboard seam", () => {
@@ -294,9 +324,9 @@ describe("Keyboard production usage", () => {
     const keys = wrapper.findAllComponents(KeyStub);
 
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(96.6, 1);
+      .toBeCloseTo(102.77, 1);
     expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(151.8, 1);
+      .toBeCloseTo(139.47, 1);
   });
 
   it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {
@@ -304,8 +334,8 @@ describe("Keyboard production usage", () => {
     const identities = wrapper.findAllComponents(KeyStub).map(key => key.props("rawPitch"));
     await wrapper.setProps({ availableHeight: 400 });
     let keys = wrapper.findAllComponents(KeyStub);
-    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(98.84, 1);
-    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(155.32, 1);
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(105.15, 1);
+    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(142.7, 1);
     await wrapper.setProps({ availableHeight: 20 });
     keys = wrapper.findAllComponents(KeyStub);
     expect(keys[0].attributes("style")).toContain("--keyboard-note-height: 44px");

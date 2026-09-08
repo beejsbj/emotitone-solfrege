@@ -131,8 +131,11 @@ describe("Keyboard compound", () => {
     await wrapper.setProps({ scaleType });
 
     expect(wrapper.findAllComponents(ChordKeyStub)).toHaveLength(count);
-    expect(wrapper.get('[aria-label="Harmony chords"]').attributes("data-chord-count"))
-      .toBe(String(count));
+    const chordRow = wrapper.get('[aria-label="Harmony chords"]');
+    expect(chordRow.attributes("data-chord-count")).toBe(String(count));
+    expect(chordRow.attributes("style")).toContain(
+      `--keyboard-chord-count: ${count}`,
+    );
     wrapper.unmount();
   });
 
@@ -215,16 +218,16 @@ describe("Keyboard compound", () => {
     await wrapper.setProps({ availableHeight: 400, keyboardPadding: true });
     let keys = wrapper.findAllComponents(KeyStub);
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(96.6, 1);
+      .toBeCloseTo(102.77, 1);
     expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(151.8, 1);
+      .toBeCloseTo(139.47, 1);
 
     await wrapper.setProps({ keyboardPadding: false });
     keys = wrapper.findAllComponents(KeyStub);
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(98.84, 1);
+      .toBeCloseTo(105.15, 1);
     expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(155.32, 1);
+      .toBeCloseTo(142.7, 1);
   });
 
   it.each([" ", "Enter"])(

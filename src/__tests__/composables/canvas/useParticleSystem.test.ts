@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useParticleSystem } from "@/composables/canvas/useParticleSystem";
 import { MAJOR_SOLFEGE } from "@/data/solfege";
+import { MARK_NAMES } from "@/components/primatives/marks";
 import type { ParticleConfig } from "@/types/visual";
 
 vi.mock("@/composables/useColorSystem", () => ({
@@ -40,14 +41,22 @@ describe("useParticleSystem", () => {
     vi.stubGlobal("Path2D", MockPath2D);
   });
 
-  it("keeps the played note's stable Mark on every released particle", () => {
+  it("chooses particle Marks from the whole family instead of note data", () => {
     const system = useParticleSystem();
     const note = MAJOR_SOLFEGE[1];
+    const randomValues = [
+      0.5, 0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5,
+      0.5, 0.5, 0.5, 0.5, 0.3, 0.5, 0.5, 0.5,
+      0.5, 0.5, 0.5, 0.5, 0.6, 0.5, 0.5, 0.5,
+    ];
+    vi.spyOn(Math, "random").mockImplementation(() => randomValues.shift() ?? 0);
 
     system.createParticles(note, config, 300, 200, "major", "C");
 
     expect(system.particles).toHaveLength(3);
-    expect(system.particles.every((particle) => particle.mark === note.mark)).toBe(true);
+    expect(system.particles.map((particle) => particle.mark)).toEqual([
+      MARK_NAMES[0], MARK_NAMES[Math.floor(MARK_NAMES.length * 0.3)], MARK_NAMES[Math.floor(MARK_NAMES.length * 0.6)],
+    ]);
     expect(system.particles.every((particle) => particle.color === "#e0a93a")).toBe(true);
   });
 

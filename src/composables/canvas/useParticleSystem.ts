@@ -6,7 +6,7 @@
 import type { Particle } from "@/types/canvas";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import type { ParticleConfig } from "@/types/visual";
-import { drawMarkOnCanvas } from "@/components/primatives/marks";
+import { drawMarkOnCanvas, MARK_NAMES } from "@/components/primatives/marks";
 import { useColorSystem } from "../useColorSystem";
 
 export function useParticleSystem() {
@@ -80,7 +80,7 @@ export function useParticleSystem() {
         3,
         key
       );
-      particle.mark = note.mark || "disk";
+      particle.mark = MARK_NAMES[Math.floor(Math.random() * MARK_NAMES.length)] ?? "disk";
       particle.size =
         particleConfig.sizeMin +
         Math.random() * (particleConfig.sizeMax - particleConfig.sizeMin);

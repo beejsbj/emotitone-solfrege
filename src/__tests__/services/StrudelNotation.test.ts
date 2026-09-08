@@ -22,7 +22,6 @@ function makeNote(
       number: scaleIndex + 1,
       emotion: 'neutral',
       description: 'test note',
-      mark: 'disk',
       texture: 'smooth',
     },
     octave,

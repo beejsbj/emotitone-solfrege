@@ -31,9 +31,10 @@ const isDesignRoute = [
   "/style-guide",
   "/style-guide/tabs",
   "/style-guide/instrument-picker",
+  "/style-guide/config-menu",
 ].includes(pathname);
 beginTabsPageEdition();
-if (!isDesignRoute) {
+if (!isDesignRoute || pathname === "/style-guide/config-menu") {
   beginKnobPageEdition();
 }
 

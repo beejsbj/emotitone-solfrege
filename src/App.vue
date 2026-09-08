@@ -12,6 +12,7 @@ const styleGuidePages = {
   "/style-guide": undefined,
   "/style-guide/tabs": "tabs",
   "/style-guide/instrument-picker": "instrument-picker",
+  "/style-guide/config-menu": "config-menu",
 } as const;
 const isStyleGuideRoute = Object.prototype.hasOwnProperty.call(styleGuidePages, pathname);
 const styleGuidePage = isStyleGuideRoute

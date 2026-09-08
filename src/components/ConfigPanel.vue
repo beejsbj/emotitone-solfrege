@@ -23,50 +23,18 @@
         body-class="px-3 py-3"
       >
         <template #header>
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex shrink-0 items-center gap-1">
-              <span class="h-2.5 w-7 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#d4d4d4]" />
-              <span class="h-2.5 w-5 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#8a8a8a]" />
-            </div>
+          <div class="config-panel__global-bar">
+            <p class="config-panel__title">Config</p>
 
-            <div class="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1">
+            <div class="config-panel__global-controls">
               <Button
                 v-if="showMidiShortcut"
+                size="sm"
                 data-testid="config-midi-trigger"
                 :accessible-name="midiTriggerLabel"
                 :title="midiTriggerLabel"
                 @click="activeTab = MIDI_TAB.value"
               ><MidiPermissionIcon /></Button>
-              <Knob
-                v-if="activeSectionName && activeSectionHasToggle"
-                type="boolean"
-                :model-value="activeSectionEnabled"
-                label="Section"
-                class="config-panel__boolean-knob"
-                :data-testid="`section-toggle-${activeSectionName}`"
-                :title="
-                  activeSectionEnabled
-                    ? `Disable ${activeTabMeta.label}`
-                    : `Enable ${activeTabMeta.label}`
-                "
-                :aria-label="
-                  activeSectionEnabled
-                    ? `Disable ${activeTabMeta.label}`
-                    : `Enable ${activeTabMeta.label}`
-                "
-                @update:modelValue="setSectionEnabled(activeSectionName, Boolean($event))"
-              />
-
-              <Button
-                v-if="activeSectionName"
-                :data-testid="`section-reset-${activeSectionName}`"
-                :title="`Reset ${activeTabMeta.label}`"
-                :accessible-name="`Reset ${activeTabMeta.label}`"
-                @click="resetSectionToDefaults(activeSectionName)"
-              >
-                <RotateCcw :size="14" />
-              </Button>
-
               <Knob
                 data-testid="config-panel-global-toggle"
                 type="boolean"
@@ -79,6 +47,7 @@
               />
 
               <Button
+                size="sm"
                 data-testid="config-reset-all"
                 title="Reset all settings"
                 accessible-name="Reset all settings"
@@ -88,6 +57,7 @@
               </Button>
 
               <Button
+                size="sm"
                 data-testid="config-export"
                 title="Export configuration"
                 accessible-name="Export configuration"
@@ -97,6 +67,7 @@
               </Button>
 
               <Button
+                size="sm"
                 data-testid="config-save-as"
                 title="Save configuration"
                 accessible-name="Save configuration"
@@ -106,6 +77,7 @@
               </Button>
 
               <Button
+                size="sm"
                 title="Close settings"
                 accessible-name="Close settings"
                 @click="close"
@@ -118,38 +90,19 @@
 
         <div class="space-y-3">
           <TabsContent value="home">
-            <section class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <article
-                v-for="(preset, index) in builtInPresets"
+            <section class="config-panel__scene-grid" aria-label="Visual scenes">
+              <button
+                v-for="preset in builtInPresets"
                 :key="preset.id"
-                class="relative overflow-hidden rounded-[12px] border border-[#323232] bg-[#111111] px-3 py-3 transition-colors hover:border-[#7b7b7b] hover:bg-[#181818]"
+                type="button"
+                class="config-panel__sticker-action"
+                :data-testid="`preset-apply-${preset.id}`"
+                :aria-label="`Apply ${preset.name} scene`"
+                @click="applyBuiltInPreset(preset.id)"
               >
-                <span
-                  class="absolute inset-y-3 left-0 w-1 rounded-r-full"
-                  :class="toneBarClass(sceneTone(index))"
-                />
-
-                <div class="pl-2">
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="min-w-0">
-                      <h4
-                        class="m-0 truncate text-[13px] uppercase tracking-[0.08em] text-[#efefef]"
-                      >
-                        {{ preset.name }}
-                      </h4>
-                    </div>
-
-                    <button
-                      :data-testid="`preset-apply-${preset.id}`"
-                      @click="applyBuiltInPreset(preset.id)"
-                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#e3e3e3] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                      :class="actionToneClass('green')"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              </article>
+                <Sticker variant="outline" color="ivory">{{ preset.name }}</Sticker>
+                <span class="config-panel__sticker-copy">{{ preset.description }}</span>
+              </button>
             </section>
           </TabsContent>
 
@@ -159,26 +112,57 @@
             :value="tab.name"
           >
             <section
-              class="rounded-[14px] border border-[#2c2c2c] bg-[#0a0a0a] px-4 py-4 transition-opacity"
+              class="config-panel__section"
               :class="{
-                'pointer-events-none opacity-45':
+                'config-panel__section--disabled':
                   !visualsEnabled || !isSectionInteractable(tab.name),
               }"
             >
-              <div class="space-y-7">
+              <header class="config-panel__section-header">
+                <div>
+                  <p class="config-panel__eyebrow">Active section</p>
+                  <h2>{{ tab.label }}</h2>
+                </div>
+
+                <div class="config-panel__section-controls">
+                  <Knob
+                    v-if="getSectionEnableKey(tab.name) !== null"
+                    type="boolean"
+                    :model-value="isSectionEnabled(tab.name)"
+                    label="Section"
+                    class="config-panel__boolean-knob"
+                    :data-testid="`section-toggle-${tab.name}`"
+                    :title="isSectionEnabled(tab.name) ? `Disable ${tab.label}` : `Enable ${tab.label}`"
+                    :aria-label="isSectionEnabled(tab.name) ? `Disable ${tab.label}` : `Enable ${tab.label}`"
+                    @update:modelValue="setSectionEnabled(tab.name, Boolean($event))"
+                  />
+                  <Button
+                    size="sm"
+                    :data-testid="`section-reset-${tab.name}`"
+                    :title="`Reset ${tab.label}`"
+                    :accessible-name="`Reset ${tab.label}`"
+                    @click="resetSectionToDefaults(tab.name)"
+                  >
+                    <RotateCcw :size="14" />
+                  </Button>
+                </div>
+              </header>
+
+              <div class="config-panel__groups">
                 <div
                   v-for="group in getRenderableFieldGroups(tab.name)"
                   :key="`${tab.name}-${group.label || 'settings'}`"
+                  class="config-panel__group"
                 >
                   <p
                     v-if="group.label"
-                    class="mb-4 border-b border-[#292929] pb-2 text-[9px] uppercase tracking-[0.22em] text-neutral-500"
+                    class="config-panel__group-label"
                   >
                     {{ group.label }}
                   </p>
 
                   <div
-                    class="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-3 gap-y-7 sm:grid-cols-[repeat(auto-fill,minmax(96px,1fr))]"
+                    class="config-panel__knob-grid"
                   >
                     <template
                       v-for="field in group.fields"
@@ -234,52 +218,32 @@
           </TabsContent>
 
           <TabsContent value="presets">
-            <section class="space-y-3">
-              <div class="space-y-2">
-                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#111111] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#d9d9d9] border-[#d9d9d9]">
-                  Built In
-                </span>
+            <section class="config-panel__presets">
+              <div class="config-panel__preset-group">
+                <p class="config-panel__group-label">Built In</p>
 
-                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  <article
-                    v-for="(preset, index) in builtInPresets"
+                <div class="config-panel__scene-grid">
+                  <button
+                    v-for="preset in builtInPresets"
                     :key="`library-${preset.id}`"
-                    class="relative overflow-hidden rounded-[12px] border border-[#323232] bg-[#111111] px-3 py-3"
+                    type="button"
+                    class="config-panel__sticker-action"
+                    :data-testid="`library-apply-${preset.id}`"
+                    :aria-label="`Apply ${preset.name} preset`"
+                    @click="applyBuiltInPreset(preset.id)"
                   >
-                    <span
-                      class="absolute inset-y-3 left-0 w-1 rounded-r-full"
-                      :class="toneBarClass(sceneTone(index))"
-                    />
-                    <div class="pl-2">
-                      <div class="flex items-start justify-between gap-2">
-                        <h5
-                          class="m-0 truncate text-[12px] uppercase tracking-[0.08em] text-[#efefef]"
-                        >
-                          {{ preset.name }}
-                        </h5>
-
-                        <button
-                          :data-testid="`library-apply-${preset.id}`"
-                          @click="applyBuiltInPreset(preset.id)"
-                          class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#e3e3e3] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                          :class="actionToneClass('green')"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                  </article>
+                    <Sticker variant="outline" color="ivory">{{ preset.name }}</Sticker>
+                    <span class="config-panel__sticker-copy">{{ preset.description }}</span>
+                  </button>
                 </div>
               </div>
 
-              <div class="space-y-2">
-                <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#111111] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#b9b9b9] border-[#b9b9b9]">
-                  Saved
-                </span>
+              <div class="config-panel__preset-group">
+                <p class="config-panel__group-label">Saved</p>
 
                 <div
                   v-if="savedConfigs.length === 0"
-                  class="rounded-[12px] border border-dashed border-[#3a3a3a] bg-[#121212] px-3 py-3 text-[10px] text-neutral-500"
+                  class="config-panel__empty-state"
                 >
                   No saved configs yet.
                 </div>
@@ -287,39 +251,34 @@
                 <article
                   v-for="savedConfig in savedConfigs"
                   :key="savedConfig.id"
-                  class="flex items-center justify-between gap-2 rounded-[12px] border border-[#2c2c2c] bg-[#121212] px-3 py-3"
+                  class="config-panel__saved-preset"
                 >
-                  <div class="min-w-0">
-                    <h6
-                      class="m-0 truncate text-[12px] uppercase tracking-[0.08em] text-[#efefef]"
-                    >
+                  <button
+                    type="button"
+                    class="config-panel__saved-load"
+                    :data-testid="`saved-load-${savedConfig.id}`"
+                    :aria-label="`Load ${savedConfig.name}`"
+                    @click="loadSavedConfig(savedConfig.id)"
+                  >
+                    <Sticker variant="outline" color="ivory">
                       {{ savedConfig.name }}
-                    </h6>
-                    <p
-                      class="m-0 mt-1 text-[8px] uppercase tracking-[0.18em] text-neutral-600"
+                    </Sticker>
+                    <span
+                      class="config-panel__saved-time"
                     >
                       {{ formatTimestamp(savedConfig.updatedAt) }}
-                    </p>
-                  </div>
+                    </span>
+                  </button>
 
-                  <div class="flex shrink-0 gap-1.5">
-                    <button
-                      :data-testid="`saved-load-${savedConfig.id}`"
-                      @click="loadSavedConfig(savedConfig.id)"
-                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] text-[#e3e3e3] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                      :class="actionToneClass('green')"
-                    >
-                      Load
-                    </button>
-                    <button
-                      :data-testid="`saved-delete-${savedConfig.id}`"
-                      @click="deleteSavedConfig(savedConfig.id)"
-                      class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                      :class="actionToneClass('red')"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <Button
+                    size="sm"
+                    :data-testid="`saved-delete-${savedConfig.id}`"
+                    :title="`Delete ${savedConfig.name}`"
+                    :accessible-name="`Delete ${savedConfig.name}`"
+                    @click="deleteSavedConfig(savedConfig.id)"
+                  >
+                    <Trash2 :size="14" />
+                  </Button>
                 </article>
               </div>
 
@@ -327,14 +286,14 @@
           </TabsContent>
 
           <TabsContent value="midi">
-            <section class="grid gap-3 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+            <section class="config-panel__midi-grid">
               <article
-                class="space-y-4 rounded-[14px] border border-[#2e2e2e] bg-[#0f0f0f] px-4 py-4"
+                class="config-panel__midi-surface"
               >
                 <div class="flex items-start gap-3">
                   <div
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors duration-200"
-                    :class="midiStatusBadgeClass"
+                    class="config-panel__midi-mark"
+                    :class="midiStatusClass"
                   >
                     <MidiPermissionIcon class="h-4.5 w-4.5" />
                   </div>
@@ -356,7 +315,7 @@
 
                 <div class="grid gap-2 sm:grid-cols-2">
                   <article
-                    class="rounded-[12px] border border-[#2f2f2f] bg-[#121212] px-3 py-3"
+                    class="config-panel__midi-port"
                   >
                     <p
                       class="m-0 text-[8px] uppercase tracking-[0.2em] text-neutral-500"
@@ -373,7 +332,7 @@
                   </article>
 
                   <article
-                    class="rounded-[12px] border border-[#2f2f2f] bg-[#121212] px-3 py-3"
+                    class="config-panel__midi-port"
                   >
                     <p
                       class="m-0 text-[8px] uppercase tracking-[0.2em] text-neutral-500"
@@ -392,12 +351,10 @@
               </article>
 
               <article
-                class="space-y-3 rounded-[14px] border border-[#2c2c2c] bg-[#121212] px-4 py-4"
+                class="config-panel__midi-surface"
               >
                 <div class="space-y-2">
-                  <span class="inline-flex border px-2 py-1 text-[8px] uppercase tracking-[0.24em] text-[#111111] [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)] bg-[#cfcfcf] border-[#cfcfcf]">
-                    ROLI
-                  </span>
+                  <p class="config-panel__group-label">ROLI</p>
 
                   <p class="m-0 text-[11px] leading-relaxed text-neutral-400">
                     Generate a live-sync LittleFoot script from the current
@@ -408,21 +365,29 @@
                   </p>
                 </div>
 
-                <div class="flex flex-wrap gap-1.5">
-                  <button
-                    @click="copyRoliPianoScript"
-                    class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                    :class="actionToneClass('green')"
-                  >
-                    Copy Script
-                  </button>
-                  <button
-                    @click="downloadRoliPianoScript"
-                    class="inline-flex h-8 items-center justify-center border px-2.5 text-[8px] uppercase tracking-[0.18em] transition-all duration-200 [clip-path:polygon(14%_0,100%_0,86%_100%,0_100%)]"
-                    :class="actionToneClass('cream')"
-                  >
-                    Download
-                  </button>
+                <div class="config-panel__midi-actions">
+                  <div class="config-panel__labeled-action">
+                    <Button
+                      size="sm"
+                      title="Copy ROLI script"
+                      accessible-name="Copy ROLI script"
+                      @click="copyRoliPianoScript"
+                    >
+                      <ClipboardCopy :size="14" />
+                    </Button>
+                    <span>Copy</span>
+                  </div>
+                  <div class="config-panel__labeled-action">
+                    <Button
+                      size="sm"
+                      title="Download ROLI script"
+                      accessible-name="Download ROLI script"
+                      @click="downloadRoliPianoScript"
+                    >
+                      <FileDown :size="14" />
+                    </Button>
+                    <span>Download</span>
+                  </div>
                 </div>
               </article>
             </section>
@@ -448,6 +413,7 @@ import type { VisualEffectsConfig } from "@/types/visual";
 import { TabsContent } from "@/components/ui";
 import Button from "@/components/primatives/Button.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
+import Sticker from "@/components/primatives/Sticker.vue";
 import MidiPermissionIcon from "./MidiPermissionIcon.vue";
 import TabbedOverlayPanel from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
@@ -457,6 +423,9 @@ import {
   RefreshCw,
   Download,
   Save,
+  Trash2,
+  ClipboardCopy,
+  FileDown,
 } from "lucide-vue-next";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
 import {
@@ -467,8 +436,6 @@ import {
 const drawerContentHeight = ref<number>();
 
 type ConfigSectionKey = keyof VisualEffectsConfig;
-type PosterTone = "amber" | "red" | "violet" | "cream" | "green";
-type ActionTone = PosterTone | "neutral";
 type SectionField = {
   key: string;
   value: string | number | boolean;
@@ -489,22 +456,6 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   keyboard: "Keys",
   codeStrip: "Code Strip",
 };
-
-const SECTION_TONES: PosterTone[] = [
-  "amber",
-  "red",
-  "violet",
-  "cream",
-  "amber",
-  "cream",
-  "red",
-  "violet",
-  "amber",
-  "red",
-  "cream",
-  "violet",
-  "amber",
-];
 
 const HOME_TAB = {
   value: "home",
@@ -583,60 +534,6 @@ const allTabs = computed(() => [
   MIDI_TAB,
   PRESET_TAB,
 ]);
-
-const activeTabMeta = computed(
-  () => allTabs.value.find((tab) => tab.value === activeTab.value) ?? HOME_TAB
-);
-
-const activeSectionName = computed(() => {
-  if (SECTION_ORDER.includes(activeTab.value as ConfigSectionKey)) {
-    return activeTab.value as ConfigSectionKey;
-  }
-
-  return null;
-});
-
-const activeSectionHasToggle = computed(() =>
-  activeSectionName.value
-    ? getSectionEnableKey(activeSectionName.value) !== null
-    : false
-);
-
-const activeSectionEnabled = computed(() =>
-  activeSectionName.value ? isSectionEnabled(activeSectionName.value) : false
-);
-
-const actionToneClass = (tone: ActionTone) =>
-  (
-    {
-      amber:
-        "border-[#47433a] bg-[#151413] text-[#d4d0c7] hover:border-[#8d887d] hover:text-white",
-      red:
-        "border-[#433d3d] bg-[#151313] text-[#d3cccc] hover:border-[#8a8383] hover:text-white",
-      violet:
-        "border-[#3f4049] bg-[#141418] text-[#d1d2db] hover:border-[#878992] hover:text-white",
-      cream:
-        "border-[#53504a] bg-[#171615] text-[#e0ddd6] hover:border-[#9a968d] hover:text-white",
-      green:
-        "border-[#3c443d] bg-[#131613] text-[#d0d7d0] hover:border-[#899089] hover:text-white",
-      neutral:
-        "border-[#3d3d3d] bg-[#151515] text-neutral-300 hover:border-[#8a8a8a] hover:text-white",
-    } as const
-  )[tone];
-
-const toneBarClass = (tone: PosterTone) =>
-  (
-    {
-      amber: "bg-[#cfcfcf]",
-      red: "bg-[#b5b5b5]",
-      violet: "bg-[#9a9a9a]",
-      cream: "bg-[#e0e0e0]",
-      green: "bg-[#7e7e7e]",
-    } as const
-  )[tone];
-
-const sceneTone = (index: number): PosterTone =>
-  SECTION_TONES[index % SECTION_TONES.length];
 
 const getSectionConfig = (sectionName: ConfigSectionKey) =>
   config.value[sectionName] as Record<string, string | number | boolean>;
@@ -841,7 +738,7 @@ const midiTriggerLabel = computed(() => {
   return `Open settings. ${midiStatusHeadline.value}.`;
 });
 
-const midiStatusBadgeClass = computed(
+const midiStatusClass = computed(
   () =>
     (
       {
@@ -1023,34 +920,266 @@ const formatTimestamp = (timestamp: string) => {
     return "Unknown";
   }
 };
+
 </script>
 
 <style scoped>
+.config-panel__global-bar,
+.config-panel__global-controls,
+.config-panel__section-header,
+.config-panel__section-controls,
+.config-panel__midi-actions,
+.config-panel__saved-preset {
+  display: flex;
+  align-items: center;
+}
+
+.config-panel__global-bar {
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.config-panel__title,
+.config-panel__eyebrow,
+.config-panel__group-label,
+.config-panel__saved-time,
+.config-panel__labeled-action span {
+  margin: 0;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.config-panel__title {
+  color: var(--ivory);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .22em;
+}
+
+.config-panel__global-controls {
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s-1);
+}
+
 .config-panel__boolean-knob {
   --knob-size: 2rem;
   flex: 0 0 var(--knob-size);
   inline-size: var(--knob-size);
 }
 
-.config-midi-chip-enter-active,
-.config-midi-chip-leave-active {
-  transition:
-    transform 0.22s ease,
-    opacity 0.22s ease,
-    filter 0.22s ease;
+.config-panel__section {
+  padding: clamp(var(--s-2), 2vw, var(--s-5)) var(--s-1) var(--s-5);
 }
 
-.config-midi-chip-enter-from,
-.config-midi-chip-leave-to {
-  opacity: 0;
-  transform: translateY(-0.55rem) scale(0.94);
-  filter: blur(4px);
+.config-panel__section-header {
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-block-end: clamp(var(--s-5), 4vw, var(--s-7));
 }
 
-.config-midi-chip-enter-to,
-.config-midi-chip-leave-from {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
+.config-panel__eyebrow,
+.config-panel__group-label,
+.config-panel__saved-time,
+.config-panel__labeled-action span {
+  color: var(--ivory-4);
+  font-size: 9px;
+  letter-spacing: .18em;
+}
+
+.config-panel__section-header h2 {
+  margin: var(--s-1) 0 0;
+  color: var(--ivory);
+  font: var(--t-display-m);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.config-panel__section-controls {
+  flex: none;
+  gap: var(--s-2);
+}
+
+.config-panel__groups,
+.config-panel__presets {
+  display: grid;
+  gap: clamp(var(--s-7), 5vw, var(--s-9));
+}
+
+.config-panel__groups {
+  transition: opacity var(--dur-ui) var(--ease-stab);
+}
+
+.config-panel__section--disabled .config-panel__groups {
+  pointer-events: none;
+  opacity: .38;
+}
+
+.config-panel__group,
+.config-panel__preset-group {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.config-panel__group-label {
+  color: var(--ivory-3);
+}
+
+.config-panel__knob-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(var(--s-5), 4vw, var(--s-8)) var(--s-3);
+}
+
+.config-panel__scene-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(var(--s-5), 4vw, var(--s-8)) clamp(var(--s-3), 3vw, var(--s-6));
+  padding: var(--s-3) var(--s-1) var(--s-6);
+}
+
+.config-panel__sticker-action,
+.config-panel__saved-load {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.config-panel__sticker-action {
+  display: grid;
+  min-inline-size: 0;
+  justify-items: start;
+  align-content: start;
+  gap: var(--s-3);
+  padding: var(--s-2);
+  text-align: start;
+}
+
+.config-panel__sticker-action :deep(.sticker),
+.config-panel__saved-load :deep(.sticker) {
+  max-inline-size: 100%;
+}
+
+.config-panel__sticker-action:active :deep(.sticker),
+.config-panel__saved-load:active :deep(.sticker) {
+  transform: translateY(2px) rotate(0deg) scale(.97);
+  box-shadow: none;
+}
+
+.config-panel__sticker-action:focus-visible,
+.config-panel__saved-load:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 4px;
+}
+
+.config-panel__sticker-copy {
+  max-inline-size: 34ch;
+  color: var(--ivory-3);
+  font: var(--t-body-mono);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.config-panel__empty-state,
+.config-panel__saved-preset,
+.config-panel__midi-surface,
+.config-panel__midi-port {
+  background: var(--ink-2);
+}
+
+.config-panel__empty-state {
+  border-inline-start: 3px solid var(--ink-5);
+  padding: var(--s-4);
+  color: var(--ivory-4);
+  font: var(--t-body-mono);
+  font-size: 10px;
+}
+
+.config-panel__saved-preset {
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-4);
+}
+
+.config-panel__saved-load {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  text-align: start;
+}
+
+.config-panel__saved-time {
+  color: var(--ivory-4);
+  font-size: 8px;
+}
+
+.config-panel__midi-grid {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.config-panel__midi-surface {
+  display: grid;
+  align-content: start;
+  gap: var(--s-4);
+  padding: var(--s-5);
+}
+
+.config-panel__midi-mark {
+  display: grid;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.config-panel__midi-port {
+  padding: var(--s-3);
+}
+
+.config-panel__midi-actions {
+  gap: var(--s-4);
+}
+
+.config-panel__labeled-action {
+  display: grid;
+  justify-items: center;
+  gap: var(--s-2);
+}
+
+@media (min-width: 560px) {
+  .config-panel__knob-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .config-panel__scene-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 960px) {
+  .config-panel__knob-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .config-panel__midi-grid { grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); }
+}
+
+@media (min-width: 1380px) {
+  .config-panel__knob-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+
+@media (max-width: 420px) {
+  .config-panel__global-bar { align-items: flex-start; }
+  .config-panel__title { padding-block-start: var(--s-2); }
+  .config-panel__section { padding-inline: 0; }
+  .config-panel__scene-grid { padding-inline: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .config-panel__groups { transition: none; }
+  .config-panel__sticker-action:active :deep(.sticker),
+  .config-panel__saved-load:active :deep(.sticker) { transform: none; }
 }
 </style>

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick, reactive, toRefs } from "vue";
+import { nextTick, provide, reactive, toRefs } from "vue";
 import { createTestWrapper } from "../../helpers/test-utils";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 import {
@@ -90,7 +90,11 @@ vi.mock("@/components/TabbedOverlayPanel.vue", () => ({
   default: {
     name: "TabbedOverlayPanel",
     props: ["modelValue", "tabs"],
-    template: '<div :data-tab="modelValue"><slot name="header" /></div>',
+    template: '<div :data-tab="modelValue"><slot name="header" /><slot /></div>',
+    setup(props: { modelValue: string }) {
+      const { modelValue } = toRefs(props);
+      provide("tabs-context", { value: modelValue });
+    },
   },
 }));
 
@@ -110,6 +114,9 @@ vi.mock("lucide-vue-next", () => ({
   Power: { template: '<svg data-testid="power-icon"></svg>' },
   ToggleLeft: { template: '<svg data-testid="toggle-left-icon"></svg>' },
   ToggleRight: { template: '<svg data-testid="toggle-right-icon"></svg>' },
+  Trash2: { template: '<svg data-testid="trash-icon"></svg>' },
+  ClipboardCopy: { template: '<svg data-testid="clipboard-copy-icon"></svg>' },
+  FileDown: { template: '<svg data-testid="file-down-icon"></svg>' },
 }));
 
 function resetMidiState() {
@@ -175,6 +182,16 @@ describe("ConfigPanel.vue", () => {
       field: "connectionMode",
       values: ["web"],
     });
+  });
+
+  it("uses ivory Sticker faces for scene actions without Badge or brass", () => {
+    wrapper = createTestWrapper(ConfigPanel);
+
+    const scene = wrapper.get('[data-testid="preset-apply-soft-glass"]');
+    expect(scene.element.tagName).toBe("BUTTON");
+    expect(scene.find(".sticker--outline.sticker--color-ivory").exists()).toBe(true);
+    expect(wrapper.find(".sticker--badge").exists()).toBe(false);
+    expect(wrapper.find('[class*="sticker--color-brass"]').exists()).toBe(false);
   });
 
   it("hides the MIDI shortcut when only generic outputs are present", async () => {

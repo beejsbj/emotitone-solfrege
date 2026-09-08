@@ -1,6 +1,7 @@
 <template>
   <TabsPage v-if="page === 'tabs'" />
   <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
+  <ConfigMenuPage v-else-if="page === 'config-menu'" />
   <main v-else class="style-guide-sink-port">
     <header class="sink-header">
       <div class="label">Emotitone Design System Sink Port</div>
@@ -210,12 +211,15 @@ import UniqueDrawer from "./uniques/UniqueDrawer.vue";
 import UniqueHarmonicGeometry from "./uniques/UniqueHarmonicGeometry.vue";
 
 defineProps<{
-  page?: "tabs" | "instrument-picker";
+  page?: "tabs" | "instrument-picker" | "config-menu";
 }>();
 
 const TabsPage = defineAsyncComponent(() => import("./TabsPage.vue"));
 const InstrumentPickerPage = defineAsyncComponent(
   () => import("./InstrumentPickerPage.vue"),
+);
+const ConfigMenuPage = defineAsyncComponent(
+  () => import("./ConfigMenuPage.vue"),
 );
 
 const scrollToHash = async () => {

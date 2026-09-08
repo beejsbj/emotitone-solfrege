@@ -95,7 +95,7 @@ const sprinkles: Sprinkle[] = [
   { name: "eighth", x: 111, y: 89, size: 18, rotate: 4, tone: "ink" },
   { name: "staccato", x: 92, y: 9, size: 14, rotate: 0, tone: "ivory" },
   { name: "diamond", x: 9, y: 64, size: 13, rotate: -16, tone: "tomato" },
-  { name: "grace", x: 171, y: 75, size: 17, rotate: 12, tone: "mustard" },
+  { name: "grace", x: 169, y: 105, size: 17, rotate: 12, tone: "mustard" },
   { name: "triangle", x: 48, y: 22, size: 12, rotate: 16, tone: "mustard" },
   { name: "star", x: 140, y: 18, size: 13, rotate: 9, tone: "cobalt" },
   { name: "whole", x: 18, y: 126, size: 14, rotate: -8, tone: "ivory" },

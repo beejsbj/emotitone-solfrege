@@ -58,7 +58,6 @@ function createActiveNote(
       number: 1,
       emotion,
       description: `${solfegeName} note`,
-      fleckShape: "circle",
       texture: "soft",
       intervalName: "1P",
       semitones: 0,

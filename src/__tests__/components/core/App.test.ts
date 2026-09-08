@@ -130,6 +130,8 @@ describe('App.vue', () => {
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )
+    expect(appSource).not.toContain('MarksBeatParticlesPage')
+    expect(appSource).not.toContain('isRoughPage')
   })
 
   it('replaces the production popup mount with canvas-owned harmonic geometry', () => {

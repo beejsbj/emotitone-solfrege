@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
 import Mark from "@/components/primatives/Mark.vue";
+import SpineCard from "@/components/primatives/SpineCard.vue";
 import { MARK_DEFINITIONS, MARK_NAMES, markViewBox } from "@/components/primatives/marks";
 
 describe("Mark lineage", () => {
@@ -21,6 +22,16 @@ describe("Mark lineage", () => {
 
     expect(wrapper.attributes("viewBox")).toBe(markViewBox("clef"));
     expect(wrapper.findAll("path")).toHaveLength(MARK_DEFINITIONS.clef.paths.length);
+  });
+
+  it("routes Spine Card's section marker through the marked Sticker seam", () => {
+    const wrapper = mount(SpineCard, {
+      props: { kicker: "Section 03", stamp: "Tomato" },
+    });
+
+    expect(wrapper.find(".sticker--marked").exists()).toBe(true);
+    expect(wrapper.find(".sticker__marked-text").text()).toBe("Section 03");
+    expect(wrapper.find("svg.mark").attributes("data-mark")).toBe("diamond");
   });
 
   it("builds Beat Indicator cells from a selected Mark set", () => {

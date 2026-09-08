@@ -23,70 +23,66 @@
         body-class="px-3 py-3"
       >
         <template #header>
-          <div class="config-panel__global-bar">
-            <p class="config-panel__title">Config</p>
+          <OverlayPanelHeader title="Config" :context="activeTabLabel">
+            <Button
+              v-if="showMidiShortcut"
+              size="sm"
+              data-testid="config-midi-trigger"
+              :accessible-name="midiTriggerLabel"
+              :title="midiTriggerLabel"
+              @click="activeTab = MIDI_TAB.value"
+            ><MidiPermissionIcon /></Button>
+            <Knob
+              data-testid="config-panel-global-toggle"
+              type="boolean"
+              :model-value="visualsEnabled"
+              label="Visuals"
+              tone="brass"
+              class="config-panel__boolean-knob"
+              :title="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
+              :aria-label="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
+              @update:modelValue="setVisualsEnabled(Boolean($event))"
+            />
 
-            <div class="config-panel__global-controls">
-              <Button
-                v-if="showMidiShortcut"
-                size="sm"
-                data-testid="config-midi-trigger"
-                :accessible-name="midiTriggerLabel"
-                :title="midiTriggerLabel"
-                @click="activeTab = MIDI_TAB.value"
-              ><MidiPermissionIcon /></Button>
-              <Knob
-                data-testid="config-panel-global-toggle"
-                type="boolean"
-                :model-value="visualsEnabled"
-                label="Visuals"
-                tone="brass"
-                class="config-panel__boolean-knob"
-                :title="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
-                :aria-label="visualsEnabled ? 'Disable all visuals' : 'Enable all visuals'"
-                @update:modelValue="setVisualsEnabled(Boolean($event))"
-              />
+            <Button
+              size="sm"
+              data-testid="config-reset-all"
+              title="Reset all settings"
+              accessible-name="Reset all settings"
+              @click="resetToDefaults"
+            >
+              <RefreshCw :size="14" />
+            </Button>
 
-              <Button
-                size="sm"
-                data-testid="config-reset-all"
-                title="Reset all settings"
-                accessible-name="Reset all settings"
-                @click="resetToDefaults"
-              >
-                <RefreshCw :size="14" />
-              </Button>
+            <Button
+              size="sm"
+              data-testid="config-export"
+              title="Export configuration"
+              accessible-name="Export configuration"
+              @click="exportConfig"
+            >
+              <Download :size="14" />
+            </Button>
 
-              <Button
-                size="sm"
-                data-testid="config-export"
-                title="Export configuration"
-                accessible-name="Export configuration"
-                @click="exportConfig"
-              >
-                <Download :size="14" />
-              </Button>
+            <Button
+              size="sm"
+              data-testid="config-save-as"
+              title="Save configuration"
+              accessible-name="Save configuration"
+              @click="promptSaveConfig"
+            >
+              <Save :size="14" />
+            </Button>
 
-              <Button
-                size="sm"
-                data-testid="config-save-as"
-                title="Save configuration"
-                accessible-name="Save configuration"
-                @click="promptSaveConfig"
-              >
-                <Save :size="14" />
-              </Button>
-
-              <Button
-                size="sm"
-                title="Close settings"
-                accessible-name="Close settings"
-                @click="close"
-              >
-                <X :size="14" />
-              </Button>
-            </div>
-          </div>
+            <Button
+              size="sm"
+              title="Close settings"
+              accessible-name="Close settings"
+              @click="close"
+            >
+              <X :size="14" />
+            </Button>
+          </OverlayPanelHeader>
         </template>
 
         <template #default="{ activeValue: panelTab }">
@@ -407,6 +403,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
+import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
 import { storeToRefs, type Pinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -543,6 +540,10 @@ const allTabs = computed(() => [
   MIDI_TAB,
   PRESET_TAB,
 ]);
+
+const activeTabLabel = computed(
+  () => allTabs.value.find((tab) => tab.value === activeTab.value)?.label ?? ""
+);
 
 const getSectionConfig = (sectionName: ConfigSectionKey) =>
   config.value[sectionName] as Record<string, string | number | boolean>;
@@ -927,8 +928,6 @@ const formatTimestamp = (timestamp: string) => {
 </script>
 
 <style scoped>
-.config-panel__global-bar,
-.config-panel__global-controls,
 .config-panel__section-header,
 .config-panel__section-controls,
 .config-panel__midi-actions,
@@ -937,13 +936,6 @@ const formatTimestamp = (timestamp: string) => {
   align-items: center;
 }
 
-.config-panel__global-bar {
-  min-inline-size: 0;
-  justify-content: space-between;
-  gap: var(--s-3);
-}
-
-.config-panel__title,
 .config-panel__eyebrow,
 .config-panel__group-label,
 .config-panel__saved-time,
@@ -951,21 +943,6 @@ const formatTimestamp = (timestamp: string) => {
   margin: 0;
   font-family: var(--font-mono);
   text-transform: uppercase;
-}
-
-.config-panel__title {
-  color: var(--ivory);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .22em;
-}
-
-.config-panel__global-controls {
-  min-inline-size: 0;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--s-1);
 }
 
 .config-panel__boolean-knob {
@@ -1237,8 +1214,6 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 @media (max-width: 420px) {
-  .config-panel__global-bar { align-items: flex-start; }
-  .config-panel__title { padding-block-start: var(--s-2); }
   .config-panel__section { padding-inline: 0; }
   .config-panel__scene-grid { padding-inline: 0; }
 }

@@ -225,13 +225,18 @@ describe("ConfigPanel.vue", () => {
   });
 
   it("aligns action Knobs with small Buttons", () => {
+    wrapper = createTestWrapper(ConfigPanel);
+
     expect(configPanelSource).toContain("--knob-size: 32px");
-    expect(configPanelSource).toMatch(
-      /\.config-panel__global-controls\s*\{[^}]*align-items: flex-start;/s,
-    );
     expect(configPanelSource).toMatch(
       /\.config-panel__section-controls\s*\{[^}]*align-items: flex-start;/s,
     );
+    expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__title').text())
+      .toBe("Config");
+    expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__context').text())
+      .toBe("Scenes");
+    expect(wrapper.get('button[aria-label="Close settings"]').classes())
+      .toContain("paper-button--sm");
   });
 
   it("hides the MIDI shortcut when only generic outputs are present", async () => {

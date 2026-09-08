@@ -4,6 +4,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
 import Sticker from "@/components/primatives/Sticker.vue";
+import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
 } from "./TabbedOverlayPanel.vue";
@@ -559,32 +560,20 @@ async function selectInstrument(name: string, close: () => void) {
         body-class="px-3 py-3"
       >
         <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-1.5">
-              <Sticker variant="fill" color="ivory">Sound</Sticker>
-              <span
-                class="max-w-[12rem] truncate font-mono text-[8px] uppercase tracking-[0.18em] text-[var(--ivory-2)]"
-              >
-                {{ bankLabel }}
-              </span>
-            </div>
-
-            <div class="flex shrink-0 items-center gap-1.5">
-              <span
-                class="font-mono text-[8px] uppercase tracking-[0.18em] text-[var(--ivory-3)]"
-              >
-                {{ visibleSoundCount }}
-              </span>
-
-              <Button
-                title="Close sounds"
-                accessible-name="Close sounds"
-                @click="close"
-              >
-                <X :size="14" />
-              </Button>
-            </div>
-          </div>
+          <OverlayPanelHeader
+            title="Sounds"
+            :context="bankLabel"
+            :status="visibleSoundCount"
+          >
+            <Button
+              size="sm"
+              title="Close sounds"
+              accessible-name="Close sounds"
+              @click="close"
+            >
+              <X :size="14" />
+            </Button>
+          </OverlayPanelHeader>
         </template>
 
         <template #toolbar>

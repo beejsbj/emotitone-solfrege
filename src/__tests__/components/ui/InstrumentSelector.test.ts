@@ -221,6 +221,13 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.find('[data-testid="instrument-option-piano"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-option-gm_trumpet"]').exists()).toBe(false)
 
+    const header = wrapper.get('[data-testid="overlay-panel-header"]')
+    expect(header.get('.overlay-panel-header__title').text()).toBe('Sounds')
+    expect(header.get('.overlay-panel-header__context').text()).toBe('Keyboards')
+    expect(header.get('.overlay-panel-header__status').text()).toBe('1')
+    expect(header.find('.sticker').exists()).toBe(false)
+    expect(wrapper.get('button[aria-label="Close sounds"]').classes()).toContain('paper-button--sm')
+
     await wrapper.get('[data-testid="instrument-tab-gm"]').trigger('click')
     await nextTick()
     expect(wrapper.text()).toContain('GM Soundfonts')

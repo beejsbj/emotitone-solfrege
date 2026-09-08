@@ -5,8 +5,20 @@ import ConvergedLoadingVariant from "./ConvergedLoadingVariant.vue";
 type VariantId = "a" | "b";
 
 const variants = [
-  { id: "a" as const, name: "Ivory Room", author: "C + F", component: ConvergedLoadingVariant, props: { surface: "ivory" as const } },
-  { id: "b" as const, name: "Ink Room", author: "C + F", component: ConvergedLoadingVariant, props: { surface: "ink" as const } },
+  {
+    id: "a" as const,
+    name: "Chromatic Syllables",
+    author: "Ivory",
+    component: ConvergedLoadingVariant,
+    props: { surface: "ivory" as const, laneTreatment: "neutral-bars" as const },
+  },
+  {
+    id: "b" as const,
+    name: "Chromatic Bars",
+    author: "Ink",
+    component: ConvergedLoadingVariant,
+    props: { surface: "ink" as const, laneTreatment: "chromatic-bars" as const },
+  },
 ];
 
 const requestedVariant = new URLSearchParams(window.location.search).get("variant");

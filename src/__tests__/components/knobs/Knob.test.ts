@@ -4,6 +4,8 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
 import { formatKnobDisplayValue } from "@/components/primatives/Knob/displayValue";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
+import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
+import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
 
@@ -284,6 +286,11 @@ describe("Knob public interface", () => {
       expect.arrayContaining(["knob-face--arc", "knob-face--ivory"]),
     );
     expect(arc.find(".knob-face__dome").exists()).toBe(false);
+
+    const brassBoolean = render({ modelValue: true, type: "boolean", tone: "brass" });
+    expect(brassBoolean.get(".knob-boolean__ball").classes()).toContain("brass");
+    expect(knobFaceSource).toContain("var(--brass-hi)");
+    expect(booleanKnobSource).toContain("var(--shadow-glow-brass)");
   });
 
   it("renders production role grammar through the public interface", () => {

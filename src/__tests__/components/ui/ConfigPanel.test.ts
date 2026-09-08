@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, provide, reactive, toRefs } from "vue";
 import { createTestWrapper } from "../../helpers/test-utils";
 import ConfigPanel from "@/components/ConfigPanel.vue";
+import configPanelSource from "@/components/ConfigPanel.vue?raw";
 import {
   CONFIG_SECTIONS,
   UNIFIED_CONFIG,
@@ -214,6 +215,13 @@ describe("ConfigPanel.vue", () => {
     expect(
       wrapper.findAllComponents({ name: "Knob" }).filter((knob) => knob.props("tone") === "brass")
     ).toHaveLength(2);
+  });
+
+  it("keeps Config chrome on the workhorse Ink and Ivory palette", () => {
+    expect(configPanelSource).not.toContain("text-neutral-");
+    expect(configPanelSource).not.toContain("var(--ink-2)");
+    expect(configPanelSource).not.toContain("var(--ivory-3)");
+    expect(configPanelSource).not.toContain("var(--ivory-4)");
   });
 
   it("hides the MIDI shortcut when only generic outputs are present", async () => {

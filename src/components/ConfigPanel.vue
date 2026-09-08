@@ -302,14 +302,14 @@
 
                   <div class="min-w-0 space-y-1">
                     <p
-                      class="m-0 text-[8px] font-semibold uppercase tracking-[0.24em] text-neutral-400"
+                      class="config-panel__midi-kicker"
                     >
                       MIDI Status
                     </p>
-                    <h4 class="m-0 text-[13px] uppercase tracking-[0.08em] text-[#f4efe0]">
+                    <h4 class="config-panel__midi-heading">
                       {{ midiStatusHeadline }}
                     </h4>
-                    <p class="m-0 text-[11px] leading-relaxed text-neutral-400">
+                    <p class="config-panel__midi-copy">
                       {{ midiStatusDetail }}
                     </p>
                   </div>
@@ -320,11 +320,11 @@
                     class="config-panel__midi-port"
                   >
                     <p
-                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-neutral-500"
+                      class="config-panel__midi-port-label"
                     >
                       Inputs
                     </p>
-                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-neutral-200">
+                    <p class="config-panel__midi-port-value">
                       {{
                         connectedInputs.length > 0
                           ? connectedInputs.join(", ")
@@ -337,11 +337,11 @@
                     class="config-panel__midi-port"
                   >
                     <p
-                      class="m-0 text-[8px] uppercase tracking-[0.2em] text-neutral-500"
+                      class="config-panel__midi-port-label"
                     >
                       Outputs
                     </p>
-                    <p class="m-0 mt-2 text-[11px] leading-relaxed text-neutral-200">
+                    <p class="config-panel__midi-port-value">
                       {{
                         connectedOutputs.length > 0
                           ? connectedOutputs.join(", ")
@@ -358,11 +358,11 @@
                 <div class="space-y-2">
                   <p class="config-panel__group-label">ROLI</p>
 
-                  <p class="m-0 text-[11px] leading-relaxed text-neutral-400">
+                  <p class="config-panel__midi-copy">
                     Generate a live-sync LittleFoot script from the current
                     palette and load it in ROLI Dashboard or BLOCKS Code.
                   </p>
-                  <p class="m-0 text-[10px] leading-relaxed text-neutral-500">
+                  <p class="config-panel__midi-hint">
                     {{ roliSyncMessage }}
                   </p>
                 </div>
@@ -740,16 +740,10 @@ const midiTriggerLabel = computed(() => {
   return `Open settings. ${midiStatusHeadline.value}.`;
 });
 
-const midiStatusClass = computed(
-  () =>
-    (
-      {
-        connected: "border-[#4a4a4a] bg-[#141414] text-[#e0e0e0]",
-        connecting: "border-[#5b5b5b] bg-[#171717] text-[#d7d7d7]",
-        error: "border-[#4b4b4b] bg-[#151515] text-[#d2d2d2]",
-        idle: "border-[#323232] bg-[#111111] text-[#b6b6b6]",
-      } as const
-    )[midiStatusState.value]
+const midiStatusClass = computed(() =>
+  midiStatusState.value === "idle"
+    ? "config-panel__midi-mark--quiet"
+    : "config-panel__midi-mark--active"
 );
 
 const roliSyncMessage = computed(() => {
@@ -986,9 +980,10 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__group-label,
 .config-panel__saved-time,
 .config-panel__labeled-action span {
-  color: var(--ivory-4);
+  color: var(--ivory);
   font-size: 9px;
   letter-spacing: .18em;
+  opacity: .52;
 }
 
 .config-panel__section-header h2 {
@@ -1026,7 +1021,8 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__group-label {
-  color: var(--ivory-3);
+  color: var(--ivory);
+  opacity: .64;
 }
 
 .config-panel__knob-grid {
@@ -1082,25 +1078,27 @@ const formatTimestamp = (timestamp: string) => {
 
 .config-panel__sticker-copy {
   max-inline-size: 34ch;
-  color: var(--ivory-3);
+  color: var(--ivory);
   font: var(--t-body-mono);
   font-size: 10px;
   line-height: 1.5;
+  opacity: .58;
 }
 
 .config-panel__empty-state,
 .config-panel__saved-preset,
 .config-panel__midi-surface,
 .config-panel__midi-port {
-  background: var(--ink-2);
+  background: var(--ink);
 }
 
 .config-panel__empty-state {
-  border-inline-start: 3px solid var(--ink-5);
+  border-inline-start: 3px solid rgb(244 239 230 / 22%);
   padding: var(--s-4);
-  color: var(--ivory-4);
+  color: var(--ivory);
   font: var(--t-body-mono);
   font-size: 10px;
+  opacity: .58;
 }
 
 .config-panel__saved-preset {
@@ -1119,8 +1117,9 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__saved-time {
-  color: var(--ivory-4);
+  color: var(--ivory);
   font-size: 8px;
+  opacity: .5;
 }
 
 .config-panel__midi-grid {
@@ -1141,11 +1140,67 @@ const formatTimestamp = (timestamp: string) => {
   block-size: 2.5rem;
   flex: none;
   place-items: center;
+  border: 1px solid rgb(244 239 230 / 22%);
   border-radius: 50%;
+  background: var(--ink);
+  color: var(--ivory);
+}
+
+.config-panel__midi-mark--quiet { opacity: .48; }
+.config-panel__midi-mark--active {
+  border-color: var(--ivory);
+  box-shadow: 0 0 12px rgb(244 239 230 / 14%);
 }
 
 .config-panel__midi-port {
   padding: var(--s-3);
+  border: 1px solid rgb(244 239 230 / 12%);
+}
+
+.config-panel__midi-kicker,
+.config-panel__midi-heading,
+.config-panel__midi-copy,
+.config-panel__midi-port-label,
+.config-panel__midi-port-value,
+.config-panel__midi-hint {
+  margin: 0;
+  color: var(--ivory);
+}
+
+.config-panel__midi-kicker,
+.config-panel__midi-port-label {
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.config-panel__midi-kicker {
+  font-weight: 600;
+  letter-spacing: .24em;
+  opacity: .62;
+}
+
+.config-panel__midi-heading {
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.config-panel__midi-copy,
+.config-panel__midi-port-value {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.config-panel__midi-copy { opacity: .62; }
+.config-panel__midi-port-label {
+  letter-spacing: .2em;
+  opacity: .5;
+}
+.config-panel__midi-port-value { margin-block-start: var(--s-2); }
+.config-panel__midi-hint {
+  font-size: 10px;
+  line-height: 1.6;
+  opacity: .5;
 }
 
 .config-panel__midi-actions {

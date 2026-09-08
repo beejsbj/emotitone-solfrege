@@ -5,6 +5,12 @@
     :class="classes"
     role="tablist"
     :aria-label="ariaLabel"
+    @pointerdown="handleRailPointerDown"
+    @pointermove="handleRailPointerMove"
+    @pointerup="handleRailPointerEnd"
+    @pointercancel="handleRailPointerCancel"
+    @lostpointercapture="handleRailPointerCancel"
+    @click.capture="handleRailClickCapture"
   >
     <div ref="trackEl" class="tabs__track">
       <span class="tabs__streak" aria-hidden="true" />
@@ -98,8 +104,19 @@ const internalValue = ref(props.defaultValue ?? props.tabs.find((tab) => !tab.di
 const chipLeft = ref(0);
 const chipWidth = ref(0);
 const smearing = ref(false);
+const draggingRail = ref(false);
 let smearTimer: number | undefined;
+let railClickTimer: number | undefined;
 let sizeObserver: ResizeObserver | undefined;
+let suppressRailClick = false;
+
+const railGesture = {
+  pointerId: null as number | null,
+  startX: 0,
+  startY: 0,
+  startScrollLeft: 0,
+  axis: null as "horizontal" | "vertical" | null,
+};
 
 const activeValue = computed({
   get: () => props.modelValue ?? internalValue.value,
@@ -125,7 +142,82 @@ const classes = computed(() => [
   `tabs--density-${props.density}`,
   `tabs--tone-${resolvedTone.value}`,
   `tabs--layout-${props.layout}`,
+  { "tabs--dragging": draggingRail.value },
 ]);
+
+const resetRailGesture = () => {
+  railGesture.pointerId = null;
+  railGesture.axis = null;
+  draggingRail.value = false;
+};
+
+const handleRailPointerDown = (event: PointerEvent) => {
+  if (
+    props.layout !== "scroll" ||
+    event.isPrimary === false ||
+    (event.pointerType === "mouse" && event.button !== 0)
+  ) return;
+
+  railGesture.pointerId = event.pointerId;
+  railGesture.startX = event.clientX;
+  railGesture.startY = event.clientY;
+  railGesture.startScrollLeft = scrollEl.value?.scrollLeft ?? 0;
+  railGesture.axis = null;
+};
+
+const handleRailPointerMove = (event: PointerEvent) => {
+  if (event.pointerId !== railGesture.pointerId || !scrollEl.value) return;
+
+  const deltaX = event.clientX - railGesture.startX;
+  const deltaY = event.clientY - railGesture.startY;
+
+  if (railGesture.axis === null) {
+    if (Math.hypot(deltaX, deltaY) < 6) return;
+    railGesture.axis = Math.abs(deltaX) > Math.abs(deltaY) * 1.1
+      ? "horizontal"
+      : "vertical";
+
+    if (railGesture.axis === "horizontal") {
+      draggingRail.value = true;
+      try {
+        scrollEl.value.setPointerCapture?.(event.pointerId);
+      } catch {
+        // Synthetic and older pointer implementations may not expose capture.
+      }
+    }
+  }
+
+  if (railGesture.axis !== "horizontal") return;
+  event.preventDefault();
+  scrollEl.value.scrollLeft = railGesture.startScrollLeft - deltaX;
+};
+
+const armRailClickSuppression = () => {
+  suppressRailClick = true;
+  window.clearTimeout(railClickTimer);
+  railClickTimer = window.setTimeout(() => {
+    suppressRailClick = false;
+  }, 400);
+};
+
+const handleRailPointerEnd = (event: PointerEvent) => {
+  if (event.pointerId !== railGesture.pointerId) return;
+  if (railGesture.axis === "horizontal") armRailClickSuppression();
+  resetRailGesture();
+};
+
+const handleRailPointerCancel = (event: PointerEvent) => {
+  if (event.type === "lostpointercapture" && event.target !== event.currentTarget) return;
+  if (event.pointerId === railGesture.pointerId) resetRailGesture();
+};
+
+const handleRailClickCapture = (event: MouseEvent) => {
+  if (!suppressRailClick) return;
+  event.preventDefault();
+  event.stopPropagation();
+  suppressRailClick = false;
+  window.clearTimeout(railClickTimer);
+};
 
 const chipStyle = computed(() => ({
   left: `${chipLeft.value}px`,
@@ -209,6 +301,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(smearTimer);
+  window.clearTimeout(railClickTimer);
   window.removeEventListener("resize", syncTabsToLayout);
   sizeObserver?.disconnect();
 });
@@ -218,8 +311,8 @@ onBeforeUnmount(() => {
 .tabs {
   position: relative;
   width: 100%;
-  border: 1px solid var(--ink-5);
-  background: var(--ink-2);
+  border: 1px solid rgb(244 239 230 / 18%);
+  background: var(--ink);
   overflow: hidden;
 }
 
@@ -241,7 +334,12 @@ onBeforeUnmount(() => {
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-width: none;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
 }
+
+.tabs--dragging { cursor: grabbing; }
 
 .tabs--layout-scroll::-webkit-scrollbar {
   display: none;

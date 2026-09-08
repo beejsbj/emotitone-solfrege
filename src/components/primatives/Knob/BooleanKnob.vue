@@ -11,6 +11,7 @@
   <div
     ref="ballRef"
     class="knob-boolean__ball"
+    :class="{ brass: tone === 'brass' && modelValue }"
     :style="{
       backgroundColor: activeStrokeColor,
       color: activeStrokeColor,
@@ -99,8 +100,29 @@ useGSAP(({ gsap }) => {
   box-shadow: 0 0 9cqi color-mix(in srgb, currentColor 45%, transparent);
 }
 
+.knob-boolean__ball.brass {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 55%),
+    inset 0 -1px 0 rgb(0 0 0 / 45%),
+    var(--shadow-glow-brass);
+}
+
 .knob-boolean__icon {
   inline-size: 25cqi;
   block-size: 25cqi;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knob-boolean__ball.brass::after { animation: none; }
+}
+
+@media (forced-colors: active) {
+  .knob-boolean__ball.brass {
+    background: CanvasText;
+    box-shadow: none;
+    color: CanvasText;
+  }
+
+  .knob-boolean__ball.brass::after { display: none; }
 }
 </style>

@@ -19,6 +19,7 @@ const tabs = [
 
 describe("Tabs", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -102,5 +103,56 @@ describe("Tabs", () => {
     wrapper.unmount();
     expect(disconnect).toHaveBeenCalledOnce();
     addEventListener.mockRestore();
+  });
+
+  it("drag-scrolls an overflowing rail without selecting the tab under release", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(Tabs, {
+      props: { tabs, modelValue: "all", layout: "scroll" },
+    });
+    Object.defineProperty(wrapper.element, "scrollLeft", {
+      configurable: true,
+      writable: true,
+      value: 120,
+    });
+    const destination = wrapper.get('[data-testid="tab-keys"]');
+
+    await destination.trigger("pointerdown", {
+      pointerId: 7,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 160,
+      clientY: 20,
+    });
+    await wrapper.trigger("pointermove", {
+      pointerId: 7,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 80,
+      clientY: 22,
+    });
+    expect((wrapper.element as HTMLElement).scrollLeft).toBe(200);
+    expect(wrapper.classes()).toContain("tabs--dragging");
+
+    await destination.trigger("lostpointercapture", {
+      pointerId: 7,
+      pointerType: "touch",
+      isPrimary: true,
+    });
+    expect(wrapper.classes()).toContain("tabs--dragging");
+
+    await wrapper.trigger("pointerup", {
+      pointerId: 7,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 80,
+      clientY: 22,
+    });
+    await destination.trigger("click");
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+
+    vi.advanceTimersByTime(401);
+    await destination.trigger("click");
+    expect(wrapper.emitted("update:modelValue")).toEqual([["keys"]]);
   });
 });

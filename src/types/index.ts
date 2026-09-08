@@ -13,6 +13,8 @@ export type {
   MusicalModeFamily,
   ChromaticNote,
   ActiveNote,
+  HarmonicIntervalEdge,
+  HarmonicAnalysisSnapshot,
 } from "./music";
 
 // Visual Effects Types
@@ -31,12 +33,17 @@ export type {
   NoteColorRelationships,
   DynamicColorConfig,
   MusicColorMode,
-  FloatingPopupConfig,
+  BlobRelationshipConfig,
+  BlobConnectionMode,
+  HarmonicGeometryMode,
 } from "./visual";
 
 // Canvas and Animation Types
 export type {
   ActiveBlob,
+  HarmonicGeometryPoint,
+  HarmonicGeometryLabel,
+  HarmonicGeometryScene,
   Particle,
   CanvasProperties,
   AnimationFrame,

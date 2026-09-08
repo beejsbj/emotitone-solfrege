@@ -67,10 +67,11 @@ vi.mock("@strudel/soundfonts", () => ({
 }));
 
 vi.mock("@/services/music", () => ({
-  CHROMATIC_NOTES: ["C", "D", "E", "F", "G", "A", "B"],
+  CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
   musicTheory: {
     getCurrentScaleNotes: vi.fn(() => ["C", "D", "E", "F", "G", "A", "B"]),
     getCurrentKey: vi.fn(() => "C"),
+    getCurrentMode: vi.fn(() => "major"),
     getCurrentScale: vi.fn(() => ({
       solfege: [
         { name: "Do" },
@@ -227,6 +228,52 @@ describe("superdoughAudio live note handling", () => {
       "Font unavailable"
     );
     expect(audio.isPrewarmed("gm_celesta")).toBe(false);
+  });
+
+  it("emits exact borrowed-pitch lifecycle events during Strudel playback", async () => {
+    vi.useFakeTimers();
+    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+    const audio = await import("@/services/superdoughAudio");
+
+    await audio.emotitoneStrudelOutput(
+      { value: { note: "D#4", freq: 311.13, s: "piano" } },
+      12,
+      0.25,
+      1,
+      0,
+    );
+
+    const played = dispatchEvent.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.type === "note-played") as CustomEvent;
+    expect(played.detail).toMatchObject({
+      note: expect.objectContaining({
+        name: "D#",
+        emotion: "Borrowed harmony tone",
+      }),
+      noteName: "D#4",
+      octave: 4,
+      keyboardOctave: 4,
+      solfegeIndex: -1,
+      pitchClassIndex: 3,
+      isBorrowed: true,
+      source: "strudel-playback",
+    });
+
+    await vi.advanceTimersByTimeAsync(250);
+    const released = dispatchEvent.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.type === "note-released") as CustomEvent;
+    expect(released.detail).toMatchObject({
+      note: "D#",
+      noteName: "D#4",
+      solfegeIndex: -1,
+      pitchClassIndex: 3,
+      isBorrowed: true,
+      source: "strudel-playback",
+    });
+
+    vi.useRealTimers();
   });
 
   it("surfaces explicit warmup failures and leaves the sound cold", async () => {

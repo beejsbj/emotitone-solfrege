@@ -105,6 +105,43 @@ describe("useColorSystem", () => {
     );
   });
 
+  it("gives exact borrowed pitch classes a chromatic fallback color", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
+    const colorSystem = useColorSystem();
+
+    expect(colorSystem.getStaticPrimaryColorByPitchClass(3, "major", "C", 4))
+      .not.toBe("hsla(0, 0%, 16%, 1)");
+  });
+
+  it("applies key adjustments to exact-pitch primary colors", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
+    const colorSystem = useColorSystem();
+
+    const adjusted = colorSystem.getKeyBackgroundByPitchClass(
+      0,
+      "major",
+      "C",
+      4,
+      "colored",
+      false,
+      { keyBrightness: 0.5, keySaturation: 0.5 },
+    );
+
+    expect(adjusted.primaryColor).toBe(adjusted.background);
+  });
+
+  it("prefers exact pitch identity when an active note provides it", () => {
+    dynamicColorConfig.value.musicColorMode = "movable";
+    const colorSystem = useColorSystem();
+
+    expect(colorSystem.getStaticPrimaryColorForPitch(-1, 3, "major", "C", 4))
+      .toBe(colorSystem.getStaticPrimaryColorByPitchClass(3, "major", "C", 4));
+    expect(colorSystem.getStaticPrimaryColorForPitch(2, undefined, "major", "C", 4))
+      .toBe(colorSystem.getStaticPrimaryColorByScaleIndex(2, "major", "C", 4));
+    expect(colorSystem.getPrimaryColorForPitch(-1, 3, "major", "C", 4))
+      .toBe(colorSystem.getNoteColorsByPitchClass(3, "major", "C", 4).primary);
+  });
+
   it("resolves altered syllables without falling back to the default error color", () => {
     dynamicColorConfig.value.musicColorMode = "movable";
     const colorSystem = useColorSystem();

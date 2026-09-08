@@ -118,6 +118,7 @@ describe('UnifiedVisualEffects.vue', () => {
           noteId: 'note-1',
           octave: 4,
           noteName: 'C4',
+          pitchClassIndex: 0,
           mode: 'major',
           key: 'C',
           durationMs: 500,
@@ -142,7 +143,8 @@ describe('UnifiedVisualEffects.vue', () => {
       'C4',
       'major',
       'C',
-      500
+      0,
+      500,
     )
     expect(unifiedCanvasMocks.handleNoteReleased).toHaveBeenCalledWith('C4', 'note-1', 'C4')
   })

@@ -59,7 +59,7 @@
           <div class="sink-frame__source">primitive-buttons.html</div>
           <PrimitiveButtons />
         </article>
-        <article class="sink-frame">
+        <article id="primitive-card" class="sink-frame">
           <div class="sink-frame__source">primitive-card.html</div>
           <PrimitiveCard />
         </article>
@@ -80,10 +80,6 @@
           <PrimitiveMarks />
         </article>
         <article class="sink-frame">
-          <div class="sink-frame__source">primitive-spine-card.html</div>
-          <PrimitiveSpineCard />
-        </article>
-        <article class="sink-frame">
           <div class="sink-frame__source">primitive-tabs.html</div>
           <PrimitiveTabs />
         </article>
@@ -100,6 +96,10 @@
         <article id="unique-code-strip" class="sink-frame">
           <div class="sink-frame__source">unique-code-strip.html</div>
           <UniqueCodeStrip />
+        </article>
+        <article id="unique-joystick" class="sink-frame">
+          <div class="sink-frame__source">unique-joystick</div>
+          <UniqueJoystick />
         </article>
         <article id="unique-drawer" class="sink-frame">
           <div class="sink-frame__source">unique-drawer.html</div>
@@ -178,10 +178,10 @@ import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
 import PrimitiveCard from "./primatives/PrimitiveCard.vue";
 import PrimitiveNote from "./primatives/PrimitiveNote.vue";
+import UniqueJoystick from "./uniques/UniqueJoystick.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
 import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
-import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundCodeStripBar from "./compounds/CompoundCodeStripBar.vue";
 import CompoundBeatIndicator from "./compounds/CompoundBeatIndicator.vue";

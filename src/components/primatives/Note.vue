@@ -121,7 +121,7 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground } = useColorSystem();
+const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem();
 
 const inferredAccidental = computed(() => {
   if (typeof props.accidental === "boolean") {
@@ -131,9 +131,8 @@ const inferredAccidental = computed(() => {
   return /[#b♯♭]/.test(props.rawPitch);
 });
 
-const color = computed(() =>
-  getKeyBackground(
-    props.scaleIndex,
+const color = computed(() => {
+  const colorArgs = [
     props.mode,
     props.musicKey,
     props.octave,
@@ -143,8 +142,12 @@ const color = computed(() =>
       keyBrightness: props.keyBrightness,
       keySaturation: props.keySaturation,
     },
-  ),
-);
+  ] as const;
+
+  return typeof props.pitchClassIndex === "number"
+    ? getKeyBackgroundByPitchClass(props.pitchClassIndex, ...colorArgs)
+    : getKeyBackground(props.scaleIndex, ...colorArgs);
+});
 
 const labelValues = computed<Record<NoteLabel, string>>(() => ({
   syllable: props.syllable,

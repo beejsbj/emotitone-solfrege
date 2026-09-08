@@ -358,7 +358,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     noteName?: string,
     mode?: MusicalMode,
     key?: ChromaticNote,
-    durationMs?: number
+    pitchClassIndex?: number,
+    durationMs?: number,
   ) => {
     const noteMode = mode ?? musicStore.currentMode;
     const noteKey = key ?? (musicStore.currentKey as ChromaticNote);
@@ -393,7 +394,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       isOneShot ? harmonicNoteId : noteId, // Give synthetic one-shots a stable lifecycle key
       noteKey, // Pass event key snapshot for circle positioning
       noteMode, // Pass event mode snapshot for scale positioning
-      octave // Pass octave for vertical offset positioning
+      octave, // Pass octave for vertical offset positioning
+      noteName, // Preserve exact pitch identity for borrowed harmony tones
     );
 
     const activeNote = noteId
@@ -409,9 +411,11 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     } else if (resolvedNoteName && resolvedOctave !== undefined) {
       recordHarmonicNote({
         solfegeIndex: Math.max(0, note.number - 1),
+        pitchClassIndex,
         solfege: note,
         frequency,
         octave: resolvedOctave,
+        keyboardOctave: resolvedOctave,
         noteId: harmonicNoteId ?? `legacy:${resolvedNoteName}`,
         noteName: resolvedNoteName,
         mode: noteMode,
@@ -443,7 +447,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       canvasHeight.value,
       noteMode,
       noteKey,
-      particleCount
+      particleCount,
+      { pitchClassIndex, octave },
     );
   };
 

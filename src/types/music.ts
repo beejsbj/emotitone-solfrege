@@ -131,14 +131,18 @@ export type ChromaticNote =
  * Interface for tracking active notes in the music store
  */
 export interface ActiveNote {
-  /** Index of the solfege note in the scale */
+  /** Index of the solfege note in the scale; -1 marks an exact borrowed pitch. */
   solfegeIndex: number;
+  /** Absolute chromatic identity, retained when the pitch is outside the scale. */
+  pitchClassIndex?: number;
   /** Solfege data for the note */
   solfege: SolfegeData;
   /** Frequency of the note in Hz */
   frequency: number;
-  /** Octave number */
+  /** Scientific octave encoded in noteName. */
   octave: number;
+  /** Keyboard-row coordinate used to highlight the originating Key. */
+  keyboardOctave: number;
   /** Unique identifier for the note */
   noteId: string;
   /** Note name with octave (e.g., "C4", "E5") */

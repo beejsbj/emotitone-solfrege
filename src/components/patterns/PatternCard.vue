@@ -1,23 +1,37 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
-import { toStrudelSound } from "@/composables/useStrudel";
-import { usePatternsStore } from "@/stores/patterns";
-import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { computed, onBeforeUnmount, ref } from "vue";
+import PatternCard from "@/components/compounds/PatternCard.vue";
+import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
+import { buildRecordedCodeStripTokens } from "@/components/uniques/CodeStrip/recordingTokens";
 import { useColorSystem } from "@/composables/useColorSystem";
+import { toStrudelSound } from "@/composables/useStrudel";
 import { getModeDefinition } from "@/data";
-import Knob from "@/components/primatives/Knob/index.vue";
-import type { Pattern, PatternNote, LogNote } from "@/types/patterns";
+import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { usePatternsStore } from "@/stores/patterns";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
-const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+const visualConfigStore = useVisualConfigStore();
+const {
+  getStaticPrimaryColorByScaleIndex,
+  getStaticPrimaryColorByPitchClass,
+} = useColorSystem();
 
 const props = defineProps<{
   pattern: Pattern;
 }>();
 
 const copied = ref(false);
+const deleteArmedPatternId = ref<string | null>(null);
+const deleteArmed = computed(
+  () => deleteArmedPatternId.value === props.pattern.id,
+);
+let deleteArmTimer: ReturnType<typeof setTimeout> | undefined;
+
+onBeforeUnmount(() => clearTimeout(deleteArmTimer));
 
 const keyModeLabel = computed(() => {
   const key = props.pattern.key ?? "C";
@@ -26,19 +40,25 @@ const keyModeLabel = computed(() => {
 });
 
 const noteCount = computed(
-  () => props.pattern.noteCount ?? props.pattern.notes.length
+  () => props.pattern.noteCount ?? props.pattern.notes.length,
 );
 
-const isFocused = computed(
-  () => patternsStore.focusedPatternId === props.pattern.id
+const isExpanded = computed(
+  () => patternsStore.focusedPatternId === props.pattern.id,
 );
+
+const ordinal = computed(() => {
+  const index = patternsStore.patterns.findIndex(
+    (pattern) => pattern.id === props.pattern.id,
+  );
+  return String(Math.max(0, index) + 1).padStart(2, "0");
+});
 
 const sourceBpm = computed(() => {
   const bpm = props.pattern.bpm;
   return typeof bpm === "number" && bpm > 0 ? bpm : DEFAULT_SOURCE_BPM;
 });
 
-// ── notation for copy ──────────────────────────────────────────────────────
 const notation = computed(() =>
   logNotesToStrudel(props.pattern.notes as unknown as LogNote[], {
     bpm: sourceBpm.value,
@@ -48,31 +68,88 @@ const notation = computed(() =>
     scaleMode: props.pattern.mode,
     scaleOctave: keyboardStore.keyboardConfig.mainOctave,
     sound: toStrudelSound(props.pattern.instrument ?? "sine"),
-  })
-);
-
-const isPurgeEligible = computed(
-  () => !props.pattern.isDefault && !props.pattern.isKept
+  }),
 );
 
 const retentionLabel = computed(() => {
-  if (!isPurgeEligible.value) {
-    return null;
-  }
+  if (props.pattern.isDefault) return null;
+  if (props.pattern.isKept) return "kept";
 
   const msRemaining =
     props.pattern.createdAt + 7 * 24 * 60 * 60 * 1000 - Date.now();
-
-  if (msRemaining <= 0) {
-    return "expiring";
-  }
+  if (msRemaining <= 0) return "expiring";
 
   const daysRemaining = Math.max(
     1,
-    Math.ceil(msRemaining / (24 * 60 * 60 * 1000))
+    Math.ceil(msRemaining / (24 * 60 * 60 * 1000)),
   );
   return `${daysRemaining}d left`;
 });
+
+const instrumentName = computed(() =>
+  displayInstrumentName(props.pattern.instrument ?? "sine"),
+);
+
+const metadata = computed(() => [
+  `${noteCount.value} notes`,
+  retentionLabel.value,
+].filter(Boolean).join(" · "));
+
+const cardLabel = computed(
+  () => `Pattern ${ordinal.value} — ${instrumentName.value} / ${keyModeLabel.value}`,
+);
+
+function colorFor(note: PatternNote, pattern: Pattern): string {
+  if (
+    typeof note.pitchClassIndex === "number"
+    && Number.isInteger(note.pitchClassIndex)
+  ) {
+    return getStaticPrimaryColorByPitchClass(
+      note.pitchClassIndex,
+      pattern.mode,
+      pattern.key,
+      note.octave,
+    );
+  }
+
+  return getStaticPrimaryColorByScaleIndex(
+    note.scaleIndex,
+    pattern.mode,
+    pattern.key,
+    note.octave,
+  );
+}
+
+const orderedNotes = computed(() => [...props.pattern.notes].sort(
+  (firstNote, secondNote) => firstNote.pressTime - secondNote.pressTime,
+));
+
+const barTapeSegments = computed<BarTapeSegment[]>(() =>
+  orderedNotes.value.map((note) => ({
+    color: colorFor(note, props.pattern),
+    durationMs: note.duration,
+  })),
+);
+
+const codeTokens = computed(() => buildRecordedCodeStripTokens({
+  notes: orderedNotes.value,
+  mode: props.pattern.mode,
+  musicKey: props.pattern.key,
+  notation: visualConfigStore.config.codeStrip.notation,
+  barMs: (60000 / sourceBpm.value) * 4,
+  sourceBpm: sourceBpm.value,
+  surfaceStyle: visualConfigStore.config.keyboard.surfaceStyle,
+  keyBrightness: visualConfigStore.config.keyboard.keyBrightness,
+  keySaturation: visualConfigStore.config.keyboard.keySaturation,
+}));
+
+function displayInstrumentName(instrument: string): string {
+  return instrument.startsWith("gm_") ? instrument.slice(3) : instrument;
+}
+
+function handleSelect() {
+  patternsStore.loadPatternAsBase(props.pattern.id);
+}
 
 async function copyNotation() {
   if (!notation.value) return;
@@ -83,262 +160,56 @@ async function copyNotation() {
       copied.value = false;
     }, 1500);
   } catch {
-    // clipboard not available
+    // Clipboard access is not available in every browser context.
   }
 }
 
-// ── color strip helpers ───────────────────────────────────────────────────
-function colorFor(note: PatternNote, pattern: Pattern): string {
-  return getStaticPrimaryColorByScaleIndex(
-    note.scaleIndex,
-    pattern.mode,
-    pattern.key,
-    note.octave
+function openInStrudel() {
+  if (!notation.value) return;
+  const bytes = new TextEncoder().encode(notation.value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  window.open(
+    `https://strudel.cc/#${btoa(binary)}`,
+    "_blank",
+    "noopener,noreferrer",
   );
 }
 
-function displayInstrumentName(instrument: string): string {
-  return instrument.startsWith("gm_") ? instrument.slice(3) : instrument;
-}
+function deletePattern() {
+  if (props.pattern.isDefault) return;
 
-function handleCardClick() {
-  patternsStore.loadPatternAsBase(props.pattern.id);
-}
+  if (deleteArmedPatternId.value !== props.pattern.id) {
+    deleteArmedPatternId.value = props.pattern.id;
+    clearTimeout(deleteArmTimer);
+    deleteArmTimer = setTimeout(() => {
+      deleteArmedPatternId.value = null;
+    }, 2500);
+    return;
+  }
 
-function keepPattern() {
-  patternsStore.keepPattern(props.pattern.id);
+  clearTimeout(deleteArmTimer);
+  deleteArmedPatternId.value = null;
+  patternsStore.deletePattern(props.pattern.id);
 }
 </script>
 
 <template>
-  <article
-    class="track"
-    :class="{
-      'track--default': pattern.isDefault,
-      'track--focused': isFocused,
-    }"
-    @click="handleCardClick"
-  >
-    <!-- Single always-visible row -->
-    <div class="track-row">
-      <!-- Label + badges -->
-      <div class="track-meta">
-        <span class="track-instrument">{{ displayInstrumentName(pattern.instrument ?? "sine") }}</span>
-        <span class="track-label">{{ keyModeLabel }}</span>
-        <span class="track-badge">{{ noteCount }}</span>
-        <span v-if="pattern.isDefault" class="default-pip" />
-        <span v-if="retentionLabel" class="track-status">{{ retentionLabel }}</span>
-        <span
-          v-else-if="pattern.isKept && !pattern.isDefault"
-          class="track-status track-status--kept"
-        >
-          kept
-        </span>
-      </div>
-
-      <!-- Copy button — stop propagation so tapping doesn't re-focus -->
-      <div class="track-actions" @click.stop>
-        <Knob
-          v-if="isPurgeEligible"
-          class="keep-knob"
-          :model-value="Boolean(pattern.isKept)"
-          type="boolean"
-          label=" "
-          @update:modelValue="keepPattern"
-        />
-        <button
-          class="copy-btn"
-          :class="{ 'copy-btn--done': copied }"
-          @click="copyNotation"
-          :aria-label="copied ? 'Copied' : 'Copy notation'"
-        >
-          {{ copied ? "✓" : "⎘" }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Color strip — always visible, proportional to note duration -->
-    <div class="note-color-strip">
-      <span
-        v-for="note in (pattern.notes as PatternNote[])"
-        :key="note.id"
-        class="note-color-segment"
-        :style="{
-          backgroundColor: colorFor(note, pattern),
-          flex: Math.max(note.duration, 50),
-        }"
-      />
-    </div>
-  </article>
+  <PatternCard
+    :state="isExpanded ? 'expanded' : 'collapsed'"
+    :label="cardLabel"
+    :ordinal="ordinal"
+    :name="pattern.name ?? 'Untitled pattern'"
+    :metadata="metadata"
+    :bar-tape="barTapeSegments"
+    :code-tokens="codeTokens"
+    :code-source="notation"
+    :copied="copied"
+    :can-delete="!pattern.isDefault"
+    :delete-armed="deleteArmed"
+    @select="handleSelect"
+    @delete="deletePattern"
+    @open-strudel="openInStrudel"
+    @copy="copyNotation"
+  />
 </template>
-
-<style scoped>
-/* ─── Track shell ─── */
-.track {
-  position: relative;
-  background: hsla(0, 0%, 9%, 1);
-  border: 1px solid hsla(0, 0%, 100%, 0.06);
-  border-left: 2px solid hsla(0, 0%, 100%, 0.08);
-  border-radius: 3px;
-  overflow: hidden;
-  transition: border-left-color 0.18s ease;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
-
-.track--default {
-  background: hsla(0, 0%, 10%, 1);
-  border-left-color: hsla(0, 0%, 42%, 0.55);
-}
-
-.track--focused {
-  border-left-color: hsla(0, 0%, 78%, 0.72);
-  background: hsla(0, 0%, 13%, 0.9);
-}
-
-.track:active {
-  background: hsla(0, 0%, 12%, 1);
-}
-
-/* ─── Row ─── */
-.track-row {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  height: 2.5rem;
-  padding: 0 0.5rem 0 0.5rem;
-}
-
-/* ─── Track meta ─── */
-.track-meta {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.track-instrument {
-  font-size: 0.52rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: hsla(0, 0%, 100%, 0.7);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 4.5rem;
-}
-
-.track-label {
-  font-size: 0.52rem;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: hsla(0, 0%, 100%, 0.4);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.track-badge {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1rem;
-  height: 1rem;
-  padding: 0 0.2rem;
-  border-radius: 2px;
-  background: hsla(0, 0%, 100%, 0.07);
-  color: hsla(0, 0%, 100%, 0.3);
-  font-size: 0.5rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.track-status {
-  flex-shrink: 0;
-  color: hsla(0, 0%, 64%, 0.72);
-  font-size: 0.45rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.track-status--kept {
-  color: hsla(0, 0%, 78%, 0.78);
-}
-
-.default-pip {
-  flex-shrink: 0;
-  width: 0.3rem;
-  height: 0.3rem;
-  border-radius: 50%;
-  background: hsla(0, 0%, 74%, 0.6);
-}
-
-/* ─── Action buttons ─── */
-.track-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  flex-shrink: 0;
-}
-
-.copy-btn {
-  width: 1.35rem;
-  height: 1.35rem;
-  border-radius: 3px;
-  border: 1px solid hsla(0, 0%, 100%, 0.09);
-  background: hsla(0, 0%, 100%, 0.06);
-  color: hsla(0, 0%, 100%, 0.35);
-  font-size: 0.65rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  transition:
-    background 0.13s ease,
-    color 0.13s ease,
-    border-color 0.13s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.keep-knob {
-  --knob-size: 1.35rem;
-  width: 1.35rem;
-  min-width: 1.35rem;
-  margin: 0;
-}
-
-.keep-knob:deep(label) {
-  display: none;
-}
-
-.copy-btn:active {
-  background: hsla(0, 0%, 100%, 0.14);
-}
-
-.copy-btn--done {
-  background: hsla(0, 0%, 100%, 0.12);
-  color: hsla(0, 0%, 92%, 1);
-  border-color: hsla(0, 0%, 80%, 0.24);
-}
-
-/* ─── Note color strip ─── */
-.note-color-strip {
-  display: flex;
-  height: 4px;
-  overflow: hidden;
-}
-
-.note-color-segment {
-  height: 100%;
-  flex-shrink: 0;
-  min-width: 2px;
-}
-</style>

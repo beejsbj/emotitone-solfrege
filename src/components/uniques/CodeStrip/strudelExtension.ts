@@ -593,12 +593,16 @@ function fallbackToken(
   if (event.kind === "group") {
     const members = event.notes.map((note, index): ChordMember => {
       const token = fallbackNoteToken(note, event.duration, presentation, relativeScale);
+      const borrowed = (token.scaleIndex ?? 0) < 0;
       return {
         id: `${note.from}:${note.to}`,
         syllable: token.syllable,
         degree: token.degree,
         rawPitch: token.rawPitch,
+        primary: borrowed ? "raw" : undefined,
+        visibleLabels: borrowed ? ["raw"] : undefined,
         scaleIndex: token.scaleIndex ?? index,
+        pitchClassIndex: token.pitchClassIndex,
         octave: token.octave,
         mode: token.mode,
         musicKey: token.musicKey,
@@ -632,10 +636,11 @@ function fallbackNoteToken(
   const mode = note.isRelative ? relativeScale.mode : presentation.mode ?? "major";
   const musicKey = note.isRelative ? relativeScale.key : presentation.musicKey ?? "C";
   const parsed = parseSourceNote(note, mode, musicKey, relativeScale);
-  const normalized = normalizeScaleIndex(mode, parsed.scaleIndex);
-  const syllable = getSolfegeNameForMode(mode, normalized);
-  const degree = String(normalized + 1);
-  const glyph: CodeStripGlyph = presentation.notation === "note"
+  const borrowed = parsed.scaleIndex < 0;
+  const normalized = borrowed ? 0 : normalizeScaleIndex(mode, parsed.scaleIndex);
+  const syllable = borrowed ? undefined : getSolfegeNameForMode(mode, normalized);
+  const degree = borrowed ? undefined : String(normalized + 1);
+  const glyph: CodeStripGlyph = borrowed || presentation.notation === "note"
     ? "raw"
     : presentation.notation === "degree"
       ? "deg"
@@ -644,13 +649,18 @@ function fallbackNoteToken(
   return {
     type: "note",
     note: NOTE_NAMES[positiveModulo(normalized, NOTE_NAMES.length)],
-    text: glyph === "raw" ? parsed.rawPitch : glyph === "deg" ? degree : syllable,
+    text: glyph === "raw"
+      ? parsed.rawPitch
+      : glyph === "deg"
+        ? degree ?? parsed.rawPitch
+        : syllable ?? parsed.rawPitch,
     glyph,
     duration,
     syllable,
     degree,
     rawPitch: parsed.rawPitch,
-    scaleIndex: normalized,
+    scaleIndex: borrowed ? -1 : normalized,
+    pitchClassIndex: parsed.pitchClassIndex,
     octave: parsed.octave,
     mode,
     musicKey,
@@ -677,17 +687,23 @@ function parseSourceNote(
     return {
       rawPitch: pitch?.rawPitch ?? note.text,
       scaleIndex: Number.isFinite(scaleIndex) ? scaleIndex : 0,
+      pitchClassIndex: undefined,
       octave: pitch?.octave ?? relativeScale.octave,
     };
   }
 
   const match = note.text.match(/^([A-Ga-g])([#bsf]*)(-?\d+)$/);
-  const pitchClass = normalizePitchClass(match?.[1] ?? "C", match?.[2] ?? "");
-  const scaleIndex = getScaleDegreeIndexForPitchClass(pitchClass, key, mode) ??
-    positiveModulo(CHROMATIC_NOTES.indexOf(pitchClass), 7);
+  const pitchClassIndex = match
+    ? TonalNote.get(normalizeAbsolutePitch(match[1], match[2], match[3])).chroma
+    : null;
+  const pitchClass = pitchClassIndex == null
+    ? normalizePitchClass(match?.[1] ?? "C", match?.[2] ?? "")
+    : CHROMATIC_NOTES[pitchClassIndex];
+  const scaleIndex = getScaleDegreeIndexForPitchClass(pitchClass, key, mode);
   return {
     rawPitch: note.text,
-    scaleIndex,
+    scaleIndex: scaleIndex ?? -1,
+    pitchClassIndex: scaleIndex == null ? pitchClassIndex ?? undefined : undefined,
     octave: Number(match?.[3] ?? 4),
   };
 }

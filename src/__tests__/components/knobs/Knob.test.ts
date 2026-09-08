@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
+import knobSource from "@/components/primatives/Knob/index.vue?raw";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
@@ -60,6 +61,7 @@ describe("Knob public interface", () => {
   };
 
   it("shows formatted values above contact, updates immediately, and removes on release", async () => {
+    expect(knobSource).toContain('import DragValue from "../DragValue.vue"');
     const wrapper = render({ modelValue: -4.84, type: "range", formatValue: (v: number) => `${v} dB` });
     expect(document.querySelector(".knob-drag-value")).toBeNull();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
@@ -209,9 +211,12 @@ describe("Knob public interface", () => {
     const wrapper = render({ modelValue: 42, label: "Volume" });
 
     expect(wrapper.classes()).toContain("knob-wrapper");
+    expect(wrapper.classes()).toContain("instrument-control");
     expect(wrapper.classes()).not.toContain("max-w-12");
     expect(wrapper.find(".knob-wrapper__face").exists()).toBe(true);
+    expect(wrapper.get(".knob-wrapper__face").classes()).toContain("instrument-control__face");
     expect(wrapper.get(".knob-wrapper__label").element.tagName).toBe("SPAN");
+    expect(wrapper.get(".knob-wrapper__label").classes()).toContain("instrument-control__label");
     expect(wrapper.get(".knob-wrapper__label").text()).toBe("Volume");
     expect(wrapper.find(".knob-face").exists()).toBe(true);
     expect(wrapper.find(".knob-primitive__label").exists()).toBe(false);

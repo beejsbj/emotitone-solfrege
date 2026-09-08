@@ -205,13 +205,18 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "C4",
       "major",
       "C",
+      0,
       100
     );
 
     const syntheticId = mocks.createBlob.mock.calls[0][7] as string;
     expect(syntheticId).toMatch(/^one-shot:C4:/);
     expect(mocks.recordHarmonicNote).toHaveBeenCalledWith(
-      expect.objectContaining({ noteId: syntheticId, noteName: "C4" })
+      expect.objectContaining({
+        noteId: syntheticId,
+        noteName: "C4",
+        pitchClassIndex: 0,
+      })
     );
 
     vi.advanceTimersByTime(100);

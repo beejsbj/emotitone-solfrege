@@ -352,6 +352,8 @@ export const usePatternsStore = defineStore(
         note: note.note,
         scaleDegree: note.scaleDegree,
         scaleIndex: note.scaleIndex,
+        pitchClassIndex: note.pitchClassIndex,
+        isBorrowed: note.isBorrowed,
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
@@ -383,6 +385,8 @@ export const usePatternsStore = defineStore(
         note: note.note,
         scaleDegree: note.scaleDegree,
         scaleIndex: note.scaleIndex,
+        pitchClassIndex: note.pitchClassIndex,
+        isBorrowed: note.isBorrowed,
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
@@ -604,6 +608,32 @@ export const usePatternsStore = defineStore(
       });
     }
 
+    function deletePattern(patternId: string): boolean {
+      const pattern = patterns.value.find((candidate) => candidate.id === patternId);
+      if (!pattern || pattern.isDefault) return false;
+
+      const deletedNoteIds = new Set(pattern.notes.map((note) => note.id));
+      savedPatterns.value = savedPatterns.value.filter(
+        (candidate) => candidate.id !== patternId,
+      );
+      loggedNotes.value = loggedNotes.value.filter(
+        (note) => !deletedNoteIds.has(note.id),
+      );
+
+      if (loadedBasePatternId.value === patternId) {
+        loadedBaseNotes.value = [];
+        loadedBasePatternId.value = null;
+        loadedBaseMeta.value = null;
+        isStripCleared.value = true;
+      }
+
+      if (focusedPatternId.value === patternId) {
+        focusedPatternId.value = patterns.value[patterns.value.length - 1]?.id ?? null;
+      }
+
+      return true;
+    }
+
     function purgeOldPatterns(): void {
       const cutoffTime = Date.now() - config.value.maxRetentionTime;
 
@@ -638,9 +668,13 @@ export const usePatternsStore = defineStore(
         frequency,
         noteName,
         solfegeIndex,
+        pitchClassIndex,
+        isBorrowed: emittedBorrowed,
         octave,
         noteId,
         instrument,
+        key: emittedKey,
+        mode: emittedMode,
       } = event.detail;
 
       // Use noteId directly as the tracking key
@@ -649,13 +683,16 @@ export const usePatternsStore = defineStore(
       }
 
       // Create partial log note for this press
+      const isBorrowed = emittedBorrowed === true || solfegeIndex < 0;
       const partialLogNote: Partial<LogNote> = {
         id: generateNoteId(),
         note: noteName,
-        key: musicStore.currentKey as ChromaticNote,
-        mode: musicStore.currentMode as MusicalMode,
-        scaleDegree: calculateScaleDegree(solfegeIndex),
+        key: (emittedKey ?? musicStore.currentKey) as ChromaticNote,
+        mode: (emittedMode ?? musicStore.currentMode) as MusicalMode,
+        scaleDegree: isBorrowed ? 0 : calculateScaleDegree(solfegeIndex),
         scaleIndex: calculateScaleIndex(solfegeIndex),
+        pitchClassIndex,
+        isBorrowed,
         solfege: note as SolfegeData,
         octave,
         frequency,
@@ -831,6 +868,7 @@ export const usePatternsStore = defineStore(
       sendCurrentPattern,
       removeLastFromCurrentSketch,
       keepPattern,
+      deletePattern,
 
       // Actions
       enableLogging,

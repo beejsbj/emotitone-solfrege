@@ -10,6 +10,10 @@ vi.mock("@/composables/useColorSystem", () => ({
       background: `color-${scaleIndex}`,
       primaryColor: `color-${scaleIndex}`,
     }),
+    getKeyBackgroundByPitchClass: (pitchClassIndex: number) => ({
+      background: `color-${pitchClassIndex}`,
+      primaryColor: `color-${pitchClassIndex}`,
+    }),
   }),
 }));
 
@@ -69,6 +73,31 @@ describe("CodeStrip event rendering", () => {
     expect(wrapper.find(".code-strip__accidental").text()).toBe("#");
     expect(wrapper.findAll("[data-code-strip-index]").map((event) => event.attributes("data-code-strip-index")))
       .toEqual(["0", "1", "2", "3"]);
+  });
+
+  it("colors a standalone borrowed note from its exact pitch class", () => {
+    const wrapper = mount(CodeStripSequence, {
+      props: {
+        tokens: [{
+          type: "note",
+          note: "do",
+          text: "D#4",
+          glyph: "raw",
+          rawPitch: "D#4",
+          scaleIndex: -1,
+          pitchClassIndex: 3,
+          mode: "major",
+          musicKey: "C",
+          octave: 4,
+          isAccidental: true,
+          progress: 1,
+        }],
+      },
+    });
+
+    const note = wrapper.getComponent(Note);
+    expect(note.props("pitchClassIndex")).toBe(3);
+    expect(note.attributes("style")).toContain("--note-surface: color-3");
   });
 
   it("keeps Rest local, durationless, and controlled from Ink to Ivory", () => {

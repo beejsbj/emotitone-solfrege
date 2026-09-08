@@ -1,238 +1,173 @@
 <template>
-  <button
-    v-if="shape === 'sleek'"
+  <Card
+    v-if="state === 'collapsed'"
+    as="button"
     type="button"
-    class="pattern-card pattern-card--sleek"
-    :style="cardStyle"
+    class="pattern-card pattern-card--collapsed"
+    :label="label"
+    :spine="spine"
+    :aria-expanded="false"
+    flush
+    @click="emit('select')"
   >
-    <div class="pattern-card__row">
-      <span class="pattern-card__spine"></span>
-      <span class="pattern-card__num">{{ num }}</span>
-      <span class="pattern-card__meta">
-        <span class="pattern-card__name">{{ name }}</span>
-        <span class="pattern-card__sub">{{ sub }}</span>
-      </span>
-      <span v-if="when" class="pattern-card__when">{{ when }}</span>
+    <template #mark><span class="pattern-card__ordinal">{{ ordinal }}</span></template>
+    <div class="pattern-card__summary">
+      <strong class="pattern-card__name">{{ name }}</strong>
+      <span v-if="metadata" class="pattern-card__meta">{{ metadata }}</span>
     </div>
-    <BarTape
-      v-if="barTape"
-      :mode="barTapeMode"
-      frame="flush"
-      :segments="barTape"
-    />
-  </button>
+    <template #footer>
+      <BarTape :segments="barTape" aria-label="Pattern note timeline" />
+    </template>
+  </Card>
 
-  <article
+  <Card
     v-else
-    class="pattern-card pattern-card--active"
-    :style="cardStyle"
+    class="pattern-card pattern-card--expanded"
+    :label="label"
+    :spine="spine"
+    flush
   >
-    <span class="pattern-card__spine"></span>
-    <div class="pattern-card__active-inner">
-      <div class="pattern-card__active-head">
-        <span class="pattern-card__num">{{ num }}</span>
-        <div class="pattern-card__active-copy">
-          <div class="pattern-card__name">{{ name }}</div>
-          <div class="pattern-card__sub">{{ sub }}</div>
-        </div>
-        <div
-          v-if="showActions"
-          class="pattern-card__icon-row"
-          aria-label="Pattern controls"
+    <template #mark><span class="pattern-card__ordinal">{{ ordinal }}</span></template>
+    <div class="pattern-card__expanded-head">
+      <strong class="pattern-card__name">{{ name }}</strong>
+      <span v-if="metadata" class="pattern-card__meta">{{ metadata }}</span>
+    </div>
+
+    <CodeStrip
+      class="pattern-card__code-strip"
+      :tokens="codeTokens"
+      :source="codeSource"
+      density="dense"
+      duration-mode="hidden"
+      :framed="false"
+      :show-chevron="false"
+      aria-label="Expanded pattern Strudel code"
+    />
+
+    <div class="pattern-card__action-foot">
+      <div class="pattern-card__actions" aria-label="Pattern actions">
+        <Button
+          size="sm"
+          tone="ink"
+          :disabled="!canDelete"
+          :title="deleteLabel"
+          :accessible-name="deleteLabel"
+          @click.stop="emit('delete')"
         >
-          <Button
-            v-for="action in defaultActions"
-            :key="action.label"
-            size="sm"
-            :title="action.label"
-            :accessible-name="action.label"
-          >
-            <component :is="action.icon" />
-          </Button>
-        </div>
-      </div>
-
-      <CodeStrip
-        v-if="codeTokens"
-        class="pattern-card__code-strip"
-        :tokens="codeTokens"
-      />
-
-      <div v-if="footerText || statusText" class="pattern-card__active-foot">
-        <span v-if="footerText" class="pattern-card__position">{{ footerText }}</span>
-        <span v-if="statusText" class="pattern-card__status brass">{{ statusText }}</span>
+          <Check v-if="deleteArmed" aria-hidden="true" />
+          <Trash2 v-else aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          tone="ivory"
+          :title="copied ? 'Copied' : 'Copy Strudel code'"
+          :accessible-name="copied ? 'Copied' : 'Copy Strudel code'"
+          @click.stop="emit('copy')"
+        >
+          <Check v-if="copied" aria-hidden="true" />
+          <Copy v-else aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          tone="brass"
+          title="Open in Strudel"
+          accessible-name="Open in Strudel"
+          @click.stop="emit('openStrudel')"
+        >
+          <ExternalLink aria-hidden="true" />
+        </Button>
       </div>
     </div>
-  </article>
+  </Card>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h } from "vue";
+import { computed } from "vue";
+import { Check, Copy, ExternalLink, Trash2 } from "lucide-vue-next";
 import BarTape from "../primatives/BarTape.vue";
 import Button from "../primatives/Button.vue";
+import Card from "../primatives/Card.vue";
 import CodeStrip from "../uniques/CodeStrip/index.vue";
-import type { BarTapeMode, BarTapeSegment } from "../primatives/BarTape.vue";
+import type { BarTapeSegment } from "../primatives/BarTape.vue";
 import type { CodeStripToken } from "../uniques/CodeStrip/index.vue";
 
-export type PatternCardShape = "sleek" | "active";
+export type PatternCardState = "collapsed" | "expanded";
 
 const props = withDefaults(
   defineProps<{
-    shape?: PatternCardShape;
-    num: string;
+    state?: PatternCardState;
+    label: string;
+    ordinal: string;
     name: string;
-    sub: string;
+    metadata: string;
     spine?: string;
-    when?: string;
     barTape?: BarTapeSegment[];
-    barTapeMode?: BarTapeMode;
     codeTokens?: CodeStripToken[];
-    footerText?: string;
-    statusText?: string;
-    showActions?: boolean;
+    codeSource?: string;
+    copied?: boolean;
+    canDelete?: boolean;
+    deleteArmed?: boolean;
   }>(),
   {
-    shape: "sleek",
-    spine: "var(--tomato)",
-    when: undefined,
-    barTape: undefined,
-    barTapeMode: "equal",
+    state: "collapsed",
+    spine: "var(--ivory)",
+    barTape: () => [],
     codeTokens: undefined,
-    footerText: undefined,
-    statusText: undefined,
-    showActions: true,
+    codeSource: undefined,
+    copied: false,
+    canDelete: true,
+    deleteArmed: false,
   },
 );
 
-const cardStyle = computed(() => ({
-  "--pattern-card-spine": props.spine,
-}));
+const emit = defineEmits<{
+  select: [];
+  delete: [];
+  openStrudel: [];
+  copy: [];
+}>();
 
-const makeIcon = (name: string, paths: () => ReturnType<typeof h>[]) =>
-  defineComponent({
-    name,
-    setup() {
-      return () =>
-        h(
-          "svg",
-          {
-            width: 12,
-            height: 12,
-            viewBox: "0 0 16 16",
-            "aria-hidden": "true",
-            fill: "none",
-            stroke: "currentColor",
-            "stroke-width": "2",
-            "stroke-linecap": "butt",
-            "stroke-linejoin": "miter",
-          },
-          paths(),
-        );
-    },
-  });
-
-const PlayIcon = defineComponent({
-  name: "PatternCardPlayIcon",
-  setup() {
-    return () =>
-      h("svg", { width: 12, height: 12, viewBox: "0 0 14 14", "aria-hidden": "true" }, [
-        h("path", { d: "M3 1.5v11l9-5.5z", fill: "currentColor" }),
-      ]);
-  },
+const deleteLabel = computed(() => {
+  if (!props.canDelete) return "Default patterns cannot be deleted";
+  return props.deleteArmed ? "Confirm delete pattern" : "Delete pattern";
 });
-
-const ArmIcon = makeIcon("PatternCardArmIcon", () => [
-  h("circle", { cx: "8", cy: "8", r: "4" }),
-]);
-
-const DuplicateIcon = makeIcon("PatternCardDuplicateIcon", () => [
-  h("path", { d: "M3 5H11V13H3Z" }),
-  h("path", { d: "M5 3H13V11" }),
-]);
-
-const SendDownIcon = makeIcon("PatternCardSendDownIcon", () => [
-  h("path", { d: "M8 2V12" }),
-  h("path", { d: "M4 8L8 12L12 8" }),
-]);
-
-const defaultActions = [
-  { label: "Play", icon: PlayIcon },
-  { label: "Arm take", icon: ArmIcon },
-  { label: "Duplicate", icon: DuplicateIcon },
-  { label: "Send down", icon: SendDownIcon },
-];
 </script>
 
 <style scoped>
 .pattern-card {
-  position: relative;
   width: 100%;
-  color: var(--ivory);
-  font: inherit;
 }
 
-.pattern-card--sleek {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--hairline);
-  background: var(--ink-2);
+.pattern-card--collapsed {
+  color: inherit;
   cursor: pointer;
-  text-align: left;
-  transition:
-    transform var(--dur-panel) var(--ease-swing),
-    opacity var(--dur-panel) var(--ease-brush),
-    border-color var(--dur-ui) var(--ease-brush),
-    background var(--dur-ui) var(--ease-brush);
 }
 
-.pattern-card--sleek:hover,
-.pattern-card--sleek:focus-visible {
-  transform: translateY(-6px) rotate(0deg) scale(1);
-  opacity: 1;
-  border-color: var(--ink-5);
-  background: var(--ink-4);
-  outline: none;
+.pattern-card__ordinal {
+  font: 400 42px/.9 var(--font-display);
+  letter-spacing: var(--tracking-display);
 }
 
-.pattern-card__row {
-  display: grid;
-  grid-template-columns: 4px 56px minmax(0, 1fr) 74px;
-  align-items: center;
-  gap: var(--s-5);
-  height: 50px;
-  padding: 0 14px 0 0;
-}
-
-.pattern-card__spine {
-  display: block;
-  align-self: stretch;
-  background: var(--pattern-card-spine);
-}
-
-.pattern-card--active > .pattern-card__spine {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 4px;
-}
-
-.pattern-card__num {
-  color: var(--ivory-4);
-  font: var(--t-display-m);
-  line-height: .9;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.pattern-card__meta,
-.pattern-card__active-copy {
+.pattern-card__summary,
+.pattern-card__expanded-head {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  padding: 22px 74px 12px 22px;
+}
+
+.pattern-card__summary {
+  min-height: 58px;
+  justify-content: center;
+}
+
+.pattern-card__expanded-head {
+  min-height: 74px;
+  justify-content: flex-end;
+  padding-bottom: 16px;
 }
 
 .pattern-card__name {
-  display: block;
   overflow: hidden;
   color: var(--ivory);
   font: var(--t-h2);
@@ -243,118 +178,35 @@ const defaultActions = [
   white-space: nowrap;
 }
 
-.pattern-card__sub {
-  display: block;
+.pattern-card__meta {
   overflow: hidden;
-  margin-top: 3px;
+  margin-top: 5px;
   color: var(--ivory-3);
-  font: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: .14em;
-  line-height: 1.2;
+  font: var(--t-caption);
+  letter-spacing: .12em;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.pattern-card__when {
-  color: var(--ivory-3);
-  font: var(--t-mono);
-  font-size: 9px;
-  letter-spacing: .14em;
-  text-align: right;
-  text-transform: uppercase;
-}
-
-.pattern-card--active {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--ivory-3);
-  background: var(--ink-4);
-  box-shadow: var(--ring), 0 8px 0 var(--ink);
-}
-
-.pattern-card__active-inner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-5);
-  padding: 18px 18px 16px 22px;
-}
-
-.pattern-card__active-head {
-  display: flex;
-  align-items: center;
-  gap: var(--s-6);
-}
-
-.pattern-card--active .pattern-card__num {
-  color: var(--ivory-3);
-  font: var(--t-display-l);
-  line-height: .9;
-}
-
-.pattern-card--active .pattern-card__name {
-  font: var(--t-display-m);
-}
-
-.pattern-card__active-copy {
-  flex: 1;
-}
-
-.pattern-card__icon-row {
-  display: flex;
-  gap: var(--s-3);
-}
-
 .pattern-card__code-strip {
-  border-right: 0;
-  border-left: 0;
-  margin-right: -18px;
-  margin-left: -22px;
-  padding-right: 18px;
-  padding-left: 22px;
-}
-
-.pattern-card__active-foot {
-  display: flex;
-  align-items: center;
-  gap: var(--s-5);
+  width: 100%;
   border-top: 1px solid var(--hairline);
-  padding-top: var(--s-5);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.pattern-card__position {
-  color: var(--ivory-3);
-  font: var(--t-mono);
-  font-size: 10px;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-
-.pattern-card__status {
-  display: inline-flex;
+.pattern-card__action-foot {
+  display: flex;
+  min-height: 54px;
   align-items: center;
-  gap: var(--s-3);
-  margin-left: auto;
-  border-radius: 0;
-  padding: 4px 10px;
-  font: var(--t-mono);
-  font-size: 10px;
-  letter-spacing: .16em;
-  text-transform: uppercase;
+  justify-content: flex-end;
+  padding: 10px 14px 12px 22px;
 }
 
-.pattern-card__status::before {
-  width: 8px;
-  height: 8px;
-  background: var(--brass-edge);
-  content: "";
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pattern-card {
-    transition-duration: 0ms;
-    animation: none;
-  }
+.pattern-card__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
 }
 </style>

@@ -155,14 +155,20 @@ export function useStringRenderer() {
       solfegeIndex,
       frequency,
       octave,
+      keyboardOctave,
       duration,
       durationMs: eventDurationMs,
       noteId,
       mode,
       key,
     } = event.detail;
+    const activationOctave = keyboardOctave ?? octave;
 
-    if (solfegeIndex !== undefined && frequency && octave) {
+    if (
+      solfegeIndex !== undefined
+      && frequency
+      && typeof activationOctave === "number"
+    ) {
       // Calculate end time based on duration or default to 500ms
       let durationMs = 500; // Default duration
 
@@ -187,14 +193,17 @@ export function useStringRenderer() {
         : Date.now() + durationMs;
 
       // Add to event-activated strings
-      eventActivatedStrings.value.set(noteId ?? getStringActivationKey(solfegeIndex, octave), {
-        solfegeIndex,
-        frequency,
-        octave,
-        mode: (mode ?? musicStore.currentMode) as MusicalMode,
-        key: (key ?? musicStore.currentKey) as ChromaticNote,
-        endTime,
-      });
+      eventActivatedStrings.value.set(
+        noteId ?? getStringActivationKey(solfegeIndex, activationOctave),
+        {
+          solfegeIndex,
+          frequency,
+          octave: activationOctave,
+          mode: (mode ?? musicStore.currentMode) as MusicalMode,
+          key: (key ?? musicStore.currentKey) as ChromaticNote,
+          endTime,
+        },
+      );
     }
   };
 
@@ -238,7 +247,7 @@ export function useStringRenderer() {
       const matchingActiveNote = activeNotes.find(
         (activeNote: any) =>
           activeNote.solfegeIndex === string.noteIndex &&
-          activeNote.octave === string.octave
+          (activeNote.keyboardOctave ?? activeNote.octave) === string.octave
       );
       const isStringActiveFromInput = Boolean(matchingActiveNote);
 

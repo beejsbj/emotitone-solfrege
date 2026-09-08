@@ -6,6 +6,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
 import MainApp from "./MainApp.vue";
+import { beginJoystickPageEdition } from "./components/uniques/Joystick/edition";
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const isStyleGuide = pathname === "/style-guide";
@@ -16,6 +17,8 @@ if (isStyleGuide) {
   document.documentElement.classList.add("style-guide-route");
   document.body?.classList.add("style-guide-route");
   void import("./style-guide/guide-defaults.css");
+} else {
+  beginJoystickPageEdition();
 }
 
 const StyleGuide = defineAsyncComponent(

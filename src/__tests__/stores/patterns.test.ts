@@ -3,6 +3,7 @@ import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
@@ -169,6 +170,34 @@ describe("Patterns Store", () => {
     ]);
     expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
     expect(patternsStore.currentSketchMeta.bpm).toBe(120);
+  });
+
+  it("records delayed notes with their attack-time key and mode context", () => {
+    const musicStore = useMusicStore();
+    musicStore.setKey("G");
+    musicStore.setMode("minor");
+
+    patternsStore.handleNotePressed({
+      detail: {
+        noteId: "delayed-chord-note",
+        noteName: "E4",
+        solfegeIndex: 2,
+        octave: 4,
+        frequency: 329.63,
+        instrument: "piano",
+        note: createLogNote().solfege,
+        key: "C",
+        mode: "major",
+      },
+    } as CustomEvent);
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "delayed-chord-note" },
+    } as CustomEvent);
+
+    expect(patternsStore.loggedNotes[0]).toMatchObject({
+      key: "C",
+      mode: "major",
+    });
   });
 
   it("uses the ready fallback in loaded metadata when pattern warmup fails", async () => {
@@ -731,5 +760,28 @@ describe("Patterns Store", () => {
       "G4",
     ]);
     expect(savedPattern?.bpm).toBe(90);
+  });
+
+  it("deletes a user pattern and clears it from the active desk", () => {
+    const pattern = createPattern();
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    const fallbackPattern = patternsStore.patterns.at(-2);
+
+    expect(patternsStore.deletePattern(pattern.id)).toBe(true);
+    expect(patternsStore.savedPatterns).not.toContainEqual(pattern);
+    expect(patternsStore.focusedPatternId).toBe(fallbackPattern?.id);
+    expect(patternsStore.focusedPattern).toEqual(fallbackPattern);
+    expect(patternsStore.loadedBasePatternId).toBeNull();
+    expect(patternsStore.loadedBaseNotes).toEqual([]);
+    expect(patternsStore.isStripCleared).toBe(true);
+  });
+
+  it("does not delete default library patterns", () => {
+    const defaultPattern = patternsStore.patterns.find((pattern) => pattern.isDefault);
+    expect(defaultPattern).toBeDefined();
+
+    expect(patternsStore.deletePattern(defaultPattern!.id)).toBe(false);
+    expect(patternsStore.patterns).toContainEqual(defaultPattern);
   });
 });

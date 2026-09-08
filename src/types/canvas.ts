@@ -52,6 +52,8 @@ export interface ActiveBlob {
   key: ChromaticNote;
   /** Octave snapshot used for scale-relative lightness */
   octave: number;
+  /** Exact chromatic identity used when the note is outside the active scale */
+  pitchClassIndex?: number;
 }
 
 /** The exact blob body prepared for one animation frame. */

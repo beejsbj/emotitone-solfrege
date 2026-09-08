@@ -89,8 +89,9 @@
           </div>
         </template>
 
-        <div class="space-y-3">
-          <TabsContent value="home">
+        <template #default="{ activeValue: panelTab }">
+          <div class="space-y-3">
+            <TabsContent value="home" :active-value="panelTab">
             <section class="config-panel__scene-grid" aria-label="Visual scenes">
               <button
                 v-for="preset in builtInPresets"
@@ -111,6 +112,7 @@
             v-for="tab in sectionTabs"
             :key="tab.name"
             :value="tab.name"
+            :active-value="panelTab"
           >
             <section
               class="config-panel__section"
@@ -219,7 +221,7 @@
             </section>
           </TabsContent>
 
-          <TabsContent value="presets">
+          <TabsContent value="presets" :active-value="panelTab">
             <section class="config-panel__presets">
               <div class="config-panel__preset-group">
                 <p class="config-panel__group-label">Built In</p>
@@ -287,7 +289,7 @@
             </section>
           </TabsContent>
 
-          <TabsContent value="midi">
+          <TabsContent value="midi" :active-value="panelTab">
             <section class="config-panel__midi-grid">
               <article
                 class="config-panel__midi-surface"
@@ -393,8 +395,9 @@
                 </div>
               </article>
             </section>
-          </TabsContent>
-        </div>
+            </TabsContent>
+          </div>
+        </template>
 
       </TabbedOverlayPanel>
     </template>

@@ -87,7 +87,7 @@ onBeforeUnmount(() => sizeObserver?.disconnect());
       <div
         ref="body"
         data-testid="overlay-panel-shell-body"
-        class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-3 touch-pan-y"
+        class="overlay-panel-shell__body min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-3 touch-pan-y"
         :class="bodyClass"
         :style="{ WebkitOverflowScrolling: 'touch' }"
       >

@@ -210,6 +210,7 @@ describe('InstrumentSelector.vue', () => {
 
     expect(instrumentStore.initializeInstruments).toHaveBeenCalledTimes(1)
     expect(getRegisteredSounds).toHaveBeenCalledTimes(1)
+    expect(wrapper.findComponent({ name: 'TabbedOverlayPanel' }).props('retainedTabValue')).toBe('all')
     expect(wrapper.find('[data-testid="instrument-search"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector-trigger"]').text()).toContain('piano')
     expect(wrapper.text()).toContain('Keyboards')

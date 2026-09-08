@@ -378,8 +378,8 @@ const activeTabMeta = computed(
     }
 );
 
-const orderedGroups = computed(() => {
-  if (hasSearchQuery.value || activeTab.value === "all") {
+function orderedGroupsFor(tabValue: string) {
+  if (hasSearchQuery.value || tabValue === "all") {
     return CATEGORY_ORDER.filter((category) => grouped.value[category]?.length).map(
       (category) => ({
         key: category,
@@ -389,7 +389,7 @@ const orderedGroups = computed(() => {
     );
   }
 
-  const category = activeTab.value as Category;
+  const category = tabValue as Category;
   const sounds = grouped.value[category] ?? [];
 
   if (!sounds.length) {
@@ -403,7 +403,7 @@ const orderedGroups = computed(() => {
       sounds: prioritizeSounds(sounds),
     },
   ];
-});
+}
 
 const visibleSoundCount = computed(() => {
   if (hasSearchQuery.value) {
@@ -555,6 +555,7 @@ async function selectInstrument(name: string, close: () => void) {
         @content-height="drawerContentHeight = $event"
         v-model="activeTab"
         :tabs="allTabs"
+        retained-tab-value="all"
         tab-test-id-prefix="instrument-tab"
         tabs-aria-label="Instrument banks"
         embedded
@@ -618,8 +619,9 @@ async function selectInstrument(name: string, close: () => void) {
           </div>
         </template>
 
-        <div class="space-y-3">
-          <div
+        <template #default="{ activeValue: panelTab }">
+          <div class="space-y-3">
+            <div
             v-if="warmupStatusMessage"
             data-testid="instrument-warmup-banner"
             role="status"
@@ -659,7 +661,7 @@ async function selectInstrument(name: string, close: () => void) {
           </div>
 
           <div
-            v-else-if="!orderedGroups.length"
+            v-else-if="!orderedGroupsFor(panelTab).length"
             class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no sounds in this bank yet.
@@ -667,7 +669,7 @@ async function selectInstrument(name: string, close: () => void) {
 
           <template v-else>
             <section
-              v-for="group in orderedGroups"
+              v-for="group in orderedGroupsFor(panelTab)"
               :key="group.key"
               class="instrument-group"
             >
@@ -708,8 +710,9 @@ async function selectInstrument(name: string, close: () => void) {
                 </button>
               </div>
             </section>
-          </template>
-        </div>
+            </template>
+          </div>
+        </template>
       </TabbedOverlayPanel>
     </template>
   </TopDrawer>

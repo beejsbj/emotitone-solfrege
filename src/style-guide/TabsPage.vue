@@ -56,16 +56,18 @@
             <template #header>
               <p class="tabs-page__panel-kicker">Instrument picker footprint</p>
             </template>
-            <div class="tabs-page__panel-body">
-              {{ activeInstrumentLabel }}
-            </div>
+            <template #default="{ activeValue }">
+              <div class="tabs-page__panel-body">
+                {{ labelFor(instrumentTabs, activeValue) }}
+              </div>
+            </template>
           </TabbedOverlayPanel>
         </div>
 
         <dl class="tabs-page__facts">
           <div><dt>Active</dt><dd>The same selected chip moves beneath the current bank.</dd></div>
           <div><dt>Rail</dt><dd>The panel footer imports the authoritative primitive.</dd></div>
-          <div><dt>Motion</dt><dd>Selection changes retain the shared swing and smear.</dd></div>
+          <div><dt>Motion</dt><dd>Neighboring pages track the finger, then settle together.</dd></div>
           <div><dt>Scale</dt><dd>The compact rail scrolls and keeps the active item in view.</dd></div>
         </dl>
       </article>
@@ -92,9 +94,11 @@
           <template #header>
             <p class="tabs-page__panel-kicker">Config menu footprint</p>
           </template>
-          <div class="tabs-page__panel-body">
-            {{ activeConfigLabel }}
-          </div>
+          <template #default="{ activeValue }">
+            <div class="tabs-page__panel-body">
+              {{ labelFor(configTabs, activeValue) }}
+            </div>
+          </template>
         </TabbedOverlayPanel>
       </div>
     </section>
@@ -103,15 +107,16 @@
       <p class="tabs-page__eyebrow">Accepted definition</p>
       <h2>One moving surface.</h2>
       <p>
-        Tabs remain one visibly continuous selector. The cut-paper chip changes as a stable
-        page-load edition; explicit guide specimens stay pinned so every allowed variant remains inspectable.
+        Tabs remain one visibly continuous selector and content viewport. The cut-paper chip changes
+        as a stable page-load edition; swiped pages move as a pair, and explicit guide specimens stay
+        pinned so every allowed variant remains inspectable.
       </p>
     </aside>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import Tabs, { type TabItem } from "../components/primatives/Tabs.vue";
 import TabbedOverlayPanel, { type TabbedOverlayTab } from "../components/TabbedOverlayPanel.vue";
 
@@ -158,12 +163,8 @@ const configTabs: TabbedOverlayTab[] = configLabels.map(([value, label, shortLab
   shortLabel,
 }));
 
-const activeInstrumentLabel = computed(
-  () => instrumentTabs.find((tab) => tab.value === instrumentValue.value)?.label,
-);
-const activeConfigLabel = computed(
-  () => configTabs.find((tab) => tab.value === configValue.value)?.label,
-);
+const labelFor = (tabs: TabbedOverlayTab[], value: string) =>
+  tabs.find((tab) => tab.value === value)?.label;
 </script>
 
 <style scoped>

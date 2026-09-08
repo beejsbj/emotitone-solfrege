@@ -7,12 +7,12 @@ import tabsPageSource from "@/style-guide/TabsPage.vue?raw";
 const TestIcon = markRaw({ template: "<svg />" });
 
 const tabs = [
-  { label: "All Sounds", shortLabel: "All", value: "all", testId: "tab-all" },
+  { label: "Keyboards", shortLabel: "Keys", value: "keys", testId: "tab-keys" },
   {
-    label: "Keyboards",
-    shortLabel: "Keys",
-    value: "keys",
-    testId: "tab-keys",
+    label: "Mallets",
+    shortLabel: "Mallets",
+    value: "mallets",
+    testId: "tab-mallets",
     icon: TestIcon,
   },
   { label: "Unavailable", value: "off", disabled: true },
@@ -26,21 +26,21 @@ describe("Tabs", () => {
 
   it("emits selection through the authoritative chip surface", async () => {
     const wrapper = mount(Tabs, {
-      props: { tabs, modelValue: "all", layout: "scroll" },
+      props: { tabs, modelValue: "keys", layout: "scroll" },
     });
 
     expect(wrapper.classes()).toContain("tabs--layout-scroll");
-    expect(wrapper.get('[data-testid="tab-all"]').attributes("tabindex")).toBe("0");
-    expect(wrapper.get('[data-testid="tab-keys"]').attributes("tabindex")).toBe("-1");
-    expect(wrapper.get('[data-testid="tab-keys"]').attributes("aria-label")).toBe("Keyboards");
+    expect(wrapper.get('[data-testid="tab-keys"]').attributes("tabindex")).toBe("0");
+    expect(wrapper.get('[data-testid="tab-mallets"]').attributes("tabindex")).toBe("-1");
+    expect(wrapper.get('[data-testid="tab-mallets"]').attributes("aria-label")).toBe("Mallets");
 
-    await wrapper.get('[data-testid="tab-keys"]').trigger("click");
-    expect(wrapper.emitted("update:modelValue")).toEqual([["keys"]]);
+    await wrapper.get('[data-testid="tab-mallets"]').trigger("click");
+    expect(wrapper.emitted("update:modelValue")).toEqual([["mallets"]]);
   });
 
   it("keeps disabled destinations inert and pins explicit guide variants", async () => {
     const wrapper = mount(Tabs, {
-      props: { tabs, defaultValue: "all", geometry: "rip", tone: "brass" },
+      props: { tabs, defaultValue: "keys", geometry: "rip", tone: "brass" },
     });
 
     expect(wrapper.classes()).toContain("tabs--geometry-rip");
@@ -114,14 +114,14 @@ describe("Tabs", () => {
   it("drag-scrolls an overflowing rail without selecting the tab under release", async () => {
     vi.useFakeTimers();
     const wrapper = mount(Tabs, {
-      props: { tabs, modelValue: "all", layout: "scroll" },
+      props: { tabs, modelValue: "keys", layout: "scroll" },
     });
     Object.defineProperty(wrapper.element, "scrollLeft", {
       configurable: true,
       writable: true,
       value: 120,
     });
-    const destination = wrapper.get('[data-testid="tab-keys"]');
+    const destination = wrapper.get('[data-testid="tab-mallets"]');
 
     await destination.trigger("pointerdown", {
       pointerId: 7,
@@ -159,6 +159,6 @@ describe("Tabs", () => {
 
     vi.advanceTimersByTime(401);
     await destination.trigger("click");
-    expect(wrapper.emitted("update:modelValue")).toEqual([["keys"]]);
+    expect(wrapper.emitted("update:modelValue")).toEqual([["mallets"]]);
   });
 });

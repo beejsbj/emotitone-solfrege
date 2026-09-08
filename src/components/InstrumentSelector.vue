@@ -49,16 +49,6 @@ const instrumentIcon = computed(() => instrumentIconFor(currentInstrumentId.valu
 const allSounds = ref<string[]>([]);
 const query = ref("");
 
-onMounted(async () => {
-  try {
-    await instrumentStore.initializeInstruments();
-  } catch {
-    // The global loading flow already reports degraded initialization. Keep
-    // the chooser usable for whatever sounds were registered successfully.
-  }
-  allSounds.value = getRegisteredSounds().sort();
-});
-
 type Category =
   | "synths"
   | "keyboards"
@@ -338,10 +328,7 @@ function groupSounds(sounds: string[]) {
   return map;
 }
 
-
-type PanelTab = "all" | Category;
-
-const activeTab = ref<PanelTab>("all");
+const activeTab = ref<Category>(categorise(currentInstrumentId.value));
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
@@ -356,30 +343,36 @@ const categoryTabs = computed(() =>
   )
 );
 
-const allTabs = computed<TabbedOverlayTab[]>(() => [
-  {
-    value: "all",
-    label: "All Sounds",
-    shortLabel: "All",
-  },
-  ...categoryTabs.value.map((tab) => ({
+const bankTabs = computed<TabbedOverlayTab[]>(() =>
+  categoryTabs.value.map((tab) => ({
     value: tab.key,
     label: tab.label,
     shortLabel: tab.shortLabel,
   })),
-]);
-
-const activeTabMeta = computed(
-  () =>
-    allTabs.value.find((tab) => tab.value === activeTab.value) ?? {
-      value: "all",
-      label: "All Sounds",
-      shortLabel: "All",
-    }
 );
 
+onMounted(async () => {
+  try {
+    await instrumentStore.initializeInstruments();
+  } catch {
+    // The global loading flow already reports degraded initialization. Keep
+    // the chooser usable for whatever sounds were registered successfully.
+  }
+  allSounds.value = getRegisteredSounds().sort();
+  const preferredCategory = categorise(currentInstrumentId.value);
+  activeTab.value = allGrouped.value[preferredCategory]?.length
+    ? preferredCategory
+    : categoryTabs.value[0]?.key ?? preferredCategory;
+});
+
+const activeTabMeta = computed(() => ({
+  value: activeTab.value,
+  label: CATEGORY_LABELS[activeTab.value],
+  shortLabel: CATEGORY_SHORT_LABELS[activeTab.value],
+}));
+
 function orderedGroupsFor(tabValue: string) {
-  if (hasSearchQuery.value || tabValue === "all") {
+  if (hasSearchQuery.value) {
     return CATEGORY_ORDER.filter((category) => grouped.value[category]?.length).map(
       (category) => ({
         key: category,
@@ -410,11 +403,7 @@ const visibleSoundCount = computed(() => {
     return filteredSounds.value.length;
   }
 
-  if (activeTab.value === "all") {
-    return allSounds.value.length;
-  }
-
-  return allGrouped.value[activeTab.value as Category]?.length ?? 0;
+  return allGrouped.value[activeTab.value]?.length ?? 0;
 });
 
 const bankLabel = computed(() => {
@@ -554,8 +543,7 @@ async function selectInstrument(name: string, close: () => void) {
       <TabbedOverlayPanel
         @content-height="drawerContentHeight = $event"
         v-model="activeTab"
-        :tabs="allTabs"
-        retained-tab-value="all"
+        :tabs="bankTabs"
         tab-test-id-prefix="instrument-tab"
         tabs-aria-label="Instrument banks"
         embedded

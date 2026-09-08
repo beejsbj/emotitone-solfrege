@@ -21,7 +21,6 @@ interface Props {
   bodyClass?: string;
   tabTestIdPrefix?: string;
   tabsAriaLabel?: string;
-  retainedTabValue?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -124,18 +123,8 @@ const adjacentTab = (direction: -1 | 1, fromValue = activeValue.value) => {
 
 interface SwipePage {
   value: string;
-  position: "previous" | "current" | "next" | "retained";
+  position: "previous" | "current" | "next";
 }
-
-const appendRetainedPage = (pages: SwipePage[]) => {
-  const retainedValue = props.retainedTabValue;
-  if (
-    retainedValue &&
-    props.tabs.some((tab) => tab.value === retainedValue) &&
-    !pages.some((page) => page.value === retainedValue)
-  ) pages.push({ value: retainedValue, position: "retained" });
-  return pages;
-};
 
 const swipePages = computed(() => {
   if (settlingSwipe.value && settleDirection.value !== null) {
@@ -148,19 +137,19 @@ const swipePages = computed(() => {
         position: settleDirection.value === 1 ? "next" as const : "previous" as const,
       });
     }
-    return appendRetainedPage(pages);
+    return pages;
   }
 
   const direction = swiping.value ? previewDirection.value : null;
   const origin = swipeGesture.originValue || activeValue.value;
   const target = direction === null ? null : adjacentTab(direction, origin);
-  return appendRetainedPage([
+  return [
     { value: origin, position: "current" as const },
     ...(target ? [{
       value: target.value,
       position: direction === 1 ? "next" as const : "previous" as const,
     }] : []),
-  ]);
+  ];
 });
 
 const isSwipePageActive = (value: string) => {
@@ -404,10 +393,6 @@ provide("tabs-context", { value: activeValue });
   position: absolute;
   inset-block-start: 0;
   inline-size: 100%;
-}
-
-.tabbed-overlay-panel__page--retained {
-  display: none;
 }
 
 .tabbed-overlay-panel__page--previous {

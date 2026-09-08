@@ -106,43 +106,6 @@ describe("TabbedOverlayPanel swipe navigation", () => {
     expect(wrapper.get('[data-page-value="blobs"]').exists()).toBe(true);
   });
 
-  it("retains an expensive page and reuses its DOM when swiping back", async () => {
-    const wrapper = mount(TabbedOverlayPanel, {
-      props: { modelValue: "home", tabs, retainedTabValue: "home" },
-      slots: {
-        default: ({ activeValue }: { activeValue: string }) => h(
-          "div",
-          { "data-page-value": activeValue },
-          activeValue,
-        ),
-      },
-    });
-    const surface = wrapper.get('[data-testid="tabbed-overlay-swipe-surface"]');
-    Object.defineProperty(surface.element, "clientWidth", {
-      configurable: true,
-      value: 300,
-    });
-    const retainedContent = wrapper.get('[data-page-value="home"]').element;
-
-    await surface.trigger("pointerdown", pointer(220, 100));
-    await surface.trigger("pointermove", pointer(120, 102));
-    await surface.trigger("pointerup", pointer(120, 102));
-    await wrapper.setProps({ modelValue: "blobs" });
-    await wrapper.get(".tabbed-overlay-panel__page--current").trigger("transitionend", {
-      propertyName: "transform",
-    });
-
-    const retainedPage = wrapper.get(".tabbed-overlay-panel__page--retained");
-    expect(retainedPage.attributes("aria-hidden")).toBe("true");
-    expect(retainedPage.attributes()).toHaveProperty("inert");
-    expect(wrapper.get('[data-page-value="home"]').element).toBe(retainedContent);
-
-    await surface.trigger("pointerdown", pointer(100, 100));
-    await surface.trigger("pointermove", pointer(200, 102));
-    expect(wrapper.get(".tabbed-overlay-panel__page--previous").element).toBe(retainedPage.element);
-    expect(wrapper.get('[data-page-value="home"]').element).toBe(retainedContent);
-  });
-
   it("aligns a neighboring preview with a scrolled viewport and resets after commit", async () => {
     const wrapper = mount(TabbedOverlayPanel, {
       props: { modelValue: "home", tabs },

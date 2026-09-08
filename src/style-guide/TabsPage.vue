@@ -121,7 +121,7 @@ import Tabs, { type TabItem } from "../components/primatives/Tabs.vue";
 import TabbedOverlayPanel, { type TabbedOverlayTab } from "../components/TabbedOverlayPanel.vue";
 
 const sourceValue = ref("instrument");
-const instrumentValue = ref("all");
+const instrumentValue = ref("keys");
 const configValue = ref("home");
 
 const sourceTabs: TabItem[] = [
@@ -132,7 +132,6 @@ const sourceTabs: TabItem[] = [
 ];
 
 const instrumentTabs: TabbedOverlayTab[] = [
-  { value: "all", label: "All Sounds", shortLabel: "All" },
   { value: "keys", label: "Keyboards", shortLabel: "Keys" },
   { value: "synth", label: "Synths", shortLabel: "Synth" },
   { value: "gm", label: "General MIDI", shortLabel: "GM" },

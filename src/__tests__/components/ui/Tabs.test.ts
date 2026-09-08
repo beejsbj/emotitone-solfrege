@@ -34,8 +34,8 @@ describe("Tabs", () => {
     expect(wrapper.get('[data-testid="tab-mallets"]').attributes("tabindex")).toBe("-1");
     expect(wrapper.get('[data-testid="tab-mallets"]').attributes("aria-label")).toBe("Mallets");
 
-    await wrapper.get('[data-testid="tab-mallets"]').trigger("click");
-    expect(wrapper.emitted("update:modelValue")).toEqual([["mallets"]]);
+    await wrapper.get('[data-testid="tab-mallets"]').trigger("click", { detail: 1 });
+    expect(wrapper.emitted("update:modelValue")).toEqual([["mallets", "pointer"]]);
   });
 
   it("keeps disabled destinations inert and pins explicit guide variants", async () => {
@@ -154,11 +154,11 @@ describe("Tabs", () => {
       clientX: 80,
       clientY: 22,
     });
-    await destination.trigger("click");
+    await destination.trigger("click", { detail: 1 });
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
 
     vi.advanceTimersByTime(401);
-    await destination.trigger("click");
-    expect(wrapper.emitted("update:modelValue")).toEqual([["mallets"]]);
+    await destination.trigger("click", { detail: 1 });
+    expect(wrapper.emitted("update:modelValue")).toEqual([["mallets", "pointer"]]);
   });
 });

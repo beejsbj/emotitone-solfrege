@@ -67,7 +67,7 @@
         <dl class="tabs-page__facts">
           <div><dt>Active</dt><dd>The same selected chip moves beneath the current bank.</dd></div>
           <div><dt>Rail</dt><dd>The panel footer imports the authoritative primitive.</dd></div>
-          <div><dt>Motion</dt><dd>Neighboring pages track the finger, then settle together.</dd></div>
+          <div><dt>Motion</dt><dd>Swipes track the finger; rail taps slide the same paired pages.</dd></div>
           <div><dt>Scale</dt><dd>The compact rail scrolls and keeps the active item in view.</dd></div>
         </dl>
       </article>
@@ -108,7 +108,7 @@
       <h2>One moving surface.</h2>
       <p>
         Tabs remain one visibly continuous selector and content viewport. The cut-paper chip changes
-        as a stable page-load edition; swiped pages move as a pair, and explicit guide specimens stay
+        as a stable page-load edition; swiped or tapped pages move as a pair, and explicit guide specimens stay
         pinned so every allowed variant remains inspectable.
       </p>
     </aside>

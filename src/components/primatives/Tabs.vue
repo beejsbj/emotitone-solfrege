@@ -32,7 +32,7 @@
         role="tab"
         :aria-label="tab.icon ? tab.label : undefined"
         :aria-selected="tab.value === activeValue"
-        @click="selectTab(tab)"
+        @click="selectTab(tab, $event)"
       >
         <span v-if="tab.icon" class="tabs__label tabs__label--icon">
           <component :is="tab.icon" class="tabs__icon" />
@@ -73,6 +73,7 @@ export type TabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "rip";
 export type TabsDensity = "comfortable" | "compact";
 export type TabsTone = "ivory" | "brass";
 export type TabsLayout = "equal" | "scroll";
+export type TabsSelectionSource = "pointer" | "keyboard";
 
 const props = withDefaults(
   defineProps<{
@@ -95,7 +96,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  "update:modelValue": [value: string];
+  "update:modelValue": [value: string, source: TabsSelectionSource];
 }>();
 
 const scrollEl = ref<HTMLElement | null>(null);
@@ -118,15 +119,7 @@ const railGesture = {
   axis: null as "horizontal" | "vertical" | null,
 };
 
-const activeValue = computed({
-  get: () => props.modelValue ?? internalValue.value,
-  set: (value: string) => {
-    if (props.modelValue === undefined) {
-      internalValue.value = value;
-    }
-    emit("update:modelValue", value);
-  },
-});
+const activeValue = computed(() => props.modelValue ?? internalValue.value);
 
 const pageEdition = currentTabsPageEdition();
 const hasPinnedEdition = computed(() => props.geometry !== undefined || props.tone !== undefined);
@@ -270,9 +263,10 @@ const triggerSmear = () => {
   }, 220);
 };
 
-const selectTab = (tab: TabItem) => {
+const selectTab = (tab: TabItem, event: MouseEvent) => {
   if (tab.disabled || tab.value === activeValue.value) return;
-  activeValue.value = tab.value;
+  if (props.modelValue === undefined) internalValue.value = tab.value;
+  emit("update:modelValue", tab.value, event.detail === 0 ? "keyboard" : "pointer");
   triggerSmear();
   void nextTick(() => {
     measureChip();

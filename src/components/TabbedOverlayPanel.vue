@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, provide, ref, type Component } from "vue";
-import Tabs, { type TabItem } from "@/components/primatives/Tabs.vue";
+import Tabs, {
+  type TabItem,
+  type TabsSelectionSource,
+} from "@/components/primatives/Tabs.vue";
 import OverlayPanelShell from "./OverlayPanelShell.vue";
 
 export interface TabbedOverlayTab {
@@ -249,6 +252,26 @@ const beginSwipeSettle = (target: TabbedOverlayTab | null, direction: -1 | 1, co
   });
 };
 
+const handleTabSelection = (value: string, source: TabsSelectionSource) => {
+  if (value === activeValue.value) return;
+  const availableTabs = props.tabs.filter((tab) => !tab.disabled);
+  const originIndex = availableTabs.findIndex((tab) => tab.value === activeValue.value);
+  const targetIndex = availableTabs.findIndex((tab) => tab.value === value);
+  const target = targetIndex >= 0 ? availableTabs[targetIndex] : null;
+
+  if (!target || source === "keyboard" || originIndex < 0) {
+    if (target) activeValue.value = target.value;
+    return;
+  }
+
+  if (settlingSwipe.value) finishSwipeSettle();
+  resetSwipeGesture();
+  applySwipeOffset(0);
+  swipeGesture.originValue = activeValue.value;
+  swipePreviewTop.value = swipeScrollContainer()?.scrollTop ?? 0;
+  beginSwipeSettle(target, targetIndex > originIndex ? 1 : -1, true);
+};
+
 const handleSwipePointerEnd = (event: PointerEvent) => {
   if (event.pointerId !== swipeGesture.pointerId) return;
 
@@ -362,11 +385,12 @@ provide("tabs-context", { value: activeValue });
 
       <template v-if="tabs.length > 0" #footer>
         <Tabs
-          v-model="activeValue"
+          :model-value="activeValue"
           :tabs="tabItems"
           density="compact"
           layout="scroll"
           :aria-label="tabsAriaLabel"
+          @update:model-value="handleTabSelection"
         />
       </template>
     </OverlayPanelShell>

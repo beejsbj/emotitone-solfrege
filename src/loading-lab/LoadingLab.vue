@@ -2,38 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import ConvergedLoadingVariant from "./ConvergedLoadingVariant.vue";
 
-type VariantId = "a" | "b";
-
-const variants = [
-  {
-    id: "a" as const,
-    name: "Chromatic Syllables",
-    author: "Ivory",
-    component: ConvergedLoadingVariant,
-    props: { surface: "ivory" as const, laneTreatment: "neutral-bars" as const },
-  },
-  {
-    id: "b" as const,
-    name: "Chromatic Bars",
-    author: "Ink",
-    component: ConvergedLoadingVariant,
-    props: { surface: "ink" as const, laneTreatment: "chromatic-bars" as const },
-  },
-];
-
-const requestedVariant = new URLSearchParams(window.location.search).get("variant");
-const initialVariant = variants.some((variant) => variant.id === requestedVariant)
-  ? requestedVariant as VariantId
-  : "a";
-
-const selected = ref<VariantId>(initialVariant);
 const progress = ref(38);
 const playing = ref(true);
 let timer: ReturnType<typeof setInterval> | undefined;
-
-const currentVariant = computed(() => (
-  variants.find((variant) => variant.id === selected.value) ?? variants[0]
-));
 
 const phase = computed(() => {
   if (progress.value >= 100) return "Ready to play";
@@ -106,23 +77,9 @@ onBeforeUnmount(() => {
   <main class="loading-lab">
     <header class="loading-lab__controls">
       <div class="loading-lab__title">
-        <strong>LOADING SCREEN LAB</strong>
-        <span>Temporary definition workbench</span>
+        <strong>B · CHROMATIC BARS</strong>
+        <span>Loading screen workbench · Ink</span>
       </div>
-
-      <nav class="loading-lab__variants" aria-label="Loading screen variants">
-        <button
-          v-for="variant in variants"
-          :key="variant.id"
-          type="button"
-          :class="{ 'is-active': selected === variant.id }"
-          @click="selected = variant.id"
-        >
-          <span>{{ variant.id.toUpperCase() }}</span>
-          {{ variant.name }}
-          <small>{{ variant.author }}</small>
-        </button>
-      </nav>
 
       <div class="loading-lab__playback">
         <label>
@@ -142,14 +99,12 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <section class="loading-lab__preview" :aria-label="`${currentVariant.name} preview`">
-      <component
-        :is="currentVariant.component"
+    <section class="loading-lab__preview" aria-label="Chromatic Bars preview">
+      <ConvergedLoadingVariant
         :progress="progress"
         :stages="stages"
         :phase="phase"
         :message="message"
-        v-bind="currentVariant.props"
         @enter="enterApp"
       />
     </section>
@@ -172,7 +127,7 @@ onBeforeUnmount(() => {
   z-index: 100;
   display: grid;
   min-height: 66px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 22px;
   padding: 10px 16px;
@@ -199,14 +154,6 @@ onBeforeUnmount(() => {
   font-size: 9px;
 }
 
-.loading-lab__variants {
-  display: flex;
-  min-width: 0;
-  justify-content: center;
-  gap: 6px;
-  overflow-x: auto;
-}
-
 .loading-lab button {
   min-height: 42px;
   border: 1px solid var(--ink-5);
@@ -217,29 +164,6 @@ onBeforeUnmount(() => {
   letter-spacing: .06em;
   padding: 8px 10px;
 }
-
-.loading-lab__variants button {
-  display: inline-grid;
-  grid-template-columns: auto auto;
-  column-gap: 7px;
-  align-items: baseline;
-}
-
-.loading-lab__variants button > span { color: var(--mustard); }
-.loading-lab__variants button small {
-  grid-column: 2;
-  color: var(--ivory-3);
-  font: var(--t-caption);
-  font-size: 8px;
-}
-
-.loading-lab__variants button.is-active {
-  border-color: var(--ivory);
-  background: var(--ivory);
-  color: var(--ink);
-}
-
-.loading-lab__variants button.is-active small { color: var(--ink-5); }
 
 .loading-lab__playback {
   display: flex;
@@ -269,14 +193,6 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-@media (max-width: 920px) {
-  .loading-lab__controls {
-    grid-template-columns: 1fr auto;
-  }
-  .loading-lab__title { display: none; }
-  .loading-lab__variants { justify-content: flex-start; overflow-x: auto; }
-}
-
 @media (max-width: 680px) {
   .loading-lab__controls {
     position: relative;
@@ -285,7 +201,6 @@ onBeforeUnmount(() => {
     gap: 0;
     padding: 6px 8px;
   }
-  .loading-lab__variants button { flex: 0 0 auto; }
   .loading-lab__playback { display: none; }
   .loading-lab__preview,
   .loading-lab__preview > :deep(*) { min-height: 0; }

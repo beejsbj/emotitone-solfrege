@@ -10,19 +10,13 @@ import { resolveExactMusicColorsByPitchClass } from "../services/musicColor";
 import type { DynamicColorConfig } from "../types";
 
 type LoadingStage = { label: string; complete: boolean; active: boolean; icon?: "midi" };
-type Surface = "ivory" | "ink";
-type LaneTreatment = "neutral-bars" | "chromatic-bars";
 
 const props = withDefaults(defineProps<{
-  surface?: Surface;
-  laneTreatment?: LaneTreatment;
   progress?: number;
   stages?: LoadingStage[];
   phase?: string;
   message?: string;
 }>(), {
-  surface: "ivory",
-  laneTreatment: "neutral-bars",
   progress: 38,
   stages: () => [
     { label: "Visual stage", complete: true, active: false },
@@ -91,18 +85,14 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 <template>
   <section
     class="converged-loader"
-    :class="[
-      `converged-loader--${surface}`,
-      `converged-loader--${laneTreatment}`,
-      { 'is-ready': percent === 100 },
-    ]"
+    :class="{ 'is-ready': percent === 100 }"
     aria-label="EmotiTone loading preview"
   >
     <main class="converged-loader__main">
       <div class="converged-loader__logo" aria-hidden="true">
         <BrandLogo
           layout="stacked"
-          :surface="surface === 'ink' ? 'ink' : 'bone'"
+          surface="ink"
           size="var(--loading-logo-size)"
         />
       </div>
@@ -132,7 +122,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
               <span>{{ stage.label }}</span>
             </span>
             <span class="converged-loader__stamp" :class="{ 'is-visible': stage.complete }" aria-hidden="true">
-              <Sticker :color="surface === 'ink' ? 'ivory' : 'ink'" variant="fill">SET</Sticker>
+              <Sticker color="ivory" variant="fill">SET</Sticker>
             </span>
           </li>
         </ol>
@@ -140,20 +130,6 @@ function laneStyle(lane: typeof lanes[number], index: number) {
     </main>
 
     <div class="converged-loader__progress-stage">
-      <div class="converged-loader__completion-slot">
-        <button
-          v-if="percent === 100"
-          type="button"
-          class="converged-loader__completion-action"
-          aria-label="Enter EmotiTone"
-          title="Enter EmotiTone"
-          @click="emit('enter')"
-        >
-          <span aria-hidden="true">►</span>
-          PLAY
-        </button>
-      </div>
-
       <div
         class="converged-loader__meter"
         role="progressbar"
@@ -179,6 +155,18 @@ function laneStyle(lane: typeof lanes[number], index: number) {
         </div>
       </div>
 
+      <button
+        v-if="percent === 100"
+        type="button"
+        class="converged-loader__completion-action"
+        aria-label="Enter EmotiTone"
+        title="Enter EmotiTone"
+        @click="emit('enter')"
+      >
+        <span aria-hidden="true">►</span>
+        PLAY
+      </button>
+
       <div class="converged-loader__lanes" aria-hidden="true">
         <span
           v-for="(lane, index) in lanes"
@@ -200,12 +188,13 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 <style scoped>
 .converged-loader {
   --loading-logo-size: min(330px, 48vmin);
-  --surface: var(--ivory);
-  --foreground: var(--ink);
-  --muted: var(--ink-5);
-  --quiet: color-mix(in srgb, var(--ink) 12%, transparent);
+  --surface: var(--ink);
+  --foreground: var(--ivory);
+  --muted: var(--ivory-3);
+  --quiet: color-mix(in srgb, var(--ivory) 12%, transparent);
   --lane-strip-height: clamp(72px, 13vh, 116px);
   --entry-action-height: 50px;
+  --entry-action-overlap: 25px;
 
   position: relative;
   display: grid;
@@ -224,13 +213,6 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader *,
 .converged-loader *::before,
 .converged-loader *::after { box-sizing: border-box; }
-
-.converged-loader--ink {
-  --surface: var(--ink);
-  --foreground: var(--ivory);
-  --muted: var(--ivory-3);
-  --quiet: color-mix(in srgb, var(--ivory) 12%, transparent);
-}
 
 .converged-loader__main {
   position: relative;
@@ -301,14 +283,12 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 .converged-loader__copy p {
   margin: 0 0 7px;
-  color: var(--pine);
+  color: var(--mustard);
   font: var(--t-mono);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: .19em;
 }
-
-.converged-loader--ink .converged-loader__copy p { color: var(--mustard); }
 
 .converged-loader__copy h1 {
   margin: 0;
@@ -350,8 +330,10 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 }
 
 .converged-loader__completion-action {
-  position: relative;
+  position: absolute;
   z-index: 4;
+  left: 50%;
+  bottom: calc(var(--lane-strip-height) - var(--entry-action-overlap));
   display: flex;
   width: min(100%, 480px);
   min-height: var(--entry-action-height);
@@ -369,19 +351,13 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   opacity: 0;
   cursor: pointer;
   isolation: isolate;
-  translate: 0 0;
+  translate: -50% 0;
   user-select: none;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
-  animation: converged-gate-arrive 240ms cubic-bezier(.215, .61, .355, 1) 120ms both;
+  animation: converged-gate-rise 600ms cubic-bezier(.215, .61, .355, 1) 40ms both;
   transition: background-color 150ms ease, transform 150ms ease;
-}
-
-.converged-loader__completion-slot {
-  display: grid;
-  height: calc(var(--entry-action-height) + 10px);
-  align-items: start;
-  justify-items: center;
+  will-change: translate, opacity;
 }
 
 .converged-loader__completion-action::after {
@@ -393,7 +369,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   content: "";
   opacity: .24;
   pointer-events: none;
-  animation: converged-gate-glow 2.2s cubic-bezier(.45, 0, .55, 1) 420ms infinite;
+  animation: converged-gate-glow 2.2s cubic-bezier(.45, 0, .55, 1) 700ms infinite;
 }
 
 .converged-loader__completion-action:active { transform: translateY(2px) scale(.99); }
@@ -529,15 +505,13 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   position: absolute;
   inset: auto 0 -10px;
   height: 100%;
-  background: var(--lane-neutral);
+  background: var(--lane-color);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent);
   opacity: 0;
   transform: translate3d(0, 105%, 0);
   transform-origin: center bottom;
   will-change: transform, opacity;
 }
-
-.converged-loader--chromatic-bars .converged-loader__lane-bar { background: var(--lane-color); }
 
 .is-ready .converged-loader__lane-bar {
   animation: converged-lane-bar-arrive 380ms cubic-bezier(.215, .61, .355, 1) var(--lane-delay) both;
@@ -565,14 +539,12 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 }
 
 .converged-loader__lane-label {
-  color: var(--lane-color);
+  color: var(--lane-neutral);
   font: 700 clamp(14px, 1.55vw, 20px)/1 var(--font-display);
   letter-spacing: .02em;
   text-transform: uppercase;
   white-space: nowrap;
 }
-
-.converged-loader--chromatic-bars .converged-loader__lane-label { color: var(--lane-neutral); }
 
 .converged-loader__bars > span {
   height: 100%;
@@ -639,9 +611,12 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   68% { opacity: 1; transform: translate3d(var(--lane-sway-b), 1px, 0); }
 }
 
-@keyframes converged-gate-arrive {
-  from { opacity: 0; translate: 0 4px; }
-  to { opacity: 1; translate: 0 0; }
+@keyframes converged-gate-rise {
+  from {
+    opacity: 0;
+    translate: -50% calc(var(--lane-strip-height) + var(--entry-action-height));
+  }
+  to { opacity: 1; translate: -50% 0; }
 }
 
 @keyframes converged-gate-glow {
@@ -658,6 +633,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader {
     --lane-strip-height: clamp(58px, 10vh, 82px);
     --entry-action-height: 48px;
+    --entry-action-overlap: 24px;
 
     gap: 8px;
     padding: 12px 18px 0;
@@ -689,6 +665,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader {
     --lane-strip-height: min(52px, 11vh);
     --entry-action-height: 44px;
+    --entry-action-overlap: 22px;
 
     padding-block: 10px 0;
   }
@@ -720,7 +697,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__completion-action {
     opacity: 1;
     transform: none;
-    translate: 0 0;
+    translate: -50% 0;
   }
 
   .converged-loader__completion-action,

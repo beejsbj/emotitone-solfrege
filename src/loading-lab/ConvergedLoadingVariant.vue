@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Play } from "lucide-vue-next";
+import MidiPermissionIcon from "../components/MidiPermissionIcon.vue";
 import BrandLogo from "../components/uniques/BrandLogo.vue";
 import Button from "../components/primatives/Button.vue";
 import Mark from "../components/primatives/Mark.vue";
@@ -10,7 +11,7 @@ import { DEFAULT_CONFIG } from "../data/visual-config-metadata";
 import { resolveExactMusicColorsByPitchClass } from "../services/musicColor";
 import type { DynamicColorConfig } from "../types";
 
-type LoadingStage = { label: string; complete: boolean; active: boolean };
+type LoadingStage = { label: string; complete: boolean; active: boolean; icon?: "midi" };
 type Surface = "ivory" | "ink";
 type LaneTreatment = "neutral-bars" | "chromatic-bars";
 
@@ -28,7 +29,7 @@ const props = withDefaults(defineProps<{
   stages: () => [
     { label: "Visual stage", complete: true, active: false },
     { label: "Instrument samples", complete: false, active: true },
-    { label: "MIDI input", complete: false, active: false },
+    { label: "MIDI input", complete: false, active: false, icon: "midi" },
     { label: "Audio system", complete: false, active: false },
     { label: "Ready to play", complete: false, active: false },
   ],
@@ -77,9 +78,14 @@ function barStyle(height: number, index: number) {
 }
 
 function laneStyle(lane: typeof lanes[number], index: number) {
+  const direction = index % 2 === 0 ? -1 : 1;
   return {
     "--lane-color": lane.color,
-    "--lane-delay": `${index * 32}ms`,
+    "--lane-delay": `${index * 24}ms`,
+    "--lane-sway-a": `${direction * (1 + index % 3)}px`,
+    "--lane-sway-b": `${direction * -(1 + (index + 1) % 3)}px`,
+    "--lane-lift": `${-(2 + index % 4)}px`,
+    "--lane-play-duration": `${2.4 + (index % 4) * .24}s`,
   };
 }
 </script>
@@ -110,32 +116,37 @@ function laneStyle(lane: typeof lanes[number], index: number) {
         </div>
 
         <div class="converged-loader__status" role="status" aria-live="polite">
-          <strong>{{ phase }}</strong>
-          <span>{{ message }}</span>
+          <div class="converged-loader__status-copy">
+            <strong>{{ phase }}</strong>
+            <span>{{ message }}</span>
+          </div>
+          <div v-if="percent === 100" class="converged-loader__completion-action">
+            <strong>PLAY EMOTITONE</strong>
+            <Button
+              size="lg"
+              tone="brass"
+              accessible-name="Enter EmotiTone"
+              title="Enter EmotiTone"
+              @click="emit('enter')"
+            >
+              <Play :size="18" fill="currentColor" />
+            </Button>
+          </div>
         </div>
 
         <ol class="converged-loader__stages" aria-label="Loading stages">
           <li
-            v-for="(stage, index) in stages"
+            v-for="stage in stages"
             :key="stage.label"
             :class="{ 'is-complete': stage.complete, 'is-active': stage.active }"
           >
             <Mark class="converged-loader__bullet" name="disk" tone="inherit" :size="8" aria-hidden="true" />
-            <span>{{ stage.label }}</span>
+            <span class="converged-loader__stage-label">
+              <MidiPermissionIcon v-if="stage.icon === 'midi'" class="converged-loader__midi-icon" />
+              <span>{{ stage.label }}</span>
+            </span>
             <span class="converged-loader__stamp" :class="{ 'is-visible': stage.complete }" aria-hidden="true">
               <Sticker :color="surface === 'ink' ? 'ivory' : 'ink'" variant="fill">SET</Sticker>
-            </span>
-            <span class="converged-loader__stage-action">
-              <Button
-                v-if="index === stages.length - 1 && percent === 100"
-                size="sm"
-                :tone="surface === 'ink' ? 'ivory' : 'ink'"
-                accessible-name="Enter EmotiTone"
-                title="Enter EmotiTone"
-                @click="emit('enter')"
-              >
-                <Play :size="14" fill="currentColor" />
-              </Button>
             </span>
           </li>
         </ol>
@@ -306,26 +317,53 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 }
 
 .converged-loader__status {
+  position: relative;
+  display: grid;
+  min-height: 48px;
+  min-width: 0;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.converged-loader__status-copy {
   display: grid;
   min-width: 0;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: baseline;
   gap: 14px;
-  margin-top: 2px;
 }
 
-.converged-loader__status strong {
+.converged-loader__status-copy strong {
   font: var(--t-label);
   letter-spacing: .04em;
   text-transform: uppercase;
 }
 
-.converged-loader__status span {
+.converged-loader__status-copy > span {
   overflow: hidden;
   color: var(--muted);
   font: var(--t-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.is-ready .converged-loader__status-copy { opacity: 0; }
+
+.converged-loader__completion-action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 13px;
+  opacity: 0;
+  animation: converged-enter-arrive 240ms cubic-bezier(.215, .61, .355, 1) 120ms both;
+}
+
+.converged-loader__completion-action > strong {
+  color: var(--foreground);
+  font: 700 18px/1 var(--font-display);
+  letter-spacing: .04em;
 }
 
 .converged-loader__stages {
@@ -340,7 +378,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader__stages li {
   display: grid;
   min-width: 0;
-  grid-template-columns: 10px minmax(0, 1fr) 46px 38px;
+  grid-template-columns: 10px minmax(0, 1fr) 46px;
   align-items: center;
   gap: 9px;
   color: var(--muted);
@@ -355,6 +393,19 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader__stages li.is-active { opacity: .72; }
 .converged-loader__stages li.is-complete { color: var(--foreground); opacity: 1; }
 .converged-loader__bullet { color: currentColor; }
+
+.converged-loader__stage-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.converged-loader__midi-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
 
 .converged-loader__stamp {
   display: inline-flex;
@@ -373,17 +424,6 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader__stamp :deep(.sticker) {
   font-size: 8px;
   padding: 4px 8px 3px;
-}
-
-.converged-loader__stage-action {
-  display: grid;
-  width: 38px;
-  place-items: center end;
-}
-
-.converged-loader__stage-action :deep(.paper-button) {
-  opacity: 0;
-  animation: converged-enter-arrive 220ms cubic-bezier(.215, .61, .355, 1) 120ms both;
 }
 
 .converged-loader__meter {
@@ -454,9 +494,17 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   height: 100%;
   background: var(--lane-neutral);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent);
+  opacity: 0;
+  transform: translate3d(0, 105%, 0);
+  transform-origin: center bottom;
+  will-change: transform, opacity;
 }
 
 .converged-loader--chromatic-bars .converged-loader__lane-bar { background: var(--lane-color); }
+
+.is-ready .converged-loader__lane-bar {
+  animation: converged-lane-bar-arrive 380ms cubic-bezier(.215, .61, .355, 1) var(--lane-delay) both;
+}
 
 .converged-loader__lane-peek {
   position: absolute;
@@ -474,7 +522,9 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 }
 
 .is-ready .converged-loader__lane-peek {
-  animation: converged-lane-peek 620ms cubic-bezier(.215, .61, .355, 1) var(--lane-delay) both;
+  animation:
+    converged-lane-peek 540ms cubic-bezier(.215, .61, .355, 1) calc(180ms + var(--lane-delay)) both,
+    converged-lane-play var(--lane-play-duration) cubic-bezier(.45, 0, .55, 1) calc(720ms + var(--lane-delay)) infinite;
 }
 
 .converged-loader__lane-label {
@@ -483,7 +533,6 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   letter-spacing: .02em;
   text-transform: uppercase;
   white-space: nowrap;
-  transform: rotate(90deg);
 }
 
 .converged-loader--chromatic-bars .converged-loader__lane-label { color: var(--lane-neutral); }
@@ -542,6 +591,17 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   100% { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
+@keyframes converged-lane-bar-arrive {
+  from { opacity: 0; transform: translate3d(0, 105%, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes converged-lane-play {
+  0%, 100% { opacity: 1; transform: translate3d(0, 0, 0); }
+  34% { opacity: 1; transform: translate3d(var(--lane-sway-a), var(--lane-lift), 0); }
+  68% { opacity: 1; transform: translate3d(var(--lane-sway-b), 1px, 0); }
+}
+
 @keyframes converged-enter-arrive {
   from { opacity: 0; transform: translate3d(0, 4px, 0) scale(.94); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
@@ -571,8 +631,8 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__copy p { margin-bottom: 3px; font-size: 8px; }
   .converged-loader__copy h1 { font-size: clamp(34px, 10vw, 43px); line-height: 1.1; }
   .converged-loader__status { margin-top: 4px; }
-  .converged-loader__status { grid-template-columns: 1fr; gap: 2px; }
-  .converged-loader__status span { font-size: 9px; }
+  .converged-loader__status-copy { grid-template-columns: 1fr; gap: 2px; }
+  .converged-loader__status-copy > span { font-size: 9px; }
   .converged-loader__stages { height: clamp(92px, 15vh, 112px); }
   .converged-loader__stages li { font-size: 9px; }
   .converged-loader__bars { height: clamp(32px, 6.5vh, 48px); gap: 2px; }
@@ -583,30 +643,35 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 @media (max-height: 650px) {
   .converged-loader { padding-block: 10px 0; }
-  .converged-loader__status { display: none; }
+  .converged-loader__status { min-height: 30px; }
+  .converged-loader__status-copy { display: none; }
+  .converged-loader__completion-action { gap: 8px; }
+  .converged-loader__completion-action > strong { font-size: 14px; }
+  .converged-loader__completion-action :deep(.paper-button) { --button-size: 30px; }
   .converged-loader__main { gap: 6px; }
   .converged-loader__content { gap: 6px; }
   .converged-loader__copy h1 { font-size: clamp(30px, 8vh, 42px); }
   .converged-loader__stages { height: min(96px, 20vh); }
   .converged-loader__bars { height: min(38px, 8vh); }
   .converged-loader__lanes { height: min(52px, 11vh); }
-  .converged-loader__stage-action :deep(.paper-button) { --button-size: 26px; }
 }
 
 @media (max-width: 720px) and (max-height: 650px) {
-  .converged-loader { --loading-logo-size: min(128px, 40vmin); }
+  .converged-loader { --loading-logo-size: min(98px, 34vmin); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .converged-loader__logo :deep(.brand-logo__backdrop),
   .converged-loader__logo :deep(.brand-logo__cut),
   .converged-loader__logo :deep(.brand-logo__sprinkle),
-  .converged-loader__lane-peek,
-  .converged-loader__stage-action :deep(.paper-button),
+  .is-ready .converged-loader__lane-bar,
+  .is-ready .converged-loader__lane-peek,
+  .converged-loader__completion-action,
   .converged-loader__bars > span.is-frontier { animation: none; }
 
+  .is-ready .converged-loader__lane-bar,
   .is-ready .converged-loader__lane-peek,
-  .converged-loader__stage-action :deep(.paper-button) {
+  .converged-loader__completion-action {
     opacity: 1;
     transform: none;
   }

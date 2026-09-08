@@ -57,13 +57,14 @@ const stages = computed(() => {
   const definitions = [
     { label: "Visual stage", start: 0, end: 18 },
     { label: "Instrument samples", start: 18, end: 64 },
-    { label: "MIDI input", start: 64, end: 78 },
+    { label: "MIDI input", start: 64, end: 78, icon: "midi" as const },
     { label: "Audio system", start: 78, end: 96 },
     { label: "Ready to play", start: 96, end: 100 },
   ];
 
   return definitions.map((stage) => ({
     label: stage.label,
+    icon: stage.icon,
     complete: progress.value >= stage.end,
     active: progress.value >= stage.start && progress.value < stage.end,
   }));

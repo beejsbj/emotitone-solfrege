@@ -28,19 +28,19 @@ describe("Brand Logo definition lab", () => {
       expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(1);
     }
 
-    expect(logoLabSource).toContain("Round 07");
+    expect(logoLabSource).toContain("Round 08");
     expect(logoLabSource).toContain("Compact survival");
     expect(logoLabSource).not.toContain("@/components/uniques/BrandLogo.vue");
   });
 
-  it("compares four controlled treatments built from the real Mark primitive", () => {
+  it("compares three controlled treatments built from the real Mark primitive", () => {
     expect(logoLabSource).toContain('from "../../components/primatives/Mark.vue"');
 
-    for (const treatment of ["Gathered Crown", "Offbeat Bouquet", "Close Embrace"]) {
+    for (const treatment of ["Centered Cluster", "Left-Leaning Cluster", "Full Cluster"]) {
       expect(logoLabSource).toContain(treatment);
     }
 
-    for (const mark of ["diamond", "disk", "eighth", "grace", "half-circle", "slur", "wave", "whole"]) {
+    for (const mark of ["diamond", "disk", "eighth", "grace", "half-circle", "staccato", "wave", "whole"]) {
       expect(logoLabSource).toContain(`name: "${mark}"`);
     }
 
@@ -54,8 +54,11 @@ describe("Brand Logo definition lab", () => {
       expect(treatmentSource).toContain('location: "outside"');
       expect(treatmentSource).toContain('layer: "behind"');
       expect(treatmentSource).toContain('layer: "front"');
+      expect(treatmentSource.match(/name: "disk"/g)).toHaveLength(5);
     }
 
+    expect(logoLabSource).toContain("treatment.backdrop");
+    expect(logoLabSource).toContain('data-layer="backdrop"');
     expect(logoLabSource).toContain(':data-location="sprinkle.location"');
     expect(logoLabSource).toContain(':data-layer="sprinkle.layer"');
   });
@@ -64,15 +67,17 @@ describe("Brand Logo definition lab", () => {
     expect(faviconSource.match(/<circle /g)).toHaveLength(5);
     expect(faviconSource).toContain("M150 400 Q256 320 362 400");
     expect(logoLabSource).toContain('src="/icon.svg"');
-    expect(logoLabSource).toContain("One dominant blob + four smaller forms + an upward arch");
-    expect(logoLabSource).toContain("Its recognition comes from hierarchy and gathering");
-    expect(logoLabSource).toContain('name: "slur"');
+    expect(logoLabSource).toContain("Five coloured blobs are the memory");
+    expect(logoLabSource).toContain("The cluster—not the arch—is the recognizable idea");
+    expect(logoLabSource).not.toContain('name: "slur"');
+    expect(logoLabSource).toContain("--e-stem: var(--ink)");
+    expect(logoLabSource).toContain("--t-stem: var(--ivory)");
   });
 
   it("promotes Cobalt through the Brand token owner and real token specimen", () => {
     expect(designSystemSource).toMatch(/--cobalt:\s+#2f67b2/);
     expect(brandColorsSource).toContain("var(--cobalt)");
     expect(brandColorsSource).toContain("#2F67B2");
-    expect(logoLabSource).toContain("--t-stem: var(--cobalt)");
+    expect(logoLabSource).toContain('tone: "cobalt"');
   });
 });

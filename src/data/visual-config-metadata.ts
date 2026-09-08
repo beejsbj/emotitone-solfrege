@@ -803,6 +803,7 @@ export const UNIFIED_CONFIG = {
       max: 8,
       step: 1,
       label: "Visible Rows",
+      hidden: true,
     },
     mainOctave: {
       value: 4,

@@ -189,6 +189,11 @@ describe("ConfigPanel.vue", () => {
     });
   });
 
+  it("keeps drag-owned keyboard row count out of generated settings", () => {
+    expect(UNIFIED_CONFIG.keyboard.rowCount.hidden).toBe(true);
+    expect(configPanelSource).toContain("if (metadata?.hidden) return false");
+  });
+
   it("uses ivory Sticker faces for scene actions without Badge or brass", () => {
     wrapper = createTestWrapper(ConfigPanel);
 

@@ -324,18 +324,18 @@ describe("Keyboard production usage", () => {
     const keys = wrapper.findAllComponents(KeyStub);
 
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(102.77, 1);
+      .toBe(80);
     expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(139.47, 1);
+      .toBeCloseTo(108.57, 1);
   });
 
-  it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {
+  it("fits Drawer allocation within key limits while preserving row hierarchy and identity", async () => {
     const wrapper = mountKeyboard();
     const identities = wrapper.findAllComponents(KeyStub).map(key => key.props("rawPitch"));
     await wrapper.setProps({ availableHeight: 400 });
     let keys = wrapper.findAllComponents(KeyStub);
-    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(105.15, 1);
-    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(142.7, 1);
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBe(80);
+    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(108.57, 1);
     await wrapper.setProps({ availableHeight: 20 });
     keys = wrapper.findAllComponents(KeyStub);
     expect(keys[0].attributes("style")).toContain("--keyboard-note-height: 44px");

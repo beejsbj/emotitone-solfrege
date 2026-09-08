@@ -6,11 +6,14 @@
     handle-align="center"
     accessible-name="Keyboard"
     handle-test-id="keyboard-drawer-handle"
-    storage-key="keyboard"
+    storage-key="keyboard-layout"
     :initial-content-height="initialKeyboardHeight"
     :min-content-height="minimumHeight"
+    :max-content-height="maximumHeight"
     :scroll="false"
+    :drag-to-collapse="false"
     @update:model-value="updateDrawerOpen"
+    @drag-resize="resizeKeyboard"
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent>
@@ -39,13 +42,11 @@
         :mode-value="musicStore.currentMode"
         :bpm="visualConfigStore.config.codeStrip.bpm"
         :octave="store.keyboardConfig.mainOctave"
-        :rows="store.keyboardConfig.rowCount"
         :harmony-value="harmonyLatched"
         @update:key-value="musicStore.setKey"
         @update:mode-value="updateMode"
         @update:bpm="updateBpm"
         @update:octave="store.setMainOctave"
-        @update:rows="store.setRowCount"
         @update:harmony-value="updateHarmonyLatch"
         @harmony-effective="harmonyEffective = $event"
       />
@@ -98,7 +99,12 @@ import HummingCaptureTransport from "@/components/humming/HummingCaptureTranspor
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
-import { minimumKeyboardHeight, defaultKeyboardHeight } from "@/components/compounds/keyboardSizing";
+import {
+  defaultKeyboardHeight,
+  maximumKeyboardHeight,
+  minimumKeyboardHeight,
+  resolveKeyboardLayout,
+} from "@/components/compounds/keyboardSizing";
 import type { MusicalMode } from "@/types/music";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { displayInstrumentName } from "@/data/instruments";
@@ -169,9 +175,21 @@ function updateDrawerOpen(isOpen: boolean) {
   else store.closeDrawer();
 }
 
+function resizeKeyboard(contentHeight: number) {
+  const padding = store.keyboardConfig.keyboardPadding ? 8 : 0;
+  const layout = resolveKeyboardLayout(contentHeight - padding, rowCount.value);
+  if (layout.rowCount !== store.keyboardConfig.rowCount) {
+    store.setRowCount(layout.rowCount);
+  }
+}
+
 const rowCount = computed(() => store.visibleOctaves?.length ?? store.keyboardConfig.rowCount);
-const minimumHeight = computed(() => minimumKeyboardHeight(rowCount.value));
-const initialKeyboardHeight = computed(() => defaultKeyboardHeight(rowCount.value));
+const keyboardPadding = computed(() => store.keyboardConfig.keyboardPadding ? 8 : 0);
+const minimumHeight = computed(() => minimumKeyboardHeight(1) + keyboardPadding.value);
+const maximumHeight = computed(() => maximumKeyboardHeight(8) + keyboardPadding.value);
+const initialKeyboardHeight = computed(() =>
+  defaultKeyboardHeight(rowCount.value) + keyboardPadding.value,
+);
 const warmingInstrumentName = computed(() =>
   instrumentStore.warmingInstrument
     ? displayInstrumentName(instrumentStore.warmingInstrument)

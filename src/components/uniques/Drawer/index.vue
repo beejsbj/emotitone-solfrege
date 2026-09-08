@@ -13,8 +13,10 @@ const props = withDefaults(defineProps<{
   storageKey?: string;
   initialContentHeight?: number;
   minContentHeight?: number;
+  maxContentHeight?: number;
   maxHeightRatio?: number;
   scroll?: boolean;
+  dragToCollapse?: boolean;
   closeOnEscape?: boolean;
   closeOnOutside?: boolean;
   fitContentOnOpen?: boolean;
@@ -29,8 +31,10 @@ const props = withDefaults(defineProps<{
   storageKey: undefined,
   initialContentHeight: 240,
   minContentHeight: 0,
+  maxContentHeight: undefined,
   maxHeightRatio: 0.85,
   scroll: true,
+  dragToCollapse: true,
   closeOnEscape: false,
   closeOnOutside: false,
   fitContentOnOpen: false,
@@ -38,6 +42,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [open: boolean];
   resize: [height: number];
+  dragResize: [contentHeight: number];
   closed: [];
 }>();
 const root = ref<HTMLElement | null>(null);
@@ -87,10 +92,16 @@ let fitContent = false;
 let openRequest = 0;
 let layoutResizeRequest = 0;
 let clickReset: ReturnType<typeof setTimeout> | undefined;
-const maxHeight = computed(() => Math.max(0, Math.min(
+const viewportMaxHeight = computed(() => Math.max(0, Math.min(
   frameHeight.value * props.maxHeightRatio,
   frameHeight.value - 44,
 )));
+const maxHeight = computed(() => Math.min(
+  viewportMaxHeight.value,
+  props.maxContentHeight === undefined
+    ? Number.POSITIVE_INFINITY
+    : persistentHeight.value + props.maxContentHeight,
+));
 const height = computed(() => Math.min(currentHeight.value, maxHeight.value));
 const expanded = computed(() => height.value > persistentHeight.value + 0.5);
 const usableOpenThreshold = computed(() => Math.min(
@@ -204,7 +215,11 @@ function pointerMove(event: PointerEvent) {
   gesture.moved = true;
   fitContent = false;
   dragging.value = true;
-  setHeight(gesture.height + (props.anchor === "top" ? distance : -distance));
+  const requestedHeight = gesture.height + (props.anchor === "top" ? distance : -distance);
+  setHeight(props.dragToCollapse
+    ? requestedHeight
+    : Math.max(usableOpenThreshold.value, requestedHeight));
+  emit("dragResize", visibleContentHeight.value);
   event.preventDefault();
 }
 function pointerEnd(event: PointerEvent) {

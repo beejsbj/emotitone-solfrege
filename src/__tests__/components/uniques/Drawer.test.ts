@@ -71,6 +71,13 @@ describe("Drawer continuous height contract", () => {
     await w.get('button').trigger('click');
     expect(height(w)).toBe(257); // Last usable content height, not a partly clipped state.
   });
+  it("can keep a non-scrolling consumer above one complete content floor while dragging", async () => {
+    const w = await create({ dragToCollapse: false });
+    await drag(w, 500);
+    expect(height(w)).toBe(220);
+    expect(w.get('[data-content]').attributes('data-height')).toBe('100');
+    expect(w.emitted('dragResize')?.at(-1)).toEqual([100]);
+  });
   it("restores the preferred open height from below the usable minimum", async () => {
     const w = await create();
     await drag(w, 143);

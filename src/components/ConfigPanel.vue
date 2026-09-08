@@ -592,6 +592,7 @@ const getRenderableFields = (sectionName: ConfigSectionKey): SectionField[] => {
       if (key === enableKey) return false;
 
       const metadata = (UNIFIED_CONFIG[sectionName] as Record<string, any>)[key];
+      if (metadata?.hidden) return false;
       const visibility = metadata?.visibleWhen;
       return !visibility || visibility.values.includes(section[visibility.field]);
     })

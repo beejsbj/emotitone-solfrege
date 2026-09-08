@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
+import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mocks = vi.hoisted(() => ({
   removeLastFromCurrentSketch: vi.fn(),
@@ -266,7 +267,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("preserves all six Control Bar mutations in the production composition", async () => {
+  it("preserves the five remaining Control Bar mutations in the production composition", async () => {
     const wrapper = mount(DrawerKeyboard, {
       global: {
         stubs: {
@@ -282,7 +283,6 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     controls.vm.$emit("update:modeValue", "dorian");
     controls.vm.$emit("update:bpm", 96);
     controls.vm.$emit("update:octave", 5);
-    controls.vm.$emit("update:rows", 7);
     controls.vm.$emit("update:harmonyValue", "jazzy7");
     controls.vm.$emit("harmonyEffective", "sus4");
     await wrapper.vm.$nextTick();
@@ -291,9 +291,27 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.setMode).toHaveBeenCalledWith("dorian");
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
-    expect(mocks.setRowCount).toHaveBeenCalledWith(7);
+    expect(mocks.setRowCount).not.toHaveBeenCalled();
     expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
       .toBe("sus4");
+    wrapper.unmount();
+  });
+
+  it("turns pointer-driven drawer height into whole keyboard rows", async () => {
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+
+    wrapper.getComponent(Drawer).vm.$emit("dragResize", 305);
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.setRowCount).toHaveBeenCalledWith(4);
     wrapper.unmount();
   });
 

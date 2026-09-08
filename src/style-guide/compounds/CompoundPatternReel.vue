@@ -25,9 +25,24 @@
 <script setup lang="ts">
 import PatternReel from "../../components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "../../components/compounds/PatternReel.vue";
+import { useColorSystem } from "../../composables/useColorSystem";
+import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
+import type { ChromaticNote, MusicalMode } from "../../types";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
+
+const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+
+const timeline = (
+  events: Array<[scaleIndex: number, durationMs: number]>,
+  mode: MusicalMode,
+  key: ChromaticNote,
+): BarTapeSegment[] =>
+  events.map(([scaleIndex, durationMs]) => ({
+    color: getStaticPrimaryColorByScaleIndex(scaleIndex, mode, key, 4),
+    durationMs,
+  }));
 
 const patterns: PatternReelItem[] = [
   {
@@ -37,11 +52,11 @@ const patterns: PatternReelItem[] = [
     sub: "F# Dorian / 96 BPM / 8 bars",
     when: "2d ago",
     spine: "var(--tomato)",
-    barTape: [
-      { note: "re" }, { note: "mi" }, { note: "do" }, { note: "fa" },
-      { note: "re" }, { note: "la" }, { note: "mi" }, { note: "ti" },
-    ],
-    barTapeMode: "equal",
+    barTape: timeline(
+      [[1, 250], [2, 125], [0, 375], [3, 250], [1, 125], [5, 250], [2, 125], [6, 500]],
+      "dorian",
+      "F#",
+    ),
     codeTokens: [
       { type: "note", note: "re", text: "Re", duration: "@0.250" },
       { type: "rest" },
@@ -59,11 +74,11 @@ const patterns: PatternReelItem[] = [
     sub: "A minor / 72 BPM / 16 bars",
     when: "5h ago",
     spine: "var(--tomato)",
-    barTape: [
-      { note: "sol" }, { note: "la" }, { note: "ti" }, { note: "sol" },
-      { note: "la" }, { note: "do" }, { note: "re" }, { note: "mi" },
-    ],
-    barTapeMode: "equal",
+    barTape: timeline(
+      [[4, 500], [5, 250], [6, 250], [4, 750], [5, 250], [0, 500], [1, 250], [2, 1000]],
+      "minor",
+      "A",
+    ),
     codeTokens: [
       { type: "note", note: "sol", text: "Sol", duration: "@0.167" },
       { type: "rest" },
@@ -81,11 +96,11 @@ const patterns: PatternReelItem[] = [
     sub: "D# Lydian / 132 BPM / 4 bars",
     when: "just now",
     spine: "var(--plum)",
-    barTape: [
-      { note: "fa" }, { note: "mi" }, { note: "re" }, { note: "do" },
-      { note: "fa" }, { note: "la" }, { note: "ti" },
-    ],
-    barTapeMode: "major",
+    barTape: timeline(
+      [[3, 100], [2, 225], [1, 100], [0, 450], [3, 100], [5, 225], [6, 675]],
+      "lydian",
+      "D#",
+    ),
     codeTokens: [
       { type: "note", note: "fa", text: "Fa", duration: "@0.0398" },
       { type: "rest" },
@@ -103,11 +118,11 @@ const patterns: PatternReelItem[] = [
     sub: "E Locrian / 120 BPM / 8 bars / Piano",
     when: "active",
     spine: "var(--tomato)",
-    barTape: [
-      { note: "mi" }, { note: "sol" }, { note: "la" }, { note: "ti" },
-      { note: "do" }, { note: "re" }, { note: "mi" },
-    ],
-    barTapeMode: "major",
+    barTape: timeline(
+      [[2, 282], [4, 128], [5, 203], [6, 90], [0, 180], [1, 180], [2, 360]],
+      "locrian",
+      "E",
+    ),
     codeTokens: [
       { type: "note", note: "mi", text: "Mi", duration: "@0.282" },
       { type: "rest" },

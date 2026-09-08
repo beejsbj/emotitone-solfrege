@@ -604,6 +604,32 @@ export const usePatternsStore = defineStore(
       });
     }
 
+    function deletePattern(patternId: string): boolean {
+      const pattern = patterns.value.find((candidate) => candidate.id === patternId);
+      if (!pattern || pattern.isDefault) return false;
+
+      const deletedNoteIds = new Set(pattern.notes.map((note) => note.id));
+      savedPatterns.value = savedPatterns.value.filter(
+        (candidate) => candidate.id !== patternId,
+      );
+      loggedNotes.value = loggedNotes.value.filter(
+        (note) => !deletedNoteIds.has(note.id),
+      );
+
+      if (loadedBasePatternId.value === patternId) {
+        loadedBaseNotes.value = [];
+        loadedBasePatternId.value = null;
+        loadedBaseMeta.value = null;
+        isStripCleared.value = true;
+      }
+
+      if (focusedPatternId.value === patternId) {
+        focusedPatternId.value = patterns.value[patterns.value.length - 1]?.id ?? null;
+      }
+
+      return true;
+    }
+
     function purgeOldPatterns(): void {
       const cutoffTime = Date.now() - config.value.maxRetentionTime;
 
@@ -831,6 +857,7 @@ export const usePatternsStore = defineStore(
       sendCurrentPattern,
       removeLastFromCurrentSketch,
       keepPattern,
+      deletePattern,
 
       // Actions
       enableLogging,

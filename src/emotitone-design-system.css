@@ -265,6 +265,7 @@
   --ease-brush:   cubic-bezier(.4, 0, .2, 1);       /* reveal, fade, drift */
   --ease-sustain: linear;                            /* playhead, scrub, meters */
   --ease-bend:    cubic-bezier(.85, 0, .15, 1);     /* pitch, mode change */
+  --ease-bounce:  linear(0 0%, .646 5%, 1.25 10%, 1.354 15%, 1.125 20%, .912 25%, .875 30%, .956 35%, 1.031 40%, 1.044 45%, 1.016 50%, .989 55%, .984 60%, .994 65%, 1.004 70%, 1.006 75%, 1.002 80%, .999 85%, .998 90%, .999 95%, 1 100%); /* elastic rebound · Boolean Knob and non-brass Button release */
   /* Legacy aliases — kept for components shipped before the horn-section rename. */
   --ease-cut:     var(--ease-stab);
   --ease-paper:   cubic-bezier(.7, 0, .2, 1);
@@ -275,6 +276,7 @@
   --dur-ui:    220ms;     /* tab swap, chip select */
   --dur-panel: 360ms;     /* drawer in/out, mode change */
   --dur-scene: 600ms;     /* visual fx fade */
+  --dur-bounce: 600ms;    /* elastic rebound · occasional tactile controls */
   --dur-rip-mode: var(--dur-panel);
   --ease-rip-mode: var(--ease-bend);
   /* Legacy aliases. */
@@ -613,18 +615,6 @@
 @keyframes ring-flash {
     0%, 18% { border-color: var(--brass); box-shadow: 0 0 14px rgba(224,169,58,.45); }
     20%, 100% { border-color: transparent; box-shadow: none; }
-  }
-
-/* beat-cell — beat indicator cell lights on its quarter (from mot-primitives-beat-pulse.html) */
-@keyframes beat-cell {
-    0%, 18%  { background: var(--ivory); border-color: var(--ivory); }
-    20%, 100%{ background: transparent;  border-color: var(--hairline); }
-  }
-
-/* beat-down — downbeat cell lights brass (from mot-primitives-beat-pulse.html) */
-@keyframes beat-down {
-    0%, 18%  { background: var(--brass); border-color: var(--brass); box-shadow: 0 0 10px rgba(224,169,58,.55); }
-    20%, 100%{ background: transparent;    border-color: var(--hairline); box-shadow: none; }
   }
 
 /* smear — horizontal stretch-snap (lifted from v2 .p5-active.smearing). */

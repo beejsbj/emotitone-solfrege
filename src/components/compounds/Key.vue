@@ -74,6 +74,7 @@ const props = withDefaults(
     keySaturation?: number;
     sounding?: boolean;
     pressed?: boolean;
+    managedInput?: boolean;
     disabled?: boolean;
     ariaLabel?: string;
   }>(),
@@ -96,6 +97,7 @@ const props = withDefaults(
     keySaturation: 1,
     sounding: false,
     pressed: false,
+    managedInput: false,
     disabled: false,
     ariaLabel: undefined,
   },
@@ -148,15 +150,18 @@ function releaseAllInputs(event: Event) {
 }
 
 function handleMouseDown(event: MouseEvent) {
+  if (props.managedInput) return;
   if (event.button !== 0) return;
   beginInput(mouseInputId, event);
 }
 
 function handleMouseUp(event: MouseEvent) {
+  if (props.managedInput) return;
   endInput(mouseInputId, event);
 }
 
 function handleMouseLeave(event: MouseEvent) {
+  if (props.managedInput) return;
   endInput(mouseInputId, event);
 }
 
@@ -174,6 +179,7 @@ function isTouchWithinKey(touch: Touch, tolerance = 0) {
 }
 
 function handleTouchStart(event: TouchEvent) {
+  if (props.managedInput) return;
   for (const touch of Array.from(event.changedTouches)) {
     if (isTouchWithinKey(touch)) {
       beginInput(touchInputId(touch.identifier), event);
@@ -182,6 +188,7 @@ function handleTouchStart(event: TouchEvent) {
 }
 
 function handleTouchMove(event: TouchEvent) {
+  if (props.managedInput) return;
   for (const touch of Array.from(event.touches)) {
     const inputId = touchInputId(touch.identifier);
     if (activeInputIds.has(inputId) && !isTouchWithinKey(touch, 5)) {
@@ -191,6 +198,7 @@ function handleTouchMove(event: TouchEvent) {
 }
 
 function handleTouchEnd(event: TouchEvent) {
+  if (props.managedInput) return;
   for (const touch of Array.from(event.changedTouches)) {
     endInput(touchInputId(touch.identifier), event);
   }

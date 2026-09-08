@@ -195,7 +195,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   --muted: var(--ivory-3);
   --quiet: color-mix(in srgb, var(--ivory) 12%, transparent);
   --lane-strip-height: clamp(72px, 13vh, 116px);
-  --entry-action-height: 60px;
+  --entry-action-height: 92px;
   --entry-action-overlap: 30px;
 
   position: relative;
@@ -337,7 +337,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   left: 50%;
   bottom: calc(var(--lane-strip-height) - var(--entry-action-overlap));
   display: flex;
-  width: min(100%, 480px);
+  width: calc(100% + 2px);
   min-height: var(--entry-action-height);
   align-items: center;
   justify-content: center;
@@ -644,7 +644,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 @media (max-width: 720px) {
   .converged-loader {
     --lane-strip-height: clamp(58px, 10vh, 82px);
-    --entry-action-height: 58px;
+    --entry-action-height: 78px;
     --entry-action-overlap: 29px;
 
     gap: 8px;
@@ -676,7 +676,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 @media (max-height: 650px) {
   .converged-loader {
     --lane-strip-height: min(52px, 11vh);
-    --entry-action-height: 52px;
+    --entry-action-height: 66px;
     --entry-action-overlap: 26px;
 
     padding-block: 10px 0;

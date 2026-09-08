@@ -1,19 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import AstraVariantOne from "./round-two/AstraVariantOne.vue";
-import AstraVariantThree from "./round-two/AstraVariantThree.vue";
-import AstraVariantTwo from "./round-two/AstraVariantTwo.vue";
-import CodexRoundTwoVariant from "./round-two/CodexRoundTwoVariant.vue";
+import ConvergedLoadingVariant from "./ConvergedLoadingVariant.vue";
 
-type VariantId = "a" | "b" | "c" | "d" | "e" | "f";
+type VariantId = "a" | "b";
 
 const variants = [
-  { id: "a" as const, name: "Pressroom", author: "Codex", component: CodexRoundTwoVariant, props: { direction: "pressroom" } },
-  { id: "b" as const, name: "Split Signal", author: "Codex", component: CodexRoundTwoVariant, props: { direction: "split-signal" } },
-  { id: "c" as const, name: "Open Press", author: "Codex", component: CodexRoundTwoVariant, props: { direction: "open-press" } },
-  { id: "d" as const, name: "Press Party", author: "Astra", component: AstraVariantOne, props: {} },
-  { id: "e" as const, name: "Mustard Soundcheck", author: "Astra", component: AstraVariantTwo, props: {} },
-  { id: "f" as const, name: "Colour Assembly", author: "Astra", component: AstraVariantThree, props: {} },
+  { id: "a" as const, name: "Ivory Room", author: "C + F", component: ConvergedLoadingVariant, props: { surface: "ivory" as const } },
+  { id: "b" as const, name: "Ink Room", author: "C + F", component: ConvergedLoadingVariant, props: { surface: "ink" as const } },
 ];
 
 const requestedVariant = new URLSearchParams(window.location.search).get("variant");
@@ -149,7 +142,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .loading-lab {
-  min-height: 100vh;
+  display: grid;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
   background: var(--ink);
 }
 
@@ -245,11 +243,14 @@ onBeforeUnmount(() => {
 .loading-lab button:active { transform: scale(.97); }
 
 .loading-lab__preview {
-  min-height: calc(100vh - 66px);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .loading-lab__preview > :deep(*) {
-  min-height: calc(100vh - 66px);
+  height: 100%;
+  min-height: 0;
 }
 
 @media (max-width: 920px) {
@@ -263,14 +264,15 @@ onBeforeUnmount(() => {
 @media (max-width: 680px) {
   .loading-lab__controls {
     position: relative;
+    min-height: 0;
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 0;
+    padding: 6px 8px;
   }
   .loading-lab__variants button { flex: 0 0 auto; }
-  .loading-lab__playback { justify-content: space-between; }
-  .loading-lab__playback label { flex: 1; }
+  .loading-lab__playback { display: none; }
   .loading-lab__preview,
-  .loading-lab__preview > :deep(*) { min-height: 620px; }
+  .loading-lab__preview > :deep(*) { min-height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

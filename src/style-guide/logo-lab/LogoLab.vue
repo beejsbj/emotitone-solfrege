@@ -2,15 +2,27 @@
 import { ref } from "vue";
 import Mark from "../../components/primatives/Mark.vue";
 
-type SprinkleTone = "bone" | "mustard" | "pine" | "tomato";
+type SprinkleTone = "bone" | "cobalt" | "mustard" | "pine" | "plum" | "tomato";
+type SprinkleLocation = "inside" | "outside";
 
 interface Sprinkle {
-  name: "diamond" | "wave" | "disk" | "eighth" | "staccato" | "star" | "zigzag";
+  name:
+    | "accent"
+    | "diamond"
+    | "disk"
+    | "eighth"
+    | "grace"
+    | "star"
+    | "staccato"
+    | "triangle"
+    | "wave"
+    | "zigzag";
   x: number;
   y: number;
   size: number;
   rotate: number;
   tone: SprinkleTone;
+  location: SprinkleLocation;
 }
 
 interface MarkTreatment {
@@ -26,43 +38,61 @@ const lightStage = ref(false);
 const treatments: MarkTreatment[] = [
   {
     id: "A",
-    name: "Paper Flecks",
-    description: "Three abstract Marks printed into three paper cuts.",
-    verdict: "Texture first; the ET silhouette stays in charge.",
+    name: "Balanced Scatter",
+    description: "Three prints in the paper, with four loose flecks around it.",
+    verdict: "Balanced inside and out; the ET silhouette stays in charge.",
     sprinkles: [
-      { name: "diamond", x: 22, y: 37, size: 10, rotate: -12, tone: "bone" },
-      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone" },
-      { name: "disk", x: 56, y: 90, size: 7, rotate: 0, tone: "tomato" },
+      { name: "diamond", x: 22, y: 37, size: 10, rotate: -12, tone: "bone", location: "inside" },
+      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside" },
+      { name: "disk", x: 56, y: 90, size: 7, rotate: 0, tone: "tomato", location: "inside" },
+      { name: "triangle", x: 2, y: 7, size: 11, rotate: -18, tone: "mustard", location: "outside" },
+      { name: "star", x: 128, y: 0, size: 9, rotate: 12, tone: "plum", location: "outside" },
+      { name: "disk", x: 148, y: 45, size: 6, rotate: 0, tone: "cobalt", location: "outside" },
+      { name: "diamond", x: 132, y: 108, size: 8, rotate: 18, tone: "tomato", location: "outside" },
     ],
   },
   {
     id: "B",
-    name: "Musical Ink",
-    description: "A note and dotted rhythm make the musical cue explicit.",
-    verdict: "Most musical; still contained by the cuts.",
+    name: "Musical Orbit",
+    description: "Notation lands on the cuts and continues in a loose orbit.",
+    verdict: "The most explicitly musical field.",
     sprinkles: [
-      { name: "eighth", x: 91, y: 69, size: 18, rotate: 4, tone: "bone" },
-      { name: "staccato", x: 55, y: 90, size: 21, rotate: 0, tone: "pine" },
+      { name: "eighth", x: 91, y: 69, size: 18, rotate: 4, tone: "bone", location: "inside" },
+      { name: "staccato", x: 55, y: 90, size: 21, rotate: 0, tone: "pine", location: "inside" },
+      { name: "accent", x: 1, y: 12, size: 14, rotate: -12, tone: "mustard", location: "outside" },
+      { name: "grace", x: 130, y: -2, size: 16, rotate: 9, tone: "tomato", location: "outside" },
+      { name: "disk", x: 148, y: 54, size: 6, rotate: 0, tone: "plum", location: "outside" },
+      { name: "star", x: 126, y: 111, size: 9, rotate: -8, tone: "cobalt", location: "outside" },
     ],
   },
   {
     id: "C",
-    name: "Little Burst",
-    description: "A playful cluster escapes from the right edge of the T.",
-    verdict: "More celebratory; deliberately breaks the silhouette.",
+    name: "Confetti Halo",
+    description: "Two paper prints sit inside a wider structural halo.",
+    verdict: "The fullest and most celebratory scatter.",
     sprinkles: [
-      { name: "star", x: 130, y: 49, size: 13, rotate: 12, tone: "mustard" },
-      { name: "diamond", x: 139, y: 65, size: 7, rotate: -14, tone: "tomato" },
-      { name: "disk", x: 121, y: 67, size: 5, rotate: 0, tone: "mustard" },
+      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside" },
+      { name: "diamond", x: 91, y: 70, size: 9, rotate: 12, tone: "bone", location: "inside" },
+      { name: "triangle", x: 0, y: 18, size: 11, rotate: -16, tone: "mustard", location: "outside" },
+      { name: "disk", x: -4, y: 76, size: 7, rotate: 0, tone: "tomato", location: "outside" },
+      { name: "zigzag", x: 40, y: -8, size: 20, rotate: -4, tone: "plum", location: "outside" },
+      { name: "star", x: 116, y: -5, size: 10, rotate: 12, tone: "cobalt", location: "outside" },
+      { name: "diamond", x: 146, y: 36, size: 8, rotate: 16, tone: "pine", location: "outside" },
+      { name: "wave", x: 145, y: 88, size: 15, rotate: 6, tone: "mustard", location: "outside" },
     ],
   },
   {
     id: "D",
-    name: "One Overprint",
-    description: "One zigzag crosses the bottom tooth like a screen print.",
-    verdict: "The quietest option, with one assertive gesture.",
+    name: "Five Satellites",
+    description: "Five colour disks orbit one print, echoing the favicon constellation.",
+    verdict: "The clearest bridge from the recognizable old favicon.",
     sprinkles: [
-      { name: "zigzag", x: 62, y: 90, size: 31, rotate: -4, tone: "pine" },
+      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside" },
+      { name: "disk", x: 70, y: -9, size: 13, rotate: 0, tone: "plum", location: "outside" },
+      { name: "disk", x: -5, y: 42, size: 9, rotate: 0, tone: "cobalt", location: "outside" },
+      { name: "disk", x: 145, y: 42, size: 9, rotate: 0, tone: "mustard", location: "outside" },
+      { name: "disk", x: 10, y: 107, size: 7, rotate: 0, tone: "tomato", location: "outside" },
+      { name: "disk", x: 130, y: 107, size: 7, rotate: 0, tone: "pine", location: "outside" },
     ],
   },
 ];
@@ -96,13 +126,13 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
     <header class="logo-lab__header">
       <div>
-        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 05</p>
+        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 06</p>
         <h1>Sprinkle Marks.<br><span>Keep the cutouts.</span></h1>
       </div>
       <div class="logo-lab__intro">
         <p>
-          The six-cut Tight Weave is fixed. These four treatments add the existing Mark language as
-          small paper prints or a nearby burst; none changes the letter construction or colour assignment.
+          The six-cut Tight Weave is fixed. Every treatment now mixes Marks printed into the paper
+          with Marks scattered around its silhouette; none changes the letter construction or colour assignment.
         </p>
         <button type="button" @click="lightStage = !lightStage">
           {{ lightStage ? "View on ink" : "View on bone" }}
@@ -148,6 +178,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
                 :name="sprinkle.name"
                 tone="ivory"
                 size="100"
+                :data-location="sprinkle.location"
                 :style="sprinkleStyle(sprinkle)"
               />
             </div>
@@ -168,6 +199,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
                   :name="sprinkle.name"
                   tone="ivory"
                   size="100"
+                  :data-location="sprinkle.location"
                   :style="sprinkleStyle(sprinkle)"
                   aria-hidden="true"
                 />
@@ -186,7 +218,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
     </section>
 
     <footer class="logo-lab__footer">
-      <strong>A keeps the strongest hierarchy.</strong>
+      <strong>A balances the field; D preserves the favicon memory.</strong>
       <span>Which treatment has the right amount and kind of Mark language?</span>
     </footer>
   </main>

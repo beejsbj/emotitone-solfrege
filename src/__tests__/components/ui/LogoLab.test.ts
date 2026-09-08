@@ -10,6 +10,7 @@ const designSystemSource = readFileSync(
   resolve(process.cwd(), "src/emotitone-design-system.css"),
   "utf8",
 );
+const faviconSource = readFileSync(resolve(process.cwd(), "public/icon.svg"), "utf8");
 
 describe("Brand Logo definition lab", () => {
   it("mounts on an isolated lazy route without advancing the production Knob edition", () => {
@@ -27,7 +28,7 @@ describe("Brand Logo definition lab", () => {
       expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(1);
     }
 
-    expect(logoLabSource).toContain("Round 05");
+    expect(logoLabSource).toContain("Round 06");
     expect(logoLabSource).toContain("Compact survival");
     expect(logoLabSource).not.toContain("@/components/uniques/BrandLogo.vue");
   });
@@ -35,13 +36,23 @@ describe("Brand Logo definition lab", () => {
   it("compares four controlled treatments built from the real Mark primitive", () => {
     expect(logoLabSource).toContain('from "../../components/primatives/Mark.vue"');
 
-    for (const treatment of ["Paper Flecks", "Musical Ink", "Little Burst", "One Overprint"]) {
+    for (const treatment of ["Balanced Scatter", "Musical Orbit", "Confetti Halo", "Five Satellites"]) {
       expect(logoLabSource).toContain(treatment);
     }
 
-    for (const mark of ["diamond", "wave", "disk", "eighth", "staccato", "star", "zigzag"]) {
+    for (const mark of ["accent", "diamond", "wave", "disk", "eighth", "grace", "staccato", "star", "triangle", "zigzag"]) {
       expect(logoLabSource).toContain(`name: "${mark}"`);
     }
+
+    expect(logoLabSource).toContain('location: "inside"');
+    expect(logoLabSource).toContain('location: "outside"');
+    expect(logoLabSource).toContain(':data-location="sprinkle.location"');
+  });
+
+  it("carries the favicon's five-blob constellation into one comparison without replacing the favicon", () => {
+    expect(faviconSource.match(/<circle /g)).toHaveLength(5);
+    expect(faviconSource).toContain("M150 400 Q256 320 362 400");
+    expect(logoLabSource).toContain("Five colour disks orbit one print");
   });
 
   it("promotes Cobalt through the Brand token owner and real token specimen", () => {

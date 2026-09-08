@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Sticker &middot; Decoration Primitive"
     :features="features"
-    caption="Outline, fill, and badge share the same color vocabulary. Outline and fill receive randomized cut-paper geometry per instance; badge keeps fixed geometry and applies color to the edge and text."
+    caption="Outline, fill, and badge share the same color vocabulary. Outline and fill may place one Mark before or after their text; badge keeps fixed geometry and applies color to the edge and text."
   >
     <template #hero>
       <Sticker variant="outline" color="ivory">Piano</Sticker>
@@ -25,6 +25,15 @@
         :caption="`${color.label} fill`"
       >
         <Sticker variant="fill" :color="color.value">{{ color.label }}</Sticker>
+      </VariantCell>
+    </VariantGrid>
+
+    <VariantGrid title="Content &mdash; Optional Mark">
+      <VariantCell caption="Leading Mark &middot; filled Sticker">
+        <Sticker variant="fill" color="tomato" mark="eighth">Live &middot; 04</Sticker>
+      </VariantCell>
+      <VariantCell caption="Trailing Mark &middot; outlined Sticker">
+        <Sticker variant="outline" color="ivory" mark="repeat" mark-position="after">Repeat</Sticker>
       </VariantCell>
     </VariantGrid>
 
@@ -68,6 +77,7 @@ const features = [
   { label: "Color", value: "applies to outline wire or fill surface" },
   { label: "Outline", value: "transparent fill · 1px color wire · ivory wordmark" },
   { label: "Fill", value: "color surface · no outline / border" },
+  { label: "Mark", value: "optional leading or trailing Mark · inherits foreground color" },
   { label: "Badge", value: "fixed geometry · color controls edge and text" },
   { label: "Geometry", value: "randomized transform / clip-path / shadow for outline + fill only" },
 ];

@@ -49,7 +49,6 @@ function createLogNote(overrides: Partial<LogNote> = {}): LogNote {
       number: 2,
       emotion: "curious",
       description: "Bright forward motion",
-      fleckShape: "circle",
       texture: "glossy",
     },
     octave: 4,

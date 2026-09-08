@@ -40,7 +40,6 @@ function createNote(noteId: string, noteName: string): ActiveNote {
       number: 1,
       emotion: "Bright",
       description: `${noteName} note`,
-      fleckShape: "circle",
       texture: "soft",
       intervalName: "1P",
       semitones: 0,

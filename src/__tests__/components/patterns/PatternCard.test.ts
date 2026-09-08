@@ -18,9 +18,10 @@ vi.mock("@/composables/useColorSystem", () => ({
 
 vi.mock("@/stores/patterns", () => ({
   usePatternsStore: () => ({
+    patterns: [],
     focusedPatternId: null,
     loadPatternAsBase: vi.fn(),
-    keepPattern: vi.fn(),
+    deletePattern: vi.fn(),
   }),
 }));
 
@@ -32,8 +33,25 @@ vi.mock("@/composables/useStrudel", () => ({
   toStrudelSound: (instrument: string) => instrument,
 }));
 
-vi.mock("@/components/primatives/Knob/index.vue", () => ({
-  default: defineComponent({ name: "Knob", template: "<button />" }),
+vi.mock("@/stores/visualConfig", () => ({
+  useVisualConfigStore: () => ({
+    config: {
+      codeStrip: { notation: "solfege" },
+      keyboard: {
+        surfaceStyle: "colored",
+        keyBrightness: 1,
+        keySaturation: 1,
+      },
+    },
+  }),
+}));
+
+vi.mock("@/components/compounds/PatternCard.vue", () => ({
+  default: defineComponent({
+    name: "PatternCard",
+    props: ["barTape", "codeTokens"],
+    template: "<div />",
+  }),
 }));
 
 describe("PatternCard", () => {
@@ -61,7 +79,6 @@ describe("PatternCard", () => {
 
     mount(PatternCard, {
       props: { pattern },
-      global: { stubs: { Knob: true } },
     });
 
     expect(colors.byPitchClass).toHaveBeenCalledWith(3, "major", "C", 4);

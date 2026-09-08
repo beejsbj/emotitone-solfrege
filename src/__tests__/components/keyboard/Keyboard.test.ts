@@ -1,6 +1,6 @@
 import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import drawerKeyboardSource from "@/components/DrawerKeyboard.vue?raw";
 import keyboardSource from "@/components/compounds/Keyboard.vue?raw";
@@ -124,11 +124,73 @@ function mountKeyboard() {
   });
 }
 
+function pointerEvent(
+  type: string,
+  options: {
+    pointerId: number;
+    pointerType: "mouse" | "pen" | "touch";
+    clientX: number;
+    clientY?: number;
+    button?: number;
+  },
+) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    pointerId: { value: options.pointerId },
+    pointerType: { value: options.pointerType },
+    clientX: { value: options.clientX },
+    clientY: { value: options.clientY ?? 20 },
+    button: { value: options.button ?? 0 },
+    isPrimary: { value: true },
+  });
+  return event;
+}
+
+function controlledRows() {
+  return [{
+    octave: 4,
+    keys: [
+      { id: "do-4", syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0 },
+      { id: "re-4", syllable: "Re", degree: "II", rawPitch: "D4", scaleIndex: 1 },
+    ],
+  }];
+}
+
+function glissandoRows() {
+  return [{
+    octave: 4,
+    keys: Array.from({ length: 3 }, (_, scaleIndex) => ({
+      id: `key-${scaleIndex}`,
+      syllable: `Note ${scaleIndex}`,
+      degree: `${scaleIndex + 1}`,
+      rawPitch: `N${scaleIndex}`,
+      scaleIndex,
+    })),
+  }];
+}
+
+function mockGlissandoHitTesting(
+  keys: Array<{ element: HTMLButtonElement }>,
+) {
+  keys.forEach((key, index) => {
+    vi.spyOn(key.element, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(index * 100, 0, 100, 40),
+    );
+  });
+  vi.spyOn(document, "elementFromPoint").mockImplementation((x) =>
+    keys[Math.min(keys.length - 1, Math.floor(x / 100))]?.element ?? null
+  );
+}
+
 describe("Keyboard production usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.keyboardStore.keyboardConfig.keyboardPadding = false;
     mocks.instrumentStore.isInteractionLocked = false;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("builds configured octave rows from the accepted Key contract", () => {
@@ -223,6 +285,47 @@ describe("Keyboard production usage", () => {
     expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledWith("0_4", event);
   });
 
+  it("keeps a shared key sounding until every pointer leaves", async () => {
+    const wrapper = mountKeyboard();
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const key = wrapper.get<HTMLButtonElement>('[data-key-id="0_4"]');
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(key.element);
+
+    key.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 21,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    key.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 22,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await nextTick();
+
+    expect(mocks.attackNoteWithOctave).toHaveBeenCalledOnce();
+
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 21,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await nextTick();
+    expect(mocks.releaseNoteByButtonKey).not.toHaveBeenCalled();
+
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 22,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await nextTick();
+    expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledOnce();
+    expect(mocks.releaseNoteByButtonKey).toHaveBeenCalledWith(
+      "0_4",
+      expect.any(Event),
+    );
+  });
+
   it("disables keys and ignores presses while instrument samples are warming", async () => {
     mocks.instrumentStore.isInteractionLocked = true;
     const wrapper = mountKeyboard();
@@ -270,5 +373,278 @@ describe("Keyboard production usage", () => {
     expect(keyboardSource).toMatch(
       /\.keyboard__key\s+:deep\(\.key__face\),[\s\S]*width:\s*100%;/,
     );
+  });
+});
+
+describe("Keyboard pointer gestures", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("glissandos a held pointer between keys and releases outside the keyboard", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const [first, second] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x) => {
+      if (x < 100) return first.element;
+      if (x < 200) return second.element;
+      return null;
+    });
+
+    first.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
+    expect(first.classes()).toContain("keyboard__key--pressed");
+
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 120,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4"]);
+    expect(first.classes()).not.toContain("keyboard__key--pressed");
+    expect(second.classes()).toContain("keyboard__key--pressed");
+
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 240,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4"]);
+    expect(second.classes()).not.toContain("keyboard__key--pressed");
+
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
+  });
+
+  it("ignores non-contact pen button presses", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const [first] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(first.element);
+
+    first.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 8,
+      pointerType: "pen",
+      button: 2,
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")).toBeUndefined();
+    expect(first.classes()).not.toContain("keyboard__key--pressed");
+  });
+
+  it("plays every crossed key when a fast pointer move skips event samples", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[0].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 220,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(
+      glissandoRows()[0].keys.map((key) => key.id),
+    );
+
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 220,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(
+      glissandoRows()[0].keys.map((key) => key.id),
+    );
+  });
+
+  it("preserves erratic reversals reported in one coalesced pointer event", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[0].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 10,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    const coalescedMove = pointerEvent("pointermove", {
+      pointerId: 10,
+      pointerType: "touch",
+      clientX: 20,
+    });
+    Object.defineProperty(coalescedMove, "getCoalescedEvents", {
+      value: () => [
+        pointerEvent("pointermove", {
+          pointerId: 10,
+          pointerType: "touch",
+          clientX: 220,
+        }),
+        pointerEvent("pointermove", {
+          pointerId: 10,
+          pointerType: "touch",
+          clientX: 20,
+        }),
+      ],
+    });
+    root.element.dispatchEvent(coalescedMove);
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 10,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+
+    const expectedPath = ["key-0", "key-1", "key-2", "key-1", "key-0"];
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+  });
+
+  it("does not synthesize adjacent notes along a shared key edge", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[1].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 100,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 100,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 120,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 13,
+      pointerType: "touch",
+      clientX: 120,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["key-1"]);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["key-1"]);
+  });
+
+  it("samples the final path segment when a fast swipe ends before another move", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: glissandoRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const keys = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    mockGlissandoHitTesting(keys);
+
+    keys[0].element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 12,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 12,
+      pointerType: "touch",
+      clientX: 220,
+    }));
+    await wrapper.vm.$nextTick();
+
+    const expectedPath = glissandoRows()[0].keys.map((key) => key.id);
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(expectedPath);
+  });
+
+  it("releases outside instead of falling back to the captured key target", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub } },
+    });
+    const [first] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x) =>
+      x >= 0 ? first.element : null
+    );
+
+    first.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    first.element.dispatchEvent(pointerEvent("pointermove", {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: -20,
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
+    expect(first.classes()).not.toContain("keyboard__key--pressed");
+
+    first.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: -20,
+    }));
   });
 });

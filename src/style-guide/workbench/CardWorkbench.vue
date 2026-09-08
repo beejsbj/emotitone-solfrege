@@ -4,8 +4,8 @@
       <p class="workbench__eyebrow">Accepted foundation · one shared source</p>
       <h1>Card.vue</h1>
       <p>
-        The selected first CardShell recipe is now Card. Colored Cards and Pattern
-        Card below render through the same authoritative source.
+        The selected first CardShell recipe is now Card. Colored Cards below render
+        through the same authoritative source.
       </p>
     </header>
 
@@ -45,80 +45,12 @@
       </p>
     </section>
 
-    <section class="workbench__section">
-      <SectionHead index="03" title="Pattern Card" note="Pattern anatomy · Card + Ivory spine + Bar Tape" />
-      <div class="pattern-stack">
-        <p class="surface-label">List density</p>
-        <Card
-          as="button"
-          class="pattern-candidate"
-          label="Pattern 01 — Piano / C Major"
-          type="button"
-          flush
-        >
-          <template #mark>
-            <span class="ordinal ordinal--pattern ordinal--pattern-compact">01</span>
-          </template>
-          <div class="pattern-row">
-            <span class="pattern-copy">
-              <strong>{{ productionPattern.name }}</strong>
-              <small>Piano · C major · 14 notes</small>
-            </span>
-          </div>
-          <template #footer><BarTape :segments="timeline" /></template>
-        </Card>
-
-        <p class="surface-label">Focused density</p>
-        <Card
-          class="pattern-candidate pattern-candidate--focused"
-          label="Pattern 01 — Piano / C Major"
-        >
-          <template #mark><span class="ordinal ordinal--pattern">01</span></template>
-          <h3 class="pattern-focus__title">{{ productionPattern.name }}</h3>
-          <p class="pattern-focus__meta">14 events · duration weighted</p>
-          <div class="pattern-focus__state">
-            <span>1 of 4</span>
-            <span>Actions remain Pattern Card-owned</span>
-          </div>
-          <template #footer><BarTape :segments="timeline" /></template>
-        </Card>
-      </div>
-      <p class="definition-note">
-        Pattern Card supplies density, identity, actions, selection, and list
-        behavior. It inherits the Ivory spine; the musical sequence speaks through
-        Bar Tape instead of a second accent color.
-      </p>
-    </section>
-
-    <section class="workbench__section">
-      <details class="reference">
-        <summary>Current Pattern Card sources used for comparison</summary>
-        <div class="reference__patterns">
-          <p class="surface-label">Existing guide PatternCard</p>
-          <GuidePatternCard
-            num="01"
-            name="Twinkle fragment"
-            sub="C major · current guide"
-            when="14 notes"
-            :bar-tape="timeline"
-          />
-          <p class="surface-label">Existing production PatternCard</p>
-          <ProductionPatternCard :pattern="productionPattern" />
-        </div>
-      </details>
-    </section>
   </main>
 </template>
 
 <script setup lang="ts">
 import { defineComponent, h } from "vue";
-import BarTape from "../../components/primatives/BarTape.vue";
 import Card from "../../components/primatives/Card.vue";
-import GuidePatternCard from "../../components/compounds/PatternCard.vue";
-import ProductionPatternCard from "../../components/patterns/PatternCard.vue";
-import { useColorSystem } from "../../composables/useColorSystem";
-import { defaultPatterns } from "../../data/patterns";
-import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
 
 const SectionHead = defineComponent({
   props: { index: String, title: String, note: String },
@@ -130,18 +62,6 @@ const SectionHead = defineComponent({
       ]);
   },
 });
-
-const productionPattern = defaultPatterns[0];
-const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
-const timeline: BarTapeSegment[] = productionPattern.notes.map((note) => ({
-  color: getStaticPrimaryColorByScaleIndex(
-    note.scaleIndex,
-    productionPattern.mode,
-    productionPattern.key,
-    note.octave,
-  ),
-  durationMs: note.duration,
-}));
 
 const coloredCards: Array<{
   index: string;
@@ -176,8 +96,7 @@ const coloredCards: Array<{
 
 .workbench__header { margin-bottom: 52px; }
 .workbench__eyebrow,
-.section-head p,
-.surface-label {
+.section-head p {
   margin: 0;
   color: var(--ivory-3);
   font: var(--t-mono);
@@ -222,8 +141,7 @@ const coloredCards: Array<{
 .soul-card { min-height: 190px; }
 .ordinal { font: 400 52px/1 var(--font-display); letter-spacing: var(--tracking-display); }
 .editorial-title,
-.color-card__title,
-.pattern-focus__title {
+.color-card__title {
   margin: 0;
   font-family: var(--font-display);
   letter-spacing: var(--tracking-display);
@@ -239,46 +157,9 @@ const coloredCards: Array<{
 .color-card__title { font-size: 28px; line-height: .9; }
 .color-card__body { margin: auto 0 0; color: var(--ivory-3); font: var(--t-body-s-mono); }
 
-.pattern-stack { display: grid; gap: 12px; }
-.surface-label { margin-top: 8px; }
-.pattern-row {
-  display: flex;
-  align-items: center;
-  min-height: 56px;
-  padding: 8px 68px 6px 22px;
-}
-.pattern-copy { min-width: 0; }
-.pattern-copy strong,
-.pattern-copy small { display: block; text-transform: uppercase; }
-.pattern-copy strong { overflow: hidden; font: var(--t-h2); text-overflow: ellipsis; white-space: nowrap; }
-.pattern-copy small { color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; }
-.pattern-candidate--focused { margin-top: 8px; }
-.ordinal--pattern { font-size: 48px; }
-.ordinal--pattern-compact { font-size: 42px; }
-.pattern-focus__title { max-width: calc(100% - 72px); font: var(--t-display-m); }
-.pattern-focus__meta { margin: 4px 0 22px; color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; text-transform: uppercase; }
-.pattern-focus__state {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--hairline);
-  color: var(--ivory-3);
-  font: var(--t-caption);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.reference { color: var(--ivory-3); }
-.reference summary { cursor: pointer; font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; }
-.reference__patterns { display: grid; gap: 12px; }
-.reference__patterns { margin-top: 20px; }
-
 @media (max-width: 640px) {
   .section-head { align-items: start; flex-direction: column; }
   .section-head > p { text-align: left; }
   .color-grid { grid-template-columns: 1fr; }
-  .pattern-row { padding-left: 18px; }
-  .pattern-focus__state { align-items: start; flex-direction: column; }
 }
 </style>

@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Joystick · Harmony Unique"
     :features="features"
-    caption="Drag from anywhere on the brass face. Pressing alone changes nothing; a short drag latches, while a held drag restores the prior latch on release. Move the stick back to center for automatic harmony. Both treatments share the same two-axis interaction."
+    caption="Drag from anywhere on the brass face. A short drag latches with firmer tactile and Ivory readout confirmation; a held drag restores the prior latch on release. Tap a latched Joystick to return to automatic harmony. Both treatments share the same two-axis interaction."
   >
     <template #hero>
       <div class="joystick-specimen__hero">
@@ -63,7 +63,9 @@ const features = [
   { label: "Center", value: "automatic scale-derived harmony" },
   { label: "Directions", value: "eight explicit HiChord-inspired chord alterations" },
   { label: "Drag", value: "continuous two-axis stick travel; short release latches a detent" },
+  { label: "Latch", value: "firmer haptic plus a briefly retained Ivory direction readout" },
   { label: "Hold", value: "momentary override; release restores the prior latch" },
+  { label: "Unlatch", value: "stationary tap returns a latched direction to automatic center" },
   { label: "Keyboard", value: "roving direction grid; arrows move, Space/Enter select" },
   { label: "Boundary", value: "directional state only; no harmony generation, audio, or Knob anatomy" },
 ];

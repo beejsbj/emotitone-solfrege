@@ -5,9 +5,15 @@ import { JOYSTICK_OPTIONS, directionFromVector } from "@/components/uniques/Joys
 import joystickSource from "@/components/uniques/Joystick/index.vue?raw";
 import specimen from "@/style-guide/uniques/UniqueJoystick.vue?raw";
 import guide from "@/style-guide/StyleGuide.vue?raw";
-vi.mock("@/utils/hapticFeedback", () => ({ triggerUIHaptic: vi.fn() }));
+const { triggerUIHaptic, triggerLatchHaptic } = vi.hoisted(() => ({
+  triggerUIHaptic: vi.fn(),
+  triggerLatchHaptic: vi.fn(),
+}));
+vi.mock("@/utils/hapticFeedback", () => ({ triggerUIHaptic, triggerLatchHaptic }));
 const wrappers: ReturnType<typeof mount>[] = [];
 beforeEach(() => {
+  triggerUIHaptic.mockClear();
+  triggerLatchHaptic.mockClear();
   vi.spyOn(document, "addEventListener").mockImplementation(Document.prototype.addEventListener.bind(document));
   vi.spyOn(document, "removeEventListener").mockImplementation(Document.prototype.removeEventListener.bind(document));
   vi.spyOn(document, "dispatchEvent").mockImplementation(Document.prototype.dispatchEvent.bind(document));
@@ -49,6 +55,11 @@ describe("Joystick unique", () => {
     expect(wrapper.get(".joystick__stick").attributes("style")).toContain("left: 77%");
     await pointer(document, "pointerup", 150, 50);
     expect(wrapper.emitted("update:modelValue")).toEqual([["jazzy7"]]);
+    expect(triggerUIHaptic).toHaveBeenCalled();
+    expect(triggerLatchHaptic).toHaveBeenCalledOnce();
+    expect(wrapper.attributes("data-latch-feedback")).toBe("true");
+    expect(document.querySelector(".drag-value__paper")?.classList).toContain("sticker--fill");
+    expect(document.querySelector(".drag-value__paper")?.classList).toContain("sticker--color-ivory");
   });
   it("shares Knob geometry, centered ring detents, brass sheen, and floating drag feedback", async () => {
     const { wrapper, plate } = setup();
@@ -71,7 +82,8 @@ describe("Joystick unique", () => {
     expect(follower?.textContent).toContain("Jazzy");
 
     await pointer(document, "pointerup", 80, 50);
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".drag-value__paper")?.classList)
+      .toContain("sticker--color-ivory");
     wrapper.unmount();
   });
   it("tracks globally when capture is unavailable and releases successful capture on completion", async () => {
@@ -90,13 +102,13 @@ describe("Joystick unique", () => {
     await pointer(plate.element, "lostpointercapture", 50, 50);
     expect(wrapper.emitted("update:modelValue")).toHaveLength(1);
   });
-  it.each(["analog", "digital"] as const)("keeps an edge press and subthreshold motion inert in %s", async visual => {
+  it.each(["analog", "digital"] as const)("keeps an automatic edge press and subthreshold motion inert in %s", async visual => {
     vi.useFakeTimers();
-    const { wrapper, plate } = setup("dark");
+    const { wrapper, plate } = setup();
     await wrapper.setProps({ visual });
     const restingStyle = wrapper.get(".joystick__stick").attributes("style");
     await pointer(plate.element, "pointerdown", 95, 25);
-    expect(wrapper.attributes("data-effective")).toBe("dark");
+    expect(wrapper.attributes("data-effective")).toBe("auto");
     expect(wrapper.get(".joystick__stick").attributes("style")).toBe(restingStyle);
     await pointer(document, "pointermove", 98, 28);
     expect(wrapper.get(".joystick__stick").attributes("style")).toBe(restingStyle);
@@ -106,6 +118,18 @@ describe("Joystick unique", () => {
     await pointer(document, "pointerup", 5, 75);
     expect(wrapper.emitted("effectiveChange")).toBeUndefined();
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+  it("unlatches a selected direction to automatic on a stationary tap", async () => {
+    const { wrapper, plate } = setup("dark");
+
+    await pointer(plate.element, "pointerdown", 50, 50);
+    await pointer(document, "pointerup", 50, 50);
+
+    expect(wrapper.emitted("update:modelValue")).toEqual([["auto"]]);
+    expect(wrapper.emitted("effectiveChange")?.at(-1)).toEqual(["auto"]);
+    expect(triggerUIHaptic).toHaveBeenCalledOnce();
+    expect(triggerLatchHaptic).not.toHaveBeenCalled();
+    expect(wrapper.attributes("data-latch-feedback")).toBeUndefined();
   });
   it("adds relative drag to the current value from any press location and reaches center", async () => {
     const { wrapper, plate } = setup("jazzy7");
@@ -131,6 +155,7 @@ describe("Joystick unique", () => {
     await pointer(document, "pointerup", 97, 70);
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
     expect(wrapper.emitted("effectiveChange")?.at(-1)).toEqual(["dark"]);
+    expect(triggerLatchHaptic).not.toHaveBeenCalled();
   });
   it.each(["pointercancel", "lostpointercapture", "blur", "hidden", "unmount"])("cleans up on %s", async kind => {
     const windowListeners = vi.spyOn(window, "addEventListener");

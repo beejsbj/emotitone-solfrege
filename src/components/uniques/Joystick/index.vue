@@ -1,7 +1,8 @@
 <template>
   <div class="joystick instrument-control" :class="`joystick--${resolvedVisual}`" role="group" :aria-label="label"
     :data-latched="modelValue" :data-effective="effectiveValue" :data-momentary="held || undefined"
-    :data-dragging="dragging || undefined" :data-active="pointerId !== null || undefined">
+    :data-dragging="dragging || undefined" :data-active="pointerId !== null || undefined"
+    :data-latch-feedback="latchFeedbackVisible || undefined">
     <div class="joystick__face instrument-control__face" role="radiogroup" :aria-label="`${label} chord character`"
       @pointerdown="beginPointer" @lostpointercapture="cancelPointer" @click.prevent>
       <div ref="plate" class="joystick__plate">
@@ -19,11 +20,11 @@
       </div>
     </div>
     <DragValue
-      v-if="pointerId !== null"
-      :x="pointerPosition.x"
-      :y="pointerPosition.y"
-      :value="effectiveLabel"
-      tone="brass"
+      v-if="pointerId !== null || latchFeedbackVisible"
+      :x="feedbackPosition.x"
+      :y="feedbackPosition.y"
+      :value="feedbackLabel"
+      :tone="latchFeedbackVisible ? 'ivory' : 'brass'"
     />
     <span class="joystick__label instrument-control__label" aria-hidden="true">{{ label }}</span>
     <span class="sr-only" aria-live="polite">{{ statusText }}</span>
@@ -35,7 +36,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicI
 import DragValue from "@/components/primatives/DragValue.vue";
 import "@/components/primatives/instrumentControl.css";
 import type { HarmonyAlteration } from "@/domain/harmony";
-import { triggerUIHaptic } from "@/utils/hapticFeedback";
+import { triggerLatchHaptic, triggerUIHaptic } from "@/utils/hapticFeedback";
 import { JOYSTICK_OPTIONS, directionFromVector, vectorFromDirection } from "./joystickOptions";
 import { currentJoystickPageVisual, type JoystickVisual } from "./edition";
 
@@ -59,29 +60,64 @@ const pointerPosition = ref({ x: 0, y: 0 });
 const held = ref(false);
 const dragging = ref(false);
 const pointerId = ref<number | null>(null);
+const latchFeedbackVisible = ref(false);
+const latchFeedbackLabel = ref("");
+const latchFeedbackPosition = ref({ x: 0, y: 0 });
 const rovingValue = ref<HarmonyAlteration>(props.modelValue);
 const optionElements = new Map<HarmonyAlteration, HTMLButtonElement>();
 let startVector = { x: 0, y: 0 };
 let start = { x: 0, y: 0 };
 let radius = 1;
 let holdTimer: ReturnType<typeof setTimeout> | undefined;
+let latchFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
 let lastEffective = props.modelValue;
 const effectiveValue = computed(() => pointerValue.value ?? props.modelValue);
 const effectiveLabel = computed(() =>
   JOYSTICK_OPTIONS.find(option => option.value === effectiveValue.value)?.label ?? "Automatic",
 );
+const feedbackPosition = computed(() =>
+  latchFeedbackVisible.value ? latchFeedbackPosition.value : pointerPosition.value,
+);
+const feedbackLabel = computed(() =>
+  latchFeedbackVisible.value ? latchFeedbackLabel.value : effectiveLabel.value,
+);
 const vector = computed(() => pointerId.value === null ? vectorFromDirection(props.modelValue) : pointerVector.value);
 const stickStyle = computed(() => ({ left: `${50 + vector.value.x * 27}%`, top: `${50 + vector.value.y * 27}%` }));
-const statusText = computed(() => `${JOYSTICK_OPTIONS.find(option => option.value === effectiveValue.value)?.label}, ${held.value ? 'momentary' : 'latched'}`);
+const statusText = computed(() => {
+  const state = held.value
+    ? "momentary"
+    : pointerId.value !== null
+      ? "preview"
+      : props.modelValue === "auto"
+        ? "automatic"
+        : "latched";
+  return `${JOYSTICK_OPTIONS.find(option => option.value === effectiveValue.value)?.label}, ${state}`;
+});
 function detentStyle(value: HarmonyAlteration) {
   const point = vectorFromDirection(value);
   return { left: `${50 + point.x * 44}%`, top: `${50 + point.y * 44}%` };
 }
 function announce(value: HarmonyAlteration, haptic = false) {
-  if (value === lastEffective) return;
+  if (value === lastEffective) return false;
   lastEffective = value;
   emit("effectiveChange", value);
   if (haptic) triggerUIHaptic();
+  return true;
+}
+function clearLatchFeedback() {
+  clearTimeout(latchFeedbackTimer);
+  latchFeedbackTimer = undefined;
+  latchFeedbackVisible.value = false;
+}
+function confirmLatch(value: HarmonyAlteration) {
+  clearLatchFeedback();
+  latchFeedbackLabel.value = JOYSTICK_OPTIONS.find(
+    option => option.value === value,
+  )?.label ?? value;
+  latchFeedbackPosition.value = { ...pointerPosition.value };
+  latchFeedbackVisible.value = true;
+  triggerLatchHaptic();
+  latchFeedbackTimer = setTimeout(clearLatchFeedback, 420);
 }
 watch(() => props.modelValue, value => {
   rovingValue.value = value;
@@ -102,6 +138,7 @@ function updateVector(event: PointerEvent) {
 function beginPointer(event: PointerEvent) {
   if (pointerId.value !== null || event.button !== 0 || !plate.value) return;
   event.preventDefault();
+  clearLatchFeedback();
   const bounds = plate.value.getBoundingClientRect();
   radius = Math.max(1, Math.min(bounds.width, bounds.height) * 0.27);
   start = { x: event.clientX, y: event.clientY };
@@ -149,9 +186,19 @@ function finishPointer(event: PointerEvent) {
   const restore = held.value;
   const completedDrag = dragging.value;
   cleanup();
-  if (!completedDrag) return;
+  if (!completedDrag) {
+    if (!restore && props.modelValue !== "auto") {
+      emit("update:modelValue", "auto");
+      announce("auto", true);
+    }
+    return;
+  }
   if (restore) announce(props.modelValue);
-  else { emit("update:modelValue", value); announce(value); }
+  else {
+    emit("update:modelValue", value);
+    announce(value);
+    if (value !== "auto" && value !== props.modelValue) confirmLatch(value);
+  }
 }
 function cancelActivePointer() {
   if (pointerId.value === null) return;
@@ -170,7 +217,10 @@ function selectKeyboardValue(value: HarmonyAlteration) {
   cancelActivePointer();
   rovingValue.value = value;
   emit("update:modelValue", value);
-  announce(value, true);
+  if (announce(value)) {
+    if (value === "auto") triggerUIHaptic();
+    else triggerLatchHaptic();
+  }
 }
 function handleKeydown(event: KeyboardEvent, value: HarmonyAlteration) {
   const index = JOYSTICK_OPTIONS.findIndex(option => option.value === value);
@@ -195,6 +245,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   cancelActivePointer();
+  clearLatchFeedback();
   window.removeEventListener("blur", cancelActivePointer);
   document.removeEventListener("visibilitychange", visibilityChange);
   optionElements.clear();

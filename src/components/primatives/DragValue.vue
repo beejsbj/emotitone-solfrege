@@ -33,6 +33,7 @@ let tilt = 0;
 let velocityX = 0;
 let velocityY = 0;
 let tiltVelocity = 0;
+const hoverDistance = 56;
 
 onMounted(() => {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -108,7 +109,7 @@ onMounted(() => {
       : left + width / 2;
     const targetY = beside
       ? props.y + (visibleTopExtent + visibleBottomExtent) / 2
-      : Math.min(y - 80, props.y - 48);
+      : Math.min(y - hoverDistance, props.y - 48);
     const minY = top + visibleTopExtent + viewportGutter;
     const maxY = top + height - visibleBottomExtent - viewportGutter;
     const py = minY <= maxY

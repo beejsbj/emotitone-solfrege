@@ -66,6 +66,9 @@ export function usePressableKey(
   }
 
   function releaseAllInputs(event: Event) {
+    // Delayed touch holds are inputs too: once a consumer locks or tears down,
+    // no pre-lock contact may become active later.
+    cancelAllPendingTouches();
     for (const inputId of Array.from(activeInputIds)) {
       endInput(inputId, event);
     }
@@ -172,13 +175,11 @@ export function usePressableKey(
 
   function handleVisibilityChange(event: Event) {
     if (document.visibilityState === "hidden") {
-      cancelAllPendingTouches();
       releaseAllInputs(event);
     }
   }
 
   function handleWindowBlur(event: Event) {
-    cancelAllPendingTouches();
     releaseAllInputs(event);
   }
 
@@ -190,7 +191,6 @@ export function usePressableKey(
   onBeforeUnmount(() => {
     window.removeEventListener("blur", handleWindowBlur);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
-    cancelAllPendingTouches();
     releaseAllInputs(new Event("unmount"));
   });
 

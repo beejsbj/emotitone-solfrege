@@ -100,25 +100,9 @@ function handleClick(event: MouseEvent) {
 
 .paper-button:not(:disabled):hover { background: var(--button-face-hover); }
 
-.paper-button:not(.paper-button--brass):not(:disabled) {
-  transition:
-    background-color var(--dur-tap) var(--ease-stab),
-    box-shadow var(--dur-tap) var(--ease-stab),
-    transform var(--dur-bounce) var(--ease-bounce),
-    opacity var(--dur-tap) var(--ease-stab);
-}
-
 .paper-button:not(:disabled):active {
   transform: translateY(var(--button-paper-offset)) scale(.96) rotate(var(--button-rest-rotation));
   box-shadow: var(--button-material-shadow);
-}
-
-.paper-button:not(.paper-button--brass):not(:disabled):active {
-  transition:
-    background-color var(--dur-tap) var(--ease-stab),
-    box-shadow var(--dur-tap) var(--ease-stab),
-    transform var(--dur-tap) var(--ease-stab),
-    opacity var(--dur-tap) var(--ease-stab);
 }
 
 .paper-button:focus-visible {
@@ -220,6 +204,24 @@ function handleClick(event: MouseEvent) {
 }
 
 @keyframes paper-button-load { to { transform: rotate(1turn); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .paper-button:not(.paper-button--brass):not(:disabled) {
+    transition:
+      background-color var(--dur-tap) var(--ease-stab),
+      box-shadow var(--dur-tap) var(--ease-stab),
+      transform var(--dur-bounce) var(--ease-bounce),
+      opacity var(--dur-tap) var(--ease-stab);
+  }
+
+  .paper-button:not(.paper-button--brass):not(:disabled):active {
+    transition:
+      background-color var(--dur-tap) var(--ease-stab),
+      box-shadow var(--dur-tap) var(--ease-stab),
+      transform var(--dur-tap) var(--ease-stab),
+      opacity var(--dur-tap) var(--ease-stab);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .paper-button,

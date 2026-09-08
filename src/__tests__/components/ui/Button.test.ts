@@ -74,6 +74,9 @@ describe("Button", () => {
     expect(buttonSource).toContain(
       ".paper-button:not(.paper-button--brass):not(:disabled)",
     );
+    expect(buttonSource).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*transform var\(--dur-bounce\) var\(--ease-bounce\)/,
+    );
     expect(buttonSource).toContain("transform var(--dur-bounce) var(--ease-bounce)");
     expect(booleanKnobSource).toContain(
       "transition: transform var(--dur-bounce) var(--ease-bounce)",

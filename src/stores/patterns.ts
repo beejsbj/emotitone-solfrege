@@ -624,7 +624,7 @@ export const usePatternsStore = defineStore(
       }
 
       if (focusedPatternId.value === patternId) {
-        focusedPatternId.value = null;
+        focusedPatternId.value = patterns.value[patterns.value.length - 1]?.id ?? null;
       }
 
       return true;

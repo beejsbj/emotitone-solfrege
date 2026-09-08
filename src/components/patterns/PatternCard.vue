@@ -22,7 +22,10 @@ const props = defineProps<{
 }>();
 
 const copied = ref(false);
-const deleteArmed = ref(false);
+const deleteArmedPatternId = ref<string | null>(null);
+const deleteArmed = computed(
+  () => deleteArmedPatternId.value === props.pattern.id,
+);
 let deleteArmTimer: ReturnType<typeof setTimeout> | undefined;
 
 onBeforeUnmount(() => clearTimeout(deleteArmTimer));
@@ -161,17 +164,17 @@ function openInStrudel() {
 function deletePattern() {
   if (props.pattern.isDefault) return;
 
-  if (!deleteArmed.value) {
-    deleteArmed.value = true;
+  if (deleteArmedPatternId.value !== props.pattern.id) {
+    deleteArmedPatternId.value = props.pattern.id;
     clearTimeout(deleteArmTimer);
     deleteArmTimer = setTimeout(() => {
-      deleteArmed.value = false;
+      deleteArmedPatternId.value = null;
     }, 2500);
     return;
   }
 
   clearTimeout(deleteArmTimer);
-  deleteArmed.value = false;
+  deleteArmedPatternId.value = null;
   patternsStore.deletePattern(props.pattern.id);
 }
 </script>

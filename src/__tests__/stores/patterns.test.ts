@@ -737,10 +737,12 @@ describe("Patterns Store", () => {
     const pattern = createPattern();
     patternsStore.savedPatterns.push(pattern);
     patternsStore.loadPatternAsBase(pattern.id);
+    const fallbackPattern = patternsStore.patterns.at(-2);
 
     expect(patternsStore.deletePattern(pattern.id)).toBe(true);
     expect(patternsStore.savedPatterns).not.toContainEqual(pattern);
-    expect(patternsStore.focusedPatternId).toBeNull();
+    expect(patternsStore.focusedPatternId).toBe(fallbackPattern?.id);
+    expect(patternsStore.focusedPattern).toEqual(fallbackPattern);
     expect(patternsStore.loadedBasePatternId).toBeNull();
     expect(patternsStore.loadedBaseNotes).toEqual([]);
     expect(patternsStore.isStripCleared).toBe(true);

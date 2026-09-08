@@ -1,9 +1,13 @@
 import { mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
 import { describe, expect, it, vi } from "vitest";
 import PatternCard from "@/components/compounds/PatternCard.vue";
+import ProductionPatternCard from "@/components/patterns/PatternCard.vue";
 import patternCardSource from "@/components/compounds/PatternCard.vue?raw";
 import productionPatternCardSource from "@/components/patterns/PatternCard.vue?raw";
 import specimenSource from "@/style-guide/compounds/CompoundPatternCard.vue?raw";
+import { usePatternsStore } from "@/stores/patterns";
+import type { Pattern } from "@/types/patterns";
 
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: {
@@ -13,12 +17,44 @@ vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   },
 }));
 
+vi.mock("@/composables/useColorSystem", () => ({
+  useColorSystem: () => ({
+    getStaticPrimaryColorByScaleIndex: () => "rgb(244, 239, 230)",
+  }),
+}));
+
 const baseProps = {
   label: "Pattern 01 — Piano / C Major",
   ordinal: "01",
   name: "Twinkle Twinkle Little Star",
   metadata: "14 notes",
 };
+
+function createUserPattern(id: string, name: string): Pattern {
+  return {
+    id,
+    name,
+    notes: [{
+      id: `${id}-note`,
+      note: "C4",
+      scaleDegree: 1,
+      scaleIndex: 0,
+      octave: 4,
+      pressTime: 1000,
+      releaseTime: 1250,
+      duration: 250,
+    }],
+    noteCount: 1,
+    duration: 250,
+    key: "C",
+    mode: "major",
+    instrument: "piano",
+    bpm: 120,
+    createdAt: Date.now(),
+    isSaved: true,
+    isDefault: false,
+  };
+}
 
 describe("PatternCard", () => {
   it("renders the collapsed Card with metadata and Bar Tape", async () => {
@@ -101,6 +137,37 @@ describe("PatternCard", () => {
     const deleteButton = wrapper.find(".pattern-card__actions button");
     expect(deleteButton.attributes("aria-label")).toBe("Confirm delete pattern");
     expect(deleteButton.find("svg").exists()).toBe(true);
+  });
+
+  it("binds two-tap deletion to the pattern that was armed", async () => {
+    setActivePinia(createPinia());
+    const patternsStore = usePatternsStore();
+    const firstPattern = createUserPattern("user-a", "First");
+    const secondPattern = createUserPattern("user-b", "Second");
+    patternsStore.savedPatterns = [firstPattern, secondPattern];
+    patternsStore.setFocusedPattern(firstPattern.id);
+
+    const wrapper = mount(ProductionPatternCard, {
+      props: { pattern: firstPattern },
+    });
+
+    await wrapper.get('button[aria-label="Delete pattern"]').trigger("click");
+    expect(wrapper.find('button[aria-label="Confirm delete pattern"]').exists()).toBe(true);
+
+    patternsStore.setFocusedPattern(secondPattern.id);
+    await wrapper.setProps({ pattern: secondPattern });
+
+    expect(wrapper.find('button[aria-label="Delete pattern"]').exists()).toBe(true);
+    expect(wrapper.find('button[aria-label="Confirm delete pattern"]').exists()).toBe(false);
+
+    await wrapper.get('button[aria-label="Delete pattern"]').trigger("click");
+    expect(patternsStore.savedPatterns.map((pattern) => pattern.id)).toEqual([
+      firstPattern.id,
+      secondPattern.id,
+    ]);
+    expect(wrapper.find('button[aria-label="Confirm delete pattern"]').exists()).toBe(true);
+
+    wrapper.unmount();
   });
 
   it("has one authoritative seam across the guide and production adapter", () => {

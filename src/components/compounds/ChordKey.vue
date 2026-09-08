@@ -156,7 +156,7 @@ const isPhysicallyPressed = computed(() => props.pressed || isLocallyPressed.val
 .chord-key :deep(.chord__symbol) {
   overflow: hidden;
   padding-inline: 2px;
-  font-size: clamp(10px, 34cqi, 14px);
+  font-size: clamp(12px, 34cqi, 14px);
   text-overflow: ellipsis;
 }
 

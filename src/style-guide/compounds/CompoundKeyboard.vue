@@ -340,7 +340,7 @@ const features = [
   { label: "State", value: "physical pressed and musical sounding remain independent" },
   { label: "Focus", value: "separate chord and melody roving entries; arrows move spatially; Space/Enter emit held intents" },
   { label: "Boundary", value: "no store, persistence, audio, haptic, MIDI, Drawer, or CodeStrip ownership" },
-  { label: "Status", value: "chord-row adoption implemented; broader Keyboard density remains a formalization candidate" },
+  { label: "Status", value: "accepted density adopted; edition variation amplitude remains the next visual check" },
 ];
 </script>
 

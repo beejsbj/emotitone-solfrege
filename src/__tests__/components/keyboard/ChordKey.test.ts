@@ -2,6 +2,7 @@ import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ChordKey from "@/components/compounds/ChordKey.vue";
 import Chord from "@/components/compounds/Chord.vue";
+import chordKeySource from "@/components/compounds/ChordKey.vue?raw";
 
 vi.mock("@/composables/useColorSystem", () => ({
   useColorSystem: () => ({
@@ -38,6 +39,7 @@ describe("ChordKey", () => {
       members,
     });
     expect(wrapper.get(".chord-key__face").attributes("aria-hidden")).toBe("true");
+    expect(chordKeySource).toContain("font-size: clamp(12px, 34cqi, 14px)");
   });
 
   it("tracks multiple contacts independently and releases them on unmount", async () => {

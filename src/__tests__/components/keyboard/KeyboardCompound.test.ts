@@ -215,19 +215,19 @@ describe("Keyboard compound", () => {
 
   it("exposes controlled keyboard padding and reserves it in allocated height", async () => {
     const wrapper = mountKeyboard();
-    await wrapper.setProps({ availableHeight: 400, keyboardPadding: true });
+    await wrapper.setProps({ availableHeight: 280, keyboardPadding: true });
     let keys = wrapper.findAllComponents(KeyStub);
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(102.77, 1);
+      .toBeCloseTo(67.02, 1);
     expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(139.47, 1);
+      .toBeCloseTo(90.96, 1);
 
     await wrapper.setProps({ keyboardPadding: false });
     keys = wrapper.findAllComponents(KeyStub);
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(105.15, 1);
+      .toBeCloseTo(69.40, 1);
     expect(parseFloat((keys[12].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(142.7, 1);
+      .toBeCloseTo(94.19, 1);
   });
 
   it.each([" ", "Enter"])(

@@ -76,7 +76,79 @@ describe("Drawer continuous height contract", () => {
     await drag(w, 500);
     expect(height(w)).toBe(220);
     expect(w.get('[data-content]').attributes('data-height')).toBe('100');
-    expect(w.emitted('dragResize')?.at(-1)).toEqual([100]);
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([100]);
+  });
+  it("offers Arrow-key resizing through the handle when a consumer opts in", async () => {
+    const w = await create({
+      dragToCollapse: false,
+      keyboardResizeStep: 10,
+      handleResizeDescription: '3 keyboard rows. Drag or use Arrow keys to resize.',
+    });
+    const handle = w.get('button');
+    expect(handle.attributes('aria-keyshortcuts')).toBe('ArrowUp ArrowDown');
+    expect(handle.attributes('aria-description')).toContain('3 keyboard rows');
+
+    await handle.trigger('keydown', { key: 'ArrowUp' });
+    await flushPromises();
+    expect(height(w)).toBe(330);
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([210]);
+    expect(committedLayoutResize).toBe(true);
+    expect(w.classes()).not.toContain('drawer--layout-resize');
+    await handle.trigger('keydown', { key: 'ArrowDown' });
+    expect(height(w)).toBe(320);
+  });
+  it("keeps playable content closed when the viewport cannot fit one complete row", async () => {
+    const w = await create({
+      dragToCollapse: false,
+      keyboardResizeStep: 10,
+      maxHeightRatio: 0.25,
+      storageKey: 'short-keyboard',
+    });
+    expect(height(w)).toBe(120);
+    expect(w.get('.drawer__content').attributes('inert')).toBeDefined();
+
+    await drag(w, -500);
+    expect(height(w)).toBe(120);
+    await w.get('button').trigger('keydown', { key: 'ArrowUp' });
+    expect(height(w)).toBe(120);
+    expect(localStorage.getItem('emotitone.drawer.short-keyboard')).toBeNull();
+  });
+  it("publishes viewport allocations, then closes content if one row no longer fits", async () => {
+    const innerHeight = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800);
+    const w = await create({ dragToCollapse: false, maxHeightRatio: 0.5 });
+    expect(height(w)).toBe(320);
+
+    innerHeight.mockReturnValue(600);
+    window.dispatchEvent(new Event('resize'));
+    await w.vm.$nextTick();
+    expect(height(w)).toBe(300);
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([180]);
+
+    innerHeight.mockReturnValue(400);
+    window.dispatchEvent(new Event('resize'));
+    await w.vm.$nextTick();
+    expect(height(w)).toBe(120);
+    expect(w.get('.drawer__content').attributes('inert')).toBeDefined();
+
+    innerHeight.mockReturnValue(800);
+    window.dispatchEvent(new Event('resize'));
+    await w.get('button').trigger('click');
+    expect(height(w)).toBe(320);
+  });
+  it("closes content when its minimum grows beyond the available allocation", async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800);
+    const w = await create({
+      dragToCollapse: false,
+      initialContentHeight: 70,
+      minContentHeight: 70,
+      maxHeightRatio: 0.25,
+    });
+    expect(height(w)).toBe(190);
+
+    await w.setProps({ minContentHeight: 100 });
+    await flushPromises();
+    expect(height(w)).toBe(120);
+    expect(w.get('.drawer__content').attributes('inert')).toBeDefined();
   });
   it("restores the preferred open height from below the usable minimum", async () => {
     const w = await create();

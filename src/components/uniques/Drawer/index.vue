@@ -7,6 +7,7 @@ const props = withDefaults(defineProps<{
   anchor?: "top" | "bottom";
   handleAlign?: "left" | "center" | "right";
   accessibleName: string;
+  handleResizeDescription?: string;
   handleLabel?: string;
   handleTestId?: string;
   fixed?: boolean;
@@ -17,6 +18,7 @@ const props = withDefaults(defineProps<{
   maxHeightRatio?: number;
   scroll?: boolean;
   dragToCollapse?: boolean;
+  keyboardResizeStep?: number;
   closeOnEscape?: boolean;
   closeOnOutside?: boolean;
   fitContentOnOpen?: boolean;
@@ -27,6 +29,7 @@ const props = withDefaults(defineProps<{
   anchor: "bottom",
   handleAlign: "center",
   handleLabel: "",
+  handleResizeDescription: "",
   fixed: false,
   storageKey: undefined,
   initialContentHeight: 240,
@@ -35,6 +38,7 @@ const props = withDefaults(defineProps<{
   maxHeightRatio: 0.85,
   scroll: true,
   dragToCollapse: true,
+  keyboardResizeStep: 0,
   closeOnEscape: false,
   closeOnOutside: false,
   fitContentOnOpen: false,
@@ -42,7 +46,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [open: boolean];
   resize: [height: number];
-  dragResize: [contentHeight: number];
+  contentResize: [contentHeight: number];
   closed: [];
 }>();
 const root = ref<HTMLElement | null>(null);
@@ -108,6 +112,9 @@ const usableOpenThreshold = computed(() => Math.min(
   maxHeight.value,
   persistentHeight.value + Math.max(props.minContentHeight, 1),
 ));
+const canFitMinimumContent = computed(() =>
+  maxHeight.value >= persistentHeight.value + props.minContentHeight,
+);
 const usableOpen = computed(() => expanded.value
   && height.value >= usableOpenThreshold.value - 0.5);
 const contentHeight = computed(() => Math.max(props.minContentHeight, height.value > 0
@@ -125,15 +132,24 @@ function remember() {
 function publish() {
   emit("update:modelValue", expanded.value);
   emit("resize", height.value);
+  if (usableOpen.value) emit("contentResize", visibleContentHeight.value);
 }
 function setHeight(value: number) {
   currentHeight.value = Math.max(0, Math.min(value, maxHeight.value));
   publish();
 }
+function interactiveHeight(value: number) {
+  if (props.dragToCollapse) return value;
+  if (!canFitMinimumContent.value) return persistentHeight.value;
+  return Math.max(usableOpenThreshold.value, value);
+}
 async function setLayoutHeight(value: number) {
   const request = ++layoutResizeRequest;
   layoutResizing.value = true;
   setHeight(value);
+  await finishLayoutResize(request);
+}
+async function finishLayoutResize(request: number) {
   await nextTick();
   if (request !== layoutResizeRequest || !root.value) return;
   // Commit the target while transitions are disabled before restoring them.
@@ -147,6 +163,10 @@ function fittedHeight() {
     : content.value?.scrollHeight || props.initialContentHeight;
 }
 async function open() {
+  if (!props.dragToCollapse && !canFitMinimumContent.value) {
+    setHeight(persistentHeight.value);
+    return;
+  }
   if (!props.fitContentOnOpen) {
     setHeight(persistentHeight.value + Math.max(props.minContentHeight, preferredContentHeight.value));
     return;
@@ -216,10 +236,21 @@ function pointerMove(event: PointerEvent) {
   fitContent = false;
   dragging.value = true;
   const requestedHeight = gesture.height + (props.anchor === "top" ? distance : -distance);
-  setHeight(props.dragToCollapse
-    ? requestedHeight
-    : Math.max(usableOpenThreshold.value, requestedHeight));
-  emit("dragResize", visibleContentHeight.value);
+  setHeight(interactiveHeight(requestedHeight));
+  event.preventDefault();
+}
+function handleKeydown(event: KeyboardEvent) {
+  if (props.keyboardResizeStep <= 0) return;
+  const expands = props.anchor === "bottom" ? event.key === "ArrowUp" : event.key === "ArrowDown";
+  const contracts = props.anchor === "bottom" ? event.key === "ArrowDown" : event.key === "ArrowUp";
+  if (!expands && !contracts) return;
+
+  const requestedHeight = height.value + (expands ? props.keyboardResizeStep : -props.keyboardResizeStep);
+  void setLayoutHeight(interactiveHeight(requestedHeight));
+  if (usableOpen.value) {
+    preferredContentHeight.value = visibleContentHeight.value;
+    remember();
+  }
   event.preventDefault();
 }
 function pointerEnd(event: PointerEvent) {
@@ -236,6 +267,8 @@ function pointerEnd(event: PointerEvent) {
   clickReset = setTimeout(() => { suppressClick = false; }, 0);
 }
 function measure() {
+  const layoutRequest = ready.value ? ++layoutResizeRequest : 0;
+  if (layoutRequest) layoutResizing.value = true;
   const nextFrame = props.fixed ? window.innerHeight : root.value?.parentElement?.clientHeight;
   frameHeight.value = nextFrame || window.innerHeight;
   const nextPersistent = persistent.value?.getBoundingClientRect().height ?? 0;
@@ -246,6 +279,16 @@ function measure() {
   if (ready.value && (wasExpanded || wasAtPersistent)) {
     currentHeight.value = Math.max(0, currentHeight.value + nextPersistent - previous);
   }
+  if (!ready.value) return;
+  if (!props.dragToCollapse
+    && currentHeight.value > persistentHeight.value
+    && !canFitMinimumContent.value) {
+    setHeight(persistentHeight.value);
+    void finishLayoutResize(layoutRequest);
+    return;
+  }
+  publish();
+  void finishLayoutResize(layoutRequest);
 }
 function outsidePointer(event: PointerEvent) {
   if (props.closeOnOutside && (expanded.value || opening) && event.target instanceof Node
@@ -266,6 +309,10 @@ watch(() => props.naturalContentHeight, () => {
 });
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {
+    if (!props.dragToCollapse && !canFitMinimumContent.value) {
+      setHeight(persistentHeight.value);
+      return;
+    }
     void setLayoutHeight(persistentHeight.value + Math.max(
       props.minContentHeight,
       preferredContentHeight.value,
@@ -347,7 +394,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       :data-testid="handleTestId"
       :aria-label="accessibleName"
       :aria-expanded="expanded"
+      :aria-description="handleResizeDescription || undefined"
+      :aria-keyshortcuts="keyboardResizeStep > 0 ? 'ArrowUp ArrowDown' : undefined"
       @click="click"
+      @keydown="handleKeydown"
       @pointerdown="pointerDown"
       @pointermove="pointerMove"
       @pointerup="pointerEnd"

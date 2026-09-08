@@ -5,6 +5,7 @@
     anchor="bottom"
     handle-align="center"
     accessible-name="Keyboard"
+    :handle-resize-description="`${rowCount} keyboard rows. Drag or use Up and Down Arrow keys to resize.`"
     handle-test-id="keyboard-drawer-handle"
     storage-key="keyboard-layout"
     :initial-content-height="initialKeyboardHeight"
@@ -12,8 +13,9 @@
     :max-content-height="maximumHeight"
     :scroll="false"
     :drag-to-collapse="false"
+    :keyboard-resize-step="8"
     @update:model-value="updateDrawerOpen"
-    @drag-resize="resizeKeyboard"
+    @content-resize="resizeKeyboard"
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent>

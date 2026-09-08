@@ -33,6 +33,12 @@ describe("keyboard host sizing", () => {
     expect(resolveKeyboardLayout(270, 4).rowCount).toBe(4);
   });
 
+  it("does not reverse the first row addition on a tiny pointer reversal", () => {
+    expect(resolveKeyboardLayout(167, 1).rowCount).toBe(2);
+    expect(resolveKeyboardLayout(163, 2).rowCount).toBe(2);
+    expect(resolveKeyboardLayout(150, 2).rowCount).toBe(1);
+  });
+
   it("saturates at complete one-row and eight-row layouts", () => {
     expect(resolveKeyboardLayout(0, 1)).toMatchObject({
       rowCount: 1,

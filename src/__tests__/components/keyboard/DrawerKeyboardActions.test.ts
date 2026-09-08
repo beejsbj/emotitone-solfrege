@@ -297,7 +297,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("turns pointer-driven drawer height into whole keyboard rows", async () => {
+  it("turns each usable drawer allocation into whole keyboard rows", async () => {
     const wrapper = mount(DrawerKeyboard, {
       global: {
         stubs: {
@@ -308,7 +308,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
       },
     });
 
-    wrapper.getComponent(Drawer).vm.$emit("dragResize", 305);
+    wrapper.getComponent(Drawer).vm.$emit("contentResize", 320);
     await wrapper.vm.$nextTick();
 
     expect(mocks.setRowCount).toHaveBeenCalledWith(4);

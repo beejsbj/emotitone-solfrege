@@ -52,6 +52,8 @@ describe("Brand Logo definition lab", () => {
   it("carries the favicon's five-blob constellation into one comparison without replacing the favicon", () => {
     expect(faviconSource.match(/<circle /g)).toHaveLength(5);
     expect(faviconSource).toContain("M150 400 Q256 320 362 400");
+    expect(logoLabSource).toContain('src="/icon.svg"');
+    expect(logoLabSource).toContain("Five colour blobs + one upward curve");
     expect(logoLabSource).toContain("Five colour disks orbit one print");
   });
 

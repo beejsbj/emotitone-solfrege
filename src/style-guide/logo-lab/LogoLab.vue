@@ -155,6 +155,15 @@ function sprinkleStyle(sprinkle: Sprinkle) {
       </ol>
     </section>
 
+    <section class="favicon-memory" aria-labelledby="favicon-memory-title">
+      <img src="/icon.svg" alt="Current EmotiTone favicon" width="88" height="88">
+      <div>
+        <p>Source memory · current favicon</p>
+        <h2 id="favicon-memory-title">Five colour blobs + one upward curve.</h2>
+        <span>At tiny scale, this constellation carries more recognition than its small wordmark. Option D translates that rhythm into the new paper language.</span>
+      </div>
+    </section>
+
     <section class="logo-lab__grid" aria-label="Four Mark treatments on the selected Tight Weave logo">
       <article v-for="treatment in treatments" :key="treatment.id" class="concept">
         <header class="concept__header">
@@ -380,6 +389,54 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 .anatomy__piece--t-stem { --piece-colour: var(--cobalt); }
 .anatomy__piece--t-stem i { box-shadow: inset 0 0 0 1px var(--lab-muted); }
 
+.favicon-memory {
+  display: flex;
+  gap: 20px;
+  width: min(1440px, 100%);
+  margin: 0 auto clamp(20px, 2.5vw, 36px);
+  padding: 16px 20px;
+  background: var(--lab-panel);
+  align-items: center;
+}
+
+.favicon-memory img {
+  width: 88px;
+  height: 88px;
+  flex: 0 0 auto;
+}
+
+.favicon-memory div {
+  display: grid;
+  gap: 7px;
+}
+
+.favicon-memory p,
+.favicon-memory span {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.favicon-memory p {
+  color: var(--brass);
+  font-size: 9px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.favicon-memory h2 {
+  margin: 0;
+  font: 700 22px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.favicon-memory span {
+  max-width: 76ch;
+  color: var(--lab-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .logo-lab__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -583,6 +640,8 @@ function sprinkleStyle(sprinkle: Sprinkle) {
   .logo-lab__header h1 { font-size: 56px; }
   .anatomy { padding-inline: 12px; }
   .anatomy ol { grid-template-columns: repeat(2, 1fr); }
+  .favicon-memory { align-items: flex-start; padding-inline: 12px; }
+  .favicon-memory img { width: 64px; height: 64px; }
   .concept__hero { min-height: 300px; padding-inline: 16px; }
   .paper-lockup > .embellished-mark { width: 190px; }
   .paper-lockup strong { font-size: 54px; }

@@ -7,6 +7,7 @@ const MAX_ROW_COUNT = 8;
 export const KEYBOARD_CHORD_ROW_HEIGHT = 47;
 export const MIN_KEYBOARD_OUTER_ROW_HEIGHT = 44;
 export const MAX_KEYBOARD_OUTER_ROW_HEIGHT = 80;
+const ROW_COUNT_HYSTERESIS_HEIGHT = 4;
 
 function clampRowCount(rowCount: number) {
   return Math.max(MIN_ROW_COUNT, Math.min(MAX_ROW_COUNT, Math.round(rowCount)));
@@ -14,6 +15,13 @@ function clampRowCount(rowCount: number) {
 
 function rowWeight(rowCount: number) {
   return Math.max(0, clampRowCount(rowCount) - 1) + MAIN_WEIGHT;
+}
+
+function rowExpansionMelodyHeight(rowCount: number) {
+  // Cross each boundary only when the added row will sit above its removal
+  // threshold, without making dense layouts grow to the terminal 80px cap.
+  return MIN_KEYBOARD_OUTER_ROW_HEIGHT * rowWeight(rowCount + 1)
+    + ROW_COUNT_HYSTERESIS_HEIGHT;
 }
 
 export function minimumKeyboardHeight(rowCount: number) {
@@ -40,7 +48,10 @@ export function resolveKeyboardLayout(contentHeight: number, currentRowCount: nu
   let rowCount = clampRowCount(currentRowCount);
   let outerRowHeight = melodyHeight / rowWeight(rowCount);
 
-  while (outerRowHeight > MAX_KEYBOARD_OUTER_ROW_HEIGHT && rowCount < MAX_ROW_COUNT) {
+  while (
+    rowCount < MAX_ROW_COUNT
+    && melodyHeight > rowExpansionMelodyHeight(rowCount)
+  ) {
     rowCount += 1;
     outerRowHeight = melodyHeight / rowWeight(rowCount);
   }

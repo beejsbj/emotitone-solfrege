@@ -308,10 +308,12 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
       },
     });
 
-    wrapper.getComponent(Drawer).vm.$emit("contentResize", 320);
+    const drawer = wrapper.getComponent(Drawer);
+    expect(drawer.props("maxHeightRatio")).toBe(0.95);
+    drawer.vm.$emit("contentResize", 320);
     await wrapper.vm.$nextTick();
 
-    expect(mocks.setRowCount).toHaveBeenCalledWith(4);
+    expect(mocks.setRowCount).toHaveBeenCalledWith(5);
     wrapper.unmount();
   });
 

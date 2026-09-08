@@ -18,7 +18,7 @@ describe("keyboard host sizing", () => {
 
   it("adds and removes whole rows when a drag crosses the key-size limits", () => {
     const expanded = resolveKeyboardLayout(320, 3);
-    expect(expanded.rowCount).toBe(4);
+    expect(expanded.rowCount).toBe(5);
     expect(expanded.outerRowHeight).toBeGreaterThanOrEqual(MIN_KEYBOARD_OUTER_ROW_HEIGHT);
     expect(expanded.outerRowHeight).toBeLessThanOrEqual(MAX_KEYBOARD_OUTER_ROW_HEIGHT);
 
@@ -28,15 +28,23 @@ describe("keyboard host sizing", () => {
     expect(contracted.outerRowHeight).toBeLessThanOrEqual(MAX_KEYBOARD_OUTER_ROW_HEIGHT);
   });
 
-  it("keeps the current row count inside the shared height range", () => {
-    expect(resolveKeyboardLayout(270, 3).rowCount).toBe(3);
-    expect(resolveKeyboardLayout(270, 4).rowCount).toBe(4);
+  it("keeps the current row count inside a narrow height overlap", () => {
+    expect(resolveKeyboardLayout(240, 3).rowCount).toBe(3);
+    expect(resolveKeyboardLayout(240, 4).rowCount).toBe(4);
   });
 
   it("does not reverse the first row addition on a tiny pointer reversal", () => {
     expect(resolveKeyboardLayout(167, 1).rowCount).toBe(2);
     expect(resolveKeyboardLayout(163, 2).rowCount).toBe(2);
     expect(resolveKeyboardLayout(150, 2).rowCount).toBe(1);
+  });
+
+  it("adds dense rows near the accepted size instead of waiting for the global maximum", () => {
+    expect(resolveKeyboardLayout(376, 6).rowCount).toBe(7);
+    expect(resolveKeyboardLayout(420, 7).rowCount).toBe(8);
+    expect(resolveKeyboardLayout(447, 3).rowCount).toBe(8);
+    expect(resolveKeyboardLayout(417, 8).rowCount).toBe(8);
+    expect(resolveKeyboardLayout(410, 8).rowCount).toBe(7);
   });
 
   it("saturates at complete one-row and eight-row layouts", () => {

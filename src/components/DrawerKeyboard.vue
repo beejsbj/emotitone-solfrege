@@ -11,6 +11,7 @@
     :initial-content-height="initialKeyboardHeight"
     :min-content-height="minimumHeight"
     :max-content-height="maximumHeight"
+    :max-height-ratio="0.95"
     :scroll="false"
     :drag-to-collapse="false"
     :keyboard-resize-step="8"

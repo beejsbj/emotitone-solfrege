@@ -163,8 +163,10 @@ function laneStyle(lane: typeof lanes[number], index: number) {
         title="Enter EmotiTone"
         @click="emit('enter')"
       >
-        <span aria-hidden="true">►</span>
-        PLAY
+        <span class="converged-loader__completion-label">
+          <span aria-hidden="true">►</span>
+          PLAY
+        </span>
       </button>
 
       <div class="converged-loader__lanes" aria-hidden="true">
@@ -193,8 +195,8 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   --muted: var(--ivory-3);
   --quiet: color-mix(in srgb, var(--ivory) 12%, transparent);
   --lane-strip-height: clamp(72px, 13vh, 116px);
-  --entry-action-height: 50px;
-  --entry-action-overlap: 25px;
+  --entry-action-height: 60px;
+  --entry-action-overlap: 30px;
 
   position: relative;
   display: grid;
@@ -292,7 +294,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 .converged-loader__copy h1 {
   margin: 0;
-  font: 700 clamp(26px, 3.1vw, 40px)/1.08 var(--font-display);
+  font: 700 clamp(15px, 1.7vw, 22px)/1.12 var(--font-display);
   letter-spacing: -.015em;
   text-transform: uppercase;
   text-align: center;
@@ -339,18 +341,19 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   min-height: var(--entry-action-height);
   align-items: center;
   justify-content: center;
-  gap: .42em;
   padding: 9px 24px 8px;
-  border: 1px solid color-mix(in srgb, var(--foreground) 24%, transparent);
+  border: 0;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--surface) 88%, var(--foreground) 12%);
-  color: var(--foreground);
+  background: var(--brass-fill);
+  box-shadow: 0 2px 0 var(--brass-lo), var(--shadow-glow-brass);
+  color: var(--brass-edge);
   font: 700 clamp(20px, 2vw, 26px)/1 var(--font-display);
   letter-spacing: .18em;
   text-transform: uppercase;
   opacity: 0;
   cursor: pointer;
   isolation: isolate;
+  overflow: hidden;
   translate: -50% 0;
   user-select: none;
   white-space: nowrap;
@@ -362,14 +365,23 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 .converged-loader__completion-action::after {
   position: absolute;
-  z-index: -1;
-  inset: -1px;
+  z-index: 0;
+  inset: -12% -35%;
   border-radius: inherit;
-  box-shadow: 0 0 24px color-mix(in srgb, var(--foreground) 14%, transparent);
+  background: var(--brass-sheen);
   content: "";
-  opacity: .24;
+  mix-blend-mode: screen;
   pointer-events: none;
-  animation: converged-gate-glow 2.2s cubic-bezier(.45, 0, .55, 1) 700ms infinite;
+  translate: -72% 0;
+  animation: converged-gate-sheen 5.8s cubic-bezier(.45, 0, .55, 1) 700ms infinite;
+}
+
+.converged-loader__completion-label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: .42em;
 }
 
 .converged-loader__completion-action:active { transform: translateY(2px) scale(.99); }
@@ -619,9 +631,9 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   to { opacity: 1; translate: -50% 0; }
 }
 
-@keyframes converged-gate-glow {
-  0%, 100% { opacity: .24; }
-  50% { opacity: .72; }
+@keyframes converged-gate-sheen {
+  0%, 18% { translate: -72% 0; }
+  62%, 100% { translate: 72% 0; }
 }
 
 @keyframes converged-frontier {
@@ -632,8 +644,8 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 @media (max-width: 720px) {
   .converged-loader {
     --lane-strip-height: clamp(58px, 10vh, 82px);
-    --entry-action-height: 48px;
-    --entry-action-overlap: 24px;
+    --entry-action-height: 58px;
+    --entry-action-overlap: 29px;
 
     gap: 8px;
     padding: 12px 18px 0;
@@ -650,7 +662,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__logo :deep(.brand-logo__wordmark) { font-size: min(42px, 11vw); }
   .converged-loader__content { gap: clamp(9px, 1.4vh, 13px); }
   .converged-loader__copy p { margin-bottom: 3px; font-size: 8px; }
-  .converged-loader__copy h1 { font-size: clamp(21px, 6vw, 26px); line-height: 1.1; }
+  .converged-loader__copy h1 { font-size: clamp(12px, 3.2vw, 14px); line-height: 1.14; }
   .converged-loader__status { margin-top: 4px; }
   .converged-loader__status-copy { grid-template-columns: 1fr; gap: 2px; }
   .converged-loader__status-copy > span { font-size: 9px; }
@@ -664,8 +676,8 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 @media (max-height: 650px) {
   .converged-loader {
     --lane-strip-height: min(52px, 11vh);
-    --entry-action-height: 44px;
-    --entry-action-overlap: 22px;
+    --entry-action-height: 52px;
+    --entry-action-overlap: 26px;
 
     padding-block: 10px 0;
   }
@@ -673,7 +685,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__status-copy { display: none; }
   .converged-loader__main { gap: 14px; }
   .converged-loader__content { gap: 4px; }
-  .converged-loader__copy h1 { font-size: clamp(20px, 5vh, 24px); }
+  .converged-loader__copy h1 { font-size: clamp(12px, 2.7vh, 13px); }
   .converged-loader__stages { height: min(78px, 17vh); }
   .converged-loader__bars { height: min(38px, 8vh); }
 }
@@ -700,6 +712,8 @@ function laneStyle(lane: typeof lanes[number], index: number) {
     translate: -50% 0;
   }
 
+  .converged-loader__completion-action::after { translate: 0 0; }
+
   .converged-loader__completion-action,
   .converged-loader__stages li,
   .converged-loader__stamp,
@@ -708,7 +722,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
 @media (hover: hover) and (pointer: fine) {
   .converged-loader__completion-action:hover {
-    background: color-mix(in srgb, var(--surface) 84%, var(--foreground) 16%);
+    background: var(--brass-fill);
   }
 }
 

@@ -16,9 +16,7 @@ import {
   Phone,
   Piano,
   Plane,
-  Radio,
   Rocket,
-  Shell,
   Siren,
   Sparkles,
   TrainFront,
@@ -40,11 +38,11 @@ const iconRules: InstrumentIconRule[] = [
   },
   {
     icon: Guitar,
-    matches: /\b(guitar|banjo|sitar|koto|shamisen|dulcimer|fretless|slap bass|psaltery|dantranh|strumstick)\b/,
+    matches: /\b(guitar|banjo|sitar|koto|shamisen|dulcimer|fretless|slap bass|acoustic bass|electric bass|bass guitar|psaltery|dantranh|strumstick)\b/,
   },
   {
     icon: Music2,
-    matches: /\b(harp|violin|viola|cello|contrabass|fiddle|pizzicato|tremolo|string ensemble|synth strings|orchestra|accordion|bandoneon)\b/,
+    matches: /\b(harp|folkharp|violin|viola|cello|contrabass|fiddle|pizzicato|tremolo|string ensemble|synth strings|orchestra|accordion|bandoneon)\b/,
   },
   {
     icon: Church,
@@ -52,7 +50,7 @@ const iconRules: InstrumentIconRule[] = [
   },
   {
     icon: Wind,
-    matches: /\b(flute|piccolo|recorder|clarinet|oboe|bassoon|sax|saxello|horn|trumpet|trombone|tuba|brass|ocarina|harmonica|shakuhachi|shanai|whistle|blown bottle|breath noise|didgeridoo|bagpipe|super64)\w*\b/,
+    matches: /\b(flute|piccolo|recorder|clarinet|oboe|bassoon|sax|saxello|horn|trumpet|trombone|tuba|brass|ocarina|harmonica|shakuhachi|shanai|whistle|ballwhistle|blown bottle|breath noise|didgeridoo|bagpipe|super64|wind)\w*\b/,
   },
   {
     icon: MicVocal,
@@ -60,28 +58,26 @@ const iconRules: InstrumentIconRule[] = [
   },
   {
     icon: Bell,
-    matches: /\b(bell\w*|glockenspiel|marimba|vibraphone|xylophone|kalimba\d*|agogo|steel drums|tubular ?bells?\d*|balafon|chime\w*|finger ?cymbal|flexatone)\b/,
+    matches: /\b(bell\w*|handbells?|glockenspiel|marimba|vibraphone|xylophone|kalimba\d*|agogo|steel drums|tubular ?bells?\d*|balafon|chime\w*|handchimes?|finger ?cymbal|flexatone|triangles|marktrees)\b/,
   },
   { icon: Anvil, matches: /\b(anvil|brake ?drum|metal)\b/ },
   {
     icon: Drum,
-    matches: /\b(drum|drums|kick|snare|tom|taiko|cymbal|hat|hihat|clap|conga|bongo|tamb|timpani|timba|mrid|perc|rim|cowbell|shaker|gong|woodblock|clave|guiro|darbuka|frame|slit|ratch|sleigh|cabasa|cajon|chaapu|clash|slapstick)\w*\b|\b(bd|sd|hh|cp|cr|cb|mt|ht|lt|oh|rd|sh|tb|misc)\b/,
+    matches: /\b(drum|drums|bass ?drum\d*|ocean ?drum|kick|snare|tom|taiko|cymbal|hat|hihat|clap|conga|bongo|tamb|timpani|timba|mrid|perc|rim|cowbell|shaker|gong|woodblock|clave|guiro|darbuka|frame|slit|ratch|sleigh|cabasa|cajon|chaapu|clash|slapstick|vibraslap)\w*\b|\b(bd|sd|hh|cp|cr|cb|mt|ht|lt|oh|rd|sh|tb|misc)\b|^(dhi|dhin|dhum|ka|ki|na|nam|ta|tha|thom|oberheimdmx)$/,
   },
   { icon: CloudRain, matches: /\b(rain|thunder)\b/ },
-  { icon: Bird, matches: /\b(bird|tweet)\b/ },
+  { icon: Bird, matches: /\b(bird|tweet|crow)\b/ },
   { icon: Bug, matches: /\b(insect|cricket)\b/ },
   { icon: Bus, matches: /^bus$/ },
   { icon: Phone, matches: /\b(telephone|phone)\b/ },
   { icon: Plane, matches: /\b(helicopter|airplane|jet)\b/ },
-  { icon: TrainFront, matches: /\b(train|rail)\b/ },
+  { icon: TrainFront, matches: /\b(train\w*|rail)\b/ },
   { icon: Rocket, matches: /\b(space|rocket)\b/ },
   { icon: Siren, matches: /\bsiren\b/ },
   { icon: Crosshair, matches: /\b(gunshot|shot)\b/ },
   { icon: Waves, matches: /\b(seashore|ocean|surf|water)\b/ },
   { icon: Wine, matches: /\bwine ?glass\w*\b/ },
   { icon: Hand, matches: /\b(applause|hand clap)\b/ },
-  { icon: Radio, matches: /\b(radio|dial|broadcast)\b/ },
-  { icon: Shell, matches: /\b(shell|conch)\b/ },
   { icon: Sparkles, matches: /\b(crystal|goblins|halo|brightness|atmosphere)\b/ },
   {
     icon: AudioWaveform,
@@ -96,7 +92,8 @@ function normalizeInstrumentName(instrument: string): string {
     .trim()
     .toLowerCase()
     .replace(/^gm_/, "")
-    .replace(/[_-]+/g, " ");
+    .replace(/[_-]+/g, " ")
+    .trim();
 }
 
 /**

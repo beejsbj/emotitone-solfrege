@@ -110,9 +110,7 @@ vi.mock('lucide-vue-next', () => ({
   Music2: { template: '<svg data-testid="strings-icon"></svg>' },
   Phone: { template: '<svg data-testid="phone-icon"></svg>' },
   Plane: { template: '<svg data-testid="plane-icon"></svg>' },
-  Radio: { template: '<svg data-testid="radio-icon"></svg>' },
   Rocket: { template: '<svg data-testid="rocket-icon"></svg>' },
-  Shell: { template: '<svg data-testid="shell-icon"></svg>' },
   Siren: { template: '<svg data-testid="siren-icon"></svg>' },
   Sparkles: { template: '<svg data-testid="sparkles-icon"></svg>' },
   TrainFront: { template: '<svg data-testid="train-icon"></svg>' },
@@ -185,6 +183,17 @@ describe('InstrumentSelector.vue', () => {
       ['gm_bassoon', 'wind-icon'],
       ['gm_synth_bass_1', 'waveform-icon'],
       ['triangle', 'waveform-icon'],
+      ['folkharp', 'strings-icon'],
+      ['gm_electric_bass_finger', 'guitar-icon'],
+      ['bassdrum1', 'drum-icon'],
+      ['handbells', 'bell-icon'],
+      ['trainwhistle', 'train-icon'],
+      ['crow', 'bird-icon'],
+      ['oceandrum', 'drum-icon'],
+      ['triangles', 'bell-icon'],
+      ['vibraslap', 'drum-icon'],
+      ['marktrees', 'bell-icon'],
+      ['dhin', 'drum-icon'],
       ['custom_sample', 'waveform-icon'],
     ]) {
       await wrapper.setProps({ currentInstrument: instrument })
@@ -257,16 +266,36 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.findAll('[data-testid^="instrument-option-"] .sticker--badge')).toHaveLength(0)
   })
 
-  it('keeps current and warmed instruments before cold instruments within each group', async () => {
-    instrumentStore.readySounds.add('steinway')
+  it('moves a cold instrument to the front while warming and keeps it ahead once ready', async () => {
     getRegisteredSounds.mockReturnValue(['fmpiano', 'steinway', 'piano'])
-    wrapper = await mountSelector()
+    wrapper = await mountSelector({ currentInstrument: 'piano' })
 
-    const orderedChoices = wrapper
+    const orderedChoices = () => wrapper!
       .findAll('[data-testid^="instrument-option-"]')
       .map((choice) => choice.attributes('data-testid'))
 
-    expect(orderedChoices).toEqual([
+    expect(orderedChoices()).toEqual([
+      'instrument-option-piano',
+      'instrument-option-fmpiano',
+      'instrument-option-steinway',
+    ])
+
+    instrumentStore.warmingInstrument = 'steinway'
+    await wrapper.setProps({ currentInstrument: 'steinway' })
+
+    expect(wrapper.get('[data-testid="instrument-option-steinway"]').attributes('data-state')).toBe('warming')
+    expect(orderedChoices()).toEqual([
+      'instrument-option-steinway',
+      'instrument-option-piano',
+      'instrument-option-fmpiano',
+    ])
+
+    instrumentStore.warmingInstrument = null
+    instrumentStore.readySounds.add('steinway')
+    await wrapper.setProps({ currentInstrument: 'piano' })
+
+    expect(wrapper.get('[data-testid="instrument-option-steinway"]').attributes('data-state')).toBe('ready')
+    expect(orderedChoices()).toEqual([
       'instrument-option-piano',
       'instrument-option-steinway',
       'instrument-option-fmpiano',

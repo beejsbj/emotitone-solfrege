@@ -221,6 +221,22 @@ const stickerStyle = computed<CSSProperties>(() =>
   background-size: 200% 100%;
 }
 
+/* A committed Joystick latch turns the whole Badge into Ivory paper. */
+.sticker--badge.sticker--color-ivory {
+  background: var(--sticker-fill);
+}
+
+.sticker--badge.sticker--color-ivory .sticker__badge-edge,
+.sticker--badge.sticker--color-ivory .sticker__badge-text {
+  background: var(--sticker-fill-fg);
+  animation: none;
+}
+
+.sticker--badge.sticker--color-ivory .sticker__badge-text {
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sticker--fill.sticker--color-brass-sheen,
   .sticker--fill.sticker--color-brass-sheen-glow,

@@ -24,7 +24,7 @@
       :x="feedbackPosition.x"
       :y="feedbackPosition.y"
       :value="feedbackLabel"
-      :tone="latchFeedbackVisible ? 'ivory' : 'brass'"
+      :tone="latchFeedbackVisible ? 'ivory-badge' : 'brass'"
     />
     <span class="joystick__label instrument-control__label" aria-hidden="true">{{ label }}</span>
     <span class="sr-only" aria-live="polite">{{ statusText }}</span>

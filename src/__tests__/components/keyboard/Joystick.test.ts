@@ -58,7 +58,8 @@ describe("Joystick unique", () => {
     expect(triggerUIHaptic).toHaveBeenCalled();
     expect(triggerLatchHaptic).toHaveBeenCalledOnce();
     expect(wrapper.attributes("data-latch-feedback")).toBe("true");
-    expect(document.querySelector(".drag-value__paper")?.classList).toContain("sticker--fill");
+    expect(document.querySelector(".drag-value__paper")?.classList).toContain("sticker--badge");
+    expect(document.querySelector(".drag-value__paper")?.classList).not.toContain("sticker--fill");
     expect(document.querySelector(".drag-value__paper")?.classList).toContain("sticker--color-ivory");
   });
   it("shares Knob geometry, centered ring detents, brass sheen, and floating drag feedback", async () => {
@@ -84,6 +85,8 @@ describe("Joystick unique", () => {
     await pointer(document, "pointerup", 80, 50);
     expect(document.querySelector(".drag-value__paper")?.classList)
       .toContain("sticker--color-ivory");
+    expect(document.querySelector(".drag-value__paper")?.classList)
+      .toContain("sticker--badge");
     wrapper.unmount();
   });
   it("tracks globally when capture is unavailable and releases successful capture on completion", async () => {

@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Sticker &middot; Decoration Primitive"
     :features="features"
-    caption="Outline, fill, and badge share the same color vocabulary. Outline and fill receive randomized cut-paper geometry per instance; badge keeps fixed geometry and applies color to the edge and text."
+    caption="Outline and fill share the full color vocabulary and receive randomized cut-paper geometry. Badge keeps fixed geometry: Brass is its default signal material, while Ivory is the committed-latch state used by Joystick."
   >
     <template #hero>
       <Sticker variant="outline" color="ivory">Piano</Sticker>
@@ -32,11 +32,8 @@
       <VariantCell caption="Brass sheen edge &middot; brass sheen text">
         <Sticker variant="badge" color="brass-sheen">Signal</Sticker>
       </VariantCell>
-      <VariantCell caption="Tomato edge &middot; tomato text">
-        <Sticker variant="badge" color="tomato">Alert</Sticker>
-      </VariantCell>
-      <VariantCell caption="Pine edge &middot; pine text">
-        <Sticker variant="badge" color="pine">Live</Sticker>
+      <VariantCell caption="Ivory body &middot; Ink edge and text">
+        <Sticker variant="badge" color="ivory">Latched</Sticker>
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -68,7 +65,7 @@ const features = [
   { label: "Color", value: "applies to outline wire or fill surface" },
   { label: "Outline", value: "transparent fill · 1px color wire · ivory wordmark" },
   { label: "Fill", value: "color surface · no outline / border" },
-  { label: "Badge", value: "fixed geometry · color controls edge and text" },
+  { label: "Badge", value: "fixed geometry · Brass signal or Ivory committed-latch state" },
   { label: "Geometry", value: "randomized transform / clip-path / shadow for outline + fill only" },
 ];
 </script>

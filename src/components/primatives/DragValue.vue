@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div ref="follower" class="drag-value knob-drag-value" aria-hidden="true">
       <Sticker
-        :variant="tone === 'brass' ? 'badge' : 'fill'"
+        :variant="tone === 'ivory' ? 'fill' : 'badge'"
         :color="tone === 'brass' ? 'brass-sheen' : 'ivory'"
         class="drag-value__paper knob-drag-value__paper"
       >
@@ -16,7 +16,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import Sticker from "./Sticker.vue";
 
-export type DragValueTone = "brass" | "ivory";
+export type DragValueTone = "brass" | "ivory" | "ivory-badge";
 
 const props = defineProps<{
   x: number;

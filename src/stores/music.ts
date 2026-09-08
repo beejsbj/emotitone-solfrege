@@ -277,9 +277,10 @@ export const useMusicStore = defineStore(
     // Attack note with either format
     async function attackNoteWithFormat(
       input: number | ChromaticNoteWithOctave,
-      octave: number = 4
+      octave: number = 4,
+      isCancelled: () => boolean = () => false,
     ): Promise<string | null> {
-      if (instrumentStore.isInteractionLocked) {
+      if (instrumentStore.isInteractionLocked || isCancelled()) {
         return null;
       }
 
@@ -316,19 +317,22 @@ export const useMusicStore = defineStore(
           Math.random().toString(36).slice(2, 8),
         ].join("_");
         const instrumentSelectionEpoch = instrumentStore.selectionEpoch;
+        const attackInstrument = instrumentStore.currentInstrument;
 
         // Fire-and-forget via superdough — it manages its own voice lifecycle
         await superdoughAudio.attackNote(
           cleanNoteId,
           noteName,
-          instrumentStore.currentInstrument
+          attackInstrument,
         );
 
         // A selection can begin warming while the asynchronous audio attack is
         // still starting. Never publish that stale voice into app state.
         if (
+          isCancelled() ||
           instrumentStore.isInteractionLocked ||
-          instrumentStore.selectionEpoch !== instrumentSelectionEpoch
+          instrumentStore.selectionEpoch !== instrumentSelectionEpoch ||
+          instrumentStore.currentInstrument !== attackInstrument
         ) {
           superdoughAudio.releaseNote(cleanNoteId);
           return null;
@@ -720,9 +724,10 @@ export const useMusicStore = defineStore(
     // Enhanced attack note with octave support
     async function attackNoteWithOctave(
       solfegeIndex: number,
-      octave: number
+      octave: number,
+      isCancelled: () => boolean = () => false,
     ): Promise<string | null> {
-      return attackNoteWithFormat(solfegeIndex, octave);
+      return attackNoteWithFormat(solfegeIndex, octave, isCancelled);
     }
 
     // Melody management methods removed

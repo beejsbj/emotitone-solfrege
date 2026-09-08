@@ -51,7 +51,7 @@ Explicit directions are intentional alterations. Their pitch classes may fall ou
 
 The chord object is captured when its key is attacked. Joystick changes affect later attacks and never retune a held chord.
 
-Every input contact owns an independent voice group. Chord/chord, chord/melody, QWERTY, focus, mouse, and touch owners do not coalesce shared or unison pitches. Releasing one owner therefore cannot silence another. A released owner also releases voices that resolve after an asynchronous attack, and blur/unmount release every resolved or pending group.
+Every input contact owns an independent voice group. Chord/chord, chord/melody, QWERTY, focus, mouse, and touch owners do not coalesce shared or unison pitches. Releasing one owner therefore cannot silence another. A released chord or melody owner cancels publication of an asynchronous attack before active-note state or `note-played` can escape, and blur/unmount release every resolved or pending group. Space/Enter release is owned at the Keyboard root, so moving focus between its chord and melody zones cannot strand either focus owner.
 
 On the horizontally scrollable chord row, touch contacts use a 120ms intent window. Horizontal movement beyond 8px cancels the pending chord without sound; a quick stationary tap becomes one bounded pulse; a stationary thumb that outlasts the window becomes a normal held owner. Melody Keys retain immediate touch attack because their rows do not share this horizontal-pan ambiguity.
 

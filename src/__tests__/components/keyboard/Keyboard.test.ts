@@ -258,10 +258,18 @@ describe("Keyboard production usage", () => {
       "0_4",
     );
     expect(mocks.triggerNoteHaptic).toHaveBeenCalledOnce();
-    expect(mocks.musicStore.attackNoteWithOctave).toHaveBeenCalledWith(0, 4);
+    expect(mocks.musicStore.attackNoteWithOctave).toHaveBeenCalledWith(
+      0,
+      4,
+      expect.any(Function),
+    );
+    const isCancelled = mocks.musicStore.attackNoteWithOctave.mock.calls[0][2] as
+      () => boolean;
+    expect(isCancelled()).toBe(false);
 
     key.vm.$emit("release", { inputId: "mouse", event });
     await nextTick();
+    expect(isCancelled()).toBe(true);
 
     expect(mocks.keyboardStore.removeTouch).toHaveBeenCalledWith("melody:mouse:0_4");
     await Promise.resolve();
@@ -509,6 +517,35 @@ describe("Keyboard production usage", () => {
 
     await firstChord.trigger("keyup", { key: "Enter", code: "Enter" });
     await firstChord.trigger("keyup", { key: " ", code: "Space" });
+    wrapper.unmount();
+  });
+
+  it("releases a focus owner when keyup lands in the other keyboard zone", async () => {
+    const wrapper = mountKeyboard();
+    const firstChord = wrapper.findAllComponents(ChordKeyStub)[0];
+    const firstKey = wrapper.findAllComponents(KeyStub)[0];
+
+    await firstChord.trigger("keydown", {
+      key: "Enter",
+      code: "Enter",
+      repeat: false,
+    });
+    await Promise.resolve();
+    await firstKey.trigger("keyup", { key: "Enter", code: "Enter" });
+    await Promise.resolve();
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(3);
+
+    mocks.musicStore.releaseNote.mockClear();
+    await firstKey.trigger("keydown", {
+      key: " ",
+      code: "Space",
+      repeat: false,
+    });
+    await Promise.resolve();
+    await firstChord.trigger("keyup", { key: " ", code: "Space" });
+    await Promise.resolve();
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith("melody-note");
+
     wrapper.unmount();
   });
 

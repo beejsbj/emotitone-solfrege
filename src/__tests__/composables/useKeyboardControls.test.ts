@@ -112,8 +112,12 @@ describe("useKeyboardControls", () => {
   it("releases a QWERTY owner even when keyup beats async attack resolution", async () => {
     const addEventListener = vi.spyOn(window, "addEventListener");
     let resolveAttack!: (value: string) => void;
-    mockMusicStore.attackNoteWithOctave.mockImplementationOnce(() =>
-      new Promise<string>((resolve) => { resolveAttack = resolve; }),
+    let isCancelled = () => false;
+    mockMusicStore.attackNoteWithOctave.mockImplementationOnce(
+      (_scaleIndex: number, _octave: number, cancelled: () => boolean) => {
+        isCancelled = cancelled;
+        return new Promise<string>((resolve) => { resolveAttack = resolve; });
+      },
     );
     useKeyboardControls(ref(4));
     const listeners = addEventListener.mock.calls;
@@ -121,7 +125,9 @@ describe("useKeyboardControls", () => {
     const keyup = listeners.find(([type]) => type === "keyup")?.[1] as EventListener;
 
     keydown(new KeyboardEvent("keydown", { code: "KeyQ", key: "q" }));
+    expect(isCancelled()).toBe(false);
     keyup(new KeyboardEvent("keyup", { code: "KeyQ", key: "q" }));
+    expect(isCancelled()).toBe(true);
     resolveAttack("late-q");
     await Promise.resolve();
     await Promise.resolve();

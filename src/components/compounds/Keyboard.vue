@@ -15,6 +15,7 @@
     :data-geometry-family="resolvedFamily"
     :data-edition-seed="resolvedEditionSeed"
     @focusout="handleFocusOut"
+    @keyup="handleFocusActivationKeyUp"
   >
     <div
       class="keyboard__chord-row"
@@ -38,7 +39,6 @@
         :data-alteration="chord.harmony.alteration"
         @focus="rememberChordFocus(chord.harmony.id)"
         @keydown="handleChordKeyDown($event, chordIndex)"
-        @keyup="handleChordKeyUp($event)"
         @press="emitChordIntent('press', $event, chord.attackHarmony)"
         @release="emitChordIntent('release', $event, chord.attackHarmony)"
       />
@@ -90,7 +90,6 @@
         :data-edition-variant="variationFor(key.id).variant"
         @focus="rememberFocus(key.id)"
         @keydown="handleKeyDown($event, rowIndex, keyIndex)"
-        @keyup="handleKeyUp($event)"
         @press="emitIntent('press', $event, key, row.octave)"
         @release="emitIntent('release', $event, key, row.octave)"
       />
@@ -413,7 +412,11 @@ function createProductionWiring() {
       triggerNoteHaptic();
     }
     void voiceGroups.attack(ownerId, [
-      () => musicStore.attackNoteWithOctave(intent.scaleIndex, intent.octave),
+      (isCancelled) => musicStore.attackNoteWithOctave(
+        intent.scaleIndex,
+        intent.octave,
+        isCancelled,
+      ),
     ]);
   }
 
@@ -850,16 +853,6 @@ function handleChordKeyDown(event: KeyboardEvent, chordIndex: number) {
   dispatchChordIntent("press", intent);
 }
 
-function handleChordKeyUp(event: KeyboardEvent) {
-  if (![" ", "Enter"].includes(event.key)) return;
-  const inputId = `focus:${event.code}:chord`;
-  const intent = activeChordFocusInputs.get(inputId);
-  if (!intent) return;
-  event.preventDefault();
-  activeChordFocusInputs.delete(inputId);
-  dispatchChordIntent("release", { ...intent, event });
-}
-
 function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
     event.preventDefault();
@@ -887,14 +880,22 @@ function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number)
   dispatchIntent("press", intent);
 }
 
-function handleKeyUp(event: KeyboardEvent) {
+function handleFocusActivationKeyUp(event: KeyboardEvent) {
   if (![" ", "Enter"].includes(event.key)) return;
-  const inputId = `focus:${event.code}`;
-  const intent = activeFocusInputs.get(inputId);
-  if (!intent) return;
+  const melodyInputId = `focus:${event.code}`;
+  const chordInputId = `focus:${event.code}:chord`;
+  const melodyIntent = activeFocusInputs.get(melodyInputId);
+  const chordIntent = activeChordFocusInputs.get(chordInputId);
+  if (!melodyIntent && !chordIntent) return;
   event.preventDefault();
-  activeFocusInputs.delete(inputId);
-  dispatchIntent("release", { ...intent, event });
+  if (melodyIntent) {
+    activeFocusInputs.delete(melodyInputId);
+    dispatchIntent("release", { ...melodyIntent, event });
+  }
+  if (chordIntent) {
+    activeChordFocusInputs.delete(chordInputId);
+    dispatchChordIntent("release", { ...chordIntent, event });
+  }
 }
 
 function releaseMelodyFocusInputs(event: Event) {

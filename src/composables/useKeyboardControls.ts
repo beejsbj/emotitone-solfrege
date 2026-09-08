@@ -201,7 +201,11 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
         })
       );
       void voiceGroups.attack(ownerId, [
-        () => musicStore.attackNoteWithOctave(solfegeIndex, octave),
+        (isCancelled) => musicStore.attackNoteWithOctave(
+          solfegeIndex,
+          octave,
+          isCancelled,
+        ),
       ]).then(([noteId]) => {
         if (
           noteId

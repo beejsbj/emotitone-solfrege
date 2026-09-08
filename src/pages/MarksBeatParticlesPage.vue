@@ -3,7 +3,7 @@
     <header class="masthead">
       <div>
         <p class="eyebrow">Shared visual rough · accepted direction</p>
-        <h1>Marks, beating<br>&amp; in flight.</h1>
+        <h1>Marks held,<br>beating &amp; in flight.</h1>
       </div>
       <p class="status">Unified · pass 01</p>
     </header>
@@ -11,13 +11,13 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy">
         <p class="section-number">01 · One source</p>
-        <h2 id="hero-title">One Mark family.<br>Two ways it moves.</h2>
+        <h2 id="hero-title">One Mark family.<br>Three different jobs.</h2>
         <p>
-          Beat Indicator arranges Marks in time. Stage releases the same Marks through space.
-          Neither invents a second shape vocabulary.
+          Sticker holds a Mark. Beat Indicator arranges Marks in time. Stage releases Marks through
+          space. None invents a second shape vocabulary.
         </p>
         <div class="lineage" aria-label="Mark lineage">
-          <strong>Mark</strong><span>→</span><span>Beat Indicator</span><span>+</span><span>Stage particles</span>
+          <strong>Mark</strong><span>→</span><span>Mark Sticker</span><span>+</span><span>Beat Indicator</span><span>+</span><span>Stage particles</span>
         </div>
       </div>
 
@@ -39,7 +39,7 @@
         <p class="section-number">02 · Core family</p>
         <h2 id="family-title">No musical annex.</h2>
         <p>
-          All twenty shapes are Marks. The names help selection; they do not split the family into
+          All twenty-eight shapes are Marks. The names help selection; they do not split the family into
           structural and musical tiers.
         </p>
       </div>
@@ -73,26 +73,22 @@
       </div>
     </section>
 
-    <section class="section-block" aria-labelledby="identity-title">
+    <section class="section-block" aria-labelledby="sticker-title">
       <div class="section-heading">
-        <p class="section-number">04 · Stable note identities</p>
-        <h2 id="identity-title">Played notes keep<br>their own Mark.</h2>
+        <p class="section-number">04 · Kicker resolved</p>
+        <h2 id="sticker-title">A Mark<br>inside a Sticker.</h2>
         <p>
-          The assignment follows the interval identity, so the same musical function releases the
-          same Mark across modes. Music Color still supplies the tone.
+          That is the whole former Kicker idea. Sticker owns the cut-paper material; Mark owns the
+          glyph. A short label may sit beside it, but there is no separate Kicker primitive.
         </p>
       </div>
 
-      <div class="identity-grid">
-        <article v-for="(identity, index) in identities" :key="identity.interval" class="identity-card">
-          <div class="identity-mark">
-            <Mark :name="identity.mark" :tone="toneFor(index)" size="54" />
+      <div class="sticker-grid">
+        <article v-for="example in stickerExamples" :key="example.label" class="sticker-card">
+          <div class="sticker-stage">
+            <MarkSticker :mark="example.mark" :color="example.color">{{ example.label }}</MarkSticker>
           </div>
-          <div>
-            <span>{{ identity.interval }}</span>
-            <strong>{{ identity.name }}</strong>
-            <small>{{ identity.mark }}</small>
-          </div>
+          <p>{{ example.note }}</p>
         </article>
       </div>
     </section>
@@ -100,10 +96,10 @@
     <section class="section-block" aria-labelledby="particle-title">
       <div class="section-heading">
         <p class="section-number">05 · Stage particles</p>
-        <h2 id="particle-title">Same contour.<br>Optically scaled.</h2>
+        <h2 id="particle-title">Shuffle the whole<br>family into flight.</h2>
         <p>
-          Tiny notation needs more optical area than a solid disk. That compensation lives beside
-          each Mark’s paths; particle physics, lifetime, and Music Color stay with Stage.
+          Every particle chooses a Mark at random; intervals carry no shape assignment. Optical
+          compensation lives beside each path, while physics, lifetime, and Music Color stay with Stage.
         </p>
       </div>
 
@@ -122,8 +118,8 @@
     <footer>
       <p class="section-number">Current verdict</p>
       <p>
-        Mark is the only geometry family. Beat Indicator and Stage particles are two consumers with
-        different motion jobs. Sparkle and mist are gone; Kicker and Spine Card are outside this pass.
+        Mark is the only geometry family. Mark Sticker replaces Kicker; Beat Indicator selects Marks;
+        Stage shuffles them. Spine Card remains in its separate rework.
       </p>
     </footer>
   </main>
@@ -132,9 +128,10 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
+import MarkSticker from "@/components/compounds/MarkSticker.vue";
 import Mark, { type MarkTone } from "@/components/primatives/Mark.vue";
 import { MARK_NAMES, type MarkName } from "@/components/primatives/marks";
-import { INTERVAL_IDENTITY_MAP, INTERVAL_TO_SOLFEGE } from "@/data/solfege";
+import type { StickerColor } from "@/components/primatives/Sticker.vue";
 import StageParticleSample from "./StageParticleSample.vue";
 
 const markShelf = MARK_NAMES;
@@ -143,15 +140,16 @@ const toneFor = (index: number) => tones[index % tones.length];
 
 const beatSets: Array<{ index: string; label: string; beats: number; marks: MarkName[]; note: string }> = [
   { index: "A", label: "One repeated", beats: 4, marks: ["disk"], note: "The quietest meter: identity comes from repetition." },
-  { index: "B", label: "Mixed four", beats: 4, marks: ["triangle", "eighth", "wave", "star"], note: "A chosen phrase, with brass reserved for beat one." },
-  { index: "C", label: "Notation six", beats: 6, marks: ["eighth", "accent", "flat"], note: "Musical Marks remain readable as rhythmic material." },
+  { index: "B", label: "Mixed four", beats: 4, marks: ["triangle", "quarter", "wave", "natural"], note: "A chosen phrase, with brass reserved for beat one." },
+  { index: "C", label: "Notation six", beats: 6, marks: ["repeat", "quarter-rest", "bass-clef"], note: "Musical Marks remain readable as rhythmic material." },
 ];
 
-const identities = Object.entries(INTERVAL_IDENTITY_MAP).map(([interval, identity]) => ({
-  interval,
-  name: INTERVAL_TO_SOLFEGE[interval],
-  mark: identity.mark,
-}));
+const stickerExamples: Array<{ mark: MarkName; color: StickerColor; label: string; note: string }> = [
+  { mark: "disk", color: "brass", label: "Measure · 01", note: "Instrument material and a steady anchor." },
+  { mark: "eighth", color: "tomato", label: "Live · 04", note: "A musical glyph can carry the section identity." },
+  { mark: "natural", color: "pine", label: "Listening", note: "The label stays useful without becoming a component family." },
+  { mark: "crescendo", color: "mustard", label: "Building", note: "Longer Marks stretch the little cut-paper field." },
+];
 
 onMounted(() => document.body.classList.add("rough-page-route"));
 onUnmounted(() => document.body.classList.remove("rough-page-route"));
@@ -176,10 +174,10 @@ h1, h2, p { margin: 0; }
 h1, h2 { font-family: var(--font-display); font-weight: 700; }
 h1 { font-size: clamp(32px, 5.5vw, 64px); line-height: .86; letter-spacing: -.03em; }
 h2 { font-size: clamp(40px, 7vw, 80px); line-height: .84; letter-spacing: -.04em; }
-.eyebrow, .section-number, .status, .card-label, .mark-tile span, .identity-card span, .identity-card small {
+.eyebrow, .section-number, .status, .card-label, .mark-tile span {
   font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
 }
-.eyebrow, .section-number, .mark-tile span, .identity-card span, .identity-card small { color: var(--ivory-3); }
+.eyebrow, .section-number, .mark-tile span { color: var(--ivory-3); }
 .eyebrow { margin-bottom: 12px; }
 .status { flex: none; padding: 9px 11px 7px; background: var(--brass); color: var(--ink); transform: rotate(1.5deg); }
 
@@ -206,18 +204,16 @@ h2 { font-size: clamp(40px, 7vw, 80px); line-height: .84; letter-spacing: -.04em
 .mark-tile:nth-child(4n + 3) :deep(.mark) { transform: rotate(3deg); }
 
 .beat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.beat-card, .particle-card { background: var(--ink-2); box-shadow: inset 0 0 0 1px var(--hairline); }
+.beat-card, .particle-card, .sticker-card { background: var(--ink-2); box-shadow: inset 0 0 0 1px var(--hairline); }
 .beat-card { display: grid; grid-template-rows: auto 220px auto; gap: 18px; padding: 18px 20px 22px; }
 .card-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ivory-3); }
 .card-label strong { color: var(--ivory); }
 .beat-stage { display: grid; place-items: center; margin-inline: -6px; background: var(--ink); overflow: hidden; }
 
-.identity-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
-.identity-card { display: grid; gap: 16px; min-width: 0; padding: 14px; background: var(--ink-2); box-shadow: inset 0 0 0 1px var(--hairline); }
-.identity-mark { display: grid; place-items: center; min-height: 92px; background: var(--ink); }
-.identity-card > div:last-child { display: grid; gap: 5px; min-width: 0; }
-.identity-card strong { font: 700 24px/.95 var(--font-display); }
-.identity-card small { overflow: hidden; text-overflow: ellipsis; }
+.sticker-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.sticker-card { display: grid; grid-template-rows: 170px auto; gap: 18px; padding: 14px 18px 22px; }
+.sticker-stage { display: grid; place-items: center; margin-inline: -4px; background: var(--ink); }
+.sticker-card > p { color: var(--ivory-2); font-size: 14px; line-height: 1.5; }
 
 .particle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .particle-card { display: grid; gap: 16px; padding: 18px; }
@@ -232,7 +228,7 @@ footer > p:last-child { max-width: 68ch; }
   .hero-stage :deep(.particle-sample) { min-height: 390px; }
   .mark-field { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .beat-grid { grid-template-columns: 1fr; }
-  .identity-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sticker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 620px) {
@@ -242,7 +238,7 @@ footer > p:last-child { max-width: 68ch; }
   .section-heading .section-number { grid-column: auto; }
   .mark-field { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mark-tile { min-height: 145px; }
-  .identity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sticker-grid { grid-template-columns: 1fr; }
   .particle-grid, footer { grid-template-columns: 1fr; }
   .hero-beat { padding: 24px 22px; }
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useParticleSystem } from "@/composables/canvas/useParticleSystem";
 import { MAJOR_SOLFEGE } from "@/data/solfege";
 import { MARK_NAMES } from "@/components/primatives/marks";
@@ -39,6 +39,11 @@ describe("useParticleSystem", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("Path2D", MockPath2D);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("chooses particle Marks from the whole family instead of note data", () => {

@@ -110,6 +110,18 @@ describe("Drawer continuous height contract", () => {
     await w.vm.$nextTick();
     expect(height(w)).toBe(100);
   });
+  it("restores the dragged keyboard height when the row-count floor decreases", async () => {
+    const w = await create();
+    await drag(w, -50);
+    expect(height(w)).toBe(370);
+
+    await w.setProps({ minContentHeight: 300 });
+    expect(height(w)).toBe(420);
+
+    await w.setProps({ minContentHeight: 100 });
+    expect(height(w)).toBe(370);
+    expect(w.get('[data-content]').attributes('data-height')).toBe('250');
+  });
   it("accepts external open changes and native activation without arrow resizing", async () => {
     const w = await create({ modelValue: false });
     expect(height(w)).toBe(120);

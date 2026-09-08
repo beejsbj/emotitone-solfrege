@@ -239,7 +239,10 @@ watch(() => props.naturalContentHeight, () => {
 });
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {
-    currentHeight.value = Math.max(currentHeight.value, persistentHeight.value + props.minContentHeight);
+    setHeight(persistentHeight.value + Math.max(
+      props.minContentHeight,
+      preferredContentHeight.value,
+    ));
   }
 });
 onMounted(async () => {

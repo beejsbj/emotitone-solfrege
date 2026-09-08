@@ -50,6 +50,7 @@ const currentHeight = ref(0);
 // Store content space, not total height: expanding the Pattern List must not resize keys.
 const preferredContentHeight = ref(props.initialContentHeight);
 const dragging = ref(false);
+const layoutResizing = ref(false);
 const ready = ref(false);
 const closingContentHeight = ref(0);
 let observer: ResizeObserver | undefined;
@@ -84,6 +85,7 @@ let suppressClick = false;
 let opening = false;
 let fitContent = false;
 let openRequest = 0;
+let layoutResizeRequest = 0;
 let clickReset: ReturnType<typeof setTimeout> | undefined;
 const maxHeight = computed(() => Math.max(0, Math.min(
   frameHeight.value * props.maxHeightRatio,
@@ -116,6 +118,16 @@ function publish() {
 function setHeight(value: number) {
   currentHeight.value = Math.max(0, Math.min(value, maxHeight.value));
   publish();
+}
+async function setLayoutHeight(value: number) {
+  const request = ++layoutResizeRequest;
+  layoutResizing.value = true;
+  setHeight(value);
+  await nextTick();
+  if (request !== layoutResizeRequest || !root.value) return;
+  // Commit the target while transitions are disabled before restoring them.
+  root.value.getBoundingClientRect();
+  layoutResizing.value = false;
 }
 function fittedHeight() {
   const inset = content.value ? parseFloat(getComputedStyle(content.value).paddingTop) || 0 : 0;
@@ -239,7 +251,7 @@ watch(() => props.naturalContentHeight, () => {
 });
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {
-    setHeight(persistentHeight.value + Math.max(
+    void setLayoutHeight(persistentHeight.value + Math.max(
       props.minContentHeight,
       preferredContentHeight.value,
     ));
@@ -287,6 +299,7 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
   openRequest++;
+  layoutResizeRequest++;
   observer?.disconnect();
   visibilityObserver?.disconnect();
   contentObserver?.disconnect();
@@ -305,7 +318,8 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     ref="root"
     class="drawer"
     :class="[`drawer--${anchor}`, `drawer--handle-${handleAlign}`, {
-      'drawer--fixed': fixed, 'drawer--dragging': dragging, 'drawer--ready': ready,
+      'drawer--fixed': fixed, 'drawer--dragging': dragging,
+      'drawer--layout-resize': layoutResizing, 'drawer--ready': ready,
     }]"
     :style="{ height: `${height}px` }"
     :aria-label="accessibleName"
@@ -362,6 +376,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer--bottom { bottom: 0; }
 .drawer--ready { transition: height var(--dur-panel) var(--ease-swing); }
 .drawer--dragging { transition: none; }
+.drawer--layout-resize { transition: none; }
 .drawer__clip { height: 100%; overflow: clip; }
 .drawer__persistent { display: flow-root; }
 .drawer__content { min-width: 0; overflow: hidden; }

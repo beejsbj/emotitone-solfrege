@@ -4,8 +4,10 @@ import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mounted: ReturnType<typeof mount>[] = [];
 let prefixHeight = 120;
+let committedLayoutResize = false;
 beforeEach(() => {
   prefixHeight = 120;
+  committedLayoutResize = false;
   const data = new Map<string, string>();
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => data.get(key) ?? null,
@@ -19,6 +21,7 @@ beforeEach(() => {
   vi.spyOn(window, 'removeEventListener').mockImplementation(windowEvents.removeEventListener.bind(windowEvents));
   vi.spyOn(window, 'dispatchEvent').mockImplementation(windowEvents.dispatchEvent.bind(windowEvents));
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+    if (this.classList.contains("drawer--layout-resize")) committedLayoutResize = true;
     return { height: this.classList.contains("drawer__persistent") ? prefixHeight : parseFloat(this.style.height) || 0 } as DOMRect;
   });
 });
@@ -116,11 +119,18 @@ describe("Drawer continuous height contract", () => {
     expect(height(w)).toBe(370);
 
     await w.setProps({ minContentHeight: 300 });
+    await flushPromises();
     expect(height(w)).toBe(420);
+    expect(committedLayoutResize).toBe(true);
+    expect(w.classes()).not.toContain('drawer--layout-resize');
 
+    committedLayoutResize = false;
     await w.setProps({ minContentHeight: 100 });
+    await flushPromises();
     expect(height(w)).toBe(370);
     expect(w.get('[data-content]').attributes('data-height')).toBe('250');
+    expect(committedLayoutResize).toBe(true);
+    expect(w.classes()).not.toContain('drawer--layout-resize');
   });
   it("accepts external open changes and native activation without arrow resizing", async () => {
     const w = await create({ modelValue: false });

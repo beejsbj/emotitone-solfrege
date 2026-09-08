@@ -57,6 +57,7 @@ defineExpose({ showPanel, openSession, closePanel, openPanel, togglePanel });
       :handle-test-id="handleTestId"
       :initial-content-height="360"
       :scroll="false"
+      haptic
       close-on-escape
     >
       <template v-if="$slots.icon" #icon><slot name="icon" /></template>

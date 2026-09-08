@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 const props = withDefaults(defineProps<{
   modelValue?: boolean;
@@ -19,6 +20,7 @@ const props = withDefaults(defineProps<{
   scroll?: boolean;
   dragToCollapse?: boolean;
   keyboardResizeStep?: number;
+  haptic?: boolean;
   closeOnEscape?: boolean;
   closeOnOutside?: boolean;
   fitContentOnOpen?: boolean;
@@ -39,6 +41,7 @@ const props = withDefaults(defineProps<{
   scroll: true,
   dragToCollapse: true,
   keyboardResizeStep: 0,
+  haptic: false,
   closeOnEscape: false,
   closeOnOutside: false,
   fitContentOnOpen: false,
@@ -216,6 +219,7 @@ function click() {
     suppressClick = false;
     return;
   }
+  if (props.haptic) triggerUIHaptic();
   toggle();
 }
 function pointerDown(event: PointerEvent) {

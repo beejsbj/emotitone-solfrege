@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import TopDrawer from "@/components/TopDrawer.vue";
+import Drawer from "@/components/uniques/Drawer/index.vue";
 
 beforeEach(() => {
   vi.spyOn(document, 'addEventListener').mockImplementation(EventTarget.prototype.addEventListener.bind(document));
@@ -27,8 +28,9 @@ function handle(name: string) { return document.querySelector(`[data-testid="${n
 
 describe("TopDrawer production host", () => {
   it("uses the real Drawer handle and keeps it mounted after slot dismissal", async () => {
-    create("top-left", "Instrument");
+    const wrapper = create("top-left", "Instrument");
     await flushPromises();
+    expect(wrapper.getComponent(Drawer).props("haptic")).toBe(true);
     expect(document.querySelector('.drawer')).not.toBeNull();
     expect(document.querySelector('[data-panel]')).toBeNull();
     handle("Instrument").click();

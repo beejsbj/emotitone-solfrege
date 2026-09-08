@@ -15,6 +15,7 @@
     :scroll="false"
     :drag-to-collapse="false"
     :keyboard-resize-step="8"
+    :haptic="store.keyboardConfig.hapticFeedback"
     @update:model-value="updateDrawerOpen"
     @content-resize="resizeKeyboard"
   >

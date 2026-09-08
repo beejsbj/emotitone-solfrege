@@ -323,6 +323,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
 
     const drawer = wrapper.getComponent(Drawer);
     expect(drawer.props("maxHeightRatio")).toBe(0.95);
+    expect(drawer.props("haptic")).toBe(true);
     drawer.vm.$emit("contentResize", 320);
     await wrapper.vm.$nextTick();
 

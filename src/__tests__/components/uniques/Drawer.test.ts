@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 
+const { triggerUIHaptic } = vi.hoisted(() => ({ triggerUIHaptic: vi.fn() }));
+vi.mock("@/utils/hapticFeedback", () => ({ triggerUIHaptic }));
+
 const mounted: ReturnType<typeof mount>[] = [];
 let prefixHeight = 120;
 let committedLayoutResize = false;
 beforeEach(() => {
+  triggerUIHaptic.mockClear();
   prefixHeight = 120;
   committedLayoutResize = false;
   const data = new Map<string, string>();
@@ -45,6 +49,14 @@ async function drag(w: ReturnType<typeof mount>, delta: number) {
 }
 
 describe("Drawer continuous height contract", () => {
+  it("offers one opt-in haptic for a handle tap, not its post-drag click", async () => {
+    const w = await create({ haptic: true });
+
+    await drag(w, -20);
+    expect(triggerUIHaptic).not.toHaveBeenCalled();
+    await w.get('button').trigger('click');
+    expect(triggerUIHaptic).toHaveBeenCalledOnce();
+  });
   it("tap keeps the persistent bars, then restores keyboard space", async () => {
     const w = await create();
     expect(height(w)).toBe(320);

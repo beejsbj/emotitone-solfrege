@@ -7,21 +7,23 @@ import LoadingScreen from "../../components/compositions/LoadingScreen.vue";
     <div class="card">
       <LoadingScreen
         mode="specimen"
-        :progress="57"
-        phase-label="Tuning the room..."
-        step-message="Loading samples, wiring transport, tuning the room."
-        :checks="[
-          { label: 'Audio system', complete: true },
-          { label: 'All instruments', complete: false },
-          { label: 'Visual engine', complete: true },
+        :progress="100"
+        :is-complete="true"
+        phase="Ready to play"
+        message="Everything is tuned. Your first note is waiting."
+        :stages="[
+          { label: 'Visual stage', complete: true, active: false },
+          { label: 'Instrument samples', complete: true, active: false },
+          { label: 'Audio system', complete: true, active: false },
+          { label: 'Ready to play', complete: true, active: false },
+          { label: 'MIDI input', complete: true, active: false, icon: 'midi' },
         ]"
       />
 
       <div class="caption">
-        The hero composition repurposed as a loading state. The chromatic tape doubles as the progress
-        meter — segments light from <em>Do</em> through <em>Ti</em> as samples wire up, the lit portion pulsing
-        on the beat. The room is awake before the music starts. App `LoadingSplash.vue` owns behavior and
-        feeds state into this source composition.
+        The accepted startup composition: living Brand Logo, restrained floating Marks, stamped loading
+        stages, equalizer meter, twelve chromatic solfège lanes, and the brass Play gate. Production
+        `LoadingSplash.vue` owns initialization behavior and feeds state into this source composition.
       </div>
     </div>
   </section>
@@ -30,6 +32,20 @@ import LoadingScreen from "../../components/compositions/LoadingScreen.vue";
 <style scoped>
 .preview-port {
   display: block;
+}
+
+.preview-port :deep(.loading-screen) {
+  height: 720px;
+}
+
+.preview-port :deep(.converged-loader__main) {
+  width: 100%;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  gap: clamp(18px, 4vw, 46px);
+}
+
+.preview-port :deep(.converged-loader__progress-stage) {
+  width: min(62%, 720px);
 }
 
 .caption {

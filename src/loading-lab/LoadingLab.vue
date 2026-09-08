@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import ConvergedLoadingVariant from "./ConvergedLoadingVariant.vue";
+import LoadingScreen from "../components/compositions/LoadingScreen.vue";
 
 const progress = ref(38);
 const playing = ref(true);
@@ -100,12 +100,12 @@ onBeforeUnmount(() => {
     </header>
 
     <section class="loading-lab__preview" aria-label="Chromatic Bars preview">
-      <ConvergedLoadingVariant
+      <LoadingScreen
         :progress="progress"
         :stages="stages"
         :phase="phase"
         :message="message"
-        @enter="enterApp"
+        @start="enterApp"
       />
     </section>
   </main>

@@ -44,17 +44,19 @@ beforeEach(() => {
 describe("production loading splash", () => {
   it("shows the production identity and live loading status", () => {
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
-    expect(wrapper.get("h1").text()).toBe("EMOTITONE");
-    expect(wrapper.text()).toContain("SOLFÈGE LEARNING");
+    expect(wrapper.get(".loading-screen--app").exists()).toBe(true);
+    expect(wrapper.text()).toContain("EMOTITONE");
+    expect(wrapper.text()).toContain("LET'S MAKESOME MUSIC.");
     expect(wrapper.text()).toContain("Warming up piano");
     expect(wrapper.text()).not.toContain("NOT FOR PRESS");
+    expect(wrapper.findAll(".converged-loader__stages li").at(-1)?.text()).toContain("MIDI input");
     wrapper.unmount();
   });
 
   it("enables audio before entering the app when ready", async () => {
     loadingState.progress.overall.isComplete = true;
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
-    await wrapper.get(".btn--start").trigger("click");
+    await wrapper.get(".converged-loader__completion-action").trigger("click");
     expect(enableAudioContext).toHaveBeenCalledOnce();
     expect(hideSplash).toHaveBeenCalledOnce();
     wrapper.unmount();
@@ -64,7 +66,7 @@ describe("production loading splash", () => {
     loadingState.progress.instruments.error = "Sample download failed";
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
     expect(wrapper.text()).toContain("Sample download failed");
-    await wrapper.get(".btn--retry").trigger("click");
+    await wrapper.get(".converged-loader__state-action--retry").trigger("click");
     expect(resetLoading).toHaveBeenCalledOnce();
     wrapper.unmount();
   });

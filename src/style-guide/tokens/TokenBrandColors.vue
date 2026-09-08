@@ -39,7 +39,7 @@
     
       <p class="caption" style="margin-top:14px">
         Brand sits on top of ink, never replaces it. Use one brand color per card &mdash; mixing reads as gift-wrap, not jazz.
-        Applied form: see <code>primitive-spine-card.html</code> for the canonical brand-marked shell.
+        Applied form: see <code>primitive-card.html</code> for Cards with brand-colored spines.
       </p>
     </div>
   </section>

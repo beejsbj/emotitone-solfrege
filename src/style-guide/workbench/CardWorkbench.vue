@@ -49,7 +49,13 @@
       <SectionHead index="03" title="Pattern Card" note="Pattern anatomy · Card + Ivory spine + Bar Tape" />
       <div class="pattern-stack">
         <p class="surface-label">List density</p>
-        <Card class="pattern-candidate" label="Pattern 01 — Piano / C Major" flush>
+        <Card
+          as="button"
+          class="pattern-candidate"
+          label="Pattern 01 — Piano / C Major"
+          type="button"
+          flush
+        >
           <template #mark>
             <span class="ordinal ordinal--pattern ordinal--pattern-compact">01</span>
           </template>

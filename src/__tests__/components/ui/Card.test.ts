@@ -38,6 +38,20 @@ describe("Card", () => {
     expect(wrapper.classes()).toContain("system-card--flush");
     expect(wrapper.attributes("style")).toContain("--card-spine: var(--tomato)");
     expect(wrapper.find(".system-card__label").text()).toBe("01 — Preset / Tomato");
+    expect(cardSource).toMatch(/button\.system-card\s*{[^}]*appearance: none;[^}]*padding: 0;/s);
+  });
+
+  it("keeps the spine above opaque footer content", () => {
+    const wrapper = mount(Card, {
+      props: { label: "Pattern 01" },
+      slots: {
+        default: "Pattern",
+        footer: '<span data-testid="footer">timeline</span>',
+      },
+    });
+
+    expect(wrapper.find('[data-testid="footer"]').exists()).toBe(true);
+    expect(cardSource).toMatch(/\.system-card__spine\s*{[^}]*z-index: 3;/s);
   });
 
   it("has one source and no named Spine Card variant", () => {

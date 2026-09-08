@@ -100,10 +100,12 @@ function colorFor(note: PatternNote, pattern: Pattern): string {
 }
 
 const barTapeSegments = computed<BarTapeSegment[]>(() =>
-  props.pattern.notes.map((note) => ({
-    color: colorFor(note, props.pattern),
-    durationMs: note.duration,
-  })),
+  [...props.pattern.notes]
+    .sort((firstNote, secondNote) => firstNote.pressTime - secondNote.pressTime)
+    .map((note) => ({
+      color: colorFor(note, props.pattern),
+      durationMs: note.duration,
+    })),
 );
 
 function displayInstrumentName(instrument: string): string {

@@ -47,9 +47,18 @@ withDefaults(
   color: var(--ivory);
 }
 
+button.system-card {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  font: inherit;
+  text-align: left;
+}
+
 .system-card__spine {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   top: 0;
   bottom: 0;
   left: 0;

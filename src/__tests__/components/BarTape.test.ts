@@ -47,4 +47,11 @@ describe("BarTape", () => {
     );
     expect(specimenSource).toContain("defaultPatterns.slice(0, 3)");
   });
+
+  it("orders production Pattern Card segments by note onset", () => {
+    expect(productionPatternCardSource).toContain(
+      ".sort((firstNote, secondNote) => firstNote.pressTime - secondNote.pressTime)",
+    );
+    expect(productionPatternCardSource).toContain("[...props.pattern.notes]");
+  });
 });

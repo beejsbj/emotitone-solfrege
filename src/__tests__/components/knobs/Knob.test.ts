@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import Knob from "@/components/primatives/Knob/index.vue";
 import knobSource from "@/components/primatives/Knob/index.vue?raw";
 import { formatKnobDisplayValue } from "@/components/primatives/Knob/displayValue";
@@ -9,6 +11,11 @@ import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
 import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
+
+const instrumentControlSource = readFileSync(
+  resolve(process.cwd(), "src/components/primatives/instrumentControl.css"),
+  "utf8",
+);
 
 const { triggerUIHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
@@ -64,6 +71,7 @@ describe("Knob public interface", () => {
   };
 
   it("shows formatted values above contact, updates immediately, and removes on release", async () => {
+    expect(knobSource).toContain('import DragValue from "../DragValue.vue"');
     const wrapper = render({ modelValue: -4.84, type: "range", formatValue: (v: number) => `${v} dB` });
     expect(document.querySelector(".knob-drag-value")).toBeNull();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
@@ -239,14 +247,17 @@ describe("Knob public interface", () => {
     const wrapper = render({ modelValue: 42, label: "Volume" });
 
     expect(wrapper.classes()).toContain("knob-wrapper");
+    expect(wrapper.classes()).toContain("instrument-control");
     expect(wrapper.classes()).not.toContain("max-w-12");
     expect(wrapper.find(".knob-wrapper__face").exists()).toBe(true);
+    expect(wrapper.get(".knob-wrapper__face").classes()).toContain("instrument-control__face");
     expect(wrapper.get(".knob-wrapper__label").element.tagName).toBe("SPAN");
+    expect(wrapper.get(".knob-wrapper__label").classes()).toContain("instrument-control__label");
     expect(wrapper.get(".knob-wrapper__label").text()).toBe("Volume");
     expect(wrapper.find(".knob-face").exists()).toBe(true);
     expect(wrapper.find(".knob-primitive__label").exists()).toBe(false);
-    expect(knobSource).toMatch(
-      /\.knob-wrapper__face\s*\{[^}]*min-inline-size: 0;/s,
+    expect(instrumentControlSource).toMatch(
+      /\.instrument-control__face\s*\{[^}]*min-inline-size: 0;/s,
     );
   });
 

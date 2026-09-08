@@ -113,7 +113,11 @@ vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
 }));
 
 vi.mock("@/components/compounds/Keyboard.vue", () => ({
-  default: { name: "Keyboard", template: '<div data-testid="keyboard" />' },
+  default: {
+    name: "Keyboard",
+    props: { harmonyAlteration: String, availableHeight: Number },
+    template: '<div data-testid="keyboard" />',
+  },
 }));
 
 vi.mock("@/components/patterns/PatternList.vue", () => ({
@@ -129,6 +133,8 @@ vi.mock("@/components/compounds/ControlBar.vue", () => ({
       "update:bpm",
       "update:octave",
       "update:rows",
+      "update:harmonyValue",
+      "harmonyEffective",
       "update:drawerOpen",
     ],
     template: '<div data-testid="control-bar" />',
@@ -260,7 +266,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("preserves all five Control Bar mutations in the production composition", async () => {
+  it("preserves all six Control Bar mutations in the production composition", async () => {
     const wrapper = mount(DrawerKeyboard, {
       global: {
         stubs: {
@@ -277,6 +283,8 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     controls.vm.$emit("update:bpm", 96);
     controls.vm.$emit("update:octave", 5);
     controls.vm.$emit("update:rows", 7);
+    controls.vm.$emit("update:harmonyValue", "jazzy7");
+    controls.vm.$emit("harmonyEffective", "sus4");
     await wrapper.vm.$nextTick();
 
     expect(mocks.setKey).toHaveBeenCalledWith("D");
@@ -284,6 +292,8 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
     expect(mocks.setRowCount).toHaveBeenCalledWith(7);
+    expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
+      .toBe("sus4");
     wrapper.unmount();
   });
 

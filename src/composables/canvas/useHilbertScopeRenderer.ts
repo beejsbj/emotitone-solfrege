@@ -373,11 +373,12 @@ export function useHilbertScopeRenderer() {
       const firstNote = activeNotes[0];
       const noteMode = firstNote.mode ?? musicStore.currentMode;
       const noteKey = firstNote.key ?? musicStore.currentKey;
-      resolvedColor = colorSystem.getPrimaryColor(
-        firstNote.solfege.name,
+      resolvedColor = colorSystem.getPrimaryColorForPitch(
+        firstNote.solfegeIndex,
+        firstNote.pitchClassIndex,
         noteMode,
+        noteKey as any,
         firstNote.octave,
-        noteKey as any
       );
     }
 

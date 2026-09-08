@@ -2,7 +2,7 @@
   <component
     :is="knobTag"
     ref="wrapperRef"
-    class="knob-wrapper"
+    class="knob-wrapper instrument-control"
     :type="knobType === 'boolean' ? 'button' : undefined"
     :disabled="knobType === 'boolean' ? isDisabled : undefined"
     :aria-pressed="knobType === 'boolean' ? Boolean(actualValue) : undefined"
@@ -15,7 +15,7 @@
     @touchstart="handleStart"
     @click="handleClick"
   >
-    <div class="knob-wrapper__face">
+    <div class="knob-wrapper__face instrument-control__face">
       <!-- Range Knob -->
       <RangeKnob
         v-if="knobType === 'range'"
@@ -70,7 +70,7 @@
 
     <!-- Label -->
     <span
-      class="knob-wrapper__label"
+      class="knob-wrapper__label instrument-control__label"
       :class="{ 'opacity-50': isDisabled }"
     >
       {{ actualLabel }}
@@ -80,9 +80,10 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch, type PropType } from "vue";
+import "../instrumentControl.css";
 import useGSAP from "@/composables/useGSAP";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
-import DragValue from "./DragValue.vue";
+import DragValue from "../DragValue.vue";
 import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
@@ -739,14 +740,8 @@ useGSAP(({ gsap }: { gsap: any }) => {
 
 <style scoped>
 .knob-wrapper {
-  --knob-size: clamp(3rem, 12vw, 4.5rem);
+  --instrument-control-size: var(--knob-size, var(--instrument-control-size-default));
 
-  display: grid;
-  justify-items: center;
-  inline-size: min(100%, var(--knob-size));
-  max-inline-size: 100%;
-  margin-inline: auto;
-  container-type: inline-size;
   user-select: none;
   touch-action: none;
   padding: 0;
@@ -758,24 +753,13 @@ useGSAP(({ gsap }: { gsap: any }) => {
 
 .knob-wrapper__face {
   position: relative;
-  inline-size: 100%;
-  min-inline-size: 0;
-  aspect-ratio: 1;
 }
 
 .knob-wrapper__label {
-  display: block;
-  max-inline-size: 100%;
-  margin-block-start: 3cqi;
   overflow: visible;
-  color: currentColor;
-  font-size: clamp(0.625rem, 18cqi, 0.75rem);
-  font-weight: 500;
   line-height: 1.25;
-  text-align: center;
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
-  opacity: 0.8;
 }
 </style>

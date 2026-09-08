@@ -24,8 +24,8 @@ vi.mock("@/stores/music", () => ({
 
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
-    visibleOctaves: [4],
-    keyboardConfig: { mainOctave: 4, rowCount: 1 },
+    visibleOctaves: [5, 4],
+    keyboardConfig: { mainOctave: 4, rowCount: 2 },
   }),
 }));
 
@@ -44,6 +44,7 @@ describe("useStringRenderer humming lifecycle", () => {
 
   beforeEach(() => {
     nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    mocks.musicStore.getActiveNotes.mockReturnValue([]);
   });
 
   afterEach(() => {
@@ -82,7 +83,8 @@ describe("useStringRenderer humming lifecycle", () => {
       mocks.musicStore,
     );
 
-    expect(renderer.strings.value[0].isActive).toBe(true);
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.isActive)
+      .toBe(true);
 
     renderer.handleNoteReleased(new CustomEvent("note-released", {
       detail: { noteId: "melograph-live-1" },
@@ -93,6 +95,48 @@ describe("useStringRenderer humming lifecycle", () => {
       mocks.musicStore,
     );
 
-    expect(renderer.strings.value[0].isActive).toBe(false);
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.isActive)
+      .toBe(false);
+  });
+
+  it("uses keyboard octave for wrapped note event activation", () => {
+    const renderer = useStringRenderer();
+    const stringConfig = {
+      isEnabled: true,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+      activeOpacity: 1,
+      maxAmplitude: 20,
+      interpolationSpeed: 1,
+      opacityInterpolationSpeed: 1,
+      dampingFactor: 1,
+    } as any;
+    const animationConfig = { visualFrequencyDivisor: 100 } as any;
+    renderer.initializeStrings(stringConfig, 800, 600, mocks.musicStore.solfegeData);
+    mocks.musicStore.getActiveNotes.mockReturnValue([{
+      solfegeIndex: 0,
+      octave: 5,
+      keyboardOctave: 4,
+      frequency: 261.63,
+      mode: "major",
+      key: "G",
+    }]);
+
+    renderer.handleNotePlayed(new CustomEvent("note-played", {
+      detail: {
+        noteId: "wrapped-c5",
+        solfegeIndex: 0,
+        frequency: 261.63,
+        octave: 5,
+        keyboardOctave: 4,
+        mode: "major",
+        key: "G",
+      },
+    }));
+    renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore);
+
+    expect(renderer.strings.value.filter((string) => string.isActive).map(
+      (string) => string.octave,
+    )).toEqual([4]);
   });
 });

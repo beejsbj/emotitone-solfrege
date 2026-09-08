@@ -73,6 +73,10 @@ vi.mock("@/composables/useColorSystem", () => ({
       background: `color-${scaleIndex}`,
       primaryColor: `color-${scaleIndex}`,
     }),
+    getKeyBackgroundByPitchClass: (pitchClassIndex: number) => ({
+      background: `color-${pitchClassIndex}`,
+      primaryColor: `color-${pitchClassIndex}`,
+    }),
   }),
 }));
 
@@ -497,6 +501,38 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
 
     expect(progress(host, ".code-strip__note")).toBe("0.5");
+  });
+
+  it("keeps an edited borrowed note raw and chromatically colored", async () => {
+    const { host, view } = createView();
+    const from = view.state.doc.toString().indexOf("C4");
+
+    view.dispatch({ changes: { from, to: from + 2, insert: "D#4" } });
+    await Promise.resolve();
+
+    const editedNote = host.querySelector<HTMLElement>(".code-strip__note .note");
+    expect(editedNote?.dataset.primary).toBe("raw");
+    expect(editedNote?.dataset.pitchClassIndex).toBe("3");
+    expect(
+      editedNote?.querySelector(".note__identity-core")?.textContent,
+    ).toBe("D♯4");
+  });
+
+  it("keeps an edited borrowed chord member raw and chromatically colored", async () => {
+    const { host, view } = createView();
+    const from = view.state.doc.toString().indexOf("E4");
+
+    view.dispatch({ changes: { from, to: from + 2, insert: "D#4" } });
+    await Promise.resolve();
+
+    const editedMember = host.querySelector<HTMLElement>(
+      ".chord__cluster-member .note",
+    );
+    expect(editedMember?.dataset.primary).toBe("raw");
+    expect(editedMember?.dataset.pitchClassIndex).toBe("3");
+    expect(
+      editedMember?.querySelector(".note__identity-core")?.textContent,
+    ).toBe("D♯4");
   });
 
   it("takes edited event duration from the source instead of stale metadata", async () => {

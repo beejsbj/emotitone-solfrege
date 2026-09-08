@@ -7,14 +7,46 @@ const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
   primaryColor: "hsla(10, 80%, 50%, 1)",
 }));
+const getKeyBackgroundByPitchClass = vi.fn(() => ({
+  background: "hsla(280, 80%, 50%, 1)",
+  primaryColor: "hsla(280, 80%, 50%, 1)",
+}));
 
 vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({ getKeyBackground }),
+  useColorSystem: () => ({ getKeyBackground, getKeyBackgroundByPitchClass }),
 }));
 
 describe("Note", () => {
   beforeEach(() => {
     getKeyBackground.mockClear();
+    getKeyBackgroundByPitchClass.mockClear();
+  });
+
+  it("uses exact pitch color identity when a pitch class is supplied", () => {
+    const wrapper = mount(Note, {
+      props: {
+        rawPitch: "D#4",
+        scaleIndex: -1,
+        pitchClassIndex: 3,
+        mode: "major",
+        musicKey: "C",
+        octave: 4,
+      },
+    });
+
+    expect(getKeyBackgroundByPitchClass).toHaveBeenCalledWith(
+      3,
+      "major",
+      "C",
+      4,
+      "colored",
+      true,
+      { keyBrightness: 1, keySaturation: 1 },
+    );
+    expect(getKeyBackground).not.toHaveBeenCalled();
+    expect(wrapper.attributes("style")).toContain(
+      "--note-surface: hsla(280, 80%, 50%, 1)",
+    );
   });
 
   it("defaults to the standard geometry, medium proportion, and colored surface", () => {

@@ -56,12 +56,25 @@
       />
     </div>
 
+    <div class="control-bar__item control-bar__item--joystick">
+      <Joystick
+        :model-value="harmonyValue"
+        label="Harmony"
+        :visual="joystickVisual"
+        @update:model-value="(value) => emit('update:harmonyValue', value)"
+        @effective-change="(value) => emit('harmonyEffective', value)"
+      />
+    </div>
+
   </section>
 </template>
 
 <script setup lang="ts">
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import Knob from "@/components/primatives/Knob/index.vue";
+import Joystick from "@/components/uniques/Joystick/index.vue";
+import type { HarmonyAlteration } from "@/domain/harmony";
+import type { JoystickVisual } from "@/components/uniques/Joystick/index.vue";
 
 withDefaults(
   defineProps<{
@@ -70,6 +83,8 @@ withDefaults(
     bpm?: number;
     octave?: number;
     rows?: number;
+    harmonyValue?: HarmonyAlteration;
+    joystickVisual?: JoystickVisual;
   }>(),
   {
     keyValue: "C",
@@ -77,6 +92,7 @@ withDefaults(
     bpm: 120,
     octave: 4,
     rows: 3,
+    harmonyValue: "auto",
   },
 );
 
@@ -86,13 +102,15 @@ const emit = defineEmits<{
   "update:bpm": [value: number];
   "update:octave": [value: number];
   "update:rows": [value: number];
+  "update:harmonyValue": [value: HarmonyAlteration];
+  harmonyEffective: [value: HarmonyAlteration];
 }>();
 </script>
 
 <style scoped>
 .control-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: start;
   width: 100%;
   min-width: 0;
@@ -109,6 +127,7 @@ const emit = defineEmits<{
 
 .control-bar__item {
   min-width: 0;
+  container-type: inline-size;
 }
 
 .control-bar__item:deep(.knob-wrapper) {

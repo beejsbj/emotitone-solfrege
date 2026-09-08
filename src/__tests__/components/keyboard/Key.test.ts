@@ -1,16 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount, type VueWrapper } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import Key from "@/components/compounds/Key.vue";
 import Note from "@/components/primatives/Note.vue";
 import keySource from "@/components/compounds/Key.vue?raw";
+import pressableKeySource from "@/composables/usePressableKey.ts?raw";
+
+const pressableKeyCss = readFileSync(
+  resolve(process.cwd(), "src/components/compounds/pressableKey.css"),
+  "utf8",
+);
 
 const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
   primaryColor: "hsla(10, 80%, 50%, 1)",
 }));
+const getKeyBackgroundByPitchClass = vi.fn(() => ({
+  background: "hsla(10, 80%, 50%, 1)",
+  primaryColor: "hsla(10, 80%, 50%, 1)",
+}));
 
 vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({ getKeyBackground }),
+  useColorSystem: () => ({ getKeyBackground, getKeyBackgroundByPitchClass }),
 }));
 
 interface MockTouch {
@@ -57,6 +69,7 @@ function setBounds(wrapper: VueWrapper) {
 describe("Key", () => {
   beforeEach(() => {
     getKeyBackground.mockClear();
+    getKeyBackgroundByPitchClass.mockClear();
   });
 
   afterEach(() => {
@@ -317,20 +330,26 @@ describe("Key", () => {
       /@\/stores|audio|haptic|midi|qwerty|addEventListener\(["']key/i,
     );
     expect(keySource).toContain(':disabled="disabled"');
-    expect(keySource).toMatch(/min-width:\s*44px/);
-    expect(keySource).toMatch(/min-height:\s*44px/);
-    expect(keySource).toContain("touch-action: manipulation");
-    expect(keySource).toMatch(/\.key:focus-visible\s*{[^}]*outline:\s*2px/);
-    expect(keySource).toContain("outline-offset: 2px");
-    expect(keySource).toContain("@media (hover: hover) and (pointer: fine)");
-    expect(keySource).toContain("--key-face-hover-y: -1px");
-    expect(keySource).toContain("--key-face-press-y: 2px");
-    expect(keySource).toContain("rotate(var(--key-face-rotation, 0deg))");
-    expect(keySource).toContain("transition: transform 90ms");
-    expect(keySource).toMatch(
+    expect(keySource).toContain("usePressableKey");
+    expect(keySource).toContain("pressable-key__face");
+    expect(keySource).toContain('import "./pressableKey.css"');
+    expect(pressableKeySource).toContain('window.addEventListener("blur"');
+    expect(pressableKeySource).toContain('document.addEventListener("visibilitychange"');
+    expect(pressableKeySource).toContain("handleTouchCancel,");
+    expect(pressableKeyCss).toMatch(/min-width:\s*44px/);
+    expect(pressableKeyCss).toMatch(/min-height:\s*44px/);
+    expect(pressableKeyCss).toContain("touch-action: manipulation");
+    expect(pressableKeyCss).toMatch(/\.pressable-key:focus-visible\s*{[^}]*outline:\s*2px/);
+    expect(pressableKeyCss).toContain("outline-offset: 2px");
+    expect(pressableKeyCss).toContain("@media (hover: hover) and (pointer: fine)");
+    expect(pressableKeyCss).toContain("--key-face-hover-y: -1px");
+    expect(pressableKeyCss).toContain("--key-face-press-y: 2px");
+    expect(pressableKeyCss).toContain("rotate(var(--key-face-rotation, 0deg))");
+    expect(pressableKeyCss).toContain("transition: transform 90ms");
+    expect(pressableKeyCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition:\s*none/,
     );
-    expect(keySource).toMatch(
+    expect(pressableKeyCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*--key-face-press-scale:\s*1/,
     );
   });

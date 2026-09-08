@@ -3,6 +3,7 @@ import {
   triggerHapticFeedback,
   triggerNoteHaptic,
   triggerControlHaptic,
+  triggerLatchHaptic,
   triggerUIHaptic,
   type HapticIntensity,
 } from "@/utils/hapticFeedback";
@@ -177,6 +178,22 @@ describe("Haptic Feedback Utilities", () => {
       triggerUIHaptic();
       
       expect(mockHapticFeedback.impact).toHaveBeenCalledWith("lighter");
+    });
+  });
+
+  describe("triggerLatchHaptic", () => {
+    it("is firmer than the lighter continuous-control tick", () => {
+      triggerLatchHaptic();
+      expect(mockVibrate).toHaveBeenCalledWith([50]);
+    });
+
+    it("uses the light advanced-haptic impact", () => {
+      const mockHapticFeedback = { impact: vi.fn() };
+      (window as any).hapticFeedback = mockHapticFeedback;
+
+      triggerLatchHaptic();
+
+      expect(mockHapticFeedback.impact).toHaveBeenCalledWith("light");
     });
   });
 

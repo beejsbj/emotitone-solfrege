@@ -214,6 +214,7 @@ const noteProps = (token: CodeStripNoteToken) => {
     degree: token.degree ?? (primary === "degree" ? token.text : String(noteOrder.indexOf(token.note) + 1)),
     rawPitch: token.rawPitch ?? (primary === "raw" ? token.text : ""),
     scaleIndex: token.scaleIndex ?? noteOrder.indexOf(token.note),
+    pitchClassIndex: token.pitchClassIndex,
     octave: token.octave ?? 4,
     mode: token.mode,
     musicKey: token.musicKey,

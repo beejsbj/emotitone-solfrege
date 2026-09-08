@@ -103,6 +103,38 @@ describe("CodeStrip recorded-token metadata", () => {
     expect(chord.members.every((member) => member.progress == null)).toBe(true);
   });
 
+  it("renders borrowed exact pitches as raw chromatic identities", () => {
+    const borrowed = {
+      ...note("borrowed", "D#4", -1, 4, 1000, 500),
+      scaleDegree: 0,
+      pitchClassIndex: 3,
+      isBorrowed: true,
+    };
+    const single = tokens([borrowed], "solfege")[0];
+
+    expect(single).toMatchObject({
+      type: "note",
+      glyph: "raw",
+      text: "D#4",
+      rawPitch: "D#4",
+      scaleIndex: -1,
+      pitchClassIndex: 3,
+    });
+
+    const chord = tokens([
+      note("root", "C4", 0, 4, 1000, 500),
+      borrowed,
+    ])[0];
+    if (chord.type !== "chord") throw new Error("Expected chord token");
+    expect(chord.members[1]).toMatchObject({
+      rawPitch: "D#4",
+      primary: "raw",
+      visibleLabels: ["raw"],
+      scaleIndex: -1,
+      pitchClassIndex: 3,
+    });
+  });
+
   it("always preserves Rest semantics for the CodeMirror source map", () => {
     expect(tokens([
       note("c", "C4", 0, 4, 1000, 500),

@@ -1,0 +1,107 @@
+{
+  "date": "2026-09-07",
+  "implementationCommits": ["3b972f0", "a6f2d0b"],
+  "browser": {
+    "surface": "T3 Code collaborative preview",
+    "userAgent": "T3Code(Alpha)/0.0.38-fork.20260904.1 Chrome/150.0.7871.224",
+    "viewportSettingPx": [1280, 800],
+    "measuredViewportPx": [1402, 877],
+    "devicePixelRatio": 2,
+    "routes": ["/", "/style-guide/#unique-joystick"]
+  },
+  "production": {
+    "joystick": {
+      "visual": "analog",
+      "platePx": [58, 58],
+      "touchAction": "none",
+      "material": "shared brass fill and sheen",
+      "hiddenRadioOptions": 9
+    },
+    "edgePressNoOp": {
+      "initial": ["auto", "auto"],
+      "pointerDownAtRightEdge": ["auto", "auto"],
+      "releaseAtRightEdge": ["auto", "auto"],
+      "stickLeftTopPx": [29, 29],
+      "firstChord": "C major chord"
+    },
+    "relativeDragAndLatch": {
+      "startingLatch": "auto",
+      "relativeDeltaPx": [20, 0],
+      "effectiveDuringDrag": "jazzy7",
+      "latchedOnShortRelease": "jazzy7",
+      "firstChordDuringAndAfter": "C major seventh chord"
+    },
+    "relativeReturnToCenter": {
+      "startingLatch": "jazzy7",
+      "relativeDeltaPx": [-16, 0],
+      "effectiveDuringDrag": "auto",
+      "latchedOnShortRelease": "auto",
+      "firstChordDuringAndAfter": "C major chord"
+    },
+    "heldOverride": {
+      "startingLatch": "jazzy7",
+      "effectiveAfterRelativeCenterDrag": "auto",
+      "momentaryAfterMs": 285,
+      "restoredOnRelease": "jazzy7",
+      "firstChordAfterRelease": "C major seventh chord"
+    },
+    "restingChordColor": {
+      "firstChordMemberProgress": [1, 1, 1],
+      "firstChordMemberHueDegrees": [25.7, 128.6, 231.4],
+      "presentation": "fused low-to-high member-note bands remain colored at rest"
+    }
+  },
+  "styleGuide": {
+    "source": "style-guide/uniques/UniqueJoystick.vue",
+    "specimenCount": 6,
+    "analogSpecimens": 5,
+    "digitalSpecimens": 1,
+    "standardPlatePx": [58, 58],
+    "narrowPlatePx": [53, 53],
+    "digitalEdgePressNoOp": {
+      "before": ["jazzy7", "jazzy7"],
+      "pointerDownAtBottomRightEdge": ["jazzy7", "jazzy7"],
+      "releaseAtBottomRightEdge": ["jazzy7", "jazzy7"]
+    },
+    "digitalRelativeCenterDrag": {
+      "startingLatch": "jazzy7",
+      "relativeDeltaPx": [-16, 0],
+      "effectiveDuringDrag": "auto",
+      "latchedOnRelease": "auto"
+    },
+    "materials": {
+      "analog": "brass plate plus brass-sheen stick on an ink well",
+      "digital": "ink plate plus brass ring, detents, and cursor"
+    }
+  },
+  "automatedVerification": {
+    "focusedTests": {
+      "files": 8,
+      "tests": 50,
+      "result": "pass"
+    },
+    "typeCheck": "pass",
+    "productionBuild": "pass",
+    "buildWarnings": [
+      "stale Browserslist data",
+      "third-party soundfont eval",
+      "existing mixed static/dynamic instrument-store import",
+      "existing bundle-size warning"
+    ]
+  },
+  "console": {
+    "featureErrorsObserved": [],
+    "existingNoise": [
+      "duplicate @strudel/core warning",
+      "sample-loader logs",
+      "collaborative-preview harness/environment diagnostics"
+    ]
+  },
+  "limits": [
+    "Pointer interaction was exercised with synthetic PointerEvents in the shared preview; no physical touch device was tested.",
+    "The collaborative preview refused both requested viewport resize operations, so no fresh narrow/mobile screenshot is claimed for this correction.",
+    "The shared preview screenshot was inspected but cannot be exported into the repository by the available preview interface; this receipt preserves measured DOM and interaction results instead.",
+    "Reduced Motion and forced-colors behavior remain implemented in source and covered by prior feature evidence, but were not freshly emulated after this correction.",
+    "No speaker, audio-hardware, or MIDI-hardware listening claim is made."
+  ]
+}

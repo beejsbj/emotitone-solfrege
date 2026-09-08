@@ -1,0 +1,84 @@
+{
+  "date": "2026-09-07",
+  "browser": "Google Chrome 147.0.7727.101",
+  "routes": ["/", "/style-guide/"],
+  "production": {
+    "mobile390": {
+      "documentClientAndScrollWidth": [390, 390],
+      "chordCount": 7,
+      "chordSymbols": ["C", "Dm", "Em", "F", "G", "Am", "Bdim"],
+      "chordWidthsPx": [54, 54, 54, 54, 54, 54, 54],
+      "chordClientAndScrollWidth": [390, 390],
+      "controlItems": 6,
+      "controlClientAndScrollWidth": [390, 390],
+      "joystickDirections": 9,
+      "joystickPlatePx": [53.36, 53.36],
+      "joystickAccessibleName": "Harmony"
+    },
+    "desktop960": {
+      "documentClientAndScrollWidth": [960, 960],
+      "chordClientAndScrollWidth": [960, 960],
+      "controlClientAndScrollWidth": [960, 960]
+    },
+    "interaction": {
+      "latched": {
+        "joystick": "jazzy7",
+        "chordAlteration": "jazzy7",
+        "firstSymbol": "Cmaj7"
+      },
+      "heldOverride": {
+        "latched": "jazzy7",
+        "effective": "sus4",
+        "chordAlteration": "sus4",
+        "firstSymbol": "Csus4"
+      },
+      "releasedOverride": {
+        "latched": "jazzy7",
+        "effective": "jazzy7",
+        "chordAlteration": "jazzy7",
+        "firstSymbol": "Cmaj7"
+      }
+    },
+    "reducedMotion": {
+      "joystickTransitionDuration": "0s",
+      "chordKeyTransitionDuration": "0s"
+    },
+    "forcedColors": {
+      "active": true,
+      "joystickBorderStyle": "solid",
+      "chordForcedColorAdjust": "auto"
+    }
+  },
+  "styleGuide": {
+    "controlledKeyboard320": {
+      "majorChordCount": 7,
+      "majorClientAndScrollWidth": [320, 320],
+      "chromaticChordCount": 12,
+      "chromaticChordWidthsPx": [44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44],
+      "chromaticClientAndScrollWidth": [320, 550]
+    },
+    "joystickDesktop960": {
+      "specimens": 4,
+      "directionCounts": [9, 9, 9, 9],
+      "effectiveValues": ["auto", "auto", "jazzy7", "sus4"],
+      "heroJoystickWidthPx": 58,
+      "heroReadoutOverlap": false
+    }
+  },
+  "pageErrors": [],
+  "consoleErrors": [],
+  "screenshots": [
+    "production-390.png",
+    "production-960.png",
+    "production-reduced-motion-390.png",
+    "production-forced-colors-390.png",
+    "guide-keyboard-major-390.png",
+    "guide-keyboard-chromatic-390.png",
+    "guide-joystick-960.png"
+  ],
+  "limits": [
+    "Chrome automation used mouse/pointer and keyboard-capable DOM paths; no physical touch device was tested.",
+    "Exact attack routing is covered by store/component tests; no speaker or audio-hardware listening claim is made.",
+    "The style-guide gallery scaffold remains wider than a phone viewport; the measured Keyboard host itself was explicitly controlled to 320px."
+  ]
+}

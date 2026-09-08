@@ -615,18 +615,6 @@
     20%, 100% { border-color: transparent; box-shadow: none; }
   }
 
-/* beat-cell — beat indicator cell lights on its quarter (from mot-primitives-beat-pulse.html) */
-@keyframes beat-cell {
-    0%, 18%  { background: var(--ivory); border-color: var(--ivory); }
-    20%, 100%{ background: transparent;  border-color: var(--hairline); }
-  }
-
-/* beat-down — downbeat cell lights brass (from mot-primitives-beat-pulse.html) */
-@keyframes beat-down {
-    0%, 18%  { background: var(--brass); border-color: var(--brass); box-shadow: 0 0 10px rgba(224,169,58,.55); }
-    20%, 100%{ background: transparent;    border-color: var(--hairline); box-shadow: none; }
-  }
-
 /* smear — horizontal stretch-snap (lifted from v2 .p5-active.smearing). */
 @keyframes smear {
   0%   { transform: scaleX(1) skewX(0); }

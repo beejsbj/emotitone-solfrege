@@ -167,6 +167,22 @@ describe("Key", () => {
     expect(wrapper.classes()).not.toContain("key--pressed");
   });
 
+  it("defers local mouse and touch ownership when its keyboard manages input", async () => {
+    const wrapper = mount(Key, { props: { managedInput: true } });
+    const button = wrapper.get("button");
+    setBounds(wrapper);
+    const touch = { identifier: 2, clientX: 20, clientY: 20 };
+
+    await button.trigger("mousedown", { button: 0 });
+    button.element.dispatchEvent(touchEvent("touchstart", {
+      changedTouches: [touch],
+    }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("press")).toBeUndefined();
+    expect(wrapper.classes()).not.toContain("key--pressed");
+  });
+
   it("stays pressed until both controlled and local sources are clear", async () => {
     const wrapper = mount(Key, { props: { pressed: true } });
     const button = wrapper.get("button");

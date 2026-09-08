@@ -18,6 +18,7 @@ interface PressableKeyCallbacks {
 
 interface PressableKeyOptions {
   disabled?: () => boolean;
+  managedInput?: () => boolean;
   touchHoldDelayMs?: number;
   touchPanThresholdPx?: number;
   touchTapPulseMs?: number;
@@ -89,15 +90,18 @@ export function usePressableKey(
   }
 
   function handleMouseDown(event: MouseEvent) {
+    if (options.managedInput?.()) return;
     if (event.button !== 0) return;
     beginInput(mouseInputId, event);
   }
 
   function handleMouseUp(event: MouseEvent) {
+    if (options.managedInput?.()) return;
     endInput(mouseInputId, event);
   }
 
   function handleMouseLeave(event: MouseEvent) {
+    if (options.managedInput?.()) return;
     endInput(mouseInputId, event);
   }
 
@@ -113,6 +117,7 @@ export function usePressableKey(
   }
 
   function handleTouchStart(event: TouchEvent) {
+    if (options.managedInput?.()) return;
     for (const touch of Array.from(event.changedTouches)) {
       if (!isTouchWithinElement(touch)) continue;
 
@@ -135,6 +140,7 @@ export function usePressableKey(
   }
 
   function handleTouchMove(event: TouchEvent) {
+    if (options.managedInput?.()) return;
     for (const touch of Array.from(event.touches)) {
       const inputId = touchInputId(touch.identifier);
       const pending = pendingTouches.get(touch.identifier);
@@ -156,6 +162,7 @@ export function usePressableKey(
   }
 
   function handleTouchEnd(event: TouchEvent) {
+    if (options.managedInput?.()) return;
     for (const touch of Array.from(event.changedTouches)) {
       const inputId = touchInputId(touch.identifier);
       if (cancelPendingTouch(touch.identifier)) {
@@ -167,6 +174,7 @@ export function usePressableKey(
   }
 
   function handleTouchCancel(event: TouchEvent) {
+    if (options.managedInput?.()) return;
     for (const touch of Array.from(event.changedTouches)) {
       cancelPendingTouch(touch.identifier);
       endInput(touchInputId(touch.identifier), event);

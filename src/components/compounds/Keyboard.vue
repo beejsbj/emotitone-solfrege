@@ -16,6 +16,11 @@
     :data-edition-seed="resolvedEditionSeed"
     @focusout="handleFocusOut"
     @keyup="handleFocusActivationKeyUp"
+    @pointerdown="handlePointerDown"
+    @pointermove="handlePointerMove"
+    @pointerup="handlePointerUp"
+    @pointercancel="handlePointerCancel"
+    @lostpointercapture="handlePointerCancel"
   >
     <div
       class="keyboard__chord-row"
@@ -61,7 +66,7 @@
         class="keyboard__key"
         :class="{
           'keyboard__key--focus-preview': key.focusVisible,
-          'keyboard__key--pressed': key.pressed,
+          'keyboard__key--pressed': isKeyPhysicallyPressed(key),
         }"
         :style="keyStyle(key, row.octave)"
         :syllable="key.syllable"
@@ -81,7 +86,8 @@
         :key-brightness="key.keyBrightness"
         :key-saturation="key.keySaturation"
         :sounding="key.sounding"
-        :pressed="key.pressed"
+        :pressed="isKeyPhysicallyPressed(key)"
+        managed-input
         :disabled="isInteractionLocked"
         :aria-label="keyAriaLabel(key, row.octave)"
         :aria-keyshortcuts="key.shortcut || undefined"
@@ -404,18 +410,28 @@ function createProductionWiring() {
 
   const inputPressId = (intent: KeyboardIntent) =>
     `melody:${intent.inputId}:${intent.keyId}`;
+  const melodyVoiceOwnerId = (keyId: string) => `melody-key:${keyId}`;
+  const heldInputsByKey = new Map<string, Set<string>>();
   const chordPressId = (intent: KeyboardChordIntent) =>
     `chord:${intent.inputId}:${intent.chordId}`;
 
   function press(intent: KeyboardIntent) {
     if (instrumentStore.isInteractionLocked) return;
 
-    const ownerId = inputPressId(intent);
-    store.addTouch(ownerId, intent.keyId);
+    const pressId = inputPressId(intent);
+    const heldInputs = heldInputsByKey.get(intent.keyId) ?? new Set<string>();
+    if (heldInputs.has(pressId)) return;
+
+    const shouldAttack = heldInputs.size === 0;
+    heldInputs.add(pressId);
+    heldInputsByKey.set(intent.keyId, heldInputs);
+    store.addTouch(pressId, intent.keyId);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
     }
-    void voiceGroups.attack(ownerId, [
+    if (!shouldAttack) return;
+
+    void voiceGroups.attack(melodyVoiceOwnerId(intent.keyId), [
       (isCancelled) => musicStore.attackNoteWithOctave(
         intent.scaleIndex,
         intent.octave,
@@ -425,9 +441,13 @@ function createProductionWiring() {
   }
 
   function release(intent: KeyboardIntent) {
-    const ownerId = inputPressId(intent);
-    store.removeTouch(ownerId);
-    voiceGroups.release(ownerId);
+    const pressId = inputPressId(intent);
+    store.removeTouch(pressId);
+    const heldInputs = heldInputsByKey.get(intent.keyId);
+    if (!heldInputs?.delete(pressId) || heldInputs.size > 0) return;
+
+    heldInputsByKey.delete(intent.keyId);
+    voiceGroups.release(melodyVoiceOwnerId(intent.keyId));
   }
 
   function pressChord(intent: KeyboardChordIntent) {
@@ -461,6 +481,7 @@ function createProductionWiring() {
   }
 
   function clear() {
+    heldInputsByKey.clear();
     activeChordSnapshots.clear();
     voiceGroups.releaseAll();
     store.clearAllTouches();
@@ -565,6 +586,8 @@ const activeChordPointerInputs = new Map<string, KeyboardChordIntent>();
 const activeChordFocusInputs = new Map<string, KeyboardChordIntent>();
 const chordPointerSnapshotId = (inputId: string, chordId: string) =>
   `${inputId}:${chordId}`;
+const activePointerInputs = reactive(new Map<number, KeyboardIntent | null>());
+const pointerPositions = new Map<number, { x: number; y: number }>();
 
 const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
 const defaultFocusId = computed(
@@ -596,6 +619,7 @@ watch(
   rowSignature,
   () => {
     releaseMelodyFocusInputs(new Event("keyboard-remap"));
+    releasePointerInputs(new Event("keyboard-remap"));
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
       rememberedFocusId.value = defaultFocusId.value;
     }
@@ -619,6 +643,7 @@ watch(
 watch(isInteractionLocked, (locked) => {
   if (!locked) return;
   releaseFocusedInputs(new Event("instrument-warmup"));
+  releasePointerInputs(new Event("instrument-warmup"));
   productionWiring?.clear();
 });
 
@@ -671,8 +696,14 @@ function keyStyle(key: KeyboardKeyView, octave: number) {
     "--key-face-rotation": "calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))",
     "--note-geometry-override-clip": variation.cut,
     "--note-geometry-override-shadow": variation.shadow,
-    zIndex: key.pressed ? 10_001 : variation.layer,
+    zIndex: isKeyPhysicallyPressed(key) ? 10_001 : variation.layer,
   };
+}
+
+function isKeyPhysicallyPressed(key: KeyboardKeyView) {
+  return Boolean(key.pressed) || Array.from(activePointerInputs.values()).some(
+    (intent) => intent?.keyId === key.id,
+  );
 }
 
 function rowStyle(octave: number) {
@@ -882,6 +913,198 @@ function handleChordKeyDown(event: KeyboardEvent, chordIndex: number) {
   dispatchChordIntent("press", intent);
 }
 
+function pointerInputId(event: PointerEvent) {
+  return event.pointerType === "mouse"
+    ? `mouse:${event.pointerId}`
+    : `${event.pointerType || "pointer"}:${event.pointerId}`;
+}
+
+function keyIntentForId(
+  keyId: string | undefined,
+  event: PointerEvent,
+): KeyboardIntent | null {
+  if (!keyId) return null;
+  const row = renderRows.value.find((candidate) =>
+    candidate.keys.some((key) => key.id === keyId),
+  );
+  const key = row?.keys.find((candidate) => candidate.id === keyId);
+  if (!row || !key) return null;
+
+  return {
+    inputId: pointerInputId(event),
+    event,
+    keyId: key.id,
+    scaleIndex: key.scaleIndex,
+    octave: row.octave,
+    source: "pointer",
+  };
+}
+
+function keyIntentAtPoint(event: PointerEvent): KeyboardIntent | null {
+  const root = keyboardRef.value;
+  if (!root) return null;
+
+  const hit = typeof document.elementFromPoint === "function"
+    ? document.elementFromPoint(event.clientX, event.clientY)
+    : event.target;
+  const element = hit instanceof Element
+    ? hit.closest<HTMLElement>("[data-key-id]")
+    : null;
+  if (!element || !root.contains(element)) return null;
+
+  return keyIntentForId(element.dataset.keyId, event);
+}
+
+function segmentEntryTime(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  rect: DOMRect,
+) {
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  let entry = 0;
+  let exit = 1;
+  const clipAxis = (origin: number, delta: number, min: number, max: number) => {
+    if (delta === 0) return origin >= min && origin <= max;
+    const first = (min - origin) / delta;
+    const second = (max - origin) / delta;
+    entry = Math.max(entry, Math.min(first, second));
+    exit = Math.min(exit, Math.max(first, second));
+    return entry <= exit;
+  };
+
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  if (!clipAxis(start.x, deltaX, rect.left, rect.right)) return null;
+  if (!clipAxis(start.y, deltaY, rect.top, rect.bottom)) return null;
+
+  if (entry >= exit) return null;
+  const midpoint = entry + ((exit - entry) / 2);
+  const midpointX = start.x + (deltaX * midpoint);
+  const midpointY = start.y + (deltaY * midpoint);
+  const crossesInterior = midpointX > rect.left
+    && midpointX < rect.right
+    && midpointY > rect.top
+    && midpointY < rect.bottom;
+  return crossesInterior && entry >= 0 && entry <= 1 ? entry : null;
+}
+
+function movePointerAlongSegment(
+  pointerId: number,
+  start: { x: number; y: number },
+  event: PointerEvent,
+) {
+  const end = { x: event.clientX, y: event.clientY };
+  if (start.x === end.x && start.y === end.y) {
+    movePointerInput(pointerId, keyIntentAtPoint(event), event);
+    pointerPositions.set(pointerId, end);
+    return;
+  }
+
+  const currentKeyId = activePointerInputs.get(pointerId)?.keyId;
+  const crossings = Array.from(keyElements.entries())
+    .map(([keyId, element]) => ({
+      keyId,
+      entry: segmentEntryTime(start, end, element.getBoundingClientRect()),
+    }))
+    .filter((crossing): crossing is { keyId: string; entry: number } =>
+      crossing.entry !== null
+      && !(crossing.entry === 0 && crossing.keyId === currentKeyId)
+    )
+    .sort((a, b) => a.entry - b.entry);
+
+  for (const crossing of crossings) {
+    movePointerInput(
+      pointerId,
+      keyIntentForId(crossing.keyId, event),
+      event,
+    );
+  }
+  movePointerInput(pointerId, keyIntentAtPoint(event), event);
+  pointerPositions.set(pointerId, end);
+}
+
+function pointerSamples(event: PointerEvent) {
+  const coalesced = typeof event.getCoalescedEvents === "function"
+    ? event.getCoalescedEvents()
+    : [];
+  const samples = coalesced.filter((sample) => sample.pointerId === event.pointerId);
+  const last = samples[samples.length - 1];
+  if (!last || last.clientX !== event.clientX || last.clientY !== event.clientY) {
+    samples.push(event);
+  }
+  return samples;
+}
+
+function movePointerThroughSamples(event: PointerEvent) {
+  for (const sample of pointerSamples(event)) {
+    const start = pointerPositions.get(event.pointerId)
+      ?? { x: sample.clientX, y: sample.clientY };
+    movePointerAlongSegment(event.pointerId, start, sample);
+  }
+}
+
+function movePointerInput(pointerId: number, next: KeyboardIntent | null, event: Event) {
+  const current = activePointerInputs.get(pointerId);
+  if (current?.keyId === next?.keyId) return;
+
+  if (current) dispatchIntent("release", { ...current, event });
+  activePointerInputs.set(pointerId, next);
+  if (next) dispatchIntent("press", next);
+}
+
+function handlePointerDown(event: PointerEvent) {
+  if (isInteractionLocked.value) return;
+  if (event.isPrimary === false && event.pointerType === "mouse") return;
+  if (["mouse", "pen"].includes(event.pointerType) && event.button !== 0) return;
+  if (activePointerInputs.has(event.pointerId)) return;
+
+  const intent = keyIntentAtPoint(event);
+  if (!intent) return;
+
+  if (event.pointerType !== "mouse") event.preventDefault();
+  keyboardRef.value?.setPointerCapture?.(event.pointerId);
+  activePointerInputs.set(event.pointerId, intent);
+  pointerPositions.set(event.pointerId, {
+    x: event.clientX,
+    y: event.clientY,
+  });
+  dispatchIntent("press", intent);
+}
+
+function handlePointerMove(event: PointerEvent) {
+  if (!activePointerInputs.has(event.pointerId)) return;
+  event.preventDefault();
+  movePointerThroughSamples(event);
+}
+
+function finishPointerInput(event: PointerEvent) {
+  if (!activePointerInputs.has(event.pointerId)) return;
+  event.preventDefault();
+  movePointerInput(event.pointerId, null, event);
+  activePointerInputs.delete(event.pointerId);
+  pointerPositions.delete(event.pointerId);
+}
+
+function handlePointerUp(event: PointerEvent) {
+  if (!activePointerInputs.has(event.pointerId)) return;
+  event.preventDefault();
+  movePointerThroughSamples(event);
+  finishPointerInput(event);
+}
+
+function handlePointerCancel(event: PointerEvent) {
+  finishPointerInput(event);
+}
+
+function releasePointerInputs(event: Event) {
+  for (const intent of activePointerInputs.values()) {
+    if (intent) dispatchIntent("release", { ...intent, event });
+  }
+  activePointerInputs.clear();
+  pointerPositions.clear();
+}
+
 function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
     event.preventDefault();
@@ -970,18 +1193,27 @@ function handleFocusOut(event: FocusEvent) {
 }
 
 function handleVisibilityChange(event: Event) {
-  if (document.visibilityState === "hidden") releaseFocusedInputs(event);
+  if (document.visibilityState === "hidden") {
+    releaseFocusedInputs(event);
+    releasePointerInputs(event);
+  }
+}
+
+function handleWindowBlur(event: Event) {
+  releaseFocusedInputs(event);
+  releasePointerInputs(event);
 }
 
 onMounted(() => {
-  window.addEventListener("blur", releaseFocusedInputs);
+  window.addEventListener("blur", handleWindowBlur);
   document.addEventListener("visibilitychange", handleVisibilityChange);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("blur", releaseFocusedInputs);
+  window.removeEventListener("blur", handleWindowBlur);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   releaseFocusedInputs(new Event("unmount"));
+  releasePointerInputs(new Event("unmount"));
   productionWiring?.clear();
   keyElements.clear();
   chordKeyElements.clear();
@@ -997,6 +1229,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   isolation: isolate;
   container-type: inline-size;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .keyboard__chord-row {
@@ -1012,6 +1246,7 @@ onBeforeUnmount(() => {
   overflow-y: visible;
   overscroll-behavior-inline: contain;
   scrollbar-width: thin;
+  touch-action: pan-x;
 }
 
 .keyboard__chord-key {
@@ -1030,6 +1265,7 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: var(--keyboard-gap, 2px);
   padding-inline: var(--keyboard-outer-inset, 0px);
+  touch-action: none;
 }
 
 .keyboard__key {

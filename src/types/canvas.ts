@@ -3,6 +3,7 @@
  * Type definitions for canvas rendering, particles, and animation systems
  */
 
+import type { MarkName } from "@/components/primatives/marks";
 import type {
   ActiveNote,
   ChromaticNote,
@@ -115,8 +116,8 @@ export interface Particle {
   vy: number;
   /** Particle color */
   color: string;
-  /** Particle shape identifier */
-  shape: string;
+  /** Mark rendered by this particle */
+  mark: MarkName;
   /** Particle size */
   size: number;
   /** Current life remaining */

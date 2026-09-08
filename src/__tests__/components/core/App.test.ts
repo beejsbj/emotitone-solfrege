@@ -133,6 +133,8 @@ describe('App.vue', () => {
     expect(appSource).toContain('beginJoystickPageEdition()')
     expect(appSource.indexOf('beginJoystickPageEdition()'))
       .toBeGreaterThan(appSource.indexOf('} else {'))
+    expect(appSource).not.toContain('MarksBeatParticlesPage')
+    expect(appSource).not.toContain('isRoughPage')
   })
 
   it('replaces the production popup mount with canvas-owned harmonic geometry', () => {

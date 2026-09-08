@@ -314,7 +314,6 @@ function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
     number: 0,
     emotion: "Borrowed harmony tone",
     description: "An explicit chord alteration outside the active scale.",
-    fleckShape: "sparkle",
     texture: "harmonic",
   };
 }

@@ -166,7 +166,6 @@ const note = {
   number: 1,
   emotion: "Grounded",
   description: "Do note",
-  fleckShape: "circle",
   texture: "soft",
   intervalName: "1P",
   semitones: 0,

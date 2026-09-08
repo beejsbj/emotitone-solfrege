@@ -76,6 +76,7 @@ const props = withDefaults(
     keySaturation?: number;
     sounding?: boolean;
     pressed?: boolean;
+    managedInput?: boolean;
     disabled?: boolean;
     ariaLabel?: string;
   }>(),
@@ -98,6 +99,7 @@ const props = withDefaults(
     keySaturation: 1,
     sounding: false,
     pressed: false,
+    managedInput: false,
     disabled: false,
     ariaLabel: undefined,
   },
@@ -125,6 +127,7 @@ const {
   release: (payload) => emit("release", payload),
 }, {
   disabled: () => props.disabled,
+  managedInput: () => props.managedInput,
 });
 
 const isPhysicallyPressed = computed(

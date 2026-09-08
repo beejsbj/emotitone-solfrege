@@ -91,7 +91,12 @@ export function useStringRenderer() {
           x = groupCenter;
         } else {
           // Offset each octave within the group
-          const mainOctaveIndex = Math.floor(visibleOctaves.length / 2);
+          const configuredMainIndex = visibleOctaves.indexOf(
+            keyboardDrawerStore.keyboardConfig.mainOctave,
+          );
+          const mainOctaveIndex = configuredMainIndex >= 0
+            ? configuredMainIndex
+            : Math.floor(visibleOctaves.length / 2);
           const octaveOffsetDirection = octaveIndex - mainOctaveIndex;
           x = groupCenter + octaveOffsetDirection * stringConfig.octaveOffset;
         }

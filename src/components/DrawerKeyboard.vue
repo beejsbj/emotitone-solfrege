@@ -7,7 +7,7 @@
     accessible-name="Keyboard"
     :handle-resize-description="`${rowCount} keyboard rows. Drag or use Up and Down Arrow keys to resize.`"
     handle-test-id="keyboard-drawer-handle"
-    storage-key="keyboard-layout"
+    storage-key="keyboard"
     :initial-content-height="initialKeyboardHeight"
     :min-content-height="minimumHeight"
     :max-content-height="maximumHeight"

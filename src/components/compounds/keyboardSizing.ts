@@ -36,10 +36,10 @@ export function maximumKeyboardHeight(rowCount: number) {
     + MAX_KEYBOARD_OUTER_ROW_HEIGHT * rowWeight(rowCount);
 }
 export function fitKeyboardRows(height: number, rowCount: number) {
-  const outer = Math.max(
-    MIN_KEYBOARD_OUTER_ROW_HEIGHT,
-    Math.min(MAX_KEYBOARD_OUTER_ROW_HEIGHT, height / rowWeight(rowCount)),
-  );
+  // A controlled Keyboard must fill the allocation its host gave it. The
+  // automatic Drawer solver applies the accepted maximum while choosing rows;
+  // capping again here would leave dead space in fixed-row consumers.
+  const outer = Math.max(MIN_KEYBOARD_OUTER_ROW_HEIGHT, height / rowWeight(rowCount));
   return { main: outer * MAIN_WEIGHT, outer };
 }
 

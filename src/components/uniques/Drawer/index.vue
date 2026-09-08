@@ -250,6 +250,10 @@ function handleKeydown(event: KeyboardEvent) {
   const expands = props.anchor === "bottom" ? event.key === "ArrowUp" : event.key === "ArrowDown";
   const contracts = props.anchor === "bottom" ? event.key === "ArrowDown" : event.key === "ArrowUp";
   if (!expands && !contracts) return;
+  if (contracts && !usableOpen.value) {
+    event.preventDefault();
+    return;
+  }
 
   const requestedHeight = height.value + (expands ? props.keyboardResizeStep : -props.keyboardResizeStep);
   void setLayoutHeight(interactiveHeight(requestedHeight));

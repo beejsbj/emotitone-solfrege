@@ -108,6 +108,15 @@ describe("Drawer continuous height contract", () => {
     expect(w.classes()).not.toContain('drawer--layout-resize');
     await handle.trigger('keydown', { key: 'ArrowDown' });
     expect(height(w)).toBe(320);
+
+    await handle.trigger('click');
+    expect(height(w)).toBe(120);
+    const resizeCount = w.emitted('contentResize')?.length;
+    await handle.trigger('keydown', { key: 'ArrowDown' });
+    expect(height(w)).toBe(120);
+    expect(w.emitted('contentResize')?.length).toBe(resizeCount);
+    await handle.trigger('keydown', { key: 'ArrowUp' });
+    expect(height(w)).toBe(220);
   });
   it("does not attribute layout resizing to a pointer that is merely held", async () => {
     const w = await create({ dragToCollapse: false, keyboardResizeStep: 10 });

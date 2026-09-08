@@ -622,8 +622,7 @@ const editionVariations = computed(() => new Map(
 watch(
   rowSignature,
   () => {
-    releaseMelodyFocusInputs(new Event("keyboard-remap"));
-    releasePointerInputs(new Event("keyboard-remap"));
+    releaseMissingMelodyInputs(new Event("keyboard-remap"));
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
       rememberedFocusId.value = defaultFocusId.value;
     }
@@ -1160,6 +1159,20 @@ function releaseMelodyFocusInputs(event: Event) {
     dispatchIntent("release", { ...intent, event });
   }
   activeFocusInputs.clear();
+}
+
+function releaseMissingMelodyInputs(event: Event) {
+  const renderedIds = new Set(allKeys.value.map((key) => key.id));
+  for (const [inputId, intent] of activeFocusInputs) {
+    if (renderedIds.has(intent.keyId)) continue;
+    activeFocusInputs.delete(inputId);
+    dispatchIntent("release", { ...intent, event });
+  }
+  for (const [pointerId, intent] of activePointerInputs) {
+    if (!intent || renderedIds.has(intent.keyId)) continue;
+    dispatchIntent("release", { ...intent, event });
+    activePointerInputs.set(pointerId, null);
+  }
 }
 
 function releaseMissingChordFocusInputs(event: Event) {

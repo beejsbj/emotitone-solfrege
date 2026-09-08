@@ -367,7 +367,8 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
             :key="index"
             :class="{
               'is-filled': index < filledBars,
-              'is-frontier': percent < 100 && Math.abs(index - frontier) <= 1,
+              'is-frontier':
+                percent < 100 && index < bars.length - 1 && Math.abs(index - frontier) <= 1,
             }"
             :style="barStyle(height, index)"
           />

@@ -36,7 +36,9 @@ describe("LoadingScreen", () => {
     expect(wrapper.find('[data-testid="midi-icon"]').exists()).toBe(true);
 
     await wrapper.setProps({ progress: 99 });
-    expect(wrapper.findAll(".converged-loader__bars > .is-filled")).toHaveLength(23);
+    const lateBars = wrapper.findAll(".converged-loader__bars > span");
+    expect(lateBars.filter((bar) => bar.classes("is-filled"))).toHaveLength(23);
+    expect(lateBars.at(-1)?.classes("is-frontier")).toBe(false);
 
     await wrapper.get(".converged-loader__skip").trigger("click");
     expect(wrapper.emitted("skip")).toHaveLength(1);

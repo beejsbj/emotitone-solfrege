@@ -89,12 +89,21 @@ const message = computed(() => {
 
 const stages = computed(() => {
   const ready = isComplete.value;
+  const midi = keyboardDrawerStore.midi;
+  const midiCheckComplete = ready && !midi.isConnecting;
+  const midiStamp = !midi.isSupported ? "N/A" : midi.lastError ? "SKIP" : "SET";
   const definitions = [
     { label: "Visual stage", complete: ready || loadingState.progress.visualEffects.isComplete },
     { label: "Instrument samples", complete: ready || loadingState.progress.instruments.isComplete },
     { label: "Audio system", complete: ready || loadingState.progress.audioContext.isComplete },
     { label: "Ready to play", complete: ready },
-    { label: "MIDI input", complete: ready, icon: "midi" as const, detail: midiMessage.value },
+    {
+      label: "MIDI input",
+      complete: midiCheckComplete,
+      icon: "midi" as const,
+      detail: midiMessage.value,
+      stamp: midiStamp,
+    },
   ];
   const activeIndex = definitions.findIndex((stage) => !stage.complete);
 

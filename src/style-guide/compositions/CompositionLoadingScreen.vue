@@ -38,16 +38,6 @@ import LoadingScreen from "../../components/compositions/LoadingScreen.vue";
   height: 720px;
 }
 
-.preview-port :deep(.converged-loader__main) {
-  width: 100%;
-  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
-  gap: clamp(18px, 4vw, 46px);
-}
-
-.preview-port :deep(.converged-loader__progress-stage) {
-  width: min(62%, 720px);
-}
-
 .caption {
   margin-top: 14px;
   color: var(--fg-3);

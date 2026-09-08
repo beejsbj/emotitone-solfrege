@@ -16,6 +16,7 @@ type LoadingStage = {
   active: boolean;
   icon?: "midi";
   detail?: string;
+  stamp?: string;
 };
 type FloatingMark = {
   name: MarkName;
@@ -257,9 +258,10 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
             <span class="converged-loader__stage-label">
               <MidiPermissionIcon v-if="stage.icon === 'midi'" class="converged-loader__midi-icon" />
               <span>{{ stage.label }}</span>
+              <small v-if="stage.detail" class="converged-loader__stage-detail">{{ stage.detail }}</small>
             </span>
             <span class="converged-loader__stamp" :class="{ 'is-visible': stage.complete }" aria-hidden="true">
-              <Sticker color="ivory" variant="fill">SET</Sticker>
+              <Sticker color="ivory" variant="fill">{{ stage.stamp ?? "SET" }}</Sticker>
             </span>
           </li>
         </ol>
@@ -356,6 +358,7 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
   padding: clamp(18px, 3.2vw, 42px) clamp(18px, 3.2vw, 42px) 0;
   background: var(--surface);
   color: var(--foreground);
+  container-type: inline-size;
   isolation: isolate;
 }
 
@@ -631,6 +634,23 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
   gap: 7px;
 }
 
+.converged-loader__stage-label > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.converged-loader__stage-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: var(--t-caption);
+  font-size: 7px;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 .converged-loader__midi-icon {
   width: 14px;
   height: 14px;
@@ -877,6 +897,34 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
   .converged-loader__lane-label { font-size: clamp(12px, 4vw, 16px); }
 }
 
+@container (max-width: 680px) {
+  .converged-loader__main {
+    width: min(100%, 440px);
+    grid-template-columns: 1fr;
+    align-content: center;
+    gap: clamp(6px, 1.3vh, 11px);
+  }
+
+  .converged-loader__logo {
+    --loading-logo-size: min(210px, 48cqi);
+
+    justify-items: center;
+  }
+
+  .converged-loader__logo :deep(.brand-logo__wordmark) { font-size: min(42px, 11cqi); }
+  .converged-loader__content { gap: clamp(9px, 1.4vh, 13px); }
+  .converged-loader__copy p { margin-bottom: 3px; font-size: 8px; }
+  .converged-loader__copy h1 { font-size: clamp(12px, 3.2cqi, 14px); line-height: 1.14; }
+  .converged-loader__status { margin-top: 4px; }
+  .converged-loader__status-copy { grid-template-columns: 1fr; gap: 2px; }
+  .converged-loader__status-copy > span { font-size: 9px; }
+  .converged-loader__stages { height: clamp(92px, 15vh, 112px); }
+  .converged-loader__stages li { font-size: 9px; }
+  .converged-loader__bars { height: clamp(32px, 6.5vh, 48px); gap: 2px; }
+  .converged-loader__progress-stage { width: 100%; }
+  .converged-loader__lane-label { font-size: clamp(12px, 4cqi, 16px); }
+}
+
 @media (max-height: 650px) {
   .converged-loader {
     --lane-strip-height: min(52px, 11vh);
@@ -895,7 +943,7 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
 }
 
 @media (max-width: 720px) and (max-height: 650px) {
-  .converged-loader { --loading-logo-size: min(84px, 29vmin); }
+  .converged-loader__logo { --loading-logo-size: min(84px, 29vmin); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -914,7 +962,12 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
   }
 
   .is-ready .converged-loader__lane-bar,
-  .is-ready .converged-loader__lane-peek,
+  .is-ready .converged-loader__lane-peek {
+    opacity: 1;
+    transform: none;
+    translate: none;
+  }
+
   .converged-loader__completion-action {
     opacity: 1;
     transform: none;

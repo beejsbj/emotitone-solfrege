@@ -16,6 +16,14 @@ const enableAudioContext = vi.fn(async () => true);
 const hideSplash = vi.fn();
 const skipLoading = vi.fn();
 const resetLoading = vi.fn();
+const midi = reactive({
+  isSupported: false,
+  isConnecting: false,
+  isListening: false,
+  connectedInputs: [] as string[],
+  syncedOutput: null as string | null,
+  lastError: null as string | null,
+});
 
 vi.mock("@/composables/useAppLoading", () => ({
   useAppLoading: () => ({
@@ -32,13 +40,19 @@ vi.mock("@/composables/useAppLoading", () => ({
   }),
 }));
 vi.mock("@/stores/keyboardDrawer", () => ({
-  useKeyboardDrawerStore: () => ({ midi: { isSupported: false } }),
+  useKeyboardDrawerStore: () => ({ midi }),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   loadingState.progress.overall.isComplete = false;
   loadingState.progress.instruments.error = "";
+  midi.isSupported = false;
+  midi.isConnecting = false;
+  midi.isListening = false;
+  midi.connectedInputs = [];
+  midi.syncedOutput = null;
+  midi.lastError = null;
 });
 
 describe("production loading splash", () => {
@@ -59,6 +73,29 @@ describe("production loading splash", () => {
     await wrapper.get(".converged-loader__completion-action").trigger("click");
     expect(enableAudioContext).toHaveBeenCalledOnce();
     expect(hideSplash).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
+  it("keeps optional MIDI status visible and stamps resolved outcomes accurately", async () => {
+    loadingState.progress.overall.isComplete = true;
+    const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
+    const midiStage = wrapper.findAll(".converged-loader__stages li").at(-1)!;
+
+    expect(midiStage.text()).toContain("MIDI is unavailable");
+    expect(midiStage.text()).toContain("N/A");
+
+    midi.isSupported = true;
+    midi.isConnecting = true;
+    await wrapper.vm.$nextTick();
+    expect(midiStage.text()).toContain("Requesting browser MIDI access");
+    expect(midiStage.find(".converged-loader__stamp").classes()).not.toContain("is-visible");
+
+    midi.isConnecting = false;
+    midi.lastError = "Permission denied";
+    await wrapper.vm.$nextTick();
+    expect(midiStage.text()).toContain("MIDI permission was not granted");
+    expect(midiStage.text()).toContain("SKIP");
+    expect(midiStage.find(".converged-loader__stamp").classes()).toContain("is-visible");
     wrapper.unmount();
   });
 

@@ -11,6 +11,22 @@ export const KEYBOARD_GEOMETRY_FAMILIES = [
 export type KeyboardGeometryFamily =
   (typeof KEYBOARD_GEOMETRY_FAMILIES)[number];
 
+const CHORD_GEOMETRY_OFFSET = 2;
+
+/**
+ * Chords follow the same daily edition as melody Keys while taking a visibly
+ * different family from that edition. The offset is a full derangement of the
+ * five-family deck, so neither surface can land on the other's geometry.
+ */
+export function keyboardChordFamily(
+  melodyFamily: KeyboardGeometryFamily,
+): KeyboardGeometryFamily {
+  const melodyIndex = KEYBOARD_GEOMETRY_FAMILIES.indexOf(melodyFamily);
+  return KEYBOARD_GEOMETRY_FAMILIES[
+    (melodyIndex + CHORD_GEOMETRY_OFFSET) % KEYBOARD_GEOMETRY_FAMILIES.length
+  ];
+}
+
 export interface KeyboardEditionVariation {
   cut: string;
   rotation: string;

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  KEYBOARD_GEOMETRY_FAMILIES,
+  keyboardChordFamily,
   keyboardEditionVariation,
   keyboardEditionRowVariations,
   keyboardFamilyForDate,
@@ -7,6 +9,16 @@ import {
 } from "@/components/compounds/keyboardEdition";
 
 describe("keyboard daily editions", () => {
+  it("gives chords a different family that still follows every daily edition", () => {
+    const chordFamilies = KEYBOARD_GEOMETRY_FAMILIES.map(keyboardChordFamily);
+
+    expect(chordFamilies).toHaveLength(KEYBOARD_GEOMETRY_FAMILIES.length);
+    expect(new Set(chordFamilies)).toEqual(new Set(KEYBOARD_GEOMETRY_FAMILIES));
+    expect(chordFamilies.every(
+      (family, index) => family !== KEYBOARD_GEOMETRY_FAMILIES[index],
+    )).toBe(true);
+  });
+
   it("uses every family once per five-day deck without boundary repeats", () => {
     const families = Array.from({ length: 15 }, (_, offset) =>
       keyboardFamilyForDate(new Date(2000, 0, offset + 1)),

@@ -223,7 +223,7 @@
       </div>
 
       <p class="keyboard-specimen__note">
-        The stage may scroll so the guide can preserve exact 768/960px specimens on a smaller browser. Melody rows never scroll or drop pitches; the 12-degree chromatic chord row deliberately scrolls when 44px targets cannot fit, while 5/6/7-degree rows fit the narrow specimen.
+        The stage may scroll so the guide can preserve exact 768/960px specimens on a smaller browser. Melody and chord rows never scroll or drop pitches; all active degrees compress evenly to fit their host, including the 12-degree chromatic case.
       </p>
     </section>
   </AnatomyDisplay>
@@ -281,7 +281,7 @@ const contrast = ref<"system" | "forced">("system");
 const harmonyScaleType = ref<MusicalMode>("major");
 const harmonyAlteration = ref<HarmonyAlteration>("auto");
 const gap = ref(2);
-const mainRowHeight = ref(88);
+const mainRowHeight = ref(76);
 const outerRowHeight = ref(56);
 const outerInset = ref(0);
 const variationAmplitude = ref(1);
@@ -335,7 +335,7 @@ function handleChordRelease(intent: KeyboardChordIntent) {
 
 const features = [
   { label: "Children", value: "one fused ChordKey per active scale degree, then accepted melody Keys" },
-  { label: "Layout", value: "5/6/7-degree chord rows fit narrow hosts; 12-degree chromatic keeps every 44px target via deliberate row overflow" },
+  { label: "Layout", value: "5/6/7/12-degree melody and chord rows fit their host without horizontal overflow" },
   { label: "Edition", value: "one local-date family; authored per-load cut, tilt, shadow, and layer variants" },
   { label: "State", value: "physical pressed and musical sounding remain independent" },
   { label: "Focus", value: "separate chord and melody roving entries; arrows move spatially; Space/Enter emit held intents" },

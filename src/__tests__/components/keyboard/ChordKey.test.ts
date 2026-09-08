@@ -41,7 +41,6 @@ describe("ChordKey", () => {
   });
 
   it("tracks multiple contacts independently and releases them on unmount", async () => {
-    vi.useFakeTimers();
     const wrapper = mount(ChordKey, {
       props: { members, symbol: "C", accessibleName: "C major chord" },
     });
@@ -58,10 +57,9 @@ describe("ChordKey", () => {
       ] },
     });
     wrapper.element.dispatchEvent(event);
-    vi.advanceTimersByTime(120);
     await wrapper.vm.$nextTick();
 
-    expect(event.defaultPrevented).toBe(false);
+    expect(event.defaultPrevented).toBe(true);
     expect((wrapper.emitted("press") ?? []).map(([payload]) =>
       (payload as { inputId: string }).inputId,
     )).toEqual(["touch:1", "touch:2"]);
@@ -72,8 +70,7 @@ describe("ChordKey", () => {
     )).toEqual(["touch:1", "touch:2"]);
   });
 
-  it("cancels a pending touch when disabled before its hold delay", async () => {
-    vi.useFakeTimers();
+  it("releases an active touch when disabled", async () => {
     const wrapper = mount(ChordKey, {
       props: { members, symbol: "C", accessibleName: "C major chord" },
     });
@@ -87,18 +84,18 @@ describe("ChordKey", () => {
       changedTouches: { value: [{ identifier: 3, clientX: 50, clientY: 50 }] },
     });
     wrapper.element.dispatchEvent(start);
-
-    await wrapper.setProps({ disabled: true });
-    await wrapper.setProps({ disabled: false });
-    vi.advanceTimersByTime(240);
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.emitted("press")).toBeUndefined();
-    expect(wrapper.emitted("release")).toBeUndefined();
+    expect(wrapper.emitted("press")).toHaveLength(1);
+
+    await wrapper.setProps({ disabled: true });
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("release")).toHaveLength(1);
     wrapper.unmount();
   });
 
-  it("does not cancel the browser's horizontal touch-pan gesture", () => {
+  it("owns touch movement instead of handing it to horizontal pan", () => {
     const wrapper = mount(ChordKey, {
       props: { members, symbol: "C", accessibleName: "C major chord" },
     });
@@ -110,44 +107,11 @@ describe("ChordKey", () => {
 
     wrapper.element.dispatchEvent(event);
 
-    expect(event.defaultPrevented).toBe(false);
+    expect(event.defaultPrevented).toBe(true);
     wrapper.unmount();
   });
 
-  it("keeps a horizontal chord-row pan silent", async () => {
-    vi.useFakeTimers();
-    const wrapper = mount(ChordKey, {
-      props: { members, symbol: "C", accessibleName: "C major chord" },
-    });
-    vi.spyOn(wrapper.element, "getBoundingClientRect").mockReturnValue({
-      left: 0, right: 100, top: 0, bottom: 100,
-      width: 100, height: 100, x: 0, y: 0, toJSON: () => ({}),
-    });
-    const start = new Event("touchstart", { bubbles: true, cancelable: true });
-    Object.defineProperties(start, {
-      touches: { value: [{ identifier: 4, clientX: 20, clientY: 20 }] },
-      changedTouches: { value: [{ identifier: 4, clientX: 20, clientY: 20 }] },
-    });
-    wrapper.element.dispatchEvent(start);
-
-    const move = new Event("touchmove", { bubbles: true, cancelable: true });
-    Object.defineProperties(move, {
-      touches: { value: [{ identifier: 4, clientX: 48, clientY: 22 }] },
-      changedTouches: { value: [] },
-    });
-    wrapper.element.dispatchEvent(move);
-    vi.advanceTimersByTime(200);
-    await wrapper.vm.$nextTick();
-
-    expect(start.defaultPrevented).toBe(false);
-    expect(move.defaultPrevented).toBe(false);
-    expect(wrapper.emitted("press")).toBeUndefined();
-    expect(wrapper.emitted("release")).toBeUndefined();
-    wrapper.unmount();
-  });
-
-  it("cancels a pending chord when the touch leaves vertically", async () => {
-    vi.useFakeTimers();
+  it("releases an active chord when the touch leaves its face", async () => {
     const wrapper = mount(ChordKey, {
       props: { members, symbol: "C", accessibleName: "C major chord" },
     });
@@ -161,6 +125,7 @@ describe("ChordKey", () => {
       changedTouches: { value: [{ identifier: 7, clientX: 50, clientY: 50 }] },
     });
     wrapper.element.dispatchEvent(start);
+    await wrapper.vm.$nextTick();
 
     const move = new Event("touchmove", { bubbles: true, cancelable: true });
     Object.defineProperties(move, {
@@ -174,16 +139,14 @@ describe("ChordKey", () => {
       changedTouches: { value: [{ identifier: 7, clientX: 52, clientY: 110 }] },
     });
     wrapper.element.dispatchEvent(end);
-    vi.advanceTimersByTime(240);
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.emitted("press")).toBeUndefined();
-    expect(wrapper.emitted("release")).toBeUndefined();
+    expect(wrapper.emitted("press")).toHaveLength(1);
+    expect(wrapper.emitted("release")).toHaveLength(1);
     wrapper.unmount();
   });
 
-  it("starts a stationary held thumb after ruling out a pan", async () => {
-    vi.useFakeTimers();
+  it("starts a stationary held thumb immediately", async () => {
     const wrapper = mount(ChordKey, {
       props: { members, symbol: "C", accessibleName: "C major chord" },
     });
@@ -197,9 +160,6 @@ describe("ChordKey", () => {
       changedTouches: { value: [{ identifier: 5, clientX: 50, clientY: 50 }] },
     });
     wrapper.element.dispatchEvent(start);
-
-    expect(wrapper.emitted("press")).toBeUndefined();
-    vi.advanceTimersByTime(120);
     await wrapper.vm.$nextTick();
 
     expect(wrapper.emitted("press")).toHaveLength(1);
@@ -208,8 +168,7 @@ describe("ChordKey", () => {
     expect(wrapper.emitted("release")).toHaveLength(1);
   });
 
-  it("turns a quick stationary touch into one bounded chord pulse", async () => {
-    vi.useFakeTimers();
+  it("releases a quick stationary touch without a delayed pulse", async () => {
     const wrapper = mount(ChordKey, {
       props: { members, symbol: "C", accessibleName: "C major chord" },
     });
@@ -232,9 +191,6 @@ describe("ChordKey", () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.emitted("press")).toHaveLength(1);
-    expect(wrapper.emitted("release")).toBeUndefined();
-    vi.advanceTimersByTime(120);
-    await wrapper.vm.$nextTick();
     expect(wrapper.emitted("release")).toHaveLength(1);
     wrapper.unmount();
   });

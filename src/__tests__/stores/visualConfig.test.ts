@@ -92,6 +92,87 @@ describe('Visual Config Store', () => {
       expect(newStore.config.keyboard.surfaceStyle).toBe('colored')
     })
 
+    it('migrates the legacy harmonic section into Blob relationships', () => {
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'emotitone-visual-config') {
+          return JSON.stringify({
+            config: {
+              floatingPopup: {
+                isEnabled: true,
+                opacity: 0.35,
+                accumulationWindow: 120,
+                hideDelay: 240,
+                animationDuration: 999,
+              },
+            },
+          })
+        }
+        return null
+      })
+
+      const newStore = createFreshStore()
+
+      expect(newStore.config.blobs.connectionMode).toBe('merge')
+      expect(newStore.config.blobs.webOpacity).toBe(0.35)
+      expect(newStore.config.blobs.labelOpacity).toBe(0.35)
+      expect(newStore.config.blobs.analysisHoldTime).toBe(360)
+      expect(newStore.config).not.toHaveProperty('floatingPopup')
+    })
+
+    it('maps retired harmonic geometry modes onto the two supported modes', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          floatingPopup: { isEnabled: true, geometryMode: 'outline' }
+        }
+      }))
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([
+        {
+          id: 'legacy-center',
+          name: 'Legacy Center',
+          config: {
+            floatingPopup: { isEnabled: true, geometryMode: 'center-only' }
+          }
+        }
+      ]))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs.connectionMode).toBe('merge')
+      expect(store.savedConfigs[0].config.blobs.connectionMode).toBe('web')
+      expect(store.importConfig(JSON.stringify({
+        config: {
+          floatingPopup: { isEnabled: true, geometryMode: 'center-only' }
+        }
+      }))).toBe(true)
+      expect(store.config.blobs.connectionMode).toBe('web')
+    })
+
+    it('prefers canonical Blob relationship fields over legacy values', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          blobs: {
+            connectionMode: 'web',
+            fusionStrength: 0.8,
+            labelOpacity: 0.2,
+          },
+          floatingPopup: {
+            isEnabled: true,
+            geometryMode: 'outline',
+            glassmorphOpacity: 0.1,
+            opacity: 0.65,
+          },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs.connectionMode).toBe('web')
+      expect(store.config.blobs.fusionStrength).toBe(0.8)
+      expect(store.config.blobs.labelOpacity).toBe(0.2)
+      expect(store.config.blobs.webOpacity).toBe(0.65)
+    })
+
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
       const legacyKeyboard = {
         surfaceStyle: 'glassmorphism', glassmorphOpacity: 0.6,
@@ -341,7 +422,7 @@ describe('Visual Config Store', () => {
       expect(parsed.config).toEqual(visualConfigStore.config)
       expect(parsed.visualsEnabled).toBe(visualConfigStore.visualsEnabled)
       expect(parsed.exportedAt).toBeDefined()
-      expect(parsed.version).toBe('1.0.0')
+      expect(parsed.version).toBe('2.0.0')
     })
 
     it('should import configuration from JSON', () => {

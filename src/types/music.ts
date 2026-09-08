@@ -25,8 +25,6 @@ export interface SolfegeData {
   emotion: string;
   /** Detailed description of the note's character */
   description: string;
-  /** Shape of visual flecks */
-  fleckShape: "circle" | "star" | "diamond" | "sparkle" | "mist";
   /** Textural description for visual effects */
   texture: string;
   /** Tonal interval name from the tonic (for example 3m or 5P) */
@@ -149,4 +147,36 @@ export interface ActiveNote {
   mode: MusicalMode;
   /** Key snapshot for downstream visuals */
   key: ChromaticNote;
+}
+
+/**
+ * Pairwise harmonic relationship between two displayed notes
+ */
+export interface HarmonicIntervalEdge {
+  /** Source note id */
+  fromNoteId: string;
+  /** Destination note id */
+  toNoteId: string;
+  /** Source index in the displayed-note list */
+  fromIndex: number;
+  /** Destination index in the displayed-note list */
+  toIndex: number;
+  /** Tonal.js interval label */
+  interval: string;
+}
+
+/**
+ * Snapshot of the currently displayed harmonic analysis layer
+ */
+export interface HarmonicAnalysisSnapshot {
+  /** Whether the harmonic layer should currently render */
+  isVisible: boolean;
+  /** Displayed note snapshots in presentation order */
+  displayedNotes: readonly ActiveNote[];
+  /** Pairwise interval relationships for the displayed notes */
+  intervalEdges: readonly HarmonicIntervalEdge[];
+  /** Detected chord label when available */
+  chordLabel: string | null;
+  /** Optional emotional summary for the displayed notes */
+  emotionalDescription: string;
 }

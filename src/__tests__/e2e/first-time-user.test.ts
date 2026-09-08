@@ -20,10 +20,6 @@ vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
   default: { template: '<div data-testid="unified-visual-effects">Visuals</div>' },
 }))
 
-vi.mock('@/components/FloatingPopup.vue', () => ({
-  default: { template: '<div data-testid="floating-popup">Popup</div>' },
-}))
-
 vi.mock('@/components/ConfigPanel.vue', () => ({
   default: { template: '<div data-testid="config-panel">Config</div>' },
 }))

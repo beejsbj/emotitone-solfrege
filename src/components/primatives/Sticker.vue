@@ -6,6 +6,23 @@
         <slot />
       </span>
     </template>
+    <template v-else-if="mark">
+      <Mark
+        v-if="markPosition === 'before'"
+        class="sticker__mark"
+        :name="mark"
+        tone="inherit"
+        :size="markSize"
+      />
+      <span class="sticker__marked-text"><slot /></span>
+      <Mark
+        v-if="markPosition === 'after'"
+        class="sticker__mark"
+        :name="mark"
+        tone="inherit"
+        :size="markSize"
+      />
+    </template>
     <slot v-else />
   </span>
 </template>
@@ -13,10 +30,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { CSSProperties } from "vue";
+import Mark from "./Mark.vue";
+import type { MarkName } from "./marks";
 import { getRandomGeometry } from "../../utils/randomGeometry";
 
-type StickerVariant = "outline" | "fill" | "badge";
-type StickerColor =
+export type StickerVariant = "outline" | "fill" | "badge";
+export type StickerMarkPosition = "before" | "after";
+export type StickerColor =
   | "ink"
   | "ink-5"
   | "ivory"
@@ -34,10 +54,16 @@ const props = withDefaults(
   defineProps<{
     variant?: StickerVariant;
     color?: StickerColor;
+    mark?: MarkName;
+    markPosition?: StickerMarkPosition;
+    markSize?: number | string;
   }>(),
   {
     variant: "outline",
     color: "ivory",
+    mark: undefined,
+    markPosition: "before",
+    markSize: "1em",
   },
 );
 
@@ -47,6 +73,7 @@ const stickerClasses = computed(() => [
   "sticker",
   `sticker--${props.variant}`,
   `sticker--color-${props.color}`,
+  { "sticker--marked": Boolean(props.mark) && props.variant !== "badge" },
 ]);
 
 const stickerStyle = computed<CSSProperties>(() =>
@@ -92,6 +119,19 @@ const stickerStyle = computed<CSSProperties>(() =>
   border: 0;
   color: var(--sticker-fill-fg);
   padding: 6px 11px 5px;
+}
+
+.sticker--marked {
+  align-items: center;
+  gap: 7px;
+}
+
+.sticker__mark {
+  flex: none;
+}
+
+.sticker__marked-text {
+  display: block;
 }
 
 .sticker--color-ink {

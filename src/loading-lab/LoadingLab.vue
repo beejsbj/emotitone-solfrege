@@ -1,18 +1,27 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import AstraLoadingVariant from "./AstraLoadingVariant.vue";
-import ColorPressLoadingVariant from "./ColorPressLoadingVariant.vue";
-import FirstNoteLoadingVariant from "./FirstNoteLoadingVariant.vue";
+import AstraVariantOne from "./round-two/AstraVariantOne.vue";
+import AstraVariantThree from "./round-two/AstraVariantThree.vue";
+import AstraVariantTwo from "./round-two/AstraVariantTwo.vue";
+import CodexRoundTwoVariant from "./round-two/CodexRoundTwoVariant.vue";
 
-type VariantId = "a" | "b" | "c";
+type VariantId = "a" | "b" | "c" | "d" | "e" | "f";
 
 const variants = [
-  { id: "a" as const, name: "First Note", author: "Codex", component: FirstNoteLoadingVariant },
-  { id: "b" as const, name: "Color Press", author: "Codex", component: ColorPressLoadingVariant },
-  { id: "c" as const, name: "Soundcheck", author: "Astra", component: AstraLoadingVariant },
+  { id: "a" as const, name: "Pressroom", author: "Codex", component: CodexRoundTwoVariant, props: { direction: "pressroom" } },
+  { id: "b" as const, name: "Split Signal", author: "Codex", component: CodexRoundTwoVariant, props: { direction: "split-signal" } },
+  { id: "c" as const, name: "Open Press", author: "Codex", component: CodexRoundTwoVariant, props: { direction: "open-press" } },
+  { id: "d" as const, name: "Press Party", author: "Astra", component: AstraVariantOne, props: {} },
+  { id: "e" as const, name: "Mustard Soundcheck", author: "Astra", component: AstraVariantTwo, props: {} },
+  { id: "f" as const, name: "Colour Assembly", author: "Astra", component: AstraVariantThree, props: {} },
 ];
 
-const selected = ref<VariantId>("a");
+const requestedVariant = new URLSearchParams(window.location.search).get("variant");
+const initialVariant = variants.some((variant) => variant.id === requestedVariant)
+  ? requestedVariant as VariantId
+  : "a";
+
+const selected = ref<VariantId>(initialVariant);
 const progress = ref(38);
 const playing = ref(true);
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -24,16 +33,33 @@ const currentVariant = computed(() => (
 
 const phase = computed(() => {
   if (progress.value >= 100) return "Ready to play";
-  if (progress.value >= 76) return "Listening for controllers";
-  if (progress.value >= 26) return "Loading instrument samples";
+  if (progress.value >= 94) return "Finishing soundcheck";
+  if (progress.value >= 70) return "Preparing audio";
+  if (progress.value >= 20) return "Loading instrument samples";
   return "Waking the visual stage";
 });
 
 const message = computed(() => {
   if (progress.value >= 100) return "Everything is tuned. Your first note is waiting.";
-  if (progress.value >= 76) return "Touch and QWERTY are ready; MIDI can join at any time.";
-  if (progress.value >= 26) return "Gathering piano, strings, brass, and the rest of the room.";
+  if (progress.value >= 94) return "One last breath before the room becomes yours.";
+  if (progress.value >= 70) return "Connecting the sound engine to your instrument.";
+  if (progress.value >= 20) return "Gathering piano, strings, brass, and the rest of the room.";
   return "Preparing the canvas where sound becomes shape.";
+});
+
+const stages = computed(() => {
+  const definitions = [
+    { label: "Visual stage", start: 0, end: 20 },
+    { label: "Instrument samples", start: 20, end: 70 },
+    { label: "Audio system", start: 70, end: 94 },
+    { label: "Ready to play", start: 94, end: 100 },
+  ];
+
+  return definitions.map((stage) => ({
+    label: stage.label,
+    complete: progress.value >= stage.end,
+    active: progress.value >= stage.start && progress.value < stage.end,
+  }));
 });
 
 function tick() {
@@ -112,8 +138,10 @@ onBeforeUnmount(() => {
       <component
         :is="currentVariant.component"
         :progress="progress"
+        :stages="stages"
         :phase="phase"
         :message="message"
+        v-bind="currentVariant.props"
       />
     </section>
   </main>
@@ -162,6 +190,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   justify-content: center;
   gap: 6px;
+  overflow-x: auto;
 }
 
 .loading-lab button {

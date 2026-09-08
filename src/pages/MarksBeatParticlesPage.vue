@@ -17,7 +17,7 @@
           space. None invents a second shape vocabulary.
         </p>
         <div class="lineage" aria-label="Mark lineage">
-          <strong>Mark</strong><span>→</span><span>Mark Sticker</span><span>+</span><span>Beat Indicator</span><span>+</span><span>Stage particles</span>
+          <strong>Mark</strong><span>→</span><span>Sticker content</span><span>+</span><span>Beat Indicator</span><span>+</span><span>Stage particles</span>
         </div>
       </div>
 
@@ -86,7 +86,12 @@
       <div class="sticker-grid">
         <article v-for="example in stickerExamples" :key="example.label" class="sticker-card">
           <div class="sticker-stage">
-            <MarkSticker :mark="example.mark" :color="example.color">{{ example.label }}</MarkSticker>
+            <Sticker variant="fill" :color="example.color">
+              <span class="sticker-content">
+                <Mark :name="example.mark" tone="inherit" size="14" />
+                <span>{{ example.label }}</span>
+              </span>
+            </Sticker>
           </div>
           <p>{{ example.note }}</p>
         </article>
@@ -118,7 +123,7 @@
     <footer>
       <p class="section-number">Current verdict</p>
       <p>
-        Mark is the only geometry family. Mark Sticker replaces Kicker; Beat Indicator selects Marks;
+        Mark is the only geometry family. Mark inside Sticker replaces Kicker; Beat Indicator selects Marks;
         Stage shuffles them. Spine Card remains in its separate rework.
       </p>
     </footer>
@@ -128,9 +133,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
-import MarkSticker from "@/components/compounds/MarkSticker.vue";
 import Mark, { type MarkTone } from "@/components/primatives/Mark.vue";
 import { MARK_NAMES, type MarkName } from "@/components/primatives/marks";
+import Sticker from "@/components/primatives/Sticker.vue";
 import type { StickerColor } from "@/components/primatives/Sticker.vue";
 import StageParticleSample from "./StageParticleSample.vue";
 
@@ -213,6 +218,7 @@ h2 { font-size: clamp(40px, 7vw, 80px); line-height: .84; letter-spacing: -.04em
 .sticker-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .sticker-card { display: grid; grid-template-rows: 170px auto; gap: 18px; padding: 14px 18px 22px; }
 .sticker-stage { display: grid; place-items: center; margin-inline: -4px; background: var(--ink); }
+.sticker-content { display: inline-flex; align-items: center; gap: 7px; }
 .sticker-card > p { color: var(--ivory-2); font-size: 14px; line-height: 1.5; }
 
 .particle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

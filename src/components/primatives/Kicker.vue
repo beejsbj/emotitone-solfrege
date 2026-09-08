@@ -1,34 +1,26 @@
 <template>
-  <MarkSticker
-    v-if="form === 'dot'"
+  <Sticker
     class="kicker-compat"
     :class="`kicker-compat--${density}`"
-    :mark="markForDot"
     :variant="tone === 'open' ? 'outline' : 'fill'"
     :color="stickerColor"
-    :mark-size="markSize"
-    aria-label="Section marker"
-  />
-  <MarkSticker
-    v-else
-    class="kicker-compat"
-    :class="`kicker-compat--${density}`"
-    :mark="markForDot"
-    :variant="tone === 'open' ? 'outline' : 'fill'"
-    :color="stickerColor"
-    :show-mark="form !== 'label'"
-    :mark-size="markSize"
-    aria-label="Section marker"
+    :role="form === 'dot' ? 'img' : undefined"
+    :aria-label="form === 'dot' ? 'Section marker' : undefined"
   >
-    <slot />
-  </MarkSticker>
+    <span class="kicker-compat__content">
+      <Mark v-if="form !== 'label'" :name="markForDot" tone="inherit" :size="markSize" />
+
+      <span v-if="form !== 'dot'" class="kicker-compat__label"><slot /></span>
+    </span>
+  </Sticker>
 </template>
 
 <script setup lang="ts">
 /** Temporary source-compatibility adapter for SpineCard's separately owned rework. */
 import { computed } from "vue";
-import MarkSticker from "@/components/compounds/MarkSticker.vue";
+import Mark from "./Mark.vue";
 import type { MarkName } from "./marks";
+import Sticker from "./Sticker.vue";
 import type { StickerColor } from "./Sticker.vue";
 
 export type KickerTone =
@@ -79,6 +71,8 @@ const markSize = computed(() => props.dot === "micro" ? 10 : props.dot === "larg
 
 <style scoped>
 .kicker-compat { font-family: var(--font-mono); font-size: 9px; }
+.kicker-compat__content { display: inline-flex; align-items: center; gap: 7px; }
+.kicker-compat__label { display: block; transform: translateY(1px); }
 .kicker-compat--dense { letter-spacing: .04em; }
 .kicker-compat--airy { letter-spacing: .24em; }
 </style>

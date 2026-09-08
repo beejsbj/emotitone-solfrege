@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
-import MarkSticker from "@/components/compounds/MarkSticker.vue";
 import Mark from "@/components/primatives/Mark.vue";
 import Kicker from "@/components/primatives/Kicker.vue";
 import { MARK_DEFINITIONS, MARK_NAMES, markViewBox } from "@/components/primatives/marks";
@@ -18,21 +17,11 @@ describe("Mark lineage", () => {
     expect(MARK_NAMES).not.toContain("mist");
   });
 
-  it("holds a Mark inside Sticker instead of maintaining a second Kicker geometry", () => {
-    const wrapper = mount(MarkSticker, {
-      props: { mark: "natural", color: "tomato", label: "Natural" },
-    });
-
-    expect(wrapper.find(".sticker").exists()).toBe(true);
-    expect(wrapper.find("svg.mark").attributes("data-mark")).toBe("natural");
-    expect(wrapper.text()).toContain("Natural");
-  });
-
   it("keeps the temporary dot-only Kicker adapter glyph-only", () => {
     const wrapper = mount(Kicker, { props: { form: "dot", dot: "large" } });
 
-    expect(wrapper.find(".mark-sticker").attributes("role")).toBe("img");
-    expect(wrapper.find(".mark-sticker__label").exists()).toBe(false);
+    expect(wrapper.find(".sticker").attributes("role")).toBe("img");
+    expect(wrapper.find(".kicker-compat__label").exists()).toBe(false);
     expect(wrapper.find("svg.mark").attributes("data-mark")).toBe("disk");
   });
 

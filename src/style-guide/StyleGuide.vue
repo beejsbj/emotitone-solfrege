@@ -116,10 +116,6 @@
       <h2 id="compounds-heading">Compounds</h2>
       <div class="sink-stack">
         <article class="sink-frame">
-          <div class="sink-frame__source">compound-mark-sticker</div>
-          <CompoundMarkSticker />
-        </article>
-        <article class="sink-frame">
           <div class="sink-frame__source">compound-beat-indicator</div>
           <CompoundBeatIndicator />
         </article>
@@ -189,7 +185,6 @@ import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundCodeStripBar from "./compounds/CompoundCodeStripBar.vue";
 import CompoundBeatIndicator from "./compounds/CompoundBeatIndicator.vue";
-import CompoundMarkSticker from "./compounds/CompoundMarkSticker.vue";
 import CompoundControlBar from "./compounds/CompoundControlBar.vue";
 import CompoundChord from "./compounds/CompoundChord.vue";
 import CompoundKey from "./compounds/CompoundKey.vue";

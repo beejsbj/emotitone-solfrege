@@ -50,13 +50,14 @@
       <div class="pattern-stack">
         <p class="surface-label">List density</p>
         <Card class="pattern-candidate" label="Pattern 01 — Piano / C Major" flush>
+          <template #mark>
+            <span class="ordinal ordinal--pattern ordinal--pattern-compact">01</span>
+          </template>
           <div class="pattern-row">
-            <span class="pattern-number">01</span>
             <span class="pattern-copy">
               <strong>{{ productionPattern.name }}</strong>
-              <small>Piano · C major</small>
+              <small>Piano · C major · 14 notes</small>
             </span>
-            <small class="pattern-count">14 notes</small>
           </div>
           <template #footer><BarTape :segments="timeline" /></template>
         </Card>
@@ -235,23 +236,19 @@ const coloredCards: Array<{
 .pattern-stack { display: grid; gap: 12px; }
 .surface-label { margin-top: 8px; }
 .pattern-row {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 50px;
-  padding: 0 14px 0 20px;
+  min-height: 56px;
+  padding: 8px 68px 6px 22px;
 }
-.pattern-number { color: var(--ivory-4); font: var(--t-display-m); text-align: center; }
 .pattern-copy { min-width: 0; }
 .pattern-copy strong,
-.pattern-copy small,
-.pattern-count { display: block; text-transform: uppercase; }
+.pattern-copy small { display: block; text-transform: uppercase; }
 .pattern-copy strong { overflow: hidden; font: var(--t-h2); text-overflow: ellipsis; white-space: nowrap; }
-.pattern-copy small,
-.pattern-count { color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; }
+.pattern-copy small { color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; }
 .pattern-candidate--focused { margin-top: 8px; }
 .ordinal--pattern { font-size: 48px; }
+.ordinal--pattern-compact { font-size: 42px; }
 .pattern-focus__title { max-width: calc(100% - 72px); font: var(--t-display-m); }
 .pattern-focus__meta { margin: 4px 0 22px; color: var(--ivory-3); font: var(--t-caption); letter-spacing: .12em; text-transform: uppercase; }
 .pattern-focus__state {
@@ -275,8 +272,7 @@ const coloredCards: Array<{
   .section-head { align-items: start; flex-direction: column; }
   .section-head > p { text-align: left; }
   .color-grid { grid-template-columns: 1fr; }
-  .pattern-row { grid-template-columns: 42px minmax(0, 1fr) auto; gap: 8px; padding-right: 10px; padding-left: 12px; }
-  .pattern-count { max-width: 6ch; text-align: right; }
+  .pattern-row { padding-left: 18px; }
   .pattern-focus__state { align-items: start; flex-direction: column; }
 }
 </style>

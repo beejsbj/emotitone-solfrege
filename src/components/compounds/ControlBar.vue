@@ -44,18 +44,6 @@
       />
     </div>
 
-    <div class="control-bar__item">
-      <Knob
-        :model-value="rows"
-        type="range"
-        label="Rows"
-        :min="1"
-        :max="8"
-        :step="2"
-        @update:modelValue="(value) => emit('update:rows', Number(value))"
-      />
-    </div>
-
     <div class="control-bar__item control-bar__item--joystick">
       <Joystick
         :model-value="harmonyValue"
@@ -82,7 +70,6 @@ withDefaults(
     modeValue?: string;
     bpm?: number;
     octave?: number;
-    rows?: number;
     harmonyValue?: HarmonyAlteration;
     joystickVisual?: JoystickVisual;
   }>(),
@@ -91,7 +78,6 @@ withDefaults(
     modeValue: "major",
     bpm: 120,
     octave: 4,
-    rows: 3,
     harmonyValue: "auto",
   },
 );
@@ -101,7 +87,6 @@ const emit = defineEmits<{
   "update:modeValue": [value: string];
   "update:bpm": [value: number];
   "update:octave": [value: number];
-  "update:rows": [value: number];
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
 }>();
@@ -110,7 +95,7 @@ const emit = defineEmits<{
 <style scoped>
 .control-bar {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: start;
   width: 100%;
   min-width: 0;

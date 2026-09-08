@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
+import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mocks = vi.hoisted(() => ({
   removeLastFromCurrentSketch: vi.fn(),
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   updateConfig: vi.fn(),
   setMainOctave: vi.fn(),
   setRowCount: vi.fn(),
+  triggerUIHaptic: vi.fn(),
   openDrawer: vi.fn(),
   closeDrawer: vi.fn(),
   toggleDrawer: vi.fn(),
@@ -31,18 +33,28 @@ const mocks = vi.hoisted(() => ({
     warmingInstrument: null as string | null,
     warmupMessage: "",
   },
+  keyboardConfig: {
+    keySize: 1,
+    mainOctave: 4,
+    rowCount: 3,
+    hapticFeedback: true,
+  },
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
     drawer: { isOpen: false },
-    keyboardConfig: { keySize: 1, mainOctave: 4, rowCount: 3 },
+    keyboardConfig: mocks.keyboardConfig,
     setMainOctave: mocks.setMainOctave,
     setRowCount: mocks.setRowCount,
     openDrawer: mocks.openDrawer,
     closeDrawer: mocks.closeDrawer,
     toggleDrawer: mocks.toggleDrawer,
   }),
+}));
+
+vi.mock("@/utils/hapticFeedback", () => ({
+  triggerUIHaptic: mocks.triggerUIHaptic,
 }));
 
 vi.mock("@/stores/music", () => ({
@@ -150,6 +162,8 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     mocks.instrumentStore.warmingInstrument = null;
     mocks.instrumentStore.warmupMessage = "";
     mocks.hummingStatus.value = "idle";
+    mocks.keyboardConfig.rowCount = 3;
+    mocks.keyboardConfig.hapticFeedback = true;
   });
 
   it("stops Strudel before starting humming and wires take selection", async () => {
@@ -266,7 +280,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("preserves all six Control Bar mutations in the production composition", async () => {
+  it("preserves the five remaining Control Bar mutations in the production composition", async () => {
     const wrapper = mount(DrawerKeyboard, {
       global: {
         stubs: {
@@ -282,7 +296,6 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     controls.vm.$emit("update:modeValue", "dorian");
     controls.vm.$emit("update:bpm", 96);
     controls.vm.$emit("update:octave", 5);
-    controls.vm.$emit("update:rows", 7);
     controls.vm.$emit("update:harmonyValue", "jazzy7");
     controls.vm.$emit("harmonyEffective", "sus4");
     await wrapper.vm.$nextTick();
@@ -291,9 +304,55 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.setMode).toHaveBeenCalledWith("dorian");
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
-    expect(mocks.setRowCount).toHaveBeenCalledWith(7);
+    expect(mocks.setRowCount).not.toHaveBeenCalled();
     expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
       .toBe("sus4");
+    wrapper.unmount();
+  });
+
+  it("turns each usable drawer allocation into whole keyboard rows", async () => {
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+
+    const drawer = wrapper.getComponent(Drawer);
+    expect(drawer.props("storageKey")).toBe("keyboard");
+    expect(drawer.props("maxHeightRatio")).toBe(0.95);
+    expect(drawer.props("haptic")).toBe(true);
+    drawer.vm.$emit("contentResize", 320);
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.setRowCount).toHaveBeenCalledWith(5);
+    expect(mocks.triggerUIHaptic).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("ticks once when a pointer drag crosses a whole-row boundary", async () => {
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const drawer = wrapper.getComponent(Drawer);
+
+    drawer.vm.$emit("contentResize", 320, "pointer");
+    await wrapper.vm.$nextTick();
+    expect(mocks.triggerUIHaptic).toHaveBeenCalledOnce();
+
+    mocks.keyboardConfig.hapticFeedback = false;
+    drawer.vm.$emit("contentResize", 320, "pointer");
+    await wrapper.vm.$nextTick();
+    expect(mocks.triggerUIHaptic).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 

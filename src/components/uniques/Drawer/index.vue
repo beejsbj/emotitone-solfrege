@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 const props = withDefaults(defineProps<{
   modelValue?: boolean;
@@ -7,14 +8,19 @@ const props = withDefaults(defineProps<{
   anchor?: "top" | "bottom";
   handleAlign?: "left" | "center" | "right";
   accessibleName: string;
+  handleResizeDescription?: string;
   handleLabel?: string;
   handleTestId?: string;
   fixed?: boolean;
   storageKey?: string;
   initialContentHeight?: number;
   minContentHeight?: number;
+  maxContentHeight?: number;
   maxHeightRatio?: number;
   scroll?: boolean;
+  dragToCollapse?: boolean;
+  keyboardResizeStep?: number;
+  haptic?: boolean;
   closeOnEscape?: boolean;
   closeOnOutside?: boolean;
   fitContentOnOpen?: boolean;
@@ -25,12 +31,17 @@ const props = withDefaults(defineProps<{
   anchor: "bottom",
   handleAlign: "center",
   handleLabel: "",
+  handleResizeDescription: "",
   fixed: false,
   storageKey: undefined,
   initialContentHeight: 240,
   minContentHeight: 0,
+  maxContentHeight: undefined,
   maxHeightRatio: 0.85,
   scroll: true,
+  dragToCollapse: true,
+  keyboardResizeStep: 0,
+  haptic: false,
   closeOnEscape: false,
   closeOnOutside: false,
   fitContentOnOpen: false,
@@ -38,6 +49,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [open: boolean];
   resize: [height: number];
+  contentResize: [contentHeight: number, source?: "pointer"];
   closed: [];
 }>();
 const root = ref<HTMLElement | null>(null);
@@ -50,6 +62,7 @@ const currentHeight = ref(0);
 // Store content space, not total height: expanding the Pattern List must not resize keys.
 const preferredContentHeight = ref(props.initialContentHeight);
 const dragging = ref(false);
+const layoutResizing = ref(false);
 const ready = ref(false);
 const closingContentHeight = ref(0);
 let observer: ResizeObserver | undefined;
@@ -84,17 +97,27 @@ let suppressClick = false;
 let opening = false;
 let fitContent = false;
 let openRequest = 0;
+let layoutResizeRequest = 0;
 let clickReset: ReturnType<typeof setTimeout> | undefined;
-const maxHeight = computed(() => Math.max(0, Math.min(
+const viewportMaxHeight = computed(() => Math.max(0, Math.min(
   frameHeight.value * props.maxHeightRatio,
   frameHeight.value - 44,
 )));
+const maxHeight = computed(() => Math.min(
+  viewportMaxHeight.value,
+  props.maxContentHeight === undefined
+    ? Number.POSITIVE_INFINITY
+    : persistentHeight.value + props.maxContentHeight,
+));
 const height = computed(() => Math.min(currentHeight.value, maxHeight.value));
 const expanded = computed(() => height.value > persistentHeight.value + 0.5);
 const usableOpenThreshold = computed(() => Math.min(
   maxHeight.value,
   persistentHeight.value + Math.max(props.minContentHeight, 1),
 ));
+const canFitMinimumContent = computed(() =>
+  maxHeight.value >= persistentHeight.value + props.minContentHeight,
+);
 const usableOpen = computed(() => expanded.value
   && height.value >= usableOpenThreshold.value - 0.5);
 const contentHeight = computed(() => Math.max(props.minContentHeight, height.value > 0
@@ -109,13 +132,34 @@ function remember() {
     }));
   } catch { /* A restricted or full store must not prevent drawer interaction. */ }
 }
-function publish() {
+function publish(source?: "pointer") {
   emit("update:modelValue", expanded.value);
   emit("resize", height.value);
+  if (!usableOpen.value) return;
+  if (source === "pointer") emit("contentResize", visibleContentHeight.value, source);
+  else emit("contentResize", visibleContentHeight.value);
 }
-function setHeight(value: number) {
+function setHeight(value: number, source?: "pointer") {
   currentHeight.value = Math.max(0, Math.min(value, maxHeight.value));
-  publish();
+  publish(source);
+}
+function interactiveHeight(value: number) {
+  if (props.dragToCollapse) return value;
+  if (!canFitMinimumContent.value) return persistentHeight.value;
+  return Math.max(usableOpenThreshold.value, value);
+}
+async function setLayoutHeight(value: number) {
+  const request = ++layoutResizeRequest;
+  layoutResizing.value = true;
+  setHeight(value);
+  await finishLayoutResize(request);
+}
+async function finishLayoutResize(request: number) {
+  await nextTick();
+  if (request !== layoutResizeRequest || !root.value) return;
+  // Commit the target while transitions are disabled before restoring them.
+  root.value.getBoundingClientRect();
+  layoutResizing.value = false;
 }
 function fittedHeight() {
   const inset = content.value ? parseFloat(getComputedStyle(content.value).paddingTop) || 0 : 0;
@@ -124,6 +168,10 @@ function fittedHeight() {
     : content.value?.scrollHeight || props.initialContentHeight;
 }
 async function open() {
+  if (!props.dragToCollapse && !canFitMinimumContent.value) {
+    setHeight(persistentHeight.value);
+    return;
+  }
   if (!props.fitContentOnOpen) {
     setHeight(persistentHeight.value + Math.max(props.minContentHeight, preferredContentHeight.value));
     return;
@@ -171,6 +219,7 @@ function click() {
     suppressClick = false;
     return;
   }
+  if (props.haptic) triggerUIHaptic();
   toggle();
 }
 function pointerDown(event: PointerEvent) {
@@ -192,7 +241,26 @@ function pointerMove(event: PointerEvent) {
   gesture.moved = true;
   fitContent = false;
   dragging.value = true;
-  setHeight(gesture.height + (props.anchor === "top" ? distance : -distance));
+  const requestedHeight = gesture.height + (props.anchor === "top" ? distance : -distance);
+  setHeight(interactiveHeight(requestedHeight), "pointer");
+  event.preventDefault();
+}
+function handleKeydown(event: KeyboardEvent) {
+  if (props.keyboardResizeStep <= 0) return;
+  const expands = props.anchor === "bottom" ? event.key === "ArrowUp" : event.key === "ArrowDown";
+  const contracts = props.anchor === "bottom" ? event.key === "ArrowDown" : event.key === "ArrowUp";
+  if (!expands && !contracts) return;
+  if (contracts && !usableOpen.value) {
+    event.preventDefault();
+    return;
+  }
+
+  const requestedHeight = height.value + (expands ? props.keyboardResizeStep : -props.keyboardResizeStep);
+  void setLayoutHeight(interactiveHeight(requestedHeight));
+  if (usableOpen.value) {
+    preferredContentHeight.value = visibleContentHeight.value;
+    remember();
+  }
   event.preventDefault();
 }
 function pointerEnd(event: PointerEvent) {
@@ -209,6 +277,8 @@ function pointerEnd(event: PointerEvent) {
   clickReset = setTimeout(() => { suppressClick = false; }, 0);
 }
 function measure() {
+  const layoutRequest = ready.value ? ++layoutResizeRequest : 0;
+  if (layoutRequest) layoutResizing.value = true;
   const nextFrame = props.fixed ? window.innerHeight : root.value?.parentElement?.clientHeight;
   frameHeight.value = nextFrame || window.innerHeight;
   const nextPersistent = persistent.value?.getBoundingClientRect().height ?? 0;
@@ -219,6 +289,16 @@ function measure() {
   if (ready.value && (wasExpanded || wasAtPersistent)) {
     currentHeight.value = Math.max(0, currentHeight.value + nextPersistent - previous);
   }
+  if (!ready.value) return;
+  if (!props.dragToCollapse
+    && currentHeight.value > persistentHeight.value
+    && !canFitMinimumContent.value) {
+    setHeight(persistentHeight.value);
+    void finishLayoutResize(layoutRequest);
+    return;
+  }
+  publish();
+  void finishLayoutResize(layoutRequest);
 }
 function outsidePointer(event: PointerEvent) {
   if (props.closeOnOutside && (expanded.value || opening) && event.target instanceof Node
@@ -239,7 +319,14 @@ watch(() => props.naturalContentHeight, () => {
 });
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {
-    currentHeight.value = Math.max(currentHeight.value, persistentHeight.value + props.minContentHeight);
+    if (!props.dragToCollapse && !canFitMinimumContent.value) {
+      setHeight(persistentHeight.value);
+      return;
+    }
+    void setLayoutHeight(persistentHeight.value + Math.max(
+      props.minContentHeight,
+      preferredContentHeight.value,
+    ));
   }
 });
 onMounted(async () => {
@@ -284,6 +371,7 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
   openRequest++;
+  layoutResizeRequest++;
   observer?.disconnect();
   visibilityObserver?.disconnect();
   contentObserver?.disconnect();
@@ -302,7 +390,8 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     ref="root"
     class="drawer"
     :class="[`drawer--${anchor}`, `drawer--handle-${handleAlign}`, {
-      'drawer--fixed': fixed, 'drawer--dragging': dragging, 'drawer--ready': ready,
+      'drawer--fixed': fixed, 'drawer--dragging': dragging,
+      'drawer--layout-resize': layoutResizing, 'drawer--ready': ready,
     }]"
     :style="{ height: `${height}px` }"
     :aria-label="accessibleName"
@@ -315,7 +404,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       :data-testid="handleTestId"
       :aria-label="accessibleName"
       :aria-expanded="expanded"
+      :aria-description="handleResizeDescription || undefined"
+      :aria-keyshortcuts="keyboardResizeStep > 0 ? 'ArrowUp ArrowDown' : undefined"
       @click="click"
+      @keydown="handleKeydown"
       @pointerdown="pointerDown"
       @pointermove="pointerMove"
       @pointerup="pointerEnd"
@@ -359,6 +451,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer--bottom { bottom: 0; }
 .drawer--ready { transition: height var(--dur-panel) var(--ease-swing); }
 .drawer--dragging { transition: none; }
+.drawer--layout-resize { transition: none; }
 .drawer__clip { height: 100%; overflow: clip; }
 .drawer__persistent { display: flow-root; }
 .drawer__content { min-width: 0; overflow: hidden; }

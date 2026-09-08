@@ -622,8 +622,7 @@ const editionVariations = computed(() => new Map(
 watch(
   rowSignature,
   () => {
-    releaseMelodyFocusInputs(new Event("keyboard-remap"));
-    releasePointerInputs(new Event("keyboard-remap"));
+    releaseMissingMelodyInputs(new Event("keyboard-remap"));
     if (!allKeys.value.some((key) => key.id === rememberedFocusId.value)) {
       rememberedFocusId.value = defaultFocusId.value;
     }
@@ -1048,6 +1047,14 @@ function movePointerThroughSamples(event: PointerEvent) {
   }
 }
 
+function pointerMovedSinceLastSample(event: PointerEvent) {
+  const previous = pointerPositions.get(event.pointerId);
+  if (!previous) return true;
+  return pointerSamples(event).some((sample) =>
+    sample.clientX !== previous.x || sample.clientY !== previous.y,
+  );
+}
+
 function movePointerInput(pointerId: number, next: KeyboardIntent | null, event: Event) {
   const current = activePointerInputs.get(pointerId);
   if (current?.keyId === next?.keyId) return;
@@ -1093,7 +1100,9 @@ function finishPointerInput(event: PointerEvent) {
 function handlePointerUp(event: PointerEvent) {
   if (!activePointerInputs.has(event.pointerId)) return;
   event.preventDefault();
-  movePointerThroughSamples(event);
+  // A row resize can move a different key beneath a stationary finger. Only
+  // pointer movement, never layout movement, may create a final glissando step.
+  if (pointerMovedSinceLastSample(event)) movePointerThroughSamples(event);
   finishPointerInput(event);
 }
 
@@ -1160,6 +1169,20 @@ function releaseMelodyFocusInputs(event: Event) {
     dispatchIntent("release", { ...intent, event });
   }
   activeFocusInputs.clear();
+}
+
+function releaseMissingMelodyInputs(event: Event) {
+  const renderedIds = new Set(allKeys.value.map((key) => key.id));
+  for (const [inputId, intent] of activeFocusInputs) {
+    if (renderedIds.has(intent.keyId)) continue;
+    activeFocusInputs.delete(inputId);
+    dispatchIntent("release", { ...intent, event });
+  }
+  for (const [pointerId, intent] of activePointerInputs) {
+    if (!intent || renderedIds.has(intent.keyId)) continue;
+    dispatchIntent("release", { ...intent, event });
+    activePointerInputs.set(pointerId, null);
+  }
 }
 
 function releaseMissingChordFocusInputs(event: Event) {

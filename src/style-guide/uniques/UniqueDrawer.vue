@@ -7,7 +7,12 @@ import Drawer from "@/components/uniques/Drawer/index.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
-import { minimumKeyboardHeight } from "@/components/compounds/keyboardSizing";
+import {
+  defaultKeyboardHeight,
+  maximumKeyboardHeight,
+  minimumKeyboardHeight,
+  resolveKeyboardLayout,
+} from "@/components/compounds/keyboardSizing";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import { CHROMATIC_NOTES } from "@/data";
 
@@ -19,6 +24,9 @@ const midiState = ref<"idle" | "connecting" | "connected" | "error">("connected"
 const instrumentName = ref("Piano");
 const instrumentIcon = computed(() => instrumentIconFor(instrumentName.value));
 const lastAction = ref("Drag any handle. Tap Keyboard to hide only its keys.");
+function resizeKeyboard(contentHeight: number) {
+  rowCount.value = resolveKeyboardLayout(contentHeight, rowCount.value).rowCount;
+}
 const rows = computed(() => Array.from({ length: rowCount.value }, (_, index) => {
   const octave = 4 + Math.floor(rowCount.value / 2) - index;
   return { octave, keys: CHROMATIC_NOTES.map((pitch, degree) => ({
@@ -36,7 +44,7 @@ const tokens: CodeStripToken[] = [
 <template>
   <section class="drawer-specimen">
     <h3>Drawer · one source, both edges</h3>
-    <p>Ink surface, exposed icon/grip handle, continuous resize. Swing opening/closing, direct drag, and no scrim.</p>
+    <p>Ink surface, exposed icon/grip handle, and direct resize. Generic drawers clip continuously; the keyboard keeps complete rows and taps closed.</p>
     <label>Host width
       <select v-model="width">
         <option value="320px">320px</option><option value="390px">390px</option>
@@ -76,24 +84,27 @@ const tokens: CodeStripToken[] = [
         >
           <template #icon><MidiSettingsIcon :state="midiState" /></template>
           <div class="drawer-specimen__panel">
-            <h4>Config</h4><p>MIDI {{ midiState }} · keyboard height belongs to its drawer.</p>
-            <label>Keyboard rows <select v-model.number="rowCount"><option :value="1">1</option><option :value="3">3</option><option :value="5">5</option></select></label>
+            <h4>Config</h4><p>MIDI {{ midiState }} · keyboard height and row count belong to its drawer handle.</p>
           </div>
         </Drawer>
         <Drawer
           v-model="keyboardOpen" anchor="bottom" handle-align="center"
-          accessible-name="Keyboard specimen" :initial-content-height="200"
-          :min-content-height="minimumKeyboardHeight(rows.length)" :scroll="false"
+          accessible-name="Keyboard specimen"
+          :handle-resize-description="`${rowCount} keyboard rows. Drag or use Up and Down Arrow keys to resize.`"
+          :initial-content-height="defaultKeyboardHeight(rowCount)"
+          :min-content-height="minimumKeyboardHeight(1)"
+          :max-content-height="maximumKeyboardHeight(8)"
+          :max-height-ratio="0.95"
+          :drag-to-collapse="false"
+          :keyboard-resize-step="8"
+          :scroll="false"
+          @content-resize="resizeKeyboard"
         >
           <template #icon><KeyboardIcon /></template>
           <template #persistent>
             <div class="drawer-specimen__pattern">Piano · C major · saved pattern</div>
             <CodeStripBar :tokens="tokens" @backspace="lastAction = 'Backspace'" @return="lastAction = 'Return'" @toggle-playback="lastAction = 'Play (inert specimen)'" />
-            <ControlBar
-              :rows="rowCount"
-              joystick-visual="analog"
-              @update:rows="rowCount = $event"
-            />
+            <ControlBar joystick-visual="analog" />
           </template>
           <template #default="{ height }">
             <Keyboard usage="controlled" :rows="rows" :available-height="height" />
@@ -102,7 +113,7 @@ const tokens: CodeStripToken[] = [
       </div>
     </div>
     <output>{{ lastAction }}</output>
-    <p>Real Drawer, Keyboard, Control Bar, and CodeStrip Bar sources. The canvas, panel choices, and saved-pattern label are specimen scaffolding; no audio or production stores are driven here. Keyboard retains its preferred height; top drawers reopen to fit their content and dismiss when touching outside.</p>
+    <p>Real Drawer, Keyboard, Control Bar, and CodeStrip Bar sources. The canvas, panel choices, and saved-pattern label are specimen scaffolding; no audio or production stores are driven here. The keyboard Drawer derives complete rows from its allocated height; top drawers reopen to fit their content and dismiss when touching outside.</p>
   </section>
 </template>
 

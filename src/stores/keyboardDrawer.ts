@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, reactive, computed } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useMusicStore } from "@/stores/music";
+import { visibleKeyboardOctaves } from "@/components/compounds/keyboardEdition";
 
 export type KeyboardPressId = string;
 
@@ -162,18 +163,7 @@ export const useKeyboardDrawerStore = defineStore(
     // Current visible octaves based on main octave and row count
     const visibleOctaves = computed(() => {
       const { mainOctave, rowCount } = keyboardConfig.value;
-      const octaves = [];
-      const halfRows = Math.floor(rowCount / 2);
-
-      // Generate octaves centered around main octave
-      for (let i = -halfRows; i <= halfRows; i++) {
-        const octave = mainOctave + i;
-        if (octave >= 1 && octave <= 8) {
-          octaves.push(octave);
-        }
-      }
-
-      return octaves.sort((a, b) => b - a); // Highest to lowest for visual stacking
+      return visibleKeyboardOctaves(mainOctave, rowCount);
     });
 
     // Current solfège data from music store

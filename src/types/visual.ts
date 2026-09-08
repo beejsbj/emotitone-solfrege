@@ -28,6 +28,8 @@ export interface ConfigField<T> {
     field: string;
     values: Array<string | number | boolean>;
   };
+  /** Keep persisted/internal fields out of generated settings controls. */
+  hidden?: boolean;
 }
 
 /**

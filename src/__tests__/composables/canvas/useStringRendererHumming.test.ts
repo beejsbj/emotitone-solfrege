@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
     getActiveNotes: vi.fn(() => []),
     getNoteFrequency: vi.fn(() => 261.63),
   },
+  keyboardStore: {
+    visibleOctaves: [5, 4],
+    keyboardConfig: { mainOctave: 4, rowCount: 2 },
+  },
 }));
 
 vi.mock("@/composables/useColorSystem", () => ({
@@ -23,10 +27,7 @@ vi.mock("@/stores/music", () => ({
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
-  useKeyboardDrawerStore: () => ({
-    visibleOctaves: [5, 4],
-    keyboardConfig: { mainOctave: 4, rowCount: 2 },
-  }),
+  useKeyboardDrawerStore: () => mocks.keyboardStore,
 }));
 
 vi.mock("@/stores/visualConfig", () => ({
@@ -45,6 +46,8 @@ describe("useStringRenderer humming lifecycle", () => {
   beforeEach(() => {
     nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_000);
     mocks.musicStore.getActiveNotes.mockReturnValue([]);
+    mocks.keyboardStore.visibleOctaves = [5, 4];
+    mocks.keyboardStore.keyboardConfig.mainOctave = 4;
   });
 
   afterEach(() => {
@@ -138,5 +141,21 @@ describe("useStringRenderer humming lifecycle", () => {
     expect(renderer.strings.value.filter((string) => string.isActive).map(
       (string) => string.octave,
     )).toEqual([4]);
+  });
+
+  it("centers octave offsets on the configured main octave at range edges", () => {
+    mocks.keyboardStore.visibleOctaves = [3, 2, 1];
+    mocks.keyboardStore.keyboardConfig.mainOctave = 1;
+    const renderer = useStringRenderer();
+    renderer.initializeStrings({
+      isEnabled: true,
+      octaveOffset: 10,
+      baseOpacity: 0.1,
+    } as any, 800, 600, mocks.musicStore.solfegeData);
+
+    const xByOctave = new Map(renderer.strings.value.map((string) => [string.octave, string.x]));
+    expect(xByOctave.get(1)).toBe(400);
+    expect(xByOctave.get(2)).toBe(390);
+    expect(xByOctave.get(3)).toBe(380);
   });
 });

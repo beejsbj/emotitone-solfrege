@@ -62,10 +62,11 @@ describe("keyboard daily editions", () => {
     }
   });
 
-  it("clips unavailable octave rows while preserving odd requested controls", () => {
+  it("returns the exact requested octave count and shifts at pitch limits", () => {
     expect(visibleKeyboardOctaves(4, 3)).toEqual([5, 4, 3]);
-    expect(visibleKeyboardOctaves(1, 3)).toEqual([2, 1]);
-    expect(visibleKeyboardOctaves(8, 7)).toEqual([8, 7, 6, 5]);
-    expect(visibleKeyboardOctaves(4, 2)).toEqual([5, 4, 3]);
+    expect(visibleKeyboardOctaves(1, 3)).toEqual([3, 2, 1]);
+    expect(visibleKeyboardOctaves(8, 7)).toEqual([8, 7, 6, 5, 4, 3, 2]);
+    expect(visibleKeyboardOctaves(4, 2)).toEqual([5, 4]);
+    expect(visibleKeyboardOctaves(4, 20)).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
   });
 });

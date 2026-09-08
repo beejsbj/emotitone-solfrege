@@ -75,7 +75,7 @@
       <header class="tabs-page__surface-heading">
         <div>
           <p class="tabs-page__source">Production stress case · same source</p>
-          <h2>Sixteen destinations.</h2>
+          <h2>Fifteen destinations.</h2>
         </div>
         <span class="tabs-page__status tabs-page__status--live">Live recipe</span>
       </header>
@@ -143,7 +143,6 @@ const configLabels = [
   ["animation", "Animation", "Anim"],
   ["frequencyMapping", "Frequency Mapping", "Freq"],
   ["dynamicColors", "Dynamic Colors", "Color"],
-  ["floatingPopup", "Floating Popup", "Popup"],
   ["hilbertScope", "Hilbert Scope", "Scope"],
   ["beatingShapes", "Beating Shapes", "Beat"],
   ["patterns", "Patterns", "Patt"],

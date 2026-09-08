@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { markRaw } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
+import tabsPageSource from "@/style-guide/TabsPage.vue?raw";
 
 const TestIcon = markRaw({ template: "<svg />" });
 
@@ -46,6 +47,11 @@ describe("Tabs", () => {
     expect(wrapper.classes()).toContain("tabs--tone-brass");
     await wrapper.get('button:disabled').trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it("keeps the guide stress rail aligned with production's fifteen destinations", () => {
+    expect(tabsPageSource).toContain("Fifteen destinations.");
+    expect(tabsPageSource).not.toContain("floatingPopup");
   });
 
   it("reveals the active destination again after the viewport resizes", async () => {

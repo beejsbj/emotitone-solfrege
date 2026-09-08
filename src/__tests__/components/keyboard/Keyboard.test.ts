@@ -847,12 +847,17 @@ describe("Keyboard pointer gestures", () => {
     expect(wrapper.emitted("release")).toBeUndefined();
     expect(wrapper.findAll(".keyboard__key")[0].classes()).toContain("keyboard__key--pressed");
 
+    const keyMovedUnderStationaryFinger = wrapper.findAll<HTMLButtonElement>(".keyboard__key")[2];
+    vi.mocked(document.elementFromPoint).mockReturnValue(keyMovedUnderStationaryFinger.element);
+
     root.element.dispatchEvent(pointerEvent("pointerup", {
       pointerId: 17,
       pointerType: "touch",
       clientX: 20,
     }));
     await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
     expect(wrapper.emitted("release")?.map(([intent]) =>
       (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
   });

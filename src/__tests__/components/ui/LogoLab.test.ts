@@ -30,7 +30,7 @@ describe("Brand Logo definition lab", () => {
       expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(1);
     }
 
-    expect(logoLabSource).toContain("Round 08");
+    expect(logoLabSource).toContain("Round 09");
     expect(logoLabSource).toContain("Compact survival");
     expect(logoLabSource).not.toContain("@/components/uniques/BrandLogo.vue");
   });
@@ -42,25 +42,36 @@ describe("Brand Logo definition lab", () => {
       expect(logoLabSource).toContain(treatment);
     }
 
-    for (const mark of ["diamond", "disk", "eighth", "grace", "half-circle", "staccato", "wave", "whole"]) {
+    for (const mark of ["accent", "bar", "beam", "crescendo", "diamond", "eighth", "flat", "grace", "half-circle", "sharp", "staccato", "star", "triangle", "wave", "whole"]) {
       expect(logoLabSource).toContain(`name: "${mark}"`);
     }
 
+    const expectedScatterCounts = [9, 11, 13];
     for (const [index, id] of ["A", "B", "C"].entries()) {
       const start = logoLabSource.indexOf(`id: "${id}"`);
       const nextId = ["B", "C"][index];
       const end = nextId ? logoLabSource.indexOf(`id: "${nextId}"`) : logoLabSource.indexOf("];", start);
       const treatmentSource = logoLabSource.slice(start, end);
+      const backdropSource = treatmentSource.slice(
+        treatmentSource.indexOf("backdrop: ["),
+        treatmentSource.indexOf("sprinkles: ["),
+      );
+      const scatterSource = treatmentSource.slice(treatmentSource.indexOf("sprinkles: ["));
 
-      expect(treatmentSource).toContain('location: "inside"');
-      expect(treatmentSource).toContain('location: "outside"');
-      expect(treatmentSource).toContain('layer: "behind"');
-      expect(treatmentSource).toContain('layer: "front"');
-      expect(treatmentSource.match(/name: "disk"/g)).toHaveLength(5);
+      expect(scatterSource).toContain('location: "inside"');
+      expect(scatterSource).toContain('location: "outside"');
+      expect(scatterSource).toContain('layer: "front"');
+      expect(scatterSource.match(/name: /g)).toHaveLength(expectedScatterCounts[index]);
+      expect(backdropSource.match(/\{ x:/g)).toHaveLength(5);
+      for (const tone of ["plum", "cobalt", "mustard", "tomato", "pine"]) {
+        expect(backdropSource).toContain(`tone: "${tone}"`);
+      }
     }
 
     expect(logoLabSource).toContain("treatment.backdrop");
     expect(logoLabSource).toContain('data-layer="backdrop"');
+    expect(logoLabSource).toContain("border-radius: 50%");
+    expect(logoLabSource).toContain("5 × smooth circle");
     expect(logoLabSource).toContain('class="embellished-mark__core"');
     expect(logoLabSource).not.toContain(".embellished-mark > svg:first-child");
     expect(logoLabSource).toContain(':data-location="sprinkle.location"');
@@ -80,13 +91,18 @@ describe("Brand Logo definition lab", () => {
 
   it("renders blobs, monogram, and scatter as explicit ordered layers", () => {
     const wrapper = mount(LogoLab);
-    const composition = wrapper.find(".concept__hero .embellished-mark");
-    const layers = Array.from(composition.element.children).map((element) => element.classList);
+    const compositions = wrapper.findAll(".concept__hero .embellished-mark");
 
-    expect(layers).toHaveLength(11);
-    expect(layers.slice(0, 5).every((classes) => classes.contains("embellished-mark__backdrop"))).toBe(true);
-    expect(layers[5].contains("embellished-mark__core")).toBe(true);
-    expect(layers.slice(6).every((classes) => classes.contains("embellished-mark__sprinkle--front"))).toBe(true);
+    compositions.forEach((composition, index) => {
+      const children = Array.from(composition.element.children);
+      const layers = children.map((element) => element.classList);
+
+      expect(layers).toHaveLength(6 + [9, 11, 13][index]);
+      expect(children.slice(0, 5).every((element) => element.tagName === "SPAN")).toBe(true);
+      expect(layers.slice(0, 5).every((classes) => classes.contains("embellished-mark__backdrop"))).toBe(true);
+      expect(layers[5].contains("embellished-mark__core")).toBe(true);
+      expect(layers.slice(6).every((classes) => classes.contains("embellished-mark__sprinkle--front"))).toBe(true);
+    });
     expect(logoLabSource).toMatch(/\.embellished-mark__backdrop\s*\{[^}]*z-index:\s*0/s);
     expect(logoLabSource).toMatch(/\.embellished-mark__core\s*\{[^}]*z-index:\s*1/s);
     expect(logoLabSource).toMatch(/\.embellished-mark__sprinkle--front\s*\{\s*z-index:\s*2/s);

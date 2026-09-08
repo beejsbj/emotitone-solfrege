@@ -4,8 +4,16 @@ import Mark from "../../components/primatives/Mark.vue";
 import type { MarkName } from "../../components/primatives/Mark.vue";
 
 type SprinkleTone = "cobalt" | "ink" | "ivory" | "mustard" | "pine" | "plum" | "tomato";
+type BrandTone = Exclude<SprinkleTone, "ink" | "ivory">;
 type SprinkleLocation = "inside" | "outside";
 type SprinkleLayer = "behind" | "front";
+
+interface BackdropBlob {
+  x: number;
+  y: number;
+  size: number;
+  tone: BrandTone;
+}
 
 interface Sprinkle {
   name: MarkName;
@@ -24,7 +32,7 @@ interface MarkTreatment {
   name: string;
   description: string;
   verdict: string;
-  backdrop: Sprinkle[];
+  backdrop: BackdropBlob[];
   sprinkles: Sprinkle[];
 }
 
@@ -37,11 +45,11 @@ const treatments: MarkTreatment[] = [
     description: "The favicon's exact five-blob hierarchy sits behind a crisp Ink E and Ivory T.",
     verdict: "Closest to the old favicon silhouette; the foreground monogram stays calm.",
     backdrop: [
-      { name: "disk", x: 70, y: 25, size: 146, rotate: -8, tone: "plum", location: "outside", layer: "behind" },
-      { name: "disk", x: 23, y: 62, size: 86, rotate: 9, tone: "cobalt", location: "outside", layer: "behind" },
-      { name: "disk", x: 117, y: 43, size: 86, rotate: -12, tone: "mustard", location: "outside", layer: "behind" },
-      { name: "disk", x: 39, y: 100, size: 66, rotate: 7, tone: "tomato", location: "outside", layer: "behind" },
-      { name: "disk", x: 96, y: 102, size: 68, rotate: -6, tone: "pine", location: "outside", layer: "behind" },
+      { x: 70, y: 25, size: 146, tone: "plum" },
+      { x: 23, y: 62, size: 86, tone: "cobalt" },
+      { x: 117, y: 43, size: 86, tone: "mustard" },
+      { x: 39, y: 100, size: 66, tone: "tomato" },
+      { x: 96, y: 102, size: 68, tone: "pine" },
     ],
     sprinkles: [
       { name: "wave", x: 54, y: 55, size: 19, rotate: -5, tone: "ivory", location: "inside", layer: "front" },
@@ -49,6 +57,10 @@ const treatments: MarkTreatment[] = [
       { name: "staccato", x: 72, y: 5, size: 14, rotate: 0, tone: "ivory", location: "outside", layer: "front" },
       { name: "diamond", x: 5, y: 44, size: 13, rotate: -16, tone: "tomato", location: "outside", layer: "front" },
       { name: "grace", x: 135, y: 55, size: 17, rotate: 12, tone: "mustard", location: "outside", layer: "front" },
+      { name: "triangle", x: 36, y: 15, size: 12, rotate: 16, tone: "mustard", location: "inside", layer: "front" },
+      { name: "star", x: 111, y: 12, size: 13, rotate: 9, tone: "cobalt", location: "outside", layer: "front" },
+      { name: "whole", x: 15, y: 87, size: 14, rotate: -8, tone: "ivory", location: "outside", layer: "front" },
+      { name: "sharp", x: 75, y: 110, size: 15, rotate: -5, tone: "ink", location: "inside", layer: "front" },
     ],
   },
   {
@@ -57,11 +69,11 @@ const treatments: MarkTreatment[] = [
     description: "The same five blobs lean left while musical Marks pull the eye diagonally.",
     verdict: "Keeps the favicon body but gives the scatter the most rhythmic movement.",
     backdrop: [
-      { name: "disk", x: 59, y: 23, size: 146, rotate: -8, tone: "plum", location: "outside", layer: "behind" },
-      { name: "disk", x: 20, y: 61, size: 84, rotate: 9, tone: "cobalt", location: "outside", layer: "behind" },
-      { name: "disk", x: 111, y: 43, size: 94, rotate: -12, tone: "mustard", location: "outside", layer: "behind" },
-      { name: "disk", x: 35, y: 99, size: 66, rotate: 7, tone: "tomato", location: "outside", layer: "behind" },
-      { name: "disk", x: 94, y: 102, size: 70, rotate: -6, tone: "pine", location: "outside", layer: "behind" },
+      { x: 59, y: 23, size: 146, tone: "plum" },
+      { x: 20, y: 61, size: 84, tone: "cobalt" },
+      { x: 111, y: 43, size: 94, tone: "mustard" },
+      { x: 35, y: 99, size: 66, tone: "tomato" },
+      { x: 94, y: 102, size: 70, tone: "pine" },
     ],
     sprinkles: [
       { name: "whole", x: 19, y: 30, size: 17, rotate: -18, tone: "ink", location: "outside", layer: "front" },
@@ -70,6 +82,11 @@ const treatments: MarkTreatment[] = [
       { name: "grace", x: 132, y: 42, size: 18, rotate: 10, tone: "tomato", location: "outside", layer: "front" },
       { name: "diamond", x: 124, y: 101, size: 13, rotate: 14, tone: "pine", location: "outside", layer: "front" },
       { name: "staccato", x: 53, y: 8, size: 13, rotate: 0, tone: "ivory", location: "outside", layer: "front" },
+      { name: "triangle", x: 8, y: 75, size: 12, rotate: -12, tone: "tomato", location: "outside", layer: "front" },
+      { name: "star", x: 105, y: 8, size: 14, rotate: 11, tone: "ivory", location: "outside", layer: "front" },
+      { name: "beam", x: 69, y: 23, size: 15, rotate: -7, tone: "ink", location: "inside", layer: "front" },
+      { name: "sharp", x: 78, y: 108, size: 14, rotate: 6, tone: "ivory", location: "outside", layer: "front" },
+      { name: "accent", x: 42, y: 78, size: 13, rotate: 9, tone: "ink", location: "inside", layer: "front" },
     ],
   },
   {
@@ -78,11 +95,11 @@ const treatments: MarkTreatment[] = [
     description: "A broader five-blob field lets the Ink/Ivory cuts interrupt more colour.",
     verdict: "The boldest backdrop and the loosest scatter; strongest at larger sizes.",
     backdrop: [
-      { name: "disk", x: 72, y: 27, size: 160, rotate: -8, tone: "plum", location: "outside", layer: "behind" },
-      { name: "disk", x: 23, y: 63, size: 94, rotate: 9, tone: "cobalt", location: "outside", layer: "behind" },
-      { name: "disk", x: 117, y: 46, size: 94, rotate: -12, tone: "mustard", location: "outside", layer: "behind" },
-      { name: "disk", x: 38, y: 101, size: 74, rotate: 7, tone: "tomato", location: "outside", layer: "behind" },
-      { name: "disk", x: 98, y: 104, size: 76, rotate: -6, tone: "pine", location: "outside", layer: "behind" },
+      { x: 72, y: 27, size: 160, tone: "plum" },
+      { x: 23, y: 63, size: 94, tone: "cobalt" },
+      { x: 117, y: 46, size: 94, tone: "mustard" },
+      { x: 38, y: 101, size: 74, tone: "tomato" },
+      { x: 98, y: 104, size: 76, tone: "pine" },
     ],
     sprinkles: [
       { name: "half-circle", x: 8, y: 24, size: 17, rotate: -22, tone: "ink", location: "outside", layer: "front" },
@@ -91,6 +108,13 @@ const treatments: MarkTreatment[] = [
       { name: "staccato", x: 56, y: 90, size: 14, rotate: 0, tone: "ivory", location: "inside", layer: "front" },
       { name: "diamond", x: 138, y: 52, size: 13, rotate: 17, tone: "tomato", location: "outside", layer: "front" },
       { name: "grace", x: 120, y: 111, size: 17, rotate: 8, tone: "mustard", location: "outside", layer: "front" },
+      { name: "triangle", x: 9, y: 80, size: 13, rotate: -17, tone: "ivory", location: "outside", layer: "front" },
+      { name: "star", x: 107, y: 7, size: 14, rotate: 12, tone: "cobalt", location: "outside", layer: "front" },
+      { name: "bar", x: 68, y: 24, size: 17, rotate: -8, tone: "ink", location: "inside", layer: "front" },
+      { name: "beam", x: 26, y: 108, size: 15, rotate: -5, tone: "ivory", location: "outside", layer: "front" },
+      { name: "sharp", x: 78, y: 113, size: 14, rotate: 7, tone: "ivory", location: "outside", layer: "front" },
+      { name: "flat", x: 129, y: 84, size: 13, rotate: 10, tone: "ink", location: "outside", layer: "front" },
+      { name: "crescendo", x: 42, y: 31, size: 15, rotate: -9, tone: "mustard", location: "inside", layer: "front" },
     ],
   },
 ];
@@ -103,6 +127,16 @@ function sprinkleStyle(sprinkle: Sprinkle) {
     color: `var(--${sprinkle.tone})`,
     opacity: sprinkle.opacity ?? 1,
     transform: `translate(-50%, -50%) rotate(${sprinkle.rotate}deg)`,
+  };
+}
+
+function backdropStyle(blob: BackdropBlob) {
+  return {
+    left: `${(blob.x / 140) * 100}%`,
+    top: `${(blob.y / 120) * 100}%`,
+    width: `${(blob.size / 140) * 100}%`,
+    background: `var(--${blob.tone})`,
+    transform: "translate(-50%, -50%)",
   };
 }
 </script>
@@ -125,13 +159,13 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
     <header class="logo-lab__header">
       <div>
-        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 08</p>
+        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 09</p>
         <h1>Put the colour behind.<br><span>Let the Marks loose.</span></h1>
       </div>
       <div class="logo-lab__intro">
         <p>
-          Five brand-colour blobs carry the favicon memory. The six paper cuts become one Ink E and
-          one Ivory T, while abstract and musical Marks scatter across the complete lockup.
+          Five smooth brand-colour circles carry the favicon memory. The six paper cuts become one
+          Ink E and one Ivory T, while a denser field of Marks scatters across the complete lockup.
         </p>
         <button type="button" @click="lightStage = !lightStage">
           {{ lightStage ? "View on ink" : "View on bone" }}
@@ -176,16 +210,13 @@ function sprinkleStyle(sprinkle: Sprinkle) {
         <div class="concept__hero">
           <div class="paper-lockup">
             <div class="embellished-mark">
-              <Mark
+              <span
                 v-for="(blob, index) in treatment.backdrop"
                 :key="`${treatment.id}-backdrop-${index}`"
                 class="embellished-mark__backdrop"
-                :name="blob.name"
-                tone="inherit"
-                size="100"
                 data-location="behind"
                 data-layer="backdrop"
-                :style="sprinkleStyle(blob)"
+                :style="backdropStyle(blob)"
                 aria-hidden="true"
               />
               <svg class="embellished-mark__core" viewBox="0 0 140 120" role="img" :aria-label="`Tight Weave with ${treatment.name} treatment`">
@@ -213,16 +244,13 @@ function sprinkleStyle(sprinkle: Sprinkle) {
             <span class="concept__proof-label">Compact survival</span>
             <div class="paper-lockup paper-lockup--compact">
               <div class="embellished-mark">
-                <Mark
+                <span
                   v-for="(blob, index) in treatment.backdrop"
                   :key="`compact-${treatment.id}-backdrop-${index}`"
                   class="embellished-mark__backdrop"
-                  :name="blob.name"
-                  tone="inherit"
-                  size="100"
                   data-location="behind"
                   data-layer="backdrop"
-                  :style="sprinkleStyle(blob)"
+                  :style="backdropStyle(blob)"
                   aria-hidden="true"
                 />
                 <svg class="embellished-mark__core" viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-tight-weave" /></svg>
@@ -245,7 +273,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
           </div>
           <div class="concept__mark-list">
             <span class="concept__proof-label">Marks used</span>
-            <span>5 × disk · {{ treatment.sprinkles.map((sprinkle) => sprinkle.name).join(" · ") }}</span>
+            <span>5 × smooth circle · {{ treatment.sprinkles.map((sprinkle) => sprinkle.name).join(" · ") }}</span>
           </div>
         </div>
 
@@ -560,6 +588,8 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 .embellished-mark__backdrop {
   position: absolute;
   z-index: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
   height: auto;
   pointer-events: none;
 }

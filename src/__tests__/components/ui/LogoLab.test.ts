@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import appSource from "@/App.vue?raw";
 import mainSource from "@/main.ts?raw";
+import LogoLab from "@/style-guide/logo-lab/LogoLab.vue";
 import logoLabSource from "@/style-guide/logo-lab/LogoLab.vue?raw";
 import brandColorsSource from "@/style-guide/tokens/TokenBrandColors.vue?raw";
 
@@ -59,6 +61,8 @@ describe("Brand Logo definition lab", () => {
 
     expect(logoLabSource).toContain("treatment.backdrop");
     expect(logoLabSource).toContain('data-layer="backdrop"');
+    expect(logoLabSource).toContain('class="embellished-mark__core"');
+    expect(logoLabSource).not.toContain(".embellished-mark > svg:first-child");
     expect(logoLabSource).toContain(':data-location="sprinkle.location"');
     expect(logoLabSource).toContain(':data-layer="sprinkle.layer"');
   });
@@ -72,6 +76,20 @@ describe("Brand Logo definition lab", () => {
     expect(logoLabSource).not.toContain('name: "slur"');
     expect(logoLabSource).toContain("--e-stem: var(--ink)");
     expect(logoLabSource).toContain("--t-stem: var(--ivory)");
+  });
+
+  it("renders blobs, monogram, and scatter as explicit ordered layers", () => {
+    const wrapper = mount(LogoLab);
+    const composition = wrapper.find(".concept__hero .embellished-mark");
+    const layers = Array.from(composition.element.children).map((element) => element.classList);
+
+    expect(layers).toHaveLength(11);
+    expect(layers.slice(0, 5).every((classes) => classes.contains("embellished-mark__backdrop"))).toBe(true);
+    expect(layers[5].contains("embellished-mark__core")).toBe(true);
+    expect(layers.slice(6).every((classes) => classes.contains("embellished-mark__sprinkle--front"))).toBe(true);
+    expect(logoLabSource).toMatch(/\.embellished-mark__backdrop\s*\{[^}]*z-index:\s*0/s);
+    expect(logoLabSource).toMatch(/\.embellished-mark__core\s*\{[^}]*z-index:\s*1/s);
+    expect(logoLabSource).toMatch(/\.embellished-mark__sprinkle--front\s*\{\s*z-index:\s*2/s);
   });
 
   it("promotes Cobalt through the Brand token owner and real token specimen", () => {

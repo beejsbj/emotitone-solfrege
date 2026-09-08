@@ -188,7 +188,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
                 :style="sprinkleStyle(blob)"
                 aria-hidden="true"
               />
-              <svg viewBox="0 0 140 120" role="img" :aria-label="`Tight Weave with ${treatment.name} treatment`">
+              <svg class="embellished-mark__core" viewBox="0 0 140 120" role="img" :aria-label="`Tight Weave with ${treatment.name} treatment`">
                 <use href="#mark-tight-weave" />
               </svg>
               <Mark
@@ -225,7 +225,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
                   :style="sprinkleStyle(blob)"
                   aria-hidden="true"
                 />
-                <svg viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-tight-weave" /></svg>
+                <svg class="embellished-mark__core" viewBox="0 0 140 120" aria-hidden="true"><use href="#mark-tight-weave" /></svg>
                 <Mark
                   v-for="(sprinkle, index) in treatment.sprinkles"
                   :key="`compact-${treatment.id}-${sprinkle.name}-${index}`"
@@ -542,7 +542,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
   isolation: isolate;
 }
 
-.embellished-mark > svg:first-child {
+.embellished-mark__core {
   position: relative;
   z-index: 1;
   display: block;

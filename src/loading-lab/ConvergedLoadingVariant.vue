@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { Play } from "lucide-vue-next";
 import BrandLogo from "../components/uniques/BrandLogo.vue";
+import Button from "../components/primatives/Button.vue";
 import Mark from "../components/primatives/Mark.vue";
 import Sticker from "../components/primatives/Sticker.vue";
 import { CHROMATIC_NOTES, getScaleForMode } from "../data";
@@ -26,6 +28,7 @@ const props = withDefaults(defineProps<{
   stages: () => [
     { label: "Visual stage", complete: true, active: false },
     { label: "Instrument samples", complete: false, active: true },
+    { label: "MIDI input", complete: false, active: false },
     { label: "Audio system", complete: false, active: false },
     { label: "Ready to play", complete: false, active: false },
   ],
@@ -33,14 +36,14 @@ const props = withDefaults(defineProps<{
   message: "Gathering the sounds for your first notes.",
 });
 
+const emit = defineEmits<{ enter: [] }>();
+
 const percent = computed(() => (
   Math.round(Math.min(100, Math.max(0, Number.isFinite(props.progress) ? props.progress : 0)))
 ));
 
 const bars = [38, 58, 45, 72, 54, 82, 63, 47, 76, 56, 88, 68, 49, 79, 61, 92, 70, 52, 84, 64, 46, 74, 57, 86];
 const tones = ["cobalt", "tomato", "mustard", "plum", "pine"];
-const laneHeights = [94, 61, 82, 68, 88, 76, 58, 92, 64, 80, 60, 86];
-
 const fixedColorConfig: DynamicColorConfig = {
   ...DEFAULT_CONFIG.dynamicColors,
   musicColorMode: "fixed",
@@ -58,7 +61,6 @@ const lanes = CHROMATIC_NOTES.map((pitch, index) => ({
     4,
     fixedColorConfig,
   )?.primary ?? "var(--foreground)",
-  height: laneHeights[index],
 }));
 
 const filledBars = computed(() => Math.round((percent.value / 100) * bars.length));
@@ -77,8 +79,7 @@ function barStyle(height: number, index: number) {
 function laneStyle(lane: typeof lanes[number], index: number) {
   return {
     "--lane-color": lane.color,
-    "--lane-height": `${lane.height}%`,
-    "--lane-delay": `${index * 18}ms`,
+    "--lane-delay": `${index * 32}ms`,
   };
 }
 </script>
@@ -115,7 +116,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 
         <ol class="converged-loader__stages" aria-label="Loading stages">
           <li
-            v-for="stage in stages"
+            v-for="(stage, index) in stages"
             :key="stage.label"
             :class="{ 'is-complete': stage.complete, 'is-active': stage.active }"
           >
@@ -123,6 +124,18 @@ function laneStyle(lane: typeof lanes[number], index: number) {
             <span>{{ stage.label }}</span>
             <span class="converged-loader__stamp" :class="{ 'is-visible': stage.complete }" aria-hidden="true">
               <Sticker :color="surface === 'ink' ? 'ivory' : 'ink'" variant="fill">SET</Sticker>
+            </span>
+            <span class="converged-loader__stage-action">
+              <Button
+                v-if="index === stages.length - 1 && percent === 100"
+                size="sm"
+                :tone="surface === 'ink' ? 'ivory' : 'ink'"
+                accessible-name="Enter EmotiTone"
+                title="Enter EmotiTone"
+                @click="emit('enter')"
+              >
+                <Play :size="14" fill="currentColor" />
+              </Button>
             </span>
           </li>
         </ol>
@@ -164,7 +177,9 @@ function laneStyle(lane: typeof lanes[number], index: number) {
           :style="laneStyle(lane, index)"
         >
           <span class="converged-loader__lane-bar" />
-          <span class="converged-loader__lane-label">{{ lane.syllable }}</span>
+          <span class="converged-loader__lane-peek">
+            <span class="converged-loader__lane-label">{{ lane.syllable }}</span>
+          </span>
         </span>
       </div>
     </div>
@@ -318,14 +333,14 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   height: clamp(104px, 17vh, 132px);
   margin: 0;
   padding: 0;
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
   list-style: none;
 }
 
 .converged-loader__stages li {
   display: grid;
   min-width: 0;
-  grid-template-columns: 10px minmax(0, 1fr) 46px;
+  grid-template-columns: 10px minmax(0, 1fr) 46px 38px;
   align-items: center;
   gap: 9px;
   color: var(--muted);
@@ -358,6 +373,17 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader__stamp :deep(.sticker) {
   font-size: 8px;
   padding: 4px 8px 3px;
+}
+
+.converged-loader__stage-action {
+  display: grid;
+  width: 38px;
+  place-items: center end;
+}
+
+.converged-loader__stage-action :deep(.paper-button) {
+  opacity: 0;
+  animation: converged-enter-arrive 220ms cubic-bezier(.215, .61, .355, 1) 120ms both;
 }
 
 .converged-loader__meter {
@@ -425,25 +451,39 @@ function laneStyle(lane: typeof lanes[number], index: number) {
 .converged-loader__lane-bar {
   position: absolute;
   inset: auto 0 -10px;
-  height: var(--lane-height);
+  height: 100%;
   background: var(--lane-neutral);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent);
-  transform-origin: center bottom;
-  animation: converged-lane-arrive 280ms cubic-bezier(.215, .61, .355, 1) var(--lane-delay) both;
 }
 
 .converged-loader--chromatic-bars .converged-loader__lane-bar { background: var(--lane-color); }
 
-.converged-loader__lane-label {
-  position: relative;
+.converged-loader__lane-peek {
+  position: absolute;
   z-index: 1;
-  bottom: -5px;
+  right: 0;
+  bottom: -12px;
+  left: 0;
+  display: grid;
+  height: 44px;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 110%, 0);
+  will-change: transform, opacity;
+}
+
+.is-ready .converged-loader__lane-peek {
+  animation: converged-lane-peek 620ms cubic-bezier(.215, .61, .355, 1) var(--lane-delay) both;
+}
+
+.converged-loader__lane-label {
   color: var(--lane-color);
   font: 700 clamp(14px, 1.55vw, 20px)/1 var(--font-display);
   letter-spacing: .02em;
   text-transform: uppercase;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
+  white-space: nowrap;
+  transform: rotate(90deg);
 }
 
 .converged-loader--chromatic-bars .converged-loader__lane-label { color: var(--lane-neutral); }
@@ -495,9 +535,16 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   to { translate: 1px -1px; rotate: 5deg; }
 }
 
-@keyframes converged-lane-arrive {
-  from { opacity: 0; transform: translate3d(0, 16%, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+@keyframes converged-lane-peek {
+  0% { opacity: 0; transform: translate3d(0, 110%, 0); }
+  54% { opacity: 1; transform: translate3d(0, -9%, 0); }
+  76% { opacity: 1; transform: translate3d(0, 5%, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes converged-enter-arrive {
+  from { opacity: 0; transform: translate3d(0, 4px, 0) scale(.94); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 @keyframes converged-frontier {
@@ -543,6 +590,7 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__stages { height: min(96px, 20vh); }
   .converged-loader__bars { height: min(38px, 8vh); }
   .converged-loader__lanes { height: min(52px, 11vh); }
+  .converged-loader__stage-action :deep(.paper-button) { --button-size: 26px; }
 }
 
 @media (max-width: 720px) and (max-height: 650px) {
@@ -553,8 +601,15 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   .converged-loader__logo :deep(.brand-logo__backdrop),
   .converged-loader__logo :deep(.brand-logo__cut),
   .converged-loader__logo :deep(.brand-logo__sprinkle),
-  .converged-loader__lane-bar,
+  .converged-loader__lane-peek,
+  .converged-loader__stage-action :deep(.paper-button),
   .converged-loader__bars > span.is-frontier { animation: none; }
+
+  .is-ready .converged-loader__lane-peek,
+  .converged-loader__stage-action :deep(.paper-button) {
+    opacity: 1;
+    transform: none;
+  }
 
   .converged-loader__stages li,
   .converged-loader__stamp,

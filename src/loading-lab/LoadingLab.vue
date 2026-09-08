@@ -30,7 +30,6 @@ const selected = ref<VariantId>(initialVariant);
 const progress = ref(38);
 const playing = ref(true);
 let timer: ReturnType<typeof setInterval> | undefined;
-let readyTicks = 0;
 
 const currentVariant = computed(() => (
   variants.find((variant) => variant.id === selected.value) ?? variants[0]
@@ -38,26 +37,29 @@ const currentVariant = computed(() => (
 
 const phase = computed(() => {
   if (progress.value >= 100) return "Ready to play";
-  if (progress.value >= 94) return "Finishing soundcheck";
-  if (progress.value >= 70) return "Preparing audio";
-  if (progress.value >= 20) return "Loading instrument samples";
+  if (progress.value >= 96) return "Finishing soundcheck";
+  if (progress.value >= 78) return "Preparing audio";
+  if (progress.value >= 64) return "Checking MIDI input";
+  if (progress.value >= 18) return "Loading instrument samples";
   return "Waking the visual stage";
 });
 
 const message = computed(() => {
   if (progress.value >= 100) return "Everything is tuned. Your first note is waiting.";
-  if (progress.value >= 94) return "One last breath before the room becomes yours.";
-  if (progress.value >= 70) return "Connecting the sound engine to your instrument.";
-  if (progress.value >= 20) return "Gathering piano, strings, brass, and the rest of the room.";
+  if (progress.value >= 96) return "One last breath before the room becomes yours.";
+  if (progress.value >= 78) return "Connecting the sound engine to your instrument.";
+  if (progress.value >= 64) return "Checking browser support; controllers can join anytime.";
+  if (progress.value >= 18) return "Gathering piano, strings, brass, and the rest of the room.";
   return "Preparing the canvas where sound becomes shape.";
 });
 
 const stages = computed(() => {
   const definitions = [
-    { label: "Visual stage", start: 0, end: 20 },
-    { label: "Instrument samples", start: 20, end: 70 },
-    { label: "Audio system", start: 70, end: 94 },
-    { label: "Ready to play", start: 94, end: 100 },
+    { label: "Visual stage", start: 0, end: 18 },
+    { label: "Instrument samples", start: 18, end: 64 },
+    { label: "MIDI input", start: 64, end: 78 },
+    { label: "Audio system", start: 78, end: 96 },
+    { label: "Ready to play", start: 96, end: 100 },
   ];
 
   return definitions.map((stage) => ({
@@ -70,14 +72,11 @@ const stages = computed(() => {
 function tick() {
   if (!playing.value) return;
   if (progress.value >= 100) {
-    readyTicks += 1;
-    if (readyTicks >= 10) {
-      progress.value = 0;
-      readyTicks = 0;
-    }
+    playing.value = false;
     return;
   }
-  progress.value += 1;
+  progress.value = Math.min(100, progress.value + 1);
+  if (progress.value === 100) playing.value = false;
 }
 
 function togglePlaying() {
@@ -86,8 +85,11 @@ function togglePlaying() {
 
 function restart() {
   progress.value = 0;
-  readyTicks = 0;
   playing.value = true;
+}
+
+function enterApp() {
+  window.location.assign("/");
 }
 
 onMounted(() => {
@@ -147,6 +149,7 @@ onBeforeUnmount(() => {
         :phase="phase"
         :message="message"
         v-bind="currentVariant.props"
+        @enter="enterApp"
       />
     </section>
   </main>

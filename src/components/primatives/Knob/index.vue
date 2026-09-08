@@ -759,6 +759,7 @@ useGSAP(({ gsap }: { gsap: any }) => {
 .knob-wrapper__face {
   position: relative;
   inline-size: 100%;
+  min-inline-size: 0;
   aspect-ratio: 1;
 }
 

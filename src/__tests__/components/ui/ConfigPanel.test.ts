@@ -224,6 +224,16 @@ describe("ConfigPanel.vue", () => {
     expect(configPanelSource).not.toContain("var(--ivory-4)");
   });
 
+  it("aligns action Knobs with small Buttons", () => {
+    expect(configPanelSource).toContain("--knob-size: 32px");
+    expect(configPanelSource).toMatch(
+      /\.config-panel__global-controls\s*\{[^}]*align-items: flex-start;/s,
+    );
+    expect(configPanelSource).toMatch(
+      /\.config-panel__section-controls\s*\{[^}]*align-items: flex-start;/s,
+    );
+  });
+
   it("hides the MIDI shortcut when only generic outputs are present", async () => {
     keyboardDrawerStore.midi.connectedOutputs = ["Scarlett 2i2 MIDI"];
 

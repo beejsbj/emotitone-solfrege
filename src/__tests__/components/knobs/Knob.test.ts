@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
+import knobSource from "@/components/primatives/Knob/index.vue?raw";
 import { formatKnobDisplayValue } from "@/components/primatives/Knob/displayValue";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
 import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
@@ -244,6 +245,9 @@ describe("Knob public interface", () => {
     expect(wrapper.get(".knob-wrapper__label").text()).toBe("Volume");
     expect(wrapper.find(".knob-face").exists()).toBe(true);
     expect(wrapper.find(".knob-primitive__label").exists()).toBe(false);
+    expect(knobSource).toMatch(
+      /\.knob-wrapper__face\s*\{[^}]*min-inline-size: 0;/s,
+    );
   });
 
   it("preserves deprecated value fallback and modelValue precedence", () => {

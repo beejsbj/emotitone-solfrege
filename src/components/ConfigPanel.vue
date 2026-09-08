@@ -955,13 +955,14 @@ const formatTimestamp = (timestamp: string) => {
 
 .config-panel__global-controls {
   min-inline-size: 0;
+  align-items: flex-start;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--s-1);
 }
 
 .config-panel__boolean-knob {
-  --knob-size: 2rem;
+  --knob-size: 32px;
   flex: 0 0 var(--knob-size);
   inline-size: var(--knob-size);
 }
@@ -995,6 +996,7 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__section-controls {
+  align-items: flex-start;
   flex: none;
   gap: var(--s-2);
 }

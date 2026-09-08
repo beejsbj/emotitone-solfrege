@@ -97,7 +97,7 @@
           <div class="sink-frame__source">unique-brand-cover.html</div>
           <UniqueBrandCover />
         </article>
-        <article class="sink-frame">
+        <article id="unique-brand-logo" class="sink-frame">
           <div class="sink-frame__source">unique-brand-logo.html</div>
           <UniqueBrandLogo />
         </article>

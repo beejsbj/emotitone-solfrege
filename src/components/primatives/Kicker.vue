@@ -1,5 +1,16 @@
 <template>
   <MarkSticker
+    v-if="form === 'dot'"
+    class="kicker-compat"
+    :class="`kicker-compat--${density}`"
+    :mark="markForDot"
+    :variant="tone === 'open' ? 'outline' : 'fill'"
+    :color="stickerColor"
+    :mark-size="markSize"
+    aria-label="Section marker"
+  />
+  <MarkSticker
+    v-else
     class="kicker-compat"
     :class="`kicker-compat--${density}`"
     :mark="markForDot"
@@ -9,7 +20,7 @@
     :mark-size="markSize"
     aria-label="Section marker"
   >
-    <slot v-if="form !== 'dot'" />
+    <slot />
   </MarkSticker>
 </template>
 

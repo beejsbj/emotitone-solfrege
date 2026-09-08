@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { markRaw } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
+import tabsSource from "@/components/primatives/Tabs.vue?raw";
 import tabsPageSource from "@/style-guide/TabsPage.vue?raw";
 
 const TestIcon = markRaw({ template: "<svg />" });
@@ -160,5 +161,35 @@ describe("Tabs", () => {
     vi.advanceTimersByTime(401);
     await destination.trigger("click", { detail: 1 });
     expect(wrapper.emitted("update:modelValue")).toEqual([["mallets", "pointer"]]);
+  });
+
+  it("maps a vertical mouse wheel onto an overflowing horizontal rail", () => {
+    const wrapper = mount(Tabs, {
+      props: { tabs, modelValue: "keys", layout: "scroll" },
+    });
+    const rail = wrapper.element as HTMLElement;
+    Object.defineProperties(rail, {
+      clientWidth: { configurable: true, value: 200 },
+      scrollWidth: { configurable: true, value: 700 },
+      scrollLeft: { configurable: true, writable: true, value: 120 },
+    });
+
+    const wheel = new WheelEvent("wheel", { deltaY: 48, cancelable: true });
+    rail.dispatchEvent(wheel);
+
+    expect(rail.scrollLeft).toBe(168);
+    expect(wheel.defaultPrevented).toBe(true);
+
+    rail.scrollLeft = 500;
+    const boundaryWheel = new WheelEvent("wheel", { deltaY: 48, cancelable: true });
+    rail.dispatchEvent(boundaryWheel);
+    expect(rail.scrollLeft).toBe(500);
+    expect(boundaryWheel.defaultPrevented).toBe(false);
+  });
+
+  it("stops both the brass chip and its sheen under Reduced Motion", () => {
+    expect(tabsSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.tabs__chip\.brass::after\s*\{[^}]*animation: none;/,
+    );
   });
 });

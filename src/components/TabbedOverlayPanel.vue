@@ -401,7 +401,8 @@ provide("tabs-context", { value: activeValue });
 .tabbed-overlay-panel__swipe-surface {
   position: relative;
   min-block-size: 100%;
-  overflow: clip;
+  overflow-x: clip;
+  overflow-y: visible;
   touch-action: pan-y;
   overscroll-behavior-inline: contain;
 }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { h } from "vue";
 import TabbedOverlayPanel from "@/components/TabbedOverlayPanel.vue";
+import tabbedOverlayPanelSource from "@/components/TabbedOverlayPanel.vue?raw";
 
 const tabs = [
   { value: "home", label: "Home", shortLabel: "Home" },
@@ -189,6 +190,13 @@ describe("TabbedOverlayPanel swipe navigation", () => {
     });
 
     expect(scrollBody.element.scrollTop).toBe(0);
+  });
+
+  it("clips paired motion horizontally without clipping a taller incoming page", () => {
+    expect(tabbedOverlayPanelSource).toMatch(
+      /\.tabbed-overlay-panel__swipe-surface\s*\{[^}]*overflow-x: clip;[^}]*overflow-y: visible;/s,
+    );
+    expect(tabbedOverlayPanelSource).not.toContain("overflow: clip;");
   });
 
   it("commits immediately when reduced motion is requested", async () => {

@@ -11,6 +11,7 @@
     @pointercancel="handleRailPointerCancel"
     @lostpointercapture="handleRailPointerCancel"
     @click.capture="handleRailClickCapture"
+    @wheel="handleRailWheel"
   >
     <div ref="trackEl" class="tabs__track">
       <span class="tabs__streak" aria-hidden="true" />
@@ -210,6 +211,33 @@ const handleRailClickCapture = (event: MouseEvent) => {
   event.stopPropagation();
   suppressRailClick = false;
   window.clearTimeout(railClickTimer);
+};
+
+const handleRailWheel = (event: WheelEvent) => {
+  const scroll = scrollEl.value;
+  if (
+    props.layout !== "scroll" ||
+    !scroll ||
+    event.shiftKey ||
+    Math.abs(event.deltaY) <= Math.abs(event.deltaX)
+  ) return;
+
+  const maxScrollLeft = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
+  if (maxScrollLeft === 0) return;
+
+  const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? 16
+    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? scroll.clientWidth
+      : 1;
+  const nextScrollLeft = Math.max(
+    0,
+    Math.min(maxScrollLeft, scroll.scrollLeft + event.deltaY * deltaScale),
+  );
+  if (nextScrollLeft === scroll.scrollLeft) return;
+
+  event.preventDefault();
+  scroll.scrollLeft = nextScrollLeft;
 };
 
 const chipStyle = computed(() => ({
@@ -476,7 +504,8 @@ onBeforeUnmount(() => {
     transform: none;
   }
 
-  .tabs__chip.brass {
+  .tabs__chip.brass,
+  .tabs__chip.brass::after {
     animation: none;
   }
 }

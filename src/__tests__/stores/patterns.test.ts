@@ -732,4 +732,27 @@ describe("Patterns Store", () => {
     ]);
     expect(savedPattern?.bpm).toBe(90);
   });
+
+  it("deletes a user pattern and clears it from the active desk", () => {
+    const pattern = createPattern();
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    const fallbackPattern = patternsStore.patterns.at(-2);
+
+    expect(patternsStore.deletePattern(pattern.id)).toBe(true);
+    expect(patternsStore.savedPatterns).not.toContainEqual(pattern);
+    expect(patternsStore.focusedPatternId).toBe(fallbackPattern?.id);
+    expect(patternsStore.focusedPattern).toEqual(fallbackPattern);
+    expect(patternsStore.loadedBasePatternId).toBeNull();
+    expect(patternsStore.loadedBaseNotes).toEqual([]);
+    expect(patternsStore.isStripCleared).toBe(true);
+  });
+
+  it("does not delete default library patterns", () => {
+    const defaultPattern = patternsStore.patterns.find((pattern) => pattern.isDefault);
+    expect(defaultPattern).toBeDefined();
+
+    expect(patternsStore.deletePattern(defaultPattern!.id)).toBe(false);
+    expect(patternsStore.patterns).toContainEqual(defaultPattern);
+  });
 });

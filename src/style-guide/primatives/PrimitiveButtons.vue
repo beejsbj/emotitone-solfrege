@@ -108,7 +108,7 @@ const features = [
   { label: "Material", value: "ink / ivory everyday · four canonical brass finishes" },
   { label: "Icon", value: "50% of face · exact centered SVG box" },
   { label: "Sizes", value: "32 / 40 / 48px · contextual --button-size override" },
-  { label: "States", value: "hover contrast · press/rebound · loading perimeter · disabled stillness" },
+  { label: "States", value: "hover contrast · non-brass elastic rebound · brass snap · loading perimeter · disabled stillness" },
   { label: "Source", value: "components/primatives/Button.vue" },
 ];
 </script>

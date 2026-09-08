@@ -11,19 +11,28 @@
       <PatternCard
         v-for="(pattern, index) in stackPatterns"
         :key="pattern.id"
-        v-bind="pattern"
         :class="['pattern-reel__stack-card', depthClass(index)]"
-        @click="promotePattern(pattern.id)"
+        :label="`Pattern ${pattern.num} — ${pattern.sub}`"
+        :ordinal="pattern.num"
+        :name="pattern.name"
+        :metadata="pattern.when ?? ''"
+        :spine="pattern.spine"
+        :bar-tape="pattern.barTape"
+        @select="promotePattern(pattern.id)"
       />
     </div>
 
     <PatternCard
       v-if="activePattern"
-      v-bind="activePattern"
-      shape="active"
+      state="expanded"
       class="pattern-reel__active-card"
-      :footer-text="footerText"
-      :status-text="statusText"
+      :label="`Pattern ${activePattern.num} — ${activePattern.sub}`"
+      :ordinal="activePattern.num"
+      :name="activePattern.name"
+      :metadata="activePattern.when ?? ''"
+      :spine="activePattern.spine"
+      :code-tokens="activePattern.codeTokens"
+      :can-delete="false"
     />
   </section>
 </template>
@@ -31,7 +40,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import PatternCard from "./PatternCard.vue";
-import type { BarTapeMode, BarTapeSegment } from "../primatives/BarTape.vue";
+import type { BarTapeSegment } from "../primatives/BarTape.vue";
 import type { CodeStripToken } from "../uniques/CodeStrip/index.vue";
 
 export interface PatternReelItem {
@@ -42,7 +51,6 @@ export interface PatternReelItem {
   spine?: string;
   when?: string;
   barTape?: BarTapeSegment[];
-  barTapeMode?: BarTapeMode;
   codeTokens?: CodeStripToken[];
 }
 

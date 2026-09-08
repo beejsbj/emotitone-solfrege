@@ -59,7 +59,7 @@
           <div class="sink-frame__source">primitive-buttons.html</div>
           <PrimitiveButtons />
         </article>
-        <article class="sink-frame">
+        <article id="primitive-card" class="sink-frame">
           <div class="sink-frame__source">primitive-card.html</div>
           <PrimitiveCard />
         </article>
@@ -78,10 +78,6 @@
         <article class="sink-frame">
           <div class="sink-frame__source">primitive-marks.html</div>
           <PrimitiveMarks />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-spine-card.html</div>
-          <PrimitiveSpineCard />
         </article>
         <article class="sink-frame">
           <div class="sink-frame__source">primitive-tabs.html</div>
@@ -185,7 +181,6 @@ import PrimitiveNote from "./primatives/PrimitiveNote.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
 import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
 import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
-import PrimitiveSpineCard from "./primatives/PrimitiveSpineCard.vue";
 import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
 import CompoundCodeStripBar from "./compounds/CompoundCodeStripBar.vue";
 import CompoundBeatIndicator from "./compounds/CompoundBeatIndicator.vue";

@@ -1,59 +1,28 @@
 <template>
   <AnatomyDisplay
-    title="Bar Tape &middot; Music Feedback Primitive"
+    title="Bar Tape &middot; Musical Event Timeline"
     :features="features"
-    caption="Seven diatonic seats map music feedback onto a flush strip. The source component owns segment color, major/equal proportions, height, dim state, downbeat, playhead, and boxed/flush framing. The specimen keeps panel staging and captions local."
+    caption="Bar Tape compresses the ordered notes of a pattern into one duration-proportional color strip. The source owns timeline layout and minimum segment visibility; Music Color supplies the fills. The specimen uses real built-in pattern data."
   >
     <template #hero>
       <div class="hero-panel">
         <div class="hero-head">
-          <span class="title">Piano</span>
-          <span class="meta">C Major &middot; 4/4 &middot; Live</span>
+          <span class="title">{{ patterns[0].name }}</span>
+          <span class="meta">{{ patterns[0].notes.length }} events &middot; duration weighted</span>
         </div>
-        <BarTape mode="major" :playhead-percent="18" />
-        <div class="hero-ticks">
-          <span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span>
-        </div>
+        <BarTape :segments="timelines[0]" />
       </div>
     </template>
 
-    <VariantGrid title="Variants &mdash; Segment model">
-      <VariantCell caption="Major ratio &middot; 2-2-1-2-2-2-1" stage="ink3">
-        <BarTape mode="major" />
+    <VariantGrid title="Real pattern sequences">
+      <VariantCell caption="Twinkle &middot; repeated notes and held ending" stage="ink3">
+        <BarTape :segments="timelines[0]" />
       </VariantCell>
-      <VariantCell caption="Equal segments &middot; grid mode" stage="ink3">
-        <BarTape mode="equal" />
+      <VariantCell caption="Mary &middot; varied pitch order" stage="ink3">
+        <BarTape :segments="timelines[1]" />
       </VariantCell>
-      <VariantCell caption="Live playhead &middot; current position" stage="ink3">
-        <BarTape mode="equal" :playhead-percent="34" />
-      </VariantCell>
-    </VariantGrid>
-
-    <VariantGrid title="Variants &mdash; States">
-      <VariantCell caption="Played lit &middot; unplayed dim" stage="ink3">
-        <BarTape mode="equal" :segments="sparseSegments" />
-      </VariantCell>
-      <VariantCell caption="Do downbeat &middot; one brass signal" stage="ink3">
-        <BarTape :segments="downbeatSegments" />
-      </VariantCell>
-      <VariantCell caption="Fa spotlight &middot; scale-degree focus" stage="ink3">
-        <BarTape mode="equal" :segments="focusSegments" />
-      </VariantCell>
-    </VariantGrid>
-
-    <VariantGrid title="Variants &mdash; Size and frame">
-      <VariantCell caption="Tall &middot; 16px section anchor" stage="ink3">
-        <BarTape size="tall" />
-      </VariantCell>
-      <VariantCell caption="Thin &middot; 4px meta row" stage="ink3">
-        <BarTape size="thin" />
-      </VariantCell>
-      <VariantCell caption="Flush frame &middot; card footer use" stage="ink3">
-        <div class="mini-panel">
-          <span>Synth</span>
-          <BarTape frame="flush" :playhead-percent="52" />
-        </div>
+      <VariantCell caption="Hot Cross Buns &middot; short pulses and long notes" stage="ink3">
+        <BarTape :segments="timelines[2]" />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -61,117 +30,83 @@
 
 <script setup lang="ts">
 import BarTape from "../../components/primatives/BarTape.vue";
+import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
+import { useColorSystem } from "../../composables/useColorSystem";
+import { defaultPatterns } from "../../data/patterns";
+import type { Pattern } from "../../types/patterns";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
-import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
 
-const sparseSegments: BarTapeSegment[] = [
-  { note: "do" },
-  { note: "re", dim: true },
-  { note: "mi" },
-  { note: "fa", dim: true },
-  { note: "sol" },
-  { note: "la", dim: true },
-  { note: "ti", dim: true },
-];
+const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+const patterns = defaultPatterns.slice(0, 3);
 
-const downbeatSegments: BarTapeSegment[] = [
-  { note: "do", downbeat: true },
-  { note: "re", dim: true },
-  { note: "mi", dim: true },
-  { note: "fa", dim: true },
-  { note: "sol", dim: true },
-  { note: "la", dim: true },
-  { note: "ti", dim: true },
-];
+const toTimeline = (pattern: Pattern): BarTapeSegment[] =>
+  pattern.notes.map((note) => ({
+    color: getStaticPrimaryColorByScaleIndex(
+      note.scaleIndex,
+      pattern.mode,
+      pattern.key,
+      note.octave,
+    ),
+    durationMs: note.duration,
+  }));
 
-const focusSegments: BarTapeSegment[] = [
-  { note: "do", dim: true },
-  { note: "re", dim: true },
-  { note: "mi", dim: true },
-  { note: "fa" },
-  { note: "sol", dim: true },
-  { note: "la", dim: true },
-  { note: "ti", dim: true },
-];
+const timelines = patterns.map(toTimeline);
 
 const features = [
-  { label: "Panel", value: "ink bg · 1px hairline · optional flush frame" },
-  { label: "Height", value: "8px default · 4px thin · 16px tall" },
-  { label: "Segments", value: "7 spans · one per diatonic seat" },
-  { label: "Color", value: "--note-do through --note-ti per seat" },
-  { label: "Major", value: "2-2-1-2-2-2-1 flex ratio; mi and ti are narrow" },
-  { label: "Equal", value: "uniform flex: 1 per segment" },
-  { label: "Playhead", value: "2px ivory · glow 6px · clamped 0-100%" },
-  { label: "Downbeat", value: "--brass + --shadow-glow-brass on one segment" },
-  { label: "Dim", value: "opacity .18 on unplayed segments" },
-  { label: "Tilt", value: "none; strip sits flush, no rotation" },
+  { label: "Meaning", value: "the pattern's musical events in chronological order" },
+  { label: "Density", value: "4px compressed timeline" },
+  { label: "Segments", value: "one span per performed note; repeated notes remain ordered events" },
+  { label: "Width", value: "proportional to duration with a 50ms minimum for visibility" },
+  { label: "Color", value: "static primary fill from the shared Music Color resolver" },
+  { label: "Surface", value: "borderless and flush; the consuming card owns clipping and framing" },
+  { label: "Interaction", value: "none; Bar Tape is compact musical feedback" },
+  { label: "Production", value: "Pattern Card footer instead of duplicated color-strip markup" },
 ];
 </script>
 
 <style scoped>
 .hero-panel {
   width: 100%;
-  background: var(--ink-3);
+  overflow: hidden;
   border: 1px solid var(--ink-5);
+  background: var(--ink-3);
 }
 
 .hero-head {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 14px;
   padding: 12px 14px 10px;
 }
 
 .hero-head .title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: .04em;
-  text-transform: uppercase;
+  overflow: hidden;
   color: var(--ivory);
-  border: 1px solid var(--ink-5);
-  padding: 4px 9px 3px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .hero-head .meta {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .14em;
+  flex: 0 0 auto;
   color: var(--ivory-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 
-.hero-ticks {
-  display: flex;
-  height: 6px;
-  align-items: stretch;
-  border: 1px solid var(--hairline);
-  border-top: 0;
-}
-
-.hero-ticks span {
-  flex: 1;
-  border-right: 1px solid var(--hairline);
-}
-
-.hero-ticks span:last-child {
-  border-right: 0;
-}
-
-.mini-panel {
-  width: 100%;
-  border: 1px solid var(--ink-5);
-  background: var(--ink-3);
-}
-
-.mini-panel span {
-  display: block;
-  padding: 8px 10px 6px;
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--ivory);
+@media (max-width: 560px) {
+  .hero-head {
+    align-items: start;
+    flex-direction: column;
+  }
 }
 </style>

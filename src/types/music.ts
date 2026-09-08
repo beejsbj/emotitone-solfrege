@@ -25,8 +25,6 @@ export interface SolfegeData {
   emotion: string;
   /** Detailed description of the note's character */
   description: string;
-  /** Shape of visual flecks */
-  fleckShape: "circle" | "star" | "diamond" | "sparkle" | "mist";
   /** Textural description for visual effects */
   texture: string;
   /** Tonal interval name from the tonic (for example 3m or 5P) */

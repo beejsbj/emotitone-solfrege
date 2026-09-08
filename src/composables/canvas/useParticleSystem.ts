@@ -6,6 +6,7 @@
 import type { Particle } from "@/types/canvas";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import type { ParticleConfig } from "@/types/visual";
+import { drawMarkOnCanvas, MARK_NAMES } from "@/components/primatives/marks";
 import { useColorSystem } from "../useColorSystem";
 
 export function useParticleSystem() {
@@ -31,7 +32,7 @@ export function useParticleSystem() {
       vx: 0,
       vy: 0,
       color: "",
-      shape: "circle",
+      mark: "disk",
       size: 1,
       life: 0,
       maxLife: 1000,
@@ -79,7 +80,7 @@ export function useParticleSystem() {
         3,
         key
       );
-      particle.shape = note.fleckShape || "circle";
+      particle.mark = MARK_NAMES[Math.floor(Math.random() * MARK_NAMES.length)] ?? "disk";
       particle.size =
         particleConfig.sizeMin +
         Math.random() * (particleConfig.sizeMax - particleConfig.sizeMin);
@@ -144,105 +145,9 @@ export function useParticleSystem() {
       ctx.translate(particle.x, particle.y);
       ctx.rotate(particle.rotation);
 
-      // Draw based on shape
-      switch (particle.shape) {
-        case "circle":
-          drawCircle(ctx, particle.size);
-          break;
-        case "star":
-          drawStar(ctx, particle.size);
-          break;
-        case "diamond":
-          drawDiamond(ctx, particle.size);
-          break;
-        case "sparkle":
-          drawSparkle(ctx, particle.size);
-          break;
-        case "mist":
-          drawMist(ctx, particle.size);
-          break;
-        default:
-          drawCircle(ctx, particle.size);
-      }
+      drawMarkOnCanvas(ctx, particle.mark, particle.size);
 
       ctx.restore();
-    }
-  };
-
-  // Helper functions for drawing shapes
-  const drawCircle = (ctx: CanvasRenderingContext2D, size: number) => {
-    ctx.beginPath();
-    ctx.arc(0, 0, size, 0, Math.PI * 2);
-    ctx.fill();
-  };
-
-  const drawStar = (ctx: CanvasRenderingContext2D, size: number) => {
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const angle = (i * 4 * Math.PI) / 5;
-      const outerRadius = size;
-      const innerRadius = size * 0.4;
-
-      if (i === 0) {
-        ctx.moveTo(
-          outerRadius * Math.cos(angle),
-          outerRadius * Math.sin(angle)
-        );
-      } else {
-        ctx.lineTo(
-          outerRadius * Math.cos(angle),
-          outerRadius * Math.sin(angle)
-        );
-      }
-
-      const innerAngle = angle + Math.PI / 5;
-      ctx.lineTo(
-        innerRadius * Math.cos(innerAngle),
-        innerRadius * Math.sin(innerAngle)
-      );
-    }
-    ctx.closePath();
-    ctx.fill();
-  };
-
-  const drawDiamond = (ctx: CanvasRenderingContext2D, size: number) => {
-    ctx.beginPath();
-    ctx.moveTo(0, -size);
-    ctx.lineTo(size, 0);
-    ctx.lineTo(0, size);
-    ctx.lineTo(-size, 0);
-    ctx.closePath();
-    ctx.fill();
-  };
-
-  const drawSparkle = (ctx: CanvasRenderingContext2D, size: number) => {
-    // Draw a sparkle as a combination of lines
-    ctx.strokeStyle = ctx.fillStyle;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-size, 0);
-    ctx.lineTo(size, 0);
-    ctx.moveTo(0, -size);
-    ctx.lineTo(0, size);
-    ctx.moveTo(-size * 0.7, -size * 0.7);
-    ctx.lineTo(size * 0.7, size * 0.7);
-    ctx.moveTo(size * 0.7, -size * 0.7);
-    ctx.lineTo(-size * 0.7, size * 0.7);
-    ctx.stroke();
-  };
-
-  const drawMist = (ctx: CanvasRenderingContext2D, size: number) => {
-    // Draw mist as multiple small circles
-    const mistParticles = 3;
-    for (let i = 0; i < mistParticles; i++) {
-      const angle = (i / mistParticles) * Math.PI * 2;
-      const radius = size * 0.5;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-
-      ctx.beginPath();
-      ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
-      ctx.fill();
     }
   };
 

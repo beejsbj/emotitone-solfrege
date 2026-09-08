@@ -44,8 +44,16 @@ describe("Brand Logo definition lab", () => {
       expect(logoLabSource).toContain(`name: "${mark}"`);
     }
 
-    expect(logoLabSource).toContain('location: "inside"');
-    expect(logoLabSource).toContain('location: "outside"');
+    for (const [index, id] of ["A", "B", "C", "D"].entries()) {
+      const start = logoLabSource.indexOf(`id: "${id}"`);
+      const nextId = ["B", "C", "D"][index];
+      const end = nextId ? logoLabSource.indexOf(`id: "${nextId}"`) : logoLabSource.indexOf("];", start);
+      const treatmentSource = logoLabSource.slice(start, end);
+
+      expect(treatmentSource).toContain('location: "inside"');
+      expect(treatmentSource).toContain('location: "outside"');
+    }
+
     expect(logoLabSource).toContain(':data-location="sprinkle.location"');
   });
 

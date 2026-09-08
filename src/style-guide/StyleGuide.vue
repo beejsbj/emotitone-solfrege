@@ -89,11 +89,7 @@
     <section class="sink-section" aria-labelledby="uniques-heading">
       <h2 id="uniques-heading">Uniques</h2>
       <div class="sink-stack">
-        <article class="sink-frame">
-          <div class="sink-frame__source">unique-brand-cover.html</div>
-          <UniqueBrandCover />
-        </article>
-        <article class="sink-frame">
+        <article id="unique-brand-logo" class="sink-frame">
           <div class="sink-frame__source">unique-brand-logo.html</div>
           <UniqueBrandLogo />
         </article>
@@ -196,7 +192,6 @@ import CompoundKeyboard from "./compounds/CompoundKeyboard.vue";
 import CompoundPatternCard from "./compounds/CompoundPatternCard.vue";
 import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
 import CompositionLoadingScreen from "./compositions/CompositionLoadingScreen.vue";
-import UniqueBrandCover from "./uniques/UniqueBrandCover.vue";
 import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";
 import UniqueCodeStrip from "./uniques/UniqueCodeStrip.vue";
 import UniqueDrawer from "./uniques/UniqueDrawer.vue";

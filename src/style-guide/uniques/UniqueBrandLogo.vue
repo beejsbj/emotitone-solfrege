@@ -1,52 +1,65 @@
 <template>
   <AnatomyDisplay
-    title="Brand Logo · Unique Identity System"
+    title="Brand Logo · Centered Cluster"
     :features="features"
-    caption="BrandLogo is a singular identity artifact, not a generic logo primitive. The source component owns the wordmark, monogram, tagline, brass, inverted, and note-mark lockups; the specimen only arranges and explains them."
+    caption="The approved EmotiTone identity is one singular source: five smooth brand-colour circles behind a six-cut Ink/Ivory ET, with nine real Marks scattered across and around it."
   >
     <template #hero>
-      <BrandLogo />
+      <div class="brand-logo-specimen brand-logo-specimen--ink">
+        <BrandLogo size="min(280px, 72vw)" />
+      </div>
     </template>
 
-    <VariantGrid title="Variants">
-      <VariantCell
-        v-for="variant in variants"
-        :key="variant.value"
-        :caption="variant.caption"
-      >
-        <BrandLogo
-          :variant="variant.value"
-          :image-src="variant.value === 'tagline' ? jazzCollage : undefined"
-          show-label
-        />
+    <VariantGrid title="Responsive lockups">
+      <VariantCell caption="Canonical stacked lockup · Ink">
+        <div class="brand-logo-specimen brand-logo-specimen--ink">
+          <BrandLogo size="220px" />
+        </div>
+      </VariantCell>
+      <VariantCell caption="Canonical stacked lockup · Bone">
+        <div class="brand-logo-specimen brand-logo-specimen--bone">
+          <BrandLogo surface="bone" size="220px" />
+        </div>
+      </VariantCell>
+      <VariantCell caption="Compact horizontal lockup">
+        <div class="brand-logo-specimen brand-logo-specimen--ink">
+          <BrandLogo layout="compact" size="64px" />
+        </div>
+      </VariantCell>
+      <VariantCell caption="Mark only">
+        <div class="brand-logo-specimen brand-logo-specimen--bone">
+          <BrandLogo layout="mark" surface="bone" size="128px" />
+        </div>
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
 </template>
 
 <script setup lang="ts">
-import type { BrandLogoVariant } from "../../components/uniques/BrandLogo.vue";
 import BrandLogo from "../../components/uniques/BrandLogo.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
-import jazzCollage from "../assets/jazz-collage.png";
 
 const features = [
-  { label: "Role", value: "singular Emotitone identity system" },
-  { label: "Wordmark", value: "Lets Jazz · uppercase · ivory · no descenders" },
-  { label: "Subline", value: "mono tracked label below lockup" },
-  { label: "Variants", value: "wordmark · monogram · tagline · brass · inverted · notes" },
-  { label: "Palette", value: "brand palette plus ivory/ink; one brass signal max" },
-  { label: "Boundary", value: "preserved unique, not primitive or compound" },
-];
-
-const variants: Array<{ value: BrandLogoVariant; caption: string }> = [
-  { value: "wordmark", caption: "Canonical wordmark" },
-  { value: "monogram", caption: "Initial mark" },
-  { value: "tagline", caption: "Logo plus tagline art" },
-  { value: "brass", caption: "Brass with ink and ivory" },
-  { value: "inverted", caption: "Bone surface" },
-  { value: "notes", caption: "With note marks" },
+  { label: "Role", value: "singular EmotiTone identity artifact" },
+  { label: "Structure", value: "five circles → six ET paper cuts → nine Marks" },
+  { label: "Monogram", value: "E = four Ink cuts · T = two Ivory cuts" },
+  { label: "Scatter", value: "accepted Mark primitives on an expanded 180 × 160 field" },
+  { label: "Lockups", value: "stacked · compact · mark-only" },
+  { label: "Boundary", value: "circles and placement stay local to BrandLogo" },
 ];
 </script>
+
+<style scoped>
+.brand-logo-specimen {
+  display: grid;
+  min-height: 220px;
+  padding: clamp(20px, 4vw, 48px);
+  overflow: hidden;
+  place-items: center;
+}
+
+.brand-logo-specimen--ink { background: var(--ink); }
+.brand-logo-specimen--bone { background: var(--bone); }
+</style>

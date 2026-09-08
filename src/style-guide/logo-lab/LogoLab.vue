@@ -37,11 +37,11 @@ const treatments: MarkTreatment[] = [
     description: "The favicon's exact five-blob hierarchy sits behind a crisp Ink E and Ivory T.",
     verdict: "Closest to the old favicon silhouette; the foreground monogram stays calm.",
     backdrop: [
-      { name: "disk", x: 70, y: 34, size: 88, rotate: -5, tone: "plum", location: "outside", layer: "behind", opacity: .94 },
-      { name: "disk", x: 31, y: 55, size: 52, rotate: 4, tone: "cobalt", location: "outside", layer: "behind", opacity: .9 },
-      { name: "disk", x: 109, y: 55, size: 52, rotate: -6, tone: "mustard", location: "outside", layer: "behind", opacity: .9 },
-      { name: "disk", x: 48, y: 91, size: 40, rotate: -4, tone: "tomato", location: "outside", layer: "behind", opacity: .88 },
-      { name: "disk", x: 92, y: 91, size: 40, rotate: 5, tone: "pine", location: "outside", layer: "behind", opacity: .88 },
+      { name: "disk", x: 70, y: 25, size: 146, rotate: -8, tone: "plum", location: "outside", layer: "behind" },
+      { name: "disk", x: 23, y: 62, size: 86, rotate: 9, tone: "cobalt", location: "outside", layer: "behind" },
+      { name: "disk", x: 117, y: 43, size: 86, rotate: -12, tone: "mustard", location: "outside", layer: "behind" },
+      { name: "disk", x: 39, y: 100, size: 66, rotate: 7, tone: "tomato", location: "outside", layer: "behind" },
+      { name: "disk", x: 96, y: 102, size: 68, rotate: -6, tone: "pine", location: "outside", layer: "behind" },
     ],
     sprinkles: [
       { name: "wave", x: 54, y: 55, size: 19, rotate: -5, tone: "ivory", location: "inside", layer: "front" },
@@ -57,11 +57,11 @@ const treatments: MarkTreatment[] = [
     description: "The same five blobs lean left while musical Marks pull the eye diagonally.",
     verdict: "Keeps the favicon body but gives the scatter the most rhythmic movement.",
     backdrop: [
-      { name: "disk", x: 60, y: 31, size: 86, rotate: -9, tone: "plum", location: "outside", layer: "behind", opacity: .94 },
-      { name: "disk", x: 25, y: 56, size: 50, rotate: -7, tone: "cobalt", location: "outside", layer: "behind", opacity: .9 },
-      { name: "disk", x: 101, y: 51, size: 54, rotate: 8, tone: "mustard", location: "outside", layer: "behind", opacity: .9 },
-      { name: "disk", x: 42, y: 91, size: 38, rotate: -7, tone: "tomato", location: "outside", layer: "behind", opacity: .88 },
-      { name: "disk", x: 88, y: 88, size: 42, rotate: 7, tone: "pine", location: "outside", layer: "behind", opacity: .88 },
+      { name: "disk", x: 59, y: 23, size: 146, rotate: -8, tone: "plum", location: "outside", layer: "behind" },
+      { name: "disk", x: 20, y: 61, size: 84, rotate: 9, tone: "cobalt", location: "outside", layer: "behind" },
+      { name: "disk", x: 111, y: 43, size: 94, rotate: -12, tone: "mustard", location: "outside", layer: "behind" },
+      { name: "disk", x: 35, y: 99, size: 66, rotate: 7, tone: "tomato", location: "outside", layer: "behind" },
+      { name: "disk", x: 94, y: 102, size: 70, rotate: -6, tone: "pine", location: "outside", layer: "behind" },
     ],
     sprinkles: [
       { name: "whole", x: 19, y: 30, size: 17, rotate: -18, tone: "ink", location: "outside", layer: "front" },
@@ -78,11 +78,11 @@ const treatments: MarkTreatment[] = [
     description: "A broader five-blob field lets the Ink/Ivory cuts interrupt more colour.",
     verdict: "The boldest backdrop and the loosest scatter; strongest at larger sizes.",
     backdrop: [
-      { name: "disk", x: 78, y: 35, size: 92, rotate: 6, tone: "plum", location: "outside", layer: "behind", opacity: .94 },
-      { name: "disk", x: 30, y: 54, size: 58, rotate: -8, tone: "cobalt", location: "outside", layer: "behind", opacity: .9 },
-      { name: "disk", x: 119, y: 55, size: 56, rotate: 8, tone: "mustard", location: "outside", layer: "behind", opacity: .9 },
-      { name: "disk", x: 49, y: 94, size: 44, rotate: -5, tone: "tomato", location: "outside", layer: "behind", opacity: .88 },
-      { name: "disk", x: 101, y: 94, size: 44, rotate: 6, tone: "pine", location: "outside", layer: "behind", opacity: .88 },
+      { name: "disk", x: 72, y: 27, size: 160, rotate: -8, tone: "plum", location: "outside", layer: "behind" },
+      { name: "disk", x: 23, y: 63, size: 94, rotate: 9, tone: "cobalt", location: "outside", layer: "behind" },
+      { name: "disk", x: 117, y: 46, size: 94, rotate: -12, tone: "mustard", location: "outside", layer: "behind" },
+      { name: "disk", x: 38, y: 101, size: 74, rotate: 7, tone: "tomato", location: "outside", layer: "behind" },
+      { name: "disk", x: 98, y: 104, size: 76, rotate: -6, tone: "pine", location: "outside", layer: "behind" },
     ],
     sprinkles: [
       { name: "half-circle", x: 8, y: 24, size: 17, rotate: -22, tone: "ink", location: "outside", layer: "front" },
@@ -527,7 +527,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
 .paper-lockup > .embellished-mark {
   width: clamp(210px, 22vw, 320px);
-  margin-block: clamp(22px, 2vw, 32px);
+  margin-block: clamp(88px, 7vw, 108px) clamp(36px, 3vw, 48px);
 }
 
 .paper-lockup strong {

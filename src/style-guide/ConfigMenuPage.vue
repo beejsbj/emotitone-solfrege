@@ -16,7 +16,7 @@
       <div><span>01</span><p>Knobs own persistent settings.</p></div>
       <div><span>02</span><p>Buttons own momentary icon actions.</p></div>
       <div><span>03</span><p>Ivory Stickers face scene and preset actions.</p></div>
-      <div><span>04</span><p>Badge and brass stay out of this composition.</p></div>
+      <div><span>04</span><p>Brass marks only global and section enable controls; Badge stays out.</p></div>
     </section>
   </main>
 </template>

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import Knob from "@/components/primatives/Knob/index.vue";
+import { formatKnobDisplayValue } from "@/components/primatives/Knob/displayValue";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
@@ -71,6 +72,32 @@ describe("Knob public interface", () => {
     expect(follower.textContent).toContain("-3.2 dB");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
     expect(document.querySelector(".knob-drag-value")).toBeNull();
+  });
+
+  it("caps displayed numeric precision at two places without changing formatter semantics", async () => {
+    expect(formatKnobDisplayValue("0.30000000000000004s")).toBe("0.3s");
+    expect(formatKnobDisplayValue(1.236)).toBe("1.24");
+    expect(formatKnobDisplayValue("±1.234°")).toBe("±1.23°");
+    expect(formatKnobDisplayValue("+1.234dB")).toBe("+1.23dB");
+    expect(formatKnobDisplayValue("1.234e-7")).toBe("1.234e-7");
+    expect(formatKnobDisplayValue("Auto 1.234")).toBe("Auto 1.234");
+
+    const wrapper = render({
+      modelValue: 0.30000000000000004,
+      type: "range",
+      formatValue: (v: number) => `${v}s`,
+    });
+
+    expect(wrapper.get(".knob-range-value__number").text()).toBe("0.3");
+    expect(wrapper.get(".knob-range-value__unit").text()).toBe("s");
+
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("0.3s");
+
+    await wrapper.setProps({ modelValue: 1.236 });
+    expect(wrapper.get(".knob-range-value__number").text()).toBe("1.24");
+    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("1.24s");
+    await documentEvent("mouseup", new MouseEvent("mouseup"));
   });
 
   it("uses the brass Badge treatment for a brass Knob follower", async () => {

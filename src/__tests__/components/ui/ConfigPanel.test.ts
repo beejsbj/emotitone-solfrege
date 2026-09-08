@@ -100,7 +100,11 @@ vi.mock("@/components/TabbedOverlayPanel.vue", () => ({
 
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
   default: {
-    template: '<div data-testid="mock-knob"></div>',
+    name: "Knob",
+    props: {
+      tone: { type: String, default: "ivory" },
+    },
+    template: '<div data-testid="mock-knob" :data-tone="tone"></div>',
   },
 }));
 
@@ -192,6 +196,24 @@ describe("ConfigPanel.vue", () => {
     expect(scene.find(".sticker--outline.sticker--color-ivory").exists()).toBe(true);
     expect(wrapper.find(".sticker--badge").exists()).toBe(false);
     expect(wrapper.find('[class*="sticker--color-brass"]').exists()).toBe(false);
+  });
+
+  it("reserves brass Knobs for global and section enable controls", async () => {
+    wrapper = createTestWrapper(ConfigPanel);
+
+    expect(
+      wrapper.getComponent('[data-testid="config-panel-global-toggle"]').props("tone")
+    ).toBe("brass");
+
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "keyboard");
+    await nextTick();
+
+    expect(
+      wrapper.getComponent('[data-testid="section-toggle-keyboard"]').props("tone")
+    ).toBe("brass");
+    expect(
+      wrapper.findAllComponents({ name: "Knob" }).filter((knob) => knob.props("tone") === "brass")
+    ).toHaveLength(2);
   });
 
   it("hides the MIDI shortcut when only generic outputs are present", async () => {

@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import KnobFace from "./KnobFace.vue";
+import { formatKnobDisplayValue } from "./displayValue";
 import type { RangeKnobProps } from "./types";
 
 interface Props extends RangeKnobProps {
@@ -48,7 +49,9 @@ const props = withDefaults(defineProps<Props>(), {
   formatValue: (value: number) => value.toString(),
 });
 
-const displayValue = computed(() => props.formatValue(props.modelValue));
+const displayValue = computed(() =>
+  formatKnobDisplayValue(props.formatValue(props.modelValue))
+);
 
 // Extract numeric and unit parts from formatted value
 const numericPart = computed(() => {
@@ -56,9 +59,7 @@ const numericPart = computed(() => {
   // Match complete decimal numbers (including optional decimal part)
   const match = formatted.match(/^([+-]?(?:\d+\.?\d*|\.\d+))/);
   if (match) {
-    const num = parseFloat(match[1]);
-    // For decimal numbers, show up to 2 decimal places if needed
-    return num % 1 === 0 ? num.toFixed(0) : num.toFixed(2);
+    return match[1];
   }
   return formatted;
 });

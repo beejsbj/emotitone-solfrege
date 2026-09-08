@@ -49,6 +49,7 @@
 <script setup lang="ts">
 import Mark from "../../components/primatives/Mark.vue";
 import type { MarkName, MarkTone, MarkTreatment } from "../../components/primatives/Mark.vue";
+import { MARK_NAMES } from "../../components/primatives/marks";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -66,28 +67,15 @@ interface TreatmentExample {
   label: string;
 }
 
-const allMarks: MarkExample[] = [
-  { name: "triangle", label: "Triangle", tone: "brass", size: 44 },
-  { name: "disk", label: "Disk", tone: "tomato", size: 44 },
-  { name: "zigzag", label: "Zigzag", tone: "brass", size: 58 },
-  { name: "blade", label: "Blade", tone: "plum", size: 44 },
-  { name: "wave", label: "Wave", tone: "ivory", size: 44 },
-  { name: "bar", label: "Bar", tone: "ivory-2", size: 56 },
-  { name: "diamond", label: "Diamond", tone: "mustard", size: 44 },
-  { name: "half-circle", label: "Half-circle", tone: "pine", size: 44 },
-  { name: "star", label: "Star", tone: "tomato", size: 44 },
-  { name: "eighth", label: "Eighth", tone: "ivory", size: 44 },
-  { name: "beam", label: "Beam", tone: "brass", size: 44 },
-  { name: "sharp", label: "Sharp", tone: "tomato", size: 44 },
-  { name: "flat", label: "Flat", tone: "pine", size: 44 },
-  { name: "accent", label: "Accent", tone: "mustard", size: 44 },
-  { name: "trill", label: "Trill", tone: "plum", size: 44 },
-  { name: "slur", label: "Slur", tone: "ivory-2", size: 44 },
-  { name: "fermata", label: "Fermata", tone: "brass", size: 44 },
-  { name: "staccato", label: "Staccato", tone: "tomato", size: 44 },
-  { name: "grace", label: "Grace", tone: "pine", size: 44 },
-  { name: "clef", label: "Clef", tone: "mustard", size: 44 },
-];
+const markTones: MarkTone[] = ["brass", "tomato", "plum", "ivory", "mustard", "pine", "ivory-2"];
+const wideMarks = new Set<MarkName>(["zigzag", "bar", "crescendo"]);
+
+const allMarks: MarkExample[] = MARK_NAMES.map((name, index) => ({
+  name,
+  label: name.replace(/-/g, " "),
+  tone: markTones[index % markTones.length],
+  size: wideMarks.has(name) ? 58 : 44,
+}));
 
 const treatmentMarks: TreatmentExample[] = [
   { tone: "ivory", treatment: "fill", label: "Ivory fill" },

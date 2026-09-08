@@ -1,6 +1,7 @@
 export const MARK_NAMES = [
   "triangle", "disk", "zigzag", "blade", "wave", "bar", "diamond", "half-circle", "star",
   "eighth", "beam", "sharp", "flat", "accent", "trill", "slur", "fermata", "staccato", "grace", "clef",
+  "quarter", "half", "whole", "natural", "quarter-rest", "repeat", "crescendo", "bass-clef",
 ] as const;
 
 export type MarkName = (typeof MARK_NAMES)[number];
@@ -20,7 +21,7 @@ export interface MarkDefinition {
 export const MARK_DEFINITIONS: Record<MarkName, MarkDefinition> = {
   triangle: {
     viewBox: [0, 0, 80, 80], particleScale: 1,
-    paths: [{ d: "M41 6 L46 17 L51 25 L57 36 L62 46 L67 56 L72 67 L74 73 L62 71 L49 73 L36 71 L22 73 L9 72 L7 71 L13 60 L18 50 L23 41 L29 30 L34 19 Z" }],
+    paths: [{ d: "M38 6 L74 70 L48 72 L7 69 L22 38 Z" }],
   },
   disk: {
     viewBox: [0, 0, 80, 80], particleScale: 0.94,
@@ -28,108 +29,152 @@ export const MARK_DEFINITIONS: Record<MarkName, MarkDefinition> = {
   },
   zigzag: {
     viewBox: [0, 0, 120, 80], particleScale: 1.2,
-    paths: [{ d: "M2 60 L22 26 L40 60 L60 28 L80 62 L100 24 L118 60 L118 70 L100 38 L80 72 L60 40 L40 72 L22 38 L2 70 Z" }],
+    paths: [{ d: "M3 52 L23 17 L42 49 L61 15 L81 48 L101 14 L118 49 L111 59 L100 37 L81 70 L61 38 L42 71 L23 40 L11 64 Z" }],
   },
   blade: {
     viewBox: [0, 0, 80, 80], particleScale: 1,
-    paths: [{ d: "M9 7 L22 9 L33 7 L42 13 L50 23 L57 32 L56 44 L58 56 L56 72 L43 71 L31 73 L21 64 L12 52 L7 46 L9 31 L7 18 Z" }],
+    paths: [{ d: "M11 8 L39 10 L68 42 L65 71 L40 69 L10 39 Z" }],
   },
   wave: {
     viewBox: [0, 0, 80, 80], particleScale: 1.16,
-    paths: [{ d: "M5 46 L16 28 L25 30 L34 48 L43 32 L53 30 L63 50 L74 34 L75 42 L64 60 L52 42 L43 42 L34 58 L25 42 L15 40 L4 56 Z" }],
+    paths: [{ d: "M4 44 C14 15 23 16 34 39 C42 57 47 56 54 36 C60 20 68 19 76 30 L72 43 C66 32 64 34 59 49 C50 72 37 66 27 44 C20 29 16 32 10 54 Z" }],
   },
   bar: {
     viewBox: [0, 0, 96, 80], particleScale: 1.12,
-    paths: [{ d: "M4 34 L92 34 L92 46 L4 46 Z" }],
+    paths: [{ d: "M5 30 L92 33 L89 49 L4 46 Z" }],
   },
   diamond: {
     viewBox: [0, 0, 80, 80], particleScale: 1,
-    paths: [{ d: "M40 6 L60 38 L40 72 L20 38 Z" }],
+    paths: [{ d: "M38 5 L65 37 L42 74 L15 42 Z" }],
   },
   "half-circle": {
     viewBox: [0, 0, 80, 80], particleScale: 1,
-    paths: [{ d: "M10 60 L10 38 Q10 12 40 12 Q70 12 70 38 L70 60 Z" }],
+    paths: [{ d: "M8 62 L9 39 C10 21 22 11 40 12 C59 10 71 24 72 42 L70 63 L39 61 Z" }],
   },
   star: {
     viewBox: [0, 0, 80, 80], particleScale: 1.08,
-    paths: [{ d: "M40 6 L52 26 L72 26 L57 43 L63 64 L40 52 L17 64 L23 43 L8 26 L28 26 Z" }],
+    paths: [{ d: "M37 5 L49 26 L73 23 L57 43 L65 68 L41 55 L17 70 L22 44 L6 28 L29 27 Z" }],
   },
   eighth: {
     viewBox: [0, 0, 60, 60], particleScale: 1.32,
     paths: [
-      { d: "M35 8 L38 11 L37 24 L38 36 L37 46 L33 46 L34 36 L33 24 L34 11 Z" },
-      { d: "M11 42 L18 38 L28 38 L34 41 L36 47 L31 52 L21 53 L13 51 L8 47 Z" },
-      { d: "M37 8 L46 14 L51 22 L49 30 L44 33 L48 24 L43 18 L37 14 Z" },
+      { d: "M31 7 L37 6 L36 44 L30 45 Z" },
+      { d: "M8 44 C11 37 23 34 31 37 C39 41 35 49 28 52 C17 58 5 54 8 44 Z" },
+      { d: "M36 6 C37 14 53 14 51 26 C50 32 46 36 42 38 C48 27 43 23 35 21 Z" },
     ],
   },
   beam: {
     viewBox: [0, 0, 60, 60], particleScale: 1.35,
     paths: [
-      { d: "M17 6 L21 8 L21 44 L17 44 Z" }, { d: "M40 6 L44 8 L44 42 L40 42 Z" },
-      { d: "M16 6 L44 4 L45 12 L16 14 Z" }, { d: "M16 18 L44 16 L45 24 L16 26 Z" },
-      { d: "M5 44 L12 40 L21 40 L26 43 L25 49 L18 53 L9 52 L4 48 Z" },
-      { d: "M28 42 L35 38 L44 38 L49 42 L48 48 L41 52 L32 51 L27 47 Z" },
+      { d: "M19 10 L25 9 L24 46 L18 47 Z" }, { d: "M45 5 L51 4 L50 40 L44 42 Z" },
+      { d: "M19 10 L51 4 L51 13 L19 19 Z" }, { d: "M20 23 L49 17 L49 23 L20 29 Z" },
+      { d: "M5 44 C9 38 19 37 24 41 C29 46 22 52 15 54 C6 57 1 52 5 44 Z" },
+      { d: "M31 39 C35 33 45 32 50 36 C55 41 48 47 41 49 C32 52 27 47 31 39 Z" },
     ],
   },
   sharp: {
     viewBox: [0, 0, 60, 60], particleScale: 1.36,
     paths: [
-      { d: "M17 6 L20 8 L20 30 L21 50 L17 52 L15 30 L15 8 Z" },
-      { d: "M38 4 L41 6 L41 28 L42 48 L38 50 L36 28 L36 6 Z" },
-      { d: "M7 22 L44 15 L45 24 L8 30 Z" }, { d: "M7 38 L44 31 L45 40 L8 46 Z" },
+      { d: "M18 8 L24 6 L23 53 L17 54 Z" },
+      { d: "M37 5 L43 4 L42 50 L36 52 Z" },
+      { d: "M8 22 L52 14 L51 23 L8 31 Z" }, { d: "M8 38 L51 30 L51 39 L7 47 Z" },
     ],
   },
   flat: {
     viewBox: [0, 0, 50, 60], particleScale: 1.4,
     paths: [
-      { d: "M14 6 L18 8 L17 28 L18 48 L14 50 L13 28 Z" },
-      { d: "M17 24 L24 21 L32 24 L36 30 L34 38 L26 44 L18 43 L16 38 L19 36 L25 39 L30 36 L31 30 L27 27 L20 28 Z" },
+      { d: "M12 5 L18 4 L18 29 C28 19 40 23 39 34 C38 43 26 51 13 56 Z M19 35 L19 45 C27 41 33 36 31 32 C29 28 23 31 19 35 Z", fillRule: "evenodd" },
     ],
   },
   accent: {
     viewBox: [0, 0, 60, 60], particleScale: 1.22,
-    paths: [{ d: "M7 30 L20 24 L34 22 L48 20 L54 24 L52 30 L54 36 L48 40 L34 38 L20 36 L8 32 Z" }],
+    paths: [{ d: "M7 13 L54 27 L54 33 L8 48 L7 40 L40 30 L7 21 Z" }],
   },
   trill: {
     viewBox: [0, 0, 60, 60], particleScale: 1.38,
     paths: [
-      { d: "M6 38 L14 22 L22 30 L30 16 L38 24 L46 12 L54 22 L54 28 L46 18 L38 30 L30 22 L22 36 L14 28 L6 44 Z" },
-      { d: "M48 4 L53 3 L55 8 L52 12 L48 10 Z" },
+      { d: "M5 33 L15 19 L25 29 L35 18 L45 28 L53 18 L56 27 L46 41 L35 31 L25 43 L15 32 L8 43 Z" },
     ],
   },
   slur: {
     viewBox: [0, 0, 60, 60], particleScale: 1.42,
-    paths: [{ d: "M6 40 L13 28 L23 20 L32 18 L41 21 L51 30 L54 40 L50 38 L43 28 L34 24 L25 25 L17 31 L10 41 Z" }],
+    paths: [{ d: "M5 43 C9 12 45 9 55 41 L51 43 C39 23 21 22 9 45 Z" }],
   },
   fermata: {
     viewBox: [0, 0, 60, 60], particleScale: 1.32,
     paths: [
-      { d: "M8 38 Q10 20 30 18 Q50 20 52 38 L48 38 Q46 24 30 22 Q14 24 12 38 Z" },
-      { d: "M26 42 Q26 34 30 32 Q34 34 34 42 Q34 50 30 52 Q26 50 26 42 Z" },
+      { d: "M5 38 C5 5 53 4 55 37 L47 38 C44 15 16 15 13 39 Z" },
+      { d: "M24 37 L31 34 L37 39 L35 47 L27 49 L23 43 Z" },
     ],
   },
   staccato: {
     viewBox: [0, 0, 60, 60], particleScale: 1.46,
     paths: [
-      { d: "M12 34 L16 32 L19 35 L18 39 L14 39 L11 37 Z" },
-      { d: "M28 30 L33 28 L35 32 L34 36 L30 36 L27 33 Z" },
-      { d: "M44 26 L49 24 L51 28 L50 32 L46 32 L43 29 Z" },
+      { d: "M8 33 L14 30 L20 33 L21 40 L16 44 L9 42 Z" },
+      { d: "M25 27 L31 24 L37 27 L38 34 L33 38 L26 36 Z" },
+      { d: "M42 21 L48 18 L54 21 L55 28 L50 32 L43 30 Z" },
     ],
   },
   grace: {
     viewBox: [0, 0, 60, 60], particleScale: 1.38,
     paths: [
-      { d: "M33 10 L35 12 L34 22 L35 32 L33 34 L31 32 L32 22 L31 12 Z" },
-      { d: "M13 31 L19 29 L26 29 L30 32 L29 37 L22 40 L15 38 L11 35 Z" },
-      { d: "M35 10 L46 7 L47 12 L36 16 Z" }, { d: "M16 24 L42 10 L44 14 L18 28 Z" },
+      { d: "M31 9 L37 7 L36 43 L30 44 Z" },
+      { d: "M12 41 C16 35 27 33 33 37 C39 42 31 49 24 51 C14 54 8 48 12 41 Z" },
+      { d: "M36 7 C39 14 49 12 50 22 L46 29 C45 22 40 23 35 22 Z" },
+      { d: "M15 33 L45 17 L48 22 L18 39 Z" },
     ],
   },
   clef: {
     viewBox: [0, 0, 60, 60], particleScale: 1.4,
     paths: [
-      { d: "M30 5 L33 9 L31 18 L33 28 L30 38 L33 48 L31 54 L27 56 L25 52 L29 48 L27 38 L30 28 L28 18 L30 9 Z" },
-      { d: "M32 12 L40 9 L46 14 L45 22 L38 27 L31 27 L37 24 L41 19 L37 16 L32 17 Z" },
-      { d: "M19 36 L28 33 L37 36 L41 42 L37 49 L29 51 L22 48 L18 43 Z M27 40 L31 39 L34 42 L32 46 L28 46 L25 43 Z", fillRule: "evenodd" },
+      { d: "M32 3 C46 15 34 25 24 32 C12 40 20 48 31 46 C43 44 40 32 31 33 C25 33 23 38 28 41 C17 41 19 28 30 27 C48 24 52 47 33 51 C15 55 5 40 17 29 C27 20 36 16 32 9 C25 15 29 26 31 35 L36 50 C38 59 24 61 21 53 L26 50 C25 56 32 57 32 51 L27 32 C24 20 21 10 32 3 Z" },
+    ],
+  },
+  quarter: {
+    viewBox: [0, 0, 60, 60], particleScale: 1.3,
+    paths: [
+      { d: "M36 6 L42 5 L41 43 L35 44 Z" },
+      { d: "M12 44 C16 37 29 33 37 37 C46 41 40 50 31 53 C20 58 8 54 12 44 Z" },
+    ],
+  },
+  half: {
+    viewBox: [0, 0, 60, 60], particleScale: 1.34,
+    paths: [
+      { d: "M36 6 L42 5 L41 43 L35 44 Z" },
+      { d: "M12 44 C16 37 29 33 37 37 C46 41 40 50 31 53 C20 58 8 54 12 44 Z M19 46 C17 51 31 48 35 44 C40 38 23 41 19 46 Z", fillRule: "evenodd" },
+    ],
+  },
+  whole: {
+    viewBox: [0, 0, 60, 60], particleScale: 1.12,
+    paths: [{ d: "M6 29 C7 17 22 15 35 17 C49 18 56 27 53 37 C50 46 32 46 20 43 C10 41 5 37 6 29 Z M24 24 C17 25 23 37 33 38 C42 38 37 25 28 24 Z", fillRule: "evenodd" }],
+  },
+  natural: {
+    viewBox: [0, 0, 60, 60], particleScale: 1.34,
+    paths: [{ d: "M15 5 L22 4 L22 20 L43 14 L44 55 L37 56 L37 39 L16 46 Z M22 28 L22 36 L37 32 L37 24 Z", fillRule: "evenodd" }],
+  },
+  "quarter-rest": {
+    viewBox: [0, 0, 60, 60], particleScale: 1.3,
+    paths: [{ d: "M25 4 L42 17 L32 29 L44 40 C30 34 20 39 31 53 L24 57 C10 43 18 32 29 34 L18 24 L29 13 Z" }],
+  },
+  repeat: {
+    viewBox: [0, 0, 60, 60], particleScale: 1.24,
+    paths: [
+      { d: "M37 7 L47 6 L46 54 L36 53 Z" },
+      { d: "M26 8 L31 7 L30 53 L25 54 Z" },
+      { d: "M11 17 L17 15 L21 20 L19 26 L12 27 L9 22 Z" },
+      { d: "M11 35 L17 33 L21 38 L19 44 L12 45 L9 40 Z" },
+    ],
+  },
+  crescendo: {
+    viewBox: [0, 0, 80, 60], particleScale: 1.25,
+    paths: [{ d: "M72 9 L74 16 L21 30 L74 44 L72 51 L6 33 L6 27 Z" }],
+  },
+  "bass-clef": {
+    viewBox: [0, 0, 60, 60], particleScale: 1.3,
+    paths: [
+      { d: "M9 22 C2 9 20 4 31 11 C48 23 30 45 10 52 C25 40 36 23 26 17 C22 14 18 15 17 17 C23 22 19 29 13 28 Z" },
+      { d: "M44 13 L50 11 L54 16 L52 22 L45 23 L42 18 Z" },
+      { d: "M44 30 L50 28 L54 33 L52 39 L45 40 L42 35 Z" },
     ],
   },
 };

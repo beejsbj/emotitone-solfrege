@@ -118,21 +118,85 @@ const fixedColorConfig: DynamicColorConfig = {
   musicColorMode: "fixed",
 };
 
+const INK_HEX = "#0A0908";
+const IVORY_HEX = "#F4EFE6";
+
+function colorChannels(color: string): number[] | null {
+  if (/^#[0-9a-f]{6}$/i.test(color)) {
+    return color.slice(1).match(/.{2}/g)?.map((channel) => Number.parseInt(channel, 16)) ?? null;
+  }
+
+  const hsl = color.match(/^hsla?\(\s*(-?[\d.]+)[,\s]+([\d.]+)%[,\s]+([\d.]+)%/i);
+  if (!hsl) return null;
+
+  const hue = ((Number(hsl[1]) % 360) + 360) % 360;
+  const saturation = Number(hsl[2]) / 100;
+  const lightness = Number(hsl[3]) / 100;
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const segment = hue / 60;
+  const secondary = chroma * (1 - Math.abs((segment % 2) - 1));
+  const [red, green, blue] = segment < 1
+    ? [chroma, secondary, 0]
+    : segment < 2
+      ? [secondary, chroma, 0]
+      : segment < 3
+        ? [0, chroma, secondary]
+        : segment < 4
+          ? [0, secondary, chroma]
+          : segment < 5
+            ? [secondary, 0, chroma]
+            : [chroma, 0, secondary];
+  const match = lightness - chroma / 2;
+  return [red + match, green + match, blue + match].map((channel) => channel * 255);
+}
+
+function relativeLuminance(color: string) {
+  const channels = colorChannels(color)?.map((channel) => {
+    const value = channel / 255;
+    return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+  });
+  if (!channels || channels.length !== 3) return null;
+  return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
+}
+
+function contrastRatio(background: string, foreground: string) {
+  const backgroundLuminance = relativeLuminance(background);
+  const foregroundLuminance = relativeLuminance(foreground);
+  if (backgroundLuminance === null || foregroundLuminance === null) return null;
+  const lighter = Math.max(backgroundLuminance, foregroundLuminance);
+  const darker = Math.min(backgroundLuminance, foregroundLuminance);
+  return (lighter + .05) / (darker + .05);
+}
+
+function readableLaneForeground(background: string, accidental: boolean) {
+  const inkContrast = contrastRatio(background, INK_HEX);
+  const ivoryContrast = contrastRatio(background, IVORY_HEX);
+  if (inkContrast === null || ivoryContrast === null) {
+    return accidental ? "var(--ink)" : "var(--ivory)";
+  }
+  return inkContrast >= ivoryContrast ? "var(--ink)" : "var(--ivory)";
+}
+
 const chromaticScale = getScaleForMode("chromatic");
-const lanes = CHROMATIC_NOTES.map((pitch, index) => ({
-  pitch,
-  syllable: chromaticScale.solfege[index]?.name ?? pitch,
-  accidental: pitch.includes("#"),
-  color: resolveExactMusicColorsByPitchClass(
+const lanes = CHROMATIC_NOTES.map((pitch, index) => {
+  const accidental = pitch.includes("#");
+  const color = resolveExactMusicColorsByPitchClass(
     pitch,
     "chromatic",
     "C",
     4,
     fixedColorConfig,
-  )?.primary ?? "var(--foreground)",
-}));
+  )?.primary ?? "var(--foreground)";
+  return {
+    pitch,
+    syllable: chromaticScale.solfege[index]?.name ?? pitch,
+    accidental,
+    color,
+    foreground: readableLaneForeground(color, accidental),
+  };
+});
 
-const filledBars = computed(() => Math.round((percent.value / 100) * bars.length));
+const filledBars = computed(() => Math.floor((percent.value / 100) * bars.length));
 const frontier = computed(() => Math.min(bars.length - 1, filledBars.value));
 
 function barStyle(height: number, index: number) {
@@ -149,12 +213,26 @@ function laneStyle(lane: typeof lanes[number], index: number) {
   const direction = index % 2 === 0 ? -1 : 1;
   return {
     "--lane-color": lane.color,
+    "--lane-neutral": lane.foreground,
     "--lane-delay": `${index * 24}ms`,
     "--lane-sway-a": `${direction * (1 + index % 3)}px`,
     "--lane-sway-b": `${direction * -(1 + (index + 1) % 3)}px`,
     "--lane-lift": `${-(2 + index % 4)}px`,
     "--lane-play-duration": `${2.4 + (index % 4) * .24}s`,
   };
+}
+
+function stageAriaLabel(stage: LoadingStage) {
+  const state = stage.complete
+    ? stage.stamp === "SKIP"
+      ? "skipped"
+      : stage.stamp === "N/A"
+        ? "not available"
+        : "complete"
+    : stage.active
+      ? "current"
+      : "pending";
+  return [stage.label, state, stage.detail].filter(Boolean).join(", ");
 }
 
 function floatingMarkStyle(mark: FloatingMark, index: number) {
@@ -251,7 +329,8 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
             v-for="stage in resolvedStages"
             :key="stage.label"
             :class="{ 'is-complete': stage.complete, 'is-active': stage.active }"
-            :aria-label="stage.detail ? `${stage.label}: ${stage.detail}` : undefined"
+            :aria-label="stageAriaLabel(stage)"
+            :aria-current="stage.active ? 'step' : undefined"
             :title="stage.detail"
           >
             <Mark class="converged-loader__bullet" name="disk" tone="inherit" :size="8" aria-hidden="true" />
@@ -299,7 +378,7 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
         v-if="isReady"
         type="button"
         class="converged-loader__completion-action"
-        aria-label="Enter EmotiTone"
+        aria-label="Play EmotiTone"
         title="Enter EmotiTone"
         @click="emit('start')"
       >
@@ -500,7 +579,7 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
 
 .converged-loader__status-copy > span {
   overflow: hidden;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--foreground) 64%, transparent);
   font: var(--t-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -618,12 +697,12 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
   font: var(--t-label);
   font-size: 10px;
   letter-spacing: .05em;
-  opacity: .36;
+  opacity: 1;
   text-transform: uppercase;
   transition: color 180ms ease-out, opacity 180ms ease-out;
 }
 
-.converged-loader__stages li.is-active { opacity: .72; }
+.converged-loader__stages li.is-active { color: color-mix(in srgb, var(--foreground) 82%, transparent); }
 .converged-loader__stages li.is-complete { color: var(--foreground); opacity: 1; }
 .converged-loader__bullet { color: currentColor; }
 
@@ -726,8 +805,6 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
 }
 
 .converged-loader__lane {
-  --lane-neutral: var(--ivory);
-
   position: relative;
   display: flex;
   height: 100%;
@@ -735,8 +812,6 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
   align-items: end;
   justify-content: center;
 }
-
-.converged-loader__lane.is-accidental { --lane-neutral: var(--ink); }
 
 .converged-loader__lane-bar {
   position: absolute;
@@ -993,7 +1068,7 @@ function floatingMarkStyle(mark: FloatingMark, index: number) {
 @media (forced-colors: active) {
   .converged-loader { background: Canvas; color: CanvasText; }
   .converged-loader__completion-action {
-    border-color: ButtonText;
+    border: 1px solid ButtonText;
     background: ButtonFace;
     color: ButtonText;
     forced-color-adjust: auto;

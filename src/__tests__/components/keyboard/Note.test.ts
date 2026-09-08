@@ -119,6 +119,12 @@ describe("Note", () => {
     expect(noteSource).not.toMatch(/\.note__label--syllable[^}]*text-transform/);
   });
 
+  it("centers an overflowing primary identity by its content rather than its wrapper", () => {
+    expect(noteSource).toMatch(
+      /\.note__label--rank-primary > \.note__identity-core\s*\{[^}]*left:\s*50%;[^}]*transform:\s*translateX\(-50%\);/,
+    );
+  });
+
   it("presents accidental glyphs without mutating source identity", () => {
     const examples: Array<{
       primary: "raw" | "degree";

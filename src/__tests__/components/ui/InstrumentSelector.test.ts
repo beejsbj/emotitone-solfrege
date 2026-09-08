@@ -33,21 +33,6 @@ vi.mock('@/services/superdoughAudio', () => ({
   getRegisteredSounds,
 }))
 
-vi.mock('@/components/ui', () => ({
-  Tabs: {
-    props: ['value'],
-    emits: ['update:value'],
-    template: '<div data-testid="mock-tabs"><slot /></div>',
-  },
-  TabsList: {
-    template: '<div data-testid="mock-tabs-list"><slot /></div>',
-  },
-  TabsTrigger: {
-    props: ['value'],
-    template: '<button data-testid="mock-tabs-trigger" :data-value="value"><slot /></button>',
-  },
-}))
-
 vi.mock('./../../components/OverlayPanelShell.vue', () => ({
   default: {
     props: ['width', 'height', 'maxHeight', 'bodyClass'],
@@ -109,9 +94,30 @@ vi.mock('@/components/TopDrawer.vue', () => ({
 }))
 
 vi.mock('lucide-vue-next', () => ({
+  Anvil: { template: '<svg data-testid="anvil-icon"></svg>' },
   Piano: { template: '<svg data-testid="piano-icon"></svg>' },
   Guitar: { template: '<svg data-testid="guitar-icon"></svg>' },
   Drum: { template: '<svg data-testid="drum-icon"></svg>' },
+  Bell: { template: '<svg data-testid="bell-icon"></svg>' },
+  Bird: { template: '<svg data-testid="bird-icon"></svg>' },
+  Bug: { template: '<svg data-testid="bug-icon"></svg>' },
+  Bus: { template: '<svg data-testid="bus-icon"></svg>' },
+  Church: { template: '<svg data-testid="church-icon"></svg>' },
+  CloudRain: { template: '<svg data-testid="rain-icon"></svg>' },
+  Crosshair: { template: '<svg data-testid="crosshair-icon"></svg>' },
+  Hand: { template: '<svg data-testid="hand-icon"></svg>' },
+  MicVocal: { template: '<svg data-testid="vocal-icon"></svg>' },
+  Music2: { template: '<svg data-testid="strings-icon"></svg>' },
+  Phone: { template: '<svg data-testid="phone-icon"></svg>' },
+  Plane: { template: '<svg data-testid="plane-icon"></svg>' },
+  Rocket: { template: '<svg data-testid="rocket-icon"></svg>' },
+  Siren: { template: '<svg data-testid="siren-icon"></svg>' },
+  Sparkles: { template: '<svg data-testid="sparkles-icon"></svg>' },
+  TrainFront: { template: '<svg data-testid="train-icon"></svg>' },
+  Waves: { template: '<svg data-testid="waves-icon"></svg>' },
+  Wind: { template: '<svg data-testid="wind-icon"></svg>' },
+  Wine: { template: '<svg data-testid="wine-icon"></svg>' },
+  AudioWaveform: { template: '<svg data-testid="waveform-icon"></svg>' },
   Search: { template: '<svg data-testid="search-icon"></svg>' },
   X: { template: '<svg data-testid="close-icon"></svg>' },
 }))
@@ -160,7 +166,7 @@ describe('InstrumentSelector.vue', () => {
     wrapper = null
   })
 
-  it('updates handle identity with selection and falls back to the name for unsupported sounds', async () => {
+  it('updates handle identity with specific family icons and a generic sound fallback', async () => {
     wrapper = await mountSelector({ currentInstrument: 'piano' })
     const handle = () => wrapper!.get('[data-testid="instrument-selector-trigger"]')
     expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
@@ -172,9 +178,26 @@ describe('InstrumentSelector.vue', () => {
     await wrapper.setProps({ currentInstrument: 'gm_taiko_drum' })
     expect(handle().find('[data-testid="drum-icon"]').exists()).toBe(true)
 
-    for (const instrument of ['gm_violin', 'gm_bassoon', 'gm_synth_bass_1', 'triangle', 'custom_sample']) {
+    for (const [instrument, iconTestId] of [
+      ['gm_violin', 'strings-icon'],
+      ['gm_bassoon', 'wind-icon'],
+      ['gm_synth_bass_1', 'waveform-icon'],
+      ['triangle', 'waveform-icon'],
+      ['folkharp', 'strings-icon'],
+      ['gm_electric_bass_finger', 'guitar-icon'],
+      ['bassdrum1', 'drum-icon'],
+      ['handbells', 'bell-icon'],
+      ['trainwhistle', 'train-icon'],
+      ['crow', 'bird-icon'],
+      ['oceandrum', 'drum-icon'],
+      ['triangles', 'bell-icon'],
+      ['vibraslap', 'drum-icon'],
+      ['marktrees', 'bell-icon'],
+      ['dhin', 'drum-icon'],
+      ['custom_sample', 'waveform-icon'],
+    ]) {
       await wrapper.setProps({ currentInstrument: instrument })
-      expect(handle().find('svg').exists()).toBe(false)
+      expect(handle().find(`[data-testid="${iconTestId}"]`).exists()).toBe(true)
       expect(handle().text()).toBe(instrument.replace(/^gm_/, ''))
     }
 
@@ -182,7 +205,7 @@ describe('InstrumentSelector.vue', () => {
     expect(handle().find('[data-testid="piano-icon"]').exists()).toBe(true)
   })
 
-  it('loads registered sounds and renders grouped sound banks', async () => {
+  it('loads registered sounds and opens the selected instrument bank without an All tab', async () => {
     wrapper = await mountSelector()
 
     expect(instrumentStore.initializeInstruments).toHaveBeenCalledTimes(1)
@@ -192,9 +215,35 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.text()).toContain('Keyboards')
     expect(wrapper.text()).toContain('Mallets')
     expect(wrapper.text()).toContain('Synths')
+    expect(wrapper.find('[data-testid="instrument-tab-all"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('All Sounds')
+    expect(wrapper.get('[data-testid="instrument-tab-keyboards"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-testid="instrument-option-piano"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="instrument-option-gm_trumpet"]').exists()).toBe(false)
+
+    const header = wrapper.get('[data-testid="overlay-panel-header"]')
+    expect(header.get('.overlay-panel-header__title').text()).toBe('Sounds')
+    expect(header.get('.overlay-panel-header__context').text()).toBe('Keyboards')
+    expect(header.get('.overlay-panel-header__status').text()).toBe('1')
+    expect(header.find('.sticker').exists()).toBe(false)
+    expect(wrapper.get('button[aria-label="Close sounds"]').classes()).toContain('paper-button--sm')
+
+    await wrapper.get('[data-testid="instrument-tab-gm"]').trigger('click')
+    await nextTick()
     expect(wrapper.text()).toContain('GM Soundfonts')
     expect(wrapper.text()).toContain('trumpet')
-    expect(wrapper.text()).toContain('All Sounds')
+  })
+
+  it('moves to the selected instrument bank when that instrument changes externally', async () => {
+    wrapper = await mountSelector({ currentInstrument: 'piano' })
+
+    await wrapper.get('[data-testid="instrument-tab-synths"]').trigger('click')
+    expect(wrapper.get('[data-testid="instrument-tab-synths"]').attributes('aria-selected')).toBe('true')
+
+    await wrapper.setProps({ currentInstrument: 'gm_trumpet' })
+
+    expect(wrapper.get('[data-testid="instrument-tab-gm"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-testid="instrument-option-gm_trumpet"]').exists()).toBe(true)
   })
 
   it('filters sounds by search query and shows an empty state when nothing matches', async () => {
@@ -216,6 +265,8 @@ describe('InstrumentSelector.vue', () => {
   it('selects a sound through the store in global mode', async () => {
     wrapper = await mountSelector()
 
+    await wrapper.get('[data-testid="instrument-tab-mallets"]').trigger('click')
+    await nextTick()
     await wrapper.find('[data-testid="instrument-option-vibraphone"]').trigger('click')
 
     expect(instrumentStore.setInstrument).toHaveBeenCalledWith('vibraphone')
@@ -226,8 +277,64 @@ describe('InstrumentSelector.vue', () => {
   it('distinguishes cold instruments from ready instruments', async () => {
     wrapper = await mountSelector()
 
-    expect(wrapper.get('[data-testid="instrument-option-vibraphone"]').attributes('data-state')).toBe('cold')
-    expect(wrapper.get('[data-testid="instrument-option-triangle"]').attributes('data-state')).toBe('ready')
+    expect(wrapper.get('[data-testid="instrument-option-piano"] .sticker [data-testid="piano-icon"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="instrument-tab-mallets"]').trigger('click')
+    await nextTick()
+    const coldInstrument = wrapper.get('[data-testid="instrument-option-vibraphone"]')
+    expect(coldInstrument.attributes('data-state')).toBe('cold')
+    expect(coldInstrument.get('.sticker').classes()).toContain('sticker--outline')
+    expect(coldInstrument.get('.sticker').classes()).toContain('sticker--color-ivory')
+    expect(coldInstrument.get('[data-testid="bell-icon"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="instrument-tab-synths"]').trigger('click')
+    await nextTick()
+    const readyInstrument = wrapper.get('[data-testid="instrument-option-triangle"]')
+    expect(readyInstrument.attributes('data-state')).toBe('ready')
+    expect(readyInstrument.get('.sticker').classes()).toContain('sticker--outline')
+    expect(readyInstrument.get('.sticker').classes()).toContain('sticker--color-ivory')
+    expect(readyInstrument.get('[data-testid="waveform-icon"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="instrument-tab-gm"]').trigger('click')
+    await nextTick()
+    expect(wrapper.get('[data-testid="instrument-option-gm_trumpet"] [data-testid="wind-icon"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid^="instrument-option-"] .sticker--badge')).toHaveLength(0)
+  })
+
+  it('moves a cold instrument to the front while warming and keeps it ahead once ready', async () => {
+    getRegisteredSounds.mockReturnValue(['fmpiano', 'steinway', 'piano'])
+    wrapper = await mountSelector({ currentInstrument: 'piano' })
+
+    const orderedChoices = () => wrapper!
+      .findAll('[data-testid^="instrument-option-"]')
+      .map((choice) => choice.attributes('data-testid'))
+
+    expect(orderedChoices()).toEqual([
+      'instrument-option-piano',
+      'instrument-option-fmpiano',
+      'instrument-option-steinway',
+    ])
+
+    instrumentStore.warmingInstrument = 'steinway'
+    await wrapper.setProps({ currentInstrument: 'steinway' })
+
+    expect(wrapper.get('[data-testid="instrument-option-steinway"]').attributes('data-state')).toBe('warming')
+    expect(orderedChoices()).toEqual([
+      'instrument-option-steinway',
+      'instrument-option-piano',
+      'instrument-option-fmpiano',
+    ])
+
+    instrumentStore.warmingInstrument = null
+    instrumentStore.readySounds.add('steinway')
+    await wrapper.setProps({ currentInstrument: 'piano' })
+
+    expect(wrapper.get('[data-testid="instrument-option-steinway"]').attributes('data-state')).toBe('ready')
+    expect(orderedChoices()).toEqual([
+      'instrument-option-piano',
+      'instrument-option-steinway',
+      'instrument-option-fmpiano',
+    ])
   })
 
   it('shows warmup progress without closing the panel early', async () => {
@@ -241,6 +348,9 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.get('[data-testid="instrument-warmup-banner"]').text()).toContain('Samples being downloaded...')
     expect(warmingInstrument.attributes('data-state')).toBe('warming')
     expect(warmingInstrument.attributes('disabled')).toBeDefined()
+    expect(warmingInstrument.get('.sticker').classes()).toContain('sticker--fill')
+    expect(warmingInstrument.get('.sticker').classes()).toContain('sticker--color-ivory')
+    expect(warmingInstrument.get('.sticker').classes()).not.toContain('sticker--badge')
     expect(wrapper.emitted('close')).toBeUndefined()
   })
 
@@ -258,6 +368,8 @@ describe('InstrumentSelector.vue', () => {
     })
     wrapper = await mountSelector()
 
+    await wrapper.get('[data-testid="instrument-tab-mallets"]').trigger('click')
+    await nextTick()
     await wrapper.get('[data-testid="instrument-option-vibraphone"]').trigger('click')
     await nextTick()
     expect(wrapper.emitted('close')).toBeUndefined()
@@ -276,6 +388,8 @@ describe('InstrumentSelector.vue', () => {
     })
     wrapper = await mountSelector()
 
+    await wrapper.get('[data-testid="instrument-tab-mallets"]').trigger('click')
+    await nextTick()
     await wrapper.get('[data-testid="instrument-option-vibraphone"]').trigger('click')
     await flushPromises()
 
@@ -300,6 +414,8 @@ describe('InstrumentSelector.vue', () => {
     })
     wrapper = await mountSelector()
 
+    await wrapper.get('[data-testid="instrument-tab-mallets"]').trigger('click')
+    await nextTick()
     await wrapper.get('[data-testid="instrument-option-vibraphone"]').trigger('click')
     const drawer = wrapper.getComponent({ name: 'TopDrawer' }).vm as unknown as {
       close: () => void
@@ -344,15 +460,17 @@ describe('InstrumentSelector.vue', () => {
     expect(trigger.attributes('aria-label')).toBe('Instrument')
     expect(trigger.text()).toContain('triangle')
     expect(selected.attributes('data-state')).toBe('selected')
-    expect(selected.classes()).toContain('border-[#8b8b8b]')
-    expect(selected.classes()).toContain('bg-[#242424]')
+    expect(selected.attributes('aria-pressed')).toBe('true')
+    expect(selected.get('.sticker').classes()).toContain('sticker--fill')
+    expect(selected.get('.sticker').classes()).toContain('sticker--color-ivory')
+    expect(wrapper.get('[data-testid="instrument-tab-synths"]').attributes('aria-selected')).toBe('true')
   })
 
   it('renders footer bank tabs with the shared panel aesthetic structure', async () => {
     wrapper = await mountSelector()
 
     expect(wrapper.find('[data-testid="overlay-panel-footer"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="instrument-tab-all"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="instrument-tab-all"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-tab-keyboards"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-tab-gm"]').exists()).toBe(true)
   })

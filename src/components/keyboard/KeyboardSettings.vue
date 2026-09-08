@@ -109,18 +109,6 @@
           />
         </div>
 
-        <!-- Row Count -->
-        <div class="control-group">
-          <Knob
-            :model-value="keyboardConfig.rowCount"
-            type="range"
-            label="Rows"
-            :min="1"
-            :max="8"
-            :step="1"
-            @update:modelValue="updateConfig('rowCount', $event)"
-          />
-        </div>
       </div>
     </div>
   </div>

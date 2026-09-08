@@ -12,10 +12,10 @@
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
     @mouseleave="handleMouseLeave"
-    @touchstart="handleTouchStart"
-    @touchmove="handleTouchMove"
+    @touchstart.prevent="handleTouchStart"
+    @touchmove.prevent="handleTouchMove"
     @touchend.prevent="handleTouchEnd"
-    @touchcancel="handleTouchCancel"
+    @touchcancel.prevent="handleTouchCancel"
     @keydown="trackActivationKeyDown"
     @keyup="trackActivationKeyUp"
     @blur="clearActivationKeys"
@@ -69,8 +69,6 @@ const emit = defineEmits<{
 
 const keyRef = ref<HTMLButtonElement | null>(null);
 const CLICK_PULSE_MS = 120;
-const TOUCH_HOLD_DELAY_MS = 120;
-const TOUCH_PAN_THRESHOLD_PX = 8;
 const activationKeys = new Set<string>();
 let suppressKeyboardClick = false;
 const {
@@ -88,9 +86,6 @@ const {
   press: (payload) => emit("press", payload),
   release: (payload) => emit("release", payload),
 }, {
-  touchHoldDelayMs: TOUCH_HOLD_DELAY_MS,
-  touchPanThresholdPx: TOUCH_PAN_THRESHOLD_PX,
-  touchTapPulseMs: CLICK_PULSE_MS,
   disabled: () => props.disabled,
 });
 
@@ -139,13 +134,17 @@ const isPhysicallyPressed = computed(() => props.pressed || isLocallyPressed.val
 .chord-key {
   width: 100%;
   min-width: 44px;
-  touch-action: pan-x;
+  touch-action: none;
 }
 
 .chord-key__face,
 .chord-key :deep(.chord),
 .chord-key :deep(.chord__fused) {
   width: 100%;
+}
+
+.chord-key :deep(.chord__fused) {
+  container-type: inline-size;
 }
 
 .chord-key :deep(.chord__fused-member) {
@@ -157,7 +156,7 @@ const isPhysicallyPressed = computed(() => props.pressed || isLocallyPressed.val
 .chord-key :deep(.chord__symbol) {
   overflow: hidden;
   padding-inline: 2px;
-  font-size: clamp(10px, 3.8cqi, 16px);
+  font-size: clamp(12px, 34cqi, 14px);
   text-overflow: ellipsis;
 }
 

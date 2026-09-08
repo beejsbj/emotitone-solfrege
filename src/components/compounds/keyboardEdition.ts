@@ -11,6 +11,22 @@ export const KEYBOARD_GEOMETRY_FAMILIES = [
 export type KeyboardGeometryFamily =
   (typeof KEYBOARD_GEOMETRY_FAMILIES)[number];
 
+const CHORD_GEOMETRY_OFFSET = 2;
+
+/**
+ * Chords follow the same daily edition as melody Keys while taking a visibly
+ * different family from that edition. The offset is a full derangement of the
+ * five-family deck, so neither surface can land on the other's geometry.
+ */
+export function keyboardChordFamily(
+  melodyFamily: KeyboardGeometryFamily,
+): KeyboardGeometryFamily {
+  const melodyIndex = KEYBOARD_GEOMETRY_FAMILIES.indexOf(melodyFamily);
+  return KEYBOARD_GEOMETRY_FAMILIES[
+    (melodyIndex + CHORD_GEOMETRY_OFFSET) % KEYBOARD_GEOMETRY_FAMILIES.length
+  ];
+}
+
 export interface KeyboardEditionVariation {
   cut: string;
   rotation: string;
@@ -156,14 +172,13 @@ export function keyboardEditionRowVariations(
 }
 
 export function visibleKeyboardOctaves(mainOctave: number, rowCount: number) {
-  const requestedRows = [1, 3, 5, 7].includes(rowCount) ? rowCount : 3;
-  const halfRows = Math.floor(requestedRows / 2);
-  const octaves: number[] = [];
+  const requestedRows = Math.max(1, Math.min(8, Math.round(rowCount)));
+  const center = Math.max(1, Math.min(8, Math.round(mainOctave)));
+  const preferredLow = center - Math.floor((requestedRows - 1) / 2);
+  const low = Math.max(1, Math.min(9 - requestedRows, preferredLow));
 
-  for (let offset = -halfRows; offset <= halfRows; offset += 1) {
-    const octave = mainOctave + offset;
-    if (octave >= 1 && octave <= 8) octaves.push(octave);
-  }
-
-  return octaves.sort((a, b) => b - a);
+  return Array.from(
+    { length: requestedRows },
+    (_, index) => low + requestedRows - index - 1,
+  );
 }

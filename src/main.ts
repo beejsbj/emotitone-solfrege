@@ -6,6 +6,7 @@ import "./emotitone-design-system.css";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { tooltipPlugin } from "./directives/tooltip";
 import { beginKnobPageEdition } from "./components/primatives/Knob/edition";
+import { beginTabsPageEdition } from "./components/primatives/TabsEdition";
 import { registerSW } from 'virtual:pwa-register';
 
 async function clearDevServiceWorkers() {
@@ -26,7 +27,14 @@ const app = createApp(App);
 const pinia = createPinia();
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-if (pathname !== "/style-guide" && pathname !== "/page") {
+const isDesignRoute = [
+  "/style-guide",
+  "/style-guide/tabs",
+  "/style-guide/instrument-picker",
+  "/style-guide/config-menu",
+].includes(pathname);
+beginTabsPageEdition();
+if (!isDesignRoute || pathname === "/style-guide/config-menu") {
   beginKnobPageEdition();
 }
 

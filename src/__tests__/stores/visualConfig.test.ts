@@ -50,6 +50,30 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.lastSaved).toBe(null)
     })
 
+    it('supports an isolated specimen state without writing production storage', () => {
+      vi.useFakeTimers()
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.setItem.mockClear()
+
+      try {
+        visualConfigStore.useEphemeralDefaults()
+        visualConfigStore.updateValue('blobs', 'isEnabled', false)
+        visualConfigStore.setVisualsEnabled(false)
+        const saved = visualConfigStore.saveConfigAs('Guide draft')
+        visualConfigStore.deleteSavedConfig(saved.id)
+        visualConfigStore.resetToDefaults()
+        visualConfigStore.saveToStorage()
+        vi.runAllTimers()
+
+        expect(mockLocalStorage.setItem).not.toHaveBeenCalled()
+        expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
+        expect(visualConfigStore.visualsEnabled).toBe(true)
+        expect(visualConfigStore.savedConfigs).toEqual([])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('should load configuration from localStorage on initialization', () => {
       const storedConfig = {
         config: {
@@ -298,11 +322,13 @@ describe('Visual Config Store', () => {
   describe('Reset Functionality', () => {
     it('should reset configuration to defaults', () => {
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
+      visualConfigStore.updateConfig('keyboard', { rowCount: 7 })
       visualConfigStore.setVisualsEnabled(false)
       
       visualConfigStore.resetToDefaults()
       
       expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
+      expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
       expect(visualConfigStore.visualsEnabled).toBe(true)
     })
 
@@ -316,6 +342,15 @@ describe('Visual Config Store', () => {
       
       expect(visualConfigStore.config.particles.count).toBe(mockDefaultConfig.particles.count)
       expect(visualConfigStore.config.particles.speed).toBe(mockDefaultConfig.particles.speed)
+    })
+
+    it('keeps Drawer-owned row count when resetting the keyboard section', () => {
+      visualConfigStore.updateConfig('keyboard', { rowCount: 7, showLabels: false })
+
+      visualConfigStore.resetSection('keyboard')
+
+      expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
+      expect(visualConfigStore.config.keyboard.showLabels).toBe(mockDefaultConfig.keyboard.showLabels)
     })
   })
 
@@ -338,11 +373,13 @@ describe('Visual Config Store', () => {
       
       // Change current config
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
+      visualConfigStore.updateConfig('keyboard', { rowCount: 7 })
       
       // Load saved config
       visualConfigStore.loadSavedConfig(savedConfig.id)
       
       expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
+      expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
     })
 
     it('should delete saved config', () => {
@@ -407,10 +444,12 @@ describe('Visual Config Store', () => {
       const originalSnapshot = visualConfigStore.getConfigSnapshot()
       
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
+      visualConfigStore.updateConfig('keyboard', { rowCount: 7 })
       
       visualConfigStore.loadConfigSnapshot(originalSnapshot)
       
       expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
+      expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
     })
   })
 
@@ -429,7 +468,8 @@ describe('Visual Config Store', () => {
       const configData = {
         config: {
           ...mockDefaultConfig,
-          blobs: { ...mockDefaultConfig.blobs, isEnabled: false }
+          blobs: { ...mockDefaultConfig.blobs, isEnabled: false },
+          keyboard: { ...mockDefaultConfig.keyboard, rowCount: 2 },
         },
         visualsEnabled: false,
         exportedAt: new Date().toISOString(),
@@ -440,6 +480,7 @@ describe('Visual Config Store', () => {
       
       expect(success).toBe(true)
       expect(visualConfigStore.config.blobs.isEnabled).toBe(false)
+      expect(visualConfigStore.config.keyboard.rowCount).toBe(mockDefaultConfig.keyboard.rowCount)
       expect(visualConfigStore.visualsEnabled).toBe(false)
     })
 

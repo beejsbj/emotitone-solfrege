@@ -24,11 +24,19 @@ describe("LoadingScreen", () => {
     expect(wrapper.text()).toContain("Tuning the room");
     expect(wrapper.text()).toContain("57%");
     expect(wrapper.text()).toContain("Loading samples");
-    expect(wrapper.findAll(".converged-loader__bars > .is-filled")).toHaveLength(14);
-    expect(wrapper.findAll(".converged-loader__lane")).toHaveLength(12);
+    expect(wrapper.findAll(".converged-loader__bars > .is-filled")).toHaveLength(13);
+    const lanes = wrapper.findAll(".converged-loader__lane");
+    expect(lanes).toHaveLength(12);
+    expect(new Set(lanes.map((lane) => lane.attributes("style").match(/--lane-neutral:\s*([^;]+)/)?.[1])))
+      .toEqual(new Set(["var(--ink)", "var(--ivory)"]));
     expect(wrapper.findAll(".converged-loader__floating-mark")).toHaveLength(5);
-    expect(wrapper.findAll(".converged-loader__stages li").at(-1)?.text()).toContain("MIDI input");
+    const midiStage = wrapper.findAll(".converged-loader__stages li").at(-1)!;
+    expect(midiStage.text()).toContain("MIDI input");
+    expect(midiStage.attributes("aria-label")).toContain("pending");
     expect(wrapper.find('[data-testid="midi-icon"]').exists()).toBe(true);
+
+    await wrapper.setProps({ progress: 99 });
+    expect(wrapper.findAll(".converged-loader__bars > .is-filled")).toHaveLength(23);
 
     await wrapper.get(".converged-loader__skip").trigger("click");
     expect(wrapper.emitted("skip")).toHaveLength(1);
@@ -43,7 +51,9 @@ describe("LoadingScreen", () => {
     });
 
     expect(wrapper.classes()).toContain("is-ready");
-    await wrapper.get(".converged-loader__completion-action").trigger("click");
+    const play = wrapper.get(".converged-loader__completion-action");
+    expect(play.attributes("aria-label")).toBe("Play EmotiTone");
+    await play.trigger("click");
     expect(wrapper.emitted("start")).toHaveLength(1);
   });
 

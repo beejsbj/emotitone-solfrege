@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick, reactive, toRefs } from "vue";
+import { nextTick, provide, reactive, toRefs } from "vue";
 import { createTestWrapper } from "../../helpers/test-utils";
 import ConfigPanel from "@/components/ConfigPanel.vue";
+import configPanelSource from "@/components/ConfigPanel.vue?raw";
 import {
   CONFIG_SECTIONS,
   UNIFIED_CONFIG,
@@ -90,13 +91,21 @@ vi.mock("@/components/TabbedOverlayPanel.vue", () => ({
   default: {
     name: "TabbedOverlayPanel",
     props: ["modelValue", "tabs"],
-    template: '<div :data-tab="modelValue"><slot name="header" /></div>',
+    template: '<div :data-tab="modelValue"><slot name="header" /><slot /></div>',
+    setup(props: { modelValue: string }) {
+      const { modelValue } = toRefs(props);
+      provide("tabs-context", { value: modelValue });
+    },
   },
 }));
 
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
   default: {
-    template: '<div data-testid="mock-knob"></div>',
+    name: "Knob",
+    props: {
+      tone: { type: String, default: "ivory" },
+    },
+    template: '<div data-testid="mock-knob" :data-tone="tone"></div>',
   },
 }));
 
@@ -110,6 +119,9 @@ vi.mock("lucide-vue-next", () => ({
   Power: { template: '<svg data-testid="power-icon"></svg>' },
   ToggleLeft: { template: '<svg data-testid="toggle-left-icon"></svg>' },
   ToggleRight: { template: '<svg data-testid="toggle-right-icon"></svg>' },
+  Trash2: { template: '<svg data-testid="trash-icon"></svg>' },
+  ClipboardCopy: { template: '<svg data-testid="clipboard-copy-icon"></svg>' },
+  FileDown: { template: '<svg data-testid="file-down-icon"></svg>' },
 }));
 
 function resetMidiState() {
@@ -175,6 +187,61 @@ describe("ConfigPanel.vue", () => {
       field: "connectionMode",
       values: ["web"],
     });
+  });
+
+  it("keeps drag-owned keyboard row count out of generated settings", () => {
+    expect(UNIFIED_CONFIG.keyboard.rowCount.hidden).toBe(true);
+    expect(configPanelSource).toContain("if (metadata?.hidden) return false");
+  });
+
+  it("uses ivory Sticker faces for scene actions without Badge or brass", () => {
+    wrapper = createTestWrapper(ConfigPanel);
+
+    const scene = wrapper.get('[data-testid="preset-apply-soft-glass"]');
+    expect(scene.element.tagName).toBe("BUTTON");
+    expect(scene.find(".sticker--outline.sticker--color-ivory").exists()).toBe(true);
+    expect(wrapper.find(".sticker--badge").exists()).toBe(false);
+    expect(wrapper.find('[class*="sticker--color-brass"]').exists()).toBe(false);
+  });
+
+  it("reserves brass Knobs for global and section enable controls", async () => {
+    wrapper = createTestWrapper(ConfigPanel);
+
+    expect(
+      wrapper.getComponent('[data-testid="config-panel-global-toggle"]').props("tone")
+    ).toBe("brass");
+
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "keyboard");
+    await nextTick();
+
+    expect(
+      wrapper.getComponent('[data-testid="section-toggle-keyboard"]').props("tone")
+    ).toBe("brass");
+    expect(
+      wrapper.findAllComponents({ name: "Knob" }).filter((knob) => knob.props("tone") === "brass")
+    ).toHaveLength(2);
+  });
+
+  it("keeps Config chrome on the workhorse Ink and Ivory palette", () => {
+    expect(configPanelSource).not.toContain("text-neutral-");
+    expect(configPanelSource).not.toContain("var(--ink-2)");
+    expect(configPanelSource).not.toContain("var(--ivory-3)");
+    expect(configPanelSource).not.toContain("var(--ivory-4)");
+  });
+
+  it("aligns action Knobs with small Buttons", () => {
+    wrapper = createTestWrapper(ConfigPanel);
+
+    expect(configPanelSource).toContain("--knob-size: 32px");
+    expect(configPanelSource).toMatch(
+      /\.config-panel__section-controls\s*\{[^}]*align-items: flex-start;/s,
+    );
+    expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__title').text())
+      .toBe("Config");
+    expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__context').text())
+      .toBe("Scenes");
+    expect(wrapper.get('button[aria-label="Close settings"]').classes())
+      .toContain("paper-button--sm");
   });
 
   it("hides the MIDI shortcut when only generic outputs are present", async () => {

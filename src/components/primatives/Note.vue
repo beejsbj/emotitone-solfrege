@@ -396,8 +396,13 @@ const ariaLabel = computed(() => {
   display: inline-block;
 }
 
-.note__identity-core--raw {
+.note__label--rank-primary > .note__identity-core {
   position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.note__identity-core--raw {
   display: inline-flex;
   align-items: baseline;
   gap: 0;

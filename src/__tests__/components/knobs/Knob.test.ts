@@ -1,11 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import Knob from "@/components/primatives/Knob/index.vue";
 import knobSource from "@/components/primatives/Knob/index.vue?raw";
+import { formatKnobDisplayValue } from "@/components/primatives/Knob/displayValue";
 import optionsKnobSource from "@/components/primatives/Knob/OptionsKnob.vue?raw";
+import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
+import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
+
+const instrumentControlSource = readFileSync(
+  resolve(process.cwd(), "src/components/primatives/instrumentControl.css"),
+  "utf8",
+);
 
 const { triggerUIHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
@@ -67,12 +77,39 @@ describe("Knob public interface", () => {
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
     const follower = document.querySelector(".knob-drag-value")!;
     expect(follower.textContent).toContain("-4.84 dB");
+    expect((follower as HTMLElement).style.transform).toContain("translate3d(150px, 244px, 0)");
     expect(follower.querySelector(".sticker--fill")).not.toBeNull();
     expect(follower.querySelector(".sticker--color-ivory")).not.toBeNull();
     await wrapper.setProps({ modelValue: -3.2 });
     expect(follower.textContent).toContain("-3.2 dB");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
     expect(document.querySelector(".knob-drag-value")).toBeNull();
+  });
+
+  it("caps displayed numeric precision at two places without changing formatter semantics", async () => {
+    expect(formatKnobDisplayValue("0.30000000000000004s")).toBe("0.3s");
+    expect(formatKnobDisplayValue(1.236)).toBe("1.24");
+    expect(formatKnobDisplayValue("±1.234°")).toBe("±1.23°");
+    expect(formatKnobDisplayValue("+1.234dB")).toBe("+1.23dB");
+    expect(formatKnobDisplayValue("1.234e-7")).toBe("1.234e-7");
+    expect(formatKnobDisplayValue("Auto 1.234")).toBe("Auto 1.234");
+
+    const wrapper = render({
+      modelValue: 0.30000000000000004,
+      type: "range",
+      formatValue: (v: number) => `${v}s`,
+    });
+
+    expect(wrapper.get(".knob-range-value__number").text()).toBe("0.3");
+    expect(wrapper.get(".knob-range-value__unit").text()).toBe("s");
+
+    await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("0.3s");
+
+    await wrapper.setProps({ modelValue: 1.236 });
+    expect(wrapper.get(".knob-range-value__number").text()).toBe("1.24");
+    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("1.24s");
+    await documentEvent("mouseup", new MouseEvent("mouseup"));
   });
 
   it("uses the brass Badge treatment for a brass Knob follower", async () => {
@@ -220,6 +257,9 @@ describe("Knob public interface", () => {
     expect(wrapper.get(".knob-wrapper__label").text()).toBe("Volume");
     expect(wrapper.find(".knob-face").exists()).toBe(true);
     expect(wrapper.find(".knob-primitive__label").exists()).toBe(false);
+    expect(instrumentControlSource).toMatch(
+      /\.instrument-control__face\s*\{[^}]*min-inline-size: 0;/s,
+    );
   });
 
   it("preserves deprecated value fallback and modelValue precedence", () => {
@@ -262,6 +302,11 @@ describe("Knob public interface", () => {
       expect.arrayContaining(["knob-face--arc", "knob-face--ivory"]),
     );
     expect(arc.find(".knob-face__dome").exists()).toBe(false);
+
+    const brassBoolean = render({ modelValue: true, type: "boolean", tone: "brass" });
+    expect(brassBoolean.get(".knob-boolean__ball").classes()).toContain("brass");
+    expect(knobFaceSource).toContain("var(--brass-hi)");
+    expect(booleanKnobSource).toContain("var(--shadow-glow-brass)");
   });
 
   it("renders production role grammar through the public interface", () => {

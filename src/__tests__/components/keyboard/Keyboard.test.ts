@@ -231,7 +231,10 @@ describe("Keyboard production usage", () => {
       ".keyboard--contrast-forced :deep(.chord__symbol)",
     );
     expect(keyboardSource).toMatch(
-      /\.keyboard__chord-row\s*\{[\s\S]*?touch-action:\s*pan-x/,
+      /\.keyboard__chord-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(var\(--keyboard-chord-count, 1\), minmax\(0, 1fr\)\)/,
+    );
+    expect(keyboardSource).toMatch(
+      /\.keyboard__chord-row\s*\{[\s\S]*?touch-action:\s*none/,
     );
     expect(keyboardSource).toMatch(
       /\.keyboard__row\s*\{[\s\S]*?touch-action:\s*none/,
@@ -274,10 +277,37 @@ describe("Keyboard production usage", () => {
       pressed: true,
     });
     expect(keys[2].attributes("style")).toContain(
-      "--keyboard-note-height: 88px",
+      "--keyboard-note-height: 76px",
     );
 
     expect(keys[4].props("sounding")).toBe(true);
+  });
+
+  it("keeps chord geometry edition-driven but distinct from melody geometry", () => {
+    const wrapper = mount(Keyboard, {
+      props: {
+        usage: "controlled",
+        rows: controlledRows(),
+        geometryFamily: "pill",
+      },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+
+    expect(wrapper.attributes("data-geometry-family")).toBe("pill");
+    expect(wrapper.get(".keyboard__chord-row").attributes("data-geometry-family"))
+      .toBe("tile");
+    expect(wrapper.findAllComponents(ChordKeyStub).every(
+      (chord) => chord.props("geometry") === "tile",
+    )).toBe(true);
+  });
+
+  it("owns fluid primary typography at the Keyboard layer", () => {
+    expect(keyboardSource).toMatch(
+      /\.keyboard__row--main[\s\S]*--note-primary-size:\s*clamp\(16px, 62cqi, 24px\)/,
+    );
+    expect(keyboardSource).toMatch(
+      /\.keyboard__row:not\(\.keyboard__row--main\)[\s\S]*--note-primary-size:\s*clamp\(15px, 47cqi, 18px\)/,
+    );
   });
 
   it("restores the production keyboard padding setting at the keyboard seam", () => {
@@ -294,18 +324,18 @@ describe("Keyboard production usage", () => {
     const keys = wrapper.findAllComponents(KeyStub);
 
     expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(96.6, 1);
+      .toBeCloseTo(102.77, 1);
     expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height")))
-      .toBeCloseTo(151.8, 1);
+      .toBeCloseTo(139.47, 1);
   });
 
-  it("fills Drawer allocation while preserving row hierarchy, identity, and the minimum", async () => {
+  it("fills the host allocation while preserving the minimum, row hierarchy, and identity", async () => {
     const wrapper = mountKeyboard();
     const identities = wrapper.findAllComponents(KeyStub).map(key => key.props("rawPitch"));
     await wrapper.setProps({ availableHeight: 400 });
     let keys = wrapper.findAllComponents(KeyStub);
-    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(98.84, 1);
-    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(155.32, 1);
+    expect(parseFloat((keys[0].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(105.17, 1);
+    expect(parseFloat((keys[2].element as HTMLElement).style.getPropertyValue("--keyboard-note-height"))).toBeCloseTo(142.74, 1);
     await wrapper.setProps({ availableHeight: 20 });
     keys = wrapper.findAllComponents(KeyStub);
     expect(keys[0].attributes("style")).toContain("--keyboard-note-height: 44px");
@@ -788,6 +818,48 @@ describe("Keyboard pointer gestures", () => {
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
     expect(wrapper.emitted("release")?.map(([intent]) =>
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
+  });
+
+  it("keeps a held note sounding when a surviving row is added", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    const first = wrapper.findAll<HTMLButtonElement>(".keyboard__key")[0];
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(first.element);
+
+    first.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 17,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.setProps({
+      rows: [
+        ...controlledRows(),
+        {
+          octave: 5,
+          keys: [{ id: "do-5", syllable: "Do", degree: "I", rawPitch: "C5", scaleIndex: 0 }],
+        },
+      ],
+    });
+
+    expect(wrapper.emitted("release")).toBeUndefined();
+    expect(wrapper.findAll(".keyboard__key")[0].classes()).toContain("keyboard__key--pressed");
+
+    const keyMovedUnderStationaryFinger = wrapper.findAll<HTMLButtonElement>(".keyboard__key")[2];
+    vi.mocked(document.elementFromPoint).mockReturnValue(keyMovedUnderStationaryFinger.element);
+
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 17,
+      pointerType: "touch",
+      clientX: 20,
+    }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("press")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
+    expect(wrapper.emitted("release")?.map(([intent]) =>
+      (intent as { keyId: string }).keyId)).toEqual(["do-4"]);
   });
 
   it("ignores non-contact pen button presses", async () => {

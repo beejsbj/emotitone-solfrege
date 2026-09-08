@@ -237,6 +237,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const savedConfigs = ref<SavedConfig[]>([]);
   const isLoading = ref(false);
   const lastSaved = ref<string | null>(null);
+  const persistenceEnabled = ref(true);
 
   // Load configuration from localStorage on initialization
   const loadFromStorage = () => {
@@ -265,6 +266,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Save configuration to localStorage
   const saveToStorage = () => {
+    if (!persistenceEnabled.value) return;
+
     try {
       const dataToStore = {
         config: JSON.parse(JSON.stringify(config)),
@@ -296,15 +299,29 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     }
   };
 
+  const applyRuntimeConfig = (nextConfig: unknown) => {
+    const rowCount = config.keyboard.rowCount;
+    Object.assign(config, migrateVisualConfig(nextConfig));
+    // Drawer allocation is the runtime authority for row count. Loading or
+    // resetting visual presets must not resize the keyboard behind its handle.
+    config.keyboard.rowCount = rowCount;
+  };
+
   // Reset configuration to defaults
   const resetToDefaults = () => {
-    Object.assign(config, cloneDefaultConfig());
+    applyRuntimeConfig(cloneDefaultConfig());
     visualsEnabled.value = true;
     saveToStorage();
   };
 
   // Reset a specific section to defaults
   const resetSection = <K extends keyof VisualEffectsConfig>(section: K) => {
+    if (section === "keyboard") {
+      const rowCount = config.keyboard.rowCount;
+      Object.assign(config.keyboard, cloneDefaultConfig().keyboard);
+      config.keyboard.rowCount = rowCount;
+      return;
+    }
     Object.assign(
       config[section],
       cloneDefaultConfig()[section]
@@ -326,6 +343,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
     savedConfigs.value.push(savedConfig);
 
+    if (!persistenceEnabled.value) return savedConfig;
+
     try {
       localStorage.setItem(
         SAVED_CONFIGS_KEY,
@@ -342,7 +361,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const loadSavedConfig = (configId: string) => {
     const savedConfig = savedConfigs.value.find((c) => c.id === configId);
     if (savedConfig) {
-      Object.assign(config, migrateVisualConfig(savedConfig.config));
+      applyRuntimeConfig(savedConfig.config);
       saveToStorage();
     }
   };
@@ -352,6 +371,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const index = savedConfigs.value.findIndex((c) => c.id === configId);
     if (index > -1) {
       savedConfigs.value.splice(index, 1);
+      if (!persistenceEnabled.value) return;
+
       try {
         localStorage.setItem(
           SAVED_CONFIGS_KEY,
@@ -381,7 +402,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Load configuration from a snapshot
   const loadConfigSnapshot = (snapshot: VisualEffectsConfig) => {
-    Object.assign(config, migrateVisualConfig(snapshot));
+    applyRuntimeConfig(snapshot);
     saveToStorage();
   };
 
@@ -402,7 +423,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     try {
       const importedData = JSON.parse(jsonData);
       if (importedData.config) {
-        Object.assign(config, migrateVisualConfig(importedData.config));
+        applyRuntimeConfig(importedData.config);
         if (typeof importedData.visualsEnabled === "boolean") {
           visualsEnabled.value = importedData.visualsEnabled;
         }
@@ -413,6 +434,14 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       console.error("Failed to import config:", error);
     }
     return false;
+  };
+
+  const useEphemeralDefaults = () => {
+    persistenceEnabled.value = false;
+    applyRuntimeConfig(cloneDefaultConfig());
+    visualsEnabled.value = true;
+    savedConfigs.value = [];
+    lastSaved.value = null;
   };
 
   // Note: Manual save is no longer needed - auto-save handles all persistence
@@ -462,6 +491,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     loadConfigSnapshot,
     exportConfig,
     importConfig,
+    useEphemeralDefaults,
     saveToStorage,
     loadFromStorage,
   };

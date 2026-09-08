@@ -7,7 +7,10 @@ import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 
 vi.mock("@/composables/useColorSystem", () => ({
   useColorSystem: () => ({
-    getPrimaryColor: vi.fn(() => "hsla(40, 80%, 60%, 1)"),
+    getPrimaryColorForPitch: vi.fn(
+      (_scaleIndex: number, pitchClassIndex: number | undefined) =>
+        `pitch-${pitchClassIndex ?? "scale"}`,
+    ),
     withAlpha: vi.fn(
       (color: string, opacity: number) => `${color} / ${opacity}`
     ),
@@ -119,5 +122,30 @@ describe("useBlobRenderer lifecycle", () => {
       1 + Math.sin(1.5) * 0.02,
       6
     );
+  });
+
+  it("preserves an altered chord tone's exact pitch color", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    renderer.createBlob(
+      { ...MAJOR_SOLFEGE[0], name: "D#", number: 0 },
+      311.13,
+      0,
+      0,
+      800,
+      600,
+      DEFAULT_CONFIG.blobs,
+      "d-sharp-4",
+      "C",
+      "major",
+      4,
+      "D#4",
+    );
+    vi.mocked(Date.now).mockReturnValue(1_150);
+
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs);
+
+    expect(renderer.activeBlobs.get("d-sharp-4")?.pitchClassIndex).toBe(3);
+    expect(renderer.getPreparedBlobFrames()[0]?.primaryColor).toBe("pitch-3");
   });
 });

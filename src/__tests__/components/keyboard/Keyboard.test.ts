@@ -156,6 +156,24 @@ describe("Keyboard production usage", () => {
     mocks.instrumentStore.isInteractionLocked = false;
   });
 
+  it("includes chord faces in controlled reduced-motion and forced-color previews", () => {
+    expect(keyboardSource).toContain(
+      ".keyboard--motion-reduced :deep(.chord-key__face)",
+    );
+    expect(keyboardSource).toContain(
+      ".keyboard--motion-reduced :deep(.chord__fused-progress)",
+    );
+    expect(keyboardSource).toContain(
+      ".keyboard--contrast-forced :deep(.chord-key:focus-visible)",
+    );
+    expect(keyboardSource).toContain(
+      ".keyboard--contrast-forced :deep(.chord__fused)",
+    );
+    expect(keyboardSource).toContain(
+      ".keyboard--contrast-forced :deep(.chord__symbol)",
+    );
+  });
+
   it("builds configured octave rows from the accepted Key contract", () => {
     const wrapper = mountKeyboard();
     const keys = wrapper.findAllComponents(KeyStub);

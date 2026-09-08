@@ -45,7 +45,7 @@ interface BlobRenderState {
 }
 
 export function useBlobRenderer() {
-  const { getPrimaryColor, withAlpha } = useColorSystem();
+  const { getPrimaryColorForPitch, withAlpha } = useColorSystem();
   const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Circle of Fifths progression (starting from C at position 0)
@@ -271,6 +271,7 @@ export function useBlobRenderer() {
       mode: (currentMode || "major") as MusicalMode,
       key: (currentKey || "C") as ChromaticNote,
       octave: currentOctave,
+      pitchClassIndex: TonalNote.chroma(chromaticNote) ?? undefined,
     };
 
     // Store the active blob using the appropriate key
@@ -521,11 +522,12 @@ export function useBlobRenderer() {
     key,
     blob,
     contour: createBlobContour(blob, blobConfig, state),
-    primaryColor: getPrimaryColor(
-      blob.note.name,
+    primaryColor: getPrimaryColorForPitch(
+      blob.note.number - 1,
+      blob.pitchClassIndex,
       blob.mode,
-      blob.octave,
-      blob.key
+      blob.key,
+      blob.octave
     ),
     scaledRadius: state.scaledRadius,
     opacity: state.currentOpacity,

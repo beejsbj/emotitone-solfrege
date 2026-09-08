@@ -1038,11 +1038,17 @@ onBeforeUnmount(() => {
   }
 }
 
-.keyboard--motion-reduced :deep(.key__face) {
+.keyboard--motion-reduced :deep(.key__face),
+.keyboard--motion-reduced :deep(.chord-key__face) {
   --key-face-hover-y: 0px;
   --key-face-press-y: 0px;
   --key-face-press-scale: 1;
   transition: none;
+}
+
+.keyboard--motion-reduced :deep(.chord__fused-progress) {
+  transition: none;
+  will-change: auto;
 }
 
 .keyboard--motion-reduced :deep(.note)::before {
@@ -1054,6 +1060,7 @@ onBeforeUnmount(() => {
 }
 
 .keyboard--contrast-forced :deep(.key:focus-visible),
+.keyboard--contrast-forced :deep(.chord-key:focus-visible),
 .keyboard--contrast-forced .keyboard__key--focus-preview {
   outline-color: CanvasText;
 }
@@ -1068,6 +1075,30 @@ onBeforeUnmount(() => {
 
 .keyboard--contrast-forced :deep(.note__label) {
   color: CanvasText;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused) {
+  border: 1px solid CanvasText;
+  background: Canvas !important;
+  box-shadow: none;
+  forced-color-adjust: none;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused::after) {
+  display: none;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused-member) {
+  background: Canvas;
+}
+
+.keyboard--contrast-forced :deep(.chord__fused-progress) {
+  background: Highlight !important;
+}
+
+.keyboard--contrast-forced :deep(.chord__symbol) {
+  color: CanvasText;
+  text-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

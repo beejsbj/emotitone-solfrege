@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   updateConfig: vi.fn(),
   setMainOctave: vi.fn(),
   setRowCount: vi.fn(),
+  triggerUIHaptic: vi.fn(),
   openDrawer: vi.fn(),
   closeDrawer: vi.fn(),
   toggleDrawer: vi.fn(),
@@ -32,18 +33,28 @@ const mocks = vi.hoisted(() => ({
     warmingInstrument: null as string | null,
     warmupMessage: "",
   },
+  keyboardConfig: {
+    keySize: 1,
+    mainOctave: 4,
+    rowCount: 3,
+    hapticFeedback: true,
+  },
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
     drawer: { isOpen: false },
-    keyboardConfig: { keySize: 1, mainOctave: 4, rowCount: 3 },
+    keyboardConfig: mocks.keyboardConfig,
     setMainOctave: mocks.setMainOctave,
     setRowCount: mocks.setRowCount,
     openDrawer: mocks.openDrawer,
     closeDrawer: mocks.closeDrawer,
     toggleDrawer: mocks.toggleDrawer,
   }),
+}));
+
+vi.mock("@/utils/hapticFeedback", () => ({
+  triggerUIHaptic: mocks.triggerUIHaptic,
 }));
 
 vi.mock("@/stores/music", () => ({
@@ -151,6 +162,8 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     mocks.instrumentStore.warmingInstrument = null;
     mocks.instrumentStore.warmupMessage = "";
     mocks.hummingStatus.value = "idle";
+    mocks.keyboardConfig.rowCount = 3;
+    mocks.keyboardConfig.hapticFeedback = true;
   });
 
   it("stops Strudel before starting humming and wires take selection", async () => {
@@ -314,6 +327,30 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     await wrapper.vm.$nextTick();
 
     expect(mocks.setRowCount).toHaveBeenCalledWith(5);
+    expect(mocks.triggerUIHaptic).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("ticks once when a pointer drag crosses a whole-row boundary", async () => {
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+    const drawer = wrapper.getComponent(Drawer);
+
+    drawer.vm.$emit("contentResize", 320, "pointer");
+    await wrapper.vm.$nextTick();
+    expect(mocks.triggerUIHaptic).toHaveBeenCalledOnce();
+
+    mocks.keyboardConfig.hapticFeedback = false;
+    drawer.vm.$emit("contentResize", 320, "pointer");
+    await wrapper.vm.$nextTick();
+    expect(mocks.triggerUIHaptic).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 

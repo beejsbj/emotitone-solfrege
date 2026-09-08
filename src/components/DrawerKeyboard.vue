@@ -111,6 +111,7 @@ import {
 import type { MusicalMode } from "@/types/music";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { displayInstrumentName } from "@/data/instruments";
+import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 // Store
 const store = useKeyboardDrawerStore();
@@ -178,11 +179,14 @@ function updateDrawerOpen(isOpen: boolean) {
   else store.closeDrawer();
 }
 
-function resizeKeyboard(contentHeight: number) {
+function resizeKeyboard(contentHeight: number, source?: "pointer") {
   const padding = store.keyboardConfig.keyboardPadding ? 8 : 0;
   const layout = resolveKeyboardLayout(contentHeight - padding, rowCount.value);
   if (layout.rowCount !== store.keyboardConfig.rowCount) {
     store.setRowCount(layout.rowCount);
+    if (source === "pointer" && store.keyboardConfig.hapticFeedback) {
+      triggerUIHaptic();
+    }
   }
 }
 

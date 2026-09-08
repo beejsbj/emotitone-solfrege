@@ -76,7 +76,7 @@ describe("Drawer continuous height contract", () => {
     await drag(w, 500);
     expect(height(w)).toBe(220);
     expect(w.get('[data-content]').attributes('data-height')).toBe('100');
-    expect(w.emitted('contentResize')?.at(-1)).toEqual([100]);
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([100, 'pointer']);
   });
   it("offers Arrow-key resizing through the handle when a consumer opts in", async () => {
     const w = await create({
@@ -96,6 +96,17 @@ describe("Drawer continuous height contract", () => {
     expect(w.classes()).not.toContain('drawer--layout-resize');
     await handle.trigger('keydown', { key: 'ArrowDown' });
     expect(height(w)).toBe(320);
+  });
+  it("does not attribute layout resizing to a pointer that is merely held", async () => {
+    const w = await create({ dragToCollapse: false, keyboardResizeStep: 10 });
+    const handle = w.get('button');
+
+    await handle.trigger('pointerdown', { button: 0, pointerId: 7, clientY: 100 });
+    await handle.trigger('keydown', { key: 'ArrowUp' });
+    await flushPromises();
+
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([210]);
+    await handle.trigger('pointerup', { pointerId: 7, clientY: 100 });
   });
   it("keeps playable content closed when the viewport cannot fit one complete row", async () => {
     const w = await create({

@@ -46,7 +46,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [open: boolean];
   resize: [height: number];
-  contentResize: [contentHeight: number];
+  contentResize: [contentHeight: number, source?: "pointer"];
   closed: [];
 }>();
 const root = ref<HTMLElement | null>(null);
@@ -129,14 +129,16 @@ function remember() {
     }));
   } catch { /* A restricted or full store must not prevent drawer interaction. */ }
 }
-function publish() {
+function publish(source?: "pointer") {
   emit("update:modelValue", expanded.value);
   emit("resize", height.value);
-  if (usableOpen.value) emit("contentResize", visibleContentHeight.value);
+  if (!usableOpen.value) return;
+  if (source === "pointer") emit("contentResize", visibleContentHeight.value, source);
+  else emit("contentResize", visibleContentHeight.value);
 }
-function setHeight(value: number) {
+function setHeight(value: number, source?: "pointer") {
   currentHeight.value = Math.max(0, Math.min(value, maxHeight.value));
-  publish();
+  publish(source);
 }
 function interactiveHeight(value: number) {
   if (props.dragToCollapse) return value;
@@ -236,7 +238,7 @@ function pointerMove(event: PointerEvent) {
   fitContent = false;
   dragging.value = true;
   const requestedHeight = gesture.height + (props.anchor === "top" ? distance : -distance);
-  setHeight(interactiveHeight(requestedHeight));
+  setHeight(interactiveHeight(requestedHeight), "pointer");
   event.preventDefault();
 }
 function handleKeydown(event: KeyboardEvent) {

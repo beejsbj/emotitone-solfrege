@@ -187,6 +187,8 @@ interface KeyboardChordView {
   harmony: HarmonyChord;
   members: ChordMember[];
   pressed: boolean;
+  /** Held snapshot whose degree no longer exists in the live harmony. */
+  orphaned: boolean;
 }
 
 interface ActiveChordSnapshot {
@@ -373,6 +375,7 @@ function createProductionWiring() {
           config.value.keySaturation,
         ),
         pressed: Boolean(snapshot) || store.isKeyPressed(`chord:${harmony.id}`),
+        orphaned: false,
       };
     });
     const liveIds = new Set(liveHarmony.map((harmony) => harmony.id));
@@ -395,6 +398,7 @@ function createProductionWiring() {
         config.value.keySaturation,
       ),
       pressed: true,
+      orphaned: true,
     })));
   });
 
@@ -542,6 +546,7 @@ const renderChords = computed<KeyboardChordView[]>(() =>
       resolvedSurfaceStyle.value,
     ),
     pressed: false,
+    orphaned: false,
   })),
 );
 
@@ -730,6 +735,30 @@ function focusChord(chordIndex: number) {
   void nextTick(() => chordKeyElements.get(chord.harmony.id)?.focus());
 }
 
+function focusSurvivingChordBeforeRelease(chordId: string) {
+  const releasedIndex = renderChords.value.findIndex(
+    (chord) => chord.harmony.id === chordId,
+  );
+  const releasedChord = renderChords.value[releasedIndex];
+  const releasedElement = chordKeyElements.get(chordId);
+  if (
+    !releasedChord?.orphaned
+    || !releasedElement
+    || document.activeElement !== releasedElement
+  ) {
+    return;
+  }
+
+  const survivingChords = renderChords.value.filter((chord) => !chord.orphaned);
+  const replacement = survivingChords[
+    Math.min(Math.max(releasedIndex, 0), survivingChords.length - 1)
+  ];
+  if (!replacement) return;
+
+  rememberChordFocus(replacement.harmony.id);
+  chordKeyElements.get(replacement.harmony.id)?.focus();
+}
+
 function focusKey(rowIndex: number, keyIndex: number) {
   const key = renderRows.value[rowIndex]?.keys[keyIndex];
   if (!key) return;
@@ -893,6 +922,7 @@ function handleFocusActivationKeyUp(event: KeyboardEvent) {
     dispatchIntent("release", { ...melodyIntent, event });
   }
   if (chordIntent) {
+    focusSurvivingChordBeforeRelease(chordIntent.chordId);
     activeChordFocusInputs.delete(chordInputId);
     dispatchChordIntent("release", { ...chordIntent, event });
   }

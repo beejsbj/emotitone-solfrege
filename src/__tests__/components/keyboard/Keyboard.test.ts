@@ -465,8 +465,14 @@ describe("Keyboard production usage", () => {
   });
 
   it("keeps a focus-held chord sounding through a smaller-scale remap until keyup", async () => {
-    const wrapper = mountKeyboard();
+    const wrapper = mount(Keyboard, {
+      attachTo: document.body,
+      global: {
+        stubs: { Key: KeyStub, ChordKey: ChordKeyStub },
+      },
+    });
     const seventhChord = wrapper.findAllComponents(ChordKeyStub)[6];
+    (seventhChord.element as HTMLButtonElement).focus();
 
     await seventhChord.trigger("keydown", {
       key: "Enter",
@@ -490,6 +496,9 @@ describe("Keyboard production usage", () => {
     await nextTick();
     await Promise.resolve();
     expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(3);
+    expect(document.activeElement).toBe(
+      wrapper.findAllComponents(ChordKeyStub)[4].element,
+    );
     wrapper.unmount();
   });
 

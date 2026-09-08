@@ -131,8 +131,11 @@ describe('App.vue', () => {
   it('keeps the style guide out of the production entry graph', () => {
     expect(appSource).toContain('defineAsyncComponent')
     expect(appSource).toContain('import("./style-guide/StyleGuide.vue")')
-    expect(appSource).toContain('import("./style-guide/TabsLab.vue")')
     expect(appSource).toContain('import("./style-guide/guide-defaults.css")')
+    expect(appSource).not.toContain('TabsLab')
+    expect(appSource).not.toContain('InstrumentPickerLab')
+    expect(appSource).not.toContain('TabsPage')
+    expect(appSource).not.toContain('InstrumentPickerPage')
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )

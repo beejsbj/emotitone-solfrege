@@ -1,25 +1,25 @@
 <template>
-  <main class="tabs-lab">
-    <header class="tabs-lab__header">
-      <p class="tabs-lab__eyebrow">EmotiTone · focused design lab</p>
+  <main class="tabs-page">
+    <header class="tabs-page__header">
+      <p class="tabs-page__eyebrow">EmotiTone · focused style-guide page</p>
       <h1>Tabs.</h1>
-      <p class="tabs-lab__intro">
+      <p class="tabs-page__intro">
         One live source, three real footprints. The accepted chip-slide is shown directly, then
         through the same panel seam used by Instrument and Config.
       </p>
     </header>
 
-    <section class="tabs-lab__comparison" aria-label="Current tabs comparison">
-      <article class="tabs-lab__surface">
-        <header class="tabs-lab__surface-heading">
+    <section class="tabs-page__comparison" aria-label="Current tabs comparison">
+      <article class="tabs-page__surface">
+        <header class="tabs-page__surface-heading">
           <div>
-            <p class="tabs-lab__source">Authoritative source · Tabs.vue</p>
+            <p class="tabs-page__source">Authoritative source · Tabs.vue</p>
             <h2>Accepted chip slide.</h2>
           </div>
-          <span class="tabs-lab__status">Source</span>
+          <span class="tabs-page__status">Source</span>
         </header>
 
-        <div class="tabs-lab__stage tabs-lab__stage--chip">
+        <div class="tabs-page__stage tabs-page__stage--chip">
           <Tabs
             v-model="sourceValue"
             :tabs="sourceTabs"
@@ -27,7 +27,7 @@
           />
         </div>
 
-        <dl class="tabs-lab__facts">
+        <dl class="tabs-page__facts">
           <div><dt>Active</dt><dd>One chip slides beneath the selected label.</dd></div>
           <div><dt>Rail</dt><dd>Framed ink shell with a continuous dark streak.</dd></div>
           <div><dt>Motion</dt><dd>Swing transition plus a brief directional smear.</dd></div>
@@ -35,34 +35,34 @@
         </dl>
       </article>
 
-      <article class="tabs-lab__surface">
-        <header class="tabs-lab__surface-heading">
+      <article class="tabs-page__surface">
+        <header class="tabs-page__surface-heading">
           <div>
-            <p class="tabs-lab__source">Production consumer · TabbedOverlayPanel.vue</p>
+            <p class="tabs-page__source">Production consumer · TabbedOverlayPanel.vue</p>
             <h2>Instrument footprint.</h2>
           </div>
-          <span class="tabs-lab__status tabs-lab__status--live">Live</span>
+          <span class="tabs-page__status tabs-page__status--live">Live</span>
         </header>
 
-        <div class="tabs-lab__stage tabs-lab__stage--panel">
+        <div class="tabs-page__stage tabs-page__stage--panel">
           <TabbedOverlayPanel
             v-model="instrumentValue"
             :tabs="instrumentTabs"
-            tab-test-id-prefix="tabs-lab-instrument"
+            tab-test-id-prefix="tabs-page-instrument"
             tabs-aria-label="Instrument footprint tabs"
             width="100%"
             max-height="none"
           >
             <template #header>
-              <p class="tabs-lab__panel-kicker">Instrument picker footprint</p>
+              <p class="tabs-page__panel-kicker">Instrument picker footprint</p>
             </template>
-            <div class="tabs-lab__panel-body">
+            <div class="tabs-page__panel-body">
               {{ activeInstrumentLabel }}
             </div>
           </TabbedOverlayPanel>
         </div>
 
-        <dl class="tabs-lab__facts">
+        <dl class="tabs-page__facts">
           <div><dt>Active</dt><dd>The same selected chip moves beneath the current bank.</dd></div>
           <div><dt>Rail</dt><dd>The panel footer imports the authoritative primitive.</dd></div>
           <div><dt>Motion</dt><dd>Selection changes retain the shared swing and smear.</dd></div>
@@ -71,36 +71,36 @@
       </article>
     </section>
 
-    <section class="tabs-lab__surface tabs-lab__surface--wide">
-      <header class="tabs-lab__surface-heading">
+    <section class="tabs-page__surface tabs-page__surface--wide">
+      <header class="tabs-page__surface-heading">
         <div>
-          <p class="tabs-lab__source">Production stress case · same source</p>
+          <p class="tabs-page__source">Production stress case · same source</p>
           <h2>Sixteen destinations.</h2>
         </div>
-        <span class="tabs-lab__status tabs-lab__status--live">Live recipe</span>
+        <span class="tabs-page__status tabs-page__status--live">Live recipe</span>
       </header>
 
-      <div class="tabs-lab__stage tabs-lab__stage--panel">
+      <div class="tabs-page__stage tabs-page__stage--panel">
         <TabbedOverlayPanel
           v-model="configValue"
           :tabs="configTabs"
-          tab-test-id-prefix="tabs-lab-config"
+          tab-test-id-prefix="tabs-page-config"
           tabs-aria-label="Configuration stress-case tabs"
           width="100%"
           max-height="none"
         >
           <template #header>
-            <p class="tabs-lab__panel-kicker">Config menu footprint</p>
+            <p class="tabs-page__panel-kicker">Config menu footprint</p>
           </template>
-          <div class="tabs-lab__panel-body">
+          <div class="tabs-page__panel-body">
             {{ activeConfigLabel }}
           </div>
         </TabbedOverlayPanel>
       </div>
     </section>
 
-    <aside class="tabs-lab__question">
-      <p class="tabs-lab__eyebrow">Accepted definition</p>
+    <aside class="tabs-page__question">
+      <p class="tabs-page__eyebrow">Accepted definition</p>
       <h2>One moving surface.</h2>
       <p>
         Tabs remain one visibly continuous selector. The cut-paper chip changes as a stable
@@ -168,78 +168,78 @@ const activeConfigLabel = computed(
 </script>
 
 <style scoped>
-.tabs-lab {
+.tabs-page {
   min-height: 100vh;
   background: var(--ink);
   color: var(--ivory);
   padding: clamp(24px, 5vw, 72px);
 }
 
-.tabs-lab__header,
-.tabs-lab__comparison,
-.tabs-lab__surface--wide,
-.tabs-lab__question {
+.tabs-page__header,
+.tabs-page__comparison,
+.tabs-page__surface--wide,
+.tabs-page__question {
   width: min(100%, 1120px);
   margin-inline: auto;
 }
 
-.tabs-lab__header {
+.tabs-page__header {
   margin-bottom: 40px;
 }
 
-.tabs-lab__eyebrow,
-.tabs-lab__source,
-.tabs-lab__status,
-.tabs-lab__panel-kicker,
-.tabs-lab__facts {
+.tabs-page__eyebrow,
+.tabs-page__source,
+.tabs-page__status,
+.tabs-page__panel-kicker,
+.tabs-page__facts {
   font-family: var(--font-mono);
 }
 
-.tabs-lab__eyebrow,
-.tabs-lab__source,
-.tabs-lab__status,
-.tabs-lab__panel-kicker,
-.tabs-lab__facts dt {
+.tabs-page__eyebrow,
+.tabs-page__source,
+.tabs-page__status,
+.tabs-page__panel-kicker,
+.tabs-page__facts dt {
   font-size: 10px;
   letter-spacing: .16em;
   text-transform: uppercase;
 }
 
-.tabs-lab__eyebrow,
-.tabs-lab__source {
+.tabs-page__eyebrow,
+.tabs-page__source {
   color: var(--ivory-3);
 }
 
-.tabs-lab h1 {
+.tabs-page h1 {
   margin: 8px 0 14px;
   font: var(--t-display-xl);
 }
 
-.tabs-lab__intro,
-.tabs-lab__question > p:last-child {
+.tabs-page__intro,
+.tabs-page__question > p:last-child {
   max-width: 68ch;
   color: var(--ivory-2);
   font: var(--t-body-mono);
 }
 
-.tabs-lab__comparison {
+.tabs-page__comparison {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
-.tabs-lab__surface {
+.tabs-page__surface {
   border: 1px solid var(--ink-5);
   background: var(--ink-2);
   padding: clamp(16px, 2.5vw, 28px);
 }
 
-.tabs-lab__surface--wide,
-.tabs-lab__question {
+.tabs-page__surface--wide,
+.tabs-page__question {
   margin-top: 18px;
 }
 
-.tabs-lab__surface-heading {
+.tabs-page__surface-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -247,23 +247,23 @@ const activeConfigLabel = computed(
   margin-bottom: 18px;
 }
 
-.tabs-lab h2 {
+.tabs-page h2 {
   margin: 5px 0 0;
   font: var(--t-h1);
 }
 
-.tabs-lab__status {
+.tabs-page__status {
   flex: none;
   border: 1px solid var(--ink-5);
   color: var(--ivory-3);
   padding: 6px 8px;
 }
 
-.tabs-lab__status--live {
+.tabs-page__status--live {
   color: var(--ivory);
 }
 
-.tabs-lab__stage {
+.tabs-page__stage {
   display: flex;
   align-items: center;
   min-height: 220px;
@@ -271,20 +271,20 @@ const activeConfigLabel = computed(
   padding: clamp(14px, 3vw, 34px);
 }
 
-.tabs-lab__stage--chip {
+.tabs-page__stage--chip {
   align-items: center;
 }
 
-.tabs-lab__stage--panel {
+.tabs-page__stage--panel {
   align-items: stretch;
   min-width: 0;
 }
 
-.tabs-lab__panel-kicker {
+.tabs-page__panel-kicker {
   color: var(--ivory-2);
 }
 
-.tabs-lab__panel-body {
+.tabs-page__panel-body {
   display: grid;
   min-height: 70px;
   place-items: center;
@@ -294,13 +294,13 @@ const activeConfigLabel = computed(
   text-transform: uppercase;
 }
 
-.tabs-lab__facts {
+.tabs-page__facts {
   display: grid;
   gap: 0;
   margin-top: 18px;
 }
 
-.tabs-lab__facts div {
+.tabs-page__facts div {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
   gap: 12px;
@@ -308,29 +308,29 @@ const activeConfigLabel = computed(
   padding: 10px 0;
 }
 
-.tabs-lab__facts dt {
+.tabs-page__facts dt {
   color: var(--ivory);
 }
 
-.tabs-lab__facts dd {
+.tabs-page__facts dd {
   margin: 0;
   color: var(--ivory-3);
   font-size: 11px;
   line-height: 1.5;
 }
 
-.tabs-lab__question {
+.tabs-page__question {
   border-left: 5px solid var(--ivory);
   background: var(--ink-2);
   padding: 24px 28px;
 }
 
 @media (max-width: 760px) {
-  .tabs-lab__comparison {
+  .tabs-page__comparison {
     grid-template-columns: 1fr;
   }
 
-  .tabs-lab__stage {
+  .tabs-page__stage {
     min-height: 180px;
   }
 }

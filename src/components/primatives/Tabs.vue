@@ -165,6 +165,11 @@ const revealActiveTab = (behavior: ScrollBehavior = "smooth") => {
   scroll.scrollTo({ left: Math.max(0, left), behavior: reducedMotion ? "auto" : behavior });
 };
 
+const syncTabsToLayout = () => {
+  measureChip();
+  revealActiveTab("auto");
+};
+
 const triggerSmear = () => {
   smearing.value = true;
   window.clearTimeout(smearTimer);
@@ -193,20 +198,18 @@ watch(
 );
 
 onMounted(() => {
-  void nextTick(() => {
-    measureChip();
-    revealActiveTab("auto");
-  });
-  window.addEventListener("resize", measureChip);
-  if (typeof ResizeObserver !== "undefined" && trackEl.value) {
-    sizeObserver = new ResizeObserver(measureChip);
+  void nextTick(syncTabsToLayout);
+  window.addEventListener("resize", syncTabsToLayout);
+  if (typeof ResizeObserver !== "undefined" && scrollEl.value && trackEl.value) {
+    sizeObserver = new ResizeObserver(syncTabsToLayout);
+    sizeObserver.observe(scrollEl.value);
     sizeObserver.observe(trackEl.value);
   }
 });
 
 onBeforeUnmount(() => {
   window.clearTimeout(smearTimer);
-  window.removeEventListener("resize", measureChip);
+  window.removeEventListener("resize", syncTabsToLayout);
   sizeObserver?.disconnect();
 });
 </script>

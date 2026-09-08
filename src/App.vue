@@ -1,7 +1,5 @@
 <template>
-  <TabsLab v-if="isTabsLab" />
-  <InstrumentPickerLab v-else-if="isInstrumentPickerLab" />
-  <StyleGuide v-else-if="isStyleGuide" />
+  <StyleGuide v-if="isStyleGuideRoute" :page="styleGuidePage" />
   <MainApp v-else />
 </template>
 
@@ -10,14 +8,19 @@ import { defineAsyncComponent } from "vue";
 import MainApp from "./MainApp.vue";
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-const isStyleGuide = pathname === "/style-guide";
-const isTabsLab = pathname === "/style-guide/tabs";
-const isInstrumentPickerLab = pathname === "/style-guide/instrument-picker";
-const isDesignRoute = isStyleGuide || isTabsLab || isInstrumentPickerLab;
+const styleGuidePages = {
+  "/style-guide": undefined,
+  "/style-guide/tabs": "tabs",
+  "/style-guide/instrument-picker": "instrument-picker",
+} as const;
+const isStyleGuideRoute = Object.prototype.hasOwnProperty.call(styleGuidePages, pathname);
+const styleGuidePage = isStyleGuideRoute
+  ? styleGuidePages[pathname as keyof typeof styleGuidePages]
+  : undefined;
 
 // The typography element defaults are deliberately loaded only for the guide.
 // Keep the route marker on the document so html/body rules can be scoped too.
-if (isDesignRoute) {
+if (isStyleGuideRoute) {
   document.documentElement.classList.add("style-guide-route");
   document.body?.classList.add("style-guide-route");
   void import("./style-guide/guide-defaults.css");
@@ -25,13 +28,5 @@ if (isDesignRoute) {
 
 const StyleGuide = defineAsyncComponent(
   () => import("./style-guide/StyleGuide.vue"),
-);
-
-const TabsLab = defineAsyncComponent(
-  () => import("./style-guide/TabsLab.vue"),
-);
-
-const InstrumentPickerLab = defineAsyncComponent(
-  () => import("./style-guide/InstrumentPickerLab.vue"),
 );
 </script>

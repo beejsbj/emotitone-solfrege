@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { markRaw } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
@@ -18,6 +18,10 @@ const tabs = [
 ];
 
 describe("Tabs", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("emits selection through the authoritative chip surface", async () => {
     const wrapper = mount(Tabs, {
       props: { tabs, modelValue: "all", layout: "scroll" },
@@ -41,5 +45,62 @@ describe("Tabs", () => {
     expect(wrapper.classes()).toContain("tabs--tone-brass");
     await wrapper.get('button:disabled').trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it("reveals the active destination again after the viewport resizes", async () => {
+    const scrollTo = vi.fn();
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    let resizeObserverCallback: ResizeObserverCallback | undefined;
+    class ResizeObserverMock {
+      constructor(callback: ResizeObserverCallback) {
+        resizeObserverCallback = callback;
+      }
+
+      observe = observe;
+      unobserve = vi.fn();
+      disconnect = disconnect;
+    }
+    const addEventListener = vi.spyOn(window, "addEventListener");
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+
+    const wrapper = mount(Tabs, {
+      props: {
+        tabs: [
+          ...tabs,
+          { label: "Presets", value: "presets", testId: "tab-presets" },
+        ],
+        modelValue: "presets",
+        layout: "scroll",
+      },
+    });
+    const scrollport = wrapper.element as HTMLElement;
+    const activeTab = wrapper.get('[data-testid="tab-presets"]').element as HTMLElement;
+    Object.defineProperties(scrollport, {
+      clientWidth: { configurable: true, value: 200 },
+      scrollTo: { configurable: true, value: scrollTo },
+    });
+    Object.defineProperties(activeTab, {
+      offsetLeft: { configurable: true, value: 700 },
+      offsetWidth: { configurable: true, value: 60 },
+    });
+    expect(observe).toHaveBeenCalledWith(scrollport);
+    expect(observe).toHaveBeenCalledWith(wrapper.get(".tabs__track").element);
+
+    const resizeHandler = addEventListener.mock.calls.find(
+      ([eventName]) => eventName === "resize",
+    )?.[1] as EventListener | undefined;
+    expect(resizeHandler).toBeDefined();
+    resizeHandler?.(new Event("resize"));
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 630, behavior: "auto" });
+    scrollTo.mockClear();
+    resizeObserverCallback?.([], {} as ResizeObserver);
+    expect(scrollTo).toHaveBeenCalledWith({ left: 630, behavior: "auto" });
+
+    wrapper.unmount();
+    expect(disconnect).toHaveBeenCalledOnce();
+    addEventListener.mockRestore();
   });
 });

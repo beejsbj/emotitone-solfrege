@@ -1,32 +1,26 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import Mark from "../../components/primatives/Mark.vue";
+import type { MarkName } from "../../components/primatives/Mark.vue";
 
-type SprinkleTone = "bone" | "cobalt" | "mustard" | "pine" | "plum" | "tomato";
+type SprinkleTone = "bone" | "cobalt" | "mustard" | "pine" | "plum" | "stage" | "tomato";
 type SprinkleLocation = "inside" | "outside";
+type SprinkleLayer = "behind" | "front";
 
 interface Sprinkle {
-  name:
-    | "accent"
-    | "diamond"
-    | "disk"
-    | "eighth"
-    | "grace"
-    | "star"
-    | "staccato"
-    | "triangle"
-    | "wave"
-    | "zigzag";
+  name: MarkName;
   x: number;
   y: number;
   size: number;
   rotate: number;
   tone: SprinkleTone;
   location: SprinkleLocation;
+  layer: SprinkleLayer;
+  opacity?: number;
 }
 
 interface MarkTreatment {
-  id: "A" | "B" | "C" | "D";
+  id: "A" | "B" | "C";
   name: string;
   description: string;
   verdict: string;
@@ -38,61 +32,52 @@ const lightStage = ref(false);
 const treatments: MarkTreatment[] = [
   {
     id: "A",
-    name: "Balanced Scatter",
-    description: "Three prints in the paper, with four loose flecks around it.",
-    verdict: "Balanced inside and out; the ET silhouette stays in charge.",
+    name: "Gathered Crown",
+    description: "A compact favicon body crowns the ET; abstract and musical prints live inside.",
+    verdict: "Best balance of favicon memory, paper overlap, and ET readability.",
     sprinkles: [
-      { name: "diamond", x: 22, y: 37, size: 10, rotate: -12, tone: "bone", location: "inside" },
-      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside" },
-      { name: "disk", x: 56, y: 90, size: 7, rotate: 0, tone: "tomato", location: "inside" },
-      { name: "triangle", x: 2, y: 7, size: 11, rotate: -18, tone: "mustard", location: "outside" },
-      { name: "star", x: 128, y: 0, size: 9, rotate: 12, tone: "plum", location: "outside" },
-      { name: "disk", x: 148, y: 45, size: 6, rotate: 0, tone: "cobalt", location: "outside" },
-      { name: "diamond", x: 132, y: 108, size: 8, rotate: 18, tone: "tomato", location: "outside" },
+      { name: "disk", x: 68, y: -2, size: 50, rotate: -8, tone: "plum", location: "outside", layer: "behind", opacity: .88 },
+      { name: "half-circle", x: 37, y: 14, size: 27, rotate: -25, tone: "cobalt", location: "outside", layer: "behind", opacity: .9 },
+      { name: "eighth", x: 112, y: -1, size: 29, rotate: 14, tone: "mustard", location: "outside", layer: "front" },
+      { name: "diamond", x: 5, y: 43, size: 15, rotate: -16, tone: "tomato", location: "outside", layer: "front" },
+      { name: "disk", x: 133, y: 44, size: 17, rotate: 8, tone: "pine", location: "outside", layer: "behind", opacity: .9 },
+      { name: "wave", x: 54, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside", layer: "front" },
+      { name: "eighth", x: 91, y: 69, size: 18, rotate: 4, tone: "bone", location: "inside", layer: "front" },
+      { name: "slur", x: 72, y: 121, size: 84, rotate: 0, tone: "stage", location: "outside", layer: "front", opacity: .8 },
     ],
   },
   {
     id: "B",
-    name: "Musical Orbit",
-    description: "Notation lands on the cuts and continues in a loose orbit.",
-    verdict: "The most explicitly musical field.",
+    name: "Offbeat Bouquet",
+    description: "The favicon body leans left and falls through a musical diagonal.",
+    verdict: "The most expressive and rhythmically active option.",
     sprinkles: [
-      { name: "eighth", x: 91, y: 69, size: 18, rotate: 4, tone: "bone", location: "inside" },
-      { name: "staccato", x: 55, y: 90, size: 21, rotate: 0, tone: "pine", location: "inside" },
-      { name: "accent", x: 1, y: 12, size: 14, rotate: -12, tone: "mustard", location: "outside" },
-      { name: "grace", x: 130, y: -2, size: 16, rotate: 9, tone: "tomato", location: "outside" },
-      { name: "disk", x: 148, y: 54, size: 6, rotate: 0, tone: "plum", location: "outside" },
-      { name: "star", x: 126, y: 111, size: 9, rotate: -8, tone: "cobalt", location: "outside" },
+      { name: "disk", x: 47, y: -1, size: 48, rotate: 9, tone: "plum", location: "outside", layer: "behind", opacity: .86 },
+      { name: "whole", x: 15, y: 20, size: 29, rotate: -24, tone: "cobalt", location: "outside", layer: "front", opacity: .95 },
+      { name: "half-circle", x: 86, y: -1, size: 26, rotate: 22, tone: "mustard", location: "outside", layer: "behind", opacity: .88 },
+      { name: "grace", x: 130, y: 29, size: 22, rotate: 13, tone: "tomato", location: "outside", layer: "front" },
+      { name: "diamond", x: 139, y: 62, size: 15, rotate: 16, tone: "pine", location: "outside", layer: "front" },
+      { name: "diamond", x: 22, y: 38, size: 9, rotate: -12, tone: "bone", location: "inside", layer: "front" },
+      { name: "eighth", x: 91, y: 69, size: 18, rotate: 4, tone: "bone", location: "inside", layer: "front" },
+      { name: "wave", x: 54, y: 55, size: 18, rotate: -5, tone: "bone", location: "inside", layer: "front" },
+      { name: "slur", x: 76, y: 122, size: 80, rotate: -5, tone: "stage", location: "outside", layer: "front", opacity: .8 },
     ],
   },
   {
     id: "C",
-    name: "Confetti Halo",
-    description: "Two paper prints sit inside a wider structural halo.",
-    verdict: "The fullest and most celebratory scatter.",
+    name: "Close Embrace",
+    description: "The strongest large-head body hugs the paper cuts above a broad arch.",
+    verdict: "The fullest and most faithful compositional translation.",
     sprinkles: [
-      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside" },
-      { name: "diamond", x: 91, y: 70, size: 9, rotate: 12, tone: "bone", location: "inside" },
-      { name: "triangle", x: 0, y: 18, size: 11, rotate: -16, tone: "mustard", location: "outside" },
-      { name: "disk", x: -4, y: 76, size: 7, rotate: 0, tone: "tomato", location: "outside" },
-      { name: "zigzag", x: 40, y: -8, size: 20, rotate: -4, tone: "plum", location: "outside" },
-      { name: "star", x: 116, y: -5, size: 10, rotate: 12, tone: "cobalt", location: "outside" },
-      { name: "diamond", x: 146, y: 36, size: 8, rotate: 16, tone: "pine", location: "outside" },
-      { name: "wave", x: 145, y: 88, size: 15, rotate: 6, tone: "mustard", location: "outside" },
-    ],
-  },
-  {
-    id: "D",
-    name: "Five Satellites",
-    description: "Five colour disks orbit one print, echoing the favicon constellation.",
-    verdict: "The clearest bridge from the recognizable old favicon.",
-    sprinkles: [
-      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside" },
-      { name: "disk", x: 70, y: -9, size: 13, rotate: 0, tone: "plum", location: "outside" },
-      { name: "disk", x: -5, y: 42, size: 9, rotate: 0, tone: "cobalt", location: "outside" },
-      { name: "disk", x: 145, y: 42, size: 9, rotate: 0, tone: "mustard", location: "outside" },
-      { name: "disk", x: 10, y: 107, size: 7, rotate: 0, tone: "tomato", location: "outside" },
-      { name: "disk", x: 130, y: 107, size: 7, rotate: 0, tone: "pine", location: "outside" },
+      { name: "disk", x: 76, y: -4, size: 52, rotate: -7, tone: "plum", location: "outside", layer: "behind", opacity: .88 },
+      { name: "half-circle", x: 40, y: 12, size: 28, rotate: -28, tone: "cobalt", location: "outside", layer: "behind", opacity: .92 },
+      { name: "whole", x: 118, y: 5, size: 30, rotate: 20, tone: "mustard", location: "outside", layer: "front", opacity: .95 },
+      { name: "diamond", x: 4, y: 51, size: 16, rotate: -12, tone: "tomato", location: "outside", layer: "front" },
+      { name: "eighth", x: 140, y: 48, size: 21, rotate: 9, tone: "pine", location: "outside", layer: "front" },
+      { name: "wave", x: 55, y: 55, size: 19, rotate: -5, tone: "bone", location: "inside", layer: "front" },
+      { name: "eighth", x: 91, y: 69, size: 18, rotate: 4, tone: "bone", location: "inside", layer: "front" },
+      { name: "disk", x: 56, y: 90, size: 7, rotate: 0, tone: "tomato", location: "inside", layer: "front" },
+      { name: "slur", x: 72, y: 120, size: 94, rotate: 0, tone: "stage", location: "outside", layer: "front", opacity: .75 },
     ],
   },
 ];
@@ -102,7 +87,8 @@ function sprinkleStyle(sprinkle: Sprinkle) {
     left: `${(sprinkle.x / 140) * 100}%`,
     top: `${(sprinkle.y / 120) * 100}%`,
     width: `${(sprinkle.size / 140) * 100}%`,
-    color: `var(--${sprinkle.tone})`,
+    color: sprinkle.tone === "stage" ? "var(--lab-primary)" : `var(--${sprinkle.tone})`,
+    opacity: sprinkle.opacity ?? 1,
     transform: `translate(-50%, -50%) rotate(${sprinkle.rotate}deg)`,
   };
 }
@@ -126,13 +112,13 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
     <header class="logo-lab__header">
       <div>
-        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 06</p>
-        <h1>Sprinkle Marks.<br><span>Keep the cutouts.</span></h1>
+        <p class="logo-lab__eyebrow">Brand Logo · Definition Lab · Round 07</p>
+        <h1>Gather the Marks.<br><span>Remember the favicon.</span></h1>
       </div>
       <div class="logo-lab__intro">
         <p>
-          The six-cut Tight Weave is fixed. Every treatment now mixes Marks printed into the paper
-          with Marks scattered around its silhouette; none changes the letter construction or colour assignment.
+          A's abstract flecks and B's musical glyphs now work together. Each treatment rebuilds the
+          favicon's dominant head, smaller clustered body, paper overlap, and pale upward arch.
         </p>
         <button type="button" @click="lightStage = !lightStage">
           {{ lightStage ? "View on ink" : "View on bone" }}
@@ -159,12 +145,12 @@ function sprinkleStyle(sprinkle: Sprinkle) {
       <img src="/icon.svg" alt="Current EmotiTone favicon" width="88" height="88">
       <div>
         <p>Source memory · current favicon</p>
-        <h2 id="favicon-memory-title">Five colour blobs + one upward curve.</h2>
-        <span>At tiny scale, this constellation carries more recognition than its small wordmark. Option D translates that rhythm into the new paper language.</span>
+        <h2 id="favicon-memory-title">One dominant blob + four smaller forms + an upward arch.</h2>
+        <span>Its recognition comes from hierarchy and gathering—not merely five circles. All three options translate that composition through real Marks.</span>
       </div>
     </section>
 
-    <section class="logo-lab__grid" aria-label="Four Mark treatments on the selected Tight Weave logo">
+    <section class="logo-lab__grid" aria-label="Three favicon-informed Mark treatments on the selected Tight Weave logo">
       <article v-for="treatment in treatments" :key="treatment.id" class="concept">
         <header class="concept__header">
           <span>{{ treatment.id }}</span>
@@ -184,10 +170,12 @@ function sprinkleStyle(sprinkle: Sprinkle) {
                 v-for="(sprinkle, index) in treatment.sprinkles"
                 :key="`${treatment.id}-${sprinkle.name}-${index}`"
                 class="embellished-mark__sprinkle"
+                :class="`embellished-mark__sprinkle--${sprinkle.layer}`"
                 :name="sprinkle.name"
-                tone="ivory"
+                tone="inherit"
                 size="100"
                 :data-location="sprinkle.location"
+                :data-layer="sprinkle.layer"
                 :style="sprinkleStyle(sprinkle)"
               />
             </div>
@@ -205,10 +193,12 @@ function sprinkleStyle(sprinkle: Sprinkle) {
                   v-for="(sprinkle, index) in treatment.sprinkles"
                   :key="`compact-${treatment.id}-${sprinkle.name}-${index}`"
                   class="embellished-mark__sprinkle"
+                  :class="`embellished-mark__sprinkle--${sprinkle.layer}`"
                   :name="sprinkle.name"
-                  tone="ivory"
+                  tone="inherit"
                   size="100"
                   :data-location="sprinkle.location"
+                  :data-layer="sprinkle.layer"
                   :style="sprinkleStyle(sprinkle)"
                   aria-hidden="true"
                 />
@@ -227,8 +217,8 @@ function sprinkleStyle(sprinkle: Sprinkle) {
     </section>
 
     <footer class="logo-lab__footer">
-      <strong>A balances the field; D preserves the favicon memory.</strong>
-      <span>Which treatment has the right amount and kind of Mark language?</span>
+      <strong>Astra recommends A · Gathered Crown.</strong>
+      <span>Which cluster carries the old recognition without overwhelming the new ET?</span>
     </footer>
   </main>
 </template>
@@ -439,7 +429,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
 .logo-lab__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(16px, 2vw, 28px);
   width: min(1440px, 100%);
   margin: 0 auto;
@@ -453,7 +443,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
   --t-cap: var(--plum);
   --t-stem: var(--cobalt);
   display: grid;
-  grid-template-rows: auto minmax(340px, 1fr) auto auto;
+  grid-template-rows: auto minmax(420px, 1fr) auto auto;
   min-width: 0;
   background: var(--lab-panel);
 }
@@ -500,11 +490,12 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
 .paper-lockup > .embellished-mark {
   width: clamp(210px, 22vw, 320px);
+  margin-block: clamp(30px, 3vw, 44px) clamp(42px, 4vw, 60px);
 }
 
 .paper-lockup strong {
   color: var(--lab-primary);
-  font: 700 clamp(68px, 7vw, 102px)/1 var(--font-display);
+  font: 700 clamp(54px, 5vw, 76px)/1 var(--font-display);
   letter-spacing: .01em;
 }
 
@@ -515,6 +506,8 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 }
 
 .embellished-mark > svg:first-child {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: auto;
@@ -523,10 +516,12 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
 .embellished-mark__sprinkle {
   position: absolute;
-  z-index: 1;
   height: auto;
   pointer-events: none;
 }
+
+.embellished-mark__sprinkle--behind { z-index: 0; }
+.embellished-mark__sprinkle--front { z-index: 2; }
 
 .cut--e-stem { fill: var(--e-stem); }
 .cut--e-top { fill: var(--e-top); }
@@ -568,6 +563,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 
 .paper-lockup--compact .embellished-mark {
   width: 44px;
+  margin-block: 7px 10px;
   flex: 0 0 auto;
 }
 
@@ -620,6 +616,10 @@ function sprinkleStyle(sprinkle: Sprinkle) {
   font-size: 10px;
 }
 
+@media (max-width: 1200px) {
+  .logo-lab__grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 1080px) {
   .concept { grid-template-rows: auto minmax(320px, 1fr) auto auto; }
   .paper-lockup > .embellished-mark { width: clamp(180px, 30vw, 260px); }
@@ -632,7 +632,6 @@ function sprinkleStyle(sprinkle: Sprinkle) {
   .logo-lab__header { grid-template-columns: 1fr; }
   .anatomy { grid-template-columns: 1fr; }
   .anatomy ol { grid-template-columns: repeat(3, 1fr); }
-  .logo-lab__grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {

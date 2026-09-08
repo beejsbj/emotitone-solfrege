@@ -28,7 +28,7 @@ describe("Brand Logo definition lab", () => {
       expect(logoLabSource.match(new RegExp(`data-cut=\\"${part}\\"`, "g"))).toHaveLength(1);
     }
 
-    expect(logoLabSource).toContain("Round 06");
+    expect(logoLabSource).toContain("Round 07");
     expect(logoLabSource).toContain("Compact survival");
     expect(logoLabSource).not.toContain("@/components/uniques/BrandLogo.vue");
   });
@@ -36,33 +36,37 @@ describe("Brand Logo definition lab", () => {
   it("compares four controlled treatments built from the real Mark primitive", () => {
     expect(logoLabSource).toContain('from "../../components/primatives/Mark.vue"');
 
-    for (const treatment of ["Balanced Scatter", "Musical Orbit", "Confetti Halo", "Five Satellites"]) {
+    for (const treatment of ["Gathered Crown", "Offbeat Bouquet", "Close Embrace"]) {
       expect(logoLabSource).toContain(treatment);
     }
 
-    for (const mark of ["accent", "diamond", "wave", "disk", "eighth", "grace", "staccato", "star", "triangle", "zigzag"]) {
+    for (const mark of ["diamond", "disk", "eighth", "grace", "half-circle", "slur", "wave", "whole"]) {
       expect(logoLabSource).toContain(`name: "${mark}"`);
     }
 
-    for (const [index, id] of ["A", "B", "C", "D"].entries()) {
+    for (const [index, id] of ["A", "B", "C"].entries()) {
       const start = logoLabSource.indexOf(`id: "${id}"`);
-      const nextId = ["B", "C", "D"][index];
+      const nextId = ["B", "C"][index];
       const end = nextId ? logoLabSource.indexOf(`id: "${nextId}"`) : logoLabSource.indexOf("];", start);
       const treatmentSource = logoLabSource.slice(start, end);
 
       expect(treatmentSource).toContain('location: "inside"');
       expect(treatmentSource).toContain('location: "outside"');
+      expect(treatmentSource).toContain('layer: "behind"');
+      expect(treatmentSource).toContain('layer: "front"');
     }
 
     expect(logoLabSource).toContain(':data-location="sprinkle.location"');
+    expect(logoLabSource).toContain(':data-layer="sprinkle.layer"');
   });
 
   it("carries the favicon's five-blob constellation into one comparison without replacing the favicon", () => {
     expect(faviconSource.match(/<circle /g)).toHaveLength(5);
     expect(faviconSource).toContain("M150 400 Q256 320 362 400");
     expect(logoLabSource).toContain('src="/icon.svg"');
-    expect(logoLabSource).toContain("Five colour blobs + one upward curve");
-    expect(logoLabSource).toContain("Five colour disks orbit one print");
+    expect(logoLabSource).toContain("One dominant blob + four smaller forms + an upward arch");
+    expect(logoLabSource).toContain("Its recognition comes from hierarchy and gathering");
+    expect(logoLabSource).toContain('name: "slur"');
   });
 
   it("promotes Cobalt through the Brand token owner and real token specimen", () => {

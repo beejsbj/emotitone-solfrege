@@ -172,7 +172,7 @@ const WHEEL_DECK_POSITIONS = [
 ];
 const WHEEL_UNWIND_DISTANCE = 36;
 const WHEEL_OPEN_HOLD_MS = 900;
-const WHEEL_REBOUND_DURATION_MS = 390;
+const WHEEL_REBOUND_DURATION_MS = 200;
 
 const props = defineProps<{
   items: PatternReelPrototypeItem[];

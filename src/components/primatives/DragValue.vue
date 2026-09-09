@@ -145,10 +145,26 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   white-space: normal;
   overflow-wrap: anywhere;
   text-align: center;
+  transform-origin: 50% 100%;
 }
 
 .drag-value__paper.sticker--fill {
   font-size: 20px;
   text-transform: none;
+}
+
+@keyframes drag-value-arrive {
+  from { scale: .9; }
+  to { scale: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .drag-value__paper {
+    animation: drag-value-arrive var(--dur-bounce) var(--ease-bounce);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drag-value__paper { animation: none; }
 }
 </style>

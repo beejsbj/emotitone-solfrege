@@ -266,9 +266,9 @@ onBeforeUnmount(() => {
 .joystick[data-dragging] .joystick__face { cursor: grabbing; }
 .joystick__detent { position: absolute; z-index: 3; inline-size: 4%; aspect-ratio: 1; border-radius: 50%; background: var(--brass-edge); transform: translate(-50%, -50%); pointer-events: none; }
 .joystick__detent--effective { background: var(--ivory); box-shadow: 0 0 4px var(--brass-hi); }
-.joystick__stick { position: absolute; z-index: 4; inline-size: 29%; aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: inset 0 -2px 2px var(--brass-lo), 0 3px 4px var(--brass-edge); transform: translate(-50%, -50%); pointer-events: none; transition: left var(--dur-tap) var(--ease-stab), top var(--dur-tap) var(--ease-stab); }
+.joystick__stick { position: absolute; z-index: 4; inline-size: 29%; aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: inset 0 -2px 2px var(--brass-lo), 0 3px 4px var(--brass-edge); transform: translate(-50%, -50%); scale: 1; pointer-events: none; transition: left var(--dur-tap) var(--ease-stab), top var(--dur-tap) var(--ease-stab), scale var(--dur-bounce) var(--ease-bounce); }
 .joystick__stick::after { content: ''; position: absolute; inset: -10% -30%; background: var(--brass-sheen); background-position: -60% 0; background-size: 220% 100%; background-repeat: no-repeat; mix-blend-mode: screen; animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite; }
-.joystick[data-active] .joystick__stick { transition: none; }
+.joystick[data-active] .joystick__stick { scale: .9; transition: left 0s, top 0s, scale var(--dur-tap) var(--ease-stab); }
 .joystick--digital .joystick__plate { background: var(--ink); box-shadow: inset 0 0 0 2px var(--brass); }
 .joystick--digital .joystick__plate::before { inset: 22%; border-radius: 0; background: linear-gradient(transparent 48%, var(--brass-edge) 48% 52%, transparent 52%), linear-gradient(90deg, transparent 48%, var(--brass-edge) 48% 52%, transparent 52%); box-shadow: none; }
 .joystick--digital .joystick__plate::after { display: none; }
@@ -276,7 +276,7 @@ onBeforeUnmount(() => {
 .joystick--digital .joystick__detent--effective { background: var(--brass-hi); }
 .joystick--digital .joystick__stick { border-radius: 20%; box-shadow: 0 0 8px color-mix(in srgb, var(--brass) 50%, transparent); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); border: 0; white-space: nowrap; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .joystick__stick { transition: none; } .joystick__plate::after, .joystick__stick::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .joystick__stick { scale: 1; transition: none; } .joystick__plate::after, .joystick__stick::after { animation: none; } }
 @media (forced-colors: active) {
   .joystick .joystick__plate { border: 1px solid CanvasText; background: Canvas; box-shadow: none; forced-color-adjust: none; }
   .joystick .joystick__plate::before { background: Canvas; box-shadow: none; }

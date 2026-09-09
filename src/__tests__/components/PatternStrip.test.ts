@@ -40,6 +40,7 @@ describe("PatternStrip", () => {
     expect(patternStripSource).toContain("min-height: 64px");
     expect(patternStripSource).toContain("background: var(--ink)");
     expect(patternStripSource).not.toMatch(/PatternCard|<Card|notch|metadata|CodeStrip/);
+    expect(patternStripSource).toContain("@media (forced-colors: active)");
   });
 
   it("omits Bar Tape only for Current and exposes action feedback", () => {

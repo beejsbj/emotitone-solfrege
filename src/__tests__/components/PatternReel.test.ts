@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import PatternStrip from "@/components/compounds/PatternStrip.vue";
+import patternReelSource from "@/components/compounds/PatternReel.vue?raw";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 
 function item(id: string, name: string): PatternReelItem {
@@ -143,5 +144,16 @@ describe("PatternReel", () => {
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
+  });
+
+  it("keeps motion local, compositor-safe, and still under Reduced Motion", () => {
+    expect(patternReelSource).toMatch(
+      /transition:\s*transform var\(--settle-duration\)[\s\S]*opacity var\(--settle-duration\)/,
+    );
+    expect(patternReelSource).not.toMatch(/transition:\s*(?:height|width|padding|margin)/);
+    expect(patternReelSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.pattern-reel__slot\s*{[\s\S]*transition: none;/,
+    );
+    expect(patternReelSource).toContain("@media (forced-colors: active)");
   });
 });

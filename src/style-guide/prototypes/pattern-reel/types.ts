@@ -1,3 +1,5 @@
+import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
+
 export type PatternReelPrototypeVariant = "wheel" | "steps" | "cassette";
 export type PatternReelPrototypeInput =
   | "initial"
@@ -13,6 +15,7 @@ export interface PatternReelPrototypeItem {
   rootPitchClass: number;
   rootOctave: number;
   rootLabel: string;
+  barTape: BarTapeSegment[];
   codeTokens: string[];
   isLive?: boolean;
 }

@@ -25,7 +25,7 @@
         <li>In-memory only</li>
         <li>No audio</li>
         <li>No production store</li>
-        <li>Pattern Card + CodeStrip Bar are scaffolds</li>
+        <li>PatternStrip + CodeStrip Bar are scaffolds</li>
       </ul>
     </header>
 
@@ -116,13 +116,13 @@ const variants: Array<{
     id: "wheel",
     shortLabel: "B",
     label: "Wheel deck",
-    thesis: "The chosen wheel rests as a tight Ink deck, unwinds while you drag, and holds open for a brief reading beat after release or a tap on Current.",
+    thesis: "The chosen wheel rests as a tight Ink deck, unwinds while you drag, holds open for a 900ms reading beat, then gathers with the shared elastic rebound.",
   },
   {
     id: "steps",
     shortLabel: "A",
     label: "Paper steps",
-    thesis: "Restrained depth keeps each Pattern Card legible while still carrying the stack into the bottom selection slot.",
+    thesis: "Restrained depth keeps each PatternStrip legible while still carrying the stack into the bottom selection slot.",
   },
   {
     id: "cassette",

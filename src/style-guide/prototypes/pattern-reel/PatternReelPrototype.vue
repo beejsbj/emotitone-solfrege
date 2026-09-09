@@ -74,7 +74,7 @@
         :style="slotStyle(slot.slot, slot.item.id)"
         :aria-hidden="slot.slot === 1 && !isActivePreview(slot.item.id) || undefined"
       >
-        <PatternReelRowCardPrototype
+        <PatternStripPrototype
           :item="slot.item"
           :active="isActivePreview(slot.item.id)"
           :disabled="dragging || settling || transientIndex !== null"
@@ -101,7 +101,7 @@ import {
 } from "vue";
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
-import PatternReelRowCardPrototype from "./PatternReelRowCardPrototype.vue";
+import PatternStripPrototype from "./PatternStripPrototype.vue";
 import type {
   PatternReelPrototypeInput,
   PatternReelPrototypeItem,
@@ -171,7 +171,8 @@ const WHEEL_DECK_POSITIONS = [
   { y: -42, scale: .986, opacity: .52 },
 ];
 const WHEEL_UNWIND_DISTANCE = 36;
-const WHEEL_COLLAPSE_DELAY_MS = 520;
+const WHEEL_COLLAPSE_DELAY_MS = 900;
+const WHEEL_COLLAPSE_DURATION_MS = 600;
 
 const props = defineProps<{
   items: PatternReelPrototypeItem[];
@@ -191,6 +192,7 @@ const settling = ref(false);
 const dragDistance = ref(0);
 const transientIndex = ref<number | null>(null);
 const revealHeld = ref(false);
+const collapseBouncing = ref(false);
 const keyboardImmediate = ref(false);
 const input = ref<PatternReelPrototypeInput>("initial");
 const liveAnnouncement = ref("");
@@ -205,6 +207,7 @@ let wheelAccumulator = 0;
 let wheelTimer: ReturnType<typeof setTimeout> | undefined;
 let settleTimer: ReturnType<typeof setTimeout> | undefined;
 let collapseTimer: ReturnType<typeof setTimeout> | undefined;
+let bounceTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressClicksUntil = 0;
 
 const recipe = computed(() => RECIPES[props.variant]);
@@ -318,13 +321,18 @@ function isActivePreview(id: string) {
 
 function slotStyle(slot: number, id: string): CSSProperties {
   const position = interpolatedPosition(slot - dragProgress.value);
+  const useCollapseBounce = props.variant === "wheel" && collapseBouncing.value;
   return {
     "--slot-y": `${position.y}px`,
     "--slot-scale": String(position.scale),
     "--slot-opacity": String(position.opacity),
     "--slot-z": String(isActivePreview(id) ? 20 : 18 - Math.round(Math.abs(slot - dragProgress.value))),
-    "--settle-duration": `${recipe.value.duration}ms`,
-    "--settle-easing": recipe.value.easing,
+    "--settle-duration": useCollapseBounce
+      ? "var(--dur-bounce)"
+      : `${recipe.value.duration}ms`,
+    "--settle-easing": useCollapseBounce
+      ? "var(--ease-bounce)"
+      : recipe.value.easing,
   } as CSSProperties;
 }
 
@@ -382,11 +390,17 @@ function revealWheelTemporarily(inputMode: PatternReelPrototypeInput) {
   }
 
   clearTimeout(collapseTimer);
+  clearTimeout(bounceTimer);
+  collapseBouncing.value = false;
   revealHeld.value = true;
   setState(inputMode, displayItem.value?.id ?? props.selectedId, settling.value);
   collapseTimer = setTimeout(() => {
+    collapseBouncing.value = true;
     revealHeld.value = false;
     setState(inputMode, displayItem.value?.id ?? props.selectedId, settling.value);
+    bounceTimer = setTimeout(() => {
+      collapseBouncing.value = false;
+    }, WHEEL_COLLAPSE_DURATION_MS);
   }, WHEEL_COLLAPSE_DELAY_MS);
 }
 
@@ -394,9 +408,11 @@ function cancelPendingInteraction(preserveReveal = false) {
   clearTimeout(wheelTimer);
   clearTimeout(settleTimer);
   clearTimeout(collapseTimer);
+  clearTimeout(bounceTimer);
   wheelAccumulator = 0;
   transientIndex.value = null;
   if (!preserveReveal) revealHeld.value = false;
+  collapseBouncing.value = false;
   settling.value = false;
   keyboardImmediate.value = false;
   dragDistance.value = 0;
@@ -639,8 +655,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .pattern-reel-prototype {
-  --selected-height: 76px;
-  --reel-height: 218px;
+  --selected-height: 64px;
+  --reel-height: 206px;
   position: relative;
   display: grid;
   min-width: 0;
@@ -764,7 +780,7 @@ onBeforeUnmount(() => {
 }
 
 .pattern-reel-prototype--cassette {
-  --reel-height: 186px;
+  --reel-height: 174px;
 }
 
 @media (max-width: 520px) {
@@ -775,7 +791,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 760px) {
   .pattern-reel-prototype {
-    --reel-height: 198px;
+    --reel-height: 186px;
   }
 
   .pattern-reel-prototype__slot--depth-3:not(.pattern-reel-prototype__slot--active) {
@@ -785,7 +801,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 660px) {
   .pattern-reel-prototype {
-    --reel-height: 160px;
+    --reel-height: 148px;
   }
 
   .pattern-reel-prototype__slot--depth-2:not(.pattern-reel-prototype__slot--active) {
@@ -795,7 +811,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 560px) {
   .pattern-reel-prototype {
-    --reel-height: 76px;
+    --reel-height: 64px;
   }
 
   .pattern-reel-prototype__slot--depth-1:not(.pattern-reel-prototype__slot--active) {

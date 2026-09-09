@@ -59,12 +59,12 @@
 
       <div
         v-for="slot in renderedSlots"
-        :key="slot.item.id"
+        :key="`${slot.item.id}:${slot.slot}`"
         class="pattern-reel__slot"
         :class="[
           `pattern-reel__slot--${slot.slot}`,
           {
-            'pattern-reel__slot--active': isActivePreview(slot.item.id),
+            'pattern-reel__slot--active': isActiveSlot(slot.slot, slot.item.id),
             [`pattern-reel__slot--depth-${Math.abs(slot.slot)}`]: slot.slot < 0,
           },
         ]"
@@ -74,7 +74,7 @@
       >
         <PatternStrip
           :item="slot.item"
-          :active="isActivePreview(slot.item.id)"
+          :active="isCommittedCurrent(slot.item.id)"
           :disabled="disabled || dragging || settling || transientIndex !== null
             || isSlotUnavailable(slot.slot, slot.item.id)"
           @select="handleStripSelect(slot.item.id)"
@@ -206,21 +206,27 @@ function slotForIndex(itemIndex: number) {
   if (backward === 0) return 0;
 
   const forward = (itemIndex - displayIndex.value + count) % count;
-  const stagesForwardIdentity = dragging.value && dragProgress.value > 0 && count <= 4;
-  if (stagesForwardIdentity && forward === 1) return 1;
-
-  const predecessorCount = Math.min(3, count - 1 - Number(stagesForwardIdentity));
+  const predecessorCount = Math.min(3, count - 1);
   if (backward <= predecessorCount) return -backward;
 
   if (count > predecessorCount + 1 && forward === 1) return 1;
   return null;
 }
 
-const renderedSlots = computed(() => props.items
-  .map((item, itemIndex) => ({ item, slot: slotForIndex(itemIndex) }))
-  .filter((entry): entry is { item: PatternReelItem; slot: number } => (
-    entry.slot !== null
-  )));
+const renderedSlots = computed(() => {
+  const slots = props.items
+    .map((item, itemIndex) => ({ item, slot: slotForIndex(itemIndex) }))
+    .filter((entry): entry is { item: PatternReelItem; slot: number } => (
+      entry.slot !== null
+    ));
+
+  if (dragging.value && dragProgress.value > 0 && props.items.length <= 4) {
+    const incoming = props.items[wrapIndex(displayIndex.value + 1)];
+    if (incoming) slots.push({ item: incoming, slot: 1 });
+  }
+
+  return slots.sort((first, second) => first.slot - second.slot);
+});
 
 function lerp(from: number, to: number, progress: number) {
   return from + (to - from) * progress;
@@ -271,8 +277,16 @@ function isActivePreview(id: string) {
   return previewItem.value?.id === id;
 }
 
+function isActiveSlot(slot: number, id: string) {
+  return isActivePreview(id) && Math.abs(slot - dragProgress.value) <= .5;
+}
+
+function isCommittedCurrent(id: string) {
+  return props.items[selectedIndex.value]?.id === id;
+}
+
 function isSlotUnavailable(slot: number, id: string) {
-  const stagedForwardSlot = slot === 1 && !isActivePreview(id);
+  const stagedForwardSlot = slot === 1 && !isActiveSlot(slot, id);
   const collapsedPredecessor = slot < 0 && unwindProgress.value === 0;
   return stagedForwardSlot || collapsedPredecessor;
 }
@@ -283,7 +297,9 @@ function slotStyle(slot: number, id: string): CSSProperties {
     "--slot-y": `${position.y}px`,
     "--slot-scale": String(position.scale),
     "--slot-opacity": String(position.opacity),
-    "--slot-z": String(isActivePreview(id) ? 20 : 18 - Math.round(Math.abs(slot - dragProgress.value))),
+    "--slot-z": String(isActiveSlot(slot, id)
+      ? 20
+      : 18 - Math.round(Math.abs(slot - dragProgress.value))),
     "--settle-duration": reelRebounding.value
       ? `${WHEEL_REBOUND_DURATION_MS}ms`
       : `${WHEEL_SETTLE_DURATION_MS}ms`,
@@ -342,12 +358,16 @@ function revealWheelTemporarily() {
 function cancelPendingInteraction(preserveReveal = false) {
   clearTimeout(wheelTimer);
   clearTimeout(settleTimer);
-  clearTimeout(collapseTimer);
-  clearTimeout(reboundTimer);
+  if (!preserveReveal) {
+    clearTimeout(collapseTimer);
+    clearTimeout(reboundTimer);
+  }
   wheelAccumulator = 0;
   transientIndex.value = null;
-  if (!preserveReveal) revealHeld.value = false;
-  reelRebounding.value = false;
+  if (!preserveReveal) {
+    revealHeld.value = false;
+    reelRebounding.value = false;
+  }
   settling.value = false;
   keyboardImmediate.value = false;
   dragDistance.value = 0;
@@ -357,6 +377,17 @@ function cancelPendingInteraction(preserveReveal = false) {
     reelRoot.value.releasePointerCapture(pointerId);
   }
   pointerId = null;
+}
+
+function prepareAnimatedCommit() {
+  const closesRevealedWheel = revealHeld.value && !prefersReducedMotion();
+  cancelPendingInteraction();
+  if (!closesRevealedWheel) return;
+
+  reelRebounding.value = true;
+  reboundTimer = setTimeout(() => {
+    reelRebounding.value = false;
+  }, WHEEL_REBOUND_DURATION_MS);
 }
 
 function commitIndex(nextIndex: number, inputMode: PatternReelInput) {
@@ -371,7 +402,7 @@ function commitIndex(nextIndex: number, inputMode: PatternReelInput) {
 
 function commitStep(step: number, inputMode: PatternReelInput) {
   if (props.disabled || props.items.length < 2) return;
-  cancelPendingInteraction();
+  prepareAnimatedCommit();
   commitIndex(selectedIndex.value + step, inputMode);
 }
 
@@ -379,7 +410,7 @@ function commitExact(id: string, inputMode: PatternReelInput) {
   if (props.disabled || performance.now() < suppressClicksUntil) return;
   const nextIndex = props.items.findIndex((item) => item.id === id);
   if (nextIndex < 0) return;
-  cancelPendingInteraction();
+  prepareAnimatedCommit();
   commitIndex(nextIndex, inputMode);
   void nextTick(() => reelRoot.value?.focus({ preventScroll: true }));
 }
@@ -417,6 +448,7 @@ function handlePointerDown(event: PointerEvent) {
   pointerLastAt = performance.now();
   pointerVelocity = 0;
   dragDistance.value = 0;
+  reelRoot.value?.setPointerCapture(event.pointerId);
 }
 
 function handlePointerMove(event: PointerEvent) {
@@ -431,6 +463,10 @@ function handlePointerMove(event: PointerEvent) {
 
   if (!dragging.value) {
     if (Math.abs(horizontalDelta) > 6 && Math.abs(horizontalDelta) > Math.abs(delta)) {
+      suppressClicksUntil = performance.now() + 320;
+      if (reelRoot.value?.hasPointerCapture(event.pointerId)) {
+        reelRoot.value.releasePointerCapture(event.pointerId);
+      }
       pointerId = null;
       return;
     }
@@ -456,7 +492,7 @@ function finishPointer(event: PointerEvent, cancelled = false) {
     reelRoot.value.releasePointerCapture(event.pointerId);
   }
 
-  if (wasDragging) revealWheelTemporarily();
+  if (wasDragging && !cancelled) revealWheelTemporarily();
   if (!wasDragging || cancelled) return;
 
   event.preventDefault();
@@ -487,13 +523,17 @@ function cancelPointer(event: PointerEvent) {
 }
 
 function suppressDragClick(event: MouseEvent) {
-  if (performance.now() >= suppressClicksUntil) return;
+  if (
+    performance.now() >= suppressClicksUntil
+    || !(event.target instanceof Element)
+    || !event.target.closest(".pattern-reel__viewport")
+  ) return;
   event.preventDefault();
   event.stopPropagation();
 }
 
 function normalizedWheelDelta(event: WheelEvent) {
-  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 16;
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 20;
   if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) return event.deltaY * window.innerHeight;
   return event.deltaY;
 }
@@ -502,6 +542,9 @@ function handleWheel(event: WheelEvent) {
   if (
     props.disabled
     || props.items.length < 2
+    || event.altKey
+    || event.ctrlKey
+    || event.metaKey
     || isReelControl(event.target)
     || Math.abs(event.deltaY) <= Math.abs(event.deltaX)
   ) return;

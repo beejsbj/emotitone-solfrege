@@ -108,6 +108,173 @@ describe("PatternReel", () => {
     }
   });
 
+  it("uses the approved 200ms collapse when an open-wheel tap commits", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await nextTick();
+    await slotFor(wrapper, "Beta").get('.pattern-strip__identity').trigger("click");
+    await nextTick();
+
+    expect(wrapper.emitted("commit")).toContainEqual(["beta", "tap"]);
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain(
+      "--settle-easing: var(--ease-reel-rebound)",
+    );
+  });
+
+  it("keeps DOM focus order aligned with the visible top-to-bottom slot order", () => {
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "beta" },
+    });
+
+    expect(wrapper.findAll(".pattern-reel__slot strong").map((label) => label.text()))
+      .toEqual(["Gamma", "Alpha", "Beta"]);
+  });
+
+  it("preserves browser zoom and commits an ordinary three-line wheel notch", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const zoomGesture = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 60,
+    });
+    Object.defineProperty(zoomGesture, "ctrlKey", { value: true });
+
+    wrapper.element.dispatchEvent(zoomGesture);
+    await nextTick();
+    expect(wrapper.emitted("commit")).toBeUndefined();
+    expect(slotFor(wrapper, "Gamma").classes()).toContain("pattern-reel__slot--active");
+    expect(patternReelSource).toMatch(/event\.ctrlKey[\s\S]*event\.preventDefault\(\)/);
+
+    const wheelNotch = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaMode: WheelEvent.DOM_DELTA_LINE,
+      deltaY: 3,
+    });
+    wrapper.element.dispatchEvent(wheelNotch);
+    await nextTick();
+
+    expect(wheelNotch.defaultPrevented).toBe(true);
+    expect(slotFor(wrapper, "Alpha").classes()).toContain("pattern-reel__slot--active");
+    expect(slotFor(wrapper, "Gamma").find(".bar-tape").exists()).toBe(false);
+    expect(slotFor(wrapper, "Alpha").find(".bar-tape").exists()).toBe(true);
+
+    vi.advanceTimersByTime(220);
+    await nextTick();
+    expect(wrapper.emitted("commit")).toEqual([["alpha", "wheel"]]);
+  });
+
+  it("captures pending drags and scopes horizontal-gesture click suppression to the viewport", async () => {
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const reel = wrapper.element as HTMLElement;
+    const setPointerCapture = vi.fn();
+    const releasePointerCapture = vi.fn();
+    Object.defineProperties(reel, {
+      setPointerCapture: { value: setPointerCapture },
+      hasPointerCapture: { value: vi.fn(() => true) },
+      releasePointerCapture: { value: releasePointerCapture },
+    });
+    const identity = slotFor(wrapper, "Gamma").get(".pattern-strip__identity");
+
+    await identity.trigger("pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 7,
+    });
+    expect(setPointerCapture).toHaveBeenCalledWith(7);
+
+    await wrapper.trigger("pointermove", {
+      clientX: 40,
+      clientY: 21,
+      pointerId: 7,
+    });
+    expect(releasePointerCapture).toHaveBeenCalledWith(7);
+
+    await identity.trigger("click");
+    expect(wrapper.emitted("commit")).toBeUndefined();
+
+    await wrapper.get('button[aria-label="Select next pattern"]').trigger("click");
+    expect(wrapper.emitted("commit")).toEqual([["alpha", "control"]]);
+  });
+
+  it("returns a cancelled direct drag to the deck without starting the open hold", async () => {
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const reel = wrapper.element as HTMLElement;
+    Object.defineProperties(reel, {
+      setPointerCapture: { value: vi.fn() },
+      hasPointerCapture: { value: vi.fn(() => true) },
+      releasePointerCapture: { value: vi.fn() },
+    });
+    const identity = slotFor(wrapper, "Gamma").get(".pattern-strip__identity");
+
+    await identity.trigger("pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 70,
+      pointerId: 9,
+    });
+    await wrapper.trigger("pointermove", {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 9,
+    });
+    await wrapper.trigger("pointercancel", { pointerId: 9 });
+    await nextTick();
+
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
+    expect(wrapper.emitted("commit")).toBeUndefined();
+  });
+
+  it("keeps the incoming identity continuous when a short reel wraps upward", async () => {
+    const wrapper = mount(PatternReel, {
+      props: { items: items.slice(0, 2), selectedId: "beta" },
+    });
+    const reel = wrapper.element as HTMLElement;
+    Object.defineProperties(reel, {
+      setPointerCapture: { value: vi.fn() },
+      hasPointerCapture: { value: vi.fn(() => true) },
+      releasePointerCapture: { value: vi.fn() },
+    });
+    const identity = slotFor(wrapper, "Beta").get(".pattern-strip__identity");
+
+    await identity.trigger("pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 70,
+      pointerId: 11,
+    });
+    await wrapper.trigger("pointermove", {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 11,
+    });
+    await nextTick();
+
+    const alphaSlots = wrapper.findAll(".pattern-reel__slot").filter((slot) => (
+      slot.text().includes("Alpha")
+    ));
+    expect(alphaSlots).toHaveLength(2);
+    expect(alphaSlots.map((slot) => slot.classes())).toEqual(expect.arrayContaining([
+      expect.arrayContaining(["pattern-reel__slot---1"]),
+      expect.arrayContaining(["pattern-reel__slot--1", "pattern-reel__slot--active"]),
+    ]));
+  });
+
   it("commits cyclic keyboard selection immediately", async () => {
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },

@@ -50,8 +50,8 @@
           size="sm"
           tone="ivory"
           :disabled="disabled"
-          :accessible-name="item.copied ? 'Copied' : 'Copy Strudel code'"
-          :title="item.copied ? 'Copied' : 'Copy Strudel code'"
+          :accessible-name="copyLabel"
+          :title="copyLabel"
           @click.stop="emit('copy')"
         >
           <Check v-if="item.copied" aria-hidden="true" />
@@ -61,8 +61,8 @@
           size="sm"
           tone="brass"
           :disabled="disabled"
-          accessible-name="Open in Strudel"
-          title="Open in Strudel"
+          :accessible-name="openLabel"
+          :title="openLabel"
           @click.stop="emit('openStrudel')"
         >
           <ExternalLink aria-hidden="true" />
@@ -113,10 +113,17 @@ const stripStyle = computed(() => ({
 
 const deleteLabel = computed(() => {
   if (!props.item.canDelete) {
-    return props.item.deleteUnavailableLabel ?? "Default patterns cannot be deleted";
+    return props.item.deleteUnavailableLabel
+      ?? `Default pattern ${props.item.name} cannot be deleted`;
   }
-  return props.item.deleteArmed ? "Confirm delete pattern" : "Delete pattern";
+  return props.item.deleteArmed
+    ? `Confirm delete ${props.item.name}`
+    : `Delete ${props.item.name}`;
 });
+const copyLabel = computed(() => props.item.copied
+  ? `Copied ${props.item.name}`
+  : `Copy ${props.item.name} Strudel code`);
+const openLabel = computed(() => `Open ${props.item.name} in Strudel`);
 </script>
 
 <style scoped>

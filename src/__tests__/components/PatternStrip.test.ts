@@ -33,9 +33,9 @@ describe("PatternStrip", () => {
     expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (
       button.attributes("aria-label")
     ))).toEqual([
-      "Delete pattern",
-      "Copy Strudel code",
-      "Open in Strudel",
+      "Delete Evening Glass",
+      "Copy Evening Glass Strudel code",
+      "Open Evening Glass in Strudel",
     ]);
     expect(patternStripSource).toContain("min-height: 64px");
     expect(patternStripSource).toContain("background: var(--ink)");
@@ -57,9 +57,9 @@ describe("PatternStrip", () => {
     expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (
       button.attributes("aria-label")
     ))).toEqual([
-      "Confirm delete pattern",
-      "Copied",
-      "Open in Strudel",
+      "Confirm delete Evening Glass",
+      "Copied Evening Glass",
+      "Open Evening Glass in Strudel",
     ]);
   });
 
@@ -82,7 +82,7 @@ describe("PatternStrip", () => {
       props: { item: { ...item, canDelete: false } },
     });
 
-    const deleteButton = wrapper.get('.pattern-strip__actions button[aria-label="Default patterns cannot be deleted"]');
+    const deleteButton = wrapper.get('.pattern-strip__actions button[aria-label="Default pattern Evening Glass cannot be deleted"]');
     expect(deleteButton.attributes("disabled")).toBeDefined();
   });
 

@@ -78,7 +78,7 @@
           :disabled="disabled || dragging || settling || transientIndex !== null
             || isSlotUnavailable(slot.slot, slot.item.id)"
           @select="handleStripSelect(slot.item.id)"
-          @delete="emit('delete', slot.item.id)"
+          @delete="handleDelete(slot.item.id)"
           @copy="emit('copy', slot.item.id)"
           @open-strudel="emit('openStrudel', slot.item.id)"
         />
@@ -440,6 +440,11 @@ function handleStripSelect(id: string) {
     return;
   }
   commitExact(id, "tap");
+}
+
+function handleDelete(id: string) {
+  revealWheelTemporarily();
+  emit("delete", id);
 }
 
 function isReelControl(target: EventTarget | null) {

@@ -354,6 +354,32 @@ describe("PatternReel", () => {
     expect(wrapper.emitted("openStrudel")).toEqual([["beta"]]);
   });
 
+  it("refreshes the open hold so late two-tap deletion remains completable", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    vi.advanceTimersByTime(1050);
+    await nextTick();
+    await slotFor(wrapper, "Beta").get('button[aria-label="Delete Beta"]').trigger("click");
+    await wrapper.setProps({
+      items: items.map((entry) => entry.id === "beta"
+        ? { ...entry, deleteArmed: true }
+        : entry),
+    });
+
+    vi.advanceTimersByTime(100);
+    await nextTick();
+    const beta = slotFor(wrapper, "Beta");
+    expect(beta.attributes("aria-hidden")).toBeUndefined();
+    expect(beta.get('.pattern-strip__identity').attributes("disabled")).toBeUndefined();
+    await beta.get('button[aria-label="Confirm delete Beta"]').trigger("click");
+
+    expect(wrapper.emitted("delete")).toEqual([["beta"], ["beta"]]);
+  });
+
   it("keeps the staged forward slot out of keyboard interaction", () => {
     const fiveItems = [...items, item("delta", "Delta"), item("epsilon", "Epsilon")];
     const wrapper = mount(PatternReel, {

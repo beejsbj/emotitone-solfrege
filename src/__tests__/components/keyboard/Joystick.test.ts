@@ -2,6 +2,7 @@ import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import { JOYSTICK_OPTIONS, directionFromVector } from "@/components/uniques/Joystick/joystickOptions";
+import dragValueSource from "@/components/primatives/DragValue.vue?raw";
 import joystickSource from "@/components/uniques/Joystick/index.vue?raw";
 import specimen from "@/style-guide/uniques/UniqueJoystick.vue?raw";
 import guide from "@/style-guide/StyleGuide.vue?raw";
@@ -88,6 +89,20 @@ describe("Joystick unique", () => {
     expect(document.querySelector(".drag-value__paper")?.classList)
       .toContain("sticker--badge");
     wrapper.unmount();
+  });
+  it("shares the tactile bounce tokens across the stick and DragValue paper", () => {
+    expect(joystickSource).toContain("scale var(--dur-bounce) var(--ease-bounce)");
+    expect(joystickSource).toContain("scale var(--dur-tap) var(--ease-stab)");
+    expect(joystickSource).toContain("translate: -50% -50%; scale: 1");
+    expect(joystickSource).toContain(
+      "@media (prefers-reduced-motion: reduce) { .joystick__stick, .joystick[data-active] .joystick__stick { scale: 1; transition: none; }",
+    );
+    expect(dragValueSource).toContain(
+      "animation: drag-value-arrive-a var(--dur-bounce) var(--ease-bounce)",
+    );
+    expect(dragValueSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.drag-value__paper \{ animation: none; \}/,
+    );
   });
   it("tracks globally when capture is unavailable and releases successful capture on completion", async () => {
     const { wrapper, plate, capture } = setup();

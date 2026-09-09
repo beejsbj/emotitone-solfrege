@@ -25,7 +25,7 @@
         <li>In-memory only</li>
         <li>No audio</li>
         <li>No production store</li>
-        <li>CodeStrip Bar is a scaffold</li>
+        <li>Pattern Card + CodeStrip Bar are scaffolds</li>
       </ul>
     </header>
 
@@ -116,7 +116,7 @@ const variants: Array<{
     id: "wheel",
     shortLabel: "B",
     label: "Wheel deck",
-    thesis: "The chosen wheel rests as a tight card deck, then progressively unwinds into its front-facing depth while you drag.",
+    thesis: "The chosen wheel rests as a tight Ink deck, unwinds while you drag, and holds open for a brief reading beat after release or a tap on Current.",
   },
   {
     id: "steps",

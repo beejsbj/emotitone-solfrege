@@ -1,5 +1,3 @@
-import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
-
 export type PatternReelPrototypeVariant = "wheel" | "steps" | "cassette";
 export type PatternReelPrototypeInput =
   | "initial"
@@ -11,13 +9,10 @@ export type PatternReelPrototypeInput =
 
 export interface PatternReelPrototypeItem {
   id: string;
-  ordinal: string;
   name: string;
-  label: string;
-  metadata: string;
-  context: string;
-  spine: string;
-  barTape: BarTapeSegment[];
+  rootPitchClass: number;
+  rootOctave: number;
+  rootLabel: string;
   codeTokens: string[];
   isLive?: boolean;
 }
@@ -26,5 +21,5 @@ export interface PatternReelPrototypeState {
   input: PatternReelPrototypeInput;
   previewId: string;
   settling: boolean;
-  posture: "deck" | "unwound" | "fixed";
+  posture: "deck" | "unwinding" | "unwound" | "fixed";
 }

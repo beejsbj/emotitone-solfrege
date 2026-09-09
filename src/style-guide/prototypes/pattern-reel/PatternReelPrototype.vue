@@ -74,22 +74,12 @@
         :style="slotStyle(slot.slot, slot.item.id)"
         :aria-hidden="slot.slot === 1 && !isActivePreview(slot.item.id) || undefined"
       >
-        <PatternReelSelectedCard
-          v-if="isActivePreview(slot.item.id)"
+        <PatternReelRowCardPrototype
           :item="slot.item"
+          :active="isActivePreview(slot.item.id)"
           :disabled="dragging || settling || transientIndex !== null"
+          @select="handleCardSelect(slot.item.id)"
           @action="emit('action', $event)"
-        />
-        <PatternCard
-          v-else
-          :label="slot.item.label"
-          :ordinal="slot.item.ordinal"
-          :name="slot.item.name"
-          :metadata="slot.item.metadata"
-          :spine="slot.item.spine"
-          :bar-tape="slot.item.barTape"
-          :tabindex="slot.slot < 0 ? 0 : -1"
-          @select="commitExact(slot.item.id, 'tap')"
         />
       </div>
     </div>
@@ -110,9 +100,8 @@ import {
   type CSSProperties,
 } from "vue";
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
-import PatternCard from "@/components/compounds/PatternCard.vue";
 import Button from "@/components/primatives/Button.vue";
-import PatternReelSelectedCard from "./PatternReelSelectedCard.vue";
+import PatternReelRowCardPrototype from "./PatternReelRowCardPrototype.vue";
 import type {
   PatternReelPrototypeInput,
   PatternReelPrototypeItem,
@@ -182,6 +171,7 @@ const WHEEL_DECK_POSITIONS = [
   { y: -42, scale: .986, opacity: .52 },
 ];
 const WHEEL_UNWIND_DISTANCE = 36;
+const WHEEL_COLLAPSE_DELAY_MS = 520;
 
 const props = defineProps<{
   items: PatternReelPrototypeItem[];
@@ -200,6 +190,7 @@ const dragging = ref(false);
 const settling = ref(false);
 const dragDistance = ref(0);
 const transientIndex = ref<number | null>(null);
+const revealHeld = ref(false);
 const keyboardImmediate = ref(false);
 const input = ref<PatternReelPrototypeInput>("initial");
 const liveAnnouncement = ref("");
@@ -213,6 +204,7 @@ let pointerVelocity = 0;
 let wheelAccumulator = 0;
 let wheelTimer: ReturnType<typeof setTimeout> | undefined;
 let settleTimer: ReturnType<typeof setTimeout> | undefined;
+let collapseTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressClicksUntil = 0;
 
 const recipe = computed(() => RECIPES[props.variant]);
@@ -234,7 +226,7 @@ const dragProgress = computed(() => {
 });
 const unwindProgress = computed(() => {
   if (props.variant !== "wheel" || prefersReducedMotion()) return 0;
-  if (transientIndex.value !== null) return 1;
+  if (revealHeld.value || transientIndex.value !== null) return 1;
   if (!dragging.value) return 0;
   return Math.min(1, Math.abs(dragDistance.value) / WHEEL_UNWIND_DISTANCE);
 });
@@ -341,14 +333,19 @@ function setState(
   previewId = displayItem.value?.id ?? props.selectedId,
   isSettling = settling.value,
 ) {
+  const progress = unwindProgress.value;
   input.value = nextInput;
   emit("state", {
     input: nextInput,
     previewId,
     settling: isSettling,
-    posture: props.variant === "wheel"
-      ? unwindProgress.value > 0 ? "unwound" : "deck"
-      : "fixed",
+    posture: props.variant !== "wheel"
+      ? "fixed"
+      : progress <= 0
+        ? "deck"
+        : progress >= .99
+          ? "unwound"
+          : "unwinding",
   });
 }
 
@@ -377,11 +374,29 @@ function beginSettle(inputMode: PatternReelPrototypeInput, previewId?: string) {
   }, recipe.value.duration);
 }
 
-function cancelPendingInteraction() {
+function revealWheelTemporarily(inputMode: PatternReelPrototypeInput) {
+  if (props.variant !== "wheel" || prefersReducedMotion()) {
+    revealHeld.value = false;
+    setState(inputMode, displayItem.value?.id ?? props.selectedId, false);
+    return;
+  }
+
+  clearTimeout(collapseTimer);
+  revealHeld.value = true;
+  setState(inputMode, displayItem.value?.id ?? props.selectedId, settling.value);
+  collapseTimer = setTimeout(() => {
+    revealHeld.value = false;
+    setState(inputMode, displayItem.value?.id ?? props.selectedId, settling.value);
+  }, WHEEL_COLLAPSE_DELAY_MS);
+}
+
+function cancelPendingInteraction(preserveReveal = false) {
   clearTimeout(wheelTimer);
   clearTimeout(settleTimer);
+  clearTimeout(collapseTimer);
   wheelAccumulator = 0;
   transientIndex.value = null;
+  if (!preserveReveal) revealHeld.value = false;
   settling.value = false;
   keyboardImmediate.value = false;
   dragDistance.value = 0;
@@ -420,6 +435,16 @@ function commitExact(id: string, inputMode: PatternReelPrototypeInput) {
   void nextTick(() => reelRoot.value?.focus({ preventScroll: true }));
 }
 
+function handleCardSelect(id: string) {
+  if (performance.now() < suppressClicksUntil) return;
+  if (id === previewItem.value?.id) {
+    revealWheelTemporarily("tap");
+    void nextTick(() => reelRoot.value?.focus({ preventScroll: true }));
+    return;
+  }
+  commitExact(id, "tap");
+}
+
 function isReelControl(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest("[data-reel-control]"));
 }
@@ -434,7 +459,7 @@ function handlePointerDown(event: PointerEvent) {
     || !event.target.closest(".pattern-reel-prototype__viewport")
   ) return;
 
-  cancelPendingInteraction();
+  cancelPendingInteraction(true);
   pointerId = event.pointerId;
   pointerStartX = event.clientX;
   pointerStartY = event.clientY;
@@ -480,6 +505,10 @@ function finishPointer(event: PointerEvent, cancelled = false) {
 
   if (reelRoot.value?.hasPointerCapture(event.pointerId)) {
     reelRoot.value.releasePointerCapture(event.pointerId);
+  }
+
+  if (wasDragging && props.variant === "wheel") {
+    revealWheelTemporarily("drag");
   }
 
   if (!wasDragging || cancelled) {
@@ -546,6 +575,7 @@ function handleWheel(event: WheelEvent) {
   }
   input.value = "wheel";
   wheelAccumulator += normalizedWheelDelta(event);
+  revealWheelTemporarily("wheel");
   const threshold = recipe.value.step;
 
   while (Math.abs(wheelAccumulator) >= threshold) {
@@ -609,8 +639,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .pattern-reel-prototype {
-  --selected-height: 140px;
-  --reel-height: 282px;
+  --selected-height: 76px;
+  --reel-height: 218px;
   position: relative;
   display: grid;
   min-width: 0;
@@ -734,7 +764,7 @@ onBeforeUnmount(() => {
 }
 
 .pattern-reel-prototype--cassette {
-  --reel-height: 250px;
+  --reel-height: 186px;
 }
 
 @media (max-width: 520px) {
@@ -745,7 +775,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 760px) {
   .pattern-reel-prototype {
-    --reel-height: 250px;
+    --reel-height: 198px;
   }
 
   .pattern-reel-prototype__slot--depth-3:not(.pattern-reel-prototype__slot--active) {
@@ -755,7 +785,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 660px) {
   .pattern-reel-prototype {
-    --reel-height: 220px;
+    --reel-height: 160px;
   }
 
   .pattern-reel-prototype__slot--depth-2:not(.pattern-reel-prototype__slot--active) {
@@ -765,7 +795,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 560px) {
   .pattern-reel-prototype {
-    --reel-height: 140px;
+    --reel-height: 76px;
   }
 
   .pattern-reel-prototype__slot--depth-1:not(.pattern-reel-prototype__slot--active) {

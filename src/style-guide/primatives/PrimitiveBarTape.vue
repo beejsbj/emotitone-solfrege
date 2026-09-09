@@ -62,7 +62,7 @@ const features = [
   { label: "Color", value: "static primary fill from the shared Music Color resolver" },
   { label: "Surface", value: "borderless and flush; the consuming card owns clipping and framing" },
   { label: "Interaction", value: "none; Bar Tape is compact musical feedback" },
-  { label: "Production", value: "Pattern Card footer instead of duplicated color-strip markup" },
+  { label: "Production", value: "background PatternStrip top edge; Current transfers to CodeStrip" },
 ];
 </script>
 

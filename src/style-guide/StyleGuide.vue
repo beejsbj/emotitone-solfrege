@@ -2,6 +2,7 @@
   <TabsPage v-if="page === 'tabs'" />
   <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
   <ConfigMenuPage v-else-if="page === 'config-menu'" />
+  <PatternReelPage v-else-if="page === 'pattern-reel'" />
   <main v-else class="style-guide-sink-port">
     <header class="sink-header">
       <div class="label">Emotitone Design System Sink Port</div>
@@ -142,9 +143,9 @@
           <div class="sink-frame__source">compound-keyboard · formalization candidate</div>
           <CompoundKeyboard />
         </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">compound-pattern-card.html</div>
-          <CompoundPatternCard />
+        <article id="compound-pattern-strip" class="sink-frame">
+          <div class="sink-frame__source">compound-pattern-strip</div>
+          <CompoundPatternStrip />
         </article>
         <article class="sink-frame">
           <div class="sink-frame__source">compound-pattern-reel.html</div>
@@ -192,7 +193,7 @@ import CompoundControlBar from "./compounds/CompoundControlBar.vue";
 import CompoundChord from "./compounds/CompoundChord.vue";
 import CompoundKey from "./compounds/CompoundKey.vue";
 import CompoundKeyboard from "./compounds/CompoundKeyboard.vue";
-import CompoundPatternCard from "./compounds/CompoundPatternCard.vue";
+import CompoundPatternStrip from "./compounds/CompoundPatternStrip.vue";
 import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
 import CompositionLoadingScreen from "./compositions/CompositionLoadingScreen.vue";
 import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";
@@ -201,7 +202,7 @@ import UniqueDrawer from "./uniques/UniqueDrawer.vue";
 import UniqueHarmonicGeometry from "./uniques/UniqueHarmonicGeometry.vue";
 
 defineProps<{
-  page?: "tabs" | "instrument-picker" | "config-menu";
+  page?: "tabs" | "instrument-picker" | "config-menu" | "pattern-reel";
 }>();
 
 const TabsPage = defineAsyncComponent(() => import("./TabsPage.vue"));
@@ -210,6 +211,9 @@ const InstrumentPickerPage = defineAsyncComponent(
 );
 const ConfigMenuPage = defineAsyncComponent(
   () => import("./ConfigMenuPage.vue"),
+);
+const PatternReelPage = defineAsyncComponent(
+  () => import("./PatternReelPage.vue"),
 );
 
 const scrollToHash = async () => {

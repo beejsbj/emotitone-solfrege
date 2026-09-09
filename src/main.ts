@@ -34,9 +34,7 @@ const isDesignRoute = [
   "/style-guide/config-menu",
   "/style-guide/pattern-reel",
 ].includes(pathname);
-if (pathname !== "/style-guide/pattern-reel") {
-  beginTabsPageEdition();
-}
+beginTabsPageEdition();
 if (!isDesignRoute || pathname === "/style-guide/config-menu") {
   beginKnobPageEdition();
 }

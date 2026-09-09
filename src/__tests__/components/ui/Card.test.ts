@@ -2,7 +2,6 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import Card from "@/components/primatives/Card.vue";
 import cardSource from "@/components/primatives/Card.vue?raw";
-import patternCardSource from "@/components/compounds/PatternCard.vue?raw";
 import specimenSource from "@/style-guide/primatives/PrimitiveCard.vue?raw";
 
 describe("Card", () => {
@@ -62,6 +61,5 @@ describe("Card", () => {
       'import Card from "../../components/primatives/Card.vue"',
     );
     expect(specimenSource).not.toMatch(/CardShell|SpineCard/);
-    expect(patternCardSource).toContain('import Card from "../primatives/Card.vue"');
   });
 });

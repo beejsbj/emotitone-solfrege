@@ -181,7 +181,7 @@
               <div class="ease-track"><div class="e-dot bounce"></div></div>
             </div>
             <div class="kf-name">--ease-bounce</div>
-            <div class="kf-role">Boolean Knob · non-brass Button release</div>
+            <div class="kf-role">Boolean Knob · non-brass Button · Joystick stick · Drag value</div>
           </div>
     
         </div>

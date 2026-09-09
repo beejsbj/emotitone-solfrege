@@ -12,9 +12,9 @@
 
     <div class="pattern-reel-selected-card__body">
       <div class="pattern-reel-selected-card__copy">
-        <span class="pattern-reel-selected-card__status">
+        <span v-if="item.isLive" class="pattern-reel-selected-card__status">
           <i aria-hidden="true"></i>
-          {{ item.isLive ? "Live input" : "Selected pattern" }}
+          Live input
         </span>
         <strong class="pattern-reel-selected-card__name">{{ item.name }}</strong>
         <span class="pattern-reel-selected-card__meta">{{ item.metadata }}</span>
@@ -29,9 +29,9 @@
         <Button
           size="sm"
           tone="ink"
-          :disabled="disabled"
-          accessible-name="Delete pattern"
-          title="Delete pattern"
+          :disabled="disabled || !item.isLive"
+          :accessible-name="item.isLive ? 'Delete pattern' : 'Default patterns cannot be deleted'"
+          :title="item.isLive ? 'Delete pattern' : 'Default patterns cannot be deleted'"
           @click.stop="emit('action', 'Delete')"
         >
           <Trash2 aria-hidden="true" />

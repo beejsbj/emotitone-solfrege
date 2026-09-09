@@ -11,10 +11,11 @@
       },
     ]"
     tabindex="0"
+    role="group"
     aria-label="Pattern reel. Use up and down arrows to change the selected pattern."
     aria-roledescription="cyclic pattern reel"
     @keydown="handleKeydown"
-    @wheel.prevent="handleWheel"
+    @wheel="handleWheel"
     @pointerdown="handlePointerDown"
     @pointermove="handlePointerMove"
     @pointerup="handlePointerUp"
@@ -66,17 +67,17 @@
         :class="[
           `pattern-reel-prototype__slot--${slot.slot}`,
           {
-            'pattern-reel-prototype__slot--active': slot.slot === 0,
+            'pattern-reel-prototype__slot--active': isActivePreview(slot.item.id),
             [`pattern-reel-prototype__slot--depth-${Math.abs(slot.slot)}`]: slot.slot < 0,
           },
         ]"
-        :style="slotStyle(slot.slot)"
-        :aria-hidden="slot.slot === 1 || undefined"
+        :style="slotStyle(slot.slot, slot.item.id)"
+        :aria-hidden="slot.slot === 1 && !isActivePreview(slot.item.id) || undefined"
       >
         <PatternReelSelectedCard
-          v-if="slot.slot === 0"
+          v-if="isActivePreview(slot.item.id)"
           :item="slot.item"
-          :disabled="settling"
+          :disabled="dragging || settling || transientIndex !== null"
           @action="emit('action', $event)"
         />
         <PatternCard
@@ -142,7 +143,7 @@ const RECIPES: Record<PatternReelPrototypeVariant, ReelRecipe> = {
     dragThreshold: 29,
     duration: 240,
     easing: "cubic-bezier(.23, 1, .32, 1)",
-    maxDragSteps: 3,
+    maxDragSteps: 1,
   },
   steps: {
     name: "Paper steps",
@@ -156,7 +157,7 @@ const RECIPES: Record<PatternReelPrototypeVariant, ReelRecipe> = {
     dragThreshold: 24,
     duration: 180,
     easing: "cubic-bezier(.215, .61, .355, 1)",
-    maxDragSteps: 3,
+    maxDragSteps: 1,
   },
   cassette: {
     name: "Tight cassette",
@@ -189,13 +190,14 @@ const emit = defineEmits<{
 const reelRoot = ref<HTMLElement | null>(null);
 const dragging = ref(false);
 const settling = ref(false);
-const dragOffset = ref(0);
+const dragDistance = ref(0);
 const transientIndex = ref<number | null>(null);
 const keyboardImmediate = ref(false);
 const input = ref<PatternReelPrototypeInput>("initial");
 const liveAnnouncement = ref("");
 
 let pointerId: number | null = null;
+let pointerStartX = 0;
 let pointerStartY = 0;
 let pointerLastY = 0;
 let pointerLastAt = 0;
@@ -214,7 +216,16 @@ const selectedIndex = computed(() => {
 
 const displayIndex = computed(() => transientIndex.value ?? selectedIndex.value);
 const displayItem = computed(() => props.items[displayIndex.value]);
-const selectedPosition = computed(() => displayIndex.value + 1);
+const dragProgress = computed(() => {
+  if (!dragging.value || prefersReducedMotion()) return 0;
+  const progress = -dragDistance.value / recipe.value.step;
+  return Math.max(-1, Math.min(1, progress));
+});
+const previewIndex = computed(() => dragging.value
+  ? wrapIndex(selectedIndex.value + Math.round(dragProgress.value))
+  : displayIndex.value);
+const previewItem = computed(() => props.items[previewIndex.value]);
+const selectedPosition = computed(() => previewIndex.value + 1);
 
 function wrapIndex(index: number) {
   if (!props.items.length) return 0;
@@ -228,10 +239,13 @@ function slotForIndex(itemIndex: number) {
   const backward = (displayIndex.value - itemIndex + count) % count;
   if (backward === 0) return 0;
 
-  const predecessorCount = Math.min(3, count - 1);
+  const forward = (itemIndex - displayIndex.value + count) % count;
+  const stagesForwardIdentity = dragging.value && dragProgress.value > 0 && count <= 4;
+  if (stagesForwardIdentity && forward === 1) return 1;
+
+  const predecessorCount = Math.min(3, count - 1 - Number(stagesForwardIdentity));
   if (backward <= predecessorCount) return -backward;
 
-  const forward = (itemIndex - displayIndex.value + count) % count;
   if (count > predecessorCount + 1 && forward === 1) return 1;
   return null;
 }
@@ -242,27 +256,54 @@ const renderedSlots = computed(() => props.items
     entry.slot !== null
   )));
 
-function slotStyle(slot: number): CSSProperties {
-  if (slot === 1) {
-    return {
-      "--slot-y": `${recipe.value.step}px`,
-      "--slot-scale": "1.025",
-      "--slot-opacity": "0",
-      "--slot-z": "8",
-      "--drag-y": `${dragOffset.value}px`,
-      "--settle-duration": `${recipe.value.duration}ms`,
-      "--settle-easing": recipe.value.easing,
-    } as CSSProperties;
-  }
+function lerp(from: number, to: number, progress: number) {
+  return from + (to - from) * progress;
+}
 
-  const depth = Math.abs(slot);
-  const position = recipe.value.positions[Math.min(depth, 3)];
+function positionAt(slot: number) {
+  if (slot === 1) {
+    return { y: recipe.value.step, scale: 1.025, opacity: 0 };
+  }
+  if (slot >= 0) return recipe.value.positions[0];
+  return recipe.value.positions[Math.min(Math.abs(slot), 3)];
+}
+
+function interpolatedPosition(coordinate: number) {
+  if (coordinate < -3) {
+    const farthest = positionAt(-3);
+    const overflow = Math.min(1, Math.abs(coordinate + 3));
+    return {
+      y: farthest.y - overflow * recipe.value.step * .45,
+      scale: farthest.scale * (1 - overflow * .08),
+      opacity: farthest.opacity * (1 - overflow),
+    };
+  }
+  if (coordinate > 1) return positionAt(1);
+
+  const lowerSlot = Math.floor(coordinate);
+  const upperSlot = Math.ceil(coordinate);
+  if (lowerSlot === upperSlot) return positionAt(lowerSlot);
+  const lower = positionAt(lowerSlot);
+  const upper = positionAt(upperSlot);
+  const progress = coordinate - lowerSlot;
+  return {
+    y: lerp(lower.y, upper.y, progress),
+    scale: lerp(lower.scale, upper.scale, progress),
+    opacity: lerp(lower.opacity, upper.opacity, progress),
+  };
+}
+
+function isActivePreview(id: string) {
+  return previewItem.value?.id === id;
+}
+
+function slotStyle(slot: number, id: string): CSSProperties {
+  const position = interpolatedPosition(slot - dragProgress.value);
   return {
     "--slot-y": `${position.y}px`,
     "--slot-scale": String(position.scale),
     "--slot-opacity": String(position.opacity),
-    "--slot-z": String(20 - depth),
-    "--drag-y": `${dragOffset.value}px`,
+    "--slot-z": String(isActivePreview(id) ? 20 : 18 - Math.round(Math.abs(slot - dragProgress.value))),
     "--settle-duration": `${recipe.value.duration}ms`,
     "--settle-easing": recipe.value.easing,
   } as CSSProperties;
@@ -287,19 +328,35 @@ function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function beginSettle(inputMode: PatternReelPrototypeInput) {
+function beginSettle(inputMode: PatternReelPrototypeInput, previewId?: string) {
   clearTimeout(settleTimer);
   if (inputMode === "keyboard" || prefersReducedMotion()) {
     settling.value = false;
-    setState(inputMode, displayItem.value?.id, false);
+    setState(inputMode, previewId ?? displayItem.value?.id, false);
     return;
   }
   settling.value = true;
-  setState(inputMode, displayItem.value?.id, true);
+  setState(inputMode, previewId ?? displayItem.value?.id, true);
   settleTimer = setTimeout(() => {
     settling.value = false;
-    setState(inputMode, displayItem.value?.id, false);
+    setState(inputMode, previewId ?? displayItem.value?.id, false);
   }, recipe.value.duration);
+}
+
+function cancelPendingInteraction() {
+  clearTimeout(wheelTimer);
+  clearTimeout(settleTimer);
+  wheelAccumulator = 0;
+  transientIndex.value = null;
+  settling.value = false;
+  keyboardImmediate.value = false;
+  dragDistance.value = 0;
+  dragging.value = false;
+
+  if (pointerId !== null && reelRoot.value?.hasPointerCapture(pointerId)) {
+    reelRoot.value.releasePointerCapture(pointerId);
+  }
+  pointerId = null;
 }
 
 function commitIndex(nextIndex: number, inputMode: PatternReelPrototypeInput) {
@@ -309,21 +366,24 @@ function commitIndex(nextIndex: number, inputMode: PatternReelPrototypeInput) {
     return;
   }
 
-  beginSettle(inputMode);
+  beginSettle(inputMode, item.id);
   emit("commit", item.id, inputMode);
   announce(item);
 }
 
 function commitStep(step: number, inputMode: PatternReelPrototypeInput) {
-  if (props.items.length < 2 || settling.value) return;
+  if (props.items.length < 2) return;
+  cancelPendingInteraction();
   commitIndex(selectedIndex.value + step, inputMode);
 }
 
 function commitExact(id: string, inputMode: PatternReelPrototypeInput) {
-  if (performance.now() < suppressClicksUntil || settling.value) return;
+  if (performance.now() < suppressClicksUntil) return;
   const nextIndex = props.items.findIndex((item) => item.id === id);
   if (nextIndex < 0) return;
+  cancelPendingInteraction();
   commitIndex(nextIndex, inputMode);
+  void nextTick(() => reelRoot.value?.focus({ preventScroll: true }));
 }
 
 function isReelControl(target: EventTarget | null) {
@@ -333,46 +393,56 @@ function isReelControl(target: EventTarget | null) {
 function handlePointerDown(event: PointerEvent) {
   if (
     event.button !== 0
+    || pointerId !== null
     || props.items.length < 2
     || isReelControl(event.target)
     || !(event.target instanceof Element)
     || !event.target.closest(".pattern-reel-prototype__viewport")
   ) return;
 
+  cancelPendingInteraction();
   pointerId = event.pointerId;
+  pointerStartX = event.clientX;
   pointerStartY = event.clientY;
   pointerLastY = event.clientY;
   pointerLastAt = performance.now();
   pointerVelocity = 0;
-  dragOffset.value = 0;
-  reelRoot.value?.setPointerCapture(event.pointerId);
+  dragDistance.value = 0;
 }
 
 function handlePointerMove(event: PointerEvent) {
   if (pointerId !== event.pointerId) return;
   const delta = event.clientY - pointerStartY;
+  const horizontalDelta = event.clientX - pointerStartX;
   const now = performance.now();
   const elapsed = Math.max(1, now - pointerLastAt);
   pointerVelocity = (event.clientY - pointerLastY) / elapsed;
   pointerLastY = event.clientY;
   pointerLastAt = now;
 
-  if (!dragging.value && Math.abs(delta) < 6) return;
-  dragging.value = true;
+  if (!dragging.value) {
+    if (Math.abs(horizontalDelta) > 6 && Math.abs(horizontalDelta) > Math.abs(delta)) {
+      pointerId = null;
+      return;
+    }
+    if (Math.abs(delta) < 6 || Math.abs(delta) <= Math.abs(horizontalDelta)) return;
+    dragging.value = true;
+    reelRoot.value?.setPointerCapture(event.pointerId);
+  }
   event.preventDefault();
 
   const maxTravel = recipe.value.step * (recipe.value.maxDragSteps + .45);
-  dragOffset.value = Math.max(-maxTravel, Math.min(maxTravel, delta));
-  setState("drag", props.selectedId, false);
+  dragDistance.value = Math.max(-maxTravel, Math.min(maxTravel, delta));
+  setState("drag", previewItem.value?.id ?? props.selectedId, false);
 }
 
 function finishPointer(event: PointerEvent, cancelled = false) {
   if (pointerId !== event.pointerId) return;
   const wasDragging = dragging.value;
-  const delta = dragOffset.value;
+  const delta = dragDistance.value;
   pointerId = null;
   dragging.value = false;
-  dragOffset.value = 0;
+  dragDistance.value = 0;
 
   if (reelRoot.value?.hasPointerCapture(event.pointerId)) {
     reelRoot.value.releasePointerCapture(event.pointerId);
@@ -391,15 +461,21 @@ function finishPointer(event: PointerEvent, cancelled = false) {
     return;
   }
 
-  let travel = Math.abs(delta);
+  const recentVelocity = performance.now() - pointerLastAt <= 80 ? pointerVelocity : 0;
+  let projectedDelta = delta;
   if (props.variant === "wheel") {
-    travel += Math.abs(pointerVelocity) * 120;
+    projectedDelta += recentVelocity * 120;
+  }
+
+  if (Math.abs(projectedDelta) < recipe.value.dragThreshold) {
+    beginSettle("drag", props.selectedId);
+    return;
   }
 
   const steps = props.variant === "cassette"
     ? 1
-    : Math.max(1, Math.min(recipe.value.maxDragSteps, Math.round(travel / recipe.value.step)));
-  const direction = delta > 0 ? -1 : 1;
+    : Math.max(1, Math.min(recipe.value.maxDragSteps, Math.round(Math.abs(projectedDelta) / recipe.value.step)));
+  const direction = projectedDelta > 0 ? -1 : 1;
   commitIndex(selectedIndex.value + direction * steps, "drag");
 }
 
@@ -424,7 +500,17 @@ function normalizedWheelDelta(event: WheelEvent) {
 }
 
 function handleWheel(event: WheelEvent) {
-  if (props.items.length < 2) return;
+  if (
+    props.items.length < 2
+    || isReelControl(event.target)
+    || Math.abs(event.deltaY) <= Math.abs(event.deltaX)
+  ) return;
+  event.preventDefault();
+
+  if (input.value !== "wheel" || (transientIndex.value === null && wheelAccumulator === 0)) {
+    cancelPendingInteraction();
+  }
+  input.value = "wheel";
   wheelAccumulator += normalizedWheelDelta(event);
   const threshold = recipe.value.step;
 
@@ -434,17 +520,8 @@ function handleWheel(event: WheelEvent) {
     wheelAccumulator -= direction * threshold;
   }
 
-  if (transientIndex.value !== null) beginSettle("wheel");
-
-  if (transientIndex.value !== null && prefersReducedMotion()) {
-    const target = props.items[transientIndex.value];
-    if (target && target.id !== props.selectedId) {
-      emit("commit", target.id, "wheel");
-      announce(target);
-    }
-    transientIndex.value = null;
-    setState("wheel", target?.id ?? props.selectedId, false);
-    return;
+  if (transientIndex.value !== null) {
+    beginSettle("wheel", displayItem.value?.id);
   }
 
   clearTimeout(wheelTimer);
@@ -456,8 +533,9 @@ function handleWheel(event: WheelEvent) {
       announce(target);
     }
     transientIndex.value = null;
-    setState("wheel", target?.id ?? props.selectedId, settling.value);
-  }, 120);
+    settling.value = false;
+    setState("wheel", target?.id ?? props.selectedId, false);
+  }, prefersReducedMotion() ? 120 : recipe.value.duration);
 }
 
 function setKeyboardImmediate() {
@@ -469,6 +547,7 @@ function setKeyboardImmediate() {
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.target !== reelRoot.value && isReelControl(event.target)) return;
   let nextIndex: number | null = null;
 
   if (event.key === "ArrowUp") nextIndex = selectedIndex.value - 1;
@@ -478,21 +557,19 @@ function handleKeydown(event: KeyboardEvent) {
   if (nextIndex === null) return;
 
   event.preventDefault();
+  cancelPendingInteraction();
   setKeyboardImmediate();
   commitIndex(nextIndex, "keyboard");
+  void nextTick(() => reelRoot.value?.focus());
 }
 
 watch(() => props.variant, () => {
-  dragOffset.value = 0;
-  transientIndex.value = null;
-  wheelAccumulator = 0;
-  settling.value = false;
+  cancelPendingInteraction();
   setState(input.value, props.selectedId, false);
 });
 
 onBeforeUnmount(() => {
-  clearTimeout(wheelTimer);
-  clearTimeout(settleTimer);
+  cancelPendingInteraction();
 });
 </script>
 
@@ -581,7 +658,7 @@ onBeforeUnmount(() => {
   left: 0;
   min-width: 0;
   opacity: var(--slot-opacity);
-  transform: translate3d(0, calc(var(--slot-y) + var(--drag-y)), 0) scale(var(--slot-scale));
+  transform: translate3d(0, var(--slot-y), 0) scale(var(--slot-scale));
   transform-origin: 50% 0;
   transition:
     transform var(--settle-duration) var(--settle-easing),
@@ -633,26 +710,37 @@ onBeforeUnmount(() => {
 }
 
 @media (max-height: 760px) {
-  .pattern-reel-prototype__slot--depth-3 {
+  .pattern-reel-prototype {
+    --reel-height: 250px;
+  }
+
+  .pattern-reel-prototype__slot--depth-3:not(.pattern-reel-prototype__slot--active) {
     visibility: hidden;
   }
 }
 
 @media (max-height: 660px) {
-  .pattern-reel-prototype__slot--depth-2 {
+  .pattern-reel-prototype {
+    --reel-height: 220px;
+  }
+
+  .pattern-reel-prototype__slot--depth-2:not(.pattern-reel-prototype__slot--active) {
     visibility: hidden;
   }
 }
 
 @media (max-height: 560px) {
-  .pattern-reel-prototype__slot--depth-1 {
+  .pattern-reel-prototype {
+    --reel-height: 140px;
+  }
+
+  .pattern-reel-prototype__slot--depth-1:not(.pattern-reel-prototype__slot--active) {
     visibility: hidden;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pattern-reel-prototype__slot {
-    transform: translate3d(0, var(--slot-y), 0) scale(var(--slot-scale));
     transition: none;
     will-change: auto;
   }
@@ -666,6 +754,10 @@ onBeforeUnmount(() => {
 
   .pattern-reel-prototype__slot {
     opacity: 1;
+  }
+
+  .pattern-reel-prototype__slot--1:not(.pattern-reel-prototype__slot--active) {
+    opacity: 0;
   }
 }
 </style>

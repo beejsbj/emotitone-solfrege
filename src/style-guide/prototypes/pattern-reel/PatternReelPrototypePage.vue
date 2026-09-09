@@ -111,7 +111,7 @@ const variants: Array<{
     id: "cassette",
     shortLabel: "C",
     label: "Tight cassette",
-    thesis: "A compact one-detent reel tests whether the PatternReel should surrender depth to preserve drawer height.",
+    thesis: "A compact low-travel reel tests whether the PatternReel should surrender depth to preserve drawer height.",
   },
 ];
 
@@ -451,4 +451,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

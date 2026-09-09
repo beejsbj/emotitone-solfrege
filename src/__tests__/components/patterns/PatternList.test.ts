@@ -60,6 +60,20 @@ beforeEach(() => {
 });
 
 describe("PatternList production adapter", () => {
+  it("represents a fresh or short working sketch as the always-selected Current Take", () => {
+    const wrapper = shallowMount(PatternList);
+    const reel = wrapper.getComponent(PatternReel);
+    const current = reelItems(wrapper).at(-1);
+
+    expect(current).toMatchObject({
+      id: "current-pattern-take",
+      name: "Current Take",
+      canDelete: false,
+      deleteUnavailableLabel: "Edit the current take in CodeStrip",
+    });
+    expect(reel.props("selectedId")).toBe("current-pattern-take");
+  });
+
   it("maps store patterns into the shared reel with exact note color and root spine", () => {
     const patternsStore = usePatternsStore();
     const pattern = createUserPattern("borrowed-pattern");
@@ -91,6 +105,18 @@ describe("PatternList production adapter", () => {
 
     expect(loadPattern).toHaveBeenCalledOnce();
     expect(loadPattern).toHaveBeenCalledWith(pattern.id);
+  });
+
+  it("uses a loaded store pattern as Current without duplicating the working sketch", async () => {
+    const patternsStore = usePatternsStore();
+    const pattern = createUserPattern("loaded-pattern");
+    patternsStore.savedPatterns = [pattern];
+    patternsStore.loadPatternAsBase(pattern.id);
+    const wrapper = shallowMount(PatternList);
+    await nextTick();
+
+    expect(wrapper.getComponent(PatternReel).props("selectedId")).toBe(pattern.id);
+    expect(reelItems(wrapper).some((item) => item.id === "current-pattern-take")).toBe(false);
   });
 
   it("retains pattern-bound two-tap deletion and default protection", async () => {

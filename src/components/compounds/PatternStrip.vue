@@ -88,6 +88,7 @@ export interface PatternStripItem {
   copied?: boolean;
   canDelete?: boolean;
   deleteArmed?: boolean;
+  deleteUnavailableLabel?: string;
 }
 
 const props = withDefaults(defineProps<{
@@ -111,7 +112,9 @@ const stripStyle = computed(() => ({
 }) as CSSProperties);
 
 const deleteLabel = computed(() => {
-  if (!props.item.canDelete) return "Default patterns cannot be deleted";
+  if (!props.item.canDelete) {
+    return props.item.deleteUnavailableLabel ?? "Default patterns cannot be deleted";
+  }
   return props.item.deleteArmed ? "Confirm delete pattern" : "Delete pattern";
 });
 </script>

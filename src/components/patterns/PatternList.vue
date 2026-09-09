@@ -30,6 +30,7 @@ const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
 } = useColorSystem();
+const CURRENT_TAKE_ID = "current-pattern-take";
 
 const copiedPatternId = ref<string | null>(null);
 const deleteArmedPatternId = ref<string | null>(null);
@@ -41,73 +42,75 @@ onBeforeUnmount(() => {
   clearTimeout(deleteArmTimer);
 });
 
-function sourceBpm(pattern: Pattern) {
-  return typeof pattern.bpm === "number" && pattern.bpm > 0
-    ? pattern.bpm
+type PatternContext = Pick<Pattern, "key" | "mode" | "instrument" | "bpm">;
+
+function sourceBpm(bpm: number | undefined) {
+  return typeof bpm === "number" && bpm > 0
+    ? bpm
     : DEFAULT_SOURCE_BPM;
 }
 
-function rootOctave(pattern: Pattern) {
-  const tonic = pattern.notes.find((note) => note.scaleIndex === 0);
+function rootOctave(notes: PatternNote[]) {
+  const tonic = notes.find((note) => note.scaleIndex === 0);
   return tonic?.octave
-    ?? pattern.notes[0]?.octave
+    ?? notes[0]?.octave
     ?? keyboardStore.keyboardConfig.mainOctave;
 }
 
-function rootPitchClass(pattern: Pattern) {
-  return Math.max(0, CHROMATIC_NOTES.indexOf(pattern.key));
+function rootPitchClass(key: Pattern["key"]) {
+  return Math.max(0, CHROMATIC_NOTES.indexOf(key));
 }
 
-function noteColor(note: PatternNote, pattern: Pattern) {
+function noteColor(note: PatternNote, context: PatternContext) {
   if (
     typeof note.pitchClassIndex === "number"
     && Number.isInteger(note.pitchClassIndex)
   ) {
     return getStaticPrimaryColorByPitchClass(
       note.pitchClassIndex,
-      pattern.mode,
-      pattern.key,
+      context.mode,
+      context.key,
       note.octave,
     );
   }
 
   return getStaticPrimaryColorByScaleIndex(
     note.scaleIndex,
-    pattern.mode,
-    pattern.key,
+    context.mode,
+    context.key,
     note.octave,
   );
 }
 
-function orderedNotes(pattern: Pattern) {
-  return [...pattern.notes].sort(
+function orderedNotes(notes: PatternNote[]) {
+  return [...notes].sort(
     (firstNote, secondNote) => firstNote.pressTime - secondNote.pressTime,
   );
 }
 
-function barTape(pattern: Pattern): BarTapeSegment[] {
-  return orderedNotes(pattern).map((note) => ({
-    color: noteColor(note, pattern),
+function barTape(notes: PatternNote[], context: PatternContext): BarTapeSegment[] {
+  return orderedNotes(notes).map((note) => ({
+    color: noteColor(note, context),
     durationMs: note.duration,
   }));
 }
 
-function notation(pattern: Pattern) {
-  const bpm = sourceBpm(pattern);
-  return logNotesToStrudel(pattern.notes as unknown as LogNote[], {
+function notation(notes: PatternNote[], context: PatternContext) {
+  const bpm = sourceBpm(context.bpm);
+  return logNotesToStrudel(notes as unknown as LogNote[], {
     bpm,
     sourceBpm: bpm,
     notationType: "relative",
-    scaleKey: pattern.key,
-    scaleMode: pattern.mode,
+    scaleKey: context.key,
+    scaleMode: context.mode,
     scaleOctave: keyboardStore.keyboardConfig.mainOctave,
-    sound: toStrudelSound(pattern.instrument ?? "sine"),
+    sound: toStrudelSound(context.instrument ?? "sine"),
   });
 }
 
 function reelItem(pattern: Pattern): PatternReelItem {
-  const octave = rootOctave(pattern);
-  const pitchClass = rootPitchClass(pattern);
+  const octave = rootOctave(pattern.notes);
+  const pitchClass = rootPitchClass(pattern.key);
   return {
     id: pattern.id,
     name: pattern.name ?? "Untitled pattern",
@@ -118,34 +121,88 @@ function reelItem(pattern: Pattern): PatternReelItem {
       pattern.key,
       octave,
     ),
-    barTape: barTape(pattern),
+    barTape: barTape(pattern.notes, pattern),
     copied: copiedPatternId.value === pattern.id,
     canDelete: !pattern.isDefault,
     deleteArmed: deleteArmedPatternId.value === pattern.id,
   };
 }
 
-const reelItems = computed(() => patternsStore.patterns.map(reelItem));
-const selectedPatternId = computed(() => {
-  const focusedId = patternsStore.focusedPatternId;
-  if (focusedId && reelItems.value.some((item) => item.id === focusedId)) {
-    return focusedId;
+function sameNoteSequence(first: PatternNote[], second: PatternNote[]) {
+  return first.length === second.length
+    && first.every((note, index) => note.id === second[index]?.id);
+}
+
+const storedCurrentPatternId = computed(() => {
+  const sketch = patternsStore.currentSketchNotes;
+  const loadedId = patternsStore.loadedBasePatternId;
+  const loadedPattern = loadedId
+    ? patternsStore.patterns.find((pattern) => pattern.id === loadedId)
+    : undefined;
+  const loadedBaseStillContributes = loadedPattern
+    && patternsStore.loadedBaseNotes.length > 0
+    && patternsStore.loadedBaseNotes.every((note, index) => note.id === sketch[index]?.id);
+  if (loadedBaseStillContributes) return loadedPattern.id;
+
+  const focused = patternsStore.focusedPattern;
+  if (focused && sketch.length > 0 && sameNoteSequence(focused.notes, sketch)) {
+    return focused.id;
   }
-  return reelItems.value[reelItems.value.length - 1]?.id ?? "";
+
+  return null;
 });
+
+const currentTakeItem = computed<PatternReelItem>(() => {
+  const context = patternsStore.currentSketchMeta;
+  const notes = patternsStore.currentSketchNotes;
+  const octave = rootOctave(notes);
+  const pitchClass = rootPitchClass(context.key);
+  return {
+    id: CURRENT_TAKE_ID,
+    name: "Current Take",
+    rootLabel: `${context.key}${octave}`,
+    spine: getStaticPrimaryColorByPitchClass(
+      pitchClass,
+      context.mode,
+      context.key,
+      octave,
+    ),
+    barTape: barTape(notes, context),
+    copied: copiedPatternId.value === CURRENT_TAKE_ID,
+    canDelete: false,
+    deleteUnavailableLabel: "Edit the current take in CodeStrip",
+  };
+});
+
+const reelItems = computed(() => {
+  const storedItems = patternsStore.patterns.map(reelItem);
+  return storedCurrentPatternId.value
+    ? storedItems
+    : [...storedItems, currentTakeItem.value];
+});
+const selectedPatternId = computed(() => (
+  storedCurrentPatternId.value ?? CURRENT_TAKE_ID
+));
 
 function patternById(id: string) {
   return patternsStore.patterns.find((pattern) => pattern.id === id);
 }
 
 function selectPattern(id: string) {
+  if (id === CURRENT_TAKE_ID) return;
   patternsStore.loadPatternAsBase(id);
 }
 
-async function copyNotation(id: string) {
+function notationForId(id: string) {
+  if (id === CURRENT_TAKE_ID) {
+    return notation(patternsStore.currentSketchNotes, patternsStore.currentSketchMeta);
+  }
   const pattern = patternById(id);
-  if (!pattern) return;
-  const source = notation(pattern);
+  return pattern ? notation(pattern.notes, pattern) : "";
+}
+
+async function copyNotation(id: string) {
+  const source = notationForId(id);
   if (!source) return;
 
   try {
@@ -161,9 +218,7 @@ async function copyNotation(id: string) {
 }
 
 function openInStrudel(id: string) {
-  const pattern = patternById(id);
-  if (!pattern) return;
-  const source = notation(pattern);
+  const source = notationForId(id);
   if (!source) return;
 
   const bytes = new TextEncoder().encode(source);
@@ -177,6 +232,7 @@ function openInStrudel(id: string) {
 }
 
 function deletePattern(id: string) {
+  if (id === CURRENT_TAKE_ID) return;
   const pattern = patternById(id);
   if (!pattern || pattern.isDefault) return;
 

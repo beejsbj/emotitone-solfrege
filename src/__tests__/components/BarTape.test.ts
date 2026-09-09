@@ -60,6 +60,6 @@ describe("BarTape", () => {
     expect(productionPatternListSource).toMatch(
       /\.sort\(\s*\(firstNote, secondNote\) => firstNote\.pressTime - secondNote\.pressTime,?\s*\)/,
     );
-    expect(productionPatternListSource).toContain("[...pattern.notes]");
+    expect(productionPatternListSource).toContain("[...notes]");
   });
 });

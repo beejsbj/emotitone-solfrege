@@ -1,5 +1,18 @@
 <template>
   <main class="pattern-reel-page">
+    <nav class="pattern-reel-page__top-links" aria-label="PatternReel variants">
+      <span>Variants</span>
+      <a
+        v-for="option in variants"
+        :key="option.id"
+        :href="`?variant=${option.id}`"
+        :aria-current="variant === option.id ? 'page' : undefined"
+        @click.prevent="setVariant(option.id)"
+      >
+        {{ option.label }}
+      </a>
+    </nav>
+
     <header class="pattern-reel-page__intro">
       <div>
         <span class="pattern-reel-page__kicker">Temporary workbench · isolated route</span>
@@ -205,9 +218,57 @@ onBeforeUnmount(() => {
 
 .pattern-reel-page__intro,
 .pattern-reel-page__stage,
-.pattern-reel-page__readout {
+.pattern-reel-page__readout,
+.pattern-reel-page__top-links {
   width: min(720px, 100%);
   margin-inline: auto;
+}
+
+.pattern-reel-page__top-links {
+  position: sticky;
+  z-index: 90;
+  top: var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: var(--s-7);
+  padding: 4px;
+  background: var(--ink-2);
+  box-shadow: var(--ring);
+}
+
+.pattern-reel-page__top-links > span {
+  padding: 8px 12px;
+  color: var(--ivory-3);
+  font: var(--t-caption);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.pattern-reel-page__top-links a {
+  flex: 1;
+  padding: 8px 10px;
+  color: var(--ivory-3);
+  font: var(--t-label);
+  letter-spacing: .08em;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.pattern-reel-page__top-links a:hover {
+  background: var(--ink-3);
+  color: var(--ivory);
+}
+
+.pattern-reel-page__top-links a[aria-current="page"] {
+  background: var(--ivory);
+  color: var(--ink);
+}
+
+.pattern-reel-page__top-links a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
 }
 
 .pattern-reel-page__intro {
@@ -416,6 +477,22 @@ onBeforeUnmount(() => {
 
   .pattern-reel-page__switcher button {
     padding-inline: 7px;
+    font-size: 9px;
+  }
+
+  .pattern-reel-page__top-links {
+    align-items: stretch;
+  }
+
+  .pattern-reel-page__top-links > span {
+    display: none;
+  }
+
+  .pattern-reel-page__top-links a {
+    display: grid;
+    min-height: 40px;
+    place-items: center;
+    padding-inline: 5px;
     font-size: 9px;
   }
 }

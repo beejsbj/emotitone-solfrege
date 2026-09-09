@@ -116,7 +116,7 @@ const variants: Array<{
     id: "wheel",
     shortLabel: "B",
     label: "Wheel deck",
-    thesis: "The chosen wheel rests as a tight Ink deck, unwinds while you drag, holds open for a 900ms reading beat, then gathers with the shared elastic rebound.",
+    thesis: "The chosen wheel eases into a playful end rebound, holds fully open for 900ms, then gathers with that same soft end bounce.",
   },
   {
     id: "steps",

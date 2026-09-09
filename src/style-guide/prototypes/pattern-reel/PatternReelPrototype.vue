@@ -171,8 +171,8 @@ const WHEEL_DECK_POSITIONS = [
   { y: -42, scale: .986, opacity: .52 },
 ];
 const WHEEL_UNWIND_DISTANCE = 36;
-const WHEEL_COLLAPSE_DELAY_MS = 900;
-const WHEEL_COLLAPSE_DURATION_MS = 600;
+const WHEEL_OPEN_HOLD_MS = 900;
+const WHEEL_REBOUND_DURATION_MS = 600;
 
 const props = defineProps<{
   items: PatternReelPrototypeItem[];
@@ -192,7 +192,7 @@ const settling = ref(false);
 const dragDistance = ref(0);
 const transientIndex = ref<number | null>(null);
 const revealHeld = ref(false);
-const collapseBouncing = ref(false);
+const reelRebounding = ref(false);
 const keyboardImmediate = ref(false);
 const input = ref<PatternReelPrototypeInput>("initial");
 const liveAnnouncement = ref("");
@@ -207,7 +207,7 @@ let wheelAccumulator = 0;
 let wheelTimer: ReturnType<typeof setTimeout> | undefined;
 let settleTimer: ReturnType<typeof setTimeout> | undefined;
 let collapseTimer: ReturnType<typeof setTimeout> | undefined;
-let bounceTimer: ReturnType<typeof setTimeout> | undefined;
+let reboundTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressClicksUntil = 0;
 
 const recipe = computed(() => RECIPES[props.variant]);
@@ -321,17 +321,20 @@ function isActivePreview(id: string) {
 
 function slotStyle(slot: number, id: string): CSSProperties {
   const position = interpolatedPosition(slot - dragProgress.value);
-  const useCollapseBounce = props.variant === "wheel" && collapseBouncing.value;
+  const useRebound = props.variant === "wheel" && reelRebounding.value;
   return {
     "--slot-y": `${position.y}px`,
     "--slot-scale": String(position.scale),
     "--slot-opacity": String(position.opacity),
     "--slot-z": String(isActivePreview(id) ? 20 : 18 - Math.round(Math.abs(slot - dragProgress.value))),
-    "--settle-duration": useCollapseBounce
+    "--settle-duration": useRebound
       ? "var(--dur-bounce)"
       : `${recipe.value.duration}ms`,
-    "--settle-easing": useCollapseBounce
-      ? "var(--ease-bounce)"
+    "--settle-easing": useRebound
+      ? "var(--ease-reel-rebound)"
+      : recipe.value.easing,
+    "--settle-opacity-easing": useRebound
+      ? "var(--ease-brush)"
       : recipe.value.easing,
   } as CSSProperties;
 }
@@ -390,29 +393,33 @@ function revealWheelTemporarily(inputMode: PatternReelPrototypeInput) {
   }
 
   clearTimeout(collapseTimer);
-  clearTimeout(bounceTimer);
-  collapseBouncing.value = false;
+  clearTimeout(reboundTimer);
+  reelRebounding.value = true;
   revealHeld.value = true;
   setState(inputMode, displayItem.value?.id ?? props.selectedId, settling.value);
+  reboundTimer = setTimeout(() => {
+    reelRebounding.value = false;
+  }, WHEEL_REBOUND_DURATION_MS);
   collapseTimer = setTimeout(() => {
-    collapseBouncing.value = true;
+    clearTimeout(reboundTimer);
+    reelRebounding.value = true;
     revealHeld.value = false;
     setState(inputMode, displayItem.value?.id ?? props.selectedId, settling.value);
-    bounceTimer = setTimeout(() => {
-      collapseBouncing.value = false;
-    }, WHEEL_COLLAPSE_DURATION_MS);
-  }, WHEEL_COLLAPSE_DELAY_MS);
+    reboundTimer = setTimeout(() => {
+      reelRebounding.value = false;
+    }, WHEEL_REBOUND_DURATION_MS);
+  }, WHEEL_REBOUND_DURATION_MS + WHEEL_OPEN_HOLD_MS);
 }
 
 function cancelPendingInteraction(preserveReveal = false) {
   clearTimeout(wheelTimer);
   clearTimeout(settleTimer);
   clearTimeout(collapseTimer);
-  clearTimeout(bounceTimer);
+  clearTimeout(reboundTimer);
   wheelAccumulator = 0;
   transientIndex.value = null;
   if (!preserveReveal) revealHeld.value = false;
-  collapseBouncing.value = false;
+  reelRebounding.value = false;
   settling.value = false;
   keyboardImmediate.value = false;
   dragDistance.value = 0;
@@ -655,6 +662,22 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .pattern-reel-prototype {
+  --ease-reel-rebound: linear(
+    0,
+    .016 8%,
+    .064 16%,
+    .16 24%,
+    .31 33%,
+    .52 43%,
+    .73 53%,
+    .89 62%,
+    .98 69%,
+    1.045 76%,
+    .982 84%,
+    1.015 91%,
+    .996 96%,
+    1
+  );
   --selected-height: 64px;
   --reel-height: 206px;
   position: relative;
@@ -742,7 +765,7 @@ onBeforeUnmount(() => {
   transform-origin: 50% 0;
   transition:
     transform var(--settle-duration) var(--settle-easing),
-    opacity var(--settle-duration) var(--settle-easing);
+    opacity var(--settle-duration) var(--settle-opacity-easing);
   will-change: transform, opacity;
 }
 

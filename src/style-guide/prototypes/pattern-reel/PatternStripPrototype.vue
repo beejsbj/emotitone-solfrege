@@ -9,6 +9,13 @@
   >
     <span class="pattern-strip-prototype__spine" aria-hidden="true"></span>
 
+    <BarTape
+      v-if="!active"
+      class="pattern-strip-prototype__tape"
+      :segments="item.barTape"
+      :aria-label="`${item.name} note timeline`"
+    />
+
     <div class="pattern-strip-prototype__row">
       <button
         class="pattern-strip-prototype__identity"
@@ -60,12 +67,6 @@
         </Button>
       </div>
     </div>
-
-    <BarTape
-      class="pattern-strip-prototype__tape"
-      :segments="item.barTape"
-      :aria-label="`${item.name} note timeline`"
-    />
   </article>
 </template>
 

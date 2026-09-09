@@ -27,4 +27,3 @@ export interface PatternReelPrototypeState {
   previewId: string;
   settling: boolean;
 }
-

@@ -4,7 +4,10 @@
       <Sticker
         :variant="tone === 'ivory' ? 'fill' : 'badge'"
         :color="tone === 'brass' ? 'brass-sheen' : 'ivory'"
-        class="drag-value__paper knob-drag-value__paper"
+        :class="[
+          'drag-value__paper knob-drag-value__paper',
+          bounceCycle ? 'drag-value__paper--bounce-a' : 'drag-value__paper--bounce-b',
+        ]"
       >
         {{ value }}
       </Sticker>
@@ -13,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import Sticker from "./Sticker.vue";
 
 export type DragValueTone = "brass" | "ivory" | "ivory-badge";
@@ -25,6 +28,7 @@ const props = defineProps<{
   tone: DragValueTone;
 }>();
 const follower = ref<HTMLElement>();
+const bounceCycle = ref(false);
 let frame = 0;
 let previousTime = 0;
 let x = props.x;
@@ -34,6 +38,8 @@ let velocityX = 0;
 let velocityY = 0;
 let tiltVelocity = 0;
 const hoverDistance = 56;
+
+watch(() => props.value, () => { bounceCycle.value = !bounceCycle.value; });
 
 onMounted(() => {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -153,15 +159,20 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   text-transform: none;
 }
 
-@keyframes drag-value-arrive {
+@keyframes drag-value-arrive-a {
+  from { scale: .9; }
+  to { scale: 1; }
+}
+
+/* A second name lets consecutive value updates restart the same recipe. */
+@keyframes drag-value-arrive-b {
   from { scale: .9; }
   to { scale: 1; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .drag-value__paper {
-    animation: drag-value-arrive var(--dur-bounce) var(--ease-bounce);
-  }
+  .drag-value__paper--bounce-a { animation: drag-value-arrive-a var(--dur-bounce) var(--ease-bounce); }
+  .drag-value__paper--bounce-b { animation: drag-value-arrive-b var(--dur-bounce) var(--ease-bounce); }
 }
 
 @media (prefers-reduced-motion: reduce) {

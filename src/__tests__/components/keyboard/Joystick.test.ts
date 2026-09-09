@@ -94,7 +94,7 @@ describe("Joystick unique", () => {
     expect(joystickSource).toContain("scale var(--dur-bounce) var(--ease-bounce)");
     expect(joystickSource).toContain("scale var(--dur-tap) var(--ease-stab)");
     expect(dragValueSource).toContain(
-      "animation: drag-value-arrive var(--dur-bounce) var(--ease-bounce)",
+      "animation: drag-value-arrive-a var(--dur-bounce) var(--ease-bounce)",
     );
     expect(dragValueSource).toMatch(
       /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.drag-value__paper \{ animation: none; \}/,

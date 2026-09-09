@@ -80,8 +80,13 @@ describe("Knob public interface", () => {
     expect((follower as HTMLElement).style.transform).toContain("translate3d(150px, 244px, 0)");
     expect(follower.querySelector(".sticker--fill")).not.toBeNull();
     expect(follower.querySelector(".sticker--color-ivory")).not.toBeNull();
+    const paper = follower.querySelector(".drag-value__paper")!;
+    expect(paper.classList).toContain("drag-value__paper--bounce-b");
     await wrapper.setProps({ modelValue: -3.2 });
     expect(follower.textContent).toContain("-3.2 dB");
+    expect(paper.classList).toContain("drag-value__paper--bounce-a");
+    await wrapper.setProps({ modelValue: -3.2 });
+    expect(paper.classList).toContain("drag-value__paper--bounce-a");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
     expect(document.querySelector(".knob-drag-value")).toBeNull();
   });

@@ -69,13 +69,14 @@
           },
         ]"
         :style="slotStyle(slot.slot, slot.item.id)"
-        :aria-hidden="slot.slot === 1 && !isActivePreview(slot.item.id) || undefined"
+        :aria-hidden="isSlotUnavailable(slot.slot, slot.item.id) || undefined"
+        :inert="isSlotUnavailable(slot.slot, slot.item.id) || undefined"
       >
         <PatternStrip
           :item="slot.item"
           :active="isActivePreview(slot.item.id)"
           :disabled="disabled || dragging || settling || transientIndex !== null
-            || slot.slot === 1 && !isActivePreview(slot.item.id)"
+            || isSlotUnavailable(slot.slot, slot.item.id)"
           @select="handleStripSelect(slot.item.id)"
           @delete="emit('delete', slot.item.id)"
           @copy="emit('copy', slot.item.id)"
@@ -268,6 +269,12 @@ function interpolatedPosition(coordinate: number) {
 
 function isActivePreview(id: string) {
   return previewItem.value?.id === id;
+}
+
+function isSlotUnavailable(slot: number, id: string) {
+  const stagedForwardSlot = slot === 1 && !isActivePreview(id);
+  const collapsedPredecessor = slot < 0 && unwindProgress.value === 0;
+  return stagedForwardSlot || collapsedPredecessor;
 }
 
 function slotStyle(slot: number, id: string): CSSProperties {

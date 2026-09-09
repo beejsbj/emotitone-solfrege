@@ -97,7 +97,8 @@ const patterns: PatternReelItem[] = [
     rootLabel: "C4",
     spine: getStaticPrimaryColorByPitchClass(0, "major", "C", 4),
     barTape: timeline([[0, 460]], "C", "major", 4),
-    canDelete: true,
+    canDelete: false,
+    deleteUnavailableLabel: "Edit the current take in CodeStrip",
   },
 ];
 

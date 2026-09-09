@@ -84,6 +84,30 @@ describe("PatternReel", () => {
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
   });
 
+  it("keeps collapsed predecessors inert until Current reveals the wheel", async () => {
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const beta = slotFor(wrapper, "Beta");
+
+    expect(beta.attributes("aria-hidden")).toBe("true");
+    expect(beta.attributes("inert")).toBeDefined();
+    expect(beta.get(".pattern-strip__identity").attributes("disabled")).toBeDefined();
+    for (const action of beta.findAll(".pattern-strip__actions button")) {
+      expect(action.attributes("disabled")).toBeDefined();
+    }
+
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await nextTick();
+
+    expect(beta.attributes("aria-hidden")).toBeUndefined();
+    expect(beta.attributes("inert")).toBeUndefined();
+    expect(beta.get(".pattern-strip__identity").attributes("disabled")).toBeUndefined();
+    for (const action of beta.findAll(".pattern-strip__actions button")) {
+      expect(action.attributes("disabled")).toBeUndefined();
+    }
+  });
+
   it("commits cyclic keyboard selection immediately", async () => {
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },

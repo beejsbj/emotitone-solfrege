@@ -59,7 +59,7 @@ const backgroundPattern: PatternStripItem = {
     color: getStaticPrimaryColorByScaleIndex(scaleIndex, "dorian", "F#", 4),
     durationMs: [250, 125, 375, 250, 500][index],
   })),
-  canDelete: false,
+  canDelete: true,
 };
 
 const currentPattern: PatternStripItem = {
@@ -71,12 +71,13 @@ const currentPattern: PatternStripItem = {
     color: getStaticPrimaryColorByScaleIndex(0, "major", "C", 4),
     durationMs: 460,
   }],
-  canDelete: true,
+  canDelete: false,
+  deleteUnavailableLabel: "Edit the current take in CodeStrip",
 };
 
 const armedPattern: PatternStripItem = {
-  ...currentPattern,
-  id: "current-take-armed",
+  ...backgroundPattern,
+  id: "evening-glass-armed",
   deleteArmed: true,
 };
 

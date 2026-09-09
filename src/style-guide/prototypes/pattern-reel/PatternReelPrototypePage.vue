@@ -116,7 +116,7 @@ const variants: Array<{
     id: "wheel",
     shortLabel: "B",
     label: "Wheel deck",
-    thesis: "The chosen wheel eases into a playful end rebound, holds fully open for 900ms, then gathers with that same soft end bounce.",
+    thesis: "The chosen wheel snaps into a playful end rebound, holds fully open for 600ms, then gathers with that same soft end bounce.",
   },
   {
     id: "steps",

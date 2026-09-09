@@ -26,4 +26,5 @@ export interface PatternReelPrototypeState {
   input: PatternReelPrototypeInput;
   previewId: string;
   settling: boolean;
+  posture: "deck" | "unwound" | "fixed";
 }

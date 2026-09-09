@@ -29,7 +29,7 @@
           {{ selectedPosition }} / {{ items.length }} · cyclic
         </span>
         <span class="pattern-reel-prototype__hint">
-          Drag or wheel · tap a visible card · ↑/↓ changes selection
+          {{ interactionHint }}
         </span>
       </div>
 
@@ -132,7 +132,7 @@ interface ReelRecipe {
 
 const RECIPES: Record<PatternReelPrototypeVariant, ReelRecipe> = {
   wheel: {
-    name: "Wheel face",
+    name: "Wheel deck",
     positions: [
       { y: 0, scale: 1, opacity: 1 },
       { y: -58, scale: .95, opacity: .8 },
@@ -141,8 +141,8 @@ const RECIPES: Record<PatternReelPrototypeVariant, ReelRecipe> = {
     ],
     step: 58,
     dragThreshold: 29,
-    duration: 240,
-    easing: "cubic-bezier(.23, 1, .32, 1)",
+    duration: 220,
+    easing: "var(--ease-brush)",
     maxDragSteps: 1,
   },
   steps: {
@@ -174,6 +174,14 @@ const RECIPES: Record<PatternReelPrototypeVariant, ReelRecipe> = {
     maxDragSteps: 1,
   },
 };
+
+const WHEEL_DECK_POSITIONS = [
+  { y: 0, scale: 1, opacity: 1 },
+  { y: -18, scale: .997, opacity: .92 },
+  { y: -31, scale: .992, opacity: .74 },
+  { y: -42, scale: .986, opacity: .52 },
+];
+const WHEEL_UNWIND_DISTANCE = 36;
 
 const props = defineProps<{
   items: PatternReelPrototypeItem[];
@@ -208,6 +216,9 @@ let settleTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressClicksUntil = 0;
 
 const recipe = computed(() => RECIPES[props.variant]);
+const interactionHint = computed(() => props.variant === "wheel"
+  ? "Drag to unwind the deck · wheel, tap, or ↑/↓ to select"
+  : "Drag or wheel · tap a visible card · ↑/↓ changes selection");
 
 const selectedIndex = computed(() => {
   const index = props.items.findIndex((item) => item.id === props.selectedId);
@@ -220,6 +231,12 @@ const dragProgress = computed(() => {
   if (!dragging.value || prefersReducedMotion()) return 0;
   const progress = -dragDistance.value / recipe.value.step;
   return Math.max(-1, Math.min(1, progress));
+});
+const unwindProgress = computed(() => {
+  if (props.variant !== "wheel" || prefersReducedMotion()) return 0;
+  if (transientIndex.value !== null) return 1;
+  if (!dragging.value) return 0;
+  return Math.min(1, Math.abs(dragDistance.value) / WHEEL_UNWIND_DISTANCE);
 });
 const previewIndex = computed(() => dragging.value
   ? wrapIndex(selectedIndex.value + Math.round(dragProgress.value))
@@ -265,7 +282,17 @@ function positionAt(slot: number) {
     return { y: recipe.value.step, scale: 1.025, opacity: 0 };
   }
   if (slot >= 0) return recipe.value.positions[0];
-  return recipe.value.positions[Math.min(Math.abs(slot), 3)];
+
+  const depth = Math.min(Math.abs(slot), 3);
+  const unwound = recipe.value.positions[depth];
+  if (props.variant !== "wheel") return unwound;
+
+  const deck = WHEEL_DECK_POSITIONS[depth];
+  return {
+    y: lerp(deck.y, unwound.y, unwindProgress.value),
+    scale: lerp(deck.scale, unwound.scale, unwindProgress.value),
+    opacity: lerp(deck.opacity, unwound.opacity, unwindProgress.value),
+  };
 }
 
 function interpolatedPosition(coordinate: number) {
@@ -315,7 +342,14 @@ function setState(
   isSettling = settling.value,
 ) {
   input.value = nextInput;
-  emit("state", { input: nextInput, previewId, settling: isSettling });
+  emit("state", {
+    input: nextInput,
+    previewId,
+    settling: isSettling,
+    posture: props.variant === "wheel"
+      ? unwindProgress.value > 0 ? "unwound" : "deck"
+      : "fixed",
+  });
 }
 
 function announce(item: PatternReelPrototypeItem | undefined) {

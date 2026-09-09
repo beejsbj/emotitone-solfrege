@@ -66,6 +66,10 @@
         <strong>{{ reelState.input }}</strong>
       </div>
       <div>
+        <span>Reel posture</span>
+        <strong>{{ reelState.posture }}</strong>
+      </div>
+      <div>
         <span>CodeStrip contract</span>
         <strong>Changes on commit</strong>
       </div>
@@ -111,8 +115,8 @@ const variants: Array<{
   {
     id: "wheel",
     shortLabel: "B",
-    label: "Wheel face",
-    thesis: "Strong foreshortening and compressed rear spacing: the closest test of the front-facing date-wheel idea.",
+    label: "Wheel deck",
+    thesis: "The chosen wheel rests as a tight card deck, then progressively unwinds into its front-facing depth while you drag.",
   },
   {
     id: "steps",
@@ -141,6 +145,7 @@ const reelState = ref<PatternReelPrototypeState>({
   input: "initial",
   previewId: selectedId.value,
   settling: false,
+  posture: variant.value === "wheel" ? "deck" : "fixed",
 });
 const lastAction = ref("Ready · the one-note Current take starts selected");
 let previousTitle = "";
@@ -347,7 +352,7 @@ onBeforeUnmount(() => {
 
 .pattern-reel-page__readout {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1px;
   margin-top: var(--s-7);
   background: var(--hairline);

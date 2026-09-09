@@ -16,6 +16,14 @@ const enableAudioContext = vi.fn(async () => true);
 const hideSplash = vi.fn();
 const skipLoading = vi.fn();
 const resetLoading = vi.fn();
+const midi = reactive({
+  isSupported: false,
+  isConnecting: false,
+  isListening: false,
+  connectedInputs: [] as string[],
+  syncedOutput: null as string | null,
+  lastError: null as string | null,
+});
 
 vi.mock("@/composables/useAppLoading", () => ({
   useAppLoading: () => ({
@@ -32,31 +40,64 @@ vi.mock("@/composables/useAppLoading", () => ({
   }),
 }));
 vi.mock("@/stores/keyboardDrawer", () => ({
-  useKeyboardDrawerStore: () => ({ midi: { isSupported: false } }),
+  useKeyboardDrawerStore: () => ({ midi }),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   loadingState.progress.overall.isComplete = false;
   loadingState.progress.instruments.error = "";
+  midi.isSupported = false;
+  midi.isConnecting = false;
+  midi.isListening = false;
+  midi.connectedInputs = [];
+  midi.syncedOutput = null;
+  midi.lastError = null;
 });
 
 describe("production loading splash", () => {
   it("shows the production identity and live loading status", () => {
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
-    expect(wrapper.get("h1").text()).toBe("EMOTITONE");
-    expect(wrapper.text()).toContain("SOLFÈGE LEARNING");
+    expect(wrapper.get(".loading-screen--app").exists()).toBe(true);
+    expect(wrapper.text()).toContain("EMOTITONE");
+    expect(wrapper.text()).toContain("LET'S MAKESOME MUSIC.");
     expect(wrapper.text()).toContain("Warming up piano");
     expect(wrapper.text()).not.toContain("NOT FOR PRESS");
+    expect(wrapper.findAll(".converged-loader__stages li").at(-1)?.text()).toContain("MIDI input");
     wrapper.unmount();
   });
 
   it("enables audio before entering the app when ready", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
     loadingState.progress.overall.isComplete = true;
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
-    await wrapper.get(".btn--start").trigger("click");
+    await wrapper.get(".converged-loader__completion-action").trigger("click");
     expect(enableAudioContext).toHaveBeenCalledOnce();
-    expect(hideSplash).toHaveBeenCalledOnce();
+    expect(hideSplash).toHaveBeenCalledWith(0);
+    vi.unstubAllGlobals();
+    wrapper.unmount();
+  });
+
+  it("keeps optional MIDI status visible and stamps resolved outcomes accurately", async () => {
+    loadingState.progress.overall.isComplete = true;
+    const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
+    const midiStage = wrapper.findAll(".converged-loader__stages li").at(-1)!;
+
+    expect(midiStage.text()).toContain("MIDI is unavailable");
+    expect(midiStage.text()).toContain("N/A");
+
+    midi.isSupported = true;
+    midi.isConnecting = true;
+    await wrapper.vm.$nextTick();
+    expect(midiStage.text()).toContain("Requesting browser MIDI access");
+    expect(midiStage.find(".converged-loader__stamp").classes()).not.toContain("is-visible");
+
+    midi.isConnecting = false;
+    midi.lastError = "Permission denied";
+    await wrapper.vm.$nextTick();
+    expect(midiStage.text()).toContain("MIDI permission was not granted");
+    expect(midiStage.text()).toContain("SKIP");
+    expect(midiStage.find(".converged-loader__stamp").classes()).toContain("is-visible");
     wrapper.unmount();
   });
 
@@ -64,7 +105,7 @@ describe("production loading splash", () => {
     loadingState.progress.instruments.error = "Sample download failed";
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
     expect(wrapper.text()).toContain("Sample download failed");
-    await wrapper.get(".btn--retry").trigger("click");
+    await wrapper.get(".converged-loader__state-action--retry").trigger("click");
     expect(resetLoading).toHaveBeenCalledOnce();
     wrapper.unmount();
   });

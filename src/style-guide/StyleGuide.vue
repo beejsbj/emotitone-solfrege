@@ -157,7 +157,7 @@
       <h2 id="compositions-heading">Compositions</h2>
       <div class="sink-stack">
         <article class="sink-frame">
-          <div class="sink-frame__source">composition-loading-screen.html</div>
+          <div class="sink-frame__source">composition-loading-screen</div>
           <CompositionLoadingScreen />
         </article>
       </div>

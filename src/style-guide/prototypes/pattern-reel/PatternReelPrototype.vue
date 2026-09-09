@@ -171,8 +171,8 @@ const WHEEL_DECK_POSITIONS = [
   { y: -42, scale: .986, opacity: .52 },
 ];
 const WHEEL_UNWIND_DISTANCE = 36;
-const WHEEL_OPEN_HOLD_MS = 600;
-const WHEEL_REBOUND_DURATION_MS = 360;
+const WHEEL_OPEN_HOLD_MS = 900;
+const WHEEL_REBOUND_DURATION_MS = 420;
 
 const props = defineProps<{
   items: PatternReelPrototypeItem[];
@@ -328,7 +328,7 @@ function slotStyle(slot: number, id: string): CSSProperties {
     "--slot-opacity": String(position.opacity),
     "--slot-z": String(isActivePreview(id) ? 20 : 18 - Math.round(Math.abs(slot - dragProgress.value))),
     "--settle-duration": useRebound
-      ? "var(--dur-panel)"
+      ? `${WHEEL_REBOUND_DURATION_MS}ms`
       : `${recipe.value.duration}ms`,
     "--settle-easing": useRebound
       ? "var(--ease-reel-rebound)"
@@ -664,16 +664,15 @@ onBeforeUnmount(() => {
 .pattern-reel-prototype {
   --ease-reel-rebound: linear(
     0,
-    .035 6%,
-    .12 14%,
-    .28 24%,
-    .52 36%,
-    .76 49%,
-    .92 61%,
-    .99 69%,
-    1.04 77%,
-    .986 85%,
-    1.012 92%,
+    .06 5%,
+    .2 13%,
+    .44 25%,
+    .7 38%,
+    .9 52%,
+    .99 61%,
+    1.1 72%,
+    .96 84%,
+    1.025 93%,
     1
   );
   --selected-height: 64px;

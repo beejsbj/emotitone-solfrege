@@ -114,6 +114,7 @@ describe("PatternReel", () => {
       props: { items, selectedId: "gamma" },
     });
 
+    const betaElement = slotFor(wrapper, "Beta").element;
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
     await slotFor(wrapper, "Beta").get('.pattern-strip__identity').trigger("click");
@@ -125,6 +126,11 @@ describe("PatternReel", () => {
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain(
       "--settle-easing: var(--ease-reel-rebound)",
     );
+
+    await wrapper.setProps({ selectedId: "beta" });
+    expect(slotFor(wrapper, "Beta").element).toBe(betaElement);
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
   });
 
   it("keeps DOM focus order aligned with the visible top-to-bottom slot order", () => {
@@ -240,6 +246,45 @@ describe("PatternReel", () => {
     expect(wrapper.emitted("commit")).toBeUndefined();
   });
 
+  it("pauses the open-hold collapse timer while a vertical drag is claimed", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const reel = wrapper.element as HTMLElement;
+    Object.defineProperties(reel, {
+      setPointerCapture: { value: vi.fn() },
+      hasPointerCapture: { value: vi.fn(() => true) },
+      releasePointerCapture: { value: vi.fn() },
+    });
+    const identity = slotFor(wrapper, "Gamma").get(".pattern-strip__identity");
+
+    await identity.trigger("click");
+    vi.advanceTimersByTime(201);
+    await identity.trigger("pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 50,
+      pointerId: 10,
+    });
+    await wrapper.trigger("pointermove", {
+      clientX: 20,
+      clientY: 40,
+      pointerId: 10,
+    });
+    await nextTick();
+    const openDragPosition = slotFor(wrapper, "Beta").attributes("style")
+      .match(/--slot-y: ([^;]+)/)?.[1];
+
+    vi.advanceTimersByTime(1000);
+    await nextTick();
+    expect(wrapper.classes()).toContain("pattern-reel--dragging");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain(
+      `--slot-y: ${openDragPosition}`,
+    );
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+  });
+
   it("keeps the incoming identity continuous when a short reel wraps upward", async () => {
     const wrapper = mount(PatternReel, {
       props: { items: items.slice(0, 2), selectedId: "beta" },
@@ -273,6 +318,12 @@ describe("PatternReel", () => {
       expect.arrayContaining(["pattern-reel__slot---1"]),
       expect.arrayContaining(["pattern-reel__slot--1", "pattern-reel__slot--active"]),
     ]));
+    expect(alphaSlots.filter((slot) => slot.attributes("aria-hidden") === "true"))
+      .toHaveLength(1);
+    expect(alphaSlots.filter((slot) => slot.attributes("aria-hidden") === undefined))
+      .toHaveLength(1);
+    expect(alphaSlots.filter((slot) => slot.attributes("inert") !== undefined))
+      .toHaveLength(1);
   });
 
   it("commits cyclic keyboard selection immediately", async () => {

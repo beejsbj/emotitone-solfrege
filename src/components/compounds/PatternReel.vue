@@ -59,7 +59,7 @@
 
       <div
         v-for="slot in renderedSlots"
-        :key="`${slot.item.id}:${slot.slot}`"
+        :key="slot.key"
         class="pattern-reel__slot"
         :class="[
           `pattern-reel__slot--${slot.slot}`,
@@ -162,6 +162,7 @@ let pointerStartY = 0;
 let pointerLastY = 0;
 let pointerLastAt = 0;
 let pointerVelocity = 0;
+let pointerStartedRevealed = false;
 let wheelAccumulator = 0;
 let wheelTimer: ReturnType<typeof setTimeout> | undefined;
 let settleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -214,15 +215,24 @@ function slotForIndex(itemIndex: number) {
 }
 
 const renderedSlots = computed(() => {
+  const stagesShortIncoming = dragging.value
+    && dragProgress.value > 0
+    && props.items.length <= 4;
+  const incoming = stagesShortIncoming
+    ? props.items[wrapIndex(displayIndex.value + 1)]
+    : undefined;
   const slots = props.items
-    .map((item, itemIndex) => ({ item, slot: slotForIndex(itemIndex) }))
-    .filter((entry): entry is { item: PatternReelItem; slot: number } => (
+    .map((item, itemIndex) => ({
+      item,
+      slot: slotForIndex(itemIndex),
+      key: incoming?.id === item.id ? `${item.id}:receding` : item.id,
+    }))
+    .filter((entry): entry is { item: PatternReelItem; slot: number; key: string } => (
       entry.slot !== null
     ));
 
-  if (dragging.value && dragProgress.value > 0 && props.items.length <= 4) {
-    const incoming = props.items[wrapIndex(displayIndex.value + 1)];
-    if (incoming) slots.push({ item: incoming, slot: 1 });
+  if (incoming) {
+    slots.push({ item: incoming, slot: 1, key: incoming.id });
   }
 
   return slots.sort((first, second) => first.slot - second.slot);
@@ -287,8 +297,14 @@ function isCommittedCurrent(id: string) {
 
 function isSlotUnavailable(slot: number, id: string) {
   const stagedForwardSlot = slot === 1 && !isActiveSlot(slot, id);
+  const recedingShortDuplicate = slot < 0
+    && dragging.value
+    && dragProgress.value > 0
+    && props.items.length <= 4
+    && props.items[wrapIndex(displayIndex.value + 1)]?.id === id
+    && isActivePreview(id);
   const collapsedPredecessor = slot < 0 && unwindProgress.value === 0;
-  return stagedForwardSlot || collapsedPredecessor;
+  return stagedForwardSlot || recedingShortDuplicate || collapsedPredecessor;
 }
 
 function slotStyle(slot: number, id: string): CSSProperties {
@@ -377,6 +393,7 @@ function cancelPendingInteraction(preserveReveal = false) {
     reelRoot.value.releasePointerCapture(pointerId);
   }
   pointerId = null;
+  pointerStartedRevealed = false;
 }
 
 function prepareAnimatedCommit() {
@@ -440,8 +457,10 @@ function handlePointerDown(event: PointerEvent) {
     || !event.target.closest(".pattern-reel__viewport")
   ) return;
 
+  const startedRevealed = revealHeld.value;
   cancelPendingInteraction(true);
   pointerId = event.pointerId;
+  pointerStartedRevealed = startedRevealed;
   pointerStartX = event.clientX;
   pointerStartY = event.clientY;
   pointerLastY = event.clientY;
@@ -468,10 +487,16 @@ function handlePointerMove(event: PointerEvent) {
         reelRoot.value.releasePointerCapture(event.pointerId);
       }
       pointerId = null;
+      pointerStartedRevealed = false;
       return;
     }
     if (Math.abs(delta) < 6 || Math.abs(delta) <= Math.abs(horizontalDelta)) return;
     dragging.value = true;
+    if (pointerStartedRevealed) {
+      clearTimeout(collapseTimer);
+      clearTimeout(reboundTimer);
+      reelRebounding.value = false;
+    }
     reelRoot.value?.setPointerCapture(event.pointerId);
   }
   event.preventDefault();
@@ -484,7 +509,9 @@ function finishPointer(event: PointerEvent, cancelled = false) {
   if (pointerId !== event.pointerId) return;
   const wasDragging = dragging.value;
   const delta = dragDistance.value;
+  const resumeRevealAfterCancel = wasDragging && cancelled && pointerStartedRevealed;
   pointerId = null;
+  pointerStartedRevealed = false;
   dragging.value = false;
   dragDistance.value = 0;
 
@@ -493,6 +520,7 @@ function finishPointer(event: PointerEvent, cancelled = false) {
   }
 
   if (wasDragging && !cancelled) revealWheelTemporarily();
+  if (resumeRevealAfterCancel) revealWheelTemporarily();
   if (!wasDragging || cancelled) return;
 
   event.preventDefault();

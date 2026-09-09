@@ -1,5 +1,6 @@
 <template>
-  <StyleGuide v-if="isStyleGuideRoute" :page="styleGuidePage" />
+  <PatternReelPrototypePage v-if="isPatternReelPrototypeRoute" />
+  <StyleGuide v-else-if="isStyleGuideRoute" :page="styleGuidePage" />
   <MainApp v-else />
 </template>
 
@@ -15,6 +16,7 @@ const styleGuidePages = {
   "/style-guide/instrument-picker": "instrument-picker",
   "/style-guide/config-menu": "config-menu",
 } as const;
+const isPatternReelPrototypeRoute = pathname === "/style-guide/pattern-reel";
 const isStyleGuideRoute = Object.prototype.hasOwnProperty.call(styleGuidePages, pathname);
 const styleGuidePage = isStyleGuideRoute
   ? styleGuidePages[pathname as keyof typeof styleGuidePages]
@@ -22,7 +24,7 @@ const styleGuidePage = isStyleGuideRoute
 
 // The typography element defaults are deliberately loaded only for the guide.
 // Keep the route marker on the document so html/body rules can be scoped too.
-if (isStyleGuideRoute) {
+if (isStyleGuideRoute || isPatternReelPrototypeRoute) {
   document.documentElement.classList.add("style-guide-route");
   document.body?.classList.add("style-guide-route");
   void import("./style-guide/guide-defaults.css");
@@ -32,5 +34,8 @@ if (isStyleGuideRoute) {
 
 const StyleGuide = defineAsyncComponent(
   () => import("./style-guide/StyleGuide.vue"),
+);
+const PatternReelPrototypePage = defineAsyncComponent(
+  () => import("./style-guide/prototypes/pattern-reel/PatternReelPrototypePage.vue"),
 );
 </script>

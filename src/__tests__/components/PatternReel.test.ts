@@ -72,8 +72,12 @@ describe("PatternReel", () => {
     expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 0px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: -24.8px");
-    expect(wrapper.findAll(".bar-tape")).toHaveLength(2);
-    expect(slotFor(wrapper, "Gamma").find(".bar-tape").exists()).toBe(false);
+    expect(wrapper.findAll(".bar-tape")).toHaveLength(3);
+    expect(wrapper.findAll(".bar-tape").filter((tape) => (
+      tape.attributes("aria-hidden") === undefined
+    ))).toHaveLength(2);
+    expect(slotFor(wrapper, "Gamma").get(".bar-tape").attributes("aria-hidden"))
+      .toBe("true");
     expect(wrapper.find(".pattern-reel__head").exists()).toBe(false);
     expect(wrapper.find(".pattern-reel__fade").exists()).toBe(false);
     expect(patternReelSource).toContain("width: 100%");
@@ -188,8 +192,10 @@ describe("PatternReel", () => {
 
     expect(wheelNotch.defaultPrevented).toBe(true);
     expect(slotFor(wrapper, "Alpha").classes()).toContain("pattern-reel__slot--active");
-    expect(slotFor(wrapper, "Gamma").find(".bar-tape").exists()).toBe(false);
-    expect(slotFor(wrapper, "Alpha").find(".bar-tape").exists()).toBe(true);
+    expect(slotFor(wrapper, "Gamma").get(".bar-tape").attributes("aria-hidden"))
+      .toBe("true");
+    expect(slotFor(wrapper, "Alpha").get(".bar-tape").attributes("aria-hidden"))
+      .toBeUndefined();
 
     vi.advanceTimersByTime(220);
     await nextTick();

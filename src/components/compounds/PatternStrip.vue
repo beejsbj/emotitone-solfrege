@@ -10,8 +10,8 @@
     <span class="pattern-strip__spine" aria-hidden="true"></span>
 
     <BarTape
-      v-if="!active"
       class="pattern-strip__tape"
+      :aria-hidden="active || undefined"
       :segments="item.barTape"
       :aria-label="`${item.name} note timeline`"
     />
@@ -219,7 +219,17 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 }
 
 .pattern-strip__tape {
-  margin-left: 4px;
+  position: absolute;
+  z-index: 3;
+  inset: 0 0 auto 4px;
+  opacity: 1;
+  transition: opacity var(--settle-duration, 200ms)
+    var(--settle-opacity-easing, var(--ease-brush));
+  will-change: opacity;
+}
+
+.pattern-strip--active .pattern-strip__tape {
+  opacity: 0;
 }
 
 @media (max-width: 520px) {
@@ -252,6 +262,13 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 
   .pattern-strip__identity strong {
     color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pattern-strip__tape {
+    transition: none;
+    will-change: auto;
   }
 }
 </style>

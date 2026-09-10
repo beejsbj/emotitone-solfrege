@@ -11,6 +11,7 @@ import type { PatternStripItem } from "@/components/compounds/PatternStrip.vue";
 const item: PatternStripItem = {
   id: "evening-glass",
   name: "Evening Glass",
+  instrumentLabel: "Rhodes",
   rootLabel: "F#4",
   spine: "rgb(255, 0, 0)",
   barTape: [
@@ -18,6 +19,7 @@ const item: PatternStripItem = {
     { color: "rgb(0, 255, 0)", durationMs: 200 },
   ],
   canDelete: true,
+  canRename: true,
 };
 
 describe("PatternStrip", () => {
@@ -28,6 +30,7 @@ describe("PatternStrip", () => {
     expect(wrapper.attributes("style")).toContain("--pattern-strip-spine: rgb(255, 0, 0)");
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
       .toBe("Select Evening Glass, root F#4");
+    expect(wrapper.get(".pattern-strip__identity small").text()).toBe("Rhodes");
     expect(wrapper.findAll(".bar-tape__segment")).toHaveLength(2);
     expect(wrapper.find(".pattern-strip__tape").exists()).toBe(true);
     expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (
@@ -88,6 +91,21 @@ describe("PatternStrip", () => {
     expect(wrapper.emitted("openStrudel")).toHaveLength(1);
   });
 
+  it("renames the selected pattern inline on double-tap or F2", async () => {
+    const wrapper = mount(PatternStrip, { props: { item, active: true } });
+
+    await wrapper.get(".pattern-strip__identity").trigger("dblclick");
+    const input = wrapper.get<HTMLInputElement>(".pattern-strip__rename input");
+    expect(input.attributes("aria-label")).toBe("Rename Evening Glass");
+    await input.setValue("Blue Hour");
+    await input.trigger("blur");
+
+    expect(wrapper.emitted("rename")).toEqual([["Blue Hour"]]);
+
+    await wrapper.get(".pattern-strip__identity").trigger("keydown", { key: "F2" });
+    expect(wrapper.find(".pattern-strip__rename input").exists()).toBe(true);
+  });
+
   it("keeps default-pattern deletion unavailable", () => {
     const wrapper = mount(PatternStrip, {
       props: { item: { ...item, canDelete: false } },
@@ -132,9 +150,11 @@ describe("PatternStrip", () => {
     expect(reelSpecimenSource.match(/@delete=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@copy=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@open-strudel=/g)).toHaveLength(4);
+    expect(reelSpecimenSource.match(/@rename=/g)).toHaveLength(4);
     expect(stripSpecimenSource.match(/@select=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@delete=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@copy=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@open-strudel=/g)).toHaveLength(5);
+    expect(stripSpecimenSource.match(/@rename=/g)).toHaveLength(5);
   });
 });

@@ -10,6 +10,7 @@ function item(id: string, name: string): PatternReelItem {
   return {
     id,
     name,
+    instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: "rgb(255, 0, 0)",
     barTape: [{ color: "rgb(255, 0, 0)", durationMs: 100 }],

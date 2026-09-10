@@ -16,7 +16,25 @@
     />
 
     <div class="pattern-strip__row">
+      <form
+        v-if="renaming"
+        class="pattern-strip__rename"
+        data-reel-control
+        @submit.prevent="commitRename"
+        @pointerdown.stop
+        @click.stop
+      >
+        <input
+          ref="renameInput"
+          v-model="draftName"
+          maxlength="80"
+          :aria-label="`Rename ${item.name}`"
+          @blur="commitRename"
+          @keydown.escape.stop.prevent="cancelRename"
+        />
+      </form>
       <button
+        v-else
         class="pattern-strip__identity"
         type="button"
         :disabled="disabled"
@@ -24,8 +42,13 @@
           ? `Unwind patterns around ${item.name}, root ${item.rootLabel}`
           : `Select ${item.name}, root ${item.rootLabel}`"
         @click.stop="emit('select')"
+        @dblclick.stop.prevent="beginRename"
+        @keydown.f2.stop.prevent="beginRename"
       >
-        <strong>{{ item.name }}</strong>
+        <span class="pattern-strip__identity-copy">
+          <strong>{{ item.name }}</strong>
+          <small>{{ item.instrumentLabel }}</small>
+        </span>
       </button>
 
       <div
@@ -72,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type CSSProperties } from "vue";
+import { computed, nextTick, ref, type CSSProperties } from "vue";
 import { Check, Copy, ExternalLink, Trash2 } from "lucide-vue-next";
 import BarTape from "../primatives/BarTape.vue";
 import Button from "../primatives/Button.vue";
@@ -81,6 +104,7 @@ import type { BarTapeSegment } from "../primatives/BarTape.vue";
 export interface PatternStripItem {
   id: string;
   name: string;
+  instrumentLabel: string;
   rootLabel: string;
   spine: string;
   barTape: BarTapeSegment[];
@@ -88,6 +112,7 @@ export interface PatternStripItem {
   canDelete?: boolean;
   canCopy?: boolean;
   canOpenStrudel?: boolean;
+  canRename?: boolean;
   deleteArmed?: boolean;
   deleteUnavailableLabel?: string;
   copyUnavailableLabel?: string;
@@ -108,7 +133,34 @@ const emit = defineEmits<{
   delete: [];
   copy: [];
   openStrudel: [];
+  rename: [name: string];
 }>();
+
+const renaming = ref(false);
+const draftName = ref("");
+const renameInput = ref<HTMLInputElement | null>(null);
+
+function beginRename() {
+  if (!props.active || props.disabled || props.item.canRename === false) return;
+  draftName.value = props.item.name;
+  renaming.value = true;
+  void nextTick(() => {
+    renameInput.value?.focus();
+    renameInput.value?.select();
+  });
+}
+
+function cancelRename() {
+  renaming.value = false;
+  draftName.value = props.item.name;
+}
+
+function commitRename() {
+  if (!renaming.value) return;
+  const name = draftName.value.trim();
+  renaming.value = false;
+  if (name && name !== props.item.name) emit("rename", name);
+}
 
 const stripStyle = computed(() => ({
   "--pattern-strip-spine": props.item.spine,
@@ -189,6 +241,12 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   -webkit-tap-highlight-color: transparent;
 }
 
+.pattern-strip__identity-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
 .pattern-strip__identity:disabled {
   cursor: progress;
 }
@@ -208,6 +266,44 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.pattern-strip__identity small {
+  overflow: hidden;
+  color: var(--ivory-3);
+  font: var(--t-caption);
+  letter-spacing: var(--tracking-label);
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pattern-strip__rename {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+}
+
+.pattern-strip__rename input {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--ivory-3);
+  border-radius: 0;
+  outline: none;
+  background: var(--ink-2);
+  color: var(--ivory);
+  font: var(--t-h2);
+  letter-spacing: var(--tracking-display);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pattern-strip__rename input:focus-visible {
+  border-color: var(--ivory);
+  box-shadow: 0 0 0 1px var(--ivory);
 }
 
 .pattern-strip__actions {
@@ -237,6 +333,10 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   .pattern-strip__identity strong {
     font-size: clamp(15px, 5vw, 20px);
   }
+
+  .pattern-strip__identity small {
+    font-size: 9px;
+  }
 }
 
 @media (forced-colors: active) {
@@ -252,6 +352,16 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   }
 
   .pattern-strip__identity strong {
+    color: CanvasText;
+  }
+
+  .pattern-strip__identity small {
+    color: GrayText;
+  }
+
+  .pattern-strip__rename input {
+    border-color: CanvasText;
+    background: Canvas;
     color: CanvasText;
   }
 }

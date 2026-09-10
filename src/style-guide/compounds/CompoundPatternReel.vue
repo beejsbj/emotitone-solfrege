@@ -13,6 +13,7 @@
           @delete="report('Delete', $event)"
           @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
+          @rename="rename"
         />
         <output aria-live="polite">{{ lastAction }}</output>
       </div>
@@ -27,6 +28,7 @@
           @delete="report('Delete', $event)"
           @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
+          @rename="rename"
         />
       </VariantCell>
       <VariantCell caption="Short collection · cyclic pair" stage="ink3">
@@ -37,6 +39,7 @@
           @delete="report('Delete', $event)"
           @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
+          @rename="rename"
         />
       </VariantCell>
       <VariantCell caption="Single pattern · fixed Current" stage="ink3">
@@ -46,6 +49,7 @@
           @delete="report('Delete', $event)"
           @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
+          @rename="rename"
         />
       </VariantCell>
     </VariantGrid>
@@ -53,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { reactive, ref } from "vue";
 import PatternReel from "../../components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "../../components/compounds/PatternReel.vue";
 import { useColorSystem } from "../../composables/useColorSystem";
@@ -78,41 +82,49 @@ function timeline(
   }));
 }
 
-const patterns: PatternReelItem[] = [
+const patterns = reactive<PatternReelItem[]>([
   {
     id: "glass",
     name: "Glass Bell",
+    instrumentLabel: "Music Box",
     rootLabel: "F#4",
     spine: getStaticPrimaryColorByPitchClass(6, "dorian", "F#", 4),
     barTape: timeline([[1, 250], [2, 125], [0, 375], [3, 250]], "F#", "dorian", 4),
     canDelete: false,
+    canRename: true,
   },
   {
     id: "tram",
     name: "Late Night Tram",
+    instrumentLabel: "Rhodes",
     rootLabel: "D3",
     spine: getStaticPrimaryColorByPitchClass(2, "minor", "D", 3),
     barTape: timeline([[4, 500], [5, 250], [6, 250], [0, 750]], "D", "minor", 3),
     canDelete: true,
+    canRename: true,
   },
   {
     id: "whistle",
     name: "Brass Whistle",
+    instrumentLabel: "Trumpet",
     rootLabel: "E4",
     spine: getStaticPrimaryColorByPitchClass(4, "locrian", "E", 4),
     barTape: timeline([[2, 282], [4, 128], [5, 203], [6, 90], [0, 180]], "E", "locrian", 4),
     canDelete: true,
+    canRename: true,
   },
   {
     id: "current",
     name: "Current Take",
+    instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: getStaticPrimaryColorByPitchClass(0, "major", "C", 4),
     barTape: timeline([[0, 460]], "C", "major", 4),
     canDelete: false,
+    canRename: false,
     deleteUnavailableLabel: "Edit the current take in CodeStrip",
   },
-];
+]);
 
 const shortPatterns = patterns.slice(1, 3);
 const singlePattern = patterns.slice(-1);
@@ -126,12 +138,19 @@ function report(action: string, id: string) {
   lastAction.value = `${action} · ${pattern?.name ?? id}`;
 }
 
+function rename(id: string, name: string) {
+  const pattern = patterns.find((item) => item.id === id);
+  if (!pattern) return;
+  pattern.name = name;
+  report("Rename", id);
+}
+
 const features = [
   { label: "Children", value: "PatternStrip; PatternStrip composes Bar Tape and Button" },
   { label: "State", value: "controlled selected id; cyclic transient preview" },
   { label: "Motion", value: "direct unwind, 200ms local rebound, 900ms open hold" },
   { label: "Placement", value: "transparent, edge-to-edge over Stage; no panel chrome" },
-  { label: "Interaction", value: "drag, wheel, strip tap, Up/Down/Home/End" },
+  { label: "Interaction", value: "drag, wheel, strip tap, title rename, Up/Down/Home/End" },
   { label: "Boundary", value: "reel owns order and choreography; adapters own data and effects" },
   { label: "Source", value: "components/compounds/PatternReel.vue" },
 ];

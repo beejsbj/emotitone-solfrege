@@ -103,6 +103,7 @@ const rootPitchClass = Math.max(0, CHROMATIC_NOTES.indexOf(productionPattern.key
 const patternStripItem = {
   id: productionPattern.id,
   name: productionPattern.name ?? "Untitled pattern",
+  instrumentLabel: "Piano",
   rootLabel: `${productionPattern.key}${rootOctave}`,
   spine: getStaticPrimaryColorByPitchClass(
     rootPitchClass,
@@ -112,6 +113,7 @@ const patternStripItem = {
   ),
   barTape: sequenceSegments,
   canDelete: false,
+  canRename: false,
 };
 </script>
 

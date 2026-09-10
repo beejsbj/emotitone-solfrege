@@ -7,6 +7,7 @@
     @delete="deletePattern"
     @copy="copyNotation"
     @open-strudel="openInStrudel"
+    @rename="renamePattern"
   />
 </template>
 
@@ -19,19 +20,29 @@ import { useColorSystem } from "@/composables/useColorSystem";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { CHROMATIC_NOTES } from "@/data";
+import { displayInstrumentName } from "@/data/instruments";
 import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
+const musicStore = useMusicStore();
+const visualConfigStore = useVisualConfigStore();
 const { currentCode, hasPlayableCode } = useCodeStripStrudel();
 const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
 } = useColorSystem();
 const CURRENT_TAKE_ID = "current-pattern-take";
+type PatternControl = "key" | "mode" | "bpm" | "octave";
+
+const emit = defineEmits<{
+  contextChange: [controls: PatternControl[]];
+}>();
 
 const copiedPatternId = ref<string | null>(null);
 const deleteArmedPatternId = ref<string | null>(null);
@@ -115,6 +126,7 @@ function reelItem(pattern: Pattern): PatternReelItem {
   return {
     id: pattern.id,
     name: pattern.name ?? "Untitled pattern",
+    instrumentLabel: displayInstrumentName(pattern.instrument),
     rootLabel: `${pattern.key}${octave}`,
     spine: getStaticPrimaryColorByPitchClass(
       pitchClass,
@@ -125,6 +137,7 @@ function reelItem(pattern: Pattern): PatternReelItem {
     barTape: barTape(pattern.notes, pattern),
     copied: copiedPatternId.value === pattern.id,
     canDelete: !pattern.isDefault,
+    canRename: true,
     deleteArmed: deleteArmedPatternId.value === pattern.id,
   };
 }
@@ -161,6 +174,7 @@ const currentTakeItem = computed<PatternReelItem>(() => {
   return {
     id: CURRENT_TAKE_ID,
     name: "Current Take",
+    instrumentLabel: displayInstrumentName(context.instrument),
     rootLabel: `${context.key}${octave}`,
     spine: getStaticPrimaryColorByPitchClass(
       pitchClass,
@@ -171,6 +185,7 @@ const currentTakeItem = computed<PatternReelItem>(() => {
     barTape: barTape(notes, context),
     copied: copiedPatternId.value === CURRENT_TAKE_ID,
     canDelete: false,
+    canRename: false,
     canCopy: hasPlayableCode.value,
     canOpenStrudel: hasPlayableCode.value,
     deleteUnavailableLabel: "Edit the current take in CodeStrip",
@@ -195,7 +210,26 @@ function patternById(id: string) {
 
 function selectPattern(id: string) {
   if (id === CURRENT_TAKE_ID) return;
+  const pattern = patternById(id);
+  if (!pattern) return;
+
+  const changedControls: PatternControl[] = [];
+  if (musicStore.currentKey !== pattern.key) changedControls.push("key");
+  if (musicStore.currentMode !== pattern.mode) changedControls.push("mode");
+  if (sourceBpm(visualConfigStore.config.codeStrip.bpm) !== sourceBpm(pattern.bpm)) {
+    changedControls.push("bpm");
+  }
+  if (keyboardStore.keyboardConfig.mainOctave !== rootOctave(pattern.notes)) {
+    changedControls.push("octave");
+  }
+
   patternsStore.loadPatternAsBase(id);
+  if (changedControls.length) emit("contextChange", changedControls);
+}
+
+function renamePattern(id: string, name: string) {
+  if (id === CURRENT_TAKE_ID) return;
+  patternsStore.renamePattern(id, name);
 }
 
 function notationForId(id: string) {

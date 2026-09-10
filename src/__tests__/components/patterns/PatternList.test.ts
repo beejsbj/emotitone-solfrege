@@ -82,6 +82,7 @@ describe("PatternList production adapter", () => {
     expect(current).toMatchObject({
       id: "current-pattern-take",
       name: "Current Take",
+      instrumentLabel: "piano",
       canDelete: false,
       canCopy: false,
       canOpenStrudel: false,
@@ -103,6 +104,7 @@ describe("PatternList production adapter", () => {
 
     expect(mapped).toMatchObject({
       name: "Borrowed turn",
+      instrumentLabel: "piano",
       rootLabel: "C4",
       spine: "exact-color",
       canDelete: true,
@@ -123,6 +125,42 @@ describe("PatternList production adapter", () => {
 
     expect(loadPattern).toHaveBeenCalledOnce();
     expect(loadPattern).toHaveBeenCalledWith(pattern.id);
+  });
+
+  it("reports exactly which displayed controls change during selection", () => {
+    const patternsStore = usePatternsStore();
+    const pattern = createUserPattern("different-context", {
+      key: "D",
+      mode: "minor",
+      bpm: 96,
+      notes: [{
+        ...createUserPattern("source").notes[0],
+        id: "different-context-note",
+        note: "D5",
+        scaleIndex: 0,
+        octave: 5,
+      }],
+    });
+    patternsStore.savedPatterns = [pattern];
+    const wrapper = shallowMount(PatternList);
+
+    wrapper.getComponent(PatternReel).vm.$emit("commit", pattern.id, "tap");
+
+    expect(wrapper.emitted("contextChange")).toEqual([
+      [["key", "mode", "bpm", "octave"]],
+    ]);
+  });
+
+  it("relays selected-title renames into the pattern store", () => {
+    const patternsStore = usePatternsStore();
+    const pattern = createUserPattern("rename-me");
+    patternsStore.savedPatterns = [pattern];
+    const wrapper = shallowMount(PatternList);
+
+    wrapper.getComponent(PatternReel).vm.$emit("rename", pattern.id, "Blue Hour");
+
+    expect(patternsStore.patterns.find((candidate) => candidate.id === pattern.id)?.name)
+      .toBe("Blue Hour");
   });
 
   it("uses a loaded store pattern as Current without duplicating the working sketch", async () => {

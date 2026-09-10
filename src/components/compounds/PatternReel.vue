@@ -45,6 +45,7 @@
           @delete="handleDelete(slot.item.id)"
           @copy="emit('copy', slot.item.id)"
           @open-strudel="emit('openStrudel', slot.item.id)"
+          @rename="emit('rename', slot.item.id, $event)"
         />
       </div>
     </div>
@@ -105,6 +106,7 @@ const emit = defineEmits<{
   delete: [id: string];
   copy: [id: string];
   openStrudel: [id: string];
+  rename: [id: string, name: string];
 }>();
 
 const reelRoot = ref<HTMLElement | null>(null);

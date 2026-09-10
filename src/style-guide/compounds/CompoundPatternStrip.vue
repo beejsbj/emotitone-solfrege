@@ -12,6 +12,7 @@
           @delete="lastAction = 'Delete Evening Glass'"
           @copy="lastAction = 'Copy Evening Glass'"
           @open-strudel="lastAction = 'Open Evening Glass'"
+          @rename="rename(backgroundPattern, $event)"
         />
         <PatternStrip
           :item="currentPattern"
@@ -20,6 +21,7 @@
           @delete="lastAction = 'Current Take deletion unavailable'"
           @copy="lastAction = 'Copy Current Take'"
           @open-strudel="lastAction = 'Open Current Take'"
+          @rename="lastAction = 'Current Take cannot be renamed'"
         />
         <output aria-live="polite">{{ lastAction }}</output>
       </div>
@@ -33,6 +35,7 @@
           @delete="lastAction = 'Delete background state'"
           @copy="lastAction = 'Copy background state'"
           @open-strudel="lastAction = 'Open background state'"
+          @rename="rename(backgroundPattern, $event)"
         />
       </VariantCell>
       <VariantCell caption="Current · same 1px top Bar Tape" stage="ink3">
@@ -43,6 +46,7 @@
           @delete="lastAction = 'Current state deletion unavailable'"
           @copy="lastAction = 'Copy current state'"
           @open-strudel="lastAction = 'Open current state'"
+          @rename="lastAction = 'Current state cannot be renamed'"
         />
       </VariantCell>
       <VariantCell caption="Delete armed · explicit second tap" stage="ink3">
@@ -52,6 +56,7 @@
           @delete="lastAction = 'Confirm delete-armed state'"
           @copy="lastAction = 'Copy delete-armed state'"
           @open-strudel="lastAction = 'Open delete-armed state'"
+          @rename="rename(armedPattern, $event)"
         />
       </VariantCell>
     </VariantGrid>
@@ -59,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { reactive, ref } from "vue";
 import PatternStrip from "../../components/compounds/PatternStrip.vue";
 import type { PatternStripItem } from "../../components/compounds/PatternStrip.vue";
 import { useColorSystem } from "../../composables/useColorSystem";
@@ -72,9 +77,10 @@ const {
   getStaticPrimaryColorByPitchClass,
 } = useColorSystem();
 
-const backgroundPattern: PatternStripItem = {
+const backgroundPattern = reactive<PatternStripItem>({
   id: "evening-glass",
   name: "Evening Glass",
+  instrumentLabel: "Rhodes",
   rootLabel: "F#4",
   spine: getStaticPrimaryColorByPitchClass(6, "dorian", "F#", 4),
   barTape: [0, 2, 4, 1, 5].map((scaleIndex, index) => ({
@@ -82,11 +88,13 @@ const backgroundPattern: PatternStripItem = {
     durationMs: [250, 125, 375, 250, 500][index],
   })),
   canDelete: true,
-};
+  canRename: true,
+});
 
-const currentPattern: PatternStripItem = {
+const currentPattern = reactive<PatternStripItem>({
   id: "current-take",
   name: "Current Take",
+  instrumentLabel: "Piano",
   rootLabel: "C4",
   spine: getStaticPrimaryColorByPitchClass(0, "major", "C", 4),
   barTape: [{
@@ -94,22 +102,29 @@ const currentPattern: PatternStripItem = {
     durationMs: 460,
   }],
   canDelete: false,
+  canRename: false,
   deleteUnavailableLabel: "Edit the current take in CodeStrip",
-};
+});
 
-const armedPattern: PatternStripItem = {
+const armedPattern = reactive<PatternStripItem>({
   ...backgroundPattern,
   id: "evening-glass-armed",
   deleteArmed: true,
-};
+});
 
 const lastAction = ref("Ready");
 
+function rename(pattern: PatternStripItem, name: string) {
+  pattern.name = name;
+  lastAction.value = `Rename · ${name}`;
+}
+
 const features = [
-  { label: "Children", value: "Bar Tape plus three small Buttons" },
+  { label: "Children", value: "identity, instrument label, Bar Tape, three small Buttons" },
   { label: "Surface", value: "51.2px Ink row; no Card shell, notch, metadata, or CodeStrip" },
   { label: "Spine", value: "4px Music Color from root key plus root octave" },
   { label: "Tape", value: "persistent 1px top edge on every strip, including Current" },
+  { label: "Rename", value: "double-tap selected title or press F2; inline Enter/blur commit" },
   { label: "Actions", value: "two-tap Delete, Copy feedback, Open in Strudel" },
   { label: "Source", value: "components/compounds/PatternStrip.vue" },
 ];

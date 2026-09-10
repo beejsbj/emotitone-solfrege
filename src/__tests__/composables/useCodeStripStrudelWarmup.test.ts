@@ -83,5 +83,10 @@ describe("CodeStrip playback warmup locking", () => {
 
     playback.syncCode("// Arrangement pending\n/* No notes yet */");
     expect(playback.hasPlayableCode.value).toBe(false);
+
+    for (const lineBreak of ["\r", "\r\n", "\u2028", "\u2029"]) {
+      playback.syncCode(`// Arrangement${lineBreak}sound('piano')`);
+      expect(playback.hasPlayableCode.value).toBe(true);
+    }
   });
 });

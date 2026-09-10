@@ -22,8 +22,9 @@ function hasPlayableContent(code: string): boolean {
       continue;
     }
     if (code.startsWith("//", index)) {
-      const newline = code.indexOf("\n", index + 2);
-      index = newline < 0 ? code.length : newline + 1;
+      const remainder = code.slice(index + 2);
+      const lineBreak = remainder.search(/[\r\n\u2028\u2029]/);
+      index = lineBreak < 0 ? code.length : index + lineBreak + 3;
       continue;
     }
     if (code.startsWith("/*", index)) {

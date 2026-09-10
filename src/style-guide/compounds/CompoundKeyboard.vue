@@ -1,8 +1,8 @@
 <template>
   <AnatomyDisplay
-    title="Keyboard · Formalization Candidate"
+    title="Keyboard"
     :features="features"
-    caption="Production values are the starting baseline, not automatic design authority. This inert specimen never reads or writes app stores and never produces audio. Inspect and adjust it before Keyboard is accepted."
+    caption="Accepted production-backed specimen for responsive density, edition variation, controlled states, Reduced Motion, and Forced Colors. It never reads or writes app stores and never produces audio."
   >
     <template #hero>
       <div class="keyboard-specimen__hero">
@@ -340,7 +340,7 @@ const features = [
   { label: "State", value: "physical pressed and musical sounding remain independent" },
   { label: "Focus", value: "separate chord and melody roving entries; arrows move spatially; Space/Enter emit held intents" },
   { label: "Boundary", value: "no store, persistence, audio, haptic, MIDI, Drawer, or CodeStrip ownership" },
-  { label: "Status", value: "accepted density adopted; edition variation amplitude remains the next visual check" },
+  { label: "Status", value: "accepted density and edition variation are production-adopted" },
 ];
 </script>
 

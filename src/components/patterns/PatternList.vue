@@ -16,6 +16,7 @@ import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
 import { useColorSystem } from "@/composables/useColorSystem";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { CHROMATIC_NOTES } from "@/data";
 import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
@@ -25,6 +26,7 @@ import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
 const keyboardStore = useKeyboardDrawerStore();
+const { currentCode, hasPlayableCode } = useCodeStripStrudel();
 const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
@@ -169,7 +171,11 @@ const currentTakeItem = computed<PatternReelItem>(() => {
     barTape: barTape(notes, context),
     copied: copiedPatternId.value === CURRENT_TAKE_ID,
     canDelete: false,
+    canCopy: hasPlayableCode.value,
+    canOpenStrudel: hasPlayableCode.value,
     deleteUnavailableLabel: "Edit the current take in CodeStrip",
+    copyUnavailableLabel: "Record notes before copying Current Take",
+    openUnavailableLabel: "Record notes before opening Current Take in Strudel",
   };
 });
 
@@ -194,7 +200,7 @@ function selectPattern(id: string) {
 
 function notationForId(id: string) {
   if (id === CURRENT_TAKE_ID) {
-    return notation(patternsStore.currentSketchNotes, patternsStore.currentSketchMeta);
+    return hasPlayableCode.value ? currentCode.value : "";
   }
   const pattern = patternById(id);
   return pattern ? notation(pattern.notes, pattern) : "";

@@ -24,6 +24,9 @@
           :items="patterns"
           :selected-id="restSelectedId"
           @commit="restSelectedId = $event"
+          @delete="report('Delete', $event)"
+          @copy="report('Copy', $event)"
+          @open-strudel="report('Open in Strudel', $event)"
         />
       </VariantCell>
       <VariantCell caption="Short collection · cyclic pair" stage="ink3">
@@ -31,10 +34,19 @@
           :items="shortPatterns"
           :selected-id="shortSelectedId"
           @commit="shortSelectedId = $event"
+          @delete="report('Delete', $event)"
+          @copy="report('Copy', $event)"
+          @open-strudel="report('Open in Strudel', $event)"
         />
       </VariantCell>
       <VariantCell caption="Single pattern · fixed Current" stage="ink3">
-        <PatternReel :items="singlePattern" :selected-id="singlePattern[0].id" />
+        <PatternReel
+          :items="singlePattern"
+          :selected-id="singlePattern[0].id"
+          @delete="report('Delete', $event)"
+          @copy="report('Copy', $event)"
+          @open-strudel="report('Open in Strudel', $event)"
+        />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>

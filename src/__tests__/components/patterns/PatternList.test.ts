@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { shallowMount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
+import { computed, nextTick, ref, type ComputedRef, type Ref } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import { usePatternsStore } from "@/stores/patterns";
@@ -13,11 +13,20 @@ const colors = vi.hoisted(() => ({
   byPitchClass: vi.fn(() => "exact-color"),
 }));
 
+const codeStrip = vi.hoisted(() => ({
+  currentCode: undefined as unknown as Ref<string>,
+  hasPlayableCode: undefined as unknown as ComputedRef<boolean>,
+}));
+
 vi.mock("@/composables/useColorSystem", () => ({
   useColorSystem: () => ({
     getStaticPrimaryColorByScaleIndex: colors.byScaleIndex,
     getStaticPrimaryColorByPitchClass: colors.byPitchClass,
   }),
+}));
+
+vi.mock("@/composables/useCodeStripStrudel", () => ({
+  useCodeStripStrudel: () => codeStrip,
 }));
 
 function createUserPattern(id: string, overrides: Partial<Pattern> = {}): Pattern {
@@ -57,6 +66,11 @@ beforeEach(() => {
   setActivePinia(createPinia());
   colors.byScaleIndex.mockClear();
   colors.byPitchClass.mockClear();
+  codeStrip.currentCode = ref("");
+  codeStrip.hasPlayableCode = computed(() => {
+    const source = codeStrip.currentCode.value.trim();
+    return Boolean(source) && !source.startsWith("//");
+  });
 });
 
 describe("PatternList production adapter", () => {
@@ -69,7 +83,11 @@ describe("PatternList production adapter", () => {
       id: "current-pattern-take",
       name: "Current Take",
       canDelete: false,
+      canCopy: false,
+      canOpenStrudel: false,
       deleteUnavailableLabel: "Edit the current take in CodeStrip",
+      copyUnavailableLabel: "Record notes before copying Current Take",
+      openUnavailableLabel: "Record notes before opening Current Take in Strudel",
     });
     expect(reel.props("selectedId")).toBe("current-pattern-take");
   });
@@ -163,5 +181,58 @@ describe("PatternList production adapter", () => {
       "_blank",
       "noopener,noreferrer",
     );
+  });
+
+  it("shares the live edited CodeStrip source for Current Take", async () => {
+    codeStrip.currentCode.value = 'note("c4 d4").sound("piano")';
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const wrapper = shallowMount(PatternList);
+    const reel = wrapper.getComponent(PatternReel);
+    const current = reelItems(wrapper).at(-1);
+
+    expect(current).toMatchObject({
+      id: "current-pattern-take",
+      canCopy: true,
+      canOpenStrudel: true,
+    });
+
+    reel.vm.$emit("copy", "current-pattern-take");
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledWith(codeStrip.currentCode.value);
+
+    reel.vm.$emit("openStrudel", "current-pattern-take");
+    expect(open).toHaveBeenCalledWith(
+      `https://strudel.cc/#${btoa(codeStrip.currentCode.value)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
+
+  it("updates Current Take action availability as the live CodeStrip changes", async () => {
+    const wrapper = shallowMount(PatternList);
+
+    expect(reelItems(wrapper).at(-1)).toMatchObject({
+      canCopy: false,
+      canOpenStrudel: false,
+    });
+
+    codeStrip.currentCode.value = 'note("e4")';
+    await nextTick();
+    expect(reelItems(wrapper).at(-1)).toMatchObject({
+      canCopy: true,
+      canOpenStrudel: true,
+    });
+
+    codeStrip.currentCode.value = "// Record a pattern";
+    await nextTick();
+    expect(reelItems(wrapper).at(-1)).toMatchObject({
+      canCopy: false,
+      canOpenStrudel: false,
+    });
   });
 });

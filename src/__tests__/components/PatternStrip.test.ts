@@ -87,6 +87,27 @@ describe("PatternStrip", () => {
     expect(deleteButton.attributes("disabled")).toBeDefined();
   });
 
+  it("names and disables unavailable sharing actions", () => {
+    const wrapper = mount(PatternStrip, {
+      props: {
+        item: {
+          ...item,
+          canCopy: false,
+          canOpenStrudel: false,
+          copyUnavailableLabel: "Record notes before copying Evening Glass",
+          openUnavailableLabel: "Record notes before opening Evening Glass in Strudel",
+        },
+      },
+    });
+
+    const copy = wrapper.get('button[aria-label="Record notes before copying Evening Glass"]');
+    const open = wrapper.get(
+      'button[aria-label="Record notes before opening Evening Glass in Strudel"]',
+    );
+    expect(copy.attributes("disabled")).toBeDefined();
+    expect(open.attributes("disabled")).toBeDefined();
+  });
+
   it("crosses one authoritative seam in production and both real guide specimens", () => {
     expect(patternReelSource).toContain('import PatternStrip from "./PatternStrip.vue"');
     expect(patternListSource).toContain(
@@ -98,5 +119,8 @@ describe("PatternStrip", () => {
     expect(reelSpecimenSource).toContain(
       'import PatternReel from "../../components/compounds/PatternReel.vue"',
     );
+    expect(reelSpecimenSource.match(/@delete=/g)).toHaveLength(4);
+    expect(reelSpecimenSource.match(/@copy=/g)).toHaveLength(4);
+    expect(reelSpecimenSource.match(/@open-strudel=/g)).toHaveLength(4);
   });
 });

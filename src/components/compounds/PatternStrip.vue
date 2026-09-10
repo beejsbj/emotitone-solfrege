@@ -49,7 +49,7 @@
         <Button
           size="sm"
           tone="ivory"
-          :disabled="disabled"
+          :disabled="disabled || item.canCopy === false"
           :accessible-name="copyLabel"
           :title="copyLabel"
           @click.stop="emit('copy')"
@@ -60,7 +60,7 @@
         <Button
           size="sm"
           tone="brass"
-          :disabled="disabled"
+          :disabled="disabled || item.canOpenStrudel === false"
           :accessible-name="openLabel"
           :title="openLabel"
           @click.stop="emit('openStrudel')"
@@ -87,8 +87,12 @@ export interface PatternStripItem {
   barTape: BarTapeSegment[];
   copied?: boolean;
   canDelete?: boolean;
+  canCopy?: boolean;
+  canOpenStrudel?: boolean;
   deleteArmed?: boolean;
   deleteUnavailableLabel?: string;
+  copyUnavailableLabel?: string;
+  openUnavailableLabel?: string;
 }
 
 const props = withDefaults(defineProps<{
@@ -120,10 +124,18 @@ const deleteLabel = computed(() => {
     ? `Confirm delete ${props.item.name}`
     : `Delete ${props.item.name}`;
 });
-const copyLabel = computed(() => props.item.copied
-  ? `Copied ${props.item.name}`
-  : `Copy ${props.item.name} Strudel code`);
-const openLabel = computed(() => `Open ${props.item.name} in Strudel`);
+const copyLabel = computed(() => {
+  if (props.item.canCopy === false) {
+    return props.item.copyUnavailableLabel
+      ?? `Copy is unavailable for ${props.item.name}`;
+  }
+  return props.item.copied
+    ? `Copied ${props.item.name}`
+    : `Copy ${props.item.name} Strudel code`;
+});
+const openLabel = computed(() => props.item.canOpenStrudel === false
+  ? props.item.openUnavailableLabel ?? `Open in Strudel is unavailable for ${props.item.name}`
+  : `Open ${props.item.name} in Strudel`);
 </script>
 
 <style scoped>

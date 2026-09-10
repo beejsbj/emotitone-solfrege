@@ -96,8 +96,10 @@ beforeEach(() => {
   colors.byPitchClass.mockClear();
   codeStrip.currentCode = ref("");
   codeStrip.hasPlayableCode = computed(() => {
-    const source = codeStrip.currentCode.value.trim();
-    return Boolean(source) && !source.startsWith("//");
+    return codeStrip.currentCode.value.split(/\r?\n/).some((line) => {
+      const source = line.trim();
+      return Boolean(source) && !source.startsWith("//");
+    });
   });
 });
 
@@ -293,7 +295,7 @@ describe("PatternList production adapter", () => {
   });
 
   it("shares the live edited CodeStrip source for Current Take", async () => {
-    codeStrip.currentCode.value = 'note("c4 d4").sound("piano")';
+    codeStrip.currentCode.value = '// Evening arrangement\nnote("c4 d4").sound("piano")';
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -337,11 +339,18 @@ describe("PatternList production adapter", () => {
       canOpenStrudel: true,
     });
 
-    codeStrip.currentCode.value = "// Record a pattern";
+    codeStrip.currentCode.value = "// Record a pattern\n// Notes will appear here";
     await nextTick();
     expect(reelItems(wrapper).at(-1)).toMatchObject({
       canCopy: false,
       canOpenStrudel: false,
+    });
+
+    codeStrip.currentCode.value = "/* Arrangement notes */\n\nnote('e4')";
+    await nextTick();
+    expect(reelItems(wrapper).at(-1)).toMatchObject({
+      canCopy: true,
+      canOpenStrudel: true,
     });
   });
 });

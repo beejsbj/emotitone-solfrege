@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, reactive, readonly, ref, watch } from "vue";
-import { Chord, Interval } from "@tonaljs/tonal";
+import { Chord, Interval, Note } from "@tonaljs/tonal";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import type {
   ActiveNote,
@@ -15,6 +15,23 @@ function createEmptySnapshot(): HarmonicAnalysisSnapshot {
     chordLabel: null,
     emotionalDescription: "",
   };
+}
+
+function detectChordLabel(notes: readonly string[]): string | null {
+  const notesByPitch = [...notes].sort(
+    (first, second) => Note.get(first).height - Note.get(second).height
+  );
+  const detectedChords = Chord.detect(notesByPitch);
+  return (
+    detectedChords.find((candidate) => {
+      // Chord.get does not parse slash notation, so inspect the plain chord.
+      // Prefer ordinary triads over Tonal's augmented respelling for inversions;
+      // preserve Tonal's ranking for every other chord type or ambiguity.
+      const plainChord = candidate.split("/")[0];
+      const type = Chord.get(plainChord).type;
+      return type === "major" || type === "minor";
+    }) ?? detectedChords[0] ?? null
+  );
 }
 
 export function useHarmonicAnalysis(
@@ -110,8 +127,7 @@ export function useHarmonicAnalysis(
       return null;
     }
 
-    const detectedChords = Chord.detect(notes);
-    return detectedChords.length > 0 ? detectedChords[0] : null;
+    return detectChordLabel(notes);
   });
 
   const emotionalDescription = computed(() => {

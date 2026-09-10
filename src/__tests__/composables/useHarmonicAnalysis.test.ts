@@ -198,6 +198,79 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.emotionalDescription).toBe("");
   });
 
+  it.each([
+    [["C4", "E4", "G4"], "CM"],
+    [["G4", "C4", "E4"], "CM"],
+    [["E4", "G4", "C4"], "CM"],
+    [["F3", "A3", "C4"], "FM"],
+    [["G3", "B3", "D4"], "GM"],
+    [["A3", "C4", "E4"], "Am"],
+  ])("detects a root-position triad independent of press order: %s", (noteNames, expectedLabel) => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    (noteNames as string[]).forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe(expectedLabel);
+    expect(snapshot.value.displayedNotes.map((note) => note.noteName)).toEqual(noteNames);
+  });
+
+  it.each([
+    [["C4", "E4", "G4"], "CM"],
+    [["A3", "C4", "F4"], "FM/A"],
+    [["C4", "F4", "A4"], "FM/C"],
+    [["C3", "E4", "A4"], "Am/C"],
+    [["A4", "C3", "E4"], "Am/C"],
+    [["E4", "A4", "C#10"], "AM/E"],
+    [["C#10", "A4", "E4"], "AM/E"],
+    [["E4", "A4", "C#-2"], "AM/C#"],
+    [["C#10", "A4", "E-2"], "AM/E"],
+  ])("detects the expected bass-qualified triad: %s", (noteNames, expectedLabel) => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    (noteNames as string[]).forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe(expectedLabel);
+    expect(snapshot.value.displayedNotes.map((note) => note.noteName)).toEqual(noteNames);
+  });
+
+  it.each([
+    ["E3", "G4", "C5"],
+    ["C5", "E3", "G4"],
+    ["G4", "C5", "E3"],
+  ])("detects an E-inversion by actual bass independent of press order: %s, %s, %s", (...noteNames) => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    noteNames.forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe("CM/E");
+  });
+
+  it("detects second inversion with G below C and E", () => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    notePlayed(createActiveNote("g3", "G3", "G"));
+    notePlayed(createActiveNote("c4", "C4", "C"));
+    notePlayed(createActiveNote("e4", "E4", "E"));
+
+    expect(snapshot.value.chordLabel).toBe("CM/G");
+  });
+
+  it("keeps ordinary seventh-chord detection ahead of an alternate slash spelling", () => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    ["A3", "C4", "E4", "G4"].forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe("Am7");
+  });
+
   it("hydrates notes that are already held when harmonic geometry is enabled", async () => {
     const c4 = createActiveNote("note-c4", "C4", "Do");
     const e4 = createActiveNote("note-e4", "E4", "Mi");

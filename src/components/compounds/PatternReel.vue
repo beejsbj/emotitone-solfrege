@@ -25,6 +25,7 @@
         v-for="slot in renderedSlots"
         :key="slot.key"
         class="pattern-reel__slot"
+        :data-pattern-id="slot.item.id"
         :class="[
           `pattern-reel__slot--${slot.slot}`,
           {
@@ -177,9 +178,7 @@ function slotForIndex(itemIndex: number) {
 }
 
 const renderedSlots = computed(() => {
-  const stagesShortIncoming = dragging.value
-    && dragProgress.value > 0
-    && props.items.length <= 4;
+  const stagesShortIncoming = props.items.length > 1 && props.items.length <= 4;
   const incoming = stagesShortIncoming
     ? props.items[wrapIndex(displayIndex.value + 1)]
     : undefined;
@@ -437,8 +436,20 @@ function handleStripSelect(id: string) {
 }
 
 function handleDelete(id: string) {
+  const focusedElement = document.activeElement;
+  const focusedSlot = focusedElement instanceof Element
+    ? focusedElement.closest<HTMLElement>(".pattern-reel__slot")
+    : null;
+  const shouldRestoreFocus = focusedSlot?.dataset.patternId === id
+    && Boolean(reelRoot.value?.contains(focusedSlot));
   revealWheelTemporarily();
   emit("delete", id);
+  if (!shouldRestoreFocus) return;
+
+  void nextTick(() => {
+    if (props.items.some((item) => item.id === id)) return;
+    reelRoot.value?.focus({ preventScroll: true });
+  });
 }
 
 function stopPendingPointerWatch() {

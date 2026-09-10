@@ -75,10 +75,15 @@ describe("PatternReel", () => {
     expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 0px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: -24.8px");
-    expect(wrapper.findAll(".bar-tape")).toHaveLength(3);
-    expect(wrapper.findAll(".bar-tape").filter((tape) => (
+    expect(wrapper.findAll(
+      ".pattern-reel__slot:not(.pattern-reel__slot--1) .bar-tape",
+    )).toHaveLength(3);
+    expect(wrapper.findAll(
+      ".pattern-reel__slot:not(.pattern-reel__slot--1) .bar-tape",
+    ).filter((tape) => (
       tape.attributes("aria-hidden") === undefined
     ))).toHaveLength(3);
+    expect(wrapper.get(".pattern-reel__slot--1").attributes("inert")).toBeDefined();
     expect(slotFor(wrapper, "Gamma").get(".bar-tape").attributes("aria-hidden"))
       .toBeUndefined();
     expect(wrapper.find(".pattern-reel__head").exists()).toBe(false);
@@ -162,7 +167,9 @@ describe("PatternReel", () => {
       props: { items, selectedId: "beta" },
     });
 
-    expect(wrapper.findAll(".pattern-reel__slot strong").map((label) => label.text()))
+    expect(wrapper.findAll(
+      ".pattern-reel__slot:not(.pattern-reel__slot--1) strong",
+    ).map((label) => label.text()))
       .toEqual(["Gamma", "Alpha", "Beta"]);
   });
 
@@ -227,6 +234,30 @@ describe("PatternReel", () => {
     vi.advanceTimersByTime(220);
     await nextTick();
     expect(wrapper.emitted("commit")).toEqual([["alpha", "wheel"]]);
+  });
+
+  it("stages a short reel's cyclic successor below before a forward wheel step", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const stagedSuccessor = wrapper.get(".pattern-reel__slot--1");
+    expect(stagedSuccessor.text()).toContain("Alpha");
+    expect(stagedSuccessor.attributes("inert")).toBeDefined();
+
+    wrapper.element.dispatchEvent(new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaMode: WheelEvent.DOM_DELTA_LINE,
+      deltaY: 3,
+    }));
+    await nextTick();
+
+    const activeSuccessor = wrapper.findAll(".pattern-reel__slot").find((slot) => (
+      slot.classes().includes("pattern-reel__slot--0") && slot.text().includes("Alpha")
+    ));
+    expect(activeSuccessor?.element).toBe(stagedSuccessor.element);
+    expect(activeSuccessor?.attributes("style")).toContain("--slot-y: 0px");
   });
 
   it("captures pending drags and scopes horizontal-gesture click suppression to the viewport", async () => {
@@ -445,6 +476,34 @@ describe("PatternReel", () => {
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
 
+    wrapper.unmount();
+  });
+
+  it("restores reel focus when the focused pattern is deleted", async () => {
+    let updatePromise = Promise.resolve();
+    let wrapper: ReturnType<typeof mount>;
+    wrapper = mount(PatternReel, {
+      attachTo: document.body,
+      props: {
+        items,
+        selectedId: "gamma",
+        onDelete: (id: string) => {
+          updatePromise = wrapper.setProps({
+            items: items.filter((candidate) => candidate.id !== id),
+            selectedId: "gamma",
+          });
+        },
+      },
+    });
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    const betaDelete = slotFor(wrapper, "Beta").get('button[aria-label="Delete Beta"]');
+    (betaDelete.element as HTMLElement).focus();
+
+    await betaDelete.trigger("click");
+    await updatePromise;
+    await nextTick();
+
+    expect(document.activeElement).toBe(wrapper.element);
     wrapper.unmount();
   });
 

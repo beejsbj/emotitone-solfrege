@@ -217,12 +217,13 @@ export const usePatternsStore = defineStore(
       focusedPatternId.value = id;
     }
 
-    // Auto-focus newest pattern when a new dynamic one arrives
+    // Keep focus on the newest dynamic pattern as its note-derived ID evolves.
     watch(
-      () => dynamicPatterns.value.length,
-      () => {
-        const last = patterns.value[patterns.value.length - 1];
-        if (last) focusedPatternId.value = last.id;
+      () => dynamicPatterns.value[dynamicPatterns.value.length - 1]?.id ?? null,
+      (lastDynamicId) => {
+        focusedPatternId.value = lastDynamicId
+          ?? patterns.value[patterns.value.length - 1]?.id
+          ?? null;
       }
     );
 

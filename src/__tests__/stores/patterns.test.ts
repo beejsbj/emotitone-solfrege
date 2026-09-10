@@ -672,6 +672,27 @@ describe("Patterns Store", () => {
     expect(patternsStore.savedPatterns[0]?.isKept).toBe(true);
   });
 
+  it("keeps focus synchronized when the current dynamic pattern ID evolves", async () => {
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "a", isStartingNewPattern: true }),
+      createLogNote({ id: "b", isStartingNewPattern: false }),
+      createLogNote({ id: "c", isStartingNewPattern: false }),
+    ];
+    await Promise.resolve();
+    const threeNoteId = patternsStore.dynamicPatterns[0]?.id;
+    expect(patternsStore.focusedPatternId).toBe(threeNoteId);
+
+    patternsStore.loggedNotes.push(
+      createLogNote({ id: "d", isStartingNewPattern: false }),
+    );
+    await Promise.resolve();
+
+    const fourNoteId = patternsStore.dynamicPatterns[0]?.id;
+    expect(fourNoteId).not.toBe(threeNoteId);
+    expect(patternsStore.focusedPatternId).toBe(fourNoteId);
+    expect(patternsStore.focusedPattern?.id).toBe(fourNoteId);
+  });
+
   it("purges non-kept user patterns older than a week but keeps defaults and kept patterns", () => {
     patternsStore.savedPatterns = [
       createPattern({

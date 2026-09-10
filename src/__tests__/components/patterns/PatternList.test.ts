@@ -8,7 +8,7 @@ import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
-import type { Pattern } from "@/types/patterns";
+import type { LogNote, Pattern } from "@/types/patterns";
 
 const colors = vi.hoisted(() => ({
   byScaleIndex: vi.fn(() => "scale-color"),
@@ -57,6 +57,32 @@ function createUserPattern(id: string, overrides: Partial<Pattern> = {}): Patter
     isSaved: true,
     isDefault: false,
     ...overrides,
+  };
+}
+
+function createDynamicNote(id: string, index: number): LogNote {
+  return {
+    id,
+    note: "C4",
+    key: "C",
+    mode: "major",
+    scaleDegree: 1,
+    scaleIndex: 0,
+    solfege: {
+      name: "Do",
+      number: 1,
+      emotion: "grounded",
+      description: "Home",
+      texture: "solid",
+    },
+    octave: 4,
+    instrument: "piano",
+    bpm: 120,
+    pressTime: 1000 + index * 300,
+    releaseTime: 1200 + index * 300,
+    duration: 200,
+    sessionId: "dynamic-session",
+    isStartingNewPattern: index === 0,
   };
 }
 
@@ -198,6 +224,25 @@ describe("PatternList production adapter", () => {
     await nextTick();
 
     expect(wrapper.getComponent(PatternReel).props("selectedId")).toBe(pattern.id);
+    expect(reelItems(wrapper).some((item) => item.id === "current-pattern-take")).toBe(false);
+  });
+
+  it("keeps an evolving dynamic pattern Current without adding a duplicate Current Take", async () => {
+    const patternsStore = usePatternsStore();
+    patternsStore.loggedNotes = [
+      createDynamicNote("a", 0),
+      createDynamicNote("b", 1),
+      createDynamicNote("c", 2),
+    ];
+    await nextTick();
+    const wrapper = shallowMount(PatternList);
+
+    patternsStore.loggedNotes.push(createDynamicNote("d", 3));
+    await nextTick();
+
+    const dynamicId = patternsStore.dynamicPatterns[0]?.id;
+    expect(patternsStore.focusedPatternId).toBe(dynamicId);
+    expect(wrapper.getComponent(PatternReel).props("selectedId")).toBe(dynamicId);
     expect(reelItems(wrapper).some((item) => item.id === "current-pattern-take")).toBe(false);
   });
 

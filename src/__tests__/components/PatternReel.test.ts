@@ -61,6 +61,8 @@ describe("PatternReel", () => {
     expect(wrapper.get(".pattern-reel__empty").text()).toBe(
       "Play some notes, then press Return.",
     );
+    expect(wrapper.attributes("aria-label")).toBe("Pattern reel. No patterns available.");
+    expect(wrapper.attributes("aria-roledescription")).toBeUndefined();
     expect(patternReelSource).toMatch(
       /\.pattern-reel:focus-visible \.pattern-reel__empty\s*{[\s\S]*outline:/,
     );
@@ -77,11 +79,45 @@ describe("PatternReel", () => {
     expect(identity.attributes("role")).toBe("group");
     expect(identity.attributes("aria-label"))
       .toBe("Current pattern Only, Piano, root C4");
+    expect(wrapper.attributes("aria-label")).toBe("Pattern reel. Current pattern Only.");
+    expect(wrapper.attributes("aria-roledescription")).toBeUndefined();
     expect(wrapper.find('button[aria-label^="Unwind patterns around"]').exists()).toBe(false);
     expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(3);
 
     await identity.trigger("click");
     expect(wrapper.emitted("commit")).toBeUndefined();
+  });
+
+  it("lets navigation keys pass through when the reel cannot cycle", () => {
+    for (const reelItems of [[], [item("only", "Only")]]) {
+      const wrapper = mount(PatternReel, {
+        props: { items: reelItems, selectedId: reelItems[0]?.id ?? "" },
+      });
+
+      for (const key of ["ArrowUp", "ArrowDown", "Home", "End"]) {
+        const event = new KeyboardEvent("keydown", {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        wrapper.element.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(wrapper.emitted("commit")).toBeUndefined();
+      wrapper.unmount();
+    }
+  });
+
+  it("preserves caller-provided labels for a non-cyclic reel", () => {
+    const wrapper = mount(PatternReel, {
+      props: {
+        items: [item("only", "Only")],
+        selectedId: "only",
+        label: "Arrangement A pattern reel",
+      },
+    });
+
+    expect(wrapper.attributes("aria-label")).toBe("Arrangement A pattern reel");
   });
 
   it("anchors Current at the bottom and collapses truthful predecessors behind it", () => {

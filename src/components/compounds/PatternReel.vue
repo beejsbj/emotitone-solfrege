@@ -9,8 +9,8 @@
     }"
     tabindex="0"
     role="group"
-    :aria-label="label"
-    aria-roledescription="cyclic pattern reel"
+    :aria-label="resolvedLabel"
+    :aria-roledescription="items.length > 1 ? 'cyclic pattern reel' : undefined"
     @keydown="handleKeydown"
     @wheel="handleWheel"
     @pointerdown="handlePointerDown"
@@ -92,6 +92,7 @@ const WHEEL_UNWIND_DISTANCE = 28.8;
 const WHEEL_SETTLE_DURATION_MS = 220;
 const WHEEL_OPEN_HOLD_MS = 900;
 const WHEEL_REBOUND_DURATION_MS = 200;
+const DEFAULT_REEL_LABEL = "Pattern reel. Use up and down arrows to change the selected pattern.";
 
 const props = withDefaults(defineProps<{
   items: PatternReelItem[];
@@ -100,7 +101,7 @@ const props = withDefaults(defineProps<{
   label?: string;
 }>(), {
   disabled: false,
-  label: "Pattern reel. Use up and down arrows to change the selected pattern.",
+  label: DEFAULT_REEL_LABEL,
 });
 
 const emit = defineEmits<{
@@ -121,6 +122,13 @@ const reelRebounding = ref(false);
 const keyboardImmediate = ref(false);
 const input = ref<PatternReelInput>("tap");
 const liveAnnouncement = ref("");
+
+const resolvedLabel = computed(() => {
+  if (props.items.length > 1 || props.label !== DEFAULT_REEL_LABEL) return props.label;
+  return props.items.length === 1
+    ? `Pattern reel. Current pattern ${props.items[0]?.name}.`
+    : "Pattern reel. No patterns available.";
+});
 
 let pointerId: number | null = null;
 let pointerStartX = 0;
@@ -652,6 +660,7 @@ function setKeyboardImmediate() {
 function handleKeydown(event: KeyboardEvent) {
   if (props.disabled || event.altKey || event.ctrlKey || event.metaKey) return;
   if (event.target !== reelRoot.value && isReelControl(event.target)) return;
+  if (props.items.length < 2) return;
   let nextIndex: number | null = null;
 
   if (event.key === "ArrowUp") nextIndex = selectedIndex.value - 1;

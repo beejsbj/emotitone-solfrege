@@ -199,17 +199,36 @@ describe("useHarmonicAnalysis", () => {
   });
 
   it.each([
-    ["C4", "E4", "G4"],
-    ["G4", "C4", "E4"],
-    ["E4", "G4", "C4"],
-  ])("detects a root-position triad independent of press order: %s, %s, %s", (...noteNames) => {
+    [["C4", "E4", "G4"], "CM"],
+    [["G4", "C4", "E4"], "CM"],
+    [["E4", "G4", "C4"], "CM"],
+    [["F3", "A3", "C4"], "FM"],
+    [["G3", "B3", "D4"], "GM"],
+    [["A3", "C4", "E4"], "Am"],
+  ])("detects a root-position triad independent of press order: %s", (noteNames, expectedLabel) => {
     const { snapshot, notePlayed } = createAnalysis();
 
-    noteNames.forEach((noteName, index) =>
+    (noteNames as string[]).forEach((noteName, index) =>
       notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
     );
 
-    expect(snapshot.value.chordLabel).toBe("CM");
+    expect(snapshot.value.chordLabel).toBe(expectedLabel);
+  });
+
+  it.each([
+    [["C4", "E4", "G4"], "CM"],
+    [["A3", "C4", "F4"], "FM/A"],
+    [["C4", "F4", "A4"], "FM/C"],
+    [["C3", "E4", "A4"], "Am/C"],
+    [["A4", "C3", "E4"], "Am/C"],
+  ])("detects the expected bass-qualified triad: %s", (noteNames, expectedLabel) => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    (noteNames as string[]).forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe(expectedLabel);
   });
 
   it.each([
@@ -234,6 +253,16 @@ describe("useHarmonicAnalysis", () => {
     notePlayed(createActiveNote("e4", "E4", "E"));
 
     expect(snapshot.value.chordLabel).toBe("CM/G");
+  });
+
+  it("keeps ordinary seventh-chord detection ahead of an alternate slash spelling", () => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    ["A3", "C4", "E4", "G4"].forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe("Am7");
   });
 
   it("hydrates notes that are already held when harmonic geometry is enabled", async () => {

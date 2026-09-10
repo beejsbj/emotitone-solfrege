@@ -21,17 +21,17 @@ function detectChordLabel(notes: readonly string[]): string | null {
   const notesByPitch = [...notes].sort(
     (first, second) => (Note.get(first).midi ?? 0) - (Note.get(second).midi ?? 0)
   );
-  const rootCandidates = Chord.detect(
-    [...notes].sort((first, second) => Note.get(first).chroma - Note.get(second).chroma)
+  const detectedChords = Chord.detect(notesByPitch);
+  return (
+    detectedChords.find((candidate) => {
+      // Chord.get does not parse slash notation, so inspect the plain chord.
+      // Prefer ordinary triads over Tonal's augmented respelling for inversions;
+      // preserve Tonal's ranking for every other chord type or ambiguity.
+      const plainChord = candidate.split("/")[0];
+      const type = Chord.get(plainChord).type;
+      return type === "major" || type === "minor";
+    }) ?? detectedChords[0] ?? null
   );
-  const rootChord = rootCandidates[0];
-  if (!rootChord) return null;
-
-  const bass = Note.get(notesByPitch[0]);
-  const root = rootChord.match(/^[A-G](?:#|b)?/)?.[0];
-  return root && Note.get(`${root}4`).chroma === bass.chroma
-    ? rootChord
-    : `${rootChord}/${bass.pc}`;
 }
 
 export function useHarmonicAnalysis(

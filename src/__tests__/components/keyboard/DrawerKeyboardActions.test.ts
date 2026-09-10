@@ -322,6 +322,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     });
 
     const drawer = wrapper.getComponent(Drawer);
+    expect(drawer.classes()).toContain("performance-deck-drawer");
     expect(drawer.props("storageKey")).toBe("keyboard");
     expect(drawer.props("maxHeightRatio")).toBe(0.95);
     expect(drawer.props("haptic")).toBe(true);

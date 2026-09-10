@@ -85,7 +85,7 @@ const lastAction = ref("Ready");
 
 const features = [
   { label: "Children", value: "Bar Tape plus three small Buttons" },
-  { label: "Surface", value: "64px Ink row; no Card shell, notch, metadata, or CodeStrip" },
+  { label: "Surface", value: "51.2px Ink row; no Card shell, notch, metadata, or CodeStrip" },
   { label: "Spine", value: "4px Music Color from root key plus root octave" },
   { label: "Tape", value: "top edge on background only; Current transfers presentation" },
   { label: "Actions", value: "two-tap Delete, Copy feedback, Open in Strudel" },

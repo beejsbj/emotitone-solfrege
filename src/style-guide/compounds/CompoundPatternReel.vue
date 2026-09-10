@@ -33,7 +33,7 @@
           @commit="shortSelectedId = $event"
         />
       </VariantCell>
-      <VariantCell caption="Single pattern · controls disabled" stage="ink3">
+      <VariantCell caption="Single pattern · fixed Current" stage="ink3">
         <PatternReel :items="singlePattern" :selected-id="singlePattern[0].id" />
       </VariantCell>
     </VariantGrid>
@@ -118,7 +118,8 @@ const features = [
   { label: "Children", value: "PatternStrip; PatternStrip composes Bar Tape and Button" },
   { label: "State", value: "controlled selected id; cyclic transient preview" },
   { label: "Motion", value: "direct unwind, 200ms local rebound, 900ms open hold" },
-  { label: "Interaction", value: "drag, wheel, strip tap, controls, Up/Down/Home/End" },
+  { label: "Placement", value: "transparent, edge-to-edge over Stage; no panel chrome" },
+  { label: "Interaction", value: "drag, wheel, strip tap, Up/Down/Home/End" },
   { label: "Boundary", value: "reel owns order and choreography; adapters own data and effects" },
   { label: "Source", value: "components/compounds/PatternReel.vue" },
 ];

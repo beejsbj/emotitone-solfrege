@@ -1,5 +1,6 @@
 <template>
   <Drawer
+    class="performance-deck-drawer"
     :model-value="store.drawer.isOpen"
     fixed
     anchor="bottom"
@@ -212,3 +213,15 @@ defineExpose({
   store,
 });
 </script>
+
+<style scoped>
+.performance-deck-drawer {
+  background: transparent;
+}
+
+@media (forced-colors: active) {
+  .performance-deck-drawer {
+    background: Canvas;
+  }
+}
+</style>

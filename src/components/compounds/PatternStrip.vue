@@ -131,8 +131,10 @@ const openLabel = computed(() => `Open ${props.item.name} in Strudel`);
   position: relative;
   display: grid;
   width: 100%;
+  height: 51.2px;
   min-width: 0;
-  min-height: 64px;
+  min-height: 51.2px;
+  box-sizing: border-box;
   overflow: hidden;
   background: var(--ink);
   box-shadow:
@@ -158,7 +160,7 @@ const openLabel = computed(() => `Open ${props.item.name} in Strudel`);
   min-width: 0;
   align-items: center;
   gap: var(--s-4);
-  padding: 6px 10px 6px 16px;
+  padding: 1.6px 10px 1.6px 16px;
 }
 
 .pattern-strip__identity {

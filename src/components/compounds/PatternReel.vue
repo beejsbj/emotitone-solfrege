@@ -19,44 +19,7 @@
     @pointercancel="cancelPointer"
     @click.capture="suppressDragClick"
   >
-    <header class="pattern-reel__head" data-reel-control>
-      <div>
-        <span class="pattern-reel__eyebrow">PatternReel · Wheel deck</span>
-        <span class="pattern-reel__count">
-          {{ selectedPosition }} / {{ items.length }} · cyclic
-        </span>
-        <span class="pattern-reel__hint">
-          Drag to unwind the deck · wheel, tap, or ↑/↓ to select
-        </span>
-      </div>
-
-      <div class="pattern-reel__controls" aria-label="Reel navigation">
-        <Button
-          size="sm"
-          tone="ink"
-          :disabled="disabled || items.length < 2"
-          accessible-name="Select previous pattern"
-          title="Previous pattern"
-          @click="commitStep(-1, 'control')"
-        >
-          <ChevronUp aria-hidden="true" />
-        </Button>
-        <Button
-          size="sm"
-          tone="ivory"
-          :disabled="disabled || items.length < 2"
-          accessible-name="Select next pattern"
-          title="Next pattern"
-          @click="commitStep(1, 'control')"
-        >
-          <ChevronDown aria-hidden="true" />
-        </Button>
-      </div>
-    </header>
-
     <div v-if="items.length" class="pattern-reel__viewport">
-      <div class="pattern-reel__fade" aria-hidden="true"></div>
-
       <div
         v-for="slot in renderedSlots"
         :key="slot.key"
@@ -101,29 +64,27 @@ import {
   ref,
   type CSSProperties,
 } from "vue";
-import { ChevronDown, ChevronUp } from "lucide-vue-next";
-import Button from "../primatives/Button.vue";
 import PatternStrip from "./PatternStrip.vue";
 import type { PatternStripItem } from "./PatternStrip.vue";
 
-export type PatternReelInput = "drag" | "wheel" | "tap" | "keyboard" | "control";
+export type PatternReelInput = "drag" | "wheel" | "tap" | "keyboard";
 export type PatternReelItem = PatternStripItem;
 
 const WHEEL_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
-  { y: -58, scale: .95, opacity: .8 },
-  { y: -98, scale: .85, opacity: .48 },
-  { y: -122, scale: .72, opacity: .2 },
+  { y: -46.4, scale: .95, opacity: .8 },
+  { y: -78.4, scale: .85, opacity: .48 },
+  { y: -97.6, scale: .72, opacity: .2 },
 ];
 const DECK_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
-  { y: -18, scale: .997, opacity: .92 },
-  { y: -31, scale: .992, opacity: .74 },
-  { y: -42, scale: .986, opacity: .52 },
+  { y: -14.4, scale: .997, opacity: .92 },
+  { y: -24.8, scale: .992, opacity: .74 },
+  { y: -33.6, scale: .986, opacity: .52 },
 ];
-const WHEEL_STEP = 58;
-const WHEEL_DRAG_THRESHOLD = 29;
-const WHEEL_UNWIND_DISTANCE = 36;
+const WHEEL_STEP = 46.4;
+const WHEEL_DRAG_THRESHOLD = 23.2;
+const WHEEL_UNWIND_DISTANCE = 28.8;
 const WHEEL_SETTLE_DURATION_MS = 220;
 const WHEEL_OPEN_HOLD_MS = 900;
 const WHEEL_REBOUND_DURATION_MS = 200;
@@ -190,9 +151,6 @@ const previewIndex = computed(() => dragging.value
   ? wrapIndex(selectedIndex.value + Math.round(dragProgress.value))
   : displayIndex.value);
 const previewItem = computed(() => props.items[previewIndex.value]);
-const selectedPosition = computed(() => props.items.length
-  ? previewIndex.value + 1
-  : 0);
 
 function wrapIndex(index: number) {
   if (!props.items.length) return 0;
@@ -415,12 +373,6 @@ function commitIndex(nextIndex: number, inputMode: PatternReelInput) {
   beginSettle(inputMode);
   emit("commit", item.id, inputMode);
   announce(item);
-}
-
-function commitStep(step: number, inputMode: PatternReelInput) {
-  if (props.disabled || props.items.length < 2) return;
-  prepareAnimatedCommit();
-  commitIndex(selectedIndex.value + step, inputMode);
 }
 
 function commitExact(id: string, inputMode: PatternReelInput) {
@@ -656,69 +608,20 @@ onBeforeUnmount(() => {
     1.025 93%,
     1
   );
-  --selected-height: 64px;
-  --reel-height: 206px;
+  --selected-height: 51.2px;
+  --reel-height: 164.8px;
 
   position: relative;
   display: grid;
+  width: 100%;
   min-width: 0;
-  padding: var(--s-5) var(--s-5) 0;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--ink) 52%, transparent), transparent 32%),
-    var(--ink-2);
-  box-shadow: var(--ring);
+  background: transparent;
   outline: none;
 }
 
-.pattern-reel:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--ivory-2);
-}
-
-.pattern-reel__head {
-  position: relative;
-  z-index: 40;
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-5);
-  padding-bottom: var(--s-4);
-  border-bottom: 1px solid var(--hairline-2);
-}
-
-.pattern-reel__head > div:first-child {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.pattern-reel__eyebrow {
-  color: var(--ivory);
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
-.pattern-reel__count {
-  margin-top: 3px;
-  color: var(--ivory-3);
-  font: var(--t-caption);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.pattern-reel__hint {
-  margin-top: var(--s-2);
-  color: var(--ivory-3);
-  font: var(--t-caption);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.pattern-reel__controls {
-  display: flex;
-  flex: 0 0 auto;
-  gap: var(--s-4);
+.pattern-reel:focus-visible .pattern-reel__slot--active :deep(.pattern-strip) {
+  outline: 2px solid var(--ivory-2);
+  outline-offset: -2px;
 }
 
 .pattern-reel__viewport {
@@ -729,15 +632,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
   touch-action: pan-x;
   user-select: none;
-}
-
-.pattern-reel__fade {
-  position: absolute;
-  z-index: 30;
-  inset: 0 0 auto;
-  height: 52px;
-  background: linear-gradient(180deg, var(--ink-2), transparent);
-  pointer-events: none;
 }
 
 .pattern-reel__slot {
@@ -770,9 +664,11 @@ onBeforeUnmount(() => {
 }
 
 .pattern-reel__empty {
-  min-height: 64px;
+  display: grid;
+  min-height: var(--selected-height);
+  place-items: center;
   margin: 0;
-  padding: var(--s-6) 0;
+  padding: 0;
   color: var(--ivory-3);
   font: var(--t-body-s-mono);
   text-align: center;
@@ -790,15 +686,9 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-@media (max-width: 520px) {
-  .pattern-reel {
-    padding-inline: var(--s-4);
-  }
-}
-
 @media (max-height: 760px) {
   .pattern-reel {
-    --reel-height: 186px;
+    --reel-height: 148.8px;
   }
 
   .pattern-reel__slot--depth-3:not(.pattern-reel__slot--active) {
@@ -808,7 +698,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 660px) {
   .pattern-reel {
-    --reel-height: 148px;
+    --reel-height: 118.4px;
   }
 
   .pattern-reel__slot--depth-2:not(.pattern-reel__slot--active) {
@@ -818,7 +708,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 560px) {
   .pattern-reel {
-    --reel-height: 64px;
+    --reel-height: 51.2px;
   }
 
   .pattern-reel__slot--depth-1:not(.pattern-reel__slot--active) {
@@ -834,11 +724,6 @@ onBeforeUnmount(() => {
 }
 
 @media (forced-colors: active) {
-  .pattern-reel {
-    border: 1px solid CanvasText;
-    background: Canvas;
-  }
-
   .pattern-reel__slot {
     opacity: 1;
   }

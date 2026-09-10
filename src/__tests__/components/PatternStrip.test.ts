@@ -21,7 +21,7 @@ const item: PatternStripItem = {
 };
 
 describe("PatternStrip", () => {
-  it("renders the accepted 64px Ink row with spine, top Bar Tape, and actions", () => {
+  it("renders the accepted 51.2px Ink row with spine, top Bar Tape, and actions", () => {
     const wrapper = mount(PatternStrip, { props: { item } });
 
     expect(wrapper.element.tagName).toBe("ARTICLE");
@@ -37,7 +37,8 @@ describe("PatternStrip", () => {
       "Copy Evening Glass Strudel code",
       "Open Evening Glass in Strudel",
     ]);
-    expect(patternStripSource).toContain("min-height: 64px");
+    expect(patternStripSource).toContain("height: 51.2px");
+    expect(patternStripSource).toContain("min-height: 51.2px");
     expect(patternStripSource).toContain("background: var(--ink)");
     expect(patternStripSource).not.toMatch(/PatternCard|<Card|notch|metadata|CodeStrip/);
     expect(patternStripSource).toContain("@media (forced-colors: active)");

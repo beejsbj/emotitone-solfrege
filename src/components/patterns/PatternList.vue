@@ -1,14 +1,13 @@
 <template>
-  <div class="pattern-list">
-    <PatternReel
-      :items="reelItems"
-      :selected-id="selectedPatternId"
-      @commit="selectPattern"
-      @delete="deletePattern"
-      @copy="copyNotation"
-      @open-strudel="openInStrudel"
-    />
-  </div>
+  <PatternReel
+    class="pattern-list"
+    :items="reelItems"
+    :selected-id="selectedPatternId"
+    @commit="selectPattern"
+    @delete="deletePattern"
+    @copy="copyNotation"
+    @open-strudel="openInStrudel"
+  />
 </template>
 
 <script setup lang="ts">
@@ -253,6 +252,7 @@ function deletePattern(id: string) {
 
 <style scoped>
 .pattern-list {
+  width: 100%;
   min-width: 0;
 }
 </style>

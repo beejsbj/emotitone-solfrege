@@ -57,10 +57,14 @@ describe("PatternReel", () => {
 
     expect(slotFor(wrapper, "Gamma").classes()).toContain("pattern-reel__slot--active");
     expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 0px");
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
-    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: -31px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: -24.8px");
     expect(wrapper.findAll(".bar-tape")).toHaveLength(2);
     expect(slotFor(wrapper, "Gamma").find(".bar-tape").exists()).toBe(false);
+    expect(wrapper.find(".pattern-reel__head").exists()).toBe(false);
+    expect(wrapper.find(".pattern-reel__fade").exists()).toBe(false);
+    expect(patternReelSource).toContain("width: 100%");
+    expect(patternReelSource).toContain("background: transparent");
   });
 
   it("unwinds on Current tap, holds for 900ms, then starts the 200ms rebound collapse", async () => {
@@ -71,16 +75,16 @@ describe("PatternReel", () => {
 
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -58px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
 
     vi.advanceTimersByTime(1099);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -58px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
 
     vi.advanceTimersByTime(1);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
   });
 
@@ -121,7 +125,7 @@ describe("PatternReel", () => {
     await nextTick();
 
     expect(wrapper.emitted("commit")).toContainEqual(["beta", "tap"]);
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain(
       "--settle-easing: var(--ease-reel-rebound)",
@@ -211,8 +215,8 @@ describe("PatternReel", () => {
     await identity.trigger("click");
     expect(wrapper.emitted("commit")).toBeUndefined();
 
-    await wrapper.get('button[aria-label="Select next pattern"]').trigger("click");
-    expect(wrapper.emitted("commit")).toEqual([["alpha", "control"]]);
+    await wrapper.trigger("keydown", { key: "ArrowDown" });
+    expect(wrapper.emitted("commit")).toEqual([["alpha", "keyboard"]]);
   });
 
   it("returns a cancelled direct drag to the deck without starting the open hold", async () => {
@@ -241,7 +245,7 @@ describe("PatternReel", () => {
     await wrapper.trigger("pointercancel", { pointerId: 9 });
     await nextTick();
 
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
     expect(wrapper.emitted("commit")).toBeUndefined();
   });
@@ -411,7 +415,7 @@ describe("PatternReel", () => {
 
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -18px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
   });
 
   it("keeps motion local, compositor-safe, and still under Reduced Motion", () => {

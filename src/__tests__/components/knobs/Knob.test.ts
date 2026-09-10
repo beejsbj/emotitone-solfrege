@@ -267,6 +267,22 @@ describe("Knob public interface", () => {
     );
   });
 
+  it("bounces only after an external context-change signal and stays still for Reduced Motion", async () => {
+    const wrapper = render({ modelValue: 120, changeSignal: 0 });
+
+    expect(wrapper.classes()).not.toContain("knob-wrapper--context-bounce-a");
+    await wrapper.setProps({ modelValue: 96, changeSignal: 1 });
+    expect(wrapper.classes()).toContain("knob-wrapper--context-bounce-a");
+    await wrapper.setProps({ modelValue: 84, changeSignal: 2 });
+    expect(wrapper.classes()).toContain("knob-wrapper--context-bounce-b");
+    expect(knobSource).toContain(
+      "animation: knob-context-bounce-a var(--dur-bounce) var(--ease-bounce)",
+    );
+    expect(knobSource).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*knob-context-bounce-a/,
+    );
+  });
+
   it("preserves deprecated value fallback and modelValue precedence", () => {
     expect(render({ value: 42 }).text()).toContain("42");
     expect(render({ modelValue: 7, value: 42 }).text()).toContain("7");

@@ -133,12 +133,17 @@ vi.mock("@/components/compounds/Keyboard.vue", () => ({
 }));
 
 vi.mock("@/components/patterns/PatternList.vue", () => ({
-  default: { name: "PatternList", template: '<div data-testid="pattern-list" />' },
+  default: {
+    name: "PatternList",
+    emits: ["contextChange"],
+    template: '<div data-testid="pattern-list" />',
+  },
 }));
 
 vi.mock("@/components/compounds/ControlBar.vue", () => ({
   default: {
     name: "ControlBar",
+    props: ["changeSignals"],
     emits: [
       "update:keyValue",
       "update:modeValue",
@@ -240,6 +245,31 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
+  it("forwards pattern-context changes as independent Knob bounce signals", async () => {
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          Keyboard: true,
+          CodeStripBar: true,
+          HummingCaptureTransport: true,
+        },
+      },
+    });
+    const patternList = wrapper.getComponent({ name: "PatternList" });
+    const controlBar = wrapper.getComponent({ name: "ControlBar" });
+
+    patternList.vm.$emit("contextChange", ["key", "octave"]);
+    await wrapper.vm.$nextTick();
+
+    expect(controlBar.props("changeSignals")).toMatchObject({
+      key: 1,
+      mode: 0,
+      bpm: 0,
+      octave: 1,
+    });
+    wrapper.unmount();
+  });
+
   it("does not start playback when CodeStrip has no playable document", async () => {
     mocks.hasPlayableCode.value = false;
     const wrapper = mount(DrawerKeyboard, {
@@ -322,6 +352,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     });
 
     const drawer = wrapper.getComponent(Drawer);
+    expect(drawer.classes()).toContain("performance-deck-drawer");
     expect(drawer.props("storageKey")).toBe("keyboard");
     expect(drawer.props("maxHeightRatio")).toBe(0.95);
     expect(drawer.props("haptic")).toBe(true);

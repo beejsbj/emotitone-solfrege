@@ -56,4 +56,37 @@ describe("CodeStrip playback warmup locking", () => {
     expect(stop).toHaveBeenCalledOnce();
     expect(playback.isPlaying.value).toBe(false);
   });
+
+  it("treats comment-prefixed code as playable but rejects comment-only documents", async () => {
+    mocks.instrumentStore = reactive({
+      isInteractionLocked: false,
+      selectionEpoch: 0,
+    });
+    const evaluate = vi.fn().mockResolvedValue(undefined);
+    const { useCodeStripStrudel } = await import(
+      "@/composables/useCodeStripStrudel"
+    );
+    const playback = useCodeStripStrudel();
+    playback.attachEditor(
+      {
+        getCode: () => "",
+        setCode: vi.fn(),
+        evaluate,
+        stop: vi.fn(),
+      },
+      "// Evening arrangement\n/* Keep this soft */\nsound('piano')"
+    );
+
+    expect(playback.hasPlayableCode.value).toBe(true);
+    await playback.play();
+    expect(evaluate).toHaveBeenCalledOnce();
+
+    playback.syncCode("// Arrangement pending\n/* No notes yet */");
+    expect(playback.hasPlayableCode.value).toBe(false);
+
+    for (const lineBreak of ["\r", "\r\n", "\u2028", "\u2029"]) {
+      playback.syncCode(`// Arrangement${lineBreak}sound('piano')`);
+      expect(playback.hasPlayableCode.value).toBe(true);
+    }
+  });
 });

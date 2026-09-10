@@ -1,5 +1,6 @@
 <template>
   <Drawer
+    class="performance-deck-drawer"
     :model-value="store.drawer.isOpen"
     fixed
     anchor="bottom"
@@ -21,7 +22,7 @@
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent>
-      <PatternList />
+      <PatternList @context-change="bumpPatternControls" />
       <CodeStripBar
         :is-playing="isPlaying"
         :play-disabled="!hasPlayableCode || (instrumentStore.isInteractionLocked && !isPlaying)"
@@ -47,6 +48,7 @@
         :bpm="visualConfigStore.config.codeStrip.bpm"
         :octave="store.keyboardConfig.mainOctave"
         :harmony-value="harmonyLatched"
+        :change-signals="patternControlSignals"
         @update:key-value="musicStore.setKey"
         @update:mode-value="updateMode"
         @update:bpm="updateBpm"
@@ -88,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
@@ -138,6 +140,17 @@ const {
 } = useHummingCapture();
 const harmonyLatched = ref<HarmonyAlteration>("auto");
 const harmonyEffective = ref<HarmonyAlteration>("auto");
+type PatternControl = "key" | "mode" | "bpm" | "octave";
+const patternControlSignals = reactive<Record<PatternControl, number>>({
+  key: 0,
+  mode: 0,
+  bpm: 0,
+  octave: 0,
+});
+
+function bumpPatternControls(controls: PatternControl[]) {
+  for (const control of controls) patternControlSignals[control] += 1;
+}
 
 async function toggleSketchPlayback() {
   if (isPlaying.value) {
@@ -212,3 +225,15 @@ defineExpose({
   store,
 });
 </script>
+
+<style scoped>
+.performance-deck-drawer {
+  background: transparent;
+}
+
+@media (forced-colors: active) {
+  .performance-deck-drawer {
+    background: Canvas;
+  }
+}
+</style>

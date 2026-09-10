@@ -1,306 +1,329 @@
+<template>
+  <PatternReel
+    class="pattern-list"
+    :items="reelItems"
+    :selected-id="selectedPatternId"
+    @commit="selectPattern"
+    @delete="deletePattern"
+    @copy="copyNotation"
+    @open-strudel="openInStrudel"
+    @rename="renamePattern"
+  />
+</template>
+
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import PatternReel from "@/components/compounds/PatternReel.vue";
+import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
+import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
+import { useColorSystem } from "@/composables/useColorSystem";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import { toStrudelSound } from "@/composables/useStrudel";
+import { CHROMATIC_NOTES } from "@/data";
+import { displayInstrumentName } from "@/data/instruments";
+import { DEFAULT_SOURCE_BPM, logNotesToStrudel } from "@/services/StrudelNotation";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
-import PatternCard from "./PatternCard.vue";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
 const patternsStore = usePatternsStore();
+const keyboardStore = useKeyboardDrawerStore();
+const musicStore = useMusicStore();
+const visualConfigStore = useVisualConfigStore();
+const { currentCode, hasPlayableCode } = useCodeStripStrudel();
+const {
+  getStaticPrimaryColorByScaleIndex,
+  getStaticPrimaryColorByPitchClass,
+} = useColorSystem();
+const CURRENT_TAKE_ID = "current-pattern-take";
+type PatternControl = "key" | "mode" | "bpm" | "octave";
 
-const completedPatterns = computed(() => patternsStore.patterns);
-const isOpen = ref(false);
+const emit = defineEmits<{
+  contextChange: [controls: PatternControl[]];
+}>();
 
-// How many ghost cards to show behind the front card (max 2)
-const ghostCount = computed(() =>
-  Math.min(completedPatterns.value.length - 1, 2)
-);
+const copiedPatternId = ref<string | null>(null);
+const deleteArmedPatternId = ref<string | null>(null);
+let copyFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
+let deleteArmTimer: ReturnType<typeof setTimeout> | undefined;
 
-// List sorted newest-first
-const listPatterns = computed(() => [...completedPatterns.value].reverse());
+onBeforeUnmount(() => {
+  clearTimeout(copyFeedbackTimer);
+  clearTimeout(deleteArmTimer);
+});
 
-function selectPattern(id: string) {
-  patternsStore.loadPatternAsBase(id);
-  isOpen.value = false;
+type PatternContext = Pick<Pattern, "key" | "mode" | "instrument" | "bpm">;
+
+function sourceBpm(bpm: number | undefined) {
+  return typeof bpm === "number" && bpm > 0
+    ? bpm
+    : DEFAULT_SOURCE_BPM;
 }
 
-function openDeck() {
-  if (completedPatterns.value.length > 1) isOpen.value = true;
+function rootOctave(notes: PatternNote[]) {
+  const tonic = notes.find((note) => note.scaleIndex === 0);
+  return tonic?.octave
+    ?? notes[0]?.octave
+    ?? keyboardStore.keyboardConfig.mainOctave;
+}
+
+function rootPitchClass(key: Pattern["key"]) {
+  return Math.max(0, CHROMATIC_NOTES.indexOf(key));
+}
+
+function noteColor(note: PatternNote, context: PatternContext) {
+  if (
+    typeof note.pitchClassIndex === "number"
+    && Number.isInteger(note.pitchClassIndex)
+  ) {
+    return getStaticPrimaryColorByPitchClass(
+      note.pitchClassIndex,
+      context.mode,
+      context.key,
+      note.octave,
+    );
+  }
+
+  return getStaticPrimaryColorByScaleIndex(
+    note.scaleIndex,
+    context.mode,
+    context.key,
+    note.octave,
+  );
+}
+
+function orderedNotes(notes: PatternNote[]) {
+  return [...notes].sort(
+    (firstNote, secondNote) => firstNote.pressTime - secondNote.pressTime,
+  );
+}
+
+function barTape(notes: PatternNote[], context: PatternContext): BarTapeSegment[] {
+  return orderedNotes(notes).map((note) => ({
+    color: noteColor(note, context),
+    durationMs: note.duration,
+  }));
+}
+
+function notation(notes: PatternNote[], context: PatternContext) {
+  const bpm = sourceBpm(context.bpm);
+  return logNotesToStrudel(notes as unknown as LogNote[], {
+    bpm,
+    sourceBpm: bpm,
+    notationType: "relative",
+    scaleKey: context.key,
+    scaleMode: context.mode,
+    scaleOctave: keyboardStore.keyboardConfig.mainOctave,
+    sound: toStrudelSound(context.instrument ?? "sine"),
+  });
+}
+
+function isStoredPattern(pattern: Pattern) {
+  return Boolean(
+    pattern.isDefault
+    || patternsStore.savedPatterns.some((candidate) => candidate.id === pattern.id),
+  );
+}
+
+function reelItem(pattern: Pattern): PatternReelItem {
+  const octave = rootOctave(pattern.notes);
+  const pitchClass = rootPitchClass(pattern.key);
+  const stored = isStoredPattern(pattern);
+  return {
+    id: pattern.id,
+    presentationKey: stored
+      ? `stored:${pattern.id}`
+      : `dynamic:${pattern.notes[0]?.id ?? pattern.id}`,
+    name: pattern.name ?? "Untitled pattern",
+    instrumentIcon: instrumentIconFor(pattern.instrument),
+    instrumentLabel: displayInstrumentName(pattern.instrument),
+    rootLabel: `${pattern.key}${octave}`,
+    spine: getStaticPrimaryColorByPitchClass(
+      pitchClass,
+      pattern.mode,
+      pattern.key,
+      octave,
+    ),
+    barTape: barTape(pattern.notes, pattern),
+    copied: copiedPatternId.value === pattern.id,
+    canDelete: !pattern.isDefault,
+    canRename: stored,
+    deleteArmed: deleteArmedPatternId.value === pattern.id,
+  };
+}
+
+function sameNoteSequence(first: PatternNote[], second: PatternNote[]) {
+  return first.length === second.length
+    && first.every((note, index) => note.id === second[index]?.id);
+}
+
+const storedCurrentPatternId = computed(() => {
+  const sketch = patternsStore.currentSketchNotes;
+  const loadedId = patternsStore.loadedBasePatternId;
+  const loadedPattern = loadedId
+    ? patternsStore.patterns.find((pattern) => pattern.id === loadedId)
+    : undefined;
+  const loadedBaseStillContributes = loadedPattern
+    && patternsStore.loadedBaseNotes.length > 0
+    && patternsStore.loadedBaseNotes.every((note, index) => note.id === sketch[index]?.id);
+  if (loadedBaseStillContributes) return loadedPattern.id;
+
+  const focused = patternsStore.focusedPattern;
+  if (focused && sketch.length > 0 && sameNoteSequence(focused.notes, sketch)) {
+    return focused.id;
+  }
+
+  return null;
+});
+
+const currentTakeItem = computed<PatternReelItem>(() => {
+  const context = patternsStore.currentSketchMeta;
+  const notes = patternsStore.currentSketchNotes;
+  const octave = rootOctave(notes);
+  const pitchClass = rootPitchClass(context.key);
+  return {
+    id: CURRENT_TAKE_ID,
+    name: "Current Take",
+    instrumentIcon: instrumentIconFor(context.instrument),
+    instrumentLabel: displayInstrumentName(context.instrument),
+    rootLabel: `${context.key}${octave}`,
+    spine: getStaticPrimaryColorByPitchClass(
+      pitchClass,
+      context.mode,
+      context.key,
+      octave,
+    ),
+    barTape: barTape(notes, context),
+    copied: copiedPatternId.value === CURRENT_TAKE_ID,
+    canDelete: false,
+    canRename: false,
+    canCopy: hasPlayableCode.value,
+    canOpenStrudel: hasPlayableCode.value,
+    deleteUnavailableLabel: "Edit the current take in CodeStrip",
+    copyUnavailableLabel: "Record notes before copying Current Take",
+    openUnavailableLabel: "Record notes before opening Current Take in Strudel",
+  };
+});
+
+const reelItems = computed(() => {
+  const storedItems = patternsStore.patterns.map(reelItem);
+  return storedCurrentPatternId.value
+    ? storedItems
+    : [...storedItems, currentTakeItem.value];
+});
+const selectedPatternId = computed(() => (
+  storedCurrentPatternId.value ?? CURRENT_TAKE_ID
+));
+
+watch(
+  [deleteArmedPatternId, () => reelItems.value.map((item) => item.id)],
+  ([armedId, itemIds]) => {
+    if (!armedId || itemIds.includes(armedId)) return;
+    clearTimeout(deleteArmTimer);
+    deleteArmedPatternId.value = null;
+  },
+);
+
+function patternById(id: string) {
+  return patternsStore.patterns.find((pattern) => pattern.id === id);
+}
+
+function selectPattern(id: string) {
+  if (id === CURRENT_TAKE_ID) return;
+  const pattern = patternById(id);
+  if (!pattern) return;
+
+  const previousControls = {
+    key: musicStore.currentKey,
+    mode: musicStore.currentMode,
+    bpm: visualConfigStore.config.codeStrip.bpm,
+    octave: keyboardStore.keyboardConfig.mainOctave,
+  };
+
+  patternsStore.loadPatternAsBase(id);
+  const changedControls: PatternControl[] = [];
+  if (musicStore.currentKey !== previousControls.key) changedControls.push("key");
+  if (musicStore.currentMode !== previousControls.mode) changedControls.push("mode");
+  if (visualConfigStore.config.codeStrip.bpm !== previousControls.bpm) {
+    changedControls.push("bpm");
+  }
+  if (keyboardStore.keyboardConfig.mainOctave !== previousControls.octave) {
+    changedControls.push("octave");
+  }
+  if (changedControls.length) emit("contextChange", changedControls);
+}
+
+function renamePattern(id: string, name: string) {
+  if (id === CURRENT_TAKE_ID) return;
+  const pattern = patternById(id);
+  if (!pattern || !isStoredPattern(pattern)) return;
+  patternsStore.renamePattern(id, name);
+}
+
+function notationForId(id: string) {
+  if (id === CURRENT_TAKE_ID) {
+    return hasPlayableCode.value ? currentCode.value : "";
+  }
+  const pattern = patternById(id);
+  return pattern ? notation(pattern.notes, pattern) : "";
+}
+
+async function copyNotation(id: string) {
+  const source = notationForId(id);
+  if (!source) return;
+
+  try {
+    await navigator.clipboard.writeText(source);
+    copiedPatternId.value = id;
+    clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = setTimeout(() => {
+      if (copiedPatternId.value === id) copiedPatternId.value = null;
+    }, 1500);
+  } catch {
+    // Clipboard access is not available in every browser context.
+  }
+}
+
+function openInStrudel(id: string) {
+  const source = notationForId(id);
+  if (!source) return;
+
+  const bytes = new TextEncoder().encode(source);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  window.open(
+    `https://strudel.cc/#${btoa(binary)}`,
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
+function deletePattern(id: string) {
+  if (id === CURRENT_TAKE_ID) return;
+  const pattern = patternById(id);
+  if (!pattern || pattern.isDefault) return;
+
+  if (deleteArmedPatternId.value !== id) {
+    deleteArmedPatternId.value = id;
+    clearTimeout(deleteArmTimer);
+    deleteArmTimer = setTimeout(() => {
+      if (deleteArmedPatternId.value === id) deleteArmedPatternId.value = null;
+    }, 2500);
+    return;
+  }
+
+  clearTimeout(deleteArmTimer);
+  deleteArmedPatternId.value = null;
+  patternsStore.deletePattern(id);
 }
 </script>
 
-<template>
-  <div class="deck">
-    <!-- ── Empty state ── -->
-    <p v-if="!completedPatterns.length" class="empty-hint">
-      play some notes, then press send ↵
-    </p>
-
-    <!-- ── Collapsed: card stack ── -->
-    <Transition name="stack">
-      <div
-        v-if="!isOpen && completedPatterns.length"
-        class="stack"
-        :class="{ 'stack--multi': completedPatterns.length > 1 }"
-        @click="openDeck"
-      >
-        <!-- Ghost cards peeking below the front card -->
-        <div v-if="ghostCount >= 2" class="ghost ghost--2" />
-        <div v-if="ghostCount >= 1" class="ghost ghost--1" />
-
-        <!-- Front focused card -->
-        <div class="front-card" @click.stop>
-          <PatternCard
-            v-if="patternsStore.focusedPattern"
-            :pattern="patternsStore.focusedPattern"
-          />
-        </div>
-
-        <!-- Count chip floating in the ghost peek zone -->
-        <button
-          v-if="completedPatterns.length > 1"
-          class="deck-count"
-          @click.stop="isOpen = true"
-          :aria-label="`Show all ${completedPatterns.length} patterns`"
-        >
-          {{ completedPatterns.length }} ≡
-        </button>
-      </div>
-    </Transition>
-
-    <!-- ── Expanded: pattern list drawer ── -->
-    <Transition name="drawer">
-      <div v-if="isOpen" class="drawer">
-        <!-- Header -->
-        <div class="drawer-head">
-          <span class="drawer-label">{{ completedPatterns.length }} patterns</span>
-          <button class="drawer-close" @click="isOpen = false" aria-label="Close">✕</button>
-        </div>
-
-        <!-- Scrollable rows — each row is a PatternCard -->
-        <div class="drawer-body">
-          <div
-            v-for="pattern in listPatterns"
-            :key="pattern.id"
-            class="drawer-row"
-            @click="selectPattern(pattern.id)"
-          >
-            <PatternCard :pattern="pattern" />
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </div>
-</template>
-
 <style scoped>
-/* ─── Deck shell ─── */
-.deck {
-  padding: 0.375rem;
-}
-
-/* ─── Stack (collapsed) ─── */
-.stack {
-  position: relative;
-  padding-bottom: 10px;
-}
-
-.stack--multi {
-  cursor: pointer;
-}
-
-/* Ghost cards — peeking below the front card */
-.ghost {
-  position: absolute;
-  border-radius: 4px;
-  height: 2.75rem;
-  pointer-events: none;
-}
-
-.ghost--1 {
-  bottom: 5px;
-  left: 4px;
-  right: 4px;
-  background: hsla(0, 0%, 8%, 1);
-  border: 1px solid hsla(0, 0%, 100%, 0.05);
-  z-index: 1;
-}
-
-.ghost--2 {
-  bottom: 0;
-  left: 8px;
-  right: 8px;
-  background: hsla(0, 0%, 7%, 1);
-  border: 1px solid hsla(0, 0%, 100%, 0.03);
-  z-index: 0;
-}
-
-/* Front card sits above the ghosts */
-.front-card {
-  position: relative;
-  z-index: 2;
-}
-
-/* Count chip in the ghost zone, bottom-right */
-.deck-count {
-  position: absolute;
-  bottom: 2px;
-  right: 6px;
-  z-index: 3;
-  height: 0.95rem;
-  padding: 0 0.32rem;
-  background: hsla(0, 0%, 13%, 1);
-  border: 1px solid hsla(0, 0%, 100%, 0.1);
-  border-radius: 3px;
-  color: hsla(0, 0%, 100%, 0.3);
-  font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 0.48rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.deck-count:active {
-  color: hsla(0, 0%, 100%, 0.7);
-  background: hsla(0, 0%, 18%, 1);
-}
-
-/* ─── Drawer (expanded) ─── */
-.drawer {
-  background: hsla(0, 0%, 8%, 1);
-  border: 1px solid hsla(0, 0%, 100%, 0.06);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.drawer-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.28rem 0.45rem 0.28rem 0.55rem;
-  border-bottom: 1px solid hsla(0, 0%, 100%, 0.06);
-  background: hsla(0, 0%, 10%, 1);
-}
-
-.drawer-label {
-  font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 0.5rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: hsla(0, 0%, 100%, 0.25);
-}
-
-.drawer-close {
-  width: 1.15rem;
-  height: 1.15rem;
-  border: none;
-  background: hsla(0, 0%, 100%, 0.06);
-  border-radius: 2px;
-  color: hsla(0, 0%, 100%, 0.28);
-  font-size: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.12s ease, color 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.drawer-close:active {
-  background: hsla(0, 0%, 100%, 0.12);
-  color: hsla(0, 0%, 100%, 0.65);
-}
-
-.drawer-body {
-  overflow-y: auto;
-  max-height: 38vh;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.drawer-body::-webkit-scrollbar {
-  display: none;
-}
-
-/* ─── Drawer rows ─── */
-.drawer-row {
-  border-bottom: 1px solid hsla(0, 0%, 100%, 0.04);
-}
-
-.drawer-row:last-child {
-  border-bottom: none;
-}
-
-/* ─── Empty hint ─── */
-.empty-hint {
-  font-size: 0.58rem;
-  color: hsla(0, 0%, 100%, 0.18);
-  font-style: italic;
-  text-align: center;
-  padding: 0.75rem 0.5rem;
-  letter-spacing: 0.03em;
-}
-
-/* ─── Stack ↔ Drawer transitions ─── */
-.stack-enter-from {
-  opacity: 0;
-  transform: translateY(8px) scale(0.98);
-}
-
-.stack-enter-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.stack-enter-to,
-.stack-leave-from {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.stack-leave-active {
-  transition:
-    opacity 0.15s ease,
-    transform 0.18s ease;
-}
-
-.stack-leave-to {
-  opacity: 0;
-  transform: translateY(-5px) scale(0.99);
-}
-
-.drawer-enter-from {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.99);
-}
-
-.drawer-enter-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.23s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.drawer-enter-to,
-.drawer-leave-from {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.drawer-leave-active {
-  transition:
-    opacity 0.15s ease,
-    transform 0.18s ease;
-}
-
-.drawer-leave-to {
-  opacity: 0;
-  transform: translateY(-5px) scale(0.99);
+.pattern-list {
+  width: 100%;
+  min-width: 0;
 }
 </style>

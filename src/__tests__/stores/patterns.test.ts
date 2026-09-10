@@ -3,6 +3,7 @@ import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
@@ -218,6 +219,30 @@ describe("Patterns Store", () => {
 
     expect(instrumentStore.currentInstrument).toBe("piano");
     expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
+  });
+
+  it("restores every displayed musical control when loading a pattern", async () => {
+    const musicStore = useMusicStore();
+    const instrumentStore = useInstrumentStore();
+    const keyboardStore = useKeyboardDrawerStore();
+    const pattern = createPattern({
+      key: "D",
+      mode: "minor",
+      instrument: "gm_flute",
+      bpm: 96,
+      notes: [createPatternNote({ note: "D5", octave: 5, scaleIndex: 0 })],
+    });
+    patternsStore.savedPatterns.push(pattern);
+
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    expect(musicStore.currentKey).toBe("D");
+    expect(musicStore.currentMode).toBe("minor");
+    expect(visualConfigStore.config.codeStrip.bpm).toBe(96);
+    expect(keyboardStore.keyboardConfig.mainOctave).toBe(5);
+    await vi.waitFor(() => {
+      expect(instrumentStore.currentInstrument).toBe("gm_flute");
+    });
   });
 
   it("saves the combined sketch when sending a continued pattern", () => {
@@ -647,6 +672,27 @@ describe("Patterns Store", () => {
     expect(patternsStore.savedPatterns[0]?.isKept).toBe(true);
   });
 
+  it("keeps focus synchronized when the current dynamic pattern ID evolves", async () => {
+    patternsStore.loggedNotes = [
+      createLogNote({ id: "a", isStartingNewPattern: true }),
+      createLogNote({ id: "b", isStartingNewPattern: false }),
+      createLogNote({ id: "c", isStartingNewPattern: false }),
+    ];
+    await Promise.resolve();
+    const threeNoteId = patternsStore.dynamicPatterns[0]?.id;
+    expect(patternsStore.focusedPatternId).toBe(threeNoteId);
+
+    patternsStore.loggedNotes.push(
+      createLogNote({ id: "d", isStartingNewPattern: false }),
+    );
+    await Promise.resolve();
+
+    const fourNoteId = patternsStore.dynamicPatterns[0]?.id;
+    expect(fourNoteId).not.toBe(threeNoteId);
+    expect(patternsStore.focusedPatternId).toBe(fourNoteId);
+    expect(patternsStore.focusedPattern?.id).toBe(fourNoteId);
+  });
+
   it("purges non-kept user patterns older than a week but keeps defaults and kept patterns", () => {
     patternsStore.savedPatterns = [
       createPattern({
@@ -783,5 +829,86 @@ describe("Patterns Store", () => {
 
     expect(patternsStore.deletePattern(defaultPattern!.id)).toBe(false);
     expect(patternsStore.patterns).toContainEqual(defaultPattern);
+  });
+
+  it("persists renamed user and default patterns without duplicating defaults", () => {
+    const userPattern = createPattern();
+    patternsStore.savedPatterns.push(userPattern);
+    const defaultPattern = patternsStore.patterns.find((pattern) => pattern.isDefault)!;
+
+    expect(patternsStore.renamePattern(userPattern.id, "  Night Sketch  ")).toBe(true);
+    expect(patternsStore.renamePattern(defaultPattern.id, "Little Constellation")).toBe(true);
+
+    expect(patternsStore.patterns.find((pattern) => pattern.id === userPattern.id)?.name)
+      .toBe("Night Sketch");
+    expect(patternsStore.patterns.filter((pattern) => pattern.id === defaultPattern.id))
+      .toHaveLength(1);
+    expect(patternsStore.patterns.find((pattern) => pattern.id === defaultPattern.id)?.name)
+      .toBe("Little Constellation");
+    expect(patternsStore.savedPatterns.find((pattern) => pattern.id === defaultPattern.id))
+      .toMatchObject({ name: "Little Constellation", isDefault: true });
+
+    const savedDefault = patternsStore.savedPatterns.find(
+      (pattern) => pattern.id === defaultPattern.id,
+    )!;
+    savedDefault.key = "D";
+    savedDefault.instrument = "gm_trumpet";
+    savedDefault.notes = [];
+    const resolvedDefault = patternsStore.patterns.find(
+      (pattern) => pattern.id === defaultPattern.id,
+    )!;
+    expect(resolvedDefault).toMatchObject({
+      name: "Little Constellation",
+      key: defaultPattern.key,
+      instrument: defaultPattern.instrument,
+      notes: defaultPattern.notes,
+    });
+  });
+
+  it("does not turn a renamed live phrase into a shared-note saved snapshot", () => {
+    patternsStore.loggedNotes = [
+      createLogNote({
+        id: "live-a",
+        pressTime: 1000,
+        releaseTime: 1200,
+        isStartingNewPattern: true,
+      }),
+      createLogNote({
+        id: "live-b",
+        pressTime: 1300,
+        releaseTime: 1500,
+        isStartingNewPattern: false,
+      }),
+      createLogNote({
+        id: "live-c",
+        pressTime: 1600,
+        releaseTime: 1800,
+        isStartingNewPattern: false,
+      }),
+    ];
+    const dynamicId = patternsStore.dynamicPatterns[0]?.id;
+    if (!dynamicId) throw new Error("Missing dynamic pattern");
+
+    expect(patternsStore.renamePattern(dynamicId, "Unsafe snapshot")).toBe(false);
+    expect(patternsStore.savedPatterns).toEqual([]);
+
+    patternsStore.loggedNotes.push(createLogNote({
+      id: "live-d",
+      pressTime: 1900,
+      releaseTime: 2100,
+      isStartingNewPattern: false,
+    }));
+    expect(patternsStore.loggedNotes.map((note) => note.id)).toEqual([
+      "live-a",
+      "live-b",
+      "live-c",
+      "live-d",
+    ]);
+    expect(patternsStore.dynamicPatterns[0]?.notes.map((note) => note.id)).toEqual([
+      "live-a",
+      "live-b",
+      "live-c",
+      "live-d",
+    ]);
   });
 });

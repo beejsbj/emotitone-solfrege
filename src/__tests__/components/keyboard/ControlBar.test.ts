@@ -7,7 +7,7 @@ import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
   default: {
     name: "Knob",
-    props: ["modelValue", "type", "options", "label", "min", "max", "step"],
+    props: ["modelValue", "type", "options", "label", "min", "max", "step", "changeSignal"],
     emits: ["update:modelValue"],
     template: '<div data-testid="knob" :data-label="label" />',
   },
@@ -67,9 +67,28 @@ describe("ControlBar.vue", () => {
     wrapper.unmount();
   });
 
+  it("routes pattern-change signals to the matching Knob only", () => {
+    const wrapper = mount(ControlBar, {
+      props: {
+        changeSignals: { key: 2, bpm: 4 },
+      },
+    });
+    const knobs = wrapper.findAllComponents({ name: "Knob" });
+
+    expect(knobs.map((knob) => knob.props("changeSignal"))).toEqual([
+      2,
+      undefined,
+      4,
+      undefined,
+    ]);
+  });
+
   it("spreads equal-width controls without a horizontal scroller", () => {
     expect(controlBarSource).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
     expect(controlBarSource).toContain("padding: 3px 0 4px");
+    expect(controlBarSource.match(/calc\(\(100% - var\(--instrument-control-size\)\) \/ 2\)/g))
+      .toHaveLength(2);
+    expect(controlBarSource.match(/var\(--s-4\)/g)).toHaveLength(2);
     expect(controlBarSource).not.toContain("overflow-x: auto");
     expect(controlBarSource).not.toContain("width: max-content");
   });

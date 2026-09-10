@@ -4,8 +4,8 @@
       <p class="workbench__eyebrow">Definition workbench · current sources</p>
       <h1>Bar Tape</h1>
       <p>
-        One focused comparison: the extracted primitive, its guide-only pattern
-        consumer, and the strip mounted in production today.
+        One focused comparison: the extracted primitive, its real PatternStrip
+        consumer, and the PatternReel mounted in production today.
       </p>
     </header>
 
@@ -46,16 +46,10 @@
           <p class="workbench__index">02</p>
           <h2>Guide-only consumer</h2>
         </div>
-        <p>Pattern Card composes Bar Tape as a flush footer</p>
+        <p>Background PatternStrip composes Bar Tape on its top edge</p>
       </div>
 
-      <GuidePatternCard
-        label="Pattern 01 — Piano / C Major"
-        ordinal="01"
-        name="Twinkle fragment"
-        metadata="14 notes"
-        :bar-tape="sequenceSegments"
-      />
+      <PatternStrip :item="patternStripItem" />
     </section>
 
     <section class="workbench__section">
@@ -64,25 +58,30 @@
           <p class="workbench__index">03</p>
           <h2>Production today</h2>
         </div>
-        <p>Real Pattern Card · note order and duration drive the strip</p>
+        <p>Real production PatternReel · note order and duration drive each tape</p>
       </div>
 
-      <ProductionPatternCard :pattern="productionPattern" />
+      <ProductionPatternList />
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
 import BarTape from "../../components/primatives/BarTape.vue";
-import GuidePatternCard from "../../components/compounds/PatternCard.vue";
-import ProductionPatternCard from "../../components/patterns/PatternCard.vue";
+import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
+import PatternStrip from "../../components/compounds/PatternStrip.vue";
+import ProductionPatternList from "../../components/patterns/PatternList.vue";
 import { useColorSystem } from "../../composables/useColorSystem";
+import { CHROMATIC_NOTES } from "../../data";
 import { defaultPatterns } from "../../data/patterns";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
 import type { Pattern } from "../../types/patterns";
 
 const productionPattern = defaultPatterns[0];
-const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+const {
+  getStaticPrimaryColorByScaleIndex,
+  getStaticPrimaryColorByPitchClass,
+} = useColorSystem();
 
 const toTimeline = (pattern: Pattern): BarTapeSegment[] =>
   pattern.notes.map((note) => ({
@@ -98,6 +97,26 @@ const toTimeline = (pattern: Pattern): BarTapeSegment[] =>
 const sequenceSegments = toTimeline(productionPattern);
 const marySegments = toTimeline(defaultPatterns[1]);
 const pulseSegments = toTimeline(defaultPatterns[2]);
+const rootOctave = productionPattern.notes.find((note) => note.scaleIndex === 0)?.octave
+  ?? productionPattern.notes[0]?.octave
+  ?? 4;
+const rootPitchClass = Math.max(0, CHROMATIC_NOTES.indexOf(productionPattern.key));
+const patternStripItem = {
+  id: productionPattern.id,
+  name: productionPattern.name ?? "Untitled pattern",
+  instrumentIcon: instrumentIconFor(productionPattern.instrument),
+  instrumentLabel: "Piano",
+  rootLabel: `${productionPattern.key}${rootOctave}`,
+  spine: getStaticPrimaryColorByPitchClass(
+    rootPitchClass,
+    productionPattern.mode,
+    productionPattern.key,
+    rootOctave,
+  ),
+  barTape: sequenceSegments,
+  canDelete: false,
+  canRename: false,
+};
 </script>
 
 <style scoped>

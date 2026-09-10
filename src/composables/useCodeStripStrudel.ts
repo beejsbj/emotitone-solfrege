@@ -15,8 +15,26 @@ const isReady = ref(false);
 const lastError = ref<string | null>(null);
 
 function hasPlayableContent(code: string): boolean {
-  const trimmed = code.trim();
-  return Boolean(trimmed) && !trimmed.startsWith("//");
+  let index = 0;
+  while (index < code.length) {
+    if (/\s/.test(code[index] ?? "")) {
+      index += 1;
+      continue;
+    }
+    if (code.startsWith("//", index)) {
+      const remainder = code.slice(index + 2);
+      const lineBreak = remainder.search(/[\r\n\u2028\u2029]/);
+      index = lineBreak < 0 ? code.length : index + lineBreak + 3;
+      continue;
+    }
+    if (code.startsWith("/*", index)) {
+      const closing = code.indexOf("*/", index + 2);
+      index = closing < 0 ? code.length : closing + 2;
+      continue;
+    }
+    return true;
+  }
+  return false;
 }
 
 export function useCodeStripStrudel() {

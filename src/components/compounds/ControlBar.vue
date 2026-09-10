@@ -6,6 +6,7 @@
         type="options"
         :options="CHROMATIC_NOTES"
         label="Key"
+        :change-signal="changeSignals.key"
         @update:modelValue="(value) => emit('update:keyValue', String(value))"
       />
     </div>
@@ -16,6 +17,7 @@
         type="options"
         :options="MODE_OPTIONS"
         label="Mode"
+        :change-signal="changeSignals.mode"
         @update:modelValue="(value) => emit('update:modeValue', String(value))"
       />
     </div>
@@ -28,6 +30,7 @@
         :min="40"
         :max="220"
         :step="1"
+        :change-signal="changeSignals.bpm"
         @update:modelValue="(value) => emit('update:bpm', Number(value))"
       />
     </div>
@@ -40,6 +43,7 @@
         :min="1"
         :max="8"
         :step="1"
+        :change-signal="changeSignals.octave"
         @update:modelValue="(value) => emit('update:octave', Number(value))"
       />
     </div>
@@ -64,6 +68,8 @@ import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import type { JoystickVisual } from "@/components/uniques/Joystick/index.vue";
 
+type ControlBarChangeSignals = Partial<Record<"key" | "mode" | "bpm" | "octave", number>>;
+
 withDefaults(
   defineProps<{
     keyValue?: string;
@@ -72,6 +78,7 @@ withDefaults(
     octave?: number;
     harmonyValue?: HarmonyAlteration;
     joystickVisual?: JoystickVisual;
+    changeSignals?: ControlBarChangeSignals;
   }>(),
   {
     keyValue: "C",
@@ -79,6 +86,7 @@ withDefaults(
     bpm: 120,
     octave: 4,
     harmonyValue: "auto",
+    changeSignals: () => ({}),
   },
 );
 
@@ -117,5 +125,25 @@ const emit = defineEmits<{
 
 .control-bar__item:deep(.knob-wrapper) {
   touch-action: none;
+}
+
+.control-bar__item:first-child :deep(.instrument-control) {
+  margin-inline:
+    clamp(
+      0px,
+      calc((100% - var(--instrument-control-size)) / 2),
+      var(--s-4)
+    )
+    auto;
+}
+
+.control-bar__item:last-child :deep(.instrument-control) {
+  margin-inline:
+    auto
+    clamp(
+      0px,
+      calc((100% - var(--instrument-control-size)) / 2),
+      var(--s-4)
+    );
 }
 </style>

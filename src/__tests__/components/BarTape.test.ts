@@ -2,8 +2,9 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import BarTape from "@/components/primatives/BarTape.vue";
 import barTapeSource from "@/components/primatives/BarTape.vue?raw";
-import patternCardSource from "@/components/compounds/PatternCard.vue?raw";
-import productionPatternCardSource from "@/components/patterns/PatternCard.vue?raw";
+import patternStripSource from "@/components/compounds/PatternStrip.vue?raw";
+import patternReelSource from "@/components/compounds/PatternReel.vue?raw";
+import productionPatternListSource from "@/components/patterns/PatternList.vue?raw";
 import specimenSource from "@/style-guide/primatives/PrimitiveBarTape.vue?raw";
 
 describe("BarTape", () => {
@@ -32,31 +33,33 @@ describe("BarTape", () => {
   });
 
   it("keeps the primitive to the accepted compressed timeline contract", () => {
-    expect(barTapeSource).toContain("height: 4px");
+    expect(barTapeSource).toContain("height: 1px");
     expect(barTapeSource).toContain("MINIMUM_VISIBLE_DURATION = 50");
     expect(barTapeSource).not.toMatch(/BarTapeMode|BarTapeSize|BarTapeFrame|playhead|downbeat|majorFlex/);
   });
 
   it("crosses the same source seam in production and the guide", () => {
-    expect(patternCardSource).toContain(
+    expect(patternStripSource).toContain(
       'import BarTape from "../primatives/BarTape.vue"',
     );
-    expect(patternCardSource).toContain(':segments="barTape"');
-    expect(productionPatternCardSource).toContain(
-      'import PatternCard from "@/components/compounds/PatternCard.vue"',
+    expect(patternStripSource).toContain(':segments="item.barTape"');
+    expect(patternReelSource).toContain(
+      'import PatternStrip from "./PatternStrip.vue"',
     );
-    expect(productionPatternCardSource).toContain(':bar-tape="barTapeSegments"');
-    expect(productionPatternCardSource).not.toContain("note-color-strip");
+    expect(productionPatternListSource).toContain(
+      'import PatternReel from "@/components/compounds/PatternReel.vue"',
+    );
+    expect(productionPatternListSource).not.toContain("note-color-strip");
     expect(specimenSource).toContain(
       'import BarTape from "../../components/primatives/BarTape.vue"',
     );
     expect(specimenSource).toContain("defaultPatterns.slice(0, 3)");
   });
 
-  it("orders production Pattern Card segments by note onset", () => {
-    expect(productionPatternCardSource).toMatch(
+  it("orders production PatternStrip segments by note onset", () => {
+    expect(productionPatternListSource).toMatch(
       /\.sort\(\s*\(firstNote, secondNote\) => firstNote\.pressTime - secondNote\.pressTime,?\s*\)/,
     );
-    expect(productionPatternCardSource).toContain("[...props.pattern.notes]");
+    expect(productionPatternListSource).toContain("[...notes]");
   });
 });

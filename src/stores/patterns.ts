@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { defaultPatterns } from "@/data/patterns";
 import { DEFAULT_SOURCE_BPM } from "@/services/StrudelNotation";
@@ -48,6 +49,7 @@ export const usePatternsStore = defineStore(
     // Get stores for current musical context
     const musicStore = useMusicStore();
     const instrumentStore = useInstrumentStore();
+    const keyboardStore = useKeyboardDrawerStore();
     const visualConfigStore = useVisualConfigStore();
 
     // State
@@ -192,11 +194,20 @@ export const usePatternsStore = defineStore(
 
     // Combined patterns: default + saved + dynamic
     const patterns = computed(() => {
+      const savedById = new Map(
+        savedPatterns.value.map((pattern) => [pattern.id, pattern]),
+      );
       const savedIds = new Set(savedPatterns.value.map((pattern) => pattern.id));
+      const defaultIds = new Set(defaultPatterns.map((pattern) => pattern.id));
 
       return [
-        ...defaultPatterns,
-        ...savedPatterns.value,
+        ...defaultPatterns.map((pattern) => {
+          const savedDefault = savedById.get(pattern.id);
+          return savedDefault?.name
+            ? { ...pattern, name: savedDefault.name }
+            : pattern;
+        }),
+        ...savedPatterns.value.filter((pattern) => !defaultIds.has(pattern.id)),
         ...dynamicPatterns.value.filter((pattern) => !savedIds.has(pattern.id)),
       ];
     });
@@ -211,12 +222,13 @@ export const usePatternsStore = defineStore(
       focusedPatternId.value = id;
     }
 
-    // Auto-focus newest pattern when a new dynamic one arrives
+    // Keep focus on the newest dynamic pattern as its note-derived ID evolves.
     watch(
-      () => dynamicPatterns.value.length,
-      () => {
-        const last = patterns.value[patterns.value.length - 1];
-        if (last) focusedPatternId.value = last.id;
+      () => dynamicPatterns.value[dynamicPatterns.value.length - 1]?.id ?? null,
+      (lastDynamicId) => {
+        focusedPatternId.value = lastDynamicId
+          ?? patterns.value[patterns.value.length - 1]?.id
+          ?? null;
       }
     );
 
@@ -233,6 +245,11 @@ export const usePatternsStore = defineStore(
       return typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0
         ? bpm
         : DEFAULT_SOURCE_BPM;
+    }
+
+    function resolvePatternOctave(pattern: Pattern): number | undefined {
+      const tonic = pattern.notes.find((note) => note.scaleIndex === 0);
+      return tonic?.octave ?? pattern.notes[0]?.octave;
     }
 
     function clamp(value: number, min: number, max: number): number {
@@ -501,6 +518,10 @@ export const usePatternsStore = defineStore(
       // Sync the desk to the pattern's musical context
       musicStore.setKey(pattern.key);
       musicStore.setMode(pattern.mode as MusicalMode);
+      const patternOctave = resolvePatternOctave(pattern);
+      if (patternOctave !== undefined) {
+        keyboardStore.setMainOctave(patternOctave);
+      }
       void instrumentStore.setInstrument(pattern.instrument).then((result) => {
         if (
           result.status === "failed" &&
@@ -606,6 +627,29 @@ export const usePatternsStore = defineStore(
         isSaved: true,
         isKept: true,
       });
+    }
+
+    function renamePattern(patternId: string, nextName: string): boolean {
+      const name = nextName.trim().slice(0, 80);
+      if (!name) return false;
+
+      const existingSaved = savedPatterns.value.find(
+        (pattern) => pattern.id === patternId,
+      );
+      if (existingSaved) {
+        existingSaved.name = name;
+        return true;
+      }
+
+      const pattern = patterns.value.find((candidate) => candidate.id === patternId);
+      if (!pattern?.isDefault) return false;
+
+      savedPatterns.value.push({
+        ...pattern,
+        name,
+        notes: pattern.notes.map((note) => ({ ...note })),
+      });
+      return true;
     }
 
     function deletePattern(patternId: string): boolean {
@@ -868,6 +912,7 @@ export const usePatternsStore = defineStore(
       sendCurrentPattern,
       removeLastFromCurrentSketch,
       keepPattern,
+      renamePattern,
       deletePattern,
 
       // Actions

@@ -201,7 +201,12 @@ export const usePatternsStore = defineStore(
       const defaultIds = new Set(defaultPatterns.map((pattern) => pattern.id));
 
       return [
-        ...defaultPatterns.map((pattern) => savedById.get(pattern.id) ?? pattern),
+        ...defaultPatterns.map((pattern) => {
+          const savedDefault = savedById.get(pattern.id);
+          return savedDefault?.name
+            ? { ...pattern, name: savedDefault.name }
+            : pattern;
+        }),
         ...savedPatterns.value.filter((pattern) => !defaultIds.has(pattern.id)),
         ...dynamicPatterns.value.filter((pattern) => !savedIds.has(pattern.id)),
       ];

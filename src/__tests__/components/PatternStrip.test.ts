@@ -121,6 +121,22 @@ describe("PatternStrip", () => {
     wrapper.unmount();
   });
 
+  it("keeps singleton identity non-actionable while preserving its rename gesture", async () => {
+    const wrapper = mount(PatternStrip, {
+      props: { item, active: true, selectable: false },
+    });
+    const identity = wrapper.get(".pattern-strip__identity");
+
+    expect(identity.element.tagName).toBe("DIV");
+    expect(identity.attributes("role")).toBe("group");
+    expect(identity.attributes("aria-label")).toContain("double-tap or press F2 to rename");
+    await identity.trigger("click", { detail: 1 });
+    expect(wrapper.emitted("select")).toBeUndefined();
+
+    await identity.trigger("keydown", { key: "F2" });
+    expect(wrapper.find(".pattern-strip__rename input").exists()).toBe(true);
+  });
+
   it("keeps default-pattern deletion unavailable", () => {
     const wrapper = mount(PatternStrip, {
       props: { item: { ...item, canDelete: false } },

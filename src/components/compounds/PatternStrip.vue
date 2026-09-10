@@ -33,15 +33,17 @@
           @keydown.escape.stop.prevent="cancelRename(true)"
         />
       </form>
-      <button
+      <component
         v-else
-        ref="identityButton"
+        :is="selectable ? 'button' : 'div'"
+        ref="identityElement"
         class="pattern-strip__identity"
-        type="button"
-        :disabled="disabled"
-        :aria-label="active
-          ? `Unwind patterns around ${item.name}, ${item.instrumentLabel}, root ${item.rootLabel}`
-          : `Select ${item.name}, ${item.instrumentLabel}, root ${item.rootLabel}`"
+        :class="{ 'pattern-strip__identity--static': !selectable }"
+        :type="selectable ? 'button' : undefined"
+        :role="selectable ? undefined : 'group'"
+        :tabindex="!selectable && item.canRename !== false ? 0 : undefined"
+        :disabled="selectable ? disabled : undefined"
+        :aria-label="identityLabel"
         @click.stop="handleIdentityClick"
         @keydown.f2.stop.prevent="beginRename"
       >
@@ -58,7 +60,7 @@
             <span>{{ item.instrumentLabel }}</span>
           </small>
         </span>
-      </button>
+      </component>
 
       <div
         class="pattern-strip__actions"
@@ -139,9 +141,11 @@ const props = withDefaults(defineProps<{
   item: PatternStripItem;
   active?: boolean;
   disabled?: boolean;
+  selectable?: boolean;
 }>(), {
   active: false,
   disabled: false,
+  selectable: true,
 });
 
 const emit = defineEmits<{
@@ -155,7 +159,7 @@ const emit = defineEmits<{
 const renaming = ref(false);
 const draftName = ref("");
 const renameInput = ref<HTMLInputElement | null>(null);
-const identityButton = ref<HTMLButtonElement | null>(null);
+const identityElement = ref<HTMLElement | null>(null);
 let lastPointerClickAt = Number.NEGATIVE_INFINITY;
 
 function handleIdentityClick(event: MouseEvent) {
@@ -169,6 +173,7 @@ function handleIdentityClick(event: MouseEvent) {
     beginRename();
     return;
   }
+  if (!props.selectable) return;
   emit("select");
 }
 
@@ -183,7 +188,7 @@ function beginRename() {
 }
 
 function restoreIdentityFocus() {
-  void nextTick(() => identityButton.value?.focus({ preventScroll: true }));
+  void nextTick(() => identityElement.value?.focus({ preventScroll: true }));
 }
 
 function cancelRename(restoreFocus = false) {
@@ -203,6 +208,18 @@ function commitRename(restoreFocus = false) {
 const stripStyle = computed(() => ({
   "--pattern-strip-spine": props.item.spine,
 }) as CSSProperties);
+
+const identityLabel = computed(() => {
+  const identity = `${props.item.name}, ${props.item.instrumentLabel}, root ${props.item.rootLabel}`;
+  if (!props.selectable) {
+    return props.item.canRename === false
+      ? `Current pattern ${identity}`
+      : `Current pattern ${identity}; double-tap or press F2 to rename`;
+  }
+  return props.active
+    ? `Unwind patterns around ${identity}`
+    : `Select ${identity}`;
+});
 
 const deleteLabel = computed(() => {
   if (!props.item.canDelete) {
@@ -288,6 +305,10 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 
 .pattern-strip__identity:disabled {
   cursor: progress;
+}
+
+.pattern-strip__identity--static {
+  cursor: default;
 }
 
 .pattern-strip__identity:focus-visible {

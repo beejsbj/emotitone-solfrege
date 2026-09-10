@@ -66,6 +66,24 @@ describe("PatternReel", () => {
     );
   });
 
+  it("exposes a single pattern as current identity rather than a no-op unwind action", async () => {
+    const onlyItem = { ...item("only", "Only"), canRename: false };
+    const wrapper = mount(PatternReel, {
+      props: { items: [onlyItem], selectedId: onlyItem.id },
+    });
+
+    const identity = wrapper.get(".pattern-strip__identity");
+    expect(identity.element.tagName).toBe("DIV");
+    expect(identity.attributes("role")).toBe("group");
+    expect(identity.attributes("aria-label"))
+      .toBe("Current pattern Only, Piano, root C4");
+    expect(wrapper.find('button[aria-label^="Unwind patterns around"]').exists()).toBe(false);
+    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(3);
+
+    await identity.trigger("click");
+    expect(wrapper.emitted("commit")).toBeUndefined();
+  });
+
   it("anchors Current at the bottom and collapses truthful predecessors behind it", () => {
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },

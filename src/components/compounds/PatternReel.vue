@@ -40,6 +40,7 @@
         <PatternStrip
           :item="slot.item"
           :active="isCommittedCurrent(slot.item.id)"
+          :selectable="items.length > 1"
           :disabled="disabled || dragging || settling || transientIndex !== null
             || isSlotUnavailable(slot.slot, slot.item.id)"
           @select="handleStripSelect(slot.item.id)"

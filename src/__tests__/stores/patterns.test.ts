@@ -847,5 +847,21 @@ describe("Patterns Store", () => {
       .toBe("Little Constellation");
     expect(patternsStore.savedPatterns.find((pattern) => pattern.id === defaultPattern.id))
       .toMatchObject({ name: "Little Constellation", isDefault: true });
+
+    const savedDefault = patternsStore.savedPatterns.find(
+      (pattern) => pattern.id === defaultPattern.id,
+    )!;
+    savedDefault.key = "D";
+    savedDefault.instrument = "gm_trumpet";
+    savedDefault.notes = [];
+    const resolvedDefault = patternsStore.patterns.find(
+      (pattern) => pattern.id === defaultPattern.id,
+    )!;
+    expect(resolvedDefault).toMatchObject({
+      name: "Little Constellation",
+      key: defaultPattern.key,
+      instrument: defaultPattern.instrument,
+      notes: defaultPattern.notes,
+    });
   });
 });

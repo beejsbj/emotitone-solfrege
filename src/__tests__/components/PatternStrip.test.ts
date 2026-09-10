@@ -94,7 +94,8 @@ describe("PatternStrip", () => {
   it("renames the selected pattern inline on double-tap or F2", async () => {
     const wrapper = mount(PatternStrip, { props: { item, active: true } });
 
-    await wrapper.get(".pattern-strip__identity").trigger("dblclick");
+    await wrapper.get(".pattern-strip__identity").trigger("click", { detail: 1 });
+    await wrapper.get(".pattern-strip__identity").trigger("click", { detail: 1 });
     const input = wrapper.get<HTMLInputElement>(".pattern-strip__rename input");
     expect(input.attributes("aria-label")).toBe("Rename Evening Glass");
     await input.setValue("Blue Hour");

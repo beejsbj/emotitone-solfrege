@@ -41,8 +41,7 @@
         :aria-label="active
           ? `Unwind patterns around ${item.name}, root ${item.rootLabel}`
           : `Select ${item.name}, root ${item.rootLabel}`"
-        @click.stop="emit('select')"
-        @dblclick.stop.prevent="beginRename"
+        @click.stop="handleIdentityClick"
         @keydown.f2.stop.prevent="beginRename"
       >
         <span class="pattern-strip__identity-copy">
@@ -139,6 +138,21 @@ const emit = defineEmits<{
 const renaming = ref(false);
 const draftName = ref("");
 const renameInput = ref<HTMLInputElement | null>(null);
+let lastPointerClickAt = Number.NEGATIVE_INFINITY;
+
+function handleIdentityClick(event: MouseEvent) {
+  const now = performance.now();
+  const isPointerDoubleTap = event.detail > 1
+    || (event.detail === 1 && now - lastPointerClickAt <= 360);
+  lastPointerClickAt = event.detail === 1 ? now : Number.NEGATIVE_INFINITY;
+
+  if (isPointerDoubleTap && props.active && props.item.canRename !== false) {
+    lastPointerClickAt = Number.NEGATIVE_INFINITY;
+    beginRename();
+    return;
+  }
+  emit("select");
+}
 
 function beginRename() {
   if (!props.active || props.disabled || props.item.canRename === false) return;
@@ -239,6 +253,7 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   cursor: pointer;
   text-align: left;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .pattern-strip__identity-copy {

@@ -10,6 +10,8 @@
     :class="{
       'cursor-not-allowed opacity-50 pointer-events-none': isDisabled,
       'cursor-not-allowed pointer-events-none saturate-50': isDisplayMode,
+      'knob-wrapper--context-bounce-a': contextBouncePhase === 'a',
+      'knob-wrapper--context-bounce-b': contextBouncePhase === 'b',
     }"
     @mousedown="handleStart"
     @touchstart="handleStart"
@@ -164,6 +166,10 @@ const props = defineProps({
     type: Number,
     default: 200,
   },
+  changeSignal: {
+    type: Number,
+    default: undefined,
+  },
   valueLabelTrue: {
     type: [String, Object],
     default: undefined,
@@ -182,6 +188,15 @@ const emit = defineEmits<{
 
 // Refs
 const wrapperRef = ref<HTMLElement>();
+const contextBouncePhase = ref<"a" | "b" | null>(null);
+
+watch(
+  () => props.changeSignal,
+  (signal, previousSignal) => {
+    if (signal === undefined || signal === previousSignal) return;
+    contextBouncePhase.value = contextBouncePhase.value === "a" ? "b" : "a";
+  },
+);
 
 // Enhanced interaction state with better gesture recognition
 const interaction = {
@@ -753,6 +768,26 @@ useGSAP(({ gsap }: { gsap: any }) => {
 
 .knob-wrapper__face {
   position: relative;
+}
+
+@keyframes knob-context-bounce-a {
+  from { transform: scale(.94); }
+  to { transform: scale(1); }
+}
+
+@keyframes knob-context-bounce-b {
+  from { transform: scale(.94); }
+  to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .knob-wrapper--context-bounce-a .knob-wrapper__face {
+    animation: knob-context-bounce-a var(--dur-bounce) var(--ease-bounce);
+  }
+
+  .knob-wrapper--context-bounce-b .knob-wrapper__face {
+    animation: knob-context-bounce-b var(--dur-bounce) var(--ease-bounce);
+  }
 }
 
 .knob-wrapper__label {

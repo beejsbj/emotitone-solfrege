@@ -133,12 +133,17 @@ vi.mock("@/components/compounds/Keyboard.vue", () => ({
 }));
 
 vi.mock("@/components/patterns/PatternList.vue", () => ({
-  default: { name: "PatternList", template: '<div data-testid="pattern-list" />' },
+  default: {
+    name: "PatternList",
+    emits: ["contextChange"],
+    template: '<div data-testid="pattern-list" />',
+  },
 }));
 
 vi.mock("@/components/compounds/ControlBar.vue", () => ({
   default: {
     name: "ControlBar",
+    props: ["changeSignals"],
     emits: [
       "update:keyValue",
       "update:modeValue",
@@ -237,6 +242,31 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     expect(mocks.toggle).toHaveBeenCalledTimes(1);
     expect(mocks.removeLastFromCurrentSketch).toHaveBeenCalledTimes(1);
     expect(mocks.sendCurrentPattern).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("forwards pattern-context changes as independent Knob bounce signals", async () => {
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          Keyboard: true,
+          CodeStripBar: true,
+          HummingCaptureTransport: true,
+        },
+      },
+    });
+    const patternList = wrapper.getComponent({ name: "PatternList" });
+    const controlBar = wrapper.getComponent({ name: "ControlBar" });
+
+    patternList.vm.$emit("contextChange", ["key", "octave"]);
+    await wrapper.vm.$nextTick();
+
+    expect(controlBar.props("changeSignals")).toMatchObject({
+      key: 1,
+      mode: 0,
+      bpm: 0,
+      octave: 1,
+    });
     wrapper.unmount();
   });
 

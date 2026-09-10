@@ -267,6 +267,37 @@ describe("PatternList production adapter", () => {
     expect(reelItems(wrapper).every((item) => item.canDelete === false)).toBe(true);
   });
 
+  it("disarms delete when an evolving dynamic pattern id leaves the reel", async () => {
+    const patternsStore = usePatternsStore();
+    patternsStore.loggedNotes = [
+      createDynamicNote("a", 0),
+      createDynamicNote("b", 1),
+      createDynamicNote("c", 2),
+    ];
+    await nextTick();
+    const wrapper = shallowMount(PatternList);
+    const reel = wrapper.getComponent(PatternReel);
+    const originalId = patternsStore.dynamicPatterns[0]?.id;
+    if (!originalId) throw new Error("Missing original dynamic pattern");
+
+    reel.vm.$emit("delete", originalId);
+    await nextTick();
+    expect(reelItems(wrapper).find((item) => item.id === originalId)?.deleteArmed).toBe(true);
+
+    patternsStore.loggedNotes.push(createDynamicNote("d", 3));
+    await nextTick();
+    expect(reelItems(wrapper).some((item) => item.id === originalId)).toBe(false);
+
+    patternsStore.loggedNotes.pop();
+    await nextTick();
+    expect(reelItems(wrapper).find((item) => item.id === originalId)?.deleteArmed).toBe(false);
+
+    reel.vm.$emit("delete", originalId);
+    await nextTick();
+    expect(patternsStore.loggedNotes).toHaveLength(3);
+    expect(reelItems(wrapper).find((item) => item.id === originalId)?.deleteArmed).toBe(true);
+  });
+
   it("retains clipboard and Strudel effects in the production adapter", async () => {
     const patternsStore = usePatternsStore();
     const pattern = createUserPattern("share-me");

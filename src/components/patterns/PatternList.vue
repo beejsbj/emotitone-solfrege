@@ -12,7 +12,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
@@ -206,6 +206,15 @@ const reelItems = computed(() => {
 const selectedPatternId = computed(() => (
   storedCurrentPatternId.value ?? CURRENT_TAKE_ID
 ));
+
+watch(
+  [deleteArmedPatternId, () => reelItems.value.map((item) => item.id)],
+  ([armedId, itemIds]) => {
+    if (!armedId || itemIds.includes(armedId)) return;
+    clearTimeout(deleteArmTimer);
+    deleteArmedPatternId.value = null;
+  },
+);
 
 function patternById(id: string) {
   return patternsStore.patterns.find((pattern) => pattern.id === id);

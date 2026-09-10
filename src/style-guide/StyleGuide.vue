@@ -140,7 +140,7 @@
           <CompoundKey />
         </article>
         <article id="compound-keyboard" class="sink-frame">
-          <div class="sink-frame__source">compound-keyboard · formalization candidate</div>
+          <div class="sink-frame__source">compound-keyboard</div>
           <CompoundKeyboard />
         </article>
         <article id="compound-pattern-strip" class="sink-frame">

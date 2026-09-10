@@ -26,7 +26,8 @@ describe("Keyboard style-guide specimen", () => {
     expect(specimenSource).toContain("12 · Chromatic");
     expect(specimenSource).toContain(':scale-type="harmonyScaleType"');
     expect(specimenSource).toContain('@chord-press="handleChordPress"');
-    expect(specimenSource).toContain("accepted density adopted");
-    expect(specimenSource).toContain("variation amplitude remains the next visual check");
+    expect(specimenSource).toContain(
+      "accepted density and edition variation are production-adopted",
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import PatternStrip from "@/components/compounds/PatternStrip.vue";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import patternStripSource from "@/components/compounds/PatternStrip.vue?raw";
 import patternReelSource from "@/components/compounds/PatternReel.vue?raw";
 import patternListSource from "@/components/patterns/PatternList.vue?raw";
@@ -11,6 +12,7 @@ import type { PatternStripItem } from "@/components/compounds/PatternStrip.vue";
 const item: PatternStripItem = {
   id: "evening-glass",
   name: "Evening Glass",
+  instrumentIcon: instrumentIconFor("epiano1"),
   instrumentLabel: "Rhodes",
   rootLabel: "F#4",
   spine: "rgb(255, 0, 0)",
@@ -31,6 +33,8 @@ describe("PatternStrip", () => {
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
       .toBe("Select Evening Glass, Rhodes, root F#4");
     expect(wrapper.get(".pattern-strip__identity small").text()).toBe("Rhodes");
+    expect(wrapper.get(".pattern-strip__instrument-icon").classes()).toContain("lucide-piano");
+    expect(wrapper.get(".pattern-strip__instrument-icon").attributes("aria-hidden")).toBe("true");
     expect(wrapper.findAll(".bar-tape__segment")).toHaveLength(2);
     expect(wrapper.find(".pattern-strip__tape").exists()).toBe(true);
     expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (

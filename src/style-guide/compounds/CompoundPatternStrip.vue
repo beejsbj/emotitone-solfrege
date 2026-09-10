@@ -67,6 +67,7 @@
 import { reactive, ref } from "vue";
 import PatternStrip from "../../components/compounds/PatternStrip.vue";
 import type { PatternStripItem } from "../../components/compounds/PatternStrip.vue";
+import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
 import { useColorSystem } from "../../composables/useColorSystem";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
@@ -80,6 +81,7 @@ const {
 const backgroundPattern = reactive<PatternStripItem>({
   id: "evening-glass",
   name: "Evening Glass",
+  instrumentIcon: instrumentIconFor("epiano1"),
   instrumentLabel: "Rhodes",
   rootLabel: "F#4",
   spine: getStaticPrimaryColorByPitchClass(6, "dorian", "F#", 4),
@@ -94,6 +96,7 @@ const backgroundPattern = reactive<PatternStripItem>({
 const currentPattern = reactive<PatternStripItem>({
   id: "current-take",
   name: "Current Take",
+  instrumentIcon: instrumentIconFor("piano"),
   instrumentLabel: "Piano",
   rootLabel: "C4",
   spine: getStaticPrimaryColorByPitchClass(0, "major", "C", 4),
@@ -120,7 +123,7 @@ function rename(pattern: PatternStripItem, name: string) {
 }
 
 const features = [
-  { label: "Children", value: "identity, instrument label, Bar Tape, three small Buttons" },
+  { label: "Children", value: "identity, shared instrument-family icon + label, Bar Tape, three small Buttons" },
   { label: "Surface", value: "51.2px Ink row; no Card shell, notch, metadata, or CodeStrip" },
   { label: "Spine", value: "4px Music Color from root key plus root octave" },
   { label: "Tape", value: "persistent 1px top edge on every strip, including Current" },

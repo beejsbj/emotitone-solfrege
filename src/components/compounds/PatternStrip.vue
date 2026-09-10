@@ -47,7 +47,16 @@
       >
         <span class="pattern-strip__identity-copy">
           <strong>{{ item.name }}</strong>
-          <small>{{ item.instrumentLabel }}</small>
+          <small>
+            <component
+              :is="item.instrumentIcon"
+              :size="10"
+              :stroke-width="1.75"
+              class="pattern-strip__instrument-icon"
+              aria-hidden="true"
+            />
+            <span>{{ item.instrumentLabel }}</span>
+          </small>
         </span>
       </button>
 
@@ -95,7 +104,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, type CSSProperties } from "vue";
+import {
+  computed,
+  nextTick,
+  ref,
+  type Component,
+  type CSSProperties,
+} from "vue";
 import { Check, Copy, ExternalLink, Trash2 } from "lucide-vue-next";
 import BarTape from "../primatives/BarTape.vue";
 import Button from "../primatives/Button.vue";
@@ -104,6 +119,7 @@ import type { BarTapeSegment } from "../primatives/BarTape.vue";
 export interface PatternStripItem {
   id: string;
   name: string;
+  instrumentIcon: Component;
   instrumentLabel: string;
   rootLabel: string;
   spine: string;
@@ -292,6 +308,10 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 }
 
 .pattern-strip__identity small {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
   overflow: hidden;
   color: var(--ivory-3);
   font: var(--t-caption);
@@ -300,6 +320,17 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.pattern-strip__identity small span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pattern-strip__instrument-icon {
+  width: 10px;
+  height: 10px;
+  flex: none;
 }
 
 .pattern-strip__rename {

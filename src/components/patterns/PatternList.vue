@@ -16,6 +16,7 @@ import { computed, onBeforeUnmount, ref } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import { useColorSystem } from "@/composables/useColorSystem";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { toStrudelSound } from "@/composables/useStrudel";
@@ -126,6 +127,7 @@ function reelItem(pattern: Pattern): PatternReelItem {
   return {
     id: pattern.id,
     name: pattern.name ?? "Untitled pattern",
+    instrumentIcon: instrumentIconFor(pattern.instrument),
     instrumentLabel: displayInstrumentName(pattern.instrument),
     rootLabel: `${pattern.key}${octave}`,
     spine: getStaticPrimaryColorByPitchClass(
@@ -174,6 +176,7 @@ const currentTakeItem = computed<PatternReelItem>(() => {
   return {
     id: CURRENT_TAKE_ID,
     name: "Current Take",
+    instrumentIcon: instrumentIconFor(context.instrument),
     instrumentLabel: displayInstrumentName(context.instrument),
     rootLabel: `${context.key}${octave}`,
     spine: getStaticPrimaryColorByPitchClass(

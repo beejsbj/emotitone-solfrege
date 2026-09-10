@@ -60,6 +60,7 @@
 import { reactive, ref } from "vue";
 import PatternReel from "../../components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "../../components/compounds/PatternReel.vue";
+import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
 import { useColorSystem } from "../../composables/useColorSystem";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
@@ -86,6 +87,7 @@ const patterns = reactive<PatternReelItem[]>([
   {
     id: "glass",
     name: "Glass Bell",
+    instrumentIcon: instrumentIconFor("music box"),
     instrumentLabel: "Music Box",
     rootLabel: "F#4",
     spine: getStaticPrimaryColorByPitchClass(6, "dorian", "F#", 4),
@@ -96,6 +98,7 @@ const patterns = reactive<PatternReelItem[]>([
   {
     id: "tram",
     name: "Late Night Tram",
+    instrumentIcon: instrumentIconFor("epiano1"),
     instrumentLabel: "Rhodes",
     rootLabel: "D3",
     spine: getStaticPrimaryColorByPitchClass(2, "minor", "D", 3),
@@ -106,6 +109,7 @@ const patterns = reactive<PatternReelItem[]>([
   {
     id: "whistle",
     name: "Brass Whistle",
+    instrumentIcon: instrumentIconFor("trumpet"),
     instrumentLabel: "Trumpet",
     rootLabel: "E4",
     spine: getStaticPrimaryColorByPitchClass(4, "locrian", "E", 4),
@@ -116,6 +120,7 @@ const patterns = reactive<PatternReelItem[]>([
   {
     id: "current",
     name: "Current Take",
+    instrumentIcon: instrumentIconFor("piano"),
     instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: getStaticPrimaryColorByPitchClass(0, "major", "C", 4),

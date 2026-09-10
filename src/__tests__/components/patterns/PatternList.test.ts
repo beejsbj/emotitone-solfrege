@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, nextTick, ref, type ComputedRef, type Ref } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
@@ -91,6 +92,7 @@ describe("PatternList production adapter", () => {
       copyUnavailableLabel: "Record notes before copying Current Take",
       openUnavailableLabel: "Record notes before opening Current Take in Strudel",
     });
+    expect(current?.instrumentIcon).toBe(instrumentIconFor("piano"));
     expect(reel.props("selectedId")).toBe("current-pattern-take");
   });
 
@@ -110,6 +112,7 @@ describe("PatternList production adapter", () => {
       spine: "exact-color",
       canDelete: true,
     });
+    expect(mapped?.instrumentIcon).toBe(instrumentIconFor("piano"));
     expect(mapped?.barTape).toEqual([{ color: "exact-color", durationMs: 250 }]);
     expect(colors.byPitchClass).toHaveBeenCalledWith(3, "major", "C", 4);
     expect(colors.byPitchClass).toHaveBeenCalledWith(0, "major", "C", 4);

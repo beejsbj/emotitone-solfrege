@@ -68,6 +68,7 @@
 
 <script setup lang="ts">
 import BarTape from "../../components/primatives/BarTape.vue";
+import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
 import PatternStrip from "../../components/compounds/PatternStrip.vue";
 import ProductionPatternList from "../../components/patterns/PatternList.vue";
 import { useColorSystem } from "../../composables/useColorSystem";
@@ -103,6 +104,7 @@ const rootPitchClass = Math.max(0, CHROMATIC_NOTES.indexOf(productionPattern.key
 const patternStripItem = {
   id: productionPattern.id,
   name: productionPattern.name ?? "Untitled pattern",
+  instrumentIcon: instrumentIconFor(productionPattern.instrument),
   instrumentLabel: "Piano",
   rootLabel: `${productionPattern.key}${rootOctave}`,
   spine: getStaticPrimaryColorByPitchClass(

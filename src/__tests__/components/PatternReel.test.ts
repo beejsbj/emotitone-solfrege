@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import PatternStrip from "@/components/compounds/PatternStrip.vue";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import patternReelSource from "@/components/compounds/PatternReel.vue?raw";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 
@@ -10,6 +11,7 @@ function item(id: string, name: string): PatternReelItem {
   return {
     id,
     name,
+    instrumentIcon: instrumentIconFor("piano"),
     instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: "rgb(255, 0, 0)",

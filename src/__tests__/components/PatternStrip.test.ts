@@ -121,6 +121,38 @@ describe("PatternStrip", () => {
     wrapper.unmount();
   });
 
+  it("cancels an unfinished rename when its strip stops being current", async () => {
+    const wrapper = mount(PatternStrip, {
+      props: { item, active: true },
+    });
+
+    await wrapper.get(".pattern-strip__identity").trigger("keydown", { key: "F2" });
+    await wrapper.get<HTMLInputElement>(".pattern-strip__rename input")
+      .setValue("Stale draft");
+    await wrapper.setProps({ active: false });
+
+    expect(wrapper.find(".pattern-strip__rename input").exists()).toBe(false);
+    expect(wrapper.emitted("rename")).toBeUndefined();
+
+    await wrapper.setProps({ active: true });
+    await wrapper.get(".pattern-strip__identity").trigger("keydown", { key: "F2" });
+    expect(wrapper.get<HTMLInputElement>(".pattern-strip__rename input").element.value)
+      .toBe("Evening Glass");
+  });
+
+  it("does not count an inactive selection tap toward a later rename", async () => {
+    const wrapper = mount(PatternStrip, {
+      props: { item, active: false },
+    });
+
+    await wrapper.get(".pattern-strip__identity").trigger("click", { detail: 1 });
+    await wrapper.setProps({ active: true });
+    await wrapper.get(".pattern-strip__identity").trigger("click", { detail: 2 });
+
+    expect(wrapper.find(".pattern-strip__rename input").exists()).toBe(false);
+    expect(wrapper.emitted("select")).toHaveLength(2);
+  });
+
   it("keeps singleton identity non-actionable while preserving its rename gesture", async () => {
     const wrapper = mount(PatternStrip, {
       props: { item, active: true, selectable: false },

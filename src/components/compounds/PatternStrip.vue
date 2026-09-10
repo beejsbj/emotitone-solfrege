@@ -110,6 +110,7 @@ import {
   computed,
   nextTick,
   ref,
+  watch,
   type Component,
   type CSSProperties,
 } from "vue";
@@ -164,12 +165,16 @@ let lastPointerClickAt = Number.NEGATIVE_INFINITY;
 
 function handleIdentityClick(event: MouseEvent) {
   const now = performance.now();
-  const isPointerDoubleTap = event.detail > 1
-    || (event.detail === 1 && now - lastPointerClickAt <= 360);
-  lastPointerClickAt = event.detail === 1 ? now : Number.NEGATIVE_INFINITY;
+  const canArmRename = event.detail >= 1
+    && props.active
+    && !props.disabled
+    && props.item.canRename !== false;
+  const isPointerDoubleTap = canArmRename && now - lastPointerClickAt <= 360;
+  lastPointerClickAt = canArmRename && !isPointerDoubleTap
+    ? now
+    : Number.NEGATIVE_INFINITY;
 
-  if (isPointerDoubleTap && props.active && props.item.canRename !== false) {
-    lastPointerClickAt = Number.NEGATIVE_INFINITY;
+  if (isPointerDoubleTap) {
     beginRename();
     return;
   }
@@ -204,6 +209,14 @@ function commitRename(restoreFocus = false) {
   if (name && name !== props.item.name) emit("rename", name);
   if (restoreFocus) restoreIdentityFocus();
 }
+
+watch(
+  [() => props.active, () => props.item.id],
+  ([active, itemId], [, previousItemId]) => {
+    lastPointerClickAt = Number.NEGATIVE_INFINITY;
+    if (renaming.value && (!active || itemId !== previousItemId)) cancelRename();
+  },
+);
 
 const stripStyle = computed(() => ({
   "--pattern-strip-spine": props.item.spine,

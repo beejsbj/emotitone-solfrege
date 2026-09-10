@@ -20,7 +20,7 @@
         v-if="renaming"
         class="pattern-strip__rename"
         data-reel-control
-        @submit.prevent="commitRename"
+        @submit.prevent="commitRename(true)"
         @pointerdown.stop
         @click.stop
       >
@@ -29,18 +29,19 @@
           v-model="draftName"
           maxlength="80"
           :aria-label="`Rename ${item.name}`"
-          @blur="commitRename"
-          @keydown.escape.stop.prevent="cancelRename"
+          @blur="commitRename()"
+          @keydown.escape.stop.prevent="cancelRename(true)"
         />
       </form>
       <button
         v-else
+        ref="identityButton"
         class="pattern-strip__identity"
         type="button"
         :disabled="disabled"
         :aria-label="active
-          ? `Unwind patterns around ${item.name}, root ${item.rootLabel}`
-          : `Select ${item.name}, root ${item.rootLabel}`"
+          ? `Unwind patterns around ${item.name}, ${item.instrumentLabel}, root ${item.rootLabel}`
+          : `Select ${item.name}, ${item.instrumentLabel}, root ${item.rootLabel}`"
         @click.stop="handleIdentityClick"
         @keydown.f2.stop.prevent="beginRename"
       >
@@ -138,6 +139,7 @@ const emit = defineEmits<{
 const renaming = ref(false);
 const draftName = ref("");
 const renameInput = ref<HTMLInputElement | null>(null);
+const identityButton = ref<HTMLButtonElement | null>(null);
 let lastPointerClickAt = Number.NEGATIVE_INFINITY;
 
 function handleIdentityClick(event: MouseEvent) {
@@ -164,16 +166,22 @@ function beginRename() {
   });
 }
 
-function cancelRename() {
-  renaming.value = false;
-  draftName.value = props.item.name;
+function restoreIdentityFocus() {
+  void nextTick(() => identityButton.value?.focus({ preventScroll: true }));
 }
 
-function commitRename() {
+function cancelRename(restoreFocus = false) {
+  renaming.value = false;
+  draftName.value = props.item.name;
+  if (restoreFocus) restoreIdentityFocus();
+}
+
+function commitRename(restoreFocus = false) {
   if (!renaming.value) return;
   const name = draftName.value.trim();
   renaming.value = false;
   if (name && name !== props.item.name) emit("rename", name);
+  if (restoreFocus) restoreIdentityFocus();
 }
 
 const stripStyle = computed(() => ({

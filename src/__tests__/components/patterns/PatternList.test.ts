@@ -5,6 +5,7 @@ import { computed, nextTick, ref, type ComputedRef, type Ref } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import { usePatternsStore } from "@/stores/patterns";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type { Pattern } from "@/types/patterns";
 
@@ -149,6 +150,28 @@ describe("PatternList production adapter", () => {
     expect(wrapper.emitted("contextChange")).toEqual([
       [["key", "mode", "bpm", "octave"]],
     ]);
+  });
+
+  it("does not bounce Octave when pattern restoration clamps to its current value", () => {
+    const patternsStore = usePatternsStore();
+    const keyboardStore = useKeyboardDrawerStore();
+    keyboardStore.setMainOctave(1);
+    const pattern = createUserPattern("clamped-octave", {
+      notes: [{
+        ...createUserPattern("source").notes[0],
+        id: "clamped-octave-note",
+        note: "C0",
+        scaleIndex: 0,
+        octave: 0,
+      }],
+    });
+    patternsStore.savedPatterns = [pattern];
+    const wrapper = shallowMount(PatternList);
+
+    wrapper.getComponent(PatternReel).vm.$emit("commit", pattern.id, "tap");
+
+    expect(keyboardStore.keyboardConfig.mainOctave).toBe(1);
+    expect(wrapper.emitted("contextChange")).toBeUndefined();
   });
 
   it("relays selected-title renames into the pattern store", () => {

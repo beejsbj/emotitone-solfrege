@@ -29,7 +29,7 @@ describe("PatternStrip", () => {
     expect(wrapper.element.tagName).toBe("ARTICLE");
     expect(wrapper.attributes("style")).toContain("--pattern-strip-spine: rgb(255, 0, 0)");
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
-      .toBe("Select Evening Glass, root F#4");
+      .toBe("Select Evening Glass, Rhodes, root F#4");
     expect(wrapper.get(".pattern-strip__identity small").text()).toBe("Rhodes");
     expect(wrapper.findAll(".bar-tape__segment")).toHaveLength(2);
     expect(wrapper.find(".pattern-strip__tape").exists()).toBe(true);
@@ -58,7 +58,7 @@ describe("PatternStrip", () => {
     const tapeElement = wrapper.get(".bar-tape").element;
     expect(wrapper.get(".bar-tape").attributes("aria-hidden")).toBeUndefined();
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
-      .toBe("Unwind patterns around Evening Glass, root F#4");
+      .toBe("Unwind patterns around Evening Glass, Rhodes, root F#4");
     await wrapper.setProps({ active: false });
     expect(wrapper.get(".bar-tape").element).toBe(tapeElement);
     expect(wrapper.get(".bar-tape").attributes("aria-hidden")).toBeUndefined();
@@ -92,7 +92,10 @@ describe("PatternStrip", () => {
   });
 
   it("renames the selected pattern inline on double-tap or F2", async () => {
-    const wrapper = mount(PatternStrip, { props: { item, active: true } });
+    const wrapper = mount(PatternStrip, {
+      props: { item, active: true },
+      attachTo: document.body,
+    });
 
     await wrapper.get(".pattern-strip__identity").trigger("click", { detail: 1 });
     await wrapper.get(".pattern-strip__identity").trigger("click", { detail: 1 });
@@ -105,6 +108,13 @@ describe("PatternStrip", () => {
 
     await wrapper.get(".pattern-strip__identity").trigger("keydown", { key: "F2" });
     expect(wrapper.find(".pattern-strip__rename input").exists()).toBe(true);
+    await wrapper.get(".pattern-strip__rename input").trigger("keydown", { key: "Escape" });
+    expect(document.activeElement).toBe(wrapper.get(".pattern-strip__identity").element);
+
+    await wrapper.get(".pattern-strip__identity").trigger("keydown", { key: "F2" });
+    await wrapper.get(".pattern-strip__rename").trigger("submit");
+    expect(document.activeElement).toBe(wrapper.get(".pattern-strip__identity").element);
+    wrapper.unmount();
   });
 
   it("keeps default-pattern deletion unavailable", () => {

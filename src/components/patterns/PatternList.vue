@@ -213,17 +213,23 @@ function selectPattern(id: string) {
   const pattern = patternById(id);
   if (!pattern) return;
 
-  const changedControls: PatternControl[] = [];
-  if (musicStore.currentKey !== pattern.key) changedControls.push("key");
-  if (musicStore.currentMode !== pattern.mode) changedControls.push("mode");
-  if (sourceBpm(visualConfigStore.config.codeStrip.bpm) !== sourceBpm(pattern.bpm)) {
-    changedControls.push("bpm");
-  }
-  if (keyboardStore.keyboardConfig.mainOctave !== rootOctave(pattern.notes)) {
-    changedControls.push("octave");
-  }
+  const previousControls = {
+    key: musicStore.currentKey,
+    mode: musicStore.currentMode,
+    bpm: visualConfigStore.config.codeStrip.bpm,
+    octave: keyboardStore.keyboardConfig.mainOctave,
+  };
 
   patternsStore.loadPatternAsBase(id);
+  const changedControls: PatternControl[] = [];
+  if (musicStore.currentKey !== previousControls.key) changedControls.push("key");
+  if (musicStore.currentMode !== previousControls.mode) changedControls.push("mode");
+  if (visualConfigStore.config.codeStrip.bpm !== previousControls.bpm) {
+    changedControls.push("bpm");
+  }
+  if (keyboardStore.keyboardConfig.mainOctave !== previousControls.octave) {
+    changedControls.push("octave");
+  }
   if (changedControls.length) emit("contextChange", changedControls);
 }
 

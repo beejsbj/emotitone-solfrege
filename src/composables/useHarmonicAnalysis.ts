@@ -19,7 +19,7 @@ function createEmptySnapshot(): HarmonicAnalysisSnapshot {
 
 function detectChordLabel(notes: readonly string[]): string | null {
   const notesByPitch = [...notes].sort(
-    (first, second) => (Note.get(first).midi ?? 0) - (Note.get(second).midi ?? 0)
+    (first, second) => Note.get(first).height - Note.get(second).height
   );
   const detectedChords = Chord.detect(notesByPitch);
   return (

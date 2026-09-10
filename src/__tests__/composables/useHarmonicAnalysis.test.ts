@@ -222,6 +222,10 @@ describe("useHarmonicAnalysis", () => {
     [["C4", "F4", "A4"], "FM/C"],
     [["C3", "E4", "A4"], "Am/C"],
     [["A4", "C3", "E4"], "Am/C"],
+    [["E4", "A4", "C#10"], "AM/E"],
+    [["C#10", "A4", "E4"], "AM/E"],
+    [["E4", "A4", "C#-2"], "AM/C#"],
+    [["C#10", "A4", "E-2"], "AM/E"],
   ])("detects the expected bass-qualified triad: %s", (noteNames, expectedLabel) => {
     const { snapshot, notePlayed } = createAnalysis();
 

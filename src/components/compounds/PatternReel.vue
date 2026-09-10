@@ -624,6 +624,11 @@ onBeforeUnmount(() => {
   outline-offset: -2px;
 }
 
+.pattern-reel:focus-visible .pattern-reel__empty {
+  outline: 2px solid var(--ivory-2);
+  outline-offset: -2px;
+}
+
 .pattern-reel__viewport {
   position: relative;
   z-index: 1;

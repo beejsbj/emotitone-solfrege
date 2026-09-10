@@ -50,6 +50,19 @@ afterEach(() => {
 });
 
 describe("PatternReel", () => {
+  it("keeps an unframed empty reel visibly keyboard-focusable", () => {
+    const wrapper = mount(PatternReel, {
+      props: { items: [], selectedId: "" },
+    });
+
+    expect(wrapper.get(".pattern-reel__empty").text()).toBe(
+      "Play some notes, then press Return.",
+    );
+    expect(patternReelSource).toMatch(
+      /\.pattern-reel:focus-visible \.pattern-reel__empty\s*{[\s\S]*outline:/,
+    );
+  });
+
   it("anchors Current at the bottom and collapses truthful predecessors behind it", () => {
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },

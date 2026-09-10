@@ -365,6 +365,7 @@ function handleFocusOut(event: FocusEvent) {
 }
 
 function cancelPendingInteraction(preserveReveal = false) {
+  stopPendingPointerWatch();
   clearTimeout(wheelTimer);
   clearTimeout(settleTimer);
   if (!preserveReveal) {
@@ -436,6 +437,25 @@ function handleDelete(id: string) {
   emit("delete", id);
 }
 
+function stopPendingPointerWatch() {
+  window.removeEventListener("pointerup", handleWindowPointerUp);
+  window.removeEventListener("pointercancel", handleWindowPointerCancel);
+}
+
+function startPendingPointerWatch() {
+  stopPendingPointerWatch();
+  window.addEventListener("pointerup", handleWindowPointerUp);
+  window.addEventListener("pointercancel", handleWindowPointerCancel);
+}
+
+function handleWindowPointerUp(event: PointerEvent) {
+  finishPointer(event);
+}
+
+function handleWindowPointerCancel(event: PointerEvent) {
+  finishPointer(event, true);
+}
+
 function isReelControl(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest("[data-reel-control]"));
 }
@@ -461,7 +481,7 @@ function handlePointerDown(event: PointerEvent) {
   pointerLastAt = performance.now();
   pointerVelocity = 0;
   dragDistance.value = 0;
-  reelRoot.value?.setPointerCapture(event.pointerId);
+  startPendingPointerWatch();
 }
 
 function handlePointerMove(event: PointerEvent) {
@@ -497,6 +517,7 @@ function handlePointerMove(event: PointerEvent) {
 
 function finishPointer(event: PointerEvent, cancelled = false) {
   if (pointerId !== event.pointerId) return;
+  stopPendingPointerWatch();
   const wasDragging = dragging.value;
   const wasHorizontalRejection = horizontalGestureRejected;
   const delta = dragDistance.value;

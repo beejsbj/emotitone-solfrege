@@ -17,6 +17,9 @@
           :item="currentPattern"
           active
           @select="lastAction = 'Unwind around Current Take'"
+          @delete="lastAction = 'Current Take deletion unavailable'"
+          @copy="lastAction = 'Copy Current Take'"
+          @open-strudel="lastAction = 'Open Current Take'"
         />
         <output aria-live="polite">{{ lastAction }}</output>
       </div>
@@ -24,13 +27,32 @@
 
     <VariantGrid title="States">
       <VariantCell caption="Background · top Bar Tape" stage="ink3">
-        <PatternStrip :item="backgroundPattern" />
+        <PatternStrip
+          :item="backgroundPattern"
+          @select="lastAction = 'Select background state'"
+          @delete="lastAction = 'Delete background state'"
+          @copy="lastAction = 'Copy background state'"
+          @open-strudel="lastAction = 'Open background state'"
+        />
       </VariantCell>
       <VariantCell caption="Current · tape transferred to CodeStrip" stage="ink3">
-        <PatternStrip :item="currentPattern" active />
+        <PatternStrip
+          :item="currentPattern"
+          active
+          @select="lastAction = 'Unwind around current state'"
+          @delete="lastAction = 'Current state deletion unavailable'"
+          @copy="lastAction = 'Copy current state'"
+          @open-strudel="lastAction = 'Open current state'"
+        />
       </VariantCell>
       <VariantCell caption="Delete armed · explicit second tap" stage="ink3">
-        <PatternStrip :item="armedPattern" />
+        <PatternStrip
+          :item="armedPattern"
+          @select="lastAction = 'Select delete-armed state'"
+          @delete="lastAction = 'Confirm delete-armed state'"
+          @copy="lastAction = 'Copy delete-armed state'"
+          @open-strudel="lastAction = 'Open delete-armed state'"
+        />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>

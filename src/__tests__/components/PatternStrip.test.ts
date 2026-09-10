@@ -122,5 +122,9 @@ describe("PatternStrip", () => {
     expect(reelSpecimenSource.match(/@delete=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@copy=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@open-strudel=/g)).toHaveLength(4);
+    expect(stripSpecimenSource.match(/@select=/g)).toHaveLength(5);
+    expect(stripSpecimenSource.match(/@delete=/g)).toHaveLength(5);
+    expect(stripSpecimenSource.match(/@copy=/g)).toHaveLength(5);
+    expect(stripSpecimenSource.match(/@open-strudel=/g)).toHaveLength(5);
   });
 });

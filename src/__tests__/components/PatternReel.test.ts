@@ -230,18 +230,17 @@ describe("PatternReel", () => {
     const releasePointerCapture = vi.fn();
     Object.defineProperties(reel, {
       setPointerCapture: { value: setPointerCapture },
-      hasPointerCapture: { value: vi.fn(() => true) },
+      hasPointerCapture: { value: vi.fn(() => false) },
       releasePointerCapture: { value: releasePointerCapture },
     });
     const identity = slotFor(wrapper, "Gamma").get(".pattern-strip__identity");
-
     await identity.trigger("pointerdown", {
       button: 0,
       clientX: 20,
       clientY: 20,
       pointerId: 7,
     });
-    expect(setPointerCapture).toHaveBeenCalledWith(7);
+    expect(setPointerCapture).not.toHaveBeenCalled();
 
     await wrapper.trigger("pointermove", {
       clientX: 40,
@@ -252,13 +251,89 @@ describe("PatternReel", () => {
 
     vi.advanceTimersByTime(400);
     await wrapper.trigger("pointerup", { pointerId: 7 });
-    expect(releasePointerCapture).toHaveBeenCalledWith(7);
+    expect(releasePointerCapture).not.toHaveBeenCalled();
 
     await identity.trigger("click");
     expect(wrapper.emitted("commit")).toBeUndefined();
 
     await wrapper.trigger("keydown", { key: "ArrowDown" });
     expect(wrapper.emitted("commit")).toEqual([["alpha", "keyboard"]]);
+  });
+
+  it("defers pointer capture so an ordinary identity tap reaches its button", async () => {
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const reel = wrapper.element as HTMLElement;
+    const setPointerCapture = vi.fn();
+    const releasePointerCapture = vi.fn();
+    Object.defineProperties(reel, {
+      setPointerCapture: { value: setPointerCapture },
+      hasPointerCapture: { value: vi.fn(() => false) },
+      releasePointerCapture: { value: releasePointerCapture },
+    });
+    const identity = slotFor(wrapper, "Gamma").get(".pattern-strip__identity");
+
+    await identity.trigger("pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 8,
+    });
+    await identity.trigger("pointerup", { pointerId: 8 });
+
+    expect(setPointerCapture).not.toHaveBeenCalled();
+    expect(releasePointerCapture).not.toHaveBeenCalled();
+
+    await identity.trigger("click");
+    await nextTick();
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+  });
+
+  it("clears an uncaptured pointer released outside before the next gesture", async () => {
+    const addWindowListener = vi.spyOn(window, "addEventListener");
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+    const reel = wrapper.element as HTMLElement;
+    const setPointerCapture = vi.fn();
+    Object.defineProperties(reel, {
+      setPointerCapture: { value: setPointerCapture },
+      hasPointerCapture: { value: vi.fn(() => false) },
+      releasePointerCapture: { value: vi.fn() },
+    });
+    const identity = slotFor(wrapper, "Gamma").get(".pattern-strip__identity");
+    await identity.trigger("pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 12,
+    });
+    expect(addWindowListener).toHaveBeenCalledWith("pointerup", expect.any(Function));
+    const outsideRelease = new Event("pointerup");
+    Object.defineProperty(outsideRelease, "pointerId", { value: 12 });
+    const outsideReleaseListener = addWindowListener.mock.calls
+      .find(([type]) => type === "pointerup")?.[1] as EventListener;
+    outsideReleaseListener(outsideRelease);
+
+    await identity.trigger("pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 70,
+      pointerId: 13,
+    });
+    expect(addWindowListener.mock.calls.filter(([type]) => type === "pointerup"))
+      .toHaveLength(2);
+    await wrapper.trigger("pointermove", {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 13,
+    });
+
+    expect(setPointerCapture).toHaveBeenCalledWith(13);
+    await wrapper.trigger("pointercancel", { pointerId: 13 });
+    wrapper.unmount();
   });
 
   it("returns a cancelled direct drag to the deck without starting the open hold", async () => {
@@ -329,6 +404,7 @@ describe("PatternReel", () => {
       `--slot-y: ${openDragPosition}`,
     );
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+    wrapper.unmount();
   });
 
   it("keeps the revealed wheel open while keyboard focus remains in a predecessor", async () => {
@@ -430,6 +506,7 @@ describe("PatternReel", () => {
       .toHaveLength(1);
     expect(alphaSlots.filter((slot) => slot.attributes("inert") !== undefined))
       .toHaveLength(1);
+    wrapper.unmount();
   });
 
   it("commits cyclic keyboard selection immediately", async () => {

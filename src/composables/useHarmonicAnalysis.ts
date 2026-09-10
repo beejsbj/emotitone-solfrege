@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, reactive, readonly, ref, watch } from "vue";
-import { Chord, Interval } from "@tonaljs/tonal";
+import { Chord, Interval, Note } from "@tonaljs/tonal";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import type {
   ActiveNote,
@@ -15,6 +15,23 @@ function createEmptySnapshot(): HarmonicAnalysisSnapshot {
     chordLabel: null,
     emotionalDescription: "",
   };
+}
+
+function detectChordLabel(notes: readonly string[]): string | null {
+  const notesByPitch = [...notes].sort(
+    (first, second) => (Note.get(first).midi ?? 0) - (Note.get(second).midi ?? 0)
+  );
+  const rootCandidates = Chord.detect(
+    [...notes].sort((first, second) => Note.get(first).chroma - Note.get(second).chroma)
+  );
+  const rootChord = rootCandidates[0];
+  if (!rootChord) return null;
+
+  const bass = Note.get(notesByPitch[0]);
+  const root = rootChord.match(/^[A-G](?:#|b)?/)?.[0];
+  return root && Note.get(`${root}4`).chroma === bass.chroma
+    ? rootChord
+    : `${rootChord}/${bass.pc}`;
 }
 
 export function useHarmonicAnalysis(
@@ -110,8 +127,7 @@ export function useHarmonicAnalysis(
       return null;
     }
 
-    const detectedChords = Chord.detect(notes);
-    return detectedChords.length > 0 ? detectedChords[0] : null;
+    return detectChordLabel(notes);
   });
 
   const emotionalDescription = computed(() => {

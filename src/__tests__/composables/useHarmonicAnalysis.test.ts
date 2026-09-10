@@ -198,6 +198,44 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.emotionalDescription).toBe("");
   });
 
+  it.each([
+    ["C4", "E4", "G4"],
+    ["G4", "C4", "E4"],
+    ["E4", "G4", "C4"],
+  ])("detects a root-position triad independent of press order: %s, %s, %s", (...noteNames) => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    noteNames.forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe("CM");
+  });
+
+  it.each([
+    ["E3", "G4", "C5"],
+    ["C5", "E3", "G4"],
+    ["G4", "C5", "E3"],
+  ])("detects an E-inversion by actual bass independent of press order: %s, %s, %s", (...noteNames) => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    noteNames.forEach((noteName, index) =>
+      notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
+    );
+
+    expect(snapshot.value.chordLabel).toBe("CM/E");
+  });
+
+  it("updates the inversion when the actual bass changes", () => {
+    const { snapshot, notePlayed } = createAnalysis();
+
+    notePlayed(createActiveNote("g3", "G3", "G"));
+    notePlayed(createActiveNote("c4", "C4", "C"));
+    notePlayed(createActiveNote("e4", "E4", "E"));
+
+    expect(snapshot.value.chordLabel).toBe("CM/G");
+  });
+
   it("hydrates notes that are already held when harmonic geometry is enabled", async () => {
     const c4 = createActiveNote("note-c4", "C4", "Do");
     const e4 = createActiveNote("note-e4", "E4", "Mi");

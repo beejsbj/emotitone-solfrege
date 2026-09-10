@@ -864,4 +864,51 @@ describe("Patterns Store", () => {
       notes: defaultPattern.notes,
     });
   });
+
+  it("does not turn a renamed live phrase into a shared-note saved snapshot", () => {
+    patternsStore.loggedNotes = [
+      createLogNote({
+        id: "live-a",
+        pressTime: 1000,
+        releaseTime: 1200,
+        isStartingNewPattern: true,
+      }),
+      createLogNote({
+        id: "live-b",
+        pressTime: 1300,
+        releaseTime: 1500,
+        isStartingNewPattern: false,
+      }),
+      createLogNote({
+        id: "live-c",
+        pressTime: 1600,
+        releaseTime: 1800,
+        isStartingNewPattern: false,
+      }),
+    ];
+    const dynamicId = patternsStore.dynamicPatterns[0]?.id;
+    if (!dynamicId) throw new Error("Missing dynamic pattern");
+
+    expect(patternsStore.renamePattern(dynamicId, "Unsafe snapshot")).toBe(false);
+    expect(patternsStore.savedPatterns).toEqual([]);
+
+    patternsStore.loggedNotes.push(createLogNote({
+      id: "live-d",
+      pressTime: 1900,
+      releaseTime: 2100,
+      isStartingNewPattern: false,
+    }));
+    expect(patternsStore.loggedNotes.map((note) => note.id)).toEqual([
+      "live-a",
+      "live-b",
+      "live-c",
+      "live-d",
+    ]);
+    expect(patternsStore.dynamicPatterns[0]?.notes.map((note) => note.id)).toEqual([
+      "live-a",
+      "live-b",
+      "live-c",
+      "live-d",
+    ]);
+  });
 });

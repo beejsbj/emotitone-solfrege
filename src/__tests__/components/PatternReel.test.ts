@@ -314,6 +314,45 @@ describe("PatternReel", () => {
     expect(activeSuccessor?.attributes("style")).toContain("--slot-y: 0px");
   });
 
+  it("preserves focused live-phrase actions while its domain id evolves", async () => {
+    for (const reelSize of [3, 5]) {
+      const livePhrase = {
+        ...item("dynamic-a-c", "Live phrase"),
+        presentationKey: "dynamic:note-a",
+      };
+      const reelItems = [
+        ...Array.from({ length: reelSize - 1 }, (_, index) => (
+          item(`stored-${index}`, `Stored ${index}`)
+        )),
+        livePhrase,
+      ];
+      const wrapper = mount(PatternReel, {
+        attachTo: document.body,
+        props: { items: reelItems, selectedId: livePhrase.id },
+      });
+      const originalSlot = slotFor(wrapper, "Live phrase");
+      const originalCopy = originalSlot.get('button[aria-label="Copy Live phrase Strudel code"]');
+      (originalCopy.element as HTMLElement).focus();
+
+      const evolvedPhrase = { ...livePhrase, id: "dynamic-a-d" };
+      await wrapper.setProps({
+        items: [...reelItems.slice(0, -1), evolvedPhrase],
+        selectedId: evolvedPhrase.id,
+      });
+      await nextTick();
+
+      const evolvedSlot = slotFor(wrapper, "Live phrase");
+      const evolvedCopy = evolvedSlot.get('button[aria-label="Copy Live phrase Strudel code"]');
+      expect(evolvedSlot.attributes("data-pattern-id")).toBe(evolvedPhrase.id);
+      expect(evolvedCopy.element).toBe(originalCopy.element);
+      expect(document.activeElement).toBe(evolvedCopy.element);
+
+      await evolvedCopy.trigger("click");
+      expect(wrapper.emitted("copy")?.at(-1)).toEqual([evolvedPhrase.id]);
+      wrapper.unmount();
+    }
+  });
+
   it("captures pending drags and scopes horizontal-gesture click suppression to the viewport", async () => {
     vi.useFakeTimers();
     const wrapper = mount(PatternReel, {

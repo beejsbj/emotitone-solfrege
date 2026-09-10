@@ -642,7 +642,7 @@ export const usePatternsStore = defineStore(
       }
 
       const pattern = patterns.value.find((candidate) => candidate.id === patternId);
-      if (!pattern) return false;
+      if (!pattern?.isDefault) return false;
 
       savedPatterns.value.push({
         ...pattern,

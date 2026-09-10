@@ -128,10 +128,22 @@ const emit = defineEmits<{
 }
 
 .control-bar__item:first-child :deep(.instrument-control) {
-  margin-inline: var(--s-4) auto;
+  margin-inline:
+    clamp(
+      0px,
+      calc((100% - var(--instrument-control-size)) / 2),
+      var(--s-4)
+    )
+    auto;
 }
 
 .control-bar__item:last-child :deep(.instrument-control) {
-  margin-inline: auto var(--s-4);
+  margin-inline:
+    auto
+    clamp(
+      0px,
+      calc((100% - var(--instrument-control-size)) / 2),
+      var(--s-4)
+    );
 }
 </style>

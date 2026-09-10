@@ -238,14 +238,43 @@ describe("PatternList production adapter", () => {
     ];
     await nextTick();
     const wrapper = shallowMount(PatternList);
+    const originalId = patternsStore.dynamicPatterns[0]?.id;
+    const originalItem = reelItems(wrapper).find((item) => item.id === originalId);
 
     patternsStore.loggedNotes.push(createDynamicNote("d", 3));
     await nextTick();
 
     const dynamicId = patternsStore.dynamicPatterns[0]?.id;
+    const evolvedItem = reelItems(wrapper).find((item) => item.id === dynamicId);
     expect(patternsStore.focusedPatternId).toBe(dynamicId);
     expect(wrapper.getComponent(PatternReel).props("selectedId")).toBe(dynamicId);
     expect(reelItems(wrapper).some((item) => item.id === "current-pattern-take")).toBe(false);
+    expect(originalItem).toMatchObject({
+      presentationKey: "dynamic:a",
+      canRename: false,
+    });
+    expect(evolvedItem).toMatchObject({
+      presentationKey: originalItem?.presentationKey,
+      canRename: false,
+    });
+  });
+
+  it("rejects rename events for an unsaved live phrase", async () => {
+    const patternsStore = usePatternsStore();
+    patternsStore.loggedNotes = [
+      createDynamicNote("a", 0),
+      createDynamicNote("b", 1),
+      createDynamicNote("c", 2),
+    ];
+    await nextTick();
+    const wrapper = shallowMount(PatternList);
+    const dynamicId = patternsStore.dynamicPatterns[0]?.id;
+    if (!dynamicId) throw new Error("Missing dynamic pattern");
+
+    wrapper.getComponent(PatternReel).vm.$emit("rename", dynamicId, "Unsafe snapshot");
+
+    expect(patternsStore.savedPatterns).toEqual([]);
+    expect(patternsStore.loggedNotes.map((note) => note.id)).toEqual(["a", "b", "c"]);
   });
 
   it("retains pattern-bound two-tap deletion and default protection", async () => {

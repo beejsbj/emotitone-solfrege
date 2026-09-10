@@ -86,8 +86,9 @@ describe("ControlBar.vue", () => {
   it("spreads equal-width controls without a horizontal scroller", () => {
     expect(controlBarSource).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
     expect(controlBarSource).toContain("padding: 3px 0 4px");
-    expect(controlBarSource).toContain("margin-inline: var(--s-4) auto");
-    expect(controlBarSource).toContain("margin-inline: auto var(--s-4)");
+    expect(controlBarSource.match(/calc\(\(100% - var\(--instrument-control-size\)\) \/ 2\)/g))
+      .toHaveLength(2);
+    expect(controlBarSource.match(/var\(--s-4\)/g)).toHaveLength(2);
     expect(controlBarSource).not.toContain("overflow-x: auto");
     expect(controlBarSource).not.toContain("width: max-content");
   });

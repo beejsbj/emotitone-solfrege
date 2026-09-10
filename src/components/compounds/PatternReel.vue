@@ -72,7 +72,9 @@ import PatternStrip from "./PatternStrip.vue";
 import type { PatternStripItem } from "./PatternStrip.vue";
 
 export type PatternReelInput = "drag" | "wheel" | "tap" | "keyboard";
-export type PatternReelItem = PatternStripItem;
+export type PatternReelItem = PatternStripItem & {
+  presentationKey?: string;
+};
 
 const WHEEL_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
@@ -186,23 +188,30 @@ function slotForIndex(itemIndex: number) {
   return null;
 }
 
+function presentationKey(item: PatternReelItem) {
+  return item.presentationKey ?? `pattern:${item.id}`;
+}
+
 const renderedSlots = computed(() => {
   const stagesShortIncoming = props.items.length > 1 && props.items.length <= 4;
   const incoming = stagesShortIncoming
     ? props.items[wrapIndex(displayIndex.value + 1)]
     : undefined;
   const slots = props.items
-    .map((item, itemIndex) => ({
-      item,
-      slot: slotForIndex(itemIndex),
-      key: incoming?.id === item.id ? `${item.id}:receding` : item.id,
-    }))
+    .map((item, itemIndex) => {
+      const key = presentationKey(item);
+      return {
+        item,
+        slot: slotForIndex(itemIndex),
+        key: incoming?.id === item.id ? `${key}:receding` : key,
+      };
+    })
     .filter((entry): entry is { item: PatternReelItem; slot: number; key: string } => (
       entry.slot !== null
     ));
 
   if (incoming) {
-    slots.push({ item: incoming, slot: 1, key: incoming.id });
+    slots.push({ item: incoming, slot: 1, key: presentationKey(incoming) });
   }
 
   return slots.sort((first, second) => first.slot - second.slot);

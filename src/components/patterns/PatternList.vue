@@ -121,11 +121,22 @@ function notation(notes: PatternNote[], context: PatternContext) {
   });
 }
 
+function isStoredPattern(pattern: Pattern) {
+  return Boolean(
+    pattern.isDefault
+    || patternsStore.savedPatterns.some((candidate) => candidate.id === pattern.id),
+  );
+}
+
 function reelItem(pattern: Pattern): PatternReelItem {
   const octave = rootOctave(pattern.notes);
   const pitchClass = rootPitchClass(pattern.key);
+  const stored = isStoredPattern(pattern);
   return {
     id: pattern.id,
+    presentationKey: stored
+      ? `stored:${pattern.id}`
+      : `dynamic:${pattern.notes[0]?.id ?? pattern.id}`,
     name: pattern.name ?? "Untitled pattern",
     instrumentIcon: instrumentIconFor(pattern.instrument),
     instrumentLabel: displayInstrumentName(pattern.instrument),
@@ -139,7 +150,7 @@ function reelItem(pattern: Pattern): PatternReelItem {
     barTape: barTape(pattern.notes, pattern),
     copied: copiedPatternId.value === pattern.id,
     canDelete: !pattern.isDefault,
-    canRename: true,
+    canRename: stored,
     deleteArmed: deleteArmedPatternId.value === pattern.id,
   };
 }
@@ -247,6 +258,8 @@ function selectPattern(id: string) {
 
 function renamePattern(id: string, name: string) {
   if (id === CURRENT_TAKE_ID) return;
+  const pattern = patternById(id);
+  if (!pattern || !isStoredPattern(pattern)) return;
   patternsStore.renamePattern(id, name);
 }
 

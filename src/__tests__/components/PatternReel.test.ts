@@ -196,7 +196,32 @@ describe("PatternReel", () => {
     expect(wrapper.emitted("commit")).toEqual([["alpha", "wheel"]]);
   });
 
+  it("bounds page-mode wheel input to one cyclic step", async () => {
+    vi.useFakeTimers();
+    const fourItems = [...items, item("delta", "Delta")];
+    const wrapper = mount(PatternReel, {
+      props: { items: fourItems, selectedId: "delta" },
+    });
+    const pageWheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaMode: WheelEvent.DOM_DELTA_PAGE,
+      deltaY: 1,
+    });
+
+    wrapper.element.dispatchEvent(pageWheel);
+    await nextTick();
+
+    expect(pageWheel.defaultPrevented).toBe(true);
+    expect(slotFor(wrapper, "Alpha").classes()).toContain("pattern-reel__slot--active");
+
+    vi.advanceTimersByTime(220);
+    await nextTick();
+    expect(wrapper.emitted("commit")).toEqual([["alpha", "wheel"]]);
+  });
+
   it("captures pending drags and scopes horizontal-gesture click suppression to the viewport", async () => {
+    vi.useFakeTimers();
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },
     });
@@ -223,6 +248,10 @@ describe("PatternReel", () => {
       clientY: 21,
       pointerId: 7,
     });
+    expect(releasePointerCapture).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(400);
+    await wrapper.trigger("pointerup", { pointerId: 7 });
     expect(releasePointerCapture).toHaveBeenCalledWith(7);
 
     await identity.trigger("click");
@@ -300,6 +329,66 @@ describe("PatternReel", () => {
       `--slot-y: ${openDragPosition}`,
     );
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+  });
+
+  it("keeps the revealed wheel open while keyboard focus remains in a predecessor", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      attachTo: document.body,
+      props: { items, selectedId: "gamma" },
+    });
+
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await nextTick();
+    const betaDelete = slotFor(wrapper, "Beta").get('button[aria-label="Delete Beta"]');
+    (betaDelete.element as HTMLElement).focus();
+
+    vi.advanceTimersByTime(1100);
+    await nextTick();
+    expect(document.activeElement).toBe(betaDelete.element);
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+
+    (wrapper.element as HTMLElement).focus();
+    await nextTick();
+    vi.advanceTimersByTime(899);
+    await nextTick();
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+
+    vi.advanceTimersByTime(1);
+    await nextTick();
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+
+    wrapper.unmount();
+  });
+
+  it("does not let predecessor focus in another reel pause its collapse", async () => {
+    vi.useFakeTimers();
+    const firstReel = mount(PatternReel, {
+      attachTo: document.body,
+      props: { items, selectedId: "gamma" },
+    });
+    const secondReel = mount(PatternReel, {
+      attachTo: document.body,
+      props: { items, selectedId: "gamma" },
+    });
+
+    await firstReel.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await secondReel.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await nextTick();
+    const secondBetaDelete = slotFor(secondReel, "Beta")
+      .get('button[aria-label="Delete Beta"]');
+    (secondBetaDelete.element as HTMLElement).focus();
+
+    vi.advanceTimersByTime(1100);
+    await nextTick();
+
+    expect(slotFor(firstReel, "Beta").attributes("aria-hidden")).toBe("true");
+    expect(slotFor(secondReel, "Beta").attributes("aria-hidden")).toBeUndefined();
+
+    firstReel.unmount();
+    secondReel.unmount();
   });
 
   it("keeps the incoming identity continuous when a short reel wraps upward", async () => {
@@ -440,5 +529,15 @@ describe("PatternReel", () => {
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.pattern-reel__slot\s*{[\s\S]*transition: none;/,
     );
     expect(patternReelSource).toContain("@media (forced-colors: active)");
+  });
+
+  it("keeps one predecessor visible on the shortest stage", () => {
+    const shortStageRule = patternReelSource.slice(
+      patternReelSource.indexOf("@media (max-height: 560px)"),
+      patternReelSource.indexOf("@media (prefers-reduced-motion: reduce)"),
+    );
+
+    expect(shortStageRule).toContain("--reel-height: 97.6px");
+    expect(shortStageRule).not.toContain("pattern-reel__slot--depth-1");
   });
 });

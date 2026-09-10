@@ -17,6 +17,7 @@
     @pointermove="handlePointerMove"
     @pointerup="handlePointerUp"
     @pointercancel="cancelPointer"
+    @focusout="handleFocusOut"
     @click.capture="suppressDragClick"
   >
     <div v-if="items.length" class="pattern-reel__viewport">
@@ -130,6 +131,7 @@ let settleTimer: ReturnType<typeof setTimeout> | undefined;
 let collapseTimer: ReturnType<typeof setTimeout> | undefined;
 let reboundTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressClicksUntil = 0;
+let horizontalGestureRejected = false;
 
 const selectedIndex = computed(() => {
   const index = props.items.findIndex((item) => item.id === props.selectedId);
@@ -313,20 +315,53 @@ function revealWheelTemporarily() {
   }
 
   clearTimeout(collapseTimer);
+  collapseTimer = undefined;
   clearTimeout(reboundTimer);
   reelRebounding.value = true;
   revealHeld.value = true;
   reboundTimer = setTimeout(() => {
     reelRebounding.value = false;
   }, WHEEL_REBOUND_DURATION_MS);
+  scheduleCollapse(WHEEL_REBOUND_DURATION_MS + WHEEL_OPEN_HOLD_MS);
+}
+
+function backgroundSlotFor(target: EventTarget | null) {
+  if (!(target instanceof Element)) return null;
+  const slot = target.closest(".pattern-reel__slot");
+  if (
+    !slot
+    || !reelRoot.value?.contains(slot)
+    || slot.classList.contains("pattern-reel__slot--active")
+  ) return null;
+  return slot;
+}
+
+function collapseWheel() {
+  clearTimeout(reboundTimer);
+  reelRebounding.value = true;
+  revealHeld.value = false;
+  reboundTimer = setTimeout(() => {
+    reelRebounding.value = false;
+  }, WHEEL_REBOUND_DURATION_MS);
+}
+
+function scheduleCollapse(delayMs: number) {
+  clearTimeout(collapseTimer);
   collapseTimer = setTimeout(() => {
-    clearTimeout(reboundTimer);
-    reelRebounding.value = true;
-    revealHeld.value = false;
-    reboundTimer = setTimeout(() => {
-      reelRebounding.value = false;
-    }, WHEEL_REBOUND_DURATION_MS);
-  }, WHEEL_REBOUND_DURATION_MS + WHEEL_OPEN_HOLD_MS);
+    collapseTimer = undefined;
+    if (backgroundSlotFor(document.activeElement)) return;
+    collapseWheel();
+  }, delayMs);
+}
+
+function handleFocusOut(event: FocusEvent) {
+  if (
+    !revealHeld.value
+    || collapseTimer !== undefined
+    || !backgroundSlotFor(event.target)
+    || backgroundSlotFor(event.relatedTarget)
+  ) return;
+  scheduleCollapse(WHEEL_OPEN_HOLD_MS);
 }
 
 function cancelPendingInteraction(preserveReveal = false) {
@@ -334,6 +369,7 @@ function cancelPendingInteraction(preserveReveal = false) {
   clearTimeout(settleTimer);
   if (!preserveReveal) {
     clearTimeout(collapseTimer);
+    collapseTimer = undefined;
     clearTimeout(reboundTimer);
   }
   wheelAccumulator = 0;
@@ -352,6 +388,7 @@ function cancelPendingInteraction(preserveReveal = false) {
   }
   pointerId = null;
   pointerStartedRevealed = false;
+  horizontalGestureRejected = false;
 }
 
 function prepareAnimatedCommit() {
@@ -428,7 +465,7 @@ function handlePointerDown(event: PointerEvent) {
 }
 
 function handlePointerMove(event: PointerEvent) {
-  if (pointerId !== event.pointerId) return;
+  if (pointerId !== event.pointerId || horizontalGestureRejected) return;
   const delta = event.clientY - pointerStartY;
   const horizontalDelta = event.clientX - pointerStartX;
   const now = performance.now();
@@ -439,18 +476,14 @@ function handlePointerMove(event: PointerEvent) {
 
   if (!dragging.value) {
     if (Math.abs(horizontalDelta) > 6 && Math.abs(horizontalDelta) > Math.abs(delta)) {
-      suppressClicksUntil = performance.now() + 320;
-      if (reelRoot.value?.hasPointerCapture(event.pointerId)) {
-        reelRoot.value.releasePointerCapture(event.pointerId);
-      }
-      pointerId = null;
-      pointerStartedRevealed = false;
+      horizontalGestureRejected = true;
       return;
     }
     if (Math.abs(delta) < 6 || Math.abs(delta) <= Math.abs(horizontalDelta)) return;
     dragging.value = true;
     if (pointerStartedRevealed) {
       clearTimeout(collapseTimer);
+      collapseTimer = undefined;
       clearTimeout(reboundTimer);
       reelRebounding.value = false;
     }
@@ -465,15 +498,22 @@ function handlePointerMove(event: PointerEvent) {
 function finishPointer(event: PointerEvent, cancelled = false) {
   if (pointerId !== event.pointerId) return;
   const wasDragging = dragging.value;
+  const wasHorizontalRejection = horizontalGestureRejected;
   const delta = dragDistance.value;
   const resumeRevealAfterCancel = wasDragging && cancelled && pointerStartedRevealed;
   pointerId = null;
   pointerStartedRevealed = false;
+  horizontalGestureRejected = false;
   dragging.value = false;
   dragDistance.value = 0;
 
   if (reelRoot.value?.hasPointerCapture(event.pointerId)) {
     reelRoot.value.releasePointerCapture(event.pointerId);
+  }
+
+  if (wasHorizontalRejection) {
+    if (!cancelled) suppressClicksUntil = performance.now() + 320;
+    return;
   }
 
   if (wasDragging && !cancelled) revealWheelTemporarily();
@@ -519,7 +559,9 @@ function suppressDragClick(event: MouseEvent) {
 
 function normalizedWheelDelta(event: WheelEvent) {
   if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 20;
-  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) return event.deltaY * window.innerHeight;
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return Math.sign(event.deltaY) * WHEEL_STEP;
+  }
   return event.deltaY;
 }
 
@@ -713,11 +755,7 @@ onBeforeUnmount(() => {
 
 @media (max-height: 560px) {
   .pattern-reel {
-    --reel-height: 51.2px;
-  }
-
-  .pattern-reel__slot--depth-1:not(.pattern-reel__slot--active) {
-    visibility: hidden;
+    --reel-height: 97.6px;
   }
 }
 

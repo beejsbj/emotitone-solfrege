@@ -213,6 +213,7 @@ describe("useHarmonicAnalysis", () => {
     );
 
     expect(snapshot.value.chordLabel).toBe(expectedLabel);
+    expect(snapshot.value.displayedNotes.map((note) => note.noteName)).toEqual(noteNames);
   });
 
   it.each([
@@ -229,6 +230,7 @@ describe("useHarmonicAnalysis", () => {
     );
 
     expect(snapshot.value.chordLabel).toBe(expectedLabel);
+    expect(snapshot.value.displayedNotes.map((note) => note.noteName)).toEqual(noteNames);
   });
 
   it.each([
@@ -245,7 +247,7 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.chordLabel).toBe("CM/E");
   });
 
-  it("updates the inversion when the actual bass changes", () => {
+  it("detects second inversion with G below C and E", () => {
     const { snapshot, notePlayed } = createAnalysis();
 
     notePlayed(createActiveNote("g3", "G3", "G"));

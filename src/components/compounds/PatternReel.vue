@@ -144,8 +144,8 @@ const dragProgress = computed(() => {
   return Math.max(-1, Math.min(1, progress));
 });
 const unwindProgress = computed(() => {
-  if (prefersReducedMotion()) return 0;
   if (revealHeld.value || transientIndex.value !== null) return 1;
+  if (prefersReducedMotion()) return 0;
   if (!dragging.value) return 0;
   return Math.min(1, Math.abs(dragDistance.value) / WHEEL_UNWIND_DISTANCE);
 });
@@ -310,7 +310,9 @@ function beginSettle(inputMode: PatternReelInput) {
 
 function revealWheelTemporarily() {
   if (prefersReducedMotion()) {
-    revealHeld.value = false;
+    revealHeld.value = true;
+    reelRebounding.value = false;
+    scheduleCollapse(WHEEL_OPEN_HOLD_MS);
     return;
   }
 
@@ -338,8 +340,9 @@ function backgroundSlotFor(target: EventTarget | null) {
 
 function collapseWheel() {
   clearTimeout(reboundTimer);
-  reelRebounding.value = true;
+  reelRebounding.value = !prefersReducedMotion();
   revealHeld.value = false;
+  if (prefersReducedMotion()) return;
   reboundTimer = setTimeout(() => {
     reelRebounding.value = false;
   }, WHEEL_REBOUND_DURATION_MS);
@@ -357,7 +360,6 @@ function scheduleCollapse(delayMs: number) {
 function handleFocusOut(event: FocusEvent) {
   if (
     !revealHeld.value
-    || collapseTimer !== undefined
     || !backgroundSlotFor(event.target)
     || backgroundSlotFor(event.relatedTarget)
   ) return;

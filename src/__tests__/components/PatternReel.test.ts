@@ -439,6 +439,31 @@ describe("PatternReel", () => {
     wrapper.unmount();
   });
 
+  it("restarts the full hold when focus exits a predecessor before the deadline", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      attachTo: document.body,
+      props: { items, selectedId: "gamma" },
+    });
+
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await nextTick();
+    vi.advanceTimersByTime(1000);
+    const betaDelete = slotFor(wrapper, "Beta").get('button[aria-label="Delete Beta"]');
+    (betaDelete.element as HTMLElement).focus();
+    (wrapper.element as HTMLElement).focus();
+    await nextTick();
+
+    vi.advanceTimersByTime(899);
+    await nextTick();
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+
+    vi.advanceTimersByTime(1);
+    await nextTick();
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
+    wrapper.unmount();
+  });
+
   it("does not let predecessor focus in another reel pause its collapse", async () => {
     vi.useFakeTimers();
     const firstReel = mount(PatternReel, {
@@ -577,7 +602,8 @@ describe("PatternReel", () => {
     }
   });
 
-  it("keeps Reduced Motion in the fixed deck posture", async () => {
+  it("lets Reduced Motion snap the deck open without animating it", async () => {
+    vi.useFakeTimers();
     vi.stubGlobal("matchMedia", vi.fn(() => ({
       matches: true,
       media: "(prefers-reduced-motion: reduce)",
@@ -594,7 +620,20 @@ describe("PatternReel", () => {
 
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+    expect(patternReelSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: none;/,
+    );
+
+    vi.advanceTimersByTime(899);
+    await nextTick();
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
+
+    vi.advanceTimersByTime(1);
+    await nextTick();
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
   });
 
   it("keeps motion local, compositor-safe, and still under Reduced Motion", () => {

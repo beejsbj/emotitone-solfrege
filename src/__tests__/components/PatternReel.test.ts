@@ -75,9 +75,9 @@ describe("PatternReel", () => {
     expect(wrapper.findAll(".bar-tape")).toHaveLength(3);
     expect(wrapper.findAll(".bar-tape").filter((tape) => (
       tape.attributes("aria-hidden") === undefined
-    ))).toHaveLength(2);
+    ))).toHaveLength(3);
     expect(slotFor(wrapper, "Gamma").get(".bar-tape").attributes("aria-hidden"))
-      .toBe("true");
+      .toBeUndefined();
     expect(wrapper.find(".pattern-reel__head").exists()).toBe(false);
     expect(wrapper.find(".pattern-reel__fade").exists()).toBe(false);
     expect(patternReelSource).toContain("width: 100%");
@@ -193,7 +193,7 @@ describe("PatternReel", () => {
     expect(wheelNotch.defaultPrevented).toBe(true);
     expect(slotFor(wrapper, "Alpha").classes()).toContain("pattern-reel__slot--active");
     expect(slotFor(wrapper, "Gamma").get(".bar-tape").attributes("aria-hidden"))
-      .toBe("true");
+      .toBeUndefined();
     expect(slotFor(wrapper, "Alpha").get(".bar-tape").attributes("aria-hidden"))
       .toBeUndefined();
 

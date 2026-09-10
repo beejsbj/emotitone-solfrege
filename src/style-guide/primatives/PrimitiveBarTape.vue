@@ -56,13 +56,13 @@ const timelines = patterns.map(toTimeline);
 
 const features = [
   { label: "Meaning", value: "the pattern's musical events in chronological order" },
-  { label: "Density", value: "4px compressed timeline" },
+  { label: "Density", value: "1px compressed timeline" },
   { label: "Segments", value: "one span per performed note; repeated notes remain ordered events" },
   { label: "Width", value: "proportional to duration with a 50ms minimum for visibility" },
   { label: "Color", value: "static primary fill from the shared Music Color resolver" },
   { label: "Surface", value: "borderless and flush; the consuming card owns clipping and framing" },
   { label: "Interaction", value: "none; Bar Tape is compact musical feedback" },
-  { label: "Production", value: "background PatternStrip top edge; Current transfers to CodeStrip" },
+  { label: "Production", value: "every PatternStrip top edge, including Current" },
 ];
 </script>
 

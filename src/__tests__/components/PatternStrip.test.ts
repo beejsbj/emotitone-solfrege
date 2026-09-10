@@ -44,7 +44,7 @@ describe("PatternStrip", () => {
     expect(patternStripSource).toContain("@media (forced-colors: active)");
   });
 
-  it("keeps Current tape mounted while visually and accessibly suppressing it", async () => {
+  it("keeps the 1px Bar Tape present when a strip becomes Current", async () => {
     const wrapper = mount(PatternStrip, {
       props: {
         item: { ...item, copied: true, deleteArmed: true },
@@ -53,7 +53,7 @@ describe("PatternStrip", () => {
     });
 
     const tapeElement = wrapper.get(".bar-tape").element;
-    expect(wrapper.get(".bar-tape").attributes("aria-hidden")).toBe("true");
+    expect(wrapper.get(".bar-tape").attributes("aria-hidden")).toBeUndefined();
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
       .toBe("Unwind patterns around Evening Glass, root F#4");
     await wrapper.setProps({ active: false });
@@ -61,11 +61,10 @@ describe("PatternStrip", () => {
     expect(wrapper.get(".bar-tape").attributes("aria-hidden")).toBeUndefined();
     expect(patternStripSource).not.toContain('v-if="!active"');
     expect(patternStripSource).toMatch(
-      /\.pattern-strip__tape\s*{[\s\S]*position: absolute;[\s\S]*transition: opacity/,
+      /\.pattern-strip__tape\s*{[\s\S]*position: absolute;[\s\S]*inset: 0 0 auto 4px;/,
     );
-    expect(patternStripSource).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.pattern-strip__tape\s*{[\s\S]*transition: none;/,
-    );
+    expect(patternStripSource).not.toContain(".pattern-strip--active .pattern-strip__tape");
+    expect(patternStripSource).not.toContain("transition: opacity");
     expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (
       button.attributes("aria-label")
     ))).toEqual([

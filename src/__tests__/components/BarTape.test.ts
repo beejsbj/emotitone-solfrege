@@ -33,7 +33,7 @@ describe("BarTape", () => {
   });
 
   it("keeps the primitive to the accepted compressed timeline contract", () => {
-    expect(barTapeSource).toContain("height: 4px");
+    expect(barTapeSource).toContain("height: 1px");
     expect(barTapeSource).toContain("MINIMUM_VISIBLE_DURATION = 50");
     expect(barTapeSource).not.toMatch(/BarTapeMode|BarTapeSize|BarTapeFrame|playhead|downbeat|majorFlex/);
   });

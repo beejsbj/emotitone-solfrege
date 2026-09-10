@@ -39,7 +39,7 @@ const segmentStyle = (segment: BarTapeSegment): CSSProperties => ({
 <style scoped>
 .bar-tape {
   display: flex;
-  height: 4px;
+  height: 1px;
   overflow: hidden;
   background: var(--ink);
 }

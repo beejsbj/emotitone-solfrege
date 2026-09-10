@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="PatternStrip &middot; Compound"
     :features="features"
-    caption="One sleek Ink row owns pattern identity and actions. Background strips carry the compressed Bar Tape on top; Current omits it because the adjacent CodeStrip presents the active pattern."
+    caption="One sleek Ink row owns pattern identity and actions. Every strip carries the same 1px compressed Bar Tape along its top edge, including Current."
   >
     <template #hero>
       <div class="pattern-strip-specimen">
@@ -26,7 +26,7 @@
     </template>
 
     <VariantGrid title="States">
-      <VariantCell caption="Background · top Bar Tape" stage="ink3">
+      <VariantCell caption="Background · 1px top Bar Tape" stage="ink3">
         <PatternStrip
           :item="backgroundPattern"
           @select="lastAction = 'Select background state'"
@@ -35,7 +35,7 @@
           @open-strudel="lastAction = 'Open background state'"
         />
       </VariantCell>
-      <VariantCell caption="Current · tape transferred to CodeStrip" stage="ink3">
+      <VariantCell caption="Current · same 1px top Bar Tape" stage="ink3">
         <PatternStrip
           :item="currentPattern"
           active
@@ -109,7 +109,7 @@ const features = [
   { label: "Children", value: "Bar Tape plus three small Buttons" },
   { label: "Surface", value: "51.2px Ink row; no Card shell, notch, metadata, or CodeStrip" },
   { label: "Spine", value: "4px Music Color from root key plus root octave" },
-  { label: "Tape", value: "top edge on background only; Current transfers presentation" },
+  { label: "Tape", value: "persistent 1px top edge on every strip, including Current" },
   { label: "Actions", value: "two-tap Delete, Copy feedback, Open in Strudel" },
   { label: "Source", value: "components/compounds/PatternStrip.vue" },
 ];

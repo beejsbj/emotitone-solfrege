@@ -733,10 +733,6 @@ onBeforeUnmount(() => {
   transition: none;
 }
 
-.pattern-reel--keyboard :deep(.pattern-strip__tape) {
-  transition: none;
-}
-
 .pattern-reel__empty {
   display: grid;
   min-height: var(--selected-height);

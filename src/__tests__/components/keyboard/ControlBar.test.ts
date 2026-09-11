@@ -127,9 +127,9 @@ describe("ControlBar.vue", () => {
     const options = mode.props("options");
     expect(options.map((option: { label: string }) => option.label)).toEqual([
       "Together", "Strum ↑", "Strum ↓",
-      "Arp ↑ 1/4", "Arp ↑ 1/8", "Arp ↑ 1/16",
-      "Arp ↕ 1/4", "Arp ↕ 1/8", "Arp ↕ 1/16",
-      "Repeat 1/4", "Repeat 1/8", "Repeat 1/16",
+      "Arp ↑\n1/4", "Arp ↑\n1/8", "Arp ↑\n1/16",
+      "Arp ↕\n1/4", "Arp ↕\n1/8", "Arp ↕\n1/16",
+      "Repeat\n1/4", "Repeat\n1/8", "Repeat\n1/16",
     ]);
     expect(new Set(options.map((option: { value: string }) => option.value)).size).toBe(12);
     await wrapper.setProps({ playMode: "repeat:16" });

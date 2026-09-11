@@ -439,7 +439,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Save configuration to localStorage
   const saveToStorage = () => {
-    if (!persistenceEnabled.value) return;
+    if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
 
     try {
       const dataToStore = {
@@ -554,7 +554,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   };
 
   const persistSavedStageLooks = () => {
-    if (!persistenceEnabled.value) return;
+    if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
     try {
       localStorage.setItem(SAVED_STAGE_LOOKS_KEY, JSON.stringify(savedStageLooks.value));
     } catch (error) {
@@ -564,10 +564,16 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   const saveStageLookAs = (name: string): SavedStageLook => {
     const now = new Date().toISOString();
+    // Save the composed appearance before the Stage master applies its
+    // temporary runtime suppression to supporting layers.
+    const composedAppearance = applyStageLook(
+      config,
+      transientStageLook.value?.patch,
+    );
     const savedLook: SavedStageLook = {
       id: Date.now().toString(),
       name,
-      patch: stageLookFromConfig(effectiveConfig.value),
+      patch: stageLookFromConfig(composedAppearance),
       createdAt: now,
       updatedAt: now,
     };

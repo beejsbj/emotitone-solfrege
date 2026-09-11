@@ -115,9 +115,27 @@
                 </div>
               </header>
 
-              <p v-if="transientStageLook" class="config-panel__look-status" role="status">
-                Previewing {{ transientStageLook.name }}. Edits stay in this preview until you keep it.
-              </p>
+              <div v-if="transientStageLook" class="config-panel__look-preview">
+                <p class="config-panel__look-status" role="status">
+                  Previewing {{ transientStageLook.name }}. Edits stay temporary until kept.
+                </p>
+                <div class="config-panel__look-preview-actions">
+                  <Button
+                    size="sm"
+                    data-testid="stage-look-keep-stage"
+                    title="Keep this Stage Look"
+                    accessible-name="Keep this Stage Look"
+                    @click="keepStageLook"
+                  ><Check :size="14" /></Button>
+                  <Button
+                    size="sm"
+                    data-testid="stage-look-discard-stage"
+                    title="Discard this Stage Look"
+                    accessible-name="Discard this Stage Look"
+                    @click="clearStageLook"
+                  ><RotateCcw :size="14" /></Button>
+                </div>
+              </div>
 
               <div class="config-panel__groups">
                 <div
@@ -175,8 +193,15 @@
                     accessible-name="Save current Stage Look"
                     @click="promptSaveStageLook"
                   ><Save :size="14" /></Button>
+                </div>
+              </header>
+
+              <div v-if="transientStageLook" class="config-panel__look-preview">
+                <p class="config-panel__look-status" role="status">
+                  Previewing {{ transientStageLook.name }}. Edits stay temporary until kept.
+                </p>
+                <div class="config-panel__look-preview-actions">
                   <Button
-                    v-if="transientStageLook"
                     size="sm"
                     data-testid="stage-look-keep"
                     title="Keep this Stage Look"
@@ -184,7 +209,6 @@
                     @click="keepStageLook"
                   ><Check :size="14" /></Button>
                   <Button
-                    v-if="transientStageLook"
                     size="sm"
                     data-testid="stage-look-discard"
                     title="Discard this Stage Look"
@@ -192,7 +216,7 @@
                     @click="clearStageLook"
                   ><RotateCcw :size="14" /></Button>
                 </div>
-              </header>
+              </div>
 
               <div class="config-panel__launch-setting">
                 <div>
@@ -1057,6 +1081,8 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__section-controls,
 .config-panel__looks-header,
 .config-panel__looks-actions,
+.config-panel__look-preview,
+.config-panel__look-preview-actions,
 .config-panel__launch-setting,
 .config-panel__midi-actions,
 .config-panel__saved-preset {
@@ -1124,12 +1150,30 @@ const formatTimestamp = (timestamp: string) => {
   margin-block-start: var(--s-2);
 }
 
-.config-panel__look-status {
-  margin-block: calc(-1 * var(--s-3)) var(--s-6);
+.config-panel__look-preview {
+  justify-content: space-between;
+  gap: var(--s-3);
   border-inline-start: 3px solid var(--brass);
   padding: var(--s-3) var(--s-4);
   background: var(--ink);
+}
+
+.config-panel__section > .config-panel__look-preview {
+  margin-block: calc(-1 * var(--s-3)) var(--s-6);
+}
+
+.config-panel__presets > .config-panel__look-preview {
+  margin-block: calc(-1 * var(--s-3));
+}
+
+.config-panel__look-status {
+  flex: 1;
   opacity: .82;
+}
+
+.config-panel__look-preview-actions {
+  flex: none;
+  gap: var(--s-2);
 }
 
 .config-panel__section-controls {

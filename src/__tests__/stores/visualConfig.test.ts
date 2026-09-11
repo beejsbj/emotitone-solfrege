@@ -874,6 +874,35 @@ describe('Visual Config Store', () => {
       expect(reloaded.config.hilbertScope.opacity).toBe(expectedOpacity)
     })
 
+    it('saves the composed Look rather than Stage master suppression', () => {
+      visualConfigStore.clearStageLook()
+      visualConfigStore.updateStageControl('bodiesVisible', true)
+      visualConfigStore.updateStageControl('atmosphereStrength', 0.7)
+      visualConfigStore.updateStageControl('stringPresence', 0.8)
+      visualConfigStore.updateStageControl('fleckAmount', 12)
+      visualConfigStore.updateStageControl('stageEnabled', false)
+
+      expect(visualConfigStore.effectiveConfig.blobs.isEnabled).toBe(false)
+      expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(false)
+      expect(visualConfigStore.effectiveConfig.strings.isEnabled).toBe(false)
+      expect(visualConfigStore.effectiveConfig.particles.isEnabled).toBe(false)
+
+      const saved = visualConfigStore.saveStageLookAs('Stage-off save')
+      expect(saved.patch.blobs?.isEnabled).toBe(true)
+      expect(saved.patch.ambient?.isEnabled).toBe(true)
+      expect(saved.patch.strings?.isEnabled).toBe(true)
+      expect(saved.patch.particles?.isEnabled).toBe(true)
+
+      visualConfigStore.updateStageControl('stageEnabled', true)
+      visualConfigStore.updateStageControl('bodiesVisible', false)
+      visualConfigStore.loadSavedStageLook(saved.id)
+
+      expect(visualConfigStore.effectiveConfig.blobs.isEnabled).toBe(true)
+      expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(true)
+      expect(visualConfigStore.effectiveConfig.strings.isEnabled).toBe(true)
+      expect(visualConfigStore.effectiveConfig.particles.isEnabled).toBe(true)
+    })
+
     it('resets Stage without touching separate systems or legacy saved configs', () => {
       visualConfigStore.updateConfig('dynamicColors', { musicColorMode: 'fixed' })
       visualConfigStore.updateConfig('uiBeat', { isEnabled: false })

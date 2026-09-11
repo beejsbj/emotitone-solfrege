@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { useStringRenderer } from "@/composables/canvas/useStringRenderer";
 
 const mocks = vi.hoisted(() => ({
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     visibleOctaves: [5, 4],
     keyboardConfig: { mainOctave: 4, rowCount: 2 },
   },
+  visualConfig: null as any,
 }));
 
 vi.mock("@/composables/useMusicColor", () => ({
@@ -31,9 +33,18 @@ vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => mocks.keyboardStore,
 }));
 
-vi.mock("@/stores/visualConfig", () => ({
-  useVisualConfigStore: () => ({ effectiveConfig: { strings: {} } }),
-}));
+vi.mock("@/stores/visualConfig", async () => {
+  const { reactive } = await vi.importActual<typeof import("vue")>("vue");
+  mocks.visualConfig = reactive({
+    effectiveConfig: {
+      strings: {
+        isEnabled: true,
+        octaveOffset: 0,
+      },
+    },
+  });
+  return { useVisualConfigStore: () => mocks.visualConfig };
+});
 
 vi.mock("@/composables/useGSAP", () => ({
   default: () => ({
@@ -49,6 +60,8 @@ describe("useStringRenderer humming lifecycle", () => {
     mocks.musicStore.getActiveNotes.mockReturnValue([]);
     mocks.keyboardStore.visibleOctaves = [5, 4];
     mocks.keyboardStore.keyboardConfig.mainOctave = 4;
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = true;
+    mocks.visualConfig.effectiveConfig.strings.octaveOffset = 0;
   });
 
   afterEach(() => {
@@ -158,6 +171,31 @@ describe("useStringRenderer humming lifecycle", () => {
     expect(xByOctave.get(1)).toBe(400);
     expect(xByOctave.get(2)).toBe(390);
     expect(xByOctave.get(3)).toBe(380);
+  });
+
+  it("initializes after Stage or Presence moves from disabled to enabled", async () => {
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = false;
+    const renderer = useStringRenderer();
+    renderer.initializeStrings({
+      isEnabled: false,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+    } as any, 800, 600, mocks.musicStore.solfegeData);
+
+    expect(renderer.strings.value).toHaveLength(0);
+
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = true;
+    await nextTick();
+
+    expect(renderer.strings.value).toHaveLength(2);
+
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = false;
+    await nextTick();
+    expect(renderer.strings.value).toHaveLength(0);
+
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = true;
+    await nextTick();
+    expect(renderer.strings.value).toHaveLength(2);
   });
 
   it("uses exact pitch for selection and the shared envelope for force", () => {

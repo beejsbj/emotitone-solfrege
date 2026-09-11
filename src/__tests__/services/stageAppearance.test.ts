@@ -133,6 +133,9 @@ describe("Stage appearance domain", () => {
     expect(first.patch).not.toHaveProperty("dynamicColors");
     expect(first.patch.hilbertScope).not.toHaveProperty("isEnabled");
     expect(first.patch.blobs).not.toHaveProperty("connectionMode");
+    expect(first.patch.blobs).not.toHaveProperty("fusionStrength");
+    expect(first.patch.blobs).not.toHaveProperty("fieldSoftness");
+    expect(first.patch.blobs).not.toHaveProperty("webOpacity");
     expect(first.patch.blobs).not.toHaveProperty("showChordLabel");
     expect(first.patch.blobs).not.toHaveProperty("showIntervalLabels");
     expect(first.patch.blobs).not.toHaveProperty("showEmotionLabel");

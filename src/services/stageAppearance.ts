@@ -531,6 +531,9 @@ export function createSeededStageLook(
     // Launch variation changes appearance, not the learner's relationship or
     // explanation choices.
     delete varied.blobs.connectionMode;
+    delete varied.blobs.fusionStrength;
+    delete varied.blobs.fieldSoftness;
+    delete varied.blobs.webOpacity;
     delete varied.blobs.showChordLabel;
     delete varied.blobs.showIntervalLabels;
     delete varied.blobs.showEmotionLabel;

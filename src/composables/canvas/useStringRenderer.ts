@@ -69,11 +69,16 @@ export function useStringRenderer() {
     _canvasHeight: number,
     solfegeData: any[]
   ) => {
-    if (!stringConfig.isEnabled) return;
-
-    // Cache canvas size for reactive updates
+    // Cache initialization inputs even while Stage suppresses Strings. That
+    // lets a later Stage/Presence enablement create the collection without a
+    // canvas resize or remount.
     lastCanvasWidth = canvasWidth;
     lastCanvasHeight = _canvasHeight;
+
+    if (!stringConfig.isEnabled) {
+      strings.value = [];
+      return;
+    }
 
     // Get visible octaves from keyboard drawer store
     const visibleOctaves = keyboardDrawerStore.visibleOctaves;
@@ -147,6 +152,7 @@ export function useStringRenderer() {
   // Watch for changes that should trigger reinitialization
   watch(
     [
+      () => visualConfigStore.effectiveConfig.strings.isEnabled,
       () => visualConfigStore.effectiveConfig.strings.octaveOffset,
       () => keyboardDrawerStore.keyboardConfig.mainOctave,
       () => keyboardDrawerStore.keyboardConfig.rowCount,

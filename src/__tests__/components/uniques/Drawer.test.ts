@@ -326,6 +326,38 @@ describe("Drawer continuous height contract", () => {
     expect(disconnect).toHaveBeenCalled();
   });
 
+  it("leaves visibly overflowing persistent controls interactive while still guarding content", async () => {
+    const observe = vi.fn();
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(_callback: IntersectionObserverCallback) {}
+      observe = observe;
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    });
+    const w = mount(Drawer, {
+      props: {
+        accessibleName: 'Keyboard',
+        defaultOpen: true,
+        scroll: false,
+        minContentHeight: 100,
+        persistentOverflow: 'visible',
+      },
+      slots: {
+        persistent: '<button data-overflow-control>Previous pattern</button>',
+        default: '<button data-key tabindex="0">Do</button>',
+      },
+    });
+    mounted.push(w);
+    await flushPromises();
+
+    const overflowControl = w.get('[data-overflow-control]').element as HTMLElement;
+    const key = w.get('[data-key]').element as HTMLElement;
+    expect(w.classes()).toContain('drawer--persistent-overflow-visible');
+    expect(observe).not.toHaveBeenCalledWith(overflowControl);
+    expect(observe).toHaveBeenCalledWith(key);
+    expect(overflowControl.inert).toBe(false);
+  });
+
   it("top drawers reopen to content size rather than remembered or dragged height", async () => {
     localStorage.setItem('emotitone.drawer.config-test', JSON.stringify({ contentHeight: 120 }));
     const w = mount(Drawer, { props: { accessibleName: 'Config', anchor: 'top',

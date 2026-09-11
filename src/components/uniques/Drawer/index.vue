@@ -8,6 +8,7 @@ const props = withDefaults(defineProps<{
   anchor?: "top" | "bottom";
   handleAlign?: "left" | "center" | "right";
   handlePlacement?: "edge" | "persistent";
+  persistentOverflow?: "clip" | "visible";
   accessibleName: string;
   handleResizeDescription?: string;
   handleLabel?: string;
@@ -32,6 +33,7 @@ const props = withDefaults(defineProps<{
   anchor: "bottom",
   handleAlign: "center",
   handlePlacement: "edge",
+  persistentOverflow: "clip",
   handleLabel: "",
   handleResizeDescription: "",
   fixed: false,
@@ -77,7 +79,11 @@ const observedControls = new Map<HTMLElement, boolean>();
 function observeClippedControls() {
   if (!visibilityObserver) return;
   const selector = 'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]';
-  const controls = new Set(persistent.value?.querySelectorAll<HTMLElement>(selector));
+  const controls = new Set<HTMLElement>();
+  if (props.persistentOverflow !== "visible") {
+    persistent.value?.querySelectorAll<HTMLElement>(selector)
+      .forEach(element => controls.add(element));
+  }
   // Minimum-sized content can extend beyond the clip (Keyboard). Top panels
   // have no content floor and retain their normal scroll-to-focused-item behavior.
   if (!props.scroll && props.minContentHeight > 0) {
@@ -402,6 +408,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       'drawer--fixed': fixed, 'drawer--dragging': dragging,
       'drawer--layout-resize': layoutResizing, 'drawer--ready': ready,
       'drawer--handle-persistent': handlePlacement === 'persistent',
+      'drawer--persistent-overflow-visible': persistentOverflow === 'visible',
     }]"
     :style="{
       height: `${height}px`,
@@ -477,6 +484,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer--dragging { transition: none; }
 .drawer--layout-resize { transition: none; }
 .drawer__clip { height: 100%; overflow: clip; }
+.drawer--persistent-overflow-visible .drawer__clip {
+  overflow-x: clip;
+  overflow-y: visible;
+}
 .drawer__persistent { display: flow-root; }
 .drawer__handle-rail {
   height: 40px;

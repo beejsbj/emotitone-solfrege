@@ -95,6 +95,7 @@ vi.mock("@/composables/canvas/useBlobRenderer", () => ({
     createBlob: mocks.createBlob,
     startBlobFadeOut: mocks.startBlobFadeOut,
     startBlobFadeOutById: mocks.startBlobFadeOutById,
+    reprojectBlobs: vi.fn(),
     prepareBlobs: vi.fn(),
     getPreparedBlobFrames: vi.fn(() => []),
     renderBlobs: vi.fn(),

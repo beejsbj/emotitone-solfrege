@@ -18,13 +18,16 @@ describe("HummingCaptureTransport.vue", () => {
     wrapper = undefined;
   });
 
-  it("renders one top-centered icon-only brass capture action", () => {
+  it("renders capture and independently activated live-listening actions", () => {
     wrapper = render();
 
     const capture = wrapper.get('button[aria-label="Start humming capture"]');
+    const listen = wrapper.get('button[aria-label="Start live listening"]');
     expect(capture.text()).toBe("");
     expect(capture.classes()).toContain("paper-button--brass");
     expect(capture.find("svg.lucide-mic").exists()).toBe(true);
+    expect(listen.classes()).toContain("paper-button--ink");
+    expect(listen.find("svg.lucide-audio-lines").exists()).toBe(true);
     expect(transportSource).toMatch(
       /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*110;[^}]*top:[^}]*left:\s*50%;/,
     );
@@ -57,6 +60,20 @@ describe("HummingCaptureTransport.vue", () => {
     expect(wrapper.get('button[aria-label="Retry humming capture"]').exists()).toBe(true);
   });
 
+  it("shows live-listening errors without turning them into capture errors", () => {
+    wrapper = render({
+      listeningStatus: "error",
+      listeningError: "Microphone permission was not granted.",
+      listeningStatusMessage: "Microphone permission was not granted.",
+    });
+
+    expect(wrapper.get('[role="alert"]').text()).toBe(
+      "Microphone permission was not granted.",
+    );
+    expect(wrapper.get('button[aria-label="Retry live listening"]').exists()).toBe(true);
+    expect(wrapper.get('button[aria-label="Start humming capture"]').exists()).toBe(true);
+  });
+
   it("selects finalized takes outside the CodeStrip compound", async () => {
     wrapper = render({
       takeLabels: ["Take 1", "Take 3"],
@@ -73,12 +90,14 @@ describe("HummingCaptureTransport.vue", () => {
     expect(wrapper.emitted("selectTake")).toEqual([[1]]);
   });
 
-  it("emits toggle and cancel actions", async () => {
+  it("emits listening, capture, and cancel actions", async () => {
     wrapper = render({ status: "recording" });
 
+    await wrapper.get('button[aria-label="Start live listening"]').trigger("click");
     await wrapper.get('button[aria-label="Accept humming capture"]').trigger("click");
     await wrapper.get('button[aria-label="Cancel humming capture"]').trigger("click");
 
+    expect(wrapper.emitted("toggleListening")).toHaveLength(1);
     expect(wrapper.emitted("toggle")).toHaveLength(1);
     expect(wrapper.emitted("cancel")).toHaveLength(1);
   });

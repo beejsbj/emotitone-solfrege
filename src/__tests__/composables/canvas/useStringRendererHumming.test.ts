@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/composables/useMusicColor", () => ({
   useMusicColor: () => ({
     getPrimaryColor: vi.fn(() => "red"),
+    getStaticPrimaryColor: vi.fn(() => "red"),
     getPrimaryColorByScaleIndex: vi.fn(() => "red"),
   }),
 }));
@@ -36,7 +37,7 @@ vi.mock("@/stores/visualConfig", () => ({
 
 vi.mock("@/composables/useGSAP", () => ({
   default: () => ({
-    gsap: { utils: { interpolate: (_from: number, to: number) => to } },
+    gsap: { utils: { interpolate: (from: number, to: number) => from + (to - from) * 0.5 } },
   }),
 }));
 
@@ -71,7 +72,7 @@ describe("useStringRenderer humming lifecycle", () => {
 
     renderer.handleNotePlayed(new CustomEvent("note-played", {
       detail: {
-        noteId: "melograph-live-1",
+        noteId: "live-pitch-1",
         solfegeIndex: 0,
         frequency: 261.63,
         octave: 4,
@@ -90,7 +91,7 @@ describe("useStringRenderer humming lifecycle", () => {
       .toBe(true);
 
     renderer.handleNoteReleased(new CustomEvent("note-released", {
-      detail: { noteId: "melograph-live-1" },
+      detail: { noteId: "live-pitch-1" },
     }));
     renderer.updateStringProperties(
       stringConfig,
@@ -157,5 +158,65 @@ describe("useStringRenderer humming lifecycle", () => {
     expect(xByOctave.get(1)).toBe(400);
     expect(xByOctave.get(2)).toBe(390);
     expect(xByOctave.get(3)).toBe(380);
+  });
+
+  it("uses exact pitch for selection and the shared envelope for force", () => {
+    const renderer = useStringRenderer();
+    const stringConfig = {
+      isEnabled: true,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+      activeOpacity: 1,
+      maxAmplitude: 20,
+      interpolationSpeed: 1,
+      opacityInterpolationSpeed: 1,
+      dampingFactor: 1,
+    } as any;
+    const animationConfig = { visualFrequencyDivisor: 100 } as any;
+    renderer.initializeStrings(stringConfig, 800, 600, mocks.musicStore.solfegeData);
+    renderer.handleNotePlayed(new CustomEvent("note-played", {
+      detail: {
+        noteId: "c4",
+        solfegeIndex: 0,
+        pitchClassIndex: 0,
+        frequency: 261.63,
+        octave: 4,
+      },
+    }));
+
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 0.5, hasSignal: true },
+    );
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(5);
+
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 1, hasSignal: true },
+      true,
+    );
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(0);
+
+    renderer.handleNoteReleased(new CustomEvent("note-released", { detail: { noteId: "c4" } }));
+    renderer.handleNotePlayed(new CustomEvent("note-played", {
+      detail: {
+        noteId: "borrowed-c-sharp-4",
+        solfegeIndex: 0,
+        pitchClassIndex: 1,
+        frequency: 277.18,
+        octave: 4,
+      },
+    }));
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 1, hasSignal: true },
+    );
+    expect(renderer.strings.value.some((string) => string.isActive)).toBe(false);
   });
 });

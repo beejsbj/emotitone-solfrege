@@ -33,6 +33,7 @@ const isDesignRoute = [
   "/style-guide/instrument-picker",
   "/style-guide/config-menu",
   "/style-guide/pattern-reel",
+  "/style-guide/stage",
 ].includes(pathname);
 beginTabsPageEdition();
 if (!isDesignRoute || pathname === "/style-guide/config-menu") {

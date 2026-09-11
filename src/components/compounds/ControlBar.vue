@@ -31,7 +31,6 @@
         :max="220"
         :step="1"
         :change-signal="changeSignals.bpm"
-        :ui-beat="true"
         @update:modelValue="(value) => emit('update:bpm', Number(value))"
       />
     </div>

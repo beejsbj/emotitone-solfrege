@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   bindUIBeatScale,
   generatedStrudelBarPosition,
@@ -20,6 +20,7 @@ const createClock = (reducedMotion = () => false) =>
   });
 
 describe("UIBeatClock", () => {
+  afterEach(() => vi.unstubAllGlobals());
   it("preserves the BeatingShapes compact-swell-settle scale contour", () => {
     expect(uiBeatScaleSwell(0)).toBe(0);
     expect(uiBeatScaleSwell(0.14)).toBe(1);
@@ -97,6 +98,64 @@ describe("UIBeatClock", () => {
     dispose();
     const rebound = bindUIBeatScale(clock, element);
     rebound();
+  });
+
+  it("shares one visibility observer while tracking each element and its subscribers independently", () => {
+    const observe = vi.fn();
+    const unobserve = vi.fn();
+    const disconnect = vi.fn();
+    let observerCount = 0;
+    let notifyVisibility!: (entries: Array<{ target: Element; isIntersecting: boolean }>) => void;
+    class Observer {
+      constructor(callback: IntersectionObserverCallback) {
+        observerCount += 1;
+        notifyVisibility = entries => callback(
+          entries as IntersectionObserverEntry[],
+          this as unknown as IntersectionObserver,
+        );
+      }
+      observe = observe;
+      unobserve = unobserve;
+      disconnect = disconnect;
+      takeRecords = () => [];
+      root = null;
+      rootMargin = "";
+      thresholds = [];
+    }
+    vi.stubGlobal("IntersectionObserver", Observer);
+    const clock = createClock();
+    const first = document.createElement("button");
+    const second = document.createElement("button");
+    const firstListener = vi.fn();
+    const firstTwinListener = vi.fn();
+    const secondListener = vi.fn();
+
+    const disposeFirst = clock.subscribe(firstListener, first);
+    const disposeFirstTwin = clock.subscribe(firstTwinListener, first);
+    const disposeSecond = clock.subscribe(secondListener, second);
+    const generation = clock.arm(mappedRun);
+    clock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
+
+    expect(observerCount).toBe(1);
+    expect(observe).toHaveBeenCalledTimes(2);
+    firstListener.mockClear();
+    firstTwinListener.mockClear();
+    secondListener.mockClear();
+    notifyVisibility([{ target: first, isIntersecting: false }]);
+    expect(firstListener).toHaveBeenLastCalledWith(expect.objectContaining({ presenting: false }));
+    expect(firstTwinListener).toHaveBeenLastCalledWith(expect.objectContaining({ presenting: false }));
+    expect(secondListener).not.toHaveBeenCalled();
+    notifyVisibility([{ target: second, isIntersecting: true }]);
+    expect(secondListener).toHaveBeenLastCalledWith(expect.objectContaining({ presenting: true }));
+
+    disposeFirst();
+    expect(unobserve).not.toHaveBeenCalledWith(first);
+    disposeFirstTwin();
+    expect(unobserve).toHaveBeenCalledWith(first);
+    disposeSecond();
+    expect(unobserve).toHaveBeenCalledWith(second);
+    clock.destroy();
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it("maps generated Strudel scheduler cycles without calling a raw cycle a bar", () => {

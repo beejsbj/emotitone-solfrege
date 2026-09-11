@@ -36,8 +36,8 @@ describe("ControlBar.vue", () => {
     expect(knobs[0].props("options")).toEqual(CHROMATIC_NOTES);
     expect(knobs[1].props("options")).toEqual(MODE_OPTIONS);
     expect(knobs[2].props()).toMatchObject({ min: 40, max: 220, step: 1 });
-    expect(knobs[2].props("uiBeat")).toBe(true);
-    expect(knobs.filter((knob) => knob.props("uiBeat"))).toHaveLength(1);
+    expect(knobs.every((knob) => knob.props("uiBeat") === undefined)).toBe(true);
+    expect(controlBarSource).not.toContain("ui-beat");
     expect(knobs[3].props()).toMatchObject({ min: 1, max: 8, step: 1 });
     expect(wrapper.getComponent({ name: "Joystick" }).props()).toMatchObject({
       label: "Harmony",

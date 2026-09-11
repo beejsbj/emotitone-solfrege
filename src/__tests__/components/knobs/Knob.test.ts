@@ -290,7 +290,6 @@ describe("Knob public interface", () => {
       modelValue: 120,
       type: "range",
       changeSignal: 0,
-      uiBeat: true,
     });
     const generation = uiBeatClock.arm({
       mappingAvailable: true,
@@ -317,6 +316,8 @@ describe("Knob public interface", () => {
     expect(face.attributes("data-ui-beat-state")).toBeUndefined();
     expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
     expect(face.attributes("style") ?? "").not.toContain("scale");
+    await wrapper.setProps({ uiBeat: true, isDisabled: true });
+    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
     expect(knobSource).toContain("useUIBeatScale(beatTargetRef");
     expect(knobFaceSource).not.toContain("uiBeat");
   });
@@ -350,13 +351,11 @@ describe("Knob public interface", () => {
       modelValue: 64,
       visual: "ring",
       tone: "brass",
-      uiBeat: true,
     });
     const arc = render({
       modelValue: 64,
       visual: "arc",
       tone: "ivory",
-      uiBeat: true,
     });
 
     expect(ring.get(".knob-face").classes()).toEqual(

@@ -53,6 +53,7 @@ describe("Button", () => {
     expect(wrapper.attributes("aria-busy")).toBe("true");
     expect(wrapper.attributes("disabled")).toBeDefined();
     expect(wrapper.find(".paper-button__loader").exists()).toBe(true);
+    expect(wrapper.attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
   it("keeps disabled production brass in the native still-state contract", () => {
@@ -63,6 +64,7 @@ describe("Button", () => {
     expect(wrapper.classes()).toEqual(
       expect.arrayContaining(["paper-button--brass", "paper-button--brass-sheen-glow"]),
     );
+    expect(wrapper.attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
   it("preserves opt-in haptics for absorbed Knob Button actions", async () => {
@@ -72,7 +74,7 @@ describe("Button", () => {
     expect(wrapper.emitted("click")).toHaveLength(1);
   });
 
-  it("opts its real native face into the shared, provider-gated UIBeat scale", async () => {
+  it("defaults its real native face into the shared, provider-gated UIBeat scale", async () => {
     const presentationEnabled = ref(false);
     const clock = new UIBeatClock({
       observeEnvironment: false,
@@ -86,7 +88,6 @@ describe("Button", () => {
           presentationEnabled: () => presentationEnabled.value,
         });
         return () => h(Button, {
-          uiBeat: true,
           accessibleName: "Stop",
         });
       },

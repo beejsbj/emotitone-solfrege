@@ -57,7 +57,7 @@ interface UIBeatSubscriber {
   listener: UIBeatListener;
   visible: boolean;
   wasPresenting: boolean;
-  observer?: IntersectionObserver;
+  element?: Element;
 }
 
 export interface UIBeatClockOptions {
@@ -230,6 +230,8 @@ export function generatedStrudelBarPosition(
 export class UIBeatClock {
   private state = idleSnapshot(0);
   private subscribers = new Set<UIBeatSubscriber>();
+  private visibilityObserver?: IntersectionObserver;
+  private subscribersByElement = new Map<Element, Set<UIBeatSubscriber>>();
   private readonly reducedMotion: () => boolean;
   private readonly documentVisible: () => boolean;
   private mediaQuery?: MediaQueryList;
@@ -368,20 +370,14 @@ export class UIBeatClock {
     };
 
     if (element && typeof IntersectionObserver !== "undefined") {
-      subscriber.observer = new IntersectionObserver((entries) => {
-        const entry = entries[entries.length - 1];
-        if (!entry) return;
-        subscriber.visible = entry.isIntersecting;
-        this.deliver(subscriber, true);
-      });
-      subscriber.observer.observe(element);
+      this.observeSubscriber(subscriber, element);
     }
 
     this.subscribers.add(subscriber);
     this.deliver(subscriber, true);
 
     return () => {
-      subscriber.observer?.disconnect();
+      this.unobserveSubscriber(subscriber);
       this.subscribers.delete(subscriber);
     };
   }
@@ -395,8 +391,43 @@ export class UIBeatClock {
     if (typeof document !== "undefined") {
       document.removeEventListener("visibilitychange", this.handleVisibility);
     }
-    for (const subscriber of this.subscribers) subscriber.observer?.disconnect();
+    this.visibilityObserver?.disconnect();
+    this.visibilityObserver = undefined;
+    this.subscribersByElement.clear();
     this.subscribers.clear();
+  }
+
+  private observeSubscriber(
+    subscriber: UIBeatSubscriber,
+    element: Element,
+  ): void {
+    this.visibilityObserver ??= new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        for (const observed of this.subscribersByElement.get(entry.target) ?? []) {
+          observed.visible = entry.isIntersecting;
+          this.deliver(observed, true);
+        }
+      }
+    });
+
+    const observed = this.subscribersByElement.get(element) ?? new Set();
+    if (observed.size === 0) this.visibilityObserver.observe(element);
+    observed.add(subscriber);
+    this.subscribersByElement.set(element, observed);
+    subscriber.element = element;
+  }
+
+  private unobserveSubscriber(subscriber: UIBeatSubscriber): void {
+    const element = subscriber.element;
+    if (!element) return;
+
+    const observed = this.subscribersByElement.get(element);
+    observed?.delete(subscriber);
+    if (observed?.size === 0) {
+      this.visibilityObserver?.unobserve(element);
+      this.subscribersByElement.delete(element);
+    }
+    subscriber.element = undefined;
   }
 
   private presentedSnapshot(surfaceVisible: boolean): UIBeatSnapshot {

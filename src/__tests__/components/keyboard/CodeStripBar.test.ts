@@ -103,7 +103,9 @@ describe("CodeStripBar.vue", () => {
     expect(stop.attributes("aria-pressed")).toBeUndefined();
     expect(stop.classes()).toContain("paper-button--ink");
     expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
-    expect(wrapper.findAllComponents(Button)[0].props("uiBeat")).toBe(true);
+    expect(wrapper.findAllComponents(Button).map((button) => button.props("uiBeat")))
+      .toEqual([true, true, true]);
+    expect(codeStripBarSource).not.toContain("ui-beat");
   });
 
   it("emits the existing actions", async () => {

@@ -48,7 +48,7 @@ const props = withDefaults(
     brassFinish: "sheen-glow",
     loading: false,
     disabled: false,
-    uiBeat: false,
+    uiBeat: true,
     haptic: false,
     type: "button",
     title: undefined,

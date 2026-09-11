@@ -3,10 +3,10 @@
     <div class="card ui-beat-system">
       <div class="label">UIBeat · System Protocol</div>
       <p class="caption ui-beat-system__intro">
-        One injected clock drives real UI: the Beat Indicator Marks, both whole
-        BPM faces, the transport Button, and the current-instrument Sticker. The
-        same general scale binding can opt in any DOM element without replacing
-        its own transform gestures.
+        One injected clock drives real UI control families: Beat Indicator
+        Marks, both Knob editions, Button,
+        Joystick, and the selected current-instrument Sticker. The same general
+        scale binding reaches each actual control without replacing its gestures.
       </p>
 
       <div class="ui-beat-system__stage">
@@ -31,7 +31,6 @@
               :max="220"
               is-display
               visual="ring"
-              ui-beat
             />
             <Knob
               :model-value="bpm"
@@ -41,7 +40,6 @@
               :max="220"
               is-display
               visual="arc"
-              ui-beat
             />
           </div>
 
@@ -49,7 +47,6 @@
             <Button
               size="sm"
               :tone="running ? 'ink' : 'ivory'"
-              :ui-beat="running"
               :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
               :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
               @click="toggle"
@@ -60,6 +57,7 @@
             <Sticker variant="fill" color="ivory" mark="eighth" ui-beat>
               Current Piano
             </Sticker>
+            <Joystick v-model="harmony" label="Harmony" visual="analog" />
           </div>
         </div>
       </div>
@@ -103,6 +101,8 @@ import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
 import Button from "@/components/primatives/Button.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
 import Sticker from "@/components/primatives/Sticker.vue";
+import Joystick from "@/components/uniques/Joystick/index.vue";
+import type { HarmonyAlteration } from "@/domain/harmony";
 import {
   provideUIBeat,
   UIBeatClock,
@@ -121,6 +121,7 @@ const meters: MeterFixture[] = [
 ];
 const bpm = ref<number>(120);
 const meter = ref<MeterFixture>(meters[0]);
+const harmony = ref<HarmonyAlteration>("auto");
 const running = ref(true);
 const clock = new UIBeatClock();
 provideUIBeat({ clock, presentationEnabled: () => true });

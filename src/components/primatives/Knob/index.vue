@@ -160,7 +160,7 @@ const props = defineProps({
   },
   uiBeat: {
     type: Boolean,
-    default: false,
+    default: true,
   },
   sensitivity: {
     type: Number,
@@ -199,7 +199,7 @@ const wrapperRef = ref<HTMLElement>();
 const beatTargetRef = ref<HTMLElement>();
 const contextBouncePhase = ref<"a" | "b" | null>(null);
 
-useUIBeatScale(beatTargetRef, () => props.uiBeat, {
+useUIBeatScale(beatTargetRef, () => props.uiBeat && !props.isDisabled, {
   restScale: 0.8,
   peakScale: 1.1,
 });

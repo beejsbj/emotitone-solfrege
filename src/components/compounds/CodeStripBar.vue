@@ -7,7 +7,6 @@
         :tone="isPlaying ? 'ink' : 'ivory'"
         :haptic="haptic"
         :disabled="playDisabled"
-        :ui-beat="isPlaying"
         :accessible-name="isPlaying ? 'Stop' : 'Play'"
         :title="isPlaying ? 'Stop' : 'Play'"
         @click="emit('togglePlayback')"

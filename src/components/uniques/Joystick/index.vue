@@ -3,7 +3,7 @@
     :data-latched="modelValue" :data-effective="effectiveValue" :data-momentary="held || undefined"
     :data-dragging="dragging || undefined" :data-active="pointerId !== null || undefined"
     :data-latch-feedback="latchFeedbackVisible || undefined">
-    <div class="joystick__face instrument-control__face" role="radiogroup" :aria-label="`${label} chord character`"
+    <div ref="face" class="joystick__face instrument-control__face" role="radiogroup" :aria-label="`${label} chord character`"
       @pointerdown="beginPointer" @lostpointercapture="cancelPointer" @click.prevent>
       <div ref="plate" class="joystick__plate">
         <span v-for="option in JOYSTICK_OPTIONS.filter(item => item.value !== 'auto')" :key="option.value"
@@ -35,6 +35,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from "vue";
 import DragValue from "@/components/primatives/DragValue.vue";
 import "@/components/primatives/instrumentControl.css";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { triggerLatchHaptic, triggerUIHaptic } from "@/utils/hapticFeedback";
 import { JOYSTICK_OPTIONS, directionFromVector, vectorFromDirection } from "./joystickOptions";
@@ -52,7 +53,9 @@ const emit = defineEmits<{
   "update:modelValue": [value: HarmonyAlteration];
   effectiveChange: [value: HarmonyAlteration];
 }>();
+const face = ref<HTMLElement | null>(null);
 const plate = ref<HTMLElement | null>(null);
+useUIBeatScale(face, () => true, { restScale: 0.8, peakScale: 1.1 });
 const resolvedVisual = computed(() => props.visual ?? currentJoystickPageVisual());
 const pointerValue = ref<HarmonyAlteration | null>(null);
 const pointerVector = ref({ x: 0, y: 0 });
@@ -140,7 +143,11 @@ function beginPointer(event: PointerEvent) {
   event.preventDefault();
   clearLatchFeedback();
   const bounds = plate.value.getBoundingClientRect();
-  radius = Math.max(1, Math.min(bounds.width, bounds.height) * 0.27);
+  // Pointer gain belongs to the control's layout geometry, not its animated
+  // UIBeat transform. offsetWidth/Height stay stable while the face scales.
+  const width = plate.value.offsetWidth || bounds.width;
+  const height = plate.value.offsetHeight || bounds.height;
+  radius = Math.max(1, Math.min(width, height) * 0.27);
   start = { x: event.clientX, y: event.clientY };
   pointerPosition.value = { ...start };
   startVector = vectorFromDirection(effectiveValue.value);

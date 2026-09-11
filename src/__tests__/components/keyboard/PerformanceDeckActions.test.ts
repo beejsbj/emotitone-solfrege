@@ -356,6 +356,10 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(drawer.classes()).toContain("performance-deck-drawer");
     expect(drawer.props("storageKey")).toBe("keyboard");
     expect(drawer.props("handlePlacement")).toBe("edge");
+    expect(wrapper.find(".drawer__handle-rail").exists()).toBe(false);
+    expect(performanceDeckSource).toMatch(
+      /\.performance-deck-drawer :deep\(\.drawer__clip\)[\s\S]*overflow-y: visible;/,
+    );
     expect(drawer.props("maxHeightRatio")).toBe(0.95);
     expect(drawer.props("haptic")).toBe(true);
     drawer.vm.$emit("contentResize", 320);

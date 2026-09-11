@@ -9,7 +9,7 @@ import type {
   StringConfig,
   AnimationConfig,
 } from "@/types/visual";
-import { useColorSystem } from "../useColorSystem";
+import { useMusicColor } from "../useMusicColor";
 import {
   createVisualFrequency,
   createHarmonicVibration,
@@ -22,7 +22,7 @@ import useGSAP from "../useGSAP";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export function useStringRenderer() {
-  const { getPrimaryColor, getPrimaryColorByScaleIndex } = useColorSystem();
+  const { getPrimaryColor, getPrimaryColorByScaleIndex } = useMusicColor({ animated: true });
   const { gsap } = useGSAP();
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();

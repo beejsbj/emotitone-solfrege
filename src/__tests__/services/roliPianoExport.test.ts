@@ -5,6 +5,7 @@ import {
   generateRoliPianoScript,
   getScaleDegreeIndexForPitchClass,
   ROLI_OFF_COLOUR,
+  srgbToLittleFootHex,
 } from "@/services/roliPianoExport";
 
 describe("roliPianoExport", () => {
@@ -22,15 +23,20 @@ describe("roliPianoExport", () => {
     expect(cssColorToLittleFootHex("#4dbdf8")).toBe("0xff4dbdf8");
   });
 
+  it("serializes numeric sRGB without a generated CSS round-trip", () => {
+    expect(srgbToLittleFootHex({ r: 1, g: 0.5, b: 0, alpha: 0.25 }))
+      .toBe("0x40ff8000");
+  });
+
   it("maps only in-scale pitch classes for the current key and mode", () => {
     const palette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        isEnabled: true,
-        musicColorMode: "movable",
-        saturation: 0.8,
-        baseLightness: 0.5,
-        lightnessRange: 0.3,
-        hueAnimationAmplitude: 0,
+        recipeVersion: 1,
+        musicColorMode: "movable-ordinal",
+        chroma: 0.18,
+        lightnessCenter: 0.575,
+        lightnessSpan: 0.6,
+        hueMotionEnabled: false,
         animationSpeed: 1,
       },
       currentKey: "C",
@@ -50,12 +56,12 @@ describe("roliPianoExport", () => {
   it("colors all 12 pitch classes in fixed mode", () => {
     const dMinorPalette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        isEnabled: true,
+        recipeVersion: 1,
         musicColorMode: "fixed",
-        saturation: 0.8,
-        baseLightness: 0.5,
-        lightnessRange: 0.3,
-        hueAnimationAmplitude: 0,
+        chroma: 0.18,
+        lightnessCenter: 0.575,
+        lightnessSpan: 0.6,
+        hueMotionEnabled: false,
         animationSpeed: 1,
       },
       currentKey: "D",
@@ -68,12 +74,12 @@ describe("roliPianoExport", () => {
   it("turns off out-of-scale pitch classes in movable mode", () => {
     const dMinorPalette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        isEnabled: true,
-        musicColorMode: "movable",
-        saturation: 0.8,
-        baseLightness: 0.5,
-        lightnessRange: 0.3,
-        hueAnimationAmplitude: 0,
+        recipeVersion: 1,
+        musicColorMode: "movable-ordinal",
+        chroma: 0.18,
+        lightnessCenter: 0.575,
+        lightnessSpan: 0.6,
+        hueMotionEnabled: false,
         animationSpeed: 1,
       },
       currentKey: "D",
@@ -98,12 +104,12 @@ describe("roliPianoExport", () => {
   it("generates a LittleFoot script with the expected metadata and key count", () => {
     const script = generateRoliPianoScript({
       dynamicColorConfig: {
-        isEnabled: true,
+        recipeVersion: 1,
         musicColorMode: "fixed",
-        saturation: 0.8,
-        baseLightness: 0.5,
-        lightnessRange: 0.3,
-        hueAnimationAmplitude: 0,
+        chroma: 0.18,
+        lightnessCenter: 0.575,
+        lightnessSpan: 0.6,
+        hueMotionEnabled: false,
         animationSpeed: 1,
       },
       currentKey: "C",

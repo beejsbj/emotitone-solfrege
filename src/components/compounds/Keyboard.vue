@@ -80,7 +80,7 @@
         :proportion="proportionFor(row.octave)"
         :scale-index="key.scaleIndex"
         :pitch-class-index="key.pitchClassIndex"
-        :octave="row.octave"
+        :octave="key.colorOctave ?? row.octave"
         :mode="key.mode"
         :music-key="key.musicKey"
         :surface-style="resolvedSurfaceStyle"
@@ -160,6 +160,7 @@ export interface KeyboardKeyView {
   rawPitch: string;
   scaleIndex: number;
   pitchClassIndex?: number;
+  colorOctave?: number;
   mode?: MusicalMode;
   musicKey?: ChromaticNote;
   accidental?: boolean | null;
@@ -326,6 +327,10 @@ function createProductionWiring() {
     );
     return pitch ? CHROMATIC_NOTES.indexOf(pitch) : undefined;
   };
+  const scientificOctave = (rawPitch: string, fallback: number) => {
+    const match = rawPitch.match(/(-?\d+)$/);
+    return match ? Number(match[1]) : fallback;
+  };
   const soundingNoteKeys = computed(() => new Set(
     musicStore
       .getActiveNotes()
@@ -347,6 +352,7 @@ function createProductionWiring() {
           rawPitch,
           scaleIndex,
           pitchClassIndex: pitchClassIndex(scaleIndex),
+          colorOctave: scientificOctave(rawPitch, octave),
           mode: musicStore.currentMode,
           musicKey: currentMusicKey.value,
           accidental: isAccidental(scaleIndex, octave),

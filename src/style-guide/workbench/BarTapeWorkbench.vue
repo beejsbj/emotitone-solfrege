@@ -71,7 +71,7 @@ import BarTape from "../../components/primatives/BarTape.vue";
 import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
 import PatternStrip from "../../components/compounds/PatternStrip.vue";
 import ProductionPatternList from "../../components/patterns/PatternList.vue";
-import { useColorSystem } from "../../composables/useColorSystem";
+import { useMusicColor } from "../../composables/useMusicColor";
 import { CHROMATIC_NOTES } from "../../data";
 import { defaultPatterns } from "../../data/patterns";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
@@ -81,7 +81,7 @@ const productionPattern = defaultPatterns[0];
 const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
-} = useColorSystem();
+} = useMusicColor();
 
 const toTimeline = (pattern: Pattern): BarTapeSegment[] =>
   pattern.notes.map((note) => ({

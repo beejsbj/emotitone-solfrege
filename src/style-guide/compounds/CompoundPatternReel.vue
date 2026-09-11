@@ -61,7 +61,7 @@ import { reactive, ref } from "vue";
 import PatternReel from "../../components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "../../components/compounds/PatternReel.vue";
 import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
-import { useColorSystem } from "../../composables/useColorSystem";
+import { useMusicColor } from "../../composables/useMusicColor";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -69,7 +69,7 @@ import VariantGrid from "../guide/VariantGrid.vue";
 const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
-} = useColorSystem();
+} = useMusicColor();
 
 function timeline(
   events: Array<[scaleIndex: number, durationMs: number]>,

@@ -100,7 +100,7 @@ bun run build
 
 - `useUnifiedCanvas.ts`: Canvas rendering coordination
 - `useParticleSystem.ts`: Particle animations for note events
-- `useColorSystem.ts`: Color mapping for musical elements
+- `useMusicColor.ts`: Color mapping for musical elements
 
 **Utilities**
 
@@ -133,7 +133,7 @@ bun run build
 - Use Vue 3 Composition API exclusively
 - Prefer `<script setup>` with TypeScript
 - Mobile-first design (ignore desktop)
-- Use HSLA instead of RGBA/HEX colors
+- Use design-system tokens for interface colors; Music Color comes only from the numeric OKLCH authority and its gamut-mapped adapter
 - GSAP for performant animations
 - Avoid emits - use composables for shared state
 - Expert-level unique UI/UX patterns
@@ -149,7 +149,7 @@ bun run build
 
 - **Primary**: Tailwind CSS for most styling
 - **Secondary**: Custom CSS only for complex solutions that are too verbose in Tailwind
-- **Colors**: Always use HSLA format instead of RGBA or HEX
+- **Colors**: Use design-system tokens; do not introduce a parallel Music Color calculation or palette
 - **Mobile**: Design for mobile first, intuitive touch interactions
 
 ### Audio Context Management
@@ -206,7 +206,7 @@ Each phase includes detailed implementation steps, verification criteria, and co
 - Tone.js (^14.7.77) for audio synthesis and timing
 - Tonal.js (^4.14.1) for music theory utilities
 - GSAP for performant animations
-- Tailwind CSS for styling (HSLA colors only)
+- Tailwind CSS and design-system tokens for styling
 - Pinia for state management
 - Vite for build tooling with TypeScript support
 - Path alias `@/` maps to `src/`

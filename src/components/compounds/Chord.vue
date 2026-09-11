@@ -41,7 +41,7 @@ import type {
   NoteLabel,
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useMusicColor } from "@/composables/useMusicColor";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type ChordDisplay = "symbol" | "notes";
@@ -89,7 +89,9 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem();
+const { getKeyBackground, getKeyBackgroundByPitchClass } = useMusicColor({
+  animated: true,
+});
 
 const chordClasses = computed(() => [
   `chord--display-${props.display}`,

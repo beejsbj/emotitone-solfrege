@@ -18,11 +18,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useMusicColor } from "@/composables/useMusicColor";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 
-const { createGlassmorphBackground } = useColorSystem();
+const { createGlassmorphBackground } = useMusicColor();
 const { beatingShapesConfig, codeStripConfig } = useVisualConfig();
 const { isPlaying: isStrudelPlaying } = useCodeStripStrudel();
 

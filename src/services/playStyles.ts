@@ -10,6 +10,30 @@ export const PLAY_STYLE_OPTIONS = [
 export type PlayStyle = (typeof PLAY_STYLE_OPTIONS)[number]['value']
 export type PlayStyleRate = 4 | 8 | 16
 
+export interface PlayModeOption {
+  value: string
+  label: string
+  style: PlayStyle
+  rate?: PlayStyleRate
+}
+
+// One selector includes each rhythmic style's rate; sustained styles only
+// need one position. The engine retains independent style/rate parameters.
+export const PLAY_MODE_OPTIONS = PLAY_STYLE_OPTIONS.flatMap<PlayModeOption>((option) =>
+  option.value.startsWith('arp-') || option.value === 'repeat'
+    ? ([4, 8, 16] as const).map(rate => ({
+      value: `${option.value}:${rate}`,
+      label: `${option.label} 1/${rate}`,
+      style: option.value,
+      rate,
+    }))
+    : [{ ...option, style: option.value }],
+)
+
+export function playModeValue(style: PlayStyle, rate: PlayStyleRate): string {
+  return style.startsWith('arp-') || style === 'repeat' ? `${style}:${rate}` : style
+}
+
 export interface PlayStyleVoice {
   // An earlier release must replace any previously scheduled release, and a
   // release before onset must cancel that onset entirely.

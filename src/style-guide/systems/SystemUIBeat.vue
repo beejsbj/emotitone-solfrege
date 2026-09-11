@@ -156,6 +156,16 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.preview-port--system-ui-beat {
+  width: min(700px, 100vw);
+  min-width: 0;
+}
+
+.ui-beat-system {
+  width: 100%;
+  min-width: 0;
+}
+
 .ui-beat-system__intro {
   max-width: 72ch;
   margin: 4px 0 18px;

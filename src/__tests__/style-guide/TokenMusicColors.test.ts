@@ -4,8 +4,10 @@ import TokenMusicColors from "@/style-guide/tokens/TokenMusicColors.vue";
 
 describe("TokenMusicColors", () => {
   it("renders the real twelve-slot specimen and all three mappings", async () => {
-    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
-    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const requestFrame = vi.fn(() => 1);
+    const cancelFrame = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", requestFrame);
+    vi.stubGlobal("cancelAnimationFrame", cancelFrame);
 
     const wrapper = mount(TokenMusicColors);
     const segments = wrapper.findAll(".music-recipe__segment");
@@ -16,6 +18,10 @@ describe("TokenMusicColors", () => {
     expect(wrapper.text()).toContain("fixed-chromatic-fallback");
     expect(wrapper.find(".note").exists()).toBe(true);
     expect(wrapper.find(".chord").exists()).toBe(true);
+
+    await wrapper.find('input[type="checkbox"]').setValue(false);
+    expect(wrapper.text()).toContain("center");
+    expect(cancelFrame).toHaveBeenCalled();
 
     await wrapper.findAll("button").find((button) => button.text() === "Fixed")!.trigger("click");
     expect(wrapper.findAll(".music-recipe__segment--empty")).toHaveLength(0);

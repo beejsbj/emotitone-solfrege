@@ -89,4 +89,38 @@ describe("useMusicColorClock", () => {
     expect(cancelFrame).toHaveBeenCalled();
     scope.stop();
   });
+
+  it("restores an active subscriber's speed when the latest one leaves", async () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => frames.delete(id)));
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+
+    const { useMusicColorClock } = await import("@/composables/useMusicColorClock");
+    const firstScope = effectScope();
+    const secondScope = effectScope();
+    const first = firstScope.run(() => useMusicColorClock(() => true, () => 1))!;
+    secondScope.run(() => useMusicColorClock(() => true, () => 2));
+
+    const initialFrame = frames.get(1)!;
+    frames.delete(1);
+    initialFrame(100);
+    secondScope.stop();
+
+    const next = frames.get(2)!;
+    frames.delete(2);
+    next(200);
+
+    expect(first.phaseCycles.value).toBeCloseTo(0.1 / (Math.PI * 2));
+    firstScope.stop();
+  });
 });

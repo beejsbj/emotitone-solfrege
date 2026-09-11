@@ -135,13 +135,12 @@ function migrateMusicColorConfig(
   const migratedSpanCandidate = typeof incomingSection.lightnessRange === "number"
     ? 0.6 * incomingSection.lightnessRange / 0.7
     : 0.6;
-  const maximumSpan = 2 * Math.min(center - 0.2, 0.9 - center);
-  const migratedSpan = clampNumber(migratedSpanCandidate, 0.6, 0, maximumSpan);
+  const migratedSpan = clampNumber(migratedSpanCandidate, 0.6, 0, 0.7);
   mergedSection.lightnessSpan = clampNumber(
     incomingSection.lightnessSpan,
     migratedSpan,
     0,
-    maximumSpan,
+    0.7,
   );
 
   delete mergedSection.chromaticMapping;

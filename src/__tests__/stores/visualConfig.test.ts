@@ -169,6 +169,25 @@ describe('Visual Config Store', () => {
       expect(store.config.dynamicColors).toMatchObject(canonical)
     })
 
+    it('preserves independently configured lightness controls across reload', () => {
+      const canonical = {
+        recipeVersion: 1,
+        musicColorMode: 'fixed',
+        hueMotionEnabled: true,
+        animationSpeed: 1,
+        chroma: 0.18,
+        lightnessCenter: 0.2,
+        lightnessSpan: 0.6,
+      }
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { dynamicColors: canonical },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.dynamicColors).toMatchObject(canonical)
+    })
+
     it('migrates the legacy harmonic section into Blob relationships', () => {
       const mockLocalStorage = (window as any).localStorage
       mockLocalStorage.getItem.mockImplementation((key) => {

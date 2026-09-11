@@ -43,7 +43,7 @@
         </select>
       </label>
       <label class="music-recipe__sweep">
-        <input v-model="sweep" type="checkbox" />
+        <input v-model="config.hueMotionEnabled" type="checkbox" />
         Full-cell hue motion
       </label>
     </div>
@@ -172,7 +172,6 @@ const musicKey = ref<ChromaticNote>("C");
 const mode = ref<MusicalMode>("major");
 const octave = ref(5);
 const selectedPitch = ref<ChromaticNote>("C#");
-const sweep = ref(true);
 const config = ref<DynamicColorConfig>({
   recipeVersion: 1,
   musicColorMode: "movable-relative",
@@ -185,13 +184,15 @@ const config = ref<DynamicColorConfig>({
 
 provideMusicColorConfig(config);
 const clock = useMusicColorClock(
-  () => sweep.value && config.value.hueMotionEnabled,
+  () => config.value.hueMotionEnabled,
   () => config.value.animationSpeed,
 );
 
 const scale = computed(() => getScaleForMode(mode.value));
 const phase = computed(() =>
-  sweep.value && !clock.reducedMotion.value ? clock.phaseCycles.value : null,
+  config.value.hueMotionEnabled && !clock.reducedMotion.value
+    ? clock.phaseCycles.value
+    : null,
 );
 
 function point(radius: number, angleDegrees: number) {

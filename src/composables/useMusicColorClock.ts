@@ -7,6 +7,7 @@ let animationFrame: number | null = null;
 let subscriberCount = 0;
 let previousTimestamp: number | null = null;
 let speedReader: (() => number) | null = null;
+const speedReaders = new Map<symbol, () => number>();
 let reducedMotionQuery: MediaQueryList | null = null;
 let listenersReady = false;
 
@@ -73,7 +74,9 @@ function ensureListeners() {
 }
 
 function acquire(speed: () => number) {
+  const subscriber = Symbol("music-color-clock-subscriber");
   subscriberCount += 1;
+  speedReaders.set(subscriber, speed);
   speedReader = speed;
   ensureListeners();
   startClock();
@@ -83,9 +86,13 @@ function acquire(speed: () => number) {
     if (released) return;
     released = true;
     subscriberCount = Math.max(0, subscriberCount - 1);
+    speedReaders.delete(subscriber);
     if (subscriberCount === 0) {
       speedReader = null;
       stopClock();
+    } else if (speedReader === speed) {
+      const remainingReaders = [...speedReaders.values()];
+      speedReader = remainingReaders[remainingReaders.length - 1] ?? null;
     }
   };
 }

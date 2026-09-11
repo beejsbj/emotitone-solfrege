@@ -26,7 +26,11 @@ beforeEach(() => {
   vi.spyOn(window, 'dispatchEvent').mockImplementation(windowEvents.dispatchEvent.bind(windowEvents));
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
     if (this.classList.contains("drawer--layout-resize")) committedLayoutResize = true;
+    if (this.classList.contains("drawer__handle-rail")) return { height: 40 } as DOMRect;
     return { height: this.classList.contains("drawer__persistent") ? prefixHeight : parseFloat(this.style.height) || 0 } as DOMRect;
+  });
+  vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function(this: HTMLElement) {
+    return this.classList.contains("drawer__handle-rail") ? 120 : 0;
   });
 });
 afterEach(() => { mounted.splice(0).forEach(w => w.unmount()); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -65,6 +69,30 @@ describe("Drawer continuous height contract", () => {
     expect(w.get('.drawer__content').attributes('inert')).toBeDefined();
     await w.get('button').trigger('click');
     expect(height(w)).toBe(320);
+  });
+  it("can place its one handle inside a measured persistent rail", async () => {
+    const w = mount(Drawer, {
+      props: {
+        accessibleName: "Keyboard",
+        defaultOpen: true,
+        handlePlacement: "persistent",
+      },
+      slots: {
+        "persistent-leading": "<div data-leading>Pattern reel</div>",
+        persistent: "<div data-trailing>Instrument bars</div>",
+      },
+    });
+    mounted.push(w);
+    await flushPromises();
+
+    expect(w.classes()).toContain("drawer--handle-persistent");
+    expect(w.findAll(".drawer__handle")).toHaveLength(1);
+    expect(w.get(".drawer__handle-rail").element.previousElementSibling)
+      .toBe(w.get("[data-leading]").element);
+    expect(w.get(".drawer__handle-rail").element.nextElementSibling)
+      .toBe(w.get("[data-trailing]").element);
+    expect((w.element as HTMLElement).style.getPropertyValue("--drawer-handle-top"))
+      .toBe("126px");
   });
   it("shrinks content to its floor, then clips continuously through bars to zero", async () => {
     const w = await create();

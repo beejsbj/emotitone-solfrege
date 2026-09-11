@@ -7,6 +7,7 @@ const props = withDefaults(defineProps<{
   defaultOpen?: boolean;
   anchor?: "top" | "bottom";
   handleAlign?: "left" | "center" | "right";
+  handlePlacement?: "edge" | "persistent";
   accessibleName: string;
   handleResizeDescription?: string;
   handleLabel?: string;
@@ -30,6 +31,7 @@ const props = withDefaults(defineProps<{
   defaultOpen: false,
   anchor: "bottom",
   handleAlign: "center",
+  handlePlacement: "edge",
   handleLabel: "",
   handleResizeDescription: "",
   fixed: false,
@@ -54,9 +56,11 @@ const emit = defineEmits<{
 }>();
 const root = ref<HTMLElement | null>(null);
 const persistent = ref<HTMLElement | null>(null);
+const handleRail = ref<HTMLElement | null>(null);
 const clip = ref<HTMLElement | null>(null);
 const content = ref<HTMLElement | null>(null);
 const persistentHeight = ref(0);
+const handleTop = ref(0);
 const frameHeight = ref(typeof window === "undefined" ? 800 : window.innerHeight);
 const currentHeight = ref(0);
 // Store content space, not total height: expanding the Pattern List must not resize keys.
@@ -282,6 +286,11 @@ function measure() {
   const nextFrame = props.fixed ? window.innerHeight : root.value?.parentElement?.clientHeight;
   frameHeight.value = nextFrame || window.innerHeight;
   const nextPersistent = persistent.value?.getBoundingClientRect().height ?? 0;
+  if (props.handlePlacement === "persistent" && handleRail.value) {
+    const railHeight = handleRail.value.getBoundingClientRect().height;
+    handleTop.value = handleRail.value.offsetTop
+      + Math.max(0, (railHeight - 28) / 2);
+  }
   const previous = persistentHeight.value;
   const wasAtPersistent = Math.abs(currentHeight.value - previous) < 1;
   const wasExpanded = currentHeight.value > previous;
@@ -392,8 +401,12 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     :class="[`drawer--${anchor}`, `drawer--handle-${handleAlign}`, {
       'drawer--fixed': fixed, 'drawer--dragging': dragging,
       'drawer--layout-resize': layoutResizing, 'drawer--ready': ready,
+      'drawer--handle-persistent': handlePlacement === 'persistent',
     }]"
-    :style="{ height: `${height}px` }"
+    :style="{
+      height: `${height}px`,
+      '--drawer-handle-top': handlePlacement === 'persistent' ? `${handleTop}px` : undefined,
+    }"
     :aria-label="accessibleName"
     :data-expanded="expanded"
     @transitionend="transitionEnd"
@@ -420,7 +433,18 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       <span class="drawer__grip" aria-hidden="true" />
     </button>
     <div ref="clip" class="drawer__clip" :inert="height <= 0 ? true : undefined">
-      <div v-if="$slots.persistent" ref="persistent" class="drawer__persistent">
+      <div
+        v-if="$slots.persistent || $slots['persistent-leading']"
+        ref="persistent"
+        class="drawer__persistent"
+      >
+        <slot name="persistent-leading" />
+        <div
+          v-if="handlePlacement === 'persistent'"
+          ref="handleRail"
+          class="drawer__handle-rail"
+          aria-hidden="true"
+        />
         <slot name="persistent" />
       </div>
       <div
@@ -454,6 +478,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer--layout-resize { transition: none; }
 .drawer__clip { height: 100%; overflow: clip; }
 .drawer__persistent { display: flow-root; }
+.drawer__handle-rail {
+  height: 40px;
+  background: var(--drawer-handle-rail-surface, var(--ink-3));
+}
 .drawer__content { min-width: 0; overflow: hidden; }
 .drawer--top .drawer__content {
   box-sizing: border-box;
@@ -481,6 +509,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer__handle::before { content: ""; position: absolute; inset: -6px 0; }
 .drawer--top .drawer__handle { top: 100%; }
 .drawer--bottom .drawer__handle { bottom: 100%; }
+.drawer--handle-persistent .drawer__handle {
+  top: var(--drawer-handle-top);
+  bottom: auto;
+}
 .drawer--handle-left .drawer__handle { left: 0; }
 .drawer--handle-right .drawer__handle { right: 0; }
 .drawer--handle-center .drawer__handle { left: 50%; transform: translateX(-50%); }
@@ -508,6 +540,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 }
 @media (forced-colors: active) {
   .drawer { background: Canvas; color: CanvasText; }
+  .drawer__handle-rail { background: Canvas; }
   .drawer__handle { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
   .drawer__grip { background: ButtonText; }
   .drawer__handle:focus-visible { outline-color: Highlight; }

@@ -5,9 +5,10 @@
     fixed
     anchor="bottom"
     handle-align="center"
+    handle-placement="persistent"
     accessible-name="Keyboard"
     :handle-resize-description="`${rowCount} keyboard rows. Drag or use Up and Down Arrow keys to resize.`"
-    handle-test-id="keyboard-drawer-handle"
+    handle-test-id="performance-deck-handle"
     storage-key="keyboard"
     :initial-content-height="initialKeyboardHeight"
     :min-content-height="minimumHeight"
@@ -21,8 +22,10 @@
     @content-resize="resizeKeyboard"
   >
     <template #icon><KeyboardIcon /></template>
-    <template #persistent>
+    <template #persistent-leading>
       <PatternList @context-change="bumpPatternControls" />
+    </template>
+    <template #persistent>
       <CodeStripBar
         :is-playing="isPlaying"
         :play-disabled="!hasPlayableCode || (instrumentStore.isInteractionLocked && !isPlaying)"
@@ -228,6 +231,8 @@ defineExpose({
 
 <style scoped>
 .performance-deck-drawer {
+  --drawer-handle-rail-surface: var(--ink);
+
   background: transparent;
 }
 

@@ -395,21 +395,11 @@ export interface HilbertScopeConfig {
 }
 
 /**
- * Beating Shapes visual effect configuration
+ * Shared UIBeat presentation configuration
  */
-export interface BeatingShapesConfig {
-  /** Whether beating shapes effects are enabled */
+export interface UIBeatConfig {
+  /** Whether transport-synchronized UI presentation is enabled */
   isEnabled: boolean;
-  /** Maximum opacity when shapes are active (0-1) */
-  opacity: number;
-  /** Scale multiplier for shape sizes */
-  scale: number;
-  /** Number of shapes to display */
-  shapeCount: number;
-  /** Saturation level for shape colors (0-1) */
-  saturation: number;
-  /** Enable glassmorphism effects for shapes */
-  useGlassmorphism: boolean;
 }
 
 /**
@@ -544,8 +534,8 @@ export interface VisualEffectsConfig {
   dynamicColors: DynamicColorConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
-  /** Beating Shapes configuration */
-  beatingShapes: BeatingShapesConfig;
+  /** Shared transport-synchronized UI presentation configuration */
+  uiBeat: UIBeatConfig;
   /** Pattern recording configuration */
   patterns: PatternConfig;
   /** Keyboard styling configuration */

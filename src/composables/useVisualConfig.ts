@@ -17,7 +17,7 @@ import type {
   BlobRelationshipConfig,
   BlobConnectionMode,
   HilbertScopeConfig,
-  BeatingShapesConfig,
+  UIBeatConfig,
   PatternConfig,
   CodeStripConfig,
   VisualEffectsConfig,
@@ -41,7 +41,7 @@ export type {
   BlobRelationshipConfig,
   BlobConnectionMode,
   HilbertScopeConfig,
-  BeatingShapesConfig,
+  UIBeatConfig,
   CodeStripConfig,
   VisualEffectsConfig,
 };
@@ -63,7 +63,7 @@ export function useVisualConfig() {
   const frequencyMappingConfig = computed(() => store.config.frequencyMapping);
   const dynamicColorConfig = computed(() => store.config.dynamicColors);
   const hilbertScopeConfig = computed(() => store.config.hilbertScope);
-  const beatingShapesConfig = computed(() => store.config.beatingShapes);
+  const uiBeatConfig = computed(() => store.config.uiBeat);
   const patternsConfig = computed(() => store.config.patterns);
   const keyboardConfig = computed(() => store.config.keyboard);
   const codeStripConfig = computed(() => store.config.codeStrip);
@@ -82,7 +82,7 @@ export function useVisualConfig() {
     frequencyMappingConfig,
     dynamicColorConfig,
     hilbertScopeConfig,
-    beatingShapesConfig,
+    uiBeatConfig,
     patternsConfig,
     keyboardConfig,
     codeStripConfig,

@@ -5,6 +5,10 @@
  */
 
 import type { HilbertScopeConfig } from "@/types/visual";
+import {
+  liveAudioInput,
+  type LiveAudioSource,
+} from "@/services/liveAudio";
 import { getAudioContext, getSuperdoughMasterGain } from "@/services/superdoughAudio";
 import { useColorSystem } from "../useColorSystem";
 import { useMusicStore } from "@/stores/music";
@@ -41,6 +45,9 @@ const calculateTargetRadius = (
 // Hilbert transform processor using Web Audio API
 class HilbertProcessor {
   private audioContext: AudioContext | null = null;
+  private sourceNode: AudioNode | null = null;
+  private delayNode: DelayNode | null = null;
+  private hilbertNode: ConvolverNode | null = null;
   private analyserTime: AnalyserNode | null = null;
   private analyserQuad: AnalyserNode | null = null;
   private timeData: Float32Array;
@@ -67,6 +74,9 @@ class HilbertProcessor {
 
     // Create Hilbert transform filter
     const [delay, hilbert] = this.createFilters(audioContext);
+    this.sourceNode = sourceNode;
+    this.delayNode = delay;
+    this.hilbertNode = hilbert;
 
     // Connect the audio graph
     sourceNode.connect(hilbert);
@@ -121,6 +131,14 @@ class HilbertProcessor {
   }
 
   disconnect() {
+    if (this.sourceNode && this.hilbertNode) {
+      safeDisconnectEdge(this.sourceNode, this.hilbertNode);
+    }
+    if (this.sourceNode && this.delayNode) {
+      safeDisconnectEdge(this.sourceNode, this.delayNode);
+    }
+    safeDisconnect(this.hilbertNode);
+    safeDisconnect(this.delayNode);
     if (this.analyserTime) {
       this.analyserTime.disconnect();
       this.analyserTime = null;
@@ -129,6 +147,10 @@ class HilbertProcessor {
       this.analyserQuad.disconnect();
       this.analyserQuad = null;
     }
+    this.sourceNode = null;
+    this.delayNode = null;
+    this.hilbertNode = null;
+    this.audioContext = null;
     this.connected = false;
   }
 }
@@ -136,6 +158,7 @@ class HilbertProcessor {
 // Amplitude analyzer for overall volume tracking
 class AmplitudeAnalyzer {
   private analyser: AnalyserNode | null = null;
+  private sourceNode: AudioNode | null = null;
   private dataArray: Uint8Array;
   private connected = false;
 
@@ -150,6 +173,7 @@ class AmplitudeAnalyzer {
     this.analyser.fftSize = 256;
     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     sourceNode.connect(this.analyser);
+    this.sourceNode = sourceNode;
     this.connected = true;
   }
 
@@ -166,10 +190,14 @@ class AmplitudeAnalyzer {
   }
 
   disconnect() {
+    if (this.sourceNode && this.analyser) {
+      safeDisconnectEdge(this.sourceNode, this.analyser);
+    }
     if (this.analyser) {
       this.analyser.disconnect();
       this.analyser = null;
     }
+    this.sourceNode = null;
     this.connected = false;
   }
 }
@@ -219,7 +247,30 @@ export function useHilbertScopeRenderer() {
   };
 
   // Audio connection state
+  let audioContext: AudioContext | null = null;
   let audioGainNode: GainNode | null = null;
+  let playbackSourceNode: GainNode | null = null;
+  let liveSource: LiveAudioSource | null = null;
+  let connectedLiveSourceNode: MediaStreamAudioSourceNode | null = null;
+
+  const syncLiveSource = () => {
+    if (connectedLiveSourceNode && audioGainNode) {
+      safeDisconnectEdge(connectedLiveSourceNode, audioGainNode);
+      connectedLiveSourceNode = null;
+    }
+    if (!liveSource || !audioContext || !audioGainNode) return;
+    if (liveSource.context !== audioContext) {
+      console.error("Live microphone and Hilbert Scope must share an AudioContext");
+      return;
+    }
+    liveSource.node.connect(audioGainNode);
+    connectedLiveSourceNode = liveSource.node;
+  };
+
+  const unsubscribeLiveSource = liveAudioInput.subscribe((source) => {
+    liveSource = source;
+    syncLiveSource();
+  });
 
   /**
    * Initialize the Hilbert Scope with audio context
@@ -232,7 +283,7 @@ export function useHilbertScopeRenderer() {
     if (state.isInitialized) return;
 
     // Get the superdough AudioContext
-    const audioContext = getAudioContext() as AudioContext;
+    audioContext = getAudioContext() as AudioContext;
     if (!audioContext) {
       console.error("No audio context available for Hilbert Scope");
       return;
@@ -243,12 +294,13 @@ export function useHilbertScopeRenderer() {
     audioGainNode.gain.value = 1.0;
 
     // Fan-out: superdough master gain → [speakers] AND [audioGainNode → hilbert processors]
-    const masterGain = getSuperdoughMasterGain();
-    if (masterGain) masterGain.connect(audioGainNode);
+    playbackSourceNode = getSuperdoughMasterGain();
+    if (playbackSourceNode) playbackSourceNode.connect(audioGainNode);
 
     // Connect processors
     await hilbertProcessor.connect(audioContext, audioGainNode);
     amplitudeAnalyzer.connect(audioContext, audioGainNode);
+    syncLiveSource();
 
     // Initialize position (center, top half)
     state.x = canvasWidth / 2;
@@ -497,6 +549,15 @@ export function useHilbertScopeRenderer() {
    * Cleanup resources
    */
   const cleanup = () => {
+    unsubscribeLiveSource();
+    if (connectedLiveSourceNode && audioGainNode) {
+      safeDisconnectEdge(connectedLiveSourceNode, audioGainNode);
+      connectedLiveSourceNode = null;
+    }
+    if (playbackSourceNode && audioGainNode) {
+      safeDisconnectEdge(playbackSourceNode, audioGainNode);
+      playbackSourceNode = null;
+    }
     hilbertProcessor.disconnect();
     amplitudeAnalyzer.disconnect();
     
@@ -504,6 +565,7 @@ export function useHilbertScopeRenderer() {
       audioGainNode.disconnect();
       audioGainNode = null;
     }
+    audioContext = null;
 
     state.isInitialized = false;
     state.isActive = false;
@@ -522,4 +584,20 @@ export function useHilbertScopeRenderer() {
     cleanup,
     isActive: () => state.isActive,
   };
+}
+
+function safeDisconnect(node: AudioNode | null) {
+  try {
+    node?.disconnect();
+  } catch {
+    // Partially initialized nodes may have no active connections.
+  }
+}
+
+function safeDisconnectEdge(source: AudioNode, destination: AudioNode) {
+  try {
+    source.disconnect(destination);
+  } catch {
+    // The source owner may already have torn down this connection.
+  }
 }

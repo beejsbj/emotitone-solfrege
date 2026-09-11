@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   toggleHumming: vi.fn(),
   cancelHumming: vi.fn(),
   selectHummingTake: vi.fn(),
+  toggleLiveListening: vi.fn(),
+  stopLiveListening: vi.fn(),
   isPlaying: { value: false, __v_isRef: true },
   hasPlayableCode: { value: true, __v_isRef: true },
   hummingStatus: { value: "idle", __v_isRef: true },
@@ -18,6 +20,9 @@ const mocks = vi.hoisted(() => ({
   hummingStatusMessage: { value: "Ready", __v_isRef: true },
   hummingTakeLabels: { value: [] as string[], __v_isRef: true },
   selectedHummingTake: { value: 0, __v_isRef: true },
+  liveListeningStatus: { value: "idle", __v_isRef: true },
+  liveListeningError: { value: null, __v_isRef: true },
+  liveListeningStatusMessage: { value: "Live listening is off", __v_isRef: true },
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
   setMode: vi.fn(),
@@ -106,6 +111,16 @@ vi.mock("@/composables/useHummingCapture", () => ({
   }),
 }));
 
+vi.mock("@/composables/useLiveListening", () => ({
+  useLiveListening: () => ({
+    status: mocks.liveListeningStatus,
+    error: mocks.liveListeningError,
+    statusMessage: mocks.liveListeningStatusMessage,
+    toggle: mocks.toggleLiveListening,
+    stop: mocks.stopLiveListening,
+  }),
+}));
+
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
@@ -118,8 +133,17 @@ vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
 vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
   default: {
     name: "HummingCaptureTransport",
-    props: ["status", "error", "statusMessage", "takeLabels", "selectedTakeIndex"],
-    emits: ["toggle", "cancel", "selectTake"],
+    props: [
+      "status",
+      "error",
+      "statusMessage",
+      "takeLabels",
+      "selectedTakeIndex",
+      "listeningStatus",
+      "listeningError",
+      "listeningStatusMessage",
+    ],
+    emits: ["toggle", "toggleListening", "cancel", "selectTake"],
     template: '<div data-testid="humming-capture-transport" />',
   },
 }));
@@ -167,6 +191,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     mocks.instrumentStore.warmingInstrument = null;
     mocks.instrumentStore.warmupMessage = "";
     mocks.hummingStatus.value = "idle";
+    mocks.liveListeningStatus.value = "idle";
     mocks.keyboardConfig.rowCount = 3;
     mocks.keyboardConfig.hapticFeedback = true;
   });
@@ -201,6 +226,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
 
   it("cancels active humming before starting Strudel playback", async () => {
     mocks.hummingStatus.value = "recording";
+    mocks.liveListeningStatus.value = "listening";
     const wrapper = mount(DrawerKeyboard, {
       global: {
         stubs: {
@@ -216,8 +242,34 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     await vi.waitFor(() => expect(mocks.toggle).toHaveBeenCalledTimes(1));
 
     expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
+    expect(mocks.stopLiveListening).toHaveBeenCalledTimes(1);
     expect(mocks.cancelHumming.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.toggle.mock.invocationCallOrder[0],
+    );
+    wrapper.unmount();
+  });
+
+  it("stops Strudel before activating independent live listening", async () => {
+    mocks.isPlaying.value = true;
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          PatternList: true,
+          Keyboard: true,
+          CodeStripBar: true,
+        },
+      },
+    });
+
+    wrapper.getComponent({ name: "HummingCaptureTransport" }).vm
+      .$emit("toggleListening");
+    await vi.waitFor(() => {
+      expect(mocks.toggleLiveListening).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mocks.stop).toHaveBeenCalledTimes(1);
+    expect(mocks.stop.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.toggleLiveListening.mock.invocationCallOrder[0],
     );
     wrapper.unmount();
   });

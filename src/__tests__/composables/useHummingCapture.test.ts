@@ -24,7 +24,7 @@ vi.mock("@/services/hummingStage", () => ({
   }),
 }));
 
-vi.mock("@/services/livePitch", () => ({
+vi.mock("@/services/microphoneCapture", () => ({
   startMicrophoneCapture: mocks.startMicrophoneCapture,
 }));
 

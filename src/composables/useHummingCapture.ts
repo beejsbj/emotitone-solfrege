@@ -8,7 +8,7 @@ import {
 import {
   startMicrophoneCapture,
   type MicrophoneCapture,
-} from "@/services/livePitch";
+} from "@/services/microphoneCapture";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";

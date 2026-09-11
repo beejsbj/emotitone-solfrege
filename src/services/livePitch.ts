@@ -1,4 +1,5 @@
 import { PitchDetector } from "pitchy";
+import type { LiveAudioSource } from "@/services/liveAudio";
 
 export const LIVE_PITCH_SOURCE = "live-pitch";
 
@@ -12,11 +13,6 @@ export interface LivePitchFrame {
 
 export interface LivePitchMonitor {
   stop: () => Promise<void>;
-}
-
-export interface MicrophoneCapture {
-  stop: () => Promise<Blob>;
-  cancel: () => Promise<void>;
 }
 
 const FRAME_SIZE = 2_048;
@@ -66,28 +62,26 @@ export class LiveMpmTracker {
 }
 
 export async function startLivePitchMonitor(
-  stream: MediaStream,
+  source: LiveAudioSource,
   onFrame: (frame: LivePitchFrame) => void,
 ): Promise<LivePitchMonitor> {
-  const context = new AudioContext();
+  const { context, node: sourceNode } = source;
   const tracker = new LiveMpmTracker();
-  let source: MediaStreamAudioSourceNode | undefined;
   let analyser: AnalyserNode | undefined;
   let mute: GainNode | undefined;
   let animationFrame: number | null = null;
+  let stopped = false;
 
   const cleanup = async () => {
-    safeDisconnect(source);
+    if (stopped) return;
+    stopped = true;
+    if (analyser) safeDisconnectEdge(sourceNode, analyser);
     safeDisconnect(analyser);
     safeDisconnect(mute);
     if (animationFrame !== null) cancelAnimationFrame(animationFrame);
-    if (context.state !== "closed") {
-      await context.close();
-    }
   };
 
   try {
-    source = context.createMediaStreamSource(stream);
     analyser = context.createAnalyser();
     analyser.fftSize = FRAME_SIZE;
     analyser.smoothingTimeConstant = 0;
@@ -95,12 +89,13 @@ export async function startLivePitchMonitor(
     mute.gain.value = 0;
     mute.connect(context.destination);
 
-    source.connect(analyser);
+    sourceNode.connect(analyser);
     analyser.connect(mute);
     await context.resume();
 
     const samples = new Float32Array(FRAME_SIZE);
     const samplePitch = () => {
+      if (stopped) return;
       analyser?.getFloatTimeDomainData(samples);
       onFrame(tracker.analyze(samples, context.sampleRate, context.currentTime));
       animationFrame = requestAnimationFrame(samplePitch);
@@ -113,97 +108,19 @@ export async function startLivePitchMonitor(
   }
 }
 
-export async function startMicrophoneCapture(
-  onFrame: (frame: LivePitchFrame) => void,
-  onError: (error: Error) => void = () => undefined,
-): Promise<MicrophoneCapture> {
-  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-    throw new Error("This browser does not support microphone capture.");
-  }
-
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      channelCount: 1,
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-    },
-  });
-
-  let monitor: LivePitchMonitor | undefined;
-  try {
-    monitor = await startLivePitchMonitor(stream, onFrame);
-    const recorder = new MediaRecorder(stream);
-    const chunks: Blob[] = [];
-    let cancelled = false;
-    let settled = false;
-    let resolveCompletion!: (blob: Blob) => void;
-    let rejectCompletion!: (error: Error) => void;
-    const completion = new Promise<Blob>((resolve, reject) => {
-      resolveCompletion = resolve;
-      rejectCompletion = reject;
-    });
-    void completion.catch(() => undefined);
-
-    const cleanup = async () => {
-      await monitor?.stop().catch(() => undefined);
-      stream.getTracks().forEach((track) => track.stop());
-    };
-
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunks.push(event.data);
-    };
-    recorder.onerror = () => {
-      if (settled) return;
-      settled = true;
-      const error = new Error("The microphone recording failed.");
-      try {
-        onError(error);
-      } finally {
-        void cleanup().then(() => {
-          rejectCompletion(error);
-        });
-      }
-    };
-    recorder.onstop = () => {
-      if (settled) return;
-      settled = true;
-      const blob = new Blob(chunks, {
-        type: recorder.mimeType || chunks[0]?.type || "audio/webm",
-      });
-      void cleanup().then(() => {
-        if (cancelled) {
-          rejectCompletion(new Error("Microphone capture was cancelled."));
-        } else {
-          resolveCompletion(blob);
-        }
-      });
-    };
-    recorder.start();
-
-    return {
-      stop() {
-        if (recorder.state !== "inactive") recorder.stop();
-        return completion;
-      },
-      async cancel() {
-        cancelled = true;
-        if (recorder.state !== "inactive") recorder.stop();
-        await completion.catch(() => undefined);
-      },
-    };
-  } catch (error) {
-    await monitor?.stop().catch(() => undefined);
-    stream.getTracks().forEach((track) => track.stop());
-    throw error;
-  }
-}
-
 function safeDisconnect(node: AudioNode | undefined) {
   try {
     node?.disconnect();
   } catch {
     // Partially initialized Web Audio nodes may have no active connection.
+  }
+}
+
+function safeDisconnectEdge(source: AudioNode, destination: AudioNode) {
+  try {
+    source.disconnect(destination);
+  } catch {
+    // The source may already have been torn down by its owning lease.
   }
 }
 

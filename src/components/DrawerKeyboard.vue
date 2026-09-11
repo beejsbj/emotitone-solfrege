@@ -37,8 +37,12 @@
         :status-message="hummingStatusMessage"
         :take-labels="hummingTakeLabels"
         :selected-take-index="selectedHummingTake"
+        :listening-status="liveListeningStatus"
+        :listening-error="liveListeningError"
+        :listening-status-message="liveListeningStatusMessage"
         haptic
         @toggle="toggleHummingCapture"
+        @toggle-listening="toggleLiveListeningInput"
         @cancel="cancelHummingCapture"
         @select-take="selectHummingTake"
       />
@@ -100,6 +104,7 @@ import Drawer from "@/components/uniques/Drawer/index.vue";
 import { Keyboard as KeyboardIcon } from "lucide-vue-next";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { useHummingCapture } from "@/composables/useHummingCapture";
+import { useLiveListening } from "@/composables/useLiveListening";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
@@ -138,6 +143,13 @@ const {
   cancel: cancelHumming,
   selectTake: selectHummingTake,
 } = useHummingCapture();
+const {
+  status: liveListeningStatus,
+  error: liveListeningError,
+  statusMessage: liveListeningStatusMessage,
+  toggle: toggleLiveListening,
+  stop: stopLiveListening,
+} = useLiveListening();
 const harmonyLatched = ref<HarmonyAlteration>("auto");
 const harmonyEffective = ref<HarmonyAlteration>("auto");
 type PatternControl = "key" | "mode" | "bpm" | "octave";
@@ -161,6 +173,9 @@ async function toggleSketchPlayback() {
   if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
     await cancelHumming();
   }
+  if (liveListeningStatus.value !== "idle") {
+    await stopLiveListening();
+  }
   await toggle();
 }
 
@@ -173,6 +188,13 @@ async function toggleHummingCapture() {
 
 async function cancelHummingCapture() {
   await cancelHumming();
+}
+
+async function toggleLiveListeningInput() {
+  if (isPlaying.value && liveListeningStatus.value !== "listening") {
+    await stopSketchPlayback();
+  }
+  await toggleLiveListening();
 }
 
 function updateMode(mode: string) {

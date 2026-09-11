@@ -67,8 +67,8 @@ vi.mock("@/services/musicColor", () => ({
     ({ C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 })[pitchClass],
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getKeyBackground: (scaleIndex: number) => ({
       background: `color-${scaleIndex}`,
       primaryColor: `color-${scaleIndex}`,

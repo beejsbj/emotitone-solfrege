@@ -19,8 +19,8 @@ const mocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getKeyBackground: mocks.getKeyBackground,
     getKeyBackgroundByPitchClass: mocks.getKeyBackgroundByPitchClass,
   }),

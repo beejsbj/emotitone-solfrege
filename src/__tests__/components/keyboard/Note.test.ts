@@ -12,8 +12,8 @@ const getKeyBackgroundByPitchClass = vi.fn(() => ({
   primaryColor: "hsla(280, 80%, 50%, 1)",
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({ getKeyBackground, getKeyBackgroundByPitchClass }),
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({ getKeyBackground, getKeyBackgroundByPitchClass }),
 }));
 
 describe("Note", () => {

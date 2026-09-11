@@ -4,8 +4,8 @@ import Chord from "@/components/compounds/Chord.vue";
 import CodeStripSequence from "@/components/uniques/CodeStrip/Sequence.vue";
 import Note from "@/components/primatives/Note.vue";
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getKeyBackground: (scaleIndex: number) => ({
       background: `color-${scaleIndex}`,
       primaryColor: `color-${scaleIndex}`,

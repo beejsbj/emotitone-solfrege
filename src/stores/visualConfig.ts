@@ -18,8 +18,15 @@ export interface SavedConfig {
   updatedAt: string;
 }
 
-type LegacyDynamicColors = Partial<VisualEffectsConfig["dynamicColors"]> & {
+type LegacyDynamicColors = Partial<
+  Omit<VisualEffectsConfig["dynamicColors"], "musicColorMode">
+> & {
   chromaticMapping?: boolean;
+  musicColorMode?: VisualEffectsConfig["dynamicColors"]["musicColorMode"] | "movable";
+  hueAnimationAmplitude?: number;
+  saturation?: number;
+  baseLightness?: number;
+  lightnessRange?: number;
 };
 
 type LegacyKeyboardConfig = Partial<VisualEffectsConfig["keyboard"]> & {
@@ -75,6 +82,77 @@ function normalizeLegacyGeometryMode(value: unknown): HarmonicGeometryMode {
 
 function isBlobConnectionMode(value: unknown): value is BlobConnectionMode {
   return value === "off" || value === "merge" || value === "web";
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(min, Math.min(max, value))
+    : fallback;
+}
+
+function migrateMusicColorConfig(
+  incomingSection: Record<string, unknown>,
+  mergedSection: Record<string, unknown>,
+) {
+  const rawMode = incomingSection.musicColorMode;
+  if (rawMode === "fixed" || rawMode === "movable-ordinal" || rawMode === "movable-relative") {
+    mergedSection.musicColorMode = rawMode;
+  } else if (rawMode === "movable") {
+    mergedSection.musicColorMode = "movable-ordinal";
+  } else if (typeof incomingSection.chromaticMapping === "boolean") {
+    mergedSection.musicColorMode = incomingSection.chromaticMapping
+      ? "fixed"
+      : "movable-ordinal";
+  } else {
+    mergedSection.musicColorMode = "movable-ordinal";
+  }
+
+  mergedSection.recipeVersion = 1;
+  mergedSection.hueMotionEnabled = typeof incomingSection.hueMotionEnabled === "boolean"
+    ? incomingSection.hueMotionEnabled
+    : typeof incomingSection.hueAnimationAmplitude === "number"
+      ? incomingSection.hueAnimationAmplitude > 0
+      : true;
+
+  const migratedChromaCandidate = typeof incomingSection.saturation === "number"
+    ? 0.18 * incomingSection.saturation / 0.8
+    : 0.18;
+  const migratedChroma = clampNumber(migratedChromaCandidate, 0.18, 0, 0.3);
+  mergedSection.chroma = clampNumber(
+    incomingSection.chroma,
+    migratedChroma,
+    0,
+    0.3,
+  );
+
+  const migratedCenterCandidate = typeof incomingSection.baseLightness === "number"
+    ? 0.575 + incomingSection.baseLightness - 0.5
+    : 0.575;
+  const migratedCenter = clampNumber(migratedCenterCandidate, 0.575, 0.2, 0.9);
+  const center = clampNumber(
+    incomingSection.lightnessCenter,
+    migratedCenter,
+    0.2,
+    0.9,
+  );
+  mergedSection.lightnessCenter = center;
+
+  const migratedSpanCandidate = typeof incomingSection.lightnessRange === "number"
+    ? 0.6 * incomingSection.lightnessRange / 0.7
+    : 0.6;
+  const migratedSpan = clampNumber(migratedSpanCandidate, 0.6, 0, 0.7);
+  mergedSection.lightnessSpan = clampNumber(
+    incomingSection.lightnessSpan,
+    migratedSpan,
+    0,
+    0.7,
+  );
+
+  delete mergedSection.chromaticMapping;
+  delete mergedSection.hueAnimationAmplitude;
+  delete mergedSection.saturation;
+  delete mergedSection.baseLightness;
+  delete mergedSection.lightnessRange;
 }
 
 function migrateLegacyBlobRelationships(
@@ -145,15 +223,7 @@ function migrateLegacySectionKeys(
   mergedSection: Record<string, unknown>
 ) {
   if (sectionName === "dynamicColors") {
-    if (
-      !("musicColorMode" in incomingSection) &&
-      typeof incomingSection.chromaticMapping === "boolean"
-    ) {
-      mergedSection.musicColorMode = incomingSection.chromaticMapping
-        ? "fixed"
-        : "movable";
-    }
-    delete mergedSection.chromaticMapping;
+    migrateMusicColorConfig(incomingSection, mergedSection);
   }
 
   if (sectionName === "keyboard") {

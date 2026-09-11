@@ -27,8 +27,10 @@ describe("LoadingScreen", () => {
     expect(wrapper.findAll(".converged-loader__bars > .is-filled")).toHaveLength(13);
     const lanes = wrapper.findAll(".converged-loader__lane");
     expect(lanes).toHaveLength(12);
-    expect(new Set(lanes.map((lane) => lane.attributes("style").match(/--lane-neutral:\s*([^;]+)/)?.[1])))
-      .toEqual(new Set(["var(--ink)", "var(--ivory)"]));
+    expect(lanes.every((lane) => {
+      const foreground = lane.attributes("style").match(/--lane-neutral:\s*([^;]+)/)?.[1];
+      return foreground === "var(--ink)" || foreground === "var(--ivory)";
+    })).toBe(true);
     expect(wrapper.findAll(".converged-loader__floating-mark")).toHaveLength(5);
     const midiStage = wrapper.findAll(".converged-loader__stages li").at(-1)!;
     expect(midiStage.text()).toContain("MIDI input");

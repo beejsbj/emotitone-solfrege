@@ -7,10 +7,10 @@ import type { Particle } from "@/types/canvas";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import type { ParticleConfig } from "@/types/visual";
 import { drawMarkOnCanvas, MARK_NAMES } from "@/components/primatives/marks";
-import { useColorSystem } from "../useColorSystem";
+import { useMusicColor } from "../useMusicColor";
 
 export function useParticleSystem() {
-  const { getFleckColor, getFleckColorByPitchClass } = useColorSystem();
+  const { getFleckColor, getFleckColorByPitchClass } = useMusicColor({ animated: true });
 
   // Particle state
   const particles: Particle[] = [];

@@ -70,11 +70,10 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         maxAmplitude: 14,
       },
       dynamicColors: {
-        isEnabled: true,
-        saturation: 0.7,
-        baseLightness: 0.55,
-        lightnessRange: 0.24,
-        hueAnimationAmplitude: 12,
+        chroma: 0.1575,
+        lightnessCenter: 0.625,
+        lightnessSpan: 0.2057,
+        hueMotionEnabled: true,
         animationSpeed: 0.5,
       },
       keyboard: {
@@ -113,11 +112,10 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         interpolationSpeed: 0.18,
       },
       dynamicColors: {
-        isEnabled: true,
         musicColorMode: "fixed",
-        hueAnimationAmplitude: 42,
+        hueMotionEnabled: true,
         animationSpeed: 1.4,
-        saturation: 0.95,
+        chroma: 0.2138,
       },
       hilbertScope: {
         isEnabled: true,
@@ -164,11 +162,10 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         activeOpacity: 0.3,
       },
       dynamicColors: {
-        isEnabled: true,
         animationSpeed: 0.35,
-        saturation: 0.62,
-        baseLightness: 0.58,
-        lightnessRange: 0.2,
+        chroma: 0.1395,
+        lightnessCenter: 0.655,
+        lightnessSpan: 0.1714,
       },
       hilbertScope: {
         opacity: 0.25,
@@ -202,9 +199,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         baseOpacity: 0.12,
         activeOpacity: 0.42,
         maxAmplitude: 12,
-      },
-      dynamicColors: {
-        isEnabled: false,
       },
       hilbertScope: {
         isEnabled: false,
@@ -255,13 +249,12 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         speed: 5,
       },
       dynamicColors: {
-        isEnabled: true,
         musicColorMode: "fixed",
-        hueAnimationAmplitude: 60,
+        hueMotionEnabled: true,
         animationSpeed: 1.8,
-        saturation: 1,
-        baseLightness: 0.5,
-        lightnessRange: 0.38,
+        chroma: 0.225,
+        lightnessCenter: 0.575,
+        lightnessSpan: 0.3257,
       },
       hilbertScope: {
         isEnabled: true,

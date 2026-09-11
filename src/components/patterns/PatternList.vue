@@ -17,7 +17,7 @@ import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type { BarTapeSegment } from "@/components/primatives/BarTape.vue";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useMusicColor } from "@/composables/useMusicColor";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { CHROMATIC_NOTES } from "@/data";
@@ -37,7 +37,7 @@ const { currentCode, hasPlayableCode } = useCodeStripStrudel();
 const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
-} = useColorSystem();
+} = useMusicColor();
 const CURRENT_TAKE_ID = "current-pattern-take";
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 

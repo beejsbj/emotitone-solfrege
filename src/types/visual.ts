@@ -50,23 +50,24 @@ export interface ConfigSectionMeta {
 export interface NoteColorRelationships {
   primary: string;
   accent: string;
-  secondary: string;
-  tertiary: string;
 }
 
-export type MusicColorMode = "fixed" | "movable";
+export type MusicColorMode =
+  | "fixed"
+  | "movable-ordinal"
+  | "movable-relative";
 
 /**
  * Dynamic color configuration
  */
 export interface DynamicColorConfig {
-  isEnabled: boolean;
+  recipeVersion: 1;
   musicColorMode: MusicColorMode;
-  saturation: number;
-  baseLightness: number;
-  lightnessRange: number;
-  hueAnimationAmplitude: number;
+  hueMotionEnabled: boolean;
   animationSpeed: number;
+  chroma: number;
+  lightnessCenter: number;
+  lightnessSpan: number;
 }
 
 /** Blob relationship presentations. */
@@ -296,74 +297,6 @@ export interface FrequencyMappingConfig {
   minValue: number;
   /** Maximum mapped value */
   maxValue: number;
-}
-
-/**
- * Dynamic color system configuration
- */
-export interface DynamicColorConfig {
-  /** Whether dynamic colors are enabled (alternative to predefined colors) */
-  isEnabled: boolean;
-  /** Whether music colors are fixed to pitch class or movable with the scale */
-  musicColorMode: MusicColorMode;
-  /** Hue animation amplitude in degrees (±) */
-  hueAnimationAmplitude: number;
-  /** Animation speed multiplier for hue changes */
-  animationSpeed: number;
-  /** Saturation level for dynamic colors (0-1) */
-  saturation: number;
-  /** Base lightness for middle octave (0-1) */
-  baseLightness: number;
-  /** Lightness range for octave variations (0-1) */
-  lightnessRange: number;
-}
-
-/**
- * Core color relationships for a note - only the essential colors
- */
-export interface NoteColorRelationships {
-  /** Primary color (base hue) */
-  primary: string;
-  /** Accent color (complementary - hue + 180°) */
-  accent: string;
-  /** Secondary color (first triadic - hue + 120°) */
-  secondary: string;
-  /** Tertiary color (second triadic - hue + 240°) */
-  tertiary: string;
-}
-
-/**
- * Static color palette for a solfege note - only stores the core colors
- */
-export interface SolfegeColorPalette {
-  /** Primary color */
-  primary: string;
-  /** Secondary color */
-  secondary: string;
-  /** Accent color */
-  accent: string;
-  /** Tertiary color */
-  tertiary: string;
-}
-
-/**
- * Complete color data for both major and minor modes
- */
-export interface SolfegeColorData {
-  /** Major mode colors */
-  major: SolfegeColorPalette;
-  /** Minor mode colors */
-  minor: SolfegeColorPalette;
-}
-
-/**
- * Octave configuration for lightness variations
- */
-export interface OctaveConfig {
-  /** Octave number (1-5) */
-  octave: number;
-  /** Lightness value for this octave (0-1) */
-  lightness: number;
 }
 
 /**

@@ -6,7 +6,7 @@
 
 import type { HilbertScopeConfig } from "@/types/visual";
 import { getAudioContext, getSuperdoughMasterGain } from "@/services/superdoughAudio";
-import { useColorSystem } from "../useColorSystem";
+import { useMusicColor } from "../useMusicColor";
 import { useMusicStore } from "@/stores/music";
 
 // Math utility functions needed for Hilbert transform
@@ -198,7 +198,7 @@ export function useHilbertScopeRenderer() {
   const sigmoid = sigmoidFactory(7);
   
   // Color system and music store
-  const colorSystem = useColorSystem();
+  const musicColor = useMusicColor({ animated: true });
   const musicStore = useMusicStore();
 
   // State
@@ -373,7 +373,7 @@ export function useHilbertScopeRenderer() {
       const firstNote = activeNotes[0];
       const noteMode = firstNote.mode ?? musicStore.currentMode;
       const noteKey = firstNote.key ?? musicStore.currentKey;
-      resolvedColor = colorSystem.getPrimaryColorForPitch(
+      resolvedColor = musicColor.getPrimaryColorForPitch(
         firstNote.solfegeIndex,
         firstNote.pitchClassIndex,
         noteMode,
@@ -389,7 +389,7 @@ export function useHilbertScopeRenderer() {
     if (!resolvedColor) {
       const scaleNotes = musicStore.solfegeData;
       if (scaleNotes && scaleNotes.length > 0) {
-        resolvedColor = colorSystem.getPrimaryColor(
+        resolvedColor = musicColor.getPrimaryColor(
           scaleNotes[0].name,
           musicStore.currentMode,
           3,

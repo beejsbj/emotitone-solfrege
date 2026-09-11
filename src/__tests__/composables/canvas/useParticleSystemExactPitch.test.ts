@@ -7,8 +7,8 @@ const colors = vi.hoisted(() => ({
   byPitchClass: vi.fn(() => "exact-fleck"),
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getFleckColor: colors.byName,
     getFleckColorByPitchClass: colors.byPitchClass,
   }),

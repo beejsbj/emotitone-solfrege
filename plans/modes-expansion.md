@@ -61,15 +61,9 @@ Minor Blues:      Do Me Fa Se Sol Te       (1,b3,4,b5,5,b7)
    - `getCurrentScaleNotes()` line 125: remove `const scaleName = mode === "major" ? ... : "minor"` and the hardcoded `.slice(0, 7)` — use `this.currentMode` directly with Tonal.js
    - `getNoteName()` / `getNoteFrequency()` lines 173/208: change `solfegeIndex === 7` sentinel to `solfegeIndex === scaleLength` (dynamic)
 
-6. **`src/composables/useColorSystem.ts`** — add `SOLFEGE_HUE_MAP` for the 13 chromatic syllables so new names (Me, Ra, Fi, etc.) get correct hues instead of falling back to red:
-   ```ts
-   const SOLFEGE_HUE_MAP: Record<string, number> = {
-     "Do": 0, "Ra": 26, "Re": 51, "Me": 77, "Mi": 103,
-     "Fa": 154, "Fi": 180, "Sol": 206, "Se": 218,
-     "La": 257, "Le": 270, "Te": 283, "Ti": 309,
-   };
-   ```
-   Update `getNoteIndex()` to fall back to this map when syllable not in `SOLFEGE_NOTES`.
+6. **Music Color (superseded)** — the shipped `musicColorCore.ts` pitch/degree
+   resolver now owns chromatic identity. Do not add a second syllable-to-hue map
+   to `useMusicColor.ts`; extend the shared scale data and adapter inputs instead.
 
 7. **`src/components/DrawerKeyboard.vue` line 25** — `v-if="index < 7"` → `v-if="index < store.solfegeData.length"` (dynamic key count)
 

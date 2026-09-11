@@ -132,5 +132,10 @@ describe("Stage appearance domain", () => {
     expect(different).not.toEqual(first);
     expect(first.patch).not.toHaveProperty("dynamicColors");
     expect(first.patch.hilbertScope).not.toHaveProperty("isEnabled");
+    expect(first.patch.blobs).not.toHaveProperty("connectionMode");
+    expect(first.patch.blobs).not.toHaveProperty("showChordLabel");
+    expect(first.patch.blobs).not.toHaveProperty("showIntervalLabels");
+    expect(first.patch.blobs).not.toHaveProperty("showEmotionLabel");
+    expect(first.patch.blobs).not.toHaveProperty("labelOpacity");
   });
 });

@@ -382,12 +382,13 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Load configuration from localStorage on initialization
   const loadFromStorage = () => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const isFreshInstall = stored === null;
-    newLookOnLaunch.value = isFreshInstall;
-    transientStageLook.value = null;
+    let isFreshInstall = false;
 
     try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      isFreshInstall = stored === null;
+      newLookOnLaunch.value = isFreshInstall;
+      transientStageLook.value = null;
       if (stored) {
         const parsedConfig = JSON.parse(stored);
         Object.assign(config, migrateVisualConfig(parsedConfig.config || parsedConfig));
@@ -495,7 +496,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       const nextEffective = patchStageControl(effectiveConfig.value, control, value);
       transientStageLook.value = {
         ...transientStageLook.value,
-        name: `${transientStageLook.value.name} · Edited`,
+        name: transientStageLook.value.name.endsWith(" · Edited")
+          ? transientStageLook.value.name
+          : `${transientStageLook.value.name} · Edited`,
         patch: diffStageLook(config, nextEffective),
       };
       return;

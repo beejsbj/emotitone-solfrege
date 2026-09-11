@@ -527,6 +527,15 @@ export function createSeededStageLook(
   const source = looks[Math.floor(random() * looks.length)] ?? looks[0];
   const patch = sanitizeStageLookPatch(source.patch);
   const varied = applyNumericVariation(patch, random);
+  if (varied.blobs) {
+    // Launch variation changes appearance, not the learner's relationship or
+    // explanation choices.
+    delete varied.blobs.connectionMode;
+    delete varied.blobs.showChordLabel;
+    delete varied.blobs.showIntervalLabels;
+    delete varied.blobs.showEmotionLabel;
+    delete varied.blobs.labelOpacity;
+  }
 
   return {
     seed,

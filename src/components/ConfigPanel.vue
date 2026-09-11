@@ -66,16 +66,6 @@
 
             <Button
               size="sm"
-              data-testid="config-save-as"
-              title="Save Stage Look"
-              accessible-name="Save Stage Look"
-              @click="promptSaveStageLook"
-            >
-              <Save :size="14" />
-            </Button>
-
-            <Button
-              size="sm"
               title="Close settings"
               accessible-name="Close settings"
               @click="close"
@@ -178,6 +168,13 @@
                     accessible-name="Shuffle a new Stage Look"
                     @click="shuffleStageLook()"
                   ><ShuffleIcon :size="14" /></Button>
+                  <Button
+                    size="sm"
+                    data-testid="stage-look-save"
+                    title="Save current Stage Look"
+                    accessible-name="Save current Stage Look"
+                    @click="promptSaveStageLook"
+                  ><Save :size="14" /></Button>
                   <Button
                     v-if="transientStageLook"
                     size="sm"
@@ -580,11 +577,11 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   strings: "Lines",
   animation: "Anim",
   frequencyMapping: "Freq",
-  dynamicColors: "Color",
+  dynamicColors: "Music Color",
   hilbertScope: "Scope",
-  uiBeat: "Beat",
-  patterns: "Notes",
-  keyboard: "Keys",
+  uiBeat: "UI Rhythm",
+  patterns: "Patterns",
+  keyboard: "Keyboard",
   codeStrip: "Code Strip",
 };
 

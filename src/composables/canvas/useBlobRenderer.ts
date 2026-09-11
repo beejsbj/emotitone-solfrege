@@ -45,7 +45,7 @@ interface BlobRenderState {
 }
 
 export function useBlobRenderer() {
-  const { getPrimaryColorForPitch, withAlpha } = useColorSystem();
+  const { getPrimaryColorForPitch, withAlpha } = useColorSystem({ animated: true });
   const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Circle of Fifths progression (starting from C at position 0)

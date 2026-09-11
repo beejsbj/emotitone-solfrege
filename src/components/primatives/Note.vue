@@ -121,7 +121,9 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem();
+const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem({
+  animated: true,
+});
 
 const inferredAccidental = computed(() => {
   if (typeof props.accidental === "boolean") {

@@ -11,7 +11,8 @@
       </div>
       <div class="music-recipe__mode" role="group" aria-label="Music color mode">
         <button :class="{ active: config.musicColorMode === 'fixed' }" @click="config.musicColorMode = 'fixed'">Fixed</button>
-        <button :class="{ active: config.musicColorMode === 'movable' }" @click="config.musicColorMode = 'movable'">Movable</button>
+        <button :class="{ active: config.musicColorMode === 'movable-ordinal' }" @click="config.musicColorMode = 'movable-ordinal'">Ordinal</button>
+        <button :class="{ active: config.musicColorMode === 'movable-relative' }" @click="config.musicColorMode = 'movable-relative'">Relative</button>
       </div>
     </header>
 
@@ -78,11 +79,12 @@ let animationFrame: number | null = null;
 
 const config = ref<DynamicColorConfig>({
   isEnabled: true,
-  musicColorMode: "movable",
-  saturation: 0.8,
-  baseLightness: 0.5,
-  lightnessRange: 0.7,
-  hueAnimationAmplitude: 15,
+  recipeVersion: 1,
+  musicColorMode: "movable-ordinal",
+  chroma: 0.18,
+  lightnessCenter: 0.575,
+  lightnessSpan: 0.6,
+  hueMotionEnabled: true,
   animationSpeed: 1,
 });
 

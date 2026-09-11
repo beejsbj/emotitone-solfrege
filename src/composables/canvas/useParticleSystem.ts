@@ -10,7 +10,7 @@ import { drawMarkOnCanvas, MARK_NAMES } from "@/components/primatives/marks";
 import { useColorSystem } from "../useColorSystem";
 
 export function useParticleSystem() {
-  const { getFleckColor, getFleckColorByPitchClass } = useColorSystem();
+  const { getFleckColor, getFleckColorByPitchClass } = useColorSystem({ animated: true });
 
   // Particle state
   const particles: Particle[] = [];

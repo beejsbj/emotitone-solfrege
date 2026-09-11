@@ -3,8 +3,9 @@
  * Music color assignment and keyboard surface styling share one runtime entry point.
  */
 
-import { computed, onUnmounted, ref } from "vue";
+import { computed } from "vue";
 import { useVisualConfig } from "./useVisualConfig";
+import { useMusicColorClock } from "./useMusicColorClock";
 import type {
   ChromaticNote,
   MusicalMode,
@@ -13,10 +14,13 @@ import type {
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import {
   getChromaticNoteForScaleIndex,
-  resolveExactMusicColorsByPitchClass,
+  musicColorRelationships,
+  musicColorValueToCss,
+  resolveMusicColorSampleByPitchClass,
+  resolveMusicColorSampleByScaleIndex,
   resolveMusicColorsByNoteName,
-  resolveMusicColorsByScaleIndex,
   resolveSolfegeName as resolveMusicSolfegeName,
+  tuneMusicColorValue,
 } from "@/services/musicColor";
 
 const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
@@ -26,30 +30,24 @@ const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
   tertiary: "hsla(0, 0%, 30%, 1)",
 };
 
-let animationId: number | null = null;
-const animationTime = ref(0);
-
-function startGlobalAnimation() {
-  if (animationId) {
-    return;
-  }
-
-  const animate = () => {
-    animationTime.value = Date.now();
-    animationId = requestAnimationFrame(animate);
-  };
-
-  animate();
-}
-
-export function useColorSystem() {
+export function useColorSystem(options: { animated?: boolean } = {}) {
   const { dynamicColorConfig } = useVisualConfig();
+  const clock = useMusicColorClock(
+    () => options.animated === true && dynamicColorConfig.value.hueMotionEnabled,
+    () => dynamicColorConfig.value.animationSpeed,
+  );
 
-  startGlobalAnimation();
-
-  onUnmounted(() => {
-    // Intentionally left running while the app is mounted.
-  });
+  const samplePhase = (animated: boolean) =>
+    animated && options.animated && dynamicColorConfig.value.hueMotionEnabled && !clock.reducedMotion.value
+      ? clock.phaseCycles.value
+      : null;
+  const legacyTime = (animated: boolean) => {
+    const phase = samplePhase(animated);
+    const speed = dynamicColorConfig.value.animationSpeed;
+    return phase === null || speed <= 0
+      ? undefined
+      : phase * Math.PI * 2 * 1000 / speed;
+  };
 
   const isFixedMusicColorMode = computed(
     () => dynamicColorConfig.value.musicColorMode === "fixed"
@@ -62,18 +60,17 @@ export function useColorSystem() {
     octave: number = 3,
     animated: boolean = true
   ): NoteColorRelationships => {
-    const config = dynamicColorConfig.value;
-    const time = animated ? animationTime.value : undefined;
-    return (
-      resolveMusicColorsByScaleIndex(
+    const resolved = resolveMusicColorSampleByScaleIndex(
         scaleIndex,
         mode,
         key,
         octave,
-        config,
-        time
-      ) ?? FALLBACK_NOTE_COLORS
+        dynamicColorConfig.value,
+        samplePhase(animated),
     );
+    return resolved
+      ? musicColorRelationships(resolved.sample)
+      : FALLBACK_NOTE_COLORS;
   };
 
   const getNoteColorsByPitchClass = (
@@ -86,16 +83,18 @@ export function useColorSystem() {
     const normalizedIndex = (
       (pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length
     ) % CHROMATIC_NOTES.length;
-    return (
-      resolveExactMusicColorsByPitchClass(
+    const resolved = resolveMusicColorSampleByPitchClass(
         CHROMATIC_NOTES[normalizedIndex],
         mode,
         key,
         octave,
         dynamicColorConfig.value,
-        animated ? animationTime.value : undefined,
-      ) ?? FALLBACK_NOTE_COLORS
+        "fixed-chromatic",
+        samplePhase(animated),
     );
+    return resolved
+      ? musicColorRelationships(resolved.sample)
+      : FALLBACK_NOTE_COLORS;
   };
 
   const getNoteColors = (
@@ -112,7 +111,7 @@ export function useColorSystem() {
         key,
         octave,
         dynamicColorConfig.value,
-        animated ? animationTime.value : undefined
+        legacyTime(animated),
       ) ?? FALLBACK_NOTE_COLORS
     );
   };
@@ -241,6 +240,14 @@ export function useColorSystem() {
   };
 
   const withAlpha = (color: string, alpha: number): string => {
+    if (color.startsWith("rgba(")) {
+      return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
+    }
+
+    if (color.startsWith("rgb(")) {
+      return color.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
+    }
+
     if (color.startsWith("hsla(")) {
       return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
     }
@@ -493,12 +500,17 @@ export function useColorSystem() {
       };
     }
 
-    const primaryColor = getStaticPrimaryColorByScaleIndex(
+    const resolved = resolveMusicColorSampleByScaleIndex(
       scaleIndex,
       mode,
       key,
-      octave
+      octave,
+      dynamicColorConfig.value,
+      samplePhase(true),
     );
+    if (!resolved) return { background: FALLBACK_NOTE_COLORS.primary, primaryColor: FALLBACK_NOTE_COLORS.primary };
+
+    const primaryColor = musicColorValueToCss(resolved.sample.primary);
 
     if (surfaceStyle === "glassmorphism") {
       return {
@@ -507,11 +519,13 @@ export function useColorSystem() {
       };
     }
 
-    const adjustedColor = adjustColorHSL(
-      primaryColor,
-      keyBrightness,
-      keySaturation
-    );
+    const adjustedColor = musicColorValueToCss(tuneMusicColorValue(
+      resolved.sample.primary,
+      {
+        lightnessMultiplier: keyBrightness,
+        chromaMultiplier: keySaturation,
+      },
+    ));
     return {
       background: adjustedColor,
       primaryColor: adjustedColor,
@@ -553,15 +567,18 @@ export function useColorSystem() {
       ((pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length)
       % CHROMATIC_NOTES.length
     ];
-    const primaryColor = (
-      resolveExactMusicColorsByPitchClass(
+    const resolved = resolveMusicColorSampleByPitchClass(
         pitchClass,
         mode,
         key,
         octave,
         dynamicColorConfig.value,
-      ) ?? FALLBACK_NOTE_COLORS
-    ).primary;
+        "fixed-chromatic",
+        samplePhase(true),
+    );
+    if (!resolved) return { background: FALLBACK_NOTE_COLORS.primary, primaryColor: FALLBACK_NOTE_COLORS.primary };
+
+    const primaryColor = musicColorValueToCss(resolved.sample.primary);
     if (surfaceStyle === "glassmorphism") {
       return {
         background: createGlassmorphBackground(primaryColor, glassmorphOpacity),
@@ -569,11 +586,13 @@ export function useColorSystem() {
       };
     }
 
-    const adjustedColor = adjustColorHSL(
-      primaryColor,
-      keyBrightness,
-      keySaturation,
-    );
+    const adjustedColor = musicColorValueToCss(tuneMusicColorValue(
+      resolved.sample.primary,
+      {
+        lightnessMultiplier: keyBrightness,
+        chromaMultiplier: keySaturation,
+      },
+    ));
     return {
       background: adjustedColor,
       primaryColor: adjustedColor,

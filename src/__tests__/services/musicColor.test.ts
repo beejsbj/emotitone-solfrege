@@ -8,12 +8,13 @@ import { buildHarmony, HARMONY_ALTERATIONS } from "@/domain/harmony";
 
 const movableConfig = {
   isEnabled: true,
-  musicColorMode: "movable" as const,
-  hueAnimationAmplitude: 0,
+  recipeVersion: 1 as const,
+  musicColorMode: "movable-ordinal" as const,
+  hueMotionEnabled: false,
   animationSpeed: 1,
-  saturation: 0.8,
-  baseLightness: 0.5,
-  lightnessRange: 0.3,
+  chroma: 0.18,
+  lightnessCenter: 0.575,
+  lightnessSpan: 0.6,
 };
 
 const fixedConfig = {
@@ -42,15 +43,15 @@ describe("musicColor", () => {
   });
 
   it("keeps fixed pitch-class colors stable across musical contexts", () => {
-    const chromaticC = resolveMusicColorsByScaleIndex(
-      0,
+    const chromaticC = resolveMusicColorsByPitchClass(
+      "C",
       "chromatic",
       "C",
       4,
       fixedConfig
     );
-    const dMinorC = resolveMusicColorsByScaleIndex(
-      6,
+    const dMinorC = resolveMusicColorsByPitchClass(
+      "C",
       "minor",
       "D",
       4,

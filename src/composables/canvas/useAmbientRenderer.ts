@@ -5,32 +5,36 @@
 
 import type { AmbientConfig } from "@/types/visual";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
-import { getScaleForMode } from "@/data";
-import { useColorSystem } from "../useColorSystem";
-
-const HSLA_PATTERN =
-  /hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%(?:\s*,\s*([\d.]+))?\s*\)/i;
+import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
+import { useVisualConfig } from "../useVisualConfig";
+import {
+  musicColorValueToCss,
+  resolveMusicColorSampleByPitchClass,
+  resolveMusicColorSampleByScaleIndex,
+  tuneMusicColorValue,
+} from "@/services/musicColor";
+import type { MusicColorValue } from "@/services/musicColorCore";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function normalizePitchClass(value: number) {
+  return ((value % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length)
+    % CHROMATIC_NOTES.length;
+}
+
 function tuneAmbientColor(
-  color: string,
+  color: MusicColorValue,
   saturationMultiplier: number,
   brightnessMultiplier: number,
   alpha: number
 ): string {
-  const match = color.match(HSLA_PATTERN);
-  if (!match) {
-    return color;
-  }
-
-  const hue = Number(match[1]);
-  const saturation = clamp(Number(match[2]) * saturationMultiplier, 0, 100);
-  const lightness = clamp(Number(match[3]) * brightnessMultiplier, 0, 100);
-
-  return `hsla(${hue}, ${saturation}%, ${lightness}%, ${clamp(alpha, 0, 1)})`;
+  return musicColorValueToCss(tuneMusicColorValue(color, {
+    chromaMultiplier: saturationMultiplier,
+    lightnessMultiplier: brightnessMultiplier,
+    alpha: clamp(alpha, 0, 1),
+  }));
 }
 
 function resolveAmbientContext(musicStore: any) {
@@ -56,10 +60,7 @@ function resolveAmbientContext(musicStore: any) {
 }
 
 export function useAmbientRenderer() {
-  const {
-    getStaticPrimaryColorByScaleIndex,
-    getStaticPrimaryColorForPitch,
-  } = useColorSystem();
+  const { dynamicColorConfig } = useVisualConfig();
 
   /**
    * Render subtle texture overlay
@@ -116,25 +117,40 @@ export function useAmbientRenderer() {
     if (!ctx) return;
 
     const context = resolveAmbientContext(musicStore);
-    const tonicColor = getStaticPrimaryColorByScaleIndex(
+    const tonicColor = resolveMusicColorSampleByScaleIndex(
       0,
       context.mode,
       context.key,
-      4
-    );
-    const accentColor = getStaticPrimaryColorForPitch(
-      context.highlightIndex,
-      context.highlightPitchClassIndex,
-      context.mode,
-      context.key,
-      context.highlightOctave,
-    );
-    const supportColor = getStaticPrimaryColorByScaleIndex(
+      4,
+      dynamicColorConfig.value,
+    )?.sample.primary;
+    const exactPitch = typeof context.highlightPitchClassIndex === "number"
+      ? CHROMATIC_NOTES[normalizePitchClass(context.highlightPitchClassIndex)]
+      : null;
+    const accentColor = exactPitch
+      ? resolveMusicColorSampleByPitchClass(
+          exactPitch,
+          context.mode,
+          context.key,
+          context.highlightOctave,
+          dynamicColorConfig.value,
+          "fixed-chromatic",
+        )?.sample.primary
+      : resolveMusicColorSampleByScaleIndex(
+          context.highlightIndex,
+          context.mode,
+          context.key,
+          context.highlightOctave,
+          dynamicColorConfig.value,
+        )?.sample.primary;
+    const supportColor = resolveMusicColorSampleByScaleIndex(
       context.accentIndex,
       context.mode,
       context.key,
-      3
-    );
+      3,
+      dynamicColorConfig.value,
+    )?.sample.primary;
+    if (!tonicColor || !accentColor || !supportColor) return;
 
     const gradientKey = [
       "ambient",
@@ -143,6 +159,9 @@ export function useAmbientRenderer() {
       context.highlightIndex,
       context.highlightPitchClassIndex,
       context.highlightOctave,
+      musicColorValueToCss(tonicColor),
+      musicColorValueToCss(accentColor),
+      musicColorValueToCss(supportColor),
       canvasWidth,
       canvasHeight,
       ambientConfig.opacityMajor,

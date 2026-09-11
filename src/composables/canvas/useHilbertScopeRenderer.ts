@@ -198,7 +198,7 @@ export function useHilbertScopeRenderer() {
   const sigmoid = sigmoidFactory(7);
   
   // Color system and music store
-  const colorSystem = useColorSystem();
+  const colorSystem = useColorSystem({ animated: true });
   const musicStore = useMusicStore();
 
   // State

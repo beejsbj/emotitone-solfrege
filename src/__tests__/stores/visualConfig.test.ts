@@ -116,6 +116,59 @@ describe('Visual Config Store', () => {
       expect(newStore.config.keyboard.surfaceStyle).toBe('colored')
     })
 
+    it('migrates legacy HSL color intent into the versioned OKLCH recipe', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          dynamicColors: {
+            musicColorMode: 'movable',
+            hueAnimationAmplitude: 0,
+            animationSpeed: 1.4,
+            saturation: 0.4,
+            baseLightness: 0.6,
+            lightnessRange: 0.35,
+          },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.dynamicColors).toMatchObject({
+        recipeVersion: 1,
+        musicColorMode: 'movable-ordinal',
+        hueMotionEnabled: false,
+        animationSpeed: 1.4,
+        lightnessSpan: 0.3,
+      })
+      expect(store.config.dynamicColors.chroma).toBeCloseTo(0.09)
+      expect(store.config.dynamicColors.lightnessCenter).toBeCloseTo(0.675)
+      expect(store.config.dynamicColors).not.toHaveProperty('saturation')
+      expect(store.config.dynamicColors).not.toHaveProperty('baseLightness')
+      expect(store.config.dynamicColors).not.toHaveProperty('lightnessRange')
+      expect(store.config.dynamicColors).not.toHaveProperty('hueAnimationAmplitude')
+    })
+
+    it('keeps canonical Music Color migration idempotent and bounded', () => {
+      const canonical = {
+        recipeVersion: 1,
+        musicColorMode: 'movable-relative',
+        hueMotionEnabled: true,
+        animationSpeed: 0.8,
+        chroma: 0.22,
+        lightnessCenter: 0.6,
+        lightnessSpan: 0.4,
+      }
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { dynamicColors: canonical },
+      }))
+
+      const store = createFreshStore()
+      const once = { ...store.config.dynamicColors }
+      store.loadConfigSnapshot(store.getConfigSnapshot())
+
+      expect(store.config.dynamicColors).toEqual(once)
+      expect(store.config.dynamicColors).toMatchObject(canonical)
+    })
+
     it('migrates the legacy harmonic section into Blob relationships', () => {
       const mockLocalStorage = (window as any).localStorage
       mockLocalStorage.getItem.mockImplementation((key) => {

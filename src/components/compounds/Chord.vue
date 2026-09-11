@@ -89,7 +89,9 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem();
+const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem({
+  animated: true,
+});
 
 const chordClasses = computed(() => [
   `chord--display-${props.display}`,

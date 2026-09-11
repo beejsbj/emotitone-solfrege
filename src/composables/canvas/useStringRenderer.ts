@@ -22,7 +22,7 @@ import useGSAP from "../useGSAP";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export function useStringRenderer() {
-  const { getPrimaryColor, getPrimaryColorByScaleIndex } = useColorSystem();
+  const { getPrimaryColor, getPrimaryColorByScaleIndex } = useColorSystem({ animated: true });
   const { gsap } = useGSAP();
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();

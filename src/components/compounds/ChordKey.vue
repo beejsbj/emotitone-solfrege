@@ -21,7 +21,7 @@
     @blur="clearActivationKeys"
     @click="handleClickOnlyActivation"
   >
-    <span class="chord-key__face pressable-key__face" aria-hidden="true">
+    <span ref="beatTargetRef" class="chord-key__face pressable-key__face" aria-hidden="true">
       <Chord
         :members="members"
         display="symbol"
@@ -43,6 +43,7 @@ import type {
 } from "@/components/compounds/Chord.vue";
 import type { NoteGeometry } from "@/components/primatives/Note.vue";
 import { usePressableKey, type PressInputEvent } from "@/composables/usePressableKey";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import "./pressableKey.css";
 
 export type ChordKeyInputEvent = PressInputEvent;
@@ -55,11 +56,13 @@ const props = withDefaults(defineProps<{
   geometry?: NoteGeometry;
   pressed?: boolean;
   disabled?: boolean;
+  uiBeat?: boolean;
 }>(), {
   proportion: "compact",
   geometry: "offcut",
   pressed: false,
   disabled: false,
+  uiBeat: true,
 });
 
 const emit = defineEmits<{
@@ -68,6 +71,12 @@ const emit = defineEmits<{
 }>();
 
 const keyRef = ref<HTMLButtonElement | null>(null);
+const beatTargetRef = ref<HTMLElement | null>(null);
+
+useUIBeatScale(beatTargetRef, () => props.uiBeat && !props.disabled, {
+  restScale: 0.8,
+  peakScale: 1.1,
+});
 const CLICK_PULSE_MS = 120;
 const activationKeys = new Set<string>();
 let suppressKeyboardClick = false;

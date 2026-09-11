@@ -17,7 +17,7 @@
     @touchend.prevent="handleTouchEnd"
     @touchcancel.prevent="handleTouchCancel"
   >
-    <span class="key__face pressable-key__face" aria-hidden="true">
+    <span ref="beatTargetRef" class="key__face pressable-key__face" aria-hidden="true">
       <Note
         :syllable="syllable"
         :degree="degree"
@@ -45,6 +45,7 @@
 import { computed, ref, watch } from "vue";
 import Note from "@/components/primatives/Note.vue";
 import { usePressableKey, type PressInputEvent } from "@/composables/usePressableKey";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import "./pressableKey.css";
 import type {
   NoteGeometry,
@@ -78,6 +79,7 @@ const props = withDefaults(
     pressed?: boolean;
     managedInput?: boolean;
     disabled?: boolean;
+    uiBeat?: boolean;
     ariaLabel?: string;
   }>(),
   {
@@ -101,6 +103,7 @@ const props = withDefaults(
     pressed: false,
     managedInput: false,
     disabled: false,
+    uiBeat: true,
     ariaLabel: undefined,
   },
 );
@@ -111,6 +114,12 @@ const emit = defineEmits<{
 }>();
 
 const keyRef = ref<HTMLButtonElement | null>(null);
+const beatTargetRef = ref<HTMLElement | null>(null);
+
+useUIBeatScale(beatTargetRef, () => props.uiBeat && !props.disabled, {
+  restScale: 0.8,
+  peakScale: 1.1,
+});
 
 const {
   isLocallyPressed,

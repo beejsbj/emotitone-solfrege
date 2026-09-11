@@ -163,12 +163,16 @@ export function resolveMusicColorSampleByScaleIndex(
   scaleIndex: number,
   mode: MusicalMode,
   key: ChromaticNote,
-  tonicOctave: number,
+  octave: number,
   config: DynamicColorConfig,
   phaseCycles: number | null = null,
 ): ResolvedMusicColorSample | null {
   const context = musicColorContext(mode, key);
   if (!context) return null;
+  const interval = context.intervals[scaleIndex];
+  const tonicOctave = interval === undefined
+    ? octave
+    : octave - Math.floor((context.tonicPitchClass + interval) / 12);
   return resolveAndSample(
     resolveMusicColor(
       { kind: "degree", degreeIndex: scaleIndex, tonicOctave },

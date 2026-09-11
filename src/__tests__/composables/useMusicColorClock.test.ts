@@ -123,4 +123,44 @@ describe("useMusicColorClock", () => {
     expect(first.phaseCycles.value).toBeCloseTo(0.1 / (Math.PI * 2));
     firstScope.stop();
   });
+
+  it("isolates phase and speed between configuration providers", async () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => frames.delete(id)));
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+
+    const { useMusicColorClock } = await import("@/composables/useMusicColorClock");
+    const scope = effectScope();
+    const keyA = {};
+    const keyB = {};
+    const clocks = scope.run(() => ({
+      a: useMusicColorClock(() => true, () => 1, keyA),
+      b: useMusicColorClock(() => true, () => 2, keyB),
+    }))!;
+
+    for (const id of [1, 2]) {
+      const frame = frames.get(id)!;
+      frames.delete(id);
+      frame(100);
+    }
+    for (const id of [3, 4]) {
+      const frame = frames.get(id)!;
+      frames.delete(id);
+      frame(200);
+    }
+
+    expect(clocks.a.phaseCycles.value).toBeCloseTo(0.1 / (Math.PI * 2));
+    expect(clocks.b.phaseCycles.value).toBeCloseTo(0.2 / (Math.PI * 2));
+    scope.stop();
+  });
 });

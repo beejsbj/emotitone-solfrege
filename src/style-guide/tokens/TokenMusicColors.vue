@@ -92,7 +92,7 @@
         <article class="music-recipe__policy">
           <span>Exact-pitch policy</span>
           <strong>{{ selectedPitch }}{{ octave }}</strong>
-          <p v-if="selectedGeneral">This pitch belongs to the selected scale.</p>
+          <p v-if="selectedDegreeIndex !== null">This pitch belongs to the selected scale.</p>
           <p v-else>General movable output is OFF. Exact visuals use fixed chromatic fallback.</p>
           <div
             class="music-recipe__borrowed-chip"
@@ -186,6 +186,7 @@ provideMusicColorConfig(config);
 const clock = useMusicColorClock(
   () => config.value.hueMotionEnabled,
   () => config.value.animationSpeed,
+  config.value,
 );
 
 const scale = computed(() => getScaleForMode(mode.value));
@@ -245,15 +246,6 @@ const selectedDegreeIndex = computed(() => getScaleDegreeIndexForPitchClass(
   selectedPitch.value,
   musicKey.value,
   mode.value,
-));
-const selectedGeneral = computed(() => resolveMusicColorSampleByPitchClass(
-  selectedPitch.value,
-  mode.value,
-  musicKey.value,
-  octave.value,
-  config.value,
-  "omit",
-  phase.value,
 ));
 const selectedExact = computed(() => resolveMusicColorSampleByPitchClass(
   selectedPitch.value,

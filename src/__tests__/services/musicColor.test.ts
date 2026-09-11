@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveExactMusicColorsByPitchClass,
+  resolveMusicColorSampleByPitchClass,
+  resolveMusicColorSampleByScaleIndex,
   resolveMusicColorsByPitchClass,
   resolveMusicColorsByScaleIndex,
 } from "@/services/musicColor";
@@ -39,6 +41,26 @@ describe("musicColor", () => {
     );
 
     expect(cMajorDo?.primary).toBe(dMajorDo?.primary);
+  });
+
+  it("treats a scale-index octave as the resolved note's scientific octave", () => {
+    const degree = resolveMusicColorSampleByScaleIndex(
+      6,
+      "major",
+      "D",
+      5,
+      movableConfig,
+    );
+    const pitch = resolveMusicColorSampleByPitchClass(
+      "C#",
+      "major",
+      "D",
+      5,
+      movableConfig,
+    );
+
+    expect(degree?.resolution.identity).toMatchObject({ pitchClass: 1, octave: 5 });
+    expect(degree?.sample.primary.oklch.l).toBe(pitch?.sample.primary.oklch.l);
   });
 
   it("keeps fixed pitch-class colors stable across musical contexts", () => {

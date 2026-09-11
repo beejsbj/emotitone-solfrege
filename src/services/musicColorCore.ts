@@ -330,6 +330,8 @@ export function mapOklchToSrgb(color: OklchColor): SrgbColor {
   let mapped = normalized;
   let linear = oklchToLinearSrgb(mapped);
   if (!isInSrgbGamut(linear)) {
+    mapped = { ...normalized, c: 0 };
+    linear = oklchToLinearSrgb(mapped);
     let low = 0;
     let high = normalized.c;
     for (let iteration = 0; iteration < 24; iteration += 1) {

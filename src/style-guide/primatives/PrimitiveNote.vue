@@ -5,7 +5,7 @@
     caption="Note is the controlled, noninteractive musical presentation unit. It owns musical identity, music color, octave value, playing-card hierarchy, and its accepted sounding treatment. Key remains responsible for physical input and press behavior."
   >
     <template #hero>
-      <Note syllable="Do" degree="I" raw-pitch="C4" />
+      <Note syllable="Do" degree="I" raw-pitch="C4" :pitch-class-index="0" />
     </template>
 
     <VariantGrid title="Primary identity · one typographic rank">
@@ -43,7 +43,7 @@
 
     <VariantGrid title="Label subsets">
       <VariantCell caption="Syllable only" stage="ink3">
-        <Note syllable="La" raw-pitch="A4" :visible-labels="['syllable']" />
+        <Note syllable="La" raw-pitch="A4" :pitch-class-index="9" :visible-labels="['syllable']" />
       </VariantCell>
       <VariantCell caption="Raw only · accidental + octave" stage="ink3">
         <Note
@@ -51,6 +51,7 @@
           primary="raw"
           :visible-labels="['raw']"
           :scale-index="1"
+          :pitch-class-index="1"
         />
       </VariantCell>
       <VariantCell caption="Degree + raw" stage="ink3">
@@ -60,16 +61,17 @@
           primary="degree"
           :visible-labels="['degree', 'raw']"
           :scale-index="10"
+          :pitch-class-index="10"
         />
       </VariantCell>
     </VariantGrid>
 
     <VariantGrid title="Piano-key text contrast">
       <VariantCell caption="Natural · white text" stage="ink3">
-        <Note syllable="Do" degree="I" raw-pitch="C4" />
+        <Note syllable="Do" degree="I" raw-pitch="C4" :pitch-class-index="0" />
       </VariantCell>
       <VariantCell caption="Accidental · black text" stage="ink3">
-        <Note syllable="Ra" degree="bII" raw-pitch="Db4" :scale-index="1" />
+        <Note syllable="Ra" degree="bII" raw-pitch="Db4" :scale-index="1" :pitch-class-index="1" />
       </VariantCell>
     </VariantGrid>
 
@@ -86,6 +88,7 @@
           :degree="geometry.degree"
           :raw-pitch="geometry.rawPitch"
           :scale-index="geometry.scaleIndex"
+          :pitch-class-index="geometry.pitchClassIndex"
         />
       </VariantCell>
     </VariantGrid>
@@ -103,6 +106,7 @@
           :degree="proportion.degree"
           :raw-pitch="proportion.rawPitch"
           :scale-index="proportion.scaleIndex"
+          :pitch-class-index="proportion.pitchClassIndex"
         />
       </VariantCell>
     </VariantGrid>
@@ -122,6 +126,7 @@
             :degree="combo.degree"
             :raw-pitch="combo.rawPitch"
             :scale-index="combo.scaleIndex"
+            :pitch-class-index="combo.pitchClassIndex"
           />
         </VariantCell>
       </VariantGrid>
@@ -137,6 +142,7 @@
         <Note
           :octave="octave"
           :raw-pitch="`C${octave}`"
+          :pitch-class-index="0"
           primary="raw"
           :visible-labels="['raw']"
         />
@@ -154,6 +160,7 @@
           :surface-style="surface"
           :raw-pitch="surface === 'monochrome' ? 'F#4' : 'F4'"
           :scale-index="5"
+          :pitch-class-index="surface === 'monochrome' ? 6 : 5"
         />
       </VariantCell>
     </VariantGrid>
@@ -203,6 +210,7 @@ const primaryIdentities = labels.map((primary) => ({
   syllable: "Do",
   degree: "I",
   rawPitch: "C4",
+  pitchClassIndex: 0,
 }));
 
 const notationLayouts = [
@@ -215,6 +223,7 @@ const notationLayouts = [
       rawPitch: "Bb2",
       octave: 2,
       scaleIndex: 10,
+      pitchClassIndex: 10,
       proportion: "tall" as const,
     },
   },
@@ -226,6 +235,7 @@ const notationLayouts = [
       rawPitch: "C#2",
       octave: 2,
       scaleIndex: 1,
+      pitchClassIndex: 1,
       proportion: "medium" as const,
     },
   },
@@ -237,6 +247,7 @@ const notationLayouts = [
       degree: "bVII",
       rawPitch: "Bb4",
       scaleIndex: 10,
+      pitchClassIndex: 10,
       geometry: "pill" as const,
       proportion: "stocky" as const,
     },
@@ -249,25 +260,26 @@ const notationLayouts = [
       rawPitch: "C#2",
       octave: 2,
       scaleIndex: 1,
+      pitchClassIndex: 1,
       proportion: "wide" as const,
     },
   },
 ];
 
 const chromaticNotes = [
-  { syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0 },
-  { syllable: "Ra", degree: "bII", rawPitch: "Db4", scaleIndex: 1 },
-  { syllable: "Re", degree: "II", rawPitch: "D4", scaleIndex: 2 },
-  { syllable: "Me", degree: "bIII", rawPitch: "Eb4", scaleIndex: 3 },
-  { syllable: "Mi", degree: "III", rawPitch: "E4", scaleIndex: 4 },
-  { syllable: "Fa", degree: "IV", rawPitch: "F4", scaleIndex: 5 },
-  { syllable: "Fi", degree: "#IV", rawPitch: "F#4", scaleIndex: 6 },
-  { syllable: "Se", degree: "bV", rawPitch: "Gb4", scaleIndex: 6 },
-  { syllable: "Sol", degree: "V", rawPitch: "G4", scaleIndex: 7 },
-  { syllable: "Le", degree: "bVI", rawPitch: "Ab4", scaleIndex: 8 },
-  { syllable: "La", degree: "VI", rawPitch: "A4", scaleIndex: 9 },
-  { syllable: "Te", degree: "bVII", rawPitch: "Bb4", scaleIndex: 10 },
-  { syllable: "Ti", degree: "VII", rawPitch: "B4", scaleIndex: 11 },
+  { syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0, pitchClassIndex: 0 },
+  { syllable: "Ra", degree: "bII", rawPitch: "Db4", scaleIndex: 1, pitchClassIndex: 1 },
+  { syllable: "Re", degree: "II", rawPitch: "D4", scaleIndex: 2, pitchClassIndex: 2 },
+  { syllable: "Me", degree: "bIII", rawPitch: "Eb4", scaleIndex: 3, pitchClassIndex: 3 },
+  { syllable: "Mi", degree: "III", rawPitch: "E4", scaleIndex: 4, pitchClassIndex: 4 },
+  { syllable: "Fa", degree: "IV", rawPitch: "F4", scaleIndex: 5, pitchClassIndex: 5 },
+  { syllable: "Fi", degree: "#IV", rawPitch: "F#4", scaleIndex: 6, pitchClassIndex: 6 },
+  { syllable: "Se", degree: "bV", rawPitch: "Gb4", scaleIndex: 6, pitchClassIndex: 6 },
+  { syllable: "Sol", degree: "V", rawPitch: "G4", scaleIndex: 7, pitchClassIndex: 7 },
+  { syllable: "Le", degree: "bVI", rawPitch: "Ab4", scaleIndex: 8, pitchClassIndex: 8 },
+  { syllable: "La", degree: "VI", rawPitch: "A4", scaleIndex: 9, pitchClassIndex: 9 },
+  { syllable: "Te", degree: "bVII", rawPitch: "Bb4", scaleIndex: 10, pitchClassIndex: 10 },
+  { syllable: "Ti", degree: "VII", rawPitch: "B4", scaleIndex: 11, pitchClassIndex: 11 },
 ];
 
 const geometries: Array<{
@@ -277,12 +289,13 @@ const geometries: Array<{
   degree: string;
   rawPitch: string;
   scaleIndex: number;
+  pitchClassIndex: number;
 }> = [
-  { name: "standard", label: "Standard", syllable: "Ra", degree: "bII", rawPitch: "Db4", scaleIndex: 1 },
-  { name: "tile", label: "Tile", syllable: "Fa", degree: "IV", rawPitch: "F4", scaleIndex: 5 },
-  { name: "offcut", label: "Offcut", syllable: "Ti", degree: "VII", rawPitch: "B4", scaleIndex: 11 },
-  { name: "tab", label: "Tab", syllable: "Fi", degree: "#IV", rawPitch: "F#4", scaleIndex: 6 },
-  { name: "pill", label: "Pill", syllable: "Te", degree: "bVII", rawPitch: "Bb4", scaleIndex: 10 },
+  { name: "standard", label: "Standard", syllable: "Ra", degree: "bII", rawPitch: "Db4", scaleIndex: 1, pitchClassIndex: 1 },
+  { name: "tile", label: "Tile", syllable: "Fa", degree: "IV", rawPitch: "F4", scaleIndex: 5, pitchClassIndex: 5 },
+  { name: "offcut", label: "Offcut", syllable: "Ti", degree: "VII", rawPitch: "B4", scaleIndex: 11, pitchClassIndex: 11 },
+  { name: "tab", label: "Tab", syllable: "Fi", degree: "#IV", rawPitch: "F#4", scaleIndex: 6, pitchClassIndex: 6 },
+  { name: "pill", label: "Pill", syllable: "Te", degree: "bVII", rawPitch: "Bb4", scaleIndex: 10, pitchClassIndex: 10 },
 ];
 
 const proportions: Array<{
@@ -292,11 +305,12 @@ const proportions: Array<{
   degree: string;
   rawPitch: string;
   scaleIndex: number;
+  pitchClassIndex: number;
 }> = [
-  { name: "tall", label: "Tall · 40 × 116", syllable: "Mi", degree: "III", rawPitch: "E4", scaleIndex: 4 },
-  { name: "medium", label: "Medium · 56 × 88", syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0 },
-  { name: "stocky", label: "Stocky · 72 × 72", syllable: "Fa", degree: "IV", rawPitch: "F4", scaleIndex: 5 },
-  { name: "wide", label: "Wide · 120 × 56", syllable: "Sol", degree: "V", rawPitch: "G4", scaleIndex: 7 },
+  { name: "tall", label: "Tall · 40 × 116", syllable: "Mi", degree: "III", rawPitch: "E4", scaleIndex: 4, pitchClassIndex: 4 },
+  { name: "medium", label: "Medium · 56 × 88", syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0, pitchClassIndex: 0 },
+  { name: "stocky", label: "Stocky · 72 × 72", syllable: "Fa", degree: "IV", rawPitch: "F4", scaleIndex: 5, pitchClassIndex: 5 },
+  { name: "wide", label: "Wide · 120 × 56", syllable: "Sol", degree: "V", rawPitch: "G4", scaleIndex: 7, pitchClassIndex: 7 },
 ];
 
 const geometryProportions = geometries.flatMap((geometry, geometryIndex) =>
@@ -311,6 +325,7 @@ const geometryProportions = geometries.flatMap((geometry, geometryIndex) =>
       degree: identity.degree,
       rawPitch: identity.rawPitch,
       scaleIndex: identity.scaleIndex,
+      pitchClassIndex: identity.pitchClassIndex,
     };
   }),
 );
@@ -321,6 +336,7 @@ const activityNote = {
   degree: "V",
   rawPitch: "G4",
   scaleIndex: 7,
+  pitchClassIndex: 7,
 };
 const sounding = ref(true);
 

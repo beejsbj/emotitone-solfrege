@@ -26,6 +26,7 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
   const clock = useMusicColorClock(
     () => options.animated === true && dynamicColorConfig.value.hueMotionEnabled,
     () => dynamicColorConfig.value.animationSpeed,
+    dynamicColorConfig.value,
   );
 
   const samplePhase = (animated: boolean) =>

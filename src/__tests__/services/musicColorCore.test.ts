@@ -142,6 +142,20 @@ describe("musicColorCore", () => {
       .toBe(true);
   });
 
+  it("maps chromatic colors at the lightness endpoints to neutral black and white", () => {
+    const white = mapOklchToSrgb({ l: 1, c: 0.18, h: 180, alpha: 0.4 });
+    const black = mapOklchToSrgb({ l: 0, c: 0.18, h: 180, alpha: 0.6 });
+
+    expect(white).toMatchObject({ alpha: 0.4 });
+    expect(white.r).toBeCloseTo(1);
+    expect(white.g).toBeCloseTo(1);
+    expect(white.b).toBeCloseTo(1);
+    expect(black).toMatchObject({ alpha: 0.6 });
+    expect(black.r).toBeCloseTo(0);
+    expect(black.g).toBeCloseTo(0);
+    expect(black.b).toBeCloseTo(0);
+  });
+
   it("rejects malformed identities rather than wrapping them", () => {
     expect(resolveMusicColor(
       { kind: "pitch", pitchClass: 12, octave: 4 },

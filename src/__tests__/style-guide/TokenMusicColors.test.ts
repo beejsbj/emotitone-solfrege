@@ -25,6 +25,8 @@ describe("TokenMusicColors", () => {
 
     await wrapper.findAll("button").find((button) => button.text() === "Fixed")!.trigger("click");
     expect(wrapper.findAll(".music-recipe__segment--empty")).toHaveLength(0);
+    expect(wrapper.text()).toContain("General movable output is OFF");
+    expect(wrapper.text()).not.toContain("This pitch belongs to the selected scale");
 
     await wrapper.findAll("button").find((button) => button.text() === "Ordinal")!.trigger("click");
     expect(wrapper.text()).toContain("ordinal movable");

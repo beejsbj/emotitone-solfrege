@@ -529,7 +529,8 @@ function nowPlusOffset(offsetSeconds = 0.01): number {
 export async function attackNote(
   noteId: string,
   noteName: string,
-  instrument: string
+  instrument: string,
+  options?: { atTime?: number; release?: number },
 ): Promise<void> {
   await initSuperdoughAudio();
 
@@ -555,11 +556,11 @@ export async function attackNote(
       note: noteName,
       gain: 0.8,
       attack: 0.01,
-      release: 1.5,
+      release: options?.release ?? 1.5,
       voiceId: noteId,
       sustainUntilRelease: true,
     },
-    nowPlusOffset(),
+    options?.atTime ?? nowPlusOffset(),
     duration,
     1 // cps
   );
@@ -568,8 +569,14 @@ export async function attackNote(
 /**
  * Start the release phase for a live note if it is still active.
  */
-export function releaseNote(noteId: string): void {
-  releaseVoice(noteId);
+export function releaseNote(noteId: string, atTime?: number): void {
+  if (atTime === undefined) releaseVoice(noteId);
+  else releaseVoice(noteId, atTime);
+}
+
+/** Cancel a queued onset without letting it sound during its release tail. */
+export function stopNote(noteId: string): void {
+  stopVoice(noteId);
 }
 
 /**

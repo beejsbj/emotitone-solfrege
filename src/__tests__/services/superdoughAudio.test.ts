@@ -100,6 +100,21 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
   });
 
+  it("schedules rhythmic attacks and releases on the audio clock and cancels queued voices", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.attackNote("pulse-1", "C4", "synth", { atTime: 12.05, release: 0.03 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "pulse-1", release: 0.03 }),
+      12.05,
+      0.25,
+      1,
+    );
+    audio.releaseNote("pulse-1", 12.25);
+    expect(hoisted.mockReleaseVoice).toHaveBeenCalledWith("pulse-1", 12.25);
+    audio.stopNote("pulse-1");
+    expect(hoisted.mockStopVoice).toHaveBeenCalledWith("pulse-1");
+  });
+
   it("attacks a live note as a held voice with voice ownership", async () => {
     const audio = await import("@/services/superdoughAudio");
 

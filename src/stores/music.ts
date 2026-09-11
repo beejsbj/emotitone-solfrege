@@ -12,7 +12,7 @@ import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
+import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { createScheduledLiveVoice } from "@/services/scheduledLiveVoice";
 
 // Type for note input - either a chromatic note with octave or solfege index
@@ -96,6 +96,8 @@ export const useMusicStore = defineStore(
     const sequence = ref<string[]>([]);
     const playStyle = ref<PlayStyle>("together");
     const playRate = ref<PlayStyleRate>(8);
+    const playMode = computed(() => playModeValue(playStyle.value, playRate.value));
+    let settingPlayMode = false;
     const visualConfigStore = useVisualConfigStore();
 
     type HeldPitch = {
@@ -190,7 +192,20 @@ export const useMusicStore = defineStore(
       if (value === 4 || value === 8 || value === 16) playRate.value = value;
     }
 
+    function setPlayMode(value: string) {
+      const option = PLAY_MODE_OPTIONS.find((candidate) => candidate.value === value);
+      if (!option) return;
+      // Apply the selected style and rate in one engine update, avoiding an
+      // intermediate attack at the old rate when a held chord changes modes.
+      settingPlayMode = true;
+      playStyle.value = option.style;
+      if (option.rate !== undefined) playRate.value = option.rate;
+      settingPlayMode = false;
+      playEngine.configure({ style: playStyle.value, rate: playRate.value, bpm: visualConfigStore.config.codeStrip.bpm });
+    }
+
     watch([playStyle, playRate, () => visualConfigStore.config.codeStrip.bpm], ([style, rate, bpm]) => {
+      if (settingPlayMode) return;
       playEngine.configure({ style, rate, bpm });
     }, { immediate: true, flush: "sync" });
     watch(() => instrumentStore.selectionEpoch, clearLiveInputs, { flush: "sync" });
@@ -940,6 +955,7 @@ export const useMusicStore = defineStore(
       sequence,
       playStyle,
       playRate,
+      playMode,
 
       // Getters
       currentScale,
@@ -953,6 +969,7 @@ export const useMusicStore = defineStore(
       setMode,
       setPlayStyle,
       setPlayRate,
+      setPlayMode,
       playNote,
       attackNote,
       attackNoteWithOctave,

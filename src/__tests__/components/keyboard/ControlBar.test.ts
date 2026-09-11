@@ -33,7 +33,6 @@ describe("ControlBar.vue", () => {
       "BPM",
       "Octave",
       "Play Mode",
-      "Rate",
     ]);
     expect(knobs[0].props("options")).toEqual(CHROMATIC_NOTES);
     expect(knobs[1].props("options")).toEqual(MODE_OPTIONS);
@@ -55,8 +54,7 @@ describe("ControlBar.vue", () => {
     knobs[1].vm.$emit("update:modelValue", "dorian");
     knobs[2].vm.$emit("update:modelValue", 96);
     knobs[3].vm.$emit("update:modelValue", 5);
-    knobs[4].vm.$emit("update:modelValue", "arp-up");
-    knobs[5].vm.$emit("update:modelValue", 16);
+    knobs[4].vm.$emit("update:modelValue", "arp-up:16");
     const joystick = wrapper.getComponent({ name: "Joystick" });
     joystick.vm.$emit("update:modelValue", "jazzy7");
     joystick.vm.$emit("effectiveChange", "sus4");
@@ -65,8 +63,7 @@ describe("ControlBar.vue", () => {
     expect(wrapper.emitted("update:modeValue")?.[0]).toEqual(["dorian"]);
     expect(wrapper.emitted("update:bpm")?.[0]).toEqual([96]);
     expect(wrapper.emitted("update:octave")?.[0]).toEqual([5]);
-    expect(wrapper.emitted("update:playStyle")?.[0]).toEqual(["arp-up"]);
-    expect(wrapper.emitted("update:playRate")?.[0]).toEqual([16]);
+    expect(wrapper.emitted("update:playMode")?.[0]).toEqual(["arp-up:16"]);
     expect(wrapper.emitted("update:rows")).toBeUndefined();
     expect(wrapper.emitted("update:harmonyValue")?.[0]).toEqual(["jazzy7"]);
     expect(wrapper.emitted("harmonyEffective")?.[0]).toEqual(["sus4"]);
@@ -87,12 +84,11 @@ describe("ControlBar.vue", () => {
       4,
       undefined,
       undefined,
-      undefined,
     ]);
   });
 
   it("spreads equal-width controls without a horizontal scroller", () => {
-    expect(controlBarSource).toContain("grid-template-columns: repeat(7, minmax(0, 1fr))");
+    expect(controlBarSource).toContain("grid-template-columns: repeat(6, minmax(0, 1fr))");
     expect(controlBarSource).toContain("padding: 3px 0 4px");
     expect(controlBarSource.match(/calc\(\(100% - var\(--instrument-control-size\)\) \/ 2\)/g))
       .toHaveLength(2);
@@ -101,14 +97,18 @@ describe("ControlBar.vue", () => {
     expect(controlBarSource).not.toContain("width: max-content");
   });
 
-  it("enables the beat rate only for repeating styles", async () => {
+  it("includes all rhythmic rates in the single Play Mode knob", async () => {
     const wrapper = mount(ControlBar);
-    const rate = wrapper.findAllComponents({ name: "Knob" })[5];
-    expect(rate.props("isDisabled")).toBe(true);
-    await wrapper.setProps({ playStyle: "arp-up" });
-    expect(rate.props("isDisabled")).toBe(false);
-    expect(rate.props("options").map((option: { value: number }) => option.value)).toEqual([4, 8, 16]);
-    await wrapper.setProps({ playStyle: "strum-down" });
-    expect(rate.props("isDisabled")).toBe(true);
+    const mode = wrapper.findAllComponents({ name: "Knob" })[4];
+    const options = mode.props("options");
+    expect(options.map((option: { label: string }) => option.label)).toEqual([
+      "Together", "Strum ↑", "Strum ↓",
+      "Arp ↑ 1/4", "Arp ↑ 1/8", "Arp ↑ 1/16",
+      "Arp ↕ 1/4", "Arp ↕ 1/8", "Arp ↕ 1/16",
+      "Repeat 1/4", "Repeat 1/8", "Repeat 1/16",
+    ]);
+    expect(new Set(options.map((option: { value: string }) => option.value)).size).toBe(12);
+    await wrapper.setProps({ playMode: "repeat:16" });
+    expect(mode.props("modelValue")).toBe("repeat:16");
   });
 });

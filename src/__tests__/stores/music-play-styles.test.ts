@@ -76,6 +76,24 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("selects style and rate together while a note is held", async () => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    const owner = await music.attackExactPitch("C4");
+    await vi.advanceTimersByTimeAsync(20);
+    music.setPlayMode("repeat:16");
+    expect([music.playStyle, music.playRate, music.playMode]).toEqual(["repeat", 16, "repeat:16"]);
+    await vi.advanceTimersByTimeAsync(240);
+    await music.releaseNote(owner!);
+    expect(patterns.loggedNotes.map((note) => [note.pressTime - EPOCH, note.duration])).toEqual([
+      [0, 20], [20, 100], [145, 100],
+    ]);
+    music.setPlayMode("strum-down");
+    expect(music.playMode).toBe("strum-down");
+    music.setPlayMode("invalid:8");
+    expect(music.playMode).toBe("strum-down");
+  });
+
   it("records staggered overlapping strum notes and stops on physical release", async () => {
     const music = useMusicStore();
     const patterns = connectRecorder();

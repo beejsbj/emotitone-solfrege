@@ -6,6 +6,38 @@ import {
 } from "@/composables/canvas/stageRuntime";
 
 describe("Stage runtime", () => {
+  it.each([
+    [900, 420],
+    [390, 180],
+  ])(
+    "enlarges the previous deck-safe Hilbert radius by 80 percent at %i×%i",
+    (width, height) => {
+      const composition = resolveStageComposition(
+        { x: 0, y: 0, width, height },
+        75,
+        0.6,
+      );
+      const paddedMinorAxis = Math.min(width - 40, height - 40);
+      const priorBodyExtent = Math.min(75 * 1.3, paddedMinorAxis * 0.115);
+      const priorOrbit = paddedMinorAxis / 2 - priorBodyExtent;
+      const priorClearance = Math.max(18, priorOrbit * 0.28);
+      const priorRadius = priorOrbit - priorBodyExtent - priorClearance;
+
+      expect(composition.hilbertRadius).toBeCloseTo(priorRadius * 1.8, 6);
+    },
+  );
+
+  it("preserves disabled and undersized Stage behavior", () => {
+    expect(
+      resolveStageComposition({ x: 0, y: 0, width: 900, height: 420 }, 75, 0)
+        .hilbertRadius,
+    ).toBe(0);
+    expect(
+      resolveStageComposition({ x: 0, y: 0, width: 95, height: 95 }, 75, 0.6)
+        .suspended,
+    ).toBe(true);
+  });
+
   it("centers the focal system in the host-supplied usable region", () => {
     const composition = resolveStageComposition(
       { x: 0, y: 0, width: 900, height: 420 },

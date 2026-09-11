@@ -23,6 +23,8 @@ export interface StageAudioFrame {
 
 const EDGE_PADDING = 20;
 const MIN_DRAWABLE_EDGE = 96;
+const HILBERT_PRIMARY_SCALE = 1.8;
+const FOCAL_GAP = 12;
 
 export function fullStageRect(width: number, height: number): StageRect {
   return { x: 0, y: 0, width: Math.max(0, width), height: Math.max(0, height) };
@@ -42,15 +44,44 @@ export function resolveStageComposition(
   const paddedHeight = Math.max(0, height - EDGE_PADDING * 2);
   const desiredBodyExtent = Math.max(1, desiredBlobRadius * 1.3);
   const fitRadius = Math.max(8, Math.min(paddedWidth, paddedHeight) * 0.115);
-  const blobFitScale = Math.min(1, fitRadius / desiredBodyExtent);
-  const fittedExtent = desiredBodyExtent * blobFitScale;
+  const initialFittedExtent = Math.min(desiredBodyExtent, fitRadius);
+  const initialOrbitRadiusX = Math.max(
+    0,
+    paddedWidth / 2 - initialFittedExtent,
+  );
+  const initialOrbitRadiusY = Math.max(
+    0,
+    paddedHeight / 2 - initialFittedExtent,
+  );
+  const innerClearance = Math.max(
+    18,
+    Math.min(initialOrbitRadiusX, initialOrbitRadiusY) * 0.28,
+  );
+  const previousHilbertLimit = Math.max(
+    8,
+    Math.min(initialOrbitRadiusX, initialOrbitRadiusY) -
+      initialFittedExtent -
+      innerClearance,
+  );
+  const previousHilbertRadius = Math.min(
+    (Math.min(width, height) * Math.max(0, hilbertSizeRatio)) / 2,
+    previousHilbertLimit,
+  );
+  const desiredHilbertRadius = previousHilbertRadius * HILBERT_PRIMARY_SCALE;
+  const halfMinorAxis = Math.min(paddedWidth, paddedHeight) / 2;
+  const fittedExtent = Math.min(
+    initialFittedExtent,
+    Math.max(8, (halfMinorAxis - desiredHilbertRadius - FOCAL_GAP) / 2),
+  );
+  const blobFitScale = Math.min(1, fittedExtent / desiredBodyExtent);
   const orbitRadiusX = Math.max(0, paddedWidth / 2 - fittedExtent);
   const orbitRadiusY = Math.max(0, paddedHeight / 2 - fittedExtent);
-  const innerClearance = Math.max(18, Math.min(orbitRadiusX, orbitRadiusY) * 0.28);
-  const hilbertLimit = Math.max(8, Math.min(orbitRadiusX, orbitRadiusY) - fittedExtent - innerClearance);
   const hilbertRadius = Math.min(
-    Math.min(width, height) * Math.max(0, hilbertSizeRatio) / 2,
-    hilbertLimit,
+    desiredHilbertRadius,
+    Math.max(
+      8,
+      Math.min(orbitRadiusX, orbitRadiusY) - fittedExtent - FOCAL_GAP,
+    ),
   );
 
   return {

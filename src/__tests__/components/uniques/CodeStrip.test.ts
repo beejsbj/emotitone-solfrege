@@ -350,13 +350,45 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
     const controller = mocks.attachEditor.mock.calls[0][0];
 
-    await controller.evaluate();
+    await expect(controller.evaluate()).rejects.toThrow("invalid pattern");
     mocks.mirrorOptions.onDraw([], 0.5);
 
     expect(uiBeatClock.snapshot.status).toBe("idle");
     expect(mocks.setError).toHaveBeenCalledWith(expect.objectContaining({
       message: "invalid pattern",
     }));
+    wrapper.unmount();
+  });
+
+  it("serializes overlapping evaluations so stale callbacks cannot stop the newer run", async () => {
+    let resolveFirst!: () => void;
+    mocks.mirrorEvaluate
+      .mockImplementationOnce(
+        () => new Promise<void>((resolve) => {
+          resolveFirst = resolve;
+        }),
+      )
+      .mockResolvedValueOnce(undefined);
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    const first = mocks.mirrorInstance.evaluate();
+    const second = mocks.mirrorInstance.evaluate();
+    await Promise.resolve();
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(1);
+
+    mocks.mirrorOptions.onEvalError(new Error("stale first evaluation"));
+    resolveFirst();
+    await expect(first).rejects.toThrow("stale first evaluation");
+    await expect(second).resolves.toBeUndefined();
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
+
+    mocks.mirrorOptions.onDraw([], 0.5);
+    expect(uiBeatClock.snapshot).toMatchObject({
+      status: "running",
+      generation: expect.any(Number),
+      barPosition: 0.5,
+    });
     wrapper.unmount();
   });
 
@@ -431,6 +463,7 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
 
     const evaluation = mocks.mirrorInstance.evaluate();
+    await Promise.resolve();
     expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
     mocks.instrumentStore.isInteractionLocked = true;
     resolveEvaluation();

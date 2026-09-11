@@ -137,13 +137,19 @@ let followLastFrameTime: number | null = null;
 let followPlaybackActive = false;
 let presentationSyncQueued = false;
 let presentationSyncCancelled = false;
-let activeUIBeatRun: {
+interface ActiveUIBeatRun {
   generation: number;
   mappingAvailable: boolean;
   bpm: number;
   beatsPerBar: number;
   ready: boolean;
-} | null = null;
+  failed: boolean;
+  error: unknown;
+}
+
+let activeUIBeatRun: ActiveUIBeatRun | null = null;
+let evaluatingUIBeatRun: ActiveUIBeatRun | null = null;
+let evaluationQueue: Promise<unknown> = Promise.resolve();
 let uiBeatAudioContext: AudioContext | null = null;
 
 const FOLLOW_TIME_CONSTANT_MS = 150;
@@ -237,6 +243,8 @@ function armUIBeatForEvaluation(instance: StrudelMirrorInstance) {
     bpm,
     beatsPerBar: GENERATED_BEATS_PER_BAR,
     ready: false,
+    failed: false,
+    error: undefined,
   };
   observeUIBeatAudioContext();
   return activeUIBeatRun;
@@ -267,8 +275,14 @@ function publishUIBeatFrame(instance: StrudelMirrorInstance, rawPosition: number
   });
 }
 
-function stopUIBeatRun() {
+function stopUIBeatRun(expectedGeneration?: number) {
   if (!activeUIBeatRun) return;
+  if (
+    expectedGeneration !== undefined &&
+    activeUIBeatRun.generation !== expectedGeneration
+  ) {
+    return;
+  }
   uiBeatClock.stop(activeUIBeatRun.generation);
   activeUIBeatRun = null;
 }
@@ -534,13 +548,18 @@ async function initializeStrudelMirror() {
       const view = getMirrorView(instance);
       if (view) setCodeStripPlaying(view, started);
       if (!started) {
-        stopUIBeatRun();
+        stopUIBeatRun(evaluatingUIBeatRun?.generation);
         stopFollow();
         stopStrudelVisuals();
       }
     },
     onEvalError: (error: unknown) => {
-      stopUIBeatRun();
+      const failedRun = evaluatingUIBeatRun;
+      if (failedRun) {
+        failedRun.failed = true;
+        failedRun.error = error;
+      }
+      stopUIBeatRun(failedRun?.generation);
       const view = getMirrorView(instance);
       if (view) setCodeStripPlaying(view, false);
       setPlaying(false);
@@ -555,23 +574,33 @@ async function initializeStrudelMirror() {
   // Guard its evaluation method so every playback entry point respects sample
   // warmup, including evaluations already pending when the lock begins.
   const evaluate = instance.evaluate.bind(instance);
-  instance.evaluate = async () => {
-    if (instrumentStore.isInteractionLocked) return;
-    const run = armUIBeatForEvaluation(instance);
-    try {
-      await evaluate();
-      if (activeUIBeatRun?.generation === run.generation) {
-        activeUIBeatRun.ready = true;
+  instance.evaluate = () => {
+    const task = evaluationQueue.then(async () => {
+      if (instrumentStore.isInteractionLocked) return;
+      const run = armUIBeatForEvaluation(instance);
+      evaluatingUIBeatRun = run;
+      try {
+        await evaluate();
+        if (run.failed) {
+          throw run.error ?? new Error("Strudel evaluation failed");
+        }
+        if (activeUIBeatRun?.generation === run.generation) {
+          activeUIBeatRun.ready = true;
+        }
+        if (instrumentStore.isInteractionLocked) {
+          await stopMirrorForWarmup(instance);
+        }
+      } catch (error) {
+        stopUIBeatRun(run.generation);
+        throw error;
+      } finally {
+        if (evaluatingUIBeatRun?.generation === run.generation) {
+          evaluatingUIBeatRun = null;
+        }
       }
-      if (instrumentStore.isInteractionLocked) {
-        await stopMirrorForWarmup(instance);
-      }
-    } catch (error) {
-      if (activeUIBeatRun?.generation === run.generation) {
-        stopUIBeatRun();
-      }
-      throw error;
-    }
+    });
+    evaluationQueue = task.catch(() => undefined);
+    return task;
   };
 
   instance.updateSettings?.({

@@ -1,5 +1,5 @@
 export const MARK_NAMES = [
-  "triangle", "disk", "zigzag", "blade", "wave", "bar", "diamond", "half-circle", "star",
+  "triangle", "disk", "square", "zigzag", "blade", "wave", "bar", "diamond", "half-circle", "star",
   "eighth", "beam", "sharp", "flat", "accent", "trill", "slur", "fermata", "staccato", "grace", "clef",
   "quarter", "half", "whole", "natural", "quarter-rest", "repeat", "crescendo", "bass-clef",
 ] as const;
@@ -26,6 +26,10 @@ export const MARK_DEFINITIONS: Record<MarkName, MarkDefinition> = {
   disk: {
     viewBox: [0, 0, 80, 80], particleScale: 0.94,
     paths: [{ d: "M72 41 L69 53 L62 62 L51 69 L41 72 L29 71 L18 64 L11 54 L7 42 L9 30 L16 19 L26 11 L37 8 L48 9 L58 13 L66 21 L71 31 Z" }],
+  },
+  square: {
+    viewBox: [0, 0, 80, 80], particleScale: 1,
+    paths: [{ d: "M10 10 H70 V70 H10 Z" }],
   },
   zigzag: {
     viewBox: [0, 0, 120, 80], particleScale: 1.2,

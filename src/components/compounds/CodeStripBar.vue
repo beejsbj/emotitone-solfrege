@@ -17,7 +17,6 @@
       <BeatIndicator
         class="code-strip-bar__beat"
         size="sm"
-        :marks="['disk', 'eighth', 'wave', 'star']"
         aria-label="Pattern beat"
       />
     </div>

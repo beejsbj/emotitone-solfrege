@@ -13,7 +13,6 @@
         <div class="ui-beat-system__transport">
           <BeatIndicator
             :beats="meter.beatsPerBar"
-            :marks="['disk', 'eighth', 'wave', 'star', 'accent', 'diamond']"
             size="lg"
             aria-label="Controlled UIBeat indicator"
           />

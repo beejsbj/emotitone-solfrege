@@ -41,8 +41,11 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
-    expect(wrapper.get('[aria-label="Pattern beat"]').findAll(".beat-indicator__beat"))
-      .toHaveLength(4);
+    const beats = wrapper.get('[aria-label="Pattern beat"]').findAll(".beat-indicator__beat");
+    expect(beats).toHaveLength(4);
+    expect(beats.map((beat) => beat.attributes("data-mark")))
+      .toEqual(["square", "square", "square", "square"]);
+    expect(codeStripBarSource).not.toContain(":marks=");
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
     expect(codeStripBarSource).not.toContain("humming-capture-transport");
     expect(codeStripBarSource).not.toContain("Hummed take");

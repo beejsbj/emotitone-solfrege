@@ -53,7 +53,7 @@ const props = withDefaults(
   }>(),
   {
     beats: 4,
-    marks: () => ["disk"],
+    marks: () => ["square"],
     size: "md",
     downbeat: true,
     static: false,
@@ -63,7 +63,7 @@ const props = withDefaults(
 );
 
 const beatCount = computed(() => Math.max(1, Math.floor(props.beats)));
-const usableMarks = computed<MarkName[]>(() => props.marks.length ? props.marks : ["disk"]);
+const usableMarks = computed<MarkName[]>(() => props.marks.length ? props.marks : ["square"]);
 const rootRef = ref<HTMLElement | null>(null);
 const { clock, presentationEnabled } = useUIBeat();
 const consumerEnabled = () => props.enabled && presentationEnabled();

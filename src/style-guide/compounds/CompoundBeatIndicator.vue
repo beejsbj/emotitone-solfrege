@@ -6,8 +6,8 @@
   >
     <template #hero>
       <div class="hero-stage">
-        <BeatIndicator static :marks="['disk', 'eighth', 'wave', 'star']" size="lg" aria-label="Four Mark beat indicator" />
-        <div class="hero-label">4 Marks &middot; idle downbeat</div>
+        <BeatIndicator static size="lg" aria-label="Four square beat indicator" />
+        <div class="hero-label">4 Squares &middot; idle downbeat</div>
       </div>
     </template>
 

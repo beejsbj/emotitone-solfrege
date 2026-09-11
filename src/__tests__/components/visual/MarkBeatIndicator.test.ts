@@ -10,8 +10,9 @@ import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 
 describe("Mark lineage", () => {
   it("exposes every structural and musical glyph through one registry", () => {
-    expect(MARK_NAMES).toHaveLength(28);
+    expect(MARK_NAMES).toHaveLength(29);
     expect(MARK_NAMES).toContain("triangle");
+    expect(MARK_NAMES).toContain("square");
     expect(MARK_NAMES).toContain("clef");
     expect(MARK_NAMES).toContain("natural");
     expect(MARK_NAMES).toContain("quarter-rest");
@@ -48,6 +49,16 @@ describe("Mark lineage", () => {
     expect(wrapper.findAll(".beat-indicator__beat").map((beat) => beat.attributes("data-mark"))).toEqual([
       "disk", "eighth", "disk", "eighth", "disk",
     ]);
+  });
+
+  it("defaults to four repeated square Marks", () => {
+    const wrapper = mount(BeatIndicator);
+
+    expect(wrapper.findAll(".beat-indicator__beat")).toHaveLength(4);
+    expect(wrapper.findAll(".beat-indicator__beat").map((beat) => beat.attributes("data-mark")))
+      .toEqual(["square", "square", "square", "square"]);
+    expect(wrapper.findAll("svg.mark").every((mark) => mark.attributes("data-mark") === "square"))
+      .toBe(true);
   });
 
   it("renders one injected transport frame without owning a timer", () => {

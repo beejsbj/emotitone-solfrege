@@ -144,7 +144,7 @@ vi.mock("@/components/patterns/PatternList.vue", () => ({
 vi.mock("@/components/compounds/ControlBar.vue", () => ({
   default: {
     name: "ControlBar",
-    props: ["changeSignals"],
+    props: ["changeSignals", "haptic"],
     emits: [
       "update:keyValue",
       "update:modeValue",

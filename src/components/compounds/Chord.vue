@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import Note from "@/components/primatives/Note.vue";
 import type {
   NoteGeometry,
@@ -42,6 +42,7 @@ import type {
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
 import { useColorSystem } from "@/composables/useColorSystem";
+import { keyboardColorResolverKey } from "./keyboardColorContext";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type ChordDisplay = "symbol" | "notes";
@@ -89,7 +90,9 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem();
+const injectedColorResolver = inject(keyboardColorResolverKey, null);
+const { getKeyBackground, getKeyBackgroundByPitchClass } =
+  injectedColorResolver ?? useColorSystem();
 
 const chordClasses = computed(() => [
   `chord--display-${props.display}`,

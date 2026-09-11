@@ -6,6 +6,7 @@
         type="options"
         :options="CHROMATIC_NOTES"
         label="Key"
+        :haptic="haptic"
         :change-signal="changeSignals.key"
         @update:modelValue="(value) => emit('update:keyValue', String(value))"
       />
@@ -17,6 +18,7 @@
         type="options"
         :options="MODE_OPTIONS"
         label="Mode"
+        :haptic="haptic"
         :change-signal="changeSignals.mode"
         @update:modelValue="(value) => emit('update:modeValue', String(value))"
       />
@@ -27,6 +29,7 @@
         :model-value="bpm"
         type="range"
         label="BPM"
+        :haptic="haptic"
         :min="40"
         :max="220"
         :step="1"
@@ -40,6 +43,7 @@
         :model-value="octave"
         type="range"
         label="Octave"
+        :haptic="haptic"
         :min="1"
         :max="8"
         :step="1"
@@ -53,6 +57,7 @@
         :model-value="harmonyValue"
         label="Harmony"
         :visual="joystickVisual"
+        :haptic="haptic"
         @update:model-value="(value) => emit('update:harmonyValue', value)"
         @effective-change="(value) => emit('harmonyEffective', value)"
       />
@@ -79,6 +84,7 @@ withDefaults(
     harmonyValue?: HarmonyAlteration;
     joystickVisual?: JoystickVisual;
     changeSignals?: ControlBarChangeSignals;
+    haptic?: boolean;
   }>(),
   {
     keyValue: "C",
@@ -87,6 +93,7 @@ withDefaults(
     octave: 4,
     harmonyValue: "auto",
     changeSignals: () => ({}),
+    haptic: true,
   },
 );
 

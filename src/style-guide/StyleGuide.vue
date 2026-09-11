@@ -3,6 +3,7 @@
   <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
   <ConfigMenuPage v-else-if="page === 'config-menu'" />
   <PatternReelPage v-else-if="page === 'pattern-reel'" />
+  <PerformanceDeckPage v-else-if="page === 'performance-deck'" />
   <main v-else class="style-guide-sink-port">
     <header class="sink-header">
       <div class="label">Emotitone Design System Sink Port</div>
@@ -13,6 +14,13 @@
     <section class="sink-section" aria-labelledby="tokens-heading">
       <h2 id="tokens-heading">Token Collections</h2>
       <div class="sink-stack">
+        <article id="composition-performance-deck" class="sink-frame">
+          <div class="sink-frame__source">composition-performance-deck</div>
+          <a class="sink-frame__focused-link" href="/style-guide/performance-deck">
+            <strong>PerformanceDeck</strong>
+            <span>Open the isolated, real-source composition</span>
+          </a>
+        </article>
         <article class="sink-frame">
           <div class="sink-frame__source">token-ui-colors.html</div>
           <TokenUiColors />
@@ -202,7 +210,7 @@ import UniqueDrawer from "./uniques/UniqueDrawer.vue";
 import UniqueHarmonicGeometry from "./uniques/UniqueHarmonicGeometry.vue";
 
 defineProps<{
-  page?: "tabs" | "instrument-picker" | "config-menu" | "pattern-reel";
+  page?: "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "performance-deck";
 }>();
 
 const TabsPage = defineAsyncComponent(() => import("./TabsPage.vue"));
@@ -214,6 +222,9 @@ const ConfigMenuPage = defineAsyncComponent(
 );
 const PatternReelPage = defineAsyncComponent(
   () => import("./PatternReelPage.vue"),
+);
+const PerformanceDeckPage = defineAsyncComponent(
+  () => import("./PerformanceDeckPage.vue"),
 );
 
 const scrollToHash = async () => {
@@ -289,6 +300,29 @@ onBeforeUnmount(() => window.removeEventListener("hashchange", scrollToHash));
 .sink-frame__source {
   color: var(--ivory-4);
   font: var(--t-caption);
+}
+
+.sink-frame__focused-link {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  border: 1px solid var(--ink-5);
+  background: var(--ink-2);
+  color: var(--ivory);
+  text-decoration: none;
+}
+
+.sink-frame__focused-link strong {
+  font: var(--t-display-m);
+  text-transform: uppercase;
+}
+
+.sink-frame__focused-link span {
+  color: var(--ivory-3);
+  font: var(--t-caption);
+  text-transform: uppercase;
 }
 
 @media (max-width: 760px) {

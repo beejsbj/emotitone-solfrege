@@ -47,7 +47,8 @@ const props = withDefaults(defineProps<{
   label?: string;
   visual?: JoystickVisual;
   holdThreshold?: number;
-}>(), { modelValue: "auto", label: "Harmony", holdThreshold: 260 });
+  haptic?: boolean;
+}>(), { modelValue: "auto", label: "Harmony", holdThreshold: 260, haptic: true });
 const emit = defineEmits<{
   "update:modelValue": [value: HarmonyAlteration];
   effectiveChange: [value: HarmonyAlteration];
@@ -101,7 +102,7 @@ function announce(value: HarmonyAlteration, haptic = false) {
   if (value === lastEffective) return false;
   lastEffective = value;
   emit("effectiveChange", value);
-  if (haptic) triggerUIHaptic();
+  if (haptic && props.haptic) triggerUIHaptic();
   return true;
 }
 function clearLatchFeedback() {
@@ -116,7 +117,7 @@ function confirmLatch(value: HarmonyAlteration) {
   )?.label ?? value;
   latchFeedbackPosition.value = { ...pointerPosition.value };
   latchFeedbackVisible.value = true;
-  triggerLatchHaptic();
+  if (props.haptic) triggerLatchHaptic();
   latchFeedbackTimer = setTimeout(clearLatchFeedback, 420);
 }
 watch(() => props.modelValue, value => {
@@ -218,8 +219,10 @@ function selectKeyboardValue(value: HarmonyAlteration) {
   rovingValue.value = value;
   emit("update:modelValue", value);
   if (announce(value)) {
-    if (value === "auto") triggerUIHaptic();
-    else triggerLatchHaptic();
+    if (props.haptic) {
+      if (value === "auto") triggerUIHaptic();
+      else triggerLatchHaptic();
+    }
   }
 }
 function handleKeydown(event: KeyboardEvent, value: HarmonyAlteration) {

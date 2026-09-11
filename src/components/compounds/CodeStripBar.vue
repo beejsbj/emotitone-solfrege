@@ -18,6 +18,7 @@
 
     <div class="code-strip-bar__strip">
       <CodeStrip
+        :usage="resolvedUsage"
         :tokens="tokens"
         :source="source"
         :density="density"
@@ -72,6 +73,7 @@ import type {
 
 const props = withDefaults(
   defineProps<{
+    usage?: "production" | "controlled";
     isPlaying?: boolean;
     playDisabled?: boolean;
     haptic?: boolean;
@@ -83,6 +85,7 @@ const props = withDefaults(
     ariaLabel?: string;
   }>(),
   {
+    usage: undefined,
     isPlaying: false,
     playDisabled: false,
     haptic: false,
@@ -94,6 +97,9 @@ const props = withDefaults(
     ariaLabel: "Editable Strudel pattern",
   },
 );
+
+const resolvedUsage = props.usage
+  ?? (props.tokens !== undefined || props.source !== undefined ? "controlled" : "production");
 
 const emit = defineEmits<{
   togglePlayback: [];

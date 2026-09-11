@@ -21,30 +21,38 @@ const mocks = vi.hoisted(() => ({
   mirrorScroller: null as HTMLElement | null,
   latestEvent: null as HTMLElement | null,
   rafCallbacks: [] as FrameRequestCallback[],
+  usePatternsStore: vi.fn(),
+  useInstrumentStore: vi.fn(),
+  useVisualConfigStore: vi.fn(),
+  useCodeStripStrudel: vi.fn(),
 }));
 
 vi.mock("@/stores/patterns", () => ({
-  usePatternsStore: () => mocks.patternsStore,
+  usePatternsStore: mocks.usePatternsStore,
 }));
 
 vi.mock("@/stores/instrument", () => ({
-  useInstrumentStore: () => mocks.instrumentStore,
+  useInstrumentStore: mocks.useInstrumentStore,
 }));
 
 vi.mock("@/stores/visualConfig", () => ({
-  useVisualConfigStore: () => mocks.visualConfigStore,
+  useVisualConfigStore: mocks.useVisualConfigStore,
 }));
 
 vi.mock("@/composables/useCodeStripStrudel", () => ({
-  useCodeStripStrudel: () => ({
+  useCodeStripStrudel: mocks.useCodeStripStrudel,
+}));
+
+function playbackWiring() {
+  return {
     attachEditor: mocks.attachEditor,
     detachEditor: mocks.detachEditor,
     syncCode: mocks.syncCode,
     setPlaying: mocks.setPlaying,
     setError: mocks.setError,
     isPlaying: { value: false },
-  }),
-}));
+  };
+}
 
 vi.mock("@/components/uniques/CodeStrip/recordingTokens", () => ({
   buildRecordedCodeStripTokens: () => [{
@@ -208,6 +216,10 @@ beforeEach(() => {
   mocks.mirrorScroller = null;
   mocks.latestEvent = null;
   mocks.rafCallbacks = [];
+  mocks.usePatternsStore.mockReturnValue(mocks.patternsStore);
+  mocks.useInstrumentStore.mockReturnValue(mocks.instrumentStore);
+  mocks.useVisualConfigStore.mockReturnValue(mocks.visualConfigStore);
+  mocks.useCodeStripStrudel.mockReturnValue(playbackWiring());
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     mocks.rafCallbacks.push(callback);
     return mocks.rafCallbacks.length;
@@ -221,6 +233,25 @@ afterEach(() => {
 });
 
 describe("CodeStrip production Strudel document", () => {
+  it("keeps controlled rendering isolated from production stores and playback", async () => {
+    vi.clearAllMocks();
+    const wrapper = mount(CodeStrip, {
+      props: {
+        usage: "controlled",
+        tokens: [{ type: "note", note: "do", text: "Do", duration: "@0.25" }],
+      },
+    });
+    await flushPromises();
+
+    expect(mocks.usePatternsStore).not.toHaveBeenCalled();
+    expect(mocks.useInstrumentStore).not.toHaveBeenCalled();
+    expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
+    expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
+    expect(mocks.mirrorOptions).toBeNull();
+    expect(mocks.attachEditor).not.toHaveBeenCalled();
+    expect(wrapper.get(".code-strip").isVisible()).toBe(true);
+    wrapper.unmount();
+  });
   it("is the sole public host for one editable Strudel mirror", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();

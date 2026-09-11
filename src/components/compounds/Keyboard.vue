@@ -111,6 +111,7 @@ import {
   nextTick,
   onBeforeUnmount,
   onMounted,
+  provide,
   reactive,
   ref,
   watch,
@@ -152,6 +153,10 @@ import {
   accessiblePitch,
   accessibleScaleDegree,
 } from "./keyboardAccessibility";
+import {
+  controlledKeyboardColorResolver,
+  keyboardColorResolverKey,
+} from "./keyboardColorContext";
 
 export interface KeyboardKeyView {
   id: string;
@@ -229,6 +234,7 @@ const props = withDefaults(
     tonic?: ChromaticNote;
     scaleType?: MusicalMode;
     harmonyAlteration?: HarmonyAlteration;
+    interactionLocked?: boolean;
   }>(),
   {
     usage: "production",
@@ -250,6 +256,7 @@ const props = withDefaults(
     tonic: "C",
     scaleType: "major",
     harmonyAlteration: "auto",
+    interactionLocked: false,
   },
 );
 
@@ -508,6 +515,9 @@ function createProductionWiring() {
 }
 
 const isProductionUsage = props.usage === "production";
+if (!isProductionUsage) {
+  provide(keyboardColorResolverKey, controlledKeyboardColorResolver);
+}
 const productionWiring = isProductionUsage ? createProductionWiring() : null;
 const renderRows = computed(() => productionWiring?.rows.value ?? props.rows);
 const resolvedTonic = computed(() =>
@@ -533,7 +543,7 @@ const resolvedKeyboardPadding = computed(
   () => productionWiring?.config.value.keyboardPadding ?? props.keyboardPadding,
 );
 const isInteractionLocked = computed(
-  () => productionWiring?.isInteractionLocked.value ?? false
+  () => productionWiring?.isInteractionLocked.value ?? props.interactionLocked
 );
 // Host allocation changes only row geometry, never row count or note/input ownership.
 const fittedRows = computed(() => props.availableHeight === undefined ? null

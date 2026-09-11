@@ -71,6 +71,7 @@ interface StrudelMirrorInstance {
 
 const props = withDefaults(
   defineProps<{
+    usage?: "production" | "controlled";
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
@@ -83,6 +84,7 @@ const props = withDefaults(
     ariaLabel?: string;
   }>(),
   {
+    usage: undefined,
     tokens: undefined,
     source: undefined,
     density: "default",
@@ -97,10 +99,32 @@ const props = withDefaults(
 );
 
 const EMPTY_EDITOR_CODE = "// Record a pattern";
-const isControlled = computed(() => props.tokens !== undefined || props.source !== undefined);
-const instrumentStore = useInstrumentStore();
-const patternsStore = usePatternsStore();
-const visualConfigStore = useVisualConfigStore();
+const isControlledUsage = props.usage === "controlled"
+  || (props.usage === undefined && (props.tokens !== undefined || props.source !== undefined));
+const isControlled = computed(() => isControlledUsage);
+
+function createProductionWiring() {
+  return {
+    instrumentStore: useInstrumentStore(),
+    patternsStore: usePatternsStore(),
+    visualConfigStore: useVisualConfigStore(),
+    playback: useCodeStripStrudel(),
+  };
+}
+
+type PlaybackWiring = Pick<
+  ReturnType<typeof useCodeStripStrudel>,
+  "attachEditor" | "detachEditor" | "syncCode" | "setPlaying" | "setError" | "isPlaying"
+>;
+const controlledPlayback: PlaybackWiring = {
+  attachEditor: () => {},
+  detachEditor: () => {},
+  syncCode: () => {},
+  setPlaying: () => {},
+  setError: () => {},
+  isPlaying: ref(false),
+};
+const productionWiring = isControlledUsage ? undefined : createProductionWiring();
 const appContext = getCurrentInstance()?.appContext;
 const {
   attachEditor,
@@ -109,7 +133,7 @@ const {
   setPlaying,
   setError,
   isPlaying,
-} = useCodeStripStrudel();
+} = productionWiring?.playback ?? controlledPlayback;
 
 const editorRoot = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
@@ -132,20 +156,50 @@ let presentationSyncCancelled = false;
 const FOLLOW_TIME_CONSTANT_MS = 150;
 const RECORDING_FOLLOW_ANCHOR = 0.75;
 
-const codeStripConfig = computed(() => visualConfigStore.config.codeStrip);
-const keyboardConfig = computed(() => visualConfigStore.config.keyboard);
-const barMs = computed(() => (60000 / patternsStore.currentSketchMeta.bpm) * 4);
-const recordedTokens = computed(() => buildRecordedCodeStripTokens({
-  notes: patternsStore.isStripCleared ? [] : patternsStore.currentSketchNotes,
-  mode: patternsStore.currentSketchMeta.mode,
-  musicKey: patternsStore.currentSketchMeta.key,
-  notation: codeStripConfig.value.notation,
-  barMs: barMs.value,
-  sourceBpm: patternsStore.currentSketchMeta.bpm,
-  surfaceStyle: keyboardConfig.value.surfaceStyle,
-  keyBrightness: keyboardConfig.value.keyBrightness,
-  keySaturation: keyboardConfig.value.keySaturation,
-}));
+const controlledCodeStripConfig = {
+  enabled: true,
+  opacity: 1,
+  bpm: 120,
+  notation: "solfege",
+  showRests: true,
+} as const;
+const controlledKeyboardConfig = {
+  mainOctave: 4,
+  surfaceStyle: "colored",
+  keyBrightness: 1,
+  keySaturation: 1,
+} as const;
+const controlledSketchMeta = {
+  bpm: 120,
+  mode: "major",
+  key: "C",
+  instrument: "sine",
+} as const;
+const codeStripConfig = computed(() =>
+  productionWiring?.visualConfigStore.config.codeStrip ?? controlledCodeStripConfig
+);
+const keyboardConfig = computed(() =>
+  productionWiring?.visualConfigStore.config.keyboard ?? controlledKeyboardConfig
+);
+const sketchMeta = computed(() =>
+  productionWiring?.patternsStore.currentSketchMeta ?? controlledSketchMeta
+);
+const barMs = computed(() => (60000 / sketchMeta.value.bpm) * 4);
+const recordedTokens = computed(() => {
+  const patternsStore = productionWiring?.patternsStore;
+  if (!patternsStore) return [];
+  return buildRecordedCodeStripTokens({
+    notes: patternsStore.isStripCleared ? [] : patternsStore.currentSketchNotes,
+    mode: sketchMeta.value.mode,
+    musicKey: sketchMeta.value.key,
+    notation: codeStripConfig.value.notation,
+    barMs: barMs.value,
+    sourceBpm: sketchMeta.value.bpm,
+    surfaceStyle: keyboardConfig.value.surfaceStyle,
+    keyBrightness: keyboardConfig.value.keyBrightness,
+    keySaturation: keyboardConfig.value.keySaturation,
+  });
+});
 const presentationTokens = computed(() => props.tokens ?? recordedTokens.value);
 
 const generatedCode = computed(() => {
@@ -158,18 +212,19 @@ const generatedCode = computed(() => {
       : EMPTY_EDITOR_CODE;
   }
 
+  const patternsStore = productionWiring!.patternsStore;
   if (patternsStore.isStripCleared || !patternsStore.currentSketchNotes.length) {
     return EMPTY_EDITOR_CODE;
   }
 
   return logNotesToStrudel(patternsStore.currentSketchNotes as LogNote[], {
     bpm: codeStripConfig.value.bpm,
-    sourceBpm: patternsStore.currentSketchMeta.bpm,
+    sourceBpm: sketchMeta.value.bpm,
     notationType: codeStripConfig.value.notation === "note" ? "absolute" : "relative",
-    scaleKey: patternsStore.currentSketchMeta.key,
-    scaleMode: patternsStore.currentSketchMeta.mode,
+    scaleKey: sketchMeta.value.key,
+    scaleMode: sketchMeta.value.mode,
     scaleOctave: keyboardConfig.value.mainOctave,
-    sound: toStrudelSound(patternsStore.currentSketchMeta.instrument ?? "sine"),
+    sound: toStrudelSound(sketchMeta.value.instrument ?? "sine"),
   }).replace(/\s+/g, " ").trim();
 });
 const isEmptyDocument = computed(
@@ -222,7 +277,7 @@ function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
 }
 
 async function evaluateMirror(instance: StrudelMirrorInstance) {
-  if (instrumentStore.isInteractionLocked) return;
+  if (productionWiring?.instrumentStore.isInteractionLocked) return;
   reconcileMirrorRuntimeCode(instance);
   const editor = getMirrorView(instance);
   if (editor) setCodeStripPlaying(editor, true);
@@ -271,8 +326,8 @@ function applyPresentation() {
     timeSignature: props.timeSignature,
     showRests: codeStripConfig.value.showRests,
     notation: codeStripConfig.value.notation,
-    mode: patternsStore.currentSketchMeta.mode,
-    musicKey: patternsStore.currentSketchMeta.key,
+    mode: sketchMeta.value.mode,
+    musicKey: sketchMeta.value.key,
     surfaceStyle: keyboardConfig.value.surfaceStyle === "monochrome"
       ? "monochrome"
       : "colored",
@@ -416,7 +471,7 @@ async function initializeStrudelMirror() {
       void nextTick(followActivePlayback);
     },
     onToggle: (started: boolean) => {
-      if (started && instrumentStore.isInteractionLocked) {
+      if (started && productionWiring?.instrumentStore.isInteractionLocked) {
         void stopMirrorForWarmup(instance);
         return;
       }
@@ -437,9 +492,9 @@ async function initializeStrudelMirror() {
   // warmup, including evaluations already pending when the lock begins.
   const evaluate = instance.evaluate.bind(instance);
   instance.evaluate = async () => {
-    if (instrumentStore.isInteractionLocked) return;
+    if (productionWiring?.instrumentStore.isInteractionLocked) return;
     await evaluate();
-    if (instrumentStore.isInteractionLocked) {
+    if (productionWiring?.instrumentStore.isInteractionLocked) {
       await stopMirrorForWarmup(instance);
     }
   };
@@ -491,7 +546,7 @@ async function initializeStrudelMirror() {
 }
 
 watch(
-  () => instrumentStore.isInteractionLocked,
+  () => productionWiring?.instrumentStore.isInteractionLocked ?? false,
   (isLocked) => {
     if (isLocked && mirror.value) {
       void stopMirrorForWarmup(mirror.value);
@@ -538,7 +593,7 @@ watch(
 );
 
 watch(
-  [() => patternsStore.currentSketchMeta.bpm, () => codeStripConfig.value.bpm],
+  [() => sketchMeta.value.bpm, () => codeStripConfig.value.bpm],
   async () => {
     if (isControlled.value || !mirror.value || !isPlaying.value) return;
     syncMirrorCode(generatedCode.value);
@@ -548,7 +603,7 @@ watch(
 
 watch(
   () => {
-    const notes = patternsStore.currentWorkingNotes;
+    const notes = productionWiring?.patternsStore.currentWorkingNotes ?? [];
     return notes[notes.length - 1]?.id;
   },
   async () => {
@@ -559,7 +614,7 @@ watch(
 );
 
 watch(
-  () => patternsStore.loadedBaseNotes.length,
+  () => productionWiring?.patternsStore.loadedBaseNotes.length ?? 0,
   async () => {
     if (isControlled.value) return;
     await nextTick();

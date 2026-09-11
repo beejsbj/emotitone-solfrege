@@ -128,6 +128,7 @@ describe('App.vue', () => {
     expect(appSource).toContain('import("./style-guide/StyleGuide.vue")')
     expect(appSource).toContain('import("./style-guide/guide-defaults.css")')
     expect(appSource).toContain('"/style-guide/config-menu": "config-menu"')
+    expect(appSource).toContain('"/style-guide/performance-deck": "performance-deck"')
     expect(appSource).not.toContain('TabsLab')
     expect(appSource).not.toContain('InstrumentPickerLab')
     expect(appSource).not.toContain('TabsPage')

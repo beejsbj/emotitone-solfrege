@@ -13,6 +13,7 @@
           v-model:octave="octave"
           v-model:harmony-value="harmonyValue"
           :change-signals="changeSignals"
+          :haptic="false"
           joystick-visual="analog"
           @harmony-effective="harmonyEffective = $event"
         />
@@ -32,6 +33,7 @@
             :octave="octave"
             :harmony-value="harmonyValue"
             joystick-visual="analog"
+            :haptic="false"
           />
         </div>
       </VariantCell>
@@ -43,6 +45,7 @@
           :octave="5"
           harmony-value="jazzy7"
           joystick-visual="digital"
+          :haptic="false"
         />
       </VariantCell>
     </VariantGrid>
@@ -82,7 +85,7 @@ const features = [
   { label: "Layout", value: "four Knobs plus one Joystick across equal-width slots; no horizontal scroller" },
   { label: "Density", value: "no horizontal padding; outer hardware aligns to an 8px inset" },
   { label: "Motion", value: "only controls changed by a loaded Pattern receive the shared elastic face rebound" },
-  { label: "Surface", value: "shared translucent instrument-bar plane; stage remains visible behind it" },
+  { label: "Surface", value: "shared opaque Ink instrument-bar plane; Stage stops at the deck surface" },
   { label: "Source", value: "real controlled Knob primitives and Joystick unique; no production stores in the compound" },
   { label: "Boundary", value: "arrangement only; callers retain musical state while Drawer owns row sizing" },
 ];

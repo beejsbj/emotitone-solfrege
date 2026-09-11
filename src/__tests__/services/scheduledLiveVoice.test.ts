@@ -61,6 +61,17 @@ describe('scheduled live voice', () => {
     vi.useRealTimers()
   })
 
+  it('records a scheduled pulse that played while the main thread was stalled', async () => {
+    const { voice, onStart, onEnd } = create()
+    voice.release(1250)
+    await vi.advanceTimersByTimeAsync(10)
+    // Audio and the monotonic clock advance while callback delivery stalls.
+    vi.setSystemTime(EPOCH + 1000)
+    await vi.advanceTimersByTimeAsync(250)
+    expect(onStart).toHaveBeenCalledExactlyOnceWith(EPOCH + 50)
+    expect(onEnd).toHaveBeenCalledExactlyOnceWith(EPOCH + 250)
+  })
+
   it('schedules audio ahead while publishing start and end only at their deadlines', async () => {
     const { voice, onStart, onEnd, onError } = create()
     voice.release(1250)

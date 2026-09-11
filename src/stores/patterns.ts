@@ -745,9 +745,9 @@ export const usePatternsStore = defineStore(
         solfege: note as SolfegeData,
         octave,
         frequency,
-        instrument: instrumentStore.currentInstrument,
+        instrument: instrument ?? instrumentStore.currentInstrument,
         bpm: resolveBpm(visualConfigStore.config.codeStrip.bpm),
-        pressTime: Date.now(),
+        pressTime: Number.isFinite(event.detail.timestamp) ? event.detail.timestamp : Date.now(),
         sessionId: currentSessionId.value,
       };
 
@@ -761,7 +761,7 @@ export const usePatternsStore = defineStore(
       if (NON_RECORDING_EVENT_SOURCES.has(event.detail?.source)) return;
 
       const { noteId } = event.detail;
-      const releaseTime = Date.now();
+      const releaseTime = Number.isFinite(event.detail.timestamp) ? event.detail.timestamp : Date.now();
 
       // Use noteId directly to find matching pending note
       if (!noteId || !pendingNotes.value.has(noteId)) {

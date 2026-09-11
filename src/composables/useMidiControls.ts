@@ -408,7 +408,9 @@ export function useMidiControls() {
     const channel = (status & MIDI_CHANNEL_MASK) + 1;
     const pressId = buildMidiPressId(inputId, channel, noteNumber);
     const noteName = midiNoteNumberToName(noteNumber);
-    const isRoliInput = roliInputIds.value.has(inputId);
+    // Only suppress the immediate echo of an ordinary ROLI press. Styled
+    // output is a new performance and must reach the MIDI mirror in full.
+    const isRoliInput = roliInputIds.value.has(inputId) && (musicStore.playStyle ?? "together") === "together";
 
     if (messageType === MIDI_NOTE_ON && velocity > 0) {
       if (instrumentStore.isInteractionLocked) {
@@ -442,6 +444,10 @@ export function useMidiControls() {
         .then((noteId) => {
           const pendingPress = pendingMidiPresses.value.get(pressId);
           pendingMidiPresses.value.delete(pressId);
+          const replacedTogetherAttack = noteId?.startsWith("held_") && pendingPress?.isRoliInput;
+          if (replacedTogetherAttack) {
+            consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
+          }
 
           if (!noteId) {
             if (pendingPress?.isRoliInput) {
@@ -458,11 +464,12 @@ export function useMidiControls() {
               pendingInputNoteOffs.value.add(noteId);
             }
             musicStore.releaseNote(noteId);
+            pendingInputNoteOffs.value.delete(noteId);
             keyboardDrawerStore.removeTouch(pressId);
             return;
           }
 
-          activeMidiNotes.value.set(pressId, { noteId, pressId, isRoliInput });
+          activeMidiNotes.value.set(pressId, { noteId, pressId, isRoliInput: isRoliInput && !replacedTogetherAttack });
         })
         .catch(() => {
           const pendingPress = pendingMidiPresses.value.get(pressId);
@@ -495,6 +502,7 @@ export function useMidiControls() {
         pendingInputNoteOffs.value.add(activeNote.noteId);
       }
       musicStore.releaseNote(activeNote.noteId);
+      pendingInputNoteOffs.value.delete(activeNote.noteId);
       keyboardDrawerStore.removeTouch(activeNote.pressId);
       activeMidiNotes.value.delete(pressId);
       pendingReleasedPressIds.value.delete(pressId);
@@ -655,6 +663,7 @@ export function useMidiControls() {
           pendingInputNoteOffs.value.add(activeNote.noteId);
         }
         musicStore.releaseNote(activeNote.noteId);
+        pendingInputNoteOffs.value.delete(activeNote.noteId);
         keyboardDrawerStore.removeTouch(activeNote.pressId);
         activeMidiNotes.value.delete(pressId);
       }
@@ -740,7 +749,7 @@ export function useMidiControls() {
     if (!shouldMirrorNoteEvent(detail)) return;
     const noteName = detail?.noteName;
 
-    if (noteName && consumePendingNoteCount(pendingInputNoteOns.value, noteName)) {
+    if (detail?.source !== "live-play-style" && noteName && consumePendingNoteCount(pendingInputNoteOns.value, noteName)) {
       return;
     }
 

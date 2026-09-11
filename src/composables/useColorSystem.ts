@@ -18,9 +18,13 @@ import {
   resolveMusicColorsByScaleIndex,
   resolveSolfegeName as resolveMusicSolfegeName,
 } from "@/services/musicColor";
+import {
+  FALLBACK_KEY_SURFACE_COLOR,
+  resolveKeySurfaceColor,
+} from "@/services/keySurfaceColor";
 
 const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
-  primary: "hsla(0, 0%, 16%, 1)",
+  primary: FALLBACK_KEY_SURFACE_COLOR,
   accent: "hsla(0, 0%, 26%, 1)",
   secondary: "hsla(0, 0%, 22%, 1)",
   tertiary: "hsla(0, 0%, 30%, 1)",
@@ -440,25 +444,6 @@ export function useColorSystem() {
     return `conic-gradient(from ${cssAngle}, ${colors.primary}, ${colors.accent}, ${colors.secondary}, ${colors.tertiary}, ${colors.primary})`;
   };
 
-  const adjustColorHSL = (
-    color: string,
-    brightness: number = 1,
-    saturation: number = 1
-  ): string => {
-    const hslaMatch = color.match(
-      /hsla?\((\d+),\s*(\d+)%,\s*(\d+)%(?:,\s*([\d.]+))?\)/
-    );
-    if (!hslaMatch) {
-      return color;
-    }
-
-    const [, h, s, l, a = "1"] = hslaMatch;
-    const adjustedS = Math.max(0, Math.min(100, parseFloat(s) * saturation));
-    const adjustedL = Math.max(0, Math.min(100, parseFloat(l) * brightness));
-
-    return `hsla(${h}, ${adjustedS}%, ${adjustedL}%, ${a})`;
-  };
-
   const getKeyBackground = (
     scaleIndex: number,
     mode: MusicalMode,
@@ -479,18 +464,10 @@ export function useColorSystem() {
     } = config;
 
     if (surfaceStyle === "monochrome") {
-      const baseColor = isAccidental
-        ? "hsla(0, 0%, 100%, 1)"
-        : "hsla(0, 0%, 10%, 1)";
-      const adjustedColor = adjustColorHSL(
-        baseColor,
+      return resolveKeySurfaceColor("", "monochrome", isAccidental, {
         keyBrightness,
-        keySaturation
-      );
-      return {
-        background: adjustedColor,
-        primaryColor: adjustedColor,
-      };
+        keySaturation,
+      });
     }
 
     const primaryColor = getStaticPrimaryColorByScaleIndex(
@@ -507,15 +484,12 @@ export function useColorSystem() {
       };
     }
 
-    const adjustedColor = adjustColorHSL(
+    return resolveKeySurfaceColor(
       primaryColor,
-      keyBrightness,
-      keySaturation
+      "colored",
+      isAccidental,
+      { keyBrightness, keySaturation },
     );
-    return {
-      background: adjustedColor,
-      primaryColor: adjustedColor,
-    };
   };
 
   const getKeyBackgroundByPitchClass = (
@@ -569,15 +543,12 @@ export function useColorSystem() {
       };
     }
 
-    const adjustedColor = adjustColorHSL(
+    return resolveKeySurfaceColor(
       primaryColor,
-      keyBrightness,
-      keySaturation,
+      "colored",
+      isAccidental,
+      { keyBrightness, keySaturation },
     );
-    return {
-      background: adjustedColor,
-      primaryColor: adjustedColor,
-    };
   };
 
   const getKeyTextColor = (

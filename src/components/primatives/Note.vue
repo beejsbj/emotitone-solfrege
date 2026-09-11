@@ -60,13 +60,16 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { keyboardColorResolverKey } from "@/components/compounds/keyboardColorContext";
+import {
+  noteColorResolverKey,
+  type NoteColorSurfaceStyle,
+} from "./noteColorContext";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type NoteLabel = "syllable" | "degree" | "raw";
 export type NoteGeometry = "standard" | "tile" | "offcut" | "tab" | "pill";
 export type NoteProportion = "glyph" | "tall" | "medium" | "stocky" | "wide";
-export type NoteSurfaceStyle = "colored" | "monochrome";
+export type NoteSurfaceStyle = NoteColorSurfaceStyle;
 
 interface NoteDisplayLabel {
   kind: NoteLabel;
@@ -122,7 +125,7 @@ const props = withDefaults(
   },
 );
 
-const injectedColorResolver = inject(keyboardColorResolverKey, null);
+const injectedColorResolver = inject(noteColorResolverKey, null);
 const { getKeyBackground, getKeyBackgroundByPitchClass } =
   injectedColorResolver ?? useColorSystem();
 

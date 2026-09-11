@@ -35,7 +35,10 @@ const isDesignRoute = [
   "/style-guide/pattern-reel",
   "/style-guide/performance-deck",
 ].includes(pathname);
-beginTabsPageEdition();
+const isPersistenceFreeDesignRoute = pathname === "/style-guide/performance-deck";
+if (!isPersistenceFreeDesignRoute) {
+  beginTabsPageEdition();
+}
 if (!isDesignRoute || pathname === "/style-guide/config-menu") {
   beginKnobPageEdition();
 }

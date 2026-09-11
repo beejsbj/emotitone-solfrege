@@ -67,6 +67,7 @@ vi.mock("@/components/uniques/CodeStrip/recordingTokens", () => ({
 
 vi.mock("@/components/uniques/CodeStrip/strudelExtension", () => ({
   codeStripStrudelExtension: [],
+  codeStripStrudelExtensionWithPresentation: () => [],
   updateCodeStripPresentation: mocks.updatePresentation,
   setCodeStripPlaying: mocks.setCodeStripPlaying,
   applySpecimenPlayback: vi.fn(),
@@ -249,6 +250,10 @@ describe("CodeStrip production Strudel document", () => {
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
     expect(mocks.mirrorOptions).toBeNull();
     expect(mocks.attachEditor).not.toHaveBeenCalled();
+    expect(mocks.updatePresentation).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ colorResolver: expect.any(Object) }),
+    );
     expect(wrapper.get(".code-strip").isVisible()).toBe(true);
     wrapper.unmount();
   });

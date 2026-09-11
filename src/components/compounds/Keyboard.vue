@@ -154,9 +154,9 @@ import {
   accessibleScaleDegree,
 } from "./keyboardAccessibility";
 import {
-  controlledKeyboardColorResolver,
-  keyboardColorResolverKey,
-} from "./keyboardColorContext";
+  noteColorResolverKey,
+  staticNoteColorResolver,
+} from "@/components/primatives/noteColorContext";
 
 export interface KeyboardKeyView {
   id: string;
@@ -516,7 +516,7 @@ function createProductionWiring() {
 
 const isProductionUsage = props.usage === "production";
 if (!isProductionUsage) {
-  provide(keyboardColorResolverKey, controlledKeyboardColorResolver);
+  provide(noteColorResolverKey, staticNoteColorResolver);
 }
 const productionWiring = isProductionUsage ? createProductionWiring() : null;
 const renderRows = computed(() => productionWiring?.rows.value ?? props.rows);

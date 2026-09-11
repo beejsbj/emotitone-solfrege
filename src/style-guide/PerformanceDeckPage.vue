@@ -82,7 +82,7 @@ import type {
   KeyboardIntent,
   KeyboardRowView,
 } from "@/components/compounds/Keyboard.vue";
-import { controlledKeyboardColorResolver } from "@/components/compounds/keyboardColorContext";
+import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import type {
   PatternReelInput,
   PatternReelItem,
@@ -104,7 +104,7 @@ const initialTokens: CodeStripToken[] = [
 ];
 
 function staticPitchColor(pitchClassIndex: number, mode: MusicalMode, key: ChromaticNote, octave: number) {
-  return controlledKeyboardColorResolver.getKeyBackgroundByPitchClass(
+  return staticNoteColorResolver.getKeyBackgroundByPitchClass(
     pitchClassIndex,
     mode,
     key,

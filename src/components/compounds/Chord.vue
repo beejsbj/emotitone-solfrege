@@ -41,8 +41,8 @@ import type {
   NoteLabel,
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
+import { noteColorResolverKey } from "@/components/primatives/noteColorContext";
 import { useColorSystem } from "@/composables/useColorSystem";
-import { keyboardColorResolverKey } from "./keyboardColorContext";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type ChordDisplay = "symbol" | "notes";
@@ -90,7 +90,7 @@ const props = withDefaults(
   },
 );
 
-const injectedColorResolver = inject(keyboardColorResolverKey, null);
+const injectedColorResolver = inject(noteColorResolverKey, null);
 const { getKeyBackground, getKeyBackgroundByPitchClass } =
   injectedColorResolver ?? useColorSystem();
 

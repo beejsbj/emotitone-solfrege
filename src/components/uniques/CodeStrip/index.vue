@@ -32,6 +32,7 @@ import {
 } from "vue";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import {
   emotitoneStrudelOutput,
   getAudioContext,
@@ -47,6 +48,7 @@ import { buildRecordedCodeStripTokens } from "./recordingTokens";
 import {
   applySpecimenPlayback,
   codeStripStrudelExtension,
+  codeStripStrudelExtensionWithPresentation,
   parseCodeStripEvents,
   serializeCodeStripTokens,
   setCodeStripPlaying,
@@ -334,6 +336,7 @@ function applyPresentation() {
     keyBrightness: keyboardConfig.value.keyBrightness,
     keySaturation: keyboardConfig.value.keySaturation,
     appContext,
+    colorResolver: isControlled.value ? staticNoteColorResolver : undefined,
   });
 
   if (isControlled.value) applySpecimenPlayback(view, presentationTokens.value);
@@ -436,7 +439,9 @@ function initializeControlledView() {
       extensions: [
         EditorState.readOnly.of(true),
         EditorView.editable.of(false),
-        codeStripStrudelExtension,
+        codeStripStrudelExtensionWithPresentation({
+          colorResolver: staticNoteColorResolver,
+        }),
       ],
     }),
     parent: editorRoot.value,

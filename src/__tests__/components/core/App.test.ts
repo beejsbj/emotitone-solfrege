@@ -4,6 +4,7 @@ import { createTestWrapper } from '../../helpers/test-utils'
 import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
 import mainAppSource from '@/MainApp.vue?raw'
+import mainSource from '@/main.ts?raw'
 
 const appLoadingState = vi.hoisted(() => ({
   isLoading: false,
@@ -142,6 +143,15 @@ describe('App.vue', () => {
       .toBeGreaterThan(appSource.indexOf('} else {'))
     expect(appSource).not.toContain('MarksBeatParticlesPage')
     expect(appSource).not.toContain('isRoughPage')
+  })
+
+  it('keeps the isolated PerformanceDeck route out of page-edition persistence', () => {
+    expect(mainSource).toContain(
+      'const isPersistenceFreeDesignRoute = pathname === "/style-guide/performance-deck"',
+    )
+    expect(mainSource).toMatch(
+      /if \(!isPersistenceFreeDesignRoute\) \{\s*beginTabsPageEdition\(\);\s*\}/,
+    )
   })
 
   it('replaces the production popup mount with canvas-owned harmonic geometry', () => {

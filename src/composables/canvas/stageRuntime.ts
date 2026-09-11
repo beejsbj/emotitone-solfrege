@@ -1,3 +1,5 @@
+import { UNIFIED_CONFIG } from "@/data/visual-config-metadata";
+
 export interface StageRect {
   x: number;
   y: number;
@@ -63,11 +65,16 @@ export function resolveStageComposition(
       initialFittedExtent -
       innerClearance,
   );
-  const previousHilbertRadius = Math.min(
-    (Math.min(width, height) * Math.max(0, hilbertSizeRatio)) / 2,
+  const previousDefaultHilbertRadius = Math.min(
+    (Math.min(width, height) * UNIFIED_CONFIG.hilbertScope.sizeRatio.value) / 2,
     previousHilbertLimit,
   );
-  const desiredHilbertRadius = previousHilbertRadius * HILBERT_PRIMARY_SCALE;
+  // Apply live Size changes after the accepted 60%-default baseline is fitted;
+  // capping the configured value first makes most of the Knob range inert.
+  const configuredScale =
+    Math.max(0, hilbertSizeRatio) / UNIFIED_CONFIG.hilbertScope.sizeRatio.value;
+  const desiredHilbertRadius =
+    previousDefaultHilbertRadius * HILBERT_PRIMARY_SCALE * configuredScale;
   const orbitRadiusX = initialOrbitRadiusX;
   const orbitRadiusY = initialOrbitRadiusY;
   const fittedExtent = Math.min(

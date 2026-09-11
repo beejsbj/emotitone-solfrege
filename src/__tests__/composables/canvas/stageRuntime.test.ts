@@ -4,6 +4,7 @@ import {
   resolveAmbientLevel,
   resolveStageComposition,
 } from "@/composables/canvas/stageRuntime";
+import { UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 
 describe("Stage runtime", () => {
   it.each([
@@ -26,6 +27,33 @@ describe("Stage runtime", () => {
       expect(composition.hilbertRadius).toBeCloseTo(priorRadius * 1.8, 6);
     },
   );
+
+  it("keeps the configured Hilbert Size range visually effective", () => {
+    const sizeControl = UNIFIED_CONFIG.hilbertScope.sizeRatio;
+    const smallerSize = resolveStageComposition(
+      { x: 0, y: 0, width: 900, height: 420 },
+      75,
+      sizeControl.value / 2,
+    );
+    const defaultSize = resolveStageComposition(
+      { x: 0, y: 0, width: 900, height: 420 },
+      75,
+      sizeControl.value,
+    );
+    const maximumSize = resolveStageComposition(
+      { x: 0, y: 0, width: 900, height: 420 },
+      75,
+      sizeControl.max,
+    );
+
+    expect(smallerSize.hilbertRadius).toBeCloseTo(
+      defaultSize.hilbertRadius / 2,
+      6,
+    );
+    expect(maximumSize.hilbertRadius).toBeGreaterThan(
+      defaultSize.hilbertRadius,
+    );
+  });
 
   it("preserves disabled and undersized Stage behavior", () => {
     expect(

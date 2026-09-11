@@ -327,6 +327,12 @@ export interface HilbertScopeConfig {
   thickness: number;
 }
 
+/** Public master for the canvas-owned Stage composition. */
+export interface StageConfig {
+  /** Whether the Stage composition is presented. */
+  isEnabled: boolean;
+}
+
 /**
  * Shared UIBeat presentation configuration
  */
@@ -451,6 +457,8 @@ export type ExtractConfigValues<T> = {
  * Main visual effects configuration interface
  */
 export interface VisualEffectsConfig {
+  /** Canvas-owned Stage composition configuration */
+  stage: StageConfig;
   /** Blob effect configuration */
   blobs: BlobConfig;
   /** Ambient lighting configuration */

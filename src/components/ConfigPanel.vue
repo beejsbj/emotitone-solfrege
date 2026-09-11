@@ -67,9 +67,9 @@
             <Button
               size="sm"
               data-testid="config-save-as"
-              title="Save configuration"
-              accessible-name="Save configuration"
-              @click="promptSaveConfig"
+              title="Save Stage Look"
+              accessible-name="Save Stage Look"
+              @click="promptSaveStageLook"
             >
               <Save :size="14" />
             </Button>
@@ -87,20 +87,207 @@
 
         <template #default="{ activeValue: panelTab }">
           <div class="space-y-3">
-            <TabsContent value="home" :active-value="panelTab">
-            <section class="config-panel__scene-grid" aria-label="Visual scenes">
-              <button
-                v-for="preset in builtInPresets"
-                :key="preset.id"
-                type="button"
-                class="config-panel__sticker-action"
-                :data-testid="`preset-apply-${preset.id}`"
-                :aria-label="`Apply ${preset.name} scene`"
-                @click="applyBuiltInPreset(preset.id)"
-              >
-                <Sticker variant="outline" color="ivory">{{ preset.name }}</Sticker>
-                <span class="config-panel__sticker-copy">{{ preset.description }}</span>
-              </button>
+          <TabsContent value="stage" :active-value="panelTab">
+            <section
+              class="config-panel__section"
+              :class="{ 'config-panel__section--disabled': !visualsEnabled }"
+              data-testid="stage-public-controls"
+            >
+              <header class="config-panel__section-header">
+                <div>
+                  <p class="config-panel__eyebrow">Musical canvas</p>
+                  <h2>Stage</h2>
+                  <p class="config-panel__section-copy">
+                    Hilbert Scope leads. Bodies, atmosphere, strings, and flecks support it.
+                  </p>
+                </div>
+
+                <div class="config-panel__section-controls">
+                  <Knob
+                    type="boolean"
+                    :model-value="stageControls.stageEnabled"
+                    label="Stage"
+                    tone="brass"
+                    class="config-panel__boolean-knob"
+                    data-testid="stage-toggle"
+                    :is-disabled="!visualsEnabled"
+                    @update:modelValue="updateStageControl('stageEnabled', Boolean($event))"
+                  />
+                  <Button
+                    size="sm"
+                    data-testid="stage-reset"
+                    title="Reset Stage"
+                    accessible-name="Reset Stage"
+                    @click="resetStage"
+                  >
+                    <RotateCcw :size="14" />
+                  </Button>
+                </div>
+              </header>
+
+              <p v-if="transientStageLook" class="config-panel__look-status" role="status">
+                Previewing {{ transientStageLook.name }}. Edits stay in this preview until you keep it.
+              </p>
+
+              <div class="config-panel__groups">
+                <div
+                  v-for="group in STAGE_CONTROL_GROUPS"
+                  :key="group.label"
+                  class="config-panel__group"
+                >
+                  <p class="config-panel__group-label">{{ group.label }}</p>
+                  <p class="config-panel__group-copy">{{ group.description }}</p>
+                  <div class="config-panel__knob-grid">
+                    <Knob
+                      v-for="control in group.controls"
+                      :key="control.id"
+                      :data-testid="`stage-control-${control.id}`"
+                      :model-value="stageControls[control.id]"
+                      :type="control.type"
+                      :min="control.min"
+                      :max="control.max"
+                      :step="control.step"
+                      :options="control.options"
+                      :label="control.label"
+                      :format-value="control.format"
+                      :is-disabled="!visualsEnabled || !stageControls.stageEnabled"
+                      @update:modelValue="updateStageControl(control.id, $event)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="looks" :active-value="panelTab">
+            <section class="config-panel__presets" data-testid="stage-looks">
+              <header class="config-panel__looks-header">
+                <div>
+                  <p class="config-panel__eyebrow">Stage only</p>
+                  <h2>Looks</h2>
+                  <p class="config-panel__section-copy">
+                    Looks never change Music Color, UI Rhythm, Keyboard, Patterns, or Code Strip.
+                  </p>
+                </div>
+
+                <div class="config-panel__looks-actions">
+                  <Button
+                    size="sm"
+                    data-testid="stage-look-shuffle"
+                    title="Shuffle a new Stage Look"
+                    accessible-name="Shuffle a new Stage Look"
+                    @click="shuffleStageLook()"
+                  ><ShuffleIcon :size="14" /></Button>
+                  <Button
+                    v-if="transientStageLook"
+                    size="sm"
+                    data-testid="stage-look-keep"
+                    title="Keep this Stage Look"
+                    accessible-name="Keep this Stage Look"
+                    @click="keepStageLook"
+                  ><Check :size="14" /></Button>
+                  <Button
+                    v-if="transientStageLook"
+                    size="sm"
+                    data-testid="stage-look-discard"
+                    title="Discard this Stage Look"
+                    accessible-name="Discard this Stage Look"
+                    @click="clearStageLook"
+                  ><RotateCcw :size="14" /></Button>
+                </div>
+              </header>
+
+              <div class="config-panel__launch-setting">
+                <div>
+                  <p class="config-panel__group-label">New Look on Launch</p>
+                  <p class="config-panel__group-copy">One seeded variation per app launch. The result stays temporary until kept.</p>
+                </div>
+                <Knob
+                  type="boolean"
+                  :model-value="newLookOnLaunch"
+                  label="On Launch"
+                  data-testid="new-look-on-launch"
+                  @update:modelValue="setNewLookOnLaunch(Boolean($event))"
+                />
+              </div>
+
+              <div class="config-panel__preset-group">
+                <p class="config-panel__group-label">Built In</p>
+                <div class="config-panel__scene-grid">
+                  <button
+                    v-for="look in builtInLooks"
+                    :key="look.id"
+                    type="button"
+                    class="config-panel__sticker-action"
+                    :data-testid="`preset-apply-${look.id}`"
+                    :aria-label="`Preview ${look.name} Stage Look`"
+                    @click="applyBuiltInStageLook(look.id)"
+                  >
+                    <Sticker variant="outline" color="ivory">{{ look.name }}</Sticker>
+                    <span class="config-panel__sticker-copy">{{ look.description }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="config-panel__preset-group">
+                <p class="config-panel__group-label">Saved Stage Looks</p>
+                <div v-if="savedStageLooks.length === 0" class="config-panel__empty-state">
+                  No saved Stage Looks yet.
+                </div>
+                <article
+                  v-for="look in savedStageLooks"
+                  :key="look.id"
+                  class="config-panel__saved-preset"
+                >
+                  <button
+                    type="button"
+                    class="config-panel__saved-load"
+                    :data-testid="`stage-look-load-${look.id}`"
+                    :aria-label="`Preview ${look.name}`"
+                    @click="loadSavedStageLook(look.id)"
+                  >
+                    <Sticker variant="outline" color="ivory">{{ look.name }}</Sticker>
+                    <span class="config-panel__saved-time">{{ formatTimestamp(look.updatedAt) }}</span>
+                  </button>
+                  <Button
+                    size="sm"
+                    :data-testid="`stage-look-delete-${look.id}`"
+                    :title="`Delete ${look.name}`"
+                    :accessible-name="`Delete ${look.name}`"
+                    @click="deleteSavedStageLook(look.id)"
+                  ><Trash2 :size="14" /></Button>
+                </article>
+              </div>
+
+              <details v-if="savedConfigs.length > 0" class="config-panel__legacy-configs">
+                <summary>Legacy full configurations</summary>
+                <p class="config-panel__group-copy">
+                  Kept for compatibility. Loading one can change settings outside Stage.
+                </p>
+                <article
+                  v-for="savedConfig in savedConfigs"
+                  :key="savedConfig.id"
+                  class="config-panel__saved-preset"
+                >
+                  <button
+                    type="button"
+                    class="config-panel__saved-load"
+                    :data-testid="`saved-load-${savedConfig.id}`"
+                    :aria-label="`Load legacy configuration ${savedConfig.name}`"
+                    @click="loadSavedConfig(savedConfig.id)"
+                  >
+                    <Sticker variant="outline" color="ivory">{{ savedConfig.name }}</Sticker>
+                    <span class="config-panel__saved-time">{{ formatTimestamp(savedConfig.updatedAt) }}</span>
+                  </button>
+                  <Button
+                    size="sm"
+                    :data-testid="`saved-delete-${savedConfig.id}`"
+                    :title="`Delete ${savedConfig.name}`"
+                    :accessible-name="`Delete ${savedConfig.name}`"
+                    @click="deleteSavedConfig(savedConfig.id)"
+                  ><Trash2 :size="14" /></Button>
+                </article>
+              </details>
             </section>
           </TabsContent>
 
@@ -214,74 +401,6 @@
                   </div>
                 </div>
               </div>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="presets" :active-value="panelTab">
-            <section class="config-panel__presets">
-              <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Built In</p>
-
-                <div class="config-panel__scene-grid">
-                  <button
-                    v-for="preset in builtInPresets"
-                    :key="`library-${preset.id}`"
-                    type="button"
-                    class="config-panel__sticker-action"
-                    :data-testid="`library-apply-${preset.id}`"
-                    :aria-label="`Apply ${preset.name} preset`"
-                    @click="applyBuiltInPreset(preset.id)"
-                  >
-                    <Sticker variant="outline" color="ivory">{{ preset.name }}</Sticker>
-                    <span class="config-panel__sticker-copy">{{ preset.description }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Saved</p>
-
-                <div
-                  v-if="savedConfigs.length === 0"
-                  class="config-panel__empty-state"
-                >
-                  No saved configs yet.
-                </div>
-
-                <article
-                  v-for="savedConfig in savedConfigs"
-                  :key="savedConfig.id"
-                  class="config-panel__saved-preset"
-                >
-                  <button
-                    type="button"
-                    class="config-panel__saved-load"
-                    :data-testid="`saved-load-${savedConfig.id}`"
-                    :aria-label="`Load ${savedConfig.name}`"
-                    @click="loadSavedConfig(savedConfig.id)"
-                  >
-                    <Sticker variant="outline" color="ivory">
-                      {{ savedConfig.name }}
-                    </Sticker>
-                    <span
-                      class="config-panel__saved-time"
-                    >
-                      {{ formatTimestamp(savedConfig.updatedAt) }}
-                    </span>
-                  </button>
-
-                  <Button
-                    size="sm"
-                    :data-testid="`saved-delete-${savedConfig.id}`"
-                    :title="`Delete ${savedConfig.name}`"
-                    :accessible-name="`Delete ${savedConfig.name}`"
-                    @click="deleteSavedConfig(savedConfig.id)"
-                  >
-                    <Trash2 :size="14" />
-                  </Button>
-                </article>
-              </div>
-
             </section>
           </TabsContent>
 
@@ -409,7 +528,10 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { CONFIG_SECTIONS, UNIFIED_CONFIG } from "@/data/visual-config-metadata";
-import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
+import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
+import {
+  STAGE_CONTROL_GROUPS,
+} from "@/services/stageAppearance";
 import type { ChromaticNote } from "@/types";
 import type { VisualEffectsConfig } from "@/types/visual";
 import { TabsContent } from "@/components/ui";
@@ -428,6 +550,8 @@ import {
   Trash2,
   ClipboardCopy,
   FileDown,
+  Shuffle as ShuffleIcon,
+  Check,
 } from "lucide-vue-next";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
 import {
@@ -449,6 +573,7 @@ type SectionField = {
 };
 
 const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
+  stage: "Stage",
   blobs: "Blobs",
   ambient: "Glow",
   particles: "Dust",
@@ -463,16 +588,16 @@ const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
   codeStrip: "Code Strip",
 };
 
-const HOME_TAB = {
-  value: "home",
-  label: "Scenes",
-  shortLabel: "Home",
+const STAGE_TAB = {
+  value: "stage",
+  label: "Stage",
+  shortLabel: "Stage",
 };
 
-const PRESET_TAB = {
-  value: "presets",
-  label: "Presets",
-  shortLabel: "Presets",
+const LOOKS_TAB = {
+  value: "looks",
+  label: "Looks",
+  shortLabel: "Looks",
 };
 
 const MIDI_TAB = {
@@ -483,14 +608,7 @@ const MIDI_TAB = {
 };
 
 const SECTION_ORDER: ConfigSectionKey[] = [
-  "blobs",
-  "ambient",
-  "particles",
-  "strings",
-  "animation",
-  "frequencyMapping",
   "dynamicColors",
-  "hilbertScope",
   "uiBeat",
   "patterns",
   "keyboard",
@@ -500,9 +618,17 @@ const SECTION_ORDER: ConfigSectionKey[] = [
 const visualConfigStore = useVisualConfigStore(props.visualConfigPinia);
 const keyboardDrawerStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
-const activeTab = ref("home");
+const activeTab = ref("stage");
 
-const { config, visualsEnabled, savedConfigs } = storeToRefs(visualConfigStore);
+const {
+  config,
+  visualsEnabled,
+  savedConfigs,
+  savedStageLooks,
+  newLookOnLaunch,
+  transientStageLook,
+  stageControls,
+} = storeToRefs(visualConfigStore);
 
 const {
   updateValue,
@@ -510,13 +636,21 @@ const {
   resetSection,
   exportConfig: storeExportConfig,
   setVisualsEnabled,
-  saveConfigAs,
   loadSavedConfig,
   deleteSavedConfig,
-  loadConfigSnapshot,
+  updateStageControl,
+  applyBuiltInStageLook,
+  shuffleStageLook,
+  keepStageLook,
+  clearStageLook,
+  resetStage,
+  saveStageLookAs,
+  loadSavedStageLook,
+  deleteSavedStageLook,
+  setNewLookOnLaunch,
 } = visualConfigStore;
 
-const builtInPresets = BUILT_IN_VISUAL_PRESETS;
+const builtInLooks = BUILT_IN_STAGE_LOOKS;
 
 const sectionTabs = computed(() =>
   SECTION_ORDER.map((sectionName) => {
@@ -531,14 +665,14 @@ const sectionTabs = computed(() =>
 );
 
 const allTabs = computed(() => [
-  HOME_TAB,
+  STAGE_TAB,
+  LOOKS_TAB,
   ...sectionTabs.value.map((tab) => ({
     value: tab.name,
     label: tab.label,
     shortLabel: tab.shortLabel,
   })),
   MIDI_TAB,
-  PRESET_TAB,
 ]);
 
 const activeTabLabel = computed(
@@ -838,13 +972,6 @@ const hasOptions = (sectionName: ConfigSectionKey, key: string) => {
 const getFieldOptions = (sectionName: ConfigSectionKey, key: string) =>
   getFieldMetadata(sectionName, key)?.options || [];
 
-const applyBuiltInPreset = (presetId: string) => {
-  const preset = builtInPresets.find((item) => item.id === presetId);
-  if (!preset) return;
-
-  loadConfigSnapshot(preset.config);
-};
-
 const exportConfig = async () => {
   const configJson = storeExportConfig();
 
@@ -900,16 +1027,16 @@ const downloadRoliPianoScript = () => {
   );
 };
 
-const promptSaveConfig = () => {
+const promptSaveStageLook = () => {
   const name =
     typeof window !== "undefined" && typeof window.prompt === "function"
-      ? window.prompt("Enter a name for this configuration:")
+      ? window.prompt("Enter a name for this Stage Look:")
       : null;
 
   if (!name?.trim()) return;
 
-  saveConfigAs(name.trim());
-  notify(`Configuration "${name.trim()}" saved.`);
+  saveStageLookAs(name.trim());
+  notify(`Stage Look "${name.trim()}" saved.`);
 };
 
 const notify = (message: string) => {
@@ -931,6 +1058,9 @@ const formatTimestamp = (timestamp: string) => {
 <style scoped>
 .config-panel__section-header,
 .config-panel__section-controls,
+.config-panel__looks-header,
+.config-panel__looks-actions,
+.config-panel__launch-setting,
 .config-panel__midi-actions,
 .config-panel__saved-preset {
   display: flex;
@@ -980,6 +1110,31 @@ const formatTimestamp = (timestamp: string) => {
   text-transform: uppercase;
 }
 
+.config-panel__section-copy,
+.config-panel__group-copy,
+.config-panel__look-status,
+.config-panel__legacy-configs {
+  margin: 0;
+  color: var(--ivory);
+  font: var(--t-body-mono);
+  font-size: 10px;
+  line-height: 1.55;
+  opacity: .58;
+}
+
+.config-panel__section-copy {
+  max-inline-size: 54ch;
+  margin-block-start: var(--s-2);
+}
+
+.config-panel__look-status {
+  margin-block: calc(-1 * var(--s-3)) var(--s-6);
+  border-inline-start: 3px solid var(--brass);
+  padding: var(--s-3) var(--s-4);
+  background: var(--ink);
+  opacity: .82;
+}
+
 .config-panel__section-controls {
   align-items: flex-start;
   flex: none;
@@ -1005,6 +1160,51 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__preset-group {
   display: grid;
   gap: var(--s-4);
+}
+
+.config-panel__group-copy {
+  max-inline-size: 56ch;
+  margin-block-start: calc(-1 * var(--s-2));
+}
+
+.config-panel__looks-header,
+.config-panel__launch-setting {
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.config-panel__looks-header h2 {
+  margin: var(--s-1) 0 0;
+  color: var(--ivory);
+  font: var(--t-display-m);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.config-panel__looks-actions {
+  align-items: flex-start;
+  flex: none;
+  gap: var(--s-2);
+}
+
+.config-panel__launch-setting {
+  align-items: center;
+  padding: var(--s-4);
+  background: var(--ink);
+}
+
+.config-panel__legacy-configs {
+  display: grid;
+  gap: var(--s-3);
+  opacity: .72;
+}
+
+.config-panel__legacy-configs summary {
+  cursor: pointer;
+  color: var(--ivory);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .12em;
 }
 
 .config-panel__group-label {

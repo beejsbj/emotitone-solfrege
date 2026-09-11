@@ -136,7 +136,7 @@ export function useStringRenderer() {
   const reinitializeStrings = () => {
     if (lastCanvasWidth > 0 && lastCanvasHeight > 0) {
       initializeStrings(
-        visualConfigStore.config.strings,
+        visualConfigStore.effectiveConfig.strings,
         lastCanvasWidth,
         lastCanvasHeight,
         musicStore.solfegeData
@@ -147,7 +147,7 @@ export function useStringRenderer() {
   // Watch for changes that should trigger reinitialization
   watch(
     [
-      () => visualConfigStore.config.strings.octaveOffset,
+      () => visualConfigStore.effectiveConfig.strings.octaveOffset,
       () => keyboardDrawerStore.keyboardConfig.mainOctave,
       () => keyboardDrawerStore.keyboardConfig.rowCount,
       () => musicStore.currentKey,

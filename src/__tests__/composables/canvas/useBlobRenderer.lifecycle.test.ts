@@ -181,4 +181,29 @@ describe("useBlobRenderer lifecycle", () => {
     expect(blob).toMatchObject(lifecycle);
     expect(blob.isFadingOut).toBe(true);
   });
+
+  it("applies Body Size changes to already-held notes", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    expect(blob.baseRadius).toBe(75);
+
+    renderer.reprojectBlobs({
+      usable: { x: 0, y: 0, width: 400, height: 240 },
+      centerX: 200,
+      centerY: 120,
+      hilbertRadius: 30,
+      orbitRadiusX: 120,
+      orbitRadiusY: 65,
+      blobFitScale: 1,
+      suspended: false,
+    }, {
+      ...DEFAULT_CONFIG.blobs,
+      minSize: 50,
+      baseSizeRatio: 0.25,
+    }, true);
+
+    expect(blob.baseRadius).toBe(60);
+  });
 });

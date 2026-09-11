@@ -14,6 +14,18 @@ import type {
  * Each section contains its metadata and field definitions in one place
  */
 export const UNIFIED_CONFIG = {
+  stage: {
+    _meta: {
+      label: "Stage",
+      icon: "◉",
+      description: "The Hilbert-centred musical canvas",
+    },
+    isEnabled: {
+      value: true,
+      label: "Stage",
+      hidden: true,
+    },
+  },
   blobs: {
     _meta: {
       label: "Blobs",
@@ -515,7 +527,7 @@ export const UNIFIED_CONFIG = {
 
   dynamicColors: {
     _meta: {
-      label: "Dynamic Colors",
+      label: "Music Color",
       icon: "🌈",
       description: "Dynamic color generation system",
     },
@@ -655,13 +667,13 @@ export const UNIFIED_CONFIG = {
 
   uiBeat: {
     _meta: {
-      label: "UI Beat",
+      label: "UI Rhythm",
       icon: "♩",
       description: "Let interface accents follow the sounding transport",
     },
     isEnabled: {
       value: true,
-      label: "Enable UI Beat",
+      label: "Enable UI Rhythm",
     },
   },
 

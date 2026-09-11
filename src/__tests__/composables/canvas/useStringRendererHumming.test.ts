@@ -32,7 +32,7 @@ vi.mock("@/stores/keyboardDrawer", () => ({
 }));
 
 vi.mock("@/stores/visualConfig", () => ({
-  useVisualConfigStore: () => ({ config: { strings: {} } }),
+  useVisualConfigStore: () => ({ effectiveConfig: { strings: {} } }),
 }));
 
 vi.mock("@/composables/useGSAP", () => ({

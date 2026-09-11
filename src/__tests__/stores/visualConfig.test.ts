@@ -800,6 +800,97 @@ describe('Visual Config Store', () => {
     })
   })
 
+  describe('Stage appearance', () => {
+    it('opts fresh installs into one transient launch Look', () => {
+      expect(visualConfigStore.newLookOnLaunch).toBe(true)
+      expect(visualConfigStore.transientStageLook).not.toBeNull()
+      expect(visualConfigStore.config).toEqual(mockDefaultConfig)
+    })
+
+    it('keeps existing users out unless an explicit preference opts in', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { hilbertScope: { history: 0.41, smear: 0.67 } },
+      }))
+
+      const existingStore = createFreshStore()
+      expect(existingStore.newLookOnLaunch).toBe(false)
+      expect(existingStore.transientStageLook).toBeNull()
+      expect(existingStore.config.hilbertScope).toMatchObject({ history: 0.41, smear: 0.67 })
+
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: mockDefaultConfig,
+        stagePreferences: { newLookOnLaunch: true },
+      }))
+      const optedInStore = createFreshStore()
+      expect(optedInStore.newLookOnLaunch).toBe(true)
+      expect(optedInStore.transientStageLook).not.toBeNull()
+    })
+
+    it('does not persist Shuffle output, even after the config debounce', async () => {
+      vi.useFakeTimers()
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.setItem.mockClear()
+      const snapshot = visualConfigStore.getConfigSnapshot()
+
+      visualConfigStore.shuffleStageLook('transient-only')
+      await nextTick()
+      vi.advanceTimersByTime(500)
+
+      expect(visualConfigStore.config).toEqual(snapshot)
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalled()
+      vi.useRealTimers()
+    })
+
+    it('keeps manual edits transient until Keep This Look', () => {
+      visualConfigStore.clearStageLook()
+      const persistedOpacity = visualConfigStore.config.hilbertScope.opacity
+      visualConfigStore.shuffleStageLook('editable-look')
+      visualConfigStore.updateStageControl('scopeStrength', 0.23)
+
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(persistedOpacity)
+      expect(visualConfigStore.effectiveConfig.hilbertScope.opacity).toBe(0.23)
+      expect(visualConfigStore.transientStageLook?.name).toContain('Edited')
+    })
+
+    it('materializes only Stage fields when a Look is kept and survives reload', () => {
+      visualConfigStore.setNewLookOnLaunch(false)
+      const musicColor = { ...visualConfigStore.config.dynamicColors }
+      const uiBeat = { ...visualConfigStore.config.uiBeat }
+      const keyboard = { ...visualConfigStore.config.keyboard }
+      const codeStrip = { ...visualConfigStore.config.codeStrip }
+
+      visualConfigStore.shuffleStageLook('keep-this')
+      const expectedOpacity = visualConfigStore.effectiveConfig.hilbertScope.opacity
+      expect(visualConfigStore.keepStageLook()).toBe(true)
+      expect(visualConfigStore.transientStageLook).toBeNull()
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(expectedOpacity)
+      expect(visualConfigStore.config.dynamicColors).toEqual(musicColor)
+      expect(visualConfigStore.config.uiBeat).toEqual(uiBeat)
+      expect(visualConfigStore.config.keyboard).toEqual(keyboard)
+      expect(visualConfigStore.config.codeStrip).toEqual(codeStrip)
+
+      const reloaded = createFreshStore()
+      expect(reloaded.transientStageLook).toBeNull()
+      expect(reloaded.config.hilbertScope.opacity).toBe(expectedOpacity)
+    })
+
+    it('resets Stage without touching separate systems or legacy saved configs', () => {
+      visualConfigStore.updateConfig('dynamicColors', { musicColorMode: 'fixed' })
+      visualConfigStore.updateConfig('uiBeat', { isEnabled: false })
+      visualConfigStore.updateConfig('keyboard', { mainOctave: 6 })
+      const legacy = visualConfigStore.saveConfigAs('Legacy full config')
+      visualConfigStore.updateStageControl('scopeStrength', 0.13)
+
+      visualConfigStore.resetStage()
+
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(DEFAULT_CONFIG.hilbertScope.opacity)
+      expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe('fixed')
+      expect(visualConfigStore.config.uiBeat.isEnabled).toBe(false)
+      expect(visualConfigStore.config.keyboard.mainOctave).toBe(6)
+      expect(visualConfigStore.savedConfigs).toContainEqual(legacy)
+    })
+  })
+
   describe('Error Handling', () => {
     it('should handle localStorage errors during saved config operations', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})

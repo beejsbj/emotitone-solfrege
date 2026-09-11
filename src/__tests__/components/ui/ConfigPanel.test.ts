@@ -7,6 +7,7 @@ import {
   CONFIG_SECTIONS,
   UNIFIED_CONFIG,
 } from "@/data/visual-config-metadata";
+import { STAGE_CONTROL_DEFINITIONS } from "@/services/stageAppearance";
 
 const keyboardDrawerStore = reactive({
   midi: {
@@ -25,6 +26,7 @@ const keyboardDrawerStore = reactive({
 
 const visualConfigStore = reactive({
   config: {
+    stage: { isEnabled: true },
     keyboard: {
       isEnabled: true,
       mainOctave: 4,
@@ -36,6 +38,33 @@ const visualConfigStore = reactive({
   },
   visualsEnabled: true,
   savedConfigs: [] as Array<{ id: string; name: string; updatedAt: string }>,
+  savedStageLooks: [] as Array<{ id: string; name: string; updatedAt: string }>,
+  newLookOnLaunch: false,
+  transientStageLook: null as null | { name: string },
+  stageControls: {
+    stageEnabled: true,
+    scopeSize: 0.6,
+    scopeStrength: 0.7,
+    scopeLineWeight: 1.5,
+    scopeGlow: 0.2,
+    scopeTrail: 0.2,
+    bodiesVisible: true,
+    bodySize: 0.1,
+    bodyStrength: 0.5,
+    bodyMotion: 0.5,
+    connectionMode: "off",
+    connectionStrength: 0.4,
+    atmosphereStrength: 0.6,
+    atmosphereColorDepth: 0.8,
+    stringPresence: 0.9,
+    stringResponse: 0.25,
+    fleckAmount: 10,
+    fleckEnergy: 0.3,
+    showChords: false,
+    showIntervals: false,
+    showEmotion: false,
+    labelStrength: 0.5,
+  },
   updateValue: vi.fn(),
   resetToDefaults: vi.fn(),
   resetSection: vi.fn(),
@@ -45,6 +74,16 @@ const visualConfigStore = reactive({
   loadSavedConfig: vi.fn(),
   deleteSavedConfig: vi.fn(),
   loadConfigSnapshot: vi.fn(),
+  updateStageControl: vi.fn(),
+  applyBuiltInStageLook: vi.fn(),
+  shuffleStageLook: vi.fn(),
+  keepStageLook: vi.fn(),
+  clearStageLook: vi.fn(),
+  resetStage: vi.fn(),
+  saveStageLookAs: vi.fn(),
+  loadSavedStageLook: vi.fn(),
+  deleteSavedStageLook: vi.fn(),
+  setNewLookOnLaunch: vi.fn(),
 });
 
 const musicStore = reactive({
@@ -122,6 +161,8 @@ vi.mock("lucide-vue-next", () => ({
   Trash2: { template: '<svg data-testid="trash-icon"></svg>' },
   ClipboardCopy: { template: '<svg data-testid="clipboard-copy-icon"></svg>' },
   FileDown: { template: '<svg data-testid="file-down-icon"></svg>' },
+  Shuffle: { template: '<svg data-testid="shuffle-icon"></svg>' },
+  Check: { template: '<svg data-testid="check-icon"></svg>' },
 }));
 
 function resetMidiState() {
@@ -171,14 +212,23 @@ describe("ConfigPanel.vue", () => {
     expect(visualConfigStore.updateValue).toHaveBeenLastCalledWith("keyboard", "isEnabled", false);
   });
 
-  it("keeps relationships and labels inside the grouped Blobs section", () => {
+  it("publishes one consolidated Stage destination and removes renderer-shaped tabs", () => {
     wrapper = createTestWrapper(ConfigPanel);
     const tabs = wrapper
       .getComponent({ name: "TabbedOverlayPanel" })
       .props("tabs") as Array<{ value: string }>;
 
-    expect(tabs.map((tab) => tab.value)).toContain("blobs");
+    expect(tabs.map((tab) => tab.value)).toContain("stage");
+    expect(tabs.map((tab) => tab.value)).toContain("looks");
     expect(tabs.map((tab) => tab.value)).toContain("uiBeat");
+    expect(tabs.map((tab) => tab.value)).toContain("dynamicColors");
+    expect(tabs.map((tab) => tab.value)).not.toContain("blobs");
+    expect(tabs.map((tab) => tab.value)).not.toContain("ambient");
+    expect(tabs.map((tab) => tab.value)).not.toContain("strings");
+    expect(tabs.map((tab) => tab.value)).not.toContain("particles");
+    expect(tabs.map((tab) => tab.value)).not.toContain("hilbertScope");
+    expect(tabs.map((tab) => tab.value)).not.toContain("animation");
+    expect(tabs.map((tab) => tab.value)).not.toContain("frequencyMapping");
     expect(tabs.map((tab) => tab.value)).not.toContain("beatingShapes");
     expect(tabs.map((tab) => tab.value)).not.toContain("floatingPopup");
     expect(CONFIG_SECTIONS).not.toHaveProperty("floatingPopup");
@@ -192,6 +242,7 @@ describe("ConfigPanel.vue", () => {
       field: "connectionMode",
       values: ["web"],
     });
+    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(22);
   });
 
   it("keeps drag-owned keyboard row count out of generated settings", () => {
@@ -199,8 +250,10 @@ describe("ConfigPanel.vue", () => {
     expect(configPanelSource).toContain("if (metadata?.hidden) return false");
   });
 
-  it("uses ivory Sticker faces for scene actions without Badge or brass", () => {
+  it("uses ivory Sticker faces for Stage Looks without Badge or brass", async () => {
     wrapper = createTestWrapper(ConfigPanel);
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "looks");
+    await nextTick();
 
     const scene = wrapper.get('[data-testid="preset-apply-soft-glass"]');
     expect(scene.element.tagName).toBe("BUTTON");
@@ -244,7 +297,7 @@ describe("ConfigPanel.vue", () => {
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__title').text())
       .toBe("Config");
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__context').text())
-      .toBe("Scenes");
+      .toBe("Stage");
     expect(wrapper.get('button[aria-label="Close settings"]').classes())
       .toContain("paper-button--sm");
   });

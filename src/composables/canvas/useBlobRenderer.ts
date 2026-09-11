@@ -486,11 +486,21 @@ export function useBlobRenderer() {
   /** Reprojects existing musical bodies without replacing their lifecycle state. */
   const reprojectBlobs = (
     composition: StageComposition,
-    _blobConfig: BlobConfig,
+    blobConfig: BlobConfig,
     reducedMotion = false,
   ) => {
     compositionFitScale = composition.blobFitScale;
     activeBlobs.forEach((blob, key) => {
+      // Keep the public Body Size control live for already-held notes instead
+      // of applying it only to notes created after the edit.
+      blob.baseRadius = Math.max(
+        blobConfig.minSize,
+        Math.min(
+          blobConfig.maxSize,
+          Math.min(composition.usable.width, composition.usable.height) *
+            blobConfig.baseSizeRatio,
+        ),
+      );
       const pitchClass = blob.pitchClassIndex
         ?? TonalNote.chroma(resolveBlobPitchClass(blob.note, blob.key, blob.mode))
         ?? 0;

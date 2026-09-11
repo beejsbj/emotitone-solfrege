@@ -1,7 +1,7 @@
 import { computed } from "vue";
 import { CHROMATIC_NOTES } from "@/data";
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
-import { useMusicColorConfig } from "@/composables/useMusicColorConfig";
+import { useMusicColorProvider } from "@/composables/useMusicColorConfig";
 import {
   musicColorRelationships,
   musicColorValueToCss,
@@ -22,11 +22,14 @@ const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
 };
 
 export function useMusicColor(options: { animated?: boolean } = {}) {
-  const dynamicColorConfig = useMusicColorConfig();
+  const {
+    config: dynamicColorConfig,
+    clockKey,
+  } = useMusicColorProvider();
   const clock = useMusicColorClock(
     () => options.animated === true && dynamicColorConfig.value.hueMotionEnabled,
     () => dynamicColorConfig.value.animationSpeed,
-    dynamicColorConfig.value,
+    clockKey,
   );
 
   const samplePhase = (animated: boolean) =>

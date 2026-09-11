@@ -163,4 +163,50 @@ describe("useMusicColorClock", () => {
     expect(clocks.b.phaseCycles.value).toBeCloseTo(0.2 / (Math.PI * 2));
     scope.stop();
   });
+
+  it("keeps one provider phase when its configuration value is replaced", async () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => frames.delete(id)));
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+
+    const { useMusicColorClock } = await import("@/composables/useMusicColorClock");
+    const provider = ref({ animationSpeed: 1 });
+    const firstScope = effectScope();
+    const secondScope = effectScope();
+    const first = firstScope.run(() => useMusicColorClock(
+      () => true,
+      () => provider.value.animationSpeed,
+      provider,
+    ))!;
+
+    const initialFrame = frames.get(1)!;
+    frames.delete(1);
+    initialFrame(100);
+    provider.value = { animationSpeed: 2 };
+    const second = secondScope.run(() => useMusicColorClock(
+      () => true,
+      () => provider.value.animationSpeed,
+      provider,
+    ))!;
+
+    expect(frames.size).toBe(1);
+    const sharedFrame = frames.get(2)!;
+    frames.delete(2);
+    sharedFrame(200);
+
+    expect(first.phaseCycles.value).toBe(second.phaseCycles.value);
+    expect(first.phaseCycles.value).toBeCloseTo(0.2 / (Math.PI * 2));
+    firstScope.stop();
+    secondScope.stop();
+  });
 });

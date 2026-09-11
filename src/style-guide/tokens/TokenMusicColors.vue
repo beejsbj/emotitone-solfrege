@@ -186,7 +186,7 @@ provideMusicColorConfig(config);
 const clock = useMusicColorClock(
   () => config.value.hueMotionEnabled,
   () => config.value.animationSpeed,
-  config.value,
+  config,
 );
 
 const scale = computed(() => getScaleForMode(mode.value));

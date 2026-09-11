@@ -1,26 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  liveListener: null as ((source: any) => void) | null,
-  unsubscribe: vi.fn(),
-  playback: { connect: vi.fn(), disconnect: vi.fn() },
-}));
-
-vi.mock("@/services/liveAudio", () => ({
-  liveAudioInput: {
-    subscribe: (listener: (source: any) => void) => {
-      mocks.liveListener = listener;
-      listener(null);
-      return mocks.unsubscribe;
-    },
-  },
-}));
-
-vi.mock("@/services/superdoughAudio", () => ({
-  getAudioContext: vi.fn(),
-  getSuperdoughMasterGain: () => mocks.playback,
-}));
-
 vi.mock("@/composables/useColorSystem", () => ({
   useColorSystem: () => ({
     getPrimaryColorForPitch: vi.fn(),
@@ -37,7 +16,6 @@ vi.mock("@/stores/music", () => ({
   }),
 }));
 
-import { getAudioContext } from "@/services/superdoughAudio";
 import { useHilbertScopeRenderer } from "@/composables/canvas/useHilbertScopeRenderer";
 
 function audioNode(extra: Record<string, unknown> = {}) {
@@ -48,14 +26,12 @@ function audioNode(extra: Record<string, unknown> = {}) {
   };
 }
 
-describe("Hilbert Scope live audio", () => {
+describe("Hilbert Scope waveform source", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.liveListener = null;
   });
 
-  it("attaches and detaches an authorized microphone source from its analysis bus", async () => {
-    const gain = audioNode({ gain: { value: 0 } });
+  it("only consumes the analysis source supplied by the Stage", async () => {
     const context = {
       sampleRate: 48_000,
       createGain: () => gain,
@@ -67,20 +43,18 @@ describe("Hilbert Scope live audio", () => {
       createConvolver: () => audioNode({ normalize: true, buffer: null }),
       createDelay: () => audioNode({ delayTime: { value: 0 } }),
     } as unknown as AudioContext;
-    vi.mocked(getAudioContext).mockReturnValue(context);
-    const microphone = audioNode();
+    const stageBus = audioNode({ context });
     const renderer = useHilbertScopeRenderer();
 
-    await renderer.initializeHilbertScope(800, 600, { sizeRatio: 0.6 } as any);
-    mocks.liveListener?.({ context, node: microphone, stream: {} });
-
-    expect(microphone.connect).toHaveBeenCalledWith(gain);
-
-    mocks.liveListener?.(null);
-    expect(microphone.disconnect).toHaveBeenCalledWith(gain);
+    await renderer.initializeHilbertScope(
+      800,
+      600,
+      { sizeRatio: 0.6 } as any,
+      stageBus as unknown as AudioNode,
+    );
+    expect(stageBus.connect).toHaveBeenCalledTimes(2);
 
     renderer.cleanup();
-    expect(mocks.playback.disconnect).toHaveBeenCalledWith(gain);
-    expect(mocks.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(stageBus.disconnect).toHaveBeenCalledTimes(2);
   });
 });

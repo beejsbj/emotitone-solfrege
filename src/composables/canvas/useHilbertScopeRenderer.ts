@@ -5,13 +5,9 @@
  */
 
 import type { HilbertScopeConfig } from "@/types/visual";
-import {
-  liveAudioInput,
-  type LiveAudioSource,
-} from "@/services/liveAudio";
-import { getAudioContext, getSuperdoughMasterGain } from "@/services/superdoughAudio";
 import { useColorSystem } from "../useColorSystem";
 import { useMusicStore } from "@/stores/music";
+import type { StageAudioFrame, StageComposition } from "./stageRuntime";
 
 // Math utility functions needed for Hilbert transform
 const mathScale = (value: number, inMin: number, inMax: number, outMin: number, outMax: number): number => {
@@ -34,13 +30,6 @@ const sigmoidFactory = (k: number) => {
 };
 
 const DEFAULT_SCOPE_COLOR = "hsl(48, 96%, 78%)";
-
-const calculateTargetRadius = (
-  canvasWidth: number,
-  canvasHeight: number,
-  sizeRatio: number
-) => (Math.min(canvasWidth, canvasHeight) * sizeRatio) / 2;
-
 
 // Hilbert transform processor using Web Audio API
 class HilbertProcessor {
@@ -155,53 +144,6 @@ class HilbertProcessor {
   }
 }
 
-// Amplitude analyzer for overall volume tracking
-class AmplitudeAnalyzer {
-  private analyser: AnalyserNode | null = null;
-  private sourceNode: AudioNode | null = null;
-  private dataArray: Uint8Array;
-  private connected = false;
-
-  constructor() {
-    this.dataArray = new Uint8Array(128);
-  }
-
-  connect(audioContext: AudioContext, sourceNode: AudioNode) {
-    if (this.connected) return;
-    
-    this.analyser = audioContext.createAnalyser();
-    this.analyser.fftSize = 256;
-    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-    sourceNode.connect(this.analyser);
-    this.sourceNode = sourceNode;
-    this.connected = true;
-  }
-
-  getAmplitude(): number {
-    if (!this.analyser) return 0;
-    
-    this.analyser.getByteFrequencyData(this.dataArray);
-    let sum = 0;
-    for (let i = 0; i < this.dataArray.length; i++) {
-      sum += this.dataArray[i];
-    }
-    const average = sum / this.dataArray.length;
-    return Math.pow(average / 255, 0.8);
-  }
-
-  disconnect() {
-    if (this.sourceNode && this.analyser) {
-      safeDisconnectEdge(this.sourceNode, this.analyser);
-    }
-    if (this.analyser) {
-      this.analyser.disconnect();
-      this.analyser = null;
-    }
-    this.sourceNode = null;
-    this.connected = false;
-  }
-}
-
 // State management for the Hilbert Scope
 interface HilbertScopeState {
   isInitialized: boolean;
@@ -222,7 +164,6 @@ interface HilbertScopeState {
 export function useHilbertScopeRenderer() {
   // Core processors
   const hilbertProcessor = new HilbertProcessor();
-  const amplitudeAnalyzer = new AmplitudeAnalyzer();
   const sigmoid = sigmoidFactory(7);
   
   // Color system and music store
@@ -246,65 +187,27 @@ export function useHilbertScopeRenderer() {
     lastResolvedColor: null,
   };
 
-  // Audio connection state
-  let audioContext: AudioContext | null = null;
-  let audioGainNode: GainNode | null = null;
-  let playbackSourceNode: GainNode | null = null;
-  let liveSource: LiveAudioSource | null = null;
-  let connectedLiveSourceNode: MediaStreamAudioSourceNode | null = null;
-
-  const syncLiveSource = () => {
-    if (connectedLiveSourceNode && audioGainNode) {
-      safeDisconnectEdge(connectedLiveSourceNode, audioGainNode);
-      connectedLiveSourceNode = null;
-    }
-    if (!liveSource || !audioContext || !audioGainNode) return;
-    if (liveSource.context !== audioContext) {
-      console.error("Live microphone and Hilbert Scope must share an AudioContext");
-      return;
-    }
-    liveSource.node.connect(audioGainNode);
-    connectedLiveSourceNode = liveSource.node;
-  };
-
-  const unsubscribeLiveSource = liveAudioInput.subscribe((source) => {
-    liveSource = source;
-    syncLiveSource();
-  });
-
   /**
    * Initialize the Hilbert Scope with audio context
    */
   const initializeHilbertScope = async (
     canvasWidth: number,
     canvasHeight: number,
-    config: HilbertScopeConfig
+    config: HilbertScopeConfig,
+    waveformSource?: AudioNode | null,
   ) => {
     if (state.isInitialized) return;
 
-    // Get the superdough AudioContext
-    audioContext = getAudioContext() as AudioContext;
-    if (!audioContext) {
-      console.error("No audio context available for Hilbert Scope");
-      return;
+    if (waveformSource) {
+      await hilbertProcessor.connect(
+        waveformSource.context as AudioContext,
+        waveformSource,
+      );
     }
-
-    // Create a gain node to tap into the audio
-    audioGainNode = audioContext.createGain();
-    audioGainNode.gain.value = 1.0;
-
-    // Fan-out: superdough master gain → [speakers] AND [audioGainNode → hilbert processors]
-    playbackSourceNode = getSuperdoughMasterGain();
-    if (playbackSourceNode) playbackSourceNode.connect(audioGainNode);
-
-    // Connect processors
-    await hilbertProcessor.connect(audioContext, audioGainNode);
-    amplitudeAnalyzer.connect(audioContext, audioGainNode);
-    syncLiveSource();
 
     // Initialize position (center, top half)
     state.x = canvasWidth / 2;
-    state.y = canvasHeight * 0.25; // 25% from top
+    state.y = canvasHeight / 2;
 
     // Create dedicated history and swap canvases so the scope can preserve
     // its own colored trail even though the main canvas is cleared every frame.
@@ -319,11 +222,7 @@ export function useHilbertScopeRenderer() {
     state.swapContext = state.swapCanvas.getContext("2d");
 
     // Calculate initial radius
-    state.targetRadius = calculateTargetRadius(
-      canvasWidth,
-      canvasHeight,
-      config.sizeRatio
-    );
+    state.targetRadius = Math.min(canvasWidth, canvasHeight) * config.sizeRatio / 2;
 
     state.isInitialized = true;
     state.isActive = true;
@@ -348,7 +247,10 @@ export function useHilbertScopeRenderer() {
     elapsed: number,
     config: HilbertScopeConfig,
     canvasWidth: number,
-    canvasHeight: number
+    canvasHeight: number,
+    composition?: StageComposition,
+    audioFrame: StageAudioFrame = { envelope: 0, hasSignal: false },
+    reducedMotion = false,
   ) => {
     if (!state.isInitialized || !state.isActive || !config.isEnabled) return;
     if (
@@ -361,35 +263,31 @@ export function useHilbertScopeRenderer() {
     }
 
     // Get audio data
-    const [xVals, yVals] = hilbertProcessor.getValues();
-    const amplitude = amplitudeAnalyzer.getAmplitude();
+    const [xVals, yVals] = reducedMotion
+      ? [new Float32Array(0), new Float32Array(0)]
+      : hilbertProcessor.getValues();
+    const amplitude = reducedMotion ? 0 : audioFrame.envelope;
     const activeNotes = musicStore.getActiveNotes();
 
     // Handle fade animations
-    if (state.fadeInProgress < 1) {
+    if (reducedMotion) {
+      state.fadeInProgress = 1;
+    } else if (state.fadeInProgress < 1) {
       state.fadeInProgress = Math.min(1, state.fadeInProgress + (1 / config.scaleInDuration) / 60);
     }
 
-    // Update position with drift
-    const driftAmount = (config.driftSpeed / 60) * 0.1; // Convert to pixels per frame
-    state.x += (Math.random() - 0.5) * driftAmount;
-    state.y += (Math.random() - 0.7) * driftAmount; // Bias upward
-    
-    // Keep within bounds (favor top half)
-    state.x = mathClamp(state.x, 50, canvasWidth - 50);
-    state.y = mathClamp(state.y, 50, canvasHeight * 0.5);
-
-    state.targetRadius = calculateTargetRadius(
-      canvasWidth,
-      canvasHeight,
-      config.sizeRatio
-    );
+    const targetX = composition?.centerX ?? canvasWidth / 2;
+    const targetY = composition?.centerY ?? canvasHeight / 2;
+    state.x = reducedMotion ? targetX : state.x + (targetX - state.x) * 0.14;
+    state.y = reducedMotion ? targetY : state.y + (targetY - state.y) * 0.14;
+    state.targetRadius = composition?.hilbertRadius
+      ?? Math.min(canvasWidth, canvasHeight) * config.sizeRatio / 2;
 
     // Smooth radius transitions, including live Size control changes.
     state.currentRadius += (state.targetRadius - state.currentRadius) * 0.1;
 
     // Maintain an offscreen trail buffer instead of sampling the main canvas.
-    const persistence = mathClamp(config.history, 0, 0.99);
+    const persistence = reducedMotion ? 1 : mathClamp(config.history, 0, 0.99);
 
     state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
     if (persistence > 0) {
@@ -416,8 +314,10 @@ export function useHilbertScopeRenderer() {
       }
     }
 
-    state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
-    state.historyContext.drawImage(state.swapCanvas, 0, 0);
+    if (!reducedMotion) {
+      state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      state.historyContext.drawImage(state.swapCanvas, 0, 0);
+    }
 
     let resolvedColor: string | null = null;
 
@@ -425,7 +325,9 @@ export function useHilbertScopeRenderer() {
       const firstNote = activeNotes[0];
       const noteMode = firstNote.mode ?? musicStore.currentMode;
       const noteKey = firstNote.key ?? musicStore.currentKey;
-      resolvedColor = colorSystem.getPrimaryColorForPitch(
+      resolvedColor = (reducedMotion
+        ? colorSystem.getStaticPrimaryColorForPitch
+        : colorSystem.getPrimaryColorForPitch)(
         firstNote.solfegeIndex,
         firstNote.pitchClassIndex,
         noteMode,
@@ -441,7 +343,9 @@ export function useHilbertScopeRenderer() {
     if (!resolvedColor) {
       const scaleNotes = musicStore.solfegeData;
       if (scaleNotes && scaleNotes.length > 0) {
-        resolvedColor = colorSystem.getPrimaryColor(
+        resolvedColor = (reducedMotion
+          ? colorSystem.getStaticPrimaryColor
+          : colorSystem.getPrimaryColor)(
           scaleNotes[0].name,
           musicStore.currentMode,
           3,
@@ -495,8 +399,17 @@ export function useHilbertScopeRenderer() {
       targetContext.restore();
     };
 
-    if (amplitude > 0.01 || activeNotes.length > 0) {
+    if (!reducedMotion && (amplitude > 0.01 || activeNotes.length > 0)) {
       drawCurve(state.historyContext);
+    } else if (reducedMotion) {
+      ctx.save();
+      ctx.globalAlpha = config.opacity * 0.45;
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = config.thickness;
+      ctx.beginPath();
+      ctx.arc(state.x, state.y, state.currentRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.save();
@@ -508,7 +421,12 @@ export function useHilbertScopeRenderer() {
   /**
    * Update canvas size
    */
-  const resizeHilbertScope = (width: number, height: number, config: HilbertScopeConfig) => {
+  const resizeHilbertScope = (
+    width: number,
+    height: number,
+    config: HilbertScopeConfig,
+    composition?: StageComposition,
+  ) => {
     if (!state.isInitialized) return;
 
     if (state.historyCanvas) {
@@ -524,10 +442,12 @@ export function useHilbertScopeRenderer() {
 
     // Update position to maintain relative position
     state.x = width / 2;
-    state.y = height * 0.25;
+    state.y = composition?.centerY ?? height / 2;
+    state.x = composition?.centerX ?? width / 2;
 
     // Recalculate radius
-    state.targetRadius = calculateTargetRadius(width, height, config.sizeRatio);
+    state.targetRadius = composition?.hilbertRadius
+      ?? Math.min(width, height) * config.sizeRatio / 2;
   };
 
   /**
@@ -549,23 +469,7 @@ export function useHilbertScopeRenderer() {
    * Cleanup resources
    */
   const cleanup = () => {
-    unsubscribeLiveSource();
-    if (connectedLiveSourceNode && audioGainNode) {
-      safeDisconnectEdge(connectedLiveSourceNode, audioGainNode);
-      connectedLiveSourceNode = null;
-    }
-    if (playbackSourceNode && audioGainNode) {
-      safeDisconnectEdge(playbackSourceNode, audioGainNode);
-      playbackSourceNode = null;
-    }
     hilbertProcessor.disconnect();
-    amplitudeAnalyzer.disconnect();
-    
-    if (audioGainNode) {
-      audioGainNode.disconnect();
-      audioGainNode = null;
-    }
-    audioContext = null;
 
     state.isInitialized = false;
     state.isActive = false;

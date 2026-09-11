@@ -6,7 +6,29 @@ import { useLiveListening } from "@/composables/useLiveListening";
 const mocks = vi.hoisted(() => ({
   acquire: vi.fn(),
   release: vi.fn(),
+  stopMonitor: vi.fn(),
+  pushPitch: vi.fn(),
+  stopBridge: vi.fn(),
   sourceListener: null as ((source: unknown) => void) | null,
+}));
+
+vi.mock("@/stores/music", () => ({
+  useMusicStore: () => ({ currentKey: "C", currentMode: "major" }),
+}));
+
+vi.mock("@/stores/instrument", () => ({
+  useInstrumentStore: () => ({ currentInstrument: "piano" }),
+}));
+
+vi.mock("@/services/livePitch", () => ({
+  startLivePitchMonitor: vi.fn(async () => ({ stop: mocks.stopMonitor })),
+}));
+
+vi.mock("@/services/hummingStage", () => ({
+  createLivePitchStageBridge: vi.fn(() => ({
+    push: mocks.pushPitch,
+    stop: mocks.stopBridge,
+  })),
 }));
 
 vi.mock("@/services/liveAudio", () => ({
@@ -36,7 +58,10 @@ describe("useLiveListening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.sourceListener = null;
-    mocks.acquire.mockResolvedValue({ release: mocks.release });
+    mocks.acquire.mockResolvedValue({
+      source: { context: {}, node: {}, stream: {} },
+      release: mocks.release,
+    });
   });
 
   it("acquires listening independently and releases it when toggled off", async () => {
@@ -47,6 +72,8 @@ describe("useLiveListening", () => {
     expect(mocks.acquire).toHaveBeenCalledTimes(1);
 
     await listening.toggle();
+    expect(mocks.stopMonitor).toHaveBeenCalledTimes(1);
+    expect(mocks.stopBridge).toHaveBeenCalledTimes(1);
     expect(mocks.release).toHaveBeenCalledTimes(1);
     expect(listening.status.value).toBe("idle");
     wrapper.unmount();

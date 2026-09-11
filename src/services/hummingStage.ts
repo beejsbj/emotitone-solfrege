@@ -79,7 +79,7 @@ export class StablePitchGate {
   }
 }
 
-export function createHummingStageBridge(
+export function createLivePitchStageBridge(
   context: HummingStageContext,
   target: Pick<Window, "dispatchEvent"> = window,
 ) {
@@ -156,3 +156,7 @@ export function createHummingStageBridge(
     stop: () => gate.flush(),
   };
 }
+
+// Capture keeps this compatibility name; the bridge itself is presentation-only
+// and is also used by standalone Live Listening.
+export const createHummingStageBridge = createLivePitchStageBridge;

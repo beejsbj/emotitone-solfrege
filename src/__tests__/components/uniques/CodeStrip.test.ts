@@ -21,6 +21,12 @@ const mocks = vi.hoisted(() => ({
   mirrorScroller: null as HTMLElement | null,
   latestEvent: null as HTMLElement | null,
   rafCallbacks: [] as FrameRequestCallback[],
+  audioContext: {
+    currentTime: 0,
+    state: "running",
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as any,
 }));
 
 vi.mock("@/stores/patterns", () => ({
@@ -80,7 +86,7 @@ vi.mock("@/services/StrudelNotation", () => ({
 
 vi.mock("@/services/superdoughAudio", () => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: () => ({ currentTime: 0 }),
+  getAudioContext: () => mocks.audioContext,
   emotitoneStrudelOutput: vi.fn(),
   stopStrudelVisuals: vi.fn(),
 }));
@@ -89,6 +95,7 @@ vi.mock("@strudel/codemirror", () => ({
   StrudelMirror: class {
     code: string;
     editor: any;
+    repl = { scheduler: { cps: 0.5 } };
     stop = vi.fn().mockResolvedValue(undefined);
     clear = vi.fn();
     updateSettings = vi.fn();
@@ -159,6 +166,7 @@ vi.mock("@strudel/webaudio", () => ({}));
 vi.mock("@strudel/transpiler", () => ({ transpiler: vi.fn() }));
 
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
+import { uiBeatClock } from "@/composables/useUIBeat";
 
 const recordedNote: PatternNote = {
   id: "c",
@@ -172,6 +180,7 @@ const recordedNote: PatternNote = {
 };
 
 beforeEach(() => {
+  uiBeatClock.stop();
   mocks.patternsStore = reactive({
     currentSketchNotes: [recordedNote],
     currentSketchMeta: {
@@ -208,6 +217,10 @@ beforeEach(() => {
   mocks.mirrorScroller = null;
   mocks.latestEvent = null;
   mocks.rafCallbacks = [];
+  mocks.audioContext.currentTime = 0;
+  mocks.audioContext.state = "running";
+  mocks.audioContext.addEventListener.mockReset();
+  mocks.audioContext.removeEventListener.mockReset();
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     mocks.rafCallbacks.push(callback);
     return mocks.rafCallbacks.length;
@@ -289,9 +302,110 @@ describe("CodeStrip production Strudel document", () => {
     mocks.mirrorOptions.onDraw([], .5);
     await flushPromises();
     expect(mocks.updatePresentation).toHaveBeenCalledTimes(presentationsBeforeDraw);
+    expect(uiBeatClock.snapshot).toMatchObject({
+      status: "running",
+      mappingAvailable: true,
+      barPosition: 0.5,
+      beatIndex: 2,
+      beatPhase: 0,
+    });
 
     mocks.mirrorOptions.onToggle(false);
     expect(mocks.setCodeStripPlaying).toHaveBeenLastCalledWith(expect.anything(), false);
+    expect(uiBeatClock.snapshot.status).toBe("idle");
+    wrapper.unmount();
+  });
+
+  it("keeps UIBeat unavailable when the sounding document is user-authored", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    mocks.mirrorInstance.editor.dispatch({
+      changes: {
+        from: 0,
+        to: mocks.mirrorInstance.editor.state.doc.length,
+        insert: '`< C4 D4 >`.sound("sine")',
+      },
+    });
+
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    await controller.evaluate();
+    mocks.mirrorOptions.onDraw([], 1.25);
+
+    expect(uiBeatClock.snapshot).toMatchObject({
+      status: "unavailable",
+      mappingAvailable: false,
+      rawPosition: 1.25,
+      barPosition: null,
+      beatIndex: null,
+      presenting: false,
+    });
+    wrapper.unmount();
+  });
+
+  it("retires an evaluation generation when Strudel reports a resolved error", async () => {
+    mocks.mirrorEvaluate.mockImplementationOnce(async () => {
+      mocks.mirrorOptions.onEvalError(new Error("invalid pattern"));
+    });
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+
+    await controller.evaluate();
+    mocks.mirrorOptions.onDraw([], 0.5);
+
+    expect(uiBeatClock.snapshot.status).toBe("idle");
+    expect(mocks.setError).toHaveBeenCalledWith(expect.objectContaining({
+      message: "invalid pattern",
+    }));
+    wrapper.unmount();
+  });
+
+  it("rests during audio suspension and rejoins on the next sounding frame", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    await controller.evaluate();
+    mocks.mirrorOptions.onDraw([], 0.25);
+    expect(uiBeatClock.snapshot.status).toBe("running");
+
+    const stateListener = mocks.audioContext.addEventListener.mock.calls
+      .find(([type]: [string]) => type === "statechange")?.[1] as EventListener;
+    expect(stateListener).toBeTypeOf("function");
+    mocks.audioContext.state = "suspended";
+    stateListener(new Event("statechange"));
+    expect(uiBeatClock.snapshot).toMatchObject({
+      status: "arming",
+      beatIndex: null,
+      presenting: false,
+    });
+
+    mocks.audioContext.state = "running";
+    stateListener(new Event("statechange"));
+    expect(uiBeatClock.snapshot.status).toBe("arming");
+    mocks.mirrorOptions.onDraw([], 0.5);
+    expect(uiBeatClock.snapshot).toMatchObject({
+      status: "running",
+      beatIndex: 2,
+      presenting: true,
+    });
+    wrapper.unmount();
+    expect(mocks.audioContext.removeEventListener).toHaveBeenCalledWith(
+      "statechange",
+      stateListener,
+    );
+  });
+
+  it("invalidates active presentation when the editor document is replaced", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    await controller.evaluate();
+    mocks.mirrorOptions.onDraw([], 0.25);
+    expect(uiBeatClock.snapshot.status).toBe("running");
+
+    controller.setCode('`< E4 >`.sound("sine")');
+
+    expect(uiBeatClock.snapshot.status).toBe("idle");
     wrapper.unmount();
   });
 

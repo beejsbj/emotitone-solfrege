@@ -50,8 +50,6 @@ export interface ConfigSectionMeta {
 export interface NoteColorRelationships {
   primary: string;
   accent: string;
-  secondary: string;
-  tertiary: string;
 }
 
 export type MusicColorMode =
@@ -63,7 +61,6 @@ export type MusicColorMode =
  * Dynamic color configuration
  */
 export interface DynamicColorConfig {
-  isEnabled: boolean;
   recipeVersion: 1;
   musicColorMode: MusicColorMode;
   hueMotionEnabled: boolean;
@@ -300,40 +297,6 @@ export interface FrequencyMappingConfig {
   minValue: number;
   /** Maximum mapped value */
   maxValue: number;
-}
-
-/**
- * Static color palette for a solfege note - only stores the core colors
- */
-export interface SolfegeColorPalette {
-  /** Primary color */
-  primary: string;
-  /** Secondary color */
-  secondary: string;
-  /** Accent color */
-  accent: string;
-  /** Tertiary color */
-  tertiary: string;
-}
-
-/**
- * Complete color data for both major and minor modes
- */
-export interface SolfegeColorData {
-  /** Major mode colors */
-  major: SolfegeColorPalette;
-  /** Minor mode colors */
-  minor: SolfegeColorPalette;
-}
-
-/**
- * Octave configuration for lightness variations
- */
-export interface OctaveConfig {
-  /** Octave number (1-5) */
-  octave: number;
-  /** Lightness value for this octave (0-1) */
-  lightness: number;
 }
 
 /**

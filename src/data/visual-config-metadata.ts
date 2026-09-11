@@ -519,10 +519,6 @@ export const UNIFIED_CONFIG = {
       icon: "🌈",
       description: "Dynamic color generation system",
     },
-    isEnabled: {
-      value: true,
-      label: "Enable Dynamic Colors",
-    },
     recipeVersion: {
       value: 1 as const,
       hidden: true,

@@ -2,17 +2,20 @@
   <section class="music-recipe">
     <header class="music-recipe__header">
       <div>
-        <div class="music-recipe__eyebrow">Music color recipe · runtime authority</div>
-        <h3>Fixed pitch or movable degree</h3>
+        <div class="music-recipe__eyebrow">Music Color · numeric OKLCH authority</div>
+        <h3>One identity, three mappings</h3>
         <p>
-          This specimen calls the same <code>musicColor.ts</code> resolver as Note and the live keyboard.
-          Octave changes lightness; the global mode decides whether hue follows pitch class or scale degree.
+          The wheel keeps twelve physical pitch positions. Mapping changes color identity,
+          never pitch geometry. Every rendered value comes through the production resolver.
         </p>
       </div>
-      <div class="music-recipe__mode" role="group" aria-label="Music color mode">
-        <button :class="{ active: config.musicColorMode === 'fixed' }" @click="config.musicColorMode = 'fixed'">Fixed</button>
-        <button :class="{ active: config.musicColorMode === 'movable-ordinal' }" @click="config.musicColorMode = 'movable-ordinal'">Ordinal</button>
-        <button :class="{ active: config.musicColorMode === 'movable-relative' }" @click="config.musicColorMode = 'movable-relative'">Relative</button>
+      <div class="music-recipe__mode" role="group" aria-label="Music Color mapping">
+        <button
+          v-for="option in mappingOptions"
+          :key="option.value"
+          :class="{ active: config.musicColorMode === option.value }"
+          @click="config.musicColorMode = option.value"
+        >{{ option.label }}</button>
       </div>
     </header>
 
@@ -24,104 +27,294 @@
         </select>
       </label>
       <label>
-        Mode
+        Scale
         <select v-model="mode">
           <option v-for="option in MODE_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
         </select>
       </label>
       <label>
-        Octave <output>{{ octave }}</output>
-        <input v-model.number="octave" type="range" min="2" max="8" step="1" />
+        Scientific octave <output>{{ octave }}</output>
+        <input v-model.number="octave" type="range" min="1" max="9" step="1" />
+      </label>
+      <label>
+        Borrowed pitch
+        <select v-model="selectedPitch">
+          <option v-for="note in CHROMATIC_NOTES" :key="note" :value="note">{{ note }}</option>
+        </select>
       </label>
       <label class="music-recipe__sweep">
         <input v-model="sweep" type="checkbox" />
-        Preview hue motion
+        Full-cell hue motion
       </label>
     </div>
 
-    <div class="music-recipe__swatches" :style="{ '--degree-count': scale.degreeCount }">
-      <div
-        v-for="(solfege, index) in scale.solfege"
-        :key="`${mode}-${index}`"
-        class="music-recipe__swatch"
-        :style="{ '--swatch': colorFor(index) }"
-      >
-        <strong>{{ solfege.name }}</strong>
-        <span>{{ pitchFor(index) }}{{ octave }}</span>
-        <small>{{ index + 1 }} / {{ scale.degreeCount }}</small>
+    <div class="music-recipe__workbench">
+      <figure class="music-recipe__wheel-frame">
+        <svg class="music-recipe__wheel" viewBox="-126 -126 252 252" role="img" :aria-label="wheelLabel">
+          <g>
+            <path
+              v-for="cell in wheelCells"
+              :key="cell.pitch"
+              class="music-recipe__segment"
+              :class="{
+                'music-recipe__segment--tonic': cell.pitch === musicKey,
+                'music-recipe__segment--empty': !cell.color,
+              }"
+              :d="cell.path"
+              :style="{ fill: cell.color ?? 'var(--ink-4)' }"
+              :data-pitch="cell.pitch"
+              :data-degree="cell.degreeIndex ?? undefined"
+            />
+          </g>
+          <g class="music-recipe__labels">
+            <text
+              v-for="cell in wheelCells"
+              :key="`label-${cell.pitch}`"
+              :x="cell.labelX"
+              :y="cell.labelY"
+              text-anchor="middle"
+              dominant-baseline="central"
+            >{{ cell.pitch }}</text>
+          </g>
+          <g class="music-recipe__hub">
+            <text y="-7" text-anchor="middle">{{ mappingLabel }}</text>
+            <text y="8" text-anchor="middle">{{ musicKey }} · {{ scale.degreeCount }} notes</text>
+            <text y="23" text-anchor="middle">oct {{ octave }} · {{ phaseLabel }}</text>
+          </g>
+        </svg>
+        <figcaption>
+          C stays centered at twelve o’clock. The tonic marker follows Key. Ink cells are
+          valid off-scale omissions, not calculation failures.
+        </figcaption>
+      </figure>
+
+      <div class="music-recipe__evidence">
+        <article class="music-recipe__policy">
+          <span>Exact-pitch policy</span>
+          <strong>{{ selectedPitch }}{{ octave }}</strong>
+          <p v-if="selectedGeneral">This pitch belongs to the selected scale.</p>
+          <p v-else>General movable output is OFF. Exact visuals use fixed chromatic fallback.</p>
+          <div
+            class="music-recipe__borrowed-chip"
+            :style="{ '--borrowed-color': selectedExactColor }"
+          >{{ selectedExact?.resolution.mapping ?? "invalid" }}</div>
+        </article>
+
+        <article class="music-recipe__real-sources">
+          <div>
+            <span>Real Note · exact pitch</span>
+            <Note
+              :syllable="selectedSolfege"
+              :degree="selectedDegree"
+              :raw-pitch="`${selectedPitch}${octave}`"
+              primary="raw"
+              :visible-labels="['raw']"
+              geometry="offcut"
+              proportion="medium"
+              :scale-index="selectedDegreeIndex ?? 0"
+              :pitch-class-index="CHROMATIC_NOTES.indexOf(selectedPitch)"
+              :octave="octave"
+              :mode="mode"
+              :music-key="musicKey"
+              :accidental="selectedPitch.includes('#')"
+            />
+          </div>
+          <div>
+            <span>Real fused Chord · shared phase</span>
+            <Chord
+              :members="chordMembers"
+              display="symbol"
+              symbol="△"
+              proportion="balanced"
+              geometry="offcut"
+              accessible-name="Music Color chord specimen"
+            />
+          </div>
+        </article>
       </div>
     </div>
 
     <dl class="music-recipe__facts">
-      <div><dt>Mode</dt><dd>{{ config.musicColorMode }}</dd></div>
-      <div><dt>Hue slots</dt><dd>{{ config.musicColorMode === 'fixed' ? 12 : scale.degreeCount }}</dd></div>
-      <div><dt>Color space</dt><dd>runtime HSLA relationships</dd></div>
-      <div><dt>Default</dt><dd>movable</dd></div>
+      <div><dt>Mapping</dt><dd>{{ mappingLabel }}</dd></div>
+      <div><dt>Hue cells</dt><dd>{{ config.musicColorMode === 'movable-ordinal' ? scale.degreeCount : 12 }}</dd></div>
+      <div><dt>Recipe</dt><dd>OKLCH v{{ config.recipeVersion }} · C {{ config.chroma }}</dd></div>
+      <div><dt>Octaves</dt><dd>1–9 · L 27.5–87.5%</dd></div>
     </dl>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref } from "vue";
+import Note from "@/components/primatives/Note.vue";
+import Chord, { type ChordMember } from "@/components/compounds/Chord.vue";
 import { CHROMATIC_NOTES, MODE_OPTIONS, getScaleForMode } from "@/data";
+import { provideMusicColorConfig } from "@/composables/useMusicColorConfig";
+import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import {
-  getChromaticNoteForScaleIndex,
-  resolveMusicColorsByScaleIndex,
+  getScaleDegreeIndexForPitchClass,
+  musicColorValueToCss,
+  resolveMusicColorSampleByPitchClass,
 } from "@/services/musicColor";
-import type { ChromaticNote, DynamicColorConfig, MusicalMode } from "@/types";
+import type {
+  ChromaticNote,
+  DynamicColorConfig,
+  MusicColorMode,
+  MusicalMode,
+} from "@/types";
+
+const mappingOptions: Array<{ value: MusicColorMode; label: string }> = [
+  { value: "fixed", label: "Fixed" },
+  { value: "movable-ordinal", label: "Ordinal" },
+  { value: "movable-relative", label: "Relative" },
+];
 
 const musicKey = ref<ChromaticNote>("C");
 const mode = ref<MusicalMode>("major");
-const octave = ref(4);
-const sweep = ref(false);
-const time = ref(0);
-let animationFrame: number | null = null;
-
+const octave = ref(5);
+const selectedPitch = ref<ChromaticNote>("C#");
+const sweep = ref(true);
 const config = ref<DynamicColorConfig>({
-  isEnabled: true,
   recipeVersion: 1,
-  musicColorMode: "movable-ordinal",
+  musicColorMode: "movable-relative",
+  hueMotionEnabled: true,
+  animationSpeed: 1,
   chroma: 0.18,
   lightnessCenter: 0.575,
   lightnessSpan: 0.6,
-  hueMotionEnabled: true,
-  animationSpeed: 1,
 });
 
+provideMusicColorConfig(config);
+const clock = useMusicColorClock(
+  () => sweep.value && config.value.hueMotionEnabled,
+  () => config.value.animationSpeed,
+);
+
 const scale = computed(() => getScaleForMode(mode.value));
-const pitchFor = (index: number) =>
-  getChromaticNoteForScaleIndex(index, mode.value, musicKey.value) ?? musicKey.value;
-const colorFor = (index: number) =>
-  resolveMusicColorsByScaleIndex(
-    index,
+const phase = computed(() =>
+  sweep.value && !clock.reducedMotion.value ? clock.phaseCycles.value : null,
+);
+
+function point(radius: number, angleDegrees: number) {
+  const angle = angleDegrees * Math.PI / 180;
+  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+}
+
+function arcPath(index: number) {
+  const center = -90 + index * 30;
+  const start = point(104, center - 14.2);
+  const end = point(104, center + 14.2);
+  const innerEnd = point(48, center + 14.2);
+  const innerStart = point(48, center - 14.2);
+  return [
+    `M ${start.x} ${start.y}`,
+    `A 104 104 0 0 1 ${end.x} ${end.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A 48 48 0 0 0 ${innerStart.x} ${innerStart.y}`,
+    "Z",
+  ].join(" ");
+}
+
+const wheelCells = computed(() => CHROMATIC_NOTES.map((pitch, index) => {
+  const degreeIndex = getScaleDegreeIndexForPitchClass(
+    pitch,
+    musicKey.value,
+    mode.value,
+  );
+  const resolved = resolveMusicColorSampleByPitchClass(
+    pitch,
     mode.value,
     musicKey.value,
     octave.value,
     config.value,
-    sweep.value ? time.value : undefined,
-  )?.primary ?? "transparent";
+    "omit",
+    phase.value,
+  );
+  const label = point(116, -90 + index * 30);
+  return {
+    pitch,
+    degreeIndex,
+    path: arcPath(index),
+    labelX: label.x,
+    labelY: label.y,
+    color: resolved ? musicColorValueToCss(resolved.sample.primary) : null,
+  };
+}));
 
-function animate() {
-  time.value = Date.now();
-  animationFrame = requestAnimationFrame(animate);
-}
+const selectedDegreeIndex = computed(() => getScaleDegreeIndexForPitchClass(
+  selectedPitch.value,
+  musicKey.value,
+  mode.value,
+));
+const selectedGeneral = computed(() => resolveMusicColorSampleByPitchClass(
+  selectedPitch.value,
+  mode.value,
+  musicKey.value,
+  octave.value,
+  config.value,
+  "omit",
+  phase.value,
+));
+const selectedExact = computed(() => resolveMusicColorSampleByPitchClass(
+  selectedPitch.value,
+  mode.value,
+  musicKey.value,
+  octave.value,
+  config.value,
+  "fixed-chromatic",
+  phase.value,
+));
+const selectedExactColor = computed(() => selectedExact.value
+  ? musicColorValueToCss(selectedExact.value.sample.primary)
+  : "transparent");
+const selectedSolfege = computed(() => selectedDegreeIndex.value === null
+  ? "Borrowed"
+  : scale.value.solfege[selectedDegreeIndex.value]?.name ?? "Degree");
+const selectedDegree = computed(() => selectedDegreeIndex.value === null
+  ? "—"
+  : `${selectedDegreeIndex.value + 1}`);
 
-watch(sweep, (enabled) => {
-  if (enabled && animationFrame === null) animate();
-  if (!enabled && animationFrame !== null) {
-    cancelAnimationFrame(animationFrame);
-    animationFrame = null;
-  }
+const chordMembers = computed<ChordMember[]>(() => {
+  const tonic = CHROMATIC_NOTES.indexOf(musicKey.value);
+  const degreeIndices = [0, 2, 4].filter((index) => index < scale.value.degreeCount);
+  return degreeIndices.map((degreeIndex, voicingOrder) => {
+    const interval = scale.value.intervals[degreeIndex];
+    const absolutePitch = tonic + interval;
+    const pitchClassIndex = ((absolutePitch % 12) + 12) % 12;
+    const memberOctave = octave.value + Math.floor(absolutePitch / 12);
+    return {
+      id: `music-color-${degreeIndex}`,
+      syllable: scale.value.solfege[degreeIndex]?.name ?? `${degreeIndex + 1}`,
+      degree: `${degreeIndex + 1}`,
+      rawPitch: `${CHROMATIC_NOTES[pitchClassIndex]}${memberOctave}`,
+      primary: "raw",
+      visibleLabels: ["raw"],
+      scaleIndex: degreeIndex,
+      pitchClassIndex,
+      octave: memberOctave,
+      mode: mode.value,
+      musicKey: musicKey.value,
+      surfaceStyle: "colored",
+      accidental: CHROMATIC_NOTES[pitchClassIndex].includes("#"),
+      progress: 1,
+      voicingOrder,
+    };
+  });
 });
 
-onBeforeUnmount(() => {
-  if (animationFrame !== null) cancelAnimationFrame(animationFrame);
-});
+const mappingLabel = computed(() => ({
+  fixed: "fixed pitch",
+  "movable-ordinal": "ordinal movable",
+  "movable-relative": "relative movable",
+})[config.value.musicColorMode]);
+const phaseLabel = computed(() => phase.value === null ? "center" : "sweeping");
+const wheelLabel = computed(() =>
+  `${mappingLabel.value} Music Color wheel for ${musicKey.value} ${mode.value}, octave ${octave.value}`,
+);
 </script>
 
 <style scoped>
 .music-recipe {
-  padding: 28px;
+  padding: clamp(18px, 3vw, 30px);
   border: 1px solid var(--hairline);
   background: var(--ink-2);
   color: var(--ivory);
@@ -135,7 +328,8 @@ onBeforeUnmount(() => {
 
 .music-recipe__eyebrow,
 .music-recipe label,
-.music-recipe small,
+.music-recipe figcaption,
+.music-recipe article > span,
 .music-recipe dt,
 .music-recipe dd {
   font-family: var(--font-mono);
@@ -144,19 +338,40 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.music-recipe h3 { margin: 6px 0; font-family: var(--font-display); font-size: 28px; }
-.music-recipe p { max-width: 700px; margin: 0; color: var(--ivory-3); font-size: 13px; }
+.music-recipe h3 {
+  margin: 6px 0;
+  font-family: var(--font-display);
+  font-size: clamp(25px, 4vw, 34px);
+}
 
-.music-recipe__mode { display: flex; align-self: flex-start; border: 1px solid var(--hairline); }
+.music-recipe p {
+  max-width: 700px;
+  margin: 0;
+  color: var(--ivory-3);
+  font-size: 13px;
+}
+
+.music-recipe__mode {
+  display: flex;
+  align-self: flex-start;
+  border: 1px solid var(--hairline);
+}
+
 .music-recipe__mode button {
-  padding: 8px 12px;
+  min-height: 34px;
+  padding: 7px 10px;
   border: 0;
   background: transparent;
   color: var(--ivory-3);
   font-family: var(--font-mono);
+  font-size: 9px;
   text-transform: uppercase;
 }
-.music-recipe__mode button.active { background: var(--ivory); color: var(--ink); }
+
+.music-recipe__mode button.active {
+  background: var(--ivory);
+  color: var(--ink);
+}
 
 .music-recipe__controls {
   display: flex;
@@ -167,46 +382,143 @@ onBeforeUnmount(() => {
   padding-top: 18px;
   border-top: 1px solid var(--hairline);
 }
-.music-recipe__controls label { display: grid; gap: 6px; color: var(--ivory-3); }
-.music-recipe select,
-.music-recipe input[type="range"] { min-width: 140px; }
-.music-recipe__sweep { display: flex !important; grid-template-columns: auto 1fr; align-items: center; }
 
-.music-recipe__swatches {
+.music-recipe__controls label {
   display: grid;
-  grid-template-columns: repeat(var(--degree-count), minmax(64px, 1fr));
-  gap: 3px;
+  gap: 6px;
+  color: var(--ivory-3);
 }
 
-.music-recipe__swatch {
-  display: flex;
-  min-height: 132px;
-  flex-direction: column;
-  justify-content: end;
-  padding: 10px;
-  overflow: hidden;
-  background: var(--swatch);
-  box-shadow: var(--shadow-key);
-  clip-path: var(--clip-tile);
-  color: rgba(0, 0, 0, .78);
+.music-recipe select,
+.music-recipe input[type="range"] {
+  min-width: 132px;
 }
-.music-recipe__swatch strong { font-family: var(--font-display); font-size: 22px; }
-.music-recipe__swatch span { font-family: var(--font-mono); font-size: 10px; }
-.music-recipe__swatch small { margin-top: 18px; }
+
+.music-recipe__sweep {
+  display: flex !important;
+  align-items: center;
+}
+
+.music-recipe__workbench {
+  display: grid;
+  grid-template-columns: minmax(260px, .9fr) minmax(280px, 1.1fr);
+  gap: clamp(20px, 4vw, 44px);
+  align-items: center;
+}
+
+.music-recipe__wheel-frame {
+  margin: 0;
+}
+
+.music-recipe__wheel {
+  display: block;
+  width: min(100%, 430px);
+  margin: auto;
+  overflow: visible;
+}
+
+.music-recipe__segment {
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+
+.music-recipe__segment--empty {
+  opacity: .62;
+}
+
+.music-recipe__segment--tonic {
+  stroke: var(--ivory);
+  stroke-width: 3;
+}
+
+.music-recipe__labels text,
+.music-recipe__hub text {
+  fill: var(--ivory);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .04em;
+}
+
+.music-recipe__hub text:first-child {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.music-recipe figcaption {
+  max-width: 420px;
+  margin: 14px auto 0;
+  color: var(--ivory-4);
+  line-height: 1.6;
+}
+
+.music-recipe__evidence {
+  display: grid;
+  gap: 16px;
+}
+
+.music-recipe__policy,
+.music-recipe__real-sources {
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  background: var(--ink-3);
+}
+
+.music-recipe__policy strong {
+  display: block;
+  margin: 8px 0;
+  font-family: var(--font-display);
+  font-size: 27px;
+}
+
+.music-recipe__borrowed-chip {
+  width: fit-content;
+  margin-top: 14px;
+  padding: 8px 10px;
+  background: var(--borrowed-color);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.music-recipe__real-sources {
+  display: grid;
+  grid-template-columns: minmax(90px, .65fr) minmax(150px, 1.35fr);
+  gap: 18px;
+  align-items: end;
+}
+
+.music-recipe__real-sources > div {
+  display: grid;
+  gap: 10px;
+}
 
 .music-recipe__facts {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin: 18px 0 0;
+  margin: 24px 0 0;
 }
-.music-recipe__facts div { padding-top: 10px; border-top: 1px solid var(--hairline); }
+
+.music-recipe__facts div {
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
 .music-recipe__facts dt { color: var(--ivory-4); }
 .music-recipe__facts dd { margin: 4px 0 0; color: var(--ivory); }
 
-@media (max-width: 800px) {
+@media (max-width: 780px) {
   .music-recipe__header { flex-direction: column; }
-  .music-recipe__swatches { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
+  .music-recipe__mode { width: 100%; }
+  .music-recipe__mode button { flex: 1; }
+  .music-recipe__workbench { grid-template-columns: 1fr; }
   .music-recipe__facts { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 430px) {
+  .music-recipe__mode { flex-direction: column; }
+  .music-recipe__real-sources { grid-template-columns: 1fr; }
 }
 </style>

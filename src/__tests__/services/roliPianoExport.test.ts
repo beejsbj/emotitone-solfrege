@@ -31,7 +31,6 @@ describe("roliPianoExport", () => {
   it("maps only in-scale pitch classes for the current key and mode", () => {
     const palette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        isEnabled: true,
         recipeVersion: 1,
         musicColorMode: "movable-ordinal",
         chroma: 0.18,
@@ -57,7 +56,6 @@ describe("roliPianoExport", () => {
   it("colors all 12 pitch classes in fixed mode", () => {
     const dMinorPalette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        isEnabled: true,
         recipeVersion: 1,
         musicColorMode: "fixed",
         chroma: 0.18,
@@ -76,7 +74,6 @@ describe("roliPianoExport", () => {
   it("turns off out-of-scale pitch classes in movable mode", () => {
     const dMinorPalette = buildRoliPianoPalette({
       dynamicColorConfig: {
-        isEnabled: true,
         recipeVersion: 1,
         musicColorMode: "movable-ordinal",
         chroma: 0.18,
@@ -107,7 +104,6 @@ describe("roliPianoExport", () => {
   it("generates a LittleFoot script with the expected metadata and key count", () => {
     const script = generateRoliPianoScript({
       dynamicColorConfig: {
-        isEnabled: true,
         recipeVersion: 1,
         musicColorMode: "fixed",
         chroma: 0.18,

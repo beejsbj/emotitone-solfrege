@@ -255,6 +255,9 @@ export function resolveMusicColor(
   ) {
     return { kind: "invalid", reason: "Unknown Music Color mapping." };
   }
+  if (offScalePolicy !== "omit" && offScalePolicy !== "fixed-chromatic") {
+    return { kind: "invalid", reason: "Unknown off-scale policy." };
+  }
 
   const identity = resolveIdentity(input, context);
   if ("kind" in identity) return identity;

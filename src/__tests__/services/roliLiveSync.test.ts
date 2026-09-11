@@ -62,7 +62,6 @@ describe("roliLiveSync", () => {
   it("builds palette update CC messages for all 12 pitch classes plus the active color", () => {
     const messages = buildRoliPaletteUpdateMessages(
       {
-        isEnabled: true,
         recipeVersion: 1,
         musicColorMode: "fixed",
         chroma: 0.18,

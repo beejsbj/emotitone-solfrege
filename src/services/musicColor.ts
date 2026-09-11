@@ -15,7 +15,6 @@ import {
   type MusicColorResolution,
   type MusicColorSample,
   type MusicColorValue,
-  type OklchColor,
   type ResolvedMusicColor,
   type SrgbColor,
 } from "@/services/musicColorCore";
@@ -226,7 +225,7 @@ export function tuneMusicColorValue(
     alpha?: number;
   },
 ): MusicColorValue {
-  const oklch: OklchColor = {
+  const oklch = {
     l: Math.min(1, Math.max(0, value.oklch.l * (options.lightnessMultiplier ?? 1))),
     c: Math.max(0, value.oklch.c * (options.chromaMultiplier ?? 1)),
     h: value.oklch.h,
@@ -235,22 +234,12 @@ export function tuneMusicColorValue(
   return { oklch, srgb: mapOklchToSrgb(oklch) };
 }
 
-function shiftedCss(value: MusicColorValue, offset: number): string {
-  const oklch = {
-    ...value.oklch,
-    h: normalizeIndex(value.oklch.h + offset, 360),
-  };
-  return srgbToCss(mapOklchToSrgb(oklch));
-}
-
 export function musicColorRelationships(
   sample: MusicColorSample,
 ): NoteColorRelationships {
   return {
     primary: musicColorValueToCss(sample.primary),
     accent: musicColorValueToCss(sample.accent),
-    secondary: shiftedCss(sample.primary, 120),
-    tertiary: shiftedCss(sample.primary, 240),
   };
 }
 

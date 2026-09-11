@@ -25,7 +25,6 @@ Object.defineProperty(globalThis, "cancelAnimationFrame", {
 vi.unmock("@/data");
 
 const dynamicColorConfig = ref({
-  isEnabled: true,
   recipeVersion: 1 as const,
   musicColorMode: "movable-ordinal" as const,
   hueMotionEnabled: true,

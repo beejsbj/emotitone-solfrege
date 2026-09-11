@@ -477,7 +477,6 @@ vi.mock('@/composables/useVisualConfig', () => ({
       maxValue: 1
     },
     dynamicColors: {
-      isEnabled: false,
       recipeVersion: 1,
       musicColorMode: "movable-ordinal",
       hueMotionEnabled: true,

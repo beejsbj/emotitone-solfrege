@@ -70,7 +70,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         maxAmplitude: 14,
       },
       dynamicColors: {
-        isEnabled: true,
         chroma: 0.1575,
         lightnessCenter: 0.625,
         lightnessSpan: 0.2057,
@@ -118,7 +117,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         interpolationSpeed: 0.18,
       },
       dynamicColors: {
-        isEnabled: true,
         musicColorMode: "fixed",
         hueMotionEnabled: true,
         animationSpeed: 1.4,
@@ -172,7 +170,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         activeOpacity: 0.3,
       },
       dynamicColors: {
-        isEnabled: true,
         animationSpeed: 0.35,
         chroma: 0.1395,
         lightnessCenter: 0.655,
@@ -214,9 +211,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         baseOpacity: 0.12,
         activeOpacity: 0.42,
         maxAmplitude: 12,
-      },
-      dynamicColors: {
-        isEnabled: false,
       },
       hilbertScope: {
         isEnabled: false,
@@ -267,7 +261,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         speed: 5,
       },
       dynamicColors: {
-        isEnabled: true,
         musicColorMode: "fixed",
         hueMotionEnabled: true,
         animationSpeed: 1.8,

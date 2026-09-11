@@ -57,4 +57,36 @@ describe("useMusicColorClock", () => {
     scope.stop();
     expect(frames.size).toBe(0);
   });
+
+  it("schedules no color frames under Reduced Motion", async () => {
+    const requestFrame = vi.fn(() => 1);
+    const cancelFrame = vi.fn();
+    let motionListener: ((event: { matches: boolean }) => void) | undefined;
+    const media = {
+      matches: true,
+      addEventListener: vi.fn((_type: string, listener: typeof motionListener) => {
+        motionListener = listener;
+      }),
+      removeEventListener: vi.fn(),
+    };
+    vi.stubGlobal("requestAnimationFrame", requestFrame);
+    vi.stubGlobal("cancelAnimationFrame", cancelFrame);
+    vi.stubGlobal("matchMedia", vi.fn(() => media));
+
+    const { useMusicColorClock } = await import("@/composables/useMusicColorClock");
+    const scope = effectScope();
+    const clock = scope.run(() => useMusicColorClock(() => true, () => 1))!;
+
+    expect(clock.reducedMotion.value).toBe(true);
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    media.matches = false;
+    motionListener?.({ matches: false });
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+
+    media.matches = true;
+    motionListener?.({ matches: true });
+    expect(cancelFrame).toHaveBeenCalled();
+    scope.stop();
+  });
 });

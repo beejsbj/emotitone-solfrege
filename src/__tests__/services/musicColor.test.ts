@@ -7,7 +7,6 @@ import {
 import { buildHarmony, HARMONY_ALTERATIONS } from "@/domain/harmony";
 
 const movableConfig = {
-  isEnabled: true,
   recipeVersion: 1 as const,
   musicColorMode: "movable-ordinal" as const,
   hueMotionEnabled: false,

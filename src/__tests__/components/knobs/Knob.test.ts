@@ -285,7 +285,7 @@ describe("Knob public interface", () => {
     );
   });
 
-  it("keeps context rebound ownership while UIBeat moves only its inner surface", async () => {
+  it("lets UIBeat scale the actual face while preserving context rebound transforms", async () => {
     const wrapper = render({
       modelValue: 120,
       type: "range",
@@ -299,21 +299,26 @@ describe("Knob public interface", () => {
     });
     uiBeatClock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
 
-    const surface = wrapper.get(".knob-face__beat-surface");
-    expect(surface.attributes("style")).toContain("scale(0.680)");
-    expect(surface.attributes("style")).toContain("opacity: 0.240");
+    const face = wrapper.get(".knob-wrapper__face");
+    expect(face.attributes("data-ui-beat-state")).toBe("running");
+    expect(face.attributes("style")).toContain("scale: 0.800");
+    expect(wrapper.find(".knob-face__beat-surface").exists()).toBe(false);
 
     uiBeatClock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
 
-    expect(surface.attributes("data-ui-beat-state")).toBe("running");
-    expect(surface.attributes("style")).toContain("scale(1.320)");
-    expect(surface.attributes("style")).toContain("opacity: 0.840");
-    expect(wrapper.get(".knob-face").attributes("style")).not.toContain("transform");
-    expect(knobFaceSource).toContain("inset: 10%");
+    expect(face.attributes("style")).toContain("scale: 1.100");
+    expect(face.attributes("style")).not.toContain("transform");
 
     await wrapper.setProps({ modelValue: 96, changeSignal: 1 });
     expect(wrapper.classes()).toContain("knob-wrapper--context-bounce-a");
-    expect(surface.attributes("data-ui-beat-state")).toBe("running");
+    expect(face.attributes("data-ui-beat-state")).toBe("running");
+
+    await wrapper.setProps({ uiBeat: false });
+    expect(face.attributes("data-ui-beat-state")).toBeUndefined();
+    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(face.attributes("style") ?? "").not.toContain("scale");
+    expect(knobSource).toContain("useUIBeatScale(beatTargetRef");
+    expect(knobFaceSource).not.toContain("uiBeat");
   });
 
   it("preserves deprecated value fallback and modelValue precedence", () => {
@@ -362,10 +367,12 @@ describe("Knob public interface", () => {
       expect.arrayContaining(["knob-face--arc", "knob-face--ivory"]),
     );
     expect(arc.find(".knob-face__dome").exists()).toBe(false);
-    expect(ring.findAll(".knob-face__beat-surface")).toHaveLength(1);
-    expect(arc.findAll(".knob-face__beat-surface")).toHaveLength(1);
-    expect(ring.get(".knob-face").attributes("style")).not.toContain("transform");
-    expect(knobFaceSource).toContain("uiBeatClock.subscribe(applyUIBeat");
+    expect(ring.find(".knob-face__beat-surface").exists()).toBe(false);
+    expect(arc.find(".knob-face__beat-surface").exists()).toBe(false);
+    expect(ring.get(".knob-wrapper__face").attributes("data-ui-beat-scale")).toBe("");
+    expect(arc.get(".knob-wrapper__face").attributes("data-ui-beat-scale")).toBe("");
+    expect(knobSource).toContain("useUIBeatScale(beatTargetRef");
+    expect(knobFaceSource).not.toContain("uiBeatClock");
     expect(knobFaceSource).not.toContain("setInterval");
     expect(knobFaceSource).not.toContain("requestAnimationFrame");
 

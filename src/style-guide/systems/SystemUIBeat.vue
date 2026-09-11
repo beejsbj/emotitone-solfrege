@@ -3,9 +3,9 @@
     <div class="card ui-beat-system">
       <div class="label">UIBeat · System Protocol</div>
       <p class="caption ui-beat-system__intro">
-        One injected clock drives the real Beat Indicator and the same dedicated
-        BPM surface in both accepted Knob editions. BeatingShapes' compact swell,
-        long settle, and late tuck survive without its independent CSS loops.
+        One injected clock drives real UI: the Beat Indicator Marks, both whole
+        BPM faces, and the Play control below. The same general scale binding can
+        opt in any DOM element without replacing its own transform gestures.
       </p>
 
       <div class="ui-beat-system__stage">
@@ -20,7 +20,7 @@
           <span>{{ running ? "Sounding-phase fixture" : "Idle rest state" }}</span>
         </div>
 
-        <div class="ui-beat-system__knobs" aria-label="BPM surface editions">
+        <div class="ui-beat-system__knobs" aria-label="BPM control editions">
           <Knob
             :model-value="bpm"
             type="range"
@@ -45,7 +45,12 @@
       </div>
 
       <div class="ui-beat-system__controls">
-        <button type="button" :aria-pressed="running" @click="toggle">
+        <button
+          ref="boundControlRef"
+          type="button"
+          :aria-pressed="running"
+          @click="toggle"
+        >
           {{ running ? "Pause" : "Play" }}
         </button>
         <button
@@ -72,7 +77,8 @@
         <div><dt>Production</dt><dd>Generated playback maps only verified 4/4</dd></div>
         <div><dt>Guide</dt><dd>3/4 and 6/8 are isolated meter fixtures</dd></div>
         <div><dt>Scale</dt><dd>Compact → 14% swell → long settle → late tuck</dd></div>
-        <div><dt>Stillness</dt><dd>Reduced Motion holds a static downbeat</dd></div>
+        <div><dt>Binding</dt><dd>Actual UI node; component transforms stay intact</dd></div>
+        <div><dt>Stillness</dt><dd>Reduced Motion removes recurring scale change</dd></div>
       </dl>
     </div>
   </section>
@@ -85,6 +91,7 @@ import Knob from "@/components/primatives/Knob/index.vue";
 import {
   provideUIBeatClock,
   UIBeatClock,
+  useUIBeatScale,
   type UIBeatMeter,
 } from "@/composables/useUIBeat";
 
@@ -103,6 +110,11 @@ const meter = ref<MeterFixture>(meters[0]);
 const running = ref(true);
 const clock = new UIBeatClock();
 provideUIBeatClock(clock);
+const boundControlRef = ref<HTMLButtonElement>();
+useUIBeatScale(boundControlRef, () => true, {
+  restScale: 0.8,
+  peakScale: 1.1,
+}, clock);
 
 let generation = 0;
 let frame: number | null = null;

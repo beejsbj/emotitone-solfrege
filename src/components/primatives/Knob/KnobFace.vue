@@ -13,13 +13,6 @@
     :style="{ '--knob-color': color }"
     aria-hidden="true"
   >
-    <span
-      v-if="uiBeat"
-      ref="beatSurfaceRef"
-      class="knob-face__beat-surface"
-      data-ui-beat-state="idle"
-    />
-
     <span v-if="visual === 'ring'" class="knob-face__dome" />
 
     <svg
@@ -69,13 +62,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import useGSAP from "@/composables/useGSAP";
-import {
-  uiBeatScaleSwell,
-  useUIBeatClock,
-  type UIBeatSnapshot,
-} from "@/composables/useUIBeat";
 
 export type KnobVisual = "ring" | "arc";
 export type KnobRole = "range" | "boolean" | "options" | "button";
@@ -106,7 +94,6 @@ const props = withDefaults(
     isActive?: boolean;
     totalSegments?: number;
     activeSegment?: number;
-    uiBeat?: boolean;
   }>(),
   {
     visual: "arc",
@@ -119,47 +106,15 @@ const props = withDefaults(
     isActive: false,
     totalSegments: 0,
     activeSegment: 0,
-    uiBeat: false,
   },
 );
 
 const backgroundRef = ref<SVGCircleElement | null>(null);
 const valueRef = ref<SVGCircleElement | null>(null);
 const oppositeValueRef = ref<SVGCircleElement | null>(null);
-const beatSurfaceRef = ref<HTMLElement | null>(null);
-const uiBeatClock = useUIBeatClock();
-let unsubscribeUIBeat: (() => void) | undefined;
 
 const circleRadius = computed(() => 50 - props.strokeWidth);
 const circleCenter = 50;
-
-function applyUIBeat(snapshot: UIBeatSnapshot) {
-  const surface = beatSurfaceRef.value;
-  if (!surface) return;
-
-  if (!props.uiBeat || !snapshot.presenting) {
-    surface.dataset.uiBeatState = "idle";
-    surface.style.opacity = "0";
-    surface.style.transform = "scale(0.68)";
-    return;
-  }
-
-  const swell = uiBeatScaleSwell(snapshot.beatPhase);
-  surface.dataset.uiBeatState = "running";
-  surface.style.opacity = (0.24 + swell * 0.6).toFixed(3);
-  surface.style.transform = `scale(${(0.68 + swell * 0.64).toFixed(3)})`;
-}
-
-function syncUIBeatSubscription() {
-  unsubscribeUIBeat?.();
-  unsubscribeUIBeat = undefined;
-  if (!props.uiBeat || !beatSurfaceRef.value) return;
-  unsubscribeUIBeat = uiBeatClock.subscribe(applyUIBeat, beatSurfaceRef.value);
-}
-
-onMounted(syncUIBeatSubscription);
-watch(() => props.uiBeat, syncUIBeatSubscription, { flush: "post" });
-onBeforeUnmount(() => unsubscribeUIBeat?.());
 
 const backgroundArc = computed(() => {
   if (props.role === "range") {
@@ -340,32 +295,6 @@ useGSAP(({ gsap }) => {
   box-shadow: var(--instrument-control-dark-well-shadow);
 }
 
-.knob-face__beat-surface {
-  position: absolute;
-  inset: 10%;
-  z-index: -2;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    transparent 38%,
-    color-mix(in srgb, currentColor 62%, transparent) 49%,
-    color-mix(in srgb, currentColor 22%, transparent) 58%,
-    transparent 69%
-  );
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.68);
-  transform-origin: 50% 50%;
-  transition:
-    transform var(--dur-ui) var(--ease-brush),
-    opacity var(--dur-ui) var(--ease-brush);
-  will-change: transform, opacity;
-}
-
-.knob-face__beat-surface[data-ui-beat-state="running"] {
-  transition: none;
-}
-
 .knob-face__meter {
   display: block;
   width: 100%;
@@ -431,21 +360,10 @@ useGSAP(({ gsap }) => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .knob-face__beat-surface {
-    opacity: 0 !important;
-    transform: none !important;
-    transition: none !important;
-  }
-
   .knob-face__meter,
   .knob-face__value {
     transition: none;
   }
 }
 
-@media (forced-colors: active) {
-  .knob-face__beat-surface {
-    display: none;
-  }
-}
 </style>

@@ -17,7 +17,10 @@
     @touchstart="handleStart"
     @click="handleClick"
   >
-    <div class="knob-wrapper__face instrument-control__face">
+    <div
+      ref="beatTargetRef"
+      class="knob-wrapper__face instrument-control__face"
+    >
       <!-- Range Knob -->
       <RangeKnob
         v-if="knobType === 'range'"
@@ -32,7 +35,6 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="resolvedVisual"
         :tone="tone"
-        :ui-beat="uiBeat"
         @update:modelValue="handleValueUpdate"
       />
 
@@ -44,7 +46,6 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="resolvedVisual"
         :tone="tone"
-        :ui-beat="uiBeat"
         :value-label-true="valueLabelTrue"
         :value-label-false="valueLabelFalse"
         @update:modelValue="handleValueUpdate"
@@ -59,7 +60,6 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="resolvedVisual"
         :tone="tone"
-        :ui-beat="uiBeat"
         @update:modelValue="handleValueUpdate"
       />
 
@@ -87,6 +87,7 @@
 import { computed, onBeforeUnmount, ref, watch, type PropType } from "vue";
 import "../instrumentControl.css";
 import useGSAP from "@/composables/useGSAP";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import DragValue from "../DragValue.vue";
 import RangeKnob from "./RangeKnob.vue";
@@ -195,7 +196,13 @@ const emit = defineEmits<{
 
 // Refs
 const wrapperRef = ref<HTMLElement>();
+const beatTargetRef = ref<HTMLElement>();
 const contextBouncePhase = ref<"a" | "b" | null>(null);
+
+useUIBeatScale(beatTargetRef, () => props.uiBeat, {
+  restScale: 0.8,
+  peakScale: 1.1,
+});
 
 watch(
   () => props.changeSignal,

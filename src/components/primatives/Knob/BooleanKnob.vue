@@ -5,7 +5,6 @@
     :color="activeStrokeColor"
     :visual="visual"
     :tone="tone"
-    :ui-beat="uiBeat"
   />
 
   <!-- Animated ball -->
@@ -44,7 +43,6 @@ const props = withDefaults(defineProps<Props>(), {
   themeColor: "hsla(0, 0%, 82%, 1)",
   visual: "arc",
   tone: "ivory",
-  uiBeat: false,
 });
 
 // Display value (icon component)

@@ -23,8 +23,6 @@ export interface BaseKnobProps {
   visual?: KnobVisual;
   /** Semantic material color used when no explicit theme color is supplied. */
   tone?: KnobTone;
-  /** Opts this controlled Knob into the shared UIBeat presentation clock. */
-  uiBeat?: boolean;
   label?: string;
 }
 

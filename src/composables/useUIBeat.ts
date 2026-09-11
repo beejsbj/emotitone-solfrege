@@ -1,4 +1,12 @@
-import { inject, provide, type InjectionKey } from "vue";
+import {
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  watch,
+  type InjectionKey,
+  type Ref,
+} from "vue";
 
 export type UIBeatStatus = "idle" | "arming" | "running" | "unavailable";
 
@@ -33,6 +41,12 @@ export interface UIBeatSnapshot {
 }
 
 export type UIBeatListener = (snapshot: UIBeatSnapshot) => void;
+
+export interface UIBeatScaleOptions {
+  restScale?: number;
+  peakScale?: number;
+  downbeatPeakScale?: number;
+}
 
 interface UIBeatSubscriber {
   listener: UIBeatListener;
@@ -100,6 +114,69 @@ export function uiBeatScaleSwell(beatPhase: number): number {
   }
 
   return Math.max(0, (2 / 3) * (1 - (phase - 0.96) / 0.04));
+}
+
+const validScale = (value: number | undefined, fallback: number) =>
+  Number.isFinite(value) && Number(value) > 0 ? Number(value) : fallback;
+
+/**
+ * Binds UIBeat's shared swell directly to any real DOM element. The CSS
+ * individual `scale` property composes with component-owned `transform`
+ * gestures, so beat motion does not erase press, drag, tilt, or rebound.
+ */
+export function bindUIBeatScale(
+  clock: UIBeatClock,
+  element: HTMLElement,
+  options: UIBeatScaleOptions = {},
+): () => void {
+  const restScale = validScale(options.restScale, 0.8);
+  const peakScale = validScale(options.peakScale, 1.1);
+  const downbeatPeakScale = validScale(
+    options.downbeatPeakScale,
+    peakScale,
+  );
+  const previousScale = element.style.getPropertyValue("scale");
+  const previousScalePriority = element.style.getPropertyPriority("scale");
+  const previousState = element.getAttribute("data-ui-beat-state");
+  const previousBinding = element.getAttribute("data-ui-beat-scale");
+
+  element.setAttribute("data-ui-beat-scale", "");
+
+  const unsubscribe = clock.subscribe((snapshot) => {
+    if (!snapshot.presenting) {
+      element.setAttribute("data-ui-beat-state", "idle");
+      element.style.setProperty("scale", "1");
+      return;
+    }
+
+    const swell = uiBeatScaleSwell(snapshot.beatPhase);
+    const peak = snapshot.beatIndex === 0
+      ? downbeatPeakScale
+      : peakScale;
+    const scale = restScale + swell * (peak - restScale);
+
+    element.setAttribute("data-ui-beat-state", "running");
+    element.style.setProperty("scale", scale.toFixed(3));
+  }, element);
+
+  return () => {
+    unsubscribe();
+
+    if (previousScale) {
+      element.style.setProperty(
+        "scale",
+        previousScale,
+        previousScalePriority,
+      );
+    }
+    else element.style.removeProperty("scale");
+
+    if (previousState === null) element.removeAttribute("data-ui-beat-state");
+    else element.setAttribute("data-ui-beat-state", previousState);
+
+    if (previousBinding === null) element.removeAttribute("data-ui-beat-scale");
+    else element.setAttribute("data-ui-beat-scale", previousBinding);
+  };
 }
 
 /**
@@ -339,4 +416,37 @@ export function provideUIBeatClock(clock: UIBeatClock): void {
 
 export function useUIBeatClock(): UIBeatClock {
   return inject(UI_BEAT_CLOCK, uiBeatClock);
+}
+
+/**
+ * Vue lifecycle wrapper for the general DOM binding. Consumers opt their real
+ * UI element in; disabling or unmounting restores its pre-binding scale.
+ */
+export function useUIBeatScale(
+  element: Ref<HTMLElement | null | undefined>,
+  enabled: () => boolean,
+  options: UIBeatScaleOptions = {},
+  clock: UIBeatClock = useUIBeatClock(),
+): void {
+  let dispose: (() => void) | undefined;
+
+  const syncBinding = (
+    target = element.value,
+    shouldBind = enabled(),
+  ) => {
+    dispose?.();
+    dispose = undefined;
+    if (target && shouldBind) {
+      dispose = bindUIBeatScale(clock, target, options);
+    }
+  };
+
+  watch(
+    [element, enabled],
+    ([target, shouldBind]) => syncBinding(target, shouldBind),
+    { flush: "post" },
+  );
+
+  onMounted(() => syncBinding());
+  onBeforeUnmount(() => dispose?.());
 }

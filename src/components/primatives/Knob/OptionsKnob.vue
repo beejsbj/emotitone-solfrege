@@ -6,7 +6,6 @@
     :color="activeStrokeColor"
     :visual="visual"
     :tone="tone"
-    :ui-beat="uiBeat"
   />
 
   <!-- The viewport owns centering/clipping; keyed labels own the rip transition. -->
@@ -37,7 +36,6 @@ const props = withDefaults(defineProps<OptionsKnobProps>(), {
   themeColor: "hsla(0, 0%, 82%, 1)",
   visual: "arc",
   tone: "ivory",
-  uiBeat: false,
 });
 
 // Option normalization

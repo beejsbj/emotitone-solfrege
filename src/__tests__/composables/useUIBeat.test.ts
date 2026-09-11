@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  bindUIBeatScale,
   generatedStrudelBarPosition,
   UIBeatClock,
   uiBeatScaleSwell,
@@ -25,6 +26,63 @@ describe("UIBeatClock", () => {
     expect(uiBeatScaleSwell(0.96)).toBeCloseTo(2 / 3);
     expect(uiBeatScaleSwell(1)).toBe(0);
     expect(uiBeatScaleSwell(Number.NaN)).toBe(0);
+  });
+
+  it("binds the swell to any actual UI element without replacing its transform", () => {
+    const clock = createClock();
+    const element = document.createElement("button");
+    element.style.transform = "rotate(2deg)";
+    const dispose = bindUIBeatScale(clock, element, {
+      restScale: 0.8,
+      peakScale: 1.1,
+      downbeatPeakScale: 1.2,
+    });
+    const generation = clock.arm(mappedRun);
+
+    clock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
+    expect(element.dataset.uiBeatState).toBe("running");
+    expect(element.style.getPropertyValue("scale")).toBe("0.800");
+    expect(element.style.transform).toBe("rotate(2deg)");
+
+    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+    expect(element.style.getPropertyValue("scale")).toBe("1.100");
+
+    clock.publish(generation, { rawPosition: 0.035, barPosition: 0.035 });
+    expect(element.style.getPropertyValue("scale")).toBe("1.200");
+
+    clock.stop(generation);
+    expect(element.dataset.uiBeatState).toBe("idle");
+    expect(element.style.getPropertyValue("scale")).toBe("1");
+
+    dispose();
+    expect(element.hasAttribute("data-ui-beat-scale")).toBe(false);
+    expect(element.hasAttribute("data-ui-beat-state")).toBe(false);
+    expect(element.style.getPropertyValue("scale")).toBe("");
+    expect(element.style.transform).toBe("rotate(2deg)");
+  });
+
+  it("keeps a bound element at identity under Reduced Motion", () => {
+    const clock = createClock(() => true);
+    const element = document.createElement("div");
+    bindUIBeatScale(clock, element);
+    const generation = clock.arm(mappedRun);
+
+    clock.publish(generation, { rawPosition: 0.035, barPosition: 0.035 });
+
+    expect(element.dataset.uiBeatState).toBe("idle");
+    expect(element.style.getPropertyValue("scale")).toBe("1");
+  });
+
+  it("restores a target's previous individual scale and priority", () => {
+    const clock = createClock();
+    const element = document.createElement("div");
+    element.style.setProperty("scale", "0.95", "important");
+    const dispose = bindUIBeatScale(clock, element);
+
+    dispose();
+
+    expect(element.style.getPropertyValue("scale")).toBe("0.95");
+    expect(element.style.getPropertyPriority("scale")).toBe("important");
   });
 
   it("maps generated Strudel scheduler cycles without calling a raw cycle a bar", () => {

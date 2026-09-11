@@ -17,6 +17,7 @@
         :class="{
           'knob-options__value--long': compactDisplayLength > 7,
           'knob-options__value--multiline': displayValue.includes(' '),
+          'knob-options__value--linebreak': displayValue.includes('\n'),
         }"
         :style="{ color: activeStrokeColor }"
       >
@@ -59,7 +60,7 @@ const displayValue = computed(
   () => currentOption.value?.label || String(props.modelValue)
 );
 const compactDisplayLength = computed(
-  () => displayValue.value.replace(/\s/g, "").length
+  () => Math.max(...displayValue.value.split("\n").map((line) => line.replace(/\s/g, "").length))
 );
 const optionKeyFor = (value: string | number) =>
   `${typeof value}:${String(value)}`;
@@ -126,6 +127,10 @@ const activeStrokeColor = computed(
 
 .knob-options__value--multiline {
   white-space: normal;
+}
+
+.knob-options__value--linebreak {
+  white-space: pre;
 }
 
 .knob-rip-mode-enter-active {

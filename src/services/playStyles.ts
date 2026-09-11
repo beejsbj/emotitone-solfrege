@@ -23,7 +23,7 @@ export const PLAY_MODE_OPTIONS = PLAY_STYLE_OPTIONS.flatMap<PlayModeOption>((opt
   option.value.startsWith('arp-') || option.value === 'repeat'
     ? ([4, 8, 16] as const).map(rate => ({
       value: `${option.value}:${rate}`,
-      label: `${option.label} 1/${rate}`,
+      label: `${option.label}\n1/${rate}`,
       style: option.value,
       rate,
     }))

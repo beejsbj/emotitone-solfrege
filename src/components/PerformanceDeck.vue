@@ -5,7 +5,6 @@
     fixed
     anchor="bottom"
     handle-align="center"
-    handle-placement="persistent"
     accessible-name="Performance deck"
     :handle-resize-description="`${rowCount} keyboard rows. Drag or use Up and Down Arrow keys to resize.`"
     handle-test-id="performance-deck-handle"
@@ -397,9 +396,16 @@ defineExpose({ openDrawer, closeDrawer, toggleDrawer, store });
 
 <style scoped>
 .performance-deck-drawer {
-  --drawer-handle-rail-surface: var(--ink);
-
   background: transparent;
+}
+
+.performance-deck-drawer :deep(.drawer__clip) {
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.performance-deck-drawer :deep(.drawer__handle) {
+  z-index: 2;
 }
 
 .performance-deck__instrument-surface,

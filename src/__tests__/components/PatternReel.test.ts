@@ -120,15 +120,17 @@ describe("PatternReel", () => {
     expect(wrapper.attributes("aria-label")).toBe("Arrangement A pattern reel");
   });
 
-  it("anchors Current at the bottom and collapses truthful predecessors behind it", () => {
+  it("uses only Current's height and collapses truthful predecessors behind it", () => {
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },
     });
 
     expect(slotFor(wrapper, "Gamma").classes()).toContain("pattern-reel__slot--active");
     expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 0px");
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
-    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: -24.8px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-opacity: 0");
+    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-opacity: 0");
     expect(wrapper.findAll(
       ".pattern-reel__slot:not(.pattern-reel__slot--1) .bar-tape",
     )).toHaveLength(3);
@@ -144,6 +146,10 @@ describe("PatternReel", () => {
     expect(wrapper.find(".pattern-reel__fade").exists()).toBe(false);
     expect(patternReelSource).toContain("width: 100%");
     expect(patternReelSource).toContain("background: transparent");
+    expect(patternReelSource).toContain("--reel-height: var(--selected-height)");
+    expect(patternReelSource).toMatch(
+      /\.pattern-reel__viewport\s*{[\s\S]*overflow: visible;/,
+    );
   });
 
   it("unwinds on Current tap, holds for 900ms, then starts the 200ms rebound collapse", async () => {
@@ -163,7 +169,7 @@ describe("PatternReel", () => {
 
     vi.advanceTimersByTime(1);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
   });
 
@@ -204,7 +210,7 @@ describe("PatternReel", () => {
     await nextTick();
 
     expect(wrapper.emitted("commit")).toContainEqual(["beta", "tap"]);
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain(
       "--settle-easing: var(--ease-reel-rebound)",
@@ -495,7 +501,7 @@ describe("PatternReel", () => {
     await wrapper.trigger("pointercancel", { pointerId: 9 });
     await nextTick();
 
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
     expect(wrapper.emitted("commit")).toBeUndefined();
   });
@@ -567,7 +573,7 @@ describe("PatternReel", () => {
     vi.advanceTimersByTime(1);
     await nextTick();
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
 
     wrapper.unmount();
   });
@@ -793,7 +799,7 @@ describe("PatternReel", () => {
 
     vi.advanceTimersByTime(1);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
   });
 
@@ -808,13 +814,8 @@ describe("PatternReel", () => {
     expect(patternReelSource).toContain("@media (forced-colors: active)");
   });
 
-  it("keeps one predecessor visible on the shortest stage", () => {
-    const shortStageRule = patternReelSource.slice(
-      patternReelSource.indexOf("@media (max-height: 560px)"),
-      patternReelSource.indexOf("@media (prefers-reduced-motion: reduce)"),
-    );
-
-    expect(shortStageRule).toContain("--reel-height: 97.6px");
-    expect(shortStageRule).not.toContain("pattern-reel__slot--depth-1");
+  it("does not reserve predecessor space at any stage height", () => {
+    expect(patternReelSource).not.toContain("@media (max-height:");
+    expect(patternReelSource).toContain("--reel-height: var(--selected-height)");
   });
 });

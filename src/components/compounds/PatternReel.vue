@@ -84,9 +84,9 @@ const WHEEL_POSITIONS = [
 ];
 const DECK_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
-  { y: -14.4, scale: .997, opacity: .92 },
-  { y: -24.8, scale: .992, opacity: .74 },
-  { y: -33.6, scale: .986, opacity: .52 },
+  { y: 0, scale: .997, opacity: 0 },
+  { y: 0, scale: .992, opacity: 0 },
+  { y: 0, scale: .986, opacity: 0 },
 ];
 const WHEEL_STEP = 46.4;
 const WHEEL_DRAG_THRESHOLD = 23.2;
@@ -706,7 +706,7 @@ onBeforeUnmount(() => {
     1
   );
   --selected-height: 51.2px;
-  --reel-height: 164.8px;
+  --reel-height: var(--selected-height);
 
   position: relative;
   display: grid;
@@ -731,7 +731,7 @@ onBeforeUnmount(() => {
   z-index: 1;
   height: var(--reel-height);
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   touch-action: pan-x;
   user-select: none;
 }
@@ -786,32 +786,6 @@ onBeforeUnmount(() => {
   clip-path: inset(50%);
   pointer-events: none;
   white-space: nowrap;
-}
-
-@media (max-height: 760px) {
-  .pattern-reel {
-    --reel-height: 148.8px;
-  }
-
-  .pattern-reel__slot--depth-3:not(.pattern-reel__slot--active) {
-    visibility: hidden;
-  }
-}
-
-@media (max-height: 660px) {
-  .pattern-reel {
-    --reel-height: 118.4px;
-  }
-
-  .pattern-reel__slot--depth-2:not(.pattern-reel__slot--active) {
-    visibility: hidden;
-  }
-}
-
-@media (max-height: 560px) {
-  .pattern-reel {
-    --reel-height: 97.6px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

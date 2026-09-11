@@ -71,7 +71,7 @@ describe("useStringRenderer humming lifecycle", () => {
 
     renderer.handleNotePlayed(new CustomEvent("note-played", {
       detail: {
-        noteId: "melograph-live-1",
+        noteId: "live-pitch-1",
         solfegeIndex: 0,
         frequency: 261.63,
         octave: 4,
@@ -90,7 +90,7 @@ describe("useStringRenderer humming lifecycle", () => {
       .toBe(true);
 
     renderer.handleNoteReleased(new CustomEvent("note-released", {
-      detail: { noteId: "melograph-live-1" },
+      detail: { noteId: "live-pitch-1" },
     }));
     renderer.updateStringProperties(
       stringConfig,

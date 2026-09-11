@@ -9,8 +9,8 @@ const mocks = vi.hoisted(() => ({
   startMicrophoneCapture: vi.fn(),
   sessionStop: vi.fn(),
   sessionCancel: vi.fn(),
-  audioBlobToMelographWav: vi.fn(),
-  analyzeWithMelograph: vi.fn(),
+  preparePitchAnalysisAudio: vi.fn(),
+  analyzePitchRecording: vi.fn(),
   toCandidates: vi.fn(),
   importPatternCandidates: vi.fn(),
   loadPatternAsBase: vi.fn(),
@@ -24,14 +24,14 @@ vi.mock("@/services/hummingStage", () => ({
   }),
 }));
 
-vi.mock("@/services/melographLivePitch", () => ({
+vi.mock("@/services/livePitch", () => ({
   startMicrophoneCapture: mocks.startMicrophoneCapture,
 }));
 
-vi.mock("@/services/melograph", () => ({
-  audioBlobToMelographWav: mocks.audioBlobToMelographWav,
-  analyzeWithMelograph: mocks.analyzeWithMelograph,
-  melographAnalysisToPatternCandidates: mocks.toCandidates,
+vi.mock("@/services/pitchAnalysis", () => ({
+  preparePitchAnalysisAudio: mocks.preparePitchAnalysisAudio,
+  analyzePitchRecording: mocks.analyzePitchRecording,
+  pitchAnalysisToPatternCandidates: mocks.toCandidates,
 }));
 
 vi.mock("@/stores/music", () => ({
@@ -76,8 +76,8 @@ describe("useHummingCapture", () => {
     });
     mocks.sessionStop.mockResolvedValue(new Blob(["recording"]));
     mocks.sessionCancel.mockResolvedValue(undefined);
-    mocks.audioBlobToMelographWav.mockResolvedValue(new Blob(["wav"]));
-    mocks.analyzeWithMelograph.mockResolvedValue({ product: "Melograph" });
+    mocks.preparePitchAnalysisAudio.mockResolvedValue(new Blob(["wav"]));
+    mocks.analyzePitchRecording.mockResolvedValue({ product: "Melograph" });
     mocks.toCandidates.mockReturnValue([
       { name: "Hummed take 1", notes: [{ note: "D4" }, { note: "F4" }] },
       { name: "Hummed take 2", notes: [{ note: "A4" }] },
@@ -98,8 +98,8 @@ describe("useHummingCapture", () => {
     await capture.stop();
 
     expect(mocks.bridgeStop).toHaveBeenCalled();
-    expect(mocks.audioBlobToMelographWav).toHaveBeenCalledTimes(1);
-    expect(mocks.analyzeWithMelograph).toHaveBeenCalledTimes(1);
+    expect(mocks.preparePitchAnalysisAudio).toHaveBeenCalledTimes(1);
+    expect(mocks.analyzePitchRecording).toHaveBeenCalledTimes(1);
     expect(mocks.toCandidates).toHaveBeenCalledWith(
       { product: "Melograph" },
       { key: "D", mode: "dorian", instrument: "piano", bpm: 96 },
@@ -132,7 +132,7 @@ describe("useHummingCapture", () => {
     wrapper.unmount();
   });
 
-  it("keeps Melograph take numbers in selector labels", async () => {
+  it("keeps pitch-analysis take numbers in selector labels", async () => {
     mocks.toCandidates.mockReturnValue([
       {
         name: "Hummed take 1",
@@ -197,7 +197,7 @@ describe("useHummingCapture", () => {
     wrapper.unmount();
   });
 
-  it("preserves notes recorded while Melograph analysis is pending", async () => {
+  it("preserves notes recorded while pitch analysis is pending", async () => {
     mocks.loggedNotes.push({ id: "before-capture" });
     const wrapper = mountCapture();
     await capture.start();

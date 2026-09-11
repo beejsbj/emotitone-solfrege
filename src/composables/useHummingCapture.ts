@@ -1,14 +1,14 @@
 import { computed, onBeforeUnmount, readonly, ref } from "vue";
 import { createHummingStageBridge } from "@/services/hummingStage";
 import {
-  analyzeWithMelograph,
-  audioBlobToMelographWav,
-  melographAnalysisToPatternCandidates,
-} from "@/services/melograph";
+  analyzePitchRecording,
+  preparePitchAnalysisAudio,
+  pitchAnalysisToPatternCandidates,
+} from "@/services/pitchAnalysis";
 import {
   startMicrophoneCapture,
   type MicrophoneCapture,
-} from "@/services/melographLivePitch";
+} from "@/services/livePitch";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
@@ -59,7 +59,7 @@ export function useHummingCapture() {
     if (status.value === "requesting") return "Requesting microphone access";
     if (status.value === "recording") return "Listening to your humming";
     if (status.value === "preparing") return "Preparing the recording";
-    if (status.value === "analyzing") return "Melograph is analyzing the phrase";
+    if (status.value === "analyzing") return "Analyzing the phrase";
     if (status.value === "error") return error.value ?? "Humming capture failed";
     if (importedNoteCount.value) {
       const takes = takePatternIds.value.length;
@@ -123,22 +123,22 @@ export function useHummingCapture() {
     try {
       const recording = await activeSession.stop();
       if (generation !== activeGeneration) return;
-      const wav = await audioBlobToMelographWav(recording);
+      const wav = await preparePitchAnalysisAudio(recording);
       if (generation !== activeGeneration) return;
 
       status.value = "analyzing";
       requestController = new AbortController();
-      const analysis = await analyzeWithMelograph(wav, {
+      const analysis = await analyzePitchRecording(wav, {
         signal: requestController.signal,
       });
       if (generation !== activeGeneration) return;
 
-      const candidates = melographAnalysisToPatternCandidates(
+      const candidates = pitchAnalysisToPatternCandidates(
         analysis,
         activeContext,
       );
       if (!candidates.length) {
-        throw new Error("Melograph could not find a stable note in that capture.");
+        throw new Error("Pitch analysis could not find a stable note in that capture.");
       }
 
       const importedIds = patternsStore.importPatternCandidates(

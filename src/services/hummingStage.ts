@@ -1,7 +1,7 @@
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
-import { MELOGRAPH_LIVE_SOURCE } from "@/services/melographLivePitch";
+import { LIVE_PITCH_SOURCE } from "@/services/livePitch";
 import { findScaleIndexForPitchClass } from "@/services/scalePitch";
-import type { MelographLivePitchFrame } from "@/services/melographLivePitch";
+import type { LivePitchFrame } from "@/services/livePitch";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 
 export interface HummingStageContext {
@@ -11,7 +11,7 @@ export interface HummingStageContext {
 }
 
 interface StablePitchCallbacks {
-  attack: (midi: number, frame: MelographLivePitchFrame) => void;
+  attack: (midi: number, frame: LivePitchFrame) => void;
   release: () => void;
 }
 
@@ -32,7 +32,7 @@ export class StablePitchGate {
     private readonly releaseFrameCount = 2,
   ) {}
 
-  push(frame: MelographLivePitchFrame) {
+  push(frame: LivePitchFrame) {
     if (!frame.voiced || frame.midi == null || frame.frequencyHz == null) {
       this.candidateMidi = null;
       this.candidateFrames = 0;
@@ -111,7 +111,7 @@ export function createHummingStageBridge(
       if (!note) return;
 
       active = {
-        noteId: `melograph-live-${++noteCounter}`,
+        noteId: `live-pitch-${++noteCounter}`,
         noteName,
         note,
         frequency: frame.frequencyHz,
@@ -126,7 +126,7 @@ export function createHummingStageBridge(
           mode: context.mode,
           instrument: context.instrument,
           instrumentConfig: null,
-          source: MELOGRAPH_LIVE_SOURCE,
+          source: LIVE_PITCH_SOURCE,
           record: false,
           mirrorMidi: false,
         },
@@ -142,7 +142,7 @@ export function createHummingStageBridge(
           mode: context.mode,
           instrument: context.instrument,
           instrumentConfig: null,
-          source: MELOGRAPH_LIVE_SOURCE,
+          source: LIVE_PITCH_SOURCE,
           record: false,
           mirrorMidi: false,
         },
@@ -152,7 +152,7 @@ export function createHummingStageBridge(
   });
 
   return {
-    push: (frame: MelographLivePitchFrame) => gate.push(frame),
+    push: (frame: LivePitchFrame) => gate.push(frame),
     stop: () => gate.flush(),
   };
 }

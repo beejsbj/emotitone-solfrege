@@ -1,8 +1,8 @@
 import { PitchDetector } from "pitchy";
 
-export const MELOGRAPH_LIVE_SOURCE = "melograph-live";
+export const LIVE_PITCH_SOURCE = "live-pitch";
 
-export interface MelographLivePitchFrame {
+export interface LivePitchFrame {
   timestampSeconds: number;
   frequencyHz: number | null;
   midi: number | null;
@@ -10,7 +10,7 @@ export interface MelographLivePitchFrame {
   voiced: boolean;
 }
 
-export interface MelographLiveMonitor {
+export interface LivePitchMonitor {
   stop: () => Promise<void>;
 }
 
@@ -32,7 +32,7 @@ export class LiveMpmTracker {
     samples: Float32Array,
     sampleRate: number,
     timestampSeconds: number,
-  ): MelographLivePitchFrame {
+  ): LivePitchFrame {
     if (samples.length !== FRAME_SIZE) {
       throw new Error(`Expected ${FRAME_SIZE} live pitch samples.`);
     }
@@ -65,10 +65,10 @@ export class LiveMpmTracker {
   }
 }
 
-export async function startMelographLiveMonitor(
+export async function startLivePitchMonitor(
   stream: MediaStream,
-  onFrame: (frame: MelographLivePitchFrame) => void,
-): Promise<MelographLiveMonitor> {
+  onFrame: (frame: LivePitchFrame) => void,
+): Promise<LivePitchMonitor> {
   const context = new AudioContext();
   const tracker = new LiveMpmTracker();
   let source: MediaStreamAudioSourceNode | undefined;
@@ -114,7 +114,7 @@ export async function startMelographLiveMonitor(
 }
 
 export async function startMicrophoneCapture(
-  onFrame: (frame: MelographLivePitchFrame) => void,
+  onFrame: (frame: LivePitchFrame) => void,
   onError: (error: Error) => void = () => undefined,
 ): Promise<MicrophoneCapture> {
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
@@ -130,9 +130,9 @@ export async function startMicrophoneCapture(
     },
   });
 
-  let monitor: MelographLiveMonitor | undefined;
+  let monitor: LivePitchMonitor | undefined;
   try {
-    monitor = await startMelographLiveMonitor(stream, onFrame);
+    monitor = await startLivePitchMonitor(stream, onFrame);
     const recorder = new MediaRecorder(stream);
     const chunks: Blob[] = [];
     let cancelled = false;

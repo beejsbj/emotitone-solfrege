@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createHummingStageBridge } from "@/services/hummingStage";
-import type { MelographLivePitchFrame } from "@/services/melographLivePitch";
+import type { LivePitchFrame } from "@/services/livePitch";
 
-function voiced(midi: number): MelographLivePitchFrame {
+function voiced(midi: number): LivePitchFrame {
   return {
     timestampSeconds: 0,
     frequencyHz: 440 * 2 ** ((midi - 69) / 12),
@@ -12,7 +12,7 @@ function voiced(midi: number): MelographLivePitchFrame {
   };
 }
 
-const unvoiced: MelographLivePitchFrame = {
+const unvoiced: LivePitchFrame = {
   timestampSeconds: 0,
   frequencyHz: null,
   midi: null,
@@ -20,7 +20,7 @@ const unvoiced: MelographLivePitchFrame = {
   voiced: false,
 };
 
-describe("Melograph humming Stage bridge", () => {
+describe("LivePitch humming Stage bridge", () => {
   it("debounces attacks and releases a stable note after silence", () => {
     const dispatchEvent = vi.fn().mockReturnValue(true);
     const bridge = createHummingStageBridge(
@@ -37,7 +37,7 @@ describe("Melograph humming Stage bridge", () => {
     expect(attack.type).toBe("note-played");
     expect(attack.detail).toEqual(expect.objectContaining({
       noteName: "A4",
-      source: "melograph-live",
+      source: "live-pitch",
       record: false,
       mirrorMidi: false,
     }));

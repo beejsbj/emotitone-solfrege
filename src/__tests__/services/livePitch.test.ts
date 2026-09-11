@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LiveMpmTracker,
   startMicrophoneCapture,
-} from "@/services/melographLivePitch";
+} from "@/services/livePitch";
 
 const SAMPLE_RATE = 48_000;
 const FRAME_SIZE = 2_048;
 
-describe("Melograph provisional live pitch", () => {
+describe("LivePitch", () => {
   it("recognizes a clear A4 frame without treating silence as voiced", () => {
     const tracker = new LiveMpmTracker();
     const a4 = new Float32Array(FRAME_SIZE);

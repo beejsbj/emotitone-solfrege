@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  analyzeWithMelograph,
+  analyzePitchRecording,
   encodeMonoPcmWav,
-  melographAnalysisToPatternCandidates,
-  type MelographAnalysis,
-} from "@/services/melograph";
+  pitchAnalysisToPatternCandidates,
+  type PitchAnalysisResult,
+} from "@/services/pitchAnalysis";
 
-function analysis(overrides: Partial<MelographAnalysis> = {}): MelographAnalysis {
+function analysis(overrides: Partial<PitchAnalysisResult> = {}): PitchAnalysisResult {
   return {
     schema_version: 1,
     product: "Melograph",
@@ -22,8 +22,8 @@ function analysis(overrides: Partial<MelographAnalysis> = {}): MelographAnalysis
   };
 }
 
-describe("Melograph service", () => {
-  it("posts normalized WAV bytes to the same-origin Melograph proxy", async () => {
+describe("pitch analysis", () => {
+  it("posts normalized WAV bytes to the configured analysis adapter", async () => {
     const payload = analysis();
     const fetcher = vi.fn().mockResolvedValue({
       ok: true,
@@ -32,12 +32,12 @@ describe("Melograph service", () => {
     });
     const wav = new Blob(["wav"], { type: "audio/wav" });
 
-    await expect(analyzeWithMelograph(wav, {
+    await expect(analyzePitchRecording(wav, {
       fetcher: fetcher as typeof fetch,
     })).resolves.toBe(payload);
 
     expect(fetcher).toHaveBeenCalledWith(
-      "/api/melograph/analyze",
+      "/api/pitch-analysis/analyze",
       expect.objectContaining({
         method: "POST",
         body: wav,
@@ -47,13 +47,13 @@ describe("Melograph service", () => {
     );
   });
 
-  it("surfaces Melograph errors and rejects incompatible contracts", async () => {
+  it("surfaces analyser errors and rejects incompatible contracts", async () => {
     const failedFetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 422,
       json: vi.fn().mockResolvedValue({ error: "no voiced frames" }),
     });
-    await expect(analyzeWithMelograph(new Blob(), {
+    await expect(analyzePitchRecording(new Blob(), {
       fetcher: failedFetch as typeof fetch,
     })).rejects.toThrow("no voiced frames");
 
@@ -62,7 +62,7 @@ describe("Melograph service", () => {
       status: 200,
       json: vi.fn().mockResolvedValue(analysis({ tracker: "pyin" })),
     });
-    await expect(analyzeWithMelograph(new Blob(), {
+    await expect(analyzePitchRecording(new Blob(), {
       fetcher: incompatibleFetch as typeof fetch,
     })).rejects.toThrow("unsupported analysis response");
   });
@@ -81,7 +81,7 @@ describe("Melograph service", () => {
   });
 
   it("keeps finalized phrases separate and maps authoritative event timing", () => {
-    const candidates = melographAnalysisToPatternCandidates(
+    const candidates = pitchAnalysisToPatternCandidates(
       analysis({
         phrases: [
           {
@@ -133,7 +133,7 @@ describe("Melograph service", () => {
       "Hummed take 2",
     ]);
     expect(candidates[0].notes[0]).toEqual(expect.objectContaining({
-      id: "melograph-capture-1-1",
+      id: "pitch-analysis-capture-1-1",
       note: "D4",
       octave: 4,
       scaleIndex: 1,
@@ -148,7 +148,7 @@ describe("Melograph service", () => {
   });
 
   it("surfaces analyzed pitches outside the selected scale", () => {
-    expect(() => melographAnalysisToPatternCandidates(
+    expect(() => pitchAnalysisToPatternCandidates(
       analysis({
         phrases: [{
           number: 1,
@@ -166,6 +166,6 @@ describe("Melograph service", () => {
         }],
       }),
       { key: "C", mode: "major" },
-    )).toThrow("Melograph detected C#4, which is outside C major.");
+    )).toThrow("Pitch analysis detected C#4, which is outside C major.");
   });
 });

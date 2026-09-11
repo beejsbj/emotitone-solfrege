@@ -40,32 +40,32 @@ vi.mock("@/composables/useVisualConfig", () => ({
   }),
 }));
 
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useMusicColor } from "@/composables/useMusicColor";
 
-describe("useColorSystem", () => {
+describe("useMusicColor", () => {
   it("keeps movable tonic colors aligned while still respecting scale size", () => {
     dynamicColorConfig.value.musicColorMode = "movable-ordinal";
-    const colorSystem = useColorSystem();
+    const musicColor = useMusicColor();
 
-    const cMajorDo = colorSystem.getStaticPrimaryColorByScaleIndex(
+    const cMajorDo = musicColor.getStaticPrimaryColorByScaleIndex(
       0,
       "major",
       "C",
       3
     );
-    const dMajorDo = colorSystem.getStaticPrimaryColorByScaleIndex(
+    const dMajorDo = musicColor.getStaticPrimaryColorByScaleIndex(
       0,
       "major",
       "D",
       3
     );
-    const cMajorLa = colorSystem.getStaticPrimaryColorByScaleIndex(
+    const cMajorLa = musicColor.getStaticPrimaryColorByScaleIndex(
       5,
       "major",
       "C",
       3
     );
-    const cPentatonicLa = colorSystem.getStaticPrimaryColorByScaleIndex(
+    const cPentatonicLa = musicColor.getStaticPrimaryColorByScaleIndex(
       4,
       "major pentatonic",
       "C",
@@ -78,15 +78,15 @@ describe("useColorSystem", () => {
 
   it("uses fixed pitch-class colors independent of key and mode", () => {
     dynamicColorConfig.value.musicColorMode = "fixed";
-    const colorSystem = useColorSystem();
+    const musicColor = useMusicColor();
 
-    const cChromatic = colorSystem.getStaticPrimaryColorByPitchClass(
+    const cChromatic = musicColor.getStaticPrimaryColorByPitchClass(
       0,
       "chromatic",
       "C",
       3
     );
-    const dMinorC = colorSystem.getStaticPrimaryColorByPitchClass(
+    const dMinorC = musicColor.getStaticPrimaryColorByPitchClass(
       0,
       "minor",
       "D",
@@ -98,26 +98,26 @@ describe("useColorSystem", () => {
 
   it("returns neutral off-scale colors for pitch classes in movable mode", () => {
     dynamicColorConfig.value.musicColorMode = "movable-ordinal";
-    const colorSystem = useColorSystem();
+    const musicColor = useMusicColor();
 
-    expect(colorSystem.getStaticPrimaryColor("C#", "major", 3, "C")).toBe(
+    expect(musicColor.getStaticPrimaryColor("C#", "major", 3, "C")).toBe(
       "hsla(0, 0%, 16%, 1)"
     );
   });
 
   it("gives exact borrowed pitch classes a chromatic fallback color", () => {
     dynamicColorConfig.value.musicColorMode = "movable-ordinal";
-    const colorSystem = useColorSystem();
+    const musicColor = useMusicColor();
 
-    expect(colorSystem.getStaticPrimaryColorByPitchClass(3, "major", "C", 4))
+    expect(musicColor.getStaticPrimaryColorByPitchClass(3, "major", "C", 4))
       .not.toBe("hsla(0, 0%, 16%, 1)");
   });
 
   it("applies key adjustments to exact-pitch primary colors", () => {
     dynamicColorConfig.value.musicColorMode = "movable-ordinal";
-    const colorSystem = useColorSystem();
+    const musicColor = useMusicColor();
 
-    const adjusted = colorSystem.getKeyBackgroundByPitchClass(
+    const adjusted = musicColor.getKeyBackgroundByPitchClass(
       0,
       "major",
       "C",
@@ -126,7 +126,7 @@ describe("useColorSystem", () => {
       false,
       { keyBrightness: 0.5, keySaturation: 0.5 },
     );
-    const unadjusted = colorSystem.getStaticPrimaryColorByPitchClass(
+    const unadjusted = musicColor.getStaticPrimaryColorByPitchClass(
       0,
       "major",
       "C",
@@ -140,22 +140,22 @@ describe("useColorSystem", () => {
 
   it("prefers exact pitch identity when an active note provides it", () => {
     dynamicColorConfig.value.musicColorMode = "movable-ordinal";
-    const colorSystem = useColorSystem();
+    const musicColor = useMusicColor();
 
-    expect(colorSystem.getStaticPrimaryColorForPitch(-1, 3, "major", "C", 4))
-      .toBe(colorSystem.getStaticPrimaryColorByPitchClass(3, "major", "C", 4));
-    expect(colorSystem.getStaticPrimaryColorForPitch(2, undefined, "major", "C", 4))
-      .toBe(colorSystem.getStaticPrimaryColorByScaleIndex(2, "major", "C", 4));
-    expect(colorSystem.getPrimaryColorForPitch(-1, 3, "major", "C", 4))
-      .toBe(colorSystem.getNoteColorsByPitchClass(3, "major", "C", 4).primary);
+    expect(musicColor.getStaticPrimaryColorForPitch(-1, 3, "major", "C", 4))
+      .toBe(musicColor.getStaticPrimaryColorByPitchClass(3, "major", "C", 4));
+    expect(musicColor.getStaticPrimaryColorForPitch(2, undefined, "major", "C", 4))
+      .toBe(musicColor.getStaticPrimaryColorByScaleIndex(2, "major", "C", 4));
+    expect(musicColor.getPrimaryColorForPitch(-1, 3, "major", "C", 4))
+      .toBe(musicColor.getNoteColorsByPitchClass(3, "major", "C", 4).primary);
   });
 
   it("resolves altered syllables without falling back to the default error color", () => {
     dynamicColorConfig.value.musicColorMode = "movable-ordinal";
-    const colorSystem = useColorSystem();
+    const musicColor = useMusicColor();
 
-    const fi = colorSystem.getStaticPrimaryColor("Fi", "lydian", 3, "C");
-    const se = colorSystem.getStaticPrimaryColor("Se", "minor blues", 3, "C");
+    const fi = musicColor.getStaticPrimaryColor("Fi", "lydian", 3, "C");
+    const se = musicColor.getStaticPrimaryColor("Se", "minor blues", 3, "C");
 
     expect(fi).not.toBe("hsla(0, 0%, 16%, 1)");
     expect(se).not.toBe("hsla(0, 0%, 16%, 1)");

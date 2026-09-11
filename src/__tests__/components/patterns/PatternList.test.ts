@@ -20,8 +20,8 @@ const codeStrip = vi.hoisted(() => ({
   hasPlayableCode: undefined as unknown as ComputedRef<boolean>,
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getStaticPrimaryColorByScaleIndex: colors.byScaleIndex,
     getStaticPrimaryColorByPitchClass: colors.byPitchClass,
   }),

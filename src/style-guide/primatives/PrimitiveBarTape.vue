@@ -31,14 +31,14 @@
 <script setup lang="ts">
 import BarTape from "../../components/primatives/BarTape.vue";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
-import { useColorSystem } from "../../composables/useColorSystem";
+import { useMusicColor } from "../../composables/useMusicColor";
 import { defaultPatterns } from "../../data/patterns";
 import type { Pattern } from "../../types/patterns";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 
-const { getStaticPrimaryColorByScaleIndex } = useColorSystem();
+const { getStaticPrimaryColorByScaleIndex } = useMusicColor();
 const patterns = defaultPatterns.slice(0, 3);
 
 const toTimeline = (pattern: Pattern): BarTapeSegment[] =>

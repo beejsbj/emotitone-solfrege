@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useMusicColor } from "@/composables/useMusicColor";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type NoteLabel = "syllable" | "degree" | "raw";
@@ -121,7 +121,7 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground, getKeyBackgroundByPitchClass } = useColorSystem({
+const { getKeyBackground, getKeyBackgroundByPitchClass } = useMusicColor({
   animated: true,
 });
 

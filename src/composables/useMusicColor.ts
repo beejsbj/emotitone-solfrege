@@ -21,7 +21,7 @@ const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
   accent: "hsla(0, 0%, 26%, 1)",
 };
 
-export function useColorSystem(options: { animated?: boolean } = {}) {
+export function useMusicColor(options: { animated?: boolean } = {}) {
   const dynamicColorConfig = useMusicColorConfig();
   const clock = useMusicColorClock(
     () => options.animated === true && dynamicColorConfig.value.hueMotionEnabled,

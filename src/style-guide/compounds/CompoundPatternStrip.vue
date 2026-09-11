@@ -68,7 +68,7 @@ import { reactive, ref } from "vue";
 import PatternStrip from "../../components/compounds/PatternStrip.vue";
 import type { PatternStripItem } from "../../components/compounds/PatternStrip.vue";
 import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
-import { useColorSystem } from "../../composables/useColorSystem";
+import { useMusicColor } from "../../composables/useMusicColor";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -76,7 +76,7 @@ import VariantGrid from "../guide/VariantGrid.vue";
 const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
-} = useColorSystem();
+} = useMusicColor();
 
 const backgroundPattern = reactive<PatternStripItem>({
   id: "evening-glass",

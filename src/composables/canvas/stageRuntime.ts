@@ -24,7 +24,7 @@ export interface StageAudioFrame {
 const EDGE_PADDING = 20;
 const MIN_DRAWABLE_EDGE = 96;
 const HILBERT_PRIMARY_SCALE = 1.8;
-const FOCAL_GAP = 12;
+const FOCAL_GAP = 8;
 
 export function fullStageRect(width: number, height: number): StageRect {
   return { x: 0, y: 0, width: Math.max(0, width), height: Math.max(0, height) };
@@ -68,14 +68,18 @@ export function resolveStageComposition(
     previousHilbertLimit,
   );
   const desiredHilbertRadius = previousHilbertRadius * HILBERT_PRIMARY_SCALE;
-  const halfMinorAxis = Math.min(paddedWidth, paddedHeight) / 2;
+  const orbitRadiusX = initialOrbitRadiusX;
+  const orbitRadiusY = initialOrbitRadiusY;
   const fittedExtent = Math.min(
     initialFittedExtent,
-    Math.max(8, (halfMinorAxis - desiredHilbertRadius - FOCAL_GAP) / 2),
+    Math.max(
+      8,
+      Math.min(orbitRadiusX, orbitRadiusY) -
+        desiredHilbertRadius -
+        FOCAL_GAP,
+    ),
   );
   const blobFitScale = Math.min(1, fittedExtent / desiredBodyExtent);
-  const orbitRadiusX = Math.max(0, paddedWidth / 2 - fittedExtent);
-  const orbitRadiusY = Math.max(0, paddedHeight / 2 - fittedExtent);
   const hilbertRadius = Math.min(
     desiredHilbertRadius,
     Math.max(

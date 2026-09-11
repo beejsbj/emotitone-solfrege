@@ -38,6 +38,30 @@ describe("Stage runtime", () => {
     ).toBe(true);
   });
 
+  it.each([
+    [900, 420],
+    [390, 180],
+  ])("preserves the original Blob orbit at %i×%i", (width, height) => {
+    const composition = resolveStageComposition(
+      { x: 0, y: 0, width, height },
+      75,
+      0.6,
+    );
+    const priorBodyExtent = Math.min(
+      75 * 1.3,
+      Math.min(width - 40, height - 40) * 0.115,
+    );
+
+    expect(composition.orbitRadiusX).toBeCloseTo(
+      (width - 40) / 2 - priorBodyExtent,
+      6,
+    );
+    expect(composition.orbitRadiusY).toBeCloseTo(
+      (height - 40) / 2 - priorBodyExtent,
+      6,
+    );
+  });
+
   it("centers the focal system in the host-supplied usable region", () => {
     const composition = resolveStageComposition(
       { x: 0, y: 0, width: 900, height: 420 },

@@ -53,7 +53,7 @@ describe("Button", () => {
     expect(wrapper.attributes("aria-busy")).toBe("true");
     expect(wrapper.attributes("disabled")).toBeDefined();
     expect(wrapper.find(".paper-button__loader").exists()).toBe(true);
-    expect(wrapper.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(wrapper.get(".paper-button__face").attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
   it("keeps disabled production brass in the native still-state contract", () => {
@@ -64,7 +64,7 @@ describe("Button", () => {
     expect(wrapper.classes()).toEqual(
       expect.arrayContaining(["paper-button--brass", "paper-button--brass-sheen-glow"]),
     );
-    expect(wrapper.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(wrapper.get(".paper-button__face").attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
   it("preserves opt-in haptics for absorbed Knob Button actions", async () => {
@@ -94,7 +94,10 @@ describe("Button", () => {
     });
     const wrapper = mount(Host);
 
-    expect(wrapper.get("button").attributes("data-ui-beat-scale")).toBeUndefined();
+    const button = wrapper.get("button");
+    const face = wrapper.get(".paper-button__face");
+    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
 
     presentationEnabled.value = true;
     await nextTick();
@@ -105,13 +108,18 @@ describe("Button", () => {
     });
     clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
 
-    expect(wrapper.get("button").attributes("data-ui-beat-state")).toBe("running");
-    expect(wrapper.get("button").attributes("style")).toContain("scale: 1.100");
+    expect(face.attributes("data-ui-beat-state")).toBe("running");
+    expect(face.attributes("style")).toContain("scale: 1.100");
+    expect(face.attributes("style")).not.toContain("transform");
+    expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(button.attributes("style") ?? "").not.toContain("scale");
+    expect(buttonSource).toContain('ref="beatTargetRef" class="paper-button__face"');
+    expect(buttonSource).toContain(":active .paper-button__face");
 
     presentationEnabled.value = false;
     await nextTick();
-    expect(wrapper.get("button").attributes("data-ui-beat-scale")).toBeUndefined();
-    expect(wrapper.get("button").attributes("style") ?? "").not.toContain("scale");
+    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(face.attributes("style") ?? "").not.toContain("scale");
     wrapper.unmount();
     clock.destroy();
   });

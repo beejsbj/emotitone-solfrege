@@ -17,6 +17,7 @@ export function createScheduledLiveVoice(options: {
   const audioOffset = audio.getAudioContext().currentTime - now() / 1000;
   let endAt = Infinity;
   let ready = false;
+  let armed = false;
   let published = false;
   let finished = false;
   let startTimer: ReturnType<typeof setTimeout> | undefined;
@@ -24,6 +25,9 @@ export function createScheduledLiveVoice(options: {
 
   function finish() {
     if (finished) return;
+    // Web Audio keeps playing when the main thread stalls. Preserve an onset
+    // that sounded even if its visual/recording timer has not run yet.
+    if (armed && !published && endAt > options.at && now() >= options.at) publishStart();
     finished = true;
     clearTimeout(startTimer);
     clearTimeout(endTimer);
@@ -31,7 +35,7 @@ export function createScheduledLiveVoice(options: {
   }
 
   function publishStart() {
-    if (finished || endAt <= now()) return;
+    if (finished) return;
     published = true;
     options.onStart(epochOffset + options.at);
   }
@@ -59,6 +63,7 @@ export function createScheduledLiveVoice(options: {
       finish();
       return;
     }
+    armed = true;
     if (options.at <= now()) publishStart();
     else startTimer = setTimeout(publishStart, options.at - now());
     scheduleEnd();

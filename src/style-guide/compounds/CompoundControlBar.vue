@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Control Bar · Instrument Compound"
     :features="features"
-    caption="Four controlled Knobs and one directional Harmony Joystick share equal-width slots. The Drawer handle owns keyboard sizing."
+    caption="Six controlled Knobs and one directional Harmony Joystick share equal-width slots. The Drawer handle owns keyboard sizing."
   >
     <template #hero>
       <div class="control-bar-specimen">
@@ -11,6 +11,10 @@
           v-model:mode-value="modeValue"
           v-model:bpm="bpm"
           v-model:octave="octave"
+          :play-style="playStyle"
+          :play-rate="playRate"
+          @update:play-style="playStyle = $event as PlayStyle"
+          @update:play-rate="playRate = $event as PlayStyleRate"
           v-model:harmony-value="harmonyValue"
           :change-signals="changeSignals"
           :haptic="false"
@@ -24,13 +28,17 @@
     </template>
 
     <VariantGrid title="Mobile-first spread">
-      <VariantCell caption="320px host · all five controls" stage="ink3">
+      <VariantCell caption="320px host · all seven controls" stage="ink3">
         <div class="control-bar-specimen control-bar-specimen--narrow">
           <ControlBar
             :key-value="keyValue"
             :mode-value="modeValue"
             :bpm="bpm"
             :octave="octave"
+            :play-style="playStyle"
+            :play-rate="playRate"
+            @update:play-style="playStyle = $event as PlayStyle"
+            @update:play-rate="playRate = $event as PlayStyleRate"
             :harmony-value="harmonyValue"
             joystick-visual="analog"
             :haptic="false"
@@ -43,6 +51,8 @@
           mode-value="dorian"
           :bpm="96"
           :octave="5"
+          play-style="arp-up-down"
+          :play-rate="16"
           harmony-value="jazzy7"
           joystick-visual="digital"
           :haptic="false"
@@ -56,6 +66,7 @@
 import { reactive, ref } from "vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
+import type { PlayStyle, PlayStyleRate } from "@/services/playStyles";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -64,6 +75,8 @@ const keyValue = ref("C");
 const modeValue = ref("major");
 const bpm = ref(120);
 const octave = ref(4);
+const playStyle = ref<PlayStyle>("together");
+const playRate = ref<PlayStyleRate>(8);
 const harmonyValue = ref<HarmonyAlteration>("auto");
 const harmonyEffective = ref<HarmonyAlteration>("auto");
 const changeSignals = reactive({ key: 0, mode: 0, bpm: 0, octave: 0 });
@@ -81,8 +94,8 @@ function loadAlternatePattern() {
 }
 
 const features = [
-  { label: "Order", value: "Key · Mode · BPM · Octave · Harmony" },
-  { label: "Layout", value: "four Knobs plus one Joystick across equal-width slots; no horizontal scroller" },
+  { label: "Order", value: "Key · Mode · BPM · Octave · Play Mode · Rate · Harmony" },
+  { label: "Layout", value: "six Knobs plus one Joystick across equal-width slots; no horizontal scroller" },
   { label: "Density", value: "no horizontal padding; outer hardware aligns to an 8px inset" },
   { label: "Motion", value: "only controls changed by a loaded Pattern receive the shared elastic face rebound" },
   { label: "Surface", value: "shared opaque Ink instrument-bar plane; Stage stops at the deck surface" },

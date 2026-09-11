@@ -52,6 +52,27 @@
       />
     </div>
 
+    <div class="control-bar__item">
+      <Knob
+        :model-value="playStyle"
+        type="options"
+        :options="playStyleOptions"
+        label="Play Mode"
+        @update:modelValue="(value) => emit('update:playStyle', String(value))"
+      />
+    </div>
+
+    <div class="control-bar__item">
+      <Knob
+        :model-value="playRate"
+        type="options"
+        :options="rateOptions"
+        label="Rate"
+        :is-disabled="!playStyle.startsWith('arp-') && playStyle !== 'repeat'"
+        @update:modelValue="(value) => emit('update:playRate', Number(value))"
+      />
+    </div>
+
     <div class="control-bar__item control-bar__item--joystick">
       <Joystick
         :model-value="harmonyValue"
@@ -72,6 +93,14 @@ import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import type { JoystickVisual } from "@/components/uniques/Joystick/index.vue";
+import { PLAY_STYLE_OPTIONS, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
+
+const playStyleOptions = [...PLAY_STYLE_OPTIONS];
+const rateOptions = [
+  { value: 4, label: '1/4' },
+  { value: 8, label: '1/8' },
+  { value: 16, label: '1/16' },
+];
 
 type ControlBarChangeSignals = Partial<Record<"key" | "mode" | "bpm" | "octave", number>>;
 
@@ -81,6 +110,8 @@ withDefaults(
     modeValue?: string;
     bpm?: number;
     octave?: number;
+    playStyle?: PlayStyle;
+    playRate?: PlayStyleRate;
     harmonyValue?: HarmonyAlteration;
     joystickVisual?: JoystickVisual;
     changeSignals?: ControlBarChangeSignals;
@@ -91,6 +122,8 @@ withDefaults(
     modeValue: "major",
     bpm: 120,
     octave: 4,
+    playStyle: "together",
+    playRate: 8,
     harmonyValue: "auto",
     changeSignals: () => ({}),
     haptic: true,
@@ -102,6 +135,8 @@ const emit = defineEmits<{
   "update:modeValue": [value: string];
   "update:bpm": [value: number];
   "update:octave": [value: number];
+  "update:playStyle": [value: string];
+  "update:playRate": [value: number];
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
 }>();
@@ -111,7 +146,7 @@ const emit = defineEmits<{
 <style scoped>
 .control-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   align-items: start;
   width: 100%;
   min-width: 0;

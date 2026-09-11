@@ -1,6 +1,7 @@
 <template>
   <Drawer
     class="performance-deck-drawer"
+    data-stage-occlusion-host
     :model-value="store.drawer.isOpen"
     fixed
     anchor="bottom"
@@ -24,6 +25,7 @@
     <template #persistent>
       <PatternList @context-change="bumpPatternControls" />
       <CodeStripBar
+        data-stage-occluder
         :is-playing="isPlaying"
         :play-disabled="!hasPlayableCode || (instrumentStore.isInteractionLocked && !isPlaying)"
         haptic
@@ -183,6 +185,9 @@ async function toggleHummingCapture() {
   if (isPlaying.value && hummingStatus.value !== "recording") {
     await stopSketchPlayback();
   }
+  if (liveListeningStatus.value !== "idle" && hummingStatus.value !== "recording") {
+    await stopLiveListening();
+  }
   await toggleHumming();
 }
 
@@ -193,6 +198,12 @@ async function cancelHummingCapture() {
 async function toggleLiveListeningInput() {
   if (isPlaying.value && liveListeningStatus.value !== "listening") {
     await stopSketchPlayback();
+  }
+  if (
+    liveListeningStatus.value !== "listening"
+    && ["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)
+  ) {
+    await cancelHumming();
   }
   await toggleLiveListening();
 }

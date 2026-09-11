@@ -7,6 +7,10 @@ import type { AmbientConfig } from "@/types/visual";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { getScaleForMode } from "@/data";
 import { useColorSystem } from "../useColorSystem";
+import {
+  resolveAmbientLevel,
+  type StageAudioFrame,
+} from "./stageRuntime";
 
 const HSLA_PATTERN =
   /hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%(?:\s*,\s*([\d.]+))?\s*\)/i;
@@ -111,7 +115,9 @@ export function useAmbientRenderer() {
     getCachedGradient: (
       key: string,
       createFn: () => CanvasGradient
-    ) => CanvasGradient
+    ) => CanvasGradient,
+    audioFrame: StageAudioFrame = { envelope: 0, hasSignal: false },
+    reducedMotion = false,
   ) => {
     if (!ctx) return;
 
@@ -200,11 +206,16 @@ export function useAmbientRenderer() {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Apply mode-aware ambient lighting gradient
+    ctx.save();
+    ctx.globalAlpha = resolveAmbientLevel(audioFrame, elapsed, reducedMotion);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.restore();
 
     // Add subtle texture
-    renderSubtleTexture(ctx, elapsed, canvasWidth, canvasHeight);
+    if (!reducedMotion) {
+      renderSubtleTexture(ctx, elapsed, canvasWidth, canvasHeight);
+    }
   };
 
   return {

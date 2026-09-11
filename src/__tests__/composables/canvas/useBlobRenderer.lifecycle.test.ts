@@ -11,6 +11,10 @@ vi.mock("@/composables/useColorSystem", () => ({
       (_scaleIndex: number, pitchClassIndex: number | undefined) =>
         `pitch-${pitchClassIndex ?? "scale"}`,
     ),
+    getStaticPrimaryColorForPitch: vi.fn(
+      (_scaleIndex: number, pitchClassIndex: number | undefined) =>
+        `pitch-${pitchClassIndex ?? "scale"}`,
+    ),
     withAlpha: vi.fn(
       (color: string, opacity: number) => `${color} / ${opacity}`
     ),
@@ -147,5 +151,34 @@ describe("useBlobRenderer lifecycle", () => {
 
     expect(renderer.activeBlobs.get("d-sharp-4")?.pitchClassIndex).toBe(3);
     expect(renderer.getPreparedBlobFrames()[0]?.primaryColor).toBe("pitch-3");
+  });
+
+  it("reprojects held and releasing bodies without resetting their lifecycle", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    renderer.startBlobFadeOutById("c4");
+    const lifecycle = {
+      startTime: blob.startTime,
+      fadeOutStartTime: blob.fadeOutStartTime,
+      vibrationPhase: blob.vibrationPhase,
+    };
+
+    renderer.reprojectBlobs({
+      usable: { x: 0, y: 0, width: 400, height: 240 },
+      centerX: 200,
+      centerY: 120,
+      hilbertRadius: 30,
+      orbitRadiusX: 120,
+      orbitRadiusY: 65,
+      blobFitScale: 0.5,
+      suspended: false,
+    }, DEFAULT_CONFIG.blobs, true);
+
+    expect(blob.x).toBe(200);
+    expect(blob.y).toBe(55);
+    expect(blob).toMatchObject(lifecycle);
+    expect(blob.isFadingOut).toBe(true);
   });
 });

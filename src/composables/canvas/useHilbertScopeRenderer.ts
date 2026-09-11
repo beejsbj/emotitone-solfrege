@@ -159,6 +159,8 @@ interface HilbertScopeState {
   fadeOutProgress: number;
   isActive: boolean;
   lastResolvedColor: string | null;
+  layoutCenterX: number | null;
+  layoutCenterY: number | null;
 }
 
 export function useHilbertScopeRenderer() {
@@ -185,6 +187,8 @@ export function useHilbertScopeRenderer() {
     fadeOutProgress: 0,
     isActive: false,
     lastResolvedColor: null,
+    layoutCenterX: null,
+    layoutCenterY: null,
   };
 
   /**
@@ -229,6 +233,8 @@ export function useHilbertScopeRenderer() {
     state.fadeInProgress = 0;
     state.fadeOutProgress = 0;
     state.lastResolvedColor = null;
+    state.layoutCenterX = state.x;
+    state.layoutCenterY = state.y;
   };
 
   /**
@@ -278,8 +284,18 @@ export function useHilbertScopeRenderer() {
 
     const targetX = composition?.centerX ?? canvasWidth / 2;
     const targetY = composition?.centerY ?? canvasHeight / 2;
-    state.x = reducedMotion ? targetX : state.x + (targetX - state.x) * 0.14;
-    state.y = reducedMotion ? targetY : state.y + (targetY - state.y) * 0.14;
+    const shiftX = targetX - (state.layoutCenterX ?? targetX);
+    const shiftY = targetY - (state.layoutCenterY ?? targetY);
+    if ((shiftX || shiftY) && state.historyCanvas) {
+      state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      state.swapContext.drawImage(state.historyCanvas, shiftX, shiftY);
+      state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      state.historyContext.drawImage(state.swapCanvas, 0, 0);
+    }
+    state.layoutCenterX = targetX;
+    state.layoutCenterY = targetY;
+    state.x = targetX;
+    state.y = targetY;
     state.targetRadius = composition?.hilbertRadius
       ?? Math.min(canvasWidth, canvasHeight) * config.sizeRatio / 2;
 
@@ -478,6 +494,8 @@ export function useHilbertScopeRenderer() {
     state.swapCanvas = null;
     state.swapContext = null;
     state.lastResolvedColor = null;
+    state.layoutCenterX = null;
+    state.layoutCenterY = null;
   };
 
   return {

@@ -12,6 +12,12 @@ import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
+import { createStageAudioFeatures } from "@/services/stageAudio";
+import {
+  fullStageRect,
+  resolveStageComposition,
+  type StageRect,
+} from "./stageRuntime";
 
 /**
  * Unified Canvas Management System
@@ -19,7 +25,15 @@ import { performanceMonitor } from "@/utils/performanceMonitor";
  * Now modularized into separate rendering systems for better maintainability
  */
 
-export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
+interface StageRuntimeInputs {
+  usableRect: Readonly<Ref<StageRect>>;
+  reducedMotion: Readonly<Ref<boolean>>;
+}
+
+export function useUnifiedCanvas(
+  canvasRef: Ref<HTMLCanvasElement | null>,
+  runtime?: StageRuntimeInputs,
+) {
   const musicStore = useMusicStore();
   const {
     blobConfig,
@@ -63,6 +77,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
+  const stageAudio = createStageAudioFeatures();
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
   let oneShotSequence = 0;
@@ -108,6 +123,23 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     return announcements.join(". ");
   });
 
+  const getComposition = () => {
+    const usable = runtime?.usableRect.value
+      ?? fullStageRect(canvasWidth.value, canvasHeight.value);
+    const desiredBlobRadius = Math.max(
+      blobConfig.value.minSize,
+      Math.min(
+        blobConfig.value.maxSize,
+        Math.min(usable.width, usable.height) * blobConfig.value.baseSizeRatio,
+      ),
+    );
+    return resolveStageComposition(
+      usable,
+      desiredBlobRadius,
+      hilbertScopeConfig.value.sizeRatio,
+    );
+  };
+
   /**
    * Update cached configurations for performance
    */
@@ -137,7 +169,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     hilbertScopeRenderer.resizeHilbertScope(
       canvasWidth.value,
       canvasHeight.value,
-      hilbertScopeConfig.value
+      hilbertScopeConfig.value,
+      getComposition(),
     );
   };
 
@@ -211,6 +244,11 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
           activeNote.octave
         );
       });
+      blobRenderer.reprojectBlobs(
+        getComposition(),
+        blobConfig.value,
+        true,
+      );
     }
 
     // Initialize strings
@@ -225,10 +263,12 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     stringRenderer.addEventListeners();
 
     // Initialize Hilbert Scope
+    const waveformSource = stageAudio.initialize();
     hilbertScopeRenderer.initializeHilbertScope(
       canvasWidth.value,
       canvasHeight.value,
-      hilbertScopeConfig.value
+      hilbertScopeConfig.value,
+      waveformSource,
     );
 
   };
@@ -236,13 +276,16 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   /**
    * Main render frame function - coordinates all visual effects
    */
-  const renderFrame = (elapsed: number) => {
+  const renderFrame = (elapsed: number, timestamp = performance.now()) => {
     if (!ctx) {
       return;
     }
 
     // Update cached configurations for performance
     updateCachedConfigs();
+    const composition = getComposition();
+    const reducedMotion = runtime?.reducedMotion.value ?? false;
+    const audioFrame = stageAudio.sample(timestamp);
 
     // Clear canvas
     clearCanvas();
@@ -256,7 +299,28 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
         canvasWidth.value,
         canvasHeight.value,
         musicStore,
-        getCachedGradient
+        getCachedGradient,
+        audioFrame,
+        reducedMotion,
+      );
+    }
+
+    if (composition.suspended) return;
+
+    // Strings are pitch-bearing atmospheric texture behind the focal system.
+    if (cachedConfigs.string.isEnabled) {
+      stringRenderer.updateStringProperties(
+        stringConfig.value,
+        animationConfig.value,
+        musicStore,
+        audioFrame,
+        reducedMotion,
+      );
+      stringRenderer.renderStrings(
+        ctx,
+        elapsed,
+        composition.usable.height,
+        reducedMotion,
       );
     }
 
@@ -267,12 +331,19 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
         elapsed,
         cachedConfigs.hilbertScope,
         canvasWidth.value,
-        canvasHeight.value
+        canvasHeight.value,
+        composition,
+        audioFrame,
+        reducedMotion,
       );
     }
 
     if (cachedConfigs.blob.isEnabled) {
-      blobRenderer.prepareBlobs(ctx, cachedConfigs.blob);
+      blobRenderer.reprojectBlobs(composition, cachedConfigs.blob, reducedMotion);
+      blobRenderer.prepareBlobs(ctx, cachedConfigs.blob, {
+        reducedMotion,
+        bounds: composition.usable,
+      });
     }
 
     const harmonicScene = cachedConfigs.blob.isEnabled
@@ -304,17 +375,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       );
     }
 
-    if (cachedConfigs.particle.isEnabled) {
+    if (cachedConfigs.particle.isEnabled && !reducedMotion) {
       particleSystem.renderParticles(ctx, elapsed, cachedConfigs.particle);
-    }
-
-    if (cachedConfigs.string.isEnabled) {
-      stringRenderer.updateStringProperties(
-        stringConfig.value,
-        animationConfig.value,
-        musicStore
-      );
-      stringRenderer.renderStrings(ctx, elapsed, canvasHeight.value);
     }
 
     harmonicGeometryRenderer.renderLabels(
@@ -335,7 +397,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
 
   const { startAnimation, stopAnimation, isAnimating } = useAnimationLifecycle({
     onFrame: (timestamp: number, elapsed: number) => {
-      renderFrame(elapsed);
+      renderFrame(elapsed, timestamp);
 
       // Update performance metrics
       const activeObjectCount = getActiveObjectCount();
@@ -397,6 +459,11 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       octave, // Pass octave for vertical offset positioning
       noteName, // Preserve exact pitch identity for borrowed harmony tones
     );
+    blobRenderer.reprojectBlobs(
+      getComposition(),
+      blobConfig.value,
+      true,
+    );
 
     const activeNote = noteId
       ? musicStore
@@ -440,16 +507,18 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
     );
 
-    particleSystem.createParticles(
-      note,
-      particleConfig.value,
-      canvasWidth.value,
-      canvasHeight.value,
-      noteMode,
-      noteKey,
-      particleCount,
-      { pitchClassIndex, octave },
-    );
+    if (!(runtime?.reducedMotion.value ?? false)) {
+      particleSystem.createParticles(
+        note,
+        particleConfig.value,
+        canvasWidth.value,
+        getComposition().usable.height,
+        noteMode,
+        noteKey,
+        particleCount,
+        { pitchClassIndex, octave },
+      );
+    }
   };
 
   /**
@@ -520,6 +589,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     stringRenderer.clearAllStrings();
     stringRenderer.removeEventListeners(); // Clean up string event listeners
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
+    stageAudio.cleanup();
     blobFieldRenderer.dispose();
     resetHarmonicAnalysis();
     oneShotReleaseTimers.forEach((timer) => window.clearTimeout(timer));

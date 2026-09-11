@@ -14,6 +14,13 @@
         <Square v-if="isPlaying" />
         <Play v-else />
       </Button>
+      <BeatIndicator
+        class="code-strip-bar__beat"
+        size="sm"
+        :marks="['disk', 'eighth', 'wave', 'star']"
+        :enabled="uiBeatEnabled"
+        aria-label="Pattern beat"
+      />
     </div>
 
     <div class="code-strip-bar__strip">
@@ -64,6 +71,10 @@ import {
 } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
+import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import type {
   CodeStripDensity,
   CodeStripDurationMode,
@@ -100,6 +111,12 @@ const emit = defineEmits<{
   backspace: [];
   return: [];
 }>();
+
+const visualConfigStore = useVisualConfigStore();
+const { config, visualsEnabled } = storeToRefs(visualConfigStore);
+const uiBeatEnabled = computed(
+  () => visualsEnabled.value && config.value.uiBeat.isEnabled,
+);
 </script>
 
 <style scoped>
@@ -135,6 +152,10 @@ const emit = defineEmits<{
 
 .code-strip-bar__right {
   min-width: 0;
+}
+
+.code-strip-bar__beat {
+  flex: 0 0 auto;
 }
 
 </style>

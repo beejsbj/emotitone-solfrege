@@ -32,6 +32,7 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="resolvedVisual"
         :tone="tone"
+        :ui-beat="uiBeat"
         @update:modelValue="handleValueUpdate"
       />
 
@@ -43,6 +44,7 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="resolvedVisual"
         :tone="tone"
+        :ui-beat="uiBeat"
         :value-label-true="valueLabelTrue"
         :value-label-false="valueLabelFalse"
         @update:modelValue="handleValueUpdate"
@@ -57,6 +59,7 @@
         :theme-color="themeColor || defaultThemeColor"
         :visual="resolvedVisual"
         :tone="tone"
+        :ui-beat="uiBeat"
         @update:modelValue="handleValueUpdate"
       />
 
@@ -153,6 +156,10 @@ const props = defineProps({
   tone: {
     type: String as () => KnobTone,
     default: "ivory",
+  },
+  uiBeat: {
+    type: Boolean,
+    default: false,
   },
   sensitivity: {
     type: Number,

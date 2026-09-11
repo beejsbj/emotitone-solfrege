@@ -5,6 +5,7 @@
     :color="themeColor"
     :visual="visual"
     :tone="tone"
+    :ui-beat="uiBeat"
     :range-mode="mode"
     :is-display="isDisplay"
   />
@@ -46,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
   themeColor: "hsla(0, 0%, 82%, 1)",
   visual: "arc",
   tone: "ivory",
+  uiBeat: false,
   formatValue: (value: number) => value.toString(),
 });
 

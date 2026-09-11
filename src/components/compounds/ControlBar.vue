@@ -31,6 +31,7 @@
         :max="220"
         :step="1"
         :change-signal="changeSignals.bpm"
+        :ui-beat="uiBeatEnabled"
         @update:modelValue="(value) => emit('update:bpm', Number(value))"
       />
     </div>
@@ -62,11 +63,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import type { JoystickVisual } from "@/components/uniques/Joystick/index.vue";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 
 type ControlBarChangeSignals = Partial<Record<"key" | "mode" | "bpm" | "octave", number>>;
 
@@ -98,6 +102,12 @@ const emit = defineEmits<{
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
 }>();
+
+const visualConfigStore = useVisualConfigStore();
+const { config, visualsEnabled } = storeToRefs(visualConfigStore);
+const uiBeatEnabled = computed(
+  () => visualsEnabled.value && config.value.uiBeat.isEnabled,
+);
 </script>
 
 <style scoped>

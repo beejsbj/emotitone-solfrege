@@ -4,13 +4,28 @@ import ControlBar from "@/components/compounds/ControlBar.vue";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 
+vi.mock("pinia", async (importOriginal) => ({
+  ...await importOriginal<typeof import("pinia")>(),
+  storeToRefs: (store: { config: unknown; visualsEnabled: boolean }) => ({
+    config: { value: store.config },
+    visualsEnabled: { value: store.visualsEnabled },
+  }),
+}));
+
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
   default: {
     name: "Knob",
-    props: ["modelValue", "type", "options", "label", "min", "max", "step", "changeSignal"],
+    props: ["modelValue", "type", "options", "label", "min", "max", "step", "changeSignal", "uiBeat"],
     emits: ["update:modelValue"],
     template: '<div data-testid="knob" :data-label="label" />',
   },
+}));
+
+vi.mock("@/stores/visualConfig", () => ({
+  useVisualConfigStore: () => ({
+    config: { uiBeat: { isEnabled: true } },
+    visualsEnabled: true,
+  }),
 }));
 
 vi.mock("@/components/uniques/Joystick/index.vue", () => ({
@@ -36,6 +51,8 @@ describe("ControlBar.vue", () => {
     expect(knobs[0].props("options")).toEqual(CHROMATIC_NOTES);
     expect(knobs[1].props("options")).toEqual(MODE_OPTIONS);
     expect(knobs[2].props()).toMatchObject({ min: 40, max: 220, step: 1 });
+    expect(knobs[2].props("uiBeat")).toBe(true);
+    expect(knobs.filter((knob) => knob.props("uiBeat"))).toHaveLength(1);
     expect(knobs[3].props()).toMatchObject({ min: 1, max: 8, step: 1 });
     expect(wrapper.getComponent({ name: "Joystick" }).props()).toMatchObject({
       label: "Harmony",

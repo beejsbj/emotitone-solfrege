@@ -11,6 +11,7 @@ import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
 import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
+import { uiBeatClock } from "@/composables/useUIBeat";
 
 const instrumentControlSource = readFileSync(
   resolve(process.cwd(), "src/components/primatives/instrumentControl.css"),
@@ -46,6 +47,7 @@ describe("Knob public interface", () => {
     for (const wrapper of wrappers) wrapper.unmount();
     wrappers = [];
     document.body.innerHTML = "";
+    uiBeatClock.stop();
   });
 
   // Global setup mocks document events. Exercise the actual registered handlers.
@@ -283,6 +285,30 @@ describe("Knob public interface", () => {
     );
   });
 
+  it("keeps context rebound ownership while UIBeat moves only its inner surface", async () => {
+    const wrapper = render({
+      modelValue: 120,
+      type: "range",
+      changeSignal: 0,
+      uiBeat: true,
+    });
+    const generation = uiBeatClock.arm({
+      mappingAvailable: true,
+      bpm: 120,
+      meter: { beatsPerBar: 4, beatUnit: 4 },
+    });
+    uiBeatClock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
+
+    const surface = wrapper.get(".knob-face__beat-surface");
+    expect(surface.attributes("data-ui-beat-state")).toBe("running");
+    expect(surface.attributes("style")).toContain("scale(1.08)");
+    expect(wrapper.get(".knob-face").attributes("style")).not.toContain("transform");
+
+    await wrapper.setProps({ modelValue: 96, changeSignal: 1 });
+    expect(wrapper.classes()).toContain("knob-wrapper--context-bounce-a");
+    expect(surface.attributes("data-ui-beat-state")).toBe("running");
+  });
+
   it("preserves deprecated value fallback and modelValue precedence", () => {
     expect(render({ value: 42 }).text()).toContain("42");
     expect(render({ modelValue: 7, value: 42 }).text()).toContain("7");
@@ -312,8 +338,14 @@ describe("Knob public interface", () => {
       modelValue: 64,
       visual: "ring",
       tone: "brass",
+      uiBeat: true,
     });
-    const arc = render({ modelValue: 64, visual: "arc", tone: "ivory" });
+    const arc = render({
+      modelValue: 64,
+      visual: "arc",
+      tone: "ivory",
+      uiBeat: true,
+    });
 
     expect(ring.get(".knob-face").classes()).toEqual(
       expect.arrayContaining(["knob-face--ring", "knob-face--brass"]),
@@ -323,6 +355,12 @@ describe("Knob public interface", () => {
       expect.arrayContaining(["knob-face--arc", "knob-face--ivory"]),
     );
     expect(arc.find(".knob-face__dome").exists()).toBe(false);
+    expect(ring.findAll(".knob-face__beat-surface")).toHaveLength(1);
+    expect(arc.findAll(".knob-face__beat-surface")).toHaveLength(1);
+    expect(ring.get(".knob-face").attributes("style")).not.toContain("transform");
+    expect(knobFaceSource).toContain("uiBeatClock.subscribe(applyUIBeat");
+    expect(knobFaceSource).not.toContain("setInterval");
+    expect(knobFaceSource).not.toContain("requestAnimationFrame");
 
     const brassBoolean = render({ modelValue: true, type: "boolean", tone: "brass" });
     expect(brassBoolean.get(".knob-boolean__ball").classes()).toContain("brass");

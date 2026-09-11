@@ -32,6 +32,17 @@ describe("Stage runtime", () => {
     expect(top.y - fittedExtent).toBeGreaterThanOrEqual(19);
   });
 
+  it("fits the actual full-canvas Blob radius when it exceeds the usable-size estimate", () => {
+    const composition = resolveStageComposition(
+      { x: 0, y: 0, width: 1280, height: 180 },
+      400,
+      0.6,
+    );
+    const fittedExtent = 400 * 1.3 * composition.blobFitScale;
+    expect(fittedExtent).toBeLessThanOrEqual(17);
+    expect(composition.orbitRadiusY + fittedExtent).toBeLessThanOrEqual(70);
+  });
+
   it("keeps idle breath out of the shared audio signal and still under Reduced Motion", () => {
     const silence = { envelope: 0, hasSignal: false };
     expect(resolveAmbientLevel(silence, 0, false)).not.toBe(
@@ -40,6 +51,7 @@ describe("Stage runtime", () => {
     expect(resolveAmbientLevel(silence, 0, true)).toBe(
       resolveAmbientLevel(silence, 5_000, true),
     );
+    expect(resolveAmbientLevel({ envelope: 1, hasSignal: true }, 0, true)).toBe(0.72);
     expect(resolveAmbientLevel({ envelope: 0.5, hasSignal: true }, 0, false)).toBe(0.86);
   });
 });

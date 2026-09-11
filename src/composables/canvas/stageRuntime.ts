@@ -87,8 +87,8 @@ export function resolveAmbientLevel(
   elapsedMs: number,
   reducedMotion: boolean,
 ) {
-  if (audio.hasSignal) return 0.72 + audio.envelope * 0.28;
   if (reducedMotion) return 0.72;
+  if (audio.hasSignal) return 0.72 + audio.envelope * 0.28;
   const breath = (Math.sin(elapsedMs * Math.PI * 2 / 10_000 - Math.PI / 2) + 1) / 2;
   return 0.68 + breath * 0.08;
 }

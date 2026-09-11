@@ -25,9 +25,39 @@ export function useLiveListening() {
   let pitchMonitor: LivePitchMonitor | null = null;
   let stageBridge: ReturnType<typeof createLivePitchStageBridge> | null = null;
   let generation = 0;
+  type ListeningStartup = {
+    generation: number;
+    cancelled: boolean;
+    lease: LiveAudioLease | null;
+    monitor: LivePitchMonitor | null;
+    bridge: ReturnType<typeof createLivePitchStageBridge> | null;
+  };
+  let pendingStartup: ListeningStartup | null = null;
+
+  const cleanupStartup = async (startup: ListeningStartup) => {
+    if (startup.monitor) {
+      await startup.monitor.stop().catch(() => undefined);
+    }
+    startup.monitor = null;
+    startup.bridge?.stop();
+    startup.bridge = null;
+    if (startup.lease) {
+      await startup.lease.release().catch(() => undefined);
+    }
+    startup.lease = null;
+  };
 
   const unsubscribeSource = liveAudioInput.subscribe((source) => {
-    if (source || !lease) return;
+    if (source || (!lease && status.value !== "requesting")) return;
+    generation += 1;
+    requestController?.abort();
+    requestController = null;
+    const startup = pendingStartup;
+    pendingStartup = null;
+    if (startup) {
+      startup.cancelled = true;
+      void cleanupStartup(startup);
+    }
     lease = null;
     void pitchMonitor?.stop();
     pitchMonitor = null;
@@ -51,44 +81,55 @@ export function useLiveListening() {
     error.value = null;
     status.value = "requesting";
     requestController = new AbortController();
+    const startup: ListeningStartup = {
+      generation: activeGeneration,
+      cancelled: false,
+      lease: null,
+      monitor: null,
+      bridge: null,
+    };
+    pendingStartup = startup;
 
     try {
       const nextLease = await liveAudioInput.acquire(requestController.signal);
-      if (generation !== activeGeneration) {
-        await nextLease.release();
+      startup.lease = nextLease;
+      if (generation !== activeGeneration || startup.cancelled) {
+        await cleanupStartup(startup);
         return;
       }
-      lease = nextLease;
-      stageBridge = createLivePitchStageBridge({
+      const nextBridge = createLivePitchStageBridge({
         key: musicStore.currentKey as ChromaticNote,
         mode: musicStore.currentMode as MusicalMode,
         instrument: instrumentStore.currentInstrument,
       });
-      pitchMonitor = await startLivePitchMonitor(
+      startup.bridge = nextBridge;
+      const nextMonitor = await startLivePitchMonitor(
         nextLease.source,
-        (frame) => stageBridge?.push(frame),
+        (frame) => {
+          if (generation === activeGeneration && !startup.cancelled) {
+            nextBridge.push(frame);
+          }
+        },
       );
-      if (generation !== activeGeneration) {
-        await pitchMonitor.stop();
-        pitchMonitor = null;
-        stageBridge.stop();
-        stageBridge = null;
-        await nextLease.release();
-        lease = null;
+      startup.monitor = nextMonitor;
+      if (generation !== activeGeneration || startup.cancelled) {
+        await cleanupStartup(startup);
         return;
       }
+      lease = nextLease;
+      stageBridge = nextBridge;
+      pitchMonitor = nextMonitor;
+      startup.lease = null;
+      startup.bridge = null;
+      startup.monitor = null;
+      if (pendingStartup === startup) pendingStartup = null;
       requestController = null;
       status.value = "listening";
     } catch (caught) {
+      await cleanupStartup(startup);
+      if (pendingStartup === startup) pendingStartup = null;
       if (generation !== activeGeneration) return;
       requestController = null;
-      const failedLease = lease;
-      lease = null;
-      await pitchMonitor?.stop().catch(() => undefined);
-      pitchMonitor = null;
-      stageBridge?.stop();
-      stageBridge = null;
-      await failedLease?.release().catch(() => undefined);
       if (caught instanceof DOMException && caught.name === "AbortError") {
         status.value = "idle";
         return;
@@ -102,6 +143,12 @@ export function useLiveListening() {
     generation += 1;
     requestController?.abort();
     requestController = null;
+    const startup = pendingStartup;
+    pendingStartup = null;
+    if (startup) {
+      startup.cancelled = true;
+      await cleanupStartup(startup);
+    }
     const activeLease = lease;
     lease = null;
     const activeMonitor = pitchMonitor;

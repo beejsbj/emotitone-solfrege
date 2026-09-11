@@ -2,6 +2,7 @@ import { defineComponent, h } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLiveListening } from "@/composables/useLiveListening";
+import { startLivePitchMonitor } from "@/services/livePitch";
 
 const mocks = vi.hoisted(() => ({
   acquire: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock("@/stores/instrument", () => ({
 }));
 
 vi.mock("@/services/livePitch", () => ({
-  startLivePitchMonitor: vi.fn(async () => ({ stop: mocks.stopMonitor })),
+  startLivePitchMonitor: vi.fn(),
 }));
 
 vi.mock("@/services/hummingStage", () => ({
@@ -58,6 +59,8 @@ describe("useLiveListening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.sourceListener = null;
+    mocks.release.mockResolvedValue(undefined);
+    vi.mocked(startLivePitchMonitor).mockResolvedValue({ stop: mocks.stopMonitor });
     mocks.acquire.mockResolvedValue({
       source: { context: {}, node: {}, stream: {} },
       release: mocks.release,
@@ -97,6 +100,52 @@ describe("useLiveListening", () => {
 
     mocks.sourceListener?.(null);
 
+    expect(listening.status.value).toBe("error");
+    expect(listening.error.value).toBe("Microphone input ended.");
+    wrapper.unmount();
+  });
+
+  it("does not let a stale monitor startup clobber a replacement session", async () => {
+    let resolveFirst!: (monitor: { stop: () => Promise<void> }) => void;
+    const firstStop = vi.fn(async () => undefined);
+    const secondStop = vi.fn(async () => undefined);
+    vi.mocked(startLivePitchMonitor)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockResolvedValueOnce({ stop: secondStop });
+    const wrapper = mountListening();
+
+    const firstStart = listening.start();
+    await vi.waitFor(() => expect(startLivePitchMonitor).toHaveBeenCalledTimes(1));
+    await listening.stop();
+    expect(mocks.release).toHaveBeenCalledTimes(1);
+    await listening.start();
+    resolveFirst({ stop: firstStop });
+    await firstStart;
+
+    expect(firstStop).toHaveBeenCalledTimes(1);
+    expect(secondStop).not.toHaveBeenCalled();
+    expect(listening.status.value).toBe("listening");
+
+    await listening.stop();
+    expect(secondStop).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("keeps a source-ended error when a pending monitor resolves late", async () => {
+    let resolveMonitor!: (monitor: { stop: () => Promise<void> }) => void;
+    const staleStop = vi.fn(async () => undefined);
+    vi.mocked(startLivePitchMonitor).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveMonitor = resolve; }),
+    );
+    const wrapper = mountListening();
+
+    const starting = listening.start();
+    await vi.waitFor(() => expect(startLivePitchMonitor).toHaveBeenCalledTimes(1));
+    mocks.sourceListener?.(null);
+    resolveMonitor({ stop: staleStop });
+    await starting;
+
+    expect(staleStop).toHaveBeenCalledTimes(1);
     expect(listening.status.value).toBe("error");
     expect(listening.error.value).toBe("Microphone input ended.");
     wrapper.unmount();

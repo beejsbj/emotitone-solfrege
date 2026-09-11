@@ -300,7 +300,9 @@ export function useHilbertScopeRenderer() {
       ?? Math.min(canvasWidth, canvasHeight) * config.sizeRatio / 2;
 
     // Smooth radius transitions, including live Size control changes.
-    state.currentRadius += (state.targetRadius - state.currentRadius) * 0.1;
+    state.currentRadius = reducedMotion
+      ? state.targetRadius
+      : state.currentRadius + (state.targetRadius - state.currentRadius) * 0.1;
 
     // Maintain an offscreen trail buffer instead of sampling the main canvas.
     const persistence = reducedMotion ? 1 : mathClamp(config.history, 0, 0.99);

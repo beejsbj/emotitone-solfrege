@@ -126,12 +126,16 @@ export function useUnifiedCanvas(
   const getComposition = () => {
     const usable = runtime?.usableRect.value
       ?? fullStageRect(canvasWidth.value, canvasHeight.value);
-    const desiredBlobRadius = Math.max(
+    const configuredBlobRadius = Math.max(
       blobConfig.value.minSize,
       Math.min(
         blobConfig.value.maxSize,
         Math.min(usable.width, usable.height) * blobConfig.value.baseSizeRatio,
       ),
+    );
+    const desiredBlobRadius = Math.max(
+      configuredBlobRadius,
+      ...Array.from(blobRenderer.activeBlobs.values(), (blob) => blob.baseRadius),
     );
     return resolveStageComposition(
       usable,

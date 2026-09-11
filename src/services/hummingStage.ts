@@ -15,6 +15,8 @@ interface StablePitchCallbacks {
   release: () => void;
 }
 
+let livePitchSessionCounter = 0;
+
 /**
  * Converts noisy provisional frames into a monophonic note lifecycle. A new
  * pitch must hold for two frames, and one missing frame is tolerated so a
@@ -83,6 +85,7 @@ export function createLivePitchStageBridge(
   context: HummingStageContext,
   target: Pick<Window, "dispatchEvent"> = window,
 ) {
+  const sessionId = ++livePitchSessionCounter;
   let active: {
     noteId: string;
     noteName: string;
@@ -90,12 +93,14 @@ export function createLivePitchStageBridge(
     frequency: number;
     octave: number;
     solfegeIndex: number;
+    pitchClassIndex: number;
   } | null = null;
   let noteCounter = 0;
 
   const gate = new StablePitchGate({
     attack(midi, frame) {
       const pitchClass = CHROMATIC_NOTES[((midi % 12) + 12) % 12];
+      const pitchClassIndex = ((midi % 12) + 12) % 12;
       const octave = Math.floor(midi / 12) - 1;
       if (!pitchClass || !Number.isFinite(octave) || frame.frequencyHz == null) {
         return;
@@ -111,12 +116,13 @@ export function createLivePitchStageBridge(
       if (!note) return;
 
       active = {
-        noteId: `live-pitch-${++noteCounter}`,
+        noteId: `live-pitch-${sessionId}-${++noteCounter}`,
         noteName,
         note,
         frequency: frame.frequencyHz,
         octave,
         solfegeIndex,
+        pitchClassIndex,
       };
 
       target.dispatchEvent(new CustomEvent("note-played", {

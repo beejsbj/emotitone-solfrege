@@ -37,6 +37,7 @@ describe("LivePitch humming Stage bridge", () => {
     expect(attack.type).toBe("note-played");
     expect(attack.detail).toEqual(expect.objectContaining({
       noteName: "A4",
+      pitchClassIndex: 9,
       source: "live-pitch",
       record: false,
       mirrorMidi: false,
@@ -86,5 +87,26 @@ describe("LivePitch humming Stage bridge", () => {
     bridge.push(voiced(61));
 
     expect(dispatchEvent).not.toHaveBeenCalled();
+  });
+
+  it("names note ownership uniquely across listening sessions", () => {
+    const firstDispatch = vi.fn().mockReturnValue(true);
+    const secondDispatch = vi.fn().mockReturnValue(true);
+    const first = createHummingStageBridge(
+      { key: "C", mode: "major", instrument: "piano" },
+      { dispatchEvent: firstDispatch },
+    );
+    const second = createHummingStageBridge(
+      { key: "C", mode: "major", instrument: "piano" },
+      { dispatchEvent: secondDispatch },
+    );
+    first.push(voiced(60));
+    first.push(voiced(60));
+    second.push(voiced(60));
+    second.push(voiced(60));
+
+    expect((firstDispatch.mock.calls[0][0] as CustomEvent).detail.noteId).not.toBe(
+      (secondDispatch.mock.calls[0][0] as CustomEvent).detail.noteId,
+    );
   });
 });

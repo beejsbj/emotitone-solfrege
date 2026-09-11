@@ -296,16 +296,20 @@ export function useStringRenderer() {
         const targetAmplitude = reducedMotion
           ? 0
           : stringConfig.maxAmplitude * audioFrame.envelope;
-        string.amplitude = gsap.utils.interpolate(
-          string.amplitude,
-          targetAmplitude,
-          stringConfig.interpolationSpeed
-        );
-        string.opacity = gsap.utils.interpolate(
-          string.opacity,
-          stringConfig.activeOpacity,
-          stringConfig.opacityInterpolationSpeed
-        );
+        string.amplitude = reducedMotion
+          ? 0
+          : gsap.utils.interpolate(
+              string.amplitude,
+              targetAmplitude,
+              stringConfig.interpolationSpeed
+            );
+        string.opacity = reducedMotion
+          ? stringConfig.activeOpacity
+          : gsap.utils.interpolate(
+              string.opacity,
+              stringConfig.activeOpacity,
+              stringConfig.opacityInterpolationSpeed
+            );
         const noteMode = (matchingActiveNote?.mode ??
           eventActivation?.mode ??
           musicStore.currentMode) as MusicalMode;
@@ -344,16 +348,20 @@ export function useStringRenderer() {
         );
       } else {
         string.isActive = false;
-        string.amplitude = gsap.utils.interpolate(
-          string.amplitude,
-          0,
-          stringConfig.dampingFactor
-        );
-        string.opacity = gsap.utils.interpolate(
-          string.opacity,
-          stringConfig.baseOpacity,
-          0.05
-        );
+        string.amplitude = reducedMotion
+          ? 0
+          : gsap.utils.interpolate(
+              string.amplitude,
+              0,
+              stringConfig.dampingFactor
+            );
+        string.opacity = reducedMotion
+          ? stringConfig.baseOpacity
+          : gsap.utils.interpolate(
+              string.opacity,
+              stringConfig.baseOpacity,
+              0.05
+            );
 
         // Keep a subtle base frequency when inactive
         const noteFrequency = musicStore.getNoteFrequency(

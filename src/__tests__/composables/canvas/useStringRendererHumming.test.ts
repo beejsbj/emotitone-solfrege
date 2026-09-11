@@ -37,7 +37,7 @@ vi.mock("@/stores/visualConfig", () => ({
 
 vi.mock("@/composables/useGSAP", () => ({
   default: () => ({
-    gsap: { utils: { interpolate: (_from: number, to: number) => to } },
+    gsap: { utils: { interpolate: (from: number, to: number) => from + (to - from) * 0.5 } },
   }),
 }));
 
@@ -190,7 +190,16 @@ describe("useStringRenderer humming lifecycle", () => {
       mocks.musicStore,
       { envelope: 0.5, hasSignal: true },
     );
-    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(10);
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(5);
+
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 1, hasSignal: true },
+      true,
+    );
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(0);
 
     renderer.handleNoteReleased(new CustomEvent("note-released", { detail: { noteId: "c4" } }));
     renderer.handleNotePlayed(new CustomEvent("note-played", {

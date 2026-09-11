@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   generatedStrudelBarPosition,
   UIBeatClock,
+  uiBeatScaleSwell,
 } from "@/composables/useUIBeat";
 
 const mappedRun = {
@@ -18,6 +19,14 @@ const createClock = (reducedMotion = () => false) =>
   });
 
 describe("UIBeatClock", () => {
+  it("preserves the BeatingShapes compact-swell-settle scale contour", () => {
+    expect(uiBeatScaleSwell(0)).toBe(0);
+    expect(uiBeatScaleSwell(0.14)).toBe(1);
+    expect(uiBeatScaleSwell(0.96)).toBeCloseTo(2 / 3);
+    expect(uiBeatScaleSwell(1)).toBe(0);
+    expect(uiBeatScaleSwell(Number.NaN)).toBe(0);
+  });
+
   it("maps generated Strudel scheduler cycles without calling a raw cycle a bar", () => {
     expect(generatedStrudelBarPosition(0.5, 120, 4, 0.5)).toBe(0.5);
     expect(generatedStrudelBarPosition(0.5, 90, 4, 0.5)).toBe(0.375);

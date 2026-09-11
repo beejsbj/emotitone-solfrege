@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent } from "vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
+import beatIndicatorSource from "@/components/compounds/BeatIndicator.vue?raw";
 import Mark from "@/components/primatives/Mark.vue";
 import Sticker from "@/components/primatives/Sticker.vue";
 import { MARK_DEFINITIONS, MARK_NAMES, markViewBox } from "@/components/primatives/marks";
@@ -69,17 +70,26 @@ describe("Mark lineage", () => {
       meter: { beatsPerBar: 4, beatUnit: 4 },
     });
 
-    clock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
-
     const cells = wrapper.findAll(".beat-indicator__beat");
+    clock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
     expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("running");
-    expect(cells[0].attributes("style")).toContain("opacity: 0.16");
-    expect(cells[1].attributes("style")).toContain("scale(1.12)");
+    expect(cells[0].attributes("style")).toContain("opacity: 0.14");
+    expect(cells[1].attributes("style")).toContain("scale(0.780)");
+    expect(cells[1].attributes("style")).toContain("opacity: 0.220");
+
+    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+    expect(cells[1].attributes("style")).toContain("scale(1.420)");
     expect(cells[1].attributes("style")).toContain("opacity: 1");
+
+    clock.publish(generation, { rawPosition: 0.035, barPosition: 0.035 });
+    expect(cells[0].attributes("style")).toContain("scale(1.520)");
 
     clock.stop(generation);
     expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("idle");
-    expect(cells[0].attributes("style")).toContain("scale(1.05)");
+    expect(cells[0].attributes("style")).toContain("scale(1)");
+    expect(beatIndicatorSource).toMatch(
+      /\.beat-indicator__beat--downbeat\s*\{[^}]*opacity: 1 !important;[^}]*transform: none !important;/s,
+    );
     wrapper.unmount();
     clock.destroy();
   });

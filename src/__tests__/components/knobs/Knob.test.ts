@@ -300,9 +300,16 @@ describe("Knob public interface", () => {
     uiBeatClock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
 
     const surface = wrapper.get(".knob-face__beat-surface");
+    expect(surface.attributes("style")).toContain("scale(0.680)");
+    expect(surface.attributes("style")).toContain("opacity: 0.240");
+
+    uiBeatClock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+
     expect(surface.attributes("data-ui-beat-state")).toBe("running");
-    expect(surface.attributes("style")).toContain("scale(1.08)");
+    expect(surface.attributes("style")).toContain("scale(1.320)");
+    expect(surface.attributes("style")).toContain("opacity: 0.840");
     expect(wrapper.get(".knob-face").attributes("style")).not.toContain("transform");
+    expect(knobFaceSource).toContain("inset: 10%");
 
     await wrapper.setProps({ modelValue: 96, changeSignal: 1 });
     expect(wrapper.classes()).toContain("knob-wrapper--context-bounce-a");

@@ -4,7 +4,8 @@
       <div class="label">UIBeat · System Protocol</div>
       <p class="caption ui-beat-system__intro">
         One injected clock drives the real Beat Indicator and the same dedicated
-        BPM surface in both accepted Knob editions. No specimen owns a CSS loop.
+        BPM surface in both accepted Knob editions. BeatingShapes' compact swell,
+        long settle, and late tuck survive without its independent CSS loops.
       </p>
 
       <div class="ui-beat-system__stage">
@@ -70,7 +71,7 @@
       <dl class="ui-beat-system__contract">
         <div><dt>Production</dt><dd>Generated playback maps only verified 4/4</dd></div>
         <div><dt>Guide</dt><dd>3/4 and 6/8 are isolated meter fixtures</dd></div>
-        <div><dt>Motion</dt><dd>Beat phase only; no arbitrary subdivisions</dd></div>
+        <div><dt>Scale</dt><dd>Compact → 14% swell → long settle → late tuck</dd></div>
         <div><dt>Stillness</dt><dd>Reduced Motion holds a static downbeat</dd></div>
       </dl>
     </div>

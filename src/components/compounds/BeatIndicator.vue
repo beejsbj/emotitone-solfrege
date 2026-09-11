@@ -31,7 +31,11 @@ import {
   ref,
   watch,
 } from "vue";
-import { useUIBeatClock, type UIBeatSnapshot } from "@/composables/useUIBeat";
+import {
+  uiBeatScaleSwell,
+  useUIBeatClock,
+  type UIBeatSnapshot,
+} from "@/composables/useUIBeat";
 import Mark from "@/components/primatives/Mark.vue";
 import type { MarkName } from "@/components/primatives/marks";
 
@@ -79,8 +83,8 @@ function applyRestState() {
     const holdsDownbeat = props.downbeat && index === 0;
     element.style.opacity = holdsDownbeat ? "1" : "0.18";
     element.style.transform = holdsDownbeat
-      ? "translateY(-1px) scale(1.05)"
-      : "translateY(0) scale(1) rotate(0deg)";
+      ? "scale(1)"
+      : "scale(0.78)";
   });
 }
 
@@ -97,23 +101,20 @@ function applyFrame(snapshot: UIBeatSnapshot) {
 
   if (rootRef.value) rootRef.value.dataset.uiBeatState = "running";
   const activeIndex = snapshot.beatIndex % beatCount.value;
-  const attack = Math.max(0, 1 - snapshot.beatPhase / 0.34);
-  const envelope = attack * attack;
+  const swell = uiBeatScaleSwell(snapshot.beatPhase);
 
   beatElements.forEach((element, index) => {
     if (index !== activeIndex) {
-      element.style.opacity = "0.16";
-      element.style.transform = "translateY(0) scale(1) rotate(0deg)";
+      element.style.opacity = "0.14";
+      element.style.transform = "scale(0.78)";
       return;
     }
 
-    const direction = index % 2 === 0 ? -1 : 1;
-    element.style.opacity = String(0.34 + envelope * 0.66);
-    element.style.transform = [
-      `translateY(${-2.2 * envelope}px)`,
-      `scale(${1 + 0.12 * envelope})`,
-      `rotate(${direction * 1.8 * envelope}deg)`,
-    ].join(" ");
+    const isDownbeat = props.downbeat && index === 0;
+    const peakScale = isDownbeat ? 1.52 : 1.42;
+    const scale = 0.78 + (peakScale - 0.78) * swell;
+    element.style.opacity = (0.22 + swell * 0.78).toFixed(3);
+    element.style.transform = `scale(${scale.toFixed(3)})`;
   });
 }
 
@@ -201,8 +202,8 @@ onBeforeUnmount(() => unsubscribe?.());
   }
 
   .beat-indicator__beat--downbeat {
-    opacity: 1;
-    transform: none;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 </style>

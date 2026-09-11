@@ -71,7 +71,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import useGSAP from "@/composables/useGSAP";
-import { useUIBeatClock, type UIBeatSnapshot } from "@/composables/useUIBeat";
+import {
+  uiBeatScaleSwell,
+  useUIBeatClock,
+  type UIBeatSnapshot,
+} from "@/composables/useUIBeat";
 
 export type KnobVisual = "ring" | "arc";
 export type KnobRole = "range" | "boolean" | "options" | "button";
@@ -136,15 +140,14 @@ function applyUIBeat(snapshot: UIBeatSnapshot) {
   if (!props.uiBeat || !snapshot.presenting) {
     surface.dataset.uiBeatState = "idle";
     surface.style.opacity = "0";
-    surface.style.transform = "scale(0.88)";
+    surface.style.transform = "scale(0.68)";
     return;
   }
 
-  const attack = Math.max(0, 1 - snapshot.beatPhase / 0.42);
-  const envelope = attack * attack;
+  const swell = uiBeatScaleSwell(snapshot.beatPhase);
   surface.dataset.uiBeatState = "running";
-  surface.style.opacity = String(0.08 + envelope * 0.42);
-  surface.style.transform = `scale(${0.96 + envelope * 0.12})`;
+  surface.style.opacity = (0.24 + swell * 0.6).toFixed(3);
+  surface.style.transform = `scale(${(0.68 + swell * 0.64).toFixed(3)})`;
 }
 
 function syncUIBeatSubscription() {
@@ -339,18 +342,19 @@ useGSAP(({ gsap }) => {
 
 .knob-face__beat-surface {
   position: absolute;
-  inset: -3%;
+  inset: 10%;
   z-index: -2;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    transparent 47%,
-    color-mix(in srgb, currentColor 40%, transparent) 58%,
-    transparent 72%
+    transparent 38%,
+    color-mix(in srgb, currentColor 62%, transparent) 49%,
+    color-mix(in srgb, currentColor 22%, transparent) 58%,
+    transparent 69%
   );
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.88);
+  transform: scale(0.68);
   transform-origin: 50% 50%;
   transition:
     transform var(--dur-ui) var(--ease-brush),

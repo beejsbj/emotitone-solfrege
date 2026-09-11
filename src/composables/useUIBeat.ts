@@ -80,6 +80,28 @@ const runtimeDocumentVisible = () =>
 const modulo = (value: number, divisor: number) =>
   ((value % divisor) + divisor) % divisor;
 
+const easeOutCubic = (progress: number) => 1 - Math.pow(1 - progress, 3);
+
+/**
+ * Canonical UIBeat scale contour, normalized to 0..1 for consumer-owned
+ * amplitude. It preserves the retired BeatingShapes rhythm: compact on the
+ * boundary, a fast swell at 14%, a long settling body, then a late tuck.
+ */
+export function uiBeatScaleSwell(beatPhase: number): number {
+  const phase = Math.max(0, Math.min(1, Number(beatPhase) || 0));
+
+  if (phase < 0.14) {
+    return easeOutCubic(phase / 0.14);
+  }
+
+  if (phase < 0.96) {
+    const release = easeOutCubic((phase - 0.14) / 0.82);
+    return 1 - release / 3;
+  }
+
+  return Math.max(0, (2 / 3) * (1 - (phase - 0.96) / 0.04));
+}
+
 /**
  * Converts Strudel's scheduler cycles into cycles of a generated bar pattern.
  * This mapping is valid only when the adapter knows the sounding pattern was

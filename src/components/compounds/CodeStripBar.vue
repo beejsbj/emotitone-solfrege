@@ -112,12 +112,10 @@ const emit = defineEmits<{
   min-width: 0;
   min-height: 40px;
   box-sizing: border-box;
-  /* Reserve room for Button's paper offset, focus ring, and brass glow. */
+  /* Reserve room for Button's paper offset and focus ring. */
   padding: var(--s-4) var(--s-5);
   border: 0;
   background-color: var(--instrument-bar-surface);
-  -webkit-backdrop-filter: var(--instrument-bar-backdrop);
-  backdrop-filter: var(--instrument-bar-backdrop);
 }
 
 .code-strip-bar__strip {

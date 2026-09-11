@@ -112,8 +112,6 @@ const emit = defineEmits<{
   overflow: hidden;
   background-color: var(--instrument-bar-surface);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  -webkit-backdrop-filter: var(--instrument-bar-backdrop);
-  backdrop-filter: var(--instrument-bar-backdrop);
   contain: layout style;
   user-select: none;
 }

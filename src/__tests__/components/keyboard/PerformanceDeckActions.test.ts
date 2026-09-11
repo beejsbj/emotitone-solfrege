@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
+import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -407,6 +408,9 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(overlay.attributes("role")).toBe("status");
     expect(overlay.text()).toContain("Samples being downloaded...");
     expect(overlay.text()).toContain("vibraphone");
+    expect(overlay.classes()).toContain("performance-deck__warmup");
+    expect(performanceDeckSource).not.toContain("backdrop-blur");
+    expect(performanceDeckSource).not.toContain("bg-[#090909]/75");
     expect(wrapper.get("keyboard-stub").classes()).toContain("pointer-events-none");
     wrapper.unmount();
   });

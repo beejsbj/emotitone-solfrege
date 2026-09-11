@@ -26,65 +26,65 @@
       <PatternList @context-change="bumpPatternControls" />
     </template>
     <template #persistent>
-      <CodeStripBar
-        :is-playing="isPlaying"
-        :play-disabled="!hasPlayableCode || (instrumentStore.isInteractionLocked && !isPlaying)"
-        haptic
-        @toggle-playback="toggleSketchPlayback"
-        @backspace="patternsStore.removeLastFromCurrentSketch()"
-        @return="patternsStore.sendCurrentPattern()"
-      />
-      <HummingCaptureTransport
-        :status="hummingStatus"
-        :error="hummingError"
-        :status-message="hummingStatusMessage"
-        :take-labels="hummingTakeLabels"
-        :selected-take-index="selectedHummingTake"
-        haptic
-        @toggle="toggleHummingCapture"
-        @cancel="cancelHummingCapture"
-        @select-take="selectHummingTake"
-      />
-      <ControlBar
-        :key-value="musicStore.currentKey"
-        :mode-value="musicStore.currentMode"
-        :bpm="visualConfigStore.config.codeStrip.bpm"
-        :octave="store.keyboardConfig.mainOctave"
-        :harmony-value="harmonyLatched"
-        :change-signals="patternControlSignals"
-        @update:key-value="musicStore.setKey"
-        @update:mode-value="updateMode"
-        @update:bpm="updateBpm"
-        @update:octave="store.setMainOctave"
-        @update:harmony-value="updateHarmonyLatch"
-        @harmony-effective="harmonyEffective = $event"
-      />
+      <div class="performance-deck__instrument-surface">
+        <CodeStripBar
+          :is-playing="isPlaying"
+          :play-disabled="!hasPlayableCode || (instrumentStore.isInteractionLocked && !isPlaying)"
+          haptic
+          @toggle-playback="toggleSketchPlayback"
+          @backspace="patternsStore.removeLastFromCurrentSketch()"
+          @return="patternsStore.sendCurrentPattern()"
+        />
+        <HummingCaptureTransport
+          :status="hummingStatus"
+          :error="hummingError"
+          :status-message="hummingStatusMessage"
+          :take-labels="hummingTakeLabels"
+          :selected-take-index="selectedHummingTake"
+          haptic
+          @toggle="toggleHummingCapture"
+          @cancel="cancelHummingCapture"
+          @select-take="selectHummingTake"
+        />
+        <ControlBar
+          :key-value="musicStore.currentKey"
+          :mode-value="musicStore.currentMode"
+          :bpm="visualConfigStore.config.codeStrip.bpm"
+          :octave="store.keyboardConfig.mainOctave"
+          :harmony-value="harmonyLatched"
+          :change-signals="patternControlSignals"
+          @update:key-value="musicStore.setKey"
+          @update:mode-value="updateMode"
+          @update:bpm="updateBpm"
+          @update:octave="store.setMainOctave"
+          @update:harmony-value="updateHarmonyLatch"
+          @harmony-effective="harmonyEffective = $event"
+        />
+      </div>
     </template>
     <template #default="{ height }">
-      <div class="relative h-full" :aria-busy="instrumentStore.isInteractionLocked || undefined">
+      <div
+        class="performance-deck__keyboard-surface"
+        :aria-busy="instrumentStore.isInteractionLocked || undefined"
+      >
         <Keyboard
           :available-height="height"
           :harmony-alteration="harmonyEffective"
-          :class="{ 'pointer-events-none opacity-35 grayscale': instrumentStore.isInteractionLocked }"
+          :class="{ 'pointer-events-none': instrumentStore.isInteractionLocked }"
         />
         <div
           v-if="instrumentStore.isInteractionLocked"
           data-testid="keyboard-warmup-overlay"
           role="status"
           aria-live="polite"
-          class="absolute inset-0 z-20 flex items-center justify-center bg-[#090909]/75 px-5 text-center backdrop-blur-[2px]"
+          class="performance-deck__warmup"
         >
-          <div class="max-w-sm border border-[#5d5d5d] bg-[#181818]/95 px-4 py-3 shadow-[0_12px_32px_rgba(0,0,0,0.32)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]">
-            <div class="flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.22em] text-[#e2e2e2]">
-              <span class="relative h-3.5 w-3.5 shrink-0" aria-hidden="true">
-                <span class="absolute inset-0 rounded-full border border-white/20" />
-                <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-white border-t-neutral-400 motion-reduce:animate-none" />
-              </span>
-              <span>{{ instrumentStore.warmupMessage }}</span>
-            </div>
-            <div class="mt-2 text-[11px] font-mono uppercase tracking-[0.18em] text-white">
-              {{ warmingInstrumentName }}
-            </div>
+          <div class="performance-deck__warmup-status">
+            <span class="performance-deck__warmup-spinner" aria-hidden="true" />
+            <span>{{ instrumentStore.warmupMessage }}</span>
+          </div>
+          <div class="performance-deck__warmup-instrument">
+            {{ warmingInstrumentName }}
           </div>
         </div>
       </div>
@@ -234,6 +234,68 @@ defineExpose({
   --drawer-handle-rail-surface: var(--ink);
 
   background: transparent;
+}
+
+.performance-deck__instrument-surface,
+.performance-deck__keyboard-surface,
+.performance-deck__warmup {
+  background: var(--ink);
+}
+
+.performance-deck__keyboard-surface {
+  position: relative;
+  height: 100%;
+}
+
+.performance-deck__warmup {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--s-4);
+  padding: var(--s-7);
+  color: var(--ivory);
+  text-align: center;
+}
+
+.performance-deck__warmup-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  color: var(--ivory-2);
+  font: var(--t-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.performance-deck__warmup-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  box-sizing: border-box;
+  border: 2px solid var(--ivory-4);
+  border-top-color: var(--ivory);
+  border-right-color: var(--ivory-2);
+  border-radius: 50%;
+  animation: performance-deck-warmup-spin 800ms linear infinite;
+}
+
+.performance-deck__warmup-instrument {
+  color: var(--ivory);
+  font: var(--t-mono);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+@keyframes performance-deck-warmup-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .performance-deck__warmup-spinner { animation: none; }
 }
 
 @media (forced-colors: active) {

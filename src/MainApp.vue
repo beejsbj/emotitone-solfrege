@@ -10,7 +10,7 @@
     <InstrumentSelector v-if="!isLoading" :compact="true" :floating="true" />
 
     <div v-if="!isLoading" class="pointer-events-none relative z-50 min-h-screen flex flex-col">
-      <DrawerKeyboard />
+      <PerformanceDeck />
     </div>
 
     <TooltipRenderer
@@ -25,7 +25,7 @@
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useMidiControls } from "@/composables/useMidiControls";
 import ConfigPanel from "@/components/ConfigPanel.vue";
-import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
+import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import TooltipRenderer from "@/components/TooltipRenderer.vue";

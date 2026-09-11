@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
-import DrawerKeyboard from "@/components/DrawerKeyboard.vue";
+import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -158,7 +158,7 @@ vi.mock("@/components/compounds/ControlBar.vue", () => ({
   },
 }));
 
-describe("DrawerKeyboard CodeStrip Bar", () => {
+describe("PerformanceDeck CodeStrip Bar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
@@ -173,7 +173,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
 
   it("stops Strudel before starting humming and wires take selection", async () => {
     mocks.isPlaying.value = true;
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -201,7 +201,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
 
   it("cancels active humming before starting Strudel playback", async () => {
     mocks.hummingStatus.value = "recording";
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -223,7 +223,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
   });
 
   it("preserves playback, remove-last, and commit-and-clear behavior", async () => {
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -246,7 +246,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
   });
 
   it("forwards pattern-context changes as independent Knob bounce signals", async () => {
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           Keyboard: true,
@@ -272,7 +272,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
 
   it("does not start playback when CodeStrip has no playable document", async () => {
     mocks.hasPlayableCode.value = false;
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -291,7 +291,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
 
   it("disables and ignores pattern playback while samples are warming", async () => {
     mocks.instrumentStore.isInteractionLocked = true;
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -311,7 +311,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
   });
 
   it("preserves the five remaining Control Bar mutations in the production composition", async () => {
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -341,7 +341,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
   });
 
   it("turns each usable drawer allocation into whole keyboard rows", async () => {
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -365,7 +365,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
   });
 
   it("ticks once when a pointer drag crosses a whole-row boundary", async () => {
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,
@@ -392,7 +392,7 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     mocks.instrumentStore.warmingInstrument = "gm_vibraphone";
     mocks.instrumentStore.warmupMessage = "Samples being downloaded...";
 
-    const wrapper = mount(DrawerKeyboard, {
+    const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
           PatternList: true,

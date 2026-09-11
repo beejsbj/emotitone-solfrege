@@ -32,8 +32,8 @@ vi.mock('@/components/TooltipRenderer.vue', () => ({
   default: { template: '<div data-testid="tooltip-renderer">Tooltip</div>' },
 }))
 
-vi.mock('@/components/DrawerKeyboard.vue', () => ({
-  default: { template: '<div data-testid="drawer-keyboard">Keyboard</div>' },
+vi.mock('@/components/PerformanceDeck.vue', () => ({
+  default: { template: '<div data-testid="performance-deck">Keyboard</div>' },
 }))
 
 vi.mock('@/composables/useAppLoading', () => ({
@@ -73,7 +73,7 @@ describe('First-Time User Experience', () => {
 
     expect(wrapper.find('[data-testid="loading-splash"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(false)
   })
 
   it('shows the current interactive shell once loading is complete', () => {
@@ -84,7 +84,7 @@ describe('First-Time User Experience', () => {
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(true)
   })
 
   it('keeps the tooltip renderer available in both loading states', () => {

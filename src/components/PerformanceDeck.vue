@@ -116,7 +116,7 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { displayInstrumentName } from "@/data/instruments";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
-// Store
+// Production wiring
 const store = useKeyboardDrawerStore();
 const instrumentStore = useInstrumentStore();
 const musicStore = useMusicStore();

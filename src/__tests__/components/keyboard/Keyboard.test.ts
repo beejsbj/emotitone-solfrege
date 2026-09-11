@@ -2,7 +2,7 @@ import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Keyboard from "@/components/compounds/Keyboard.vue";
-import drawerKeyboardSource from "@/components/DrawerKeyboard.vue?raw";
+import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import keyboardSource from "@/components/compounds/Keyboard.vue?raw";
 
 const mocks = vi.hoisted(() => {
@@ -731,14 +731,14 @@ describe("Keyboard production usage", () => {
     expect(mocks.keyboardStore.clearAllTouches).toHaveBeenCalledOnce();
   });
 
-  it("keeps DrawerKeyboard thin and leaves removed legacy Key APIs behind", () => {
-    expect(drawerKeyboardSource).toContain(
+  it("keeps PerformanceDeck thin and leaves removed legacy Key APIs behind", () => {
+    expect(performanceDeckSource).toContain(
       'import Keyboard from "@/components/compounds/Keyboard.vue"',
     );
-    expect(drawerKeyboardSource).toContain("<Keyboard");
-    expect(drawerKeyboardSource).not.toContain("KeyboardKey");
-    expect(drawerKeyboardSource).not.toContain("ProductionKeyboard");
-    expect(drawerKeyboardSource).not.toContain("useKeyboardControls");
+    expect(performanceDeckSource).toContain("<Keyboard");
+    expect(performanceDeckSource).not.toContain("KeyboardKey");
+    expect(performanceDeckSource).not.toContain("ProductionKeyboard");
+    expect(performanceDeckSource).not.toContain("useKeyboardControls");
 
     expect(keyboardSource).toContain("useKeyboardControls");
     expect(keyboardSource).toContain('props.usage === "production"');

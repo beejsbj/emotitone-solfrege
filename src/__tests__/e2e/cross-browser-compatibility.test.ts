@@ -34,8 +34,8 @@ vi.mock('@/components/TooltipRenderer.vue', () => ({
   default: { template: '<div data-testid="tooltip-renderer">Tooltip</div>' },
 }))
 
-vi.mock('@/components/DrawerKeyboard.vue', () => ({
-  default: { template: '<div data-testid="drawer-keyboard">Keyboard</div>' },
+vi.mock('@/components/PerformanceDeck.vue', () => ({
+  default: { template: '<div data-testid="performance-deck">Keyboard</div>' },
 }))
 
 vi.mock('@/composables/useAppLoading', () => ({
@@ -83,7 +83,7 @@ describe('Cross-Browser Compatibility', () => {
       Object.defineProperty(window, 'innerHeight', { value: viewport.height, writable: true })
       expect(() => window.dispatchEvent(new Event('resize'))).not.toThrow()
       expect(wrapper.find('#app').exists()).toBe(true)
-      expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(true)
     }
   })
 

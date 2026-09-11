@@ -52,8 +52,8 @@ vi.mock('@/components/TooltipRenderer.vue', () => ({
   },
 }))
 
-vi.mock('@/components/DrawerKeyboard.vue', () => ({
-  default: { template: '<div data-testid="drawer-keyboard">Keyboard</div>' },
+vi.mock('@/components/PerformanceDeck.vue', () => ({
+  default: { template: '<div data-testid="performance-deck">Keyboard</div>' },
 }))
 
 vi.mock('@/composables/useAppLoading', () => ({
@@ -91,7 +91,7 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
     expect(wrapper.find('.relative.z-50.min-h-screen.flex.flex-col').exists()).toBe(true)
     expect(useMidiControls).toHaveBeenCalledTimes(1)
@@ -107,7 +107,7 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
   })
 

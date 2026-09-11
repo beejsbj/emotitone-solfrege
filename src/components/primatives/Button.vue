@@ -1,5 +1,6 @@
 <template>
   <button
+    ref="buttonRef"
     :type="type"
     class="paper-button"
     :class="[
@@ -20,6 +21,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 export type ButtonSize = "sm" | "md" | "lg";
@@ -33,6 +36,7 @@ const props = withDefaults(
     brassFinish?: ButtonBrassFinish;
     loading?: boolean;
     disabled?: boolean;
+    uiBeat?: boolean;
     haptic?: boolean;
     type?: "button" | "submit" | "reset";
     accessibleName: string;
@@ -44,6 +48,7 @@ const props = withDefaults(
     brassFinish: "sheen-glow",
     loading: false,
     disabled: false,
+    uiBeat: false,
     haptic: false,
     type: "button",
     title: undefined,
@@ -51,6 +56,13 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
+const buttonRef = ref<HTMLButtonElement>();
+
+useUIBeatScale(
+  buttonRef,
+  () => props.uiBeat && !props.disabled && !props.loading,
+  { restScale: 0.8, peakScale: 1.1 },
+);
 
 function handleClick(event: MouseEvent) {
   if (props.haptic) triggerUIHaptic();

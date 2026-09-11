@@ -85,6 +85,20 @@ describe("UIBeatClock", () => {
     expect(element.style.getPropertyPriority("scale")).toBe("important");
   });
 
+  it("rejects a second individual-scale owner on the same element", () => {
+    const clock = createClock();
+    const element = document.createElement("div");
+    const dispose = bindUIBeatScale(clock, element);
+
+    expect(() => bindUIBeatScale(clock, element)).toThrow(
+      "UIBeat scale already has an owner for this element",
+    );
+
+    dispose();
+    const rebound = bindUIBeatScale(clock, element);
+    rebound();
+  });
+
   it("maps generated Strudel scheduler cycles without calling a raw cycle a bar", () => {
     expect(generatedStrudelBarPosition(0.5, 120, 4, 0.5)).toBe(0.5);
     expect(generatedStrudelBarPosition(0.5, 90, 4, 0.5)).toBe(0.375);

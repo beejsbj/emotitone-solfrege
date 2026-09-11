@@ -48,6 +48,11 @@ export interface UIBeatScaleOptions {
   downbeatPeakScale?: number;
 }
 
+export interface UIBeatProvider {
+  clock: UIBeatClock;
+  presentationEnabled: () => boolean;
+}
+
 interface UIBeatSubscriber {
   listener: UIBeatListener;
   visible: boolean;
@@ -119,6 +124,8 @@ export function uiBeatScaleSwell(beatPhase: number): number {
 const validScale = (value: number | undefined, fallback: number) =>
   Number.isFinite(value) && Number(value) > 0 ? Number(value) : fallback;
 
+const scaleBindings = new WeakSet<HTMLElement>();
+
 /**
  * Binds UIBeat's shared swell directly to any real DOM element. The CSS
  * individual `scale` property composes with component-owned `transform`
@@ -129,6 +136,11 @@ export function bindUIBeatScale(
   element: HTMLElement,
   options: UIBeatScaleOptions = {},
 ): () => void {
+  if (scaleBindings.has(element)) {
+    throw new Error("UIBeat scale already has an owner for this element");
+  }
+  scaleBindings.add(element);
+
   const restScale = validScale(options.restScale, 0.8);
   const peakScale = validScale(options.peakScale, 1.1);
   const downbeatPeakScale = validScale(
@@ -159,8 +171,13 @@ export function bindUIBeatScale(
     element.style.setProperty("scale", scale.toFixed(3));
   }, element);
 
+  let disposed = false;
+
   return () => {
+    if (disposed) return;
+    disposed = true;
     unsubscribe();
+    scaleBindings.delete(element);
 
     if (previousScale) {
       element.style.setProperty(
@@ -408,14 +425,18 @@ export class UIBeatClock {
 
 export const uiBeatClock = new UIBeatClock();
 
-const UI_BEAT_CLOCK: InjectionKey<UIBeatClock> = Symbol("UIBeatClock");
+const UI_BEAT_PROVIDER: InjectionKey<UIBeatProvider> = Symbol("UIBeatProvider");
+const DEFAULT_UI_BEAT_PROVIDER: UIBeatProvider = {
+  clock: uiBeatClock,
+  presentationEnabled: () => true,
+};
 
-export function provideUIBeatClock(clock: UIBeatClock): void {
-  provide(UI_BEAT_CLOCK, clock);
+export function provideUIBeat(provider: UIBeatProvider): void {
+  provide(UI_BEAT_PROVIDER, provider);
 }
 
-export function useUIBeatClock(): UIBeatClock {
-  return inject(UI_BEAT_CLOCK, uiBeatClock);
+export function useUIBeat(): UIBeatProvider {
+  return inject(UI_BEAT_PROVIDER, DEFAULT_UI_BEAT_PROVIDER);
 }
 
 /**
@@ -426,23 +447,24 @@ export function useUIBeatScale(
   element: Ref<HTMLElement | null | undefined>,
   enabled: () => boolean,
   options: UIBeatScaleOptions = {},
-  clock: UIBeatClock = useUIBeatClock(),
 ): void {
+  const provider = useUIBeat();
+  const presentationEnabled = () => enabled() && provider.presentationEnabled();
   let dispose: (() => void) | undefined;
 
   const syncBinding = (
     target = element.value,
-    shouldBind = enabled(),
+    shouldBind = presentationEnabled(),
   ) => {
     dispose?.();
     dispose = undefined;
     if (target && shouldBind) {
-      dispose = bindUIBeatScale(clock, target, options);
+      dispose = bindUIBeatScale(provider.clock, target, options);
     }
   };
 
   watch(
-    [element, enabled],
+    [element, presentationEnabled],
     ([target, shouldBind]) => syncBinding(target, shouldBind),
     { flush: "post" },
   );

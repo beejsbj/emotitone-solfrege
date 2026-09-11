@@ -4,14 +4,6 @@ import ControlBar from "@/components/compounds/ControlBar.vue";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 
-vi.mock("pinia", async (importOriginal) => ({
-  ...await importOriginal<typeof import("pinia")>(),
-  storeToRefs: (store: { config: unknown; visualsEnabled: boolean }) => ({
-    config: { value: store.config },
-    visualsEnabled: { value: store.visualsEnabled },
-  }),
-}));
-
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
   default: {
     name: "Knob",
@@ -19,13 +11,6 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
     emits: ["update:modelValue"],
     template: '<div data-testid="knob" :data-label="label" />',
   },
-}));
-
-vi.mock("@/stores/visualConfig", () => ({
-  useVisualConfigStore: () => ({
-    config: { uiBeat: { isEnabled: true } },
-    visualsEnabled: true,
-  }),
 }));
 
 vi.mock("@/components/uniques/Joystick/index.vue", () => ({

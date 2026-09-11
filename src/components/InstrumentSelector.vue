@@ -680,6 +680,7 @@ async function selectInstrument(name: string, close: () => void) {
                     class="instrument-choice__sticker"
                     :variant="soundStickerVariant(sound)"
                     color="ivory"
+                    :ui-beat="getSoundState(sound) === 'selected'"
                   >
                     <component
                       :is="instrumentIconFor(sound)"

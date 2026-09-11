@@ -33,7 +33,7 @@ import {
 } from "vue";
 import {
   uiBeatScaleSwell,
-  useUIBeatClock,
+  useUIBeat,
   type UIBeatSnapshot,
 } from "@/composables/useUIBeat";
 import Mark from "@/components/primatives/Mark.vue";
@@ -65,7 +65,8 @@ const props = withDefaults(
 const beatCount = computed(() => Math.max(1, Math.floor(props.beats)));
 const usableMarks = computed<MarkName[]>(() => props.marks.length ? props.marks : ["disk"]);
 const rootRef = ref<HTMLElement | null>(null);
-const clock = useUIBeatClock();
+const { clock, presentationEnabled } = useUIBeat();
+const consumerEnabled = () => props.enabled && presentationEnabled();
 let beatElements: HTMLElement[] = [];
 let unsubscribe: (() => void) | undefined;
 
@@ -90,7 +91,7 @@ function applyRestState() {
 
 function applyFrame(snapshot: UIBeatSnapshot) {
   if (
-    !props.enabled ||
+    !consumerEnabled() ||
     props.static ||
     !snapshot.presenting ||
     snapshot.beatIndex === null
@@ -129,7 +130,7 @@ function syncSubscription() {
   unsubscribe?.();
   unsubscribe = undefined;
 
-  if (!props.enabled || props.static || !rootRef.value) {
+  if (!consumerEnabled() || props.static || !rootRef.value) {
     applyRestState();
     return;
   }
@@ -148,7 +149,7 @@ watch(beatCount, async () => {
 });
 
 watch(
-  [() => props.enabled, () => props.static],
+  [consumerEnabled, () => props.static],
   syncSubscription,
   { flush: "post" },
 );

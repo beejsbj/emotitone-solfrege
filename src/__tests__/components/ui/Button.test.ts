@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { defineComponent, h, nextTick, ref } from "vue";
 import Button from "@/components/primatives/Button.vue";
 import buttonSource from "@/components/primatives/Button.vue?raw";
 import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
+import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 
 const { triggerUIHaptic } = vi.hoisted(() => ({ triggerUIHaptic: vi.fn() }));
 
@@ -68,6 +70,49 @@ describe("Button", () => {
     await wrapper.trigger("click");
     expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
     expect(wrapper.emitted("click")).toHaveLength(1);
+  });
+
+  it("opts its real native face into the shared, provider-gated UIBeat scale", async () => {
+    const presentationEnabled = ref(false);
+    const clock = new UIBeatClock({
+      observeEnvironment: false,
+      reducedMotion: () => false,
+      documentVisible: () => true,
+    });
+    const Host = defineComponent({
+      setup() {
+        provideUIBeat({
+          clock,
+          presentationEnabled: () => presentationEnabled.value,
+        });
+        return () => h(Button, {
+          uiBeat: true,
+          accessibleName: "Stop",
+        });
+      },
+    });
+    const wrapper = mount(Host);
+
+    expect(wrapper.get("button").attributes("data-ui-beat-scale")).toBeUndefined();
+
+    presentationEnabled.value = true;
+    await nextTick();
+    const generation = clock.arm({
+      mappingAvailable: true,
+      bpm: 120,
+      meter: { beatsPerBar: 4, beatUnit: 4 },
+    });
+    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+
+    expect(wrapper.get("button").attributes("data-ui-beat-state")).toBe("running");
+    expect(wrapper.get("button").attributes("style")).toContain("scale: 1.100");
+
+    presentationEnabled.value = false;
+    await nextTick();
+    expect(wrapper.get("button").attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(wrapper.get("button").attributes("style") ?? "").not.toContain("scale");
+    wrapper.unmount();
+    clock.destroy();
   });
 
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {

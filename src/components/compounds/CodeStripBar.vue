@@ -7,6 +7,7 @@
         :tone="isPlaying ? 'ink' : 'ivory'"
         :haptic="haptic"
         :disabled="playDisabled"
+        :ui-beat="isPlaying"
         :accessible-name="isPlaying ? 'Stop' : 'Play'"
         :title="isPlaying ? 'Stop' : 'Play'"
         @click="emit('togglePlayback')"
@@ -18,7 +19,6 @@
         class="code-strip-bar__beat"
         size="sm"
         :marks="['disk', 'eighth', 'wave', 'star']"
-        :enabled="uiBeatEnabled"
         aria-label="Pattern beat"
       />
     </div>
@@ -72,9 +72,6 @@ import {
 import Button from "@/components/primatives/Button.vue";
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
-import { computed } from "vue";
-import { storeToRefs } from "pinia";
-import { useVisualConfigStore } from "@/stores/visualConfig";
 import type {
   CodeStripDensity,
   CodeStripDurationMode,
@@ -112,11 +109,6 @@ const emit = defineEmits<{
   return: [];
 }>();
 
-const visualConfigStore = useVisualConfigStore();
-const { config, visualsEnabled } = storeToRefs(visualConfigStore);
-const uiBeatEnabled = computed(
-  () => visualsEnabled.value && config.value.uiBeat.isEnabled,
-);
 </script>
 
 <style scoped>

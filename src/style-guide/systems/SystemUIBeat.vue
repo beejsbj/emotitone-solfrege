@@ -4,8 +4,9 @@
       <div class="label">UIBeat · System Protocol</div>
       <p class="caption ui-beat-system__intro">
         One injected clock drives real UI: the Beat Indicator Marks, both whole
-        BPM faces, and the Play control below. The same general scale binding can
-        opt in any DOM element without replacing its own transform gestures.
+        BPM faces, the transport Button, and the current-instrument Sticker. The
+        same general scale binding can opt in any DOM element without replacing
+        its own transform gestures.
       </p>
 
       <div class="ui-beat-system__stage">
@@ -20,39 +21,50 @@
           <span>{{ running ? "Sounding-phase fixture" : "Idle rest state" }}</span>
         </div>
 
-        <div class="ui-beat-system__knobs" aria-label="BPM control editions">
-          <Knob
-            :model-value="bpm"
-            type="range"
-            label="BPM · Ring"
-            :min="40"
-            :max="220"
-            is-display
-            visual="ring"
-            ui-beat
-          />
-          <Knob
-            :model-value="bpm"
-            type="range"
-            label="BPM · Arc"
-            :min="40"
-            :max="220"
-            is-display
-            visual="arc"
-            ui-beat
-          />
+        <div class="ui-beat-system__consumers">
+          <div class="ui-beat-system__knobs" aria-label="BPM control editions">
+            <Knob
+              :model-value="bpm"
+              type="range"
+              label="BPM · Ring"
+              :min="40"
+              :max="220"
+              is-display
+              visual="ring"
+              ui-beat
+            />
+            <Knob
+              :model-value="bpm"
+              type="range"
+              label="BPM · Arc"
+              :min="40"
+              :max="220"
+              is-display
+              visual="arc"
+              ui-beat
+            />
+          </div>
+
+          <div class="ui-beat-system__primitives" aria-label="Primitive consumers">
+            <Button
+              size="sm"
+              :tone="running ? 'ink' : 'ivory'"
+              :ui-beat="running"
+              :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+              :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+              @click="toggle"
+            >
+              <Square v-if="running" />
+              <Play v-else />
+            </Button>
+            <Sticker variant="fill" color="ivory" mark="eighth" ui-beat>
+              Current Piano
+            </Sticker>
+          </div>
         </div>
       </div>
 
       <div class="ui-beat-system__controls">
-        <button
-          ref="boundControlRef"
-          type="button"
-          :aria-pressed="running"
-          @click="toggle"
-        >
-          {{ running ? "Pause" : "Play" }}
-        </button>
         <button
           v-for="tempo in tempos"
           :key="tempo"
@@ -86,12 +98,14 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { Play, Square } from "lucide-vue-next";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
+import Button from "@/components/primatives/Button.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
+import Sticker from "@/components/primatives/Sticker.vue";
 import {
-  provideUIBeatClock,
+  provideUIBeat,
   UIBeatClock,
-  useUIBeatScale,
   type UIBeatMeter,
 } from "@/composables/useUIBeat";
 
@@ -109,12 +123,7 @@ const bpm = ref<number>(120);
 const meter = ref<MeterFixture>(meters[0]);
 const running = ref(true);
 const clock = new UIBeatClock();
-provideUIBeatClock(clock);
-const boundControlRef = ref<HTMLButtonElement>();
-useUIBeatScale(boundControlRef, () => true, {
-  restScale: 0.8,
-  peakScale: 1.1,
-}, clock);
+provideUIBeat({ clock, presentationEnabled: () => true });
 
 let generation = 0;
 let frame: number | null = null;
@@ -215,10 +224,24 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
+.ui-beat-system__consumers {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
 .ui-beat-system__knobs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
+}
+
+.ui-beat-system__primitives {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
   min-width: 0;
 }
 

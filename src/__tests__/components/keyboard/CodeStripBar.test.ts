@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import Button from "@/components/primatives/Button.vue";
 import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
 import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
@@ -102,6 +103,7 @@ describe("CodeStripBar.vue", () => {
     expect(stop.attributes("aria-pressed")).toBeUndefined();
     expect(stop.classes()).toContain("paper-button--ink");
     expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
+    expect(wrapper.findAllComponents(Button)[0].props("uiBeat")).toBe(true);
   });
 
   it("emits the existing actions", async () => {

@@ -64,6 +64,7 @@ interface PlayingVoice {
 
 const TICK_MS = 20
 const LOOKAHEAD_MS = 50
+const CHORD_WINDOW_MS = 30
 const STRUM_MS = 35
 const GATE = 0.8
 
@@ -167,8 +168,9 @@ export function createPlayStyleEngine<T>(deps: {
 
   function batch() {
     if (batchTimer !== undefined) return
-    // Same-turn individual key presses form a chord before choosing the first
-    // arp note or the direction of a strum.
+    // Nearby individual key presses form a chord before choosing the first
+    // arp note or the direction of a strum. Keyboard and MIDI note-ons arrive
+    // in separate event-loop turns even when the player intends one chord.
     batchTimer = setTimeout(() => {
       batchTimer = undefined
       if (strumBatch.length) {
@@ -180,7 +182,7 @@ export function createPlayStyleEngine<T>(deps: {
         strumBatch = []
       }
       tick()
-    }, 0)
+    }, CHORD_WINDOW_MS)
   }
 
   function addOutput(owner: string, notes: readonly HeldNote<T>[]) {

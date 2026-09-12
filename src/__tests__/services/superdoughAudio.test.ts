@@ -118,6 +118,20 @@ describe("superdoughAudio live note handling", () => {
     expect(hoisted.mockStopVoice).not.toHaveBeenCalled();
   });
 
+  it("moves an immediate explicit attack just ahead of the audio clock", async () => {
+    const audio = await import("@/services/superdoughAudio");
+
+    await expect(
+      audio.attackNote("pulse-1", "C4", "synth", { atTime: 12, release: 0.03 }),
+    ).resolves.toBe(12.01);
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "pulse-1" }),
+      12.01,
+      0.25,
+      1,
+    );
+  });
+
   it("attacks a live note as a held voice with voice ownership", async () => {
     const audio = await import("@/services/superdoughAudio");
 

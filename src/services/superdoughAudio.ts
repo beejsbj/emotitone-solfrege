@@ -571,7 +571,10 @@ export async function attackNote(
     stopVoice(noteId, ac.currentTime);
   }
 
-  const requestedAt = options?.atTime ?? nowPlusOffset();
+  // Even an explicit "now" timestamp is stale by the time superdough sees it,
+  // and superdough drops past deadlines. Keep every attack just far enough
+  // ahead of the audio clock to be schedulable.
+  const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset());
   await superdough(
     {
       s: sound,

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
 import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
+import type { ActiveNote } from "@/types/music";
 
 const mocks = vi.hoisted(() => {
   const blobConfig = {
@@ -30,6 +31,8 @@ const mocks = vi.hoisted(() => {
     expireHarmonicNote: vi.fn(),
     resetHarmonicAnalysis: vi.fn(),
     activeBlobs: new Map<string, { baseRadius: number }>(),
+    liveStageNotes: [] as ActiveNote[],
+    stageActiveNotesProvider: null as null | (() => readonly ActiveNote[]),
     createBlob: vi.fn(),
     startBlobFadeOut: vi.fn(),
     startBlobFadeOutById: vi.fn(),
@@ -48,6 +51,10 @@ vi.mock("@/stores/music", () => ({
   useMusicStore: () => mocks.musicStore,
 }));
 
+vi.mock("@/services/hummingStage", () => ({
+  getActiveLivePitchStageNotes: () => mocks.liveStageNotes,
+}));
+
 vi.mock("@/composables/useVisualConfig", () => ({
   useVisualConfig: () => ({
     blobConfig: mocks.blobConfig,
@@ -60,26 +67,29 @@ vi.mock("@/composables/useVisualConfig", () => ({
 }));
 
 vi.mock("@/composables/useHarmonicAnalysis", () => ({
-  useHarmonicAnalysis: () => ({
-    snapshot: {
-      value: {
-        isVisible: true,
-        displayedNotes: [
-          { noteId: "c4", noteName: "C4" },
-          { noteId: "e4", noteName: "E4" },
-        ],
-        intervalEdges: [
-          { fromNoteId: "c4", toNoteId: "e4", interval: "3M" },
-        ],
-        chordLabel: "C major",
-        emotionalDescription: "Grounded & radiant",
+  useHarmonicAnalysis: (getActiveNotes: () => readonly ActiveNote[]) => {
+    mocks.stageActiveNotesProvider = getActiveNotes;
+    return {
+      snapshot: {
+        value: {
+          isVisible: true,
+          displayedNotes: [
+            { noteId: "c4", noteName: "C4" },
+            { noteId: "e4", noteName: "E4" },
+          ],
+          intervalEdges: [
+            { fromNoteId: "c4", toNoteId: "e4", interval: "3M" },
+          ],
+          chordLabel: "C major",
+          emotionalDescription: "Grounded & radiant",
+        },
       },
-    },
-    notePlayed: mocks.recordHarmonicNote,
-    noteReleased: mocks.releaseHarmonicNote,
-    noteExpired: mocks.expireHarmonicNote,
-    reset: mocks.resetHarmonicAnalysis,
-  }),
+      notePlayed: mocks.recordHarmonicNote,
+      noteReleased: mocks.releaseHarmonicNote,
+      noteExpired: mocks.expireHarmonicNote,
+      reset: mocks.resetHarmonicAnalysis,
+    };
+  },
 }));
 
 vi.mock("@/composables/useAnimationLifecycle", () => ({
@@ -193,6 +203,8 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.isEnabled = true;
     mocks.blobConfig.value.connectionMode = "web";
     mocks.activeBlobs.clear();
+    mocks.liveStageNotes.length = 0;
+    mocks.stageActiveNotesProvider = null;
     mocks.createBlob.mockImplementation((...args: unknown[]) => {
       const config = args[6] as { isEnabled: boolean };
       const noteId = args[7] as string | undefined;
@@ -305,6 +317,49 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       window.innerHeight,
       mocks.blobConfig.value,
       "held-c-sharp-4",
+      "C",
+      "major",
+      4,
+      "C#4",
+    );
+    expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
+    expect(mocks.createParticles).not.toHaveBeenCalled();
+  });
+
+  it("rehydrates an unchanged live pitch that is absent from the music store", () => {
+    mocks.liveStageNotes.push({
+      noteId: "live-pitch-1-1",
+      noteName: "C#4",
+      solfege: note,
+      solfegeIndex: -1,
+      pitchClassIndex: 1,
+      frequency: 277.18,
+      octave: 4,
+      keyboardOctave: 4,
+      mode: "major",
+      key: "C",
+    });
+    expect(mocks.stageActiveNotesProvider).toBeNull();
+    mocks.blobConfig.value.isEnabled = false;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    expect(mocks.stageActiveNotesProvider?.()).toEqual(mocks.liveStageNotes);
+    canvas.initializeCanvas();
+    expect(mocks.createBlob).not.toHaveBeenCalled();
+
+    mocks.blobConfig.value.isEnabled = true;
+    mocks.animationOptions?.onFrame(1_000, 1);
+    mocks.animationOptions?.onFrame(1_016, 1.016);
+
+    expect(mocks.createBlob).toHaveBeenCalledOnce();
+    expect(mocks.createBlob).toHaveBeenCalledWith(
+      note,
+      277.18,
+      0,
+      0,
+      window.innerWidth,
+      window.innerHeight,
+      mocks.blobConfig.value,
+      "live-pitch-1-1",
       "C",
       "major",
       4,

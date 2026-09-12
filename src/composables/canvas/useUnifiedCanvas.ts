@@ -3,7 +3,12 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
-import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  MusicalMode,
+  SolfegeData,
+} from "@/types/music";
 import { useBlobRenderer } from "./useBlobRenderer";
 import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
@@ -13,6 +18,7 @@ import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 import { createStageAudioFeatures } from "@/services/stageAudio";
+import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
 import {
   fullStageRect,
   resolveStageComposition,
@@ -35,6 +41,15 @@ export function useUnifiedCanvas(
   runtime?: StageRuntimeInputs,
 ) {
   const musicStore = useMusicStore();
+  const getStageActiveNotes = (): readonly ActiveNote[] => {
+    const activeNotes = new Map(
+      musicStore.getActiveNotes().map((note) => [note.noteId, note]),
+    );
+    getActiveLivePitchStageNotes().forEach((note) => {
+      activeNotes.set(note.noteId, note);
+    });
+    return Array.from(activeNotes.values());
+  };
   const {
     blobConfig,
     ambientConfig,
@@ -49,7 +64,7 @@ export function useUnifiedCanvas(
     noteReleased: releaseHarmonicNote,
     noteExpired: expireHarmonicNote,
     reset: resetHarmonicAnalysis,
-  } = useHarmonicAnalysis(() => musicStore.getActiveNotes());
+  } = useHarmonicAnalysis(getStageActiveNotes);
 
   // Canvas state (merged from useCanvasCore)
   const canvasWidth = ref(window.innerWidth);
@@ -167,14 +182,14 @@ export function useUnifiedCanvas(
   };
 
   /**
-   * Reconcile store-backed sounding notes with renderer-owned Blob anchors.
-   * This restores notes that began while Stage or Note Bodies was disabled
-   * without replaying their audio, harmonic analysis, timers, or flecks.
+   * Reconcile sounding store and live-input notes with renderer-owned Blob
+   * anchors. This restores notes that began while Stage or Note Bodies was
+   * disabled without replaying their audio, timers, or flecks.
    */
   const hydrateMissingBlobAnchors = () => {
     if (!blobConfig.value.isEnabled) return;
 
-    musicStore.getActiveNotes().forEach((activeNote) => {
+    getStageActiveNotes().forEach((activeNote) => {
       if (blobRenderer.activeBlobs.has(activeNote.noteId)) return;
 
       blobRenderer.createBlob(
@@ -490,9 +505,7 @@ export function useUnifiedCanvas(
     );
 
     const activeNote = noteId
-      ? musicStore
-          .getActiveNotes()
-          .find((candidate) => candidate.noteId === noteId)
+      ? getStageActiveNotes().find((candidate) => candidate.noteId === noteId)
       : null;
     const resolvedNoteName = noteName;
     const resolvedOctave = octave;

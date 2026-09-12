@@ -2,7 +2,11 @@ import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { LIVE_PITCH_SOURCE } from "@/services/livePitch";
 import { findScaleIndexForPitchClass } from "@/services/scalePitch";
 import type { LivePitchFrame } from "@/services/livePitch";
-import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  MusicalMode,
+} from "@/types/music";
 
 export interface HummingStageContext {
   key: ChromaticNote;
@@ -16,6 +20,11 @@ interface StablePitchCallbacks {
 }
 
 let livePitchSessionCounter = 0;
+const activeLivePitchStageNotes = new Map<string, ActiveNote>();
+
+export function getActiveLivePitchStageNotes(): readonly ActiveNote[] {
+  return Array.from(activeLivePitchStageNotes.values());
+}
 
 /**
  * Converts noisy provisional frames into a monophonic note lifecycle. A new
@@ -87,15 +96,7 @@ export function createLivePitchStageBridge(
 ) {
   let currentContext = { ...context };
   const sessionId = ++livePitchSessionCounter;
-  let active: {
-    noteId: string;
-    noteName: string;
-    note: SolfegeData;
-    frequency: number;
-    octave: number;
-    solfegeIndex: number;
-    pitchClassIndex: number;
-  } | null = null;
+  let active: ActiveNote | null = null;
   let noteCounter = 0;
 
   const gate = new StablePitchGate({
@@ -119,18 +120,21 @@ export function createLivePitchStageBridge(
       active = {
         noteId: `live-pitch-${sessionId}-${++noteCounter}`,
         noteName,
-        note,
+        solfege: note,
         frequency: frame.frequencyHz,
         octave,
+        keyboardOctave: octave,
         solfegeIndex,
         pitchClassIndex,
+        key: currentContext.key,
+        mode: currentContext.mode,
       };
+      activeLivePitchStageNotes.set(active.noteId, active);
 
       target.dispatchEvent(new CustomEvent("note-played", {
         detail: {
           ...active,
-          key: currentContext.key,
-          mode: currentContext.mode,
+          note: active.solfege,
           instrument: currentContext.instrument,
           instrumentConfig: null,
           source: LIVE_PITCH_SOURCE,
@@ -144,9 +148,7 @@ export function createLivePitchStageBridge(
       target.dispatchEvent(new CustomEvent("note-released", {
         detail: {
           ...active,
-          note: active.note.name,
-          key: currentContext.key,
-          mode: currentContext.mode,
+          note: active.solfege.name,
           instrument: currentContext.instrument,
           instrumentConfig: null,
           source: LIVE_PITCH_SOURCE,
@@ -154,6 +156,7 @@ export function createLivePitchStageBridge(
           mirrorMidi: false,
         },
       }));
+      activeLivePitchStageNotes.delete(active.noteId);
       active = null;
     },
   });

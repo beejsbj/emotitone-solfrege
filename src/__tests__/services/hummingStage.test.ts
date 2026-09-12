@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createHummingStageBridge } from "@/services/hummingStage";
+import {
+  createHummingStageBridge,
+  getActiveLivePitchStageNotes,
+} from "@/services/hummingStage";
 import type { LivePitchFrame } from "@/services/livePitch";
 
 function voiced(midi: number): LivePitchFrame {
@@ -42,6 +45,13 @@ describe("LivePitch humming Stage bridge", () => {
       record: false,
       mirrorMidi: false,
     }));
+    expect(getActiveLivePitchStageNotes()).toEqual([
+      expect.objectContaining({
+        noteId: attack.detail.noteId,
+        noteName: "A4",
+        pitchClassIndex: 9,
+      }),
+    ]);
 
     bridge.push(unvoiced);
     expect(dispatchEvent).toHaveBeenCalledTimes(1);
@@ -51,6 +61,7 @@ describe("LivePitch humming Stage bridge", () => {
     expect(release.type).toBe("note-released");
     expect(release.detail.noteId).toBe(attack.detail.noteId);
     expect(release.detail.note).toBe("La");
+    expect(getActiveLivePitchStageNotes()).toEqual([]);
   });
 
   it("releases the previous note before a stable pitch change", () => {
@@ -125,6 +136,7 @@ describe("LivePitch humming Stage bridge", () => {
       instrument: "organ",
     }));
     expect(events[2]?.detail.noteId).not.toBe(events[0]?.detail.noteId);
+    bridge.stop();
   });
 
   it("names note ownership uniquely across listening sessions", () => {
@@ -146,5 +158,8 @@ describe("LivePitch humming Stage bridge", () => {
     expect((firstDispatch.mock.calls[0][0] as CustomEvent).detail.noteId).not.toBe(
       (secondDispatch.mock.calls[0][0] as CustomEvent).detail.noteId,
     );
+    first.stop();
+    second.stop();
+    expect(getActiveLivePitchStageNotes()).toEqual([]);
   });
 });

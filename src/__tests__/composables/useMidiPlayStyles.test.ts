@@ -168,7 +168,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     music.setPlayStyle("arp-up");
     await connect();
     [60, 64, 67].forEach((pitch) => packet(0x90, pitch));
-    await vi.advanceTimersByTimeAsync(230);
+    await vi.advanceTimersByTimeAsync(250);
     expect(notes()).toEqual([
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64],
     ]);
@@ -181,7 +181,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64], [0x90, 67], [0x80, 67],
     ]);
     expect(scheduledNotes().map(({ timestamp }) => timestamp))
-      .toEqual([30, 230, 280, 480, 530, 730]);
+      .toEqual([50, 250, 300, 500, 550, 750]);
     [60, 64, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
     expect(notes()).toHaveLength(6);
@@ -213,7 +213,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     await vi.advanceTimersByTimeAsync(0);
     expect(notes()).toEqual([]); // The original ROLI press suppresses its own echo.
     music.setPlayStyle("repeat");
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(320);
     packet(0x80, 60);
     await vi.advanceTimersByTimeAsync(1000);
     expect(notes()).toEqual([[0x90, 60], [0x80, 60], [0x90, 60], [0x80, 60]]);
@@ -236,14 +236,14 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     useMusicStore().setPlayStyle("arp-up");
     await connect();
     packet(0x90, 60);
-    await vi.advanceTimersByTimeAsync(240);
+    await vi.advanceTimersByTimeAsync(260);
     packet(0x80, 60);
     await vi.advanceTimersByTimeAsync(0);
 
     const scheduled = scheduledNotes()
       .map(({ message, timestamp }) => [message[0] & 0xf0, message[1], timestamp]);
-    expect(scheduled).toContainEqual([0x90, 60, 280]);
-    expect(scheduled.at(-1)).toEqual([0x80, 60, 280]);
+    expect(scheduled).toContainEqual([0x90, 60, 300]);
+    expect(scheduled.at(-1)).toEqual([0x80, 60, 300]);
     expect(notes()).toEqual([[0x90, 60], [0x80, 60]]);
   });
 
@@ -264,8 +264,8 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       .slice(-3);
     expect(replacementCalls).toEqual([
       [0x80, 60, 100],
-      [0x90, 60, 140],
-      [0x80, 60, 340],
+      [0x90, 60, 160],
+      [0x80, 60, 360],
     ]);
   });
 
@@ -277,7 +277,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     packet(0x90, 60);
     music.setPlayStyle("repeat");
     resolveAttack();
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(320);
     packet(0x80, 60);
     await vi.advanceTimersByTimeAsync(500);
     expect(notes()).toEqual([[0x90, 60], [0x80, 60], [0x90, 60], [0x80, 60]]);

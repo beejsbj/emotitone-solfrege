@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlayStyleEngine, type PlayStyle } from '@/services/playStyles'
 
-function setup(style: PlayStyle = 'together') {
+function setup(style: PlayStyle = 'together', schedulingLeadMs = 0) {
   let clockOffset = 0
   const calls: { pitch: number; at: number; style: PlayStyle; release: ReturnType<typeof vi.fn> }[] = []
   const engine = createPlayStyleEngine<number>({
     now: () => Date.now() + clockOffset,
+    schedulingLeadMs,
     start: (pitch, at, style) => {
       const release = vi.fn()
       calls.push({ pitch, at, style, release })
@@ -55,6 +56,26 @@ describe('live play styles', () => {
     expect(vi.getTimerCount()).toBe(0)
     engine.clear()
     expect(calls.every(call => call.release.mock.calls[0][0] === 100)).toBe(true)
+  })
+
+  it('applies scheduling lead to the whole strum instead of compressing its first interval', () => {
+    const { engine, calls } = setup('strum-up', 20)
+    engine.press('chord', notes(60, 64, 67))
+    vi.advanceTimersByTime(120)
+    expect(calls.map(call => call.at)).toEqual([50, 85, 120])
+    expect(calls.slice(1).map((call, index) => call.at - calls[index].at)).toEqual([35, 35])
+    engine.clear()
+  })
+
+  it('shifts overdue strum notes together instead of collapsing their spacing', () => {
+    const { engine, calls, jumpClock } = setup('strum-up')
+    engine.press('chord', notes(60, 64, 67, 72))
+    vi.advanceTimersByTime(30)
+    expect(calls.map(call => call.at)).toEqual([30, 65])
+    jumpClock(100)
+    vi.advanceTimersByTime(20)
+    expect(calls.map(call => call.at)).toEqual([30, 65, 150, 185])
+    engine.clear()
   })
 
   it('collects chord notes that arrive in separate input-event turns', () => {
@@ -170,6 +191,21 @@ describe('live play styles', () => {
     expect(calls).toHaveLength(1)
     vi.advanceTimersByTime(200)
     expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 30], [67, 1280]])
+    engine.clear()
+  })
+
+  it('drops rhythmic deadlines inside the production scheduling margin', () => {
+    const { engine, calls, jumpClock } = setup('arp-up', 20)
+    engine.press('chord', notes(60, 64, 67))
+    vi.advanceTimersByTime(30)
+    expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 50]])
+
+    jumpClock(245)
+    vi.advanceTimersByTime(240)
+    expect(calls.map(call => [call.pitch, call.at])).toEqual([
+      [60, 50],
+      [67, 550],
+    ])
     engine.clear()
   })
 

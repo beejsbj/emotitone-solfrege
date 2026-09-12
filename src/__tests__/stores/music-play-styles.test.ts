@@ -63,11 +63,11 @@ describe("live styles through music, recording, and Strudel", () => {
     const patterns = connectRecorder();
     music.setPlayStyle("arp-up");
     const owners = await Promise.all(["C4", "E4", "G4"].map((pitch) => music.attackExactPitch(pitch)));
-    await vi.advanceTimersByTimeAsync(740);
+    await vi.advanceTimersByTimeAsync(760);
     await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
 
     expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["C4", 30, 200], ["E4", 280, 200], ["G4", 530, 200],
+      ["C4", 50, 200], ["E4", 300, 200], ["G4", 550, 200],
     ]);
     expect(noteEvents("note-released").map((note) => note.noteId).sort())
       .toEqual(noteEvents("note-played").map((note) => note.noteId).sort());
@@ -83,10 +83,10 @@ describe("live styles through music, recording, and Strudel", () => {
     await vi.advanceTimersByTimeAsync(20);
     music.setPlayMode("repeat:16");
     expect([music.playStyle, music.playRate, music.playMode]).toEqual(["repeat", 16, "repeat:16"]);
-    await vi.advanceTimersByTimeAsync(270);
+    await vi.advanceTimersByTimeAsync(280);
     await music.releaseNote(owner!);
     expect(patterns.loggedNotes.map((note) => [note.pressTime - EPOCH, note.duration])).toEqual([
-      [0, 20], [50, 100], [175, 100],
+      [0, 20], [70, 100], [195, 100],
     ]);
     music.setPlayMode("strum-down");
     expect(music.playMode).toBe("strum-down");
@@ -103,7 +103,7 @@ describe("live styles through music, recording, and Strudel", () => {
     await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
     const notes = [...patterns.loggedNotes];
     expect(notes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["G4", 30, 270], ["E4", 65, 235], ["C4", 100, 200],
+      ["G4", 50, 250], ["E4", 85, 215], ["C4", 120, 180],
     ]);
     const code = logNotesToStrudel(notes);
     expect(code).toContain("~@0.0175");
@@ -115,7 +115,7 @@ describe("live styles through music, recording, and Strudel", () => {
     const music = useMusicStore();
     const owner = await music.attackNoteWithOctave(0, 4);
     music.setPlayStyle("repeat");
-    await vi.advanceTimersByTimeAsync(290);
+    await vi.advanceTimersByTimeAsync(310);
     expect(noteEvents("note-played").map((event) => event.noteName)).toEqual(["C4", "C4", "C4"]);
     await music.releaseNote(owner!);
     await vi.advanceTimersByTimeAsync(1000);
@@ -132,10 +132,10 @@ describe("live styles through music, recording, and Strudel", () => {
     useVisualConfigStore().updateConfig("codeStrip", { bpm: 60 });
     const owner = await music.attackExactPitch("F#4");
     music.setKey("G");
-    await vi.advanceTimersByTimeAsync(480);
+    await vi.advanceTimersByTimeAsync(500);
     await music.releaseNote(owner!);
     expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["F#4", 30, 200], ["F#4", 280, 200],
+      ["F#4", 50, 200], ["F#4", 300, 200],
     ]);
     expect(patterns.loggedNotes.every((note) => note.key === "C" && note.isBorrowed)).toBe(true);
   });
@@ -150,7 +150,7 @@ describe("live styles through music, recording, and Strudel", () => {
     resolve();
     const owner = await pendingOwner;
     expect(owner).toMatch(/^held_/);
-    await vi.advanceTimersByTimeAsync(270);
+    await vi.advanceTimersByTimeAsync(310);
     expect(noteEvents("note-played")).toHaveLength(2);
     await music.releaseNote(owner!);
     expect(music.activeNotes.size).toBe(0);

@@ -67,6 +67,9 @@ const LOOKAHEAD_MS = 50
 const CHORD_WINDOW_MS = 30
 const STRUM_MS = 35
 const GATE = 0.8
+// Keep the whole generated grid beyond superdough's 10 ms minimum deadline;
+// applying this once here preserves the intended intervals between its notes.
+export const PLAY_STYLE_SCHEDULING_LEAD_MS = 20
 
 /** Transform held inputs into timestamped output voices. All times are ms on
  * deps.now's monotonic audio clock; adapters schedule sound and recording alike.
@@ -74,6 +77,7 @@ const GATE = 0.8
 export function createPlayStyleEngine<T>(deps: {
   now(): number
   start(value: T, at: number, style: PlayStyle): PlayStyleVoice
+  schedulingLeadMs?: number
 }) {
   let config: PlayStyleConfig = { style: 'together', bpm: 120, rate: 8 }
   const held = new Map<string, readonly HeldNote<T>[]>()
@@ -84,6 +88,7 @@ export function createPlayStyleEngine<T>(deps: {
   let strumQueue: (OwnedNote<T> & { at: number })[] = []
   let nextAt: number | undefined
   let stepIndex = 0
+  const schedulingLeadMs = Math.max(0, deps.schedulingLeadMs ?? 0)
 
   const isRhythmic = () => config.style.startsWith('arp-') || config.style === 'repeat'
   const stepMs = () => 60_000 / config.bpm * 4 / config.rate
@@ -131,18 +136,25 @@ export function createPlayStyleEngine<T>(deps: {
     for (const item of playing) {
       if (item.releaseAt <= now) playing.delete(item)
     }
+    // A late callback shifts the remaining tail as one unit. Clamping each
+    // overdue note independently would turn a strum into a simultaneous chord.
+    if (strumQueue[0]?.at < now + schedulingLeadMs) {
+      const shift = now + schedulingLeadMs - strumQueue[0].at
+      strumQueue.forEach(note => { note.at += shift })
+    }
     while (strumQueue.length && strumQueue[0].at <= horizon) {
       const note = strumQueue.shift()!
-      if (held.has(note.owner)) start(note, new Set([note.owner]), Math.max(now, note.at))
+      if (held.has(note.owner)) start(note, new Set([note.owner]), note.at)
     }
     if (isRhythmic() && held.size) {
       const notes = pool()
       const interval = stepMs()
-      nextAt ??= now
+      nextAt ??= now + schedulingLeadMs
       // Keep the musical grid after a suspended/background timer, dropping
       // missed pulses instead of emitting them all on resume.
-      if (nextAt < now) {
-        const missed = Math.ceil((now - nextAt) / interval)
+      const earliestSafeAt = now + schedulingLeadMs
+      if (nextAt < earliestSafeAt) {
+        const missed = Math.ceil((earliestSafeAt - nextAt) / interval)
         nextAt += missed * interval
         stepIndex += missed
       }
@@ -177,7 +189,10 @@ export function createPlayStyleEngine<T>(deps: {
         const direction = config.style === 'strum-down' ? -1 : 1
         const now = deps.now()
         strumBatch.sort((a, b) => direction * (a.pitch - b.pitch))
-        strumQueue.push(...strumBatch.map((note, i) => ({ ...note, at: now + i * STRUM_MS })))
+        strumQueue.push(...strumBatch.map((note, i) => ({
+          ...note,
+          at: now + schedulingLeadMs + i * STRUM_MS,
+        })))
         strumQueue.sort((a, b) => a.at - b.at)
         strumBatch = []
       }
@@ -187,7 +202,7 @@ export function createPlayStyleEngine<T>(deps: {
 
   function addOutput(owner: string, notes: readonly HeldNote<T>[]) {
     if (config.style === 'together') {
-      const now = deps.now()
+      const now = deps.now() + schedulingLeadMs
       for (const note of notes) start(note, new Set([owner]), now)
     } else if (config.style.startsWith('strum-')) {
       strumBatch.push(...notes.map(note => ({ ...note, owner })))

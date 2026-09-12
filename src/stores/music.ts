@@ -12,7 +12,7 @@ import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
+import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import {
   createScheduledLiveVoice,
   SCHEDULED_LIVE_MIDI_EVENT,
@@ -118,6 +118,7 @@ export const useMusicStore = defineStore(
 
     const playEngine = createPlayStyleEngine<HeldPitch>({
       now,
+      schedulingLeadMs: PLAY_STYLE_SCHEDULING_LEAD_MS,
       start(held, at, style) {
         if (held.isCancelled() || instrumentStore.isInteractionLocked) {
           return { release() {} };

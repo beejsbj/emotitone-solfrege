@@ -65,12 +65,8 @@
           :status-message="hummingStatusMessage"
           :take-labels="hummingTakeLabels"
           :selected-take-index="selectedHummingTake"
-          :listening-status="liveListeningStatus"
-          :listening-error="liveListeningError"
-          :listening-status-message="liveListeningStatusMessage"
           haptic
           @toggle="toggleHummingCapture"
-          @toggle-listening="toggleLiveListeningInput"
           @cancel="cancelHummingCapture"
           @select-take="selectHummingTake"
         />
@@ -79,6 +75,7 @@
           :mode-value="modeValue"
           :bpm="bpm"
           :octave="octave"
+          :play-mode="playMode"
           :harmony-value="isProductionUsage ? harmonyLatched : harmonyValue"
           :change-signals="patternControlSignals"
           :haptic="isProductionUsage"
@@ -86,6 +83,7 @@
           @update:mode-value="updateMode"
           @update:bpm="updateBpm"
           @update:octave="updateOctave"
+          @update:play-mode="updatePlayMode"
           @update:harmony-value="updateHarmonyLatch"
           @harmony-effective="updateHarmonyEffective"
         />
@@ -162,7 +160,6 @@ import {
   useCodeStripStrudel,
 } from "@/composables/useCodeStripStrudel";
 import { useHummingCapture } from "@/composables/useHummingCapture";
-import { useLiveListening } from "@/composables/useLiveListening";
 import { displayInstrumentName } from "@/data/instruments";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -187,6 +184,7 @@ const props = withDefaults(defineProps<{
   modeValue?: MusicalMode;
   bpm?: number;
   octave?: number;
+  playMode?: string;
   rowCount?: number;
   keyboardRows?: KeyboardRowView[];
   harmonyValue?: HarmonyAlteration;
@@ -207,6 +205,7 @@ const props = withDefaults(defineProps<{
   modeValue: "major",
   bpm: 120,
   octave: 4,
+  playMode: "together",
   rowCount: 3,
   keyboardRows: () => [],
   harmonyValue: "auto",
@@ -221,6 +220,7 @@ const emit = defineEmits<{
   "update:modeValue": [value: MusicalMode];
   "update:bpm": [value: number];
   "update:octave": [value: number];
+  "update:playMode": [value: string];
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
   rowCountChange: [value: number];
@@ -246,7 +246,6 @@ const patternsStore = isProductionUsage ? usePatternsStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
-const liveListening = isProductionUsage ? useLiveListening() : undefined;
 
 const harmonyLatched = ref<HarmonyAlteration>(props.harmonyValue);
 const harmonyEffective = ref<HarmonyAlteration>(props.harmonyValue);
@@ -279,6 +278,7 @@ const keyValue = computed(() => (musicStore?.currentKey ?? props.keyValue) as Ch
 const modeValue = computed(() => musicStore?.currentMode ?? props.modeValue);
 const bpm = computed(() => visualConfigStore?.config.codeStrip.bpm ?? props.bpm);
 const octave = computed(() => store?.keyboardConfig.mainOctave ?? props.octave);
+const playMode = computed(() => musicStore?.playMode ?? props.playMode);
 const rowCount = computed(() =>
   store?.visibleOctaves?.length ?? store?.keyboardConfig.rowCount ?? props.rowCount
 );
@@ -294,11 +294,6 @@ const hummingError = computed(() => humming?.error.value ?? null);
 const hummingStatusMessage = computed(() => humming?.statusMessage.value ?? "");
 const hummingTakeLabels = computed(() => humming?.takeLabels.value ?? []);
 const selectedHummingTake = computed(() => humming?.selectedTakeIndex.value ?? 0);
-const liveListeningStatus = computed(() => liveListening?.status.value ?? "idle");
-const liveListeningError = computed(() => liveListening?.error.value ?? null);
-const liveListeningStatusMessage = computed(() =>
-  liveListening?.statusMessage.value ?? ""
-);
 const resolvedWarmupMessage = computed(() =>
   instrumentStore?.warmupMessage ?? props.warmupMessage
 );
@@ -331,9 +326,6 @@ async function toggleSketchPlayback() {
   if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
     await humming?.cancel();
   }
-  if (liveListeningStatus.value !== "idle") {
-    await liveListening?.stop();
-  }
   await playback.toggle();
 }
 
@@ -341,9 +333,6 @@ async function toggleHummingCapture() {
   if (!humming || !playback) return;
   if (isPlaying.value && hummingStatus.value !== "recording") {
     await playback.stop();
-  }
-  if (liveListeningStatus.value !== "idle" && hummingStatus.value !== "recording") {
-    await liveListening?.stop();
   }
   await humming.toggle();
 }
@@ -354,20 +343,6 @@ async function cancelHummingCapture() {
 
 function selectHummingTake(index: number) {
   humming?.selectTake(index);
-}
-
-async function toggleLiveListeningInput() {
-  if (!liveListening || !playback) return;
-  if (isPlaying.value && liveListeningStatus.value !== "listening") {
-    await playback.stop();
-  }
-  if (
-    liveListeningStatus.value !== "listening"
-    && ["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)
-  ) {
-    await humming?.cancel();
-  }
-  await liveListening.toggle();
 }
 
 function handleBackspace() {
@@ -402,6 +377,11 @@ function updateBpm(value: number) {
 function updateOctave(value: number) {
   if (store) store.setMainOctave(value);
   else emit("update:octave", value);
+}
+
+function updatePlayMode(value: string) {
+  if (musicStore) musicStore.setPlayMode(value);
+  else emit("update:playMode", value);
 }
 
 function updateHarmonyLatch(value: HarmonyAlteration) {

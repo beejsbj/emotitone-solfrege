@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed, readonly, watch } from "vue";
+import { ref, computed, readonly, watch, onScopeDispose } from "vue";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import { getModeDefinition } from "@/data";
 import type {
@@ -11,6 +11,12 @@ import type {
 import * as superdoughAudio from "@/services/superdoughAudio";
 import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
+import {
+  createScheduledLiveVoice,
+  SCHEDULED_LIVE_MIDI_EVENT,
+} from "@/services/scheduledLiveVoice";
 
 // Type for note input - either a chromatic note with octave or solfege index
 type NoteInput = string | { solfegeIndex: number; octave: number };
@@ -91,6 +97,218 @@ export const useMusicStore = defineStore(
     const activeNotes = ref<Map<string, ActiveNote>>(new Map());
     const isPlaying = ref<boolean>(false);
     const sequence = ref<string[]>([]);
+    const playStyle = ref<PlayStyle>("together");
+    const playRate = ref<PlayStyleRate>(8);
+    const playMode = computed(() => playModeValue(playStyle.value, playRate.value));
+    let settingPlayMode = false;
+    const visualConfigStore = useVisualConfigStore();
+
+    type HeldPitch = {
+      snapshot: Omit<ActiveNote, "noteId">;
+      instrument: string;
+      isCancelled: () => boolean;
+      firstAttack?: (cancelled: () => boolean) => Promise<string | null>;
+      initialVoice?: Promise<string | null>;
+    };
+    let heldCounter = 0;
+    let generatedCounter = 0;
+    const heldAliases = new Map<string, string>();
+    const heldOwners = new Set<string>();
+    const now = () => performance.now();
+
+    const playEngine = createPlayStyleEngine<HeldPitch>({
+      now,
+      schedulingLeadMs: PLAY_STYLE_SCHEDULING_LEAD_MS,
+      start(held, at, style) {
+        if (held.isCancelled() || instrumentStore.isInteractionLocked) {
+          return { release() {} };
+        }
+
+        // Preserve the original immediate attack and returned voice ID for
+        // ordinary playing. Subsequent mode changes keep the captured pitch.
+        if (style === "together" && held.firstAttack) {
+          const attack = held.firstAttack;
+          held.firstAttack = undefined;
+          let released = false;
+          let resolvedId: string | null = null;
+          const initialVoice = attack(() => released || held.isCancelled());
+          held.initialVoice = initialVoice;
+          void initialVoice.then((id) => {
+            resolvedId = id;
+            if (released && id) void releaseSoundingNote(id);
+          }).catch((error) => console.error("[Play Mode] Attack failed", error));
+          return {
+            release() {
+              released = true;
+              if (resolvedId) void releaseSoundingNote(resolvedId);
+            },
+          };
+        }
+
+        held.firstAttack = undefined;
+        const noteId = `style_${++generatedCounter}`;
+        const activeNote: ActiveNote = { ...held.snapshot, noteId };
+        const detail = {
+          ...activeNote,
+          note: activeNote.solfege,
+          isBorrowed: activeNote.solfegeIndex === -1,
+          instrument: held.instrument,
+          instrumentConfig: null,
+          source: "live-play-style",
+        };
+        return createScheduledLiveVoice({
+          noteId,
+          noteName: activeNote.noteName,
+          instrument: held.instrument,
+          at,
+          releaseSeconds: style === "together" || style.startsWith("strum") ? 1.5 : 0.03,
+          now,
+          onScheduleStart(timestamp) {
+            window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
+              detail: { ...detail, phase: "attack", timestamp },
+            }));
+          },
+          onScheduleEnd(timestamp) {
+            window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
+              detail: { ...detail, phase: "release", timestamp },
+            }));
+          },
+          onStart(timestamp) {
+            activeNotes.value.set(noteId, activeNote);
+            currentNote.value = activeNote.solfege.name;
+            isPlaying.value = true;
+            window.dispatchEvent(new CustomEvent("note-played", {
+              detail: { ...detail, mirrorMidi: false, timestamp },
+            }));
+          },
+          onEnd(timestamp) {
+            window.dispatchEvent(new CustomEvent("note-released", {
+              detail: {
+                ...detail,
+                note: activeNote.solfege.name,
+                mirrorMidi: false,
+                timestamp,
+              },
+            }));
+            activeNotes.value.delete(noteId);
+            currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;
+            isPlaying.value = activeNotes.value.size > 0;
+          },
+          onError(error) { console.error("[Play Mode] Attack failed", error); },
+        });
+      },
+    });
+
+    function clearLiveInputs() {
+      playEngine.clear();
+      heldAliases.clear();
+      heldOwners.clear();
+    }
+
+    function setPlayStyle(value: string) {
+      if (PLAY_STYLE_OPTIONS.some((option) => option.value === value)) playStyle.value = value as PlayStyle;
+    }
+
+    function setPlayRate(value: number) {
+      if (value === 4 || value === 8 || value === 16) playRate.value = value;
+    }
+
+    function setPlayMode(value: string) {
+      const option = PLAY_MODE_OPTIONS.find((candidate) => candidate.value === value);
+      if (!option) return;
+      // Apply the selected style and rate in one engine update, avoiding an
+      // intermediate attack at the old rate when a held chord changes modes.
+      settingPlayMode = true;
+      playStyle.value = option.style;
+      if (option.rate !== undefined) playRate.value = option.rate;
+      settingPlayMode = false;
+      playEngine.configure({ style: playStyle.value, rate: playRate.value, bpm: visualConfigStore.config.codeStrip.bpm });
+    }
+
+    watch([playStyle, playRate, () => visualConfigStore.config.codeStrip.bpm], ([style, rate, bpm]) => {
+      if (settingPlayMode) return;
+      playEngine.configure({ style, rate, bpm });
+    }, { immediate: true, flush: "sync" });
+    watch(() => instrumentStore.selectionEpoch, clearLiveInputs, { flush: "sync" });
+    watch(() => instrumentStore.isInteractionLocked, (locked) => {
+      if (locked) clearLiveInputs();
+    }, { flush: "sync" });
+    const onHidden = () => { if (document.hidden) clearLiveInputs(); };
+    window.addEventListener("blur", clearLiveInputs);
+    document.addEventListener("visibilitychange", onHidden);
+    onScopeDispose(() => {
+      clearLiveInputs();
+      window.removeEventListener("blur", clearLiveInputs);
+      document.removeEventListener("visibilitychange", onHidden);
+    });
+
+    async function holdPitch(
+      noteName: string,
+      firstAttack: HeldPitch["firstAttack"],
+      isCancelled: () => boolean,
+    ): Promise<string | null> {
+      if (instrumentStore.isInteractionLocked || isCancelled()) return null;
+      const parsed = parseNoteWithOctave(noteName);
+      if (!parsed) return null;
+      const exactName = `${parsed.noteName}${parsed.octave}`;
+      const tonal = TonalNote.get(exactName);
+      if (tonal.midi == null || !tonal.freq) return null;
+      const solfegeIndex = currentScaleNotes.value.indexOf(parsed.noteName);
+      const solfege = solfegeIndex === -1 ? borrowedPitchSolfege(parsed.noteName) : solfegeData.value[solfegeIndex];
+      if (!solfege) return null;
+      const owner = `held_${++heldCounter}`;
+      const held: HeldPitch = {
+        snapshot: {
+          noteName: exactName,
+          frequency: tonal.freq,
+          octave: parsed.octave,
+          keyboardOctave: solfegeIndex === -1 ? parsed.octave : getBaseOctave(parsed.noteName, parsed.octave),
+          solfegeIndex,
+          pitchClassIndex: CHROMATIC_NOTES.indexOf(parsed.noteName),
+          solfege,
+          ...getCurrentNoteContext(),
+        },
+        instrument: instrumentStore.currentInstrument,
+        isCancelled,
+        firstAttack,
+      };
+      heldOwners.add(owner);
+      playEngine.press(owner, [{ pitch: tonal.midi, value: held }]);
+      try {
+        // A mode change may replace a pending Together voice before it
+        // resolves. The physical input still owns the replacement output.
+        const id = held.initialVoice ? (await held.initialVoice ?? owner) : owner;
+        if (!id || isCancelled() || !heldOwners.has(owner)) {
+          playEngine.release(owner);
+          heldOwners.delete(owner);
+          return null;
+        }
+        heldAliases.set(id, owner);
+        return id;
+      } catch (error) {
+        playEngine.release(owner);
+        heldOwners.delete(owner);
+        throw error;
+      }
+    }
+
+    function attackNoteWithFormat(
+      input: number | ChromaticNoteWithOctave,
+      octave = 4,
+      isCancelled: () => boolean = () => false,
+    ) {
+      const parsed = typeof input === "number" ? { solfegeIndex: input, octave } : parseChromatic(input);
+      if (!parsed || !solfegeData.value[parsed.solfegeIndex]) return Promise.resolve(null);
+      return holdPitch(
+        musicTheory.getNoteName(parsed.solfegeIndex, parsed.octave),
+        (cancelled) => attackSoundingNoteWithFormat(input, octave, cancelled),
+        isCancelled,
+      );
+    }
+
+    function attackExactPitch(note: string, isCancelled: () => boolean = () => false) {
+      return holdPitch(note, (cancelled) => attackSoundingExactPitch(note, cancelled), isCancelled);
+    }
 
     // Getters
     const currentScale = computed(() => {
@@ -248,9 +466,9 @@ export const useMusicStore = defineStore(
           ? CHROMATIC_NOTES.indexOf(parsedNote.noteName)
           : undefined;
 
-        await superdoughAudio.attackNote(
-          `play_${noteName}_${Date.now()}`,
+        await superdoughAudio.playNoteWithDuration(
           noteName,
+          2000,
           instrumentStore.currentInstrument
         );
 
@@ -279,7 +497,7 @@ export const useMusicStore = defineStore(
     }
 
     // Attack note with either format
-    async function attackNoteWithFormat(
+    async function attackSoundingNoteWithFormat(
       input: number | ChromaticNoteWithOctave,
       octave: number = 4,
       isCancelled: () => boolean = () => false,
@@ -393,7 +611,7 @@ export const useMusicStore = defineStore(
      * string overload on attackNote(), this never floors an out-of-scale pitch
      * to the preceding scale degree.
      */
-    async function attackExactPitch(
+    async function attackSoundingExactPitch(
       note: string,
       isCancelled: () => boolean = () => false,
     ): Promise<string | null> {
@@ -614,6 +832,23 @@ export const useMusicStore = defineStore(
     }
 
     async function releaseNote(noteId?: string) {
+      if (!noteId) {
+        clearLiveInputs();
+        return releaseSoundingNote();
+      }
+      const owner = heldAliases.get(noteId);
+      if (owner) {
+        heldAliases.delete(noteId);
+        heldOwners.delete(owner);
+        playEngine.release(owner);
+        return;
+      }
+      return releaseSoundingNote(noteId);
+    }
+
+    async function releaseSoundingNote(noteId?: string) {
+      // Late releases from cancelled owners must never release other inputs.
+      if (noteId && !activeNotes.value.has(noteId)) return;
       if (noteId && activeNotes.value.has(noteId)) {
         // Release specific note
         const activeNote = activeNotes.value.get(noteId);
@@ -755,6 +990,9 @@ export const useMusicStore = defineStore(
       activeNotes: readonly(activeNotes), // Make reactive but read-only
       isPlaying,
       sequence,
+      playStyle,
+      playRate,
+      playMode,
 
       // Getters
       currentScale,
@@ -766,6 +1004,9 @@ export const useMusicStore = defineStore(
       // Actions
       setKey,
       setMode,
+      setPlayStyle,
+      setPlayRate,
+      setPlayMode,
       playNote,
       attackNote,
       attackNoteWithOctave,

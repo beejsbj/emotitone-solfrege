@@ -12,8 +12,6 @@ const mocks = vi.hoisted(() => ({
   toggleHumming: vi.fn(),
   cancelHumming: vi.fn(),
   selectHummingTake: vi.fn(),
-  toggleLiveListening: vi.fn(),
-  stopLiveListening: vi.fn(),
   isPlaying: { value: false, __v_isRef: true },
   hasPlayableCode: { value: true, __v_isRef: true },
   hummingStatus: { value: "idle", __v_isRef: true },
@@ -21,12 +19,10 @@ const mocks = vi.hoisted(() => ({
   hummingStatusMessage: { value: "Ready", __v_isRef: true },
   hummingTakeLabels: { value: [] as string[], __v_isRef: true },
   selectedHummingTake: { value: 0, __v_isRef: true },
-  liveListeningStatus: { value: "idle", __v_isRef: true },
-  liveListeningError: { value: null, __v_isRef: true },
-  liveListeningStatusMessage: { value: "Live listening is off", __v_isRef: true },
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
   setMode: vi.fn(),
+  setPlayMode: vi.fn(),
   updateConfig: vi.fn(),
   setMainOctave: vi.fn(),
   setRowCount: vi.fn(),
@@ -67,8 +63,10 @@ vi.mock("@/stores/music", () => ({
   useMusicStore: () => ({
     currentKey: "C",
     currentMode: "major",
+    playMode: "together",
     setKey: mocks.setKey,
     setMode: mocks.setMode,
+    setPlayMode: mocks.setPlayMode,
   }),
 }));
 
@@ -113,16 +111,6 @@ vi.mock("@/composables/useHummingCapture", () => ({
   }),
 }));
 
-vi.mock("@/composables/useLiveListening", () => ({
-  useLiveListening: () => ({
-    status: mocks.liveListeningStatus,
-    error: mocks.liveListeningError,
-    statusMessage: mocks.liveListeningStatusMessage,
-    toggle: mocks.toggleLiveListening,
-    stop: mocks.stopLiveListening,
-  }),
-}));
-
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
@@ -141,11 +129,8 @@ vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
       "statusMessage",
       "takeLabels",
       "selectedTakeIndex",
-      "listeningStatus",
-      "listeningError",
-      "listeningStatusMessage",
     ],
-    emits: ["toggle", "toggleListening", "cancel", "selectTake"],
+    emits: ["toggle", "cancel", "selectTake"],
     template: '<div data-testid="humming-capture-transport" />',
   },
 }));
@@ -169,12 +154,13 @@ vi.mock("@/components/patterns/PatternList.vue", () => ({
 vi.mock("@/components/compounds/ControlBar.vue", () => ({
   default: {
     name: "ControlBar",
-    props: ["changeSignals", "haptic"],
+    props: ["changeSignals", "haptic", "playMode"],
     emits: [
       "update:keyValue",
       "update:modeValue",
       "update:bpm",
       "update:octave",
+      "update:playMode",
       "update:rows",
       "update:harmonyValue",
       "harmonyEffective",
@@ -193,7 +179,6 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     mocks.instrumentStore.warmingInstrument = null;
     mocks.instrumentStore.warmupMessage = "";
     mocks.hummingStatus.value = "idle";
-    mocks.liveListeningStatus.value = "idle";
     mocks.keyboardConfig.rowCount = 3;
     mocks.keyboardConfig.hapticFeedback = true;
   });
@@ -226,9 +211,8 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("cancels active humming before starting Strudel playback", async () => {
-    mocks.hummingStatus.value = "recording";
-    mocks.liveListeningStatus.value = "listening";
+  it.each(["requesting", "recording", "preparing", "analyzing"])("cancels %s humming before starting Strudel playback", async (status) => {
+    mocks.hummingStatus.value = status;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
@@ -244,34 +228,8 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     await vi.waitFor(() => expect(mocks.toggle).toHaveBeenCalledTimes(1));
 
     expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
-    expect(mocks.stopLiveListening).toHaveBeenCalledTimes(1);
     expect(mocks.cancelHumming.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.toggle.mock.invocationCallOrder[0],
-    );
-    wrapper.unmount();
-  });
-
-  it("stops Strudel before activating independent live listening", async () => {
-    mocks.isPlaying.value = true;
-    const wrapper = mount(PerformanceDeck, {
-      global: {
-        stubs: {
-          PatternList: true,
-          Keyboard: true,
-          CodeStripBar: true,
-        },
-      },
-    });
-
-    wrapper.getComponent({ name: "HummingCaptureTransport" }).vm
-      .$emit("toggleListening");
-    await vi.waitFor(() => {
-      expect(mocks.toggleLiveListening).toHaveBeenCalledTimes(1);
-    });
-
-    expect(mocks.stop).toHaveBeenCalledTimes(1);
-    expect(mocks.stop.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.toggleLiveListening.mock.invocationCallOrder[0],
     );
     wrapper.unmount();
   });
@@ -382,7 +340,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("preserves the five remaining Control Bar mutations in the production composition", async () => {
+  it("preserves all Control Bar mutations in the production composition", async () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
@@ -398,6 +356,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     controls.vm.$emit("update:modeValue", "dorian");
     controls.vm.$emit("update:bpm", 96);
     controls.vm.$emit("update:octave", 5);
+    controls.vm.$emit("update:playMode", "arp-up:16");
     controls.vm.$emit("update:harmonyValue", "jazzy7");
     controls.vm.$emit("harmonyEffective", "sus4");
     await wrapper.vm.$nextTick();
@@ -406,6 +365,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(mocks.setMode).toHaveBeenCalledWith("dorian");
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
+    expect(mocks.setPlayMode).toHaveBeenCalledWith("arp-up:16");
     expect(mocks.setRowCount).not.toHaveBeenCalled();
     expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
       .toBe("sus4");

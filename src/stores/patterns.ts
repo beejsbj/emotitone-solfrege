@@ -80,6 +80,11 @@ export const usePatternsStore = defineStore(
     // True immediately after Send, until first new note arrives
     const isStripCleared = ref(false);
 
+    // Monotonic lifecycle signal for PatternReel. It advances only when the
+    // working desk actually becomes a different take, not for every note that
+    // carries an isStartingNewPattern boundary.
+    const currentTakeGeneration = ref(0);
+
     // Getters
     const noteCount = computed(() => loggedNotes.value.length);
     const sessionNotes = computed(() =>
@@ -594,6 +599,7 @@ export const usePatternsStore = defineStore(
       // Clear logged notes so dynamicPatterns doesn't duplicate saved content
       loggedNotes.value = [];
       forceNextPatternStart.value = false;
+      currentTakeGeneration.value += 1;
       purgeOldPatterns();
     }
 
@@ -775,6 +781,20 @@ export const usePatternsStore = defineStore(
       const isStartingNewPattern =
         forceNextPatternStart.value ||
         shouldStartNewPattern(partialNote, previousNote);
+      const replacesLoadedBase = Boolean(
+        isStartingNewPattern
+        && !previousNote
+        && loadedBaseNotes.value.length
+        && loadedBaseMeta.value
+        && !isSamePatternContext(loadedBaseMeta.value, {
+          key: partialNote.key as ChromaticNote,
+          mode: partialNote.mode as MusicalMode,
+          instrument: partialNote.instrument as string,
+          bpm: partialNote.bpm,
+        }),
+      );
+      const startsFreshTake = isStartingNewPattern
+        && (Boolean(previousNote) || replacesLoadedBase);
 
       // Complete the log note
       const completedLogNote: LogNote = {
@@ -786,6 +806,8 @@ export const usePatternsStore = defineStore(
 
       // Add to logged notes
       loggedNotes.value.push(completedLogNote);
+
+      if (startsFreshTake) currentTakeGeneration.value += 1;
 
       // Clear the strip-cleared flag now that a note has arrived
       isStripCleared.value = false;
@@ -891,6 +913,7 @@ export const usePatternsStore = defineStore(
       loadedBasePatternId,
       loadedBaseMeta,
       isStripCleared,
+      currentTakeGeneration,
 
       // Getters
       noteCount,

@@ -146,6 +146,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  haptic: {
+    type: Boolean,
+    default: true,
+  },
   themeColor: {
     type: String,
     default: undefined,
@@ -705,7 +709,7 @@ const handleTap = () => {
   if (knobType.value === "boolean") {
     const newValue = !(actualValue.value as boolean);
     handleValueUpdate(newValue);
-    triggerUIHaptic();
+    if (props.haptic) triggerUIHaptic();
   } else if (knobType.value === "options" && props.options) {
     const currentIndex = getCurrentOptionIndex();
     const nextIndex = (currentIndex + 1) % props.options.length;
@@ -713,7 +717,7 @@ const handleTap = () => {
     const nextValue =
       typeof nextOption === "string" ? nextOption : nextOption.value;
     handleValueUpdate(nextValue);
-    triggerUIHaptic();
+    if (props.haptic) triggerUIHaptic();
   }
 };
 
@@ -728,6 +732,7 @@ const getCurrentOptionIndex = (): number => {
 
 // Smart haptic feedback with throttling
 const triggerSmartHaptic = () => {
+  if (!props.haptic) return;
   const now = Date.now();
   const MIN_HAPTIC_INTERVAL = 50; // Minimum time between haptic triggers
 

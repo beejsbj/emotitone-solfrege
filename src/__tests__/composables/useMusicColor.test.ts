@@ -41,6 +41,7 @@ vi.mock("@/composables/useVisualConfig", () => ({
 }));
 
 import { useMusicColor } from "@/composables/useMusicColor";
+import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 
 describe("useMusicColor", () => {
   it("keeps movable tonic colors aligned while still respecting scale size", () => {
@@ -136,6 +137,74 @@ describe("useMusicColor", () => {
     expect(adjusted.primaryColor).toBe(adjusted.background);
     expect(adjusted.background).not.toBe(unadjusted);
     expect(adjusted.background).toMatch(/^rgba\(/);
+  });
+
+  it("keeps the static controlled adapter aligned with center-phase runtime tuning", () => {
+    dynamicColorConfig.value = {
+      recipeVersion: 1,
+      musicColorMode: "movable-ordinal",
+      hueMotionEnabled: true,
+      animationSpeed: 1,
+      chroma: 0.18,
+      lightnessCenter: 0.575,
+      lightnessSpan: 0.6,
+    };
+    const runtime = useMusicColor();
+    const tuning = { keyBrightness: 0.5, keySaturation: 0.25 };
+
+    expect(staticNoteColorResolver.getKeyBackground(
+      2,
+      "major",
+      "C",
+      4,
+      "colored",
+      false,
+      tuning,
+    )).toEqual(runtime.getKeyBackground(
+      2,
+      "major",
+      "C",
+      4,
+      "colored",
+      false,
+      tuning,
+    ));
+    expect(staticNoteColorResolver.getKeyBackgroundByPitchClass(
+      3,
+      "major",
+      "C",
+      4,
+      "colored",
+      true,
+      tuning,
+    )).toEqual(runtime.getKeyBackgroundByPitchClass(
+      3,
+      "major",
+      "C",
+      4,
+      "colored",
+      true,
+      tuning,
+    ));
+    for (const isAccidental of [false, true]) {
+      expect(staticNoteColorResolver.getKeyBackground(
+        0,
+        "major",
+        "C",
+        4,
+        "monochrome",
+        isAccidental,
+        tuning,
+      )).toEqual(runtime.getKeyBackground(
+        0,
+        "major",
+        "C",
+        4,
+        "monochrome",
+        isAccidental,
+        tuning,
+      ));
+    }
   });
 
   it("prefers exact pitch identity when an active note provides it", () => {

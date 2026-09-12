@@ -15,7 +15,7 @@ const isReady = ref(false);
 const lastError = ref<string | null>(null);
 let playbackIntentEpoch = 0;
 
-function hasPlayableContent(code: string): boolean {
+export function hasPlayableContent(code: string): boolean {
   let index = 0;
   while (index < code.length) {
     if (/\s/.test(code[index] ?? "")) {

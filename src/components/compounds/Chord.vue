@@ -34,13 +34,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import Note from "@/components/primatives/Note.vue";
 import type {
   NoteGeometry,
   NoteLabel,
   NoteSurfaceStyle,
 } from "@/components/primatives/Note.vue";
+import { noteColorResolverKey } from "@/components/primatives/noteColorContext";
 import { useMusicColor } from "@/composables/useMusicColor";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
@@ -89,9 +90,9 @@ const props = withDefaults(
   },
 );
 
-const { getKeyBackground, getKeyBackgroundByPitchClass } = useMusicColor({
-  animated: true,
-});
+const injectedColorResolver = inject(noteColorResolverKey, null);
+const { getKeyBackground, getKeyBackgroundByPitchClass } =
+  injectedColorResolver ?? useMusicColor({ animated: true });
 
 const chordClasses = computed(() => [
   `chord--display-${props.display}`,

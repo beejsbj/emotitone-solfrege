@@ -7,10 +7,12 @@ const props = withDefaults(defineProps<{
   defaultOpen?: boolean;
   anchor?: "top" | "bottom";
   handleAlign?: "left" | "center" | "right";
+  persistentOverflow?: "clip" | "visible";
   accessibleName: string;
   handleResizeDescription?: string;
   handleLabel?: string;
   handleTestId?: string;
+  handlePointerDisabled?: boolean;
   fixed?: boolean;
   storageKey?: string;
   initialContentHeight?: number;
@@ -30,8 +32,10 @@ const props = withDefaults(defineProps<{
   defaultOpen: false,
   anchor: "bottom",
   handleAlign: "center",
+  persistentOverflow: "clip",
   handleLabel: "",
   handleResizeDescription: "",
+  handlePointerDisabled: false,
   fixed: false,
   storageKey: undefined,
   initialContentHeight: 240,
@@ -49,11 +53,12 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [open: boolean];
   resize: [height: number];
-  contentResize: [contentHeight: number, source?: "pointer"];
+  contentResize: [contentHeight: number, source?: "pointer" | "target"];
   closed: [];
 }>();
 const root = ref<HTMLElement | null>(null);
 const persistent = ref<HTMLElement | null>(null);
+const persistentContent = ref<HTMLElement | null>(null);
 const clip = ref<HTMLElement | null>(null);
 const content = ref<HTMLElement | null>(null);
 const persistentHeight = ref(0);
@@ -73,7 +78,12 @@ const observedControls = new Map<HTMLElement, boolean>();
 function observeClippedControls() {
   if (!visibilityObserver) return;
   const selector = 'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]';
-  const controls = new Set(persistent.value?.querySelectorAll<HTMLElement>(selector));
+  const controls = new Set<HTMLElement>();
+  const clippedPersistentRoot = props.persistentOverflow === "visible"
+    ? persistentContent.value
+    : persistent.value;
+  clippedPersistentRoot?.querySelectorAll<HTMLElement>(selector)
+    .forEach(element => controls.add(element));
   // Minimum-sized content can extend beyond the clip (Keyboard). Top panels
   // have no content floor and retain their normal scroll-to-focused-item behavior.
   if (!props.scroll && props.minContentHeight > 0) {
@@ -132,14 +142,14 @@ function remember() {
     }));
   } catch { /* A restricted or full store must not prevent drawer interaction. */ }
 }
-function publish(source?: "pointer") {
+function publish(source?: "pointer" | "target") {
   emit("update:modelValue", expanded.value);
   emit("resize", height.value);
   if (!usableOpen.value) return;
-  if (source === "pointer") emit("contentResize", visibleContentHeight.value, source);
+  if (source) emit("contentResize", visibleContentHeight.value, source);
   else emit("contentResize", visibleContentHeight.value);
 }
-function setHeight(value: number, source?: "pointer") {
+function setHeight(value: number, source?: "pointer" | "target") {
   currentHeight.value = Math.max(0, Math.min(value, maxHeight.value));
   publish(source);
 }
@@ -148,10 +158,10 @@ function interactiveHeight(value: number) {
   if (!canFitMinimumContent.value) return persistentHeight.value;
   return Math.max(usableOpenThreshold.value, value);
 }
-async function setLayoutHeight(value: number) {
+async function setLayoutHeight(value: number, source?: "pointer" | "target") {
   const request = ++layoutResizeRequest;
   layoutResizing.value = true;
-  setHeight(value);
+  setHeight(value, source);
   await finishLayoutResize(request);
 }
 async function finishLayoutResize(request: number) {
@@ -215,6 +225,7 @@ function toggle() {
   else open();
 }
 function click() {
+  if (props.handlePointerDisabled) return;
   if (suppressClick) {
     suppressClick = false;
     return;
@@ -223,7 +234,7 @@ function click() {
   toggle();
 }
 function pointerDown(event: PointerEvent) {
-  if (event.button !== 0 || gesture) return;
+  if (props.handlePointerDisabled || event.button !== 0 || gesture) return;
   clearTimeout(clickReset);
   suppressClick = false;
   const renderedHeight = root.value?.getBoundingClientRect().height ?? height.value;
@@ -314,8 +325,27 @@ watch(() => props.modelValue, value => {
   if (value) open();
   else close();
 });
+watch(() => props.handlePointerDisabled, disabled => {
+  if (!disabled) {
+    suppressClick = false;
+    return;
+  }
+  if (!gesture) return;
+  gesture = undefined;
+  dragging.value = false;
+  suppressClick = true;
+});
 watch(() => props.naturalContentHeight, () => {
   if (fitContent && expanded.value && !opening && !dragging.value) setHeight(fittedHeight());
+});
+watch(() => props.initialContentHeight, value => {
+  if (props.fitContentOnOpen) return;
+  preferredContentHeight.value = value;
+  if (!ready.value || !expanded.value || dragging.value) return;
+  void setLayoutHeight(
+    persistentHeight.value + Math.max(props.minContentHeight, value),
+    "target",
+  );
 });
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {
@@ -392,6 +422,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     :class="[`drawer--${anchor}`, `drawer--handle-${handleAlign}`, {
       'drawer--fixed': fixed, 'drawer--dragging': dragging,
       'drawer--layout-resize': layoutResizing, 'drawer--ready': ready,
+      'drawer--persistent-overflow-visible': persistentOverflow === 'visible',
     }]"
     :style="{ height: `${height}px` }"
     :aria-label="accessibleName"
@@ -401,6 +432,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     <button
       type="button"
       class="drawer__handle"
+      :class="{ 'drawer__handle--pointer-disabled': handlePointerDisabled }"
       :data-testid="handleTestId"
       :aria-label="accessibleName"
       :aria-expanded="expanded"
@@ -420,8 +452,17 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       <span class="drawer__grip" aria-hidden="true" />
     </button>
     <div ref="clip" class="drawer__clip" :inert="height <= 0 ? true : undefined">
-      <div v-if="$slots.persistent" ref="persistent" class="drawer__persistent">
-        <slot name="persistent" />
+      <div
+        v-if="$slots.persistent || $slots['persistent-leading']"
+        ref="persistent"
+        class="drawer__persistent"
+      >
+        <div v-if="$slots['persistent-leading']" class="drawer__persistent-leading">
+          <slot name="persistent-leading" />
+        </div>
+        <div v-if="$slots.persistent" ref="persistentContent" class="drawer__persistent-content">
+          <slot name="persistent" />
+        </div>
       </div>
       <div
         ref="content"
@@ -453,6 +494,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer--dragging { transition: none; }
 .drawer--layout-resize { transition: none; }
 .drawer__clip { height: 100%; overflow: clip; }
+.drawer--persistent-overflow-visible .drawer__clip {
+  overflow-x: clip;
+  overflow-y: visible;
+}
 .drawer__persistent { display: flow-root; }
 .drawer__content { min-width: 0; overflow: hidden; }
 .drawer--top .drawer__content {
@@ -479,6 +524,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   -webkit-user-select: none;
 }
 .drawer__handle::before { content: ""; position: absolute; inset: -6px 0; }
+.drawer__handle--pointer-disabled { pointer-events: none; }
 .drawer--top .drawer__handle { top: 100%; }
 .drawer--bottom .drawer__handle { bottom: 100%; }
 .drawer--handle-left .drawer__handle { left: 0; }

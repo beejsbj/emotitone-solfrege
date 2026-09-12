@@ -19,7 +19,7 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import useGSAP from "../useGSAP";
-import type { ChromaticNote, MusicalMode } from "@/types/music";
+import type { ActiveNote, ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import type { StageAudioFrame } from "./stageRuntime";
 import { Note as TonalNote } from "@tonaljs/tonal";
@@ -278,16 +278,17 @@ export function useStringRenderer() {
     musicStore: any,
     audioFrame: StageAudioFrame = { envelope: 1, hasSignal: true },
     reducedMotion = false,
+    suppliedActiveNotes?: readonly ActiveNote[],
   ) => {
     // Clean up expired event activations
     cleanupExpiredActivations();
+    const activeNotes = suppliedActiveNotes ?? musicStore.getActiveNotes();
 
     strings.value.forEach((string) => {
       const solfege = musicStore.solfegeData[string.noteIndex];
       if (!solfege) return;
 
       // Check if this string's note is currently active for its specific octave (from direct input)
-      const activeNotes = musicStore.getActiveNotes();
       const stringPitchClass = resolveStringPitchClass(
         string.noteIndex,
         musicStore.currentMode,

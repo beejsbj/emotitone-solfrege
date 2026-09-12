@@ -19,6 +19,7 @@ import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 import { createStageAudioFeatures } from "@/services/stageAudio";
 import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
+import { getActiveStrudelStageNotes } from "@/services/superdoughAudio";
 import {
   fullStageRect,
   resolveStageComposition,
@@ -46,6 +47,9 @@ export function useUnifiedCanvas(
       musicStore.getActiveNotes().map((note) => [note.noteId, note]),
     );
     getActiveLivePitchStageNotes().forEach((note) => {
+      activeNotes.set(note.noteId, note);
+    });
+    getActiveStrudelStageNotes().forEach((note) => {
       activeNotes.set(note.noteId, note);
     });
     return Array.from(activeNotes.values());
@@ -378,6 +382,7 @@ export function useUnifiedCanvas(
         musicStore,
         audioFrame,
         reducedMotion,
+        stageActiveNotes,
       );
       stringRenderer.renderStrings(
         ctx,

@@ -259,6 +259,20 @@ describe("superdoughAudio live note handling", () => {
       isBorrowed: true,
       source: "strudel-playback",
     });
+    expect(audio.getActiveStrudelStageNotes()).toEqual([
+      expect.objectContaining({
+        noteId: played.detail.noteId,
+        noteName: "D#4",
+        solfege: expect.objectContaining({ name: "D#" }),
+        frequency: 311.13,
+        octave: 4,
+        keyboardOctave: 4,
+        solfegeIndex: -1,
+        pitchClassIndex: 3,
+        mode: "major",
+        key: "C",
+      }),
+    ]);
 
     await vi.advanceTimersByTimeAsync(250);
     const released = dispatchEvent.mock.calls
@@ -272,6 +286,7 @@ describe("superdoughAudio live note handling", () => {
       isBorrowed: true,
       source: "strudel-playback",
     });
+    expect(audio.getActiveStrudelStageNotes()).toEqual([]);
 
     vi.useRealTimers();
   });

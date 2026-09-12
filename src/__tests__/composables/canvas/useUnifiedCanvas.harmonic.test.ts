@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => {
     resetHarmonicAnalysis: vi.fn(),
     activeBlobs: new Map<string, { baseRadius: number }>(),
     liveStageNotes: [] as ActiveNote[],
+    strudelStageNotes: [] as ActiveNote[],
     stageActiveNotesProvider: null as null | (() => readonly ActiveNote[]),
     createBlob: vi.fn(),
     startBlobFadeOut: vi.fn(),
@@ -60,6 +61,18 @@ vi.mock("@/stores/music", () => ({
 
 vi.mock("@/services/hummingStage", () => ({
   getActiveLivePitchStageNotes: () => mocks.liveStageNotes,
+}));
+
+vi.mock("@/services/superdoughAudio", () => ({
+  getActiveStrudelStageNotes: () => mocks.strudelStageNotes,
+}));
+
+vi.mock("@/services/stageAudio", () => ({
+  createStageAudioFeatures: () => ({
+    initialize: vi.fn(() => null),
+    sample: vi.fn(() => ({ envelope: 0, hasSignal: false })),
+    cleanup: vi.fn(),
+  }),
 }));
 
 vi.mock("@/composables/useVisualConfig", () => ({
@@ -218,6 +231,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.connectionMode = "web";
     mocks.activeBlobs.clear();
     mocks.liveStageNotes.length = 0;
+    mocks.strudelStageNotes.length = 0;
     mocks.stageActiveNotesProvider = null;
     mocks.createBlob.mockImplementation((...args: unknown[]) => {
       const config = args[6] as { isEnabled: boolean };
@@ -374,6 +388,47 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       window.innerHeight,
       mocks.blobConfig.value,
       "live-pitch-1-1",
+      "C",
+      "major",
+      4,
+      "C#4",
+    );
+    expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
+    expect(mocks.createParticles).not.toHaveBeenCalled();
+  });
+
+  it("rehydrates an active Strudel note that began while bodies were hidden", () => {
+    mocks.strudelStageNotes.push({
+      noteId: "strudel-1",
+      noteName: "C#4",
+      solfege: note,
+      solfegeIndex: -1,
+      pitchClassIndex: 1,
+      frequency: 277.18,
+      octave: 4,
+      keyboardOctave: 4,
+      mode: "major",
+      key: "C",
+    });
+    mocks.blobConfig.value.isEnabled = false;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    expect(mocks.stageActiveNotesProvider?.()).toEqual(mocks.strudelStageNotes);
+    canvas.initializeCanvas();
+    expect(mocks.createBlob).not.toHaveBeenCalled();
+
+    mocks.blobConfig.value.isEnabled = true;
+    mocks.animationOptions?.onFrame(1_000, 1);
+
+    expect(mocks.createBlob).toHaveBeenCalledOnce();
+    expect(mocks.createBlob).toHaveBeenCalledWith(
+      note,
+      277.18,
+      0,
+      0,
+      window.innerWidth,
+      window.innerHeight,
+      mocks.blobConfig.value,
+      "strudel-1",
       "C",
       "major",
       4,

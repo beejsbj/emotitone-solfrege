@@ -26,10 +26,10 @@ export interface StageAudioFrame {
 }
 
 const EDGE_PADDING = 20;
-// Below this minor edge there is not enough room to keep the Scope visibly
-// primary, retain the body orbit, and preserve their focal gap together.
+// Retain the accepted minimum drawable region for the support-body layout.
 const MIN_DRAWABLE_EDGE = 150;
 const HILBERT_PRIMARY_SCALE = 1.8;
+const HILBERT_PRESENTATION_SCALE = 2;
 const FOCAL_GAP = 8;
 const AMBIENT_RELEASE_BLEND_ENVELOPE = 0.08;
 
@@ -82,7 +82,7 @@ export function resolveStageComposition(
   const desiredHilbertRadius =
     previousDefaultHilbertRadius * HILBERT_PRIMARY_SCALE * configuredScale;
   // Preserve the accepted default body fit independently of live Scope Size.
-  // Increasing the scope may reach its clearance limit, but cannot shrink blobs.
+  // Scope presentation enlargement must not feed back into this body baseline.
   const defaultHilbertRadius = previousDefaultHilbertRadius * HILBERT_PRIMARY_SCALE;
   const baselineFittedExtent = Math.min(
     initialFittedExtent,
@@ -106,7 +106,9 @@ export function resolveStageComposition(
   const orbitRadiusX = Math.max(0, initialOrbitRadiusX - edgeOverflow);
   const orbitRadiusY = Math.max(0, initialOrbitRadiusY - edgeOverflow);
   const blobFitScale = fittedExtent / desiredBodyExtent;
-  const hilbertRadius = Math.min(
+  // Double the entire fitted range without feeding that enlargement back into
+  // body fitting. The enlarged scope may cross the support orbit.
+  const hilbertRadius = HILBERT_PRESENTATION_SCALE * Math.min(
     desiredHilbertRadius,
     Math.max(
       8,

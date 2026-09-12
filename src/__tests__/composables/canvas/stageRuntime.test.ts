@@ -11,7 +11,7 @@ describe("Stage runtime", () => {
     [900, 420],
     [390, 180],
   ])(
-    "enlarges the previous deck-safe Hilbert radius by 80 percent at %i×%i",
+    "doubles the accepted Hilbert base radius at %i×%i",
     (width, height) => {
       const composition = resolveStageComposition(
         { x: 0, y: 0, width, height },
@@ -24,11 +24,11 @@ describe("Stage runtime", () => {
       const priorClearance = Math.max(18, priorOrbit * 0.28);
       const priorRadius = priorOrbit - priorBodyExtent - priorClearance;
 
-      expect(composition.hilbertRadius).toBeCloseTo(priorRadius * 1.8, 6);
+      expect(composition.hilbertRadius).toBeCloseTo(priorRadius * 1.8 * 2, 6);
     },
   );
 
-  it("scales Hilbert down and caps growth at the fixed body clearance", () => {
+  it("preserves the fitted range shape after doubling presentation size", () => {
     const sizeControl = UNIFIED_CONFIG.hilbertScope.sizeRatio;
     const smallerSize = resolveStageComposition(
       { x: 0, y: 0, width: 900, height: 420 },
@@ -172,7 +172,7 @@ describe("Stage runtime", () => {
 
     expect(composition.centerX).toBe(450);
     expect(composition.centerY).toBe(210);
-    expect(composition.hilbertRadius).toBeLessThan(composition.orbitRadiusY);
+    expect(composition.hilbertRadius).toBeGreaterThan(composition.orbitRadiusY);
     expect(composition.suspended).toBe(false);
   });
 

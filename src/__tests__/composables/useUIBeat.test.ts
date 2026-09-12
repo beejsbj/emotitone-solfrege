@@ -185,6 +185,35 @@ describe("UIBeatClock", () => {
     });
   });
 
+  it("retimes a running generation without restarting or shifting its phase", () => {
+    const clock = createClock();
+    const listener = vi.fn();
+    clock.subscribe(listener);
+    const generation = clock.arm(mappedRun);
+    clock.publish(generation, { rawPosition: 0.375, barPosition: 0.375 });
+    const before = clock.snapshot;
+
+    expect(clock.retime(generation, 90)).toBe(true);
+
+    expect(clock.snapshot).toMatchObject({
+      generation,
+      status: before.status,
+      rawPosition: before.rawPosition,
+      barPosition: before.barPosition,
+      barIndex: before.barIndex,
+      beatIndex: before.beatIndex,
+      beatPhase: before.beatPhase,
+      bpm: 90,
+      presenting: true,
+    });
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({
+      generation,
+      bpm: 90,
+      beatPhase: before.beatPhase,
+      presenting: true,
+    }));
+  });
+
   it("invalidates stale frames across evaluation and stop generations", () => {
     const clock = createClock();
     const first = clock.arm(mappedRun);

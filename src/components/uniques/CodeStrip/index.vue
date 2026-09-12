@@ -142,6 +142,9 @@ interface ActiveUIBeatRun {
   mappingAvailable: boolean;
   bpm: number;
   beatsPerBar: number;
+  preservePhase: boolean;
+  preservedBarPosition: number | null;
+  barPositionOffset: number | null;
   ready: boolean;
   failed: boolean;
   error: unknown;
@@ -151,6 +154,8 @@ let activeUIBeatRun: ActiveUIBeatRun | null = null;
 let evaluatingUIBeatRun: ActiveUIBeatRun | null = null;
 let evaluationQueue: Promise<unknown> = Promise.resolve();
 let evaluationEpoch = 0;
+let preserveUIBeatPhaseForNextEvaluation = false;
+let preserveUIBeatDuringCodeSync = false;
 let uiBeatAudioContext: AudioContext | null = null;
 
 const FOLLOW_TIME_CONSTANT_MS = 150;
@@ -227,13 +232,43 @@ function getMirrorCode(instance: StrudelMirrorInstance | null) {
   return getMirrorView(instance)?.state.doc.toString() ?? instance?.code ?? "";
 }
 
-function armUIBeatForEvaluation(instance: StrudelMirrorInstance) {
+function armUIBeatForEvaluation(
+  instance: StrudelMirrorInstance,
+  preservePhase: boolean,
+) {
   const currentDocument = getMirrorCode(instance).trim();
   const mappingAvailable =
     !isControlled.value &&
     currentDocument !== EMPTY_EDITOR_CODE &&
     currentDocument === generatedCode.value.trim();
   const bpm = codeStripConfig.value.bpm;
+  const currentRun = activeUIBeatRun;
+  const currentSnapshot = uiBeatClock.snapshot;
+  const canPreservePhase =
+    preservePhase &&
+    mappingAvailable &&
+    currentRun?.ready === true &&
+    currentRun.mappingAvailable &&
+    currentSnapshot.generation === currentRun.generation &&
+    currentSnapshot.status === "running" &&
+    currentSnapshot.barPosition !== null;
+
+  if (canPreservePhase && currentRun) {
+    observeUIBeatAudioContext();
+    return {
+      generation: currentRun.generation,
+      mappingAvailable,
+      bpm,
+      beatsPerBar: GENERATED_BEATS_PER_BAR,
+      preservePhase: true,
+      preservedBarPosition: null,
+      barPositionOffset: null,
+      ready: false,
+      failed: false,
+      error: undefined,
+    } satisfies ActiveUIBeatRun;
+  }
+
   const generation = uiBeatClock.arm({
     mappingAvailable,
     bpm: mappingAvailable ? bpm : undefined,
@@ -247,6 +282,9 @@ function armUIBeatForEvaluation(instance: StrudelMirrorInstance) {
     mappingAvailable,
     bpm,
     beatsPerBar: GENERATED_BEATS_PER_BAR,
+    preservePhase: false,
+    preservedBarPosition: null,
+    barPositionOffset: 0,
     ready: false,
     failed: false,
     error: undefined,
@@ -265,7 +303,7 @@ function publishUIBeatFrame(instance: StrudelMirrorInstance, rawPosition: number
   }
 
   const schedulerCps = instance.repl?.scheduler?.cps;
-  const barPosition = run.mappingAvailable && typeof schedulerCps === "number"
+  let barPosition = run.mappingAvailable && typeof schedulerCps === "number"
     ? generatedStrudelBarPosition(
         rawPosition,
         run.bpm,
@@ -273,6 +311,14 @@ function publishUIBeatFrame(instance: StrudelMirrorInstance, rawPosition: number
         schedulerCps,
       )
     : null;
+
+  if (barPosition !== null && run.barPositionOffset === null) {
+    run.barPositionOffset = (run.preservedBarPosition ?? barPosition) - barPosition;
+    run.preservedBarPosition = null;
+  }
+  if (barPosition !== null) {
+    barPosition += run.barPositionOffset ?? 0;
+  }
 
   uiBeatClock.publish(run.generation, {
     rawPosition,
@@ -329,13 +375,18 @@ function replaceControlledCode(code: string) {
   });
 }
 
-function syncMirrorCode(code: string) {
+function syncMirrorCode(code: string, preserveUIBeat = false) {
   visibleCode.value = code;
   const instance = mirror.value;
   if (!instance) return;
   if (getMirrorCode(instance) !== code) {
-    stopUIBeatRun();
-    instance.setCode(code);
+    if (!preserveUIBeat) stopUIBeatRun();
+    preserveUIBeatDuringCodeSync = preserveUIBeat;
+    try {
+      instance.setCode(code);
+    } finally {
+      preserveUIBeatDuringCodeSync = false;
+    }
   }
   syncCode(code);
 }
@@ -430,7 +481,6 @@ function stopFollow() {
 }
 
 async function stopMirrorForWarmup(instance: StrudelMirrorInstance) {
-  invalidateQueuedEvaluations();
   const editor = getMirrorView(instance);
   if (editor) setCodeStripPlaying(editor, false);
 
@@ -565,16 +615,18 @@ async function initializeStrudelMirror() {
         failedRun.failed = true;
         failedRun.error = error;
       }
-      stopUIBeatRun(failedRun?.generation);
-      const view = getMirrorView(instance);
-      if (view) setCodeStripPlaying(view, false);
-      setPlaying(false);
-      stopFollow();
-      stopStrudelVisuals();
-      setError(error);
     },
   }) as StrudelMirrorInstance);
   mirror.value = instance;
+
+  // StrudelMirror routes editor shortcuts and native stop events through its
+  // public stop method. Wrap that single transport boundary so every explicit
+  // stop invalidates work that was queued before it.
+  const stopTransport = instance.stop.bind(instance);
+  instance.stop = () => {
+    invalidateQueuedEvaluations();
+    return stopTransport();
+  };
 
   // StrudelMirror owns editor shortcuts as well as the public controller.
   // Guard its evaluation method so every playback entry point respects sample
@@ -582,24 +634,32 @@ async function initializeStrudelMirror() {
   const evaluate = instance.evaluate.bind(instance);
   instance.evaluate = () => {
     const queuedAtEpoch = evaluationEpoch;
+    const preservePhase = preserveUIBeatPhaseForNextEvaluation;
+    preserveUIBeatPhaseForNextEvaluation = false;
     const task = evaluationQueue.then(async () => {
       if (
         queuedAtEpoch !== evaluationEpoch
         || instrumentStore.isInteractionLocked
       ) return;
-      const run = armUIBeatForEvaluation(instance);
+      const run = armUIBeatForEvaluation(instance, preservePhase);
       evaluatingUIBeatRun = run;
       try {
         await evaluate();
         if (queuedAtEpoch !== evaluationEpoch) {
           stopUIBeatRun(run.generation);
-          await instance.stop();
+          await stopTransport();
           return;
         }
         if (run.failed) {
           throw run.error ?? new Error("Strudel evaluation failed");
         }
-        if (activeUIBeatRun?.generation === run.generation) {
+        if (run.preservePhase) {
+          run.preservedBarPosition = uiBeatClock.snapshot.barPosition;
+          if (uiBeatClock.retime(run.generation, run.bpm)) {
+            run.ready = true;
+            activeUIBeatRun = run;
+          }
+        } else if (activeUIBeatRun === run) {
           activeUIBeatRun.ready = true;
         }
         if (instrumentStore.isInteractionLocked) {
@@ -607,6 +667,17 @@ async function initializeStrudelMirror() {
         }
       } catch (error) {
         stopUIBeatRun(run.generation);
+        try {
+          await stopTransport();
+        } catch (stopError) {
+          console.error("[CodeStrip] Strudel stop after evaluation error failed:", stopError);
+        }
+        const editor = getMirrorView(instance);
+        if (editor) setCodeStripPlaying(editor, false);
+        setPlaying(false);
+        stopFollow();
+        stopStrudelVisuals();
+        setError(error);
         throw error;
       } finally {
         if (evaluatingUIBeatRun?.generation === run.generation) {
@@ -641,7 +712,7 @@ async function initializeStrudelMirror() {
       effects: StateEffect.appendConfig.of([
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
-            stopUIBeatRun();
+            if (!preserveUIBeatDuringCodeSync) stopUIBeatRun();
             visibleCode.value = update.state.doc.toString();
             syncCode(visibleCode.value);
           }
@@ -661,7 +732,6 @@ async function initializeStrudelMirror() {
     },
     evaluate: () => evaluateMirror(instance),
     stop: () => {
-      invalidateQueuedEvaluations();
       const editor = getMirrorView(instance);
       if (editor) setCodeStripPlaying(editor, false);
       const result = instance.stop();
@@ -723,9 +793,23 @@ watch(
   [() => patternsStore.currentSketchMeta.bpm, () => codeStripConfig.value.bpm],
   async () => {
     if (isControlled.value || !mirror.value || !isPlaying.value) return;
-    syncMirrorCode(generatedCode.value);
-    await evaluateMirror(mirror.value);
+    const run = activeUIBeatRun;
+    const snapshot = uiBeatClock.snapshot;
+    const preservePhase =
+      run?.ready === true &&
+      run.mappingAvailable &&
+      snapshot.generation === run.generation &&
+      snapshot.status === "running" &&
+      snapshot.barPosition !== null;
+    preserveUIBeatPhaseForNextEvaluation = preservePhase;
+    syncMirrorCode(generatedCode.value, preservePhase);
+    try {
+      await evaluateMirror(mirror.value);
+    } finally {
+      preserveUIBeatPhaseForNextEvaluation = false;
+    }
   },
+  { flush: "sync" },
 );
 
 watch(
@@ -751,7 +835,6 @@ watch(
 );
 
 onBeforeUnmount(() => {
-  invalidateQueuedEvaluations();
   presentationSyncCancelled = true;
   presentationSyncQueued = false;
   stopFollow();

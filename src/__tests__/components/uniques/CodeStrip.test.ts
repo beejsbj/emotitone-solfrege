@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   mirrorOptions: null as any,
   mirrorInitialCode: "",
   mirrorEvaluate: vi.fn().mockResolvedValue(undefined),
+  mirrorStop: vi.fn().mockResolvedValue(undefined),
   attachEditor: vi.fn(),
   detachEditor: vi.fn(),
   syncCode: vi.fn(),
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   } as any,
+  isPlaying: { value: false },
 }));
 
 vi.mock("@/stores/patterns", () => ({
@@ -48,7 +50,7 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
     syncCode: mocks.syncCode,
     setPlaying: mocks.setPlaying,
     setError: mocks.setError,
-    isPlaying: { value: false },
+    isPlaying: mocks.isPlaying,
   }),
 }));
 
@@ -96,7 +98,7 @@ vi.mock("@strudel/codemirror", () => ({
     code: string;
     editor: any;
     repl = { scheduler: { cps: 0.5 } };
-    stop = vi.fn().mockResolvedValue(undefined);
+    stop = mocks.mirrorStop;
     clear = vi.fn();
     updateSettings = vi.fn();
 
@@ -221,12 +223,14 @@ beforeEach(() => {
   mocks.audioContext.state = "running";
   mocks.audioContext.addEventListener.mockReset();
   mocks.audioContext.removeEventListener.mockReset();
+  mocks.isPlaying.value = false;
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     mocks.rafCallbacks.push(callback);
     return mocks.rafCallbacks.length;
   });
   vi.stubGlobal("cancelAnimationFrame", vi.fn());
   vi.clearAllMocks();
+  mocks.mirrorStop.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -357,6 +361,8 @@ describe("CodeStrip production Strudel document", () => {
     expect(mocks.setError).toHaveBeenCalledWith(expect.objectContaining({
       message: "invalid pattern",
     }));
+    expect(mocks.mirrorStop).toHaveBeenCalledOnce();
+    expect(mocks.setPlaying).toHaveBeenCalledWith(false);
     wrapper.unmount();
   });
 
@@ -415,6 +421,58 @@ describe("CodeStrip production Strudel document", () => {
 
     expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
     expect(uiBeatClock.snapshot.status).toBe("idle");
+    wrapper.unmount();
+  });
+
+  it("discards a queued evaluation when Strudel invokes its native stop", async () => {
+    let resolveFirst!: () => void;
+    mocks.mirrorEvaluate.mockImplementationOnce(
+      () => new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    const first = mocks.mirrorInstance.evaluate();
+    const queued = mocks.mirrorInstance.evaluate();
+    await Promise.resolve();
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+
+    await mocks.mirrorInstance.stop();
+    resolveFirst();
+    await expect(first).resolves.toBeUndefined();
+    await expect(queued).resolves.toBeUndefined();
+
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.mirrorStop).toHaveBeenCalledTimes(2);
+    expect(uiBeatClock.snapshot.status).toBe("idle");
+    wrapper.unmount();
+  });
+
+  it("keeps a new Play requested after native Stop while retiring older work", async () => {
+    let resolveFirst!: () => void;
+    mocks.mirrorEvaluate
+      .mockImplementationOnce(
+        () => new Promise<void>((resolve) => {
+          resolveFirst = resolve;
+        }),
+      )
+      .mockResolvedValueOnce(undefined);
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    const first = mocks.mirrorInstance.evaluate();
+    const staleQueued = mocks.mirrorInstance.evaluate();
+    await Promise.resolve();
+    await mocks.mirrorInstance.stop();
+    const afterStop = mocks.mirrorInstance.evaluate();
+    resolveFirst();
+
+    await expect(first).resolves.toBeUndefined();
+    await expect(staleQueued).resolves.toBeUndefined();
+    await expect(afterStop).resolves.toBeUndefined();
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
 
@@ -519,8 +577,40 @@ describe("CodeStrip production Strudel document", () => {
     resolveEvaluation();
     await evaluation;
 
-    expect(mocks.mirrorInstance.stop).toHaveBeenCalled();
+    expect(mocks.mirrorStop).toHaveBeenCalled();
     expect(mocks.setPlaying).toHaveBeenCalledWith(false);
+    wrapper.unmount();
+  });
+
+  it("preserves UIBeat generation and phase when playback tempo changes", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    await controller.evaluate();
+    mocks.mirrorOptions.onToggle(true);
+    mocks.mirrorOptions.onDraw([], 0.125);
+    const before = uiBeatClock.snapshot;
+
+    mocks.isPlaying.value = true;
+    mocks.visualConfigStore.config.codeStrip.bpm = 90;
+    await nextTick();
+    await flushPromises();
+
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
+    expect(uiBeatClock.snapshot).toMatchObject({
+      generation: before.generation,
+      status: "running",
+      bpm: 90,
+      barPosition: before.barPosition,
+      beatPhase: before.beatPhase,
+      presenting: true,
+    });
+
+    mocks.mirrorOptions.onDraw([], 0.125);
+    expect(uiBeatClock.snapshot.barPosition).toBeCloseTo(0.125);
+    mocks.mirrorOptions.onDraw([], 0.25);
+    expect(uiBeatClock.snapshot.barPosition).toBeCloseTo(0.21875);
+    expect(uiBeatClock.snapshot.generation).toBe(before.generation);
     wrapper.unmount();
   });
 

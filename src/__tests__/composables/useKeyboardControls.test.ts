@@ -67,7 +67,7 @@ describe("useKeyboardControls", () => {
     mockKeyboardDrawerStore.removeTouch.mockClear();
   });
 
-  it("builds three full 12-key rows plus bottom-row aliases", () => {
+  it("builds three full 12-key rows plus a ten-key bottom row", () => {
     const controls = useKeyboardControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
@@ -89,12 +89,12 @@ describe("useKeyboardControls", () => {
     });
     expect(mapping.KeyZ).toEqual({
       solfegeIndex: 0,
-      octave: 3,
+      octave: 2,
       label: "Z",
     });
     expect(mapping.Slash).toEqual({
       solfegeIndex: 9,
-      octave: 3,
+      octave: 2,
       label: "/",
     });
   });
@@ -121,7 +121,7 @@ describe("useKeyboardControls", () => {
     expect(controls.getKeyboardLetterForNote(0, 4)).toBe("Q");
   });
 
-  it("attacks notes from both the number row and the Z row", async () => {
+  it("attacks a distinct octave from each physical keyboard row", async () => {
     const controls = useKeyboardControls(ref(4));
 
     await controls.handleKeyDown(
@@ -131,21 +131,29 @@ describe("useKeyboardControls", () => {
       new KeyboardEvent("keyup", { code: "Digit1", key: "1" })
     );
     await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyQ", key: "q" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyA", key: "a" })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyA", key: "a" })
+    );
+    await controls.handleKeyDown(
       new KeyboardEvent("keydown", { code: "KeyZ", key: "z" })
     );
 
-    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenNthCalledWith(
-      1,
-      0,
-      5,
-      expect.any(Function),
-    );
-    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenNthCalledWith(
-      2,
-      0,
-      3,
-      expect.any(Function),
-    );
+    expect(mockMusicStore.attackNoteWithOctave.mock.calls.map(
+      ([solfegeIndex, octave]) => ({ solfegeIndex, octave }),
+    )).toEqual([
+      { solfegeIndex: 0, octave: 5 },
+      { solfegeIndex: 0, octave: 4 },
+      { solfegeIndex: 0, octave: 3 },
+      { solfegeIndex: 0, octave: 2 },
+    ]);
 
     controls.handleKeyUp(
       new KeyboardEvent("keyup", { code: "KeyZ", key: "z" })

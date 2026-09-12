@@ -75,11 +75,10 @@ const KEY_ROWS = [
   },
 ] as const;
 
-// Preserve the original physical bottom-row controls alongside the 12-key
-// home row. The bottom row only has ten printable keys, so it aliases the
-// first ten degrees of the lower octave while the home row retains complete
-// chromatic coverage and remains the source of displayed shortcut labels.
-const LOW_OCTAVE_KEY_ALIASES = [
+// The physical bottom row has ten printable keys, so it covers the first ten
+// degrees two octaves below the main row. The 12-key home row above it retains
+// complete chromatic coverage.
+const BOTTOM_KEY_ROW = [
   { code: "KeyZ", label: "Z" },
   { code: "KeyX", label: "X" },
   { code: "KeyC", label: "C" },
@@ -135,7 +134,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     KEY_ROWS.forEach((row) => {
       addKeyRow(row.keys, mainOctave.value + row.octaveOffset);
     });
-    addKeyRow(LOW_OCTAVE_KEY_ALIASES, mainOctave.value - 1);
+    addKeyRow(BOTTOM_KEY_ROW, mainOctave.value - 2);
 
     return mapping;
   };

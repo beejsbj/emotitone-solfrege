@@ -189,16 +189,35 @@ function applyPatternContext(
   pattern.spine = staticPitchColor(pitchClassIndex, mode, musicKey, octave);
 }
 
-function timeline(
-  events: Array<[pitchClassIndex: number, durationMs: number]>,
+function tokenTimeline(
+  tokens: CodeStripToken[],
   mode: MusicalMode,
   key: ChromaticNote,
   octave: number,
 ) {
-  return events.map(([pitchClassIndex, durationMs]) => ({
-    color: staticPitchColor(pitchClassIndex, mode, key, octave),
-    durationMs,
-  }));
+  return tokens.flatMap((token) => {
+    if (token.type !== "note") return [];
+    const duration = Number.parseFloat((token.duration ?? "").replace(/^@/, ""));
+    const tokenMode = token.mode ?? mode;
+    const tokenKey = token.musicKey ?? key;
+    const pitchClassIndex = token.pitchClassIndex
+      ?? CHROMATIC_NOTES.indexOf(
+        getChromaticNoteForScaleIndex(token.scaleIndex ?? 0, tokenMode, tokenKey)
+          ?? tokenKey,
+      );
+
+    return [{
+      color: staticPitchColor(
+        pitchClassIndex,
+        tokenMode,
+        tokenKey,
+        token.octave ?? octave,
+      ),
+      durationMs: Math.round(
+        (Number.isFinite(duration) && duration > 0 ? duration : 1) * 1000,
+      ),
+    }];
+  });
 }
 
 const patterns = ref<GuidePattern[]>([
@@ -209,7 +228,7 @@ const patterns = ref<GuidePattern[]>([
     instrumentLabel: "Music Box",
     rootLabel: "F♯4",
     spine: staticPitchColor(6, "dorian", "F#", 4),
-    barTape: timeline([[6, 250], [9, 125], [1, 375], [4, 250]], "dorian", "F#", 4),
+    barTape: tokenTimeline(afterRainTokens, "dorian", "F#", 4),
     canDelete: true,
     canCopy: true,
     canOpenStrudel: false,
@@ -228,7 +247,7 @@ const patterns = ref<GuidePattern[]>([
     instrumentLabel: "Rhodes",
     rootLabel: "D3",
     spine: staticPitchColor(2, "minor", "D", 3),
-    barTape: timeline([[2, 500], [5, 250], [9, 250], [0, 750]], "minor", "D", 3),
+    barTape: tokenTimeline(lateTrainTokens, "minor", "D", 3),
     canDelete: true,
     canCopy: true,
     canOpenStrudel: false,
@@ -247,7 +266,7 @@ const patterns = ref<GuidePattern[]>([
     instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: staticPitchColor(0, "major", "C", 4),
-    barTape: timeline([[0, 460]], "major", "C", 4),
+    barTape: tokenTimeline(initialTokens, "major", "C", 4),
     canDelete: false,
     canCopy: true,
     canOpenStrudel: false,
@@ -337,7 +356,12 @@ function removeLastEvent() {
   if (current && selectedPatternId.value === current.id) {
     current.codeStripTokens = cloneTokens(codeStripTokens.value);
     current.canCopy = codeStripTokens.value.length > 0;
-    if (!codeStripTokens.value.length) current.barTape = [];
+    current.barTape = tokenTimeline(
+      codeStripTokens.value,
+      modeValue.value,
+      keyValue.value,
+      octave.value,
+    );
   }
   if (!codeStripTokens.value.length) isPlaying.value = false;
   lastAction.value = "Deleted last CodeStrip event";
@@ -354,6 +378,12 @@ function commitCode() {
       id: `take-${takeNumber}`,
       name: `Take ${takeNumber}`,
       codeStripTokens: cloneTokens(codeStripTokens.value),
+      barTape: tokenTimeline(
+        codeStripTokens.value,
+        modeValue.value,
+        keyValue.value,
+        octave.value,
+      ),
       musicKey: keyValue.value,
       mode: modeValue.value,
       bpm: bpm.value,

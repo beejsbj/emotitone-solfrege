@@ -210,6 +210,83 @@ describe("PerformanceDeck guide fixtures", () => {
     });
   });
 
+  it("keeps Current and saved Bar Tape aligned with partial CodeStrip edits", async () => {
+    const wrapper = mount(PerformanceDeckPage);
+    const deck = wrapper.getComponent({ name: "PerformanceDeck" });
+
+    deck.vm.$emit("backspace");
+    await wrapper.vm.$nextTick();
+    const editedCurrent = deck.props("patterns").at(-1);
+    expect(editedCurrent).toMatchObject({
+      id: "current",
+      codeStripTokens: [
+        { type: "note", rawPitch: "C4" },
+        { type: "note", rawPitch: "E4" },
+        { type: "rest" },
+      ],
+      barTape: [
+        { durationMs: 250 },
+        { durationMs: 125 },
+      ],
+    });
+    expect(editedCurrent.barTape.map((segment: { color: string }) => segment.color)).toEqual([
+      staticNoteColorResolver.getKeyBackgroundByPitchClass(
+        0,
+        "major",
+        "C",
+        4,
+        "colored",
+        false,
+      ).primaryColor,
+      staticNoteColorResolver.getKeyBackgroundByPitchClass(
+        4,
+        "major",
+        "C",
+        4,
+        "colored",
+        false,
+      ).primaryColor,
+    ]);
+
+    deck.vm.$emit("patternCommit", "after-rain", "tap");
+    deck.vm.$emit("backspace");
+    deck.vm.$emit("return");
+    await wrapper.vm.$nextTick();
+
+    const saved = deck.props("patterns").find(
+      (pattern: { id: string }) => pattern.id === "take-1",
+    );
+    expect(saved).toMatchObject({
+      codeStripTokens: [
+        { type: "note", rawPitch: "F#4" },
+        { type: "note", rawPitch: "A4" },
+      ],
+      barTape: [
+        { durationMs: 250 },
+        { durationMs: 125 },
+      ],
+    });
+    expect(saved.barTape.map((segment: { color: string }) => segment.color)).toEqual([
+      staticNoteColorResolver.getKeyBackgroundByPitchClass(
+        6,
+        "dorian",
+        "F#",
+        4,
+        "colored",
+        true,
+      ).primaryColor,
+      staticNoteColorResolver.getKeyBackgroundByPitchClass(
+        9,
+        "dorian",
+        "F#",
+        4,
+        "colored",
+        false,
+      ).primaryColor,
+    ]);
+    wrapper.unmount();
+  });
+
   it("keeps copied pattern identities unique across delete and recopy", async () => {
     const wrapper = mount(PerformanceDeckPage);
     const deck = wrapper.getComponent({ name: "PerformanceDeck" });

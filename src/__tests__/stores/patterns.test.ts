@@ -201,6 +201,28 @@ describe("Patterns Store", () => {
     });
   });
 
+  it("records a scheduled Style pulse with its captured instrument", () => {
+    useInstrumentStore().currentInstrument = "gm_flute";
+
+    patternsStore.handleNotePressed({
+      detail: {
+        noteId: "styled-piano-note",
+        noteName: "E4",
+        solfegeIndex: 2,
+        octave: 4,
+        frequency: 329.63,
+        instrument: "piano",
+        source: "live-play-style",
+        note: createLogNote().solfege,
+      },
+    } as CustomEvent);
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "styled-piano-note", source: "live-play-style" },
+    } as CustomEvent);
+
+    expect(patternsStore.loggedNotes[0]?.instrument).toBe("piano");
+  });
+
   it("uses the ready fallback in loaded metadata when pattern warmup fails", async () => {
     const instrumentStore = useInstrumentStore();
     instrumentStore.currentInstrument = "piano";

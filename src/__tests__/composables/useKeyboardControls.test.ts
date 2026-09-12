@@ -67,11 +67,11 @@ describe("useKeyboardControls", () => {
     mockKeyboardDrawerStore.removeTouch.mockClear();
   });
 
-  it("builds three full 12-key rows for chromatic parity", () => {
+  it("builds three full 12-key rows plus bottom-row aliases", () => {
     const controls = useKeyboardControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
-    expect(Object.keys(mapping)).toHaveLength(36);
+    expect(Object.keys(mapping)).toHaveLength(46);
     expect(mapping.Digit1).toEqual({
       solfegeIndex: 0,
       octave: 5,
@@ -87,6 +87,16 @@ describe("useKeyboardControls", () => {
       octave: 3,
       label: "\\",
     });
+    expect(mapping.KeyZ).toEqual({
+      solfegeIndex: 0,
+      octave: 3,
+      label: "Z",
+    });
+    expect(mapping.Slash).toEqual({
+      solfegeIndex: 9,
+      octave: 3,
+      label: "/",
+    });
   });
 
   it("uses the leftmost keys for smaller mode sizes", () => {
@@ -94,11 +104,13 @@ describe("useKeyboardControls", () => {
     const controls = useKeyboardControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
-    expect(Object.keys(mapping)).toHaveLength(15);
+    expect(Object.keys(mapping)).toHaveLength(20);
     expect(mapping.Digit5.solfegeIndex).toBe(4);
     expect(mapping.KeyT.solfegeIndex).toBe(4);
     expect(mapping.KeyG.solfegeIndex).toBe(4);
+    expect(mapping.KeyB.solfegeIndex).toBe(4);
     expect(mapping.Digit6).toBeUndefined();
+    expect(mapping.KeyN).toBeUndefined();
   });
 
   it("returns display labels for mapped notes", () => {
@@ -107,6 +119,38 @@ describe("useKeyboardControls", () => {
 
     expect(controls.getKeyboardLetterForNote(11, 3)).toBe("\\");
     expect(controls.getKeyboardLetterForNote(0, 4)).toBe("Q");
+  });
+
+  it("attacks notes from both the number row and the Z row", async () => {
+    const controls = useKeyboardControls(ref(4));
+
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "Digit1", key: "1" })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "Digit1", key: "1" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyZ", key: "z" })
+    );
+
+    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenNthCalledWith(
+      1,
+      0,
+      5,
+      expect.any(Function),
+    );
+    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenNthCalledWith(
+      2,
+      0,
+      3,
+      expect.any(Function),
+    );
+
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyZ", key: "z" })
+    );
+    controls.cleanupKeyboardListeners();
   });
 
   it("releases a QWERTY owner even when keyup beats async attack resolution", async () => {

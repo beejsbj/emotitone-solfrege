@@ -75,6 +75,23 @@ const KEY_ROWS = [
   },
 ] as const;
 
+// Preserve the original physical bottom-row controls alongside the 12-key
+// home row. The bottom row only has ten printable keys, so it aliases the
+// first ten degrees of the lower octave while the home row retains complete
+// chromatic coverage and remains the source of displayed shortcut labels.
+const LOW_OCTAVE_KEY_ALIASES = [
+  { code: "KeyZ", label: "Z" },
+  { code: "KeyX", label: "X" },
+  { code: "KeyC", label: "C" },
+  { code: "KeyV", label: "V" },
+  { code: "KeyB", label: "B" },
+  { code: "KeyN", label: "N" },
+  { code: "KeyM", label: "M" },
+  { code: "Comma", label: "," },
+  { code: "Period", label: "." },
+  { code: "Slash", label: "/" },
+] as const;
+
 /**
  * Composable for handling keyboard controls for solfege notes
  */
@@ -98,20 +115,27 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     const degreeCount = musicStore.currentScale.degreeCount;
     const mapping: KeyboardMapping = {};
 
-    KEY_ROWS.forEach((row) => {
-      const octave = mainOctave.value + row.octaveOffset;
+    const addKeyRow = (
+      keys: readonly { code: string; label: string }[],
+      octave: number,
+    ) => {
       if (octave < 1 || octave > 8) {
         return;
       }
 
-      row.keys.slice(0, degreeCount).forEach((key, index) => {
+      keys.slice(0, degreeCount).forEach((key, index) => {
         mapping[key.code] = {
           solfegeIndex: index,
           octave,
           label: key.label,
         };
       });
+    };
+
+    KEY_ROWS.forEach((row) => {
+      addKeyRow(row.keys, mainOctave.value + row.octaveOffset);
     });
+    addKeyRow(LOW_OCTAVE_KEY_ALIASES, mainOctave.value - 1);
 
     return mapping;
   };

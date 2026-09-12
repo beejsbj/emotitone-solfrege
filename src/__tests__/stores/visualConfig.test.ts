@@ -460,12 +460,25 @@ describe('Visual Config Store', () => {
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
       visualConfigStore.updateConfig('keyboard', { rowCount: 7 })
       visualConfigStore.setVisualsEnabled(false)
+      visualConfigStore.setNewLookOnLaunch(true)
       
       visualConfigStore.resetToDefaults()
       
       expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
       expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
       expect(visualConfigStore.visualsEnabled).toBe(true)
+      expect(visualConfigStore.newLookOnLaunch).toBe(false)
+      expect(visualConfigStore.transientStageLook).toBeNull()
+
+      const persisted = JSON.parse(
+        localStorage.getItem('emotitone-visual-config') ?? '{}',
+      )
+      expect(persisted.stagePreferences?.newLookOnLaunch).toBe(false)
+
+      const reloadedStore = createFreshStore()
+      expect(reloadedStore.newLookOnLaunch).toBe(false)
+      expect(reloadedStore.transientStageLook).toBeNull()
+      expect(reloadedStore.config.keyboard.rowCount).toBe(7)
     })
 
     it('should reset specific section to defaults', () => {

@@ -654,6 +654,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const resetToDefaults = () => {
     applyRuntimeConfig(cloneDefaultConfig());
     visualsEnabled.value = true;
+    newLookOnLaunch.value = false;
     saveToStorage();
   };
 

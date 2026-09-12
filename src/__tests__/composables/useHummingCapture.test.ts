@@ -1,6 +1,6 @@
 import { defineComponent, h } from "vue";
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useHummingCapture } from "@/composables/useHummingCapture";
 
 const mocks = vi.hoisted(() => ({
@@ -57,6 +57,8 @@ vi.mock("@/stores/patterns", () => ({
 describe("useHummingCapture", () => {
   let capture: ReturnType<typeof useHummingCapture>;
 
+  afterEach(() => vi.useRealTimers());
+
   function mountCapture() {
     const Host = defineComponent({
       setup() {
@@ -94,6 +96,8 @@ describe("useHummingCapture", () => {
     const frame = { voiced: true, midi: 62, frequencyHz: 293.66 };
     onFrame(frame);
     expect(mocks.bridgePush).toHaveBeenCalledWith(frame);
+    expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
+    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
 
     await capture.stop();
 
@@ -129,6 +133,46 @@ describe("useHummingCapture", () => {
     expect(capture.takeCount.value).toBe(0);
     expect(capture.takeLabels.value).toEqual([]);
     expect(capture.selectedTakeIndex.value).toBe(0);
+    wrapper.unmount();
+  });
+
+  it("stops at the recording limit but only analyzes and imports on acceptance", async () => {
+    vi.useFakeTimers();
+    const wrapper = mountCapture();
+    await capture.toggle();
+
+    await vi.advanceTimersByTimeAsync(45_000);
+
+    expect(capture.status.value).toBe("ready");
+    expect(mocks.sessionStop).toHaveBeenCalledTimes(1);
+    expect(mocks.bridgeStop).toHaveBeenCalled();
+    expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
+    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+
+    await capture.toggle();
+
+    expect(mocks.sessionStop).toHaveBeenCalledTimes(1);
+    expect(mocks.analyzePitchRecording).toHaveBeenCalledTimes(1);
+    expect(mocks.importPatternCandidates).toHaveBeenCalledTimes(1);
+    expect(capture.status.value).toBe("idle");
+    wrapper.unmount();
+  });
+
+  it.each([0, 45_000])("discards without importing when cancelled after %i ms", async (elapsed) => {
+    vi.useFakeTimers();
+    const wrapper = mountCapture();
+    await capture.toggle();
+    await vi.advanceTimersByTimeAsync(elapsed);
+
+    await capture.cancel();
+    await capture.stop();
+
+    expect(capture.status.value).toBe("idle");
+    expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
+    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+    await capture.toggle();
+    expect(capture.status.value).toBe("recording");
+    expect(mocks.startMicrophoneCapture).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
 

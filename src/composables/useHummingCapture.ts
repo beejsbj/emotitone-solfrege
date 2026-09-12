@@ -19,6 +19,7 @@ export type HummingCaptureStatus =
   | "idle"
   | "requesting"
   | "recording"
+  | "ready"
   | "preparing"
   | "analyzing"
   | "error";
@@ -38,6 +39,7 @@ export function useHummingCapture() {
   const importedNoteCount = ref(0);
 
   let session: MicrophoneCapture | null = null;
+  let pendingRecording: Promise<Blob> | null = null;
   let stageBridge: ReturnType<typeof createHummingStageBridge> | null = null;
   let timeoutId: number | null = null;
   let requestController: AbortController | null = null;
@@ -58,6 +60,7 @@ export function useHummingCapture() {
   const statusMessage = computed(() => {
     if (status.value === "requesting") return "Requesting microphone access";
     if (status.value === "recording") return "Listening to your humming";
+    if (status.value === "ready") return "45-second limit reached. Check to save, or cancel to discard.";
     if (status.value === "preparing") return "Preparing the recording";
     if (status.value === "analyzing") return "Analyzing the phrase";
     if (status.value === "error") return error.value ?? "Humming capture failed";
@@ -69,7 +72,7 @@ export function useHummingCapture() {
   });
 
   async function start() {
-    if (isBusy.value || isRecording.value) return;
+    if (isBusy.value || isRecording.value || status.value === "ready") return;
     const activeGeneration = ++generation;
     error.value = null;
     importedNoteCount.value = 0;
@@ -103,25 +106,38 @@ export function useHummingCapture() {
       }
       session = nextSession;
       status.value = "recording";
-      timeoutId = window.setTimeout(() => void stop(), MAX_CAPTURE_MS);
+      timeoutId = window.setTimeout(() => {
+        if (generation !== activeGeneration || !session) return;
+        clearCaptureTimeout();
+        stageBridge?.stop();
+        stageBridge = null;
+        pendingRecording = session.stop();
+        session = null;
+        status.value = "ready";
+        void pendingRecording.catch((caught) => {
+          if (generation === activeGeneration) fail(caught);
+        });
+      }, MAX_CAPTURE_MS);
     } catch (caught) {
       if (generation === activeGeneration) fail(caught);
     }
   }
 
   async function stop() {
-    if (status.value !== "recording" || !session || !captureContext) return;
+    if (!["recording", "ready"].includes(status.value) || !captureContext) return;
+    const recordingPromise = pendingRecording ?? session?.stop();
+    if (!recordingPromise) return;
     const activeGeneration = generation;
-    const activeSession = session;
     const activeContext = captureContext;
     session = null;
+    pendingRecording = null;
     clearCaptureTimeout();
     stageBridge?.stop();
     stageBridge = null;
     status.value = "preparing";
 
     try {
-      const recording = await activeSession.stop();
+      const recording = await recordingPromise;
       if (generation !== activeGeneration) return;
       const wav = await preparePitchAnalysisAudio(recording);
       if (generation !== activeGeneration) return;
@@ -170,7 +186,7 @@ export function useHummingCapture() {
   }
 
   async function toggle() {
-    if (isRecording.value) {
+    if (isRecording.value || status.value === "ready") {
       await stop();
     } else {
       await start();
@@ -193,6 +209,7 @@ export function useHummingCapture() {
     stageBridge = null;
     const activeSession = session;
     session = null;
+    pendingRecording = null;
     await activeSession?.cancel();
     if (status.value !== "error") status.value = "idle";
   }
@@ -202,6 +219,7 @@ export function useHummingCapture() {
     stageBridge?.stop();
     stageBridge = null;
     session = null;
+    pendingRecording = null;
     error.value = friendlyCaptureError(caught);
     status.value = "error";
   }

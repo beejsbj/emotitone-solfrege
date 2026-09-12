@@ -174,7 +174,7 @@
                   <p class="config-panel__eyebrow">Stage only</p>
                   <h2>Looks</h2>
                   <p class="config-panel__section-copy">
-                    Looks never change Music Color, UI Rhythm, Keyboard, Patterns, or Code Strip.
+                    Looks change Stage appearance, while Connections and Explanations stay yours.
                   </p>
                 </div>
 
@@ -220,13 +220,13 @@
 
               <div class="config-panel__launch-setting">
                 <div>
-                  <p class="config-panel__group-label">New Look on Launch</p>
-                  <p class="config-panel__group-copy">One seeded variation per app launch. The result stays temporary until kept.</p>
+                  <p class="config-panel__group-label">New Look on Reload</p>
+                  <p class="config-panel__group-copy">Each reload previews a newly seeded variation. It stays temporary until kept.</p>
                 </div>
                 <Knob
                   type="boolean"
                   :model-value="newLookOnLaunch"
-                  label="On Launch"
+                  label="On Reload"
                   data-testid="new-look-on-launch"
                   @update:modelValue="setNewLookOnLaunch(Boolean($event))"
                 />
@@ -639,7 +639,7 @@ const SECTION_ORDER: ConfigSectionKey[] = [
 const visualConfigStore = useVisualConfigStore(props.visualConfigPinia);
 const keyboardDrawerStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
-const activeTab = ref("stage");
+const activeTab = ref("looks");
 
 const {
   config,
@@ -686,8 +686,8 @@ const sectionTabs = computed(() =>
 );
 
 const allTabs = computed(() => [
-  STAGE_TAB,
   LOOKS_TAB,
+  STAGE_TAB,
   ...sectionTabs.value.map((tab) => ({
     value: tab.name,
     label: tab.label,

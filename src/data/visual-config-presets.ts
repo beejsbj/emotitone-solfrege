@@ -1,16 +1,87 @@
-import type { StageLook } from "@/services/stageAppearance";
+import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
+import {
+  applyStageLook,
+  stageLookFromConfig,
+  type StageLook,
+} from "@/services/stageAppearance";
+
+const PREFERENCE_FIELDS = [
+  "connectionMode",
+  "fieldSoftness",
+  "fusionStrength",
+  "webOpacity",
+  "showChordLabel",
+  "showIntervalLabels",
+  "showEmotionLabel",
+  "labelOpacity",
+] as const;
 
 /**
- * Curated Stage-only Looks. These patches cannot reach Music Color, UIBeat,
- * Keyboard, Patterns, Code Strip, MIDI, or any other application setting.
+ * A built-in is a complete Stage-appearance recipe, not a partial mutation of
+ * whatever Look happened to come before it. Relationship and explanation
+ * choices are the exception: those belong to the learner and survive a Look.
+ */
+function defineBuiltInStageLook(look: StageLook): StageLook {
+  const patch = stageLookFromConfig(applyStageLook(DEFAULT_CONFIG, look.patch));
+
+  if (patch.blobs) {
+    for (const field of PREFERENCE_FIELDS) delete patch.blobs[field];
+  }
+
+  return { ...look, patch };
+}
+
+/**
+ * Curated Stage-only Looks. The public library is deliberately small: three
+ * distinct built-ins plus the separate collection of user-saved Looks.
  */
 export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
-  {
-    id: "soft-glass",
-    name: "Soft Bloom",
+  defineBuiltInStageLook({
+    id: "clear",
+    name: "Clear",
+    description: "Calm motion and crisp, restrained supporting layers.",
+    patch: {
+      blobs: {
+        isEnabled: true,
+        baseSizeRatio: 0.09,
+        opacity: 0.3,
+        blurRadius: 5,
+        glowEnabled: false,
+        glowIntensity: 0,
+        oscillationAmplitude: 0.15,
+        driftSpeed: 2,
+        vibrationAmplitude: 3,
+      },
+      ambient: {
+        isEnabled: true,
+        opacityMajor: 0.28,
+        opacityMinor: 0.2,
+      },
+      particles: { isEnabled: false, count: 0 },
+      strings: {
+        isEnabled: true,
+        baseOpacity: 0.12,
+        activeOpacity: 0.42,
+        maxAmplitude: 12,
+      },
+      hilbertScope: {
+        sizeRatio: 0.55,
+        opacity: 0.7,
+        glowEnabled: true,
+        glowIntensity: 6,
+        history: 0.12,
+        smear: 0,
+        thickness: 1.5,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
+    id: "soft",
+    name: "Soft",
     description: "Warm, quiet bodies with a broad atmospheric breath.",
     patch: {
       blobs: {
+        isEnabled: true,
         baseSizeRatio: 0.09,
         opacity: 0.34,
         blurRadius: 24,
@@ -46,146 +117,14 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         thickness: 1.4,
       },
     },
-  },
-  {
-    id: "pulse-lab",
-    name: "Pulse Field",
-    description: "Sharper bodies, bright strings, and energetic note flecks.",
-    patch: {
-      blobs: {
-        baseSizeRatio: 0.11,
-        opacity: 0.58,
-        blurRadius: 8,
-        glowEnabled: true,
-        glowIntensity: 20,
-        oscillationAmplitude: 0.75,
-        driftSpeed: 12,
-        vibrationAmplitude: 18,
-      },
-      ambient: {
-        isEnabled: true,
-        opacityMajor: 0.48,
-        opacityMinor: 0.3,
-        brightnessMajor: 0.55,
-        brightnessMinor: 0.36,
-      },
-      particles: {
-        isEnabled: true,
-        count: 22,
-        speed: 6,
-        gravity: 0.35,
-        airResistance: 0.985,
-      },
-      strings: {
-        isEnabled: true,
-        baseOpacity: 0.08,
-        activeOpacity: 0.92,
-        maxAmplitude: 30,
-        dampingFactor: 0.06,
-        interpolationSpeed: 0.18,
-      },
-      hilbertScope: {
-        sizeRatio: 0.66,
-        opacity: 0.82,
-        glowEnabled: true,
-        glowIntensity: 14,
-        history: 0.62,
-        smear: 0.12,
-        thickness: 4.5,
-      },
-    },
-  },
-  {
-    id: "ambient-bloom",
-    name: "Ambient Bloom",
-    description: "A slow haze that lets harmony hang in the room.",
-    patch: {
-      blobs: {
-        baseSizeRatio: 0.1,
-        opacity: 0.4,
-        blurRadius: 32,
-        oscillationAmplitude: 0.25,
-        driftSpeed: 4,
-        vibrationAmplitude: 5,
-      },
-      ambient: {
-        isEnabled: true,
-        opacityMajor: 0.72,
-        opacityMinor: 0.5,
-        brightnessMajor: 0.58,
-        brightnessMinor: 0.42,
-        saturationMajor: 0.86,
-        saturationMinor: 0.68,
-      },
-      particles: { isEnabled: false, count: 0 },
-      strings: {
-        isEnabled: true,
-        baseOpacity: 0.05,
-        activeOpacity: 0.3,
-        maxAmplitude: 10,
-      },
-      hilbertScope: {
-        sizeRatio: 0.62,
-        opacity: 0.42,
-        glowEnabled: true,
-        glowIntensity: 10,
-        history: 0.12,
-        smear: 0,
-        thickness: 1.2,
-      },
-    },
-  },
-  {
-    id: "classroom",
-    name: "Clear Lesson",
-    description: "Calmer motion and readable relationship explanations.",
+  }),
+  defineBuiltInStageLook({
+    id: "luminous",
+    name: "Luminous",
+    description: "A bright spectral field with the primary Scope pushed forward.",
     patch: {
       blobs: {
         isEnabled: true,
-        baseSizeRatio: 0.09,
-        opacity: 0.3,
-        blurRadius: 5,
-        glowEnabled: false,
-        glowIntensity: 0,
-        oscillationAmplitude: 0.15,
-        driftSpeed: 2,
-        vibrationAmplitude: 3,
-        connectionMode: "merge",
-        fusionStrength: 0.16,
-        showChordLabel: true,
-        showIntervalLabels: true,
-        showEmotionLabel: true,
-        labelOpacity: 0.78,
-      },
-      ambient: {
-        isEnabled: true,
-        opacityMajor: 0.28,
-        opacityMinor: 0.2,
-      },
-      particles: { isEnabled: false, count: 0 },
-      strings: {
-        isEnabled: true,
-        baseOpacity: 0.12,
-        activeOpacity: 0.42,
-        maxAmplitude: 12,
-      },
-      hilbertScope: {
-        sizeRatio: 0.55,
-        opacity: 0.7,
-        glowEnabled: true,
-        glowIntensity: 6,
-        history: 0.12,
-        smear: 0,
-        thickness: 1.5,
-      },
-    },
-  },
-  {
-    id: "neon-scope",
-    name: "Neon Scope",
-    description: "Bright and spectral, with the primary Scope pushed forward.",
-    patch: {
-      blobs: {
         baseSizeRatio: 0.09,
         opacity: 0.42,
         blurRadius: 12,
@@ -201,7 +140,12 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         opacityMinor: 0.28,
       },
       particles: { isEnabled: true, count: 12, speed: 5 },
-      strings: { isEnabled: true, baseOpacity: 0.05, activeOpacity: 0.7, maxAmplitude: 22 },
+      strings: {
+        isEnabled: true,
+        baseOpacity: 0.05,
+        activeOpacity: 0.7,
+        maxAmplitude: 22,
+      },
       hilbertScope: {
         sizeRatio: 0.72,
         opacity: 0.92,
@@ -212,38 +156,5 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         thickness: 5,
       },
     },
-  },
-  {
-    id: "hilbert-trace",
-    name: "Hilbert Trace",
-    description: "A thin luminous trace with long, soft persistence.",
-    patch: {
-      blobs: {
-        baseSizeRatio: 0.08,
-        opacity: 0.28,
-        blurRadius: 8,
-        glowEnabled: true,
-        glowIntensity: 7,
-        oscillationAmplitude: 0.2,
-        driftSpeed: 3,
-        vibrationAmplitude: 5,
-      },
-      ambient: {
-        isEnabled: true,
-        opacityMajor: 0.32,
-        opacityMinor: 0.2,
-      },
-      particles: { isEnabled: true, count: 4, speed: 2 },
-      strings: { isEnabled: true, baseOpacity: 0.03, activeOpacity: 0.36, maxAmplitude: 12 },
-      hilbertScope: {
-        sizeRatio: 1.05,
-        opacity: 0.72,
-        glowEnabled: true,
-        glowIntensity: 8,
-        history: 0.72,
-        smear: 0.35,
-        thickness: 0.55,
-      },
-    },
-  },
+  }),
 ];

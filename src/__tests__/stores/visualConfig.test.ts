@@ -826,6 +826,27 @@ describe('Visual Config Store', () => {
       expect(optedInStore.transientStageLook).not.toBeNull()
     })
 
+    it('generates a fresh transient seed on every opted-in reload', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: mockDefaultConfig,
+        stagePreferences: { newLookOnLaunch: true },
+      }))
+      vi.spyOn(globalThis.crypto, 'randomUUID')
+        .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+        .mockReturnValueOnce('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee')
+
+      const firstReload = createFreshStore()
+      const secondReload = createFreshStore()
+
+      expect(firstReload.transientStageLook?.seed)
+        .toBe('11111111-1111-4111-8111-111111111111')
+      expect(secondReload.transientStageLook?.seed)
+        .toBe('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee')
+      expect(secondReload.transientStageLook?.patch)
+        .not.toEqual(firstReload.transientStageLook?.patch)
+      expect(secondReload.config).toEqual(mockDefaultConfig)
+    })
+
     it('does not persist Shuffle output, even after the config debounce', async () => {
       vi.useFakeTimers()
       const mockLocalStorage = (window as any).localStorage

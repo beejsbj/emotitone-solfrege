@@ -123,6 +123,34 @@ describe("Stage appearance domain", () => {
     expect(applied.codeStrip).toEqual(backing.codeStrip);
   });
 
+  it("defines three complete built-ins while preserving learner preferences", () => {
+    expect(BUILT_IN_STAGE_LOOKS.map((look) => look.name)).toEqual([
+      "Clear",
+      "Soft",
+      "Luminous",
+    ]);
+
+    for (const look of BUILT_IN_STAGE_LOOKS) {
+      expect(Object.keys(look.patch)).toEqual([
+        "blobs",
+        "ambient",
+        "particles",
+        "strings",
+        "hilbertScope",
+      ]);
+      expect(look.patch.blobs).toHaveProperty("isEnabled");
+      expect(look.patch.blobs).toHaveProperty("blurRadius");
+      expect(look.patch.blobs).not.toHaveProperty("connectionMode");
+      expect(look.patch.blobs).not.toHaveProperty("fusionStrength");
+      expect(look.patch.blobs).not.toHaveProperty("fieldSoftness");
+      expect(look.patch.blobs).not.toHaveProperty("webOpacity");
+      expect(look.patch.blobs).not.toHaveProperty("showChordLabel");
+      expect(look.patch.blobs).not.toHaveProperty("showIntervalLabels");
+      expect(look.patch.blobs).not.toHaveProperty("showEmotionLabel");
+      expect(look.patch.blobs).not.toHaveProperty("labelOpacity");
+    }
+  });
+
   it("creates deterministic seeded variations", () => {
     const first = createSeededStageLook("same-seed", BUILT_IN_STAGE_LOOKS);
     const second = createSeededStageLook("same-seed", BUILT_IN_STAGE_LOOKS);

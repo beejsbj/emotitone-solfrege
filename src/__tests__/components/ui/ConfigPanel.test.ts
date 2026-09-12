@@ -220,6 +220,7 @@ describe("ConfigPanel.vue", () => {
 
     expect(tabs.map((tab) => tab.value)).toContain("stage");
     expect(tabs.map((tab) => tab.value)).toContain("looks");
+    expect(tabs.slice(0, 2).map((tab) => tab.value)).toEqual(["looks", "stage"]);
     expect(tabs.map((tab) => tab.value)).toContain("uiBeat");
     expect(tabs.map((tab) => tab.value)).toContain("dynamicColors");
     expect(tabs.map((tab) => tab.value)).not.toContain("blobs");
@@ -255,7 +256,8 @@ describe("ConfigPanel.vue", () => {
     wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "looks");
     await nextTick();
 
-    const scene = wrapper.get('[data-testid="preset-apply-soft-glass"]');
+    expect(wrapper.findAll('[data-testid^="preset-apply-"]')).toHaveLength(3);
+    const scene = wrapper.get('[data-testid="preset-apply-soft"]');
     expect(scene.element.tagName).toBe("BUTTON");
     expect(scene.find(".sticker--outline.sticker--color-ivory").exists()).toBe(true);
     expect(wrapper.find(".sticker--badge").exists()).toBe(false);
@@ -297,7 +299,7 @@ describe("ConfigPanel.vue", () => {
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__title').text())
       .toBe("Config");
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__context').text())
-      .toBe("Stage");
+      .toBe("Looks");
     expect(wrapper.get('button[aria-label="Close settings"]').classes())
       .toContain("paper-button--sm");
   });

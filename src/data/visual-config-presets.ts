@@ -1,20 +1,10 @@
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import {
   applyStageLook,
+  STAGE_LOOK_PREFERENCE_FIELDS,
   stageLookFromConfig,
   type StageLook,
 } from "@/services/stageAppearance";
-
-const PREFERENCE_FIELDS = [
-  "connectionMode",
-  "fieldSoftness",
-  "fusionStrength",
-  "webOpacity",
-  "showChordLabel",
-  "showIntervalLabels",
-  "showEmotionLabel",
-  "labelOpacity",
-] as const;
 
 /**
  * A built-in is a complete Stage-appearance recipe, not a partial mutation of
@@ -25,7 +15,7 @@ function defineBuiltInStageLook(look: StageLook): StageLook {
   const patch = stageLookFromConfig(applyStageLook(DEFAULT_CONFIG, look.patch));
 
   if (patch.blobs) {
-    for (const field of PREFERENCE_FIELDS) delete patch.blobs[field];
+    for (const field of STAGE_LOOK_PREFERENCE_FIELDS) delete patch.blobs[field];
   }
 
   return { ...look, patch };

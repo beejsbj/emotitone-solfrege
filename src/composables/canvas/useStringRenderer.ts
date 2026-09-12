@@ -25,8 +25,8 @@ import type { StageAudioFrame } from "./stageRuntime";
 
 export function useStringRenderer() {
   const {
-    getPrimaryColor,
-    getStaticPrimaryColor,
+    getPrimaryColorForPitch,
+    getStaticPrimaryColorForPitch,
     getPrimaryColorByScaleIndex,
   } = useMusicColor({ animated: true });
   const { gsap } = useGSAP();
@@ -322,11 +322,19 @@ export function useStringRenderer() {
         const noteKey = (matchingActiveNote?.key ??
           eventActivation?.key ??
           musicStore.currentKey) as ChromaticNote;
-        string.color = (reducedMotion ? getStaticPrimaryColor : getPrimaryColor)(
-          solfege.name,
+        const noteSolfegeIndex = matchingActiveNote?.solfegeIndex
+          ?? eventActivation?.solfegeIndex
+          ?? string.noteIndex;
+        const pitchClassIndex = matchingActiveNote?.pitchClassIndex
+          ?? eventActivation?.pitchClassIndex;
+        string.color = (reducedMotion
+          ? getStaticPrimaryColorForPitch
+          : getPrimaryColorForPitch)(
+          noteSolfegeIndex,
+          pitchClassIndex,
           noteMode,
+          noteKey,
           string.octave,
-          noteKey
         );
 
         // Determine frequency for visual vibration

@@ -951,6 +951,46 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.transientStageLook?.name).toContain('Edited')
     })
 
+    it('carries transient Connections and Explanations into the next curated preview', () => {
+      visualConfigStore.clearStageLook()
+      const backingPreferences = {
+        connectionMode: visualConfigStore.config.blobs.connectionMode,
+        showChordLabel: visualConfigStore.config.blobs.showChordLabel,
+      }
+      visualConfigStore.applyBuiltInStageLook('clear')
+      visualConfigStore.updateStageControl('connectionMode', 'web')
+      visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('showChords', false)
+      visualConfigStore.updateStageControl('showIntervals', true)
+      visualConfigStore.updateStageControl('showEmotion', true)
+      visualConfigStore.updateStageControl('labelStrength', 0.31)
+      const expectedPreferences = {
+        connectionMode: 'web',
+        fieldSoftness: 4 + 0.37 * 28,
+        fusionStrength: 0.37,
+        webOpacity: 0.15 + 0.37 * 0.75,
+        showChordLabel: false,
+        showIntervalLabels: true,
+        showEmotionLabel: true,
+        labelOpacity: 0.31,
+      }
+
+      visualConfigStore.applyBuiltInStageLook('soft')
+      expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
+        expectedPreferences,
+      )
+
+      visualConfigStore.shuffleStageLook('carry-preferences')
+      expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
+        expectedPreferences,
+      )
+
+      visualConfigStore.clearStageLook()
+      expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
+        backingPreferences,
+      )
+    })
+
     it('materializes only Stage fields when a Look is kept and survives reload', () => {
       visualConfigStore.setNewLookOnLaunch(false)
       const musicColor = { ...visualConfigStore.config.dynamicColors }

@@ -7,6 +7,7 @@ import {
   createSeededStageLook,
   diffStageLook,
   patchStageControl,
+  preserveStageLookPreferences,
   readStageControls,
   resolveStageConfig,
   sanitizeStageLookPatch,
@@ -529,12 +530,21 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const applyBuiltInStageLook = (lookId: string) => {
     const look = BUILT_IN_STAGE_LOOKS.find((candidate) => candidate.id === lookId);
     if (!look) return false;
-    previewStageLook(look.name, look.patch, `look-${look.id}`);
+    previewStageLook(
+      look.name,
+      preserveStageLookPreferences(look.patch, effectiveConfig.value),
+      `look-${look.id}`,
+    );
     return true;
   };
 
   const shuffleStageLook = (seed = createStageLookSeed()) => {
-    transientStageLook.value = createSeededStageLook(seed, BUILT_IN_STAGE_LOOKS);
+    const nextLook = createSeededStageLook(seed, BUILT_IN_STAGE_LOOKS);
+    nextLook.patch = preserveStageLookPreferences(
+      nextLook.patch,
+      effectiveConfig.value,
+    );
+    transientStageLook.value = nextLook;
     return transientStageLook.value;
   };
 

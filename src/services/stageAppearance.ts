@@ -93,6 +93,17 @@ type StageLookSection =
   | "strings"
   | "hilbertScope";
 
+export const STAGE_LOOK_PREFERENCE_FIELDS = [
+  "connectionMode",
+  "fieldSoftness",
+  "fusionStrength",
+  "webOpacity",
+  "showChordLabel",
+  "showIntervalLabels",
+  "showEmotionLabel",
+  "labelOpacity",
+] as const;
+
 const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
   blobs: [
     "isEnabled",
@@ -259,6 +270,24 @@ export function sanitizeStageLookPatch(patch: unknown): StageLookPatch {
     }
   }
   return sanitized;
+}
+
+/** Carry learner-owned relationship and explanation choices between previews. */
+export function preserveStageLookPreferences(
+  patch: StageLookPatch,
+  currentConfig: VisualEffectsConfig,
+): StageLookPatch {
+  const next = sanitizeStageLookPatch(patch);
+  const nextBlobs = {
+    ...next.blobs,
+  } as Record<string, unknown>;
+  const currentBlobs = currentConfig.blobs as unknown as Record<string, unknown>;
+
+  for (const field of STAGE_LOOK_PREFERENCE_FIELDS) {
+    nextBlobs[field] = currentBlobs[field];
+  }
+  next.blobs = nextBlobs;
+  return next;
 }
 
 export function applyStageLook(

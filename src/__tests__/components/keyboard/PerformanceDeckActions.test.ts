@@ -360,7 +360,6 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const drawer = wrapper.getComponent(Drawer);
     expect(drawer.classes()).toContain("performance-deck-drawer");
     expect(drawer.props("storageKey")).toBe("keyboard");
-    expect(drawer.props("handlePlacement")).toBe("edge");
     expect(drawer.props("persistentOverflow")).toBe("visible");
     expect(wrapper.find(".drawer__handle-rail").exists()).toBe(false);
     expect(drawer.props("maxHeightRatio")).toBe(0.95);

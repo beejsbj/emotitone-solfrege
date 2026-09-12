@@ -751,7 +751,12 @@ export const usePatternsStore = defineStore(
         solfege: note as SolfegeData,
         octave,
         frequency,
-        instrument: instrument ?? instrumentStore.currentInstrument,
+        // Scheduled Style pulses carry the instrument captured by their held
+        // input. Ordinary notes keep the existing live-store boundary so an
+        // instrument change still starts a fresh take.
+        instrument: event.detail.source === "live-play-style"
+          ? instrument ?? instrumentStore.currentInstrument
+          : instrumentStore.currentInstrument,
         bpm: resolveBpm(visualConfigStore.config.codeStrip.bpm),
         pressTime: Number.isFinite(event.detail.timestamp) ? event.detail.timestamp : Date.now(),
         sessionId: currentSessionId.value,

@@ -11,6 +11,7 @@ import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
 import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
+import { PLAY_MODE_OPTIONS } from "@/services/playStyles";
 import { uiBeatClock } from "@/composables/useUIBeat";
 
 const instrumentControlSource = readFileSync(
@@ -462,6 +463,60 @@ describe("Knob public interface", () => {
     expect(boolean.attributes("type")).toBe("button");
     expect(boolean.attributes("aria-pressed")).toBe("true");
     expect(boolean.attributes("aria-label")).toBe("Visuals");
+  });
+
+  it("exposes option Knobs as keyboard-operable indexed controls", async () => {
+    const options = render({
+      modelValue: "together",
+      type: "options",
+      options: PLAY_MODE_OPTIONS,
+      label: "Style",
+    });
+
+    expect(options.attributes("role")).toBe("slider");
+    expect(options.attributes("tabindex")).toBe("0");
+    expect(options.attributes("aria-label")).toBe("Style");
+    expect(options.attributes("aria-valuenow")).toBe("0");
+    expect(options.attributes("aria-valuetext")).toBe("Together");
+
+    await options.trigger("keydown", { key: "ArrowLeft" });
+    expect(options.emitted("update:modelValue")).toBeUndefined();
+
+    await options.trigger("keydown", { key: "ArrowRight" });
+    await options.setProps({ modelValue: "strum-up" });
+    expect(options.attributes("aria-valuenow")).toBe("1");
+    expect(options.attributes("aria-valuetext")).toBe("Strum ↑");
+
+    await options.trigger("keydown", { key: "End" });
+    await options.setProps({ modelValue: PLAY_MODE_OPTIONS.at(-1)!.value });
+    expect(options.attributes("aria-valuenow")).toBe(String(PLAY_MODE_OPTIONS.length - 1));
+    expect(options.attributes("aria-valuetext")).toBe(PLAY_MODE_OPTIONS.at(-1)!.label);
+    const updatesAtEnd = options.emitted("update:modelValue")?.length;
+    await options.trigger("keydown", { key: "ArrowRight" });
+    expect(options.emitted("update:modelValue")).toHaveLength(updatesAtEnd!);
+
+    await options.trigger("keydown", { key: "Home" });
+
+    expect(options.emitted("update:modelValue")).toEqual([
+      ["strum-up"],
+      [PLAY_MODE_OPTIONS.at(-1)!.value],
+      ["together"],
+    ]);
+  });
+
+  it("removes disabled option Knobs from keyboard interaction", async () => {
+    const options = render({
+      modelValue: "together",
+      type: "options",
+      options: PLAY_MODE_OPTIONS,
+      label: "Style",
+      isDisabled: true,
+    });
+
+    expect(options.attributes("tabindex")).toBe("-1");
+    expect(options.attributes("aria-disabled")).toBe("true");
+    await options.trigger("keydown", { key: "ArrowRight" });
+    expect(options.emitted("update:modelValue")).toBeUndefined();
   });
 
   it("keeps explicit theme and per-option colors ahead of semantic tone", () => {

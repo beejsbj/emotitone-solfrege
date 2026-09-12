@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Control Bar · Instrument Compound"
     :features="features"
-    caption="Four controlled Knobs and one directional Harmony Joystick share equal-width slots. The Drawer handle owns keyboard sizing."
+    caption="Five controlled Knobs and one directional Harmony Joystick share equal-width slots. The Drawer handle owns keyboard sizing."
   >
     <template #hero>
       <div class="control-bar-specimen">
@@ -11,6 +11,7 @@
           v-model:mode-value="modeValue"
           v-model:bpm="bpm"
           v-model:octave="octave"
+          v-model:play-mode="playMode"
           v-model:harmony-value="harmonyValue"
           :change-signals="changeSignals"
           :haptic="false"
@@ -24,13 +25,14 @@
     </template>
 
     <VariantGrid title="Mobile-first spread">
-      <VariantCell caption="320px host · all five controls" stage="ink3">
+      <VariantCell caption="320px host · all six controls" stage="ink3">
         <div class="control-bar-specimen control-bar-specimen--narrow">
           <ControlBar
             :key-value="keyValue"
             :mode-value="modeValue"
             :bpm="bpm"
             :octave="octave"
+            v-model:play-mode="playMode"
             :harmony-value="harmonyValue"
             joystick-visual="analog"
             :haptic="false"
@@ -43,6 +45,7 @@
           mode-value="dorian"
           :bpm="96"
           :octave="5"
+          play-mode="arp-up-down:16"
           harmony-value="jazzy7"
           joystick-visual="digital"
           :haptic="false"
@@ -64,6 +67,7 @@ const keyValue = ref("C");
 const modeValue = ref("major");
 const bpm = ref(120);
 const octave = ref(4);
+const playMode = ref("together");
 const harmonyValue = ref<HarmonyAlteration>("auto");
 const harmonyEffective = ref<HarmonyAlteration>("auto");
 const changeSignals = reactive({ key: 0, mode: 0, bpm: 0, octave: 0 });
@@ -81,8 +85,8 @@ function loadAlternatePattern() {
 }
 
 const features = [
-  { label: "Order", value: "Key · Mode · BPM · Octave · Harmony" },
-  { label: "Layout", value: "four Knobs plus one Joystick across equal-width slots; no horizontal scroller" },
+  { label: "Order", value: "Key · Mode · BPM · Octave · Style · Harmony" },
+  { label: "Layout", value: "five Knobs plus one Joystick across equal-width slots; no horizontal scroller" },
   { label: "Density", value: "no horizontal padding; outer hardware aligns to an 8px inset" },
   { label: "Motion", value: "only controls changed by a loaded Pattern receive the shared elastic face rebound" },
   { label: "Surface", value: "shared opaque Ink instrument-bar plane; Stage stops at the deck surface" },

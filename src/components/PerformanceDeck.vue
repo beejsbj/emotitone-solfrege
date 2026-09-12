@@ -75,6 +75,7 @@
           :mode-value="modeValue"
           :bpm="bpm"
           :octave="octave"
+          :play-mode="playMode"
           :harmony-value="isProductionUsage ? harmonyLatched : harmonyValue"
           :change-signals="patternControlSignals"
           :haptic="isProductionUsage"
@@ -82,6 +83,7 @@
           @update:mode-value="updateMode"
           @update:bpm="updateBpm"
           @update:octave="updateOctave"
+          @update:play-mode="updatePlayMode"
           @update:harmony-value="updateHarmonyLatch"
           @harmony-effective="updateHarmonyEffective"
         />
@@ -182,6 +184,7 @@ const props = withDefaults(defineProps<{
   modeValue?: MusicalMode;
   bpm?: number;
   octave?: number;
+  playMode?: string;
   rowCount?: number;
   keyboardRows?: KeyboardRowView[];
   harmonyValue?: HarmonyAlteration;
@@ -202,6 +205,7 @@ const props = withDefaults(defineProps<{
   modeValue: "major",
   bpm: 120,
   octave: 4,
+  playMode: "together",
   rowCount: 3,
   keyboardRows: () => [],
   harmonyValue: "auto",
@@ -216,6 +220,7 @@ const emit = defineEmits<{
   "update:modeValue": [value: MusicalMode];
   "update:bpm": [value: number];
   "update:octave": [value: number];
+  "update:playMode": [value: string];
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
   rowCountChange: [value: number];
@@ -273,6 +278,7 @@ const keyValue = computed(() => (musicStore?.currentKey ?? props.keyValue) as Ch
 const modeValue = computed(() => musicStore?.currentMode ?? props.modeValue);
 const bpm = computed(() => visualConfigStore?.config.codeStrip.bpm ?? props.bpm);
 const octave = computed(() => store?.keyboardConfig.mainOctave ?? props.octave);
+const playMode = computed(() => musicStore?.playMode ?? props.playMode);
 const rowCount = computed(() =>
   store?.visibleOctaves?.length ?? store?.keyboardConfig.rowCount ?? props.rowCount
 );
@@ -371,6 +377,11 @@ function updateBpm(value: number) {
 function updateOctave(value: number) {
   if (store) store.setMainOctave(value);
   else emit("update:octave", value);
+}
+
+function updatePlayMode(value: string) {
+  if (musicStore) musicStore.setPlayMode(value);
+  else emit("update:playMode", value);
 }
 
 function updateHarmonyLatch(value: HarmonyAlteration) {

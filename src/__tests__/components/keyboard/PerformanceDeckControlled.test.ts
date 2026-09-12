@@ -74,12 +74,13 @@ const CodeStripBarStub = defineComponent({
 });
 const ControlBarStub = defineComponent({
   name: "ControlBar",
-  props: ["keyValue", "modeValue", "bpm", "octave", "harmonyValue", "haptic"],
+  props: ["keyValue", "modeValue", "bpm", "octave", "playMode", "harmonyValue", "haptic"],
   emits: [
     "update:keyValue",
     "update:modeValue",
     "update:bpm",
     "update:octave",
+    "update:playMode",
     "update:harmonyValue",
     "harmonyEffective",
   ],
@@ -157,6 +158,7 @@ describe("PerformanceDeck controlled usage", () => {
         selectedPatternId: "current",
         patternEntrySignal: 3,
         warming: true,
+        playMode: "repeat:16",
         codeStripTokens: [{ type: "note", note: "do", text: "Do" }],
         keyboardRows: [{
           octave: 4,
@@ -203,17 +205,20 @@ describe("PerformanceDeck controlled usage", () => {
     expect(wrapper.getComponent(KeyboardStub).props("usage")).toBe("controlled");
     expect(wrapper.getComponent(KeyboardStub).props("interactionLocked")).toBe(true);
     expect(wrapper.getComponent(ControlBarStub).props("haptic")).toBe(false);
+    expect(wrapper.getComponent(ControlBarStub).props("playMode")).toBe("repeat:16");
 
     await wrapper.setProps({ warming: false });
     wrapper.getComponent(CodeStripBarStub).vm.$emit("togglePlayback");
     wrapper.getComponent(PatternReelStub).vm.$emit("commit", "current", "tap");
     wrapper.getComponent(PatternReelStub).vm.$emit("interactionChange", true);
     wrapper.getComponent(ControlBarStub).vm.$emit("update:bpm", 96);
+    wrapper.getComponent(ControlBarStub).vm.$emit("update:playMode", "arp-up:8");
     await wrapper.vm.$nextTick();
 
     expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
     expect(wrapper.emitted("patternCommit")?.[0]).toEqual(["current", "tap"]);
     expect(wrapper.emitted("update:bpm")?.[0]).toEqual([96]);
+    expect(wrapper.emitted("update:playMode")?.[0]).toEqual(["arp-up:8"]);
     expect(drawer.props("handlePointerDisabled")).toBe(true);
     wrapper.unmount();
   });

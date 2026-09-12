@@ -1,11 +1,14 @@
 diff --git a/node_modules/superdough/.bun-tag-1921922f6bd5c931 b/.bun-tag-1921922f6bd5c931
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/superdough/.bun-tag-d6a480b46bca6c73 b/.bun-tag-d6a480b46bca6c73
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/node_modules/superdough/.bun-tag-dc54d40a041f2115 b/.bun-tag-dc54d40a041f2115
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/index.mjs b/dist/index.mjs
-index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c3fad78d1 100644
+index da81977b3a8f9cb8af08440c61990437041f69b7..9303412aa44e1a0bb66c82ca68b08a95ce7c02a4 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -1,8 +1,8 @@
@@ -878,7 +881,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    if (e?.parameters) {
      const o = e.parameters.get(t);
      if (o instanceof AudioParam)
-@@ -748,225 +760,229 @@ const Qn = (e, t) => {
+@@ -748,225 +760,231 @@ const Qn = (e, t) => {
    let n = e?.[t];
    if (n === void 0 && t === "frequency" && (n = e?.detune ?? e?.playbackRate), n instanceof AudioParam)
      return n;
@@ -1237,7 +1240,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      // TODO: is this in seconds?
      cut: d,
      loop: l,
-@@ -979,50 +995,54 @@ async function so(e, t, n, o, a) {
+@@ -979,50 +997,54 @@ async function so(e, t, n, o, a) {
    } = t;
    if (r === 0)
      return;
@@ -1321,7 +1324,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    reverbNode;
    delayNode;
    output;
-@@ -1030,35 +1046,35 @@ class ro {
+@@ -1030,35 +1052,35 @@ class ro {
    djfNode;
    audioContext;
    constructor(t) {
@@ -1369,7 +1372,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        },
        0,
        t - 0.01
-@@ -1068,7 +1084,7 @@ class ro {
+@@ -1068,7 +1090,7 @@ class ro {
      t.connect(this.summingNode);
    }
  }
@@ -1378,7 +1381,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    channelMerger;
    destinationGain;
    constructor(t) {
-@@ -1087,21 +1103,21 @@ class po {
+@@ -1087,21 +1109,21 @@ class po {
    connectToDestination = (t, n = [0, 1]) => {
      const o = new StereoPannerNode(this.audioContext);
      t.connect(o);
@@ -1405,7 +1408,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    }
    reset() {
      Object.values(this.nodes).forEach((t) => {
-@@ -1110,26 +1126,26 @@ class uo {
+@@ -1110,26 +1132,26 @@ class uo {
        t.disconnect();
      }), this.nodes = {}, this.buses = {}, this.output.reset();
    }
@@ -1441,7 +1444,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    NONE: 0,
    ASYM: 1,
    MIRROR: 2,
-@@ -1152,74 +1168,76 @@ const gt = Object.freeze({
+@@ -1152,74 +1174,76 @@ const gt = Object.freeze({
    SIGMOID: 19,
    FRACTAL: 20,
    FLIP: 21
@@ -1552,7 +1555,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      {
        type: "wavetable",
        tables: t,
-@@ -1227,56 +1245,57 @@ function _t(e, t, n) {
+@@ -1227,56 +1251,57 @@ function _t(e, t, n) {
      }
    );
  }
@@ -1639,7 +1642,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        defaultValues: [0, 0.5, 0, 0.1]
      },
      {
-@@ -1289,19 +1308,19 @@ async function Zo(e, t, n, o, a, c) {
+@@ -1289,19 +1314,19 @@ async function Zo(e, t, n, o, a, c) {
      }
    );
    let E = t.warprate;
@@ -1664,7 +1667,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        defaultValues: [0, 0.5, 0, 0.1]
      },
      {
-@@ -1312,101 +1331,102 @@ async function Zo(e, t, n, o, a, c) {
+@@ -1312,101 +1337,102 @@ async function Zo(e, t, n, o, a, c) {
        skew: t.warpskew,
        dcoffset: t.warpdc ?? 0
      }
@@ -1813,7 +1816,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    s: "triangle",
    gain: 0.8,
    postgain: 1,
-@@ -1429,134 +1449,167 @@ let Ce = {
+@@ -1429,134 +1455,186 @@ let Ce = {
    tremolophase: 0,
    release: 0.01
  };
@@ -2012,27 +2015,46 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  se = /* @__PURE__ */ new Map(), ze = /* @__PURE__ */ new Map(), fe?.reset(), ne = {}, Te = {};
 +}
 +let ze = /* @__PURE__ */ new Map(), se = /* @__PURE__ */ new Map();
-+const Eo = 60, vt = 0.01;
++const Eo = Number.MAX_SAFE_INTEGER, LIVE_VOICE_MATERIALIZED_DURATION = 1, vt = 0.01;
++const MATERIALIZED_LIVE_VOICE_SOUNDS = /* @__PURE__ */ new Set([
++  "zzfx",
++  "z_sine",
++  "z_sawtooth",
++  "z_triangle",
++  "z_square",
++  "z_tan",
++  "z_noise"
++]);
++function isMaterializedLiveVoiceSound(e) {
++  return MATERIALIZED_LIVE_VOICE_SOUNDS.has(e);
++}
 +function Ae(e, t = e.currentTime) {
 +  return Math.max(t ?? e.currentTime, e.currentTime);
 +}
 +function Qt(e, t, n) {
 +  typeof e.cancelAndHoldAtTime == "function" ? e.cancelAndHoldAtTime(t) : (e.cancelScheduledValues(t), e.setValueAtTime(e.value, t)), e.linearRampToValueAtTime(0, n);
- }
--function rc() {
--  ye?.reset(), ne = {}, Le = {};
++}
 +function Tc(e) {
 +  return se.has(e);
- }
--let Ne = /* @__PURE__ */ new Map();
--function Ht(e) {
++}
 +function Yc(e, t) {
 +  const n = se.get(e);
 +  if (!n)
 +    return !1;
 +  const o = t ?? R().currentTime;
 +  return n.stop?.(o), !0;
-+}
+ }
+-function rc() {
+-  ye?.reset(), ne = {}, Le = {};
++function cancelVoice(e, t) {
++  const n = se.get(e);
++  if (!n)
++    return !1;
++  const o = t ?? R().currentTime;
++  return typeof n.cancel == "function" ? n.cancel(o) : n.stop?.(o), !0;
+ }
+-let Ne = /* @__PURE__ */ new Map();
+-function Ht(e) {
 +function Sc(e, t) {
 +  const n = se.get(e);
 +  if (!n)
@@ -2055,7 +2077,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    constructor() {
      this.audioNodes = [], this.tails = [];
    }
-@@ -1571,125 +1624,124 @@ class go {
+@@ -1571,125 +1649,124 @@ class go {
      return this.tails[t].connect(n), this.tails[t] = n, this.audioNodes.push(n), this;
    }
    releaseNodes() {
@@ -2074,8 +2096,8 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        "error"
      );
 -  if (e.duration = n, t < s.currentTime) {
-+  const i = e.sustainUntilRelease === !0, p = i ? Math.max(n, Eo) : n;
-+  if (e.duration = p, t < a.currentTime) {
++  const i = e.sustainUntilRelease === !0, p = i ? Math.max(n, Eo) : n, requestedSound = e.s ?? J("s"), sourceDuration = i && isMaterializedLiveVoiceSound(requestedSound) ? Math.max(n, LIVE_VOICE_MATERIALIZED_DURATION) : p;
++  if (e.duration = sourceDuration, t < a.currentTime) {
      console.warn(
 -      `[superdough]: cannot schedule sounds in the past (target: ${t.toFixed(2)}, now: ${s.currentTime.toFixed(2)})`
 +      `[superdough]: cannot schedule sounds in the past (target: ${t.toFixed(2)}, now: ${a.currentTime.toFixed(2)})`
@@ -2271,7 +2293,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          "transient-processor",
          {},
          {
-@@ -1701,13 +1753,13 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1701,13 +1778,13 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
            }
          }
        );
@@ -2290,7 +2312,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          frequency: "cutoff",
          q: "resonance",
          attack: "lpattack",
-@@ -1726,15 +1778,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1726,15 +1803,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          dcoffset: "lpdc",
          skew: "lpskew"
        });
@@ -2312,7 +2334,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          frequency: "hcutoff",
          q: "hresonance",
          attack: "hpattack",
-@@ -1753,15 +1805,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1753,15 +1830,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          dcoffset: "hpdc",
          skew: "hpskew"
        });
@@ -2334,7 +2356,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          frequency: "bandf",
          q: "bandq",
          attack: "bpattack",
-@@ -1780,40 +1832,40 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1780,40 +1857,40 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          dcoffset: "bpdc",
          skew: "bpskew"
        });
@@ -2396,7 +2418,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          dcoffset: 0,
          shape: X.tremoloshape,
          phaseoffset: X.tremolophase,
-@@ -1823,47 +1875,47 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1823,47 +1900,47 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          begin: t,
          end: le
        });
@@ -2463,7 +2485,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          X.roomsize,
          X.roomfade,
          X.roomlp,
-@@ -1871,74 +1923,76 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1871,74 +1948,76 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          V,
          X.irspeed,
          X.irbegin
@@ -2589,7 +2611,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
            L,
            {
              ...P,
-@@ -1947,130 +2001,154 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1947,130 +2026,160 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
            },
            c
          );
@@ -2625,6 +2647,12 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  };
 +  Ke = {
 +    node: me ?? ot.node ?? Ge,
++    cancel: (x = a.currentTime) => {
++      if (ve)
++        return;
++      const X = Ae(a, x);
++      me && (me.gain.cancelScheduledValues(X), me.gain.setValueAtTime(0, X)), Nt(X);
++    },
 +    stop: (x = a.currentTime) => {
 +      if (ve)
 +        return;
@@ -2818,7 +2846,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      "bytebeat",
      (e, t, n) => {
        const o = [
-@@ -2089,58 +2167,58 @@ function uc() {
+@@ -2089,58 +2198,58 @@ function uc() {
          "((t^t/2+t+64)%128*2)",
          "(((t * .25)^(t * .25)/100+(t * .25))%128)*2",
          "((t^t/2+t+64)%7 * 24)"
@@ -2900,7 +2928,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          o,
          "pulse-oscillator",
          {
-@@ -2153,39 +2231,39 @@ function uc() {
+@@ -2153,39 +2262,39 @@ function uc() {
            outputChannelCount: [2]
          }
        );
@@ -2957,7 +2985,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          o,
          () => {
            p.disconnect(r), n();
-@@ -2202,43 +2280,43 @@ function uc() {
+@@ -2202,43 +2311,43 @@ function uc() {
        };
      },
      { prebake: !0, type: "input" }
@@ -3020,7 +3048,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      sawtooth: (r) => [0, -1 / r],
      square: (r) => [0, r % 2 === 0 ? 0 : 1 / r],
      triangle: (r) => [r % 2 === 0 ? 0 : 1 / (r * r), 0],
-@@ -2246,35 +2324,35 @@ function Fo(e, t, n) {
+@@ -2246,35 +2355,35 @@ function Fo(e, t, n) {
    };
    if (!i[n])
      throw new Error(`unknown wave type ${n}`);
@@ -3074,7 +3102,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      p?.teardown(), Y(d), Y(p?.node), o();
    }), d.start(t), {
      node: p?.node || d,
-@@ -2286,25 +2364,25 @@ function Co(e, t, n, o) {
+@@ -2286,25 +2395,25 @@ function Co(e, t, n, o) {
      }
    };
  }
@@ -3111,7 +3139,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      decay: d = 0,
      sustain: l = 0.8,
      release: i = 0.1,
-@@ -2313,63 +2391,63 @@ const Po = (e, t) => {
+@@ -2313,73 +2422,73 @@ const Po = (e, t) => {
      deltaSlide: h = 0,
      pitchJump: u = 0,
      pitchJumpTime: m = 0,
@@ -3140,10 +3168,9 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  const j = ["sine", "triangle", "sawtooth", "tan", "noise"].indexOf(n) || 0;
    p = n === "square" ? 0 : p;
 -  const g = (
-+  const K = (
-     /* ZZFX. */
+-    /* ZZFX. */
 -    ko(...S || [
-+    tc(...T || [
++  const P = T || [
        0.25,
        // volume
        c,
@@ -3171,17 +3198,21 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        // sustain volume!
        d,
 -      Z
-+      y
-     ])
+-    ])
 -  ), C = z(), K = C.createBuffer(1, g.length, C.sampleRate);
 -  K.getChannelData(0).set(g);
 -  const I = z().createBufferSource();
 -  return I.buffer = K, I.start(t), {
 -    node: I
-+  ), C = R(), S = C.createBuffer(1, K.length, C.sampleRate);
++      y
++    ], K = /* ZZFX. */ tc(...P), C = R(), S = C.createBuffer(1, K.length, C.sampleRate);
 +  S.getChannelData(0).set(K);
 +  const F = R().createBufferSource();
-+  return F.buffer = S, F.start(t), {
++  if (F.buffer = S, e.sustainUntilRelease === !0) {
++    const A = Math.max((P[3] ?? 0) + (P[18] ?? 0), 0), L = A + Math.max(P[4] ?? 0, 0);
++    L > A && (F.loop = !0, F.loopStart = Math.min(A, S.duration), F.loopEnd = Math.min(L, S.duration));
++  }
++  return F.start(t), {
 +    node: F
    };
  };
@@ -3201,12 +3232,14 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          }), {
 -          node: a,
 -          nodes: { source: [a] },
+-          stop: () => {
+-          }
 +          node: s,
 +          nodes: { source: [s] },
-           stop: () => {
-           }
++          stop: (l) => s.stop(l)
          };
-@@ -2378,8 +2456,8 @@ function hc() {
+       },
+       { type: "synth", prebake: !0 }
      );
    });
  }
@@ -3217,7 +3250,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    const n = `dsp-worklet-${Date.now()}`, o = `${t}
  let __q = []; // trigger queue
  class MyProcessor extends AudioWorkletProcessor {
-@@ -2421,117 +2499,121 @@ class MyProcessor extends AudioWorkletProcessor {
+@@ -2421,117 +2530,122 @@ class MyProcessor extends AudioWorkletProcessor {
  registerProcessor('${n}', MyProcessor);
  `, c = `data:text/javascript;base64,${btoa(o)}`;
    await e.audioWorklet.addModule(c);
@@ -3327,6 +3360,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  uo as connectEnvelope,
 +  po as connectLFO,
 +  zc as connectToDestination,
++  cancelVoice,
 +  Un as createFilter,
 +  dn as distortionAlgorithms,
 +  wc as dough,
@@ -3441,9 +3475,23 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  ce as webAudioTimeout
  };
 diff --git a/sampler.mjs b/sampler.mjs
+index 25c34c641ccff7292fe917bf3a5489ff7b512340..329d040980330232e1fb61737709cc0b9e4f6023 100644
 --- a/sampler.mjs
 +++ b/sampler.mjs
-@@ -297,6 +297,10 @@ export async function onTriggerSample(t, value, onended, bank, resolveUrl) {
+@@ -99,6 +99,10 @@ export const loadBuffer = (url, ac, s, n = 0) => {
+         const decoded = await ac.decodeAudioData(res);
+         bufferCache[url] = decoded;
+         return decoded;
++      })
++      .catch((error) => {
++        delete loadCache[url];
++        throw error;
+       });
+   }
+   return loadCache[url];
+@@ -295,10 +299,14 @@ export async function onTriggerSample(t, value, onended, bank, resolveUrl) {
+
+   // async stuff above took too long?
    if (ac.currentTime > t) {
 -    logger(`[sampler] loading sound "${s}:${n}" took too long`, 'highlight');
 -    // AudioBufferSourceNode will never be used. discard it
@@ -3458,13 +3506,15 @@ diff --git a/sampler.mjs b/sampler.mjs
 +      return;
 +    }
    }
+
+   // vibrato
 diff --git a/superdough.mjs b/superdough.mjs
-index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc772641cf4e 100644
+index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..5059681ef144d0873cc115743e351e1db92977e5 100644
 --- a/superdough.mjs
 +++ b/superdough.mjs
-@@ -396,14 +396,82 @@ export function getAnalyzerData(type = 'time', id = 1) {
+@@ -396,14 +396,111 @@ export function getAnalyzerData(type = 'time', id = 1) {
  }
- 
+
  export function resetGlobalEffects() {
 +  for (const voice of Array.from(liveVoices.values())) {
 +    voice.stop?.();
@@ -3475,13 +3525,27 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
    analysers = {};
    analysersData = {};
  }
- 
+
  let activeSoundSources = new Map();
 +let liveVoices = new Map();
-+const LIVE_VOICE_SAFETY_DURATION = 60;
++const LIVE_VOICE_OPEN_ENDED_DURATION = Number.MAX_SAFE_INTEGER;
++const LIVE_VOICE_MATERIALIZED_DURATION = 1;
 +const MIN_LIVE_VOICE_RELEASE = 0.01;
++const MATERIALIZED_LIVE_VOICE_SOUNDS = new Set([
++  'zzfx',
++  'z_sine',
++  'z_sawtooth',
++  'z_triangle',
++  'z_square',
++  'z_tan',
++  'z_noise',
++]);
++
++function isMaterializedLiveVoiceSound(sound) {
++  return MATERIALIZED_LIVE_VOICE_SOUNDS.has(sound);
++}
  //music programs/audio gear usually increments inputs/outputs from 1, we need to subtract 1 from the input because the webaudio API channels start at 0
- 
+
 +function clampToAudioTime(audioContext, time = audioContext.currentTime) {
 +  return Math.max(time ?? audioContext.currentTime, audioContext.currentTime);
 +}
@@ -3509,6 +3573,21 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
 +
 +  const stopAt = at ?? getAudioContext().currentTime;
 +  voice.stop?.(stopAt);
++  return true;
++}
++
++export function cancelVoice(voiceId, at) {
++  const voice = liveVoices.get(voiceId);
++  if (!voice) {
++    return false;
++  }
++
++  const cancelAt = at ?? getAudioContext().currentTime;
++  if (typeof voice.cancel === 'function') {
++    voice.cancel(cancelAt);
++  } else {
++    voice.stop?.(cancelAt);
++  }
 +  return true;
 +}
 +
@@ -3545,30 +3624,35 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
  function mapChannelNumbers(channels) {
    return (Array.isArray(channels) ? channels : [channels]).map((ch) => ch - 1);
  }
-@@ -456,8 +524,10 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -456,8 +553,15 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
      );
    }
- 
+
 +  const sustainUntilRelease = value.sustainUntilRelease === true;
-+  const scheduledDuration = sustainUntilRelease ? Math.max(hapDuration, LIVE_VOICE_SAFETY_DURATION) : hapDuration;
++  const scheduledDuration = sustainUntilRelease ? Math.max(hapDuration, LIVE_VOICE_OPEN_ENDED_DURATION) : hapDuration;
++  const requestedSound = value.s ?? getDefaultValue('s');
++  const sourceDuration =
++    sustainUntilRelease && isMaterializedLiveVoiceSound(requestedSound)
++      ? Math.max(hapDuration, LIVE_VOICE_MATERIALIZED_DURATION)
++      : scheduledDuration;
    // duration is passed as value too..
 -  value.duration = hapDuration;
-+  value.duration = scheduledDuration;
++  value.duration = sourceDuration;
    // calculate absolute time
    if (t < ac.currentTime) {
      console.warn(
-@@ -498,6 +568,7 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -498,6 +602,7 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
      fft = getDefaultValue('fft'), // fftSize 0 - 10
      FX = [],
      FXrelease,
 +    voiceId,
    } = value;
- 
+
    delaytime = delaytime ?? cycleToSeconds(delaysync, cps);
-@@ -516,10 +587,12 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -516,10 +621,12 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
    delay = applyGainCurve(delay);
    busgain = applyGainCurve(busgain);
- 
+
 -  const end = t + hapDuration;
 +  const end = t + scheduledDuration;
    const fullRelease = Math.max(release, FXrelease ?? 0);
@@ -3576,11 +3660,11 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
 +  const manualRelease = Math.max(release, MIN_LIVE_VOICE_RELEASE);
    const chainID = Math.round(Math.random() * 1000000);
 +  let scheduledCleanupTime = endWithRelease;
- 
+
    // oldest audio nodes will be destroyed if maximum polyphony is exceeded
    for (let i = 0; i <= activeSoundSources.size - maxPolyphony; i++) {
-@@ -544,28 +617,34 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
- 
+@@ -544,28 +651,34 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+
    // get source AudioNode
    let sourceNode;
 +  let playbackHandle;
@@ -3604,7 +3688,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
      nodes.main['source'] = [sourceNode];
    } else if (getSound(s)) {
      const { onTrigger } = getSound(s);
- 
+
 -    const onEnded = () =>
 -      webAudioTimeout(
 -        ac,
@@ -3616,9 +3700,9 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
 -        endWithRelease,
 -      );
 +    const onEnded = () => webAudioTimeout(ac, cleanup, 0, clampToAudioTime(ac, scheduledCleanupTime));
- 
+
      const soundHandle = await onTrigger(t, value, onEnded, cps);
- 
+
      if (soundHandle) {
 +      playbackHandle = soundHandle;
        sourceNode = soundHandle.node;
@@ -3626,14 +3710,19 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
        nodes.main = { ...nodes.main, ...soundHandle.nodes };
      }
    } else {
-@@ -580,3 +659,3 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -577,7 +690,7 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+     return;
+   }
+
 -  if (ac.currentTime > t) {
 +  if (ac.currentTime > t && !sustainUntilRelease) {
      logger('[webaudio] skip hap: still loading', ac.currentTime - t);
-@@ -921,6 +1000,13 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+     return;
+   }
+@@ -921,6 +1034,13 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
      chain.connect(releaseNode);
    }
- 
+
 +  let liveVoiceGate = null;
 +  if (sustainUntilRelease) {
 +    liveVoiceGate = gainNode(1);
@@ -3644,7 +3733,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
    // last gain
    const post = new GainNode(ac, { gain: postgain });
    nodes.main['post'] = [post];
-@@ -1025,6 +1111,58 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -1025,6 +1145,70 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
        }
      }
    });
@@ -3667,6 +3756,18 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
 +
 +  managedVoice = {
 +    node: liveVoiceGate ?? sourceHandle.node ?? sourceNode,
++    cancel: (at = ac.currentTime) => {
++      if (finished) {
++        return;
++      }
++
++      const cancelAt = clampToAudioTime(ac, at);
++      if (liveVoiceGate) {
++        liveVoiceGate.gain.cancelScheduledValues(cancelAt);
++        liveVoiceGate.gain.setValueAtTime(0, cancelAt);
++      }
++      stopUnderlying(cancelAt);
++    },
 +    stop: (at = ac.currentTime) => {
 +      if (finished) {
 +        return;
@@ -3701,7 +3802,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
 +    liveVoices.set(voiceId, managedVoice);
 +  }
  };
- 
+
  export const superdoughTrigger = (t, hap, ct, cps) => {
 diff --git a/worklets.mjs b/worklets.mjs
 index 26a0fa668b36e09d5cc01e3d1e885421976a490a..be3b8ebd9cfc5820d16853fc6b99ec4621520124 100644
@@ -3710,9 +3811,38 @@ index 26a0fa668b36e09d5cc01e3d1e885421976a490a..be3b8ebd9cfc5820d16853fc6b99ec46
 @@ -2,7 +2,7 @@
  // LICENSE GNU General Public License v3.0 see https://github.com/dktr0/WebDirt/blob/main/LICENSE
  // TOFIX: THIS FILE DOES NOT SUPPORT IMPORTS ON DEPOLYMENT
- 
+
 -import OLAProcessor from './ola-processor';
 +import OLAProcessor from './ola-processor.js';
  import FFT from './fft.js';
  import { getDistortionAlgorithm } from './helpers.mjs';
  import * as ugens from '@kabelsalat/lib/src/ugens.js';
+diff --git a/zzfx.mjs b/zzfx.mjs
+index 3d6b8e9f59c42f1c4bce78908e8e4d0a7f787c81..9e3594ed924b80be478e92aa73859613161a975e 100644
+--- a/zzfx.mjs
++++ b/zzfx.mjs
+@@ -72,6 +72,15 @@ export const getZZFX = (value, t) => {
+   buffer.getChannelData(0).set(samples);
+   const source = getAudioContext().createBufferSource();
+   source.buffer = buffer;
++  if (value.sustainUntilRelease === true) {
++    const sustainStart = Math.max((params[3] ?? 0) + (params[18] ?? 0), 0);
++    const sustainEnd = sustainStart + Math.max(params[4] ?? 0, 0);
++    if (sustainEnd > sustainStart) {
++      source.loop = true;
++      source.loopStart = Math.min(sustainStart, buffer.duration);
++      source.loopEnd = Math.min(sustainEnd, buffer.duration);
++    }
++  }
+   source.start(t);
+   return {
+     node: source,
+@@ -91,7 +100,7 @@ export function registerZZFXSounds() {
+         return {
+           node: o,
+           nodes: { source: [o] },
+-          stop: () => {},
++          stop: (at) => o.stop(at),
+         };
+       },
+       { type: 'synth', prebake: true },

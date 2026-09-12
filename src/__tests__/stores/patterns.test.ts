@@ -201,6 +201,117 @@ describe("Patterns Store", () => {
     });
   });
 
+  it("records a scheduled Style pulse with its captured instrument", () => {
+    useInstrumentStore().currentInstrument = "gm_flute";
+
+    patternsStore.handleNotePressed({
+      detail: {
+        noteId: "styled-piano-note",
+        noteName: "E4",
+        solfegeIndex: 2,
+        octave: 4,
+        frequency: 329.63,
+        instrument: "piano",
+        source: "live-play-style",
+        note: createLogNote().solfege,
+      },
+    } as CustomEvent);
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "styled-piano-note", source: "live-play-style" },
+    } as CustomEvent);
+
+    expect(patternsStore.loggedNotes[0]?.instrument).toBe("piano");
+  });
+
+  it("keeps completed styled notes in onset order when releases arrive in reverse", () => {
+    const startedAt = Date.now();
+    const scheduled = [
+      { noteId: "style-g", noteName: "G4", solfegeIndex: 4, timestamp: startedAt + 30 },
+      { noteId: "style-e", noteName: "E4", solfegeIndex: 2, timestamp: startedAt + 65 },
+      { noteId: "style-c", noteName: "C4", solfegeIndex: 0, timestamp: startedAt + 100 },
+    ];
+
+    for (const detail of scheduled) {
+      patternsStore.handleNotePressed({
+        detail: {
+          ...detail,
+          octave: 4,
+          frequency: 440,
+          instrument: "piano",
+          source: "live-play-style",
+          note: createLogNote().solfege,
+        },
+      } as CustomEvent);
+    }
+    const releaseTimes = new Map([
+      ["style-c", startedAt + 200],
+      ["style-e", startedAt + 300],
+      ["style-g", startedAt + 1000],
+    ]);
+    for (const noteId of ["style-c", "style-e", "style-g"]) {
+      patternsStore.handleNoteReleased({
+        detail: { noteId, timestamp: releaseTimes.get(noteId) },
+      } as CustomEvent);
+    }
+
+    expect(patternsStore.loggedNotes.map((note) => note.note)).toEqual(["G4", "E4", "C4"]);
+    expect(patternsStore.loggedNotes.map((note) => note.isStartingNewPattern)).toEqual([true, false, false]);
+    expect(patternsStore.dynamicPatterns[0]?.duration).toBe(970);
+
+    patternsStore.sendCurrentPattern();
+    const saved = patternsStore.savedPatterns.at(-1)!;
+    expect(saved.duration).toBe(970);
+    patternsStore.loadPatternAsBase(saved.id, { discardWorkingNotes: true });
+    patternsStore.handleNotePressed({
+      detail: {
+        noteId: "appended-d",
+        noteName: "D4",
+        solfegeIndex: 1,
+        octave: 4,
+        frequency: 293.66,
+        instrument: "piano",
+        source: "live-play-style",
+        note: createLogNote().solfege,
+        timestamp: startedAt + 1200,
+      },
+    } as CustomEvent);
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "appended-d", timestamp: startedAt + 1400 },
+    } as CustomEvent);
+    expect(patternsStore.currentSketchNotes.at(-1)?.pressTime).toBe(startedAt + 1000);
+  });
+
+  it("counts a context boundary revealed by reverse completion order", () => {
+    const startedAt = Date.now();
+    const press = (detail: { noteId: string; noteName: string; timestamp: number; key: "C" | "G" }) => {
+      patternsStore.handleNotePressed({
+        detail: {
+          ...detail,
+          solfegeIndex: 0,
+          octave: 4,
+          frequency: 440,
+          instrument: "piano",
+          source: "live-play-style",
+          mode: "major",
+          note: createLogNote().solfege,
+        },
+      } as CustomEvent);
+    };
+
+    press({ noteId: "later-g", noteName: "G4", timestamp: startedAt + 100, key: "G" });
+    press({ noteId: "earlier-c", noteName: "C4", timestamp: startedAt + 30, key: "C" });
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "later-g", timestamp: startedAt + 300 },
+    } as CustomEvent);
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "earlier-c", timestamp: startedAt + 250 },
+    } as CustomEvent);
+
+    expect(patternsStore.loggedNotes.map((note) => note.note)).toEqual(["C4", "G4"]);
+    expect(patternsStore.loggedNotes.map((note) => note.isStartingNewPattern)).toEqual([true, true]);
+    expect(patternsStore.currentTakeGeneration).toBe(1);
+  });
+
   it("uses the ready fallback in loaded metadata when pattern warmup fails", async () => {
     const instrumentStore = useInstrumentStore();
     instrumentStore.currentInstrument = "piano";

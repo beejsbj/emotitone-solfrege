@@ -8,7 +8,7 @@ diff --git a/node_modules/@strudel/soundfonts/.bun-tag-e67090e4dea9f04e b/.bun-t
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/index.mjs b/dist/index.mjs
-index f973c758dbb690aae35bb570b91e90d68f24f505..8674703215581d105c55cfc82ad52f6fe5b95724 100644
+index f973c758dbb690aae35bb570b91e90d68f24f505..122e592072a1f37e0764b98f25a5c92cadfd29a3 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -157,8 +157,8 @@ const gm = {
@@ -133,7 +133,15 @@ index f973c758dbb690aae35bb570b91e90d68f24f505..8674703215581d105c55cfc82ad52f6f
    }
  }
  function registerSoundfonts() {
-@@ -3950,6 +3977,7 @@ function loadSoundfont(e) {
+@@ -1897,6 +1924,7 @@ function registerSoundfonts() {
+         const p = getVibratoOscillator(t.detune, f, s);
+         getPitchEnvelope(t.detune, f, s, d), t.stop(F);
+         const R = (M) => {
++          F = Math.min(F, M), t.stop(F);
+         };
+         return onceEnded(t, () => {
+           releaseAudioNode(t), p?.stop(), a();
+@@ -3950,6 +3978,7 @@ function loadSoundfont(e) {
  export {
    getFontBufferSource,
    loadSoundfont,
@@ -142,7 +150,7 @@ index f973c758dbb690aae35bb570b91e90d68f24f505..8674703215581d105c55cfc82ad52f6f
    setSoundfontUrl,
    list as soundfontList,
 diff --git a/fontloader.mjs b/fontloader.mjs
-index b4ae59828244ce7f832e89467f4c412e2aa32695..ecc6846aac21ad0700d455b3e39ebd4a397fb1fd 100644
+index b4ae59828244ce7f832e89467f4c412e2aa32695..1996d742d030387fdb855979627704b7b435514c 100644
 --- a/fontloader.mjs
 +++ b/fontloader.mjs
 @@ -28,9 +28,13 @@ async function loadFont(name) {
@@ -232,6 +240,18 @@ index b4ae59828244ce7f832e89467f4c412e2aa32695..ecc6846aac21ad0700d455b3e39ebd4a
      }
    }
  }
+@@ -173,5 +216,10 @@ export function registerSoundfonts() {
+         bufferSource.stop(envEnd);
+-        const stop = (releaseTime) => {};
++        const stop = (releaseTime) => {
++          // Live voices shorten their original duration when a key or pulse
++          // releases. Keep the earliest stop so a later request cannot extend it.
++          envEnd = Math.min(envEnd, releaseTime);
++          bufferSource.stop(envEnd);
++        };
+         onceEnded(bufferSource, () => {
+           releaseAudioNode(bufferSource);
+           vibratoHandle?.stop();
 diff --git a/gm.mjs b/gm.mjs
 index d8b7687d7523d161a204d812f0f1b6fc53dc3cf3..df2eea6ad307c9c59975779b8d4b837c5c459b56 100644
 --- a/gm.mjs

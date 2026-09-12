@@ -5,8 +5,16 @@
     class="knob-wrapper instrument-control"
     :type="knobType === 'boolean' ? 'button' : undefined"
     :disabled="knobType === 'boolean' ? isDisabled : undefined"
+    :role="knobType === 'options' ? 'slider' : undefined"
+    :tabindex="knobType === 'options' ? (isDisabled || isDisplayMode ? -1 : 0) : undefined"
     :aria-pressed="knobType === 'boolean' ? Boolean(actualValue) : undefined"
-    :aria-label="knobType === 'boolean' ? actualLabel : undefined"
+    :aria-label="knobType === 'boolean' || knobType === 'options' ? actualLabel : undefined"
+    :aria-disabled="knobType === 'options' && (isDisabled || isDisplayMode) ? true : undefined"
+    :aria-orientation="knobType === 'options' ? 'vertical' : undefined"
+    :aria-valuemin="knobType === 'options' ? 0 : undefined"
+    :aria-valuemax="knobType === 'options' ? Math.max(0, (options?.length ?? 1) - 1) : undefined"
+    :aria-valuenow="knobType === 'options' ? currentOptionIndex : undefined"
+    :aria-valuetext="knobType === 'options' ? currentOptionLabel : undefined"
     :class="{
       'cursor-not-allowed opacity-50 pointer-events-none': isDisabled,
       'cursor-not-allowed pointer-events-none saturate-50': isDisplayMode,
@@ -16,6 +24,7 @@
     @mousedown="handleStart"
     @touchstart="handleStart"
     @click="handleClick"
+    @keydown="handleKeydown"
   >
     <div
       ref="beatTargetRef"
@@ -345,6 +354,7 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
 
   e.preventDefault();
   e.stopPropagation();
+  if (knobType.value === "options") wrapperRef.value?.focus();
 
   const initiatingTouch = "touches" in e
     ? e.changedTouches[0] ?? e.touches[e.touches.length - 1]
@@ -705,19 +715,50 @@ const handleClick = (e: MouseEvent | TouchEvent) => {
   handleTap();
 };
 
+const selectOptionAt = (index: number, wrap = true) => {
+  if (!props.options?.length) return;
+  const normalizedIndex = wrap
+    ? (index + props.options.length) % props.options.length
+    : Math.max(0, Math.min(props.options.length - 1, index));
+  const option = props.options[normalizedIndex];
+  const nextValue = typeof option === "string" ? option : option.value;
+  if (nextValue === actualValue.value) return;
+  handleValueUpdate(nextValue);
+  if (props.haptic) triggerUIHaptic();
+};
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (
+    knobType.value !== "options"
+    || props.isDisabled
+    || props.isDisplay
+    || !props.options?.length
+  ) return;
+
+  let nextIndex: number | undefined;
+  if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+    nextIndex = currentOptionIndex.value + 1;
+  } else if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+    nextIndex = currentOptionIndex.value - 1;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = props.options.length - 1;
+  }
+
+  if (nextIndex === undefined) return;
+  event.preventDefault();
+  event.stopPropagation();
+  selectOptionAt(nextIndex, false);
+};
+
 const handleTap = () => {
   if (knobType.value === "boolean") {
     const newValue = !(actualValue.value as boolean);
     handleValueUpdate(newValue);
     if (props.haptic) triggerUIHaptic();
   } else if (knobType.value === "options" && props.options) {
-    const currentIndex = getCurrentOptionIndex();
-    const nextIndex = (currentIndex + 1) % props.options.length;
-    const nextOption = props.options[nextIndex];
-    const nextValue =
-      typeof nextOption === "string" ? nextOption : nextOption.value;
-    handleValueUpdate(nextValue);
-    if (props.haptic) triggerUIHaptic();
+    selectOptionAt(currentOptionIndex.value + 1);
   }
 };
 
@@ -729,6 +770,12 @@ const getCurrentOptionIndex = (): number => {
     return optionValue === currentValue;
   });
 };
+
+const currentOptionIndex = computed(() => Math.max(0, getCurrentOptionIndex()));
+const currentOptionLabel = computed(() => {
+  const option = props.options?.[currentOptionIndex.value];
+  return typeof option === "string" ? option : option?.label ?? String(actualValue.value);
+});
 
 // Smart haptic feedback with throttling
 const triggerSmartHaptic = () => {

@@ -388,6 +388,7 @@ vi.mock('@/services/superdoughAudio', () => ({
   isPrewarmed: vi.fn().mockReturnValue(true),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
+  stopNote: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
   releaseAll: vi.fn(),
   getAudioContext: vi.fn(() => ({

@@ -48,6 +48,16 @@
       />
     </div>
 
+    <div class="control-bar__item">
+      <Knob
+        :model-value="playMode"
+        type="options"
+        :options="PLAY_MODE_OPTIONS"
+        label="Style"
+        @update:modelValue="(value) => emit('update:playMode', String(value))"
+      />
+    </div>
+
     <div class="control-bar__item control-bar__item--joystick">
       <Joystick
         :model-value="harmonyValue"
@@ -67,6 +77,7 @@ import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import type { JoystickVisual } from "@/components/uniques/Joystick/index.vue";
+import { PLAY_MODE_OPTIONS } from "@/services/playStyles";
 
 type ControlBarChangeSignals = Partial<Record<"key" | "mode" | "bpm" | "octave", number>>;
 
@@ -76,6 +87,7 @@ withDefaults(
     modeValue?: string;
     bpm?: number;
     octave?: number;
+    playMode?: string;
     harmonyValue?: HarmonyAlteration;
     joystickVisual?: JoystickVisual;
     changeSignals?: ControlBarChangeSignals;
@@ -85,6 +97,7 @@ withDefaults(
     modeValue: "major",
     bpm: 120,
     octave: 4,
+    playMode: "together",
     harmonyValue: "auto",
     changeSignals: () => ({}),
   },
@@ -95,6 +108,7 @@ const emit = defineEmits<{
   "update:modeValue": [value: string];
   "update:bpm": [value: number];
   "update:octave": [value: number];
+  "update:playMode": [value: string];
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
 }>();
@@ -103,7 +117,7 @@ const emit = defineEmits<{
 <style scoped>
 .control-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: start;
   width: 100%;
   min-width: 0;

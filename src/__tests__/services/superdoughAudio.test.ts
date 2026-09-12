@@ -22,6 +22,7 @@ const hoisted = vi.hoisted(() => {
     mockGetSound: vi.fn(() => ({ data: {} })),
     mockHasVoice: vi.fn().mockReturnValue(false),
     mockStopVoice: vi.fn(),
+    mockCancelVoice: vi.fn(),
     mockReleaseVoice: vi.fn(),
     mockReleaseAllVoices: vi.fn(),
     mockInitStrudel: vi.fn().mockResolvedValue(undefined),
@@ -47,6 +48,7 @@ vi.mock("superdough", () => ({
   },
   hasVoice: hoisted.mockHasVoice,
   stopVoice: hoisted.mockStopVoice,
+  cancelVoice: hoisted.mockCancelVoice,
   releaseVoice: hoisted.mockReleaseVoice,
   releaseAllVoices: hoisted.mockReleaseAllVoices,
 }));
@@ -100,6 +102,22 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
   });
 
+  it("schedules rhythmic attacks and releases on the audio clock and cancels queued voices", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.attackNote("pulse-1", "C4", "synth", { atTime: 12.05, release: 0.03 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "pulse-1", release: 0.03 }),
+      12.05,
+      0.25,
+      1,
+    );
+    audio.releaseNote("pulse-1", 12.25);
+    expect(hoisted.mockReleaseVoice).toHaveBeenCalledWith("pulse-1", 12.25);
+    audio.stopNote("pulse-1");
+    expect(hoisted.mockCancelVoice).toHaveBeenCalledWith("pulse-1");
+    expect(hoisted.mockStopVoice).not.toHaveBeenCalled();
+  });
+
   it("attacks a live note as a held voice with voice ownership", async () => {
     const audio = await import("@/services/superdoughAudio");
 
@@ -120,6 +138,16 @@ describe("superdoughAudio live note handling", () => {
       1,
     );
     expect(hoisted.mockReleaseVoice).not.toHaveBeenCalled();
+  });
+
+  it("reports a late audible onset when an unprepared sound crosses its deadline", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    hoisted.mockGetSound.mockReturnValue({ data: { type: "soundfont" } });
+    hoisted.mockSuperdough.mockImplementationOnce(async () => {
+      hoisted.mockAudioContext.currentTime = 12.1;
+    });
+
+    await expect(audio.attackNote("note-1", "C4", "gm_piano", { atTime: 12.05 })).resolves.toBe(12.1);
   });
 
   it("stops a stale live voice before reusing the same note id", async () => {

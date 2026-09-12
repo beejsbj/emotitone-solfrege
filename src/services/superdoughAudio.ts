@@ -6,7 +6,7 @@
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, releaseVoice, releaseAllVoices } from "superdough";
+import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
 import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
@@ -529,8 +529,9 @@ function nowPlusOffset(offsetSeconds = 0.01): number {
 export async function attackNote(
   noteId: string,
   noteName: string,
-  instrument: string
-): Promise<void> {
+  instrument: string,
+  options?: { atTime?: number; release?: number },
+): Promise<number> {
   await initSuperdoughAudio();
 
   // Ensure the AudioContext is running before scheduling.
@@ -543,33 +544,45 @@ export async function attackNote(
 
   const sound = LEGACY_ALIASES[instrument] ?? instrument;
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
+  const wasReady = isPrewarmed(sound);
 
   // Defensively clear stale voices if a note id is ever re-used.
   if (hasVoice(noteId)) {
     stopVoice(noteId, ac.currentTime);
   }
 
+  const requestedAt = options?.atTime ?? nowPlusOffset();
   await superdough(
     {
       s: sound,
       note: noteName,
       gain: 0.8,
       attack: 0.01,
-      release: 1.5,
+      release: options?.release ?? 1.5,
       voiceId: noteId,
       sustainUntilRelease: true,
     },
-    nowPlusOffset(),
+    requestedAt,
     duration,
     1 // cps
   );
+
+  // A prewarmed voice is armed for requestedAt. If loading crossed that
+  // deadline, patched sources start immediately, so report the later time.
+  return wasReady ? requestedAt : Math.max(requestedAt, ac.currentTime);
 }
 
 /**
  * Start the release phase for a live note if it is still active.
  */
-export function releaseNote(noteId: string): void {
-  releaseVoice(noteId);
+export function releaseNote(noteId: string, atTime?: number): void {
+  if (atTime === undefined) releaseVoice(noteId);
+  else releaseVoice(noteId, atTime);
+}
+
+/** Cancel a queued onset without letting it sound during its release tail. */
+export function stopNote(noteId: string): void {
+  cancelVoice(noteId);
 }
 
 /**

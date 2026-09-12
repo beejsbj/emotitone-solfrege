@@ -1,11 +1,14 @@
 diff --git a/node_modules/superdough/.bun-tag-1921922f6bd5c931 b/.bun-tag-1921922f6bd5c931
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/superdough/.bun-tag-d6a480b46bca6c73 b/.bun-tag-d6a480b46bca6c73
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/node_modules/superdough/.bun-tag-dc54d40a041f2115 b/.bun-tag-dc54d40a041f2115
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/index.mjs b/dist/index.mjs
-index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c3fad78d1 100644
+index da81977b3a8f9cb8af08440c61990437041f69b7..151aabe79816b730aaed396ed813ca35c1f71d47 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -1,8 +1,8 @@
@@ -878,7 +881,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    if (e?.parameters) {
      const o = e.parameters.get(t);
      if (o instanceof AudioParam)
-@@ -748,225 +760,229 @@ const Qn = (e, t) => {
+@@ -748,225 +760,231 @@ const Qn = (e, t) => {
    let n = e?.[t];
    if (n === void 0 && t === "frequency" && (n = e?.detune ?? e?.playbackRate), n instanceof AudioParam)
      return n;
@@ -1237,7 +1240,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      // TODO: is this in seconds?
      cut: d,
      loop: l,
-@@ -979,50 +995,54 @@ async function so(e, t, n, o, a) {
+@@ -979,50 +997,54 @@ async function so(e, t, n, o, a) {
    } = t;
    if (r === 0)
      return;
@@ -1321,7 +1324,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    reverbNode;
    delayNode;
    output;
-@@ -1030,35 +1046,35 @@ class ro {
+@@ -1030,35 +1052,35 @@ class ro {
    djfNode;
    audioContext;
    constructor(t) {
@@ -1369,7 +1372,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        },
        0,
        t - 0.01
-@@ -1068,7 +1084,7 @@ class ro {
+@@ -1068,7 +1090,7 @@ class ro {
      t.connect(this.summingNode);
    }
  }
@@ -1378,7 +1381,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    channelMerger;
    destinationGain;
    constructor(t) {
-@@ -1087,21 +1103,21 @@ class po {
+@@ -1087,21 +1109,21 @@ class po {
    connectToDestination = (t, n = [0, 1]) => {
      const o = new StereoPannerNode(this.audioContext);
      t.connect(o);
@@ -1405,7 +1408,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    }
    reset() {
      Object.values(this.nodes).forEach((t) => {
-@@ -1110,26 +1126,26 @@ class uo {
+@@ -1110,26 +1132,26 @@ class uo {
        t.disconnect();
      }), this.nodes = {}, this.buses = {}, this.output.reset();
    }
@@ -1441,7 +1444,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    NONE: 0,
    ASYM: 1,
    MIRROR: 2,
-@@ -1152,74 +1168,76 @@ const gt = Object.freeze({
+@@ -1152,74 +1174,76 @@ const gt = Object.freeze({
    SIGMOID: 19,
    FRACTAL: 20,
    FLIP: 21
@@ -1552,7 +1555,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      {
        type: "wavetable",
        tables: t,
-@@ -1227,56 +1245,57 @@ function _t(e, t, n) {
+@@ -1227,56 +1251,57 @@ function _t(e, t, n) {
      }
    );
  }
@@ -1639,7 +1642,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        defaultValues: [0, 0.5, 0, 0.1]
      },
      {
-@@ -1289,19 +1308,19 @@ async function Zo(e, t, n, o, a, c) {
+@@ -1289,19 +1314,19 @@ async function Zo(e, t, n, o, a, c) {
      }
    );
    let E = t.warprate;
@@ -1664,7 +1667,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
        defaultValues: [0, 0.5, 0, 0.1]
      },
      {
-@@ -1312,101 +1331,102 @@ async function Zo(e, t, n, o, a, c) {
+@@ -1312,101 +1337,102 @@ async function Zo(e, t, n, o, a, c) {
        skew: t.warpskew,
        dcoffset: t.warpdc ?? 0
      }
@@ -1813,7 +1816,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    s: "triangle",
    gain: 0.8,
    postgain: 1,
-@@ -1429,134 +1449,167 @@ let Ce = {
+@@ -1429,134 +1455,174 @@ let Ce = {
    tremolophase: 0,
    release: 0.01
  };
@@ -2005,12 +2008,16 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      throw new Error(`getAnalyzerData: ${e} not supported. use one of ${Object.keys(n).join(", ")}`);
 -  return n(), Le[t];
 +  return n(), Te[t];
-+}
+ }
+-function rc() {
+-  ye?.reset(), ne = {}, Le = {};
 +function Rc() {
 +  for (const e of Array.from(se.values()))
 +    e.stop?.();
 +  se = /* @__PURE__ */ new Map(), ze = /* @__PURE__ */ new Map(), fe?.reset(), ne = {}, Te = {};
-+}
+ }
+-let Ne = /* @__PURE__ */ new Map();
+-function Ht(e) {
 +let ze = /* @__PURE__ */ new Map(), se = /* @__PURE__ */ new Map();
 +const Eo = 60, vt = 0.01;
 +function Ae(e, t = e.currentTime) {
@@ -2018,20 +2025,23 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +}
 +function Qt(e, t, n) {
 +  typeof e.cancelAndHoldAtTime == "function" ? e.cancelAndHoldAtTime(t) : (e.cancelScheduledValues(t), e.setValueAtTime(e.value, t)), e.linearRampToValueAtTime(0, n);
- }
--function rc() {
--  ye?.reset(), ne = {}, Le = {};
++}
 +function Tc(e) {
 +  return se.has(e);
- }
--let Ne = /* @__PURE__ */ new Map();
--function Ht(e) {
++}
 +function Yc(e, t) {
 +  const n = se.get(e);
 +  if (!n)
 +    return !1;
 +  const o = t ?? R().currentTime;
 +  return n.stop?.(o), !0;
++}
++function cancelVoice(e, t) {
++  const n = se.get(e);
++  if (!n)
++    return !1;
++  const o = t ?? R().currentTime;
++  return typeof n.cancel == "function" ? n.cancel(o) : n.stop?.(o), !0;
 +}
 +function Sc(e, t) {
 +  const n = se.get(e);
@@ -2055,7 +2065,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    constructor() {
      this.audioNodes = [], this.tails = [];
    }
-@@ -1571,125 +1624,124 @@ class go {
+@@ -1571,125 +1637,124 @@ class go {
      return this.tails[t].connect(n), this.tails[t] = n, this.audioNodes.push(n), this;
    }
    releaseNodes() {
@@ -2271,7 +2281,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          "transient-processor",
          {},
          {
-@@ -1701,13 +1753,13 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1701,13 +1766,13 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
            }
          }
        );
@@ -2290,7 +2300,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          frequency: "cutoff",
          q: "resonance",
          attack: "lpattack",
-@@ -1726,15 +1778,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1726,15 +1791,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          dcoffset: "lpdc",
          skew: "lpskew"
        });
@@ -2312,7 +2322,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          frequency: "hcutoff",
          q: "hresonance",
          attack: "hpattack",
-@@ -1753,15 +1805,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1753,15 +1818,15 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          dcoffset: "hpdc",
          skew: "hpskew"
        });
@@ -2334,7 +2344,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          frequency: "bandf",
          q: "bandq",
          attack: "bpattack",
-@@ -1780,40 +1832,40 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1780,40 +1845,40 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          dcoffset: "bpdc",
          skew: "bpskew"
        });
@@ -2396,7 +2406,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          dcoffset: 0,
          shape: X.tremoloshape,
          phaseoffset: X.tremolophase,
-@@ -1823,47 +1875,47 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1823,47 +1888,47 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          begin: t,
          end: le
        });
@@ -2463,7 +2473,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          X.roomsize,
          X.roomfade,
          X.roomlp,
-@@ -1871,74 +1923,76 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1871,74 +1936,76 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
          V,
          X.irspeed,
          X.irbegin
@@ -2589,7 +2599,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
            L,
            {
              ...P,
-@@ -1947,130 +2001,154 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
+@@ -1947,130 +2014,160 @@ const No = async (e, t, n, o = 0.5, a = 0.5) => {
            },
            c
          );
@@ -2625,6 +2635,12 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  };
 +  Ke = {
 +    node: me ?? ot.node ?? Ge,
++    cancel: (x = a.currentTime) => {
++      if (ve)
++        return;
++      const X = Ae(a, x);
++      me && (me.gain.cancelScheduledValues(X), me.gain.setValueAtTime(0, X)), Nt(X);
++    },
 +    stop: (x = a.currentTime) => {
 +      if (ve)
 +        return;
@@ -2818,7 +2834,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      "bytebeat",
      (e, t, n) => {
        const o = [
-@@ -2089,58 +2167,58 @@ function uc() {
+@@ -2089,58 +2186,58 @@ function uc() {
          "((t^t/2+t+64)%128*2)",
          "(((t * .25)^(t * .25)/100+(t * .25))%128)*2",
          "((t^t/2+t+64)%7 * 24)"
@@ -2900,7 +2916,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          o,
          "pulse-oscillator",
          {
-@@ -2153,39 +2231,39 @@ function uc() {
+@@ -2153,39 +2250,39 @@ function uc() {
            outputChannelCount: [2]
          }
        );
@@ -2957,7 +2973,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
          o,
          () => {
            p.disconnect(r), n();
-@@ -2202,43 +2280,43 @@ function uc() {
+@@ -2202,43 +2299,43 @@ function uc() {
        };
      },
      { prebake: !0, type: "input" }
@@ -3020,7 +3036,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      sawtooth: (r) => [0, -1 / r],
      square: (r) => [0, r % 2 === 0 ? 0 : 1 / r],
      triangle: (r) => [r % 2 === 0 ? 0 : 1 / (r * r), 0],
-@@ -2246,35 +2324,35 @@ function Fo(e, t, n) {
+@@ -2246,35 +2343,35 @@ function Fo(e, t, n) {
    };
    if (!i[n])
      throw new Error(`unknown wave type ${n}`);
@@ -3074,7 +3090,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      p?.teardown(), Y(d), Y(p?.node), o();
    }), d.start(t), {
      node: p?.node || d,
-@@ -2286,25 +2364,25 @@ function Co(e, t, n, o) {
+@@ -2286,25 +2383,25 @@ function Co(e, t, n, o) {
      }
    };
  }
@@ -3111,7 +3127,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
      decay: d = 0,
      sustain: l = 0.8,
      release: i = 0.1,
-@@ -2313,63 +2391,63 @@ const Po = (e, t) => {
+@@ -2313,63 +2410,63 @@ const Po = (e, t) => {
      deltaSlide: h = 0,
      pitchJump: u = 0,
      pitchJumpTime: m = 0,
@@ -3206,7 +3222,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
            stop: () => {
            }
          };
-@@ -2378,8 +2456,8 @@ function hc() {
+@@ -2378,8 +2475,8 @@ function hc() {
      );
    });
  }
@@ -3217,7 +3233,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
    const n = `dsp-worklet-${Date.now()}`, o = `${t}
  let __q = []; // trigger queue
  class MyProcessor extends AudioWorkletProcessor {
-@@ -2421,117 +2499,121 @@ class MyProcessor extends AudioWorkletProcessor {
+@@ -2421,117 +2518,122 @@ class MyProcessor extends AudioWorkletProcessor {
  registerProcessor('${n}', MyProcessor);
  `, c = `data:text/javascript;base64,${btoa(o)}`;
    await e.audioWorklet.addModule(c);
@@ -3327,6 +3343,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  uo as connectEnvelope,
 +  po as connectLFO,
 +  zc as connectToDestination,
++  cancelVoice,
 +  Un as createFilter,
 +  dn as distortionAlgorithms,
 +  wc as dough,
@@ -3441,9 +3458,22 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..b75e1d543fa1794164574409dd8f4c4c
 +  ce as webAudioTimeout
  };
 diff --git a/sampler.mjs b/sampler.mjs
+index 25c34c641ccff7292fe917bf3a5489ff7b512340..329d040980330232e1fb61737709cc0b9e4f6023 100644
 --- a/sampler.mjs
 +++ b/sampler.mjs
-@@ -297,6 +297,10 @@ export async function onTriggerSample(t, value, onended, bank, resolveUrl) {
+@@ -99,6 +99,10 @@ export const loadBuffer = (url, ac, s, n = 0) => {
+         const decoded = await ac.decodeAudioData(res);
+         bufferCache[url] = decoded;
+         return decoded;
++      })
++      .catch((error) => {
++        delete loadCache[url];
++        throw error;
+       });
+   }
+   return loadCache[url];
+@@ -296,7 +300,11 @@ export async function onTriggerSample(t, value, onended, bank, resolveUrl) {
+   // async stuff above took too long?
    if (ac.currentTime > t) {
 -    logger(`[sampler] loading sound "${s}:${n}" took too long`, 'highlight');
 -    // AudioBufferSourceNode will never be used. discard it
@@ -3459,10 +3489,10 @@ diff --git a/sampler.mjs b/sampler.mjs
 +    }
    }
 diff --git a/superdough.mjs b/superdough.mjs
-index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc772641cf4e 100644
+index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..af0309689b6c46ac349a2f6925378345e7b19283 100644
 --- a/superdough.mjs
 +++ b/superdough.mjs
-@@ -396,14 +396,82 @@ export function getAnalyzerData(type = 'time', id = 1) {
+@@ -396,14 +396,97 @@ export function getAnalyzerData(type = 'time', id = 1) {
  }
  
  export function resetGlobalEffects() {
@@ -3512,6 +3542,21 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
 +  return true;
 +}
 +
++export function cancelVoice(voiceId, at) {
++  const voice = liveVoices.get(voiceId);
++  if (!voice) {
++    return false;
++  }
++
++  const cancelAt = at ?? getAudioContext().currentTime;
++  if (typeof voice.cancel === 'function') {
++    voice.cancel(cancelAt);
++  } else {
++    voice.stop?.(cancelAt);
++  }
++  return true;
++}
++
 +export function releaseVoice(voiceId, at) {
 +  const voice = liveVoices.get(voiceId);
 +  if (!voice) {
@@ -3545,7 +3590,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
  function mapChannelNumbers(channels) {
    return (Array.isArray(channels) ? channels : [channels]).map((ch) => ch - 1);
  }
-@@ -456,8 +524,10 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -456,8 +539,10 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
      );
    }
  
@@ -3557,7 +3602,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
    // calculate absolute time
    if (t < ac.currentTime) {
      console.warn(
-@@ -498,6 +568,7 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -498,6 +583,7 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
      fft = getDefaultValue('fft'), // fftSize 0 - 10
      FX = [],
      FXrelease,
@@ -3565,7 +3610,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
    } = value;
  
    delaytime = delaytime ?? cycleToSeconds(delaysync, cps);
-@@ -516,10 +587,12 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -516,10 +602,12 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
    delay = applyGainCurve(delay);
    busgain = applyGainCurve(busgain);
  
@@ -3579,7 +3624,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
  
    // oldest audio nodes will be destroyed if maximum polyphony is exceeded
    for (let i = 0; i <= activeSoundSources.size - maxPolyphony; i++) {
-@@ -544,28 +617,34 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -544,28 +632,34 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
  
    // get source AudioNode
    let sourceNode;
@@ -3626,11 +3671,10 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
        nodes.main = { ...nodes.main, ...soundHandle.nodes };
      }
    } else {
-@@ -580,3 +659,3 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -580 +674 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
 -  if (ac.currentTime > t) {
 +  if (ac.currentTime > t && !sustainUntilRelease) {
-     logger('[webaudio] skip hap: still loading', ac.currentTime - t);
-@@ -921,6 +1000,13 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -921,6 +1015,13 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
      chain.connect(releaseNode);
    }
  
@@ -3644,7 +3688,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
    // last gain
    const post = new GainNode(ac, { gain: postgain });
    nodes.main['post'] = [post];
-@@ -1025,6 +1111,58 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -1025,6 +1126,70 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
        }
      }
    });
@@ -3667,6 +3711,18 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..015ef919fdd2b75128343606fc1efc77
 +
 +  managedVoice = {
 +    node: liveVoiceGate ?? sourceHandle.node ?? sourceNode,
++    cancel: (at = ac.currentTime) => {
++      if (finished) {
++        return;
++      }
++
++      const cancelAt = clampToAudioTime(ac, at);
++      if (liveVoiceGate) {
++        liveVoiceGate.gain.cancelScheduledValues(cancelAt);
++        liveVoiceGate.gain.setValueAtTime(0, cancelAt);
++      }
++      stopUnderlying(cancelAt);
++    },
 +    stop: (at = ac.currentTime) => {
 +      if (finished) {
 +        return;

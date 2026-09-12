@@ -89,6 +89,44 @@ describe("LivePitch humming Stage bridge", () => {
     expect(dispatchEvent).not.toHaveBeenCalled();
   });
 
+  it("releases the old identity before applying a changed musical context", () => {
+    const events: CustomEvent[] = [];
+    const bridge = createHummingStageBridge(
+      { key: "C", mode: "major", instrument: "piano" },
+      { dispatchEvent: (event) => events.push(event as CustomEvent) > 0 },
+    );
+
+    bridge.push(voiced(62));
+    bridge.push(voiced(62));
+    bridge.updateContext({ key: "D", mode: "major", instrument: "organ" });
+
+    expect(events).toHaveLength(2);
+    expect(events[0]?.detail).toEqual(expect.objectContaining({
+      noteName: "D4",
+      note: expect.objectContaining({ name: "Re" }),
+      key: "C",
+      instrument: "piano",
+    }));
+    expect(events[1]?.detail).toEqual(expect.objectContaining({
+      noteName: "D4",
+      note: "Re",
+      key: "C",
+      instrument: "piano",
+    }));
+
+    bridge.push(voiced(62));
+    bridge.push(voiced(62));
+
+    expect(events).toHaveLength(3);
+    expect(events[2]?.detail).toEqual(expect.objectContaining({
+      noteName: "D4",
+      note: expect.objectContaining({ name: "Do" }),
+      key: "D",
+      instrument: "organ",
+    }));
+    expect(events[2]?.detail.noteId).not.toBe(events[0]?.detail.noteId);
+  });
+
   it("names note ownership uniquely across listening sessions", () => {
     const firstDispatch = vi.fn().mockReturnValue(true);
     const secondDispatch = vi.fn().mockReturnValue(true);

@@ -85,6 +85,7 @@ export function createLivePitchStageBridge(
   context: HummingStageContext,
   target: Pick<Window, "dispatchEvent"> = window,
 ) {
+  let currentContext = { ...context };
   const sessionId = ++livePitchSessionCounter;
   let active: {
     noteId: string;
@@ -109,10 +110,10 @@ export function createLivePitchStageBridge(
 
       const solfegeIndex = findScaleIndexForPitchClass(
         pitchClass,
-        context,
+        currentContext,
       );
       if (solfegeIndex == null) return;
-      const note = getScaleForMode(context.mode).solfege[solfegeIndex];
+      const note = getScaleForMode(currentContext.mode).solfege[solfegeIndex];
       if (!note) return;
 
       active = {
@@ -128,9 +129,9 @@ export function createLivePitchStageBridge(
       target.dispatchEvent(new CustomEvent("note-played", {
         detail: {
           ...active,
-          key: context.key,
-          mode: context.mode,
-          instrument: context.instrument,
+          key: currentContext.key,
+          mode: currentContext.mode,
+          instrument: currentContext.instrument,
           instrumentConfig: null,
           source: LIVE_PITCH_SOURCE,
           record: false,
@@ -144,9 +145,9 @@ export function createLivePitchStageBridge(
         detail: {
           ...active,
           note: active.note.name,
-          key: context.key,
-          mode: context.mode,
-          instrument: context.instrument,
+          key: currentContext.key,
+          mode: currentContext.mode,
+          instrument: currentContext.instrument,
           instrumentConfig: null,
           source: LIVE_PITCH_SOURCE,
           record: false,
@@ -160,6 +161,18 @@ export function createLivePitchStageBridge(
   return {
     push: (frame: LivePitchFrame) => gate.push(frame),
     stop: () => gate.flush(),
+    updateContext: (nextContext: HummingStageContext) => {
+      if (
+        nextContext.key === currentContext.key
+        && nextContext.mode === currentContext.mode
+        && nextContext.instrument === currentContext.instrument
+      ) return;
+
+      // Release with the same musical identity used for the attack, then let
+      // the still-sounding pitch re-enter under the new context.
+      gate.flush();
+      currentContext = { ...nextContext };
+    },
   };
 }
 

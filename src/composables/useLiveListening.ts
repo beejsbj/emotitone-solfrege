@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, readonly, ref } from "vue";
+import { computed, onBeforeUnmount, readonly, ref, watch } from "vue";
 import {
   liveAudioInput,
   type LiveAudioLease,
@@ -33,6 +33,26 @@ export function useLiveListening() {
     bridge: ReturnType<typeof createLivePitchStageBridge> | null;
   };
   let pendingStartup: ListeningStartup | null = null;
+
+  const currentStageContext = () => ({
+    key: musicStore.currentKey as ChromaticNote,
+    mode: musicStore.currentMode as MusicalMode,
+    instrument: instrumentStore.currentInstrument,
+  });
+
+  const stopContextWatch = watch(
+    () => [
+      musicStore.currentKey,
+      musicStore.currentMode,
+      instrumentStore.currentInstrument,
+    ],
+    () => {
+      const context = currentStageContext();
+      stageBridge?.updateContext(context);
+      pendingStartup?.bridge?.updateContext(context);
+    },
+    { flush: "sync" },
+  );
 
   const cleanupStartup = async (startup: ListeningStartup) => {
     if (startup.monitor) {
@@ -97,11 +117,7 @@ export function useLiveListening() {
         await cleanupStartup(startup);
         return;
       }
-      const nextBridge = createLivePitchStageBridge({
-        key: musicStore.currentKey as ChromaticNote,
-        mode: musicStore.currentMode as MusicalMode,
-        instrument: instrumentStore.currentInstrument,
-      });
+      const nextBridge = createLivePitchStageBridge(currentStageContext());
       startup.bridge = nextBridge;
       const nextMonitor = await startLivePitchMonitor(
         nextLease.source,
@@ -168,6 +184,7 @@ export function useLiveListening() {
   }
 
   onBeforeUnmount(() => {
+    stopContextWatch();
     void stop();
     unsubscribeSource();
   });

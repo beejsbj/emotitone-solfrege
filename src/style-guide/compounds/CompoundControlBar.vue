@@ -85,7 +85,7 @@ function loadAlternatePattern() {
 }
 
 const features = [
-  { label: "Order", value: "Key · Mode · BPM · Octave · Play Mode · Harmony" },
+  { label: "Order", value: "Key · Mode · BPM · Octave · Style · Harmony" },
   { label: "Layout", value: "five Knobs plus one Joystick across equal-width slots; no horizontal scroller" },
   { label: "Density", value: "no horizontal padding; outer hardware aligns to an 8px inset" },
   { label: "Motion", value: "only controls changed by a loaded Pattern receive the shared elastic face rebound" },

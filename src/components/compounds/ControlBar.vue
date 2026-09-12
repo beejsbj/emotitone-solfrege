@@ -57,7 +57,7 @@
         :model-value="playMode"
         type="options"
         :options="PLAY_MODE_OPTIONS"
-        label="Play Mode"
+        label="Style"
         @update:modelValue="(value) => emit('update:playMode', String(value))"
       />
     </div>

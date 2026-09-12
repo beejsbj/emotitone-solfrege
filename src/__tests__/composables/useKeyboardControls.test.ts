@@ -28,6 +28,7 @@ const mockPatternsStore = {
 };
 
 const mockKeyboardDrawerStore = {
+  visibleOctaves: [6, 5, 4, 3],
   addTouch: vi.fn(),
   removeTouch: vi.fn(),
 };
@@ -63,29 +64,40 @@ describe("useKeyboardControls", () => {
     mockMusicStore.attackNoteWithOctave.mockClear();
     mockMusicStore.releaseNote.mockClear();
     mockPatternsStore.removeLastFromCurrentSketch.mockClear();
+    mockKeyboardDrawerStore.visibleOctaves = [6, 5, 4, 3];
     mockKeyboardDrawerStore.addTouch.mockClear();
     mockKeyboardDrawerStore.removeTouch.mockClear();
   });
 
-  it("builds three full 12-key rows for chromatic parity", () => {
+  it("builds three full 12-key rows plus a ten-key bottom row", () => {
     const controls = useKeyboardControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
-    expect(Object.keys(mapping)).toHaveLength(36);
+    expect(Object.keys(mapping)).toHaveLength(46);
     expect(mapping.Digit1).toEqual({
       solfegeIndex: 0,
-      octave: 5,
+      octave: 6,
       label: "1",
     });
     expect(mapping.KeyQ).toEqual({
       solfegeIndex: 0,
-      octave: 4,
+      octave: 5,
       label: "Q",
     });
     expect(mapping.Backslash).toEqual({
       solfegeIndex: 11,
-      octave: 3,
+      octave: 4,
       label: "\\",
+    });
+    expect(mapping.KeyZ).toEqual({
+      solfegeIndex: 0,
+      octave: 3,
+      label: "Z",
+    });
+    expect(mapping.Slash).toEqual({
+      solfegeIndex: 9,
+      octave: 3,
+      label: "/",
     });
   });
 
@@ -94,19 +106,204 @@ describe("useKeyboardControls", () => {
     const controls = useKeyboardControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
-    expect(Object.keys(mapping)).toHaveLength(15);
+    expect(Object.keys(mapping)).toHaveLength(20);
     expect(mapping.Digit5.solfegeIndex).toBe(4);
     expect(mapping.KeyT.solfegeIndex).toBe(4);
     expect(mapping.KeyG.solfegeIndex).toBe(4);
+    expect(mapping.KeyB.solfegeIndex).toBe(4);
     expect(mapping.Digit6).toBeUndefined();
+    expect(mapping.KeyN).toBeUndefined();
   });
 
   it("returns display labels for mapped notes", () => {
     mockMusicStore.currentScale.degreeCount = 12;
     const controls = useKeyboardControls(ref(4));
 
-    expect(controls.getKeyboardLetterForNote(11, 3)).toBe("\\");
-    expect(controls.getKeyboardLetterForNote(0, 4)).toBe("Q");
+    expect(controls.getKeyboardLetterForNote(11, 4)).toBe("\\");
+    expect(controls.getKeyboardLetterForNote(0, 5)).toBe("Q");
+  });
+
+  it("enables only physical rows whose octaves are visible", () => {
+    mockKeyboardDrawerStore.visibleOctaves = [4];
+    const controls = useKeyboardControls(ref(4));
+
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+    });
+    expect(controls.getKeyboardMapping().KeyQ).toBeUndefined();
+    expect(controls.getKeyboardMapping().KeyZ).toBeUndefined();
+    expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
+
+    mockKeyboardDrawerStore.visibleOctaves = [5, 4];
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      KeyQ: { solfegeIndex: 0, octave: 5, label: "Q" },
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+    });
+    expect(controls.getKeyboardMapping().KeyZ).toBeUndefined();
+    expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
+
+    mockKeyboardDrawerStore.visibleOctaves = [5, 4, 3];
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      KeyQ: { solfegeIndex: 0, octave: 5, label: "Q" },
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+      KeyZ: { solfegeIndex: 0, octave: 3, label: "Z" },
+    });
+    expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
+
+    mockKeyboardDrawerStore.visibleOctaves = [6, 5, 4, 3];
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      Digit1: { solfegeIndex: 0, octave: 6, label: "1" },
+      KeyQ: { solfegeIndex: 0, octave: 5, label: "Q" },
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+      KeyZ: { solfegeIndex: 0, octave: 3, label: "Z" },
+    });
+
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("keeps physical row identities anchored near octave limits", () => {
+    mockKeyboardDrawerStore.visibleOctaves = [8, 7, 6];
+    const controls = useKeyboardControls(ref(8));
+    const mapping = controls.getKeyboardMapping();
+
+    expect(mapping.KeyA.octave).toBe(8);
+    expect(mapping.KeyZ.octave).toBe(7);
+    expect(mapping.KeyQ).toBeUndefined();
+    expect(mapping.Digit1).toBeUndefined();
+    expect(controls.getKeyboardLetterForNote(0, 6)).toBeNull();
+
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("attacks a distinct octave from each physical keyboard row", async () => {
+    const controls = useKeyboardControls(ref(4));
+
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "Digit1", key: "1" })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "Digit1", key: "1" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyQ", key: "q" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyA", key: "a" })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyA", key: "a" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyZ", key: "z" })
+    );
+
+    expect(mockMusicStore.attackNoteWithOctave.mock.calls.map(
+      ([solfegeIndex, octave]) => ({ solfegeIndex, octave }),
+    )).toEqual([
+      { solfegeIndex: 0, octave: 6 },
+      { solfegeIndex: 0, octave: 5 },
+      { solfegeIndex: 0, octave: 4 },
+      { solfegeIndex: 0, octave: 3 },
+    ]);
+
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyZ", key: "z" })
+    );
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("does not turn modified keyboard shortcuts into notes", async () => {
+    const controls = useKeyboardControls(ref(4));
+    const shortcuts = [
+      new KeyboardEvent("keydown", {
+        code: "KeyC",
+        key: "c",
+        ctrlKey: true,
+        cancelable: true,
+      }),
+      new KeyboardEvent("keydown", {
+        code: "KeyV",
+        key: "v",
+        metaKey: true,
+        cancelable: true,
+      }),
+      new KeyboardEvent("keydown", {
+        code: "KeyZ",
+        key: "z",
+        altKey: true,
+        cancelable: true,
+      }),
+    ];
+
+    for (const shortcut of shortcuts) {
+      await controls.handleKeyDown(shortcut);
+      expect(shortcut.defaultPrevented).toBe(false);
+    }
+
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+    expect(mockKeyboardDrawerStore.addTouch).not.toHaveBeenCalled();
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("requires keyup before a modified shortcut key can attack", async () => {
+    const controls = useKeyboardControls(ref(4));
+    const shortcut = new KeyboardEvent("keydown", {
+      code: "KeyC",
+      key: "c",
+      ctrlKey: true,
+      cancelable: true,
+    });
+
+    await controls.handleKeyDown(shortcut);
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", {
+        code: "KeyC",
+        key: "c",
+        repeat: true,
+      })
+    );
+
+    expect(shortcut.defaultPrevented).toBe(false);
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyC", key: "c" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyC", key: "c" })
+    );
+
+    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenCalledOnce();
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyC", key: "c" })
+    );
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("still releases a note held before a modifier is pressed", async () => {
+    const controls = useKeyboardControls(ref(4));
+
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyC", key: "c" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", {
+        code: "KeyC",
+        key: "c",
+        ctrlKey: true,
+        repeat: true,
+      })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyC", key: "c" })
+    );
+
+    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenCalledOnce();
+    expect(mockMusicStore.releaseNote).toHaveBeenCalledWith("mock-note-id");
+    controls.cleanupKeyboardListeners();
   });
 
   it("releases a QWERTY owner even when keyup beats async attack resolution", async () => {

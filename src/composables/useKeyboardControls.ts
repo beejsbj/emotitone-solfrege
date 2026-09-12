@@ -23,7 +23,7 @@ interface KeyboardMapping {
 
 const KEY_ROWS = [
   {
-    octaveOffset: 1,
+    octaveOffset: 2,
     keys: [
       { code: "Digit1", label: "1" },
       { code: "Digit2", label: "2" },
@@ -40,7 +40,7 @@ const KEY_ROWS = [
     ],
   },
   {
-    octaveOffset: 0,
+    octaveOffset: 1,
     keys: [
       { code: "KeyQ", label: "Q" },
       { code: "KeyW", label: "W" },
@@ -57,7 +57,7 @@ const KEY_ROWS = [
     ],
   },
   {
-    octaveOffset: -1,
+    octaveOffset: 0,
     keys: [
       { code: "KeyA", label: "A" },
       { code: "KeyS", label: "S" },
@@ -75,6 +75,22 @@ const KEY_ROWS = [
   },
 ] as const;
 
+// The physical bottom row has ten printable keys, so it covers the first ten
+// degrees below the main A row. The 12-key rows above it retain complete
+// chromatic coverage.
+const BOTTOM_KEY_ROW = [
+  { code: "KeyZ", label: "Z" },
+  { code: "KeyX", label: "X" },
+  { code: "KeyC", label: "C" },
+  { code: "KeyV", label: "V" },
+  { code: "KeyB", label: "B" },
+  { code: "KeyN", label: "N" },
+  { code: "KeyM", label: "M" },
+  { code: "Comma", label: "," },
+  { code: "Period", label: "." },
+  { code: "Slash", label: "/" },
+] as const;
+
 /**
  * Composable for handling keyboard controls for solfege notes
  */
@@ -87,8 +103,8 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
-  // Keys depressed while input is locked must see a physical keyup before
-  // they may attack. Otherwise OS key-repeat can start a note after unlock.
+  // Ignored mapped keys must see a physical keyup before they may attack.
+  // Otherwise OS key-repeat can start a note after a lock or modifier clears.
   const blockedKeys = ref<Set<string>>(new Set());
 
   // Track keyboard-triggered notes separately from mouse-triggered notes
@@ -96,22 +112,34 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   const getKeyboardMapping = (): KeyboardMapping => {
     const degreeCount = musicStore.currentScale.degreeCount;
+    const visibleOctaves = keyboardDrawerStore.visibleOctaves;
     const mapping: KeyboardMapping = {};
 
-    KEY_ROWS.forEach((row) => {
-      const octave = mainOctave.value + row.octaveOffset;
-      if (octave < 1 || octave > 8) {
+    const addKeyRow = (
+      keys: readonly { code: string; label: string }[],
+      octave: number,
+    ) => {
+      if (
+        octave < 1
+        || octave > 8
+        || !visibleOctaves.includes(octave)
+      ) {
         return;
       }
 
-      row.keys.slice(0, degreeCount).forEach((key, index) => {
+      keys.slice(0, degreeCount).forEach((key, index) => {
         mapping[key.code] = {
           solfegeIndex: index,
           octave,
           label: key.label,
         };
       });
+    };
+
+    KEY_ROWS.forEach((row) => {
+      addKeyRow(row.keys, mainOctave.value + row.octaveOffset);
     });
+    addKeyRow(BOTTOM_KEY_ROW, mainOctave.value - 1);
 
     return mapping;
   };
@@ -170,6 +198,14 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
     // Get current keyboard mapping
     const keyboardMapping = getKeyboardMapping();
+
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      if (key in keyboardMapping && !pressedKeys.value.has(key)) {
+        blockedKeys.value.add(key);
+      }
+      return;
+    }
+
     if (key in keyboardMapping) {
       if (blockedKeys.value.has(key)) {
         event.preventDefault();

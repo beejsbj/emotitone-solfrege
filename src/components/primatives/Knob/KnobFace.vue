@@ -365,4 +365,5 @@ useGSAP(({ gsap }) => {
     transition: none;
   }
 }
+
 </style>

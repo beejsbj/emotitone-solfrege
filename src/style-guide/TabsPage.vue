@@ -148,7 +148,7 @@ const configLabels = [
   ["frequencyMapping", "Frequency Mapping", "Freq"],
   ["dynamicColors", "Dynamic Colors", "Color"],
   ["hilbertScope", "Hilbert Scope", "Scope"],
-  ["beatingShapes", "Beating Shapes", "Beat"],
+  ["uiBeat", "UI Beat", "Beat"],
   ["patterns", "Patterns", "Patt"],
   ["keyboard", "Keyboard", "Keys"],
   ["codeStrip", "Code Strip", "Code"],

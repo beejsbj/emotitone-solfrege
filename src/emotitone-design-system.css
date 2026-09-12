@@ -233,14 +233,9 @@
   --rot-mark: 2deg;
 
   /* ===============================================================
-     5. MOTION — beat, durations, easings
-        Beats are the foundation. Default tempo = 120bpm = 500ms/beat.
-        UI breathes on the beat; transitions snap with cut-paper edges.
+     5. MOTION — gesture durations and easings
+        Tempo phase comes from UIBeat; transitions remain local recipes.
      =============================================================== */
-  --beat: 500ms;          /* one quarter note at 120bpm */
-  --eighth: 250ms;
-  --sixteenth: 125ms;
-
   /* The horn section — named curves. Pick whose NAME matches the
      gesture; never invent a new one. */
   --ease-swing:   cubic-bezier(.7, -0.2, .3, 1.2);  /* tabs, knobs, drawer-in */
@@ -439,15 +434,6 @@
   mask-repeat: no-repeat;
 }
 
-/* Pulse-on-the-beat — apply to anything you want to breathe with the song */
-@keyframes beat {
-  0%, 100% { transform: scale(1); }
-  6%       { transform: scale(1.035); }
-  60%      { transform: scale(0.992); }
-}
-.beat-pulse { animation: beat var(--beat) var(--ease-cut) infinite; }
-.beat-pulse-half { animation: beat calc(var(--beat) * 2) var(--ease-cut) infinite; }
-
 /* Cut-tab slide (Persona-5 style swap) */
 @keyframes cut-slide-in {
   0%   { transform: translateX(-12%) skewX(-8deg); opacity: 0; }
@@ -504,15 +490,6 @@
    Phase 8 Wave 1e
    ============================================================ */
 
-/* bob — tile drops 2px on the &-of-beat (from mot-primitives-tile-bob.html) */
-@keyframes bob {
-    0%, 100% { transform: translateY(0); }
-    48%      { transform: translateY(0); }
-    52%      { transform: translateY(2px); }
-    62%      { transform: translateY(2px); }
-    78%      { transform: translateY(0); }
-  }
-
 /* lift — tile lifts 3px up on fire (from mot-primitives-played-flash.html) */
 @keyframes lift {
     0%, 100% { transform: translateY(0); }
@@ -548,43 +525,6 @@
   46%     { opacity: 0; transform: translateY(12px) skew(8deg); }
   100%    { opacity: 1; transform: translateY(0) skew(0deg); }
 }
-
-/* strobe — panel wire heats on the downbeat (from mot-primitives-downbeat-strobe.html) */
-@keyframes strobe {
-    0%, 5%  {
-      border-color: rgba(110, 98, 83, 1);
-      box-shadow: 0 0 0 1px rgba(110, 98, 83, .6), 0 0 18px -2px rgba(224,169,58,.18);
-    }
-    6%, 100% {
-      border-color: var(--hairline);
-      box-shadow: none;
-    }
-  }
-
-/* bar-cell — beat indicator cell lights on its quarter (from mot-primitives-downbeat-strobe.html) */
-@keyframes bar-cell {
-    0%, 18%  { background: var(--ivory); border-color: var(--ivory); }
-    20%, 100%{ background: transparent;  border-color: var(--hairline); }
-  }
-
-/* bar-down — downbeat cell lights brass (from mot-primitives-downbeat-strobe.html) */
-@keyframes bar-down {
-    0%, 18%  { background: var(--brass); border-color: var(--brass); box-shadow: 0 0 12px rgba(224,169,58,.6); }
-    20%, 100%{ background: transparent;    border-color: var(--hairline); box-shadow: none; }
-  }
-
-/* pulse — knob ring breathes on the quarter (from mot-primitives-beat-pulse.html) */
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    18%      { transform: scale(1.04); }
-    60%      { transform: scale(.994); }
-  }
-
-/* ring-flash — brass ring strobes on the downbeat (from mot-primitives-beat-pulse.html) */
-@keyframes ring-flash {
-    0%, 18% { border-color: var(--brass); box-shadow: 0 0 14px rgba(224,169,58,.45); }
-    20%, 100% { border-color: transparent; box-shadow: none; }
-  }
 
 /* smear — horizontal stretch-snap (lifted from v2 .p5-active.smearing). */
 @keyframes smear {

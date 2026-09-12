@@ -1,11 +1,16 @@
 <template>
-  <div :class="classes" :aria-label="ariaLabel" role="img">
+  <div
+    ref="rootRef"
+    :class="classes"
+    :aria-label="ariaLabel"
+    data-ui-beat-state="idle"
+    role="img"
+  >
     <span
       v-for="beat in beatCount"
       :key="beat"
       class="beat-indicator__beat"
       :class="{ 'beat-indicator__beat--downbeat': downbeat && beat === 1 }"
-      :style="beatStyle(beat - 1)"
       :data-mark="markForBeat(beat - 1)"
     >
       <Mark
@@ -18,7 +23,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
+import {
+  uiBeatScaleSwell,
+  useUIBeat,
+  type UIBeatSnapshot,
+} from "@/composables/useUIBeat";
 import Mark from "@/components/primatives/Mark.vue";
 import type { MarkName } from "@/components/primatives/marks";
 
@@ -29,24 +46,29 @@ const props = withDefaults(
     beats?: number;
     marks?: MarkName[];
     size?: BeatIndicatorSize;
-    loopDuration?: string;
     downbeat?: boolean;
     static?: boolean;
+    enabled?: boolean;
     ariaLabel?: string;
   }>(),
   {
     beats: 4,
-    marks: () => ["disk"],
+    marks: () => ["square"],
     size: "md",
-    loopDuration: "2s",
     downbeat: true,
     static: false,
+    enabled: true,
     ariaLabel: "Beat indicator",
   },
 );
 
 const beatCount = computed(() => Math.max(1, Math.floor(props.beats)));
-const usableMarks = computed<MarkName[]>(() => props.marks.length ? props.marks : ["disk"]);
+const usableMarks = computed<MarkName[]>(() => props.marks.length ? props.marks : ["square"]);
+const rootRef = ref<HTMLElement | null>(null);
+const { clock, presentationEnabled } = useUIBeat();
+const consumerEnabled = () => props.enabled && presentationEnabled();
+let beatElements: HTMLElement[] = [];
+let unsubscribe: (() => void) | undefined;
 
 const classes = computed(() => [
   "beat-indicator",
@@ -55,10 +77,86 @@ const classes = computed(() => [
 ]);
 
 const markForBeat = (index: number) => usableMarks.value[index % usableMarks.value.length];
-const beatStyle = (index: number) => ({
-  "--beat-indicator-rate": props.loopDuration,
-  "--beat-indicator-delay": `calc(${props.loopDuration} * ${index} / ${beatCount.value})`,
+
+function applyRestState() {
+  if (rootRef.value) rootRef.value.dataset.uiBeatState = "idle";
+  beatElements.forEach((element, index) => {
+    const holdsDownbeat = props.downbeat && index === 0;
+    element.style.opacity = holdsDownbeat ? "1" : "0.18";
+    element.style.transform = holdsDownbeat
+      ? "scale(1)"
+      : "scale(0.78)";
+  });
+}
+
+function applyFrame(snapshot: UIBeatSnapshot) {
+  if (
+    !consumerEnabled() ||
+    props.static ||
+    !snapshot.presenting ||
+    snapshot.beatIndex === null
+  ) {
+    applyRestState();
+    return;
+  }
+
+  if (rootRef.value) rootRef.value.dataset.uiBeatState = "running";
+  const activeIndex = snapshot.beatIndex % beatCount.value;
+  const swell = uiBeatScaleSwell(snapshot.beatPhase);
+
+  beatElements.forEach((element, index) => {
+    if (index !== activeIndex) {
+      element.style.opacity = "0.14";
+      element.style.transform = "scale(0.78)";
+      return;
+    }
+
+    const isDownbeat = props.downbeat && index === 0;
+    const peakScale = isDownbeat ? 1.52 : 1.42;
+    const scale = 0.78 + (peakScale - 0.78) * swell;
+    element.style.opacity = (0.22 + swell * 0.78).toFixed(3);
+    element.style.transform = `scale(${scale.toFixed(3)})`;
+  });
+}
+
+function collectBeatElements() {
+  beatElements = rootRef.value
+    ? Array.from(rootRef.value.querySelectorAll<HTMLElement>(".beat-indicator__beat"))
+    : [];
+  applyFrame(clock.snapshot);
+}
+
+function syncSubscription() {
+  unsubscribe?.();
+  unsubscribe = undefined;
+
+  if (!consumerEnabled() || props.static || !rootRef.value) {
+    applyRestState();
+    return;
+  }
+
+  unsubscribe = clock.subscribe(applyFrame, rootRef.value);
+}
+
+onMounted(() => {
+  collectBeatElements();
+  syncSubscription();
 });
+
+watch(beatCount, async () => {
+  await nextTick();
+  collectBeatElements();
+});
+
+watch(
+  [consumerEnabled, () => props.static],
+  syncSubscription,
+  { flush: "post" },
+);
+
+watch(() => props.downbeat, () => applyFrame(clock.snapshot));
+
+onBeforeUnmount(() => unsubscribe?.());
 </script>
 
 <style scoped>
@@ -74,21 +172,17 @@ const beatStyle = (index: number) => ({
   height: var(--beat-indicator-size, 18px);
   opacity: 0.18;
   transform-origin: 50% 60%;
-  animation: beat-indicator-mark var(--beat-indicator-rate) steps(1) infinite;
-  animation-delay: var(--beat-indicator-delay);
+  will-change: transform, opacity;
 }
 
 .beat-indicator__beat--downbeat {
   filter: drop-shadow(0 0 7px rgba(224, 169, 58, 0.35));
 }
 
-.beat-indicator--static .beat-indicator__beat {
-  animation: none;
-}
-
-.beat-indicator--static .beat-indicator__beat--downbeat {
-  opacity: 1;
-  transform: translateY(-1px) scale(1.05);
+.beat-indicator:not([data-ui-beat-state="running"]) .beat-indicator__beat {
+  transition:
+    transform var(--dur-ui) var(--ease-brush),
+    opacity var(--dur-ui) var(--ease-brush);
 }
 
 .beat-indicator--sm {
@@ -101,19 +195,16 @@ const beatStyle = (index: number) => ({
   --beat-indicator-gap: 12px;
 }
 
-@keyframes beat-indicator-mark {
-  0%, 10% { opacity: 1; transform: translateY(-2px) scale(1.08) rotate(-2deg); }
-  12%, 100% { opacity: 0.18; transform: translateY(0) scale(1) rotate(0); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .beat-indicator__beat {
-    animation: none !important;
+    opacity: 0.18 !important;
+    transform: none !important;
+    transition: none !important;
   }
 
   .beat-indicator__beat--downbeat {
-    opacity: 1;
-    transform: none;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 </style>

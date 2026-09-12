@@ -1,5 +1,5 @@
 <template>
-  <span :class="stickerClasses" :style="stickerStyle">
+  <span ref="stickerRef" :class="stickerClasses" :style="stickerStyle">
     <template v-if="variant === 'badge'">
       <span class="sticker__badge-edge" aria-hidden="true"></span>
       <span class="sticker__badge-text">
@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { CSSProperties } from "vue";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import Mark from "./Mark.vue";
 import type { MarkName } from "./marks";
 import { getRandomGeometry } from "../../utils/randomGeometry";
@@ -57,6 +58,7 @@ const props = withDefaults(
     mark?: MarkName;
     markPosition?: StickerMarkPosition;
     markSize?: number | string;
+    uiBeat?: boolean;
   }>(),
   {
     variant: "outline",
@@ -64,10 +66,17 @@ const props = withDefaults(
     mark: undefined,
     markPosition: "before",
     markSize: "1em",
+    uiBeat: false,
   },
 );
 
+const stickerRef = ref<HTMLElement>();
 const geometryStyle = ref<CSSProperties>(getRandomGeometry("sticker"));
+
+useUIBeatScale(stickerRef, () => props.uiBeat, {
+  restScale: 0.8,
+  peakScale: 1.1,
+});
 
 const stickerClasses = computed(() => [
   "sticker",

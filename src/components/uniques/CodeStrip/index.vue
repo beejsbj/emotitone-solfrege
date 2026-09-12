@@ -34,6 +34,10 @@ import { toStrudelSound } from "@/composables/useStrudel";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import {
+  generatedStrudelBarPosition,
+  uiBeatClock,
+} from "@/composables/useUIBeat";
+import {
   emotitoneStrudelOutput,
   getAudioContext,
   initSuperdoughAudio,
@@ -62,13 +66,19 @@ import type {
 
 interface StrudelMirrorInstance {
   setCode: (code: string) => void;
-  evaluate: () => Promise<void>;
+  evaluate: () => Promise<void | boolean>;
   stop: () => Promise<void> | void;
   clear?: () => void;
   updateSettings?: (settings: Record<string, unknown>) => void;
   code?: string;
   editor?: unknown;
   view?: unknown;
+  repl?: {
+    scheduler?: {
+      cps?: number;
+      setCps?: (cps: number) => void;
+    };
+  };
 }
 
 const props = withDefaults(
@@ -154,9 +164,33 @@ let followLastFrameTime: number | null = null;
 let followPlaybackActive = false;
 let presentationSyncQueued = false;
 let presentationSyncCancelled = false;
+interface ActiveUIBeatRun {
+  generation: number;
+  mappingAvailable: boolean;
+  bpm: number;
+  beatsPerBar: number;
+  preservePhase: boolean;
+  ready: boolean;
+  failed: boolean;
+  error: unknown;
+}
+
+let activeUIBeatRun: ActiveUIBeatRun | null = null;
+let evaluatingUIBeatRun: ActiveUIBeatRun | null = null;
+let evaluationQueue: Promise<unknown> = Promise.resolve();
+let evaluationEpoch = 0;
+let preserveUIBeatPhaseForNextEvaluation = false;
+let preserveUIBeatDuringCodeSync = false;
+let tempoEvaluationQueued = false;
+let uiBeatAudioContext: AudioContext | null = null;
 
 const FOLLOW_TIME_CONSTANT_MS = 150;
 const RECORDING_FOLLOW_ANCHOR = 0.75;
+const GENERATED_BEATS_PER_BAR = 4;
+
+function invalidateQueuedEvaluations() {
+  evaluationEpoch += 1;
+}
 
 const controlledCodeStripConfig = {
   enabled: true,
@@ -255,6 +289,137 @@ function getMirrorCode(instance: StrudelMirrorInstance | null) {
   return getMirrorView(instance)?.state.doc.toString() ?? instance?.code ?? "";
 }
 
+function armUIBeatForEvaluation(
+  instance: StrudelMirrorInstance,
+  preservePhase: boolean,
+) {
+  const currentDocument = getMirrorCode(instance).trim();
+  const mappingAvailable =
+    !isControlled.value &&
+    currentDocument !== EMPTY_EDITOR_CODE &&
+    currentDocument === generatedCode.value.trim();
+  const bpm = codeStripConfig.value.bpm;
+  const currentRun = activeUIBeatRun;
+  const currentSnapshot = uiBeatClock.snapshot;
+  const canPreservePhase =
+    preservePhase &&
+    mappingAvailable &&
+    currentRun?.ready === true &&
+    currentRun.mappingAvailable &&
+    currentSnapshot.generation === currentRun.generation &&
+    currentSnapshot.status === "running" &&
+    currentSnapshot.barPosition !== null &&
+    typeof instance.repl?.scheduler?.setCps === "function";
+
+  if (mappingAvailable && typeof instance.repl?.scheduler?.setCps === "function") {
+    const generatedBarCps = bpm / GENERATED_BEATS_PER_BAR / 60;
+    instance.repl.scheduler.setCps(generatedBarCps);
+  }
+
+  if (canPreservePhase && currentRun) {
+    currentRun.bpm = bpm;
+    uiBeatClock.retime(currentRun.generation, bpm);
+    observeUIBeatAudioContext();
+    return {
+      generation: currentRun.generation,
+      mappingAvailable,
+      bpm,
+      beatsPerBar: GENERATED_BEATS_PER_BAR,
+      preservePhase: true,
+      ready: false,
+      failed: false,
+      error: undefined,
+    } satisfies ActiveUIBeatRun;
+  }
+
+  const generation = uiBeatClock.arm({
+    mappingAvailable,
+    bpm: mappingAvailable ? bpm : undefined,
+    meter: mappingAvailable
+      ? { beatsPerBar: GENERATED_BEATS_PER_BAR, beatUnit: 4 }
+      : undefined,
+  });
+
+  activeUIBeatRun = {
+    generation,
+    mappingAvailable,
+    bpm,
+    beatsPerBar: GENERATED_BEATS_PER_BAR,
+    preservePhase: false,
+    ready: false,
+    failed: false,
+    error: undefined,
+  };
+  observeUIBeatAudioContext();
+  return activeUIBeatRun;
+}
+
+function publishUIBeatFrame(instance: StrudelMirrorInstance, rawPosition: number) {
+  const run = activeUIBeatRun;
+  if (!run?.ready) return;
+
+  if (uiBeatAudioContext?.state !== "running") {
+    uiBeatClock.suspend(run.generation);
+    return;
+  }
+
+  const schedulerCps = instance.repl?.scheduler?.cps;
+  const barPosition = run.mappingAvailable && typeof schedulerCps === "number"
+    ? generatedStrudelBarPosition(
+        rawPosition,
+        run.bpm,
+        run.beatsPerBar,
+        schedulerCps,
+      )
+    : null;
+
+  uiBeatClock.publish(run.generation, {
+    rawPosition,
+    barPosition: barPosition ?? undefined,
+  });
+}
+
+function stopUIBeatRun(expectedGeneration?: number) {
+  if (!activeUIBeatRun) return;
+  if (
+    expectedGeneration !== undefined &&
+    activeUIBeatRun.generation !== expectedGeneration
+  ) {
+    return;
+  }
+  uiBeatClock.stop(activeUIBeatRun.generation);
+  activeUIBeatRun = null;
+}
+
+function handleUIBeatAudioState() {
+  const run = activeUIBeatRun;
+  if (!run || !uiBeatAudioContext) return;
+
+  if (uiBeatAudioContext.state === "closed") {
+    stopUIBeatRun();
+  } else if (uiBeatAudioContext.state !== "running") {
+    uiBeatClock.suspend(run.generation);
+  }
+}
+
+function observeUIBeatAudioContext() {
+  const audioContext = getAudioContext();
+  if (audioContext === uiBeatAudioContext) {
+    handleUIBeatAudioState();
+    return;
+  }
+
+  uiBeatAudioContext?.removeEventListener("statechange", handleUIBeatAudioState);
+  uiBeatAudioContext = audioContext;
+  uiBeatAudioContext.addEventListener("statechange", handleUIBeatAudioState);
+  handleUIBeatAudioState();
+}
+
+function releaseUIBeatAudioContext() {
+  uiBeatAudioContext?.removeEventListener("statechange", handleUIBeatAudioState);
+  uiBeatAudioContext = null;
+}
+
 function replaceControlledCode(code: string) {
   visibleCode.value = code;
   if (!controlledView || controlledView.state.doc.toString() === code) return;
@@ -263,11 +428,19 @@ function replaceControlledCode(code: string) {
   });
 }
 
-function syncMirrorCode(code: string) {
+function syncMirrorCode(code: string, preserveUIBeat = false) {
   visibleCode.value = code;
   const instance = mirror.value;
   if (!instance) return;
-  if (getMirrorCode(instance) !== code) instance.setCode(code);
+  if (getMirrorCode(instance) !== code) {
+    if (!preserveUIBeat) stopUIBeatRun();
+    preserveUIBeatDuringCodeSync = preserveUIBeat;
+    try {
+      instance.setCode(code);
+    } finally {
+      preserveUIBeatDuringCodeSync = false;
+    }
+  }
   syncCode(code);
 }
 
@@ -278,17 +451,50 @@ function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
   syncCode(code);
 }
 
-async function evaluateMirror(instance: StrudelMirrorInstance) {
-  if (productionWiring?.instrumentStore.isInteractionLocked) return;
+function canPreserveUIBeatPhase(instance: StrudelMirrorInstance) {
+  const run = activeUIBeatRun;
+  const snapshot = uiBeatClock.snapshot;
+  return Boolean(
+    run?.ready === true &&
+    run.mappingAvailable &&
+    snapshot.generation === run.generation &&
+    snapshot.status === "running" &&
+    snapshot.barPosition !== null &&
+    typeof instance.repl?.scheduler?.setCps === "function"
+  );
+}
+
+async function evaluateMirror(instance: StrudelMirrorInstance): Promise<boolean> {
+  if (productionWiring?.instrumentStore.isInteractionLocked) return false;
   reconcileMirrorRuntimeCode(instance);
   const editor = getMirrorView(instance);
   if (editor) setCodeStripPlaying(editor, true);
   try {
-    await instance.evaluate();
+    const accepted = await instance.evaluate();
+    if (accepted === false && editor) setCodeStripPlaying(editor, false);
+    return accepted !== false;
   } catch (error) {
     if (editor) setCodeStripPlaying(editor, false);
     throw error;
   }
+}
+
+function queueTempoEvaluation() {
+  if (tempoEvaluationQueued) return;
+  tempoEvaluationQueued = true;
+  queueMicrotask(() => {
+    tempoEvaluationQueued = false;
+    const instance = mirror.value;
+    if (isControlled.value || !instance || !isPlaying.value) return;
+
+    preserveUIBeatPhaseForNextEvaluation = canPreserveUIBeatPhase(instance);
+    void evaluateMirror(instance)
+      // The serialized evaluation boundary has already published the error.
+      .catch(() => undefined)
+      .finally(() => {
+        preserveUIBeatPhaseForNextEvaluation = false;
+      });
+  });
 }
 
 function revealLatestRecordedEvent() {
@@ -368,6 +574,7 @@ async function stopMirrorForWarmup(instance: StrudelMirrorInstance) {
   try {
     await instance.stop();
   } finally {
+    stopUIBeatRun();
     setPlaying(false);
     stopFollow();
     stopStrudelVisuals();
@@ -472,7 +679,8 @@ async function initializeStrudelMirror() {
         ),
       ]);
     },
-    onDraw: () => {
+    onDraw: (_haps: unknown[], time: number) => {
+      publishUIBeatFrame(instance, time);
       void nextTick(followActivePlayback);
     },
     onToggle: (started: boolean) => {
@@ -485,23 +693,91 @@ async function initializeStrudelMirror() {
       const view = getMirrorView(instance);
       if (view) setCodeStripPlaying(view, started);
       if (!started) {
+        stopUIBeatRun(evaluatingUIBeatRun?.generation);
         stopFollow();
         stopStrudelVisuals();
+      }
+    },
+    onEvalError: (error: unknown) => {
+      const failedRun = evaluatingUIBeatRun;
+      if (failedRun) {
+        failedRun.failed = true;
+        failedRun.error = error;
       }
     },
   }) as StrudelMirrorInstance);
   mirror.value = instance;
 
+  // StrudelMirror routes editor shortcuts and native stop events through its
+  // public stop method. Wrap that single transport boundary so every explicit
+  // stop invalidates work that was queued before it.
+  const stopTransport = instance.stop.bind(instance);
+  instance.stop = () => {
+    invalidateQueuedEvaluations();
+    return stopTransport();
+  };
+
   // StrudelMirror owns editor shortcuts as well as the public controller.
   // Guard its evaluation method so every playback entry point respects sample
   // warmup, including evaluations already pending when the lock begins.
   const evaluate = instance.evaluate.bind(instance);
-  instance.evaluate = async () => {
-    if (productionWiring?.instrumentStore.isInteractionLocked) return;
-    await evaluate();
-    if (productionWiring?.instrumentStore.isInteractionLocked) {
-      await stopMirrorForWarmup(instance);
-    }
+  instance.evaluate = () => {
+    const queuedAtEpoch = evaluationEpoch;
+    const preservePhase = preserveUIBeatPhaseForNextEvaluation;
+    preserveUIBeatPhaseForNextEvaluation = false;
+    const task = evaluationQueue.then(async () => {
+      if (
+        queuedAtEpoch !== evaluationEpoch
+        || productionWiring?.instrumentStore.isInteractionLocked
+      ) return false;
+      const run = armUIBeatForEvaluation(instance, preservePhase);
+      evaluatingUIBeatRun = run;
+      try {
+        await evaluate();
+        if (queuedAtEpoch !== evaluationEpoch) {
+          stopUIBeatRun(run.generation);
+          await stopTransport();
+          return false;
+        }
+        if (run.failed) {
+          throw run.error ?? new Error("Strudel evaluation failed");
+        }
+        if (run.preservePhase) {
+          if (uiBeatClock.retime(run.generation, run.bpm)) {
+            run.ready = true;
+            activeUIBeatRun = run;
+          }
+        } else if (activeUIBeatRun === run) {
+          activeUIBeatRun.ready = true;
+        }
+        if (productionWiring?.instrumentStore.isInteractionLocked) {
+          await stopMirrorForWarmup(instance);
+          return false;
+        }
+        return true;
+      } catch (error) {
+        stopUIBeatRun(run.generation);
+        try {
+          await stopTransport();
+        } catch (stopError) {
+          console.error("[CodeStrip] Strudel stop after evaluation error failed:", stopError);
+        }
+        if (queuedAtEpoch !== evaluationEpoch) return false;
+        const editor = getMirrorView(instance);
+        if (editor) setCodeStripPlaying(editor, false);
+        setPlaying(false);
+        stopFollow();
+        stopStrudelVisuals();
+        setError(error);
+        throw error;
+      } finally {
+        if (evaluatingUIBeatRun?.generation === run.generation) {
+          evaluatingUIBeatRun = null;
+        }
+      }
+    });
+    evaluationQueue = task.catch(() => undefined);
+    return task;
   };
 
   instance.updateSettings?.({
@@ -527,6 +803,7 @@ async function initializeStrudelMirror() {
       effects: StateEffect.appendConfig.of([
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
+            if (!preserveUIBeatDuringCodeSync) stopUIBeatRun();
             visibleCode.value = update.state.doc.toString();
             syncCode(visibleCode.value);
           }
@@ -539,12 +816,18 @@ async function initializeStrudelMirror() {
 
   attachedController = {
     getCode: () => getMirrorCode(instance),
-    setCode: (code: string) => instance.setCode(code),
+    setCode: (code: string) => {
+      if (getMirrorCode(instance) === code) return;
+      stopUIBeatRun();
+      instance.setCode(code);
+    },
     evaluate: () => evaluateMirror(instance),
     stop: () => {
       const editor = getMirrorView(instance);
       if (editor) setCodeStripPlaying(editor, false);
-      return instance.stop();
+      const result = instance.stop();
+      stopUIBeatRun();
+      return result;
     },
   };
   attachEditor(attachedController, generatedCode.value);
@@ -599,11 +882,13 @@ watch(
 
 watch(
   [() => sketchMeta.value.bpm, () => codeStripConfig.value.bpm],
-  async () => {
-    if (isControlled.value || !mirror.value || !isPlaying.value) return;
-    syncMirrorCode(generatedCode.value);
-    await evaluateMirror(mirror.value);
+  () => {
+    const instance = mirror.value;
+    if (isControlled.value || !instance || !isPlaying.value) return;
+    syncMirrorCode(generatedCode.value, canPreserveUIBeatPhase(instance));
+    queueTempoEvaluation();
   },
+  { flush: "sync" },
 );
 
 watch(
@@ -638,6 +923,8 @@ onBeforeUnmount(() => {
   const instance = mirror.value;
   if (!instance) return;
   detachEditor(attachedController);
+  stopUIBeatRun();
+  releaseUIBeatAudioContext();
   try {
     stopStrudelVisuals();
     void instance.stop();

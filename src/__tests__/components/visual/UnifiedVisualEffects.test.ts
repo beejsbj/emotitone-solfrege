@@ -37,13 +37,6 @@ vi.mock('@/composables/canvas/useUnifiedCanvas', () => ({
   useUnifiedCanvas,
 }))
 
-vi.mock('@/components/BeatingShapes.vue', () => ({
-  default: {
-    name: 'BeatingShapes',
-    template: '<div data-testid="beating-shapes">Beating Shapes</div>',
-  },
-}))
-
 describe('UnifiedVisualEffects.vue', () => {
   let wrapper: ReturnType<typeof createTestWrapper> | null = null
 
@@ -61,7 +54,7 @@ describe('UnifiedVisualEffects.vue', () => {
     wrapper = createTestWrapper(UnifiedVisualEffects)
 
     expect(wrapper.find('.unified-visual-effects').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="beating-shapes"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="beating-shapes"]').exists()).toBe(false)
     expect(wrapper.find('.unified-canvas').attributes('width')).toBe('1024')
     expect(wrapper.find('.unified-canvas').attributes('height')).toBe('768')
     expect(wrapper.find('.unified-canvas').attributes('aria-hidden')).toBe('true')

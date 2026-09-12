@@ -178,8 +178,13 @@ describe("ConfigPanel.vue", () => {
       .props("tabs") as Array<{ value: string }>;
 
     expect(tabs.map((tab) => tab.value)).toContain("blobs");
+    expect(tabs.map((tab) => tab.value)).toContain("uiBeat");
+    expect(tabs.map((tab) => tab.value)).not.toContain("beatingShapes");
     expect(tabs.map((tab) => tab.value)).not.toContain("floatingPopup");
     expect(CONFIG_SECTIONS).not.toHaveProperty("floatingPopup");
+    expect(CONFIG_SECTIONS).not.toHaveProperty("beatingShapes");
+    expect(Object.keys(UNIFIED_CONFIG.uiBeat).filter((key) => key !== "_meta"))
+      .toEqual(["isEnabled"]);
     expect(UNIFIED_CONFIG.blobs.connectionMode.group).toBe("Relationships");
     expect(UNIFIED_CONFIG.blobs.analysisHoldTime.group).toBe("Analysis");
     expect(UNIFIED_CONFIG.blobs.showChordLabel.group).toBe("Labels");

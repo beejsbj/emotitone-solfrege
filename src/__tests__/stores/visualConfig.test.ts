@@ -318,6 +318,46 @@ describe('Visual Config Store', () => {
       expect('liveStrip' in newStore.config).toBe(false)
     })
 
+    it('migrates only the legacy Beating Shapes enable choice into UIBeat', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          uiBeat: {},
+          beatingShapes: {
+            isEnabled: false,
+            opacity: 0.92,
+            scale: 1.4,
+            shapeCount: 9,
+            saturation: 100,
+            useGlassmorphism: true,
+          },
+        },
+      }))
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([
+        {
+          id: 'canonical-wins',
+          name: 'Canonical UIBeat',
+          config: {
+            uiBeat: { isEnabled: true },
+            beatingShapes: { isEnabled: false },
+          },
+        },
+      ]))
+
+      const store = createFreshStore()
+
+      expect(store.config.uiBeat).toEqual({ isEnabled: false })
+      expect(store.config).not.toHaveProperty('beatingShapes')
+      expect(store.savedConfigs[0].config.uiBeat).toEqual({ isEnabled: true })
+      expect(store.savedConfigs[0].config).not.toHaveProperty('beatingShapes')
+      expect(store.importConfig(JSON.stringify({
+        config: { beatingShapes: { isEnabled: false, opacity: 0.1 } },
+      }))).toBe(true)
+      expect(store.config.uiBeat).toEqual({ isEnabled: false })
+      expect(JSON.parse(store.exportConfig()).config).not.toHaveProperty('beatingShapes')
+      store.resetSection('uiBeat')
+      expect(store.config.uiBeat).toEqual({ isEnabled: true })
+    })
+
     it('should drop removed Hilbert keys and default new Hilbert controls', () => {
       const storedConfig = {
         config: {

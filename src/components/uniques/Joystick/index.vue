@@ -3,20 +3,22 @@
     :data-latched="modelValue" :data-effective="effectiveValue" :data-momentary="held || undefined"
     :data-dragging="dragging || undefined" :data-active="pointerId !== null || undefined"
     :data-latch-feedback="latchFeedbackVisible || undefined">
-    <div class="joystick__face instrument-control__face" role="radiogroup" :aria-label="`${label} chord character`"
+    <div ref="face" class="joystick__face instrument-control__face" role="radiogroup" :aria-label="`${label} chord character`"
       @pointerdown="beginPointer" @lostpointercapture="cancelPointer" @click.prevent>
-      <div ref="plate" class="joystick__plate">
-        <span v-for="option in JOYSTICK_OPTIONS.filter(item => item.value !== 'auto')" :key="option.value"
-          class="joystick__detent" :class="{ 'joystick__detent--effective': effectiveValue === option.value }"
-          :style="detentStyle(option.value)" aria-hidden="true"></span>
-        <span class="joystick__stick" :style="stickStyle" aria-hidden="true"></span>
-        <button v-for="option in JOYSTICK_OPTIONS" :key="option.value"
-          :ref="(element) => setOptionRef(option.value, element)" class="joystick__option sr-only"
-          type="button" role="radio" :aria-checked="effectiveValue === option.value"
-          :aria-label="`${option.label}: ${option.description}`" :tabindex="rovingValue === option.value ? 0 : -1"
-          @click.stop="selectKeyboard($event, option.value)" @keydown="handleKeydown($event, option.value)">
-          {{ option.label }}
-        </button>
+      <div ref="beatTarget" class="joystick__beat-face">
+        <div ref="plate" class="joystick__plate">
+          <span v-for="option in JOYSTICK_OPTIONS.filter(item => item.value !== 'auto')" :key="option.value"
+            class="joystick__detent" :class="{ 'joystick__detent--effective': effectiveValue === option.value }"
+            :style="detentStyle(option.value)" aria-hidden="true"></span>
+          <span class="joystick__stick" :style="stickStyle" aria-hidden="true"></span>
+          <button v-for="option in JOYSTICK_OPTIONS" :key="option.value"
+            :ref="(element) => setOptionRef(option.value, element)" class="joystick__option sr-only"
+            type="button" role="radio" :aria-checked="effectiveValue === option.value"
+            :aria-label="`${option.label}: ${option.description}`" :tabindex="rovingValue === option.value ? 0 : -1"
+            @click.stop="selectKeyboard($event, option.value)" @keydown="handleKeydown($event, option.value)">
+            {{ option.label }}
+          </button>
+        </div>
       </div>
     </div>
     <DragValue
@@ -35,6 +37,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from "vue";
 import DragValue from "@/components/primatives/DragValue.vue";
 import "@/components/primatives/instrumentControl.css";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { triggerLatchHaptic, triggerUIHaptic } from "@/utils/hapticFeedback";
 import { JOYSTICK_OPTIONS, directionFromVector, vectorFromDirection } from "./joystickOptions";
@@ -53,7 +56,10 @@ const emit = defineEmits<{
   "update:modelValue": [value: HarmonyAlteration];
   effectiveChange: [value: HarmonyAlteration];
 }>();
+const face = ref<HTMLElement | null>(null);
+const beatTarget = ref<HTMLElement | null>(null);
 const plate = ref<HTMLElement | null>(null);
+useUIBeatScale(beatTarget, () => true, { restScale: 0.8, peakScale: 1.1 });
 const resolvedVisual = computed(() => props.visual ?? currentJoystickPageVisual());
 const pointerValue = ref<HarmonyAlteration | null>(null);
 const pointerVector = ref({ x: 0, y: 0 });
@@ -137,11 +143,15 @@ function updateVector(event: PointerEvent) {
   announce(pointerValue.value, true);
 }
 function beginPointer(event: PointerEvent) {
-  if (pointerId.value !== null || event.button !== 0 || !plate.value) return;
+  if (pointerId.value !== null || event.button !== 0 || !face.value || !plate.value) return;
   event.preventDefault();
   clearLatchFeedback();
   const bounds = plate.value.getBoundingClientRect();
-  radius = Math.max(1, Math.min(bounds.width, bounds.height) * 0.27);
+  // Pointer gain belongs to the control's layout geometry, not its animated
+  // UIBeat transform. offsetWidth/Height stay stable while the face scales.
+  const width = plate.value.offsetWidth || bounds.width;
+  const height = plate.value.offsetHeight || bounds.height;
+  radius = Math.max(1, Math.min(width, height) * 0.27);
   start = { x: event.clientX, y: event.clientY };
   pointerPosition.value = { ...start };
   startVector = vectorFromDirection(effectiveValue.value);
@@ -151,7 +161,7 @@ function beginPointer(event: PointerEvent) {
   held.value = false;
   dragging.value = false;
   optionElements.get(props.modelValue)?.focus({ preventScroll: true });
-  try { plate.value.setPointerCapture?.(event.pointerId); } catch { /* Global tracking covers unavailable capture. */ }
+  try { face.value.setPointerCapture?.(event.pointerId); } catch { /* Global tracking covers unavailable capture. */ }
   document.addEventListener("pointermove", movePointer, { passive: false });
   document.addEventListener("pointerup", finishPointer);
   document.addEventListener("pointercancel", cancelPointer);
@@ -177,7 +187,7 @@ function cleanup() {
   document.removeEventListener("pointermove", movePointer);
   document.removeEventListener("pointerup", finishPointer);
   document.removeEventListener("pointercancel", cancelPointer);
-  if (previousId !== null && plate.value?.hasPointerCapture?.(previousId)) plate.value.releasePointerCapture(previousId);
+  if (previousId !== null && face.value?.hasPointerCapture?.(previousId)) face.value.releasePointerCapture(previousId);
 }
 function finishPointer(event: PointerEvent) {
   if (event.pointerId !== pointerId.value) return;
@@ -262,6 +272,7 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 .joystick__face { display: grid; place-items: center; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.joystick__beat-face { display: grid; place-items: center; inline-size: 100%; block-size: 100%; pointer-events: none; }
 .joystick__plate { position: relative; inline-size: var(--instrument-control-visible-diameter); aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: 0 2px 0 var(--brass-edge); isolation: isolate; }
 .joystick__plate::before { content: ''; position: absolute; z-index: 1; inset: 12%; border-radius: inherit; background: var(--instrument-control-dark-well); box-shadow: var(--instrument-control-dark-well-shadow); pointer-events: none; }
 .joystick__plate::after { content: ''; position: absolute; z-index: 2; inset: 0; border-radius: inherit; background: var(--brass-sheen); background-position: -60% 0; background-size: 220% 100%; background-repeat: no-repeat; mix-blend-mode: screen; -webkit-mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); pointer-events: none; animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite; }

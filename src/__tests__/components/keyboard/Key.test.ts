@@ -86,6 +86,7 @@ describe("Key", () => {
     expect(button.attributes("aria-pressed")).toBeUndefined();
     expect(wrapper.findComponent(Note).exists()).toBe(true);
     expect(wrapper.get(".key__face").attributes("aria-hidden")).toBe("true");
+    expect(keySource).not.toContain("useUIBeatScale");
   });
 
   it("forwards the complete accepted Note prop surface unchanged", () => {

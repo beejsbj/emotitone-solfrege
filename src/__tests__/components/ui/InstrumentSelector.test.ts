@@ -463,6 +463,7 @@ describe('InstrumentSelector.vue', () => {
     expect(selected.attributes('aria-pressed')).toBe('true')
     expect(selected.get('.sticker').classes()).toContain('sticker--fill')
     expect(selected.get('.sticker').classes()).toContain('sticker--color-ivory')
+    expect(selected.get('.sticker').attributes('data-ui-beat-scale')).toBe('')
     expect(wrapper.get('[data-testid="instrument-tab-synths"]').attributes('aria-selected')).toBe('true')
   })
 

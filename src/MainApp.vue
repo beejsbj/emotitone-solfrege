@@ -24,6 +24,7 @@
 <script setup lang="ts">
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useMidiControls } from "@/composables/useMidiControls";
+import { provideUIBeat, uiBeatClock } from "@/composables/useUIBeat";
 import ConfigPanel from "@/components/ConfigPanel.vue";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
@@ -33,9 +34,16 @@ import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { globalTooltip } from "@/directives/tooltip";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
+import { useVisualConfigStore } from "@/stores/visualConfig";
 
 useMusicStore();
 usePatternsStore();
+const visualConfigStore = useVisualConfigStore();
+provideUIBeat({
+  clock: uiBeatClock,
+  presentationEnabled: () =>
+    visualConfigStore.visualsEnabled && visualConfigStore.config.uiBeat.isEnabled,
+});
 const { isLoading } = useAppLoading();
 useMidiControls();
 </script>

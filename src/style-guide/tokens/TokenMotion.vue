@@ -5,44 +5,7 @@
       <div class="label">Motion</div>
     
       <div class="caption" style="margin-bottom:4px">
-        Beat is the clock. Duration tokens are how long a gesture takes. Easing tokens are its curve. Keyframes are the named recipes that combine them.
-      </div>
-    
-      <!-- ═══════════════════════════════════════════════════════════
-           BLOCK 1 — RHYTHM · BEAT
-           ═══════════════════════════════════════════════════════════ -->
-      <div class="block">
-        <div class="block-head">Rhythm · Beat</div>
-        <div class="kf-row">
-    
-          <div class="kf beat-cell beat-120">
-            <div class="stage">
-              <span class="bpm-badge">120</span>
-              <div class="beats"><b></b><b></b><b></b><b></b></div>
-            </div>
-            <div class="kf-name">--beat · default</div>
-            <div class="kf-role">500ms · typical · house / hiphop</div>
-          </div>
-    
-          <div class="kf beat-cell beat-60">
-            <div class="stage">
-              <span class="bpm-badge">60</span>
-              <div class="beats"><b></b><b></b><b></b><b></b></div>
-            </div>
-            <div class="kf-name">--beat × 2</div>
-            <div class="kf-role">1000ms · ballad · half-time</div>
-          </div>
-    
-          <div class="kf beat-cell beat-240">
-            <div class="stage">
-              <span class="bpm-badge">240</span>
-              <div class="beats"><b></b><b></b><b></b><b></b></div>
-            </div>
-            <div class="kf-name">--beat ÷ 2</div>
-            <div class="kf-role">250ms · drum &amp; bass · double-time</div>
-          </div>
-    
-        </div>
+        UIBeat is the transport clock. Duration tokens say how long a local gesture takes; easing tokens shape that gesture. See the System Protocols specimen for tempo and meter behavior.
       </div>
     
       <!-- ═══════════════════════════════════════════════════════════
@@ -194,46 +157,6 @@
       <div class="block">
         <div class="block-head">Keyframes</div>
     
-        <!-- GROUP A — RHYTHM / BEAT -->
-        <div class="group">
-          <div class="group-label">Rhythm · Beat</div>
-          <div class="swatches">
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-beat">
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">beat</div>
-              <div class="kf-role">Global quarter-note scale pulse. Applied via .beat-pulse</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-pulse">
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">pulse</div>
-              <div class="kf-role">Knob ring breathes on every quarter note</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-strobe">
-                <div class="wire"></div>
-              </div>
-              <div class="kf-name">strobe</div>
-              <div class="kf-role">Panel wire heats on the downbeat (bar 1), steps(1)</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-bob">
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">bob</div>
-              <div class="kf-role">Tile drops 2 px on the &amp;-of-beat, staggered per tile</div>
-            </div>
-    
-          </div>
-        </div>
-    
         <!-- GROUP B — TRANSITION -->
         <div class="group">
           <div class="group-label">Transition</div>
@@ -295,15 +218,6 @@
               </div>
               <div class="kf-name">ring</div>
               <div class="kf-role">Chromatic ring expands to 1.5× and fades on tile fire</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-flash">
-                <div class="ring-el"></div>
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">ring-flash</div>
-              <div class="kf-role">Brass ring strobes on the downbeat (knob outer edge)</div>
             </div>
     
             <div class="kf-kf">
@@ -399,7 +313,7 @@
         </div>
     
         <div class="caption" style="margin-top:20px;color:var(--fg-3);line-height:1.55">
-          All keyframes now defined globally in <code>colors_and_type.css</code>: rhythm (<code>beat</code>, <code>pulse</code>, <code>bob</code>, <code>strobe</code>, <code>beat-cell</code>, <code>beat-down</code>), transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode-out</code>, <code>rip-mode-in</code>, <code>smear</code>, <code>lift</code>), feedback (<code>ring</code>, <code>ring-flash</code>, <code>flash</code>, <code>flash-ring</code>), brand (<code>brass-sheen</code>). <code>paper-rip-flash</code> is a composition of <code>lift</code> + <code>flash</code> + <code>flash-ring</code>, not its own keyframe. <code>glow</code> is promoted to a static shadow token (<code>--shadow-glow</code>) — see Geometry tokens.
+          Shared keyframes cover transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode-out</code>, <code>rip-mode-in</code>, <code>smear</code>, <code>lift</code>), event feedback (<code>ring</code>, <code>flash</code>, <code>flash-ring</code>), and brand (<code>brass-sheen</code>). <code>paper-rip-flash</code> composes <code>lift</code> + <code>flash</code> + <code>flash-ring</code>. Tempo-linked recipes belong to UIBeat consumers, not global CSS loops.
           The six gesture eases (swing / stab / brush / sustain / bend / bounce) are easing curves, not keyframes — shown here on the shared <code>ease-run</code> track for comparison. Bounce promotes the Boolean Knob's elastic rebound for shared tactile use.
         </div>
     
@@ -414,7 +328,7 @@
   display: block;
 }
 /* ─── TOKENS · MOTION ────────────────────────────────────────────
-   Beat · Duration · Easing · Keyframes — all motion tokens in one
+   Duration · Easing · Keyframes — local gesture tokens in one
    card using the named-cell-grid pattern (no specimen grammar).
    ─────────────────────────────────────────────────────────── */
 
@@ -478,69 +392,6 @@
   color: var(--ivory-4);
   line-height: 1.35;
 }
-
-/* ════════════════════════════════════════════════════════════════
-   BLOCK 1 — RHYTHM · BEAT
-   Four-cell beat indicator pulsing at different tempos.
-   ════════════════════════════════════════════════════════════════ */
-
-.beat-cell .stage {
-  width: 160px;
-  height: 80px;
-  flex-direction: column;
-  gap: 10px;
-}
-.beats {
-  display: flex;
-  gap: 5px;
-  align-items: flex-end;
-}
-.beats b {
-  width: 18px;
-  height: 18px;
-  display: block;
-  background: var(--ink-3);
-  border: 1px solid var(--ink-5);
-}
-.beats b:nth-child(1) {
-  background: var(--brass-fill);
-}
-
-@keyframes beat-cell {
-  0%, 100% { transform: scaleY(1); }
-  5%        { transform: scaleY(1.35); }
-  55%       { transform: scaleY(0.9); }
-}
-
-/* BPM indicator label */
-.bpm-badge {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ivory-2);
-  line-height: 1;
-  position: absolute;
-  top: 8px;
-  right: 10px;
-}
-
-/* each cell animates its beats at the target BPM */
-.beat-120 .beats b:nth-child(1) { animation: beat-cell 500ms  var(--ease-stab) infinite; animation-delay: 0ms; }
-.beat-120 .beats b:nth-child(2) { animation: beat-cell 500ms  var(--ease-stab) infinite; animation-delay: 125ms; }
-.beat-120 .beats b:nth-child(3) { animation: beat-cell 500ms  var(--ease-stab) infinite; animation-delay: 250ms; }
-.beat-120 .beats b:nth-child(4) { animation: beat-cell 500ms  var(--ease-stab) infinite; animation-delay: 375ms; }
-
-.beat-60  .beats b:nth-child(1) { animation: beat-cell 1000ms var(--ease-stab) infinite; animation-delay: 0ms; }
-.beat-60  .beats b:nth-child(2) { animation: beat-cell 1000ms var(--ease-stab) infinite; animation-delay: 250ms; }
-.beat-60  .beats b:nth-child(3) { animation: beat-cell 1000ms var(--ease-stab) infinite; animation-delay: 500ms; }
-.beat-60  .beats b:nth-child(4) { animation: beat-cell 1000ms var(--ease-stab) infinite; animation-delay: 750ms; }
-
-.beat-240 .beats b:nth-child(1) { animation: beat-cell 250ms  var(--ease-stab) infinite; animation-delay: 0ms; }
-.beat-240 .beats b:nth-child(2) { animation: beat-cell 250ms  var(--ease-stab) infinite; animation-delay: 62ms; }
-.beat-240 .beats b:nth-child(3) { animation: beat-cell 250ms  var(--ease-stab) infinite; animation-delay: 125ms; }
-.beat-240 .beats b:nth-child(4) { animation: beat-cell 250ms  var(--ease-stab) infinite; animation-delay: 188ms; }
 
 /* ════════════════════════════════════════════════════════════════
    BLOCK 2 — GESTURE · DURATION
@@ -751,12 +602,6 @@
   border: 1px solid var(--hairline);
 }
 
-/* GROUP A — RHYTHM / BEAT */
-.demo-beat .dot   { animation: beat var(--beat) var(--ease-stab) infinite; }
-.demo-pulse .dot  { animation: pulse var(--beat) var(--ease-stab) infinite; }
-.demo-strobe .wire { animation: strobe 2s steps(1) infinite; }
-.demo-bob .dot    { animation: bob var(--beat) var(--ease-brush) infinite; }
-
 /* GROUP B — TRANSITION */
 .demo-slide .dot  { animation: cut-slide-in var(--dur-panel) var(--ease-stab) infinite; position: absolute; }
 .demo-rip .rip-corner {
@@ -825,14 +670,6 @@
   border: 2px solid var(--note-do);
   animation: ring 2s var(--ease-brush) infinite;
 }
-.demo-flash .ring-el {
-  position: absolute;
-  inset: 10px;
-  border-radius: 50%;
-  border: 1px solid transparent;
-  animation: ring-flash 2s linear infinite;
-}
-
 /* GROUP D — ease-run track for keyframes card (reuse shared @keyframes) */
 .kf-ease-track {
   position: absolute;
@@ -892,37 +729,15 @@
 }
 
 /* ─── Reduced motion ─────────────────────────────────────────────
-   Every animation degrades to an opacity blink. No displacement. */
+   The guide becomes fully still; UIBeat keeps logical phase only. */
 @media (prefers-reduced-motion: reduce) {
-  @keyframes opacity-blink {
-    0%, 49% { opacity: 1; }
-    50%, 100% { opacity: 0.3; }
+  .preview-port--token-motion *,
+  .preview-port--token-motion *::before,
+  .preview-port--token-motion *::after {
+    animation: none !important;
+    transition: none !important;
   }
-  /* block 1 — beat cells */
-  .beat-120 .beats b,
-  .beat-60  .beats b,
-  .beat-240 .beats b {
-    animation: opacity-blink 1s steps(1) infinite !important;
-  }
-  /* block 2 — duration fills */
-  .dur-track i { animation: opacity-blink 1s steps(1) infinite !important; }
-  /* block 3 — easing runners */
-  .ease-track .e-dot { animation: opacity-blink 2s steps(1) infinite !important; }
-  /* block 4 — keyframe demos */
-  .demo-beat .dot,
-  .demo-pulse .dot,
-  .demo-bob .dot,
-  .demo-lift .dot,
-  .demo-slide .dot {
-    animation: opacity-blink var(--beat) steps(1) infinite !important;
-  }
-  .demo-strobe .wire  { animation: opacity-blink 2s steps(1) infinite !important; }
-  .demo-rip .rip-corner { animation: opacity-blink 1.8s steps(1) infinite !important; }
-  .demo-rip-mode .cf-label { animation: none; }
+
   .demo-rip-mode .cf-label--out { display: none; }
-  .demo-ring .ring-el  { animation: opacity-blink 2s steps(1) infinite !important; }
-  .demo-flash .ring-el { animation: opacity-blink 2s steps(1) infinite !important; }
-  .kf-ease-track .e-dot { animation: opacity-blink 2s steps(1) infinite !important; }
-  .demo-shimmer .brass-bar::after { animation: none !important; }
 }
 </style>

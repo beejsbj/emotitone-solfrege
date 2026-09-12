@@ -105,6 +105,7 @@ const emit = defineEmits<{
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
 }>();
+
 </script>
 
 <style scoped>

@@ -36,8 +36,8 @@ describe("HummingCaptureTransport.vue", () => {
     );
   });
 
-  it.each(["recording", "ready"])("uses a check to accept and an x to cancel a %s capture", (status) => {
-    wrapper = render({ status });
+  it("uses a check to accept and an x to cancel a recording", () => {
+    wrapper = render({ status: "recording" });
 
     const accept = wrapper.get('button[aria-label="Accept humming capture"]');
     const cancel = wrapper.get('button[aria-label="Cancel humming capture"]');
@@ -60,14 +60,14 @@ describe("HummingCaptureTransport.vue", () => {
     expect(wrapper.get('button[aria-label="Retry humming capture"]').exists()).toBe(true);
   });
 
-  it("shows when a take is ready for explicit acceptance", () => {
+  it("keeps recording available for explicit acceptance", () => {
     wrapper = render({
-      status: "ready",
-      statusMessage: "45-second limit reached. Check to save, or cancel to discard.",
+      status: "recording",
+      statusMessage: "Listening… Check to save, or cancel to discard.",
     });
 
-    expect(wrapper.get(".humming-capture-transport__feedback").text()).toBe(
-      "45-second limit reached. Check to save, or cancel to discard.",
+    expect(wrapper.get('[role="status"]').text()).toBe(
+      "Listening… Check to save, or cancel to discard.",
     );
     expect(wrapper.get('button[aria-label="Accept humming capture"]').attributes("disabled"))
       .toBeUndefined();
@@ -103,8 +103,8 @@ describe("HummingCaptureTransport.vue", () => {
     expect(wrapper.emitted("selectTake")).toEqual([[1]]);
   });
 
-  it.each(["recording", "ready"])("emits accept and cancel actions for a %s capture", async (status) => {
-    wrapper = render({ status });
+  it("emits accept and cancel actions for a recording", async () => {
+    wrapper = render({ status: "recording" });
 
     await wrapper.get('button[aria-label="Accept humming capture"]').trigger("click");
     await wrapper.get('button[aria-label="Cancel humming capture"]').trigger("click");

@@ -207,7 +207,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it.each(["requesting", "recording", "ready", "preparing", "analyzing"])("cancels %s humming before starting Strudel playback", async (status) => {
+  it.each(["requesting", "recording", "preparing", "analyzing"])("cancels %s humming before starting Strudel playback", async (status) => {
     mocks.hummingStatus.value = status;
     const wrapper = mount(PerformanceDeck, {
       global: {

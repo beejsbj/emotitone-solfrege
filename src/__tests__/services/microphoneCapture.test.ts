@@ -78,4 +78,26 @@ describe("microphone capture", () => {
     expect(mocks.stopMonitor).toHaveBeenCalledTimes(1);
     expect(mocks.release).toHaveBeenCalledTimes(1);
   });
+
+  it("does not finish stop or cancellation until the microphone lease is released", async () => {
+    let releaseLease!: () => void;
+    mocks.release.mockReturnValueOnce(new Promise<void>((resolve) => {
+      releaseLease = resolve;
+    }));
+    const capture = await startMicrophoneCapture(vi.fn());
+    const onStopped = vi.fn();
+    const onCancelled = vi.fn();
+    const stopped = capture.stop().catch(() => undefined).then(onStopped);
+    const cancelled = capture.cancel().then(onCancelled);
+    await vi.waitFor(() => expect(mocks.release).toHaveBeenCalledTimes(1));
+
+    expect(onStopped).not.toHaveBeenCalled();
+    expect(onCancelled).not.toHaveBeenCalled();
+    releaseLease();
+    await Promise.all([stopped, cancelled]);
+
+    expect(onStopped).toHaveBeenCalledTimes(1);
+    expect(onCancelled).toHaveBeenCalledTimes(1);
+    expect(mocks.stopMonitor).toHaveBeenCalledTimes(1);
+  });
 });

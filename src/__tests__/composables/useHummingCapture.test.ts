@@ -136,16 +136,19 @@ describe("useHummingCapture", () => {
     wrapper.unmount();
   });
 
-  it("stops at the recording limit but only analyzes and imports on acceptance", async () => {
+  it("keeps listening beyond 45 seconds and only stops and imports on acceptance", async () => {
     vi.useFakeTimers();
     const wrapper = mountCapture();
     await capture.toggle();
 
-    await vi.advanceTimersByTimeAsync(45_000);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
 
-    expect(capture.status.value).toBe("ready");
-    expect(mocks.sessionStop).toHaveBeenCalledTimes(1);
-    expect(mocks.bridgeStop).toHaveBeenCalled();
+    expect(capture.status.value).toBe("recording");
+    expect(mocks.sessionStop).not.toHaveBeenCalled();
+    expect(mocks.bridgeStop).not.toHaveBeenCalled();
+    const frame = { voiced: true, midi: 62, frequencyHz: 293.66 };
+    mocks.startMicrophoneCapture.mock.calls[0][0](frame);
+    expect(mocks.bridgePush).toHaveBeenCalledWith(frame);
     expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
     expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
 
@@ -155,6 +158,35 @@ describe("useHummingCapture", () => {
     expect(mocks.analyzePitchRecording).toHaveBeenCalledTimes(1);
     expect(mocks.importPatternCandidates).toHaveBeenCalledTimes(1);
     expect(capture.status.value).toBe("idle");
+    wrapper.unmount();
+  });
+
+  it.each(["resolve", "reject"])("awaits microphone cleanup when acceptance is cancelled (%s)", async (outcome) => {
+    let resolveRecording!: (recording: Blob) => void;
+    let rejectRecording!: (error: Error) => void;
+    mocks.sessionStop.mockReturnValueOnce(new Promise<Blob>((resolve, reject) => {
+      resolveRecording = resolve;
+      rejectRecording = reject;
+    }));
+    const wrapper = mountCapture();
+    await capture.start();
+    const acceptance = capture.stop();
+    expect(capture.status.value).toBe("preparing");
+
+    const onCancelled = vi.fn();
+    const cancellation = capture.cancel().then(onCancelled);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onCancelled).not.toHaveBeenCalled();
+
+    if (outcome === "resolve") resolveRecording(new Blob(["recording"]));
+    else rejectRecording(new Error("Recorder ended during cleanup"));
+    await Promise.all([acceptance, cancellation]);
+
+    expect(onCancelled).toHaveBeenCalledTimes(1);
+    expect(capture.status.value).toBe("idle");
+    expect(mocks.preparePitchAnalysisAudio).not.toHaveBeenCalled();
+    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 

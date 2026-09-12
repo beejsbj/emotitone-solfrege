@@ -317,7 +317,7 @@ async function toggleSketchPlayback() {
     return;
   }
   if (!hasPlayableCode.value || interactionLocked.value) return;
-  if (["requesting", "recording", "ready", "preparing", "analyzing"].includes(hummingStatus.value)) {
+  if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
     await humming?.cancel();
   }
   await playback.toggle();

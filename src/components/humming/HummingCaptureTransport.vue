@@ -31,7 +31,7 @@
       </span>
 
       <div
-        v-if="status === 'error' || status === 'ready' || takeLabels.length > 1"
+        v-if="status === 'error' || takeLabels.length > 1"
         class="humming-capture-transport__feedback"
       >
         <p
@@ -39,9 +39,6 @@
           class="humming-capture-transport__error"
           role="alert"
         >
-          {{ statusMessage }}
-        </p>
-        <p v-if="status === 'ready'" class="humming-capture-transport__error">
           {{ statusMessage }}
         </p>
         <select
@@ -98,9 +95,9 @@ const props = withDefaults(defineProps<{
 const loading = computed(() =>
   ["requesting", "preparing", "analyzing"].includes(props.status),
 );
-const canAccept = computed(() => ["recording", "ready"].includes(props.status));
+const canAccept = computed(() => props.status === "recording");
 const canCancel = computed(() =>
-  ["requesting", "recording", "ready", "preparing", "analyzing"].includes(props.status),
+  ["requesting", "recording", "preparing", "analyzing"].includes(props.status),
 );
 const buttonLabel = computed(() => {
   if (canAccept.value) return "Accept humming capture";

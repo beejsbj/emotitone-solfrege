@@ -19,12 +19,9 @@ export type HummingCaptureStatus =
   | "idle"
   | "requesting"
   | "recording"
-  | "ready"
   | "preparing"
   | "analyzing"
   | "error";
-
-const MAX_CAPTURE_MS = 45_000;
 
 export function useHummingCapture() {
   const musicStore = useMusicStore();
@@ -41,7 +38,6 @@ export function useHummingCapture() {
   let session: MicrophoneCapture | null = null;
   let pendingRecording: Promise<Blob> | null = null;
   let stageBridge: ReturnType<typeof createHummingStageBridge> | null = null;
-  let timeoutId: number | null = null;
   let requestController: AbortController | null = null;
   let generation = 0;
   let loggedNoteIdsAtCaptureStart = new Set<string>();
@@ -60,7 +56,6 @@ export function useHummingCapture() {
   const statusMessage = computed(() => {
     if (status.value === "requesting") return "Requesting microphone access";
     if (status.value === "recording") return "Listening to your humming";
-    if (status.value === "ready") return "45-second limit reached. Check to save, or cancel to discard.";
     if (status.value === "preparing") return "Preparing the recording";
     if (status.value === "analyzing") return "Analyzing the phrase";
     if (status.value === "error") return error.value ?? "Humming capture failed";
@@ -72,7 +67,7 @@ export function useHummingCapture() {
   });
 
   async function start() {
-    if (isBusy.value || isRecording.value || status.value === "ready") return;
+    if (isBusy.value || isRecording.value) return;
     const activeGeneration = ++generation;
     error.value = null;
     importedNoteCount.value = 0;
@@ -106,39 +101,26 @@ export function useHummingCapture() {
       }
       session = nextSession;
       status.value = "recording";
-      timeoutId = window.setTimeout(() => {
-        if (generation !== activeGeneration || !session) return;
-        clearCaptureTimeout();
-        stageBridge?.stop();
-        stageBridge = null;
-        pendingRecording = session.stop();
-        session = null;
-        status.value = "ready";
-        void pendingRecording.catch((caught) => {
-          if (generation === activeGeneration) fail(caught);
-        });
-      }, MAX_CAPTURE_MS);
     } catch (caught) {
       if (generation === activeGeneration) fail(caught);
     }
   }
 
   async function stop() {
-    if (!["recording", "ready"].includes(status.value) || !captureContext) return;
-    const recordingPromise = pendingRecording ?? session?.stop();
-    if (!recordingPromise) return;
+    if (!isRecording.value || !session || !captureContext) return;
+    const activeSession = session;
     const activeGeneration = generation;
     const activeContext = captureContext;
     session = null;
-    pendingRecording = null;
-    clearCaptureTimeout();
     stageBridge?.stop();
     stageBridge = null;
     status.value = "preparing";
 
     try {
-      const recording = await recordingPromise;
+      pendingRecording = activeSession.stop();
+      const recording = await pendingRecording;
       if (generation !== activeGeneration) return;
+      pendingRecording = null;
       const wav = await preparePitchAnalysisAudio(recording);
       if (generation !== activeGeneration) return;
 
@@ -186,7 +168,7 @@ export function useHummingCapture() {
   }
 
   async function toggle() {
-    if (isRecording.value || status.value === "ready") {
+    if (isRecording.value) {
       await stop();
     } else {
       await start();
@@ -201,33 +183,28 @@ export function useHummingCapture() {
   }
 
   async function cancel() {
-    generation += 1;
-    clearCaptureTimeout();
+    const activeGeneration = ++generation;
     requestController?.abort();
     requestController = null;
     stageBridge?.stop();
     stageBridge = null;
     const activeSession = session;
     session = null;
-    pendingRecording = null;
+    const activeRecording = pendingRecording;
     await activeSession?.cancel();
-    if (status.value !== "error") status.value = "idle";
+    // Recorder completion includes monitor shutdown and release of the audio lease.
+    await activeRecording?.catch(() => undefined);
+    if (pendingRecording === activeRecording) pendingRecording = null;
+    if (generation === activeGeneration && status.value !== "error") status.value = "idle";
   }
 
   function fail(caught: unknown) {
-    clearCaptureTimeout();
     stageBridge?.stop();
     stageBridge = null;
     session = null;
     pendingRecording = null;
     error.value = friendlyCaptureError(caught);
     status.value = "error";
-  }
-
-  function clearCaptureTimeout() {
-    if (timeoutId == null) return;
-    window.clearTimeout(timeoutId);
-    timeoutId = null;
   }
 
   onBeforeUnmount(() => {

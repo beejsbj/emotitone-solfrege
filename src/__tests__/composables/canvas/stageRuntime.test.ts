@@ -127,13 +127,14 @@ describe("Stage runtime", () => {
     expect(composition.orbitRadiusY + fittedExtent).toBeLessThanOrEqual(70);
   });
 
-  it("keeps idle breath out of the shared audio signal and still under Reduced Motion", () => {
+  it("cycles the silent Ambient breath every ten elapsed seconds", () => {
     const silence = { envelope: 0, hasSignal: false };
-    expect(resolveAmbientLevel(silence, 0, false)).not.toBe(
-      resolveAmbientLevel(silence, 5_000, false),
-    );
+    expect(resolveAmbientLevel(silence, 0, false)).toBeCloseTo(0.68, 6);
+    expect(resolveAmbientLevel(silence, 2.5, false)).toBeCloseTo(0.72, 6);
+    expect(resolveAmbientLevel(silence, 5, false)).toBeCloseTo(0.76, 6);
+    expect(resolveAmbientLevel(silence, 10, false)).toBeCloseTo(0.68, 6);
     expect(resolveAmbientLevel(silence, 0, true)).toBe(
-      resolveAmbientLevel(silence, 5_000, true),
+      resolveAmbientLevel(silence, 5, true),
     );
     expect(resolveAmbientLevel({ envelope: 1, hasSignal: true }, 0, true)).toBe(0.72);
     expect(resolveAmbientLevel({ envelope: 0.5, hasSignal: true }, 0, false)).toBe(0.86);

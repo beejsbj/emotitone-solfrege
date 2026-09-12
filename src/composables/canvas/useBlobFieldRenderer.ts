@@ -291,13 +291,21 @@ export function getBlobFieldConnectionGeometry(
     from: Math.max(waistWidth, connection.from.scaledRadius * shoulderScale),
     to: Math.max(waistWidth, connection.to.scaledRadius * shoulderScale),
   };
+  // When a Merge neck is wider than a small (or still growing) body, the
+  // usual shallow attachment leaves a narrow junction that the field blur
+  // can erase. Extend the ribbon inward in proportion to its width, up to the
+  // body center, so adjacent necks overlap through that junction.
+  const attachmentInset = (radius: number) =>
+    attachmentMode === "contour"
+      ? Math.max(radius * 0.22, Math.min(radius, waistWidth / 2))
+      : radius * 0.22;
   const start = {
-    x: startAttachment.x - direction.x * connection.from.scaledRadius * 0.22,
-    y: startAttachment.y - direction.y * connection.from.scaledRadius * 0.22,
+    x: startAttachment.x - direction.x * attachmentInset(connection.from.scaledRadius),
+    y: startAttachment.y - direction.y * attachmentInset(connection.from.scaledRadius),
   };
   const end = {
-    x: endAttachment.x + direction.x * connection.to.scaledRadius * 0.22,
-    y: endAttachment.y + direction.y * connection.to.scaledRadius * 0.22,
+    x: endAttachment.x + direction.x * attachmentInset(connection.to.scaledRadius),
+    y: endAttachment.y + direction.y * attachmentInset(connection.to.scaledRadius),
   };
   const deltaX = end.x - start.x;
   const deltaY = end.y - start.y;

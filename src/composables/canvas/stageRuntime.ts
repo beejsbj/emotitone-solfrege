@@ -27,6 +27,7 @@ const EDGE_PADDING = 20;
 const MIN_DRAWABLE_EDGE = 96;
 const HILBERT_PRIMARY_SCALE = 1.8;
 const FOCAL_GAP = 8;
+const AMBIENT_RELEASE_BLEND_ENVELOPE = 0.08;
 
 export function fullStageRect(width: number, height: number): StageRect {
   return { x: 0, y: 0, width: Math.max(0, width), height: Math.max(0, height) };
@@ -130,9 +131,14 @@ export function resolveAmbientLevel(
   reducedMotion: boolean,
 ) {
   if (reducedMotion) return 0.72;
-  if (audio.hasSignal) return 0.72 + audio.envelope * 0.28;
   const breath = (Math.sin(elapsedSeconds * Math.PI * 2 / 10 - Math.PI / 2) + 1) / 2;
-  return 0.68 + breath * 0.08;
+  const breathLevel = 0.68 + breath * 0.08;
+  const audioLevel = 0.72 + audio.envelope * 0.28;
+  if (audio.hasSignal || audio.envelope >= AMBIENT_RELEASE_BLEND_ENVELOPE) {
+    return audioLevel;
+  }
+  const releaseBlend = audio.envelope / AMBIENT_RELEASE_BLEND_ENVELOPE;
+  return breathLevel + (audioLevel - breathLevel) * releaseBlend;
 }
 
 function modulo(value: number, divisor: number) {

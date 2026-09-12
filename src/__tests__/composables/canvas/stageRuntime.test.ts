@@ -139,4 +139,30 @@ describe("Stage runtime", () => {
     expect(resolveAmbientLevel({ envelope: 1, hasSignal: true }, 0, true)).toBe(0.72);
     expect(resolveAmbientLevel({ envelope: 0.5, hasSignal: true }, 0, false)).toBe(0.86);
   });
+
+  it("hands the released audio envelope continuously back to the silent breath", () => {
+    const releaseThreshold = 0.08;
+    const audioLevelAtThreshold = 0.72 + releaseThreshold * 0.28;
+
+    expect(resolveAmbientLevel(
+      { envelope: 0.5, hasSignal: false },
+      0,
+      false,
+    )).toBeCloseTo(0.86, 6);
+    expect(resolveAmbientLevel(
+      { envelope: releaseThreshold, hasSignal: false },
+      0,
+      false,
+    )).toBeCloseTo(audioLevelAtThreshold, 6);
+    expect(resolveAmbientLevel(
+      { envelope: releaseThreshold - 0.000001, hasSignal: false },
+      0,
+      false,
+    )).toBeCloseTo(audioLevelAtThreshold, 5);
+    expect(resolveAmbientLevel(
+      { envelope: 0, hasSignal: false },
+      0,
+      false,
+    )).toBeCloseTo(0.68, 6);
+  });
 });

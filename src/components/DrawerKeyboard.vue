@@ -23,9 +23,11 @@
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent>
-      <PatternList @context-change="bumpPatternControls" />
-      <CodeStripBar
+      <PatternList
         data-stage-occluder
+        @context-change="bumpPatternControls"
+      />
+      <CodeStripBar
         :is-playing="isPlaying"
         :play-disabled="!hasPlayableCode || (instrumentStore.isInteractionLocked && !isPlaying)"
         haptic

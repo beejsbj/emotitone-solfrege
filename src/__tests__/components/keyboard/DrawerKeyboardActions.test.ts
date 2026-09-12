@@ -322,6 +322,22 @@ describe("DrawerKeyboard CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
+  it("starts the usable Stage above the Pattern Reel", () => {
+    const wrapper = mount(DrawerKeyboard, {
+      global: {
+        stubs: {
+          Keyboard: true,
+        },
+      },
+    });
+
+    expect(wrapper.get('[data-testid="pattern-list"]')
+      .attributes("data-stage-occluder")).toBe("");
+    expect(wrapper.get('[data-testid="code-strip-bar"]')
+      .attributes("data-stage-occluder")).toBeUndefined();
+    wrapper.unmount();
+  });
+
   it("does not start playback when CodeStrip has no playable document", async () => {
     mocks.hasPlayableCode.value = false;
     const wrapper = mount(DrawerKeyboard, {

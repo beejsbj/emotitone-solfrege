@@ -74,6 +74,16 @@ describe("HummingCaptureTransport.vue", () => {
     expect(wrapper.get('button[aria-label="Start humming capture"]').exists()).toBe(true);
   });
 
+  it("keeps the live-listening action cancellable while permission is pending", async () => {
+    wrapper = render({ listeningStatus: "requesting" });
+
+    const cancel = wrapper.get('button[aria-label="Cancel live listening"]');
+    expect(cancel.attributes("disabled")).toBeUndefined();
+    await cancel.trigger("click");
+
+    expect(wrapper.emitted("toggleListening")).toHaveLength(1);
+  });
+
   it("selects finalized takes outside the CodeStrip compound", async () => {
     wrapper = render({
       takeLabels: ["Take 1", "Take 3"],

@@ -4,7 +4,7 @@
  */
 
 import type { AmbientConfig } from "@/types/visual";
-import type { ChromaticNote, MusicalMode } from "@/types/music";
+import type { ActiveNote, ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useVisualConfig } from "../useVisualConfig";
 import {
@@ -41,11 +41,15 @@ function tuneAmbientColor(
   }));
 }
 
-function resolveAmbientContext(musicStore: any) {
-  const activeNotes =
+function resolveAmbientContext(
+  musicStore: any,
+  suppliedActiveNotes?: readonly ActiveNote[],
+) {
+  const activeNotes = suppliedActiveNotes ?? (
     typeof musicStore?.getActiveNotes === "function"
       ? musicStore.getActiveNotes()
-      : [];
+      : []
+  );
   const firstActiveNote = activeNotes[0];
   const mode = (firstActiveNote?.mode ?? musicStore?.currentMode ?? "major") as MusicalMode;
   const key = (firstActiveNote?.key ?? musicStore?.currentKey ?? "C") as ChromaticNote;
@@ -119,10 +123,11 @@ export function useAmbientRenderer() {
     ) => CanvasGradient,
     audioFrame: StageAudioFrame = { envelope: 0, hasSignal: false },
     reducedMotion = false,
+    activeNotes?: readonly ActiveNote[],
   ) => {
     if (!ctx) return;
 
-    const context = resolveAmbientContext(musicStore);
+    const context = resolveAmbientContext(musicStore, activeNotes);
     const tonicColor = resolveMusicColorSampleByScaleIndex(
       0,
       context.mode,

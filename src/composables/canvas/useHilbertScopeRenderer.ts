@@ -4,6 +4,7 @@
  * Uses Hilbert transform for creating organic, fluid animations
  */
 
+import type { ActiveNote } from "@/types/music";
 import type { HilbertScopeConfig } from "@/types/visual";
 import { useMusicColor } from "../useMusicColor";
 import { useMusicStore } from "@/stores/music";
@@ -245,6 +246,26 @@ export function useHilbertScopeRenderer() {
     return mathScale(sigmoid(scaledVal), 0, 1, -1, 1);
   };
 
+  /** Clear renderer-owned persistence without discarding musical state. */
+  const clearHistory = () => {
+    if (state.historyCanvas && state.historyContext) {
+      state.historyContext.clearRect(
+        0,
+        0,
+        state.historyCanvas.width,
+        state.historyCanvas.height,
+      );
+    }
+    if (state.swapCanvas && state.swapContext) {
+      state.swapContext.clearRect(
+        0,
+        0,
+        state.swapCanvas.width,
+        state.swapCanvas.height,
+      );
+    }
+  };
+
   /**
    * Render the Hilbert Scope
    */
@@ -257,6 +278,7 @@ export function useHilbertScopeRenderer() {
     composition?: StageComposition,
     audioFrame: StageAudioFrame = { envelope: 0, hasSignal: false },
     reducedMotion = false,
+    activeNotes: readonly ActiveNote[] = musicStore.getActiveNotes(),
   ) => {
     if (!state.isInitialized || !state.isActive || !config.isEnabled) return;
     if (
@@ -273,8 +295,6 @@ export function useHilbertScopeRenderer() {
       ? [new Float32Array(0), new Float32Array(0)]
       : hilbertProcessor.getValues();
     const amplitude = reducedMotion ? 0 : audioFrame.envelope;
-    const activeNotes = musicStore.getActiveNotes();
-
     // Handle fade animations
     if (reducedMotion) {
       state.fadeInProgress = 1;
@@ -307,8 +327,7 @@ export function useHilbertScopeRenderer() {
     if (reducedMotion) {
       // Reduced Motion is a fully still presentation, not a frozen waveform.
       // Clear both trail buffers so enabling it cannot preserve an earlier frame.
-      state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      clearHistory();
     } else {
       // Maintain an offscreen trail buffer instead of sampling the main canvas.
       const persistence = mathClamp(config.history, 0, 0.99);
@@ -511,6 +530,7 @@ export function useHilbertScopeRenderer() {
     initializeHilbertScope,
     renderHilbertScope,
     resizeHilbertScope,
+    clearHistory,
     startFadeOut,
     cleanup,
     isActive: () => state.isActive,

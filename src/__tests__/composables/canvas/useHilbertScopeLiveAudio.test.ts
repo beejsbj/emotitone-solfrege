@@ -146,6 +146,12 @@ describe("Hilbert Scope waveform source", () => {
     expect(mainContext.drawImage).toHaveBeenCalledWith(historyCanvas, 0, 0);
 
     historyContext.clearRect.mockClear();
+    swapContext.clearRect.mockClear();
+    renderer.clearHistory();
+    expect(historyContext.clearRect).toHaveBeenCalledWith(0, 0, 800, 600);
+    expect(swapContext.clearRect).toHaveBeenCalledWith(0, 0, 800, 600);
+
+    historyContext.clearRect.mockClear();
     historyContext.stroke.mockClear();
     mainContext.arc.mockClear();
     mainContext.drawImage.mockClear();

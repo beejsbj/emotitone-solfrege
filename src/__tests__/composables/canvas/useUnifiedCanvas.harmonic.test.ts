@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
 import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 import type { ActiveNote } from "@/types/music";
@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => {
 
   return {
     blobConfig,
+    stageConfig: null as unknown as Ref<{ isEnabled: boolean }>,
+    ambientConfig: { value: { isEnabled: false } },
+    hilbertScopeConfig: { value: { isEnabled: false, sizeRatio: 0.6 } },
     musicStore: {
       currentMode: "major",
       currentKey: "C",
@@ -41,6 +44,10 @@ const mocks = vi.hoisted(() => {
     createParticles: vi.fn(),
     renderParticles: vi.fn(),
     clearAllParticles: vi.fn(),
+    clearAllBlobs: vi.fn(),
+    clearHilbertHistory: vi.fn(),
+    renderAmbientBackground: vi.fn(),
+    renderHilbertScope: vi.fn(),
     animationOptions: null as null | {
       onFrame: (timestamp: number, elapsed: number) => void;
     },
@@ -57,12 +64,13 @@ vi.mock("@/services/hummingStage", () => ({
 
 vi.mock("@/composables/useVisualConfig", () => ({
   useVisualConfig: () => ({
+    stageConfig: mocks.stageConfig,
     blobConfig: mocks.blobConfig,
-    ambientConfig: { value: { isEnabled: false } },
+    ambientConfig: mocks.ambientConfig,
     particleConfig: { value: { isEnabled: false, count: 0 } },
     stringConfig: { value: { isEnabled: false } },
     animationConfig: { value: {} },
-    hilbertScopeConfig: { value: { isEnabled: false } },
+    hilbertScopeConfig: mocks.hilbertScopeConfig,
   }),
 }));
 
@@ -114,7 +122,7 @@ vi.mock("@/composables/canvas/useBlobRenderer", () => ({
     getPreparedBlobFrames: vi.fn(() => []),
     renderBlobs: vi.fn(),
     getActiveBlobCount: vi.fn(() => 0),
-    clearAllBlobs: vi.fn(),
+    clearAllBlobs: mocks.clearAllBlobs,
     removeBlob: vi.fn(),
   }),
 }));
@@ -141,7 +149,9 @@ vi.mock("@/composables/canvas/useStringRenderer", () => ({
 }));
 
 vi.mock("@/composables/canvas/useAmbientRenderer", () => ({
-  useAmbientRenderer: () => ({ renderAmbientBackground: vi.fn() }),
+  useAmbientRenderer: () => ({
+    renderAmbientBackground: mocks.renderAmbientBackground,
+  }),
 }));
 
 vi.mock("@/composables/canvas/useHarmonicGeometryRenderer", () => ({
@@ -162,7 +172,8 @@ vi.mock("@/composables/canvas/useHilbertScopeRenderer", () => ({
   useHilbertScopeRenderer: () => ({
     initializeHilbertScope: vi.fn(),
     resizeHilbertScope: vi.fn(),
-    renderHilbertScope: vi.fn(),
+    renderHilbertScope: mocks.renderHilbertScope,
+    clearHistory: mocks.clearHilbertHistory,
     cleanup: vi.fn(),
   }),
 }));
@@ -200,6 +211,9 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mocks.stageConfig = ref({ isEnabled: true });
+    mocks.ambientConfig.value.isEnabled = false;
+    mocks.hilbertScopeConfig.value.isEnabled = false;
     mocks.blobConfig.value.isEnabled = true;
     mocks.blobConfig.value.connectionMode = "web";
     mocks.activeBlobs.clear();
@@ -391,6 +405,46 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     reducedMotion.value = false;
     canvas.handleNotePlayed(note, 329.63, "resumed", 4, "E4", "major", "C", 4);
     expect(mocks.createParticles).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears only transient Stage layers when Stage is disabled", () => {
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    canvas.initializeCanvas();
+
+    mocks.stageConfig.value.isEnabled = false;
+
+    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
+    expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
+    expect(mocks.clearAllBlobs).not.toHaveBeenCalled();
+  });
+
+  it("shares live pitch identity with Ambient and Hilbert", () => {
+    const liveNote = {
+      noteId: "live-pitch-1-1",
+      noteName: "E4",
+      solfege: note,
+      solfegeIndex: 2,
+      pitchClassIndex: 4,
+      frequency: 329.63,
+      octave: 4,
+      keyboardOctave: 4,
+      mode: "major",
+      key: "C",
+    } satisfies ActiveNote;
+    mocks.liveStageNotes.push(liveNote);
+    mocks.ambientConfig.value.isEnabled = true;
+    mocks.hilbertScopeConfig.value.isEnabled = true;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    canvas.initializeCanvas();
+
+    mocks.animationOptions?.onFrame(1_000, 1);
+
+    expect(mocks.renderAmbientBackground.mock.calls.at(-1)?.at(-1)).toEqual([
+      liveNote,
+    ]);
+    expect(mocks.renderHilbertScope.mock.calls.at(-1)?.at(-1)).toEqual([
+      liveNote,
+    ]);
   });
 
   it("maps legacy releases to chromatic analysis and solfege blob keys", () => {

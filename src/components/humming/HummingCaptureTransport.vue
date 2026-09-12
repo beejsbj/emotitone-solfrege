@@ -7,8 +7,6 @@
           size="sm"
           :tone="listeningStatus === 'listening' ? 'ivory' : 'ink'"
           :haptic="haptic"
-          :loading="listeningStatus === 'requesting'"
-          :disabled="listeningStatus === 'requesting'"
           :accessible-name="listeningButtonLabel"
           :title="listeningButtonTitle"
           @click="emit('toggleListening')"
@@ -138,7 +136,7 @@ const buttonLabel = computed(() => {
 const buttonTitle = computed(() => props.error ?? buttonLabel.value);
 const listeningButtonLabel = computed(() => {
   if (props.listeningStatus === "listening") return "Stop live listening";
-  if (props.listeningStatus === "requesting") return "Requesting live microphone";
+  if (props.listeningStatus === "requesting") return "Cancel live listening";
   if (props.listeningStatus === "error") return "Retry live listening";
   return "Start live listening";
 });

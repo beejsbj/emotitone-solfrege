@@ -51,6 +51,7 @@ export function useUnifiedCanvas(
     return Array.from(activeNotes.values());
   };
   const {
+    stageConfig,
     blobConfig,
     ambientConfig,
     particleConfig,
@@ -105,6 +106,15 @@ export function useUnifiedCanvas(
         { flush: "sync" },
       )
     : () => undefined;
+  const stopStageEnabledWatch = watch(
+    () => stageConfig.value.isEnabled,
+    (isEnabled) => {
+      if (isEnabled) return;
+      particleSystem.clearAllParticles();
+      hilbertScopeRenderer.clearHistory();
+    },
+    { flush: "sync" },
+  );
 
   const harmonicAccessibleText = computed(() => {
     const snapshot = harmonicAnalysisSnapshot.value;
@@ -186,10 +196,12 @@ export function useUnifiedCanvas(
    * anchors. This restores notes that began while Stage or Note Bodies was
    * disabled without replaying their audio, timers, or flecks.
    */
-  const hydrateMissingBlobAnchors = () => {
+  const hydrateMissingBlobAnchors = (
+    activeNotes: readonly ActiveNote[] = getStageActiveNotes(),
+  ) => {
     if (!blobConfig.value.isEnabled) return;
 
-    getStageActiveNotes().forEach((activeNote) => {
+    activeNotes.forEach((activeNote) => {
       if (blobRenderer.activeBlobs.has(activeNote.noteId)) return;
 
       blobRenderer.createBlob(
@@ -321,7 +333,8 @@ export function useUnifiedCanvas(
 
     // Update cached configurations for performance
     updateCachedConfigs();
-    hydrateMissingBlobAnchors();
+    const stageActiveNotes = getStageActiveNotes();
+    hydrateMissingBlobAnchors(stageActiveNotes);
     const composition = getComposition();
     const reducedMotion = runtime?.reducedMotion.value ?? false;
     const audioFrame = stageAudio.sample(timestamp);
@@ -341,6 +354,7 @@ export function useUnifiedCanvas(
         getCachedGradient,
         audioFrame,
         reducedMotion,
+        stageActiveNotes,
       );
     }
 
@@ -374,6 +388,7 @@ export function useUnifiedCanvas(
         composition,
         audioFrame,
         reducedMotion,
+        stageActiveNotes,
       );
     }
 
@@ -634,6 +649,7 @@ export function useUnifiedCanvas(
     oneShotReleaseTimers.clear();
     harmonicExpiryTimers.clear();
     stopReducedMotionWatch();
+    stopStageEnabledWatch();
     clearCaches();
     window.removeEventListener("resize", handleResize);
     performanceMonitor.reset();

@@ -19,11 +19,13 @@ import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
+import { useStageHostLayout } from "@/composables/useStageHostLayout";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 
 const musicStore = useMusicStore();
 const visualConfigStore = useVisualConfigStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+const { usableRect, reducedMotion } = useStageHostLayout(canvasRef);
 
 // Get visualsEnabled from store
 const { visualsEnabled } = visualConfigStore;
@@ -41,7 +43,7 @@ const {
   stopAnimation,
   isAnimating,
   cleanup,
-} = useUnifiedCanvas(canvasRef);
+} = useUnifiedCanvas(canvasRef, { usableRect, reducedMotion });
 
 // Handle note played event - enhanced for polyphonic support
 function onNotePlayed(event: CustomEvent) {

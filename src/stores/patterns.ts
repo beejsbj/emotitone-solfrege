@@ -26,8 +26,12 @@ const SILENCE_BOUNDARY_BARS = 1.5;
 const MIN_SILENCE_GAP_MS = 1500;
 const NON_RECORDING_EVENT_SOURCES = new Set([
   "strudel-playback",
-  "melograph-live",
+  "live-pitch",
 ]);
+
+function isPitchAnalysisSource(kind: PatternSource["kind"] | undefined): boolean {
+  return kind === "pitch-analysis" || kind === "melograph";
+}
 
 export interface ImportedPatternCandidate {
   name: string;
@@ -559,8 +563,9 @@ export const usePatternsStore = defineStore(
       const contributingLoadedPattern = loadedBaseContributes
         ? loadedPattern
         : undefined;
-      const isLoadedImportedPattern =
-        contributingLoadedPattern?.source?.kind === "melograph";
+      const isLoadedImportedPattern = isPitchAnalysisSource(
+        contributingLoadedPattern?.source?.kind,
+      );
 
       if (allNotes.length > 0 && (allNotes.length > 2 || isLoadedImportedPattern)) {
         const isUnchangedLoadedCandidate = Boolean(

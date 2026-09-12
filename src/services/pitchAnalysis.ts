@@ -5,9 +5,9 @@ import type { PatternNote } from "@/types/patterns";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 const OUTPUT_SAMPLE_RATE = 22_050;
-const DEFAULT_ANALYZE_URL = "/api/melograph/analyze";
+const DEFAULT_ANALYZE_URL = "/api/pitch-analysis/analyze";
 
-export interface MelographFrame {
+export interface PitchAnalysisFrame {
   time_seconds: number;
   f0_hz_raw: number | null;
   midi_raw: number | null;
@@ -17,7 +17,7 @@ export interface MelographFrame {
   rms_db: number;
 }
 
-export interface MelographNoteEvent {
+export interface PitchAnalysisNoteEvent {
   type: "note";
   start_seconds: number;
   end_seconds: number;
@@ -28,59 +28,59 @@ export interface MelographNoteEvent {
   confidence?: number;
 }
 
-export interface MelographRestEvent {
+export interface PitchAnalysisRestEvent {
   type: "rest";
   start_seconds: number;
   end_seconds: number;
   duration_seconds: number;
 }
 
-export type MelographEvent = MelographNoteEvent | MelographRestEvent;
+export type PitchAnalysisEvent = PitchAnalysisNoteEvent | PitchAnalysisRestEvent;
 
-export interface MelographPhrase {
+export interface PitchAnalysisPhrase {
   number: number;
   start_seconds: number;
   end_seconds: number;
   duration_seconds: number;
-  events: MelographEvent[];
+  events: PitchAnalysisEvent[];
 }
 
-export interface MelographTake {
+export interface PitchAnalysisTake {
   number: number;
   code: string;
   code_midi: string;
   repl_url: string;
 }
 
-export interface MelographAnalysis {
+export interface PitchAnalysisResult {
   schema_version: number;
   product: string;
   tracker: string;
   duration_seconds: number;
-  frames: MelographFrame[];
-  phrases: MelographPhrase[];
+  frames: PitchAnalysisFrame[];
+  phrases: PitchAnalysisPhrase[];
   strudel: string;
   strudel_midi: string;
-  takes: MelographTake[];
+  takes: PitchAnalysisTake[];
   warnings: string[];
 }
 
-export interface MelographPatternContext {
+export interface PitchAnalysisContext {
   key: ChromaticNote;
   mode: MusicalMode;
 }
 
-export async function analyzeWithMelograph(
+export async function analyzePitchRecording(
   wav: Blob,
   options: {
     signal?: AbortSignal;
     fetcher?: typeof fetch;
     url?: string;
   } = {},
-): Promise<MelographAnalysis> {
+): Promise<PitchAnalysisResult> {
   const response = await (options.fetcher ?? fetch)(
     options.url
-      ?? import.meta.env.VITE_MELOGRAPH_ANALYZE_URL
+      ?? import.meta.env.VITE_PITCH_ANALYSIS_URL
       ?? DEFAULT_ANALYZE_URL,
     {
       method: "POST",
@@ -95,18 +95,18 @@ export async function analyzeWithMelograph(
   if (!response.ok) {
     const message = isRecord(payload) && typeof payload.error === "string"
       ? payload.error
-      : `Melograph analysis failed (${response.status})`;
+      : `Pitch analysis failed (${response.status})`;
     throw new Error(message);
   }
 
-  if (!isMelographAnalysis(payload)) {
-    throw new Error("Melograph returned an unsupported analysis response.");
+  if (!isPitchAnalysisResult(payload)) {
+    throw new Error("Pitch analysis returned an unsupported analysis response.");
   }
 
   return payload;
 }
 
-export async function audioBlobToMelographWav(input: Blob): Promise<Blob> {
+export async function preparePitchAnalysisAudio(input: Blob): Promise<Blob> {
   const context = new AudioContext();
   try {
     const decoded = await context.decodeAudioData(await input.arrayBuffer());
@@ -156,9 +156,9 @@ export function encodeMonoPcmWav(
   return new Blob([buffer], { type: "audio/wav" });
 }
 
-export function melographAnalysisToPatternCandidates(
-  analysis: MelographAnalysis,
-  context: MelographPatternContext,
+export function pitchAnalysisToPatternCandidates(
+  analysis: PitchAnalysisResult,
+  context: PitchAnalysisContext,
   captureId = Date.now().toString(36),
 ): ImportedPatternCandidate[] {
   return analysis.phrases.flatMap((phrase) => {
@@ -187,7 +187,7 @@ export function melographAnalysisToPatternCandidates(
         : "Hummed pattern",
       notes,
       source: {
-        kind: "melograph" as const,
+        kind: "pitch-analysis" as const,
         schemaVersion: analysis.schema_version,
         tracker: analysis.tracker,
         takeNumber: phrase.number,
@@ -197,11 +197,11 @@ export function melographAnalysisToPatternCandidates(
 }
 
 function eventToPatternNote(
-  event: MelographNoteEvent,
-  phrase: MelographPhrase,
+  event: PitchAnalysisNoteEvent,
+  phrase: PitchAnalysisPhrase,
   eventIndex: number,
   captureId: string,
-  context: MelographPatternContext,
+  context: PitchAnalysisContext,
 ): PatternNote | null {
   if (
     !Number.isFinite(event.midi)
@@ -226,7 +226,7 @@ function eventToPatternNote(
   );
   if (scaleIndex == null) {
     throw new Error(
-      `Melograph detected ${canonicalName}, which is outside ${context.key} ${context.mode}.`,
+      `Pitch analysis detected ${canonicalName}, which is outside ${context.key} ${context.mode}.`,
     );
   }
   const pressTime = Math.max(
@@ -239,7 +239,7 @@ function eventToPatternNote(
   );
 
   return {
-    id: `melograph-${captureId}-${phrase.number}-${eventIndex}`,
+    id: `pitch-analysis-${captureId}-${phrase.number}-${eventIndex}`,
     note: canonicalName,
     scaleDegree: scaleIndex + 1,
     scaleIndex,
@@ -254,7 +254,7 @@ function eventToPatternNote(
   };
 }
 
-function isMelographAnalysis(value: unknown): value is MelographAnalysis {
+function isPitchAnalysisResult(value: unknown): value is PitchAnalysisResult {
   if (!isRecord(value)) return false;
   return value.product === "Melograph"
     && value.schema_version === 1

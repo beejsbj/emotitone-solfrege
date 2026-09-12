@@ -276,7 +276,7 @@ describe("Patterns Store", () => {
     expect(patternsStore.loggedNotes).toEqual([]);
   });
 
-  it("imports finalized Melograph takes as separate selectable Patterns", () => {
+  it("imports finalized pitch-analysis takes as separate selectable Patterns", () => {
     const takeOne = [createPatternNote({ id: "take-1-note", note: "C4" })];
     const takeTwo = [
       createPatternNote({ id: "take-2-a", note: "D4", scaleIndex: 1 }),
@@ -289,7 +289,7 @@ describe("Patterns Store", () => {
           name: "Hummed take 1",
           notes: takeOne,
           source: {
-            kind: "melograph",
+            kind: "pitch-analysis",
             schemaVersion: 1,
             tracker: "praat-ac",
             takeNumber: 1,
@@ -299,7 +299,7 @@ describe("Patterns Store", () => {
           name: "Hummed take 2",
           notes: takeTwo,
           source: {
-            kind: "melograph",
+            kind: "pitch-analysis",
             schemaVersion: 1,
             tracker: "praat-ac",
             takeNumber: 2,
@@ -327,16 +327,16 @@ describe("Patterns Store", () => {
       "E4",
     ]);
     expect(patternsStore.focusedPattern?.source).toEqual({
-      kind: "melograph",
+      kind: "pitch-analysis",
       schemaVersion: 1,
       tracker: "praat-ac",
       takeNumber: 2,
     });
   });
 
-  it("does not record visual-only Melograph preview events", () => {
+  it("does not record visual-only pitch-analysis preview events", () => {
     const eventDetail = {
-      source: "melograph-live",
+      source: "live-pitch",
       record: false,
       noteId: "preview-1",
       noteName: "C4",
@@ -359,7 +359,7 @@ describe("Patterns Store", () => {
         name: "Hummed pattern",
         notes: [createPatternNote()],
         source: {
-          kind: "melograph",
+          kind: "pitch-analysis",
           schemaVersion: 1,
           tracker: "praat-ac",
           takeNumber: 1,
@@ -375,6 +375,25 @@ describe("Patterns Store", () => {
     expect(
       patternsStore.savedPatterns.find((pattern) => pattern.id === patternId),
     ).toEqual(expect.objectContaining({ isSaved: true, noteCount: 1 }));
+    expect(patternsStore.currentSketchNotes).toEqual([]);
+  });
+
+  it("keeps the short-pattern exception for legacy imported provenance", () => {
+    patternsStore.importPatternCandidates(
+      [{
+        name: "Legacy hummed pattern",
+        notes: [createPatternNote()],
+        source: {
+          kind: "melograph",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+
+    expect(() => patternsStore.sendCurrentPattern()).not.toThrow();
     expect(patternsStore.currentSketchNotes).toEqual([]);
   });
 
@@ -396,7 +415,7 @@ describe("Patterns Store", () => {
         name: "Hummed pattern",
         notes: [createPatternNote()],
         source: {
-          kind: "melograph",
+          kind: "pitch-analysis",
           schemaVersion: 1,
           tracker: "praat-ac",
           takeNumber: 1,
@@ -419,7 +438,7 @@ describe("Patterns Store", () => {
         name: "Hummed pattern",
         notes: [createPatternNote()],
         source: {
-          kind: "melograph",
+          kind: "pitch-analysis",
           schemaVersion: 1,
           tracker: "praat-ac",
           takeNumber: 1,
@@ -449,7 +468,7 @@ describe("Patterns Store", () => {
         name: "Hummed pattern",
         notes: [createPatternNote()],
         source: {
-          kind: "melograph",
+          kind: "pitch-analysis",
           schemaVersion: 1,
           tracker: "praat-ac",
           takeNumber: 1,
@@ -478,7 +497,7 @@ describe("Patterns Store", () => {
           createPatternNote({ id: "original-b", note: "D4", scaleIndex: 1 }),
         ],
         source: {
-          kind: "melograph",
+          kind: "pitch-analysis",
           schemaVersion: 1,
           tracker: "praat-ac",
           takeNumber: 1,
@@ -495,7 +514,7 @@ describe("Patterns Store", () => {
     expect(patternsStore.savedPatterns.at(-1)).toEqual(expect.objectContaining({
       isSaved: true,
       noteCount: 1,
-      source: expect.objectContaining({ kind: "melograph", takeNumber: 1 }),
+      source: expect.objectContaining({ kind: "pitch-analysis", takeNumber: 1 }),
     }));
   });
 
@@ -508,7 +527,7 @@ describe("Patterns Store", () => {
           createPatternNote({ id: "source-b", note: "D4", scaleIndex: 1 }),
         ],
         source: {
-          kind: "melograph",
+          kind: "pitch-analysis",
           schemaVersion: 1,
           tracker: "praat-ac",
           takeNumber: 4,
@@ -523,7 +542,7 @@ describe("Patterns Store", () => {
     patternsStore.sendCurrentPattern();
 
     expect(patternsStore.savedPatterns.at(-1)?.source).toEqual(
-      expect.objectContaining({ kind: "melograph", takeNumber: 4 }),
+      expect.objectContaining({ kind: "pitch-analysis", takeNumber: 4 }),
     );
   });
 
@@ -533,12 +552,12 @@ describe("Patterns Store", () => {
         {
           name: "Take 1",
           notes: [createPatternNote({ id: "take-one" })],
-          source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
+          source: { kind: "pitch-analysis", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
         },
         {
           name: "Take 2",
           notes: [createPatternNote({ id: "take-two", note: "E4", scaleIndex: 2 })],
-          source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 2 },
+          source: { kind: "pitch-analysis", schemaVersion: 1, tracker: "praat-ac", takeNumber: 2 },
         },
       ],
       { key: "C", mode: "major", instrument: "piano", bpm: 120 },
@@ -558,7 +577,7 @@ describe("Patterns Store", () => {
       [{
         name: "Hummed pattern",
         notes: [createPatternNote({ id: "hummed-note" })],
-        source: { kind: "melograph", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
+        source: { kind: "pitch-analysis", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
       }],
       { key: "C", mode: "major", instrument: "piano", bpm: 120 },
       { workingNotes: [liveNote] },

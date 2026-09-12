@@ -144,6 +144,8 @@ describe("PatternReel", () => {
       .toBeUndefined();
     expect(wrapper.find(".pattern-reel__head").exists()).toBe(false);
     expect(wrapper.find(".pattern-reel__fade").exists()).toBe(false);
+    expect(wrapper.findAll("[data-stage-occlusion-part]")).toHaveLength(4);
+    expect(wrapper.attributes("data-stage-occlusion-active")).toBeUndefined();
     expect(patternReelSource).toContain("width: 100%");
     expect(patternReelSource).toContain("background: transparent");
     expect(patternReelSource).toContain("--reel-height: var(--selected-height)");
@@ -182,6 +184,7 @@ describe("PatternReel", () => {
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
     expect(wrapper.classes()).toContain("pattern-reel--handle-guard");
+    expect(wrapper.attributes("data-stage-occlusion-active")).toBe("true");
     expect(wrapper.emitted("interactionChange")?.at(-1)).toEqual([true]);
 
     vi.advanceTimersByTime(1100);
@@ -191,6 +194,7 @@ describe("PatternReel", () => {
     vi.advanceTimersByTime(200);
     await nextTick();
     expect(wrapper.classes()).not.toContain("pattern-reel--handle-guard");
+    expect(wrapper.attributes("data-stage-occlusion-active")).toBeUndefined();
     expect(wrapper.emitted("interactionChange")?.at(-1)).toEqual([false]);
     expect(patternReelSource).toMatch(
       /\.pattern-reel--handle-guard\s*{[\s\S]*z-index: 3;/,

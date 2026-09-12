@@ -242,7 +242,11 @@ export const useMusicStore = defineStore(
           finalOctave
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
-        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
+        const parsedNote = parseNoteWithOctave(noteName);
+        const scientificOctave = parsedNote?.octave ?? finalOctave;
+        const pitchClassIndex = parsedNote
+          ? CHROMATIC_NOTES.indexOf(parsedNote.noteName)
+          : undefined;
 
         await superdoughAudio.attackNote(
           `play_${noteName}_${Date.now()}`,
@@ -256,6 +260,7 @@ export const useMusicStore = defineStore(
             frequency,
             noteName,
             solfegeIndex,
+            pitchClassIndex,
             octave: scientificOctave,
             keyboardOctave: finalOctave,
             durationMs: 2000,
@@ -306,7 +311,11 @@ export const useMusicStore = defineStore(
           finalOctave
         );
         const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
-        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
+        const parsedNote = parseNoteWithOctave(noteName);
+        const scientificOctave = parsedNote?.octave ?? finalOctave;
+        const pitchClassIndex = parsedNote
+          ? CHROMATIC_NOTES.indexOf(parsedNote.noteName)
+          : undefined;
 
         const cleanNoteId = [
           noteName,
@@ -342,6 +351,7 @@ export const useMusicStore = defineStore(
         if (noteId) {
           const activeNote: ActiveNote = {
             solfegeIndex,
+            pitchClassIndex,
             solfege,
             frequency,
             octave: scientificOctave,
@@ -360,6 +370,7 @@ export const useMusicStore = defineStore(
               note: solfege,
               frequency,
               solfegeIndex,
+              pitchClassIndex,
               octave: scientificOctave,
               keyboardOctave: finalOctave,
               noteId,
@@ -507,7 +518,11 @@ export const useMusicStore = defineStore(
           solfegeIndex,
           finalOctave
         );
-        const scientificOctave = parseNoteWithOctave(noteName)?.octave ?? finalOctave;
+        const parsedNote = parseNoteWithOctave(noteName);
+        const scientificOctave = parsedNote?.octave ?? finalOctave;
+        const pitchClassIndex = parsedNote
+          ? CHROMATIC_NOTES.indexOf(parsedNote.noteName)
+          : undefined;
 
         // Convert Tone.js duration notation to milliseconds for superdough
         const durationMs = toneNotationToMs(duration);
@@ -527,6 +542,7 @@ export const useMusicStore = defineStore(
             frequency,
             noteName,
             solfegeIndex,
+            pitchClassIndex,
             octave: scientificOctave,
             keyboardOctave: finalOctave,
             duration,

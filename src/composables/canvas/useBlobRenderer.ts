@@ -12,6 +12,11 @@ import { createVisualFrequency } from "@/utils/visualEffects";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import {
+  projectCircleOfFifths,
+  type StageComposition,
+  type StageRect,
+} from "./stageRuntime";
 
 export function resolveBlobPitchClass(
   solfegeData: SolfegeData,
@@ -42,10 +47,15 @@ interface BlobRenderState {
   scaledRadius: number;
   vibrationAmplitude: number;
   visualFrequency: number;
+  reducedMotion: boolean;
 }
 
 export function useBlobRenderer() {
-  const { getPrimaryColorForPitch, withAlpha } = useMusicColor({ animated: true });
+  const {
+    getPrimaryColorForPitch,
+    getStaticPrimaryColorForPitch,
+    withAlpha,
+  } = useMusicColor({ animated: true });
   const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Circle of Fifths progression (starting from C at position 0)
@@ -152,6 +162,8 @@ export function useBlobRenderer() {
   const activeBlobs = new Map<string, ActiveBlob>();
   const blobRenderStates = new Map<string, BlobRenderState>();
   const preparedBlobFrames = new Map<string, PreparedBlobFrame>();
+  const orbitOffsets = new Map<string, { x: number; y: number }>();
+  let compositionFitScale = 1;
 
   /**
    * Remove blobs only after their release animation completes. A sounding note
@@ -170,6 +182,7 @@ export function useBlobRenderer() {
       ) {
         activeBlobs.delete(key);
         blobRenderStates.delete(key);
+        orbitOffsets.delete(key);
       }
     });
   };
@@ -276,6 +289,10 @@ export function useBlobRenderer() {
 
     // Store the active blob using the appropriate key
     activeBlobs.set(blobKey, blob);
+    orbitOffsets.set(blobKey, {
+      x: (Math.random() - 0.5) * 12,
+      y: (Math.random() - 0.5) * 12,
+    });
   };
 
   /**
@@ -284,6 +301,7 @@ export function useBlobRenderer() {
   const removeBlob = (key: string) => {
     activeBlobs.delete(key);
     blobRenderStates.delete(key);
+    orbitOffsets.delete(key);
   };
 
   /**
@@ -313,7 +331,8 @@ export function useBlobRenderer() {
    */
   const prepareBlobs = (
     ctx: CanvasRenderingContext2D,
-    blobConfig: BlobConfig
+    blobConfig: BlobConfig,
+    options: { reducedMotion?: boolean; bounds?: StageRect } = {},
   ) => {
     if (!ctx) return;
 
@@ -326,35 +345,46 @@ export function useBlobRenderer() {
     activeBlobs.forEach((blob, blobKey) => {
       const blobElapsed = (Date.now() - blob.startTime) / 1000;
 
-      blob.x += blob.driftVx * (1 / 60);
-      blob.y += blob.driftVy * (1 / 60);
+      if (!options.reducedMotion) {
+        blob.x += blob.driftVx * (1 / 60);
+        blob.y += blob.driftVy * (1 / 60);
+      }
+
+      const bounds = options.bounds ?? {
+        x: 0,
+        y: 0,
+        width: ctx.canvas.width,
+        height: ctx.canvas.height,
+      };
+      const fittedRadius = blob.baseRadius * compositionFitScale;
+      const left = bounds.x + fittedRadius;
+      const right = bounds.x + bounds.width - fittedRadius;
+      const top = bounds.y + fittedRadius;
+      const bottom = bounds.y + bounds.height - fittedRadius;
 
       if (
-        blob.x < blob.baseRadius ||
-        blob.x > ctx.canvas.width - blob.baseRadius
+        blob.x < left ||
+        blob.x > right
       ) {
         blob.driftVx *= -0.8;
-        blob.x = Math.max(
-          blob.baseRadius,
-          Math.min(ctx.canvas.width - blob.baseRadius, blob.x)
-        );
+        blob.x = Math.max(left, Math.min(right, blob.x));
       }
       if (
-        blob.y < blob.baseRadius ||
-        blob.y > ctx.canvas.height - blob.baseRadius
+        blob.y < top ||
+        blob.y > bottom
       ) {
         blob.driftVy *= -0.8;
-        blob.y = Math.max(
-          blob.baseRadius,
-          Math.min(ctx.canvas.height - blob.baseRadius, blob.y)
-        );
+        blob.y = Math.max(top, Math.min(bottom, blob.y));
       }
 
       const scaleInElapsed = blobElapsed;
       let currentScale = blob.scale;
       let bounceScale = 1;
 
-      if (scaleInElapsed < blobConfig.scaleInDuration) {
+      if (options.reducedMotion) {
+        currentScale = 1;
+        bounceScale = 1;
+      } else if (scaleInElapsed < blobConfig.scaleInDuration) {
         const progress = Math.min(
           scaleInElapsed / blobConfig.scaleInDuration,
           1
@@ -374,6 +404,9 @@ export function useBlobRenderer() {
         currentScale = 1;
       }
 
+      // Body Strength is live presentation state. Keep the retained body in
+      // sync so held and releasing notes respond without a fresh attack.
+      blob.opacity = blobConfig.opacity;
       let currentOpacity = blob.opacity;
       let vibrationIntensity = 1;
       const glowIntensity = blobConfig.glowIntensity || 0;
@@ -389,10 +422,12 @@ export function useBlobRenderer() {
           1
         );
 
-        currentScale = 1 - Math.pow(scaleOutProgress, 2);
-        const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
-        currentOpacity = blob.opacity * fadeMultiplier;
-        vibrationIntensity = fadeMultiplier;
+        if (!options.reducedMotion) {
+          currentScale = 1 - Math.pow(scaleOutProgress, 2);
+          const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
+          currentOpacity = blobConfig.opacity * fadeMultiplier;
+          vibrationIntensity = fadeMultiplier;
+        }
 
         if (fadeProgress >= 1) {
           blobsToRemove.push(blobKey);
@@ -404,9 +439,9 @@ export function useBlobRenderer() {
         blob.frequency,
         blobConfig.vibrationFrequencyDivisor
       );
-      const scaledRadius = blob.baseRadius * currentScale * bounceScale;
+      const scaledRadius = blob.baseRadius * compositionFitScale * currentScale * bounceScale;
       const vibrationAmplitude =
-        blobConfig.vibrationAmplitude *
+        (options.reducedMotion ? 0 : blobConfig.vibrationAmplitude) *
         scaledRadius *
         0.01 *
         vibrationIntensity;
@@ -433,6 +468,7 @@ export function useBlobRenderer() {
         scaledRadius,
         vibrationAmplitude,
         visualFrequency,
+        reducedMotion: Boolean(options.reducedMotion),
       };
 
       blobRenderStates.set(blobKey, state);
@@ -446,6 +482,43 @@ export function useBlobRenderer() {
       activeBlobs.delete(blobKey);
       blobRenderStates.delete(blobKey);
       preparedBlobFrames.delete(blobKey);
+      orbitOffsets.delete(blobKey);
+    });
+  };
+
+  /** Reprojects existing musical bodies without replacing their lifecycle state. */
+  const reprojectBlobs = (
+    composition: StageComposition,
+    blobConfig: BlobConfig,
+    reducedMotion = false,
+  ) => {
+    compositionFitScale = composition.blobFitScale;
+    activeBlobs.forEach((blob, key) => {
+      // Keep the public Body Size control live for already-held notes instead
+      // of applying it only to notes created after the edit.
+      blob.baseRadius = composition.blobBaseRadius ?? Math.max(
+        blobConfig.minSize,
+        Math.min(
+          blobConfig.maxSize,
+          Math.min(composition.usable.width, composition.usable.height) *
+            blobConfig.baseSizeRatio,
+        ),
+      );
+      const pitchClass = blob.pitchClassIndex
+        ?? TonalNote.chroma(resolveBlobPitchClass(blob.note, blob.key, blob.mode))
+        ?? 0;
+      const keyPitchClass = TonalNote.chroma(blob.key) ?? 0;
+      const projected = projectCircleOfFifths(composition, pitchClass, keyPitchClass);
+      const offset = orbitOffsets.get(key) ?? { x: 0, y: 0 };
+      const targetX = projected.x + offset.x * compositionFitScale;
+      const targetY = projected.y + offset.y * compositionFitScale;
+      if (reducedMotion) {
+        blob.x = targetX;
+        blob.y = targetY;
+      } else {
+        blob.x += (targetX - blob.x) * 0.12;
+        blob.y += (targetY - blob.y) * 0.12;
+      }
     });
   };
 
@@ -522,13 +595,15 @@ export function useBlobRenderer() {
     key,
     blob,
     contour: createBlobContour(blob, blobConfig, state),
-    primaryColor: getPrimaryColorForPitch(
-      blob.note.number - 1,
-      blob.pitchClassIndex,
-      blob.mode,
-      blob.key,
-      blob.octave
-    ),
+    primaryColor: (state.reducedMotion
+      ? getStaticPrimaryColorForPitch
+      : getPrimaryColorForPitch)(
+        blob.note.number - 1,
+        blob.pitchClassIndex,
+        blob.mode,
+        blob.key,
+        blob.octave
+      ),
     scaledRadius: state.scaledRadius,
     opacity: state.currentOpacity,
     glowIntensity: state.glowIntensity,
@@ -659,6 +734,7 @@ export function useBlobRenderer() {
         blob.frequency,
         blobConfig.vibrationFrequencyDivisor
       ),
+      reducedMotion: false,
     };
 
     return createPreparedBlobFrame(key, blob, blobConfig, state);
@@ -676,6 +752,7 @@ export function useBlobRenderer() {
     activeBlobs.clear();
     blobRenderStates.clear();
     preparedBlobFrames.clear();
+    orbitOffsets.clear();
   };
 
   return {
@@ -688,6 +765,7 @@ export function useBlobRenderer() {
     startBlobFadeOut,
     startBlobFadeOutById,
     prepareBlobs,
+    reprojectBlobs,
     renderBlobs,
     getPreparedBlobFrames,
     createFixtureFrame,

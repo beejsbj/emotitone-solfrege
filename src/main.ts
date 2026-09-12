@@ -33,6 +33,7 @@ const isDesignRoute = [
   "/style-guide/instrument-picker",
   "/style-guide/config-menu",
   "/style-guide/pattern-reel",
+  "/style-guide/stage",
   "/style-guide/performance-deck",
 ].includes(pathname);
 const isPersistenceFreeDesignRoute = pathname === "/style-guide/performance-deck";

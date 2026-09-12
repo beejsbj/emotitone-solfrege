@@ -12,7 +12,12 @@ import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
 import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
-import type { ChromaticNote, SolfegeData } from "@/types/music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  MusicalMode,
+  SolfegeData,
+} from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 
 /** Re-export so other modules can get the superdough AudioContext without importing Tone. */
@@ -63,13 +68,28 @@ const _activeStrudelVisuals = new Map<
     keyboardOctave: number;
     solfegeIndex: number;
     pitchClassIndex: number;
-    mode: string;
+    mode: MusicalMode;
     key: ChromaticNote;
     instrument: string;
     releaseTimeout: number;
   }
 >();
 let _strudelVisualCounter = 0;
+
+export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
+  return Array.from(_activeStrudelVisuals, ([noteId, active]) => ({
+    noteId,
+    noteName: active.noteName,
+    solfege: active.note,
+    frequency: active.frequency,
+    octave: active.octave,
+    keyboardOctave: active.keyboardOctave,
+    solfegeIndex: active.solfegeIndex,
+    pitchClassIndex: active.pitchClassIndex,
+    mode: active.mode,
+    key: active.key,
+  }));
+}
 
 // Sample packs with user-friendly labels for progress reporting
 const SAMPLE_PACKS = [

@@ -1,9 +1,14 @@
-import { computed, ref, type Ref } from "vue";
+import { computed, ref, watch, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
-import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  MusicalMode,
+  SolfegeData,
+} from "@/types/music";
 import { useBlobRenderer } from "./useBlobRenderer";
 import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
@@ -12,6 +17,19 @@ import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
+import { createStageAudioFeatures } from "@/services/stageAudio";
+import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
+import { getActiveStrudelStageNotes } from "@/services/superdoughAudio";
+import {
+  STAGE_BODY_SIZE_BASE_RATIO,
+  STAGE_BODY_SIZE_MAX_RATIO,
+  STAGE_BODY_SIZE_MIN_RATIO,
+} from "@/services/stageAppearance";
+import {
+  fullStageRect,
+  resolveStageComposition,
+  type StageRect,
+} from "./stageRuntime";
 
 /**
  * Unified Canvas Management System
@@ -19,9 +37,30 @@ import { performanceMonitor } from "@/utils/performanceMonitor";
  * Now modularized into separate rendering systems for better maintainability
  */
 
-export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
+interface StageRuntimeInputs {
+  usableRect: Readonly<Ref<StageRect>>;
+  reducedMotion: Readonly<Ref<boolean>>;
+}
+
+export function useUnifiedCanvas(
+  canvasRef: Ref<HTMLCanvasElement | null>,
+  runtime?: StageRuntimeInputs,
+) {
   const musicStore = useMusicStore();
+  const getStageActiveNotes = (): readonly ActiveNote[] => {
+    const activeNotes = new Map(
+      musicStore.getActiveNotes().map((note) => [note.noteId, note]),
+    );
+    getActiveLivePitchStageNotes().forEach((note) => {
+      activeNotes.set(note.noteId, note);
+    });
+    getActiveStrudelStageNotes().forEach((note) => {
+      activeNotes.set(note.noteId, note);
+    });
+    return Array.from(activeNotes.values());
+  };
   const {
+    stageConfig,
     blobConfig,
     ambientConfig,
     particleConfig,
@@ -35,7 +74,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     noteReleased: releaseHarmonicNote,
     noteExpired: expireHarmonicNote,
     reset: resetHarmonicAnalysis,
-  } = useHarmonicAnalysis(() => musicStore.getActiveNotes());
+  } = useHarmonicAnalysis(getStageActiveNotes);
 
   // Canvas state (merged from useCanvasCore)
   const canvasWidth = ref(window.innerWidth);
@@ -63,9 +102,32 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
+  const stageAudio = createStageAudioFeatures();
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
   let oneShotSequence = 0;
+  let wasCompositionSuspended = false;
+  const clearTransientStageState = () => {
+    particleSystem.clearAllParticles();
+    hilbertScopeRenderer.clearHistory();
+  };
+  const stopReducedMotionWatch = runtime
+    ? watch(
+        runtime.reducedMotion,
+        (reducedMotion) => {
+          if (reducedMotion) particleSystem.clearAllParticles();
+        },
+        { flush: "sync" },
+      )
+    : () => undefined;
+  const stopStageEnabledWatch = watch(
+    () => stageConfig.value.isEnabled,
+    (isEnabled) => {
+      if (isEnabled) return;
+      clearTransientStageState();
+    },
+    { flush: "sync" },
+  );
 
   const harmonicAccessibleText = computed(() => {
     const snapshot = harmonicAnalysisSnapshot.value;
@@ -108,6 +170,27 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     return announcements.join(". ");
   });
 
+  const getComposition = () => {
+    const usable = runtime?.usableRect.value
+      ?? fullStageRect(canvasWidth.value, canvasHeight.value);
+    const canonicalBlobRadius = Math.max(
+      blobConfig.value.minSize,
+      Math.min(
+        blobConfig.value.maxSize,
+        Math.min(usable.width, usable.height) * STAGE_BODY_SIZE_BASE_RATIO,
+      ),
+    );
+    return resolveStageComposition(
+      usable,
+      canonicalBlobRadius,
+      hilbertScopeConfig.value.sizeRatio,
+      Math.max(
+        STAGE_BODY_SIZE_MIN_RATIO,
+        Math.min(STAGE_BODY_SIZE_MAX_RATIO, blobConfig.value.baseSizeRatio),
+      ) / STAGE_BODY_SIZE_BASE_RATIO,
+    );
+  };
+
   /**
    * Update cached configurations for performance
    */
@@ -119,6 +202,36 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       string: stringConfig.value,
       hilbertScope: hilbertScopeConfig.value,
     };
+  };
+
+  /**
+   * Reconcile sounding store and live-input notes with renderer-owned Blob
+   * anchors. This restores notes that began while Stage or Note Bodies was
+   * disabled without replaying their audio, timers, or flecks.
+   */
+  const hydrateMissingBlobAnchors = (
+    activeNotes: readonly ActiveNote[] = getStageActiveNotes(),
+  ) => {
+    if (!blobConfig.value.isEnabled) return;
+
+    activeNotes.forEach((activeNote) => {
+      if (blobRenderer.activeBlobs.has(activeNote.noteId)) return;
+
+      blobRenderer.createBlob(
+        activeNote.solfege,
+        activeNote.frequency,
+        0,
+        0,
+        canvasWidth.value,
+        canvasHeight.value,
+        blobConfig.value,
+        activeNote.noteId,
+        activeNote.key,
+        activeNote.mode,
+        activeNote.octave,
+        activeNote.noteName,
+      );
+    });
   };
 
   /**
@@ -137,7 +250,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     hilbertScopeRenderer.resizeHilbertScope(
       canvasWidth.value,
       canvasHeight.value,
-      hilbertScopeConfig.value
+      hilbertScopeConfig.value,
+      getComposition(),
     );
   };
 
@@ -192,25 +306,12 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     // store (for example, while the loading gate is visible). Recreate only
     // missing visual anchors; do not replay audio or one-shot effects.
     if (blobConfig.value.isEnabled) {
-      musicStore.getActiveNotes().forEach((activeNote) => {
-        if (blobRenderer.activeBlobs.has(activeNote.noteId)) {
-          return;
-        }
-
-        blobRenderer.createBlob(
-          activeNote.solfege,
-          activeNote.frequency,
-          0,
-          0,
-          canvasWidth.value,
-          canvasHeight.value,
-          blobConfig.value,
-          activeNote.noteId,
-          activeNote.key,
-          activeNote.mode,
-          activeNote.octave
-        );
-      });
+      hydrateMissingBlobAnchors();
+      blobRenderer.reprojectBlobs(
+        getComposition(),
+        blobConfig.value,
+        true,
+      );
     }
 
     // Initialize strings
@@ -225,10 +326,12 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     stringRenderer.addEventListeners();
 
     // Initialize Hilbert Scope
+    const waveformSource = stageAudio.initialize();
     hilbertScopeRenderer.initializeHilbertScope(
       canvasWidth.value,
       canvasHeight.value,
-      hilbertScopeConfig.value
+      hilbertScopeConfig.value,
+      waveformSource,
     );
 
   };
@@ -236,13 +339,24 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
   /**
    * Main render frame function - coordinates all visual effects
    */
-  const renderFrame = (elapsed: number) => {
+  const renderFrame = (elapsed: number, timestamp = performance.now()) => {
     if (!ctx) {
       return;
     }
 
     // Update cached configurations for performance
     updateCachedConfigs();
+    const stageActiveNotes = getStageActiveNotes();
+    hydrateMissingBlobAnchors(stageActiveNotes);
+    const composition = getComposition();
+    if (composition.suspended) {
+      if (!wasCompositionSuspended) clearTransientStageState();
+      wasCompositionSuspended = true;
+    } else {
+      wasCompositionSuspended = false;
+    }
+    const reducedMotion = runtime?.reducedMotion.value ?? false;
+    const audioFrame = stageAudio.sample(timestamp);
 
     // Clear canvas
     clearCanvas();
@@ -256,7 +370,30 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
         canvasWidth.value,
         canvasHeight.value,
         musicStore,
-        getCachedGradient
+        getCachedGradient,
+        audioFrame,
+        reducedMotion,
+        stageActiveNotes,
+      );
+    }
+
+    if (composition.suspended) return;
+
+    // Strings are pitch-bearing atmospheric texture behind the focal system.
+    if (cachedConfigs.string.isEnabled) {
+      stringRenderer.updateStringProperties(
+        stringConfig.value,
+        animationConfig.value,
+        musicStore,
+        audioFrame,
+        reducedMotion,
+        stageActiveNotes,
+      );
+      stringRenderer.renderStrings(
+        ctx,
+        elapsed,
+        composition.usable.height,
+        reducedMotion,
       );
     }
 
@@ -267,12 +404,20 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
         elapsed,
         cachedConfigs.hilbertScope,
         canvasWidth.value,
-        canvasHeight.value
+        canvasHeight.value,
+        composition,
+        audioFrame,
+        reducedMotion,
+        stageActiveNotes,
       );
     }
 
     if (cachedConfigs.blob.isEnabled) {
-      blobRenderer.prepareBlobs(ctx, cachedConfigs.blob);
+      blobRenderer.reprojectBlobs(composition, cachedConfigs.blob, reducedMotion);
+      blobRenderer.prepareBlobs(ctx, cachedConfigs.blob, {
+        reducedMotion,
+        bounds: composition.usable,
+      });
     }
 
     const harmonicScene = cachedConfigs.blob.isEnabled
@@ -304,17 +449,8 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       );
     }
 
-    if (cachedConfigs.particle.isEnabled) {
+    if (cachedConfigs.particle.isEnabled && !reducedMotion) {
       particleSystem.renderParticles(ctx, elapsed, cachedConfigs.particle);
-    }
-
-    if (cachedConfigs.string.isEnabled) {
-      stringRenderer.updateStringProperties(
-        stringConfig.value,
-        animationConfig.value,
-        musicStore
-      );
-      stringRenderer.renderStrings(ctx, elapsed, canvasHeight.value);
     }
 
     harmonicGeometryRenderer.renderLabels(
@@ -335,7 +471,7 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
 
   const { startAnimation, stopAnimation, isAnimating } = useAnimationLifecycle({
     onFrame: (timestamp: number, elapsed: number) => {
-      renderFrame(elapsed);
+      renderFrame(elapsed, timestamp);
 
       // Update performance metrics
       const activeObjectCount = getActiveObjectCount();
@@ -397,11 +533,15 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       octave, // Pass octave for vertical offset positioning
       noteName, // Preserve exact pitch identity for borrowed harmony tones
     );
+    const composition = getComposition();
+    blobRenderer.reprojectBlobs(
+      composition,
+      blobConfig.value,
+      true,
+    );
 
     const activeNote = noteId
-      ? musicStore
-          .getActiveNotes()
-          .find((candidate) => candidate.noteId === noteId)
+      ? getStageActiveNotes().find((candidate) => candidate.noteId === noteId)
       : null;
     const resolvedNoteName = noteName;
     const resolvedOctave = octave;
@@ -440,16 +580,21 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
       Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
     );
 
-    particleSystem.createParticles(
-      note,
-      particleConfig.value,
-      canvasWidth.value,
-      canvasHeight.value,
-      noteMode,
-      noteKey,
-      particleCount,
-      { pitchClassIndex, octave },
-    );
+    if (
+      !(runtime?.reducedMotion.value ?? false)
+      && !composition.suspended
+    ) {
+      particleSystem.createParticles(
+        note,
+        particleConfig.value,
+        canvasWidth.value,
+        composition.usable.height,
+        noteMode,
+        noteKey,
+        particleCount,
+        { pitchClassIndex, octave },
+      );
+    }
   };
 
   /**
@@ -520,12 +665,15 @@ export function useUnifiedCanvas(canvasRef: Ref<HTMLCanvasElement | null>) {
     stringRenderer.clearAllStrings();
     stringRenderer.removeEventListeners(); // Clean up string event listeners
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
+    stageAudio.cleanup();
     blobFieldRenderer.dispose();
     resetHarmonicAnalysis();
     oneShotReleaseTimers.forEach((timer) => window.clearTimeout(timer));
     harmonicExpiryTimers.forEach((timer) => window.clearTimeout(timer));
     oneShotReleaseTimers.clear();
     harmonicExpiryTimers.clear();
+    stopReducedMotionWatch();
+    stopStageEnabledWatch();
     clearCaches();
     window.removeEventListener("resize", handleResize);
     performanceMonitor.reset();

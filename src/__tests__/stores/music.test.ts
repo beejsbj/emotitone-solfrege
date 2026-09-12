@@ -208,11 +208,13 @@ describe("music store", () => {
     expect(musicStore.getActiveNotes()[0].solfege.name).toBe("Ti");
     expect(musicStore.getActiveNotes()[0].mode).toBe("chromatic");
     expect(musicStore.getActiveNotes()[0].key).toBe("F#");
+    expect(musicStore.getActiveNotes()[0].pitchClassIndex).toBe(5);
     const notePlayedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-played"
     )?.[0] as CustomEvent;
     expect(notePlayedEvent.detail.mode).toBe("chromatic");
     expect(notePlayedEvent.detail.key).toBe("F#");
+    expect(notePlayedEvent.detail.pitchClassIndex).toBe(5);
 
     await musicStore.releaseNote(noteId!);
     expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(noteId);

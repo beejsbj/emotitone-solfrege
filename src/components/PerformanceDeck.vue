@@ -1,6 +1,7 @@
 <template>
   <Drawer
     class="performance-deck-drawer"
+    data-stage-occlusion-host
     :model-value="drawerOpen"
     fixed
     anchor="bottom"
@@ -26,6 +27,7 @@
     <template #persistent-leading>
       <PatternList
         v-if="isProductionUsage"
+        data-stage-occluder
         @context-change="bumpPatternControls"
         @interaction-change="setPatternReelGuard"
       />
@@ -63,8 +65,12 @@
           :status-message="hummingStatusMessage"
           :take-labels="hummingTakeLabels"
           :selected-take-index="selectedHummingTake"
+          :listening-status="liveListeningStatus"
+          :listening-error="liveListeningError"
+          :listening-status-message="liveListeningStatusMessage"
           haptic
           @toggle="toggleHummingCapture"
+          @toggle-listening="toggleLiveListeningInput"
           @cancel="cancelHummingCapture"
           @select-take="selectHummingTake"
         />
@@ -156,6 +162,7 @@ import {
   useCodeStripStrudel,
 } from "@/composables/useCodeStripStrudel";
 import { useHummingCapture } from "@/composables/useHummingCapture";
+import { useLiveListening } from "@/composables/useLiveListening";
 import { displayInstrumentName } from "@/data/instruments";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -239,6 +246,7 @@ const patternsStore = isProductionUsage ? usePatternsStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
+const liveListening = isProductionUsage ? useLiveListening() : undefined;
 
 const harmonyLatched = ref<HarmonyAlteration>(props.harmonyValue);
 const harmonyEffective = ref<HarmonyAlteration>(props.harmonyValue);
@@ -286,6 +294,11 @@ const hummingError = computed(() => humming?.error.value ?? null);
 const hummingStatusMessage = computed(() => humming?.statusMessage.value ?? "");
 const hummingTakeLabels = computed(() => humming?.takeLabels.value ?? []);
 const selectedHummingTake = computed(() => humming?.selectedTakeIndex.value ?? 0);
+const liveListeningStatus = computed(() => liveListening?.status.value ?? "idle");
+const liveListeningError = computed(() => liveListening?.error.value ?? null);
+const liveListeningStatusMessage = computed(() =>
+  liveListening?.statusMessage.value ?? ""
+);
 const resolvedWarmupMessage = computed(() =>
   instrumentStore?.warmupMessage ?? props.warmupMessage
 );
@@ -318,6 +331,9 @@ async function toggleSketchPlayback() {
   if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
     await humming?.cancel();
   }
+  if (liveListeningStatus.value !== "idle") {
+    await liveListening?.stop();
+  }
   await playback.toggle();
 }
 
@@ -325,6 +341,9 @@ async function toggleHummingCapture() {
   if (!humming || !playback) return;
   if (isPlaying.value && hummingStatus.value !== "recording") {
     await playback.stop();
+  }
+  if (liveListeningStatus.value !== "idle" && hummingStatus.value !== "recording") {
+    await liveListening?.stop();
   }
   await humming.toggle();
 }
@@ -335,6 +354,20 @@ async function cancelHummingCapture() {
 
 function selectHummingTake(index: number) {
   humming?.selectTake(index);
+}
+
+async function toggleLiveListeningInput() {
+  if (!liveListening || !playback) return;
+  if (isPlaying.value && liveListeningStatus.value !== "listening") {
+    await playback.stop();
+  }
+  if (
+    liveListeningStatus.value !== "listening"
+    && ["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)
+  ) {
+    await humming?.cancel();
+  }
+  await liveListening.toggle();
 }
 
 function handleBackspace() {

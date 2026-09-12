@@ -127,14 +127,24 @@ export interface PatternNote {
   duration: number;
 }
 
-export interface MelographPatternSource {
+export interface PitchAnalysisPatternSource {
+  kind: "pitch-analysis";
+  schemaVersion: number;
+  tracker: string;
+  takeNumber: number;
+}
+
+/** Compatibility for patterns persisted before pitch analysis became provider-neutral. */
+export interface LegacyPitchAnalysisPatternSource {
   kind: "melograph";
   schemaVersion: number;
   tracker: string;
   takeNumber: number;
 }
 
-export type PatternSource = MelographPatternSource;
+export type PatternSource =
+  | PitchAnalysisPatternSource
+  | LegacyPitchAnalysisPatternSource;
 
 export interface Pattern {
   //  Unique pattern identifier /

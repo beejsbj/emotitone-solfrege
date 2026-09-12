@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   useVisualConfigStore: vi.fn(),
   useCodeStripStrudel: vi.fn(),
   useHummingCapture: vi.fn(),
+  useLiveListening: vi.fn(),
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
@@ -33,6 +34,9 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
 }));
 vi.mock("@/composables/useHummingCapture", () => ({
   useHummingCapture: mocks.useHummingCapture,
+}));
+vi.mock("@/composables/useLiveListening", () => ({
+  useLiveListening: mocks.useLiveListening,
 }));
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: { name: "CodeStrip", template: '<div data-testid="code-strip" />' },
@@ -184,6 +188,7 @@ describe("PerformanceDeck controlled usage", () => {
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
     expect(mocks.useHummingCapture).not.toHaveBeenCalled();
+    expect(mocks.useLiveListening).not.toHaveBeenCalled();
     expect(wrapper.find('[data-testid="pattern-list"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="humming"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="pattern-reel"]').exists()).toBe(true);

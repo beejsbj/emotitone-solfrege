@@ -4,7 +4,7 @@
  */
 
 import type { AmbientConfig } from "@/types/visual";
-import type { ChromaticNote, MusicalMode } from "@/types/music";
+import type { ActiveNote, ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useVisualConfig } from "../useVisualConfig";
 import {
@@ -14,6 +14,10 @@ import {
   tuneMusicColorValue,
 } from "@/services/musicColor";
 import type { MusicColorValue } from "@/services/musicColorCore";
+import {
+  resolveAmbientLevel,
+  type StageAudioFrame,
+} from "./stageRuntime";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -37,11 +41,15 @@ function tuneAmbientColor(
   }));
 }
 
-function resolveAmbientContext(musicStore: any) {
-  const activeNotes =
+function resolveAmbientContext(
+  musicStore: any,
+  suppliedActiveNotes?: readonly ActiveNote[],
+) {
+  const activeNotes = suppliedActiveNotes ?? (
     typeof musicStore?.getActiveNotes === "function"
       ? musicStore.getActiveNotes()
-      : [];
+      : []
+  );
   const firstActiveNote = activeNotes[0];
   const mode = (firstActiveNote?.mode ?? musicStore?.currentMode ?? "major") as MusicalMode;
   const key = (firstActiveNote?.key ?? musicStore?.currentKey ?? "C") as ChromaticNote;
@@ -112,11 +120,14 @@ export function useAmbientRenderer() {
     getCachedGradient: (
       key: string,
       createFn: () => CanvasGradient
-    ) => CanvasGradient
+    ) => CanvasGradient,
+    audioFrame: StageAudioFrame = { envelope: 0, hasSignal: false },
+    reducedMotion = false,
+    activeNotes?: readonly ActiveNote[],
   ) => {
     if (!ctx) return;
 
-    const context = resolveAmbientContext(musicStore);
+    const context = resolveAmbientContext(musicStore, activeNotes);
     const tonicColor = resolveMusicColorSampleByScaleIndex(
       0,
       context.mode,
@@ -219,11 +230,16 @@ export function useAmbientRenderer() {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Apply mode-aware ambient lighting gradient
+    ctx.save();
+    ctx.globalAlpha = resolveAmbientLevel(audioFrame, elapsed, reducedMotion);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.restore();
 
     // Add subtle texture
-    renderSubtleTexture(ctx, elapsed, canvasWidth, canvasHeight);
+    if (!reducedMotion) {
+      renderSubtleTexture(ctx, elapsed, canvasWidth, canvasHeight);
+    }
   };
 
   return {

@@ -13,6 +13,7 @@
     role="group"
     :aria-label="resolvedLabel"
     :aria-roledescription="items.length > 1 ? 'cyclic pattern reel' : undefined"
+    :data-stage-occlusion-active="handleGuardActive ? 'true' : undefined"
     @keydown="handleKeydown"
     @wheel="handleWheel"
     @pointerdown="handlePointerDown"
@@ -27,6 +28,7 @@
         v-for="slot in renderedSlots"
         :key="slot.key"
         class="pattern-reel__slot"
+        data-stage-occlusion-part
         :data-pattern-id="slot.item.id"
         :class="[
           `pattern-reel__slot--${slot.slot}`,

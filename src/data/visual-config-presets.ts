@@ -1,199 +1,53 @@
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
-import type { VisualEffectsConfig } from "@/types/visual";
+import {
+  applyStageLook,
+  STAGE_LOOK_PREFERENCE_FIELDS,
+  stageLookFromConfig,
+  type StageLook,
+} from "@/services/stageAppearance";
 
-export interface VisualConfigPreset {
-  id: string;
-  name: string;
-  description: string;
-  config: VisualEffectsConfig;
-}
+/**
+ * A built-in is a complete Stage-appearance recipe, not a partial mutation of
+ * whatever Look happened to come before it. Relationship and explanation
+ * choices are the exception: those belong to the learner and survive a Look.
+ */
+function defineBuiltInStageLook(look: StageLook): StageLook {
+  const patch = stageLookFromConfig(applyStageLook(DEFAULT_CONFIG, look.patch));
 
-type DeepPartial<T> = {
-  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
-};
-
-function cloneDefaultConfig(): VisualEffectsConfig {
-  return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as VisualEffectsConfig;
-}
-
-function createPreset(
-  id: string,
-  name: string,
-  description: string,
-  overrides: DeepPartial<VisualEffectsConfig>
-): VisualConfigPreset {
-  const config = cloneDefaultConfig();
-
-  for (const [sectionName, sectionOverrides] of Object.entries(overrides)) {
-    const key = sectionName as keyof VisualEffectsConfig;
-    Object.assign(config[key], sectionOverrides);
+  if (patch.blobs) {
+    for (const field of STAGE_LOOK_PREFERENCE_FIELDS) delete patch.blobs[field];
   }
 
-  return {
-    id,
-    name,
-    description,
-    config,
-  };
+  return { ...look, patch };
 }
 
-export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
-  createPreset(
-    "soft-glass",
-    "Soft Glass",
-    "Warm glassy motion with a little bloom and less visual chatter.",
-    {
+/**
+ * Curated Stage-only Looks. The public library is deliberately small: three
+ * distinct built-ins plus the separate collection of user-saved Looks.
+ */
+export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
+  defineBuiltInStageLook({
+    id: "clear",
+    name: "Clear",
+    description: "Calm motion and crisp, restrained supporting layers.",
+    patch: {
       blobs: {
-        opacity: 0.34,
-        blurRadius: 24,
-        glowIntensity: 10,
-        driftSpeed: 6,
-        fusionStrength: 0.32,
-        fieldSoftness: 16,
-        webOpacity: 0.9,
-        labelOpacity: 0.9,
-      },
-      ambient: {
-        opacityMajor: 0.5,
-        opacityMinor: 0.35,
-        brightnessMajor: 0.42,
-        brightnessMinor: 0.26,
-      },
-      particles: {
-        count: 6,
-        speed: 2,
-        gravity: 0.1,
-      },
-      strings: {
-        baseOpacity: 0.08,
-        activeOpacity: 0.52,
-        maxAmplitude: 14,
-      },
-      dynamicColors: {
-        chroma: 0.1575,
-        lightnessCenter: 0.625,
-        lightnessSpan: 0.2057,
-        hueMotionEnabled: true,
-        animationSpeed: 0.5,
-      },
-      keyboard: {
-        surfaceStyle: "colored",
-        keyBrightness: 0.85,
-        keySaturation: 0.8,
-      },
-      hilbertScope: {
-        opacity: 0.38,
-        history: 0.2,
-      },
-    }
-  ),
-  createPreset(
-    "pulse-lab",
-    "Pulse Lab",
-    "Sharper motion, stronger impact, and enough energy to feel like a patch bay.",
-    {
-      blobs: {
-        opacity: 0.58,
-        vibrationAmplitude: 18,
-        glowIntensity: 20,
-        analysisNoteLimit: 7,
-        fusionStrength: 0.2,
-      },
-      particles: {
-        count: 22,
-        sizeMax: 8,
-        speed: 6,
-        gravity: 0.35,
-      },
-      strings: {
-        count: 9,
-        activeOpacity: 0.92,
-        maxAmplitude: 30,
-        interpolationSpeed: 0.18,
-      },
-      dynamicColors: {
-        musicColorMode: "fixed",
-        hueMotionEnabled: true,
-        animationSpeed: 1.4,
-        chroma: 0.2138,
-      },
-      hilbertScope: {
         isEnabled: true,
-        glowIntensity: 14,
-        history: 0.62,
-        thickness: 4.5,
-      },
-      uiBeat: {
-        isEnabled: true,
-      },
-      keyboard: {
-        surfaceStyle: "colored",
-        keyBrightness: 1.2,
-        keySaturation: 1.15,
-      },
-    }
-  ),
-  createPreset(
-    "ambient-bloom",
-    "Ambient Bloom",
-    "Slow background haze that lets the harmony hang in the room.",
-    {
-      blobs: {
-        opacity: 0.4,
-        blurRadius: 32,
-        fadeOutDuration: 2.8,
-        driftSpeed: 4,
-        analysisHoldTime: 2880,
-        fieldSoftness: 18,
-      },
-      ambient: {
-        opacityMajor: 0.72,
-        opacityMinor: 0.5,
-        brightnessMajor: 0.58,
-        brightnessMinor: 0.42,
-        saturationMajor: 0.86,
-        saturationMinor: 0.68,
-      },
-      particles: {
-        isEnabled: false,
-      },
-      strings: {
-        baseOpacity: 0.05,
-        activeOpacity: 0.3,
-      },
-      dynamicColors: {
-        animationSpeed: 0.35,
-        chroma: 0.1395,
-        lightnessCenter: 0.655,
-        lightnessSpan: 0.1714,
-      },
-      hilbertScope: {
-        opacity: 0.25,
-        history: 0.12,
-      },
-    }
-  ),
-  createPreset(
-    "classroom",
-    "Classroom",
-    "Cleaner, calmer defaults that keep the learning cues readable.",
-    {
-      blobs: {
-        opacity: 0.22,
+        baseSizeRatio: 0.09,
+        opacity: 0.3,
+        blurRadius: 5,
         glowEnabled: false,
-        connectionMode: "merge",
-        showChordLabel: true,
-        showIntervalLabels: true,
-        showEmotionLabel: true,
-        fusionStrength: 0.16,
+        glowIntensity: 0,
+        oscillationAmplitude: 0.15,
+        driftSpeed: 2,
+        vibrationAmplitude: 3,
       },
       ambient: {
+        isEnabled: true,
         opacityMajor: 0.28,
         opacityMinor: 0.2,
       },
-      particles: {
-        isEnabled: false,
-      },
+      particles: { isEnabled: false, count: 0 },
       strings: {
         isEnabled: true,
         baseOpacity: 0.12,
@@ -201,95 +55,96 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         maxAmplitude: 12,
       },
       hilbertScope: {
-        isEnabled: false,
-      },
-      uiBeat: {
-        isEnabled: false,
-      },
-      patterns: {
-        isEnabled: true,
-        autoSaveInterestingPatterns: false,
-      },
-      keyboard: {
-        isEnabled: true,
-        surfaceStyle: "monochrome",
-        showLabels: true,
-        rowCount: 2,
-        keyboardPadding: true,
-      },
-      codeStrip: {
-        enabled: true,
-        notation: "solfege",
-        showRests: true,
-      },
-    }
-  ),
-  createPreset(
-    "neon-scope",
-    "Neon Scope",
-    "Bright, spectral, a little dramatic, with the scope leading the show.",
-    {
-      blobs: {
-        opacity: 0.46,
+        sizeRatio: 0.55,
+        opacity: 0.7,
         glowEnabled: true,
-        glowIntensity: 28,
-        fieldSoftness: 22,
-        fusionStrength: 0.28,
-        webOpacity: 0.95,
-        labelOpacity: 0.95,
+        glowIntensity: 6,
+        history: 0.12,
+        smear: 0,
+        thickness: 1.5,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
+    id: "soft",
+    name: "Soft",
+    description: "Warm, quiet bodies with a broad atmospheric breath.",
+    patch: {
+      blobs: {
+        isEnabled: true,
+        baseSizeRatio: 0.09,
+        opacity: 0.34,
+        blurRadius: 24,
+        glowEnabled: true,
+        glowIntensity: 10,
+        oscillationAmplitude: 0.35,
+        driftSpeed: 6,
+        vibrationAmplitude: 7,
       },
       ambient: {
+        isEnabled: true,
+        opacityMajor: 0.5,
+        opacityMinor: 0.35,
+        brightnessMajor: 0.42,
+        brightnessMinor: 0.26,
+        saturationMajor: 0.78,
+        saturationMinor: 0.58,
+      },
+      particles: { isEnabled: true, count: 6, speed: 2, gravity: 0.1 },
+      strings: {
+        isEnabled: true,
+        baseOpacity: 0.08,
+        activeOpacity: 0.52,
+        maxAmplitude: 14,
+      },
+      hilbertScope: {
+        sizeRatio: 0.6,
+        opacity: 0.48,
+        glowEnabled: true,
+        glowIntensity: 8,
+        history: 0.2,
+        smear: 0,
+        thickness: 1.4,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
+    id: "luminous",
+    name: "Luminous",
+    description: "A bright spectral field with the primary Scope pushed forward.",
+    patch: {
+      blobs: {
+        isEnabled: true,
+        baseSizeRatio: 0.09,
+        opacity: 0.42,
+        blurRadius: 12,
+        glowEnabled: true,
+        glowIntensity: 24,
+        oscillationAmplitude: 0.55,
+        driftSpeed: 8,
+        vibrationAmplitude: 12,
+      },
+      ambient: {
+        isEnabled: true,
         opacityMajor: 0.44,
         opacityMinor: 0.28,
       },
-      particles: {
-        count: 12,
-        sizeMin: 1,
-        sizeMax: 5,
-        speed: 5,
-      },
-      dynamicColors: {
-        musicColorMode: "fixed",
-        hueMotionEnabled: true,
-        animationSpeed: 1.8,
-        chroma: 0.225,
-        lightnessCenter: 0.575,
-        lightnessSpan: 0.3257,
+      particles: { isEnabled: true, count: 12, speed: 5 },
+      strings: {
+        isEnabled: true,
+        baseOpacity: 0.05,
+        activeOpacity: 0.7,
+        maxAmplitude: 22,
       },
       hilbertScope: {
-        isEnabled: true,
+        sizeRatio: 0.72,
         opacity: 0.92,
         glowEnabled: true,
         glowIntensity: 30,
         history: 0.82,
+        smear: 0.6,
         thickness: 5,
       },
-      uiBeat: {
-        isEnabled: true,
-      },
-      keyboard: {
-        surfaceStyle: "colored",
-        keyBrightness: 1.3,
-        keySaturation: 1.25,
-      },
-    }
-  ),
-  createPreset(
-    "hilbert-trace",
-    "Hilbert Trace",
-    "Thin luminous Hilbert lines with light history, soft glow, and a pushed size.",
-    {
-      hilbertScope: {
-        isEnabled: true,
-        thickness: 0.01,
-        opacity: 0.3,
-        history: 0.1,
-        driftSpeed: 4,
-        glowEnabled: true,
-        glowIntensity: 5,
-        smear: 1,
-        sizeRatio: 1.5,
-      },
-    }
-  ),
+    },
+  }),
 ];

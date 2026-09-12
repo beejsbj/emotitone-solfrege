@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { useStringRenderer } from "@/composables/canvas/useStringRenderer";
 
 const mocks = vi.hoisted(() => ({
@@ -13,11 +14,15 @@ const mocks = vi.hoisted(() => ({
     visibleOctaves: [5, 4],
     keyboardConfig: { mainOctave: 4, rowCount: 2 },
   },
+  visualConfig: null as any,
+  getPrimaryColorForPitch: vi.fn(() => "animated-exact"),
+  getStaticPrimaryColorForPitch: vi.fn(() => "static-exact"),
 }));
 
 vi.mock("@/composables/useMusicColor", () => ({
   useMusicColor: () => ({
-    getPrimaryColor: vi.fn(() => "red"),
+    getPrimaryColorForPitch: mocks.getPrimaryColorForPitch,
+    getStaticPrimaryColorForPitch: mocks.getStaticPrimaryColorForPitch,
     getPrimaryColorByScaleIndex: vi.fn(() => "red"),
   }),
 }));
@@ -30,13 +35,22 @@ vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => mocks.keyboardStore,
 }));
 
-vi.mock("@/stores/visualConfig", () => ({
-  useVisualConfigStore: () => ({ config: { strings: {} } }),
-}));
+vi.mock("@/stores/visualConfig", async () => {
+  const { reactive } = await vi.importActual<typeof import("vue")>("vue");
+  mocks.visualConfig = reactive({
+    effectiveConfig: {
+      strings: {
+        isEnabled: true,
+        octaveOffset: 0,
+      },
+    },
+  });
+  return { useVisualConfigStore: () => mocks.visualConfig };
+});
 
 vi.mock("@/composables/useGSAP", () => ({
   default: () => ({
-    gsap: { utils: { interpolate: (_from: number, to: number) => to } },
+    gsap: { utils: { interpolate: (from: number, to: number) => from + (to - from) * 0.5 } },
   }),
 }));
 
@@ -44,10 +58,16 @@ describe("useStringRenderer humming lifecycle", () => {
   let nowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    mocks.musicStore.currentMode = "major";
+    mocks.musicStore.currentKey = "C";
+    mocks.musicStore.solfegeData = [{ name: "Do", number: 1 }];
     mocks.musicStore.getActiveNotes.mockReturnValue([]);
     mocks.keyboardStore.visibleOctaves = [5, 4];
     mocks.keyboardStore.keyboardConfig.mainOctave = 4;
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = true;
+    mocks.visualConfig.effectiveConfig.strings.octaveOffset = 0;
   });
 
   afterEach(() => {
@@ -71,7 +91,7 @@ describe("useStringRenderer humming lifecycle", () => {
 
     renderer.handleNotePlayed(new CustomEvent("note-played", {
       detail: {
-        noteId: "melograph-live-1",
+        noteId: "live-pitch-1",
         solfegeIndex: 0,
         frequency: 261.63,
         octave: 4,
@@ -90,7 +110,7 @@ describe("useStringRenderer humming lifecycle", () => {
       .toBe(true);
 
     renderer.handleNoteReleased(new CustomEvent("note-released", {
-      detail: { noteId: "melograph-live-1" },
+      detail: { noteId: "live-pitch-1" },
     }));
     renderer.updateStringProperties(
       stringConfig,
@@ -158,4 +178,298 @@ describe("useStringRenderer humming lifecycle", () => {
     expect(xByOctave.get(2)).toBe(390);
     expect(xByOctave.get(3)).toBe(380);
   });
+
+  it("initializes after Stage or Presence moves from disabled to enabled", async () => {
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = false;
+    const renderer = useStringRenderer();
+    renderer.initializeStrings({
+      isEnabled: false,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+    } as any, 800, 600, mocks.musicStore.solfegeData);
+
+    expect(renderer.strings.value).toHaveLength(0);
+
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = true;
+    await nextTick();
+
+    expect(renderer.strings.value).toHaveLength(2);
+
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = false;
+    await nextTick();
+    expect(renderer.strings.value).toHaveLength(0);
+
+    mocks.visualConfig.effectiveConfig.strings.isEnabled = true;
+    await nextTick();
+    expect(renderer.strings.value).toHaveLength(2);
+  });
+
+  it("uses exact pitch for selection and the shared envelope for force", () => {
+    const renderer = useStringRenderer();
+    const stringConfig = {
+      isEnabled: true,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+      activeOpacity: 1,
+      maxAmplitude: 20,
+      interpolationSpeed: 1,
+      opacityInterpolationSpeed: 1,
+      dampingFactor: 1,
+    } as any;
+    const animationConfig = { visualFrequencyDivisor: 100 } as any;
+    renderer.initializeStrings(stringConfig, 800, 600, mocks.musicStore.solfegeData);
+    renderer.handleNotePlayed(new CustomEvent("note-played", {
+      detail: {
+        noteId: "c4",
+        solfegeIndex: 0,
+        pitchClassIndex: 0,
+        frequency: 261.63,
+        octave: 4,
+      },
+    }));
+
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 0.5, hasSignal: true },
+    );
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(5);
+
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 1, hasSignal: true },
+      true,
+    );
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(0);
+
+    renderer.handleNoteReleased(new CustomEvent("note-released", { detail: { noteId: "c4" } }));
+    renderer.handleNotePlayed(new CustomEvent("note-played", {
+      detail: {
+        noteId: "borrowed-c-sharp-4",
+        solfegeIndex: 0,
+        pitchClassIndex: 1,
+        frequency: 277.18,
+        octave: 4,
+      },
+    }));
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 1, hasSignal: true },
+    );
+    expect(renderer.strings.value.some((string) => string.isActive)).toBe(false);
+  });
+
+  it("hydrates a supplied playback note after the String renderer remounts", () => {
+    const renderer = useStringRenderer();
+    const stringConfig = {
+      isEnabled: true,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+      activeOpacity: 1,
+      maxAmplitude: 20,
+      interpolationSpeed: 1,
+      opacityInterpolationSpeed: 1,
+      dampingFactor: 1,
+    } as any;
+    renderer.initializeStrings(stringConfig, 800, 600, mocks.musicStore.solfegeData);
+
+    renderer.updateStringProperties(
+      stringConfig,
+      { visualFrequencyDivisor: 100 } as any,
+      mocks.musicStore,
+      { envelope: 0.5, hasSignal: true },
+      false,
+      [{
+        noteId: "strudel-1",
+        noteName: "C4",
+        solfegeIndex: 0,
+        pitchClassIndex: 0,
+        solfege: {
+          name: "Do",
+          number: 1,
+          emotion: "Grounded",
+          description: "Tonic",
+          texture: "stable",
+        },
+        frequency: 261.63,
+        octave: 4,
+        keyboardOctave: 4,
+        mode: "major",
+        key: "C",
+      }],
+    );
+
+    expect(mocks.musicStore.getActiveNotes).not.toHaveBeenCalled();
+    expect(renderer.strings.value.find((string) => string.octave === 4)).toMatchObject({
+      isActive: true,
+      amplitude: 5,
+      color: "animated-exact",
+    });
+  });
+
+  it("keeps held exact-pitch String color truthful across a key change", () => {
+    const renderer = useStringRenderer();
+    const stringConfig = {
+      isEnabled: true,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+      activeOpacity: 1,
+      maxAmplitude: 20,
+      interpolationSpeed: 1,
+      opacityInterpolationSpeed: 1,
+      dampingFactor: 1,
+    } as any;
+    const animationConfig = { visualFrequencyDivisor: 100 } as any;
+    mocks.musicStore.getActiveNotes.mockReturnValue([{
+      noteId: "held-e5-on-row-4",
+      noteName: "E5",
+      solfegeIndex: 2,
+      pitchClassIndex: 4,
+      frequency: 659.25,
+      octave: 5,
+      keyboardOctave: 4,
+      mode: "major",
+      key: "C",
+    }]);
+
+    mocks.musicStore.currentKey = "D";
+    mocks.musicStore.solfegeData = [
+      { name: "Do", number: 1 },
+      { name: "Re", number: 2 },
+      { name: "Mi", number: 3 },
+      { name: "Fa", number: 4 },
+      { name: "Sol", number: 5 },
+      { name: "La", number: 6 },
+      { name: "Ti", number: 7 },
+    ];
+    renderer.initializeStrings(
+      stringConfig,
+      800,
+      600,
+      mocks.musicStore.solfegeData,
+    );
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 1, hasSignal: true },
+    );
+
+    const activeString = renderer.strings.value.find((string) => string.isActive);
+    expect(activeString?.noteIndex).toBe(1);
+    expect(activeString?.color).toBe("animated-exact");
+    expect(mocks.getPrimaryColorForPitch).toHaveBeenCalledWith(
+      2,
+      4,
+      "major",
+      "C",
+      5,
+    );
+
+    renderer.updateStringProperties(
+      stringConfig,
+      animationConfig,
+      mocks.musicStore,
+      { envelope: 1, hasSignal: true },
+      true,
+    );
+    expect(mocks.getStaticPrimaryColorForPitch).toHaveBeenCalledWith(
+      2,
+      4,
+      "major",
+      "C",
+      5,
+    );
+  });
+
+  it.each(["store", "event"] as const)(
+    "recovers ordinary %s pitch identity across a key change",
+    (source) => {
+      const renderer = useStringRenderer();
+      const stringConfig = {
+        isEnabled: true,
+        octaveOffset: 0,
+        baseOpacity: 0.1,
+        activeOpacity: 1,
+        maxAmplitude: 20,
+        interpolationSpeed: 1,
+        opacityInterpolationSpeed: 1,
+        dampingFactor: 1,
+      } as any;
+      const animationConfig = { visualFrequencyDivisor: 100 } as any;
+      const ordinaryE5 = {
+        noteId: `ordinary-${source}-e5`,
+        noteName: "E5",
+        solfegeIndex: 2,
+        frequency: 659.25,
+        octave: 5,
+        keyboardOctave: 4,
+        mode: "major",
+        key: "C",
+      };
+
+      mocks.musicStore.currentKey = "D";
+      mocks.musicStore.solfegeData = [
+        { name: "Do", number: 1 },
+        { name: "Re", number: 2 },
+        { name: "Mi", number: 3 },
+        { name: "Fa", number: 4 },
+        { name: "Sol", number: 5 },
+        { name: "La", number: 6 },
+        { name: "Ti", number: 7 },
+      ];
+      if (source === "store") {
+        mocks.musicStore.getActiveNotes.mockReturnValue([ordinaryE5]);
+      } else {
+        renderer.handleNotePlayed(new CustomEvent("note-played", {
+          detail: ordinaryE5,
+        }));
+      }
+      renderer.initializeStrings(
+        stringConfig,
+        800,
+        600,
+        mocks.musicStore.solfegeData,
+      );
+
+      renderer.updateStringProperties(
+        stringConfig,
+        animationConfig,
+        mocks.musicStore,
+        { envelope: 1, hasSignal: true },
+      );
+      expect(renderer.strings.value.find((string) => string.isActive)).toMatchObject({
+        noteIndex: 1,
+        octave: 4,
+        color: "animated-exact",
+      });
+      expect(mocks.getPrimaryColorForPitch).toHaveBeenCalledWith(
+        2,
+        4,
+        "major",
+        "C",
+        5,
+      );
+
+      renderer.updateStringProperties(
+        stringConfig,
+        animationConfig,
+        mocks.musicStore,
+        { envelope: 1, hasSignal: true },
+        true,
+      );
+      expect(mocks.getStaticPrimaryColorForPitch).toHaveBeenCalledWith(
+        2,
+        4,
+        "major",
+        "C",
+        5,
+      );
+    },
+  );
 });

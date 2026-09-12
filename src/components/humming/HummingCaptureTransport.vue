@@ -1,6 +1,20 @@
 <template>
   <Teleport to="body">
     <div class="humming-capture-transport">
+      <span class="humming-capture-transport__listen-slot">
+        <Button
+          class="humming-capture-transport__listen"
+          size="sm"
+          :tone="listeningStatus === 'listening' ? 'ivory' : 'ink'"
+          :haptic="haptic"
+          :accessible-name="listeningButtonLabel"
+          :title="listeningButtonTitle"
+          @click="emit('toggleListening')"
+        >
+          <AudioLines />
+        </Button>
+      </span>
+
       <Button
         class="humming-capture-transport__primary"
         size="md"
@@ -31,11 +45,15 @@
       </span>
 
       <div
-        v-if="status === 'error' || takeLabels.length > 1"
+        v-if="status === 'error' || listeningStatus === 'error' || takeLabels.length > 1"
         class="humming-capture-transport__feedback"
       >
-        <p v-if="status === 'error'" class="humming-capture-transport__error" role="alert">
-          {{ statusMessage }}
+        <p
+          v-if="status === 'error' || listeningStatus === 'error'"
+          class="humming-capture-transport__error"
+          role="alert"
+        >
+          {{ listeningStatus === 'error' ? listeningStatusMessage : statusMessage }}
         </p>
         <select
           v-if="takeLabels.length > 1"
@@ -62,15 +80,23 @@
       >
         {{ statusMessage }}
       </output>
+      <output
+        class="humming-capture-transport__status"
+        role="status"
+        aria-live="polite"
+      >
+        {{ listeningStatusMessage }}
+      </output>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { Check, Mic, X } from "lucide-vue-next";
+import { AudioLines, Check, Mic, X } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import type { HummingCaptureStatus } from "@/composables/useHummingCapture";
+import type { LiveListeningStatus } from "@/composables/useLiveListening";
 
 const props = withDefaults(defineProps<{
   status?: HummingCaptureStatus;
@@ -78,6 +104,9 @@ const props = withDefaults(defineProps<{
   statusMessage?: string;
   takeLabels?: readonly string[];
   selectedTakeIndex?: number;
+  listeningStatus?: LiveListeningStatus;
+  listeningError?: string | null;
+  listeningStatusMessage?: string;
   haptic?: boolean;
 }>(), {
   status: "idle",
@@ -85,6 +114,9 @@ const props = withDefaults(defineProps<{
   statusMessage: "Ready to capture a hummed pattern",
   takeLabels: () => [],
   selectedTakeIndex: 0,
+  listeningStatus: "idle",
+  listeningError: null,
+  listeningStatusMessage: "Live listening is off",
   haptic: false,
 });
 
@@ -102,9 +134,19 @@ const buttonLabel = computed(() => {
   return "Start humming capture";
 });
 const buttonTitle = computed(() => props.error ?? buttonLabel.value);
+const listeningButtonLabel = computed(() => {
+  if (props.listeningStatus === "listening") return "Stop live listening";
+  if (props.listeningStatus === "requesting") return "Cancel live listening";
+  if (props.listeningStatus === "error") return "Retry live listening";
+  return "Start live listening";
+});
+const listeningButtonTitle = computed(() =>
+  props.listeningError ?? listeningButtonLabel.value,
+);
 
 const emit = defineEmits<{
   toggle: [];
+  toggleListening: [];
   cancel: [];
   selectTake: [index: number];
 }>();
@@ -137,6 +179,21 @@ function handleTakeSelection(event: Event) {
   --button-rest-shadow: var(--shadow-key);
   inline-size: 22.4px;
   block-size: 22.4px;
+}
+
+.humming-capture-transport .humming-capture-transport__listen {
+  --button-size: 22.4px;
+  --button-rest-shadow: var(--shadow-key);
+  inline-size: 22.4px;
+  block-size: 22.4px;
+}
+
+.humming-capture-transport__listen-slot {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + var(--s-3));
+  display: flex;
+  transform: translateY(-50%);
 }
 
 .humming-capture-transport__cancel-slot {

@@ -4,7 +4,7 @@
   "framework": "vue",
   "rewrites": [
     {
-      "source": "/api/melograph/analyze",
+      "source": "/api/pitch-analysis/analyze",
       "destination": "https://melograph-swart.vercel.app/api/analyze"
     },
     {

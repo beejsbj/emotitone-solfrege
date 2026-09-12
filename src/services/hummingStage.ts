@@ -1,8 +1,12 @@
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
-import { MELOGRAPH_LIVE_SOURCE } from "@/services/melographLivePitch";
+import { LIVE_PITCH_SOURCE } from "@/services/livePitch";
 import { findScaleIndexForPitchClass } from "@/services/scalePitch";
-import type { MelographLivePitchFrame } from "@/services/melographLivePitch";
-import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
+import type { LivePitchFrame } from "@/services/livePitch";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  MusicalMode,
+} from "@/types/music";
 
 export interface HummingStageContext {
   key: ChromaticNote;
@@ -11,8 +15,15 @@ export interface HummingStageContext {
 }
 
 interface StablePitchCallbacks {
-  attack: (midi: number, frame: MelographLivePitchFrame) => void;
+  attack: (midi: number, frame: LivePitchFrame) => void;
   release: () => void;
+}
+
+let livePitchSessionCounter = 0;
+const activeLivePitchStageNotes = new Map<string, ActiveNote>();
+
+export function getActiveLivePitchStageNotes(): readonly ActiveNote[] {
+  return Array.from(activeLivePitchStageNotes.values());
 }
 
 /**
@@ -32,7 +43,7 @@ export class StablePitchGate {
     private readonly releaseFrameCount = 2,
   ) {}
 
-  push(frame: MelographLivePitchFrame) {
+  push(frame: LivePitchFrame) {
     if (!frame.voiced || frame.midi == null || frame.frequencyHz == null) {
       this.candidateMidi = null;
       this.candidateFrames = 0;
@@ -79,23 +90,19 @@ export class StablePitchGate {
   }
 }
 
-export function createHummingStageBridge(
+export function createLivePitchStageBridge(
   context: HummingStageContext,
   target: Pick<Window, "dispatchEvent"> = window,
 ) {
-  let active: {
-    noteId: string;
-    noteName: string;
-    note: SolfegeData;
-    frequency: number;
-    octave: number;
-    solfegeIndex: number;
-  } | null = null;
+  let currentContext = { ...context };
+  const sessionId = ++livePitchSessionCounter;
+  let active: ActiveNote | null = null;
   let noteCounter = 0;
 
   const gate = new StablePitchGate({
     attack(midi, frame) {
       const pitchClass = CHROMATIC_NOTES[((midi % 12) + 12) % 12];
+      const pitchClassIndex = ((midi % 12) + 12) % 12;
       const octave = Math.floor(midi / 12) - 1;
       if (!pitchClass || !Number.isFinite(octave) || frame.frequencyHz == null) {
         return;
@@ -104,29 +111,37 @@ export function createHummingStageBridge(
 
       const solfegeIndex = findScaleIndexForPitchClass(
         pitchClass,
-        context,
+        currentContext,
       );
       if (solfegeIndex == null) return;
-      const note = getScaleForMode(context.mode).solfege[solfegeIndex];
+      const note = getScaleForMode(currentContext.mode).solfege[solfegeIndex];
       if (!note) return;
+      const tonicIndex = CHROMATIC_NOTES.indexOf(currentContext.key);
+      const keyboardOctave = tonicIndex === -1
+        ? octave
+        : octave - Number(pitchClassIndex < tonicIndex);
 
       active = {
-        noteId: `melograph-live-${++noteCounter}`,
+        noteId: `live-pitch-${sessionId}-${++noteCounter}`,
         noteName,
-        note,
+        solfege: note,
         frequency: frame.frequencyHz,
         octave,
+        keyboardOctave,
         solfegeIndex,
+        pitchClassIndex,
+        key: currentContext.key,
+        mode: currentContext.mode,
       };
+      activeLivePitchStageNotes.set(active.noteId, active);
 
       target.dispatchEvent(new CustomEvent("note-played", {
         detail: {
           ...active,
-          key: context.key,
-          mode: context.mode,
-          instrument: context.instrument,
+          note: active.solfege,
+          instrument: currentContext.instrument,
           instrumentConfig: null,
-          source: MELOGRAPH_LIVE_SOURCE,
+          source: LIVE_PITCH_SOURCE,
           record: false,
           mirrorMidi: false,
         },
@@ -137,22 +152,37 @@ export function createHummingStageBridge(
       target.dispatchEvent(new CustomEvent("note-released", {
         detail: {
           ...active,
-          note: active.note.name,
-          key: context.key,
-          mode: context.mode,
-          instrument: context.instrument,
+          note: active.solfege.name,
+          instrument: currentContext.instrument,
           instrumentConfig: null,
-          source: MELOGRAPH_LIVE_SOURCE,
+          source: LIVE_PITCH_SOURCE,
           record: false,
           mirrorMidi: false,
         },
       }));
+      activeLivePitchStageNotes.delete(active.noteId);
       active = null;
     },
   });
 
   return {
-    push: (frame: MelographLivePitchFrame) => gate.push(frame),
+    push: (frame: LivePitchFrame) => gate.push(frame),
     stop: () => gate.flush(),
+    updateContext: (nextContext: HummingStageContext) => {
+      if (
+        nextContext.key === currentContext.key
+        && nextContext.mode === currentContext.mode
+        && nextContext.instrument === currentContext.instrument
+      ) return;
+
+      // Release with the same musical identity used for the attack, then let
+      // the still-sounding pitch re-enter under the new context.
+      gate.flush();
+      currentContext = { ...nextContext };
+    },
   };
 }
+
+// Capture keeps this compatibility name; the bridge itself is presentation-only
+// and is also used by standalone Live Listening.
+export const createHummingStageBridge = createLivePitchStageBridge;

@@ -170,6 +170,27 @@ describe('scheduled live voice', () => {
     expect(onEnd).toHaveBeenCalledExactlyOnceWith(EPOCH + 200)
   })
 
+  it('rebases the audio clock mapping after a suspended context resumes', async () => {
+    const attack = deferred<number>()
+    audio.attackNote.mockReturnValue(attack.promise)
+    let audioTime = 12
+    audio.getAudioContext.mockImplementation(() => ({ currentTime: audioTime }))
+    const { voice, onStart, onEnd } = create()
+    voice.release(1250)
+
+    await vi.advanceTimersByTimeAsync(100)
+    audioTime = 12
+    attack.resolve(12.01)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith('voice-1', 12.15)
+    expect(onStart).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(onStart).toHaveBeenCalledExactlyOnceWith(EPOCH + 110)
+    await vi.advanceTimersByTimeAsync(140)
+    expect(onEnd).toHaveBeenCalledExactlyOnceWith(EPOCH + 250)
+  })
+
   it('sustains a strummed voice until its owner releases it', async () => {
     const { voice, onStart, onEnd } = create(1035)
     await vi.advanceTimersByTimeAsync(500)

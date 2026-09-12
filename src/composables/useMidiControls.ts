@@ -102,30 +102,33 @@ interface MirroredNoteEventDetail {
   keyboardOctave?: number;
   solfegeIndex?: number;
   isBorrowed?: boolean;
+  timestamp?: number;
 }
 
 export function createMidiNoteReferenceCounter(
-  noteOn: (midiNote: number) => void,
-  noteOff: (midiNote: number) => void,
+  noteOn: (midiNote: number, timestamp?: number) => void,
+  noteOff: (midiNote: number, timestamp?: number) => void,
 ) {
   const ownerCounts = new Map<number, number>();
 
   return {
-    acquire(midiNote: number) {
+    acquire(midiNote: number, timestamp?: number) {
       const count = ownerCounts.get(midiNote) ?? 0;
       ownerCounts.set(midiNote, count + 1);
       if (count === 0) {
-        noteOn(midiNote);
+        if (timestamp === undefined) noteOn(midiNote);
+        else noteOn(midiNote, timestamp);
       }
     },
-    release(midiNote: number) {
+    release(midiNote: number, timestamp?: number) {
       const count = ownerCounts.get(midiNote) ?? 0;
       if (count <= 0) {
         return;
       }
       if (count === 1) {
         ownerCounts.delete(midiNote);
-        noteOff(midiNote);
+        if (timestamp === undefined) noteOff(midiNote);
+        else noteOff(midiNote, timestamp);
         return;
       }
       ownerCounts.set(midiNote, count - 1);
@@ -140,6 +143,13 @@ export function shouldMirrorNoteEvent(
   detail: Pick<MirroredNoteEventDetail, "mirrorMidi"> | undefined,
 ) {
   return detail?.mirrorMidi !== false;
+}
+
+function resolveMidiEventTimestamp(detail: MirroredNoteEventDetail | undefined) {
+  const timestamp = detail?.timestamp;
+  return typeof timestamp === "number" && Number.isFinite(timestamp)
+    ? performance.now() + timestamp - Date.now()
+    : undefined;
 }
 
 function buildMidiPressId(inputId: string, channel: number, noteNumber: number) {
@@ -587,12 +597,13 @@ export function useMidiControls() {
   // testing works even before the component mount cycle finishes.
   installDevMidiSimulator();
 
-  const sendToRoliOutput = (message: number[]) => {
-    selectedRoliOutput.value?.send(message);
+  const sendToRoliOutput = (message: number[], timestamp?: number) => {
+    if (timestamp === undefined) selectedRoliOutput.value?.send(message);
+    else selectedRoliOutput.value?.send(message, timestamp);
   };
   const mirroredMidiNotes = createMidiNoteReferenceCounter(
-    (midiNote) => sendToRoliOutput(buildRoliNoteOnMessage(midiNote)),
-    (midiNote) => sendToRoliOutput(buildRoliNoteOffMessage(midiNote)),
+    (midiNote, timestamp) => sendToRoliOutput(buildRoliNoteOnMessage(midiNote), timestamp),
+    (midiNote, timestamp) => sendToRoliOutput(buildRoliNoteOffMessage(midiNote), timestamp),
   );
 
   const syncRoliPalette = () => {
@@ -776,7 +787,7 @@ export function useMidiControls() {
       octave: detail?.octave ?? null,
       midiNote,
     });
-    mirroredMidiNotes.acquire(midiNote);
+    mirroredMidiNotes.acquire(midiNote, resolveMidiEventTimestamp(detail));
 
     if (detail?.noteId) {
       return;
@@ -826,7 +837,7 @@ export function useMidiControls() {
       noteName: detail?.noteName || null,
       midiNote,
     });
-    mirroredMidiNotes.release(midiNote);
+    mirroredMidiNotes.release(midiNote, resolveMidiEventTimestamp(detail));
   };
 
   const handleNotePlayed = (event: Event) => {

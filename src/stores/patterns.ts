@@ -47,6 +47,10 @@ interface LoadPatternAsBaseOptions {
   discardWorkingNotes?: boolean;
 }
 
+interface PendingLogNote extends Partial<LogNote> {
+  forcedPatternStart: boolean;
+}
+
 export const usePatternsStore = defineStore(
   "patterns",
   () => {
@@ -63,7 +67,15 @@ export const usePatternsStore = defineStore(
     const config = ref<PatternConfig>({ ...DEFAULT_CONFIG });
 
     // Track pending notes (pressed but not yet released)
-    const pendingNotes = ref<Map<string, Partial<LogNote>>>(new Map());
+    const pendingNotes = ref<Map<string, PendingLogNote>>(new Map());
+    const forcedCompletedNoteIds = new Set<string>();
+
+    function pruneForcedCompletedNoteIds(): void {
+      const retainedIds = new Set(loggedNotes.value.map((note) => note.id));
+      for (const id of forcedCompletedNoteIds) {
+        if (!retainedIds.has(id)) forcedCompletedNoteIds.delete(id);
+      }
+    }
 
     // Pattern variables
     const savedPatterns = ref<Pattern[]>([]);
@@ -490,6 +502,7 @@ export const usePatternsStore = defineStore(
         ...note,
         isStartingNewPattern: index === 0 ? true : note.isStartingNewPattern,
       }));
+      forcedCompletedNoteIds.clear();
       forceNextPatternStart.value = false;
       isStripCleared.value = false;
       purgeOldPatterns();
@@ -510,6 +523,7 @@ export const usePatternsStore = defineStore(
       if (options.discardWorkingNotes) {
         loggedNotes.value = [];
         pendingNotes.value.clear();
+        forcedCompletedNoteIds.clear();
       }
 
       loadedBaseNotes.value = [...pattern.notes];
@@ -603,6 +617,7 @@ export const usePatternsStore = defineStore(
       isStripCleared.value = true;
       // Clear logged notes so dynamicPatterns doesn't duplicate saved content
       loggedNotes.value = [];
+      forcedCompletedNoteIds.clear();
       forceNextPatternStart.value = false;
       currentTakeGeneration.value += 1;
       purgeOldPatterns();
@@ -611,6 +626,7 @@ export const usePatternsStore = defineStore(
     function removeLastFromCurrentSketch(): void {
       if (currentWorkingNotes.value.length > 0) {
         loggedNotes.value = loggedNotes.value.slice(0, -1);
+        pruneForcedCompletedNoteIds();
         return;
       }
 
@@ -674,6 +690,7 @@ export const usePatternsStore = defineStore(
       loggedNotes.value = loggedNotes.value.filter(
         (note) => !deletedNoteIds.has(note.id),
       );
+      pruneForcedCompletedNoteIds();
 
       if (loadedBasePatternId.value === patternId) {
         loadedBaseNotes.value = [];
@@ -709,6 +726,7 @@ export const usePatternsStore = defineStore(
       loggedNotes.value = loggedNotes.value.filter(
         (note) => note.pressTime >= cutoffTime
       );
+      pruneForcedCompletedNoteIds();
       purgeOldPatterns();
     }
 
@@ -762,8 +780,11 @@ export const usePatternsStore = defineStore(
         sessionId: currentSessionId.value,
       };
 
+      const forcedPatternStart = forceNextPatternStart.value;
+      if (forcedPatternStart) forceNextPatternStart.value = false;
+
       // Store as pending until release using noteId
-      pendingNotes.value.set(noteId, partialLogNote);
+      pendingNotes.value.set(noteId, { ...partialLogNote, forcedPatternStart });
     }
 
     function handleNoteReleased(event: CustomEvent): void {
@@ -779,17 +800,18 @@ export const usePatternsStore = defineStore(
         return;
       }
 
-      const partialNote = pendingNotes.value.get(noteId)!;
-
-      // Get the previous note for pattern detection
-      const previousNote =
-        loggedNotes.value.length > 0
-          ? loggedNotes.value[loggedNotes.value.length - 1]
-          : undefined;
+      const { forcedPatternStart, ...partialNote } = pendingNotes.value.get(noteId)!;
+      const insertionIndex = loggedNotes.value.findIndex(
+        (note) => note.pressTime > partialNote.pressTime!,
+      );
+      const targetIndex = insertionIndex === -1 ? loggedNotes.value.length : insertionIndex;
+      const previousNote = targetIndex > 0 ? loggedNotes.value[targetIndex - 1] : undefined;
+      const successorNote = loggedNotes.value[targetIndex];
+      const successorWasStarting = successorNote?.isStartingNewPattern === true;
 
       // Determine if this note should start a new pattern
       const isStartingNewPattern =
-        forceNextPatternStart.value ||
+        forcedPatternStart ||
         shouldStartNewPattern(partialNote, previousNote);
       const replacesLoadedBase = Boolean(
         isStartingNewPattern
@@ -803,9 +825,6 @@ export const usePatternsStore = defineStore(
           bpm: partialNote.bpm,
         }),
       );
-      const startsFreshTake = isStartingNewPattern
-        && (Boolean(previousNote) || replacesLoadedBase);
-
       // Complete the log note
       const completedLogNote: LogNote = {
         ...partialNote,
@@ -814,18 +833,22 @@ export const usePatternsStore = defineStore(
         isStartingNewPattern,
       } as LogNote;
 
-      // Add to logged notes
-      loggedNotes.value.push(completedLogNote);
-
-      if (startsFreshTake) currentTakeGeneration.value += 1;
+      // Completion order can differ from scheduled onset order. Insert by
+      // onset and refresh the automatic boundary of the immediate successor.
+      loggedNotes.value.splice(targetIndex, 0, completedLogNote);
+      if (forcedPatternStart) forcedCompletedNoteIds.add(completedLogNote.id);
+      if (successorNote && !forcedCompletedNoteIds.has(successorNote.id)) {
+        successorNote.isStartingNewPattern = shouldStartNewPattern(successorNote, completedLogNote);
+      }
+      const addedBoundaryCount = Number(Boolean(previousNote) && isStartingNewPattern)
+        + Number(Boolean(successorNote?.isStartingNewPattern))
+        - Number(Boolean(previousNote) && successorWasStarting);
+      if (addedBoundaryCount > 0 || replacesLoadedBase) {
+        currentTakeGeneration.value += 1;
+      }
 
       // Clear the strip-cleared flag now that a note has arrived
       isStripCleared.value = false;
-
-      // Reset the force flag after using it
-      if (forceNextPatternStart.value) {
-        forceNextPatternStart.value = false;
-      }
 
       // Remove from pending
       pendingNotes.value.delete(noteId);
@@ -854,12 +877,14 @@ export const usePatternsStore = defineStore(
     function clearAllNotes(): void {
       loggedNotes.value = [];
       pendingNotes.value.clear();
+      forcedCompletedNoteIds.clear();
     }
 
     function clearCurrentSession(): void {
       loggedNotes.value = loggedNotes.value.filter(
         (note) => note.sessionId !== currentSessionId.value
       );
+      pruneForcedCompletedNoteIds();
     }
 
     function updateConfig(newConfig: Partial<PatternConfig>): void {
@@ -880,6 +905,7 @@ export const usePatternsStore = defineStore(
         (note) => note.id && note.pressTime && note.releaseTime && note.duration
       );
       loggedNotes.value.push(...validNotes);
+      loggedNotes.value.sort((left, right) => left.pressTime - right.pressTime);
       purgeOldNotes();
     }
 

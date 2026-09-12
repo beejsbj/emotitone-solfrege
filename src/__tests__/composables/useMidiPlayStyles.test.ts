@@ -107,6 +107,10 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     expect(notes()).toEqual([
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64], [0x90, 67], [0x80, 67],
     ]);
+    expect(send.mock.calls
+      .filter(([[status]]) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
+      .map(([, timestamp]) => timestamp))
+      .toEqual([30, 230, 280, 480, 530, 730]);
     [60, 64, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
     expect(notes()).toHaveLength(6);

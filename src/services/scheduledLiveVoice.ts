@@ -14,7 +14,7 @@ export function createScheduledLiveVoice(options: {
 }) {
   const { noteId, now } = options;
   const epochOffset = Date.now() - now();
-  const audioOffset = audio.getAudioContext().currentTime - now() / 1000;
+  let audioOffset = audio.getAudioContext().currentTime - now() / 1000;
   let endAt = Infinity;
   let startAt = options.at;
   let ready = false;
@@ -65,6 +65,9 @@ export function createScheduledLiveVoice(options: {
       return;
     }
     armed = true;
+    // A suspended context can resume while attackNote is awaiting audio setup.
+    // Refresh the mapping before converting its returned audio-clock onset.
+    audioOffset = audio.getAudioContext().currentTime - now() / 1000;
     if (Number.isFinite(startedAt)) {
       startAt = Math.max(options.at, (startedAt - audioOffset) * 1000);
     }

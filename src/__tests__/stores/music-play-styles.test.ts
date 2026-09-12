@@ -101,7 +101,7 @@ describe("live styles through music, recording, and Strudel", () => {
     const owners = await Promise.all(["C4", "E4", "G4"].map((pitch) => music.attackExactPitch(pitch)));
     await vi.advanceTimersByTimeAsync(300);
     await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
-    const notes = [...patterns.loggedNotes].sort((a, b) => a.pressTime - b.pressTime);
+    const notes = [...patterns.loggedNotes];
     expect(notes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
       ["G4", 30, 270], ["E4", 65, 235], ["C4", 100, 200],
     ]);

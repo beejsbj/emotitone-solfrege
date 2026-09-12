@@ -1,0 +1,79 @@
+[
+  {
+    "worktree": "bjs-413-recording",
+    "head": "1f16adb7eefd7a021e989cbf9fdbf5925dd7e48e",
+    "sourceHashes": {
+      "src/composables/canvas/useStringRenderer.ts": "50abefcc7c1ee27a85203fc6bc444636b995a7439ad13ef7f3397b8de5e99ad3",
+      "src/composables/canvas/useUnifiedCanvas.ts": "6e75a03d0a96751001391f5b06084d2668a223998a26971d15f139fca96a1aa3",
+      "src/utils/visualEffects.ts": "64be673ed5f29fcdda1f034ec8999250de18c954e07daaf89082fd05e3652dc8"
+    },
+    "contextExists": false,
+    "adrs": []
+  },
+  {
+    "worktree": "bjs-415-configuration",
+    "head": "f0313f7f9237a6ec621353d3f89316e125e171a8",
+    "sourceHashes": {
+      "src/composables/canvas/useStringRenderer.ts": "50abefcc7c1ee27a85203fc6bc444636b995a7439ad13ef7f3397b8de5e99ad3",
+      "src/composables/canvas/useUnifiedCanvas.ts": "6e75a03d0a96751001391f5b06084d2668a223998a26971d15f139fca96a1aa3",
+      "src/utils/visualEffects.ts": "64be673ed5f29fcdda1f034ec8999250de18c954e07daaf89082fd05e3652dc8"
+    },
+    "contextExists": false,
+    "adrs": []
+  },
+  {
+    "worktree": "bjs-414-held-notes",
+    "head": "5c4823a198031c4d7b7af85aeb3276a01c455c7c",
+    "sourceHashes": {
+      "src/composables/canvas/useStringRenderer.ts": "50abefcc7c1ee27a85203fc6bc444636b995a7439ad13ef7f3397b8de5e99ad3",
+      "src/composables/canvas/useUnifiedCanvas.ts": "6e75a03d0a96751001391f5b06084d2668a223998a26971d15f139fca96a1aa3",
+      "src/utils/visualEffects.ts": "64be673ed5f29fcdda1f034ec8999250de18c954e07daaf89082fd05e3652dc8"
+    },
+    "contextExists": false,
+    "adrs": []
+  },
+  {
+    "worktree": "architecture-catalog",
+    "head": "8ae8d8186be91165c90011215e9590c8aa9270b2",
+    "sourceHashes": {
+      "src/composables/canvas/useStringRenderer.ts": "50abefcc7c1ee27a85203fc6bc444636b995a7439ad13ef7f3397b8de5e99ad3",
+      "src/composables/canvas/useUnifiedCanvas.ts": "6e75a03d0a96751001391f5b06084d2668a223998a26971d15f139fca96a1aa3",
+      "src/utils/visualEffects.ts": "64be673ed5f29fcdda1f034ec8999250de18c954e07daaf89082fd05e3652dc8"
+    },
+    "contextExists": false,
+    "adrs": []
+  },
+  {
+    "worktree": "architecture-knob",
+    "head": "f640b1cd63a4cac4ff0dbf4bbe755fe2054d7641",
+    "sourceHashes": {
+      "src/composables/canvas/useStringRenderer.ts": "50abefcc7c1ee27a85203fc6bc444636b995a7439ad13ef7f3397b8de5e99ad3",
+      "src/composables/canvas/useUnifiedCanvas.ts": "6e75a03d0a96751001391f5b06084d2668a223998a26971d15f139fca96a1aa3",
+      "src/utils/visualEffects.ts": "64be673ed5f29fcdda1f034ec8999250de18c954e07daaf89082fd05e3652dc8"
+    },
+    "contextExists": false,
+    "adrs": []
+  },
+  {
+    "worktree": "architecture-midi",
+    "head": "11cbe18d2b5b58d230d146cd13e94d2d04722d86",
+    "sourceHashes": {
+      "src/composables/canvas/useStringRenderer.ts": "50abefcc7c1ee27a85203fc6bc444636b995a7439ad13ef7f3397b8de5e99ad3",
+      "src/composables/canvas/useUnifiedCanvas.ts": "6e75a03d0a96751001391f5b06084d2668a223998a26971d15f139fca96a1aa3",
+      "src/utils/visualEffects.ts": "64be673ed5f29fcdda1f034ec8999250de18c954e07daaf89082fd05e3652dc8"
+    },
+    "contextExists": false,
+    "adrs": []
+  },
+  {
+    "worktree": "architecture-transport",
+    "head": "65f037dd98af317eba3d717981efa407673ea155",
+    "sourceHashes": {
+      "src/composables/canvas/useStringRenderer.ts": "50abefcc7c1ee27a85203fc6bc444636b995a7439ad13ef7f3397b8de5e99ad3",
+      "src/composables/canvas/useUnifiedCanvas.ts": "6e75a03d0a96751001391f5b06084d2668a223998a26971d15f139fca96a1aa3",
+      "src/utils/visualEffects.ts": "64be673ed5f29fcdda1f034ec8999250de18c954e07daaf89082fd05e3652dc8"
+    },
+    "contextExists": false,
+    "adrs": []
+  }
+]

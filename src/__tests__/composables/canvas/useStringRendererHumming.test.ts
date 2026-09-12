@@ -278,12 +278,12 @@ describe("useStringRenderer humming lifecycle", () => {
     } as any;
     const animationConfig = { visualFrequencyDivisor: 100 } as any;
     mocks.musicStore.getActiveNotes.mockReturnValue([{
-      noteId: "held-e4",
-      noteName: "E4",
+      noteId: "held-e5-on-row-4",
+      noteName: "E5",
       solfegeIndex: 2,
       pitchClassIndex: 4,
-      frequency: 329.63,
-      octave: 4,
+      frequency: 659.25,
+      octave: 5,
       keyboardOctave: 4,
       mode: "major",
       key: "C",
@@ -320,7 +320,7 @@ describe("useStringRenderer humming lifecycle", () => {
       4,
       "major",
       "C",
-      4,
+      5,
     );
 
     renderer.updateStringProperties(
@@ -335,7 +335,7 @@ describe("useStringRenderer humming lifecycle", () => {
       4,
       "major",
       "C",
-      4,
+      5,
     );
   });
 });

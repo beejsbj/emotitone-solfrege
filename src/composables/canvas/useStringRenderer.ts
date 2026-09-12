@@ -48,7 +48,10 @@ export function useStringRenderer() {
       {
         solfegeIndex: number;
         frequency: number;
+        /** Keyboard row coordinate used to select the rendered String. */
         octave: number;
+        /** Sounding scientific octave used by Music Color. */
+        scientificOctave: number;
         mode: MusicalMode;
         key: ChromaticNote;
         pitchClassIndex?: number;
@@ -218,6 +221,7 @@ export function useStringRenderer() {
           solfegeIndex,
           frequency,
           octave: activationOctave,
+          scientificOctave: typeof octave === "number" ? octave : activationOctave,
           mode: (mode ?? musicStore.currentMode) as MusicalMode,
           key: (key ?? musicStore.currentKey) as ChromaticNote,
           pitchClassIndex,
@@ -327,6 +331,9 @@ export function useStringRenderer() {
           ?? string.noteIndex;
         const pitchClassIndex = matchingActiveNote?.pitchClassIndex
           ?? eventActivation?.pitchClassIndex;
+        const scientificOctave = matchingActiveNote?.octave
+          ?? eventActivation?.scientificOctave
+          ?? string.octave;
         string.color = (reducedMotion
           ? getStaticPrimaryColorForPitch
           : getPrimaryColorForPitch)(
@@ -334,7 +341,7 @@ export function useStringRenderer() {
           pitchClassIndex,
           noteMode,
           noteKey,
-          string.octave,
+          scientificOctave,
         );
 
         // Determine frequency for visual vibration

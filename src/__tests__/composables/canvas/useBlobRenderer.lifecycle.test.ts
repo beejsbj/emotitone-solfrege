@@ -206,4 +206,61 @@ describe("useBlobRenderer lifecycle", () => {
 
     expect(blob.baseRadius).toBe(60);
   });
+
+  it("applies Body Strength changes to held and releasing bodies", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    const startTime = blob.startTime;
+    vi.mocked(Date.now).mockReturnValue(2_000);
+
+    renderer.prepareBlobs(context, {
+      ...DEFAULT_CONFIG.blobs,
+      opacity: 0.3,
+      oscillationAmplitude: 0,
+    });
+    expect(blob.opacity).toBe(0.3);
+    expect(blob.renderOpacity).toBeCloseTo(0.3, 6);
+    expect(renderer.getPreparedBlobFrames()[0]?.opacity).toBeCloseTo(0.3, 6);
+    expect(blob.startTime).toBe(startTime);
+
+    renderer.prepareBlobs(context, {
+      ...DEFAULT_CONFIG.blobs,
+      opacity: 0,
+      oscillationAmplitude: 0,
+    });
+    expect(renderer.activeBlobs.get("c4")).toBe(blob);
+    expect(renderer.getPreparedBlobFrames()).toHaveLength(0);
+
+    vi.mocked(Date.now).mockReturnValue(2_100);
+    renderer.startBlobFadeOutById("c4");
+    const fadeOutStartTime = blob.fadeOutStartTime;
+    vi.mocked(Date.now).mockReturnValue(2_600);
+    const releasingConfig = {
+      ...DEFAULT_CONFIG.blobs,
+      opacity: 0.8,
+      fadeOutDuration: 2,
+      scaleOutDuration: 2,
+      oscillationAmplitude: 0,
+    };
+    const fadeMultiplier = Math.cos(Math.PI / 8);
+
+    renderer.prepareBlobs(context, releasingConfig);
+    expect(blob.renderOpacity).toBeCloseTo(0.8 * fadeMultiplier, 6);
+
+    renderer.prepareBlobs(context, { ...releasingConfig, opacity: 0.4 });
+    expect(blob.opacity).toBe(0.4);
+    expect(blob.renderOpacity).toBeCloseTo(0.4 * fadeMultiplier, 6);
+    expect(blob.startTime).toBe(startTime);
+    expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
+
+    renderer.prepareBlobs(
+      context,
+      { ...releasingConfig, opacity: 0.65 },
+      { reducedMotion: true },
+    );
+    expect(blob.renderOpacity).toBeCloseTo(0.65, 6);
+    expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
+  });
 });

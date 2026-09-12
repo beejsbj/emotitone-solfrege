@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from "vue";
+import { computed, ref, watch, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
@@ -81,6 +81,15 @@ export function useUnifiedCanvas(
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
   let oneShotSequence = 0;
+  const stopReducedMotionWatch = runtime
+    ? watch(
+        runtime.reducedMotion,
+        (reducedMotion) => {
+          if (reducedMotion) particleSystem.clearAllParticles();
+        },
+        { flush: "sync" },
+      )
+    : () => undefined;
 
   const harmonicAccessibleText = computed(() => {
     const snapshot = harmonicAnalysisSnapshot.value;
@@ -158,6 +167,34 @@ export function useUnifiedCanvas(
   };
 
   /**
+   * Reconcile store-backed sounding notes with renderer-owned Blob anchors.
+   * This restores notes that began while Stage or Note Bodies was disabled
+   * without replaying their audio, harmonic analysis, timers, or flecks.
+   */
+  const hydrateMissingBlobAnchors = () => {
+    if (!blobConfig.value.isEnabled) return;
+
+    musicStore.getActiveNotes().forEach((activeNote) => {
+      if (blobRenderer.activeBlobs.has(activeNote.noteId)) return;
+
+      blobRenderer.createBlob(
+        activeNote.solfege,
+        activeNote.frequency,
+        0,
+        0,
+        canvasWidth.value,
+        canvasHeight.value,
+        blobConfig.value,
+        activeNote.noteId,
+        activeNote.key,
+        activeNote.mode,
+        activeNote.octave,
+        activeNote.noteName,
+      );
+    });
+  };
+
+  /**
    * Handle window resize
    */
   const handleResize = () => {
@@ -229,25 +266,7 @@ export function useUnifiedCanvas(
     // store (for example, while the loading gate is visible). Recreate only
     // missing visual anchors; do not replay audio or one-shot effects.
     if (blobConfig.value.isEnabled) {
-      musicStore.getActiveNotes().forEach((activeNote) => {
-        if (blobRenderer.activeBlobs.has(activeNote.noteId)) {
-          return;
-        }
-
-        blobRenderer.createBlob(
-          activeNote.solfege,
-          activeNote.frequency,
-          0,
-          0,
-          canvasWidth.value,
-          canvasHeight.value,
-          blobConfig.value,
-          activeNote.noteId,
-          activeNote.key,
-          activeNote.mode,
-          activeNote.octave
-        );
-      });
+      hydrateMissingBlobAnchors();
       blobRenderer.reprojectBlobs(
         getComposition(),
         blobConfig.value,
@@ -287,6 +306,7 @@ export function useUnifiedCanvas(
 
     // Update cached configurations for performance
     updateCachedConfigs();
+    hydrateMissingBlobAnchors();
     const composition = getComposition();
     const reducedMotion = runtime?.reducedMotion.value ?? false;
     const audioFrame = stageAudio.sample(timestamp);
@@ -600,6 +620,7 @@ export function useUnifiedCanvas(
     harmonicExpiryTimers.forEach((timer) => window.clearTimeout(timer));
     oneShotReleaseTimers.clear();
     harmonicExpiryTimers.clear();
+    stopReducedMotionWatch();
     clearCaches();
     window.removeEventListener("resize", handleResize);
     performanceMonitor.reset();

@@ -29,11 +29,15 @@ const mocks = vi.hoisted(() => {
     releaseHarmonicNote: vi.fn(),
     expireHarmonicNote: vi.fn(),
     resetHarmonicAnalysis: vi.fn(),
+    activeBlobs: new Map<string, { baseRadius: number }>(),
     createBlob: vi.fn(),
     startBlobFadeOut: vi.fn(),
     startBlobFadeOutById: vi.fn(),
     buildScene: vi.fn(() => null),
     renderBlobField: vi.fn(() => false),
+    createParticles: vi.fn(),
+    renderParticles: vi.fn(),
+    clearAllParticles: vi.fn(),
     animationOptions: null as null | {
       onFrame: (timestamp: number, elapsed: number) => void;
     },
@@ -91,7 +95,7 @@ vi.mock("@/composables/useAnimationLifecycle", () => ({
 
 vi.mock("@/composables/canvas/useBlobRenderer", () => ({
   useBlobRenderer: () => ({
-    activeBlobs: new Map(),
+    activeBlobs: mocks.activeBlobs,
     createBlob: mocks.createBlob,
     startBlobFadeOut: mocks.startBlobFadeOut,
     startBlobFadeOutById: mocks.startBlobFadeOutById,
@@ -107,10 +111,10 @@ vi.mock("@/composables/canvas/useBlobRenderer", () => ({
 
 vi.mock("@/composables/canvas/useParticleSystem", () => ({
   useParticleSystem: () => ({
-    createParticles: vi.fn(),
-    renderParticles: vi.fn(),
+    createParticles: mocks.createParticles,
+    renderParticles: mocks.renderParticles,
     getActiveParticleCount: vi.fn(() => 0),
-    clearAllParticles: vi.fn(),
+    clearAllParticles: mocks.clearAllParticles,
   }),
 }));
 
@@ -188,6 +192,14 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     vi.clearAllMocks();
     mocks.blobConfig.value.isEnabled = true;
     mocks.blobConfig.value.connectionMode = "web";
+    mocks.activeBlobs.clear();
+    mocks.createBlob.mockImplementation((...args: unknown[]) => {
+      const config = args[6] as { isEnabled: boolean };
+      const noteId = args[7] as string | undefined;
+      if (config.isEnabled && noteId) {
+        mocks.activeBlobs.set(noteId, { baseRadius: 50 });
+      }
+    });
     mocks.musicStore.getActiveNotes.mockReturnValue([]);
   });
 
@@ -255,8 +267,75 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "held-c4",
       "C",
       "major",
-      4
+      4,
+      "C4",
     );
+  });
+
+  it("hydrates a held note when Note Bodies is re-enabled without replaying effects", () => {
+    const activeNote = {
+      noteId: "held-c-sharp-4",
+      noteName: "C#4",
+      solfege: note,
+      solfegeIndex: -1,
+      pitchClassIndex: 1,
+      frequency: 277.18,
+      octave: 4,
+      keyboardOctave: 4,
+      mode: "major",
+      key: "C",
+    };
+    mocks.musicStore.getActiveNotes.mockReturnValue([activeNote]);
+    mocks.blobConfig.value.isEnabled = false;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    canvas.initializeCanvas();
+    expect(mocks.createBlob).not.toHaveBeenCalled();
+
+    mocks.blobConfig.value.isEnabled = true;
+    mocks.animationOptions?.onFrame(1_000, 1);
+    mocks.animationOptions?.onFrame(1_016, 1.016);
+
+    expect(mocks.createBlob).toHaveBeenCalledTimes(1);
+    expect(mocks.createBlob).toHaveBeenCalledWith(
+      note,
+      277.18,
+      0,
+      0,
+      window.innerWidth,
+      window.innerHeight,
+      mocks.blobConfig.value,
+      "held-c-sharp-4",
+      "C",
+      "major",
+      4,
+      "C#4",
+    );
+    expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
+    expect(mocks.createParticles).not.toHaveBeenCalled();
+  });
+
+  it("clears in-flight flecks immediately when Reduced Motion turns on", () => {
+    const reducedMotion = ref(false);
+    const canvas = useUnifiedCanvas(createCanvasRef(), {
+      usableRect: ref({ x: 0, y: 0, width: 800, height: 600 }),
+      reducedMotion,
+    });
+    canvas.initializeCanvas();
+
+    canvas.handleNotePlayed(note, 261.63, "first", 4, "C4", "major", "C", 0);
+    expect(mocks.createParticles).toHaveBeenCalledTimes(1);
+
+    reducedMotion.value = true;
+    reducedMotion.value = false;
+    expect(mocks.clearAllParticles).toHaveBeenCalledTimes(1);
+
+    reducedMotion.value = true;
+    canvas.handleNotePlayed(note, 293.66, "hidden", 4, "D4", "major", "C", 2);
+    expect(mocks.createParticles).toHaveBeenCalledTimes(1);
+
+    reducedMotion.value = false;
+    canvas.handleNotePlayed(note, 329.63, "resumed", 4, "E4", "major", "C", 4);
+    expect(mocks.createParticles).toHaveBeenCalledTimes(2);
   });
 
   it("maps legacy releases to chromatic analysis and solfege blob keys", () => {

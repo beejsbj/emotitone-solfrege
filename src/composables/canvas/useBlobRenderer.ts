@@ -404,6 +404,9 @@ export function useBlobRenderer() {
         currentScale = 1;
       }
 
+      // Body Strength is live presentation state. Keep the retained body in
+      // sync so held and releasing notes respond without a fresh attack.
+      blob.opacity = blobConfig.opacity;
       let currentOpacity = blob.opacity;
       let vibrationIntensity = 1;
       const glowIntensity = blobConfig.glowIntensity || 0;
@@ -422,7 +425,7 @@ export function useBlobRenderer() {
         if (!options.reducedMotion) {
           currentScale = 1 - Math.pow(scaleOutProgress, 2);
           const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
-          currentOpacity = blob.opacity * fadeMultiplier;
+          currentOpacity = blobConfig.opacity * fadeMultiplier;
           vibrationIntensity = fadeMultiplier;
         }
 

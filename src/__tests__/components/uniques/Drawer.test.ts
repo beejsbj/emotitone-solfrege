@@ -57,6 +57,27 @@ describe("Drawer continuous height contract", () => {
     await w.get('button').trigger('click');
     expect(triggerUIHaptic).toHaveBeenCalledOnce();
   });
+  it("can shield pointer input without removing keyboard resize access", async () => {
+    const w = await create({
+      dragToCollapse: false,
+      keyboardResizeStep: 10,
+      handlePointerDisabled: true,
+    });
+    const handle = w.get('button');
+
+    expect(handle.classes()).toContain('drawer__handle--pointer-disabled');
+    await handle.trigger('click');
+    await drag(w, -50);
+    expect(height(w)).toBe(320);
+
+    await handle.trigger('keydown', { key: 'ArrowUp' });
+    await flushPromises();
+    expect(height(w)).toBe(330);
+
+    await w.setProps({ handlePointerDisabled: false });
+    await handle.trigger('click');
+    expect(height(w)).toBe(120);
+  });
   it("tap keeps the persistent bars, then restores keyboard space", async () => {
     const w = await create();
     expect(height(w)).toBe(320);
@@ -224,6 +245,17 @@ describe("Drawer continuous height contract", () => {
     await w.vm.$nextTick();
     expect(height(w)).toBe(100);
   });
+  it("tracks a reactive complete-row content target", async () => {
+    const w = await create();
+    expect(height(w)).toBe(320);
+
+    await w.setProps({ initialContentHeight: 312 });
+    await flushPromises();
+
+    expect(height(w)).toBe(432);
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([312, 'target']);
+    expect(committedLayoutResize).toBe(true);
+  });
   it("restores the dragged keyboard height when the row-count floor decreases", async () => {
     const w = await create();
     await drag(w, -50);
@@ -296,6 +328,41 @@ describe("Drawer continuous height contract", () => {
     expect(unavailable.inert).toBe(true);
     w.unmount();
     expect(disconnect).toHaveBeenCalled();
+  });
+
+  it("leaves overflowing leading controls interactive while guarding the remaining deck", async () => {
+    const observe = vi.fn();
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(_callback: IntersectionObserverCallback) {}
+      observe = observe;
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    });
+    const w = mount(Drawer, {
+      props: {
+        accessibleName: 'Keyboard',
+        defaultOpen: true,
+        scroll: false,
+        minContentHeight: 100,
+        persistentOverflow: 'visible',
+      },
+      slots: {
+        'persistent-leading': '<button data-overflow-control>Previous pattern</button>',
+        persistent: '<button data-deck-control>Transport</button>',
+        default: '<button data-key tabindex="0">Do</button>',
+      },
+    });
+    mounted.push(w);
+    await flushPromises();
+
+    const overflowControl = w.get('[data-overflow-control]').element as HTMLElement;
+    const deckControl = w.get('[data-deck-control]').element as HTMLElement;
+    const key = w.get('[data-key]').element as HTMLElement;
+    expect(w.classes()).toContain('drawer--persistent-overflow-visible');
+    expect(observe).not.toHaveBeenCalledWith(overflowControl);
+    expect(observe).toHaveBeenCalledWith(deckControl);
+    expect(observe).toHaveBeenCalledWith(key);
+    expect(overflowControl.inert).toBe(false);
   });
 
   it("top drawers reopen to content size rather than remembered or dragged height", async () => {

@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="CodeStrip Bar &middot; Instrument Compound"
     :features="features"
-    caption="One continuous translucent instrument rail, with inset controls and room between actions: brass Play or Stop, an unframed dense CodeStrip, ink Backspace, and ivory Return."
+    caption="One continuous opaque instrument rail, with inset controls and room between actions: ivory Play, ink Stop and Backspace, an unframed dense CodeStrip, and ivory Return."
   >
     <template #hero>
       <div class="code-strip-bar-specimen">
@@ -55,11 +55,11 @@ const shortTokens = tokens.slice(0, 3);
 
 const features = [
   { label: "Order", value: "Play/Stop → flexible CodeStrip → Backspace → Return" },
-  { label: "Unity", value: "one shared translucent instrument-bar plane with no outline; 8px vertical / 12px horizontal inset protects the controls" },
+  { label: "Unity", value: "one shared opaque instrument-bar plane with no outline; 8px vertical / 12px horizontal inset protects the controls" },
   { label: "Rhythm", value: "8px around the flexible strip; 6px between Backspace and Return" },
   { label: "CodeStrip", value: "dense, zero-inset, unframed, and transparent inside this bar only; empty state stays compact" },
   { label: "Actions", value: "32px icon-only Button primitives; accessible names remain" },
-  { label: "Material", value: "brass Play/Stop; ink Backspace; ivory Return with Ink icon" },
+  { label: "Material", value: "ivory Play; ink Stop and Backspace; ivory Return with Ink icon" },
   { label: "Backspace", value: "removes the last recorded event; never presented as editor Undo" },
   { label: "Return", value: "typewriter carriage return for commit-and-clear; never presented as Send" },
   { label: "Boundary", value: "arrangement only; stores, playback, editing, audio, and persistence stay outside" },

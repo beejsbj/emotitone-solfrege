@@ -6,11 +6,14 @@
       'pattern-reel--dragging': dragging,
       'pattern-reel--settling': settling,
       'pattern-reel--keyboard': keyboardImmediate,
+      'pattern-reel--entry-staged': entryPhase === 'staged',
+      'pattern-reel--handle-guard': handleGuardActive,
     }"
     tabindex="0"
     role="group"
     :aria-label="resolvedLabel"
     :aria-roledescription="items.length > 1 ? 'cyclic pattern reel' : undefined"
+    :data-stage-occlusion-active="handleGuardActive ? 'true' : undefined"
     @keydown="handleKeydown"
     @wheel="handleWheel"
     @pointerdown="handlePointerDown"
@@ -25,6 +28,7 @@
         v-for="slot in renderedSlots"
         :key="slot.key"
         class="pattern-reel__slot"
+        data-stage-occlusion-part
         :data-pattern-id="slot.item.id"
         :class="[
           `pattern-reel__slot--${slot.slot}`,
@@ -67,6 +71,7 @@ import {
   onBeforeUnmount,
   ref,
   type CSSProperties,
+  watch,
 } from "vue";
 import PatternStrip from "./PatternStrip.vue";
 import type { PatternStripItem } from "./PatternStrip.vue";
@@ -101,9 +106,11 @@ const props = withDefaults(defineProps<{
   selectedId: string;
   disabled?: boolean;
   label?: string;
+  entrySignal?: number;
 }>(), {
   disabled: false,
   label: DEFAULT_REEL_LABEL,
+  entrySignal: 0,
 });
 
 const emit = defineEmits<{
@@ -112,6 +119,7 @@ const emit = defineEmits<{
   copy: [id: string];
   openStrudel: [id: string];
   rename: [id: string, name: string];
+  interactionChange: [active: boolean];
 }>();
 
 const reelRoot = ref<HTMLElement | null>(null);
@@ -122,6 +130,7 @@ const transientIndex = ref<number | null>(null);
 const revealHeld = ref(false);
 const reelRebounding = ref(false);
 const keyboardImmediate = ref(false);
+const entryPhase = ref<"idle" | "staged" | "entering">("idle");
 const input = ref<PatternReelInput>("tap");
 const liveAnnouncement = ref("");
 
@@ -146,6 +155,8 @@ let collapseTimer: ReturnType<typeof setTimeout> | undefined;
 let reboundTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressClicksUntil = 0;
 let horizontalGestureRejected = false;
+let entryFrame: number | undefined;
+let entryGeneration = 0;
 
 const selectedIndex = computed(() => {
   const index = props.items.findIndex((item) => item.id === props.selectedId);
@@ -167,6 +178,21 @@ const previewIndex = computed(() => dragging.value
   ? wrapIndex(selectedIndex.value + Math.round(dragProgress.value))
   : displayIndex.value);
 const previewItem = computed(() => props.items[previewIndex.value]);
+const handleGuardActive = computed(() => (
+  dragging.value
+  || settling.value
+  || transientIndex.value !== null
+  || revealHeld.value
+  || reelRebounding.value
+  || keyboardImmediate.value
+  || entryPhase.value !== "idle"
+));
+
+watch(
+  handleGuardActive,
+  (active) => emit("interactionChange", active),
+  { flush: "sync", immediate: true },
+);
 
 function wrapIndex(index: number) {
   if (!props.items.length) return 0;
@@ -287,7 +313,8 @@ function isSlotUnavailable(slot: number, id: string) {
 }
 
 function slotStyle(slot: number, id: string): CSSProperties {
-  const position = interpolatedPosition(slot - dragProgress.value);
+  const entryOffset = entryPhase.value === "staged" ? 1 : 0;
+  const position = interpolatedPosition(slot - dragProgress.value + entryOffset);
   return {
     "--slot-y": `${position.y}px`,
     "--slot-scale": String(position.scale),
@@ -385,7 +412,17 @@ function handleFocusOut(event: FocusEvent) {
   scheduleCollapse(WHEEL_OPEN_HOLD_MS);
 }
 
+function cancelEntryAnimation() {
+  entryGeneration += 1;
+  if (entryFrame !== undefined) {
+    cancelAnimationFrame(entryFrame);
+    entryFrame = undefined;
+  }
+  entryPhase.value = "idle";
+}
+
 function cancelPendingInteraction(preserveReveal = false) {
+  cancelEntryAnimation();
   stopPendingPointerWatch();
   clearTimeout(wheelTimer);
   clearTimeout(settleTimer);
@@ -412,6 +449,43 @@ function cancelPendingInteraction(preserveReveal = false) {
   pointerStartedRevealed = false;
   horizontalGestureRejected = false;
 }
+
+function stageSelectedEntry() {
+  cancelPendingInteraction();
+  if (prefersReducedMotion()) return;
+
+  entryPhase.value = "staged";
+  settling.value = true;
+  const generation = entryGeneration;
+  void nextTick(() => {
+    if (generation !== entryGeneration || entryPhase.value !== "staged") return;
+    entryFrame = requestAnimationFrame(() => {
+      if (generation !== entryGeneration || entryPhase.value !== "staged") {
+        entryFrame = undefined;
+        return;
+      }
+      entryFrame = requestAnimationFrame(() => {
+        entryFrame = undefined;
+        if (generation !== entryGeneration || entryPhase.value !== "staged") return;
+
+        entryPhase.value = "entering";
+        settleTimer = setTimeout(() => {
+          entryPhase.value = "idle";
+          settling.value = false;
+        }, WHEEL_SETTLE_DURATION_MS);
+      });
+    });
+  });
+}
+
+watch(
+  () => props.entrySignal,
+  (entrySignal, previousEntrySignal) => {
+    if (entrySignal === previousEntrySignal) return;
+    stageSelectedEntry();
+  },
+  { flush: "sync" },
+);
 
 function prepareAnimatedCommit() {
   const closesRevealedWheel = revealHeld.value && !prefersReducedMotion();
@@ -461,6 +535,15 @@ function handleDelete(id: string) {
   const shouldRestoreFocus = focusedSlot?.dataset.patternId === id
     && Boolean(reelRoot.value?.contains(focusedSlot));
   revealWheelTemporarily();
+  const deletedIndex = props.items.findIndex((item) => item.id === id);
+  const deletedItem = props.items[deletedIndex];
+  if (
+    deletedItem?.deleteArmed
+    && id === props.selectedId
+    && props.items.length > 1
+  ) {
+    commitIndex(deletedIndex - 1, "tap");
+  }
   emit("delete", id);
   if (!shouldRestoreFocus) return;
 
@@ -687,6 +770,7 @@ function handleKeydown(event: KeyboardEvent) {
 
 onBeforeUnmount(() => {
   cancelPendingInteraction();
+  emit("interactionChange", false);
 });
 </script>
 
@@ -706,7 +790,7 @@ onBeforeUnmount(() => {
     1
   );
   --selected-height: 51.2px;
-  --reel-height: 164.8px;
+  --reel-height: var(--selected-height);
 
   position: relative;
   display: grid;
@@ -714,6 +798,10 @@ onBeforeUnmount(() => {
   min-width: 0;
   background: transparent;
   outline: none;
+}
+
+.pattern-reel--handle-guard {
+  z-index: 3;
 }
 
 .pattern-reel:focus-visible .pattern-reel__slot--active :deep(.pattern-strip) {
@@ -731,7 +819,7 @@ onBeforeUnmount(() => {
   z-index: 1;
   height: var(--reel-height);
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   touch-action: pan-x;
   user-select: none;
 }
@@ -761,7 +849,8 @@ onBeforeUnmount(() => {
 }
 
 .pattern-reel--dragging .pattern-reel__slot,
-.pattern-reel--keyboard .pattern-reel__slot {
+.pattern-reel--keyboard .pattern-reel__slot,
+.pattern-reel--entry-staged .pattern-reel__slot {
   transition: none;
 }
 
@@ -788,32 +877,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-@media (max-height: 760px) {
-  .pattern-reel {
-    --reel-height: 148.8px;
-  }
-
-  .pattern-reel__slot--depth-3:not(.pattern-reel__slot--active) {
-    visibility: hidden;
-  }
-}
-
-@media (max-height: 660px) {
-  .pattern-reel {
-    --reel-height: 118.4px;
-  }
-
-  .pattern-reel__slot--depth-2:not(.pattern-reel__slot--active) {
-    visibility: hidden;
-  }
-}
-
-@media (max-height: 560px) {
-  .pattern-reel {
-    --reel-height: 97.6px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .pattern-reel__slot {
     transition: none;
@@ -826,6 +889,7 @@ onBeforeUnmount(() => {
     opacity: 1;
   }
 
+  .pattern-reel--entry-staged .pattern-reel__slot--active,
   .pattern-reel__slot--1:not(.pattern-reel__slot--active) {
     opacity: 0;
   }

@@ -108,11 +108,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, provide } from "vue";
 import Chord from "@/components/compounds/Chord.vue";
 import type { ChordMember } from "@/components/compounds/Chord.vue";
 import Note from "@/components/primatives/Note.vue";
 import type { NoteLabel } from "@/components/primatives/Note.vue";
+import {
+  noteColorResolverKey,
+  type NoteColorResolver,
+} from "@/components/primatives/noteColorContext";
 import type {
   CodeStripChordToken,
   CodeStripDensity,
@@ -133,6 +137,7 @@ const props = withDefaults(
     showChevron?: boolean;
     ariaLabel?: string;
     embedded?: boolean;
+    colorResolver?: NoteColorResolver;
   }>(),
   {
     density: "default",
@@ -145,6 +150,10 @@ const props = withDefaults(
     embedded: false,
   },
 );
+
+if (props.colorResolver) {
+  provide(noteColorResolverKey, props.colorResolver);
+}
 
 const stripClasses = computed(() => [
   "code-strip-sequence",

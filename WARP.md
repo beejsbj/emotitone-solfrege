@@ -79,7 +79,7 @@ bun run test:e2e
 **Main Application Components:**
 - `App.vue`: Root with loading state management
 - `UnifiedVisualEffects.vue`: Canvas-based visual effects coordination
-- `DrawerKeyboard.vue`: DOM-based interactive solfège keyboard interface (primary UI)
+- `PerformanceDeck.vue`: bottom Drawer performance composition and interactive solfège keyboard interface (primary UI)
  UI)
   - `keyboard/KeyboardActionBar.vue`: Control knobs for octave, rows, key/mode, styling
   - `keyboard/KeyboardKey.vue`: Individual solfège key buttons with touch/haptic support

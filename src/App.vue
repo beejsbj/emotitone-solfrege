@@ -16,6 +16,7 @@ const styleGuidePages = {
   "/style-guide/config-menu": "config-menu",
   "/style-guide/pattern-reel": "pattern-reel",
   "/style-guide/stage": "stage",
+  "/style-guide/performance-deck": "performance-deck",
 } as const;
 const isStyleGuideRoute = Object.prototype.hasOwnProperty.call(styleGuidePages, pathname);
 const styleGuidePage = isStyleGuideRoute

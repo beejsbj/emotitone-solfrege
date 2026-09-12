@@ -4,6 +4,7 @@ import { createTestWrapper } from '../../helpers/test-utils'
 import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
 import mainAppSource from '@/MainApp.vue?raw'
+import mainSource from '@/main.ts?raw'
 
 const appLoadingState = vi.hoisted(() => ({
   isLoading: false,
@@ -52,8 +53,8 @@ vi.mock('@/components/TooltipRenderer.vue', () => ({
   },
 }))
 
-vi.mock('@/components/DrawerKeyboard.vue', () => ({
-  default: { template: '<div data-testid="drawer-keyboard">Keyboard</div>' },
+vi.mock('@/components/PerformanceDeck.vue', () => ({
+  default: { template: '<div data-testid="performance-deck">Keyboard</div>' },
 }))
 
 vi.mock('@/composables/useAppLoading', () => ({
@@ -91,7 +92,7 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
     expect(wrapper.find('.relative.z-50.min-h-screen.flex.flex-col').exists()).toBe(true)
     expect(useMidiControls).toHaveBeenCalledTimes(1)
@@ -107,7 +108,7 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="unified-visual-effects"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="drawer-keyboard"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
   })
 
@@ -128,6 +129,7 @@ describe('App.vue', () => {
     expect(appSource).toContain('import("./style-guide/StyleGuide.vue")')
     expect(appSource).toContain('import("./style-guide/guide-defaults.css")')
     expect(appSource).toContain('"/style-guide/config-menu": "config-menu"')
+    expect(appSource).toContain('"/style-guide/performance-deck": "performance-deck"')
     expect(appSource).not.toContain('TabsLab')
     expect(appSource).not.toContain('InstrumentPickerLab')
     expect(appSource).not.toContain('TabsPage')
@@ -141,6 +143,15 @@ describe('App.vue', () => {
       .toBeGreaterThan(appSource.indexOf('} else {'))
     expect(appSource).not.toContain('MarksBeatParticlesPage')
     expect(appSource).not.toContain('isRoughPage')
+  })
+
+  it('keeps the isolated PerformanceDeck route out of page-edition persistence', () => {
+    expect(mainSource).toContain(
+      'const isPersistenceFreeDesignRoute = pathname === "/style-guide/performance-deck"',
+    )
+    expect(mainSource).toMatch(
+      /if \(!isPersistenceFreeDesignRoute\) \{\s*beginTabsPageEdition\(\);\s*\}/,
+    )
   })
 
   it('replaces the production popup mount with canvas-owned harmonic geometry', () => {

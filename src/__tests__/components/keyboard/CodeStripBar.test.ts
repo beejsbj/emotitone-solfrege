@@ -76,19 +76,16 @@ describe("CodeStripBar.vue", () => {
     expect(codeStripSource).toMatch(
       /\.code-strip\s*{[\s\S]*?background:\s*var\(--ink-2\);/,
     );
-    expect(designSystemSource).toMatch(/--instrument-bar-surface:\s*rgba\(0, 0, 0, 0\.80\);/);
+    expect(designSystemSource).toMatch(/--instrument-bar-surface:\s*var\(--ink\);/);
+    expect(designSystemSource).not.toContain("--instrument-bar-backdrop");
     expect(codeStripBarSource).toMatch(
       /\.code-strip-bar\s*{[^}]*background-color:\s*var\(--instrument-bar-surface\);/,
     );
     expect(controlBarSource).toMatch(
       /\.control-bar\s*{[^}]*background-color:\s*var\(--instrument-bar-surface\);/,
     );
-    expect(codeStripBarSource).toContain(
-      "backdrop-filter: var(--instrument-bar-backdrop)",
-    );
-    expect(controlBarSource).toContain(
-      "backdrop-filter: var(--instrument-bar-backdrop)",
-    );
+    expect(codeStripBarSource).not.toContain("backdrop-filter");
+    expect(controlBarSource).not.toContain("backdrop-filter");
   });
 
   it("uses ivory for Play, ink for Backspace, and ivory for Return", () => {

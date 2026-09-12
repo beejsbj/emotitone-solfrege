@@ -4,6 +4,8 @@ import { showMiniLocations } from "@strudel/codemirror";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   codeStripStrudelExtension,
+  codeStripStrudelExtensionWithPresentation,
+  type CodeStripPresentation,
   parseCodeStripEvents,
   setCodeStripPlaying,
   updateCodeStripPresentation,
@@ -67,8 +69,8 @@ vi.mock("@/services/musicColor", () => ({
     ({ C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 })[pitchClass],
 }));
 
-vi.mock("@/composables/useMusicColor", () => ({
-  useMusicColor: () => ({
+const colorMocks = vi.hoisted(() => ({
+  useMusicColor: vi.fn(() => ({
     getKeyBackground: (scaleIndex: number) => ({
       background: `color-${scaleIndex}`,
       primaryColor: `color-${scaleIndex}`,
@@ -77,7 +79,11 @@ vi.mock("@/composables/useMusicColor", () => ({
       background: `color-${pitchClassIndex}`,
       primaryColor: `color-${pitchClassIndex}`,
     }),
-  }),
+  })),
+}));
+
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: colorMocks.useMusicColor,
 }));
 
 const source = "`< [ C4@0.25 ~@0.25 {E4, G4}@0.5 ] >`.as(\"note\").sound(\"sine\")";
@@ -135,17 +141,31 @@ describe("CodeStrip Strudel source decorations", () => {
   afterEach(() => {
     mountedViews.splice(0).forEach((view) => view.destroy());
     document.body.innerHTML = "";
+    colorMocks.useMusicColor.mockReset();
+    colorMocks.useMusicColor.mockImplementation(() => ({
+      getKeyBackground: (scaleIndex: number) => ({
+        background: `color-${scaleIndex}`,
+        primaryColor: `color-${scaleIndex}`,
+      }),
+      getKeyBackgroundByPitchClass: (pitchClassIndex: number) => ({
+        background: `color-${pitchClassIndex}`,
+        primaryColor: `color-${pitchClassIndex}`,
+      }),
+    }));
   });
 
-  function createView() {
+  function createView(
+    extensions = codeStripStrudelExtension,
+    presentation: CodeStripPresentation = { tokens, durationMode: "stacked" },
+  ) {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const view = new EditorView({
-      state: EditorState.create({ doc: source, extensions: [codeStripStrudelExtension] }),
+      state: EditorState.create({ doc: source, extensions: [extensions] }),
       parent: host,
     });
     mountedViews.push(view);
-    updateCodeStripPresentation(view, { tokens, durationMode: "stacked" });
+    updateCodeStripPresentation(view, presentation);
     return { host, view, events: parseCodeStripEvents(view.state.doc) };
   }
 
@@ -162,6 +182,32 @@ describe("CodeStrip Strudel source decorations", () => {
     expect(progress(host, ".code-strip__note")).toBe("1");
     expect(host.querySelector<HTMLElement>(".code-strip__rest")?.style
       .getPropertyValue("--code-strip-progress")).toBe("1");
+  });
+
+  it("injects a controlled color resolver into real Note and Chord descendants", async () => {
+    colorMocks.useMusicColor.mockImplementation(() => {
+      throw new Error("controlled CodeStrip descendants must not construct useMusicColor");
+    });
+    const colorResolver = {
+      getKeyBackground: (scaleIndex: number) => ({
+        background: `controlled-${scaleIndex}`,
+        primaryColor: `controlled-${scaleIndex}`,
+      }),
+      getKeyBackgroundByPitchClass: (pitchClassIndex: number) => ({
+        background: `controlled-${pitchClassIndex}`,
+        primaryColor: `controlled-${pitchClassIndex}`,
+      }),
+    };
+    const { host, view } = createView(
+      codeStripStrudelExtensionWithPresentation({ colorResolver }),
+      { tokens, durationMode: "stacked", colorResolver },
+    );
+    await Promise.resolve();
+
+    expect(colorMocks.useMusicColor).not.toHaveBeenCalled();
+    expect(host.querySelectorAll(".note").length).toBeGreaterThan(1);
+    expect(host.querySelector<HTMLElement>(".note")?.style
+      .getPropertyValue("--note-surface")).toBe("controlled-0");
   });
 
   it("keeps an octave-shifted relative source attached to its supplied token", async () => {

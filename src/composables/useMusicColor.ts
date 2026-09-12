@@ -3,12 +3,14 @@ import { CHROMATIC_NOTES } from "@/data";
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import { useMusicColorProvider } from "@/composables/useMusicColorConfig";
 import {
+  resolveMonochromeKeySurface,
+  resolveMusicColorKeySurface,
+} from "@/services/keySurfaceColor";
+import {
   musicColorRelationships,
-  musicColorValueToCss,
   resolveMusicColorSampleByPitchClass,
   resolveMusicColorSampleByScaleIndex,
   resolveMusicColorsByNoteName,
-  tuneMusicColorValue,
 } from "@/services/musicColor";
 import type {
   ChromaticNote,
@@ -205,22 +207,10 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
     resolved: ReturnType<typeof resolveMusicColorSampleByScaleIndex>,
     brightness: number,
     saturation: number,
-  ) => {
-    if (!resolved) {
-      return {
-        background: FALLBACK_NOTE_COLORS.primary,
-        primaryColor: FALLBACK_NOTE_COLORS.primary,
-      };
-    }
-    const adjusted = musicColorValueToCss(tuneMusicColorValue(
-      resolved.sample.primary,
-      {
-        lightnessMultiplier: brightness,
-        chromaMultiplier: saturation,
-      },
-    ));
-    return { background: adjusted, primaryColor: adjusted };
-  };
+  ) => resolveMusicColorKeySurface(resolved?.sample.primary, {
+    keyBrightness: brightness,
+    keySaturation: saturation,
+  });
 
   const getKeyBackground = (
     scaleIndex: number,
@@ -238,9 +228,10 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
     const brightness = config.keyBrightness ?? 1;
     const saturation = config.keySaturation ?? 1;
     if (surfaceStyle === "monochrome") {
-      const lightness = Math.min(100, Math.max(0, (isAccidental ? 100 : 10) * brightness));
-      const color = `hsla(0, 0%, ${lightness}%, 1)`;
-      return { background: color, primaryColor: color };
+      return resolveMonochromeKeySurface(isAccidental, {
+        keyBrightness: brightness,
+        keySaturation: saturation,
+      });
     }
 
     const resolved = resolveMusicColorSampleByScaleIndex(

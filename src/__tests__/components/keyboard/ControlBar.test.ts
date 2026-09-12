@@ -7,7 +7,7 @@ import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
   default: {
     name: "Knob",
-    props: ["modelValue", "type", "options", "label", "min", "max", "step", "changeSignal", "uiBeat"],
+    props: ["modelValue", "type", "options", "label", "min", "max", "step", "changeSignal", "haptic", "uiBeat"],
     emits: ["update:modelValue"],
     template: '<div data-testid="knob" :data-label="label" />',
   },
@@ -16,7 +16,7 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
 vi.mock("@/components/uniques/Joystick/index.vue", () => ({
   default: {
     name: "Joystick",
-    props: ["modelValue", "label", "visual"],
+    props: ["modelValue", "label", "visual", "haptic"],
     emits: ["update:modelValue", "effectiveChange"],
     template: '<div data-testid="joystick" :data-label="label" />',
   },
@@ -66,6 +66,16 @@ describe("ControlBar.vue", () => {
     expect(wrapper.emitted("update:rows")).toBeUndefined();
     expect(wrapper.emitted("update:harmonyValue")?.[0]).toEqual(["jazzy7"]);
     expect(wrapper.emitted("harmonyEffective")?.[0]).toEqual(["sus4"]);
+    wrapper.unmount();
+  });
+
+  it("forwards explicit haptic suppression to every control", () => {
+    const wrapper = mount(ControlBar, { props: { haptic: false } });
+
+    expect(wrapper.findAllComponents({ name: "Knob" }).every(
+      (knob) => knob.props("haptic") === false,
+    )).toBe(true);
+    expect(wrapper.getComponent({ name: "Joystick" }).props("haptic")).toBe(false);
     wrapper.unmount();
   });
 

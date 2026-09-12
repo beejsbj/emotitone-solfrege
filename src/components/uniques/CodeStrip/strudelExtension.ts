@@ -1,4 +1,4 @@
-import type { SelectionRange, Text } from "@codemirror/state";
+import { Facet, type SelectionRange, type Text } from "@codemirror/state";
 import {
   RangeSetBuilder,
   StateEffect,
@@ -23,6 +23,7 @@ import {
 } from "@/data";
 import { getScaleDegreeIndexForPitchClass } from "@/services/musicColor";
 import type { ChordMember } from "@/components/compounds/Chord.vue";
+import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import Sequence from "./Sequence.vue";
 import type {
@@ -86,6 +87,7 @@ export interface CodeStripPresentation {
   keyBrightness?: number;
   keySaturation?: number;
   appContext?: AppContext;
+  colorResolver?: NoteColorResolver;
 }
 
 type PlaybackState = {
@@ -120,6 +122,18 @@ const defaultPresentation: CodeStripPresentation = {
   keyBrightness: 1,
   keySaturation: 1,
 };
+
+const initialPresentation = Facet.define<
+  Partial<CodeStripPresentation>,
+  CodeStripPresentation
+>({
+  combine(values) {
+    return values.reduce<CodeStripPresentation>(
+      (presentation, value) => ({ ...presentation, ...value }),
+      { ...defaultPresentation },
+    );
+  },
+});
 
 const idlePlayback = (): PlaybackState => ({
   atTime: 0,
@@ -164,8 +178,8 @@ const transportPlaying = StateField.define<boolean>({
 });
 
 const presentationState = StateField.define<CodeStripPresentation>({
-  create() {
-    return defaultPresentation;
+  create(state) {
+    return state.facet(initialPresentation);
   },
   update(presentation, transaction) {
     for (const effect of transaction.effects) {
@@ -327,6 +341,12 @@ export const codeStripStrudelExtension = [
   codeStripEventDecorations,
 ];
 
+export function codeStripStrudelExtensionWithPresentation(
+  presentation: Partial<CodeStripPresentation>,
+) {
+  return [initialPresentation.of(presentation), codeStripStrudelExtension];
+}
+
 class CodeStripEventWidget extends WidgetType {
   constructor(
     private token: CodeStripToken,
@@ -343,6 +363,8 @@ class CodeStripEventWidget extends WidgetType {
       this.presentation.durationMode === other.presentation.durationMode &&
       this.presentation.density === other.presentation.density &&
       this.presentation.timeSignature === other.presentation.timeSignature &&
+      this.presentation.colorResolver === other.presentation.colorResolver &&
+      this.presentation.appContext === other.presentation.appContext &&
       JSON.stringify(this.token) === JSON.stringify(other.token);
   }
 
@@ -380,6 +402,7 @@ class CodeStripEventWidget extends WidgetType {
       showChevron: false,
       embedded: true,
       ariaLabel: eventAccessibleName(this.token),
+      colorResolver: this.presentation.colorResolver,
     });
     if (this.presentation.appContext) vnode.appContext = this.presentation.appContext;
     render(vnode, root);

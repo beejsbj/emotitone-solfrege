@@ -111,7 +111,6 @@ const emit = defineEmits<{
 }>();
 
 const keyRef = ref<HTMLButtonElement | null>(null);
-
 const {
   isLocallyPressed,
   handleMouseDown,

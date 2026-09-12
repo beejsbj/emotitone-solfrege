@@ -40,6 +40,7 @@ describe("ChordKey", () => {
     });
     expect(wrapper.get(".chord-key__face").attributes("aria-hidden")).toBe("true");
     expect(chordKeySource).toContain("font-size: clamp(12px, 34cqi, 14px)");
+    expect(chordKeySource).not.toContain("useUIBeatScale");
   });
 
   it("tracks multiple contacts independently and releases them on unmount", async () => {

@@ -330,6 +330,26 @@ export class UIBeatClock {
     return true;
   }
 
+  retime(generation: number, bpm: number): boolean {
+    if (
+      generation !== this.state.generation ||
+      this.state.status === "idle" ||
+      !this.state.mappingAvailable ||
+      !this.state.meter ||
+      !Number.isFinite(bpm) ||
+      bpm <= 0
+    ) {
+      return false;
+    }
+
+    this.state = {
+      ...this.state,
+      bpm,
+    };
+    this.notify(true);
+    return true;
+  }
+
   suspend(generation: number): boolean {
     if (
       generation !== this.state.generation ||

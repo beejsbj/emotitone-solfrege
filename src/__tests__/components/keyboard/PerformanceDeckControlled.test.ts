@@ -26,6 +26,9 @@ vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: mocks.useVisualConfigStore,
 }));
 vi.mock("@/composables/useCodeStripStrudel", () => ({
+  hasPlayableContent: (code: string) => Boolean(
+    code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").trim(),
+  ),
   useCodeStripStrudel: mocks.useCodeStripStrudel,
 }));
 vi.mock("@/composables/useHummingCapture", () => ({
@@ -177,5 +180,38 @@ describe("PerformanceDeck controlled usage", () => {
     expect(wrapper.emitted("update:bpm")?.[0]).toEqual([96]);
     expect(drawer.props("handlePointerDisabled")).toBe(true);
     wrapper.unmount();
+  });
+
+  it("rejects comment-only source and keeps Stop available during controlled warmup", async () => {
+    const wrapper = mount(PerformanceDeck, {
+      props: {
+        usage: "controlled",
+        codeStripSource: "// Record a pattern",
+      },
+      global: {
+        stubs: {
+          PatternReel: PatternReelStub,
+          CodeStripBar: CodeStripBarStub,
+          ControlBar: ControlBarStub,
+          Keyboard: KeyboardStub,
+          PatternList: PatternListStub,
+          HummingCaptureTransport: HummingStub,
+        },
+      },
+    });
+    const bar = wrapper.getComponent(CodeStripBarStub);
+
+    expect(bar.props("playDisabled")).toBe(true);
+    bar.vm.$emit("togglePlayback");
+    expect(wrapper.emitted("togglePlayback")).toBeUndefined();
+
+    await wrapper.setProps({
+      codeStripSource: 'note("c4")',
+      isPlaying: true,
+      warming: true,
+    });
+    expect(bar.props("playDisabled")).toBe(false);
+    bar.vm.$emit("togglePlayback");
+    expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
   });
 });

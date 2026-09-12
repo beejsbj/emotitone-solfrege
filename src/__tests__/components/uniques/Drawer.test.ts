@@ -245,6 +245,17 @@ describe("Drawer continuous height contract", () => {
     await w.vm.$nextTick();
     expect(height(w)).toBe(100);
   });
+  it("tracks a reactive complete-row content target", async () => {
+    const w = await create();
+    expect(height(w)).toBe(320);
+
+    await w.setProps({ initialContentHeight: 312 });
+    await flushPromises();
+
+    expect(height(w)).toBe(432);
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([312]);
+    expect(committedLayoutResize).toBe(true);
+  });
   it("restores the dragged keyboard height when the row-count floor decreases", async () => {
     const w = await create();
     await drag(w, -50);
@@ -319,7 +330,7 @@ describe("Drawer continuous height contract", () => {
     expect(disconnect).toHaveBeenCalled();
   });
 
-  it("leaves visibly overflowing persistent controls interactive while still guarding content", async () => {
+  it("leaves overflowing leading controls interactive while guarding the remaining deck", async () => {
     const observe = vi.fn();
     vi.stubGlobal('IntersectionObserver', class {
       constructor(_callback: IntersectionObserverCallback) {}
@@ -336,7 +347,8 @@ describe("Drawer continuous height contract", () => {
         persistentOverflow: 'visible',
       },
       slots: {
-        persistent: '<button data-overflow-control>Previous pattern</button>',
+        'persistent-leading': '<button data-overflow-control>Previous pattern</button>',
+        persistent: '<button data-deck-control>Transport</button>',
         default: '<button data-key tabindex="0">Do</button>',
       },
     });
@@ -344,9 +356,11 @@ describe("Drawer continuous height contract", () => {
     await flushPromises();
 
     const overflowControl = w.get('[data-overflow-control]').element as HTMLElement;
+    const deckControl = w.get('[data-deck-control]').element as HTMLElement;
     const key = w.get('[data-key]').element as HTMLElement;
     expect(w.classes()).toContain('drawer--persistent-overflow-visible');
     expect(observe).not.toHaveBeenCalledWith(overflowControl);
+    expect(observe).toHaveBeenCalledWith(deckControl);
     expect(observe).toHaveBeenCalledWith(key);
     expect(overflowControl.inert).toBe(false);
   });

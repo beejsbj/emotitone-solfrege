@@ -86,6 +86,7 @@ vi.mock("@/stores/patterns", () => ({
 }));
 
 vi.mock("@/composables/useCodeStripStrudel", () => ({
+  hasPlayableContent: (code: string) => Boolean(code.trim()),
   useCodeStripStrudel: () => ({
     toggle: mocks.toggle,
     stop: mocks.stop,

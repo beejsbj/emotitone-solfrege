@@ -14,13 +14,6 @@
     <section class="sink-section" aria-labelledby="tokens-heading">
       <h2 id="tokens-heading">Token Collections</h2>
       <div class="sink-stack">
-        <article id="composition-performance-deck" class="sink-frame">
-          <div class="sink-frame__source">composition-performance-deck</div>
-          <a class="sink-frame__focused-link" href="/style-guide/performance-deck">
-            <strong>PerformanceDeck</strong>
-            <span>Open the isolated, real-source composition</span>
-          </a>
-        </article>
         <article class="sink-frame">
           <div class="sink-frame__source">token-ui-colors.html</div>
           <TokenUiColors />
@@ -175,6 +168,13 @@
     <section class="sink-section" aria-labelledby="compositions-heading">
       <h2 id="compositions-heading">Compositions</h2>
       <div class="sink-stack">
+        <article id="composition-performance-deck" class="sink-frame">
+          <div class="sink-frame__source">composition-performance-deck</div>
+          <a class="sink-frame__focused-link" href="/style-guide/performance-deck">
+            <strong>PerformanceDeck</strong>
+            <span>Open the isolated, real-source composition</span>
+          </a>
+        </article>
         <article class="sink-frame">
           <div class="sink-frame__source">composition-loading-screen</div>
           <CompositionLoadingScreen />

@@ -103,6 +103,30 @@ const initialTokens: CodeStripToken[] = [
   { type: "rest", duration: "@0.125", progress: .4 },
   { type: "note", note: "sol", text: "Sol", duration: "@0.5", progress: 0 },
 ];
+const afterRainTokens: CodeStripToken[] = [
+  { type: "note", note: "do", text: "Do", rawPitch: "F#4", duration: "@0.25", progress: 1 },
+  { type: "note", note: "mi", text: "Mi", rawPitch: "A4", duration: "@0.125", progress: .7 },
+  { type: "note", note: "sol", text: "Sol", rawPitch: "C#5", duration: "@0.375", progress: .3 },
+];
+const lateTrainTokens: CodeStripToken[] = [
+  { type: "note", note: "do", text: "Do", rawPitch: "D3", duration: "@0.5", progress: 1 },
+  { type: "note", note: "mi", text: "Mi", rawPitch: "F3", duration: "@0.25", progress: .55 },
+  { type: "note", note: "sol", text: "Sol", rawPitch: "A3", duration: "@0.25", progress: .15 },
+];
+
+interface GuidePattern extends PatternReelItem {
+  codeStripTokens: CodeStripToken[];
+  musicKey: ChromaticNote;
+  mode: MusicalMode;
+  bpm: number;
+  octave: number;
+}
+
+function cloneTokens(tokens: CodeStripToken[]) {
+  return tokens.map((token) => token.type === "chord"
+    ? { ...token, members: token.members.map((member) => ({ ...member })) }
+    : { ...token });
+}
 
 function staticPitchColor(pitchClassIndex: number, mode: MusicalMode, key: ChromaticNote, octave: number) {
   return staticNoteColorResolver.getKeyBackgroundByPitchClass(
@@ -127,7 +151,7 @@ function timeline(
   }));
 }
 
-const patterns = ref<PatternReelItem[]>([
+const patterns = ref<GuidePattern[]>([
   {
     id: "after-rain",
     name: "After Rain",
@@ -141,6 +165,11 @@ const patterns = ref<PatternReelItem[]>([
     canOpenStrudel: false,
     canRename: true,
     openUnavailableLabel: "Unavailable in isolated specimen",
+    codeStripTokens: cloneTokens(afterRainTokens),
+    musicKey: "F#",
+    mode: "dorian",
+    bpm: 92,
+    octave: 4,
   },
   {
     id: "late-train",
@@ -155,6 +184,11 @@ const patterns = ref<PatternReelItem[]>([
     canOpenStrudel: false,
     canRename: true,
     openUnavailableLabel: "Unavailable in isolated specimen",
+    codeStripTokens: cloneTokens(lateTrainTokens),
+    musicKey: "D",
+    mode: "minor",
+    bpm: 108,
+    octave: 3,
   },
   {
     id: "current",
@@ -170,9 +204,15 @@ const patterns = ref<PatternReelItem[]>([
     canRename: false,
     deleteUnavailableLabel: "Edit the current take in CodeStrip",
     openUnavailableLabel: "Unavailable in isolated specimen",
+    codeStripTokens: cloneTokens(initialTokens),
+    musicKey: "C",
+    mode: "major",
+    bpm: 120,
+    octave: 4,
   },
 ]);
-const currentBarTape = patterns.value.find((pattern) => pattern.id === "current")?.barTape ?? [];
+const currentBarTape = (patterns.value.find((pattern) => pattern.id === "current")?.barTape ?? [])
+  .map((segment) => ({ ...segment }));
 
 const drawerOpen = ref(true);
 const selectedPatternId = ref("current");
@@ -219,9 +259,18 @@ function patternName(id: string) {
 }
 
 function resetCode() {
-  codeStripTokens.value = initialTokens.map((token) => ({ ...token }));
+  codeStripTokens.value = cloneTokens(initialTokens);
   const current = patterns.value.find((pattern) => pattern.id === "current");
-  if (current) current.barTape = currentBarTape;
+  if (current) {
+    current.barTape = currentBarTape.map((segment) => ({ ...segment }));
+    current.codeStripTokens = cloneTokens(initialTokens);
+    current.canCopy = true;
+  }
+  selectedPatternId.value = "current";
+  keyValue.value = "C";
+  modeValue.value = "major";
+  bpm.value = 120;
+  octave.value = 4;
   isPlaying.value = false;
   lastAction.value = "Code restored";
 }
@@ -233,6 +282,12 @@ function togglePlayback() {
 
 function removeLastEvent() {
   codeStripTokens.value = codeStripTokens.value.slice(0, -1);
+  const current = patterns.value.find((pattern) => pattern.id === "current");
+  if (current && selectedPatternId.value === current.id) {
+    current.codeStripTokens = cloneTokens(codeStripTokens.value);
+    current.canCopy = codeStripTokens.value.length > 0;
+    if (!codeStripTokens.value.length) current.barTape = [];
+  }
   if (!codeStripTokens.value.length) isPlaying.value = false;
   lastAction.value = "Deleted last CodeStrip event";
 }
@@ -240,15 +295,29 @@ function removeLastEvent() {
 function commitCode() {
   const current = patterns.value.find((pattern) => pattern.id === "current");
   if (current && codeStripTokens.value.length) {
+    const selected = patterns.value.find((pattern) => pattern.id === selectedPatternId.value);
+    const takeSource = selected ?? current;
     const takeNumber = patternEntrySignal.value + 1;
     patterns.value.splice(Math.max(0, patterns.value.length - 1), 0, {
-      ...current,
+      ...takeSource,
       id: `take-${takeNumber}`,
       name: `Take ${takeNumber}`,
+      codeStripTokens: cloneTokens(codeStripTokens.value),
+      musicKey: keyValue.value,
+      mode: modeValue.value,
+      bpm: bpm.value,
+      octave: octave.value,
       canDelete: true,
+      canCopy: true,
       canRename: true,
+      copied: false,
+      deleteArmed: false,
     });
+  }
+  if (current) {
     current.barTape = [];
+    current.codeStripTokens = [];
+    current.canCopy = false;
   }
   codeStripTokens.value = [];
   isPlaying.value = false;
@@ -258,7 +327,15 @@ function commitCode() {
 }
 
 function selectPattern(id: string, input: PatternReelInput) {
+  const pattern = patterns.value.find((candidate) => candidate.id === id);
+  if (!pattern) return;
   selectedPatternId.value = id;
+  codeStripTokens.value = cloneTokens(pattern.codeStripTokens);
+  keyValue.value = pattern.musicKey;
+  modeValue.value = pattern.mode;
+  bpm.value = pattern.bpm;
+  octave.value = pattern.octave;
+  isPlaying.value = false;
   lastAction.value = `Selected ${patternName(id)} · ${input}`;
 }
 
@@ -279,9 +356,10 @@ function deletePattern(id: string) {
   }
 
   clearTimeout(deleteArmTimer);
+  const predecessor = patterns.value[(index - 1 + patterns.value.length) % patterns.value.length];
   const [deleted] = patterns.value.splice(index, 1);
-  if (selectedPatternId.value === id) {
-    selectedPatternId.value = patterns.value[patterns.value.length - 1]?.id ?? "";
+  if (selectedPatternId.value === id && predecessor && predecessor.id !== id) {
+    selectPattern(predecessor.id, "tap");
   }
   lastAction.value = `Deleted ${deleted.name}`;
 }
@@ -298,6 +376,8 @@ function copyPattern(id: string) {
     canDelete: true,
     canRename: true,
     copied: true,
+    deleteArmed: false,
+    codeStripTokens: cloneTokens(source.codeStripTokens),
   });
   lastAction.value = `Copied ${source.name}`;
 }

@@ -950,6 +950,9 @@ describe("PatternReel", () => {
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.pattern-reel__slot\s*{[\s\S]*transition: none;/,
     );
     expect(patternReelSource).toContain("@media (forced-colors: active)");
+    expect(patternReelSource).toMatch(
+      /@media \(forced-colors: active\)[\s\S]*\.pattern-reel--entry-staged \.pattern-reel__slot--active,[\s\S]*opacity: 0;/,
+    );
   });
 
   it("does not reserve predecessor space at any stage height", () => {

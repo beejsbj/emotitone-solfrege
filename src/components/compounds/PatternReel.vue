@@ -887,6 +887,7 @@ onBeforeUnmount(() => {
     opacity: 1;
   }
 
+  .pattern-reel--entry-staged .pattern-reel__slot--active,
   .pattern-reel__slot--1:not(.pattern-reel__slot--active) {
     opacity: 0;
   }

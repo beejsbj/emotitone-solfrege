@@ -58,6 +58,7 @@ const emit = defineEmits<{
 }>();
 const root = ref<HTMLElement | null>(null);
 const persistent = ref<HTMLElement | null>(null);
+const persistentContent = ref<HTMLElement | null>(null);
 const clip = ref<HTMLElement | null>(null);
 const content = ref<HTMLElement | null>(null);
 const persistentHeight = ref(0);
@@ -78,10 +79,11 @@ function observeClippedControls() {
   if (!visibilityObserver) return;
   const selector = 'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]';
   const controls = new Set<HTMLElement>();
-  if (props.persistentOverflow !== "visible") {
-    persistent.value?.querySelectorAll<HTMLElement>(selector)
-      .forEach(element => controls.add(element));
-  }
+  const clippedPersistentRoot = props.persistentOverflow === "visible"
+    ? persistentContent.value
+    : persistent.value;
+  clippedPersistentRoot?.querySelectorAll<HTMLElement>(selector)
+    .forEach(element => controls.add(element));
   // Minimum-sized content can extend beyond the clip (Keyboard). Top panels
   // have no content floor and retain their normal scroll-to-focused-item behavior.
   if (!props.scroll && props.minContentHeight > 0) {
@@ -336,6 +338,12 @@ watch(() => props.handlePointerDisabled, disabled => {
 watch(() => props.naturalContentHeight, () => {
   if (fitContent && expanded.value && !opening && !dragging.value) setHeight(fittedHeight());
 });
+watch(() => props.initialContentHeight, value => {
+  if (props.fitContentOnOpen) return;
+  preferredContentHeight.value = value;
+  if (!ready.value || !expanded.value || dragging.value) return;
+  void setLayoutHeight(persistentHeight.value + Math.max(props.minContentHeight, value));
+});
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {
     if (!props.dragToCollapse && !canFitMinimumContent.value) {
@@ -446,8 +454,12 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
         ref="persistent"
         class="drawer__persistent"
       >
-        <slot name="persistent-leading" />
-        <slot name="persistent" />
+        <div v-if="$slots['persistent-leading']" class="drawer__persistent-leading">
+          <slot name="persistent-leading" />
+        </div>
+        <div v-if="$slots.persistent" ref="persistentContent" class="drawer__persistent-content">
+          <slot name="persistent" />
+        </div>
       </div>
       <div
         ref="content"

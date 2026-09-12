@@ -151,7 +151,10 @@ import {
   minimumKeyboardHeight,
   resolveKeyboardLayout,
 } from "@/components/compounds/keyboardSizing";
-import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import {
+  hasPlayableContent,
+  useCodeStripStrudel,
+} from "@/composables/useCodeStripStrudel";
 import { useHummingCapture } from "@/composables/useHummingCapture";
 import { displayInstrumentName } from "@/data/instruments";
 import type { HarmonyAlteration } from "@/domain/harmony";
@@ -251,13 +254,18 @@ const patternControlSignals = reactive<Record<PatternControl, number>>({
 const drawerOpen = computed(() => store?.drawer.isOpen ?? props.drawerOpen);
 const isPlaying = computed(() => playback?.isPlaying.value ?? props.isPlaying);
 const hasPlayableCode = computed(() => playback?.hasPlayableCode.value
-  ?? Boolean(props.codeStripSource?.trim() || props.codeStripTokens.length));
+  ?? Boolean(
+    props.codeStripTokens.length
+    || (props.codeStripSource && hasPlayableContent(props.codeStripSource)),
+  ));
 const interactionLocked = computed(() =>
   instrumentStore?.isInteractionLocked ?? props.warming
 );
 const playDisabled = computed(() => isProductionUsage
   ? !hasPlayableCode.value || (interactionLocked.value && !isPlaying.value)
-  : props.playDisabled || !hasPlayableCode.value || interactionLocked.value
+  : props.playDisabled
+    || !hasPlayableCode.value
+    || (interactionLocked.value && !isPlaying.value)
 );
 const keyValue = computed(() => (musicStore?.currentKey ?? props.keyValue) as ChromaticNote);
 const modeValue = computed(() => musicStore?.currentMode ?? props.modeValue);

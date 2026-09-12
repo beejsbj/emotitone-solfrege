@@ -19,6 +19,12 @@ let midiDescriptor: PropertyDescriptor | undefined;
 let input: { id: string; name: string; state: string; onmidimessage: ((event: { data: Uint8Array }) => void) | null };
 let send: ReturnType<typeof vi.fn>;
 let clear: ReturnType<typeof vi.fn>;
+let midiMessages: Array<{
+  message: number[];
+  timestamp?: number;
+  sentAt: number;
+  index: number;
+}>;
 
 function packet(status: number, pitch: number) {
   expect(input.onmidimessage).toBeTypeOf("function");
@@ -26,9 +32,9 @@ function packet(status: number, pitch: number) {
 }
 
 function notes() {
-  const messages = send.mock.calls
-    .map(([message, timestamp], index) => ({
-      message: message as number[],
+  const messages = midiMessages
+    .map(({ message, timestamp, index }) => ({
+      message,
       timestamp: typeof timestamp === "number" ? timestamp : 1e12 + index,
       index,
     }))
@@ -61,6 +67,12 @@ function notes() {
   }
 
   return transitions;
+}
+
+function scheduledNotes() {
+  return midiMessages
+    .filter(({ message: [status] }) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
+    .sort((left, right) => (left.timestamp ?? 1e12) - (right.timestamp ?? 1e12) || left.index - right.index);
 }
 
 async function connect() {
@@ -104,8 +116,21 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     });
 
     input = { id: "roli-input", name: "LUMI Keys", state: "connected", onmidimessage: null };
-    send = vi.fn();
-    clear = vi.fn();
+    midiMessages = [];
+    send = vi.fn((message: number[], timestamp?: number) => {
+      midiMessages.push({
+        message,
+        timestamp,
+        sentAt: performance.now(),
+        index: midiMessages.length,
+      });
+    });
+    clear = vi.fn(() => {
+      const currentTime = performance.now();
+      midiMessages = midiMessages.filter(({ timestamp, sentAt }) =>
+        timestamp === undefined ? sentAt < currentTime : timestamp <= currentTime + 1
+      );
+    });
     midiDescriptor = Object.getOwnPropertyDescriptor(navigator, "requestMIDIAccess");
     Object.defineProperty(navigator, "requestMIDIAccess", {
       configurable: true,
@@ -147,17 +172,15 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     expect(notes()).toEqual([
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64],
     ]);
-    expect(send.mock.calls
-      .filter(([[status]]) => (status & 0xf0) === 0x90)
-      .at(-1)?.[1])
+    expect(scheduledNotes()
+      .filter(({ message: [status] }) => (status & 0xf0) === 0x90)
+      .at(-1)?.timestamp)
       .toBeGreaterThan(performance.now());
     await vi.advanceTimersByTimeAsync(499);
     expect(notes()).toEqual([
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64], [0x90, 67], [0x80, 67],
     ]);
-    expect(send.mock.calls
-      .filter(([[status]]) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
-      .map(([, timestamp]) => timestamp))
+    expect(scheduledNotes().map(({ timestamp }) => timestamp))
       .toEqual([30, 230, 280, 480, 530, 730]);
     [60, 64, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
@@ -215,10 +238,10 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     packet(0x90, 60);
     await vi.advanceTimersByTimeAsync(240);
     packet(0x80, 60);
+    await vi.advanceTimersByTimeAsync(0);
 
-    const scheduled = send.mock.calls
-      .filter(([[status]]) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
-      .map(([message, timestamp]) => [message[0] & 0xf0, message[1], timestamp]);
+    const scheduled = scheduledNotes()
+      .map(({ message, timestamp }) => [message[0] & 0xf0, message[1], timestamp]);
     expect(scheduled).toContainEqual([0x90, 60, 280]);
     expect(scheduled.at(-1)).toEqual([0x80, 60, 280]);
     expect(notes()).toEqual([[0x90, 60], [0x80, 60]]);
@@ -229,16 +252,16 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     await connect();
     packet(0x90, 60);
     await vi.advanceTimersByTimeAsync(100);
-    const callsBeforeRelease = send.mock.calls.length;
     packet(0x80, 60);
-    expect(clear).toHaveBeenCalledTimes(1);
+    const clearsBeforeReattack = clear.mock.calls.length;
 
     await vi.advanceTimersByTimeAsync(10);
     packet(0x90, 60);
     await vi.advanceTimersByTimeAsync(30);
-    const replacementCalls = send.mock.calls.slice(callsBeforeRelease)
-      .filter(([[status]]) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
-      .map(([message, timestamp]) => [message[0] & 0xf0, message[1], timestamp]);
+    expect(clear.mock.calls.length).toBeGreaterThan(clearsBeforeReattack);
+    const replacementCalls = scheduledNotes()
+      .map(({ message, timestamp }) => [message[0] & 0xf0, message[1], timestamp])
+      .slice(-3);
     expect(replacementCalls).toEqual([
       [0x80, 60, 100],
       [0x90, 60, 140],

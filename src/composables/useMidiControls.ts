@@ -112,9 +112,21 @@ interface ScheduledMidiNoteEventDetail extends MirroredNoteEventDetail {
   timestamp: number;
 }
 
-interface QueuedMidiMessage {
-  message: number[];
+export interface MidiOwnerTransition {
+  midiNote: number;
+  phase: "attack" | "release";
   timestamp: number;
+}
+
+interface ScheduledMidiOwnerEvent extends MidiOwnerTransition {
+  ownerId: string;
+}
+
+interface PendingMidiOwnerUpdate {
+  ownerId: string;
+  midiNote: number;
+  phase: "attack" | "release";
+  timestamp?: number;
 }
 
 interface ClearableMidiOutput extends MIDIOutput {
@@ -151,6 +163,139 @@ export function createMidiNoteReferenceCounter(
     },
     clear() {
       ownerCounts.clear();
+    },
+  };
+}
+
+/**
+ * Keeps timestamped and immediate MIDI voices on one per-pitch ownership
+ * timeline. Web MIDI packets are rebuilt whenever that future changes so a
+ * release is emitted only when the final owner of a pitch has ended.
+ */
+export function createMidiNoteOwnerScheduler(
+  sendNow: (transition: Omit<MidiOwnerTransition, "timestamp">) => void,
+  replaceScheduled: (transitions: MidiOwnerTransition[]) => void,
+  now: () => number = () => performance.now(),
+) {
+  const activeOwners = new Map<number, Set<string>>();
+  const scheduledEvents = new Map<string, ScheduledMidiOwnerEvent>();
+  let queuedTransitions: MidiOwnerTransition[] = [];
+  let isBatching = false;
+  let advancedCurrentBatch = false;
+  let batchTime = 0;
+
+  const eventKey = (ownerId: string, phase: ScheduledMidiOwnerEvent["phase"]) =>
+    `${ownerId}\u0000${phase}`;
+
+  const ordered = (events: Iterable<ScheduledMidiOwnerEvent>) =>
+    [...events].sort((left, right) =>
+      left.timestamp - right.timestamp
+      || (left.phase === right.phase ? 0 : left.phase === "attack" ? -1 : 1)
+      || left.ownerId.localeCompare(right.ownerId)
+    );
+
+  const apply = (
+    ownersByNote: Map<number, Set<string>>,
+    event: Pick<ScheduledMidiOwnerEvent, "ownerId" | "midiNote" | "phase">,
+  ): Omit<MidiOwnerTransition, "timestamp"> | null => {
+    const owners = ownersByNote.get(event.midiNote) ?? new Set<string>();
+    const before = owners.size;
+
+    if (event.phase === "attack") {
+      owners.add(event.ownerId);
+      ownersByNote.set(event.midiNote, owners);
+    } else {
+      owners.delete(event.ownerId);
+      if (owners.size === 0) ownersByNote.delete(event.midiNote);
+    }
+
+    if (before === 0 && owners.size > 0) {
+      return { midiNote: event.midiNote, phase: "attack" };
+    }
+    if (before > 0 && owners.size === 0) {
+      return { midiNote: event.midiNote, phase: "release" };
+    }
+    return null;
+  };
+
+  const advance = (timestamp: number) => {
+    for (const event of ordered(scheduledEvents.values())) {
+      if (event.timestamp > timestamp) break;
+      apply(activeOwners, event);
+      scheduledEvents.delete(eventKey(event.ownerId, event.phase));
+    }
+  };
+
+  const rebuild = () => {
+    const projectedOwners = new Map(
+      [...activeOwners].map(([midiNote, owners]) => [midiNote, new Set(owners)]),
+    );
+    const transitions: MidiOwnerTransition[] = [];
+
+    for (const event of ordered(scheduledEvents.values())) {
+      const transition = apply(projectedOwners, event);
+      if (transition) transitions.push({ ...transition, timestamp: event.timestamp });
+    }
+    const unchanged = transitions.length === queuedTransitions.length
+      && transitions.every((transition, index) => {
+        const queued = queuedTransitions[index];
+        return transition.midiNote === queued.midiNote
+          && transition.phase === queued.phase
+          && transition.timestamp === queued.timestamp;
+      });
+    if (unchanged) return;
+    queuedTransitions = transitions;
+    replaceScheduled(transitions);
+  };
+
+  const update = (
+    ownerId: string,
+    midiNote: number,
+    phase: ScheduledMidiOwnerEvent["phase"],
+    timestamp?: number,
+  ) => {
+    const currentTime = isBatching ? batchTime : now();
+    if (!isBatching || !advancedCurrentBatch) {
+      advance(currentTime);
+      advancedCurrentBatch = true;
+    }
+    const key = eventKey(ownerId, phase);
+    scheduledEvents.delete(key);
+    let immediateTransition: Omit<MidiOwnerTransition, "timestamp"> | null = null;
+
+    if (timestamp === undefined || timestamp < currentTime) {
+      immediateTransition = apply(activeOwners, { ownerId, midiNote, phase });
+    } else {
+      scheduledEvents.set(key, { ownerId, midiNote, phase, timestamp });
+    }
+    rebuild();
+    if (immediateTransition) sendNow(immediateTransition);
+  };
+
+  return {
+    beginBatch() {
+      isBatching = true;
+      advancedCurrentBatch = false;
+      batchTime = now();
+    },
+    endBatch() {
+      isBatching = false;
+      advancedCurrentBatch = false;
+      batchTime = 0;
+    },
+    attack(ownerId: string, midiNote: number, timestamp?: number) {
+      update(ownerId, midiNote, "attack", timestamp);
+    },
+    release(ownerId: string, midiNote: number, timestamp?: number) {
+      update(ownerId, midiNote, "release", timestamp);
+    },
+    clear() {
+      activeOwners.clear();
+      scheduledEvents.clear();
+      queuedTransitions = [];
+      isBatching = false;
+      advancedCurrentBatch = false;
+      batchTime = 0;
     },
   };
 }
@@ -355,8 +500,8 @@ export function useMidiControls() {
   const pendingInputNoteOffs = ref<Set<string>>(new Set());
   const mirroredNoteTimeouts = ref<Map<string, number>>(new Map());
   const mirroredEventNotes = ref<Map<string, number>>(new Map());
+  const anonymousMirroredOwners = ref<Map<number, string[]>>(new Map());
   const visualNoteTimeouts = ref<Map<string, number>>(new Map());
-  const queuedLiveMidiMessages = new Map<string, QueuedMidiMessage>();
 
   const parseMidiNoteNumber = (note: number | string): number | null => {
     if (typeof note === "number") {
@@ -618,11 +763,6 @@ export function useMidiControls() {
     if (timestamp === undefined) selectedRoliOutput.value?.send(message);
     else selectedRoliOutput.value?.send(message, timestamp);
   };
-  const mirroredMidiNotes = createMidiNoteReferenceCounter(
-    (midiNote, timestamp) => sendToRoliOutput(buildRoliNoteOnMessage(midiNote), timestamp),
-    (midiNote, timestamp) => sendToRoliOutput(buildRoliNoteOffMessage(midiNote), timestamp),
-  );
-
   const syncRoliPalette = () => {
     if (!selectedRoliOutput.value) {
       return;
@@ -657,6 +797,107 @@ export function useMidiControls() {
     );
   };
 
+  let pendingImmediateMidiTransitions: Array<Omit<MidiOwnerTransition, "timestamp">> = [];
+  let pendingScheduledMidiTransitions: MidiOwnerTransition[] = [];
+  let hasPendingScheduledReplacement = false;
+  let midiOutputFlushQueued = false;
+  let midiOutputFlushGeneration = 0;
+  let pendingMidiOwnerUpdates: PendingMidiOwnerUpdate[] = [];
+  let midiOwnerFlushQueued = false;
+  let midiOwnerFlushGeneration = 0;
+
+  const queueMidiOutputFlush = () => {
+    if (midiOutputFlushQueued) return;
+    midiOutputFlushQueued = true;
+    const generation = midiOutputFlushGeneration;
+
+    queueMicrotask(() => {
+      if (generation !== midiOutputFlushGeneration) return;
+      midiOutputFlushQueued = false;
+      const immediate = pendingImmediateMidiTransitions;
+      const scheduled = pendingScheduledMidiTransitions;
+      const replaceScheduled = hasPendingScheduledReplacement;
+      pendingImmediateMidiTransitions = [];
+      hasPendingScheduledReplacement = false;
+
+      if (!selectedRoliOutput.value) return;
+      if (replaceScheduled) {
+        (selectedRoliOutput.value as ClearableMidiOutput).clear();
+        syncRoliPalette();
+        syncRoliMainOctave();
+      }
+      immediate.forEach(({ midiNote, phase }) => {
+        sendToRoliOutput(
+          phase === "attack"
+            ? buildRoliNoteOnMessage(midiNote)
+            : buildRoliNoteOffMessage(midiNote),
+        );
+      });
+      if (replaceScheduled) {
+        scheduled.forEach(({ midiNote, phase, timestamp }) => {
+          sendToRoliOutput(
+            phase === "attack"
+              ? buildRoliNoteOnMessage(midiNote)
+              : buildRoliNoteOffMessage(midiNote),
+            timestamp,
+          );
+        });
+      }
+    });
+  };
+
+  const resetPendingMidiOutputFlush = () => {
+    midiOutputFlushGeneration += 1;
+    midiOutputFlushQueued = false;
+    pendingImmediateMidiTransitions = [];
+    pendingScheduledMidiTransitions = [];
+    hasPendingScheduledReplacement = false;
+  };
+
+  const midiOwnerScheduler = createMidiNoteOwnerScheduler(
+    (transition) => {
+      pendingImmediateMidiTransitions.push(transition);
+      queueMidiOutputFlush();
+    },
+    (transitions) => {
+      pendingScheduledMidiTransitions = transitions;
+      hasPendingScheduledReplacement = true;
+      queueMidiOutputFlush();
+    },
+  );
+
+  const queueMidiOwnerUpdate = (update: PendingMidiOwnerUpdate) => {
+    pendingMidiOwnerUpdates.push(update);
+    if (midiOwnerFlushQueued) return;
+    midiOwnerFlushQueued = true;
+    const generation = midiOwnerFlushGeneration;
+
+    queueMicrotask(() => {
+      if (generation !== midiOwnerFlushGeneration) return;
+      midiOwnerFlushQueued = false;
+      const updates = pendingMidiOwnerUpdates;
+      pendingMidiOwnerUpdates = [];
+      midiOwnerScheduler.beginBatch();
+      try {
+        updates.forEach(({ ownerId, midiNote, phase, timestamp }) => {
+          if (phase === "attack") {
+            midiOwnerScheduler.attack(ownerId, midiNote, timestamp);
+          } else {
+            midiOwnerScheduler.release(ownerId, midiNote, timestamp);
+          }
+        });
+      } finally {
+        midiOwnerScheduler.endBatch();
+      }
+    });
+  };
+
+  const resetPendingMidiOwnerUpdates = () => {
+    midiOwnerFlushGeneration += 1;
+    midiOwnerFlushQueued = false;
+    pendingMidiOwnerUpdates = [];
+  };
+
   const clearMirroredTimeouts = () => {
     mirroredNoteTimeouts.value.forEach((timeoutId) => {
       window.clearTimeout(timeoutId);
@@ -666,14 +907,16 @@ export function useMidiControls() {
 
   const clearMirroredEventNotes = () => {
     mirroredEventNotes.value.clear();
-    mirroredMidiNotes.clear();
+    anonymousMirroredOwners.value.clear();
   };
 
   const flushRoliOutput = () => {
+    resetPendingMidiOwnerUpdates();
+    resetPendingMidiOutputFlush();
     if (!selectedRoliOutput.value) {
       clearMirroredTimeouts();
       clearMirroredEventNotes();
-      queuedLiveMidiMessages.clear();
+      midiOwnerScheduler.clear();
       return;
     }
 
@@ -684,7 +927,7 @@ export function useMidiControls() {
 
     clearMirroredTimeouts();
     clearMirroredEventNotes();
-    queuedLiveMidiMessages.clear();
+    midiOwnerScheduler.clear();
   };
 
   const releaseMidiNotes = (inputId?: string) => {
@@ -807,16 +1050,37 @@ export function useMidiControls() {
       octave: detail?.octave ?? null,
       midiNote,
     });
-    mirroredMidiNotes.acquire(midiNote, resolveMidiEventTimestamp(detail));
-
     if (detail?.noteId) {
+      queueMidiOwnerUpdate({
+        ownerId: `mirrored:${detail.noteId}`,
+        midiNote,
+        phase: "attack",
+        timestamp: resolveMidiEventTimestamp(detail),
+      });
       return;
     }
 
     const durationMs = resolveMirroredEventDurationMs(detail);
     const timeoutKey = `${midiNote}:${Date.now()}:${Math.random()}`;
+    const ownerId = `timeout:${timeoutKey}`;
+    const anonymousOwners = anonymousMirroredOwners.value.get(midiNote) ?? [];
+    anonymousOwners.push(ownerId);
+    anonymousMirroredOwners.value.set(midiNote, anonymousOwners);
+    queueMidiOwnerUpdate({
+      ownerId,
+      midiNote,
+      phase: "attack",
+      timestamp: resolveMidiEventTimestamp(detail),
+    });
     const timeoutId = window.setTimeout(() => {
-      mirroredMidiNotes.release(midiNote);
+      const remainingOwners = anonymousMirroredOwners.value.get(midiNote)
+        ?.filter((candidate) => candidate !== ownerId) ?? [];
+      if (remainingOwners.length > 0) {
+        anonymousMirroredOwners.value.set(midiNote, remainingOwners);
+      } else {
+        anonymousMirroredOwners.value.delete(midiNote);
+      }
+      queueMidiOwnerUpdate({ ownerId, midiNote, phase: "release" });
       mirroredNoteTimeouts.value.delete(timeoutKey);
     }, durationMs);
 
@@ -857,7 +1121,30 @@ export function useMidiControls() {
       noteName: detail?.noteName || null,
       midiNote,
     });
-    mirroredMidiNotes.release(midiNote, resolveMidiEventTimestamp(detail));
+    if (detail?.noteId) {
+      queueMidiOwnerUpdate({
+        ownerId: `mirrored:${detail.noteId}`,
+        midiNote,
+        phase: "release",
+        timestamp: resolveMidiEventTimestamp(detail),
+      });
+      return;
+    }
+
+    const anonymousOwners = anonymousMirroredOwners.value.get(midiNote);
+    const ownerId = anonymousOwners?.shift();
+    if (!ownerId) return;
+    if (anonymousOwners?.length === 0) anonymousMirroredOwners.value.delete(midiNote);
+    const timeoutKey = ownerId.slice("timeout:".length);
+    const timeoutId = mirroredNoteTimeouts.value.get(timeoutKey);
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    mirroredNoteTimeouts.value.delete(timeoutKey);
+    queueMidiOwnerUpdate({
+      ownerId,
+      midiNote,
+      phase: "release",
+      timestamp: resolveMidiEventTimestamp(detail),
+    });
   };
 
   const handleNotePlayed = (event: Event) => {
@@ -879,30 +1166,8 @@ export function useMidiControls() {
     if (midiNote === null) return;
     const timestamp = resolveMidiEventTimestamp(detail);
     if (timestamp === undefined) return;
-    const message = detail.phase === "attack"
-      ? buildRoliNoteOnMessage(midiNote)
-      : buildRoliNoteOffMessage(midiNote);
-    const now = performance.now();
-    for (const [key, queued] of queuedLiveMidiMessages) {
-      if (queued.timestamp < now) queuedLiveMidiMessages.delete(key);
-    }
-    const key = `${detail.noteId}:${detail.phase}`;
-    const previous = queuedLiveMidiMessages.get(key);
-    queuedLiveMidiMessages.set(key, { message, timestamp });
-
-    if (!previous) {
-      sendToRoliOutput(message, timestamp);
-      return;
-    }
-
-    // Web MIDI cannot replace one queued packet. Clear the output queue and
-    // replay this adapter's remaining future packets with the earlier deadline.
-    (selectedRoliOutput.value as ClearableMidiOutput).clear();
-    syncRoliPalette();
-    syncRoliMainOctave();
-    [...queuedLiveMidiMessages.values()]
-      .sort((left, right) => left.timestamp - right.timestamp)
-      .forEach((queued) => sendToRoliOutput(queued.message, queued.timestamp));
+    const ownerId = `scheduled:${detail.noteId}`;
+    queueMidiOwnerUpdate({ ownerId, midiNote, phase: detail.phase, timestamp });
   };
 
   const disconnectMidi = () => {

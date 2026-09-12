@@ -23,7 +23,7 @@ interface KeyboardMapping {
 
 const KEY_ROWS = [
   {
-    octaveOffset: 1,
+    octaveOffset: 2,
     keys: [
       { code: "Digit1", label: "1" },
       { code: "Digit2", label: "2" },
@@ -40,7 +40,7 @@ const KEY_ROWS = [
     ],
   },
   {
-    octaveOffset: 0,
+    octaveOffset: 1,
     keys: [
       { code: "KeyQ", label: "Q" },
       { code: "KeyW", label: "W" },
@@ -57,7 +57,7 @@ const KEY_ROWS = [
     ],
   },
   {
-    octaveOffset: -1,
+    octaveOffset: 0,
     keys: [
       { code: "KeyA", label: "A" },
       { code: "KeyS", label: "S" },
@@ -76,8 +76,8 @@ const KEY_ROWS = [
 ] as const;
 
 // The physical bottom row has ten printable keys, so it covers the first ten
-// degrees two octaves below the main row. The 12-key home row above it retains
-// complete chromatic coverage.
+// degrees below the main A row. The 12-key rows above it retain complete
+// chromatic coverage.
 const BOTTOM_KEY_ROW = [
   { code: "KeyZ", label: "Z" },
   { code: "KeyX", label: "X" },
@@ -112,13 +112,18 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   const getKeyboardMapping = (): KeyboardMapping => {
     const degreeCount = musicStore.currentScale.degreeCount;
+    const visibleOctaves = keyboardDrawerStore.visibleOctaves;
     const mapping: KeyboardMapping = {};
 
     const addKeyRow = (
       keys: readonly { code: string; label: string }[],
       octave: number,
     ) => {
-      if (octave < 1 || octave > 8) {
+      if (
+        octave < 1
+        || octave > 8
+        || !visibleOctaves.includes(octave)
+      ) {
         return;
       }
 
@@ -134,7 +139,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     KEY_ROWS.forEach((row) => {
       addKeyRow(row.keys, mainOctave.value + row.octaveOffset);
     });
-    addKeyRow(BOTTOM_KEY_ROW, mainOctave.value - 2);
+    addKeyRow(BOTTOM_KEY_ROW, mainOctave.value - 1);
 
     return mapping;
   };

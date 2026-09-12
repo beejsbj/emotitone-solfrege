@@ -28,6 +28,7 @@ const mockPatternsStore = {
 };
 
 const mockKeyboardDrawerStore = {
+  visibleOctaves: [6, 5, 4, 3],
   addTouch: vi.fn(),
   removeTouch: vi.fn(),
 };
@@ -63,6 +64,7 @@ describe("useKeyboardControls", () => {
     mockMusicStore.attackNoteWithOctave.mockClear();
     mockMusicStore.releaseNote.mockClear();
     mockPatternsStore.removeLastFromCurrentSketch.mockClear();
+    mockKeyboardDrawerStore.visibleOctaves = [6, 5, 4, 3];
     mockKeyboardDrawerStore.addTouch.mockClear();
     mockKeyboardDrawerStore.removeTouch.mockClear();
   });
@@ -74,27 +76,27 @@ describe("useKeyboardControls", () => {
     expect(Object.keys(mapping)).toHaveLength(46);
     expect(mapping.Digit1).toEqual({
       solfegeIndex: 0,
-      octave: 5,
+      octave: 6,
       label: "1",
     });
     expect(mapping.KeyQ).toEqual({
       solfegeIndex: 0,
-      octave: 4,
+      octave: 5,
       label: "Q",
     });
     expect(mapping.Backslash).toEqual({
       solfegeIndex: 11,
-      octave: 3,
+      octave: 4,
       label: "\\",
     });
     expect(mapping.KeyZ).toEqual({
       solfegeIndex: 0,
-      octave: 2,
+      octave: 3,
       label: "Z",
     });
     expect(mapping.Slash).toEqual({
       solfegeIndex: 9,
-      octave: 2,
+      octave: 3,
       label: "/",
     });
   });
@@ -117,8 +119,46 @@ describe("useKeyboardControls", () => {
     mockMusicStore.currentScale.degreeCount = 12;
     const controls = useKeyboardControls(ref(4));
 
-    expect(controls.getKeyboardLetterForNote(11, 3)).toBe("\\");
-    expect(controls.getKeyboardLetterForNote(0, 4)).toBe("Q");
+    expect(controls.getKeyboardLetterForNote(11, 4)).toBe("\\");
+    expect(controls.getKeyboardLetterForNote(0, 5)).toBe("Q");
+  });
+
+  it("enables only physical rows whose octaves are visible", () => {
+    mockKeyboardDrawerStore.visibleOctaves = [4];
+    const controls = useKeyboardControls(ref(4));
+
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+    });
+    expect(controls.getKeyboardMapping().KeyQ).toBeUndefined();
+    expect(controls.getKeyboardMapping().KeyZ).toBeUndefined();
+    expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
+
+    mockKeyboardDrawerStore.visibleOctaves = [5, 4];
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      KeyQ: { solfegeIndex: 0, octave: 5, label: "Q" },
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+    });
+    expect(controls.getKeyboardMapping().KeyZ).toBeUndefined();
+    expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
+
+    mockKeyboardDrawerStore.visibleOctaves = [5, 4, 3];
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      KeyQ: { solfegeIndex: 0, octave: 5, label: "Q" },
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+      KeyZ: { solfegeIndex: 0, octave: 3, label: "Z" },
+    });
+    expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
+
+    mockKeyboardDrawerStore.visibleOctaves = [6, 5, 4, 3];
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      Digit1: { solfegeIndex: 0, octave: 6, label: "1" },
+      KeyQ: { solfegeIndex: 0, octave: 5, label: "Q" },
+      KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
+      KeyZ: { solfegeIndex: 0, octave: 3, label: "Z" },
+    });
+
+    controls.cleanupKeyboardListeners();
   });
 
   it("attacks a distinct octave from each physical keyboard row", async () => {
@@ -149,10 +189,10 @@ describe("useKeyboardControls", () => {
     expect(mockMusicStore.attackNoteWithOctave.mock.calls.map(
       ([solfegeIndex, octave]) => ({ solfegeIndex, octave }),
     )).toEqual([
+      { solfegeIndex: 0, octave: 6 },
       { solfegeIndex: 0, octave: 5 },
       { solfegeIndex: 0, octave: 4 },
       { solfegeIndex: 0, octave: 3 },
-      { solfegeIndex: 0, octave: 2 },
     ]);
 
     controls.handleKeyUp(

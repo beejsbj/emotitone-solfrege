@@ -13,7 +13,10 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
-import { createScheduledLiveVoice } from "@/services/scheduledLiveVoice";
+import {
+  createScheduledLiveVoice,
+  SCHEDULED_LIVE_MIDI_EVENT,
+} from "@/services/scheduledLiveVoice";
 
 // Type for note input - either a chromatic note with octave or solfege index
 type NoteInput = string | { solfegeIndex: number; octave: number };
@@ -159,15 +162,32 @@ export const useMusicStore = defineStore(
           at,
           releaseSeconds: style === "together" || style.startsWith("strum") ? 1.5 : 0.03,
           now,
+          onScheduleStart(timestamp) {
+            window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
+              detail: { ...detail, phase: "attack", timestamp },
+            }));
+          },
+          onScheduleEnd(timestamp) {
+            window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
+              detail: { ...detail, phase: "release", timestamp },
+            }));
+          },
           onStart(timestamp) {
             activeNotes.value.set(noteId, activeNote);
             currentNote.value = activeNote.solfege.name;
             isPlaying.value = true;
-            window.dispatchEvent(new CustomEvent("note-played", { detail: { ...detail, timestamp } }));
+            window.dispatchEvent(new CustomEvent("note-played", {
+              detail: { ...detail, mirrorMidi: false, timestamp },
+            }));
           },
           onEnd(timestamp) {
             window.dispatchEvent(new CustomEvent("note-released", {
-              detail: { ...detail, note: activeNote.solfege.name, timestamp },
+              detail: {
+                ...detail,
+                note: activeNote.solfege.name,
+                mirrorMidi: false,
+                timestamp,
+              },
             }));
             activeNotes.value.delete(noteId);
             currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;

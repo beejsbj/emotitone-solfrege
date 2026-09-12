@@ -25,6 +25,8 @@ function deferred<T = void>() {
 }
 
 function create(at = 1050) {
+  const onScheduleStart = vi.fn()
+  const onScheduleEnd = vi.fn()
   const onStart = vi.fn()
   const onEnd = vi.fn()
   const onError = vi.fn()
@@ -35,11 +37,13 @@ function create(at = 1050) {
     at,
     releaseSeconds: 0.15,
     now: () => performance.now(),
+    onScheduleStart,
+    onScheduleEnd,
     onStart,
     onEnd,
     onError,
   })
-  return { voice, onStart, onEnd, onError }
+  return { voice, onScheduleStart, onScheduleEnd, onStart, onEnd, onError }
 }
 
 describe('scheduled live voice', () => {
@@ -74,7 +78,7 @@ describe('scheduled live voice', () => {
   })
 
   it('schedules audio ahead while publishing start and end only at their deadlines', async () => {
-    const { voice, onStart, onEnd, onError } = create()
+    const { voice, onScheduleStart, onScheduleEnd, onStart, onEnd, onError } = create()
     voice.release(1250)
     expect(audio.attackNote).toHaveBeenCalledWith('voice-1', 'C4', 'piano', {
       atTime: 12.05,
@@ -82,6 +86,8 @@ describe('scheduled live voice', () => {
     })
     await vi.advanceTimersByTimeAsync(0)
     expect(audio.releaseNote).toHaveBeenCalledWith('voice-1', 12.25)
+    expect(onScheduleStart).toHaveBeenCalledExactlyOnceWith(EPOCH + 50)
+    expect(onScheduleEnd).toHaveBeenCalledExactlyOnceWith(EPOCH + 250)
     expect(onStart).not.toHaveBeenCalled()
     expect(onEnd).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(49)

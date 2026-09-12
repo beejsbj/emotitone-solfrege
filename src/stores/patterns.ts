@@ -172,7 +172,7 @@ export const usePatternsStore = defineStore(
         return liveNotes;
       }
 
-      const baseEnd = loadedBaseNotes.value[loadedBaseNotes.value.length - 1].releaseTime;
+      const baseEnd = Math.max(...loadedBaseNotes.value.map((note) => note.releaseTime));
       const firstLiveStart = liveNotes[0].pressTime;
       const seamOffset = Math.max(0, firstLiveStart - baseEnd);
 
@@ -327,6 +327,13 @@ export const usePatternsStore = defineStore(
       return `dynamic-pattern-${firstNote.id}-${lastNote.id}`;
     }
 
+    function noteSpan(notes: Pick<PatternNote, "pressTime" | "releaseTime">[]) {
+      return {
+        start: Math.min(...notes.map((note) => note.pressTime)),
+        end: Math.max(...notes.map((note) => note.releaseTime)),
+      };
+    }
+
     // Pattern detection helpers
     function shouldStartNewPattern(
       currentNote: Partial<LogNote>,
@@ -382,7 +389,7 @@ export const usePatternsStore = defineStore(
       }
 
       const firstNote = notes[0];
-      const lastNote = notes[notes.length - 1];
+      const span = noteSpan(notes);
 
       // Convert LogNote to PatternNote
       const patternNotes: PatternNote[] = notes.map((note) => ({
@@ -404,13 +411,13 @@ export const usePatternsStore = defineStore(
         id: buildDynamicPatternId(notes),
         name: `Pattern ${new Date().toLocaleDateString()}`,
         notes: patternNotes,
-        duration: lastNote.releaseTime - firstNote.pressTime,
+        duration: span.end - span.start,
         noteCount: notes.length,
         key: firstNote.key,
         mode: firstNote.mode,
         instrument: firstNote.instrument,
         bpm: resolveBpm(firstNote.bpm),
-        createdAt: lastNote.releaseTime,
+        createdAt: span.end,
         isDefault: false,
         isSaved: false,
       };
@@ -444,14 +451,14 @@ export const usePatternsStore = defineStore(
         throw new Error("Cannot create pattern from empty notes array");
       }
       const firstNote = notes[0];
-      const lastNote = notes[notes.length - 1];
+      const span = noteSpan(notes);
       return {
         id: `saved-pattern-${Date.now()}-${Math.random()
           .toString(36)
           .substr(2, 9)}`,
         name: options.name ?? `Pattern ${new Date().toLocaleDateString()}`,
         notes,
-        duration: lastNote.releaseTime - firstNote.pressTime,
+        duration: span.end - span.start,
         noteCount: notes.length,
         key: meta.key,
         mode: meta.mode,

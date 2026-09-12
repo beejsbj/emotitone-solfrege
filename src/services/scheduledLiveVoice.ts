@@ -1,5 +1,7 @@
 import * as audio from "@/services/superdoughAudio";
 
+export const SCHEDULED_LIVE_MIDI_EVENT = "scheduled-live-midi-note";
+
 /** Times use the same monotonic millisecond clock as the live play engine. */
 export function createScheduledLiveVoice(options: {
   noteId: string;
@@ -8,6 +10,8 @@ export function createScheduledLiveVoice(options: {
   at: number;
   releaseSeconds: number;
   now: () => number;
+  onScheduleStart?: (timestamp: number) => void;
+  onScheduleEnd?: (timestamp: number) => void;
   onStart: (timestamp: number) => void;
   onEnd: (timestamp: number) => void;
   onError: (error: unknown) => void;
@@ -19,10 +23,18 @@ export function createScheduledLiveVoice(options: {
   let startAt = options.at;
   let ready = false;
   let armed = false;
+  let midiStartScheduled = false;
+  let midiEndScheduledAt = Infinity;
   let published = false;
   let finished = false;
   let startTimer: ReturnType<typeof setTimeout> | undefined;
   let endTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function scheduleMidiEnd(at: number) {
+    if (!midiStartScheduled || at >= midiEndScheduledAt) return;
+    midiEndScheduledAt = at;
+    options.onScheduleEnd?.(epochOffset + at);
+  }
 
   function finish() {
     if (finished) return;
@@ -44,10 +56,12 @@ export function createScheduledLiveVoice(options: {
   function scheduleEnd() {
     if (!ready || !Number.isFinite(endAt)) return;
     if (endAt <= startAt) {
+      scheduleMidiEnd(startAt);
       audio.stopNote(noteId);
       finish();
       return;
     }
+    scheduleMidiEnd(endAt);
     audio.releaseNote(noteId, Math.max(audio.getAudioContext().currentTime, audioOffset + endAt / 1000));
     clearTimeout(endTimer);
     if (endAt <= now()) finish();
@@ -76,6 +90,8 @@ export function createScheduledLiveVoice(options: {
       finish();
       return;
     }
+    midiStartScheduled = true;
+    options.onScheduleStart?.(epochOffset + startAt);
     if (startAt <= now()) publishStart();
     else startTimer = setTimeout(publishStart, startAt - now());
     scheduleEnd();
@@ -91,7 +107,10 @@ export function createScheduledLiveVoice(options: {
       endAt = at;
       if (at <= options.at) {
         // A released key must cancel audio already queued in the lookahead.
-        if (ready) audio.stopNote(noteId);
+        if (ready) {
+          scheduleMidiEnd(startAt);
+          audio.stopNote(noteId);
+        }
         finish();
       } else {
         scheduleEnd();

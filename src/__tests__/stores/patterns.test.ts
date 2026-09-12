@@ -243,15 +243,42 @@ describe("Patterns Store", () => {
         },
       } as CustomEvent);
     }
+    const releaseTimes = new Map([
+      ["style-c", startedAt + 200],
+      ["style-e", startedAt + 300],
+      ["style-g", startedAt + 1000],
+    ]);
     for (const noteId of ["style-c", "style-e", "style-g"]) {
       patternsStore.handleNoteReleased({
-        detail: { noteId, timestamp: startedAt + 300 },
+        detail: { noteId, timestamp: releaseTimes.get(noteId) },
       } as CustomEvent);
     }
 
     expect(patternsStore.loggedNotes.map((note) => note.note)).toEqual(["G4", "E4", "C4"]);
     expect(patternsStore.loggedNotes.map((note) => note.isStartingNewPattern)).toEqual([true, false, false]);
-    expect(patternsStore.dynamicPatterns[0]?.duration).toBe(270);
+    expect(patternsStore.dynamicPatterns[0]?.duration).toBe(970);
+
+    patternsStore.sendCurrentPattern();
+    const saved = patternsStore.savedPatterns.at(-1)!;
+    expect(saved.duration).toBe(970);
+    patternsStore.loadPatternAsBase(saved.id, { discardWorkingNotes: true });
+    patternsStore.handleNotePressed({
+      detail: {
+        noteId: "appended-d",
+        noteName: "D4",
+        solfegeIndex: 1,
+        octave: 4,
+        frequency: 293.66,
+        instrument: "piano",
+        source: "live-play-style",
+        note: createLogNote().solfege,
+        timestamp: startedAt + 1200,
+      },
+    } as CustomEvent);
+    patternsStore.handleNoteReleased({
+      detail: { noteId: "appended-d", timestamp: startedAt + 1400 },
+    } as CustomEvent);
+    expect(patternsStore.currentSketchNotes.at(-1)?.pressTime).toBe(startedAt + 1000);
   });
 
   it("counts a context boundary revealed by reverse completion order", () => {

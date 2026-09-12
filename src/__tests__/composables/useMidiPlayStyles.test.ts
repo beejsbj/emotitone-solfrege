@@ -25,9 +25,41 @@ function packet(status: number, pitch: number) {
 }
 
 function notes() {
-  return send.mock.calls.map(([message]) => message as number[])
-    .filter(([status]) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
-    .map(([status, pitch]) => [status & 0xf0, pitch]);
+  const messages = send.mock.calls
+    .map(([message, timestamp], index) => ({
+      message: message as number[],
+      timestamp: typeof timestamp === "number" ? timestamp : 1e12 + index,
+      index,
+    }))
+    .filter(({ message: [status] }) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
+    .sort((left, right) => left.timestamp - right.timestamp || left.index - right.index);
+  const active = new Set<number>();
+  const transitions: number[][] = [];
+
+  for (let index = 0; index < messages.length;) {
+    const timestamp = messages[index].timestamp;
+    let end = index + 1;
+    while (end < messages.length && messages[end].timestamp === timestamp) end += 1;
+    const group = messages.slice(index, end);
+    index = end;
+    for (const pitch of new Set(group.map(({ message }) => message[1]))) {
+      const pitchGroup = group.filter(({ message }) => message[1] === pitch);
+      const statuses = pitchGroup.map(({ message }) => message[0] & 0xf0);
+      // A queued attack canceled before its deadline is paired with an off at
+      // that same deadline; it never becomes an audible transition.
+      if (!active.has(pitch) && statuses.includes(0x90) && statuses.includes(0x80)) continue;
+      for (const status of statuses) {
+        if (status === 0x90 && !active.has(pitch)) {
+          active.add(pitch);
+          transitions.push([status, pitch]);
+        } else if (status === 0x80 && active.delete(pitch)) {
+          transitions.push([status, pitch]);
+        }
+      }
+    }
+  }
+
+  return transitions;
 }
 
 async function connect() {
@@ -103,7 +135,15 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     music.setPlayStyle("arp-up");
     await connect();
     [60, 64, 67].forEach((pitch) => packet(0x90, pitch));
-    await vi.advanceTimersByTimeAsync(740);
+    await vi.advanceTimersByTimeAsync(230);
+    expect(notes()).toEqual([
+      [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64],
+    ]);
+    expect(send.mock.calls
+      .filter(([[status]]) => (status & 0xf0) === 0x90)
+      .at(-1)?.[1])
+      .toBeGreaterThan(performance.now());
+    await vi.advanceTimersByTimeAsync(499);
     expect(notes()).toEqual([
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64], [0x90, 67], [0x80, 67],
     ]);
@@ -159,6 +199,21 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     expect(notes()).toEqual([]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
+  });
+
+  it("pairs a lookahead attack with an off when its owner releases before onset", async () => {
+    useMusicStore().setPlayStyle("arp-up");
+    await connect();
+    packet(0x90, 60);
+    await vi.advanceTimersByTimeAsync(240);
+    packet(0x80, 60);
+
+    const scheduled = send.mock.calls
+      .filter(([[status]]) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
+      .map(([message, timestamp]) => [message[0] & 0xf0, message[1], timestamp]);
+    expect(scheduled).toContainEqual([0x90, 60, 280]);
+    expect(scheduled.at(-1)).toEqual([0x80, 60, 280]);
+    expect(notes()).toEqual([[0x90, 60], [0x80, 60]]);
   });
 
   it("preserves a pending input across a mode change without suppressing later app notes", async () => {

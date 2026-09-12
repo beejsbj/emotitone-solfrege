@@ -5,6 +5,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
 import {
   buildRoliAllNotesOffMessages,
   buildRoliMainOctaveMessage,
@@ -103,6 +104,11 @@ interface MirroredNoteEventDetail {
   solfegeIndex?: number;
   isBorrowed?: boolean;
   timestamp?: number;
+}
+
+interface ScheduledMidiNoteEventDetail extends MirroredNoteEventDetail {
+  phase: "attack" | "release";
+  timestamp: number;
 }
 
 export function createMidiNoteReferenceCounter(
@@ -852,6 +858,17 @@ export function useMidiControls() {
     mirrorNoteReleased(event);
   };
 
+  const handleScheduledMidiNote = (event: Event) => {
+    const detail = (event as CustomEvent<ScheduledMidiNoteEventDetail>).detail;
+    if (!selectedRoliOutput.value || !shouldMirrorNoteEvent(detail)) return;
+    const midiNote = resolveMirroredMidiNoteNumber(detail, musicStore);
+    if (midiNote === null) return;
+    const message = detail.phase === "attack"
+      ? buildRoliNoteOnMessage(midiNote)
+      : buildRoliNoteOffMessage(midiNote);
+    sendToRoliOutput(message, resolveMidiEventTimestamp(detail));
+  };
+
   const disconnectMidi = () => {
     releaseMidiNotes();
     pendingReleasedPressIds.value.clear();
@@ -960,6 +977,7 @@ export function useMidiControls() {
     keyboardDrawerStore.refreshMidiSupport();
     window.addEventListener("note-played", handleNotePlayed as EventListener);
     window.addEventListener("note-released", handleNoteReleased as EventListener);
+    window.addEventListener(SCHEDULED_LIVE_MIDI_EVENT, handleScheduledMidiNote as EventListener);
     if (keyboardDrawerStore.midi.isSupported) {
       void connectMidi();
     }
@@ -968,6 +986,7 @@ export function useMidiControls() {
   onUnmounted(() => {
     window.removeEventListener("note-played", handleNotePlayed as EventListener);
     window.removeEventListener("note-released", handleNoteReleased as EventListener);
+    window.removeEventListener(SCHEDULED_LIVE_MIDI_EVENT, handleScheduledMidiNote as EventListener);
     uninstallDevMidiSimulator();
     clearVisualNoteTimeouts();
     keyboardDrawerStore.clearVisualNotes();

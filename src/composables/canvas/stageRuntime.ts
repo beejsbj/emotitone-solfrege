@@ -134,7 +134,7 @@ export function resolveAmbientLevel(
   const breath = (Math.sin(elapsedSeconds * Math.PI * 2 / 10 - Math.PI / 2) + 1) / 2;
   const breathLevel = 0.68 + breath * 0.08;
   const audioLevel = 0.72 + audio.envelope * 0.28;
-  if (audio.hasSignal || audio.envelope >= AMBIENT_RELEASE_BLEND_ENVELOPE) {
+  if (audio.envelope >= AMBIENT_RELEASE_BLEND_ENVELOPE) {
     return audioLevel;
   }
   const releaseBlend = audio.envelope / AMBIENT_RELEASE_BLEND_ENVELOPE;

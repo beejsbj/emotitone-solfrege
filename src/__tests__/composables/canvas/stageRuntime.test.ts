@@ -160,6 +160,15 @@ describe("Stage runtime", () => {
       false,
     )).toBeCloseTo(audioLevelAtThreshold, 5);
     expect(resolveAmbientLevel(
+      { envelope: 0.04579, hasSignal: true },
+      2.272,
+      false,
+    )).toBeCloseTo(resolveAmbientLevel(
+      { envelope: 0.04579, hasSignal: false },
+      2.272,
+      false,
+    ), 8);
+    expect(resolveAmbientLevel(
       { envelope: 0, hasSignal: false },
       0,
       false,

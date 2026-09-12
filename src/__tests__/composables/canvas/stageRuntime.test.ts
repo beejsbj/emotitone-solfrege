@@ -95,10 +95,31 @@ describe("Stage runtime", () => {
         .hilbertRadius,
     ).toBe(0);
     expect(
-      resolveStageComposition({ x: 0, y: 0, width: 95, height: 95 }, 75, 0.6)
+      resolveStageComposition({ x: 0, y: 0, width: 149, height: 149 }, 75, 0.6)
         .suspended,
     ).toBe(true);
+    expect(
+      resolveStageComposition({ x: 0, y: 0, width: 150, height: 150 }, 75, 0.6)
+        .suspended,
+    ).toBe(false);
   });
+
+  it.each([150, 180, 240, 375, 600, 800])(
+    "keeps the Scope larger than a maximum-size support body at a %ipx drawable edge",
+    (height) => {
+      const canonicalRadius = Math.max(75, height * 0.1);
+      const composition = resolveStageComposition(
+        { x: 0, y: 0, width: 1200, height },
+        canonicalRadius,
+        0.6,
+        1.5,
+      );
+      const bodyRadius = canonicalRadius * composition.blobFitScale;
+
+      expect(composition.suspended).toBe(false);
+      expect(composition.hilbertRadius).toBeGreaterThan(bodyRadius);
+    },
+  );
 
   it.each([
     [900, 420],

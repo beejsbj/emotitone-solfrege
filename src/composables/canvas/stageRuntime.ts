@@ -26,7 +26,9 @@ export interface StageAudioFrame {
 }
 
 const EDGE_PADDING = 20;
-const MIN_DRAWABLE_EDGE = 96;
+// Below this minor edge there is not enough room to keep the Scope visibly
+// primary, retain the body orbit, and preserve their focal gap together.
+const MIN_DRAWABLE_EDGE = 150;
 const HILBERT_PRIMARY_SCALE = 1.8;
 const FOCAL_GAP = 8;
 const AMBIENT_RELEASE_BLEND_ENVELOPE = 0.08;

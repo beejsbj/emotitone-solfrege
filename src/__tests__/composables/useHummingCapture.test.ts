@@ -1,4 +1,4 @@
-import { defineComponent, h } from "vue";
+import { defineComponent, h, reactive } from "vue";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useHummingCapture } from "@/composables/useHummingCapture";
@@ -6,6 +6,9 @@ import { useHummingCapture } from "@/composables/useHummingCapture";
 const mocks = vi.hoisted(() => ({
   bridgePush: vi.fn(),
   bridgeStop: vi.fn(),
+  updateBridgeContext: vi.fn(),
+  musicStore: null as unknown as { currentKey: string; currentMode: string },
+  instrumentStore: null as unknown as { currentInstrument: string },
   startMicrophoneCapture: vi.fn(),
   sessionStop: vi.fn(),
   sessionCancel: vi.fn(),
@@ -21,6 +24,7 @@ vi.mock("@/services/hummingStage", () => ({
   createHummingStageBridge: () => ({
     push: mocks.bridgePush,
     stop: mocks.bridgeStop,
+    updateContext: mocks.updateBridgeContext,
   }),
 }));
 
@@ -35,11 +39,11 @@ vi.mock("@/services/pitchAnalysis", () => ({
 }));
 
 vi.mock("@/stores/music", () => ({
-  useMusicStore: () => ({ currentKey: "D", currentMode: "dorian" }),
+  useMusicStore: () => mocks.musicStore,
 }));
 
 vi.mock("@/stores/instrument", () => ({
-  useInstrumentStore: () => ({ currentInstrument: "piano" }),
+  useInstrumentStore: () => mocks.instrumentStore,
 }));
 
 vi.mock("@/stores/visualConfig", () => ({
@@ -71,6 +75,8 @@ describe("useHummingCapture", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.musicStore = reactive({ currentKey: "D", currentMode: "dorian" });
+    mocks.instrumentStore = reactive({ currentInstrument: "piano" });
     mocks.loggedNotes.splice(0);
     mocks.startMicrophoneCapture.mockResolvedValue({
       stop: mocks.sessionStop,
@@ -134,6 +140,37 @@ describe("useHummingCapture", () => {
     expect(capture.takeLabels.value).toEqual([]);
     expect(capture.selectedTakeIndex.value).toBe(0);
     wrapper.unmount();
+  });
+
+  it("syncs pending and active live visuals to controls without changing the captured take context", async () => {
+    let resolveSession!: (session: { stop: typeof mocks.sessionStop; cancel: typeof mocks.sessionCancel }) => void;
+    mocks.startMicrophoneCapture.mockReturnValueOnce(new Promise((resolve) => {
+      resolveSession = resolve;
+    }));
+    const wrapper = mountCapture();
+    const starting = capture.start();
+    mocks.musicStore.currentKey = "G";
+    mocks.instrumentStore.currentInstrument = "organ";
+    expect(mocks.updateBridgeContext).toHaveBeenLastCalledWith({
+      key: "G", mode: "dorian", instrument: "organ",
+    });
+    resolveSession({ stop: mocks.sessionStop, cancel: mocks.sessionCancel });
+    await starting;
+    mocks.musicStore.currentMode = "major";
+    expect(mocks.updateBridgeContext).toHaveBeenLastCalledWith({
+      key: "G", mode: "major", instrument: "organ",
+    });
+    expect(mocks.startMicrophoneCapture).toHaveBeenCalledTimes(1);
+    expect(mocks.sessionStop).not.toHaveBeenCalled();
+
+    await capture.stop();
+    expect(mocks.toCandidates).toHaveBeenCalledWith(expect.anything(), {
+      key: "D", mode: "dorian", instrument: "piano", bpm: 96,
+    });
+    wrapper.unmount();
+    mocks.updateBridgeContext.mockClear();
+    mocks.musicStore.currentKey = "A";
+    expect(mocks.updateBridgeContext).not.toHaveBeenCalled();
   });
 
   it("keeps listening beyond 45 seconds and only stops and imports on acceptance", async () => {
@@ -260,15 +297,16 @@ describe("useHummingCapture", () => {
     wrapper.unmount();
   });
 
-  it("surfaces recorder failure immediately", async () => {
+  it.each(["The microphone recording failed.", "Microphone input ended."])("surfaces %s immediately", async (message) => {
     const wrapper = mountCapture();
     await capture.start();
 
     const onError = mocks.startMicrophoneCapture.mock.calls[0][1];
-    onError(new Error("The microphone recording failed."));
+    onError(new Error(message));
 
     expect(capture.status.value).toBe("error");
-    expect(capture.error.value).toBe("The microphone recording failed.");
+    expect(capture.error.value).toBe(message);
+    expect(capture.isRecording.value).toBe(false);
     expect(mocks.bridgeStop).toHaveBeenCalled();
     wrapper.unmount();
   });

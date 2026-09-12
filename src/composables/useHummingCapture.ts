@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, readonly, ref } from "vue";
+import { computed, onBeforeUnmount, readonly, ref, watch } from "vue";
 import { createHummingStageBridge } from "@/services/hummingStage";
 import {
   analyzePitchRecording,
@@ -47,6 +47,17 @@ export function useHummingCapture() {
     instrument: string;
     bpm: number;
   } | null = null;
+
+  // Live presentation follows the controls; analysis retains the take's starting context.
+  const stopContextWatch = watch(
+    () => [musicStore.currentKey, musicStore.currentMode, instrumentStore.currentInstrument],
+    () => stageBridge?.updateContext({
+      key: musicStore.currentKey as ChromaticNote,
+      mode: musicStore.currentMode as MusicalMode,
+      instrument: instrumentStore.currentInstrument,
+    }),
+    { flush: "sync" },
+  );
 
   const isBusy = computed(() =>
     ["requesting", "preparing", "analyzing"].includes(status.value),
@@ -208,6 +219,7 @@ export function useHummingCapture() {
   }
 
   onBeforeUnmount(() => {
+    stopContextWatch();
     void cancel();
   });
 

@@ -20,8 +20,33 @@ export async function startMicrophoneCapture(
 
   const lease = await liveAudioInput.acquire();
   let monitor: LivePitchMonitor | undefined;
+  let sourceError: Error | undefined;
+  let unsubscribeSource: () => void = () => undefined;
+  let failRecording: ((error: Error) => void) | undefined;
+  let releasePromise: Promise<void> | undefined;
+  const releaseLease = () => releasePromise ??= lease.release();
+
   try {
-    monitor = await startLivePitchMonitor(lease.source, onFrame);
+    unsubscribeSource = liveAudioInput.subscribe((source) => {
+      if (source === lease.source || sourceError) return;
+      sourceError = new Error("Microphone input ended.");
+      if (failRecording) {
+        failRecording(sourceError);
+      } else {
+        // Startup can still be awaiting the monitor when the device disappears.
+        unsubscribeSource();
+        try {
+          onError(sourceError);
+        } finally {
+          void releaseLease();
+        }
+      }
+    });
+    if (sourceError) throw sourceError;
+    monitor = await startLivePitchMonitor(lease.source, (frame) => {
+      if (!sourceError) onFrame(frame);
+    });
+    if (sourceError) throw sourceError;
     const recorder = new MediaRecorder(lease.source.stream);
     const chunks: Blob[] = [];
     let cancelled = false;
@@ -38,22 +63,27 @@ export async function startMicrophoneCapture(
     const cleanup = async () => {
       if (cleanedUp) return;
       cleanedUp = true;
+      unsubscribeSource();
       await monitor?.stop().catch(() => undefined);
-      await lease.release();
+      await releaseLease();
     };
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data);
     };
-    recorder.onerror = () => {
+    failRecording = (error) => {
       if (settled) return;
       settled = true;
-      const error = new Error("The microphone recording failed.");
+      unsubscribeSource();
+      if (recorder.state !== "inactive") recorder.stop();
       try {
         onError(error);
       } finally {
         void cleanup().then(() => rejectCompletion(error));
       }
+    };
+    recorder.onerror = () => {
+      failRecording?.(new Error("The microphone recording failed."));
     };
     recorder.onstop = () => {
       if (settled) return;
@@ -73,18 +103,21 @@ export async function startMicrophoneCapture(
 
     return {
       stop() {
+        unsubscribeSource();
         if (recorder.state !== "inactive") recorder.stop();
         return completion;
       },
       async cancel() {
         cancelled = true;
+        unsubscribeSource();
         if (recorder.state !== "inactive") recorder.stop();
         await completion.catch(() => undefined);
       },
     };
   } catch (error) {
+    unsubscribeSource();
     await monitor?.stop().catch(() => undefined);
-    await lease.release();
+    await releaseLease();
     throw error;
   }
 }

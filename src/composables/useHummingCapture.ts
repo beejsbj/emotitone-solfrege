@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, readonly, ref } from "vue";
+import { computed, onBeforeUnmount, readonly, ref, watch } from "vue";
 import { createHummingStageBridge } from "@/services/hummingStage";
 import {
   analyzePitchRecording,
@@ -23,8 +23,6 @@ export type HummingCaptureStatus =
   | "analyzing"
   | "error";
 
-const MAX_CAPTURE_MS = 45_000;
-
 export function useHummingCapture() {
   const musicStore = useMusicStore();
   const instrumentStore = useInstrumentStore();
@@ -38,8 +36,8 @@ export function useHummingCapture() {
   const importedNoteCount = ref(0);
 
   let session: MicrophoneCapture | null = null;
+  let pendingRecording: Promise<Blob> | null = null;
   let stageBridge: ReturnType<typeof createHummingStageBridge> | null = null;
-  let timeoutId: number | null = null;
   let requestController: AbortController | null = null;
   let generation = 0;
   let loggedNoteIdsAtCaptureStart = new Set<string>();
@@ -49,6 +47,17 @@ export function useHummingCapture() {
     instrument: string;
     bpm: number;
   } | null = null;
+
+  // Live presentation follows the controls; analysis retains the take's starting context.
+  const stopContextWatch = watch(
+    () => [musicStore.currentKey, musicStore.currentMode, instrumentStore.currentInstrument],
+    () => stageBridge?.updateContext({
+      key: musicStore.currentKey as ChromaticNote,
+      mode: musicStore.currentMode as MusicalMode,
+      instrument: instrumentStore.currentInstrument,
+    }),
+    { flush: "sync" },
+  );
 
   const isBusy = computed(() =>
     ["requesting", "preparing", "analyzing"].includes(status.value),
@@ -103,26 +112,26 @@ export function useHummingCapture() {
       }
       session = nextSession;
       status.value = "recording";
-      timeoutId = window.setTimeout(() => void stop(), MAX_CAPTURE_MS);
     } catch (caught) {
       if (generation === activeGeneration) fail(caught);
     }
   }
 
   async function stop() {
-    if (status.value !== "recording" || !session || !captureContext) return;
-    const activeGeneration = generation;
+    if (!isRecording.value || !session || !captureContext) return;
     const activeSession = session;
+    const activeGeneration = generation;
     const activeContext = captureContext;
     session = null;
-    clearCaptureTimeout();
     stageBridge?.stop();
     stageBridge = null;
     status.value = "preparing";
 
     try {
-      const recording = await activeSession.stop();
+      pendingRecording = activeSession.stop();
+      const recording = await pendingRecording;
       if (generation !== activeGeneration) return;
+      pendingRecording = null;
       const wav = await preparePitchAnalysisAudio(recording);
       if (generation !== activeGeneration) return;
 
@@ -185,34 +194,32 @@ export function useHummingCapture() {
   }
 
   async function cancel() {
-    generation += 1;
-    clearCaptureTimeout();
+    const activeGeneration = ++generation;
     requestController?.abort();
     requestController = null;
     stageBridge?.stop();
     stageBridge = null;
     const activeSession = session;
     session = null;
+    const activeRecording = pendingRecording;
     await activeSession?.cancel();
-    if (status.value !== "error") status.value = "idle";
+    // Recorder completion includes monitor shutdown and release of the audio lease.
+    await activeRecording?.catch(() => undefined);
+    if (pendingRecording === activeRecording) pendingRecording = null;
+    if (generation === activeGeneration && status.value !== "error") status.value = "idle";
   }
 
   function fail(caught: unknown) {
-    clearCaptureTimeout();
     stageBridge?.stop();
     stageBridge = null;
     session = null;
+    pendingRecording = null;
     error.value = friendlyCaptureError(caught);
     status.value = "error";
   }
 
-  function clearCaptureTimeout() {
-    if (timeoutId == null) return;
-    window.clearTimeout(timeoutId);
-    timeoutId = null;
-  }
-
   onBeforeUnmount(() => {
+    stopContextWatch();
     void cancel();
   });
 

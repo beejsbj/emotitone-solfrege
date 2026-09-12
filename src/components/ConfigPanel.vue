@@ -174,7 +174,7 @@
                   <p class="config-panel__eyebrow">Stage only</p>
                   <h2>Looks</h2>
                   <p class="config-panel__section-copy">
-                    Looks change Stage appearance, while Connections and Explanations stay yours.
+                    Built-ins preserve Connections and Explanations; saved Looks restore what you saved.
                   </p>
                 </div>
 

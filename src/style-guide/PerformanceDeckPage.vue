@@ -41,6 +41,7 @@
       v-model:mode-value="modeValue"
       v-model:bpm="bpm"
       v-model:octave="octave"
+      v-model:play-mode="playMode"
       v-model:harmony-value="harmonyValue"
       :patterns="patterns"
       :selected-pattern-id="selectedPatternId"
@@ -70,6 +71,7 @@
       @update:mode-value="reportControl('Mode', $event)"
       @update:bpm="reportControl('BPM', $event)"
       @update:octave="reportControl('Octave', $event)"
+      @update:play-mode="reportControl('Style', $event)"
       @update:harmony-value="reportControl('Harmony', $event)"
     />
   </main>
@@ -293,6 +295,7 @@ const keyValue = ref<ChromaticNote>("C");
 const modeValue = ref<MusicalMode>("major");
 const bpm = ref(120);
 const octave = ref(4);
+const playMode = ref("together");
 const rowCount = ref(3);
 const harmonyValue = ref<HarmonyAlteration>("auto");
 const lastAction = ref("Ready · controlled PerformanceDeck");

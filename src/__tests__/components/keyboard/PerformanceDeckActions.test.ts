@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
   setMode: vi.fn(),
+  setPlayMode: vi.fn(),
   updateConfig: vi.fn(),
   setMainOctave: vi.fn(),
   setRowCount: vi.fn(),
@@ -67,8 +68,10 @@ vi.mock("@/stores/music", () => ({
   useMusicStore: () => ({
     currentKey: "C",
     currentMode: "major",
+    playMode: "together",
     setKey: mocks.setKey,
     setMode: mocks.setMode,
+    setPlayMode: mocks.setPlayMode,
   }),
 }));
 
@@ -169,12 +172,13 @@ vi.mock("@/components/patterns/PatternList.vue", () => ({
 vi.mock("@/components/compounds/ControlBar.vue", () => ({
   default: {
     name: "ControlBar",
-    props: ["changeSignals", "haptic"],
+    props: ["changeSignals", "haptic", "playMode"],
     emits: [
       "update:keyValue",
       "update:modeValue",
       "update:bpm",
       "update:octave",
+      "update:playMode",
       "update:rows",
       "update:harmonyValue",
       "harmonyEffective",
@@ -382,7 +386,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("preserves the five remaining Control Bar mutations in the production composition", async () => {
+  it("preserves all Control Bar mutations in the production composition", async () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
@@ -398,6 +402,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     controls.vm.$emit("update:modeValue", "dorian");
     controls.vm.$emit("update:bpm", 96);
     controls.vm.$emit("update:octave", 5);
+    controls.vm.$emit("update:playMode", "arp-up:16");
     controls.vm.$emit("update:harmonyValue", "jazzy7");
     controls.vm.$emit("harmonyEffective", "sus4");
     await wrapper.vm.$nextTick();
@@ -406,6 +411,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(mocks.setMode).toHaveBeenCalledWith("dorian");
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
+    expect(mocks.setPlayMode).toHaveBeenCalledWith("arp-up:16");
     expect(mocks.setRowCount).not.toHaveBeenCalled();
     expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
       .toBe("sus4");

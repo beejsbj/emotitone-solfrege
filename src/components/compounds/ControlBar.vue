@@ -58,6 +58,7 @@
         type="options"
         :options="PLAY_MODE_OPTIONS"
         label="Style"
+        :haptic="haptic"
         @update:modelValue="(value) => emit('update:playMode', String(value))"
       />
     </div>

@@ -2,7 +2,10 @@ import { computed } from "vue";
 import { CHROMATIC_NOTES } from "@/data";
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import { useMusicColorProvider } from "@/composables/useMusicColorConfig";
-import { resolveMusicColorKeySurface } from "@/services/keySurfaceColor";
+import {
+  resolveMonochromeKeySurface,
+  resolveMusicColorKeySurface,
+} from "@/services/keySurfaceColor";
 import {
   musicColorRelationships,
   resolveMusicColorSampleByPitchClass,
@@ -225,9 +228,10 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
     const brightness = config.keyBrightness ?? 1;
     const saturation = config.keySaturation ?? 1;
     if (surfaceStyle === "monochrome") {
-      const lightness = Math.min(100, Math.max(0, (isAccidental ? 100 : 10) * brightness));
-      const color = `hsla(0, 0%, ${lightness}%, 1)`;
-      return { background: color, primaryColor: color };
+      return resolveMonochromeKeySurface(isAccidental, {
+        keyBrightness: brightness,
+        keySaturation: saturation,
+      });
     }
 
     const resolved = resolveMusicColorSampleByScaleIndex(

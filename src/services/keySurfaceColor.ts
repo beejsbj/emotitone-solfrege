@@ -54,20 +54,32 @@ function adjustColorHSL(
   return `hsla(${hue}, ${adjustedSaturation}%, ${adjustedLightness}%, ${alpha})`;
 }
 
-/** Shared opaque Note/Keyboard surface projection for live and controlled color sources. */
+/** Single natural/accidental monochrome projection for every key surface. */
+export function resolveMonochromeKeySurface(
+  isAccidental: boolean,
+  tuning: KeySurfaceTuning = {},
+): KeySurfaceColor {
+  const color = adjustColorHSL(
+    isAccidental ? "hsla(0, 0%, 100%, 1)" : "hsla(0, 0%, 10%, 1)",
+    tuning.keyBrightness,
+    tuning.keySaturation,
+  );
+
+  return { background: color, primaryColor: color };
+}
+
+/** Opaque HSL projection for controlled Note/Keyboard color sources. */
 export function resolveKeySurfaceColor(
   primaryColor: string,
   surfaceStyle: "colored" | "monochrome",
   isAccidental: boolean,
   tuning: KeySurfaceTuning = {},
 ): KeySurfaceColor {
-  const sourceColor = surfaceStyle === "monochrome"
-    ? isAccidental
-      ? "hsla(0, 0%, 100%, 1)"
-      : "hsla(0, 0%, 10%, 1)"
-    : primaryColor;
+  if (surfaceStyle === "monochrome") {
+    return resolveMonochromeKeySurface(isAccidental, tuning);
+  }
   const adjustedColor = adjustColorHSL(
-    sourceColor,
+    primaryColor,
     tuning.keyBrightness,
     tuning.keySaturation,
   );

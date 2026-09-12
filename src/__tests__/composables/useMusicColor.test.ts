@@ -186,6 +186,25 @@ describe("useMusicColor", () => {
       true,
       tuning,
     ));
+    for (const isAccidental of [false, true]) {
+      expect(staticNoteColorResolver.getKeyBackground(
+        0,
+        "major",
+        "C",
+        4,
+        "monochrome",
+        isAccidental,
+        tuning,
+      )).toEqual(runtime.getKeyBackground(
+        0,
+        "major",
+        "C",
+        4,
+        "monochrome",
+        isAccidental,
+        tuning,
+      ));
+    }
   });
 
   it("prefers exact pitch identity when an active note provides it", () => {

@@ -73,16 +73,45 @@ describe("PerformanceDeck guide fixtures", () => {
     expect(deck.props("patterns").at(-2)).toMatchObject({
       id: "take-1",
       name: "Take 1",
+      rootLabel: "F♯4",
+      musicKey: "F#",
+      mode: "dorian",
+      bpm: 92,
+      octave: 4,
       canDelete: true,
       canRename: true,
     });
-    expect(deck.props("patterns").at(-1)).toMatchObject({
+    const current = deck.props("patterns").at(-1);
+    expect(current).toMatchObject({
       id: "current",
       name: "Current Take",
+      rootLabel: "F♯4",
+      musicKey: "F#",
+      mode: "dorian",
+      bpm: 92,
+      octave: 4,
       barTape: [],
       codeStripTokens: [],
       canCopy: false,
     });
+    expect(current.spine).toBe(
+      staticNoteColorResolver.getKeyBackgroundByPitchClass(
+        6,
+        "dorian",
+        "F#",
+        4,
+        "colored",
+        true,
+      ).primaryColor,
+    );
+
+    deck.vm.$emit("patternCommit", "take-1", "tap");
+    deck.vm.$emit("patternCommit", "current", "tap");
+    await wrapper.vm.$nextTick();
+    expect(deck.props("keyValue")).toBe("F#");
+    expect(deck.props("modeValue")).toBe("dorian");
+    expect(deck.props("bpm")).toBe(92);
+    expect(deck.props("octave")).toBe(4);
     wrapper.unmount();
   });
 

@@ -173,6 +173,22 @@ function staticPitchColor(pitchClassIndex: number, mode: MusicalMode, key: Chrom
   ).primaryColor;
 }
 
+function applyPatternContext(
+  pattern: GuidePattern,
+  musicKey: ChromaticNote,
+  mode: MusicalMode,
+  bpm: number,
+  octave: number,
+) {
+  const pitchClassIndex = CHROMATIC_NOTES.indexOf(musicKey);
+  pattern.musicKey = musicKey;
+  pattern.mode = mode;
+  pattern.bpm = bpm;
+  pattern.octave = octave;
+  pattern.rootLabel = `${musicKey.replace("#", "♯")}${octave}`;
+  pattern.spine = staticPitchColor(pitchClassIndex, mode, musicKey, octave);
+}
+
 function timeline(
   events: Array<[pitchClassIndex: number, durationMs: number]>,
   mode: MusicalMode,
@@ -299,6 +315,7 @@ function resetCode() {
     current.barTape = currentBarTape.map((segment) => ({ ...segment }));
     current.codeStripTokens = cloneTokens(initialTokens);
     current.canCopy = true;
+    applyPatternContext(current, "C", "major", 120, 4);
   }
   selectedPatternId.value = "current";
   keyValue.value = "C";
@@ -332,7 +349,7 @@ function commitCode() {
     const selected = patterns.value.find((pattern) => pattern.id === selectedPatternId.value);
     const takeSource = selected ?? current;
     const takeNumber = patternEntrySignal.value + 1;
-    patterns.value.splice(Math.max(0, patterns.value.length - 1), 0, {
+    const savedTake: GuidePattern = {
       ...takeSource,
       id: `take-${takeNumber}`,
       name: `Take ${takeNumber}`,
@@ -346,12 +363,27 @@ function commitCode() {
       canRename: true,
       copied: false,
       deleteArmed: false,
-    });
+    };
+    applyPatternContext(
+      savedTake,
+      keyValue.value,
+      modeValue.value,
+      bpm.value,
+      octave.value,
+    );
+    patterns.value.splice(Math.max(0, patterns.value.length - 1), 0, savedTake);
   }
   if (current) {
     current.barTape = [];
     current.codeStripTokens = [];
     current.canCopy = false;
+    applyPatternContext(
+      current,
+      keyValue.value,
+      modeValue.value,
+      bpm.value,
+      octave.value,
+    );
   }
   codeStripTokens.value = [];
   isPlaying.value = false;

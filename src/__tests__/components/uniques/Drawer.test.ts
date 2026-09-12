@@ -253,7 +253,7 @@ describe("Drawer continuous height contract", () => {
     await flushPromises();
 
     expect(height(w)).toBe(432);
-    expect(w.emitted('contentResize')?.at(-1)).toEqual([312]);
+    expect(w.emitted('contentResize')?.at(-1)).toEqual([312, 'target']);
     expect(committedLayoutResize).toBe(true);
   });
   it("restores the dragged keyboard height when the row-count floor decreases", async () => {

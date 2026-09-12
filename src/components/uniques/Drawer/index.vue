@@ -53,7 +53,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [open: boolean];
   resize: [height: number];
-  contentResize: [contentHeight: number, source?: "pointer"];
+  contentResize: [contentHeight: number, source?: "pointer" | "target"];
   closed: [];
 }>();
 const root = ref<HTMLElement | null>(null);
@@ -142,14 +142,14 @@ function remember() {
     }));
   } catch { /* A restricted or full store must not prevent drawer interaction. */ }
 }
-function publish(source?: "pointer") {
+function publish(source?: "pointer" | "target") {
   emit("update:modelValue", expanded.value);
   emit("resize", height.value);
   if (!usableOpen.value) return;
-  if (source === "pointer") emit("contentResize", visibleContentHeight.value, source);
+  if (source) emit("contentResize", visibleContentHeight.value, source);
   else emit("contentResize", visibleContentHeight.value);
 }
-function setHeight(value: number, source?: "pointer") {
+function setHeight(value: number, source?: "pointer" | "target") {
   currentHeight.value = Math.max(0, Math.min(value, maxHeight.value));
   publish(source);
 }
@@ -158,10 +158,10 @@ function interactiveHeight(value: number) {
   if (!canFitMinimumContent.value) return persistentHeight.value;
   return Math.max(usableOpenThreshold.value, value);
 }
-async function setLayoutHeight(value: number) {
+async function setLayoutHeight(value: number, source?: "pointer" | "target") {
   const request = ++layoutResizeRequest;
   layoutResizing.value = true;
-  setHeight(value);
+  setHeight(value, source);
   await finishLayoutResize(request);
 }
 async function finishLayoutResize(request: number) {
@@ -342,7 +342,10 @@ watch(() => props.initialContentHeight, value => {
   if (props.fitContentOnOpen) return;
   preferredContentHeight.value = value;
   if (!ready.value || !expanded.value || dragging.value) return;
-  void setLayoutHeight(persistentHeight.value + Math.max(props.minContentHeight, value));
+  void setLayoutHeight(
+    persistentHeight.value + Math.max(props.minContentHeight, value),
+    "target",
+  );
 });
 watch(() => props.minContentHeight, () => {
   if (expanded.value && !dragging.value) {

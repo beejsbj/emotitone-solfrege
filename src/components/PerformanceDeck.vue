@@ -389,7 +389,10 @@ function updateDrawerOpen(isOpen: boolean) {
   } else emit("update:drawerOpen", isOpen);
 }
 
-function resizeKeyboard(contentHeight: number, source?: "pointer") {
+function resizeKeyboard(contentHeight: number, source?: "pointer" | "target") {
+  // A reactive row-count change publishes its new target height through Drawer.
+  // It must not be interpreted as fresh geometry and fed back into row solving.
+  if (source === "target") return;
   const layout = resolveKeyboardLayout(contentHeight - keyboardPadding.value, rowCount.value);
   if (layout.rowCount === rowCount.value) return;
   if (!store) {

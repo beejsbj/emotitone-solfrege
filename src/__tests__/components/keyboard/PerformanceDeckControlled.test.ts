@@ -1,5 +1,5 @@
 import { defineComponent } from "vue";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
@@ -105,6 +105,37 @@ const HummingStub = defineComponent({
 });
 
 describe("PerformanceDeck controlled usage", () => {
+  it("applies a reactive row target without feeding its height back into row selection", async () => {
+    const wrapper = mount(PerformanceDeck, {
+      props: {
+        usage: "controlled",
+        drawerOpen: true,
+        rowCount: 3,
+      },
+      global: {
+        stubs: {
+          PatternReel: PatternReelStub,
+          CodeStripBar: CodeStripBarStub,
+          ControlBar: ControlBarStub,
+          Keyboard: KeyboardStub,
+          PatternList: PatternListStub,
+          HummingCaptureTransport: HummingStub,
+        },
+      },
+    });
+    await flushPromises();
+    const drawer = wrapper.getComponent(Drawer);
+    const rowCountEventsBefore = wrapper.emitted("rowCountChange")?.length ?? 0;
+
+    await wrapper.setProps({ rowCount: 5 });
+    await flushPromises();
+
+    expect(drawer.props("initialContentHeight")).toBe(347);
+    expect(drawer.emitted("contentResize")?.at(-1)?.[1]).toBe("target");
+    expect(wrapper.emitted("rowCountChange")?.length ?? 0).toBe(rowCountEventsBefore);
+    wrapper.unmount();
+  });
+
   it("renders the real assembly seam without constructing production wiring", async () => {
     vi.clearAllMocks();
     const wrapper = mount(PerformanceDeck, {

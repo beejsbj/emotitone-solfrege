@@ -464,6 +464,47 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
       expect(visualConfigStore.config.keyboard.showLabels).toBe(mockDefaultConfig.keyboard.showLabels)
     })
+
+    it('resets Global color and rhythm without touching Deck or Stage', () => {
+      visualConfigStore.updateGlobalControl('colorIntensity', 'vivid')
+      visualConfigStore.updateGlobalControl('colorMotion', 'off')
+      visualConfigStore.updateGlobalControl('uiRhythm', false)
+      visualConfigStore.updateConfig('keyboard', { showLabels: false })
+      visualConfigStore.updateConfig('hilbertScope', { opacity: 0.23 })
+
+      visualConfigStore.resetGlobal()
+
+      expect(visualConfigStore.config.dynamicColors).toEqual(mockDefaultConfig.dynamicColors)
+      expect(visualConfigStore.config.uiBeat).toEqual(mockDefaultConfig.uiBeat)
+      expect(visualConfigStore.config.keyboard.showLabels).toBe(false)
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(0.23)
+    })
+
+    it('resets Deck presentation while preserving live octave, row count, and tempo', () => {
+      visualConfigStore.updateConfig('keyboard', {
+        mainOctave: 6,
+        rowCount: 7,
+        showLabels: false,
+        keyBrightness: 1.8,
+      })
+      visualConfigStore.updateConfig('codeStrip', {
+        bpm: 156,
+        enabled: false,
+        opacity: 0.35,
+      })
+
+      visualConfigStore.resetDeck()
+
+      expect(visualConfigStore.config.keyboard).toEqual({
+        ...mockDefaultConfig.keyboard,
+        mainOctave: 6,
+        rowCount: 7,
+      })
+      expect(visualConfigStore.config.codeStrip).toEqual({
+        ...mockDefaultConfig.codeStrip,
+        bpm: 156,
+      })
+    })
   })
 
   describe('Saved Configurations', () => {

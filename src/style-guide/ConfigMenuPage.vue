@@ -6,17 +6,17 @@
       <p class="config-menu-page__eyebrow">EmotiTone · focused style-guide page</p>
       <h1>Config Menu.</h1>
       <p>
-        Open the Config handle above to inspect the production composition. Its Looks-first library,
-        consolidated Stage, separate system destinations, Knobs, Buttons, and Sticker actions all
-        cross the same source seam used by the app.
+        Open the Config handle above to inspect the production composition. Global, Stage, Deck,
+        and MIDI organize the same Knobs, Buttons, and Sticker actions used by the app; Stage Looks
+        now live with the canvas they change.
       </p>
     </header>
 
     <section class="config-menu-page__notes" aria-label="Accepted Config Menu direction">
       <div><span>01</span><p>Knobs own persistent settings.</p></div>
       <div><span>02</span><p>Buttons own momentary icon actions.</p></div>
-      <div><span>03</span><p>Ivory Stickers face Stage-only Looks.</p></div>
-      <div><span>04</span><p>Brass marks only global and Stage/section masters; Badge stays out.</p></div>
+      <div><span>03</span><p>Ivory Stickers face Stage-only Looks inside Stage.</p></div>
+      <div><span>04</span><p>Global owns shared color and rhythm; Deck owns performance-surface choices.</p></div>
     </section>
   </main>
 </template>

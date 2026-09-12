@@ -15,6 +15,14 @@ import {
   type StageLookPatch,
   type TransientStageLook,
 } from "@/services/stageAppearance";
+import {
+  readDeckControls,
+  readGlobalControls,
+  updateDeckControl as applyDeckControl,
+  updateGlobalControl as applyGlobalControl,
+  type DeckControlId,
+  type GlobalControlId,
+} from "@/services/configPublicSurface";
 import type {
   BlobConnectionMode,
   HarmonicGeometryMode,
@@ -379,6 +387,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     resolveStageConfig(config, transientStageLook.value?.patch)
   );
   const stageControls = computed(() => readStageControls(effectiveConfig.value));
+  const globalControls = computed(() => readGlobalControls(config));
+  const deckControls = computed(() => readDeckControls(config));
 
   // Load configuration from localStorage on initialization
   const loadFromStorage = () => {
@@ -551,6 +561,35 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     Object.assign(config.animation, defaults.animation);
     Object.assign(config.frequencyMapping, defaults.frequencyMapping);
     Object.assign(config.hilbertScope, defaults.hilbertScope);
+  };
+
+  const updateGlobalControl = (
+    control: GlobalControlId,
+    value: string | boolean,
+  ) => {
+    applyGlobalControl(config, control, value);
+  };
+
+  const resetGlobal = () => {
+    const defaults = cloneDefaultConfig();
+    Object.assign(config.dynamicColors, defaults.dynamicColors);
+    Object.assign(config.uiBeat, defaults.uiBeat);
+  };
+
+  const updateDeckControl = (
+    control: DeckControlId,
+    value: string | boolean,
+  ) => {
+    applyDeckControl(config, control, value);
+  };
+
+  const resetDeck = () => {
+    const defaults = cloneDefaultConfig();
+    const { mainOctave, rowCount } = config.keyboard;
+    const { bpm } = config.codeStrip;
+
+    Object.assign(config.keyboard, defaults.keyboard, { mainOctave, rowCount });
+    Object.assign(config.codeStrip, defaults.codeStrip, { bpm });
   };
 
   const persistSavedStageLooks = () => {
@@ -764,15 +803,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     { deep: true }
   );
 
-  // Watch specifically for pattern config changes and sync to pattern service
-  watch(
-    () => config.patterns,
-    (newPatternsConfig) => {
-      // Pattern config sync removed (pattern service deprecated)
-    },
-    { deep: true, immediate: true }
-  );
-
   // Initialize on store creation
   loadFromStorage();
 
@@ -781,6 +811,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     config,
     effectiveConfig,
     stageControls,
+    globalControls,
+    deckControls,
     visualsEnabled,
     savedConfigs,
     savedStageLooks,
@@ -798,6 +830,10 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     keepStageLook,
     clearStageLook,
     resetStage,
+    updateGlobalControl,
+    resetGlobal,
+    updateDeckControl,
+    resetDeck,
     saveStageLookAs,
     loadSavedStageLook,
     deleteSavedStageLook,

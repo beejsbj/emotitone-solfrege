@@ -666,6 +666,33 @@ describe("CodeStrip production Strudel document", () => {
     wrapper.unmount();
   });
 
+  it("coalesces paired pattern and CodeStrip BPM updates into one evaluation", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    await controller.evaluate();
+    mocks.mirrorOptions.onToggle(true);
+    mocks.mirrorOptions.onDraw([], 0.125);
+    mocks.isPlaying.value = true;
+    mocks.mirrorEvaluate.mockClear();
+    mocks.schedulerSetCps.mockClear();
+
+    mocks.patternsStore.currentSketchMeta.bpm = 90;
+    mocks.visualConfigStore.config.codeStrip.bpm = 90;
+    await nextTick();
+    await flushPromises();
+
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.schedulerSetCps).toHaveBeenCalledOnce();
+    expect(mocks.schedulerSetCps).toHaveBeenCalledWith(0.375);
+    expect(uiBeatClock.snapshot).toMatchObject({
+      status: "running",
+      bpm: 90,
+      generation: expect.any(Number),
+    });
+    wrapper.unmount();
+  });
+
   it("evaluates the current visible recording instead of stale runtime source", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();

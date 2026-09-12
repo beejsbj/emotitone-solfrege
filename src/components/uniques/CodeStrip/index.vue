@@ -155,6 +155,7 @@ let evaluationQueue: Promise<unknown> = Promise.resolve();
 let evaluationEpoch = 0;
 let preserveUIBeatPhaseForNextEvaluation = false;
 let preserveUIBeatDuringCodeSync = false;
+let tempoEvaluationQueued = false;
 let uiBeatAudioContext: AudioContext | null = null;
 
 const FOLLOW_TIME_CONSTANT_MS = 150;
@@ -393,6 +394,19 @@ function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
   syncCode(code);
 }
 
+function canPreserveUIBeatPhase(instance: StrudelMirrorInstance) {
+  const run = activeUIBeatRun;
+  const snapshot = uiBeatClock.snapshot;
+  return Boolean(
+    run?.ready === true &&
+    run.mappingAvailable &&
+    snapshot.generation === run.generation &&
+    snapshot.status === "running" &&
+    snapshot.barPosition !== null &&
+    typeof instance.repl?.scheduler?.setCps === "function"
+  );
+}
+
 async function evaluateMirror(instance: StrudelMirrorInstance): Promise<boolean> {
   if (instrumentStore.isInteractionLocked) return false;
   reconcileMirrorRuntimeCode(instance);
@@ -406,6 +420,24 @@ async function evaluateMirror(instance: StrudelMirrorInstance): Promise<boolean>
     if (editor) setCodeStripPlaying(editor, false);
     throw error;
   }
+}
+
+function queueTempoEvaluation() {
+  if (tempoEvaluationQueued) return;
+  tempoEvaluationQueued = true;
+  queueMicrotask(() => {
+    tempoEvaluationQueued = false;
+    const instance = mirror.value;
+    if (isControlled.value || !instance || !isPlaying.value) return;
+
+    preserveUIBeatPhaseForNextEvaluation = canPreserveUIBeatPhase(instance);
+    void evaluateMirror(instance)
+      // The serialized evaluation boundary has already published the error.
+      .catch(() => undefined)
+      .finally(() => {
+        preserveUIBeatPhaseForNextEvaluation = false;
+      });
+  });
 }
 
 function revealLatestRecordedEvent() {
@@ -790,24 +822,11 @@ watch(
 
 watch(
   [() => patternsStore.currentSketchMeta.bpm, () => codeStripConfig.value.bpm],
-  async () => {
-    if (isControlled.value || !mirror.value || !isPlaying.value) return;
-    const run = activeUIBeatRun;
-    const snapshot = uiBeatClock.snapshot;
-    const preservePhase =
-      run?.ready === true &&
-      run.mappingAvailable &&
-      snapshot.generation === run.generation &&
-      snapshot.status === "running" &&
-      snapshot.barPosition !== null &&
-      typeof mirror.value.repl?.scheduler?.setCps === "function";
-    preserveUIBeatPhaseForNextEvaluation = preservePhase;
-    syncMirrorCode(generatedCode.value, preservePhase);
-    try {
-      await evaluateMirror(mirror.value);
-    } finally {
-      preserveUIBeatPhaseForNextEvaluation = false;
-    }
+  () => {
+    const instance = mirror.value;
+    if (isControlled.value || !instance || !isPlaying.value) return;
+    syncMirrorCode(generatedCode.value, canPreserveUIBeatPhase(instance));
+    queueTempoEvaluation();
   },
   { flush: "sync" },
 );

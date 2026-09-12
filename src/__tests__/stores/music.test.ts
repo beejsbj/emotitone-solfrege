@@ -366,6 +366,13 @@ describe("music store", () => {
 
     await musicStore.playNote(0);
 
+    expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
+      "C4",
+      2000,
+      "piano",
+    );
+    expect(superdoughMocks.attackNote).not.toHaveBeenCalled();
+
     const notePlayedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-played"
     )?.[0] as CustomEvent;

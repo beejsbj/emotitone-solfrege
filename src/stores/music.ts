@@ -465,9 +465,9 @@ export const useMusicStore = defineStore(
           ? CHROMATIC_NOTES.indexOf(parsedNote.noteName)
           : undefined;
 
-        await superdoughAudio.attackNote(
-          `play_${noteName}_${Date.now()}`,
+        await superdoughAudio.playNoteWithDuration(
           noteName,
+          2000,
           instrumentStore.currentInstrument
         );
 

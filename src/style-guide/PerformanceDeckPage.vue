@@ -44,6 +44,7 @@
       v-model:harmony-value="harmonyValue"
       :patterns="patterns"
       :selected-pattern-id="selectedPatternId"
+      :pattern-entry-signal="patternEntrySignal"
       :code-strip-tokens="codeStripTokens"
       :is-playing="isPlaying"
       :row-count="rowCount"
@@ -171,9 +172,11 @@ const patterns = ref<PatternReelItem[]>([
     openUnavailableLabel: "Unavailable in isolated specimen",
   },
 ]);
+const currentBarTape = patterns.value.find((pattern) => pattern.id === "current")?.barTape ?? [];
 
 const drawerOpen = ref(true);
 const selectedPatternId = ref("current");
+const patternEntrySignal = ref(0);
 const codeStripTokens = ref<CodeStripToken[]>(initialTokens.map((token) => ({ ...token })));
 const isPlaying = ref(false);
 const warming = ref(false);
@@ -214,6 +217,8 @@ function patternName(id: string) {
 
 function resetCode() {
   codeStripTokens.value = initialTokens.map((token) => ({ ...token }));
+  const current = patterns.value.find((pattern) => pattern.id === "current");
+  if (current) current.barTape = currentBarTape;
   isPlaying.value = false;
   lastAction.value = "Code restored";
 }
@@ -230,8 +235,22 @@ function removeLastEvent() {
 }
 
 function commitCode() {
+  const current = patterns.value.find((pattern) => pattern.id === "current");
+  if (current && codeStripTokens.value.length) {
+    const takeNumber = patternEntrySignal.value + 1;
+    patterns.value.splice(Math.max(0, patterns.value.length - 1), 0, {
+      ...current,
+      id: `take-${takeNumber}`,
+      name: `Take ${takeNumber}`,
+      canDelete: true,
+      canRename: true,
+    });
+    current.barTape = [];
+  }
   codeStripTokens.value = [];
   isPlaying.value = false;
+  selectedPatternId.value = "current";
+  patternEntrySignal.value += 1;
   lastAction.value = "Committed and cleared CodeStrip";
 }
 

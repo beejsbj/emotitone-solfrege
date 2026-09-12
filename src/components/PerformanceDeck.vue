@@ -25,12 +25,14 @@
     <template #persistent-leading>
       <PatternList
         v-if="isProductionUsage"
+        :entry-signal="productionPatternEntrySignal"
         @context-change="bumpPatternControls"
       />
       <PatternReel
         v-else
         :items="patterns"
         :selected-id="selectedPatternId"
+        :entry-signal="patternEntrySignal"
         :disabled="interactionLocked"
         @commit="(id, input) => emit('patternCommit', id, input)"
         @delete="(id) => emit('patternDelete', id)"
@@ -164,6 +166,7 @@ const props = withDefaults(defineProps<{
   drawerOpen?: boolean;
   patterns?: PatternReelItem[];
   selectedPatternId?: string;
+  patternEntrySignal?: number;
   codeStripTokens?: CodeStripToken[];
   codeStripSource?: string;
   isPlaying?: boolean;
@@ -183,6 +186,7 @@ const props = withDefaults(defineProps<{
   drawerOpen: true,
   patterns: () => [],
   selectedPatternId: "",
+  patternEntrySignal: 0,
   codeStripTokens: () => [],
   codeStripSource: undefined,
   isPlaying: false,
@@ -233,6 +237,7 @@ const humming = isProductionUsage ? useHummingCapture() : undefined;
 
 const harmonyLatched = ref<HarmonyAlteration>(props.harmonyValue);
 const harmonyEffective = ref<HarmonyAlteration>(props.harmonyValue);
+const productionPatternEntrySignal = ref(0);
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 const patternControlSignals = reactive<Record<PatternControl, number>>({
   key: 0,
@@ -324,8 +329,13 @@ function handleBackspace() {
 }
 
 function handleReturn() {
-  if (patternsStore) patternsStore.sendCurrentPattern();
-  else emit("return");
+  if (!patternsStore) {
+    emit("return");
+    return;
+  }
+
+  patternsStore.sendCurrentPattern();
+  productionPatternEntrySignal.value += 1;
 }
 
 function updateKey(value: string) {

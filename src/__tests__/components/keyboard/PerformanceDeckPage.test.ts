@@ -5,7 +5,7 @@ import PerformanceDeckPage from "@/style-guide/PerformanceDeckPage.vue";
 vi.mock("@/components/PerformanceDeck.vue", () => ({
   default: {
     name: "PerformanceDeck",
-    props: ["patterns"],
+    props: ["patterns", "selectedPatternId", "patternEntrySignal", "codeStripTokens"],
     emits: [
       "patternCopy",
       "patternDelete",
@@ -33,6 +33,35 @@ vi.mock("@/components/PerformanceDeck.vue", () => ({
 }));
 
 describe("PerformanceDeck guide fixtures", () => {
+  it("models Return as a saved take plus an entering empty Current Take", async () => {
+    const wrapper = mount(PerformanceDeckPage);
+    const deck = wrapper.getComponent({ name: "PerformanceDeck" });
+
+    expect(deck.props("patternEntrySignal")).toBe(0);
+    deck.vm.$emit("patternCommit", "after-rain", "tap");
+    await wrapper.vm.$nextTick();
+    expect(deck.props("selectedPatternId")).toBe("after-rain");
+
+    deck.vm.$emit("return");
+    await wrapper.vm.$nextTick();
+
+    expect(deck.props("patternEntrySignal")).toBe(1);
+    expect(deck.props("selectedPatternId")).toBe("current");
+    expect(deck.props("codeStripTokens")).toEqual([]);
+    expect(deck.props("patterns").at(-2)).toMatchObject({
+      id: "take-1",
+      name: "Take 1",
+      canDelete: true,
+      canRename: true,
+    });
+    expect(deck.props("patterns").at(-1)).toMatchObject({
+      id: "current",
+      name: "Current Take",
+      barTape: [],
+    });
+    wrapper.unmount();
+  });
+
   it("keeps copied pattern identities unique across delete and recopy", async () => {
     const wrapper = mount(PerformanceDeckPage);
     const deck = wrapper.getComponent({ name: "PerformanceDeck" });

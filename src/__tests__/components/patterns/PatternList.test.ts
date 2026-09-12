@@ -259,6 +259,34 @@ describe("PatternList production adapter", () => {
     });
   });
 
+  it("relays the host signal when Send starts a fresh empty Current Take", async () => {
+    const patternsStore = usePatternsStore();
+    patternsStore.loggedNotes = [
+      createDynamicNote("a", 0),
+      createDynamicNote("b", 1),
+      createDynamicNote("c", 2),
+    ];
+    await nextTick();
+    const wrapper = shallowMount(PatternList, {
+      props: { entrySignal: 0 },
+    });
+    const reel = wrapper.getComponent(PatternReel);
+
+    expect(reel.props("entrySignal")).toBe(0);
+    patternsStore.sendCurrentPattern();
+    await wrapper.setProps({ entrySignal: 1 });
+    await nextTick();
+
+    expect(reel.props("entrySignal")).toBe(1);
+    expect(reel.props("selectedId")).toBe("current-pattern-take");
+    expect(reelItems(wrapper).at(-1)).toMatchObject({
+      id: "current-pattern-take",
+      name: "Current Take",
+      barTape: [],
+    });
+    expect(reelItems(wrapper).at(-2)?.id).toMatch(/^saved-pattern-/);
+  });
+
   it("rejects rename events for an unsaved live phrase", async () => {
     const patternsStore = usePatternsStore();
     patternsStore.loggedNotes = [
@@ -294,6 +322,25 @@ describe("PatternList production adapter", () => {
     await nextTick();
     expect(patternsStore.savedPatterns).toHaveLength(0);
     expect(reelItems(wrapper).every((item) => item.canDelete === false)).toBe(true);
+  });
+
+  it("does not infer a fresh-take entry when deletion clears a loaded pattern", async () => {
+    const patternsStore = usePatternsStore();
+    const pattern = createUserPattern("loaded-delete");
+    patternsStore.savedPatterns = [pattern];
+    patternsStore.loadPatternAsBase(pattern.id);
+    const wrapper = shallowMount(PatternList, {
+      props: { entrySignal: 4 },
+    });
+    const reel = wrapper.getComponent(PatternReel);
+
+    reel.vm.$emit("delete", pattern.id);
+    reel.vm.$emit("delete", pattern.id);
+    await nextTick();
+
+    expect(patternsStore.isStripCleared).toBe(true);
+    expect(reel.props("entrySignal")).toBe(4);
+    expect(reel.props("selectedId")).toBe("current-pattern-take");
   });
 
   it("disarms delete when an evolving dynamic pattern id leaves the reel", async () => {

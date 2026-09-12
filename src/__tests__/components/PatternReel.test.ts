@@ -120,17 +120,17 @@ describe("PatternReel", () => {
     expect(wrapper.attributes("aria-label")).toBe("Arrangement A pattern reel");
   });
 
-  it("uses only Current's height and collapses truthful predecessors behind it", () => {
+  it("shows a compact stacked deck without reserving predecessor height", () => {
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },
     });
 
     expect(slotFor(wrapper, "Gamma").classes()).toContain("pattern-reel__slot--active");
     expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 0px");
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-opacity: 0");
-    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: 0px");
-    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-opacity: 0");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-opacity: 0.92");
+    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: -24.8px");
+    expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-opacity: 0.74");
     expect(wrapper.findAll(
       ".pattern-reel__slot:not(.pattern-reel__slot--1) .bar-tape",
     )).toHaveLength(3);
@@ -169,7 +169,7 @@ describe("PatternReel", () => {
 
     vi.advanceTimersByTime(1);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
   });
 
@@ -210,7 +210,7 @@ describe("PatternReel", () => {
     await nextTick();
 
     expect(wrapper.emitted("commit")).toContainEqual(["beta", "tap"]);
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain(
       "--settle-easing: var(--ease-reel-rebound)",
@@ -318,6 +318,70 @@ describe("PatternReel", () => {
     ));
     expect(activeSuccessor?.element).toBe(stagedSuccessor.element);
     expect(activeSuccessor?.attributes("style")).toContain("--slot-y: 0px");
+  });
+
+  it("rotates a newly started pattern into Current through the staged successor slot", async () => {
+    vi.useFakeTimers();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma", entrySignal: 0 },
+    });
+
+    await wrapper.setProps({ entrySignal: 1 });
+    await nextTick();
+
+    expect(wrapper.classes()).toContain("pattern-reel--entry-staged");
+    expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 46.4px");
+    expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-opacity: 0");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+
+    frames.shift()?.(0);
+    await nextTick();
+    expect(wrapper.classes()).toContain("pattern-reel--entry-staged");
+
+    frames.shift()?.(16);
+    await nextTick();
+    expect(wrapper.classes()).not.toContain("pattern-reel--entry-staged");
+    expect(wrapper.classes()).toContain("pattern-reel--settling");
+    expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--settle-duration: 220ms");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
+
+    vi.advanceTimersByTime(220);
+    await nextTick();
+    expect(wrapper.classes()).not.toContain("pattern-reel--settling");
+  });
+
+  it("invalidates queued entry frames when a newer entry signal supersedes them", async () => {
+    const frames: Array<{ id: number; callback: FrameRequestCallback }> = [];
+    const cancelAnimationFrame = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = frames.length + 1;
+      frames.push({ id, callback });
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", cancelAnimationFrame);
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma", entrySignal: 0 },
+    });
+
+    await wrapper.setProps({ entrySignal: 1 });
+    await nextTick();
+    const supersededFrame = frames[0];
+
+    await wrapper.setProps({ entrySignal: 2 });
+    await nextTick();
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(supersededFrame?.id);
+    expect(frames).toHaveLength(2);
+
+    supersededFrame?.callback(0);
+    expect(frames).toHaveLength(2);
+    wrapper.unmount();
   });
 
   it("preserves focused live-phrase actions while its domain id evolves", async () => {
@@ -501,7 +565,7 @@ describe("PatternReel", () => {
     await wrapper.trigger("pointercancel", { pointerId: 9 });
     await nextTick();
 
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
     expect(wrapper.emitted("commit")).toBeUndefined();
   });
@@ -573,7 +637,7 @@ describe("PatternReel", () => {
     vi.advanceTimersByTime(1);
     await nextTick();
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
 
     wrapper.unmount();
   });
@@ -799,8 +863,14 @@ describe("PatternReel", () => {
 
     vi.advanceTimersByTime(1);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: 0px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -14.4px");
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBe("true");
+
+    await wrapper.setProps({ entrySignal: 1 });
+    await nextTick();
+    expect(wrapper.classes()).not.toContain("pattern-reel--entry-staged");
+    expect(wrapper.classes()).not.toContain("pattern-reel--settling");
+    expect(slotFor(wrapper, "Gamma").attributes("style")).toContain("--slot-y: 0px");
   });
 
   it("keeps motion local, compositor-safe, and still under Reduced Motion", () => {

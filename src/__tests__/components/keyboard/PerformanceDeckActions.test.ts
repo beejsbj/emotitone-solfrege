@@ -136,6 +136,7 @@ vi.mock("@/components/compounds/Keyboard.vue", () => ({
 vi.mock("@/components/patterns/PatternList.vue", () => ({
   default: {
     name: "PatternList",
+    props: ["entrySignal"],
     emits: ["contextChange"],
     template: '<div data-testid="pattern-list" />',
   },
@@ -234,6 +235,9 @@ describe("PerformanceDeck CodeStrip Bar", () => {
       },
     });
     const actions = wrapper.getComponent({ name: "CodeStripBar" });
+    const patternList = wrapper.getComponent({ name: "PatternList" });
+
+    expect(patternList.props("entrySignal")).toBe(0);
 
     actions.vm.$emit("togglePlayback");
     actions.vm.$emit("backspace");
@@ -243,6 +247,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(mocks.toggle).toHaveBeenCalledTimes(1);
     expect(mocks.removeLastFromCurrentSketch).toHaveBeenCalledTimes(1);
     expect(mocks.sendCurrentPattern).toHaveBeenCalledTimes(1);
+    expect(patternList.props("entrySignal")).toBe(1);
     wrapper.unmount();
   });
 

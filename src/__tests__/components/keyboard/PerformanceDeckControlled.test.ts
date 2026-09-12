@@ -55,7 +55,7 @@ vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
 
 const PatternReelStub = defineComponent({
   name: "PatternReel",
-  props: ["items", "selectedId", "disabled"],
+  props: ["items", "selectedId", "entrySignal", "disabled"],
   emits: ["commit", "delete", "copy", "openStrudel", "rename"],
   template: '<div data-testid="pattern-reel" />',
 });
@@ -117,6 +117,7 @@ describe("PerformanceDeck controlled usage", () => {
           barTape: [{ color: "red", durationMs: 250 }],
         }],
         selectedPatternId: "current",
+        patternEntrySignal: 3,
         warming: true,
         codeStripTokens: [{ type: "note", note: "do", text: "Do" }],
         keyboardRows: [{
@@ -152,6 +153,7 @@ describe("PerformanceDeck controlled usage", () => {
     expect(wrapper.find('[data-testid="pattern-list"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="humming"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="pattern-reel"]').exists()).toBe(true);
+    expect(wrapper.getComponent(PatternReelStub).props("entrySignal")).toBe(3);
 
     const drawer = wrapper.getComponent(Drawer);
     expect(drawer.props("storageKey")).toBeUndefined();

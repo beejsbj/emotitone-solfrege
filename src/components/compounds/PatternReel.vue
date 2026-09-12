@@ -6,6 +6,7 @@
       'pattern-reel--dragging': dragging,
       'pattern-reel--settling': settling,
       'pattern-reel--keyboard': keyboardImmediate,
+      'pattern-reel--entry-staged': entryPhase === 'staged',
     }"
     tabindex="0"
     role="group"
@@ -67,6 +68,7 @@ import {
   onBeforeUnmount,
   ref,
   type CSSProperties,
+  watch,
 } from "vue";
 import PatternStrip from "./PatternStrip.vue";
 import type { PatternStripItem } from "./PatternStrip.vue";
@@ -84,9 +86,9 @@ const WHEEL_POSITIONS = [
 ];
 const DECK_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
-  { y: 0, scale: .997, opacity: 0 },
-  { y: 0, scale: .992, opacity: 0 },
-  { y: 0, scale: .986, opacity: 0 },
+  { y: -14.4, scale: .997, opacity: .92 },
+  { y: -24.8, scale: .992, opacity: .74 },
+  { y: -33.6, scale: .986, opacity: .52 },
 ];
 const WHEEL_STEP = 46.4;
 const WHEEL_DRAG_THRESHOLD = 23.2;
@@ -101,9 +103,11 @@ const props = withDefaults(defineProps<{
   selectedId: string;
   disabled?: boolean;
   label?: string;
+  entrySignal?: number;
 }>(), {
   disabled: false,
   label: DEFAULT_REEL_LABEL,
+  entrySignal: 0,
 });
 
 const emit = defineEmits<{
@@ -122,6 +126,7 @@ const transientIndex = ref<number | null>(null);
 const revealHeld = ref(false);
 const reelRebounding = ref(false);
 const keyboardImmediate = ref(false);
+const entryPhase = ref<"idle" | "staged" | "entering">("idle");
 const input = ref<PatternReelInput>("tap");
 const liveAnnouncement = ref("");
 
@@ -146,6 +151,8 @@ let collapseTimer: ReturnType<typeof setTimeout> | undefined;
 let reboundTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressClicksUntil = 0;
 let horizontalGestureRejected = false;
+let entryFrame: number | undefined;
+let entryGeneration = 0;
 
 const selectedIndex = computed(() => {
   const index = props.items.findIndex((item) => item.id === props.selectedId);
@@ -287,7 +294,8 @@ function isSlotUnavailable(slot: number, id: string) {
 }
 
 function slotStyle(slot: number, id: string): CSSProperties {
-  const position = interpolatedPosition(slot - dragProgress.value);
+  const entryOffset = entryPhase.value === "staged" ? 1 : 0;
+  const position = interpolatedPosition(slot - dragProgress.value + entryOffset);
   return {
     "--slot-y": `${position.y}px`,
     "--slot-scale": String(position.scale),
@@ -385,7 +393,17 @@ function handleFocusOut(event: FocusEvent) {
   scheduleCollapse(WHEEL_OPEN_HOLD_MS);
 }
 
+function cancelEntryAnimation() {
+  entryGeneration += 1;
+  if (entryFrame !== undefined) {
+    cancelAnimationFrame(entryFrame);
+    entryFrame = undefined;
+  }
+  entryPhase.value = "idle";
+}
+
 function cancelPendingInteraction(preserveReveal = false) {
+  cancelEntryAnimation();
   stopPendingPointerWatch();
   clearTimeout(wheelTimer);
   clearTimeout(settleTimer);
@@ -412,6 +430,43 @@ function cancelPendingInteraction(preserveReveal = false) {
   pointerStartedRevealed = false;
   horizontalGestureRejected = false;
 }
+
+function stageSelectedEntry() {
+  cancelPendingInteraction();
+  if (prefersReducedMotion()) return;
+
+  entryPhase.value = "staged";
+  settling.value = true;
+  const generation = entryGeneration;
+  void nextTick(() => {
+    if (generation !== entryGeneration || entryPhase.value !== "staged") return;
+    entryFrame = requestAnimationFrame(() => {
+      if (generation !== entryGeneration || entryPhase.value !== "staged") {
+        entryFrame = undefined;
+        return;
+      }
+      entryFrame = requestAnimationFrame(() => {
+        entryFrame = undefined;
+        if (generation !== entryGeneration || entryPhase.value !== "staged") return;
+
+        entryPhase.value = "entering";
+        settleTimer = setTimeout(() => {
+          entryPhase.value = "idle";
+          settling.value = false;
+        }, WHEEL_SETTLE_DURATION_MS);
+      });
+    });
+  });
+}
+
+watch(
+  () => props.entrySignal,
+  (entrySignal, previousEntrySignal) => {
+    if (entrySignal === previousEntrySignal) return;
+    stageSelectedEntry();
+  },
+  { flush: "sync" },
+);
 
 function prepareAnimatedCommit() {
   const closesRevealedWheel = revealHeld.value && !prefersReducedMotion();
@@ -761,7 +816,8 @@ onBeforeUnmount(() => {
 }
 
 .pattern-reel--dragging .pattern-reel__slot,
-.pattern-reel--keyboard .pattern-reel__slot {
+.pattern-reel--keyboard .pattern-reel__slot,
+.pattern-reel--entry-staged .pattern-reel__slot {
   transition: none;
 }
 

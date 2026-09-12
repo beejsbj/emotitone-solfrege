@@ -3,6 +3,7 @@
     class="pattern-list"
     :items="reelItems"
     :selected-id="selectedPatternId"
+    :entry-signal="entrySignal"
     @commit="selectPattern"
     @delete="deletePattern"
     @copy="copyNotation"
@@ -40,6 +41,12 @@ const {
 } = useColorSystem();
 const CURRENT_TAKE_ID = "current-pattern-take";
 type PatternControl = "key" | "mode" | "bpm" | "octave";
+
+withDefaults(defineProps<{
+  entrySignal?: number;
+}>(), {
+  entrySignal: 0,
+});
 
 const emit = defineEmits<{
   contextChange: [controls: PatternControl[]];

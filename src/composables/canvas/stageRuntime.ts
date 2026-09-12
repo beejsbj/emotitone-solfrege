@@ -81,12 +81,15 @@ export function resolveStageComposition(
     Math.max(0, hilbertSizeRatio) / UNIFIED_CONFIG.hilbertScope.sizeRatio.value;
   const desiredHilbertRadius =
     previousDefaultHilbertRadius * HILBERT_PRIMARY_SCALE * configuredScale;
+  // Preserve the accepted default body fit independently of live Scope Size.
+  // Increasing the scope may reach its clearance limit, but cannot shrink blobs.
+  const defaultHilbertRadius = previousDefaultHilbertRadius * HILBERT_PRIMARY_SCALE;
   const baselineFittedExtent = Math.min(
     initialFittedExtent,
     Math.max(
       8,
       Math.min(initialOrbitRadiusX, initialOrbitRadiusY) -
-        desiredHilbertRadius -
+        defaultHilbertRadius -
         FOCAL_GAP,
     ),
   );

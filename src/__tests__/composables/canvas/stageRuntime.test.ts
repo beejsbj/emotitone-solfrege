@@ -28,7 +28,7 @@ describe("Stage runtime", () => {
     },
   );
 
-  it("keeps the configured Hilbert Size range visually effective", () => {
+  it("scales Hilbert down and caps growth at the fixed body clearance", () => {
     const sizeControl = UNIFIED_CONFIG.hilbertScope.sizeRatio;
     const smallerSize = resolveStageComposition(
       { x: 0, y: 0, width: 900, height: 420 },
@@ -50,10 +50,28 @@ describe("Stage runtime", () => {
       defaultSize.hilbertRadius / 2,
       6,
     );
-    expect(maximumSize.hilbertRadius).toBeGreaterThan(
+    expect(maximumSize.hilbertRadius).toBeCloseTo(
       defaultSize.hilbertRadius,
+      6,
     );
   });
+
+  it.each([150, 180, 240, 375, 600, 800])(
+    "keeps blob size and orbit independent of Scope Size at a %ipx edge",
+    (height) => {
+      const usable = { x: 12, y: 24, width: 1200, height };
+      const radius = Math.max(75, height * 0.1);
+      for (const bodyScale of [0.5, 1, 1.5]) {
+        const baseline = resolveStageComposition(usable, radius, 0.6, bodyScale);
+        for (const scopeSize of [0, 0.15, 0.3, 0.6, 0.9, 1.5]) {
+          const actual = resolveStageComposition(usable, radius, scopeSize, bodyScale);
+          expect(actual.blobFitScale).toBe(baseline.blobFitScale);
+          expect(actual.orbitRadiusX).toBe(baseline.orbitRadiusX);
+          expect(actual.orbitRadiusY).toBe(baseline.orbitRadiusY);
+        }
+      }
+    },
+  );
 
   it.each([240, 375, 600, 800])(
     "keeps the complete public Body Size range visible at a %ipx short edge",

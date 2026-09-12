@@ -55,6 +55,40 @@ describe("Stage runtime", () => {
     );
   });
 
+  it.each([240, 375, 600, 800])(
+    "keeps the complete public Body Size range visible at a %ipx short edge",
+    (height) => {
+      const usable = { x: 0, y: 0, width: 1200, height };
+      const canonicalRadius = Math.max(75, height * 0.1);
+      const renderedRadii = [0.05, 0.1, 0.15].map((ratio) => {
+        const composition = resolveStageComposition(
+          usable,
+          canonicalRadius,
+          0.6,
+          ratio / 0.1,
+        );
+        return canonicalRadius * composition.blobFitScale;
+      });
+
+      expect(renderedRadii[0]).toBeCloseTo(renderedRadii[1]! * 0.5, 6);
+      expect(renderedRadii[2]).toBeCloseTo(renderedRadii[1]! * 1.5, 6);
+      expect(renderedRadii[0]).toBeLessThan(renderedRadii[1]!);
+      expect(renderedRadii[1]).toBeLessThan(renderedRadii[2]!);
+    },
+  );
+
+  it("keeps the accepted Blob orbit while Body Size changes within its normal range", () => {
+    const usable = { x: 0, y: 0, width: 1200, height: 420 };
+    const smaller = resolveStageComposition(usable, 75, 0.6, 0.5);
+    const baseline = resolveStageComposition(usable, 75, 0.6, 1);
+    const larger = resolveStageComposition(usable, 75, 0.6, 1.5);
+
+    expect(smaller.orbitRadiusX).toBe(baseline.orbitRadiusX);
+    expect(smaller.orbitRadiusY).toBe(baseline.orbitRadiusY);
+    expect(larger.orbitRadiusX).toBe(baseline.orbitRadiusX);
+    expect(larger.orbitRadiusY).toBe(baseline.orbitRadiusY);
+  });
+
   it("preserves disabled and undersized Stage behavior", () => {
     expect(
       resolveStageComposition({ x: 0, y: 0, width: 900, height: 420 }, 75, 0)

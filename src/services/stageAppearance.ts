@@ -156,6 +156,15 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 
+/**
+ * The accepted 10% body proportion is the visual baseline. The public range
+ * deliberately stays close to it so bodies remain secondary to the Scope;
+ * Stage fitting turns this ratio into a visible 0.5–1.5× presentation scale.
+ */
+export const STAGE_BODY_SIZE_BASE_RATIO = 0.1;
+export const STAGE_BODY_SIZE_MIN_RATIO = 0.05;
+export const STAGE_BODY_SIZE_MAX_RATIO = 0.15;
+
 export const STAGE_MASTER_CONTROL: StageControlDefinition = {
   id: "stageEnabled",
   label: "Stage",
@@ -179,7 +188,7 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
     description: "Circle-of-Fifths support bodies around the Scope.",
     controls: [
       { id: "bodiesVisible", label: "Show Bodies", type: "boolean" },
-      { id: "bodySize", label: "Size", type: "range", min: 0.05, max: 0.3, step: 0.01, format: percent },
+      { id: "bodySize", label: "Size", type: "range", min: STAGE_BODY_SIZE_MIN_RATIO, max: STAGE_BODY_SIZE_MAX_RATIO, step: 0.01, format: percent },
       { id: "bodyStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
       { id: "bodyMotion", label: "Motion", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
@@ -348,7 +357,11 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
       clamp(config.hilbertScope.smear),
     ),
     bodiesVisible: config.blobs.isEnabled,
-    bodySize: clamp(config.blobs.baseSizeRatio, 0.05, 0.3),
+    bodySize: clamp(
+      config.blobs.baseSizeRatio,
+      STAGE_BODY_SIZE_MIN_RATIO,
+      STAGE_BODY_SIZE_MAX_RATIO,
+    ),
     bodyStrength: clamp(config.blobs.opacity),
     bodyMotion,
     connectionMode: config.blobs.connectionMode,
@@ -413,7 +426,11 @@ export function patchStageControl(
       next.blobs.isEnabled = Boolean(rawValue);
       break;
     case "bodySize":
-      next.blobs.baseSizeRatio = clamp(value, 0.05, 0.3);
+      next.blobs.baseSizeRatio = clamp(
+        value,
+        STAGE_BODY_SIZE_MIN_RATIO,
+        STAGE_BODY_SIZE_MAX_RATIO,
+      );
       break;
     case "bodyStrength":
       next.blobs.opacity = clamp(value);
@@ -592,7 +609,7 @@ function applyNumericVariation(
     if (typeof varied.hilbertScope.history === "number") varied.hilbertScope.history = scale(varied.hilbertScope.history, 0.16, 0, 0.95);
   }
   if (varied.blobs) {
-    if (typeof varied.blobs.baseSizeRatio === "number") varied.blobs.baseSizeRatio = scale(varied.blobs.baseSizeRatio, 0.12, 0.05, 0.3);
+    if (typeof varied.blobs.baseSizeRatio === "number") varied.blobs.baseSizeRatio = scale(varied.blobs.baseSizeRatio, 0.12, STAGE_BODY_SIZE_MIN_RATIO, STAGE_BODY_SIZE_MAX_RATIO);
     if (typeof varied.blobs.opacity === "number") varied.blobs.opacity = scale(varied.blobs.opacity, 0.12, 0, 1);
     if (typeof varied.blobs.blurRadius === "number") varied.blobs.blurRadius = scale(varied.blobs.blurRadius, 0.16, 0, 100);
   }

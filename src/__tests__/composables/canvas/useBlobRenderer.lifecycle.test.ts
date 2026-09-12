@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { MAJOR_SOLFEGE } from "@/data";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { useBlobRenderer } from "@/composables/canvas/useBlobRenderer";
+import { resolveStageComposition } from "@/composables/canvas/stageRuntime";
 import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 
 vi.mock("@/composables/useMusicColor", () => ({
@@ -205,6 +206,47 @@ describe("useBlobRenderer lifecycle", () => {
     }, true);
 
     expect(blob.baseRadius).toBe(60);
+  });
+
+  it("applies responsive Body Size to the prepared radius without replacing lifecycle state", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    renderer.startBlobFadeOutById("c4");
+    const lifecycle = {
+      startTime: blob.startTime,
+      fadeOutStartTime: blob.fadeOutStartTime,
+      vibrationPhase: blob.vibrationPhase,
+    };
+    const radii: number[] = [];
+
+    for (const ratio of [0.05, 0.1, 0.15]) {
+      const composition = resolveStageComposition(
+        { x: 0, y: 0, width: 800, height: 375 },
+        75,
+        0.6,
+        ratio / 0.1,
+      );
+      renderer.reprojectBlobs(composition, {
+        ...DEFAULT_CONFIG.blobs,
+        baseSizeRatio: ratio,
+      }, true);
+      renderer.prepareBlobs(context, {
+        ...DEFAULT_CONFIG.blobs,
+        baseSizeRatio: ratio,
+        oscillationAmplitude: 0,
+      }, {
+        reducedMotion: true,
+        bounds: composition.usable,
+      });
+      radii.push(renderer.getPreparedBlobFrames()[0]!.scaledRadius);
+      expect(blob).toMatchObject(lifecycle);
+      expect(blob.isFadingOut).toBe(true);
+    }
+
+    expect(radii[0]).toBeCloseTo(radii[1]! * 0.5, 6);
+    expect(radii[2]).toBeCloseTo(radii[1]! * 1.5, 6);
   });
 
   it("applies Body Strength changes to held and releasing bodies", () => {

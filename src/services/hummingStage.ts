@@ -116,6 +116,10 @@ export function createLivePitchStageBridge(
       if (solfegeIndex == null) return;
       const note = getScaleForMode(currentContext.mode).solfege[solfegeIndex];
       if (!note) return;
+      const tonicIndex = CHROMATIC_NOTES.indexOf(currentContext.key);
+      const keyboardOctave = tonicIndex === -1
+        ? octave
+        : octave - Number(pitchClassIndex < tonicIndex);
 
       active = {
         noteId: `live-pitch-${sessionId}-${++noteCounter}`,
@@ -123,7 +127,7 @@ export function createLivePitchStageBridge(
         solfege: note,
         frequency: frame.frequencyHz,
         octave,
-        keyboardOctave: octave,
+        keyboardOctave,
         solfegeIndex,
         pitchClassIndex,
         key: currentContext.key,

@@ -496,7 +496,7 @@ export function useBlobRenderer() {
     activeBlobs.forEach((blob, key) => {
       // Keep the public Body Size control live for already-held notes instead
       // of applying it only to notes created after the edit.
-      blob.baseRadius = Math.max(
+      blob.baseRadius = composition.blobBaseRadius ?? Math.max(
         blobConfig.minSize,
         Math.min(
           blobConfig.maxSize,

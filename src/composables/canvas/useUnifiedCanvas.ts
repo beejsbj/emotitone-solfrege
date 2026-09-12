@@ -21,6 +21,11 @@ import { createStageAudioFeatures } from "@/services/stageAudio";
 import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
 import { getActiveStrudelStageNotes } from "@/services/superdoughAudio";
 import {
+  STAGE_BODY_SIZE_BASE_RATIO,
+  STAGE_BODY_SIZE_MAX_RATIO,
+  STAGE_BODY_SIZE_MIN_RATIO,
+} from "@/services/stageAppearance";
+import {
   fullStageRect,
   resolveStageComposition,
   type StageRect,
@@ -168,21 +173,21 @@ export function useUnifiedCanvas(
   const getComposition = () => {
     const usable = runtime?.usableRect.value
       ?? fullStageRect(canvasWidth.value, canvasHeight.value);
-    const configuredBlobRadius = Math.max(
+    const canonicalBlobRadius = Math.max(
       blobConfig.value.minSize,
       Math.min(
         blobConfig.value.maxSize,
-        Math.min(usable.width, usable.height) * blobConfig.value.baseSizeRatio,
+        Math.min(usable.width, usable.height) * STAGE_BODY_SIZE_BASE_RATIO,
       ),
-    );
-    const desiredBlobRadius = Math.max(
-      configuredBlobRadius,
-      ...Array.from(blobRenderer.activeBlobs.values(), (blob) => blob.baseRadius),
     );
     return resolveStageComposition(
       usable,
-      desiredBlobRadius,
+      canonicalBlobRadius,
       hilbertScopeConfig.value.sizeRatio,
+      Math.max(
+        STAGE_BODY_SIZE_MIN_RATIO,
+        Math.min(STAGE_BODY_SIZE_MAX_RATIO, blobConfig.value.baseSizeRatio),
+      ) / STAGE_BODY_SIZE_BASE_RATIO,
     );
   };
 

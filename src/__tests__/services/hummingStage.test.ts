@@ -139,6 +139,39 @@ describe("LivePitch humming Stage bridge", () => {
     bridge.stop();
   });
 
+  it.each([
+    ["G", "major", 72, 4],
+    ["D", "major", 73, 4],
+    ["A", "minor", 72, 4],
+    ["C", "major", 72, 5],
+  ] as const)(
+    "maps live pitch in %s %s from MIDI %i to keyboard row %i",
+    (key, mode, midi, keyboardOctave) => {
+      const dispatchEvent = vi.fn().mockReturnValue(true);
+      const bridge = createHummingStageBridge(
+        { key, mode, instrument: "piano" },
+        { dispatchEvent },
+      );
+
+      bridge.push(voiced(midi));
+      bridge.push(voiced(midi));
+
+      const attack = dispatchEvent.mock.calls[0][0] as CustomEvent;
+      const active = getActiveLivePitchStageNotes()[0];
+      expect(attack.detail).toEqual(expect.objectContaining({
+        octave: 5,
+        keyboardOctave,
+      }));
+      expect(active).toEqual(expect.objectContaining({
+        octave: 5,
+        keyboardOctave,
+      }));
+
+      bridge.stop();
+      expect(getActiveLivePitchStageNotes()).toEqual([]);
+    },
+  );
+
   it("names note ownership uniquely across listening sessions", () => {
     const firstDispatch = vi.fn().mockReturnValue(true);
     const secondDispatch = vi.fn().mockReturnValue(true);

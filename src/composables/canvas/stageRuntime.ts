@@ -15,6 +15,8 @@ export interface StageComposition {
   orbitRadiusX: number;
   orbitRadiusY: number;
   blobFitScale: number;
+  /** Canonical 10%-ratio radius before responsive fitting. */
+  blobBaseRadius?: number;
   suspended: boolean;
 }
 
@@ -37,6 +39,7 @@ export function resolveStageComposition(
   usable: StageRect,
   desiredBlobRadius: number,
   hilbertSizeRatio: number,
+  bodySizeScale = 1,
 ): StageComposition {
   const width = Math.max(0, usable.width);
   const height = Math.max(0, usable.height);
@@ -76,18 +79,28 @@ export function resolveStageComposition(
     Math.max(0, hilbertSizeRatio) / UNIFIED_CONFIG.hilbertScope.sizeRatio.value;
   const desiredHilbertRadius =
     previousDefaultHilbertRadius * HILBERT_PRIMARY_SCALE * configuredScale;
-  const orbitRadiusX = initialOrbitRadiusX;
-  const orbitRadiusY = initialOrbitRadiusY;
-  const fittedExtent = Math.min(
+  const baselineFittedExtent = Math.min(
     initialFittedExtent,
     Math.max(
       8,
-      Math.min(orbitRadiusX, orbitRadiusY) -
+      Math.min(initialOrbitRadiusX, initialOrbitRadiusY) -
         desiredHilbertRadius -
         FOCAL_GAP,
     ),
   );
-  const blobFitScale = Math.min(1, fittedExtent / desiredBodyExtent);
+  // Body Size is a relative presentation scale around the accepted 10%
+  // baseline. Applying it after the baseline fit prevents the responsive fit
+  // from algebraically cancelling every knob value on short Stage regions.
+  const fittedExtent = baselineFittedExtent * Math.max(0, bodySizeScale);
+  // Body Size does not change the accepted orbit. Only consume the reserved
+  // edge padding when necessary, moving centres inward as a last-resort bound.
+  const edgeOverflow = Math.max(
+    0,
+    fittedExtent - initialFittedExtent - EDGE_PADDING,
+  );
+  const orbitRadiusX = Math.max(0, initialOrbitRadiusX - edgeOverflow);
+  const orbitRadiusY = Math.max(0, initialOrbitRadiusY - edgeOverflow);
+  const blobFitScale = fittedExtent / desiredBodyExtent;
   const hilbertRadius = Math.min(
     desiredHilbertRadius,
     Math.max(
@@ -104,6 +117,7 @@ export function resolveStageComposition(
     orbitRadiusX,
     orbitRadiusY,
     blobFitScale,
+    blobBaseRadius: desiredBlobRadius,
     suspended,
   };
 }

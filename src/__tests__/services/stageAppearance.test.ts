@@ -101,6 +101,21 @@ describe("Stage appearance domain", () => {
     });
   });
 
+  it("keeps Body Size in the responsive 5–15% support-body range", () => {
+    const definition = STAGE_CONTROL_DEFINITIONS.find(
+      (control) => control.id === "bodySize",
+    );
+    expect(definition).toMatchObject({ min: 0.05, max: 0.15, step: 0.01 });
+
+    const backing = config();
+    backing.blobs.minSize = 321;
+    backing.blobs.maxSize = 654;
+    const edited = patchStageControl(backing, "bodySize", 0.3);
+    expect(edited.blobs.baseSizeRatio).toBe(0.15);
+    expect(edited.blobs.minSize).toBe(321);
+    expect(edited.blobs.maxSize).toBe(654);
+  });
+
   it("enforces the Stage-only allowlist for Looks", () => {
     const backing = config();
     backing.dynamicColors.musicColorMode = "fixed";

@@ -150,11 +150,16 @@ interface ActiveUIBeatRun {
 let activeUIBeatRun: ActiveUIBeatRun | null = null;
 let evaluatingUIBeatRun: ActiveUIBeatRun | null = null;
 let evaluationQueue: Promise<unknown> = Promise.resolve();
+let evaluationEpoch = 0;
 let uiBeatAudioContext: AudioContext | null = null;
 
 const FOLLOW_TIME_CONSTANT_MS = 150;
 const RECORDING_FOLLOW_ANCHOR = 0.75;
 const GENERATED_BEATS_PER_BAR = 4;
+
+function invalidateQueuedEvaluations() {
+  evaluationEpoch += 1;
+}
 
 const codeStripConfig = computed(() => visualConfigStore.config.codeStrip);
 const keyboardConfig = computed(() => visualConfigStore.config.keyboard);
@@ -425,6 +430,7 @@ function stopFollow() {
 }
 
 async function stopMirrorForWarmup(instance: StrudelMirrorInstance) {
+  invalidateQueuedEvaluations();
   const editor = getMirrorView(instance);
   if (editor) setCodeStripPlaying(editor, false);
 
@@ -575,12 +581,21 @@ async function initializeStrudelMirror() {
   // warmup, including evaluations already pending when the lock begins.
   const evaluate = instance.evaluate.bind(instance);
   instance.evaluate = () => {
+    const queuedAtEpoch = evaluationEpoch;
     const task = evaluationQueue.then(async () => {
-      if (instrumentStore.isInteractionLocked) return;
+      if (
+        queuedAtEpoch !== evaluationEpoch
+        || instrumentStore.isInteractionLocked
+      ) return;
       const run = armUIBeatForEvaluation(instance);
       evaluatingUIBeatRun = run;
       try {
         await evaluate();
+        if (queuedAtEpoch !== evaluationEpoch) {
+          stopUIBeatRun(run.generation);
+          await instance.stop();
+          return;
+        }
         if (run.failed) {
           throw run.error ?? new Error("Strudel evaluation failed");
         }
@@ -646,6 +661,7 @@ async function initializeStrudelMirror() {
     },
     evaluate: () => evaluateMirror(instance),
     stop: () => {
+      invalidateQueuedEvaluations();
       const editor = getMirrorView(instance);
       if (editor) setCodeStripPlaying(editor, false);
       const result = instance.stop();
@@ -735,6 +751,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  invalidateQueuedEvaluations();
   presentationSyncCancelled = true;
   presentationSyncQueued = false;
   stopFollow();

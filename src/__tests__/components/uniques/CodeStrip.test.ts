@@ -392,6 +392,56 @@ describe("CodeStrip production Strudel document", () => {
     wrapper.unmount();
   });
 
+  it("discards a queued evaluation when playback stops", async () => {
+    let resolveFirst!: () => void;
+    mocks.mirrorEvaluate.mockImplementationOnce(
+      () => new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+
+    const first = mocks.mirrorInstance.evaluate();
+    const queued = mocks.mirrorInstance.evaluate();
+    await Promise.resolve();
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+
+    await controller.stop();
+    resolveFirst();
+    await expect(first).resolves.toBeUndefined();
+    await expect(queued).resolves.toBeUndefined();
+
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(uiBeatClock.snapshot.status).toBe("idle");
+    wrapper.unmount();
+  });
+
+  it("discards a queued evaluation when its CodeStrip unmounts", async () => {
+    let resolveFirst!: () => void;
+    mocks.mirrorEvaluate.mockImplementationOnce(
+      () => new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+
+    const first = mocks.mirrorInstance.evaluate();
+    const queued = mocks.mirrorInstance.evaluate();
+    await Promise.resolve();
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+
+    wrapper.unmount();
+    resolveFirst();
+    await expect(first).resolves.toBeUndefined();
+    await expect(queued).resolves.toBeUndefined();
+
+    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.detachEditor).toHaveBeenCalledOnce();
+  });
+
   it("rests during audio suspension and rejoins on the next sounding frame", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();

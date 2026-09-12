@@ -90,28 +90,62 @@ import type {
 } from "@/components/compounds/PatternReel.vue";
 import { visibleKeyboardOctaves } from "@/components/compounds/keyboardEdition";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
-import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
+import type {
+  CodeStripNote,
+  CodeStripNoteToken,
+  CodeStripToken,
+} from "@/components/uniques/CodeStrip/index.vue";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 const degreeLabels = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+function guideNote(
+  note: CodeStripNote,
+  text: string,
+  rawPitch: string,
+  scaleIndex: number,
+  mode: MusicalMode,
+  musicKey: ChromaticNote,
+  duration: string,
+  progress: number,
+): CodeStripNoteToken {
+  const pitch = rawPitch.replace(/\d+$/, "") as ChromaticNote;
+  const tokenOctave = Number(rawPitch.match(/\d+$/)?.[0]);
+
+  return {
+    type: "note",
+    note,
+    text,
+    rawPitch,
+    scaleIndex,
+    pitchClassIndex: CHROMATIC_NOTES.indexOf(pitch),
+    octave: tokenOctave,
+    mode,
+    musicKey,
+    isAccidental: pitch.includes("#"),
+    duration,
+    progress,
+  };
+}
+
 const initialTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do", duration: "@0.25", progress: 1 },
-  { type: "note", note: "mi", text: "Mi", duration: "@0.125", progress: .76 },
+  guideNote("do", "Do", "C4", 0, "major", "C", "@0.25", 1),
+  guideNote("mi", "Mi", "E4", 2, "major", "C", "@0.125", .76),
   { type: "rest", duration: "@0.125", progress: .4 },
-  { type: "note", note: "sol", text: "Sol", duration: "@0.5", progress: 0 },
+  guideNote("sol", "Sol", "G4", 4, "major", "C", "@0.5", 0),
 ];
 const afterRainTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do", rawPitch: "F#4", duration: "@0.25", progress: 1 },
-  { type: "note", note: "mi", text: "Mi", rawPitch: "A4", duration: "@0.125", progress: .7 },
-  { type: "note", note: "sol", text: "Sol", rawPitch: "C#5", duration: "@0.375", progress: .3 },
+  guideNote("do", "Do", "F#4", 0, "dorian", "F#", "@0.25", 1),
+  guideNote("mi", "Mi", "A4", 2, "dorian", "F#", "@0.125", .7),
+  guideNote("sol", "Sol", "C#5", 4, "dorian", "F#", "@0.375", .3),
 ];
 const lateTrainTokens: CodeStripToken[] = [
-  { type: "note", note: "do", text: "Do", rawPitch: "D3", duration: "@0.5", progress: 1 },
-  { type: "note", note: "mi", text: "Mi", rawPitch: "F3", duration: "@0.25", progress: .55 },
-  { type: "note", note: "sol", text: "Sol", rawPitch: "A3", duration: "@0.25", progress: .15 },
+  guideNote("do", "Do", "D3", 0, "minor", "D", "@0.5", 1),
+  guideNote("mi", "Mi", "F3", 2, "minor", "D", "@0.25", .55),
+  guideNote("sol", "Sol", "A3", 4, "minor", "D", "@0.25", .15),
 ];
 
 interface GuidePattern extends PatternReelItem {

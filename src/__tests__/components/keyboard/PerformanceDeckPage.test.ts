@@ -1,5 +1,8 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import Note from "@/components/primatives/Note.vue";
+import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
+import Sequence from "@/components/uniques/CodeStrip/Sequence.vue";
 import PerformanceDeckPage from "@/style-guide/PerformanceDeckPage.vue";
 import styleGuideSource from "@/style-guide/StyleGuide.vue?raw";
 
@@ -92,14 +95,70 @@ describe("PerformanceDeck guide fixtures", () => {
 
     expect(deck.props("selectedPatternId")).toBe("after-rain");
     expect(deck.props("codeStripTokens")).toMatchObject([
-      { type: "note", rawPitch: "F#4" },
-      { type: "note", rawPitch: "A4" },
-      { type: "note", rawPitch: "C#5" },
+      { type: "note", rawPitch: "F#4", pitchClassIndex: 6, octave: 4, mode: "dorian", musicKey: "F#" },
+      { type: "note", rawPitch: "A4", pitchClassIndex: 9, octave: 4, mode: "dorian", musicKey: "F#" },
+      { type: "note", rawPitch: "C#5", pitchClassIndex: 1, octave: 5, mode: "dorian", musicKey: "F#" },
     ]);
     expect(deck.props("keyValue")).toBe("F#");
     expect(deck.props("modeValue")).toBe("dorian");
     expect(deck.props("bpm")).toBe(92);
     expect(deck.props("octave")).toBe(4);
+
+    const sequence = mount(Sequence, {
+      props: {
+        tokens: deck.props("codeStripTokens"),
+        colorResolver: staticNoteColorResolver,
+      },
+    });
+    let notes = sequence.findAllComponents(Note);
+    expect(notes.map((note) => ({
+      rawPitch: note.props("rawPitch"),
+      pitchClassIndex: note.props("pitchClassIndex"),
+      octave: note.props("octave"),
+      mode: note.props("mode"),
+      musicKey: note.props("musicKey"),
+    }))).toEqual([
+      { rawPitch: "F#4", pitchClassIndex: 6, octave: 4, mode: "dorian", musicKey: "F#" },
+      { rawPitch: "A4", pitchClassIndex: 9, octave: 4, mode: "dorian", musicKey: "F#" },
+      { rawPitch: "C#5", pitchClassIndex: 1, octave: 5, mode: "dorian", musicKey: "F#" },
+    ]);
+    expect(notes[2].attributes("style")).toContain(
+      staticNoteColorResolver.getKeyBackgroundByPitchClass(
+        1,
+        "dorian",
+        "F#",
+        5,
+        "colored",
+        true,
+      ).primaryColor,
+    );
+
+    deck.vm.$emit("patternCommit", "late-train", "tap");
+    await wrapper.vm.$nextTick();
+    await sequence.setProps({ tokens: deck.props("codeStripTokens") });
+    notes = sequence.findAllComponents(Note);
+    expect(notes.map((note) => ({
+      rawPitch: note.props("rawPitch"),
+      pitchClassIndex: note.props("pitchClassIndex"),
+      octave: note.props("octave"),
+      mode: note.props("mode"),
+      musicKey: note.props("musicKey"),
+    }))).toEqual([
+      { rawPitch: "D3", pitchClassIndex: 2, octave: 3, mode: "minor", musicKey: "D" },
+      { rawPitch: "F3", pitchClassIndex: 5, octave: 3, mode: "minor", musicKey: "D" },
+      { rawPitch: "A3", pitchClassIndex: 9, octave: 3, mode: "minor", musicKey: "D" },
+    ]);
+    expect(notes[0].attributes("style")).toContain(
+      staticNoteColorResolver.getKeyBackgroundByPitchClass(
+        2,
+        "minor",
+        "D",
+        3,
+        "colored",
+        false,
+      ).primaryColor,
+    );
+    sequence.unmount();
   });
 
   it("clears Current when an emptied loaded fixture starts a new take", async () => {

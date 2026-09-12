@@ -1,0 +1,11 @@
+# Credits and provenance
+
+## Hilbert Scope
+
+EmotiTone's Hilbert Scope was influenced by [Seeing Music, part of Creatability](https://github.com/googlecreativelab/creatability-seeing-music), as recorded in [BJS-51 — cite the visualizer's source](https://linear.app/bjs-projects/issue/BJS-51). Seeing Music explores ways to experience sound visually, including a Hilbert Scope that reveals its texture. Its creators are Jay Alan Zimmerman, Yotam Mann, Claire Kearney-Volpe, Luisa Pereira, Kyle Phillips, and Google Creative Lab, credited in the [project README](https://github.com/googlecreativelab/creatability-seeing-music/blob/a1596f675e31090ca7999d6e88c090d15d970bb2/README.md).
+
+Seeing Music credits [conundrumer/Audioscope](https://github.com/conundrumer/audioscope) as the basis of its Hilbert Scope. Its [Web Audio adapter](https://github.com/googlecreativelab/creatability-seeing-music/blob/a1596f675e31090ca7999d6e88c090d15d970bb2/third_party/audioscope/Audioscope.js) explicitly preserves that credit. EmotiTone's [current renderer](../src/composables/canvas/useHilbertScopeRenderer.ts) shares the adapter's Hamming-window impulse construction, convolution filter, and compensating delay, adapted to its own audio and canvas integration.
+
+The local implementation history begins with [commit `9aff808`](https://github.com/beejsbj/emotitone-solfrege/commit/9aff808b8756f1b295127fcc20254d92425ff8d9). It introduced the renderer alongside a [standalone scope reference](https://github.com/beejsbj/emotitone-solfrege/blob/9aff808b8756f1b295127fcc20254d92425ff8d9/hilbert-scope-tone.html) and [instructions to integrate that reference](https://github.com/beejsbj/emotitone-solfrege/blob/9aff808b8756f1b295127fcc20254d92425ff8d9/implement-hilbert-scope.md). Those historical files remain accessible at that revision.
+
+Seeing Music's [license](https://github.com/googlecreativelab/creatability-seeing-music/blob/a1596f675e31090ca7999d6e88c090d15d970bb2/LICENSE.md) and its bundled Audioscope [license](https://github.com/googlecreativelab/creatability-seeing-music/blob/a1596f675e31090ca7999d6e88c090d15d970bb2/third_party/audioscope/LICENSE.txt) both contain GNU GPL version 3. These links preserve the upstream license context alongside the source credit.

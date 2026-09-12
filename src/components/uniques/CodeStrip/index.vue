@@ -670,6 +670,7 @@ async function initializeStrudelMirror() {
         } catch (stopError) {
           console.error("[CodeStrip] Strudel stop after evaluation error failed:", stopError);
         }
+        if (queuedAtEpoch !== evaluationEpoch) return false;
         const editor = getMirrorView(instance);
         if (editor) setCodeStripPlaying(editor, false);
         setPlaying(false);

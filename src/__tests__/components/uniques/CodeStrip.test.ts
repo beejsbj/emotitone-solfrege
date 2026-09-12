@@ -485,6 +485,28 @@ describe("CodeStrip production Strudel document", () => {
     wrapper.unmount();
   });
 
+  it("does not publish a late evaluation error after Stop cancels its intent", async () => {
+    let rejectEvaluation!: (error: Error) => void;
+    mocks.mirrorEvaluate.mockImplementationOnce(
+      () => new Promise<void>((_resolve, reject) => {
+        rejectEvaluation = reject;
+      }),
+    );
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+
+    const evaluation = mocks.mirrorInstance.evaluate();
+    await Promise.resolve();
+    await controller.stop();
+    rejectEvaluation(new Error("late canceled failure"));
+
+    await expect(evaluation).resolves.toBe(false);
+    expect(mocks.setError).not.toHaveBeenCalled();
+    expect(mocks.setPlaying).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it("discards a queued evaluation when its CodeStrip unmounts", async () => {
     let resolveFirst!: () => void;
     mocks.mirrorEvaluate.mockImplementationOnce(

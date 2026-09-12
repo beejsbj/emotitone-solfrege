@@ -196,6 +196,10 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       return;
     }
 
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
     // Get current keyboard mapping
     const keyboardMapping = getKeyboardMapping();
     if (key in keyboardMapping) {

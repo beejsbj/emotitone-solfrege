@@ -161,6 +161,20 @@ describe("useKeyboardControls", () => {
     controls.cleanupKeyboardListeners();
   });
 
+  it("keeps physical row identities anchored near octave limits", () => {
+    mockKeyboardDrawerStore.visibleOctaves = [8, 7, 6];
+    const controls = useKeyboardControls(ref(8));
+    const mapping = controls.getKeyboardMapping();
+
+    expect(mapping.KeyA.octave).toBe(8);
+    expect(mapping.KeyZ.octave).toBe(7);
+    expect(mapping.KeyQ).toBeUndefined();
+    expect(mapping.Digit1).toBeUndefined();
+    expect(controls.getKeyboardLetterForNote(0, 6)).toBeNull();
+
+    controls.cleanupKeyboardListeners();
+  });
+
   it("attacks a distinct octave from each physical keyboard row", async () => {
     const controls = useKeyboardControls(ref(4));
 
@@ -198,6 +212,39 @@ describe("useKeyboardControls", () => {
     controls.handleKeyUp(
       new KeyboardEvent("keyup", { code: "KeyZ", key: "z" })
     );
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("does not turn modified keyboard shortcuts into notes", async () => {
+    const controls = useKeyboardControls(ref(4));
+    const shortcuts = [
+      new KeyboardEvent("keydown", {
+        code: "KeyC",
+        key: "c",
+        ctrlKey: true,
+        cancelable: true,
+      }),
+      new KeyboardEvent("keydown", {
+        code: "KeyV",
+        key: "v",
+        metaKey: true,
+        cancelable: true,
+      }),
+      new KeyboardEvent("keydown", {
+        code: "KeyZ",
+        key: "z",
+        altKey: true,
+        cancelable: true,
+      }),
+    ];
+
+    for (const shortcut of shortcuts) {
+      await controls.handleKeyDown(shortcut);
+      expect(shortcut.defaultPrevented).toBe(false);
+    }
+
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+    expect(mockKeyboardDrawerStore.addTouch).not.toHaveBeenCalled();
     controls.cleanupKeyboardListeners();
   });
 

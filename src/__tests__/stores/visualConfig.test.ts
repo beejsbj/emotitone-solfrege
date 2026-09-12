@@ -406,6 +406,30 @@ describe('Visual Config Store', () => {
   })
 
   describe('Configuration Updates', () => {
+    it('reads public projections without normalizing retained custom values', () => {
+      visualConfigStore.updateConfig('dynamicColors', {
+        chroma: 0.2,
+        animationSpeed: 1.4,
+      })
+      visualConfigStore.updateConfig('keyboard', {
+        primaryLabel: 'raw',
+        keyGaps: 'medium',
+        keyboardPadding: false,
+      })
+      visualConfigStore.updateConfig('codeStrip', { notation: 'solfege' })
+      const before = visualConfigStore.getConfigSnapshot()
+
+      expect(visualConfigStore.globalControls).toMatchObject({
+        colorIntensity: 'balanced',
+        colorMotion: 'gentle',
+      })
+      expect(visualConfigStore.deckControls).toMatchObject({
+        notation: 'pitch',
+        keyboardSpacing: 'open',
+      })
+      expect(visualConfigStore.getConfigSnapshot()).toEqual(before)
+    })
+
     it('should update specific configuration section', () => {
       visualConfigStore.updateConfig('blobs', {
         isEnabled: false,

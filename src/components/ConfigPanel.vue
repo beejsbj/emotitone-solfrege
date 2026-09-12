@@ -573,7 +573,7 @@ const DECK_TAB = {
 
 const MIDI_TAB = {
   value: "midi",
-  label: "MIDI & ROLI",
+  label: "MIDI",
   shortLabel: "MIDI",
   icon: MidiPermissionIcon,
 };

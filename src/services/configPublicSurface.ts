@@ -186,8 +186,8 @@ const INTENSITY_CHROMA: Record<ColorIntensity, number> = {
 };
 
 const MOTION_SPEED: Record<Exclude<ColorMotion, "off">, number> = {
-  gentle: 0.6,
-  lively: 1.4,
+  gentle: 1,
+  lively: 2,
 };
 
 const DECK_NOTATION = {
@@ -204,13 +204,13 @@ const KEYBOARD_SPACING = {
 
 function readColorIntensity(chroma: number): ColorIntensity {
   if (chroma < 0.15) return "muted";
-  if (chroma < 0.22) return "balanced";
+  if (chroma < 0.21) return "balanced";
   return "vivid";
 }
 
 function readColorMotion(config: DynamicColorConfig): ColorMotion {
   if (!config.hueMotionEnabled) return "off";
-  return config.animationSpeed <= 1 ? "gentle" : "lively";
+  return config.animationSpeed < 1.5 ? "gentle" : "lively";
 }
 
 function readDeckNotation(

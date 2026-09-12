@@ -43,7 +43,7 @@ describe("Config public surface", () => {
       musicColorMode: "movable-relative",
       chroma: 0.24,
       hueMotionEnabled: true,
-      animationSpeed: 0.6,
+      animationSpeed: 1,
       lightnessCenter: 0.66,
       lightnessSpan: 0.35,
     });
@@ -52,6 +52,9 @@ describe("Config public surface", () => {
       colorIntensity: "vivid",
       colorMotion: "gentle",
     });
+
+    updateGlobalControl(config, "colorMotion", "lively");
+    expect(config.dynamicColors.animationSpeed).toBe(2);
   });
 
   it("turns Color Motion off without erasing the chosen live speed", () => {

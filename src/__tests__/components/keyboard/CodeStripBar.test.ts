@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import Button from "@/components/primatives/Button.vue";
 import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
 import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
@@ -40,6 +41,11 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
+    const beats = wrapper.get('[aria-label="Pattern beat"]').findAll(".beat-indicator__beat");
+    expect(beats).toHaveLength(4);
+    expect(beats.map((beat) => beat.attributes("data-mark")))
+      .toEqual(["square", "square", "square", "square"]);
+    expect(codeStripBarSource).not.toContain(":marks=");
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
     expect(codeStripBarSource).not.toContain("humming-capture-transport");
     expect(codeStripBarSource).not.toContain("Hummed take");
@@ -100,6 +106,9 @@ describe("CodeStripBar.vue", () => {
     expect(stop.attributes("aria-pressed")).toBeUndefined();
     expect(stop.classes()).toContain("paper-button--ink");
     expect(wrapper.find('button[aria-label="Play"]').exists()).toBe(false);
+    expect(wrapper.findAllComponents(Button).map((button) => button.props("uiBeat")))
+      .toEqual([true, true, true]);
+    expect(codeStripBarSource).not.toContain("ui-beat");
   });
 
   it("emits the existing actions", async () => {

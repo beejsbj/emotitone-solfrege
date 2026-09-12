@@ -17,7 +17,10 @@
     @touchstart="handleStart"
     @click="handleClick"
   >
-    <div class="knob-wrapper__face instrument-control__face">
+    <div
+      ref="beatTargetRef"
+      class="knob-wrapper__face instrument-control__face"
+    >
       <!-- Range Knob -->
       <RangeKnob
         v-if="knobType === 'range'"
@@ -84,6 +87,7 @@
 import { computed, onBeforeUnmount, ref, watch, type PropType } from "vue";
 import "../instrumentControl.css";
 import useGSAP from "@/composables/useGSAP";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 import DragValue from "../DragValue.vue";
 import RangeKnob from "./RangeKnob.vue";
@@ -154,6 +158,10 @@ const props = defineProps({
     type: String as () => KnobTone,
     default: "ivory",
   },
+  uiBeat: {
+    type: Boolean,
+    default: true,
+  },
   sensitivity: {
     type: Number,
     default: 0.05,
@@ -188,7 +196,13 @@ const emit = defineEmits<{
 
 // Refs
 const wrapperRef = ref<HTMLElement>();
+const beatTargetRef = ref<HTMLElement>();
 const contextBouncePhase = ref<"a" | "b" | null>(null);
+
+useUIBeatScale(beatTargetRef, () => props.uiBeat && !props.isDisabled, {
+  restScale: 0.8,
+  peakScale: 1.1,
+});
 
 watch(
   () => props.changeSignal,

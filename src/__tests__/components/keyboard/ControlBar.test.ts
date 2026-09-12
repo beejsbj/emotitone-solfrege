@@ -7,7 +7,7 @@ import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
 vi.mock("@/components/primatives/Knob/index.vue", () => ({
   default: {
     name: "Knob",
-    props: ["modelValue", "type", "options", "label", "min", "max", "step", "changeSignal"],
+    props: ["modelValue", "type", "options", "label", "min", "max", "step", "changeSignal", "uiBeat"],
     emits: ["update:modelValue"],
     template: '<div data-testid="knob" :data-label="label" />',
   },
@@ -36,6 +36,8 @@ describe("ControlBar.vue", () => {
     expect(knobs[0].props("options")).toEqual(CHROMATIC_NOTES);
     expect(knobs[1].props("options")).toEqual(MODE_OPTIONS);
     expect(knobs[2].props()).toMatchObject({ min: 40, max: 220, step: 1 });
+    expect(knobs.every((knob) => knob.props("uiBeat") === undefined)).toBe(true);
+    expect(controlBarSource).not.toContain("ui-beat");
     expect(knobs[3].props()).toMatchObject({ min: 1, max: 8, step: 1 });
     expect(wrapper.getComponent({ name: "Joystick" }).props()).toMatchObject({
       label: "Harmony",

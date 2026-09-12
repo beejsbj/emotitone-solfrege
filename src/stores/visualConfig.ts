@@ -33,6 +33,10 @@ type LegacyKeyboardConfig = Partial<VisualEffectsConfig["keyboard"]> & {
   colorMode?: VisualEffectsConfig["keyboard"]["surfaceStyle"];
 };
 
+interface LegacyBeatingShapesConfig {
+  isEnabled?: boolean;
+}
+
 interface LegacyHarmonicConfig {
   isEnabled?: boolean;
   accumulationWindow?: number;
@@ -52,6 +56,7 @@ type LegacyVisualEffectsConfig = Partial<VisualEffectsConfig> & {
   keyboard?: LegacyKeyboardConfig;
   liveStrip?: Partial<VisualEffectsConfig["codeStrip"]>;
   floatingPopup?: LegacyHarmonicConfig;
+  beatingShapes?: LegacyBeatingShapesConfig;
 };
 
 const LEGACY_HARMONIC_DEFAULTS = {
@@ -249,12 +254,26 @@ function migrateVisualConfig(
 
   const legacyConfig = rawConfig as LegacyVisualEffectsConfig;
 
+  const canonicalUIBeat = isRecord(rawConfig.uiBeat) ? rawConfig.uiBeat : undefined;
+  const legacyUIBeat = isRecord(legacyConfig.beatingShapes)
+    ? legacyConfig.beatingShapes
+    : undefined;
+  const migratedUIBeat = canonicalUIBeat
+    ? typeof canonicalUIBeat.isEnabled === "boolean"
+      ? canonicalUIBeat
+      : typeof legacyUIBeat?.isEnabled === "boolean"
+        ? { ...canonicalUIBeat, isEnabled: legacyUIBeat.isEnabled }
+        : canonicalUIBeat
+    : legacyUIBeat;
+
   for (const sectionName of Object.keys(
     migratedConfig
   ) as Array<keyof VisualEffectsConfig>) {
     const rawIncomingSection = sectionName === "codeStrip"
       ? rawConfig.codeStrip ?? legacyConfig.liveStrip
-      : rawConfig[sectionName];
+      : sectionName === "uiBeat"
+        ? migratedUIBeat
+        : rawConfig[sectionName];
     const incomingSection =
       sectionName === "blobs" &&
       !isRecord(rawIncomingSection) &&

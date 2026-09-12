@@ -81,11 +81,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         keyBrightness: 0.85,
         keySaturation: 0.8,
       },
-      beatingShapes: {
-        opacity: 0.42,
-        scale: 0.9,
-        useGlassmorphism: true,
-      },
       hilbertScope: {
         opacity: 0.38,
         history: 0.2,
@@ -128,11 +123,8 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         history: 0.62,
         thickness: 4.5,
       },
-      beatingShapes: {
+      uiBeat: {
         isEnabled: true,
-        opacity: 0.92,
-        scale: 1.2,
-        shapeCount: 9,
       },
       keyboard: {
         surfaceStyle: "colored",
@@ -179,10 +171,6 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         opacity: 0.25,
         history: 0.12,
       },
-      beatingShapes: {
-        opacity: 0.3,
-        scale: 0.8,
-      },
     }
   ),
   createPreset(
@@ -215,7 +203,7 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
       hilbertScope: {
         isEnabled: false,
       },
-      beatingShapes: {
+      uiBeat: {
         isEnabled: false,
       },
       patterns: {
@@ -276,11 +264,8 @@ export const BUILT_IN_VISUAL_PRESETS: VisualConfigPreset[] = [
         history: 0.82,
         thickness: 5,
       },
-      beatingShapes: {
+      uiBeat: {
         isEnabled: true,
-        opacity: 0.84,
-        scale: 1.15,
-        saturation: 100,
       },
       keyboard: {
         surfaceStyle: "colored",

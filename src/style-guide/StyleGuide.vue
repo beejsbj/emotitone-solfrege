@@ -48,6 +48,16 @@
       </div>
     </section>
 
+    <section class="sink-section" aria-labelledby="systems-heading">
+      <h2 id="systems-heading">System Protocols</h2>
+      <div class="sink-stack">
+        <article id="system-ui-beat" class="sink-frame">
+          <div class="sink-frame__source">system-ui-beat</div>
+          <SystemUIBeat />
+        </article>
+      </div>
+    </section>
+
     <section class="sink-section" aria-labelledby="primitives-heading">
       <h2 id="primitives-heading">Primitives</h2>
       <div class="sink-stack">
@@ -177,6 +187,7 @@ import TokenSpacingScale from "./tokens/TokenSpacingScale.vue";
 import TokenTypography from "./tokens/TokenTypography.vue";
 import TokenMotion from "./tokens/TokenMotion.vue";
 import TokenGeometry from "./tokens/TokenGeometry.vue";
+import SystemUIBeat from "./systems/SystemUIBeat.vue";
 import PrimitiveSticker from "./primatives/PrimitiveSticker.vue";
 import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";

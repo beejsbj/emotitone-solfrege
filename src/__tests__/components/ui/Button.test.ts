@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { defineComponent, h, nextTick, ref } from "vue";
 import Button from "@/components/primatives/Button.vue";
 import buttonSource from "@/components/primatives/Button.vue?raw";
 import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
+import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 
 const { triggerUIHaptic } = vi.hoisted(() => ({ triggerUIHaptic: vi.fn() }));
 
@@ -51,6 +53,7 @@ describe("Button", () => {
     expect(wrapper.attributes("aria-busy")).toBe("true");
     expect(wrapper.attributes("disabled")).toBeDefined();
     expect(wrapper.find(".paper-button__loader").exists()).toBe(true);
+    expect(wrapper.get(".paper-button__face").attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
   it("keeps disabled production brass in the native still-state contract", () => {
@@ -61,6 +64,7 @@ describe("Button", () => {
     expect(wrapper.classes()).toEqual(
       expect.arrayContaining(["paper-button--brass", "paper-button--brass-sheen-glow"]),
     );
+    expect(wrapper.get(".paper-button__face").attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
   it("preserves opt-in haptics for absorbed Knob Button actions", async () => {
@@ -68,6 +72,56 @@ describe("Button", () => {
     await wrapper.trigger("click");
     expect(triggerUIHaptic).toHaveBeenCalledTimes(1);
     expect(wrapper.emitted("click")).toHaveLength(1);
+  });
+
+  it("defaults its real native face into the shared, provider-gated UIBeat scale", async () => {
+    const presentationEnabled = ref(false);
+    const clock = new UIBeatClock({
+      observeEnvironment: false,
+      reducedMotion: () => false,
+      documentVisible: () => true,
+    });
+    const Host = defineComponent({
+      setup() {
+        provideUIBeat({
+          clock,
+          presentationEnabled: () => presentationEnabled.value,
+        });
+        return () => h(Button, {
+          accessibleName: "Stop",
+        });
+      },
+    });
+    const wrapper = mount(Host);
+
+    const button = wrapper.get("button");
+    const face = wrapper.get(".paper-button__face");
+    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
+
+    presentationEnabled.value = true;
+    await nextTick();
+    const generation = clock.arm({
+      mappingAvailable: true,
+      bpm: 120,
+      meter: { beatsPerBar: 4, beatUnit: 4 },
+    });
+    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+
+    expect(face.attributes("data-ui-beat-state")).toBe("running");
+    expect(face.attributes("style")).toContain("scale: 1.100");
+    expect(face.attributes("style")).not.toContain("transform");
+    expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(button.attributes("style") ?? "").not.toContain("scale");
+    expect(buttonSource).toContain('ref="beatTargetRef" class="paper-button__face"');
+    expect(buttonSource).toContain(":active .paper-button__face");
+
+    presentationEnabled.value = false;
+    await nextTick();
+    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
+    expect(face.attributes("style") ?? "").not.toContain("scale");
+    wrapper.unmount();
+    clock.destroy();
   });
 
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {

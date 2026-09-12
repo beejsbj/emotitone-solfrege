@@ -14,12 +14,16 @@
     :title="title"
     @click="handleClick"
   >
-    <span class="paper-button__content" aria-hidden="true"><slot /></span>
-    <span v-if="loading" class="paper-button__loader" aria-hidden="true" />
+    <span ref="beatTargetRef" class="paper-button__face" aria-hidden="true">
+      <span class="paper-button__content"><slot /></span>
+      <span v-if="loading" class="paper-button__loader" />
+    </span>
   </button>
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
+import { useUIBeatScale } from "@/composables/useUIBeat";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 export type ButtonSize = "sm" | "md" | "lg";
@@ -33,6 +37,7 @@ const props = withDefaults(
     brassFinish?: ButtonBrassFinish;
     loading?: boolean;
     disabled?: boolean;
+    uiBeat?: boolean;
     haptic?: boolean;
     type?: "button" | "submit" | "reset";
     accessibleName: string;
@@ -44,6 +49,7 @@ const props = withDefaults(
     brassFinish: "sheen-glow",
     loading: false,
     disabled: false,
+    uiBeat: true,
     haptic: false,
     type: "button",
     title: undefined,
@@ -51,6 +57,13 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ click: [event: MouseEvent] }>();
+const beatTargetRef = ref<HTMLElement | null>(null);
+
+useUIBeatScale(
+  beatTargetRef,
+  () => props.uiBeat && !props.disabled && !props.loading,
+  { restScale: 0.8, peakScale: 1.1 },
+);
 
 function handleClick(event: MouseEvent) {
   if (props.haptic) triggerUIHaptic();
@@ -82,25 +95,38 @@ function handleClick(event: MouseEvent) {
   padding: 0;
   border: 0;
   border-radius: var(--button-radius);
-  clip-path: var(--button-clip);
-  background: var(--button-face);
-  box-shadow: var(--button-rest-shadow), var(--button-material-shadow);
+  background: transparent;
   color: var(--button-ink);
   cursor: pointer;
   isolation: isolate;
-  overflow: hidden;
-  transform: rotate(var(--button-rest-rotation));
   -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--dur-tap) var(--ease-stab);
+}
+
+.paper-button__face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  box-sizing: border-box;
+  border-radius: var(--button-radius);
+  clip-path: var(--button-clip);
+  background: var(--button-face);
+  box-shadow: var(--button-rest-shadow), var(--button-material-shadow);
+  color: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  transform: rotate(var(--button-rest-rotation));
   transition:
     background-color var(--dur-tap) var(--ease-stab),
     box-shadow var(--dur-tap) var(--ease-stab),
-    transform var(--dur-tap) var(--ease-stab),
-    opacity var(--dur-tap) var(--ease-stab);
+    transform var(--dur-tap) var(--ease-stab);
 }
 
-.paper-button:not(:disabled):hover { background: var(--button-face-hover); }
+.paper-button:not(:disabled):hover .paper-button__face { background: var(--button-face-hover); }
 
-.paper-button:not(:disabled):active {
+.paper-button:not(:disabled):active .paper-button__face {
   transform: translateY(var(--button-paper-offset)) scale(.96) rotate(var(--button-rest-rotation));
   box-shadow: var(--button-material-shadow);
 }
@@ -111,15 +137,19 @@ function handleClick(event: MouseEvent) {
 }
 
 .paper-button:disabled {
-  background: var(--button-face);
   cursor: not-allowed;
   opacity: .35;
+  transition: none;
+}
+
+.paper-button:disabled .paper-button__face {
+  background: var(--button-face);
   transform: rotate(var(--button-rest-rotation));
   transition: none;
 }
 
 .paper-button:disabled .paper-button__content { transition: none; }
-.paper-button:disabled::after { animation: none; }
+.paper-button:disabled .paper-button__face::after { animation: none; }
 .paper-button:disabled .paper-button__loader { animation: none; }
 
 .paper-button--sm { --button-size: 32px; }
@@ -151,7 +181,7 @@ function handleClick(event: MouseEvent) {
   --button-material-shadow: var(--shadow-glow-brass);
 }
 
-.paper-button::after {
+.paper-button__face::after {
   content: "";
   position: absolute;
   z-index: 1;
@@ -165,8 +195,8 @@ function handleClick(event: MouseEvent) {
   pointer-events: none;
 }
 
-.paper-button--brass-sheen::after,
-.paper-button--brass-sheen-glow::after {
+.paper-button--brass-sheen .paper-button__face::after,
+.paper-button--brass-sheen-glow .paper-button__face::after {
   opacity: 1;
   animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
 }
@@ -206,38 +236,41 @@ function handleClick(event: MouseEvent) {
 @keyframes paper-button-load { to { transform: rotate(1turn); } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .paper-button:not(.paper-button--brass):not(:disabled) {
+  .paper-button:not(.paper-button--brass):not(:disabled) .paper-button__face {
     transition:
       background-color var(--dur-tap) var(--ease-stab),
       box-shadow var(--dur-tap) var(--ease-stab),
-      transform var(--dur-bounce) var(--ease-bounce),
-      opacity var(--dur-tap) var(--ease-stab);
+      transform var(--dur-bounce) var(--ease-bounce);
   }
 
-  .paper-button:not(.paper-button--brass):not(:disabled):active {
+  .paper-button:not(.paper-button--brass):not(:disabled):active .paper-button__face {
     transition:
       background-color var(--dur-tap) var(--ease-stab),
       box-shadow var(--dur-tap) var(--ease-stab),
-      transform var(--dur-tap) var(--ease-stab),
-      opacity var(--dur-tap) var(--ease-stab);
+      transform var(--dur-tap) var(--ease-stab);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .paper-button,
+  .paper-button__face,
   .paper-button__content { transition: none; }
-  .paper-button::after,
+  .paper-button__face::after,
   .paper-button__loader { animation: none; }
 }
 
 @media (forced-colors: active) {
   .paper-button {
-    border: 1px solid ButtonText;
-    background: ButtonFace;
-    box-shadow: 0 var(--button-paper-offset) 0 ButtonText;
     color: ButtonText;
     forced-color-adjust: auto;
   }
-  .paper-button:active { box-shadow: none; }
+
+  .paper-button__face {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    box-shadow: 0 var(--button-paper-offset) 0 ButtonText;
+  }
+
+  .paper-button:active .paper-button__face { box-shadow: none; }
 }
 </style>

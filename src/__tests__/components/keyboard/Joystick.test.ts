@@ -2,9 +2,11 @@ import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import { JOYSTICK_OPTIONS, directionFromVector } from "@/components/uniques/Joystick/joystickOptions";
+import { uiBeatClock } from "@/composables/useUIBeat";
 import dragValueSource from "@/components/primatives/DragValue.vue?raw";
 import joystickSource from "@/components/uniques/Joystick/index.vue?raw";
 import specimen from "@/style-guide/uniques/UniqueJoystick.vue?raw";
+import uiBeatSpecimen from "@/style-guide/systems/SystemUIBeat.vue?raw";
 import guide from "@/style-guide/StyleGuide.vue?raw";
 const { triggerUIHaptic, triggerLatchHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
@@ -13,6 +15,7 @@ const { triggerUIHaptic, triggerLatchHaptic } = vi.hoisted(() => ({
 vi.mock("@/utils/hapticFeedback", () => ({ triggerUIHaptic, triggerLatchHaptic }));
 const wrappers: ReturnType<typeof mount>[] = [];
 beforeEach(() => {
+  uiBeatClock.stop();
   triggerUIHaptic.mockClear();
   triggerLatchHaptic.mockClear();
   vi.spyOn(document, "addEventListener").mockImplementation(Document.prototype.addEventListener.bind(document));
@@ -22,11 +25,16 @@ beforeEach(() => {
 function setup(value = "auto") {
   const wrapper = mount(Joystick, { props: { modelValue: value as "auto" }, attachTo: document.body });
   wrappers.push(wrapper);
+  const face = wrapper.get(".joystick__face");
   const plate = wrapper.get(".joystick__plate");
+  Object.defineProperties(plate.element, {
+    offsetWidth: { value: 100, configurable: true },
+    offsetHeight: { value: 100, configurable: true },
+  });
   vi.spyOn(plate.element, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
   const capture = vi.fn();
-  Object.defineProperty(plate.element, "setPointerCapture", { value: capture, configurable: true });
-  return { wrapper, plate, capture };
+  Object.defineProperty(face.element, "setPointerCapture", { value: capture, configurable: true });
+  return { wrapper, face, plate, capture };
 }
 async function pointer(target: Element | Document, type: string, x: number, y: number) {
   const event = new Event(type, { bubbles: true, cancelable: true });
@@ -34,7 +42,7 @@ async function pointer(target: Element | Document, type: string, x: number, y: n
   target.dispatchEvent(event);
   await Promise.resolve();
 }
-afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); vi.useRealTimers(); vi.restoreAllMocks(); });
+afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); uiBeatClock.stop(); vi.useRealTimers(); vi.restoreAllMocks(); });
 describe("Joystick unique", () => {
   it("maps center and all screen-space octants deterministically", () => {
     expect(directionFromVector(.1, .1)).toBe("auto");
@@ -104,16 +112,55 @@ describe("Joystick unique", () => {
       /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.drag-value__paper \{ animation: none; \}/,
     );
   });
+  it("lets UIBeat scale the actual face without changing pointer gain or stick-owned interaction scale", async () => {
+    const { wrapper, face, plate } = setup();
+    const generation = uiBeatClock.arm({
+      mappingAvailable: true,
+      bpm: 120,
+      meter: { beatsPerBar: 4, beatUnit: 4 },
+    });
+    const beatTarget = wrapper.get(".joystick__beat-face");
+    vi.mocked(plate.element.getBoundingClientRect).mockImplementation(() => {
+      const scale = Number.parseFloat((beatTarget.element as HTMLElement).style.scale || "1");
+      const size = 100 * scale;
+      return { left: 0, top: 0, width: size, height: size, right: size, bottom: size, x: 0, y: 0, toJSON: () => ({}) };
+    });
+
+    uiBeatClock.publish(generation, { rawPosition: 0, barPosition: 0 });
+    expect(beatTarget.attributes("style")).toContain("scale: 0.800");
+    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
+    await pointer(plate.element, "pointerdown", 50, 50);
+    await pointer(document, "pointermove", 57, 50);
+    expect(wrapper.attributes("data-effective")).toBe("jazzy7");
+    await pointer(document, "pointerup", 57, 50);
+
+    uiBeatClock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+    expect(beatTarget.attributes("data-ui-beat-state")).toBe("running");
+    expect(beatTarget.attributes("style")).toContain("scale: 1.100");
+    expect(beatTarget.attributes("style")).not.toContain("transform");
+    expect(face.attributes("style") ?? "").not.toContain("scale");
+
+    await pointer(plate.element, "pointerdown", 50, 50);
+    await pointer(document, "pointermove", 57, 50);
+    expect(wrapper.attributes("data-effective")).toBe("jazzy7");
+    expect(wrapper.attributes("data-active")).toBe("true");
+    expect(joystickSource).toContain(".joystick[data-active] .joystick__stick { scale: .9");
+    expect(beatTarget.attributes("data-ui-beat-state")).toBe("running");
+    await pointer(document, "pointerup", 57, 50);
+    expect(wrapper.emitted("update:modelValue")).toEqual([["jazzy7"], ["jazzy7"]]);
+    expect(joystickSource).toContain("plate.value.offsetWidth || bounds.width");
+    expect(uiBeatSpecimen).toContain('<Joystick v-model="harmony"');
+  });
   it("tracks globally when capture is unavailable and releases successful capture on completion", async () => {
-    const { wrapper, plate, capture } = setup();
+    const { wrapper, face, plate, capture } = setup();
     capture.mockImplementationOnce(() => { throw new Error("capture unavailable"); });
     await pointer(plate.element, "pointerdown", 50, 50);
     await pointer(document, "pointermove", 50, 25);
     await pointer(document, "pointerup", 50, 25);
     expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["flip"]);
     const release = vi.fn();
-    Object.defineProperty(plate.element, "hasPointerCapture", { value: () => true, configurable: true });
-    Object.defineProperty(plate.element, "releasePointerCapture", { value: release, configurable: true });
+    Object.defineProperty(face.element, "hasPointerCapture", { value: () => true, configurable: true });
+    Object.defineProperty(face.element, "releasePointerCapture", { value: release, configurable: true });
     await pointer(plate.element, "pointerdown", 50, 50);
     await pointer(document, "pointerup", 50, 50);
     expect(release).toHaveBeenCalledWith(1);

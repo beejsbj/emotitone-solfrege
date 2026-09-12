@@ -18,6 +18,7 @@ let wrapper: VueWrapper | undefined;
 let midiDescriptor: PropertyDescriptor | undefined;
 let input: { id: string; name: string; state: string; onmidimessage: ((event: { data: Uint8Array }) => void) | null };
 let send: ReturnType<typeof vi.fn>;
+let clear: ReturnType<typeof vi.fn>;
 
 function packet(status: number, pitch: number) {
   expect(input.onmidimessage).toBeTypeOf("function");
@@ -104,12 +105,19 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
 
     input = { id: "roli-input", name: "LUMI Keys", state: "connected", onmidimessage: null };
     send = vi.fn();
+    clear = vi.fn();
     midiDescriptor = Object.getOwnPropertyDescriptor(navigator, "requestMIDIAccess");
     Object.defineProperty(navigator, "requestMIDIAccess", {
       configurable: true,
       value: vi.fn().mockResolvedValue({
         inputs: new Map([[input.id, input]]),
-        outputs: new Map([["roli-output", { id: "roli-output", name: "LUMI Keys", state: "connected", send }]]),
+        outputs: new Map([["roli-output", {
+          id: "roli-output",
+          name: "LUMI Keys",
+          state: "connected",
+          send,
+          clear,
+        }]]),
         onstatechange: null,
       }),
     });
@@ -214,6 +222,28 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     expect(scheduled).toContainEqual([0x90, 60, 280]);
     expect(scheduled.at(-1)).toEqual([0x80, 60, 280]);
     expect(notes()).toEqual([[0x90, 60], [0x80, 60]]);
+  });
+
+  it("replaces a queued off before the same pitch is attacked again", async () => {
+    useMusicStore().setPlayStyle("arp-up");
+    await connect();
+    packet(0x90, 60);
+    await vi.advanceTimersByTimeAsync(100);
+    const callsBeforeRelease = send.mock.calls.length;
+    packet(0x80, 60);
+    expect(clear).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(10);
+    packet(0x90, 60);
+    await vi.advanceTimersByTimeAsync(30);
+    const replacementCalls = send.mock.calls.slice(callsBeforeRelease)
+      .filter(([[status]]) => (status & 0xf0) === 0x90 || (status & 0xf0) === 0x80)
+      .map(([message, timestamp]) => [message[0] & 0xf0, message[1], timestamp]);
+    expect(replacementCalls).toEqual([
+      [0x80, 60, 100],
+      [0x90, 60, 140],
+      [0x80, 60, 340],
+    ]);
   });
 
   it("preserves a pending input across a mode change without suppressing later app notes", async () => {

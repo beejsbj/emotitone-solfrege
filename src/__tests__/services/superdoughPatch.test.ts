@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFile } from "node:fs/promises";
 
 vi.unmock("superdough");
 
-describe("patched superdough sample loading", () => {
+describe("patched superdough behavior", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -27,5 +28,14 @@ describe("patched superdough sample loading", () => {
     await expect(loadBuffer(url, audioContext)).resolves.toEqual({ duration: 1 });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps held voices open until their explicit release", async () => {
+    const source = await readFile("node_modules/superdough/superdough.mjs", "utf8");
+
+    expect(source).toContain(
+      "LIVE_VOICE_OPEN_ENDED_DURATION = Number.MAX_SAFE_INTEGER",
+    );
+    expect(source).not.toContain("LIVE_VOICE_SAFETY_DURATION = 60");
   });
 });

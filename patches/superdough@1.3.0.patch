@@ -2019,7 +2019,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..151aabe79816b730aaed396ed813ca35
 -let Ne = /* @__PURE__ */ new Map();
 -function Ht(e) {
 +let ze = /* @__PURE__ */ new Map(), se = /* @__PURE__ */ new Map();
-+const Eo = 60, vt = 0.01;
++const Eo = Number.MAX_SAFE_INTEGER, vt = 0.01;
 +function Ae(e, t = e.currentTime) {
 +  return Math.max(t ?? e.currentTime, e.currentTime);
 +}
@@ -3508,7 +3508,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..af0309689b6c46ac349a2f6925378345
  
  let activeSoundSources = new Map();
 +let liveVoices = new Map();
-+const LIVE_VOICE_SAFETY_DURATION = 60;
++const LIVE_VOICE_OPEN_ENDED_DURATION = Number.MAX_SAFE_INTEGER;
 +const MIN_LIVE_VOICE_RELEASE = 0.01;
  //music programs/audio gear usually increments inputs/outputs from 1, we need to subtract 1 from the input because the webaudio API channels start at 0
  
@@ -3595,7 +3595,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..af0309689b6c46ac349a2f6925378345
    }
  
 +  const sustainUntilRelease = value.sustainUntilRelease === true;
-+  const scheduledDuration = sustainUntilRelease ? Math.max(hapDuration, LIVE_VOICE_SAFETY_DURATION) : hapDuration;
++  const scheduledDuration = sustainUntilRelease ? Math.max(hapDuration, LIVE_VOICE_OPEN_ENDED_DURATION) : hapDuration;
    // duration is passed as value too..
 -  value.duration = hapDuration;
 +  value.duration = scheduledDuration;

@@ -107,8 +107,18 @@ interface MirroredNoteEventDetail {
 }
 
 interface ScheduledMidiNoteEventDetail extends MirroredNoteEventDetail {
+  noteId: string;
   phase: "attack" | "release";
   timestamp: number;
+}
+
+interface QueuedMidiMessage {
+  message: number[];
+  timestamp: number;
+}
+
+interface ClearableMidiOutput extends MIDIOutput {
+  clear(): void;
 }
 
 export function createMidiNoteReferenceCounter(
@@ -346,6 +356,7 @@ export function useMidiControls() {
   const mirroredNoteTimeouts = ref<Map<string, number>>(new Map());
   const mirroredEventNotes = ref<Map<string, number>>(new Map());
   const visualNoteTimeouts = ref<Map<string, number>>(new Map());
+  const queuedLiveMidiMessages = new Map<string, QueuedMidiMessage>();
 
   const parseMidiNoteNumber = (note: number | string): number | null => {
     if (typeof note === "number") {
@@ -662,15 +673,18 @@ export function useMidiControls() {
     if (!selectedRoliOutput.value) {
       clearMirroredTimeouts();
       clearMirroredEventNotes();
+      queuedLiveMidiMessages.clear();
       return;
     }
 
+    (selectedRoliOutput.value as ClearableMidiOutput).clear();
     buildRoliAllNotesOffMessages(ROLI_SYNC_CONTROL_CHANNEL).forEach((message) => {
       sendToRoliOutput(message);
     });
 
     clearMirroredTimeouts();
     clearMirroredEventNotes();
+    queuedLiveMidiMessages.clear();
   };
 
   const releaseMidiNotes = (inputId?: string) => {
@@ -863,10 +877,32 @@ export function useMidiControls() {
     if (!selectedRoliOutput.value || !shouldMirrorNoteEvent(detail)) return;
     const midiNote = resolveMirroredMidiNoteNumber(detail, musicStore);
     if (midiNote === null) return;
+    const timestamp = resolveMidiEventTimestamp(detail);
+    if (timestamp === undefined) return;
     const message = detail.phase === "attack"
       ? buildRoliNoteOnMessage(midiNote)
       : buildRoliNoteOffMessage(midiNote);
-    sendToRoliOutput(message, resolveMidiEventTimestamp(detail));
+    const now = performance.now();
+    for (const [key, queued] of queuedLiveMidiMessages) {
+      if (queued.timestamp < now) queuedLiveMidiMessages.delete(key);
+    }
+    const key = `${detail.noteId}:${detail.phase}`;
+    const previous = queuedLiveMidiMessages.get(key);
+    queuedLiveMidiMessages.set(key, { message, timestamp });
+
+    if (!previous) {
+      sendToRoliOutput(message, timestamp);
+      return;
+    }
+
+    // Web MIDI cannot replace one queued packet. Clear the output queue and
+    // replay this adapter's remaining future packets with the earlier deadline.
+    (selectedRoliOutput.value as ClearableMidiOutput).clear();
+    syncRoliPalette();
+    syncRoliMainOctave();
+    [...queuedLiveMidiMessages.values()]
+      .sort((left, right) => left.timestamp - right.timestamp)
+      .forEach((queued) => sendToRoliOutput(queued.message, queued.timestamp));
   };
 
   const disconnectMidi = () => {

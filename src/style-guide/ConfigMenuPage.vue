@@ -6,8 +6,8 @@
       <p class="config-menu-page__eyebrow">EmotiTone · focused style-guide page</p>
       <h1>Config Menu.</h1>
       <p>
-        Open the Config handle above to inspect the production composition. Its consolidated Stage,
-        Stage-only Looks, separate system destinations, Knobs, Buttons, and Sticker actions all
+        Open the Config handle above to inspect the production composition. Its Looks-first library,
+        consolidated Stage, separate system destinations, Knobs, Buttons, and Sticker actions all
         cross the same source seam used by the app.
       </p>
     </header>

@@ -286,7 +286,7 @@ export function useHilbertScopeRenderer() {
     const targetY = composition?.centerY ?? canvasHeight / 2;
     const shiftX = targetX - (state.layoutCenterX ?? targetX);
     const shiftY = targetY - (state.layoutCenterY ?? targetY);
-    if ((shiftX || shiftY) && state.historyCanvas) {
+    if (!reducedMotion && (shiftX || shiftY) && state.historyCanvas) {
       state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
       state.swapContext.drawImage(state.historyCanvas, shiftX, shiftY);
       state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -304,35 +304,40 @@ export function useHilbertScopeRenderer() {
       ? state.targetRadius
       : state.currentRadius + (state.targetRadius - state.currentRadius) * 0.1;
 
-    // Maintain an offscreen trail buffer instead of sampling the main canvas.
-    const persistence = reducedMotion ? 1 : mathClamp(config.history, 0, 0.99);
+    if (reducedMotion) {
+      // Reduced Motion is a fully still presentation, not a frozen waveform.
+      // Clear both trail buffers so enabling it cannot preserve an earlier frame.
+      state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
+    } else {
+      // Maintain an offscreen trail buffer instead of sampling the main canvas.
+      const persistence = mathClamp(config.history, 0, 0.99);
 
-    state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
-    if (persistence > 0) {
-      state.swapContext.globalAlpha = persistence;
-      state.swapContext.drawImage(state.historyCanvas, 0, 0);
-      state.swapContext.globalAlpha = 1;
-
-      if (config.smear > 0) {
-        const smearScale = 1 + config.smear * 0.012;
-        const smearWidth = canvasWidth * smearScale;
-        const smearHeight = canvasHeight * smearScale;
-        const smearX = (canvasWidth - smearWidth) / 2;
-        const smearY = (canvasHeight - smearHeight) / 2;
-
-        state.swapContext.globalAlpha = persistence * config.smear * 0.25;
-        state.swapContext.drawImage(
-          state.historyCanvas,
-          smearX,
-          smearY,
-          smearWidth,
-          smearHeight
-        );
+      state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      if (persistence > 0) {
+        state.swapContext.globalAlpha = persistence;
+        state.swapContext.drawImage(state.historyCanvas, 0, 0);
         state.swapContext.globalAlpha = 1;
-      }
-    }
 
-    if (!reducedMotion) {
+        if (config.smear > 0) {
+          const smearScale = 1 + config.smear * 0.012;
+          const smearWidth = canvasWidth * smearScale;
+          const smearHeight = canvasHeight * smearScale;
+          const smearX = (canvasWidth - smearWidth) / 2;
+          const smearY = (canvasHeight - smearHeight) / 2;
+
+          state.swapContext.globalAlpha = persistence * config.smear * 0.25;
+          state.swapContext.drawImage(
+            state.historyCanvas,
+            smearX,
+            smearY,
+            smearWidth,
+            smearHeight
+          );
+          state.swapContext.globalAlpha = 1;
+        }
+      }
+
       state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
       state.historyContext.drawImage(state.swapCanvas, 0, 0);
     }
@@ -430,10 +435,12 @@ export function useHilbertScopeRenderer() {
       ctx.restore();
     }
 
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.drawImage(state.historyCanvas, 0, 0);
-    ctx.restore();
+    if (!reducedMotion) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.drawImage(state.historyCanvas, 0, 0);
+      ctx.restore();
+    }
   };
 
   /**

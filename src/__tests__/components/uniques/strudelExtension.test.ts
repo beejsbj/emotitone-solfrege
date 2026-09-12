@@ -70,7 +70,7 @@ vi.mock("@/services/musicColor", () => ({
 }));
 
 const colorMocks = vi.hoisted(() => ({
-  useColorSystem: vi.fn(() => ({
+  useMusicColor: vi.fn(() => ({
     getKeyBackground: (scaleIndex: number) => ({
       background: `color-${scaleIndex}`,
       primaryColor: `color-${scaleIndex}`,
@@ -82,8 +82,8 @@ const colorMocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: colorMocks.useColorSystem,
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: colorMocks.useMusicColor,
 }));
 
 const source = "`< [ C4@0.25 ~@0.25 {E4, G4}@0.5 ] >`.as(\"note\").sound(\"sine\")";
@@ -141,8 +141,8 @@ describe("CodeStrip Strudel source decorations", () => {
   afterEach(() => {
     mountedViews.splice(0).forEach((view) => view.destroy());
     document.body.innerHTML = "";
-    colorMocks.useColorSystem.mockReset();
-    colorMocks.useColorSystem.mockImplementation(() => ({
+    colorMocks.useMusicColor.mockReset();
+    colorMocks.useMusicColor.mockImplementation(() => ({
       getKeyBackground: (scaleIndex: number) => ({
         background: `color-${scaleIndex}`,
         primaryColor: `color-${scaleIndex}`,
@@ -185,8 +185,8 @@ describe("CodeStrip Strudel source decorations", () => {
   });
 
   it("injects a controlled color resolver into real Note and Chord descendants", async () => {
-    colorMocks.useColorSystem.mockImplementation(() => {
-      throw new Error("controlled CodeStrip descendants must not construct useColorSystem");
+    colorMocks.useMusicColor.mockImplementation(() => {
+      throw new Error("controlled CodeStrip descendants must not construct useMusicColor");
     });
     const colorResolver = {
       getKeyBackground: (scaleIndex: number) => ({
@@ -204,7 +204,7 @@ describe("CodeStrip Strudel source decorations", () => {
     );
     await Promise.resolve();
 
-    expect(colorMocks.useColorSystem).not.toHaveBeenCalled();
+    expect(colorMocks.useMusicColor).not.toHaveBeenCalled();
     expect(host.querySelectorAll(".note").length).toBeGreaterThan(1);
     expect(host.querySelector<HTMLElement>(".note")?.style
       .getPropertyValue("--note-surface")).toBe("controlled-0");

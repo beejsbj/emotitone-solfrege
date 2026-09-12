@@ -87,7 +87,7 @@ bun run test:e2e
 **Key Composables by Domain:**
 - **Audio/Music**: `useSolfegeInteraction.ts`
 - **Keyboard Interface**: `useKeyboardDrawer.ts` (drawer behavior and GSAP animations)
-- **Visual Effects**: `useUnifiedCanvas.ts`, `useParticleSystem.ts`, `useColorSystem.ts`
+- **Visual Effects**: `useUnifiedCanvas.ts`, `useParticleSystem.ts`, `useMusicColor.ts`
 - **Utilities**: `useAppLoading.ts`, `useKeyboardControls.ts`, `useTooltip.ts`
 
 ## Development Guidelines
@@ -95,7 +95,7 @@ bun run test:e2e
 ### Vue 3 Standards
 - Always use Composition API with `<script setup>` and TypeScript
 - Mobile-first design (ignore desktop considerations)
-- Use HSLA instead of RGBA/HEX colors throughout
+- Use design-system tokens for interface colors; Music Color comes only from the numeric OKLCH authority and its gamut-mapped adapter
 - GSAP for all animations (never CSS transitions)
 - Avoid emits - use composables for shared state
 - Path alias `@/` maps to `src/`
@@ -139,7 +139,7 @@ bun run test:e2e
 - Tone.js (^15.0.4) for audio synthesis and timing
 - Tonal.js (^4.10.0) for music theory utilities
 - GSAP for performant animations
-- Tailwind CSS for styling (HSLA colors only)
+- Tailwind CSS and design-system tokens for styling
 - Pinia with persistence for state management
 - Vite + TypeScript with path aliases
 

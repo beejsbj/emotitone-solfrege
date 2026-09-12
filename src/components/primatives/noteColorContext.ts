@@ -2,14 +2,14 @@ import type { InjectionKey } from "vue";
 import { CHROMATIC_NOTES } from "@/data";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import {
-  FALLBACK_KEY_SURFACE_COLOR,
+  resolveMusicColorKeySurface,
   resolveKeySurfaceColor,
   type KeySurfaceColor,
   type KeySurfaceTuning,
 } from "@/services/keySurfaceColor";
 import {
-  resolveExactMusicColorsByPitchClass,
-  resolveMusicColorsByScaleIndex,
+  resolveMusicColorSampleByPitchClass,
+  resolveMusicColorSampleByScaleIndex,
 } from "@/services/musicColor";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
@@ -40,17 +40,14 @@ export const noteColorResolverKey: InjectionKey<NoteColorResolver> =
   Symbol("note-color-resolver");
 
 function staticSurface(
-  primaryColor: string | undefined,
+  primaryColor: Parameters<typeof resolveMusicColorKeySurface>[0],
   surfaceStyle: NoteColorSurfaceStyle,
   isAccidental: boolean,
   tuning: KeySurfaceTuning,
 ) {
-  return resolveKeySurfaceColor(
-    primaryColor ?? FALLBACK_KEY_SURFACE_COLOR,
-    surfaceStyle,
-    isAccidental,
-    tuning,
-  );
+  return surfaceStyle === "monochrome"
+    ? resolveKeySurfaceColor("", surfaceStyle, isAccidental, tuning)
+    : resolveMusicColorKeySurface(primaryColor, tuning);
 }
 
 /** Static default-config color source for isolated real-source specimens. */
@@ -65,14 +62,14 @@ export const staticNoteColorResolver: NoteColorResolver = {
     tuning = {},
   ) {
     const primaryColor = surfaceStyle === "monochrome"
-      ? undefined
-      : resolveMusicColorsByScaleIndex(
+      ? null
+      : resolveMusicColorSampleByScaleIndex(
         scaleIndex,
         mode,
         key,
         octave,
         DEFAULT_CONFIG.dynamicColors,
-      )?.primary;
+      )?.sample.primary;
     return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
   },
 
@@ -89,14 +86,15 @@ export const staticNoteColorResolver: NoteColorResolver = {
       (pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length
     ) % CHROMATIC_NOTES.length;
     const primaryColor = surfaceStyle === "monochrome"
-      ? undefined
-      : resolveExactMusicColorsByPitchClass(
+      ? null
+      : resolveMusicColorSampleByPitchClass(
         CHROMATIC_NOTES[normalizedIndex],
         mode,
         key,
         octave,
         DEFAULT_CONFIG.dynamicColors,
-      )?.primary;
+        "fixed-chromatic",
+      )?.sample.primary;
     return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
   },
 };

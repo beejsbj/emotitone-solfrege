@@ -2,7 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  useColorSystem: vi.fn(),
+  useMusicColor: vi.fn(),
   usePatternsStore: vi.fn(),
   useInstrumentStore: vi.fn(),
   useVisualConfigStore: vi.fn(),
@@ -10,8 +10,8 @@ const mocks = vi.hoisted(() => ({
   mirrorConstructor: vi.fn(),
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: mocks.useColorSystem,
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: mocks.useMusicColor,
 }));
 vi.mock("@/stores/patterns", () => ({ usePatternsStore: mocks.usePatternsStore }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: mocks.useInstrumentStore }));
@@ -41,8 +41,8 @@ import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 
 describe("CodeStrip controlled color isolation", () => {
   it("renders real semantic descendants without production color or state wiring", async () => {
-    mocks.useColorSystem.mockImplementation(() => {
-      throw new Error("controlled CodeStrip must not construct useColorSystem");
+    mocks.useMusicColor.mockImplementation(() => {
+      throw new Error("controlled CodeStrip must not construct useMusicColor");
     });
 
     const wrapper = mount(CodeStrip, {
@@ -75,7 +75,7 @@ describe("CodeStrip controlled color isolation", () => {
 
     expect(wrapper.findAll(".cm-code-strip-event")).toHaveLength(2);
     expect(wrapper.findAll(".note").length).toBeGreaterThan(1);
-    expect(mocks.useColorSystem).not.toHaveBeenCalled();
+    expect(mocks.useMusicColor).not.toHaveBeenCalled();
     expect(mocks.usePatternsStore).not.toHaveBeenCalled();
     expect(mocks.useInstrumentStore).not.toHaveBeenCalled();
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();

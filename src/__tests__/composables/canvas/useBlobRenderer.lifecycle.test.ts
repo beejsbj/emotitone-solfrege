@@ -5,8 +5,8 @@ import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { useBlobRenderer } from "@/composables/canvas/useBlobRenderer";
 import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getPrimaryColorForPitch: vi.fn(
       (_scaleIndex: number, pitchClassIndex: number | undefined) =>
         `pitch-${pitchClassIndex ?? "scale"}`,

@@ -3,7 +3,7 @@
 
 export { useAnimationLifecycle } from "./useAnimationLifecycle";
 export { useVisualConfig } from "./useVisualConfig";
-export { useColorSystem } from "./useColorSystem";
+export { useMusicColor } from "./useMusicColor";
 export { useKeyboardControls } from "./useKeyboardControls";
 export { useMidiControls } from "./useMidiControls";
 export { useAppLoading } from "./useAppLoading";

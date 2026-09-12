@@ -4,8 +4,8 @@ import { MAJOR_SOLFEGE } from "@/data/solfege";
 import { MARK_NAMES } from "@/components/primatives/marks";
 import type { ParticleConfig } from "@/types/visual";
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({ getFleckColor: vi.fn(() => "#e0a93a") }),
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({ getFleckColor: vi.fn(() => "#e0a93a") }),
 }));
 
 class MockPath2D {

@@ -4,8 +4,8 @@ import ChordKey from "@/components/compounds/ChordKey.vue";
 import Chord from "@/components/compounds/Chord.vue";
 import chordKeySource from "@/components/compounds/ChordKey.vue?raw";
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getKeyBackground: () => ({ background: "tomato", primaryColor: "tomato" }),
     getKeyBackgroundByPitchClass: () => ({ background: "tomato", primaryColor: "tomato" }),
   }),

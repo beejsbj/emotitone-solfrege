@@ -9,8 +9,8 @@ import type {
   HarmonicIntervalEdge,
 } from "@/types";
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: () => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: () => ({
     getPrimaryColor: vi.fn(() => "hsla(40, 80%, 60%, 1)"),
     getAccentColor: vi.fn(() => "hsla(20, 80%, 60%, 1)"),
     withAlpha: vi.fn(

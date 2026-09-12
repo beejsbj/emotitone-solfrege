@@ -7,7 +7,11 @@ import type { MarkName } from "@/components/primatives/Mark.vue";
 import Sticker from "@/components/primatives/Sticker.vue";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
-import { resolveExactMusicColorsByPitchClass } from "@/services/musicColor";
+import {
+  musicColorValueToCss,
+  resolveMusicColorSampleByPitchClass,
+} from "@/services/musicColor";
+import type { SrgbColor } from "@/services/musicColorCore";
 import type { DynamicColorConfig } from "@/types";
 
 type LoadingStage = {
@@ -118,81 +122,49 @@ const fixedColorConfig: DynamicColorConfig = {
   musicColorMode: "fixed",
 };
 
-const INK_HEX = "#0A0908";
-const IVORY_HEX = "#F4EFE6";
+const INK_SRGB: SrgbColor = { r: 10 / 255, g: 9 / 255, b: 8 / 255, alpha: 1 };
+const IVORY_SRGB: SrgbColor = { r: 244 / 255, g: 239 / 255, b: 230 / 255, alpha: 1 };
 
-function colorChannels(color: string): number[] | null {
-  if (/^#[0-9a-f]{6}$/i.test(color)) {
-    return color.slice(1).match(/.{2}/g)?.map((channel) => Number.parseInt(channel, 16)) ?? null;
-  }
-
-  const hsl = color.match(/^hsla?\(\s*(-?[\d.]+)[,\s]+([\d.]+)%[,\s]+([\d.]+)%/i);
-  if (!hsl) return null;
-
-  const hue = ((Number(hsl[1]) % 360) + 360) % 360;
-  const saturation = Number(hsl[2]) / 100;
-  const lightness = Number(hsl[3]) / 100;
-  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-  const segment = hue / 60;
-  const secondary = chroma * (1 - Math.abs((segment % 2) - 1));
-  const [red, green, blue] = segment < 1
-    ? [chroma, secondary, 0]
-    : segment < 2
-      ? [secondary, chroma, 0]
-      : segment < 3
-        ? [0, chroma, secondary]
-        : segment < 4
-          ? [0, secondary, chroma]
-          : segment < 5
-            ? [secondary, 0, chroma]
-            : [chroma, 0, secondary];
-  const match = lightness - chroma / 2;
-  return [red + match, green + match, blue + match].map((channel) => channel * 255);
-}
-
-function relativeLuminance(color: string) {
-  const channels = colorChannels(color)?.map((channel) => {
-    const value = channel / 255;
+function relativeLuminance(color: SrgbColor) {
+  const channels = [color.r, color.g, color.b].map((value) => {
     return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
   });
-  if (!channels || channels.length !== 3) return null;
   return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
 }
 
-function contrastRatio(background: string, foreground: string) {
+function contrastRatio(background: SrgbColor, foreground: SrgbColor) {
   const backgroundLuminance = relativeLuminance(background);
   const foregroundLuminance = relativeLuminance(foreground);
-  if (backgroundLuminance === null || foregroundLuminance === null) return null;
   const lighter = Math.max(backgroundLuminance, foregroundLuminance);
   const darker = Math.min(backgroundLuminance, foregroundLuminance);
   return (lighter + .05) / (darker + .05);
 }
 
-function readableLaneForeground(background: string, accidental: boolean) {
-  const inkContrast = contrastRatio(background, INK_HEX);
-  const ivoryContrast = contrastRatio(background, IVORY_HEX);
-  if (inkContrast === null || ivoryContrast === null) {
-    return accidental ? "var(--ink)" : "var(--ivory)";
-  }
+function readableLaneForeground(background: SrgbColor) {
+  const inkContrast = contrastRatio(background, INK_SRGB);
+  const ivoryContrast = contrastRatio(background, IVORY_SRGB);
   return inkContrast >= ivoryContrast ? "var(--ink)" : "var(--ivory)";
 }
 
 const chromaticScale = getScaleForMode("chromatic");
 const lanes = CHROMATIC_NOTES.map((pitch, index) => {
   const accidental = pitch.includes("#");
-  const color = resolveExactMusicColorsByPitchClass(
+  const resolved = resolveMusicColorSampleByPitchClass(
     pitch,
     "chromatic",
     "C",
     4,
     fixedColorConfig,
-  )?.primary ?? "var(--foreground)";
+    "fixed-chromatic",
+  );
+  const value = resolved?.sample.primary;
+  const color = value ? musicColorValueToCss(value) : "var(--foreground)";
   return {
     pitch,
     syllable: chromaticScale.solfege[index]?.name ?? pitch,
     accidental,
     color,
-    foreground: readableLaneForeground(color, accidental),
+    foreground: value ? readableLaneForeground(value.srgb) : accidental ? "var(--ink)" : "var(--ivory)",
   };
 });
 

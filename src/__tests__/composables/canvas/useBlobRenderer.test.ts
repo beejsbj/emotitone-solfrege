@@ -20,8 +20,8 @@ vi.mock("@/composables/useVisualConfig", () => ({
   })),
 }));
 
-vi.mock("@/composables/useColorSystem", () => ({
-  useColorSystem: vi.fn(() => ({
+vi.mock("@/composables/useMusicColor", () => ({
+  useMusicColor: vi.fn(() => ({
     getPrimaryColor: vi.fn(() => "hsla(240, 80%, 60%, 1)"),
     getAccentColor: vi.fn(() => "hsla(60, 80%, 70%, 1)"),
     withAlpha: vi.fn((color, alpha) => color.replace(/[\d.]+\)$/, `${alpha})`)),

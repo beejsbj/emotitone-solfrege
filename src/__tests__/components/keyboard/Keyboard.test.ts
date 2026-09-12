@@ -283,6 +283,24 @@ describe("Keyboard production usage", () => {
     expect(keys[4].props("sounding")).toBe(true);
   });
 
+  it("separates scientific color octave from the keyboard row coordinate", () => {
+    mocks.musicStore.currentKey = "B";
+    mocks.musicStore.getNoteName.mockImplementation(
+      (scaleIndex: number, octave: number) =>
+        scaleIndex === 0 ? `B${octave}` : `C#${octave + 1}`,
+    );
+
+    const wrapper = mountKeyboard();
+    const rowFour = wrapper.find('[data-octave="4"]');
+    const rowKeys = rowFour.findAllComponents(KeyStub);
+
+    expect(rowKeys[0].props("rawPitch")).toBe("B4");
+    expect(rowKeys[0].props("octave")).toBe(4);
+    expect(rowKeys[1].props("rawPitch")).toBe("C#5");
+    expect(rowKeys[1].props("octave")).toBe(5);
+    expect(rowFour.attributes("data-octave")).toBe("4");
+  });
+
   it("keeps chord geometry edition-driven but distinct from melody geometry", () => {
     const wrapper = mount(Keyboard, {
       props: {

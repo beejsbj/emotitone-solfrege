@@ -4,8 +4,9 @@ import type {
   MusicalMode,
 } from "@/types";
 import {
-  resolveMusicColorsByPitchClass,
+  resolveMusicColorSampleByPitchClass,
 } from "@/services/musicColor";
+import type { SrgbColor } from "@/services/musicColorCore";
 
 export { getScaleDegreeIndexForPitchClass } from "@/services/musicColor";
 
@@ -215,6 +216,13 @@ export function cssColorToLittleFootHex(color: string): string {
   return `0x${toHex(parsed.a)}${toHex(parsed.r)}${toHex(parsed.g)}${toHex(parsed.b)}`;
 }
 
+export function srgbToLittleFootHex(color: SrgbColor): string {
+  const channels = [color.alpha, color.r, color.g, color.b]
+    .map((value) => clampChannel(value * 255))
+    .map((value) => value.toString(16).padStart(2, "0"));
+  return `0x${channels.join("")}`;
+}
+
 export function buildRoliPianoPalette({
   dynamicColorConfig,
   currentKey,
@@ -224,18 +232,19 @@ export function buildRoliPianoPalette({
 }: BuildRoliPianoPaletteOptions): RoliPianoPalette {
   const palette = ROLI_CHROMATIC_NOTES.reduce((acc, noteName) => {
     const variableName = ROLI_VARIABLE_NAMES[noteName];
-    const colors = resolveMusicColorsByPitchClass(
+    const colors = resolveMusicColorSampleByPitchClass(
       noteName,
       currentMode,
       currentKey,
       octave,
-      dynamicColorConfig
+      dynamicColorConfig,
+      "omit",
     );
 
     acc[variableName as keyof Omit<RoliPianoPalette, "activeColour">] =
       colors === null
         ? ROLI_OFF_COLOUR
-        : cssColorToLittleFootHex(colors.primary);
+        : srgbToLittleFootHex(colors.sample.primary.srgb);
 
     return acc;
   }, {} as Omit<RoliPianoPalette, "activeColour">);

@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { computed, inject } from "vue";
-import { useColorSystem } from "@/composables/useColorSystem";
+import { useMusicColor } from "@/composables/useMusicColor";
 import {
   noteColorResolverKey,
   type NoteColorSurfaceStyle,
@@ -127,7 +127,7 @@ const props = withDefaults(
 
 const injectedColorResolver = inject(noteColorResolverKey, null);
 const { getKeyBackground, getKeyBackgroundByPitchClass } =
-  injectedColorResolver ?? useColorSystem();
+  injectedColorResolver ?? useMusicColor({ animated: true });
 
 const inferredAccidental = computed(() => {
   if (typeof props.accidental === "boolean") {

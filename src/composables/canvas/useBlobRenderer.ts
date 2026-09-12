@@ -7,7 +7,7 @@
 import type { ActiveBlob, PreparedBlobFrame } from "@/types/canvas";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import type { BlobConfig } from "@/types/visual";
-import { useColorSystem } from "../useColorSystem";
+import { useMusicColor } from "../useMusicColor";
 import { createVisualFrequency } from "@/utils/visualEffects";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
@@ -45,7 +45,7 @@ interface BlobRenderState {
 }
 
 export function useBlobRenderer() {
-  const { getPrimaryColorForPitch, withAlpha } = useColorSystem();
+  const { getPrimaryColorForPitch, withAlpha } = useMusicColor({ animated: true });
   const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Circle of Fifths progression (starting from C at position 0)

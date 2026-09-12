@@ -1,3 +1,9 @@
+import {
+  musicColorValueToCss,
+  tuneMusicColorValue,
+} from "@/services/musicColor";
+import type { MusicColorValue } from "@/services/musicColorCore";
+
 export interface KeySurfaceTuning {
   keyBrightness?: number;
   keySaturation?: number;
@@ -9,6 +15,21 @@ export interface KeySurfaceColor {
 }
 
 export const FALLBACK_KEY_SURFACE_COLOR = "hsla(0, 0%, 16%, 1)";
+
+/** Shared OKLCH-to-CSS projection for live and isolated colored key surfaces. */
+export function resolveMusicColorKeySurface(
+  value: MusicColorValue | null | undefined,
+  tuning: KeySurfaceTuning = {},
+): KeySurfaceColor {
+  const color = value
+    ? musicColorValueToCss(tuneMusicColorValue(value, {
+        lightnessMultiplier: tuning.keyBrightness ?? 1,
+        chromaMultiplier: tuning.keySaturation ?? 1,
+      }))
+    : FALLBACK_KEY_SURFACE_COLOR;
+
+  return { background: color, primaryColor: color };
+}
 
 function adjustColorHSL(
   color: string,

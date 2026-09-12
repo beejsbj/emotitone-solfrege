@@ -5,7 +5,7 @@
    TOKEN ARCHITECTURE (top-level groups)
      1. UI         chrome — ink, ivory, brass, glass, scrim, hairline
      2. BRAND      decorative — tomato, pine, plum, bone, mustard, cobalt
-     3. MUSIC      chromatic — recipe (oklch) + legacy --note-* aliases
+     3. MUSIC      legacy named aliases; runtime recipe lives in Music Color
      4. GEOMETRY   spacing, radii, shadows, ring
      5. MOTION     beat, durations, easings, keyframes
      6. LEGACY     old bg/fg/status aliases kept for compatibility only
@@ -92,24 +92,8 @@
   --mustard:    #f0b137;     /* poster yellow */
   --cobalt:     #2f67b2;     /* cool poster blue */
 
-  /* ===============================================================
-     3. MUSIC — chromatic, computed. Every key / tile / note glyph
-        just sets --note-degree (0..n-1) and --note-octave (0..8).
-
-        Mode switching:
-          - FIXED (chromatic): --music-count: 12  -> each degree
-            owns a 30° slice (C is always 0–30°).
-          - MOVABLE (scale):  --music-count: N   -> N = scale
-            length, --music-rotate: <root-degree> to rotate tonic.
-
-        Octave drives lightness 20%..80% across 8 octaves.
-     =============================================================== */
-  --music-count:  12;          /* 12 chromatic | N scale-length */
-  --music-rotate: 0;           /* root-degree offset, 0..count-1 */
-  --music-c:      0.18;        /* chroma in oklch */
-
-  /* Legacy named tokens (C major rotation, HSL). Kept while a future
-     Note primitive and app migration absorb named solfege styling. */
+  /* Legacy named aliases remain only for older non-runtime guide references.
+     The numeric Music Color module owns pitch, degree, octave, and motion. */
   --note-do:    hsl( 18  85% 56%);  /* C  — orange (root, home) */
   --note-ra:    hsl( 48  90% 56%);  /* C# — gold */
   --note-re:    hsl( 78  72% 52%);  /* D  — lime */
@@ -422,20 +406,6 @@
       close
     );
   }
-}
-
-/* =================================================================
-   MUSIC RECIPE — apply by adding .note + --note-degree, --note-octave
-   to any element. The element computes its own oklch fill from the
-   --music-* knobs above. Switch the whole system to a scale by
-   setting --music-count and --music-rotate on the nearest ancestor.
-   ================================================================= */
-.note {
-  --note-degree: 0;        /* 0..music-count-1 */
-  --note-octave: 4;        /* 0..8 */
-  --note-l:   calc(20% + (var(--note-octave) * 7.5%));
-  --note-hue: calc((var(--note-degree) + var(--music-rotate)) * (360 / var(--music-count)));
-  background: oklch(var(--note-l) var(--music-c) var(--note-hue));
 }
 
 /* =================================================================

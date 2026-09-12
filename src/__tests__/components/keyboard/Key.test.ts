@@ -1,16 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount, type VueWrapper } from "@vue/test-utils";
-import { defineComponent, h, nextTick, ref } from "vue";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Key from "@/components/compounds/Key.vue";
 import Note from "@/components/primatives/Note.vue";
 import keySource from "@/components/compounds/Key.vue?raw";
-import noteSource from "@/components/primatives/Note.vue?raw";
-import sequenceSource from "@/components/uniques/CodeStrip/Sequence.vue?raw";
-import uiBeatSpecimenSource from "@/style-guide/systems/SystemUIBeat.vue?raw";
 import pressableKeySource from "@/composables/usePressableKey.ts?raw";
-import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 
 const pressableKeyCss = readFileSync(
   resolve(process.cwd(), "src/components/compounds/pressableKey.css"),
@@ -91,63 +86,7 @@ describe("Key", () => {
     expect(button.attributes("aria-pressed")).toBeUndefined();
     expect(wrapper.findComponent(Note).exists()).toBe(true);
     expect(wrapper.get(".key__face").attributes("aria-hidden")).toBe("true");
-  });
-
-  it("lets UIBeat scale the Note key face without changing its hit box or press transform", async () => {
-    const disabled = ref(false);
-    const uiBeat = ref<boolean | undefined>(undefined);
-    const clock = new UIBeatClock({
-      observeEnvironment: false,
-      reducedMotion: () => false,
-      documentVisible: () => true,
-    });
-    const Host = defineComponent({
-      setup() {
-        provideUIBeat({ clock, presentationEnabled: () => true });
-        return () => h(Key, {
-          disabled: disabled.value,
-          ...(uiBeat.value === undefined ? {} : { uiBeat: uiBeat.value }),
-        });
-      },
-    });
-    const wrapper = mount(Host);
-    const generation = clock.arm({
-      mappingAvailable: true,
-      bpm: 120,
-      meter: { beatsPerBar: 4, beatUnit: 4 },
-    });
-    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
-
-    const button = wrapper.get("button");
-    const face = wrapper.get(".key__face");
-    expect(face.attributes("data-ui-beat-state")).toBe("running");
-    expect(face.attributes("style")).toContain("scale: 1.100");
-    expect(face.attributes("style")).not.toContain("transform");
-    expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
-    expect(pressableKeyCss).toContain("scale(var(--key-face-press-scale))");
-    expect(keySource).toContain("useUIBeatScale(beatTargetRef");
-    expect(noteSource).not.toContain("useUIBeatScale");
-
-    disabled.value = true;
-    await nextTick();
-    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
-    expect(face.attributes("style") ?? "").not.toContain("scale");
-
-    disabled.value = false;
-    uiBeat.value = false;
-    await nextTick();
-    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
-    wrapper.unmount();
-    clock.destroy();
-  });
-
-  it("keeps UIBeat on interactive key faces and out of CodeStrip display primitives", () => {
-    expect(sequenceSource).toContain("<Note");
-    expect(sequenceSource).toContain("<Chord");
-    expect(sequenceSource).not.toContain("useUIBeatScale");
-    expect(noteSource).not.toContain("useUIBeatScale");
-    expect(uiBeatSpecimenSource).toContain("<Key");
-    expect(uiBeatSpecimenSource).toContain("<ChordKey");
+    expect(keySource).not.toContain("useUIBeatScale");
   });
 
   it("forwards the complete accepted Note prop surface unchanged", () => {

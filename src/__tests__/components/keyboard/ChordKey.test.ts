@@ -1,18 +1,8 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick, ref } from "vue";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import ChordKey from "@/components/compounds/ChordKey.vue";
 import Chord from "@/components/compounds/Chord.vue";
 import chordKeySource from "@/components/compounds/ChordKey.vue?raw";
-import chordSource from "@/components/compounds/Chord.vue?raw";
-import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
-
-const pressableKeyCss = readFileSync(
-  resolve(process.cwd(), "src/components/compounds/pressableKey.css"),
-  "utf8",
-);
 
 vi.mock("@/composables/useMusicColor", () => ({
   useMusicColor: () => ({
@@ -50,57 +40,7 @@ describe("ChordKey", () => {
     });
     expect(wrapper.get(".chord-key__face").attributes("aria-hidden")).toBe("true");
     expect(chordKeySource).toContain("font-size: clamp(12px, 34cqi, 14px)");
-  });
-
-  it("lets UIBeat scale the Chord key face without changing its hit box or press transform", async () => {
-    const disabled = ref(false);
-    const uiBeat = ref<boolean | undefined>(undefined);
-    const clock = new UIBeatClock({
-      observeEnvironment: false,
-      reducedMotion: () => false,
-      documentVisible: () => true,
-    });
-    const Host = defineComponent({
-      setup() {
-        provideUIBeat({ clock, presentationEnabled: () => true });
-        return () => h(ChordKey, {
-          members,
-          symbol: "C",
-          accessibleName: "C major chord",
-          disabled: disabled.value,
-          ...(uiBeat.value === undefined ? {} : { uiBeat: uiBeat.value }),
-        });
-      },
-    });
-    const wrapper = mount(Host);
-    const generation = clock.arm({
-      mappingAvailable: true,
-      bpm: 120,
-      meter: { beatsPerBar: 4, beatUnit: 4 },
-    });
-    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
-
-    const button = wrapper.get("button");
-    const face = wrapper.get(".chord-key__face");
-    expect(face.attributes("data-ui-beat-state")).toBe("running");
-    expect(face.attributes("style")).toContain("scale: 1.100");
-    expect(face.attributes("style")).not.toContain("transform");
-    expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
-    expect(pressableKeyCss).toContain("scale(var(--key-face-press-scale))");
-    expect(chordKeySource).toContain("useUIBeatScale(beatTargetRef");
-    expect(chordSource).not.toContain("useUIBeatScale");
-
-    disabled.value = true;
-    await nextTick();
-    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
-    expect(face.attributes("style") ?? "").not.toContain("scale");
-
-    disabled.value = false;
-    uiBeat.value = false;
-    await nextTick();
-    expect(face.attributes("data-ui-beat-scale")).toBeUndefined();
-    wrapper.unmount();
-    clock.destroy();
+    expect(chordKeySource).not.toContain("useUIBeatScale");
   });
 
   it("tracks multiple contacts independently and releases them on unmount", async () => {

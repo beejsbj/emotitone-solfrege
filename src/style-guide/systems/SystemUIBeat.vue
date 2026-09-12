@@ -3,10 +3,10 @@
     <div class="card ui-beat-system">
       <div class="label">UIBeat · System Protocol</div>
       <p class="caption ui-beat-system__intro">
-        One injected clock drives real UI families: Beat Indicator Marks, both
-        Knob editions, Button, Joystick, Note Key, Chord Key, and the selected
+        One injected clock drives real UI control families: Beat Indicator
+        Marks, both Knob editions, Button, Joystick, and the selected
         current-instrument Sticker. The same general scale binding reaches each
-        actual face without replacing its gestures.
+        actual control without replacing its gestures.
       </p>
 
       <div class="ui-beat-system__stage">
@@ -58,24 +58,6 @@
             </Sticker>
             <Joystick v-model="harmony" label="Harmony" visual="analog" />
           </div>
-
-          <div class="ui-beat-system__keys" aria-label="Keyboard consumers">
-            <Key
-              aria-label="UIBeat note key"
-              syllable="Do"
-              degree="I"
-              raw-pitch="C4"
-              :visible-labels="['syllable']"
-              geometry="tile"
-              proportion="stocky"
-            />
-            <ChordKey
-              :members="chordMembers"
-              symbol="C"
-              accessible-name="UIBeat C major chord key"
-              geometry="offcut"
-            />
-          </div>
         </div>
       </div>
 
@@ -105,7 +87,6 @@
         <div><dt>Guide</dt><dd>3/4 and 6/8 are isolated meter fixtures</dd></div>
         <div><dt>Scale</dt><dd>Compact → 14% swell → long settle → late tuck</dd></div>
         <div><dt>Binding</dt><dd>Actual UI node; component transforms stay intact</dd></div>
-        <div><dt>Keys</dt><dd>Note and Chord faces share the same phase</dd></div>
         <div><dt>Stillness</dt><dd>Reduced Motion removes recurring scale change</dd></div>
       </dl>
     </div>
@@ -116,9 +97,6 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Play, Square } from "lucide-vue-next";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
-import ChordKey from "@/components/compounds/ChordKey.vue";
-import type { ChordMember } from "@/components/compounds/Chord.vue";
-import Key from "@/components/compounds/Key.vue";
 import Button from "@/components/primatives/Button.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
 import Sticker from "@/components/primatives/Sticker.vue";
@@ -143,11 +121,6 @@ const meters: MeterFixture[] = [
 const bpm = ref<number>(120);
 const meter = ref<MeterFixture>(meters[0]);
 const harmony = ref<HarmonyAlteration>("auto");
-const chordMembers: ChordMember[] = [
-  { id: "C4", rawPitch: "C4", pitchClassIndex: 0, octave: 4, progress: 1 },
-  { id: "E4", rawPitch: "E4", pitchClassIndex: 4, octave: 4, progress: 1 },
-  { id: "G4", rawPitch: "G4", pitchClassIndex: 7, octave: 4, progress: 1 },
-];
 const running = ref(true);
 const clock = new UIBeatClock();
 provideUIBeat({ clock, presentationEnabled: () => true });
@@ -287,19 +260,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 18px;
-  min-width: 0;
-}
-
-.ui-beat-system__keys {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  min-width: 0;
-}
-
-.ui-beat-system__keys > * {
-  inline-size: 72px;
   min-width: 0;
 }
 

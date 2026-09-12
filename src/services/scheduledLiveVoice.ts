@@ -16,6 +16,7 @@ export function createScheduledLiveVoice(options: {
   const epochOffset = Date.now() - now();
   const audioOffset = audio.getAudioContext().currentTime - now() / 1000;
   let endAt = Infinity;
+  let startAt = options.at;
   let ready = false;
   let armed = false;
   let published = false;
@@ -27,7 +28,7 @@ export function createScheduledLiveVoice(options: {
     if (finished) return;
     // Web Audio keeps playing when the main thread stalls. Preserve an onset
     // that sounded even if its visual/recording timer has not run yet.
-    if (armed && !published && endAt > options.at && now() >= options.at) publishStart();
+    if (armed && !published && endAt > startAt && now() >= startAt) publishStart();
     finished = true;
     clearTimeout(startTimer);
     clearTimeout(endTimer);
@@ -37,12 +38,12 @@ export function createScheduledLiveVoice(options: {
   function publishStart() {
     if (finished) return;
     published = true;
-    options.onStart(epochOffset + options.at);
+    options.onStart(epochOffset + startAt);
   }
 
   function scheduleEnd() {
     if (!ready || !Number.isFinite(endAt)) return;
-    if (endAt <= options.at) {
+    if (endAt <= startAt) {
       audio.stopNote(noteId);
       finish();
       return;
@@ -56,7 +57,7 @@ export function createScheduledLiveVoice(options: {
   void audio.attackNote(noteId, options.noteName, options.instrument, {
     atTime: audioOffset + options.at / 1000,
     release: options.releaseSeconds,
-  }).then(() => {
+  }).then((startedAt) => {
     ready = true;
     if (finished || endAt <= now()) {
       audio.stopNote(noteId);
@@ -64,8 +65,16 @@ export function createScheduledLiveVoice(options: {
       return;
     }
     armed = true;
-    if (options.at <= now()) publishStart();
-    else startTimer = setTimeout(publishStart, options.at - now());
+    if (Number.isFinite(startedAt)) {
+      startAt = Math.max(options.at, (startedAt - audioOffset) * 1000);
+    }
+    if (endAt <= startAt) {
+      audio.stopNote(noteId);
+      finish();
+      return;
+    }
+    if (startAt <= now()) publishStart();
+    else startTimer = setTimeout(publishStart, startAt - now());
     scheduleEnd();
   }).catch((error) => {
     endAt = now();

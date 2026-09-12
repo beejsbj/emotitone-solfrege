@@ -6,7 +6,7 @@
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, releaseVoice, releaseAllVoices } from "superdough";
+import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
 import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
@@ -531,7 +531,7 @@ export async function attackNote(
   noteName: string,
   instrument: string,
   options?: { atTime?: number; release?: number },
-): Promise<void> {
+): Promise<number> {
   await initSuperdoughAudio();
 
   // Ensure the AudioContext is running before scheduling.
@@ -544,12 +544,14 @@ export async function attackNote(
 
   const sound = LEGACY_ALIASES[instrument] ?? instrument;
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
+  const wasReady = isPrewarmed(sound);
 
   // Defensively clear stale voices if a note id is ever re-used.
   if (hasVoice(noteId)) {
     stopVoice(noteId, ac.currentTime);
   }
 
+  const requestedAt = options?.atTime ?? nowPlusOffset();
   await superdough(
     {
       s: sound,
@@ -560,10 +562,14 @@ export async function attackNote(
       voiceId: noteId,
       sustainUntilRelease: true,
     },
-    options?.atTime ?? nowPlusOffset(),
+    requestedAt,
     duration,
     1 // cps
   );
+
+  // A prewarmed voice is armed for requestedAt. If loading crossed that
+  // deadline, patched sources start immediately, so report the later time.
+  return wasReady ? requestedAt : Math.max(requestedAt, ac.currentTime);
 }
 
 /**
@@ -576,7 +582,7 @@ export function releaseNote(noteId: string, atTime?: number): void {
 
 /** Cancel a queued onset without letting it sound during its release tail. */
 export function stopNote(noteId: string): void {
-  stopVoice(noteId);
+  cancelVoice(noteId);
 }
 
 /**

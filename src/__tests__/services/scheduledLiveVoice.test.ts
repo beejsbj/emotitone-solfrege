@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const audio = vi.hoisted(() => ({
-  attackNote: vi.fn<(...args: unknown[]) => Promise<void>>(),
+  attackNote: vi.fn<(...args: unknown[]) => Promise<number>>(),
   releaseNote: vi.fn(),
   stopNote: vi.fn(),
   getAudioContext: vi.fn(),
@@ -14,10 +14,10 @@ import { createScheduledLiveVoice } from '@/services/scheduledLiveVoice'
 const EPOCH = 1_800_000_000_000
 const CLOCK_START = 1000
 
-function deferred() {
-  let resolve!: () => void
+function deferred<T = void>() {
+  let resolve!: (value: T) => void
   let reject!: (error: unknown) => void
-  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise
     reject = rejectPromise
   })
@@ -47,7 +47,8 @@ describe('scheduled live voice', () => {
     vi.useFakeTimers()
     vi.setSystemTime(EPOCH)
     vi.spyOn(performance, 'now').mockImplementation(() => CLOCK_START + Date.now() - EPOCH)
-    audio.attackNote.mockReset().mockResolvedValue(undefined)
+    audio.attackNote.mockReset().mockImplementation(async (...args: unknown[]) =>
+      (args[3] as { atTime: number }).atTime)
     audio.releaseNote.mockReset()
     audio.stopNote.mockReset()
     audio.getAudioContext.mockReset().mockImplementation(() => ({
@@ -154,6 +155,19 @@ describe('scheduled live voice', () => {
     expect(onStart).not.toHaveBeenCalled()
     expect(onEnd).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('records the audible onset when loading crosses the scheduled deadline', async () => {
+    const attack = deferred<number>()
+    audio.attackNote.mockReturnValue(attack.promise)
+    const { voice, onStart, onEnd } = create(1000)
+    voice.release(1200)
+    await vi.advanceTimersByTimeAsync(100)
+    attack.resolve(12.1)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(onStart).toHaveBeenCalledExactlyOnceWith(EPOCH + 100)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(onEnd).toHaveBeenCalledExactlyOnceWith(EPOCH + 200)
   })
 
   it('sustains a strummed voice until its owner releases it', async () => {

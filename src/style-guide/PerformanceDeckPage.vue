@@ -308,13 +308,17 @@ const keyboardRows = computed<KeyboardRowView[]>(() => {
     keys: scale.solfege.map((solfege, scaleIndex) => {
       const pitch = getChromaticNoteForScaleIndex(scaleIndex, modeValue.value, keyValue.value)
         ?? keyValue.value;
+      const pitchOctave = rowOctave + Number(
+        CHROMATIC_NOTES.indexOf(pitch) < CHROMATIC_NOTES.indexOf(keyValue.value),
+      );
       return {
         id: `${scaleIndex}_${rowOctave}`,
         syllable: solfege.name,
         degree: degreeLabels[scaleIndex] ?? String(scaleIndex + 1),
-        rawPitch: `${pitch}${rowOctave}`,
+        rawPitch: `${pitch}${pitchOctave}`,
         scaleIndex,
         pitchClassIndex: CHROMATIC_NOTES.indexOf(pitch),
+        colorOctave: pitchOctave,
         mode: modeValue.value,
         musicKey: keyValue.value,
         accidental: pitch.includes("#"),

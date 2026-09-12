@@ -19,6 +19,7 @@ vi.mock("@/components/PerformanceDeck.vue", () => ({
       "bpm",
       "octave",
       "rowCount",
+      "keyboardRows",
     ],
     emits: [
       "patternCopy",
@@ -132,6 +133,16 @@ describe("PerformanceDeck guide fixtures", () => {
     expect(deck.props("modeValue")).toBe("dorian");
     expect(deck.props("bpm")).toBe(92);
     expect(deck.props("octave")).toBe(4);
+    const fSharpFourRow = deck.props("keyboardRows").find(
+      (row: { octave: number }) => row.octave === 4,
+    );
+    expect(fSharpFourRow.keys[4]).toMatchObject({
+      rawPitch: "C#5",
+      pitchClassIndex: 1,
+      colorOctave: 5,
+      mode: "dorian",
+      musicKey: "F#",
+    });
 
     const sequence = mount(Sequence, {
       props: {

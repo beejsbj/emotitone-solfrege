@@ -103,8 +103,8 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
-  // Keys depressed while input is locked must see a physical keyup before
-  // they may attack. Otherwise OS key-repeat can start a note after unlock.
+  // Ignored mapped keys must see a physical keyup before they may attack.
+  // Otherwise OS key-repeat can start a note after a lock or modifier clears.
   const blockedKeys = ref<Set<string>>(new Set());
 
   // Track keyboard-triggered notes separately from mouse-triggered notes
@@ -196,12 +196,16 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       return;
     }
 
+    // Get current keyboard mapping
+    const keyboardMapping = getKeyboardMapping();
+
     if (event.ctrlKey || event.metaKey || event.altKey) {
+      if (key in keyboardMapping && !pressedKeys.value.has(key)) {
+        blockedKeys.value.add(key);
+      }
       return;
     }
 
-    // Get current keyboard mapping
-    const keyboardMapping = getKeyboardMapping();
     if (key in keyboardMapping) {
       if (blockedKeys.value.has(key)) {
         event.preventDefault();

@@ -248,6 +248,64 @@ describe("useKeyboardControls", () => {
     controls.cleanupKeyboardListeners();
   });
 
+  it("requires keyup before a modified shortcut key can attack", async () => {
+    const controls = useKeyboardControls(ref(4));
+    const shortcut = new KeyboardEvent("keydown", {
+      code: "KeyC",
+      key: "c",
+      ctrlKey: true,
+      cancelable: true,
+    });
+
+    await controls.handleKeyDown(shortcut);
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", {
+        code: "KeyC",
+        key: "c",
+        repeat: true,
+      })
+    );
+
+    expect(shortcut.defaultPrevented).toBe(false);
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyC", key: "c" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyC", key: "c" })
+    );
+
+    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenCalledOnce();
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyC", key: "c" })
+    );
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("still releases a note held before a modifier is pressed", async () => {
+    const controls = useKeyboardControls(ref(4));
+
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "KeyC", key: "c" })
+    );
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", {
+        code: "KeyC",
+        key: "c",
+        ctrlKey: true,
+        repeat: true,
+      })
+    );
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "KeyC", key: "c" })
+    );
+
+    expect(mockMusicStore.attackNoteWithOctave).toHaveBeenCalledOnce();
+    expect(mockMusicStore.releaseNote).toHaveBeenCalledWith("mock-note-id");
+    controls.cleanupKeyboardListeners();
+  });
+
   it("releases a QWERTY owner even when keyup beats async attack resolution", async () => {
     const addEventListener = vi.spyOn(window, "addEventListener");
     let resolveAttack!: (value: string) => void;

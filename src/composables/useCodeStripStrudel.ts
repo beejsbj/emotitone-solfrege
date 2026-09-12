@@ -1,18 +1,19 @@
-import { computed, readonly, ref } from "vue";
+import { computed, readonly, ref, shallowRef } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 
 export interface CodeStripStrudelController {
   getCode: () => string;
   setCode: (code: string) => void;
-  evaluate: () => Promise<void>;
+  evaluate: () => Promise<boolean | void>;
   stop: () => Promise<void> | void;
 }
 
-const controller = ref<CodeStripStrudelController | null>(null);
+const controller = shallowRef<CodeStripStrudelController | null>(null);
 const currentCode = ref("");
 const isPlaying = ref(false);
 const isReady = ref(false);
 const lastError = ref<string | null>(null);
+let playbackIntentEpoch = 0;
 
 function hasPlayableContent(code: string): boolean {
   let index = 0;
@@ -41,6 +42,7 @@ export function useCodeStripStrudel() {
   const instrumentStore = useInstrumentStore();
 
   function attachEditor(nextController: CodeStripStrudelController, initialCode = "") {
+    playbackIntentEpoch += 1;
     controller.value = nextController;
     currentCode.value = initialCode || nextController.getCode();
     isReady.value = true;
@@ -52,6 +54,7 @@ export function useCodeStripStrudel() {
       return;
     }
 
+    playbackIntentEpoch += 1;
     controller.value = null;
     currentCode.value = "";
     isPlaying.value = false;
@@ -71,8 +74,10 @@ export function useCodeStripStrudel() {
   }
 
   async function play() {
+    const playEpoch = ++playbackIntentEpoch;
+    const activeController = controller.value;
     if (
-      !controller.value ||
+      !activeController ||
       !hasPlayableContent(currentCode.value) ||
       instrumentStore.isInteractionLocked
     ) {
@@ -84,24 +89,41 @@ export function useCodeStripStrudel() {
     const selectionEpoch = instrumentStore.selectionEpoch;
 
     try {
-      await controller.value.evaluate();
+      const accepted = await activeController.evaluate();
+      if (
+        playEpoch !== playbackIntentEpoch ||
+        controller.value !== activeController
+      ) return;
+      if (accepted === false) {
+        isPlaying.value = false;
+        return;
+      }
       if (
         instrumentStore.isInteractionLocked ||
         instrumentStore.selectionEpoch !== selectionEpoch
       ) {
-        await controller.value.stop();
-        isPlaying.value = false;
+        await activeController.stop();
+        if (
+          playEpoch === playbackIntentEpoch &&
+          controller.value === activeController
+        ) isPlaying.value = false;
         return;
       }
       isPlaying.value = true;
     } catch (error) {
-      setError(error);
-      isPlaying.value = false;
+      if (
+        playEpoch === playbackIntentEpoch &&
+        controller.value === activeController
+      ) {
+        setError(error);
+        isPlaying.value = false;
+      }
       throw error;
     }
   }
 
   async function stop() {
+    playbackIntentEpoch += 1;
     if (!controller.value) {
       isPlaying.value = false;
       return;

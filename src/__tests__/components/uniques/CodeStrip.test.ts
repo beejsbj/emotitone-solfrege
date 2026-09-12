@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   mirrorInitialCode: "",
   mirrorEvaluate: vi.fn().mockResolvedValue(undefined),
   mirrorStop: vi.fn().mockResolvedValue(undefined),
+  schedulerSetCps: vi.fn(),
   attachEditor: vi.fn(),
   detachEditor: vi.fn(),
   syncCode: vi.fn(),
@@ -97,7 +98,15 @@ vi.mock("@strudel/codemirror", () => ({
   StrudelMirror: class {
     code: string;
     editor: any;
-    repl = { scheduler: { cps: 0.5 } };
+    repl = {
+      scheduler: {
+        cps: 0.5,
+        setCps: (cps: number) => {
+          mocks.schedulerSetCps(cps);
+          this.repl.scheduler.cps = cps;
+        },
+      },
+    };
     stop = mocks.mirrorStop;
     clear = vi.fn();
     updateSettings = vi.fn();
@@ -386,7 +395,7 @@ describe("CodeStrip production Strudel document", () => {
     mocks.mirrorOptions.onEvalError(new Error("stale first evaluation"));
     resolveFirst();
     await expect(first).rejects.toThrow("stale first evaluation");
-    await expect(second).resolves.toBeUndefined();
+    await expect(second).resolves.toBe(true);
     expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
 
     mocks.mirrorOptions.onDraw([], 0.5);
@@ -416,8 +425,8 @@ describe("CodeStrip production Strudel document", () => {
 
     await controller.stop();
     resolveFirst();
-    await expect(first).resolves.toBeUndefined();
-    await expect(queued).resolves.toBeUndefined();
+    await expect(first).resolves.toBe(false);
+    await expect(queued).resolves.toBe(false);
 
     expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
     expect(uiBeatClock.snapshot.status).toBe("idle");
@@ -441,8 +450,8 @@ describe("CodeStrip production Strudel document", () => {
 
     await mocks.mirrorInstance.stop();
     resolveFirst();
-    await expect(first).resolves.toBeUndefined();
-    await expect(queued).resolves.toBeUndefined();
+    await expect(first).resolves.toBe(false);
+    await expect(queued).resolves.toBe(false);
 
     expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
     expect(mocks.mirrorStop).toHaveBeenCalledTimes(2);
@@ -469,9 +478,9 @@ describe("CodeStrip production Strudel document", () => {
     const afterStop = mocks.mirrorInstance.evaluate();
     resolveFirst();
 
-    await expect(first).resolves.toBeUndefined();
-    await expect(staleQueued).resolves.toBeUndefined();
-    await expect(afterStop).resolves.toBeUndefined();
+    await expect(first).resolves.toBe(false);
+    await expect(staleQueued).resolves.toBe(false);
+    await expect(afterStop).resolves.toBe(true);
     expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
@@ -493,8 +502,8 @@ describe("CodeStrip production Strudel document", () => {
 
     wrapper.unmount();
     resolveFirst();
-    await expect(first).resolves.toBeUndefined();
-    await expect(queued).resolves.toBeUndefined();
+    await expect(first).resolves.toBe(false);
+    await expect(queued).resolves.toBe(false);
 
     expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
     expect(mocks.detachEditor).toHaveBeenCalledOnce();
@@ -582,6 +591,26 @@ describe("CodeStrip production Strudel document", () => {
     wrapper.unmount();
   });
 
+  it("normalizes a fresh generated run to Strudel's continuous scheduler cycle", async () => {
+    mocks.visualConfigStore.config.codeStrip.bpm = 90;
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+
+    await controller.evaluate();
+    mocks.mirrorOptions.onDraw([], 0.125);
+
+    expect(mocks.schedulerSetCps).toHaveBeenLastCalledWith(0.375);
+    expect(uiBeatClock.snapshot).toMatchObject({
+      status: "running",
+      bpm: 90,
+      rawPosition: 0.125,
+      barPosition: 0.125,
+      beatPhase: 0.5,
+    });
+    wrapper.unmount();
+  });
+
   it("preserves UIBeat generation and phase when playback tempo changes", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
@@ -597,6 +626,7 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
 
     expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
+    expect(mocks.schedulerSetCps).toHaveBeenLastCalledWith(0.375);
     expect(uiBeatClock.snapshot).toMatchObject({
       generation: before.generation,
       status: "running",
@@ -608,7 +638,7 @@ describe("CodeStrip production Strudel document", () => {
 
     mocks.mirrorOptions.onDraw([], 0.125);
     expect(uiBeatClock.snapshot.barPosition).toBeCloseTo(0.125);
-    mocks.mirrorOptions.onDraw([], 0.25);
+    mocks.mirrorOptions.onDraw([], 0.21875);
     expect(uiBeatClock.snapshot.barPosition).toBeCloseTo(0.21875);
     expect(uiBeatClock.snapshot.generation).toBe(before.generation);
     wrapper.unmount();

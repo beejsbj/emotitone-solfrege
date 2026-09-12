@@ -64,7 +64,7 @@ import type {
 
 interface StrudelMirrorInstance {
   setCode: (code: string) => void;
-  evaluate: () => Promise<void>;
+  evaluate: () => Promise<void | boolean>;
   stop: () => Promise<void> | void;
   clear?: () => void;
   updateSettings?: (settings: Record<string, unknown>) => void;
@@ -74,6 +74,7 @@ interface StrudelMirrorInstance {
   repl?: {
     scheduler?: {
       cps?: number;
+      setCps?: (cps: number) => void;
     };
   };
 }
@@ -143,8 +144,6 @@ interface ActiveUIBeatRun {
   bpm: number;
   beatsPerBar: number;
   preservePhase: boolean;
-  preservedBarPosition: number | null;
-  barPositionOffset: number | null;
   ready: boolean;
   failed: boolean;
   error: unknown;
@@ -251,9 +250,17 @@ function armUIBeatForEvaluation(
     currentRun.mappingAvailable &&
     currentSnapshot.generation === currentRun.generation &&
     currentSnapshot.status === "running" &&
-    currentSnapshot.barPosition !== null;
+    currentSnapshot.barPosition !== null &&
+    typeof instance.repl?.scheduler?.setCps === "function";
+
+  if (mappingAvailable && typeof instance.repl?.scheduler?.setCps === "function") {
+    const generatedBarCps = bpm / GENERATED_BEATS_PER_BAR / 60;
+    instance.repl.scheduler.setCps(generatedBarCps);
+  }
 
   if (canPreservePhase && currentRun) {
+    currentRun.bpm = bpm;
+    uiBeatClock.retime(currentRun.generation, bpm);
     observeUIBeatAudioContext();
     return {
       generation: currentRun.generation,
@@ -261,8 +268,6 @@ function armUIBeatForEvaluation(
       bpm,
       beatsPerBar: GENERATED_BEATS_PER_BAR,
       preservePhase: true,
-      preservedBarPosition: null,
-      barPositionOffset: null,
       ready: false,
       failed: false,
       error: undefined,
@@ -283,8 +288,6 @@ function armUIBeatForEvaluation(
     bpm,
     beatsPerBar: GENERATED_BEATS_PER_BAR,
     preservePhase: false,
-    preservedBarPosition: null,
-    barPositionOffset: 0,
     ready: false,
     failed: false,
     error: undefined,
@@ -303,7 +306,7 @@ function publishUIBeatFrame(instance: StrudelMirrorInstance, rawPosition: number
   }
 
   const schedulerCps = instance.repl?.scheduler?.cps;
-  let barPosition = run.mappingAvailable && typeof schedulerCps === "number"
+  const barPosition = run.mappingAvailable && typeof schedulerCps === "number"
     ? generatedStrudelBarPosition(
         rawPosition,
         run.bpm,
@@ -311,14 +314,6 @@ function publishUIBeatFrame(instance: StrudelMirrorInstance, rawPosition: number
         schedulerCps,
       )
     : null;
-
-  if (barPosition !== null && run.barPositionOffset === null) {
-    run.barPositionOffset = (run.preservedBarPosition ?? barPosition) - barPosition;
-    run.preservedBarPosition = null;
-  }
-  if (barPosition !== null) {
-    barPosition += run.barPositionOffset ?? 0;
-  }
 
   uiBeatClock.publish(run.generation, {
     rawPosition,
@@ -398,13 +393,15 @@ function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
   syncCode(code);
 }
 
-async function evaluateMirror(instance: StrudelMirrorInstance) {
-  if (instrumentStore.isInteractionLocked) return;
+async function evaluateMirror(instance: StrudelMirrorInstance): Promise<boolean> {
+  if (instrumentStore.isInteractionLocked) return false;
   reconcileMirrorRuntimeCode(instance);
   const editor = getMirrorView(instance);
   if (editor) setCodeStripPlaying(editor, true);
   try {
-    await instance.evaluate();
+    const accepted = await instance.evaluate();
+    if (accepted === false && editor) setCodeStripPlaying(editor, false);
+    return accepted !== false;
   } catch (error) {
     if (editor) setCodeStripPlaying(editor, false);
     throw error;
@@ -640,7 +637,7 @@ async function initializeStrudelMirror() {
       if (
         queuedAtEpoch !== evaluationEpoch
         || instrumentStore.isInteractionLocked
-      ) return;
+      ) return false;
       const run = armUIBeatForEvaluation(instance, preservePhase);
       evaluatingUIBeatRun = run;
       try {
@@ -648,13 +645,12 @@ async function initializeStrudelMirror() {
         if (queuedAtEpoch !== evaluationEpoch) {
           stopUIBeatRun(run.generation);
           await stopTransport();
-          return;
+          return false;
         }
         if (run.failed) {
           throw run.error ?? new Error("Strudel evaluation failed");
         }
         if (run.preservePhase) {
-          run.preservedBarPosition = uiBeatClock.snapshot.barPosition;
           if (uiBeatClock.retime(run.generation, run.bpm)) {
             run.ready = true;
             activeUIBeatRun = run;
@@ -664,7 +660,9 @@ async function initializeStrudelMirror() {
         }
         if (instrumentStore.isInteractionLocked) {
           await stopMirrorForWarmup(instance);
+          return false;
         }
+        return true;
       } catch (error) {
         stopUIBeatRun(run.generation);
         try {
@@ -800,7 +798,8 @@ watch(
       run.mappingAvailable &&
       snapshot.generation === run.generation &&
       snapshot.status === "running" &&
-      snapshot.barPosition !== null;
+      snapshot.barPosition !== null &&
+      typeof mirror.value.repl?.scheduler?.setCps === "function";
     preserveUIBeatPhaseForNextEvaluation = preservePhase;
     syncMirrorCode(generatedCode.value, preservePhase);
     try {

@@ -57,6 +57,139 @@ describe("CodeStrip playback warmup locking", () => {
     expect(playback.isPlaying.value).toBe(false);
   });
 
+  it("does not commit Play after its controller reports transport cancellation", async () => {
+    mocks.instrumentStore = reactive({
+      isInteractionLocked: false,
+      selectionEpoch: 0,
+    });
+    let resolveEvaluation!: (accepted: boolean) => void;
+    const evaluate = vi.fn(
+      () => new Promise<boolean>((resolve) => {
+        resolveEvaluation = resolve;
+      })
+    );
+    const stop = vi.fn().mockResolvedValue(undefined);
+    const { useCodeStripStrudel } = await import(
+      "@/composables/useCodeStripStrudel"
+    );
+    const playback = useCodeStripStrudel();
+    playback.attachEditor({
+      getCode: () => "sound('piano')",
+      setCode: vi.fn(),
+      evaluate,
+      stop,
+    }, "sound('piano')");
+
+    const pendingPlayback = playback.play();
+    await playback.stop();
+    resolveEvaluation(false);
+    await pendingPlayback;
+
+    expect(playback.isPlaying.value).toBe(false);
+  });
+
+  it("does not commit Play after its controller is detached", async () => {
+    mocks.instrumentStore = reactive({
+      isInteractionLocked: false,
+      selectionEpoch: 0,
+    });
+    let resolveEvaluation!: () => void;
+    const evaluate = vi.fn(
+      () => new Promise<void>((resolve) => {
+        resolveEvaluation = resolve;
+      })
+    );
+    const { useCodeStripStrudel } = await import(
+      "@/composables/useCodeStripStrudel"
+    );
+    const playback = useCodeStripStrudel();
+    const attached = {
+      getCode: () => "sound('piano')",
+      setCode: vi.fn(),
+      evaluate,
+      stop: vi.fn(),
+    };
+    playback.attachEditor(attached, "sound('piano')");
+
+    const pendingPlayback = playback.play();
+    playback.detachEditor(attached);
+    resolveEvaluation();
+    await pendingPlayback;
+
+    expect(playback.isPlaying.value).toBe(false);
+  });
+
+  it("does not let an old controller completion overwrite its replacement", async () => {
+    mocks.instrumentStore = reactive({
+      isInteractionLocked: false,
+      selectionEpoch: 0,
+    });
+    let resolveOldEvaluation!: () => void;
+    const oldController = {
+      getCode: () => "sound('piano')",
+      setCode: vi.fn(),
+      evaluate: vi.fn(() => new Promise<void>((resolve) => {
+        resolveOldEvaluation = resolve;
+      })),
+      stop: vi.fn(),
+    };
+    const newController = {
+      getCode: () => "sound('sine')",
+      setCode: vi.fn(),
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(),
+    };
+    const { useCodeStripStrudel } = await import(
+      "@/composables/useCodeStripStrudel"
+    );
+    const playback = useCodeStripStrudel();
+    playback.attachEditor(oldController, "sound('piano')");
+
+    const oldPlayback = playback.play();
+    playback.attachEditor(newController, "sound('sine')");
+    playback.setPlaying(true);
+    resolveOldEvaluation();
+    await oldPlayback;
+
+    expect(playback.isPlaying.value).toBe(true);
+  });
+
+  it("does not let an old controller error overwrite its replacement", async () => {
+    mocks.instrumentStore = reactive({
+      isInteractionLocked: false,
+      selectionEpoch: 0,
+    });
+    let rejectOldEvaluation!: (error: Error) => void;
+    const oldController = {
+      getCode: () => "sound('piano')",
+      setCode: vi.fn(),
+      evaluate: vi.fn(() => new Promise<void>((_resolve, reject) => {
+        rejectOldEvaluation = reject;
+      })),
+      stop: vi.fn(),
+    };
+    const newController = {
+      getCode: () => "sound('sine')",
+      setCode: vi.fn(),
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(),
+    };
+    const { useCodeStripStrudel } = await import(
+      "@/composables/useCodeStripStrudel"
+    );
+    const playback = useCodeStripStrudel();
+    playback.attachEditor(oldController, "sound('piano')");
+
+    const oldPlayback = playback.play();
+    playback.attachEditor(newController, "sound('sine')");
+    playback.setPlaying(true);
+    rejectOldEvaluation(new Error("old controller failed"));
+    await expect(oldPlayback).rejects.toThrow("old controller failed");
+
+    expect(playback.isPlaying.value).toBe(true);
+    expect(playback.lastError.value).toBeNull();
+  });
+
   it("treats comment-prefixed code as playable but rejects comment-only documents", async () => {
     mocks.instrumentStore = reactive({
       isInteractionLocked: false,

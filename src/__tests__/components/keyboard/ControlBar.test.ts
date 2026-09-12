@@ -32,7 +32,7 @@ describe("ControlBar.vue", () => {
       "Mode",
       "BPM",
       "Octave",
-      "Play Mode",
+      "Style",
     ]);
     expect(knobs[0].props("options")).toEqual(CHROMATIC_NOTES);
     expect(knobs[1].props("options")).toEqual(MODE_OPTIONS);
@@ -97,7 +97,7 @@ describe("ControlBar.vue", () => {
     expect(controlBarSource).not.toContain("width: max-content");
   });
 
-  it("includes all rhythmic rates in the single Play Mode knob", async () => {
+  it("includes all rhythmic rates in the single Style knob", async () => {
     const wrapper = mount(ControlBar);
     const mode = wrapper.findAllComponents({ name: "Knob" })[4];
     const options = mode.props("options");

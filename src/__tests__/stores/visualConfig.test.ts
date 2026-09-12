@@ -645,11 +645,13 @@ describe('Visual Config Store', () => {
 
   describe('Import/Export', () => {
     it('should export configuration as JSON', () => {
+      visualConfigStore.setNewLookOnLaunch(true)
       const exported = visualConfigStore.exportConfig()
       const parsed = JSON.parse(exported)
       
       expect(parsed.config).toEqual(visualConfigStore.config)
       expect(parsed.visualsEnabled).toBe(visualConfigStore.visualsEnabled)
+      expect(parsed.stagePreferences).toEqual({ newLookOnLaunch: true })
       expect(parsed.exportedAt).toBeDefined()
       expect(parsed.version).toBe('2.0.0')
     })
@@ -662,6 +664,7 @@ describe('Visual Config Store', () => {
           keyboard: { ...mockDefaultConfig.keyboard, rowCount: 2 },
         },
         visualsEnabled: false,
+        stagePreferences: { newLookOnLaunch: true },
         exportedAt: new Date().toISOString(),
         version: '1.0.0'
       }
@@ -672,6 +675,46 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.config.blobs.isEnabled).toBe(false)
       expect(visualConfigStore.config.keyboard.rowCount).toBe(mockDefaultConfig.keyboard.rowCount)
       expect(visualConfigStore.visualsEnabled).toBe(false)
+      expect(visualConfigStore.newLookOnLaunch).toBe(true)
+      expect(visualConfigStore.transientStageLook).toBeNull()
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config') ?? '{}'))
+        .toMatchObject({ stagePreferences: { newLookOnLaunch: true } })
+
+      const reloadedStore = createFreshStore()
+      expect(reloadedStore.newLookOnLaunch).toBe(true)
+      expect(reloadedStore.transientStageLook).not.toBeNull()
+    })
+
+    it('imports an explicit disabled reload Look preference', () => {
+      visualConfigStore.setNewLookOnLaunch(true)
+      const exported = JSON.parse(visualConfigStore.exportConfig())
+      exported.stagePreferences.newLookOnLaunch = false
+
+      expect(visualConfigStore.importConfig(JSON.stringify(exported))).toBe(true)
+      expect(visualConfigStore.newLookOnLaunch).toBe(false)
+      expect(visualConfigStore.transientStageLook).toBeNull()
+    })
+
+    it('round-trips the reload Look preference through saved full configs', () => {
+      visualConfigStore.setNewLookOnLaunch(true)
+      const saved = visualConfigStore.saveConfigAs('Reload preference')
+      visualConfigStore.setNewLookOnLaunch(false)
+
+      visualConfigStore.loadSavedConfig(saved.id)
+
+      expect(visualConfigStore.newLookOnLaunch).toBe(true)
+      expect(saved.stagePreferences).toEqual({ newLookOnLaunch: true })
+      expect(visualConfigStore.transientStageLook).toBeNull()
+    })
+
+    it('defaults legacy saved full configs to no reload randomization', () => {
+      const legacy = visualConfigStore.saveConfigAs('Legacy preference')
+      delete legacy.stagePreferences
+      visualConfigStore.setNewLookOnLaunch(true)
+
+      visualConfigStore.loadSavedConfig(legacy.id)
+
+      expect(visualConfigStore.newLookOnLaunch).toBe(false)
     })
 
     it('should import legacy configuration keys from JSON', () => {
@@ -691,6 +734,7 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe('fixed')
       expect(visualConfigStore.config.keyboard.surfaceStyle).toBe('colored')
       expect(visualConfigStore.visualsEnabled).toBe(false)
+      expect(visualConfigStore.newLookOnLaunch).toBe(false)
     })
 
     it('should handle invalid JSON in import', () => {

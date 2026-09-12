@@ -38,6 +38,15 @@ export function createStageAudioFeatures(): StageAudioFeatures {
     connectedLiveNode = liveSource.node;
   };
 
+  const syncPlaybackSource = () => {
+    if (!bus) return;
+    const nextPlayback = getSuperdoughMasterGain();
+    if (nextPlayback === playback) return;
+    if (playback) safeDisconnectEdge(playback, bus);
+    playback = nextPlayback;
+    playback?.connect(bus);
+  };
+
   const unsubscribe = liveAudioInput.subscribe((source) => {
     liveSource = source;
     syncLiveSource();
@@ -45,7 +54,10 @@ export function createStageAudioFeatures(): StageAudioFeatures {
 
   return {
     initialize() {
-      if (bus) return bus;
+      if (bus) {
+        syncPlaybackSource();
+        return bus;
+      }
       context = getAudioContext() as AudioContext;
       if (!context || typeof context.createGain !== "function") return null;
       bus = context.createGain();
@@ -55,14 +67,17 @@ export function createStageAudioFeatures(): StageAudioFeatures {
       analyser.smoothingTimeConstant = 0;
       samples = new Float32Array(analyser.fftSize);
       bus.connect(analyser);
-      playback = getSuperdoughMasterGain();
-      playback?.connect(bus);
+      syncPlaybackSource();
       syncLiveSource();
       return bus;
     },
 
     sample(timestampMs) {
       if (!analyser) return { envelope: 0, hasSignal: false };
+      // Stage can mount before Superdough has finished creating its controller.
+      // The render loop is the durable point at which to attach once playback
+      // becomes available, without requiring a canvas remount.
+      syncPlaybackSource();
       analyser.getFloatTimeDomainData(samples);
       let sumSquares = 0;
       for (const sample of samples) sumSquares += sample * sample;

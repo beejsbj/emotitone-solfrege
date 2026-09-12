@@ -38,8 +38,13 @@ export interface SavedConfig {
   id: string;
   name: string;
   config: VisualEffectsConfig;
+  stagePreferences?: StagePreferences;
   createdAt: string;
   updatedAt: string;
+}
+
+interface StagePreferences {
+  newLookOnLaunch: boolean;
 }
 
 export interface SavedStageLook {
@@ -348,7 +353,18 @@ function migrateSavedConfig(rawSavedConfig: unknown): SavedConfig | null {
   return {
     ...(rawSavedConfig as Omit<SavedConfig, "config">),
     config: migrateVisualConfig((rawSavedConfig as { config?: unknown }).config),
+    stagePreferences: readStagePreferences(rawSavedConfig.stagePreferences),
   } as SavedConfig;
+}
+
+function readStagePreferences(rawPreferences: unknown): StagePreferences | undefined {
+  if (
+    !isRecord(rawPreferences)
+    || typeof rawPreferences.newLookOnLaunch !== "boolean"
+  ) {
+    return undefined;
+  }
+  return { newLookOnLaunch: rawPreferences.newLookOnLaunch };
 }
 
 function migrateSavedStageLook(rawLook: unknown): SavedStageLook | null {
@@ -691,6 +707,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       id,
       name,
       config: getConfigSnapshot(),
+      stagePreferences: {
+        newLookOnLaunch: newLookOnLaunch.value,
+      },
       createdAt: now,
       updatedAt: now,
     };
@@ -716,6 +735,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const savedConfig = savedConfigs.value.find((c) => c.id === configId);
     if (savedConfig) {
       applyRuntimeConfig(savedConfig.config);
+      newLookOnLaunch.value = savedConfig.stagePreferences?.newLookOnLaunch ?? false;
       saveToStorage();
     }
   };
@@ -765,6 +785,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const configData = {
       config: getConfigSnapshot(),
       visualsEnabled: visualsEnabled.value,
+      stagePreferences: {
+        newLookOnLaunch: newLookOnLaunch.value,
+      },
       exportedAt: new Date().toISOString(),
       version: "2.0.0",
     };
@@ -781,6 +804,10 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         if (typeof importedData.visualsEnabled === "boolean") {
           visualsEnabled.value = importedData.visualsEnabled;
         }
+        const importedStagePreferences = readStagePreferences(
+          importedData.stagePreferences,
+        );
+        newLookOnLaunch.value = importedStagePreferences?.newLookOnLaunch ?? false;
         saveToStorage();
         return true;
       }

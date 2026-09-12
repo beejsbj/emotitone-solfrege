@@ -22,6 +22,23 @@ import useGSAP from "../useGSAP";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import type { StageAudioFrame } from "./stageRuntime";
+import { Note as TonalNote } from "@tonaljs/tonal";
+
+function resolvePitchClassIndex(note: {
+  pitchClassIndex?: number;
+  noteName?: string;
+}) {
+  if (typeof note.pitchClassIndex === "number") return note.pitchClassIndex;
+  if (!note.noteName) return undefined;
+
+  const candidates = [note.noteName, TonalNote.enharmonic(note.noteName)];
+  for (const candidate of candidates) {
+    const pitchClass = TonalNote.get(candidate).pc;
+    const pitchClassIndex = CHROMATIC_NOTES.indexOf(pitchClass as ChromaticNote);
+    if (pitchClassIndex >= 0) return pitchClassIndex;
+  }
+  return undefined;
+}
 
 export function useStringRenderer() {
   const {
@@ -183,6 +200,7 @@ export function useStringRenderer() {
       mode,
       key,
       pitchClassIndex,
+      noteName,
     } = event.detail;
     const activationOctave = keyboardOctave ?? octave;
 
@@ -224,7 +242,7 @@ export function useStringRenderer() {
           scientificOctave: typeof octave === "number" ? octave : activationOctave,
           mode: (mode ?? musicStore.currentMode) as MusicalMode,
           key: (key ?? musicStore.currentKey) as ChromaticNote,
-          pitchClassIndex,
+          pitchClassIndex: resolvePitchClassIndex({ pitchClassIndex, noteName }),
           endTime,
         },
       );
@@ -276,7 +294,7 @@ export function useStringRenderer() {
         musicStore.currentKey,
       );
       const matchingActiveNote = activeNotes.find((activeNote: any) => {
-        const activePitchClass = activeNote.pitchClassIndex;
+        const activePitchClass = resolvePitchClassIndex(activeNote);
         const pitchMatches = typeof activePitchClass === "number"
           ? activePitchClass === stringPitchClass
           : activeNote.solfegeIndex === string.noteIndex;
@@ -329,7 +347,9 @@ export function useStringRenderer() {
         const noteSolfegeIndex = matchingActiveNote?.solfegeIndex
           ?? eventActivation?.solfegeIndex
           ?? string.noteIndex;
-        const pitchClassIndex = matchingActiveNote?.pitchClassIndex
+        const pitchClassIndex = (matchingActiveNote
+          ? resolvePitchClassIndex(matchingActiveNote)
+          : undefined)
           ?? eventActivation?.pitchClassIndex;
         const scientificOctave = matchingActiveNote?.octave
           ?? eventActivation?.scientificOctave

@@ -338,4 +338,90 @@ describe("useStringRenderer humming lifecycle", () => {
       5,
     );
   });
+
+  it.each(["store", "event"] as const)(
+    "recovers ordinary %s pitch identity across a key change",
+    (source) => {
+      const renderer = useStringRenderer();
+      const stringConfig = {
+        isEnabled: true,
+        octaveOffset: 0,
+        baseOpacity: 0.1,
+        activeOpacity: 1,
+        maxAmplitude: 20,
+        interpolationSpeed: 1,
+        opacityInterpolationSpeed: 1,
+        dampingFactor: 1,
+      } as any;
+      const animationConfig = { visualFrequencyDivisor: 100 } as any;
+      const ordinaryE5 = {
+        noteId: `ordinary-${source}-e5`,
+        noteName: "E5",
+        solfegeIndex: 2,
+        frequency: 659.25,
+        octave: 5,
+        keyboardOctave: 4,
+        mode: "major",
+        key: "C",
+      };
+
+      mocks.musicStore.currentKey = "D";
+      mocks.musicStore.solfegeData = [
+        { name: "Do", number: 1 },
+        { name: "Re", number: 2 },
+        { name: "Mi", number: 3 },
+        { name: "Fa", number: 4 },
+        { name: "Sol", number: 5 },
+        { name: "La", number: 6 },
+        { name: "Ti", number: 7 },
+      ];
+      if (source === "store") {
+        mocks.musicStore.getActiveNotes.mockReturnValue([ordinaryE5]);
+      } else {
+        renderer.handleNotePlayed(new CustomEvent("note-played", {
+          detail: ordinaryE5,
+        }));
+      }
+      renderer.initializeStrings(
+        stringConfig,
+        800,
+        600,
+        mocks.musicStore.solfegeData,
+      );
+
+      renderer.updateStringProperties(
+        stringConfig,
+        animationConfig,
+        mocks.musicStore,
+        { envelope: 1, hasSignal: true },
+      );
+      expect(renderer.strings.value.find((string) => string.isActive)).toMatchObject({
+        noteIndex: 1,
+        octave: 4,
+        color: "animated-exact",
+      });
+      expect(mocks.getPrimaryColorForPitch).toHaveBeenCalledWith(
+        2,
+        4,
+        "major",
+        "C",
+        5,
+      );
+
+      renderer.updateStringProperties(
+        stringConfig,
+        animationConfig,
+        mocks.musicStore,
+        { envelope: 1, hasSignal: true },
+        true,
+      );
+      expect(mocks.getStaticPrimaryColorForPitch).toHaveBeenCalledWith(
+        2,
+        4,
+        "major",
+        "C",
+        5,
+      );
+    },
+  );
 });

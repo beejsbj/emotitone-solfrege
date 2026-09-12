@@ -418,6 +418,33 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.clearAllBlobs).not.toHaveBeenCalled();
   });
 
+  it("retires transient layers once while the Stage layout is suspended", () => {
+    const usableRect = ref({ x: 0, y: 0, width: 800, height: 600 });
+    const canvas = useUnifiedCanvas(createCanvasRef(), {
+      usableRect,
+      reducedMotion: ref(false),
+    });
+    canvas.initializeCanvas();
+    mocks.animationOptions?.onFrame(1_000, 1);
+    mocks.clearAllParticles.mockClear();
+    mocks.clearHilbertHistory.mockClear();
+
+    usableRect.value = { x: 0, y: 0, width: 800, height: 80 };
+    mocks.animationOptions?.onFrame(1_016, 1.016);
+    canvas.handleNotePlayed(note, 293.66, "suspended", 4, "D4", "major", "C", 2);
+    mocks.animationOptions?.onFrame(1_032, 1.032);
+
+    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
+    expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
+    expect(mocks.clearAllBlobs).not.toHaveBeenCalled();
+    expect(mocks.createParticles).not.toHaveBeenCalled();
+
+    usableRect.value = { x: 0, y: 0, width: 800, height: 600 };
+    mocks.animationOptions?.onFrame(1_048, 1.048);
+    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
+    expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
+  });
+
   it("shares live pitch identity with Ambient and Hilbert", () => {
     const liveNote = {
       noteId: "live-pitch-1-1",

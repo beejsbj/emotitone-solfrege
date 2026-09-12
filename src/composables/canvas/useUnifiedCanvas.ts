@@ -97,6 +97,11 @@ export function useUnifiedCanvas(
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
   let oneShotSequence = 0;
+  let wasCompositionSuspended = false;
+  const clearTransientStageState = () => {
+    particleSystem.clearAllParticles();
+    hilbertScopeRenderer.clearHistory();
+  };
   const stopReducedMotionWatch = runtime
     ? watch(
         runtime.reducedMotion,
@@ -110,8 +115,7 @@ export function useUnifiedCanvas(
     () => stageConfig.value.isEnabled,
     (isEnabled) => {
       if (isEnabled) return;
-      particleSystem.clearAllParticles();
-      hilbertScopeRenderer.clearHistory();
+      clearTransientStageState();
     },
     { flush: "sync" },
   );
@@ -336,6 +340,12 @@ export function useUnifiedCanvas(
     const stageActiveNotes = getStageActiveNotes();
     hydrateMissingBlobAnchors(stageActiveNotes);
     const composition = getComposition();
+    if (composition.suspended) {
+      if (!wasCompositionSuspended) clearTransientStageState();
+      wasCompositionSuspended = true;
+    } else {
+      wasCompositionSuspended = false;
+    }
     const reducedMotion = runtime?.reducedMotion.value ?? false;
     const audioFrame = stageAudio.sample(timestamp);
 
@@ -513,8 +523,9 @@ export function useUnifiedCanvas(
       octave, // Pass octave for vertical offset positioning
       noteName, // Preserve exact pitch identity for borrowed harmony tones
     );
+    const composition = getComposition();
     blobRenderer.reprojectBlobs(
-      getComposition(),
+      composition,
       blobConfig.value,
       true,
     );
@@ -559,12 +570,15 @@ export function useUnifiedCanvas(
       Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
     );
 
-    if (!(runtime?.reducedMotion.value ?? false)) {
+    if (
+      !(runtime?.reducedMotion.value ?? false)
+      && !composition.suspended
+    ) {
       particleSystem.createParticles(
         note,
         particleConfig.value,
         canvasWidth.value,
-        getComposition().usable.height,
+        composition.usable.height,
         noteMode,
         noteKey,
         particleCount,

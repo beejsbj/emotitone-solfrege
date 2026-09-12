@@ -56,7 +56,7 @@ vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
 const PatternReelStub = defineComponent({
   name: "PatternReel",
   props: ["items", "selectedId", "entrySignal", "disabled"],
-  emits: ["commit", "delete", "copy", "openStrudel", "rename"],
+  emits: ["commit", "delete", "copy", "openStrudel", "rename", "interactionChange"],
   template: '<div data-testid="pattern-reel" />',
 });
 const CodeStripBarStub = defineComponent({
@@ -158,6 +158,7 @@ describe("PerformanceDeck controlled usage", () => {
     const drawer = wrapper.getComponent(Drawer);
     expect(drawer.props("storageKey")).toBeUndefined();
     expect(drawer.props("haptic")).toBe(false);
+    expect(drawer.props("handlePointerDisabled")).toBe(false);
     expect(wrapper.getComponent(CodeStripBarStub).props("usage")).toBe("controlled");
     expect(wrapper.getComponent(CodeStripBarStub).props("playDisabled")).toBe(true);
     expect(wrapper.getComponent(KeyboardStub).props("usage")).toBe("controlled");
@@ -167,12 +168,14 @@ describe("PerformanceDeck controlled usage", () => {
     await wrapper.setProps({ warming: false });
     wrapper.getComponent(CodeStripBarStub).vm.$emit("togglePlayback");
     wrapper.getComponent(PatternReelStub).vm.$emit("commit", "current", "tap");
+    wrapper.getComponent(PatternReelStub).vm.$emit("interactionChange", true);
     wrapper.getComponent(ControlBarStub).vm.$emit("update:bpm", 96);
     await wrapper.vm.$nextTick();
 
     expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
     expect(wrapper.emitted("patternCommit")?.[0]).toEqual(["current", "tap"]);
     expect(wrapper.emitted("update:bpm")?.[0]).toEqual([96]);
+    expect(drawer.props("handlePointerDisabled")).toBe(true);
     wrapper.unmount();
   });
 });

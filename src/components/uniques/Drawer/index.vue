@@ -12,6 +12,7 @@ const props = withDefaults(defineProps<{
   handleResizeDescription?: string;
   handleLabel?: string;
   handleTestId?: string;
+  handlePointerDisabled?: boolean;
   fixed?: boolean;
   storageKey?: string;
   initialContentHeight?: number;
@@ -34,6 +35,7 @@ const props = withDefaults(defineProps<{
   persistentOverflow: "clip",
   handleLabel: "",
   handleResizeDescription: "",
+  handlePointerDisabled: false,
   fixed: false,
   storageKey: undefined,
   initialContentHeight: 240,
@@ -221,6 +223,7 @@ function toggle() {
   else open();
 }
 function click() {
+  if (props.handlePointerDisabled) return;
   if (suppressClick) {
     suppressClick = false;
     return;
@@ -229,7 +232,7 @@ function click() {
   toggle();
 }
 function pointerDown(event: PointerEvent) {
-  if (event.button !== 0 || gesture) return;
+  if (props.handlePointerDisabled || event.button !== 0 || gesture) return;
   clearTimeout(clickReset);
   suppressClick = false;
   const renderedHeight = root.value?.getBoundingClientRect().height ?? height.value;
@@ -320,6 +323,16 @@ watch(() => props.modelValue, value => {
   if (value) open();
   else close();
 });
+watch(() => props.handlePointerDisabled, disabled => {
+  if (!disabled) {
+    suppressClick = false;
+    return;
+  }
+  if (!gesture) return;
+  gesture = undefined;
+  dragging.value = false;
+  suppressClick = true;
+});
 watch(() => props.naturalContentHeight, () => {
   if (fitContent && expanded.value && !opening && !dragging.value) setHeight(fittedHeight());
 });
@@ -408,6 +421,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     <button
       type="button"
       class="drawer__handle"
+      :class="{ 'drawer__handle--pointer-disabled': handlePointerDisabled }"
       :data-testid="handleTestId"
       :aria-label="accessibleName"
       :aria-expanded="expanded"
@@ -495,6 +509,7 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   -webkit-user-select: none;
 }
 .drawer__handle::before { content: ""; position: absolute; inset: -6px 0; }
+.drawer__handle--pointer-disabled { pointer-events: none; }
 .drawer--top .drawer__handle { top: 100%; }
 .drawer--bottom .drawer__handle { bottom: 100%; }
 .drawer--handle-left .drawer__handle { left: 0; }

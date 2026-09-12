@@ -7,6 +7,7 @@
       'pattern-reel--settling': settling,
       'pattern-reel--keyboard': keyboardImmediate,
       'pattern-reel--entry-staged': entryPhase === 'staged',
+      'pattern-reel--handle-guard': handleGuardActive,
     }"
     tabindex="0"
     role="group"
@@ -116,6 +117,7 @@ const emit = defineEmits<{
   copy: [id: string];
   openStrudel: [id: string];
   rename: [id: string, name: string];
+  interactionChange: [active: boolean];
 }>();
 
 const reelRoot = ref<HTMLElement | null>(null);
@@ -174,6 +176,21 @@ const previewIndex = computed(() => dragging.value
   ? wrapIndex(selectedIndex.value + Math.round(dragProgress.value))
   : displayIndex.value);
 const previewItem = computed(() => props.items[previewIndex.value]);
+const handleGuardActive = computed(() => (
+  dragging.value
+  || settling.value
+  || transientIndex.value !== null
+  || revealHeld.value
+  || reelRebounding.value
+  || keyboardImmediate.value
+  || entryPhase.value !== "idle"
+));
+
+watch(
+  handleGuardActive,
+  (active) => emit("interactionChange", active),
+  { flush: "sync", immediate: true },
+);
 
 function wrapIndex(index: number) {
   if (!props.items.length) return 0;
@@ -516,6 +533,15 @@ function handleDelete(id: string) {
   const shouldRestoreFocus = focusedSlot?.dataset.patternId === id
     && Boolean(reelRoot.value?.contains(focusedSlot));
   revealWheelTemporarily();
+  const deletedIndex = props.items.findIndex((item) => item.id === id);
+  const deletedItem = props.items[deletedIndex];
+  if (
+    deletedItem?.deleteArmed
+    && id === props.selectedId
+    && props.items.length > 1
+  ) {
+    commitIndex(deletedIndex - 1, "tap");
+  }
   emit("delete", id);
   if (!shouldRestoreFocus) return;
 
@@ -742,6 +768,7 @@ function handleKeydown(event: KeyboardEvent) {
 
 onBeforeUnmount(() => {
   cancelPendingInteraction();
+  emit("interactionChange", false);
 });
 </script>
 
@@ -769,6 +796,10 @@ onBeforeUnmount(() => {
   min-width: 0;
   background: transparent;
   outline: none;
+}
+
+.pattern-reel--handle-guard {
+  z-index: 3;
 }
 
 .pattern-reel:focus-visible .pattern-reel__slot--active :deep(.pattern-strip) {

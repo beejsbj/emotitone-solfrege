@@ -173,6 +173,30 @@ describe("PatternReel", () => {
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
   });
 
+  it("guards an overlapping Drawer handle through reveal and collapse", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(PatternReel, {
+      props: { items, selectedId: "gamma" },
+    });
+
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await nextTick();
+    expect(wrapper.classes()).toContain("pattern-reel--handle-guard");
+    expect(wrapper.emitted("interactionChange")?.at(-1)).toEqual([true]);
+
+    vi.advanceTimersByTime(1100);
+    await nextTick();
+    expect(wrapper.classes()).toContain("pattern-reel--handle-guard");
+
+    vi.advanceTimersByTime(200);
+    await nextTick();
+    expect(wrapper.classes()).not.toContain("pattern-reel--handle-guard");
+    expect(wrapper.emitted("interactionChange")?.at(-1)).toEqual([false]);
+    expect(patternReelSource).toMatch(
+      /\.pattern-reel--handle-guard\s*{[\s\S]*z-index: 3;/,
+    );
+  });
+
   it("keeps collapsed predecessors inert until Current reveals the wheel", async () => {
     const wrapper = mount(PatternReel, {
       props: { items, selectedId: "gamma" },
@@ -791,6 +815,50 @@ describe("PatternReel", () => {
     expect(wrapper.emitted("delete")).toEqual([["beta"]]);
     expect(wrapper.emitted("copy")).toEqual([["beta"]]);
     expect(wrapper.emitted("openStrudel")).toEqual([["beta"]]);
+  });
+
+  it("rotates a confirmed selected deletion to its pre-deletion predecessor", async () => {
+    const commit = vi.fn();
+    const remove = vi.fn();
+    const armedItems = items.map((entry) => entry.id === "gamma"
+      ? { ...entry, deleteArmed: true }
+      : entry);
+    const wrapper = mount(PatternReel, {
+      props: {
+        items: armedItems,
+        selectedId: "gamma",
+        onCommit: commit,
+        onDelete: remove,
+      },
+    });
+
+    await slotFor(wrapper, "Gamma")
+      .get('button[aria-label="Confirm delete Gamma"]')
+      .trigger("click");
+
+    expect(commit).toHaveBeenCalledWith("beta", "tap");
+    expect(remove).toHaveBeenCalledWith("gamma");
+    expect(commit.mock.invocationCallOrder[0]).toBeLessThan(
+      remove.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("arms or removes a background pattern without changing selection", async () => {
+    const commit = vi.fn();
+    const armedItems = items.map((entry) => entry.id === "beta"
+      ? { ...entry, deleteArmed: true }
+      : entry);
+    const wrapper = mount(PatternReel, {
+      props: { items: armedItems, selectedId: "gamma", onCommit: commit },
+    });
+
+    await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
+    await slotFor(wrapper, "Beta")
+      .get('button[aria-label="Confirm delete Beta"]')
+      .trigger("click");
+
+    expect(commit).not.toHaveBeenCalled();
+    expect(wrapper.emitted("delete")).toEqual([["beta"]]);
   });
 
   it("refreshes the open hold so late two-tap deletion remains completable", async () => {

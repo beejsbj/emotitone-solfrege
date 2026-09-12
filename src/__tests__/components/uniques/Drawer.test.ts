@@ -57,6 +57,27 @@ describe("Drawer continuous height contract", () => {
     await w.get('button').trigger('click');
     expect(triggerUIHaptic).toHaveBeenCalledOnce();
   });
+  it("can shield pointer input without removing keyboard resize access", async () => {
+    const w = await create({
+      dragToCollapse: false,
+      keyboardResizeStep: 10,
+      handlePointerDisabled: true,
+    });
+    const handle = w.get('button');
+
+    expect(handle.classes()).toContain('drawer__handle--pointer-disabled');
+    await handle.trigger('click');
+    await drag(w, -50);
+    expect(height(w)).toBe(320);
+
+    await handle.trigger('keydown', { key: 'ArrowUp' });
+    await flushPromises();
+    expect(height(w)).toBe(330);
+
+    await w.setProps({ handlePointerDisabled: false });
+    await handle.trigger('click');
+    expect(height(w)).toBe(120);
+  });
   it("tap keeps the persistent bars, then restores keyboard space", async () => {
     const w = await create();
     expect(height(w)).toBe(320);

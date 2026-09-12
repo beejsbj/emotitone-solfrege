@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import type {
   KeyboardChordIntent,
@@ -188,6 +188,9 @@ const rowCount = ref(3);
 const harmonyValue = ref<HarmonyAlteration>("auto");
 const lastAction = ref("Ready · controlled PerformanceDeck");
 let copySequence = 0;
+let deleteArmTimer: ReturnType<typeof setTimeout> | undefined;
+
+onBeforeUnmount(() => clearTimeout(deleteArmTimer));
 
 const keyboardRows = computed<KeyboardRowView[]>(() => {
   const scale = getScaleForMode(modeValue.value);
@@ -262,6 +265,20 @@ function selectPattern(id: string, input: PatternReelInput) {
 function deletePattern(id: string) {
   const index = patterns.value.findIndex((pattern) => pattern.id === id && pattern.canDelete);
   if (index < 0) return;
+  const target = patterns.value[index];
+  if (!target?.deleteArmed) {
+    for (const pattern of patterns.value) pattern.deleteArmed = false;
+    target.deleteArmed = true;
+    clearTimeout(deleteArmTimer);
+    deleteArmTimer = setTimeout(() => {
+      const armed = patterns.value.find((pattern) => pattern.id === id);
+      if (armed) armed.deleteArmed = false;
+    }, 2500);
+    lastAction.value = `Confirm delete ${target.name}`;
+    return;
+  }
+
+  clearTimeout(deleteArmTimer);
   const [deleted] = patterns.value.splice(index, 1);
   if (selectedPatternId.value === id) {
     selectedPatternId.value = patterns.value[patterns.value.length - 1]?.id ?? "";

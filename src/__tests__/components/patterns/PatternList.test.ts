@@ -159,6 +159,14 @@ describe("PatternList production adapter", () => {
     expect(loadPattern).toHaveBeenCalledWith(pattern.id);
   });
 
+  it("relays reel interaction state to the composition host", () => {
+    const wrapper = shallowMount(PatternList);
+
+    wrapper.getComponent(PatternReel).vm.$emit("interactionChange", true);
+
+    expect(wrapper.emitted("interactionChange")).toEqual([[true]]);
+  });
+
   it("reports exactly which displayed controls change during selection", () => {
     const patternsStore = usePatternsStore();
     const pattern = createUserPattern("different-context", {
@@ -259,7 +267,7 @@ describe("PatternList production adapter", () => {
     });
   });
 
-  it("relays the host signal when Send starts a fresh empty Current Take", async () => {
+  it("relays the store lifecycle signal when Send starts a fresh empty Current Take", async () => {
     const patternsStore = usePatternsStore();
     patternsStore.loggedNotes = [
       createDynamicNote("a", 0),
@@ -267,14 +275,11 @@ describe("PatternList production adapter", () => {
       createDynamicNote("c", 2),
     ];
     await nextTick();
-    const wrapper = shallowMount(PatternList, {
-      props: { entrySignal: 0 },
-    });
+    const wrapper = shallowMount(PatternList);
     const reel = wrapper.getComponent(PatternReel);
 
     expect(reel.props("entrySignal")).toBe(0);
     patternsStore.sendCurrentPattern();
-    await wrapper.setProps({ entrySignal: 1 });
     await nextTick();
 
     expect(reel.props("entrySignal")).toBe(1);
@@ -324,14 +329,12 @@ describe("PatternList production adapter", () => {
     expect(reelItems(wrapper).every((item) => item.canDelete === false)).toBe(true);
   });
 
-  it("does not infer a fresh-take entry when deletion clears a loaded pattern", async () => {
+  it("does not advance the fresh-take lifecycle when deletion clears a loaded pattern", async () => {
     const patternsStore = usePatternsStore();
     const pattern = createUserPattern("loaded-delete");
     patternsStore.savedPatterns = [pattern];
     patternsStore.loadPatternAsBase(pattern.id);
-    const wrapper = shallowMount(PatternList, {
-      props: { entrySignal: 4 },
-    });
+    const wrapper = shallowMount(PatternList);
     const reel = wrapper.getComponent(PatternReel);
 
     reel.vm.$emit("delete", pattern.id);
@@ -339,8 +342,38 @@ describe("PatternList production adapter", () => {
     await nextTick();
 
     expect(patternsStore.isStripCleared).toBe(true);
-    expect(reel.props("entrySignal")).toBe(4);
+    expect(reel.props("entrySignal")).toBe(0);
     expect(reel.props("selectedId")).toBe("current-pattern-take");
+  });
+
+  it("loads the reel-selected predecessor before removing the active pattern", async () => {
+    const patternsStore = usePatternsStore();
+    const pattern = createUserPattern("selected-delete");
+    patternsStore.savedPatterns = [pattern];
+    patternsStore.loadPatternAsBase(pattern.id);
+    const wrapper = shallowMount(PatternList);
+    const reel = wrapper.getComponent(PatternReel);
+    const itemsBeforeDelete = reelItems(wrapper);
+    const selectedIndex = itemsBeforeDelete.findIndex((item) => item.id === pattern.id);
+    const predecessor = itemsBeforeDelete[
+      (selectedIndex - 1 + itemsBeforeDelete.length) % itemsBeforeDelete.length
+    ];
+    if (!predecessor) throw new Error("Missing predecessor");
+
+    reel.vm.$emit("delete", pattern.id);
+    await nextTick();
+    expect(patternsStore.loadedBasePatternId).toBe(pattern.id);
+    expect(patternsStore.savedPatterns).toHaveLength(1);
+
+    reel.vm.$emit("commit", predecessor.id, "tap");
+    reel.vm.$emit("delete", pattern.id);
+    await nextTick();
+
+    expect(patternsStore.savedPatterns).toHaveLength(0);
+    expect(patternsStore.loadedBasePatternId).toBe(predecessor.id);
+    expect(reel.props("selectedId")).toBe(predecessor.id);
+    expect(patternsStore.isStripCleared).toBe(false);
+    expect(reel.props("entrySignal")).toBe(0);
   });
 
   it("disarms delete when an evolving dynamic pattern id leaves the reel", async () => {

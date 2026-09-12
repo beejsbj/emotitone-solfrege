@@ -18,6 +18,7 @@
     :drag-to-collapse="false"
     :keyboard-resize-step="8"
     :haptic="haptic"
+    :handle-pointer-disabled="patternReelGuardsHandle"
     @update:model-value="updateDrawerOpen"
     @content-resize="resizeKeyboard"
   >
@@ -25,8 +26,8 @@
     <template #persistent-leading>
       <PatternList
         v-if="isProductionUsage"
-        :entry-signal="productionPatternEntrySignal"
         @context-change="bumpPatternControls"
+        @interaction-change="setPatternReelGuard"
       />
       <PatternReel
         v-else
@@ -39,6 +40,7 @@
         @copy="(id) => emit('patternCopy', id)"
         @open-strudel="(id) => emit('patternOpenStrudel', id)"
         @rename="(id, title) => emit('patternRename', id, title)"
+        @interaction-change="setPatternReelGuard"
       />
     </template>
     <template #persistent>
@@ -237,7 +239,7 @@ const humming = isProductionUsage ? useHummingCapture() : undefined;
 
 const harmonyLatched = ref<HarmonyAlteration>(props.harmonyValue);
 const harmonyEffective = ref<HarmonyAlteration>(props.harmonyValue);
-const productionPatternEntrySignal = ref(0);
+const patternReelGuardsHandle = ref(false);
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 const patternControlSignals = reactive<Record<PatternControl, number>>({
   key: 0,
@@ -290,6 +292,10 @@ function bumpPatternControls(controls: PatternControl[]) {
   for (const control of controls) patternControlSignals[control] += 1;
 }
 
+function setPatternReelGuard(active: boolean) {
+  patternReelGuardsHandle.value = active;
+}
+
 async function toggleSketchPlayback() {
   if (!playback) {
     if (playDisabled.value) return;
@@ -335,7 +341,6 @@ function handleReturn() {
   }
 
   patternsStore.sendCurrentPattern();
-  productionPatternEntrySignal.value += 1;
 }
 
 function updateKey(value: string) {

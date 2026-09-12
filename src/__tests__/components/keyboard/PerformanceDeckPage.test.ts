@@ -73,12 +73,38 @@ describe("PerformanceDeck guide fixtures", () => {
     );
 
     deck.vm.$emit("patternDelete", firstCopy.id);
+    await wrapper.vm.$nextTick();
+    deck.vm.$emit("patternDelete", firstCopy.id);
     deck.vm.$emit("patternCopy", "after-rain");
     await wrapper.vm.$nextTick();
 
     const ids = deck.props("patterns").map((pattern: { id: string }) => pattern.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).not.toContain(firstCopy.id);
+    wrapper.unmount();
+  });
+
+  it("keeps first-tap deletion armed and accepts predecessor-first confirmation", async () => {
+    const wrapper = mount(PerformanceDeckPage);
+    const deck = wrapper.getComponent({ name: "PerformanceDeck" });
+
+    deck.vm.$emit("patternCommit", "late-train", "tap");
+    deck.vm.$emit("patternDelete", "late-train");
+    await wrapper.vm.$nextTick();
+
+    expect(deck.props("selectedPatternId")).toBe("late-train");
+    expect(deck.props("patterns").find(
+      (pattern: { id: string }) => pattern.id === "late-train",
+    )).toMatchObject({ deleteArmed: true });
+
+    deck.vm.$emit("patternCommit", "after-rain", "tap");
+    deck.vm.$emit("patternDelete", "late-train");
+    await wrapper.vm.$nextTick();
+
+    expect(deck.props("selectedPatternId")).toBe("after-rain");
+    expect(deck.props("patterns").some(
+      (pattern: { id: string }) => pattern.id === "late-train",
+    )).toBe(false);
     wrapper.unmount();
   });
 });

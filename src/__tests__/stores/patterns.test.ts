@@ -736,6 +736,7 @@ describe("Patterns Store", () => {
     expect(patternsStore.loggedNotes[1]?.isStartingNewPattern).toBe(true);
     expect(patternsStore.currentSketchMeta.bpm).toBe(90);
     expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["D4"]);
+    expect(patternsStore.currentTakeGeneration).toBe(1);
   });
 
   it("uses a tempo-aware silence boundary instead of waiting 30 seconds", () => {
@@ -754,6 +755,60 @@ describe("Patterns Store", () => {
     dispatchLoggedNote(patternsStore, "note-b", "D4", 1);
 
     expect(patternsStore.loggedNotes[1]?.isStartingNewPattern).toBe(true);
+    expect(patternsStore.currentTakeGeneration).toBe(1);
+  });
+
+  it("advances the take lifecycle for context and forced boundaries, not ordinary notes", () => {
+    const musicStore = useMusicStore();
+    const instrumentStore = useInstrumentStore();
+
+    dispatchLoggedNote(patternsStore, "note-a", "C4", 0);
+    expect(patternsStore.currentTakeGeneration).toBe(0);
+
+    musicStore.setKey("D");
+    dispatchLoggedNote(patternsStore, "note-b", "D4", 0);
+    expect(patternsStore.currentTakeGeneration).toBe(1);
+
+    musicStore.setMode("minor");
+    dispatchLoggedNote(patternsStore, "note-c", "E4", 1);
+    expect(patternsStore.currentTakeGeneration).toBe(2);
+
+    instrumentStore.currentInstrument = "gm_flute";
+    dispatchLoggedNote(patternsStore, "note-d", "F4", 2);
+    expect(patternsStore.currentTakeGeneration).toBe(3);
+
+    patternsStore.setNextNoteAsNewPattern();
+    dispatchLoggedNote(patternsStore, "note-e", "G4", 3);
+    expect(patternsStore.currentTakeGeneration).toBe(4);
+
+    dispatchLoggedNote(patternsStore, "note-f", "A4", 4);
+    expect(patternsStore.currentTakeGeneration).toBe(4);
+  });
+
+  it("advances once on Send and not again for the first note of its empty take", () => {
+    dispatchLoggedNote(patternsStore, "note-a", "C4", 0);
+
+    patternsStore.sendCurrentPattern();
+    expect(patternsStore.currentTakeGeneration).toBe(1);
+
+    dispatchLoggedNote(patternsStore, "note-b", "D4", 1);
+    expect(patternsStore.currentTakeGeneration).toBe(1);
+  });
+
+  it("does not treat a compatible loaded-base continuation as a fresh take", () => {
+    const pattern = createPattern({
+      notes: [createPatternNote({ note: "C4" })],
+      noteCount: 1,
+      duration: 400,
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    dispatchLoggedNote(patternsStore, "note-a", "D4", 1);
+
+    expect(patternsStore.loggedNotes[0]?.isStartingNewPattern).toBe(true);
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["C4", "D4"]);
+    expect(patternsStore.currentTakeGeneration).toBe(0);
   });
 
   it("keeps loaded-base sketches single-context when BPM changes before continuing", () => {
@@ -796,6 +851,7 @@ describe("Patterns Store", () => {
       "E4",
       "G4",
     ]);
+    expect(patternsStore.currentTakeGeneration).toBe(1);
 
     patternsStore.sendCurrentPattern();
 

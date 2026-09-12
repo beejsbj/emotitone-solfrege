@@ -3,12 +3,13 @@
     class="pattern-list"
     :items="reelItems"
     :selected-id="selectedPatternId"
-    :entry-signal="entrySignal"
+    :entry-signal="patternsStore.currentTakeGeneration"
     @commit="selectPattern"
     @delete="deletePattern"
     @copy="copyNotation"
     @open-strudel="openInStrudel"
     @rename="renamePattern"
+    @interaction-change="emit('interactionChange', $event)"
   />
 </template>
 
@@ -42,14 +43,9 @@ const {
 const CURRENT_TAKE_ID = "current-pattern-take";
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 
-withDefaults(defineProps<{
-  entrySignal?: number;
-}>(), {
-  entrySignal: 0,
-});
-
 const emit = defineEmits<{
   contextChange: [controls: PatternControl[]];
+  interactionChange: [active: boolean];
 }>();
 
 const copiedPatternId = ref<string | null>(null);

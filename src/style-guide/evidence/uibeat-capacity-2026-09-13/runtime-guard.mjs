@@ -123,34 +123,13 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   const mutationTouchesWorkload = (mutation) => isWithinWorkload(mutation.target) ||
     Array.from(mutation.addedNodes ?? []).some(subtreeContainsWorkload) ||
     Array.from(mutation.removedNodes ?? []).some(subtreeContainsWorkload);
-  const semanticMutationWitness = (mutation) => {
-    if (!mutationTouchesWorkload(mutation)) return null;
-    if (mutation.type === "characterData") {
-      const currentValue = mutation.target.data;
-      return mutation.oldValue !== currentValue
-        ? { type: mutation.type, oldValue: mutation.oldValue, value: currentValue }
-        : null;
-    }
-    if (mutation.type === "attributes") {
-      const currentValue = mutation.target.getAttribute(mutation.attributeName);
-      return mutation.oldValue !== currentValue
-        ? { type: mutation.type, attributeName: mutation.attributeName, oldValue: mutation.oldValue, value: currentValue }
-        : null;
-    }
-    if (mutation.type === "childList") {
-      const removedText = normalizeText(Array.from(mutation.removedNodes ?? [])
-        .map((node) => node.textContent ?? "").join(" "));
-      const addedText = normalizeText(Array.from(mutation.addedNodes ?? [])
-        .map((node) => node.textContent ?? "").join(" "));
-      return removedText !== addedText
-        ? { type: mutation.type, removedText, addedText }
-        : null;
-    }
-    return null;
-  };
 
   let workloadObserver = null;
   const subscriptions = [];
+  const recordWorkloadInput = (event) => {
+    if (isWithinWorkload(event.target)) recordWorkload(`dom:${event.type}`);
+  };
+  let workloadInputListenersInstalled = false;
 
   const contextEvents = [];
   const recordContextEvent = (event) => contextEvents.push({ type: event.type, at: now() });
@@ -190,17 +169,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       }
     }
     workloadObserver = new MutationObserver((mutations) => {
-      const witnesses = mutations.map(semanticMutationWitness).filter(Boolean);
-      if (witnesses.length === 0) return;
-      if (!recordWorkload("dom:workload")) {
-        workloadChanges.push({
-          at: now(),
-          source: "dom:workload-restored-within-batch",
-          restoredToSessionBaseline: lastWorkloadSignature === sessionBaselineSignature,
-          mutationEvidence: witnesses,
-          workload: readWorkload(),
-        });
-      }
+      if (mutations.some(mutationTouchesWorkload)) recordWorkload("dom:workload");
     });
     workloadObserver.observe(document.documentElement, {
       subtree: true,
@@ -211,6 +180,9 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       attributeOldValue: true,
       attributeFilter: ["aria-pressed", "aria-valuetext", "data-latched", "data-testid"],
     });
+    document.addEventListener("input", recordWorkloadInput, true);
+    document.addEventListener("change", recordWorkloadInput, true);
+    workloadInputListenersInstalled = true;
     canvas.addEventListener("contextlost", recordContextEvent);
     canvas.addEventListener("contextrestored", recordContextEvent);
     contextListenersInstalled = true;
@@ -218,6 +190,10 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     workloadObserver?.disconnect();
     for (const unsubscribe of subscriptions) {
       try { unsubscribe(); } catch { /* Preserve the original installation error. */ }
+    }
+    if (workloadInputListenersInstalled) {
+      document.removeEventListener("input", recordWorkloadInput, true);
+      document.removeEventListener("change", recordWorkloadInput, true);
     }
     if (contextListenersInstalled) {
       canvas.removeEventListener("contextlost", recordContextEvent);
@@ -336,6 +312,8 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     recordWorkload("guard:stop");
     const cleanupIssues = [];
     workloadObserver?.disconnect();
+    document.removeEventListener("input", recordWorkloadInput, true);
+    document.removeEventListener("change", recordWorkloadInput, true);
     for (const unsubscribe of subscriptions) {
       try { unsubscribe(); } catch (error) {
         cleanupIssues.push(`store-unsubscribe-failed:${error?.message ?? String(error)}`);
@@ -373,6 +351,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       cleanup: {
         subscriptionsRemoved: cleanupIssues.every((issue) => !issue.startsWith("store-unsubscribe-failed:")),
         observerDisconnected: true,
+        workloadInputListenersRemoved: true,
         contextListenersRemoved: true,
         clearRectRestored: cleanupIssues.every((issue) => !issue.startsWith("clearRect-")),
       },

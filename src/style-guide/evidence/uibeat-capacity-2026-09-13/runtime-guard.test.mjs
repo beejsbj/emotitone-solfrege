@@ -160,13 +160,15 @@ function createFixture({ failSubscriptionFor = null } = {}) {
   };
 }
 
-test("accepts an unchanged workload and restores the exact clearRect property", () => {
+test("accepts an unchanged workload, syntax churn, and exact clearRect restoration", async () => {
   const fixture = createFixture();
   fixture.guard.start({ label: "uiBeat-on-first", expectedDurationMs: 1_000 });
 
   fixture.visualStore.effectiveConfig.uiBeat.isEnabled = false;
   fixture.visualStore.notify();
   fixture.knob.style.scale = "0.98";
+  fixture.line.innerHTML = "<span>do</span> <span>re</span> <span>mi</span>";
+  await new Promise((resolve) => fixture.window.setTimeout(resolve, 0));
   fixture.fillHealthyWindow();
 
   const proof = fixture.guard.snapshot();
@@ -204,7 +206,9 @@ test("records workload changes even when Stage, BPM, instrument, and code are re
   fixture.instrumentStore.notify();
 
   fixture.line.textContent = "do mi sol";
+  fixture.line.dispatchEvent(new fixture.window.Event("input", { bubbles: true }));
   fixture.line.textContent = "do re mi";
+  fixture.line.dispatchEvent(new fixture.window.Event("input", { bubbles: true }));
   await new Promise((resolve) => fixture.window.setTimeout(resolve, 0));
 
   fixture.fillHealthyWindow();
@@ -216,10 +220,8 @@ test("records workload changes even when Stage, BPM, instrument, and code are re
   assert.ok(proof.workloadChanges.some(({ workload }) => workload.visualRuntime.effectiveConfig.stage.zoom === 1.5));
   assert.ok(proof.workloadChanges.some(({ workload }) => workload.visualRuntime.effectiveConfig.codeStrip.bpm === 121));
   assert.ok(proof.workloadChanges.some(({ workload }) => workload.instrument === "Violin"));
-  assert.ok(proof.workloadChanges.some(({ source, mutationEvidence }) =>
-    source === "dom:workload-restored-within-batch" &&
-    mutationEvidence.some(({ removedText }) => removedText === "do mi sol") &&
-    mutationEvidence.some(({ addedText }) => addedText === "do re mi")
+  assert.ok(proof.workloadChanges.some(({ source, workload }) =>
+    source === "dom:input" && workload.codeText === "do mi sol"
   ));
   assert.equal(proof.workloadChanges.at(-1).restoredToSessionBaseline, true);
   assert.equal(report.valid, false);

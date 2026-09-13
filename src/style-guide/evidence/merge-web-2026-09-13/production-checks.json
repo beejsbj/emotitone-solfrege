@@ -1,0 +1,71 @@
+{
+  "results": [
+    {
+      "mode": "merge",
+      "size": "desktop",
+      "activeNotes": [
+        "B4",
+        "D5",
+        "F5"
+      ],
+      "canvasCount": 1,
+      "overflow": false
+    },
+    {
+      "mode": "web",
+      "size": "desktop",
+      "activeNotes": [
+        "B4",
+        "D5",
+        "F5"
+      ],
+      "canvasCount": 1,
+      "overflow": false
+    },
+    {
+      "mode": "off",
+      "size": "desktop",
+      "activeNotes": [
+        "B4",
+        "D5",
+        "F5"
+      ],
+      "canvasCount": 1,
+      "overflow": false
+    },
+    {
+      "mode": "merge",
+      "size": "phone",
+      "activeNotes": [
+        "B4",
+        "D5",
+        "F5"
+      ],
+      "canvasCount": 1,
+      "overflow": false
+    },
+    {
+      "mode": "web",
+      "size": "phone",
+      "activeNotes": [
+        "B4",
+        "D5",
+        "F5"
+      ],
+      "canvasCount": 1,
+      "overflow": false
+    },
+    {
+      "mode": "off",
+      "size": "phone",
+      "activeNotes": [
+        "B4",
+        "D5",
+        "F5"
+      ],
+      "canvasCount": 1,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

@@ -278,7 +278,7 @@ describe("ConfigPanel.vue", () => {
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(7);
   });
 
-  it("keeps Stage general and renders one Stage group at a time", async () => {
+  it("keeps Stage general and allocates every detail control exactly once", async () => {
     wrapper = createTestWrapper(ConfigPanel);
     const panel = wrapper.getComponent({ name: "TabbedOverlayPanel" });
 
@@ -288,21 +288,36 @@ describe("ConfigPanel.vue", () => {
     expect(wrapper.find('[data-testid="stage-looks"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="stage-control-scopeSize"]').exists()).toBe(false);
 
-    panel.vm.$emit("update:modelValue", "scope");
-    await nextTick();
-    expect(wrapper.find('[data-testid="stage-destination-scope"]').exists()).toBe(true);
-    expect(wrapper.findAll('[data-testid^="stage-control-"]')).toHaveLength(5);
-    expect(wrapper.find('[data-testid="stage-control-scopeSize"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="stage-control-bodySize"]').exists()).toBe(false);
+    const allocation = [
+      ["scope", 5],
+      ["bodies", 4],
+      ["relations", 6],
+      ["layers", 6],
+    ] as const;
+    const allocatedControlIds: string[] = [];
 
-    panel.vm.$emit("update:modelValue", "relations");
-    await nextTick();
-    expect(wrapper.find('[data-testid="stage-destination-relations"]').exists()).toBe(true);
-    expect(wrapper.findAll('[data-testid^="stage-control-"]')).toHaveLength(6);
-    expect(wrapper.find('[data-testid="stage-control-connectionMode"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="stage-control-connectionStrength"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="stage-control-showChords"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="stage-control-showIntervals"]').exists()).toBe(true);
+    for (const [destination, expectedCount] of allocation) {
+      panel.vm.$emit("update:modelValue", destination);
+      await nextTick();
+
+      expect(
+        wrapper.find(`[data-testid="stage-destination-${destination}"]`).exists(),
+      ).toBe(true);
+      const controls = wrapper.findAll('[data-testid^="stage-control-"]');
+      expect(controls).toHaveLength(expectedCount);
+      allocatedControlIds.push(...controls.map((control) =>
+        control.attributes("data-testid").replace("stage-control-", "")
+      ));
+    }
+
+    expect(allocatedControlIds).toHaveLength(21);
+    expect(new Set(allocatedControlIds).size).toBe(21);
+    expect(allocatedControlIds.toSorted()).toEqual(
+      STAGE_CONTROL_DEFINITIONS
+        .filter((control) => control.id !== "stageEnabled")
+        .map((control) => control.id)
+        .toSorted(),
+    );
   });
 
   it("keeps operational and renderer calibration fields out of Deck", () => {

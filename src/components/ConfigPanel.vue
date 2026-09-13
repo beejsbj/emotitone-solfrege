@@ -168,7 +168,7 @@
                   <p class="config-panel__eyebrow">Canvas</p>
                   <h2>Stage</h2>
                   <p class="config-panel__section-copy">
-                    Control the complete visual canvas. Each layer has its own destination.
+                    Control the complete visual canvas. Related layers share focused destinations.
                   </p>
                 </div>
 

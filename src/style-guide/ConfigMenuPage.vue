@@ -7,8 +7,8 @@
       <h1>Config Menu.</h1>
       <p>
         Open the Config handle above to inspect the production composition. Stage keeps its Looks
-        and master control close, while each visual layer has a focused destination beside Global,
-        Deck, and MIDI.
+        and master control close, while related visual layers share focused destinations beside
+        Global, Deck, and MIDI.
       </p>
     </header>
 
@@ -16,7 +16,7 @@
       <div><span>01</span><p>Knobs own persistent settings.</p></div>
       <div><span>02</span><p>Buttons own momentary icon actions.</p></div>
       <div><span>03</span><p>Ivory Stickers face Stage-only Looks inside Stage.</p></div>
-      <div><span>04</span><p>Stage layers stay shallow: one group of Knobs per destination.</p></div>
+      <div><span>04</span><p>Related Stage layers stay grouped in shallow destinations.</p></div>
     </section>
   </main>
 </template>

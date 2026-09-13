@@ -30,6 +30,15 @@ The attached tab must be foregrounded, focused, and already showing production.
 Use a dedicated browser profile. The script restores the original UI Rhythm value.`;
 }
 
+function validateRuntime({ nodeVersion, webSocketType, fetchType }) {
+  const nodeMajor = Number.parseInt(String(nodeVersion).split(".")[0], 10);
+  if (nodeMajor < 22 || webSocketType !== "function" || fetchType !== "function") {
+    throw new Error(
+      `UIBeat capture requires Node.js 22 or newer with global fetch and WebSocket; found Node ${nodeVersion}, fetch=${fetchType}, WebSocket=${webSocketType}`,
+    );
+  }
+}
+
 function parseArgs(argv) {
   const result = {
     cdp: "http://127.0.0.1:9222",
@@ -91,21 +100,69 @@ async function selfTest() {
   if (summary.count !== 4 || summary.p50Ms !== 25 || summary.maxMs !== 40 || summary.over33_3ms !== 1) {
     throw new Error(`Statistics self-test failed: ${JSON.stringify(summary)}`);
   }
-  const healthyScene = { transportPlaying: true, runningAcceptedConsumers: 4, indicatorRunning: true };
-  const healthyFrame = { timedOut: false, interruptions: [], visibilityState: "visible", hasFocus: true };
+  const healthyCounts = { button: 2, knob: 1, joystick: 1 };
+  const healthyScene = {
+    transportPlaying: true,
+    visibleBoundConsumers: 4,
+    visibleBoundByType: healthyCounts,
+    visibleRunningConsumers: 4,
+    visibleRunningByType: healthyCounts,
+    runningAcceptedConsumers: 4,
+    indicatorRunning: true,
+  };
+  const healthyFrame = {
+    timedOut: false,
+    interruptions: [],
+    visibilityState: "visible",
+    hasFocus: true,
+    coverage: { requestedDurationMs: 1_000, observedDurationMs: 1_001, intervalCount: 61, includesInitialDelay: true },
+  };
   if (!sampleIsValid("uiBeat-on-first", healthyFrame, healthyScene, healthyScene)) {
     throw new Error("Healthy on-sample self-test failed");
   }
-  if (sampleIsValid("uiBeat-on-first", healthyFrame, { ...healthyScene, runningAcceptedConsumers: 0 }, healthyScene)) {
-    throw new Error("Zero-consumer on-sample was accepted");
+  const partiallyRunning = {
+    ...healthyScene,
+    visibleRunningConsumers: 1,
+    visibleRunningByType: { button: 1 },
+  };
+  if (sampleIsValid("uiBeat-on-first", healthyFrame, partiallyRunning, healthyScene)) {
+    throw new Error("Partially running on-sample was accepted");
   }
   if (sampleIsValid("uiBeat-on-first", { ...healthyFrame, interruptions: [{ type: "blur" }] }, healthyScene, healthyScene)) {
     throw new Error("Interrupted sample was accepted");
   }
-  const offScene = { transportPlaying: true, runningAcceptedConsumers: 0, indicatorRunning: false };
+  const starvedFrame = {
+    ...healthyFrame,
+    coverage: { requestedDurationMs: 1_000, observedDurationMs: 1_200, intervalCount: 1, includesInitialDelay: true },
+  };
+  if (sampleIsValid("uiBeat-on-first", starvedFrame, healthyScene, healthyScene)) {
+    throw new Error("Initial-stall sample with one callback was accepted");
+  }
+  const emptyFrame = {
+    ...healthyFrame,
+    coverage: { requestedDurationMs: 1_000, observedDurationMs: 1_200, intervalCount: 0, includesInitialDelay: true },
+  };
+  if (sampleIsValid("uiBeat-on-first", emptyFrame, healthyScene, healthyScene)) {
+    throw new Error("Sample without frame intervals was accepted");
+  }
+  const offScene = {
+    transportPlaying: true,
+    visibleBoundConsumers: 0,
+    visibleBoundByType: {},
+    visibleRunningConsumers: 0,
+    visibleRunningByType: {},
+    runningAcceptedConsumers: 0,
+    indicatorRunning: false,
+  };
   if (!sampleIsValid("uiBeat-off", healthyFrame, offScene, offScene)) {
     throw new Error("Healthy off-sample self-test failed");
   }
+  let missingWebSocketRejected = false;
+  try {
+    validateRuntime({ nodeVersion: "22.0.0", fetchType: "function", webSocketType: "undefined" });
+  } catch { missingWebSocketRejected = true; }
+  if (!missingWebSocketRejected) throw new Error("Runtime without WebSocket was accepted");
+  validateRuntime({ nodeVersion: process.versions.node, fetchType: typeof fetch, webSocketType: typeof WebSocket });
   const validMetadata = {
     evidenceClass: "physical-native-visible",
     deviceName: "Test device",
@@ -162,10 +219,26 @@ function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
   const expectedOn = label.startsWith("uiBeat-on");
   return !frameCallbacks.timedOut && frameCallbacks.interruptions.length === 0 &&
     frameCallbacks.visibilityState === "visible" && frameCallbacks.hasFocus &&
+    frameCallbacks.coverage.includesInitialDelay && frameCallbacks.coverage.intervalCount >= 2 &&
+    frameCallbacks.coverage.observedDurationMs >= frameCallbacks.coverage.requestedDurationMs &&
     initialScene.transportPlaying && finalScene.transportPlaying &&
     (expectedOn
-      ? initialScene.runningAcceptedConsumers > 0 && finalScene.runningAcceptedConsumers > 0 && initialScene.indicatorRunning && finalScene.indicatorRunning
-      : initialScene.runningAcceptedConsumers === 0 && finalScene.runningAcceptedConsumers === 0 && !initialScene.indicatorRunning && !finalScene.indicatorRunning);
+      ? sceneHasCompleteVisibleBeat(initialScene) && sceneHasCompleteVisibleBeat(finalScene) && initialScene.indicatorRunning && finalScene.indicatorRunning
+      : initialScene.runningAcceptedConsumers === 0 && finalScene.runningAcceptedConsumers === 0 &&
+        initialScene.visibleRunningConsumers === 0 && finalScene.visibleRunningConsumers === 0 &&
+        !initialScene.indicatorRunning && !finalScene.indicatorRunning);
+}
+
+function sceneHasCompleteVisibleBeat(scene) {
+  const acceptedTypes = new Set(["button", "knob", "joystick", "sticker"]);
+  const types = new Set([
+    ...Object.keys(scene.visibleBoundByType),
+    ...Object.keys(scene.visibleRunningByType),
+  ]);
+  return scene.visibleBoundConsumers > 0 &&
+    scene.visibleRunningConsumers === scene.visibleBoundConsumers &&
+    [...types].every((type) => acceptedTypes.has(type) &&
+      (scene.visibleBoundByType[type] ?? 0) === (scene.visibleRunningByType[type] ?? 0));
 }
 
 function configPreparationActions({ panelExpanded, globalSelected }) {
@@ -439,11 +512,14 @@ async function sample(cdp, label, duration, traceDuration) {
     let sampleTimeout;
     let frameId;
     let active = true;
+    const callbackTimes = [];
     await Promise.race([new Promise((resolvePromise) => {
       const tick = (timestamp) => {
         if (!active) return;
+        const callbackAt = performance.now();
         timestamps.push(timestamp);
-        if (performance.now() - startedAt >= duration) resolvePromise();
+        callbackTimes.push(callbackAt);
+        if (callbackAt - startedAt >= duration) resolvePromise();
         else frameId = requestAnimationFrame(tick);
       };
       frameId = requestAnimationFrame(tick);
@@ -457,12 +533,22 @@ async function sample(cdp, label, duration, traceDuration) {
     window.removeEventListener("blur", recordBlur);
     window.removeEventListener("focus", recordFocus);
     observers.forEach((observer) => observer.disconnect());
-    const intervals = timestamps.slice(1).map((timestamp, index) => timestamp - timestamps[index]);
+    const endedAt = performance.now();
+    const intervals = callbackTimes.map((callbackAt, index) =>
+      index === 0 ? callbackAt - startedAt : callbackAt - callbackTimes[index - 1]
+    );
     return {
       startedAt,
-      endedAt: performance.now(),
+      endedAt,
       timestamps,
+      callbackTimes,
       intervals,
+      coverage: {
+        requestedDurationMs: duration,
+        observedDurationMs: endedAt - startedAt,
+        intervalCount: intervals.length,
+        includesInitialDelay: true,
+      },
       longAnimationFrames,
       longTasks,
       interruptions,
@@ -508,20 +594,25 @@ async function sceneState(cdp) {
       counts.set(type, (counts.get(type) ?? 0) + 1);
       return counts;
     }, new Map()));
-    const visible = bound.filter((element) => {
+    const isVisible = (element) => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
       return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 &&
         rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
-    });
+    };
+    const runningConsumers = running.filter((element) => !element.classList.contains("beat-indicator"));
+    const visible = bound.filter(isVisible);
+    const visibleRunning = runningConsumers.filter(isVisible);
     return {
       transportPlaying: Boolean(document.querySelector('button[aria-label="Stop"]')),
       boundAcceptedConsumers: bound.length,
       boundByType: countByType(bound),
       visibleBoundConsumers: visible.length,
       visibleBoundByType: countByType(visible),
-      runningAcceptedConsumers: running.filter((element) => !element.classList.contains("beat-indicator")).length,
-      runningByType: countByType(running.filter((element) => !element.classList.contains("beat-indicator"))),
+      runningAcceptedConsumers: runningConsumers.length,
+      runningByType: countByType(runningConsumers),
+      visibleRunningConsumers: visibleRunning.length,
+      visibleRunningByType: countByType(visibleRunning),
       indicatorRunning: Boolean(document.querySelector('.beat-indicator[data-ui-beat-state="running"]')),
       visibilityState: document.visibilityState,
       hasFocus: document.hasFocus(),
@@ -622,6 +713,11 @@ function validateMetadata(metadata) {
 }
 
 async function main() {
+  validateRuntime({
+    nodeVersion: process.versions.node,
+    fetchType: typeof fetch,
+    webSocketType: typeof WebSocket,
+  });
   const options = parseArgs(process.argv.slice(2));
   if (options.help) return console.log(usage());
   if (options.selfTest) return selfTest();
@@ -718,7 +814,7 @@ async function main() {
         durationMsPerState: options.duration,
         traceDurationMsPerState: options.traceDuration,
         warmupMs: options.warmup,
-        frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page; they are not JS callback duration or proof of displayed hardware frames",
+        frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
         cdpTraceScope: "a separate diagnostic trace follows each untraced frame-callback window; selected raw presentation/drop events and full event-name counts are retained, event availability varies by browser build, and tracing does not prove display scanout",
         longAnimationFrameScope: "browser Long Animation Frame entries include main-thread script/render attribution where supported",
       },

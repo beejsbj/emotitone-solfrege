@@ -4,12 +4,14 @@ This directory prepares the remaining UIBeat capacity gate without changing the 
 
 These sources answer different questions:
 
-- `requestAnimationFrame` intervals show how often the foreground page receives an animation opportunity while the whole production scene runs. They are broader than timing the UIBeat subscriber callback, but they do not prove that a hardware panel displayed every callback.
+- `requestAnimationFrame` intervals show how often the foreground page receives an animation opportunity while the whole production scene runs. The first interval begins at sample start, so an initial stall is retained, and samples with fewer than two callbacks or less than the requested coverage are invalid. They are broader than timing the UIBeat subscriber callback, but they do not prove that a hardware panel displayed every callback.
 - Long Animation Frame and CDP performance counters attribute main-thread script, style, and layout work. They are diagnostic data, not whole-frame presentation evidence by themselves.
 - CDP trace events expose browser compositor/presentation stages where the browser build reports them. They still do not independently observe physical display scanout.
 - A capacity-closing result therefore also requires a named physical device, its native browser window visibly foregrounded for the full run, native viewport/display metadata, and an operator observation. Software rendering, Xvfb, headless browsers, and emulated viewports stay explicitly ineligible.
 
 ## Physical capture procedure
+
+The harness requires Node.js 22 or newer with the built-in global `fetch` and `WebSocket` APIs. It checks these prerequisites before opening metadata or contacting Chrome and reports the detected runtime when they are missing. The checked development host runs Node.js 24.13.1 with both APIs available.
 
 1. Check out and build the exact revision under test, then serve it on port `5183`. Use the hosted exact-revision deployment when the device cannot reach the local server.
 2. Open production in a dedicated native Chrome profile on the named physical desktop or phone. Keep the window and tab visible, unobscured, focused, and awake for the entire capture. Do not resize it between samples.
@@ -25,7 +27,7 @@ These sources answer different questions:
      --output src/style-guide/evidence/uibeat-capacity-2026-09-13/<device>-verification.json
    ```
 
-The script refuses a hidden or unfocused document, starts a five-note sounding production pattern when playback is not already running, opens Config without closing an already-open panel, explicitly selects Global, and records equal-duration on/off/on windows. When it finds existing playback, it reuses and records that scene rather than pretending it created a fresh one. It records blur, focus, visibility, and resize events across all pacing, warmup, and trace windows; times out and cancels a suspended pacing callback; validates transport plus running/still consumer state; and restores the original UI Rhythm value afterward. Use a dedicated profile because the app persists configuration locally.
+The script refuses a hidden or unfocused document, starts a five-note sounding production pattern when playback is not already running, opens Config without closing an already-open panel, explicitly selects Global, and records equal-duration on/off/on windows. When it finds existing playback, it reuses and records that scene rather than pretending it created a fresh one. It records blur, focus, visibility, and resize events across all pacing, warmup, and trace windows; includes the initial animation-frame delay; rejects insufficient callback coverage; requires every visible bound Button, Knob, Joystick, and Sticker to be running by family in each on window; validates complete stillness in the off window; and restores the original UI Rhythm value afterward. Use a dedicated profile because the app persists configuration locally.
 
 For a `physical-native-visible` capture, the command pauses after measurement and asks the observing operator to record visible interruptions or stutter and the final thermal state. This fresh post-run observation is included before eligibility and report hashing. A physical run cannot finalize unattended. Software-rendered and emulated rehearsals remain unattended because they are never eligible for closure.
 

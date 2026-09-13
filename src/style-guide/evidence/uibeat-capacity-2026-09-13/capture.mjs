@@ -457,21 +457,25 @@ async function selfTest() {
     await collectPostRunObservation(validMetadata, false, async () => "after capture");
   } catch { promptedBeforeCompletion = true; }
   if (!promptedBeforeCompletion) throw new Error("Post-run observation was accepted before capture completion");
-  const successfulAnswers = ["yes", "no", "no", "yes", "No interruption or stutter; device remained cool"];
+  const successfulAnswers = ["yes", "no", "no", "yes", "yes", "No interruption or stutter; device and display remained stable"];
   const finalizedObservation = await collectPostRunObservation(validMetadata, true, async () => successfulAnswers.shift());
   if (!operatorObservationIsAcceptable(finalizedObservation) ||
-      finalizedObservation?.narrative !== "No interruption or stutter; device remained cool") {
+      finalizedObservation?.narrative !== "No interruption or stutter; device and display remained stable") {
     throw new Error("Post-run observation finalization self-test failed");
   }
-  const adverseAnswers = ["yes", "no", "yes", "yes", "Visible stutter occurred"];
+  const adverseAnswers = ["yes", "no", "yes", "yes", "yes", "Visible stutter occurred"];
   const adverseObservation = await collectPostRunObservation(validMetadata, true, async () => adverseAnswers.shift());
   if (operatorObservationIsAcceptable(adverseObservation)) {
     throw new Error("Adverse post-run operator observation was accepted");
   }
-  const unknownAnswers = ["unknown", "no", "no", "yes", "Visibility could not be confirmed"];
+  const unknownAnswers = ["unknown", "no", "no", "yes", "yes", "Visibility could not be confirmed"];
   const unknownObservation = await collectPostRunObservation(validMetadata, true, async () => unknownAnswers.shift());
   if (operatorObservationIsAcceptable(unknownObservation)) {
     throw new Error("Unknown post-run operator verdict was accepted");
+  }
+  const changedDisplayAnswers = ["yes", "no", "no", "yes", "no", "Window moved to another display"];
+  if (operatorObservationIsAcceptable(await collectPostRunObservation(validMetadata, true, async () => changedDisplayAnswers.shift()))) {
+    throw new Error("Changed physical display was accepted");
   }
   const stageOpenPlan = configPreparationActions({ panelExpanded: true, globalSelected: false });
   if (stageOpenPlan.join(",") !== "select-global") {
@@ -586,9 +590,36 @@ async function selfTest() {
       { ...uniqueTarget, url: "https://example.test/older", webSocketDebuggerUrl: "ws://two" },
     ], "emotitone", "http://cdp");
   } catch (error) {
-    ambiguousTargetRejected = /Ambiguous page target/.test(error.message);
+    ambiguousTargetRejected = /exactly one page target/.test(error.message);
   }
   if (!ambiguousTargetRejected) throw new Error("Ambiguous CDP target was accepted");
+  let extraPageRejected = false;
+  try {
+    selectUniqueTarget([
+      uniqueTarget,
+      { ...uniqueTarget, id: "other", title: "Unrelated", url: "https://unrelated.test/", webSocketDebuggerUrl: "ws://two" },
+    ], "current", "http://cdp");
+  } catch (error) {
+    extraPageRejected = /exactly one page target/.test(error.message);
+  }
+  if (!extraPageRejected) throw new Error("Nonmatching extra page target was accepted");
+  const expectedTarget = { targetId: "expected", type: "page", url: "https://example.test/current" };
+  if (pageTargetViolation("Target.targetCreated", expectedTarget, "expected", expectedTarget.url)) {
+    throw new Error("Expected page target creation was rejected");
+  }
+  if (!pageTargetViolation("Target.targetCreated", { ...expectedTarget, targetId: "other" }, "expected", expectedTarget.url) ||
+      !pageTargetViolation("Target.targetInfoChanged", { ...expectedTarget, url: "https://example.test/other" }, "expected", expectedTarget.url) ||
+      !pageTargetViolation("Target.targetDestroyed", { targetId: "expected" }, "expected", expectedTarget.url)) {
+    throw new Error("Page creation, navigation, or destruction was not rejected");
+  }
+  const stableDisplay = {
+    screenCssPx: [1920, 1080], availableScreenCssPx: [1920, 1040], devicePixelRatio: 1,
+    colorDepth: 24, screenOrientation: { type: "landscape-primary", angle: 0 }, screenIsExtended: false,
+  };
+  if (!displayFingerprintsMatch(stableDisplay, { ...stableDisplay, screenCssPx: [...stableDisplay.screenCssPx] }) ||
+      displayFingerprintsMatch(stableDisplay, { ...stableDisplay, devicePixelRatio: 2 })) {
+    throw new Error("Available display fingerprint stability check failed");
+  }
   for (const renderer of ["Software Renderer", "Apple Software Renderer", "Microsoft Basic Render Driver", "softpipe"]) {
     if (!isKnownNonNativeRenderer([renderer], [])) throw new Error(`Software renderer was accepted: ${renderer}`);
   }
@@ -792,6 +823,7 @@ async function collectPostRunObservation(metadata, captureComplete, prompt) {
   const interruptionObserved = await verdict("Did any physical-display interruption occur during the measured run?");
   const stutterObserved = await verdict("Did you observe visible stutter during the measured run?");
   const thermalAcceptable = await verdict("Did the final thermal state remain acceptable without overheating or throttling?");
+  const samePanelAndDisplayMode = await verdict("Did the native window remain on the same physical panel and display mode for the entire measured run?");
   const narrative = String(await prompt("Post-run observation narrative and final thermal state: ")).trim();
   if (!narrative) throw new Error("Physical capture requires a non-empty post-run operator narrative");
   return {
@@ -800,6 +832,7 @@ async function collectPostRunObservation(metadata, captureComplete, prompt) {
     interruptionObserved,
     stutterObserved,
     thermalAcceptable,
+    samePanelAndDisplayMode,
     narrative,
   };
 }
@@ -809,7 +842,23 @@ function operatorObservationIsAcceptable(observation) {
     observation.interruptionObserved === false &&
     observation.stutterObserved === false &&
     observation.thermalAcceptable === true &&
+    observation.samePanelAndDisplayMode === true &&
     typeof observation.narrative === "string" && observation.narrative.trim().length > 0;
+}
+
+function displayFingerprint(environmentValue) {
+  return JSON.stringify({
+    screenCssPx: environmentValue.screenCssPx,
+    availableScreenCssPx: environmentValue.availableScreenCssPx,
+    devicePixelRatio: environmentValue.devicePixelRatio,
+    colorDepth: environmentValue.colorDepth,
+    screenOrientation: environmentValue.screenOrientation,
+    screenIsExtended: environmentValue.screenIsExtended,
+  });
+}
+
+function displayFingerprintsMatch(initialEnvironment, finalEnvironment) {
+  return displayFingerprint(initialEnvironment) === displayFingerprint(finalEnvironment);
 }
 
 function drainPerformanceObservers(bindings) {
@@ -855,9 +904,16 @@ function throwCaptureOrRestorationError(captureError, restorationError) {
 }
 
 function selectUniqueTarget(targets, query, endpoint) {
+  const pageTargets = targets.filter((candidate) => candidate.type === "page");
+  if (pageTargets.length !== 1) {
+    const descriptions = pageTargets.map(({ title, url }) => `${JSON.stringify(title)} ${url}`).join("; ");
+    throw new Error(
+      `UIBeat capture requires exactly one page target for browser-wide trace attribution; found ${pageTargets.length} at ${endpoint}${descriptions ? `: ${descriptions}` : ""}`,
+    );
+  }
   const normalizedQuery = query.toLowerCase();
-  const matches = targets.filter((candidate) =>
-    candidate.type === "page" && [candidate.url, candidate.title]
+  const matches = pageTargets.filter((candidate) =>
+    [candidate.url, candidate.title]
       .some((value) => value?.toLowerCase().includes(normalizedQuery))
   );
   if (matches.length === 0) {
@@ -870,6 +926,12 @@ function selectUniqueTarget(targets, query, endpoint) {
     );
   }
   return matches[0];
+}
+
+function pageTargetViolation(method, targetInfo, expectedTargetId, expectedUrl) {
+  if (method === "Target.targetDestroyed") return targetInfo.targetId === expectedTargetId;
+  if (targetInfo?.type !== "page") return false;
+  return targetInfo.targetId !== expectedTargetId || targetInfo.url !== expectedUrl;
 }
 
 class CdpConnection {
@@ -928,6 +990,59 @@ class CdpConnection {
   close() {
     this.socket?.close();
   }
+}
+
+async function startBrowserTargetMonitor(browserWebSocketUrl, expectedTarget) {
+  if (typeof browserWebSocketUrl !== "string" || !browserWebSocketUrl) {
+    throw new Error("CDP browser endpoint did not provide a WebSocket URL for page-target monitoring");
+  }
+  const cdp = new CdpConnection(browserWebSocketUrl);
+  const events = [];
+  let stopped = false;
+  let result;
+  await cdp.open();
+  const record = (method, targetInfo) => {
+    if (targetInfo?.type !== "page" && method !== "Target.targetDestroyed") return;
+    events.push({ method, targetId: targetInfo.targetId, url: targetInfo.url ?? null });
+  };
+  const disposers = [
+    cdp.on("Target.targetCreated", ({ targetInfo }) => record("Target.targetCreated", targetInfo)),
+    cdp.on("Target.targetInfoChanged", ({ targetInfo }) => record("Target.targetInfoChanged", targetInfo)),
+    cdp.on("Target.targetDestroyed", ({ targetId }) => record("Target.targetDestroyed", { targetId })),
+  ];
+  try {
+    await cdp.command("Target.setDiscoverTargets", { discover: true });
+    const initial = await cdp.command("Target.getTargets");
+    const initialPages = initial.targetInfos.filter(({ type }) => type === "page");
+    if (initialPages.length !== 1 || initialPages[0].targetId !== expectedTarget.id || initialPages[0].url !== expectedTarget.url) {
+      throw new Error("Page-target monitor did not start with exactly the selected unchanged page");
+    }
+  } catch (error) {
+    disposers.forEach((dispose) => dispose());
+    cdp.close();
+    throw error;
+  }
+  return {
+    async stop() {
+      if (stopped) return result;
+      stopped = true;
+      try {
+        const final = await cdp.command("Target.getTargets");
+        const finalPages = final.targetInfos.filter(({ type }) => type === "page");
+        const violations = events.filter(({ method, targetId, url }) =>
+          pageTargetViolation(method, { type: method === "Target.targetDestroyed" ? undefined : "page", targetId, url }, expectedTarget.id, expectedTarget.url)
+        );
+        const finalValid = finalPages.length === 1 && finalPages[0].targetId === expectedTarget.id &&
+          finalPages[0].url === expectedTarget.url;
+        result = { valid: finalValid && violations.length === 0, events, violations, finalPages };
+        return result;
+      } finally {
+        await cdp.command("Target.setDiscoverTargets", { discover: false }).catch(() => {});
+        disposers.forEach((dispose) => dispose());
+        cdp.close();
+      }
+    },
+  };
 }
 
 const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
@@ -991,6 +1106,8 @@ async function environment(cdp) {
       availableScreenCssPx: [screen.availWidth, screen.availHeight],
       devicePixelRatio,
       colorDepth: screen.colorDepth,
+      screenOrientation: screen.orientation ? { type: screen.orientation.type, angle: screen.orientation.angle } : null,
+      screenIsExtended: typeof screen.isExtended === "boolean" ? screen.isExtended : null,
       webgl: { renderer, vendor },
     };
   })()`);
@@ -1261,9 +1378,9 @@ async function sample(cdp, label, duration, traceDuration) {
     await Promise.race([new Promise((resolvePromise) => {
       const tick = (timestamp) => {
         if (!active) return;
+        const callbackAt = performance.now();
         trackedConsumersValidThroughout &&= trackedStateMatchesMode(trackedState());
         indicatorValidThroughout &&= indicatorStateMatchesMode(indicatorState());
-        const callbackAt = performance.now();
         timestamps.push(timestamp);
         callbackTimes.push(callbackAt);
         if (callbackAt - startedAt >= duration) resolvePromise();
@@ -1553,10 +1670,12 @@ async function main() {
     fetch(`${endpoint}/json/version`).then((response) => response.json()),
   ]);
   const target = selectUniqueTarget(targets, options.target, endpoint);
+  const browserTargetMonitor = await startBrowserTargetMonitor(version.webSocketDebuggerUrl, target);
+  let pageTargetMonitoring = null;
 
   const cdp = new CdpConnection(target.webSocketDebuggerUrl);
-  await cdp.open();
   try {
+    await cdp.open();
     await cdp.command("Runtime.enable");
     await cdp.command("Page.enable");
     await cdp.command("Performance.enable");
@@ -1604,6 +1723,7 @@ async function main() {
     throwCaptureOrRestorationError(captureError, restorationError);
     const finalEnvironment = await environment(cdp);
     const measurementCompletedAt = new Date().toISOString();
+    pageTargetMonitoring = await browserTargetMonitor.stop();
     let postRunOperatorObservation = null;
     if (metadata.evidenceClass === "physical-native-visible") {
       if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -1634,9 +1754,11 @@ async function main() {
       sceneFingerprintStable && consumerInventoryStable;
     const operatorObservationAcceptable = operatorObservationIsAcceptable(postRunOperatorObservation);
     const buildIdentityVerified = loadedBuildIdentity.sourceRevision === metadata.sourceRevision;
+    const displayFingerprintStable = displayFingerprintsMatch(initialEnvironment, finalEnvironment);
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
       operatorObservationAcceptable &&
       buildIdentityVerified &&
+      displayFingerprintStable && pageTargetMonitoring.valid &&
       !knownNonNativeRenderer && rendererStable && rendererIdentityUsable &&
       allSamplesValid && captureInterruptions.length === 0 &&
       initialEnvironment.visibilityState === "visible" && initialEnvironment.hasFocus &&
@@ -1652,10 +1774,13 @@ async function main() {
       device: metadata,
       postRunOperatorObservation,
       browser: { product: version.Browser, protocolVersion: version["Protocol-Version"], userAgent: version["User-Agent"] },
+      pageTargetMonitoring,
       environment: { initial: initialEnvironment, final: finalEnvironment },
       automatedEligibility: {
         knownNonNativeRenderer,
         buildIdentityVerified,
+        displayFingerprintStable,
+        singlePageTargetThroughout: pageTargetMonitoring.valid,
         rendererStable,
         rendererIdentityUsable,
         operatorObservationAcceptable,
@@ -1717,6 +1842,7 @@ async function main() {
     await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
     console.log(`wrote ${basename(output)}`);
   } finally {
+    await browserTargetMonitor.stop().catch(() => {});
     cdp.close();
   }
 }

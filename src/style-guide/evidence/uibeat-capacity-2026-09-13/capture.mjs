@@ -55,13 +55,31 @@ function validateRuntime({ nodeVersion, webSocketType, fetchType }) {
   }
 }
 
+function clippingAwareVisible(element, environment = globalThis) {
+  const rect = element.getBoundingClientRect();
+  const style = environment.getComputedStyle(element);
+  if (style.display === "none" || style.visibility === "hidden" || rect.width <= 0 || rect.height <= 0) return false;
+  let left = 0;
+  let top = 0;
+  let right = environment.innerWidth;
+  let bottom = environment.innerHeight;
+  const clips = (value) => /^(auto|clip|hidden|scroll)$/.test(value);
+  for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+    const ancestorStyle = environment.getComputedStyle(ancestor);
+    const ancestorRect = ancestor.getBoundingClientRect();
+    if (clips(ancestorStyle.overflowX || ancestorStyle.overflow)) {
+      left = Math.max(left, ancestorRect.left);
+      right = Math.min(right, ancestorRect.right);
+    }
+    if (clips(ancestorStyle.overflowY || ancestorStyle.overflow)) {
+      top = Math.max(top, ancestorRect.top);
+      bottom = Math.min(bottom, ancestorRect.bottom);
+    }
+  }
+  return right > left && bottom > top && rect.right > left && rect.bottom > top && rect.left < right && rect.top < bottom;
+}
+
 function expectedUIBeatConsumers() {
-  const visible = (element) => {
-    const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 &&
-      rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
-  };
   const contracts = [
     ["button", ".paper-button:not(:disabled):not(.paper-button--loading)", ".paper-button__face"],
     ["knob", ".knob-wrapper:not(.opacity-50)", ".knob-wrapper__face"],
@@ -70,10 +88,13 @@ function expectedUIBeatConsumers() {
   ];
   const entries = contracts.flatMap(([type, ownerSelector, targetSelector]) =>
     Array.from(document.querySelectorAll(ownerSelector))
-      .filter(visible)
-      .map((owner) => ({ type, target: owner.querySelector(targetSelector) }))
+      .filter((owner) => clippingAwareVisible(owner))
+      .flatMap((owner) => {
+        const target = owner.querySelector(targetSelector);
+        return target && !clippingAwareVisible(target) ? [] : [{ type, target }];
+      })
   );
-  const targets = entries.flatMap(({ target }) => target && visible(target) ? [target] : []);
+  const targets = entries.flatMap(({ target }) => target && clippingAwareVisible(target) ? [target] : []);
   const expectedByType = Object.fromEntries(entries.reduce((counts, { type }) => {
     counts.set(type, (counts.get(type) ?? 0) + 1);
     return counts;
@@ -160,6 +181,34 @@ async function selfTest() {
   const summary = summarizeIntervals([10, 20, 30, 40, Number.NaN]);
   if (summary.count !== 4 || summary.p50Ms !== 25 || summary.maxMs !== 40 || summary.over33_3ms !== 1) {
     throw new Error(`Statistics self-test failed: ${JSON.stringify(summary)}`);
+  }
+  const scrollport = {
+    parentElement: null,
+    getBoundingClientRect: () => ({ left: 0, top: 150, right: 390, bottom: 600, width: 390, height: 450 }),
+    style: { display: "block", visibility: "visible", overflowX: "hidden", overflowY: "auto" },
+  };
+  const clippedControl = {
+    parentElement: scrollport,
+    getBoundingClientRect: () => ({ left: 10, top: 50, right: 130, bottom: 130, width: 120, height: 80 }),
+    style: { display: "block", visibility: "visible", overflowX: "visible", overflowY: "visible" },
+  };
+  const visibleControl = {
+    ...clippedControl,
+    getBoundingClientRect: () => ({ left: 10, top: 200, right: 130, bottom: 280, width: 120, height: 80 }),
+  };
+  const visibilityEnvironment = {
+    innerWidth: 390,
+    innerHeight: 844,
+    getComputedStyle: (element) => element.style,
+  };
+  const partiallyVisibleOwner = {
+    ...visibleControl,
+    getBoundingClientRect: () => ({ left: 10, top: 140, right: 130, bottom: 220, width: 120, height: 80 }),
+  };
+  if (!clippingAwareVisible(partiallyVisibleOwner, visibilityEnvironment) ||
+      clippingAwareVisible(clippedControl, visibilityEnvironment) ||
+      !clippingAwareVisible(visibleControl, visibilityEnvironment)) {
+    throw new Error("Partially visible owners, clipped faces, and visible UIBeat controls were not distinguished");
   }
   const healthyCounts = { button: 2, knob: 1, joystick: 1 };
   const healthyScene = {
@@ -1180,14 +1229,14 @@ class CdpConnection {
     );
   }
 
-  command(method, params = {}) {
+  command(method, params = {}, timeoutMs = 45_000) {
     const id = this.nextId++;
     this.socket.send(JSON.stringify({ id, method, params }));
     return new Promise((resolvePromise, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`CDP command timed out: ${method}`));
-      }, 45_000);
+      }, timeoutMs);
       this.pending.set(id, {
         resolve: (value) => { clearTimeout(timeout); resolvePromise(value); },
         reject: (error) => { clearTimeout(timeout); reject(error); },
@@ -1255,12 +1304,12 @@ async function startBrowserTargetMonitor(browserWebSocketUrl, expectedTarget) {
 
 const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 
-async function evaluate(cdp, expression) {
+async function evaluate(cdp, expression, timeoutMs) {
   const response = await cdp.command("Runtime.evaluate", {
     expression,
     awaitPromise: true,
     returnByValue: true,
-  });
+  }, timeoutMs);
   if (response.exceptionDetails) throw new Error(JSON.stringify(response.exceptionDetails));
   return response.result.value;
 }
@@ -1449,6 +1498,7 @@ async function sample(cdp, label, duration, traceDuration) {
   const frameCallbacks = await evaluate(cdp, `(async () => {
     if (window.__uiBeatWindowMonitor) throw new Error("UIBeat window monitor already exists");
     ${drainPerformanceObservers.toString()}
+    ${clippingAwareVisible.toString()}
     ${expectedUIBeatConsumers.toString()}
     const duration = ${duration};
     const timestamps = [];
@@ -1458,12 +1508,7 @@ async function sample(cdp, label, duration, traceDuration) {
     const observers = [];
     const startedAt = performance.now();
     const expectedOn = ${JSON.stringify(label.startsWith("uiBeat-on"))};
-    const isVisibleCadenceTarget = (element) => {
-      const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
-      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 &&
-        rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
-    };
+    const isVisibleCadenceTarget = clippingAwareVisible;
     const monitor = window.__uiBeatCapacityMonitor;
     const initialExpected = expectedUIBeatConsumers();
     const currentlyExpectedTargets = initialExpected.targets;
@@ -1474,7 +1519,7 @@ async function sample(cdp, label, duration, traceDuration) {
     const currentIndicatorContract = () => {
       const roots = Array.from(document.querySelectorAll(
         '.code-strip-bar .beat-indicator[aria-label="Pattern beat"]:not(.beat-indicator--static)'
-      )).filter(isVisibleCadenceTarget);
+      )).filter((root) => isVisibleCadenceTarget(root));
       const children = roots.flatMap((root) =>
         Array.from(root.querySelectorAll(':scope > .beat-indicator__beat'))
       );
@@ -1497,7 +1542,7 @@ async function sample(cdp, label, duration, traceDuration) {
         matchesExpectedSet: expected.missingTargetCount === 0 && expected.targets.length === cadenceTargets.length &&
           expected.targets.every((target) => retained.has(target)),
         allConnected: cadenceTargets.every((target) => target.isConnected),
-        allVisible: cadenceTargets.every(isVisibleCadenceTarget),
+        allVisible: cadenceTargets.every((target) => isVisibleCadenceTarget(target)),
         allBound: cadenceTargets.every((target) => target.hasAttribute("data-ui-beat-scale")),
         allRunning: cadenceTargets.every((target) => target.getAttribute("data-ui-beat-state") === "running"),
         noneBound: cadenceTargets.every((target) => !target.hasAttribute("data-ui-beat-scale")),
@@ -1514,7 +1559,7 @@ async function sample(cdp, label, duration, traceDuration) {
       const retainedRoots = new Set(indicatorRoots);
       const retainedChildren = new Set(indicatorChildren);
       const contractValid = current.roots.length === 1 && current.children.length === 4 &&
-        current.children.every(isVisibleCadenceTarget);
+        current.children.every((child) => isVisibleCadenceTarget(child));
       return {
         rootCount: current.roots.length,
         childCount: current.children.length,
@@ -1524,7 +1569,7 @@ async function sample(cdp, label, duration, traceDuration) {
           current.roots.every((root) => retainedRoots.has(root)) &&
           current.children.every((child) => retainedChildren.has(child)),
         allConnected: [...indicatorRoots, ...indicatorChildren].every((target) => target.isConnected),
-        allVisible: [...indicatorRoots, ...indicatorChildren].every(isVisibleCadenceTarget),
+        allVisible: [...indicatorRoots, ...indicatorChildren].every((target) => isVisibleCadenceTarget(target)),
         allRunning: indicatorRoots.length > 0 &&
           indicatorRoots.every((root) => root.getAttribute("data-ui-beat-state") === "running"),
         noneRunning: indicatorRoots.every((root) => root.getAttribute("data-ui-beat-state") !== "running"),
@@ -1635,7 +1680,44 @@ async function sample(cdp, label, duration, traceDuration) {
     let sampleTimeout;
     let frameId;
     let active = true;
+    let lifecycleDisposed = false;
+    let primaryStopped = false;
+    let performanceObserversCleaned = false;
+    let validationActive = false;
+    let validationFrameId;
+    let rejectPrimary;
     const callbackTimes = [];
+    const cleanupPrimary = (drainObservers = true) => {
+      if (!primaryStopped) {
+        primaryStopped = true;
+        active = false;
+        if (frameId !== undefined) cancelAnimationFrame(frameId);
+        if (sampleTimeout !== undefined) clearTimeout(sampleTimeout);
+        document.removeEventListener("visibilitychange", recordVisibility);
+        window.removeEventListener("blur", recordBlur);
+        window.removeEventListener("focus", recordFocus);
+      }
+      if (drainObservers && !performanceObserversCleaned) {
+        performanceObserversCleaned = true;
+        drainPerformanceObservers(observers);
+      }
+    };
+    const abortPrimary = new Promise((_, reject) => { rejectPrimary = reject; });
+    const disposeBeforeFinalizer = () => {
+      if (lifecycleDisposed) return;
+      lifecycleDisposed = true;
+      let cleanupError = null;
+      try { cleanupPrimary(); } catch (error) { cleanupError = error; }
+      validationActive = false;
+      if (validationFrameId !== undefined) cancelAnimationFrame(validationFrameId);
+      for (const observer of [cadenceObserver, indicatorObserver, identityObserver]) {
+        try { observer.disconnect(); } catch (error) { cleanupError ??= error; }
+      }
+      delete window.__uiBeatWindowMonitor;
+      rejectPrimary(cleanupError ?? new Error("UIBeat window monitor disposed before primary sample completion"));
+      if (cleanupError) throw cleanupError;
+    };
+    window.__uiBeatWindowMonitor = { dispose: disposeBeforeFinalizer };
     await Promise.race([new Promise((resolvePromise) => {
       const tick = (timestamp) => {
         if (!active) return;
@@ -1650,16 +1732,13 @@ async function sample(cdp, label, duration, traceDuration) {
       frameId = requestAnimationFrame(tick);
     }), new Promise((resolvePromise) => {
       sampleTimeout = setTimeout(() => { timedOut = true; resolvePromise(); }, duration + 5_000);
-    })]);
-    active = false;
-    if (frameId !== undefined) cancelAnimationFrame(frameId);
-    clearTimeout(sampleTimeout);
+    }), abortPrimary]);
+    cleanupPrimary(false);
+    if (lifecycleDisposed) throw new Error("UIBeat window monitor was disposed during primary sample finalization");
     const endedAt = performance.now();
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
-    document.removeEventListener("visibilitychange", recordVisibility);
-    window.removeEventListener("blur", recordBlur);
-    window.removeEventListener("focus", recordFocus);
-    drainPerformanceObservers(observers);
+    if (lifecycleDisposed) throw new Error("UIBeat window monitor was disposed after primary sample completion");
+    cleanupPrimary(true);
     const intervals = callbackTimes.map((callbackAt, index) =>
       index === 0 ? callbackAt - startedAt : callbackAt - callbackTimes[index - 1]
     );
@@ -1688,8 +1767,7 @@ async function sample(cdp, label, duration, traceDuration) {
         indicatorRunning: document.querySelectorAll('.beat-indicator[data-ui-beat-state="running"]').length,
       },
     };
-    let validationActive = true;
-    let validationFrameId;
+    validationActive = true;
     const validationTick = () => {
       if (!validationActive) return;
       trackedConsumersValidThroughout &&= trackedStateMatchesMode(trackedState());
@@ -1698,7 +1776,8 @@ async function sample(cdp, label, duration, traceDuration) {
     };
     validationFrameId = requestAnimationFrame(validationTick);
     const finalizeWindow = () => {
-      if (!validationActive) throw new Error("UIBeat window monitor already finalized");
+      if (lifecycleDisposed || !validationActive) throw new Error("UIBeat window monitor already finalized");
+      lifecycleDisposed = true;
       validationActive = false;
       if (validationFrameId !== undefined) cancelAnimationFrame(validationFrameId);
       const fullEndedAt = performance.now();
@@ -1758,7 +1837,7 @@ async function sample(cdp, label, duration, traceDuration) {
     };
     window.__uiBeatWindowMonitor = { finalize: finalizeWindow, dispose: finalizeWindow };
     return primaryResult;
-  })()`);
+  })()`, duration + 45_000);
   const after = await getMetrics(cdp);
   let traced;
   let traceError = null;
@@ -1796,6 +1875,7 @@ async function sample(cdp, label, duration, traceDuration) {
 
 async function sceneState(cdp) {
   return evaluate(cdp, `(() => {
+    ${clippingAwareVisible.toString()}
     ${expectedUIBeatConsumers.toString()}
     ${visualRuntimeFingerprint.toString()}
     const running = Array.from(document.querySelectorAll('[data-ui-beat-state="running"]'));
@@ -1812,16 +1892,11 @@ async function sceneState(cdp) {
       counts.set(type, (counts.get(type) ?? 0) + 1);
       return counts;
     }, new Map()));
-    const isVisible = (element) => {
-      const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
-      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 &&
-        rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
-    };
+    const isVisible = clippingAwareVisible;
     const runningConsumers = running.filter((element) => !element.classList.contains("beat-indicator"));
     const expected = expectedUIBeatConsumers();
-    const visible = bound.filter(isVisible);
-    const visibleRunning = runningConsumers.filter(isVisible);
+    const visible = bound.filter((element) => isVisible(element));
+    const visibleRunning = runningConsumers.filter((element) => isVisible(element));
     const normalizeText = (value) => value?.replace(/\\s+/g, " ").trim() ?? "";
     const workloadFingerprint = {
       codeText: Array.from(document.querySelectorAll(".cm-content .cm-line"))

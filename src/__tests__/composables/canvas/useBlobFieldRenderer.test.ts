@@ -348,7 +348,7 @@ describe("useBlobFieldRenderer", () => {
     ).toEqual([{ filter: "none", opacity: 1 }]);
   });
 
-  it("keeps Web attachments stable when only the contours vibrate", () => {
+  it("roots Web inside each body while carrying its contour vibration", () => {
     const first = createFrameAt("first", 80, 100);
     const far = createFrameAt("far", 900, 100);
     const connection = getBlobWebConnections(
@@ -359,7 +359,7 @@ describe("useBlobFieldRenderer", () => {
       connection,
       12,
       0.5,
-      0.46,
+      0.95,
       0.46
     );
 
@@ -375,13 +375,15 @@ describe("useBlobFieldRenderer", () => {
       connection,
       12,
       0.5,
-      0.46,
+      0.95,
       0.46
     );
 
     expect(vibrated.startAttachment).toEqual(initial.startAttachment);
     expect(vibrated.endAttachment).toEqual(initial.endAttachment);
-    expect(vibrated.centerline).toEqual(initial.centerline);
+    expect(vibrated.centerline).not.toEqual(initial.centerline);
+    expect(initial.centerline[0].x - first.blob.x).toBeLessThan(first.scaledRadius * 0.35);
+    expect(initial.widths[0]).toBeGreaterThan(first.scaledRadius * 0.7);
   });
 
   it("keeps large viewports inside the hard pixel budget", () => {

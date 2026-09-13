@@ -236,17 +236,36 @@ function getConnectionBendDirection(connection: BlobFieldConnection) {
     : -1;
 }
 
+/** Sample the body's existing vibration without introducing another clock.
+ * Angular weighting avoids jumping between contour vertices. A circular frame
+ * contributes zero, including the real Motion-off and Reduced Motion states.
+ */
+function contourDisplacement(frame: PreparedBlobFrame, direction: FieldPoint) {
+  let displacement = 0;
+  let weight = 0;
+  for (const point of frame.contour) {
+    const dx = point.x - frame.blob.x;
+    const dy = point.y - frame.blob.y;
+    const radius = Math.hypot(dx, dy);
+    if (radius === 0) continue;
+    const influence = Math.pow(Math.max(0, (dx * direction.x + dy * direction.y) / radius), 8);
+    displacement += (radius - frame.scaledRadius) * influence;
+    weight += influence;
+  }
+  const value = displacement / Math.max(0.0001, weight);
+  return Math.abs(value) < 0.00001 ? 0 : value;
+}
+
 /**
- * Build one thin Web ribbon with tapered shoulders inside the two bodies.
- * A quartic bump curves its centerline and a quintic taper settles the width
- * derivative at both bodies and the waist. Stable rendered-radius attachments
- * keep contour vibration in the body instead of shaking the relationship.
+ * Grow a Web ribbon from inside each body, narrowing over a body-sized shoulder
+ * into a fine strand. The anchors stay rooted while the body's own contour
+ * vibration travels through the span; endpoint tangents remain continuous.
  */
 export function getBlobFieldConnectionGeometry(
   connection: BlobFieldConnection,
   waistWidth: number,
   fieldScale: number,
-  shoulderScale = 0.14,
+  shoulderScale = 0.95,
   bendScale = 0.46
 ): BlobFieldConnectionGeometry {
   const centerDeltaX = connection.to.blob.x - connection.from.blob.x;
@@ -266,7 +285,7 @@ export function getBlobFieldConnectionGeometry(
     from: Math.max(waistWidth, connection.from.scaledRadius * shoulderScale),
     to: Math.max(waistWidth, connection.to.scaledRadius * shoulderScale),
   };
-  const attachmentInset = (radius: number) => radius * 0.22;
+  const attachmentInset = (radius: number) => radius * 0.82;
   const start = {
     x: startAttachment.x - direction.x * attachmentInset(connection.from.scaledRadius),
     y: startAttachment.y - direction.y * attachmentInset(connection.from.scaledRadius),
@@ -297,27 +316,38 @@ export function getBlobFieldConnectionGeometry(
     24,
     Math.min(192, Math.ceil((estimatedLength * Math.max(0.01, fieldScale)) / 2))
   );
+  const fromVibration = contourDisplacement(connection.from, normal);
+  const toVibration = contourDisplacement(connection.to, normal);
+  const vibrationAt = (progress: number) =>
+    2.5 * (
+      fromVibration * (1 - progress) * Math.sin(progress * Math.PI * 3) +
+      toVibration * progress * Math.sin(progress * Math.PI * 4)
+    );
   const pointAt = (progress: number) => {
     const inverse = 1 - progress;
-    const curve = 16 * progress * progress * inverse * inverse;
+    const envelope = 16 * progress * progress * inverse * inverse;
+    const offset = (bend + vibrationAt(progress)) * envelope;
     return {
-      x: start.x + deltaX * progress + normal.x * bend * curve,
-      y: start.y + deltaY * progress + normal.y * bend * curve,
+      x: start.x + deltaX * progress + normal.x * offset,
+      y: start.y + deltaY * progress + normal.y * offset,
     };
   };
   const tangentAt = (progress: number) => {
     const curveSlope = 32 * progress * (1 - progress) * (1 - progress * 2);
-    return {
-      x: deltaX + normal.x * bend * curveSlope,
-      y: deltaY + normal.y * bend * curveSlope,
-    };
+    const envelope = 16 * progress * progress * (1 - progress) * (1 - progress);
+    const vibrationSlope = 2.5 * (
+      fromVibration * ((1 - progress) * Math.PI * 3 * Math.cos(progress * Math.PI * 3) - Math.sin(progress * Math.PI * 3)) +
+      toVibration * (progress * Math.PI * 4 * Math.cos(progress * Math.PI * 4) + Math.sin(progress * Math.PI * 4))
+    );
+    const slope = (bend + vibrationAt(progress)) * curveSlope + vibrationSlope * envelope;
+    return { x: deltaX + normal.x * slope, y: deltaY + normal.y * slope };
   };
-  const widthAt = (progress: number) =>
-    progress <= 0.5
-      ? shoulderWidths.from +
-        (waistWidth - shoulderWidths.from) * smootherstep(progress * 2)
-      : waistWidth +
-        (shoulderWidths.to - waistWidth) * smootherstep((progress - 0.5) * 2);
+  const length = Math.hypot(deltaX, deltaY);
+  const fromShoulderLength = Math.min(length / 2, connection.from.scaledRadius * 2.5);
+  const toShoulderLength = Math.min(length / 2, connection.to.scaledRadius * 2.5);
+  const widthAt = (progress: number) => waistWidth +
+    (shoulderWidths.from - waistWidth) * (1 - smootherstep(progress * length / Math.max(1, fromShoulderLength))) +
+    (shoulderWidths.to - waistWidth) * (1 - smootherstep((1 - progress) * length / Math.max(1, toShoulderLength)));
   const centerline: FieldPoint[] = [];
   const widths: number[] = [];
   const leftEdge: FieldPoint[] = [];
@@ -553,8 +583,8 @@ export function getBlobWebConnectionWidth(connection: BlobFieldConnection) {
   return width * (connection.role === "boundary" ? 1 : 0.72);
 }
 
-/** A convex envelope of the actual contours fills every interior chord region.
- * The field's blur rounds the envelope; no chord edge graph owns Merge shape.
+/** Keep a filled envelope, but let the free spans pull inward between soft
+ * lobes. Prepared contours own its live vibration; the field rounds the result.
  */
 function getMergeEnvelope(frames: readonly PreparedBlobFrame[], blur: number) {
   const points = frames.flatMap((frame) => frame.contour.map((point) => {
@@ -564,12 +594,12 @@ function getMergeEnvelope(frames: readonly PreparedBlobFrame[], blur: number) {
     const dx = point.x - frame.blob.x;
     const dy = point.y - frame.blob.y;
     const length = Math.hypot(dx, dy) || 1;
-    return { x: point.x + dx / length * expansion, y: point.y + dy / length * expansion };
+    return { x: point.x + dx / length * expansion, y: point.y + dy / length * expansion, frame };
   })).sort((a, b) => a.x - b.x || a.y - b.y);
   const cross = (a: FieldPoint, b: FieldPoint, c: FieldPoint) =>
     (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-  const half = (ordered: FieldPoint[]) => {
-    const hull: FieldPoint[] = [];
+  const half = (ordered: typeof points) => {
+    const hull: typeof points = [];
     for (const point of ordered) {
       while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], point) <= 0) hull.pop();
       hull.push(point);
@@ -577,7 +607,36 @@ function getMergeEnvelope(frames: readonly PreparedBlobFrame[], blur: number) {
     hull.pop();
     return hull;
   };
-  return [...half(points), ...half([...points].reverse())];
+  const hull = [...half(points), ...half([...points].reverse())];
+  const center = {
+    x: frames.reduce((sum, frame) => sum + frame.blob.x, 0) / frames.length,
+    y: frames.reduce((sum, frame) => sum + frame.blob.y, 0) / frames.length,
+  };
+  return hull.flatMap((from, index): FieldPoint[] => {
+    const to = hull[(index + 1) % hull.length];
+    if (from.frame === to.frame) return [from];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.hypot(dx, dy);
+    if (length < 1) return [from];
+    const normal = { x: -dy / length, y: dx / length };
+    const clearance = (center.x - (from.x + to.x) / 2) * normal.x +
+      (center.y - (from.y + to.y) / 2) * normal.y;
+    // Preserve a threshold-safe core even for a dyad or collinear chord. The
+    // inward limit also prevents opposing spans from crossing through a face.
+    const limit = Math.max(0, Math.min(clearance * 0.38, clearance - blur * 0.9));
+    const pull = Math.min(length * 0.2, limit);
+    const fromMotion = contourDisplacement(from.frame, normal);
+    const toMotion = contourDisplacement(to.frame, normal);
+    const segments = Math.max(8, Math.min(128, Math.ceil(length / 4)));
+    return Array.from({ length: segments }, (_, segment) => {
+      const t = segment / segments;
+      const envelope = 16 * t * t * (1 - t) * (1 - t);
+      const motion = 2 * (fromMotion * Math.sin(t * Math.PI * 3) + toMotion * Math.sin(t * Math.PI * 4));
+      const inset = Math.max(0, Math.min(limit, pull + motion)) * envelope;
+      return { x: from.x + dx * t + normal.x * inset, y: from.y + dy * t + normal.y * inset };
+    });
+  });
 }
 
 function traceEnvelope(context: CanvasRenderingContext2D, points: readonly FieldPoint[]) {
@@ -720,14 +779,14 @@ export function useBlobFieldRenderer() {
     connections.forEach((connection) => {
       const geometry = getBlobFieldConnectionGeometry(
         connection, getBlobWebConnectionWidth(connection), 1,
-        connection.role === "boundary" ? 0.14 : 0.1,
+        connection.role === "boundary" ? 0.95 : 0.8,
         connection.role === "boundary" ? 0.46 : 0.3
       );
       target.save();
       target.globalAlpha = Math.max(0, Math.min(1,
         connection.from.opacity, connection.to.opacity
       )) * config.webOpacity * (connection.role === "boundary" ? 0.92 : 0.46);
-      target.filter = "none";
+      target.filter = "blur(0.65px)";
       const gradient = target.createLinearGradient(
         connection.from.blob.x, connection.from.blob.y,
         connection.to.blob.x, connection.to.blob.y

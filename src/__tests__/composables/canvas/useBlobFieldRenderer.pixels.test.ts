@@ -245,6 +245,24 @@ describe("Filled Merge and fine Web pixels", () => {
     expect([...center]).toEqual([255, 0, 0, 255]);
   });
 
+  it.each(["merge", "web"] as const)("keeps %s material still when the prepared contours have no motion", (mode) => {
+    const frames = framesAt();
+    const first = render(frames, mode).getImageData(0, 0, 1000, 650).data;
+    frames.forEach((frame) => { frame.elapsed += 30; });
+    const later = render(frames, mode).getImageData(0, 0, 1000, 650).data;
+    expect(later.every((value, index) => value === first[index])).toBe(true);
+  });
+
+  it("retains a filled face while pulling the free Merge edges into organic shoulders", () => {
+    const frames = framesAt();
+    const context = render(frames, "merge");
+    // The top span bows inward rather than stretching into a straight polygon
+    // edge. Its central face stays solid and the note lobes stay visible.
+    expect(alphaAt(context, 480, 155)).toBeLessThan(16);
+    expect(alphaAt(context, 507, 273)).toBeGreaterThan(230);
+    for (const frame of frames) expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
+  });
+
   it("respects zero Web strength while retaining the note bodies", () => {
     const context = render(framesAt(), "web", { webOpacity: 0 });
     expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(3);

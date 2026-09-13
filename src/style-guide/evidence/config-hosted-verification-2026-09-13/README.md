@@ -22,6 +22,12 @@ The supplement was captured after production advanced to `4997c46b27c16216e71b0b
 
 `assertion-probes-4997c46/` records fresh JSON receipts for the tightened success conditions. `hosted-route-verification.json` requires the exact requested pathname and `.config-menu-page` guide or `.performance-deck-drawer` production marker in addition to the settled destination checks. `production-look-verification.json` proves Discard removes the transient status and restores the live Stage controls; Keep commits the previewed Stage controls and the expected Luminous persistence fields while preserving Visuals Enabled and Stage reload preferences; reload preserves those persisted fields. `guide-verification.json` proves the focused specimen leaves storage unchanged after Discard, Keep, and a Knob update sampled after the 500 ms save debounce. These receipts supplement the settled screenshots; they do not replace or alter the historical JSON files.
 
+## Contract probe supplement
+
+`contract-probes-4997c46/` supersedes the assertion-probe JSON for the claims it repeats. The production Look receipt compares every source-defined Luminous-owned value recursively across Blobs, Ambient, Particles, Strings, and Hilbert Scope, while separately requiring all eight learner-owned Connections and Explanations fields to survive. Its live Stage snapshots include `aria-pressed` for the Stage master and boolean controls as well as the displayed range and option values. The guide receipt proves Soft Preview changes those live controls, Luminous Preview changes the baseline and differs from Soft, and Keep retains that Luminous preview while the ephemeral guide store remains isolated through the 500 ms save debounce.
+
+The hosted route receipt hashes the response bodies the browser actually loaded for every executable script and stylesheet on each of the four route/viewport pages. It requires the pinned entry, Workbox, Style Guide, guide-defaults, and Config Menu chunks appropriate to that page. The production Look receipt applies the same loaded-byte check independently on initial navigation and reload. This closes the interval in which a mutable alias could move after the preliminary document fetch; the earlier entry-asset preflight remains a fail-fast guard.
+
 The committed scripts rerun focused subsets of this verification:
 
 ```sh

@@ -4,9 +4,13 @@ import { assertGuideReceipt, createCaptureWorkspace, publishCapture, publishFail
 
 const archiveDirectory = new URL(".", import.meta.url).pathname;
 const workspace = await createCaptureWorkspace({ archiveDirectory, label: "config-guide" });
-const readStageControls = (page) => page.locator('[data-testid^="stage-control-"]').evaluateAll((elements) => Object.fromEntries(
-  elements.map((element) => [element.getAttribute("data-testid"), element.textContent?.trim() ?? null]),
-));
+const readStageControls = async (page) => ({
+  stageToggle: await page.locator('[data-testid="stage-toggle"]').evaluate((element) => ({ text: element.textContent?.trim() ?? null, ariaPressed: element.getAttribute("aria-pressed") })),
+  controls: await page.locator('[data-testid^="stage-control-"]').evaluateAll((elements) => Object.fromEntries(elements.map((element) => [
+    element.getAttribute("data-testid"),
+    { text: element.textContent?.trim() ?? null, ariaPressed: element.getAttribute("aria-pressed"), ariaValueNow: element.getAttribute("aria-valuenow"), ariaValueText: element.getAttribute("aria-valuetext") },
+  ]))),
+});
 let browser;
 try {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? "/tmp/uibeat-pw-node_modules/playwright-core/index.mjs");
@@ -37,6 +41,7 @@ try {
       const baselineStageControls = await readStageControls(page);
       await page.locator('[data-testid="preset-apply-soft"]').click();
       await page.locator('.config-panel__look-status').waitFor();
+      const previewStageControls = await readStageControls(page);
       const preview = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim(), storage: { ...localStorage } }));
       await page.locator('[data-testid="stage-look-discard"]').click();
       await page.locator('.config-panel__look-status').waitFor({ state: "detached" });
@@ -44,8 +49,10 @@ try {
       const discarded = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim() ?? null, storage: { ...localStorage } }));
       await page.locator('[data-testid="preset-apply-luminous"]').click();
       await page.locator('.config-panel__look-status').waitFor();
+      const keptPreviewStageControls = await readStageControls(page);
       await page.locator('[data-testid="stage-look-keep"]').click();
       await page.locator('.config-panel__look-status').waitFor({ state: "detached" });
+      const keptStageControls = await readStageControls(page);
       const kept = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim() ?? null, storage: { ...localStorage } }));
       const knob = page.locator('[data-testid="stage-control-scopeSize"]');
       await knob.evaluate((element) => element.scrollIntoView({ block: "center" }));
@@ -64,13 +71,28 @@ try {
       result.viewports.push({
         viewport,
         look: {
-          preview,
+          baselineStageControls,
+          preview: {
+            ...preview,
+            liveStageChanged: JSON.stringify(previewStageControls) !== JSON.stringify(baselineStageControls),
+            stageControls: previewStageControls,
+          },
           discarded: {
             ...discarded,
             statusCleared: discarded.status === null,
             liveStageMatchesBaseline: JSON.stringify(discardedStageControls) === JSON.stringify(baselineStageControls),
+            stageControls: discardedStageControls,
           },
-          kept: { ...kept, storageUnchanged: JSON.stringify(kept.storage) === JSON.stringify(before) },
+          kept: {
+            ...kept,
+            storageUnchanged: JSON.stringify(kept.storage) === JSON.stringify(before),
+            previewLiveStageChanged: JSON.stringify(keptPreviewStageControls) !== JSON.stringify(baselineStageControls),
+            previewDiffersFromSoft: JSON.stringify(keptPreviewStageControls) !== JSON.stringify(previewStageControls),
+            statusCleared: kept.status === null,
+            liveStageMatchesPreview: JSON.stringify(keptStageControls) === JSON.stringify(keptPreviewStageControls),
+            previewStageControls: keptPreviewStageControls,
+            stageControls: keptStageControls,
+          },
           afterKnobDebounce: { storage: storageAfterKnobDebounce, storageUnchanged: JSON.stringify(storageAfterKnobDebounce) === JSON.stringify(before) },
           storageUnchanged: JSON.stringify(before) === JSON.stringify(discarded.storage),
         },

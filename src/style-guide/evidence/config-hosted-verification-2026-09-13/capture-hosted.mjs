@@ -3,7 +3,11 @@ import path from "node:path";
 import {
   assertHostedDestinationState,
   assertHostedRouteState,
+  assertLoadedAssetBaseline,
   createCaptureWorkspace,
+  createLoadedAssetCollector,
+  disableBrowserCache,
+  EXPECTED_ROUTE_ASSETS,
   HOST,
   publishCapture,
   publishFailedCapture,
@@ -33,10 +37,12 @@ try {
   const result = { host: HOST, provenance, capturedAt: new Date().toISOString(), browser: browser.version(), pages: [] };
   for (const viewport of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone", width: 390, height: 844 }]) {
     for (const route of ["/style-guide/config-menu", "/"]) {
-      const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.name === "phone" ? 2 : 1 });
+      const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.name === "phone" ? 2 : 1, serviceWorkers: "block" });
       try {
         const page = await context.newPage();
         page.setDefaultTimeout(20_000);
+        await disableBrowserCache(context, page);
+        const finishAssetCapture = createLoadedAssetCollector(page);
         await page.goto(`${HOST}${route}`, { waitUntil: "domcontentloaded", timeout: 20_000 });
         if (route === "/") {
           await page.waitForTimeout(2500);
@@ -85,7 +91,9 @@ try {
           await page.screenshot({ path: path.join(workspace.staging, `${prefix}-${viewport.name}-${destination}.png`), fullPage: false });
           destinations.push(state);
         }
-        result.pages.push({ route, viewport, url: page.url(), routeState, destinations });
+        const loadedAssets = await finishAssetCapture();
+        assertLoadedAssetBaseline(loadedAssets, EXPECTED_ROUTE_ASSETS[route], `${route} ${viewport.name}`);
+        result.pages.push({ route, viewport, url: page.url(), routeState, loadedAssets, destinations });
       } finally {
         await context.close();
       }

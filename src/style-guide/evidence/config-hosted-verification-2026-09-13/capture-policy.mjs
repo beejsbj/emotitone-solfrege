@@ -10,6 +10,83 @@ export const EXPECTED_ASSETS = Object.freeze({
   "/assets/index-23ff2ff7.js": "8ea45fd6e2019e56582a22dd977882d96cedae7ee062d8ecf47121055839ef06",
   "/assets/index-966b0f42.css": "966b0f427a6f6dc925de716a65ee1ebae4cb26bb55aa3daf7bad1c3c28ca8d96",
 });
+export const EXPECTED_ROUTE_ASSETS = Object.freeze({
+  "/": Object.freeze({
+    ...EXPECTED_ASSETS,
+    "/assets/workbox-window.prod.es5-5ffdab76.js": "7b8e2b05f80dd0f8a658d52dfe00b1804757d77960118c4b930aa1a666a0bd9e",
+  }),
+  "/style-guide/config-menu": Object.freeze({
+    ...EXPECTED_ASSETS,
+    "/assets/workbox-window.prod.es5-5ffdab76.js": "7b8e2b05f80dd0f8a658d52dfe00b1804757d77960118c4b930aa1a666a0bd9e",
+    "/assets/StyleGuide-953dfb2a.js": "8be3594f4a0c749aa2ecb6a3051155046e3da555dfda268ff1eb9be5803a7fbb",
+    "/assets/StyleGuide-88a6048d.css": "88a6048d6ca412f580d5d051cd6096aa670b434b2f7eab9a9422376e5cdbc14d",
+    "/assets/guide-defaults-1633c902.css": "1633c90292b5f666c323c6d3d3748a1f8e83205a6a18624abbf4e9d6df0a203d",
+    "/assets/ConfigMenuPage-b7eb57ee.js": "321b6f8dfe7eebe3925fe7162554babb6ab246b3ccffd15096e3858d90ae21bb",
+    "/assets/ConfigMenuPage-18ad3e74.css": "18ad3e74991dddef4e6b34cd072ab6b791494268a2d9d6eb64bc3bb3ba4acdc9",
+  }),
+});
+
+export function createLoadedAssetCollector(page, { host = HOST } = {}) {
+  const pending = [];
+  const loaded = [];
+  const onResponse = (response) => {
+    const url = new URL(response.url());
+    if (url.origin !== host || !/\.(?:js|css)$/.test(url.pathname)) return;
+    pending.push((async () => {
+      assert.ok(response.ok(), `Loaded asset failed: ${url.pathname} (HTTP ${response.status()})`);
+      const body = await response.body();
+      loaded.push({ path: url.pathname, sha256: createHash("sha256").update(body).digest("hex"), bytes: body.length });
+      return null;
+    })().catch((error) => error));
+  };
+  page.on("response", onResponse);
+
+  return async function finish() {
+    await page.waitForLoadState("networkidle");
+    const outcomes = await Promise.all(pending);
+    page.off("response", onResponse);
+    const failure = outcomes.find((outcome) => outcome instanceof Error);
+    if (failure) throw failure;
+    return loaded.sort((left, right) => left.path.localeCompare(right.path));
+  };
+}
+
+export async function disableBrowserCache(context, page) {
+  const session = await context.newCDPSession(page);
+  await session.send("Network.enable");
+  await session.send("Network.setCacheDisabled", { cacheDisabled: true });
+}
+
+export function assertLoadedAssetBaseline(assets, expectedAssets, context) {
+  const actual = {};
+  for (const { path: assetPath, sha256 } of assets) {
+    if (assetPath in actual) assert.equal(sha256, actual[assetPath], `${context}: ${assetPath} was loaded with differing bytes during one capture`);
+    actual[assetPath] = sha256;
+  }
+  assert.deepEqual(actual, expectedAssets, `${context}: browser-loaded executable/style assets do not match the pinned baseline`);
+}
+
+export function matchesRecursivePatch(actual, expected) {
+  if (typeof expected !== "object" || expected === null || Array.isArray(expected)) return Object.is(actual, expected);
+  if (typeof actual !== "object" || actual === null || Array.isArray(actual)) return false;
+  return Object.entries(expected).every(([key, value]) => matchesRecursivePatch(actual[key], value));
+}
+
+const EXPECTED_STAGE_CONTROL_IDS = [
+  "scopeSize", "scopeStrength", "scopeLineWeight", "scopeGlow", "scopeTrail",
+  "bodiesVisible", "bodySize", "bodyStrength", "bodyMotion", "connectionMode", "connectionStrength",
+  "atmosphereStrength", "atmosphereColorDepth", "stringPresence", "stringResponse", "fleckAmount", "fleckEnergy",
+  "showChords", "showIntervals", "showEmotion", "labelStrength",
+];
+const BOOLEAN_STAGE_CONTROL_IDS = ["bodiesVisible", "showChords", "showIntervals", "showEmotion"];
+
+export function assertStageControlSnapshot(snapshot, context) {
+  assert.match(snapshot?.stageToggle?.ariaPressed ?? "", /^(?:true|false)$/, `${context}: Stage master boolean state is missing`);
+  assert.deepEqual(Object.keys(snapshot?.controls ?? {}), EXPECTED_STAGE_CONTROL_IDS.map((id) => `stage-control-${id}`), `${context}: Stage control snapshot is incomplete`);
+  for (const id of BOOLEAN_STAGE_CONTROL_IDS) {
+    assert.match(snapshot.controls[`stage-control-${id}`]?.ariaPressed ?? "", /^(?:true|false)$/, `${context}: ${id} boolean state is missing`);
+  }
+}
 
 async function requireSuccessfulResponse(response, url) {
   if (!response.ok) throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
@@ -86,6 +163,10 @@ export async function publishFailedCapture({ destination, staging, error }) {
 }
 
 export function assertPersistenceComparisons(output) {
+  assertStageControlSnapshot(output.baselineStageControls, "production baseline");
+  assertStageControlSnapshot(output.preview.stageControls, "production Preview");
+  assertStageControlSnapshot(output.discarded.stageControls, "production Discard");
+  assertStageControlSnapshot(output.kept.stageControls, "production Keep");
   assert.equal(output.preview.persistedFieldsUnchanged, true, "Preview changed persisted config");
   assert.equal(output.preview.liveStageChanged, true, "Preview did not change the live Stage controls");
   assert.equal(output.discarded.persistedFieldsUnchanged, true, "Discard did not restore persisted config");
@@ -93,7 +174,8 @@ export function assertPersistenceComparisons(output) {
   assert.equal(output.discarded.liveStageMatchesBaseline, true, "Discard did not restore the live Stage controls");
   assert.equal(output.kept.persistedFieldsChanged, true, "Keep did not change persisted config");
   assert.equal(output.kept.persistedStageAppearanceChanged, true, "Keep did not persist a Stage appearance change");
-  assert.equal(output.kept.persistedStageAppearanceMatchesLuminous, true, "Keep did not persist the expected Luminous Stage appearance");
+  assert.equal(output.kept.persistedStageAppearanceMatchesLuminousOwnedPatch, true, "Keep did not persist the complete Luminous-owned Stage patch");
+  assert.equal(output.kept.learnerOwnedFieldsUnchanged, true, "Keep changed learner-owned Stage fields");
   assert.equal(output.kept.visualsEnabledUnchanged, true, "Keep changed Visuals Enabled");
   assert.equal(output.kept.stagePreferencesUnchanged, true, "Keep changed Stage reload preferences");
   assert.equal(output.kept.statusCleared, true, "Keep did not clear the transient Look status");
@@ -102,15 +184,25 @@ export function assertPersistenceComparisons(output) {
   assert.equal(output.reloaded.persistedStageAppearanceMatchesKept, true, "Reload did not preserve the kept Stage appearance");
   assert.equal(output.reloaded.visualsEnabledMatchesBaseline, true, "Reload changed Visuals Enabled");
   assert.equal(output.reloaded.stagePreferencesMatchBaseline, true, "Reload changed Stage reload preferences");
+  assert.equal(output.reloaded.loadedAssetsMatchBaseline, true, "Reload loaded assets outside the pinned baseline");
 }
 
 export function assertGuideReceipt(result) {
   assert.deepEqual(result.viewports.map(({ viewport }) => viewport.name), ["desktop", "phone"], "Guide probe did not capture both expected viewports");
   for (const { viewport, look, knob, media } of result.viewports) {
+    assertStageControlSnapshot(look.baselineStageControls, `${viewport.name} baseline`);
+    assertStageControlSnapshot(look.preview.stageControls, `${viewport.name} Preview`);
+    assertStageControlSnapshot(look.discarded.stageControls, `${viewport.name} Discard`);
+    assertStageControlSnapshot(look.kept.stageControls, `${viewport.name} Keep`);
     assert.equal(look.storageUnchanged, true, `${viewport.name}: Discard did not restore local storage`);
+    assert.equal(look.preview.liveStageChanged, true, `${viewport.name}: Preview did not change the live Stage controls`);
     assert.equal(look.discarded.statusCleared, true, `${viewport.name}: Discard did not clear the transient Look status`);
     assert.equal(look.discarded.liveStageMatchesBaseline, true, `${viewport.name}: Discard did not restore the live Stage controls`);
     assert.equal(look.kept.storageUnchanged, true, `${viewport.name}: Keep escaped the guide's ephemeral store`);
+    assert.equal(look.kept.previewLiveStageChanged, true, `${viewport.name}: Luminous Preview did not change the live Stage controls`);
+    assert.equal(look.kept.previewDiffersFromSoft, true, `${viewport.name}: Luminous Preview did not differ from Soft Preview`);
+    assert.equal(look.kept.statusCleared, true, `${viewport.name}: Keep did not clear the transient Look status`);
+    assert.equal(look.kept.liveStageMatchesPreview, true, `${viewport.name}: Keep did not retain the previewed Stage controls`);
     assert.equal(look.afterKnobDebounce.storageUnchanged, true, `${viewport.name}: debounced Knob save escaped the guide's ephemeral store`);
     assert.equal(knob.changed, true, `${viewport.name}: Knob drag did not change its value`);
     assert.equal(media.reducedMotion, true, `${viewport.name}: Reduced Motion emulation was not active`);

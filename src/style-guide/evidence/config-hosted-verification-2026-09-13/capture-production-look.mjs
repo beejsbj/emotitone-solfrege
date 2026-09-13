@@ -1,4 +1,13 @@
-import { assertPersistenceComparisons, HOST, verifyHostedBaseline } from "./capture-policy.mjs";
+import {
+  assertLoadedAssetBaseline,
+  assertPersistenceComparisons,
+  createLoadedAssetCollector,
+  disableBrowserCache,
+  EXPECTED_ROUTE_ASSETS,
+  HOST,
+  matchesRecursivePatch,
+  verifyHostedBaseline,
+} from "./capture-policy.mjs";
 
 const provenance = await verifyHostedBaseline();
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? "/tmp/uibeat-pw-node_modules/playwright-core/index.mjs");
@@ -18,21 +27,24 @@ const stageAppearance = (raw) => {
   if (!config) return null;
   return Object.fromEntries(["blobs", "ambient", "particles", "strings", "hilbertScope"].map((section) => [section, config[section]]));
 };
-const matchesLuminousContract = (appearance) => appearance?.blobs?.opacity === 0.42
-  && appearance.blobs.blurRadius === 12
-  && appearance.blobs.glowIntensity === 24
-  && appearance.particles?.count === 12
-  && appearance.particles.speed === 5
-  && appearance.hilbertScope?.sizeRatio === 0.72
-  && appearance.hilbertScope.opacity === 0.92
-  && appearance.hilbertScope.glowIntensity === 30
-  && appearance.hilbertScope.history === 0.82
-  && appearance.hilbertScope.smear === 0.6
-  && appearance.hilbertScope.thickness === 5;
+const LUMINOUS_OWNED_PATCH = {
+  blobs: { isEnabled: true, baseSizeRatio: 0.09, opacity: 0.42, blurRadius: 12, oscillationAmplitude: 0.55, driftSpeed: 8, vibrationAmplitude: 12, glowEnabled: true, glowIntensity: 24 },
+  ambient: { isEnabled: true, opacityMajor: 0.44, opacityMinor: 0.28, brightnessMajor: 0.5, brightnessMinor: 0.3, saturationMajor: 0.8, saturationMinor: 0.6 },
+  particles: { isEnabled: true, count: 12, speed: 5, gravity: 0, airResistance: 0.99 },
+  strings: { isEnabled: true, baseOpacity: 0.05, activeOpacity: 0.7, maxAmplitude: 22, dampingFactor: 0.08, interpolationSpeed: 0.15, opacityInterpolationSpeed: 0.1 },
+  hilbertScope: { sizeRatio: 0.72, opacity: 0.92, glowEnabled: true, glowIntensity: 30, smear: 0.6, history: 0.82, thickness: 5 },
+};
+const LEARNER_OWNED_BLOB_FIELDS = ["connectionMode", "fieldSoftness", "fusionStrength", "webOpacity", "showChordLabel", "showIntervalLabels", "showEmotionLabel", "labelOpacity"];
+const learnerOwnedFields = (appearance) => Object.fromEntries(LEARNER_OWNED_BLOB_FIELDS.map((field) => [field, appearance?.blobs?.[field]]));
+const hasLearnerOwnedFields = (appearance) => LEARNER_OWNED_BLOB_FIELDS.every((field) => Object.hasOwn(appearance?.blobs ?? {}, field));
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
-const readStageControls = (page) => page.locator('[data-testid^="stage-control-"]').evaluateAll((elements) => Object.fromEntries(
-  elements.map((element) => [element.getAttribute("data-testid"), element.textContent?.trim() ?? null]),
-));
+const readStageControls = async (page) => ({
+  stageToggle: await page.locator('[data-testid="stage-toggle"]').evaluate((element) => ({ text: element.textContent?.trim() ?? null, ariaPressed: element.getAttribute("aria-pressed") })),
+  controls: await page.locator('[data-testid^="stage-control-"]').evaluateAll((elements) => Object.fromEntries(elements.map((element) => [
+    element.getAttribute("data-testid"),
+    { text: element.textContent?.trim() ?? null, ariaPressed: element.getAttribute("aria-pressed"), ariaValueNow: element.getAttribute("aria-valuenow"), ariaValueText: element.getAttribute("aria-valuetext") },
+  ]))),
+});
 async function openConfig(page) {
   await page.goto(`${HOST}/`, { waitUntil: "domcontentloaded", timeout: 20_000 });
   await page.waitForTimeout(2_500);
@@ -45,9 +57,14 @@ async function openConfig(page) {
   await page.locator('[data-testid="config-tab-stage"]').click();
 }
 try {
-  const page = await (await browser.newContext({ viewport: { width: 1366, height: 768 } })).newPage();
+  const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, serviceWorkers: "block" });
+  const page = await context.newPage();
+  await disableBrowserCache(context, page);
   page.setDefaultTimeout(20_000);
+  const finishInitialAssetCapture = createLoadedAssetCollector(page);
   await openConfig(page);
+  const initialLoadedAssets = await finishInitialAssetCapture();
+  assertLoadedAssetBaseline(initialLoadedAssets, EXPECTED_ROUTE_ASSETS["/"], "production initial navigation");
   const initialStatus = page.locator(".config-panel__look-status");
   if (await initialStatus.count()) {
     await page.locator('[data-testid="stage-look-discard"]').click();
@@ -73,6 +90,7 @@ try {
   await page.waitForTimeout(700);
   const kept = await page.evaluate(() => localStorage.getItem("emotitone-visual-config"));
   const keptStageControls = await readStageControls(page);
+  const finishReloadAssetCapture = createLoadedAssetCollector(page);
   await page.reload({ waitUntil: "domcontentloaded", timeout: 20_000 });
   await page.waitForTimeout(2_500);
   const play = page.locator('[aria-label="Play EmotiTone"]');
@@ -80,12 +98,16 @@ try {
   await page.waitForTimeout(2_500);
   await page.locator('[data-testid="config-panel-trigger"]').click();
   await page.locator('[data-testid="config-tab-stage"]').click();
+  const reloadedAssets = await finishReloadAssetCapture();
+  assertLoadedAssetBaseline(reloadedAssets, EXPECTED_ROUTE_ASSETS["/"], "production reload");
   const reloaded = await page.evaluate(() => localStorage.getItem("emotitone-visual-config"));
   const output = {
     status: "complete",
     host: HOST,
     provenance,
+    loadedAssets: { initial: initialLoadedAssets },
     viewport: { width: 1366, height: 768 },
+    baselineStageControls,
     comparison: "Compared persisted Stage appearance, Visuals Enabled, and Stage reload preferences separately; ignored lastSaved timestamp. Live Stage controls verify preview, Discard, and Keep.",
     preview: {
       persistedFieldsUnchanged: same(stable(preview), stable(baseline)),
@@ -101,7 +123,8 @@ try {
     kept: {
       persistedFieldsChanged: !same(stable(kept), stable(baseline)),
       persistedStageAppearanceChanged: !same(stageAppearance(kept), stageAppearance(baseline)),
-      persistedStageAppearanceMatchesLuminous: matchesLuminousContract(stageAppearance(kept)),
+      persistedStageAppearanceMatchesLuminousOwnedPatch: matchesRecursivePatch(stageAppearance(kept), LUMINOUS_OWNED_PATCH),
+      learnerOwnedFieldsUnchanged: hasLearnerOwnedFields(stageAppearance(baseline)) && hasLearnerOwnedFields(stageAppearance(kept)) && same(learnerOwnedFields(stageAppearance(kept)), learnerOwnedFields(stageAppearance(baseline))),
       visualsEnabledUnchanged: same(storedField(kept, "visualsEnabled"), storedField(baseline, "visualsEnabled")),
       stagePreferencesUnchanged: same(storedField(kept, "stagePreferences"), storedField(baseline, "stagePreferences")),
       statusCleared: keptStatusCleared,
@@ -113,6 +136,8 @@ try {
       persistedStageAppearanceMatchesKept: same(stageAppearance(reloaded), stageAppearance(kept)),
       visualsEnabledMatchesBaseline: same(storedField(reloaded, "visualsEnabled"), storedField(baseline, "visualsEnabled")),
       stagePreferencesMatchBaseline: same(storedField(reloaded, "stagePreferences"), storedField(baseline, "stagePreferences")),
+      loadedAssets: reloadedAssets,
+      loadedAssetsMatchBaseline: true,
       transientStatus: await page.locator(".config-panel__look-status").innerText(),
     },
   };

@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   collectBuildIdentity,
   parseEntryAssets,
+  productionBuildProcessEnvironment,
   requireUnconfiguredViteBuildEnvironment,
 } from "./build-identity.mjs";
 import { verifyLoadedBuildIdentity } from "./capture-build-identity.mjs";
@@ -125,6 +126,7 @@ test("collects hashes for emitted JavaScript, CSS, and direct entry assets", asy
     assert.equal(identity.assets.find(({ path }) => path === "assets/app.js").sha256, hash("app"));
     assert.equal(identity.build.bunVersion, "1.3.14");
     assert.deepEqual(identity.build.environment.inputs.VITE_PITCH_ANALYSIS_URL, { defined: false });
+    assert.equal(identity.build.environment.nodeEnv, "production");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -145,6 +147,22 @@ test("rejects the known production Vite input in dotenv files without exposing i
   }
 });
 
+test("rejects dotenv colon syntax and fixes the child build mode", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "emotitone-vite-environment-"));
+  const secretValue = "https://pitch.example.test/colon-secret";
+  try {
+    await writeFile(join(directory, ".env.local"), `VITE_PITCH_ANALYSIS_URL: ${secretValue}\n`);
+    await assert.rejects(
+      requireUnconfiguredViteBuildEnvironment(directory, {}),
+      (error) => error.message.includes(".env.local defines VITE_PITCH_ANALYSIS_URL") &&
+        !error.message.includes(secretValue),
+    );
+    assert.equal(productionBuildProcessEnvironment({ NODE_ENV: "development" }).NODE_ENV, "production");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("rejects an exported production Vite input and accepts unrelated dotenv values", async () => {
   const directory = await mkdtemp(join(tmpdir(), "emotitone-vite-environment-"));
   const secretValue = "https://pitch.example.test/exported-secret";
@@ -157,6 +175,7 @@ test("rejects an exported production Vite input and accepts unrelated dotenv val
     );
     assert.deepEqual(await requireUnconfiguredViteBuildEnvironment(directory, {}), {
       mode: "production",
+      nodeEnv: "production",
       policy: "known production Vite inputs must be unset",
       inputs: { VITE_PITCH_ANALYSIS_URL: { defined: false } },
     });

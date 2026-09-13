@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 export const BUILD_IDENTITY_FILE = "emotitone-build-identity.json";
 export const BUILD_IDENTITY_SCHEMA_VERSION = 1;
 export const VITE_BUILD_ENV_INPUTS = ["VITE_PITCH_ANALYSIS_URL"];
+export const BUILD_NODE_ENV = "production";
 const VITE_ENV_FILES = [".env", ".env.local", ".env.production", ".env.production.local"];
 
 function sha256(bytes) {
@@ -18,6 +19,10 @@ function sha256(bytes) {
 function isBoundedBuildAssetPath(path) {
   return /^(?:assets\/[A-Za-z0-9._/-]+|[A-Za-z0-9._-]+)\.(?:js|css)$/.test(path) &&
     !path.includes("..") && !path.includes("//");
+}
+
+export function productionBuildProcessEnvironment(environment = process.env) {
+  return { ...environment, NODE_ENV: BUILD_NODE_ENV };
 }
 
 export async function requireUnconfiguredViteBuildEnvironment(repoRoot, environment = process.env) {
@@ -35,7 +40,7 @@ export async function requireUnconfiguredViteBuildEnvironment(repoRoot, environm
       throw error;
     }
     for (const name of VITE_BUILD_ENV_INPUTS) {
-      const definition = new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=`, "m");
+      const definition = new RegExp(`^\\s*(?:export\\s+)?${name}\\s*(?:=|:\\s+)`, "m");
       if (definition.test(contents)) {
         throw new Error(`Refusing build identity because ${filename} defines ${name}; its value is intentionally not reported`);
       }
@@ -43,16 +48,17 @@ export async function requireUnconfiguredViteBuildEnvironment(repoRoot, environm
   }
   return {
     mode: "production",
+    nodeEnv: BUILD_NODE_ENV,
     policy: "known production Vite inputs must be unset",
     inputs: Object.fromEntries(VITE_BUILD_ENV_INPUTS.map((name) => [name, { defined: false }])),
   };
 }
 
-function run(executable, args, { cwd, capture = false } = {}) {
+function run(executable, args, { cwd, capture = false, environment = process.env } = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(executable, args, {
       cwd,
-      env: process.env,
+      env: environment,
       shell: false,
       stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
     });
@@ -186,7 +192,10 @@ export async function buildWithIdentity({ cwd = process.cwd(), now = () => new D
   const bunVersion = (await run("bun", ["--version"], { cwd: repoRoot, capture: true })).stdout;
   const buildEnvironment = await requireUnconfiguredViteBuildEnvironment(repoRoot);
 
-  await run("bun", ["run", "build"], { cwd: repoRoot });
+  await run("bun", ["run", "build"], {
+    cwd: repoRoot,
+    environment: productionBuildProcessEnvironment(),
+  });
 
   const finalRevision = await git(repoRoot, ["rev-parse", "--verify", "HEAD^{commit}"]);
   if (finalRevision !== sourceRevision) {

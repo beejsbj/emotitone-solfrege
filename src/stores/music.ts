@@ -14,6 +14,7 @@ import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+import { createLiveAudioClock } from "@/services/liveAudioClock";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import {
   createScheduledLiveVoice,
@@ -116,7 +117,8 @@ export const useMusicStore = defineStore(
     let generatedCounter = 0;
     const heldAliases = new Map<string, string>();
     const heldOwners = new Set<string>();
-    const now = () => performance.now();
+    const liveAudioClock = createLiveAudioClock(superdoughAudio.getAudioContext, { onSuspend: clearLiveInputs });
+    const now = liveAudioClock.now;
     // Presentation only: recording and MIDI keep their existing event clock.
     function audibleTime(timestamp = Date.now()) {
       const context = superdoughAudio.getAudioContext();
@@ -172,6 +174,7 @@ export const useMusicStore = defineStore(
           releaseSeconds: style === "together" || style.startsWith("strum")
             ? getLiveArticulation(held.instrument).release : 0.03,
           now,
+          clock: liveAudioClock,
           onScheduleStart(timestamp) {
             window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
               detail: { ...detail, phase: "attack", timestamp },
@@ -183,7 +186,9 @@ export const useMusicStore = defineStore(
             }));
           },
           onStart(timestamp) {
-            activeNote.audibleAt = audibleTime(timestamp);
+            activeNote.audibleAt = audioTimeToOutputTime(
+              superdoughAudio.getAudioContext(), liveAudioClock.toAudioTime(liveAudioClock.fromEpochTime(timestamp)),
+            );
             activeNotes.value.set(noteId, activeNote);
             currentNote.value = activeNote.solfege.name;
             isPlaying.value = true;
@@ -198,7 +203,9 @@ export const useMusicStore = defineStore(
                 note: activeNote.solfege.name,
                 mirrorMidi: false,
                 timestamp,
-                audibleAt: audibleTime(timestamp),
+                audibleAt: audioTimeToOutputTime(
+                  superdoughAudio.getAudioContext(), liveAudioClock.toAudioTime(liveAudioClock.fromEpochTime(timestamp)),
+                ),
               },
             }));
             activeNotes.value.delete(noteId);
@@ -249,6 +256,7 @@ export const useMusicStore = defineStore(
     document.addEventListener("visibilitychange", onHidden);
     onScopeDispose(() => {
       clearLiveInputs();
+      liveAudioClock.dispose();
       window.removeEventListener("blur", clearLiveInputs);
       document.removeEventListener("visibilitychange", onHidden);
     });

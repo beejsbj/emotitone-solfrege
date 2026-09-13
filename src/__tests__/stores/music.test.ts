@@ -14,6 +14,7 @@ const superdoughMocks = vi.hoisted(() => ({
   stopNote: vi.fn(),
   releaseAll: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
+  audioContext: { state: "running", get currentTime() { return performance.now() / 1000; } },
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -25,7 +26,7 @@ vi.mock("@/services/superdoughAudio", () => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn().mockReturnValue(true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: vi.fn(),
+  getAudioContext: vi.fn(() => superdoughMocks.audioContext),
   emotitoneStrudelOutput: vi.fn(),
   stopStrudelVisuals: vi.fn(),
 }));

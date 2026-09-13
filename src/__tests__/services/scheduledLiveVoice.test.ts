@@ -10,6 +10,7 @@ const audio = vi.hoisted(() => ({
 vi.mock('@/services/superdoughAudio', () => audio)
 
 import { createScheduledLiveVoice } from '@/services/scheduledLiveVoice'
+import { createLiveAudioClock, type LiveAudioClock } from '@/services/liveAudioClock'
 
 const EPOCH = 1_800_000_000_000
 const CLOCK_START = 1000
@@ -24,7 +25,7 @@ function deferred<T = void>() {
   return { promise, resolve, reject }
 }
 
-function create(at = 1050) {
+function create(at = 1050, clock?: LiveAudioClock) {
   const onScheduleStart = vi.fn()
   const onScheduleEnd = vi.fn()
   const onStart = vi.fn()
@@ -36,7 +37,8 @@ function create(at = 1050) {
     instrument: 'piano',
     at,
     releaseSeconds: 0.15,
-    now: () => performance.now(),
+    now: clock?.now ?? (() => performance.now()),
+    clock,
     onScheduleStart,
     onScheduleEnd,
     onStart,
@@ -64,6 +66,44 @@ describe('scheduled live voice', () => {
     vi.clearAllTimers()
     vi.restoreAllMocks()
     vi.useRealTimers()
+  })
+
+  it('preserves both audio and MIDI spacing when the published audio clock advances in blocks', async () => {
+    const context = {
+      state: 'running' as const,
+      get currentTime() { return 12 + Math.floor((performance.now() - CLOCK_START) / 8) * 0.008 },
+    }
+    audio.getAudioContext.mockReturnValue(context)
+    const clock = createLiveAudioClock(() => context)
+    const voices = []
+    for (let i = 0; i < 6; i++) {
+      const voice = create(12_050 + i * 125, clock)
+      voice.voice.release(12_150 + i * 125)
+      voices.push(voice)
+      await vi.advanceTimersByTimeAsync(20)
+    }
+    const attacks = audio.attackNote.mock.calls.map(call => (call[3] as { atTime: number }).atTime)
+    expect(attacks).toEqual([12.05, 12.175, 12.3, 12.425, 12.55, 12.675])
+    voices.forEach((voice, i) => {
+      expect(voice.onScheduleStart).toHaveBeenCalledExactlyOnceWith(EPOCH + 50 + i * 125)
+      expect(voice.onScheduleEnd).toHaveBeenCalledExactlyOnceWith(EPOCH + 150 + i * 125)
+    })
+    voices.forEach(({ voice }) => voice.release(clock.now()))
+    clock.dispose()
+  })
+
+  it('records a reported real onset when its Promise continuation arrives after the gate', async () => {
+    const attack = deferred<number>()
+    audio.attackNote.mockReturnValue(attack.promise)
+    const { voice, onStart, onEnd, onScheduleStart } = create()
+    voice.release(1250)
+    await vi.advanceTimersByTimeAsync(300)
+    attack.resolve(12.05)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(onStart).toHaveBeenCalledExactlyOnceWith(EPOCH + 50)
+    expect(onEnd).toHaveBeenCalledExactlyOnceWith(EPOCH + 250)
+    expect(onScheduleStart).not.toHaveBeenCalled() // Do not replay missed MIDI.
+    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith('voice-1')
   })
 
   it('records a scheduled pulse that played while the main thread was stalled', async () => {

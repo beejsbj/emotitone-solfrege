@@ -58,6 +58,35 @@ describe("live styles through music, recording, and Strudel", () => {
     vi.useRealTimers();
   });
 
+  it("cancels held output on audio suspension and preserves wall-clock position after resume", async () => {
+    let pausedAt: number | undefined;
+    let pausedDuration = 0;
+    const context = Object.assign(new EventTarget(), { state: "running" });
+    Object.defineProperty(context, "currentTime", {
+      get: () => 12 + ((pausedAt ?? performance.now()) - pausedDuration) / 1000,
+    });
+    vi.mocked(audio.getAudioContext).mockReturnValue(context as unknown as AudioContext);
+    const music = useMusicStore();
+    music.setPlayMode("repeat:16");
+    await music.attackExactPitch("C4");
+    await vi.advanceTimersByTimeAsync(30);
+    pausedAt = performance.now();
+    context.state = "suspended";
+    context.dispatchEvent(new Event("statechange"));
+    expect(music.activeNotes.size).toBe(0);
+    expect(noteEvents("note-released")[0].timestamp).toBe(EPOCH + 30);
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(50);
+    pausedDuration += performance.now() - pausedAt;
+    pausedAt = undefined;
+    context.state = "running";
+    context.dispatchEvent(new Event("statechange"));
+    const owner = await music.attackExactPitch("E4");
+    await vi.advanceTimersByTimeAsync(5);
+    expect(noteEvents("note-played").map(event => event.timestamp)).toEqual([EPOCH + 5, EPOCH + 85]);
+    await music.releaseNote(owner!);
+  });
+
   it("keeps musical timestamps while presenting repeat onset and release at estimated output", async () => {
     vi.mocked(audio.getAudioContext).mockImplementation(() => ({
       currentTime: performance.now() / 1000,

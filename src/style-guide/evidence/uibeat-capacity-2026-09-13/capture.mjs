@@ -589,14 +589,57 @@ async function selfTest() {
     missingVisualStoreRejected = /production Pinia visualConfig store/.test(error.message);
   }
   if (!missingVisualStoreRejected) throw new Error("Missing visualConfig runtime store was accepted");
+  const serializedUiRhythmReader = Function(`return (${readUiRhythmState.toString()})`)();
+  const uiRhythmRoot = (values) => ({
+    querySelectorAll: () => values.map((value) => ({ getAttribute: () => value })),
+  });
+  if (serializedUiRhythmReader(uiRhythmRoot(["false"])) !== false ||
+      serializedUiRhythmReader(uiRhythmRoot(["true"])) !== true) {
+    throw new Error("Serialized UI Rhythm reader did not retain valid false/true states");
+  }
+  for (const [label, root] of [
+    ["missing", uiRhythmRoot([])],
+    ["duplicate", uiRhythmRoot(["true", "true"])],
+    ["malformed", uiRhythmRoot([null])],
+  ]) {
+    let rejected = false;
+    try { serializedUiRhythmReader(root); } catch { rejected = true; }
+    if (!rejected) throw new Error(`Serialized UI Rhythm reader accepted ${label} control state`);
+  }
+  const serializedMonitorStop = Function(`return (${stopCaptureMonitorInPage.toString()})`)();
+  let missingMonitorRejected = false;
+  try { serializedMonitorStop({}); } catch { missingMonitorRejected = true; }
+  if (!missingMonitorRejected) throw new Error("Missing capacity monitor was accepted at finalization");
+  let monitorDisposed = false;
+  const monitorRoot = {
+    __uiBeatCapacityMonitor: {
+      events: [{ type: "healthy" }],
+      dispose: () => { monitorDisposed = true; },
+    },
+  };
+  const monitorEvents = serializedMonitorStop(monitorRoot);
+  if (!monitorDisposed || monitorEvents[0]?.type !== "healthy" || "__uiBeatCapacityMonitor" in monitorRoot) {
+    throw new Error("Healthy serialized capacity monitor cleanup failed");
+  }
+  const disposalFailure = new Error("monitor disposal failed");
+  const failingMonitorRoot = {
+    __uiBeatCapacityMonitor: { events: [], dispose: () => { throw disposalFailure; } },
+  };
+  let surfacedDisposalFailure;
+  try { serializedMonitorStop(failingMonitorRoot); } catch (error) { surfacedDisposalFailure = error; }
+  if (surfacedDisposalFailure !== disposalFailure || "__uiBeatCapacityMonitor" in failingMonitorRoot) {
+    throw new Error("Capacity monitor disposal failure was swallowed or left the owned global behind");
+  }
   const captureFailure = new Error("capture failed");
   const restorationFailure = new Error("restore failed");
+  const monitorFailure = new Error("monitor failed");
   let combinedFailure;
-  try { throwCaptureOrRestorationError(captureFailure, restorationFailure); } catch (error) { combinedFailure = error; }
+  try { throwCaptureOrRestorationError(captureFailure, restorationFailure, null, monitorFailure); } catch (error) { combinedFailure = error; }
   if (!(combinedFailure instanceof AggregateError) ||
       combinedFailure.errors[0] !== captureFailure || combinedFailure.errors[1] !== restorationFailure ||
+      combinedFailure.errors[2] !== monitorFailure ||
       combinedFailure.cause !== captureFailure) {
-    throw new Error("Capture and restoration failures were not both preserved");
+    throw new Error("Capture, restoration, and monitor failures were not all preserved");
   }
   let restorationOnlyFailure;
   try { throwCaptureOrRestorationError(null, restorationFailure); } catch (error) { restorationOnlyFailure = error; }
@@ -965,8 +1008,8 @@ function assertMonitorCoversPreparation(monitorStartedAt, preparationStartedAt) 
   }
 }
 
-function throwCaptureOrRestorationError(captureError, restorationError, runtimeGuardError = null) {
-  const errors = [captureError, restorationError, runtimeGuardError].filter(Boolean);
+function throwCaptureOrRestorationError(captureError, restorationError, runtimeGuardError = null, monitorError = null) {
+  const errors = [captureError, restorationError, runtimeGuardError, monitorError].filter(Boolean);
   if (errors.length > 1) {
     throw new AggregateError(
       errors,
@@ -975,6 +1018,32 @@ function throwCaptureOrRestorationError(captureError, restorationError, runtimeG
     );
   }
   if (errors.length === 1) throw errors[0];
+}
+
+function readUiRhythmState(root = document) {
+  const controls = root.querySelectorAll('[data-testid="global-control-uiRhythm"]');
+  if (controls.length !== 1) {
+    throw new Error(`Expected exactly one UI Rhythm control, found ${controls.length}`);
+  }
+  const ariaPressed = controls[0].getAttribute("aria-pressed");
+  if (ariaPressed !== "true" && ariaPressed !== "false") {
+    throw new Error(`UI Rhythm control has invalid aria-pressed: ${JSON.stringify(ariaPressed)}`);
+  }
+  return ariaPressed === "true";
+}
+
+function stopCaptureMonitorInPage(root = window) {
+  const monitor = root.__uiBeatCapacityMonitor;
+  if (!monitor || !Array.isArray(monitor.events) || typeof monitor.dispose !== "function") {
+    throw new Error("UIBeat capacity monitor is missing or malformed at capture finalization");
+  }
+  const events = monitor.events;
+  let disposeError = null;
+  try { monitor.dispose(); }
+  catch (error) { disposeError = error; }
+  delete root.__uiBeatCapacityMonitor;
+  if (disposeError) throw disposeError;
+  return events;
 }
 
 function throwTraceOrWindowFinalizationError(traceError, finalizationError) {
@@ -1245,10 +1314,8 @@ async function startCaptureMonitor(cdp) {
 
 async function stopCaptureMonitor(cdp) {
   return evaluate(cdp, `(() => {
-    const events = window.__uiBeatCapacityMonitor?.events ?? [];
-    window.__uiBeatCapacityMonitor?.dispose?.();
-    delete window.__uiBeatCapacityMonitor;
-    return events;
+    ${stopCaptureMonitorInPage.toString()}
+    return stopCaptureMonitorInPage(window);
   })()`);
 }
 
@@ -1746,10 +1813,16 @@ async function sceneState(cdp) {
 
 async function setUiRhythm(cdp, enabled, warmup) {
   const selector = '[data-testid="global-control-uiRhythm"]';
-  const current = await evaluate(cdp, `document.querySelector(${JSON.stringify(selector)})?.getAttribute("aria-pressed") === "true"`);
+  const current = await evaluate(cdp, `(() => {
+    ${readUiRhythmState.toString()}
+    return readUiRhythmState(document);
+  })()`);
   if (current !== enabled) await clickSelector(cdp, selector);
   await delay(warmup);
-  const actual = await evaluate(cdp, `document.querySelector(${JSON.stringify(selector)})?.getAttribute("aria-pressed") === "true"`);
+  const actual = await evaluate(cdp, `(() => {
+    ${readUiRhythmState.toString()}
+    return readUiRhythmState(document);
+  })()`);
   if (actual !== enabled) throw new Error(`UI Rhythm did not change to ${enabled}`);
 }
 
@@ -1874,10 +1947,7 @@ async function main() {
     const monitorStartedAt = Date.now();
     const preparationStartedAt = Date.now();
     assertMonitorCoversPreparation(monitorStartedAt, preparationStartedAt);
-    const loadedBuildIdentity = await verifyLoadedBuildIdentity({
-      cdp,
-      expectedRevision: metadata.sourceRevision,
-    });
+    let loadedBuildIdentity;
     let scenePreparation;
     let originalUiRhythm;
     const samples = [];
@@ -1885,9 +1955,14 @@ async function main() {
     let captureError = null;
     let restorationError = null;
     let runtimeGuardError = null;
+    let monitorError = null;
     let runtimeGuardInstalled = false;
     let runtimeGuardSession = null;
     try {
+      loadedBuildIdentity = await verifyLoadedBuildIdentity({
+        cdp,
+        expectedRevision: metadata.sourceRevision,
+      });
       scenePreparation = await prepareScene(cdp);
       const installerExpression = runtimeGuardInstallerExpression({ maximumCanvasIdleMs: 1_000 });
       await evaluate(cdp, `(() => {
@@ -1896,7 +1971,10 @@ async function main() {
         return true;
       })()`);
       runtimeGuardInstalled = true;
-      originalUiRhythm = await evaluate(cdp, `document.querySelector('[data-testid="global-control-uiRhythm"]')?.getAttribute("aria-pressed") === "true"`);
+      originalUiRhythm = await evaluate(cdp, `(() => {
+        ${readUiRhythmState.toString()}
+        return readUiRhythmState(document);
+      })()`);
       await setUiRhythm(cdp, true, options.warmup);
       samples.push(await sample(cdp, "uiBeat-on-first", options.duration, options.traceDuration));
       await setUiRhythm(cdp, false, options.warmup);
@@ -1926,9 +2004,13 @@ async function main() {
           runtimeGuardError = error;
         }
       }
-      captureInterruptions = await stopCaptureMonitor(cdp).catch(() => [{ type: "monitor-read-failed" }]);
+      try {
+        captureInterruptions = await stopCaptureMonitor(cdp);
+      } catch (error) {
+        monitorError = error;
+      }
     }
-    throwCaptureOrRestorationError(captureError, restorationError, runtimeGuardError);
+    throwCaptureOrRestorationError(captureError, restorationError, runtimeGuardError, monitorError);
     const finalEnvironment = await environment(cdp);
     const measurementCompletedAt = new Date().toISOString();
     pageTargetMonitoring = await browserTargetMonitor.stop();

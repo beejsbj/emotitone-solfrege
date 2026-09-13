@@ -1,6 +1,7 @@
 import { computed, onScopeDispose, reactive, readonly, ref, watch } from "vue";
 import { Chord, Interval, Note } from "@tonaljs/tonal";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import { describeHarmonicEmotion } from "@/services/harmonicEmotion";
 import type {
   ActiveNote,
   HarmonicAnalysisSnapshot,
@@ -117,11 +118,7 @@ export function useHarmonicAnalysis(
     return result;
   });
 
-  const chordLabel = computed(() => {
-    if (!blobConfig.value.showChordLabel) {
-      return null;
-    }
-
+  const detectedChord = computed(() => {
     const notes = displayedNotes.value.map((note) => note.noteName);
     if (notes.length < 2) {
       return null;
@@ -129,6 +126,10 @@ export function useHarmonicAnalysis(
 
     return detectChordLabel(notes);
   });
+
+  const chordLabel = computed(() =>
+    blobConfig.value.showChordLabel ? detectedChord.value : null
+  );
 
   const emotionalDescription = computed(() => {
     if (!blobConfig.value.showEmotionLabel) {
@@ -138,6 +139,14 @@ export function useHarmonicAnalysis(
     const notes = displayedNotes.value;
     if (notes.length === 0) {
       return "";
+    }
+
+    const pitches = new Set(notes.map((note) => Note.chroma(note.noteName)));
+    if (pitches.size >= 3) {
+      return describeHarmonicEmotion(
+        notes.map((note) => note.noteName),
+        detectedChord.value
+      );
     }
 
     const uniqueEmotions = [
@@ -152,7 +161,7 @@ export function useHarmonicAnalysis(
       return `${uniqueEmotions[0]} & ${uniqueEmotions[1]}`;
     }
 
-    return "Complex harmonic blend";
+    return describeHarmonicEmotion(notes.map((note) => note.noteName), null);
   });
 
   const publishSnapshot = () => {

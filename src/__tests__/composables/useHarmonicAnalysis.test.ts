@@ -130,6 +130,32 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.displayedNotes).toEqual([]);
   });
 
+  it.each([
+    [["C4", "E4", "G4"], "Bright and settled"],
+    [["F#3", "A#3", "C#4"], "Bright and settled"],
+    [["E3", "G3", "C4"], "Bright and settled"],
+    [["C4", "Eb4", "G4"], "Tender and reflective"],
+    [["C4", "E4", "G4", "Bb4"], "Restless, reaching onward"],
+    [["C4", "E4", "G4", "B4"], "Warm and wistful"],
+    [["C4", "Eb4", "G4", "Bb4"], "Mellow and reflective"],
+    [["C4", "E4", "G4", "B4", "D5"], "Warm and wistful, spacious"],
+    [["C4", "Eb4", "G4", "Bb4", "D5"], "Mellow and reflective, spacious"],
+    [["C4", "E4", "G4", "A4"], "Sweet and settled"],
+    [["C4", "D4", "G4"], "Airy and open"],
+    [["C4", "F4", "G4"], "Open, waiting to settle"],
+    [["C4", "Eb4", "Gb4"], "Uneasy and searching"],
+    [["C4", "E4", "G#4"], "Dreamy and unsettled"],
+    [["C4", "C#4", "D4"], "Close friction, restless energy"],
+  ])("describes sounding chord families with the chord label hidden: %s", (names, expected) => {
+    harmonicTestState.blobConfig!.value.showChordLabel = false;
+    const { snapshot, notePlayed } = createAnalysis();
+    (names as string[]).forEach((name, index) =>
+      notePlayed(createActiveNote(`note-${index}`, name, name))
+    );
+    expect(snapshot.value.chordLabel).toBeNull();
+    expect(snapshot.value.emotionalDescription).toBe(expected);
+  });
+
   it("starts a fresh harmonic gesture when the same notes are replayed", () => {
     const { snapshot, notePlayed, noteReleased } = createAnalysis();
     const firstC = createActiveNote("first-c4", "C4", "Do");

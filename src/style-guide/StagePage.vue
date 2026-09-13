@@ -2,7 +2,7 @@
   <main class="stage-page">
     <StageSpecimenCanvas
       ref="stageCanvas"
-      :signal="signal"
+      :signal="effectiveSignal"
       :relationship="relationship"
       :stage-enabled="stageEnabled"
     />
@@ -18,6 +18,15 @@
     </header>
 
     <section class="stage-page__controls" aria-label="Stage specimen controls">
+      <button
+        class="stage-page__start"
+        type="button"
+        :disabled="audioState === 'starting' || audioState === 'started'"
+        @click="startSignal"
+      >
+        {{ startLabel }}
+      </button>
+
       <fieldset>
         <legend>Signal</legend>
         <button
@@ -54,7 +63,7 @@
       </button>
     </section>
 
-    <aside class="stage-page__reading" aria-label="Specimen reading">
+    <aside class="stage-page__reading" aria-label="Specimen reading" aria-live="polite">
       <strong>{{ activeReading.title }}</strong>
       <span>{{ activeReading.copy }}</span>
     </aside>
@@ -89,12 +98,14 @@ import StageSpecimenCanvas from "./stage/StageSpecimenCanvas.vue";
 import type { StageSpecimenSignal } from "./stage/stageSpecimenAudio";
 
 const signal = ref<StageSpecimenSignal>("phrase");
+const audioState = ref<"waiting" | "starting" | "started" | "failed">("waiting");
 const relationship = ref<"off" | "merge" | "web">("web");
 const stageEnabled = ref(true);
 const boundaryReveal = ref(0);
 const boundaryMoving = ref(false);
 const stageCanvas = ref<InstanceType<typeof StageSpecimenCanvas> | null>(null);
 let boundaryTimer = 0;
+let isUnmounting = false;
 
 const signalOptions = [
   { label: "C major phrase", value: "phrase" },
@@ -102,8 +113,35 @@ const signalOptions = [
   { label: "Silence", value: "silence" },
 ] as const;
 const relationshipOptions = ["off", "merge", "web"] as const;
+const effectiveSignal = computed<StageSpecimenSignal>(() => (
+  audioState.value === "started" ? signal.value : "silence"
+));
+const startLabel = computed(() => {
+  if (audioState.value === "starting") return "Starting synthetic signal…";
+  if (audioState.value === "started") return "Synthetic signal ready";
+  if (audioState.value === "failed") return "Try synthetic signal again";
+  return "Start synthetic signal";
+});
 
 const activeReading = computed(() => {
+  if (audioState.value === "waiting") {
+    return {
+      title: "Signal waiting",
+      copy: "Start the silent synthetic source to drive Hilbert and apply the selected controlled notes.",
+    };
+  }
+  if (audioState.value === "starting") {
+    return {
+      title: "Starting signal",
+      copy: "The browser is starting the silent synthetic source.",
+    };
+  }
+  if (audioState.value === "failed") {
+    return {
+      title: "Signal unavailable",
+      copy: "The browser did not start the silent synthetic source. Try again to activate the specimen.",
+    };
+  }
   if (signal.value === "silence") {
     return {
       title: "Ambient idle breath",
@@ -122,8 +160,20 @@ const activeReading = computed(() => {
   };
 });
 
+async function startSignal() {
+  if (audioState.value === "starting" || audioState.value === "started") return;
+  const canvas = stageCanvas.value;
+  if (!canvas) return;
+  audioState.value = "starting";
+  try {
+    await canvas.wakeAudio();
+    if (!isUnmounting) audioState.value = "started";
+  } catch {
+    if (!isUnmounting) audioState.value = "failed";
+  }
+}
+
 function selectSignal(nextSignal: StageSpecimenSignal) {
-  void stageCanvas.value?.wakeAudio();
   signal.value = nextSignal;
 }
 
@@ -140,7 +190,10 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
+onBeforeUnmount(() => {
+  isUnmounting = true;
+  window.clearTimeout(boundaryTimer);
+});
 </script>
 
 <style scoped>
@@ -227,6 +280,15 @@ onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
   color: var(--ivory-2);
   font: var(--t-label);
   cursor: pointer;
+}
+
+.stage-page .stage-page__start {
+  border-color: var(--brass);
+}
+
+.stage-page button:disabled {
+  cursor: default;
+  opacity: .72;
 }
 
 .stage-page button[aria-pressed="true"],
@@ -326,6 +388,7 @@ onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
   .stage-page h1 br { display: none; }
   .stage-page__header > p:last-child { display: none; }
   .stage-page__controls { width: calc(100% - 24px); margin-top: 14px; gap: 8px; }
+  .stage-page__start { width: 100%; }
   .stage-page fieldset { width: 100%; }
   .stage-page fieldset button { flex: 1; padding-inline: 6px; }
   .stage-page__master { width: 100%; }

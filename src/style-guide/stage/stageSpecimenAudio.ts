@@ -68,7 +68,7 @@ export function createStageSpecimenAudio(
         oscillator?.disconnect();
         output?.disconnect();
         silentSink?.disconnect();
-        void context?.close();
+        void context?.close().catch(() => undefined);
         oscillator = null;
         output = null;
         silentSink = null;
@@ -76,7 +76,7 @@ export function createStageSpecimenAudio(
       },
     },
     async resume() {
-      initialize();
+      if (!initialize()) throw new Error("Web Audio is unavailable");
       if (context?.state === "suspended") await context.resume();
     },
   };

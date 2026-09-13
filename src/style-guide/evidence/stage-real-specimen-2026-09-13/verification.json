@@ -39,6 +39,28 @@
       "transitionEasing": "var(--ease-brush)",
       "activeMarkerObservedDuringMotion": true
     },
+    "explicitActivation": {
+      "browserPolicy": "normal autoplay policy; no permissive autoplay flag",
+      "freshProfile": true,
+      "beforeStart": {
+        "audioContextState": "suspended",
+        "reading": "Signal waiting",
+        "longWaveformStrokes": 0
+      },
+      "interaction": {
+        "label": "Start synthetic signal",
+        "trustedClick": true
+      },
+      "afterStart": {
+        "audioContextState": "running",
+        "reading": "C4 · E4 · G4",
+        "longStrokePoints": 1024,
+        "observedRangePx": {
+          "x": 357.59,
+          "y": 459.09
+        }
+      }
+    },
     "reducedMotion": {
       "twoFrameCanvasHashesEqual": true,
       "longWaveformStrokes": 0
@@ -97,6 +119,8 @@
     }
   },
   "screenshots": [
+    "guide-desktop-signal-waiting.png",
+    "guide-desktop-signal-started.png",
     "guide-desktop-phrase.png",
     "guide-desktop-boundary.png",
     "guide-phone-phrase.png",

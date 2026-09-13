@@ -39,6 +39,37 @@ function validateRuntime({ nodeVersion, webSocketType, fetchType }) {
   }
 }
 
+function expectedUIBeatConsumers() {
+  const visible = (element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 &&
+      rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
+  };
+  const contracts = [
+    ["button", ".paper-button:not(:disabled):not(.paper-button--loading)", ".paper-button__face"],
+    ["knob", ".knob-wrapper:not(.opacity-50)", ".knob-wrapper__face"],
+    ["joystick", ".joystick", ".joystick__beat-face"],
+    ["sticker", '.instrument-choice[data-state="selected"]', ".instrument-choice__sticker"],
+  ];
+  const entries = contracts.flatMap(([type, ownerSelector, targetSelector]) =>
+    Array.from(document.querySelectorAll(ownerSelector))
+      .filter(visible)
+      .map((owner) => ({ type, target: owner.querySelector(targetSelector) }))
+  );
+  const targets = entries.flatMap(({ target }) => target && visible(target) ? [target] : []);
+  const expectedByType = Object.fromEntries(entries.reduce((counts, { type }) => {
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+    return counts;
+  }, new Map()));
+  return {
+    targets,
+    expectedCount: entries.length,
+    expectedByType,
+    missingTargetCount: entries.length - targets.length,
+  };
+}
+
 function parseArgs(argv) {
   const result = {
     cdp: "http://127.0.0.1:9222",
@@ -103,6 +134,9 @@ async function selfTest() {
   const healthyCounts = { button: 2, knob: 1, joystick: 1 };
   const healthyScene = {
     transportPlaying: true,
+    expectedAcceptedConsumers: 4,
+    expectedByType: healthyCounts,
+    missingExpectedTargets: 0,
     visibleBoundConsumers: 4,
     visibleBoundByType: healthyCounts,
     visibleRunningConsumers: 4,
@@ -122,8 +156,8 @@ async function selfTest() {
       targets: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 20, distinctScaleValues: 10, maxIdleGapMs: 100 })),
     },
     trackedConsumers: {
-      initial: { targetCount: 4, allConnected: true, allVisible: true, allBound: true, allRunning: true },
-      final: { targetCount: 4, allConnected: true, allVisible: true, allBound: true, allRunning: true },
+      initial: { targetCount: 4, expectedCount: 4, missingTargetCount: 0, matchesExpectedSet: true, allConnected: true, allVisible: true, allBound: true, allRunning: true },
+      final: { targetCount: 4, expectedCount: 4, missingTargetCount: 0, matchesExpectedSet: true, allConnected: true, allVisible: true, allBound: true, allRunning: true },
       validThroughout: true,
     },
   };
@@ -140,6 +174,8 @@ async function selfTest() {
   }
   const changedInventory = {
     ...healthyScene,
+    expectedAcceptedConsumers: 3,
+    expectedByType: { button: 1, knob: 1, joystick: 1 },
     visibleBoundConsumers: 3,
     visibleBoundByType: { button: 1, knob: 1, joystick: 1 },
     visibleRunningConsumers: 3,
@@ -151,6 +187,28 @@ async function selfTest() {
   }
   if (consumerInventoriesMatch([healthyScene, changedInventory])) {
     throw new Error("Changed cross-sample consumer inventory was accepted");
+  }
+  const missingFamily = {
+    ...healthyScene,
+    visibleBoundConsumers: 2,
+    visibleBoundByType: { button: 2 },
+    visibleRunningConsumers: 2,
+    visibleRunningByType: { button: 2 },
+    runningAcceptedConsumers: 2,
+  };
+  if (sampleIsValid("uiBeat-on-first", healthyFrame, missingFamily, missingFamily)) {
+    throw new Error("Expected Knob and Joystick families missing from bindings were accepted");
+  }
+  const oneExpectedUnbound = {
+    ...healthyScene,
+    visibleBoundConsumers: 3,
+    visibleBoundByType: { button: 1, knob: 1, joystick: 1 },
+    visibleRunningConsumers: 3,
+    visibleRunningByType: { button: 1, knob: 1, joystick: 1 },
+    runningAcceptedConsumers: 3,
+  };
+  if (sampleIsValid("uiBeat-on-first", healthyFrame, oneExpectedUnbound, oneExpectedUnbound)) {
+    throw new Error("One expected unbound consumer was accepted");
   }
   const frozenFrame = {
     ...healthyFrame,
@@ -204,6 +262,9 @@ async function selfTest() {
   }
   const offScene = {
     transportPlaying: true,
+    expectedAcceptedConsumers: 4,
+    expectedByType: healthyCounts,
+    missingExpectedTargets: 0,
     visibleBoundConsumers: 0,
     visibleBoundByType: {},
     visibleRunningConsumers: 0,
@@ -213,6 +274,9 @@ async function selfTest() {
   };
   const stillTracking = {
     targetCount: 4,
+    expectedCount: 4,
+    missingTargetCount: 0,
+    matchesExpectedSet: true,
     allConnected: true,
     allVisible: true,
     allBound: false,
@@ -293,9 +357,21 @@ async function selfTest() {
     await collectPostRunObservation(validMetadata, false, async () => "after capture");
   } catch { promptedBeforeCompletion = true; }
   if (!promptedBeforeCompletion) throw new Error("Post-run observation was accepted before capture completion");
-  const finalizedObservation = await collectPostRunObservation(validMetadata, true, async () => "No interruption; device remained cool");
-  if (finalizedObservation?.text !== "No interruption; device remained cool") {
+  const successfulAnswers = ["yes", "no", "no", "yes", "No interruption or stutter; device remained cool"];
+  const finalizedObservation = await collectPostRunObservation(validMetadata, true, async () => successfulAnswers.shift());
+  if (!operatorObservationIsAcceptable(finalizedObservation) ||
+      finalizedObservation?.narrative !== "No interruption or stutter; device remained cool") {
     throw new Error("Post-run observation finalization self-test failed");
+  }
+  const adverseAnswers = ["yes", "no", "yes", "yes", "Visible stutter occurred"];
+  const adverseObservation = await collectPostRunObservation(validMetadata, true, async () => adverseAnswers.shift());
+  if (operatorObservationIsAcceptable(adverseObservation)) {
+    throw new Error("Adverse post-run operator observation was accepted");
+  }
+  const unknownAnswers = ["unknown", "no", "no", "yes", "Visibility could not be confirmed"];
+  const unknownObservation = await collectPostRunObservation(validMetadata, true, async () => unknownAnswers.shift());
+  if (operatorObservationIsAcceptable(unknownObservation)) {
+    throw new Error("Unknown post-run operator verdict was accepted");
   }
   const stageOpenPlan = configPreparationActions({ panelExpanded: true, globalSelected: false });
   if (stageOpenPlan.join(",") !== "select-global") {
@@ -379,8 +455,20 @@ async function selfTest() {
   }
   const nativeEnvironment = { userAgent: "Chrome", webgl: { renderer: "NVIDIA RTX 3060", vendor: "NVIDIA" } };
   const stableRenderer = rendererAssessment(nativeEnvironment, { ...nativeEnvironment, webgl: { ...nativeEnvironment.webgl } }, []);
-  if (stableRenderer.knownNonNativeRenderer || !stableRenderer.rendererStable) {
+  if (stableRenderer.knownNonNativeRenderer || !stableRenderer.rendererStable || !stableRenderer.rendererIdentityUsable) {
     throw new Error("Stable hardware renderer was rejected");
+  }
+  for (const missingWebgl of [
+    { renderer: null, vendor: null },
+    { renderer: "   ", vendor: "NVIDIA" },
+    { renderer: "NVIDIA RTX 3060", vendor: " " },
+  ]) {
+    const missingIdentity = rendererAssessment(
+      { userAgent: "Chrome", webgl: missingWebgl },
+      { userAgent: "Chrome", webgl: missingWebgl },
+      [],
+    );
+    if (missingIdentity.rendererIdentityUsable) throw new Error("Missing or blank renderer identity was accepted");
   }
   const softwareFallback = rendererAssessment(
     nativeEnvironment,
@@ -419,8 +507,8 @@ function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
 
 function consumerInventoriesMatch(scenes) {
   const inventories = scenes.map((scene) => JSON.stringify({
-    total: scene.visibleBoundConsumers,
-    byType: Object.fromEntries(Object.entries(scene.visibleBoundByType).sort(([left], [right]) => left.localeCompare(right))),
+    total: scene.expectedAcceptedConsumers,
+    byType: Object.fromEntries(Object.entries(scene.expectedByType).sort(([left], [right]) => left.localeCompare(right))),
   }));
   return inventories.length > 0 && inventories.every((value) => value === inventories[0]);
 }
@@ -431,6 +519,7 @@ function uiBeatCadenceIsActive(frameCallbacks, scene) {
   return cadence?.targetCount === scene.visibleBoundConsumers && cadence.targetCount > 0 &&
     tracking?.initial.targetCount === cadence.targetCount && tracking.final.targetCount === cadence.targetCount &&
     tracking.validThroughout &&
+    tracking.initial.matchesExpectedSet && tracking.final.matchesExpectedSet &&
     tracking.initial.allConnected && tracking.final.allConnected &&
     tracking.initial.allVisible && tracking.final.allVisible &&
     tracking.initial.allBound && tracking.final.allBound &&
@@ -448,6 +537,7 @@ function offTrackedConsumersAreStill(frameCallbacks) {
   return cadence?.targetCount > 0 && tracking?.initial.targetCount === cadence.targetCount &&
     tracking.final.targetCount === cadence.targetCount &&
     tracking.validThroughout &&
+    tracking.initial.matchesExpectedSet && tracking.final.matchesExpectedSet &&
     tracking.initial.allConnected && tracking.final.allConnected &&
     tracking.initial.allVisible && tracking.final.allVisible &&
     tracking.initial.noneBound && tracking.final.noneBound &&
@@ -482,21 +572,29 @@ function rendererAssessment(initialEnvironment, finalEnvironment, traceNames) {
     renderer: environment.webgl?.renderer ?? null,
     vendor: environment.webgl?.vendor ?? null,
   });
+  const identityIsUsable = (environment) =>
+    typeof environment.webgl?.renderer === "string" && environment.webgl.renderer.trim().length > 0 &&
+    typeof environment.webgl?.vendor === "string" && environment.webgl.vendor.trim().length > 0;
   return {
     knownNonNativeRenderer: isKnownNonNativeRenderer(values, traceNames),
     rendererStable: rendererIdentity(initialEnvironment) === rendererIdentity(finalEnvironment),
+    rendererIdentityUsable: identityIsUsable(initialEnvironment) && identityIsUsable(finalEnvironment),
   };
 }
 
 function sceneHasCompleteVisibleBeat(scene) {
   const acceptedTypes = new Set(["button", "knob", "joystick", "sticker"]);
   const types = new Set([
+    ...Object.keys(scene.expectedByType),
     ...Object.keys(scene.visibleBoundByType),
     ...Object.keys(scene.visibleRunningByType),
   ]);
-  return scene.visibleBoundConsumers > 0 &&
+  return scene.expectedAcceptedConsumers > 0 &&
+    scene.missingExpectedTargets === 0 &&
+    scene.visibleBoundConsumers === scene.expectedAcceptedConsumers &&
     scene.visibleRunningConsumers === scene.visibleBoundConsumers &&
     [...types].every((type) => acceptedTypes.has(type) &&
+      (scene.expectedByType[type] ?? 0) === (scene.visibleBoundByType[type] ?? 0) &&
       (scene.visibleBoundByType[type] ?? 0) === (scene.visibleRunningByType[type] ?? 0));
 }
 
@@ -510,11 +608,32 @@ function configPreparationActions({ panelExpanded, globalSelected }) {
 async function collectPostRunObservation(metadata, captureComplete, prompt) {
   if (metadata.evidenceClass !== "physical-native-visible") return null;
   if (!captureComplete) throw new Error("Physical operator observation must be collected after capture completion");
-  const text = String(await prompt(
-    "Post-run physical-device observation (visible interruptions/stutter and final thermal state): ",
-  )).trim();
-  if (!text) throw new Error("Physical capture requires a non-empty post-run operator observation");
-  return { recordedAt: new Date().toISOString(), text };
+  const verdict = async (question) => {
+    const answer = String(await prompt(`${question} [yes/no]: `)).trim().toLowerCase();
+    return answer === "yes" ? true : answer === "no" ? false : null;
+  };
+  const visibleAndUnobscured = await verdict("Was the native browser window visible and unobscured for the entire measured run?");
+  const interruptionObserved = await verdict("Did any physical-display interruption occur during the measured run?");
+  const stutterObserved = await verdict("Did you observe visible stutter during the measured run?");
+  const thermalAcceptable = await verdict("Did the final thermal state remain acceptable without overheating or throttling?");
+  const narrative = String(await prompt("Post-run observation narrative and final thermal state: ")).trim();
+  if (!narrative) throw new Error("Physical capture requires a non-empty post-run operator narrative");
+  return {
+    recordedAt: new Date().toISOString(),
+    visibleAndUnobscured,
+    interruptionObserved,
+    stutterObserved,
+    thermalAcceptable,
+    narrative,
+  };
+}
+
+function operatorObservationIsAcceptable(observation) {
+  return observation?.visibleAndUnobscured === true &&
+    observation.interruptionObserved === false &&
+    observation.stutterObserved === false &&
+    observation.thermalAcceptable === true &&
+    typeof observation.narrative === "string" && observation.narrative.trim().length > 0;
 }
 
 function drainPerformanceObservers(bindings) {
@@ -808,6 +927,7 @@ async function sample(cdp, label, duration, traceDuration) {
   const before = await getMetrics(cdp);
   const frameCallbacks = await evaluate(cdp, `(async () => {
     ${drainPerformanceObservers.toString()}
+    ${expectedUIBeatConsumers.toString()}
     const duration = ${duration};
     const timestamps = [];
     const longAnimationFrames = [];
@@ -823,22 +943,32 @@ async function sample(cdp, label, duration, traceDuration) {
         rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
     };
     const monitor = window.__uiBeatCapacityMonitor;
-    const currentlyBoundTargets = Array.from(document.querySelectorAll("[data-ui-beat-scale]")).filter(isVisibleCadenceTarget);
+    const initialExpected = expectedUIBeatConsumers();
+    const currentlyExpectedTargets = initialExpected.targets;
     if (expectedOn && monitor && monitor.trackedConsumers.length === 0) {
-      monitor.trackedConsumers.push(...currentlyBoundTargets);
+      monitor.trackedConsumers.push(...currentlyExpectedTargets);
     }
     const cadenceTargets = monitor?.trackedConsumers ?? [];
-    const trackedState = () => ({
-      targetCount: cadenceTargets.length,
-      allConnected: cadenceTargets.every((target) => target.isConnected),
-      allVisible: cadenceTargets.every(isVisibleCadenceTarget),
-      allBound: cadenceTargets.every((target) => target.hasAttribute("data-ui-beat-scale")),
-      allRunning: cadenceTargets.every((target) => target.getAttribute("data-ui-beat-state") === "running"),
-      noneBound: cadenceTargets.every((target) => !target.hasAttribute("data-ui-beat-scale")),
-      noneRunning: cadenceTargets.every((target) => target.getAttribute("data-ui-beat-state") !== "running"),
-    });
+    const trackedState = () => {
+      const expected = expectedUIBeatConsumers();
+      const retained = new Set(cadenceTargets);
+      return {
+        targetCount: cadenceTargets.length,
+        expectedCount: expected.expectedCount,
+        missingTargetCount: expected.missingTargetCount,
+        matchesExpectedSet: expected.missingTargetCount === 0 && expected.targets.length === cadenceTargets.length &&
+          expected.targets.every((target) => retained.has(target)),
+        allConnected: cadenceTargets.every((target) => target.isConnected),
+        allVisible: cadenceTargets.every(isVisibleCadenceTarget),
+        allBound: cadenceTargets.every((target) => target.hasAttribute("data-ui-beat-scale")),
+        allRunning: cadenceTargets.every((target) => target.getAttribute("data-ui-beat-state") === "running"),
+        noneBound: cadenceTargets.every((target) => !target.hasAttribute("data-ui-beat-scale")),
+        noneRunning: cadenceTargets.every((target) => target.getAttribute("data-ui-beat-state") !== "running"),
+      };
+    };
     const trackedAtStart = trackedState();
-    const trackedStateMatchesMode = (state) => state.targetCount > 0 && state.allConnected && state.allVisible &&
+    const trackedStateMatchesMode = (state) => state.targetCount > 0 && state.matchesExpectedSet &&
+      state.allConnected && state.allVisible &&
       (expectedOn ? state.allBound && state.allRunning : state.noneBound && state.noneRunning);
     let trackedConsumersValidThroughout = trackedStateMatchesMode(trackedAtStart);
     const cadence = cadenceTargets.map((target, index) => {
@@ -970,6 +1100,7 @@ async function sample(cdp, label, duration, traceDuration) {
 
 async function sceneState(cdp) {
   return evaluate(cdp, `(() => {
+    ${expectedUIBeatConsumers.toString()}
     const running = Array.from(document.querySelectorAll('[data-ui-beat-state="running"]'));
     const bound = Array.from(document.querySelectorAll('[data-ui-beat-scale]'));
     const classify = (element) => {
@@ -991,6 +1122,7 @@ async function sceneState(cdp) {
         rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
     };
     const runningConsumers = running.filter((element) => !element.classList.contains("beat-indicator"));
+    const expected = expectedUIBeatConsumers();
     const visible = bound.filter(isVisible);
     const visibleRunning = runningConsumers.filter(isVisible);
     const normalizeText = (value) => value?.replace(/\\s+/g, " ").trim() ?? "";
@@ -1013,6 +1145,9 @@ async function sceneState(cdp) {
     };
     return {
       transportPlaying: Boolean(document.querySelector('button[aria-label="Stop"]')),
+      expectedAcceptedConsumers: expected.expectedCount,
+      expectedByType: expected.expectedByType,
+      missingExpectedTargets: expected.missingTargetCount,
       boundAcceptedConsumers: bound.length,
       boundByType: countByType(bound),
       visibleBoundConsumers: visible.length,
@@ -1203,7 +1338,7 @@ async function main() {
         terminal.close();
       }
     }
-    const { knownNonNativeRenderer, rendererStable } = rendererAssessment(
+    const { knownNonNativeRenderer, rendererStable, rendererIdentityUsable } = rendererAssessment(
       initialEnvironment,
       finalEnvironment,
       samples.flatMap((sampleResult) => Object.keys(sampleResult.trace.byName)),
@@ -1215,9 +1350,11 @@ async function main() {
     const consumerInventoryStable = consumerInventoriesMatch(onScenes);
     const allSamplesValid = samples.every((sampleResult) => sampleResult.valid) &&
       sceneFingerprintStable && consumerInventoryStable;
+    const operatorObservationAcceptable = operatorObservationIsAcceptable(postRunOperatorObservation);
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
-      Boolean(postRunOperatorObservation?.text) &&
-      !knownNonNativeRenderer && rendererStable && allSamplesValid && captureInterruptions.length === 0 &&
+      operatorObservationAcceptable &&
+      !knownNonNativeRenderer && rendererStable && rendererIdentityUsable &&
+      allSamplesValid && captureInterruptions.length === 0 &&
       initialEnvironment.visibilityState === "visible" && initialEnvironment.hasFocus &&
       finalEnvironment.visibilityState === "visible" && finalEnvironment.hasFocus;
     const report = {
@@ -1234,6 +1371,8 @@ async function main() {
       automatedEligibility: {
         knownNonNativeRenderer,
         rendererStable,
+        rendererIdentityUsable,
+        operatorObservationAcceptable,
         allSamplesValid,
         sceneFingerprintStable,
         consumerInventoryStable,

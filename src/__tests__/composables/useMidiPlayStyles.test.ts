@@ -179,11 +179,13 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     await vi.advanceTimersByTimeAsync(499);
     expect(notes()).toEqual([
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64], [0x90, 67], [0x80, 67],
+      [0x90, 60], [0x80, 60],
     ]);
     expect(scheduledNotes().map(({ timestamp }) => timestamp))
-      .toEqual([50, 250, 300, 500, 550, 750]);
+      .toEqual([50, 250, 300, 500, 550, 750, 800, 1000]);
     [60, 64, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
+    // The fourth pulse was queued ahead but physical release cancels it.
     expect(notes()).toHaveLength(6);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);

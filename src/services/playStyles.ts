@@ -64,6 +64,10 @@ interface PlayingVoice {
 
 const TICK_MS = 20
 const LOOKAHEAD_MS = 50
+// Queue rhythmic audio far enough ahead to survive rendering delays between
+// timer callbacks. This does not delay the first attack, and owner release
+// still cancels queued voices before they sound.
+const RHYTHMIC_LOOKAHEAD_MS = 150
 const CHORD_WINDOW_MS = 30
 const STRUM_MS = 35
 const GATE = 0.8
@@ -158,7 +162,7 @@ export function createPlayStyleEngine<T>(deps: {
         nextAt += missed * interval
         stepIndex += missed
       }
-      while (notes.length && nextAt <= horizon) {
+      while (notes.length && nextAt <= now + RHYTHMIC_LOOKAHEAD_MS) {
         if (config.style === 'repeat') {
           for (const { note, owners } of notes) start(note, owners, nextAt, interval * GATE)
         } else {

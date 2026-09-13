@@ -94,6 +94,37 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(music.playMode).toBe("strum-down");
   });
 
+  it.each(["repeat", "arp-up", "arp-up-down"])(
+    "schedules and records every %s sixteenth despite delayed callbacks", async (style) => {
+      const music = useMusicStore();
+      const patterns = connectRecorder();
+      music.setPlayMode(`${style}:16`);
+      const owners = await Promise.all(["C4", "E4", "G4"].map((pitch) => music.attackExactPitch(pitch)));
+      await vi.advanceTimersByTimeAsync(30);
+      for (let i = 0; i < 16; i++) {
+        vi.setSystemTime(Date.now() + 40);
+        await vi.advanceTimersByTimeAsync(20);
+      }
+      await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
+      await vi.advanceTimersByTimeAsync(1000);
+
+      const cycle = style === "arp-up-down" ? ["C4", "E4", "G4", "E4"] : ["C4", "E4", "G4"];
+      const expected = Array.from({ length: 8 }, (_, i) => {
+        const at = 50 + i * 125;
+        const pitches = style === "repeat" ? ["C4", "E4", "G4"] : [cycle[i % cycle.length]];
+        return pitches.map((pitch) => [pitch, at, Math.min(100, 990 - at)]);
+      }).flat();
+      expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration]))
+        .toEqual(expected);
+      expect(vi.mocked(audio.attackNote).mock.calls
+        .filter((call) => call[3]!.atTime! * 1000 <= 990)
+        .map((call) => [call[1], Math.round(call[3]!.atTime! * 1000)]))
+        .toEqual(expected.map(([pitch, at]) => [pitch, at]));
+      expect(music.activeNotes.size).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+
   it("records staggered overlapping strum notes and stops on physical release", async () => {
     const music = useMusicStore();
     const patterns = connectRecorder();

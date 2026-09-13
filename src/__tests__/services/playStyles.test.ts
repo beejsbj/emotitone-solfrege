@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPlayStyleEngine, type PlayStyle } from '@/services/playStyles'
+import { createPlayStyleEngine, PLAY_STYLE_SCHEDULING_LEAD_MS, type PlayStyle } from '@/services/playStyles'
 
 function setup(style: PlayStyle = 'together', schedulingLeadMs = 0) {
   let clockOffset = 0
-  const calls: { pitch: number; at: number; style: PlayStyle; release: ReturnType<typeof vi.fn> }[] = []
+  const calls: { pitch: number; at: number; scheduledAt: number; style: PlayStyle; release: ReturnType<typeof vi.fn> }[] = []
   const engine = createPlayStyleEngine<number>({
     now: () => Date.now() + clockOffset,
     schedulingLeadMs,
     start: (pitch, at, style) => {
       const release = vi.fn()
-      calls.push({ pitch, at, style, release })
+      calls.push({ pitch, at, scheduledAt: Date.now() + clockOffset, style, release })
       return { release }
     },
   })
@@ -139,6 +139,37 @@ describe('live play styles', () => {
     expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 30], [60, 280], [64, 280]])
     engine.clear()
   })
+
+  it.each((['repeat', 'arp-up', 'arp-up-down'] as const).flatMap(style =>
+    [60, 100].map(callbackMs => ({ style, callbackMs })),
+  ))(
+    'plays every sixteenth in $style when timer delivery takes $callbackMs ms', ({ style, callbackMs }) => {
+      const { engine, calls, jumpClock } = setup(style, PLAY_STYLE_SCHEDULING_LEAD_MS)
+      engine.configure({ bpm: 120, rate: 16 })
+      engine.press('chord', notes(60, 64, 67))
+      vi.advanceTimersByTime(30)
+      // Deliver each 20 ms tick late, as when rendering occupies the
+      // main thread. The audio clock continues advancing during that work.
+      for (let i = 0; i < 16; i++) {
+        jumpClock(callbackMs - 20)
+        vi.advanceTimersByTime(20)
+      }
+      const endAt = 30 + 16 * callbackMs
+      const sounded = calls.filter(call => call.at <= endAt)
+      const pulseCount = Math.floor((endAt - 50) / 125) + 1
+      const expectedTimes = Array.from({ length: pulseCount }, (_, i) => 50 + i * 125)
+      expect([...new Set(sounded.map(call => call.at))]).toEqual(expectedTimes)
+      const cycle = style === 'arp-up-down' ? [60, 64, 67, 64] : [60, 64, 67]
+      expect(sounded.map(call => call.pitch)).toEqual(style === 'repeat'
+        ? expectedTimes.flatMap(() => [60, 64, 67])
+        : expectedTimes.map((_, i) => cycle[i % cycle.length]))
+      for (const call of calls) {
+        expect(call.at - call.scheduledAt).toBeGreaterThanOrEqual(PLAY_STYLE_SCHEDULING_LEAD_MS)
+      }
+      engine.clear()
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
 
   it('preserves held inputs while rebuilding voices after style and tempo changes', () => {
     const { engine, calls } = setup()

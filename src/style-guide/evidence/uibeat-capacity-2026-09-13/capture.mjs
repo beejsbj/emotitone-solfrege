@@ -2180,7 +2180,8 @@ async function main() {
             finally { delete window.__uiBeatRuntimeGuard; }
           })()`);
           if (!runtimeGuardSession.valid) {
-            runtimeGuardError = new Error(`Runtime guard invalid: ${runtimeGuardSession.issues.join(", ")}`);
+            const details = (runtimeGuardSession.errors ?? []).map(({ phase, message }) => `${phase}: ${message}`);
+            runtimeGuardError = new Error(`Runtime guard invalid: ${[...runtimeGuardSession.issues, ...details].join("; ")}`);
           }
         } catch (error) {
           runtimeGuardError = error;

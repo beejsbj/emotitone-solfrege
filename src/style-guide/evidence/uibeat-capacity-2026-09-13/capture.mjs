@@ -166,6 +166,7 @@ async function selfTest() {
     interruptions: [],
     visibilityState: "visible",
     hasFocus: true,
+    identityViolations: [],
     coverage: { requestedDurationMs: 4_000, observedDurationMs: 4_001, intervalCount: 241, includesInitialDelay: true },
     uiBeatCadence: {
       targetCount: 4,
@@ -293,6 +294,26 @@ async function selfTest() {
   };
   if (sampleIsValid("uiBeat-on-first", missingIndicatorChildFrame, healthyScene, healthyScene)) {
     throw new Error("BeatIndicator with a missing child was accepted");
+  }
+  for (const identityViolation of [
+    { type: "attributes", attributeName: "data-ui-beat-state" },
+    { type: "childList", attributeName: null },
+  ]) {
+    if (sampleIsValid("uiBeat-on-first", { ...healthyFrame, identityViolations: [identityViolation] }, healthyScene, healthyScene)) {
+      throw new Error(`Trace-only UIBeat recovery was accepted: ${identityViolation.type}`);
+    }
+  }
+  const traceFreezeRecoveryFrame = {
+    ...healthyFrame,
+    uiBeatCadence: {
+      ...healthyFrame.uiBeatCadence,
+      targets: healthyFrame.uiBeatCadence.targets.map((target, index) =>
+        index === 0 ? { ...target, maxIdleGapMs: 2_500 } : target
+      ),
+    },
+  };
+  if (sampleIsValid("uiBeat-on-first", traceFreezeRecoveryFrame, healthyScene, healthyScene)) {
+    throw new Error("Trace-only UIBeat freeze and recovery was accepted");
   }
   const earlyFreezeFrame = {
     ...healthyFrame,
@@ -580,6 +601,15 @@ async function selfTest() {
   let restorationOnlyFailure;
   try { throwCaptureOrRestorationError(null, restorationFailure); } catch (error) { restorationOnlyFailure = error; }
   if (restorationOnlyFailure !== restorationFailure) throw new Error("Restoration-only failure was swallowed");
+  const traceFailure = new Error("trace failed");
+  const windowCleanupFailure = new Error("window cleanup failed");
+  let combinedTraceFailure;
+  try { throwTraceOrWindowFinalizationError(traceFailure, windowCleanupFailure); } catch (error) { combinedTraceFailure = error; }
+  if (!(combinedTraceFailure instanceof AggregateError) ||
+      combinedTraceFailure.errors[0] !== traceFailure || combinedTraceFailure.errors[1] !== windowCleanupFailure ||
+      combinedTraceFailure.cause !== traceFailure) {
+    throw new Error("Trace and UIBeat window cleanup failures were not both preserved");
+  }
   const uniqueTarget = { type: "page", title: "EmotiTone", url: "https://example.test/current", webSocketDebuggerUrl: "ws://one" };
   if (selectUniqueTarget([uniqueTarget], "current", "http://cdp") !== uniqueTarget) {
     throw new Error("Unique CDP target was not selected");
@@ -664,6 +694,7 @@ async function selfTest() {
 function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
   const expectedOn = label.startsWith("uiBeat-on");
   return !frameCallbacks.timedOut && frameCallbacks.interruptions.length === 0 &&
+    Array.isArray(frameCallbacks.identityViolations) && frameCallbacks.identityViolations.length === 0 &&
     frameCallbacks.visibilityState === "visible" && frameCallbacks.hasFocus &&
     frameCallbacks.coverage.includesInitialDelay && frameCallbacks.coverage.intervalCount >= 2 &&
     frameCallbacks.coverage.observedDurationMs >= frameCallbacks.coverage.requestedDurationMs &&
@@ -904,6 +935,18 @@ function throwCaptureOrRestorationError(captureError, restorationError, runtimeG
   if (errors.length === 1) throw errors[0];
 }
 
+function throwTraceOrWindowFinalizationError(traceError, finalizationError) {
+  if (traceError && finalizationError) {
+    throw new AggregateError(
+      [traceError, finalizationError],
+      "Trace and UIBeat window finalization both failed",
+      { cause: traceError },
+    );
+  }
+  if (traceError) throw traceError;
+  if (finalizationError) throw finalizationError;
+}
+
 function selectUniqueTarget(targets, query, endpoint) {
   const pageTargets = targets.filter((candidate) => candidate.type === "page");
   if (pageTargets.length !== 1) {
@@ -1138,10 +1181,15 @@ async function startCaptureMonitor(cdp) {
       trackedIndicatorRoots: [],
       trackedIndicatorChildren: [],
       dispose: () => {
+        let windowMonitorError = null;
+        try { window.__uiBeatWindowMonitor?.dispose?.(); }
+        catch (error) { windowMonitorError = error; }
+        delete window.__uiBeatWindowMonitor;
         listeners.forEach(([target, type, listener]) => target.removeEventListener(type, listener));
         window.__uiBeatCapacityMonitor.trackedConsumers.length = 0;
         window.__uiBeatCapacityMonitor.trackedIndicatorRoots.length = 0;
         window.__uiBeatCapacityMonitor.trackedIndicatorChildren.length = 0;
+        if (windowMonitorError) throw windowMonitorError;
       },
     };
   })()`);
@@ -1231,6 +1279,7 @@ async function sample(cdp, label, duration, traceDuration) {
   const initialScene = await sceneState(cdp);
   const before = await getMetrics(cdp);
   const frameCallbacks = await evaluate(cdp, `(async () => {
+    if (window.__uiBeatWindowMonitor) throw new Error("UIBeat window monitor already exists");
     ${drainPerformanceObservers.toString()}
     ${expectedUIBeatConsumers.toString()}
     const duration = ${duration};
@@ -1361,6 +1410,44 @@ async function sample(cdp, label, duration, traceDuration) {
     };
     const indicatorObserver = new MutationObserver(recordIndicatorCadence);
     indicatorChildren.forEach((target) => indicatorObserver.observe(target, { attributes: true, attributeFilter: ["style"] }));
+    const retainedStateValues = new Map([
+      ...cadenceTargets.map((target) => [target, {
+        "data-ui-beat-scale": target.getAttribute("data-ui-beat-scale"),
+        "data-ui-beat-state": target.getAttribute("data-ui-beat-state"),
+      }]),
+      ...indicatorRoots.map((target) => [target, {
+        "data-ui-beat-scale": target.getAttribute("data-ui-beat-scale"),
+        "data-ui-beat-state": target.getAttribute("data-ui-beat-state"),
+      }]),
+    ]);
+    const retainedNodes = new Set([...cadenceTargets, ...indicatorRoots, ...indicatorChildren]);
+    const identityViolations = [];
+    const containsRetainedNode = (node) => retainedNodes.has(node) ||
+      (node?.nodeType === 1 && [...retainedNodes].some((retained) => node.contains(retained)));
+    const recordIdentity = (records) => {
+      for (const record of records) {
+        let invalid = false;
+        if (record.type === "childList") {
+          invalid = [...record.removedNodes, ...record.addedNodes].some(containsRetainedNode);
+        } else if (record.type === "attributes" && retainedStateValues.has(record.target)) {
+          const expectedValue = retainedStateValues.get(record.target)[record.attributeName];
+          invalid = record.oldValue !== expectedValue || record.target.getAttribute(record.attributeName) !== expectedValue;
+        }
+        if (invalid) identityViolations.push({
+          at: performance.now(),
+          type: record.type,
+          attributeName: record.attributeName ?? null,
+        });
+      }
+    };
+    const identityObserver = new MutationObserver(recordIdentity);
+    identityObserver.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["data-ui-beat-scale", "data-ui-beat-state"],
+    });
     const observe = (type, sink) => {
       try {
         const observer = new PerformanceObserver((list) => sink.push(...list.getEntries().map((entry) => entry.toJSON())));
@@ -1405,14 +1492,10 @@ async function sample(cdp, label, duration, traceDuration) {
     window.removeEventListener("blur", recordBlur);
     window.removeEventListener("focus", recordFocus);
     drainPerformanceObservers(observers);
-    recordCadence(cadenceObserver.takeRecords());
-    cadenceObserver.disconnect();
-    recordIndicatorCadence(indicatorObserver.takeRecords());
-    indicatorObserver.disconnect();
     const intervals = callbackTimes.map((callbackAt, index) =>
       index === 0 ? callbackAt - startedAt : callbackAt - callbackTimes[index - 1]
     );
-    return {
+    const primaryResult = {
       startedAt,
       endedAt,
       timestamps,
@@ -1428,11 +1511,45 @@ async function sample(cdp, label, duration, traceDuration) {
       longTasks,
       interruptions,
       timedOut,
-      uiBeatCadence: {
+      visibilityState: document.visibilityState,
+      hasFocus: document.hasFocus(),
+      uiBeat: {
+        bound: document.querySelectorAll("[data-ui-beat-scale]").length,
+        running: document.querySelectorAll('[data-ui-beat-state="running"]').length,
+        idle: document.querySelectorAll('[data-ui-beat-state="idle"]').length,
+        indicatorRunning: document.querySelectorAll('.beat-indicator[data-ui-beat-state="running"]').length,
+      },
+    };
+    let validationActive = true;
+    let validationFrameId;
+    const validationTick = () => {
+      if (!validationActive) return;
+      trackedConsumersValidThroughout &&= trackedStateMatchesMode(trackedState());
+      indicatorValidThroughout &&= indicatorStateMatchesMode(indicatorState());
+      validationFrameId = requestAnimationFrame(validationTick);
+    };
+    validationFrameId = requestAnimationFrame(validationTick);
+    const finalizeWindow = () => {
+      if (!validationActive) throw new Error("UIBeat window monitor already finalized");
+      validationActive = false;
+      if (validationFrameId !== undefined) cancelAnimationFrame(validationFrameId);
+      const fullEndedAt = performance.now();
+      recordCadence(cadenceObserver.takeRecords());
+      cadenceObserver.disconnect();
+      recordIndicatorCadence(indicatorObserver.takeRecords());
+      indicatorObserver.disconnect();
+      recordIdentity(identityObserver.takeRecords());
+      identityObserver.disconnect();
+      trackedConsumersValidThroughout &&= trackedStateMatchesMode(trackedState()) && identityViolations.length === 0;
+      indicatorValidThroughout &&= indicatorStateMatchesMode(indicatorState()) && identityViolations.length === 0;
+      const proof = {
+        uiBeatWindowCoverage: { startedAt, primaryEndedAt: endedAt, endedAt: fullEndedAt },
+        identityViolations,
+        uiBeatCadence: {
         targetCount: cadenceTargets.length,
         targets: cadence.map(({ index, mutationCount, scaleValues, changeTimes, lastScale }) => {
-          const boundedChangeTimes = changeTimes.map((time) => Math.min(time, endedAt));
-          const boundaries = [startedAt, ...boundedChangeTimes, endedAt];
+          const boundedChangeTimes = changeTimes.map((time) => Math.min(time, fullEndedAt));
+          const boundaries = [startedAt, ...boundedChangeTimes, fullEndedAt];
           const maxIdleGapMs = Math.max(...boundaries.slice(1).map((time, boundaryIndex) => time - boundaries[boundaryIndex]));
           return {
             index,
@@ -1443,19 +1560,19 @@ async function sample(cdp, label, duration, traceDuration) {
             finalScale: lastScale,
           };
         }),
-      },
-      trackedConsumers: { initial: trackedAtStart, final: trackedState(), validThroughout: trackedConsumersValidThroughout },
-      beatIndicator: {
+        },
+        trackedConsumers: { initial: trackedAtStart, final: trackedState(), validThroughout: trackedConsumersValidThroughout },
+        beatIndicator: {
         tracking: { initial: indicatorAtStart, final: indicatorState(), validThroughout: indicatorValidThroughout },
         cadence: {
-          maxIdleGapMs: Math.max(...[startedAt, ...indicatorChangeTimes.map((time) => Math.min(time, endedAt)), endedAt]
+          maxIdleGapMs: Math.max(...[startedAt, ...indicatorChangeTimes.map((time) => Math.min(time, fullEndedAt)), fullEndedAt]
             .slice(1).map((time, index, boundaries) => {
               const previous = index === 0 ? startedAt : boundaries[index - 1];
               return time - previous;
             })),
           children: indicatorCadence.map(({ index, mutationCount, styleValues, lastStyle, changeTimes }) => {
-            const boundedChangeTimes = changeTimes.map((time) => Math.min(time, endedAt));
-            const boundaries = [startedAt, ...boundedChangeTimes, endedAt];
+            const boundedChangeTimes = changeTimes.map((time) => Math.min(time, fullEndedAt));
+            const boundaries = [startedAt, ...boundedChangeTimes, fullEndedAt];
             return {
               index,
               mutationCount,
@@ -1465,23 +1582,35 @@ async function sample(cdp, label, duration, traceDuration) {
               finalStyle: lastStyle,
             };
           }),
+          },
         },
-      },
-      visibilityState: document.visibilityState,
-      hasFocus: document.hasFocus(),
-      uiBeat: {
-        bound: document.querySelectorAll("[data-ui-beat-scale]").length,
-        running: document.querySelectorAll('[data-ui-beat-state="running"]').length,
-        idle: document.querySelectorAll('[data-ui-beat-state="idle"]').length,
-        indicatorRunning: document.querySelectorAll('.beat-indicator[data-ui-beat-state="running"]').length,
-      },
+      };
+      delete window.__uiBeatWindowMonitor;
+      return proof;
     };
+    window.__uiBeatWindowMonitor = { finalize: finalizeWindow, dispose: finalizeWindow };
+    return primaryResult;
   })()`);
+  const after = await getMetrics(cdp);
+  let traced;
+  let traceError = null;
+  let uiBeatWindowProof;
+  try {
+    traced = await traceWhile(cdp, async () => delay(traceDuration));
+  } catch (error) {
+    traceError = error;
+  } finally {
+    try {
+      uiBeatWindowProof = await evaluate(cdp, "window.__uiBeatWindowMonitor.finalize()");
+    } catch (finalizeError) {
+      throwTraceOrWindowFinalizationError(traceError, finalizeError);
+    }
+  }
+  throwTraceOrWindowFinalizationError(traceError, null);
+  Object.assign(frameCallbacks, uiBeatWindowProof);
   frameCallbacks.uiBeatCadence.maximumAllowedIdleGapMs = cadenceAllowanceMs(initialScene);
   frameCallbacks.beatIndicator.cadence.maximumAllowedIdleGapMs = cadenceAllowanceMs(initialScene);
   frameCallbacks.beatIndicator.cadence.maximumAllowedChildIdleGapMs = indicatorChildCadenceAllowanceMs(initialScene);
-  const after = await getMetrics(cdp);
-  const traced = await traceWhile(cdp, async () => delay(traceDuration));
   const finalScene = await sceneState(cdp);
   const runtimeGuard = await evaluate(cdp, "window.__uiBeatRuntimeGuard.snapshot()");
   const valid = runtimeGuard.valid && sampleIsValid(label, frameCallbacks, initialScene, finalScene);
@@ -1833,15 +1962,15 @@ async function main() {
         warmupMs: options.warmup,
         runtimeGuardScope: "a session-long source-coupled workload monitor retains changed-then-restored workload events, while each pacing-plus-trace window requires recurring successful full-canvas clears from the retained production Stage 2D context",
         buildIdentityScope: "before scene preparation, CDP matches the measured page's loaded entry HTML and CSS content plus exact-URL JavaScript executed in the main frame's default context to the manifest produced by a clean build of sourceRevision",
-        frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
-        uiBeatCadenceScope: "bounded MutationObservers record distinct inline scale changes for every expected visible UIBeat control and recurring transform/opacity changes for the retained four-child production BeatIndicator; aggregate on-window activity must avoid idle gaps longer than two beat periods with a 2000ms floor, every indicator child must avoid idle gaps longer than one four-beat cycle with the same floor, each window must span at least two applicable allowances, and retained nodes must remain unchanged while off",
+        frameCallbackScope: "rAF intervals and Long Animation Frame entries cover the untraced primary pacing window, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
+        uiBeatCadenceScope: "bounded MutationObservers plus a retained-state validation rAF cover each full pacing-plus-trace window, recording control scale and four-child production BeatIndicator activity and rejecting temporary binding, running-state, identity, connection, or visibility loss; activity idle-gap allowances include the full window, while minimum-duration coverage applies to the untraced primary pacing window",
         cdpTraceScope: "a separate diagnostic trace follows each untraced frame-callback window; selected raw presentation/drop events and full event-name counts are retained, event availability varies by browser build, and tracing does not prove display scanout",
         longAnimationFrameScope: "browser Long Animation Frame entries include main-thread script/render attribution where supported",
       },
       limitations: [
         "Physical displayed frames require the operator's named-device/native-window observation; CDP cannot independently prove panel scanout.",
         "requestAnimationFrame timestamps can reveal foreground page pacing but do not directly measure compositor-to-display presentation.",
-        "The cadence guards' control-scale and BeatIndicator transform/opacity MutationObservers plus per-frame retained-node identity, connection, binding, state, and visibility checks add main-thread and layout observation work that can affect measured pacing.",
+        "The cadence guards' control-scale and BeatIndicator transform/opacity MutationObservers plus per-frame retained-node identity, connection, binding, state, and visibility checks add main-thread and layout observation work throughout pacing and tracing.",
         "The runtime workload subscriptions, semantic DOM observer, and Stage clearRect heartbeat wrapper add bounded observation work throughout the capture.",
         "The read-only rendering-workload fingerprint depends on the production Pinia visualConfig runtime store and fails capture when that source-coupled introspection is unavailable.",
         "A software-rendered or emulated capture cannot close the physical-device capacity gate.",

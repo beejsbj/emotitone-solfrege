@@ -62,8 +62,18 @@ interface PlayingVoice {
   releaseAt: number
 }
 
+interface RhythmicPulse {
+  at: number
+  step: number
+  voices: Map<number, PlayingVoice>
+}
+
 const TICK_MS = 20
 const LOOKAHEAD_MS = 50
+// Queue rhythmic audio far enough ahead to survive rendering delays between
+// timer callbacks. This does not delay the first attack, and owner release
+// still cancels queued voices before they sound.
+const RHYTHMIC_LOOKAHEAD_MS = 150
 const CHORD_WINDOW_MS = 30
 const STRUM_MS = 35
 const GATE = 0.8
@@ -72,7 +82,7 @@ const GATE = 0.8
 export const PLAY_STYLE_SCHEDULING_LEAD_MS = 20
 
 /** Transform held inputs into timestamped output voices. All times are ms on
- * deps.now's monotonic audio clock; adapters schedule sound and recording alike.
+ * deps.now's monotonic clock; adapters schedule sound and recording alike.
  */
 export function createPlayStyleEngine<T>(deps: {
   now(): number
@@ -82,6 +92,7 @@ export function createPlayStyleEngine<T>(deps: {
   let config: PlayStyleConfig = { style: 'together', bpm: 120, rate: 8 }
   const held = new Map<string, readonly HeldNote<T>[]>()
   const playing = new Set<PlayingVoice>()
+  const pendingPulses = new Set<RhythmicPulse>()
   let batchTimer: ReturnType<typeof setTimeout> | undefined
   let tickTimer: ReturnType<typeof setTimeout> | undefined
   let strumBatch: OwnedNote<T>[] = []
@@ -108,8 +119,43 @@ export function createPlayStyleEngine<T>(deps: {
   function start(note: HeldNote<T>, owners: Set<string>, at: number, duration?: number) {
     const voice = deps.start(note.value, at, config.style)
     const releaseAt = duration === undefined ? Infinity : at + duration
-    playing.add({ voice, owners: new Set(owners), pitch: note.pitch, releaseAt })
+    const item = { voice, owners: new Set(owners), pitch: note.pitch, releaseAt }
+    playing.add(item)
     if (duration !== undefined) voice.release(releaseAt)
+    return item
+  }
+
+  function pulseNotes(notes: ReturnType<typeof pool>, step: number) {
+    if (config.style === 'repeat' || !notes.length) return notes
+    const cycle = config.style === 'arp-up-down' && notes.length > 1
+      ? 2 * notes.length - 2 : notes.length
+    const position = step % cycle
+    const index = position < notes.length ? position : cycle - position
+    return [notes[index]]
+  }
+
+  function revisePendingPulses() {
+    if (!isRhythmic()) return
+    const now = deps.now()
+    const notes = pool()
+    for (const pulse of pendingPulses) {
+      // Close deadlines are already committed to audio. Preserve them rather
+      // than canceling a note we cannot safely replace before its onset.
+      if (pulse.at <= now || pulse.at < now + schedulingLeadMs) continue
+      const desired = pulseNotes(notes, pulse.step)
+      const pitches = new Set(desired.map(({ note }) => note.pitch))
+      for (const [pitch, item] of pulse.voices) {
+        if (!pitches.has(pitch) || !playing.has(item)) {
+          if (playing.delete(item)) item.voice.release(now)
+          pulse.voices.delete(pitch)
+        }
+      }
+      for (const { note, owners } of desired) {
+        const existing = pulse.voices.get(note.pitch)
+        if (existing) existing.owners = new Set(owners)
+        else pulse.voices.set(note.pitch, start(note, owners, pulse.at, stepMs() * GATE))
+      }
+    }
   }
 
   function cancelOutput() {
@@ -126,6 +172,7 @@ export function createPlayStyleEngine<T>(deps: {
       if (item.releaseAt > now) item.voice.release(now)
     }
     playing.clear()
+    pendingPulses.clear()
   }
 
   function tick() {
@@ -135,6 +182,9 @@ export function createPlayStyleEngine<T>(deps: {
     const horizon = now + LOOKAHEAD_MS
     for (const item of playing) {
       if (item.releaseAt <= now) playing.delete(item)
+    }
+    for (const pulse of pendingPulses) {
+      if (pulse.at <= now) pendingPulses.delete(pulse)
     }
     // A late callback shifts the remaining tail as one unit. Clamping each
     // overdue note independently would turn a strum into a simultaneous chord.
@@ -158,17 +208,12 @@ export function createPlayStyleEngine<T>(deps: {
         nextAt += missed * interval
         stepIndex += missed
       }
-      while (notes.length && nextAt <= horizon) {
-        if (config.style === 'repeat') {
-          for (const { note, owners } of notes) start(note, owners, nextAt, interval * GATE)
-        } else {
-          const cycle = config.style === 'arp-up-down' && notes.length > 1
-            ? 2 * notes.length - 2 : notes.length
-          const position = stepIndex % cycle
-          const index = position < notes.length ? position : cycle - position
-          const { note, owners } = notes[index]
-          start(note, owners, nextAt, interval * GATE)
+      while (notes.length && nextAt <= now + RHYTHMIC_LOOKAHEAD_MS) {
+        const pulse: RhythmicPulse = { at: nextAt, step: stepIndex, voices: new Map() }
+        for (const { note, owners } of pulseNotes(notes, stepIndex)) {
+          pulse.voices.set(note.pitch, start(note, owners, nextAt, interval * GATE))
         }
+        pendingPulses.add(pulse)
         stepIndex += 1
         nextAt += interval
       }
@@ -213,6 +258,7 @@ export function createPlayStyleEngine<T>(deps: {
         if (notes.some(note => note.pitch === item.pitch)) item.owners.add(owner)
       }
       if (nextAt === undefined) batch()
+      else revisePendingPulses()
     }
   }
 
@@ -229,6 +275,7 @@ export function createPlayStyleEngine<T>(deps: {
       }
     }
     if (!held.size) cancelOutput()
+    else revisePendingPulses()
   }
 
   return {

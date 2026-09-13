@@ -1,7 +1,7 @@
 {
-  "recordedAt": "2026-09-13T20:33:38.044Z",
-  "revision": "6a73c7a7791ede8503652f8a99b59b03bd81bb41",
-  "superdoughSha256": "72724b006e1e06157730729dcfd883553170dbfce306f57c6936ba123283c09f",
+  "recordedAt": "2026-09-13T20:24:07.034Z",
+  "revision": "769053014d2ebb99571a4dc8d395fdc9593c0541",
+  "superdoughSha256": "4d4bf2a572cfab95f7e1d9b84db5aab180cca98521aa60cf91d1e05da6c7d09c",
   "warnings": [],
   "environment": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
@@ -23,14 +23,39 @@
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
         "p50": 0.104,
+        "p95": 10.687,
+        "max": 10.687
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 0.104,
+        "p95": 10.687,
+        "max": 10.687
+      },
+      "preparationMs": {
+        "p50": 0.2,
+        "p95": 0.2
+      }
+    },
+    {
+      "engine": "direct",
+      "stress": false,
+      "leadMs": 5,
+      "registered": 16,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
         "p95": 0.104,
         "max": 0.104
       },
       "peak": 0.24,
       "inputToRenderedOnsetMs": {
-        "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
+        "p50": 5.104,
+        "p95": 5.104,
+        "max": 5.104
       },
       "preparationMs": {
         "p50": 0.1,
@@ -40,31 +65,6 @@
     {
       "engine": "direct",
       "stress": false,
-      "leadMs": 5,
-      "registered": 16,
-      "expected": 16,
-      "detected": 16,
-      "missing": 0,
-      "duplicatesOrUnexpected": 0,
-      "onsetErrorMs": {
-        "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
-      },
-      "peak": 0.24,
-      "inputToRenderedOnsetMs": {
-        "p50": 5.104,
-        "p95": 5.104,
-        "max": 5.104
-      },
-      "preparationMs": {
-        "p50": 0.1,
-        "p95": 0.6
-      }
-    },
-    {
-      "engine": "direct",
-      "stress": false,
       "leadMs": 10,
       "registered": 16,
       "expected": 16,
@@ -83,7 +83,7 @@
         "max": 10.104
       },
       "preparationMs": {
-        "p50": 0.2,
+        "p50": 0.1,
         "p95": 0.2
       }
     },
@@ -98,18 +98,18 @@
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
         "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
+        "p95": 10.687,
+        "max": 10.687
       },
       "peak": 0.24,
       "inputToRenderedOnsetMs": {
         "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
+        "p95": 10.687,
+        "max": 10.687
       },
       "preparationMs": {
-        "p50": 0.2,
-        "p95": 0.3
+        "p50": 0.1,
+        "p95": 0.2
       }
     },
     {
@@ -134,7 +134,7 @@
       },
       "preparationMs": {
         "p50": 0.1,
-        "p95": 0.2
+        "p95": 0.4
       }
     },
     {
@@ -148,14 +148,14 @@
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
         "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
+        "p95": 0.729,
+        "max": 0.729
       },
       "peak": 0.24,
       "inputToRenderedOnsetMs": {
         "p50": 10.104,
-        "p95": 10.104,
-        "max": 10.104
+        "p95": 10.729,
+        "max": 10.729
       },
       "preparationMs": {
         "p50": 0.1,
@@ -183,8 +183,8 @@
         "max": 10.771
       },
       "preparationMs": {
-        "p50": 0.7,
-        "p95": 1.2
+        "p50": 0.5,
+        "p95": 0.7
       }
     },
     {
@@ -198,12 +198,62 @@
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
         "p50": 0.104,
-        "p95": 5.687,
-        "max": 5.687
+        "p95": 0.104,
+        "max": 0.104
       },
       "peak": 0.24,
       "inputToRenderedOnsetMs": {
         "p50": 5.104,
+        "p95": 5.104,
+        "max": 5.104
+      },
+      "preparationMs": {
+        "p50": 0.4,
+        "p95": 0.5
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": false,
+      "leadMs": 10,
+      "registered": 16,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 10.104,
+        "p95": 10.104,
+        "max": 10.104
+      },
+      "preparationMs": {
+        "p50": 0.4,
+        "p95": 1
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": true,
+      "leadMs": 0,
+      "registered": 16,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 10.687,
+        "max": 10.687
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 0.104,
         "p95": 10.687,
         "max": 10.687
       },
@@ -214,56 +264,6 @@
     },
     {
       "engine": "superdough",
-      "stress": false,
-      "leadMs": 10,
-      "registered": 16,
-      "expected": 16,
-      "detected": 16,
-      "missing": 0,
-      "duplicatesOrUnexpected": 0,
-      "onsetErrorMs": {
-        "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
-      },
-      "peak": 0.24,
-      "inputToRenderedOnsetMs": {
-        "p50": 10.104,
-        "p95": 10.104,
-        "max": 10.104
-      },
-      "preparationMs": {
-        "p50": 0.4,
-        "p95": 0.6
-      }
-    },
-    {
-      "engine": "superdough",
-      "stress": true,
-      "leadMs": 0,
-      "registered": 16,
-      "expected": 16,
-      "detected": 16,
-      "missing": 0,
-      "duplicatesOrUnexpected": 0,
-      "onsetErrorMs": {
-        "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
-      },
-      "peak": 0.24,
-      "inputToRenderedOnsetMs": {
-        "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
-      },
-      "preparationMs": {
-        "p50": 0.4,
-        "p95": 0.6
-      }
-    },
-    {
-      "engine": "superdough",
       "stress": true,
       "leadMs": 5,
       "registered": 16,
@@ -273,18 +273,18 @@
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
         "p50": 0.104,
-        "p95": 3.021,
-        "max": 3.021
+        "p95": 5.688,
+        "max": 5.688
       },
       "peak": 0.24,
       "inputToRenderedOnsetMs": {
         "p50": 5.104,
-        "p95": 8.021,
-        "max": 8.021
+        "p95": 10.688,
+        "max": 10.688
       },
       "preparationMs": {
         "p50": 0.3,
-        "p95": 0.5
+        "p95": 0.9
       }
     },
     {
@@ -298,18 +298,18 @@
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
         "p50": 0.104,
-        "p95": 0.104,
-        "max": 0.104
+        "p95": 0.729,
+        "max": 0.729
       },
       "peak": 0.24,
       "inputToRenderedOnsetMs": {
         "p50": 10.104,
-        "p95": 10.104,
-        "max": 10.104
+        "p95": 10.729,
+        "max": 10.729
       },
       "preparationMs": {
-        "p50": 0.3,
-        "p95": 0.4
+        "p50": 0.4,
+        "p95": 0.9
       }
     }
   ],
@@ -369,7 +369,7 @@
       "engine": "superdough",
       "stress": true,
       "scheduledHorizonMs": 150,
-      "stallObservedMs": 300,
+      "stallObservedMs": 300.1,
       "skippedByScheduler": 1,
       "expected": 12,
       "detected": 11,
@@ -458,8 +458,8 @@
     "duplicatesOrUnexpected": 0,
     "onsetErrorMs": {
       "p50": 0.292,
-      "p95": 0.292,
-      "max": 0.292
+      "p95": 0.958,
+      "max": 0.958
     }
   },
   "prototypeLifecycle": {
@@ -492,9 +492,9 @@
       "missing": 0,
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
-        "p50": 0.146,
-        "p95": 0.146,
-        "max": 0.146
+        "p50": 0.137,
+        "p95": 5.771,
+        "max": 5.771
       },
       "published": 12,
       "ended": 12,
@@ -514,33 +514,18 @@
         "A4"
       ],
       "onsetIntervalsMs": [
-        125,
-        125,
-        125,
-        125,
-        125,
-        125,
-        125,
-        125,
-        125,
-        125,
-        125
+        123.7,
+        134.367,
+        123.4,
+        120.7,
+        120.067,
+        125.833,
+        134.367,
+        123.4,
+        124.533,
+        123.4,
+        123.3
       ],
-      "renderedOnsetIntervalsMs": [
-        125.021,
-        125.021,
-        124.979,
-        125.021,
-        124.979,
-        125.021,
-        125,
-        125,
-        125,
-        125,
-        125
-      ],
-      "maxMusicalIntervalDeviationMs": 0.021,
-      "maxOngoingIntervalDeviationMs": 0.021,
       "scheduledVoicesIncludingRevisions": 13,
       "remainingVoices": 0,
       "errors": [],
@@ -549,13 +534,13 @@
     {
       "name": "held-changes",
       "expected": 6,
-      "detected": 6,
+      "detected": 7,
       "missing": 0,
-      "duplicatesOrUnexpected": 0,
+      "duplicatesOrUnexpected": 1,
       "onsetErrorMs": {
         "p50": 0.125,
-        "p95": 0.146,
-        "max": 0.146
+        "p95": 0.142,
+        "max": 0.142
       },
       "published": 6,
       "ended": 6,
@@ -569,21 +554,12 @@
         "E5"
       ],
       "onsetIntervalsMs": [
-        125,
-        125,
-        125,
-        125,
-        125
+        124.8,
+        123.6,
+        121.967,
+        126.033,
+        124.1
       ],
-      "renderedOnsetIntervalsMs": [
-        125.021,
-        125.021,
-        124.958,
-        125.042,
-        124.979
-      ],
-      "maxMusicalIntervalDeviationMs": null,
-      "maxOngoingIntervalDeviationMs": null,
       "scheduledVoicesIncludingRevisions": 10,
       "remainingVoices": 0,
       "errors": [],
@@ -596,7 +572,7 @@
       "missing": 0,
       "duplicatesOrUnexpected": 0,
       "onsetErrorMs": {
-        "p50": 0.125,
+        "p50": 0.129,
         "p95": 0.146,
         "max": 0.146
       },
@@ -613,23 +589,13 @@
         "A4"
       ],
       "onsetIntervalsMs": [
-        125,
-        125,
-        125,
-        250,
-        250,
-        250
+        124.9,
+        124.1,
+        124,
+        250.467,
+        248.3,
+        249.333
       ],
-      "renderedOnsetIntervalsMs": [
-        125.021,
-        125.021,
-        125,
-        249.979,
-        250,
-        250
-      ],
-      "maxMusicalIntervalDeviationMs": null,
-      "maxOngoingIntervalDeviationMs": null,
       "scheduledVoicesIncludingRevisions": 7,
       "remainingVoices": 0,
       "errors": [],
@@ -638,18 +604,15 @@
   ],
   "denseLifecycle": {
     "attacks": 500,
-    "admitted": 500,
-    "durationMs": 5623.4,
-    "peakRegistered": 136,
-    "activeVoiceBudget": 128,
-    "retirementAllowance": 8,
+    "durationMs": 5930.1,
+    "peakRegistered": 60,
     "remainingRegistered": 0,
     "chordPreparationMs": {
-      "p50": 3,
-      "p95": 6,
-      "max": 6.9
+      "p50": 2.5,
+      "p95": 3.1,
+      "max": 3.4
     },
-    "scope": "Real browser looped sources and voice registry; 1s gates/500ms releases at 10 notes/75ms exceed the 128-voice budget. Not a heap or CPU utilization measurement."
+    "scope": "Real browser looped sources and voice registry; overlapping 400ms gates/200ms releases. Not a heap or CPU utilization measurement."
   },
   "checks": [
     {
@@ -686,14 +649,10 @@
     },
     {
       "name": "production engine and scheduled voices match rendered attacks during input changes and stress",
-      "passed": true
+      "passed": false
     },
     {
-      "name": "500 overlapping sample voices exercise the budget and clean up",
-      "passed": true
-    },
-    {
-      "name": "ongoing production sixteenth-note intervals stay within 1ms of the audio grid",
+      "name": "500 overlapping sample voices remain bounded and clean up",
       "passed": true
     }
   ]

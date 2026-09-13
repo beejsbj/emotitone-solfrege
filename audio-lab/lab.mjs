@@ -1,4 +1,5 @@
 import * as dough from 'superdough';
+import { runProductionScenarios, runDenseLifecycle } from './production-scenarios.mjs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const stall = (ms) => { const end = performance.now() + ms; while (performance.now() < end) {} };
@@ -203,6 +204,8 @@ window.runAudioLab = async function runAudioLab() {
   await sleep(120);
   results.cleanup = { totalTriggered: voiceIds.length, voicesStillRegisteredAfterNaturalEndAndRelease: voiceIds.filter((id) => dough.hasVoice(id)).length,
     maxPolyphony: Number.isFinite(dough.maxPolyphony) ? dough.maxPolyphony : String(dough.maxPolyphony) };
+  results.productionScenarios = await runProductionScenarios({ dough, context, begin, finish, timing, sampleUrl: url });
+  results.denseLifecycle = await runDenseLifecycle({ dough, context });
   prototype.disconnect(); capture.disconnect(); silent.disconnect();
   URL.revokeObjectURL(url); await context.close();
   document.querySelector('#results').textContent = JSON.stringify(results, null, 2);

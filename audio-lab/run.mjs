@@ -15,7 +15,8 @@ const packageSnapshot = join(directory, 'superdough.mjs');
 await writeFile(packageSnapshot, packageBytes);
 const vite = await createServer({ configFile: false, root: process.cwd(),
   cacheDir: join(directory, 'vite-cache'), optimizeDeps: { entries: ['audio-lab/index.html'] },
-  resolve: { alias: { superdough: packageSnapshot, nanostores: resolve('node_modules/nanostores/index.js') } },
+  resolve: { alias: { '@/services/superdoughAudio': resolve('audio-lab/audio-boundary.mjs'),
+    '@': resolve('src'), superdough: packageSnapshot, nanostores: resolve('node_modules/nanostores/index.js') } },
   server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [process.cwd(), directory] } },
 });
 await vite.listen();
@@ -81,6 +82,16 @@ try {
   if (!process.env.LAB_SUPERDOUGH) checks.push(
     ['finished Superdough voices leave the registry', results.cleanup.voicesStillRegisteredAfterNaturalEndAndRelease === 0],
     ['Superdough has a finite default voice budget', results.cleanup.maxPolyphony === 128],
+    ['production engine and scheduled voices match rendered attacks during input changes and stress',
+      results.productionScenarios.every((row) => row.missing === 0 && row.duplicatesOrUnexpected === 0 && row.errors.length === 0
+        && row.published === row.ended && row.remainingVoices === 0
+        && (row.expectedMusicalPulses === null || row.expectedMusicalPulses === row.published))],
+    ['500 overlapping sample voices exercise the budget and clean up', results.denseLifecycle.attacks === 500
+      && results.denseLifecycle.admitted === 500 && results.denseLifecycle.peakRegistered >= 120
+      // Registry includes up to eight 10ms retirement fades beyond active128.
+      && results.denseLifecycle.peakRegistered <= 136 && results.denseLifecycle.remainingRegistered === 0],
+    ['ongoing production sixteenth-note intervals stay within 1ms of the audio grid',
+      results.productionScenarios.find((row) => row.name === 'stable-stall').maxOngoingIntervalDeviationMs <= 1],
   );
   results.checks = checks.map(([name, passed]) => ({ name, passed }));
   const output = process.argv[2] || 'audio-lab/results/current.json';
@@ -90,5 +101,6 @@ try {
 } finally {
   socket?.close(); chrome.kill(); await vite.close();
   await new Promise((resolveExit) => chrome.exitCode !== null || chrome.signalCode !== null ? resolveExit() : chrome.once('exit', resolveExit));
-  await rm(directory, { recursive: true, force: true });
+  // Chrome's subprocesses can finish profile writes just after its parent exits.
+  await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

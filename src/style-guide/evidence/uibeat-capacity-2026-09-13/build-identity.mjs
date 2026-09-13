@@ -8,6 +8,8 @@ import { spawn } from "node:child_process";
 
 export const BUILD_IDENTITY_FILE = "emotitone-build-identity.json";
 export const BUILD_IDENTITY_SCHEMA_VERSION = 1;
+export const VITE_BUILD_ENV_INPUTS = ["VITE_PITCH_ANALYSIS_URL"];
+const VITE_ENV_FILES = [".env", ".env.local", ".env.production", ".env.production.local"];
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -16,6 +18,34 @@ function sha256(bytes) {
 function isBoundedBuildAssetPath(path) {
   return /^(?:assets\/[A-Za-z0-9._/-]+|[A-Za-z0-9._-]+)\.(?:js|css)$/.test(path) &&
     !path.includes("..") && !path.includes("//");
+}
+
+export async function requireUnconfiguredViteBuildEnvironment(repoRoot, environment = process.env) {
+  for (const name of VITE_BUILD_ENV_INPUTS) {
+    if (Object.hasOwn(environment, name)) {
+      throw new Error(`Refusing build identity with exported ${name}; its value is intentionally not reported`);
+    }
+  }
+  for (const filename of VITE_ENV_FILES) {
+    let contents;
+    try {
+      contents = await readFile(join(repoRoot, filename), "utf8");
+    } catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    for (const name of VITE_BUILD_ENV_INPUTS) {
+      const definition = new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=`, "m");
+      if (definition.test(contents)) {
+        throw new Error(`Refusing build identity because ${filename} defines ${name}; its value is intentionally not reported`);
+      }
+    }
+  }
+  return {
+    mode: "production",
+    policy: "known production Vite inputs must be unset",
+    inputs: Object.fromEntries(VITE_BUILD_ENV_INPUTS.map((name) => [name, { defined: false }])),
+  };
 }
 
 function run(executable, args, { cwd, capture = false } = {}) {
@@ -100,7 +130,7 @@ export function parseEntryAssets(indexHtml) {
   return unique;
 }
 
-export async function collectBuildIdentity({ distRoot, sourceRevision, bunVersion, declaredPackageManager, createdAt }) {
+export async function collectBuildIdentity({ distRoot, sourceRevision, bunVersion, declaredPackageManager, buildEnvironment, createdAt }) {
   if (!/^[0-9a-f]{40,64}$/.test(sourceRevision)) throw new Error(`Invalid source revision ${sourceRevision}`);
   const indexPath = join(distRoot, "index.html");
   const indexBytes = await readFile(indexPath);
@@ -134,6 +164,7 @@ export async function collectBuildIdentity({ distRoot, sourceRevision, bunVersio
       command: ["bun", "run", "build"],
       bunVersion,
       declaredPackageManager,
+      environment: buildEnvironment,
     },
     entryDocument: {
       path: "index.html",
@@ -153,6 +184,7 @@ export async function buildWithIdentity({ cwd = process.cwd(), now = () => new D
   if (!/^[0-9a-f]{40,64}$/.test(sourceRevision)) throw new Error(`Git returned an invalid source revision: ${sourceRevision}`);
   const packageJson = JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8"));
   const bunVersion = (await run("bun", ["--version"], { cwd: repoRoot, capture: true })).stdout;
+  const buildEnvironment = await requireUnconfiguredViteBuildEnvironment(repoRoot);
 
   await run("bun", ["run", "build"], { cwd: repoRoot });
 
@@ -161,6 +193,7 @@ export async function buildWithIdentity({ cwd = process.cwd(), now = () => new D
     throw new Error(`Source revision changed during build: ${sourceRevision} -> ${finalRevision}`);
   }
   await requireCleanCheckout(repoRoot, "after production build");
+  await requireUnconfiguredViteBuildEnvironment(repoRoot);
 
   const distRoot = resolve(repoRoot, "dist");
   const manifest = await collectBuildIdentity({
@@ -168,6 +201,7 @@ export async function buildWithIdentity({ cwd = process.cwd(), now = () => new D
     sourceRevision,
     bunVersion,
     declaredPackageManager: packageJson.packageManager ?? null,
+    buildEnvironment,
     createdAt: now(),
   });
   const destination = join(distRoot, BUILD_IDENTITY_FILE);

@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { collectBuildIdentity, parseEntryAssets } from "./build-identity.mjs";
+import {
+  collectBuildIdentity,
+  parseEntryAssets,
+  requireUnconfiguredViteBuildEnvironment,
+} from "./build-identity.mjs";
 import { verifyLoadedBuildIdentity } from "./capture-build-identity.mjs";
 
 const REVISION = "0123456789abcdef0123456789abcdef01234567";
@@ -113,12 +117,49 @@ test("collects hashes for emitted JavaScript, CSS, and direct entry assets", asy
       sourceRevision: REVISION,
       bunVersion: "1.3.14",
       declaredPackageManager: "bun@1.2.17",
+      buildEnvironment: await requireUnconfiguredViteBuildEnvironment(directory, {}),
       createdAt: "2026-09-13T12:00:00.000Z",
     });
     assert.deepEqual(identity.entryAssets, ["assets/app.css", "assets/app.js"]);
     assert.deepEqual(identity.assets.map(({ path }) => path), ["assets/app.css", "assets/app.js", "assets/lazy.js", "sw.js"]);
     assert.equal(identity.assets.find(({ path }) => path === "assets/app.js").sha256, hash("app"));
     assert.equal(identity.build.bunVersion, "1.3.14");
+    assert.deepEqual(identity.build.environment.inputs.VITE_PITCH_ANALYSIS_URL, { defined: false });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects the known production Vite input in dotenv files without exposing its value", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "emotitone-vite-environment-"));
+  const secretValue = "https://pitch.example.test/analyze?token=do-not-record";
+  try {
+    await writeFile(join(directory, ".env.production"), `VITE_PITCH_ANALYSIS_URL=${secretValue}\n`);
+    await assert.rejects(
+      requireUnconfiguredViteBuildEnvironment(directory, {}),
+      (error) => error.message.includes(".env.production defines VITE_PITCH_ANALYSIS_URL") &&
+        !error.message.includes(secretValue),
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects an exported production Vite input and accepts unrelated dotenv values", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "emotitone-vite-environment-"));
+  const secretValue = "https://pitch.example.test/exported-secret";
+  try {
+    await writeFile(join(directory, ".env"), "UNRELATED_VALUE=allowed\n");
+    await assert.rejects(
+      requireUnconfiguredViteBuildEnvironment(directory, { VITE_PITCH_ANALYSIS_URL: secretValue }),
+      (error) => error.message.includes("exported VITE_PITCH_ANALYSIS_URL") &&
+        !error.message.includes(secretValue),
+    );
+    assert.deepEqual(await requireUnconfiguredViteBuildEnvironment(directory, {}), {
+      mode: "production",
+      policy: "known production Vite inputs must be unset",
+      inputs: { VITE_PITCH_ANALYSIS_URL: { defined: false } },
+    });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

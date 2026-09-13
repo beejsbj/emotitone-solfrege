@@ -69,6 +69,22 @@ describe("Stage appearance domain", () => {
     expect(disabled.particles.isEnabled).toBe(false);
   });
 
+  it("rehydrates activation-capable Strings from a legacy zero-Presence config", () => {
+    const backing = config();
+    backing.strings.isEnabled = false;
+    backing.strings.baseOpacity = 0;
+    backing.strings.activeOpacity = 0;
+
+    const effective = resolveStageConfig(backing);
+
+    expect(effective.strings).toMatchObject({
+      isEnabled: true,
+      baseOpacity: 0,
+      activeOpacity: 0,
+    });
+    expect(backing.strings.isEnabled).toBe(false);
+  });
+
   it("preserves independent trail values until Trail is deliberately edited", () => {
     const backing = config();
     backing.hilbertScope.history = 0.17;

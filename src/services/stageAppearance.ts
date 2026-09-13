@@ -322,6 +322,10 @@ export function resolveStageConfig(
   // Hilbert is the Stage's primary body. Its legacy switch remains in saved
   // data for compatibility, but it is not a second public master.
   effective.hilbertScope.isEnabled = stageEnabled;
+  // The retired Strings master is also compatibility data. Presence owns the
+  // idle field, including a blank zero state; Stage owns whether played notes
+  // may reveal their exact-pitch Strings.
+  effective.strings.isEnabled = stageEnabled;
   if (!stageEnabled) {
     effective.blobs.isEnabled = false;
     effective.ambient.isEnabled = false;

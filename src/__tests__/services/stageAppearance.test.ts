@@ -101,6 +101,21 @@ describe("Stage appearance domain", () => {
     });
   });
 
+  it("lets Presence hide idle Strings without suppressing played Strings", () => {
+    const backing = config();
+    backing.strings.activeOpacity = 0.9;
+
+    const edited = patchStageControl(backing, "stringPresence", 0);
+
+    expect(changedPaths(backing, edited)).toEqual(["strings.baseOpacity"]);
+    expect(edited.strings).toMatchObject({
+      isEnabled: true,
+      baseOpacity: 0,
+      activeOpacity: 0.9,
+    });
+    expect(readStageControls(edited).stringPresence).toBe(0);
+  });
+
   it("keeps Body Size in the responsive 5–15% support-body range", () => {
     const definition = STAGE_CONTROL_DEFINITIONS.find(
       (control) => control.id === "bodySize",

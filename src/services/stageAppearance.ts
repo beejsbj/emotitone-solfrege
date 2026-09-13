@@ -373,7 +373,7 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
       (config.ambient.saturationMajor + config.ambient.saturationMinor) / 1.75,
     ),
     stringPresence: config.strings.isEnabled
-      ? clamp(config.strings.activeOpacity)
+      ? clamp(config.strings.baseOpacity / 0.12)
       : 0,
     stringResponse: clamp((config.strings.maxAmplitude - 5) / 45),
     fleckAmount: config.particles.isEnabled
@@ -471,9 +471,10 @@ export function patchStageControl(
     }
     case "stringPresence": {
       const amount = clamp(value);
-      next.strings.isEnabled = amount > 0.01;
+      // Presence describes the idle field. A zero-presence String layer stays
+      // available so exact-pitch note activation can reveal a played String.
+      next.strings.isEnabled = true;
       next.strings.baseOpacity = amount * 0.12;
-      next.strings.activeOpacity = amount;
       break;
     }
     case "stringResponse": {

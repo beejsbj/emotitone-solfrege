@@ -21,7 +21,7 @@ export interface BlobFieldConnection {
   to: PreparedBlobFrame;
   distance: number;
   gap: number;
-  role: "merge" | "boundary" | "interior";
+  role: "boundary" | "interior";
 }
 
 interface FieldPoint {
@@ -214,21 +214,6 @@ function traceFrame(
   context.closePath();
 }
 
-function getContourPointTowards(frame: PreparedBlobFrame, target: FieldPoint) {
-  const directionX = target.x - frame.blob.x;
-  const directionY = target.y - frame.blob.y;
-
-  return frame.contour.reduce((best, point) => {
-    const score =
-      (point.x - frame.blob.x) * directionX +
-      (point.y - frame.blob.y) * directionY;
-    const bestScore =
-      (best.x - frame.blob.x) * directionX +
-      (best.y - frame.blob.y) * directionY;
-    return score > bestScore ? point : best;
-  }, frame.contour[0]);
-}
-
 function getRadiusPointTowards(
   frame: PreparedBlobFrame,
   direction: FieldPoint
@@ -252,21 +237,17 @@ function getConnectionBendDirection(connection: BlobFieldConnection) {
 }
 
 /**
- * Build one smooth material ribbon. Its broad endpoints sit inside the two
- * prepared bodies, so the field owns a rounded shoulder instead of exposing a
- * hard cross-section at either contour. A quartic bump curves the centerline
- * while retaining contour-normal endpoint tangents, and a quintic taper makes
- * the width derivative settle to zero at both bodies and at the waist. Web can
- * attach to the stable rendered radius so contour vibration stays in the body
- * instead of shaking the relationship itself.
+ * Build one thin Web ribbon with tapered shoulders inside the two bodies.
+ * A quartic bump curves its centerline and a quintic taper settles the width
+ * derivative at both bodies and the waist. Stable rendered-radius attachments
+ * keep contour vibration in the body instead of shaking the relationship.
  */
 export function getBlobFieldConnectionGeometry(
   connection: BlobFieldConnection,
   waistWidth: number,
   fieldScale: number,
-  shoulderScale = 1.05,
-  bendScale = 1,
-  attachmentMode: "contour" | "radius" = "contour"
+  shoulderScale = 0.14,
+  bendScale = 0.46
 ): BlobFieldConnectionGeometry {
   const centerDeltaX = connection.to.blob.x - connection.from.blob.x;
   const centerDeltaY = connection.to.blob.y - connection.from.blob.y;
@@ -275,30 +256,17 @@ export function getBlobFieldConnectionGeometry(
     x: centerDeltaX / centerDistance,
     y: centerDeltaY / centerDistance,
   };
-  const startAttachment =
-    attachmentMode === "radius"
-      ? getRadiusPointTowards(connection.from, direction)
-      : getContourPointTowards(connection.from, connection.to.blob);
-  const endAttachment =
-    attachmentMode === "radius"
-      ? getRadiusPointTowards(connection.to, {
-          x: -direction.x,
-          y: -direction.y,
-        })
-      : getContourPointTowards(connection.to, connection.from.blob);
+  const startAttachment = getRadiusPointTowards(connection.from, direction);
+  const endAttachment = getRadiusPointTowards(connection.to, {
+    x: -direction.x,
+    y: -direction.y,
+  });
   const normal = { x: -direction.y, y: direction.x };
   const shoulderWidths = {
     from: Math.max(waistWidth, connection.from.scaledRadius * shoulderScale),
     to: Math.max(waistWidth, connection.to.scaledRadius * shoulderScale),
   };
-  // When a Merge neck is wider than a small (or still growing) body, the
-  // usual shallow attachment leaves a narrow junction that the field blur
-  // can erase. Extend the ribbon inward in proportion to its width, up to the
-  // body center, so adjacent necks overlap through that junction.
-  const attachmentInset = (radius: number) =>
-    attachmentMode === "contour"
-      ? Math.max(radius * 0.22, Math.min(radius, waistWidth / 2))
-      : radius * 0.22;
+  const attachmentInset = (radius: number) => radius * 0.22;
   const start = {
     x: startAttachment.x - direction.x * attachmentInset(connection.from.scaledRadius),
     y: startAttachment.y - direction.y * attachmentInset(connection.from.scaledRadius),
@@ -451,7 +419,7 @@ export function orderBlobFramesForVisibility(
 function createConnection(
   parent: PreparedBlobFrame,
   frame: PreparedBlobFrame,
-  role: BlobFieldConnection["role"] = "merge"
+  role: BlobFieldConnection["role"]
 ): BlobFieldConnection {
   const distance = Math.hypot(
     frame.blob.x - parent.blob.x,
@@ -577,139 +545,48 @@ export function createBlobWebConnectionPlanner() {
   return { getConnections, clear };
 }
 
-function findNearestFrame(
-  frame: PreparedBlobFrame,
-  candidates: readonly PreparedBlobFrame[]
-) {
-  return candidates.reduce((nearest, candidate) => {
-    const nearestDistance = Math.hypot(
-      frame.blob.x - nearest.blob.x,
-      frame.blob.y - nearest.blob.y
-    );
-    const candidateDistance = Math.hypot(
-      frame.blob.x - candidate.blob.x,
-      frame.blob.y - candidate.blob.y
-    );
-    return candidateDistance < nearestDistance ? candidate : nearest;
-  }, candidates[0]);
+/** Web is drawn at target resolution, independent of the soft body field. */
+export function getBlobWebConnectionWidth(connection: BlobFieldConnection) {
+  const radius = Math.min(connection.from.scaledRadius, connection.to.scaledRadius);
+  const distanceFalloff = 1 / (1 + connection.gap / Math.max(160, radius * 6));
+  const width = Math.max(1.2, Math.min(3, radius * 0.075 * distanceFalloff));
+  return width * (connection.role === "boundary" ? 1 : 0.72);
 }
 
-function connectInInsertionOrder(
-  frames: readonly PreparedBlobFrame[],
-  parentKeys: Map<string, string>
-) {
-  return frames.slice(1).map((frame, index) => {
-    const previousFrames = frames.slice(0, index + 1);
-    const cachedParent = previousFrames.find(
-      (candidate) => candidate.key === parentKeys.get(frame.key)
-    );
-    const parent = cachedParent ?? findNearestFrame(frame, previousFrames);
-    parentKeys.set(frame.key, parent.key);
-    return createConnection(parent, frame);
-  });
-}
-
-/**
- * Keep held bodies connected independently from bodies that are releasing.
- * Parent keys are cached by the caller for the lifetime of one membership set,
- * so normal drift can update geometry without snapping the sparse topology.
+/** A convex envelope of the actual contours fills every interior chord region.
+ * The field's blur rounds the envelope; no chord edge graph owns Merge shape.
  */
-export function getBlobFieldConnections(
-  frames: readonly PreparedBlobFrame[],
-  parentKeys = new Map<string, string>()
-): BlobFieldConnection[] {
-  const heldFrames = frames.filter((frame) => !frame.blob.isFadingOut);
-  const releasingFrames = frames.filter((frame) => frame.blob.isFadingOut);
-
-  if (heldFrames.length === 0) {
-    return connectInInsertionOrder(frames, parentKeys);
-  }
-
-  const heldConnections = connectInInsertionOrder(heldFrames, parentKeys);
-  const releaseConnections = releasingFrames.map((frame) => {
-    const cachedParent = heldFrames.find(
-      (candidate) => candidate.key === parentKeys.get(frame.key)
-    );
-    const parent = cachedParent ?? findNearestFrame(frame, heldFrames);
-    parentKeys.set(frame.key, parent.key);
-    return createConnection(parent, frame);
-  });
-
-  return [...heldConnections, ...releaseConnections];
-}
-
-export function createBlobFieldConnectionPlanner() {
-  let membershipSignature = "";
-  const parentKeys = new Map<string, string>();
-
-  const getConnections = (frames: readonly PreparedBlobFrame[]) => {
-    const nextSignature = frames
-      .map((frame) => `${frame.key}:${frame.blob.isFadingOut ? "release" : "held"}`)
-      .join("|");
-
-    if (nextSignature !== membershipSignature) {
-      membershipSignature = nextSignature;
-      parentKeys.clear();
+function getMergeEnvelope(frames: readonly PreparedBlobFrame[], blur: number) {
+  const points = frames.flatMap((frame) => frame.contour.map((point) => {
+    // Keep small/growing dyads and collinear chords wide enough to survive the
+    // field threshold, just as area chords do. Ordinary body radii are unchanged.
+    const expansion = Math.max(0, blur * 0.9 - frame.scaledRadius);
+    const dx = point.x - frame.blob.x;
+    const dy = point.y - frame.blob.y;
+    const length = Math.hypot(dx, dy) || 1;
+    return { x: point.x + dx / length * expansion, y: point.y + dy / length * expansion };
+  })).sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (a: FieldPoint, b: FieldPoint, c: FieldPoint) =>
+    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const half = (ordered: FieldPoint[]) => {
+    const hull: FieldPoint[] = [];
+    for (const point of ordered) {
+      while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], point) <= 0) hull.pop();
+      hull.push(point);
     }
-
-    return getBlobFieldConnections(frames, parentKeys);
+    hull.pop();
+    return hull;
   };
-
-  const clear = () => {
-    membershipSignature = "";
-    parentKeys.clear();
-  };
-
-  return { getConnections, clear };
+  return [...half(points), ...half([...points].reverse())];
 }
 
-export function getBlobFieldConnectionWidth(
-  connection: BlobFieldConnection,
-  blur: number,
-  fieldScale: number,
-  fusionStrength: number
-) {
-  const smallerRadius = Math.min(
-    connection.from.scaledRadius,
-    connection.to.scaledRadius
-  );
-  const falloffDistance = Math.max(120, smallerRadius * 4);
-  const distanceFalloff = 1 / (1 + connection.gap / falloffDistance);
-  const organicWidth =
-    smallerRadius * (0.72 + fusionStrength * 0.28) * distanceFalloff;
-
-  // Two box-blur passes need a few occupied field pixels to survive the alpha
-  // threshold. This floor guarantees a continuous but slender distant neck.
-  const continuityFloor = Math.max(blur * 1.35, 3 / fieldScale);
-  return Math.max(continuityFloor, organicWidth);
-}
-
-export function getBlobWebConnectionWidth(
-  connection: BlobFieldConnection,
-  blur: number,
-  fieldScale: number,
-  fusionStrength: number
-) {
-  const smallerRadius = Math.min(
-    connection.from.scaledRadius,
-    connection.to.scaledRadius
-  );
-  const isBoundary = connection.role === "boundary";
-  const falloffDistance = Math.max(160, smallerRadius * 6);
-  const distanceFalloff = 1 / (1 + connection.gap / falloffDistance);
-  const organicWidth =
-    smallerRadius *
-    (isBoundary ? 0.24 : 0.15) *
-    (0.72 + fusionStrength * 0.28) *
-    distanceFalloff;
-
-  // Web filaments are materially thinner than Merge but still occupy enough
-  // field pixels to survive the shared blur/threshold pass at long distances.
-  const continuityFloor = Math.max(
-    blur * (isBoundary ? 1.18 : 1.02),
-    (isBoundary ? 3.2 : 2.8) / fieldScale
-  );
-  return Math.max(continuityFloor, organicWidth);
+function traceEnvelope(context: CanvasRenderingContext2D, points: readonly FieldPoint[]) {
+  context.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) context.moveTo(point.x, point.y);
+    else context.lineTo(point.x, point.y);
+  });
+  context.closePath();
 }
 
 export const BLOB_FIELD_COLOR_BATCH_SIZE = 8;
@@ -762,7 +639,6 @@ export function getBlobFieldMaterialPasses(
 export function useBlobFieldRenderer() {
   let surfaces: FieldSurfaces | null = null;
   let buffers: FieldBuffers | null = null;
-  const connectionPlanner = createBlobFieldConnectionPlanner();
   const webConnectionPlanner = createBlobWebConnectionPlanner();
 
   const getSurfaces = (width: number, height: number) => {
@@ -845,38 +721,29 @@ export function useBlobFieldRenderer() {
     }
 
     const { scale, width, height } = getBlobFieldResolution(bounds);
-    const connections =
-      mode === "merge"
-        ? connectionPlanner.getConnections(frames)
-        : webConnectionPlanner.getConnections(frames, scene);
-    const connectionLayers = connections.map((connection) => {
-      const isMerge = connection.role === "merge";
-      const connectionWidth = isMerge
-        ? getBlobFieldConnectionWidth(
-            connection,
-            blur,
-            scale,
-            config.fusionStrength
-          )
-        : getBlobWebConnectionWidth(
-            connection,
-            blur,
-            scale,
-            config.fusionStrength
-          );
-
-      return {
-        connection,
-        geometry: getBlobFieldConnectionGeometry(
-          connection,
-          connectionWidth,
-          scale,
-          isMerge ? 1.05 : connection.role === "boundary" ? 0.46 : 0.34,
-          isMerge ? 1 : connection.role === "boundary" ? 0.46 : 0.3,
-          isMerge ? "contour" : "radius"
-        ),
-      };
-    });
+    const connections = mode === "web"
+      ? webConnectionPlanner.getConnections(frames, scene)
+      : [];
+    const connectionLayers = connections.map((connection) => ({
+      connection,
+      geometry: getBlobFieldConnectionGeometry(
+        connection, getBlobWebConnectionWidth(connection), 1,
+        connection.role === "boundary" ? 0.14 : 0.1,
+        connection.role === "boundary" ? 0.46 : 0.3
+      ),
+    }));
+    const visibleFrames = frames.filter((frame) => frame.opacity > 0);
+    const envelope = mode === "merge" && visibleFrames.length > 1
+      ? getMergeEnvelope(visibleFrames, blur)
+      : [];
+    // Paint opacity tiers from faintest to strongest. A releasing outer member
+    // may fade its extension, but can never dim the envelope of held members.
+    const envelopeLayers = envelope.length ? [...new Set(visibleFrames.map(
+      (frame) => Math.max(0, Math.min(1, frame.opacity))
+    ))].sort((a, b) => a - b).flatMap((opacity) => {
+      const members = visibleFrames.filter((frame) => frame.opacity >= opacity);
+      return members.length > 1 ? [{ opacity, points: getMergeEnvelope(members, blur) }] : [];
+    }) : [];
     const field = getSurfaces(width, height);
     const sourceContext = field.source.getContext("2d", {
       willReadFrequently: true,
@@ -905,11 +772,8 @@ export function useBlobFieldRenderer() {
         Math.max(0, Math.min(1, connection.from.opacity)),
         Math.max(0, Math.min(1, connection.to.opacity))
       );
-      return connection.role === "merge"
-        ? bodyOpacity
-        : bodyOpacity *
-            config.webOpacity *
-            (connection.role === "boundary" ? 0.92 : 0.46);
+      return bodyOpacity * config.webOpacity *
+        (connection.role === "boundary" ? 0.92 : 0.46);
     };
 
     const colorLayers = [
@@ -921,25 +785,24 @@ export function useBlobFieldRenderer() {
           sourceContext.fill();
         },
       })),
-      ...connectionLayers.map(({ connection, geometry }) => ({
-        opacity: getConnectionOpacity(connection),
+      ...(envelope.length ? visibleFrames.map((frame) => ({
+        opacity: Math.max(0, Math.min(1, frame.opacity)),
         paint: () => {
-          const start = geometry.centerline[0];
-          const end =
-            geometry.centerline[geometry.centerline.length - 1] ?? start;
-          const gradient = sourceContext.createLinearGradient(
-            start.x,
-            start.y,
-            end.x,
-            end.y
+          // Each note contributes across the filled interior. Normalizing these
+          // radial weights in the existing color field gives a continuous blend.
+          const reach = Math.max(...envelope.map((point) =>
+            Math.hypot(point.x - frame.blob.x, point.y - frame.blob.y)
+          )) * 1.05;
+          const gradient = sourceContext.createRadialGradient(
+            frame.blob.x, frame.blob.y, 0, frame.blob.x, frame.blob.y, reach
           );
-          gradient.addColorStop(0, connection.from.primaryColor);
-          gradient.addColorStop(1, connection.to.primaryColor);
+          gradient.addColorStop(0, frame.primaryColor);
+          gradient.addColorStop(1, "transparent");
           sourceContext.fillStyle = gradient;
-          traceConnection(sourceContext, geometry);
+          traceEnvelope(sourceContext, envelope);
           sourceContext.fill();
         },
-      })),
+      })) : []),
     ];
 
     // A sustained body must win over a releasing body at an overlap. Painting
@@ -954,10 +817,10 @@ export function useBlobFieldRenderer() {
           visibilityContext.fill();
         },
       })),
-      ...connectionLayers.map(({ connection, geometry }) => ({
-        opacity: getConnectionOpacity(connection),
+      ...envelopeLayers.map(({ opacity, points }) => ({
+        opacity,
         paint: () => {
-          traceConnection(visibilityContext, geometry);
+          traceEnvelope(visibilityContext, points);
           visibilityContext.fill();
         },
       })),
@@ -1103,6 +966,23 @@ export function useBlobFieldRenderer() {
     }
 
     outputContext.putImageData(output, 0, 0);
+    // Thin Web strands bypass the downsampled occupancy threshold and broad
+    // body blur. Drawing them underneath leaves each note body distinct.
+    connectionLayers.forEach(({ connection, geometry }) => {
+      target.save();
+      target.globalAlpha = getConnectionOpacity(connection);
+      target.filter = "none";
+      const gradient = target.createLinearGradient(
+        connection.from.blob.x, connection.from.blob.y,
+        connection.to.blob.x, connection.to.blob.y
+      );
+      gradient.addColorStop(0, connection.from.primaryColor);
+      gradient.addColorStop(1, connection.to.primaryColor);
+      target.fillStyle = gradient;
+      traceConnection(target, geometry);
+      target.fill();
+      target.restore();
+    });
     getBlobFieldMaterialPasses(config).forEach((pass) => {
       target.save();
       target.imageSmoothingEnabled = true;
@@ -1129,7 +1009,6 @@ export function useBlobFieldRenderer() {
   const dispose = () => {
     surfaces = null;
     buffers = null;
-    connectionPlanner.clear();
     webConnectionPlanner.clear();
   };
 

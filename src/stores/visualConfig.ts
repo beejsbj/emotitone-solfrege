@@ -200,7 +200,7 @@ function migrateLegacyBlobRelationships(
   const legacyHarmonic = rawConfig.floatingPopup;
   if (!isRecord(legacyHarmonic)) {
     if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-      mergedBlobs.connectionMode = "off";
+      mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
     }
     return;
   }
@@ -250,7 +250,7 @@ function migrateLegacyBlobRelationships(
   }
 
   if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-    mergedBlobs.connectionMode = "off";
+    mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
   }
 }
 

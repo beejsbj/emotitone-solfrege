@@ -269,6 +269,19 @@ describe('Visual Config Store', () => {
       expect(store.config.blobs.webOpacity).toBe(0.65)
     })
 
+    it('repairs an invalid connection mode to the canonical default', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          blobs: { connectionMode: 'mesh' },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs.connectionMode).toBe(DEFAULT_CONFIG.blobs.connectionMode)
+      expect(store.config.blobs.connectionMode).toBe('merge')
+    })
+
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
       const legacyKeyboard = {
         surfaceStyle: 'glassmorphism', glassmorphOpacity: 0.6,

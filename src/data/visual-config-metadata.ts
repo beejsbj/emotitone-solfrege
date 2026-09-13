@@ -174,7 +174,7 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     connectionMode: {
-      value: "off",
+      value: "merge",
       options: ["off", "merge", "web"],
       label: "Connections",
       group: "Relationships",
@@ -228,7 +228,7 @@ export const UNIFIED_CONFIG = {
       group: "Analysis",
     },
     showChordLabel: {
-      value: false,
+      value: true,
       label: "Show Chord Label",
       group: "Labels",
     },

@@ -115,11 +115,16 @@ async function selfTest() {
     interruptions: [],
     visibilityState: "visible",
     hasFocus: true,
-    coverage: { requestedDurationMs: 1_000, observedDurationMs: 1_001, intervalCount: 61, includesInitialDelay: true },
+    coverage: { requestedDurationMs: 4_000, observedDurationMs: 4_001, intervalCount: 241, includesInitialDelay: true },
     uiBeatCadence: {
       targetCount: 4,
       maximumAllowedIdleGapMs: 2_000,
       targets: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 20, distinctScaleValues: 10, maxIdleGapMs: 100 })),
+    },
+    trackedConsumers: {
+      initial: { targetCount: 4, allConnected: true, allVisible: true, allBound: true, allRunning: true },
+      final: { targetCount: 4, allConnected: true, allVisible: true, allBound: true, allRunning: true },
+      validThroughout: true,
     },
   };
   if (!sampleIsValid("uiBeat-on-first", healthyFrame, healthyScene, healthyScene)) {
@@ -169,6 +174,17 @@ async function selfTest() {
   if (sampleIsValid("uiBeat-on-first", earlyFreezeFrame, healthyScene, healthyScene)) {
     throw new Error("UIBeat cadence that changed initially then froze was accepted");
   }
+  const shortEarlyActivityFrame = {
+    ...healthyFrame,
+    coverage: { requestedDurationMs: 1_000, observedDurationMs: 1_001, intervalCount: 61, includesInitialDelay: true },
+    uiBeatCadence: {
+      ...healthyFrame.uiBeatCadence,
+      targets: healthyFrame.uiBeatCadence.targets.map((target) => ({ ...target, maxIdleGapMs: 800 })),
+    },
+  };
+  if (sampleIsValid("uiBeat-on-first", shortEarlyActivityFrame, healthyScene, healthyScene)) {
+    throw new Error("Window shorter than twice the cadence allowance was accepted");
+  }
   if (sampleIsValid("uiBeat-on-first", { ...healthyFrame, interruptions: [{ type: "blur" }] }, healthyScene, healthyScene)) {
     throw new Error("Interrupted sample was accepted");
   }
@@ -195,8 +211,52 @@ async function selfTest() {
     runningAcceptedConsumers: 0,
     indicatorRunning: false,
   };
-  if (!sampleIsValid("uiBeat-off", healthyFrame, offScene, offScene)) {
+  const stillTracking = {
+    targetCount: 4,
+    allConnected: true,
+    allVisible: true,
+    allBound: false,
+    allRunning: false,
+    noneBound: true,
+    noneRunning: true,
+  };
+  const healthyOffFrame = {
+    ...healthyFrame,
+    uiBeatCadence: {
+      targetCount: 4,
+      maximumAllowedIdleGapMs: 2_000,
+      targets: Array.from({ length: 4 }, (_, index) => ({
+        index,
+        mutationCount: 0,
+        distinctScaleValues: 1,
+        maxIdleGapMs: 4_001,
+        initialScale: "1",
+        finalScale: "1",
+      })),
+    },
+    trackedConsumers: { initial: stillTracking, final: stillTracking, validThroughout: true },
+  };
+  if (!sampleIsValid("uiBeat-off", healthyOffFrame, offScene, offScene)) {
     throw new Error("Healthy off-sample self-test failed");
+  }
+  const leakedOffFrame = {
+    ...healthyOffFrame,
+    uiBeatCadence: {
+      ...healthyOffFrame.uiBeatCadence,
+      targets: healthyOffFrame.uiBeatCadence.targets.map((target, index) =>
+        index === 0 ? { ...target, mutationCount: 1 } : target
+      ),
+    },
+  };
+  if (sampleIsValid("uiBeat-off", leakedOffFrame, offScene, offScene)) {
+    throw new Error("Leaked off-window scale update was accepted");
+  }
+  const replacedOffFrame = {
+    ...healthyOffFrame,
+    trackedConsumers: { ...healthyOffFrame.trackedConsumers, validThroughout: false },
+  };
+  if (sampleIsValid("uiBeat-off", replacedOffFrame, offScene, offScene)) {
+    throw new Error("Disconnected or replaced tracked consumer was accepted");
   }
   let missingWebSocketRejected = false;
   try {
@@ -317,6 +377,25 @@ async function selfTest() {
   if (isKnownNonNativeRenderer(["ANGLE (NVIDIA GeForce RTX 3060)"], ["DrawFrame"])) {
     throw new Error("Hardware renderer was classified as software");
   }
+  const nativeEnvironment = { userAgent: "Chrome", webgl: { renderer: "NVIDIA RTX 3060", vendor: "NVIDIA" } };
+  const stableRenderer = rendererAssessment(nativeEnvironment, { ...nativeEnvironment, webgl: { ...nativeEnvironment.webgl } }, []);
+  if (stableRenderer.knownNonNativeRenderer || !stableRenderer.rendererStable) {
+    throw new Error("Stable hardware renderer was rejected");
+  }
+  const softwareFallback = rendererAssessment(
+    nativeEnvironment,
+    { userAgent: "Chrome", webgl: { renderer: "SwiftShader Device", vendor: "Google" } },
+    [],
+  );
+  if (!softwareFallback.knownNonNativeRenderer || softwareFallback.rendererStable) {
+    throw new Error("Native-to-software renderer fallback was accepted");
+  }
+  const changedNativeRenderer = rendererAssessment(
+    nativeEnvironment,
+    { userAgent: "Chrome", webgl: { renderer: "AMD Radeon", vendor: "AMD" } },
+    [],
+  );
+  if (changedNativeRenderer.rendererStable) throw new Error("Changed native renderer was accepted");
   console.log("capture statistics self-test passed");
 }
 
@@ -326,6 +405,7 @@ function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
     frameCallbacks.visibilityState === "visible" && frameCallbacks.hasFocus &&
     frameCallbacks.coverage.includesInitialDelay && frameCallbacks.coverage.intervalCount >= 2 &&
     frameCallbacks.coverage.observedDurationMs >= frameCallbacks.coverage.requestedDurationMs &&
+    frameCallbacks.coverage.requestedDurationMs >= 2 * frameCallbacks.uiBeatCadence.maximumAllowedIdleGapMs &&
     initialScene.transportPlaying && finalScene.transportPlaying &&
     (expectedOn
       ? sceneHasCompleteVisibleBeat(initialScene) && sceneHasCompleteVisibleBeat(finalScene) &&
@@ -333,6 +413,7 @@ function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
         initialScene.indicatorRunning && finalScene.indicatorRunning
       : initialScene.runningAcceptedConsumers === 0 && finalScene.runningAcceptedConsumers === 0 &&
         initialScene.visibleRunningConsumers === 0 && finalScene.visibleRunningConsumers === 0 &&
+        offTrackedConsumersAreStill(frameCallbacks) &&
         !initialScene.indicatorRunning && !finalScene.indicatorRunning);
 }
 
@@ -346,11 +427,34 @@ function consumerInventoriesMatch(scenes) {
 
 function uiBeatCadenceIsActive(frameCallbacks, scene) {
   const cadence = frameCallbacks.uiBeatCadence;
+  const tracking = frameCallbacks.trackedConsumers;
   return cadence?.targetCount === scene.visibleBoundConsumers && cadence.targetCount > 0 &&
+    tracking?.initial.targetCount === cadence.targetCount && tracking.final.targetCount === cadence.targetCount &&
+    tracking.validThroughout &&
+    tracking.initial.allConnected && tracking.final.allConnected &&
+    tracking.initial.allVisible && tracking.final.allVisible &&
+    tracking.initial.allBound && tracking.final.allBound &&
+    tracking.initial.allRunning && tracking.final.allRunning &&
     Number.isFinite(cadence.maximumAllowedIdleGapMs) && cadence.maximumAllowedIdleGapMs > 0 &&
     cadence.targets.length === cadence.targetCount &&
     cadence.targets.every(({ mutationCount, distinctScaleValues, maxIdleGapMs }) =>
       mutationCount >= 2 && distinctScaleValues >= 2 && maxIdleGapMs <= cadence.maximumAllowedIdleGapMs
+    );
+}
+
+function offTrackedConsumersAreStill(frameCallbacks) {
+  const cadence = frameCallbacks.uiBeatCadence;
+  const tracking = frameCallbacks.trackedConsumers;
+  return cadence?.targetCount > 0 && tracking?.initial.targetCount === cadence.targetCount &&
+    tracking.final.targetCount === cadence.targetCount &&
+    tracking.validThroughout &&
+    tracking.initial.allConnected && tracking.final.allConnected &&
+    tracking.initial.allVisible && tracking.final.allVisible &&
+    tracking.initial.noneBound && tracking.final.noneBound &&
+    tracking.initial.noneRunning && tracking.final.noneRunning &&
+    cadence.targets.length === cadence.targetCount &&
+    cadence.targets.every(({ mutationCount, distinctScaleValues, initialScale, finalScale }) =>
+      mutationCount === 0 && distinctScaleValues === 1 && initialScale === finalScale
     );
 }
 
@@ -363,6 +467,25 @@ function isKnownNonNativeRenderer(environmentValues, traceNames) {
   return environmentValues.some((value) =>
     /headless|swiftshader|llvmpipe|softpipe|software(?:\s+\w+)*\s+renderer|software raster|microsoft basic render driver/i.test(value ?? "")
   ) || traceNames.some((name) => /SoftwareRenderer/i.test(name));
+}
+
+function rendererAssessment(initialEnvironment, finalEnvironment, traceNames) {
+  const values = [
+    initialEnvironment.userAgent,
+    initialEnvironment.webgl?.renderer,
+    initialEnvironment.webgl?.vendor,
+    finalEnvironment.userAgent,
+    finalEnvironment.webgl?.renderer,
+    finalEnvironment.webgl?.vendor,
+  ];
+  const rendererIdentity = (environment) => JSON.stringify({
+    renderer: environment.webgl?.renderer ?? null,
+    vendor: environment.webgl?.vendor ?? null,
+  });
+  return {
+    knownNonNativeRenderer: isKnownNonNativeRenderer(values, traceNames),
+    rendererStable: rendererIdentity(initialEnvironment) === rendererIdentity(finalEnvironment),
+  };
 }
 
 function sceneHasCompleteVisibleBeat(scene) {
@@ -596,7 +719,11 @@ async function startCaptureMonitor(cdp) {
     listeners.forEach(([target, type, listener]) => target.addEventListener(type, listener));
     window.__uiBeatCapacityMonitor = {
       events,
-      dispose: () => listeners.forEach(([target, type, listener]) => target.removeEventListener(type, listener)),
+      trackedConsumers: [],
+      dispose: () => {
+        listeners.forEach(([target, type, listener]) => target.removeEventListener(type, listener));
+        window.__uiBeatCapacityMonitor.trackedConsumers.length = 0;
+      },
     };
   })()`);
 }
@@ -688,13 +815,32 @@ async function sample(cdp, label, duration, traceDuration) {
     const interruptions = [];
     const observers = [];
     const startedAt = performance.now();
+    const expectedOn = ${JSON.stringify(label.startsWith("uiBeat-on"))};
     const isVisibleCadenceTarget = (element) => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
       return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 &&
         rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
     };
-    const cadenceTargets = Array.from(document.querySelectorAll("[data-ui-beat-scale]")).filter(isVisibleCadenceTarget);
+    const monitor = window.__uiBeatCapacityMonitor;
+    const currentlyBoundTargets = Array.from(document.querySelectorAll("[data-ui-beat-scale]")).filter(isVisibleCadenceTarget);
+    if (expectedOn && monitor && monitor.trackedConsumers.length === 0) {
+      monitor.trackedConsumers.push(...currentlyBoundTargets);
+    }
+    const cadenceTargets = monitor?.trackedConsumers ?? [];
+    const trackedState = () => ({
+      targetCount: cadenceTargets.length,
+      allConnected: cadenceTargets.every((target) => target.isConnected),
+      allVisible: cadenceTargets.every(isVisibleCadenceTarget),
+      allBound: cadenceTargets.every((target) => target.hasAttribute("data-ui-beat-scale")),
+      allRunning: cadenceTargets.every((target) => target.getAttribute("data-ui-beat-state") === "running"),
+      noneBound: cadenceTargets.every((target) => !target.hasAttribute("data-ui-beat-scale")),
+      noneRunning: cadenceTargets.every((target) => target.getAttribute("data-ui-beat-state") !== "running"),
+    });
+    const trackedAtStart = trackedState();
+    const trackedStateMatchesMode = (state) => state.targetCount > 0 && state.allConnected && state.allVisible &&
+      (expectedOn ? state.allBound && state.allRunning : state.noneBound && state.noneRunning);
+    let trackedConsumersValidThroughout = trackedStateMatchesMode(trackedAtStart);
     const cadence = cadenceTargets.map((target, index) => {
       const initialScale = target.style.getPropertyValue("scale");
       return { index, mutationCount: 0, lastScale: initialScale, scaleValues: new Set([initialScale]), changeTimes: [] };
@@ -738,6 +884,7 @@ async function sample(cdp, label, duration, traceDuration) {
     await Promise.race([new Promise((resolvePromise) => {
       const tick = (timestamp) => {
         if (!active) return;
+        trackedConsumersValidThroughout &&= trackedStateMatchesMode(trackedState());
         const callbackAt = performance.now();
         timestamps.push(timestamp);
         callbackTimes.push(callbackAt);
@@ -780,13 +927,21 @@ async function sample(cdp, label, duration, traceDuration) {
       timedOut,
       uiBeatCadence: {
         targetCount: cadenceTargets.length,
-        targets: cadence.map(({ index, mutationCount, scaleValues, changeTimes }) => {
+        targets: cadence.map(({ index, mutationCount, scaleValues, changeTimes, lastScale }) => {
           const boundedChangeTimes = changeTimes.map((time) => Math.min(time, endedAt));
           const boundaries = [startedAt, ...boundedChangeTimes, endedAt];
           const maxIdleGapMs = Math.max(...boundaries.slice(1).map((time, boundaryIndex) => time - boundaries[boundaryIndex]));
-          return { index, mutationCount, distinctScaleValues: scaleValues.size, maxIdleGapMs };
+          return {
+            index,
+            mutationCount,
+            distinctScaleValues: scaleValues.size,
+            maxIdleGapMs,
+            initialScale: [...scaleValues][0],
+            finalScale: lastScale,
+          };
         }),
       },
+      trackedConsumers: { initial: trackedAtStart, final: trackedState(), validThroughout: trackedConsumersValidThroughout },
       visibilityState: document.visibilityState,
       hasFocus: document.hasFocus(),
       uiBeat: {
@@ -1048,8 +1203,9 @@ async function main() {
         terminal.close();
       }
     }
-    const knownNonNativeRenderer = isKnownNonNativeRenderer(
-      [initialEnvironment.userAgent, initialEnvironment.webgl.renderer],
+    const { knownNonNativeRenderer, rendererStable } = rendererAssessment(
+      initialEnvironment,
+      finalEnvironment,
       samples.flatMap((sampleResult) => Object.keys(sampleResult.trace.byName)),
     );
     const sceneFingerprintStable = fingerprintsMatch(samples.flatMap(({ initialScene, finalScene }) => [initialScene, finalScene]));
@@ -1061,7 +1217,7 @@ async function main() {
       sceneFingerprintStable && consumerInventoryStable;
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
       Boolean(postRunOperatorObservation?.text) &&
-      !knownNonNativeRenderer && allSamplesValid && captureInterruptions.length === 0 &&
+      !knownNonNativeRenderer && rendererStable && allSamplesValid && captureInterruptions.length === 0 &&
       initialEnvironment.visibilityState === "visible" && initialEnvironment.hasFocus &&
       finalEnvironment.visibilityState === "visible" && finalEnvironment.hasFocus;
     const report = {
@@ -1077,6 +1233,7 @@ async function main() {
       environment: { initial: initialEnvironment, final: finalEnvironment },
       automatedEligibility: {
         knownNonNativeRenderer,
+        rendererStable,
         allSamplesValid,
         sceneFingerprintStable,
         consumerInventoryStable,

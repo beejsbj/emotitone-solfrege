@@ -239,13 +239,22 @@ describe("ConfigPanel.vue", () => {
     expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("notation", "pitch");
   });
 
-  it("publishes only Global, Stage, Deck, and MIDI destinations", () => {
+  it("promotes each Stage group into a focused destination", () => {
     wrapper = createTestWrapper(ConfigPanel);
     const tabs = wrapper
       .getComponent({ name: "TabbedOverlayPanel" })
       .props("tabs") as Array<{ value: string }>;
 
-    expect(tabs.map((tab) => tab.value)).toEqual(["global", "stage", "deck", "midi"]);
+    expect(tabs.map((tab) => tab.value)).toEqual([
+      "global",
+      "stage",
+      "scope",
+      "bodies",
+      "relations",
+      "layers",
+      "deck",
+      "midi",
+    ]);
     expect(wrapper.find("[data-tab]").attributes("data-tab")).toBe("global");
     expect(tabs.map((tab) => tab.value)).not.toContain("looks");
     expect(tabs.map((tab) => tab.value)).not.toContain("patterns");
@@ -267,6 +276,33 @@ describe("ConfigPanel.vue", () => {
     expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(22);
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(7);
+  });
+
+  it("keeps Stage general and renders one Stage group at a time", async () => {
+    wrapper = createTestWrapper(ConfigPanel);
+    const panel = wrapper.getComponent({ name: "TabbedOverlayPanel" });
+
+    panel.vm.$emit("update:modelValue", "stage");
+    await nextTick();
+    expect(wrapper.find('[data-testid="stage-public-controls"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-looks"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-control-scopeSize"]').exists()).toBe(false);
+
+    panel.vm.$emit("update:modelValue", "scope");
+    await nextTick();
+    expect(wrapper.find('[data-testid="stage-destination-scope"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid^="stage-control-"]')).toHaveLength(5);
+    expect(wrapper.find('[data-testid="stage-control-scopeSize"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-control-bodySize"]').exists()).toBe(false);
+
+    panel.vm.$emit("update:modelValue", "relations");
+    await nextTick();
+    expect(wrapper.find('[data-testid="stage-destination-relations"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid^="stage-control-"]')).toHaveLength(6);
+    expect(wrapper.find('[data-testid="stage-control-connectionMode"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-control-connectionStrength"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-control-showChords"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-control-showIntervals"]').exists()).toBe(true);
   });
 
   it("keeps operational and renderer calibration fields out of Deck", () => {

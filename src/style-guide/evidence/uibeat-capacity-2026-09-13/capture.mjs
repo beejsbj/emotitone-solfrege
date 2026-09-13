@@ -20,7 +20,7 @@ function usage() {
 
 Options:
   --cdp URL          Chrome DevTools endpoint (default http://127.0.0.1:9222)
-  --target TEXT      Substring selecting the already-open EmotiTone tab
+  --target TEXT      Unique substring selecting one already-open EmotiTone tab
   --duration MS      Sample duration per UIBeat state (default 10000)
   --trace-duration MS  Separate diagnostic trace per state (default 2000)
   --warmup MS        Settling time after each state change (default 2000)
@@ -116,6 +116,11 @@ async function selfTest() {
     visibilityState: "visible",
     hasFocus: true,
     coverage: { requestedDurationMs: 1_000, observedDurationMs: 1_001, intervalCount: 61, includesInitialDelay: true },
+    uiBeatCadence: {
+      targetCount: 4,
+      maximumAllowedIdleGapMs: 2_000,
+      targets: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 20, distinctScaleValues: 10, maxIdleGapMs: 100 })),
+    },
   };
   if (!sampleIsValid("uiBeat-on-first", healthyFrame, healthyScene, healthyScene)) {
     throw new Error("Healthy on-sample self-test failed");
@@ -127,6 +132,42 @@ async function selfTest() {
   };
   if (sampleIsValid("uiBeat-on-first", healthyFrame, partiallyRunning, healthyScene)) {
     throw new Error("Partially running on-sample was accepted");
+  }
+  const changedInventory = {
+    ...healthyScene,
+    visibleBoundConsumers: 3,
+    visibleBoundByType: { button: 1, knob: 1, joystick: 1 },
+    visibleRunningConsumers: 3,
+    visibleRunningByType: { button: 1, knob: 1, joystick: 1 },
+    runningAcceptedConsumers: 3,
+  };
+  if (sampleIsValid("uiBeat-on-first", healthyFrame, healthyScene, changedInventory)) {
+    throw new Error("Changed within-sample consumer inventory was accepted");
+  }
+  if (consumerInventoriesMatch([healthyScene, changedInventory])) {
+    throw new Error("Changed cross-sample consumer inventory was accepted");
+  }
+  const frozenFrame = {
+    ...healthyFrame,
+    uiBeatCadence: {
+      targetCount: 4,
+      maximumAllowedIdleGapMs: 2_000,
+      targets: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 0, distinctScaleValues: 1, maxIdleGapMs: 1_000 })),
+    },
+  };
+  if (sampleIsValid("uiBeat-on-first", frozenFrame, healthyScene, healthyScene)) {
+    throw new Error("Frozen UIBeat cadence was accepted");
+  }
+  const earlyFreezeFrame = {
+    ...healthyFrame,
+    uiBeatCadence: {
+      targetCount: 4,
+      maximumAllowedIdleGapMs: 2_000,
+      targets: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 10, distinctScaleValues: 8, maxIdleGapMs: 8_500 })),
+    },
+  };
+  if (sampleIsValid("uiBeat-on-first", earlyFreezeFrame, healthyScene, healthyScene)) {
+    throw new Error("UIBeat cadence that changed initially then froze was accepted");
   }
   if (sampleIsValid("uiBeat-on-first", { ...healthyFrame, interruptions: [{ type: "blur" }] }, healthyScene, healthyScene)) {
     throw new Error("Interrupted sample was accepted");
@@ -212,6 +253,70 @@ async function selfTest() {
   if (traceCounts.Paint !== 1 || traceCounts.RasterTask !== 1 || traceCounts.DrawFrame !== 1) {
     throw new Error(`Full trace event-name counts were not retained: ${JSON.stringify(traceCounts)}`);
   }
+  const drained = [];
+  let disconnected = false;
+  drainPerformanceObservers([{
+    observer: {
+      takeRecords: () => [{ toJSON: () => ({ name: "terminal-long-frame" }) }],
+      disconnect: () => { disconnected = true; },
+    },
+    sink: drained,
+  }]);
+  if (drained[0]?.name !== "terminal-long-frame" || !disconnected) {
+    throw new Error("Queued terminal performance entry was not drained before disconnect");
+  }
+  assertMonitorCoversPreparation(100, 101);
+  let uncoveredPreparationRejected = false;
+  try { assertMonitorCoversPreparation(102, 101); } catch { uncoveredPreparationRejected = true; }
+  if (!uncoveredPreparationRejected) throw new Error("Preparation before interruption monitoring was accepted");
+  const fingerprint = {
+    codeText: "do re mi",
+    controls: [{ label: "BPM", value: "120" }],
+    harmony: "auto",
+    instrument: "Piano",
+    globalConfig: [{ id: "global-control-paper", value: "ivory" }],
+  };
+  if (!fingerprintsMatch([{ workloadFingerprint: fingerprint }, { workloadFingerprint: { ...fingerprint } }])) {
+    throw new Error("Unchanged workload fingerprint was rejected");
+  }
+  if (fingerprintsMatch([
+    { workloadFingerprint: fingerprint },
+    { workloadFingerprint: { ...fingerprint, controls: [{ label: "BPM", value: "121" }] } },
+  ])) {
+    throw new Error("Changed workload fingerprint was accepted");
+  }
+  const captureFailure = new Error("capture failed");
+  const restorationFailure = new Error("restore failed");
+  let combinedFailure;
+  try { throwCaptureOrRestorationError(captureFailure, restorationFailure); } catch (error) { combinedFailure = error; }
+  if (!(combinedFailure instanceof AggregateError) ||
+      combinedFailure.errors[0] !== captureFailure || combinedFailure.errors[1] !== restorationFailure ||
+      combinedFailure.cause !== captureFailure) {
+    throw new Error("Capture and restoration failures were not both preserved");
+  }
+  let restorationOnlyFailure;
+  try { throwCaptureOrRestorationError(null, restorationFailure); } catch (error) { restorationOnlyFailure = error; }
+  if (restorationOnlyFailure !== restorationFailure) throw new Error("Restoration-only failure was swallowed");
+  const uniqueTarget = { type: "page", title: "EmotiTone", url: "https://example.test/current", webSocketDebuggerUrl: "ws://one" };
+  if (selectUniqueTarget([uniqueTarget], "current", "http://cdp") !== uniqueTarget) {
+    throw new Error("Unique CDP target was not selected");
+  }
+  let ambiguousTargetRejected = false;
+  try {
+    selectUniqueTarget([
+      uniqueTarget,
+      { ...uniqueTarget, url: "https://example.test/older", webSocketDebuggerUrl: "ws://two" },
+    ], "emotitone", "http://cdp");
+  } catch (error) {
+    ambiguousTargetRejected = /Ambiguous page target/.test(error.message);
+  }
+  if (!ambiguousTargetRejected) throw new Error("Ambiguous CDP target was accepted");
+  for (const renderer of ["Software Renderer", "Apple Software Renderer", "Microsoft Basic Render Driver", "softpipe"]) {
+    if (!isKnownNonNativeRenderer([renderer], [])) throw new Error(`Software renderer was accepted: ${renderer}`);
+  }
+  if (isKnownNonNativeRenderer(["ANGLE (NVIDIA GeForce RTX 3060)"], ["DrawFrame"])) {
+    throw new Error("Hardware renderer was classified as software");
+  }
   console.log("capture statistics self-test passed");
 }
 
@@ -223,10 +328,41 @@ function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
     frameCallbacks.coverage.observedDurationMs >= frameCallbacks.coverage.requestedDurationMs &&
     initialScene.transportPlaying && finalScene.transportPlaying &&
     (expectedOn
-      ? sceneHasCompleteVisibleBeat(initialScene) && sceneHasCompleteVisibleBeat(finalScene) && initialScene.indicatorRunning && finalScene.indicatorRunning
+      ? sceneHasCompleteVisibleBeat(initialScene) && sceneHasCompleteVisibleBeat(finalScene) &&
+        consumerInventoriesMatch([initialScene, finalScene]) && uiBeatCadenceIsActive(frameCallbacks, initialScene) &&
+        initialScene.indicatorRunning && finalScene.indicatorRunning
       : initialScene.runningAcceptedConsumers === 0 && finalScene.runningAcceptedConsumers === 0 &&
         initialScene.visibleRunningConsumers === 0 && finalScene.visibleRunningConsumers === 0 &&
         !initialScene.indicatorRunning && !finalScene.indicatorRunning);
+}
+
+function consumerInventoriesMatch(scenes) {
+  const inventories = scenes.map((scene) => JSON.stringify({
+    total: scene.visibleBoundConsumers,
+    byType: Object.fromEntries(Object.entries(scene.visibleBoundByType).sort(([left], [right]) => left.localeCompare(right))),
+  }));
+  return inventories.length > 0 && inventories.every((value) => value === inventories[0]);
+}
+
+function uiBeatCadenceIsActive(frameCallbacks, scene) {
+  const cadence = frameCallbacks.uiBeatCadence;
+  return cadence?.targetCount === scene.visibleBoundConsumers && cadence.targetCount > 0 &&
+    Number.isFinite(cadence.maximumAllowedIdleGapMs) && cadence.maximumAllowedIdleGapMs > 0 &&
+    cadence.targets.length === cadence.targetCount &&
+    cadence.targets.every(({ mutationCount, distinctScaleValues, maxIdleGapMs }) =>
+      mutationCount >= 2 && distinctScaleValues >= 2 && maxIdleGapMs <= cadence.maximumAllowedIdleGapMs
+    );
+}
+
+function cadenceAllowanceMs(scene) {
+  const bpm = Number(scene.workloadFingerprint?.controls?.find(({ label }) => label === "BPM")?.value);
+  return Number.isFinite(bpm) && bpm > 0 ? Math.max(2_000, 120_000 / bpm) : 0;
+}
+
+function isKnownNonNativeRenderer(environmentValues, traceNames) {
+  return environmentValues.some((value) =>
+    /headless|swiftshader|llvmpipe|softpipe|software(?:\s+\w+)*\s+renderer|software raster|microsoft basic render driver/i.test(value ?? "")
+  ) || traceNames.some((name) => /SoftwareRenderer/i.test(name));
 }
 
 function sceneHasCompleteVisibleBeat(scene) {
@@ -256,6 +392,64 @@ async function collectPostRunObservation(metadata, captureComplete, prompt) {
   )).trim();
   if (!text) throw new Error("Physical capture requires a non-empty post-run operator observation");
   return { recordedAt: new Date().toISOString(), text };
+}
+
+function drainPerformanceObservers(bindings) {
+  for (const { observer, sink } of bindings) {
+    sink.push(...observer.takeRecords().map((entry) => entry.toJSON()));
+    observer.disconnect();
+  }
+}
+
+function fingerprintsMatch(scenes) {
+  const fingerprints = scenes.map((scene) => scene.workloadFingerprint);
+  const complete = fingerprints.every((fingerprint) =>
+    typeof fingerprint?.codeText === "string" && fingerprint.codeText.trim().length > 0 &&
+    typeof fingerprint.harmony === "string" && fingerprint.harmony.trim().length > 0 &&
+    typeof fingerprint.instrument === "string" && fingerprint.instrument.trim().length > 0 &&
+    Array.isArray(fingerprint.controls) && fingerprint.controls.length > 0 &&
+    fingerprint.controls.some(({ label, value }) => label === "BPM" && String(value).trim().length > 0) &&
+    Array.isArray(fingerprint.globalConfig) && fingerprint.globalConfig.length > 0
+  );
+  if (!complete) return false;
+  const serialized = fingerprints.map((fingerprint) => JSON.stringify(fingerprint));
+  return serialized.length > 0 && serialized.every((value) => value === serialized[0]);
+}
+
+function assertMonitorCoversPreparation(monitorStartedAt, preparationStartedAt) {
+  if (!Number.isFinite(monitorStartedAt) || monitorStartedAt > preparationStartedAt) {
+    throw new Error("Capture interruption monitor did not cover scene preparation");
+  }
+}
+
+function throwCaptureOrRestorationError(captureError, restorationError) {
+  if (captureError && restorationError) {
+    throw new AggregateError(
+      [captureError, restorationError],
+      `Capture failed (${captureError.message}) and UI Rhythm restoration also failed (${restorationError.message})`,
+      { cause: captureError },
+    );
+  }
+  if (captureError) throw captureError;
+  if (restorationError) throw restorationError;
+}
+
+function selectUniqueTarget(targets, query, endpoint) {
+  const normalizedQuery = query.toLowerCase();
+  const matches = targets.filter((candidate) =>
+    candidate.type === "page" && [candidate.url, candidate.title]
+      .some((value) => value?.toLowerCase().includes(normalizedQuery))
+  );
+  if (matches.length === 0) {
+    throw new Error(`No page target matching ${JSON.stringify(query)} at ${endpoint}`);
+  }
+  if (matches.length > 1) {
+    const descriptions = matches.map(({ title, url }) => `${JSON.stringify(title)} ${url}`).join("; ");
+    throw new Error(
+      `Ambiguous page target ${JSON.stringify(query)} matched ${matches.length} tabs at ${endpoint}: ${descriptions}. Close extra tabs or pass a unique --target substring.`,
+    );
+  }
+  return matches[0];
 }
 
 class CdpConnection {
@@ -486,17 +680,46 @@ async function sample(cdp, label, duration, traceDuration) {
   const initialScene = await sceneState(cdp);
   const before = await getMetrics(cdp);
   const frameCallbacks = await evaluate(cdp, `(async () => {
+    ${drainPerformanceObservers.toString()}
     const duration = ${duration};
     const timestamps = [];
     const longAnimationFrames = [];
     const longTasks = [];
     const interruptions = [];
     const observers = [];
+    const startedAt = performance.now();
+    const isVisibleCadenceTarget = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 &&
+        rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight;
+    };
+    const cadenceTargets = Array.from(document.querySelectorAll("[data-ui-beat-scale]")).filter(isVisibleCadenceTarget);
+    const cadence = cadenceTargets.map((target, index) => {
+      const initialScale = target.style.getPropertyValue("scale");
+      return { index, mutationCount: 0, lastScale: initialScale, scaleValues: new Set([initialScale]), changeTimes: [] };
+    });
+    const cadenceByTarget = new Map(cadenceTargets.map((target, index) => [target, cadence[index]]));
+    const recordCadence = (records) => {
+      for (const record of records) {
+        const targetCadence = cadenceByTarget.get(record.target);
+        if (!targetCadence) continue;
+        targetCadence.mutationCount += 1;
+        const scale = record.target.style.getPropertyValue("scale");
+        targetCadence.scaleValues.add(scale);
+        if (scale !== targetCadence.lastScale) {
+          targetCadence.lastScale = scale;
+          targetCadence.changeTimes.push(performance.now());
+        }
+      }
+    };
+    const cadenceObserver = new MutationObserver(recordCadence);
+    cadenceTargets.forEach((target) => cadenceObserver.observe(target, { attributes: true, attributeFilter: ["style"] }));
     const observe = (type, sink) => {
       try {
         const observer = new PerformanceObserver((list) => sink.push(...list.getEntries().map((entry) => entry.toJSON())));
         observer.observe({ type, buffered: false });
-        observers.push(observer);
+        observers.push({ observer, sink });
       } catch {}
     };
     observe("long-animation-frame", longAnimationFrames);
@@ -507,7 +730,6 @@ async function sample(cdp, label, duration, traceDuration) {
     document.addEventListener("visibilitychange", recordVisibility);
     window.addEventListener("blur", recordBlur);
     window.addEventListener("focus", recordFocus);
-    const startedAt = performance.now();
     let timedOut = false;
     let sampleTimeout;
     let frameId;
@@ -529,11 +751,14 @@ async function sample(cdp, label, duration, traceDuration) {
     active = false;
     if (frameId !== undefined) cancelAnimationFrame(frameId);
     clearTimeout(sampleTimeout);
+    const endedAt = performance.now();
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
     document.removeEventListener("visibilitychange", recordVisibility);
     window.removeEventListener("blur", recordBlur);
     window.removeEventListener("focus", recordFocus);
-    observers.forEach((observer) => observer.disconnect());
-    const endedAt = performance.now();
+    drainPerformanceObservers(observers);
+    recordCadence(cadenceObserver.takeRecords());
+    cadenceObserver.disconnect();
     const intervals = callbackTimes.map((callbackAt, index) =>
       index === 0 ? callbackAt - startedAt : callbackAt - callbackTimes[index - 1]
     );
@@ -553,6 +778,15 @@ async function sample(cdp, label, duration, traceDuration) {
       longTasks,
       interruptions,
       timedOut,
+      uiBeatCadence: {
+        targetCount: cadenceTargets.length,
+        targets: cadence.map(({ index, mutationCount, scaleValues, changeTimes }) => {
+          const boundedChangeTimes = changeTimes.map((time) => Math.min(time, endedAt));
+          const boundaries = [startedAt, ...boundedChangeTimes, endedAt];
+          const maxIdleGapMs = Math.max(...boundaries.slice(1).map((time, boundaryIndex) => time - boundaries[boundaryIndex]));
+          return { index, mutationCount, distinctScaleValues: scaleValues.size, maxIdleGapMs };
+        }),
+      },
       visibilityState: document.visibilityState,
       hasFocus: document.hasFocus(),
       uiBeat: {
@@ -563,6 +797,7 @@ async function sample(cdp, label, duration, traceDuration) {
       },
     };
   })()`);
+  frameCallbacks.uiBeatCadence.maximumAllowedIdleGapMs = cadenceAllowanceMs(initialScene);
   const after = await getMetrics(cdp);
   const traced = await traceWhile(cdp, async () => delay(traceDuration));
   const finalScene = await sceneState(cdp);
@@ -603,6 +838,24 @@ async function sceneState(cdp) {
     const runningConsumers = running.filter((element) => !element.classList.contains("beat-indicator"));
     const visible = bound.filter(isVisible);
     const visibleRunning = runningConsumers.filter(isVisible);
+    const normalizeText = (value) => value?.replace(/\\s+/g, " ").trim() ?? "";
+    const workloadFingerprint = {
+      codeText: Array.from(document.querySelectorAll(".cm-content .cm-line"))
+        .map((line) => line.textContent ?? "")
+        .join("\\n"),
+      controls: Array.from(document.querySelectorAll(".control-bar .knob-wrapper")).map((control) => ({
+        label: normalizeText(control.querySelector(".knob-wrapper__label")?.textContent),
+        value: control.getAttribute("aria-valuetext") ??
+          normalizeText(control.querySelector(".knob-range-value")?.textContent),
+      })),
+      harmony: document.querySelector(".control-bar .joystick")?.getAttribute("data-latched") ?? "",
+      instrument: normalizeText(document.querySelector('[data-testid="instrument-selector-trigger"] .drawer__label')?.textContent),
+      globalConfig: Array.from(document.querySelectorAll('[data-testid^="global-control-"]:not([data-testid="global-control-uiRhythm"])')).map((control) => ({
+        id: control.getAttribute("data-testid"),
+        value: control.getAttribute("aria-pressed") ?? control.getAttribute("aria-valuetext") ??
+          normalizeText(control.querySelector(".knob-range-value")?.textContent),
+      })),
+    };
     return {
       transportPlaying: Boolean(document.querySelector('button[aria-label="Stop"]')),
       boundAcceptedConsumers: bound.length,
@@ -613,6 +866,7 @@ async function sceneState(cdp) {
       runningByType: countByType(runningConsumers),
       visibleRunningConsumers: visibleRunning.length,
       visibleRunningByType: countByType(visibleRunning),
+      workloadFingerprint,
       indicatorRunning: Boolean(document.querySelector('.beat-indicator[data-ui-beat-state="running"]')),
       visibilityState: document.visibilityState,
       hasFocus: document.hasFocus(),
@@ -730,10 +984,7 @@ async function main() {
     fetch(`${endpoint}/json/list`).then((response) => response.json()),
     fetch(`${endpoint}/json/version`).then((response) => response.json()),
   ]);
-  const target = targets.find((candidate) =>
-    candidate.type === "page" && [candidate.url, candidate.title].some((value) => value?.toLowerCase().includes(options.target.toLowerCase()))
-  );
-  if (!target) throw new Error(`No page target matching ${JSON.stringify(options.target)} at ${endpoint}`);
+  const target = selectUniqueTarget(targets, options.target, endpoint);
 
   const cdp = new CdpConnection(target.webSocketDebuggerUrl);
   await cdp.open();
@@ -747,22 +998,38 @@ async function main() {
     if (initialEnvironment.visibilityState !== "visible" || !initialEnvironment.hasFocus) {
       throw new Error(`Refusing background-tab evidence: visibility=${initialEnvironment.visibilityState}, focus=${initialEnvironment.hasFocus}`);
     }
-    const scenePreparation = await prepareScene(cdp);
-    const originalUiRhythm = await evaluate(cdp, `document.querySelector('[data-testid="global-control-uiRhythm"]')?.getAttribute("aria-pressed") === "true"`);
-    const samples = [];
     await startCaptureMonitor(cdp);
+    const monitorStartedAt = Date.now();
+    const preparationStartedAt = Date.now();
+    assertMonitorCoversPreparation(monitorStartedAt, preparationStartedAt);
+    let scenePreparation;
+    let originalUiRhythm;
+    const samples = [];
     let captureInterruptions = [];
+    let captureError = null;
+    let restorationError = null;
     try {
+      scenePreparation = await prepareScene(cdp);
+      originalUiRhythm = await evaluate(cdp, `document.querySelector('[data-testid="global-control-uiRhythm"]')?.getAttribute("aria-pressed") === "true"`);
       await setUiRhythm(cdp, true, options.warmup);
       samples.push(await sample(cdp, "uiBeat-on-first", options.duration, options.traceDuration));
       await setUiRhythm(cdp, false, options.warmup);
       samples.push(await sample(cdp, "uiBeat-off", options.duration, options.traceDuration));
       await setUiRhythm(cdp, true, options.warmup);
       samples.push(await sample(cdp, "uiBeat-on-second", options.duration, options.traceDuration));
+    } catch (error) {
+      captureError = error;
     } finally {
-      await setUiRhythm(cdp, originalUiRhythm, 0).catch(() => undefined);
+      if (originalUiRhythm !== undefined) {
+        try {
+          await setUiRhythm(cdp, originalUiRhythm, 0);
+        } catch (error) {
+          restorationError = error;
+        }
+      }
       captureInterruptions = await stopCaptureMonitor(cdp).catch(() => [{ type: "monitor-read-failed" }]);
     }
+    throwCaptureOrRestorationError(captureError, restorationError);
     const finalEnvironment = await environment(cdp);
     const measurementCompletedAt = new Date().toISOString();
     let postRunOperatorObservation = null;
@@ -781,10 +1048,17 @@ async function main() {
         terminal.close();
       }
     }
-    const knownNonNativeRenderer = [initialEnvironment.userAgent, initialEnvironment.webgl.renderer]
-      .some((value) => /headless|swiftshader|llvmpipe|software raster/i.test(value ?? "")) ||
-      samples.some((sampleResult) => Object.keys(sampleResult.trace.byName).some((name) => /SoftwareRenderer/.test(name)));
-    const allSamplesValid = samples.every((sampleResult) => sampleResult.valid);
+    const knownNonNativeRenderer = isKnownNonNativeRenderer(
+      [initialEnvironment.userAgent, initialEnvironment.webgl.renderer],
+      samples.flatMap((sampleResult) => Object.keys(sampleResult.trace.byName)),
+    );
+    const sceneFingerprintStable = fingerprintsMatch(samples.flatMap(({ initialScene, finalScene }) => [initialScene, finalScene]));
+    const onScenes = samples
+      .filter(({ label }) => label.startsWith("uiBeat-on"))
+      .flatMap(({ initialScene, finalScene }) => [initialScene, finalScene]);
+    const consumerInventoryStable = consumerInventoriesMatch(onScenes);
+    const allSamplesValid = samples.every((sampleResult) => sampleResult.valid) &&
+      sceneFingerprintStable && consumerInventoryStable;
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
       Boolean(postRunOperatorObservation?.text) &&
       !knownNonNativeRenderer && allSamplesValid && captureInterruptions.length === 0 &&
@@ -804,6 +1078,8 @@ async function main() {
       automatedEligibility: {
         knownNonNativeRenderer,
         allSamplesValid,
+        sceneFingerprintStable,
+        consumerInventoryStable,
         captureUninterrupted: captureInterruptions.length === 0,
       },
       captureInterruptions,
@@ -815,6 +1091,7 @@ async function main() {
         traceDurationMsPerState: options.traceDuration,
         warmupMs: options.warmup,
         frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
+        uiBeatCadenceScope: "a bounded MutationObserver records distinct inline scale changes for every visible bound consumer; each on-window target must avoid idle gaps longer than two beat periods with a 2000ms floor, including the sample boundaries",
         cdpTraceScope: "a separate diagnostic trace follows each untraced frame-callback window; selected raw presentation/drop events and full event-name counts are retained, event availability varies by browser build, and tracing does not prove display scanout",
         longAnimationFrameScope: "browser Long Animation Frame entries include main-thread script/render attribution where supported",
       },

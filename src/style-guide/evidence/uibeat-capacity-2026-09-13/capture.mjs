@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, resolve } from "node:path";
+import { mkdir, mkdtemp, open, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { gzipSync } from "node:zlib";
 
@@ -16,6 +17,18 @@ const TRACE_CATEGORIES = [
   "disabled-by-default-devtools.timeline.frame",
   "viz",
 ].join(",");
+
+const METADATA_EXAMPLE_PLACEHOLDERS = {
+  deviceName: "manufacturer and model",
+  deviceType: "desktop or mobile",
+  os: "name and exact version",
+  display: "native panel resolution, refresh rate, scaling, and browser viewport",
+  power: "power source, power mode, and battery state",
+  thermal: "observed thermal state before capture",
+  browserWindow: "native browser, foreground, focused, unobscured, visible for full run",
+  operatorObservationBefore: "name/date, native window visibility, and pre-run device condition",
+  sourceRevision: "exact git SHA or exact-revision deployment SHA",
+};
 
 function usage() {
   return `Usage:
@@ -473,6 +486,46 @@ async function selfTest() {
     rejected = false;
     try { validateMetadata(whitespaceOnly); } catch { rejected = true; }
     if (!rejected) throw new Error(`Whitespace-only ${missing} metadata was accepted`);
+  }
+  for (const [key, placeholder] of Object.entries(METADATA_EXAMPLE_PLACEHOLDERS)) {
+    let rejected = false;
+    try { validateMetadata({ ...validMetadata, [key]: placeholder }); } catch { rejected = true; }
+    if (!rejected) throw new Error(`Shipped ${key} metadata placeholder was accepted`);
+  }
+  let invalidPhysicalDeviceTypeRejected = false;
+  try { validateMetadata({ ...validMetadata, deviceType: "tablet" }); } catch { invalidPhysicalDeviceTypeRejected = true; }
+  if (!invalidPhysicalDeviceTypeRejected) throw new Error("Unsupported physical deviceType was accepted");
+  validateMetadata({ ...validMetadata, evidenceClass: "software-rendered", deviceType: "virtual desktop" });
+  const outputTestDirectory = await mkdtemp(join(tmpdir(), "uibeat-capacity-output-"));
+  try {
+    const reportPath = join(outputTestDirectory, "evidence.json");
+    const tracePath = join(outputTestDirectory, "evidence-trace-events.json.gz");
+    await writeFile(reportPath, "existing report");
+    let existingReportRejected = false;
+    try { await reserveEvidenceOutputs(reportPath); } catch { existingReportRejected = true; }
+    if (!existingReportRejected || await readFile(reportPath, "utf8") !== "existing report") {
+      throw new Error("Existing report was overwritten or accepted");
+    }
+    await unlink(reportPath);
+    await writeFile(tracePath, "existing trace");
+    let existingTraceRejected = false;
+    try { await reserveEvidenceOutputs(reportPath); } catch { existingTraceRejected = true; }
+    let reportPlaceholderExists = true;
+    try { await readFile(reportPath); } catch (error) { if (error.code === "ENOENT") reportPlaceholderExists = false; else throw error; }
+    if (!existingTraceRejected || reportPlaceholderExists || await readFile(tracePath, "utf8") !== "existing trace") {
+      throw new Error("Trace collision did not preserve existing evidence and clean its report reservation");
+    }
+    await unlink(tracePath);
+    const firstReservation = await reserveEvidenceOutputs(reportPath);
+    await firstReservation.reportHandle.writeFile("reserved report");
+    let racingReservationRejected = false;
+    try { await reserveEvidenceOutputs(reportPath); } catch { racingReservationRejected = true; }
+    if (!racingReservationRejected || await readFile(reportPath, "utf8") !== "reserved report") {
+      throw new Error("Exclusive evidence reservation did not reject a racing writer");
+    }
+    await cleanupEvidenceOutputs(firstReservation);
+  } finally {
+    await rm(outputTestDirectory, { recursive: true, force: true });
   }
   let promptedBeforeCompletion = false;
   try {
@@ -1904,9 +1957,47 @@ function validateMetadata(metadata) {
     if (typeof metadata[key] !== "string" || metadata[key].trim().length === 0) {
       throw new Error(`Metadata is missing ${key}`);
     }
+    if (metadata[key].trim() === METADATA_EXAMPLE_PLACEHOLDERS[key]) {
+      throw new Error(`Metadata ${key} still contains the shipped example placeholder`);
+    }
   }
   const allowed = ["physical-native-visible", "software-rendered", "emulated-viewport"];
   if (!allowed.includes(metadata.evidenceClass)) throw new Error(`Unsupported evidenceClass ${metadata.evidenceClass}`);
+  if (metadata.evidenceClass === "physical-native-visible" && !["desktop", "mobile"].includes(metadata.deviceType)) {
+    throw new Error(`Physical metadata deviceType must be desktop or mobile, found ${metadata.deviceType}`);
+  }
+}
+
+function evidenceOutputPaths(outputOption) {
+  const output = resolve(outputOption);
+  return {
+    output,
+    traceOutput: output.endsWith(".json")
+      ? output.replace(/\.json$/, "-trace-events.json.gz")
+      : `${output}-trace-events.json.gz`,
+  };
+}
+
+async function reserveEvidenceOutputs(outputOption) {
+  const { output, traceOutput } = evidenceOutputPaths(outputOption);
+  await mkdir(dirname(output), { recursive: true });
+  const reportHandle = await open(output, "wx");
+  try {
+    const traceHandle = await open(traceOutput, "wx");
+    return { output, traceOutput, reportHandle, traceHandle, committed: false };
+  } catch (error) {
+    await reportHandle.close().catch(() => {});
+    await unlink(output).catch(() => {});
+    throw error;
+  }
+}
+
+async function cleanupEvidenceOutputs(reservation) {
+  if (!reservation) return;
+  await Promise.allSettled([reservation.reportHandle.close(), reservation.traceHandle.close()]);
+  if (!reservation.committed) {
+    await Promise.allSettled([unlink(reservation.output), unlink(reservation.traceOutput)]);
+  }
 }
 
 async function main() {
@@ -1930,6 +2021,7 @@ async function main() {
   const target = selectUniqueTarget(targets, options.target, endpoint);
   const browserTargetMonitor = await startBrowserTargetMonitor(version.webSocketDebuggerUrl, target);
   let pageTargetMonitoring = null;
+  let evidenceOutputs = null;
 
   const cdp = new CdpConnection(target.webSocketDebuggerUrl);
   try {
@@ -1943,6 +2035,7 @@ async function main() {
     if (initialEnvironment.visibilityState !== "visible" || !initialEnvironment.hasFocus) {
       throw new Error(`Refusing background-tab evidence: visibility=${initialEnvironment.visibilityState}, focus=${initialEnvironment.hasFocus}`);
     }
+    evidenceOutputs = await reserveEvidenceOutputs(options.output);
     await startCaptureMonitor(cdp);
     const monitorStartedAt = Date.now();
     const preparationStartedAt = Date.now();
@@ -2107,10 +2200,7 @@ async function main() {
       ],
       samples,
     };
-    const output = resolve(options.output);
-    const traceOutput = output.endsWith(".json")
-      ? output.replace(/\.json$/, "-trace-events.json.gz")
-      : `${output}-trace-events.json.gz`;
+    const { output, traceOutput, reportHandle, traceHandle } = evidenceOutputs;
     const traceArtifact = {
       schemaVersion: 1,
       sourceRevision: metadata.sourceRevision,
@@ -2123,8 +2213,7 @@ async function main() {
       })),
     };
     const traceBytes = gzipSync(`${JSON.stringify(traceArtifact)}\n`);
-    await mkdir(dirname(output), { recursive: true });
-    await writeFile(traceOutput, traceBytes);
+    await traceHandle.writeFile(traceBytes);
     report.traceArtifact = {
       file: basename(traceOutput),
       sha256: createHash("sha256").update(traceBytes).digest("hex"),
@@ -2134,9 +2223,12 @@ async function main() {
     for (const sampleResult of samples) delete sampleResult.trace.selectedEvents;
     const serialized = `${JSON.stringify(report, null, 2)}\n`;
     report.sha256BeforeDigestField = createHash("sha256").update(serialized).digest("hex");
-    await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
+    await reportHandle.writeFile(`${JSON.stringify(report, null, 2)}\n`);
+    await Promise.all([traceHandle.sync(), reportHandle.sync()]);
+    evidenceOutputs.committed = true;
     console.log(`wrote ${basename(output)}`);
   } finally {
+    await cleanupEvidenceOutputs(evidenceOutputs);
     await browserTargetMonitor.stop().catch(() => {});
     cdp.close();
   }

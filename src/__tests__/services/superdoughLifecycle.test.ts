@@ -41,6 +41,23 @@ describe('published superdough lifecycle and voice budget', () => {
     expect(dough.hasVoice('late')).toBe(true)
   })
 
+  it.each([.5, 1.05])('reports graph admission after source preparation at %ss', async (readyAt) => {
+    let finishPreparation!: () => void
+    const preparation = new Promise<void>(resolve => { finishPreparation = resolve })
+    const original = dough.getSound('lifecycle-test').onTrigger
+    dough.registerSound('lifecycle-test', async (...args: unknown[]) => {
+      const handle = original(...args)
+      await preparation
+      return handle
+    })
+    const pending = attack('prepared', 1)
+    expect(audio.sources[0].startAt).toBe(1)
+    audio.advance(readyAt)
+    finishPreparation()
+    await expect(pending).resolves.toBe(Math.max(1, readyAt))
+    expect(dough.hasVoice('prepared')).toBe(true)
+  })
+
   it('continues skipping overdue finite pattern events', async () => {
     audio.advance(.02)
     await dough.superdough({ s: 'lifecycle-test' }, .01, .25, 1)

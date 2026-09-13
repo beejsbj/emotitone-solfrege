@@ -172,7 +172,7 @@ Three bounded sessions may begin beside one another now; they are not unconstrai
 
 1. **Config Menu hosted verification:** inspect the deployed four-destination Global/Stage/Deck/MIDI surface at desktop and phone widths, then close or correct the broader information-architecture pass.
 2. **Stage verification:** replace the comparison with a real specimen and inspect the integrated Hilbert-centred production Stage, animated PatternReel boundary, and unified live microphone flow at desktop and phone widths without reopening the accepted idle breath, exact-pitch/envelope Strings, or usable-centre Blob orbit.
-3. **UIBeat capacity evidence:** measure named physical desktop and mobile whole-frame pacing without broadening the accepted consumer family or reopening source architecture.
+3. **UIBeat capacity evidence:** the reproducible capture harness in `evidence/uibeat-capacity-2026-09-13/` records foreground on/off/on pacing, browser attribution, selected compositor traces, device metadata, and full-capture interruptions. Its Xvfb/SoftwareRenderer rehearsal verifies the capture path only and is ineligible for capacity closure. Named physical desktop and mobile whole-frame pacing remains required; preserve the accepted consumer family and source architecture.
 
 Blob relationships, Keyboard, PatternStrip, and PatternReel are closed. PerformanceDeck, Loading Screen, Config Menu, and Instrument Picker are closed compositions. After remaining unit implementation and dispositions settle, run the global token inventory, then the final integrated adoption/orphan audit.
 

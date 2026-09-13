@@ -246,6 +246,10 @@ function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value));
 }
 
+function readStringResponse(config: VisualEffectsConfig["strings"]) {
+  return clamp((config.maxAmplitude - 5) / 45);
+}
+
 function cloneConfig(config: VisualEffectsConfig): VisualEffectsConfig {
   return {
     ...config,
@@ -322,6 +326,11 @@ export function resolveStageConfig(
   // Hilbert is the Stage's primary body. Its legacy switch remains in saved
   // data for compatibility, but it is not a second public master.
   effective.hilbertScope.isEnabled = stageEnabled;
+  // The retired Strings master is also compatibility data. Presence owns the
+  // idle field, including a blank zero state; Stage owns whether played notes
+  // may reveal their exact-pitch Strings.
+  effective.strings.isEnabled = stageEnabled;
+  effective.strings.activeOpacity = readStringResponse(effective.strings);
   if (!stageEnabled) {
     effective.blobs.isEnabled = false;
     effective.ambient.isEnabled = false;
@@ -373,9 +382,9 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
       (config.ambient.saturationMajor + config.ambient.saturationMinor) / 1.75,
     ),
     stringPresence: config.strings.isEnabled
-      ? clamp(config.strings.activeOpacity)
+      ? clamp(config.strings.baseOpacity / 0.12)
       : 0,
-    stringResponse: clamp((config.strings.maxAmplitude - 5) / 45),
+    stringResponse: readStringResponse(config.strings),
     fleckAmount: config.particles.isEnabled
       ? clamp(config.particles.count, 0, 40)
       : 0,
@@ -471,13 +480,15 @@ export function patchStageControl(
     }
     case "stringPresence": {
       const amount = clamp(value);
-      next.strings.isEnabled = amount > 0.01;
+      // Presence describes only the idle field. Effective Stage resolution
+      // keeps exact-pitch activation available without rewriting the retired
+      // Strings master in persisted compatibility data.
       next.strings.baseOpacity = amount * 0.12;
-      next.strings.activeOpacity = amount;
       break;
     }
     case "stringResponse": {
       const amount = clamp(value);
+      next.strings.activeOpacity = amount;
       next.strings.maxAmplitude = 5 + amount * 45;
       next.strings.dampingFactor = 0.14 - amount * 0.1;
       next.strings.interpolationSpeed = 0.05 + amount * 0.2;

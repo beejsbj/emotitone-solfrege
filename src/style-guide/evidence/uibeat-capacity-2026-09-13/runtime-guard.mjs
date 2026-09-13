@@ -588,44 +588,76 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
 
   const stop = () => {
     if (stopped) throw new Error("Runtime guard has already stopped");
-    const activeWindowProof = activeWindow ? snapshot() : null;
-    drainWorkloadObserver();
-    recordWorkload("guard:stop");
-    const cleanupIssues = [];
-    workloadObserver?.disconnect();
-    drawerGeometryObserver?.disconnect();
-    stageGeometryObserver?.disconnect();
-    document.removeEventListener("input", recordWorkloadInput, true);
-    document.removeEventListener("change", recordWorkloadInput, true);
-    reducedMotionQuery.removeEventListener("change", recordReducedMotionChange);
-    for (const unsubscribe of subscriptions) {
-      try { unsubscribe(); } catch (error) {
-        cleanupIssues.push(`store-unsubscribe-failed:${error?.message ?? String(error)}`);
+    const errorDetail = (phase, error) => ({
+      phase,
+      name: error?.name ?? "Error",
+      message: error?.message ?? String(error),
+    });
+    const finalizationErrors = [];
+    let activeWindowProof = null;
+    if (activeWindow) {
+      try { activeWindowProof = snapshot(); } catch (error) {
+        finalizationErrors.push(errorDetail("active-window-snapshot", error));
       }
     }
-    canvas.removeEventListener("contextlost", recordContextEvent);
-    canvas.removeEventListener("contextrestored", recordContextEvent);
-    if (context.clearRect !== guardedClearRect) {
-      cleanupIssues.push("clearRect-wrapper-ownership-lost");
-    } else {
-      try {
-        if (hadOwnClearRect) Object.defineProperty(context, "clearRect", originalClearRectDescriptor);
-        else delete context.clearRect;
-      } catch (error) {
-        cleanupIssues.push(`clearRect-restore-failed:${error?.message ?? String(error)}`);
-      }
+    try { drainWorkloadObserver(); } catch (error) {
+      finalizationErrors.push(errorDetail("guard-stop-observer-drain", error));
+    }
+    try { recordWorkload("guard:stop"); } catch (error) {
+      finalizationErrors.push(errorDetail("guard-stop-workload", error));
     }
     stopped = true;
+    const cleanupIssues = [];
+    const cleanupErrors = [];
+    const cleanupAttempt = (phase, action) => {
+      try { action(); } catch (error) {
+        const detail = errorDetail(phase, error);
+        cleanupErrors.push(detail);
+        cleanupIssues.push(`${phase}-failed:${detail.message}`);
+      }
+    };
+    cleanupAttempt("workload-observer-disconnect", () => workloadObserver?.disconnect());
+    cleanupAttempt("drawer-observer-disconnect", () => drawerGeometryObserver?.disconnect());
+    cleanupAttempt("stage-observer-disconnect", () => stageGeometryObserver?.disconnect());
+    cleanupAttempt("input-listener-remove", () =>
+      document.removeEventListener("input", recordWorkloadInput, true));
+    cleanupAttempt("change-listener-remove", () =>
+      document.removeEventListener("change", recordWorkloadInput, true));
+    cleanupAttempt("reduced-motion-listener-remove", () =>
+      reducedMotionQuery.removeEventListener("change", recordReducedMotionChange));
+    for (const unsubscribe of subscriptions) {
+      cleanupAttempt("store-unsubscribe", unsubscribe);
+    }
+    cleanupAttempt("contextlost-listener-remove", () =>
+      canvas.removeEventListener("contextlost", recordContextEvent));
+    cleanupAttempt("contextrestored-listener-remove", () =>
+      canvas.removeEventListener("contextrestored", recordContextEvent));
+    if (context.clearRect !== guardedClearRect) {
+      cleanupIssues.push("clearRect-wrapper-ownership-lost");
+      cleanupErrors.push({
+        phase: "clearRect-wrapper-ownership",
+        name: "Error",
+        message: "Runtime guard no longer owns the installed clearRect wrapper",
+      });
+    } else {
+      cleanupAttempt("clearRect-restore", () => {
+        if (hadOwnClearRect) Object.defineProperty(context, "clearRect", originalClearRectDescriptor);
+        else delete context.clearRect;
+      });
+    }
+    activeWindow = null;
     const endedAt = now();
     return {
       valid: workloadChanges.length === 0 && windows.length > 0 &&
-        windows.every((window) => window.valid) && cleanupIssues.length === 0,
+        windows.every((window) => window.valid) && finalizationErrors.length === 0 && cleanupIssues.length === 0,
       issues: [
         ...(workloadChanges.length > 0 ? ["workload-changed-during-guard-session"] : []),
         ...(windows.length === 0 ? ["no-runtime-guard-windows"] : []),
         ...(windows.some((window) => !window.valid) ? ["invalid-runtime-guard-window"] : []),
+        ...(finalizationErrors.length > 0 ? ["runtime-guard-finalization-failed"] : []),
         ...cleanupIssues,
       ],
+      errors: [...finalizationErrors, ...cleanupErrors],
       startedAt: sessionStartedAt,
       endedAt,
       baseline: sessionBaseline,
@@ -633,12 +665,15 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       windows: windows.slice(),
       activeWindowProof,
       cleanup: {
-        subscriptionsRemoved: cleanupIssues.every((issue) => !issue.startsWith("store-unsubscribe-failed:")),
-        observerDisconnected: true,
-        workloadInputListenersRemoved: true,
-        reducedMotionListenerRemoved: true,
-        contextListenersRemoved: true,
-        clearRectRestored: cleanupIssues.every((issue) => !issue.startsWith("clearRect-")),
+        subscriptionsRemoved: cleanupErrors.every(({ phase }) => phase !== "store-unsubscribe"),
+        observerDisconnected: cleanupErrors.every(({ phase }) => !phase.endsWith("observer-disconnect")),
+        workloadInputListenersRemoved: cleanupErrors.every(({ phase }) =>
+          phase !== "input-listener-remove" && phase !== "change-listener-remove"),
+        reducedMotionListenerRemoved: cleanupErrors.every(({ phase }) =>
+          phase !== "reduced-motion-listener-remove"),
+        contextListenersRemoved: cleanupErrors.every(({ phase }) =>
+          phase !== "contextlost-listener-remove" && phase !== "contextrestored-listener-remove"),
+        clearRectRestored: cleanupErrors.every(({ phase }) => !phase.startsWith("clearRect-")),
       },
     };
   };

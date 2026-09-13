@@ -4,6 +4,8 @@
 
 For each measured window, call `start({ label, expectedDurationMs, maximumCanvasIdleMs })`, run the sample, then call `snapshot()`. Call `stop()` in capture cleanup and retain its report even when an earlier step failed. A usable capture requires every window and the final session report to be valid.
 
+`stop()` attempts active-window finalization and the final workload read, then marks the guard stopped before independently removing every observer, subscription, event listener, and owned canvas wrapper. Read and cleanup failures make the returned report invalid and remain serialized in its `errors` array with their phase, name, and original message; one failure cannot skip later cleanup.
+
 The guard synchronously subscribes to the production Pinia workload, listens for operator `input`/`change` events, and compares aggregate semantic DOM values after CodeStrip or stable-control mutations. Separate input events retain changed-then-restored CodeStrip edits even when both arrive in one observer batch, while synchronous Pinia subscriptions retain transient effective Stage Looks and restored store controls. Only `effectiveConfig.uiBeat.isEnabled` and its Global control are excluded because the capture deliberately changes UI Rhythm. Style/class animation, CodeMirror's same-text syntax-highlight churn, active notes, playback progress, and other ordinary motion do not alter the fingerprint.
 
 An arbitrary script that changes and restores DOM text in one microtask without dispatching input, change, or a store mutation is outside this guard's observability: its mutation batch is indistinguishable from CodeMirror's normal same-text decoration work. The physical procedure excludes such automation during measurement.

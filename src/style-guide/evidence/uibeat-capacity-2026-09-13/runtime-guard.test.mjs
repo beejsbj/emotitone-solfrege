@@ -12,17 +12,24 @@ import {
 
 function createStore(state) {
   const listeners = new Set();
+  let unsubscribeError = null;
   return Object.assign(state, {
     $subscribe(listener, options) {
       assert.equal(options?.flush, "sync");
       listeners.add(listener);
-      return () => listeners.delete(listener);
+      return () => {
+        listeners.delete(listener);
+        if (unsubscribeError) throw unsubscribeError;
+      };
     },
     notify() {
       for (const listener of listeners) listener();
     },
     listenerCount() {
       return listeners.size;
+    },
+    setUnsubscribeError(error) {
+      unsubscribeError = error;
     },
   });
 }
@@ -489,6 +496,56 @@ test("rejects context loss and still cleans up its owned wrapper", () => {
   assert.ok(proof.issues.includes("stage-context-loss"));
   assert.deepEqual(proof.stage.contextEvents.map(({ type }) => type), ["contextlost"]);
   assert.equal(report.cleanup.clearRectRestored, true);
+  assert.equal(fixture.context.clearRect, fixture.originalClearRect);
+});
+
+test("stop cleans every hook and retains snapshot, final-read, and cleanup failures", () => {
+  const fixture = createFixture();
+  fixture.guard.start({ label: "failed-finalization", expectedDurationMs: 1_000 });
+  fixture.fillHealthyWindow();
+  fixture.visualStore.effectiveConfig = null;
+  fixture.visualStore.setUnsubscribeError(new Error("visual unsubscribe failed"));
+
+  const report = fixture.guard.stop();
+
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.includes("runtime-guard-finalization-failed"));
+  assert.ok(report.issues.includes("store-unsubscribe-failed:visual unsubscribe failed"));
+  assert.deepEqual(report.errors.map(({ phase, message }) => ({ phase, message })), [
+    { phase: "active-window-snapshot", message: "Runtime guard could not read the production visual workload" },
+    { phase: "guard-stop-workload", message: "Runtime guard could not read the production visual workload" },
+    { phase: "store-unsubscribe", message: "visual unsubscribe failed" },
+  ]);
+  assert.deepEqual(report.cleanup, {
+    subscriptionsRemoved: false,
+    observerDisconnected: true,
+    workloadInputListenersRemoved: true,
+    reducedMotionListenerRemoved: true,
+    contextListenersRemoved: true,
+    clearRectRestored: true,
+  });
+  assert.equal(fixture.visualStore.listenerCount(), 0);
+  assert.equal(fixture.instrumentStore.listenerCount(), 0);
+  assert.equal(fixture.musicStore.listenerCount(), 0);
+  assert.equal(fixture.reducedMotionListenerCount(), 0);
+  assert.equal(fixture.context.clearRect, fixture.originalClearRect);
+  assert.throws(() => fixture.guard.stop(), /already stopped/);
+});
+
+test("stop returns an invalid report when only its final workload read fails", () => {
+  const fixture = createFixture();
+  fixture.guard.start({ label: "final-read", expectedDurationMs: 1_000 });
+  fixture.fillHealthyWindow();
+  assert.equal(fixture.guard.snapshot().valid, true);
+  fixture.visualStore.effectiveConfig = null;
+
+  const report = fixture.guard.stop();
+
+  assert.equal(report.valid, false);
+  assert.deepEqual(report.errors.map(({ phase }) => phase), ["guard-stop-workload"]);
+  assert.ok(report.issues.includes("runtime-guard-finalization-failed"));
+  assert.equal(report.windows.length, 1);
+  assert.ok(Object.values(report.cleanup).every(Boolean));
   assert.equal(fixture.context.clearRect, fixture.originalClearRect);
 });
 

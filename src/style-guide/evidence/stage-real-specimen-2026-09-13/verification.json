@@ -1,0 +1,116 @@
+{
+  "date": "2026-09-13",
+  "branch": "codex/stage-real-specimen",
+  "localServer": "http://127.0.0.1:5182",
+  "browser": "Google Chrome 147, headless visible-page lifecycle",
+  "guide": {
+    "route": "/style-guide/stage",
+    "viewports": [
+      [1440, 900],
+      [390, 844]
+    ],
+    "documentOverflow": false,
+    "productionSourceMounted": "UnifiedVisualEffects.vue",
+    "states": [
+      "C4/E4/G4 phrase",
+      "borrowed C-sharp 4",
+      "silence",
+      "Off/Merge/Web",
+      "Stage enabled/disabled",
+      "host boundary idle/reveal",
+      "Reduced Motion"
+    ],
+    "waveform": {
+      "source": "silent synthetic triangle oscillator with controlled envelope values",
+      "longStrokePoints": 1024,
+      "desktopObservedRangePx": {
+        "x": 215.5,
+        "y": 283.51
+      },
+      "phoneObservedRangePx": {
+        "x": 99.71,
+        "y": 131.62
+      }
+    },
+    "hostBoundary": {
+      "desktopIdlePartTopPx": 789,
+      "desktopIntermediatePartTopPx": 722.07,
+      "desktopRevealedPartTopPx": 713,
+      "transitionEasing": "var(--ease-brush)",
+      "activeMarkerObservedDuringMotion": true
+    },
+    "reducedMotion": {
+      "twoFrameCanvasHashesEqual": true,
+      "longWaveformStrokes": 0
+    },
+    "persistenceSentinelPreserved": true,
+    "consoleErrors": []
+  },
+  "production": {
+    "localViewports": [
+      [1440, 900],
+      [390, 844]
+    ],
+    "documentOverflow": false,
+    "patternReel": {
+      "activeMarkerObserved": true,
+      "desktopHighestPaintedPartIdleTopPx": 427.06,
+      "desktopHighestPaintedPartRevealedTopPx": 360.06,
+      "currentStripHeightPx": 51.19
+    },
+    "microphone": {
+      "input": "synthetic 220 Hz MediaStream; no physical microphone",
+      "recordingControls": [
+        "Accept humming capture",
+        "Cancel humming capture"
+      ],
+      "recordingStatus": "Listening to your humming",
+      "hilbertStrokePoints": 1024,
+      "hilbertObservedRangePx": {
+        "x": 111.3,
+        "y": 111.52
+      },
+      "cancelReturnedToIdle": true,
+      "acceptEnteredAnalysis": true,
+      "acceptResult": "1 notes added from 1 take"
+    },
+    "consoleErrors": []
+  },
+  "hosted": {
+    "publicMain": {
+      "url": "https://emotitone-solfrege.vercel.app/",
+      "sourceSha": "dc5734617107136e00fdabda38c473aa55b601f0",
+      "viewports": [
+        [1440, 900],
+        [390, 844]
+      ],
+      "documentOverflow": false,
+      "patternReelSlots": 5,
+      "consoleErrors": []
+    },
+    "branchPreview": {
+      "deployment": "dpl_83YBc7wqRomyFt1Ty6vnxPzskQrf",
+      "sourceSha": "22a8672",
+      "status": "Ready",
+      "url": "https://emotitone-solfrege-dmwq1zzna-beejsbjs-projects.vercel.app",
+      "browserAccess": "Vercel SSO redirects unauthenticated browser traffic; exact-head route screenshot unavailable"
+    }
+  },
+  "screenshots": [
+    "guide-desktop-phrase.png",
+    "guide-desktop-boundary.png",
+    "guide-phone-phrase.png",
+    "guide-phone-reduced-motion.png",
+    "production-desktop-held-note.png",
+    "production-desktop-reel.png",
+    "production-desktop-synthetic-microphone.png",
+    "production-phone-held-note.png",
+    "hosted-main-desktop.png",
+    "hosted-main-phone.png"
+  ],
+  "limitations": [
+    "No physical microphone or physical device was available.",
+    "The branch preview is deployment-ready but protected by Vercel SSO.",
+    "The guide envelope values are controlled fixture input and do not verify production RMS smoothing."
+  ]
+}

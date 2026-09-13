@@ -654,6 +654,27 @@ async function selfTest() {
   for (const renderer of ["Software Renderer", "Apple Software Renderer", "Microsoft Basic Render Driver", "softpipe"]) {
     if (!isKnownNonNativeRenderer([renderer], [])) throw new Error(`Software renderer was accepted: ${renderer}`);
   }
+  const viewport = Object.assign(new EventTarget(), {
+    scale: 1, width: 390, height: 844, offsetLeft: 0, offsetTop: 0, pageLeft: 0, pageTop: 0,
+  });
+  const viewportEvents = [];
+  const viewportBindings = visualViewportListenerBindings(viewport, (type) =>
+    viewportEvents.push({ type, viewport: visualViewportSnapshot(viewport) })
+  );
+  viewportBindings.forEach(([target, type, listener]) => target.addEventListener(type, listener));
+  Object.assign(viewport, { scale: 2, width: 195, offsetLeft: 12, pageLeft: 12 });
+  viewport.dispatchEvent(new Event("resize"));
+  Object.assign(viewport, { scale: 1, width: 390, offsetLeft: 0, pageLeft: 0 });
+  viewport.dispatchEvent(new Event("scroll"));
+  viewportBindings.forEach(([target, type, listener]) => target.removeEventListener(type, listener));
+  viewport.dispatchEvent(new Event("resize"));
+  if (viewportEvents.length !== 2 || viewportEvents[0].type !== "visual-viewport-resize" ||
+      viewportEvents[0].viewport.scale !== 2 || viewportEvents[0].viewport.offsetLeft !== 12 ||
+      viewportEvents[1].type !== "visual-viewport-scroll" || viewportEvents[1].viewport.scale !== 1 ||
+      visualViewportSnapshot(null) !== null || visualViewportListenerBindings(null, () => {}).length !== 0 ||
+      displayFingerprintsMatch({ visualViewport: viewportEvents[0].viewport }, { visualViewport: viewportEvents[1].viewport })) {
+    throw new Error("Visual viewport change/recovery, geometry, or listener cleanup was not preserved");
+  }
   if (isKnownNonNativeRenderer(["ANGLE (NVIDIA GeForce RTX 3060)"], ["DrawFrame"])) {
     throw new Error("Hardware renderer was classified as software");
   }
@@ -878,6 +899,26 @@ function operatorObservationIsAcceptable(observation) {
     typeof observation.narrative === "string" && observation.narrative.trim().length > 0;
 }
 
+function visualViewportSnapshot(viewport) {
+  if (!viewport) return null;
+  return {
+    scale: viewport.scale,
+    width: viewport.width,
+    height: viewport.height,
+    offsetLeft: viewport.offsetLeft,
+    offsetTop: viewport.offsetTop,
+    pageLeft: viewport.pageLeft,
+    pageTop: viewport.pageTop,
+  };
+}
+
+function visualViewportListenerBindings(viewport, record) {
+  return viewport ? [
+    [viewport, "resize", () => record("visual-viewport-resize")],
+    [viewport, "scroll", () => record("visual-viewport-scroll")],
+  ] : [];
+}
+
 function displayFingerprint(environmentValue) {
   return JSON.stringify({
     screenCssPx: environmentValue.screenCssPx,
@@ -886,6 +927,7 @@ function displayFingerprint(environmentValue) {
     colorDepth: environmentValue.colorDepth,
     screenOrientation: environmentValue.screenOrientation,
     screenIsExtended: environmentValue.screenIsExtended,
+    visualViewport: environmentValue.visualViewport,
   });
 }
 
@@ -1130,6 +1172,7 @@ async function waitForSelector(cdp, selector, timeout = 15_000) {
 
 async function environment(cdp) {
   return evaluate(cdp, `(() => {
+    ${visualViewportSnapshot.toString()}
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
     const extension = gl?.getExtension("WEBGL_debug_renderer_info");
@@ -1146,6 +1189,7 @@ async function environment(cdp) {
       hardwareConcurrency: navigator.hardwareConcurrency,
       deviceMemoryGiB: navigator.deviceMemory ?? null,
       viewportCssPx: [innerWidth, innerHeight],
+      visualViewport: visualViewportSnapshot(window.visualViewport),
       screenCssPx: [screen.width, screen.height],
       availableScreenCssPx: [screen.availWidth, screen.availHeight],
       devicePixelRatio,
@@ -1159,6 +1203,8 @@ async function environment(cdp) {
 
 async function startCaptureMonitor(cdp) {
   await evaluate(cdp, `(() => {
+    ${visualViewportSnapshot.toString()}
+    ${visualViewportListenerBindings.toString()}
     window.__uiBeatCapacityMonitor?.dispose?.();
     const events = [];
     const record = (type) => events.push({
@@ -1167,12 +1213,14 @@ async function startCaptureMonitor(cdp) {
       visibilityState: document.visibilityState,
       hasFocus: document.hasFocus(),
       viewportCssPx: [innerWidth, innerHeight],
+      visualViewport: visualViewportSnapshot(window.visualViewport),
     });
     const listeners = [
       [document, "visibilitychange", () => record("visibilitychange")],
       [window, "blur", () => record("blur")],
       [window, "focus", () => record("focus")],
       [window, "resize", () => record("resize")],
+      ...visualViewportListenerBindings(window.visualViewport, record),
     ];
     listeners.forEach(([target, type, listener]) => target.addEventListener(type, listener));
     window.__uiBeatCapacityMonitor = {

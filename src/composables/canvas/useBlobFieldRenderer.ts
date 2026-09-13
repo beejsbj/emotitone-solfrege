@@ -687,6 +687,27 @@ export function useBlobFieldRenderer() {
     return buffers;
   };
 
+  const renderBodies = (
+    target: CanvasRenderingContext2D,
+    frames: readonly PreparedBlobFrame[],
+    config: BlobConfig
+  ) => {
+    // Use the same Blob blur/glow material as Merge, above the unblurred strands.
+    // A faint releasing body paints before a held body at coincident positions.
+    const orderedFrames = orderBlobFramesForVisibility(frames);
+    getBlobFieldMaterialPasses(config).forEach((pass) => {
+      target.save();
+      target.filter = pass.filter;
+      orderedFrames.forEach((frame) => {
+        target.globalAlpha = pass.opacity * Math.max(0, Math.min(1, frame.opacity));
+        target.fillStyle = frame.primaryColor;
+        traceFrame(target, frame);
+        target.fill();
+      });
+      target.restore();
+    });
+  };
+
   const renderWeb = (
     target: CanvasRenderingContext2D,
     frames: readonly PreparedBlobFrame[],
@@ -718,20 +739,7 @@ export function useBlobFieldRenderer() {
       target.fill();
       target.restore();
     });
-    // Use the same Blob blur/glow material as Merge, above the unblurred strands.
-    // A faint releasing body paints before a held body at coincident positions.
-    const orderedFrames = orderBlobFramesForVisibility(frames);
-    getBlobFieldMaterialPasses(config).forEach((pass) => {
-      target.save();
-      target.filter = pass.filter;
-      orderedFrames.forEach((frame) => {
-        target.globalAlpha = pass.opacity * Math.max(0, Math.min(1, frame.opacity));
-        target.fillStyle = frame.primaryColor;
-        traceFrame(target, frame);
-        target.fill();
-      });
-      target.restore();
-    });
+    renderBodies(target, frames, config);
   };
 
   const renderBlobField = (
@@ -743,6 +751,14 @@ export function useBlobFieldRenderer() {
     const mode = config.connectionMode;
     if (frames.length === 0 || mode === "off") {
       return false;
+    }
+
+    // A single note has no relationship field to form. Preserve its prepared
+    // body directly: field thresholds otherwise erase small held notes and
+    // truncate release tails when the last other chord member disappears.
+    if (frames.length === 1) {
+      renderBodies(target, frames, config);
+      return true;
     }
 
     if (mode === "web") {

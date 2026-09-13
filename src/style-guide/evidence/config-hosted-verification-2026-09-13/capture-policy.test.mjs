@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import path from "node:path";
-import { assertGuideReceipt, assertHostedDestinationState, assertHostedRouteState, assertLoadedAssetBaseline, assertPersistenceComparisons, assertStageControlSnapshot, createCaptureWorkspace, createLoadedAssetCollector, matchesRecursivePatch, verifyHostedBaseline } from "./capture-policy.mjs";
+import { assertGuideReceipt, assertHostedDestinationState, assertHostedRouteState, assertLoadedAssetBaseline, assertPersistenceComparisons, assertStageControlSnapshot, createCaptureWorkspace, createLoadedAssetCollector, matchesBaselineWithPatch, matchesRecursivePatch, verifyHostedBaseline } from "./capture-policy.mjs";
 
 const bytes = Buffer.from("known asset");
 const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -43,6 +43,7 @@ test("persistence verification rejects any false comparison", () => {
       persistedStageAppearanceChanged: true,
       persistedStageAppearanceMatchesLuminousOwnedPatch: true,
       learnerOwnedFieldsUnchanged: true,
+      allNonLookFieldsUnchanged: true,
       visualsEnabledUnchanged: true,
       stagePreferencesUnchanged: true,
       statusCleared: true,
@@ -63,6 +64,7 @@ test("persistence verification rejects any false comparison", () => {
     ["kept", "persistedStageAppearanceChanged", /Keep did not persist a Stage appearance/],
     ["kept", "persistedStageAppearanceMatchesLuminousOwnedPatch", /complete Luminous-owned Stage patch/],
     ["kept", "learnerOwnedFieldsUnchanged", /learner-owned Stage fields/],
+    ["kept", "allNonLookFieldsUnchanged", /outside the Luminous-owned fields/],
     ["kept", "visualsEnabledUnchanged", /Keep changed Visuals Enabled/],
     ["kept", "stagePreferencesUnchanged", /Keep changed Stage reload preferences/],
   ];
@@ -141,6 +143,34 @@ test("recursive patch comparison catches an omitted nested Luminous field", () =
   const expected = { ambient: { brightnessMajor: 0.5 }, strings: { isEnabled: true } };
   assert.equal(matchesRecursivePatch({ ambient: { brightnessMajor: 0.5 }, strings: { isEnabled: true } }, expected), true);
   assert.equal(matchesRecursivePatch({ ambient: { brightnessMajor: 0.4 }, strings: { isEnabled: true } }, expected), false);
+});
+
+test("patched-baseline comparison rejects every non-Look config mutation", () => {
+  const baseline = {
+    blobs: { opacity: 0.5, unsupportedLeaf: 12 },
+    keyboard: { showNoteLabels: true },
+    codeStrip: { isEnabled: true },
+    dynamicColors: { hueMotionEnabled: true },
+    uiBeat: { isEnabled: true },
+  };
+  const patch = { blobs: { opacity: 0.42 } };
+  const expected = structuredClone(baseline);
+  expected.blobs.opacity = 0.42;
+  assert.equal(matchesBaselineWithPatch(baseline, expected, patch), true);
+
+  const regressions = [
+    (config) => { config.keyboard.showNoteLabels = false; },
+    (config) => { config.uiBeat.isEnabled = false; },
+    (config) => { delete config.codeStrip; },
+    (config) => { config.extraSection = {}; },
+    (config) => { config.blobs.unsupportedLeaf = 13; },
+    (config) => { config.blobs.unexpectedLeaf = true; },
+  ];
+  for (const regress of regressions) {
+    const actual = structuredClone(expected);
+    regress(actual);
+    assert.equal(matchesBaselineWithPatch(baseline, actual, patch), false);
+  }
 });
 
 test("Stage control snapshots require the master and every boolean value", () => {

@@ -5,6 +5,7 @@ import {
   disableBrowserCache,
   EXPECTED_ROUTE_ASSETS,
   HOST,
+  matchesBaselineWithPatch,
   matchesRecursivePatch,
   verifyHostedBaseline,
 } from "./capture-policy.mjs";
@@ -125,6 +126,7 @@ try {
       persistedStageAppearanceChanged: !same(stageAppearance(kept), stageAppearance(baseline)),
       persistedStageAppearanceMatchesLuminousOwnedPatch: matchesRecursivePatch(stageAppearance(kept), LUMINOUS_OWNED_PATCH),
       learnerOwnedFieldsUnchanged: hasLearnerOwnedFields(stageAppearance(baseline)) && hasLearnerOwnedFields(stageAppearance(kept)) && same(learnerOwnedFields(stageAppearance(kept)), learnerOwnedFields(stageAppearance(baseline))),
+      allNonLookFieldsUnchanged: matchesBaselineWithPatch(storedField(baseline, "config"), storedField(kept, "config"), LUMINOUS_OWNED_PATCH),
       visualsEnabledUnchanged: same(storedField(kept, "visualsEnabled"), storedField(baseline, "visualsEnabled")),
       stagePreferencesUnchanged: same(storedField(kept, "stagePreferences"), storedField(baseline, "stagePreferences")),
       statusCleared: keptStatusCleared,

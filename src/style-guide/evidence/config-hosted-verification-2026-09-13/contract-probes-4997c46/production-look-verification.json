@@ -6,7 +6,7 @@
     "matchesHostedAssetBaseline": true,
     "baselineDocumentedAtSourceRevision": "4997c46b27c16216e71b0bf3b2b0ca73c212e388",
     "deploymentRevisionEstablished": false,
-    "verifiedAt": "2026-09-13T17:17:19.589Z",
+    "verifiedAt": "2026-09-13T17:30:12.629Z",
     "assets": [
       {
         "path": "/assets/index-23ff2ff7.js",
@@ -458,6 +458,7 @@
     "persistedStageAppearanceChanged": true,
     "persistedStageAppearanceMatchesLuminousOwnedPatch": true,
     "learnerOwnedFieldsUnchanged": true,
+    "allNonLookFieldsUnchanged": true,
     "visualsEnabledUnchanged": true,
     "stagePreferencesUnchanged": true,
     "statusCleared": true,
@@ -620,6 +621,6 @@
       }
     ],
     "loadedAssetsMatchBaseline": true,
-    "transientStatus": "Previewing Clear · 8371. Edits stay temporary until kept."
+    "transientStatus": "Previewing Luminous · 327F. Edits stay temporary until kept."
   }
 }

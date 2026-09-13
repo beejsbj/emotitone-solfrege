@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 export const HOST = "https://emotitone-solfrege.vercel.app";
 export const HOSTED_BASELINE_SOURCE_REVISION = "4997c46b27c16216e71b0bf3b2b0ca73c212e388";
@@ -70,6 +71,18 @@ export function matchesRecursivePatch(actual, expected) {
   if (typeof expected !== "object" || expected === null || Array.isArray(expected)) return Object.is(actual, expected);
   if (typeof actual !== "object" || actual === null || Array.isArray(actual)) return false;
   return Object.entries(expected).every(([key, value]) => matchesRecursivePatch(actual[key], value));
+}
+
+export function matchesBaselineWithPatch(baseline, actual, patch) {
+  const expected = structuredClone(baseline);
+  const overlay = (target, source) => {
+    for (const [key, value] of Object.entries(source)) {
+      if (typeof value === "object" && value !== null && !Array.isArray(value)) overlay(target[key], value);
+      else target[key] = value;
+    }
+  };
+  overlay(expected, patch);
+  return isDeepStrictEqual(actual, expected);
 }
 
 const EXPECTED_STAGE_CONTROL_IDS = [
@@ -176,6 +189,7 @@ export function assertPersistenceComparisons(output) {
   assert.equal(output.kept.persistedStageAppearanceChanged, true, "Keep did not persist a Stage appearance change");
   assert.equal(output.kept.persistedStageAppearanceMatchesLuminousOwnedPatch, true, "Keep did not persist the complete Luminous-owned Stage patch");
   assert.equal(output.kept.learnerOwnedFieldsUnchanged, true, "Keep changed learner-owned Stage fields");
+  assert.equal(output.kept.allNonLookFieldsUnchanged, true, "Keep changed config outside the Luminous-owned fields");
   assert.equal(output.kept.visualsEnabledUnchanged, true, "Keep changed Visuals Enabled");
   assert.equal(output.kept.stagePreferencesUnchanged, true, "Keep changed Stage reload preferences");
   assert.equal(output.kept.statusCleared, true, "Keep did not clear the transient Look status");

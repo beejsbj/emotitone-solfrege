@@ -14,7 +14,7 @@ function validateRevision(value, label) {
 }
 
 function validatedAssetPath(path) {
-  if (typeof path !== "string" || !/^assets\/[A-Za-z0-9._/-]+\.(?:js|css)$/.test(path) ||
+  if (typeof path !== "string" || !/^(?:assets\/[A-Za-z0-9._/-]+|[A-Za-z0-9._-]+)\.(?:js|css)$/.test(path) ||
       path.includes("..") || path.includes("//")) {
     fail(`manifest contains an invalid asset path: ${JSON.stringify(path)}`);
   }

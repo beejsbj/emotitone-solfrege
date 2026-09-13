@@ -80,6 +80,7 @@ test("collects hashes for emitted JavaScript, CSS, and direct entry assets", asy
     await writeFile(join(directory, "assets/app.js"), "app");
     await writeFile(join(directory, "assets/app.css"), "css");
     await writeFile(join(directory, "assets/lazy.js"), "lazy");
+    await writeFile(join(directory, "sw.js"), "service worker");
     const identity = await collectBuildIdentity({
       distRoot: directory,
       sourceRevision: REVISION,
@@ -88,7 +89,7 @@ test("collects hashes for emitted JavaScript, CSS, and direct entry assets", asy
       createdAt: "2026-09-13T12:00:00.000Z",
     });
     assert.deepEqual(identity.entryAssets, ["assets/app.css", "assets/app.js"]);
-    assert.deepEqual(identity.assets.map(({ path }) => path), ["assets/app.css", "assets/app.js", "assets/lazy.js"]);
+    assert.deepEqual(identity.assets.map(({ path }) => path), ["assets/app.css", "assets/app.js", "assets/lazy.js", "sw.js"]);
     assert.equal(identity.assets.find(({ path }) => path === "assets/app.js").sha256, hash("app"));
     assert.equal(identity.build.bunVersion, "1.3.14");
   } finally {

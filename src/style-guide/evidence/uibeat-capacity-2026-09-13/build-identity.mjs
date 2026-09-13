@@ -13,6 +13,11 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function isBoundedBuildAssetPath(path) {
+  return /^(?:assets\/[A-Za-z0-9._/-]+|[A-Za-z0-9._-]+)\.(?:js|css)$/.test(path) &&
+    !path.includes("..") && !path.includes("//");
+}
+
 function run(executable, args, { cwd, capture = false } = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(executable, args, {
@@ -105,8 +110,8 @@ export async function collectBuildIdentity({ distRoot, sourceRevision, bunVersio
   for (const file of files) {
     if (!/\.(?:js|css)$/.test(file)) continue;
     const path = relative(distRoot, file).split(sep).join("/");
-    if (!/^assets\/[A-Za-z0-9._/-]+\.(?:js|css)$/.test(path) || path.includes("..")) {
-      throw new Error(`Emitted JavaScript or CSS is outside the bounded assets directory: ${path}`);
+    if (!isBoundedBuildAssetPath(path)) {
+      throw new Error(`Emitted JavaScript or CSS has an unbounded output path: ${path}`);
     }
     const bytes = await readFile(file);
     assets.push({

@@ -12,7 +12,7 @@ Provenance:
 
 The hosted captures exercise the four public destinations and capture Global/Stage/Deck/MIDI tab state, Stage Looks preview status, and production startup/config rendering. The exact-head local captures add scroll-to-control, live Knob pointer drag, persistence boundary, Reduced Motion, and Forced Colors evidence. `verification.json`, `production-verification.json`, and `hosted-verification.json` contain the DOM/state receipts. The hosted production Look probe reports: preview leaves persisted config unchanged; Discard restores the baseline; Keep changes persisted config; reload shows the expected transient seeded Look when New Look on Reload is enabled.
 
-Commands used:
+The committed scripts rerun focused subsets of this verification:
 
 ```sh
 bun install --frozen-lockfile
@@ -22,7 +22,11 @@ node src/style-guide/evidence/config-hosted-verification-2026-09-13/capture-host
 node src/style-guide/evidence/config-hosted-verification-2026-09-13/capture-production-look.mjs
 ```
 
-The committed capture scripts are exact-machine reproductions for this environment: their defaults use `/tmp/uibeat-pw-node_modules/playwright-core` and Chrome for Testing at `/home/admin/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`. Set `PLAYWRIGHT_MODULE` to an absolute Playwright module path and `CHROME_PATH` to a compatible browser executable on another machine. These tools are external prerequisites, not new application dependencies. The generated PNG/JSON evidence above is the authoritative receipt; rerunning the scripts can vary timestamps, seeded Look values, and local storage state.
+`capture-guide-receipt.mjs` reruns the local Stage Look, Knob drag, responsive-width, Reduced Motion, and Forced Colors DOM/state probe and writes `verification.json`. `capture-hosted.mjs` reruns the four tab destinations on the guide and production routes and writes 16 PNGs plus `hosted-verification.json`. `capture-production-look.mjs` checks the four persistence comparisons and emits JSON to stdout. The archived `guide-*` and `production-*` PNGs, `production-verification.json`, closed-state captures, and Look-preview screenshots came from ad hoc capture steps that are not committed here; these scripts do not reproduce them.
+
+The directory-writing scripts default to `/tmp` and print the fresh output directory; pass `--output <fresh-directory>` when a specific destination is useful. They refuse to write in this archived evidence directory or replace an existing output directory. A failed directory-writing run publishes `capture-failed.json` rather than a complete receipt. The hosted scripts first require the live production document to reference the two archived bundle assets above and verify both SHA-256 hashes. A differing deployment stops before output; a passing guard establishes only that the current assets match the archived baseline documented at `dc57346`, not the current deployment revision. Fresh receipts record that distinction explicitly.
+
+The scripts default to `/tmp/uibeat-pw-node_modules/playwright-core` and Chrome for Testing at `/home/admin/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`. Set `PLAYWRIGHT_MODULE` to an absolute Playwright module path and `CHROME_PATH` to a compatible browser executable on another machine. These tools are external prerequisites, not application dependencies. The committed PNG/JSON files are the authoritative historical receipt and remain unchanged by reruns. Fresh results can vary in timestamps, seeded Look values, and local storage state; the local probe also records that its served source revision is caller-managed.
 
 The hosted Vercel deployment URL from the GitHub deployment record redirected unauthenticated requests to SSO; the public Vercel production alias above served the same deployed assets and was used for hosted captures.
 

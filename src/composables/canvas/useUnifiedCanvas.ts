@@ -17,7 +17,10 @@ import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 import { performanceMonitor } from "@/utils/performanceMonitor";
-import { createStageAudioFeatures } from "@/services/stageAudio";
+import {
+  createStageAudioFeatures,
+  type StageAudioFeatures,
+} from "@/services/stageAudio";
 import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
 import { getActiveStrudelStageNotes } from "@/services/superdoughAudio";
 import {
@@ -30,6 +33,7 @@ import {
   resolveStageComposition,
   type StageRect,
 } from "./stageRuntime";
+import { resolveStageActiveNotes } from "./stageNoteSources";
 
 /**
  * Unified Canvas Management System
@@ -40,6 +44,12 @@ import {
 interface StageRuntimeInputs {
   usableRect: Readonly<Ref<StageRect>>;
   reducedMotion: Readonly<Ref<boolean>>;
+  /** A caller-owned analysis source whose cleanup follows this renderer lifetime. */
+  audioFeatures?: StageAudioFeatures;
+  /** An authoritative controlled pitch view; omission selects the production registries. */
+  getActiveNotes?: () => readonly ActiveNote[];
+  /** Note lifecycle target shared by the canvas and pitch String renderer. */
+  eventTarget?: EventTarget;
 }
 
 export function useUnifiedCanvas(
@@ -47,18 +57,12 @@ export function useUnifiedCanvas(
   runtime?: StageRuntimeInputs,
 ) {
   const musicStore = useMusicStore();
-  const getStageActiveNotes = (): readonly ActiveNote[] => {
-    const activeNotes = new Map(
-      musicStore.getActiveNotes().map((note) => [note.noteId, note]),
-    );
-    getActiveLivePitchStageNotes().forEach((note) => {
-      activeNotes.set(note.noteId, note);
-    });
-    getActiveStrudelStageNotes().forEach((note) => {
-      activeNotes.set(note.noteId, note);
-    });
-    return Array.from(activeNotes.values());
-  };
+  const getStageActiveNotes = (): readonly ActiveNote[] => resolveStageActiveNotes(
+    runtime?.getActiveNotes,
+    () => musicStore.getActiveNotes(),
+    getActiveLivePitchStageNotes,
+    getActiveStrudelStageNotes,
+  );
   const {
     stageConfig,
     blobConfig,
@@ -102,7 +106,7 @@ export function useUnifiedCanvas(
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
-  const stageAudio = createStageAudioFeatures();
+  const stageAudio = runtime?.audioFeatures ?? createStageAudioFeatures();
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
   let oneShotSequence = 0;
@@ -323,7 +327,7 @@ export function useUnifiedCanvas(
     );
 
     // Add string event listeners for sequencer integration
-    stringRenderer.addEventListeners();
+    stringRenderer.addEventListeners(runtime?.eventTarget);
 
     // Initialize Hilbert Scope
     const waveformSource = stageAudio.initialize();
@@ -574,7 +578,9 @@ export function useUnifiedCanvas(
     }
 
     // Create particles with reduced count for polyphonic scenarios
-    const activeNoteCount = musicStore.getActiveNotes().length;
+    const activeNoteCount = runtime?.getActiveNotes
+      ? getStageActiveNotes().length
+      : musicStore.getActiveNotes().length;
     const particleCount = Math.max(
       5,
       Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))

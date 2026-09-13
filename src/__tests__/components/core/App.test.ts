@@ -145,9 +145,9 @@ describe('App.vue', () => {
     expect(appSource).not.toContain('isRoughPage')
   })
 
-  it('keeps the isolated PerformanceDeck route out of page-edition persistence', () => {
-    expect(mainSource).toContain(
-      'const isPersistenceFreeDesignRoute = pathname === "/style-guide/performance-deck"',
+  it('keeps isolated design routes out of page-edition persistence', () => {
+    expect(mainSource).toMatch(
+      /const isPersistenceFreeDesignRoute = \[\s*"\/style-guide\/performance-deck",\s*"\/style-guide\/stage",\s*\]\.includes\(pathname\);/,
     )
     expect(mainSource).toMatch(
       /if \(!isPersistenceFreeDesignRoute\) \{\s*beginTabsPageEdition\(\);\s*\}/,

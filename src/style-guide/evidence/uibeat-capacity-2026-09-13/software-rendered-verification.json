@@ -75,7 +75,7 @@
   "environment": {
     "initial": {
       "url": "http://127.0.0.1:5183/",
-      "title": "EmotiTone Solf\u00e8ge",
+      "title": "EmotiTone Solfège",
       "visibilityState": "visible",
       "hasFocus": true,
       "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
@@ -104,7 +104,7 @@
     },
     "final": {
       "url": "http://127.0.0.1:5183/",
-      "title": "EmotiTone Solf\u00e8ge",
+      "title": "EmotiTone Solfège",
       "visibilityState": "visible",
       "hasFocus": true,
       "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
@@ -9858,5 +9858,5 @@
     "compressedBytes": 8597,
     "content": "gzip-compressed selected raw CDP presentation/drop events; full event-name counts remain inline"
   },
-  "sha256BeforeDigestField": "951766238497c3613c22eab3ad68c0d45b3c3883e02b892b0c8fac121e747af3"
+  "sha256BeforeDigestField": "4e2beb772e0fcdc7528fff4e524f30214431f03c039713b34f73b636836b00d1"
 }

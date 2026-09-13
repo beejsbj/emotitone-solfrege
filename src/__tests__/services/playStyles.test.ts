@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlayStyleEngine, PLAY_STYLE_SCHEDULING_LEAD_MS, type PlayStyle } from '@/services/playStyles'
 
-function setup(style: PlayStyle = 'together', schedulingLeadMs = 0) {
+function setup(style: PlayStyle = 'together', schedulingLeadMs = 0, initialLeadMs?: number) {
   let clockOffset = 0
   const calls: { pitch: number; at: number; scheduledAt: number; style: PlayStyle; release: ReturnType<typeof vi.fn> }[] = []
   const engine = createPlayStyleEngine<number>({
     now: () => Date.now() + clockOffset,
     schedulingLeadMs,
+    initialLeadMs,
     start: (pitch, at, style) => {
       const release = vi.fn()
       calls.push({ pitch, at, scheduledAt: Date.now() + clockOffset, style, release })
@@ -25,6 +26,24 @@ describe('live play styles', () => {
     vi.setSystemTime(0)
   })
   afterEach(() => vi.useRealTimers())
+
+  it.each(['repeat', 'arp-up', 'arp-up-down'] as const)(
+    'uses the short first-attack lead for %s without weakening later scheduling deadlines', (style) => {
+      const { engine, calls, jumpClock } = setup(style, 20, 5)
+      engine.configure({ rate: 16 })
+      engine.press('chord', notes(60, 64, 67))
+      expect(calls[0]).toMatchObject({ at: 5, scheduledAt: 0 })
+      for (let i = 0; i < 10; i++) {
+        jumpClock(80)
+        vi.advanceTimersByTime(20)
+      }
+      expect([...new Set(calls.map(call => call.at))]).toEqual(
+        Array.from({ length: 10 }, (_, i) => 5 + i * 125),
+      )
+      expect(calls.filter(call => call.at > 5).every(call => call.at - call.scheduledAt >= 20)).toBe(true)
+      engine.clear()
+    },
+  )
 
   it.each(['repeat', 'arp-up', 'arp-up-down'] as const)(
     'submits the first %s attack in the input turn without collecting a chord', (style) => {

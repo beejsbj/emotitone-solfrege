@@ -21,7 +21,7 @@ vi.mock("@/services/superdoughAudio", () => ({
 describe("useMidiControls helpers", () => {
   it("projects a dense chord batch once, before sending its immediate transitions", () => {
     const operations: string[] = [];
-    const replaceScheduled = vi.fn(() => operations.push("replace"));
+    const replaceScheduled = vi.fn((_transitions: unknown[]) => operations.push("replace"));
     const scheduler = createMidiNoteOwnerScheduler(
       ({ phase }) => operations.push(`send:${phase}`), replaceScheduled, () => 0,
     );

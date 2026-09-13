@@ -89,6 +89,7 @@ export function createPlayStyleEngine<T>(deps: {
   now(): number
   start(value: T, at: number, style: PlayStyle): PlayStyleVoice
   schedulingLeadMs?: number
+  initialLeadMs?: number
 }) {
   let config: PlayStyleConfig = { style: 'together', bpm: 120, rate: 8 }
   const held = new Map<string, readonly HeldNote<T>[]>()
@@ -101,6 +102,8 @@ export function createPlayStyleEngine<T>(deps: {
   let nextAt: number | undefined
   let stepIndex = 0
   const schedulingLeadMs = Math.max(0, deps.schedulingLeadMs ?? 0)
+  const initialLeadMs = Number.isFinite(deps.initialLeadMs)
+    ? Math.max(0, deps.initialLeadMs!) : schedulingLeadMs
 
   const isRhythmic = () => config.style.startsWith('arp-') || config.style === 'repeat'
   const stepMs = () => 60_000 / config.bpm * 4 / config.rate
@@ -146,7 +149,8 @@ export function createPlayStyleEngine<T>(deps: {
         && [...pulse.voices.values()].some(item => playing.has(item))) continue
       // Close deadlines are already committed to audio. Preserve them rather
       // than canceling a note we cannot safely replace before its onset.
-      if (pulse.at <= now || pulse.at < now + schedulingLeadMs) continue
+      const lead = pulse.step === 0 ? initialLeadMs : schedulingLeadMs
+      if (pulse.at <= now || pulse.at < now + lead) continue
       const desired = pulseNotes(notes, pulse.step)
       const pitches = new Set(desired.map(({ note }) => note.pitch))
       for (const [pitch, item] of pulse.voices) {
@@ -243,7 +247,21 @@ export function createPlayStyleEngine<T>(deps: {
     if (isRhythmic() && held.size) {
       const notes = pool()
       const interval = stepMs()
-      nextAt ??= now + schedulingLeadMs
+      const queuePulse = () => {
+        const pulse: RhythmicPulse = { at: nextAt!, step: stepIndex, duration: interval * GATE, voices: new Map() }
+        for (const { note, owners } of pulseNotes(notes, stepIndex)) {
+          pulse.voices.set(note.pitch, start(note, owners, pulse.at, pulse.duration))
+        }
+        pendingPulses.add(pulse)
+        stepIndex += 1
+        nextAt = pulse.at + interval
+      }
+      // An input-turn attack needs only the adapter's preparation lead. The
+      // recurring queue keeps its larger safety margin for timer delivery.
+      if (nextAt === undefined) {
+        nextAt = now + initialLeadMs
+        if (notes.length) queuePulse()
+      }
       // Keep the musical grid after a suspended/background timer, dropping
       // missed pulses instead of emitting them all on resume.
       const earliestSafeAt = now + schedulingLeadMs
@@ -253,13 +271,7 @@ export function createPlayStyleEngine<T>(deps: {
         stepIndex += missed
       }
       while (notes.length && nextAt <= now + RHYTHMIC_LOOKAHEAD_MS) {
-        const pulse: RhythmicPulse = { at: nextAt, step: stepIndex, duration: interval * GATE, voices: new Map() }
-        for (const { note, owners } of pulseNotes(notes, stepIndex)) {
-          pulse.voices.set(note.pitch, start(note, owners, nextAt, interval * GATE))
-        }
-        pendingPulses.add(pulse)
-        stepIndex += 1
-        nextAt += interval
+        queuePulse()
       }
     }
     if (strumQueue.length || (isRhythmic() && held.size)) {

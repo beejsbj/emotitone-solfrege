@@ -11,6 +11,9 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import * as audio from "@/services/superdoughAudio";
+import { LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+
+const onset = (offset = 0) => LIVE_AUDIO_SCHEDULING_LEAD_MS + offset;
 
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;
@@ -251,7 +254,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       [0x90, 60], [0x80, 60],
     ]);
     expect(scheduledNotes().map(({ timestamp }) => timestamp))
-      .toEqual([20, 220, 270, 470, 520, 720, 770, 970]);
+      .toEqual([0, 200, 250, 450, 500, 700, 750, 950].map(onset));
     [60, 64, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
     // The fourth pulse was queued ahead but physical release cancels it.
@@ -284,14 +287,14 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     packet(0x90, 60);
     await vi.advanceTimersByTimeAsync(60);
     packet(0x90, 64);
-    await vi.advanceTimersByTimeAsync(200);
+    await vi.advanceTimersByTimeAsync(180);
     [60, 64].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, 20], [0x80, 60, 120],
-      [0x90, 60, 145], [0x90, 64, 145],
-      [0x80, 60, 245], [0x80, 64, 245],
+      [0x90, 60, onset()], [0x80, 60, onset(100)],
+      [0x90, 60, onset(125)], [0x90, 64, onset(125)],
+      [0x80, 60, onset(225)], [0x80, 64, onset(225)],
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -304,13 +307,13 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     [60, 64, 67].forEach((pitch) => packet(0x90, pitch));
     await vi.advanceTimersByTimeAsync(60);
     packet(0x80, 64);
-    await vi.advanceTimersByTimeAsync(200);
+    await vi.advanceTimersByTimeAsync(180);
     [60, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, 20], [0x80, 60, 120],
-      [0x90, 67, 145], [0x80, 67, 245],
+      [0x90, 60, onset()], [0x80, 60, onset(100)],
+      [0x90, 67, onset(125)], [0x80, 67, onset(225)],
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -324,15 +327,15 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     await vi.advanceTimersByTimeAsync(60);
     packet(0x90, 64);
     await vi.advanceTimersByTimeAsync(10);
-    expect(notesWithTimestamps()).toContainEqual([0x90, 64, 145]);
+    expect(notesWithTimestamps()).toContainEqual([0x90, 64, onset(125)]);
     packet(0x80, 64);
-    await vi.advanceTimersByTimeAsync(190);
+    await vi.advanceTimersByTimeAsync(170);
     [60, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, 20], [0x80, 60, 120],
-      [0x90, 67, 145], [0x80, 67, 245],
+      [0x90, 60, onset()], [0x80, 60, onset(100)],
+      [0x90, 67, onset(125)], [0x80, 67, onset(225)],
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -368,14 +371,14 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     useMusicStore().setPlayStyle("arp-up");
     await connect();
     packet(0x90, 60);
-    await vi.advanceTimersByTimeAsync(260);
+    await vi.advanceTimersByTimeAsync(240);
     packet(0x80, 60);
     await vi.advanceTimersByTimeAsync(0);
 
     const scheduled = scheduledNotes()
       .map(({ message, timestamp }) => [message[0] & 0xf0, message[1], timestamp]);
-    expect(scheduled).toContainEqual([0x90, 60, 270]);
-    expect(scheduled.at(-1)).toEqual([0x80, 60, 270]);
+    expect(scheduled).toContainEqual([0x90, 60, onset(250)]);
+    expect(scheduled.at(-1)).toEqual([0x80, 60, onset(250)]);
     expect(notes()).toEqual([[0x90, 60], [0x80, 60]]);
   });
 
@@ -396,8 +399,8 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       .slice(-3);
     expect(replacementCalls).toEqual([
       [0x80, 60, 100],
-      [0x90, 60, 130],
-      [0x80, 60, 330],
+      [0x90, 60, onset(110)],
+      [0x80, 60, onset(310)],
     ]);
   });
 

@@ -142,6 +142,47 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(music.activeNotes.size).toBe(0);
   });
 
+  it("records a newly held repeat pitch on the next prepared beat without retriggering its neighbors", async () => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayMode("repeat:16");
+    const c = await music.attackExactPitch("C4");
+    await vi.advanceTimersByTimeAsync(60);
+    const e = await music.attackExactPitch("E4");
+    await vi.advanceTimersByTimeAsync(230);
+    await Promise.all([c, e].map((owner) => music.releaseNote(owner!)));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
+      ["C4", 50, 100], ["C4", 175, 100], ["E4", 175, 100],
+    ]);
+    expect(music.activeNotes.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("cancels superseded arpeggio audio and records only the final pitch at the original beat", async () => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayMode("arp-up:16");
+    const owners = await Promise.all(["C4", "G4"].map((pitch) => music.attackExactPitch(pitch)));
+    await vi.advanceTimersByTimeAsync(60);
+    const originalG = vi.mocked(audio.attackNote).mock.calls.find((call) => call[1] === "G4")![0];
+    const e = await music.attackExactPitch("E4");
+    await vi.advanceTimersByTimeAsync(10);
+    const replacementE = vi.mocked(audio.attackNote).mock.calls.find((call) => call[1] === "E4")![0];
+    await music.releaseNote(e!);
+    await vi.advanceTimersByTimeAsync(220);
+    await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(audio.stopNote).toHaveBeenCalledWith(originalG);
+    expect(audio.stopNote).toHaveBeenCalledWith(replacementE);
+    expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
+      ["C4", 50, 100], ["G4", 175, 100],
+    ]);
+    expect(noteEvents("note-played").map((note) => note.noteName)).toEqual(["C4", "G4"]);
+    expect(music.activeNotes.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("changes style while held and the original note ID still releases its new output", async () => {
     const music = useMusicStore();
     const owner = await music.attackNoteWithOctave(0, 4);

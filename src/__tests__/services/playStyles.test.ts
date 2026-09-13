@@ -140,6 +140,78 @@ describe('live play styles', () => {
     engine.clear()
   })
 
+  it('adds a held pitch to the next repeat even when that pulse is already queued', () => {
+    const { engine, calls } = setup('repeat', PLAY_STYLE_SCHEDULING_LEAD_MS)
+    engine.configure({ rate: 16 })
+    engine.press('c', notes(60))
+    vi.advanceTimersByTime(60)
+    expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 50], [60, 175]])
+    engine.press('e', notes(64))
+    expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 50], [60, 175], [64, 175]])
+    // Keep both the sounding C and its already prepared next pulse intact.
+    expect(calls[0].release.mock.calls).toEqual([[150]])
+    expect(calls[1].release.mock.calls).toEqual([[275]])
+    engine.clear()
+  })
+
+  it.each(['arp-up', 'arp-up-down'] as const)(
+    'revises all queued %s pitches on the existing grid when the chord grows', (style) => {
+      const { engine, calls } = setup(style, PLAY_STYLE_SCHEDULING_LEAD_MS)
+      engine.configure({ bpm: 240, rate: 16 })
+      engine.press('c', notes(60))
+      engine.press('g', notes(67))
+      vi.advanceTimersByTime(60)
+      expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 50], [67, 112.5], [60, 175]])
+      engine.press('e', notes(64))
+      expect(calls.slice(1, 3).map(call => call.release.mock.calls.at(-1)?.[0])).toEqual([60, 60])
+      expect(calls.slice(3).map(call => [call.pitch, call.at])).toEqual([[64, 112.5], [67, 175]])
+      expect(calls[0].release.mock.calls).toEqual([[100]])
+      engine.clear()
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
+  it('fills a queued arpeggio slot when its pitch is released but other keys remain held', () => {
+    const { engine, calls } = setup('arp-up', PLAY_STYLE_SCHEDULING_LEAD_MS)
+    engine.configure({ rate: 16 })
+    engine.press('c', notes(60))
+    engine.press('e', notes(64))
+    engine.press('g', notes(67))
+    vi.advanceTimersByTime(60)
+    engine.release('e')
+    expect(calls[1].release).toHaveBeenLastCalledWith(60)
+    expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 50], [64, 175], [67, 175]])
+    expect(calls[0].release.mock.calls).toEqual([[150]])
+    engine.clear()
+  })
+
+  it('hands queued unisons to the remaining owner without canceling or duplicating them', () => {
+    const { engine, calls } = setup('repeat', PLAY_STYLE_SCHEDULING_LEAD_MS)
+    engine.configure({ rate: 16 })
+    engine.press('first', notes(60))
+    vi.advanceTimersByTime(60)
+    engine.press('second', notes(60))
+    engine.release('first')
+    expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 50], [60, 175]])
+    expect(calls.map(call => call.release.mock.calls)).toEqual([[[150]], [[275]]])
+    engine.release('second')
+    expect(calls.every(call => call.release.mock.calls.at(-1)?.[0] === 60)).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('leaves onsets inside the audio safety margin intact when adding a pitch', () => {
+    const { engine, calls } = setup('arp-up', PLAY_STYLE_SCHEDULING_LEAD_MS)
+    engine.configure({ rate: 16 })
+    engine.press('c', notes(60))
+    engine.press('g', notes(67))
+    vi.advanceTimersByTime(165)
+    engine.press('e', notes(64))
+    expect(calls[1].release.mock.calls).toEqual([[275]])
+    expect(calls[2].release).toHaveBeenLastCalledWith(165)
+    expect(calls.map(call => [call.pitch, call.at])).toEqual([[60, 50], [67, 175], [60, 300], [67, 300]])
+    engine.clear()
+  })
+
   it.each((['repeat', 'arp-up', 'arp-up-down'] as const).flatMap(style =>
     [60, 100].map(callbackMs => ({ style, callbackMs })),
   ))(

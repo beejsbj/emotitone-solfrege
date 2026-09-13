@@ -4,6 +4,7 @@ import { assertGuideReceipt, createCaptureWorkspace, publishCapture, publishFail
 
 const archiveDirectory = new URL(".", import.meta.url).pathname;
 const workspace = await createCaptureWorkspace({ archiveDirectory, label: "config-guide" });
+const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 const readStageControls = async (page) => ({
   stageToggle: await page.locator('[data-testid="stage-toggle"]').evaluate((element) => ({ text: element.textContent?.trim() ?? null, ariaPressed: element.getAttribute("aria-pressed") })),
   controls: await page.locator('[data-testid^="stage-control-"]').evaluateAll((elements) => Object.fromEntries(elements.map((element) => [
@@ -42,16 +43,21 @@ try {
       await page.locator('[data-testid="preset-apply-soft"]').click();
       await page.locator('.config-panel__look-status').waitFor();
       const previewStageControls = await readStageControls(page);
+      await page.waitForTimeout(650);
       const preview = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim(), storage: { ...localStorage } }));
       await page.locator('[data-testid="stage-look-discard"]').click();
       await page.locator('.config-panel__look-status').waitFor({ state: "detached" });
+      await page.waitForTimeout(650);
       const discardedStageControls = await readStageControls(page);
       const discarded = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim() ?? null, storage: { ...localStorage } }));
       await page.locator('[data-testid="preset-apply-luminous"]').click();
       await page.locator('.config-panel__look-status').waitFor();
       const keptPreviewStageControls = await readStageControls(page);
+      await page.waitForTimeout(650);
+      const keptPreview = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim(), storage: { ...localStorage } }));
       await page.locator('[data-testid="stage-look-keep"]').click();
       await page.locator('.config-panel__look-status').waitFor({ state: "detached" });
+      await page.waitForTimeout(650);
       const keptStageControls = await readStageControls(page);
       const kept = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim() ?? null, storage: { ...localStorage } }));
       const knob = page.locator('[data-testid="stage-control-scopeSize"]');
@@ -74,6 +80,7 @@ try {
           baselineStageControls,
           preview: {
             ...preview,
+            storageUnchanged: same(preview.storage, before),
             liveStageChanged: JSON.stringify(previewStageControls) !== JSON.stringify(baselineStageControls),
             stageControls: previewStageControls,
           },
@@ -86,6 +93,8 @@ try {
           kept: {
             ...kept,
             storageUnchanged: JSON.stringify(kept.storage) === JSON.stringify(before),
+            preview: keptPreview,
+            previewStorageUnchanged: same(keptPreview.storage, before),
             previewLiveStageChanged: JSON.stringify(keptPreviewStageControls) !== JSON.stringify(baselineStageControls),
             previewDiffersFromSoft: JSON.stringify(keptPreviewStageControls) !== JSON.stringify(previewStageControls),
             statusCleared: kept.status === null,

@@ -75,16 +75,20 @@ try {
   const baselineStageControls = await readStageControls(page);
   await page.locator('[data-testid="preset-apply-soft"]').click();
   await page.locator(".config-panel__look-status").waitFor();
+  await page.waitForTimeout(650);
   const preview = await page.evaluate(() => localStorage.getItem("emotitone-visual-config"));
   const previewStageControls = await readStageControls(page);
   await page.locator('[data-testid="stage-look-discard"]').click();
   await page.locator(".config-panel__look-status").waitFor({ state: "detached" });
+  await page.waitForTimeout(650);
   const discardedStatusCleared = await page.locator(".config-panel__look-status").count() === 0;
   const discarded = await page.evaluate(() => localStorage.getItem("emotitone-visual-config"));
   const discardedStageControls = await readStageControls(page);
   await page.locator('[data-testid="preset-apply-luminous"]').click();
   await page.locator(".config-panel__look-status").waitFor();
   const keptPreviewStageControls = await readStageControls(page);
+  await page.waitForTimeout(650);
+  const luminousPreview = await page.evaluate(() => localStorage.getItem("emotitone-visual-config"));
   await page.locator('[data-testid="stage-look-keep"]').click();
   await page.locator(".config-panel__look-status").waitFor({ state: "detached" });
   const keptStatusCleared = await page.locator(".config-panel__look-status").count() === 0;
@@ -102,6 +106,17 @@ try {
   const reloadedAssets = await finishReloadAssetCapture();
   assertLoadedAssetBaseline(reloadedAssets, EXPECTED_ROUTE_ASSETS["/"], "production reload");
   const reloaded = await page.evaluate(() => localStorage.getItem("emotitone-visual-config"));
+  const reloadedStageControls = await readStageControls(page);
+  const reloadedStatus = page.locator(".config-panel__look-status");
+  const transientStatusPresent = await reloadedStatus.count() === 1;
+  const transientStatus = transientStatusPresent ? await reloadedStatus.innerText() : null;
+  if (transientStatusPresent) {
+    await page.locator('[data-testid="stage-look-discard"]').click();
+    await reloadedStatus.waitFor({ state: "detached" });
+  }
+  await page.waitForTimeout(650);
+  const reloadDiscarded = await page.evaluate(() => localStorage.getItem("emotitone-visual-config"));
+  const reloadDiscardedStageControls = await readStageControls(page);
   const output = {
     status: "complete",
     host: HOST,
@@ -120,6 +135,10 @@ try {
       statusCleared: discardedStatusCleared,
       liveStageMatchesBaseline: same(discardedStageControls, baselineStageControls),
       stageControls: discardedStageControls,
+    },
+    luminousPreview: {
+      persistedFieldsUnchanged: same(stable(luminousPreview), stable(baseline)),
+      stageControls: keptPreviewStageControls,
     },
     kept: {
       persistedFieldsChanged: !same(stable(kept), stable(baseline)),
@@ -140,7 +159,16 @@ try {
       stagePreferencesMatchBaseline: same(storedField(reloaded, "stagePreferences"), storedField(baseline, "stagePreferences")),
       loadedAssets: reloadedAssets,
       loadedAssetsMatchBaseline: true,
-      transientStatus: await page.locator(".config-panel__look-status").innerText(),
+      transientStatusPresent,
+      transientStatus,
+      stageControls: reloadedStageControls,
+      liveStageChangedFromKept: !same(reloadedStageControls, keptStageControls),
+      discarded: {
+        statusCleared: await page.locator(".config-panel__look-status").count() === 0,
+        persistedFieldsMatchKept: same(stable(reloadDiscarded), stable(kept)),
+        liveStageMatchesKept: same(reloadDiscardedStageControls, keptStageControls),
+        stageControls: reloadDiscardedStageControls,
+      },
     },
   };
   assertPersistenceComparisons(output);

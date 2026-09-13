@@ -38,6 +38,7 @@ test("persistence verification rejects any false comparison", () => {
     baselineStageControls: stageControlSnapshot(),
     preview: { persistedFieldsUnchanged: true, liveStageChanged: true, stageControls: stageControlSnapshot() },
     discarded: { persistedFieldsUnchanged: true, statusCleared: true, liveStageMatchesBaseline: true, stageControls: stageControlSnapshot() },
+    luminousPreview: { persistedFieldsUnchanged: true, stageControls: stageControlSnapshot() },
     kept: {
       persistedFieldsChanged: true,
       persistedStageAppearanceChanged: true,
@@ -56,11 +57,16 @@ test("persistence verification rejects any false comparison", () => {
       visualsEnabledMatchesBaseline: true,
       stagePreferencesMatchBaseline: true,
       loadedAssetsMatchBaseline: true,
+      transientStatusPresent: true,
+      liveStageChangedFromKept: true,
+      stageControls: stageControlSnapshot(),
+      discarded: { statusCleared: true, persistedFieldsMatchKept: true, liveStageMatchesKept: true, stageControls: stageControlSnapshot() },
     },
   };
   const regressions = [
     ["discarded", "statusCleared", /Discard did not clear/],
     ["discarded", "liveStageMatchesBaseline", /Discard did not restore the live Stage/],
+    ["luminousPreview", "persistedFieldsUnchanged", /Luminous Preview changed persisted config/],
     ["kept", "persistedStageAppearanceChanged", /Keep did not persist a Stage appearance/],
     ["kept", "persistedStageAppearanceMatchesLuminousOwnedPatch", /complete Luminous-owned Stage patch/],
     ["kept", "learnerOwnedFieldsUnchanged", /learner-owned Stage fields/],
@@ -73,6 +79,14 @@ test("persistence verification rejects any false comparison", () => {
     regressed[section][field] = false;
     assert.throws(() => assertPersistenceComparisons(regressed), message);
   }
+
+  const inactiveReloadPreview = structuredClone(output);
+  inactiveReloadPreview.reloaded.liveStageChangedFromKept = false;
+  assert.throws(() => assertPersistenceComparisons(inactiveReloadPreview), /Reload did not apply a transient Look/);
+
+  const reloadDiscardDidNotRestore = structuredClone(output);
+  reloadDiscardDidNotRestore.reloaded.discarded.liveStageMatchesKept = false;
+  assert.throws(() => assertPersistenceComparisons(reloadDiscardDidNotRestore), /Reload Discard did not restore/);
 });
 
 const passingGuideReceipt = () => ({
@@ -81,9 +95,9 @@ const passingGuideReceipt = () => ({
     look: {
       storageUnchanged: true,
       baselineStageControls: stageControlSnapshot(),
-      preview: { liveStageChanged: true, stageControls: stageControlSnapshot() },
+      preview: { liveStageChanged: true, storageUnchanged: true, stageControls: stageControlSnapshot() },
       discarded: { statusCleared: true, liveStageMatchesBaseline: true, stageControls: stageControlSnapshot() },
-      kept: { storageUnchanged: true, previewLiveStageChanged: true, previewDiffersFromSoft: true, statusCleared: true, liveStageMatchesPreview: true, stageControls: stageControlSnapshot() },
+      kept: { storageUnchanged: true, previewLiveStageChanged: true, previewDiffersFromSoft: true, previewStorageUnchanged: true, statusCleared: true, liveStageMatchesPreview: true, stageControls: stageControlSnapshot() },
       afterKnobDebounce: { storageUnchanged: true },
     },
     knob: { changed: true },
@@ -122,6 +136,10 @@ test("guide verification rejects persistence after Keep or the Knob debounce", (
   previewDidNotApply.viewports[0].look.preview.liveStageChanged = false;
   assert.throws(() => assertGuideReceipt(previewDidNotApply), /Preview did not change the live Stage controls/);
 
+  const softPreviewLeaked = passingGuideReceipt();
+  softPreviewLeaked.viewports[0].look.preview.storageUnchanged = false;
+  assert.throws(() => assertGuideReceipt(softPreviewLeaked), /Soft Preview escaped/);
+
   const keepDidNotRetainPreview = passingGuideReceipt();
   keepDidNotRetainPreview.viewports[0].look.kept.liveStageMatchesPreview = false;
   assert.throws(() => assertGuideReceipt(keepDidNotRetainPreview), /Keep did not retain the previewed Stage controls/);
@@ -133,6 +151,10 @@ test("guide verification rejects persistence after Keep or the Knob debounce", (
   const luminousMatchedSoft = passingGuideReceipt();
   luminousMatchedSoft.viewports[0].look.kept.previewDiffersFromSoft = false;
   assert.throws(() => assertGuideReceipt(luminousMatchedSoft), /Luminous Preview did not differ from Soft Preview/);
+
+  const luminousPreviewLeaked = passingGuideReceipt();
+  luminousPreviewLeaked.viewports[0].look.kept.previewStorageUnchanged = false;
+  assert.throws(() => assertGuideReceipt(luminousPreviewLeaked), /Luminous Preview escaped/);
 
   const debounced = passingGuideReceipt();
   debounced.viewports[0].look.afterKnobDebounce.storageUnchanged = false;

@@ -179,12 +179,16 @@ export function assertPersistenceComparisons(output) {
   assertStageControlSnapshot(output.baselineStageControls, "production baseline");
   assertStageControlSnapshot(output.preview.stageControls, "production Preview");
   assertStageControlSnapshot(output.discarded.stageControls, "production Discard");
+  assertStageControlSnapshot(output.luminousPreview.stageControls, "production Luminous Preview");
   assertStageControlSnapshot(output.kept.stageControls, "production Keep");
+  assertStageControlSnapshot(output.reloaded.stageControls, "production reload Preview");
+  assertStageControlSnapshot(output.reloaded.discarded.stageControls, "production reload Discard");
   assert.equal(output.preview.persistedFieldsUnchanged, true, "Preview changed persisted config");
   assert.equal(output.preview.liveStageChanged, true, "Preview did not change the live Stage controls");
   assert.equal(output.discarded.persistedFieldsUnchanged, true, "Discard did not restore persisted config");
   assert.equal(output.discarded.statusCleared, true, "Discard did not clear the transient Look status");
   assert.equal(output.discarded.liveStageMatchesBaseline, true, "Discard did not restore the live Stage controls");
+  assert.equal(output.luminousPreview.persistedFieldsUnchanged, true, "Luminous Preview changed persisted config");
   assert.equal(output.kept.persistedFieldsChanged, true, "Keep did not change persisted config");
   assert.equal(output.kept.persistedStageAppearanceChanged, true, "Keep did not persist a Stage appearance change");
   assert.equal(output.kept.persistedStageAppearanceMatchesLuminousOwnedPatch, true, "Keep did not persist the complete Luminous-owned Stage patch");
@@ -199,6 +203,11 @@ export function assertPersistenceComparisons(output) {
   assert.equal(output.reloaded.visualsEnabledMatchesBaseline, true, "Reload changed Visuals Enabled");
   assert.equal(output.reloaded.stagePreferencesMatchBaseline, true, "Reload changed Stage reload preferences");
   assert.equal(output.reloaded.loadedAssetsMatchBaseline, true, "Reload loaded assets outside the pinned baseline");
+  assert.equal(output.reloaded.transientStatusPresent, true, "Reload did not present a transient Look status");
+  assert.equal(output.reloaded.liveStageChangedFromKept, true, "Reload did not apply a transient Look to the live Stage controls");
+  assert.equal(output.reloaded.discarded.statusCleared, true, "Reload Discard did not clear the transient Look status");
+  assert.equal(output.reloaded.discarded.persistedFieldsMatchKept, true, "Reload Discard changed persisted config");
+  assert.equal(output.reloaded.discarded.liveStageMatchesKept, true, "Reload Discard did not restore the kept Stage controls");
 }
 
 export function assertGuideReceipt(result) {
@@ -210,11 +219,13 @@ export function assertGuideReceipt(result) {
     assertStageControlSnapshot(look.kept.stageControls, `${viewport.name} Keep`);
     assert.equal(look.storageUnchanged, true, `${viewport.name}: Discard did not restore local storage`);
     assert.equal(look.preview.liveStageChanged, true, `${viewport.name}: Preview did not change the live Stage controls`);
+    assert.equal(look.preview.storageUnchanged, true, `${viewport.name}: Soft Preview escaped the guide's ephemeral store`);
     assert.equal(look.discarded.statusCleared, true, `${viewport.name}: Discard did not clear the transient Look status`);
     assert.equal(look.discarded.liveStageMatchesBaseline, true, `${viewport.name}: Discard did not restore the live Stage controls`);
     assert.equal(look.kept.storageUnchanged, true, `${viewport.name}: Keep escaped the guide's ephemeral store`);
     assert.equal(look.kept.previewLiveStageChanged, true, `${viewport.name}: Luminous Preview did not change the live Stage controls`);
     assert.equal(look.kept.previewDiffersFromSoft, true, `${viewport.name}: Luminous Preview did not differ from Soft Preview`);
+    assert.equal(look.kept.previewStorageUnchanged, true, `${viewport.name}: Luminous Preview escaped the guide's ephemeral store`);
     assert.equal(look.kept.statusCleared, true, `${viewport.name}: Keep did not clear the transient Look status`);
     assert.equal(look.kept.liveStageMatchesPreview, true, `${viewport.name}: Keep did not retain the previewed Stage controls`);
     assert.equal(look.afterKnobDebounce.storageUnchanged, true, `${viewport.name}: debounced Knob save escaped the guide's ephemeral store`);

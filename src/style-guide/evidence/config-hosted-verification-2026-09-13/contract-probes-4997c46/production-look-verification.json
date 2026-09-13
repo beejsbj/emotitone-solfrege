@@ -6,7 +6,7 @@
     "matchesHostedAssetBaseline": true,
     "baselineDocumentedAtSourceRevision": "4997c46b27c16216e71b0bf3b2b0ca73c212e388",
     "deploymentRevisionEstablished": false,
-    "verifiedAt": "2026-09-13T17:30:12.629Z",
+    "verifiedAt": "2026-09-13T17:44:04.789Z",
     "assets": [
       {
         "path": "/assets/index-23ff2ff7.js",
@@ -453,6 +453,143 @@
       }
     }
   },
+  "luminousPreview": {
+    "persistedFieldsUnchanged": true,
+    "stageControls": {
+      "stageToggle": {
+        "text": "Stage",
+        "ariaPressed": "true"
+      },
+      "controls": {
+        "stage-control-scopeSize": {
+          "text": "72%Size",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeStrength": {
+          "text": "92%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeLineWeight": {
+          "text": "5pxLine Weight",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeGlow": {
+          "text": "60%Glow",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeTrail": {
+          "text": "86%Trail",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodiesVisible": {
+          "text": "Show Bodies",
+          "ariaPressed": "true",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodySize": {
+          "text": "9%Size",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodyStrength": {
+          "text": "42%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodyMotion": {
+          "text": "48%Motion",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-connectionMode": {
+          "text": "offMode",
+          "ariaPressed": null,
+          "ariaValueNow": "0",
+          "ariaValueText": "off"
+        },
+        "stage-control-connectionStrength": {
+          "text": "38%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-atmosphereStrength": {
+          "text": "42%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-atmosphereColorDepth": {
+          "text": "80%Color Depth",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-stringPresence": {
+          "text": "70%Presence",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-stringResponse": {
+          "text": "38%Response",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-fleckAmount": {
+          "text": "12Amount",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-fleckEnergy": {
+          "text": "42%Energy",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-showChords": {
+          "text": "Chords",
+          "ariaPressed": "false",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-showIntervals": {
+          "text": "Intervals",
+          "ariaPressed": "false",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-showEmotion": {
+          "text": "Emotion",
+          "ariaPressed": "false",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-labelStrength": {
+          "text": "50%Label Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        }
+      }
+    }
+  },
   "kept": {
     "persistedFieldsChanged": true,
     "persistedStageAppearanceChanged": true,
@@ -621,6 +758,281 @@
       }
     ],
     "loadedAssetsMatchBaseline": true,
-    "transientStatus": "Previewing Luminous · 327F. Edits stay temporary until kept."
+    "transientStatusPresent": true,
+    "transientStatus": "Previewing Luminous · E797. Edits stay temporary until kept.",
+    "stageControls": {
+      "stageToggle": {
+        "text": "Stage",
+        "ariaPressed": "true"
+      },
+      "controls": {
+        "stage-control-scopeSize": {
+          "text": "77%Size",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeStrength": {
+          "text": "92%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeLineWeight": {
+          "text": "4.67pxLine Weight",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeGlow": {
+          "text": "57%Glow",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-scopeTrail": {
+          "text": "74%Trail",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodiesVisible": {
+          "text": "Show Bodies",
+          "ariaPressed": "true",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodySize": {
+          "text": "9%Size",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodyStrength": {
+          "text": "43%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-bodyMotion": {
+          "text": "48%Motion",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-connectionMode": {
+          "text": "offMode",
+          "ariaPressed": null,
+          "ariaValueNow": "0",
+          "ariaValueText": "off"
+        },
+        "stage-control-connectionStrength": {
+          "text": "38%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-atmosphereStrength": {
+          "text": "43%Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-atmosphereColorDepth": {
+          "text": "80%Color Depth",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-stringPresence": {
+          "text": "71%Presence",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-stringResponse": {
+          "text": "39%Response",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-fleckAmount": {
+          "text": "11Amount",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-fleckEnergy": {
+          "text": "40%Energy",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-showChords": {
+          "text": "Chords",
+          "ariaPressed": "false",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-showIntervals": {
+          "text": "Intervals",
+          "ariaPressed": "false",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-showEmotion": {
+          "text": "Emotion",
+          "ariaPressed": "false",
+          "ariaValueNow": null,
+          "ariaValueText": null
+        },
+        "stage-control-labelStrength": {
+          "text": "50%Label Strength",
+          "ariaPressed": null,
+          "ariaValueNow": null,
+          "ariaValueText": null
+        }
+      }
+    },
+    "liveStageChangedFromKept": true,
+    "discarded": {
+      "statusCleared": true,
+      "persistedFieldsMatchKept": true,
+      "liveStageMatchesKept": true,
+      "stageControls": {
+        "stageToggle": {
+          "text": "Stage",
+          "ariaPressed": "true"
+        },
+        "controls": {
+          "stage-control-scopeSize": {
+            "text": "72%Size",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-scopeStrength": {
+            "text": "92%Strength",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-scopeLineWeight": {
+            "text": "5pxLine Weight",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-scopeGlow": {
+            "text": "60%Glow",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-scopeTrail": {
+            "text": "86%Trail",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-bodiesVisible": {
+            "text": "Show Bodies",
+            "ariaPressed": "true",
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-bodySize": {
+            "text": "9%Size",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-bodyStrength": {
+            "text": "42%Strength",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-bodyMotion": {
+            "text": "48%Motion",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-connectionMode": {
+            "text": "offMode",
+            "ariaPressed": null,
+            "ariaValueNow": "0",
+            "ariaValueText": "off"
+          },
+          "stage-control-connectionStrength": {
+            "text": "38%Strength",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-atmosphereStrength": {
+            "text": "42%Strength",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-atmosphereColorDepth": {
+            "text": "80%Color Depth",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-stringPresence": {
+            "text": "70%Presence",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-stringResponse": {
+            "text": "38%Response",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-fleckAmount": {
+            "text": "12Amount",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-fleckEnergy": {
+            "text": "42%Energy",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-showChords": {
+            "text": "Chords",
+            "ariaPressed": "false",
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-showIntervals": {
+            "text": "Intervals",
+            "ariaPressed": "false",
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-showEmotion": {
+            "text": "Emotion",
+            "ariaPressed": "false",
+            "ariaValueNow": null,
+            "ariaValueText": null
+          },
+          "stage-control-labelStrength": {
+            "text": "50%Label Strength",
+            "ariaPressed": null,
+            "ariaValueNow": null,
+            "ariaValueText": null
+          }
+        }
+      }
+    }
   }
 }

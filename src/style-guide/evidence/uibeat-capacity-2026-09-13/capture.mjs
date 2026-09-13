@@ -7,6 +7,7 @@ import { createInterface } from "node:readline/promises";
 import { gzipSync } from "node:zlib";
 
 import { verifyLoadedBuildIdentity } from "./capture-build-identity.mjs";
+import { runtimeGuardInstallerExpression } from "./runtime-guard.mjs";
 
 const TRACE_CATEGORIES = [
   "benchmark",
@@ -891,16 +892,16 @@ function assertMonitorCoversPreparation(monitorStartedAt, preparationStartedAt) 
   }
 }
 
-function throwCaptureOrRestorationError(captureError, restorationError) {
-  if (captureError && restorationError) {
+function throwCaptureOrRestorationError(captureError, restorationError, runtimeGuardError = null) {
+  const errors = [captureError, restorationError, runtimeGuardError].filter(Boolean);
+  if (errors.length > 1) {
     throw new AggregateError(
-      [captureError, restorationError],
-      `Capture failed (${captureError.message}) and UI Rhythm restoration also failed (${restorationError.message})`,
-      { cause: captureError },
+      errors,
+      `Capture finalization had multiple failures: ${errors.map((error) => error.message).join("; ")}`,
+      { cause: captureError ?? errors[0] },
     );
   }
-  if (captureError) throw captureError;
-  if (restorationError) throw restorationError;
+  if (errors.length === 1) throw errors[0];
 }
 
 function selectUniqueTarget(targets, query, endpoint) {
@@ -1222,6 +1223,11 @@ function traceSummary(events) {
 }
 
 async function sample(cdp, label, duration, traceDuration) {
+  await evaluate(cdp, `window.__uiBeatRuntimeGuard.start(${JSON.stringify({
+    label,
+    expectedDurationMs: duration + traceDuration,
+    maximumCanvasIdleMs: 1_000,
+  })})`);
   const initialScene = await sceneState(cdp);
   const before = await getMetrics(cdp);
   const frameCallbacks = await evaluate(cdp, `(async () => {
@@ -1477,12 +1483,14 @@ async function sample(cdp, label, duration, traceDuration) {
   const after = await getMetrics(cdp);
   const traced = await traceWhile(cdp, async () => delay(traceDuration));
   const finalScene = await sceneState(cdp);
-  const valid = sampleIsValid(label, frameCallbacks, initialScene, finalScene);
+  const runtimeGuard = await evaluate(cdp, "window.__uiBeatRuntimeGuard.snapshot()");
+  const valid = runtimeGuard.valid && sampleIsValid(label, frameCallbacks, initialScene, finalScene);
   return {
     label,
     valid,
     initialScene,
     finalScene,
+    runtimeGuard,
     frameCallbacks: { ...frameCallbacks, summary: summarizeIntervals(frameCallbacks.intervals) },
     cdpMetricsDelta: metricDelta(before, after),
     trace: { durationMs: traceDuration, ...traceSummary(traced.events) },
@@ -1699,8 +1707,18 @@ async function main() {
     let captureInterruptions = [];
     let captureError = null;
     let restorationError = null;
+    let runtimeGuardError = null;
+    let runtimeGuardInstalled = false;
+    let runtimeGuardSession = null;
     try {
       scenePreparation = await prepareScene(cdp);
+      const installerExpression = runtimeGuardInstallerExpression({ maximumCanvasIdleMs: 1_000 });
+      await evaluate(cdp, `(() => {
+        if (window.__uiBeatRuntimeGuard) throw new Error("UIBeat runtime guard global already exists");
+        window.__uiBeatRuntimeGuard = ${installerExpression};
+        return true;
+      })()`);
+      runtimeGuardInstalled = true;
       originalUiRhythm = await evaluate(cdp, `document.querySelector('[data-testid="global-control-uiRhythm"]')?.getAttribute("aria-pressed") === "true"`);
       await setUiRhythm(cdp, true, options.warmup);
       samples.push(await sample(cdp, "uiBeat-on-first", options.duration, options.traceDuration));
@@ -1718,9 +1736,22 @@ async function main() {
           restorationError = error;
         }
       }
+      if (runtimeGuardInstalled) {
+        try {
+          runtimeGuardSession = await evaluate(cdp, `(() => {
+            try { return window.__uiBeatRuntimeGuard.stop(); }
+            finally { delete window.__uiBeatRuntimeGuard; }
+          })()`);
+          if (!runtimeGuardSession.valid) {
+            runtimeGuardError = new Error(`Runtime guard invalid: ${runtimeGuardSession.issues.join(", ")}`);
+          }
+        } catch (error) {
+          runtimeGuardError = error;
+        }
+      }
       captureInterruptions = await stopCaptureMonitor(cdp).catch(() => [{ type: "monitor-read-failed" }]);
     }
-    throwCaptureOrRestorationError(captureError, restorationError);
+    throwCaptureOrRestorationError(captureError, restorationError, runtimeGuardError);
     const finalEnvironment = await environment(cdp);
     const measurementCompletedAt = new Date().toISOString();
     pageTargetMonitoring = await browserTargetMonitor.stop();
@@ -1755,10 +1786,11 @@ async function main() {
     const operatorObservationAcceptable = operatorObservationIsAcceptable(postRunOperatorObservation);
     const buildIdentityVerified = loadedBuildIdentity.sourceRevision === metadata.sourceRevision;
     const displayFingerprintStable = displayFingerprintsMatch(initialEnvironment, finalEnvironment);
+    const runtimeGuardValid = runtimeGuardSession.valid && samples.every(({ runtimeGuard }) => runtimeGuard.valid);
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
       operatorObservationAcceptable &&
       buildIdentityVerified &&
-      displayFingerprintStable && pageTargetMonitoring.valid &&
+      displayFingerprintStable && pageTargetMonitoring.valid && runtimeGuardValid &&
       !knownNonNativeRenderer && rendererStable && rendererIdentityUsable &&
       allSamplesValid && captureInterruptions.length === 0 &&
       initialEnvironment.visibilityState === "visible" && initialEnvironment.hasFocus &&
@@ -1781,6 +1813,7 @@ async function main() {
         buildIdentityVerified,
         displayFingerprintStable,
         singlePageTargetThroughout: pageTargetMonitoring.valid,
+        runtimeGuardValid,
         rendererStable,
         rendererIdentityUsable,
         operatorObservationAcceptable,
@@ -1791,12 +1824,14 @@ async function main() {
       },
       captureInterruptions,
       scenePreparation,
+      runtimeGuardSession,
       methodology: {
         scene: "production route, sounding generated pattern, Config Global panel open",
         sequence: samples.map(({ label }) => label),
         durationMsPerState: options.duration,
         traceDurationMsPerState: options.traceDuration,
         warmupMs: options.warmup,
+        runtimeGuardScope: "a session-long source-coupled workload monitor retains changed-then-restored workload events, while each pacing-plus-trace window requires recurring successful full-canvas clears from the retained production Stage 2D context",
         buildIdentityScope: "before scene preparation, CDP matches the measured page's loaded entry HTML and CSS content plus exact-URL JavaScript executed in the main frame's default context to the manifest produced by a clean build of sourceRevision",
         frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
         uiBeatCadenceScope: "bounded MutationObservers record distinct inline scale changes for every expected visible UIBeat control and recurring transform/opacity changes for the retained four-child production BeatIndicator; aggregate on-window activity must avoid idle gaps longer than two beat periods with a 2000ms floor, every indicator child must avoid idle gaps longer than one four-beat cycle with the same floor, each window must span at least two applicable allowances, and retained nodes must remain unchanged while off",
@@ -1807,6 +1842,7 @@ async function main() {
         "Physical displayed frames require the operator's named-device/native-window observation; CDP cannot independently prove panel scanout.",
         "requestAnimationFrame timestamps can reveal foreground page pacing but do not directly measure compositor-to-display presentation.",
         "The cadence guards' control-scale and BeatIndicator transform/opacity MutationObservers plus per-frame retained-node identity, connection, binding, state, and visibility checks add main-thread and layout observation work that can affect measured pacing.",
+        "The runtime workload subscriptions, semantic DOM observer, and Stage clearRect heartbeat wrapper add bounded observation work throughout the capture.",
         "The read-only rendering-workload fingerprint depends on the production Pinia visualConfig runtime store and fails capture when that source-coupled introspection is unavailable.",
         "A software-rendered or emulated capture cannot close the physical-device capacity gate.",
       ],

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createCaptureWorkspace, publishCapture, publishFailedCapture } from "./capture-policy.mjs";
+import { assertGuideReceipt, createCaptureWorkspace, publishCapture, publishFailedCapture } from "./capture-policy.mjs";
 
 const archiveDirectory = new URL(".", import.meta.url).pathname;
 const workspace = await createCaptureWorkspace({ archiveDirectory, label: "config-guide" });
@@ -13,7 +13,6 @@ try {
     args: ["--no-sandbox", "--disable-dev-shm-usage"],
   });
   const result = {
-    status: "complete",
     route: "http://127.0.0.1:5181/style-guide/config-menu",
     capturedAt: new Date().toISOString(),
     viewports: [],
@@ -58,6 +57,8 @@ try {
     }
   }
 
+  assertGuideReceipt(result);
+  result.status = "complete";
   await browser.close();
   browser = undefined;
   await fs.writeFile(path.join(workspace.staging, "verification.json"), `${JSON.stringify(result, null, 2)}\n`);

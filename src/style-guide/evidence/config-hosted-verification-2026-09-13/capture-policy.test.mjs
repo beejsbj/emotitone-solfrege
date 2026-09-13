@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import path from "node:path";
-import { assertPersistenceComparisons, createCaptureWorkspace, verifyArchivedDeployment } from "./capture-policy.mjs";
+import { assertGuideReceipt, assertPersistenceComparisons, createCaptureWorkspace, verifyArchivedDeployment } from "./capture-policy.mjs";
 
 const bytes = Buffer.from("known asset");
 const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -32,6 +32,39 @@ test("persistence verification rejects any false comparison", () => {
     reloaded: { persistedFieldsMatchKept: true },
   };
   assert.throws(() => assertPersistenceComparisons(output), /Keep did not change persisted config/);
+});
+
+const passingGuideReceipt = () => ({
+  viewports: ["desktop", "phone"].map((name) => ({
+    viewport: { name },
+    look: { storageUnchanged: true },
+    knob: { changed: true },
+    media: { reducedMotion: true, forcedColors: true, documentWidth: name === "desktop" ? 1440 : 390, viewportWidth: name === "desktop" ? 1440 : 390 },
+  })),
+});
+
+test("guide verification rejects regressed recorded outcomes", () => {
+  const regressions = [
+    ["look", "storageUnchanged", /Discard did not restore local storage/],
+    ["knob", "changed", /Knob drag did not change its value/],
+    ["media", "reducedMotion", /Reduced Motion emulation was not active/],
+    ["media", "forcedColors", /Forced Colors emulation was not active/],
+  ];
+  for (const [section, field, message] of regressions) {
+    const result = passingGuideReceipt();
+    result.viewports[1][section][field] = false;
+    assert.throws(() => assertGuideReceipt(result), message);
+  }
+
+  const overflowing = passingGuideReceipt();
+  overflowing.viewports[1].media.documentWidth = 391;
+  assert.throws(() => assertGuideReceipt(overflowing), /document overflows horizontally/);
+});
+
+test("guide verification requires both expected viewports", () => {
+  const result = passingGuideReceipt();
+  result.viewports.pop();
+  assert.throws(() => assertGuideReceipt(result), /did not capture both expected viewports/);
 });
 
 test("output policy rejects a dot-prefixed child inside the evidence archive", async () => {

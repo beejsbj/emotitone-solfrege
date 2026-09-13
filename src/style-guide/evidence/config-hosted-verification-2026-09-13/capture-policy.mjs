@@ -91,3 +91,14 @@ export function assertPersistenceComparisons(output) {
   assert.equal(output.kept.persistedFieldsChanged, true, "Keep did not change persisted config");
   assert.equal(output.reloaded.persistedFieldsMatchKept, true, "Reload did not preserve kept config");
 }
+
+export function assertGuideReceipt(result) {
+  assert.deepEqual(result.viewports.map(({ viewport }) => viewport.name), ["desktop", "phone"], "Guide probe did not capture both expected viewports");
+  for (const { viewport, look, knob, media } of result.viewports) {
+    assert.equal(look.storageUnchanged, true, `${viewport.name}: Discard did not restore local storage`);
+    assert.equal(knob.changed, true, `${viewport.name}: Knob drag did not change its value`);
+    assert.equal(media.reducedMotion, true, `${viewport.name}: Reduced Motion emulation was not active`);
+    assert.equal(media.forcedColors, true, `${viewport.name}: Forced Colors emulation was not active`);
+    assert.ok(media.documentWidth <= media.viewportWidth, `${viewport.name}: document overflows horizontally`);
+  }
+}

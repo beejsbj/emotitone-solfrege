@@ -18,6 +18,10 @@ The hosted captures exercise the four public destinations and capture Global/Sta
 
 The supplement was captured after production advanced to `4997c46b27c16216e71b0bf3b2b0ca73c212e388`, as recorded by GitHub production deployment `6423620721`. Its hosted entry assets are `assets/index-23ff2ff7.js`, SHA-256 `8ea45fd6e2019e56582a22dd977882d96cedae7ee062d8ecf47121055839ef06`, and `assets/index-966b0f42.css`, SHA-256 `966b0f427a6f6dc925de716a65ee1ebae4cb26bb55aa3daf7bad1c3c28ca8d96`. A clean tracked-source build at `4997c46` reproduced the CSS asset byte-for-byte. It emitted a different JavaScript bundle under local Bun 1.3.14, so the source-revision attribution comes from the GitHub deployment record; the script guard establishes the hosted asset baseline and does not independently infer a deployment revision.
 
+## Assertion probe supplement
+
+`assertion-probes-4997c46/` records fresh JSON receipts for the tightened success conditions. `hosted-route-verification.json` requires the exact requested pathname and `.config-menu-page` guide or `.performance-deck-drawer` production marker in addition to the settled destination checks. `production-look-verification.json` proves Discard removes the transient status and restores the live Stage controls; Keep commits the previewed Stage controls and the expected Luminous persistence fields while preserving Visuals Enabled and Stage reload preferences; reload preserves those persisted fields. `guide-verification.json` proves the focused specimen leaves storage unchanged after Discard, Keep, and a Knob update sampled after the 500 ms save debounce. These receipts supplement the settled screenshots; they do not replace or alter the historical JSON files.
+
 The committed scripts rerun focused subsets of this verification:
 
 ```sh
@@ -28,7 +32,7 @@ node src/style-guide/evidence/config-hosted-verification-2026-09-13/capture-host
 node src/style-guide/evidence/config-hosted-verification-2026-09-13/capture-production-look.mjs
 ```
 
-`capture-guide-receipt.mjs` reruns the local Stage Look, Knob drag, responsive-width, Reduced Motion, and Forced Colors DOM/state probe and writes `verification.json`. `capture-hosted.mjs` reruns the four tab destinations on the guide and production routes and writes 16 PNGs plus `hosted-verification.json`. `capture-production-look.mjs` checks the four persistence comparisons and emits JSON to stdout. The archived `guide-*` and `production-*` PNGs, `production-verification.json`, closed-state captures, and Look-preview screenshots came from ad hoc capture steps that are not committed here; these scripts do not reproduce them.
+`capture-guide-receipt.mjs` reruns the local Stage Look, Knob drag, persistence-isolation, responsive-width, Reduced Motion, and Forced Colors DOM/state probe and writes `verification.json`. `capture-hosted.mjs` reruns the four tab destinations on the verified guide and production routes and writes 16 PNGs plus `hosted-verification.json`. `capture-production-look.mjs` checks live Look behavior and the independently compared persisted fields, then emits JSON to stdout. The archived `guide-*` and `production-*` PNGs, `production-verification.json`, closed-state captures, and Look-preview screenshots came from ad hoc capture steps that are not committed here; these scripts do not reproduce them.
 
 The directory-writing scripts default to `/tmp` and print the fresh output directory; pass `--output <fresh-directory>` when a specific destination is useful. They refuse to write in this archived evidence directory or replace an existing output directory. A failed directory-writing run publishes `capture-failed.json` rather than a complete receipt. The hosted scripts first require the live production document to reference the two supplemental-baseline entry assets above and verify both SHA-256 hashes. A differing deployment stops before output; a passing guard establishes only that the current assets match the baseline documented at `4997c46`, not the current deployment revision. Fresh receipts record that distinction explicitly.
 
@@ -36,7 +40,7 @@ The scripts default to `/tmp/uibeat-pw-node_modules/playwright-core` and Chrome 
 
 The hosted Vercel deployment URL from the GitHub deployment record redirected unauthenticated requests to SSO; the public Vercel production alias above served the same deployed assets and was used for hosted captures.
 
-The browser ran headless. Phone widths and Reduced Motion/Forced Colors settings are browser emulation, not physical-device or native assistive-technology evidence. The production persistence probe compares parsed `config`, `visualsEnabled`, and `stagePreferences`, excluding the `lastSaved` timestamp; its result is `hosted-production-look.json`, and `capture-production-look.mjs` emits a fresh result to stdout.
+The browser ran headless. Phone widths and Reduced Motion/Forced Colors settings are browser emulation, not physical-device or native assistive-technology evidence. The production persistence probe excludes the `lastSaved` timestamp and compares the Stage appearance, `visualsEnabled`, and `stagePreferences` independently; `capture-production-look.mjs` emits a fresh result to stdout.
 
 Validation: 84 focused ConfigPanel/public-surface/visual-config tests and an independent 26-test ConfigPanel/public-surface/Stage-appearance pass succeeded; type-check and production build passed. Build warnings remain the existing Browserslist, dependency eval, mixed imports, and bundle-size notices. The final hosted sweep selected all four destinations on both routes at 1440×900 and 390×844, with zero horizontal document overflow.
 

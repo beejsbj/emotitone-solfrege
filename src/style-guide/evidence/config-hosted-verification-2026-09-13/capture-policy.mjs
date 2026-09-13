@@ -87,15 +87,31 @@ export async function publishFailedCapture({ destination, staging, error }) {
 
 export function assertPersistenceComparisons(output) {
   assert.equal(output.preview.persistedFieldsUnchanged, true, "Preview changed persisted config");
+  assert.equal(output.preview.liveStageChanged, true, "Preview did not change the live Stage controls");
   assert.equal(output.discarded.persistedFieldsUnchanged, true, "Discard did not restore persisted config");
+  assert.equal(output.discarded.statusCleared, true, "Discard did not clear the transient Look status");
+  assert.equal(output.discarded.liveStageMatchesBaseline, true, "Discard did not restore the live Stage controls");
   assert.equal(output.kept.persistedFieldsChanged, true, "Keep did not change persisted config");
+  assert.equal(output.kept.persistedStageAppearanceChanged, true, "Keep did not persist a Stage appearance change");
+  assert.equal(output.kept.persistedStageAppearanceMatchesLuminous, true, "Keep did not persist the expected Luminous Stage appearance");
+  assert.equal(output.kept.visualsEnabledUnchanged, true, "Keep changed Visuals Enabled");
+  assert.equal(output.kept.stagePreferencesUnchanged, true, "Keep changed Stage reload preferences");
+  assert.equal(output.kept.statusCleared, true, "Keep did not clear the transient Look status");
+  assert.equal(output.kept.liveStageMatchesPreview, true, "Keep did not commit the previewed Stage controls");
   assert.equal(output.reloaded.persistedFieldsMatchKept, true, "Reload did not preserve kept config");
+  assert.equal(output.reloaded.persistedStageAppearanceMatchesKept, true, "Reload did not preserve the kept Stage appearance");
+  assert.equal(output.reloaded.visualsEnabledMatchesBaseline, true, "Reload changed Visuals Enabled");
+  assert.equal(output.reloaded.stagePreferencesMatchBaseline, true, "Reload changed Stage reload preferences");
 }
 
 export function assertGuideReceipt(result) {
   assert.deepEqual(result.viewports.map(({ viewport }) => viewport.name), ["desktop", "phone"], "Guide probe did not capture both expected viewports");
   for (const { viewport, look, knob, media } of result.viewports) {
     assert.equal(look.storageUnchanged, true, `${viewport.name}: Discard did not restore local storage`);
+    assert.equal(look.discarded.statusCleared, true, `${viewport.name}: Discard did not clear the transient Look status`);
+    assert.equal(look.discarded.liveStageMatchesBaseline, true, `${viewport.name}: Discard did not restore the live Stage controls`);
+    assert.equal(look.kept.storageUnchanged, true, `${viewport.name}: Keep escaped the guide's ephemeral store`);
+    assert.equal(look.afterKnobDebounce.storageUnchanged, true, `${viewport.name}: debounced Knob save escaped the guide's ephemeral store`);
     assert.equal(knob.changed, true, `${viewport.name}: Knob drag did not change its value`);
     assert.equal(media.reducedMotion, true, `${viewport.name}: Reduced Motion emulation was not active`);
     assert.equal(media.forcedColors, true, `${viewport.name}: Forced Colors emulation was not active`);
@@ -108,4 +124,9 @@ export function assertHostedDestinationState(state, context = state.destination)
   assert.equal(state.settled, true, `${context}: content transition is still settling`);
   assert.equal(state.contentMounted, true, `${context}: expected destination content is not mounted`);
   assert.ok(state.documentWidth <= state.viewportWidth, `${context}: document overflows horizontally`);
+}
+
+export function assertHostedRouteState(state, context = state.route) {
+  assert.equal(state.actualPathname, state.route, `${context}: rendered URL does not match the requested route`);
+  assert.equal(state.routeMarkerMounted, true, `${context}: route-specific surface is not mounted`);
 }

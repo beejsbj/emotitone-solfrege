@@ -4,6 +4,9 @@ import { assertGuideReceipt, createCaptureWorkspace, publishCapture, publishFail
 
 const archiveDirectory = new URL(".", import.meta.url).pathname;
 const workspace = await createCaptureWorkspace({ archiveDirectory, label: "config-guide" });
+const readStageControls = (page) => page.locator('[data-testid^="stage-control-"]').evaluateAll((elements) => Object.fromEntries(
+  elements.map((element) => [element.getAttribute("data-testid"), element.textContent?.trim() ?? null]),
+));
 let browser;
 try {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? "/tmp/uibeat-pw-node_modules/playwright-core/index.mjs");
@@ -31,13 +34,18 @@ try {
       await page.locator('[data-testid="config-panel-trigger"]').click();
       await page.locator('[data-testid="config-tab-stage"]').click();
       const before = await page.evaluate(() => ({ ...localStorage }));
+      const baselineStageControls = await readStageControls(page);
       await page.locator('[data-testid="preset-apply-soft"]').click();
       await page.locator('.config-panel__look-status').waitFor();
       const preview = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim(), storage: { ...localStorage } }));
       await page.locator('[data-testid="stage-look-discard"]').click();
+      await page.locator('.config-panel__look-status').waitFor({ state: "detached" });
+      const discardedStageControls = await readStageControls(page);
       const discarded = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim() ?? null, storage: { ...localStorage } }));
       await page.locator('[data-testid="preset-apply-luminous"]').click();
+      await page.locator('.config-panel__look-status').waitFor();
       await page.locator('[data-testid="stage-look-keep"]').click();
+      await page.locator('.config-panel__look-status').waitFor({ state: "detached" });
       const kept = await page.evaluate(() => ({ status: document.querySelector('.config-panel__look-status')?.textContent?.trim() ?? null, storage: { ...localStorage } }));
       const knob = page.locator('[data-testid="stage-control-scopeSize"]');
       await knob.evaluate((element) => element.scrollIntoView({ block: "center" }));
@@ -49,9 +57,26 @@ try {
       await page.mouse.move(box.x + box.width / 2, box.y - Math.max(24, box.height), { steps: 8 });
       await page.mouse.up();
       const knobAfter = await knob.innerText();
+      await page.waitForTimeout(650);
+      const storageAfterKnobDebounce = await page.evaluate(() => ({ ...localStorage }));
       await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
       const media = await page.evaluate(() => ({ reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches, forcedColors: matchMedia("(forced-colors: active)").matches, documentWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth }));
-      result.viewports.push({ viewport, look: { preview, discarded, kept, storageUnchanged: JSON.stringify(before) === JSON.stringify(discarded.storage) }, knob: { before: knobBefore, after: knobAfter, changed: knobBefore !== knobAfter }, media });
+      result.viewports.push({
+        viewport,
+        look: {
+          preview,
+          discarded: {
+            ...discarded,
+            statusCleared: discarded.status === null,
+            liveStageMatchesBaseline: JSON.stringify(discardedStageControls) === JSON.stringify(baselineStageControls),
+          },
+          kept: { ...kept, storageUnchanged: JSON.stringify(kept.storage) === JSON.stringify(before) },
+          afterKnobDebounce: { storage: storageAfterKnobDebounce, storageUnchanged: JSON.stringify(storageAfterKnobDebounce) === JSON.stringify(before) },
+          storageUnchanged: JSON.stringify(before) === JSON.stringify(discarded.storage),
+        },
+        knob: { before: knobBefore, after: knobAfter, changed: knobBefore !== knobAfter },
+        media,
+      });
     } finally {
       await context.close();
     }

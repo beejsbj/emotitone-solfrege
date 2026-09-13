@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import path from "node:path";
-import { assertGuideReceipt, assertHostedDestinationState, assertPersistenceComparisons, createCaptureWorkspace, verifyHostedBaseline } from "./capture-policy.mjs";
+import { assertGuideReceipt, assertHostedDestinationState, assertHostedRouteState, assertPersistenceComparisons, createCaptureWorkspace, verifyHostedBaseline } from "./capture-policy.mjs";
 
 const bytes = Buffer.from("known asset");
 const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -26,18 +26,48 @@ test("deployment verification accepts a referenced asset with the expected hash"
 
 test("persistence verification rejects any false comparison", () => {
   const output = {
-    preview: { persistedFieldsUnchanged: true },
-    discarded: { persistedFieldsUnchanged: true },
-    kept: { persistedFieldsChanged: false },
-    reloaded: { persistedFieldsMatchKept: true },
+    preview: { persistedFieldsUnchanged: true, liveStageChanged: true },
+    discarded: { persistedFieldsUnchanged: true, statusCleared: true, liveStageMatchesBaseline: true },
+    kept: {
+      persistedFieldsChanged: true,
+      persistedStageAppearanceChanged: true,
+      persistedStageAppearanceMatchesLuminous: true,
+      visualsEnabledUnchanged: true,
+      stagePreferencesUnchanged: true,
+      statusCleared: true,
+      liveStageMatchesPreview: true,
+    },
+    reloaded: {
+      persistedFieldsMatchKept: true,
+      persistedStageAppearanceMatchesKept: true,
+      visualsEnabledMatchesBaseline: true,
+      stagePreferencesMatchBaseline: true,
+    },
   };
-  assert.throws(() => assertPersistenceComparisons(output), /Keep did not change persisted config/);
+  const regressions = [
+    ["discarded", "statusCleared", /Discard did not clear/],
+    ["discarded", "liveStageMatchesBaseline", /Discard did not restore the live Stage/],
+    ["kept", "persistedStageAppearanceChanged", /Keep did not persist a Stage appearance/],
+    ["kept", "persistedStageAppearanceMatchesLuminous", /expected Luminous Stage appearance/],
+    ["kept", "visualsEnabledUnchanged", /Keep changed Visuals Enabled/],
+    ["kept", "stagePreferencesUnchanged", /Keep changed Stage reload preferences/],
+  ];
+  for (const [section, field, message] of regressions) {
+    const regressed = structuredClone(output);
+    regressed[section][field] = false;
+    assert.throws(() => assertPersistenceComparisons(regressed), message);
+  }
 });
 
 const passingGuideReceipt = () => ({
   viewports: ["desktop", "phone"].map((name) => ({
     viewport: { name },
-    look: { storageUnchanged: true },
+    look: {
+      storageUnchanged: true,
+      discarded: { statusCleared: true, liveStageMatchesBaseline: true },
+      kept: { storageUnchanged: true },
+      afterKnobDebounce: { storageUnchanged: true },
+    },
     knob: { changed: true },
     media: { reducedMotion: true, forcedColors: true, documentWidth: name === "desktop" ? 1440 : 390, viewportWidth: name === "desktop" ? 1440 : 390 },
   })),
@@ -61,6 +91,20 @@ test("guide verification rejects regressed recorded outcomes", () => {
   assert.throws(() => assertGuideReceipt(overflowing), /document overflows horizontally/);
 });
 
+test("guide verification rejects persistence after Keep or the Knob debounce", () => {
+  const discarded = passingGuideReceipt();
+  discarded.viewports[0].look.discarded.liveStageMatchesBaseline = false;
+  assert.throws(() => assertGuideReceipt(discarded), /Discard did not restore the live Stage controls/);
+
+  const kept = passingGuideReceipt();
+  kept.viewports[0].look.kept.storageUnchanged = false;
+  assert.throws(() => assertGuideReceipt(kept), /Keep escaped the guide's ephemeral store/);
+
+  const debounced = passingGuideReceipt();
+  debounced.viewports[0].look.afterKnobDebounce.storageUnchanged = false;
+  assert.throws(() => assertGuideReceipt(debounced), /debounced Knob save escaped/);
+});
+
 test("guide verification requires both expected viewports", () => {
   const result = passingGuideReceipt();
   result.viewports.pop();
@@ -72,6 +116,13 @@ test("hosted destination verification rejects settling or mismatched content", (
   assert.doesNotThrow(() => assertHostedDestinationState(passing));
   assert.throws(() => assertHostedDestinationState({ ...passing, settled: false }), /still settling/);
   assert.throws(() => assertHostedDestinationState({ ...passing, contentMounted: false }), /content is not mounted/);
+});
+
+test("hosted route verification rejects a wrong URL or shared-surface fallback", () => {
+  const passing = { route: "/style-guide/config-menu", actualPathname: "/style-guide/config-menu", routeMarkerMounted: true };
+  assert.doesNotThrow(() => assertHostedRouteState(passing));
+  assert.throws(() => assertHostedRouteState({ ...passing, actualPathname: "/" }), /rendered URL does not match/);
+  assert.throws(() => assertHostedRouteState({ ...passing, routeMarkerMounted: false }), /route-specific surface is not mounted/);
 });
 
 test("output policy rejects a dot-prefixed child inside the evidence archive", async () => {

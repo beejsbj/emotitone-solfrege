@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   assertHostedDestinationState,
+  assertHostedRouteState,
   createCaptureWorkspace,
   HOST,
   publishCapture,
@@ -14,6 +15,10 @@ const destinationMarkers = {
   stage: '[data-testid="stage-public-controls"]',
   deck: '[data-testid="deck-public-controls"]',
   midi: ".config-panel__midi-grid",
+};
+const routeMarkers = {
+  "/style-guide/config-menu": ".config-menu-page",
+  "/": ".performance-deck-drawer",
 };
 const archiveDirectory = new URL(".", import.meta.url).pathname;
 const provenance = await verifyHostedBaseline();
@@ -40,6 +45,14 @@ try {
             if (await control.isVisible()) await control.click();
           }
         }
+        await page.locator(routeMarkers[route]).waitFor({ state: "attached" });
+        const routeState = await page.evaluate(({ route, marker }) => ({
+          route,
+          actualPathname: window.location.pathname,
+          routeMarker: marker,
+          routeMarkerMounted: Boolean(document.querySelector(marker)),
+        }), { route, marker: routeMarkers[route] });
+        assertHostedRouteState(routeState, `${route} ${viewport.name}`);
         await page.locator('[data-testid="config-panel-trigger"]').click();
         const destinations = [];
         for (const destination of ["global", "stage", "deck", "midi"]) {
@@ -72,7 +85,7 @@ try {
           await page.screenshot({ path: path.join(workspace.staging, `${prefix}-${viewport.name}-${destination}.png`), fullPage: false });
           destinations.push(state);
         }
-        result.pages.push({ route, viewport, url: page.url(), destinations });
+        result.pages.push({ route, viewport, url: page.url(), routeState, destinations });
       } finally {
         await context.close();
       }

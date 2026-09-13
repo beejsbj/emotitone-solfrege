@@ -264,6 +264,60 @@ describe("useStringRenderer humming lifecycle", () => {
     expect(renderer.strings.value.some((string) => string.isActive)).toBe(false);
   });
 
+  it("subscribes exact-pitch String lifecycle to a controlled event target", () => {
+    const renderer = useStringRenderer();
+    const target = new EventTarget();
+    const windowAddSpy = vi.spyOn(window, "addEventListener");
+    const stringConfig = {
+      isEnabled: true,
+      octaveOffset: 0,
+      baseOpacity: 0.1,
+      activeOpacity: 1,
+      maxAmplitude: 20,
+      interpolationSpeed: 1,
+      opacityInterpolationSpeed: 1,
+      dampingFactor: 1,
+    } as any;
+    renderer.initializeStrings(stringConfig, 800, 600, mocks.musicStore.solfegeData);
+    renderer.addEventListeners(target);
+
+    target.dispatchEvent(new CustomEvent("note-played", {
+      detail: {
+        noteId: "controlled-c4",
+        solfegeIndex: 0,
+        pitchClassIndex: 0,
+        frequency: 261.63,
+        octave: 4,
+        keyboardOctave: 4,
+        mode: "major",
+        key: "C",
+      },
+    }));
+    renderer.updateStringProperties(
+      stringConfig,
+      { visualFrequencyDivisor: 100 } as any,
+      mocks.musicStore,
+      { envelope: 0.5, hasSignal: true },
+    );
+
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.isActive)
+      .toBe(true);
+    expect(windowAddSpy).not.toHaveBeenCalledWith("note-played", expect.any(Function));
+
+    target.dispatchEvent(new CustomEvent("note-released", {
+      detail: { noteId: "controlled-c4" },
+    }));
+    renderer.updateStringProperties(
+      stringConfig,
+      { visualFrequencyDivisor: 100 } as any,
+      mocks.musicStore,
+      { envelope: 0.5, hasSignal: true },
+    );
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.isActive)
+      .toBe(false);
+    renderer.removeEventListeners();
+  });
+
   it("hydrates a supplied playback note after the String renderer remounts", () => {
     const renderer = useStringRenderer();
     const stringConfig = {

@@ -441,19 +441,20 @@ function createProductionWiring() {
     const shouldAttack = heldInputs.size === 0;
     heldInputs.add(pressId);
     heldInputsByKey.set(intent.keyId, heldInputs);
+    if (shouldAttack) {
+      void voiceGroups.attack(melodyVoiceOwnerId(intent.keyId), [
+        (isCancelled) => musicStore.attackNoteWithOctave(
+          intent.scaleIndex,
+          intent.octave,
+          isCancelled,
+        ),
+      ]);
+    }
+    // Submit audio before reactive feedback and haptics can occupy this turn.
     store.addTouch(pressId, intent.keyId);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
     }
-    if (!shouldAttack) return;
-
-    void voiceGroups.attack(melodyVoiceOwnerId(intent.keyId), [
-      (isCancelled) => musicStore.attackNoteWithOctave(
-        intent.scaleIndex,
-        intent.octave,
-        isCancelled,
-      ),
-    ]);
   }
 
   function release(intent: KeyboardIntent) {
@@ -476,10 +477,6 @@ function createProductionWiring() {
       key: currentMusicKey.value,
       notePitches: intent.chord.voicing.pitches.map((pitch) => pitch.name),
     });
-    store.addTouch(ownerId, `chord:${intent.chordId}`);
-    if (intent.source === "pointer" && config.value.hapticFeedback) {
-      triggerNoteHaptic();
-    }
     // The chord object is the setting snapshot captured at attack time.
     void voiceGroups.attack(
       ownerId,
@@ -487,6 +484,10 @@ function createProductionWiring() {
         (isCancelled) => musicStore.attackExactPitch(pitch.name, isCancelled),
       ),
     );
+    store.addTouch(ownerId, `chord:${intent.chordId}`);
+    if (intent.source === "pointer" && config.value.hapticFeedback) {
+      triggerNoteHaptic();
+    }
   }
 
   function releaseChord(intent: KeyboardChordIntent) {

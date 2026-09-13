@@ -9,15 +9,21 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
 
+const audioContext = vi.hoisted(() => ({
+  state: "running",
+  get currentTime() { return performance.now() / 1000; },
+}));
+
 vi.mock("@/services/superdoughAudio", () => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
+  stopNote: vi.fn(),
   releaseAll: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn().mockReturnValue(true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: vi.fn(),
+  getAudioContext: vi.fn(() => audioContext),
   playStrudelCode: vi.fn().mockResolvedValue(undefined),
   stopStrudelPlayback: vi.fn(),
 }));

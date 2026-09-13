@@ -34,6 +34,7 @@ import {
   type StageRect,
 } from "./stageRuntime";
 import { resolveStageActiveNotes } from "./stageNoteSources";
+import { createAudibleStageTimeline } from "@/services/audibleStageTimeline";
 
 /**
  * Unified Canvas Management System
@@ -57,12 +58,18 @@ export function useUnifiedCanvas(
   runtime?: StageRuntimeInputs,
 ) {
   const musicStore = useMusicStore();
-  const getStageActiveNotes = (): readonly ActiveNote[] => resolveStageActiveNotes(
-    runtime?.getActiveNotes,
+  const readProductionNotes = (): readonly ActiveNote[] => resolveStageActiveNotes(
+    undefined,
     () => musicStore.getActiveNotes(),
     getActiveLivePitchStageNotes,
     getActiveStrudelStageNotes,
   );
+  // Controlled specimens own their clock. Production receives a private
+  // presentation projection, leaving the input, recording and MIDI paths alone.
+  const audibleTimeline = runtime?.getActiveNotes || runtime?.eventTarget
+    ? undefined : createAudibleStageTimeline(window, readProductionNotes);
+  const getStageActiveNotes = runtime?.getActiveNotes ?? audibleTimeline?.getActiveNotes ?? readProductionNotes;
+  const noteEventTarget = runtime?.eventTarget ?? audibleTimeline?.eventTarget ?? window;
   const {
     stageConfig,
     blobConfig,
@@ -327,7 +334,7 @@ export function useUnifiedCanvas(
     );
 
     // Add string event listeners for sequencer integration
-    stringRenderer.addEventListeners(runtime?.eventTarget);
+    stringRenderer.addEventListeners(noteEventTarget);
 
     // Initialize Hilbert Scope
     const waveformSource = stageAudio.initialize();
@@ -578,9 +585,7 @@ export function useUnifiedCanvas(
     }
 
     // Create particles with reduced count for polyphonic scenarios
-    const activeNoteCount = runtime?.getActiveNotes
-      ? getStageActiveNotes().length
-      : musicStore.getActiveNotes().length;
+    const activeNoteCount = getStageActiveNotes().length;
     const particleCount = Math.max(
       5,
       Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
@@ -666,6 +671,7 @@ export function useUnifiedCanvas(
    */
   const cleanup = () => {
     stopAnimation();
+    audibleTimeline?.dispose();
     blobRenderer.clearAllBlobs();
     particleSystem.clearAllParticles();
     stringRenderer.clearAllStrings();
@@ -691,6 +697,7 @@ export function useUnifiedCanvas(
     canvasWidth,
     canvasHeight,
     harmonicAccessibleText,
+    noteEventTarget,
 
     // Methods
     initializeCanvas,

@@ -3,12 +3,19 @@ import { createTestWrapper } from '../helpers/test-utils'
 import { useMusicStore } from '@/stores/music'
 import { useInstrumentStore } from '@/stores/instrument'
 
+const audioContext = vi.hoisted(() => ({
+  state: "running",
+  get currentTime() { return performance.now() / 1000; },
+}));
+
 const audioMocks = vi.hoisted(() => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn(() => true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   attackNote: vi.fn().mockResolvedValue('note-1'),
   releaseNote: vi.fn(),
+  stopNote: vi.fn(),
+  getAudioContext: vi.fn(() => audioContext),
   releaseAll: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
   getRegisteredSounds: vi.fn(() => ['piano', 'triangle']),

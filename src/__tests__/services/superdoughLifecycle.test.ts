@@ -34,6 +34,19 @@ function attack(id: string, at = 1, naturalDuration?: number) {
 }
 
 describe('published superdough lifecycle and voice budget', () => {
+  it('starts an overdue held attack immediately and reports its corrected onset', async () => {
+    audio.advance(.02)
+    await expect(attack('late', .01)).resolves.toBe(.02)
+    expect(audio.sources[0].startAt).toBe(.02)
+    expect(dough.hasVoice('late')).toBe(true)
+  })
+
+  it('continues skipping overdue finite pattern events', async () => {
+    audio.advance(.02)
+    await dough.superdough({ s: 'lifecycle-test' }, .01, .25, 1)
+    expect(audio.sources).toHaveLength(0)
+  })
+
   it('restores the default budget when initAudio receives no limit', async () => {
     // Disable browser initialization; this call still runs real budget setup.
     vi.stubGlobal('window', undefined)
@@ -41,7 +54,7 @@ describe('published superdough lifecycle and voice budget', () => {
     expect(dough.maxPolyphony).toBe(128)
   })
 
-  it.each([undefined, null, 0, -3, NaN, Infinity, 'bad', '12junk'])('rejects invalid voice budget %s', (value) => {
+  it.each([undefined, null, 0, -3, NaN, Infinity, 'bad', '12junk', true, [2]])('rejects invalid voice budget %s', (value) => {
     dough.setMaxPolyphony(value)
     expect(dough.maxPolyphony).toBe(128)
   })

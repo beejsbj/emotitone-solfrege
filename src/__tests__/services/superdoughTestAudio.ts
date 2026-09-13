@@ -5,6 +5,7 @@ import { vi } from 'vitest'
 export function createSuperdoughTestAudio() {
   const sources: Source[] = []
   const buffers: object[] = []
+  const shapers: Shaper[] = []
   const context: {
     currentTime: number
     sampleRate: number
@@ -52,15 +53,19 @@ export function createSuperdoughTestAudio() {
     ended = false
     onended: (() => void) | null = null
     buffer: unknown
+    startAt = Infinity
     playbackRate = new Param()
     frequency = new Param()
     detune = new Param()
     constructor(ctx: typeof context) { super(ctx); sources.push(this) }
-    start(_at: number) {}
+    start(at: number) { this.startAt = at }
     stop(at = context.currentTime) { if (!this.ended) this.stopAt = at }
   }
   class Constant extends Source {}
-  class Shaper extends Node { curve: unknown }
+  class Shaper extends Node {
+    curve: unknown
+    constructor(ctx: typeof context) { super(ctx); shapers.push(this) }
+  }
   context.destination = new Node(context)
   for (const [name, value] of Object.entries({
     AudioNode: Node, AudioParam: Param, GainNode: Gain,
@@ -83,5 +88,5 @@ export function createSuperdoughTestAudio() {
       }
     } while (changed)
   }
-  return { context, sources, buffers, Source, Constant, Shaper, advance }
+  return { context, sources, buffers, shapers, Source, Constant, Shaper, advance }
 }

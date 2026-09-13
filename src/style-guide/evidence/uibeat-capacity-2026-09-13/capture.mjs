@@ -58,7 +58,9 @@ function validateRuntime({ nodeVersion, webSocketType, fetchType }) {
 function clippingAwareVisible(element, environment = globalThis) {
   const rect = element.getBoundingClientRect();
   const style = environment.getComputedStyle(element);
-  if (style.display === "none" || style.visibility === "hidden" || rect.width <= 0 || rect.height <= 0) return false;
+  const unpainted = (computed) => computed.display === "none" ||
+    Number.parseFloat(computed.opacity) === 0 || computed.contentVisibility === "hidden";
+  if (unpainted(style) || ["hidden", "collapse"].includes(style.visibility) || rect.width <= 0 || rect.height <= 0) return false;
   let left = 0;
   let top = 0;
   let right = environment.innerWidth;
@@ -66,6 +68,7 @@ function clippingAwareVisible(element, environment = globalThis) {
   const clips = (value) => /^(auto|clip|hidden|scroll)$/.test(value);
   for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
     const ancestorStyle = environment.getComputedStyle(ancestor);
+    if (unpainted(ancestorStyle)) return false;
     const ancestorRect = ancestor.getBoundingClientRect();
     if (clips(ancestorStyle.overflowX || ancestorStyle.overflow)) {
       left = Math.max(left, ancestorRect.left);
@@ -209,6 +212,17 @@ async function selfTest() {
       clippingAwareVisible(clippedControl, visibilityEnvironment) ||
       !clippingAwareVisible(visibleControl, visibilityEnvironment)) {
     throw new Error("Partially visible owners, clipped faces, and visible UIBeat controls were not distinguished");
+  }
+  for (const hiddenStyle of [{ opacity: "0" }, { opacity: "0.0" }, { contentVisibility: "hidden" }, { display: "none" }]) {
+    const hiddenControl = { ...visibleControl, style: { ...visibleControl.style, ...hiddenStyle } };
+    const hiddenAncestorControl = {
+      ...visibleControl,
+      parentElement: { ...scrollport, style: { ...scrollport.style, ...hiddenStyle } },
+    };
+    if (clippingAwareVisible(hiddenControl, visibilityEnvironment) ||
+        clippingAwareVisible(hiddenAncestorControl, visibilityEnvironment)) {
+      throw new Error("Non-painted control or ancestor was included in the visible inventory");
+    }
   }
   const healthyCounts = { button: 2, knob: 1, joystick: 1 };
   const healthyScene = {

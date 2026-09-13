@@ -1,16 +1,22 @@
 import fs from "node:fs/promises";
-import assert from "node:assert/strict";
 import path from "node:path";
 import {
+  assertHostedDestinationState,
   createCaptureWorkspace,
   HOST,
   publishCapture,
   publishFailedCapture,
-  verifyArchivedDeployment,
+  verifyHostedBaseline,
 } from "./capture-policy.mjs";
 
+const destinationMarkers = {
+  global: '[data-testid="global-public-controls"]',
+  stage: '[data-testid="stage-public-controls"]',
+  deck: '[data-testid="deck-public-controls"]',
+  midi: ".config-panel__midi-grid",
+};
 const archiveDirectory = new URL(".", import.meta.url).pathname;
-const provenance = await verifyArchivedDeployment();
+const provenance = await verifyHostedBaseline();
 const workspace = await createCaptureWorkspace({ archiveDirectory, label: "config-hosted" });
 let browser;
 try {
@@ -19,7 +25,7 @@ try {
     executablePath: process.env.CHROME_PATH ?? "/home/admin/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
     headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"],
   });
-  const result = { status: "complete", host: HOST, provenance, capturedAt: new Date().toISOString(), browser: browser.version(), pages: [] };
+  const result = { host: HOST, provenance, capturedAt: new Date().toISOString(), browser: browser.version(), pages: [] };
   for (const viewport of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone", width: 390, height: 844 }]) {
     for (const route of ["/style-guide/config-menu", "/"]) {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.name === "phone" ? 2 : 1 });
@@ -39,17 +45,29 @@ try {
         for (const destination of ["global", "stage", "deck", "midi"]) {
           const tab = page.locator(`[data-testid="config-tab-${destination}"]`);
           await tab.click();
-          await page.waitForTimeout(300);
-          const state = await page.evaluate((destination) => ({
-            destination,
-            selected: document.querySelector(`[data-testid="config-tab-${destination}"]`)?.getAttribute("aria-selected"),
-            documentWidth: document.documentElement.scrollWidth,
-            viewportWidth: innerWidth,
-            activeContent: document.querySelector('[role="tabpanel"]:not([hidden])')?.textContent?.trim().slice(0, 1600) ?? null,
-            assets: [...document.querySelectorAll('script[src],link[rel="stylesheet"]')].map(el => el.getAttribute("src") ?? el.getAttribute("href")),
-          }), destination);
-          assert.equal(state.selected, "true");
-          assert.ok(state.documentWidth <= state.viewportWidth, `${route} ${viewport.name} ${destination} overflows horizontally`);
+          await page.waitForFunction(({ destination, marker }) => {
+            const surface = document.querySelector('[data-testid="tabbed-overlay-swipe-surface"]');
+            const activePage = surface?.querySelector('.tabbed-overlay-panel__page--current:not([inert])');
+            return document.querySelector(`[data-testid="config-tab-${destination}"]`)?.getAttribute("aria-selected") === "true"
+              && !surface?.classList.contains("tabbed-overlay-panel__swipe-surface--settling")
+              && Boolean(activePage?.querySelector(marker));
+          }, { destination, marker: destinationMarkers[destination] });
+          const state = await page.evaluate(({ destination, marker }) => {
+            const surface = document.querySelector('[data-testid="tabbed-overlay-swipe-surface"]');
+            const activePage = surface?.querySelector('.tabbed-overlay-panel__page--current:not([inert])');
+            return {
+              destination,
+              selected: document.querySelector(`[data-testid="config-tab-${destination}"]`)?.getAttribute("aria-selected"),
+              settled: !surface?.classList.contains("tabbed-overlay-panel__swipe-surface--settling"),
+              contentMarker: marker,
+              contentMounted: Boolean(activePage?.querySelector(marker)),
+              documentWidth: document.documentElement.scrollWidth,
+              viewportWidth: innerWidth,
+              activeContent: activePage?.querySelector('[role="tabpanel"]:not([hidden])')?.textContent?.trim().slice(0, 1600) ?? null,
+              assets: [...document.querySelectorAll('script[src],link[rel="stylesheet"]')].map(el => el.getAttribute("src") ?? el.getAttribute("href")),
+            };
+          }, { destination, marker: destinationMarkers[destination] });
+          assertHostedDestinationState(state, `${route} ${viewport.name} ${destination}`);
           const prefix = route === "/" ? "hosted-production" : "hosted";
           await page.screenshot({ path: path.join(workspace.staging, `${prefix}-${viewport.name}-${destination}.png`), fullPage: false });
           destinations.push(state);
@@ -60,6 +78,7 @@ try {
       }
     }
   }
+  result.status = "complete";
   await browser.close();
   browser = undefined;
   await fs.writeFile(path.join(workspace.staging, "hosted-verification.json"), `${JSON.stringify(result, null, 2)}\n`);

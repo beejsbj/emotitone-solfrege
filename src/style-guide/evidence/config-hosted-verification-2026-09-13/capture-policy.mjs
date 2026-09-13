@@ -5,10 +5,10 @@ import os from "node:os";
 import path from "node:path";
 
 export const HOST = "https://emotitone-solfrege.vercel.app";
-export const ARCHIVED_SOURCE_REVISION = "dc5734617107136e00fdabda38c473aa55b601f0";
+export const HOSTED_BASELINE_SOURCE_REVISION = "4997c46b27c16216e71b0bf3b2b0ca73c212e388";
 export const EXPECTED_ASSETS = Object.freeze({
-  "/assets/index-372029c0.js": "08f0714fc17d0d794009c64ba6cbe7840971ebed17754ebe14deda47bca3637c",
-  "/assets/index-128c7174.css": "128c7174da1c95924c28e5e0627a860049293719111a68a87e7405a37c5cb4cc",
+  "/assets/index-23ff2ff7.js": "8ea45fd6e2019e56582a22dd977882d96cedae7ee062d8ecf47121055839ef06",
+  "/assets/index-966b0f42.css": "966b0f427a6f6dc925de716a65ee1ebae4cb26bb55aa3daf7bad1c3c28ca8d96",
 });
 
 async function requireSuccessfulResponse(response, url) {
@@ -16,7 +16,7 @@ async function requireSuccessfulResponse(response, url) {
   return response;
 }
 
-export async function verifyArchivedDeployment({ fetchImpl = fetch, host = HOST, expectedAssets = EXPECTED_ASSETS } = {}) {
+export async function verifyHostedBaseline({ fetchImpl = fetch, host = HOST, expectedAssets = EXPECTED_ASSETS } = {}) {
   const documentResponse = await requireSuccessfulResponse(await fetchImpl(`${host}/`), `${host}/`);
   const document = await documentResponse.text();
   const verifiedAssets = [];
@@ -32,8 +32,8 @@ export async function verifyArchivedDeployment({ fetchImpl = fetch, host = HOST,
 
   return {
     host,
-    matchesArchivedAssetBaseline: true,
-    baselineDocumentedAtSourceRevision: ARCHIVED_SOURCE_REVISION,
+    matchesHostedAssetBaseline: true,
+    baselineDocumentedAtSourceRevision: HOSTED_BASELINE_SOURCE_REVISION,
     deploymentRevisionEstablished: false,
     verifiedAt: new Date().toISOString(),
     assets: verifiedAssets,
@@ -101,4 +101,11 @@ export function assertGuideReceipt(result) {
     assert.equal(media.forcedColors, true, `${viewport.name}: Forced Colors emulation was not active`);
     assert.ok(media.documentWidth <= media.viewportWidth, `${viewport.name}: document overflows horizontally`);
   }
+}
+
+export function assertHostedDestinationState(state, context = state.destination) {
+  assert.equal(state.selected, "true", `${context}: destination tab is not selected`);
+  assert.equal(state.settled, true, `${context}: content transition is still settling`);
+  assert.equal(state.contentMounted, true, `${context}: expected destination content is not mounted`);
+  assert.ok(state.documentWidth <= state.viewportWidth, `${context}: document overflows horizontally`);
 }

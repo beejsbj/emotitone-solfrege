@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import path from "node:path";
-import { assertGuideReceipt, assertPersistenceComparisons, createCaptureWorkspace, verifyArchivedDeployment } from "./capture-policy.mjs";
+import { assertGuideReceipt, assertHostedDestinationState, assertPersistenceComparisons, createCaptureWorkspace, verifyHostedBaseline } from "./capture-policy.mjs";
 
 const bytes = Buffer.from("known asset");
 const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -11,16 +11,16 @@ const response = (body) => new Response(body, { status: 200 });
 test("deployment verification rejects a mismatched asset hash", async () => {
   const fetchImpl = async (url) => url.endsWith("/") ? response('<script src="/asset.js"></script>') : response(bytes);
   await assert.rejects(
-    verifyArchivedDeployment({ fetchImpl, host: "https://example.test", expectedAssets: { "/asset.js": "0".repeat(64) } }),
+    verifyHostedBaseline({ fetchImpl, host: "https://example.test", expectedAssets: { "/asset.js": "0".repeat(64) } }),
     /hash mismatch/,
   );
 });
 
 test("deployment verification accepts a referenced asset with the expected hash", async () => {
   const fetchImpl = async (url) => url.endsWith("/") ? response('<script src="/asset.js"></script>') : response(bytes);
-  const provenance = await verifyArchivedDeployment({ fetchImpl, host: "https://example.test", expectedAssets: { "/asset.js": sha256 } });
+  const provenance = await verifyHostedBaseline({ fetchImpl, host: "https://example.test", expectedAssets: { "/asset.js": sha256 } });
   assert.deepEqual(provenance.assets, [{ path: "/asset.js", sha256 }]);
-  assert.equal(provenance.matchesArchivedAssetBaseline, true);
+  assert.equal(provenance.matchesHostedAssetBaseline, true);
   assert.equal(provenance.deploymentRevisionEstablished, false);
 });
 
@@ -65,6 +65,13 @@ test("guide verification requires both expected viewports", () => {
   const result = passingGuideReceipt();
   result.viewports.pop();
   assert.throws(() => assertGuideReceipt(result), /did not capture both expected viewports/);
+});
+
+test("hosted destination verification rejects settling or mismatched content", () => {
+  const passing = { destination: "stage", selected: "true", settled: true, contentMounted: true, documentWidth: 390, viewportWidth: 390 };
+  assert.doesNotThrow(() => assertHostedDestinationState(passing));
+  assert.throws(() => assertHostedDestinationState({ ...passing, settled: false }), /still settling/);
+  assert.throws(() => assertHostedDestinationState({ ...passing, contentMounted: false }), /content is not mounted/);
 });
 
 test("output policy rejects a dot-prefixed child inside the evidence archive", async () => {

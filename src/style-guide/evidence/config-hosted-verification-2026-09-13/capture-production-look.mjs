@@ -1,6 +1,6 @@
-import { assertPersistenceComparisons, HOST, verifyArchivedDeployment } from "./capture-policy.mjs";
+import { assertPersistenceComparisons, HOST, verifyHostedBaseline } from "./capture-policy.mjs";
 
-const provenance = await verifyArchivedDeployment();
+const provenance = await verifyHostedBaseline();
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? "/tmp/uibeat-pw-node_modules/playwright-core/index.mjs");
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH ?? "/home/admin/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",

@@ -242,6 +242,40 @@ async function environment(cdp) {
   })()`);
 }
 
+async function startCaptureMonitor(cdp) {
+  await evaluate(cdp, `(() => {
+    window.__uiBeatCapacityMonitor?.dispose?.();
+    const events = [];
+    const record = (type) => events.push({
+      type,
+      at: performance.now(),
+      visibilityState: document.visibilityState,
+      hasFocus: document.hasFocus(),
+      viewportCssPx: [innerWidth, innerHeight],
+    });
+    const listeners = [
+      [document, "visibilitychange", () => record("visibilitychange")],
+      [window, "blur", () => record("blur")],
+      [window, "focus", () => record("focus")],
+      [window, "resize", () => record("resize")],
+    ];
+    listeners.forEach(([target, type, listener]) => target.addEventListener(type, listener));
+    window.__uiBeatCapacityMonitor = {
+      events,
+      dispose: () => listeners.forEach(([target, type, listener]) => target.removeEventListener(type, listener)),
+    };
+  })()`);
+}
+
+async function stopCaptureMonitor(cdp) {
+  return evaluate(cdp, `(() => {
+    const events = window.__uiBeatCapacityMonitor?.events ?? [];
+    window.__uiBeatCapacityMonitor?.dispose?.();
+    delete window.__uiBeatCapacityMonitor;
+    return events;
+  })()`);
+}
+
 async function getMetrics(cdp) {
   const result = await cdp.command("Performance.getMetrics");
   return Object.fromEntries(result.metrics.map(({ name, value }) => [name, value]));
@@ -298,7 +332,11 @@ function traceSummary(events) {
   ]);
   const interesting = events.filter((event) => selectedNames.has(event.name));
   const byName = {};
-  for (const event of events) byName[event.name] = (byName[event.name] ?? 0) + 1;
+  for (const event of events) {
+    if (/frame|draw|present|composite|layout|animation/i.test(event.name ?? "")) {
+      byName[event.name] = (byName[event.name] ?? 0) + 1;
+    }
+  }
   return {
     rawEventCount: events.length,
     byName,
@@ -334,16 +372,21 @@ async function sample(cdp, label, duration, traceDuration) {
     const startedAt = performance.now();
     let timedOut = false;
     let sampleTimeout;
+    let frameId;
+    let active = true;
     await Promise.race([new Promise((resolvePromise) => {
       const tick = (timestamp) => {
+        if (!active) return;
         timestamps.push(timestamp);
         if (performance.now() - startedAt >= duration) resolvePromise();
-        else requestAnimationFrame(tick);
+        else frameId = requestAnimationFrame(tick);
       };
-      requestAnimationFrame(tick);
+      frameId = requestAnimationFrame(tick);
     }), new Promise((resolvePromise) => {
       sampleTimeout = setTimeout(() => { timedOut = true; resolvePromise(); }, duration + 5_000);
     })]);
+    active = false;
+    if (frameId !== undefined) cancelAnimationFrame(frameId);
     clearTimeout(sampleTimeout);
     document.removeEventListener("visibilitychange", recordVisibility);
     window.removeEventListener("blur", recordBlur);
@@ -515,6 +558,8 @@ async function main() {
     const scenePreparation = await prepareScene(cdp);
     const originalUiRhythm = await evaluate(cdp, `document.querySelector('[data-testid="global-control-uiRhythm"]')?.getAttribute("aria-pressed") === "true"`);
     const samples = [];
+    await startCaptureMonitor(cdp);
+    let captureInterruptions = [];
     try {
       await setUiRhythm(cdp, true, options.warmup);
       samples.push(await sample(cdp, "uiBeat-on-first", options.duration, options.traceDuration));
@@ -524,6 +569,7 @@ async function main() {
       samples.push(await sample(cdp, "uiBeat-on-second", options.duration, options.traceDuration));
     } finally {
       await setUiRhythm(cdp, originalUiRhythm, 0).catch(() => undefined);
+      captureInterruptions = await stopCaptureMonitor(cdp).catch(() => [{ type: "monitor-read-failed" }]);
     }
     const finalEnvironment = await environment(cdp);
     const knownNonNativeRenderer = [initialEnvironment.userAgent, initialEnvironment.webgl.renderer]
@@ -531,7 +577,7 @@ async function main() {
       samples.some((sampleResult) => Object.keys(sampleResult.trace.byName).some((name) => /SoftwareRenderer/.test(name)));
     const allSamplesValid = samples.every((sampleResult) => sampleResult.valid);
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
-      !knownNonNativeRenderer && allSamplesValid &&
+      !knownNonNativeRenderer && allSamplesValid && captureInterruptions.length === 0 &&
       initialEnvironment.visibilityState === "visible" && initialEnvironment.hasFocus &&
       finalEnvironment.visibilityState === "visible" && finalEnvironment.hasFocus;
     const report = {
@@ -543,7 +589,12 @@ async function main() {
       device: metadata,
       browser: { product: version.Browser, protocolVersion: version["Protocol-Version"], userAgent: version["User-Agent"] },
       environment: { initial: initialEnvironment, final: finalEnvironment },
-      automatedEligibility: { knownNonNativeRenderer, allSamplesValid },
+      automatedEligibility: {
+        knownNonNativeRenderer,
+        allSamplesValid,
+        captureUninterrupted: captureInterruptions.length === 0,
+      },
+      captureInterruptions,
       scenePreparation,
       methodology: {
         scene: "production route, sounding generated pattern, Config Global panel open",

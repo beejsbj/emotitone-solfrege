@@ -31,7 +31,9 @@ export function validateBuildIdentityManifest(manifest, expectedRevision) {
   if (manifest.sourceRevision !== expectedRevision) {
     fail(`manifest revision ${manifest.sourceRevision} does not match expected revision ${expectedRevision}`);
   }
-  if (manifest.entryDocument?.path !== "index.html" || !/^[0-9a-f]{64}$/.test(manifest.entryDocument.sha256 ?? "")) {
+  if (manifest.entryDocument?.path !== "index.html" ||
+      !Number.isSafeInteger(manifest.entryDocument.bytes) || manifest.entryDocument.bytes < 0 ||
+      !/^[0-9a-f]{64}$/.test(manifest.entryDocument.sha256 ?? "")) {
     fail("manifest has an invalid entry document");
   }
   if (!Array.isArray(manifest.assets) || manifest.assets.length === 0 || manifest.assets.length > 1_000) {
@@ -129,6 +131,16 @@ function resourceBytes(content, path) {
   return Buffer.from(content.content, content.base64Encoded ? "base64" : "utf8");
 }
 
+async function readCurrentResource(cdp, frameId, url, label) {
+  let content;
+  try {
+    content = await cdp.command("Page.getResourceContent", { frameId, url });
+  } catch (error) {
+    fail(`cannot read current document resource ${label} through Page.getResourceContent: ${error instanceof Error ? error.message : error}`);
+  }
+  return resourceBytes(content, label);
+}
+
 export async function verifyLoadedBuildIdentity({ cdp, expectedRevision }) {
   if (!cdp || typeof cdp.command !== "function") fail("cdp must expose command(method, params)");
   validateRevision(expectedRevision, "expected source revision");
@@ -142,6 +154,11 @@ export async function verifyLoadedBuildIdentity({ cdp, expectedRevision }) {
   const manifestUrl = new URL(`/${BUILD_IDENTITY_FILE}`, documentUrl.origin).href;
   const manifest = await fetchManifestThroughMeasuredPage(cdp, manifestUrl);
   const { assetsByPath, entryAssets } = validateBuildIdentityManifest(manifest, expectedRevision);
+  const documentBytes = await readCurrentResource(cdp, frameId, documentUrl.href, "index.html");
+  const documentDigest = createHash("sha256").update(documentBytes).digest("hex");
+  if (documentBytes.byteLength !== manifest.entryDocument.bytes || documentDigest !== manifest.entryDocument.sha256) {
+    fail("current main document does not match the source-bound manifest entry document");
+  }
   const loadedPaths = new Set(resources.map(({ path }) => path));
   for (const path of entryAssets) {
     if (!loadedPaths.has(path)) fail(`current document did not load expected entry asset ${path}`);
@@ -151,13 +168,7 @@ export async function verifyLoadedBuildIdentity({ cdp, expectedRevision }) {
   for (const resource of resources) {
     const expected = assetsByPath.get(resource.path);
     if (!expected) fail(`current document loaded asset absent from manifest: ${resource.path}`);
-    let content;
-    try {
-      content = await cdp.command("Page.getResourceContent", { frameId, url: resource.url });
-    } catch (error) {
-      fail(`cannot read current document resource ${resource.path} through Page.getResourceContent: ${error instanceof Error ? error.message : error}`);
-    }
-    const bytes = resourceBytes(content, resource.path);
+    const bytes = await readCurrentResource(cdp, frameId, resource.url, resource.path);
     const digest = createHash("sha256").update(bytes).digest("hex");
     if (bytes.byteLength !== expected.bytes || digest !== expected.sha256) {
       fail(`current document resource ${resource.path} does not match the source-bound manifest`);
@@ -176,9 +187,14 @@ export async function verifyLoadedBuildIdentity({ cdp, expectedRevision }) {
     documentUrl: documentUrl.href,
     manifestUrl,
     build: manifest.build,
-    entryDocument: manifest.entryDocument,
+    entryDocument: {
+      path: manifest.entryDocument.path,
+      url: documentUrl.href,
+      bytes: documentBytes.byteLength,
+      sha256: documentDigest,
+    },
     entryAssets,
     verifiedResources,
-    proof: "Page.getResourceTree inventory and Page.getResourceContent bytes from the already-loaded main document",
+    proof: "Page.getResourceTree inventory and Page.getResourceContent entry-document, JavaScript, and CSS bytes from the already-loaded main document",
   };
 }

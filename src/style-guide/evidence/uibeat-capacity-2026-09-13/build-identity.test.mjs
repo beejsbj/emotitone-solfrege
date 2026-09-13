@@ -39,6 +39,7 @@ function fakeCdp({
   manifestUrl = "https://device.test/emotitone-build-identity.json",
   unavailable,
   resourceUrls,
+  documentContent = "x",
 } = {}) {
   const calls = [];
   const urls = resourceUrls ?? Object.keys(files).map((path) => `https://device.test/${path}`);
@@ -62,6 +63,10 @@ function fakeCdp({
         return { result: { value: { status: manifestStatus, url: manifestUrl, text: JSON.stringify(manifest) } } };
       }
       if (method === "Page.getResourceContent") {
+        if (params.url === "https://device.test/?capture=1") {
+          if (unavailable === "index.html") throw new Error("resource body evicted");
+          return { content: documentContent, base64Encoded: false };
+        }
         const path = new URL(params.url).pathname.slice(1);
         if (unavailable === path) throw new Error("resource body evicted");
         return { content: files[path], base64Encoded: false };
@@ -106,7 +111,8 @@ test("proves current loaded resource bytes through CDP", async () => {
   const proof = await verifyLoadedBuildIdentity({ cdp, expectedRevision: REVISION });
   assert.equal(proof.sourceRevision, REVISION);
   assert.deepEqual(proof.verifiedResources.map(({ path }) => path), ["assets/app.css", "assets/app.js", "assets/lazy.js"]);
-  assert.equal(cdp.calls.filter(({ method }) => method === "Page.getResourceContent").length, 3);
+  assert.equal(proof.entryDocument.url, "https://device.test/?capture=1");
+  assert.equal(cdp.calls.filter(({ method }) => method === "Page.getResourceContent").length, 4);
   assert.equal(proof.manifestUrl, "https://device.test/emotitone-build-identity.json");
 });
 
@@ -126,6 +132,13 @@ test("rejects loaded bytes that do not match the source-bound manifest", async (
   await assert.rejects(
     verifyLoadedBuildIdentity({ cdp: fakeCdp({ files, manifest }), expectedRevision: REVISION }),
     /does not match the source-bound manifest/,
+  );
+});
+
+test("rejects a stale or modified main document with matching entry assets", async () => {
+  await assert.rejects(
+    verifyLoadedBuildIdentity({ cdp: fakeCdp({ documentContent: "modified HTML" }), expectedRevision: REVISION }),
+    /current main document does not match the source-bound manifest entry document/,
   );
 });
 

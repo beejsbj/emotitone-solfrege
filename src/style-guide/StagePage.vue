@@ -9,7 +9,7 @@
 
     <header class="stage-page__header">
       <p class="stage-page__eyebrow">Stage · real isolated specimen</p>
-      <h1>One body.<br />One orbit.</h1>
+      <h1>One body.<br /> One orbit.</h1>
       <p>
         The production Stage source, driven through ephemeral configuration, a silent synthetic
         waveform, and controlled envelope values. Hilbert owns raw waveform form; exact pitch selects Strings; Blobs support
@@ -181,7 +181,6 @@ onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
 .stage-page h1 {
   margin: 0;
   font: var(--t-display-xl);
-  line-height: .86;
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
@@ -189,7 +188,7 @@ onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
 .stage-page__header > p:last-child {
   margin: 0;
   color: var(--ivory-2);
-  font: var(--t-body-m-mono);
+  font: var(--t-body-mono);
   line-height: 1.55;
 }
 
@@ -247,7 +246,7 @@ onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
 
 .stage-page__reading strong {
   color: var(--ivory);
-  font: var(--t-body-m-mono);
+  font: var(--t-body-mono);
 }
 
 .stage-page__reading span {
@@ -284,7 +283,7 @@ onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
   padding: 0 12px 0 16px;
   background: var(--ink-3);
   border-left: 4px solid var(--brass);
-  transition: transform 220ms var(--ease-snap);
+  transition: transform 220ms var(--ease-brush);
 }
 
 .stage-page__boundary-part span,
@@ -323,8 +322,9 @@ onBeforeUnmount(() => window.clearTimeout(boundaryTimer));
   }
 
   .stage-page__eyebrow { margin-bottom: 8px; }
-  .stage-page h1 { font: var(--t-display-l); line-height: .88; }
-  .stage-page__header > p:last-child { margin-top: 10px; font-size: 10px; }
+  .stage-page h1 { font: var(--t-display-m); }
+  .stage-page h1 br { display: none; }
+  .stage-page__header > p:last-child { display: none; }
   .stage-page__controls { width: calc(100% - 24px); margin-top: 14px; gap: 8px; }
   .stage-page fieldset { width: 100%; }
   .stage-page fieldset button { flex: 1; padding-inline: 6px; }

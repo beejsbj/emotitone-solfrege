@@ -13,7 +13,7 @@ import {
   watch,
   type App,
 } from "vue";
-import { createPinia } from "pinia";
+import { createPinia, disposePinia, type Pinia } from "pinia";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -31,6 +31,7 @@ const props = defineProps<{
 
 const mountPoint = ref<HTMLElement | null>(null);
 let specimenApp: App<Element> | null = null;
+let specimenPinia: Pinia | null = null;
 const audio = createStageSpecimenAudio(() => props.signal);
 const noteEvents = new EventTarget();
 
@@ -99,7 +100,7 @@ function dispatchAttack(note: ActiveNote) {
 
 onMounted(() => {
   if (!mountPoint.value) return;
-  const specimenPinia = createPinia();
+  specimenPinia = createPinia();
 
   specimenApp = createApp(defineComponent({
     name: "IsolatedStageSpecimen",
@@ -158,6 +159,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   specimenApp?.unmount();
   specimenApp = null;
+  if (specimenPinia) disposePinia(specimenPinia);
+  specimenPinia = null;
 });
 
 defineExpose({

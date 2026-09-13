@@ -98,13 +98,13 @@ async function fetchManifestThroughMeasuredPage(cdp, manifestUrl) {
   }
 }
 
-function loadedAppResources(frameTree, documentUrl) {
+function loadedStylesheets(frameTree, documentUrl) {
   const resources = frameTree?.resources;
   if (!Array.isArray(resources)) fail("Page.getResourceTree returned no main-frame resources");
   const selected = [];
   const seen = new Set();
   for (const resource of resources) {
-    if (resource?.type !== "Script" && resource?.type !== "Stylesheet") continue;
+    if (resource?.type !== "Stylesheet") continue;
     let url;
     try {
       url = new URL(resource.url);
@@ -120,7 +120,32 @@ function loadedAppResources(frameTree, documentUrl) {
     seen.add(path);
     selected.push({ path, type: resource.type, url: url.href });
   }
-  if (selected.length === 0) fail("Page.getResourceTree contains no loaded same-origin app JavaScript or CSS");
+  if (selected.length === 0) fail("Page.getResourceTree contains no loaded same-origin app CSS");
+  return selected;
+}
+
+function loadedExecutedScripts(parsedScripts, frameId, documentUrl) {
+  const selected = [];
+  const seen = new Set();
+  for (const script of parsedScripts) {
+    if (script?.executionContextAuxData?.frameId !== frameId || script.executionContextAuxData.isDefault !== true) continue;
+    let url;
+    try {
+      url = new URL(script.url);
+    } catch {
+      continue;
+    }
+    if (url.origin !== documentUrl.origin || !url.pathname.endsWith(".js")) continue;
+    if (url.search || url.hash || !url.pathname.startsWith("/assets/") || url.pathname.includes("%")) {
+      fail(`executed app script has an unbounded URL: ${url.href}`);
+    }
+    const path = validatedAssetPath(url.pathname.slice(1));
+    if (typeof script.scriptId !== "string" || !script.scriptId) fail(`Debugger returned no script id for ${path}`);
+    if (seen.has(path)) fail(`Debugger repeats executed main-frame script ${path}`);
+    seen.add(path);
+    selected.push({ path, type: "Script", url: url.href, scriptId: script.scriptId });
+  }
+  if (selected.length === 0) fail("Debugger contains no executed same-origin main-frame app JavaScript");
   return selected;
 }
 
@@ -142,7 +167,9 @@ async function readCurrentResource(cdp, frameId, url, label) {
 }
 
 export async function verifyLoadedBuildIdentity({ cdp, expectedRevision }) {
-  if (!cdp || typeof cdp.command !== "function") fail("cdp must expose command(method, params)");
+  if (!cdp || typeof cdp.command !== "function" || typeof cdp.on !== "function") {
+    fail("cdp must expose command(method, params) and on(method, listener)");
+  }
   validateRevision(expectedRevision, "expected source revision");
   await cdp.command("Page.enable");
   const resourceTreeResult = await cdp.command("Page.getResourceTree");
@@ -150,7 +177,7 @@ export async function verifyLoadedBuildIdentity({ cdp, expectedRevision }) {
   const frameId = frameTree?.frame?.id;
   if (typeof frameId !== "string" || !frameId) fail("Page.getResourceTree returned no main frame id");
   const documentUrl = parseDocumentUrl(frameTree.frame.url);
-  const resources = loadedAppResources(frameTree, documentUrl);
+  const stylesheets = loadedStylesheets(frameTree, documentUrl);
   const manifestUrl = new URL(`/${BUILD_IDENTITY_FILE}`, documentUrl.origin).href;
   const manifest = await fetchManifestThroughMeasuredPage(cdp, manifestUrl);
   const { assetsByPath, entryAssets } = validateBuildIdentityManifest(manifest, expectedRevision);
@@ -159,42 +186,84 @@ export async function verifyLoadedBuildIdentity({ cdp, expectedRevision }) {
   if (documentBytes.byteLength !== manifest.entryDocument.bytes || documentDigest !== manifest.entryDocument.sha256) {
     fail("current main document does not match the source-bound manifest entry document");
   }
-  const loadedPaths = new Set(resources.map(({ path }) => path));
-  for (const path of entryAssets) {
-    if (!loadedPaths.has(path)) fail(`current document did not load expected entry asset ${path}`);
+  const parsedScripts = [];
+  const removeScriptListener = cdp.on("Debugger.scriptParsed", (script) => parsedScripts.push(script));
+  let scripts;
+  try {
+    await cdp.command("Debugger.enable");
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
+    scripts = loadedExecutedScripts(parsedScripts, frameId, documentUrl);
+  } catch (error) {
+    await cdp.command("Debugger.disable").catch(() => {});
+    throw error;
+  } finally {
+    removeScriptListener();
   }
-
-  const verifiedResources = [];
-  for (const resource of resources) {
-    const expected = assetsByPath.get(resource.path);
-    if (!expected) fail(`current document loaded asset absent from manifest: ${resource.path}`);
-    const bytes = await readCurrentResource(cdp, frameId, resource.url, resource.path);
-    const digest = createHash("sha256").update(bytes).digest("hex");
-    if (bytes.byteLength !== expected.bytes || digest !== expected.sha256) {
-      fail(`current document resource ${resource.path} does not match the source-bound manifest`);
+  try {
+    const loadedPaths = new Set([...stylesheets, ...scripts].map(({ path }) => path));
+    for (const path of entryAssets) {
+      if (!loadedPaths.has(path)) fail(`current document did not load expected entry asset ${path}`);
     }
-    verifiedResources.push({
-      path: resource.path,
-      type: expected.type,
-      bytes: bytes.byteLength,
-      sha256: digest,
-    });
+
+    const verifiedResources = [];
+    for (const resource of stylesheets) {
+      const expected = assetsByPath.get(resource.path);
+      if (!expected) fail(`current document loaded asset absent from manifest: ${resource.path}`);
+      const bytes = await readCurrentResource(cdp, frameId, resource.url, resource.path);
+      const digest = createHash("sha256").update(bytes).digest("hex");
+      if (bytes.byteLength !== expected.bytes || digest !== expected.sha256) {
+        fail(`current document resource ${resource.path} does not match the source-bound manifest`);
+      }
+      verifiedResources.push({
+        path: resource.path,
+        type: expected.type,
+        bytes: bytes.byteLength,
+        sha256: digest,
+      });
+    }
+    for (const script of scripts) {
+      const expected = assetsByPath.get(script.path);
+      if (!expected) fail(`current document executed script absent from manifest: ${script.path}`);
+      let response;
+      try {
+        response = await cdp.command("Debugger.getScriptSource", { scriptId: script.scriptId });
+      } catch (error) {
+        fail(`cannot read executed main-frame script ${script.path} through Debugger.getScriptSource: ${error instanceof Error ? error.message : error}`);
+      }
+      if (typeof response?.scriptSource !== "string") {
+        fail(`Debugger.getScriptSource returned no usable source bytes for ${script.path}`);
+      }
+      const bytes = Buffer.from(response.scriptSource, "utf8");
+      const digest = createHash("sha256").update(bytes).digest("hex");
+      if (bytes.byteLength !== expected.bytes || digest !== expected.sha256) {
+        fail(`executed main-frame script ${script.path} does not match the source-bound manifest`);
+      }
+      verifiedResources.push({
+        path: script.path,
+        type: expected.type,
+        bytes: bytes.byteLength,
+        sha256: digest,
+        source: "Debugger.getScriptSource",
+      });
+    }
+    verifiedResources.sort((left, right) => left.path.localeCompare(right.path));
+    return {
+      schemaVersion: BUILD_IDENTITY_SCHEMA_VERSION,
+      sourceRevision: manifest.sourceRevision,
+      documentUrl: documentUrl.href,
+      manifestUrl,
+      build: manifest.build,
+      entryDocument: {
+        path: manifest.entryDocument.path,
+        url: documentUrl.href,
+        bytes: documentBytes.byteLength,
+        sha256: documentDigest,
+      },
+      entryAssets,
+      verifiedResources,
+      proof: "Page.getResourceContent bytes for the already-loaded entry document and CSS, plus Debugger.getScriptSource bytes for exact-URL scripts already executed in the main frame's default context",
+    };
+  } finally {
+    await cdp.command("Debugger.disable").catch(() => {});
   }
-  verifiedResources.sort((left, right) => left.path.localeCompare(right.path));
-  return {
-    schemaVersion: BUILD_IDENTITY_SCHEMA_VERSION,
-    sourceRevision: manifest.sourceRevision,
-    documentUrl: documentUrl.href,
-    manifestUrl,
-    build: manifest.build,
-    entryDocument: {
-      path: manifest.entryDocument.path,
-      url: documentUrl.href,
-      bytes: documentBytes.byteLength,
-      sha256: documentDigest,
-    },
-    entryAssets,
-    verifiedResources,
-    proof: "Page.getResourceTree inventory and Page.getResourceContent entry-document, JavaScript, and CSS bytes from the already-loaded main document",
-  };
 }

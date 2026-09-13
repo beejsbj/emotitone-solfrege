@@ -40,11 +40,18 @@ function fakeCdp({
   unavailable,
   resourceUrls,
   documentContent = "x",
+  scriptFrameId = "MAIN",
+  scriptDefaultContext = true,
 } = {}) {
   const calls = [];
   const urls = resourceUrls ?? Object.keys(files).map((path) => `https://device.test/${path}`);
+  const listeners = new Map();
   return {
     calls,
+    on(method, listener) {
+      listeners.set(method, listener);
+      return () => listeners.delete(method);
+    },
     async command(method, params) {
       calls.push({ method, params });
       if (method === "Page.enable") return {};
@@ -52,9 +59,9 @@ function fakeCdp({
         return {
           frameTree: {
             frame: { id: "MAIN", url: "https://device.test/?capture=1" },
-            resources: urls.map((url) => ({
+            resources: urls.filter((url) => url.endsWith(".css")).map((url) => ({
               url,
-              type: url.endsWith(".css") ? "Stylesheet" : "Script",
+              type: "Stylesheet",
             })),
           },
         };
@@ -62,6 +69,21 @@ function fakeCdp({
       if (method === "Runtime.evaluate") {
         return { result: { value: { status: manifestStatus, url: manifestUrl, text: JSON.stringify(manifest) } } };
       }
+      if (method === "Debugger.enable") {
+        for (const url of urls.filter((candidate) => new URL(candidate).pathname.endsWith(".js"))) {
+          listeners.get("Debugger.scriptParsed")?.({
+            scriptId: `script:${url}`,
+            url,
+            executionContextAuxData: { frameId: scriptFrameId, isDefault: scriptDefaultContext },
+          });
+        }
+        return { debuggerId: "DEBUGGER" };
+      }
+      if (method === "Debugger.getScriptSource") {
+        const url = params.scriptId.slice("script:".length);
+        return { scriptSource: files[new URL(url).pathname.slice(1)] };
+      }
+      if (method === "Debugger.disable") return {};
       if (method === "Page.getResourceContent") {
         if (params.url === "https://device.test/?capture=1") {
           if (unavailable === "index.html") throw new Error("resource body evicted");
@@ -112,7 +134,8 @@ test("proves current loaded resource bytes through CDP", async () => {
   assert.equal(proof.sourceRevision, REVISION);
   assert.deepEqual(proof.verifiedResources.map(({ path }) => path), ["assets/app.css", "assets/app.js", "assets/lazy.js"]);
   assert.equal(proof.entryDocument.url, "https://device.test/?capture=1");
-  assert.equal(cdp.calls.filter(({ method }) => method === "Page.getResourceContent").length, 4);
+  assert.equal(cdp.calls.filter(({ method }) => method === "Page.getResourceContent").length, 2);
+  assert.equal(cdp.calls.filter(({ method }) => method === "Debugger.getScriptSource").length, 2);
   assert.equal(proof.manifestUrl, "https://device.test/emotitone-build-identity.json");
 });
 
@@ -155,8 +178,32 @@ test("rejects a missing manifest and an expected revision mismatch", async () =>
 
 test("fails clearly when current resource content is unavailable", async () => {
   await assert.rejects(
-    verifyLoadedBuildIdentity({ cdp: fakeCdp({ unavailable: "assets/app.js" }), expectedRevision: REVISION }),
-    /cannot read current document resource assets\/app\.js through Page\.getResourceContent: resource body evicted/,
+    verifyLoadedBuildIdentity({ cdp: fakeCdp({ unavailable: "assets/app.css" }), expectedRevision: REVISION }),
+    /cannot read current document resource assets\/app\.css through Page\.getResourceContent: resource body evicted/,
+  );
+});
+
+test("rejects app scripts outside the main frame default context", async () => {
+  await assert.rejects(
+    verifyLoadedBuildIdentity({ cdp: fakeCdp({ scriptFrameId: "CHILD" }), expectedRevision: REVISION }),
+    /no executed same-origin main-frame app JavaScript/,
+  );
+  await assert.rejects(
+    verifyLoadedBuildIdentity({ cdp: fakeCdp({ scriptDefaultContext: false }), expectedRevision: REVISION }),
+    /no executed same-origin main-frame app JavaScript/,
+  );
+});
+
+test("fails clearly when executed script source is unavailable", async () => {
+  const cdp = fakeCdp();
+  const originalCommand = cdp.command.bind(cdp);
+  cdp.command = async (method, params) => {
+    if (method === "Debugger.getScriptSource") throw new Error("script source discarded");
+    return originalCommand(method, params);
+  };
+  await assert.rejects(
+    verifyLoadedBuildIdentity({ cdp, expectedRevision: REVISION }),
+    /cannot read executed main-frame script .* through Debugger\.getScriptSource: script source discarded/,
   );
 });
 
@@ -173,7 +220,7 @@ test("rejects manifest traversal and queried app resource URLs", async () => {
       cdp: fakeCdp({ files, resourceUrls: ["https://device.test/assets/app.js?v=old", "https://device.test/assets/app.css"] }),
       expectedRevision: REVISION,
     }),
-    /loaded app asset has an unbounded URL/,
+    /executed app script has an unbounded URL/,
   );
 });
 

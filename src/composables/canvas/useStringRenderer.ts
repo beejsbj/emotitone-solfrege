@@ -24,8 +24,6 @@ import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import type { StageAudioFrame } from "./stageRuntime";
 import { Note as TonalNote } from "@tonaljs/tonal";
 
-const ACTIVE_STRING_OPACITY_FLOOR = 0.9;
-
 function resolvePitchClassIndex(note: {
   pitchClassIndex?: number;
   noteName?: string;
@@ -325,10 +323,6 @@ export function useStringRenderer() {
       // Update string properties based on active notes
       if (isStringActive) {
         string.isActive = true;
-        const activeOpacity = Math.max(
-          stringConfig.activeOpacity,
-          ACTIVE_STRING_OPACITY_FLOOR,
-        );
         const targetAmplitude = reducedMotion
           ? 0
           : stringConfig.maxAmplitude * audioFrame.envelope;
@@ -340,10 +334,10 @@ export function useStringRenderer() {
               stringConfig.interpolationSpeed
             );
         string.opacity = reducedMotion
-          ? activeOpacity
+          ? stringConfig.activeOpacity
           : gsap.utils.interpolate(
               string.opacity,
-              activeOpacity,
+              stringConfig.activeOpacity,
               stringConfig.opacityInterpolationSpeed
             );
         const noteMode = (matchingActiveNote?.mode ??

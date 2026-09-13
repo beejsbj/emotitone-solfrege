@@ -122,14 +122,13 @@ describe("useStringRenderer humming lifecycle", () => {
       .toBe(false);
   });
 
-  it("reveals a played String when its idle Presence is zero", () => {
+  it("reveals a zero-Presence String at its configured Response strength", () => {
     const renderer = useStringRenderer();
     const stringConfig = {
       isEnabled: true,
       octaveOffset: 0,
       baseOpacity: 0,
-      // Compatibility: the old Presence mapping may have persisted zero here.
-      activeOpacity: 0,
+      activeOpacity: 0.6,
       maxAmplitude: 20,
       interpolationSpeed: 1,
       opacityInterpolationSpeed: 1,
@@ -152,14 +151,14 @@ describe("useStringRenderer humming lifecycle", () => {
       },
     }));
     renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore);
-    expect(playedString).toMatchObject({ isActive: true, opacity: 0.45 });
+    expect(playedString).toMatchObject({ isActive: true, opacity: 0.3 });
 
     renderer.handleNoteReleased(new CustomEvent("note-released", {
       detail: { noteId: "visible-c4" },
     }));
     renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore);
     expect(playedString?.isActive).toBe(false);
-    expect(playedString?.opacity).toBeLessThan(0.45);
+    expect(playedString?.opacity).toBeLessThan(0.3);
   });
 
   it("uses keyboard octave for wrapped note event activation", () => {

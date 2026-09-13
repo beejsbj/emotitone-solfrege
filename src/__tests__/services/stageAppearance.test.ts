@@ -80,9 +80,21 @@ describe("Stage appearance domain", () => {
     expect(effective.strings).toMatchObject({
       isEnabled: true,
       baseOpacity: 0,
-      activeOpacity: 0,
     });
+    expect(effective.strings.activeOpacity).toBeCloseTo(2 / 9);
     expect(backing.strings.isEnabled).toBe(false);
+    expect(backing.strings.activeOpacity).toBe(0);
+  });
+
+  it("makes Response authoritative for active String strength in legacy Looks", () => {
+    const backing = config();
+    backing.strings.activeOpacity = 0.9;
+    backing.strings.maxAmplitude = 32;
+
+    const effective = resolveStageConfig(backing);
+
+    expect(effective.strings.activeOpacity).toBe(0.6);
+    expect(backing.strings.activeOpacity).toBe(0.9);
   });
 
   it("preserves independent trail values until Trail is deliberately edited", () => {
@@ -130,6 +142,21 @@ describe("Stage appearance domain", () => {
       activeOpacity: 0.9,
     });
     expect(readStageControls(edited).stringPresence).toBe(0);
+  });
+
+  it("makes active String visibility part of Response", () => {
+    const backing = config();
+
+    const edited = patchStageControl(backing, "stringResponse", 0.75);
+
+    expect(edited.strings).toMatchObject({
+      activeOpacity: 0.75,
+      maxAmplitude: 38.75,
+      interpolationSpeed: 0.2,
+    });
+    expect(edited.strings.dampingFactor).toBeCloseTo(0.065);
+    expect(edited.strings.opacityInterpolationSpeed).toBeCloseTo(0.1625);
+    expect(readStageControls(edited).stringResponse).toBe(0.75);
   });
 
   it("keeps Body Size in the responsive 5–15% support-body range", () => {

@@ -246,6 +246,10 @@ function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value));
 }
 
+function readStringResponse(config: VisualEffectsConfig["strings"]) {
+  return clamp((config.maxAmplitude - 5) / 45);
+}
+
 function cloneConfig(config: VisualEffectsConfig): VisualEffectsConfig {
   return {
     ...config,
@@ -326,6 +330,7 @@ export function resolveStageConfig(
   // idle field, including a blank zero state; Stage owns whether played notes
   // may reveal their exact-pitch Strings.
   effective.strings.isEnabled = stageEnabled;
+  effective.strings.activeOpacity = readStringResponse(effective.strings);
   if (!stageEnabled) {
     effective.blobs.isEnabled = false;
     effective.ambient.isEnabled = false;
@@ -379,7 +384,7 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     stringPresence: config.strings.isEnabled
       ? clamp(config.strings.baseOpacity / 0.12)
       : 0,
-    stringResponse: clamp((config.strings.maxAmplitude - 5) / 45),
+    stringResponse: readStringResponse(config.strings),
     fleckAmount: config.particles.isEnabled
       ? clamp(config.particles.count, 0, 40)
       : 0,
@@ -483,6 +488,7 @@ export function patchStageControl(
     }
     case "stringResponse": {
       const amount = clamp(value);
+      next.strings.activeOpacity = amount;
       next.strings.maxAmplitude = 5 + amount * 45;
       next.strings.dampingFactor = 0.14 - amount * 0.1;
       next.strings.interpolationSpeed = 0.05 + amount * 0.2;

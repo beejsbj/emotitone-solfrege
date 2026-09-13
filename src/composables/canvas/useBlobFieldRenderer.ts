@@ -628,12 +628,27 @@ function getMergeEnvelope(frames: readonly PreparedBlobFrame[], blur: number) {
     const pull = Math.min(length * 0.2, limit);
     const fromMotion = contourDisplacement(from.frame, normal);
     const toMotion = contourDisplacement(to.frame, normal);
+    const protectedBodies = frames.filter((frame) => frame !== from.frame && frame !== to.frame).map((frame) => ({
+      along: ((frame.blob.x - from.x) * dx + (frame.blob.y - from.y) * dy) / length,
+      inward: (frame.blob.x - from.x) * normal.x + (frame.blob.y - from.y) * normal.y,
+      radius: Math.max(blur * 0.9, ...frame.contour.map((point) =>
+        Math.hypot(point.x - frame.blob.x, point.y - frame.blob.y))),
+    }));
     const segments = Math.max(8, Math.min(128, Math.ceil(length / 4)));
     return Array.from({ length: segments }, (_, segment) => {
       const t = segment / segments;
       const envelope = 16 * t * t * (1 - t) * (1 - t);
       const motion = 2 * (fromMotion * Math.sin(t * Math.PI * 3) + toMotion * Math.sin(t * Math.PI * 4));
-      const inset = Math.max(0, Math.min(limit, pull + motion)) * envelope;
+      let inset = Math.max(0, Math.min(limit, pull + motion)) * envelope;
+      // A note near a free edge must shape that edge too, even when none of its
+      // contour vertices lies on the convex hull. Never pull past its footprint.
+      for (const body of protectedBodies) {
+        const along = t * length - body.along;
+        if (Math.abs(along) < body.radius) {
+          const outside = body.inward - Math.sqrt(body.radius * body.radius - along * along);
+          inset = Math.min(inset, Math.max(0, outside));
+        }
+      }
       return { x: from.x + dx * t + normal.x * inset, y: from.y + dy * t + normal.y * inset };
     });
   });
@@ -767,37 +782,86 @@ export function useBlobFieldRenderer() {
     });
   };
 
+  const compositeMaterial = (
+    target: CanvasRenderingContext2D,
+    source: HTMLCanvasElement,
+    bounds: FieldBounds,
+    config: BlobConfig
+  ) => {
+    getBlobFieldMaterialPasses(config).forEach((pass) => {
+      target.save();
+      target.imageSmoothingEnabled = true;
+      target.imageSmoothingQuality = "high";
+      target.globalAlpha = pass.opacity;
+      target.filter = pass.filter;
+      target.drawImage(source, bounds.x, bounds.y, bounds.width, bounds.height);
+      target.restore();
+    });
+  };
+
   const renderWeb = (
     target: CanvasRenderingContext2D,
     frames: readonly PreparedBlobFrame[],
     config: BlobConfig,
     scene: HarmonicGeometryScene | null
   ) => {
-    // Fine strands and distinct bodies need no occupancy threshold. Rendering
-    // both at target resolution also preserves small and still-growing bodies.
-    const connections = webConnectionPlanner.getConnections(frames, scene);
-    connections.forEach((connection) => {
-      const geometry = getBlobFieldConnectionGeometry(
-        connection, getBlobWebConnectionWidth(connection), 1,
-        connection.role === "boundary" ? 0.95 : 0.8,
-        connection.role === "boundary" ? 0.46 : 0.3
-      );
-      target.save();
-      target.globalAlpha = Math.max(0, Math.min(1,
-        connection.from.opacity, connection.to.opacity
-      )) * config.webOpacity * (connection.role === "boundary" ? 0.92 : 0.46);
-      target.filter = "blur(0.65px)";
-      const gradient = target.createLinearGradient(
-        connection.from.blob.x, connection.from.blob.y,
-        connection.to.blob.x, connection.to.blob.y
-      );
-      gradient.addColorStop(0, connection.from.primaryColor);
-      gradient.addColorStop(1, connection.to.primaryColor);
-      target.fillStyle = gradient;
-      traceConnection(target, geometry);
-      target.fill();
-      target.restore();
+    const connections = webConnectionPlanner.getConnections(frames, scene).map((connection) => {
+      const width = getBlobWebConnectionWidth(connection);
+      const bend = connection.role === "boundary" ? 0.46 : 0.3;
+      return {
+        connection,
+        root: getBlobFieldConnectionGeometry(connection, 0, 1,
+          connection.role === "boundary" ? 0.95 : 0.8, bend),
+        strand: getBlobFieldConnectionGeometry(connection, width, 1, 0, bend),
+      };
     });
+    const paint = (context: CanvasRenderingContext2D, roots: boolean) => {
+      connections.forEach(({ connection, root, strand }) => {
+        context.save();
+        context.globalAlpha = Math.max(0, Math.min(1,
+          connection.from.opacity, connection.to.opacity
+        )) * config.webOpacity * (connection.role === "boundary" ? 0.92 : 0.46);
+        const gradient = context.createLinearGradient(
+          connection.from.blob.x, connection.from.blob.y,
+          connection.to.blob.x, connection.to.blob.y
+        );
+        // Fade the buried cross-section inside the body, then let the shoulder
+        // emerge with the same soft material instead of an exposed flat fin.
+        const fromRoot = Math.min(0.25, connection.from.scaledRadius * 1.2 / Math.max(1, connection.distance));
+        const toRoot = Math.min(0.25, connection.to.scaledRadius * 1.2 / Math.max(1, connection.distance));
+        gradient.addColorStop(0, "transparent");
+        gradient.addColorStop(fromRoot, connection.from.primaryColor);
+        gradient.addColorStop(1 - toRoot, connection.to.primaryColor);
+        gradient.addColorStop(1, "transparent");
+        context.fillStyle = gradient;
+        traceConnection(context, roots ? root : strand);
+        context.fill();
+        context.restore();
+      });
+    };
+
+    // Soften all shoulders together on one budgeted surface. No threshold is
+    // applied; the fine cores and note bodies remain at target resolution.
+    const bounds = connections.length ? getBlobFieldBounds(
+      frames, target.canvas.width, target.canvas.height,
+      config.blurRadius * 3 + (config.glowEnabled ? config.glowIntensity * 3 : 0)
+    ) : null;
+    if (bounds) {
+      const { scale, width, height } = getBlobFieldResolution(bounds);
+      const roots = getSurfaces(width, height).source;
+      const context = roots.getContext("2d");
+      if (context) {
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.clearRect(0, 0, width, height);
+        context.setTransform(scale, 0, 0, scale, -bounds.x * scale, -bounds.y * scale);
+        paint(context, true);
+        compositeMaterial(target, roots, bounds, config);
+      }
+    }
+    target.save();
+    target.filter = "blur(0.65px)";
+    paint(target, false);
+    target.restore();
     renderBodies(target, frames, config);
   };
 
@@ -1062,25 +1126,7 @@ export function useBlobFieldRenderer() {
     }
 
     outputContext.putImageData(output, 0, 0);
-    getBlobFieldMaterialPasses(config).forEach((pass) => {
-      target.save();
-      target.imageSmoothingEnabled = true;
-      target.imageSmoothingQuality = "high";
-      target.globalAlpha = pass.opacity;
-      target.filter = pass.filter;
-      target.drawImage(
-        field.output,
-        0,
-        0,
-        width,
-        height,
-        bounds.x,
-        bounds.y,
-        bounds.width,
-        bounds.height
-      );
-      target.restore();
-    });
+    compositeMaterial(target, field.output, bounds, config);
 
     return true;
   };

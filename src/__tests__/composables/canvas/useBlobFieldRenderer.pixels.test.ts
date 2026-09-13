@@ -263,6 +263,35 @@ describe("Filled Merge and fine Web pixels", () => {
     for (const frame of frames) expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
   });
 
+  it.each([
+    { radius: 10, fieldSoftness: 6 },
+    { radius: 10, fieldSoftness: 12 },
+    { radius: 20, fieldSoftness: 6 },
+  ])("keeps a near-edge interior note inside the organic Merge body at $radius px", (settings) => {
+    const frames = framesAt([[140, 100], [820, 100], [820, 600], [140, 600], [480, 125]], settings.radius);
+    const context = render(frames, "merge", settings);
+    expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(1);
+    for (const frame of frames) expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
+    expect(alphaAt(context, 480, 155)).toBeGreaterThan(230);
+  });
+
+  it("does not carry root-surface paint across Merge/Web switches", () => {
+    const renderer = useBlobFieldRenderer();
+    const canvas = createCanvas(1000, 650);
+    const context = canvas.getContext("2d");
+    const frames = framesAt();
+    for (const mode of ["merge", "web", "merge", "web"] as const) {
+      context.clearRect(0, 0, 1000, 650);
+      renderer.renderBlobField(context as unknown as CanvasRenderingContext2D, frames, {
+        ...DEFAULT_CONFIG.blobs, connectionMode: mode, blurRadius: 0, glowEnabled: false,
+      }, completeScene(frames));
+      const actual = context.getImageData(0, 0, 1000, 650).data;
+      const fresh = render(frames, mode).getImageData(0, 0, 1000, 650).data;
+      expect(actual.every((value, index) => value === fresh[index])).toBe(true);
+    }
+    renderer.dispose();
+  });
+
   it("respects zero Web strength while retaining the note bodies", () => {
     const context = render(framesAt(), "web", { webOpacity: 0 });
     expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(3);

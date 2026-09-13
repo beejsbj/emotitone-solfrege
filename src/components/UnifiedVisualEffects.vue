@@ -20,7 +20,22 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
 import { useStageHostLayout } from "@/composables/useStageHostLayout";
-import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  MusicalMode,
+  SolfegeData,
+} from "@/types/music";
+import type { StageAudioFeatures } from "@/services/stageAudio";
+
+const props = defineProps<{
+  /** Caller-owned analysis source; omission selects the production audio bus. */
+  audioFeatures?: StageAudioFeatures;
+  /** Authoritative controlled note view; omission selects the production registries. */
+  activeNotes?: readonly ActiveNote[];
+  /** Note lifecycle target; omission preserves production window events. */
+  eventTarget?: EventTarget;
+}>();
 
 const musicStore = useMusicStore();
 const visualConfigStore = useVisualConfigStore();
@@ -43,7 +58,16 @@ const {
   stopAnimation,
   isAnimating,
   cleanup,
-} = useUnifiedCanvas(canvasRef, { usableRect, reducedMotion });
+} = useUnifiedCanvas(canvasRef, {
+  usableRect,
+  reducedMotion,
+  audioFeatures: props.audioFeatures,
+  getActiveNotes: props.activeNotes === undefined
+    ? undefined
+    : () => props.activeNotes ?? [],
+  eventTarget: props.eventTarget,
+});
+const noteEventTarget = props.eventTarget ?? window;
 
 // Handle note played event - enhanced for polyphonic support
 function onNotePlayed(event: CustomEvent) {
@@ -96,8 +120,8 @@ onMounted(() => {
   window.addEventListener("resize", handleResize);
 
   // Listen for note events
-  window.addEventListener("note-played", onNotePlayed as EventListener);
-  window.addEventListener("note-released", onNoteReleased as EventListener);
+  noteEventTarget.addEventListener("note-played", onNotePlayed as EventListener);
+  noteEventTarget.addEventListener("note-released", onNoteReleased as EventListener);
 });
 
 onUnmounted(() => {
@@ -107,8 +131,8 @@ onUnmounted(() => {
 
   // Remove event listeners
   window.removeEventListener("resize", handleResize);
-  window.removeEventListener("note-played", onNotePlayed as EventListener);
-  window.removeEventListener("note-released", onNoteReleased as EventListener);
+  noteEventTarget.removeEventListener("note-played", onNotePlayed as EventListener);
+  noteEventTarget.removeEventListener("note-released", onNoteReleased as EventListener);
 });
 </script>
 

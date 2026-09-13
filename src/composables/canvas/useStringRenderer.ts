@@ -50,6 +50,7 @@ export function useStringRenderer() {
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const visualConfigStore = useVisualConfigStore();
+  let noteEventTarget: EventTarget | null = null;
 
   // String state
   const strings = ref<VibratingStringConfig[]>([]);
@@ -494,23 +495,26 @@ export function useStringRenderer() {
   /**
    * Add event listeners for sequencer integration
    */
-  const addEventListeners = () => {
-    window.addEventListener("note-played", handleNotePlayed as EventListener);
-    window.addEventListener("note-released", handleNoteReleased as EventListener);
+  const addEventListeners = (target: EventTarget = window) => {
+    removeEventListeners();
+    noteEventTarget = target;
+    noteEventTarget.addEventListener("note-played", handleNotePlayed as EventListener);
+    noteEventTarget.addEventListener("note-released", handleNoteReleased as EventListener);
   };
 
   /**
    * Remove event listeners
    */
   const removeEventListeners = () => {
-    window.removeEventListener(
+    noteEventTarget?.removeEventListener(
       "note-played",
       handleNotePlayed as EventListener
     );
-    window.removeEventListener(
+    noteEventTarget?.removeEventListener(
       "note-released",
       handleNoteReleased as EventListener
     );
+    noteEventTarget = null;
   };
 
   return {

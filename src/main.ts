@@ -36,7 +36,10 @@ const isDesignRoute = [
   "/style-guide/stage",
   "/style-guide/performance-deck",
 ].includes(pathname);
-const isPersistenceFreeDesignRoute = pathname === "/style-guide/performance-deck";
+const isPersistenceFreeDesignRoute = [
+  "/style-guide/performance-deck",
+  "/style-guide/stage",
+].includes(pathname);
 if (!isPersistenceFreeDesignRoute) {
   beginTabsPageEdition();
 }

@@ -3,7 +3,7 @@
   <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
   <ConfigMenuPage v-else-if="page === 'config-menu'" />
   <PatternReelPage v-else-if="page === 'pattern-reel'" />
-  <StageComparisonPage v-else-if="page === 'stage'" />
+  <StagePage v-else-if="page === 'stage'" />
   <PerformanceDeckPage v-else-if="page === 'performance-deck'" />
   <main v-else class="style-guide-sink-port">
     <header class="sink-header">
@@ -235,8 +235,8 @@ const ConfigMenuPage = defineAsyncComponent(
 const PatternReelPage = defineAsyncComponent(
   () => import("./PatternReelPage.vue"),
 );
-const StageComparisonPage = defineAsyncComponent(
-  () => import("./StageComparisonPage.vue"),
+const StagePage = defineAsyncComponent(
+  () => import("./StagePage.vue"),
 );
 const PerformanceDeckPage = defineAsyncComponent(
   () => import("./PerformanceDeckPage.vue"),

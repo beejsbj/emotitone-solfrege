@@ -11,6 +11,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 const superdoughMocks = vi.hoisted(() => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
+  stopNote: vi.fn(),
   releaseAll: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
 }));
@@ -18,6 +19,7 @@ const superdoughMocks = vi.hoisted(() => ({
 vi.mock("@/services/superdoughAudio", () => ({
   attackNote: superdoughMocks.attackNote,
   releaseNote: superdoughMocks.releaseNote,
+  stopNote: superdoughMocks.stopNote,
   releaseAll: superdoughMocks.releaseAll,
   playNoteWithDuration: superdoughMocks.playNoteWithDuration,
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
@@ -34,6 +36,7 @@ describe("music store", () => {
     superdoughMocks.attackNote.mockClear();
     superdoughMocks.attackNote.mockResolvedValue(undefined);
     superdoughMocks.releaseNote.mockClear();
+    superdoughMocks.stopNote.mockClear();
     superdoughMocks.releaseAll.mockClear();
     superdoughMocks.playNoteWithDuration.mockClear();
     if (typeof localStorage?.clear === "function") {
@@ -239,7 +242,7 @@ describe("music store", () => {
     expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
-  it("releases an attack that finishes after instrument selection changes", async () => {
+  it("cancels an attack that finishes after instrument selection changes", async () => {
     const instrumentStore = useInstrumentStore();
     const musicStore = useMusicStore();
     let finishAttack!: () => void;
@@ -255,13 +258,13 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^C4_0_4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
-  it("releases an exact attack that finishes after instrument selection changes", async () => {
+  it("cancels an exact attack that finishes after instrument selection changes", async () => {
     const instrumentStore = useInstrumentStore();
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
@@ -279,7 +282,7 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^exact_D#4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);
@@ -305,7 +308,7 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^exact_D#4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);
@@ -331,7 +334,7 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^C4_0_4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);

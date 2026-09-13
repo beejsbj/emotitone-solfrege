@@ -19,7 +19,9 @@ await page.evaluate(async()=>{
  const p=document.querySelector('#app').__vue_app__.config.globalProperties.$pinia;
  const {useVisualConfigStore}=await import('/src/stores/visualConfig.ts');window.v=useVisualConfigStore(p);
  const {useMusicStore}=await import('/src/stores/music.ts');window.m=useMusicStore(p);
- for(const layer of ['ambient','particles','strings','hilbertScope'])window.v.config[layer].isEnabled=false;
+ for(const layer of ['ambient','particles','hilbertScope'])window.v.config[layer].isEnabled=false;
+ // Public Presence/Response own idle/active Strings after the retired master migration.
+ window.v.updateStageControl('stringPresence',0);window.v.updateStageControl('stringResponse',0);
 });
 if(instrument)await page.evaluate(async instrument=>{const {useInstrumentStore}=await import('/src/stores/instrument.ts');const p=document.querySelector('#app').__vue_app__.config.globalProperties.$pinia;await useInstrumentStore(p).setInstrument(instrument);},instrument);
 const sample=()=>page.evaluate(()=>{

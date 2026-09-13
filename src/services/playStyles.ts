@@ -78,7 +78,7 @@ const RHYTHMIC_LOOKAHEAD_MS = 150
 const CHORD_WINDOW_MS = 30
 const STRUM_MS = 35
 const GATE = 0.8
-// Keep the whole generated grid beyond superdough's 10 ms minimum deadline;
+// Keep the recurring grid beyond the live adapter's 5 ms preparation lead;
 // applying this once here preserves the intended intervals between its notes.
 export const PLAY_STYLE_SCHEDULING_LEAD_MS = 20
 

@@ -170,7 +170,7 @@ Music Color owns its settled resolver seam and consumer policies. UIBeat and Sta
 
 Current verification handoffs and remaining evidence:
 
-1. **Config Menu hosted verification complete:** all four destinations were selected in hosted production and the real guide at desktop and phone widths, and persisted Look fields survive preview/discard/keep/reload correctly. Evidence: `evidence/config-hosted-verification-2026-09-13/`. The captured unreadable Forced Colors Tabs rail is a separate shared-Tabs correction; do not claim that accessibility state passed.
+1. **Config Menu hosted verification complete:** all four destinations were selected in hosted production and the real guide at desktop and phone widths, and persisted Look fields survive preview/discard/keep/reload correctly. Settled hosted evidence: `evidence/config-hosted-verification-2026-09-13/settled-hosted-4997c46/`; earlier captures remain historical. The captured unreadable Forced Colors Tabs rail is a separate shared-Tabs correction; do not claim that accessibility state passed.
 2. **Stage real specimen implemented and verified locally:** the guide consumes the production source, desktop/phone captures cover the integrated Stage and PatternReel boundary, and a synthetic microphone exercises capture/cancel/accept without claiming physical input. Evidence: `evidence/stage-real-specimen-2026-09-13/`. Named physical microphone/device checks and exact-head hosted screenshot inspection remain open; preserve the accepted idle breath, exact-pitch/envelope Strings, and usable-centre Blob orbit.
 3. **UIBeat capacity evidence:** measure named physical desktop and mobile whole-frame pacing without broadening the accepted consumer family or reopening source architecture.
 

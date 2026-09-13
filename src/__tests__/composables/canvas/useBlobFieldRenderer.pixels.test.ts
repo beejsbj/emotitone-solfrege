@@ -223,6 +223,28 @@ describe("Filled Merge and fine Web pixels", () => {
     }
   });
 
+  it.each([
+    { radius: 5, fieldSoftness: 12 },
+    { radius: 10, fieldSoftness: 30 },
+    { radius: 20, fieldSoftness: 50 },
+  ])("keeps small Web bodies visible at $radius px with softness $fieldSoftness", (settings) => {
+    const frames = framesAt(triangle, settings.radius);
+    const context = render(frames, "web", settings);
+    for (const frame of frames) {
+      expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
+    }
+    expect(alphaAt(context, 507, 273)).toBe(0);
+    expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(1);
+  });
+
+  it("lets a held Web body retain its color beneath a coincident releasing body", () => {
+    const frames = framesAt([[140, 140], [140, 140]]);
+    frames[1].opacity = 0.1;
+    frames[1].blob.isFadingOut = true;
+    const center = render(frames, "web").getImageData(140, 140, 1, 1).data;
+    expect([...center]).toEqual([255, 0, 0, 255]);
+  });
+
   it("respects zero Web strength while retaining the note bodies", () => {
     const context = render(framesAt(), "web", { webOpacity: 0 });
     expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(3);

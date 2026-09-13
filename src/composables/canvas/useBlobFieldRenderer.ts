@@ -687,6 +687,53 @@ export function useBlobFieldRenderer() {
     return buffers;
   };
 
+  const renderWeb = (
+    target: CanvasRenderingContext2D,
+    frames: readonly PreparedBlobFrame[],
+    config: BlobConfig,
+    scene: HarmonicGeometryScene | null
+  ) => {
+    // Fine strands and distinct bodies need no occupancy threshold. Rendering
+    // both at target resolution also preserves small and still-growing bodies.
+    const connections = webConnectionPlanner.getConnections(frames, scene);
+    connections.forEach((connection) => {
+      const geometry = getBlobFieldConnectionGeometry(
+        connection, getBlobWebConnectionWidth(connection), 1,
+        connection.role === "boundary" ? 0.14 : 0.1,
+        connection.role === "boundary" ? 0.46 : 0.3
+      );
+      target.save();
+      target.globalAlpha = Math.max(0, Math.min(1,
+        connection.from.opacity, connection.to.opacity
+      )) * config.webOpacity * (connection.role === "boundary" ? 0.92 : 0.46);
+      target.filter = "none";
+      const gradient = target.createLinearGradient(
+        connection.from.blob.x, connection.from.blob.y,
+        connection.to.blob.x, connection.to.blob.y
+      );
+      gradient.addColorStop(0, connection.from.primaryColor);
+      gradient.addColorStop(1, connection.to.primaryColor);
+      target.fillStyle = gradient;
+      traceConnection(target, geometry);
+      target.fill();
+      target.restore();
+    });
+    // Use the same Blob blur/glow material as Merge, above the unblurred strands.
+    // A faint releasing body paints before a held body at coincident positions.
+    const orderedFrames = orderBlobFramesForVisibility(frames);
+    getBlobFieldMaterialPasses(config).forEach((pass) => {
+      target.save();
+      target.filter = pass.filter;
+      orderedFrames.forEach((frame) => {
+        target.globalAlpha = pass.opacity * Math.max(0, Math.min(1, frame.opacity));
+        target.fillStyle = frame.primaryColor;
+        traceFrame(target, frame);
+        target.fill();
+      });
+      target.restore();
+    });
+  };
+
   const renderBlobField = (
     target: CanvasRenderingContext2D,
     frames: readonly PreparedBlobFrame[],
@@ -698,16 +745,14 @@ export function useBlobFieldRenderer() {
       return false;
     }
 
-    const blur =
-      mode === "web"
-        ? Math.max(
-            5,
-            config.fieldSoftness * (0.65 + config.fusionStrength * 0.4)
-          )
-        : Math.max(
-            6,
-            config.fieldSoftness * (0.82 + config.fusionStrength * 0.72)
-          );
+    if (mode === "web") {
+      renderWeb(target, frames, config, scene);
+      return true;
+    }
+
+    const blur = Math.max(
+      6, config.fieldSoftness * (0.82 + config.fusionStrength * 0.72)
+    );
     const bounds = getBlobFieldBounds(
       frames,
       target.canvas.width,
@@ -721,19 +766,8 @@ export function useBlobFieldRenderer() {
     }
 
     const { scale, width, height } = getBlobFieldResolution(bounds);
-    const connections = mode === "web"
-      ? webConnectionPlanner.getConnections(frames, scene)
-      : [];
-    const connectionLayers = connections.map((connection) => ({
-      connection,
-      geometry: getBlobFieldConnectionGeometry(
-        connection, getBlobWebConnectionWidth(connection), 1,
-        connection.role === "boundary" ? 0.14 : 0.1,
-        connection.role === "boundary" ? 0.46 : 0.3
-      ),
-    }));
     const visibleFrames = frames.filter((frame) => frame.opacity > 0);
-    const envelope = mode === "merge" && visibleFrames.length > 1
+    const envelope = visibleFrames.length > 1
       ? getMergeEnvelope(visibleFrames, blur)
       : [];
     // Paint opacity tiers from faintest to strongest. A releasing outer member
@@ -766,15 +800,6 @@ export function useBlobFieldRenderer() {
       -bounds.x * scale,
       -bounds.y * scale
     );
-
-    const getConnectionOpacity = (connection: BlobFieldConnection) => {
-      const bodyOpacity = Math.min(
-        Math.max(0, Math.min(1, connection.from.opacity)),
-        Math.max(0, Math.min(1, connection.to.opacity))
-      );
-      return bodyOpacity * config.webOpacity *
-        (connection.role === "boundary" ? 0.92 : 0.46);
-    };
 
     const colorLayers = [
       ...frames.map((frame) => ({
@@ -857,9 +882,8 @@ export function useBlobFieldRenderer() {
     weight.fill(0);
 
     // Accumulate color in small, non-saturating 8-bit canvas batches, then add
-    // those decoded contributions into float buffers. A dense twelve-note Web
-    // therefore keeps the same order-independent color math as a sparse Merge
-    // without dividing quiet filaments below one source-canvas alpha level.
+    // decoded contributions into float buffers. Dense Merge envelopes retain
+    // the same color weighting without quantizing away faint releasing notes.
     for (
       let batchStart = 0;
       batchStart < colorLayers.length;
@@ -926,10 +950,7 @@ export function useBlobFieldRenderer() {
       )
     );
 
-    const threshold =
-      mode === "web"
-        ? 0.48 - config.fusionStrength * 0.28
-        : 0.54 - config.fusionStrength * 0.24;
+    const threshold = 0.54 - config.fusionStrength * 0.24;
     const output = frameBuffers.output;
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
@@ -966,23 +987,6 @@ export function useBlobFieldRenderer() {
     }
 
     outputContext.putImageData(output, 0, 0);
-    // Thin Web strands bypass the downsampled occupancy threshold and broad
-    // body blur. Drawing them underneath leaves each note body distinct.
-    connectionLayers.forEach(({ connection, geometry }) => {
-      target.save();
-      target.globalAlpha = getConnectionOpacity(connection);
-      target.filter = "none";
-      const gradient = target.createLinearGradient(
-        connection.from.blob.x, connection.from.blob.y,
-        connection.to.blob.x, connection.to.blob.y
-      );
-      gradient.addColorStop(0, connection.from.primaryColor);
-      gradient.addColorStop(1, connection.to.primaryColor);
-      target.fillStyle = gradient;
-      traceConnection(target, geometry);
-      target.fill();
-      target.restore();
-    });
     getBlobFieldMaterialPasses(config).forEach((pass) => {
       target.save();
       target.imageSmoothingEnabled = true;

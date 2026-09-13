@@ -5,14 +5,14 @@ import type { ActiveNote } from "@/types/music";
  * one, production registries are merged by note id as before.
  */
 export function resolveStageActiveNotes(
-  controlledNotes: readonly ActiveNote[] | undefined,
-  ...productionSources: readonly (readonly ActiveNote[])[]
+  controlledNotes: (() => readonly ActiveNote[]) | undefined,
+  ...productionSources: readonly (() => readonly ActiveNote[])[]
 ): readonly ActiveNote[] {
-  if (controlledNotes !== undefined) return controlledNotes;
+  if (controlledNotes) return controlledNotes();
 
   const activeNotes = new Map<string, ActiveNote>();
-  productionSources.forEach((source) => {
-    source.forEach((note) => activeNotes.set(note.noteId, note));
+  productionSources.forEach((readSource) => {
+    readSource().forEach((note) => activeNotes.set(note.noteId, note));
   });
   return Array.from(activeNotes.values());
 }

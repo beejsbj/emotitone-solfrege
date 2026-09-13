@@ -57,15 +57,12 @@ export function useUnifiedCanvas(
   runtime?: StageRuntimeInputs,
 ) {
   const musicStore = useMusicStore();
-  const getStageActiveNotes = (): readonly ActiveNote[] => {
-    if (runtime?.getActiveNotes) return runtime.getActiveNotes();
-    return resolveStageActiveNotes(
-      undefined,
-      musicStore.getActiveNotes(),
-      getActiveLivePitchStageNotes(),
-      getActiveStrudelStageNotes(),
-    );
-  };
+  const getStageActiveNotes = (): readonly ActiveNote[] => resolveStageActiveNotes(
+    runtime?.getActiveNotes,
+    () => musicStore.getActiveNotes(),
+    getActiveLivePitchStageNotes,
+    getActiveStrudelStageNotes,
+  );
   const {
     stageConfig,
     blobConfig,
@@ -581,7 +578,9 @@ export function useUnifiedCanvas(
     }
 
     // Create particles with reduced count for polyphonic scenarios
-    const activeNoteCount = getStageActiveNotes().length;
+    const activeNoteCount = runtime?.getActiveNotes
+      ? getStageActiveNotes().length
+      : musicStore.getActiveNotes().length;
     const particleCount = Math.max(
       5,
       Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))

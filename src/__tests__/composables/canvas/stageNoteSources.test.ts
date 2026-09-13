@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { resolveStageActiveNotes } from "@/composables/canvas/stageNoteSources";
 import type { ActiveNote } from "@/types/music";
 
@@ -26,14 +26,16 @@ function note(noteId: string): ActiveNote {
 describe("resolveStageActiveNotes", () => {
   it("uses the controlled view without leaking foreign production notes", () => {
     const controlled = [note("controlled")];
+    const foreignSource = vi.fn(() => [note("music-store")]);
 
     expect(resolveStageActiveNotes(
-      controlled,
-      [note("music-store")],
-      [note("live-pitch")],
-      [note("strudel")],
+      () => controlled,
+      foreignSource,
+      () => [note("live-pitch")],
+      () => [note("strudel")],
     )).toEqual(controlled);
-    expect(resolveStageActiveNotes([], [note("music-store")])).toEqual([]);
+    expect(resolveStageActiveNotes(() => [], foreignSource)).toEqual([]);
+    expect(foreignSource).not.toHaveBeenCalled();
   });
 
   it("preserves the production merge and later-source replacement when uncontrolled", () => {
@@ -42,8 +44,8 @@ describe("resolveStageActiveNotes", () => {
 
     expect(resolveStageActiveNotes(
       undefined,
-      [original, note("music-only")],
-      [replacement, note("live-only")],
+      () => [original, note("music-only")],
+      () => [replacement, note("live-only")],
     )).toEqual([replacement, note("music-only"), note("live-only")]);
   });
 });

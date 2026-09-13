@@ -50,6 +50,7 @@ const {
   canvasWidth,
   canvasHeight,
   harmonicAccessibleText,
+  noteEventTarget,
   initializeCanvas,
   handleResize,
   handleNotePlayed,
@@ -67,7 +68,6 @@ const {
     : () => props.activeNotes ?? [],
   eventTarget: props.eventTarget,
 });
-const noteEventTarget = props.eventTarget ?? window;
 
 // Handle note played event - enhanced for polyphonic support
 function onNotePlayed(event: CustomEvent) {

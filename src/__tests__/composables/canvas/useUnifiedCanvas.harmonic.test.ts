@@ -37,6 +37,7 @@ const mocks = vi.hoisted(() => {
     liveStageNotes: [] as ActiveNote[],
     strudelStageNotes: [] as ActiveNote[],
     stageActiveNotesProvider: null as null | (() => readonly ActiveNote[]),
+    stringEventTarget: null as EventTarget | null,
     createBlob: vi.fn(),
     startBlobFadeOut: vi.fn(),
     startBlobFadeOutById: vi.fn(),
@@ -152,7 +153,7 @@ vi.mock("@/composables/canvas/useParticleSystem", () => ({
 vi.mock("@/composables/canvas/useStringRenderer", () => ({
   useStringRenderer: () => ({
     initializeStrings: vi.fn(),
-    addEventListeners: vi.fn(),
+    addEventListeners: vi.fn((target: EventTarget) => { mocks.stringEventTarget = target; }),
     removeEventListeners: vi.fn(),
     updateStringProperties: vi.fn(),
     renderStrings: vi.fn(),
@@ -245,6 +246,44 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("shares the audible production timeline between harmonic notes and String events", () => {
+    vi.setSystemTime(0);
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
+    const sourceListeners = new Map<string, EventListener>();
+    const listeners = vi.spyOn(window, "addEventListener").mockImplementation((type, listener) => {
+      sourceListeners.set(type, listener as EventListener);
+    });
+    const active: ActiveNote = {
+      noteId: "audible", noteName: "C4", solfege: note, solfegeIndex: 0,
+      frequency: 261.63, octave: 4, keyboardOctave: 4, mode: "major", key: "C", audibleAt: 50,
+    };
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    canvas.initializeCanvas();
+    expect(mocks.stringEventTarget).toBe(canvas.noteEventTarget);
+    expect(canvas.noteEventTarget).not.toBe(window);
+    const attack = vi.fn();
+    canvas.noteEventTarget.addEventListener("note-played", attack);
+    mocks.musicStore.getActiveNotes.mockReturnValue([active]);
+    sourceListeners.get("note-played")!(new CustomEvent("note-played", {
+      detail: { noteId: active.noteId, audibleAt: 50 },
+    }));
+    expect(mocks.stageActiveNotesProvider!()).toEqual([]);
+    expect(attack).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(50);
+    expect(attack).toHaveBeenCalledOnce();
+    expect(mocks.stageActiveNotesProvider!()).toEqual([active]);
+    sourceListeners.get("note-released")!(new CustomEvent("note-released", {
+      detail: { noteId: active.noteId, audibleAt: 100 },
+    }));
+    mocks.musicStore.getActiveNotes.mockReturnValue([]);
+    expect(mocks.stageActiveNotesProvider!()).toEqual([active]);
+    vi.advanceTimersByTime(50);
+    expect(mocks.stageActiveNotesProvider!()).toEqual([]);
+    canvas.cleanup();
+    clock.mockRestore();
+    listeners.mockRestore();
   });
 
   it("expires finite id-less playback through the same synthetic blob key", () => {

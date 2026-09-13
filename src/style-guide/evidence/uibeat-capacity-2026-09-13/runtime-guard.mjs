@@ -11,8 +11,13 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   const canvasSelector = options.canvasSelector ?? ".unified-canvas";
   const defaultMaximumCanvasIdleMs = options.maximumCanvasIdleMs ?? 1_000;
 
-  if (!document || typeof MutationObserver !== "function") {
-    throw new Error("Runtime guard requires a browser document and MutationObserver");
+  if (!document || typeof MutationObserver !== "function" || typeof environment.matchMedia !== "function") {
+    throw new Error("Runtime guard requires a browser document, MutationObserver, and matchMedia");
+  }
+  const reducedMotionQuery = environment.matchMedia("(prefers-reduced-motion: reduce)");
+  if (!reducedMotionQuery || typeof reducedMotionQuery.addEventListener !== "function" ||
+      typeof reducedMotionQuery.removeEventListener !== "function") {
+    throw new Error("Runtime guard requires an observable prefers-reduced-motion query");
   }
 
   const pinia = document.querySelector("#app")?.__vue_app__?.config?.globalProperties?.$pinia;
@@ -47,9 +52,61 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   if (!configDrawer || !configDrawerContent) {
     throw new Error("Runtime guard requires the production Config drawer and content");
   }
+  const performanceDeckHosts = Array.from(document.querySelectorAll("[data-stage-occlusion-host]"));
+  if (performanceDeckHosts.length !== 1) {
+    throw new Error(`Runtime guard requires exactly one Stage occlusion host; found ${performanceDeckHosts.length}`);
+  }
+  const performanceDeck = performanceDeckHosts[0];
+  const performanceDeckContent = performanceDeck.querySelector(".drawer__content");
+  const performanceDeckHandle = performanceDeck.querySelector('[data-testid="performance-deck-handle"]');
+  const stageOccluders = Array.from(document.querySelectorAll("[data-stage-occluder]"));
+  const stageOcclusionParts = stageOccluders.flatMap((occluder) =>
+    Array.from(occluder.querySelectorAll("[data-stage-occlusion-part]"))
+  );
+  if (!performanceDeckContent || !performanceDeckHandle || stageOccluders.length === 0) {
+    throw new Error("Runtime guard requires the production PerformanceDeck geometry contract");
+  }
 
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const normalizeText = (value) => value?.replace(/\s+/g, " ").trim() ?? "";
+  const readStageComposition = () => {
+    const canvasBounds = canvas.getBoundingClientRect();
+    const currentOccluders = Array.from(document.querySelectorAll("[data-stage-occluder]"));
+    const currentParts = currentOccluders.flatMap((occluder) =>
+      Array.from(occluder.querySelectorAll("[data-stage-occlusion-part]"))
+    );
+    const visible = (element) => {
+      const style = environment.getComputedStyle(element);
+      return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+    };
+    const candidateTops = [...currentOccluders, ...currentParts]
+      .filter(visible)
+      .map((element) => element.getBoundingClientRect())
+      .filter((bounds) => bounds.height > 0)
+      .map((bounds) => bounds.top);
+    const nearestOcclusionTop = candidateTops.length > 0
+      ? Math.min(...candidateTops)
+      : canvasBounds.bottom;
+    const occlusionTop = Math.max(canvasBounds.top, Math.min(canvasBounds.bottom, nearestOcclusionTop));
+    const usableWidth = Math.max(0, canvasBounds.width);
+    const usableHeight = Math.max(0, occlusionTop - canvasBounds.top);
+    const usable = {
+      x: 0,
+      y: 0,
+      width: usableWidth,
+      height: usableHeight,
+    };
+    return {
+      usable,
+      suspended: usableWidth < 150 || usableHeight < 150,
+      retainedHost: performanceDeck.isConnected &&
+        document.querySelectorAll("[data-stage-occlusion-host]").length === 1 &&
+        document.querySelector("[data-stage-occlusion-host]") === performanceDeck,
+      occluderCount: currentOccluders.length,
+      partCount: currentParts.length,
+      activeOcclusionCount: document.querySelectorAll("[data-stage-occlusion-active='true']").length,
+    };
+  };
   const visualRuntime = () => {
     if (typeof visualStore.visualsEnabled !== "boolean" || !visualStore.effectiveConfig) {
       throw new Error("Runtime guard could not read the production visual workload");
@@ -108,6 +165,16 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
         height: configDrawer.style.getPropertyValue("height"),
         contentHeight: configDrawerContent.style.getPropertyValue("height"),
       },
+      performanceDeck: {
+        retained: performanceDeck.isConnected &&
+          document.querySelectorAll("[data-stage-occlusion-host]").length === 1 &&
+          document.querySelector("[data-stage-occlusion-host]") === performanceDeck,
+        expanded: performanceDeck.getAttribute("data-expanded"),
+        handleExpanded: performanceDeckHandle.getAttribute("aria-expanded"),
+        height: performanceDeck.style.getPropertyValue("height"),
+        contentHeight: performanceDeckContent.style.getPropertyValue("height"),
+      },
+      reducedMotion: reducedMotionQuery.matches === true,
       globalConfig,
       visualRuntime: visualRuntime(),
     };
@@ -158,7 +225,9 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   const mutationTouchesWorkload = (mutation) => isWithinWorkload(mutation.target) ||
     Array.from(mutation.addedNodes ?? []).some(subtreeContainsWorkload) ||
     Array.from(mutation.removedNodes ?? []).some(subtreeContainsWorkload) ||
-    mutation.target === configDrawer || mutation.target === configDrawerContent || mutation.target === configHandle;
+    mutation.target === configDrawer || mutation.target === configDrawerContent || mutation.target === configHandle ||
+    mutation.target === performanceDeck || mutation.target === performanceDeckContent ||
+    mutation.target === performanceDeckHandle || mutation.target.matches?.("[data-stage-occluder], [data-stage-occlusion-part]");
 
   const heightFromStyleAttribute = (value) => {
     const match = String(value ?? "").match(/(?:^|;)\s*height\s*:\s*([^;]*)/i);
@@ -183,17 +252,40 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       field = "configDrawer.expanded";
     } else if (mutation.target === configHandle && mutation.attributeName === "aria-expanded") {
       field = "configDrawer.handleExpanded";
+    } else if (mutation.target === performanceDeck && mutation.attributeName === "style") {
+      field = "performanceDeck.height";
+      oldValue = heightFromStyleAttribute(oldValue);
+      value = performanceDeck.style.getPropertyValue("height");
+    } else if (mutation.target === performanceDeckContent && mutation.attributeName === "style") {
+      field = "performanceDeck.contentHeight";
+      oldValue = heightFromStyleAttribute(oldValue);
+      value = performanceDeckContent.style.getPropertyValue("height");
+    } else if (mutation.target === performanceDeck && mutation.attributeName === "data-expanded") {
+      field = "performanceDeck.expanded";
+    } else if (mutation.target === performanceDeckHandle && mutation.attributeName === "aria-expanded") {
+      field = "performanceDeck.handleExpanded";
+    } else if (mutation.target.matches?.("[data-stage-occluder]") && mutation.attributeName === "data-stage-occlusion-active") {
+      field = "stageOccluder.active";
+    } else if (mutation.target.matches?.("[data-stage-occluder]") && mutation.attributeName === "style") {
+      field = "stageOccluder.style";
+    } else if (mutation.target.matches?.("[data-stage-occluder]") && mutation.attributeName === "class") {
+      field = "stageOccluder.class";
+    } else if (mutation.target.matches?.("[data-stage-occlusion-part]") && mutation.attributeName === "style") {
+      field = "stageOcclusionPart.style";
     }
     return field && oldValue !== value ? { field, oldValue, value } : null;
   };
 
   let workloadObserver = null;
   let drawerGeometryObserver = null;
+  let stageGeometryObserver = null;
   const subscriptions = [];
   const recordWorkloadInput = (event) => {
     if (isWithinWorkload(event.target)) recordWorkload(`dom:${event.type}`);
   };
   let workloadInputListenersInstalled = false;
+  const recordReducedMotionChange = () => recordWorkload("media:prefers-reduced-motion");
+  let reducedMotionListenerInstalled = false;
   const processWorkloadMutations = (mutations) => {
     const relevant = mutations.filter(mutationTouchesWorkload);
     if (relevant.length === 0) return;
@@ -212,6 +304,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     const pending = [
       ...(workloadObserver?.takeRecords() ?? []),
       ...(drawerGeometryObserver?.takeRecords() ?? []),
+      ...(stageGeometryObserver?.takeRecords() ?? []),
     ];
     if (pending.length > 0) processWorkloadMutations(pending);
   };
@@ -224,6 +317,26 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   if (typeof originalClearRect !== "function") {
     throw new Error("Runtime guard requires a callable Stage 2D clearRect");
   }
+  const stageCompositionSignature = (composition) => JSON.stringify(composition);
+  const recordStageCompositionHeartbeat = (windowState) => {
+    try {
+      const composition = readStageComposition();
+      const nextSignature = stageCompositionSignature(composition);
+      windowState.stageCompositionSampleCount += 1;
+      windowState.minimumUsableWidth = Math.min(windowState.minimumUsableWidth, composition.usable.width);
+      windowState.minimumUsableHeight = Math.min(windowState.minimumUsableHeight, composition.usable.height);
+      if (composition.suspended) windowState.suspendedCompositionSampleCount += 1;
+      if (nextSignature !== windowState.initialStageCompositionSignature) {
+        windowState.stageCompositionChangeCount += 1;
+        if (nextSignature !== windowState.lastStageCompositionSignature && windowState.stageCompositionChanges.length < 50) {
+          windowState.stageCompositionChanges.push({ at: now(), composition });
+        }
+      }
+      windowState.lastStageCompositionSignature = nextSignature;
+    } catch (error) {
+      windowState.stageCompositionReadErrors.push(error?.message ?? String(error));
+    }
+  };
   function guardedClearRect(...args) {
     const result = Reflect.apply(originalClearRect, this, args);
     if (
@@ -231,6 +344,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       args[0] === 0 && args[1] === 0 && args[2] === canvas.width && args[3] === canvas.height
     ) {
       activeWindow.successfulFullCanvasClears.push(now());
+      recordStageCompositionHeartbeat(activeWindow);
     }
     return result;
   }
@@ -274,21 +388,49 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       attributeOldValue: true,
       attributeFilter: ["style"],
     });
+    stageGeometryObserver = new MutationObserver(processWorkloadMutations);
+    for (const target of [performanceDeck, performanceDeckContent]) {
+      stageGeometryObserver.observe(target, {
+        attributes: true,
+        attributeOldValue: true,
+        attributeFilter: target === performanceDeck ? ["data-expanded", "style"] : ["style"],
+      });
+    }
+    for (const target of stageOcclusionParts) {
+      stageGeometryObserver.observe(target, {
+        attributes: true,
+        attributeOldValue: true,
+        attributeFilter: ["style"],
+      });
+    }
+    for (const target of stageOccluders) {
+      stageGeometryObserver.observe(target, {
+        attributes: true,
+        attributeOldValue: true,
+        attributeFilter: ["class", "data-stage-occlusion-active", "style"],
+      });
+    }
     document.addEventListener("input", recordWorkloadInput, true);
     document.addEventListener("change", recordWorkloadInput, true);
     workloadInputListenersInstalled = true;
+    reducedMotionQuery.addEventListener("change", recordReducedMotionChange);
+    reducedMotionListenerInstalled = true;
     canvas.addEventListener("contextlost", recordContextEvent);
     canvas.addEventListener("contextrestored", recordContextEvent);
     contextListenersInstalled = true;
   } catch (error) {
     workloadObserver?.disconnect();
     drawerGeometryObserver?.disconnect();
+    stageGeometryObserver?.disconnect();
     for (const unsubscribe of subscriptions) {
       try { unsubscribe(); } catch { /* Preserve the original installation error. */ }
     }
     if (workloadInputListenersInstalled) {
       document.removeEventListener("input", recordWorkloadInput, true);
       document.removeEventListener("change", recordWorkloadInput, true);
+    }
+    if (reducedMotionListenerInstalled) {
+      reducedMotionQuery.removeEventListener("change", recordReducedMotionChange);
     }
     if (contextListenersInstalled) {
       canvas.removeEventListener("contextlost", recordContextEvent);
@@ -334,6 +476,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     }
     recordWorkload("window:start");
     const runtime = visualRuntime();
+    const initialStageComposition = readStageComposition();
     activeWindow = {
       label,
       startedAt: now(),
@@ -344,6 +487,16 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       stageExpectedActive: runtime.visualsEnabled && runtime.effectiveConfig.stage?.isEnabled !== false,
       initialCanvas: canvasState(),
       successfulFullCanvasClears: [],
+      initialStageComposition,
+      initialStageCompositionSignature: stageCompositionSignature(initialStageComposition),
+      lastStageCompositionSignature: stageCompositionSignature(initialStageComposition),
+      stageCompositionSampleCount: 0,
+      stageCompositionChangeCount: 0,
+      stageCompositionChanges: [],
+      stageCompositionReadErrors: [],
+      suspendedCompositionSampleCount: 0,
+      minimumUsableWidth: initialStageComposition.usable.width,
+      minimumUsableHeight: initialStageComposition.usable.height,
     };
     return { label, startedAt: activeWindow.startedAt };
   };
@@ -360,12 +513,26 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     const gaps = boundaries.slice(1).map((time, index) => time - boundaries[index]);
     const maxIdleGapMs = gaps.length > 0 ? Math.max(...gaps) : endedAt - current.startedAt;
     const finalCanvas = canvasState();
+    let finalStageComposition = null;
+    try { finalStageComposition = readStageComposition(); } catch (error) {
+      current.stageCompositionReadErrors.push(error?.message ?? String(error));
+    }
     const windowWorkloadChanges = workloadChanges.slice(current.workloadChangeIndex);
     const windowContextEvents = contextEvents.slice(current.contextEventIndex);
     const observedDurationMs = endedAt - current.startedAt;
     const fullCoverage = clears.length >= 2 &&
       observedDurationMs >= current.expectedDurationMs &&
       maxIdleGapMs <= current.maximumCanvasIdleMs;
+    const stageCompositionFullyObserved = clears.length >= 2 && current.stageCompositionReadErrors.length === 0 &&
+      current.stageCompositionSampleCount === clears.length;
+    const stageCompositionSuspended = current.initialStageComposition.suspended ||
+      finalStageComposition?.suspended === true || current.suspendedCompositionSampleCount > 0;
+    const stageCompositionChanged = current.stageCompositionChangeCount > 0 || Boolean(
+      finalStageComposition &&
+      stageCompositionSignature(finalStageComposition) !== current.initialStageCompositionSignature
+    );
+    const stageCompositionUnsuspended = stageCompositionFullyObserved && !stageCompositionSuspended;
+    const stageCompositionStable = stageCompositionFullyObserved && !stageCompositionChanged;
     const issues = [];
     if (!current.stageExpectedActive) issues.push("stage-not-expected-active");
     if (windowWorkloadChanges.length > 0) issues.push("workload-changed");
@@ -375,6 +542,9 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     if (current.initialCanvas.contextLost || finalCanvas.contextLost || windowContextEvents.length > 0) {
       issues.push("stage-context-loss");
     }
+    if (!stageCompositionFullyObserved) issues.push("stage-composition-observation-incomplete");
+    if (stageCompositionSuspended) issues.push("stage-composition-suspended");
+    if (stageCompositionChanged) issues.push("stage-composition-changed");
     if (!fullCoverage) issues.push("stage-draw-heartbeat-incomplete");
     const proof = {
       label: current.label,
@@ -395,6 +565,20 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
         maximumAllowedIdleGapMs: current.maximumCanvasIdleMs,
         maxIdleGapMs,
         fullCoverage,
+        composition: {
+          initial: current.initialStageComposition,
+          final: finalStageComposition,
+          fullyObserved: stageCompositionFullyObserved,
+          unsuspendedThroughout: stageCompositionUnsuspended,
+          stableThroughout: stageCompositionStable,
+          sampleCount: current.stageCompositionSampleCount,
+          changeCount: current.stageCompositionChangeCount,
+          retainedChanges: current.stageCompositionChanges,
+          readErrors: current.stageCompositionReadErrors,
+          suspendedSampleCount: current.suspendedCompositionSampleCount,
+          minimumUsableWidth: current.minimumUsableWidth,
+          minimumUsableHeight: current.minimumUsableHeight,
+        },
       },
     };
     windows.push(proof);
@@ -410,8 +594,10 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     const cleanupIssues = [];
     workloadObserver?.disconnect();
     drawerGeometryObserver?.disconnect();
+    stageGeometryObserver?.disconnect();
     document.removeEventListener("input", recordWorkloadInput, true);
     document.removeEventListener("change", recordWorkloadInput, true);
+    reducedMotionQuery.removeEventListener("change", recordReducedMotionChange);
     for (const unsubscribe of subscriptions) {
       try { unsubscribe(); } catch (error) {
         cleanupIssues.push(`store-unsubscribe-failed:${error?.message ?? String(error)}`);
@@ -450,6 +636,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
         subscriptionsRemoved: cleanupIssues.every((issue) => !issue.startsWith("store-unsubscribe-failed:")),
         observerDisconnected: true,
         workloadInputListenersRemoved: true,
+        reducedMotionListenerRemoved: true,
         contextListenersRemoved: true,
         clearRectRestored: cleanupIssues.every((issue) => !issue.startsWith("clearRect-")),
       },

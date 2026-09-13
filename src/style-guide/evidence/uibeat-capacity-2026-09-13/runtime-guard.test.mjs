@@ -53,6 +53,9 @@ function createFixture({ failSubscriptionFor = null } = {}) {
   canvas.width = 640;
   canvas.height = 480;
   canvas.getContext = (type) => type === "2d" ? context : null;
+  canvas.getBoundingClientRect = () => ({
+    x: 0, y: 0, top: 0, left: 0, right: 640, bottom: 480, width: 640, height: 480,
+  });
   document.body.append(canvas);
 
   const code = document.createElement("div");
@@ -97,6 +100,34 @@ function createFixture({ failSubscriptionFor = null } = {}) {
   configDrawer.append(configHandle, configDrawerContent);
   document.body.append(configDrawer);
 
+  const performanceDeck = document.createElement("section");
+  performanceDeck.className = "drawer performance-deck-drawer";
+  performanceDeck.setAttribute("data-stage-occlusion-host", "");
+  performanceDeck.setAttribute("data-expanded", "true");
+  performanceDeck.style.height = "180px";
+  const performanceDeckHandle = document.createElement("button");
+  performanceDeckHandle.setAttribute("data-testid", "performance-deck-handle");
+  performanceDeckHandle.setAttribute("aria-expanded", "true");
+  const performanceDeckContent = document.createElement("div");
+  performanceDeckContent.className = "drawer__content";
+  performanceDeckContent.style.height = "120px";
+  const stageOccluder = document.createElement("section");
+  stageOccluder.setAttribute("data-stage-occluder", "");
+  const stageOcclusionPart = document.createElement("div");
+  stageOcclusionPart.setAttribute("data-stage-occlusion-part", "");
+  stageOcclusionPart.style.setProperty("--slot-y", "0px");
+  let stageOcclusionTop = 340;
+  stageOccluder.getBoundingClientRect = () => ({
+    x: 0, y: 360, top: 360, left: 0, right: 640, bottom: 480, width: 640, height: 120,
+  });
+  stageOcclusionPart.getBoundingClientRect = () => ({
+    x: 0, y: stageOcclusionTop, top: stageOcclusionTop, left: 0, right: 640,
+    bottom: stageOcclusionTop + 52, width: 640, height: 52,
+  });
+  stageOccluder.append(stageOcclusionPart);
+  performanceDeck.append(performanceDeckHandle, performanceDeckContent, stageOccluder);
+  document.body.append(performanceDeck);
+
   const instrumentTrigger = document.createElement("button");
   instrumentTrigger.setAttribute("data-testid", "instrument-selector-trigger");
   instrumentTrigger.innerHTML = '<span class="drawer__label">Piano</span>';
@@ -135,10 +166,27 @@ function createFixture({ failSubscriptionFor = null } = {}) {
   app.__vue_app__ = { config: { globalProperties: { $pinia: pinia } } };
   document.body.prepend(app);
 
+  let reducedMotion = false;
+  const reducedMotionListeners = new Set();
+  const reducedMotionQuery = {
+    get matches() { return reducedMotion; },
+    addEventListener(type, listener) {
+      if (type === "change") reducedMotionListeners.add(listener);
+    },
+    removeEventListener(type, listener) {
+      if (type === "change") reducedMotionListeners.delete(listener);
+    },
+  };
+
   const environment = {
     document,
     MutationObserver: window.MutationObserver,
     performance: { now: () => clock },
+    getComputedStyle: window.getComputedStyle.bind(window),
+    matchMedia: (query) => {
+      assert.equal(query, "(prefers-reduced-motion: reduce)");
+      return reducedMotionQuery;
+    },
   };
   if (failSubscriptionFor) {
     pinia._s.get(failSubscriptionFor).$subscribe = () => {
@@ -175,6 +223,11 @@ function createFixture({ failSubscriptionFor = null } = {}) {
     configDrawer,
     configHandle,
     configDrawerContent,
+    performanceDeck,
+    performanceDeckHandle,
+    performanceDeckContent,
+    stageOccluder,
+    stageOcclusionPart,
     visualStore,
     instrumentStore,
     musicStore,
@@ -182,6 +235,12 @@ function createFixture({ failSubscriptionFor = null } = {}) {
     originalDescriptor,
     calls,
     setShouldThrow(value) { shouldThrow = value; },
+    setStageOcclusionTop(value) { stageOcclusionTop = value; },
+    setReducedMotion(value) {
+      reducedMotion = value;
+      for (const listener of reducedMotionListeners) listener({ matches: value });
+    },
+    reducedMotionListenerCount() { return reducedMotionListeners.size; },
     advance,
     clear,
     fillHealthyWindow,
@@ -212,6 +271,7 @@ test("accepts an unchanged workload, syntax churn, and exact clearRect restorati
   assert.equal(fixture.visualStore.listenerCount(), 0);
   assert.equal(fixture.instrumentStore.listenerCount(), 0);
   assert.equal(fixture.musicStore.listenerCount(), 0);
+  assert.equal(fixture.reducedMotionListenerCount(), 0);
 });
 
 test("records workload changes even when Stage, BPM, instrument, and code are restored", async () => {
@@ -314,6 +374,86 @@ test("rejects restored Config drawer geometry and expansion changes", () => {
   assert.equal(report.valid, false);
 });
 
+test("rejects any clear sampled while the source-derived Stage composition is suspended", () => {
+  const fixture = createFixture();
+  fixture.guard.start({ label: "suspended-stage", expectedDurationMs: 1_000 });
+
+  for (let index = 1; index <= 9; index += 1) {
+    fixture.advance(100);
+    if (index === 1) fixture.setStageOcclusionTop(149.9998);
+    fixture.clear();
+    if (index === 1) fixture.setStageOcclusionTop(340);
+  }
+  fixture.advance(100);
+
+  const proof = fixture.guard.snapshot();
+  const report = fixture.guard.stop();
+
+  assert.equal(proof.valid, false);
+  assert.ok(proof.issues.includes("stage-composition-suspended"));
+  assert.ok(proof.issues.includes("stage-composition-changed"));
+  assert.equal(proof.stage.composition.fullyObserved, true);
+  assert.equal(proof.stage.composition.unsuspendedThroughout, false);
+  assert.equal(proof.stage.composition.suspendedSampleCount, 1);
+  assert.equal(proof.stage.composition.minimumUsableHeight, 149.9998);
+  assert.equal(report.valid, false);
+});
+
+test("rejects PerformanceDeck geometry restored before observer delivery", () => {
+  const fixture = createFixture();
+  fixture.guard.start({ label: "deck-geometry", expectedDurationMs: 1_000 });
+
+  fixture.performanceDeck.style.height = "250px";
+  fixture.performanceDeckContent.style.height = "190px";
+  fixture.stageOcclusionPart.style.setProperty("--slot-y", "-20px");
+  fixture.performanceDeck.style.height = "180px";
+  fixture.performanceDeckContent.style.height = "120px";
+  fixture.stageOcclusionPart.style.setProperty("--slot-y", "0px");
+  fixture.fillHealthyWindow();
+
+  const proof = fixture.guard.snapshot();
+  const report = fixture.guard.stop();
+  const evidence = proof.workloadChanges.flatMap(({ mutationEvidence = [] }) => mutationEvidence);
+
+  assert.equal(proof.valid, false);
+  assert.ok(proof.issues.includes("workload-changed"));
+  assert.ok(evidence.some(({ field, oldValue, value }) =>
+    field === "performanceDeck.height" && oldValue === "250px" && value === "180px"
+  ));
+  assert.ok(evidence.some(({ field, oldValue, value }) =>
+    field === "performanceDeck.contentHeight" && oldValue === "190px" && value === "120px"
+  ));
+  assert.ok(evidence.some(({ field, oldValue, value }) =>
+    field === "stageOcclusionPart.style" && oldValue.includes("-20px") && value.includes("0px")
+  ));
+  assert.equal(proof.stage.composition.stableThroughout, true);
+  assert.equal(report.valid, false);
+});
+
+test("rejects prefers-reduced-motion changes restored during an off window", () => {
+  const fixture = createFixture();
+  fixture.guard.start({ label: "uiBeat-off", expectedDurationMs: 1_000 });
+
+  fixture.setReducedMotion(true);
+  fixture.setReducedMotion(false);
+  fixture.fillHealthyWindow();
+
+  const proof = fixture.guard.snapshot();
+  const report = fixture.guard.stop();
+
+  assert.equal(proof.valid, false);
+  assert.ok(proof.issues.includes("workload-changed"));
+  assert.deepEqual(
+    proof.workloadChanges
+      .filter(({ source }) => source === "media:prefers-reduced-motion")
+      .map(({ workload }) => workload.reducedMotion),
+    [true, false],
+  );
+  assert.equal(proof.workloadChanges.at(-1).restoredToSessionBaseline, true);
+  assert.equal(report.valid, false);
+  assert.equal(fixture.reducedMotionListenerCount(), 0);
+});
+
 test("rejects a frozen production Stage canvas", () => {
   const fixture = createFixture();
   fixture.guard.start({ label: "frozen-stage", expectedDurationMs: 1_000 });
@@ -327,6 +467,9 @@ test("rejects a frozen production Stage canvas", () => {
   assert.equal(proof.stage.successfulFullCanvasClearCount, 0);
   assert.equal(proof.stage.maxIdleGapMs, 1_000);
   assert.equal(proof.stage.fullCoverage, false);
+  assert.ok(proof.issues.includes("stage-composition-observation-incomplete"));
+  assert.equal(proof.issues.includes("stage-composition-suspended"), false);
+  assert.equal(proof.issues.includes("stage-composition-changed"), false);
 });
 
 test("rejects context loss and still cleans up its owned wrapper", () => {
@@ -378,11 +521,15 @@ test("emits a self-contained CDP installer expression", () => {
   assert.doesNotMatch(expression, /import\s|require\(/);
 });
 
-test("uses the production transport and Config Drawer contracts", async () => {
-  const [codeStripBar, configPanel, drawer] = await Promise.all([
+test("uses the production transport, motion, Drawer, and Stage-layout contracts", async () => {
+  const [codeStripBar, configPanel, drawer, performanceDeck, stageLayout, stageRuntime, uiBeat] = await Promise.all([
     readFile(new URL("../../../components/compounds/CodeStripBar.vue", import.meta.url), "utf8"),
     readFile(new URL("../../../components/ConfigPanel.vue", import.meta.url), "utf8"),
     readFile(new URL("../../../components/uniques/Drawer/index.vue", import.meta.url), "utf8"),
+    readFile(new URL("../../../components/PerformanceDeck.vue", import.meta.url), "utf8"),
+    readFile(new URL("../../../composables/useStageHostLayout.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../../composables/canvas/stageRuntime.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../../composables/useUIBeat.ts", import.meta.url), "utf8"),
   ]);
   assert.match(codeStripBar, /class="code-strip-bar"/);
   assert.match(codeStripBar, /class="code-strip-bar__play"/);
@@ -392,6 +539,13 @@ test("uses the production transport and Config Drawer contracts", async () => {
   assert.match(drawer, /class="drawer__content"/);
   assert.match(drawer, /:style="\{ height: `\$\{height\}px` \}"/);
   assert.match(drawer, /:data-expanded="expanded"/);
+  assert.match(performanceDeck, /data-stage-occlusion-host/);
+  assert.match(performanceDeck, /data-stage-occluder/);
+  assert.match(stageLayout, /\[data-stage-occlusion-part\]/);
+  assert.match(stageLayout, /occlusionTop - canvasBounds\.top/);
+  assert.match(stageRuntime, /const MIN_DRAWABLE_EDGE = 150/);
+  assert.match(stageRuntime, /width < MIN_DRAWABLE_EDGE \|\| height < MIN_DRAWABLE_EDGE/);
+  assert.match(uiBeat, /matchMedia\?\.\("\(prefers-reduced-motion: reduce\)"\)\.matches === true/);
 });
 
 test("rolls back earlier hooks when installation fails partway", () => {

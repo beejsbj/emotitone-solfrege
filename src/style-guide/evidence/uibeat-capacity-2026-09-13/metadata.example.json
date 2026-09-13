@@ -5,9 +5,9 @@
   "os": "name and exact version",
   "display": "native panel resolution, refresh rate, scaling, and browser viewport",
   "power": "power source, power mode, and battery state",
-  "thermal": "observed thermal state before and after",
+  "thermal": "observed thermal state before capture",
   "browserWindow": "native browser, foreground, focused, unobscured, visible for full run",
-  "operatorObservation": "name/date and any interruptions or visible stutter",
+  "operatorObservationBefore": "name/date, native window visibility, and pre-run device condition",
   "sourceRevision": "exact git SHA or exact-revision deployment SHA",
   "notes": "optional environment details"
 }

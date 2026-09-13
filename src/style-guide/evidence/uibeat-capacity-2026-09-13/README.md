@@ -14,7 +14,7 @@ These sources answer different questions:
 1. Check out and build the exact revision under test, then serve it on port `5183`. Use the hosted exact-revision deployment when the device cannot reach the local server.
 2. Open production in a dedicated native Chrome profile on the named physical desktop or phone. Keep the window and tab visible, unobscured, focused, and awake for the entire capture. Do not resize it between samples.
 3. Expose that existing Chrome session through a local CDP endpoint. On Android this can be an `adb forward` to Chrome's debugging socket; on desktop use the browser's supported remote-debugging launch route. Do not substitute device emulation or a virtual display.
-4. Copy `metadata.example.json`, fill every field from the actual device and display, and keep `evidenceClass` as `physical-native-visible` only when the conditions above are true.
+4. Copy `metadata.example.json`, fill every field from the actual device and display, including pre-run power, thermal, and operator observations. Keep `evidenceClass` as `physical-native-visible` only when the conditions above are true.
 5. Run:
 
    ```sh
@@ -25,7 +25,9 @@ These sources answer different questions:
      --output src/style-guide/evidence/uibeat-capacity-2026-09-13/<device>-verification.json
    ```
 
-The script refuses a hidden or unfocused document, starts a five-note sounding production pattern when playback is not already running, keeps the Config Global panel open so the accepted high-density control scene is present, and records equal-duration on/off/on windows. When it finds existing playback, it reuses and records that scene rather than pretending it created a fresh one. It records blur, focus, visibility, and resize events across all pacing, warmup, and trace windows; times out and cancels a suspended pacing callback; validates transport plus running/still consumer state; and restores the original UI Rhythm value afterward. Use a dedicated profile because the app persists configuration locally.
+The script refuses a hidden or unfocused document, starts a five-note sounding production pattern when playback is not already running, opens Config without closing an already-open panel, explicitly selects Global, and records equal-duration on/off/on windows. When it finds existing playback, it reuses and records that scene rather than pretending it created a fresh one. It records blur, focus, visibility, and resize events across all pacing, warmup, and trace windows; times out and cancels a suspended pacing callback; validates transport plus running/still consumer state; and restores the original UI Rhythm value afterward. Use a dedicated profile because the app persists configuration locally.
+
+For a `physical-native-visible` capture, the command pauses after measurement and asks the observing operator to record visible interruptions or stutter and the final thermal state. This fresh post-run observation is included before eligibility and report hashing. A physical run cannot finalize unattended. Software-rendered and emulated rehearsals remain unattended because they are never eligible for closure.
 
 Review the result rather than treating `capacityClosureEligible: true` as an automatic verdict. Compare both on windows against the middle off window, inspect all raw intervals and long-frame entries, confirm the accepted consumer counts, and account for device refresh rate, thermal state, power mode, browser warnings, and visible interruptions. A physical desktop result and a physical mobile result are both required by the current gate.
 
@@ -33,4 +35,4 @@ Consumer counts are recorded by current source family and by viewport visibility
 
 ## Current evidence status
 
-The committed `software-rendered-verification.json` exercises this procedure in a visible Xvfb Chrome window. It is useful for validating the capture path and checking for a gross UIBeat regression. It cannot close the named physical-device or native displayed-frame gate.
+The committed `software-rendered-verification.json` exercises this procedure in a visible Xvfb Chrome window. It is useful for validating the capture path and checking for a gross UIBeat regression. It cannot close the named physical-device or native displayed-frame gate. Reports captured before the post-run-observation schema remain legacy rehearsal evidence and are not eligible for physical closure.

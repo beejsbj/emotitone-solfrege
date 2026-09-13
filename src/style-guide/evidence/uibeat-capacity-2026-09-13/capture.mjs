@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 import { gzipSync } from "node:zlib";
 
 const TRACE_CATEGORIES = [
@@ -85,7 +86,7 @@ function summarizeIntervals(intervals) {
   };
 }
 
-function selfTest() {
+async function selfTest() {
   const summary = summarizeIntervals([10, 20, 30, 40, Number.NaN]);
   if (summary.count !== 4 || summary.p50Ms !== 25 || summary.maxMs !== 40 || summary.over33_3ms !== 1) {
     throw new Error(`Statistics self-test failed: ${JSON.stringify(summary)}`);
@@ -105,6 +106,55 @@ function selfTest() {
   if (!sampleIsValid("uiBeat-off", healthyFrame, offScene, offScene)) {
     throw new Error("Healthy off-sample self-test failed");
   }
+  const validMetadata = {
+    evidenceClass: "physical-native-visible",
+    deviceName: "Test device",
+    deviceType: "desktop",
+    os: "Test OS",
+    display: "Test display",
+    power: "AC power",
+    thermal: "Cool before capture",
+    browserWindow: "Native and foreground",
+    operatorObservationBefore: "Visible and unobscured before capture",
+    sourceRevision: "0123456789abcdef",
+  };
+  validateMetadata(validMetadata);
+  for (const missing of ["power", "thermal"]) {
+    const incomplete = { ...validMetadata };
+    delete incomplete[missing];
+    let rejected = false;
+    try { validateMetadata(incomplete); } catch { rejected = true; }
+    if (!rejected) throw new Error(`Metadata without ${missing} was accepted`);
+    const whitespaceOnly = { ...validMetadata, [missing]: "   \n" };
+    rejected = false;
+    try { validateMetadata(whitespaceOnly); } catch { rejected = true; }
+    if (!rejected) throw new Error(`Whitespace-only ${missing} metadata was accepted`);
+  }
+  let promptedBeforeCompletion = false;
+  try {
+    await collectPostRunObservation(validMetadata, false, async () => "after capture");
+  } catch { promptedBeforeCompletion = true; }
+  if (!promptedBeforeCompletion) throw new Error("Post-run observation was accepted before capture completion");
+  const finalizedObservation = await collectPostRunObservation(validMetadata, true, async () => "No interruption; device remained cool");
+  if (finalizedObservation?.text !== "No interruption; device remained cool") {
+    throw new Error("Post-run observation finalization self-test failed");
+  }
+  const stageOpenPlan = configPreparationActions({ panelExpanded: true, globalSelected: false });
+  if (stageOpenPlan.join(",") !== "select-global") {
+    throw new Error(`Open Stage panel would be toggled: ${stageOpenPlan.join(",")}`);
+  }
+  const stageClosedPlan = configPreparationActions({ panelExpanded: false, globalSelected: false });
+  if (stageClosedPlan.join(",") !== "open-panel,select-global") {
+    throw new Error(`Closed Stage panel preparation is incomplete: ${stageClosedPlan.join(",")}`);
+  }
+  const traceCounts = traceSummary([
+    { name: "Paint" },
+    { name: "RasterTask" },
+    { name: "DrawFrame" },
+  ]).byName;
+  if (traceCounts.Paint !== 1 || traceCounts.RasterTask !== 1 || traceCounts.DrawFrame !== 1) {
+    throw new Error(`Full trace event-name counts were not retained: ${JSON.stringify(traceCounts)}`);
+  }
   console.log("capture statistics self-test passed");
 }
 
@@ -116,6 +166,23 @@ function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
     (expectedOn
       ? initialScene.runningAcceptedConsumers > 0 && finalScene.runningAcceptedConsumers > 0 && initialScene.indicatorRunning && finalScene.indicatorRunning
       : initialScene.runningAcceptedConsumers === 0 && finalScene.runningAcceptedConsumers === 0 && !initialScene.indicatorRunning && !finalScene.indicatorRunning);
+}
+
+function configPreparationActions({ panelExpanded, globalSelected }) {
+  const actions = [];
+  if (!panelExpanded) actions.push("open-panel");
+  if (!globalSelected) actions.push("select-global");
+  return actions;
+}
+
+async function collectPostRunObservation(metadata, captureComplete, prompt) {
+  if (metadata.evidenceClass !== "physical-native-visible") return null;
+  if (!captureComplete) throw new Error("Physical operator observation must be collected after capture completion");
+  const text = String(await prompt(
+    "Post-run physical-device observation (visible interruptions/stutter and final thermal state): ",
+  )).trim();
+  if (!text) throw new Error("Physical capture requires a non-empty post-run operator observation");
+  return { recordedAt: new Date().toISOString(), text };
 }
 
 class CdpConnection {
@@ -333,9 +400,7 @@ function traceSummary(events) {
   const interesting = events.filter((event) => selectedNames.has(event.name));
   const byName = {};
   for (const event of events) {
-    if (/frame|draw|present|composite|layout|animation/i.test(event.name ?? "")) {
-      byName[event.name] = (byName[event.name] ?? 0) + 1;
-    }
+    byName[event.name] = (byName[event.name] ?? 0) + 1;
   }
   return {
     rawEventCount: events.length,
@@ -473,6 +538,26 @@ async function setUiRhythm(cdp, enabled, warmup) {
   if (actual !== enabled) throw new Error(`UI Rhythm did not change to ${enabled}`);
 }
 
+async function prepareGlobalConfig(cdp) {
+  const trigger = '[data-testid="config-panel-trigger"]';
+  const globalTab = '[data-testid="config-tab-global"]';
+  const initialState = await evaluate(cdp, `({
+    panelExpanded: document.querySelector(${JSON.stringify(trigger)})?.getAttribute("aria-expanded") === "true",
+    globalSelected: document.querySelector(${JSON.stringify(globalTab)})?.getAttribute("aria-selected") === "true",
+  })`);
+  for (const action of configPreparationActions(initialState)) {
+    if (action === "open-panel") {
+      await clickSelector(cdp, trigger);
+      await waitForSelector(cdp, globalTab);
+    } else {
+      const selected = await evaluate(cdp, `document.querySelector(${JSON.stringify(globalTab)})?.getAttribute("aria-selected") === "true"`);
+      if (!selected) await clickSelector(cdp, globalTab);
+    }
+  }
+  await waitForSelector(cdp, '[data-testid="global-control-uiRhythm"]');
+  await delay(700);
+}
+
 async function prepareScene(cdp) {
   await delay(1_000);
   if (await evaluate(cdp, `Boolean(document.querySelector(".converged-loader__skip"))`)) {
@@ -503,11 +588,7 @@ async function prepareScene(cdp) {
   if (!await evaluate(cdp, `Boolean(document.querySelector('button[aria-label="Stop"]'))`)) {
     throw new Error("Production transport is not playing");
   }
-  if (!await evaluate(cdp, `Boolean(document.querySelector('[data-testid="global-control-uiRhythm"]'))`)) {
-    await clickSelector(cdp, '[data-testid="config-panel-trigger"]');
-    await waitForSelector(cdp, '[data-testid="global-control-uiRhythm"]');
-    await delay(700);
-  }
+  await prepareGlobalConfig(cdp);
   if (!await evaluate(cdp, `Boolean(document.querySelector('[data-testid="global-control-uiRhythm"]'))`)) {
     throw new Error("Could not open the production Global config surface");
   }
@@ -519,8 +600,23 @@ async function prepareScene(cdp) {
 }
 
 function validateMetadata(metadata) {
-  const required = ["evidenceClass", "deviceName", "deviceType", "os", "display", "browserWindow", "operatorObservation", "sourceRevision"];
-  for (const key of required) if (!metadata[key]) throw new Error(`Metadata is missing ${key}`);
+  const required = [
+    "evidenceClass",
+    "deviceName",
+    "deviceType",
+    "os",
+    "display",
+    "power",
+    "thermal",
+    "browserWindow",
+    "operatorObservationBefore",
+    "sourceRevision",
+  ];
+  for (const key of required) {
+    if (typeof metadata[key] !== "string" || metadata[key].trim().length === 0) {
+      throw new Error(`Metadata is missing ${key}`);
+    }
+  }
   const allowed = ["physical-native-visible", "software-rendered", "emulated-viewport"];
   if (!allowed.includes(metadata.evidenceClass)) throw new Error(`Unsupported evidenceClass ${metadata.evidenceClass}`);
 }
@@ -572,21 +668,41 @@ async function main() {
       captureInterruptions = await stopCaptureMonitor(cdp).catch(() => [{ type: "monitor-read-failed" }]);
     }
     const finalEnvironment = await environment(cdp);
+    const measurementCompletedAt = new Date().toISOString();
+    let postRunOperatorObservation = null;
+    if (metadata.evidenceClass === "physical-native-visible") {
+      if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        throw new Error("Physical capture finalization requires an interactive terminal for the post-run operator observation");
+      }
+      const terminal = createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        postRunOperatorObservation = await collectPostRunObservation(
+          metadata,
+          true,
+          (question) => terminal.question(question),
+        );
+      } finally {
+        terminal.close();
+      }
+    }
     const knownNonNativeRenderer = [initialEnvironment.userAgent, initialEnvironment.webgl.renderer]
       .some((value) => /headless|swiftshader|llvmpipe|software raster/i.test(value ?? "")) ||
       samples.some((sampleResult) => Object.keys(sampleResult.trace.byName).some((name) => /SoftwareRenderer/.test(name)));
     const allSamplesValid = samples.every((sampleResult) => sampleResult.valid);
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
+      Boolean(postRunOperatorObservation?.text) &&
       !knownNonNativeRenderer && allSamplesValid && captureInterruptions.length === 0 &&
       initialEnvironment.visibilityState === "visible" && initialEnvironment.hasFocus &&
       finalEnvironment.visibilityState === "visible" && finalEnvironment.hasFocus;
     const report = {
       schemaVersion: 1,
-      capturedAt: new Date().toISOString(),
+      capturedAt: measurementCompletedAt,
+      finalizedAt: new Date().toISOString(),
       sourceRevision: metadata.sourceRevision ?? null,
       evidenceClass: metadata.evidenceClass,
       capacityClosureEligible,
       device: metadata,
+      postRunOperatorObservation,
       browser: { product: version.Browser, protocolVersion: version["Protocol-Version"], userAgent: version["User-Agent"] },
       environment: { initial: initialEnvironment, final: finalEnvironment },
       automatedEligibility: {

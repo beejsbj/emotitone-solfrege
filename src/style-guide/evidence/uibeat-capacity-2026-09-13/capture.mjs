@@ -1255,6 +1255,7 @@ async function main() {
       limitations: [
         "Physical displayed frames require the operator's named-device/native-window observation; CDP cannot independently prove panel scanout.",
         "requestAnimationFrame timestamps can reveal foreground page pacing but do not directly measure compositor-to-display presentation.",
+        "The cadence guard's MutationObserver and per-frame retained-node connection, binding, state, and visibility checks add main-thread and layout observation work that can affect measured pacing.",
         "A software-rendered or emulated capture cannot close the physical-device capacity gate.",
       ],
       samples,

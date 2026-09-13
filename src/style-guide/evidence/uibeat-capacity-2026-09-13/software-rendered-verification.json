@@ -116,6 +116,7 @@
   "limitations": [
     "Physical displayed frames require the operator's named-device/native-window observation; CDP cannot independently prove panel scanout.",
     "requestAnimationFrame timestamps can reveal foreground page pacing but do not directly measure compositor-to-display presentation.",
+    "The cadence guard's MutationObserver and per-frame retained-node connection, binding, state, and visibility checks add main-thread and layout observation work that can affect measured pacing.",
     "A software-rendered or emulated capture cannot close the physical-device capacity gate."
   ],
   "samples": [
@@ -6361,5 +6362,5 @@
     "compressedBytes": 8513,
     "content": "gzip-compressed selected raw CDP presentation/drop events; full event-name counts remain inline"
   },
-  "sha256BeforeDigestField": "43e53c70aa5aa073c4d96c4a7b56a16605da8218cf0861081dfd92b454cde048"
+  "sha256BeforeDigestField": "3835324364add323714c8bc21ee7ba7ff79cfbd91d35dfc7b52c8c0d81843f59"
 }

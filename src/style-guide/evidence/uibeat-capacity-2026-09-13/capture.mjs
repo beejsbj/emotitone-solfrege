@@ -6,6 +6,8 @@ import { basename, dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { gzipSync } from "node:zlib";
 
+import { verifyLoadedBuildIdentity } from "./capture-build-identity.mjs";
+
 const TRACE_CATEGORIES = [
   "benchmark",
   "cc",
@@ -1537,6 +1539,10 @@ async function main() {
     const monitorStartedAt = Date.now();
     const preparationStartedAt = Date.now();
     assertMonitorCoversPreparation(monitorStartedAt, preparationStartedAt);
+    const loadedBuildIdentity = await verifyLoadedBuildIdentity({
+      cdp,
+      expectedRevision: metadata.sourceRevision,
+    });
     let scenePreparation;
     let originalUiRhythm;
     const samples = [];
@@ -1596,8 +1602,10 @@ async function main() {
     const allSamplesValid = samples.every((sampleResult) => sampleResult.valid) &&
       sceneFingerprintStable && consumerInventoryStable;
     const operatorObservationAcceptable = operatorObservationIsAcceptable(postRunOperatorObservation);
+    const buildIdentityVerified = loadedBuildIdentity.sourceRevision === metadata.sourceRevision;
     const capacityClosureEligible = metadata.evidenceClass === "physical-native-visible" &&
       operatorObservationAcceptable &&
+      buildIdentityVerified &&
       !knownNonNativeRenderer && rendererStable && rendererIdentityUsable &&
       allSamplesValid && captureInterruptions.length === 0 &&
       initialEnvironment.visibilityState === "visible" && initialEnvironment.hasFocus &&
@@ -1607,6 +1615,7 @@ async function main() {
       capturedAt: measurementCompletedAt,
       finalizedAt: new Date().toISOString(),
       sourceRevision: metadata.sourceRevision ?? null,
+      loadedBuildIdentity,
       evidenceClass: metadata.evidenceClass,
       capacityClosureEligible,
       device: metadata,
@@ -1615,6 +1624,7 @@ async function main() {
       environment: { initial: initialEnvironment, final: finalEnvironment },
       automatedEligibility: {
         knownNonNativeRenderer,
+        buildIdentityVerified,
         rendererStable,
         rendererIdentityUsable,
         operatorObservationAcceptable,
@@ -1631,6 +1641,7 @@ async function main() {
         durationMsPerState: options.duration,
         traceDurationMsPerState: options.traceDuration,
         warmupMs: options.warmup,
+        buildIdentityScope: "the measured main document's loaded same-origin JavaScript and CSS bytes are matched through CDP to the manifest produced by a clean build of sourceRevision before scene preparation",
         frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
         uiBeatCadenceScope: "bounded MutationObservers record distinct inline scale changes for every expected visible UIBeat control and recurring transform/opacity changes for the retained four-child production BeatIndicator; on-window activity must avoid idle gaps longer than two beat periods with a 2000ms floor, including the sample boundaries, and retained nodes must remain unchanged while off",
         cdpTraceScope: "a separate diagnostic trace follows each untraced frame-callback window; selected raw presentation/drop events and full event-name counts are retained, event availability varies by browser build, and tracing does not prove display scanout",

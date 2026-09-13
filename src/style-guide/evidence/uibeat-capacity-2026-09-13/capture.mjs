@@ -70,6 +70,20 @@ function expectedUIBeatConsumers() {
   };
 }
 
+function visualRuntimeFingerprint(store) {
+  if (!store || typeof store.visualsEnabled !== "boolean" || !store.effectiveConfig) {
+    throw new Error("Visual runtime fingerprint requires the production Pinia visualConfig store");
+  }
+  const effectiveConfig = JSON.parse(JSON.stringify(store.effectiveConfig));
+  if (!effectiveConfig || typeof effectiveConfig !== "object" || Array.isArray(effectiveConfig)) {
+    throw new Error("Visual runtime fingerprint could not serialize effectiveConfig");
+  }
+  if (effectiveConfig.uiBeat && typeof effectiveConfig.uiBeat === "object") {
+    delete effectiveConfig.uiBeat.isEnabled;
+  }
+  return { visualsEnabled: store.visualsEnabled, effectiveConfig };
+}
+
 function parseArgs(argv) {
   const result = {
     cdp: "http://127.0.0.1:9222",
@@ -411,6 +425,15 @@ async function selfTest() {
     harmony: "auto",
     instrument: "Piano",
     globalConfig: [{ id: "global-control-paper", value: "ivory" }],
+    visualRuntime: visualRuntimeFingerprint({
+      visualsEnabled: true,
+      effectiveConfig: {
+        stage: { isEnabled: true, zoom: 1 },
+        blobs: { isEnabled: true, count: 7 },
+        strings: { isEnabled: true, count: 4 },
+        uiBeat: { isEnabled: true, intensity: 1 },
+      },
+    }),
   };
   if (!fingerprintsMatch([{ workloadFingerprint: fingerprint }, { workloadFingerprint: { ...fingerprint } }])) {
     throw new Error("Unchanged workload fingerprint was rejected");
@@ -421,6 +444,39 @@ async function selfTest() {
   ])) {
     throw new Error("Changed workload fingerprint was accepted");
   }
+  const uiRhythmOffFingerprint = {
+    ...fingerprint,
+    visualRuntime: visualRuntimeFingerprint({
+      visualsEnabled: true,
+      effectiveConfig: {
+        stage: { isEnabled: true, zoom: 1 },
+        blobs: { isEnabled: true, count: 7 },
+        strings: { isEnabled: true, count: 4 },
+        uiBeat: { isEnabled: false, intensity: 1 },
+      },
+    }),
+  };
+  if (!fingerprintsMatch([{ workloadFingerprint: fingerprint }, { workloadFingerprint: uiRhythmOffFingerprint }])) {
+    throw new Error("Intentional UI Rhythm toggle changed the workload fingerprint");
+  }
+  const visualChanges = [
+    ["transient Stage Look", { ...fingerprint.visualRuntime, effectiveConfig: { ...fingerprint.visualRuntime.effectiveConfig, blobs: { isEnabled: true, count: 11 } } }],
+    ["Blobs disabled", { ...fingerprint.visualRuntime, effectiveConfig: { ...fingerprint.visualRuntime.effectiveConfig, blobs: { isEnabled: false, count: 7 } } }],
+    ["Strings disabled", { ...fingerprint.visualRuntime, effectiveConfig: { ...fingerprint.visualRuntime.effectiveConfig, strings: { isEnabled: false, count: 4 } } }],
+    ["Stage numeric setting", { ...fingerprint.visualRuntime, effectiveConfig: { ...fingerprint.visualRuntime.effectiveConfig, stage: { isEnabled: true, zoom: 1.25 } } }],
+    ["master visuals switch", { ...fingerprint.visualRuntime, visualsEnabled: false }],
+  ];
+  for (const [label, visualRuntime] of visualChanges) {
+    if (fingerprintsMatch([
+      { workloadFingerprint: fingerprint },
+      { workloadFingerprint: { ...fingerprint, visualRuntime } },
+    ])) throw new Error(`${label} change was accepted by the workload fingerprint`);
+  }
+  let missingVisualStoreRejected = false;
+  try { visualRuntimeFingerprint(null); } catch (error) {
+    missingVisualStoreRejected = /production Pinia visualConfig store/.test(error.message);
+  }
+  if (!missingVisualStoreRejected) throw new Error("Missing visualConfig runtime store was accepted");
   const captureFailure = new Error("capture failed");
   const restorationFailure = new Error("restore failed");
   let combinedFailure;
@@ -651,7 +707,9 @@ function fingerprintsMatch(scenes) {
     typeof fingerprint.instrument === "string" && fingerprint.instrument.trim().length > 0 &&
     Array.isArray(fingerprint.controls) && fingerprint.controls.length > 0 &&
     fingerprint.controls.some(({ label, value }) => label === "BPM" && String(value).trim().length > 0) &&
-    Array.isArray(fingerprint.globalConfig) && fingerprint.globalConfig.length > 0
+    Array.isArray(fingerprint.globalConfig) && fingerprint.globalConfig.length > 0 &&
+    typeof fingerprint.visualRuntime?.visualsEnabled === "boolean" &&
+    fingerprint.visualRuntime.effectiveConfig && typeof fingerprint.visualRuntime.effectiveConfig === "object"
   );
   if (!complete) return false;
   const serialized = fingerprints.map((fingerprint) => JSON.stringify(fingerprint));
@@ -1101,6 +1159,7 @@ async function sample(cdp, label, duration, traceDuration) {
 async function sceneState(cdp) {
   return evaluate(cdp, `(() => {
     ${expectedUIBeatConsumers.toString()}
+    ${visualRuntimeFingerprint.toString()}
     const running = Array.from(document.querySelectorAll('[data-ui-beat-state="running"]'));
     const bound = Array.from(document.querySelectorAll('[data-ui-beat-scale]'));
     const classify = (element) => {
@@ -1142,6 +1201,9 @@ async function sceneState(cdp) {
         value: control.getAttribute("aria-pressed") ?? control.getAttribute("aria-valuetext") ??
           normalizeText(control.querySelector(".knob-range-value")?.textContent),
       })),
+      visualRuntime: visualRuntimeFingerprint(
+        document.querySelector("#app")?.__vue_app__?.config?.globalProperties?.$pinia?._s?.get("visualConfig"),
+      ),
     };
     return {
       transportPlaying: Boolean(document.querySelector('button[aria-label="Stop"]')),
@@ -1395,6 +1457,7 @@ async function main() {
         "Physical displayed frames require the operator's named-device/native-window observation; CDP cannot independently prove panel scanout.",
         "requestAnimationFrame timestamps can reveal foreground page pacing but do not directly measure compositor-to-display presentation.",
         "The cadence guard's MutationObserver and per-frame retained-node connection, binding, state, and visibility checks add main-thread and layout observation work that can affect measured pacing.",
+        "The read-only rendering-workload fingerprint depends on the production Pinia visualConfig runtime store and fails capture when that source-coupled introspection is unavailable.",
         "A software-rendered or emulated capture cannot close the physical-device capacity gate.",
       ],
       samples,

@@ -588,9 +588,9 @@ export async function attackNote(
     stopVoice(noteId, ac.currentTime);
   }
 
-  // Even an explicit "now" timestamp is stale by the time superdough sees it,
-  // and superdough drops past deadlines. Keep every attack just far enough
-  // ahead of the audio clock to be schedulable.
+  // Keep a small preparation margin even for explicit "now" attacks. The
+  // patched engine preserves overdue live presses, but this margin normally
+  // lets the complete graph reach the render thread before its intended onset.
   const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset(LIVE_AUDIO_SCHEDULING_LEAD_MS / 1000));
   const armedAt = await superdough(
     {

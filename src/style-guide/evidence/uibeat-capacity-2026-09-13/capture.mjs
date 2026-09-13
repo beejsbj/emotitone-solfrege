@@ -184,8 +184,9 @@ async function selfTest() {
       },
       cadence: {
         maximumAllowedIdleGapMs: 2_000,
+        maximumAllowedChildIdleGapMs: 2_000,
         maxIdleGapMs: 100,
-        children: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 20, distinctStyleValues: 5 })),
+        children: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 20, distinctStyleValues: 5, maxIdleGapMs: 500 })),
       },
     },
   };
@@ -255,6 +256,7 @@ async function selfTest() {
       ...healthyFrame.beatIndicator,
       cadence: {
         maximumAllowedIdleGapMs: 2_000,
+        maximumAllowedChildIdleGapMs: 2_000,
         maxIdleGapMs: 4_001,
         children: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 0, distinctStyleValues: 1 })),
       },
@@ -262,6 +264,21 @@ async function selfTest() {
   };
   if (sampleIsValid("uiBeat-on-first", frozenIndicatorFrame, healthyScene, healthyScene)) {
     throw new Error("Frozen BeatIndicator was accepted while control cadence remained healthy");
+  }
+  const oneFrozenIndicatorChildFrame = {
+    ...healthyFrame,
+    beatIndicator: {
+      ...healthyFrame.beatIndicator,
+      cadence: {
+        ...healthyFrame.beatIndicator.cadence,
+        children: healthyFrame.beatIndicator.cadence.children.map((child, index) =>
+          index === 0 ? { ...child, mutationCount: 3, distinctStyleValues: 3, maxIdleGapMs: 3_000 } : child
+        ),
+      },
+    },
+  };
+  if (sampleIsValid("uiBeat-on-first", oneFrozenIndicatorChildFrame, healthyScene, healthyScene)) {
+    throw new Error("One BeatIndicator child that changed early then froze was accepted");
   }
   const missingIndicatorChildFrame = {
     ...healthyFrame,
@@ -362,6 +379,7 @@ async function selfTest() {
       },
       cadence: {
         maximumAllowedIdleGapMs: 2_000,
+        maximumAllowedChildIdleGapMs: 2_000,
         maxIdleGapMs: 4_001,
         children: Array.from({ length: 4 }, (_, index) => ({ index, mutationCount: 0, distinctStyleValues: 1, initialStyle: "scale(1)|1", finalStyle: "scale(1)|1" })),
       },
@@ -618,6 +636,7 @@ function sampleIsValid(label, frameCallbacks, initialScene, finalScene) {
     frameCallbacks.coverage.includesInitialDelay && frameCallbacks.coverage.intervalCount >= 2 &&
     frameCallbacks.coverage.observedDurationMs >= frameCallbacks.coverage.requestedDurationMs &&
     frameCallbacks.coverage.requestedDurationMs >= 2 * frameCallbacks.uiBeatCadence.maximumAllowedIdleGapMs &&
+    frameCallbacks.coverage.requestedDurationMs >= 2 * frameCallbacks.beatIndicator.cadence.maximumAllowedChildIdleGapMs &&
     initialScene.transportPlaying && finalScene.transportPlaying &&
     (expectedOn
       ? sceneHasCompleteVisibleBeat(initialScene) && sceneHasCompleteVisibleBeat(finalScene) &&
@@ -639,8 +658,9 @@ function beatIndicatorCadenceIsActive(frameCallbacks) {
     tracking.initial.allConnected && tracking.final.allConnected &&
     tracking.initial.allVisible && tracking.final.allVisible &&
     tracking.initial.allRunning && tracking.final.allRunning &&
-    cadence?.children.length === 4 && cadence.children.every(({ mutationCount, distinctStyleValues }) =>
-      mutationCount >= 2 && distinctStyleValues >= 2
+    Number.isFinite(cadence?.maximumAllowedChildIdleGapMs) && cadence.maximumAllowedChildIdleGapMs > 0 &&
+    cadence.children.length === 4 && cadence.children.every(({ mutationCount, distinctStyleValues, maxIdleGapMs }) =>
+      mutationCount >= 2 && distinctStyleValues >= 2 && maxIdleGapMs <= cadence.maximumAllowedChildIdleGapMs
     ) && cadence.maxIdleGapMs <= cadence.maximumAllowedIdleGapMs;
 }
 
@@ -702,6 +722,11 @@ function offTrackedConsumersAreStill(frameCallbacks) {
 function cadenceAllowanceMs(scene) {
   const bpm = Number(scene.workloadFingerprint?.controls?.find(({ label }) => label === "BPM")?.value);
   return Number.isFinite(bpm) && bpm > 0 ? Math.max(2_000, 120_000 / bpm) : 0;
+}
+
+function indicatorChildCadenceAllowanceMs(scene) {
+  const bpm = Number(scene.workloadFingerprint?.controls?.find(({ label }) => label === "BPM")?.value);
+  return Number.isFinite(bpm) && bpm > 0 ? Math.max(2_000, 240_000 / bpm) : 0;
 }
 
 function isKnownNonNativeRenderer(environmentValues, traceNames) {
@@ -1305,13 +1330,18 @@ async function sample(cdp, label, duration, traceDuration) {
               const previous = index === 0 ? startedAt : boundaries[index - 1];
               return time - previous;
             })),
-          children: indicatorCadence.map(({ index, mutationCount, styleValues, lastStyle }) => ({
-            index,
-            mutationCount,
-            distinctStyleValues: styleValues.size,
-            initialStyle: [...styleValues][0],
-            finalStyle: lastStyle,
-          })),
+          children: indicatorCadence.map(({ index, mutationCount, styleValues, lastStyle, changeTimes }) => {
+            const boundedChangeTimes = changeTimes.map((time) => Math.min(time, endedAt));
+            const boundaries = [startedAt, ...boundedChangeTimes, endedAt];
+            return {
+              index,
+              mutationCount,
+              distinctStyleValues: styleValues.size,
+              maxIdleGapMs: Math.max(...boundaries.slice(1).map((time, boundaryIndex) => time - boundaries[boundaryIndex])),
+              initialStyle: [...styleValues][0],
+              finalStyle: lastStyle,
+            };
+          }),
         },
       },
       visibilityState: document.visibilityState,
@@ -1326,6 +1356,7 @@ async function sample(cdp, label, duration, traceDuration) {
   })()`);
   frameCallbacks.uiBeatCadence.maximumAllowedIdleGapMs = cadenceAllowanceMs(initialScene);
   frameCallbacks.beatIndicator.cadence.maximumAllowedIdleGapMs = cadenceAllowanceMs(initialScene);
+  frameCallbacks.beatIndicator.cadence.maximumAllowedChildIdleGapMs = indicatorChildCadenceAllowanceMs(initialScene);
   const after = await getMetrics(cdp);
   const traced = await traceWhile(cdp, async () => delay(traceDuration));
   const finalScene = await sceneState(cdp);
@@ -1643,7 +1674,7 @@ async function main() {
         warmupMs: options.warmup,
         buildIdentityScope: "the measured main document's loaded same-origin JavaScript and CSS bytes are matched through CDP to the manifest produced by a clean build of sourceRevision before scene preparation",
         frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
-        uiBeatCadenceScope: "bounded MutationObservers record distinct inline scale changes for every expected visible UIBeat control and recurring transform/opacity changes for the retained four-child production BeatIndicator; on-window activity must avoid idle gaps longer than two beat periods with a 2000ms floor, including the sample boundaries, and retained nodes must remain unchanged while off",
+        uiBeatCadenceScope: "bounded MutationObservers record distinct inline scale changes for every expected visible UIBeat control and recurring transform/opacity changes for the retained four-child production BeatIndicator; aggregate on-window activity must avoid idle gaps longer than two beat periods with a 2000ms floor, every indicator child must avoid idle gaps longer than one four-beat cycle with the same floor, each window must span at least two applicable allowances, and retained nodes must remain unchanged while off",
         cdpTraceScope: "a separate diagnostic trace follows each untraced frame-callback window; selected raw presentation/drop events and full event-name counts are retained, event availability varies by browser build, and tracing does not prove display scanout",
         longAnimationFrameScope: "browser Long Animation Frame entries include main-thread script/render attribution where supported",
       },

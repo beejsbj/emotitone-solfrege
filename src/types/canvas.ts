@@ -89,9 +89,12 @@ export interface HarmonicGeometryLabel {
   y: number;
   lines: string[];
   size: "sm" | "md" | "lg";
+  roles?: Array<"chord" | "emotion" | "interval">;
+  angle?: number;
 }
 
 export interface HarmonicGeometryScene {
+  viewport?: { width: number; height: number };
   points: HarmonicGeometryPoint[];
   orderedPoints: HarmonicGeometryPoint[];
   centroid: { x: number; y: number };

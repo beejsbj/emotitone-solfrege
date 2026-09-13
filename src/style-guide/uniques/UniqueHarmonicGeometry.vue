@@ -272,6 +272,7 @@ const drawSpecimen = (
 
 const drawAll = async () => {
   await nextTick();
+  await document.fonts?.ready;
   drawSpecimen(webCanvas.value, "web");
   drawSpecimen(mergeCanvas.value, "merge");
 };

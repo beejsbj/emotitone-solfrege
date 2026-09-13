@@ -1,3 +1,4 @@
+import { createHarmonicTypography, type HarmonicLabelFrame } from "./harmonicTypography";
 import type {
   ActiveBlob,
   HarmonicGeometryLabel,
@@ -9,31 +10,6 @@ import type {
   HarmonicAnalysisSnapshot,
   HarmonicIntervalEdge,
 } from "@/types";
-
-const CANVAS_DISPLAY_FONT_FALLBACK =
-  '"Lets Jazz", "Oswald", system-ui, sans-serif';
-const canvasDisplayFontFamilies = new WeakMap<HTMLCanvasElement, string>();
-
-function getCanvasDisplayFontFamily(ctx: CanvasRenderingContext2D) {
-  if (
-    typeof window !== "undefined" &&
-    typeof HTMLCanvasElement !== "undefined" &&
-    ctx.canvas instanceof HTMLCanvasElement
-  ) {
-    const cachedFont = canvasDisplayFontFamilies.get(ctx.canvas);
-    if (cachedFont) return cachedFont;
-
-    const displayFont = window
-      .getComputedStyle(ctx.canvas)
-      .getPropertyValue("--font-display")
-      .trim();
-    const resolvedFont = displayFont || CANVAS_DISPLAY_FONT_FALLBACK;
-    canvasDisplayFontFamilies.set(ctx.canvas, resolvedFont);
-    return resolvedFont;
-  }
-
-  return CANVAS_DISPLAY_FONT_FALLBACK;
-}
 
 function averagePoint(points: Array<{ x: number; y: number }>) {
   const totals = points.reduce(
@@ -99,70 +75,8 @@ function getArcMidpoint(
   };
 }
 
-function truncateCanvasText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number
-) {
-  if (ctx.measureText(text).width <= maxWidth) {
-    return text;
-  }
-
-  const ellipsis = "…";
-  let end = text.length;
-  while (
-    end > 0 &&
-    ctx.measureText(`${text.slice(0, end).trimEnd()}${ellipsis}`).width >
-      maxWidth
-  ) {
-    end -= 1;
-  }
-
-  return end > 0 ? `${text.slice(0, end).trimEnd()}${ellipsis}` : ellipsis;
-}
-
-function wrapCanvasText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-  maxLines = 3
-) {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) {
-    return [""];
-  }
-
-  const lines: string[] = [];
-  let currentLine = "";
-
-  for (let index = 0; index < words.length; index += 1) {
-    const candidate = currentLine
-      ? `${currentLine} ${words[index]}`
-      : words[index];
-
-    if (!currentLine || ctx.measureText(candidate).width <= maxWidth) {
-      currentLine = candidate;
-      continue;
-    }
-
-    lines.push(truncateCanvasText(ctx, currentLine, maxWidth));
-    currentLine = words[index];
-
-    if (lines.length === maxLines - 1) {
-      const remainder = [currentLine, ...words.slice(index + 1)].join(" ");
-      lines.push(truncateCanvasText(ctx, remainder, maxWidth));
-      return lines;
-    }
-  }
-
-  if (currentLine) {
-    lines.push(truncateCanvasText(ctx, currentLine, maxWidth));
-  }
-
-  return lines;
-}
-
 export function useHarmonicGeometryRenderer() {
+  const paintTypography = createHarmonicTypography();
   const resolvePoints = (
     snapshot: HarmonicAnalysisSnapshot,
     activeBlobs: Map<string, ActiveBlob>
@@ -262,6 +176,8 @@ export function useHarmonicGeometryRenderer() {
         x: arcMidpoint.labelX,
         y: arcMidpoint.labelY,
         lines: [dyadEdge.interval],
+        roles: ["interval"],
+        angle: Math.atan2(orderedPoints[1].y - orderedPoints[0].y, orderedPoints[1].x - orderedPoints[0].x),
         size: "md",
       });
     }
@@ -282,6 +198,10 @@ export function useHarmonicGeometryRenderer() {
         x: centroid.x,
         y: centroid.y,
         lines: primaryLabelLines,
+        roles: [
+          ...(config.showChordLabel && snapshot.chordLabel ? ["chord" as const] : []),
+          ...(config.showEmotionLabel && snapshot.emotionalDescription ? ["emotion" as const] : []),
+        ],
         size: orderedPoints.length >= 4 ? "lg" : "md",
       };
     }
@@ -314,12 +234,15 @@ export function useHarmonicGeometryRenderer() {
           x: midX,
           y: midY,
           lines: [edge.interval],
+          roles: ["interval"],
+          angle: Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x),
           size: "sm",
         });
       });
     }
 
     return {
+      viewport: { width: canvasWidth, height: canvasHeight },
       points,
       orderedPoints,
       centroid,
@@ -331,106 +254,12 @@ export function useHarmonicGeometryRenderer() {
     };
   };
 
-  const drawKnockoutText = (
-    ctx: CanvasRenderingContext2D,
-    label: HarmonicGeometryLabel,
-    opacity: number
-  ) => {
-    const displayFont = getCanvasDisplayFontFamily(ctx);
-    const sizeMap = {
-      sm: {
-        primaryFont: `600 11px ${displayFont}`,
-        secondaryFont: `500 9px ${displayFont}`,
-        lineHeight: 12,
-        strokeWidth: 4,
-      },
-      md: {
-        primaryFont: `700 16px ${displayFont}`,
-        secondaryFont: `500 11px ${displayFont}`,
-        lineHeight: 16,
-        strokeWidth: 5,
-      },
-      lg: {
-        primaryFont: `700 18px ${displayFont}`,
-        secondaryFont: `500 12px ${displayFont}`,
-        lineHeight: 18,
-        strokeWidth: 6,
-      },
-    }[label.size];
-
-    const horizontalPadding = 12;
-    const canvasWidth = ctx.canvas?.width ?? 1024;
-    const safeInset = Math.min(canvasWidth / 2, 48);
-    const labelX = Math.max(
-      safeInset,
-      Math.min(canvasWidth - safeInset, label.x)
-    );
-    const maxWidth = Math.max(
-      1,
-      Math.min(
-        canvasWidth - horizontalPadding * 2,
-        (labelX - horizontalPadding) * 2,
-        (canvasWidth - horizontalPadding - labelX) * 2
-      )
-    );
-
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = `hsla(0, 0%, 0%, ${0.78 * opacity})`;
-    ctx.fillStyle = `hsla(0, 0%, 100%, ${0.96 * opacity})`;
-
-    const drawableLines = label.lines.flatMap((line, index) => {
-      const font = index === 0 ? sizeMap.primaryFont : sizeMap.secondaryFont;
-      ctx.font = font;
-      return wrapCanvasText(ctx, line, maxWidth).map((text) => ({
-        text,
-        font,
-      }));
-    });
-    const totalHeight = (drawableLines.length - 1) * sizeMap.lineHeight;
-    const startY = label.y - totalHeight / 2;
-
-    drawableLines.forEach(({ text, font }, index) => {
-      ctx.font = font;
-      ctx.lineWidth = sizeMap.strokeWidth;
-      const lineY = startY + index * sizeMap.lineHeight;
-      ctx.strokeText(text, labelX, lineY);
-      ctx.fillText(text, labelX, lineY);
-    });
-
-    ctx.restore();
-  };
-
   const renderLabels = (
     ctx: CanvasRenderingContext2D,
     scene: HarmonicGeometryScene | null,
-    config: BlobRelationshipConfig
-  ) => {
-    if (!scene || config.labelOpacity <= 0) {
-      return;
-    }
-
-    if (scene.orderedPoints.length === 2 && config.showIntervalLabels) {
-      scene.auxiliaryLabels.forEach((label) =>
-        drawKnockoutText(ctx, label, config.labelOpacity)
-      );
-    }
-
-    if (scene.primaryLabel) {
-      drawKnockoutText(ctx, scene.primaryLabel, config.labelOpacity);
-    }
-
-    if (
-      config.showIntervalLabels &&
-      scene.orderedPoints.length >= 3
-    ) {
-      scene.auxiliaryLabels.forEach((label) =>
-        drawKnockoutText(ctx, label, config.labelOpacity)
-      );
-    }
-  };
+    config: BlobRelationshipConfig,
+    frame?: HarmonicLabelFrame
+  ) => paintTypography(ctx, scene, config.labelOpacity, config.showIntervalLabels, frame);
 
   return {
     buildScene,

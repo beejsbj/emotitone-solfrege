@@ -27,6 +27,7 @@ const props = defineProps<{
   signal: StageSpecimenSignal;
   relationship: "off" | "merge" | "web";
   stageEnabled: boolean;
+  showLabels?: boolean;
 }>();
 
 const mountPoint = ref<HTMLElement | null>(null);
@@ -109,6 +110,11 @@ onMounted(() => {
       const activeNotes = ref<ActiveNote[]>([]);
       let noteEventsMounted = false;
       visualConfig.useEphemeralDefaults();
+      watch(() => props.showLabels, (show) => {
+        visualConfig.config.blobs.showChordLabel = Boolean(show);
+        visualConfig.config.blobs.showEmotionLabel = Boolean(show);
+        visualConfig.config.blobs.showIntervalLabels = Boolean(show);
+      }, { immediate: true });
 
       watch(
         () => props.relationship,

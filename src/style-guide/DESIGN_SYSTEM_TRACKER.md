@@ -75,6 +75,12 @@ Work from a focused branch based on the current mainline, normally the latest `o
 
 Do not re-grill closed units without a concrete contradiction or explicit request.
 
+### Stage musical lettering
+
+Burooj accepted cut-paper Jazz chord headlines with individual glyph tilt and hard Ink offsets, curved emotion phrases, and small interval stamps aligned to their connections. A stable text seed defines each arrangement. A brief entrance settles ordinary harmony, suspends suspended chords, and opens augmented chords outward; the existing Stage frame clock drives it and Reduced Motion renders the final arrangement immediately. No perpetual lettering wobble or new timers belong here.
+
+Definition is accepted. `harmonicTypography.ts` is the canvas lettering authority behind `useHarmonicGeometryRenderer`; production and the real Stage/Blob specimens consume it. It resolves the existing display, Ivory and Ink tokens, caches glyph metrics per canvas, wraps without horizontal glyph compression, and gives the primary annotation priority when interval stamps collide. Stage supplies its usable bounds. Guide-only Labels and Focus Stage controls expose the same source. Source, real specimen and production adoption are implemented; final responsive and motion verification is in progress.
+
 ## Governing constraints
 
 - Brand colors are decorative; brass is an instrument material. Semantic aliases such as `--danger` are legacy cleanup, not design doctrine.

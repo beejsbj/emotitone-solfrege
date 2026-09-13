@@ -259,8 +259,10 @@ describe("useHarmonicGeometryRenderer", () => {
       scene,
       config
     );
-    expect(context.fillText).toHaveBeenCalledTimes(5);
-    expect(renderedFonts).toHaveLength(5);
+    for (const interval of ["0-1", "1-2", "0-2"]) {
+      expect(context.fillText).toHaveBeenCalledWith(interval, 0, 0);
+    }
+    expect(renderedFonts.length).toBeGreaterThan(5);
     expect(renderedFonts.every((font) => font.includes('"Lets Jazz"'))).toBe(
       true
     );
@@ -289,13 +291,12 @@ describe("useHarmonicGeometryRenderer", () => {
 
     renderer.renderLabels(context, scene, baseConfig);
 
-    const emotionLines = vi.mocked(mockCanvasContext.fillText).mock.calls
-      .map(([line]) => String(line))
-      .filter((line) => line !== "Cmaj7" && line !== "0-1");
-    expect(emotionLines).toEqual([
-      "Strength, confidence, dominance &",
-      "Forward motion, stepping up",
-    ]);
+    const letters = vi.mocked(mockCanvasContext.fillText).mock.calls
+      .filter(([text, x, y]) => String(text).length === 1 && x === 0 && y === 0)
+      .map(([text]) => text).join("");
+    expect(letters.replace(/\s/g, "")).toBe(
+      `Cmaj7${snapshot.emotionalDescription}`.replace(/\s/g, "")
+    );
     expect(mockCanvasContext.fillText).not.toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Number),

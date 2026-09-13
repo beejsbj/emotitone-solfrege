@@ -31,6 +31,23 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Runtime guard could not acquire the production Stage 2D context");
 
+  const transportSelector = ".code-strip-bar .code-strip-bar__play";
+  const transportControls = Array.from(document.querySelectorAll(transportSelector));
+  if (transportControls.length !== 1) {
+    throw new Error(`Runtime guard requires exactly one production transport control; found ${transportControls.length}`);
+  }
+  const transportControl = transportControls[0];
+  const configHandles = Array.from(document.querySelectorAll('[data-testid="config-panel-trigger"]'));
+  if (configHandles.length !== 1) {
+    throw new Error(`Runtime guard requires exactly one Config drawer handle; found ${configHandles.length}`);
+  }
+  const configHandle = configHandles[0];
+  const configDrawer = configHandle.closest(".drawer");
+  const configDrawerContent = configDrawer?.querySelector(".drawer__content");
+  if (!configDrawer || !configDrawerContent) {
+    throw new Error("Runtime guard requires the production Config drawer and content");
+  }
+
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const normalizeText = (value) => value?.replace(/\s+/g, " ").trim() ?? "";
   const visualRuntime = () => {
@@ -60,6 +77,8 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       value: control.getAttribute("aria-pressed") ?? control.getAttribute("aria-valuetext") ??
         normalizeText(control.querySelector(".knob-range-value")?.textContent),
     }));
+    const currentTransportControls = Array.from(document.querySelectorAll(transportSelector));
+    const currentConfigHandles = Array.from(document.querySelectorAll('[data-testid="config-panel-trigger"]'));
     return {
       codeText: codeLines.length > 0
         ? codeLines.map((line) => line.textContent ?? "").join("\n")
@@ -74,6 +93,21 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
         playStyle: musicStore.playStyle,
         playRate: musicStore.playRate,
       } : null,
+      transport: {
+        count: currentTransportControls.length,
+        retained: currentTransportControls.length === 1 && currentTransportControls[0] === transportControl,
+        ariaLabel: transportControl.getAttribute("aria-label"),
+      },
+      configDrawer: {
+        handleCount: currentConfigHandles.length,
+        retained: currentConfigHandles.length === 1 && currentConfigHandles[0] === configHandle &&
+          configHandle.closest(".drawer") === configDrawer,
+        connected: configDrawer.isConnected && configDrawerContent.isConnected,
+        expanded: configDrawer.getAttribute("data-expanded"),
+        handleExpanded: configHandle.getAttribute("aria-expanded"),
+        height: configDrawer.style.getPropertyValue("height"),
+        contentHeight: configDrawerContent.style.getPropertyValue("height"),
+      },
       globalConfig,
       visualRuntime: visualRuntime(),
     };
@@ -107,6 +141,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     ".cm-content",
     ".control-bar .knob-wrapper",
     ".control-bar .joystick",
+    transportSelector,
     '[data-testid="instrument-selector-trigger"]',
     '[data-testid^="global-control-"]:not([data-testid="global-control-uiRhythm"])',
   ];
@@ -122,14 +157,64 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   };
   const mutationTouchesWorkload = (mutation) => isWithinWorkload(mutation.target) ||
     Array.from(mutation.addedNodes ?? []).some(subtreeContainsWorkload) ||
-    Array.from(mutation.removedNodes ?? []).some(subtreeContainsWorkload);
+    Array.from(mutation.removedNodes ?? []).some(subtreeContainsWorkload) ||
+    mutation.target === configDrawer || mutation.target === configDrawerContent || mutation.target === configHandle;
+
+  const heightFromStyleAttribute = (value) => {
+    const match = String(value ?? "").match(/(?:^|;)\s*height\s*:\s*([^;]*)/i);
+    return match?.[1]?.trim() ?? "";
+  };
+  const retainedMutationEvidence = (mutation) => {
+    if (mutation.type !== "attributes") return null;
+    let field = null;
+    let oldValue = mutation.oldValue;
+    let value = mutation.target.getAttribute(mutation.attributeName);
+    if (mutation.target === transportControl && mutation.attributeName === "aria-label") {
+      field = "transport.ariaLabel";
+    } else if (mutation.target === configDrawer && mutation.attributeName === "style") {
+      field = "configDrawer.height";
+      oldValue = heightFromStyleAttribute(oldValue);
+      value = configDrawer.style.getPropertyValue("height");
+    } else if (mutation.target === configDrawerContent && mutation.attributeName === "style") {
+      field = "configDrawer.contentHeight";
+      oldValue = heightFromStyleAttribute(oldValue);
+      value = configDrawerContent.style.getPropertyValue("height");
+    } else if (mutation.target === configDrawer && mutation.attributeName === "data-expanded") {
+      field = "configDrawer.expanded";
+    } else if (mutation.target === configHandle && mutation.attributeName === "aria-expanded") {
+      field = "configDrawer.handleExpanded";
+    }
+    return field && oldValue !== value ? { field, oldValue, value } : null;
+  };
 
   let workloadObserver = null;
+  let drawerGeometryObserver = null;
   const subscriptions = [];
   const recordWorkloadInput = (event) => {
     if (isWithinWorkload(event.target)) recordWorkload(`dom:${event.type}`);
   };
   let workloadInputListenersInstalled = false;
+  const processWorkloadMutations = (mutations) => {
+    const relevant = mutations.filter(mutationTouchesWorkload);
+    if (relevant.length === 0) return;
+    const evidence = relevant.map(retainedMutationEvidence).filter(Boolean);
+    if (!recordWorkload("dom:workload") && evidence.length > 0) {
+      workloadChanges.push({
+        at: now(),
+        source: "dom:retained-workload-interruption",
+        restoredToSessionBaseline: lastWorkloadSignature === sessionBaselineSignature,
+        mutationEvidence: evidence,
+        workload: readWorkload(),
+      });
+    }
+  };
+  const drainWorkloadObserver = () => {
+    const pending = [
+      ...(workloadObserver?.takeRecords() ?? []),
+      ...(drawerGeometryObserver?.takeRecords() ?? []),
+    ];
+    if (pending.length > 0) processWorkloadMutations(pending);
+  };
 
   const contextEvents = [];
   const recordContextEvent = (event) => contextEvents.push({ type: event.type, at: now() });
@@ -168,9 +253,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
         subscriptions.push(store.$subscribe(() => recordWorkload(`pinia:${name}`), { flush: "sync" }));
       }
     }
-    workloadObserver = new MutationObserver((mutations) => {
-      if (mutations.some(mutationTouchesWorkload)) recordWorkload("dom:workload");
-    });
+    workloadObserver = new MutationObserver(processWorkloadMutations);
     workloadObserver.observe(document.documentElement, {
       subtree: true,
       childList: true,
@@ -178,7 +261,18 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
       characterDataOldValue: true,
       attributes: true,
       attributeOldValue: true,
-      attributeFilter: ["aria-pressed", "aria-valuetext", "data-latched", "data-testid"],
+      attributeFilter: ["aria-label", "aria-expanded", "aria-pressed", "aria-valuetext", "data-latched", "data-testid"],
+    });
+    drawerGeometryObserver = new MutationObserver(processWorkloadMutations);
+    drawerGeometryObserver.observe(configDrawer, {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["data-expanded", "style"],
+    });
+    drawerGeometryObserver.observe(configDrawerContent, {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["style"],
     });
     document.addEventListener("input", recordWorkloadInput, true);
     document.addEventListener("change", recordWorkloadInput, true);
@@ -188,6 +282,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
     contextListenersInstalled = true;
   } catch (error) {
     workloadObserver?.disconnect();
+    drawerGeometryObserver?.disconnect();
     for (const unsubscribe of subscriptions) {
       try { unsubscribe(); } catch { /* Preserve the original installation error. */ }
     }
@@ -256,6 +351,7 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   const snapshot = () => {
     if (stopped) throw new Error("Runtime guard has already stopped");
     if (!activeWindow) throw new Error("Runtime guard has no active window");
+    drainWorkloadObserver();
     recordWorkload("window:snapshot");
     const endedAt = now();
     const current = activeWindow;
@@ -309,9 +405,11 @@ export function installBrowserRuntimeGuard(options = {}, environment = globalThi
   const stop = () => {
     if (stopped) throw new Error("Runtime guard has already stopped");
     const activeWindowProof = activeWindow ? snapshot() : null;
+    drainWorkloadObserver();
     recordWorkload("guard:stop");
     const cleanupIssues = [];
     workloadObserver?.disconnect();
+    drawerGeometryObserver?.disconnect();
     document.removeEventListener("input", recordWorkloadInput, true);
     document.removeEventListener("change", recordWorkloadInput, true);
     for (const unsubscribe of subscriptions) {

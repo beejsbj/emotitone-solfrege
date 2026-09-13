@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { URL } from "node:url";
 
 import { Window } from "happy-dom";
 
@@ -72,6 +74,28 @@ function createFixture({ failSubscriptionFor = null } = {}) {
   joystick.setAttribute("data-latched", "auto");
   controlBar.append(knob, joystick);
   document.body.append(controlBar);
+
+  const codeStripBar = document.createElement("section");
+  codeStripBar.className = "code-strip-bar";
+  const transportControl = document.createElement("button");
+  transportControl.className = "code-strip-bar__play";
+  transportControl.setAttribute("aria-label", "Stop");
+  codeStripBar.append(transportControl);
+  document.body.append(codeStripBar);
+
+  const configDrawer = document.createElement("section");
+  configDrawer.className = "drawer top-drawer";
+  configDrawer.style.height = "360px";
+  configDrawer.setAttribute("data-expanded", "true");
+  const configHandle = document.createElement("button");
+  configHandle.className = "drawer__handle";
+  configHandle.setAttribute("data-testid", "config-panel-trigger");
+  configHandle.setAttribute("aria-expanded", "true");
+  const configDrawerContent = document.createElement("div");
+  configDrawerContent.className = "drawer__content";
+  configDrawerContent.style.height = "332px";
+  configDrawer.append(configHandle, configDrawerContent);
+  document.body.append(configDrawer);
 
   const instrumentTrigger = document.createElement("button");
   instrumentTrigger.setAttribute("data-testid", "instrument-selector-trigger");
@@ -147,6 +171,10 @@ function createFixture({ failSubscriptionFor = null } = {}) {
     canvas,
     line,
     knob,
+    transportControl,
+    configDrawer,
+    configHandle,
+    configDrawerContent,
     visualStore,
     instrumentStore,
     musicStore,
@@ -228,6 +256,64 @@ test("records workload changes even when Stage, BPM, instrument, and code are re
   assert.ok(report.issues.includes("workload-changed-during-guard-session"));
 });
 
+test("rejects a transport stop and restart restored before observer delivery", () => {
+  const fixture = createFixture();
+  fixture.guard.start({ label: "transport-interruption", expectedDurationMs: 1_000 });
+
+  fixture.transportControl.setAttribute("aria-label", "Play");
+  fixture.transportControl.setAttribute("aria-label", "Stop");
+  fixture.fillHealthyWindow();
+
+  const proof = fixture.guard.snapshot();
+  const report = fixture.guard.stop();
+  const interruption = proof.workloadChanges.find(({ source }) =>
+    source === "dom:retained-workload-interruption"
+  );
+
+  assert.equal(proof.valid, false);
+  assert.ok(proof.issues.includes("workload-changed"));
+  assert.ok(interruption.mutationEvidence.some(({ field, oldValue, value }) =>
+    field === "transport.ariaLabel" && oldValue === "Play" && value === "Stop"
+  ));
+  assert.equal(proof.workloadChanges.at(-1).restoredToSessionBaseline, true);
+  assert.equal(report.valid, false);
+});
+
+test("rejects restored Config drawer geometry and expansion changes", () => {
+  const fixture = createFixture();
+  fixture.guard.start({ label: "drawer-interruption", expectedDurationMs: 1_000 });
+
+  fixture.configDrawer.style.height = "220px";
+  fixture.configDrawerContent.style.height = "192px";
+  fixture.configDrawer.setAttribute("data-expanded", "false");
+  fixture.configHandle.setAttribute("aria-expanded", "false");
+  fixture.configDrawer.style.height = "360px";
+  fixture.configDrawerContent.style.height = "332px";
+  fixture.configDrawer.setAttribute("data-expanded", "true");
+  fixture.configHandle.setAttribute("aria-expanded", "true");
+  fixture.fillHealthyWindow();
+
+  const proof = fixture.guard.snapshot();
+  const report = fixture.guard.stop();
+  const evidence = proof.workloadChanges.flatMap(({ mutationEvidence = [] }) => mutationEvidence);
+
+  assert.equal(proof.valid, false);
+  assert.ok(proof.issues.includes("workload-changed"));
+  assert.ok(evidence.some(({ field, oldValue, value }) =>
+    field === "configDrawer.height" && oldValue === "220px" && value === "360px"
+  ));
+  assert.ok(evidence.some(({ field, oldValue, value }) =>
+    field === "configDrawer.contentHeight" && oldValue === "192px" && value === "332px"
+  ));
+  assert.ok(evidence.some(({ field, oldValue, value }) =>
+    field === "configDrawer.expanded" && oldValue === "false" && value === "true"
+  ));
+  assert.ok(evidence.some(({ field, oldValue, value }) =>
+    field === "configDrawer.handleExpanded" && oldValue === "false" && value === "true"
+  ));
+  assert.equal(report.valid, false);
+});
+
 test("rejects a frozen production Stage canvas", () => {
   const fixture = createFixture();
   fixture.guard.start({ label: "frozen-stage", expectedDurationMs: 1_000 });
@@ -287,7 +373,25 @@ test("emits a self-contained CDP installer expression", () => {
   const expression = runtimeGuardInstallerExpression({ maximumCanvasIdleMs: 500 });
   assert.match(expression, /^\(function installBrowserRuntimeGuard/);
   assert.match(expression, /"maximumCanvasIdleMs":500/);
+  assert.match(expression, /\.code-strip-bar \.code-strip-bar__play/);
+  assert.match(expression, /config-panel-trigger/);
   assert.doesNotMatch(expression, /import\s|require\(/);
+});
+
+test("uses the production transport and Config Drawer contracts", async () => {
+  const [codeStripBar, configPanel, drawer] = await Promise.all([
+    readFile(new URL("../../../components/compounds/CodeStripBar.vue", import.meta.url), "utf8"),
+    readFile(new URL("../../../components/ConfigPanel.vue", import.meta.url), "utf8"),
+    readFile(new URL("../../../components/uniques/Drawer/index.vue", import.meta.url), "utf8"),
+  ]);
+  assert.match(codeStripBar, /class="code-strip-bar"/);
+  assert.match(codeStripBar, /class="code-strip-bar__play"/);
+  assert.match(codeStripBar, /:accessible-name="isPlaying \? 'Stop' : 'Play'"/);
+  assert.match(configPanel, /handle-test-id="config-panel-trigger"/);
+  assert.match(drawer, /class="drawer"/);
+  assert.match(drawer, /class="drawer__content"/);
+  assert.match(drawer, /:style="\{ height: `\$\{height\}px` \}"/);
+  assert.match(drawer, /:data-expanded="expanded"/);
 });
 
 test("rolls back earlier hooks when installation fails partway", () => {

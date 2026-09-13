@@ -142,7 +142,8 @@ export function createPlayStyleEngine<T>(deps: {
     for (const pulse of pendingPulses) {
       // The first attack belongs to the first press, even if a lower key
       // arrives before audio onset. Later pulses use the evolving held chord.
-      if (pulse.step === 0 && [...pulse.voices.values()].some(item => playing.has(item))) continue
+      if (config.style !== 'repeat' && pulse.step === 0
+        && [...pulse.voices.values()].some(item => playing.has(item))) continue
       // Close deadlines are already committed to audio. Preserve them rather
       // than canceling a note we cannot safely replace before its onset.
       if (pulse.at <= now || pulse.at < now + schedulingLeadMs) continue

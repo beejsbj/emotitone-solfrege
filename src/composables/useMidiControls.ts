@@ -183,6 +183,7 @@ export function createMidiNoteOwnerScheduler(
   let isBatching = false;
   let advancedCurrentBatch = false;
   let batchTime = 0;
+  let batchImmediateTransitions: Array<Omit<MidiOwnerTransition, "timestamp">> = [];
 
   const eventKey = (ownerId: string, phase: ScheduledMidiOwnerEvent["phase"]) =>
     `${ownerId}\u0000${phase}`;
@@ -268,8 +269,12 @@ export function createMidiNoteOwnerScheduler(
     } else {
       scheduledEvents.set(key, { ownerId, midiNote, phase, timestamp });
     }
-    rebuild();
-    if (immediateTransition) sendNow(immediateTransition);
+    if (isBatching) {
+      if (immediateTransition) batchImmediateTransitions.push(immediateTransition);
+    } else {
+      rebuild();
+      if (immediateTransition) sendNow(immediateTransition);
+    }
   };
 
   return {
@@ -282,6 +287,10 @@ export function createMidiNoteOwnerScheduler(
       isBatching = false;
       advancedCurrentBatch = false;
       batchTime = 0;
+      rebuild();
+      const immediate = batchImmediateTransitions;
+      batchImmediateTransitions = [];
+      immediate.forEach(sendNow);
     },
     attack(ownerId: string, midiNote: number, timestamp?: number) {
       update(ownerId, midiNote, "attack", timestamp);
@@ -293,6 +302,7 @@ export function createMidiNoteOwnerScheduler(
       activeOwners.clear();
       scheduledEvents.clear();
       queuedTransitions = [];
+      batchImmediateTransitions = [];
       isBatching = false;
       advancedCurrentBatch = false;
       batchTime = 0;
@@ -763,6 +773,26 @@ export function useMidiControls() {
     if (timestamp === undefined) selectedRoliOutput.value?.send(message);
     else selectedRoliOutput.value?.send(message, timestamp);
   };
+  let pendingRoliConfiguration: Array<{ message: number[]; timestamp: number }> = [];
+  const sendRoliConfiguration = (message: number[], timestamp = performance.now()) => {
+    const now = performance.now();
+    pendingRoliConfiguration = pendingRoliConfiguration.filter(packet => packet.timestamp >= now);
+    sendToRoliOutput(message, timestamp);
+    pendingRoliConfiguration.push({ message, timestamp });
+  };
+  const clearRoliQueue = (preserveConfiguration = true) => {
+    const now = performance.now();
+    // MIDIOutput.clear also discards future palette packets. Repair only
+    // those packets, retaining their deadlines; delivered device settings
+    // survive a queue replacement and need no recalculation or transmission.
+    pendingRoliConfiguration = preserveConfiguration
+      ? pendingRoliConfiguration.filter(packet => packet.timestamp >= now)
+      : [];
+    (selectedRoliOutput.value as ClearableMidiOutput).clear();
+    for (const { message, timestamp } of pendingRoliConfiguration) {
+      sendToRoliOutput(message, timestamp);
+    }
+  };
   const syncRoliPalette = () => {
     if (!selectedRoliOutput.value) {
       return;
@@ -779,7 +809,7 @@ export function useMidiControls() {
       musicStore.currentMode
     );
     messages.forEach((message, index) => {
-      selectedRoliOutput.value?.send(message, window.performance.now() + index);
+      sendRoliConfiguration(message, window.performance.now() + index);
     });
   };
 
@@ -792,7 +822,7 @@ export function useMidiControls() {
       output: selectedRoliOutput.value.name || selectedRoliOutput.value.id,
       mainOctave: keyboardDrawerStore.keyboardConfig.mainOctave,
     });
-    sendToRoliOutput(
+    sendRoliConfiguration(
       buildRoliMainOctaveMessage(keyboardDrawerStore.keyboardConfig.mainOctave)
     );
   };
@@ -822,9 +852,7 @@ export function useMidiControls() {
 
       if (!selectedRoliOutput.value) return;
       if (replaceScheduled) {
-        (selectedRoliOutput.value as ClearableMidiOutput).clear();
-        syncRoliPalette();
-        syncRoliMainOctave();
+        clearRoliQueue();
       }
       immediate.forEach(({ midiNote, phase }) => {
         sendToRoliOutput(
@@ -910,7 +938,7 @@ export function useMidiControls() {
     anonymousMirroredOwners.value.clear();
   };
 
-  const flushRoliOutput = () => {
+  const flushRoliOutput = (preserveConfiguration = true) => {
     resetPendingMidiOwnerUpdates();
     resetPendingMidiOutputFlush();
     if (!selectedRoliOutput.value) {
@@ -920,7 +948,7 @@ export function useMidiControls() {
       return;
     }
 
-    (selectedRoliOutput.value as ClearableMidiOutput).clear();
+    clearRoliQueue(preserveConfiguration);
     buildRoliAllNotesOffMessages(ROLI_SYNC_CONTROL_CHANNEL).forEach((message) => {
       sendToRoliOutput(message);
     });
@@ -985,6 +1013,7 @@ export function useMidiControls() {
   const syncOutputs = () => {
     if (!midiAccess.value) {
       selectedRoliOutput.value = null;
+      pendingRoliConfiguration = [];
       keyboardDrawerStore.setMidiOutputs([]);
       keyboardDrawerStore.setMidiSyncedOutput(null);
       return;
@@ -993,23 +1022,24 @@ export function useMidiControls() {
     const outputs = Array.from(midiAccess.value.outputs.values()).filter(
       (output) => output.state === "connected"
     );
-    const previousOutputId = selectedRoliOutput.value?.id;
     const preferredOutput = pickPreferredRoliOutput(outputs);
+    const outputChanged = selectedRoliOutput.value !== preferredOutput;
 
     keyboardDrawerStore.setMidiOutputs(
       outputs.map((output) => output.name || "MIDI output")
     );
 
-    if (selectedRoliOutput.value && previousOutputId !== preferredOutput?.id) {
-      flushRoliOutput();
+    if (selectedRoliOutput.value && outputChanged) {
+      flushRoliOutput(false);
     }
 
     selectedRoliOutput.value = preferredOutput;
+    if (outputChanged) pendingRoliConfiguration = [];
     keyboardDrawerStore.setMidiSyncedOutput(
       preferredOutput?.name || null
     );
 
-    if (preferredOutput && previousOutputId !== preferredOutput.id) {
+    if (preferredOutput && outputChanged) {
       debugRoliSync("selected ROLI output", {
         output: preferredOutput.name || preferredOutput.id,
       });

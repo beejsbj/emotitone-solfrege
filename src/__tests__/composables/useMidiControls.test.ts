@@ -19,6 +19,25 @@ vi.mock("@/services/superdoughAudio", () => ({
 }));
 
 describe("useMidiControls helpers", () => {
+  it("projects a dense chord batch once, before sending its immediate transitions", () => {
+    const operations: string[] = [];
+    const replaceScheduled = vi.fn(() => operations.push("replace"));
+    const scheduler = createMidiNoteOwnerScheduler(
+      ({ phase }) => operations.push(`send:${phase}`), replaceScheduled, () => 0,
+    );
+    scheduler.beginBatch();
+    scheduler.attack("held", 48);
+    for (const pitch of [60, 64, 67, 72]) {
+      scheduler.attack(`chord-${pitch}`, pitch, 20);
+      scheduler.release(`chord-${pitch}`, pitch, 120);
+    }
+    expect(operations).toEqual([]);
+    scheduler.endBatch();
+    expect(replaceScheduled).toHaveBeenCalledOnce();
+    expect(replaceScheduled.mock.calls[0][0]).toHaveLength(8);
+    expect(operations).toEqual(["replace", "send:attack"]);
+  });
+
   it("keeps overlapping scheduled owners sounding until the last release", () => {
     let clock = 0;
     const sendNow = vi.fn();

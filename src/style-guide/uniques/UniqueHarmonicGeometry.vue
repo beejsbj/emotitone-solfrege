@@ -4,7 +4,7 @@
       <div>
         <h3>Harmonic Geometry · Canvas Unique</h3>
         <p>
-          Two relationships, one shared material field. Labels remain an
+          One filled Merge body or distinct bodies joined by fine Web strands. Labels remain an
           optional layer and default off.
         </p>
       </div>
@@ -19,11 +19,11 @@
       <figure>
         <canvas
           ref="webCanvas"
-          aria-label="Four colored blobs joined by fused harmonic filaments"
+          aria-label="Four distinct colored blobs joined by thin harmonic strands"
         />
         <figcaption>
           <strong>Web</strong>
-          <span>Distinct bodies share fused perimeter and interior filaments.</span>
+          <span>Distinct bodies joined by fine curved strands, with open space between.</span>
         </figcaption>
       </figure>
 
@@ -34,7 +34,7 @@
         />
         <figcaption>
           <strong>Merge</strong>
-          <span>Every body stays joined; distance tapers the shared neck.</span>
+          <span>Note positions shape one rounded body with a filled, color-blended interior.</span>
         </figcaption>
       </figure>
     </div>

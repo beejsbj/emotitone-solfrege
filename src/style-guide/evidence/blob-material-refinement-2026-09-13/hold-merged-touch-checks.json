@@ -1,0 +1,428 @@
+{
+  "identity": "e602d8d-plus-main-0332091",
+  "input": "touch",
+  "baseline": {
+    "time": 12031.100000023842,
+    "active": [],
+    "pixels": 0,
+    "alpha": 0,
+    "max": 0,
+    "events": []
+  },
+  "config": {
+    "stage": {
+      "isEnabled": true
+    },
+    "blobs": {
+      "isEnabled": true,
+      "baseSizeRatio": 0.05,
+      "minSize": 75,
+      "maxSize": 400,
+      "opacity": 0.5,
+      "blurRadius": 10,
+      "glowEnabled": true,
+      "glowIntensity": 5,
+      "oscillationAmplitude": 1,
+      "fadeOutDuration": 1.5,
+      "scaleInDuration": 0.3,
+      "scaleOutDuration": 0.4,
+      "driftSpeed": 10,
+      "vibrationFrequencyDivisor": 10,
+      "edgeSegments": 48,
+      "vibrationAmplitude": 10,
+      "circleTopMargin": 30,
+      "connectionMode": "merge",
+      "fieldSoftness": 12,
+      "fusionStrength": 0.4,
+      "webOpacity": 0.5,
+      "analysisHoldTime": 2500,
+      "analysisNoteLimit": 7,
+      "showChordLabel": false,
+      "showIntervalLabels": false,
+      "showEmotionLabel": false,
+      "labelOpacity": 0.5
+    },
+    "ambient": {
+      "isEnabled": false,
+      "opacityMajor": 0.6,
+      "opacityMinor": 0.4,
+      "brightnessMajor": 0.5,
+      "brightnessMinor": 0.3,
+      "saturationMajor": 0.8,
+      "saturationMinor": 0.6
+    },
+    "particles": {
+      "isEnabled": false,
+      "count": 10,
+      "sizeMin": 2,
+      "sizeMax": 6,
+      "lifetimeMin": 2000,
+      "lifetimeMax": 3000,
+      "speed": 4,
+      "gravity": 0,
+      "airResistance": 0.99
+    },
+    "strings": {
+      "isEnabled": true,
+      "count": 7,
+      "baseOpacity": 0,
+      "activeOpacity": 0,
+      "maxAmplitude": 5,
+      "dampingFactor": 0.14,
+      "interpolationSpeed": 0.05,
+      "opacityInterpolationSpeed": 0.05,
+      "octaveOffset": 0
+    },
+    "animation": {
+      "visualFrequencyDivisor": 100,
+      "frameRate": 60,
+      "smoothingFactor": 0.1
+    },
+    "frequencyMapping": {
+      "minFreq": 200,
+      "maxFreq": 600,
+      "minValue": 400,
+      "maxValue": 700
+    },
+    "dynamicColors": {
+      "recipeVersion": 1,
+      "musicColorMode": "movable-ordinal",
+      "hueMotionEnabled": true,
+      "animationSpeed": 1,
+      "chroma": 0.18,
+      "lightnessCenter": 0.575,
+      "lightnessSpan": 0.6
+    },
+    "hilbertScope": {
+      "isEnabled": false,
+      "sizeRatio": 0.6,
+      "opacity": 0.7,
+      "scaleInDuration": 0.5,
+      "scaleOutDuration": 0.5,
+      "driftSpeed": 5,
+      "glowEnabled": true,
+      "glowIntensity": 10,
+      "smear": 0,
+      "history": 0.2,
+      "thickness": 1.5
+    },
+    "uiBeat": {
+      "isEnabled": true
+    },
+    "patterns": {
+      "isEnabled": true,
+      "silenceThreshold": 30000,
+      "minPatternLength": 3,
+      "maxPatternLength": 50,
+      "maxHistorySize": 10000,
+      "autoPurgeAge": 24,
+      "detectOnContextChange": true,
+      "autoSaveInterestingPatterns": false,
+      "autoSaveComplexityThreshold": 0.6
+    },
+    "keyboard": {
+      "isEnabled": true,
+      "primaryLabel": "syllable",
+      "keyGaps": "small",
+      "surfaceStyle": "colored",
+      "rowCount": 3,
+      "mainOctave": 4,
+      "hapticFeedback": true,
+      "showLabels": true,
+      "keyBrightness": 1,
+      "keySaturation": 1,
+      "gradientDirection": 225,
+      "keyboardPadding": false
+    },
+    "codeStrip": {
+      "enabled": true,
+      "opacity": 1,
+      "bpm": 120,
+      "notation": "solfege",
+      "showRests": true
+    }
+  },
+  "results": [
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 13415.199999928474,
+        "active": [
+          {
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ],
+        "pixels": 1681,
+        "alpha": 127314,
+        "max": 48.12549019607843,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 14192.100000023842,
+        "active": [
+          {
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ],
+        "pixels": 934,
+        "alpha": 57220,
+        "max": 40.917647058823526,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 16382.399999976158,
+        "active": [
+          {
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ],
+        "pixels": 898,
+        "alpha": 52391,
+        "max": 32.21568627450981,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 18591.799999952316,
+        "active": [
+          {
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ],
+        "pixels": 893,
+        "alpha": 51284,
+        "max": 25.08235294117647,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "web-held",
+      "sample": {
+        "time": 20371.199999928474,
+        "active": [
+          {
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ],
+        "pixels": 870,
+        "alpha": 52467,
+        "max": 24.062745098039215,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "web-released",
+      "sample": {
+        "time": 24032.5,
+        "active": [],
+        "pixels": 0,
+        "alpha": 0,
+        "max": 0,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 21972.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge-tap",
+      "sample": {
+        "time": 24889.399999976158,
+        "active": [
+          {
+            "id": "F4_3_4_1789327793200_9sig1q",
+            "note": "F4"
+          }
+        ],
+        "pixels": 1532,
+        "alpha": 106121,
+        "max": 55.88235294117647,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 21972.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 24297.199999928474,
+            "id": "F4_3_4_1789327793200_9sig1q",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge-tap",
+      "sample": {
+        "time": 27677,
+        "active": [
+          {
+            "id": "F4_3_4_1789327796001_ouqz47",
+            "note": "F4"
+          }
+        ],
+        "pixels": 1618,
+        "alpha": 114234,
+        "max": 58.11764705882353,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 21972.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 24297.199999928474,
+            "id": "F4_3_4_1789327793200_9sig1q",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 25104.5,
+            "id": "F4_3_4_1789327793200_9sig1q",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 27076.899999976158,
+            "id": "F4_3_4_1789327796001_ouqz47",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge-tap",
+      "sample": {
+        "time": 30365.399999976158,
+        "active": [
+          {
+            "id": "F4_3_4_1789327798787_ovkoaz",
+            "note": "F4"
+          }
+        ],
+        "pixels": 1649,
+        "alpha": 120901,
+        "max": 59.98039215686274,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 12696.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 21972.600000023842,
+            "id": "F4_3_4_1789327781503_edh4od",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 24297.199999928474,
+            "id": "F4_3_4_1789327793200_9sig1q",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 25104.5,
+            "id": "F4_3_4_1789327793200_9sig1q",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 27076.899999976158,
+            "id": "F4_3_4_1789327796001_ouqz47",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 27863.899999976158,
+            "id": "F4_3_4_1789327796001_ouqz47",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 29865.600000023842,
+            "id": "F4_3_4_1789327798787_ovkoaz",
+            "note": "F4"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

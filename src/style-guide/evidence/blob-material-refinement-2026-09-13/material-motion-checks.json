@@ -1,0 +1,6 @@
+{
+  "mergeMotion": true,
+  "webMotion": true,
+  "motionOffStill": true,
+  "source": "real prepared Blob contours and field renderer; fixed color and position fixture"
+}

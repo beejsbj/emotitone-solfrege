@@ -10,6 +10,31 @@ import type {
   HarmonicIntervalEdge,
 } from "@/types";
 
+const CANVAS_DISPLAY_FONT_FALLBACK =
+  '"Lets Jazz", "Oswald", system-ui, sans-serif';
+const canvasDisplayFontFamilies = new WeakMap<HTMLCanvasElement, string>();
+
+function getCanvasDisplayFontFamily(ctx: CanvasRenderingContext2D) {
+  if (
+    typeof window !== "undefined" &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    ctx.canvas instanceof HTMLCanvasElement
+  ) {
+    const cachedFont = canvasDisplayFontFamilies.get(ctx.canvas);
+    if (cachedFont) return cachedFont;
+
+    const displayFont = window
+      .getComputedStyle(ctx.canvas)
+      .getPropertyValue("--font-display")
+      .trim();
+    const resolvedFont = displayFont || CANVAS_DISPLAY_FONT_FALLBACK;
+    canvasDisplayFontFamilies.set(ctx.canvas, resolvedFont);
+    return resolvedFont;
+  }
+
+  return CANVAS_DISPLAY_FONT_FALLBACK;
+}
+
 function averagePoint(points: Array<{ x: number; y: number }>) {
   const totals = points.reduce(
     (accumulator, point) => ({
@@ -311,22 +336,23 @@ export function useHarmonicGeometryRenderer() {
     label: HarmonicGeometryLabel,
     opacity: number
   ) => {
+    const displayFont = getCanvasDisplayFontFamily(ctx);
     const sizeMap = {
       sm: {
-        primaryFont: '600 11px "IBM Plex Mono", "SFMono-Regular", monospace',
-        secondaryFont: '500 9px "IBM Plex Mono", "SFMono-Regular", monospace',
+        primaryFont: `600 11px ${displayFont}`,
+        secondaryFont: `500 9px ${displayFont}`,
         lineHeight: 12,
         strokeWidth: 4,
       },
       md: {
-        primaryFont: '700 16px "IBM Plex Mono", "SFMono-Regular", monospace',
-        secondaryFont: '500 11px "IBM Plex Mono", "SFMono-Regular", monospace',
+        primaryFont: `700 16px ${displayFont}`,
+        secondaryFont: `500 11px ${displayFont}`,
         lineHeight: 16,
         strokeWidth: 5,
       },
       lg: {
-        primaryFont: '700 18px "IBM Plex Mono", "SFMono-Regular", monospace',
-        secondaryFont: '500 12px "IBM Plex Mono", "SFMono-Regular", monospace',
+        primaryFont: `700 18px ${displayFont}`,
+        secondaryFont: `500 12px ${displayFont}`,
         lineHeight: 18,
         strokeWidth: 6,
       },

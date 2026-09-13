@@ -240,12 +240,30 @@ describe("useHarmonicGeometryRenderer", () => {
     );
 
     expect(scene?.auxiliaryLabels).toHaveLength(3);
+    const renderedFonts: string[] = [];
+    const canvas = document.createElement("canvas");
+    canvas.style.setProperty(
+      "--font-display",
+      '"Lets Jazz", "Oswald", system-ui, sans-serif'
+    );
+    const context = {
+      ...mockCanvasContext,
+      canvas,
+      fillText: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    vi.mocked(context.fillText).mockImplementation(() => {
+      renderedFonts.push(context.font);
+    });
     renderer.renderLabels(
-      mockCanvasContext as unknown as CanvasRenderingContext2D,
+      context,
       scene,
       config
     );
-    expect(mockCanvasContext.fillText).toHaveBeenCalledTimes(5);
+    expect(context.fillText).toHaveBeenCalledTimes(5);
+    expect(renderedFonts).toHaveLength(5);
+    expect(renderedFonts.every((font) => font.includes('"Lets Jazz"'))).toBe(
+      true
+    );
   });
 
   it("wraps long labels within the canvas width without compressing glyphs", () => {

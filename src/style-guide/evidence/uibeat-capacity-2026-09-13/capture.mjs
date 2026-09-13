@@ -1672,7 +1672,7 @@ async function main() {
         durationMsPerState: options.duration,
         traceDurationMsPerState: options.traceDuration,
         warmupMs: options.warmup,
-        buildIdentityScope: "the measured main document's loaded same-origin JavaScript and CSS bytes are matched through CDP to the manifest produced by a clean build of sourceRevision before scene preparation",
+        buildIdentityScope: "before scene preparation, CDP matches the measured page's loaded entry HTML and CSS content plus exact-URL JavaScript executed in the main frame's default context to the manifest produced by a clean build of sourceRevision",
         frameCallbackScope: "rAF intervals cover browser-delivered animation opportunities for the whole page, including the delay from sample start to the first callback; they are not JS callback duration or proof of displayed hardware frames",
         uiBeatCadenceScope: "bounded MutationObservers record distinct inline scale changes for every expected visible UIBeat control and recurring transform/opacity changes for the retained four-child production BeatIndicator; aggregate on-window activity must avoid idle gaps longer than two beat periods with a 2000ms floor, every indicator child must avoid idle gaps longer than one four-beat cycle with the same floor, each window must span at least two applicable allowances, and retained nodes must remain unchanged while off",
         cdpTraceScope: "a separate diagnostic trace follows each untraced frame-callback window; selected raw presentation/drop events and full event-name counts are retained, event availability varies by browser build, and tracing does not prove display scanout",

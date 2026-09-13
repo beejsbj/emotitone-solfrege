@@ -142,6 +142,45 @@ describe('UnifiedVisualEffects.vue', () => {
     expect(unifiedCanvasMocks.handleNoteReleased).toHaveBeenCalledWith('C4', 'note-1', 'C4')
   })
 
+  it('keeps controlled note events off the production window target', async () => {
+    const controlledTarget = new EventTarget()
+    const windowAddSpy = vi.spyOn(window, 'addEventListener')
+
+    wrapper = createTestWrapper(UnifiedVisualEffects, {
+      props: { eventTarget: controlledTarget, activeNotes: [] },
+    })
+    await nextTick()
+
+    controlledTarget.dispatchEvent(new CustomEvent('note-played', {
+      detail: {
+        note: { name: 'Do', number: 1 },
+        frequency: 261.63,
+        noteId: 'controlled-note',
+        octave: 4,
+        noteName: 'C4',
+      },
+    }))
+
+    expect(unifiedCanvasMocks.handleNotePlayed).toHaveBeenCalledWith(
+      { name: 'Do', number: 1 },
+      261.63,
+      'controlled-note',
+      4,
+      'C4',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    )
+    expect(windowAddSpy).not.toHaveBeenCalledWith('note-played', expect.any(Function))
+    expect(useUnifiedCanvas).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        getActiveNotes: expect.any(Function),
+      }),
+    )
+  })
+
   it('uses the solfege blob key for legacy id-less releases', async () => {
     const listeners = new Map<string, EventListener>()
     vi.spyOn(window, 'addEventListener').mockImplementation((type, listener) => {

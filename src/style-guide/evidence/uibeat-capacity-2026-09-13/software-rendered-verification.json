@@ -1,0 +1,4586 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-13T14:32:57.631Z",
+  "sourceRevision": "dc5734617107136e00fdabda38c473aa55b601f0",
+  "evidenceClass": "software-rendered",
+  "capacityClosureEligible": false,
+  "device": {
+    "evidenceClass": "software-rendered",
+    "deviceName": "bjslab Xvfb rehearsal",
+    "deviceType": "virtual desktop",
+    "os": "Ubuntu 24.04, Linux 6.8.0-124-generic",
+    "display": "Xvfb 1366x768x24; Chrome window 1366x768",
+    "power": "not applicable to capacity claim",
+    "thermal": "not sampled; ineligible rehearsal",
+    "browserWindow": "visible only inside Xvfb; not a native physical display",
+    "operatorObservation": "Codex, 2026-09-13; no physical panel observation",
+    "sourceRevision": "dc5734617107136e00fdabda38c473aa55b601f0",
+    "notes": "Capture-path rehearsal only. Must not be used for physical-device closure."
+  },
+  "browser": {
+    "product": "Chrome/147.0.7727.101",
+    "protocolVersion": "1.3",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+  },
+  "environment": {
+    "initial": {
+      "url": "http://127.0.0.1:5183/",
+      "title": "EmotiTone Solfège",
+      "visibilityState": "visible",
+      "hasFocus": true,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "platform": "Linux x86_64",
+      "webdriver": false,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGiB": 16,
+      "viewportCssPx": [
+        1365,
+        628
+      ],
+      "screenCssPx": [
+        1366,
+        768
+      ],
+      "availableScreenCssPx": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "colorDepth": 24,
+      "webgl": {
+        "renderer": null,
+        "vendor": null
+      }
+    },
+    "final": {
+      "url": "http://127.0.0.1:5183/",
+      "title": "EmotiTone Solfège",
+      "visibilityState": "visible",
+      "hasFocus": true,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "platform": "Linux x86_64",
+      "webdriver": false,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGiB": 16,
+      "viewportCssPx": [
+        1365,
+        628
+      ],
+      "screenCssPx": [
+        1366,
+        768
+      ],
+      "availableScreenCssPx": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "colorDepth": 24,
+      "webgl": {
+        "renderer": null,
+        "vendor": null
+      }
+    }
+  },
+  "automatedEligibility": {
+    "knownNonNativeRenderer": true,
+    "allSamplesValid": true
+  },
+  "scenePreparation": {
+    "reusedExistingPlayback": true,
+    "addedNotes": 0,
+    "codeText": "`<  Do@0.087 ~ Re@0.15 ~ Mi@0.1395 ~ Fa@0.136 ~ Sol@0.099  >`.as(\"n\").scale(\"C4:major\").sound(\"piano\").cpm(120 / 4)"
+  },
+  "methodology": {
+    "scene": "production route, sounding generated pattern, Config Global panel open",
+    "sequence": [
+      "uiBeat-on-first",
+      "uiBeat-off",
+      "uiBeat-on-second"
+    ],
+    "durationMsPerState": 10000,
+    "traceDurationMsPerState": 2000,
+    "warmupMs": 2000,
+    "frameCallbackScope": "rAF intervals cover browser-delivered animation opportunities for the whole page; they are not JS callback duration or proof of displayed hardware frames",
+    "cdpTraceScope": "a separate diagnostic trace follows each untraced frame-callback window; selected raw presentation/drop events and full event-name counts are retained, event availability varies by browser build, and tracing does not prove display scanout",
+    "longAnimationFrameScope": "browser Long Animation Frame entries include main-thread script/render attribution where supported"
+  },
+  "limitations": [
+    "Physical displayed frames require the operator's named-device/native-window observation; CDP cannot independently prove panel scanout.",
+    "requestAnimationFrame timestamps can reveal foreground page pacing but do not directly measure compositor-to-display presentation.",
+    "A software-rendered or emulated capture cannot close the physical-device capacity gate."
+  ],
+  "samples": [
+    {
+      "label": "uiBeat-on-first",
+      "valid": true,
+      "initialScene": {
+        "transportPlaying": true,
+        "boundAcceptedConsumers": 22,
+        "boundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "visibleBoundConsumers": 22,
+        "visibleBoundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "runningAcceptedConsumers": 22,
+        "runningByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "indicatorRunning": true,
+        "visibilityState": "visible",
+        "hasFocus": true
+      },
+      "finalScene": {
+        "transportPlaying": true,
+        "boundAcceptedConsumers": 22,
+        "boundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "visibleBoundConsumers": 22,
+        "visibleBoundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "runningAcceptedConsumers": 22,
+        "runningByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "indicatorRunning": true,
+        "visibilityState": "visible",
+        "hasFocus": true
+      },
+      "frameCallbacks": {
+        "startedAt": 596457,
+        "endedAt": 606517,
+        "timestamps": [
+          596444.5,
+          596561.2,
+          596744.5,
+          596877.8,
+          596994.4,
+          597211.2,
+          597411.1,
+          597594.4,
+          597844.4,
+          598027.7,
+          598277.8,
+          598444.4,
+          598611.1,
+          598861,
+          599111.1,
+          599394.4,
+          599661,
+          599927.7,
+          600244.3,
+          600511,
+          600844.3,
+          601077.6,
+          601294.3,
+          601410.9,
+          601594.2,
+          601777.6,
+          601961,
+          602094.3,
+          602294.3,
+          602460.9,
+          602710.9,
+          602977.6,
+          603344.2,
+          603510.9,
+          603794.2,
+          604060.8,
+          604327.5,
+          604477.5,
+          604644.1,
+          604827.4,
+          604994.2,
+          605160.8,
+          605327.4,
+          605494.1,
+          605744.2,
+          606010.7,
+          606210.8,
+          606344.1,
+          606460.8
+        ],
+        "intervals": [
+          116.69999999995343,
+          183.30000000004657,
+          133.30000000004657,
+          116.59999999997672,
+          216.79999999993015,
+          199.90000000002328,
+          183.30000000004657,
+          250,
+          183.29999999993015,
+          250.10000000009313,
+          166.59999999997672,
+          166.69999999995343,
+          249.90000000002328,
+          250.09999999997672,
+          283.30000000004657,
+          266.5999999999767,
+          266.69999999995343,
+          316.60000000009313,
+          266.69999999995343,
+          333.30000000004657,
+          233.29999999993015,
+          216.70000000006985,
+          116.59999999997672,
+          183.29999999993015,
+          183.40000000002328,
+          183.40000000002328,
+          133.30000000004657,
+          200,
+          166.59999999997672,
+          250,
+          266.69999999995343,
+          366.5999999999767,
+          166.70000000006985,
+          283.29999999993015,
+          266.60000000009313,
+          266.69999999995343,
+          150,
+          166.59999999997672,
+          183.30000000004657,
+          166.79999999993015,
+          166.60000000009313,
+          166.59999999997672,
+          166.69999999995343,
+          250.09999999997672,
+          266.5,
+          200.10000000009313,
+          133.29999999993015,
+          116.70000000006985
+        ],
+        "longAnimationFrames": [
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 596239.1000000238,
+            "duration": 74,
+            "paintTime": 596313.1000000238,
+            "presentationTime": 596388,
+            "renderStart": 596241.6999999285,
+            "styleAndLayoutStart": 596310.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 23.317,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 596344.6999999285,
+            "duration": 79.30000007152557,
+            "paintTime": 596424,
+            "presentationTime": 596508,
+            "renderStart": 596351.6000000238,
+            "styleAndLayoutStart": 596421.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 22.82,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 596451.1999999285,
+            "duration": 76.30000007152557,
+            "paintTime": 596527.5,
+            "presentationTime": 596620,
+            "renderStart": 596457.1999999285,
+            "styleAndLayoutStart": 596525.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 20.252,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 596558.2999999523,
+            "duration": 83,
+            "paintTime": 596641.2999999523,
+            "presentationTime": 596804,
+            "renderStart": 596574.6000000238,
+            "styleAndLayoutStart": 596639.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 26.992,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 596741.5,
+            "duration": 73.29999995231628,
+            "paintTime": 596814.7999999523,
+            "presentationTime": 596920,
+            "renderStart": 596749.3999999762,
+            "styleAndLayoutStart": 596813.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 16.916,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 597007.7999999523,
+            "duration": 59.39999997615814,
+            "paintTime": 597067.1999999285,
+            "presentationTime": 597256,
+            "renderStart": 597028.1999999285,
+            "styleAndLayoutStart": 597066.2999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 0,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 597214.1999999285,
+            "duration": 63.60000002384186,
+            "paintTime": 597277.7999999523,
+            "presentationTime": 597436,
+            "renderStart": 597219.6999999285,
+            "styleAndLayoutStart": 597276.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 8.114,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 597408.3999999762,
+            "duration": 58,
+            "paintTime": 597466.3999999762,
+            "presentationTime": 597656,
+            "renderStart": 597425.8999999762,
+            "styleAndLayoutStart": 597465.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 0,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 597597,
+            "duration": 76.29999995231628,
+            "paintTime": 597673.2999999523,
+            "presentationTime": 597908,
+            "renderStart": 597602.2999999523,
+            "styleAndLayoutStart": 597671.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 20.887,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 597851.7999999523,
+            "duration": 82.5,
+            "paintTime": 597934.2999999523,
+            "presentationTime": 598072,
+            "renderStart": 597862.6999999285,
+            "styleAndLayoutStart": 597932.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 29.765,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 598028.1999999285,
+            "duration": 77,
+            "paintTime": 598105.1999999285,
+            "presentationTime": 598324,
+            "renderStart": 598044.6999999285,
+            "styleAndLayoutStart": 598103.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 21.313,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 598279.3999999762,
+            "duration": 71.79999995231628,
+            "paintTime": 598351.1999999285,
+            "presentationTime": 598488,
+            "renderStart": 598286.6000000238,
+            "styleAndLayoutStart": 598349.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 16.107,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 598446.6000000238,
+            "duration": 61.299999952316284,
+            "paintTime": 598507.8999999762,
+            "presentationTime": 598656,
+            "renderStart": 598451.8999999762,
+            "styleAndLayoutStart": 598506.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 6.127,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 598609,
+            "duration": 86.29999995231628,
+            "paintTime": 598695.2999999523,
+            "presentationTime": 598920,
+            "renderStart": 598631.6000000238,
+            "styleAndLayoutStart": 598693.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 23.296,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 598873.1000000238,
+            "duration": 60.299999952316284,
+            "paintTime": 598933.3999999762,
+            "presentationTime": 599172,
+            "renderStart": 598873.2999999523,
+            "styleAndLayoutStart": 598932,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 10.155,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 599109.1000000238,
+            "duration": 92,
+            "paintTime": 599201.1000000238,
+            "presentationTime": 599440,
+            "renderStart": 599131.7999999523,
+            "styleAndLayoutStart": 599199.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 29.292,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 599399.6000000238,
+            "duration": 74.09999990463257,
+            "paintTime": 599473.6999999285,
+            "presentationTime": 599708,
+            "renderStart": 599405.1999999285,
+            "styleAndLayoutStart": 599472,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 18.682,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 599659.7999999523,
+            "duration": 102.60000002384186,
+            "paintTime": 599762.3999999762,
+            "presentationTime": 599988,
+            "renderStart": 599681.7999999523,
+            "styleAndLayoutStart": 599759.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 40.719,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 599935.5,
+            "duration": 71.69999992847443,
+            "paintTime": 600007.1999999285,
+            "presentationTime": 600308,
+            "renderStart": 599944.3999999762,
+            "styleAndLayoutStart": 600005.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 21.224,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 600257.7999999523,
+            "duration": 76.30000007152557,
+            "paintTime": 600334.1000000238,
+            "presentationTime": 600556,
+            "renderStart": 600266,
+            "styleAndLayoutStart": 600331.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 25.739,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 600509.6000000238,
+            "duration": 81.29999995231628,
+            "paintTime": 600590.8999999762,
+            "presentationTime": 600888,
+            "renderStart": 600529.5,
+            "styleAndLayoutStart": 600589,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 22.001,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 600843.1000000238,
+            "duration": 67.69999992847443,
+            "paintTime": 600910.7999999523,
+            "presentationTime": 601124,
+            "renderStart": 600852.2999999523,
+            "styleAndLayoutStart": 600909.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 15.998,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 601075.5,
+            "duration": 72,
+            "paintTime": 601147.5,
+            "presentationTime": 601336,
+            "renderStart": 601084.7999999523,
+            "styleAndLayoutStart": 601145.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 21.555,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 601601.7999999523,
+            "duration": 53.200000047683716,
+            "paintTime": 601655,
+            "presentationTime": 601820,
+            "renderStart": 601608.6000000238,
+            "styleAndLayoutStart": 601653.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 2.798,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 601787.1999999285,
+            "duration": 53,
+            "paintTime": 601840.1999999285,
+            "presentationTime": 602004,
+            "renderStart": 601796.8999999762,
+            "styleAndLayoutStart": 601839.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 0.859,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 601971.1999999285,
+            "duration": 52.200000047683716,
+            "paintTime": 602023.3999999762,
+            "presentationTime": 602136,
+            "renderStart": 601971.5,
+            "styleAndLayoutStart": 602022.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 2.016,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 602095.7999999523,
+            "duration": 53.10000002384186,
+            "paintTime": 602148.8999999762,
+            "presentationTime": 602376,
+            "renderStart": 602102.6999999285,
+            "styleAndLayoutStart": 602147.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 2.932,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 602303.8999999762,
+            "duration": 68.60000002384186,
+            "paintTime": 602372.5,
+            "presentationTime": 602520,
+            "renderStart": 602304.3999999762,
+            "styleAndLayoutStart": 602370.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 18.24,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 602474,
+            "duration": 64,
+            "paintTime": 602538,
+            "presentationTime": 602772,
+            "renderStart": 602483,
+            "styleAndLayoutStart": 602536.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 13.645,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 602724.2999999523,
+            "duration": 74.60000002384186,
+            "paintTime": 602798.8999999762,
+            "presentationTime": 603040,
+            "renderStart": 602732.1999999285,
+            "styleAndLayoutStart": 602797,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 24.196,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 602987.1999999285,
+            "duration": 86.10000002384186,
+            "paintTime": 603073.2999999523,
+            "presentationTime": 603404,
+            "renderStart": 603004.8999999762,
+            "styleAndLayoutStart": 603071.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 28.197,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 603353.1999999285,
+            "duration": 65,
+            "paintTime": 603418.1999999285,
+            "presentationTime": 603572,
+            "renderStart": 603354.2999999523,
+            "styleAndLayoutStart": 603416.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 14.348,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 603522.3999999762,
+            "duration": 77.79999995231628,
+            "paintTime": 603600.1999999285,
+            "presentationTime": 603840,
+            "renderStart": 603542.7999999523,
+            "styleAndLayoutStart": 603598.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 18.849,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 603792.7999999523,
+            "duration": 83,
+            "paintTime": 603875.7999999523,
+            "presentationTime": 604104,
+            "renderStart": 603802.3999999762,
+            "styleAndLayoutStart": 603873.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 30.832,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 604059.1000000238,
+            "duration": 80.89999997615814,
+            "paintTime": 604140,
+            "presentationTime": 604372,
+            "renderStart": 604069.5,
+            "styleAndLayoutStart": 604138.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 30.174,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 604325,
+            "duration": 61.89999997615814,
+            "paintTime": 604386.8999999762,
+            "presentationTime": 604536,
+            "renderStart": 604328.2999999523,
+            "styleAndLayoutStart": 604385.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 9.95,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 604484.6999999285,
+            "duration": 62,
+            "paintTime": 604546.6999999285,
+            "presentationTime": 604708,
+            "renderStart": 604485,
+            "styleAndLayoutStart": 604545.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 11.857,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 604649.6999999285,
+            "duration": 78.10000002384186,
+            "paintTime": 604727.7999999523,
+            "presentationTime": 604888,
+            "renderStart": 604661.5,
+            "styleAndLayoutStart": 604726.2999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 23.835,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 604836,
+            "duration": 63.89999997615814,
+            "paintTime": 604899.8999999762,
+            "presentationTime": 605040,
+            "renderStart": 604836.1999999285,
+            "styleAndLayoutStart": 604898.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 13.699,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 605000.2999999523,
+            "duration": 71.5,
+            "paintTime": 605071.7999999523,
+            "presentationTime": 605220,
+            "renderStart": 605009.8999999762,
+            "styleAndLayoutStart": 605070.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 21.234,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 605171.3999999762,
+            "duration": 59.299999952316284,
+            "paintTime": 605230.6999999285,
+            "presentationTime": 605372,
+            "renderStart": 605171.6000000238,
+            "styleAndLayoutStart": 605229.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 9.14,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 605329.3999999762,
+            "duration": 62.89999997615814,
+            "paintTime": 605392.2999999523,
+            "presentationTime": 605540,
+            "renderStart": 605331.1000000238,
+            "styleAndLayoutStart": 605390.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 12.533,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 605492.5,
+            "duration": 75.29999995231628,
+            "paintTime": 605567.7999999523,
+            "presentationTime": 605792,
+            "renderStart": 605508.1999999285,
+            "styleAndLayoutStart": 605566.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 18.521,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 605744.3999999762,
+            "duration": 85.29999995231628,
+            "paintTime": 605829.6999999285,
+            "presentationTime": 606052,
+            "renderStart": 605761.6999999285,
+            "styleAndLayoutStart": 605827.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 27.354,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          }
+        ],
+        "longTasks": [
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 596457.1999999285,
+            "duration": 101,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 596574.6000000238,
+            "duration": 166,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 596749.2999999523,
+            "duration": 138,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 596888.1999999285,
+            "duration": 119,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 597028.1999999285,
+            "duration": 186,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 597219.6999999285,
+            "duration": 188,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 597425.8999999762,
+            "duration": 171,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 597602.2999999523,
+            "duration": 249,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 597862.6999999285,
+            "duration": 165,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 598044.6999999285,
+            "duration": 234,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 598286.5,
+            "duration": 160,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 598451.7999999523,
+            "duration": 157,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 598631.5,
+            "duration": 241,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 598873.2999999523,
+            "duration": 235,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 599131.7999999523,
+            "duration": 267,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 599405.1999999285,
+            "duration": 254,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 599681.7999999523,
+            "duration": 253,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 599944.3999999762,
+            "duration": 313,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 600265.8999999762,
+            "duration": 243,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 600529.3999999762,
+            "duration": 313,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 600852.1999999285,
+            "duration": 223,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 601084.7999999523,
+            "duration": 212,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 601297.1999999285,
+            "duration": 118,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 601422.1000000238,
+            "duration": 179,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 601608.5,
+            "duration": 178,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 601796.8999999762,
+            "duration": 174,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 601971.3999999762,
+            "duration": 124,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 602102.6999999285,
+            "duration": 201,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 602304.3999999762,
+            "duration": 169,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 602483,
+            "duration": 241,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 602732.1999999285,
+            "duration": 255,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 603004.8999999762,
+            "duration": 348,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 603353.8999999762,
+            "duration": 168,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 603542.7999999523,
+            "duration": 250,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 603802.2999999523,
+            "duration": 256,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 604069.5,
+            "duration": 255,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 604328.2999999523,
+            "duration": 156,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 604484.7999999523,
+            "duration": 164,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 604661.5,
+            "duration": 174,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 604836.1999999285,
+            "duration": 164,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 605009.7999999523,
+            "duration": 161,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 605171.6000000238,
+            "duration": 157,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 605331.1000000238,
+            "duration": 161,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 605508.1999999285,
+            "duration": 236,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 605761.6999999285,
+            "duration": 261,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 606023.5,
+            "duration": 186,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 606217.1000000238,
+            "duration": 128,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 606348.1999999285,
+            "duration": 115,
+            "attribution": [
+              {}
+            ]
+          }
+        ],
+        "interruptions": [],
+        "timedOut": false,
+        "visibilityState": "visible",
+        "hasFocus": true,
+        "uiBeat": {
+          "bound": 22,
+          "running": 23,
+          "idle": 0,
+          "indicatorRunning": 1
+        },
+        "summary": {
+          "count": 48,
+          "meanMs": 208.67291666666765,
+          "p50Ms": 191.65000000002328,
+          "p95Ms": 304.9450000000768,
+          "p99Ms": 350.94900000000956,
+          "maxMs": 366.5999999999767,
+          "over20ms": 48,
+          "over33_3ms": 48,
+          "over50ms": 48
+        }
+      },
+      "cdpMetricsDelta": {
+        "TaskDuration": 10.297129000000002,
+        "ScriptDuration": 1.4325510000000001,
+        "LayoutDuration": 0.043008000000000005,
+        "RecalcStyleDuration": 1.3074879999999998,
+        "DevToolsCommandDuration": 0.0008629999999999992,
+        "JSHeapUsedSize": -5607124,
+        "Nodes": -314,
+        "LayoutCount": 50,
+        "RecalcStyleCount": 278
+      },
+      "trace": {
+        "durationMs": 2000,
+        "rawEventCount": 31939,
+        "byName": {
+          "thread_name": 8,
+          "process_name": 2,
+          "process_uptime_seconds": 2,
+          "DroppedFrame": 110,
+          "RasterizerTaskImpl::RunOnWorkerThread": 668,
+          "RasterTask": 668,
+          "ZeroCopyRasterBuffer::Playback": 668,
+          "DisplayItemList::Raster": 668,
+          "TaskSetFinishedTaskImpl::RunOnWorkerThread": 252,
+          "DidFinishRunningAllTilesTask::RunOnWorkerThread": 122,
+          "TileManager::DidFinishRunningTileTasksRequiredForActivation": 114,
+          "TileManager::DidFinishRunningAllTileTasks": 114,
+          "TileManager::CheckForCompletedTasksAndIssueSignals": 142,
+          "TileTaskManagerImpl::CheckForCompletedTasks": 274,
+          "LayerTreeHostImpl::NotifyTileStateChanged": 1417,
+          "TileManager::CheckPendingGpuWorkAndIssueSignals": 262,
+          "TileManager::IsReadyToActivate": 34,
+          "TileManager::AssignGpuMemoryToTiles": 130,
+          "RasterSource::PerformSolidColorAnalysis": 677,
+          "TileManager::ScheduleTasks": 130,
+          "auto cc::(anonymous namespace)::InsertNodeForTask(TaskGraph *, TileTask *, uint16_t, uint16_t, size_t, bool)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 1183,
+          "SoftwareImageDecodeCache::ReduceCacheUsageUntilWithinLimit": 130,
+          "TileTaskManagerImpl::ScheduleTasks": 130,
+          "Scheduler::OnBeginImplFrameDeadline": 121,
+          "ProxyImpl::ScheduledActionDraw": 120,
+          "MainFrame.Draw": 340,
+          "Graphics.Pipeline": 3706,
+          "LayerTreeHostImpl::PrepareToDraw": 120,
+          "LayerTreeImpl::UpdateDrawProperties": 147,
+          "LayerTreeImpl::UpdateDrawProperties::CalculateDrawProperties": 147,
+          "draw_property_utils::FindLayersThatNeedUpdates": 147,
+          "draw_property_utils::ComputeDrawPropertiesOfVisibleLayers": 147,
+          "CalculateRenderSurfaceLayerList": 147,
+          "RenderSurfaceReasonCount": 882,
+          "LayerTreeImpl::UpdateDrawProperties::Occlusion": 147,
+          "LayerTreeImpl::UpdateTiles": 147,
+          "SchedulerStateMachine::SetNeedsPrepareTiles": 119,
+          "UpdateStateFromAnimationDrivers": 139,
+          "TileManager::PrepareToDraw": 120,
+          "TileManager::IsReadyToDraw": 120,
+          "TileManager::PrepareToDrawFinished": 120,
+          "LayerTreeHostImpl::CalculateRenderPasses": 120,
+          "Scroll Delta This Frame": 120,
+          "DrawLayers.FrameViewerTracing": 120,
+          "LayerTreeHostImpl::BuildHitTestData": 120,
+          "BeginFrame": 120,
+          "DrawFrame": 120,
+          "BenchmarkInstrumentation::ImplThreadRenderingStats": 120,
+          "AnimationHost::UpdateAnimationState": 129,
+          "ProxyImpl::SetNeedsOneBeginImplFrameOnImplThread": 257,
+          "auto cc::Scheduler::FinishImplFrame()::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 121,
+          "TileManager::DidFinishRunningTileTasksRequiredForDraw": 126,
+          "Surface::CommitFrame": 120,
+          "Surface::ActivateFrame": 120,
+          "DisplayScheduler::ScheduleBeginFrameDeadline": 360,
+          "Waiting for next BeginFrame": 224,
+          "DelayBasedBeginFrameSource::OnTimerTick": 120,
+          "SendBeginFrameDecision": 120,
+          "DisplayScheduler::BeginFrame": 120,
+          "DisplayDamageTracker::HasPendingSurfaces": 136,
+          "All active surfaces ready": 119,
+          "Using new deadline": 134,
+          "ExternalBeginFrameSource::OnBeginFrame": 120,
+          "Scheduler::BeginFrame": 120,
+          "Scheduler::BeginImplFrame": 120,
+          "DisplayScheduler::OnBeginFrameDeadline": 120,
+          "DisplayScheduler::DrawAndSwap": 119,
+          "Display::DrawAndSwap": 119,
+          "auto cc::SchedulerStateMachine::ShouldThrottleSendBeginMainFrame()::(lambda)::operator()(uint32_t) const": 128,
+          "AnimationHost::TickAnimations": 137,
+          "NeedsTickAnimations": 137,
+          "ProxyImpl::SetNeedsRedrawOnImplThread": 120,
+          "Scheduler::ScheduleBeginImplFrameDeadline": 129,
+          "auto viz::ClientResourceProvider::ReceiveReturnsFromParent(std::vector<ReturnedResource>)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 129,
+          "ProxyImpl::DidReceiveCompositorFrameAckOnImplThread": 119,
+          "DirectRenderer::DrawFrame": 119,
+          "SoftwareRenderer::BeginDrawingFrame": 119,
+          "DirectRenderer::DrawRenderPass": 551,
+          "SoftwareRenderer::DoDrawQuad": 3078,
+          "SoftwareRenderer::FinishDrawingFrame": 119,
+          "BenchmarkInstrumentation::DisplayRenderingStats": 119,
+          "SoftwareRenderer::SwapBuffers": 119,
+          "SurfaceManager::GarbageCollectSurfaces": 119,
+          "Display::FrameDisplayed": 119,
+          "FireAnimationFrame": 40,
+          "FunctionCall": 83,
+          "ProxyImpl::ReadyToActivate": 27,
+          "LayerTreeHostImpl::ActivateSyncTree": 27,
+          "ProcessUIResourceRequestQueue": 9,
+          "TreeSynchronizer::SynchronizeTrees": 17,
+          "ProxyImpl::OnCanDrawStateChanged": 34,
+          "LayerTreeImpl::PushPropertyTreesTo": 9,
+          "TreeSynchronizer::PushLayerPropertiesTo.Impl": 9,
+          "LayerTreeImpl::PushPropertiesTo": 9,
+          "AnimationHost::ActivateAnimations": 9,
+          "ImageAnimationController::WillActivate": 9,
+          "ActivateLayerTree": 9,
+          "ProxyImpl::DidActivateSyncTreeOnImplThread": 9,
+          "InputHandler::ClearCurrentlyScrollingNode": 9,
+          "ElementAnimations::SetRunState": 57,
+          "ProxyImpl::SetNeedsCommitOnImplThread": 99,
+          "auto cc::SchedulerStateMachine::SetNeedsBeginMainFrame(bool)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 99,
+          "ProxyImpl::ScheduledActionPrepareTiles": 111,
+          "TileManager::PrepareTiles": 119,
+          "DidPrepareTiles": 119,
+          "RequestAnimationFrame": 39,
+          "LocalFrameView::ScheduleAnimation": 89,
+          "CancelAnimationFrame": 9,
+          "UpdateLayoutTree": 31,
+          "LocalFrameView::layout": 9,
+          "Layout": 9,
+          "LocalFrameView::performLayout": 9,
+          "LocalFrameView::performPostLayoutTasks": 9,
+          "LayerTreeHost::WaitForCommitCompletion": 9,
+          "LocalFrameView::RunStyleAndLayoutLifecyclePhases": 17,
+          "PrePaint": 17,
+          "LocalFrameView::RunCompositingInputsLifecyclePhase": 17,
+          "LocalFrameView::RunPrePaintLifecyclePhase": 17,
+          "ScrollTree::SetScrollOffset": 72,
+          "IntersectionObserverController::computeIntersections": 17,
+          "LocalFrameView::NotifyResizeObservers": 9,
+          "LocalFrameView::RunPaintLifecyclePhase": 9,
+          "CullRectUpdate": 9,
+          "Paint": 791,
+          "PaintController::commitNewDisplayItems": 9,
+          "Layerize": 9,
+          "LayerTreeHost::DoUpdateLayers": 9,
+          "RecordingSource::FinishDisplayItemListUpdate": 511,
+          "RecordingSource::DetermineIfSolidColor": 260,
+          "ProxyMain::BeginMainFrame::commit": 24,
+          "LocalFrameView::RunAccessibilitySteps": 8,
+          "LocalFrameView::UpdateViewportIntersectionsForSubtree": 8,
+          "ProxyImpl::ReadyToCommit": 24,
+          "Scheduler::NotifyBeginMainFrameStarted": 8,
+          "Scheduler::NotifyReadyToCommit": 8,
+          "ProxyImpl::ScheduledActionSendBeginMainFrame": 8,
+          "ScrollTree::CollectScrollDeltas": 8,
+          "SendBeginMainFrame": 24,
+          "RequestMainThreadFrame": 8,
+          "ProxyImpl::Commit": 24,
+          "LayerTreeHostImpl::BeginCommit": 8,
+          "LayerTreeHostImpl::FinishCommit": 8,
+          "TimerFire": 12,
+          "LayerTreeImpl::PullProperties": 8,
+          "TreeSynchronizer::PushLayerPropertiesTo.Main": 8,
+          "TextureLayer::PushPropertiesTo": 16,
+          "DiscardableImageMap::Generate": 511,
+          "LayerTreeHost::AnimationHost::PushProperties": 8,
+          "LayerTreeHostImpl::CommitComplete": 24,
+          "ProxyMain::BeginMainFrame": 22,
+          "LayerTreeHost::ApplyCompositorChanges": 8,
+          "BeginMainThreadFrame": 8,
+          "HitTest": 12,
+          "ImageAnimationController::AnimateImagesForSyncTree": 8,
+          "LayerTreeImpl::InvalidateRegionForImages": 8,
+          "ProxyMain::SetNeedsAnimate": 8,
+          "No damage yet": 17,
+          "TimerRemove": 3,
+          "TimerInstall": 6,
+          "EventDispatch": 1,
+          "OverlayInterstitialAdDetector::MaybeFireDetection": 2,
+          "StickyAdDetector::MaybeFireDetection": 2,
+          "DidNotSubmitInLastFrame": 1,
+          "auto cc::Scheduler::SendDidNotProduceFrame(const viz::BeginFrameArgs &, FrameSkippedReason)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 1,
+          "LayerTreeHostImpl::DidNotProduceFrame": 1,
+          "Using existing deadline": 2,
+          "AnimationFrame": 30,
+          "PipelineReporter": 256,
+          "BeginImplFrameToSendBeginMainFrame": 256,
+          "SendBeginMainFrameToCommit": 18,
+          "EndActivateToSubmitCompositorFrame": 254,
+          "SubmitCompositorFrameToPresentationCompositorFrame": 254,
+          "SubmitToReceiveCompositorFrame": 254,
+          "ReceiveCompositorFrameToStartDraw": 254,
+          "StartDrawToSwapStart": 254,
+          "SwapEndToPresentationCompositorFrame": 254,
+          "Commit": 18,
+          "AnimationFrame::Render": 18,
+          "EndCommitToActivation": 18,
+          "AnimationFrame::Script::Execute": 66,
+          "ScheduledTasksState": 370,
+          "ScheduledTasks": 226,
+          "Scheduler:pending_submit_frames": 239,
+          "Graphics.Pipeline.DrawAndSwap": 238,
+          "Graphics.Pipeline.Draw": 238,
+          "Graphics.Pipeline.WaitForSwap": 119,
+          "DisplayScheduler:pending_swaps": 238,
+          "Swap": 119,
+          "WaitForPresentation": 119,
+          "Activation": 18,
+          "KeyframeModel": 18,
+          "AnimationFrame::StyleAndLayout": 18,
+          "PendingTree:waiting": 16,
+          "Animation": 23,
+          "AnimationFrame::Presentation": 6
+        }
+      }
+    },
+    {
+      "label": "uiBeat-off",
+      "valid": true,
+      "initialScene": {
+        "transportPlaying": true,
+        "boundAcceptedConsumers": 0,
+        "boundByType": {},
+        "visibleBoundConsumers": 0,
+        "visibleBoundByType": {},
+        "runningAcceptedConsumers": 0,
+        "runningByType": {},
+        "indicatorRunning": false,
+        "visibilityState": "visible",
+        "hasFocus": true
+      },
+      "finalScene": {
+        "transportPlaying": true,
+        "boundAcceptedConsumers": 0,
+        "boundByType": {},
+        "visibleBoundConsumers": 0,
+        "visibleBoundByType": {},
+        "runningAcceptedConsumers": 0,
+        "runningByType": {},
+        "indicatorRunning": false,
+        "visibilityState": "visible",
+        "hasFocus": true
+      },
+      "frameCallbacks": {
+        "startedAt": 613819.7999999523,
+        "endedAt": 623897.8999999762,
+        "timestamps": [
+          613810.4,
+          614093.8,
+          614460.4,
+          614660.4,
+          614860.4,
+          615060.4,
+          615177.1,
+          615293.7,
+          615393.8,
+          615610.4,
+          615910.3,
+          616210.4,
+          616427,
+          616627,
+          616843.6,
+          617043.6,
+          617327,
+          617627,
+          618060.3,
+          618360.3,
+          618610.3,
+          618993.6,
+          619326.9,
+          619576.9,
+          620010.2,
+          620360.2,
+          620643.5,
+          620826.9,
+          620926.8,
+          621026.9,
+          621176.9,
+          621343.5,
+          621460.1,
+          621710.1,
+          622093.5,
+          622593.5,
+          623043.4,
+          623476.7,
+          623810
+        ],
+        "intervals": [
+          283.4000000000233,
+          366.5999999999767,
+          200,
+          200,
+          200,
+          116.69999999995343,
+          116.59999999997672,
+          100.10000000009313,
+          216.59999999997672,
+          299.9000000000233,
+          300.0999999999767,
+          216.59999999997672,
+          200,
+          216.59999999997672,
+          200,
+          283.4000000000233,
+          300,
+          433.30000000004657,
+          300,
+          250,
+          383.29999999993015,
+          333.30000000004657,
+          250,
+          433.29999999993015,
+          350,
+          283.30000000004657,
+          183.40000000002328,
+          99.90000000002328,
+          100.09999999997672,
+          150,
+          166.59999999997672,
+          116.59999999997672,
+          250,
+          383.4000000000233,
+          500,
+          449.9000000000233,
+          433.29999999993015,
+          333.30000000004657
+        ],
+        "longAnimationFrames": [
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 613217.6999999285,
+            "duration": 71.70000004768372,
+            "paintTime": 613289.3999999762,
+            "presentationTime": 613468,
+            "renderStart": 613229.6999999285,
+            "styleAndLayoutStart": 613288.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 16.166,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 613439.5,
+            "duration": 73,
+            "paintTime": 613512.5,
+            "presentationTime": 613856,
+            "renderStart": 613455.3999999762,
+            "styleAndLayoutStart": 613511,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 17.101,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 613811.6999999285,
+            "duration": 86,
+            "paintTime": 613897.6999999285,
+            "presentationTime": 614140,
+            "renderStart": 613827,
+            "styleAndLayoutStart": 613896.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 28.443,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 614093.7999999523,
+            "duration": 94.5,
+            "paintTime": 614188.2999999523,
+            "presentationTime": 614504,
+            "renderStart": 614118.3999999762,
+            "styleAndLayoutStart": 614187.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 30.399,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 614462.8999999762,
+            "duration": 71.79999995231628,
+            "paintTime": 614534.6999999285,
+            "presentationTime": 614708,
+            "renderStart": 614469.1000000238,
+            "styleAndLayoutStart": 614533.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 15.916,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 614659.6000000238,
+            "duration": 80.39999997615814,
+            "paintTime": 614740,
+            "presentationTime": 614908,
+            "renderStart": 614675.1000000238,
+            "styleAndLayoutStart": 614738.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 22.291,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 614867.6999999285,
+            "duration": 75.80000007152557,
+            "paintTime": 614943.5,
+            "presentationTime": 615108,
+            "renderStart": 614869.2999999523,
+            "styleAndLayoutStart": 614941.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 25.606,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 615066.8999999762,
+            "duration": 81.5,
+            "paintTime": 615148.3999999762,
+            "presentationTime": 615228,
+            "renderStart": 615076.1000000238,
+            "styleAndLayoutStart": 615147,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 22.55,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 615178.1000000238,
+            "duration": 86.09999990463257,
+            "paintTime": 615264.1999999285,
+            "presentationTime": 615356,
+            "renderStart": 615190.8999999762,
+            "styleAndLayoutStart": 615262.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 29.093,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 615300.7999999523,
+            "duration": 67.39999997615814,
+            "paintTime": 615368.1999999285,
+            "presentationTime": 615440,
+            "renderStart": 615301.1000000238,
+            "styleAndLayoutStart": 615367,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 17.367,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 615400.6999999285,
+            "duration": 86.60000002384186,
+            "paintTime": 615487.2999999523,
+            "presentationTime": 615660,
+            "renderStart": 615417.6999999285,
+            "styleAndLayoutStart": 615485.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 31.135,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 615608.6999999285,
+            "duration": 96.20000004768372,
+            "paintTime": 615704.8999999762,
+            "presentationTime": 615956,
+            "renderStart": 615633.6000000238,
+            "styleAndLayoutStart": 615703.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 31.544,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 615913.1999999285,
+            "duration": 81,
+            "paintTime": 615994.1999999285,
+            "presentationTime": 616280,
+            "renderStart": 615918.8999999762,
+            "styleAndLayoutStart": 615992.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 25.537,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 616208.7999999523,
+            "duration": 93.20000004768372,
+            "paintTime": 616302,
+            "presentationTime": 616472,
+            "renderStart": 616226.1999999285,
+            "styleAndLayoutStart": 616300.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 34.334,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 616435,
+            "duration": 73.39999997615814,
+            "paintTime": 616508.3999999762,
+            "presentationTime": 616672,
+            "renderStart": 616435.3999999762,
+            "styleAndLayoutStart": 616506.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 23.121,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 616627.5,
+            "duration": 90.39999997615814,
+            "paintTime": 616717.8999999762,
+            "presentationTime": 616908,
+            "renderStart": 616643.2999999523,
+            "styleAndLayoutStart": 616716.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 35.077,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 616849.1999999285,
+            "duration": 70,
+            "paintTime": 616919.1999999285,
+            "presentationTime": 617092,
+            "renderStart": 616854.6999999285,
+            "styleAndLayoutStart": 616918.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 14.591,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 617046,
+            "duration": 81.60000002384186,
+            "paintTime": 617127.6000000238,
+            "presentationTime": 617392,
+            "renderStart": 617058,
+            "styleAndLayoutStart": 617126.2999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 31.188,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 617335.2999999523,
+            "duration": 82.5,
+            "paintTime": 617417.7999999523,
+            "presentationTime": 617676,
+            "renderStart": 617348.6000000238,
+            "styleAndLayoutStart": 617416.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 27.591,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 617626.8999999762,
+            "duration": 105,
+            "paintTime": 617731.8999999762,
+            "presentationTime": 618168,
+            "renderStart": 617647.1000000238,
+            "styleAndLayoutStart": 617730.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 44.69,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 618071.1999999285,
+            "duration": 115.30000007152557,
+            "paintTime": 618186.5,
+            "presentationTime": 618444,
+            "renderStart": 618071.7999999523,
+            "styleAndLayoutStart": 618184.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 64.81,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 618363.6999999285,
+            "duration": 124.90000009536743,
+            "paintTime": 618488.6000000238,
+            "presentationTime": 618656,
+            "renderStart": 618390.2999999523,
+            "styleAndLayoutStart": 618487.2999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 68.199,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 618610.7999999523,
+            "duration": 132.10000002384186,
+            "paintTime": 618742.8999999762,
+            "presentationTime": 619044,
+            "renderStart": 618623,
+            "styleAndLayoutStart": 618741.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 81.599,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 618992.5,
+            "duration": 110,
+            "paintTime": 619102.5,
+            "presentationTime": 619384,
+            "renderStart": 619018.7999999523,
+            "styleAndLayoutStart": 619100.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 48.079,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 619329.1000000238,
+            "duration": 123.09999990463257,
+            "paintTime": 619452.1999999285,
+            "presentationTime": 619640,
+            "renderStart": 619359.7999999523,
+            "styleAndLayoutStart": 619449.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 68.961,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 619578.6999999285,
+            "duration": 107.70000004768372,
+            "paintTime": 619686.3999999762,
+            "presentationTime": 620072,
+            "renderStart": 619591.7999999523,
+            "styleAndLayoutStart": 619684.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 56.769,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 620014.2999999523,
+            "duration": 112,
+            "paintTime": 620126.2999999523,
+            "presentationTime": 620412,
+            "renderStart": 620041.1999999285,
+            "styleAndLayoutStart": 620124.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 53.618,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 620357,
+            "duration": 88.29999995231628,
+            "paintTime": 620445.2999999523,
+            "presentationTime": 620692,
+            "renderStart": 620368.1999999285,
+            "styleAndLayoutStart": 620443.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 35.366,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 620645.1000000238,
+            "duration": 67.5,
+            "paintTime": 620712.6000000238,
+            "presentationTime": 620856,
+            "renderStart": 620645.3999999762,
+            "styleAndLayoutStart": 620711.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 17.276,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 620826.1999999285,
+            "duration": 67.20000004768372,
+            "paintTime": 620893.3999999762,
+            "presentationTime": 620972,
+            "renderStart": 620830.1999999285,
+            "styleAndLayoutStart": 620892,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 14.866,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 620925.5,
+            "duration": 77.29999995231628,
+            "paintTime": 621002.7999999523,
+            "presentationTime": 621100,
+            "renderStart": 620931.7999999523,
+            "styleAndLayoutStart": 621001.2999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 21.593,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 621033.2999999523,
+            "duration": 94.10000002384186,
+            "paintTime": 621127.3999999762,
+            "presentationTime": 621256,
+            "renderStart": 621033.6000000238,
+            "styleAndLayoutStart": 621126,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 43.976,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 621180.6000000238,
+            "duration": 131.89999997615814,
+            "paintTime": 621312.5,
+            "presentationTime": 621408,
+            "renderStart": 621187,
+            "styleAndLayoutStart": 621309.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 78.295,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 621350.7999999523,
+            "duration": 75.89999997615814,
+            "paintTime": 621426.6999999285,
+            "presentationTime": 621524,
+            "renderStart": 621352.7999999523,
+            "styleAndLayoutStart": 621425.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 24.841,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 621462.3999999762,
+            "duration": 103.39999997615814,
+            "paintTime": 621565.7999999523,
+            "presentationTime": 621804,
+            "renderStart": 621476.3999999762,
+            "styleAndLayoutStart": 621564.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 52.905,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 621717.6000000238,
+            "duration": 108.09999990463257,
+            "paintTime": 621825.6999999285,
+            "presentationTime": 622184,
+            "renderStart": 621736.1000000238,
+            "styleAndLayoutStart": 621824.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 57.757,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 622089.6999999285,
+            "duration": 146.5,
+            "paintTime": 622236.1999999285,
+            "presentationTime": 622680,
+            "renderStart": 622134.1000000238,
+            "styleAndLayoutStart": 622234.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 69.914,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 622592.6000000238,
+            "duration": 117.39999997615814,
+            "paintTime": 622710,
+            "presentationTime": 623120,
+            "renderStart": 622615.8999999762,
+            "styleAndLayoutStart": 622708.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 57,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          }
+        ],
+        "longTasks": [
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 613827,
+            "duration": 266,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 614118.2999999523,
+            "duration": 344,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 614468.8999999762,
+            "duration": 190,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 614675,
+            "duration": 192,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 614869.2999999523,
+            "duration": 197,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 615076.1000000238,
+            "duration": 102,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 615190.8999999762,
+            "duration": 109,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 615301.1000000238,
+            "duration": 99,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 615417.6999999285,
+            "duration": 191,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 615633.6000000238,
+            "duration": 279,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 615918.7999999523,
+            "duration": 290,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 616226.1999999285,
+            "duration": 208,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 616435.3999999762,
+            "duration": 192,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 616643.1999999285,
+            "duration": 206,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 616854.6999999285,
+            "duration": 191,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 617058,
+            "duration": 277,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 617348.6000000238,
+            "duration": 278,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 617647.1000000238,
+            "duration": 424,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 618071.7999999523,
+            "duration": 291,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 618390.2999999523,
+            "duration": 220,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 618623,
+            "duration": 369,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 619018.7999999523,
+            "duration": 310,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 619359.6999999285,
+            "duration": 219,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 619591.7999999523,
+            "duration": 422,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 620041.1000000238,
+            "duration": 315,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 620368.1999999285,
+            "duration": 276,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 620645.3999999762,
+            "duration": 180,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 620830.1999999285,
+            "duration": 95,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 620931.6999999285,
+            "duration": 101,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 621033.6000000238,
+            "duration": 147,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 621186.8999999762,
+            "duration": 163,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 621352.7999999523,
+            "duration": 109,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 621476.2999999523,
+            "duration": 241,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 621736.1000000238,
+            "duration": 353,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 622134.1000000238,
+            "duration": 458,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 622615.8999999762,
+            "duration": 432,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 623069.5,
+            "duration": 399,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 623523.3999999762,
+            "duration": 284,
+            "attribution": [
+              {}
+            ]
+          }
+        ],
+        "interruptions": [],
+        "timedOut": false,
+        "visibilityState": "visible",
+        "hasFocus": true,
+        "uiBeat": {
+          "bound": 0,
+          "running": 0,
+          "idle": 1,
+          "indicatorRunning": 0
+        },
+        "summary": {
+          "count": 38,
+          "meanMs": 263.147368421052,
+          "p50Ms": 250,
+          "p95Ms": 435.79000000004305,
+          "p99Ms": 481.4630000000087,
+          "maxMs": 500,
+          "over20ms": 38,
+          "over33_3ms": 38,
+          "over50ms": 38
+        }
+      },
+      "cdpMetricsDelta": {
+        "TaskDuration": 10.650806,
+        "ScriptDuration": 1.683601,
+        "LayoutDuration": 0.04915199999999999,
+        "RecalcStyleDuration": 1.3275620000000004,
+        "DevToolsCommandDuration": 0.00039900000000000005,
+        "JSHeapUsedSize": 12206344,
+        "Nodes": -463,
+        "LayoutCount": 40,
+        "RecalcStyleCount": 184
+      },
+      "trace": {
+        "durationMs": 2000,
+        "rawEventCount": 27063,
+        "byName": {
+          "thread_name": 11,
+          "process_name": 2,
+          "process_uptime_seconds": 2,
+          "DroppedFrame": 126,
+          "RasterizerTaskImpl::RunOnWorkerThread": 322,
+          "RasterTask": 322,
+          "ZeroCopyRasterBuffer::Playback": 322,
+          "DisplayItemList::Raster": 322,
+          "Graphics.Pipeline": 3618,
+          "Surface::CommitFrame": 117,
+          "Surface::ActivateFrame": 117,
+          "DisplayScheduler::ScheduleBeginFrameDeadline": 353,
+          "Waiting for next BeginFrame": 176,
+          "DrawFrame": 117,
+          "BenchmarkInstrumentation::ImplThreadRenderingStats": 117,
+          "AnimationHost::UpdateAnimationState": 123,
+          "ProxyImpl::SetNeedsOneBeginImplFrameOnImplThread": 247,
+          "LayerTreeImpl::UpdateDrawProperties": 131,
+          "LayerTreeImpl::UpdateDrawProperties::CalculateDrawProperties": 131,
+          "draw_property_utils::FindLayersThatNeedUpdates": 131,
+          "draw_property_utils::ComputeDrawPropertiesOfVisibleLayers": 131,
+          "CalculateRenderSurfaceLayerList": 131,
+          "RenderSurfaceReasonCount": 786,
+          "LayerTreeImpl::UpdateDrawProperties::Occlusion": 131,
+          "LayerTreeImpl::UpdateTiles": 131,
+          "UpdateStateFromAnimationDrivers": 126,
+          "auto cc::Scheduler::FinishImplFrame()::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 119,
+          "ProxyImpl::SetNeedsCommitOnImplThread": 140,
+          "auto cc::SchedulerStateMachine::SetNeedsBeginMainFrame(bool)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 140,
+          "TaskSetFinishedTaskImpl::RunOnWorkerThread": 240,
+          "DidFinishRunningAllTilesTask::RunOnWorkerThread": 119,
+          "FunctionCall": 67,
+          "TileManager::DidFinishRunningTileTasksRequiredForActivation": 114,
+          "TileManager::DidFinishRunningAllTileTasks": 114,
+          "TileManager::CheckForCompletedTasksAndIssueSignals": 126,
+          "TileTaskManagerImpl::CheckForCompletedTasks": 248,
+          "UpdateLayoutTree": 16,
+          "LayerTreeHostImpl::NotifyTileStateChanged": 712,
+          "TileManager::CheckPendingGpuWorkAndIssueSignals": 242,
+          "TileManager::IsReadyToActivate": 16,
+          "TileManager::AssignGpuMemoryToTiles": 121,
+          "RasterSource::PerformSolidColorAnalysis": 312,
+          "TileManager::ScheduleTasks": 121,
+          "auto cc::(anonymous namespace)::InsertNodeForTask(TaskGraph *, TileTask *, uint16_t, uint16_t, size_t, bool)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 756,
+          "SoftwareImageDecodeCache::ReduceCacheUsageUntilWithinLimit": 121,
+          "TileTaskManagerImpl::ScheduleTasks": 121,
+          "TileManager::DidFinishRunningTileTasksRequiredForDraw": 117,
+          "BeginFrame": 121,
+          "DelayBasedBeginFrameSource::OnTimerTick": 118,
+          "SendBeginFrameDecision": 118,
+          "DisplayScheduler::BeginFrame": 118,
+          "DisplayDamageTracker::HasPendingSurfaces": 172,
+          "All active surfaces ready": 117,
+          "Using new deadline": 167,
+          "DisplayScheduler::OnBeginFrameDeadline": 118,
+          "DisplayScheduler::DrawAndSwap": 116,
+          "Display::DrawAndSwap": 116,
+          "ExternalBeginFrameSource::OnBeginFrame": 119,
+          "Scheduler::BeginFrame": 119,
+          "Scheduler::BeginImplFrame": 119,
+          "auto cc::SchedulerStateMachine::ShouldThrottleSendBeginMainFrame()::(lambda)::operator()(uint32_t) const": 124,
+          "AnimationHost::TickAnimations": 130,
+          "DirectRenderer::DrawFrame": 116,
+          "SoftwareRenderer::BeginDrawingFrame": 116,
+          "DirectRenderer::DrawRenderPass": 464,
+          "SoftwareRenderer::DoDrawQuad": 2758,
+          "SoftwareRenderer::FinishDrawingFrame": 116,
+          "BenchmarkInstrumentation::DisplayRenderingStats": 116,
+          "SoftwareRenderer::SwapBuffers": 116,
+          "SurfaceManager::GarbageCollectSurfaces": 116,
+          "NeedsTickAnimations": 130,
+          "ProxyImpl::SetNeedsRedrawOnImplThread": 119,
+          "Display::FrameDisplayed": 116,
+          "Scheduler::ScheduleBeginImplFrameDeadline": 124,
+          "ProxyImpl::ReadyToActivate": 18,
+          "LayerTreeHostImpl::ActivateSyncTree": 18,
+          "ProcessUIResourceRequestQueue": 6,
+          "TreeSynchronizer::SynchronizeTrees": 11,
+          "ProxyImpl::OnCanDrawStateChanged": 22,
+          "LayerTreeImpl::PushPropertyTreesTo": 6,
+          "TreeSynchronizer::PushLayerPropertiesTo.Impl": 6,
+          "LayerTreeImpl::PushPropertiesTo": 6,
+          "AnimationHost::ActivateAnimations": 6,
+          "ImageAnimationController::WillActivate": 6,
+          "ActivateLayerTree": 6,
+          "ProxyImpl::DidActivateSyncTreeOnImplThread": 6,
+          "InputHandler::ClearCurrentlyScrollingNode": 6,
+          "auto viz::ClientResourceProvider::ReceiveReturnsFromParent(std::vector<ReturnedResource>)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 123,
+          "ProxyImpl::DidReceiveCompositorFrameAckOnImplThread": 117,
+          "Scheduler::OnBeginImplFrameDeadline": 118,
+          "ProxyImpl::ScheduledActionDraw": 116,
+          "MainFrame.Draw": 336,
+          "LayerTreeHostImpl::PrepareToDraw": 116,
+          "TileManager::PrepareToDraw": 116,
+          "TileManager::IsReadyToDraw": 116,
+          "TileManager::PrepareToDrawFinished": 116,
+          "LayerTreeHostImpl::CalculateRenderPasses": 116,
+          "Scroll Delta This Frame": 116,
+          "DrawLayers.FrameViewerTracing": 116,
+          "LayerTreeHostImpl::BuildHitTestData": 116,
+          "ProxyImpl::ScheduledActionPrepareTiles": 111,
+          "TileManager::PrepareTiles": 116,
+          "DidPrepareTiles": 116,
+          "FireAnimationFrame": 32,
+          "SchedulerStateMachine::SetNeedsPrepareTiles": 115,
+          "RequestAnimationFrame": 32,
+          "LocalFrameView::ScheduleAnimation": 82,
+          "CancelAnimationFrame": 6,
+          "LocalFrameView::layout": 6,
+          "Layout": 6,
+          "LocalFrameView::performLayout": 6,
+          "LocalFrameView::performPostLayoutTasks": 6,
+          "LocalFrameView::RunStyleAndLayoutLifecyclePhases": 11,
+          "PrePaint": 11,
+          "LocalFrameView::RunCompositingInputsLifecyclePhase": 11,
+          "LocalFrameView::RunPrePaintLifecyclePhase": 11,
+          "IntersectionObserverController::computeIntersections": 11,
+          "LocalFrameView::NotifyResizeObservers": 6,
+          "LocalFrameView::RunPaintLifecyclePhase": 6,
+          "CullRectUpdate": 6,
+          "Paint": 424,
+          "PaintController::commitNewDisplayItems": 6,
+          "Layerize": 6,
+          "ScrollTree::SetScrollOffset": 47,
+          "LayerTreeHost::DoUpdateLayers": 6,
+          "RecordingSource::FinishDisplayItemListUpdate": 302,
+          "RecordingSource::DetermineIfSolidColor": 158,
+          "ProxyMain::BeginMainFrame::commit": 15,
+          "LocalFrameView::RunAccessibilitySteps": 5,
+          "LocalFrameView::UpdateViewportIntersectionsForSubtree": 5,
+          "ProxyImpl::ReadyToCommit": 15,
+          "Scheduler::NotifyBeginMainFrameStarted": 5,
+          "Scheduler::NotifyReadyToCommit": 5,
+          "ProxyImpl::ScheduledActionSendBeginMainFrame": 5,
+          "ScrollTree::CollectScrollDeltas": 5,
+          "SendBeginMainFrame": 15,
+          "RequestMainThreadFrame": 5,
+          "ProxyImpl::Commit": 15,
+          "LayerTreeHostImpl::BeginCommit": 5,
+          "LayerTreeHostImpl::FinishCommit": 5,
+          "LayerTreeImpl::PullProperties": 5,
+          "TreeSynchronizer::PushLayerPropertiesTo.Main": 5,
+          "TextureLayer::PushPropertiesTo": 10,
+          "ProxyMain::BeginMainFrame": 13,
+          "LayerTreeHost::ApplyCompositorChanges": 5,
+          "BeginMainThreadFrame": 5,
+          "HitTest": 7,
+          "DiscardableImageMap::Generate": 302,
+          "ProxyMain::SetNeedsAnimate": 5,
+          "LayerTreeHost::AnimationHost::PushProperties": 5,
+          "LayerTreeHostImpl::CommitComplete": 15,
+          "ElementAnimations::SetRunState": 66,
+          "ImageAnimationController::AnimateImagesForSyncTree": 5,
+          "LayerTreeImpl::InvalidateRegionForImages": 5,
+          "LayerTreeHost::WaitForCommitCompletion": 5,
+          "TimerFire": 12,
+          "TimerInstall": 8,
+          "V8.GC_HEAP_EXTERNAL_PROLOGUE": 1,
+          "MinorGC": 1,
+          "V8.GC_HEAP_PROLOGUE": 1,
+          "V8.GC_TIME_TO_SAFEPOINT": 1,
+          "V8.GC_SCAVENGER": 1,
+          "V8.GC_HEAP_PROLOGUE_SAFEPOINT": 1,
+          "V8.GC_SCAVENGER_SCAVENGE": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY": 1,
+          "ComputeWeaknessProcessor start": 5,
+          "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL": 2,
+          "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE": 1,
+          "Parallel scavenge started": 5,
+          "V8.GC_SCAVENGER_BACKGROUND_SCAVENGE_PARALLEL": 2,
+          "V8.GC_SCAVENGER_SCAVENGE_ROOTS": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS": 1,
+          "ClearWeaknessProcessor start": 3,
+          "V8.GC_SCAVENGER_TRACED_HANDLES_RESET_PARALLEL": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_FINALIZE": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_RESTORE_AND_QUARANTINE_PINNED": 1,
+          "V8.GC_SCAVENGER_FREE_REMEMBERED_SET": 1,
+          "V8.GC_SCAVENGER_RESIZE_NEW_SPACE": 1,
+          "V8.GC_HEAP_EPILOGUE_SAFEPOINT": 1,
+          "V8.GC_HEAP_EPILOGUE": 1,
+          "V8.GC_HEAP_EXTERNAL_EPILOGUE": 1,
+          "TimerRemove": 4,
+          "No damage yet": 60,
+          "Using existing deadline": 10,
+          "DidNotSubmitInLastFrame": 2,
+          "auto cc::Scheduler::SendDidNotProduceFrame(const viz::BeginFrameArgs &, FrameSkippedReason)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 2,
+          "LayerTreeHostImpl::DidNotProduceFrame": 2,
+          "OverlayInterstitialAdDetector::MaybeFireDetection": 1,
+          "StickyAdDetector::MaybeFireDetection": 1,
+          "AnimationFrame": 18,
+          "PipelineReporter": 276,
+          "BeginImplFrameToSendBeginMainFrame": 276,
+          "SendBeginMainFrameToCommit": 12,
+          "EndActivateToSubmitCompositorFrame": 268,
+          "SubmitCompositorFrameToPresentationCompositorFrame": 268,
+          "SubmitToReceiveCompositorFrame": 268,
+          "ReceiveCompositorFrameToStartDraw": 268,
+          "StartDrawToSwapStart": 268,
+          "SwapEndToPresentationCompositorFrame": 268,
+          "Commit": 12,
+          "EndCommitToActivation": 12,
+          "AnimationFrame::Script::Execute": 54,
+          "AnimationFrame::Render": 12,
+          "Scheduler:pending_submit_frames": 234,
+          "ScheduledTasksState": 352,
+          "ScheduledTasks": 226,
+          "Graphics.Pipeline.DrawAndSwap": 232,
+          "Graphics.Pipeline.Draw": 232,
+          "Graphics.Pipeline.WaitForSwap": 116,
+          "DisplayScheduler:pending_swaps": 232,
+          "Swap": 116,
+          "WaitForPresentation": 116,
+          "Activation": 12,
+          "AnimationFrame::StyleAndLayout": 12,
+          "Animation": 26,
+          "PendingTree:waiting": 10,
+          "KeyframeModel": 21,
+          "AnimationFrame::Presentation": 3
+        }
+      }
+    },
+    {
+      "label": "uiBeat-on-second",
+      "valid": true,
+      "initialScene": {
+        "transportPlaying": true,
+        "boundAcceptedConsumers": 22,
+        "boundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "visibleBoundConsumers": 22,
+        "visibleBoundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "runningAcceptedConsumers": 22,
+        "runningByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "indicatorRunning": true,
+        "visibilityState": "visible",
+        "hasFocus": true
+      },
+      "finalScene": {
+        "transportPlaying": true,
+        "boundAcceptedConsumers": 22,
+        "boundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "visibleBoundConsumers": 22,
+        "visibleBoundByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "runningAcceptedConsumers": 22,
+        "runningByType": {
+          "button": 11,
+          "knob": 10,
+          "joystick": 1
+        },
+        "indicatorRunning": true,
+        "visibilityState": "visible",
+        "hasFocus": true
+      },
+      "frameCallbacks": {
+        "startedAt": 631147.6999999285,
+        "endedAt": 641201.2999999523,
+        "timestamps": [
+          631126.4,
+          631343.1,
+          631543.1,
+          631859.8,
+          632176.4,
+          632476.4,
+          632859.7,
+          633093,
+          633459.7,
+          633709.7,
+          634026.4,
+          634309.7,
+          634492.9,
+          634643,
+          634876.3,
+          635076.3,
+          635276.2,
+          635509.6,
+          635792.9,
+          635992.9,
+          636309.6,
+          636592.9,
+          636892.9,
+          637192.9,
+          637442.8,
+          637759.5,
+          637976.2,
+          638409.5,
+          638626.1,
+          638826.1,
+          638976.1,
+          639192.7,
+          639392.8,
+          639609.4,
+          639959.4,
+          640176,
+          640409.4,
+          640692.7,
+          640859.3,
+          641009.3,
+          641126.1
+        ],
+        "intervals": [
+          216.69999999995343,
+          200,
+          316.70000000006985,
+          316.5999999999767,
+          300,
+          383.29999999993015,
+          233.30000000004657,
+          366.69999999995343,
+          250,
+          316.70000000006985,
+          283.29999999993015,
+          183.20000000006985,
+          150.09999999997672,
+          233.30000000004657,
+          200,
+          199.89999999990687,
+          233.40000000002328,
+          283.30000000004657,
+          200,
+          316.69999999995343,
+          283.30000000004657,
+          300,
+          300,
+          249.90000000002328,
+          316.69999999995343,
+          216.69999999995343,
+          433.30000000004657,
+          216.59999999997672,
+          200,
+          150,
+          216.59999999997672,
+          200.10000000009313,
+          216.59999999997672,
+          350,
+          216.59999999997672,
+          233.40000000002328,
+          283.29999999993015,
+          166.60000000009313,
+          150,
+          116.79999999993015
+        ],
+        "longAnimationFrames": [
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 630701.6000000238,
+            "duration": 94.29999995231628,
+            "paintTime": 630795.8999999762,
+            "presentationTime": 630976,
+            "renderStart": 630717.8999999762,
+            "styleAndLayoutStart": 630793.2999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 35.967,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 630912.5,
+            "duration": 88.89999997615814,
+            "paintTime": 631001.3999999762,
+            "presentationTime": 631204,
+            "renderStart": 630919.2999999523,
+            "styleAndLayoutStart": 630998.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 32.287,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 631132.1999999285,
+            "duration": 93.30000007152557,
+            "paintTime": 631225.5,
+            "presentationTime": 631404,
+            "renderStart": 631148.1000000238,
+            "styleAndLayoutStart": 631223.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 37.64,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 631352.6000000238,
+            "duration": 76.19999992847443,
+            "paintTime": 631428.7999999523,
+            "presentationTime": 631604,
+            "renderStart": 631353.5,
+            "styleAndLayoutStart": 631426.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 25.346,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 631544.1999999285,
+            "duration": 102,
+            "paintTime": 631646.1999999285,
+            "presentationTime": 631920,
+            "renderStart": 631568.6999999285,
+            "styleAndLayoutStart": 631643.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 38.492,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 631868.6999999285,
+            "duration": 85.60000002384186,
+            "paintTime": 631954.2999999523,
+            "presentationTime": 632288,
+            "renderStart": 631874.3999999762,
+            "styleAndLayoutStart": 631952.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 29.93,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 632187.8999999762,
+            "duration": 125,
+            "paintTime": 632312.8999999762,
+            "presentationTime": 632584,
+            "renderStart": 632200.3999999762,
+            "styleAndLayoutStart": 632309.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 70.819,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 632477.1000000238,
+            "duration": 131,
+            "paintTime": 632608.1000000238,
+            "presentationTime": 632948,
+            "renderStart": 632496.3999999762,
+            "styleAndLayoutStart": 632605.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 74.351,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 632867.1000000238,
+            "duration": 107.5,
+            "paintTime": 632974.6000000238,
+            "presentationTime": 633188,
+            "renderStart": 632872.6999999285,
+            "styleAndLayoutStart": 632971.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 51.967,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 633098.6999999285,
+            "duration": 125.90000009536743,
+            "paintTime": 633224.6000000238,
+            "presentationTime": 633544,
+            "renderStart": 633124.8999999762,
+            "styleAndLayoutStart": 633222.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 60.858,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 633468.6999999285,
+            "duration": 88.70000004768372,
+            "paintTime": 633557.3999999762,
+            "presentationTime": 633808,
+            "renderStart": 633469.1000000238,
+            "styleAndLayoutStart": 633555.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 38.323,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 633709.7999999523,
+            "duration": 139.30000007152557,
+            "paintTime": 633849.1000000238,
+            "presentationTime": 634096,
+            "renderStart": 633747.7999999523,
+            "styleAndLayoutStart": 633846.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 74.228,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 634031.8999999762,
+            "duration": 93.20000004768372,
+            "paintTime": 634125.1000000238,
+            "presentationTime": 634388,
+            "renderStart": 634037.6000000238,
+            "styleAndLayoutStart": 634122.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 37.507,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 634314.5,
+            "duration": 84.89999997615814,
+            "paintTime": 634399.3999999762,
+            "presentationTime": 634556,
+            "renderStart": 634325.5,
+            "styleAndLayoutStart": 634397.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 31.686,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 634498.2999999523,
+            "duration": 67.80000007152557,
+            "paintTime": 634566.1000000238,
+            "presentationTime": 634744,
+            "renderStart": 634503.6999999285,
+            "styleAndLayoutStart": 634564.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 12.5,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 634653,
+            "duration": 108.5,
+            "paintTime": 634761.5,
+            "presentationTime": 634956,
+            "renderStart": 634664,
+            "styleAndLayoutStart": 634759.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 58.222,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 634882.3999999762,
+            "duration": 88.70000004768372,
+            "paintTime": 634971.1000000238,
+            "presentationTime": 635168,
+            "renderStart": 634889.5,
+            "styleAndLayoutStart": 634968.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 33.081,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 635087,
+            "duration": 78.5,
+            "paintTime": 635165.5,
+            "presentationTime": 635340,
+            "renderStart": 635093.7999999523,
+            "styleAndLayoutStart": 635163.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 21.916,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 635284.5,
+            "duration": 98.69999992847443,
+            "paintTime": 635383.1999999285,
+            "presentationTime": 635576,
+            "renderStart": 635293,
+            "styleAndLayoutStart": 635380.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 46.969,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 635508.7999999523,
+            "duration": 96.10000002384186,
+            "paintTime": 635604.8999999762,
+            "presentationTime": 635856,
+            "renderStart": 635523.6000000238,
+            "styleAndLayoutStart": 635603.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 40.667,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 635800.5,
+            "duration": 77,
+            "paintTime": 635877.5,
+            "presentationTime": 636056,
+            "renderStart": 635805.6999999285,
+            "styleAndLayoutStart": 635875.5,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 21.771,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 635994.1999999285,
+            "duration": 102.80000007152557,
+            "paintTime": 636097,
+            "presentationTime": 636380,
+            "renderStart": 636019.1999999285,
+            "styleAndLayoutStart": 636094.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 39.444,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 636314.1000000238,
+            "duration": 77.09999990463257,
+            "paintTime": 636391.1999999285,
+            "presentationTime": 636656,
+            "renderStart": 636314.8999999762,
+            "styleAndLayoutStart": 636389.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 26.538,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 636594.5,
+            "duration": 95.10000002384186,
+            "paintTime": 636689.6000000238,
+            "presentationTime": 636956,
+            "renderStart": 636617.7999999523,
+            "styleAndLayoutStart": 636688.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 32.667,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 636894.2999999523,
+            "duration": 73.20000004768372,
+            "paintTime": 636967.5,
+            "presentationTime": 637288,
+            "renderStart": 636894.7999999523,
+            "styleAndLayoutStart": 636963.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 22.84,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 637201.1999999285,
+            "duration": 109.20000004768372,
+            "paintTime": 637310.3999999762,
+            "presentationTime": 637504,
+            "renderStart": 637218.2999999523,
+            "styleAndLayoutStart": 637307.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 55.982,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 637439,
+            "duration": 103.89999997615814,
+            "paintTime": 637542.8999999762,
+            "presentationTime": 637820,
+            "renderStart": 637452,
+            "styleAndLayoutStart": 637540.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 51.236,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 637769.6999999285,
+            "duration": 73.40000009536743,
+            "paintTime": 637843.1000000238,
+            "presentationTime": 638080,
+            "renderStart": 637770,
+            "styleAndLayoutStart": 637841.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 23.29,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 637978.6999999285,
+            "duration": 168.60000002384186,
+            "paintTime": 638147.2999999523,
+            "presentationTime": 638508,
+            "renderStart": 638000,
+            "styleAndLayoutStart": 638144.1000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 108.833,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 638406.3999999762,
+            "duration": 122.39999997615814,
+            "paintTime": 638528.7999999523,
+            "presentationTime": 638688,
+            "renderStart": 638428.1000000238,
+            "styleAndLayoutStart": 638526.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 69.138,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 638631.7999999523,
+            "duration": 77.60000002384186,
+            "paintTime": 638709.3999999762,
+            "presentationTime": 638932,
+            "renderStart": 638632.2999999523,
+            "styleAndLayoutStart": 638707.8999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 27.379,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 638838.1999999285,
+            "duration": 103,
+            "paintTime": 638941.1999999285,
+            "presentationTime": 639044,
+            "renderStart": 638840.7999999523,
+            "styleAndLayoutStart": 638939.6999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 52.857,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 638973.5,
+            "duration": 90.29999995231628,
+            "paintTime": 639063.7999999523,
+            "presentationTime": 639272,
+            "renderStart": 638986.2999999523,
+            "styleAndLayoutStart": 639061.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 39.872,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 639186.7999999523,
+            "duration": 98.30000007152557,
+            "paintTime": 639285.1000000238,
+            "presentationTime": 639456,
+            "renderStart": 639197.6999999285,
+            "styleAndLayoutStart": 639283.3999999762,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 39.091,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 639398.3999999762,
+            "duration": 77.60000002384186,
+            "paintTime": 639476,
+            "presentationTime": 639692,
+            "renderStart": 639398.8999999762,
+            "styleAndLayoutStart": 639473.7999999523,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 27.453,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 639612.8999999762,
+            "duration": 109.20000004768372,
+            "paintTime": 639722.1000000238,
+            "presentationTime": 640044,
+            "renderStart": 639638.1999999285,
+            "styleAndLayoutStart": 639720.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 50.687,
+            "scripts": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 639966.2999999523,
+            "duration": 86.60000002384186,
+            "paintTime": 640052.8999999762,
+            "presentationTime": 640256,
+            "renderStart": 639966.6000000238,
+            "styleAndLayoutStart": 640050.6000000238,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 36.32,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 640178.3999999762,
+            "duration": 119.29999995231628,
+            "paintTime": 640297.6999999285,
+            "presentationTime": 640564,
+            "renderStart": 640189.6999999285,
+            "styleAndLayoutStart": 640295.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 66.299,
+            "scripts": [
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "name": "long-animation-frame",
+            "entryType": "long-animation-frame",
+            "startTime": 640416.1000000238,
+            "duration": 100.79999995231628,
+            "paintTime": 640516.8999999762,
+            "presentationTime": 640808,
+            "renderStart": 640418,
+            "styleAndLayoutStart": 640514.1999999285,
+            "firstUIEventTimestamp": 0,
+            "blockingDuration": 49.94,
+            "scripts": [
+              {},
+              {},
+              {}
+            ]
+          }
+        ],
+        "longTasks": [
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 631148.1000000238,
+            "duration": 204,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 631353.5,
+            "duration": 190,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 631568.6999999285,
+            "duration": 300,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 631874.3999999762,
+            "duration": 313,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 632200.3999999762,
+            "duration": 276,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 632496.3999999762,
+            "duration": 370,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 632872.6000000238,
+            "duration": 226,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 633124.7999999523,
+            "duration": 343,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 633469.1000000238,
+            "duration": 240,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 633747.7999999523,
+            "duration": 284,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 634037.6000000238,
+            "duration": 276,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 634325.5,
+            "duration": 172,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 634503.6999999285,
+            "duration": 149,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 634664,
+            "duration": 218,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 634889.3999999762,
+            "duration": 197,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 635093.7999999523,
+            "duration": 190,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 635293,
+            "duration": 215,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 635523.6000000238,
+            "duration": 276,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 635805.6999999285,
+            "duration": 188,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 636019.1999999285,
+            "duration": 294,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 636314.6999999285,
+            "duration": 279,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 636617.7999999523,
+            "duration": 276,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 636894.7999999523,
+            "duration": 306,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 637218.1999999285,
+            "duration": 220,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 637452,
+            "duration": 317,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 637770,
+            "duration": 208,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 638000,
+            "duration": 406,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 638428.1000000238,
+            "duration": 203,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 638632.1000000238,
+            "duration": 206,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 638840.7999999523,
+            "duration": 132,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 638986.1999999285,
+            "duration": 200,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 639197.6999999285,
+            "duration": 200,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 639398.6000000238,
+            "duration": 214,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 639638.1999999285,
+            "duration": 328,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 639966.6000000238,
+            "duration": 211,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 640189.6999999285,
+            "duration": 226,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 640416.8999999762,
+            "duration": 280,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 640700.7999999523,
+            "duration": 158,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 640864.7999999523,
+            "duration": 145,
+            "attribution": [
+              {}
+            ]
+          },
+          {
+            "name": "self",
+            "entryType": "longtask",
+            "startTime": 641010.6999999285,
+            "duration": 123,
+            "attribution": [
+              {}
+            ]
+          }
+        ],
+        "interruptions": [],
+        "timedOut": false,
+        "visibilityState": "visible",
+        "hasFocus": true,
+        "uiBeat": {
+          "bound": 22,
+          "running": 23,
+          "idle": 0,
+          "indicatorRunning": 1
+        },
+        "summary": {
+          "count": 40,
+          "meanMs": 249.99249999999884,
+          "p50Ms": 233.35000000003492,
+          "p95Ms": 367.5299999999522,
+          "p99Ms": 413.80000000000115,
+          "maxMs": 433.30000000004657,
+          "over20ms": 40,
+          "over33_3ms": 40,
+          "over50ms": 40
+        }
+      },
+      "cdpMetricsDelta": {
+        "TaskDuration": 10.382094000000002,
+        "ScriptDuration": 1.8051659999999998,
+        "LayoutDuration": 0.052024000000000015,
+        "RecalcStyleDuration": 1.6123700000000003,
+        "DevToolsCommandDuration": 0.00046600000000000114,
+        "JSHeapUsedSize": 17386544,
+        "Nodes": -284,
+        "LayoutCount": 42,
+        "RecalcStyleCount": 230
+      },
+      "trace": {
+        "durationMs": 2000,
+        "rawEventCount": 31026,
+        "byName": {
+          "thread_name": 10,
+          "process_name": 2,
+          "process_uptime_seconds": 2,
+          "DroppedFrame": 118,
+          "SoftwareRenderer::DoDrawQuad": 2863,
+          "SoftwareRenderer::FinishDrawingFrame": 121,
+          "BenchmarkInstrumentation::DisplayRenderingStats": 121,
+          "Graphics.Pipeline": 3738,
+          "SoftwareRenderer::SwapBuffers": 121,
+          "SurfaceManager::GarbageCollectSurfaces": 121,
+          "DisplayScheduler::ScheduleBeginFrameDeadline": 363,
+          "Waiting for next BeginFrame": 212,
+          "Display::FrameDisplayed": 121,
+          "RasterizerTaskImpl::RunOnWorkerThread": 609,
+          "RasterTask": 609,
+          "ZeroCopyRasterBuffer::Playback": 609,
+          "DisplayItemList::Raster": 609,
+          "Scheduler::OnBeginImplFrameDeadline": 121,
+          "ProxyImpl::ScheduledActionDraw": 120,
+          "MainFrame.Draw": 342,
+          "LayerTreeHostImpl::PrepareToDraw": 120,
+          "LayerTreeImpl::UpdateDrawProperties": 151,
+          "LayerTreeImpl::UpdateDrawProperties::CalculateDrawProperties": 151,
+          "draw_property_utils::FindLayersThatNeedUpdates": 151,
+          "draw_property_utils::ComputeDrawPropertiesOfVisibleLayers": 151,
+          "CalculateRenderSurfaceLayerList": 151,
+          "RenderSurfaceReasonCount": 906,
+          "LayerTreeImpl::UpdateDrawProperties::Occlusion": 151,
+          "LayerTreeImpl::UpdateTiles": 151,
+          "UpdateStateFromAnimationDrivers": 144,
+          "TileManager::PrepareToDraw": 120,
+          "TileTaskManagerImpl::CheckForCompletedTasks": 252,
+          "LayerTreeHostImpl::NotifyTileStateChanged": 1272,
+          "TileManager::CheckPendingGpuWorkAndIssueSignals": 248,
+          "TileManager::IsReadyToDraw": 120,
+          "TileManager::PrepareToDrawFinished": 120,
+          "LayerTreeHostImpl::CalculateRenderPasses": 120,
+          "Scroll Delta This Frame": 120,
+          "DrawLayers.FrameViewerTracing": 120,
+          "LayerTreeHostImpl::BuildHitTestData": 120,
+          "Surface::CommitFrame": 120,
+          "Surface::ActivateFrame": 120,
+          "DrawFrame": 120,
+          "BenchmarkInstrumentation::ImplThreadRenderingStats": 120,
+          "AnimationHost::UpdateAnimationState": 128,
+          "ProxyImpl::SetNeedsOneBeginImplFrameOnImplThread": 256,
+          "ProxyImpl::ScheduledActionPrepareTiles": 114,
+          "TileManager::PrepareTiles": 121,
+          "TileManager::AssignGpuMemoryToTiles": 123,
+          "RasterSource::PerformSolidColorAnalysis": 608,
+          "TileManager::ScheduleTasks": 123,
+          "auto cc::(anonymous namespace)::InsertNodeForTask(TaskGraph *, TileTask *, uint16_t, uint16_t, size_t, bool)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 1113,
+          "SoftwareImageDecodeCache::ReduceCacheUsageUntilWithinLimit": 123,
+          "TileTaskManagerImpl::ScheduleTasks": 123,
+          "TaskSetFinishedTaskImpl::RunOnWorkerThread": 236,
+          "BeginFrame": 121,
+          "DelayBasedBeginFrameSource::OnTimerTick": 121,
+          "SendBeginFrameDecision": 121,
+          "DisplayScheduler::BeginFrame": 121,
+          "DisplayDamageTracker::HasPendingSurfaces": 148,
+          "All active surfaces ready": 120,
+          "Using new deadline": 147,
+          "DisplayScheduler::OnBeginFrameDeadline": 121,
+          "DisplayScheduler::DrawAndSwap": 120,
+          "Display::DrawAndSwap": 120,
+          "FireAnimationFrame": 38,
+          "FunctionCall": 76,
+          "DirectRenderer::DrawFrame": 120,
+          "SoftwareRenderer::BeginDrawingFrame": 120,
+          "DirectRenderer::DrawRenderPass": 480,
+          "DidPrepareTiles": 121,
+          "auto cc::Scheduler::FinishImplFrame()::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 121,
+          "TileManager::DidFinishRunningTileTasksRequiredForDraw": 122,
+          "ExternalBeginFrameSource::OnBeginFrame": 121,
+          "Scheduler::BeginFrame": 121,
+          "Scheduler::BeginImplFrame": 121,
+          "auto cc::SchedulerStateMachine::ShouldThrottleSendBeginMainFrame()::(lambda)::operator()(uint32_t) const": 128,
+          "AnimationHost::TickAnimations": 136,
+          "NeedsTickAnimations": 136,
+          "ProxyImpl::SetNeedsRedrawOnImplThread": 121,
+          "Scheduler::ScheduleBeginImplFrameDeadline": 129,
+          "auto viz::ClientResourceProvider::ReceiveReturnsFromParent(std::vector<ReturnedResource>)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 128,
+          "ProxyImpl::DidReceiveCompositorFrameAckOnImplThread": 120,
+          "TileManager::CheckForCompletedTasksAndIssueSignals": 128,
+          "SchedulerStateMachine::SetNeedsPrepareTiles": 120,
+          "DidFinishRunningAllTilesTask::RunOnWorkerThread": 113,
+          "TileManager::DidFinishRunningTileTasksRequiredForActivation": 102,
+          "TileManager::DidFinishRunningAllTileTasks": 101,
+          "TileManager::IsReadyToActivate": 14,
+          "ProxyImpl::ReadyToActivate": 24,
+          "LayerTreeHostImpl::ActivateSyncTree": 24,
+          "ProcessUIResourceRequestQueue": 8,
+          "TreeSynchronizer::SynchronizeTrees": 15,
+          "ProxyImpl::OnCanDrawStateChanged": 30,
+          "LayerTreeImpl::PushPropertyTreesTo": 8,
+          "TreeSynchronizer::PushLayerPropertiesTo.Impl": 8,
+          "LayerTreeImpl::PushPropertiesTo": 8,
+          "AnimationHost::ActivateAnimations": 8,
+          "ImageAnimationController::WillActivate": 8,
+          "ActivateLayerTree": 8,
+          "ProxyImpl::DidActivateSyncTreeOnImplThread": 8,
+          "InputHandler::ClearCurrentlyScrollingNode": 8,
+          "RequestAnimationFrame": 38,
+          "LocalFrameView::ScheduleAnimation": 84,
+          "CancelAnimationFrame": 9,
+          "ElementAnimations::SetRunState": 66,
+          "ProxyImpl::SetNeedsCommitOnImplThread": 130,
+          "auto cc::SchedulerStateMachine::SetNeedsBeginMainFrame(bool)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 130,
+          "UpdateLayoutTree": 27,
+          "LocalFrameView::layout": 8,
+          "Layout": 8,
+          "LocalFrameView::performLayout": 8,
+          "LocalFrameView::performPostLayoutTasks": 8,
+          "LayerTreeHost::WaitForCommitCompletion": 8,
+          "LocalFrameView::RunStyleAndLayoutLifecyclePhases": 15,
+          "PrePaint": 15,
+          "LocalFrameView::RunCompositingInputsLifecyclePhase": 15,
+          "LocalFrameView::RunPrePaintLifecyclePhase": 15,
+          "ScrollTree::SetScrollOffset": 64,
+          "IntersectionObserverController::computeIntersections": 15,
+          "LocalFrameView::NotifyResizeObservers": 8,
+          "LocalFrameView::RunPaintLifecyclePhase": 8,
+          "CullRectUpdate": 8,
+          "Paint": 680,
+          "PaintController::commitNewDisplayItems": 8,
+          "Layerize": 8,
+          "LayerTreeHost::DoUpdateLayers": 8,
+          "RecordingSource::FinishDisplayItemListUpdate": 460,
+          "RecordingSource::DetermineIfSolidColor": 237,
+          "ProxyMain::BeginMainFrame::commit": 21,
+          "LocalFrameView::RunAccessibilitySteps": 7,
+          "LocalFrameView::UpdateViewportIntersectionsForSubtree": 7,
+          "ProxyImpl::ReadyToCommit": 21,
+          "Scheduler::NotifyBeginMainFrameStarted": 7,
+          "Scheduler::NotifyReadyToCommit": 7,
+          "ProxyImpl::Commit": 21,
+          "LayerTreeHostImpl::BeginCommit": 7,
+          "LayerTreeHostImpl::FinishCommit": 7,
+          "TimerFire": 11,
+          "LayerTreeImpl::PullProperties": 7,
+          "TreeSynchronizer::PushLayerPropertiesTo.Main": 7,
+          "TextureLayer::PushPropertiesTo": 14,
+          "DiscardableImageMap::Generate": 460,
+          "LayerTreeHost::AnimationHost::PushProperties": 7,
+          "LayerTreeHostImpl::CommitComplete": 21,
+          "TimerInstall": 6,
+          "ImageAnimationController::AnimateImagesForSyncTree": 7,
+          "LayerTreeImpl::InvalidateRegionForImages": 7,
+          "ProxyImpl::ScheduledActionSendBeginMainFrame": 7,
+          "ScrollTree::CollectScrollDeltas": 7,
+          "SendBeginMainFrame": 21,
+          "RequestMainThreadFrame": 7,
+          "TimerRemove": 3,
+          "ProxyMain::BeginMainFrame": 19,
+          "LayerTreeHost::ApplyCompositorChanges": 7,
+          "BeginMainThreadFrame": 7,
+          "ProxyMain::SetNeedsAnimate": 7,
+          "HitTest": 11,
+          "No damage yet": 31,
+          "DidNotSubmitInLastFrame": 1,
+          "auto cc::Scheduler::SendDidNotProduceFrame(const viz::BeginFrameArgs &, FrameSkippedReason)::(lambda)::operator()()::(lambda)::operator()(uint32_t) const": 1,
+          "LayerTreeHostImpl::DidNotProduceFrame": 1,
+          "V8.GC_HEAP_EXTERNAL_PROLOGUE": 1,
+          "MinorGC": 1,
+          "V8.GC_HEAP_PROLOGUE": 1,
+          "V8.GC_TIME_TO_SAFEPOINT": 1,
+          "V8.GC_SCAVENGER": 1,
+          "V8.GC_HEAP_PROLOGUE_SAFEPOINT": 1,
+          "V8.GC_SCAVENGER_SCAVENGE": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY": 1,
+          "ComputeWeaknessProcessor start": 5,
+          "V8.GC_SCAVENGER_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL": 1,
+          "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE": 1,
+          "Parallel scavenge started": 17,
+          "V8.GC_SCAVENGER_SCAVENGE_ROOTS": 1,
+          "V8.GC_SCAVENGER_BACKGROUND_SCAVENGE_PARALLEL": 6,
+          "V8.GC_SCAVENGER_SCAVENGE_PARALLEL": 2,
+          "Using existing deadline": 4,
+          "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS": 1,
+          "ClearWeaknessProcessor start": 5,
+          "V8.GC_SCAVENGER_TRACED_HANDLES_RESET_PARALLEL": 1,
+          "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_RESET_PARALLEL": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_FINALIZE": 1,
+          "V8.GC_SCAVENGER_SCAVENGE_RESTORE_AND_QUARANTINE_PINNED": 1,
+          "V8.GC_SCAVENGER_FREE_REMEMBERED_SET": 1,
+          "V8.GC_SCAVENGER_RESIZE_NEW_SPACE": 1,
+          "V8.GC_HEAP_EPILOGUE_SAFEPOINT": 1,
+          "V8.GC_HEAP_EPILOGUE": 1,
+          "V8.GC_HEAP_EXTERNAL_EPILOGUE": 1,
+          "OverlayInterstitialAdDetector::MaybeFireDetection": 2,
+          "StickyAdDetector::MaybeFireDetection": 2,
+          "AnimationFrame": 26,
+          "PipelineReporter": 268,
+          "BeginImplFrameToSendBeginMainFrame": 268,
+          "SendBeginMainFrameToCommit": 16,
+          "EndActivateToSubmitCompositorFrame": 266,
+          "SubmitCompositorFrameToPresentationCompositorFrame": 266,
+          "SubmitToReceiveCompositorFrame": 266,
+          "ReceiveCompositorFrameToStartDraw": 266,
+          "StartDrawToSwapStart": 266,
+          "SwapEndToPresentationCompositorFrame": 266,
+          "Commit": 16,
+          "AnimationFrame::Render": 16,
+          "EndCommitToActivation": 16,
+          "AnimationFrame::Script::Execute": 60,
+          "Graphics.Pipeline.WaitForSwap": 121,
+          "DisplayScheduler:pending_swaps": 242,
+          "Swap": 121,
+          "WaitForPresentation": 121,
+          "Scheduler:pending_submit_frames": 240,
+          "ScheduledTasksState": 347,
+          "Graphics.Pipeline.DrawAndSwap": 240,
+          "Graphics.Pipeline.Draw": 240,
+          "Activation": 16,
+          "KeyframeModel": 21,
+          "ScheduledTasks": 200,
+          "AnimationFrame::StyleAndLayout": 16,
+          "PendingTree:waiting": 14,
+          "Animation": 20,
+          "FrameSequenceTrackerV3": 3,
+          "Frame ": 18,
+          "Frame   ": 18,
+          "Frame": 18,
+          "JankV3": 6,
+          "AnimationFrame::Presentation": 5
+        }
+      }
+    }
+  ],
+  "traceArtifact": {
+    "file": "software-rendered-verification-trace-events.json.gz",
+    "sha256": "1ebf312bb09e50ce5de905c9f2a9c0c38b88b8d940395ff7bf80f2b315b392cf",
+    "compressedBytes": 8342,
+    "content": "gzip-compressed selected raw CDP presentation/drop events; full event-name counts remain inline"
+  },
+  "sha256BeforeDigestField": "a99756709e13e11557701c071adddec35b44d6839177b81bfa98f9c36524e9de"
+}

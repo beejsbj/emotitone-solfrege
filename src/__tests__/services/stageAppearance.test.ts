@@ -131,17 +131,20 @@ describe("Stage appearance domain", () => {
 
   it("lets Presence hide idle Strings without suppressing played Strings", () => {
     const backing = config();
+    backing.strings.isEnabled = false;
     backing.strings.activeOpacity = 0.9;
 
     const edited = patchStageControl(backing, "stringPresence", 0);
 
     expect(changedPaths(backing, edited)).toEqual(["strings.baseOpacity"]);
     expect(edited.strings).toMatchObject({
-      isEnabled: true,
+      isEnabled: false,
       baseOpacity: 0,
       activeOpacity: 0.9,
     });
-    expect(readStageControls(edited).stringPresence).toBe(0);
+    const effective = resolveStageConfig(edited);
+    expect(effective.strings.isEnabled).toBe(true);
+    expect(readStageControls(effective).stringPresence).toBe(0);
   });
 
   it("makes active String visibility part of Response", () => {

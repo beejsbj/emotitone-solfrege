@@ -480,9 +480,9 @@ export function patchStageControl(
     }
     case "stringPresence": {
       const amount = clamp(value);
-      // Presence describes the idle field. A zero-presence String layer stays
-      // available so exact-pitch note activation can reveal a played String.
-      next.strings.isEnabled = true;
+      // Presence describes only the idle field. Effective Stage resolution
+      // keeps exact-pitch activation available without rewriting the retired
+      // Strings master in persisted compatibility data.
       next.strings.baseOpacity = amount * 0.12;
       break;
     }

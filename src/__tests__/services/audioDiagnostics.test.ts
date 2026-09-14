@@ -59,7 +59,7 @@ describe('audio diagnostics snapshots', () => {
   it('reports the selected renderer lead without confusing fallback or device latency', () => {
     expect(getAudioDiagnostics()).toMatchObject({ live: null, liveSchedulingLeadMs: null, fallbackSchedulingLeadMs: 5 })
     expect(getAudioDiagnostics('piano')).toMatchObject({
-      live: { backend: 'audio-worklet' }, liveSchedulingLeadMs: 0, maxPolyphony: 128,
+      live: { backend: 'audio-worklet' }, liveSchedulingLeadMs: 0, maxPolyphony: 64,
     })
   })
 

@@ -1,3 +1,5 @@
+export interface LiveClockBoundary { audioTime: number; epochTime: number; performanceTime: number }
+
 type ClockContext = Pick<AudioContext, "currentTime"> & Partial<Pick<AudioContext,
   "state" | "addEventListener" | "removeEventListener"
 >>;
@@ -9,7 +11,7 @@ type ClockContext = Pick<AudioContext, "currentTime"> & Partial<Pick<AudioContex
  */
 export function createLiveAudioClock(
   getContext: () => ClockContext,
-  options: { epochNow?: () => number; performanceNow?: () => number; onSuspend?: () => void } = {},
+  options: { epochNow?: () => number; performanceNow?: () => number; onSuspend?: (boundary: LiveClockBoundary) => void } = {},
 ) {
   const epochNow = options.epochNow ?? (() => Date.now());
   const performanceNow = options.performanceNow ?? (() => performance.now());
@@ -20,8 +22,14 @@ export function createLiveAudioClock(
   let anchorInvalid = true;
 
   const onStateChange = () => {
+    if (context?.state && context.state !== "running") {
+      // The context freezes at the pause boundary. Preserve its last running
+      // clock mapping even if the statechange notification reaches the UI late.
+      const audioTime = context.currentTime * 1000;
+      options.onSuspend?.({ audioTime: audioTime / 1000,
+        epochTime: epochOffset + audioTime, performanceTime: performanceOffset + audioTime });
+    }
     anchorInvalid = true;
-    if (context?.state && context.state !== "running") options.onSuspend?.();
   };
   function sync() {
     const next = getContext();

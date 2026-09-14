@@ -31,6 +31,22 @@ describe("live audio clock", () => {
     clock.dispose();
   });
 
+  it("captures the pause boundary before a delayed notification can reanchor it", () => {
+    let wall = 10000;
+    const context = Object.assign(new EventTarget(), { currentTime: 12, state: "running" });
+    const suspended = vi.fn();
+    const clock = createLiveAudioClock(() => context as unknown as AudioContext, {
+      epochNow: () => wall, performanceNow: () => wall - 9000, onSuspend: suspended,
+    });
+    clock.now();
+    context.currentTime = 12.1;
+    context.state = "suspended";
+    wall += 1000;
+    context.dispatchEvent(new Event("statechange"));
+    expect(suspended).toHaveBeenCalledWith({ audioTime: 12.1, epochTime: 10100, performanceTime: 1100 });
+    clock.dispose();
+  });
+
   it("rebases after suspension and notifies the owner to cancel queued output", () => {
     let wallTime = 1_800_000_000_000;
     const context = Object.assign(new EventTarget(), { currentTime: 12, state: "running" });

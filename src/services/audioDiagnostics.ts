@@ -64,7 +64,7 @@ export function createAudioDiagnostics(context: DiagnosticContext, voiceLimit: n
 export function getAudioDiagnostics(instrument?: string) {
   const live = instrument ? getLivePlaybackDiagnostics(instrument) : null
   return {
-    ...createAudioDiagnostics(getAudioContext(), live?.backend === 'audio-worklet' ? 128 : maxPolyphony, performance.now()),
+    ...createAudioDiagnostics(getAudioContext(), live?.backend === 'audio-worklet' ? 64 : maxPolyphony, performance.now()),
     live,
     liveSchedulingLeadMs: live?.preparationLeadMs ?? null,
   }

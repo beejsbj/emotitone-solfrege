@@ -14,7 +14,7 @@ import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
-import { createLiveAudioClock } from "@/services/liveAudioClock";
+import { createLiveAudioClock, type LiveClockBoundary } from "@/services/liveAudioClock";
 import { getLivePlayback, subscribeLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import type { LiveVoiceEvent, LiveWorklet } from "@/audio/live/types";
@@ -123,7 +123,7 @@ export const useMusicStore = defineStore(
     let generatedCounter = 0;
     const heldAliases = new Map<string, string>();
     const heldOwners = new Set<string>();
-    const liveAudioClock = createLiveAudioClock(superdoughAudio.getAudioContext, { onSuspend: clearLiveInputs });
+    const liveAudioClock = createLiveAudioClock(superdoughAudio.getAudioContext, { onSuspend: boundary => { clearLiveInputs(); closeWorkletLifecycle(boundary); } });
     const now = liveAudioClock.now;
     // Presentation only: recording and MIDI keep their existing event clock.
     function audibleTime(timestamp = Date.now()) {
@@ -190,26 +190,37 @@ export const useMusicStore = defineStore(
         workletOwners.delete(ownerId);
       },
       onError(error) {
-        for (const event of workletPlans.values()) mirrorWorklet({ ...event, at: superdoughAudio.getAudioContext().currentTime }, "cancel");
-        for (const [noteId, event] of workletActive) {
-          const ended = { ...event, phase: "release" as const, at: superdoughAudio.getAudioContext().currentTime };
-          mirrorWorklet(ended, "cancel");
-          const detail = workletDetail(ended);
-          if (detail) window.dispatchEvent(new CustomEvent("note-released", {
-            detail: { ...detail, note: detail.note.name, mirrorMidi: false },
-          }));
-          activeNotes.value.delete(noteId);
-        }
-        workletActive.clear();
-        workletPlans.clear();
-        workletOwners.clear();
-        heldAliases.clear();
-        heldOwners.clear();
-        currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;
-        isPlaying.value = activeNotes.value.size > 0;
+        closeWorkletLifecycle();
         console.error("[Live Audio] Processor failed", error);
       },
     });
+
+    function closeWorkletLifecycle(boundary?: LiveClockBoundary) {
+      const at = boundary?.audioTime ?? superdoughAudio.getAudioContext().currentTime;
+      for (const event of workletPlans.values()) mirrorWorklet({ ...event, at }, "cancel");
+      for (const [noteId, event] of workletActive) {
+        const ended = { ...event, phase: "release" as const, at };
+        mirrorWorklet(ended, "cancel");
+        const detail = workletDetail(ended);
+        if (detail) window.dispatchEvent(new CustomEvent("note-released", {
+          detail: { ...detail, note: detail.note.name, mirrorMidi: false,
+            ...(boundary ? { timestamp: boundary.epochTime, midiTimestamp: boundary.performanceTime } : {}),
+          },
+        }));
+        activeNotes.value.delete(noteId);
+      }
+      workletActive.clear();
+      workletPlans.clear();
+      for (const owner of workletOwners.keys()) {
+        heldOwners.delete(owner);
+        for (const [alias, aliasedOwner] of heldAliases) {
+          if (aliasedOwner === owner) heldAliases.delete(alias);
+        }
+      }
+      workletOwners.clear();
+      currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;
+      isPlaying.value = activeNotes.value.size > 0;
+    }
 
     const playEngine = createPlayStyleEngine<HeldPitch>({
       now,
@@ -350,6 +361,7 @@ export const useMusicStore = defineStore(
     document.addEventListener("visibilitychange", onHidden);
     onScopeDispose(() => {
       clearLiveInputs();
+      closeWorkletLifecycle();
       unsubscribeWorklet();
       liveAudioClock.dispose();
       window.removeEventListener("blur", clearLiveInputs);

@@ -35,6 +35,10 @@ describe("prepared live instrument catalog", () => {
     expect(result.zones[0].channels[0]).toBe(a.getChannelData(0));
     expect(result.zones[0].channels[1]).toBe(a.getChannelData(1));
     expect(result.zones[0].loopStartFrame).toBeUndefined();
+    expect(result.zones[0].mipmaps).toEqual([]);
+    expect(result.zones[1].mipmaps?.[0][0].length).toBe(240);
+    expect(result.zones[1].mipmaps?.[0]).toHaveLength(1);
+    expect(result.zones[1].mipmaps?.[0][0].buffer).not.toBe(b.getChannelData(0).buffer);
     expect(mocks.load).not.toHaveBeenCalled();
   });
 
@@ -65,6 +69,27 @@ describe("prepared live instrument catalog", () => {
     expect(await prepareLiveInstrument(context(), name)).toEqual({ kind: "oscillator", instrumentId: name, waveform: name,
       gain: 0.24, attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
     expect(mocks.font).not.toHaveBeenCalled(); expect(mocks.load).not.toHaveBeenCalled();
+  });
+
+  it("prepares only octave levels reachable through each root's actual MIDI selection range", async () => {
+    const samples = Object.fromEntries(["C4", "C5", "C6", "C7", "C8"].map(root => {
+      mocks.loaded.set(`${root}.wav`, buffer());
+      return [root, [`${root}.wav`]];
+    }));
+    mocks.sounds.set("piano", { data: { type: "sample", samples } });
+    const result = await prepareLiveInstrument(context(), "piano");
+    expect(result.kind).toBe("sample-bank");
+    if (result.kind !== "sample-bank") return;
+    expect(result.zones.map(zone => zone.mipmaps?.length)).toEqual([0, 0, 0, 0, 1]);
+  });
+
+  it("includes decoded/context sample-rate differences when selecting required filter octaves", async () => {
+    mocks.sounds.set("gm_test", { data: { type: "soundfont", fonts: ["rate-test"] } });
+    mocks.font.mockResolvedValue([{ buffer: buffer(48000), originalPitch: 11600, coarseTune: 0, fineTune: 0,
+      keyRangeLow: 116, keyRangeHigh: 127, sampleRate: 48000, loopStart: 0, loopEnd: 0 }]);
+    const result = await prepareLiveInstrument({ sampleRate: 44100 } as AudioContext, "gm_test");
+    expect(result.kind).toBe("sample-bank");
+    if (result.kind === "sample-bank") expect(result.zones[0].mipmaps).toHaveLength(1);
   });
 
   it("reports unsupported synthesis and invalid samples instead of substituting an instrument", async () => {

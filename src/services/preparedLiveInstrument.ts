@@ -4,6 +4,7 @@ import { getSound, getSampleInfo, getLoadedBuffer, loadBuffer } from "superdough
 import { getPreparedSoundfont } from "@strudel/soundfonts";
 import type { LiveSampleZone, PreparedLiveInstrument } from "../audio/live/types";
 import { getLiveArticulation } from "./liveArticulation";
+import { prepareSampleMipmapsAsync } from "../audio/live/resampler";
 
 export interface UnsupportedLiveInstrument {
   kind: "unsupported";
@@ -29,7 +30,7 @@ interface FontZone {
 interface CacheEntry { registration: SoundRegistration; pending: Promise<LiveInstrumentPreparation> }
 const caches = new WeakMap<AudioContext, Map<string, CacheEntry>>();
 const MAX_CACHED_BANKS = 8;
-const MAX_BANK_BYTES = 64 * 1024 * 1024;
+const MAX_BANK_BYTES = 192 * 1024 * 1024;
 const OSCILLATORS = new Set(["sine", "triangle", "square", "sawtooth"]);
 
 function channels(buffer: AudioBuffer): Float32Array[] {
@@ -95,9 +96,48 @@ async function prepare(context: AudioContext, instrumentId: string, sound: Sound
     throw new Error(`Unsupported live renderer: ${data?.type ?? "unregistered"} (${instrumentId})`);
   }
   if (!zones.length) throw new Error("Instrument contains no playable sample zones");
-  const buffers = new Set(zones.flatMap(zone => zone.channels.map(channel => channel.buffer)));
-  if ([...buffers].reduce((total, buffer) => total + buffer.byteLength, 0) > MAX_BANK_BYTES) {
-    throw new Error("Prepared bank exceeds the 64 MiB worklet budget");
+  // Only prepare octaves this zone can actually play across MIDI 0..127.
+  // Dense piano banks need no pyramid for nearly every root; preparing every
+  // possible octave would double a 138 MiB bank for no audible benefit.
+  const needed = new Map<LiveSampleZone, number>(zones.map(zone => [zone, 0]));
+  for (let pitch = 0; pitch <= 127; pitch++) {
+    const selected = zoneSelection === "first-range"
+      ? zones.find(zone => pitch >= zone.lowMidi! && pitch <= zone.highMidi!)
+      : zones.reduce((best, zone) => Math.abs(zone.rootMidi - pitch) < Math.abs(best.rootMidi - pitch) ? zone : best);
+    if (!selected) continue;
+    const ratio = 2 ** ((pitch - selected.rootMidi) / 12) * selected.sampleRate / (context.sampleRate || selected.sampleRate);
+    needed.set(selected, Math.max(needed.get(selected)!, Math.max(0, Math.floor(Math.log2(ratio)))));
+  }
+  const originalBuffers = new Set(zones.flatMap(zone => zone.channels.map(channel => channel.buffer)));
+  let preparedBytes = [...originalBuffers].reduce((total, buffer) => total + buffer.byteLength, 0);
+  const assertBudget = () => {
+    if (preparedBytes > MAX_BANK_BYTES) throw new Error(`Prepared bank requires ${preparedBytes} bytes; worklet budget is ${MAX_BANK_BYTES} bytes (192 MiB)`);
+  };
+  assertBudget();
+  // Preflight every required level before allocating/filtering. Identical
+  // source/loop zones share a pyramid covering their combined pitch range.
+  const pyramids = new Map<Float32Array, Map<string, { levels: number; mipmaps?: Float32Array[][] }>>();
+  for (const zone of zones) {
+    const loops = `${zone.loopStartFrame ?? 0}:${zone.loopEndFrame ?? 0}`;
+    let cached = pyramids.get(zone.channels[0]);
+    if (!cached) { cached = new Map(); pyramids.set(zone.channels[0], cached); }
+    const levels = Math.max(needed.get(zone)!, cached.get(loops)?.levels ?? 0);
+    cached.set(loops, { levels });
+  }
+  for (const [source, loops] of pyramids) for (const entry of loops.values()) {
+    const channelCount = zones.find(zone => zone.channels[0] === source)!.channels.length;
+    let frames = source.length;
+    for (let level = 0; frames > 1 && level < Math.min(16, entry.levels); level++) {
+      frames = Math.ceil(frames / 2);
+      preparedBytes += frames * Float32Array.BYTES_PER_ELEMENT * channelCount;
+    }
+  }
+  assertBudget();
+  for (const zone of zones) {
+    const loops = `${zone.loopStartFrame ?? 0}:${zone.loopEndFrame ?? 0}`;
+    const entry = pyramids.get(zone.channels[0])!.get(loops)!;
+    entry.mipmaps ??= await prepareSampleMipmapsAsync(zone.channels, zone.loopStartFrame, zone.loopEndFrame, entry.levels);
+    zone.mipmaps = entry.mipmaps;
   }
   return { kind: "sample-bank", instrumentId, gain, ...envelope, zoneSelection, zones };
 }

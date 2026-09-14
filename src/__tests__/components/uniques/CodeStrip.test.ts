@@ -221,7 +221,7 @@ beforeEach(() => {
         opacity: 1,
         bpm: 120,
         notation: "solfege",
-        durationMode: "stacked",
+        durationMode: "bar",
         showRests: true,
       },
       keyboard: {
@@ -300,7 +300,7 @@ describe("CodeStrip production Strudel document", () => {
     expect(mocks.updatePresentation).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        durationMode: "stacked",
+        durationMode: "bar",
         tokens: [expect.objectContaining({ type: "note", rawPitch: "C4" })],
       }),
     );

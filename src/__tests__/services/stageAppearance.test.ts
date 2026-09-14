@@ -176,7 +176,7 @@ describe("Stage appearance domain", () => {
       bodyMotion: expect.closeTo(0.4),
       connectionMode: "merge",
       connectionStrength: 0.2,
-      connectionBlur: 12,
+      connectionSoftness: 0.25,
       atmosphereStrength: 0.3,
       atmosphereColorDepth: 0.6,
       stringPresence: 0.05,
@@ -204,7 +204,7 @@ describe("Stage appearance domain", () => {
     expect(edited.blobs.maxSize).toBe(654);
   });
 
-  it("keeps connection blur independent from connection strength", () => {
+  it("consolidates connection edge softness independently from strength", () => {
     const backing = config();
     const strengthened = patchStageControl(backing, "connectionStrength", 0.7);
 
@@ -213,10 +213,18 @@ describe("Stage appearance domain", () => {
       "blobs.webOpacity",
     ]);
     expect(strengthened.blobs.fieldSoftness).toBe(backing.blobs.fieldSoftness);
+    expect(strengthened.blobs.blurRadius).toBe(backing.blobs.blurRadius);
 
-    const blurred = patchStageControl(backing, "connectionBlur", 24);
-    expect(changedPaths(backing, blurred)).toEqual(["blobs.fieldSoftness"]);
-    expect(readStageControls(blurred).connectionBlur).toBe(24);
+    const softened = patchStageControl(backing, "connectionSoftness", 0.6);
+    expect(changedPaths(backing, softened)).toEqual([
+      "blobs.blurRadius",
+      "blobs.fieldSoftness",
+    ]);
+    expect(softened.blobs).toMatchObject({
+      blurRadius: 24,
+      fieldSoftness: 30,
+    });
+    expect(readStageControls(softened).connectionSoftness).toBe(0.6);
   });
 
   it("enforces the Stage-only allowlist for Looks", () => {
@@ -257,7 +265,7 @@ describe("Stage appearance domain", () => {
         "hilbertScope",
       ]);
       expect(look.patch.blobs).toHaveProperty("isEnabled");
-      expect(look.patch.blobs).toHaveProperty("blurRadius");
+      expect(look.patch.blobs).not.toHaveProperty("blurRadius");
       expect(look.patch.blobs).not.toHaveProperty("connectionMode");
       expect(look.patch.blobs).not.toHaveProperty("fusionStrength");
       expect(look.patch.blobs).not.toHaveProperty("fieldSoftness");
@@ -279,6 +287,7 @@ describe("Stage appearance domain", () => {
     expect(first.patch).not.toHaveProperty("dynamicColors");
     expect(first.patch.hilbertScope).not.toHaveProperty("isEnabled");
     expect(first.patch.blobs).not.toHaveProperty("connectionMode");
+    expect(first.patch.blobs).not.toHaveProperty("blurRadius");
     expect(first.patch.blobs).not.toHaveProperty("fusionStrength");
     expect(first.patch.blobs).not.toHaveProperty("fieldSoftness");
     expect(first.patch.blobs).not.toHaveProperty("webOpacity");

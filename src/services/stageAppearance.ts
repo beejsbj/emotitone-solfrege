@@ -16,7 +16,7 @@ export type StageControlId =
   | "bodyMotion"
   | "connectionMode"
   | "connectionStrength"
-  | "connectionBlur"
+  | "connectionSoftness"
   | "atmosphereStrength"
   | "atmosphereColorDepth"
   | "stringPresence"
@@ -41,7 +41,7 @@ export interface StageControls {
   bodyMotion: number;
   connectionMode: BlobConnectionMode;
   connectionStrength: number;
-  connectionBlur: number;
+  connectionSoftness: number;
   atmosphereStrength: number;
   atmosphereColorDepth: number;
   stringPresence: number;
@@ -97,6 +97,7 @@ type StageLookSection =
 
 export const STAGE_LOOK_PREFERENCE_FIELDS = [
   "connectionMode",
+  "blurRadius",
   "fieldSoftness",
   "fusionStrength",
   "webOpacity",
@@ -157,6 +158,8 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
 };
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
+const CONNECTION_SOFTNESS_FIELD_MAX = 50;
+const CONNECTION_SOFTNESS_BLUR_MAX = 40;
 
 /**
  * The original 10% body proportion remains the renderer calibration baseline.
@@ -201,7 +204,7 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
     controls: [
       { id: "connectionMode", label: "Mode", type: "options", options: ["off", "merge", "web"] },
       { id: "connectionStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
-      { id: "connectionBlur", label: "Blur", type: "range", min: 0, max: 50, step: 2, format: (value) => `${Math.round(value)}px` },
+      { id: "connectionSoftness", label: "Softness", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
   {
@@ -354,6 +357,10 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     clamp(config.blobs.fusionStrength) +
     clamp((config.blobs.webOpacity - 0.15) / 0.75)
   ) / 2;
+  const connectionSoftness = (
+    clamp(config.blobs.fieldSoftness / CONNECTION_SOFTNESS_FIELD_MAX) +
+    clamp(config.blobs.blurRadius / CONNECTION_SOFTNESS_BLUR_MAX)
+  ) / 2;
 
   return {
     stageEnabled: config.stage.isEnabled,
@@ -377,7 +384,7 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     bodyMotion,
     connectionMode: config.blobs.connectionMode,
     connectionStrength,
-    connectionBlur: clamp(config.blobs.fieldSoftness, 0, 50),
+    connectionSoftness,
     atmosphereStrength: config.ambient.isEnabled
       ? clamp((config.ambient.opacityMajor + config.ambient.opacityMinor) / 1.72)
       : 0,
@@ -465,9 +472,12 @@ export function patchStageControl(
       next.blobs.webOpacity = 0.15 + amount * 0.75;
       break;
     }
-    case "connectionBlur":
-      next.blobs.fieldSoftness = clamp(value, 0, 50);
+    case "connectionSoftness": {
+      const amount = clamp(value);
+      next.blobs.fieldSoftness = amount * CONNECTION_SOFTNESS_FIELD_MAX;
+      next.blobs.blurRadius = amount * CONNECTION_SOFTNESS_BLUR_MAX;
       break;
+    }
     case "atmosphereStrength": {
       const amount = clamp(value);
       next.ambient.isEnabled = amount > 0.01;
@@ -593,6 +603,7 @@ export function createSeededStageLook(
     // Launch variation changes appearance, not the learner's relationship or
     // explanation choices.
     delete varied.blobs.connectionMode;
+    delete varied.blobs.blurRadius;
     delete varied.blobs.fusionStrength;
     delete varied.blobs.fieldSoftness;
     delete varied.blobs.webOpacity;

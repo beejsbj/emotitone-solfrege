@@ -100,7 +100,7 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "default",
-    durationMode: "stacked",
+    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: true,
@@ -197,7 +197,7 @@ const controlledCodeStripConfig = {
   opacity: 1,
   bpm: 120,
   notation: "solfege",
-  durationMode: "stacked",
+  durationMode: "bar",
   showRests: true,
 } as const;
 const controlledKeyboardConfig = {

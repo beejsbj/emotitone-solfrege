@@ -75,8 +75,8 @@ export const UNIFIED_CONFIG = {
     blurRadius: {
       value: 10,
       min: 0,
-      max: 100,
-      step: 5,
+      max: 40,
+      step: 2,
       label: "Blur Radius",
       format: (v: number) => `${v}px`,
       group: "Appearance",
@@ -180,10 +180,10 @@ export const UNIFIED_CONFIG = {
       group: "Relationships",
     },
     fieldSoftness: {
-      value: 12,
+      value: 12.5,
       min: 0,
       max: 50,
-      step: 2,
+      step: 2.5,
       label: "Field Softness",
       format: (v: number) => `${v}px`,
       group: "Relationships",
@@ -856,7 +856,7 @@ export const UNIFIED_CONFIG = {
       label: "Notation Mode",
     },
     durationMode: {
-      value: "stacked" as const,
+      value: "bar" as const,
       options: ["stacked", "bar", "hidden"],
       label: "Duration Display",
     },

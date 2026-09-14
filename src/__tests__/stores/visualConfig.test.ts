@@ -100,13 +100,13 @@ describe('Visual Config Store', () => {
       }))
 
       const invalidStore = createFreshStore()
-      expect(invalidStore.config.codeStrip.durationMode).toBe('stacked')
+      expect(invalidStore.config.codeStrip.durationMode).toBe('bar')
 
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: { codeStrip: { bpm: 144 } },
       }))
       const missingStore = createFreshStore()
-      expect(missingStore.config.codeStrip.durationMode).toBe('stacked')
+      expect(missingStore.config.codeStrip.durationMode).toBe('bar')
     })
 
     it('should migrate legacy color keys from localStorage on initialization', () => {
@@ -1032,13 +1032,15 @@ describe('Visual Config Store', () => {
       visualConfigStore.applyBuiltInStageLook('clear')
       visualConfigStore.updateStageControl('connectionMode', 'web')
       visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('connectionSoftness', 0.4)
       visualConfigStore.updateStageControl('showChords', false)
       visualConfigStore.updateStageControl('showIntervals', true)
       visualConfigStore.updateStageControl('showEmotion', true)
       visualConfigStore.updateStageControl('labelStrength', 0.31)
       const expectedPreferences = {
         connectionMode: 'web',
-        fieldSoftness: mockDefaultConfig.blobs.fieldSoftness,
+        blurRadius: 16,
+        fieldSoftness: 20,
         fusionStrength: 0.37,
         webOpacity: 0.15 + 0.37 * 0.75,
         showChordLabel: false,

@@ -96,7 +96,7 @@ describe("Config public surface", () => {
 
   it("maps all three Code Strip duration treatments", () => {
     const config = freshConfig();
-    expect(readDeckControls(config).durationMode).toBe("stacked");
+    expect(readDeckControls(config).durationMode).toBe("bar");
 
     updateDeckControl(config, "durationMode", "bar");
     expect(config.codeStrip.durationMode).toBe("bar");

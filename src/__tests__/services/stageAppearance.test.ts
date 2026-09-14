@@ -44,12 +44,14 @@ describe("Stage appearance domain", () => {
     expect(STAGE_CONTROL_GROUPS.map((group) => group.label)).toEqual([
       "Scope",
       "Note Bodies",
-      "Connections",
       "Atmosphere",
       "Pitch Strings",
       "Note Flecks",
       "Explanations",
     ]);
+    expect(
+      controls.find((control) => control.id === "connectionMode")?.options,
+    ).toEqual(["merge", "web"]);
   });
 
   it("keeps Hilbert present whenever Stage is enabled without rewriting legacy data", () => {

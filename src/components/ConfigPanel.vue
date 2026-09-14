@@ -202,7 +202,7 @@
                   <p class="config-panel__eyebrow">Stage only</p>
                   <h2>Looks</h2>
                   <p class="config-panel__section-copy">
-                    Built-ins preserve Connections and Explanations; saved Looks restore what you saved.
+                    Built-ins preserve body relationships and explanations; saved Looks restore what you saved.
                   </p>
                 </div>
 
@@ -600,15 +600,15 @@ const STAGE_DETAIL_TABS = [
     value: "bodies",
     label: "Note Bodies",
     shortLabel: "Bodies",
-    description: "Tune the Circle-of-Fifths bodies around the Scope.",
+    description: "Tune the Circle-of-Fifths bodies and how simultaneous notes join.",
     groups: [STAGE_CONTROL_GROUPS[1]],
   },
   {
     value: "relations",
     label: "Relations",
     shortLabel: "Relations",
-    description: "Connect simultaneous notes and choose what the Stage explains.",
-    groups: [STAGE_CONTROL_GROUPS[2], STAGE_CONTROL_GROUPS[6]],
+    description: "Choose what the Stage explains about simultaneous notes.",
+    groups: [STAGE_CONTROL_GROUPS[5]],
   },
   {
     value: "layers",
@@ -616,9 +616,9 @@ const STAGE_DETAIL_TABS = [
     shortLabel: "Layers",
     description: "Balance atmosphere, pitch strings, and note-event flecks.",
     groups: [
+      STAGE_CONTROL_GROUPS[2],
       STAGE_CONTROL_GROUPS[3],
       STAGE_CONTROL_GROUPS[4],
-      STAGE_CONTROL_GROUPS[5],
     ],
   },
 ];

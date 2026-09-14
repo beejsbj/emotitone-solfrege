@@ -284,10 +284,10 @@ describe('Visual Config Store', () => {
       expect(store.config.blobs.webOpacity).toBe(0.65)
     })
 
-    it('repairs an invalid connection mode to the canonical default', () => {
+    it.each(['mesh', 'off'])('repairs unsupported %s connection mode to Merge', (connectionMode) => {
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: {
-          blobs: { connectionMode: 'mesh' },
+          blobs: { connectionMode },
         },
       }))
 

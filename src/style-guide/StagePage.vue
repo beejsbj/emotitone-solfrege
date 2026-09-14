@@ -96,10 +96,11 @@
 import { computed, onBeforeUnmount, ref } from "vue";
 import StageSpecimenCanvas from "./stage/StageSpecimenCanvas.vue";
 import type { StageSpecimenSignal } from "./stage/stageSpecimenAudio";
+import type { HarmonicGeometryMode } from "@/types/visual";
 
 const signal = ref<StageSpecimenSignal>("phrase");
 const audioState = ref<"waiting" | "starting" | "started" | "failed">("waiting");
-const relationship = ref<"off" | "merge" | "web">("web");
+const relationship = ref<HarmonicGeometryMode>("web");
 const stageEnabled = ref(true);
 const boundaryReveal = ref(0);
 const boundaryMoving = ref(false);
@@ -112,7 +113,7 @@ const signalOptions = [
   { label: "Borrowed C♯", value: "borrowed" },
   { label: "Silence", value: "silence" },
 ] as const;
-const relationshipOptions = ["off", "merge", "web"] as const;
+const relationshipOptions = ["merge", "web"] as const;
 const effectiveSignal = computed<StageSpecimenSignal>(() => (
   audioState.value === "started" ? signal.value : "silence"
 ));

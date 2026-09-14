@@ -175,9 +175,9 @@ export const UNIFIED_CONFIG = {
     },
     connectionMode: {
       value: "merge",
-      options: ["off", "merge", "web"],
+      options: ["merge", "web"],
       label: "Connections",
-      group: "Relationships",
+      group: "Note Bodies",
     },
     fieldSoftness: {
       value: 12.5,
@@ -186,7 +186,7 @@ export const UNIFIED_CONFIG = {
       step: 2.5,
       label: "Field Softness",
       format: (v: number) => `${v}px`,
-      group: "Relationships",
+      group: "Note Bodies",
     },
     fusionStrength: {
       value: 0.2,
@@ -195,7 +195,7 @@ export const UNIFIED_CONFIG = {
       step: 0.05,
       label: "Fusion Strength",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
-      group: "Relationships",
+      group: "Note Bodies",
     },
     webOpacity: {
       value: 0.3,
@@ -204,7 +204,7 @@ export const UNIFIED_CONFIG = {
       step: 0.1,
       label: "Web Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
-      group: "Relationships",
+      group: "Note Bodies",
       visibleWhen: {
         field: "connectionMode",
         values: ["web"],

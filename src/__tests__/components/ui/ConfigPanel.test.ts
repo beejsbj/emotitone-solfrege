@@ -56,7 +56,7 @@ const visualConfigStore = reactive({
     bodySize: 0.1,
     bodyStrength: 0.5,
     bodyMotion: 0.5,
-    connectionMode: "off",
+    connectionMode: "merge",
     connectionStrength: 0.4,
     connectionSoftness: 0.25,
     atmosphereStrength: 0.6,
@@ -272,7 +272,8 @@ describe("ConfigPanel.vue", () => {
     expect(CONFIG_SECTIONS).not.toHaveProperty("beatingShapes");
     expect(Object.keys(UNIFIED_CONFIG.uiBeat).filter((key) => key !== "_meta"))
       .toEqual(["isEnabled"]);
-    expect(UNIFIED_CONFIG.blobs.connectionMode.group).toBe("Relationships");
+    expect(UNIFIED_CONFIG.blobs.connectionMode.group).toBe("Note Bodies");
+    expect(UNIFIED_CONFIG.blobs.connectionMode.options).toEqual(["merge", "web"]);
     expect(UNIFIED_CONFIG.blobs.analysisHoldTime.group).toBe("Analysis");
     expect(UNIFIED_CONFIG.blobs.showChordLabel.group).toBe("Labels");
     expect(UNIFIED_CONFIG.blobs.webOpacity.visibleWhen).toEqual({
@@ -296,8 +297,8 @@ describe("ConfigPanel.vue", () => {
 
     const allocation = [
       ["scope", 5],
-      ["bodies", 4],
-      ["relations", 7],
+      ["bodies", 7],
+      ["relations", 4],
       ["layers", 6],
     ] as const;
     const allocatedControlIds: string[] = [];

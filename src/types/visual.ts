@@ -72,10 +72,10 @@ export interface DynamicColorConfig {
 
 /** Blob relationship presentations. */
 export type HarmonicGeometryMode = "merge" | "web";
-export type BlobConnectionMode = "off" | HarmonicGeometryMode;
+export type BlobConnectionMode = HarmonicGeometryMode;
 
 export interface BlobRelationshipConfig {
-  /** Whether relationships are absent, merged, or shown as a harmonic web */
+  /** Whether simultaneous bodies merge or form a harmonic web */
   connectionMode: BlobConnectionMode;
   /** How long released analysis remains available, in milliseconds */
   analysisHoldTime: number;

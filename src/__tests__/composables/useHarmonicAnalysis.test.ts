@@ -271,12 +271,12 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.chordLabel).toBe("Am7");
   });
 
-  it("hydrates notes that are already held when harmonic geometry is enabled", async () => {
+  it("hydrates notes that are already held when Note Bodies are enabled", async () => {
     const c4 = createActiveNote("note-c4", "C4", "Do");
     const e4 = createActiveNote("note-e4", "E4", "Mi");
     harmonicTestState.blobConfig!.value = {
       ...harmonicTestState.blobConfig!.value,
-      connectionMode: "off",
+      isEnabled: false,
     };
     const { snapshot } = createAnalysis(() => [c4, e4]);
 
@@ -284,7 +284,7 @@ describe("useHarmonicAnalysis", () => {
 
     harmonicTestState.blobConfig!.value = {
       ...harmonicTestState.blobConfig!.value,
-      connectionMode: "merge",
+      isEnabled: true,
     };
     await nextTick();
 

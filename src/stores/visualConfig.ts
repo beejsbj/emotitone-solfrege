@@ -118,7 +118,7 @@ function normalizeLegacyGeometryMode(value: unknown): HarmonicGeometryMode {
 }
 
 function isBlobConnectionMode(value: unknown): value is BlobConnectionMode {
-  return value === "off" || value === "merge" || value === "web";
+  return value === "merge" || value === "web";
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
@@ -215,7 +215,7 @@ function migrateLegacyBlobRelationships(
     mergedBlobs.connectionMode =
       legacyHarmonic.isEnabled === true
         ? normalizeLegacyGeometryMode(legacyHarmonic.geometryMode)
-        : "off";
+        : DEFAULT_CONFIG.blobs.connectionMode;
   }
 
   if (!("analysisHoldTime" in incomingBlobs)) {

@@ -190,20 +190,14 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
   },
   {
     label: "Note Bodies",
-    description: "Circle-of-Fifths support bodies around the Scope.",
+    description: "Circle-of-Fifths bodies and how simultaneous notes join around the Scope.",
     controls: [
       { id: "bodiesVisible", label: "Show Bodies", type: "boolean" },
       { id: "bodySize", label: "Size", type: "range", min: STAGE_BODY_SIZE_MIN_RATIO, max: STAGE_BODY_SIZE_MAX_RATIO, step: 0.01, format: percent },
       { id: "bodyStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
       { id: "bodyMotion", label: "Motion", type: "range", min: 0, max: 1, step: 0.05, format: percent },
-    ],
-  },
-  {
-    label: "Connections",
-    description: "How simultaneous note bodies relate.",
-    controls: [
-      { id: "connectionMode", label: "Mode", type: "options", options: ["off", "merge", "web"] },
-      { id: "connectionStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "connectionMode", label: "Connections", type: "options", options: ["merge", "web"] },
+      { id: "connectionStrength", label: "Connection Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
       { id: "connectionSoftness", label: "Softness", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
@@ -462,7 +456,7 @@ export function patchStageControl(
       break;
     }
     case "connectionMode":
-      if (rawValue === "off" || rawValue === "merge" || rawValue === "web") {
+      if (rawValue === "merge" || rawValue === "web") {
         next.blobs.connectionMode = rawValue;
       }
       break;

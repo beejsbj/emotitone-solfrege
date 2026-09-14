@@ -118,7 +118,7 @@ function normalizeLegacyGeometryMode(value: unknown): HarmonicGeometryMode {
 }
 
 function isBlobConnectionMode(value: unknown): value is BlobConnectionMode {
-  return value === "off" || value === "merge" || value === "web";
+  return value === "merge" || value === "web";
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
@@ -200,7 +200,7 @@ function migrateLegacyBlobRelationships(
   const legacyHarmonic = rawConfig.floatingPopup;
   if (!isRecord(legacyHarmonic)) {
     if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-      mergedBlobs.connectionMode = "off";
+      mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
     }
     return;
   }
@@ -215,7 +215,7 @@ function migrateLegacyBlobRelationships(
     mergedBlobs.connectionMode =
       legacyHarmonic.isEnabled === true
         ? normalizeLegacyGeometryMode(legacyHarmonic.geometryMode)
-        : "off";
+        : DEFAULT_CONFIG.blobs.connectionMode;
   }
 
   if (!("analysisHoldTime" in incomingBlobs)) {
@@ -250,7 +250,7 @@ function migrateLegacyBlobRelationships(
   }
 
   if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-    mergedBlobs.connectionMode = "off";
+    mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
   }
 }
 
@@ -275,6 +275,13 @@ function migrateLegacySectionKeys(
       mergedSection.surfaceStyle = "colored";
     }
     delete mergedSection.colorMode;
+  }
+
+  if (sectionName === "codeStrip") {
+    const durationMode = mergedSection.durationMode;
+    if (durationMode !== "stacked" && durationMode !== "bar" && durationMode !== "hidden") {
+      mergedSection.durationMode = DEFAULT_CONFIG.codeStrip.durationMode;
+    }
   }
 
 }

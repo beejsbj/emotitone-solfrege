@@ -141,7 +141,7 @@ const props = withDefaults(
   }>(),
   {
     density: "default",
-    durationMode: "stacked",
+    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: false,

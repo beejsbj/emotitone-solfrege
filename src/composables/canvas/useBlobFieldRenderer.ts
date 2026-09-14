@@ -872,7 +872,7 @@ export function useBlobFieldRenderer() {
     scene: HarmonicGeometryScene | null
   ) => {
     const mode = config.connectionMode;
-    if (frames.length === 0 || mode === "off") {
+    if (frames.length === 0) {
       return false;
     }
 

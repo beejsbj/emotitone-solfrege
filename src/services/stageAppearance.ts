@@ -16,6 +16,7 @@ export type StageControlId =
   | "bodyMotion"
   | "connectionMode"
   | "connectionStrength"
+  | "connectionSoftness"
   | "atmosphereStrength"
   | "atmosphereColorDepth"
   | "stringPresence"
@@ -40,6 +41,7 @@ export interface StageControls {
   bodyMotion: number;
   connectionMode: BlobConnectionMode;
   connectionStrength: number;
+  connectionSoftness: number;
   atmosphereStrength: number;
   atmosphereColorDepth: number;
   stringPresence: number;
@@ -95,6 +97,7 @@ type StageLookSection =
 
 export const STAGE_LOOK_PREFERENCE_FIELDS = [
   "connectionMode",
+  "blurRadius",
   "fieldSoftness",
   "fusionStrength",
   "webOpacity",
@@ -155,15 +158,17 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
 };
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
+const CONNECTION_SOFTNESS_FIELD_MAX = 50;
+const CONNECTION_SOFTNESS_BLUR_MAX = 40;
 
 /**
- * The accepted 10% body proportion is the visual baseline. The public range
- * deliberately stays close to it so bodies remain secondary to the Scope;
- * Stage fitting turns this ratio into a visible 0.5–1.5× presentation scale.
+ * The original 10% body proportion remains the renderer calibration baseline.
+ * The public control can now enlarge bodies up to 5× that baseline while
+ * Stage fitting keeps them inside the usable canvas.
  */
 export const STAGE_BODY_SIZE_BASE_RATIO = 0.1;
 export const STAGE_BODY_SIZE_MIN_RATIO = 0.05;
-export const STAGE_BODY_SIZE_MAX_RATIO = 0.15;
+export const STAGE_BODY_SIZE_MAX_RATIO = 0.5;
 
 export const STAGE_MASTER_CONTROL: StageControlDefinition = {
   id: "stageEnabled",
@@ -185,20 +190,15 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
   },
   {
     label: "Note Bodies",
-    description: "Circle-of-Fifths support bodies around the Scope.",
+    description: "Circle-of-Fifths bodies and how simultaneous notes join around the Scope.",
     controls: [
       { id: "bodiesVisible", label: "Show Bodies", type: "boolean" },
       { id: "bodySize", label: "Size", type: "range", min: STAGE_BODY_SIZE_MIN_RATIO, max: STAGE_BODY_SIZE_MAX_RATIO, step: 0.01, format: percent },
       { id: "bodyStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
       { id: "bodyMotion", label: "Motion", type: "range", min: 0, max: 1, step: 0.05, format: percent },
-    ],
-  },
-  {
-    label: "Connections",
-    description: "How simultaneous note bodies relate.",
-    controls: [
-      { id: "connectionMode", label: "Mode", type: "options", options: ["off", "merge", "web"] },
-      { id: "connectionStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "connectionMode", label: "Connections", type: "options", options: ["merge", "web"] },
+      { id: "connectionStrength", label: "Connection Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "connectionSoftness", label: "Softness", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
   {
@@ -221,7 +221,7 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
     label: "Note Flecks",
     description: "Brief Mark fragments released by note events.",
     controls: [
-      { id: "fleckAmount", label: "Amount", type: "range", min: 0, max: 40, step: 2, format: (value) => `${Math.round(value)}` },
+      { id: "fleckAmount", label: "Amount", type: "range", min: 0, max: 40, step: 1, format: (value) => `${Math.round(value)}` },
       { id: "fleckEnergy", label: "Energy", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
@@ -349,9 +349,12 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
   ) / 3;
   const connectionStrength = (
     clamp(config.blobs.fusionStrength) +
-    clamp((config.blobs.fieldSoftness - 4) / 28) +
     clamp((config.blobs.webOpacity - 0.15) / 0.75)
-  ) / 3;
+  ) / 2;
+  const connectionSoftness = (
+    clamp(config.blobs.fieldSoftness / CONNECTION_SOFTNESS_FIELD_MAX) +
+    clamp(config.blobs.blurRadius / CONNECTION_SOFTNESS_BLUR_MAX)
+  ) / 2;
 
   return {
     stageEnabled: config.stage.isEnabled,
@@ -375,6 +378,7 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     bodyMotion,
     connectionMode: config.blobs.connectionMode,
     connectionStrength,
+    connectionSoftness,
     atmosphereStrength: config.ambient.isEnabled
       ? clamp((config.ambient.opacityMajor + config.ambient.opacityMinor) / 1.72)
       : 0,
@@ -452,15 +456,20 @@ export function patchStageControl(
       break;
     }
     case "connectionMode":
-      if (rawValue === "off" || rawValue === "merge" || rawValue === "web") {
+      if (rawValue === "merge" || rawValue === "web") {
         next.blobs.connectionMode = rawValue;
       }
       break;
     case "connectionStrength": {
       const amount = clamp(value);
       next.blobs.fusionStrength = amount;
-      next.blobs.fieldSoftness = 4 + amount * 28;
       next.blobs.webOpacity = 0.15 + amount * 0.75;
+      break;
+    }
+    case "connectionSoftness": {
+      const amount = clamp(value);
+      next.blobs.fieldSoftness = amount * CONNECTION_SOFTNESS_FIELD_MAX;
+      next.blobs.blurRadius = amount * CONNECTION_SOFTNESS_BLUR_MAX;
       break;
     }
     case "atmosphereStrength": {
@@ -588,6 +597,7 @@ export function createSeededStageLook(
     // Launch variation changes appearance, not the learner's relationship or
     // explanation choices.
     delete varied.blobs.connectionMode;
+    delete varied.blobs.blurRadius;
     delete varied.blobs.fusionStrength;
     delete varied.blobs.fieldSoftness;
     delete varied.blobs.webOpacity;

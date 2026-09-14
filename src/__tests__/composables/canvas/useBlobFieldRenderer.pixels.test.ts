@@ -264,9 +264,9 @@ describe("Filled Merge and fine Web pixels", () => {
   });
 
   it.each([
-    { radius: 10, fieldSoftness: 6 },
-    { radius: 10, fieldSoftness: 12 },
-    { radius: 20, fieldSoftness: 6 },
+    { radius: 10, fieldSoftness: 6, fusionStrength: 0.4 },
+    { radius: 10, fieldSoftness: 12, fusionStrength: 0.4 },
+    { radius: 20, fieldSoftness: 6, fusionStrength: 0.4 },
   ])("keeps a near-edge interior note inside the organic Merge body at $radius px", (settings) => {
     const frames = framesAt([[140, 100], [820, 100], [820, 600], [140, 600], [480, 125]], settings.radius);
     const context = render(frames, "merge", settings);

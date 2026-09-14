@@ -44,9 +44,7 @@ export function useHarmonicAnalysis(
   const activeNoteIds = reactive(new Set<string>());
   const isVisible = ref(false);
   const relationshipsEnabled = computed(
-    () =>
-      blobConfig.value.isEnabled &&
-      blobConfig.value.connectionMode !== "off"
+    () => blobConfig.value.isEnabled
   );
   let hideTimer: number | null = null;
 

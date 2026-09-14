@@ -23,7 +23,7 @@ describe("prepared note body visibility", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it.each(["off", "merge", "web"] as const)("keeps a single held note visible in %s at phone body sizes", (mode) => {
+  it.each(["merge", "web"] as const)("keeps a single held note visible in %s at phone body sizes", (mode) => {
     for (const bodySizeScale of [0.5, 1]) {
       const config = { ...DEFAULT_CONFIG.blobs, connectionMode: mode, baseSizeRatio: 0.1 * bodySizeScale };
       const canvas = createCanvas(390, 400);

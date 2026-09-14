@@ -94,6 +94,21 @@ describe('Visual Config Store', () => {
       expect(newStore.visualsEnabled).toBe(false)
     })
 
+    it('defaults missing or invalid Code Strip duration display values', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { codeStrip: { bpm: 144, durationMode: 'sparkles' } },
+      }))
+
+      const invalidStore = createFreshStore()
+      expect(invalidStore.config.codeStrip.durationMode).toBe('bar')
+
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { codeStrip: { bpm: 144 } },
+      }))
+      const missingStore = createFreshStore()
+      expect(missingStore.config.codeStrip.durationMode).toBe('bar')
+    })
+
     it('should migrate legacy color keys from localStorage on initialization', () => {
       const storedConfig = {
         config: {
@@ -267,6 +282,19 @@ describe('Visual Config Store', () => {
       expect(store.config.blobs.fusionStrength).toBe(0.8)
       expect(store.config.blobs.labelOpacity).toBe(0.2)
       expect(store.config.blobs.webOpacity).toBe(0.65)
+    })
+
+    it.each(['mesh', 'off'])('repairs unsupported %s connection mode to Merge', (connectionMode) => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          blobs: { connectionMode },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs.connectionMode).toBe(DEFAULT_CONFIG.blobs.connectionMode)
+      expect(store.config.blobs.connectionMode).toBe('merge')
     })
 
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
@@ -1004,13 +1032,15 @@ describe('Visual Config Store', () => {
       visualConfigStore.applyBuiltInStageLook('clear')
       visualConfigStore.updateStageControl('connectionMode', 'web')
       visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('connectionSoftness', 0.4)
       visualConfigStore.updateStageControl('showChords', false)
       visualConfigStore.updateStageControl('showIntervals', true)
       visualConfigStore.updateStageControl('showEmotion', true)
       visualConfigStore.updateStageControl('labelStrength', 0.31)
       const expectedPreferences = {
         connectionMode: 'web',
-        fieldSoftness: 4 + 0.37 * 28,
+        blurRadius: 16,
+        fieldSoftness: 20,
         fusionStrength: 0.37,
         webOpacity: 0.15 + 0.37 * 0.75,
         showChordLabel: false,

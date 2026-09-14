@@ -158,13 +158,51 @@
 
           <TabsContent value="stage" :active-value="panelTab">
             <div class="config-panel__stage-stack">
+            <section
+              class="config-panel__section"
+              :class="{ 'config-panel__section--disabled': !visualsEnabled }"
+              data-testid="stage-public-controls"
+            >
+              <header class="config-panel__section-header">
+                <div>
+                  <p class="config-panel__eyebrow">Canvas</p>
+                  <h2>Stage</h2>
+                  <p class="config-panel__section-copy">
+                    Control the complete visual canvas. Related layers share focused destinations.
+                  </p>
+                </div>
+
+                <div class="config-panel__section-controls">
+                  <Knob
+                    type="boolean"
+                    :model-value="stageControls.stageEnabled"
+                    label="Stage"
+                    tone="brass"
+                    class="config-panel__boolean-knob"
+                    data-testid="stage-toggle"
+                    :is-disabled="!visualsEnabled"
+                    @update:modelValue="updateStageControl('stageEnabled', Boolean($event))"
+                  />
+                  <Button
+                    size="sm"
+                    data-testid="stage-reset"
+                    title="Reset Stage"
+                    accessible-name="Reset Stage"
+                    @click="resetStage"
+                  >
+                    <RotateCcw :size="14" />
+                  </Button>
+                </div>
+              </header>
+            </section>
+
             <section class="config-panel__presets config-panel__section" data-testid="stage-looks">
               <header class="config-panel__looks-header">
                 <div>
                   <p class="config-panel__eyebrow">Stage only</p>
                   <h2>Looks</h2>
                   <p class="config-panel__section-copy">
-                    Built-ins preserve Connections and Explanations; saved Looks restore what you saved.
+                    Built-ins preserve body relationships and explanations; saved Looks restore what you saved.
                   </p>
                 </div>
 
@@ -271,52 +309,38 @@
               </div>
 
             </section>
+            </div>
+          </TabsContent>
 
+          <TabsContent
+            v-for="destination in STAGE_DETAIL_TABS"
+            :key="destination.value"
+            :value="destination.value"
+            :active-value="panelTab"
+          >
             <section
               class="config-panel__section"
-              :class="{ 'config-panel__section--disabled': !visualsEnabled }"
-              data-testid="stage-public-controls"
+              :class="{ 'config-panel__section--disabled': !visualsEnabled || !stageControls.stageEnabled }"
+              :data-testid="`stage-destination-${destination.value}`"
             >
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Customize</p>
-                  <h2>Stage</h2>
-                  <p class="config-panel__section-copy">
-                    Hilbert Scope leads. Bodies, atmosphere, strings, and flecks support it.
-                  </p>
-                </div>
-
-                <div class="config-panel__section-controls">
-                  <Knob
-                    type="boolean"
-                    :model-value="stageControls.stageEnabled"
-                    label="Stage"
-                    tone="brass"
-                    class="config-panel__boolean-knob"
-                    data-testid="stage-toggle"
-                    :is-disabled="!visualsEnabled"
-                    @update:modelValue="updateStageControl('stageEnabled', Boolean($event))"
-                  />
-                  <Button
-                    size="sm"
-                    data-testid="stage-reset"
-                    title="Reset Stage"
-                    accessible-name="Reset Stage"
-                    @click="resetStage"
-                  >
-                    <RotateCcw :size="14" />
-                  </Button>
+                  <p class="config-panel__eyebrow">Stage layers</p>
+                  <h2>{{ destination.label }}</h2>
+                  <p class="config-panel__section-copy">{{ destination.description }}</p>
                 </div>
               </header>
 
               <div class="config-panel__groups">
                 <div
-                  v-for="group in STAGE_CONTROL_GROUPS"
+                  v-for="group in destination.groups"
                   :key="group.label"
                   class="config-panel__group"
                 >
-                  <p class="config-panel__group-label">{{ group.label }}</p>
-                  <p class="config-panel__group-copy">{{ group.description }}</p>
+                  <template v-if="destination.groups.length > 1">
+                    <p class="config-panel__group-label">{{ group.label }}</p>
+                    <p class="config-panel__group-copy">{{ group.description }}</p>
+                  </template>
                   <div class="config-panel__knob-grid">
                     <Knob
                       v-for="control in group.controls"
@@ -337,7 +361,6 @@
                 </div>
               </div>
             </section>
-            </div>
           </TabsContent>
 
           <TabsContent value="deck" :active-value="panelTab">
@@ -379,7 +402,7 @@
                       :type="control.type"
                       :options="control.options"
                       :label="control.label"
-                      :is-disabled="control.id === 'showRests' && !deckControls.codeStrip"
+                      :is-disabled="(control.id === 'showRests' || control.id === 'durationMode') && !deckControls.codeStrip"
                       @update:modelValue="handleDeckControl(control.id, $event)"
                     />
                   </div>
@@ -565,6 +588,41 @@ const STAGE_TAB = {
   shortLabel: "Stage",
 };
 
+const STAGE_DETAIL_TABS = [
+  {
+    value: "scope",
+    label: "Scope",
+    shortLabel: "Scope",
+    description: "Shape the primary musical body and raw-waveform surface.",
+    groups: [STAGE_CONTROL_GROUPS[0]],
+  },
+  {
+    value: "bodies",
+    label: "Note Bodies",
+    shortLabel: "Bodies",
+    description: "Tune the Circle-of-Fifths bodies and how simultaneous notes join.",
+    groups: [STAGE_CONTROL_GROUPS[1]],
+  },
+  {
+    value: "relations",
+    label: "Relations",
+    shortLabel: "Relations",
+    description: "Choose what the Stage explains about simultaneous notes.",
+    groups: [STAGE_CONTROL_GROUPS[5]],
+  },
+  {
+    value: "layers",
+    label: "Layers",
+    shortLabel: "Layers",
+    description: "Balance atmosphere, pitch strings, and note-event flecks.",
+    groups: [
+      STAGE_CONTROL_GROUPS[2],
+      STAGE_CONTROL_GROUPS[3],
+      STAGE_CONTROL_GROUPS[4],
+    ],
+  },
+];
+
 const DECK_TAB = {
   value: "deck",
   label: "Deck",
@@ -622,6 +680,7 @@ const builtInLooks = BUILT_IN_STAGE_LOOKS;
 const allTabs = computed(() => [
   GLOBAL_TAB,
   STAGE_TAB,
+  ...STAGE_DETAIL_TABS,
   DECK_TAB,
   MIDI_TAB,
 ]);

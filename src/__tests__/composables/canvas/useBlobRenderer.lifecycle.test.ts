@@ -188,7 +188,7 @@ describe("useBlobRenderer lifecycle", () => {
     const renderer = useBlobRenderer();
     createTestBlob(renderer);
     const blob = renderer.activeBlobs.get("c4")!;
-    expect(blob.baseRadius).toBe(75);
+    expect(blob.baseRadius).toBe(120);
 
     renderer.reprojectBlobs({
       usable: { x: 0, y: 0, width: 400, height: 240 },

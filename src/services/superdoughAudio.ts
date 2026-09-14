@@ -19,6 +19,8 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import { prepareLivePlayback } from "@/services/livePlayback";
+import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 
@@ -37,17 +39,6 @@ export function getAudioContext(): AudioContext {
 const SYNTH_SOUNDS = new Set([
   "triangle", "sawtooth", "square", "sine", "buzz", "supersaw",
 ]);
-
-const LEGACY_ALIASES: Record<string, string> = {
-  synth: "triangle",
-  amSynth: "sawtooth",
-  fmSynth: "square",
-  membraneSynth: "sine",
-  metalSynth: "square",
-  organ: "organ_full",
-  pipeorgan: "pipeorgan_quiet",
-  recorder: "recorder_tenor_sus",
-};
 
 // ---------------------------------------------------------------------------
 // Module-level init state so we only set up once
@@ -114,7 +105,7 @@ async function _prewarmSoundCore(
   soundName: string,
   tolerateBufferFailures = false
 ): Promise<void> {
-  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
+  const resolved = resolveLiveSoundName(soundName);
   let sound;
   try {
     // Resolve the registered sound before treating synth names as ready. This
@@ -140,6 +131,7 @@ async function _prewarmSoundCore(
 
     try {
       await prewarmSoundfont(font, getAudioContext());
+      await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
       _prewarmedSounds.add(resolved);
     } catch (error) {
       if (!tolerateBufferFailures) throw error;
@@ -148,6 +140,7 @@ async function _prewarmSoundCore(
   }
 
   if (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples) {
+    await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
     _prewarmedSounds.add(resolved); // no samples needed → already "ready"
     return;
   }
@@ -173,6 +166,7 @@ async function _prewarmSoundCore(
     return;
   }
 
+  await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
   _prewarmedSounds.add(resolved);
 }
 
@@ -195,7 +189,7 @@ export async function prewarmSoundSamples(soundName: string): Promise<void> {
  * in the buffer cache; oscillator and other no-sample sounds are always ready.
  */
 export function isPrewarmed(soundName: string): boolean {
-  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
+  const resolved = resolveLiveSoundName(soundName);
   if (_prewarmedSounds.has(resolved)) {
     return true;
   }
@@ -578,7 +572,7 @@ export async function attackNote(
     await ac.resume();
   }
 
-  const sound = LEGACY_ALIASES[instrument] ?? instrument;
+  const sound = resolveLiveSoundName(instrument);
   const articulation = getLiveArticulation(sound);
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
   const wasReady = isPrewarmed(sound);
@@ -645,7 +639,7 @@ export async function playNoteWithDuration(
     await ac.resume();
   }
 
-  const sound = LEGACY_ALIASES[instrument] ?? instrument;
+  const sound = resolveLiveSoundName(instrument);
   const durationSeconds = durationMs / 1000;
 
   await superdough(

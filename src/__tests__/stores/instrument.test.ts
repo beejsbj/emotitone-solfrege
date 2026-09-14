@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useInstrumentStore } from "@/stores/instrument";
 
+const liveMocks = vi.hoisted(() => ({ needsLivePlaybackPreparation: vi.fn(() => false) }));
+vi.mock("@/services/livePlayback", () => liveMocks);
+
 const audioMocks = vi.hoisted(() => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn((instrumentName: string) => instrumentName === "piano"),
@@ -29,6 +32,7 @@ describe("instrument store warmup", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
     audioMocks.initSuperdoughAudio.mockResolvedValue(undefined);
     audioMocks.isPrewarmed.mockImplementation(
       (instrumentName: string) => instrumentName === "piano"
@@ -47,6 +51,33 @@ describe("instrument store warmup", () => {
     expect(store.warmingInstrument).toBeNull();
     expect(store.isInteractionLocked).toBe(false);
     expect(audioMocks.prewarmSoundSamples).not.toHaveBeenCalled();
+  });
+
+  it("waits for render-thread preparation even when the sample cache is warm", async () => {
+    const store = useInstrumentStore();
+    const prepared = createDeferred<void>();
+    liveMocks.needsLivePlaybackPreparation.mockReturnValue(true);
+    audioMocks.prewarmSoundSamples.mockReturnValueOnce(prepared.promise);
+    const selection = store.setInstrument("piano");
+    expect(store.isInteractionLocked).toBe(true);
+    expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("piano");
+    prepared.resolve();
+    await expect(selection).resolves.toEqual({ status: "ready", instrument: "piano" });
+    expect(store.isInteractionLocked).toBe(false);
+  });
+
+  it("keeps initialization pending until the selected live renderer is prepared", async () => {
+    const store = useInstrumentStore();
+    const prepared = createDeferred<void>();
+    liveMocks.needsLivePlaybackPreparation.mockReturnValue(true);
+    audioMocks.prewarmSoundSamples.mockReturnValueOnce(prepared.promise);
+    const initialization = store.initializeInstruments();
+    await Promise.resolve();
+    expect(store.isLoading).toBe(true);
+    expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("piano");
+    prepared.resolve();
+    await initialization;
+    expect(store.isLoading).toBe(false);
   });
 
   it("locks interaction until a cold instrument becomes ready", async () => {

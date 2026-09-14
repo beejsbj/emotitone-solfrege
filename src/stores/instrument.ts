@@ -8,6 +8,8 @@ import {
   prewarmSoundSamples,
 } from "@/services/superdoughAudio";
 
+import { needsLivePlaybackPreparation } from "@/services/livePlayback";
+
 export type InstrumentSelectionResult =
   | { status: "ready"; instrument: string }
   | { status: "failed"; instrument: string; fallback: string | null }
@@ -98,6 +100,9 @@ export const useInstrumentStore = defineStore("instrument", () => {
     try {
       await initSuperdoughAudio(progressCallback);
       syncReadyInstrumentsFromAudio();
+      if (needsLivePlaybackPreparation(currentInstrument.value)) {
+        await prewarmSoundSamples(currentInstrument.value);
+      }
       // Guarantee a 100% call even when already initialized (early return path)
       progressCallback?.(100, "Audio engine ready");
     } catch (error) {
@@ -124,7 +129,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     currentInstrument.value = instrumentName;
     clearWarmupError();
 
-    if (isInstrumentReady(instrumentName)) {
+    if (isInstrumentReady(instrumentName) && !needsLivePlaybackPreparation(instrumentName)) {
       markInstrumentReady(instrumentName);
       lastReadyInstrument.value = instrumentName;
       clearWarmupState();
@@ -132,7 +137,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     }
 
     warmingInstrument.value = instrumentName;
-    warmupMessage.value = "Samples being downloaded...";
+    warmupMessage.value = "Preparing instrument...";
 
     let warmupPromise = warmupPromises.get(instrumentName);
     if (!warmupPromise) {

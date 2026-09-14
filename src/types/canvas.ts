@@ -91,9 +91,19 @@ export interface HarmonicGeometryLabel {
   size: "sm" | "md" | "lg";
   roles?: Array<"chord" | "emotion" | "interval">;
   angle?: number;
+  notePair?: [string, string];
+}
+
+/** Exact prepared Web filament, published by the field renderer for lettering. */
+export interface HarmonicConnectionPath {
+  notePair: [string, string];
+  points: Array<{ x: number; y: number }>;
+  colors: [string, string];
+  opacity: number;
 }
 
 export interface HarmonicGeometryScene {
+  renderedConnections?: HarmonicConnectionPath[];
   viewport?: { width: number; height: number };
   points: HarmonicGeometryPoint[];
   orderedPoints: HarmonicGeometryPoint[];

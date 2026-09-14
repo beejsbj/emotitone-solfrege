@@ -818,6 +818,8 @@ export function useBlobFieldRenderer() {
     scene: HarmonicGeometryScene | null
   ) => {
     const mode = config.connectionMode;
+    // A scene may be reused by a static specimen; never retain a prior path.
+    if (scene) scene.renderedConnections = [];
     if (frames.length === 0 || mode === "off") {
       return false;
     }
@@ -1123,6 +1125,18 @@ export function useBlobFieldRenderer() {
       target.restore();
     });
 
+    if (scene && mode === "web") {
+      scene.renderedConnections = connectionLayers.flatMap(({ connection, geometry }) => {
+        const from = scene.points.find(point => point.blob === connection.from.blob);
+        const to = scene.points.find(point => point.blob === connection.to.blob);
+        return from && to ? [{
+          notePair: [from.note.noteId, to.note.noteId] as [string, string],
+          points: geometry.centerline,
+          opacity: getConnectionOpacity(connection),
+          colors: [connection.from.primaryColor, connection.to.primaryColor] as [string, string],
+        }] : [];
+      });
+    }
     return true;
   };
 

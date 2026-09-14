@@ -177,6 +177,7 @@ export function useHarmonicGeometryRenderer() {
         y: arcMidpoint.labelY,
         lines: [dyadEdge.interval],
         roles: ["interval"],
+        notePair: [dyadEdge.fromNoteId, dyadEdge.toNoteId],
         angle: Math.atan2(orderedPoints[1].y - orderedPoints[0].y, orderedPoints[1].x - orderedPoints[0].x),
         size: "md",
       });
@@ -235,6 +236,7 @@ export function useHarmonicGeometryRenderer() {
           y: midY,
           lines: [edge.interval],
           roles: ["interval"],
+          notePair: [edge.fromNoteId, edge.toNoteId],
           angle: Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x),
           size: "sm",
         });

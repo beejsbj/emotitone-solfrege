@@ -24,6 +24,46 @@ function setup(width = 320, height = 240, title = "Cmaj9") {
 }
 
 describe("musical canvas typography", () => {
+  it("slides competing intervals along their filaments and stays still for Reduced Motion", () => {
+    const { ctx, scene, render } = setup(400, 240);
+    scene.primaryLabel = null;
+    scene.auxiliaryLabels = [
+      { x: 200, y: 100, size: "md", lines: ["3M"], notePair: ["a", "b"] },
+      { x: 200, y: 100, size: "md", lines: ["5P"], notePair: ["c", "d"] },
+    ];
+    scene.renderedConnections = scene.auxiliaryLabels.map(label => ({ notePair: label.notePair!,
+      colors: ["red", "green"], opacity: 1, points: [{ x: 30, y: 100 }, { x: 370, y: 100 }] }));
+    const translate = vi.spyOn(ctx, "translate");
+    const gradient = vi.spyOn(ctx, "createLinearGradient");
+    const initial = render(1000, true);
+    expect(gradient).toHaveBeenCalledTimes(2);
+    expect(translate.mock.calls).toHaveLength(2);
+    expect(Math.abs(translate.mock.calls[0][0] - translate.mock.calls[1][0])).toBeGreaterThan(40);
+    expect(translate.mock.calls.every(([, y]) => y === 100)).toBe(true);
+    expect(render(2000, true).equals(initial)).toBe(true);
+  });
+
+  it("pins Web lettering to its filament and moves a colliding emotion instead", () => {
+    const { ctx, scene, render, draw } = setup(390, 330);
+    scene.primaryLabel!.lines = ["Bright, joyful optimism & Home, rest, stability"];
+    scene.primaryLabel!.roles = ["emotion"];
+    scene.auxiliaryLabels = [{ x: 195, y: 165, size: "md", lines: ["-3M"], notePair: ["e", "c"] }];
+    scene.renderedConnections = [{ notePair: ["c", "e"], colors: ["red", "green"], opacity: 1,
+      points: [{ x: 40, y: 165 }, { x: 350, y: 165 }] }];
+    const text = vi.spyOn(ctx, "fillText");
+    const translate = vi.spyOn(ctx, "translate");
+    const gradient = vi.spyOn(ctx, "createLinearGradient");
+    render(1000, true);
+    expect(text.mock.calls.filter(([s]) => s === "-3M")).toHaveLength(1);
+    expect(translate.mock.calls[0]).toEqual([195, 165]);
+    expect(translate.mock.calls[1][1]).not.toBe(165 - 32);
+    expect(gradient).toHaveBeenCalledWith(40, 165, 350, 165);
+    text.mockClear(); gradient.mockClear();
+    draw(ctx, scene, 1, false, { now: 2000, reducedMotion: true });
+    expect(text.mock.calls.some(([s]) => s === "-3M")).toBe(false);
+    expect(gradient).not.toHaveBeenCalled();
+  });
+
   it.each([0, 12])("keeps a dyad interval visible beside a long emotion phrase (offset %s)", (offset) => {
     const { ctx, scene, render } = setup(390, 330);
     scene.primaryLabel!.lines = ["Bright, joyful optimism & Home, rest, stability"];
@@ -33,6 +73,18 @@ describe("musical canvas typography", () => {
     const text = vi.spyOn(ctx, "fillText");
     render(1000, true);
     expect(text).toHaveBeenCalledWith("3M", 0, 0);
+  });
+
+  it("keeps a crowded Web interval legible when the primary has no clear position", () => {
+    const { ctx, scene, render } = setup(320, 100);
+    scene.primaryLabel!.lines = ["Bright, joyful optimism & Home, rest, stability"];
+    scene.primaryLabel!.roles = ["emotion"];
+    scene.auxiliaryLabels = [{ x: 160, y: 50, size: "md", lines: ["3M"], notePair: ["c", "e"] }];
+    scene.renderedConnections = [{ notePair: ["c", "e"], colors: ["red", "green"], opacity: 1,
+      points: [{ x: 30, y: 50 }, { x: 290, y: 50 }] }];
+    const text = vi.spyOn(ctx, "fillText");
+    render(1000, true);
+    expect(text.mock.calls.map(([s]) => s)).toEqual(["3M"]);
   });
 
   it.each(["CM", "Csus4", "Caug"])("settles %s once and stays still", (title) => {

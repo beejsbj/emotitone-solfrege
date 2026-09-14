@@ -1,6 +1,7 @@
 import { Chord } from "@tonaljs/tonal";
 import type { HarmonicGeometryScene } from "@/types/canvas";
 import type { StageRect } from "./stageRuntime";
+import { layoutIntervalLettering, paintIntervalLettering, type IntervalLettering } from "./intervalLettering";
 
 type Glyph = { text: string; x: number; width: number };
 type Line = { text: string; glyphs: Glyph[]; width: number; y: number; size: number; chord: boolean };
@@ -117,48 +118,90 @@ export function createHarmonicTypography() {
     const follow = still ? 1 : 1 - Math.exp(-dt / 100);
     state.x += ((label?.x ?? state.x) - state.x) * follow;
     state.y += ((label?.y ?? state.y) - state.y) * follow;
-    const occupied: Box[] = [];
+    const integrated: IntervalLettering[] = [];
+    if (intervals) for (const label of scene.auxiliaryLabels) {
+      const path = scene.renderedConnections?.find(connection => label.notePair
+        && connection.notePair.every(id => label.notePair!.includes(id)));
+      if (!path) continue;
+      const width = measure(label.lines.join(" "), 18);
+      // Slide along the same filament before falling back to a separate tab.
+      for (const fraction of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+        const layout = layoutIntervalLettering(label, path, width, fraction);
+        if (!layout) break;
+        const box = layout.box;
+        if (box.x - box.width / 2 < bounds.x + 8 || box.x + box.width / 2 > bounds.x + bounds.width - 8
+          || box.y - box.height / 2 < bounds.y + 8 || box.y + box.height / 2 > bounds.y + bounds.height - 8) continue;
+        if (integrated.some(other => overlaps(box, other.box))) continue;
+        integrated.push(layout);
+        break;
+      }
+    }
+    const occupied: Box[] = integrated.map(layout => layout.box);
     ctx.filter = "none";
     ctx.globalCompositeOperation = "source-over";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    integrated.forEach(layout => paintIntervalLettering(ctx, layout,
+      { opacity, font: state.font, ink: state.ink, ivory: state.ivory }));
     if (label && state.lines.length && state.height + 24 <= bounds.height) {
       const box = {
         x: clamp(state.x, bounds.x + state.width / 2 + 8, bounds.x + bounds.width - state.width / 2 - 8),
         y: clamp(state.y, bounds.y + state.height / 2 + 12, bounds.y + bounds.height - state.height / 2 - 12),
         width: state.width, height: state.height,
       };
-      occupied.push(box);
-      ctx.save(); ctx.translate(box.x, box.y - state.height / 2);
-      ctx.globalAlpha = opacity * (0.45 + 0.55 * (1 - remaining));
-      for (const line of state.lines) {
-        ctx.font = `${line.chord ? 700 : 400} ${line.size}px ${state.font}`;
-        const seed = hash(chordText || line.text);
-        for (const [index, glyph] of line.glyphs.entries()) {
-          const unit = line.width ? glyph.x / (line.width / 2) : 0;
-          const curve = line.chord ? 0 : 5 * unit * unit;
-          const jitter = line.chord ? ((seed + index * 17) % 7 - 3) * 0.4 : 0;
-          const tilt = line.chord ? ((seed + index * 11) % 7 - 3) * 0.018 : unit * 0.11;
-          ctx.save();
-          ctx.translate(glyph.x * (state.gesture === "open" ? 1 - remaining * 0.12 : 1),
-            line.y + curve + jitter + remaining * (state.gesture === "hang" ? -7 : 6));
-          ctx.rotate(tilt + (line.chord ? -0.035 : 0) + (state.gesture === "hang" ? remaining * -0.08 : 0));
-          // Hard ink offset gives the paper letters a crisp silhouette, without a halo.
-          ctx.fillStyle = state.ink;
-          ctx.fillText(glyph.text, line.chord ? 2 : 1, line.chord ? 3 : 1.5);
-          ctx.fillStyle = state.ivory;
-          ctx.fillText(glyph.text, 0, 0);
-          ctx.restore();
-        }
-        if (line.chord) {
-          ctx.fillStyle = state.ivory;
-          ctx.fillRect(-Math.min(14, line.width / 2), line.y + 22, Math.min(28, line.width), 1.5);
-        }
+      // The interval belongs to the filament. Move the central annotation,
+      // not the interval, when the two need the same space (common for dyads).
+      const fits = (candidate: Box) => candidate.x - candidate.width / 2 >= bounds.x + 8
+        && candidate.x + candidate.width / 2 <= bounds.x + bounds.width - 8
+        && candidate.y - candidate.height / 2 >= bounds.y + 8
+        && candidate.y + candidate.height / 2 <= bounds.y + bounds.height - 8
+        && !occupied.some(other => overlaps(candidate, other));
+      if (!fits(box) && occupied.length) {
+        const candidates = occupied.flatMap(other => [
+          { ...box, y: other.y - (other.height + box.height) / 2 - 12 },
+          { ...box, y: other.y + (other.height + box.height) / 2 + 12 },
+          { ...box, x: other.x - (other.width + box.width) / 2 - 12 },
+          { ...box, x: other.x + (other.width + box.width) / 2 + 12 },
+        ]).sort((a, b) => Math.hypot(a.x - box.x, a.y - box.y) - Math.hypot(b.x - box.x, b.y - box.y));
+        const free = candidates.find(fits);
+        if (free) { box.x = free.x; box.y = free.y; }
       }
-      ctx.restore();
+      // If there is genuinely no room, preserve the interval rather than
+      // painting the primary phrase over it. Merge keeps its original policy.
+      if (!occupied.length || fits(box)) {
+        occupied.push(box);
+        ctx.save(); ctx.translate(box.x, box.y - state.height / 2);
+        ctx.globalAlpha = opacity * (0.45 + 0.55 * (1 - remaining));
+        for (const line of state.lines) {
+          ctx.font = `${line.chord ? 700 : 400} ${line.size}px ${state.font}`;
+          const seed = hash(chordText || line.text);
+          for (const [index, glyph] of line.glyphs.entries()) {
+            const unit = line.width ? glyph.x / (line.width / 2) : 0;
+            const curve = line.chord ? 0 : 5 * unit * unit;
+            const jitter = line.chord ? ((seed + index * 17) % 7 - 3) * 0.4 : 0;
+            const tilt = line.chord ? ((seed + index * 11) % 7 - 3) * 0.018 : unit * 0.11;
+            ctx.save();
+            ctx.translate(glyph.x * (state.gesture === "open" ? 1 - remaining * 0.12 : 1),
+              line.y + curve + jitter + remaining * (state.gesture === "hang" ? -7 : 6));
+            ctx.rotate(tilt + (line.chord ? -0.035 : 0) + (state.gesture === "hang" ? remaining * -0.08 : 0));
+            // Hard ink offset gives the paper letters a crisp silhouette, without a halo.
+            ctx.fillStyle = state.ink;
+            ctx.fillText(glyph.text, line.chord ? 2 : 1, line.chord ? 3 : 1.5);
+            ctx.fillStyle = state.ivory;
+            ctx.fillText(glyph.text, 0, 0);
+            ctx.restore();
+          }
+          if (line.chord) {
+            ctx.fillStyle = state.ivory;
+            ctx.fillRect(-Math.min(14, line.width / 2), line.y + 22, Math.min(28, line.width), 1.5);
+          }
+        }
+        ctx.restore();
+      }
     }
     if (intervals) for (const stamp of scene.auxiliaryLabels) {
+      if (integrated.some(layout => layout.label === stamp)) continue;
       const text = stamp.lines.join(" ");
       const width = measure(text, 15) + 16;
       let direction = stamp.angle ?? 0;

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBlobFieldRenderer } from "@/composables/canvas/useBlobFieldRenderer";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { MAJOR_SOLFEGE } from "@/data";
+import { useHarmonicGeometryRenderer } from "@/composables/canvas/useHarmonicGeometryRenderer";
 import type { PreparedBlobFrame } from "@/types/canvas";
 
 function chordFrames(radius: number): PreparedBlobFrame[] {
@@ -60,6 +61,29 @@ describe("Merge field pixels", () => {
     );
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("publishes prepared Web paths and colours, clearing them when the mode changes", () => {
+    const frames = chordFrames(20).slice(0, 2);
+    frames[1].primaryColor = "rgb(0, 255, 0)";
+    const notes = frames.map(frame => ({ noteId: frame.key, noteName: "C4", solfegeIndex: 0,
+      solfege: frame.blob.note, frequency: 261.63, octave: 4, mode: "major" as const, key: "C" as const }));
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "web" as const };
+    const scene = useHarmonicGeometryRenderer().buildScene({ isVisible: true, displayedNotes: notes,
+      intervalEdges: [{ fromNoteId: "0", toNoteId: "1", fromIndex: 0, toIndex: 1, interval: "3M" }],
+      chordLabel: null, emotionalDescription: "Bright" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 1000, 600)!;
+    const ctx = createCanvas(1000, 600).getContext("2d") as unknown as CanvasRenderingContext2D;
+    const renderer = useBlobFieldRenderer();
+    expect(renderer.renderBlobField(ctx, frames, config, scene)).toBe(true);
+    expect(scene.renderedConnections).toHaveLength(1);
+    expect(scene.renderedConnections![0].colors).toEqual(frames.map(frame => frame.primaryColor));
+    expect(scene.renderedConnections![0].points.length).toBeGreaterThan(2);
+    expect(scene.renderedConnections![0].opacity).toBeGreaterThan(0);
+    renderer.renderBlobField(ctx, frames, { ...config, webOpacity: 0 }, scene);
+    expect(scene.renderedConnections![0].opacity).toBe(0);
+    renderer.renderBlobField(ctx, frames, { ...config, connectionMode: "merge" }, scene);
+    expect(scene.renderedConnections).toEqual([]);
+    renderer.dispose();
+  });
 
   it.each([
     { radius: 10, fieldSoftness: 30, fusionStrength: 0 },

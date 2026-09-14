@@ -55,4 +55,35 @@ describe('production live worklet bridge', () => {
     expect(callbacks.onError).toHaveBeenCalledOnce()
     bridge.dispose()
   })
+
+  it('waits for retired PCM acknowledgement and requests instant removal while suspended', async () => {
+    const { context, callbacks, node } = setup()
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    const done = vi.fn()
+    const forgotten = bridge.forget('sine').then(done)
+    expect(node.port.postMessage).toHaveBeenCalledWith({ type: 'forget', requestId: 1, instrumentId: 'sine', instant: true })
+    await Promise.resolve()
+    expect(done).not.toHaveBeenCalled()
+    node.port.onmessage({ data: { type: 'forgotten', requestId: 1 } })
+    await forgotten
+    expect(done).toHaveBeenCalledOnce()
+    bridge.dispose()
+  })
+
+  it('finishes a pending retirement if the context suspends before its fade renders', async () => {
+    const { context, callbacks, node } = setup()
+    context.state = 'running'
+    context.addEventListener = vi.fn()
+    context.removeEventListener = vi.fn()
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    const forgotten = bridge.forget('sine')
+    expect(node.port.postMessage).toHaveBeenLastCalledWith({ type: 'forget', requestId: 1, instrumentId: 'sine', instant: false })
+    context.state = 'suspended'
+    context.addEventListener.mock.calls[0][1]()
+    expect(node.port.postMessage).toHaveBeenLastCalledWith({ type: 'forget', requestId: 1, instrumentId: 'sine', instant: true })
+    node.port.onmessage({ data: { type: 'forgotten', requestId: 1 } })
+    await forgotten
+    bridge.dispose()
+    expect(context.removeEventListener).toHaveBeenCalledOnce()
+  })
 })

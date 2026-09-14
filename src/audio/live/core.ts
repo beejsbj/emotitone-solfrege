@@ -1,7 +1,10 @@
 import type { LiveCommand, LiveConfig, LiveInputNote, LiveResponse, LiveSampleZone,
   LiveVoiceEvent, PreparedLiveInstrument } from './types'
+import { createSampleResampler, type SampleResampler } from './resampler'
 
-const MAX_VOICES = 128
+// Leave render headroom for the eight-tap stereo mixer, effects and capture.
+// The separate Superdough fallback retains its own 128-voice limit.
+const MAX_VOICES = 64
 const MAX_FADES = 8
 const PLAN_SECONDS = .15
 const GATE = .8
@@ -28,6 +31,7 @@ interface Pulse {
 interface Voice extends PlannedNote {
   instrument: PreparedLiveInstrument
   zone?: LiveSampleZone
+  resampler?: SampleResampler
   start: number
   end: number
   style: LiveConfig['style']
@@ -37,7 +41,7 @@ interface Voice extends PlannedNote {
   releaseLength: number
   releaseLevel: number
   released: boolean
-  finished: boolean
+  published: boolean
 }
 
 /** Audio-thread musical transport and PCM mixer. No DOM, timers, or promises. */
@@ -56,14 +60,15 @@ export class LiveAudioCore {
   private strumAt?: number
   private planDirty = false
   private endingOwners = new Set<string>()
+  private forgetting = new Map<number, string>()
 
-  constructor(private sampleRate: number, private send: (message: LiveResponse) => void) {}
+  constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {}
 
   get voiceCount() { return this.voices.length + this.fades.length }
   private rhythmic() { return this.config.style === 'repeat' || this.config.style.startsWith('arp-') }
   private interval() { return this.sampleRate * 60 / this.config.bpm * 4 / this.config.rate }
   private note(note: LiveInputNote, ownerId: string, owners = new Set([ownerId])): PlannedNote {
-    return { ...note, ownerId, owners: new Set(owners), noteId: `worklet-${++this.serial}` }
+    return { ...note, ownerId, owners: new Set(owners), noteId: `${this.notePrefix}-${++this.serial}` }
   }
   private pool() {
     const notes = new Map<number, { note: LiveInputNote; ownerId: string; owners: Set<string> }>()
@@ -102,12 +107,33 @@ export class LiveAudioCore {
         this.instruments.set(command.instrument.instrumentId, command.instrument)
         this.send({ type: 'prepared', requestId: command.requestId })
         return
-      case 'forget': this.instruments.delete(command.instrumentId); return
+      case 'forget': {
+        this.instruments.delete(command.instrumentId)
+        this.forgetting.set(command.requestId, command.instrumentId)
+        for (const pulse of this.pulses) pulse.notes = pulse.notes.filter(note => note.instrumentId !== command.instrumentId)
+        this.strum = this.strum.filter(note => note.instrumentId !== command.instrumentId)
+        for (const [owner, notes] of this.held) {
+          const remaining = notes.filter(note => note.instrumentId !== command.instrumentId)
+          if (remaining.length) this.held.set(owner, remaining)
+          else { this.held.delete(owner); this.endingOwners.add(owner) }
+        }
+        for (const collection of [this.voices, this.fades]) for (let index = collection.length - 1; index >= 0; index--) {
+          const voice = collection[index]
+          if (voice.instrumentId !== command.instrumentId) continue
+          const level = this.envelope(voice, frame)
+          this.releaseVoice(voice, frame)
+          if (command.instant) collection.splice(index, 1)
+          else { voice.releaseLevel = level; voice.releaseStart = frame; voice.releaseLength = .005 * this.sampleRate }
+        }
+        this.planDirty = true
+        break
+      }
       case 'clear': this.held.clear(); this.cancel(frame); break
       case 'release': this.release(command.ownerId, frame); break
       case 'press': {
         if (this.held.has(command.ownerId)) this.release(command.ownerId, frame)
-        const notes = command.notes.filter(note => Number.isFinite(note.pitch) && this.instruments.has(note.instrumentId))
+        const notes = command.notes.filter(note => Number.isFinite(note.pitch) && note.pitch >= 0 && note.pitch <= 127
+          && this.instruments.has(note.instrumentId))
         if (!notes.length) break
         this.held.set(command.ownerId, notes)
         this.add(command.ownerId, notes, frame)
@@ -141,6 +167,16 @@ export class LiveAudioCore {
     this.publishPlan(frame)
     for (const ownerId of endedOwners) this.endingOwners.add(ownerId)
     this.finishOwners()
+    this.finishForgetting()
+  }
+
+  private finishForgetting() {
+    for (const [requestId, instrumentId] of this.forgetting) {
+      if (this.voices.some(voice => voice.instrumentId === instrumentId)
+        || this.fades.some(voice => voice.instrumentId === instrumentId)) continue
+      this.forgetting.delete(requestId)
+      this.send({ type: 'forgotten', requestId })
+    }
   }
 
   private finishOwners() {
@@ -249,21 +285,24 @@ export class LiveAudioCore {
       // Prefer an already releasing voice, otherwise the oldest held voice.
       const index = Math.max(0, this.voices.findIndex(voice => voice.released))
       const [stolen] = this.voices.splice(index, 1)
-      this.releaseVoice(stolen, frame)
-      stolen.releaseLevel = this.envelope(stolen, frame)
-      stolen.releaseStart = frame
-      stolen.releaseLength = this.sampleRate * .005
-      this.fades.push(stolen)
-      if (this.fades.length > MAX_FADES) this.fades.shift()
+      if (stolen.published) {
+        this.releaseVoice(stolen, frame)
+        stolen.releaseLevel = this.envelope(stolen, frame)
+        stolen.releaseStart = frame
+        stolen.releaseLength = this.sampleRate * .005
+        this.fades.push(stolen)
+        if (this.fades.length > MAX_FADES) this.fades.shift()
+      }
     }
+    const increment = zone ? 2 ** ((note.pitch - zone.rootMidi) / 12) * zone.sampleRate / this.sampleRate
+      : 440 * 2 ** ((note.pitch - 69) / 12) / this.sampleRate
     const voice: Voice = { ...note, owners: new Set(note.owners), instrument, zone,
+      resampler: zone ? createSampleResampler(zone, increment) : undefined,
       style: pulse.style, start: frame, end: pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
-      position: 0, increment: zone ? 2 ** ((note.pitch - zone.rootMidi) / 12) * zone.sampleRate / this.sampleRate
-        : 440 * 2 ** ((note.pitch - 69) / 12) / this.sampleRate,
+      position: 0, increment,
       releaseLength: (pulse.duration === undefined ? Math.max(0, instrument.release) : .03) * this.sampleRate,
-      releaseLevel: 0, released: false, finished: false }
+      releaseLevel: 0, released: false, published: false }
     this.voices.push(voice)
-    this.send({ type: 'event', event: this.event(voice, 'attack', frame, voice.style) })
   }
   private envelope(voice: Voice, frame: number): number {
     if (voice.releaseStart !== undefined) return voice.releaseLength > 0
@@ -279,25 +318,11 @@ export class LiveAudioCore {
     voice.releaseLevel = this.envelope(voice, frame)
     voice.releaseStart = frame
     voice.released = true
-    this.send({ type: 'event', event: this.event(voice, 'release', frame, voice.style) })
+    if (voice.published) this.send({ type: 'event', event: this.event(voice, 'release', frame, voice.style) })
     this.planDirty = true
   }
 
-  private sample(voice: Voice, channel: number) {
-    const zone = voice.zone
-    if (zone) {
-      const data = zone.channels[Math.min(channel, zone.channels.length - 1)]
-      const loopStart = zone.loopStartFrame ?? 0
-      const loopEnd = Math.min(zone.loopEndFrame ?? 0, data.length)
-      const looping = loopEnd > loopStart && loopStart >= 0
-      if (looping && voice.position >= loopEnd) voice.position = loopStart + (voice.position - loopStart) % (loopEnd - loopStart)
-      if (voice.position >= data.length) { voice.finished = true; return 0 }
-      const index = Math.floor(voice.position)
-      let next = index + 1
-      if (looping && next >= loopEnd) next = Math.floor(loopStart)
-      const fraction = voice.position - index
-      return data[index] + ((data[next] ?? 0) - data[index]) * fraction
-    }
+  private oscillator(voice: Voice) {
     const phase = voice.position % 1
     const instrument = voice.instrument
     if (instrument.kind !== 'oscillator') return 0
@@ -312,48 +337,91 @@ export class LiveAudioCore {
     }
   }
 
-  private mix(collection: Voice[], output: Float32Array[], offset: number, frame: number) {
+  private mix(collection: Voice[], output: Float32Array[], offset: number, length: number, firstFrame: number) {
+    // Each envelope section is affine. The sampler can mix a contiguous block
+    // with one coefficient lookup per stereo frame and no virtual calls in its
+    // inner filter loop; source/filter state stays local for the whole span.
     for (let index = collection.length - 1; index >= 0; index--) {
       const voice = collection[index]
-      if (voice.released && frame >= voice.releaseStart! + voice.releaseLength) {
-        collection.splice(index, 1); continue
-      }
-      if (!voice.finished) {
-        const level = this.envelope(voice, frame) * voice.instrument.gain
-        if (voice.zone) {
-          for (let channel = 0; channel < output.length; channel++) output[channel][offset] += this.sample(voice, channel) * level
+      const instrument = voice.instrument
+      let sampleOffset = 0
+      while (sampleOffset < length) {
+        const frame = firstFrame + sampleOffset
+        let boundary = firstFrame + length
+        let envelopeStep = 0
+        if (voice.released) {
+          boundary = Math.min(boundary, Math.ceil(voice.releaseStart! + voice.releaseLength))
+          if (frame >= boundary) { collection.splice(index, 1); break }
+          envelopeStep = -voice.releaseLevel / voice.releaseLength
         } else {
-          const sample = this.sample(voice, 0) * level
-          for (let channel = 0; channel < output.length; channel++) output[channel][offset] += sample
+          const attackEnd = voice.start + instrument.attack * this.sampleRate
+          const decayEnd = attackEnd + instrument.decay * this.sampleRate
+          if (frame < attackEnd) {
+            boundary = Math.min(boundary, Math.ceil(attackEnd))
+            envelopeStep = 1 / (instrument.attack * this.sampleRate)
+          } else if (frame < decayEnd) {
+            boundary = Math.min(boundary, Math.ceil(decayEnd))
+            envelopeStep = (instrument.sustain - 1) / (instrument.decay * this.sampleRate)
+          }
         }
-        voice.position += voice.increment
-        if (voice.finished) {
-          this.releaseVoice(voice, frame)
-          collection.splice(index, 1)
+        const span = boundary - frame
+        let gain = this.envelope(voice, frame) * instrument.gain
+        const gainStep = envelopeStep * instrument.gain
+        if (voice.resampler) {
+          const consumed = voice.resampler.mix(output[0], output[1], offset + sampleOffset, span, voice.position, gain, gainStep)
+          voice.position += consumed * voice.increment
+          if (consumed < span) {
+            this.releaseVoice(voice, frame + consumed)
+            collection.splice(index, 1); break
+          }
+        } else {
+          for (let i = 0; i < span; i++) {
+            const sample = this.oscillator(voice) * gain
+            for (let channel = 0; channel < output.length; channel++) output[channel][offset + sampleOffset + i] += sample
+            voice.position += voice.increment
+            gain += gainStep
+          }
         }
+        sampleOffset += span
       }
     }
   }
 
   render(output: Float32Array[], firstFrame: number) {
     const length = output[0]?.length ?? 0
+    const endFrame = firstFrame + length
     for (const channel of output) channel.fill(0)
-    for (let offset = 0; offset < length; offset++) {
-      const frame = firstFrame + offset
+    let frame = firstFrame
+    while (frame < endFrame) {
       this.fill(frame)
-      // Queue sizes are bounded by held notes and a 150 ms horizon. Sorting
-      // only when needed also covers overlapping independently batched strums.
       while (this.pulses.length && this.pulses.some(pulse => pulse.frame <= frame)) {
         const index = this.pulses.findIndex(pulse => pulse.frame <= frame)
         const [pulse] = this.pulses.splice(index, 1)
         for (const note of pulse.notes) this.start(note, pulse, frame)
         this.planDirty = true
       }
+      // Admission is complete for this frame. A same-frame burst may steal an
+      // unrendered voice; do not report that voice as an audible performance.
+      for (const voice of this.voices) if (!voice.published) {
+        voice.published = true
+        this.send({ type: 'event', event: this.event(voice, 'attack', frame, voice.style) })
+      }
       for (const voice of this.voices) if (!voice.released && frame >= voice.end) this.releaseVoice(voice, frame)
-      this.mix(this.voices, output, offset, frame)
-      this.mix(this.fades, output, offset, frame)
+      let boundary = endFrame
+      for (const pulse of this.pulses) if (pulse.frame > frame) boundary = Math.min(boundary, Math.ceil(pulse.frame))
+      for (const voice of this.voices) if (!voice.released && voice.end > frame) boundary = Math.min(boundary, Math.ceil(voice.end))
+      if (this.strumAt !== undefined) boundary = Math.min(boundary, Math.ceil(this.strumAt))
+      if (this.nextFrame !== undefined) {
+        const planningBoundary = Math.ceil(this.nextFrame - PLAN_SECONDS * this.sampleRate)
+        if (planningBoundary > frame) boundary = Math.min(boundary, planningBoundary)
+      }
+      const span = Math.max(1, boundary - frame)
+      this.mix(this.voices, output, frame - firstFrame, span, frame)
+      this.mix(this.fades, output, frame - firstFrame, span, frame)
+      frame += span
     }
-    this.publishPlan(firstFrame + length)
+    this.publishPlan(endFrame)
     this.finishOwners()
+    this.finishForgetting()
   }
 }

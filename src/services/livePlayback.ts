@@ -9,7 +9,7 @@ interface Listener {
 }
 
 const MAX_BANKS = 4;
-const MAX_PCM_BYTES = 64 * 1024 * 1024;
+const MAX_PCM_BYTES = 192 * 1024 * 1024;
 const listeners = new Set<Listener>();
 const reasons = new Map<string, string>();
 const unsupported = new Set<string>();
@@ -21,6 +21,7 @@ let generation = 0;
 const installed = new Map<string, number>();
 const preparing = new Map<string, Promise<void>>();
 const pins = new Map<string, Set<string>>();
+const retiring = new Set<string>();
 let installQueue: Promise<void> = Promise.resolve();
 let preparationModule: Promise<typeof import("@/services/preparedLiveInstrument")> | undefined;
 
@@ -43,6 +44,7 @@ function invalidate(error?: unknown) {
   installed.clear();
   preparing.clear();
   pins.clear();
+  retiring.clear();
   unsupported.clear();
   installQueue = Promise.resolve();
   if (error) listeners.forEach(listener => listener.onError?.(error));
@@ -62,6 +64,10 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   if (context !== nextContext) {
     invalidate();
     context = nextContext;
+  }
+  if (retiring.has(instrumentId)) {
+    await installQueue;
+    return prepareLivePlayback(nextContext, destination, name);
   }
   if (installed.has(instrumentId)) {
     const bytes = installed.get(instrumentId)!;
@@ -83,7 +89,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     }
     const bytes = byteSize(prepared);
     if (bytes > MAX_PCM_BYTES) {
-      reasons.set(instrumentId, "Sample bank exceeds the 64 MiB live worklet budget");
+      reasons.set(instrumentId, "Sample bank exceeds the 192 MiB live worklet budget");
       unsupported.add(instrumentId);
       return;
     }
@@ -119,8 +125,13 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
           reasons.set(instrumentId, "Live worklet instrument budget is occupied by held notes");
           return;
         }
+        // The budget includes retiring PCM: wait for its bounded fade and
+        // processor acknowledgement before cloning another bank.
+        retiring.add(oldest);
+        await ready.forget(oldest);
+        if (run !== generation) return;
         installed.delete(oldest);
-        ready.forget(oldest);
+        retiring.delete(oldest);
       }
       await ready.prepare(prepared);
       if (run === generation) {
@@ -147,7 +158,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
 
 export function getLivePlayback(name: string): LiveWorklet | undefined {
   const instrumentId = resolveLiveSoundName(name);
-  if (!installed.has(instrumentId)) return undefined;
+  if (!installed.has(instrumentId) || retiring.has(instrumentId)) return undefined;
   const bytes = installed.get(instrumentId)!;
   installed.delete(instrumentId);
   installed.set(instrumentId, bytes);
@@ -157,7 +168,7 @@ export function getLivePlayback(name: string): LiveWorklet | undefined {
 export function needsLivePlaybackPreparation(name: string): boolean {
   const instrumentId = resolveLiveSoundName(name);
   return typeof AudioWorkletNode !== "undefined" && !unsupported.has(instrumentId)
-    && !installed.has(instrumentId);
+    && (!installed.has(instrumentId) || retiring.has(instrumentId));
 }
 
 export function subscribeLivePlayback(listener: Listener): () => void {
@@ -167,7 +178,7 @@ export function subscribeLivePlayback(listener: Listener): () => void {
 
 export function getLivePlaybackDiagnostics(name: string) {
   const instrumentId = resolveLiveSoundName(name);
-  const ready = Boolean(managedEngine && installed.has(instrumentId));
+  const ready = Boolean(managedEngine && installed.has(instrumentId) && !retiring.has(instrumentId));
   return {
     backend: ready ? "audio-worklet" : "superdough",
     reason: reasons.get(instrumentId) ?? null,

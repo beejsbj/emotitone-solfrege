@@ -1,6 +1,8 @@
 import processorUrl from './processor.ts?worker&url'
 import type { LiveCommand, LiveResponse, LiveVoiceEvent, LiveWorklet } from './types'
 
+let engineSerial = 0
+
 export interface LiveWorkletCallbacks {
   onEvent(event: LiveVoiceEvent): void
   onPlan?(events: LiveVoiceEvent[]): void
@@ -14,11 +16,13 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
   await context.audioWorklet.addModule(processorUrl)
   const node = new AudioWorkletNode(context, 'emotitone-live', {
     numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
+    processorOptions: { instanceId: `worklet-${Date.now()}-${++engineSerial}` },
   })
   node.connect(destination)
   let disposed = false
   let requestId = 0
-  const pending = new Map<number, { resolve(): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }>()
+  const pending = new Map<number, { resolve(): void; reject(error: Error): void;
+    timer: ReturnType<typeof setTimeout>; retiringInstrument?: string }>()
   function rejectPending(error: Error) {
     for (const entry of pending.values()) { clearTimeout(entry.timer); entry.reject(error) }
     pending.clear()
@@ -39,13 +43,23 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     if (data.type === 'event') callbacks.onEvent(data.event)
     else if (data.type === 'plan') callbacks.onPlan?.(data.events)
     else if (data.type === 'owner-ended') callbacks.onOwnerEnded?.(data.ownerId)
-    else if (data.type === 'prepared') {
+    else if (data.type === 'prepared' || data.type === 'forgotten') {
       const entry = pending.get(data.requestId)
       if (entry) { clearTimeout(entry.timer); pending.delete(data.requestId); entry.resolve() }
     }
   }
   node.port.onmessageerror = () => fail(new Error('Live audio worklet message could not be decoded'))
   node.onprocessorerror = () => fail(new Error('Live audio worklet processor failed'))
+  const onStateChange = () => {
+    if (context.state === 'running') return
+    if (context.state === 'closed') { fail(new Error('Live audio context closed')); return }
+    // A suspend halfway through a retirement fade stops render callbacks.
+    // Finish its bookkeeping immediately instead of waiting for a dead clock.
+    for (const [id, entry] of pending) if (entry.retiringInstrument) {
+      post({ type: 'forget', requestId: id, instrumentId: entry.retiringInstrument, instant: true })
+    }
+  }
+  context.addEventListener?.('statechange', onStateChange)
 
   return {
     prepare(instrument) {
@@ -62,7 +76,18 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
         post({ type: 'prepare', requestId: id, instrument })
       })
     },
-    forget: instrumentId => post({ type: 'forget', instrumentId }),
+    forget(instrumentId) {
+      if (disposed) return Promise.reject(new Error('Live audio worklet has been disposed'))
+      const id = ++requestId
+      return new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pending.delete(id)
+          reject(new Error('Live audio instrument retirement was not acknowledged'))
+        }, 5000)
+        pending.set(id, { resolve, reject, timer, retiringInstrument: instrumentId })
+        post({ type: 'forget', requestId: id, instrumentId, instant: context.state !== 'running' })
+      })
+    },
     press: (ownerId, notes) => post({ type: 'press', ownerId, notes }),
     release: ownerId => post({ type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
@@ -74,6 +99,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
       rejectPending(new Error('Live audio worklet has been disposed'))
       node.port.onmessage = node.port.onmessageerror = null
       node.onprocessorerror = null
+      context.removeEventListener?.('statechange', onStateChange)
       node.port.close()
       node.disconnect()
     },

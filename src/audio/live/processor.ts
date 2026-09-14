@@ -10,9 +10,10 @@ declare class AudioWorkletProcessor {
 declare function registerProcessor(name: string, processor: typeof AudioWorkletProcessor): void
 
 class LivePlaybackProcessor extends AudioWorkletProcessor {
-  private core = new LiveAudioCore(sampleRate, message => this.port.postMessage(message))
-  constructor() {
+  private core: LiveAudioCore
+  constructor(options?: { processorOptions?: { instanceId?: string } }) {
     super()
+    this.core = new LiveAudioCore(sampleRate, message => this.port.postMessage(message), options?.processorOptions?.instanceId)
     this.port.onmessage = ({ data }: MessageEvent<LiveCommand>) => this.core.command(data, currentFrame)
   }
   process(_inputs: Float32Array[][], outputs: Float32Array[][]) {

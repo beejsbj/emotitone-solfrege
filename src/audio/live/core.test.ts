@@ -33,10 +33,10 @@ function setup(instrument = bank) {
 describe('production live audio render core', () => {
   it('renders immediate stereo PCM, resamples by source rate/root pitch and loops', () => {
     const { press, render } = setup()
-    press('finger', [72])
-    const [left, right] = render(4)
-    expect([...left]).toEqual([1, 0, 1, 0])
-    expect([...right]).toEqual([.2, .6, .2, .6].map(Math.fround))
+    press('finger', [48])
+    const [left, right] = render(16)
+    expect([...left].filter((_, index) => index % 2 === 0)).toEqual([1, .5, 0, -.5, 1, .5, 0, -.5])
+    expect([...right].filter((_, index) => index % 2 === 0)).toEqual([.2, .4, .6, .8, .2, .4, .6, .8].map(Math.fround))
   })
 
   it('generates every 1/16 pulse and gate without main-thread callbacks', () => {
@@ -52,16 +52,20 @@ describe('production live audio render core', () => {
 
   it('interpolates fractional sample positions with the source sample rate', () => {
     const halfRate: PreparedLiveInstrument = { ...bank, kind: 'sample-bank', zoneSelection: 'nearest-root',
-      zones: [{ ...bank.zones[0], sampleRate: 500 }] }
+      zones: [{ ...bank.zones[0], sampleRate: 500, loopEndFrame: 32,
+        channels: [Float32Array.from({ length: 32 }, (_, index) => Math.sin(2 * Math.PI * index / 32))] }] }
     const { press, render } = setup(halfRate)
     press('finger', [60])
-    expect([...render(8)[0]]).toEqual([1, .75, .5, .25, 0, -.25, -.5, .25])
+    const output = render(64)[0]
+    for (let index = 0; index < output.length; index++) {
+      expect(output[index]).toBeCloseTo(Math.sin(2 * Math.PI * index / 64), 2)
+    }
   })
 
   it('honors first matching soundfont ranges and never fills an unsupported range with a wrong sample', () => {
     const ranges: PreparedLiveInstrument = { ...bank, kind: 'sample-bank', zoneSelection: 'first-range', zones: [
-      { ...bank.zones[0], lowMidi: 60, highMidi: 64, channels: [new Float32Array([.2, .2])] },
-      { ...bank.zones[0], lowMidi: 64, highMidi: 67, channels: [new Float32Array([.9, .9])] },
+      { ...bank.zones[0], lowMidi: 60, highMidi: 64, loopEndFrame: 2, channels: [new Float32Array([.2, .2])] },
+      { ...bank.zones[0], lowMidi: 64, highMidi: 67, loopEndFrame: 2, channels: [new Float32Array([.9, .9])] },
     ] }
     const { press, render, events } = setup(ranges)
     press('shared-boundary', [64]); press('outside', [80])
@@ -115,16 +119,27 @@ describe('production live audio render core', () => {
     expect(events.filter(e => e.phase === 'attack').map(e => e.pitch)).toEqual([64, 64, 67, 64, 60])
   })
 
-  it('does not post unchanged plans every render quantum and preserves sounding banks when forgotten', () => {
+  it('does not post unchanged plans every render quantum and acknowledges bank retirement after its bounded fade', () => {
     const { press, send, render, events, messages } = setup()
     press('held', [60]); render(10)
     const plans = messages.filter(message => message.type === 'plan').length
     for (let i = 0; i < 10; i++) render(10)
     expect(messages.filter(message => message.type === 'plan')).toHaveLength(plans)
-    send({ type: 'forget', instrumentId: 'test' })
+    send({ type: 'forget', requestId: 2, instrumentId: 'test', instant: false })
+    expect(messages.filter(message => message.type === 'forgotten')).toHaveLength(0)
     expect(render(4)[0].some(value => value !== 0)).toBe(true)
+    render(2)
+    expect(messages.filter(message => message.type === 'forgotten')).toEqual([{ type: 'forgotten', requestId: 2 }])
     press('new', [60]); render(4)
     expect(events.filter(event => event.phase === 'attack')).toHaveLength(1)
+  })
+
+  it('forgets suspended banks immediately without needing an audio render callback', () => {
+    const { core, press, render, send, messages } = setup()
+    press('held', [60]); render(1)
+    send({ type: 'forget', requestId: 9, instrumentId: 'test', instant: true })
+    expect(core.voiceCount).toBe(0)
+    expect(messages.at(-1)).toEqual({ type: 'forgotten', requestId: 9 })
   })
 
   it('cancels an onset before rendering without reporting a note that never sounded', () => {
@@ -191,12 +206,21 @@ describe('production live audio render core', () => {
   it('bounds voice rendering and retires all output after repeated clear', () => {
     const { core, press, send, render, events } = setup()
     for (let i = 0; i < 200; i++) { press(`o${i}`, [60]); render(1) }
-    expect(core.voiceCount).toBeLessThanOrEqual(136)
+    expect(core.voiceCount).toBeLessThanOrEqual(72)
     send({ type: 'clear' }); send({ type: 'clear' })
     render(30)
     expect(core.voiceCount).toBe(0)
     const released = events.filter(e => e.phase === 'release').map(e => e.noteId)
     expect(new Set(released).size).toBe(released.length)
     expect(released).toHaveLength(200)
+  })
+
+  it('admits at most64 simultaneous voices without reporting stolen pre-onset notes as played', () => {
+    const { core, press, render, events } = setup()
+    for (let index = 0; index < 100; index++) press(`owner-${index}`, [60])
+    render(1)
+    expect(core.voiceCount).toBe(64)
+    expect(events).toHaveLength(64)
+    expect(events.every(event => event.phase === 'attack')).toBe(true)
   })
 })

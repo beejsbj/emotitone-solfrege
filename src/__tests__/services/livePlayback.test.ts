@@ -67,17 +67,32 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlayback('e')).toBeDefined()
   })
 
-  it('includes resampling pyramids in the64MiB installed PCM budget', async () => {
+  it('includes resampling pyramids in the192MiB installed PCM budget', async () => {
     const { manager, engine, context } = await setup()
-    const original = new Float32Array(4 * 1024 * 1024)
-    const lowerRate = new Float32Array(2 * 1024 * 1024)
+    const original = new Float32Array(10 * 1024 * 1024)
+    const lowerRate = new Float32Array(5 * 1024 * 1024)
     mocks.prepare.mockImplementation(async (_context, instrumentId) => ({
       ...bank(instrumentId), kind: 'sample-bank', zoneSelection: 'nearest-root',
       zones: [{ id: 'z', rootMidi: 60, sampleRate: 48000, channels: [original], mipmaps: [[lowerRate]] }],
     }))
-    for (const name of ['a', 'b', 'c']) await manager.prepareLivePlayback(context, destination, name)
+    for (const name of ['a', 'b', 'c', 'd']) await manager.prepareLivePlayback(context, destination, name)
     expect(engine.forget).toHaveBeenCalledWith('a')
-    expect(manager.getLivePlaybackDiagnostics('c')).toMatchObject({ installedBanks: 2, installedPcmBytes: 48 * 1024 * 1024 })
+    expect(manager.getLivePlaybackDiagnostics('d')).toMatchObject({ installedBanks: 3, installedPcmBytes: 180 * 1024 * 1024 })
+  })
+
+  it('counts retiring banks until acknowledgement and prevents new attacks from using them', async () => {
+    const { manager, engine, context } = await setup()
+    for (const name of ['a', 'b', 'c', 'd']) await manager.prepareLivePlayback(context, destination, name)
+    let retired!: () => void
+    engine.forget.mockImplementation(() => new Promise<void>(resolve => { retired = resolve }))
+    const installing = manager.prepareLivePlayback(context, destination, 'e')
+    await vi.waitFor(() => expect(engine.forget).toHaveBeenCalledWith('a'))
+    expect(manager.getLivePlaybackDiagnostics('e').installedBanks).toBe(4)
+    expect(manager.getLivePlayback('a')).toBeUndefined()
+    expect(engine.prepare).toHaveBeenCalledTimes(4)
+    retired(); await installing
+    expect(engine.prepare).toHaveBeenCalledTimes(5)
+    expect(manager.getLivePlaybackDiagnostics('e').installedBanks).toBe(4)
   })
 
   it('avoids retrying unsupported instruments or unavailable worklets on every note', async () => {

@@ -15,6 +15,8 @@ export interface LiveSampleZone {
   highMidi?: number
   sampleRate: number
   channels: Float32Array[]
+  /** Optional low-pass pyramid; each successive level halves the source rate. */
+  mipmaps?: Float32Array[][]
   loopStartFrame?: number
   loopEndFrame?: number
 }
@@ -37,7 +39,7 @@ export interface LiveVoiceEvent extends LiveInputNote {
 
 export type LiveCommand =
   | { type: 'prepare'; requestId: number; instrument: PreparedLiveInstrument }
-  | { type: 'forget'; instrumentId: string }
+  | { type: 'forget'; requestId: number; instrumentId: string; instant: boolean }
   | { type: 'press'; ownerId: string; notes: LiveInputNote[] }
   | { type: 'release'; ownerId: string }
   | { type: 'configure'; config: Partial<LiveConfig> }
@@ -45,13 +47,14 @@ export type LiveCommand =
 
 export type LiveResponse =
   | { type: 'prepared'; requestId: number }
+  | { type: 'forgotten'; requestId: number }
   | { type: 'owner-ended'; ownerId: string }
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
 
 export interface LiveWorklet {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
-  forget(instrumentId: string): void
+  forget(instrumentId: string): Promise<void>
   press(ownerId: string, notes: LiveInputNote[]): void
   release(ownerId: string): void
   configure(config: Partial<LiveConfig>): void

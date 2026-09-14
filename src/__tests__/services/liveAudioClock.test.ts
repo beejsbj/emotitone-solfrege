@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
 
 describe("live audio clock", () => {
+  it("keeps MIDI deadlines monotonic when the system date changes", () => {
+    let wall = 1_800_000_000_000;
+    let monotonic = 1000;
+    const context = { currentTime: 12, state: "running" as const };
+    const clock = createLiveAudioClock(() => context, {
+      epochNow: () => wall, performanceNow: () => monotonic,
+    });
+    expect(clock.toPerformanceTime(12_125)).toBe(1125);
+    wall += 3_600_000;
+    monotonic += 125;
+    context.currentTime += 0.125;
+    expect(clock.toPerformanceTime(12_250)).toBe(1250);
+  });
   it("holds a shared epoch anchor across quantized audio reads and long-running hardware drift", () => {
     let wallTime = 1_800_000_000_000;
     const context = { currentTime: 12, state: "running" as const };

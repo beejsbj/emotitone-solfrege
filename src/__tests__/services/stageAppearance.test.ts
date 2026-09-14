@@ -37,10 +37,10 @@ function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
 }
 
 describe("Stage appearance domain", () => {
-  it("publishes exactly the accepted 22 controls", () => {
+  it("publishes exactly the accepted 23 controls", () => {
     const controls = STAGE_CONTROL_DEFINITIONS;
-    expect(controls).toHaveLength(22);
-    expect(new Set(controls.map((control) => control.id)).size).toBe(22);
+    expect(controls).toHaveLength(23);
+    expect(new Set(controls.map((control) => control.id)).size).toBe(23);
     expect(STAGE_CONTROL_GROUPS.map((group) => group.label)).toEqual([
       "Scope",
       "Note Bodies",
@@ -81,7 +81,7 @@ describe("Stage appearance domain", () => {
       isEnabled: true,
       baseOpacity: 0,
     });
-    expect(effective.strings.activeOpacity).toBeCloseTo(2 / 9);
+    expect(effective.strings.activeOpacity).toBe(0.5);
     expect(backing.strings.isEnabled).toBe(false);
     expect(backing.strings.activeOpacity).toBe(0);
   });
@@ -162,19 +162,61 @@ describe("Stage appearance domain", () => {
     expect(readStageControls(edited).stringResponse).toBe(0.75);
   });
 
-  it("keeps Body Size in the responsive 5–15% support-body range", () => {
+  it("publishes the accepted Stage defaults", () => {
+    expect(readStageControls(config())).toMatchObject({
+      stageEnabled: true,
+      scopeSize: 0.65,
+      scopeStrength: 0.75,
+      scopeLineWeight: 1.5,
+      scopeGlow: 0.25,
+      scopeTrail: 0.2,
+      bodiesVisible: true,
+      bodySize: 0.2,
+      bodyStrength: 0.75,
+      bodyMotion: expect.closeTo(0.4),
+      connectionMode: "merge",
+      connectionStrength: 0.2,
+      connectionBlur: 12,
+      atmosphereStrength: 0.3,
+      atmosphereColorDepth: 0.6,
+      stringPresence: 0.05,
+      stringResponse: 0.5,
+      fleckAmount: 3,
+      fleckEnergy: expect.closeTo(0.35),
+      showChords: true,
+      showIntervals: true,
+      showEmotion: false,
+    });
+  });
+
+  it("keeps Body Size in the responsive 5–50% support-body range", () => {
     const definition = STAGE_CONTROL_DEFINITIONS.find(
       (control) => control.id === "bodySize",
     );
-    expect(definition).toMatchObject({ min: 0.05, max: 0.15, step: 0.01 });
+    expect(definition).toMatchObject({ min: 0.05, max: 0.5, step: 0.01 });
 
     const backing = config();
     backing.blobs.minSize = 321;
     backing.blobs.maxSize = 654;
     const edited = patchStageControl(backing, "bodySize", 0.3);
-    expect(edited.blobs.baseSizeRatio).toBe(0.15);
+    expect(edited.blobs.baseSizeRatio).toBe(0.3);
     expect(edited.blobs.minSize).toBe(321);
     expect(edited.blobs.maxSize).toBe(654);
+  });
+
+  it("keeps connection blur independent from connection strength", () => {
+    const backing = config();
+    const strengthened = patchStageControl(backing, "connectionStrength", 0.7);
+
+    expect(changedPaths(backing, strengthened)).toEqual([
+      "blobs.fusionStrength",
+      "blobs.webOpacity",
+    ]);
+    expect(strengthened.blobs.fieldSoftness).toBe(backing.blobs.fieldSoftness);
+
+    const blurred = patchStageControl(backing, "connectionBlur", 24);
+    expect(changedPaths(backing, blurred)).toEqual(["blobs.fieldSoftness"]);
+    expect(readStageControls(blurred).connectionBlur).toBe(24);
   });
 
   it("enforces the Stage-only allowlist for Looks", () => {

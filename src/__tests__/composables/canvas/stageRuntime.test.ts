@@ -16,7 +16,7 @@ describe("Stage runtime", () => {
       const composition = resolveStageComposition(
         { x: 0, y: 0, width, height },
         75,
-        0.6,
+        UNIFIED_CONFIG.hilbertScope.sizeRatio.value,
       );
       const paddedMinorAxis = Math.min(width - 40, height - 40);
       const priorBodyExtent = Math.min(75 * 1.3, paddedMinorAxis * 0.115);
@@ -78,7 +78,7 @@ describe("Stage runtime", () => {
     (height) => {
       const usable = { x: 0, y: 0, width: 1200, height };
       const canonicalRadius = Math.max(75, height * 0.1);
-      const renderedRadii = [0.05, 0.1, 0.15].map((ratio) => {
+      const renderedRadii = [0.05, 0.1, 0.2, 0.5].map((ratio) => {
         const composition = resolveStageComposition(
           usable,
           canonicalRadius,
@@ -89,9 +89,11 @@ describe("Stage runtime", () => {
       });
 
       expect(renderedRadii[0]).toBeCloseTo(renderedRadii[1]! * 0.5, 6);
-      expect(renderedRadii[2]).toBeCloseTo(renderedRadii[1]! * 1.5, 6);
+      expect(renderedRadii[2]).toBeCloseTo(renderedRadii[1]! * 2, 6);
+      expect(renderedRadii[3]).toBeCloseTo(renderedRadii[1]! * 5, 6);
       expect(renderedRadii[0]).toBeLessThan(renderedRadii[1]!);
       expect(renderedRadii[1]).toBeLessThan(renderedRadii[2]!);
+      expect(renderedRadii[2]).toBeLessThan(renderedRadii[3]!);
     },
   );
 

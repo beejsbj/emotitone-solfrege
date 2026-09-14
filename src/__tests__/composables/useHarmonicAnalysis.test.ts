@@ -96,7 +96,7 @@ describe("useHarmonicAnalysis", () => {
   it("defaults to visible harmonic connections and chord explanations", () => {
     expect(DEFAULT_CONFIG.blobs.connectionMode).toBe("merge");
     expect(DEFAULT_CONFIG.blobs.showChordLabel).toBe(true);
-    expect(DEFAULT_CONFIG.blobs.showIntervalLabels).toBe(false);
+    expect(DEFAULT_CONFIG.blobs.showIntervalLabels).toBe(true);
     expect(DEFAULT_CONFIG.blobs.showEmotionLabel).toBe(false);
   });
 

@@ -58,6 +58,7 @@ const visualConfigStore = reactive({
     bodyMotion: 0.5,
     connectionMode: "off",
     connectionStrength: 0.4,
+    connectionBlur: 12,
     atmosphereStrength: 0.6,
     atmosphereColorDepth: 0.8,
     stringPresence: 0.9,
@@ -273,7 +274,7 @@ describe("ConfigPanel.vue", () => {
       field: "connectionMode",
       values: ["web"],
     });
-    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(22);
+    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(23);
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(7);
   });
@@ -291,7 +292,7 @@ describe("ConfigPanel.vue", () => {
     const allocation = [
       ["scope", 5],
       ["bodies", 4],
-      ["relations", 6],
+      ["relations", 7],
       ["layers", 6],
     ] as const;
     const allocatedControlIds: string[] = [];
@@ -310,8 +311,8 @@ describe("ConfigPanel.vue", () => {
       ));
     }
 
-    expect(allocatedControlIds).toHaveLength(21);
-    expect(new Set(allocatedControlIds).size).toBe(21);
+    expect(allocatedControlIds).toHaveLength(22);
+    expect(new Set(allocatedControlIds).size).toBe(22);
     expect(allocatedControlIds.toSorted()).toEqual(
       STAGE_CONTROL_DEFINITIONS
         .filter((control) => control.id !== "stageEnabled")

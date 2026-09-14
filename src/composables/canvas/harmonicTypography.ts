@@ -170,16 +170,38 @@ export function createHarmonicTypography() {
       const rotatedHeight = Math.abs(Math.sin(angle)) * width + Math.abs(Math.cos(angle)) * height;
       const dx = stamp.x - scene.centroid.x, dy = stamp.y - scene.centroid.y;
       const distance = Math.hypot(dx, dy) || 1;
-      let box: Box | undefined;
-      for (const offset of [0, 18, 36]) {
-        const candidate = { x: stamp.x + dx / distance * offset, y: stamp.y + dy / distance * offset,
-          width: rotatedWidth, height: rotatedHeight };
-        if (candidate.x - rotatedWidth / 2 < bounds.x + 8 || candidate.x + rotatedWidth / 2 > bounds.x + bounds.width - 8
-          || candidate.y - rotatedHeight / 2 < bounds.y + 8 || candidate.y + rotatedHeight / 2 > bounds.y + bounds.height - 8) continue;
-        if (!occupied.some(other => overlaps(candidate, other))) { box = candidate; break; }
+      // A wide emotion line can block every short radial move, especially for
+      // dyads whose anchor nearly coincides with the centroid. Search around
+      // occupied boxes too, rather than silently losing the only interval.
+      const candidates = [0, 18, 36].map(offset => ({
+        x: stamp.x + dx / distance * offset, y: stamp.y + dy / distance * offset,
+        width: rotatedWidth, height: rotatedHeight,
+      }));
+      for (const obstacle of occupied) {
+        const horizontalGap = (obstacle.width + rotatedWidth) / 2 + 10;
+        const verticalGap = (obstacle.height + rotatedHeight) / 2 + 10;
+        candidates.push(
+          { x: stamp.x, y: obstacle.y - verticalGap, width: rotatedWidth, height: rotatedHeight },
+          { x: stamp.x, y: obstacle.y + verticalGap, width: rotatedWidth, height: rotatedHeight },
+          { x: obstacle.x - horizontalGap, y: stamp.y, width: rotatedWidth, height: rotatedHeight },
+          { x: obstacle.x + horizontalGap, y: stamp.y, width: rotatedWidth, height: rotatedHeight },
+        );
       }
+      candidates.sort((a, b) => Math.hypot(a.x - stamp.x, a.y - stamp.y)
+        - Math.hypot(b.x - stamp.x, b.y - stamp.y));
+      const box = candidates.find(candidate => {
+        if (candidate.x - rotatedWidth / 2 < bounds.x + 8 || candidate.x + rotatedWidth / 2 > bounds.x + bounds.width - 8
+          || candidate.y - rotatedHeight / 2 < bounds.y + 8 || candidate.y + rotatedHeight / 2 > bounds.y + bounds.height - 8) return false;
+        return !occupied.some(other => overlaps(candidate, other));
+      });
       if (!box) continue;
       occupied.push(box);
+      if (Math.hypot(box.x - stamp.x, box.y - stamp.y) > 22) {
+        ctx.save(); ctx.globalAlpha = opacity * 0.3;
+        ctx.strokeStyle = state.ivory; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(stamp.x, stamp.y); ctx.lineTo(box.x, box.y); ctx.stroke();
+        ctx.restore();
+      }
       ctx.save(); ctx.translate(box.x, box.y); ctx.rotate(angle);
       ctx.globalAlpha = opacity * 0.88;
       ctx.fillStyle = state.ink;

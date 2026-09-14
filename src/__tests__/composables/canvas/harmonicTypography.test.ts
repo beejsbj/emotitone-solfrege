@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
 import { createHarmonicTypography } from "@/composables/canvas/harmonicTypography";
 import type { HarmonicGeometryScene } from "@/types/canvas";
@@ -24,6 +24,17 @@ function setup(width = 320, height = 240, title = "Cmaj9") {
 }
 
 describe("musical canvas typography", () => {
+  it.each([0, 12])("keeps a dyad interval visible beside a long emotion phrase (offset %s)", (offset) => {
+    const { ctx, scene, render } = setup(390, 330);
+    scene.primaryLabel!.lines = ["Bright, joyful optimism & Home, rest, stability"];
+    scene.primaryLabel!.roles = ["emotion"];
+    scene.auxiliaryLabels = [{ x: 195 + offset, y: 165,
+      lines: ["3M"], roles: ["interval"], size: "md", angle: 0.2 }];
+    const text = vi.spyOn(ctx, "fillText");
+    render(1000, true);
+    expect(text).toHaveBeenCalledWith("3M", 0, 0);
+  });
+
   it.each(["CM", "Csus4", "Caug"])("settles %s once and stays still", (title) => {
     const { render } = setup(320, 240, title);
     const entrance = render(1000);

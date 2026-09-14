@@ -221,6 +221,7 @@ beforeEach(() => {
         opacity: 1,
         bpm: 120,
         notation: "solfege",
+        durationMode: "stacked",
         showRests: true,
       },
       keyboard: {
@@ -770,7 +771,7 @@ describe("CodeStrip production Strudel document", () => {
     };
     mocks.patternsStore.currentSketchNotes = [nextNote];
     mocks.patternsStore.currentWorkingNotes = [nextNote];
-    await wrapper.setProps({ durationMode: "bar" });
+    mocks.visualConfigStore.config.codeStrip.durationMode = "bar";
     await nextTick();
     await flushPromises();
 

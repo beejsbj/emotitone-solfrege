@@ -400,6 +400,8 @@ export interface KeyboardConfig {
 /**
  * CodeStrip presentation configuration
  */
+export type CodeStripDurationMode = "stacked" | "bar" | "hidden";
+
 export interface CodeStripConfig {
   /** Whether the CodeStrip-backed Strudel mirror is enabled */
   enabled: boolean;
@@ -409,6 +411,8 @@ export interface CodeStripConfig {
   bpm: number;
   /** Display notation mode for note tokens */
   notation: "solfege" | "note" | "degree";
+  /** Visual treatment for recorded event durations */
+  durationMode: CodeStripDurationMode;
   /** Whether to show rest tokens */
   showRests: boolean;
 }

@@ -83,6 +83,7 @@ const visualConfigStore = reactive({
     noteSurface: "colored",
     touchFeedback: true,
     codeStrip: true,
+    durationMode: "stacked",
     showRests: true,
   },
   updateValue: vi.fn(),
@@ -238,6 +239,10 @@ describe("ConfigPanel.vue", () => {
     wrapper.getComponent('[data-testid="deck-control-notation"]')
       .vm.$emit("update:modelValue", "pitch");
     expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("notation", "pitch");
+
+    wrapper.getComponent('[data-testid="deck-control-durationMode"]')
+      .vm.$emit("update:modelValue", "bar");
+    expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("durationMode", "bar");
   });
 
   it("promotes each Stage group into a focused destination", () => {
@@ -276,7 +281,7 @@ describe("ConfigPanel.vue", () => {
     });
     expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(23);
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
-    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(7);
+    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
   });
 
   it("keeps Stage general and allocates every detail control exactly once", async () => {
@@ -357,12 +362,15 @@ describe("ConfigPanel.vue", () => {
 
     const notation = wrapper.getComponent('[data-testid="deck-control-notation"]');
     const rests = wrapper.getComponent('[data-testid="deck-control-showRests"]');
+    const durations = wrapper.getComponent('[data-testid="deck-control-durationMode"]');
     expect(notation.props("isDisabled")).toBe(false);
     expect(rests.props("isDisabled")).toBe(false);
+    expect(durations.props("isDisabled")).toBe(false);
 
     visualConfigStore.deckControls.codeStrip = false;
     await nextTick();
     expect(rests.props("isDisabled")).toBe(true);
+    expect(durations.props("isDisabled")).toBe(true);
   });
 
   it("reserves brass Knobs for Visuals, UI Rhythm, and the Stage master", async () => {

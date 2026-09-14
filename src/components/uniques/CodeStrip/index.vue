@@ -197,6 +197,7 @@ const controlledCodeStripConfig = {
   opacity: 1,
   bpm: 120,
   notation: "solfege",
+  durationMode: "stacked",
   showRests: true,
 } as const;
 const controlledKeyboardConfig = {
@@ -213,6 +214,9 @@ const controlledSketchMeta = {
 } as const;
 const codeStripConfig = computed(() =>
   productionWiring?.visualConfigStore.config.codeStrip ?? controlledCodeStripConfig
+);
+const resolvedDurationMode = computed(() =>
+  isControlled.value ? props.durationMode : codeStripConfig.value.durationMode
 );
 const keyboardConfig = computed(() =>
   productionWiring?.visualConfigStore.config.keyboard ?? controlledKeyboardConfig
@@ -529,7 +533,7 @@ function applyPresentation() {
 
   updateCodeStripPresentation(view, {
     tokens: presentationTokens.value,
-    durationMode: props.durationMode,
+    durationMode: resolvedDurationMode.value,
     density: props.density,
     timeSignature: props.timeSignature,
     showRests: codeStripConfig.value.showRests,
@@ -867,7 +871,7 @@ watch(generatedCode, (code) => {
 watch(
   [
     presentationTokens,
-    () => props.durationMode,
+    resolvedDurationMode,
     () => props.density,
     () => props.timeSignature,
     () => codeStripConfig.value.notation,

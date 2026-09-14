@@ -277,6 +277,13 @@ function migrateLegacySectionKeys(
     delete mergedSection.colorMode;
   }
 
+  if (sectionName === "codeStrip") {
+    const durationMode = mergedSection.durationMode;
+    if (durationMode !== "stacked" && durationMode !== "bar" && durationMode !== "hidden") {
+      mergedSection.durationMode = DEFAULT_CONFIG.codeStrip.durationMode;
+    }
+  }
+
 }
 
 function migrateVisualConfig(

@@ -94,6 +94,21 @@ describe('Visual Config Store', () => {
       expect(newStore.visualsEnabled).toBe(false)
     })
 
+    it('defaults missing or invalid Code Strip duration display values', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { codeStrip: { bpm: 144, durationMode: 'sparkles' } },
+      }))
+
+      const invalidStore = createFreshStore()
+      expect(invalidStore.config.codeStrip.durationMode).toBe('stacked')
+
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { codeStrip: { bpm: 144 } },
+      }))
+      const missingStore = createFreshStore()
+      expect(missingStore.config.codeStrip.durationMode).toBe('stacked')
+    })
+
     it('should migrate legacy color keys from localStorage on initialization', () => {
       const storedConfig = {
         config: {
@@ -1023,7 +1038,7 @@ describe('Visual Config Store', () => {
       visualConfigStore.updateStageControl('labelStrength', 0.31)
       const expectedPreferences = {
         connectionMode: 'web',
-        fieldSoftness: 4 + 0.37 * 28,
+        fieldSoftness: mockDefaultConfig.blobs.fieldSoftness,
         fusionStrength: 0.37,
         webOpacity: 0.15 + 0.37 * 0.75,
         showChordLabel: false,

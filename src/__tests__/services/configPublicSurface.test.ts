@@ -15,7 +15,7 @@ function freshConfig(): VisualEffectsConfig {
 }
 
 describe("Config public surface", () => {
-  it("publishes four Global and seven Deck controls", () => {
+  it("publishes four Global and eight Deck controls", () => {
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls).map((control) => control.id))
       .toEqual(["musicColorMapping", "colorIntensity", "colorMotion", "uiRhythm"]);
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls).map((control) => control.id))
@@ -26,6 +26,7 @@ describe("Config public surface", () => {
         "noteSurface",
         "touchFeedback",
         "codeStrip",
+        "durationMode",
         "showRests",
       ]);
   });
@@ -91,6 +92,18 @@ describe("Config public surface", () => {
     updateDeckControl(config, "keyboardSpacing", "open");
     expect(config.keyboard).toMatchObject({ keyGaps: "medium", keyboardPadding: true });
     expect(readDeckControls(config).keyboardSpacing).toBe("open");
+  });
+
+  it("maps all three Code Strip duration treatments", () => {
+    const config = freshConfig();
+    expect(readDeckControls(config).durationMode).toBe("stacked");
+
+    updateDeckControl(config, "durationMode", "bar");
+    expect(config.codeStrip.durationMode).toBe("bar");
+    expect(readDeckControls(config).durationMode).toBe("bar");
+
+    updateDeckControl(config, "durationMode", "hidden");
+    expect(config.codeStrip.durationMode).toBe("hidden");
   });
 
   it("reads legacy mixed notation without normalizing stored values", () => {

@@ -12,7 +12,7 @@
     const times=[];
     for(let block=0;block<600;block++) {const start=performance.now();core.render(output,block*128);if(block>100)times.push(performance.now()-start);}
     times.sort((a,b)=>a-b);
-    cases.push({stereo,voices:core.voiceCount,quantumMs:128/48,p50:times[Math.floor(times.length*.5)],p95:times[Math.floor(times.length*.95)],max:times.at(-1)});
+    cases.push({stereo,requestedVoices:128,voices:core.voiceCount,quantumMs:128/48,p50:times[Math.floor(times.length*.5)],p95:times[Math.floor(times.length*.95)],max:times.at(-1)});
   }
   return cases;
 })()

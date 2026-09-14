@@ -19,6 +19,8 @@ if (process.env.LAB_UI_REF) {
   await symlink(join(repoRoot, 'node_modules'), join(appRoot, 'node_modules'));
 }
 const sourcePaths = ['src/services/superdoughAudio.ts', 'src/stores/music.ts', 'src/components/compounds/Keyboard.vue',
+  'src/stores/instrument.ts', 'src/services/liveAudioClock.ts', 'src/services/liveArticulation.ts',
+  'src/audio/live/bridge.ts', 'src/audio/live/types.ts',
   'src/services/livePlayback.ts', 'src/services/preparedLiveInstrument.ts', 'src/audio/live/core.ts', 'src/audio/live/processor.ts', 'src/audio/live/resampler.ts'];
 async function hashSources() {
   return Object.fromEntries(await Promise.all(sourcePaths.map(async (path) => [path,

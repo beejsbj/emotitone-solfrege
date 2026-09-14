@@ -19,6 +19,8 @@ if (process.env.LAB_UI_REF) {
   await symlink(join(repoRoot, 'node_modules'), join(appRoot, 'node_modules'));
 }
 const sourcePaths = ['src/services/superdoughAudio.ts', 'src/stores/music.ts', 'src/components/compounds/Keyboard.vue',
+  'src/stores/instrument.ts', 'src/services/liveAudioClock.ts', 'src/services/liveArticulation.ts',
+  'src/audio/live/bridge.ts', 'src/audio/live/types.ts',
   'src/services/livePlayback.ts', 'src/services/preparedLiveInstrument.ts', 'src/audio/live/core.ts', 'src/audio/live/processor.ts', 'src/audio/live/resampler.ts'];
 async function hashSources() {
   return Object.fromEntries(await Promise.all(sourcePaths.map(async (path) => [path,
@@ -199,8 +201,17 @@ try {
         }
       })()]);
       await delay(800);
-      stress.push({ scenario: 'Direct production worklet manager, same prepared piano: 500 attacks in 400ms, release all; this case bypasses UI', realtime,
-        ...await evaluate('window.__audioUiLab.finish()', true) });
+      const capacities = realtime.map(sample => sample.realtimeData.renderCapacity);
+      const capacitySummary = {max:Math.max(...capacities),mean:capacities.reduce((sum,value)=>sum+value,0)/capacities.length,
+        maxThreeSampleMean:Math.max(...capacities.slice(2).map((value,i)=>(value+capacities[i]+capacities[i+1])/3))};
+      const dense = await evaluate('window.__audioUiLab.finish()', true);
+      const messages = dense.trace.filter(item => item.type === 'worklet-message' && item.messageType === 'press');
+      const traceCounts = {};
+      for (const item of dense.trace) { const kind = item.type + (item.messageType ? '/' + item.messageType : ''); traceCounts[kind] = (traceCounts[kind] || 0) + 1; }
+      const trace = [...dense.trace.slice(0, 12), ...dense.trace.slice(-12)];
+      stress.push({ scenario: 'Direct production worklet manager, same prepared piano: 500 attacks in 20 batches with 20ms timer gaps, release all; this case bypasses UI', realtime, capacitySummary,
+        ...dense, trace, traceCounts, traceScope:'Dense trace retains first/last12 events plus exact counts; latency trial traces remain complete',
+        attackMessageSpanMs: messages.at(-1).performanceTime - messages[0].performanceTime });
     }
   }
   const backend = process.env.LAB_UI_REF ? { backend: 'superdough', revision } : await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true);
@@ -212,6 +223,7 @@ try {
     checks: [
       { name: 'Application source remained unchanged during capture', passed: JSON.stringify(sourceHashesBefore) === JSON.stringify(sourceHashes) },
       ...stress.map((row) => ({name: row.scenario, passed: row.finitePcm && row.peak > 0.001 && row.final100msPeak < 0.001
+        && (row.capacitySummary === undefined || row.capacitySummary.maxThreeSampleMean < 0.8)
         && (row.expectedFirst3s === undefined || (row.detectedFirst3s === row.expectedFirst3s && row.maxIntervalDeviationMs < 1))})),
       { name: 'All inputs are trusted real browser events', passed: trials.every((row) => row.input?.isTrusted) },
       { name: 'Every trial produces captured audio', passed: trials.every((row) => row.onsetAudioTime !== null) },

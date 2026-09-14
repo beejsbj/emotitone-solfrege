@@ -151,7 +151,7 @@
       }
       const onset = first < 0 ? null : (startFrame + first) / context.sampleRate;
       const source = trace.find((item) => item.type === 'buffer-source-start');
-      const worklet = trace.find((item) => item.type === 'worklet-message' && !['sample', 'prepare'].includes(item.messageType));
+      const worklet = trace.find((item) => item.type === 'worklet-message' && item.messageType === 'press');
       return { input, trace, onsetAudioTime: onset, onsets, peak,
         finitePcm: pcm.every(Number.isFinite),
         final100msPeak: pcm.slice(-Math.round(context.sampleRate * 0.1)).reduce((max, value) => Math.max(max, Math.abs(value)), 0),

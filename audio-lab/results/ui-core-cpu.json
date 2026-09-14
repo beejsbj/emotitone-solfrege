@@ -1,43 +1,55 @@
 {
   "sourceHashesAfter": {
     "src/services/superdoughAudio.ts": "76c0cac0a5ed5164379915bdf7f60f5df0468ef4503149c9fdcdfbdb5997c505",
-    "src/stores/music.ts": "040b024b7b402ae2b20cff2041d262dd0aed9b0e0e4efeb8125463eddef114f3",
+    "src/stores/music.ts": "c90c71052a962df15d9cc18b46a2c74db853145fc42172b11308514ec9893225",
     "src/components/compounds/Keyboard.vue": "efb2242abbdcd77a59e81d7881f86908ff31d7316be298846c214a6e94874aeb",
-    "src/services/livePlayback.ts": "f85285f593af3e0344de59f44511f621f0d1bace71d572ba88b364f2944aa3c3",
+    "src/stores/instrument.ts": "cdb83fde632a3a8777fe78a49c2fafe2cc959c659db84afcae2ab446790f483c",
+    "src/services/liveAudioClock.ts": "febd7b5adb5caa6985574f07085528956bcd7c8509ea37020bb74b1f4d57fc69",
+    "src/services/liveArticulation.ts": "59c3ac5028bb53e661b8304dd1c1c426d12a5448d6cb84787f908fd23762027d",
+    "src/audio/live/bridge.ts": "6f644c3abe872062d8b55c1a4c4c28ed6b343a671bb4ba5fa57fb4d5db5a95dd",
+    "src/audio/live/types.ts": "911fd3f050d82a3173aae7d4a24813e23dcf197ae5f39fd2b00108f61743cb05",
+    "src/services/livePlayback.ts": "a090217e40d01da086c026caeb3cd3a8e2f151c3ad6666e2eee3a43f616a7125",
     "src/services/preparedLiveInstrument.ts": "948418e7f27cca47bf8bf1e4a34acd49de77b906de2c6ffcaebad243d006bc96",
-    "src/audio/live/core.ts": "e57103121b21c7f8b111d0cd541d9d73e81eaa537c52719ce649f3166a7e664d",
+    "src/audio/live/core.ts": "2cd4d1894e13145290735b60495027473135882f4a75d29e63ccb7814298a657",
     "src/audio/live/processor.ts": "dd9ea66430b4deb98cb02a15f1002759f69c049b267008be7d28b77efa013f38",
     "src/audio/live/resampler.ts": "7d906724a1ac997af9a839d22a159615307fb362cc5a29085faa685e2ae6cf12"
   },
   "sourcesStable": true,
   "scope": "Actual Chrome V8 CPU benchmark of production LiveAudioCore.render; not AudioWorklet deadline or PCM continuity proof",
-  "revision": "db4d16b7011792902b49658f047368a16bd43659",
+  "revision": "717d9fc929121c47734ff435ddd3c83002074c66",
   "sourceHashesBefore": {
     "src/services/superdoughAudio.ts": "76c0cac0a5ed5164379915bdf7f60f5df0468ef4503149c9fdcdfbdb5997c505",
-    "src/stores/music.ts": "040b024b7b402ae2b20cff2041d262dd0aed9b0e0e4efeb8125463eddef114f3",
+    "src/stores/music.ts": "c90c71052a962df15d9cc18b46a2c74db853145fc42172b11308514ec9893225",
     "src/components/compounds/Keyboard.vue": "efb2242abbdcd77a59e81d7881f86908ff31d7316be298846c214a6e94874aeb",
-    "src/services/livePlayback.ts": "f85285f593af3e0344de59f44511f621f0d1bace71d572ba88b364f2944aa3c3",
+    "src/stores/instrument.ts": "cdb83fde632a3a8777fe78a49c2fafe2cc959c659db84afcae2ab446790f483c",
+    "src/services/liveAudioClock.ts": "febd7b5adb5caa6985574f07085528956bcd7c8509ea37020bb74b1f4d57fc69",
+    "src/services/liveArticulation.ts": "59c3ac5028bb53e661b8304dd1c1c426d12a5448d6cb84787f908fd23762027d",
+    "src/audio/live/bridge.ts": "6f644c3abe872062d8b55c1a4c4c28ed6b343a671bb4ba5fa57fb4d5db5a95dd",
+    "src/audio/live/types.ts": "911fd3f050d82a3173aae7d4a24813e23dcf197ae5f39fd2b00108f61743cb05",
+    "src/services/livePlayback.ts": "a090217e40d01da086c026caeb3cd3a8e2f151c3ad6666e2eee3a43f616a7125",
     "src/services/preparedLiveInstrument.ts": "948418e7f27cca47bf8bf1e4a34acd49de77b906de2c6ffcaebad243d006bc96",
-    "src/audio/live/core.ts": "e57103121b21c7f8b111d0cd541d9d73e81eaa537c52719ce649f3166a7e664d",
+    "src/audio/live/core.ts": "2cd4d1894e13145290735b60495027473135882f4a75d29e63ccb7814298a657",
     "src/audio/live/processor.ts": "dd9ea66430b4deb98cb02a15f1002759f69c049b267008be7d28b77efa013f38",
     "src/audio/live/resampler.ts": "7d906724a1ac997af9a839d22a159615307fb362cc5a29085faa685e2ae6cf12"
   },
   "cases": [
     {
       "stereo": false,
-      "voices": 128,
+      "requestedVoices": 128,
+      "voices": 64,
       "quantumMs": 2.6666666666666665,
-      "p50": 2.600000023841858,
-      "p95": 10.200000047683716,
-      "max": 22.299999952316284
+      "p50": 1.2000000476837158,
+      "p95": 5.200000047683716,
+      "max": 11
     },
     {
       "stereo": true,
-      "voices": 128,
+      "requestedVoices": 128,
+      "voices": 64,
       "quantumMs": 2.6666666666666665,
-      "p50": 2.700000047683716,
-      "p95": 5.200000047683716,
-      "max": 11.600000023841858
+      "p50": 1.2999999523162842,
+      "p95": 2.100000023841858,
+      "max": 7.600000023841858
     }
   ]
 }

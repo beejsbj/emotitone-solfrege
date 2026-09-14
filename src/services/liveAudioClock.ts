@@ -1,3 +1,5 @@
+export interface LiveClockBoundary { audioTime: number; epochTime: number; performanceTime: number }
+
 type ClockContext = Pick<AudioContext, "currentTime"> & Partial<Pick<AudioContext,
   "state" | "addEventListener" | "removeEventListener"
 >>;
@@ -9,17 +11,25 @@ type ClockContext = Pick<AudioContext, "currentTime"> & Partial<Pick<AudioContex
  */
 export function createLiveAudioClock(
   getContext: () => ClockContext,
-  options: { epochNow?: () => number; onSuspend?: () => void } = {},
+  options: { epochNow?: () => number; performanceNow?: () => number; onSuspend?: (boundary: LiveClockBoundary) => void } = {},
 ) {
   const epochNow = options.epochNow ?? (() => Date.now());
+  const performanceNow = options.performanceNow ?? (() => performance.now());
   let context: ClockContext | undefined;
   let epochOffset = 0;
+  let performanceOffset = 0;
   let state: AudioContextState | undefined;
   let anchorInvalid = true;
 
   const onStateChange = () => {
+    if (context?.state && context.state !== "running") {
+      // The context freezes at the pause boundary. Preserve its last running
+      // clock mapping even if the statechange notification reaches the UI late.
+      const audioTime = context.currentTime * 1000;
+      options.onSuspend?.({ audioTime: audioTime / 1000,
+        epochTime: epochOffset + audioTime, performanceTime: performanceOffset + audioTime });
+    }
     anchorInvalid = true;
-    if (context?.state && context.state !== "running") options.onSuspend?.();
   };
   function sync() {
     const next = getContext();
@@ -31,6 +41,7 @@ export function createLiveAudioClock(
     }
     if (anchorInvalid || state !== context.state) {
       epochOffset = epochNow() - context.currentTime * 1000;
+      performanceOffset = performanceNow() - context.currentTime * 1000;
       state = context.state;
       anchorInvalid = false;
     }
@@ -41,6 +52,10 @@ export function createLiveAudioClock(
     now: () => sync().currentTime * 1000,
     toAudioTime: (timestamp: number) => timestamp / 1000,
     fromAudioTime: (seconds: number) => seconds * 1000,
+    toPerformanceTime(timestamp: number) {
+      sync();
+      return performanceOffset + timestamp;
+    },
     toEpochTime(timestamp: number) {
       sync();
       return epochOffset + timestamp;

@@ -19,6 +19,29 @@ vi.mock("@/services/superdoughAudio", () => ({
 }));
 
 describe("useMidiControls helpers", () => {
+  it("cancels a replaced future worklet plan without emitting its note-on", () => {
+    const send = vi.fn();
+    const replace = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(send, replace, () => 0);
+    scheduler.attack("planned", 60, 100);
+    scheduler.release("planned", 60, 200);
+    scheduler.cancel("planned", 60);
+    expect(replace).toHaveBeenLastCalledWith([]);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("canceling a sounding worklet owner preserves another owner of its pitch", () => {
+    let time = 0;
+    const send = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(send, vi.fn(), () => time);
+    scheduler.attack("a", 60, 10);
+    scheduler.attack("b", 60, 10);
+    time = 20;
+    scheduler.cancel("a", 60);
+    expect(send).not.toHaveBeenCalled();
+    scheduler.cancel("b", 60);
+    expect(send).toHaveBeenCalledExactlyOnceWith({ midiNote: 60, phase: "release" });
+  });
   it("projects a dense chord batch once, before sending its immediate transitions", () => {
     const operations: string[] = [];
     const replaceScheduled = vi.fn((_transitions: unknown[]) => operations.push("replace"));

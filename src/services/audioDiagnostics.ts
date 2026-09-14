@@ -1,4 +1,5 @@
 import { getAudioContext } from '@/services/superdoughAudio'
+import { getLivePlaybackDiagnostics } from '@/services/livePlayback'
 import { LIVE_AUDIO_SCHEDULING_LEAD_MS } from '@/services/liveAudioTiming'
 // @ts-ignore superdough does not publish declarations
 import { maxPolyphony } from 'superdough'
@@ -50,7 +51,7 @@ export function createAudioDiagnostics(context: DiagnosticContext, voiceLimit: n
     state: context.state,
     sampleRateHz: nonnegative(context.sampleRate) && context.sampleRate > 0 ? context.sampleRate : null,
     contextTimeSeconds: nonnegative(context.currentTime) ? context.currentTime : null,
-    liveSchedulingLeadMs: LIVE_AUDIO_SCHEDULING_LEAD_MS,
+    fallbackSchedulingLeadMs: LIVE_AUDIO_SCHEDULING_LEAD_MS,
     maxPolyphony: Number.isSafeInteger(voiceLimit) && voiceLimit > 0 ? voiceLimit : null,
     latencyBasis: 'browser-estimates-not-measured-device-latency' as const,
     baseLatency: latency(context, 'baseLatency'),
@@ -60,6 +61,11 @@ export function createAudioDiagnostics(context: DiagnosticContext, voiceLimit: n
 }
 
 /** Call after audio initialization when inspecting the application's context. */
-export function getAudioDiagnostics() {
-  return createAudioDiagnostics(getAudioContext(), maxPolyphony, performance.now())
+export function getAudioDiagnostics(instrument?: string) {
+  const live = instrument ? getLivePlaybackDiagnostics(instrument) : null
+  return {
+    ...createAudioDiagnostics(getAudioContext(), live?.backend === 'audio-worklet' ? 64 : maxPolyphony, performance.now()),
+    live,
+    liveSchedulingLeadMs: live?.preparationLeadMs ?? null,
+  }
 }

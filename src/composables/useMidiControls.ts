@@ -93,6 +93,8 @@ interface MidiNoteResolver {
 }
 
 interface MirroredNoteEventDetail {
+  /** Monotonic performance.now deadline; independent of system date changes. */
+  midiTimestamp?: number;
   source?: string;
   mirrorMidi?: boolean;
   duration?: string;
@@ -108,7 +110,7 @@ interface MirroredNoteEventDetail {
 
 interface ScheduledMidiNoteEventDetail extends MirroredNoteEventDetail {
   noteId: string;
-  phase: "attack" | "release";
+  phase: "attack" | "release" | "cancel";
   timestamp: number;
 }
 
@@ -125,7 +127,7 @@ interface ScheduledMidiOwnerEvent extends MidiOwnerTransition {
 interface PendingMidiOwnerUpdate {
   ownerId: string;
   midiNote: number;
-  phase: "attack" | "release";
+  phase: "attack" | "release" | "cancel";
   timestamp?: number;
 }
 
@@ -298,6 +300,14 @@ export function createMidiNoteOwnerScheduler(
     release(ownerId: string, midiNote: number, timestamp?: number) {
       update(ownerId, midiNote, "release", timestamp);
     },
+    cancel(ownerId: string, midiNote: number) {
+      // Advance delivered events before deleting both sides of a future plan.
+      // Releasing an owner alone would leave its queued attack behind.
+      advance(isBatching ? batchTime : now());
+      scheduledEvents.delete(eventKey(ownerId, "attack"));
+      scheduledEvents.delete(eventKey(ownerId, "release"));
+      update(ownerId, midiNote, "release");
+    },
     clear() {
       activeOwners.clear();
       scheduledEvents.clear();
@@ -317,6 +327,9 @@ export function shouldMirrorNoteEvent(
 }
 
 function resolveMidiEventTimestamp(detail: MirroredNoteEventDetail | undefined) {
+  if (typeof detail?.midiTimestamp === "number" && Number.isFinite(detail.midiTimestamp)) {
+    return detail.midiTimestamp;
+  }
   const timestamp = detail?.timestamp;
   return typeof timestamp === "number" && Number.isFinite(timestamp)
     ? performance.now() + timestamp - Date.now()
@@ -910,6 +923,8 @@ export function useMidiControls() {
         updates.forEach(({ ownerId, midiNote, phase, timestamp }) => {
           if (phase === "attack") {
             midiOwnerScheduler.attack(ownerId, midiNote, timestamp);
+          } else if (phase === "cancel") {
+            midiOwnerScheduler.cancel(ownerId, midiNote);
           } else {
             midiOwnerScheduler.release(ownerId, midiNote, timestamp);
           }

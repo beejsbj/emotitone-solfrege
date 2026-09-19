@@ -155,6 +155,48 @@ describe("CodeStrip event rendering", () => {
     expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(1);
   });
 
+  it("visualizes an omitted base duration as one full bar", () => {
+    const wrapper = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        timeSignature: "4/4",
+        tokens: [{ type: "note", note: "do", text: "Do" }],
+      },
+    });
+
+    const bar = wrapper.get(".code-strip__duration-bar");
+    expect(bar.attributes("style")).toContain("--code-strip-duration-ratio: 1");
+    expect(bar.attributes("aria-label")).toBe("Duration: 1 bar");
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(16);
+    expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(4);
+    expect(wrapper.find(".code-strip__duration-overflow").exists()).toBe(false);
+  });
+
+  it("keeps durations beyond one bar bounded and visibly distinct", () => {
+    const wrapper = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        tokens: [
+          { type: "note", note: "do", text: "Do", duration: "@1.5" },
+          { type: "note", note: "re", text: "Re", duration: "@2" },
+        ],
+      },
+    });
+
+    const bars = wrapper.findAll(".code-strip__duration-bar");
+    expect(bars.map((bar) => bar.attributes("style"))).toEqual([
+      "--code-strip-duration-ratio: 1;",
+      "--code-strip-duration-ratio: 1;",
+    ]);
+    expect(bars.map((bar) => bar.attributes("aria-label"))).toEqual([
+      "Duration: 1.5 bars",
+      "Duration: 2 bars",
+    ]);
+    expect(wrapper.findAll(".code-strip__duration-overflow").map((cue) => cue.text()))
+      .toEqual(["×1.5", "×2"]);
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(32);
+  });
+
   it("exposes density without changing notation anatomy", async () => {
     const wrapper = mount(CodeStripSequence, {
       props: {

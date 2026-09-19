@@ -1,11 +1,14 @@
-import type { LiveVoiceEvent, LiveWorklet, PreparedLiveInstrument } from "@/audio/live/types";
+import type { PreparedLiveInstrument } from "@/audio/live/types";
+import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
+import type { PreparedNativeInstrument } from "@/services/preparedNativeInstrument";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 
-interface Listener {
-  onEvent(event: LiveVoiceEvent): void;
-  onPlan(events: LiveVoiceEvent[]): void;
-  onError?(error: unknown): void;
-  onOwnerEnded?(ownerId: string): void;
+type Listener = LiveRendererCallbacks;
+const backend = import.meta.env.VITE_LIVE_AUDIO_BACKEND === "native" ? "native" : "worklet";
+type Instrument = PreparedLiveInstrument | PreparedNativeInstrument;
+interface Driver {
+  renderer: LiveRenderer;
+  install(instrument: Instrument): Promise<void>;
 }
 
 const MAX_BANKS = 4;
@@ -14,25 +17,28 @@ const listeners = new Set<Listener>();
 const reasons = new Map<string, string>();
 const unsupported = new Set<string>();
 let context: AudioContext | undefined;
-let engine: LiveWorklet | undefined;
-let managedEngine: LiveWorklet | undefined;
-let enginePromise: Promise<LiveWorklet> | undefined;
+let engine: LiveRenderer | undefined;
+let managedEngine: LiveRenderer | undefined;
+let enginePromise: Promise<Driver> | undefined;
 let generation = 0;
 const installed = new Map<string, number>();
 const preparing = new Map<string, Promise<void>>();
 const pins = new Map<string, Set<string>>();
 const retiring = new Set<string>();
 let installQueue: Promise<void> = Promise.resolve();
-let preparationModule: Promise<typeof import("@/services/preparedLiveInstrument")> | undefined;
+let workletPreparation: Promise<typeof import("@/services/preparedLiveInstrument")> | undefined;
+let nativePreparation: Promise<typeof import("@/services/preparedNativeInstrument")> | undefined;
 
-function byteSize(instrument: PreparedLiveInstrument): number {
+
+function byteSize(instrument: Instrument): number {
   if (instrument.kind !== "sample-bank") return 0;
-  const buffers = new Set<ArrayBufferLike>();
+  const buffers = new Set<ArrayBufferLike | AudioBuffer>();
   instrument.zones.forEach(zone => {
+    if ("buffer" in zone) { buffers.add(zone.buffer); return; }
     zone.channels.forEach(channel => buffers.add(channel.buffer));
     zone.mipmaps?.forEach(level => level.forEach(channel => buffers.add(channel.buffer)));
   });
-  return [...buffers].reduce((size, buffer) => size + buffer.byteLength, 0);
+  return [...buffers].reduce((size, buffer) => size + ("byteLength" in buffer ? buffer.byteLength : buffer.length * buffer.numberOfChannels * 4), 0);
 }
 
 function invalidate(error?: unknown) {
@@ -50,14 +56,12 @@ function invalidate(error?: unknown) {
   if (error) listeners.forEach(listener => listener.onError?.(error));
 }
 
-/** Prepares the persistent render-thread instrument before input is enabled.
- * Unsupported sounds retain their original renderer and a diagnostic reason.
- * AudioBuffer views are cloned by MessagePort; never detach the shared cache.
- */
+/** Prepare the selected adapter before input is enabled. Unsupported sounds
+ * retain their original renderer. Native buffers are borrowed; worklet PCM is cloned. */
 export async function prepareLivePlayback(nextContext: AudioContext, destination: AudioNode | null, name: string): Promise<void> {
   const instrumentId = resolveLiveSoundName(name);
-  if (!nextContext.audioWorklet || !destination || typeof AudioWorkletNode === "undefined") {
-    reasons.set(instrumentId, "AudioWorklet is unavailable");
+  if (!destination || (backend === "worklet" && (!nextContext.audioWorklet || typeof AudioWorkletNode === "undefined"))) {
+    reasons.set(instrumentId, !destination ? "Audio output is unavailable" : "AudioWorklet is unavailable");
     unsupported.add(instrumentId);
     return;
   }
@@ -78,9 +82,9 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   if (preparing.has(instrumentId)) return preparing.get(instrumentId);
   const run = generation;
   const promise = (async () => {
-    preparationModule ??= import("@/services/preparedLiveInstrument");
-    const { prepareLiveInstrument } = await preparationModule;
-    const prepared = await prepareLiveInstrument(nextContext, instrumentId);
+    const prepared = backend === "native"
+      ? await (await (nativePreparation ??= import("@/services/preparedNativeInstrument"))).prepareNativeInstrument(nextContext, instrumentId)
+      : await (await (workletPreparation ??= import("@/services/preparedLiveInstrument"))).prepareLiveInstrument(nextContext, instrumentId);
     if (run !== generation) return;
     if (prepared.kind === "unsupported") {
       reasons.set(instrumentId, prepared.reason);
@@ -89,21 +93,30 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     }
     const bytes = byteSize(prepared);
     if (bytes > MAX_PCM_BYTES) {
-      reasons.set(instrumentId, "Sample bank exceeds the 192 MiB live worklet budget");
+      reasons.set(instrumentId, "Sample bank exceeds the 192 MiB live renderer budget");
       unsupported.add(instrumentId);
       return;
     }
     const install = async () => {
       if (run !== generation) return;
-      const { createLiveWorklet } = await import("@/audio/live/bridge");
-      if (run !== generation) return;
-      enginePromise ??= createLiveWorklet(nextContext, destination, {
+      const callbacks: LiveRendererCallbacks = {
         onEvent: event => { if (run === generation) listeners.forEach(listener => listener.onEvent(event)); },
-        onPlan: events => { if (run === generation) listeners.forEach(listener => listener.onPlan(events)); },
+        onPlan: events => { if (run === generation) listeners.forEach(listener => listener.onPlan?.(events)); },
         onError: error => { if (run === generation) invalidate(error); },
         onOwnerEnded: ownerId => { if (run === generation) listeners.forEach(listener => listener.onOwnerEnded?.(ownerId)); },
-      });
-      const ready = await enginePromise;
+      };
+      enginePromise ??= (async (): Promise<Driver> => {
+        if (backend === "native") {
+          const { createPreparedNativeRenderer } = await import("@/audio/native/renderer");
+          const renderer = createPreparedNativeRenderer(nextContext, destination, callbacks);
+          return { renderer, install: instrument => renderer.prepare(instrument as PreparedNativeInstrument) };
+        }
+        const { createLiveWorklet } = await import("@/audio/live/bridge");
+        const renderer = await createLiveWorklet(nextContext, destination, callbacks);
+        return { renderer, install: instrument => renderer.prepare(instrument as PreparedLiveInstrument) };
+      })();
+      const driver = await enginePromise;
+      const ready = driver.renderer;
       if (run !== generation) { ready.dispose(); return; }
       engine = ready;
       managedEngine ??= {
@@ -122,7 +135,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       while (installed.size >= MAX_BANKS || [...installed.values()].reduce((sum, size) => sum + size, bytes) > MAX_PCM_BYTES) {
         const oldest = [...installed.keys()].find(id => ![...pins.values()].some(held => held.has(id)));
         if (oldest === undefined) {
-          reasons.set(instrumentId, "Live worklet instrument budget is occupied by held notes");
+          reasons.set(instrumentId, "Live renderer instrument budget is occupied by held notes");
           return;
         }
         // The budget includes retiring PCM: wait for its bounded fade and
@@ -133,7 +146,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         installed.delete(oldest);
         retiring.delete(oldest);
       }
-      await ready.prepare(prepared);
+      await driver.install(prepared);
       if (run === generation) {
         installed.set(instrumentId, bytes);
         reasons.delete(instrumentId);
@@ -146,7 +159,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     await queued;
   })().catch(error => {
     if (run === generation) {
-      reasons.set(instrumentId, error instanceof Error ? error.message : "Live worklet preparation failed");
+      reasons.set(instrumentId, error instanceof Error ? error.message : "Live renderer preparation failed");
       invalidate(error);
     }
   }).finally(() => {
@@ -156,7 +169,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   return promise;
 }
 
-export function getLivePlayback(name: string): LiveWorklet | undefined {
+export function getLivePlayback(name: string): LiveRenderer | undefined {
   const instrumentId = resolveLiveSoundName(name);
   if (!installed.has(instrumentId) || retiring.has(instrumentId)) return undefined;
   const bytes = installed.get(instrumentId)!;
@@ -167,7 +180,7 @@ export function getLivePlayback(name: string): LiveWorklet | undefined {
 
 export function needsLivePlaybackPreparation(name: string): boolean {
   const instrumentId = resolveLiveSoundName(name);
-  return typeof AudioWorkletNode !== "undefined" && !unsupported.has(instrumentId)
+  return (backend === "native" || typeof AudioWorkletNode !== "undefined") && !unsupported.has(instrumentId)
     && (!installed.has(instrumentId) || retiring.has(instrumentId));
 }
 
@@ -180,10 +193,13 @@ export function getLivePlaybackDiagnostics(name: string) {
   const instrumentId = resolveLiveSoundName(name);
   const ready = Boolean(managedEngine && installed.has(instrumentId) && !retiring.has(instrumentId));
   return {
-    backend: ready ? "audio-worklet" : "superdough",
+    backend: ready ? (backend === "native" ? "native-web-audio" : "audio-worklet") : "superdough",
+    requestedBackend: backend,
     reason: reasons.get(instrumentId) ?? null,
     installedBanks: installed.size,
     installedPcmBytes: [...installed.values()].reduce((sum, bytes) => sum + bytes, 0),
+    additionalPcmBytes: backend === "native" ? 0 : [...installed.values()].reduce((sum, bytes) => sum + bytes, 0),
+    lookaheadMs: backend === "native" ? 400 : null,
     preparationLeadMs: ready ? 0 : 5,
   };
 }

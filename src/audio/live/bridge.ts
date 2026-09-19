@@ -1,14 +1,10 @@
 import processorUrl from './processor.ts?worker&url'
-import type { LiveCommand, LiveResponse, LiveVoiceEvent, LiveWorklet } from './types'
+import type { LiveCommand, LiveResponse, LiveWorklet } from './types'
 
 let engineSerial = 0
 
-export interface LiveWorkletCallbacks {
-  onEvent(event: LiveVoiceEvent): void
-  onPlan?(events: LiveVoiceEvent[]): void
-  onError?(error: Error): void
-  onOwnerEnded?(ownerId: string): void
-}
+export type { LiveRendererCallbacks as LiveWorkletCallbacks } from '../liveRenderer'
+import type { LiveRendererCallbacks as LiveWorkletCallbacks } from '../liveRenderer'
 
 /** Installs one persistent mixer. Input messages never wait for a beat timer. */
 export async function createLiveWorklet(context: AudioContext, destination: AudioNode,

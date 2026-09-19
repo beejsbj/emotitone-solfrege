@@ -252,7 +252,7 @@ export function useHarmonicGeometryRenderer() {
     }
 
     return {
-      chordSymbol: hasCompleteAnalysis ? snapshot.chordLabel ?? undefined : undefined,
+      chordSymbol: hasCompleteAnalysis ? snapshot.chordSymbol ?? snapshot.chordLabel ?? undefined : undefined,
       connectionMode: config.connectionMode,
       viewport: { width: canvasWidth, height: canvasHeight },
       points,

@@ -13,6 +13,7 @@ function createEmptySnapshot(): HarmonicAnalysisSnapshot {
     isVisible: false,
     displayedNotes: [],
     intervalEdges: [],
+    chordSymbol: null,
     chordLabel: null,
     emotionalDescription: "",
   };
@@ -172,6 +173,7 @@ export function useHarmonicAnalysis(
         displayedNotes.value.length > 0,
       displayedNotes: [...displayedNotes.value],
       intervalEdges: [...intervalEdges.value],
+      chordSymbol: detectedChord.value,
       chordLabel: chordLabel.value,
       emotionalDescription: emotionalDescription.value,
     };

@@ -170,7 +170,7 @@ export function useHarmonicGeometryRenderer() {
           )
         : null;
 
-    if (orderedPoints.length === 2 && dyadEdge) {
+    if (config.connectionMode !== "merge" && orderedPoints.length === 2 && dyadEdge) {
       const arcMidpoint = getArcMidpoint(orderedPoints[0], orderedPoints[1]);
       auxiliaryLabels.push({
         x: arcMidpoint.labelX,
@@ -208,7 +208,7 @@ export function useHarmonicGeometryRenderer() {
     }
 
     if (
-      orderedPoints.length >= 3 &&
+      config.connectionMode !== "merge" && orderedPoints.length >= 3 &&
       config.showIntervalLabels
     ) {
       orderedPoints.forEach((point, index) => {
@@ -243,7 +243,22 @@ export function useHarmonicGeometryRenderer() {
       });
     }
 
+    if (config.connectionMode === "merge" && config.showIntervalLabels) {
+      // The material planner selects the actual joins later. Keep analyzed
+      // identities available even when a short neck vanishes into fusion.
+      snapshot.intervalEdges.forEach(edge => {
+        const from = points.find(point => point.note.noteId === edge.fromNoteId);
+        const to = points.find(point => point.note.noteId === edge.toNoteId);
+        if (!from || !to) return;
+        auxiliaryLabels.push({ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2,
+          lines: [edge.interval], roles: ["interval"], size: "sm",
+          notePair: [edge.fromNoteId, edge.toNoteId],
+          angle: Math.atan2(to.y - from.y, to.x - from.x) });
+      });
+    }
+
     return {
+      connectionMode: config.connectionMode,
       viewport: { width: canvasWidth, height: canvasHeight },
       points,
       orderedPoints,

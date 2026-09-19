@@ -94,8 +94,9 @@ export interface HarmonicGeometryLabel {
   notePair?: [string, string];
 }
 
-/** Exact prepared Web filament, published by the field renderer for lettering. */
+/** Exact prepared material join, published by the field renderer for lettering. */
 export interface HarmonicConnectionPath {
+  material?: "web" | "merge";
   notePair: [string, string];
   points: Array<{ x: number; y: number }>;
   colors: [string, string];
@@ -103,6 +104,9 @@ export interface HarmonicConnectionPath {
 }
 
 export interface HarmonicGeometryScene {
+  /** Centre of visible Merge material, projected inside the body if necessary. */
+  mergeCenter?: { x: number; y: number };
+  connectionMode?: "off" | "web" | "merge";
   renderedConnections?: HarmonicConnectionPath[];
   viewport?: { width: number; height: number };
   points: HarmonicGeometryPoint[];

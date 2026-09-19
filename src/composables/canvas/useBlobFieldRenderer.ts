@@ -818,8 +818,9 @@ export function useBlobFieldRenderer() {
     scene: HarmonicGeometryScene | null
   ) => {
     const mode = config.connectionMode;
+    const needsMergeCenter = mode === "merge" && scene?.primaryLabel?.roles?.includes("chord");
     // A scene may be reused by a static specimen; never retain a prior path.
-    if (scene) scene.renderedConnections = [];
+    if (scene) { scene.renderedConnections = []; scene.mergeCenter = undefined; }
     if (frames.length === 0 || mode === "off") {
       return false;
     }
@@ -1070,6 +1071,7 @@ export function useBlobFieldRenderer() {
         ? 0.48 - config.fusionStrength * 0.28
         : 0.54 - config.fusionStrength * 0.24;
     const output = frameBuffers.output;
+    let mass = 0, massX = 0, massY = 0, peakAlpha = 0;
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
       const fieldAlpha = alpha[pixel];
@@ -1089,6 +1091,12 @@ export function useBlobFieldRenderer() {
       const normalizedBlue = blue[pixel] / colorWeight;
 
       const finalAlpha = hasColor ? coverage * localOpacity : 0;
+      if (needsMergeCenter) {
+        mass += finalAlpha;
+        massX += (pixel % width + 0.5) * finalAlpha;
+        massY += (Math.floor(pixel / width) + 0.5) * finalAlpha;
+        peakAlpha = Math.max(peakAlpha, finalAlpha);
+      }
 
       output.data[offset] = Math.round(
         Math.max(0, Math.min(1, normalizedRed)) * 255
@@ -1125,13 +1133,27 @@ export function useBlobFieldRenderer() {
       target.restore();
     });
 
-    if (scene && mode === "web") {
+    if (scene && needsMergeCenter && mass > 0) {
+      const centre = { x: massX / mass, y: massY / mass };
+      // A branched silhouette can have its mass centre in a hollow. Keep the
+      // chord inside visible material, using the already-computed field.
+      let closest = Infinity, anchor = centre;
+      for (let pixel = 0; pixel < pixelCount; pixel++) {
+        if (output.data[pixel * 4 + 3] / 255 < peakAlpha * 0.5) continue;
+        const x = pixel % width + 0.5, y = Math.floor(pixel / width) + 0.5;
+        const distance = (x - centre.x) ** 2 + (y - centre.y) ** 2;
+        if (distance < closest) { closest = distance; anchor = { x, y }; }
+      }
+      scene.mergeCenter = { x: bounds.x + anchor.x / scale, y: bounds.y + anchor.y / scale };
+    }
+    if (scene) {
       scene.renderedConnections = connectionLayers.flatMap(({ connection, geometry }) => {
         const from = scene.points.find(point => point.blob === connection.from.blob);
         const to = scene.points.find(point => point.blob === connection.to.blob);
         return from && to ? [{
           notePair: [from.note.noteId, to.note.noteId] as [string, string],
           points: geometry.centerline,
+          material: mode,
           opacity: getConnectionOpacity(connection),
           colors: [connection.from.primaryColor, connection.to.primaryColor] as [string, string],
         }] : [];

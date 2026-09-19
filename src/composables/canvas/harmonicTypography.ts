@@ -8,8 +8,8 @@ type Line = { text: string; glyphs: Glyph[]; width: number; y: number; size: num
 type Box = { x: number; y: number; width: number; height: number };
 export type HarmonicLabelFrame = { now: number; reducedMotion: boolean; bounds?: StageRect };
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-const overlaps = (a: Box, b: Box) => Math.abs(a.x - b.x) < (a.width + b.width) / 2 + 8
-  && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + 8;
+const overlaps = (a: Box, b: Box, padding = 8) => Math.abs(a.x - b.x) < (a.width + b.width) / 2 + padding
+  && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + padding;
 const hash = (text: string) => Array.from(text).reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7);
 
 /** Canvas-only musical lettering. Each canvas owns bounded metrics and entrance state. */
@@ -118,23 +118,52 @@ export function createHarmonicTypography() {
     const follow = still ? 1 : 1 - Math.exp(-dt / 100);
     state.x += ((label?.x ?? state.x) - state.x) * follow;
     state.y += ((label?.y ?? state.y) - state.y) * follow;
+    const merge = scene.connectionMode === "merge";
+    const chordLine = state.lines.find(line => line.chord);
+    const centre = scene.mergeCenter ?? { x: state.x, y: state.y };
+    const primaryFits = label && state.lines.length && (merge && chordLine ? 68 : state.height + 24) <= bounds.height;
+    const primaryBox = {
+      x: clamp(merge ? centre.x : state.x,
+        bounds.x + (merge && chordLine ? chordLine.width + 12 : state.width) / 2 + 8,
+        bounds.x + bounds.width - (merge && chordLine ? chordLine.width + 12 : state.width) / 2 - 8),
+      y: merge && chordLine
+        ? clamp(centre.y, bounds.y + 34, bounds.y + bounds.height - 34) + state.height / 2 - chordLine.y
+        : clamp(merge ? centre.y : state.y, bounds.y + state.height / 2 + 12, bounds.y + bounds.height - state.height / 2 - 12),
+      width: state.width, height: state.height,
+    };
+    const chordBox: Box | null = primaryFits && merge && chordLine ? {
+      x: primaryBox.x, y: primaryBox.y - state.height / 2 + chordLine.y,
+      width: chordLine.width + 12, height: 44,
+    } : null;
     const integrated: IntervalLettering[] = [];
     if (intervals) for (const label of scene.auxiliaryLabels) {
       const path = scene.renderedConnections?.find(connection => label.notePair
         && connection.notePair.every(id => label.notePair!.includes(id)));
       if (!path) continue;
-      const width = measure(label.lines.join(" "), 18);
+      const width = measure(label.lines.join(" "), merge ? 16 : 18);
+      const candidates: IntervalLettering[] = [];
       // Slide along the same filament before falling back to a separate tab.
-      for (const fraction of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+      for (const fraction of merge ? [0.5, 0.35, 0.65, 0.2, 0.8, 0.1, 0.9] : [0.5, 0.35, 0.65, 0.2, 0.8]) {
         const layout = layoutIntervalLettering(label, path, width, fraction);
         if (!layout) break;
         const box = layout.box;
         if (box.x - box.width / 2 < bounds.x + 8 || box.x + box.width / 2 > bounds.x + bounds.width - 8
           || box.y - box.height / 2 < bounds.y + 8 || box.y + box.height / 2 > bounds.y + bounds.height - 8) continue;
         if (integrated.some(other => overlaps(box, other.box))) continue;
-        integrated.push(layout);
-        break;
+        if (chordBox && overlaps(box, chordBox)) continue;
+        candidates.push(layout);
+        if (!merge || fraction === 0.5) break;
       }
+      if (merge && candidates.length > 1) {
+        // Leave room for neighbouring joins instead of spending their only
+        // clear patch on the first interval (common in a narrow phone orbit).
+        const neighbours = scene.renderedConnections!.filter(other => other !== path)
+          .map(other => other.points[Math.floor(other.points.length / 2)]).filter(Boolean);
+        const clearance = (layout: IntervalLettering) => neighbours.length
+          ? Math.min(...neighbours.map(point => Math.hypot(layout.box.x - point.x, layout.box.y - point.y))) : 0;
+        candidates.sort((a, b) => clearance(b) - clearance(a));
+      }
+      if (candidates[0]) integrated.push(candidates[0]);
     }
     const occupied: Box[] = integrated.map(layout => layout.box);
     ctx.filter = "none";
@@ -144,12 +173,8 @@ export function createHarmonicTypography() {
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     integrated.forEach(layout => paintIntervalLettering(ctx, layout,
       { opacity, font: state.font, ink: state.ink, ivory: state.ivory }));
-    if (label && state.lines.length && state.height + 24 <= bounds.height) {
-      const box = {
-        x: clamp(state.x, bounds.x + state.width / 2 + 8, bounds.x + bounds.width - state.width / 2 - 8),
-        y: clamp(state.y, bounds.y + state.height / 2 + 12, bounds.y + bounds.height - state.height / 2 - 12),
-        width: state.width, height: state.height,
-      };
+    if (primaryFits) {
+      const box = primaryBox;
       // The interval belongs to the filament. Move the central annotation,
       // not the interval, when the two need the same space (common for dyads).
       const fits = (candidate: Box) => candidate.x - candidate.width / 2 >= bounds.x + 8
@@ -157,7 +182,7 @@ export function createHarmonicTypography() {
         && candidate.y - candidate.height / 2 >= bounds.y + 8
         && candidate.y + candidate.height / 2 <= bounds.y + bounds.height - 8
         && !occupied.some(other => overlaps(candidate, other));
-      if (!fits(box) && occupied.length) {
+      if (!merge && !fits(box) && occupied.length) {
         const candidates = occupied.flatMap(other => [
           { ...box, y: other.y - (other.height + box.height) / 2 - 12 },
           { ...box, y: other.y + (other.height + box.height) / 2 + 12 },
@@ -169,11 +194,24 @@ export function createHarmonicTypography() {
       }
       // If there is genuinely no room, preserve the interval rather than
       // painting the primary phrase over it. Merge keeps its original policy.
-      if (!occupied.length || fits(box)) {
+      if (merge || !occupied.length || fits(box)) {
         occupied.push(box);
         ctx.save(); ctx.translate(box.x, box.y - state.height / 2);
         ctx.globalAlpha = opacity * (0.45 + 0.55 * (1 - remaining));
+        const emotionRows: Box[] = [];
         for (const line of state.lines) {
+          const lineBox = { x: box.x, y: box.y - state.height / 2 + line.y,
+            width: line.width + 12, height: line.size + 14 };
+          const originalY = lineBox.y;
+          if (merge && !line.chord) {
+            lineBox.x = clamp(lineBox.x, bounds.x + lineBox.width / 2 + 8, bounds.x + bounds.width - lineBox.width / 2 - 8);
+            lineBox.y = clamp(lineBox.y, bounds.y + lineBox.height / 2 + 8, bounds.y + bounds.height - lineBox.height / 2 - 8);
+            if ((chordBox && overlaps(chordBox, lineBox, 2)) || integrated.some(layout => overlaps(layout.box, lineBox))) continue;
+            const rowBox = { ...lineBox, y: lineBox.y + 3, height: 24 };
+            if (emotionRows.some(other => overlaps(other, rowBox, 0))) continue;
+            emotionRows.push(rowBox);
+          }
+          ctx.save(); ctx.translate(lineBox.x - box.x, lineBox.y - originalY);
           ctx.font = `${line.chord ? 700 : 400} ${line.size}px ${state.font}`;
           const seed = hash(chordText || line.text);
           for (const [index, glyph] of line.glyphs.entries()) {
@@ -196,11 +234,14 @@ export function createHarmonicTypography() {
             ctx.fillStyle = state.ivory;
             ctx.fillRect(-Math.min(14, line.width / 2), line.y + 22, Math.min(28, line.width), 1.5);
           }
+          ctx.restore();
         }
         ctx.restore();
       }
     }
     if (intervals) for (const stamp of scene.auxiliaryLabels) {
+      // Merge labels belong only to material joins, never detached fallback tabs.
+      if (merge) continue;
       if (integrated.some(layout => layout.label === stamp)) continue;
       const text = stamp.lines.join(" ");
       const width = measure(text, 15) + 16;

@@ -1,5 +1,5 @@
 import { createCanvas } from "@napi-rs/canvas";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { layoutIntervalLettering, paintIntervalLettering } from "@/composables/canvas/intervalLettering";
 import type { HarmonicConnectionPath, HarmonicGeometryLabel } from "@/types/canvas";
 
@@ -9,6 +9,20 @@ const path: HarmonicConnectionPath = {
 };
 
 describe("filament interval lettering", () => {
+  it.each([0, 12, 100])("retains Merge neck anchors at %s px, without a line or badge", length => {
+    const merged = { ...path, material: "merge" as const,
+      points: [{ x: 100 - length / 2, y: 100 }, { x: 100 + length / 2, y: 100 }] };
+    const layout = layoutIntervalLettering(label, merged, 30)!;
+    expect(layout).not.toBeNull();
+    expect(layout.box.x).toBe(100); expect(layout.box.y).toBe(100);
+    const ctx = createCanvas(200, 200).getContext("2d") as unknown as CanvasRenderingContext2D;
+    const stroke = vi.spyOn(ctx, "stroke"); const fill = vi.spyOn(ctx, "fill");
+    const text = vi.spyOn(ctx, "fillText");
+    paintIntervalLettering(ctx, layout, { opacity: 1, font: "sans-serif", ink: "black", ivory: "white" });
+    expect(stroke).not.toHaveBeenCalled(); expect(fill).not.toHaveBeenCalled();
+    expect(text).toHaveBeenCalledWith("-3M", 0, 0);
+  });
+
   it("uses the actual path midpoint and leaves signed musical text unchanged", () => {
     const layout = layoutIntervalLettering(label, path, 30)!;
     expect(layout.box.x).toBe(200); expect(layout.box.y).toBe(100);

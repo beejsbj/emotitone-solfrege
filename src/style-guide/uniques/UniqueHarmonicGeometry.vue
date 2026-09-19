@@ -15,6 +15,11 @@
       </label>
     </header>
 
+    <label class="harmonic-specimen__toggle">
+      <input v-model="fullyFused" type="checkbox" />
+      Fuse Merge body
+    </label>
+
     <div class="harmonic-specimen__grid">
       <figure>
         <canvas
@@ -65,6 +70,7 @@ import type {
 const webCanvas = ref<HTMLCanvasElement | null>(null);
 const mergeCanvas = ref<HTMLCanvasElement | null>(null);
 const showLabels = ref(false);
+const fullyFused = ref(false);
 const renderer = useHarmonicGeometryRenderer();
 const blobRenderer = useBlobRenderer();
 const blobFieldRenderer = useBlobFieldRenderer();
@@ -187,7 +193,7 @@ const createBlobs = (
           { x: width * 0.2, y: height * 0.8 },
         ];
   const radii = [0.17, 0.14, 0.15, 0.16].map(
-    (ratio) => Math.min(width, height) * ratio
+    (ratio) => Math.min(width, height) * ratio * (mode === "merge" && fullyFused.value ? 2.2 : 1)
   );
 
   return new Map<string, ActiveBlob>(
@@ -277,7 +283,7 @@ const drawAll = async () => {
   drawSpecimen(mergeCanvas.value, "merge");
 };
 
-watch(showLabels, drawAll, { flush: "post" });
+watch([showLabels, fullyFused], drawAll, { flush: "post" });
 onMounted(() => {
   void drawAll();
   window.addEventListener("resize", drawAll);

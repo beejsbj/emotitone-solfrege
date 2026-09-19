@@ -24,6 +24,74 @@ function setup(width = 320, height = 240, title = "Cmaj9") {
 }
 
 describe("musical canvas typography", () => {
+  it("leaves both phone-triad joins readable around the central chord", () => {
+    const { scene, ctx, render } = setup(390, 395, "CM");
+    scene.connectionMode = "merge"; scene.mergeCenter = { x: 279, y: 153 };
+    scene.auxiliaryLabels = [
+      { x: 265, y: 167, size: "sm", lines: ["-3M"], notePair: ["e", "c"] },
+      { x: 296, y: 175, size: "sm", lines: ["3m"], notePair: ["e", "g"] },
+      { x: 244, y: 70, size: "sm", lines: ["5P"], notePair: ["c", "g"] },
+    ];
+    scene.renderedConnections = [
+      { notePair: ["e", "c"], material: "merge", colors: ["red", "green"], opacity: 1,
+        points: [{ x: 312, y: 263 }, { x: 279, y: 158 }, { x: 215, y: 73 }] },
+      { notePair: ["e", "g"], material: "merge", colors: ["green", "blue"], opacity: 1,
+        points: [{ x: 312, y: 263 }, { x: 308, y: 171 }, { x: 275, y: 89 }] },
+    ];
+    const text = vi.spyOn(ctx, "fillText"); render(1000, true);
+    expect(text).toHaveBeenCalledWith("-3M", 0, 0);
+    expect(text).toHaveBeenCalledWith("3m", 0, 0);
+    expect(text.mock.calls.some(([s]) => s === "5P")).toBe(false);
+  });
+
+  it("does not overprint independently fitted Merge emotion rows at the bottom edge", () => {
+    const { scene, ctx, render } = setup(400, 250, "CM");
+    scene.connectionMode = "merge"; scene.mergeCenter = { x: 200, y: 150 };
+    scene.primaryLabel!.lines[1] = Array(100).fill("X").join(" ");
+    const baselines: number[] = [];
+    vi.spyOn(ctx, "fillText").mockImplementation((text, x, y) => {
+      if (text === "X" && x === 0 && y === 0) baselines.push(ctx.getTransform().f);
+    });
+    render(1000, true);
+    const rows: number[] = [];
+    baselines.sort((a, b) => a - b).forEach(y => {
+      if (!rows.length || y - rows[rows.length - 1] > 8) rows.push(y);
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[1] - rows[0]).toBeGreaterThanOrEqual(24);
+  });
+
+  it("fits Merge emotion independently without pushing an edge-adjacent chord off its centre", () => {
+    const { scene, ctx, render } = setup(400, 300, "CM");
+    scene.connectionMode = "merge";
+    scene.mergeCenter = { x: 350, y: 200 };
+    scene.primaryLabel!.lines[1] = "Bright, joyful optimism & Home, rest, stability";
+    const translates = vi.spyOn(ctx, "translate");
+    const text = vi.spyOn(ctx, "fillText");
+    render(1000, true);
+    expect(translates.mock.calls[0]).toEqual([350, 181]);
+    expect(text.mock.calls.some(([s]) => s === "B")).toBe(true);
+  });
+
+  it("keeps the Merge chord at its material centre and intervals at fused joins", () => {
+    const { ctx, scene, render } = setup(400, 300, "CM");
+    scene.connectionMode = "merge";
+    scene.mergeCenter = { x: 210, y: 140 };
+    scene.auxiliaryLabels = [{ x: 0, y: 0, size: "md", lines: ["3M"], notePair: ["a", "b"] }];
+    scene.renderedConnections = [{ notePair: ["a", "b"], material: "merge", colors: ["red", "green"], opacity: 1,
+      points: [{ x: 85, y: 140 }, { x: 95, y: 140 }] }];
+    const translates = vi.spyOn(ctx, "translate");
+    const text = vi.spyOn(ctx, "fillText");
+    const gradient = vi.spyOn(ctx, "createLinearGradient");
+    const first = render(1000, true);
+    expect(translates.mock.calls[0]).toEqual([90, 140]);
+    // First chord line's midpoint is 19px below the group's origin.
+    expect(translates.mock.calls[1]).toEqual([210, 121]);
+    expect(text).toHaveBeenCalledWith("3M", 0, 0);
+    expect(gradient).not.toHaveBeenCalled();
+    expect(render(2000, true).equals(first)).toBe(true);
+  });
+
   it("slides competing intervals along their filaments and stays still for Reduced Motion", () => {
     const { ctx, scene, render } = setup(400, 240);
     scene.primaryLabel = null;

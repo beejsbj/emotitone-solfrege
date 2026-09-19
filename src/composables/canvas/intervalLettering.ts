@@ -8,6 +8,7 @@ export type IntervalLettering = {
   total: number;
   position: number;
   gap: number;
+  fontSize: number;
   angle: number;
   box: Point & { width: number; height: number };
 };
@@ -31,16 +32,20 @@ export function layoutIntervalLettering(label: HarmonicGeometryLabel, path: Harm
       path.points[i].y - path.points[i - 1].y));
   }
   const total = lengths[lengths.length - 1];
-  const width = textWidth + 14, height = 24;
-  if (total < width + 16) return null;
-  const position = Math.max(width / 2 + 8, Math.min(total - width / 2 - 8, total * fraction));
+  const merge = path.material === "merge";
+  const fontSize = merge ? 16 : 18;
+  const width = textWidth + 14, height = merge ? 22 : 24;
+  if (!merge && total < width + 16) return null;
+  // A Merge join remains an anchor even after its visible neck disappears.
+  const position = merge ? total * Math.max(0.1, Math.min(0.9, fraction))
+    : Math.max(width / 2 + 8, Math.min(total - width / 2 - 8, total * fraction));
   const centre = pointAt(path, lengths, position);
   const before = pointAt(path, lengths, Math.max(0, position - 2));
   const after = pointAt(path, lengths, Math.min(total, position + 2));
   let angle = Math.atan2(after.y - before.y, after.x - before.x);
   if (angle > Math.PI / 2) angle -= Math.PI;
   if (angle < -Math.PI / 2) angle += Math.PI;
-  return { label, path, lengths, total, position, gap: width / 2, angle,
+  return { label, path, lengths, total, position, gap: width / 2, fontSize, angle,
     box: { ...centre,
       width: Math.abs(Math.cos(angle)) * width + Math.abs(Math.sin(angle)) * height,
       height: Math.abs(Math.sin(angle)) * width + Math.abs(Math.cos(angle)) * height } };
@@ -61,21 +66,23 @@ export function paintIntervalLettering(ctx: CanvasRenderingContext2D, layout: In
     ctx.lineTo(last.x, last.y);
   };
   ctx.save();
-  const first = path.points[0], last = path.points[path.points.length - 1];
-  const color = ctx.createLinearGradient(first.x, first.y, last.x, last.y);
-  color.addColorStop(0, path.colors[0]); color.addColorStop(1, path.colors[1]);
-  ctx.globalAlpha = style.opacity * path.opacity * 0.85;
-  ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = color;
-  ctx.beginPath();
-  trace(0, Math.max(0, position - gap));
-  trace(Math.min(total, position + gap), total);
-  ctx.stroke();
-  // A narrow ivory grain keeps dark pitch colours legible on the Ink stage.
-  ctx.globalAlpha = style.opacity * path.opacity * 0.24;
-  ctx.lineWidth = 0.65; ctx.strokeStyle = style.ivory; ctx.stroke();
+  if (path.material !== "merge") {
+    const first = path.points[0], last = path.points[path.points.length - 1];
+    const color = ctx.createLinearGradient(first.x, first.y, last.x, last.y);
+    color.addColorStop(0, path.colors[0]); color.addColorStop(1, path.colors[1]);
+    ctx.globalAlpha = style.opacity * path.opacity * 0.85;
+    ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = color;
+    ctx.beginPath();
+    trace(0, Math.max(0, position - gap));
+    trace(Math.min(total, position + gap), total);
+    ctx.stroke();
+    // A narrow ivory grain keeps dark pitch colours legible on the Ink stage.
+    ctx.globalAlpha = style.opacity * path.opacity * 0.24;
+    ctx.lineWidth = 0.65; ctx.strokeStyle = style.ivory; ctx.stroke();
+  }
   ctx.translate(box.x, box.y); ctx.rotate(angle);
   ctx.globalAlpha = style.opacity;
-  ctx.font = `400 18px ${style.font}`;
+  ctx.font = `400 ${layout.fontSize}px ${style.font}`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = style.ink;
   ctx.strokeText(label.lines.join(" "), 0, 0);

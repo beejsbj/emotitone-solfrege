@@ -62,15 +62,15 @@ describe("Merge field pixels", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("publishes prepared Web paths and colours, clearing them when the mode changes", () => {
+  it("publishes mode-specific join paths, clearing them when connections turn off", () => {
     const frames = chordFrames(20).slice(0, 2);
     frames[1].primaryColor = "rgb(0, 255, 0)";
     const notes = frames.map(frame => ({ noteId: frame.key, noteName: "C4", solfegeIndex: 0,
       solfege: frame.blob.note, frequency: 261.63, octave: 4, mode: "major" as const, key: "C" as const }));
-    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "web" as const };
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "web" as const, showChordLabel: true };
     const scene = useHarmonicGeometryRenderer().buildScene({ isVisible: true, displayedNotes: notes,
       intervalEdges: [{ fromNoteId: "0", toNoteId: "1", fromIndex: 0, toIndex: 1, interval: "3M" }],
-      chordLabel: null, emotionalDescription: "Bright" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 1000, 600)!;
+      chordLabel: "CM", emotionalDescription: "Bright" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 1000, 600)!;
     const ctx = createCanvas(1000, 600).getContext("2d") as unknown as CanvasRenderingContext2D;
     const renderer = useBlobFieldRenderer();
     expect(renderer.renderBlobField(ctx, frames, config, scene)).toBe(true);
@@ -81,7 +81,11 @@ describe("Merge field pixels", () => {
     renderer.renderBlobField(ctx, frames, { ...config, webOpacity: 0 }, scene);
     expect(scene.renderedConnections![0].opacity).toBe(0);
     renderer.renderBlobField(ctx, frames, { ...config, connectionMode: "merge" }, scene);
+    expect(scene.renderedConnections![0].material).toBe("merge");
+    expect(scene.mergeCenter).toBeDefined();
+    renderer.renderBlobField(ctx, frames, { ...config, connectionMode: "off" }, scene);
     expect(scene.renderedConnections).toEqual([]);
+    expect(scene.mergeCenter).toBeUndefined();
     renderer.dispose();
   });
 
@@ -114,6 +118,42 @@ describe("Merge field pixels", () => {
       );
       expect(footprint.data.some((value, index) => index % 4 === 3 && value >= 16)).toBe(true);
     }
+    renderer.dispose();
+  });
+
+  it("retains sparse join identities through complete fusion and anchors the chord inside material", () => {
+    const frames = chordFrames(28);
+    // A compact triangle; increasing radii below fully erases its neck outlines.
+    const positions = [[140, 120], [260, 120], [200, 220]];
+    const setRadius = (radius: number) => frames.forEach((frame, i) => {
+      const [x, y] = positions[i]; frame.blob.x = x; frame.blob.y = y;
+      frame.scaledRadius = radius; frame.blob.baseRadius = radius;
+      frame.contour = Array.from({ length: 48 }, (_, j) => ({
+        x: x + radius * Math.cos(j / 48 * Math.PI * 2), y: y + radius * Math.sin(j / 48 * Math.PI * 2),
+      }));
+    });
+    setRadius(28);
+    const notes = frames.map(frame => ({ noteId: frame.key, noteName: "C4", solfegeIndex: 0,
+      solfege: frame.blob.note, frequency: 261.63, octave: 4, mode: "major" as const, key: "C" as const }));
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "merge" as const, showIntervalLabels: true, showChordLabel: true };
+    const scene = useHarmonicGeometryRenderer().buildScene({ isVisible: true, displayedNotes: notes,
+      intervalEdges: [[0, 1], [0, 2], [1, 2]].map(([fromIndex, toIndex]) => ({
+        fromIndex, toIndex, fromNoteId: String(fromIndex), toNoteId: String(toIndex), interval: "3M" })),
+      chordLabel: "CM", emotionalDescription: "Bright" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 400, 320)!;
+    const ctx = createCanvas(400, 320).getContext("2d") as unknown as CanvasRenderingContext2D;
+    const renderer = useBlobFieldRenderer();
+    renderer.renderBlobField(ctx, frames, config, scene);
+    const pairs = scene.renderedConnections!.map(path => path.notePair);
+    expect(pairs).toHaveLength(2);
+    setRadius(90);
+    ctx.clearRect(0, 0, 400, 320);
+    renderer.renderBlobField(ctx, frames, { ...config, fusionStrength: 1 }, scene);
+    expect(scene.renderedConnections!.map(path => path.notePair)).toEqual(pairs);
+    expect(scene.renderedConnections!.every(path => path.material === "merge")).toBe(true);
+    const { x, y } = scene.mergeCenter!;
+    expect(x).toBeGreaterThan(140); expect(x).toBeLessThan(260);
+    expect(y).toBeGreaterThan(120); expect(y).toBeLessThan(220);
+    expect(ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data[3]).toBeGreaterThan(100);
     renderer.dispose();
   });
 });

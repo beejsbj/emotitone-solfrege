@@ -172,6 +172,19 @@ describe("CodeStrip event rendering", () => {
     expect(wrapper.find(".code-strip__duration-overflow").exists()).toBe(false);
   });
 
+  it("does not reinterpret an explicit zero duration as the implicit base", () => {
+    const wrapper = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        tokens: [{ type: "note", note: "do", text: "Do", duration: "@0" }],
+      },
+    });
+
+    expect(wrapper.get(".code-strip__duration-bar").attributes("style"))
+      .toContain("--code-strip-duration-ratio: 0");
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(0);
+  });
+
   it("keeps durations beyond one bar bounded and visibly distinct", () => {
     const wrapper = mount(CodeStripSequence, {
       props: {

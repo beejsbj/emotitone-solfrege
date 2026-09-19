@@ -191,8 +191,9 @@ const clampProgress = (progress: number | undefined) => {
 };
 
 const durationAmount = (duration: string | undefined) => {
-  const amount = Number.parseFloat((duration ?? "").replace(/^@/, ""));
-  return Number.isFinite(amount) && amount > 0 ? amount : 1;
+  if (duration == null || duration === "") return 1;
+  const amount = Number.parseFloat(duration.replace(/^@/, ""));
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
 };
 
 const progressStyle = (progress: number | undefined) => ({

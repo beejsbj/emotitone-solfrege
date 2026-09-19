@@ -16,7 +16,7 @@ vi.mock('../../services/livePlayback', () => ({
 function parameter() {
   return { value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn() }
 }
-function fixture() {
+function fixture(options: { onError?(error: Error): void } = {}) {
   const sources: Array<ReturnType<typeof source>> = []
   function source() {
     const node = { buffer: null as AudioBuffer | null, loop: false, loopStart: 0, loopEnd: 0, type: '',
@@ -37,7 +37,7 @@ function fixture() {
     onEvent: event => { events.push(event); subscription.listener?.onEvent(event) },
     onPlan: plan => { plans.push(plan); subscription.listener?.onPlan?.(plan) },
     onOwnerEnded: owner => { ended(owner); subscription.listener?.onOwnerEnded?.(owner) },
-    onError: error => { throw error },
+    onError: options.onError ?? (error => { throw error }),
   })
   return { renderer, sources, gains, context, events, plans, ended }
 }
@@ -45,7 +45,7 @@ const synth: PreparedNativeInstrument = { kind: 'oscillator', waveform: 'sine', 
   attack: .003, decay: .001, sustain: 1, release: .12 }
 const note = (pitch = 60) => ({ pitch, instrumentId: 'sine' })
 const all: Array<ReturnType<typeof fixture>> = []
-function setup() { const value = fixture(); all.push(value); return value }
+function setup(options?: Parameters<typeof fixture>[0]) { const value = fixture(options); all.push(value); return value }
 beforeEach(() => { subscription.listener = undefined; vi.useFakeTimers(); vi.setSystemTime(0) })
 afterEach(() => { all.splice(0).forEach(({ renderer }) => renderer.dispose()); vi.useRealTimers() })
 
@@ -221,6 +221,26 @@ describe('prepared native audio renderer', () => {
     renderer.press('ignored', [note()])
     await expect(renderer.prepare(synth)).rejects.toThrow('disposed')
     expect(sources).toHaveLength(4)
+  })
+
+  it('cleans up a failed source start before reentrant disposal and ignores the remaining chord notes', async () => {
+    const errors: Error[] = []
+    const { renderer, sources, context, events } = setup({ onError(error) { renderer.dispose(); errors.push(error) } })
+    await renderer.prepare(synth)
+    const create = vi.mocked(context.createOscillator).getMockImplementation()!
+    vi.mocked(context.createOscillator).mockImplementationOnce(() => {
+      const node = create()
+      vi.spyOn(node, 'start').mockImplementation(() => { throw new Error('Injected source start failure') })
+      vi.spyOn(node, 'stop').mockImplementation(() => { throw new DOMException('Source never started', 'InvalidStateError') })
+      return node
+    })
+    expect(() => renderer.press('hand', [note(60), note(64), note(67)])).not.toThrow()
+    expect(errors.map(error => error.message)).toEqual(['Injected source start failure'])
+    expect(sources).toHaveLength(1)
+    expect(sources[0].stop).not.toHaveBeenCalled()
+    expect(sources[0].disconnect).toHaveBeenCalled()
+    expect(events).toEqual([])
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('reports a non-looping sample natural end at its audio deadline even if delivery is late', async () => {

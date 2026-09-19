@@ -164,6 +164,7 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
       : instrument.zones.reduce<NativeSampleZone | undefined>((best, zone) => !best || Math.abs(zone.rootMidi - pitch) < Math.abs(best.rootMidi - pitch) ? zone : best, undefined)
   }
   function start(value: LiveInputNote & { ownerId: string }, milliseconds: number, style: PlayStyle) {
+    if (disposed) return { release() {} }
     const instrument = instruments.get(value.instrumentId)
     if (!instrument) return { release() {} }
     const at = Math.max(context.currentTime, milliseconds / 1000)
@@ -202,7 +203,13 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
       attacked: false, released: false, cancelled: false, retiring: false }
     voices.add(voice)
     source.onended = () => { update(); disconnect(voice); update() }
-    source.start(at)
+    try { source.start(at) }
+    catch (error) {
+      // A failed start is not a sounding voice. Remove it before onError can
+      // synchronously dispose this renderer; stop() on it would throw again.
+      disconnect(voice)
+      throw error
+    }
     update()
     return { release: (when: number) => releaseVoice(voice, when / 1000) }
   }

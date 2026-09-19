@@ -80,7 +80,8 @@ export function createHarmonicTypography() {
       label?.lines.forEach((text, index) => {
         const chord = label.roles ? label.roles[index] === "chord" : index === 0;
         const size = chord ? 38 : 18;
-        const tracking = chord ? 1.1 : 0.35;
+        // Swollen contours need air between symbols, especially short names like CM.
+        const tracking = chord ? 3.2 : 0.75;
         const widthOf = (s: string) => Array.from(s).reduce((width, char) => width + measure(char, size), 0)
           + Math.max(0, Array.from(s).length - 1) * tracking;
         const wrapped: string[] = [];

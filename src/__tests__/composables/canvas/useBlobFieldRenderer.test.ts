@@ -4,9 +4,7 @@ import {
   blurFieldChannel,
   createBlobFieldConnectionPlanner,
   createBlobWebConnectionPlanner,
-  getBlobFieldConnections,
   getBlobFieldConnectionGeometry,
-  getBlobFieldConnectionWidth,
   getBlobFieldColorBatchSize,
   getBlobFieldBounds,
   getBlobFieldMaterialPasses,
@@ -104,6 +102,23 @@ function createWebScene(
   } as unknown as HarmonicGeometryScene;
 }
 
+describe("latent Merge joins", () => {
+  it("keeps sparse parents through drift and reconnects held members around releases", () => {
+    const frames = [createFrameAt("a", 0, 0), createFrameAt("b", 100, 0), createFrameAt("c", 180, 0)];
+    const planner = createBlobFieldConnectionPlanner();
+    const pairs = () => planner.getConnections(frames).map(connection => [connection.from.key, connection.to.key]);
+    expect(pairs()).toEqual([["a", "b"], ["b", "c"]]);
+    frames[2].blob.x = 10;
+    expect(pairs()).toEqual([["a", "b"], ["b", "c"]]);
+    frames[1].blob.isFadingOut = true;
+    expect(pairs()[0]).toEqual(["a", "c"]);
+    expect(pairs()).toHaveLength(2);
+    planner.clear();
+    frames[1].blob.isFadingOut = false;
+    expect(pairs()).toEqual([["a", "b"], ["a", "c"]]);
+  });
+});
+
 describe("useBlobFieldRenderer", () => {
   it("bounds the field from the actual prepared contours", () => {
     const frames = [
@@ -165,35 +180,6 @@ describe("useBlobFieldRenderer", () => {
     expect(forward.at(-1)?.opacity).toBe(1);
   });
 
-  it("keeps every merge body connected without drawing a complete graph", () => {
-    const first = createFrameAt("first", 80, 100);
-    const second = createFrameAt("second", 900, 100);
-    const third = createFrameAt("third", 860, 180);
-
-    const connections = getBlobFieldConnections([first, second, third]);
-
-    expect(connections).toHaveLength(2);
-    expect(connections[0]).toMatchObject({ from: first, to: second, gap: 740 });
-    expect(connections[1]).toMatchObject({ from: second, to: third });
-  });
-
-  it("keeps merge parents stable while bodies drift", () => {
-    const first = createFrameAt("first", 80, 100);
-    const second = createFrameAt("second", 300, 100);
-    const third = createFrameAt("third", 290, 180);
-    const planner = createBlobFieldConnectionPlanner();
-
-    expect(planner.getConnections([first, second, third])[1].from.key).toBe(
-      "second"
-    );
-
-    third.blob.x = 90;
-    third.blob.y = 120;
-
-    expect(planner.getConnections([first, second, third])[1].from.key).toBe(
-      "second"
-    );
-  });
 
   it("turns the analyzed web into perimeter and interior field connections", () => {
     const frames = [
@@ -333,55 +319,6 @@ describe("useBlobFieldRenderer", () => {
     ).toBe("interior");
   });
 
-  it("reconnects held bodies before attaching a releasing intermediate", () => {
-    const first = createFrameAt("first", 80, 100);
-    const intermediate = createFrameAt("intermediate", 300, 100);
-    const third = createFrameAt("third", 520, 100);
-    const planner = createBlobFieldConnectionPlanner();
-
-    planner.getConnections([first, intermediate, third]);
-    intermediate.blob.isFadingOut = true;
-    intermediate.opacity = 0.1;
-
-    const connections = planner.getConnections([first, intermediate, third]);
-    const heldConnection = connections.find(
-      (connection) =>
-        connection.from.key === "first" && connection.to.key === "third"
-    );
-    const releasingConnection = connections.find(
-      (connection) => connection.to.key === "intermediate"
-    );
-
-    expect(heldConnection).toBeDefined();
-    expect(heldConnection?.from.opacity).toBe(1);
-    expect(heldConnection?.to.opacity).toBe(1);
-    expect(releasingConnection).toBeDefined();
-    expect(connections).toHaveLength(2);
-  });
-
-  it("keeps a threshold-safe filament while thinning with distance", () => {
-    const first = createFrameAt("first", 80, 100);
-    const near = createFrameAt("near", 180, 100);
-    const far = createFrameAt("far", 900, 100);
-    const nearConnection = getBlobFieldConnections([first, near])[0];
-    const farConnection = getBlobFieldConnections([first, far])[0];
-
-    const nearWidth = getBlobFieldConnectionWidth(
-      nearConnection,
-      12,
-      0.5,
-      0.4
-    );
-    const farWidth = getBlobFieldConnectionWidth(
-      farConnection,
-      12,
-      0.5,
-      0.4
-    );
-
-    expect(nearWidth).toBeGreaterThan(farWidth);
-    expect(farWidth).toBeGreaterThanOrEqual(16.2);
-  });
 
   it("keeps distant web filaments continuous with quieter interior weight", () => {
     const first = createFrameAt("first", 80, 100);
@@ -392,29 +329,20 @@ describe("useBlobFieldRenderer", () => {
     )[0];
     const interior = { ...boundary, role: "interior" as const };
 
-    const boundaryWidth = getBlobWebConnectionWidth(
-      boundary,
-      10,
-      0.5,
-      0.4
-    );
-    const interiorWidth = getBlobWebConnectionWidth(
-      interior,
-      10,
-      0.5,
-      0.4
-    );
+    const boundaryWidth = getBlobWebConnectionWidth(boundary);
+    const interiorWidth = getBlobWebConnectionWidth(interior);
 
     expect(boundaryWidth).toBeGreaterThan(interiorWidth);
-    expect(interiorWidth).toBeGreaterThanOrEqual(10.2);
+    expect(interiorWidth).toBeGreaterThanOrEqual(0.8);
+    expect(boundaryWidth).toBeLessThanOrEqual(3);
   });
 
-  it("keeps dense Web color contributions above 8-bit quantization", () => {
+  it("keeps faint field color contributions above 8-bit quantization", () => {
     const divisor = getBlobFieldColorBatchSize(78);
-    const quietHeldInteriorOpacity = 0.1 * 0.46;
+    const faintBodyOpacity = 0.1 * 0.46;
 
     expect(divisor).toBe(8);
-    expect((quietHeldInteriorOpacity / divisor) * 255).toBeGreaterThan(1);
+    expect((faintBodyOpacity / divisor) * 255).toBeGreaterThan(1);
     expect(getBlobFieldColorBatchSize(4)).toBe(4);
   });
 
@@ -438,7 +366,7 @@ describe("useBlobFieldRenderer", () => {
     ).toEqual([{ filter: "none", opacity: 1 }]);
   });
 
-  it("keeps Web attachments stable when only the contours vibrate", () => {
+  it("roots Web inside each body while carrying its contour vibration", () => {
     const first = createFrameAt("first", 80, 100);
     const far = createFrameAt("far", 900, 100);
     const connection = getBlobWebConnections(
@@ -449,9 +377,8 @@ describe("useBlobFieldRenderer", () => {
       connection,
       12,
       0.5,
-      0.46,
-      0.46,
-      "radius"
+      0.95,
+      0.46
     );
 
     first.contour = first.contour.map((point, index) => ({
@@ -466,79 +393,15 @@ describe("useBlobFieldRenderer", () => {
       connection,
       12,
       0.5,
-      0.46,
-      0.46,
-      "radius"
+      0.95,
+      0.46
     );
 
     expect(vibrated.startAttachment).toEqual(initial.startAttachment);
     expect(vibrated.endAttachment).toEqual(initial.endAttachment);
-    expect(vibrated.centerline).toEqual(initial.centerline);
-  });
-
-  it("curves long filaments into smoothly inset, resolution-aware shoulders", () => {
-    const first = createFrameAt("first", 80, 100);
-    const far = createFrameAt("far", 900, 100);
-    const connection = getBlobFieldConnections([first, far])[0];
-    const fieldScale = 0.5;
-    const waistWidth = getBlobFieldConnectionWidth(
-      connection,
-      12,
-      fieldScale,
-      0.4
-    );
-    const geometry = getBlobFieldConnectionGeometry(
-      connection,
-      waistWidth,
-      fieldScale
-    );
-    const finalIndex = geometry.centerline.length - 1;
-    const midpointIndex = finalIndex / 2;
-    const quarterIndex = finalIndex / 4;
-    const midpoint = geometry.centerline[midpointIndex];
-    const linearMidpoint = {
-      x: (geometry.centerline[0].x + geometry.centerline[finalIndex].x) / 2,
-      y: (geometry.centerline[0].y + geometry.centerline[finalIndex].y) / 2,
-    };
-    const maxFieldSegment = geometry.centerline
-      .slice(1)
-      .reduce((largest, point, index) => {
-        const previous = geometry.centerline[index];
-        return Math.max(
-          largest,
-          Math.hypot(point.x - previous.x, point.y - previous.y) * fieldScale
-        );
-      }, 0);
-    const startDirection = {
-      x: geometry.centerline[1].x - geometry.centerline[0].x,
-      y: geometry.centerline[1].y - geometry.centerline[0].y,
-    };
-
-    expect(geometry.centerline.length).toBeGreaterThan(17);
-    expect(maxFieldSegment).toBeLessThanOrEqual(2.1);
-    expect(Math.abs(midpoint.y - linearMidpoint.y)).toBeGreaterThan(20);
-    expect(Math.abs(startDirection.y / startDirection.x)).toBeLessThan(0.02);
-
-    expect(geometry.widths[0]).toBeGreaterThan(waistWidth * 2);
-    expect(geometry.widths[midpointIndex]).toBeCloseTo(waistWidth, 6);
-    expect(Math.abs(geometry.widths[1] - geometry.widths[0])).toBeLessThan(
-      Math.abs(
-        geometry.widths[quarterIndex + 1] - geometry.widths[quarterIndex]
-      ) * 0.05
-    );
-
-    [geometry.leftEdge[0], geometry.rightEdge[0]].forEach((point) => {
-      expect(
-        Math.hypot(point.x - first.blob.x, point.y - first.blob.y)
-      ).toBeLessThan(first.scaledRadius);
-    });
-    [geometry.leftEdge[finalIndex], geometry.rightEdge[finalIndex]].forEach(
-      (point) => {
-        expect(
-          Math.hypot(point.x - far.blob.x, point.y - far.blob.y)
-        ).toBeLessThan(far.scaledRadius);
-      }
-    );
+    expect(vibrated.centerline).not.toEqual(initial.centerline);
+    expect(initial.centerline[0].x - first.blob.x).toBeLessThan(first.scaledRadius * 0.35);
+    expect(initial.widths[0]).toBeGreaterThan(first.scaledRadius * 0.7);
   });
 
   it("keeps large viewports inside the hard pixel budget", () => {

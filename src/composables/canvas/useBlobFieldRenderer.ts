@@ -21,7 +21,7 @@ export interface BlobFieldConnection {
   to: PreparedBlobFrame;
   distance: number;
   gap: number;
-  role: "merge" | "boundary" | "interior";
+  role: "boundary" | "interior" | "merge";
 }
 
 interface FieldPoint {
@@ -214,21 +214,6 @@ function traceFrame(
   context.closePath();
 }
 
-function getContourPointTowards(frame: PreparedBlobFrame, target: FieldPoint) {
-  const directionX = target.x - frame.blob.x;
-  const directionY = target.y - frame.blob.y;
-
-  return frame.contour.reduce((best, point) => {
-    const score =
-      (point.x - frame.blob.x) * directionX +
-      (point.y - frame.blob.y) * directionY;
-    const bestScore =
-      (best.x - frame.blob.x) * directionX +
-      (best.y - frame.blob.y) * directionY;
-    return score > bestScore ? point : best;
-  }, frame.contour[0]);
-}
-
 function getRadiusPointTowards(
   frame: PreparedBlobFrame,
   direction: FieldPoint
@@ -251,22 +236,37 @@ function getConnectionBendDirection(connection: BlobFieldConnection) {
     : -1;
 }
 
+/** Sample the body's existing vibration without introducing another clock.
+ * Angular weighting avoids jumping between contour vertices. A circular frame
+ * contributes zero, including the real Motion-off and Reduced Motion states.
+ */
+function contourDisplacement(frame: PreparedBlobFrame, direction: FieldPoint) {
+  let displacement = 0;
+  let weight = 0;
+  for (const point of frame.contour) {
+    const dx = point.x - frame.blob.x;
+    const dy = point.y - frame.blob.y;
+    const radius = Math.hypot(dx, dy);
+    if (radius === 0) continue;
+    const influence = Math.pow(Math.max(0, (dx * direction.x + dy * direction.y) / radius), 8);
+    displacement += (radius - frame.scaledRadius) * influence;
+    weight += influence;
+  }
+  const value = displacement / Math.max(0.0001, weight);
+  return Math.abs(value) < 0.00001 ? 0 : value;
+}
+
 /**
- * Build one smooth material ribbon. Its broad endpoints sit inside the two
- * prepared bodies, so the field owns a rounded shoulder instead of exposing a
- * hard cross-section at either contour. A quartic bump curves the centerline
- * while retaining contour-normal endpoint tangents, and a quintic taper makes
- * the width derivative settle to zero at both bodies and at the waist. Web can
- * attach to the stable rendered radius so contour vibration stays in the body
- * instead of shaking the relationship itself.
+ * Grow a Web ribbon from inside each body, narrowing over a body-sized shoulder
+ * into a fine strand. The anchors stay rooted while the body's own contour
+ * vibration travels through the span; endpoint tangents remain continuous.
  */
 export function getBlobFieldConnectionGeometry(
   connection: BlobFieldConnection,
   waistWidth: number,
   fieldScale: number,
-  shoulderScale = 1.05,
-  bendScale = 1,
-  attachmentMode: "contour" | "radius" = "contour"
+  shoulderScale = 0.95,
+  bendScale = 0.46
 ): BlobFieldConnectionGeometry {
   const centerDeltaX = connection.to.blob.x - connection.from.blob.x;
   const centerDeltaY = connection.to.blob.y - connection.from.blob.y;
@@ -275,30 +275,17 @@ export function getBlobFieldConnectionGeometry(
     x: centerDeltaX / centerDistance,
     y: centerDeltaY / centerDistance,
   };
-  const startAttachment =
-    attachmentMode === "radius"
-      ? getRadiusPointTowards(connection.from, direction)
-      : getContourPointTowards(connection.from, connection.to.blob);
-  const endAttachment =
-    attachmentMode === "radius"
-      ? getRadiusPointTowards(connection.to, {
-          x: -direction.x,
-          y: -direction.y,
-        })
-      : getContourPointTowards(connection.to, connection.from.blob);
+  const startAttachment = getRadiusPointTowards(connection.from, direction);
+  const endAttachment = getRadiusPointTowards(connection.to, {
+    x: -direction.x,
+    y: -direction.y,
+  });
   const normal = { x: -direction.y, y: direction.x };
   const shoulderWidths = {
     from: Math.max(waistWidth, connection.from.scaledRadius * shoulderScale),
     to: Math.max(waistWidth, connection.to.scaledRadius * shoulderScale),
   };
-  // When a Merge neck is wider than a small (or still growing) body, the
-  // usual shallow attachment leaves a narrow junction that the field blur
-  // can erase. Extend the ribbon inward in proportion to its width, up to the
-  // body center, so adjacent necks overlap through that junction.
-  const attachmentInset = (radius: number) =>
-    attachmentMode === "contour"
-      ? Math.max(radius * 0.22, Math.min(radius, waistWidth / 2))
-      : radius * 0.22;
+  const attachmentInset = (radius: number) => radius * 0.82;
   const start = {
     x: startAttachment.x - direction.x * attachmentInset(connection.from.scaledRadius),
     y: startAttachment.y - direction.y * attachmentInset(connection.from.scaledRadius),
@@ -329,27 +316,38 @@ export function getBlobFieldConnectionGeometry(
     24,
     Math.min(192, Math.ceil((estimatedLength * Math.max(0.01, fieldScale)) / 2))
   );
+  const fromVibration = contourDisplacement(connection.from, normal);
+  const toVibration = contourDisplacement(connection.to, normal);
+  const vibrationAt = (progress: number) =>
+    2.5 * (
+      fromVibration * (1 - progress) * Math.sin(progress * Math.PI * 3) +
+      toVibration * progress * Math.sin(progress * Math.PI * 4)
+    );
   const pointAt = (progress: number) => {
     const inverse = 1 - progress;
-    const curve = 16 * progress * progress * inverse * inverse;
+    const envelope = 16 * progress * progress * inverse * inverse;
+    const offset = (bend + vibrationAt(progress)) * envelope;
     return {
-      x: start.x + deltaX * progress + normal.x * bend * curve,
-      y: start.y + deltaY * progress + normal.y * bend * curve,
+      x: start.x + deltaX * progress + normal.x * offset,
+      y: start.y + deltaY * progress + normal.y * offset,
     };
   };
   const tangentAt = (progress: number) => {
     const curveSlope = 32 * progress * (1 - progress) * (1 - progress * 2);
-    return {
-      x: deltaX + normal.x * bend * curveSlope,
-      y: deltaY + normal.y * bend * curveSlope,
-    };
+    const envelope = 16 * progress * progress * (1 - progress) * (1 - progress);
+    const vibrationSlope = 2.5 * (
+      fromVibration * ((1 - progress) * Math.PI * 3 * Math.cos(progress * Math.PI * 3) - Math.sin(progress * Math.PI * 3)) +
+      toVibration * (progress * Math.PI * 4 * Math.cos(progress * Math.PI * 4) + Math.sin(progress * Math.PI * 4))
+    );
+    const slope = (bend + vibrationAt(progress)) * curveSlope + vibrationSlope * envelope;
+    return { x: deltaX + normal.x * slope, y: deltaY + normal.y * slope };
   };
-  const widthAt = (progress: number) =>
-    progress <= 0.5
-      ? shoulderWidths.from +
-        (waistWidth - shoulderWidths.from) * smootherstep(progress * 2)
-      : waistWidth +
-        (shoulderWidths.to - waistWidth) * smootherstep((progress - 0.5) * 2);
+  const length = Math.hypot(deltaX, deltaY);
+  const fromShoulderLength = Math.min(length / 2, connection.from.scaledRadius * 2.5);
+  const toShoulderLength = Math.min(length / 2, connection.to.scaledRadius * 2.5);
+  const widthAt = (progress: number) => waistWidth +
+    (shoulderWidths.from - waistWidth) * (1 - smootherstep(progress * length / Math.max(1, fromShoulderLength))) +
+    (shoulderWidths.to - waistWidth) * (1 - smootherstep((1 - progress) * length / Math.max(1, toShoulderLength)));
   const centerline: FieldPoint[] = [];
   const widths: number[] = [];
   const leftEdge: FieldPoint[] = [];
@@ -577,6 +575,141 @@ export function createBlobWebConnectionPlanner() {
   return { getConnections, clear };
 }
 
+/** Web is drawn at target resolution, independent of the soft body field. */
+export function getBlobWebConnectionWidth(connection: BlobFieldConnection) {
+  const radius = Math.min(connection.from.scaledRadius, connection.to.scaledRadius);
+  const distanceFalloff = 1 / (1 + connection.gap / Math.max(160, radius * 6));
+  const width = Math.max(1.2, Math.min(3, radius * 0.075 * distanceFalloff));
+  return width * (connection.role === "boundary" ? 1 : 0.72);
+}
+
+/** Keep a filled envelope, but let the free spans pull inward between soft
+ * lobes. Prepared contours own its live vibration; the field rounds the result.
+ */
+function getMergeEnvelope(frames: readonly PreparedBlobFrame[], blur: number) {
+  const points = frames.flatMap((frame) => frame.contour.map((point) => {
+    // Keep small/growing dyads and collinear chords wide enough to survive the
+    // field threshold, just as area chords do. Ordinary body radii are unchanged.
+    const expansion = Math.max(0, blur * 0.9 - frame.scaledRadius);
+    const dx = point.x - frame.blob.x;
+    const dy = point.y - frame.blob.y;
+    const length = Math.hypot(dx, dy) || 1;
+    return { x: point.x + dx / length * expansion, y: point.y + dy / length * expansion, frame };
+  })).sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (a: FieldPoint, b: FieldPoint, c: FieldPoint) =>
+    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const half = (ordered: typeof points) => {
+    const hull: typeof points = [];
+    for (const point of ordered) {
+      while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], point) <= 0) hull.pop();
+      hull.push(point);
+    }
+    hull.pop();
+    return hull;
+  };
+  const hull = [...half(points), ...half([...points].reverse())];
+  const center = {
+    x: frames.reduce((sum, frame) => sum + frame.blob.x, 0) / frames.length,
+    y: frames.reduce((sum, frame) => sum + frame.blob.y, 0) / frames.length,
+  };
+  return hull.flatMap((from, index): FieldPoint[] => {
+    const to = hull[(index + 1) % hull.length];
+    if (from.frame === to.frame) return [from];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.hypot(dx, dy);
+    if (length < 1) return [from];
+    const normal = { x: -dy / length, y: dx / length };
+    const clearance = (center.x - (from.x + to.x) / 2) * normal.x +
+      (center.y - (from.y + to.y) / 2) * normal.y;
+    // Preserve a threshold-safe core even for a dyad or collinear chord. The
+    // inward limit also prevents opposing spans from crossing through a face.
+    const limit = Math.max(0, Math.min(clearance * 0.38, clearance - blur * 0.9));
+    const pull = Math.min(length * 0.2, limit);
+    const fromMotion = contourDisplacement(from.frame, normal);
+    const toMotion = contourDisplacement(to.frame, normal);
+    const protectedBodies = frames.filter((frame) => frame !== from.frame && frame !== to.frame).map((frame) => ({
+      along: ((frame.blob.x - from.x) * dx + (frame.blob.y - from.y) * dy) / length,
+      inward: (frame.blob.x - from.x) * normal.x + (frame.blob.y - from.y) * normal.y,
+      radius: Math.max(blur * 0.9, ...frame.contour.map((point) =>
+        Math.hypot(point.x - frame.blob.x, point.y - frame.blob.y))),
+    }));
+    const segments = Math.max(8, Math.min(128, Math.ceil(length / 4)));
+    return Array.from({ length: segments }, (_, segment) => {
+      const t = segment / segments;
+      const envelope = 16 * t * t * (1 - t) * (1 - t);
+      const motion = 2 * (fromMotion * Math.sin(t * Math.PI * 3) + toMotion * Math.sin(t * Math.PI * 4));
+      let inset = Math.max(0, Math.min(limit, pull + motion)) * envelope;
+      // A note near a free edge must shape that edge too, even when none of its
+      // contour vertices lies on the convex hull. Never pull past its footprint.
+      for (const body of protectedBodies) {
+        const along = t * length - body.along;
+        if (Math.abs(along) < body.radius) {
+          const outside = body.inward - Math.sqrt(body.radius * body.radius - along * along);
+          inset = Math.min(inset, Math.max(0, outside));
+        }
+      }
+      return { x: from.x + dx * t + normal.x * inset, y: from.y + dy * t + normal.y * inset };
+    });
+  });
+}
+
+function traceEnvelope(context: CanvasRenderingContext2D, points: readonly FieldPoint[]) {
+  context.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) context.moveTo(point.x, point.y);
+    else context.lineTo(point.x, point.y);
+  });
+  context.closePath();
+}
+
+export const BLOB_FIELD_COLOR_BATCH_SIZE = 8;
+
+export function getBlobFieldColorBatchSize(layerCount: number) {
+  return Math.min(BLOB_FIELD_COLOR_BATCH_SIZE, layerCount);
+}
+
+export function getBlobFieldResolution(bounds: FieldBounds) {
+  const area = bounds.width * bounds.height;
+  const scale = Math.min(
+    MAX_FIELD_SCALE,
+    Math.sqrt(BLOB_FIELD_PIXEL_BUDGET / area)
+  );
+
+  return {
+    scale,
+    width: Math.max(1, Math.floor(bounds.width * scale)),
+    height: Math.max(1, Math.floor(bounds.height * scale)),
+  };
+}
+
+/**
+ * The field determines topology, while Blob remains the sole owner of the
+ * rendered material. Drawing the color field itself as the glow preserves each
+ * note's color instead of collapsing a multi-note body into one shadow color.
+ */
+export function getBlobFieldMaterialPasses(
+  blobConfig: Pick<BlobConfig, "blurRadius" | "glowEnabled" | "glowIntensity">
+): BlobFieldMaterialPass[] {
+  const bodyBlur = Math.max(0, blobConfig.blurRadius);
+  const bodyPass = {
+    filter: bodyBlur > 0 ? `blur(${bodyBlur}px)` : "none",
+    opacity: 1,
+  };
+
+  if (!blobConfig.glowEnabled || blobConfig.glowIntensity <= 0) {
+    return [bodyPass];
+  }
+
+  return [
+    {
+      filter: `blur(${bodyBlur + blobConfig.glowIntensity}px)`,
+      opacity: 0.62,
+    },
+    bodyPass,
+  ];
+}
+
 function findNearestFrame(
   frame: PreparedBlobFrame,
   candidates: readonly PreparedBlobFrame[]
@@ -610,7 +743,8 @@ function connectInInsertionOrder(
 }
 
 /**
- * Keep held bodies connected independently from bodies that are releasing.
+ * Keep latent Merge label joins stable independently from releasing bodies.
+ * These paths do not paint material: the filled envelope owns Merge pixels.
  * Parent keys are cached by the caller for the lifetime of one membership set,
  * so normal drift can update geometry without snapping the sparse topology.
  */
@@ -663,107 +797,32 @@ export function createBlobFieldConnectionPlanner() {
   return { getConnections, clear };
 }
 
-export function getBlobFieldConnectionWidth(
-  connection: BlobFieldConnection,
-  blur: number,
-  fieldScale: number,
-  fusionStrength: number
-) {
-  const smallerRadius = Math.min(
-    connection.from.scaledRadius,
-    connection.to.scaledRadius
-  );
-  const falloffDistance = Math.max(120, smallerRadius * 4);
-  const distanceFalloff = 1 / (1 + connection.gap / falloffDistance);
-  const organicWidth =
-    smallerRadius * (0.72 + fusionStrength * 0.28) * distanceFalloff;
-
-  // Two box-blur passes need a few occupied field pixels to survive the alpha
-  // threshold. This floor guarantees a continuous but slender distant neck.
-  const continuityFloor = Math.max(blur * 1.35, 3 / fieldScale);
-  return Math.max(continuityFloor, organicWidth);
-}
-
-export function getBlobWebConnectionWidth(
-  connection: BlobFieldConnection,
-  blur: number,
-  fieldScale: number,
-  fusionStrength: number
-) {
-  const smallerRadius = Math.min(
-    connection.from.scaledRadius,
-    connection.to.scaledRadius
-  );
-  const isBoundary = connection.role === "boundary";
-  const falloffDistance = Math.max(160, smallerRadius * 6);
-  const distanceFalloff = 1 / (1 + connection.gap / falloffDistance);
-  const organicWidth =
-    smallerRadius *
-    (isBoundary ? 0.24 : 0.15) *
-    (0.72 + fusionStrength * 0.28) *
-    distanceFalloff;
-
-  // Web filaments are materially thinner than Merge but still occupy enough
-  // field pixels to survive the shared blur/threshold pass at long distances.
-  const continuityFloor = Math.max(
-    blur * (isBoundary ? 1.18 : 1.02),
-    (isBoundary ? 3.2 : 2.8) / fieldScale
-  );
-  return Math.max(continuityFloor, organicWidth);
-}
-
-export const BLOB_FIELD_COLOR_BATCH_SIZE = 8;
-
-export function getBlobFieldColorBatchSize(layerCount: number) {
-  return Math.min(BLOB_FIELD_COLOR_BATCH_SIZE, layerCount);
-}
-
-export function getBlobFieldResolution(bounds: FieldBounds) {
-  const area = bounds.width * bounds.height;
-  const scale = Math.min(
-    MAX_FIELD_SCALE,
-    Math.sqrt(BLOB_FIELD_PIXEL_BUDGET / area)
-  );
-
-  return {
-    scale,
-    width: Math.max(1, Math.floor(bounds.width * scale)),
-    height: Math.max(1, Math.floor(bounds.height * scale)),
-  };
-}
-
-/**
- * The field determines topology, while Blob remains the sole owner of the
- * rendered material. Drawing the color field itself as the glow preserves each
- * note's color instead of collapsing a multi-note body into one shadow color.
- */
-export function getBlobFieldMaterialPasses(
-  blobConfig: Pick<BlobConfig, "blurRadius" | "glowEnabled" | "glowIntensity">
-): BlobFieldMaterialPass[] {
-  const bodyBlur = Math.max(0, blobConfig.blurRadius);
-  const bodyPass = {
-    filter: bodyBlur > 0 ? `blur(${bodyBlur}px)` : "none",
-    opacity: 1,
-  };
-
-  if (!blobConfig.glowEnabled || blobConfig.glowIntensity <= 0) {
-    return [bodyPass];
-  }
-
-  return [
-    {
-      filter: `blur(${bodyBlur + blobConfig.glowIntensity}px)`,
-      opacity: 0.62,
-    },
-    bodyPass,
-  ];
-}
 
 export function useBlobFieldRenderer() {
   let surfaces: FieldSurfaces | null = null;
   let buffers: FieldBuffers | null = null;
-  const connectionPlanner = createBlobFieldConnectionPlanner();
   const webConnectionPlanner = createBlobWebConnectionPlanner();
+  const mergeJoinPlanner = createBlobFieldConnectionPlanner();
+
+  const publishConnections = (
+    scene: HarmonicGeometryScene | null,
+    connections: { connection: BlobFieldConnection; geometry: BlobFieldConnectionGeometry }[],
+    material: "web" | "merge",
+    opacityFor: (connection: BlobFieldConnection) => number
+  ) => {
+    if (!scene) return;
+    scene.renderedConnections = connections.flatMap(({ connection, geometry }) => {
+      const from = scene.points.find(point => point.blob === connection.from.blob);
+      const to = scene.points.find(point => point.blob === connection.to.blob);
+      return from && to ? [{
+        notePair: [from.note.noteId, to.note.noteId] as [string, string],
+        points: geometry.centerline,
+        material,
+        opacity: opacityFor(connection),
+        colors: [connection.from.primaryColor, connection.to.primaryColor] as [string, string],
+      }] : [];
+    });
+  };
 
   const getSurfaces = (width: number, height: number) => {
     if (!surfaces) {
@@ -811,6 +870,114 @@ export function useBlobFieldRenderer() {
     return buffers;
   };
 
+  const renderBodies = (
+    target: CanvasRenderingContext2D,
+    frames: readonly PreparedBlobFrame[],
+    config: BlobConfig
+  ) => {
+    // Use the same Blob blur/glow material as Merge, above the unblurred strands.
+    // A faint releasing body paints before a held body at coincident positions.
+    const orderedFrames = orderBlobFramesForVisibility(frames);
+    getBlobFieldMaterialPasses(config).forEach((pass) => {
+      target.save();
+      target.filter = pass.filter;
+      orderedFrames.forEach((frame) => {
+        target.globalAlpha = pass.opacity * Math.max(0, Math.min(1, frame.opacity));
+        target.fillStyle = frame.primaryColor;
+        traceFrame(target, frame);
+        target.fill();
+      });
+      target.restore();
+    });
+  };
+
+  const compositeMaterial = (
+    target: CanvasRenderingContext2D,
+    source: HTMLCanvasElement,
+    bounds: FieldBounds,
+    config: BlobConfig
+  ) => {
+    getBlobFieldMaterialPasses(config).forEach((pass) => {
+      target.save();
+      target.imageSmoothingEnabled = true;
+      target.imageSmoothingQuality = "high";
+      target.globalAlpha = pass.opacity;
+      target.filter = pass.filter;
+      target.drawImage(source, bounds.x, bounds.y, bounds.width, bounds.height);
+      target.restore();
+    });
+  };
+
+  const renderWeb = (
+    target: CanvasRenderingContext2D,
+    frames: readonly PreparedBlobFrame[],
+    config: BlobConfig,
+    scene: HarmonicGeometryScene | null
+  ) => {
+    const connections = webConnectionPlanner.getConnections(frames, scene).map((connection) => {
+      const width = getBlobWebConnectionWidth(connection);
+      const bend = connection.role === "boundary" ? 0.46 : 0.3;
+      return {
+        connection,
+        root: getBlobFieldConnectionGeometry(connection, 0, 1,
+          connection.role === "boundary" ? 0.95 : 0.8, bend),
+        strand: getBlobFieldConnectionGeometry(connection, width, 1, 0, bend),
+      };
+    });
+    const opacityFor = (connection: BlobFieldConnection) => Math.max(0, Math.min(1,
+      connection.from.opacity, connection.to.opacity
+    )) * config.webOpacity * (connection.role === "boundary" ? 0.92 : 0.46);
+    const paint = (context: CanvasRenderingContext2D, roots: boolean) => {
+      connections.forEach(({ connection, root, strand }) => {
+        context.save();
+        context.globalAlpha = opacityFor(connection);
+        const gradient = context.createLinearGradient(
+          connection.from.blob.x, connection.from.blob.y,
+          connection.to.blob.x, connection.to.blob.y
+        );
+        // Fade the buried cross-section inside the body, then let the shoulder
+        // emerge with the same soft material instead of an exposed flat fin.
+        const fromRoot = Math.min(0.25, connection.from.scaledRadius * 1.2 / Math.max(1, connection.distance));
+        const toRoot = Math.min(0.25, connection.to.scaledRadius * 1.2 / Math.max(1, connection.distance));
+        gradient.addColorStop(0, "transparent");
+        gradient.addColorStop(fromRoot, connection.from.primaryColor);
+        gradient.addColorStop(1 - toRoot, connection.to.primaryColor);
+        gradient.addColorStop(1, "transparent");
+        context.fillStyle = gradient;
+        traceConnection(context, roots ? root : strand);
+        context.fill();
+        context.restore();
+      });
+    };
+
+    // Soften all shoulders together on one budgeted surface. No threshold is
+    // applied; the fine cores and note bodies remain at target resolution.
+    const bounds = connections.length ? getBlobFieldBounds(
+      frames, target.canvas.width, target.canvas.height,
+      config.blurRadius * 3 + (config.glowEnabled ? config.glowIntensity * 3 : 0)
+    ) : null;
+    if (bounds) {
+      const { scale, width, height } = getBlobFieldResolution(bounds);
+      const roots = getSurfaces(width, height).source;
+      const context = roots.getContext("2d");
+      if (context) {
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.clearRect(0, 0, width, height);
+        context.setTransform(scale, 0, 0, scale, -bounds.x * scale, -bounds.y * scale);
+        paint(context, true);
+        compositeMaterial(target, roots, bounds, config);
+      }
+    }
+    target.save();
+    target.filter = "blur(0.65px)";
+    paint(target, false);
+    target.restore();
+    renderBodies(target, frames, config);
+    publishConnections(scene, connections.map(({ connection, strand }) => ({
+      connection, geometry: strand,
+    })), "web", opacityFor);
+  };
+
   const renderBlobField = (
     target: CanvasRenderingContext2D,
     frames: readonly PreparedBlobFrame[],
@@ -822,19 +989,27 @@ export function useBlobFieldRenderer() {
     // A scene may be reused by a static specimen; never retain a prior path.
     if (scene) { scene.renderedConnections = []; scene.mergeCenter = undefined; }
     if (frames.length === 0 || mode === "off") {
+      mergeJoinPlanner.clear();
       return false;
     }
 
-    const blur =
-      mode === "web"
-        ? Math.max(
-            5,
-            config.fieldSoftness * (0.65 + config.fusionStrength * 0.4)
-          )
-        : Math.max(
-            6,
-            config.fieldSoftness * (0.82 + config.fusionStrength * 0.72)
-          );
+    // A single note has no relationship field to form. Preserve its prepared
+    // body directly: field thresholds otherwise erase small held notes and
+    // truncate release tails when the last other chord member disappears.
+    if (frames.length === 1) {
+      mergeJoinPlanner.clear();
+      renderBodies(target, frames, config);
+      return true;
+    }
+
+    if (mode === "web") {
+      renderWeb(target, frames, config, scene);
+      return true;
+    }
+
+    const blur = Math.max(
+      6, config.fieldSoftness * (0.82 + config.fusionStrength * 0.72)
+    );
     const bounds = getBlobFieldBounds(
       frames,
       target.canvas.width,
@@ -848,38 +1023,18 @@ export function useBlobFieldRenderer() {
     }
 
     const { scale, width, height } = getBlobFieldResolution(bounds);
-    const connections =
-      mode === "merge"
-        ? connectionPlanner.getConnections(frames)
-        : webConnectionPlanner.getConnections(frames, scene);
-    const connectionLayers = connections.map((connection) => {
-      const isMerge = connection.role === "merge";
-      const connectionWidth = isMerge
-        ? getBlobFieldConnectionWidth(
-            connection,
-            blur,
-            scale,
-            config.fusionStrength
-          )
-        : getBlobWebConnectionWidth(
-            connection,
-            blur,
-            scale,
-            config.fusionStrength
-          );
-
-      return {
-        connection,
-        geometry: getBlobFieldConnectionGeometry(
-          connection,
-          connectionWidth,
-          scale,
-          isMerge ? 1.05 : connection.role === "boundary" ? 0.46 : 0.34,
-          isMerge ? 1 : connection.role === "boundary" ? 0.46 : 0.3,
-          isMerge ? "contour" : "radius"
-        ),
-      };
-    });
+    const visibleFrames = frames.filter((frame) => frame.opacity > 0);
+    const envelope = visibleFrames.length > 1
+      ? getMergeEnvelope(visibleFrames, blur)
+      : [];
+    // Paint opacity tiers from faintest to strongest. A releasing outer member
+    // may fade its extension, but can never dim the envelope of held members.
+    const envelopeLayers = envelope.length ? [...new Set(visibleFrames.map(
+      (frame) => Math.max(0, Math.min(1, frame.opacity))
+    ))].sort((a, b) => a - b).flatMap((opacity) => {
+      const members = visibleFrames.filter((frame) => frame.opacity >= opacity);
+      return members.length > 1 ? [{ opacity, points: getMergeEnvelope(members, blur) }] : [];
+    }) : [];
     const field = getSurfaces(width, height);
     const sourceContext = field.source.getContext("2d", {
       willReadFrequently: true,
@@ -903,18 +1058,6 @@ export function useBlobFieldRenderer() {
       -bounds.y * scale
     );
 
-    const getConnectionOpacity = (connection: BlobFieldConnection) => {
-      const bodyOpacity = Math.min(
-        Math.max(0, Math.min(1, connection.from.opacity)),
-        Math.max(0, Math.min(1, connection.to.opacity))
-      );
-      return connection.role === "merge"
-        ? bodyOpacity
-        : bodyOpacity *
-            config.webOpacity *
-            (connection.role === "boundary" ? 0.92 : 0.46);
-    };
-
     const colorLayers = [
       ...frames.map((frame) => ({
         opacity: Math.max(0, Math.min(1, frame.opacity)),
@@ -924,25 +1067,24 @@ export function useBlobFieldRenderer() {
           sourceContext.fill();
         },
       })),
-      ...connectionLayers.map(({ connection, geometry }) => ({
-        opacity: getConnectionOpacity(connection),
+      ...(envelope.length ? visibleFrames.map((frame) => ({
+        opacity: Math.max(0, Math.min(1, frame.opacity)),
         paint: () => {
-          const start = geometry.centerline[0];
-          const end =
-            geometry.centerline[geometry.centerline.length - 1] ?? start;
-          const gradient = sourceContext.createLinearGradient(
-            start.x,
-            start.y,
-            end.x,
-            end.y
+          // Each note contributes across the filled interior. Normalizing these
+          // radial weights in the existing color field gives a continuous blend.
+          const reach = Math.max(...envelope.map((point) =>
+            Math.hypot(point.x - frame.blob.x, point.y - frame.blob.y)
+          )) * 1.05;
+          const gradient = sourceContext.createRadialGradient(
+            frame.blob.x, frame.blob.y, 0, frame.blob.x, frame.blob.y, reach
           );
-          gradient.addColorStop(0, connection.from.primaryColor);
-          gradient.addColorStop(1, connection.to.primaryColor);
+          gradient.addColorStop(0, frame.primaryColor);
+          gradient.addColorStop(1, "transparent");
           sourceContext.fillStyle = gradient;
-          traceConnection(sourceContext, geometry);
+          traceEnvelope(sourceContext, envelope);
           sourceContext.fill();
         },
-      })),
+      })) : []),
     ];
 
     // A sustained body must win over a releasing body at an overlap. Painting
@@ -957,10 +1099,10 @@ export function useBlobFieldRenderer() {
           visibilityContext.fill();
         },
       })),
-      ...connectionLayers.map(({ connection, geometry }) => ({
-        opacity: getConnectionOpacity(connection),
+      ...envelopeLayers.map(({ opacity, points }) => ({
+        opacity,
         paint: () => {
-          traceConnection(visibilityContext, geometry);
+          traceEnvelope(visibilityContext, points);
           visibilityContext.fill();
         },
       })),
@@ -997,9 +1139,8 @@ export function useBlobFieldRenderer() {
     weight.fill(0);
 
     // Accumulate color in small, non-saturating 8-bit canvas batches, then add
-    // those decoded contributions into float buffers. A dense twelve-note Web
-    // therefore keeps the same order-independent color math as a sparse Merge
-    // without dividing quiet filaments below one source-canvas alpha level.
+    // decoded contributions into float buffers. Dense Merge envelopes retain
+    // the same color weighting without quantizing away faint releasing notes.
     for (
       let batchStart = 0;
       batchStart < colorLayers.length;
@@ -1066,10 +1207,7 @@ export function useBlobFieldRenderer() {
       )
     );
 
-    const threshold =
-      mode === "web"
-        ? 0.48 - config.fusionStrength * 0.28
-        : 0.54 - config.fusionStrength * 0.24;
+    const threshold = 0.54 - config.fusionStrength * 0.24;
     const output = frameBuffers.output;
     let mass = 0, massX = 0, massY = 0, peakAlpha = 0;
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
@@ -1113,25 +1251,7 @@ export function useBlobFieldRenderer() {
     }
 
     outputContext.putImageData(output, 0, 0);
-    getBlobFieldMaterialPasses(config).forEach((pass) => {
-      target.save();
-      target.imageSmoothingEnabled = true;
-      target.imageSmoothingQuality = "high";
-      target.globalAlpha = pass.opacity;
-      target.filter = pass.filter;
-      target.drawImage(
-        field.output,
-        0,
-        0,
-        width,
-        height,
-        bounds.x,
-        bounds.y,
-        bounds.width,
-        bounds.height
-      );
-      target.restore();
-    });
+    compositeMaterial(target, field.output, bounds, config);
 
     if (scene && needsMergeCenter && mass > 0) {
       const centre = { x: massX / mass, y: massY / mass };
@@ -1146,27 +1266,22 @@ export function useBlobFieldRenderer() {
       }
       scene.mergeCenter = { x: bounds.x + anchor.x / scale, y: bounds.y + anchor.y / scale };
     }
-    if (scene) {
-      scene.renderedConnections = connectionLayers.flatMap(({ connection, geometry }) => {
-        const from = scene.points.find(point => point.blob === connection.from.blob);
-        const to = scene.points.find(point => point.blob === connection.to.blob);
-        return from && to ? [{
-          notePair: [from.note.noteId, to.note.noteId] as [string, string],
-          points: geometry.centerline,
-          material: mode,
-          opacity: getConnectionOpacity(connection),
-          colors: [connection.from.primaryColor, connection.to.primaryColor] as [string, string],
-        }] : [];
-      });
-    }
+    // Filled Merge no longer paints individual bridges. Retain their sparse
+    // identities as latent joins for intervals even after necks fully fuse.
+    publishConnections(scene, mergeJoinPlanner.getConnections(frames).map(connection => ({
+      connection,
+      geometry: getBlobFieldConnectionGeometry(connection, 0, 1),
+    })), "merge", connection => Math.max(0, Math.min(1,
+      connection.from.opacity, connection.to.opacity
+    )));
     return true;
   };
 
   const dispose = () => {
     surfaces = null;
     buffers = null;
-    connectionPlanner.clear();
     webConnectionPlanner.clear();
+    mergeJoinPlanner.clear();
   };
 
   return {

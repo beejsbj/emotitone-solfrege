@@ -94,6 +94,27 @@ describe("Merge field pixels", () => {
     renderer.dispose();
   });
 
+  it("connects analyzed Merge members when an omitted blob lies between them", () => {
+    const frames = chordFrames(20);
+    const selected = [frames[0], frames[2]];
+    const notes = selected.map(frame => ({ noteId: frame.key, noteName: "C4", solfegeIndex: 0,
+      solfege: frame.blob.note, frequency: 261.63, octave: 4, mode: "major" as const, key: "C" as const }));
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "merge" as const, analysisNoteLimit: 2 };
+    const scene = useHarmonicGeometryRenderer().buildScene({ isVisible: true, displayedNotes: notes,
+      intervalEdges: [{ fromNoteId: "0", toNoteId: "2", fromIndex: 0, toIndex: 1, interval: "5P" }],
+      chordLabel: null, emotionalDescription: "" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 1000, 600)!;
+    const canvas = createCanvas(1000, 600);
+    const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
+    const renderer = useBlobFieldRenderer();
+    renderer.renderBlobField(ctx, frames, config, scene);
+    expect(scene.renderedConnections?.map(path => path.notePair)).toEqual([["0", "2"]]);
+    const material = canvas.toBuffer("image/png");
+    ctx.clearRect(0, 0, 1000, 600);
+    renderer.renderBlobField(ctx, frames, config, null);
+    expect(canvas.toBuffer("image/png").equals(material)).toBe(true);
+    renderer.dispose();
+  });
+
   it.each([
     { radius: 10, fieldSoftness: 30, fusionStrength: 0 },
     { radius: 40, fieldSoftness: 12, fusionStrength: 0.4 },

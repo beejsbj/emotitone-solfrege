@@ -1268,7 +1268,11 @@ export function useBlobFieldRenderer() {
     }
     // Filled Merge no longer paints individual bridges. Retain their sparse
     // identities as latent joins for intervals even after necks fully fuse.
-    publishConnections(scene, mergeJoinPlanner.getConnections(frames).map(connection => ({
+    // Analysis may select fewer notes than the visible material contains. An
+    // omitted body must not become a parent that disconnects analyzed labels.
+    const analyzedBlobs = new Set(scene?.points.map(point => point.blob));
+    const joinFrames = frames.filter(frame => analyzedBlobs.has(frame.blob));
+    publishConnections(scene, mergeJoinPlanner.getConnections(joinFrames).map(connection => ({
       connection,
       geometry: getBlobFieldConnectionGeometry(connection, 0, 1),
     })), "merge", connection => Math.max(0, Math.min(1,

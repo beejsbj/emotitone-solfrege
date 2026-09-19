@@ -280,7 +280,14 @@ export function sanitizeStageLookPatch(patch: unknown): StageLookPatch {
 
     const accepted: Record<string, unknown> = {};
     for (const field of STAGE_LOOK_FIELDS[section]) {
-      if (field in incoming) accepted[field] = incoming[field];
+      if (!(field in incoming)) continue;
+      const value = incoming[field];
+      accepted[field] = section === "blobs"
+        && field === "connectionMode"
+        && value !== "merge"
+        && value !== "web"
+        ? "merge"
+        : value;
     }
     if (Object.keys(accepted).length > 0) {
       (sanitized as Record<string, unknown>)[section] = accepted;

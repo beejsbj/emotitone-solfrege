@@ -316,5 +316,32 @@ describe("Stage appearance domain", () => {
       showEmotionLabel: root.blobs.showEmotionLabel,
       labelOpacity: root.blobs.labelOpacity,
     });
+
+    const variedConfig = applyStageLook(root, first.patch);
+    const rootControls = readStageControls(root);
+    const variedControls = readStageControls(variedConfig);
+    const boundedControls = [
+      ["scopeSize", .08],
+      ["scopeStrength", .08],
+      ["scopeLineWeight", .12],
+      ["scopeGlow", .1],
+      ["scopeTrail", .1],
+      ["bodySize", .08],
+      ["bodyStrength", .08],
+      ["bodyMotion", .08],
+      ["atmosphereStrength", .08],
+      ["atmosphereColorDepth", .08],
+      ["stringPresence", .1],
+      ["stringResponse", .08],
+      ["fleckEnergy", .1],
+    ] as const;
+    for (const [control, spread] of boundedControls) {
+      expect(Math.abs(variedControls[control] - rootControls[control]))
+        .toBeLessThanOrEqual(rootControls[control] * spread + Number.EPSILON * 10);
+    }
+    expect(variedConfig.blobs.isEnabled).toBe(root.blobs.isEnabled);
+    expect(variedConfig.ambient.isEnabled).toBe(root.ambient.isEnabled);
+    expect(variedConfig.particles.isEnabled).toBe(root.particles.isEnabled);
+    expect(variedConfig.strings.isEnabled).toBe(root.strings.isEnabled);
   });
 });

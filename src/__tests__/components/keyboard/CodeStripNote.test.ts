@@ -166,7 +166,7 @@ describe("CodeStrip event rendering", () => {
 
     const bar = wrapper.get(".code-strip__duration-bar");
     expect(bar.attributes("style")).toContain("--code-strip-duration-ratio: 1");
-    expect(bar.attributes("aria-label")).toBe("Duration: 1 bar");
+    expect(bar.attributes("aria-label")).toBe("Duration proportion: 1");
     expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(16);
     expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(4);
     expect(wrapper.find(".code-strip__duration-overflow").exists()).toBe(false);
@@ -202,8 +202,8 @@ describe("CodeStrip event rendering", () => {
       "--code-strip-duration-ratio: 1;",
     ]);
     expect(bars.map((bar) => bar.attributes("aria-label"))).toEqual([
-      "Duration: 1.5 bars",
-      "Duration: 2 bars",
+      "Duration proportion: 1.5",
+      "Duration proportion: 2",
     ]);
     expect(wrapper.findAll(".code-strip__duration-overflow").map((cue) => cue.text()))
       .toEqual(["×1.5", "×2"]);

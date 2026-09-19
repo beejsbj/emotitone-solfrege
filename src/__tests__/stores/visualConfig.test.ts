@@ -943,6 +943,22 @@ describe('Visual Config Store', () => {
       expect(existingStore.config.hilbertScope).toMatchObject({ history: 0.41, smear: 0.67 })
     })
 
+    it.each(['off', 'mesh'])('migrates legacy saved Look mode %s to Merge', (connectionMode) => {
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
+        id: `legacy-${connectionMode}`,
+        name: 'Legacy Look',
+        patch: { blobs: { connectionMode } },
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }]))
+
+      const migrated = createFreshStore()
+
+      expect(migrated.savedStageLooks[0].patch.blobs?.connectionMode).toBe('merge')
+      expect(migrated.loadSavedStageLook(`legacy-${connectionMode}`)).toBe(true)
+      expect(migrated.effectiveConfig.blobs.connectionMode).toBe('merge')
+    })
+
     it('does not persist Shuffle output, even after the config debounce', async () => {
       vi.useFakeTimers()
       const mockLocalStorage = (window as any).localStorage

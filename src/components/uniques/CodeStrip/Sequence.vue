@@ -208,7 +208,7 @@ const formatDurationAmount = (amount: number) => amount.toString();
 
 const durationBarLabel = (duration: string | undefined) => {
   const amount = durationAmount(duration);
-  return `Duration: ${formatDurationAmount(amount)} ${amount === 1 ? "bar" : "bars"}`;
+  return `Duration proportion: ${formatDurationAmount(amount)}`;
 };
 
 const durationOverflowLabel = (duration: string | undefined) => {

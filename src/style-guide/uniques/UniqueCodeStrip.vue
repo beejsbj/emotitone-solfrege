@@ -30,6 +30,9 @@
       <VariantCell caption="Bar &middot; 3/4 split proportional bar &middot; Rest included" stage="ink3">
         <CodeStrip duration-mode="bar" time-signature="3/4" :tokens="durationSequence" />
       </VariantCell>
+      <VariantCell caption="Bar &middot; implicit base 1 and bounded &times; overflow" stage="ink3">
+        <CodeStrip duration-mode="bar" time-signature="4/4" :tokens="durationEdgeSequence" />
+      </VariantCell>
       <VariantCell caption="Hidden &middot; rhythm unstamped" stage="ink3">
         <CodeStrip duration-mode="hidden" :tokens="durationSequence" />
       </VariantCell>
@@ -125,6 +128,12 @@ const durationSequence: CodeStripToken[] = [
   { type: "rest", duration: "@0.0625", progress: .72 },
   { type: "chord", symbol: "Cmaj7", members: chordMembers(.48), duration: "@0.5" },
   { type: "note", note: "la", text: "La", duration: "@0.25", progress: 0 },
+];
+
+const durationEdgeSequence: CodeStripToken[] = [
+  { type: "note", note: "do", text: "Do", progress: 1 },
+  { type: "chord", symbol: "Cmaj7", members: chordMembers(.55), duration: "@1.5" },
+  { type: "rest", duration: "@2", progress: .3 },
 ];
 
 const restTokens = (progress: number): CodeStripToken[] => [

@@ -29,7 +29,6 @@ let installQueue: Promise<void> = Promise.resolve();
 let workletPreparation: Promise<typeof import("@/services/preparedLiveInstrument")> | undefined;
 let nativePreparation: Promise<typeof import("@/services/preparedNativeInstrument")> | undefined;
 
-
 function byteSize(instrument: Instrument): number {
   if (instrument.kind !== "sample-bank") return 0;
   const buffers = new Set<ArrayBufferLike | AudioBuffer>();

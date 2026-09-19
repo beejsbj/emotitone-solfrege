@@ -54,4 +54,37 @@ The Superdough patch remains required by the legacy held-voice fallback. The sou
 
 ## Results
 
-Implementation and matched comparison results will be recorded here before the PR is opened.
+The architecture is implemented. The independent review found two native lifecycle faults: final planned MIDI cancellation could follow owner retirement, and a source-start error could interrupt disposal. Both now have regressions using the actual native renderer/controller, and both are fixed. Replacing an existing input owner also preserves its metadata through the replacement attack.
+
+### Recommendation: keep the worklet default
+
+The matched actual-App captures use identical production source and dependency hashes. Both adapters rendered all 18 trusted input trials, preserved distinct stereo channels, canceled queued sound on release, and passed actual CodeStrip Play/edit/Stop plus shared-master muting. Both retained one playback AudioContext and one pattern transport.
+
+| Observation | Prepared native Web Audio | Worklet (default) |
+| --- | ---: | ---: |
+| Together touch median, idle / injected haptic work | 5.58 / 5.58 ms | 14.29 / 14.29 ms |
+| Other four matched input-condition medians | 5.58 ms | 5.58 ms |
+| Pulses in first 3 s, 300 ms stall condition | 11 / 12 | 12 / 12 |
+| Pulses in first 3 s, 650 ms stall condition | 8 / 12 | 12 / 12 |
+| Extra renderer PCM for the piano | 0 | 145,147,392 bytes (about 138 MiB) |
+| Dense render capacity, mean / highest three-sample mean | 0.119 / 0.188 | 0.173 / 0.282 |
+
+There are only three latency trials per condition. Native had better Together touch medians in this run; this does not establish a universal latency ranking. Both use zero added initial scheduling lead. These are browser input-to-render measurements, not physical finger-to-speaker measurements.
+
+The native 300 ms continuity check **failed**. A retained diagnostic also shows 601–654 ms gaps between source submissions, including a missed beat before the injected pause. The actual application's broader UI/host contention can exhaust a 400 ms horizon; attributing every missed note to the injected stall alone would be incorrect. The exact intervening UI work requires CPU/Long Task profiling. The native scheduler skips overdue pulses to preserve the grid instead of bursting them late.
+
+The worklet passed both rhythm tests with zero measured interval deviation. Reliable repeat/arpeggiation is the original requirement, so it remains the default. Native remains available with `VITE_LIVE_AUDIO_BACKEND=native` for comparison and situations where lower PCM use matters; it is not promoted as meeting the same continuity guarantee. Native still uses original decoded buffers from Superdough's cache: this is a prepared native renderer comparison, not proof that Superdough itself is intrinsically slow.
+
+Both dense runs produced finite PCM and exact silence after cleanup. Known PCM accounting is not total browser heap/RSS. The native path retains references to 144,462,704 bytes of original piano PCM; forgetting those references does not clear Superdough's cache.
+
+See [the matched UI report](../../audio-lab/ui-README.md), [native receipt](../../audio-lab/results/ui-architecture-native.json), [worklet receipt](../../audio-lab/results/ui-architecture-worklet.json) and [native diagnostic](../../audio-lab/results/ui-architecture-native-diagnostic.json). The earlier integration comparison cannot substitute for these matched backend measurements.
+
+### Remaining scope
+
+Keep Superdough for pattern output and unsupported live sounds, and keep the required patches. Physical device/ROLI evaluation remains [issue #81](https://github.com/beejsbj/emotitone-solfrege/issues/81). Profiling the UI tasks that starve native replenishment is a separate next investigation; increasing the scheduling horizon would consume more queued nodes and commit more future events without making native generation independent of the main thread.
+
+### Final verification
+
+`bun run build` passes, including the TypeScript check. The final full suite reports **1,372 passed, 10 failed and five collection errors**. Every remaining failure name occurs in the prior worklet baseline (which had 11 failed tests and the same five collection errors); there are no added failures. The unrelated particle edge-case test happened to pass on this run, so the lower failure count is not claimed as an audio fix.
+
+The matched browser receipts were captured at `275f6a1`. All production source hashes still match; the only subsequent source-tree change is updating `CodeStripBar.test.ts` to find its existing `bgFill: false` assertion in the new pattern owner. That focused test passes. Default worklet browser checks pass 13/13; the native rhythm limitation above is intentionally retained as a failing comparison check.

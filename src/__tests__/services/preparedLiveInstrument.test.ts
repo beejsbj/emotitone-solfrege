@@ -9,6 +9,7 @@ vi.mock("superdough", async importOriginal => ({
 }));
 vi.mock("@strudel/soundfonts", () => ({ getPreparedSoundfont: mocks.font }));
 import { prepareLiveInstrument } from "../../services/preparedLiveInstrument";
+import { prepareNativeInstrument } from "../../services/preparedNativeInstrument";
 
 function buffer(sampleRate = 48000, stereo = false) {
   const data = [new Float32Array(480), ...(stereo ? [new Float32Array(480)] : [])];
@@ -20,6 +21,25 @@ const context = () => ({}) as AudioContext;
 beforeEach(() => { mocks.sounds.clear(); mocks.loaded.clear(); mocks.load.mockReset(); mocks.font.mockReset(); });
 
 describe("prepared live instrument catalog", () => {
+  it("prepares native banks using only original AudioBuffer references and shares catalog resolution with the worklet", async () => {
+    const pcm = buffer(48000, true);
+    const read = vi.spyOn(pcm, "getChannelData");
+    mocks.sounds.set("piano", { data: { type: "sample", samples: { C4: ["shared.wav"] } } });
+    mocks.loaded.set("shared.wav", pcm);
+    const ctx = context();
+    const pending = prepareNativeInstrument(ctx, "piano");
+    expect(prepareNativeInstrument(ctx, "piano")).toBe(pending);
+    const native = await pending;
+    expect(native).toMatchObject({ kind: "sample-bank", zoneSelection: "nearest-root", zones: [{ rootMidi: 60 }] });
+    if (native.kind !== "sample-bank") throw new Error("Expected samples");
+    expect(native.zones[0].buffer).toBe(pcm);
+    expect(read).not.toHaveBeenCalled();
+    const worklet = await prepareLiveInstrument(ctx, "piano");
+    if (worklet.kind !== "sample-bank") throw new Error("Expected worklet samples");
+    expect(worklet.zones[0].channels[0]).toBe(pcm.getChannelData(0));
+    expect(mocks.load).not.toHaveBeenCalled();
+  });
+
   it("preserves keyed piano roots, stereo PCM, insertion order and warm cache without allocation or loading", async () => {
     const a = buffer(48000, true), b = buffer(44100);
     mocks.sounds.set("piano", { data: { type: "sample", samples: { C4: ["c.wav", "unused.wav"], E4: ["e.wav"], _base: "ignored" } } });

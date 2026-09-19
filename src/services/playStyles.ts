@@ -90,6 +90,8 @@ export function createPlayStyleEngine<T>(deps: {
   start(value: T, at: number, style: PlayStyle): PlayStyleVoice
   schedulingLeadMs?: number
   initialLeadMs?: number
+  /** Future audio to queue; independent of the first-note lead. */
+  lookaheadMs?: number
 }) {
   let config: PlayStyleConfig = { style: 'together', bpm: 120, rate: 8 }
   const held = new Map<string, readonly HeldNote<T>[]>()
@@ -104,6 +106,9 @@ export function createPlayStyleEngine<T>(deps: {
   const schedulingLeadMs = Math.max(0, deps.schedulingLeadMs ?? 0)
   const initialLeadMs = Number.isFinite(deps.initialLeadMs)
     ? Math.max(0, deps.initialLeadMs!) : schedulingLeadMs
+
+  const lookaheadMs = Number.isFinite(deps.lookaheadMs)
+    ? Math.max(TICK_MS, deps.lookaheadMs!) : RHYTHMIC_LOOKAHEAD_MS
 
   const isRhythmic = () => config.style.startsWith('arp-') || config.style === 'repeat'
   const stepMs = () => 60_000 / config.bpm * 4 / config.rate
@@ -270,7 +275,7 @@ export function createPlayStyleEngine<T>(deps: {
         nextAt += missed * interval
         stepIndex += missed
       }
-      while (notes.length && nextAt <= now + RHYTHMIC_LOOKAHEAD_MS) {
+      while (notes.length && nextAt <= now + lookaheadMs) {
         queuePulse()
       }
     }

@@ -35,6 +35,7 @@ let specimenApp: App<Element> | null = null;
 let specimenPinia: Pinia | null = null;
 const audio = createStageSpecimenAudio(() => props.signal);
 const noteEvents = new EventTarget();
+let attackSequence = 0;
 
 const frequencyForMidi = (midi: number) => 440 * (2 ** ((midi - 69) / 12));
 
@@ -46,7 +47,7 @@ function specimenNote(
   solfege: SolfegeData,
 ): ActiveNote {
   return {
-    noteId,
+    noteId: `${noteId}-${++attackSequence}`,
     noteName: `${pitch}${Math.floor(midi / 12) - 1}`,
     pitchClassIndex: CHROMATIC_NOTES.indexOf(pitch),
     solfegeIndex,

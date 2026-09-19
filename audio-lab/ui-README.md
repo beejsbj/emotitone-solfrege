@@ -239,3 +239,5 @@ master gain, then clicks Stop. PCM must sound before and after editing, disappea
 when the shared master is muted, return when restored, and be silent after
 stopping. The whole sequence must retain one audio context. This checks the
 pattern/editor/audio integration; it does not merely call the live backend.
+
+For recorded-history growth, hue animation, and consecutive recording releases, see [the pattern-growth benchmark](pattern-growth.md). It uses corrected sequential fixtures and includes post-release LongTasks.

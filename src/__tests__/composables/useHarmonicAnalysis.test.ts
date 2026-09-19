@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope, nextTick, type EffectScope } from "vue";
+import { createCanvas } from "@napi-rs/canvas";
 import type {
+  ActiveBlob,
   ActiveNote,
   BlobConfig,
   BlobRelationshipConfig,
 } from "@/types";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
+import { useHarmonicGeometryRenderer } from "@/composables/canvas/useHarmonicGeometryRenderer";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 
 type TestBlobConfig = BlobRelationshipConfig & Pick<BlobConfig, "isEnabled">;
@@ -100,6 +103,44 @@ describe("useHarmonicAnalysis", () => {
     expect(DEFAULT_CONFIG.blobs.showEmotionLabel).toBe(false);
   });
 
+  it.each([
+    [["C4", "F4", "G4"], "Csus4"],
+    [["C4", "E4", "G#4"], "Caug"],
+  ])("retains %s entrance metadata through real analysis and every headline/emotion visibility mode", async (names, symbol) => {
+    const { snapshot, notePlayed } = createAnalysis();
+    const notes = (names as string[]).map((name, index) => createActiveNote(`note-${index}`, name, name));
+    const blobs = new Map<string, ActiveBlob>(notes.map((note, index) => [note.noteId, {
+      x: 150 + index * 50, y: 150, note: note.solfege, frequency: note.frequency,
+      startTime: 0, baseRadius: 40, opacity: 1, isFadingOut: false,
+      driftVx: 0, driftVy: 0, vibrationPhase: 0, scale: 1,
+      mode: note.mode, key: note.key, octave: note.octave,
+    }]));
+    notes.forEach(notePlayed);
+    // Cover all four combinations, then re-enable both after hiding the emotion.
+    for (const [showChordLabel, showEmotionLabel] of [[true, true], [false, true], [false, false], [true, false], [true, true]]) {
+      Object.assign(harmonicTestState.blobConfig!.value, { showChordLabel, showEmotionLabel, showIntervalLabels: false });
+      await nextTick();
+      const config = harmonicTestState.blobConfig!.value;
+      const renderer = useHarmonicGeometryRenderer();
+      const scene = renderer.buildScene(snapshot.value, blobs, config, 400, 300)!;
+      expect(scene.chordSymbol).toBe(symbol);
+      expect(snapshot.value.chordLabel).toBe(showChordLabel ? symbol : null);
+      expect(scene.primaryLabel?.roles ?? []).toEqual([
+        ...(showChordLabel ? ["chord"] : []), ...(showEmotionLabel ? ["emotion"] : []),
+      ]);
+      if (!showChordLabel && !showEmotionLabel) continue;
+      const paint = (chordSymbol: string) => {
+        const canvas = createCanvas(400, 300);
+        const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
+        renderer.renderLabels(ctx, { ...scene, chordSymbol }, config, { now: 1000, reducedMotion: false });
+        return canvas.toBuffer("image/png");
+      };
+      // Same visible content, different classification: suspended/augmented
+      // entrances must not silently become the ordinary settled-chord gesture.
+      expect(paint(scene.chordSymbol!).equals(paint("CM"))).toBe(false);
+    }
+  });
+
   it("keeps event-driven harmonic history visible until its timing window expires", async () => {
     const { snapshot, notePlayed, noteReleased } = createAnalysis();
     const c4 = createActiveNote("note-c4", "C4", "Do", "Grounded");
@@ -128,6 +169,32 @@ describe("useHarmonicAnalysis", () => {
     await nextTick();
     expect(snapshot.value.isVisible).toBe(false);
     expect(snapshot.value.displayedNotes).toEqual([]);
+  });
+
+  it.each([
+    [["C4", "E4", "G4"], "Bright and settled"],
+    [["F#3", "A#3", "C#4"], "Bright and settled"],
+    [["E3", "G3", "C4"], "Bright and settled"],
+    [["C4", "Eb4", "G4"], "Tender and reflective"],
+    [["C4", "E4", "G4", "Bb4"], "Restless, reaching onward"],
+    [["C4", "E4", "G4", "B4"], "Warm and wistful"],
+    [["C4", "Eb4", "G4", "Bb4"], "Mellow and reflective"],
+    [["C4", "E4", "G4", "B4", "D5"], "Warm and wistful, spacious"],
+    [["C4", "Eb4", "G4", "Bb4", "D5"], "Mellow and reflective, spacious"],
+    [["C4", "E4", "G4", "A4"], "Sweet and settled"],
+    [["C4", "D4", "G4"], "Airy and open"],
+    [["C4", "F4", "G4"], "Open, waiting to settle"],
+    [["C4", "Eb4", "Gb4"], "Uneasy and searching"],
+    [["C4", "E4", "G#4"], "Dreamy and unsettled"],
+    [["C4", "C#4", "D4"], "Close friction, restless energy"],
+  ])("describes sounding chord families with the chord label hidden: %s", (names, expected) => {
+    harmonicTestState.blobConfig!.value.showChordLabel = false;
+    const { snapshot, notePlayed } = createAnalysis();
+    (names as string[]).forEach((name, index) =>
+      notePlayed(createActiveNote(`note-${index}`, name, name))
+    );
+    expect(snapshot.value.chordLabel).toBeNull();
+    expect(snapshot.value.emotionalDescription).toBe(expected);
   });
 
   it("starts a fresh harmonic gesture when the same notes are replayed", () => {

@@ -1,0 +1,53 @@
+// Requires Playwright and a running dev server. Override module location when using an external install.
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const output = new URL('./', import.meta.url).pathname;
+const browser = await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});
+const page = await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});
+page.on('pageerror',e=>console.log('PAGE ERROR',e.message));
+await page.goto('http://127.0.0.1:5181/');
+await page.waitForTimeout(2000);
+await page.getByRole('button',{name:'Skip',exact:true}).click();
+await page.waitForTimeout(1000);
+await page.evaluate(async()=>{
+  const { useVisualConfigStore } = await import('/src/stores/visualConfig.ts');
+  const v=useVisualConfigStore();
+  v.useEphemeralDefaults();
+  v.config.blobs.connectionMode='web';
+  v.config.blobs.showChordLabel=true; v.config.blobs.showEmotionLabel=true; v.config.blobs.showIntervalLabels=true;
+  v.config.blobs.labelOpacity=0.9;
+  const {useMusicStore}=await import('/src/stores/music.ts');
+  const {MAJOR_SOLFEGE}=await import('/src/data/index.ts');
+  const m=useMusicStore();
+  for(const [index,pitch,midi] of [[0,'C4',60],[2,'E4',64],[4,'G4',67]]) {
+    const n={noteId:'label-check-'+pitch,noteName:pitch,solfege:MAJOR_SOLFEGE[index],solfegeIndex:index,frequency:440*2**((midi-69)/12),octave:4,keyboardOctave:4,key:'C',mode:'major',pitchClassIndex:midi%12};
+    m.activeNotes.set(n.noteId,n);
+    window.dispatchEvent(new CustomEvent('note-played',{detail:{...n,note:n.solfege,source:'verification',record:false,mirrorMidi:false}}));
+  }
+});
+await page.evaluate(()=>document.fonts.ready);
+await page.waitForTimeout(1200);
+await page.screenshot({path:`${output}/production-phone.png`});
+console.log((await page.locator('body').innerText()).slice(0,1000));
+await page.setViewportSize({width:1366,height:900});
+await page.waitForTimeout(500);
+await page.screenshot({path:`${output}/production-desktop.png`});
+await page.goto('http://127.0.0.1:5181/style-guide/stage');
+await page.getByRole('button',{name:'Start synthetic signal',exact:true}).click();
+await page.getByRole('button',{name:'Focus Stage',exact:true}).click();
+await page.evaluate(()=>document.fonts.ready);
+await page.waitForTimeout(600);
+await page.screenshot({path:output+'/guide-desktop.png'});
+await page.setViewportSize({width:390,height:844});
+await page.waitForTimeout(500);
+await page.screenshot({path:output+'/guide-phone.png'});
+await page.emulateMedia({reducedMotion:'reduce'});
+await page.waitForTimeout(600);
+const stillA=await page.locator('.unified-canvas').evaluate(canvas=>canvas.toDataURL());
+await page.waitForTimeout(400);
+const stillB=await page.locator('.unified-canvas').evaluate(canvas=>canvas.toDataURL());
+if(stillA!==stillB) throw new Error('Reduced Motion canvas changed');
+await page.screenshot({path:output+'/guide-reduced-motion.png'});
+const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+if(overflow) throw new Error('Phone guide overflows horizontally');
+console.log('PASS: production + guide at 390×844 and 1366×900; Reduced Motion canvas pixels stable; no phone guide overflow.');
+await browser.close();

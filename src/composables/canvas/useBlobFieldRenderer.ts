@@ -21,7 +21,7 @@ export interface BlobFieldConnection {
   to: PreparedBlobFrame;
   distance: number;
   gap: number;
-  role: "boundary" | "interior";
+  role: "boundary" | "interior" | "merge";
 }
 
 interface FieldPoint {
@@ -449,7 +449,7 @@ export function orderBlobFramesForVisibility(
 function createConnection(
   parent: PreparedBlobFrame,
   frame: PreparedBlobFrame,
-  role: BlobFieldConnection["role"]
+  role: BlobFieldConnection["role"] = "merge"
 ): BlobFieldConnection {
   const distance = Math.hypot(
     frame.blob.x - parent.blob.x,
@@ -710,10 +710,119 @@ export function getBlobFieldMaterialPasses(
   ];
 }
 
+function findNearestFrame(
+  frame: PreparedBlobFrame,
+  candidates: readonly PreparedBlobFrame[]
+) {
+  return candidates.reduce((nearest, candidate) => {
+    const nearestDistance = Math.hypot(
+      frame.blob.x - nearest.blob.x,
+      frame.blob.y - nearest.blob.y
+    );
+    const candidateDistance = Math.hypot(
+      frame.blob.x - candidate.blob.x,
+      frame.blob.y - candidate.blob.y
+    );
+    return candidateDistance < nearestDistance ? candidate : nearest;
+  }, candidates[0]);
+}
+
+function connectInInsertionOrder(
+  frames: readonly PreparedBlobFrame[],
+  parentKeys: Map<string, string>
+) {
+  return frames.slice(1).map((frame, index) => {
+    const previousFrames = frames.slice(0, index + 1);
+    const cachedParent = previousFrames.find(
+      (candidate) => candidate.key === parentKeys.get(frame.key)
+    );
+    const parent = cachedParent ?? findNearestFrame(frame, previousFrames);
+    parentKeys.set(frame.key, parent.key);
+    return createConnection(parent, frame);
+  });
+}
+
+/**
+ * Keep latent Merge label joins stable independently from releasing bodies.
+ * These paths do not paint material: the filled envelope owns Merge pixels.
+ * Parent keys are cached by the caller for the lifetime of one membership set,
+ * so normal drift can update geometry without snapping the sparse topology.
+ */
+export function getBlobFieldConnections(
+  frames: readonly PreparedBlobFrame[],
+  parentKeys = new Map<string, string>()
+): BlobFieldConnection[] {
+  const heldFrames = frames.filter((frame) => !frame.blob.isFadingOut);
+  const releasingFrames = frames.filter((frame) => frame.blob.isFadingOut);
+
+  if (heldFrames.length === 0) {
+    return connectInInsertionOrder(frames, parentKeys);
+  }
+
+  const heldConnections = connectInInsertionOrder(heldFrames, parentKeys);
+  const releaseConnections = releasingFrames.map((frame) => {
+    const cachedParent = heldFrames.find(
+      (candidate) => candidate.key === parentKeys.get(frame.key)
+    );
+    const parent = cachedParent ?? findNearestFrame(frame, heldFrames);
+    parentKeys.set(frame.key, parent.key);
+    return createConnection(parent, frame);
+  });
+
+  return [...heldConnections, ...releaseConnections];
+}
+
+export function createBlobFieldConnectionPlanner() {
+  let membershipSignature = "";
+  const parentKeys = new Map<string, string>();
+
+  const getConnections = (frames: readonly PreparedBlobFrame[]) => {
+    const nextSignature = frames
+      .map((frame) => `${frame.key}:${frame.blob.isFadingOut ? "release" : "held"}`)
+      .join("|");
+
+    if (nextSignature !== membershipSignature) {
+      membershipSignature = nextSignature;
+      parentKeys.clear();
+    }
+
+    return getBlobFieldConnections(frames, parentKeys);
+  };
+
+  const clear = () => {
+    membershipSignature = "";
+    parentKeys.clear();
+  };
+
+  return { getConnections, clear };
+}
+
+
 export function useBlobFieldRenderer() {
   let surfaces: FieldSurfaces | null = null;
   let buffers: FieldBuffers | null = null;
   const webConnectionPlanner = createBlobWebConnectionPlanner();
+  const mergeJoinPlanner = createBlobFieldConnectionPlanner();
+
+  const publishConnections = (
+    scene: HarmonicGeometryScene | null,
+    connections: { connection: BlobFieldConnection; geometry: BlobFieldConnectionGeometry }[],
+    material: "web" | "merge",
+    opacityFor: (connection: BlobFieldConnection) => number
+  ) => {
+    if (!scene) return;
+    scene.renderedConnections = connections.flatMap(({ connection, geometry }) => {
+      const from = scene.points.find(point => point.blob === connection.from.blob);
+      const to = scene.points.find(point => point.blob === connection.to.blob);
+      return from && to ? [{
+        notePair: [from.note.noteId, to.note.noteId] as [string, string],
+        points: geometry.centerline,
+        material,
+        opacity: opacityFor(connection),
+        colors: [connection.from.primaryColor, connection.to.primaryColor] as [string, string],
+      }] : [];
+    });
+  };
 
   const getSurfaces = (width: number, height: number) => {
     if (!surfaces) {
@@ -815,12 +924,13 @@ export function useBlobFieldRenderer() {
         strand: getBlobFieldConnectionGeometry(connection, width, 1, 0, bend),
       };
     });
+    const opacityFor = (connection: BlobFieldConnection) => Math.max(0, Math.min(1,
+      connection.from.opacity, connection.to.opacity
+    )) * config.webOpacity * (connection.role === "boundary" ? 0.92 : 0.46);
     const paint = (context: CanvasRenderingContext2D, roots: boolean) => {
       connections.forEach(({ connection, root, strand }) => {
         context.save();
-        context.globalAlpha = Math.max(0, Math.min(1,
-          connection.from.opacity, connection.to.opacity
-        )) * config.webOpacity * (connection.role === "boundary" ? 0.92 : 0.46);
+        context.globalAlpha = opacityFor(connection);
         const gradient = context.createLinearGradient(
           connection.from.blob.x, connection.from.blob.y,
           connection.to.blob.x, connection.to.blob.y
@@ -863,6 +973,9 @@ export function useBlobFieldRenderer() {
     paint(target, false);
     target.restore();
     renderBodies(target, frames, config);
+    publishConnections(scene, connections.map(({ connection, strand }) => ({
+      connection, geometry: strand,
+    })), "web", opacityFor);
   };
 
   const renderBlobField = (
@@ -872,7 +985,11 @@ export function useBlobFieldRenderer() {
     scene: HarmonicGeometryScene | null
   ) => {
     const mode = config.connectionMode;
+    const needsMergeCenter = mode === "merge" && scene?.primaryLabel?.roles?.includes("chord");
+    // A scene may be reused by a static specimen; never retain a prior path.
+    if (scene) { scene.renderedConnections = []; scene.mergeCenter = undefined; }
     if (frames.length === 0 || mode === "off") {
+      mergeJoinPlanner.clear();
       return false;
     }
 
@@ -880,6 +997,7 @@ export function useBlobFieldRenderer() {
     // body directly: field thresholds otherwise erase small held notes and
     // truncate release tails when the last other chord member disappears.
     if (frames.length === 1) {
+      mergeJoinPlanner.clear();
       renderBodies(target, frames, config);
       return true;
     }
@@ -1091,6 +1209,7 @@ export function useBlobFieldRenderer() {
 
     const threshold = 0.54 - config.fusionStrength * 0.24;
     const output = frameBuffers.output;
+    let mass = 0, massX = 0, massY = 0, peakAlpha = 0;
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
       const fieldAlpha = alpha[pixel];
@@ -1110,6 +1229,12 @@ export function useBlobFieldRenderer() {
       const normalizedBlue = blue[pixel] / colorWeight;
 
       const finalAlpha = hasColor ? coverage * localOpacity : 0;
+      if (needsMergeCenter) {
+        mass += finalAlpha;
+        massX += (pixel % width + 0.5) * finalAlpha;
+        massY += (Math.floor(pixel / width) + 0.5) * finalAlpha;
+        peakAlpha = Math.max(peakAlpha, finalAlpha);
+      }
 
       output.data[offset] = Math.round(
         Math.max(0, Math.min(1, normalizedRed)) * 255
@@ -1128,6 +1253,31 @@ export function useBlobFieldRenderer() {
     outputContext.putImageData(output, 0, 0);
     compositeMaterial(target, field.output, bounds, config);
 
+    if (scene && needsMergeCenter && mass > 0) {
+      const centre = { x: massX / mass, y: massY / mass };
+      // A branched silhouette can have its mass centre in a hollow. Keep the
+      // chord inside visible material, using the already-computed field.
+      let closest = Infinity, anchor = centre;
+      for (let pixel = 0; pixel < pixelCount; pixel++) {
+        if (output.data[pixel * 4 + 3] / 255 < peakAlpha * 0.5) continue;
+        const x = pixel % width + 0.5, y = Math.floor(pixel / width) + 0.5;
+        const distance = (x - centre.x) ** 2 + (y - centre.y) ** 2;
+        if (distance < closest) { closest = distance; anchor = { x, y }; }
+      }
+      scene.mergeCenter = { x: bounds.x + anchor.x / scale, y: bounds.y + anchor.y / scale };
+    }
+    // Filled Merge no longer paints individual bridges. Retain their sparse
+    // identities as latent joins for intervals even after necks fully fuse.
+    // Analysis may select fewer notes than the visible material contains. An
+    // omitted body must not become a parent that disconnects analyzed labels.
+    const analyzedBlobs = new Set(scene?.points.map(point => point.blob));
+    const joinFrames = frames.filter(frame => analyzedBlobs.has(frame.blob));
+    publishConnections(scene, mergeJoinPlanner.getConnections(joinFrames).map(connection => ({
+      connection,
+      geometry: getBlobFieldConnectionGeometry(connection, 0, 1),
+    })), "merge", connection => Math.max(0, Math.min(1,
+      connection.from.opacity, connection.to.opacity
+    )));
     return true;
   };
 
@@ -1135,6 +1285,7 @@ export function useBlobFieldRenderer() {
     surfaces = null;
     buffers = null;
     webConnectionPlanner.clear();
+    mergeJoinPlanner.clear();
   };
 
   return {

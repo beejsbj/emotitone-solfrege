@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-19",
+  "environment": "Local Vite, headless Google Chrome via Playwright; not hosted or physical-device evidence",
+  "routes": ["/", "/style-guide/", "/style-guide/stage"],
+  "viewports": ["390x844 DPR2", "1366x900 DPR2"],
+  "productionInput": "Synthetic held E4/C4/G4 notes; no physical audio input",
+  "guideInput": "Real Stage renderer with isolated synthetic signal; frozen Blob specimen with Fuse Merge body",
+  "motion": {
+    "file": "guide-motion.webm",
+    "description": "Four-second excerpt of the live phone Stage guide; other Stage layers also animate",
+    "sampledGlyph": "C",
+    "observedScaleRange": [1.0013519525527956, 1.0060981512069704],
+    "descriptionOfStrength": "Restrained contour-driven transforms, not liquid outline warping"
+  },
+  "reducedMotion": "All guide canvas data URLs identical across 500ms after settling",
+  "checks": "65 focused tests; vue-tsc and production build; fresh read-only lineage audit",
+  "limitations": ["Visual acceptance pending", "No physical-device, hosted, or Forced Colors verification", "Existing CSS-resolution Stage backing canvas"]
+}

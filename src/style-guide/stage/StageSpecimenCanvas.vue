@@ -27,6 +27,7 @@ const props = defineProps<{
   signal: StageSpecimenSignal;
   relationship: "off" | "merge" | "web";
   stageEnabled: boolean;
+  showLabels?: boolean;
 }>();
 
 const mountPoint = ref<HTMLElement | null>(null);
@@ -34,6 +35,7 @@ let specimenApp: App<Element> | null = null;
 let specimenPinia: Pinia | null = null;
 const audio = createStageSpecimenAudio(() => props.signal);
 const noteEvents = new EventTarget();
+let attackSequence = 0;
 
 const frequencyForMidi = (midi: number) => 440 * (2 ** ((midi - 69) / 12));
 
@@ -45,7 +47,7 @@ function specimenNote(
   solfege: SolfegeData,
 ): ActiveNote {
   return {
-    noteId,
+    noteId: `${noteId}-${++attackSequence}`,
     noteName: `${pitch}${Math.floor(midi / 12) - 1}`,
     pitchClassIndex: CHROMATIC_NOTES.indexOf(pitch),
     solfegeIndex,
@@ -109,6 +111,11 @@ onMounted(() => {
       const activeNotes = ref<ActiveNote[]>([]);
       let noteEventsMounted = false;
       visualConfig.useEphemeralDefaults();
+      watch(() => props.showLabels, (show) => {
+        visualConfig.config.blobs.showChordLabel = Boolean(show);
+        visualConfig.config.blobs.showEmotionLabel = Boolean(show);
+        visualConfig.config.blobs.showIntervalLabels = Boolean(show);
+      }, { immediate: true });
 
       watch(
         () => props.relationship,

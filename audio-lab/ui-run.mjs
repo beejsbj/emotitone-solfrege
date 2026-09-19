@@ -255,6 +255,10 @@ try {
     checks: [
       { name: 'Application source remained unchanged during capture', passed: JSON.stringify(sourceHashesBefore) === JSON.stringify(sourceHashes) },
       ...(process.env.LAB_UI_REF ? [] : [{ name: 'Normal application creates exactly one AudioContext', passed: state.contexts.length === 1 }]),
+      ...(requestedBackend ? [{name:'Requested prepared backend and expected PCM ownership',
+        passed: requestedBackend==='native'
+          ? backend.backend==='native-web-audio' && backend.additionalPcmBytes===0 && backend.installedPcmBytes===bank.originalPcmBytes
+          : backend.backend==='audio-worklet' && backend.additionalPcmBytes>0}] : []),
       ...architecture.map(row => ({ name: row.scenario, passed: row.passed })),
       ...stress.map((row) => ({name: row.scenario, passed: row.finitePcm && row.peak > 0.001 && row.final100msPeak < 0.001
         && (row.expectedOnsets === undefined || row.onsets.length === row.expectedOnsets)

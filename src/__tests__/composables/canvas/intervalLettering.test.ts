@@ -9,6 +9,22 @@ const path: HarmonicConnectionPath = {
 };
 
 describe("filament interval lettering", () => {
+  it("keeps filament strength unchanged when only label opacity changes", () => {
+    const paint = (opacity: number) => {
+      const ctx = createCanvas(400, 200).getContext("2d") as unknown as CanvasRenderingContext2D;
+      const textOpacity: number[] = [];
+      vi.spyOn(ctx, "fillText").mockImplementation(() => { textOpacity.push(ctx.globalAlpha); });
+      paintIntervalLettering(ctx, layoutIntervalLettering(label, path, 60)!, {
+        opacity, font: "sans-serif", ink: "black", ivory: "white",
+      });
+      return { core: [...ctx.getImageData(50, 100, 1, 1).data], textOpacity };
+    };
+    const full = paint(1), faint = paint(0.2);
+    expect(faint.core).toEqual(full.core);
+    expect(faint.textOpacity[0]).toBeCloseTo(0.2);
+    expect(full.textOpacity[0]).toBe(1);
+  });
+
   it.each([0, 12, 100])("retains Merge neck anchors at %s px, without a line or badge", length => {
     const merged = { ...path, material: "merge" as const,
       points: [{ x: 100 - length / 2, y: 100 }, { x: 100 + length / 2, y: 100 }] };

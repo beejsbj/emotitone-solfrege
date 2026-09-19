@@ -70,14 +70,14 @@ export function paintIntervalLettering(ctx: CanvasRenderingContext2D, layout: In
     const first = path.points[0], last = path.points[path.points.length - 1];
     const color = ctx.createLinearGradient(first.x, first.y, last.x, last.y);
     color.addColorStop(0, path.colors[0]); color.addColorStop(1, path.colors[1]);
-    ctx.globalAlpha = style.opacity * path.opacity * 0.85;
+    ctx.globalAlpha = path.opacity * 0.85;
     ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = color;
     ctx.beginPath();
     trace(0, Math.max(0, position - gap));
     trace(Math.min(total, position + gap), total);
     ctx.stroke();
     // A narrow ivory grain keeps dark pitch colours legible on the Ink stage.
-    ctx.globalAlpha = style.opacity * path.opacity * 0.24;
+    ctx.globalAlpha = path.opacity * 0.24;
     ctx.lineWidth = 0.65; ctx.strokeStyle = style.ivory; ctx.stroke();
   }
   ctx.translate(box.x, box.y); ctx.rotate(angle);

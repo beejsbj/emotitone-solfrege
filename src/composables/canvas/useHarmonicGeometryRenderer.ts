@@ -225,12 +225,6 @@ export function useHarmonicGeometryRenderer() {
 
         const midX = (point.x + nextPoint.x) / 2;
         const midY = (point.y + nextPoint.y) / 2;
-        const distance = Math.hypot(nextPoint.x - point.x, nextPoint.y - point.y);
-
-        if (distance < 90) {
-          return;
-        }
-
         auxiliaryLabels.push({
           x: midX,
           y: midY,
@@ -258,6 +252,7 @@ export function useHarmonicGeometryRenderer() {
     }
 
     return {
+      chordSymbol: hasCompleteAnalysis ? snapshot.chordLabel ?? undefined : undefined,
       connectionMode: config.connectionMode,
       viewport: { width: canvasWidth, height: canvasHeight },
       points,

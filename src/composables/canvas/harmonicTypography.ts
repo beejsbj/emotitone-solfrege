@@ -58,14 +58,18 @@ export function createHarmonicTypography() {
     const bounds = frame?.bounds ?? { x: 0, y: 0, ...viewport };
     const maxWidth = Math.max(24, Math.min(260, bounds.width - 48));
     const label = scene.primaryLabel;
-    const identity = JSON.stringify([label?.lines, label?.roles]);
-    const layoutKey = `${identity}:${maxWidth}`;
+    const labelIdentity = JSON.stringify([label?.lines, label?.roles]);
+    const chordText = label?.lines.find((_, i) => label.roles?.[i] === "chord") ?? "";
+    const chordSymbol = scene.chordSymbol ?? chordText;
+    // Note IDs identify attacks, including replay during the analysis hold.
+    // Sort membership so geometry/order changes do not restart the entrance.
+    const identity = JSON.stringify([labelIdentity, chordSymbol, scene.points.map(point => point.note.noteId).sort()]);
+    const layoutKey = `${labelIdentity}:${maxWidth}`;
     const now = frame?.now ?? 0;
     const still = !frame || frame.reducedMotion;
-    const chordText = label?.lines.find((_, i) => label.roles?.[i] === "chord") ?? "";
     if (state.identity !== identity) {
       state.identity = identity; state.started = now;
-      const chord = Chord.get(chordText.split("/")[0]);
+      const chord = Chord.get(chordSymbol.split("/")[0]);
       state.gesture = chord.quality === "Augmented" ? "open"
         : chord.intervals.includes("4P") || chord.intervals.includes("2M") ? "hang" : "settle";
       state.x = label?.x ?? 0; state.y = label?.y ?? 0;

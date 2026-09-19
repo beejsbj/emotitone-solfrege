@@ -104,6 +104,8 @@ export interface HarmonicConnectionPath {
 }
 
 export interface HarmonicGeometryScene {
+  /** Analysis identity, retained even when the chord headline is hidden. */
+  chordSymbol?: string;
   /** Centre of visible Merge material, projected inside the body if necessary. */
   mergeCenter?: { x: number; y: number };
   connectionMode?: "off" | "web" | "merge";

@@ -24,6 +24,33 @@ function setup(width = 320, height = 240, title = "Cmaj9") {
 }
 
 describe("musical canvas typography", () => {
+  it("restarts an unchanged harmony when note membership is replayed, but not reordered", () => {
+    const { scene, render } = setup();
+    const members = (ids: string[]) => ids.map(noteId => ({ note: { noteId } })) as HarmonicGeometryScene["points"];
+    scene.points = members(["attack-c-1", "attack-e-1", "attack-g-1"]);
+    const entrance = render(1000);
+    const settled = render(2000);
+    scene.points.reverse();
+    expect(render(2100).equals(settled)).toBe(true);
+    scene.points = members(["attack-c-2", "attack-e-2", "attack-g-2"]);
+    expect(render(2200).equals(entrance)).toBe(true);
+    expect(render(3200).equals(settled)).toBe(true);
+  });
+
+  it.each(["Csus4", "Caug"])("retains the %s entrance when only emotion is visible", chord => {
+    const emotionOnly = (symbol: string) => {
+      const fixture = setup();
+      fixture.scene.chordSymbol = symbol;
+      fixture.scene.primaryLabel!.lines = ["Warm"];
+      fixture.scene.primaryLabel!.roles = ["emotion"];
+      return fixture;
+    };
+    const specialized = emotionOnly(chord);
+    const ordinary = emotionOnly("CM");
+    expect(specialized.render(1000).equals(ordinary.render(1000))).toBe(false);
+    expect(specialized.render(2000).equals(ordinary.render(2000))).toBe(true);
+  });
+
   it("leaves both phone-triad joins readable around the central chord", () => {
     const { scene, ctx, render } = setup(390, 395, "CM");
     scene.connectionMode = "merge"; scene.mergeCenter = { x: 279, y: 153 };

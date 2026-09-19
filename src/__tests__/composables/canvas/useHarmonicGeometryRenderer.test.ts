@@ -160,6 +160,27 @@ describe("useHarmonicGeometryRenderer", () => {
     );
 
     expect(scene?.primaryLabel?.lines).toEqual(["Bright"]);
+    expect(scene?.chordSymbol).toBe("Cmaj7");
+  });
+
+  it("publishes short polyphonic Web edges for the compact-tab fallback", () => {
+    const notes = [createNote("c", "C4"), createNote("e", "E4"), createNote("g", "G4")];
+    const blobs = new Map(notes.map((note, index) => [note.noteId,
+      createBlob(note, 160 + index * 20, index === 1 ? 160 : 180)]));
+    const renderer = useHarmonicGeometryRenderer();
+    const config = { ...baseConfig, connectionMode: "web" as const,
+      showChordLabel: false, showEmotionLabel: false };
+    const scene = renderer.buildScene(createSnapshot(notes), blobs, config, 400, 400)!;
+    expect(scene.auxiliaryLabels).toHaveLength(3);
+    scene.renderedConnections = scene.auxiliaryLabels.map(label => ({
+      notePair: label.notePair!, colors: ["red", "green"], opacity: 1,
+      points: [{ x: label.x - 5, y: label.y }, { x: label.x + 5, y: label.y }],
+    }));
+    const context = { ...mockCanvasContext, canvas: { width: 400, height: 400 }, fillText: vi.fn() } as unknown as CanvasRenderingContext2D;
+    renderer.renderLabels(context, scene, config);
+    for (const interval of ["0-1", "1-2", "0-2"]) {
+      expect(context.fillText).toHaveBeenCalledWith(interval, 0, 0);
+    }
   });
 
   it("keeps web relationships when interval labels are hidden", () => {

@@ -129,7 +129,7 @@ try {
   if (!process.env.LAB_UI_REF) {
     const diagnostics = await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true);
     console.log('Backend:', JSON.stringify(diagnostics));
-    const expectedBackend = requestedBackend === 'native' ? 'native-audio' : 'audio-worklet';
+    const expectedBackend = requestedBackend === 'native' ? 'native-web-audio' : 'audio-worklet';
     if (process.env.LAB_UI_TRIALS !== '0' && diagnostics.backend !== expectedBackend) throw new Error('Expected '+expectedBackend+': '+JSON.stringify(diagnostics));
   }
   console.log('Startup warnings:', JSON.stringify(warnings));
@@ -190,6 +190,18 @@ try {
         expectedFirst3s: 12, detectedFirst3s: windowOnsets.length, maxIntervalDeviationMs: Math.max(...deviations), ...rhythm });
       console.log('Rhythm stress:', JSON.stringify({ stallDuration, count: windowOnsets.length, maxDeviation: Math.max(...deviations) }));
     }
+    // Release before the next queued sixteenth. Prepared native scheduling must
+    // cancel sources already submitted inside its lookahead window.
+    await evaluate("window.__uiMusic.setPlayMode('repeat:16');window.__audioUiLab.configure({});document.activeElement?.blur()");
+    await delay(1800);
+    await evaluate('window.__audioUiLab.begin()', true);
+    await call('Input.dispatchKeyEvent', { type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65 });
+    await delay(80);
+    await call('Input.dispatchKeyEvent', { type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65 });
+    await delay(1200);
+    const cancelled = await evaluate('window.__audioUiLab.finish()',true);
+    stress.push({scenario:'Actual KeyA release before next queued sixteenth cancels future sound',expectedOnsets:1,...cancelled});
+    console.log('Early release cancellation:',JSON.stringify({onsets:cancelled.onsets.length,finalPeak:cancelled.final100msPeak}));
     if (!process.env.LAB_UI_REF) {
       await delay(1800);
       await evaluate('window.__audioUiLab.configure({});window.__audioUiLab.begin()', true);
@@ -222,12 +234,15 @@ try {
       const trace = [...dense.trace.slice(0, 12), ...dense.trace.slice(-12)];
       stress.push({ scenario: 'Direct production live manager, same prepared piano: 500 attacks in 20 batches with 20ms timer gaps, release all; this case bypasses UI', realtime, capacitySummary,
         ...dense, trace, traceCounts, traceScope:'Dense trace retains first/last12 events plus exact counts; latency trial traces remain complete',
-        attackMessageSpanMs: messages.length ? messages.at(-1).performanceTime - messages[0].performanceTime : null });
+        attackMessageSpanMs: messages.length ? messages.at(-1).performanceTime - messages[0].performanceTime : null,
+        nativeSourceCount: dense.trace.filter(item=>item.type==='buffer-source-start').length });
     }
   }
   if (process.env.LAB_UI_ARCHITECTURE === '1') {
     const patterns = await exercisePatternUi({call,evaluate,delay});
     architecture.push(patterns);
+    const transport = await evaluate("import('/src/services/patternPlayback.ts').then(module=>module.getPatternPlaybackDiagnostics())",true);
+    architecture.push({scenario:'One mounted application pattern transport',...transport,passed:transport.activeTransports===1});
     console.log('Pattern UI:', JSON.stringify({passed:patterns.passed,contexts:patterns.contextCount,first:patterns.first.peak,edited:patterns.edited.peak,muted:patterns.muted.peak,restored:patterns.restored.peak,stopped:patterns.stopped.peak}));
   }
   const backend = process.env.LAB_UI_REF ? { backend: 'superdough', revision } : await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true);
@@ -242,10 +257,12 @@ try {
       ...(process.env.LAB_UI_REF ? [] : [{ name: 'Normal application creates exactly one AudioContext', passed: state.contexts.length === 1 }]),
       ...architecture.map(row => ({ name: row.scenario, passed: row.passed })),
       ...stress.map((row) => ({name: row.scenario, passed: row.finitePcm && row.peak > 0.001 && row.final100msPeak < 0.001
+        && (row.expectedOnsets === undefined || row.onsets.length === row.expectedOnsets)
         && (row.capacitySummary === undefined || row.capacitySummary.maxThreeSampleMean < 0.8)
         && (row.expectedFirst3s === undefined || row.requireRhythmContinuity === false || (row.detectedFirst3s === row.expectedFirst3s && row.maxIntervalDeviationMs < 1))})),
       { name: 'All inputs are trusted real browser events', passed: trials.every((row) => row.input?.isTrusted) },
       { name: 'Every trial produces captured audio', passed: trials.every((row) => row.onsetAudioTime !== null) },
+      { name: 'Actual piano retains two distinct audible stereo channels', passed: trials.every(row=>row.stereo.rightPeak>0.001 && row.stereo.differenceRms>0.00001) },
       { name: 'Previous voice tails do not contaminate trial starts', passed: trials.every((row) => row.preInputPeak < 0.001) },
     ] };
   const output = process.argv[2] || join(labRoot, 'results/ui-current.json');

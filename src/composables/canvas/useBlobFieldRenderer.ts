@@ -5,6 +5,7 @@ import type {
 import type {
   BlobConfig,
 } from "@/types/visual";
+import { withMusicColorAlpha } from "@/services/musicColor";
 
 export const BLOB_FIELD_PIXEL_BUDGET = 30_000;
 const MAX_FIELD_SCALE = 0.5;
@@ -829,10 +830,10 @@ export function useBlobFieldRenderer() {
         // emerge with the same soft material instead of an exposed flat fin.
         const fromRoot = Math.min(0.25, connection.from.scaledRadius * 1.2 / Math.max(1, connection.distance));
         const toRoot = Math.min(0.25, connection.to.scaledRadius * 1.2 / Math.max(1, connection.distance));
-        gradient.addColorStop(0, "transparent");
+        gradient.addColorStop(0, withMusicColorAlpha(connection.from.primaryColor, 0));
         gradient.addColorStop(fromRoot, connection.from.primaryColor);
         gradient.addColorStop(1 - toRoot, connection.to.primaryColor);
-        gradient.addColorStop(1, "transparent");
+        gradient.addColorStop(1, withMusicColorAlpha(connection.to.primaryColor, 0));
         context.fillStyle = gradient;
         traceConnection(context, roots ? root : strand);
         context.fill();
@@ -969,7 +970,9 @@ export function useBlobFieldRenderer() {
             frame.blob.x, frame.blob.y, 0, frame.blob.x, frame.blob.y, reach
           );
           gradient.addColorStop(0, frame.primaryColor);
-          gradient.addColorStop(1, "transparent");
+          // Transparent black also darkens interpolated RGB channels. Fade
+          // influence only so normalization retains each note's actual color.
+          gradient.addColorStop(1, withMusicColorAlpha(frame.primaryColor, 0));
           sourceContext.fillStyle = gradient;
           traceEnvelope(sourceContext, envelope);
           sourceContext.fill();

@@ -145,6 +145,30 @@ describe("Filled Merge and fine Web pixels", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it.each([
+    { color: "rgb(0, 255, 255)", opacity: 1 },
+    { color: "rgba(0, 255, 255, 1)", opacity: 1 },
+    { color: "hsla(180, 100%, 50%, 1)", opacity: 1 },
+    { color: "rgba(0, 255, 255, 1)", opacity: 0.35 },
+  ])("preserves identical note colors across Merge at opacity $opacity ($color)", ({ color, opacity }) => {
+    const frames = framesAt();
+    frames.forEach((frame) => {
+      frame.primaryColor = color;
+      frame.opacity = opacity;
+    });
+    const context = render(frames, "merge", { fieldSoftness: 0 });
+
+    // Sample between bodies, where only the radial color contributions exist.
+    // Fading to transparent black darkens this interior even at full strength.
+    for (const [x, y] of [[507, 273], [440, 220], [560, 350]]) {
+      const [red, green, blue, alpha] = context.getImageData(x, y, 1, 1).data;
+      expect(red).toBeLessThanOrEqual(2);
+      expect(green).toBeGreaterThanOrEqual(252);
+      expect(blue).toBeGreaterThanOrEqual(252);
+      expect(Math.abs(alpha - Math.round(opacity * 255))).toBeLessThanOrEqual(2);
+    }
+  });
+
   it.each([10, 40])("fills the whole triangular interior at radius %s, blending all three colors", (radius) => {
     const context = render(framesAt(triangle, radius), "merge");
     // Interior samples cover the face, not just the centroid or edge graph.

@@ -5,7 +5,9 @@ export async function exercisePatternUi({ call, evaluate, delay }) {
       const node=document.querySelector(${JSON.stringify(selector)});
       if(!node) throw new Error('Missing actual UI control: '+${JSON.stringify(selector)});
       node.scrollIntoView({block:'center'});const rect=node.getBoundingClientRect();
-      return {x:rect.x+Math.min(rect.width/2,30),y:rect.y+rect.height/2};
+      const clip=node.closest('.cm-scroller')?.getBoundingClientRect() ?? rect;
+      const left=Math.max(0,rect.left,clip.left),right=Math.min(window.innerWidth,rect.right,clip.right);
+      return {x:left+Math.min((right-left)/2,30),y:rect.y+rect.height/2};
     })()`);
     await call('Input.dispatchMouseEvent', { type:'mousePressed',...point,button:'left',clickCount:1 });
     await call('Input.dispatchMouseEvent', { type:'mouseReleased',...point,button:'left',clickCount:1 });
@@ -16,6 +18,10 @@ export async function exercisePatternUi({ call, evaluate, delay }) {
   };
   const edit = async text => {
     await click('.code-strip-bar .cm-content');
+    // Long recorded strips can scroll their content beyond the visible hit
+    // target. Focus the real editor before trusted text input; no audio API is
+    // invoked by this focus setup.
+    await evaluate("document.querySelector('.code-strip-bar .cm-content').focus()");
     if(!await evaluate("Boolean(document.activeElement?.closest('.cm-content'))")) throw new Error('CodeMirror did not receive focus');
     await key('a','KeyA',65,2);
     await call('Input.insertText',{text});

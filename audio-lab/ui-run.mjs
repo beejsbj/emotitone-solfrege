@@ -239,11 +239,14 @@ try {
     }
   }
   if (process.env.LAB_UI_ARCHITECTURE === '1') {
-    const patterns = await exercisePatternUi({call,evaluate,delay});
+    const patterns = await exercisePatternUi({call,evaluate,delay}).catch(error=>({
+      scenario:'Actual CodeStrip text edit, Play, live Ctrl+Enter edit, common master mute/restore, Stop',
+      passed:false,error:String(error.stack ?? error),
+    }));
     architecture.push(patterns);
     const transport = await evaluate("import('/src/services/patternPlayback.ts').then(module=>module.getPatternPlaybackDiagnostics())",true);
     architecture.push({scenario:'One mounted application pattern transport',...transport,passed:transport.activeTransports===1});
-    console.log('Pattern UI:', JSON.stringify({passed:patterns.passed,contexts:patterns.contextCount,first:patterns.first.peak,edited:patterns.edited.peak,muted:patterns.muted.peak,restored:patterns.restored.peak,stopped:patterns.stopped.peak}));
+    console.log('Pattern UI:', JSON.stringify({passed:patterns.passed,contexts:patterns.contextCount,first:patterns.first?.peak,edited:patterns.edited?.peak,muted:patterns.muted?.peak,restored:patterns.restored?.peak,stopped:patterns.stopped?.peak,error:patterns.error}));
   }
   const backend = process.env.LAB_UI_REF ? { backend: 'superdough', revision } : await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true);
   const sourceHashes = await hashSources();

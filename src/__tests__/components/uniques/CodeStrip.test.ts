@@ -141,6 +141,7 @@ vi.mock("@strudel/codemirror", () => ({
       options.root.appendChild(scroller);
 
       const rawEditor = {
+        destroy: vi.fn(),
         hasFocus: false,
         scrollDOM: scroller,
         state: { doc: makeDoc(options.initialCode) },
@@ -187,6 +188,7 @@ vi.mock("@strudel/transpiler", () => ({ transpiler: vi.fn() }));
 
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import { uiBeatClock } from "@/composables/useUIBeat";
+import { getPatternPlaybackDiagnostics } from "@/services/patternPlayback";
 
 const recordedNote: PatternNote = {
   id: "c",
@@ -260,6 +262,36 @@ afterEach(() => {
 });
 
 describe("CodeStrip production Strudel document", () => {
+  it("owns one production transport and releases its editor resources before remount", async () => {
+    const first = mount(CodeStrip);
+    await flushPromises();
+    const firstInstance = mocks.mirrorInstance;
+    const firstView = firstInstance.editor;
+    expect(getPatternPlaybackDiagnostics().activeTransports).toBe(1);
+    expect(mocks.mirrorOptions.getTime()).toBe(mocks.audioContext.currentTime);
+
+    const second = mount(CodeStrip);
+    await flushPromises();
+    expect(mocks.mirrorInstance).toBe(firstInstance);
+    expect(mocks.attachEditor).toHaveBeenCalledOnce();
+    expect(mocks.setError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "The pattern transport already has an editor" }),
+    );
+    second.unmount();
+    expect(getPatternPlaybackDiagnostics().activeTransports).toBe(1);
+
+    first.unmount();
+    expect(getPatternPlaybackDiagnostics().activeTransports).toBe(0);
+    expect(firstInstance.clear).toHaveBeenCalledOnce();
+    expect(firstView.destroy).toHaveBeenCalledOnce();
+
+    const remount = mount(CodeStrip);
+    await flushPromises();
+    expect(mocks.mirrorInstance).not.toBe(firstInstance);
+    expect(getPatternPlaybackDiagnostics().activeTransports).toBe(1);
+    remount.unmount();
+  });
+
   it("keeps controlled rendering isolated from production stores and playback", async () => {
     vi.clearAllMocks();
     const wrapper = mount(CodeStrip, {

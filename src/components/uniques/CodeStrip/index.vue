@@ -13,12 +13,11 @@ export type {
 <script setup lang="ts">
 import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { StrudelMirror } from "@strudel/codemirror";
-import * as StrudelCore from "@strudel/core";
-import * as StrudelMini from "@strudel/mini";
-import * as StrudelTonal from "@strudel/tonal";
-import * as StrudelWebAudio from "@strudel/webaudio";
-import { transpiler } from "@strudel/transpiler";
+import {
+  createPatternEditor,
+  disposePatternEditor,
+  type PatternEditor as StrudelMirrorInstance,
+} from "@/services/patternPlayback";
 import {
   computed,
   getCurrentInstance,
@@ -38,9 +37,7 @@ import {
   uiBeatClock,
 } from "@/composables/useUIBeat";
 import {
-  emotitoneStrudelOutput,
   getAudioContext,
-  initSuperdoughAudio,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
@@ -63,23 +60,6 @@ import type {
   CodeStripDurationMode,
   CodeStripToken,
 } from "./types";
-
-interface StrudelMirrorInstance {
-  setCode: (code: string) => void;
-  evaluate: () => Promise<void | boolean>;
-  stop: () => Promise<void> | void;
-  clear?: () => void;
-  updateSettings?: (settings: Record<string, unknown>) => void;
-  code?: string;
-  editor?: unknown;
-  view?: unknown;
-  repl?: {
-    scheduler?: {
-      cps?: number;
-      setCps?: (cps: number) => void;
-    };
-  };
-}
 
 const props = withDefaults(
   defineProps<{
@@ -660,25 +640,9 @@ async function initializeStrudelMirror() {
   if (!editorRoot.value) return;
   visibleCode.value = generatedCode.value;
 
-  const instance = markRaw(new StrudelMirror({
+  const instance = markRaw(createPatternEditor({
     root: editorRoot.value,
     initialCode: generatedCode.value,
-    bgFill: false,
-    transpiler,
-    defaultOutput: emotitoneStrudelOutput,
-    getTime: () => getAudioContext().currentTime,
-    solo: true,
-    prebake: async () => {
-      await Promise.all([
-        initSuperdoughAudio(),
-        StrudelCore.evalScope(
-          Promise.resolve(StrudelCore),
-          Promise.resolve(StrudelMini),
-          Promise.resolve(StrudelTonal),
-          Promise.resolve(StrudelWebAudio),
-        ),
-      ]);
-    },
     onDraw: (_haps: unknown[], time: number) => {
       publishUIBeatFrame(instance, time);
       void nextTick(followActivePlayback);
@@ -705,7 +669,7 @@ async function initializeStrudelMirror() {
         failedRun.error = error;
       }
     },
-  }) as StrudelMirrorInstance);
+  }));
   mirror.value = instance;
 
   // StrudelMirror routes editor shortcuts and native stop events through its
@@ -926,9 +890,9 @@ onBeforeUnmount(() => {
   stopUIBeatRun();
   releaseUIBeatAudioContext();
   try {
-    stopStrudelVisuals();
-    void instance.stop();
-    instance.clear?.();
+    void disposePatternEditor(instance).catch((error) => {
+      console.error("[CodeStrip] Strudel transport stop failed:", error);
+    });
   } catch (error) {
     console.error("[CodeStrip] Strudel mirror teardown error:", error);
   } finally {

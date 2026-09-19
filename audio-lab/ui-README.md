@@ -114,3 +114,47 @@ the raw maximum remains visible alongside that sustained-load check. Even a
 complete recorder stream alone cannot prove that a physical output device never
 underran. `ui-suspended-prepare.json` records the independent actual-browser
 check that preparation acknowledges while its AudioContext remains suspended.
+
+## Matched architecture comparison
+
+The next comparison uses the same current application and instrument bank for
+both prepared backends. The previous table above is retained as historical
+Superdough integration evidence; it does not compare an optimized native backend
+against the worklet.
+
+Run these **serially**, with builds, test suites and other browser benchmarks
+stopped. The explicit backend value is injected into Vite before startup; the
+runner verifies that the actual prepared backend matches the request.
+
+```sh
+LAB_UI_BACKEND=native LAB_UI_FILTER='/(touch/(idle|haptic-25ms)|keyboard/idle)$' LAB_UI_STRESS=1 LAB_UI_ARCHITECTURE=1 node audio-lab/ui-run.mjs audio-lab/results/ui-architecture-native.json
+LAB_UI_BACKEND=worklet LAB_UI_FILTER='/(touch/(idle|haptic-25ms)|keyboard/idle)$' LAB_UI_STRESS=1 LAB_UI_ARCHITECTURE=1 node audio-lab/ui-run.mjs audio-lab/results/ui-architecture-worklet.json
+```
+
+Use `LAB_UI_TRIALS=1` for a smoke run, or `LAB_UI_TRIALS=0` to isolate architecture
+and stress checks. Each full latency comparison retains the six matched
+conditions with three trusted input trials each. Every tracked or new file under
+`src` is hashed before and after capture, so a run with concurrent production
+edits is rejected rather than presented as a frozen result.
+
+The capture records both stereo channels and reports their RMS, right-channel
+peak and left/right difference RMS. Original piano-bank bytes and backend memory
+diagnostics are retained independently: this is known PCM storage, not a browser
+resident-memory measurement. The application must create exactly one
+`AudioContext` during normal startup.
+
+The repeat scenarios inject both 300 ms and 650 ms main-thread stalls. Both
+backends are expected to cover 300 ms. The longer stall intentionally exceeds
+the prepared native backend's finite scheduling horizon; its resulting pulse
+count and interval error remain visible as a limitation rather than a passing
+continuity claim. PCM finiteness and silence after release are required in both
+cases. Worklet continuity is required for both stalls. This distinction makes
+the native renderer's scheduling tradeoff explicit.
+
+`LAB_UI_ARCHITECTURE=1` additionally exercises the real CodeStrip. Chrome sends
+trusted text input to its CodeMirror editor, clicks Play, edits the sounding
+pattern and evaluates with Ctrl+Enter, temporarily mutes/restores the shared
+master gain, then clicks Stop. PCM must sound before and after editing, disappear
+when the shared master is muted, return when restored, and be silent after
+stopping. The whole sequence must retain one audio context. This checks the
+pattern/editor/audio integration; it does not merely call the live backend.

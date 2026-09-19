@@ -19,16 +19,16 @@
   const processor = `
   class UiCapture extends AudioWorkletProcessor {
     constructor() {
-      super(); this.pcm=new Float32Array(sampleRate*12); this.length=0; this.active=false; this.startFrame=0;
+      super(); this.pcm=new Float32Array(sampleRate*12); this.right=new Float32Array(sampleRate*12); this.length=0; this.active=false; this.startFrame=0;
       this.port.onmessage=({data})=>{
-        if(data==='start') { this.length=0; this.startFrame=currentFrame; this.active=true; this.port.postMessage({type:'started'}); }
-        if(data==='stop') { this.active=false; const pcm=this.pcm.slice(0,this.length); this.port.postMessage({type:'pcm',pcm,startFrame:this.startFrame},[pcm.buffer]); }
+        if(data==='start') { this.length=0; this.startFrame=currentFrame; this.pcm.fill(0); this.right.fill(0); this.active=true; this.port.postMessage({type:'started'}); }
+        if(data==='stop') { this.active=false; const pcm=this.pcm.slice(0,this.length),right=this.right.slice(0,this.length); this.port.postMessage({type:'pcm',pcm,right,startFrame:this.startFrame},[pcm.buffer,right.buffer]); }
       };
     }
     process(inputs,outputs) {
       const count=outputs[0][0].length;
       for(let c=0;c<outputs[0].length;c++) if(inputs[0][c]) outputs[0][c].set(inputs[0][c]);
-      if(this.active && this.length+count<=this.pcm.length) { if(inputs[0][0]) this.pcm.set(inputs[0][0],this.length); this.length+=count; }
+      if(this.active && this.length+count<=this.pcm.length) { if(inputs[0][0]) this.pcm.set(inputs[0][0],this.length); if(inputs[0][1]) this.right.set(inputs[0][1],this.length); this.length+=count; }
       return true;
     }
   }
@@ -136,7 +136,7 @@
     async finish() {
       recording = false;
       const context = selectedContext ?? contexts[0];
-      const { pcm, startFrame } = await request(captures.get(context).node, 'stop', 'pcm');
+      const { pcm, right, startFrame } = await request(captures.get(context).node, 'stop', 'pcm');
       const input = trace.find((item) => item.type === 'pointerdown' || item.type === 'keydown');
       const start = input ? Math.max(0, Math.ceil(input.audioTime * context.sampleRate - startFrame)) : 0;
       let first = -1, peak = 0, lastSignal = -Infinity;
@@ -152,13 +152,20 @@
       const onset = first < 0 ? null : (startFrame + first) / context.sampleRate;
       const source = trace.find((item) => item.type === 'buffer-source-start');
       const worklet = trace.find((item) => item.type === 'worklet-message' && item.messageType === 'press');
-      return { input, trace, onsetAudioTime: onset, onsets, peak,
-        finitePcm: pcm.every(Number.isFinite),
+      let leftEnergy=0,rightEnergy=0,differenceEnergy=0,rightPeak=0;
+      for(let i=0;i<pcm.length;i++) {
+        leftEnergy+=pcm[i]*pcm[i]; rightEnergy+=right[i]*right[i];
+        differenceEnergy+=(pcm[i]-right[i])**2; rightPeak=Math.max(rightPeak,Math.abs(right[i]));
+      }
+      const stereo={leftRms:Math.sqrt(leftEnergy/pcm.length),rightRms:Math.sqrt(rightEnergy/pcm.length),
+        differenceRms:Math.sqrt(differenceEnergy/pcm.length),rightPeak};
+      return { input, trace, onsetAudioTime: onset, onsets, peak, stereo,
+        finitePcm: pcm.every(Number.isFinite) && right.every(Number.isFinite),
         final100msPeak: pcm.slice(-Math.round(context.sampleRate * 0.1)).reduce((max, value) => Math.max(max, Math.abs(value)), 0),
         inputToPcmMs: onset === null || !input ? null : (onset - input.audioTime) * 1000,
         inputToSourceCallMs: source && input ? source.performanceTime - input.performanceTime : null,
         inputToWorkletMessageMs: worklet && input ? worklet.performanceTime - input.performanceTime : null,
-        sampleRate: context.sampleRate, capturedFrames: pcm.length,
+        sampleRate: context.sampleRate, capturedFrames: pcm.length, captureStartAudioTime:startFrame/context.sampleRate,
         preInputPeak: pcm.slice(0, start).reduce((max, value) => Math.max(max, Math.abs(value)), 0) };
     },
   };

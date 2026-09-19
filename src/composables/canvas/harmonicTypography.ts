@@ -238,7 +238,8 @@ export function createHarmonicTypography() {
             const bodies = scene.preparedBodies ?? [];
             const color = bodies[Math.min(bodies.length - 1, Math.floor((unit + 1) / 2 * bodies.length))]?.primaryColor;
             if (!state.blobGlyph.paint(ctx, glyph.text, {
-              size: line.size, font: ctx.font, ivory: state.ivory, ink: state.ink, color,
+              // Inflation owns stroke weight; synthetic bold would close narrow counters twice.
+              size: line.size, font: `400 ${line.size}px ${state.font}`, ivory: state.ivory, ink: state.ink, color,
               shape, seed: seed + index * 17, role: line.chord ? "chord" : "emotion",
             })) {
               // Plain fallback only for contexts without a scratch raster surface.

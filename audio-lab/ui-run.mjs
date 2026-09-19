@@ -34,7 +34,7 @@ const sourceHashesBefore = await hashSources();
 const vite = await createServer({ root: appRoot, configFile: join(appRoot, 'vite.config.ts'),
   ...(requestedBackend ? { define: { 'import.meta.env.VITE_LIVE_AUDIO_BACKEND': JSON.stringify(requestedBackend) } } : {}),
   cacheDir: join(directory, 'vite-cache'), optimizeDeps: { entries: [join(appRoot, 'index.html')] },
-  server: { host: '127.0.0.1', port: 0, hmr: false, fs: { allow: [repoRoot, directory] } },
+  server: { host: '127.0.0.1', port: 0, hmr: false, watch: { ignored: () => true }, fs: { allow: [repoRoot, directory] } },
 });
 await vite.listen();
 const port = vite.httpServer.address().port;

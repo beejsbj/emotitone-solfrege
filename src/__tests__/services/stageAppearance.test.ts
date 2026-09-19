@@ -5,7 +5,7 @@ import {
   STAGE_CONTROL_GROUPS,
   STAGE_CONTROL_DEFINITIONS,
   applyStageLook,
-  createSeededStageLook,
+  createSeededStageVariation,
   patchStageControl,
   readStageControls,
   resolveStageConfig,
@@ -229,6 +229,14 @@ describe("Stage appearance domain", () => {
     expect(readStageControls(softened).connectionSoftness).toBe(0.6);
   });
 
+  it("makes the zero Connection Strength endpoint exact", () => {
+    const disconnected = patchStageControl(config(), "connectionStrength", 0);
+
+    expect(disconnected.blobs.fusionStrength).toBe(0);
+    expect(disconnected.blobs.webOpacity).toBe(0);
+    expect(readStageControls(disconnected).connectionStrength).toBe(0);
+  });
+
   it("enforces the Stage-only allowlist for Looks", () => {
     const backing = config();
     backing.dynamicColors.musicColorMode = "fixed";
@@ -279,23 +287,34 @@ describe("Stage appearance domain", () => {
     }
   });
 
-  it("creates deterministic seeded variations", () => {
-    const first = createSeededStageLook("same-seed", BUILT_IN_STAGE_LOOKS);
-    const second = createSeededStageLook("same-seed", BUILT_IN_STAGE_LOOKS);
-    const different = createSeededStageLook("different-seed", BUILT_IN_STAGE_LOOKS);
+  it("creates deterministic small variations around one explicit root", () => {
+    const root = config();
+    root.blobs.connectionMode = "web";
+    root.blobs.showChordLabel = false;
+    root.blobs.showIntervalLabels = true;
+    const first = createSeededStageVariation("same-seed", root, "Root Look");
+    const second = createSeededStageVariation("same-seed", root, "Root Look");
+    const different = createSeededStageVariation("different-seed", root, "Root Look");
 
     expect(first).toEqual(second);
     expect(different).not.toEqual(first);
+    expect(first.name).toBe("Root Look · Variation SAME");
+    expect(first.variationRoot).toEqual({
+      name: "Root Look",
+      patch: expect.any(Object),
+    });
     expect(first.patch).not.toHaveProperty("dynamicColors");
     expect(first.patch.hilbertScope).not.toHaveProperty("isEnabled");
-    expect(first.patch.blobs).not.toHaveProperty("connectionMode");
-    expect(first.patch.blobs).not.toHaveProperty("blurRadius");
-    expect(first.patch.blobs).not.toHaveProperty("fusionStrength");
-    expect(first.patch.blobs).not.toHaveProperty("fieldSoftness");
-    expect(first.patch.blobs).not.toHaveProperty("webOpacity");
-    expect(first.patch.blobs).not.toHaveProperty("showChordLabel");
-    expect(first.patch.blobs).not.toHaveProperty("showIntervalLabels");
-    expect(first.patch.blobs).not.toHaveProperty("showEmotionLabel");
-    expect(first.patch.blobs).not.toHaveProperty("labelOpacity");
+    expect(first.patch.blobs).toMatchObject({
+      connectionMode: "web",
+      blurRadius: root.blobs.blurRadius,
+      fusionStrength: root.blobs.fusionStrength,
+      fieldSoftness: root.blobs.fieldSoftness,
+      webOpacity: root.blobs.webOpacity,
+      showChordLabel: false,
+      showIntervalLabels: true,
+      showEmotionLabel: root.blobs.showEmotionLabel,
+      labelOpacity: root.blobs.labelOpacity,
+    });
   });
 });

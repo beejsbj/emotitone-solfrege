@@ -43,7 +43,6 @@ const visualConfigStore = reactive({
   visualsEnabled: true,
   savedConfigs: [] as Array<{ id: string; name: string; updatedAt: string }>,
   savedStageLooks: [] as Array<{ id: string; name: string; updatedAt: string }>,
-  newLookOnLaunch: false,
   transientStageLook: null as null | { name: string },
   stageControls: {
     stageEnabled: true,
@@ -104,7 +103,6 @@ const visualConfigStore = reactive({
   saveStageLookAs: vi.fn(),
   loadSavedStageLook: vi.fn(),
   deleteSavedStageLook: vi.fn(),
-  setNewLookOnLaunch: vi.fn(),
   updateGlobalControl: vi.fn(),
   resetGlobal: vi.fn(),
   updateDeckControl: vi.fn(),
@@ -215,6 +213,14 @@ describe("ConfigPanel.vue", () => {
 
     visualConfigStore.visualsEnabled = true;
     visualConfigStore.savedConfigs = [];
+    visualConfigStore.transientStageLook = null;
+    visualConfigStore.stageControls.stageEnabled = true;
+    visualConfigStore.stageControls.bodiesVisible = true;
+    visualConfigStore.stageControls.atmosphereStrength = 0.3;
+    visualConfigStore.stageControls.fleckAmount = 3;
+    visualConfigStore.stageControls.showChords = false;
+    visualConfigStore.stageControls.showIntervals = false;
+    visualConfigStore.stageControls.showEmotion = false;
     visualConfigStore.deckControls.codeStrip = true;
     musicStore.currentKey = "C";
     musicStore.currentMode = "major";
@@ -372,6 +378,72 @@ describe("ConfigPanel.vue", () => {
     await nextTick();
     expect(rests.props("isDisabled")).toBe(true);
     expect(durations.props("isDisabled")).toBe(true);
+  });
+
+  it("retires reload Looks and keeps transient actions visible across Stage tabs", async () => {
+    visualConfigStore.transientStageLook = { name: "Soft · Variation TEST" };
+    wrapper = createTestWrapper(ConfigPanel);
+    const panel = wrapper.getComponent({ name: "TabbedOverlayPanel" });
+
+    panel.vm.$emit("update:modelValue", "stage");
+    await nextTick();
+    expect(wrapper.find('[data-testid="new-look-on-launch"]').exists()).toBe(false);
+
+    panel.vm.$emit("update:modelValue", "bodies");
+    await nextTick();
+    expect(wrapper.get('[data-testid="stage-look-keep-bodies"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Soft · Variation TEST");
+  });
+
+  it("disables Stage controls with the feature they depend on", async () => {
+    wrapper = createTestWrapper(ConfigPanel);
+    const panel = wrapper.getComponent({ name: "TabbedOverlayPanel" });
+
+    visualConfigStore.stageControls.bodiesVisible = false;
+    panel.vm.$emit("update:modelValue", "bodies");
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-bodiesVisible"]').props("isDisabled"))
+      .toBe(false);
+    for (const control of [
+      "bodySize",
+      "bodyStrength",
+      "bodyMotion",
+      "connectionMode",
+      "connectionStrength",
+      "connectionSoftness",
+    ]) {
+      expect(wrapper.getComponent(`[data-testid="stage-control-${control}"]`).props("isDisabled"))
+        .toBe(true);
+    }
+
+    panel.vm.$emit("update:modelValue", "relations");
+    await nextTick();
+    for (const control of ["showChords", "showIntervals", "showEmotion", "labelStrength"]) {
+      expect(wrapper.getComponent(`[data-testid="stage-control-${control}"]`).props("isDisabled"))
+        .toBe(true);
+    }
+
+    visualConfigStore.stageControls.bodiesVisible = true;
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-showChords"]').props("isDisabled"))
+      .toBe(false);
+    expect(wrapper.getComponent('[data-testid="stage-control-labelStrength"]').props("isDisabled"))
+      .toBe(true);
+    visualConfigStore.stageControls.showIntervals = true;
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-labelStrength"]').props("isDisabled"))
+      .toBe(false);
+
+    visualConfigStore.stageControls.atmosphereStrength = 0;
+    visualConfigStore.stageControls.fleckAmount = 0;
+    panel.vm.$emit("update:modelValue", "layers");
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-atmosphereColorDepth"]').props("isDisabled"))
+      .toBe(true);
+    expect(wrapper.getComponent('[data-testid="stage-control-fleckEnergy"]').props("isDisabled"))
+      .toBe(true);
+    expect(wrapper.getComponent('[data-testid="stage-control-stringResponse"]').props("isDisabled"))
+      .toBe(false);
   });
 
   it("reserves brass Knobs for Visuals, UI Rhythm, and the Stage master", async () => {

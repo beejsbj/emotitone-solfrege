@@ -86,6 +86,10 @@ export interface TransientStageLook {
   seed: string;
   name: string;
   patch: StageLookPatch;
+  variationRoot?: {
+    name: string;
+    patch: StageLookPatch;
+  };
 }
 
 type StageLookSection =
@@ -463,7 +467,9 @@ export function patchStageControl(
     case "connectionStrength": {
       const amount = clamp(value);
       next.blobs.fusionStrength = amount;
-      next.blobs.webOpacity = 0.15 + amount * 0.75;
+      // Web keeps its calibrated visible range above zero, while the exact
+      // zero endpoint is a truthful absence of connections in either mode.
+      next.blobs.webOpacity = amount === 0 ? 0 : 0.15 + amount * 0.75;
       break;
     }
     case "connectionSoftness": {
@@ -581,71 +587,62 @@ function seededRandom(seed: string) {
   };
 }
 
-export function createSeededStageLook(
+export function createSeededStageVariation(
   seed: string,
-  looks: readonly StageLook[],
+  rootConfig: VisualEffectsConfig,
+  rootName = "Current",
 ): TransientStageLook {
-  if (looks.length === 0) {
-    return { seed, name: "New Look", patch: {} };
-  }
-
   const random = seededRandom(seed);
-  const source = looks[Math.floor(random() * looks.length)] ?? looks[0];
-  const patch = sanitizeStageLookPatch(source.patch);
-  const varied = applyNumericVariation(patch, random);
-  if (varied.blobs) {
-    // Launch variation changes appearance, not the learner's relationship or
-    // explanation choices.
-    delete varied.blobs.connectionMode;
-    delete varied.blobs.blurRadius;
-    delete varied.blobs.fusionStrength;
-    delete varied.blobs.fieldSoftness;
-    delete varied.blobs.webOpacity;
-    delete varied.blobs.showChordLabel;
-    delete varied.blobs.showIntervalLabels;
-    delete varied.blobs.showEmotionLabel;
-    delete varied.blobs.labelOpacity;
-  }
+  const rootPatch = stageLookFromConfig(rootConfig);
+  const varied = applyNumericVariation(rootConfig, random);
 
   return {
     seed,
-    name: `${source.name} · ${seed.slice(0, 4).toUpperCase()}`,
-    patch: varied,
+    name: `${rootName} · Variation ${seed.slice(0, 4).toUpperCase()}`,
+    patch: stageLookFromConfig(varied),
+    variationRoot: {
+      name: rootName,
+      patch: rootPatch,
+    },
   };
 }
 
 function applyNumericVariation(
-  patch: StageLookPatch,
+  rootConfig: VisualEffectsConfig,
   random: () => number,
-): StageLookPatch {
-  const varied = sanitizeStageLookPatch(patch);
+): VisualEffectsConfig {
+  let varied = cloneConfig(rootConfig);
+  const controls = readStageControls(rootConfig);
   const scale = (value: number, spread: number, min: number, max: number) =>
     clamp(value * (1 + (random() * 2 - 1) * spread), min, max);
 
-  if (varied.hilbertScope) {
-    if (typeof varied.hilbertScope.sizeRatio === "number") varied.hilbertScope.sizeRatio = scale(varied.hilbertScope.sizeRatio, 0.1, 0.15, 1.5);
-    if (typeof varied.hilbertScope.opacity === "number") varied.hilbertScope.opacity = scale(varied.hilbertScope.opacity, 0.12, 0, 1);
-    if (typeof varied.hilbertScope.thickness === "number") varied.hilbertScope.thickness = scale(varied.hilbertScope.thickness, 0.16, 0.01, 10);
-    if (typeof varied.hilbertScope.glowIntensity === "number") varied.hilbertScope.glowIntensity = scale(varied.hilbertScope.glowIntensity, 0.15, 0, 50);
-    if (typeof varied.hilbertScope.history === "number") varied.hilbertScope.history = scale(varied.hilbertScope.history, 0.16, 0, 0.95);
-  }
-  if (varied.blobs) {
-    if (typeof varied.blobs.baseSizeRatio === "number") varied.blobs.baseSizeRatio = scale(varied.blobs.baseSizeRatio, 0.12, STAGE_BODY_SIZE_MIN_RATIO, STAGE_BODY_SIZE_MAX_RATIO);
-    if (typeof varied.blobs.opacity === "number") varied.blobs.opacity = scale(varied.blobs.opacity, 0.12, 0, 1);
-    if (typeof varied.blobs.blurRadius === "number") varied.blobs.blurRadius = scale(varied.blobs.blurRadius, 0.16, 0, 100);
-  }
-  if (varied.ambient) {
-    if (typeof varied.ambient.opacityMajor === "number") varied.ambient.opacityMajor = scale(varied.ambient.opacityMajor, 0.12, 0, 1);
-    if (typeof varied.ambient.opacityMinor === "number") varied.ambient.opacityMinor = scale(varied.ambient.opacityMinor, 0.12, 0, 1);
-  }
-  if (varied.strings) {
-    if (typeof varied.strings.activeOpacity === "number") varied.strings.activeOpacity = scale(varied.strings.activeOpacity, 0.14, 0, 1);
-    if (typeof varied.strings.maxAmplitude === "number") varied.strings.maxAmplitude = scale(varied.strings.maxAmplitude, 0.14, 1, 100);
-  }
-  if (varied.particles) {
-    if (typeof varied.particles.count === "number") varied.particles.count = Math.round(scale(varied.particles.count, 0.18, 0, 40));
-    if (typeof varied.particles.speed === "number") varied.particles.speed = scale(varied.particles.speed, 0.15, 0, 20);
-  }
+  const vary = (
+    control: StageControlId,
+    value: number,
+    spread: number,
+    min = 0,
+    max = 1,
+  ) => {
+    varied = patchStageControl(varied, control, scale(value, spread, min, max));
+  };
+
+  // Vary the public correlated controls so a variation never tears apart the
+  // raw fields that one Knob intentionally owns. Relationship mode/strength,
+  // explanations, and enabled states stay anchored to the root Look.
+  vary("scopeSize", controls.scopeSize, 0.08, 0.15, 1.5);
+  vary("scopeStrength", controls.scopeStrength, 0.08);
+  vary("scopeLineWeight", controls.scopeLineWeight, 0.12, 0.01, 10);
+  vary("scopeGlow", controls.scopeGlow, 0.1);
+  vary("scopeTrail", controls.scopeTrail, 0.1);
+  vary("bodySize", controls.bodySize, 0.08, STAGE_BODY_SIZE_MIN_RATIO, STAGE_BODY_SIZE_MAX_RATIO);
+  vary("bodyStrength", controls.bodyStrength, 0.08);
+  vary("bodyMotion", controls.bodyMotion, 0.08);
+  vary("atmosphereStrength", controls.atmosphereStrength, 0.08);
+  vary("atmosphereColorDepth", controls.atmosphereColorDepth, 0.08);
+  vary("stringPresence", controls.stringPresence, 0.1);
+  vary("stringResponse", controls.stringResponse, 0.08);
+  vary("fleckAmount", controls.fleckAmount, 0.18, 0, 40);
+  vary("fleckEnergy", controls.fleckEnergy, 0.1);
 
   return varied;
 }

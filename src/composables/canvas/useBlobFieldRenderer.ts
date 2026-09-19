@@ -884,6 +884,14 @@ export function useBlobFieldRenderer() {
       return true;
     }
 
+    // The public Connection Strength control owns both backing fields. Its
+    // zero endpoint means separate bodies in either Merge or Web—not the
+    // historical minimum-visible Web opacity or a residual merge threshold.
+    if (config.fusionStrength <= 0 && config.webOpacity <= 0.15) {
+      renderBodies(target, frames, config);
+      return true;
+    }
+
     if (mode === "web") {
       renderWeb(target, frames, config, scene);
       return true;

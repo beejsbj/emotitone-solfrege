@@ -296,4 +296,16 @@ describe("Filled Merge and fine Web pixels", () => {
     const context = render(framesAt(), "web", { webOpacity: 0 });
     expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(3);
   });
+
+  it.each(["merge", "web"] as const)(
+    "renders separate bodies at the public zero-strength endpoint in %s mode",
+    (mode) => {
+      const context = render(framesAt(), mode, {
+        fusionStrength: 0,
+        webOpacity: 0,
+      });
+      expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650))
+        .toBe(3);
+    },
+  );
 });

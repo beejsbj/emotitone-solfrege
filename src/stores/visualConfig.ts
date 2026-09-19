@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
   applyStageLook,
-  createSeededStageLook,
+  createSeededStageVariation,
   diffStageLook,
   patchStageControl,
   preserveStageLookPreferences,
@@ -38,13 +38,8 @@ export interface SavedConfig {
   id: string;
   name: string;
   config: VisualEffectsConfig;
-  stagePreferences?: StagePreferences;
   createdAt: string;
   updatedAt: string;
-}
-
-interface StagePreferences {
-  newLookOnLaunch: boolean;
 }
 
 export interface SavedStageLook {
@@ -357,21 +352,12 @@ function migrateSavedConfig(rawSavedConfig: unknown): SavedConfig | null {
     return null;
   }
 
-  return {
+  const migrated = {
     ...(rawSavedConfig as Omit<SavedConfig, "config">),
     config: migrateVisualConfig((rawSavedConfig as { config?: unknown }).config),
-    stagePreferences: readStagePreferences(rawSavedConfig.stagePreferences),
   } as SavedConfig;
-}
-
-function readStagePreferences(rawPreferences: unknown): StagePreferences | undefined {
-  if (
-    !isRecord(rawPreferences)
-    || typeof rawPreferences.newLookOnLaunch !== "boolean"
-  ) {
-    return undefined;
-  }
-  return { newLookOnLaunch: rawPreferences.newLookOnLaunch };
+  delete (migrated as SavedConfig & { stagePreferences?: unknown }).stagePreferences;
+  return migrated;
 }
 
 function migrateSavedStageLook(rawLook: unknown): SavedStageLook | null {
@@ -402,7 +388,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const visualsEnabled = ref(true);
   const savedConfigs = ref<SavedConfig[]>([]);
   const savedStageLooks = ref<SavedStageLook[]>([]);
-  const newLookOnLaunch = ref(false);
   const transientStageLook = ref<TransientStageLook | null>(null);
   const isLoading = ref(false);
   const lastSaved = ref<string | null>(null);
@@ -421,15 +406,11 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       isFreshInstall = stored === null;
-      newLookOnLaunch.value = isFreshInstall;
       transientStageLook.value = null;
       if (stored) {
         const parsedConfig = JSON.parse(stored);
         Object.assign(config, migrateVisualConfig(parsedConfig.config || parsedConfig));
         visualsEnabled.value = parsedConfig.visualsEnabled ?? true;
-        newLookOnLaunch.value = typeof parsedConfig.stagePreferences?.newLookOnLaunch === "boolean"
-          ? parsedConfig.stagePreferences.newLookOnLaunch
-          : false;
       }
 
       const storedSavedConfigs = localStorage.getItem(SAVED_CONFIGS_KEY);
@@ -452,17 +433,10 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
           : [];
       }
 
-      if (newLookOnLaunch.value) {
-        transientStageLook.value = createSeededStageLook(
-          createStageLookSeed(),
-          BUILT_IN_STAGE_LOOKS,
-        );
-      }
     } catch (error) {
       console.error("Failed to load visual config from localStorage:", error);
       Object.assign(config, cloneDefaultConfig());
       visualsEnabled.value = true;
-      newLookOnLaunch.value = false;
       transientStageLook.value = null;
       savedConfigs.value = [];
       savedStageLooks.value = [];
@@ -479,9 +453,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       const dataToStore = {
         config: JSON.parse(JSON.stringify(config)),
         visualsEnabled: visualsEnabled.value,
-        stagePreferences: {
-          newLookOnLaunch: newLookOnLaunch.value,
-        },
         lastSaved: new Date().toISOString(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToStore));
@@ -562,11 +533,11 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   };
 
   const shuffleStageLook = (seed = createStageLookSeed()) => {
-    const nextLook = createSeededStageLook(seed, BUILT_IN_STAGE_LOOKS);
-    nextLook.patch = preserveStageLookPreferences(
-      nextLook.patch,
-      effectiveConfig.value,
-    );
+    const existingRoot = transientStageLook.value?.variationRoot;
+    const rootName = existingRoot?.name ?? transientStageLook.value?.name ?? "Current";
+    const rootPatch = existingRoot?.patch ?? stageLookFromConfig(effectiveConfig.value);
+    const rootConfig = applyStageLook(config, rootPatch);
+    const nextLook = createSeededStageVariation(seed, rootConfig, rootName);
     transientStageLook.value = nextLook;
     return transientStageLook.value;
   };
@@ -669,11 +640,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     return true;
   };
 
-  const setNewLookOnLaunch = (enabled: boolean) => {
-    newLookOnLaunch.value = enabled;
-    saveToStorage();
-  };
-
   const applyRuntimeConfig = (nextConfig: unknown) => {
     const rowCount = config.keyboard.rowCount;
     transientStageLook.value = null;
@@ -687,7 +653,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const resetToDefaults = () => {
     applyRuntimeConfig(cloneDefaultConfig());
     visualsEnabled.value = true;
-    newLookOnLaunch.value = false;
     saveToStorage();
   };
 
@@ -714,9 +679,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       id,
       name,
       config: getConfigSnapshot(),
-      stagePreferences: {
-        newLookOnLaunch: newLookOnLaunch.value,
-      },
       createdAt: now,
       updatedAt: now,
     };
@@ -742,7 +704,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const savedConfig = savedConfigs.value.find((c) => c.id === configId);
     if (savedConfig) {
       applyRuntimeConfig(savedConfig.config);
-      newLookOnLaunch.value = savedConfig.stagePreferences?.newLookOnLaunch ?? false;
       saveToStorage();
     }
   };
@@ -792,9 +753,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const configData = {
       config: getConfigSnapshot(),
       visualsEnabled: visualsEnabled.value,
-      stagePreferences: {
-        newLookOnLaunch: newLookOnLaunch.value,
-      },
       exportedAt: new Date().toISOString(),
       version: "2.0.0",
     };
@@ -811,10 +769,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         if (typeof importedData.visualsEnabled === "boolean") {
           visualsEnabled.value = importedData.visualsEnabled;
         }
-        const importedStagePreferences = readStagePreferences(
-          importedData.stagePreferences,
-        );
-        newLookOnLaunch.value = importedStagePreferences?.newLookOnLaunch ?? false;
         saveToStorage();
         return true;
       }
@@ -830,7 +784,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     visualsEnabled.value = true;
     savedConfigs.value = [];
     savedStageLooks.value = [];
-    newLookOnLaunch.value = false;
     transientStageLook.value = null;
     lastSaved.value = null;
   };
@@ -840,7 +793,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   // Watch for changes and auto-save (debounced)
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
   watch(
-    [config, visualsEnabled, newLookOnLaunch],
+    [config, visualsEnabled],
     () => {
       if (saveTimeout) clearTimeout(saveTimeout);
       saveTimeout = setTimeout(saveToStorage, 500); // Debounce saves by 500ms
@@ -861,7 +814,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     visualsEnabled,
     savedConfigs,
     savedStageLooks,
-    newLookOnLaunch,
     transientStageLook,
     isLoading,
     lastSaved,
@@ -882,7 +834,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     saveStageLookAs,
     loadSavedStageLook,
     deleteSavedStageLook,
-    setNewLookOnLaunch,
     resetToDefaults,
     resetSection,
     saveConfigAs,

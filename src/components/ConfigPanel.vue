@@ -188,6 +188,7 @@
                     data-testid="stage-reset"
                     title="Reset Stage"
                     accessible-name="Reset Stage"
+                    :disabled="!visualsEnabled"
                     @click="resetStage"
                   >
                     <RotateCcw :size="14" />
@@ -196,7 +197,11 @@
               </header>
             </section>
 
-            <section class="config-panel__presets config-panel__section" data-testid="stage-looks">
+            <section
+              class="config-panel__presets config-panel__section"
+              :class="{ 'config-panel__section--disabled': stageLooksDisabled }"
+              data-testid="stage-looks"
+            >
               <header class="config-panel__looks-header">
                 <div>
                   <p class="config-panel__eyebrow">Stage only</p>
@@ -212,6 +217,7 @@
                     data-testid="stage-look-shuffle"
                     title="Shuffle a new Stage Look"
                     accessible-name="Shuffle a new Stage Look"
+                    :disabled="stageLooksDisabled"
                     @click="shuffleStageLook()"
                   ><ShuffleIcon :size="14" /></Button>
                   <Button
@@ -219,6 +225,7 @@
                     data-testid="stage-look-save"
                     title="Save current Stage Look"
                     accessible-name="Save current Stage Look"
+                    :disabled="stageLooksDisabled"
                     @click="promptSaveStageLook"
                   ><Save :size="14" /></Button>
                 </div>
@@ -246,20 +253,6 @@
                 </div>
               </div>
 
-              <div class="config-panel__launch-setting">
-                <div>
-                  <p class="config-panel__group-label">New Look on Reload</p>
-                  <p class="config-panel__group-copy">Each reload previews a newly seeded variation. It stays temporary until kept.</p>
-                </div>
-                <Knob
-                  type="boolean"
-                  :model-value="newLookOnLaunch"
-                  label="On Reload"
-                  data-testid="new-look-on-launch"
-                  @update:modelValue="setNewLookOnLaunch(Boolean($event))"
-                />
-              </div>
-
               <div class="config-panel__preset-group">
                 <p class="config-panel__group-label">Built In</p>
                 <div class="config-panel__scene-grid">
@@ -268,6 +261,7 @@
                     :key="look.id"
                     type="button"
                     class="config-panel__sticker-action"
+                    :disabled="stageLooksDisabled"
                     :data-testid="`preset-apply-${look.id}`"
                     :aria-label="`Preview ${look.name} Stage Look`"
                     @click="applyBuiltInStageLook(look.id)"
@@ -291,6 +285,7 @@
                   <button
                     type="button"
                     class="config-panel__saved-load"
+                    :disabled="stageLooksDisabled"
                     :data-testid="`stage-look-load-${look.id}`"
                     :aria-label="`Preview ${look.name}`"
                     @click="loadSavedStageLook(look.id)"
@@ -331,6 +326,28 @@
                 </div>
               </header>
 
+              <div v-if="transientStageLook" class="config-panel__look-preview">
+                <p class="config-panel__look-status" role="status">
+                  Previewing {{ transientStageLook.name }}. Edits stay temporary until kept.
+                </p>
+                <div class="config-panel__look-preview-actions">
+                  <Button
+                    size="sm"
+                    :data-testid="`stage-look-keep-${destination.value}`"
+                    title="Keep this Stage Look"
+                    accessible-name="Keep this Stage Look"
+                    @click="keepStageLook"
+                  ><Check :size="14" /></Button>
+                  <Button
+                    size="sm"
+                    :data-testid="`stage-look-discard-${destination.value}`"
+                    title="Discard this Stage Look"
+                    accessible-name="Discard this Stage Look"
+                    @click="clearStageLook"
+                  ><RotateCcw :size="14" /></Button>
+                </div>
+              </div>
+
               <div class="config-panel__groups">
                 <div
                   v-for="group in destination.groups"
@@ -354,7 +371,7 @@
                       :options="control.options"
                       :label="control.label"
                       :format-value="control.format"
-                      :is-disabled="!visualsEnabled || !stageControls.stageEnabled"
+                      :is-disabled="isStageControlDisabled(control.id)"
                       @update:modelValue="updateStageControl(control.id, $event)"
                     />
                   </div>
@@ -537,6 +554,7 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
   STAGE_CONTROL_GROUPS,
+  type StageControlId,
 } from "@/services/stageAppearance";
 import {
   DECK_CONTROL_GROUPS,
@@ -646,7 +664,6 @@ const {
   visualsEnabled,
   savedConfigs,
   savedStageLooks,
-  newLookOnLaunch,
   transientStageLook,
   stageControls,
   globalControls,
@@ -668,7 +685,6 @@ const {
   saveStageLookAs,
   loadSavedStageLook,
   deleteSavedStageLook,
-  setNewLookOnLaunch,
   updateGlobalControl,
   resetGlobal,
   updateDeckControl,
@@ -688,6 +704,44 @@ const allTabs = computed(() => [
 const activeTabLabel = computed(
   () => allTabs.value.find((tab) => tab.value === activeTab.value)?.label ?? ""
 );
+
+const stageLooksDisabled = computed(
+  () => !visualsEnabled.value || !stageControls.value.stageEnabled,
+);
+
+const BODY_DEPENDENT_CONTROLS = new Set<StageControlId>([
+  "bodySize",
+  "bodyStrength",
+  "bodyMotion",
+  "connectionMode",
+  "connectionStrength",
+  "connectionSoftness",
+  "showChords",
+  "showIntervals",
+  "showEmotion",
+  "labelStrength",
+]);
+
+const isStageControlDisabled = (control: StageControlId) => {
+  if (!visualsEnabled.value || !stageControls.value.stageEnabled) return true;
+  if (
+    control !== "bodiesVisible"
+    && BODY_DEPENDENT_CONTROLS.has(control)
+    && !stageControls.value.bodiesVisible
+  ) return true;
+  if (
+    control === "labelStrength"
+    && !stageControls.value.showChords
+    && !stageControls.value.showIntervals
+    && !stageControls.value.showEmotion
+  ) return true;
+  if (
+    control === "atmosphereColorDepth"
+    && stageControls.value.atmosphereStrength <= 0.01
+  ) return true;
+  if (control === "fleckEnergy" && stageControls.value.fleckAmount <= 0) return true;
+  return false;
+};
 
 const handleGlobalControl = (
   control: GlobalControlId,
@@ -948,7 +1002,6 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__looks-actions,
 .config-panel__look-preview,
 .config-panel__look-preview-actions,
-.config-panel__launch-setting,
 .config-panel__midi-actions,
 .config-panel__saved-preset {
   display: flex;
@@ -1074,8 +1127,7 @@ const formatTimestamp = (timestamp: string) => {
   margin-block-start: calc(-1 * var(--s-2));
 }
 
-.config-panel__looks-header,
-.config-panel__launch-setting {
+.config-panel__looks-header {
   justify-content: space-between;
   gap: var(--s-4);
 }
@@ -1092,12 +1144,6 @@ const formatTimestamp = (timestamp: string) => {
   align-items: flex-start;
   flex: none;
   gap: var(--s-2);
-}
-
-.config-panel__launch-setting {
-  align-items: center;
-  padding: var(--s-4);
-  background: var(--ink);
 }
 
 .config-panel__legacy-configs {
@@ -1162,6 +1208,17 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__saved-load:active :deep(.sticker) {
   transform: translateY(2px) rotate(0deg) scale(.97);
   box-shadow: none;
+}
+
+.config-panel__sticker-action:disabled,
+.config-panel__saved-load:disabled {
+  cursor: default;
+  opacity: .38;
+}
+
+.config-panel__sticker-action:disabled:active :deep(.sticker),
+.config-panel__saved-load:disabled:active :deep(.sticker) {
+  transform: none;
 }
 
 .config-panel__sticker-action:focus-visible,

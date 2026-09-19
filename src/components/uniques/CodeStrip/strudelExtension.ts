@@ -145,8 +145,26 @@ const idlePlayback = (): PlaybackState => ({
 export function updateCodeStripPresentation(
   view: EditorView,
   presentation: CodeStripPresentation,
+  code?: string,
 ) {
-  view.dispatch({ effects: setPresentation.of(presentation) });
+  // Keep the unchanged prefix/suffix in CodeMirror's change mapping. A whole
+  // document replacement discards widget identity even for an appended note.
+  const previous = view.state.doc.toString();
+  let changes;
+  if (code !== undefined && code !== previous) {
+    let from = 0;
+    while (from < previous.length && from < code.length && previous[from] === code[from]) from++;
+    let to = previous.length;
+    let end = code.length;
+    while (to > from && end > from && previous[to - 1] === code[end - 1]) {
+      to--;
+      end--;
+    }
+    changes = { from, to, insert: code.slice(from, end) };
+  }
+  // Source and its semantic tokens must become visible together. In particular,
+  // do not mount fallback widgets between a recording's source and metadata.
+  view.dispatch({ changes, effects: setPresentation.of(presentation) });
 }
 
 export function setCodeStripPlaying(view: EditorView, playing: boolean) {

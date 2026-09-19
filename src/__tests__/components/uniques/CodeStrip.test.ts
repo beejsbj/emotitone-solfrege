@@ -17,7 +17,11 @@ const mocks = vi.hoisted(() => ({
   syncCode: vi.fn(),
   setPlaying: vi.fn(),
   setError: vi.fn(),
-  updatePresentation: vi.fn(),
+  updatePresentation: vi.fn((view: any, _presentation: any, code?: string) => {
+    if (code !== undefined && view.state.doc.toString() !== code) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: code } });
+    }
+  }),
   setCodeStripPlaying: vi.fn(),
   mirrorInstance: null as any,
   mirrorScroller: null as HTMLElement | null,
@@ -332,6 +336,7 @@ describe("CodeStrip production Strudel document", () => {
       expect.anything(),
       expect.objectContaining({
         durationMode: "stacked",
+        colorResolver: expect.any(Object),
         tokens: [expect.objectContaining({ type: "note", rawPitch: "C4" })],
       }),
     );
@@ -810,7 +815,23 @@ describe("CodeStrip production Strudel document", () => {
     expect(mocks.updatePresentation).toHaveBeenLastCalledWith(
       expect.anything(),
       expect.objectContaining({ durationMode: "bar" }),
+      expect.stringContaining("D4@0.25"),
     );
+    wrapper.unmount();
+  });
+
+  it("lets an explicit source load supersede an already queued recording update", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const controller = mocks.attachEditor.mock.calls[0][0];
+    mocks.patternsStore.currentSketchNotes = [{ ...recordedNote, id: "d", note: "D4" }];
+    const authored = '`< E4 >`.sound("sine")';
+    // Vue's watcher runs first, then this load, then the queued publication.
+    queueMicrotask(() => controller.setCode(authored));
+    await flushPromises();
+    expect(controller.getCode()).toBe(authored);
+    await controller.evaluate();
+    expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(authored);
     wrapper.unmount();
   });
 

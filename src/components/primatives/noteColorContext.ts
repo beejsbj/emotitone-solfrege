@@ -11,6 +11,7 @@ import {
   resolveMusicColorSampleByPitchClass,
   resolveMusicColorSampleByScaleIndex,
 } from "@/services/musicColor";
+import type { DynamicColorConfig } from "@/types/visual";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type NoteColorSurfaceStyle = "colored" | "monochrome";
@@ -50,51 +51,60 @@ function staticSurface(
     : resolveMusicColorKeySurface(primaryColor, tuning);
 }
 
-/** Static default-config color source for isolated real-source specimens. */
-export const staticNoteColorResolver: NoteColorResolver = {
-  getKeyBackground(
-    scaleIndex,
-    mode,
-    key,
-    octave,
-    surfaceStyle,
-    isAccidental,
-    tuning = {},
-  ) {
-    const primaryColor = surfaceStyle === "monochrome"
-      ? null
-      : resolveMusicColorSampleByScaleIndex(
-        scaleIndex,
-        mode,
-        key,
-        octave,
-        DEFAULT_CONFIG.dynamicColors,
-      )?.sample.primary;
-    return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
-  },
+/** No animation-clock subscription; the getter still tracks user color settings. */
+export function createStaticNoteColorResolver(
+  getConfig: () => DynamicColorConfig,
+): NoteColorResolver {
+  return {
+    getKeyBackground(
+      scaleIndex,
+      mode,
+      key,
+      octave,
+      surfaceStyle,
+      isAccidental,
+      tuning = {},
+    ) {
+      const primaryColor = surfaceStyle === "monochrome"
+        ? null
+        : resolveMusicColorSampleByScaleIndex(
+          scaleIndex,
+          mode,
+          key,
+          octave,
+          getConfig(),
+        )?.sample.primary;
+      return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
+    },
 
-  getKeyBackgroundByPitchClass(
-    pitchClassIndex,
-    mode,
-    key,
-    octave,
-    surfaceStyle,
-    isAccidental,
-    tuning = {},
-  ) {
-    const normalizedIndex = (
-      (pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length
-    ) % CHROMATIC_NOTES.length;
-    const primaryColor = surfaceStyle === "monochrome"
-      ? null
-      : resolveMusicColorSampleByPitchClass(
-        CHROMATIC_NOTES[normalizedIndex],
-        mode,
-        key,
-        octave,
-        DEFAULT_CONFIG.dynamicColors,
-        "fixed-chromatic",
-      )?.sample.primary;
-    return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
-  },
-};
+    getKeyBackgroundByPitchClass(
+      pitchClassIndex,
+      mode,
+      key,
+      octave,
+      surfaceStyle,
+      isAccidental,
+      tuning = {},
+    ) {
+      const normalizedIndex = (
+        (pitchClassIndex % CHROMATIC_NOTES.length) + CHROMATIC_NOTES.length
+      ) % CHROMATIC_NOTES.length;
+      const primaryColor = surfaceStyle === "monochrome"
+        ? null
+        : resolveMusicColorSampleByPitchClass(
+          CHROMATIC_NOTES[normalizedIndex],
+          mode,
+          key,
+          octave,
+          getConfig(),
+          "fixed-chromatic",
+        )?.sample.primary;
+      return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
+    },
+  };
+}
+
+/** Static default-config color source for isolated real-source specimens. */
+export const staticNoteColorResolver = createStaticNoteColorResolver(
+  () => DEFAULT_CONFIG.dynamicColors,
+);

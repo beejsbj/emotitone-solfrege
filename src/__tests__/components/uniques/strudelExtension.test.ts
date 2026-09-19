@@ -184,6 +184,44 @@ describe("CodeStrip Strudel source decorations", () => {
       .getPropertyValue("--code-strip-progress")).toBe("1");
   });
 
+  it("publishes appended source and metadata in one update while retaining historical widgets and selection", () => {
+    const { host, view } = createView();
+    const firstWidget = host.querySelector(".cm-code-strip-event");
+    const firstNote = firstWidget?.querySelector(".note");
+    const anchor = source.indexOf("C4");
+    view.dispatch({ selection: { anchor } });
+    const dispatch = vi.spyOn(view, "dispatch");
+    const nextSource = source.replace(" ] >", " D4@0.25 ] >");
+    const nextTokens: CodeStripToken[] = [...tokens, {
+      type: "note", note: "re", text: "Re", rawPitch: "D4", scaleIndex: 1, duration: "@0.25",
+    }];
+
+    updateCodeStripPresentation(view, { tokens: nextTokens }, nextSource);
+
+    expect(view.state.doc.toString()).toBe(nextSource);
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect(dispatch.mock.calls[0][0]).toMatchObject({
+      changes: { from: source.indexOf(" ] >") + 1, to: source.indexOf(" ] >") + 1 },
+    });
+    expect(view.state.selection.main.anchor).toBe(anchor);
+    expect(host.querySelector(".cm-code-strip-event")).toBe(firstWidget);
+    expect(host.querySelector(".note")).toBe(firstNote);
+    expect(host.querySelectorAll(".cm-code-strip-event")).toHaveLength(4);
+    expect(host.textContent).toContain("Re");
+  });
+
+  it("updates focused source without replacing the unchanged selection prefix", () => {
+    const { host, view } = createView();
+    view.contentDOM.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    const anchor = source.indexOf("C4");
+    view.dispatch({ selection: { anchor } });
+    const nextSource = source.replace("sine", "piano");
+    updateCodeStripPresentation(view, { tokens }, nextSource);
+    expect(view.state.doc.toString()).toBe(nextSource);
+    expect(view.state.selection.main.anchor).toBe(anchor);
+    expect(host.querySelector(".cm-code-strip-event")).toBeNull();
+  });
+
   it("injects a controlled color resolver into real Note and Chord descendants", async () => {
     colorMocks.useMusicColor.mockImplementation(() => {
       throw new Error("controlled CodeStrip descendants must not construct useMusicColor");

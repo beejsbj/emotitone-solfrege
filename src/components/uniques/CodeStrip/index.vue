@@ -31,7 +31,10 @@ import {
 } from "vue";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
-import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
+import {
+  createStaticNoteColorResolver,
+  staticNoteColorResolver,
+} from "@/components/primatives/noteColorContext";
 import {
   generatedStrudelBarPosition,
   uiBeatClock,
@@ -48,12 +51,12 @@ import type { LogNote } from "@/types/patterns";
 import { buildRecordedCodeStripTokens } from "./recordingTokens";
 import {
   applySpecimenPlayback,
-  codeStripStrudelExtension,
   codeStripStrudelExtensionWithPresentation,
   parseCodeStripEvents,
   serializeCodeStripTokens,
   setCodeStripPlaying,
   updateCodeStripPresentation,
+  type CodeStripPresentation,
 } from "./strudelExtension";
 import type {
   CodeStripDensity,
@@ -118,6 +121,11 @@ const controlledPlayback: PlaybackWiring = {
 };
 const productionWiring = isControlledUsage ? undefined : createProductionWiring();
 const appContext = getCurrentInstance()?.appContext;
+// Historical notes retain configured colors without subscribing every glyph to
+// the hue RAF. Live keyboard Notes continue to use their animated resolver.
+const colorResolver = productionWiring
+  ? createStaticNoteColorResolver(() => productionWiring.visualConfigStore.config.dynamicColors)
+  : staticNoteColorResolver;
 const {
   attachEditor,
   detachEditor,
@@ -144,6 +152,8 @@ let followLastFrameTime: number | null = null;
 let followPlaybackActive = false;
 let presentationSyncQueued = false;
 let presentationSyncCancelled = false;
+let pendingGeneratedCode: string | undefined;
+let pendingPreserveUIBeat = false;
 interface ActiveUIBeatRun {
   generation: number;
   mappingAvailable: boolean;
@@ -400,30 +410,6 @@ function releaseUIBeatAudioContext() {
   uiBeatAudioContext = null;
 }
 
-function replaceControlledCode(code: string) {
-  visibleCode.value = code;
-  if (!controlledView || controlledView.state.doc.toString() === code) return;
-  controlledView.dispatch({
-    changes: { from: 0, to: controlledView.state.doc.length, insert: code },
-  });
-}
-
-function syncMirrorCode(code: string, preserveUIBeat = false) {
-  visibleCode.value = code;
-  const instance = mirror.value;
-  if (!instance) return;
-  if (getMirrorCode(instance) !== code) {
-    if (!preserveUIBeat) stopUIBeatRun();
-    preserveUIBeatDuringCodeSync = preserveUIBeat;
-    try {
-      instance.setCode(code);
-    } finally {
-      preserveUIBeatDuringCodeSync = false;
-    }
-  }
-  syncCode(code);
-}
-
 function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
   const code = getMirrorCode(instance);
   visibleCode.value = code;
@@ -503,11 +489,11 @@ function revealLatestRecordedEvent() {
   });
 }
 
-function applyPresentation() {
+function applyPresentation(code?: string, preserveUIBeat = false) {
   const view = activeView();
   if (!view) return;
 
-  updateCodeStripPresentation(view, {
+  const presentation: CodeStripPresentation = {
     tokens: presentationTokens.value,
     durationMode: props.durationMode,
     density: props.density,
@@ -522,8 +508,23 @@ function applyPresentation() {
     keyBrightness: keyboardConfig.value.keyBrightness,
     keySaturation: keyboardConfig.value.keySaturation,
     appContext,
-    colorResolver: isControlled.value ? staticNoteColorResolver : undefined,
-  });
+    colorResolver,
+  };
+  if (code !== undefined) {
+    if (!isControlled.value && view.state.doc.toString() !== code && !preserveUIBeat) {
+      stopUIBeatRun();
+    }
+    preserveUIBeatDuringCodeSync = preserveUIBeat;
+    try {
+      updateCodeStripPresentation(view, presentation, code);
+    } finally {
+      preserveUIBeatDuringCodeSync = false;
+    }
+    visibleCode.value = code;
+    if (!isControlled.value) syncCode(code);
+  } else {
+    updateCodeStripPresentation(view, presentation);
+  }
 
   if (isControlled.value) applySpecimenPlayback(view, presentationTokens.value);
 }
@@ -534,7 +535,11 @@ function syncPresentation() {
   queueMicrotask(() => {
     presentationSyncQueued = false;
     if (presentationSyncCancelled) return;
-    applyPresentation();
+    const code = pendingGeneratedCode;
+    const preserveUIBeat = pendingPreserveUIBeat;
+    pendingGeneratedCode = undefined;
+    pendingPreserveUIBeat = false;
+    applyPresentation(code, preserveUIBeat);
   });
 }
 
@@ -772,7 +777,7 @@ async function initializeStrudelMirror() {
             syncCode(visibleCode.value);
           }
         }),
-        codeStripStrudelExtension,
+        codeStripStrudelExtensionWithPresentation({ colorResolver }),
       ]),
     });
     syncPresentation();
@@ -781,9 +786,12 @@ async function initializeStrudelMirror() {
   attachedController = {
     getCode: () => getMirrorCode(instance),
     setCode: (code: string) => {
+      // An explicit load wins over a previously queued recording publication.
+      pendingGeneratedCode = undefined;
+      pendingPreserveUIBeat = false;
       if (getMirrorCode(instance) === code) return;
       stopUIBeatRun();
-      instance.setCode(code);
+      applyPresentation(code);
     },
     evaluate: () => evaluateMirror(instance),
     stop: () => {
@@ -823,8 +831,7 @@ onMounted(async () => {
 });
 
 watch(generatedCode, (code) => {
-  if (isControlled.value) replaceControlledCode(code);
-  else syncMirrorCode(code);
+  pendingGeneratedCode = code;
   syncPresentation();
 });
 
@@ -841,7 +848,7 @@ watch(
     () => keyboardConfig.value.keySaturation,
   ],
   syncPresentation,
-  { deep: true },
+  { deep: isControlledUsage },
 );
 
 watch(
@@ -849,10 +856,11 @@ watch(
   () => {
     const instance = mirror.value;
     if (isControlled.value || !instance || !isPlaying.value) return;
-    syncMirrorCode(generatedCode.value, canPreserveUIBeatPhase(instance));
+    pendingGeneratedCode = generatedCode.value;
+    pendingPreserveUIBeat = canPreserveUIBeatPhase(instance);
+    syncPresentation();
     queueTempoEvaluation();
   },
-  { flush: "sync" },
 );
 
 watch(

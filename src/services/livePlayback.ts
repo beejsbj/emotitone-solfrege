@@ -53,7 +53,10 @@ function invalidate(error?: unknown) {
   retiring.clear();
   unsupported.clear();
   installQueue = Promise.resolve();
-  if (error) listeners.forEach(listener => listener.onError?.(error));
+  if (error) {
+    const failure = error instanceof Error ? error : new Error(String(error));
+    listeners.forEach(listener => listener.onError?.(failure));
+  }
 }
 
 /** Prepare the selected adapter before input is enabled. Unsupported sounds
@@ -130,8 +133,8 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         clear() { if (run === generation) { pins.clear(); ready.clear(); } },
         dispose() { if (run === generation) invalidate(); },
       };
-      // Eviction removes bank lookup only. Sounding voices retain their data
-      // until their envelopes finish, so selection never truncates a release.
+      // Held banks stay pinned. Released voices retire with a bounded fade;
+      // their retained PCM remains charged until the adapter acknowledges it.
       while (installed.size >= MAX_BANKS || [...installed.values()].reduce((sum, size) => sum + size, bytes) > MAX_PCM_BYTES) {
         const oldest = [...installed.keys()].find(id => ![...pins.values()].some(held => held.has(id)));
         if (oldest === undefined) {
@@ -139,7 +142,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
           return;
         }
         // The budget includes retiring PCM: wait for its bounded fade and
-        // processor acknowledgement before cloning another bank.
+        // processor acknowledgement before installing another bank.
         retiring.add(oldest);
         await ready.forget(oldest);
         if (run !== generation) return;

@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import { useVisualConfigStore } from '@/stores/visualConfig'
 import { DEFAULT_CONFIG } from '@/data/visual-config-metadata'
+import { readStageControls } from '@/services/stageAppearance'
 import { createTestPinia } from '../helpers/test-utils'
 import type { VisualEffectsConfig } from '@/types/visual'
 
@@ -1031,6 +1032,40 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
         backingPreferences,
       )
+    })
+
+    it('keeps protected edits made between Shuffle variations', () => {
+      visualConfigStore.clearStageLook()
+      visualConfigStore.applyBuiltInStageLook('soft')
+      visualConfigStore.shuffleStageLook('first-variation')
+
+      visualConfigStore.updateStageControl('connectionMode', 'web')
+      visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('connectionSoftness', 0.4)
+      visualConfigStore.updateStageControl('showChords', false)
+      visualConfigStore.updateStageControl('showIntervals', true)
+      visualConfigStore.updateStageControl('showEmotion', true)
+      visualConfigStore.updateStageControl('labelStrength', 0.31)
+      visualConfigStore.updateStageControl('bodiesVisible', false)
+      visualConfigStore.updateStageControl('atmosphereStrength', 0)
+      visualConfigStore.updateStageControl('fleckAmount', 0)
+
+      visualConfigStore.shuffleStageLook('second-variation')
+
+      expect(readStageControls(visualConfigStore.effectiveConfig)).toMatchObject({
+        connectionMode: 'web',
+        connectionStrength: expect.closeTo(0.37),
+        connectionSoftness: expect.closeTo(0.4),
+        showChords: false,
+        showIntervals: true,
+        showEmotion: true,
+        labelStrength: expect.closeTo(0.31),
+        bodiesVisible: false,
+        atmosphereStrength: 0,
+        fleckAmount: 0,
+      })
+      expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(false)
+      expect(visualConfigStore.effectiveConfig.particles.isEnabled).toBe(false)
     })
 
     it('materializes only Stage fields when a Look is kept and survives reload', () => {

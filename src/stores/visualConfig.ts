@@ -536,7 +536,34 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const existingRoot = transientStageLook.value?.variationRoot;
     const rootName = existingRoot?.name ?? transientStageLook.value?.name ?? "Current";
     const rootPatch = existingRoot?.patch ?? stageLookFromConfig(effectiveConfig.value);
-    const rootConfig = applyStageLook(config, rootPatch);
+    const currentEffective = effectiveConfig.value;
+    let rootConfig = applyStageLook(
+      config,
+      preserveStageLookPreferences(rootPatch, currentEffective),
+    );
+    rootConfig = patchStageControl(
+      rootConfig,
+      "bodiesVisible",
+      currentEffective.blobs.isEnabled,
+    );
+
+    // Numeric appearance keeps orbiting the same Look instead of random-walking,
+    // but an explicit layer off/on edit becomes part of that root.
+    if (rootConfig.ambient.isEnabled !== currentEffective.ambient.isEnabled) {
+      rootConfig = patchStageControl(
+        rootConfig,
+        "atmosphereStrength",
+        readStageControls(currentEffective).atmosphereStrength,
+      );
+    }
+    if (rootConfig.particles.isEnabled !== currentEffective.particles.isEnabled) {
+      rootConfig = patchStageControl(
+        rootConfig,
+        "fleckAmount",
+        readStageControls(currentEffective).fleckAmount,
+      );
+    }
+
     const nextLook = createSeededStageVariation(seed, rootConfig, rootName);
     transientStageLook.value = nextLook;
     return transientStageLook.value;

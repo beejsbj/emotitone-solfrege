@@ -53,7 +53,8 @@ export function layoutIntervalLettering(label: HarmonicGeometryLabel, path: Harm
 
 /** Fine chromatic core with a genuine unpainted gap; never erase the Stage below. */
 export function paintIntervalLettering(ctx: CanvasRenderingContext2D, layout: IntervalLettering,
-  style: { opacity: number; font: string; ink: string; ivory: string; deform?: boolean }) {
+  style: { opacity: number; font: string; ink: string; ivory: string; deform?: boolean;
+    paintGlyph?: (text: string, flex: number) => boolean }) {
   const { path, lengths, total, position, gap, box, angle, label } = layout;
   const trace = (start: number, end: number) => {
     if (end <= start) return;
@@ -88,7 +89,9 @@ export function paintIntervalLettering(ctx: CanvasRenderingContext2D, layout: In
   ctx.fillStyle = style.ivory;
   const text = label.lines.join(" ");
   if (!style.deform || total < 0.001) {
-    ctx.strokeText(text, 0, 0); ctx.fillText(text, 0, 0);
+    if (!style.paintGlyph?.(text, 0)) {
+      ctx.strokeText(text, 0, 0); ctx.fillText(text, 0, 0);
+    }
   } else {
     // Preserve the measured string advance: glyphs flex normal to the real join,
     // never bunch together or reverse reading order when the path is reversed.
@@ -114,7 +117,9 @@ export function paintIntervalLettering(ctx: CanvasRenderingContext2D, layout: In
       ctx.save();
       ctx.translate(x, Math.max(-2, Math.min(2, normal)));
       ctx.rotate(Math.max(-Math.PI / 2 - angle, Math.min(Math.PI / 2 - angle, flex)));
-      ctx.strokeText(glyph, 0, 0); ctx.fillText(glyph, 0, 0);
+      if (!style.paintGlyph?.(glyph, flex)) {
+        ctx.strokeText(glyph, 0, 0); ctx.fillText(glyph, 0, 0);
+      }
       ctx.restore();
       cursor += advance;
     });

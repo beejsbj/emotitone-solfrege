@@ -9,6 +9,17 @@ const path: HarmonicConnectionPath = {
 };
 
 describe("filament interval lettering", () => {
+  it.each([false, true])("routes interval material through the shared silhouette painter (motion %s)", deform => {
+    const ctx = createCanvas(400, 240).getContext("2d") as unknown as CanvasRenderingContext2D;
+    const paintGlyph = vi.fn(() => true);
+    const text = vi.spyOn(ctx, "fillText");
+    paintIntervalLettering(ctx, layoutIntervalLettering(label, path, 32)!, {
+      opacity: 1, font: "sans-serif", ink: "black", ivory: "white", deform, paintGlyph,
+    });
+    expect(paintGlyph.mock.calls.map(call => call[0]).join("")).toBe("-3M");
+    expect(text).not.toHaveBeenCalled();
+  });
+
   const deformation = (points: HarmonicConnectionPath["points"]) => {
     const ctx = createCanvas(400, 240).getContext("2d") as unknown as CanvasRenderingContext2D;
     ctx.font = "400 16px sans-serif";

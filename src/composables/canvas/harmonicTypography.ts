@@ -3,6 +3,7 @@ import type { HarmonicGeometryScene } from "@/types/canvas";
 import type { StageRect } from "./stageRuntime";
 import { layoutIntervalLettering, paintIntervalLettering, type IntervalLettering } from "./intervalLettering";
 import { organicGlyph, sampleLetteringShape } from "./organicLettering";
+import { createBlobGlyphPainter } from "./blobGlyph";
 
 type Glyph = { text: string; x: number; width: number };
 type Line = { text: string; glyphs: Glyph[]; width: number; y: number; size: number; chord: boolean };
@@ -20,6 +21,7 @@ export function createHarmonicTypography() {
     x: number; y: number; lines: Line[]; width: number; height: number;
     font: string; ink: string; ivory: string; ready: boolean; gesture: string;
     measures: Map<string, number>;
+    blobGlyph: ReturnType<typeof createBlobGlyphPainter>;
   }>();
 
   return (ctx: CanvasRenderingContext2D, scene: HarmonicGeometryScene | null,
@@ -36,13 +38,13 @@ export function createHarmonicTypography() {
         ink: style?.getPropertyValue("--ink").trim() || "#0a0908",
         ivory: style?.getPropertyValue("--ivory").trim() || "#f4efe6",
         ready: typeof document === "undefined" || !document.fonts || document.fonts.check('16px "Lets Jazz"'),
-        measures: new Map() };
+        measures: new Map(), blobGlyph: createBlobGlyphPainter() };
       states.set(ctx, cachedState);
     }
     const state = cachedState;
     // A font arriving after the first frame invalidates fallback metrics once.
     if (!state.ready && document.fonts.check('16px "Lets Jazz"')) {
-      state.ready = true; state.key = ""; state.measures.clear();
+      state.ready = true; state.key = ""; state.measures.clear(); state.blobGlyph.clear();
     }
     const measure = (text: string, size: number) => {
       ctx.font = `${size >= 30 ? 700 : 400} ${size}px ${state.font}`;
@@ -174,7 +176,13 @@ export function createHarmonicTypography() {
     ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     integrated.forEach(layout => paintIntervalLettering(ctx, layout,
-      { opacity, font: state.font, ink: state.ink, ivory: state.ivory, deform: !still }));
+      { opacity, font: state.font, ink: state.ink, ivory: state.ivory, deform: !still,
+        paintGlyph: (text, flex) => state.blobGlyph.paint(ctx, text, {
+          size: layout.fontSize, font: ctx.font, ivory: state.ivory, ink: state.ink,
+          color: layout.path.colors[0], role: "interval", seed: hash(text),
+          shape: { stretch: shape.stretch, bend: still ? 0 : clamp(shape.bend + flex * 4, -1, 1) },
+        }),
+      }));
     if (primaryFits) {
       const box = primaryBox;
       // The interval belongs to the filament. Move the central annotation,
@@ -227,16 +235,17 @@ export function createHarmonicTypography() {
               line.y + curve + jitter + organic.y + remaining * (state.gesture === "hang" ? -7 : 6));
             ctx.rotate(tilt + organic.angle + (line.chord ? -0.035 : 0) + (state.gesture === "hang" ? remaining * -0.08 : 0));
             ctx.scale(organic.scaleX, organic.scaleY);
-            // Hard ink offset gives the paper letters a crisp silhouette, without a halo.
-            ctx.fillStyle = state.ink;
-            ctx.fillText(glyph.text, line.chord ? 2 : 1, line.chord ? 3 : 1.5);
-            ctx.fillStyle = state.ivory;
-            ctx.fillText(glyph.text, 0, 0);
+            const bodies = scene.preparedBodies ?? [];
+            const color = bodies[Math.min(bodies.length - 1, Math.floor((unit + 1) / 2 * bodies.length))]?.primaryColor;
+            if (!state.blobGlyph.paint(ctx, glyph.text, {
+              size: line.size, font: ctx.font, ivory: state.ivory, ink: state.ink, color,
+              shape, seed: seed + index * 17, role: line.chord ? "chord" : "emotion",
+            })) {
+              // Plain fallback only for contexts without a scratch raster surface.
+              ctx.fillStyle = state.ivory;
+              ctx.fillText(glyph.text, 0, 0);
+            }
             ctx.restore();
-          }
-          if (line.chord) {
-            ctx.fillStyle = state.ivory;
-            ctx.fillRect(-Math.min(14, line.width / 2), line.y + 22, Math.min(28, line.width), 1.5);
           }
           ctx.restore();
         }
@@ -297,7 +306,8 @@ export function createHarmonicTypography() {
       ctx.lineTo(width / 2, -height / 2); ctx.lineTo(width / 2 + 2, height / 2 - 2);
       ctx.lineTo(-width / 2, height / 2); ctx.closePath(); ctx.fill();
       ctx.fillStyle = state.ivory; ctx.font = `400 15px ${state.font}`;
-      ctx.fillText(text, 0, 0);
+      if (!state.blobGlyph.paint(ctx, text, { size: 15, font: ctx.font,
+        ivory: state.ivory, ink: state.ink, shape, seed: hash(text), role: "interval" })) ctx.fillText(text, 0, 0);
       ctx.fillRect(-width / 2 + 2, -3, 1.5, 6);
       ctx.restore();
     }

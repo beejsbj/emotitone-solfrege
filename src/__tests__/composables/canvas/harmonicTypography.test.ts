@@ -24,6 +24,22 @@ function setup(width = 320, height = 240, title = "Cmaj9") {
 }
 
 describe("musical canvas typography", () => {
+  it("adopts blob silhouettes for primary and interval text, with still Reduced Motion pixels", () => {
+    const { scene, ctx, render } = setup(390, 330, "Cm7");
+    Object.defineProperty(ctx.canvas, "ownerDocument", { value: {
+      createElement: () => createCanvas(1, 1),
+    } });
+    scene.connectionMode = "merge";
+    scene.auxiliaryLabels = [{ x: 70, y: 60, size: "sm", lines: ["3m"], notePair: ["a", "b"] }];
+    scene.renderedConnections = [{ notePair: ["a", "b"], material: "merge", colors: ["red", "blue"],
+      opacity: 1, points: [{ x: 40, y: 60 }, { x: 100, y: 60 }] }];
+    const text = vi.spyOn(ctx, "fillText"), fill = vi.spyOn(ctx, "fill");
+    const first = render(1000, true);
+    expect(text).not.toHaveBeenCalled();
+    expect(fill).toHaveBeenCalledWith("evenodd");
+    expect(render(2000, true).equals(first)).toBe(true);
+  });
+
   it("repositions settled shape snapshots without advancing their clock", () => {
     const { scene, ctx, draw } = setup(800, 500);
     const translate = vi.spyOn(ctx, "translate");

@@ -49,6 +49,7 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
   const voices = new Set<Voice>()
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastPlan = ''
+  let mutationDepth = 0
 
   function event(voice: Voice, phase: LiveVoiceEvent['phase'], at: number): LiveVoiceEvent {
     return { ...voice.note, ownerId: voice.ownerId, noteId: voice.noteId, style: voice.style, phase, at }
@@ -96,7 +97,6 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
     events.sort((a, b) => a.at - b.at || (a.phase === 'attack' ? -1 : 1))
     for (const next of events) callbacks.onEvent(next)
     for (const voice of voices) if (Math.min(voice.stopAt, voice.naturalEnd) <= now || voice.cancelled) disconnect(voice)
-    endOwners()
   }
   function plan() {
     if (disposed) return
@@ -113,8 +113,13 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
     if (signature !== lastPlan) { lastPlan = signature; callbacks.onPlan?.(events) }
   }
   function update() {
+    if (disposed) return
     flush()
     plan()
+    // Cancellation must be mirrored while the controller still has owner
+    // metadata. A replacement press can release and recreate the same owner
+    // within one operation, so only retire after that operation is complete.
+    if (mutationDepth === 0) endOwners()
     if (!disposed && timer === undefined && voices.size) timer = setTimeout(() => {
       timer = undefined
       update()
@@ -196,7 +201,7 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
       releaseLevel: 0, releaseLength: instrument.release, stopAt: Infinity, naturalEnd,
       attacked: false, released: false, cancelled: false, retiring: false }
     voices.add(voice)
-    source.onended = () => { update(); disconnect(voice); endOwners() }
+    source.onended = () => { update(); disconnect(voice); update() }
     source.start(at)
     update()
     return { release: (when: number) => releaseVoice(voice, when / 1000) }
@@ -216,8 +221,10 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
   })
   function safely(operation: () => void) {
     if (disposed) return
-    try { flush(); operation(); update() }
+    mutationDepth++
+    try { flush(); operation() }
     catch (error) { callbacks.onError?.(error instanceof Error ? error : new Error(String(error))) }
+    finally { mutationDepth--; update() }
   }
   function release(ownerId: string) {
     safely(() => { held.delete(ownerId); engine.release(ownerId) })

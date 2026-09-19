@@ -2,6 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPreparedNativeRenderer } from './renderer'
 import type { PreparedNativeInstrument } from '../../services/preparedNativeInstrument'
 import type { LiveVoiceEvent } from '../live/types'
+import type { LiveRendererCallbacks } from '../liveRenderer'
+import { createLivePerformance } from '../../services/livePerformance'
+
+const subscription = vi.hoisted(() => ({ listener: undefined as LiveRendererCallbacks | undefined }))
+vi.mock('../../services/livePlayback', () => ({
+  subscribeLivePlayback: (listener: LiveRendererCallbacks) => {
+    subscription.listener = listener
+    return () => { subscription.listener = undefined }
+  },
+}))
 
 function parameter() {
   return { value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn() }
@@ -24,7 +34,9 @@ function fixture() {
   const plans: LiveVoiceEvent[][] = []
   const ended = vi.fn()
   const renderer = createPreparedNativeRenderer(context, {} as AudioNode, {
-    onEvent: event => events.push(event), onPlan: plan => plans.push(plan), onOwnerEnded: ended,
+    onEvent: event => { events.push(event); subscription.listener?.onEvent(event) },
+    onPlan: plan => { plans.push(plan); subscription.listener?.onPlan?.(plan) },
+    onOwnerEnded: owner => { ended(owner); subscription.listener?.onOwnerEnded?.(owner) },
     onError: error => { throw error },
   })
   return { renderer, sources, gains, context, events, plans, ended }
@@ -34,7 +46,7 @@ const synth: PreparedNativeInstrument = { kind: 'oscillator', waveform: 'sine', 
 const note = (pitch = 60) => ({ pitch, instrumentId: 'sine' })
 const all: Array<ReturnType<typeof fixture>> = []
 function setup() { const value = fixture(); all.push(value); return value }
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(0) })
+beforeEach(() => { subscription.listener = undefined; vi.useFakeTimers(); vi.setSystemTime(0) })
 afterEach(() => { all.splice(0).forEach(({ renderer }) => renderer.dispose()); vi.useRealTimers() })
 
 describe('prepared native audio renderer', () => {
@@ -93,6 +105,42 @@ describe('prepared native audio renderer', () => {
     expect(ended).toHaveBeenCalledWith('hand')
     vi.advanceTimersByTime(1000)
     expect(events.filter(event => event.phase === 'attack')).toHaveLength(1)
+  })
+
+  it('mirrors cancellation of every queued note before owner metadata is retired', async () => {
+    const { renderer } = setup()
+    await renderer.prepare(synth)
+    const mirrored: Array<{ event: LiveVoiceEvent; phase: string }> = []
+    const performance = createLivePerformance({
+      now: () => Date.now() / 1000,
+      onEvent: vi.fn(), onOwnerClosed: vi.fn(), onError: error => { throw error },
+      onMirror: (event, metadata, phase) => { expect(metadata).toEqual({ pitch: 60 }); mirrored.push({ event, phase }) },
+    })
+    performance.press('hand', [note()], { pitch: 60 }, renderer, { style: 'repeat', bpm: 120, rate: 16 })
+    const queued = mirrored.filter(item => item.phase === 'attack' && item.event.at > 0).map(item => item.event.noteId)
+    expect(queued).toHaveLength(3)
+    vi.setSystemTime(50)
+    performance.release('hand')
+    expect(mirrored.filter(item => item.phase === 'cancel').map(item => item.event.noteId)).toEqual(queued)
+    expect(performance.release('hand')).toBe(false)
+    performance.dispose()
+  })
+
+  it('retains metadata when a press atomically replaces an existing owner', async () => {
+    const { renderer } = setup()
+    await renderer.prepare(synth)
+    const delivered: LiveVoiceEvent[] = []
+    const performance = createLivePerformance({
+      now: () => Date.now() / 1000,
+      onEvent: event => delivered.push(event), onMirror: vi.fn(), onOwnerClosed: vi.fn(), onError: error => { throw error },
+    })
+    const config = { style: 'together' as const, bpm: 120, rate: 16 as const }
+    performance.press('hand', [note(60)], {}, renderer, config)
+    performance.press('hand', [note(64)], {}, renderer, config)
+    expect(delivered.filter(event => event.phase === 'attack').map(event => event.pitch)).toEqual([60, 64])
+    expect(performance.release('hand')).toBe(true)
+    expect(delivered.filter(event => event.phase === 'release').map(event => event.pitch)).toEqual([60, 64])
+    performance.dispose()
   })
 
   it('revises queued arpeggio pitches on chord changes without replaying the first note', async () => {

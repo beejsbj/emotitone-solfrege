@@ -10,6 +10,7 @@ import {
  * A built-in is a complete Stage-appearance recipe, not a partial mutation of
  * whatever Look happened to come before it. Relationship and explanation
  * choices are the exception: those belong to the learner and survive a Look.
+ * Softness is appearance, so it remains owned by each complete Look.
  */
 function defineBuiltInStageLook(look: StageLook): StageLook {
   const patch = stageLookFromConfig(applyStageLook(DEFAULT_CONFIG, look.patch));
@@ -22,7 +23,7 @@ function defineBuiltInStageLook(look: StageLook): StageLook {
 }
 
 /**
- * Curated Stage-only Looks. The public library is deliberately small: three
+ * Curated Stage-only Looks. The public library is deliberately small: four
  * distinct built-ins plus the separate collection of user-saved Looks.
  */
 export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
@@ -61,6 +62,22 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         history: 0.12,
         smear: 0,
         thickness: 1.5,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
+    id: "still",
+    name: "Still",
+    description: "Crisp, fully present bodies held completely still.",
+    patch: {
+      blobs: {
+        isEnabled: true,
+        opacity: 1,
+        blurRadius: 0,
+        fieldSoftness: 0,
+        oscillationAmplitude: 0,
+        driftSpeed: 0,
+        vibrationAmplitude: 0,
       },
     },
   }),

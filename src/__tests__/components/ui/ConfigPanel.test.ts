@@ -352,7 +352,8 @@ describe("ConfigPanel.vue", () => {
     wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "stage");
     await nextTick();
 
-    expect(wrapper.findAll('[data-testid^="preset-apply-"]')).toHaveLength(3);
+    expect(wrapper.findAll('[data-testid^="preset-apply-"]')).toHaveLength(4);
+    expect(wrapper.get('[data-testid="preset-apply-still"]').text()).toContain("Still");
     const scene = wrapper.get('[data-testid="preset-apply-soft"]');
     expect(scene.element.tagName).toBe("BUTTON");
     expect(scene.find(".sticker--outline.sticker--color-ivory").exists()).toBe(true);

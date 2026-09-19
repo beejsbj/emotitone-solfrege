@@ -101,14 +101,18 @@ type StageLookSection =
 
 export const STAGE_LOOK_PREFERENCE_FIELDS = [
   "connectionMode",
-  "blurRadius",
-  "fieldSoftness",
   "fusionStrength",
   "webOpacity",
   "showChordLabel",
   "showIntervalLabels",
   "showEmotionLabel",
   "labelOpacity",
+] as const;
+
+export const STAGE_VARIATION_PREFERENCE_FIELDS = [
+  ...STAGE_LOOK_PREFERENCE_FIELDS,
+  "blurRadius",
+  "fieldSoftness",
 ] as const;
 
 const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
@@ -301,13 +305,36 @@ export function preserveStageLookPreferences(
   patch: StageLookPatch,
   currentConfig: VisualEffectsConfig,
 ): StageLookPatch {
+  return preserveBlobPreferences(
+    patch,
+    currentConfig,
+    STAGE_LOOK_PREFERENCE_FIELDS,
+  );
+}
+
+export function preserveStageVariationPreferences(
+  patch: StageLookPatch,
+  currentConfig: VisualEffectsConfig,
+): StageLookPatch {
+  return preserveBlobPreferences(
+    patch,
+    currentConfig,
+    STAGE_VARIATION_PREFERENCE_FIELDS,
+  );
+}
+
+function preserveBlobPreferences(
+  patch: StageLookPatch,
+  currentConfig: VisualEffectsConfig,
+  fields: readonly string[],
+): StageLookPatch {
   const next = sanitizeStageLookPatch(patch);
   const nextBlobs = {
     ...next.blobs,
   } as Record<string, unknown>;
   const currentBlobs = currentConfig.blobs as unknown as Record<string, unknown>;
 
-  for (const field of STAGE_LOOK_PREFERENCE_FIELDS) {
+  for (const field of fields) {
     nextBlobs[field] = currentBlobs[field];
   }
   next.blobs = nextBlobs;

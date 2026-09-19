@@ -8,6 +8,7 @@ import {
   diffStageLook,
   patchStageControl,
   preserveStageLookPreferences,
+  preserveStageVariationPreferences,
   readStageControls,
   resolveStageConfig,
   sanitizeStageLookPatch,
@@ -539,7 +540,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const currentEffective = effectiveConfig.value;
     let rootConfig = applyStageLook(
       config,
-      preserveStageLookPreferences(rootPatch, currentEffective),
+      preserveStageVariationPreferences(rootPatch, currentEffective),
     );
     rootConfig = patchStageControl(
       rootConfig,

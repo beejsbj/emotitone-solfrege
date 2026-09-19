@@ -259,9 +259,10 @@ describe("Stage appearance domain", () => {
     expect(applied.codeStrip).toEqual(backing.codeStrip);
   });
 
-  it("defines three complete built-ins while preserving learner preferences", () => {
+  it("defines four complete built-ins while preserving learner preferences", () => {
     expect(BUILT_IN_STAGE_LOOKS.map((look) => look.name)).toEqual([
       "Clear",
+      "Still",
       "Soft",
       "Luminous",
     ]);
@@ -275,16 +276,27 @@ describe("Stage appearance domain", () => {
         "hilbertScope",
       ]);
       expect(look.patch.blobs).toHaveProperty("isEnabled");
-      expect(look.patch.blobs).not.toHaveProperty("blurRadius");
       expect(look.patch.blobs).not.toHaveProperty("connectionMode");
       expect(look.patch.blobs).not.toHaveProperty("fusionStrength");
-      expect(look.patch.blobs).not.toHaveProperty("fieldSoftness");
       expect(look.patch.blobs).not.toHaveProperty("webOpacity");
       expect(look.patch.blobs).not.toHaveProperty("showChordLabel");
       expect(look.patch.blobs).not.toHaveProperty("showIntervalLabels");
       expect(look.patch.blobs).not.toHaveProperty("showEmotionLabel");
       expect(look.patch.blobs).not.toHaveProperty("labelOpacity");
     }
+
+    const still = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "still");
+    const stillConfig = applyStageLook(config(), still?.patch);
+    expect(readStageControls(stillConfig)).toMatchObject({
+      bodiesVisible: true,
+      bodyStrength: 1,
+      bodyMotion: 0,
+      connectionSoftness: 0,
+    });
+    expect(stillConfig.blobs).toMatchObject({
+      blurRadius: 0,
+      fieldSoftness: 0,
+    });
   });
 
   it("creates deterministic small variations around one explicit root", () => {

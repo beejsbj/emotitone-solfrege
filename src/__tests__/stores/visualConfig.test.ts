@@ -1002,8 +1002,8 @@ describe('Visual Config Store', () => {
       visualConfigStore.updateStageControl('labelStrength', 0.31)
       const expectedPreferences = {
         connectionMode: 'web',
-        blurRadius: 16,
-        fieldSoftness: 20,
+        blurRadius: 10,
+        fieldSoftness: 12.5,
         fusionStrength: 0.37,
         webOpacity: 0.15 + 0.37 * 0.75,
         showChordLabel: false,
@@ -1032,6 +1032,23 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
         backingPreferences,
       )
+    })
+
+    it('lets a built-in Look own body softness while preserving relationships', () => {
+      visualConfigStore.updateStageControl('connectionMode', 'web')
+      visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('showIntervals', false)
+
+      expect(visualConfigStore.applyBuiltInStageLook('still')).toBe(true)
+
+      expect(readStageControls(visualConfigStore.effectiveConfig)).toMatchObject({
+        bodyStrength: 1,
+        bodyMotion: 0,
+        connectionSoftness: 0,
+        connectionMode: 'web',
+        connectionStrength: expect.closeTo(0.37),
+        showIntervals: false,
+      })
     })
 
     it('keeps protected edits made between Shuffle variations', () => {

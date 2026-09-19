@@ -273,9 +273,7 @@ const drawSpecimen = (
     config,
     scene
   );
-  renderer.renderLabels(context, scene, config, {
-    now: 0, settled: true, reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  });
+  renderer.renderLabels(context, scene, config);
 };
 
 const drawAll = async () => {

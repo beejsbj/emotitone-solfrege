@@ -820,10 +820,7 @@ export function useBlobFieldRenderer() {
     const mode = config.connectionMode;
     const needsMergeCenter = mode === "merge" && scene?.primaryLabel?.roles?.includes("chord");
     // A scene may be reused by a static specimen; never retain a prior path.
-    if (scene) {
-      scene.renderedConnections = []; scene.mergeCenter = undefined;
-      scene.preparedBodies = frames.filter(frame => scene.points.some(point => point.blob === frame.blob));
-    }
+    if (scene) { scene.renderedConnections = []; scene.mergeCenter = undefined; }
     if (frames.length === 0 || mode === "off") {
       return false;
     }

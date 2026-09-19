@@ -24,45 +24,6 @@ function setup(width = 320, height = 240, title = "Cmaj9") {
 }
 
 describe("musical canvas typography", () => {
-  it("adopts blob silhouettes for primary and interval text, with still Reduced Motion pixels", () => {
-    const { scene, ctx, render } = setup(390, 330, "Cm7");
-    Object.defineProperty(ctx.canvas, "ownerDocument", { value: {
-      createElement: () => createCanvas(1, 1),
-    } });
-    scene.connectionMode = "merge";
-    scene.auxiliaryLabels = [{ x: 70, y: 60, size: "sm", lines: ["3m"], notePair: ["a", "b"] }];
-    scene.renderedConnections = [{ notePair: ["a", "b"], material: "merge", colors: ["red", "blue"],
-      opacity: 1, points: [{ x: 40, y: 60 }, { x: 100, y: 60 }] }];
-    const text = vi.spyOn(ctx, "fillText"), fill = vi.spyOn(ctx, "fill");
-    const first = render(1000, true);
-    expect(text).not.toHaveBeenCalled();
-    expect(fill).toHaveBeenCalledWith("evenodd");
-    expect(render(2000, true).equals(first)).toBe(true);
-  });
-
-  it("repositions settled shape snapshots without advancing their clock", () => {
-    const { scene, ctx, draw } = setup(800, 500);
-    const translate = vi.spyOn(ctx, "translate");
-    draw(ctx, scene, 1, false, { now: 0, reducedMotion: false, settled: true });
-    scene.primaryLabel!.x = 550;
-    translate.mockClear();
-    draw(ctx, scene, 1, false, { now: 0, reducedMotion: false, settled: true });
-    expect(translate.mock.calls[0][0]).toBe(550);
-  });
-
-  it("deforms with body shape, not elapsed time, and disables strain for Reduced Motion", () => {
-    const { scene, render } = setup();
-    render(0);
-    const plain = render(1000);
-    scene.preparedBodies = [{ blob: { x: 0, y: 0 }, scaledRadius: 40, opacity: 1,
-      contour: [{ x: 60, y: 0 }, { x: 0, y: 40 }, { x: -60, y: 0 }, { x: 0, y: -40 }],
-    } as NonNullable<HarmonicGeometryScene["preparedBodies"]>[number]];
-    const strained = render(2000);
-    expect(strained.equals(plain)).toBe(false);
-    expect(render(5000).equals(strained)).toBe(true);
-    expect(render(6000, true).equals(plain)).toBe(true);
-  });
-
   it("leaves both phone-triad joins readable around the central chord", () => {
     const { scene, ctx, render } = setup(390, 395, "CM");
     scene.connectionMode = "merge"; scene.mergeCenter = { x: 279, y: 153 };

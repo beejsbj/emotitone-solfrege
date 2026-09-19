@@ -56,11 +56,18 @@ export async function exercisePatternUi({ call, evaluate, delay }) {
   const stopped = await capture(700);
   const stoppedUi = await evaluate('Boolean(document.querySelector(\'.code-strip-bar [aria-label="Play"]\'))');
   const contextCount = await evaluate('window.__audioUiLab.contexts.length');
+  const sourceIdentity=event=>`${event.duration}/${event.playbackRate}`;
+  const firstSources=new Set(first.trace.filter(event=>event.type==='buffer-source-start').map(sourceIdentity));
+  const editedSources=new Set(edited.trace.filter(event=>event.type==='buffer-source-start').map(sourceIdentity));
+  // C4 and E4 must schedule different prepared sample roots/rates. Continued
+  // sound alone would not prove that the live editor update took effect.
+  const changedSound=[...editedSources].some(identity=>!firstSources.has(identity));
   return {
     scenario:'Actual CodeStrip text edit, Play, live Ctrl+Enter edit, common master mute/restore, Stop',
     originalCode,firstCode,editedCode,playingBeforeEdit,playingAfterEdit,stoppedUi,contextCount,
-    first,edited,muted,restored,stopped,
-    passed:playingBeforeEdit && playingAfterEdit && stoppedUi && contextCount===1
+    first,edited,muted,restored,stopped,changedSound,
+    firstSources:[...firstSources],editedSources:[...editedSources],
+    passed:playingBeforeEdit && playingAfterEdit && changedSound && stoppedUi && contextCount===1
       && first.finitePcm && edited.finitePcm && first.peak>0.001 && edited.peak>0.001
       && muted.peak<0.001 && restored.peak>0.001 && stopped.peak<0.001,
   };

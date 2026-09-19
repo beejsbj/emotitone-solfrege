@@ -68,7 +68,7 @@
   const nativeStart = AudioBufferSourceNode.prototype.start;
   AudioBufferSourceNode.prototype.start = function(at, ...args) {
     mark('buffer-source-start', { audioTime: this.context.currentTime, contextIndex: contexts.indexOf(this.context),
-      scheduledAt: at ?? this.context.currentTime, duration: this.buffer?.duration ?? null });
+      scheduledAt: at ?? this.context.currentTime, duration: this.buffer?.duration ?? null, playbackRate: this.playbackRate.value });
     return nativeStart.call(this, at, ...args);
   };
   window.AudioWorkletNode = class extends NativeWorklet {

@@ -104,6 +104,8 @@ export interface HarmonicConnectionPath {
 }
 
 export interface HarmonicGeometryScene {
+  /** Exact prepared bodies; lettering samples shape, never a separate motion clock. */
+  preparedBodies?: readonly PreparedBlobFrame[];
   /** Centre of visible Merge material, projected inside the body if necessary. */
   mergeCenter?: { x: number; y: number };
   connectionMode?: "off" | "web" | "merge";

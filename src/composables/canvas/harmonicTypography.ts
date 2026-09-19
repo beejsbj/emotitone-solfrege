@@ -2,11 +2,12 @@ import { Chord } from "@tonaljs/tonal";
 import type { HarmonicGeometryScene } from "@/types/canvas";
 import type { StageRect } from "./stageRuntime";
 import { layoutIntervalLettering, paintIntervalLettering, type IntervalLettering } from "./intervalLettering";
+import { organicGlyph, sampleLetteringShape } from "./organicLettering";
 
 type Glyph = { text: string; x: number; width: number };
 type Line = { text: string; glyphs: Glyph[]; width: number; y: number; size: number; chord: boolean };
 type Box = { x: number; y: number; width: number; height: number };
-export type HarmonicLabelFrame = { now: number; reducedMotion: boolean; bounds?: StageRect };
+export type HarmonicLabelFrame = { now: number; reducedMotion: boolean; bounds?: StageRect; settled?: boolean };
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const overlaps = (a: Box, b: Box, padding = 8) => Math.abs(a.x - b.x) < (a.width + b.width) / 2 + padding
   && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + padding;
@@ -62,6 +63,7 @@ export function createHarmonicTypography() {
     const layoutKey = `${identity}:${maxWidth}`;
     const now = frame?.now ?? 0;
     const still = !frame || frame.reducedMotion;
+    const shape = sampleLetteringShape(still ? [] : scene.preparedBodies);
     const chordText = label?.lines.find((_, i) => label.roles?.[i] === "chord") ?? "";
     if (state.identity !== identity) {
       state.identity = identity; state.started = now;
@@ -111,11 +113,11 @@ export function createHarmonicTypography() {
       state.width = Math.max(0, ...state.lines.map(l => l.width)) + 22;
     }
     const duration = state.gesture === "hang" ? 280 : 220;
-    const t = still ? 1 : clamp((now - state.started) / duration, 0, 1);
+    const t = still || frame?.settled ? 1 : clamp((now - state.started) / duration, 0, 1);
     const remaining = Math.pow(1 - t, 3);
     const dt = clamp(now - state.previous, 0, 64);
     state.previous = now;
-    const follow = still ? 1 : 1 - Math.exp(-dt / 100);
+    const follow = still || frame?.settled ? 1 : 1 - Math.exp(-dt / 100);
     state.x += ((label?.x ?? state.x) - state.x) * follow;
     state.y += ((label?.y ?? state.y) - state.y) * follow;
     const merge = scene.connectionMode === "merge";
@@ -172,7 +174,7 @@ export function createHarmonicTypography() {
     ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     integrated.forEach(layout => paintIntervalLettering(ctx, layout,
-      { opacity, font: state.font, ink: state.ink, ivory: state.ivory }));
+      { opacity, font: state.font, ink: state.ink, ivory: state.ivory, deform: !still }));
     if (primaryFits) {
       const box = primaryBox;
       // The interval belongs to the filament. Move the central annotation,
@@ -219,10 +221,12 @@ export function createHarmonicTypography() {
             const curve = line.chord ? 0 : 5 * unit * unit;
             const jitter = line.chord ? ((seed + index * 17) % 7 - 3) * 0.4 : 0;
             const tilt = line.chord ? ((seed + index * 11) % 7 - 3) * 0.018 : unit * 0.11;
+            const organic = organicGlyph(shape, unit, line.chord);
             ctx.save();
-            ctx.translate(glyph.x * (state.gesture === "open" ? 1 - remaining * 0.12 : 1),
-              line.y + curve + jitter + remaining * (state.gesture === "hang" ? -7 : 6));
-            ctx.rotate(tilt + (line.chord ? -0.035 : 0) + (state.gesture === "hang" ? remaining * -0.08 : 0));
+            ctx.translate(glyph.x * (state.gesture === "open" ? 1 - remaining * 0.12 : 1) + organic.x,
+              line.y + curve + jitter + organic.y + remaining * (state.gesture === "hang" ? -7 : 6));
+            ctx.rotate(tilt + organic.angle + (line.chord ? -0.035 : 0) + (state.gesture === "hang" ? remaining * -0.08 : 0));
+            ctx.scale(organic.scaleX, organic.scaleY);
             // Hard ink offset gives the paper letters a crisp silhouette, without a halo.
             ctx.fillStyle = state.ink;
             ctx.fillText(glyph.text, line.chord ? 2 : 1, line.chord ? 3 : 1.5);

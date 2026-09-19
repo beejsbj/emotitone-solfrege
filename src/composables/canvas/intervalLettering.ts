@@ -53,7 +53,7 @@ export function layoutIntervalLettering(label: HarmonicGeometryLabel, path: Harm
 
 /** Fine chromatic core with a genuine unpainted gap; never erase the Stage below. */
 export function paintIntervalLettering(ctx: CanvasRenderingContext2D, layout: IntervalLettering,
-  style: { opacity: number; font: string; ink: string; ivory: string }) {
+  style: { opacity: number; font: string; ink: string; ivory: string; deform?: boolean }) {
   const { path, lengths, total, position, gap, box, angle, label } = layout;
   const trace = (start: number, end: number) => {
     if (end <= start) return;
@@ -85,7 +85,39 @@ export function paintIntervalLettering(ctx: CanvasRenderingContext2D, layout: In
   ctx.font = `400 ${layout.fontSize}px ${style.font}`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = style.ink;
-  ctx.strokeText(label.lines.join(" "), 0, 0);
-  ctx.fillStyle = style.ivory; ctx.fillText(label.lines.join(" "), 0, 0);
+  ctx.fillStyle = style.ivory;
+  const text = label.lines.join(" ");
+  if (!style.deform || total < 0.001) {
+    ctx.strokeText(text, 0, 0); ctx.fillText(text, 0, 0);
+  } else {
+    // Preserve the measured string advance: glyphs flex normal to the real join,
+    // never bunch together or reverse reading order when the path is reversed.
+    const widths = Array.from(text, glyph => ctx.measureText(glyph).width);
+    const width = ctx.measureText(text).width;
+    const advanceScale = width / Math.max(0.001, widths.reduce((sum, value) => sum + value, 0));
+    const tangentBefore = pointAt(path, lengths, Math.max(0, position - 2));
+    const tangentAfter = pointAt(path, lengths, Math.min(total, position + 2));
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const direction = (tangentAfter.x - tangentBefore.x) * cos
+      + (tangentAfter.y - tangentBefore.y) * sin < 0 ? -1 : 1;
+    const sample = (offset: number) => pointAt(path, lengths,
+      Math.max(0, Math.min(total, position + direction * offset)));
+    let cursor = -width / 2;
+    Array.from(text).forEach((glyph, i) => {
+      const advance = widths[i] * advanceScale;
+      const x = cursor + advance / 2;
+      const point = sample(x), before = sample(x - 2), after = sample(x + 2);
+      const normal = -(point.x - box.x) * sin + (point.y - box.y) * cos;
+      const dx = after.x - before.x, dy = after.y - before.y;
+      const relativeAngle = Math.atan2(dy * cos - dx * sin, dx * cos + dy * sin);
+      const flex = Math.max(-0.1, Math.min(0.1, relativeAngle));
+      ctx.save();
+      ctx.translate(x, Math.max(-2, Math.min(2, normal)));
+      ctx.rotate(Math.max(-Math.PI / 2 - angle, Math.min(Math.PI / 2 - angle, flex)));
+      ctx.strokeText(glyph, 0, 0); ctx.fillText(glyph, 0, 0);
+      ctx.restore();
+      cursor += advance;
+    });
+  }
   ctx.restore();
 }

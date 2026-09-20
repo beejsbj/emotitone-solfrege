@@ -389,6 +389,23 @@ describe("ConfigPanel.vue", () => {
     panel.vm.$emit("update:modelValue", "stage");
     await nextTick();
     expect(wrapper.find('[data-testid="new-look-on-launch"]').exists()).toBe(false);
+    const mainKeep = wrapper.getComponent('[data-testid="stage-look-keep"]');
+    const mainDiscard = wrapper.getComponent('[data-testid="stage-look-discard"]');
+    expect(mainKeep.props("disabled")).toBe(false);
+    expect(mainDiscard.props("disabled")).toBe(false);
+
+    visualConfigStore.stageControls.stageEnabled = false;
+    await nextTick();
+    expect(mainKeep.props("disabled")).toBe(true);
+    expect(mainDiscard.props("disabled")).toBe(true);
+
+    visualConfigStore.stageControls.stageEnabled = true;
+    visualConfigStore.visualsEnabled = false;
+    await nextTick();
+    expect(mainKeep.props("disabled")).toBe(true);
+    expect(mainDiscard.props("disabled")).toBe(true);
+
+    visualConfigStore.visualsEnabled = true;
 
     panel.vm.$emit("update:modelValue", "bodies");
     await nextTick();

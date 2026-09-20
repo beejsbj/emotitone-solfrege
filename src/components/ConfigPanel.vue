@@ -238,6 +238,7 @@
                 <div class="config-panel__look-preview-actions">
                   <Button
                     size="sm"
+                    :disabled="stageLooksDisabled"
                     data-testid="stage-look-keep"
                     title="Keep this Stage Look"
                     accessible-name="Keep this Stage Look"
@@ -245,6 +246,7 @@
                   ><Check :size="14" /></Button>
                   <Button
                     size="sm"
+                    :disabled="stageLooksDisabled"
                     data-testid="stage-look-discard"
                     title="Discard this Stage Look"
                     accessible-name="Discard this Stage Look"
@@ -333,7 +335,7 @@
                 <div class="config-panel__look-preview-actions">
                   <Button
                     size="sm"
-                    :disabled="!visualsEnabled || !stageControls.stageEnabled"
+                    :disabled="stageLooksDisabled"
                     :data-testid="`stage-look-keep-${destination.value}`"
                     title="Keep this Stage Look"
                     accessible-name="Keep this Stage Look"
@@ -341,7 +343,7 @@
                   ><Check :size="14" /></Button>
                   <Button
                     size="sm"
-                    :disabled="!visualsEnabled || !stageControls.stageEnabled"
+                    :disabled="stageLooksDisabled"
                     :data-testid="`stage-look-discard-${destination.value}`"
                     title="Discard this Stage Look"
                     accessible-name="Discard this Stage Look"

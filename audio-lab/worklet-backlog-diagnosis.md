@@ -94,3 +94,29 @@ probes are preserved unchanged. The targeted run does not enable the CPU profile
 ```sh
 LAB_UI_BACKEND=worklet LAB_NATIVE_COMPARE=1 LAB_NATIVE_TARGETED=1 LAB_UI_STARTUP_SECONDS=60 LAB_UI_TRIALS=0 LAB_UI_FILTER='^$' node audio-lab/ui-run.mjs audio-lab/results/native-comparison/worklet-inbox-targeted.json
 ```
+
+The first unprofiled inbox follow-up at native-worker `f381e4a` (source/harness
+matching root `9b07188`) improved delivery substantially but **failed the declared
+settlement bound**. [Its raw receipt](results/native-comparison/worklet-inbox-targeted.json)
+remains unchanged. All other checks pass: 44/44 PCM windows; all three pitches on
+every fully held beat; 286 unique, ordered lifecycle events; 143 completed and
+recorded notes with valid timelines; exactly three owners closed; no active
+musical notes; and exact PCM silence starting 100 ms after the actual last keyup.
+There were no browser warnings and external event-loop slip was 2.0 ms.
+
+Final owner/lifecycle settlement took **1,947.5 ms** after final trusted release,
+against the predeclared 1,000 ms bound. This must not be described as a pass or
+fixed by relaxing the bound after measurement.
+
+Batching itself worked. Grouping by consecutive interdelivery gaps of at most
+3 ms gives ten groups, including groups of 87 and 75 events. (The earlier
+2 ms-from-group-start statistic subdivides a long batch; neither statistic is a
+direct browser task identifier.) Residual work delayed messages before they even
+entered the inbox: the last lifecycle arrivals occurred about 4.896 seconds after
+first input for an audio edge at 3.289 seconds; the last drain completed at 5.237
+seconds. Arrival bursts were also followed by long application/browser tasks
+before inbox draining, for example arrival at 2.181 seconds, a 265 ms long task,
+and drain at 2.467 seconds. After the final arrival, 235 ms and 81 ms tasks preceded
+the last drain. Other post-command tasks reached 454/561 ms. A second posted-task
+hop has no demonstrated reason to fix that remaining application task starvation.
+No second target or full follow-up was run after this failed acceptance attempt.

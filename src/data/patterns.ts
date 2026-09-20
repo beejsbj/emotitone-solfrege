@@ -1,4 +1,5 @@
 import type { Pattern, PatternNote } from "@/types/patterns";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 type MelodyStep = {
   note: string;
@@ -42,7 +43,7 @@ function buildDefaultPattern(
   id: string,
   name: string,
   steps: MelodyStep[],
-  instrument = "piano"
+  instrument = DEFAULT_INSTRUMENT
 ): Pattern {
   const notes = buildPatternNotes(id, steps);
   const firstNote = notes[0];

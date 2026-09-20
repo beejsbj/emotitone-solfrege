@@ -57,20 +57,16 @@ type Category =
   | "strings"
   | "organs"
   | "winds"
-  | "drums"
-  | "gm"
-  | "other";
+  | "gm";
 
 const CATEGORY_ORDER: Category[] = [
+  "synths",
   "keyboards",
   "mallets",
   "strings",
   "organs",
   "winds",
-  "synths",
-  "drums",
   "gm",
-  "other",
 ];
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -80,9 +76,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   strings: "Strings",
   organs: "Organs",
   winds: "Winds",
-  drums: "Drums & Percussion",
   gm: "GM Soundfonts",
-  other: "Other",
 };
 
 const CATEGORY_SHORT_LABELS: Record<Category, string> = {
@@ -92,9 +86,7 @@ const CATEGORY_SHORT_LABELS: Record<Category, string> = {
   strings: "Strings",
   organs: "Organs",
   winds: "Winds",
-  drums: "Drums",
   gm: "GM",
-  other: "Other",
 };
 
 const KEYBOARD_SOUNDS = new Set([
@@ -231,20 +223,10 @@ const SYNTH_SOUNDS = new Set([
   "sin",
   "sqr",
   "saw",
-  "brown",
-  "white",
-  "pink",
-  "bytebeat",
-  "crackle",
-  "sbd",
-  "zzfx",
-  "user",
-  "z_noise",
   "z_sine",
   "z_square",
   "z_sawtooth",
   "z_triangle",
-  "z_tan",
   "gm_lead_1_square",
   "gm_lead_2_sawtooth",
   "gm_lead_3_calliope",
@@ -261,6 +243,96 @@ const SYNTH_SOUNDS = new Set([
   "gm_pad_metallic",
   "gm_pad_halo",
   "gm_pad_sweep",
+  "gm_synth_bass_1",
+  "gm_synth_bass_2",
+  "gm_synth_brass_1",
+  "gm_synth_brass_2",
+  "gm_synth_choir",
+]);
+
+const EXCLUDED_SOUNDS = new Set([
+  // Unpitched noise / non-melodic synths
+  "brown",
+  "white",
+  "pink",
+  "bytebeat",
+  "crackle",
+  "sbd",
+  "zzfx",
+  "user",
+  "bus",
+  "z_noise",
+  "z_tan",
+  // VCSL percussion / unpitched SFX
+  "agogo",
+  "anvil",
+  "ballwhistle",
+  "bassdrum1",
+  "bassdrum2",
+  "belltree",
+  "bongo",
+  "brakedrum",
+  "cabasa",
+  "cajon",
+  "clap",
+  "clash",
+  "clash2",
+  "clave",
+  "cowbell",
+  "darbuka",
+  "fingercymbal",
+  "flexatone",
+  "framedrum",
+  "gong",
+  "gong2",
+  "guiro",
+  "hihat",
+  "marktrees",
+  "oceandrum",
+  "ratchet",
+  "shaker_large",
+  "shaker_small",
+  "siren",
+  "slapstick",
+  "sleighbells",
+  "slitdrum",
+  "snare_hi",
+  "snare_low",
+  "snare_modern",
+  "snare_rim",
+  "sus_cymbal",
+  "sus_cymbal2",
+  "tambourine",
+  "tambourine2",
+  "timpani",
+  "timpani2",
+  "timpani_roll",
+  "tom_mallet",
+  "tom_rim",
+  "tom_stick",
+  "tom2_mallet",
+  "tom2_rim",
+  "tom2_stick",
+  "trainwhistle",
+  "triangles",
+  "vibraslap",
+  "woodblock",
+  // GM sound effects & unpitched percussion
+  "gm_applause",
+  "gm_bird_tweet",
+  "gm_breath_noise",
+  "gm_guitar_fret_noise",
+  "gm_gunshot",
+  "gm_helicopter",
+  "gm_melodic_tom",
+  "gm_orchestra_hit",
+  "gm_reverse_cymbal",
+  "gm_seashore",
+  "gm_synth_drum",
+  "gm_taiko_drum",
+  "gm_telephone",
+  "gm_timpani",
+  // GM FX
   "gm_fx_rain",
   "gm_fx_soundtrack",
   "gm_fx_crystal",
@@ -269,41 +341,22 @@ const SYNTH_SOUNDS = new Set([
   "gm_fx_goblins",
   "gm_fx_echoes",
   "gm_fx_sci_fi",
-  "gm_synth_bass_1",
-  "gm_synth_bass_2",
-  "gm_synth_brass_1",
-  "gm_synth_brass_2",
-  "gm_synth_drum",
-  "gm_synth_choir",
 ]);
 
-function categorise(name: string): Category {
+const UNPITCHED_REGEX =
+  /^(gm_drum|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|triangles|vibraslap|wine|wood)|^(AJK|Akai|Roland|casio|crow|insect|wind|jazz|metal|east|space|numbers)/;
+
+function categorise(name: string): Category | null {
+  if (EXCLUDED_SOUNDS.has(name)) return null;
+  if (SYNTH_SOUNDS.has(name)) return "synths";
   if (KEYBOARD_SOUNDS.has(name)) return "keyboards";
   if (MALLET_SOUNDS.has(name)) return "mallets";
   if (STRING_SOUNDS.has(name)) return "strings";
   if (ORGAN_SOUNDS.has(name)) return "organs";
   if (WIND_SOUNDS.has(name)) return "winds";
-  if (SYNTH_SOUNDS.has(name)) return "synths";
-  if (
-    /^(gm_drum|gm_taiko|gm_melodic_tom|gm_reverse_cymbal|gm_gunshot|gm_helicopter|gm_applause|gm_bird_tweet|gm_telephone|gm_seashore|gm_orchestra_hit|gm_brass_section|gm_voice_oohs|gm_choir_aahs|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|bass|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|trian|vibra|wine|wood)/.test(
-      name
-    )
-  ) {
-    return "drums";
-  }
+  if (UNPITCHED_REGEX.test(name)) return null;
   if (name.startsWith("gm_")) return "gm";
-  if (
-    name.startsWith("AJK") ||
-    name.startsWith("Akai") ||
-    name.startsWith("Roland") ||
-    name.includes("_bd") ||
-    name.includes("_sd") ||
-    name.includes("_hh")
-  ) {
-    return "drums";
-  }
-
-  return "other";
+  return null;
 }
 
 const filteredSounds = computed(() => {
@@ -320,6 +373,7 @@ function groupSounds(sounds: string[]) {
 
   for (const sound of sounds) {
     const category = categorise(sound);
+    if (!category) continue;
     if (!map[category]) {
       map[category] = [];
     }
@@ -329,7 +383,7 @@ function groupSounds(sounds: string[]) {
   return map;
 }
 
-const activeTab = ref<Category>(categorise(currentInstrumentId.value));
+const activeTab = ref<Category>(categorise(currentInstrumentId.value) ?? "synths");
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
@@ -354,9 +408,9 @@ const bankTabs = computed<TabbedOverlayTab[]>(() =>
 
 function syncActiveTabToInstrument(instrumentId: string) {
   const preferredCategory = categorise(instrumentId);
-  activeTab.value = allGrouped.value[preferredCategory]?.length
+  activeTab.value = (preferredCategory && allGrouped.value[preferredCategory]?.length)
     ? preferredCategory
-    : categoryTabs.value[0]?.key ?? preferredCategory;
+    : categoryTabs.value[0]?.key ?? "synths";
 }
 
 onMounted(async () => {
@@ -366,7 +420,9 @@ onMounted(async () => {
     // The global loading flow already reports degraded initialization. Keep
     // the chooser usable for whatever sounds were registered successfully.
   }
-  allSounds.value = getRegisteredSounds().sort();
+  allSounds.value = getRegisteredSounds()
+    .filter((sound) => categorise(sound) !== null)
+    .sort();
   syncActiveTabToInstrument(currentInstrumentId.value);
 });
 

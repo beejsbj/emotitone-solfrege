@@ -19,6 +19,7 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import { prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { getLiveArticulation } from "@/services/liveArticulation";
@@ -81,16 +82,12 @@ export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
 const SAMPLE_PACKS = [
   { key: "piano", label: "Piano" },
   { key: "vcsl", label: "Orchestra" },
-  { key: "tidal-drum-machines", label: "Drum Machines" },
-  { key: "EmuSP12", label: "EmuSP12" },
-  { key: "Dirt-Samples", label: "Dirt Samples" },
-  { key: "mridangam", label: "Mridangam" },
 ] as const;
 
 /**
  * Core pre-warm logic — assumes superdough is already initialised.
  * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
- * from inside the init flow (e.g. _prewarmPianoSamples called by initSuperdoughAudio).
+ * from inside the init flow (e.g. _prewarmDefaultInstrument called by initSuperdoughAudio).
  */
 async function _prewarmSoundCore(
   soundName: string,
@@ -204,9 +201,9 @@ export function getReadySounds(): string[] {
   return getRegisteredSounds().filter((soundName) => isPrewarmed(soundName));
 }
 
-async function _prewarmPianoSamples(): Promise<void> {
+async function _prewarmDefaultInstrument(): Promise<void> {
   // Called from within initSuperdoughAudio — skip the init guard to avoid deadlock.
-  return _prewarmSoundCore("piano", true);
+  return _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
 }
 
 /**
@@ -256,9 +253,9 @@ export async function initSuperdoughAudio(
 
       // Only the default instrument is decoded eagerly. Other registered
       // instruments warm on selection so startup stays bounded on mobile.
-      progressCallback?.(80, "Warming up piano…");
-      await _prewarmPianoSamples();
-      progressCallback?.(98, "Piano ready");
+      progressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
+      await _prewarmDefaultInstrument();
+      progressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
 
       progressCallback?.(100, "Audio engine ready");
       _initialized = true;

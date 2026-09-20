@@ -59,8 +59,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import InstrumentSelector from "../components/InstrumentSelector.vue";
+import { DEFAULT_INSTRUMENT } from "../data/instruments";
 
-const currentInstrument = ref("piano");
+const currentInstrument = ref(DEFAULT_INSTRUMENT);
 
 function selectInstrument(instrumentId: string) {
   currentInstrument.value = instrumentId;

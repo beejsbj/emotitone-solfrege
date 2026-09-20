@@ -61,7 +61,7 @@ Burooj replaced blanket-static history with visible-only motion. The same CodeSt
 
 The final [focused unprofiled capture](results/pattern-growth-viewport-20260920.json), with current main integrated, verifies natural 512-note follow, both six-note 512→518 append sequences, visible hue following its setting, 117 clipped mounted notes remaining static while 13 visible notes animate, horizontal scroll-away/return, Reduced Motion, and rich Play/Stop. Media emulation explicitly selects screen media and waits for two rendering frames; the capture records both actual media-query matching and the shared color clock's reduced-motion flag. The prior [complete failed capture](results/pattern-growth-viewport-pre-media-failed-20260920.json) used an unsettled media probe and remains diagnostic evidence.
 
-**The strict 500ms append LongTask gate remains unmet.** No threshold changed, and no additional retries were made to obtain a pass:
+**That pre-repair capture missed the strict 500ms append LongTask gate.** No threshold changed, and no unchanged-source retries were made to obtain a pass:
 
 | Final focused measurement | Result |
 | --- | ---: |
@@ -91,8 +91,24 @@ Three earlier incomplete viewport captures are retained alongside the final rece
 
 Commit `ccdad1f` moves native reveal dispatch into a coalesced microtask after CodeMirror's measurement lock is released. The owner discards stale document/view/generation requests and cancels pending work before teardown or replacement by a newer follow; transport-follow state remains active. The component regression first reproduced the exact nested-update error (Vitest exit 1), then passed with the fix. Thirty-five component/real-EditorView queue tests and typecheck passed; direct queue tests cover latest-target coalescing, document/view replacement, teardown cancellation, and a new request after cancellation.
 
-The [functional-only follow-up](results/pattern-growth-viewport-deferred-smoke-20260920.json), captured at `ccdad1f`, records **zero warnings/errors** with six real 512→518 appends, visible hue/clipped stillness, natural long-line follow, manual scroll-away/return, actual Reduced Motion media and shared-clock state, and rich Play/Stop with an active glyph. This resolves the recorded nested-update functional failure. Its abbreviated `viewport-smoke` mode cannot pass the complete performance checker; the last complete timing capture's 502ms failure remains open pending a separately verified source change and complete capture.
+The [functional-only follow-up](results/pattern-growth-viewport-deferred-smoke-20260920.json), captured at `ccdad1f`, records **zero warnings/errors** with six real 512→518 appends, visible hue/clipped stillness, natural long-line follow, manual scroll-away/return, actual Reduced Motion media and shared-clock state, and rich Play/Stop with an active glyph. This resolves the recorded nested-update functional failure. Its abbreviated `viewport-smoke` mode cannot pass the complete performance checker; at that point the 502ms timing failure remained open pending a separately verified source change and complete capture.
 
 ```sh
 LAB_PATTERN_VIEWPORT_SMOKE=1 LAB_PATTERN_RESULT=/tmp/pattern-viewport-smoke.json node audio-lab/pattern-growth.mjs
 ```
+
+### Final integrated focused capture
+
+The [final repaired-source capture](results/pattern-growth-viewport-repaired-20260920.json) **passes all four-condition focused gates**, including the unchanged 500ms maximum append LongTask criterion and zero captured browser warnings/errors. This was one capture after verified source changes: deferred native reveal, synchronous pattern serialization without reactive proxy traversal, and exact worklet-response batching. Its revision `48b8962` has the same production source as the parent's frozen `bf26759`; no source changed during the run. Earlier failures and the separate profile remain preserved above.
+
+| Final integrated measurement | Result |
+| --- | ---: |
+| 16-note hue-on stopped keydown median | 117.3ms |
+| 512-note hue-on stopped keydown median | 159.3ms (1.36×) |
+| 512→518 maximum LongTask, hue off | 458ms |
+| 512→518 maximum LongTask, hue on | 405ms |
+| Captured browser warnings/errors | 0 |
+
+Both six-note append sequences reach 518. Visible hue follows configuration, clipped mounted notes remain still, native long-line follow leaves real glyphs in view, horizontal scroll-away/return resumes current color, and Reduced Motion matches both the real media query and shared clock while all sampled motion remains still. Rich Play/Stop includes an active glyph. The [checker transcript](results/pattern-growth-viewport-repaired-20260920.check.txt) records the complete verdict. The receipt contains all 668 tested source hashes and aggregate SHA256 `46f921ed76328e9260c829325aaa18c666445c8f1032249c9404b4aa0fd57dc7`; installed CodeMirror and Superdough hashes match the preceding exact-patch captures.
+
+This closes the local focused CodeStrip gate. Absolute input delays remain visible in the table and are not acoustic latency or a physical-device performance guarantee. No unchanged-source rerun, threshold relaxation, or new guide/production screenshot claim was used to obtain the result.

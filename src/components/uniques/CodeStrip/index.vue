@@ -178,6 +178,7 @@ let pendingPreserveUIBeat = false;
 interface ActiveUIBeatRun {
   generation: number;
   mappingAvailable: boolean;
+  phaseSourceKey: string | null;
   bpm: number;
   beatsPerBar: number;
   preservePhase: boolean;
@@ -278,6 +279,13 @@ const generatedCode = computed(() => {
     sound: toStrudelSound(sketchMeta.value.instrument ?? "sine"),
   }).replace(/\s+/g, " ").trim();
 });
+const generatedPhaseSourceKey = computed(() => {
+  const code = generatedCode.value.trim();
+  const tempoSuffix = `.cpm(${codeStripConfig.value.bpm} / ${GENERATED_BEATS_PER_BAR})`;
+  // Only the canonical generated playback-tempo suffix is phase-neutral.
+  // Notes, durations, scale, instrument and any other source must still match.
+  return code.endsWith(tempoSuffix) ? code.slice(0, -tempoSuffix.length) : null;
+});
 const isEmptyDocument = computed(
   () => (visibleCode.value || generatedCode.value).trim() === EMPTY_EDITOR_CODE,
 );
@@ -314,6 +322,7 @@ function armUIBeatForEvaluation(
     currentDocument !== EMPTY_EDITOR_CODE &&
     currentDocument === generatedCode.value.trim();
   const bpm = codeStripConfig.value.bpm;
+  const phaseSourceKey = mappingAvailable ? generatedPhaseSourceKey.value : null;
   const currentRun = activeUIBeatRun;
   const currentSnapshot = uiBeatClock.snapshot;
   const canPreservePhase =
@@ -321,6 +330,8 @@ function armUIBeatForEvaluation(
     mappingAvailable &&
     currentRun?.ready === true &&
     currentRun.mappingAvailable &&
+    phaseSourceKey !== null &&
+    currentRun.phaseSourceKey === phaseSourceKey &&
     currentSnapshot.generation === currentRun.generation &&
     currentSnapshot.status === "running" &&
     currentSnapshot.barPosition !== null &&
@@ -338,6 +349,7 @@ function armUIBeatForEvaluation(
     return {
       generation: currentRun.generation,
       mappingAvailable,
+      phaseSourceKey,
       bpm,
       beatsPerBar: GENERATED_BEATS_PER_BAR,
       preservePhase: true,
@@ -358,6 +370,7 @@ function armUIBeatForEvaluation(
   activeUIBeatRun = {
     generation,
     mappingAvailable,
+    phaseSourceKey,
     bpm,
     beatsPerBar: GENERATED_BEATS_PER_BAR,
     preservePhase: false,
@@ -448,6 +461,8 @@ function canPreserveUIBeatPhase(instance: StrudelMirrorInstance) {
   return Boolean(
     run?.ready === true &&
     run.mappingAvailable &&
+    run.phaseSourceKey !== null &&
+    run.phaseSourceKey === generatedPhaseSourceKey.value &&
     snapshot.generation === run.generation &&
     snapshot.status === "running" &&
     snapshot.barPosition !== null &&
@@ -581,7 +596,9 @@ function syncPresentation() {
     presentationSyncQueued = false;
     if (presentationSyncCancelled) return;
     const code = pendingGeneratedCode;
-    const preserveUIBeat = pendingPreserveUIBeat;
+    const instance = mirror.value;
+    const preserveUIBeat = pendingPreserveUIBeat && code === generatedCode.value &&
+      instance !== null && canPreserveUIBeatPhase(instance);
     pendingGeneratedCode = undefined;
     pendingPreserveUIBeat = false;
     applyPresentation(code, preserveUIBeat);

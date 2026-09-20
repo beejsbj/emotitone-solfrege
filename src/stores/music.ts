@@ -177,12 +177,12 @@ export const useMusicStore = defineStore(
           clock: liveAudioClock,
           onScheduleStart(timestamp) {
             window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
-              detail: { ...detail, phase: "attack", timestamp },
+              detail: { ...detail, phase: "attack", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
             }));
           },
           onScheduleEnd(timestamp) {
             window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
-              detail: { ...detail, phase: "release", timestamp },
+              detail: { ...detail, phase: "release", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
             }));
           },
           onStart(timestamp) {

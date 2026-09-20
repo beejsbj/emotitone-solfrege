@@ -285,10 +285,10 @@ describe('Visual Config Store', () => {
       expect(store.config.blobs.webOpacity).toBe(0.65)
     })
 
-    it.each(['mesh', 'off'])('repairs unsupported %s connection mode to Merge', (connectionMode) => {
+    it('repairs an arbitrary unsupported connection mode to Merge', () => {
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: {
-          blobs: { connectionMode },
+          blobs: { connectionMode: 'mesh' },
         },
       }))
 
@@ -296,6 +296,20 @@ describe('Visual Config Store', () => {
 
       expect(store.config.blobs.connectionMode).toBe(DEFAULT_CONFIG.blobs.connectionMode)
       expect(store.config.blobs.connectionMode).toBe('merge')
+    })
+
+    it('preserves a retired disconnected config as Merge with zero strength', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          blobs: { connectionMode: 'off', fusionStrength: 0.8, webOpacity: 0.65 },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs.connectionMode).toBe('merge')
+      expect(store.config.blobs.fusionStrength).toBe(0)
+      expect(store.config.blobs.webOpacity).toBe(0)
     })
 
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
@@ -944,11 +958,11 @@ describe('Visual Config Store', () => {
       expect(existingStore.config.hilbertScope).toMatchObject({ history: 0.41, smear: 0.67 })
     })
 
-    it.each(['off', 'mesh'])('migrates legacy saved Look mode %s to Merge', (connectionMode) => {
+    it('migrates an arbitrary saved Look mode to Merge', () => {
       localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
-        id: `legacy-${connectionMode}`,
+        id: 'legacy-mesh',
         name: 'Legacy Look',
-        patch: { blobs: { connectionMode } },
+        patch: { blobs: { connectionMode: 'mesh' } },
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       }]))
@@ -956,8 +970,32 @@ describe('Visual Config Store', () => {
       const migrated = createFreshStore()
 
       expect(migrated.savedStageLooks[0].patch.blobs?.connectionMode).toBe('merge')
-      expect(migrated.loadSavedStageLook(`legacy-${connectionMode}`)).toBe(true)
+      expect(migrated.loadSavedStageLook('legacy-mesh')).toBe(true)
       expect(migrated.effectiveConfig.blobs.connectionMode).toBe('merge')
+    })
+
+    it('preserves a retired disconnected saved Look as Merge with zero strength', () => {
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
+        id: 'legacy-off',
+        name: 'Legacy Off Look',
+        patch: { blobs: { connectionMode: 'off', fusionStrength: 0.8, webOpacity: 0.65 } },
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }]))
+
+      const migrated = createFreshStore()
+
+      expect(migrated.savedStageLooks[0].patch.blobs).toMatchObject({
+        connectionMode: 'merge',
+        fusionStrength: 0,
+        webOpacity: 0,
+      })
+      expect(migrated.loadSavedStageLook('legacy-off')).toBe(true)
+      expect(migrated.effectiveConfig.blobs).toMatchObject({
+        connectionMode: 'merge',
+        fusionStrength: 0,
+        webOpacity: 0,
+      })
     })
 
     it('does not persist Shuffle output, even after the config debounce', async () => {

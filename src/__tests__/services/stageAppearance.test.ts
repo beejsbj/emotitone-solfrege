@@ -157,11 +157,26 @@ describe("Stage appearance domain", () => {
     expect(edited.strings).toMatchObject({
       activeOpacity: 0.75,
       maxAmplitude: 38.75,
-      interpolationSpeed: 0.2,
+      interpolationSpeed: 0.2375,
     });
     expect(edited.strings.dampingFactor).toBeCloseTo(0.065);
     expect(edited.strings.opacityInterpolationSpeed).toBeCloseTo(0.1625);
     expect(readStageControls(edited).stringResponse).toBe(0.75);
+  });
+
+  it("round-trips the canonical String Response default", () => {
+    const backing = config();
+    const response = readStageControls(backing).stringResponse;
+
+    expect(response).toBe(0.5);
+    const edited = patchStageControl(backing, "stringResponse", response);
+    expect(edited.strings).toMatchObject({
+      activeOpacity: backing.strings.activeOpacity,
+      maxAmplitude: backing.strings.maxAmplitude,
+      interpolationSpeed: backing.strings.interpolationSpeed,
+      opacityInterpolationSpeed: backing.strings.opacityInterpolationSpeed,
+    });
+    expect(edited.strings.dampingFactor).toBeCloseTo(backing.strings.dampingFactor);
   });
 
   it("publishes the accepted Stage defaults", () => {

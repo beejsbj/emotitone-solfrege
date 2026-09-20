@@ -392,8 +392,22 @@ describe("ConfigPanel.vue", () => {
 
     panel.vm.$emit("update:modelValue", "bodies");
     await nextTick();
-    expect(wrapper.get('[data-testid="stage-look-keep-bodies"]').exists()).toBe(true);
+    const keep = wrapper.getComponent('[data-testid="stage-look-keep-bodies"]');
+    const discard = wrapper.getComponent('[data-testid="stage-look-discard-bodies"]');
+    expect(keep.props("disabled")).toBe(false);
+    expect(discard.props("disabled")).toBe(false);
     expect(wrapper.text()).toContain("Soft · Variation TEST");
+
+    visualConfigStore.stageControls.stageEnabled = false;
+    await nextTick();
+    expect(keep.props("disabled")).toBe(true);
+    expect(discard.props("disabled")).toBe(true);
+
+    visualConfigStore.stageControls.stageEnabled = true;
+    visualConfigStore.visualsEnabled = false;
+    await nextTick();
+    expect(keep.props("disabled")).toBe(true);
+    expect(discard.props("disabled")).toBe(true);
   });
 
   it("disables Stage controls with the feature they depend on", async () => {

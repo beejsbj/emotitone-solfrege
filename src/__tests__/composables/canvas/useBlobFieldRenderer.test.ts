@@ -8,6 +8,7 @@ import {
   getBlobFieldBounds,
   getBlobFieldMaterialPasses,
   getBlobFieldResolution,
+  getBlobFieldSoftnessRadius,
   getBlobWebConnections,
   getBlobWebConnectionWidth,
   orderBlobFramesForVisibility,
@@ -153,6 +154,11 @@ describe("useBlobFieldRenderer", () => {
 
     expect(channel[8]).toBeGreaterThan(0);
     expect(channel[0]).toBeLessThan(channel[8]);
+  });
+
+  it("maps field softness directly, including a crisp zero endpoint", () => {
+    expect(getBlobFieldSoftnessRadius(0, 0.5)).toBe(0);
+    expect(getBlobFieldSoftnessRadius(20, 0.5)).toBe(10);
   });
 
   it("lets sustained coverage win over a coincident releasing body", () => {

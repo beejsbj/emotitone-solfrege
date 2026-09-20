@@ -283,6 +283,7 @@ export function sanitizeStageLookPatch(patch: unknown): StageLookPatch {
     if (!isRecord(incoming)) continue;
 
     const accepted: Record<string, unknown> = {};
+    const retiredOff = section === "blobs" && incoming.connectionMode === "off";
     for (const field of STAGE_LOOK_FIELDS[section]) {
       if (!(field in incoming)) continue;
       const value = incoming[field];
@@ -292,6 +293,11 @@ export function sanitizeStageLookPatch(patch: unknown): StageLookPatch {
         && value !== "web"
         ? "merge"
         : value;
+    }
+    if (retiredOff) {
+      accepted.connectionMode = "merge";
+      accepted.fusionStrength = 0;
+      accepted.webOpacity = 0;
     }
     if (Object.keys(accepted).length > 0) {
       (sanitized as Record<string, unknown>)[section] = accepted;
@@ -540,7 +546,7 @@ export function patchStageControl(
       next.strings.activeOpacity = amount;
       next.strings.maxAmplitude = 5 + amount * 45;
       next.strings.dampingFactor = 0.14 - amount * 0.1;
-      next.strings.interpolationSpeed = 0.05 + amount * 0.2;
+      next.strings.interpolationSpeed = 0.05 + amount * 0.25;
       next.strings.opacityInterpolationSpeed = 0.05 + amount * 0.15;
       break;
     }

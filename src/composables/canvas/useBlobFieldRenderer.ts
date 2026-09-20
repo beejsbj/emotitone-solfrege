@@ -200,6 +200,13 @@ export function blurFieldChannel(
   return channel;
 }
 
+export function getBlobFieldSoftnessRadius(
+  fieldSoftness: number,
+  scale: number,
+) {
+  return Math.max(0, Math.round(fieldSoftness * scale));
+}
+
 function traceFrame(
   context: CanvasRenderingContext2D,
   frame: PreparedBlobFrame
@@ -1010,9 +1017,10 @@ export function useBlobFieldRenderer() {
       return true;
     }
 
-    const blur = Math.max(
-      6, config.fieldSoftness * (0.82 + config.fusionStrength * 0.72)
-    );
+    // Softness is its own public percentage. Strength changes how much of the
+    // field joins, but must not silently make the edge softer or prevent a
+    // genuinely crisp 0% setting.
+    const blur = Math.max(0, config.fieldSoftness);
     const bounds = getBlobFieldBounds(
       frames,
       target.canvas.width,
@@ -1173,7 +1181,7 @@ export function useBlobFieldRenderer() {
         visibilityCoverage;
     }
 
-    const blurRadius = Math.max(1, Math.round(blur * scale));
+    const blurRadius = getBlobFieldSoftnessRadius(blur, scale);
     [alpha, red, green, blue, weight, opacity].forEach((channel) =>
       blurFieldChannel(
         channel,

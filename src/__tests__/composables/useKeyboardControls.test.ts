@@ -19,7 +19,10 @@ const mockInstrumentStore = reactive({
 
 const mockMusicStore = reactive({
   currentScale: reactive({ degreeCount: 12 }),
+  currentKey: "C",
+  currentMode: "major" as string,
   attackNoteWithOctave: vi.fn().mockResolvedValue("mock-note-id"),
+  attackExactPitch: vi.fn().mockResolvedValue("mock-chord-note-id"),
   releaseNote: vi.fn(),
 });
 
@@ -61,7 +64,10 @@ describe("useKeyboardControls", () => {
   beforeEach(() => {
     mockInstrumentStore.isInteractionLocked = false;
     mockMusicStore.currentScale.degreeCount = 12;
+    mockMusicStore.currentKey = "C";
+    mockMusicStore.currentMode = "major";
     mockMusicStore.attackNoteWithOctave.mockClear();
+    mockMusicStore.attackExactPitch.mockClear();
     mockMusicStore.releaseNote.mockClear();
     mockPatternsStore.removeLastFromCurrentSketch.mockClear();
     mockKeyboardDrawerStore.visibleOctaves = [6, 5, 4, 3];
@@ -69,16 +75,15 @@ describe("useKeyboardControls", () => {
     mockKeyboardDrawerStore.removeTouch.mockClear();
   });
 
-  it("builds three full 12-key rows plus a ten-key bottom row", () => {
+  it("builds two full 12-key rows plus a ten-key bottom row (number row excluded)", () => {
     const controls = useKeyboardControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
-    expect(Object.keys(mapping)).toHaveLength(46);
-    expect(mapping.Digit1).toEqual({
-      solfegeIndex: 0,
-      octave: 6,
-      label: "1",
-    });
+    // Two 12-key letter rows + one 10-key bottom row = 34 keys
+    expect(Object.keys(mapping)).toHaveLength(34);
+    // Number row keys are NOT in the note mapping
+    expect(mapping.Digit1).toBeUndefined();
+    expect(mapping.Digit0).toBeUndefined();
     expect(mapping.KeyQ).toEqual({
       solfegeIndex: 0,
       octave: 5,
@@ -106,12 +111,12 @@ describe("useKeyboardControls", () => {
     const controls = useKeyboardControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
-    expect(Object.keys(mapping)).toHaveLength(20);
-    expect(mapping.Digit5.solfegeIndex).toBe(4);
+    // Two 5-key letter rows + one 5-key bottom row = 15 keys
+    expect(Object.keys(mapping)).toHaveLength(15);
     expect(mapping.KeyT.solfegeIndex).toBe(4);
     expect(mapping.KeyG.solfegeIndex).toBe(4);
     expect(mapping.KeyB.solfegeIndex).toBe(4);
-    expect(mapping.Digit6).toBeUndefined();
+    expect(mapping.KeyY).toBeUndefined();
     expect(mapping.KeyN).toBeUndefined();
   });
 
@@ -132,6 +137,7 @@ describe("useKeyboardControls", () => {
     });
     expect(controls.getKeyboardMapping().KeyQ).toBeUndefined();
     expect(controls.getKeyboardMapping().KeyZ).toBeUndefined();
+    // Number row is never in the note mapping (it triggers chords)
     expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
 
     mockKeyboardDrawerStore.visibleOctaves = [5, 4];
@@ -152,11 +158,12 @@ describe("useKeyboardControls", () => {
 
     mockKeyboardDrawerStore.visibleOctaves = [6, 5, 4, 3];
     expect(controls.getKeyboardMapping()).toMatchObject({
-      Digit1: { solfegeIndex: 0, octave: 6, label: "1" },
       KeyQ: { solfegeIndex: 0, octave: 5, label: "Q" },
       KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
       KeyZ: { solfegeIndex: 0, octave: 3, label: "Z" },
     });
+    // Number row is chord-only regardless of visible octaves
+    expect(controls.getKeyboardMapping().Digit1).toBeUndefined();
 
     controls.cleanupKeyboardListeners();
   });
@@ -175,15 +182,25 @@ describe("useKeyboardControls", () => {
     controls.cleanupKeyboardListeners();
   });
 
-  it("attacks a distinct octave from each physical keyboard row", async () => {
+  it("attacks distinct octaves from the letter rows and chords from the number row", async () => {
     const controls = useKeyboardControls(ref(4));
 
+    // Number row triggers chords via attackExactPitch
     await controls.handleKeyDown(
       new KeyboardEvent("keydown", { code: "Digit1", key: "1" })
     );
     controls.handleKeyUp(
       new KeyboardEvent("keyup", { code: "Digit1", key: "1" })
     );
+
+    // attackExactPitch should have been called (once per pitch in the chord)
+    expect(mockMusicStore.attackExactPitch).toHaveBeenCalled();
+    // attackNoteWithOctave should NOT have been called for the number row
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+
+    mockMusicStore.attackExactPitch.mockClear();
+
+    // Letter rows still trigger individual notes
     await controls.handleKeyDown(
       new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })
     );
@@ -203,7 +220,6 @@ describe("useKeyboardControls", () => {
     expect(mockMusicStore.attackNoteWithOctave.mock.calls.map(
       ([solfegeIndex, octave]) => ({ solfegeIndex, octave }),
     )).toEqual([
-      { solfegeIndex: 0, octave: 6 },
       { solfegeIndex: 0, octave: 5 },
       { solfegeIndex: 0, octave: 4 },
       { solfegeIndex: 0, octave: 3 },
@@ -211,6 +227,24 @@ describe("useKeyboardControls", () => {
 
     controls.handleKeyUp(
       new KeyboardEvent("keyup", { code: "KeyZ", key: "z" })
+    );
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("number row chord keys register touch as chord:degree-N", async () => {
+    const controls = useKeyboardControls(ref(4));
+
+    await controls.handleKeyDown(
+      new KeyboardEvent("keydown", { code: "Digit1", key: "1" })
+    );
+
+    expect(mockKeyboardDrawerStore.addTouch).toHaveBeenCalledWith(
+      "keyboard:Digit1",
+      "chord:degree-1",
+    );
+
+    controls.handleKeyUp(
+      new KeyboardEvent("keyup", { code: "Digit1", key: "1" })
     );
     controls.cleanupKeyboardListeners();
   });
@@ -245,6 +279,23 @@ describe("useKeyboardControls", () => {
 
     expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
     expect(mockKeyboardDrawerStore.addTouch).not.toHaveBeenCalled();
+    controls.cleanupKeyboardListeners();
+  });
+
+  it("does not turn modified number-row shortcuts into chords", async () => {
+    const controls = useKeyboardControls(ref(4));
+    const shortcut = new KeyboardEvent("keydown", {
+      code: "Digit1",
+      key: "1",
+      ctrlKey: true,
+      cancelable: true,
+    });
+
+    await controls.handleKeyDown(shortcut);
+    expect(shortcut.defaultPrevented).toBe(false);
+    expect(mockMusicStore.attackExactPitch).not.toHaveBeenCalled();
+    expect(mockKeyboardDrawerStore.addTouch).not.toHaveBeenCalled();
+
     controls.cleanupKeyboardListeners();
   });
 
@@ -405,3 +456,4 @@ describe("useKeyboardControls", () => {
     controls.cleanupKeyboardListeners();
   });
 });
+

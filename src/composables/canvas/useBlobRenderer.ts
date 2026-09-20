@@ -535,33 +535,52 @@ export function useBlobRenderer() {
     const points: Array<{ x: number; y: number }> = [];
     const segments = blobConfig.edgeSegments;
 
-    const primaryPulse =
+    const radialPulse =
       Math.sin(
         state.blobElapsed * state.visualFrequency * 2 * Math.PI +
           blob.vibrationPhase
-      ) * state.vibrationAmplitude;
-    const secondaryPulse =
-      Math.sin(
-        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
-          blob.vibrationPhase * 1.2
       ) *
       state.vibrationAmplitude *
-      0.15;
-    const tertiaryPulse =
-      Math.sin(
-        state.blobElapsed * state.visualFrequency * 6 * Math.PI +
-          blob.vibrationPhase * 1.8
-      ) *
-      state.vibrationAmplitude *
-      0.05;
-    const vibratingRadius =
-      state.scaledRadius +
-      primaryPulse +
-      secondaryPulse +
-      tertiaryPulse;
+      0.3;
 
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
+      // Surface waves rippling through the perimeter at the note's pitch frequency
+      const waveForward =
+        Math.sin(
+          state.blobElapsed * state.visualFrequency * 2 * Math.PI -
+            angle * 4 +
+            blob.vibrationPhase
+        ) *
+        state.vibrationAmplitude *
+        0.5;
+
+      const waveReflected =
+        Math.sin(
+          state.blobElapsed * state.visualFrequency * 2 * Math.PI +
+            angle * 4 +
+            blob.vibrationPhase * 1.3
+        ) *
+        state.vibrationAmplitude *
+        0.25;
+
+      // Subtle second harmonic wave (2x pitch frequency, 6 lobes)
+      const waveHarmonic =
+        Math.sin(
+          state.blobElapsed * state.visualFrequency * 4 * Math.PI -
+            angle * 6 +
+            blob.vibrationPhase * 1.7
+        ) *
+        state.vibrationAmplitude *
+        0.12;
+
+      const vibratingRadius =
+        state.scaledRadius +
+        radialPulse +
+        waveForward +
+        waveReflected +
+        waveHarmonic;
+
       points.push({
         x: blob.x + Math.cos(angle) * vibratingRadius,
         y: blob.y + Math.sin(angle) * vibratingRadius,

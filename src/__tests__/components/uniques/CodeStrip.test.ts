@@ -97,8 +97,8 @@ vi.mock("@/composables/useStrudel", () => ({
 }));
 
 vi.mock("@/services/StrudelNotation", () => ({
-  logNotesToStrudel: (notes: PatternNote[]) =>
-    `\`< ${notes.map((note) => `${note.note}@0.25`).join(" ")} >\`.as(\"note\").sound(\"sine\").cpm(120 / 4)`,
+  logNotesToStrudel: (notes: PatternNote[], config: { bpm: number }) =>
+    `\`< ${notes.map((note) => `${note.note}@0.25`).join(" ")} >\`.as(\"note\").sound(\"sine\").cpm(${config.bpm} / 4)`,
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -774,6 +774,44 @@ describe("CodeStrip production Strudel document", () => {
       generation: expect.any(Number),
     });
     wrapper.unmount();
+  });
+
+  it("starts a new UIBeat generation for a pattern replacement and tempo change in the same flush", async () => {
+    const wrapper = mount(CodeStrip);
+    try {
+      await flushPromises();
+      const controller = mocks.attachEditor.mock.calls[0][0];
+      await controller.evaluate();
+      mocks.mirrorOptions.onToggle(true);
+      mocks.mirrorOptions.onDraw([], 0.125);
+      const before = uiBeatClock.snapshot;
+      mocks.isPlaying.value = true;
+      mocks.mirrorEvaluate.mockClear();
+      mocks.schedulerSetCps.mockClear();
+
+      // One replacement note keeps the pattern length unchanged. Pattern
+      // selection publishes its source metadata and playback BPM together.
+      const replacement = { ...recordedNote, id: "new-pattern", note: "D4", scaleDegree: 2, scaleIndex: 1 };
+      mocks.patternsStore.currentSketchNotes = [replacement];
+      mocks.patternsStore.currentWorkingNotes = [replacement];
+      mocks.patternsStore.currentSketchMeta = { mode: "minor", key: "D", instrument: "sine", bpm: 90 };
+      mocks.visualConfigStore.config.codeStrip.bpm = 90;
+      await nextTick();
+      await flushPromises();
+
+      expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+      expect(controller.getCode()).toContain("D4@0.25");
+      expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(controller.getCode());
+      expect(mocks.schedulerSetCps).toHaveBeenCalledExactlyOnceWith(0.375);
+      expect(uiBeatClock.snapshot.generation).not.toBe(before.generation);
+      // A fresh run waits for its own frame instead of displaying the old
+      // pattern's mapped beat position at the newly selected tempo.
+      expect(uiBeatClock.snapshot.barPosition).toBeNull();
+      mocks.mirrorOptions.onDraw([], 0.25);
+      expect(uiBeatClock.snapshot).toMatchObject({ status: "running", bpm: 90, barPosition: 0.25 });
+    } finally {
+      wrapper.unmount();
+    }
   });
 
   it("evaluates the current visible recording instead of stale runtime source", async () => {

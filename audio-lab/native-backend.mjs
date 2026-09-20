@@ -11,7 +11,8 @@ export function nativeBackendPlugin(backend, appRoot) {
     name: 'lab-native-backend',
     enforce: 'pre',
     resolveId(id) {
-      if (id === production || id === `${production}.ts`) return reference;
+      if (id === production || id === `${production}.ts` ||
+          id === '/src/services/livePlayback.ts') return reference;
     },
   };
 }

@@ -134,3 +134,25 @@ with its response count/types, then expands every contained lifecycle edge into
 its own `worklet-event` trace. Batch ID and element index retain their relationship.
 This preserves honest pre-inbox arrival diagnostics for either single-response or
 array transport. No new browser result is claimed by this instrumentation change.
+
+The single source-batched follow-up at `765d6d0` (source/harness matching root
+`4b3f202`) **passes the unchanged targeted gates**. Its [raw receipt](results/native-comparison/worklet-source-batched-targeted.json)
+and [derived summary](results/native-comparison/worklet-source-batched-targeted-summary.json)
+record 700.2 ms final settlement, below the 1,000 ms bound; 44/44 PCM windows;
+312 unique, ordered lifecycle edges; 156 completed and recorded notes; all three
+owners closed exactly once; and all three pitches on 43 fully held beats. The
+actual final-keyup-plus-100-ms tail contains 57,286 samples with zero peak/RMS.
+Source and harness remained unchanged, with no browser warnings and 1.32 ms
+external event-loop slip. Maximum synchronous renderer operation was 0.2 ms.
+
+The source transport reduction is observed directly: 112 incoming array messages
+contained 427 responses (73.8% fewer original port-message tasks than posting each
+response separately). Of those messages, 102 contained four responses. All 312
+lifecycle arrivals were retained. Consecutive delivery gaps of at most 3 ms give
+eight descriptive groups, including groups of 96 and 100 edges. These timestamp
+groups do not identify browser tasks. Maximum lifecycle delivery lag during the
+gesture was still 1,747 ms, including the intentional 650 ms stall and subsequent
+application work; this result establishes the declared final-settlement bound,
+not a general sub-second notification-latency guarantee. The original four-way
+receipts and the failed first inbox target remain unchanged. A final worklet-only
+full run is still pending.

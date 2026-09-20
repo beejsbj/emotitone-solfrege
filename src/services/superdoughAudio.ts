@@ -19,6 +19,8 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import { getLiveArticulation } from "@/services/liveArticulation";
+import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 
 /** Re-export so other modules can get the superdough AudioContext without importing Tone. */
 export function getAudioContext(): AudioContext {
@@ -72,6 +74,7 @@ const _activeStrudelVisuals = new Map<
     key: ChromaticNote;
     instrument: string;
     releaseTimeout: number;
+    audibleAt: number;
   }
 >();
 let _strudelVisualCounter = 0;
@@ -88,6 +91,7 @@ export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
     pitchClassIndex: active.pitchClassIndex,
     mode: active.mode,
     key: active.key,
+    audibleAt: active.audibleAt,
   }));
 }
 
@@ -425,7 +429,7 @@ function buildStrudelVisualPayload(hap: unknown) {
   }
 }
 
-function releaseStrudelVisual(noteId: string) {
+function releaseStrudelVisual(noteId: string, audibleAt = audioTimeToOutputTime(getAudioContext(), getAudioContext().currentTime)) {
   const active = _activeStrudelVisuals.get(noteId);
   if (!active || typeof window === "undefined") {
     return;
@@ -449,6 +453,7 @@ function releaseStrudelVisual(noteId: string) {
         instrument: active.instrument,
         instrumentConfig: null,
         source: STRUDEL_PLAYBACK_SOURCE,
+        audibleAt,
       },
     })
   );
@@ -473,14 +478,21 @@ export async function emotitoneStrudelOutput(
   cps: number,
   t: number
 ): Promise<void> {
+  const context = getAudioContext();
+  const submittedAt = context.currentTime;
+  // Submit audio before preparing presentation events. Strudel passes the
+  // absolute audio-clock onset as t; its legacy deadline argument is unused.
+  const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
   const visualPayload = buildStrudelVisualPayload(hap);
 
-  if (visualPayload && typeof window !== "undefined") {
+  if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
     const noteId = `strudel_${++_strudelVisualCounter}`;
     const durationMs = Math.max(40, Math.round(hapDuration * 1000));
+    const audibleAt = audioTimeToOutputTime(context, t);
+    const releaseAt = audioTimeToOutputTime(context, t + durationMs / 1000);
     const releaseTimeout = window.setTimeout(() => {
-      releaseStrudelVisual(noteId);
-    }, durationMs);
+      releaseStrudelVisual(noteId, releaseAt);
+    }, Math.max(0, (t - submittedAt) * 1000) + durationMs);
 
     _activeStrudelVisuals.set(noteId, {
       note: visualPayload.note,
@@ -494,6 +506,7 @@ export async function emotitoneStrudelOutput(
       key: visualPayload.key,
       instrument: visualPayload.instrument,
       releaseTimeout,
+      audibleAt,
     });
 
     window.dispatchEvent(
@@ -513,13 +526,14 @@ export async function emotitoneStrudelOutput(
           instrument: visualPayload.instrument,
           instrumentConfig: null,
           durationMs,
+          audibleAt,
           source: STRUDEL_PLAYBACK_SOURCE,
         },
       })
     );
   }
 
-  await webaudioOutput(hap as never, deadline, hapDuration, cps, t);
+  await output;
 }
 
 // ---------------------------------------------------------------------------
@@ -550,9 +564,11 @@ export async function attackNote(
   noteId: string,
   noteName: string,
   instrument: string,
-  options?: { atTime?: number; release?: number },
+  options?: { atTime?: number; attack?: number; release?: number },
 ): Promise<number> {
-  await initSuperdoughAudio();
+  // The ready path must submit audio before yielding to unrelated microtasks.
+  // Initialization and resume remain asynchronous only when actually needed.
+  if (!_initialized) await initSuperdoughAudio();
 
   // Ensure the AudioContext is running before scheduling.
   // On first note the context may still be "suspended" from loading-screen init;
@@ -563,6 +579,7 @@ export async function attackNote(
   }
 
   const sound = LEGACY_ALIASES[instrument] ?? instrument;
+  const articulation = getLiveArticulation(sound);
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
   const wasReady = isPrewarmed(sound);
 
@@ -571,17 +588,17 @@ export async function attackNote(
     stopVoice(noteId, ac.currentTime);
   }
 
-  // Even an explicit "now" timestamp is stale by the time superdough sees it,
-  // and superdough drops past deadlines. Keep every attack just far enough
-  // ahead of the audio clock to be schedulable.
-  const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset());
-  await superdough(
+  // Keep a small preparation margin even for explicit "now" attacks. The
+  // patched engine preserves overdue live presses, but this margin normally
+  // lets the complete graph reach the render thread before its intended onset.
+  const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset(LIVE_AUDIO_SCHEDULING_LEAD_MS / 1000));
+  const armedAt = await superdough(
     {
       s: sound,
       note: noteName,
       gain: 0.8,
-      attack: 0.01,
-      release: options?.release ?? 1.5,
+      attack: options?.attack ?? articulation.attack,
+      release: options?.release ?? articulation.release,
       voiceId: noteId,
       sustainUntilRelease: true,
     },
@@ -590,9 +607,10 @@ export async function attackNote(
     1 // cps
   );
 
-  // A prewarmed voice is armed for requestedAt. If loading crossed that
-  // deadline, patched sources start immediately, so report the later time.
-  return wasReady ? requestedAt : Math.max(requestedAt, ac.currentTime);
+  // The engine reports a later onset if the audio clock overtook entry. Cold
+  // sources can also start late while loading; preserve that separate fallback.
+  const onset = Number.isFinite(armedAt) ? Math.max(requestedAt, armedAt) : requestedAt;
+  return wasReady ? onset : Math.max(onset, ac.currentTime);
 }
 
 /**

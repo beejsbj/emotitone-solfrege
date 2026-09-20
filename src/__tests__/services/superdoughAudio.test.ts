@@ -123,10 +123,10 @@ describe("superdoughAudio live note handling", () => {
 
     await expect(
       audio.attackNote("pulse-1", "C4", "synth", { atTime: 12, release: 0.03 }),
-    ).resolves.toBe(12.01);
+    ).resolves.toBe(12.005);
     expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
       expect.objectContaining({ voiceId: "pulse-1" }),
-      12.01,
+      12.005,
       0.25,
       1,
     );
@@ -142,16 +142,46 @@ describe("superdoughAudio live note handling", () => {
         s: "triangle",
         note: "C4",
         gain: 0.8,
-        attack: 0.01,
-        release: 1.5,
+        attack: 0.003,
+        release: 0.12,
         voiceId: "note-1",
         sustainUntilRelease: true,
       }),
-      12.01,
+      12.005,
       0.25,
       1,
     );
     expect(hoisted.mockReleaseVoice).not.toHaveBeenCalled();
+  });
+
+  it("submits a ready note synchronously and preserves explicit articulation", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockSuperdough.mockClear();
+    const pending = audio.attackNote("ready", "C4", "piano", { attack: 0.004, release: 0.06 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "ready", attack: 0.004, release: 0.06 }),
+      12.005, 0.25, 1,
+    );
+    await pending;
+  });
+
+  it("retains context resumption before scheduling an otherwise ready instrument", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockAudioContext.state = "suspended";
+    hoisted.mockSuperdough.mockClear();
+    let resumed!: () => void;
+    hoisted.mockAudioContext.resume.mockImplementationOnce(() => new Promise<void>((resolve) => { resumed = resolve; }));
+    const pending = audio.attackNote("resume", "C4", "piano");
+    expect(hoisted.mockSuperdough).not.toHaveBeenCalled();
+    hoisted.mockAudioContext.state = "running";
+    resumed();
+    await pending;
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "resume", attack: 0.001, release: 0.2 }),
+      12.005, 0.25, 1,
+    );
   });
 
   it("reports a late audible onset when an unprepared sound crosses its deadline", async () => {
@@ -162,6 +192,13 @@ describe("superdoughAudio live note handling", () => {
     });
 
     await expect(audio.attackNote("note-1", "C4", "gm_piano", { atTime: 12.05 })).resolves.toBe(12.1);
+  });
+
+  it("reports the engine's clamped onset even for a prepared voice", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockSuperdough.mockResolvedValueOnce(12.012);
+    await expect(audio.attackNote("overtaken", "C4", "piano")).resolves.toBe(12.012);
   });
 
   it("stops a stale live voice before reusing the same note id", async () => {
@@ -282,7 +319,7 @@ describe("superdoughAudio live note handling", () => {
       12,
       0.25,
       1,
-      0,
+      12.1,
     );
 
     const played = dispatchEvent.mock.calls
@@ -317,9 +354,12 @@ describe("superdoughAudio live note handling", () => {
     ]);
 
     await vi.advanceTimersByTimeAsync(250);
+    expect(audio.getActiveStrudelStageNotes()).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(100);
     const released = dispatchEvent.mock.calls
       .map(([event]) => event)
       .find((event) => event.type === "note-released") as CustomEvent;
+    expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(250);
     expect(released.detail).toMatchObject({
       note: "D#",
       noteName: "D#4",
@@ -331,6 +371,15 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.getActiveStrudelStageNotes()).toEqual([]);
 
     vi.useRealTimers();
+  });
+
+  it("does not present a pattern event whose audio deadline was already missed", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+    await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano" } }, 0, 0.1, 1, 11);
+    expect(hoisted.mockWebaudioOutput).toHaveBeenCalled();
+    expect(dispatchEvent.mock.calls.some(([event]) => event.type === "note-played")).toBe(false);
+    expect(audio.getActiveStrudelStageNotes()).toEqual([]);
   });
 
   it("surfaces explicit warmup failures and leaves the sound cold", async () => {

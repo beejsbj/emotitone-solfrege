@@ -230,12 +230,6 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
         keyboardMapping[key as keyof typeof keyboardMapping];
 
       const ownerId = getKeyboardPressId(key);
-      keyboardDrawerStore.addTouch(ownerId, getNoteKey(solfegeIndex, octave));
-      window.dispatchEvent(
-        new CustomEvent("keyboard-note-pressed", {
-          detail: { solfegeIndex, octave, key: label },
-        })
-      );
       void voiceGroups.attack(ownerId, [
         (isCancelled) => musicStore.attackNoteWithOctave(
           solfegeIndex,
@@ -252,6 +246,12 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
           keyboardNoteIds.value.set(key, noteId);
         }
       });
+      keyboardDrawerStore.addTouch(ownerId, getNoteKey(solfegeIndex, octave));
+      window.dispatchEvent(
+        new CustomEvent("keyboard-note-pressed", {
+          detail: { solfegeIndex, octave, key: label },
+        })
+      );
     }
   };
 

@@ -13,6 +13,9 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
+import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+import { createLiveAudioClock } from "@/services/liveAudioClock";
+import { getLiveArticulation } from "@/services/liveArticulation";
 import {
   createScheduledLiveVoice,
   SCHEDULED_LIVE_MIDI_EVENT,
@@ -114,11 +117,18 @@ export const useMusicStore = defineStore(
     let generatedCounter = 0;
     const heldAliases = new Map<string, string>();
     const heldOwners = new Set<string>();
-    const now = () => performance.now();
+    const liveAudioClock = createLiveAudioClock(superdoughAudio.getAudioContext, { onSuspend: clearLiveInputs });
+    const now = liveAudioClock.now;
+    // Presentation only: recording and MIDI keep their existing event clock.
+    function audibleTime(timestamp = Date.now()) {
+      const context = superdoughAudio.getAudioContext();
+      return audioTimeToOutputTime(context, context.currentTime + (timestamp - Date.now()) / 1000);
+    }
 
     const playEngine = createPlayStyleEngine<HeldPitch>({
       now,
       schedulingLeadMs: PLAY_STYLE_SCHEDULING_LEAD_MS,
+      initialLeadMs: LIVE_AUDIO_SCHEDULING_LEAD_MS,
       start(held, at, style) {
         if (held.isCancelled() || instrumentStore.isInteractionLocked) {
           return { release() {} };
@@ -161,24 +171,29 @@ export const useMusicStore = defineStore(
           noteName: activeNote.noteName,
           instrument: held.instrument,
           at,
-          releaseSeconds: style === "together" || style.startsWith("strum") ? 1.5 : 0.03,
+          releaseSeconds: style === "together" || style.startsWith("strum")
+            ? getLiveArticulation(held.instrument).release : 0.03,
           now,
+          clock: liveAudioClock,
           onScheduleStart(timestamp) {
             window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
-              detail: { ...detail, phase: "attack", timestamp },
+              detail: { ...detail, phase: "attack", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
             }));
           },
           onScheduleEnd(timestamp) {
             window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
-              detail: { ...detail, phase: "release", timestamp },
+              detail: { ...detail, phase: "release", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
             }));
           },
           onStart(timestamp) {
+            activeNote.audibleAt = audioTimeToOutputTime(
+              superdoughAudio.getAudioContext(), liveAudioClock.toAudioTime(liveAudioClock.fromEpochTime(timestamp)),
+            );
             activeNotes.value.set(noteId, activeNote);
             currentNote.value = activeNote.solfege.name;
             isPlaying.value = true;
             window.dispatchEvent(new CustomEvent("note-played", {
-              detail: { ...detail, mirrorMidi: false, timestamp },
+              detail: { ...detail, audibleAt: activeNote.audibleAt, mirrorMidi: false, timestamp },
             }));
           },
           onEnd(timestamp) {
@@ -188,6 +203,9 @@ export const useMusicStore = defineStore(
                 note: activeNote.solfege.name,
                 mirrorMidi: false,
                 timestamp,
+                audibleAt: audioTimeToOutputTime(
+                  superdoughAudio.getAudioContext(), liveAudioClock.toAudioTime(liveAudioClock.fromEpochTime(timestamp)),
+                ),
               },
             }));
             activeNotes.value.delete(noteId);
@@ -238,14 +256,15 @@ export const useMusicStore = defineStore(
     document.addEventListener("visibilitychange", onHidden);
     onScopeDispose(() => {
       clearLiveInputs();
+      liveAudioClock.dispose();
       window.removeEventListener("blur", clearLiveInputs);
       document.removeEventListener("visibilitychange", onHidden);
     });
 
     async function holdPitch(
       noteName: string,
-      firstAttack: HeldPitch["firstAttack"],
       isCancelled: () => boolean,
+      exactInput = false,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
       const parsed = parseNoteWithOctave(noteName);
@@ -270,8 +289,8 @@ export const useMusicStore = defineStore(
         },
         instrument: instrumentStore.currentInstrument,
         isCancelled,
-        firstAttack,
       };
+      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, exactInput, cancelled);
       heldOwners.add(owner);
       playEngine.press(owner, [{ pitch: tonal.midi, value: held }]);
       try {
@@ -301,13 +320,12 @@ export const useMusicStore = defineStore(
       if (!parsed || !solfegeData.value[parsed.solfegeIndex]) return Promise.resolve(null);
       return holdPitch(
         musicTheory.getNoteName(parsed.solfegeIndex, parsed.octave),
-        (cancelled) => attackSoundingNoteWithFormat(input, octave, cancelled),
         isCancelled,
       );
     }
 
     function attackExactPitch(note: string, isCancelled: () => boolean = () => false) {
-      return holdPitch(note, (cancelled) => attackSoundingExactPitch(note, cancelled), isCancelled);
+      return holdPitch(note, isCancelled, true);
     }
 
     // Getters
@@ -496,204 +514,47 @@ export const useMusicStore = defineStore(
       }
     }
 
-    // Attack note with either format
-    async function attackSoundingNoteWithFormat(
-      input: number | ChromaticNoteWithOctave,
-      octave: number = 4,
-      isCancelled: () => boolean = () => false,
-    ): Promise<string | null> {
-      if (instrumentStore.isInteractionLocked || isCancelled()) {
-        return null;
-      }
-
-      let solfegeIndex: number;
-      let finalOctave: number;
-
-      if (typeof input === "number") {
-        solfegeIndex = input;
-        finalOctave = octave;
-      } else {
-        const parsed = parseChromatic(input);
-        if (!parsed) {
-          return null;
-        }
-        solfegeIndex = parsed.solfegeIndex;
-        finalOctave = parsed.octave;
-      }
-
-      const solfege = solfegeData.value[solfegeIndex];
-      if (solfege) {
-        const noteContext = getCurrentNoteContext();
-        const frequency = musicTheory.getNoteFrequency(
-          solfegeIndex,
-          finalOctave
-        );
-        const noteName = musicTheory.getNoteName(solfegeIndex, finalOctave);
-        const parsedNote = parseNoteWithOctave(noteName);
-        const scientificOctave = parsedNote?.octave ?? finalOctave;
-        const pitchClassIndex = parsedNote
-          ? CHROMATIC_NOTES.indexOf(parsedNote.noteName)
-          : undefined;
-
-        const cleanNoteId = [
-          noteName,
-          solfegeIndex,
-          finalOctave,
-          Date.now(),
-          Math.random().toString(36).slice(2, 8),
-        ].join("_");
-        const instrumentSelectionEpoch = instrumentStore.selectionEpoch;
-        const attackInstrument = instrumentStore.currentInstrument;
-
-        // Fire-and-forget via superdough — it manages its own voice lifecycle
-        await superdoughAudio.attackNote(
-          cleanNoteId,
-          noteName,
-          attackInstrument,
-        );
-
-        // A selection can begin warming while the asynchronous audio attack is
-        // still starting. Never publish that stale voice into app state.
-        if (
-          isCancelled() ||
-          instrumentStore.isInteractionLocked ||
-          instrumentStore.selectionEpoch !== instrumentSelectionEpoch ||
-          instrumentStore.currentInstrument !== attackInstrument
-        ) {
-          superdoughAudio.releaseNote(cleanNoteId);
-          return null;
-        }
-
-        const noteId: string = cleanNoteId;
-
-        if (noteId) {
-          const activeNote: ActiveNote = {
-            solfegeIndex,
-            pitchClassIndex,
-            solfege,
-            frequency,
-            octave: scientificOctave,
-            keyboardOctave: finalOctave,
-            noteId,
-            noteName,
-            ...noteContext,
-          };
-
-          activeNotes.value.set(noteId, activeNote);
-          currentNote.value = solfege.name;
-          isPlaying.value = true;
-
-          const notePlayedEvent = new CustomEvent("note-played", {
-            detail: {
-              note: solfege,
-              frequency,
-              solfegeIndex,
-              pitchClassIndex,
-              octave: scientificOctave,
-              keyboardOctave: finalOctave,
-              noteId,
-              noteName,
-              ...noteContext,
-              instrument: instrumentStore.currentInstrument,
-              instrumentConfig: null,
-            },
-          });
-          window.dispatchEvent(notePlayedEvent);
-
-          return noteId;
-        }
-      }
-      return null;
-    }
-
-    /**
-     * Attack scientific pitch notation exactly. Unlike the compatibility
-     * string overload on attackNote(), this never floors an out-of-scale pitch
-     * to the preceding scale degree.
-     */
-    async function attackSoundingExactPitch(
-      note: string,
-      isCancelled: () => boolean = () => false,
+    // Input normalization is performed once by holdPitch. The prepared snapshot
+    // is also what repeats, MIDI, and recording use while the input stays held.
+    async function attackPreparedPitch(
+      snapshot: Omit<ActiveNote, "noteId">,
+      instrument: string,
+      exactInput: boolean,
+      isCancelled: () => boolean,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
-
-      const parsed = parseNoteWithOctave(note);
-      if (!parsed) return null;
-
-      const { noteName: pitchClass, octave } = parsed;
-      const exactNoteName = `${pitchClass}${octave}`;
-      const tonalNote = TonalNote.get(exactNoteName);
-      if (!tonalNote.freq) return null;
-
-      const solfegeIndex = currentScaleNotes.value.indexOf(pitchClass);
-      const pitchClassIndex = CHROMATIC_NOTES.indexOf(pitchClass);
-      const keyboardOctave = solfegeIndex === -1
-        ? octave
-        : parseNoteInput(exactNoteName)?.octave ?? octave;
-      const solfege = solfegeIndex === -1
-        ? borrowedPitchSolfege(pitchClass)
-        : solfegeData.value[solfegeIndex];
-      if (!solfege) return null;
-
-      const noteContext = getCurrentNoteContext();
-      const instrumentSelectionEpoch = instrumentStore.selectionEpoch;
-      const attackInstrument = instrumentStore.currentInstrument;
-      const cleanNoteId = [
-        "exact",
-        exactNoteName,
-        Date.now(),
-        Math.random().toString(36).slice(2, 8),
-      ].join("_");
-
-      await superdoughAudio.attackNote(
-        cleanNoteId,
-        exactNoteName,
-        attackInstrument,
-      );
-
+      const selectionEpoch = instrumentStore.selectionEpoch;
+      const prefix = exactInput
+        ? ["exact", snapshot.noteName]
+        : [snapshot.noteName, snapshot.solfegeIndex, snapshot.keyboardOctave];
+      const noteId = [...prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join("_");
+      const startedAt = await superdoughAudio.attackNote(noteId, snapshot.noteName, instrument);
       if (
         isCancelled()
         || instrumentStore.isInteractionLocked
-        || instrumentStore.selectionEpoch !== instrumentSelectionEpoch
-        || instrumentStore.currentInstrument !== attackInstrument
+        || instrumentStore.selectionEpoch !== selectionEpoch
+        || instrumentStore.currentInstrument !== instrument
       ) {
-        superdoughAudio.releaseNote(cleanNoteId);
+        superdoughAudio.stopNote(noteId);
         return null;
       }
-
-      const activeNote: ActiveNote = {
-        solfegeIndex,
-        pitchClassIndex,
-        solfege,
-        frequency: tonalNote.freq,
-        octave,
-        keyboardOctave,
-        noteId: cleanNoteId,
-        noteName: exactNoteName,
-        ...noteContext,
-      };
-      activeNotes.value.set(cleanNoteId, activeNote);
-      currentNote.value = solfege.name;
+      const activeNote: ActiveNote = { ...snapshot, noteId };
+      if (Number.isFinite(startedAt)) {
+        activeNote.audibleAt = audioTimeToOutputTime(superdoughAudio.getAudioContext(), startedAt);
+      }
+      activeNotes.value.set(noteId, activeNote);
+      currentNote.value = snapshot.solfege.name;
       isPlaying.value = true;
-
       window.dispatchEvent(new CustomEvent("note-played", {
         detail: {
-          note: solfege,
-          frequency: tonalNote.freq,
-          solfegeIndex,
-          pitchClassIndex,
-          isBorrowed: solfegeIndex === -1,
-          octave,
-          keyboardOctave,
-          noteId: cleanNoteId,
-          noteName: exactNoteName,
-          ...noteContext,
-          instrument: attackInstrument,
+          ...activeNote,
+          note: snapshot.solfege,
+          isBorrowed: snapshot.solfegeIndex === -1,
+          instrument,
           instrumentConfig: null,
         },
       }));
-
-      return cleanNoteId;
+      return noteId;
     }
 
     // Play note with duration with either format
@@ -871,6 +732,7 @@ export const useMusicStore = defineStore(
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
               instrumentConfig: null,
+              audibleAt: activeNote.audibleAt === undefined ? undefined : audibleTime(),
             },
           });
           window.dispatchEvent(noteReleasedEvent);
@@ -908,6 +770,7 @@ export const useMusicStore = defineStore(
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
               instrumentConfig: null,
+              audibleAt: activeNote.audibleAt === undefined ? undefined : audibleTime(),
             },
           });
           window.dispatchEvent(noteReleasedEvent);

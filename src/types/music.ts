@@ -131,6 +131,8 @@ export type ChromaticNote =
  * Interface for tracking active notes in the music store
  */
 export interface ActiveNote {
+  /** Estimated audible onset on performance.now's clock, for presentation only. */
+  audibleAt?: number;
   /** Index of the solfege note in the scale; -1 marks an exact borrowed pitch. */
   solfegeIndex: number;
   /** Absolute chromatic identity, retained when the pitch is outside the scale. */

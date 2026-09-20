@@ -11,6 +11,9 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import * as audio from "@/services/superdoughAudio";
+import { LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+
+const onset = (offset = 0) => LIVE_AUDIO_SCHEDULING_LEAD_MS + offset;
 
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;
@@ -167,6 +170,71 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     vi.useRealTimers();
   });
 
+  it("does not resend delivered ROLI configuration when rhythmic queues change", async () => {
+    useMusicStore().setPlayMode("repeat:16");
+    await connect();
+    await vi.advanceTimersByTimeAsync(100);
+    send.mockClear();
+    packet(0x90, 60);
+    await vi.advanceTimersByTimeAsync(250);
+    packet(0x90, 64);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(clear).toHaveBeenCalled();
+    expect(send.mock.calls.filter(([message]) => (message[0] & 0xf0) === 0xb0)).toEqual([]);
+  });
+
+  it("repairs only still-pending ROLI configuration packets discarded by MIDI clear", async () => {
+    useMusicStore().setPlayMode("repeat:16");
+    await connect();
+    await vi.advanceTimersByTimeAsync(5);
+    const pendingConfig = midiMessages.filter(({ message, timestamp }) =>
+      (message[0] & 0xf0) === 0xb0 && timestamp !== undefined && timestamp >= 5,
+    ).map(({ message, timestamp }) => [message, timestamp]);
+    expect(pendingConfig.length).toBeGreaterThan(0);
+    send.mockClear();
+    packet(0x90, 60);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(send.mock.calls.filter(([message]) => (message[0] & 0xf0) === 0xb0)).toEqual(pendingConfig);
+  });
+
+  it("still sends changed key, mode and octave settings to the connected output", async () => {
+    const music = useMusicStore();
+    await connect();
+    await vi.advanceTimersByTimeAsync(100);
+    send.mockClear();
+    music.setKey("D");
+    await vi.advanceTimersByTimeAsync(0);
+    const keyPalette = send.mock.calls.map(([message]) => message);
+    expect(keyPalette).toHaveLength(64);
+    await vi.advanceTimersByTimeAsync(100);
+    send.mockClear();
+    music.setMode("minor");
+    await vi.advanceTimersByTimeAsync(0);
+    const modePalette = send.mock.calls.map(([message]) => message);
+    expect(modePalette).toHaveLength(64);
+    expect(modePalette).not.toEqual(keyPalette);
+    await vi.advanceTimersByTimeAsync(100);
+    send.mockClear();
+    useKeyboardDrawerStore().setMainOctave(5);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(send.mock.calls).toEqual([[[0xbf, 111, 5], 300]]);
+  });
+
+  it("sends complete configuration to a replacement output even when its port id is reused", async () => {
+    await connect();
+    await vi.advanceTimersByTimeAsync(100);
+    const access = await vi.mocked(navigator.requestMIDIAccess).mock.results[0].value as MIDIAccess;
+    const replacementSend = vi.fn();
+    const replacement = { id: "roli-output", name: "LUMI Keys", type: "output", state: "connected", send: replacementSend, clear: vi.fn() };
+    (access.outputs as unknown as Map<string, unknown>).set(replacement.id, replacement);
+    access.onstatechange!.call(access, { port: replacement } as unknown as MIDIConnectionEvent);
+    expect(replacementSend).toHaveBeenCalledTimes(65);
+    expect(replacementSend.mock.calls.at(-1)).toEqual([[0xbf, 111, 4], 100]);
+    replacementSend.mockClear();
+    access.onstatechange!.call(access, { port: replacement } as unknown as MIDIConnectionEvent);
+    expect(replacementSend).not.toHaveBeenCalled();
+  });
+
   it("mirrors every arpeggio pulse from a held ROLI chord, including its first note", async () => {
     const music = useMusicStore();
     music.setPlayStyle("arp-up");
@@ -186,7 +254,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       [0x90, 60], [0x80, 60],
     ]);
     expect(scheduledNotes().map(({ timestamp }) => timestamp))
-      .toEqual([50, 250, 300, 500, 550, 750, 800, 1000]);
+      .toEqual([0, 200, 250, 450, 500, 700, 750, 950].map(onset));
     [60, 64, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
     // The fourth pulse was queued ahead but physical release cancels it.
@@ -219,14 +287,14 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     packet(0x90, 60);
     await vi.advanceTimersByTimeAsync(60);
     packet(0x90, 64);
-    await vi.advanceTimersByTimeAsync(230);
+    await vi.advanceTimersByTimeAsync(180);
     [60, 64].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, 50], [0x80, 60, 150],
-      [0x90, 60, 175], [0x90, 64, 175],
-      [0x80, 60, 275], [0x80, 64, 275],
+      [0x90, 60, onset()], [0x80, 60, onset(100)],
+      [0x90, 60, onset(125)], [0x90, 64, onset(125)],
+      [0x80, 60, onset(225)], [0x80, 64, onset(225)],
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -239,13 +307,13 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     [60, 64, 67].forEach((pitch) => packet(0x90, pitch));
     await vi.advanceTimersByTimeAsync(60);
     packet(0x80, 64);
-    await vi.advanceTimersByTimeAsync(230);
+    await vi.advanceTimersByTimeAsync(180);
     [60, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, 50], [0x80, 60, 150],
-      [0x90, 67, 175], [0x80, 67, 275],
+      [0x90, 60, onset()], [0x80, 60, onset(100)],
+      [0x90, 67, onset(125)], [0x80, 67, onset(225)],
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -259,15 +327,15 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     await vi.advanceTimersByTimeAsync(60);
     packet(0x90, 64);
     await vi.advanceTimersByTimeAsync(10);
-    expect(notesWithTimestamps()).toContainEqual([0x90, 64, 175]);
+    expect(notesWithTimestamps()).toContainEqual([0x90, 64, onset(125)]);
     packet(0x80, 64);
-    await vi.advanceTimersByTimeAsync(220);
+    await vi.advanceTimersByTimeAsync(170);
     [60, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, 50], [0x80, 60, 150],
-      [0x90, 67, 175], [0x80, 67, 275],
+      [0x90, 60, onset()], [0x80, 60, onset(100)],
+      [0x90, 67, onset(125)], [0x80, 67, onset(225)],
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -303,14 +371,14 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     useMusicStore().setPlayStyle("arp-up");
     await connect();
     packet(0x90, 60);
-    await vi.advanceTimersByTimeAsync(260);
+    await vi.advanceTimersByTimeAsync(240);
     packet(0x80, 60);
     await vi.advanceTimersByTimeAsync(0);
 
     const scheduled = scheduledNotes()
       .map(({ message, timestamp }) => [message[0] & 0xf0, message[1], timestamp]);
-    expect(scheduled).toContainEqual([0x90, 60, 300]);
-    expect(scheduled.at(-1)).toEqual([0x80, 60, 300]);
+    expect(scheduled).toContainEqual([0x90, 60, onset(250)]);
+    expect(scheduled.at(-1)).toEqual([0x80, 60, onset(250)]);
     expect(notes()).toEqual([[0x90, 60], [0x80, 60]]);
   });
 
@@ -331,8 +399,8 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       .slice(-3);
     expect(replacementCalls).toEqual([
       [0x80, 60, 100],
-      [0x90, 60, 160],
-      [0x80, 60, 360],
+      [0x90, 60, onset(110)],
+      [0x80, 60, onset(310)],
     ]);
   });
 

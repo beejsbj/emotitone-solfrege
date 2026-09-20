@@ -6,9 +6,16 @@ vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
 
+const audioContext = vi.hoisted(() => ({
+  state: "running",
+  get currentTime() { return performance.now() / 1000; },
+}));
+
 vi.mock("@/services/superdoughAudio", () => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
+  stopNote: vi.fn(),
+  getAudioContext: vi.fn(() => audioContext),
   releaseAll: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
 }));

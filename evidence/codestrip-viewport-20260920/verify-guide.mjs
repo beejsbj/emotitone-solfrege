@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
+import { writeGuideReceipt } from './guide-receipt.mjs';
 const out=dirname(fileURLToPath(import.meta.url));
 const root=resolve(out,'../..');
 const tmp=await mkdtemp('/tmp/emotitone-codestrip-guide-');
@@ -35,7 +36,7 @@ try {
  const reducedMotion=await evaluate(`({matches:matchMedia('(prefers-reduced-motion: reduce)').matches,transitions:[...document.querySelectorAll('.code-strip__note .note__surface')].map(el=>getComputedStyle(el,'::before').transitionDuration)})`);
  if(!reducedMotion.matches||reducedMotion.transitions.some(value=>value!=='0s'))throw Error('Guide motion contract failed '+JSON.stringify(reducedMotion));
  const report={revision:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),route:'/style-guide/performance-deck',results,reducedMotion,errors};
- await writeFile(out+'/guide-check.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+ await writeGuideReceipt(out+'/guide-check.json',report);console.log(JSON.stringify(report));
 }finally{
  socket?.close();browser.kill();await server.close();await new Promise(resolve=>browser.exitCode!==null||browser.signalCode!==null?resolve():browser.once('exit',resolve));await rm(tmp,{recursive:true,force:true,maxRetries:5,retryDelay:100});
 }

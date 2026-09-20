@@ -9,7 +9,15 @@ const median = values => {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 };
 const focused = receipt.mode === 'focused';
-if (receipt.rows.length !== (focused ? 4 : 9) || !receipt.replay?.playing || !receipt.replay?.stopped || !receipt.replay?.richNotes) {
+// The full sweep deliberately repeats two controls. Compare the multiset, so
+// duplicates cannot replace the 128/2048-note or hue-off conditions.
+const expectedConditions = focused
+  ? [[16, true, false], [512, true, false], [512, false, true], [512, true, true]]
+  : [[16, true, false], [128, true, false], [512, true, false], [2048, true, false],
+    [16, true, false], [512, false, false], [512, false, true], [512, true, false], [512, true, true]];
+const conditions = receipt.rows?.map(({ n, hue, logging }) => JSON.stringify([n, hue, logging])).sort();
+if (JSON.stringify(conditions) !== JSON.stringify(expectedConditions.map(row => JSON.stringify(row)).sort()) ||
+    !receipt.replay?.playing || !receipt.replay?.stopped || !receipt.replay?.richNotes) {
   throw new Error('Incomplete benchmark or missing rich-pattern replay');
 }
 console.log(`Checking ${focused ? 'focused four-condition' : 'full nine-condition'} receipt.`);

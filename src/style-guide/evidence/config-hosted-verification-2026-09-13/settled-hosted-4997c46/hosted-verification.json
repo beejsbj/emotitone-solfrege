@@ -1,0 +1,317 @@
+{
+  "host": "https://emotitone-solfrege.vercel.app",
+  "provenance": {
+    "host": "https://emotitone-solfrege.vercel.app",
+    "matchesHostedAssetBaseline": true,
+    "baselineDocumentedAtSourceRevision": "4997c46b27c16216e71b0bf3b2b0ca73c212e388",
+    "deploymentRevisionEstablished": false,
+    "verifiedAt": "2026-09-13T16:34:25.722Z",
+    "assets": [
+      {
+        "path": "/assets/index-23ff2ff7.js",
+        "sha256": "8ea45fd6e2019e56582a22dd977882d96cedae7ee062d8ecf47121055839ef06"
+      },
+      {
+        "path": "/assets/index-966b0f42.css",
+        "sha256": "966b0f427a6f6dc925de716a65ee1ebae4cb26bb55aa3daf7bad1c3c28ca8d96"
+      }
+    ]
+  },
+  "capturedAt": "2026-09-13T16:34:26.760Z",
+  "browser": "153.0.8010.12",
+  "pages": [
+    {
+      "route": "/style-guide/config-menu",
+      "viewport": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900
+      },
+      "url": "https://emotitone-solfrege.vercel.app/style-guide/config-menu",
+      "destinations": [
+        {
+          "destination": "global",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"global-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "Across EmotiToneGlobal Shared color and interface rhythm, independent of the Stage canvas. Music ColorChoose how pitch becomes color, how saturated it feels, and how much it moves.Scale OrderMappingBalancedColor IntensityGentleColor MotionUI RhythmLet interface controls follow the sounding transport.UI Rhythm",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        },
+        {
+          "destination": "stage",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"stage-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "Stage onlyLooks Built-ins preserve Connections and Explanations; saved Looks restore what you saved. New Look on ReloadEach reload previews a newly seeded variation. It stays temporary until kept.On ReloadBuilt InClearCalm motion and crisp, restrained supporting layers.SoftWarm, quiet bodies with a broad atmospheric breath.LuminousA bright spectral field with the primary Scope pushed forward.Saved Stage Looks No saved Stage Looks yet. CustomizeStage Hilbert Scope leads. Bodies, atmosphere, strings, and flecks support it. StageScopeThe primary musical body and the only raw-waveform surface.60%Size70%Strength1.5pxLine Weight20%Glow21%TrailNote BodiesCircle-of-Fifths support bodies around the Scope.Show Bodies10%Size50%Strength63%MotionConnectionsHow simultaneous note bodies relate.offMode38%StrengthAtmosphereThe low, breathing field behind the musical bodies.58%Strength80%Color DepthPitch StringsExact-pitch lines driven by the shared live envelope.90%Presence22%ResponseNote FlecksBrief Mark fragments released by note events.10Amount33%EnergyExplanationsLearning labels layered over musical relationships.ChordsIntervalsEmotion50%Label Strength",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        },
+        {
+          "destination": "deck",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"deck-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "Performance surfaceDeck Shared notation and the useful Keyboard and Code Strip choices. NotationOne musical naming system across the Keyboard and Code Strip.SolfègeNotationKeyboard LabelsKeyboardShape the playable surface without exposing renderer calibration.BalancedSpacingColorNote SurfaceTouch FeedbackCode StripKeep the editable music line available and decide whether rests stay visible.Code StripShow Rests",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        },
+        {
+          "destination": "midi",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": ".config-panel__midi-grid",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "MIDI Status Waiting for MIDIWhen a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded. Inputs No connected MIDI inputs yet. Outputs No connected MIDI outputs yet.ROLI Generate a live-sync LittleFoot script from the current palette and load it in ROLI Dashboard or BLOCKS Code. When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.CopyDownload",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "viewport": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900
+      },
+      "url": "https://emotitone-solfrege.vercel.app/",
+      "destinations": [
+        {
+          "destination": "global",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"global-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "Across EmotiToneGlobal Shared color and interface rhythm, independent of the Stage canvas. Music ColorChoose how pitch becomes color, how saturated it feels, and how much it moves.Scale OrderMappingBalancedColor IntensityGentleColor MotionUI RhythmLet interface controls follow the sounding transport.UI Rhythm",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        },
+        {
+          "destination": "stage",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"stage-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "Stage onlyLooks Built-ins preserve Connections and Explanations; saved Looks restore what you saved.  Previewing Soft · 0EA2. Edits stay temporary until kept. New Look on ReloadEach reload previews a newly seeded variation. It stays temporary until kept.On ReloadBuilt InClearCalm motion and crisp, restrained supporting layers.SoftWarm, quiet bodies with a broad atmospheric breath.LuminousA bright spectral field with the primary Scope pushed forward.Saved Stage Looks No saved Stage Looks yet. CustomizeStage Hilbert Scope leads. Bodies, atmosphere, strings, and flecks support it. StageScopeThe primary musical body and the only raw-waveform surface.63%Size53%Strength1.31pxLine Weight16%Glow24%TrailNote BodiesCircle-of-Fifths support bodies around the Scope.Show Bodies9%Size37%Strength31%MotionConnectionsHow simultaneous note bodies relate.offMode38%StrengthAtmosphereThe low, breathing field behind the musical bodies.50%Strength78%Color DepthPitch StringsExact-pitch lines driven by the shared live envelope.59%Presence19%ResponseNote FlecksBrief Mark fragments released by note events.7Amount17%EnergyExplanationsLearning labels layered over musical relationships.ChordsIntervalsEmotion50%Label Strength",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        },
+        {
+          "destination": "deck",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"deck-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "Performance surfaceDeck Shared notation and the useful Keyboard and Code Strip choices. NotationOne musical naming system across the Keyboard and Code Strip.SolfègeNotationKeyboard LabelsKeyboardShape the playable surface without exposing renderer calibration.BalancedSpacingColorNote SurfaceTouch FeedbackCode StripKeep the editable music line available and decide whether rests stay visible.Code StripShow Rests",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        },
+        {
+          "destination": "midi",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": ".config-panel__midi-grid",
+          "contentMounted": true,
+          "documentWidth": 1440,
+          "viewportWidth": 1440,
+          "activeContent": "MIDI Status MIDI permission blockedThe app still works with touch and QWERTY input, but browser MIDI access was not granted. Inputs No connected MIDI inputs yet. Outputs No connected MIDI outputs yet.ROLI Generate a live-sync LittleFoot script from the current palette and load it in ROLI Dashboard or BLOCKS Code. When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.CopyDownload",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/style-guide/config-menu",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "url": "https://emotitone-solfrege.vercel.app/style-guide/config-menu",
+      "destinations": [
+        {
+          "destination": "global",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"global-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "Across EmotiToneGlobal Shared color and interface rhythm, independent of the Stage canvas. Music ColorChoose how pitch becomes color, how saturated it feels, and how much it moves.Scale OrderMappingBalancedColor IntensityGentleColor MotionUI RhythmLet interface controls follow the sounding transport.UI Rhythm",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        },
+        {
+          "destination": "stage",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"stage-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "Stage onlyLooks Built-ins preserve Connections and Explanations; saved Looks restore what you saved. New Look on ReloadEach reload previews a newly seeded variation. It stays temporary until kept.On ReloadBuilt InClearCalm motion and crisp, restrained supporting layers.SoftWarm, quiet bodies with a broad atmospheric breath.LuminousA bright spectral field with the primary Scope pushed forward.Saved Stage Looks No saved Stage Looks yet. CustomizeStage Hilbert Scope leads. Bodies, atmosphere, strings, and flecks support it. StageScopeThe primary musical body and the only raw-waveform surface.60%Size70%Strength1.5pxLine Weight20%Glow21%TrailNote BodiesCircle-of-Fifths support bodies around the Scope.Show Bodies10%Size50%Strength63%MotionConnectionsHow simultaneous note bodies relate.offMode38%StrengthAtmosphereThe low, breathing field behind the musical bodies.58%Strength80%Color DepthPitch StringsExact-pitch lines driven by the shared live envelope.90%Presence22%ResponseNote FlecksBrief Mark fragments released by note events.10Amount33%EnergyExplanationsLearning labels layered over musical relationships.ChordsIntervalsEmotion50%Label Strength",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        },
+        {
+          "destination": "deck",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"deck-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "Performance surfaceDeck Shared notation and the useful Keyboard and Code Strip choices. NotationOne musical naming system across the Keyboard and Code Strip.SolfègeNotationKeyboard LabelsKeyboardShape the playable surface without exposing renderer calibration.BalancedSpacingColorNote SurfaceTouch FeedbackCode StripKeep the editable music line available and decide whether rests stay visible.Code StripShow Rests",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        },
+        {
+          "destination": "midi",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": ".config-panel__midi-grid",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "MIDI Status Waiting for MIDIWhen a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded. Inputs No connected MIDI inputs yet. Outputs No connected MIDI outputs yet.ROLI Generate a live-sync LittleFoot script from the current palette and load it in ROLI Dashboard or BLOCKS Code. When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.CopyDownload",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css",
+            "/assets/guide-defaults-1633c902.css",
+            "/assets/StyleGuide-88a6048d.css",
+            "/assets/ConfigMenuPage-18ad3e74.css"
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "url": "https://emotitone-solfrege.vercel.app/",
+      "destinations": [
+        {
+          "destination": "global",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"global-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "Across EmotiToneGlobal Shared color and interface rhythm, independent of the Stage canvas. Music ColorChoose how pitch becomes color, how saturated it feels, and how much it moves.Scale OrderMappingBalancedColor IntensityGentleColor MotionUI RhythmLet interface controls follow the sounding transport.UI Rhythm",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        },
+        {
+          "destination": "stage",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"stage-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "Stage onlyLooks Built-ins preserve Connections and Explanations; saved Looks restore what you saved.  Previewing Clear · 975D. Edits stay temporary until kept. New Look on ReloadEach reload previews a newly seeded variation. It stays temporary until kept.On ReloadBuilt InClearCalm motion and crisp, restrained supporting layers.SoftWarm, quiet bodies with a broad atmospheric breath.LuminousA bright spectral field with the primary Scope pushed forward.Saved Stage Looks No saved Stage Looks yet. CustomizeStage Hilbert Scope leads. Bodies, atmosphere, strings, and flecks support it. StageScopeThe primary musical body and the only raw-waveform surface.53%Size75%Strength1.4pxLine Weight13%Glow14%TrailNote BodiesCircle-of-Fifths support bodies around the Scope.Show Bodies8%Size32%Strength12%MotionConnectionsHow simultaneous note bodies relate.offMode38%StrengthAtmosphereThe low, breathing field behind the musical bodies.29%Strength80%Color DepthPitch StringsExact-pitch lines driven by the shared live envelope.44%Presence16%ResponseNote FlecksBrief Mark fragments released by note events.0Amount30%EnergyExplanationsLearning labels layered over musical relationships.ChordsIntervalsEmotion50%Label Strength",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        },
+        {
+          "destination": "deck",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": "[data-testid=\"deck-public-controls\"]",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "Performance surfaceDeck Shared notation and the useful Keyboard and Code Strip choices. NotationOne musical naming system across the Keyboard and Code Strip.SolfègeNotationKeyboard LabelsKeyboardShape the playable surface without exposing renderer calibration.BalancedSpacingColorNote SurfaceTouch FeedbackCode StripKeep the editable music line available and decide whether rests stay visible.Code StripShow Rests",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        },
+        {
+          "destination": "midi",
+          "selected": "true",
+          "settled": true,
+          "contentMarker": ".config-panel__midi-grid",
+          "contentMounted": true,
+          "documentWidth": 390,
+          "viewportWidth": 390,
+          "activeContent": "MIDI Status MIDI permission blockedThe app still works with touch and QWERTY input, but browser MIDI access was not granted. Inputs No connected MIDI inputs yet. Outputs No connected MIDI outputs yet.ROLI Generate a live-sync LittleFoot script from the current palette and load it in ROLI Dashboard or BLOCKS Code. When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.CopyDownload",
+          "assets": [
+            "/assets/index-23ff2ff7.js",
+            "/assets/index-966b0f42.css"
+          ]
+        }
+      ]
+    }
+  ],
+  "status": "complete"
+}

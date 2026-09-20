@@ -1,11 +1,16 @@
 <template>
-  <main class="stage-page">
+  <main class="stage-page" :class="{ 'stage-page--focused': focused }">
     <StageSpecimenCanvas
       ref="stageCanvas"
       :signal="effectiveSignal"
       :relationship="relationship"
       :stage-enabled="stageEnabled"
+      :show-labels="showLabels"
     />
+
+    <button class="stage-page__focus" type="button" :aria-pressed="focused" @click="focused = !focused">
+      {{ focused ? "Show controls" : "Focus Stage" }}
+    </button>
 
     <header class="stage-page__header">
       <p class="stage-page__eyebrow">Stage · real isolated specimen</p>
@@ -53,6 +58,9 @@
         </button>
       </fieldset>
 
+      <button type="button" :aria-pressed="showLabels" @click="showLabels = !showLabels">
+        Labels {{ showLabels ? "on" : "off" }}
+      </button>
       <button
         class="stage-page__master"
         type="button"
@@ -96,11 +104,14 @@
 import { computed, onBeforeUnmount, ref } from "vue";
 import StageSpecimenCanvas from "./stage/StageSpecimenCanvas.vue";
 import type { StageSpecimenSignal } from "./stage/stageSpecimenAudio";
+import type { HarmonicGeometryMode } from "@/types/visual";
 
 const signal = ref<StageSpecimenSignal>("phrase");
 const audioState = ref<"waiting" | "starting" | "started" | "failed">("waiting");
-const relationship = ref<"off" | "merge" | "web">("web");
+const relationship = ref<HarmonicGeometryMode>("web");
 const stageEnabled = ref(true);
+const showLabels = ref(true);
+const focused = ref(false);
 const boundaryReveal = ref(0);
 const boundaryMoving = ref(false);
 const stageCanvas = ref<InstanceType<typeof StageSpecimenCanvas> | null>(null);
@@ -112,7 +123,7 @@ const signalOptions = [
   { label: "Borrowed C♯", value: "borrowed" },
   { label: "Silence", value: "silence" },
 ] as const;
-const relationshipOptions = ["off", "merge", "web"] as const;
+const relationshipOptions = ["merge", "web"] as const;
 const effectiveSignal = computed<StageSpecimenSignal>(() => (
   audioState.value === "started" ? signal.value : "silence"
 ));
@@ -197,6 +208,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.stage-page__focus {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  background: var(--ink);
+  color: var(--ivory);
+  padding: 8px 12px;
+  font: var(--t-label);
+}
+.stage-page--focused .stage-page__header,
+.stage-page--focused .stage-page__controls,
+.stage-page--focused .stage-page__reading {
+  visibility: hidden;
+}
 .stage-page {
   min-height: 100vh;
   overflow: hidden;

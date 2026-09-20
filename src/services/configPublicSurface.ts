@@ -17,6 +17,7 @@ export type DeckControlId =
   | "noteSurface"
   | "touchFeedback"
   | "codeStrip"
+  | "durationMode"
   | "showRests";
 
 export type ColorIntensity = "muted" | "balanced" | "vivid";
@@ -38,6 +39,7 @@ export interface DeckControls {
   noteSurface: VisualEffectsConfig["keyboard"]["surfaceStyle"];
   touchFeedback: boolean;
   codeStrip: boolean;
+  durationMode: VisualEffectsConfig["codeStrip"]["durationMode"];
   showRests: boolean;
 }
 
@@ -171,6 +173,16 @@ export const DECK_CONTROL_GROUPS: PublicConfigControlGroup<DeckControlId>[] = [
         type: "boolean",
       },
       {
+        id: "durationMode",
+        label: "Durations",
+        type: "options",
+        options: [
+          { label: "Labels", value: "stacked" },
+          { label: "Bars", value: "bar" },
+          { label: "Hidden", value: "hidden" },
+        ],
+      },
+      {
         id: "showRests",
         label: "Show Rests",
         type: "boolean",
@@ -246,6 +258,7 @@ export function readDeckControls(config: VisualEffectsConfig): DeckControls {
     noteSurface: config.keyboard.surfaceStyle,
     touchFeedback: config.keyboard.hapticFeedback,
     codeStrip: config.codeStrip.enabled,
+    durationMode: config.codeStrip.durationMode,
     showRests: config.codeStrip.showRests,
   };
 }
@@ -310,6 +323,11 @@ export function updateDeckControl(
       break;
     case "codeStrip":
       if (typeof value === "boolean") config.codeStrip.enabled = value;
+      break;
+    case "durationMode":
+      if (value === "stacked" || value === "bar" || value === "hidden") {
+        config.codeStrip.durationMode = value;
+      }
       break;
     case "showRests":
       if (typeof value === "boolean") config.codeStrip.showRests = value;

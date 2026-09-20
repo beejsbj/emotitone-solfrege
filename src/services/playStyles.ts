@@ -323,9 +323,22 @@ export function createPlayStyleEngine<T>(deps: {
     strumBatch = strumBatch.filter(note => note.owner !== owner)
     strumQueue = strumQueue.filter(note => note.owner !== owner)
     const now = deps.now()
+    // An imminent arpeggio slot cannot be replaced within the adapter's setup
+    // margin. Let its prepared attack finish its gate while the chord remains
+    // held; cancelOutput still stops it when the final input lets go.
+    const committed = new Set<PlayingVoice>()
+    if (held.size && config.style.startsWith('arp-')) {
+      for (const pulse of pendingPulses) {
+        const lead = pulse.step === 0 ? initialLeadMs : schedulingLeadMs
+        if (pulse.at > now && pulse.at < now + lead) {
+          pulse.voices.forEach(item => committed.add(item))
+        }
+      }
+    }
     for (const item of playing) {
-      item.owners.delete(owner)
+      if (!item.owners.delete(owner)) continue
       if (!item.owners.size) {
+        if (committed.has(item)) continue
         if (item.releaseAt > now) item.voice.release(now)
         playing.delete(item)
       }

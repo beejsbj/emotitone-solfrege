@@ -110,10 +110,7 @@ export function resolveStageComposition(
   // body fitting. The enlarged scope may cross the support orbit.
   const hilbertRadius = HILBERT_PRESENTATION_SCALE * Math.min(
     desiredHilbertRadius,
-    Math.max(
-      8,
-      Math.min(orbitRadiusX, orbitRadiusY) - fittedExtent - FOCAL_GAP,
-    ),
+    defaultHilbertRadius,
   );
 
   return {

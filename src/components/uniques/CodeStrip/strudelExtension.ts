@@ -111,7 +111,7 @@ const setTransportPlaying = StateEffect.define<boolean>();
 
 const defaultPresentation: CodeStripPresentation = {
   tokens: [],
-  durationMode: "stacked",
+  durationMode: "bar",
   density: "default",
   timeSignature: "4/4",
   showRests: true,
@@ -396,7 +396,7 @@ class CodeStripEventWidget extends WidgetType {
 
     const vnode = h(Sequence, {
       tokens: [this.token],
-      durationMode: this.presentation.durationMode ?? "stacked",
+      durationMode: this.presentation.durationMode ?? "bar",
       density: this.presentation.density ?? "default",
       timeSignature: this.presentation.timeSignature ?? "4/4",
       showChevron: false,

@@ -10,25 +10,32 @@
         >
           <span
             class="code-strip__event-line"
-            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' && token.duration }"
+            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' }"
           >
             <span class="code-strip__note" :style="progressStyle(token.progress)">
               <Note v-bind="noteProps(token)" />
             </span>
             <span v-if="token.accidental" class="code-strip__accidental">{{ token.accidental }}</span>
             <span
-              v-if="durationMode === 'bar' && token.duration"
+              v-if="durationMode === 'bar'"
               class="code-strip__duration-bar"
               :style="durationBarStyle(token.duration)"
-              aria-hidden="true"
+              role="img"
+              :aria-label="durationBarLabel(token.duration)"
             >
               <span
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
                 :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+                aria-hidden="true"
               ></span>
             </span>
+            <span
+              v-if="durationMode === 'bar' && durationOverflowLabel(token.duration)"
+              class="code-strip__duration-overflow"
+              aria-hidden="true"
+            >{{ durationOverflowLabel(token.duration) }}</span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
@@ -42,7 +49,7 @@
         >
           <span
             class="code-strip__event-line"
-            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' && token.duration }"
+            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' }"
           >
             <Chord
               :members="chordMembers(token)"
@@ -53,18 +60,25 @@
               :accessible-name="token.accessibleName"
             />
             <span
-              v-if="durationMode === 'bar' && token.duration"
+              v-if="durationMode === 'bar'"
               class="code-strip__duration-bar"
               :style="durationBarStyle(token.duration)"
-              aria-hidden="true"
+              role="img"
+              :aria-label="durationBarLabel(token.duration)"
             >
               <span
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
                 :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+                aria-hidden="true"
               ></span>
             </span>
+            <span
+              v-if="durationMode === 'bar' && durationOverflowLabel(token.duration)"
+              class="code-strip__duration-overflow"
+              aria-hidden="true"
+            >{{ durationOverflowLabel(token.duration) }}</span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
@@ -78,25 +92,32 @@
         >
           <span
             class="code-strip__event-line"
-            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' && token.duration }"
+            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' }"
           >
             <span class="code-strip__rest" :style="progressStyle(token.progress)" role="img" aria-label="Rest">
               <span class="code-strip__rest-fill" aria-hidden="true"></span>
               <span class="code-strip__rest-mark" aria-hidden="true">~</span>
             </span>
             <span
-              v-if="durationMode === 'bar' && token.duration"
+              v-if="durationMode === 'bar'"
               class="code-strip__duration-bar"
               :style="durationBarStyle(token.duration)"
-              aria-hidden="true"
+              role="img"
+              :aria-label="durationBarLabel(token.duration)"
             >
               <span
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
                 :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+                aria-hidden="true"
               ></span>
             </span>
+            <span
+              v-if="durationMode === 'bar' && durationOverflowLabel(token.duration)"
+              class="code-strip__duration-overflow"
+              aria-hidden="true"
+            >{{ durationOverflowLabel(token.duration) }}</span>
           </span>
         </span>
 
@@ -141,7 +162,7 @@ const props = withDefaults(
   }>(),
   {
     density: "default",
-    durationMode: "stacked",
+    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: false,
@@ -170,8 +191,9 @@ const clampProgress = (progress: number | undefined) => {
 };
 
 const durationAmount = (duration: string | undefined) => {
-  const amount = Number.parseFloat((duration ?? "").replace(/^@/, ""));
-  return Number.isFinite(amount) ? Math.min(1, Math.max(0, amount)) : 0;
+  if (duration == null || duration === "") return 1;
+  const amount = Number.parseFloat(duration.replace(/^@/, ""));
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
 };
 
 const progressStyle = (progress: number | undefined) => ({
@@ -179,8 +201,20 @@ const progressStyle = (progress: number | undefined) => ({
 });
 
 const durationBarStyle = (duration: string | undefined) => ({
-  "--code-strip-duration-ratio": durationAmount(duration),
+  "--code-strip-duration-ratio": Math.min(1, durationAmount(duration)),
 });
+
+const formatDurationAmount = (amount: number) => amount.toString();
+
+const durationBarLabel = (duration: string | undefined) => {
+  const amount = durationAmount(duration);
+  return `Duration proportion: ${formatDurationAmount(amount)}`;
+};
+
+const durationOverflowLabel = (duration: string | undefined) => {
+  const amount = durationAmount(duration);
+  return amount > 1 ? `×${formatDurationAmount(amount)}` : "";
+};
 
 const meter = computed(() => {
   const [rawNumerator, rawDenominator] = props.timeSignature.split("/").map(Number);
@@ -195,7 +229,7 @@ const meter = computed(() => {
 });
 
 const durationMarks = (duration: string | undefined) => {
-  const amount = durationAmount(duration);
+  const amount = Math.min(1, durationAmount(duration));
   return amount > 0 ? Math.max(1, Math.round(amount * meter.value.marksPerBar)) : 0;
 };
 
@@ -397,6 +431,15 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   height: 4px;
   background: var(--ivory-2);
   opacity: .95;
+}
+
+.code-strip__duration-overflow {
+  align-self: center;
+  color: var(--ivory-3);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .code-strip__bracket {

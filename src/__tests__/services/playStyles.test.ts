@@ -290,6 +290,42 @@ describe('live play styles', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it.each(['arp-up', 'arp-up-down'] as const)(
+    'keeps a committed %s attack when its owner releases inside the safety margin', (style) => {
+      const { engine, calls } = setup(style, PLAY_STYLE_SCHEDULING_LEAD_MS)
+      engine.configure({ rate: 16 })
+      engine.press('c', notes(60))
+      engine.press('e', notes(64))
+      engine.press('g', notes(67))
+      vi.advanceTimersByTime(135)
+      const committed = calls.find(call => call.pitch === 64 && call.at === 145)!
+      engine.release('e')
+      expect(committed.release.mock.calls).toEqual([[245]])
+      // An unrelated release after onset must not cut the committed gate short.
+      vi.advanceTimersByTime(20)
+      engine.release('c')
+      expect(committed.release.mock.calls).toEqual([[245]])
+      // Releasing the final held input still stops every remaining voice.
+      engine.release('g')
+      expect(committed.release).toHaveBeenLastCalledWith(155)
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
+  it('cancels a committed arpeggio attack when the final held input releases before onset', () => {
+    const { engine, calls } = setup('arp-up', PLAY_STYLE_SCHEDULING_LEAD_MS)
+    engine.configure({ rate: 16 })
+    engine.press('c', notes(60))
+    engine.press('e', notes(64))
+    vi.advanceTimersByTime(135)
+    const committed = calls.find(call => call.pitch === 64 && call.at === 145)!
+    engine.release('e')
+    expect(committed.release.mock.calls).toEqual([[245]])
+    engine.release('c')
+    expect(committed.release).toHaveBeenLastCalledWith(135)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('leaves onsets inside the audio safety margin intact when adding a pitch', () => {
     const { engine, calls } = setup('arp-up', PLAY_STYLE_SCHEDULING_LEAD_MS)
     engine.configure({ rate: 16 })

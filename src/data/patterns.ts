@@ -16,7 +16,8 @@ export interface DefaultPatternOptions {
   mode: MusicalMode;
   bpm: number;
   instrument: string;
-  steps: MelodyStep[];
+  steps?: MelodyStep[];
+  strudel?: string;
 }
 
 function step(note: string, beats: number, bpm: number): MelodyStep {
@@ -98,6 +99,60 @@ function buildPatternNotes(
   });
 }
 
+function parseStrudelNotes(
+  patternId: string,
+  raw: string,
+  bpm: number,
+  key: ChromaticNote,
+  mode: MusicalMode
+): PatternNote[] {
+  const cycleMs = (60000 / bpm) * 4;
+  const layers = raw.split(",");
+  const allNotes: PatternNote[] = [];
+
+  layers.forEach((layerStr) => {
+    const tokens = layerStr.trim().split(/\s+/);
+    let cursor = 0;
+    tokens.forEach((tok) => {
+      if (!tok) return;
+      let noteName = tok;
+      let fraction = 0.25;
+      if (tok.includes("@")) {
+        const parts = tok.split("@");
+        noteName = parts[0].trim();
+        fraction = parseFloat(parts[1]);
+      }
+      const duration = Math.round(fraction * cycleMs);
+      if (noteName !== "~" && noteName && noteName !== ",") {
+        const parsed = TonalNote.get(noteName);
+        const pitchClassIndex = parsed.chroma >= 0 ? parsed.chroma : 0;
+        const pc = CHROMATIC_NOTES[pitchClassIndex] ?? "C";
+        const octave = Number.isFinite(parsed.oct) ? (parsed.oct as number) : 4;
+        const canonicalNote = `${pc}${octave}`;
+        const { scaleIndex, isBorrowed } = getScaleIndex(pc, key, mode);
+        const scaleDegree = isBorrowed ? 0 : scaleIndex + 1;
+
+        allNotes.push({
+          id: `${patternId}-note-${allNotes.length + 1}`,
+          note: canonicalNote,
+          scaleDegree,
+          scaleIndex,
+          pitchClassIndex,
+          isBorrowed,
+          octave,
+          frequency: parsed.freq || undefined,
+          pressTime: cursor,
+          releaseTime: cursor + duration,
+          duration,
+        });
+      }
+      cursor += duration;
+    });
+  });
+
+  return allNotes.sort((a, b) => a.pressTime - b.pressTime);
+}
+
 export function buildDefaultPattern(
   idOrOptions: string | DefaultPatternOptions,
   name?: string,
@@ -110,7 +165,8 @@ export function buildDefaultPattern(
   let patternMode: MusicalMode = "major";
   let patternBpm = 120;
   let patternInstrument = instrument;
-  let patternSteps: MelodyStep[];
+  let patternSteps: MelodyStep[] | undefined;
+  let strudelNotation: string | undefined;
 
   if (typeof idOrOptions === "object") {
     id = idOrOptions.id;
@@ -120,6 +176,7 @@ export function buildDefaultPattern(
     patternBpm = idOrOptions.bpm;
     patternInstrument = idOrOptions.instrument;
     patternSteps = idOrOptions.steps;
+    strudelNotation = idOrOptions.strudel;
   } else {
     id = idOrOptions;
     patternName = name!;
@@ -127,7 +184,9 @@ export function buildDefaultPattern(
     patternInstrument = instrument;
   }
 
-  const notes = buildPatternNotes(id, patternKey, patternMode, patternSteps);
+  const notes = strudelNotation
+    ? parseStrudelNotes(id, strudelNotation, patternBpm, patternKey, patternMode)
+    : buildPatternNotes(id, patternKey, patternMode, patternSteps ?? []);
   const firstNote = notes[0];
   const lastNote = notes[notes.length - 1];
 
@@ -204,6 +263,147 @@ export const defaultPatterns: Pattern[] = [
       step("D4", 1, 126), step("D4", 1, 126), step("E4", 1, 126), step("F#4", 1, 126),
       step("F#4", 1.5, 126), step("E4", 0.5, 126), step("E4", 2, 126),
     ],
+  }),
+  buildDefaultPattern({
+    id: "pattern-ruthlessness-melody-1",
+    name: "Ruthlessness Melody",
+    key: "E",
+    mode: "minor",
+    bpm: 135,
+    instrument: "gm_electric_guitar_jazz",
+    strudel: `E6@0.0833 D6@0.0833 C6@0.0833 D6@0.0833
+C6@0.0833 B5@0.0833 C6@0.0833 B5@0.0833
+A5@0.0833 B5@0.0833 A5@0.0833 G5@0.0833
+E6@0.0833 D6@0.0833 C6@0.0833 D6@0.0833
+C6@0.0833 B5@0.0833 C6@0.0833 B5@0.0833
+A5@0.0833 B5@0.0833 A5@0.0833 G5@0.0833
+E6@0.0833 D6@0.0833 C6@0.0833 D6@0.0833
+C6@0.0833 B5@0.0833 C6@0.0833 B5@0.0833
+A5@0.0833 B5@0.0833 A5@0.0833 G5@0.0833
+E6@0.0833 D6@0.0833 C6@0.0833 D6@0.0833
+C6@0.0833 B5@0.0833 ~@0.5,
+B4@0.0833 ~@0.1667 B4@0.0833 ~@0.1667
+B4@0.0833 ~@0.1667 B4@0.0833 ~@0.1667
+B4@0.0833 ~@0.1667 B4@0.0833 ~@0.1667
+B4@0.0833 ~@0.1667 B4@0.0833 ~@0.1667
+B4@0.0833 ~@0.1667 B4@0.0833 ~@0.1667
+B4@0.0833 ~@0.1667 B4@0.0833 ~@0.1667
+B4@0.0833 ~@0.1667 B4@0.0833 ~@0.6667,
+E4@0.0833 ~@0.1667 E4@0.0833 ~@0.1667
+E4@0.0833 ~@0.1667 E4@0.0833 ~@0.1667
+E4@0.0833 ~@0.1667 E4@0.0833 ~@0.1667
+E4@0.0833 ~@0.1667 E4@0.0833 ~@0.1667
+E4@0.0833 ~@0.1667 E4@0.0833 ~@0.1667
+E4@0.0833 ~@0.1667 E4@0.0833 ~@0.1667
+E4@0.0833 ~@0.1667 E4@0.0833 ~@0.6667,
+E3@0.0833 G3@0.0833 B3@0.0833 E3@0.0833
+G3@0.0833 B3@0.0833 E3@0.0833 G3@0.0833
+B3@0.0833 E3@0.0833 G3@0.0833 B3@0.0833
+D3@0.0833 G3@0.0833 B3@0.0833 D3@0.0833
+G3@0.0833 B3@0.0833 D3@0.0833 G3@0.0833
+D4@0.0833 D3@0.0833 G3@0.0833 B3@0.0833
+C3@0.0833 G3@0.0833 B3@0.0833 C3@0.0833
+G3@0.0833 B3@0.0833 C3@0.0833 G3@0.0833
+B3@0.0833 C3@0.0833 G3@0.0833 B3@0.0833
+C3@0.0833 G3@0.0833 B3@0.0833 C3@0.0833
+G3@0.0833 B3@0.0833 D3@0.0833 G3@0.0833
+B3@0.0833 D3@0.0833 G3@0.0833 B3@0.0833`,
+  }),
+  buildDefaultPattern({
+    id: "pattern-warrior-theme-1",
+    name: "Warrior of the Mind (Theme)",
+    key: "E",
+    mode: "major",
+    bpm: 125,
+    instrument: "gm_epiano1",
+    strudel: `G#3@0.125 C#3@0.0625 D#3@0.0625 E3@0.0625
+G#3@0.0625 F#3@0.125 D#3@0.125 E3@0.125
+D#3@0.125 C#3@0.125 G#3@0.125 C#3@0.0625
+D#3@0.0625 E3@0.0625 G#3@0.0625 E3@0.125
+C#3@0.125 D#3@0.125 B3@0.25 G#3@0.125
+C#3@0.0625 D#3@0.0625 E3@0.0625 G#3@0.0625
+F#3@0.125 D#3@0.125 E3@0.125 D#3@0.125
+C#3@0.125 G#3@0.125 C#3@0.0625 D#3@0.0625
+E3@0.0625 G#3@0.0625 E3@0.125 C#3@0.125
+D#3@0.125 B3@0.25 G#3@0.125 C#3@0.0625
+D#3@0.0625 E3@0.0625 G#3@0.0625 F#3@0.125
+D#3@0.125 E3@0.125 D#3@0.125 C#3@0.125
+G#3@0.125 C#3@0.0625 D#3@0.0625 E3@0.0625
+G#3@0.0625 E3@0.125 C#3@0.125 D#3@0.125
+B3@0.25 G#3@0.125 C#3@0.0625 D#3@0.0625
+E3@0.0625 G#3@0.0625 F#3@0.125 D#3@0.125
+E3@0.125 D#3@0.125 C#3@0.125 G#3@0.125
+C#3@0.0625 D#3@0.0625 E3@0.0625 G#3@0.0625
+E3@0.125 C#3@0.125 D#3@0.125 B3@0.25`,
+  }),
+  buildDefaultPattern({
+    id: "pattern-warrior-chorus-1",
+    name: "Warrior of the Mind (Chorus)",
+    key: "E",
+    mode: "major",
+    bpm: 125,
+    instrument: "gm_violin",
+    strudel: `E4@0.125 B4@0.1875 F#4@0.1875 G#4@0.25
+E4@0.25 E4@0.125 B4@0.1875 F#4@0.1875
+G#4@0.5 E4@0.125 B4@0.1875 F#4@0.1875
+G#4@0.25 E4@0.125 E4@0.125 G#4@0.125
+F#4@0.1875 D#4@0.1875 C#4@0.25 ~@0.375`,
+  }),
+  buildDefaultPattern({
+    id: "pattern-warrior-bassline-1",
+    name: "Warrior of the Mind (Bassline)",
+    key: "E",
+    mode: "major",
+    bpm: 125,
+    instrument: "gm_synth_bass_1",
+    strudel: `C#2@0.0625 D#2@0.0625 E2@0.0625 F#2@0.0625
+E2@0.0625 ~@0.125 E2@0.125 ~@0.0625
+F#2@0.0625 ~@0.125 F#2@0.125 ~@0.0625
+F#2@0.25 E2@0.0625 ~@0.125 E2@0.125
+~@0.0625 F#2@0.0625 ~@0.125 F#2@0.125
+~@0.0625 C#2@0.0625 D#2@0.0625 E2@0.0625
+F#2@0.0625 G#2@0.0625 ~@0.125 G#2@0.125
+~@0.0625 B2@0.0625 ~@0.125 B2@0.125
+~@0.0625 B2@0.25 B2@0.0625 ~@0.125
+B2@0.125 ~@0.0625 G#2@0.0625 ~@0.125
+G#2@0.125 ~@0.0625 C#2@0.0625 D#2@0.0625
+E2@0.0625 F#2@0.0625 G#2@0.0625 ~@0.125
+G#2@0.125 ~@0.0625 F#2@0.0625 ~@0.125
+F#2@0.125 ~@0.0625 F#2@0.25 G#2@0.0625
+~@0.125 G#2@0.125 ~@0.0625 F#2@0.0625
+~@0.125 F#2@0.125 ~@0.0625 C#2@0.0625
+D#2@0.0625 E2@0.0625 F#2@0.0625 G#2@0.0625
+~@0.125 G#2@0.125 ~@0.0625 F#2@0.0625
+~@0.125 F#2@0.125 ~@0.0625 F#2@0.25
+G#2@0.125 ~@0.0625 G#2@0.125 ~@0.0625
+F#2@0.125 ~@0.0625 F#2@0.125 ~@0.0625
+F#2@0.25 ~@0.0625 C#3@0.0625 D#3@0.0625
+E3@0.0625 F#3@0.0625 G#3@0.0625 ~@0.125
+G#3@0.125 ~@0.0625 C#3@0.0625 ~@0.125
+F#3@0.125 ~@0.0625 C#3@0.0625 ~@0.1875
+C#3@0.0625 ~@0.125 C#3@0.125 ~@0.0625
+C#3@0.0625 ~@0.125 C#3@0.0625 ~@0.125
+C#3@0.0625 D#3@0.0625 E3@0.0625 F#3@0.0625
+G#3@0.0625 ~@0.125 G#2@0.125 ~@0.0625
+G#2@0.0625 ~@0.125 G#2@0.125 ~@0.0625
+F#3@0.0625 ~@0.9375`,
+  }),
+  buildDefaultPattern({
+    id: "pattern-warrior-verse-1",
+    name: "Warrior of the Mind (Verse)",
+    key: "E",
+    mode: "major",
+    bpm: 125,
+    instrument: "gm_electric_guitar_clean",
+    strudel: `A4@0.25 A4@0.25 A4@0.1875 G#4@0.1875
+E4@0.125 D#4@0.25 D#4@0.25 D#4@0.1875
+E4@0.1875 F#4@0.125 G#4@0.25 G#4@0.25
+G#4@0.1875 F#4@0.1875 E4@0.125 C#4@0.25
+C#4@0.25 C#4@0.1875 D#4@0.1875 E4@0.125
+A4@0.25 A4@0.25 A4@0.1875 G#4@0.1875
+E4@0.125 D#4@0.25 D#4@0.25 D#4@0.1875
+E4@0.1875 F#4@0.125 G#4@0.1875 F#4@0.1875
+E4@0.25 B3@0.375 B4@0.375`,
   }),
   buildDefaultPattern({
     id: "pattern-midnight-dorian-1",

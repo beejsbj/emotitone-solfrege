@@ -763,7 +763,7 @@ async function selectInstrument(name: string, close: () => void) {
                     :max="0.5"
                     :step="0.005"
                     label="Attack"
-                    tone="ivory"
+                    tone="brass"
                     data-testid="synth-knob-attack"
                     :format-value="(v) => `${Math.round(Number(v) * 1000)}ms`"
                     @update:model-value="(v) => instrumentStore.setSynthControl('attack', Number(v))"
@@ -777,7 +777,7 @@ async function selectInstrument(name: string, close: () => void) {
                     :max="2.5"
                     :step="0.05"
                     label="Release"
-                    tone="ivory"
+                    tone="brass"
                     data-testid="synth-knob-release"
                     :format-value="(v) => `${Number(v).toFixed(2)}s`"
                     @update:model-value="(v) => instrumentStore.setSynthControl('release', Number(v))"
@@ -843,7 +843,7 @@ async function selectInstrument(name: string, close: () => void) {
 }
 
 .synth-sculptor {
-  border: 1px solid var(--ink-5);
+  border: 1px solid color-mix(in srgb, var(--brass) 24%, var(--ink-5));
   background: #111111;
   padding: 0.625rem 0.75rem 0.75rem;
   margin-bottom: 1rem;
@@ -894,6 +894,45 @@ async function selectInstrument(name: string, close: () => void) {
   width: 100%;
   display: flex;
   justify-content: center;
+}
+
+/* Brass glow and sheen treatment across all 4 synth sculptor knobs */
+.synth-sculptor__knob-cell :deep(.knob-wrapper__face) {
+  border-radius: 50%;
+  box-shadow: var(--shadow-glow-brass);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.synth-sculptor__knob-cell :deep(.knob-wrapper__face)::after {
+  content: "";
+  position: absolute;
+  inset: -10% -30%;
+  background: var(--brass-sheen);
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation: brass-sheen 6.5s cubic-bezier(0.55, 0.05, 0.45, 0.95) infinite;
+  z-index: 1;
+  opacity: 0.9;
+}
+
+.synth-sculptor__knob-cell :deep(.knob-wrapper__face > *) {
+  position: relative;
+  z-index: 2;
+}
+
+.synth-sculptor__knob-cell :deep(.knob-range-value) {
+  color: var(--brass) !important;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--brass) 60%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .synth-sculptor__knob-cell :deep(.knob-wrapper__face)::after {
+    animation: none;
+  }
 }
 
 .instrument-group__heading {

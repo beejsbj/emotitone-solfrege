@@ -1,5 +1,7 @@
 /** Bounded actual-app comparison. Horizons are an explicit Vite laboratory
  * transform, not a shipped product setting. Defaults remain untouched. */
+import { writeFile } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
 export function nativeComparisonPlugin(value) {
   if (value === undefined) return null;
   const horizon = Number(value);
@@ -52,6 +54,27 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
   };
   try {
     await evaluate('window.__nativeComparison.install()', true);
+    if (process.env.LAB_NATIVE_PROFILE === '1') {
+      // Diagnostic only: one dense case, after normal instrument preparation.
+      // Profiled timings are never substituted for the matched timing receipts.
+      await begin(220, 'repeat:16', { after: 800, duration: 650 });
+      await call('Profiler.enable');
+      await call('Profiler.setSamplingInterval', { interval: 1000 });
+      await call('Profiler.start');
+      await press('ADF');
+      await delay(3150);
+      await release('ADF');
+      const releasedAt = await evaluate('window.__uiAudio.getAudioContext().currentTime');
+      await delay(500);
+      await finish('DIAGNOSTIC PROFILE: 220 BPM three-key repeat through 650ms stall', { stepSeconds: 60 / 220 / 4, tailAfter: releasedAt + .1 });
+      const { profile } = await call('Profiler.stop');
+      const profilePath = process.env.LAB_NATIVE_PROFILE_PATH || '/tmp/native-comparison.cpuprofile.gz';
+      await writeFile(profilePath, gzipSync(JSON.stringify(profile)));
+      await call('Profiler.disable');
+      return { limits: comparisonLimits, diagnosticOnly: true, profilePath, cases, checks,
+        worstExternalEventLoopSlipMs: worstExternalSlip,
+        scope: 'One sampled CPU diagnostic after instrument preparation; excluded from matched timing comparison.' };
+    }
     for (const bpm of [60, 220]) for (const stallDuration of [300, 650]) {
       const letters = bpm === 220 ? 'ADF' : 'A';
       await begin(bpm, 'repeat:16', { after: 800, duration: stallDuration });

@@ -39,7 +39,7 @@ The older #79 wall-clock/MIDI issue was also backported from the downstream fix 
 
 ## CodeStrip behavior and #84's patch
 
-#84 preserves unchanged document ranges and widget identity, coalesces source/presentation publication, and removes redundant production deep traversal. It still derives the complete notation; this is not an incremental notation engine.
+#84 preserves unchanged document ranges and widget identity, coalesces source/presentation publication, and removes redundant production deep traversal. It still derives the complete notation; this is not an incremental notation engine. A coalesced pattern replacement plus BPM change starts a new UIBeat generation; only a pure playback-tempo change preserves the existing generated timeline phase.
 
 Only widgets with a nonzero intersection with the actual editor viewport subscribe to hue phase and playback redraw work. Clipped widgets defer drawing until they return, then show the latest state. Hidden pages stop motion. Reduced Motion retains current visible playback state with static hue. One observer belongs to each editor, and teardown releases its subscriptions. Controlled style-guide examples stay isolated from production clocks.
 

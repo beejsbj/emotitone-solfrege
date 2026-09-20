@@ -1,0 +1,36 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index eaa11f9006a31485056e2198a262a6c120b282a5..186eaf817dcc6e127e2d0ee43722fac08bee11c7 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -3000,6 +3000,13 @@ class DocView {
+     }
+     // Sync the DOM selection to this.state.selection
+     updateSelection(mustRead = false, fromPointer = false) {
++        // A blurred editable (or tabbable) view cannot synchronize selection.
++        // Avoid forcing a browser style flush by reading native Selection before
++        // reaching the same no-op decision below. Pointer and readonly selection
++        // handling must retain the normal read/synchronization path.
++        if (!fromPointer && this.view.root.activeElement != this.tile.dom &&
++            (this.view.state.facet(editable) || this.tile.dom.tabIndex > -1))
++            return;
+         if (mustRead || !this.view.observer.selectionRange.focusNode)
+             this.view.observer.readSelectionRange();
+         let { dom } = this.tile;
+diff --git a/dist/index.js b/dist/index.js
+index 3bb497b9ca6cac300c06d7d2c8e51676f32ddb5d..4f966c7409ae10944573a867b6fd1d3778d3be88 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -2996,6 +2996,13 @@ class DocView {
+     }
+     // Sync the DOM selection to this.state.selection
+     updateSelection(mustRead = false, fromPointer = false) {
++        // A blurred editable (or tabbable) view cannot synchronize selection.
++        // Avoid forcing a browser style flush by reading native Selection before
++        // reaching the same no-op decision below. Pointer and readonly selection
++        // handling must retain the normal read/synchronization path.
++        if (!fromPointer && this.view.root.activeElement != this.tile.dom &&
++            (this.view.state.facet(editable) || this.tile.dom.tabIndex > -1))
++            return;
+         if (mustRead || !this.view.observer.selectionRange.focusNode)
+             this.view.observer.readSelectionRange();
+         let { dom } = this.tile;

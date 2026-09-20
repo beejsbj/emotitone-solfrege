@@ -26,6 +26,7 @@ import type { ChordMember } from "@/components/compounds/Chord.vue";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import Sequence from "./Sequence.vue";
+import type { CodeStripViewport } from "./viewport";
 import type {
   CodeStripChordToken,
   CodeStripDensity,
@@ -88,6 +89,8 @@ export interface CodeStripPresentation {
   keySaturation?: number;
   appContext?: AppContext;
   colorResolver?: NoteColorResolver;
+  stillColorResolver?: NoteColorResolver;
+  viewport?: CodeStripViewport;
 }
 
 type PlaybackState = {
@@ -145,8 +148,26 @@ const idlePlayback = (): PlaybackState => ({
 export function updateCodeStripPresentation(
   view: EditorView,
   presentation: CodeStripPresentation,
+  code?: string,
 ) {
-  view.dispatch({ effects: setPresentation.of(presentation) });
+  // Keep the unchanged prefix/suffix in CodeMirror's change mapping. A whole
+  // document replacement discards widget identity even for an appended note.
+  const previous = view.state.doc.toString();
+  let changes;
+  if (code !== undefined && code !== previous) {
+    let from = 0;
+    while (from < previous.length && from < code.length && previous[from] === code[from]) from++;
+    let to = previous.length;
+    let end = code.length;
+    while (to > from && end > from && previous[to - 1] === code[end - 1]) {
+      to--;
+      end--;
+    }
+    changes = { from, to, insert: code.slice(from, end) };
+  }
+  // Source and its semantic tokens must become visible together. In particular,
+  // do not mount fallback widgets between a recording's source and metadata.
+  view.dispatch({ changes, effects: setPresentation.of(presentation) });
 }
 
 export function setCodeStripPlaying(view: EditorView, playing: boolean) {
@@ -364,6 +385,8 @@ class CodeStripEventWidget extends WidgetType {
       this.presentation.density === other.presentation.density &&
       this.presentation.timeSignature === other.presentation.timeSignature &&
       this.presentation.colorResolver === other.presentation.colorResolver &&
+      this.presentation.stillColorResolver === other.presentation.stillColorResolver &&
+      this.presentation.viewport === other.presentation.viewport &&
       this.presentation.appContext === other.presentation.appContext &&
       JSON.stringify(this.token) === JSON.stringify(other.token);
   }
@@ -380,6 +403,7 @@ class CodeStripEventWidget extends WidgetType {
   }
 
   destroy(root: HTMLElement) {
+    this.presentation.viewport?.unbind(root);
     render(null, root);
   }
 
@@ -394,18 +418,25 @@ class CodeStripEventWidget extends WidgetType {
     if (this.followRank == null) delete root.dataset.followRank;
     else root.dataset.followRank = String(this.followRank);
 
-    const vnode = h(Sequence, {
-      tokens: [this.token],
-      durationMode: this.presentation.durationMode ?? "bar",
-      density: this.presentation.density ?? "default",
-      timeSignature: this.presentation.timeSignature ?? "4/4",
-      showChevron: false,
-      embedded: true,
-      ariaLabel: eventAccessibleName(this.token),
-      colorResolver: this.presentation.colorResolver,
-    });
-    if (this.presentation.appContext) vnode.appContext = this.presentation.appContext;
-    render(vnode, root);
+    const binding = this.presentation.viewport?.bind(
+      root, this.presentation.colorResolver, this.presentation.stillColorResolver,
+    );
+    const draw = () => {
+      const vnode = h(Sequence, {
+        tokens: [this.token],
+        durationMode: this.presentation.durationMode ?? "bar",
+        density: this.presentation.density ?? "default",
+        timeSignature: this.presentation.timeSignature ?? "4/4",
+        showChevron: false,
+        embedded: true,
+        ariaLabel: eventAccessibleName(this.token),
+        colorResolver: binding?.colorResolver ?? this.presentation.colorResolver,
+      });
+      if (this.presentation.appContext) vnode.appContext = this.presentation.appContext;
+      render(vnode, root);
+    };
+    if (binding) binding.update(draw);
+    else draw();
   }
 }
 

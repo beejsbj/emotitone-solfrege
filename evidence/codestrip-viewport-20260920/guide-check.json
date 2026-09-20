@@ -1,0 +1,53 @@
+{
+  "revision": "7ddc54c3f085f3e5866e2027455827ade9b72603",
+  "route": "/style-guide/performance-deck",
+  "results": [
+    {
+      "label": "desktop",
+      "width": 1280,
+      "documentWidth": 1280,
+      "noteCount": 3,
+      "visible": 3,
+      "staticColors": true,
+      "scroller": {
+        "left": 124,
+        "right": 1190,
+        "top": 531,
+        "bottom": 571
+      },
+      "labels": [
+        "Do, 1, C4",
+        "Mi, 3, E4",
+        "Sol, 5, G4"
+      ]
+    },
+    {
+      "label": "phone",
+      "width": 390,
+      "documentWidth": 390,
+      "noteCount": 3,
+      "visible": 3,
+      "staticColors": true,
+      "scroller": {
+        "left": 124,
+        "right": 300,
+        "top": 493.875,
+        "bottom": 533.875
+      },
+      "labels": [
+        "Do, 1, C4",
+        "Mi, 3, E4",
+        "Sol, 5, G4"
+      ]
+    }
+  ],
+  "reducedMotion": {
+    "matches": true,
+    "transitions": [
+      "0s",
+      "0s",
+      "0s"
+    ]
+  },
+  "errors": []
+}

@@ -1,0 +1,366 @@
+{
+  "revision": "711f62959e6def27776f9ee21421b61d99bb56c1",
+  "mode": "focused",
+  "dependencyHashes": {
+    "@codemirror/view/dist/index.js": "0f2db0595594ca26f20816ed93bf5e7e5e8e72dd8e87e18e7cf77a44a0bc1c3b",
+    "superdough/dist/index.mjs": "ece72628e518c3259223717aa4d7a4e4fe1e11e5e2c2ece5021d6b01c9bcb6fb"
+  },
+  "rows": [
+    {
+      "n": 16,
+      "hue": true,
+      "logging": false,
+      "samples": [
+        {
+          "downMs": 92.49237500000163,
+          "upMs": 93.19669799999974
+        },
+        {
+          "downMs": 109.97677900000053,
+          "upMs": 136.52621400000135
+        },
+        {
+          "downMs": 28.352147999998124,
+          "upMs": 113.77098399999886
+        },
+        {
+          "downMs": 33.802278999999544,
+          "upMs": 93.29634500000247
+        },
+        {
+          "downMs": 172.5288760000003,
+          "upMs": 96.95919599999979
+        },
+        {
+          "downMs": 332.5527540000003,
+          "upMs": 24.377897000002122
+        }
+      ],
+      "colors": {
+        "visibleCount": 11,
+        "hiddenCount": 5,
+        "visibleChanged": true,
+        "hiddenChanged": false,
+        "liveChanged": true
+      },
+      "logged": 16,
+      "working": 16,
+      "longTasks": [
+        {
+          "start": 17108.900000095367,
+          "duration": 83
+        },
+        {
+          "start": 17192.900000095367,
+          "duration": 77
+        },
+        {
+          "start": 17283,
+          "duration": 73
+        },
+        {
+          "start": 17357,
+          "duration": 97
+        },
+        {
+          "start": 17467.700000047684,
+          "duration": 85
+        },
+        {
+          "start": 17568.099999904633,
+          "duration": 181
+        },
+        {
+          "start": 17763.099999904633,
+          "duration": 202
+        },
+        {
+          "start": 17983.5,
+          "duration": 200
+        },
+        {
+          "start": 18196.799999952316,
+          "duration": 193
+        },
+        {
+          "start": 18402.599999904633,
+          "duration": 198
+        },
+        {
+          "start": 18613.400000095367,
+          "duration": 174
+        },
+        {
+          "start": 18798.099999904633,
+          "duration": 144
+        },
+        {
+          "start": 18956.299999952316,
+          "duration": 181
+        },
+        {
+          "start": 19150,
+          "duration": 179
+        },
+        {
+          "start": 19340.099999904633,
+          "duration": 72
+        },
+        {
+          "start": 19474.900000095367,
+          "duration": 360
+        },
+        {
+          "start": 19850,
+          "duration": 84
+        },
+        {
+          "start": 19961.5,
+          "duration": 208
+        },
+        {
+          "start": 20195.799999952316,
+          "duration": 318
+        },
+        {
+          "start": 20526.599999904633,
+          "duration": 194
+        },
+        {
+          "start": 20721.599999904633,
+          "duration": 202
+        },
+        {
+          "start": 20931,
+          "duration": 88
+        },
+        {
+          "start": 21019.799999952316,
+          "duration": 82
+        },
+        {
+          "start": 21102.299999952316,
+          "duration": 90
+        },
+        {
+          "start": 21192.900000095367,
+          "duration": 93
+        },
+        {
+          "start": 21286.599999904633,
+          "duration": 88
+        },
+        {
+          "start": 21374.900000095367,
+          "duration": 97
+        },
+        {
+          "start": 21472.599999904633,
+          "duration": 86
+        },
+        {
+          "start": 21558.900000095367,
+          "duration": 90
+        }
+      ],
+      "frames": [
+        {
+          "start": 17105.3,
+          "duration": 83.40000000000146
+        },
+        {
+          "start": 17188.7,
+          "duration": 66.59999999999854
+        },
+        {
+          "start": 17255.3,
+          "duration": 83.40000000000146
+        },
+        {
+          "start": 17338.7,
+          "duration": 116.59999999999854
+        },
+        {
+          "start": 17455.3,
+          "duration": 83.40000000000146
+        },
+        {
+          "start": 17538.7,
+          "duration": 199.89999999999782
+        },
+        {
+          "start": 17738.6,
+          "duration": 216.70000000000073
+        },
+        {
+          "start": 17955.3,
+          "duration": 216.60000000000218
+        },
+        {
+          "start": 18171.9,
+          "duration": 216.6999999999971
+        },
+        {
+          "start": 18388.6,
+          "duration": 200
+        },
+        {
+          "start": 18588.6,
+          "duration": 183.3000000000029
+        },
+        {
+          "start": 18771.9,
+          "duration": 166.6999999999971
+        },
+        {
+          "start": 18938.6,
+          "duration": 183.40000000000146
+        },
+        {
+          "start": 19122,
+          "duration": 200
+        },
+        {
+          "start": 19322,
+          "duration": 83.29999999999927
+        },
+        {
+          "start": 19405.3,
+          "duration": 416.6000000000022
+        },
+        {
+          "start": 19821.9,
+          "duration": 100
+        },
+        {
+          "start": 19921.9,
+          "duration": 233.29999999999927
+        },
+        {
+          "start": 20155.2,
+          "duration": 350
+        },
+        {
+          "start": 20505.2,
+          "duration": 200
+        },
+        {
+          "start": 20705.2,
+          "duration": 216.70000000000073
+        },
+        {
+          "start": 20921.9,
+          "duration": 83.19999999999709
+        },
+        {
+          "start": 21005.1,
+          "duration": 83.5
+        },
+        {
+          "start": 21088.6,
+          "duration": 99.90000000000146
+        },
+        {
+          "start": 21188.5,
+          "duration": 83.29999999999927
+        },
+        {
+          "start": 21271.8,
+          "duration": 100
+        },
+        {
+          "start": 21371.8,
+          "duration": 83.40000000000146
+        },
+        {
+          "start": 21455.2,
+          "duration": 99.89999999999782
+        },
+        {
+          "start": 21555.1,
+          "duration": 83.40000000000146
+        }
+      ],
+      "inputLog": [
+        {
+          "type": "keydown",
+          "at": 17270.200000047684,
+          "trusted": true,
+          "eventTime": 17193.700000047684
+        },
+        {
+          "type": "keyup",
+          "at": 17454.5,
+          "trusted": true,
+          "eventTime": 17383.400000095367
+        },
+        {
+          "type": "keydown",
+          "at": 17750.299999952316,
+          "trusted": true,
+          "eventTime": 17654.599999904633
+        },
+        {
+          "type": "keyup",
+          "at": 17965.700000047684,
+          "trusted": true,
+          "eventTime": 17854.900000095367
+        },
+        {
+          "type": "keydown",
+          "at": 18183.900000095367,
+          "trusted": true,
+          "eventTime": 18171.400000095367
+        },
+        {
+          "type": "keyup",
+          "at": 18390.200000047684,
+          "trusted": true,
+          "eventTime": 18289.900000095367
+        },
+        {
+          "type": "keydown",
+          "at": 18600.799999952316,
+          "trusted": true,
+          "eventTime": 18583.900000095367
+        },
+        {
+          "type": "keyup",
+          "at": 18787.5,
+          "trusted": true,
+          "eventTime": 18707.900000095367
+        },
+        {
+          "type": "keydown",
+          "at": 19137.900000095367,
+          "trusted": true,
+          "eventTime": 18981.700000047684
+        },
+        {
+          "type": "keyup",
+          "at": 19329.5,
+          "trusted": true,
+          "eventTime": 19244.5
+        },
+        {
+          "type": "keydown",
+          "at": 19835.700000047684,
+          "trusted": true,
+          "eventTime": 19521.599999904633
+        },
+        {
+          "type": "keyup",
+          "at": 19949.700000047684,
+          "trusted": true,
+          "eventTime": 19944.900000095367
+        }
+      ],
+      "notes": 37,
+      "codeNotes": 16,
+      "widgets": 31,
+      "tapes": 75,
+      "elements": 1227
+    }
+  ],
+  "warnings": []
+}

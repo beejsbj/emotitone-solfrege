@@ -6,6 +6,10 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { defaultPatterns } from "@/data/patterns";
 import { DEFAULT_SOURCE_BPM } from "@/services/StrudelNotation";
+import {
+  deserializePatternsState,
+  serializePatternsState,
+} from "@/services/patternPersistence";
 import type {
   LogNote,
   PatternConfig,
@@ -1006,6 +1010,11 @@ export const usePatternsStore = defineStore(
     };
   },
   {
-    persist: true,
+    persist: {
+      serializer: {
+        serialize: serializePatternsState,
+        deserialize: deserializePatternsState,
+      },
+    },
   }
 );

@@ -31,7 +31,14 @@ import {
 } from "vue";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
-import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
+import {
+  createNoteColorResolver,
+  createStaticNoteColorResolver,
+  staticNoteColorResolver,
+} from "@/components/primatives/noteColorContext";
+import { useMusicColorClock } from "@/composables/useMusicColorClock";
+import { CodeStripViewport } from "./viewport";
+import { createNativeCodeStripReveal } from "./nativeReveal";
 import {
   generatedStrudelBarPosition,
   uiBeatClock,
@@ -48,12 +55,12 @@ import type { LogNote } from "@/types/patterns";
 import { buildRecordedCodeStripTokens } from "./recordingTokens";
 import {
   applySpecimenPlayback,
-  codeStripStrudelExtension,
   codeStripStrudelExtensionWithPresentation,
   parseCodeStripEvents,
   serializeCodeStripTokens,
   setCodeStripPlaying,
   updateCodeStripPresentation,
+  type CodeStripPresentation,
 } from "./strudelExtension";
 import type {
   CodeStripDensity,
@@ -118,6 +125,25 @@ const controlledPlayback: PlaybackWiring = {
 };
 const productionWiring = isControlledUsage ? undefined : createProductionWiring();
 const appContext = getCurrentInstance()?.appContext;
+const viewport = new CodeStripViewport();
+const stillColorResolver = productionWiring
+  ? createStaticNoteColorResolver(() => productionWiring.visualConfigStore.config.dynamicColors)
+  : staticNoteColorResolver;
+// Share the production Music Color clock, but subscribe only while the editor
+// has a visible glyph. The viewport owner gates each glyph's phase reads too.
+const colorClock = productionWiring ? useMusicColorClock(
+  () => viewport.visibleCount.value > 0 &&
+    productionWiring.visualConfigStore.config.dynamicColors.hueMotionEnabled,
+  () => productionWiring.visualConfigStore.config.dynamicColors.animationSpeed,
+  productionWiring.visualConfigStore.config,
+) : null;
+const colorResolver = productionWiring && colorClock
+  ? createNoteColorResolver(
+    () => productionWiring.visualConfigStore.config.dynamicColors,
+    () => productionWiring.visualConfigStore.config.dynamicColors.hueMotionEnabled &&
+      !colorClock.reducedMotion.value ? colorClock.phaseCycles.value : null,
+  )
+  : stillColorResolver;
 const {
   attachEditor,
   detachEditor,
@@ -136,6 +162,9 @@ const visibleCode = ref("");
 // visible EditorView document immediately before evaluation below.
 const mirror = shallowRef<StrudelMirrorInstance | null>(null);
 let controlledView: EditorView | null = null;
+const nativeReveal = createNativeCodeStripReveal(activeView);
+const recordingFollowMeasureKey = {};
+let recordingFollowGeneration = 0;
 let attachedController: Parameters<typeof detachEditor>[0] | undefined;
 let followLoopFrame: number | null = null;
 let followTargetScrollLeft = 0;
@@ -144,9 +173,12 @@ let followLastFrameTime: number | null = null;
 let followPlaybackActive = false;
 let presentationSyncQueued = false;
 let presentationSyncCancelled = false;
+let pendingGeneratedCode: string | undefined;
+let pendingPreserveUIBeat = false;
 interface ActiveUIBeatRun {
   generation: number;
   mappingAvailable: boolean;
+  phaseSourceKey: string | null;
   bpm: number;
   beatsPerBar: number;
   preservePhase: boolean;
@@ -247,6 +279,13 @@ const generatedCode = computed(() => {
     sound: toStrudelSound(sketchMeta.value.instrument ?? "sine"),
   }).replace(/\s+/g, " ").trim();
 });
+const generatedPhaseSourceKey = computed(() => {
+  const code = generatedCode.value.trim();
+  const tempoSuffix = `.cpm(${codeStripConfig.value.bpm} / ${GENERATED_BEATS_PER_BAR})`;
+  // Only the canonical generated playback-tempo suffix is phase-neutral.
+  // Notes, durations, scale, instrument and any other source must still match.
+  return code.endsWith(tempoSuffix) ? code.slice(0, -tempoSuffix.length) : null;
+});
 const isEmptyDocument = computed(
   () => (visibleCode.value || generatedCode.value).trim() === EMPTY_EDITOR_CODE,
 );
@@ -283,6 +322,7 @@ function armUIBeatForEvaluation(
     currentDocument !== EMPTY_EDITOR_CODE &&
     currentDocument === generatedCode.value.trim();
   const bpm = codeStripConfig.value.bpm;
+  const phaseSourceKey = mappingAvailable ? generatedPhaseSourceKey.value : null;
   const currentRun = activeUIBeatRun;
   const currentSnapshot = uiBeatClock.snapshot;
   const canPreservePhase =
@@ -290,6 +330,8 @@ function armUIBeatForEvaluation(
     mappingAvailable &&
     currentRun?.ready === true &&
     currentRun.mappingAvailable &&
+    phaseSourceKey !== null &&
+    currentRun.phaseSourceKey === phaseSourceKey &&
     currentSnapshot.generation === currentRun.generation &&
     currentSnapshot.status === "running" &&
     currentSnapshot.barPosition !== null &&
@@ -307,6 +349,7 @@ function armUIBeatForEvaluation(
     return {
       generation: currentRun.generation,
       mappingAvailable,
+      phaseSourceKey,
       bpm,
       beatsPerBar: GENERATED_BEATS_PER_BAR,
       preservePhase: true,
@@ -327,6 +370,7 @@ function armUIBeatForEvaluation(
   activeUIBeatRun = {
     generation,
     mappingAvailable,
+    phaseSourceKey,
     bpm,
     beatsPerBar: GENERATED_BEATS_PER_BAR,
     preservePhase: false,
@@ -404,30 +448,6 @@ function releaseUIBeatAudioContext() {
   uiBeatAudioContext = null;
 }
 
-function replaceControlledCode(code: string) {
-  visibleCode.value = code;
-  if (!controlledView || controlledView.state.doc.toString() === code) return;
-  controlledView.dispatch({
-    changes: { from: 0, to: controlledView.state.doc.length, insert: code },
-  });
-}
-
-function syncMirrorCode(code: string, preserveUIBeat = false) {
-  visibleCode.value = code;
-  const instance = mirror.value;
-  if (!instance) return;
-  if (getMirrorCode(instance) !== code) {
-    if (!preserveUIBeat) stopUIBeatRun();
-    preserveUIBeatDuringCodeSync = preserveUIBeat;
-    try {
-      instance.setCode(code);
-    } finally {
-      preserveUIBeatDuringCodeSync = false;
-    }
-  }
-  syncCode(code);
-}
-
 function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
   const code = getMirrorCode(instance);
   visibleCode.value = code;
@@ -441,6 +461,8 @@ function canPreserveUIBeatPhase(instance: StrudelMirrorInstance) {
   return Boolean(
     run?.ready === true &&
     run.mappingAvailable &&
+    run.phaseSourceKey !== null &&
+    run.phaseSourceKey === generatedPhaseSourceKey.value &&
     snapshot.generation === run.generation &&
     snapshot.status === "running" &&
     snapshot.barPosition !== null &&
@@ -482,14 +504,25 @@ function queueTempoEvaluation() {
 }
 
 function revealLatestRecordedEvent() {
+  nativeReveal.cancel();
+  const generation = ++recordingFollowGeneration;
   const view = getMirrorView(mirror.value);
-  if (!view) return;
+  if (!view || presentationSyncCancelled) return;
+  const doc = view.state.doc;
+  const isCurrent = () => !presentationSyncCancelled && activeView() === view &&
+    view.state.doc === doc && generation === recordingFollowGeneration;
   const events = parseCodeStripEvents(view.state.doc);
   const latest = events[events.length - 1];
   if (!latest) return;
 
+  const targetPosition = Math.max(latest.from, latest.to - 1);
   view.requestMeasure({
-    read(measuredView) {
+    key: recordingFollowMeasureKey,
+    read(measuredView): { revealPosition: number } | { scroller: HTMLElement; target: number } | null {
+      if (!isCurrent()) return null;
+      if (measuredView.visibleRanges && !measuredView.visibleRanges.some(
+        range => range.from <= targetPosition && range.to >= targetPosition,
+      )) return { revealPosition: targetPosition };
       const scroller = measuredView.scrollDOM;
       const coordinates = measuredView.coordsAtPos(latest.to);
       if (!coordinates) return null;
@@ -501,17 +534,24 @@ function revealLatestRecordedEvent() {
       };
     },
     write(measurement) {
-      if (!measurement) return;
+      if (!measurement || !isCurrent()) return;
+      if ("revealPosition" in measurement) {
+        // Long-line gaps do not have glyph coordinates. Let CodeMirror render
+        // the remote event; ordinary rendered appends retain smooth follow.
+        stopFollowScroll();
+        nativeReveal.schedule(view, measurement.revealPosition);
+        return;
+      }
       startFollowScroll(measurement.scroller, measurement.target);
     },
   });
 }
 
-function applyPresentation() {
+function applyPresentation(code?: string, preserveUIBeat = false) {
   const view = activeView();
   if (!view) return;
 
-  updateCodeStripPresentation(view, {
+  const presentation: CodeStripPresentation = {
     tokens: presentationTokens.value,
     durationMode: resolvedDurationMode.value,
     density: props.density,
@@ -526,8 +566,25 @@ function applyPresentation() {
     keyBrightness: keyboardConfig.value.keyBrightness,
     keySaturation: keyboardConfig.value.keySaturation,
     appContext,
-    colorResolver: isControlled.value ? staticNoteColorResolver : undefined,
-  });
+    colorResolver,
+    stillColorResolver,
+    viewport,
+  };
+  if (code !== undefined) {
+    if (!isControlled.value && view.state.doc.toString() !== code && !preserveUIBeat) {
+      stopUIBeatRun();
+    }
+    preserveUIBeatDuringCodeSync = preserveUIBeat;
+    try {
+      updateCodeStripPresentation(view, presentation, code);
+    } finally {
+      preserveUIBeatDuringCodeSync = false;
+    }
+    visibleCode.value = code;
+    if (!isControlled.value) syncCode(code);
+  } else {
+    updateCodeStripPresentation(view, presentation);
+  }
 
   if (isControlled.value) applySpecimenPlayback(view, presentationTokens.value);
 }
@@ -538,12 +595,24 @@ function syncPresentation() {
   queueMicrotask(() => {
     presentationSyncQueued = false;
     if (presentationSyncCancelled) return;
-    applyPresentation();
+    const code = pendingGeneratedCode;
+    const instance = mirror.value;
+    const preserveUIBeat = pendingPreserveUIBeat && code === generatedCode.value &&
+      instance !== null && canPreserveUIBeatPhase(instance);
+    pendingGeneratedCode = undefined;
+    pendingPreserveUIBeat = false;
+    applyPresentation(code, preserveUIBeat);
   });
 }
 
 function stopFollow() {
+  nativeReveal.cancel();
+  recordingFollowGeneration++;
   followPlaybackActive = false;
+  stopFollowScroll();
+}
+
+function stopFollowScroll() {
   followTargetScrollLeft = 0;
   followScroller = null;
   followLastFrameTime = null;
@@ -580,7 +649,7 @@ function startFollowScroll(scroller: HTMLElement, target: number) {
     if (!nextScroller) return;
 
     const delta = followTargetScrollLeft - nextScroller.scrollLeft;
-    if (Math.abs(delta) < 0.5) {
+    if (!viewport.allowsMotion || Math.abs(delta) < 0.5) {
       nextScroller.scrollLeft = followTargetScrollLeft;
       followLastFrameTime = null;
       return;
@@ -591,7 +660,16 @@ function startFollowScroll(scroller: HTMLElement, target: number) {
       : Math.max(0, timestamp - followLastFrameTime);
     followLastFrameTime = timestamp;
     const blend = 1 - Math.exp(-elapsed / FOLLOW_TIME_CONSTANT_MS);
+    const previousScrollLeft = nextScroller.scrollLeft;
     nextScroller.scrollLeft += delta * blend;
+    // Browsers may quantize scrollLeft to device pixels or clamp it after
+    // CodeMirror changes a line gap. Finish instead of retaining a RAF that
+    // keeps pulling subsequent manual scrolling back toward an old target.
+    if (nextScroller.scrollLeft === previousScrollLeft) {
+      nextScroller.scrollLeft = followTargetScrollLeft;
+      followLastFrameTime = null;
+      return;
+    }
     followLoopFrame = requestAnimationFrame(step);
   };
 
@@ -632,6 +710,7 @@ function initializeControlledView() {
         EditorView.editable.of(false),
         codeStripStrudelExtensionWithPresentation({
           colorResolver: staticNoteColorResolver,
+          viewport,
         }),
       ],
     }),
@@ -776,7 +855,7 @@ async function initializeStrudelMirror() {
             syncCode(visibleCode.value);
           }
         }),
-        codeStripStrudelExtension,
+        codeStripStrudelExtensionWithPresentation({ colorResolver, stillColorResolver, viewport }),
       ]),
     });
     syncPresentation();
@@ -785,9 +864,12 @@ async function initializeStrudelMirror() {
   attachedController = {
     getCode: () => getMirrorCode(instance),
     setCode: (code: string) => {
+      // An explicit load wins over a previously queued recording publication.
+      pendingGeneratedCode = undefined;
+      pendingPreserveUIBeat = false;
       if (getMirrorCode(instance) === code) return;
       stopUIBeatRun();
-      instance.setCode(code);
+      applyPresentation(code);
     },
     evaluate: () => evaluateMirror(instance),
     stop: () => {
@@ -827,8 +909,7 @@ onMounted(async () => {
 });
 
 watch(generatedCode, (code) => {
-  if (isControlled.value) replaceControlledCode(code);
-  else syncMirrorCode(code);
+  pendingGeneratedCode = code;
   syncPresentation();
 });
 
@@ -845,7 +926,7 @@ watch(
     () => keyboardConfig.value.keySaturation,
   ],
   syncPresentation,
-  { deep: true },
+  { deep: isControlledUsage },
 );
 
 watch(
@@ -853,10 +934,11 @@ watch(
   () => {
     const instance = mirror.value;
     if (isControlled.value || !instance || !isPlaying.value) return;
-    syncMirrorCode(generatedCode.value, canPreserveUIBeatPhase(instance));
+    pendingGeneratedCode = generatedCode.value;
+    pendingPreserveUIBeat = canPreserveUIBeatPhase(instance);
+    syncPresentation();
     queueTempoEvaluation();
   },
-  { flush: "sync" },
 );
 
 watch(
@@ -882,6 +964,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  viewport.destroy();
   presentationSyncCancelled = true;
   presentationSyncQueued = false;
   stopFollow();
@@ -923,6 +1006,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__note .note__surface::before),
+.code-strip__editor:deep([data-code-strip-visible="false"] .chord__cluster-member .note__surface::before),
+.code-strip__editor:deep([data-code-strip-visible="false"] .chord__fused-progress),
+.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__rest-fill) {
+  transition: none;
+  will-change: auto;
+}
+
 .code-strip {
   --strip-border: hsla(152, 100%, 50%, 0.16);
   display: flex;

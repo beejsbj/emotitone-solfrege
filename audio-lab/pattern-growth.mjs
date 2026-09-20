@@ -39,6 +39,7 @@ async function hashSources() {
     })])));
 }
 const sourceHashesBefore = await hashSources();
+const sourceTreeSha256 = createHash('sha256').update(JSON.stringify(sourceHashesBefore)).digest('hex');
 const dependencyHashes = Object.fromEntries(await Promise.all([
   '@codemirror/view/dist/index.js', 'superdough/dist/index.mjs',
 ].map(async path => [path, createHash('sha256').update(await readFile(join(appRoot, 'node_modules', path))).digest('hex')])));
@@ -208,7 +209,7 @@ try {
     }
     const data=await evaluate('({logged:ps.loggedNotes.length,pending:ps.pendingNotes?.size,working:ps.currentWorkingNotes.length,hue:__uiVisual.config.dynamicColors.hueMotionEnabled,longTasks,frames:frames.filter(f=>f.duration>25),inputLog,...domStats()})');
     const row={...spec,samples,colors,...data};hueRows.push(row);console.log('FINAL',JSON.stringify(row));
-    await writeFile(outputPath,JSON.stringify({revision,mode,dependencyHashes,rows:hueRows,warnings},null,2));
+    await writeFile(outputPath,JSON.stringify({revision,mode,sourceTreeSha256,sourceHashes:sourceHashesBefore,dependencyHashes,rows:hueRows,warnings},null,2));
     if (data.working !== spec.n + (spec.logging ? 6 : 0)) {
       throw new Error(`Fixture crossed a take boundary: expected ${spec.n + (spec.logging ? 6 : 0)}, got ${data.working}`);
     }
@@ -262,7 +263,7 @@ try {
   replay.stopped=await evaluate(`!!document.querySelector('.code-strip-bar [aria-label="Play"]')`);
   if(!replay.stopped) throw new Error('Transport did not stop');
   console.log('REPLAY',JSON.stringify(replay));
-  await writeFile(outputPath,JSON.stringify({revision,mode,dependencyHashes,rows:hueRows,viewport,replay,warnings},null,2));
+  await writeFile(outputPath,JSON.stringify({revision,mode,sourceTreeSha256,sourceHashes:sourceHashesBefore,dependencyHashes,rows:hueRows,viewport,replay,warnings},null,2));
 } finally {
   if (JSON.stringify(sourceHashesBefore) !== JSON.stringify(await hashSources())) {
     console.error('Application source changed during benchmark; discard this receipt.');

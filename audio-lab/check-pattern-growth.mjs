@@ -46,10 +46,10 @@ if (!viewport.clipped || viewport.clippedChanged ||
 if (!receipt.rows.some(row => row.logging && row.hue) || !receipt.rows.some(row => row.logging && !row.hue)) {
   throw new Error('Need consecutive appends with hue enabled and disabled');
 }
-if (receipt.warnings?.some(warning => warning.includes('Calls to EditorView.update are not allowed'))) {
-  console.log('FAIL: CodeMirror attempted a nested update during viewport follow.');
+if (receipt.warnings?.length) {
+  console.log(`FAIL: ${receipt.warnings.length} browser warnings/errors were captured.`);
   failed = true;
 }
-console.log(`${failed ? 'FAIL' : 'PASS'}: overall input-growth, <=500ms append LongTask, animation behavior, and CodeMirror update-lock criteria.`);
+console.log(`${failed ? 'FAIL' : 'PASS'}: overall input-growth, <=500ms append LongTask, animation behavior, and zero browser warnings/errors.`);
 console.log('Trusted CDP input; fixed 90ms fixture duration / 125ms cadence; no CPU profiler. Host noise affects absolute times.');
 process.exitCode = Number(failed);

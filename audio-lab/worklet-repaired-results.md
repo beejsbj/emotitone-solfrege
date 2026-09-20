@@ -56,3 +56,16 @@ fixture; it does not establish silence exactly at the legitimate release bound.
 A single narrow fast-chord follow-up will measure that existing contract and
 retain the 100 ms subwindow as an informational observation. No production change
 or full-run retry is justified by this fixture correction.
+
+The narrow fixture observes the envelope actually posted in the prepared piano
+instrument and checks that it matches `getLiveArticulation('piano').release`,
+currently 200 ms. Its silence window begins after the final audio release edge,
+that envelope length, and one 128-frame render quantum (2.90 ms at 44.1 kHz).
+Trusted keyup timestamps and the old keyup-plus-100-ms observation remain in the
+receipt. It also retains short stereo float32 PCM around the final release,
+25 ms decay-window statistics, and the exact last nonzero sample time. No audio
+or application code changes. Run only this case, with no warm or other cases:
+
+```sh
+LAB_UI_BACKEND=worklet LAB_NATIVE_COMPARE=1 LAB_NATIVE_FAST_CHORD=1 LAB_UI_STARTUP_SECONDS=60 LAB_UI_TRIALS=0 LAB_UI_FILTER='^$' node audio-lab/ui-run.mjs audio-lab/results/native-comparison/worklet-together-articulation.json
+```

@@ -930,7 +930,14 @@ watch(
 );
 
 watch(
-  [() => sketchMeta.value.bpm, () => codeStripConfig.value.bpm],
+  [
+    () => sketchMeta.value.bpm,
+    () => codeStripConfig.value.bpm,
+    () => sketchMeta.value.instrument,
+    () => sketchMeta.value.key,
+    () => sketchMeta.value.mode,
+    () => keyboardConfig.value.mainOctave,
+  ],
   () => {
     const instance = mirror.value;
     if (isControlled.value || !instance || !isPlaying.value) return;

@@ -64,6 +64,73 @@ function getScaleIndex(
   return { scaleIndex: fallbackIndex, isBorrowed: true };
 }
 
+export function getSemitoneShift(oldKey: ChromaticNote, newKey: ChromaticNote): number {
+  const oldIndex = CHROMATIC_NOTES.indexOf(oldKey);
+  const newIndex = CHROMATIC_NOTES.indexOf(newKey);
+  if (oldIndex === -1 || newIndex === -1) return 0;
+  let shift = (newIndex - oldIndex) % 12;
+  if (shift > 6) shift -= 12;
+  if (shift < -6) shift += 12;
+  return shift;
+}
+
+export function transposePatternNotes(
+  notes: PatternNote[],
+  semitones: number,
+  newKey: ChromaticNote,
+  newMode: MusicalMode
+): PatternNote[] {
+  if (semitones === 0) return notes;
+  return notes.map((note) => {
+    const midi = TonalNote.midi(note.note);
+    if (midi == null) return note;
+    const newNoteName = TonalNote.fromMidi(midi + semitones);
+    const parsed = TonalNote.get(newNoteName);
+    const pc = CHROMATIC_NOTES[parsed.chroma >= 0 ? parsed.chroma : 0];
+    const octave = Number.isFinite(parsed.oct) ? (parsed.oct as number) : 4;
+    const canonicalNote = `${pc}${octave}`;
+    const { scaleIndex, isBorrowed } = getScaleIndex(pc, newKey, newMode);
+    const scaleDegree = isBorrowed ? 0 : scaleIndex + 1;
+
+    return {
+      ...note,
+      note: canonicalNote,
+      scaleIndex,
+      scaleDegree,
+      pitchClassIndex: parsed.chroma >= 0 ? parsed.chroma : undefined,
+      isBorrowed,
+      octave,
+      frequency: parsed.freq || undefined,
+    };
+  });
+}
+
+export function mutatePatternMode(
+  notes: PatternNote[],
+  key: ChromaticNote,
+  newMode: MusicalMode
+): PatternNote[] {
+  const scaleNotes = getScaleNotes(key, newMode);
+  return notes.map((note) => {
+    const degree = note.scaleIndex;
+    if (degree >= 0 && degree < scaleNotes.length) {
+      const pc = scaleNotes[degree];
+      const newNoteName = `${pc}${note.octave}`;
+      const parsed = TonalNote.get(newNoteName);
+      return {
+        ...note,
+        note: newNoteName,
+        scaleDegree: degree + 1,
+        scaleIndex: degree,
+        pitchClassIndex: parsed.chroma >= 0 ? parsed.chroma : undefined,
+        isBorrowed: false,
+        frequency: parsed.freq || undefined,
+      };
+    }
+    return note;
+  });
+}
+
 function buildPatternNotes(
   patternId: string,
   key: ChromaticNote,

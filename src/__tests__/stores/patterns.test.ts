@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
@@ -1102,5 +1103,44 @@ describe("Patterns Store", () => {
       "live-c",
       "live-d",
     ]);
+  });
+
+  it("dynamically updates loaded pattern instrument, key, and mode when controls change", async () => {
+    const musicStore = useMusicStore();
+    const instrumentStore = useInstrumentStore();
+    const pattern = createPattern({
+      key: "E",
+      mode: "minor",
+      instrument: "piano",
+      bpm: 120,
+      notes: [
+        createPatternNote({ note: "E4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+        createPatternNote({ note: "G4", octave: 4, scaleIndex: 2, scaleDegree: 3 }),
+        createPatternNote({ note: "B4", octave: 4, scaleIndex: 4, scaleDegree: 5 }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
+    expect(patternsStore.currentSketchMeta.key).toBe("E");
+    expect(patternsStore.currentSketchMeta.mode).toBe("minor");
+
+    // 1. Change instrument before playing any live note
+    await instrumentStore.setInstrument("gm_flute");
+    await nextTick();
+    expect(patternsStore.currentSketchMeta.instrument).toBe("gm_flute");
+
+    // 2. Change key
+    musicStore.setKey("G");
+    await nextTick();
+    expect(patternsStore.currentSketchMeta.key).toBe("G");
+    // Transposed from E (+3 semitones): E4 -> G4, G4 -> A#4, B4 -> D5
+    expect(patternsStore.currentSketchNotes.map((n) => n.note)).toEqual(["G4", "A#4", "D5"]);
+
+    // 3. Change mode
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchMeta.mode).toBe("major");
   });
 });

@@ -4,7 +4,12 @@ import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { defaultPatterns } from "@/data/patterns";
+import {
+  defaultPatterns,
+  getSemitoneShift,
+  transposePatternNotes,
+  mutatePatternMode,
+} from "@/data/patterns";
 import { DEFAULT_SOURCE_BPM } from "@/services/StrudelNotation";
 import {
   deserializePatternsState,
@@ -550,11 +555,19 @@ export const usePatternsStore = defineStore(
       focusedPatternId.value = patternId;
 
       // Sync the desk to the pattern's musical context
-      musicStore.setKey(pattern.key);
-      musicStore.setMode(pattern.mode as MusicalMode);
-      const patternOctave = resolvePatternOctave(pattern);
-      if (patternOctave !== undefined) {
-        keyboardStore.setMainOctave(patternOctave);
+      isContextSyncing = true;
+      try {
+        musicStore.setKey(pattern.key);
+        musicStore.setMode(pattern.mode as MusicalMode);
+        const patternOctave = resolvePatternOctave(pattern);
+        if (patternOctave !== undefined) {
+          keyboardStore.setMainOctave(patternOctave);
+        }
+        visualConfigStore.updateConfig("codeStrip", {
+          bpm: resolveBpm(pattern.bpm),
+        });
+      } finally {
+        isContextSyncing = false;
       }
       void instrumentStore.setInstrument(pattern.instrument).then((result) => {
         if (
@@ -569,13 +582,81 @@ export const usePatternsStore = defineStore(
           };
         }
       });
-      visualConfigStore.updateConfig("codeStrip", {
-        bpm: resolveBpm(pattern.bpm),
-      });
 
       // Create fresh boundary so new live notes start clean after the base
       setNextNoteAsNewPattern();
     }
+
+    let isContextSyncing = false;
+
+    watch(
+      () => instrumentStore.currentInstrument,
+      (newInstrument) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value &&
+          loadedBaseMeta.value.instrument !== newInstrument
+        ) {
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            instrument: newInstrument,
+          };
+        }
+      }
+    );
+
+    watch(
+      () => musicStore.currentKey,
+      (newKey) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value &&
+          loadedBaseMeta.value.key !== newKey
+        ) {
+          const shift = getSemitoneShift(loadedBaseMeta.value.key, newKey as ChromaticNote);
+          loadedBaseNotes.value = transposePatternNotes(
+            loadedBaseNotes.value,
+            shift,
+            newKey as ChromaticNote,
+            loadedBaseMeta.value.mode
+          );
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            key: newKey as ChromaticNote,
+          };
+        }
+      }
+    );
+
+    watch(
+      () => musicStore.currentMode,
+      (newMode) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value &&
+          loadedBaseMeta.value.mode !== newMode
+        ) {
+          loadedBaseNotes.value = mutatePatternMode(
+            loadedBaseNotes.value,
+            loadedBaseMeta.value.key,
+            newMode as MusicalMode
+          );
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            mode: newMode as MusicalMode,
+          };
+        }
+      }
+    );
 
     // Send the current working buffer as a new saved pattern, then clear the desk
     function sendCurrentPattern(): void {

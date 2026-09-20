@@ -8,3 +8,7 @@ The visual pass has two durable repository records:
 - `src/style-guide/DESIGN_LOG.md` — chronological acceptance and implementation receipts.
 
 Do not use `design-lab` for this pass. Keep standalone functionality and bug fixes outside the visual-system slice. Respect the dirty tree and coordinate with adjacent unit sessions before touching shared lineage or files.
+
+## Historical Documentation & Plans Archive
+
+Archived design evidence, historical research, early audit notes, and completed plans (e.g. modes expansion, Tone.js-era refactor PRP, stack review triage, and original notes) are preserved on the `archive/docs-and-plans` branch.

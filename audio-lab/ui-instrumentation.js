@@ -74,8 +74,17 @@
   window.AudioWorkletNode = class extends NativeWorklet {
     constructor(context, name, options) {
       super(context, name, options);
+      let responseBatchId = 0;
       this.port.addEventListener('message', ({ data }) => {
-        if (data.type === 'event') mark('worklet-event', data.event);
+        const responses = Array.isArray(data) ? data : [data];
+        const batchId = ++responseBatchId;
+        if (name === 'emotitone-live') mark('worklet-response', { processor: name, batchId,
+          bundled: Array.isArray(data), responseCount: responses.length,
+          responseTypes: responses.map(response => response?.type ?? null) });
+        responses.forEach((response, index) => {
+          if (response?.type === 'event') mark('worklet-event', { ...response.event,
+            responseBatchId: batchId, responseIndex: index, responseCount: responses.length });
+        });
       });
       this.port.start();
       const post = this.port.postMessage.bind(this.port);

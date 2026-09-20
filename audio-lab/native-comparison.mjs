@@ -20,6 +20,11 @@ export const comparisonLimits = Object.freeze({ inputToPcmMs: 50, synchronousOpe
   retainedVoiceNodes: 256, releaseTailSeconds: .1, missingGridWindows: 0, minimumPulseRms: .001,
   maxExternalEventLoopSlipMs: 250, maxChordSubmissionSpanMs: 150 });
 
+// Declared after diagnosing the old group, before exercising its repair. The
+// original receipts/limits remain unchanged; this is an additional acceptance
+// requirement for notification ownership and responsiveness.
+export const targetedDeliveryLimits = Object.freeze({ postReleaseSettlementMs: 1000, tailAfterReleaseMs: 100 });
+
 export async function exerciseNativeComparison({ call, evaluate, delay }) {
   const cases = [], checks = [];
   let worstExternalSlip = 0, previous = performance.now();
@@ -54,6 +59,66 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
   };
   try {
     await evaluate('window.__nativeComparison.install()', true);
+    if (process.env.LAB_NATIVE_TARGETED === '1') {
+      await begin(220, 'repeat:16', { after: 800, duration: 650 });
+      await press('ADF');
+      await delay(3150);
+      await release('ADF');
+      // Use the captured trusted keyup clock, not an extra CDP clock query that
+      // can itself queue behind all application work and overshoot PCM storage.
+      await delay(targetedDeliveryLimits.postReleaseSettlementMs + 200);
+      const row = await finish('TARGETED DELIVERY: 220 BPM three-key repeat through 650ms stall', {
+        stepSeconds: 60 / 220 / 4, tailAfterFinalInputReleaseMs: targetedDeliveryLimits.tailAfterReleaseMs,
+      });
+      const measured = row.measured;
+      const finalInput = measured.input.filter(event => event.type === 'keyup').at(-1);
+      const presses = measured.operations.filter(operation => operation.method === 'press');
+      const expectedOwners = presses.map(operation => operation.args[0]);
+      const expectedPitches = presses.flatMap(operation => operation.args[1].map(note => note.pitch));
+      const active = new Map(), completed = new Map();
+      let pairsOrdered = true;
+      for (const event of measured.lifecycle) {
+        if (event.phase === 'attack') {
+          if (active.has(event.noteId) || completed.has(event.noteId)) pairsOrdered = false;
+          active.set(event.noteId, event);
+        } else {
+          const attack = active.get(event.noteId);
+          if (!attack || attack.ownerId !== event.ownerId || attack.pitch !== event.pitch || event.at < attack.at) pairsOrdered = false;
+          active.delete(event.noteId); completed.set(event.noteId, event);
+        }
+      }
+      const attacks = measured.lifecycle.filter(event => event.phase === 'attack');
+      const firstAt = attacks[0]?.at;
+      const finalDownAt = Math.max(...measured.input.filter(event => event.type === 'keydown').map(event => event.audioTime));
+      const step = 60 / 220 / 4;
+      const beatGroups = new Map();
+      for (const event of attacks) {
+        const beat = Math.round((event.at - firstAt) / step);
+        const pitches = beatGroups.get(beat) ?? [];
+        pitches.push(event.pitch); beatGroups.set(beat, pitches);
+      }
+      const expectedBeatPitches = [];
+      for (let beat = Math.ceil((finalDownAt - firstAt + .02) / step); beat * step < 2.95; beat++) {
+        const actual = beatGroups.get(beat) ?? [];
+        expectedBeatPitches.push({ beat, actual, passed: actual.length === expectedPitches.length && expectedPitches.every(pitch => actual.filter(value => value === pitch).length === 1) });
+      }
+      const ownerIds = measured.endedOwners.map(owner => owner.ownerId);
+      const lastNotificationAt = Math.max(...measured.lifecycle.map(event => event.deliveredAt), ...measured.endedOwners.map(owner => owner.deliveredAt));
+      const settlementMs = lastNotificationAt - finalInput.time;
+      const recording = await evaluate(`(()=>{const store=document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('patterns');const notes=store.exportNotes();return {recordedNotes:notes.length,activeMusicNotes:window.__uiMusic.activeNotes.size,validTimeline:notes.every(note=>Number.isFinite(note.pressTime)&&Number.isFinite(note.releaseTime)&&note.releaseTime>=note.pressTime)}})()`);
+      row.deliveryAcceptance = { limits: targetedDeliveryLimits, expectedOwners, endedOwners: ownerIds,
+        expectedBeatPitches, completedNotes: completed.size, pairsOrdered, stillActive: active.size,
+        finalInput, lastNotificationAt, settlementMs, recording };
+      checks.push({ name: 'Targeted lifecycle pairs are complete, unique and ordered', passed: pairsOrdered && active.size === 0 && completed.size > 0 });
+      checks.push({ name: 'Targeted repeated chord preserves every pitch on every fully held beat', passed: expectedBeatPitches.length > 30 && expectedBeatPitches.every(beat => beat.passed) });
+      checks.push({ name: 'Targeted owner lifetimes close exactly once', passed: expectedOwners.length === 3 && ownerIds.length === 3 && expectedOwners.every(owner => ownerIds.filter(id => id === owner).length === 1) });
+      checks.push({ name: 'Targeted final lifecycle and owner notifications settle within1000ms of final trusted release', passed: settlementMs >= 0 && settlementMs <= targetedDeliveryLimits.postReleaseSettlementMs });
+      checks.push({ name: 'Targeted recording retains every completed note with a valid timeline and no active musical notes', passed: recording.recordedNotes === completed.size && recording.activeMusicNotes === 0 && recording.validTimeline });
+      checks.push({ name: 'Targeted external runner avoids severe host contention', passed: worstExternalSlip <= comparisonLimits.maxExternalEventLoopSlipMs });
+      return { limits: comparisonLimits, targetedDeliveryLimits, targetedOnly: true, cases, checks,
+        worstExternalEventLoopSlipMs: worstExternalSlip,
+        scope: 'One unprofiled repair acceptance case; actual release-derived PCM tail plus exact lifecycle, owner and recording retention. Does not replace the original four-way receipts.' };
+    }
     if (process.env.LAB_NATIVE_PROFILE === '1') {
       // Diagnostic only: one dense case, after normal instrument preparation.
       // Profiled timings are never substituted for the matched timing receipts.
@@ -81,18 +146,16 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
       await press(letters);
       await delay(3150);
       await release(letters);
-      const releasedAt = await evaluate('window.__uiAudio.getAudioContext().currentTime');
       await delay(500);
-      const row = await finish(`${bpm} BPM ${letters.length}-key repeat through ${stallDuration}ms stall`, { stepSeconds: 60 / bpm / 4, tailAfter: releasedAt + .1 });
+      const row = await finish(`${bpm} BPM ${letters.length}-key repeat through ${stallDuration}ms stall`, { stepSeconds: 60 / bpm / 4, tailAfterFinalInputReleaseMs: targetedDeliveryLimits.tailAfterReleaseMs });
       const presses = row.measured.input.filter(x => x.type === 'keydown');
       row.chordSubmissionSpanMs = presses.at(-1).time - presses[0].time;
       checks.push({ name: `${bpm} BPM ${stallDuration}ms: intended chord arrives within declared gesture window`, passed: row.chordSubmissionSpanMs <= comparisonLimits.maxChordSubmissionSpanMs });
     }
     await begin(220);
     await press('ADF'); await delay(20); await release('ADF');
-    const releasedAt = await evaluate('window.__uiAudio.getAudioContext().currentTime');
     await delay(2300);
-    await finish('220 BPM three-key immediate release cancels the full future queue', { tailAfter: releasedAt + .1 });
+    await finish('220 BPM three-key immediate release cancels the full future queue', { tailAfterFinalInputReleaseMs: targetedDeliveryLimits.tailAfterReleaseMs });
 
     await begin(220, 'arp-up:16');
     await press('ADF'); await delay(350); await release('D'); await press('G');

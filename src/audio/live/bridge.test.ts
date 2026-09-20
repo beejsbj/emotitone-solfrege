@@ -152,7 +152,8 @@ describe('production live worklet bridge', () => {
       { type: 'owner-ended', ownerId: 'owner' },
       { type: 'prepared', requestId: 1 }, { type: 'forgotten', requestId: 2 },
     ]
-    for (const data of responses) node.port.onmessage({ data })
+    // Old singleton and new processor-boundary arrays can be interleaved.
+    for (const data of [responses.slice(0, 2), responses[2], responses.slice(3)]) node.port.onmessage({ data })
     await Promise.resolve()
     expect(order).toEqual([])
     expect(tasks).toHaveLength(1)
@@ -170,7 +171,7 @@ describe('production live worklet bridge', () => {
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
     const pending = expect(bridge.prepare(instrument)).rejects.toThrow('disposed')
     node.port.onmessage({ data: { type: 'owner-ended', ownerId: 'queued' } })
-    node.port.onmessage({ data: { type: 'prepared', requestId: 1 } })
+    node.port.onmessage({ data: [{ type: 'prepared', requestId: 1 }] })
     bridge.dispose()
     drain()
     await pending
@@ -186,14 +187,17 @@ describe('production live worklet bridge', () => {
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
     const ready = vi.fn()
     const failed = vi.fn()
-    const pending = bridge.prepare(instrument).then(ready, failed)
-    node.port.onmessage({ data: { type: 'prepared', requestId: 1 } })
+    const pending = Promise.all([
+      bridge.prepare(instrument).then(ready, failed),
+      bridge.forget('sine').then(ready, failed),
+    ])
+    node.port.onmessage({ data: [{ type: 'prepared', requestId: 1 }, { type: 'forgotten', requestId: 2 }] })
     await vi.advanceTimersByTimeAsync(5000)
     expect(ready).not.toHaveBeenCalled()
     expect(failed).not.toHaveBeenCalled()
     drain()
     await pending
-    expect(ready).toHaveBeenCalledOnce()
+    expect(ready).toHaveBeenCalledTimes(2)
     bridge.dispose()
   })
 

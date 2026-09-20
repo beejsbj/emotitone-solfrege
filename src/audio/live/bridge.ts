@@ -60,15 +60,19 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
       fail(error instanceof Error ? error : new Error(String(error)))
     }
   }
-  node.port.onmessage = ({ data }: MessageEvent<LiveResponse>) => {
+  node.port.onmessage = ({ data }: MessageEvent<LiveResponse | LiveResponse[]>) => {
     if (disposed) return
-    if (data.type === 'prepared' || data.type === 'forgotten') {
-      // Receipt satisfied the transport deadline. Keep its promise pending
-      // until FIFO delivery reaches it, without a false timeout in the queue.
-      const entry = pending.get(data.requestId)
-      if (entry) clearTimeout(entry.timer)
+    const responses = Array.isArray(data) ? data : [data]
+    if (!responses.length) return
+    for (const response of responses) {
+      if (response.type === 'prepared' || response.type === 'forgotten') {
+        // Receipt satisfied the transport deadline. Keep its promise pending
+        // until FIFO delivery reaches it, without a false timeout in the queue.
+        const entry = pending.get(response.requestId)
+        if (entry) clearTimeout(entry.timer)
+      }
+      inbox.push(response)
     }
-    inbox.push(data)
     if (drainQueued) return
     drainQueued = true
     // A separate task lets already queued port responses arrive without a

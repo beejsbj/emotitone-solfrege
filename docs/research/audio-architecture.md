@@ -1,6 +1,6 @@
 # Playback architecture and implementation plan
 
-The recommendation is to share audio ownership and instrument preparation, keep pattern sequencing separate from live input, and make the live renderer replaceable. Keep the improved worklet as the default until a matched native Web Audio comparison supports changing it. Removing Superdough entirely is not justified: it still renders Strudel patterns and unsupported live instruments.
+Production shares audio ownership and instrument preparation while keeping pattern sequencing separate from live input. The worklet is the sole prepared live renderer; Superdough renders Strudel patterns and unsupported live instruments. The native alternative remains in the audio lab for reproducible comparison. See [the stack decision](audio-stack-decision.md) for the final renderer disposition and later validation.
 
 ## Responsibilities
 
@@ -9,9 +9,8 @@ flowchart TD
   Editor[CodeMirror editor adapter] --> Pattern[Single pattern controller / Strudel transport]
   Input[Keyboard / touch / MIDI] --> Live[Live performance controller]
   Pattern --> Superdough[Superdough pattern output]
-  Live --> Renderer[Prepared renderer interface]
-  Renderer --> Worklet[Worklet rhythm and PCM mixer]
-  Renderer --> Native[Native scheduled sources]
+  Live --> Worklet[Worklet rhythm and PCM mixer]
+  Lab[Lab-only reference manager] --> Native[Native scheduled sources]
   Instruments[Shared prepared instrument description] --> Worklet
   Instruments --> Native
   Superdough --> Master[One playback context and master output]
@@ -24,9 +23,9 @@ flowchart TD
 - `livePerformance` owns prepared live input, event plans and owner lifetimes. The music store supplies musical metadata and consumes recording, MIDI and visual events. Unsupported sounds retain the existing fallback.
 - `liveRenderer` defines synchronous press/release/configure controls and timestamped lifecycle callbacks. Preparation happens before input is enabled, never inside a note press.
 - Shared instrument descriptions resolve tuning, zone selection, loops, articulation and original decoded AudioBuffers. Native sources borrow those buffers; the worklet builder supplies channel views and its resampling pyramid, cloned into the audio thread.
-- `livePlayback` selects the adapter, deduplicates preparation and bounds bank retention (four banks / 192 MiB). Held banks are pinned; retirement remains charged until acknowledged. Diagnostics distinguish retained PCM from additional renderer PCM.
+- `livePlayback` owns the worklet, deduplicates preparation and bounds installed/pending bank retention (four banks / 192 MiB). A separate 192 MiB reservation covers cached/building preparation. Held banks are pinned; retirement remains charged until acknowledged. Diagnostics distinguish original PCM from additional renderer PCM; these are not total-process memory bounds.
 
-## Swarm and migration
+## Original migration plan
 
 1. Runtime worker: canonical audio owner, modular Strudel imports, one pattern controller and editor integration; regressions for duplicate initialization and transport lifecycle.
 2. Native worker: synchronous prepared AudioBufferSource/Oscillator renderer using original buffers, shared preparation and matched articulation/cancellation. Use a 400 ms future-event horizon and zero initial scheduling lead. Keep the existing fallback scheduler default unchanged.
@@ -85,7 +84,7 @@ The results above are the original architecture experiment. The later [bounded f
 
 Keep Superdough for pattern output and unsupported live sounds, and keep the required patches. Physical device/ROLI evaluation remains [issue #81](https://github.com/beejsbj/emotitone-solfrege/issues/81). Profiling the UI tasks that starve native replenishment is a separate next investigation; increasing the scheduling horizon would consume more queued nodes and commit more future events without making native generation independent of the main thread.
 
-### Final verification
+### Original architecture verification
 
 `bun run build` passes, including the TypeScript check. The final full suite reports **1,372 passed, 10 failed and five collection errors**. Every remaining failure name occurs in the prior worklet baseline (which had 11 failed tests and the same five collection errors); there are no added failures. The unrelated particle edge-case test happened to pass on this run, so the lower failure count is not claimed as an audio fix.
 

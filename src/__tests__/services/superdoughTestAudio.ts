@@ -6,6 +6,7 @@ export function createSuperdoughTestAudio() {
   const sources: Source[] = []
   const buffers: object[] = []
   const shapers: Shaper[] = []
+  const gains: Gain[] = []
   const context: {
     currentTime: number
     sampleRate: number
@@ -46,7 +47,10 @@ export function createSuperdoughTestAudio() {
     connect(node: unknown) { return node }
     disconnect() { this.disconnected = true }
   }
-  class Gain extends Node { gain = new Param() }
+  class Gain extends Node {
+    gain = new Param()
+    constructor(ctx: typeof context) { super(ctx); gains.push(this) }
+  }
   class Source extends Node {
     stopAt = Infinity
     naturalEnd = Infinity
@@ -88,5 +92,5 @@ export function createSuperdoughTestAudio() {
       }
     } while (changed)
   }
-  return { context, sources, buffers, shapers, Source, Constant, Shaper, advance }
+  return { context, sources, buffers, shapers, gains, Source, Constant, Shaper, advance }
 }

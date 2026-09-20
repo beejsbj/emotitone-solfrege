@@ -1,6 +1,6 @@
-import { createPlayStyleEngine, type PlayStyle } from '../../services/playStyles'
-import type { PreparedNativeInstrument, NativeSampleZone } from '../../services/preparedNativeInstrument'
-import type { LiveInputNote, LiveVoiceEvent, LiveRenderer, LiveRendererCallbacks } from '../liveRenderer'
+import { createPlayStyleEngine, type PlayStyle } from '@/services/playStyles'
+import type { PreparedNativeInstrument, NativeSampleZone } from '@/services/preparedNativeInstrument'
+import type { LiveInputNote, LiveVoiceEvent, LiveRenderer, LiveRendererCallbacks } from '@/audio/liveRenderer'
 
 export const NATIVE_LOOKAHEAD_MS = 400
 const MAX_VOICES = 64

@@ -73,11 +73,13 @@ There are only three latency trials per condition. Native had better Together to
 
 The native 300 ms continuity check **failed**. A retained diagnostic also shows 601–654 ms gaps between source submissions, including a missed beat before the injected pause. The actual application's broader UI/host contention can exhaust a 400 ms horizon; attributing every missed note to the injected stall alone would be incorrect. The exact intervening UI work requires CPU/Long Task profiling. The native scheduler skips overdue pulses to preserve the grid instead of bursting them late.
 
-The worklet passed both rhythm tests with zero measured interval deviation. Reliable repeat/arpeggiation is the original requirement, so it remains the default. Native remains available with `VITE_LIVE_AUDIO_BACKEND=native` for comparison and situations where lower PCM use matters; it is not promoted as meeting the same continuity guarantee. Native still uses original decoded buffers from Superdough's cache: this is a prepared native renderer comparison, not proof that Superdough itself is intrinsically slow.
+The worklet passed both rhythm tests with zero measured interval deviation. Reliable repeat/arpeggiation is the original requirement, so it remains the default. Native is retained only in `audio-lab/reference` and enabled by `LAB_UI_BACKEND=native` in the laboratory runner. The old `VITE_LIVE_AUDIO_BACKEND` production selector is removed; native is not promoted as meeting the same continuity guarantee. Native still uses original decoded buffers from Superdough's cache: this is a prepared native renderer comparison, not proof that Superdough itself is intrinsically slow.
 
 Both dense runs produced finite PCM and exact silence after cleanup. Known PCM accounting is not total browser heap/RSS. The native path retains references to 144,462,704 bytes of original piano PCM; forgetting those references does not clear Superdough's cache.
 
 See [the matched UI report](../../audio-lab/ui-README.md), [native receipt](../../audio-lab/results/ui-architecture-native.json), [worklet receipt](../../audio-lab/results/ui-architecture-worklet.json) and [native diagnostic](../../audio-lab/results/ui-architecture-native-diagnostic.json). The earlier integration comparison cannot substitute for these matched backend measurements.
+
+The results above are the original architecture experiment. The later [bounded four-way comparison](../../audio-lab/native-comparison-results.md) supersedes them for the final renderer decision and records the dense worklet notification backlog discovered during that comparison.
 
 ### Remaining scope
 

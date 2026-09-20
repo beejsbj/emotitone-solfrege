@@ -10,6 +10,7 @@ const audioMocks = vi.hoisted(() => ({
   isPrewarmed: vi.fn((instrumentName: string) => instrumentName === "piano"),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   getReadySounds: vi.fn(() => ["piano"]),
+  setLiveSynthControls: vi.fn(),
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -195,5 +196,24 @@ describe("instrument store warmup", () => {
     expect(store.isInstrumentReady("piano")).toBe(false);
     expect(store.isInstrumentReady("triangle")).toBe(true);
     consoleError.mockRestore();
+  });
+
+  it("manages synth controls and forwards them to audio runtime", () => {
+    const store = useInstrumentStore();
+    expect(store.synthControls).toEqual({
+      cutoff: 12000,
+      resonance: 0,
+      attack: 0.003,
+      release: 0.12,
+    });
+    expect(audioMocks.setLiveSynthControls).toHaveBeenCalledWith(store.synthControls);
+
+    store.setSynthControl("cutoff", 2500);
+    expect(store.synthControls.cutoff).toBe(2500);
+    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(store.synthControls);
+
+    store.resetSynthControls();
+    expect(store.synthControls.cutoff).toBe(12000);
+    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(store.synthControls);
   });
 });

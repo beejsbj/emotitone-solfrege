@@ -18,6 +18,14 @@ const instrumentStore = vi.hoisted(() => {
     isInstrumentReady: vi.fn((name: string) => readySounds.has(name)),
     isInstrumentWarming: vi.fn((name: string) => store.warmingInstrument === name),
     setInstrument: vi.fn(),
+    synthControls: {
+      cutoff: 12000,
+      resonance: 0,
+      attack: 0.003,
+      release: 0.12,
+    },
+    setSynthControl: vi.fn(),
+    resetSynthControls: vi.fn(),
   }
 
   return store
@@ -474,5 +482,25 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.find('[data-testid="instrument-tab-all"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-tab-keyboards"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-tab-gm"]').exists()).toBe(true)
+  })
+
+  it("renders synth sculptor with 4 shaping knobs and reset button in synths bank", async () => {
+    wrapper = await mountSelector()
+
+    await wrapper.get('[data-testid="instrument-tab-synths"]').trigger('click')
+    await nextTick()
+
+    const sculptor = wrapper.find('[data-testid="synth-sculptor"]')
+    expect(sculptor.exists()).toBe(true)
+    expect(sculptor.text()).toContain('Synth Sculptor')
+    expect(sculptor.find('[data-testid="synth-sculptor-reset"]').exists()).toBe(true)
+    expect(sculptor.find('[data-testid="synth-knob-cutoff"]').exists()).toBe(true)
+    expect(sculptor.find('[data-testid="synth-knob-resonance"]').exists()).toBe(true)
+    expect(sculptor.find('[data-testid="synth-knob-attack"]').exists()).toBe(true)
+    expect(sculptor.find('[data-testid="synth-knob-release"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="instrument-tab-keyboards"]').trigger('click')
+    await nextTick()
+    expect(wrapper.find('[data-testid="synth-sculptor"]').exists()).toBe(false)
   })
 })

@@ -220,4 +220,21 @@ describe('StrudelNotation', () => {
     expect(result).toContain("[ 4@0.25 ]")
     expect(result).toContain('.scale("C4:major pentatonic")')
   })
+
+  it("includes synth shaping controls (lpf, lpq, attack, release) when provided", () => {
+    const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
+    const result = logNotesToStrudel(notes, {
+      sound: "triangle",
+      cutoff: 1800,
+      resonance: 4.5,
+      attack: 0.05,
+      release: 0.8,
+    });
+
+    expect(result).toContain('.sound("triangle")');
+    expect(result).toContain('.lpf(1800)');
+    expect(result).toContain('.lpq(4.5)');
+    expect(result).toContain('.attack(0.05)');
+    expect(result).toContain('.release(0.8)');
+  });
 })

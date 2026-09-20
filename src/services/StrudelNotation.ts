@@ -32,6 +32,14 @@ export interface StrudelConfig {
   scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
+  /** Lowpass filter cutoff frequency in Hz. */
+  cutoff?: number;
+  /** Filter resonance (Q factor). */
+  resonance?: number;
+  /** Envelope attack in seconds. */
+  attack?: number;
+  /** Envelope release in seconds. */
+  release?: number;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {
@@ -127,16 +135,31 @@ export class StrudelNotation {
     const inner = `[ ${tokens.join(" ")} ]`;
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
 
+    let strudel = `\`<\n${inner}\n>\`.as("${this.renderRelative ? "n" : "note"}")`;
     if (this.renderRelative) {
       const first = this.notes[0];
       const scaleOctave =
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(${cpmExpression})`;
+      strudel += `.scale("${scale}")`;
     }
 
-    return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(${cpmExpression})`;
+    strudel += `.sound("${this.config.sound}")`;
+    if (this.config.cutoff !== undefined && this.config.cutoff < 12000) {
+      strudel += `.lpf(${Math.round(this.config.cutoff)})`;
+    }
+    if (this.config.resonance !== undefined && this.config.resonance > 0) {
+      strudel += `.lpq(${Number(this.config.resonance.toFixed(1))})`;
+    }
+    if (this.config.attack !== undefined && this.config.attack > 0.003) {
+      strudel += `.attack(${Number(this.config.attack.toFixed(3))})`;
+    }
+    if (this.config.release !== undefined && this.config.release !== 0.12) {
+      strudel += `.release(${Number(this.config.release.toFixed(2))})`;
+    }
+    strudel += `.cpm(${cpmExpression})`;
+    return strudel;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {

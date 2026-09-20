@@ -19,7 +19,7 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
-import { DEFAULT_INSTRUMENT } from "@/data/instruments";
+import { DEFAULT_INSTRUMENT, isSynthSound } from "@/data/instruments";
 import { prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { getLiveArticulation } from "@/services/liveArticulation";
@@ -41,6 +41,13 @@ const SYNTH_SOUNDS = new Set([
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
 const _prewarmedSounds = new Set<string>();
+let _liveSynthControls: { cutoff?: number; resonance?: number; attack?: number; release?: number } | null = null;
+
+export function setLiveSynthControls(
+  controls: { cutoff?: number; resonance?: number; attack?: number; release?: number } | null
+): void {
+  _liveSynthControls = controls;
+}
 const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
 const _activeStrudelVisuals = new Map<
@@ -525,7 +532,13 @@ export async function attackNote(
   noteId: string,
   noteName: string,
   instrument: string,
-  options?: { atTime?: number; attack?: number; release?: number },
+  options?: {
+    atTime?: number;
+    attack?: number;
+    release?: number;
+    cutoff?: number;
+    resonance?: number;
+  },
 ): Promise<number> {
   // The ready path must submit audio before yielding to unrelated microtasks.
   // Initialization and resume remain asynchronous only when actually needed.
@@ -543,6 +556,7 @@ export async function attackNote(
   const articulation = getLiveArticulation(sound);
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
   const wasReady = isPrewarmed(sound);
+  const isSynth = isSynthSound(sound);
 
   // Defensively clear stale voices if a note id is ever re-used.
   if (hasVoice(noteId)) {
@@ -553,16 +567,30 @@ export async function attackNote(
   // patched engine preserves overdue live presses, but this margin normally
   // lets the complete graph reach the render thread before its intended onset.
   const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset(LIVE_AUDIO_SCHEDULING_LEAD_MS / 1000));
+  const attack = options?.attack ?? (isSynth && _liveSynthControls?.attack !== undefined ? _liveSynthControls.attack : articulation.attack);
+  const release = options?.release ?? (isSynth && _liveSynthControls?.release !== undefined ? _liveSynthControls.release : articulation.release);
+  const cutoff = options?.cutoff ?? (isSynth ? _liveSynthControls?.cutoff : undefined);
+  const resonance = options?.resonance ?? (isSynth ? _liveSynthControls?.resonance : undefined);
+
+  const payload: Record<string, unknown> = {
+    s: sound,
+    note: noteName,
+    gain: 0.8,
+    attack,
+    release,
+    voiceId: noteId,
+    sustainUntilRelease: true,
+  };
+
+  if (cutoff !== undefined && cutoff < 12000) {
+    payload.cutoff = cutoff;
+  }
+  if (resonance !== undefined && resonance > 0) {
+    payload.resonance = resonance;
+  }
+
   const armedAt = await superdough(
-    {
-      s: sound,
-      note: noteName,
-      gain: 0.8,
-      attack: options?.attack ?? articulation.attack,
-      release: options?.release ?? articulation.release,
-      voiceId: noteId,
-      sustainUntilRelease: true,
-    },
+    payload,
     requestedAt,
     duration,
     1 // cps

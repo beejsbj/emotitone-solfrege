@@ -59,6 +59,11 @@ vi.mock('tone', () => ({
 // Mock GSAP
 vi.mock('gsap', () => ({
   default: {
+    registerPlugin: vi.fn(),
+    context: vi.fn((fn?: () => void) => {
+      fn?.();
+      return { revert: vi.fn(), kill: vi.fn(), add: vi.fn() };
+    }),
     timeline: vi.fn(() => ({
       to: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
@@ -313,6 +318,10 @@ vi.mock('@/data', async (importOriginal) => {
 vi.mock('@/data/instruments', () => ({
   displayInstrumentName: (instrument: string) =>
     instrument.startsWith('gm_') ? instrument.slice(3) : instrument,
+  isSynthSound: (instrument: string) => {
+    const name = instrument.toLowerCase().replace(/^gm_/, "");
+    return ["triangle", "sine", "square", "sawtooth", "pulse", "supersaw", "tri", "sin", "sqr", "saw", "synth", "amsynth", "fmsynth"].includes(name);
+  },
   AVAILABLE_INSTRUMENTS: {
     'piano': {
       id: 'piano',
@@ -398,6 +407,7 @@ vi.mock('@/services/superdoughAudio', () => ({
   })),
   getSuperdoughMasterGain: vi.fn().mockReturnValue(null),
   getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
+  setLiveSynthControls: vi.fn(),
   stopStrudelVisuals: vi.fn(),
   emotitoneStrudelOutput: vi.fn().mockResolvedValue(undefined),
   playStrudelCode: vi.fn().mockResolvedValue(undefined),

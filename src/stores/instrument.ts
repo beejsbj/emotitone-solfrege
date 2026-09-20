@@ -6,6 +6,7 @@ import {
   initSuperdoughAudio,
   isPrewarmed,
   prewarmSoundSamples,
+  setLiveSynthControls,
 } from "@/services/superdoughAudio";
 
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
@@ -14,6 +15,20 @@ export type InstrumentSelectionResult =
   | { status: "ready"; instrument: string }
   | { status: "failed"; instrument: string; fallback: string | null }
   | { status: "superseded"; instrument: string };
+
+export interface SynthControls {
+  cutoff: number;
+  resonance: number;
+  attack: number;
+  release: number;
+}
+
+export const DEFAULT_SYNTH_CONTROLS: Readonly<SynthControls> = {
+  cutoff: 12000,
+  resonance: 0,
+  attack: 0.003,
+  release: 0.12,
+};
 
 /**
  * Instrument Store
@@ -33,6 +48,21 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const isInitializing = ref(false);
   const warmupPromises = new Map<string, Promise<void>>();
   const selectionEpoch = ref(0);
+  const synthControls = ref<SynthControls>({ ...DEFAULT_SYNTH_CONTROLS });
+  setLiveSynthControls(synthControls.value);
+
+  const setSynthControl = <K extends keyof SynthControls>(
+    key: K,
+    value: SynthControls[K],
+  ) => {
+    synthControls.value[key] = value;
+    setLiveSynthControls(synthControls.value);
+  };
+
+  const resetSynthControls = () => {
+    synthControls.value = { ...DEFAULT_SYNTH_CONTROLS };
+    setLiveSynthControls(synthControls.value);
+  };
 
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(
@@ -189,11 +219,14 @@ export const useInstrumentStore = defineStore("instrument", () => {
     selectionEpoch,
     isLoading,
     isInteractionLocked,
+    synthControls,
 
     // Actions
     initializeInstruments,
     setInstrument,
     isInstrumentReady,
     isInstrumentWarming,
+    setSynthControl,
+    resetSynthControls,
   };
 });

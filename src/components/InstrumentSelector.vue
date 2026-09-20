@@ -11,7 +11,8 @@ import TabbedOverlayPanel, {
 import TopDrawer from "./TopDrawer.vue";
 import { Search, X } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
-import { displayInstrumentName } from "@/data/instruments";
+import Knob from "@/components/primatives/Knob/index.vue";
+import { displayInstrumentName, isSynthSound } from "@/data/instruments";
 
 const drawerContentHeight = ref<number>();
 const topDrawerRef = ref<
@@ -707,6 +708,84 @@ async function selectInstrument(name: string, close: () => void) {
           </div>
 
           <template v-else>
+            <div
+              v-if="panelTab === 'synths' && instrumentStore.synthControls"
+              data-testid="synth-sculptor"
+              class="synth-sculptor"
+            >
+              <div class="synth-sculptor__heading">
+                <span class="synth-sculptor__title">Synth Sculptor</span>
+                <button
+                  type="button"
+                  data-testid="synth-sculptor-reset"
+                  class="synth-sculptor__reset"
+                  title="Reset synth controls"
+                  aria-label="Reset synth controls"
+                  @click="instrumentStore.resetSynthControls"
+                >
+                  Reset
+                </button>
+              </div>
+              <div class="synth-sculptor__grid">
+                <div class="synth-sculptor__knob-cell">
+                  <Knob
+                    :model-value="instrumentStore.synthControls.cutoff"
+                    type="range"
+                    :min="200"
+                    :max="12000"
+                    :step="100"
+                    label="Cutoff"
+                    tone="brass"
+                    data-testid="synth-knob-cutoff"
+                    :format-value="(v) => Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}Hz`"
+                    @update:model-value="(v) => instrumentStore.setSynthControl('cutoff', Number(v))"
+                  />
+                </div>
+                <div class="synth-sculptor__knob-cell">
+                  <Knob
+                    :model-value="instrumentStore.synthControls.resonance"
+                    type="range"
+                    :min="0"
+                    :max="12"
+                    :step="0.5"
+                    label="Resonance"
+                    tone="brass"
+                    data-testid="synth-knob-resonance"
+                    :format-value="(v) => `${Number(v).toFixed(1)}`"
+                    @update:model-value="(v) => instrumentStore.setSynthControl('resonance', Number(v))"
+                  />
+                </div>
+                <div class="synth-sculptor__knob-cell">
+                  <Knob
+                    :model-value="instrumentStore.synthControls.attack"
+                    type="range"
+                    :min="0.001"
+                    :max="0.5"
+                    :step="0.005"
+                    label="Attack"
+                    tone="ivory"
+                    data-testid="synth-knob-attack"
+                    :format-value="(v) => `${Math.round(Number(v) * 1000)}ms`"
+                    @update:model-value="(v) => instrumentStore.setSynthControl('attack', Number(v))"
+                  />
+                </div>
+                <div class="synth-sculptor__knob-cell">
+                  <Knob
+                    :model-value="instrumentStore.synthControls.release"
+                    type="range"
+                    :min="0.05"
+                    :max="2.5"
+                    :step="0.05"
+                    label="Release"
+                    tone="ivory"
+                    data-testid="synth-knob-release"
+                    :format-value="(v) => `${Number(v).toFixed(2)}s`"
+                    @update:model-value="(v) => instrumentStore.setSynthControl('release', Number(v))"
+                  />
+                </div>
+              </div>
+            </div>
+
             <section
               v-for="group in orderedGroupsFor(panelTab)"
               :key="group.key"
@@ -761,6 +840,60 @@ async function selectInstrument(name: string, close: () => void) {
 <style scoped>
 .instrument-group + .instrument-group {
   margin-top: 1.5rem;
+}
+
+.synth-sculptor {
+  border: 1px solid var(--ink-5);
+  background: #111111;
+  padding: 0.625rem 0.75rem 0.75rem;
+  margin-bottom: 1rem;
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+}
+
+.synth-sculptor__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.375rem;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ivory-3);
+}
+
+.synth-sculptor__reset {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--brass-hi, #e0a93a);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity var(--dur-tap) ease;
+}
+
+.synth-sculptor__reset:hover {
+  opacity: 1;
+}
+
+.synth-sculptor__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.375rem;
+  align-items: start;
+  justify-items: center;
+}
+
+.synth-sculptor__knob-cell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .instrument-group__heading {
@@ -826,5 +959,9 @@ async function selectInstrument(name: string, close: () => void) {
 @media (max-width: 460px) {
   .instrument-group__choices { gap: .5625rem .5rem; }
   .instrument-choice__sticker { font-size: 12px; }
+  .synth-sculptor__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 0.75rem;
+  }
 }
 </style>

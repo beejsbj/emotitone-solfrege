@@ -160,6 +160,27 @@ describe("useHarmonicGeometryRenderer", () => {
     );
 
     expect(scene?.primaryLabel?.lines).toEqual(["Bright"]);
+    expect(scene?.chordSymbol).toBe("Cmaj7");
+  });
+
+  it("publishes short polyphonic Web edges for the compact-tab fallback", () => {
+    const notes = [createNote("c", "C4"), createNote("e", "E4"), createNote("g", "G4")];
+    const blobs = new Map(notes.map((note, index) => [note.noteId,
+      createBlob(note, 160 + index * 20, index === 1 ? 160 : 180)]));
+    const renderer = useHarmonicGeometryRenderer();
+    const config = { ...baseConfig, connectionMode: "web" as const,
+      showChordLabel: false, showEmotionLabel: false };
+    const scene = renderer.buildScene(createSnapshot(notes), blobs, config, 400, 400)!;
+    expect(scene.auxiliaryLabels).toHaveLength(3);
+    scene.renderedConnections = scene.auxiliaryLabels.map(label => ({
+      notePair: label.notePair!, colors: ["red", "green"], opacity: 1,
+      points: [{ x: label.x - 5, y: label.y }, { x: label.x + 5, y: label.y }],
+    }));
+    const context = { ...mockCanvasContext, canvas: { width: 400, height: 400 }, fillText: vi.fn() } as unknown as CanvasRenderingContext2D;
+    renderer.renderLabels(context, scene, config);
+    for (const interval of ["0-1", "1-2", "0-2"]) {
+      expect(context.fillText).toHaveBeenCalledWith(interval, 0, 0);
+    }
   });
 
   it("keeps web relationships when interval labels are hidden", () => {
@@ -240,12 +261,32 @@ describe("useHarmonicGeometryRenderer", () => {
     );
 
     expect(scene?.auxiliaryLabels).toHaveLength(3);
+    const renderedFonts: string[] = [];
+    const canvas = document.createElement("canvas");
+    canvas.style.setProperty(
+      "--font-display",
+      '"Lets Jazz", "Oswald", system-ui, sans-serif'
+    );
+    const context = {
+      ...mockCanvasContext,
+      canvas,
+      fillText: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    vi.mocked(context.fillText).mockImplementation(() => {
+      renderedFonts.push(context.font);
+    });
     renderer.renderLabels(
-      mockCanvasContext as unknown as CanvasRenderingContext2D,
+      context,
       scene,
       config
     );
-    expect(mockCanvasContext.fillText).toHaveBeenCalledTimes(5);
+    for (const interval of ["0-1", "1-2", "0-2"]) {
+      expect(context.fillText).toHaveBeenCalledWith(interval, 0, 0);
+    }
+    expect(renderedFonts.length).toBeGreaterThan(5);
+    expect(renderedFonts.every((font) => font.includes('"Lets Jazz"'))).toBe(
+      true
+    );
   });
 
   it("wraps long labels within the canvas width without compressing glyphs", () => {
@@ -271,13 +312,12 @@ describe("useHarmonicGeometryRenderer", () => {
 
     renderer.renderLabels(context, scene, baseConfig);
 
-    const emotionLines = vi.mocked(mockCanvasContext.fillText).mock.calls
-      .map(([line]) => String(line))
-      .filter((line) => line !== "Cmaj7" && line !== "0-1");
-    expect(emotionLines).toEqual([
-      "Strength, confidence, dominance &",
-      "Forward motion, stepping up",
-    ]);
+    const letters = vi.mocked(mockCanvasContext.fillText).mock.calls
+      .filter(([text, x, y]) => String(text).length === 1 && x === 0 && y === 0)
+      .map(([text]) => text).join("");
+    expect(letters.replace(/\s/g, "")).toBe(
+      `Cmaj7${snapshot.emotionalDescription}`.replace(/\s/g, "")
+    );
     expect(mockCanvasContext.fillText).not.toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Number),

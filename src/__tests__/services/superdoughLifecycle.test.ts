@@ -129,4 +129,19 @@ describe('published superdough lifecycle and voice budget', () => {
     audio.advance(.02)
     expect(Array.from({ length: 30 }, (_, i) => dough.hasVoice(`burst-${i}`)).filter(Boolean)).toHaveLength(2)
   })
+
+  it('fades a finite pattern voice before stealing it at the polyphony limit', async () => {
+    dough.setMaxPolyphony(1)
+    await dough.superdough({ s: 'lifecycle-test', release: .1 }, 1, 5, 1)
+    const first = audio.sources[0]
+    const ramps = audio.gains.map(node => vi.spyOn(node.gain, 'linearRampToValueAtTime'))
+    audio.advance(1.1)
+    await dough.superdough({ s: 'lifecycle-test', release: .1 }, 1.1, 5, 1)
+    expect(first.stopAt).toBeCloseTo(1.11)
+    expect(ramps.some(ramp => ramp.mock.calls.some(([value, at]) =>
+      value === 0 && Math.abs(Number(at) - 1.11) < 1e-9,
+    ))).toBe(true)
+    audio.advance(1.12)
+    expect(first.disconnected).toBe(true)
+  })
 })

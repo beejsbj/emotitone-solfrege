@@ -2,16 +2,33 @@
 import { getSound } from "superdough";
 import type { LiveSampleZone, PreparedLiveInstrument } from "../audio/live/types";
 import { prepareSampleMipmapsAsync } from "../audio/live/resampler";
-import { prepareNativeInstrument } from "./preparedNativeInstrument";
-import type { UnsupportedLiveInstrument } from "./preparedNativeInstrument";
+import { prepareNativeInstrument, UnsupportedLiveInstrumentError } from "./preparedNativeInstrument";
+import type { UnsupportedLiveInstrument, RetryableLiveInstrument } from "./preparedNativeInstrument";
 export type { UnsupportedLiveInstrument } from "./preparedNativeInstrument";
-export type LiveInstrumentPreparation = PreparedLiveInstrument | UnsupportedLiveInstrument;
-interface CacheEntry { registration: object; pending: Promise<LiveInstrumentPreparation> }
+export type LiveInstrumentPreparation = PreparedLiveInstrument | UnsupportedLiveInstrument | RetryableLiveInstrument;
+interface CacheEntry { registration: object; pending: Promise<LiveInstrumentPreparation>; additionalPcmBytes: number; result?: LiveInstrumentPreparation }
 const caches = new WeakMap<AudioContext, Map<string, CacheEntry>>();
+const queues = new WeakMap<AudioContext, Promise<void>>();
+const preparingBytes = new WeakMap<AudioContext, number>();
 const MAX_CACHED_BANKS = 8;
 const MAX_BANK_BYTES = 192 * 1024 * 1024;
+export const MAX_PREPARATION_PCM_BYTES = 192 * 1024 * 1024;
 
-async function prepare(context: AudioContext, instrumentId: string): Promise<LiveInstrumentPreparation> {
+export function getPreparedLiveInstrumentDiagnostics(context: AudioContext) {
+  return {
+    cachedPreparationPcmBytes: [...(caches.get(context)?.values() ?? [])].reduce((sum, entry) => sum + entry.additionalPcmBytes, 0),
+    preparingPcmBytes: preparingBytes.get(context) ?? 0,
+    preparationPcmBudgetBytes: MAX_PREPARATION_PCM_BYTES,
+  };
+}
+
+/** Release only our descriptor/pyramids. Superdough owns the borrowed source PCM. */
+export function releasePreparedLiveInstrument(context: AudioContext, instrumentId: string, expected: LiveInstrumentPreparation) {
+  const cache = caches.get(context);
+  if (cache?.get(instrumentId)?.result === expected) cache.delete(instrumentId);
+}
+
+async function prepare(context: AudioContext, instrumentId: string, reserve: (bytes: number) => void): Promise<LiveInstrumentPreparation> {
   const raw = await prepareNativeInstrument(context, instrumentId);
   if (raw.kind !== "sample-bank") return raw;
   const { zoneSelection } = raw;
@@ -34,8 +51,9 @@ async function prepare(context: AudioContext, instrumentId: string): Promise<Liv
   }
   const originalBuffers = new Set(zones.flatMap(zone => zone.channels.map(channel => channel.buffer)));
   let preparedBytes = [...originalBuffers].reduce((total, buffer) => total + buffer.byteLength, 0);
+  const borrowedBytes = preparedBytes;
   const assertBudget = () => {
-    if (preparedBytes > MAX_BANK_BYTES) throw new Error(`Prepared bank requires ${preparedBytes} bytes; worklet budget is ${MAX_BANK_BYTES} bytes (192 MiB)`);
+    if (preparedBytes > MAX_BANK_BYTES) throw new UnsupportedLiveInstrumentError(`Prepared bank requires ${preparedBytes} bytes; worklet budget is ${MAX_BANK_BYTES} bytes (192 MiB)`);
   };
   assertBudget();
   // Preflight every required level before allocating/filtering. Identical
@@ -57,6 +75,8 @@ async function prepare(context: AudioContext, instrumentId: string): Promise<Liv
     }
   }
   assertBudget();
+  // Charge only new filtering PCM. Source channels remain Superdough-owned.
+  reserve(preparedBytes - borrowedBytes);
   for (const zone of zones) {
     const loops = `${zone.loopStartFrame ?? 0}:${zone.loopEndFrame ?? 0}`;
     const entry = pyramids.get(zone.channels[0])!.get(loops)!;
@@ -72,7 +92,7 @@ async function prepare(context: AudioContext, instrumentId: string): Promise<Liv
  */
 export function prepareLiveInstrument(context: AudioContext, instrumentId: string): Promise<LiveInstrumentPreparation> {
   const sound = getSound(instrumentId) as object | undefined;
-  if (!sound) return Promise.resolve({ kind: "unsupported", instrumentId, reason: "Sound is not registered" });
+  if (!sound) return Promise.resolve({ kind: "retryable", instrumentId, reason: "Sound is not registered" });
   const cache = caches.get(context) ?? new Map<string, CacheEntry>();
   caches.set(context, cache);
   const existing = cache.get(instrumentId);
@@ -80,14 +100,28 @@ export function prepareLiveInstrument(context: AudioContext, instrumentId: strin
     cache.delete(instrumentId); cache.set(instrumentId, existing);
     return existing.pending;
   }
-  const entry: CacheEntry = { registration: sound, pending: undefined! };
-  entry.pending = prepare(context, instrumentId).then(result => {
-    if (result.kind === "unsupported" && cache.get(instrumentId) === entry) cache.delete(instrumentId);
+  const entry: CacheEntry = { registration: sound, pending: undefined!, additionalPcmBytes: 0 };
+  const reserve = (bytes: number) => {
+    // Preparation is serialized per context; evict before allocating so
+    // cached plus currently-being-built pyramids share this byte budget.
+    for (const [id, candidate] of cache) {
+      if (getPreparedLiveInstrumentDiagnostics(context).cachedPreparationPcmBytes + bytes <= MAX_PREPARATION_PCM_BYTES) break;
+      if (candidate !== entry) cache.delete(id);
+    }
+    preparingBytes.set(context, bytes);
+  };
+  entry.pending = (queues.get(context) ?? Promise.resolve()).then(() => prepare(context, instrumentId, reserve)).then(result => {
+    entry.result = result;
+    entry.additionalPcmBytes = preparingBytes.get(context) ?? 0;
+    preparingBytes.delete(context);
+    if ((result.kind === "unsupported" || result.kind === "retryable") && cache.get(instrumentId) === entry) cache.delete(instrumentId);
     return result;
   }).catch(error => {
     if (cache.get(instrumentId) === entry) cache.delete(instrumentId);
-    return { kind: "unsupported", instrumentId, reason: error instanceof Error ? error.message : String(error) } as const;
-  });
+    return { kind: error instanceof UnsupportedLiveInstrumentError ? "unsupported" : "retryable",
+      instrumentId, reason: error instanceof Error ? error.message : String(error) } as const;
+  }).finally(() => { preparingBytes.delete(context); });
+  queues.set(context, entry.pending.then(() => {}));
   cache.set(instrumentId, entry);
   while (cache.size > MAX_CACHED_BANKS) cache.delete(cache.keys().next().value!);
   return entry.pending;

@@ -1,8 +1,9 @@
 import { createCanvas } from "@napi-rs/canvas";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useBlobFieldRenderer } from "@/composables/canvas/useBlobFieldRenderer";
+import { getBlobFieldConnectionGeometry, getBlobWebConnections, getBlobWebConnectionWidth, useBlobFieldRenderer } from "@/composables/canvas/useBlobFieldRenderer";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { MAJOR_SOLFEGE } from "@/data";
+import { useHarmonicGeometryRenderer } from "@/composables/canvas/useHarmonicGeometryRenderer";
 import type { PreparedBlobFrame } from "@/types/canvas";
 
 function chordFrames(radius: number): PreparedBlobFrame[] {
@@ -61,6 +62,74 @@ describe("Merge field pixels", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it.each(["merge", "web"] as const)("takes %s opacity from the prepared note strength, independently of color alpha", (mode) => {
+    const opaque = framesAt();
+    const translucent = framesAt();
+    translucent.forEach((frame, index) => {
+      frame.primaryColor = opaque[index].primaryColor.replace("rgb(", "rgba(").replace(")", ", 0.1)");
+    });
+    const reference = render(opaque, mode).getImageData(0, 0, 1000, 650).data;
+    const actual = render(translucent, mode).getImageData(0, 0, 1000, 650).data;
+    let mismatches = 0;
+    for (let index = 0; index < actual.length; index++) {
+      if (actual[index] !== reference[index]) mismatches++;
+    }
+    expect(mismatches).toBe(0);
+  });
+
+  it("publishes mode-specific join paths, clearing them when connections turn off", () => {
+    const frames = chordFrames(20).slice(0, 2);
+    frames[1].primaryColor = "rgb(0, 255, 0)";
+    const notes = frames.map(frame => ({ noteId: frame.key, noteName: "C4", solfegeIndex: 0,
+      solfege: frame.blob.note, frequency: 261.63, octave: 4, mode: "major" as const, key: "C" as const }));
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "web" as const, showChordLabel: true };
+    const scene = useHarmonicGeometryRenderer().buildScene({ isVisible: true, displayedNotes: notes,
+      intervalEdges: [{ fromNoteId: "0", toNoteId: "1", fromIndex: 0, toIndex: 1, interval: "3M" }],
+      chordLabel: "CM", emotionalDescription: "Bright" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 1000, 600)!;
+    const ctx = createCanvas(1000, 600).getContext("2d") as unknown as CanvasRenderingContext2D;
+    const renderer = useBlobFieldRenderer();
+    expect(renderer.renderBlobField(ctx, frames, config, scene)).toBe(true);
+    expect(scene.renderedConnections).toHaveLength(1);
+    expect(scene.renderedConnections![0].colors).toEqual(frames.map(frame => frame.primaryColor));
+    expect(scene.renderedConnections![0].points.length).toBeGreaterThan(2);
+    const connection = getBlobWebConnections(frames, scene)[0];
+    const strand = getBlobFieldConnectionGeometry(connection,
+      getBlobWebConnectionWidth(connection), 1, 0, 0.46);
+    expect(scene.renderedConnections![0].points).toEqual(strand.centerline);
+    expect(scene.renderedConnections![0].opacity).toBeCloseTo(config.webOpacity * 0.92);
+    expect(scene.renderedConnections![0].opacity).toBeGreaterThan(0);
+    renderer.renderBlobField(ctx, frames, { ...config, webOpacity: 0 }, scene);
+    expect(scene.renderedConnections![0].opacity).toBe(0);
+    renderer.renderBlobField(ctx, frames, { ...config, connectionMode: "merge" }, scene);
+    expect(scene.renderedConnections![0].material).toBe("merge");
+    expect(scene.mergeCenter).toBeDefined();
+    renderer.renderBlobField(ctx, frames, { ...config, connectionMode: "off" }, scene);
+    expect(scene.renderedConnections).toEqual([]);
+    expect(scene.mergeCenter).toBeUndefined();
+    renderer.dispose();
+  });
+
+  it("connects analyzed Merge members when an omitted blob lies between them", () => {
+    const frames = chordFrames(20);
+    const selected = [frames[0], frames[2]];
+    const notes = selected.map(frame => ({ noteId: frame.key, noteName: "C4", solfegeIndex: 0,
+      solfege: frame.blob.note, frequency: 261.63, octave: 4, mode: "major" as const, key: "C" as const }));
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "merge" as const, analysisNoteLimit: 2 };
+    const scene = useHarmonicGeometryRenderer().buildScene({ isVisible: true, displayedNotes: notes,
+      intervalEdges: [{ fromNoteId: "0", toNoteId: "2", fromIndex: 0, toIndex: 1, interval: "5P" }],
+      chordLabel: null, emotionalDescription: "" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 1000, 600)!;
+    const canvas = createCanvas(1000, 600);
+    const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
+    const renderer = useBlobFieldRenderer();
+    renderer.renderBlobField(ctx, frames, config, scene);
+    expect(scene.renderedConnections?.map(path => path.notePair)).toEqual([["0", "2"]]);
+    const material = canvas.toBuffer("image/png");
+    ctx.clearRect(0, 0, 1000, 600);
+    renderer.renderBlobField(ctx, frames, config, null);
+    expect(canvas.toBuffer("image/png").equals(material)).toBe(true);
+    renderer.dispose();
+  });
+
   it.each([
     { radius: 10, fieldSoftness: 30, fusionStrength: 0 },
     { radius: 40, fieldSoftness: 12, fusionStrength: 0.4 },
@@ -92,4 +161,322 @@ describe("Merge field pixels", () => {
     }
     renderer.dispose();
   });
+
+  it("retains sparse join identities through complete fusion and anchors the chord inside material", () => {
+    const frames = chordFrames(28);
+    // A compact triangle; increasing radii below fully erases its neck outlines.
+    const positions = [[140, 120], [260, 120], [200, 220]];
+    const setRadius = (radius: number) => frames.forEach((frame, i) => {
+      const [x, y] = positions[i]; frame.blob.x = x; frame.blob.y = y;
+      frame.scaledRadius = radius; frame.blob.baseRadius = radius;
+      frame.contour = Array.from({ length: 48 }, (_, j) => ({
+        x: x + radius * Math.cos(j / 48 * Math.PI * 2), y: y + radius * Math.sin(j / 48 * Math.PI * 2),
+      }));
+    });
+    setRadius(28);
+    const notes = frames.map(frame => ({ noteId: frame.key, noteName: "C4", solfegeIndex: 0,
+      solfege: frame.blob.note, frequency: 261.63, octave: 4, mode: "major" as const, key: "C" as const }));
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "merge" as const, showIntervalLabels: true, showChordLabel: true };
+    const scene = useHarmonicGeometryRenderer().buildScene({ isVisible: true, displayedNotes: notes,
+      intervalEdges: [[0, 1], [0, 2], [1, 2]].map(([fromIndex, toIndex]) => ({
+        fromIndex, toIndex, fromNoteId: String(fromIndex), toNoteId: String(toIndex), interval: "3M" })),
+      chordLabel: "CM", emotionalDescription: "Bright" }, new Map(frames.map(frame => [frame.key, frame.blob])), config, 400, 320)!;
+    const ctx = createCanvas(400, 320).getContext("2d") as unknown as CanvasRenderingContext2D;
+    const renderer = useBlobFieldRenderer();
+    renderer.renderBlobField(ctx, frames, config, scene);
+    const pairs = scene.renderedConnections!.map(path => path.notePair);
+    expect(pairs).toHaveLength(2);
+    setRadius(90);
+    ctx.clearRect(0, 0, 400, 320);
+    renderer.renderBlobField(ctx, frames, { ...config, fusionStrength: 1 }, scene);
+    expect(scene.renderedConnections!.map(path => path.notePair)).toEqual(pairs);
+    expect(scene.renderedConnections!.every(path => path.material === "merge")).toBe(true);
+    for (const path of scene.renderedConnections!) {
+      expect(path.points.length).toBeGreaterThan(2);
+      expect(path.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))).toBe(true);
+      const midpoint = path.points[Math.floor(path.points.length / 2)];
+      expect(ctx.getImageData(Math.floor(midpoint.x), Math.floor(midpoint.y), 1, 1).data[3]).toBeGreaterThan(100);
+    }
+    const { x, y } = scene.mergeCenter!;
+    expect(x).toBeGreaterThan(140); expect(x).toBeLessThan(260);
+    expect(y).toBeGreaterThan(120); expect(y).toBeLessThan(220);
+    expect(ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data[3]).toBeGreaterThan(100);
+    renderer.renderBlobField(ctx, frames.slice(0, 1), config, scene);
+    expect(scene.renderedConnections).toEqual([]);
+    expect(scene.mergeCenter).toBeUndefined();
+    renderer.dispose();
+  });
+});
+
+const triangle = [[140, 140], [820, 180], [560, 500]];
+
+function framesAt(positions = triangle, radius = 40) {
+  return positions.map(([x, y], index) => {
+    const frame = chordFrames(radius)[index % 3];
+    const dx = x - frame.blob.x;
+    const dy = y - frame.blob.y;
+    frame.key = String(index);
+    frame.blob.x = x;
+    frame.blob.y = y;
+    frame.contour = frame.contour.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+    frame.primaryColor = ["rgb(255, 0, 0)", "rgb(0, 255, 0)", "rgb(0, 0, 255)"][index % 3];
+    return frame;
+  });
+}
+
+function completeScene(frames: PreparedBlobFrame[]) {
+  const points = frames.map((frame) => ({
+    blob: frame.blob, note: { noteId: frame.key }, x: frame.blob.x, y: frame.blob.y,
+  }));
+  const edges = frames.flatMap((from, i) => frames.slice(i + 1).map((to) => ({
+    fromNoteId: from.key, toNoteId: to.key,
+  })));
+  return { points, orderedPoints: points, boundaryEdges: edges, interiorEdges: [] } as unknown as
+    import("@/types/canvas").HarmonicGeometryScene;
+}
+
+function render(frames: PreparedBlobFrame[], mode: "merge" | "web", options = {}) {
+  const canvas = createCanvas(1000, 650);
+  const context = canvas.getContext("2d");
+  const renderer = useBlobFieldRenderer();
+  renderer.renderBlobField(context as unknown as CanvasRenderingContext2D, frames, {
+    ...DEFAULT_CONFIG.blobs, connectionMode: mode, blurRadius: 0, glowEnabled: false, ...options,
+  }, completeScene(frames));
+  renderer.dispose();
+  return context;
+}
+
+function alphaAt(context: ReturnType<typeof render>, x: number, y: number) {
+  return context.getImageData(Math.round(x), Math.round(y), 1, 1).data[3];
+}
+
+describe("Filled Merge and fine Web pixels", () => {
+  beforeEach(() => {
+    const createElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag, options) =>
+      tag === "canvas" ? createCanvas(1, 1) as unknown as HTMLCanvasElement : createElement(tag, options),
+    );
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    { color: "rgb(0, 255, 255)", opacity: 1 },
+    { color: "rgba(0, 255, 255, 1)", opacity: 1 },
+    { color: "hsla(180, 100%, 50%, 1)", opacity: 1 },
+    { color: "rgba(0, 255, 255, 1)", opacity: 0.35 },
+  ])("preserves identical note colors across Merge at opacity $opacity ($color)", ({ color, opacity }) => {
+    const frames = framesAt();
+    frames.forEach((frame) => {
+      frame.primaryColor = color;
+      frame.opacity = opacity;
+    });
+    const context = render(frames, "merge", { fieldSoftness: 0 });
+
+    // Sample between bodies, where only the radial color contributions exist.
+    // Fading to transparent black darkens this interior even at full strength.
+    for (const [x, y] of [[507, 273], [440, 220], [560, 350]]) {
+      const [red, green, blue, alpha] = context.getImageData(x, y, 1, 1).data;
+      expect(red).toBeLessThanOrEqual(2);
+      expect(green).toBeGreaterThanOrEqual(252);
+      expect(blue).toBeGreaterThanOrEqual(252);
+      expect(Math.abs(alpha - Math.round(opacity * 255))).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("keeps mixed Merge color independent of release opacity", () => {
+    const held = framesAt();
+    const releasing = framesAt();
+    releasing[2].blob.isFadingOut = true;
+    releasing[2].opacity = 0.2;
+
+    const heldContext = render(held, "merge", { fieldSoftness: 0 });
+    const releaseContext = render(releasing, "merge", { fieldSoftness: 0 });
+    for (const [x, y] of [[507, 273], [520, 320], [560, 350]]) {
+      const heldPixel = heldContext.getImageData(x, y, 1, 1).data;
+      const releasePixel = releaseContext.getImageData(x, y, 1, 1).data;
+      for (let channel = 0; channel < 3; channel++) {
+        expect(Math.abs(heldPixel[channel] - releasePixel[channel])).toBeLessThanOrEqual(2);
+      }
+    }
+    expect(alphaAt(releaseContext, 507, 273)).toBeLessThan(alphaAt(heldContext, 507, 273));
+  });
+
+  it.each([10, 40])("fills the whole triangular interior at radius %s, blending all three colors", (radius) => {
+    const context = render(framesAt(triangle, radius), "merge");
+    // Interior samples cover the face, not just the centroid or edge graph.
+    for (const a of [0.15, 0.3, 0.5, 0.7]) {
+      for (const b of [0.15, 0.3, 0.5, 0.7]) {
+        if (a + b > 0.85) continue;
+        const c = 1 - a - b;
+        expect(alphaAt(context,
+          a * triangle[0][0] + b * triangle[1][0] + c * triangle[2][0],
+          a * triangle[0][1] + b * triangle[1][1] + c * triangle[2][1],
+        )).toBeGreaterThan(230);
+      }
+    }
+    const middle = context.getImageData(507, 273, 1, 1).data;
+    for (const color of middle.slice(0, 3)) expect(color).toBeGreaterThan(30);
+    expect(alphaAt(context, 50, 550)).toBe(0);
+  });
+
+  it("keeps the same triangle open in Web, with all three thin connections and distinct bodies", () => {
+    const frames = framesAt();
+    const context = render(frames, "web");
+    expect(alphaAt(context, 507, 273)).toBe(0);
+    for (const frame of frames) expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
+    expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(1);
+    // Mid-edge normal scans must each meet one strand, with no broad ribbon.
+    for (const [from, to] of [[0, 1], [1, 2], [0, 2]]) {
+      const [ax, ay] = triangle[from];
+      const [bx, by] = triangle[to];
+      const length = Math.hypot(bx - ax, by - ay);
+      let visible = 0;
+      for (let d = -60; d <= 60; d++) {
+        if (alphaAt(context, (ax + bx) / 2 - (by - ay) / length * d,
+          (ay + by) / 2 + (bx - ax) / length * d) >= 16) visible++;
+      }
+      expect(visible).toBeGreaterThan(0);
+      expect(visible).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("preserves the filled held chord when an outer released member fades", () => {
+    const frames = framesAt([...triangle, [100, 530]]);
+    frames[3].blob.isFadingOut = true;
+    frames[3].opacity = 0.1;
+    const context = render(frames, "merge");
+    expect(alphaAt(context, 507, 273)).toBeGreaterThan(230);
+    expect(alphaAt(context, 140, 490)).toBeLessThan(40);
+  });
+
+  it("fades the released corner into the surviving dyad without dimming it", () => {
+    const frames = framesAt();
+    frames[2].blob.isFadingOut = true;
+    frames[2].opacity = 0.2;
+    const context = render(frames, "merge");
+    expect(alphaAt(context, 507, 273)).toBeGreaterThan(30);
+    expect(alphaAt(context, 507, 273)).toBeLessThan(65);
+    expect(alphaAt(context, 480, 160)).toBeGreaterThan(230);
+    frames[2].opacity = 0;
+    expect(alphaAt(render(frames, "merge"), 507, 273)).toBe(0);
+  });
+
+  it("fills four-note and dense chord interiors independently of frame order", () => {
+    for (const count of [4, 12]) {
+      const positions = Array.from({ length: count }, (_, i) => [
+        500 + Math.cos(i / count * Math.PI * 2) * 300,
+        325 + Math.sin(i / count * Math.PI * 2) * 220,
+      ]);
+      const frames = framesAt(positions);
+      const forward = render(frames, "merge");
+      const reverse = render([...frames].reverse(), "merge");
+      for (const [x, y] of [[500, 325], [430, 300], [540, 360]]) {
+        expect(alphaAt(forward, x, y)).toBeGreaterThan(230);
+        const a = forward.getImageData(x, y, 1, 1).data;
+        const b = reverse.getImageData(x, y, 1, 1).data;
+        for (let i = 0; i < 4; i++) expect(Math.abs(a[i] - b[i])).toBeLessThanOrEqual(3);
+      }
+    }
+  });
+
+  it("preserves color in a faint dense Merge without quantizing its influence away", () => {
+    const positions = Array.from({ length: 12 }, (_, i) => [
+      500 + Math.cos(i / 12 * Math.PI * 2) * 300,
+      325 + Math.sin(i / 12 * Math.PI * 2) * 220,
+    ]);
+    const frames = framesAt(positions);
+    frames.forEach((frame) => {
+      frame.primaryColor = "rgb(0, 255, 255)";
+      frame.opacity = 0.02;
+      frame.blob.isFadingOut = true;
+    });
+    const center = render(frames, "merge").getImageData(500, 325, 1, 1).data;
+    expect([...center]).toEqual([0, 255, 255, 5]);
+  });
+
+  it.each([
+    { radius: 5, fieldSoftness: 12 },
+    { radius: 10, fieldSoftness: 30 },
+    { radius: 20, fieldSoftness: 50 },
+  ])("keeps small Web bodies visible at $radius px with softness $fieldSoftness", (settings) => {
+    const frames = framesAt(triangle, settings.radius);
+    const context = render(frames, "web", settings);
+    for (const frame of frames) {
+      expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
+    }
+    expect(alphaAt(context, 507, 273)).toBe(0);
+    expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(1);
+  });
+
+  it("lets a held Web body retain its color beneath a coincident releasing body", () => {
+    const frames = framesAt([[140, 140], [140, 140]]);
+    frames[1].opacity = 0.1;
+    frames[1].blob.isFadingOut = true;
+    const center = render(frames, "web").getImageData(140, 140, 1, 1).data;
+    expect([...center]).toEqual([255, 0, 0, 255]);
+  });
+
+  it.each(["merge", "web"] as const)("keeps %s material still when the prepared contours have no motion", (mode) => {
+    const frames = framesAt();
+    const first = render(frames, mode).getImageData(0, 0, 1000, 650).data;
+    frames.forEach((frame) => { frame.elapsed += 30; });
+    const later = render(frames, mode).getImageData(0, 0, 1000, 650).data;
+    expect(later.every((value, index) => value === first[index])).toBe(true);
+  });
+
+  it("retains a filled face while pulling the free Merge edges into organic shoulders", () => {
+    const frames = framesAt();
+    const context = render(frames, "merge");
+    // The top span bows inward rather than stretching into a straight polygon
+    // edge. Its central face stays solid and the note lobes stay visible.
+    expect(alphaAt(context, 480, 155)).toBeLessThan(16);
+    expect(alphaAt(context, 507, 273)).toBeGreaterThan(230);
+    for (const frame of frames) expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
+  });
+
+  it.each([
+    { radius: 10, fieldSoftness: 6, fusionStrength: 0.4 },
+    { radius: 10, fieldSoftness: 12, fusionStrength: 0.4 },
+    { radius: 20, fieldSoftness: 6, fusionStrength: 0.4 },
+  ])("keeps a near-edge interior note inside the organic Merge body at $radius px", (settings) => {
+    const frames = framesAt([[140, 100], [820, 100], [820, 600], [140, 600], [480, 125]], settings.radius);
+    const context = render(frames, "merge", settings);
+    expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(1);
+    for (const frame of frames) expect(alphaAt(context, frame.blob.x, frame.blob.y)).toBeGreaterThan(230);
+    expect(alphaAt(context, 480, 155)).toBeGreaterThan(230);
+  });
+
+  it("does not carry root-surface paint across Merge/Web switches", () => {
+    const renderer = useBlobFieldRenderer();
+    const canvas = createCanvas(1000, 650);
+    const context = canvas.getContext("2d");
+    const frames = framesAt();
+    for (const mode of ["merge", "web", "merge", "web"] as const) {
+      context.clearRect(0, 0, 1000, 650);
+      renderer.renderBlobField(context as unknown as CanvasRenderingContext2D, frames, {
+        ...DEFAULT_CONFIG.blobs, connectionMode: mode, blurRadius: 0, glowEnabled: false,
+      }, completeScene(frames));
+      const actual = context.getImageData(0, 0, 1000, 650).data;
+      const fresh = render(frames, mode).getImageData(0, 0, 1000, 650).data;
+      expect(actual.every((value, index) => value === fresh[index])).toBe(true);
+    }
+    renderer.dispose();
+  });
+
+  it("respects zero Web strength while retaining the note bodies", () => {
+    const context = render(framesAt(), "web", { webOpacity: 0 });
+    expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(3);
+  });
+
+  it.each(["merge", "web"] as const)(
+    "renders separate bodies at the public zero-strength endpoint in %s mode",
+    (mode) => {
+      const context = render(framesAt(), mode, {
+        fusionStrength: 0,
+        webOpacity: 0,
+      });
+      expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650))
+        .toBe(3);
+    },
+  );
 });

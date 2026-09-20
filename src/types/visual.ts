@@ -72,10 +72,10 @@ export interface DynamicColorConfig {
 
 /** Blob relationship presentations. */
 export type HarmonicGeometryMode = "merge" | "web";
-export type BlobConnectionMode = "off" | HarmonicGeometryMode;
+export type BlobConnectionMode = HarmonicGeometryMode;
 
 export interface BlobRelationshipConfig {
-  /** Whether relationships are absent, merged, or shown as a harmonic web */
+  /** Whether simultaneous bodies merge or form a harmonic web */
   connectionMode: BlobConnectionMode;
   /** How long released analysis remains available, in milliseconds */
   analysisHoldTime: number;
@@ -400,6 +400,8 @@ export interface KeyboardConfig {
 /**
  * CodeStrip presentation configuration
  */
+export type CodeStripDurationMode = "stacked" | "bar" | "hidden";
+
 export interface CodeStripConfig {
   /** Whether the CodeStrip-backed Strudel mirror is enabled */
   enabled: boolean;
@@ -409,6 +411,8 @@ export interface CodeStripConfig {
   bpm: number;
   /** Display notation mode for note tokens */
   notation: "solfege" | "note" | "degree";
+  /** Visual treatment for recorded event durations */
+  durationMode: CodeStripDurationMode;
   /** Whether to show rest tokens */
   showRests: boolean;
 }

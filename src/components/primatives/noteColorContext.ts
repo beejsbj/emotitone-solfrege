@@ -55,6 +55,14 @@ function staticSurface(
 export function createStaticNoteColorResolver(
   getConfig: () => DynamicColorConfig,
 ): NoteColorResolver {
+  return createNoteColorResolver(getConfig, () => null);
+}
+
+/** Adapt the shared numeric color authority to a caller-owned phase source. */
+export function createNoteColorResolver(
+  getConfig: () => DynamicColorConfig,
+  getPhase: () => number | null,
+): NoteColorResolver {
   return {
     getKeyBackground(
       scaleIndex,
@@ -73,6 +81,7 @@ export function createStaticNoteColorResolver(
           key,
           octave,
           getConfig(),
+          getPhase(),
         )?.sample.primary;
       return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
     },
@@ -98,6 +107,7 @@ export function createStaticNoteColorResolver(
           octave,
           getConfig(),
           "fixed-chromatic",
+          getPhase(),
         )?.sample.primary;
       return staticSurface(primaryColor, surfaceStyle, isAccidental, tuning);
     },

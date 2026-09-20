@@ -11,6 +11,7 @@ import {
   updateCodeStripPresentation,
 } from "@/components/uniques/CodeStrip/strudelExtension";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/types";
+import { CodeStripViewport } from "@/components/uniques/CodeStrip/viewport";
 
 vi.mock("@strudel/codemirror", async () => {
   const { StateEffect } = await import("@codemirror/state");
@@ -547,6 +548,55 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
     expect(progress(host, ".code-strip__note")).toBe("1");
     expect(restEvent.kind).toBe("rest");
+  });
+
+  it("defers hidden native playback updates and catches up on scroll without replacing the note", async () => {
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    let intersection!: IntersectionObserverCallback;
+    vi.stubGlobal("IntersectionObserver", vi.fn(function (callback) {
+      intersection ??= callback;
+      return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
+    }));
+    const viewport = new CodeStripViewport();
+    try {
+      const { host, view, events } = createView(
+        codeStripStrudelExtensionWithPresentation({ viewport }),
+        { tokens, viewport },
+      );
+      const root = host.querySelector<HTMLElement>(".cm-code-strip-event")!;
+      const note = root.querySelector(".note");
+      const intersect = (width: number) => intersection([{
+        target: root, isIntersecting: true, intersectionRect: { width, height: 20 },
+      } as IntersectionObserverEntry], {} as IntersectionObserver);
+      intersect(20);
+      expect(viewport.visibleCount.value).toBe(1);
+      setCodeStripPlaying(view, true);
+      await Promise.resolve();
+      expect(progress(host, ".code-strip__note")).toBe("0");
+      intersect(0);
+      for (const atTime of [.0625, .125, .1875]) {
+        view.dispatch({ effects: showMiniLocations.of({
+          atTime,
+          haps: [{
+            context: { locations: [{ start: events[0].notes[0].from, end: events[0].notes[0].to }] },
+            whole: { begin: 0, duration: .25 },
+          }],
+        }) });
+        await Promise.resolve();
+        expect(progress(host, ".code-strip__note")).toBe("0");
+      }
+      intersect(20);
+      await Promise.resolve();
+      expect(progress(host, ".code-strip__note")).toBe("0.75");
+      expect(root.querySelector(".note")).toBe(note);
+      setCodeStripPlaying(view, false);
+      await Promise.resolve();
+      expect(progress(host, ".code-strip__note")).toBe("1");
+    } finally {
+      viewport.destroy();
+      visibility.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("reveals the same raw Strudel document while editing", async () => {

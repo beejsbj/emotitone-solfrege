@@ -1,5 +1,5 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index da81977..c7bc6ea 100644
+index da81977b3a8f9cb8af08440c61990437041f69b7..2af13818e0c9c80f00fac0f62e0eb1a27c140331 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -1,4 +1,4 @@
@@ -2575,7 +2575,7 @@ index da81977..c7bc6ea 100644
 +      if (ye)
 +        return;
 +      const m = ot(s, R), U = m + qt;
-+      D && _t(D.gain, m, U), qe(U);
++      _t((D ?? fe).gain, m, U), qe(U);
 +    }
 +  }, i && (Ge.release = (R = s.currentTime) => {
 +    if (ye)
@@ -3452,7 +3452,7 @@ index da81977..c7bc6ea 100644
 +  he as webAudioTimeout
  };
 diff --git a/sampler.mjs b/sampler.mjs
-index 25c34c6..329d040 100644
+index 25c34c641ccff7292fe917bf3a5489ff7b512340..329d040980330232e1fb61737709cc0b9e4f6023 100644
 --- a/sampler.mjs
 +++ b/sampler.mjs
 @@ -99,6 +99,10 @@ export const loadBuffer = (url, ac, s, n = 0) => {
@@ -3486,7 +3486,7 @@ index 25c34c6..329d040 100644
 
    // vibrato
 diff --git a/superdough.mjs b/superdough.mjs
-index 03a4c3d..b7f7334 100644
+index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..3e1b890d627f2c42a4bd8551527803017c51d027 100644
 --- a/superdough.mjs
 +++ b/superdough.mjs
 @@ -47,7 +47,8 @@ export let maxPolyphony = DEFAULT_MAX_POLYPHONY;
@@ -3785,7 +3785,7 @@ index 03a4c3d..b7f7334 100644
    // last gain
    const post = new GainNode(ac, { gain: postgain });
    nodes.main['post'] = [post];
-@@ -1025,6 +1185,89 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -1025,6 +1185,90 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
        }
      }
    });
@@ -3841,9 +3841,10 @@ index 03a4c3d..b7f7334 100644
 +
 +      const stopAt = clampToAudioTime(ac, at);
 +      const fadeEnd = stopAt + MIN_LIVE_VOICE_RELEASE;
-+      if (liveVoiceGate) {
-+        scheduleGainRampToZero(liveVoiceGate.gain, stopAt, fadeEnd);
-+      }
++      // Finite pattern voices have no held-voice gate. Their existing post
++      // gain also feeds effect sends, so it can fade retirement without a
++      // new node or any change to their authored envelope.
++      scheduleGainRampToZero((liveVoiceGate ?? post).gain, stopAt, fadeEnd);
 +      stopUnderlying(fadeEnd);
 +    },
 +  };
@@ -3876,7 +3877,7 @@ index 03a4c3d..b7f7334 100644
 
  export const superdoughTrigger = (t, hap, ct, cps) => {
 diff --git a/synth.mjs b/synth.mjs
-index 38ad643..47afba6 100644
+index 38ad643de40474d838d5916c603407f15eb28b0a..47afba6b63eb458dfbcbf76b881ecac7d416a4b3 100644
 --- a/synth.mjs
 +++ b/synth.mjs
 @@ -28,14 +28,20 @@ const waveformAliases = [
@@ -3901,7 +3902,7 @@ index 38ad643..47afba6 100644
  }
 
 diff --git a/worklets.mjs b/worklets.mjs
-index 26a0fa6..be3b8eb 100644
+index 26a0fa668b36e09d5cc01e3d1e885421976a490a..be3b8ebd9cfc5820d16853fc6b99ec4621520124 100644
 --- a/worklets.mjs
 +++ b/worklets.mjs
 @@ -2,7 +2,7 @@
@@ -3914,7 +3915,7 @@ index 26a0fa6..be3b8eb 100644
  import { getDistortionAlgorithm } from './helpers.mjs';
  import * as ugens from '@kabelsalat/lib/src/ugens.js';
 diff --git a/zzfx.mjs b/zzfx.mjs
-index 3d6b8e9..ddf477f 100644
+index 3d6b8e9f59c42f1c4bce78908e8e4d0a7f787c81..ddf477f8be619dfe3767f9549bb054362ba01d45 100644
 --- a/zzfx.mjs
 +++ b/zzfx.mjs
 @@ -5,6 +5,51 @@ import { getAudioContext } from './audioContext.mjs';

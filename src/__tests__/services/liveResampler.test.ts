@@ -64,6 +64,23 @@ describe('prepared PCM band-limited resampling', () => {
     expect(oneShot.sample(0, 3)).toBe(0)
   })
 
+  it('excludes samples outside fractional loop bounds in filtering and playback', () => {
+    const left = Float32Array.from({ length: 128 }, (_, index) => index >= 32.25 && index < 95.75 ? 1 : 100)
+    const right = Float32Array.from(left, value => value * -.5)
+    const prepared = zone([left, right], 32.25, 95.75)
+    for (const rate of [.5, 1, 1.5, 2, 4]) {
+      const sampler = createSampleResampler(prepared, rate)
+      for (const position of [32.25, 32.5, 33, 94.9, 95.5, 95.75, 96, 160.4]) {
+        expect(sampler.sample(0, position), `rate ${rate}, frame ${position}`).toBeCloseTo(1, 5)
+        expect(sampler.sample(1, position)).toBeCloseTo(-.5, 5)
+        const output = [new Float32Array(1), new Float32Array(1)]
+        sampler.mix(output[0], output[1], 0, 1, position, 1, 0)
+        expect(output[0][0]).toBeCloseTo(1, 5)
+        expect(output[1][0]).toBeCloseTo(-.5, 5)
+      }
+    }
+  })
+
   it.each([.5, 1, 1.059463, 1.5, 2, 4])('mixes stereo envelope spans identically to single reads at rate %s', rate => {
     const left = Float32Array.from({ length: 512 }, (_, i) => Math.sin(i * .1))
     const right = Float32Array.from(left, value => value * -.25)

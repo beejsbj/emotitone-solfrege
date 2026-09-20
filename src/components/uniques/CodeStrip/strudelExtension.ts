@@ -26,6 +26,7 @@ import type { ChordMember } from "@/components/compounds/Chord.vue";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import Sequence from "./Sequence.vue";
+import type { CodeStripViewport } from "./viewport";
 import type {
   CodeStripChordToken,
   CodeStripDensity,
@@ -88,6 +89,8 @@ export interface CodeStripPresentation {
   keySaturation?: number;
   appContext?: AppContext;
   colorResolver?: NoteColorResolver;
+  stillColorResolver?: NoteColorResolver;
+  viewport?: CodeStripViewport;
 }
 
 type PlaybackState = {
@@ -111,7 +114,7 @@ const setTransportPlaying = StateEffect.define<boolean>();
 
 const defaultPresentation: CodeStripPresentation = {
   tokens: [],
-  durationMode: "stacked",
+  durationMode: "bar",
   density: "default",
   timeSignature: "4/4",
   showRests: true,
@@ -382,6 +385,8 @@ class CodeStripEventWidget extends WidgetType {
       this.presentation.density === other.presentation.density &&
       this.presentation.timeSignature === other.presentation.timeSignature &&
       this.presentation.colorResolver === other.presentation.colorResolver &&
+      this.presentation.stillColorResolver === other.presentation.stillColorResolver &&
+      this.presentation.viewport === other.presentation.viewport &&
       this.presentation.appContext === other.presentation.appContext &&
       JSON.stringify(this.token) === JSON.stringify(other.token);
   }
@@ -398,6 +403,7 @@ class CodeStripEventWidget extends WidgetType {
   }
 
   destroy(root: HTMLElement) {
+    this.presentation.viewport?.unbind(root);
     render(null, root);
   }
 
@@ -412,18 +418,25 @@ class CodeStripEventWidget extends WidgetType {
     if (this.followRank == null) delete root.dataset.followRank;
     else root.dataset.followRank = String(this.followRank);
 
-    const vnode = h(Sequence, {
-      tokens: [this.token],
-      durationMode: this.presentation.durationMode ?? "stacked",
-      density: this.presentation.density ?? "default",
-      timeSignature: this.presentation.timeSignature ?? "4/4",
-      showChevron: false,
-      embedded: true,
-      ariaLabel: eventAccessibleName(this.token),
-      colorResolver: this.presentation.colorResolver,
-    });
-    if (this.presentation.appContext) vnode.appContext = this.presentation.appContext;
-    render(vnode, root);
+    const binding = this.presentation.viewport?.bind(
+      root, this.presentation.colorResolver, this.presentation.stillColorResolver,
+    );
+    const draw = () => {
+      const vnode = h(Sequence, {
+        tokens: [this.token],
+        durationMode: this.presentation.durationMode ?? "bar",
+        density: this.presentation.density ?? "default",
+        timeSignature: this.presentation.timeSignature ?? "4/4",
+        showChevron: false,
+        embedded: true,
+        ariaLabel: eventAccessibleName(this.token),
+        colorResolver: binding?.colorResolver ?? this.presentation.colorResolver,
+      });
+      if (this.presentation.appContext) vnode.appContext = this.presentation.appContext;
+      render(vnode, root);
+    };
+    if (binding) binding.update(draw);
+    else draw();
   }
 }
 

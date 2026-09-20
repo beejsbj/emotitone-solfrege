@@ -4,7 +4,7 @@
       <div>
         <h3>Harmonic Geometry · Canvas Unique</h3>
         <p>
-          Two relationships, one shared material field. Labels remain an
+          One filled Merge body or distinct bodies joined by fine Web strands. Labels remain an
           optional layer and default off.
         </p>
       </div>
@@ -15,15 +15,20 @@
       </label>
     </header>
 
+    <label class="harmonic-specimen__toggle">
+      <input v-model="fullyFused" type="checkbox" />
+      Fuse Merge body
+    </label>
+
     <div class="harmonic-specimen__grid">
       <figure>
         <canvas
           ref="webCanvas"
-          aria-label="Four colored blobs joined by fused harmonic filaments"
+          aria-label="Four distinct colored blobs joined by thin harmonic strands"
         />
         <figcaption>
           <strong>Web</strong>
-          <span>Distinct bodies share fused perimeter and interior filaments.</span>
+          <span>Distinct bodies joined by fine curved strands, with open space between.</span>
         </figcaption>
       </figure>
 
@@ -34,7 +39,7 @@
         />
         <figcaption>
           <strong>Merge</strong>
-          <span>Every body stays joined; distance tapers the shared neck.</span>
+          <span>Note positions shape one rounded body with a filled, color-blended interior.</span>
         </figcaption>
       </figure>
     </div>
@@ -65,6 +70,7 @@ import type {
 const webCanvas = ref<HTMLCanvasElement | null>(null);
 const mergeCanvas = ref<HTMLCanvasElement | null>(null);
 const showLabels = ref(false);
+const fullyFused = ref(false);
 const renderer = useHarmonicGeometryRenderer();
 const blobRenderer = useBlobRenderer();
 const blobFieldRenderer = useBlobFieldRenderer();
@@ -187,7 +193,7 @@ const createBlobs = (
           { x: width * 0.2, y: height * 0.8 },
         ];
   const radii = [0.17, 0.14, 0.15, 0.16].map(
-    (ratio) => Math.min(width, height) * ratio
+    (ratio) => Math.min(width, height) * ratio * (mode === "merge" && fullyFused.value ? 2.2 : 1)
   );
 
   return new Map<string, ActiveBlob>(
@@ -272,11 +278,12 @@ const drawSpecimen = (
 
 const drawAll = async () => {
   await nextTick();
+  await document.fonts?.ready;
   drawSpecimen(webCanvas.value, "web");
   drawSpecimen(mergeCanvas.value, "merge");
 };
 
-watch(showLabels, drawAll, { flush: "post" });
+watch([showLabels, fullyFused], drawAll, { flush: "post" });
 onMounted(() => {
   void drawAll();
   window.addEventListener("resize", drawAll);

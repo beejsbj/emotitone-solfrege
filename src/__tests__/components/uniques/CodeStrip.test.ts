@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { nextTick, reactive } from "vue";
+import { EditorView } from "@codemirror/view";
 import type { PatternNote } from "@/types/patterns";
 
 const mocks = vi.hoisted(() => ({
@@ -86,7 +87,7 @@ vi.mock("@/components/uniques/CodeStrip/strudelExtension", () => ({
   applySpecimenPlayback: vi.fn(),
   parseCodeStripEvents: (doc: { toString: () => string }) => {
     const patternEnd = doc.toString().indexOf(">");
-    return patternEnd > 0 ? [{ to: patternEnd }] : [];
+    return patternEnd > 0 ? [{ from: 0, to: patternEnd }] : [];
   },
   serializeCodeStripTokens: vi.fn(() => "`< C4@0.25 >`"),
 }));
@@ -227,6 +228,7 @@ beforeEach(() => {
         opacity: 1,
         bpm: 120,
         notation: "solfege",
+        durationMode: "bar",
         showRests: true,
       },
       keyboard: {
@@ -335,7 +337,7 @@ describe("CodeStrip production Strudel document", () => {
     expect(mocks.updatePresentation).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        durationMode: "stacked",
+        durationMode: "bar",
         colorResolver: expect.any(Object),
         tokens: [expect.objectContaining({ type: "note", rawPitch: "C4" })],
       }),
@@ -807,7 +809,7 @@ describe("CodeStrip production Strudel document", () => {
     };
     mocks.patternsStore.currentSketchNotes = [nextNote];
     mocks.patternsStore.currentWorkingNotes = [nextNote];
-    await wrapper.setProps({ durationMode: "bar" });
+    mocks.visualConfigStore.config.codeStrip.durationMode = "bar";
     await nextTick();
     await flushPromises();
 
@@ -910,5 +912,74 @@ describe("CodeStrip production Strudel document", () => {
     mocks.rafCallbacks.shift()?.(16);
     expect(mocks.mirrorScroller!.scrollLeft).toBeGreaterThan(0);
     wrapper.unmount();
+  });
+
+  it.each(["rounded pixels", "shrinking scroll extent"])(
+    "finishes recording follow with %s so a later manual scroll is not overwritten",
+    async (caseName) => {
+      const wrapper = mount(CodeStrip);
+      await flushPromises();
+      try {
+        const scroller = mocks.mirrorScroller!;
+        let actualScrollLeft = 0;
+        Object.defineProperty(scroller, "scrollLeft", {
+          configurable: true,
+          get: () => actualScrollLeft,
+          set: value => { actualScrollLeft = Math.min(caseName === "rounded pixels" ? 700 : 50, Math.round(value)); },
+        });
+        mocks.patternsStore.currentSketchNotes = [recordedNote, { ...recordedNote, id: "next" }];
+        mocks.patternsStore.currentWorkingNotes = mocks.patternsStore.currentSketchNotes;
+        await nextTick();
+        await flushPromises();
+        for (let frame = 1; frame <= 150; frame++) {
+          const callback = mocks.rafCallbacks.shift();
+          if (!callback) break;
+          callback(frame * 16);
+        }
+        expect(actualScrollLeft).toBe(caseName === "rounded pixels" ? 195 : 50);
+        expect(mocks.rafCallbacks).toHaveLength(0);
+        scroller.scrollLeft = 0;
+        expect(actualScrollLeft).toBe(0);
+      } finally {
+        wrapper.unmount();
+      }
+    },
+  );
+
+  it("asks CodeMirror to materialize an omitted last event before following it", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const nativeScroll = vi.spyOn(EditorView, "scrollIntoView");
+    const view = mocks.mirrorInstance.editor;
+    const coordinates = vi.spyOn(view, "coordsAtPos");
+    try {
+      view.visibleRanges = [{ from: 0, to: 3 }];
+      mocks.mirrorOptions.onToggle(true);
+      mocks.patternsStore.currentSketchNotes = [recordedNote, { ...recordedNote, id: "outside" }];
+      mocks.patternsStore.currentWorkingNotes = mocks.patternsStore.currentSketchNotes;
+      await nextTick();
+      await flushPromises();
+      expect(nativeScroll).toHaveBeenCalledWith(
+        view.state.doc.toString().indexOf(">") - 1,
+        { x: "center", y: "nearest" },
+      );
+      expect(coordinates).not.toHaveBeenCalled();
+      expect(mocks.rafCallbacks).toHaveLength(0);
+      // Materializing a recording append must not retire the independent
+      // playback-follow state used by subsequent native location callbacks.
+      mocks.latestEvent!.classList.add("cm-code-strip-event--active");
+      mocks.latestEvent!.dataset.followRank = "1";
+      vi.spyOn(mocks.latestEvent!, "getBoundingClientRect").mockReturnValue({
+        left: 420, right: 500, width: 80, top: 0, bottom: 20, height: 20,
+      } as DOMRect);
+      mocks.mirrorOptions.onDraw([], .5);
+      await nextTick();
+      expect(mocks.rafCallbacks).toHaveLength(1);
+      mocks.rafCallbacks.shift()?.(16);
+      expect(mocks.mirrorScroller!.scrollLeft).toBeGreaterThan(0);
+    } finally {
+      nativeScroll.mockRestore();
+      wrapper.unmount();
+    }
   });
 });

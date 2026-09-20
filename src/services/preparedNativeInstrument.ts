@@ -10,6 +10,13 @@ export interface UnsupportedLiveInstrument {
   instrumentId: string;
   reason: string;
 }
+export interface RetryableLiveInstrument {
+  kind: "retryable";
+  instrumentId: string;
+  reason: string;
+}
+/** Structural catalog failures are permanent; loading/decoding failures may retry. */
+export class UnsupportedLiveInstrumentError extends Error {}
 export interface NativeSampleZone {
   id: string;
   rootMidi: number;
@@ -23,7 +30,7 @@ export type PreparedNativeInstrument = LiveEnvelope & { instrumentId: string } &
   | { kind: "sample-bank"; zoneSelection: "first-range" | "nearest-root"; zones: NativeSampleZone[] }
   | { kind: "oscillator"; waveform: "sine" | "triangle" | "square" | "sawtooth" }
 );
-export type NativeInstrumentPreparation = PreparedNativeInstrument | UnsupportedLiveInstrument;
+export type NativeInstrumentPreparation = PreparedNativeInstrument | UnsupportedLiveInstrument | RetryableLiveInstrument;
 
 interface SoundRegistration {
   data?: { type?: string; samples?: string[] | Record<string, string[]>; fonts?: string[] };
@@ -47,7 +54,7 @@ const OSCILLATORS = new Set(["sine", "triangle", "square", "sawtooth"]);
 function validatedBuffer(buffer: AudioBuffer): AudioBuffer {
   if (!(buffer.sampleRate > 0) || !Number.isFinite(buffer.sampleRate) || buffer.length < 1 ||
       buffer.numberOfChannels < 1 || buffer.numberOfChannels > 2) {
-    throw new Error("Only valid mono/stereo PCM is supported");
+    throw new UnsupportedLiveInstrumentError("Only valid mono/stereo PCM is supported");
   }
   return buffer;
 }
@@ -68,7 +75,7 @@ async function prepare(context: AudioContext, instrumentId: string, sound: Sound
     zones = fonts.map((zone, index) => {
       const rootMidi = (zone.originalPitch - 100 * zone.coarseTune - zone.fineTune) / 100;
       if (![rootMidi, zone.keyRangeLow, zone.keyRangeHigh].every(Number.isFinite)) {
-        throw new Error("Invalid soundfont tuning or key range");
+        throw new UnsupportedLiveInstrumentError("Invalid soundfont tuning or key range");
       }
       const prepared: NativeSampleZone = {
         id: `${instrumentId}:${index}`, rootMidi, lowMidi: zone.keyRangeLow,
@@ -76,11 +83,11 @@ async function prepare(context: AudioContext, instrumentId: string, sound: Sound
         highMidi: zone.keyRangeHigh + 1, buffer: validatedBuffer(zone.buffer),
       };
       if (zone.loopStart > 1 && zone.loopStart < zone.loopEnd) {
-        if (!(zone.sampleRate > 0) || !Number.isFinite(zone.loopEnd)) throw new Error("Invalid soundfont loop");
+        if (!(zone.sampleRate > 0) || !Number.isFinite(zone.loopEnd)) throw new UnsupportedLiveInstrumentError("Invalid soundfont loop");
         // Source loop offsets use the preset rate, while decodeAudioData can resample.
         prepared.loopStartFrame = zone.loopStart / zone.sampleRate * zone.buffer.sampleRate;
         prepared.loopEndFrame = zone.loopEnd / zone.sampleRate * zone.buffer.sampleRate;
-        if (prepared.loopEndFrame > zone.buffer.length) throw new Error("Soundfont loop exceeds decoded PCM");
+        if (prepared.loopEndFrame > zone.buffer.length) throw new UnsupportedLiveInstrumentError("Soundfont loop exceeds decoded PCM");
       }
       return prepared;
     });
@@ -90,21 +97,21 @@ async function prepare(context: AudioContext, instrumentId: string, sound: Sound
     const bank = data.samples;
     const entries = Array.isArray(bank) ? [["default", bank] as const] : Object.entries(bank).filter(([key]) => !key.startsWith("_"));
     zones = await Promise.all(entries.map(async ([key, samples], index) => {
-      if (!Array.isArray(samples) || typeof samples[0] !== "string") throw new Error("Unsupported sample bank entry");
+      if (!Array.isArray(samples) || typeof samples[0] !== "string") throw new UnsupportedLiveInstrumentError("Unsupported sample bank entry");
       // Use the installed sampler's pitch parser and n=0 selection. Array banks
       // have root MIDI 36; keyed banks keep insertion-order nearest-root ties.
       const info = getSampleInfo({ s: instrumentId, note: 0 }, Array.isArray(bank) ? samples : { [key]: samples });
       const rootMidi = -info.transpose;
-      if (!Number.isFinite(rootMidi)) throw new Error("Invalid sample root pitch");
+      if (!Number.isFinite(rootMidi)) throw new UnsupportedLiveInstrumentError("Invalid sample root pitch");
       const buffer: AudioBuffer = getLoadedBuffer(info.url.replace("#", "%23")) ?? await loadBuffer(info.url, context, instrumentId);
       return { id: `${instrumentId}:${index}`, rootMidi, buffer: validatedBuffer(buffer) };
     }));
     zoneSelection = "nearest-root";
     gain = 0.8;
   } else {
-    throw new Error(`Unsupported live renderer: ${data?.type ?? "unregistered"} (${instrumentId})`);
+    throw new UnsupportedLiveInstrumentError(`Unsupported live renderer: ${data?.type ?? "unregistered"} (${instrumentId})`);
   }
-  if (!zones.length) throw new Error("Instrument contains no playable sample zones");
+  if (!zones.length) throw new UnsupportedLiveInstrumentError("Instrument contains no playable sample zones");
   return { kind: "sample-bank", instrumentId, gain, ...envelope, zoneSelection, zones };
 }
 
@@ -115,7 +122,7 @@ async function prepare(context: AudioContext, instrumentId: string, sound: Sound
  */
 export function prepareNativeInstrument(context: AudioContext, instrumentId: string): Promise<NativeInstrumentPreparation> {
   const sound = getSound(instrumentId) as SoundRegistration | undefined;
-  if (!sound) return Promise.resolve({ kind: "unsupported", instrumentId, reason: "Sound is not registered" });
+  if (!sound) return Promise.resolve({ kind: "retryable", instrumentId, reason: "Sound is not registered" });
   const cache = caches.get(context) ?? new Map<string, CacheEntry>();
   caches.set(context, cache);
   const existing = cache.get(instrumentId);
@@ -126,7 +133,8 @@ export function prepareNativeInstrument(context: AudioContext, instrumentId: str
   const entry: CacheEntry = { registration: sound, pending: undefined! };
   entry.pending = prepare(context, instrumentId, sound).catch(error => {
     if (cache.get(instrumentId) === entry) cache.delete(instrumentId);
-    return { kind: "unsupported", instrumentId, reason: error instanceof Error ? error.message : String(error) } as const;
+    return { kind: error instanceof UnsupportedLiveInstrumentError ? "unsupported" : "retryable",
+      instrumentId, reason: error instanceof Error ? error.message : String(error) } as const;
   });
   cache.set(instrumentId, entry);
   while (cache.size > MAX_CACHED_BANKS) cache.delete(cache.keys().next().value!);

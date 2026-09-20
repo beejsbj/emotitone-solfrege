@@ -32,9 +32,12 @@ import {
 import { toStrudelSound } from "@/composables/useStrudel";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import {
+  createNoteColorResolver,
   createStaticNoteColorResolver,
   staticNoteColorResolver,
 } from "@/components/primatives/noteColorContext";
+import { useMusicColorClock } from "@/composables/useMusicColorClock";
+import { CodeStripViewport } from "./viewport";
 import {
   generatedStrudelBarPosition,
   uiBeatClock,
@@ -83,7 +86,7 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "default",
-    durationMode: "stacked",
+    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: true,
@@ -121,11 +124,25 @@ const controlledPlayback: PlaybackWiring = {
 };
 const productionWiring = isControlledUsage ? undefined : createProductionWiring();
 const appContext = getCurrentInstance()?.appContext;
-// Historical notes retain configured colors without subscribing every glyph to
-// the hue RAF. Live keyboard Notes continue to use their animated resolver.
-const colorResolver = productionWiring
+const viewport = new CodeStripViewport();
+const stillColorResolver = productionWiring
   ? createStaticNoteColorResolver(() => productionWiring.visualConfigStore.config.dynamicColors)
   : staticNoteColorResolver;
+// Share the production Music Color clock, but subscribe only while the editor
+// has a visible glyph. The viewport owner gates each glyph's phase reads too.
+const colorClock = productionWiring ? useMusicColorClock(
+  () => viewport.visibleCount.value > 0 &&
+    productionWiring.visualConfigStore.config.dynamicColors.hueMotionEnabled,
+  () => productionWiring.visualConfigStore.config.dynamicColors.animationSpeed,
+  productionWiring.visualConfigStore.config,
+) : null;
+const colorResolver = productionWiring && colorClock
+  ? createNoteColorResolver(
+    () => productionWiring.visualConfigStore.config.dynamicColors,
+    () => productionWiring.visualConfigStore.config.dynamicColors.hueMotionEnabled &&
+      !colorClock.reducedMotion.value ? colorClock.phaseCycles.value : null,
+  )
+  : stillColorResolver;
 const {
   attachEditor,
   detachEditor,
@@ -187,6 +204,7 @@ const controlledCodeStripConfig = {
   opacity: 1,
   bpm: 120,
   notation: "solfege",
+  durationMode: "bar",
   showRests: true,
 } as const;
 const controlledKeyboardConfig = {
@@ -203,6 +221,9 @@ const controlledSketchMeta = {
 } as const;
 const codeStripConfig = computed(() =>
   productionWiring?.visualConfigStore.config.codeStrip ?? controlledCodeStripConfig
+);
+const resolvedDurationMode = computed(() =>
+  isControlled.value ? props.durationMode : codeStripConfig.value.durationMode
 );
 const keyboardConfig = computed(() =>
   productionWiring?.visualConfigStore.config.keyboard ?? controlledKeyboardConfig
@@ -470,8 +491,12 @@ function revealLatestRecordedEvent() {
   const latest = events[events.length - 1];
   if (!latest) return;
 
+  const targetPosition = Math.max(latest.from, latest.to - 1);
   view.requestMeasure({
-    read(measuredView) {
+    read(measuredView): { revealPosition: number } | { scroller: HTMLElement; target: number } | null {
+      if (measuredView.visibleRanges && !measuredView.visibleRanges.some(
+        range => range.from <= targetPosition && range.to >= targetPosition,
+      )) return { revealPosition: targetPosition };
       const scroller = measuredView.scrollDOM;
       const coordinates = measuredView.coordsAtPos(latest.to);
       if (!coordinates) return null;
@@ -484,6 +509,13 @@ function revealLatestRecordedEvent() {
     },
     write(measurement) {
       if (!measurement) return;
+      if ("revealPosition" in measurement) {
+        // Long-line gaps do not have glyph coordinates. Let CodeMirror render
+        // the remote event; ordinary rendered appends retain smooth follow.
+        stopFollowScroll();
+        view.dispatch({ effects: EditorView.scrollIntoView(measurement.revealPosition, { x: "center", y: "nearest" }) });
+        return;
+      }
       startFollowScroll(measurement.scroller, measurement.target);
     },
   });
@@ -495,7 +527,7 @@ function applyPresentation(code?: string, preserveUIBeat = false) {
 
   const presentation: CodeStripPresentation = {
     tokens: presentationTokens.value,
-    durationMode: props.durationMode,
+    durationMode: resolvedDurationMode.value,
     density: props.density,
     timeSignature: props.timeSignature,
     showRests: codeStripConfig.value.showRests,
@@ -509,6 +541,8 @@ function applyPresentation(code?: string, preserveUIBeat = false) {
     keySaturation: keyboardConfig.value.keySaturation,
     appContext,
     colorResolver,
+    stillColorResolver,
+    viewport,
   };
   if (code !== undefined) {
     if (!isControlled.value && view.state.doc.toString() !== code && !preserveUIBeat) {
@@ -545,6 +579,10 @@ function syncPresentation() {
 
 function stopFollow() {
   followPlaybackActive = false;
+  stopFollowScroll();
+}
+
+function stopFollowScroll() {
   followTargetScrollLeft = 0;
   followScroller = null;
   followLastFrameTime = null;
@@ -581,7 +619,7 @@ function startFollowScroll(scroller: HTMLElement, target: number) {
     if (!nextScroller) return;
 
     const delta = followTargetScrollLeft - nextScroller.scrollLeft;
-    if (Math.abs(delta) < 0.5) {
+    if (!viewport.allowsMotion || Math.abs(delta) < 0.5) {
       nextScroller.scrollLeft = followTargetScrollLeft;
       followLastFrameTime = null;
       return;
@@ -592,7 +630,16 @@ function startFollowScroll(scroller: HTMLElement, target: number) {
       : Math.max(0, timestamp - followLastFrameTime);
     followLastFrameTime = timestamp;
     const blend = 1 - Math.exp(-elapsed / FOLLOW_TIME_CONSTANT_MS);
+    const previousScrollLeft = nextScroller.scrollLeft;
     nextScroller.scrollLeft += delta * blend;
+    // Browsers may quantize scrollLeft to device pixels or clamp it after
+    // CodeMirror changes a line gap. Finish instead of retaining a RAF that
+    // keeps pulling subsequent manual scrolling back toward an old target.
+    if (nextScroller.scrollLeft === previousScrollLeft) {
+      nextScroller.scrollLeft = followTargetScrollLeft;
+      followLastFrameTime = null;
+      return;
+    }
     followLoopFrame = requestAnimationFrame(step);
   };
 
@@ -633,6 +680,7 @@ function initializeControlledView() {
         EditorView.editable.of(false),
         codeStripStrudelExtensionWithPresentation({
           colorResolver: staticNoteColorResolver,
+          viewport,
         }),
       ],
     }),
@@ -777,7 +825,7 @@ async function initializeStrudelMirror() {
             syncCode(visibleCode.value);
           }
         }),
-        codeStripStrudelExtensionWithPresentation({ colorResolver }),
+        codeStripStrudelExtensionWithPresentation({ colorResolver, stillColorResolver, viewport }),
       ]),
     });
     syncPresentation();
@@ -838,7 +886,7 @@ watch(generatedCode, (code) => {
 watch(
   [
     presentationTokens,
-    () => props.durationMode,
+    resolvedDurationMode,
     () => props.density,
     () => props.timeSignature,
     () => codeStripConfig.value.notation,
@@ -886,6 +934,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  viewport.destroy();
   presentationSyncCancelled = true;
   presentationSyncQueued = false;
   stopFollow();
@@ -927,6 +976,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__note .note__surface::before),
+.code-strip__editor:deep([data-code-strip-visible="false"] .chord__cluster-member .note__surface::before),
+.code-strip__editor:deep([data-code-strip-visible="false"] .chord__fused-progress),
+.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__rest-fill) {
+  transition: none;
+  will-change: auto;
+}
+
 .code-strip {
   --strip-border: hsla(152, 100%, 50%, 0.16);
   display: flex;

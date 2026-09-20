@@ -146,7 +146,6 @@ export function useUnifiedCanvas(
 
     if (
       !blobConfig.value.isEnabled ||
-      config.connectionMode === "off" ||
       !snapshot.isVisible ||
       snapshot.displayedNotes.length < 2
     ) {
@@ -442,7 +441,6 @@ export function useUnifiedCanvas(
       : null;
     const renderedBlobField =
       cachedConfigs.blob.isEnabled &&
-      cachedConfigs.blob.connectionMode !== "off" &&
       blobFieldRenderer.renderBlobField(
         ctx,
         blobRenderer.getPreparedBlobFrames(),
@@ -467,7 +465,8 @@ export function useUnifiedCanvas(
     harmonicGeometryRenderer.renderLabels(
       ctx,
       harmonicScene,
-      cachedConfigs.blob
+      cachedConfigs.blob,
+      { now: timestamp, reducedMotion, bounds: composition.usable }
     );
   };
 
